@@ -1459,6 +1459,18 @@ to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 
+# buy.kidlisp.com subdomain — direct purchase page
+[[redirects]]
+from = "https://buy.kidlisp.com"
+to = "/kidlisp.com/buy.html"
+status = 200
+force = true
+[[redirects]]
+from = "https://buy.kidlisp.com/*"
+to = "/kidlisp.com/buy.html"
+status = 200
+force = true
+
 # PJ subdomain for kidlisp.com - pj.kidlisp.com/code (Piece Jockey)
 [[redirects]]
 from = "https://pj.kidlisp.com"
