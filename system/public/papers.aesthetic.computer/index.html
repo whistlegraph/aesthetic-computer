@@ -122,7 +122,9 @@
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
-        .p { padding: 0.5em 0; border-bottom: 1px solid var(--sep); }
+        .p { padding: 0.5em 0.6em; margin: 0 -0.6em; border-bottom: 1px solid var(--sep); border-radius: 4px; transition: background 0.15s; }
+        .p:nth-child(even) { background: var(--sep); }
+        .p:hover { background: var(--box-bg); }
         .p a { text-decoration: none; }
         .p .title { font-size: 1.3em; font-weight: normal; letter-spacing: -0.01em; }
         .p .title a { color: var(--text); }
