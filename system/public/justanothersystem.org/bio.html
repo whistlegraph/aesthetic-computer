@@ -100,15 +100,29 @@
     /* Hero */
     .hero {
       margin-bottom: 3rem;
+      display: flex;
+      align-items: flex-end;
+      gap: 1.5rem;
     }
 
     .hero-slideshow {
       position: relative;
-      width: 280px;
+      width: 340px;
+      flex-shrink: 0;
       aspect-ratio: 4815 / 5902;
       overflow: hidden;
-      margin-bottom: 1.5rem;
       border-radius: 4px;
+    }
+
+    @media (max-width: 560px) {
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .hero-slideshow {
+        width: 100%;
+        max-width: 340px;
+      }
     }
 
     .hero-slideshow img {
@@ -522,8 +536,10 @@
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
         <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
       </div>
-      <h1>Jeffrey Alan Scudder</h1>
-      <div class="tagline">Painter &middot; b. 1989, Assonet, MA</div>
+      <div class="hero-info">
+        <h1>Jeffrey Alan Scudder</h1>
+        <div class="tagline">Painter &middot; b. 1989, Assonet, MA</div>
+      </div>
     </div>
 
     <section>
@@ -532,8 +548,15 @@
       <p>Scudder builds his own tools for making images. <a href="https://aesthetic.computer" class="ac-link">Aesthetic<span class="ac-dot">.</span>Computer</a> is a creative computing platform he designed as an instrument for drawing, painting, and interaction. <a href="https://nopaint.art" class="np-link">NoPaint<span class="np-dot">.</span>art</a>, an earlier project, reimagined the paint program as a medium rather than a utility. These tools inform his studio paintings and vice versa&mdash;code becomes a way to think about color, gesture, and composition, while painting on canvas stays immediate and physical.</p>
       <p>With <a href="https://www.tiktok.com/@whistlegraph" class="wg-link">Whistlegraph<svg class="tiktok-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V9.05a8.27 8.27 0 0 0 4.76 1.51v-3.5a4.83 4.83 0 0 1-1-.37z"/></svg></a>, a collaborative performance practice with Camille Klein and Alex Freundlich, Scudder has performed at the New Museum, Pioneer Works, ZKM Karlsruhe, and dozens of venues across the US and Europe. The group's work treats drawing as a live, social act.</p>
       <p>He has given over 65 lectures and performances on Radical Digital Painting internationally, including at the Chaos Communication Congress and in conversation with Casey Reas at bitforms gallery. His work is in the collections of KADIST (San Francisco) and SMK (National Gallery of Denmark). He was invited to present at the inaugural Hash Award at ZKM Karlsruhe in 2018.</p>
-      <p>Scudder's last public exhibition of physical pictures was <a href="https://www.artsy.net/show/johannes-vogt-gallery-radical-digital-painting">Radical Digital Painting</a> with Julia Yerger at <a href="https://johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-paintings/">Johannes Vogt Gallery</a> in New York (June 2018), where he showed large-format digital prints on paper. In the years since, he has focused on building Aesthetic Computer, touring with Whistlegraph, and returning to painting on canvas and board. In May 2026, he will show new physical paintings at the <a href="https://venicefamilyclinic.org">47th Venice Family Clinic Art Exhibition + Auction</a> at 910 Abbot Kinney Blvd in Venice, CA&mdash;his first gallery exhibition of physical work in eight years.</p>
       <p>Scudder holds a BFA in Fine Art from Ringling College of Art and Design (2011) and an MFA in Sculpture from Yale School of Art (2013). He has taught at UCLA, Parsons The New School for Design, and Southern Oregon University. In Spring 2026, he is Author in Residence at UCLA's Social Software studio with Casey Reas. He also demos biweekly at <a href="https://nelacomputer.club">NELA Computer Club</a>, a biweekly demo night at <a href="https://plot.place">Plot.Place</a> in Chinatown, Los Angeles.</p>
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>Upcoming</h2>
+      <p>Scudder's last public exhibition of physical pictures was <a href="https://www.artsy.net/show/johannes-vogt-gallery-radical-digital-painting">Radical Digital Painting</a> with Julia Yerger at <a href="https://johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-paintings/">Johannes Vogt Gallery</a> in New York (June 2018), where he showed large-format digital prints on paper. In the years since, he has focused on building Aesthetic Computer, touring with Whistlegraph, and returning to painting on canvas and board.</p>
+      <p>In May 2026, he will show new physical paintings at the <a href="https://venicefamilyclinic.org">47th Venice Family Clinic Art Exhibition + Auction</a> at 910 Abbot Kinney Blvd in Venice, CA&mdash;his first gallery exhibition of physical work in eight years.</p>
     </section>
 
     <section>
