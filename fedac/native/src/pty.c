@@ -569,17 +569,55 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         mkdir("/tmp/.config", 0755);
         mkdir("/tmp/.local", 0755);
         mkdir("/tmp/.local/bin", 0755);
+        // Terminal capabilities
+        setenv("COLORTERM", "truecolor", 1);
         // Working directory: /tmp/ac (has CLAUDE.md for context)
         mkdir("/tmp/ac", 0755);
         chdir("/tmp/ac");
-        // Ensure CLAUDE.md exists (init should have copied it, but safety net)
+        // Get handle from config (parsed by parent)
+        const char *handle = getenv("AC_HANDLE");
+        if (!handle || !handle[0]) handle = "user";
+        // Ensure CLAUDE.md exists with full project context
         if (access("/tmp/ac/CLAUDE.md", F_OK) != 0) {
             FILE *cm = fopen("/tmp/ac/CLAUDE.md", "w");
             if (cm) {
-                fprintf(cm, "# AC Native Device\n\nYou are running on an Aesthetic Computer device.\n"
-                    "Working directory: /tmp/ac\nUser handle: @%s\n", getenv("USER") ?: "unknown");
+                fprintf(cm,
+                    "# AC Native Device — @%s\n\n"
+                    "You are Claude Code running on an Aesthetic Computer (AC) device.\n"
+                    "This is a minimal Linux system (custom kernel, initramfs, no package manager).\n\n"
+                    "## Environment\n"
+                    "- **User**: @%s\n"
+                    "- **Working directory**: /tmp/ac\n"
+                    "- **Shell**: /bin/sh (busybox ash)\n"
+                    "- **Home**: /tmp\n"
+                    "- **Tools**: curl, git, busybox utilities\n"
+                    "- **No sudo** — you are already root\n"
+                    "- **No package manager** — binaries are baked into initramfs\n\n"
+                    "## Filesystem\n"
+                    "- `/mnt` — USB boot drive (FAT32, has config.json and logs)\n"
+                    "- `/tmp` — tmpfs (lost on reboot)\n"
+                    "- `/opt/` — optional tools (if bundled)\n"
+                    "- `/lib64` — shared libraries\n"
+                    "- `/bin` — busybox + baked binaries\n\n"
+                    "## Networking\n"
+                    "- WiFi auto-connects to saved networks\n"
+                    "- `curl` is available for HTTP requests\n"
+                    "- WebSocket client built into ac-native\n\n"
+                    "## What you can do\n"
+                    "- Write and run shell scripts\n"
+                    "- Use curl to interact with APIs\n"
+                    "- Create files in /tmp/ac (this directory)\n"
+                    "- Use git (GitHub PAT is configured if available)\n"
+                    "- Read system logs at /mnt/ac-native.log\n\n"
+                    "## Architecture reference\n"
+                    "See SCORE.md for the AC Native OS project status and architecture.\n",
+                    handle, handle);
                 fclose(cm);
             }
+        }
+        // Symlink SCORE.md if the baked version exists
+        if (access("/device-score.md", F_OK) == 0 && access("/tmp/ac/SCORE.md", F_OK) != 0) {
+            symlink("/device-score.md", "/tmp/ac/SCORE.md");
         }
         // Ensure git repo so Claude Code recognizes a project
         if (access("/tmp/ac/.git", F_OK) != 0) {
