@@ -937,11 +937,9 @@
 
     .keeps-enter-btn {
       font-family: var(--font-fun);
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
-      padding: 18px 12px;
-      width: 100%;
-      max-width: 300px;
+      padding: 14px 40px;
       background: #40c060;
       color: #fff;
       border: none;
@@ -957,7 +955,7 @@
 
     .keeps-tabs.locked .keeps-tab {
       pointer-events: none;
-      opacity: 0.35;
+      color: transparent;
     }
 
     .keeps-about-tech {
@@ -5625,7 +5623,7 @@
             const userData = await userRes.json();
             if (userData.handle) acHandle = String(userData.handle).replace(/^@+/, '').trim();
             if (userData.tezos?.address) linkedWalletAddress = userData.tezos.address;
-          } catch (e) { /* could not fetch handle */ }
+          } catch (e) { console.warn('[keeps] Could not fetch handle:', e); }
         }
         updateAuthUI();
       } catch (e) {
@@ -5651,7 +5649,7 @@
       } else if (acUser) {
         loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
-        handleEl.textContent = 'Handle required';
+        handleEl.textContent = isDev ? (acUser.email || 'No handle') : 'Handle required';
         userMenu.style.display = 'flex';
       } else {
         loginBtn.style.display = 'inline-flex';
