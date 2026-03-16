@@ -2784,27 +2784,6 @@
     /* ========================================
        THEME TOGGLE
        ======================================== */
-    .theme-toggle {
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border-color);
-      color: var(--text-tertiary);
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      padding: 0;
-      line-height: 1;
-    }
-    .theme-toggle:hover {
-      background: var(--ac-purple);
-      color: white;
-      border-color: var(--ac-purple);
-    }
-
     /* Embedded in parent editor iframe — hide branding */
     .embedded .keeps-hero { display: none; }
     .embedded .keeps-footer { display: none; }
@@ -2887,7 +2866,6 @@
         <span class="keeps-subdomain"><span class="kl0">k</span><span class="kl1">e</span><span class="kl2">e</span><span class="kl3">p</span><span class="kl4" id="keeps-logo-s">s</span></span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span>
       </a>
       <div class="keeps-hero-actions">
-        <button class="theme-toggle" id="theme-toggle" onclick="toggleKeepsTheme()" title="Toggle light/dark theme"></button>
         <!-- Auth UI -->
         <div class="keeps-auth" id="keeps-auth">
           <button class="keeps-auth-btn" id="keeps-login-btn" style="display:none;" onclick="keepsLogin()">Log In</button>
@@ -3352,55 +3330,9 @@
 
   <script>
     // =========================================
-    // Theme toggle (light/dark)
-    // =========================================
-    function getKeepsTheme() {
-      return localStorage.getItem('keeps-theme') || null; // null = system default
-    }
-
-    function applyKeepsTheme(theme) {
-      if (theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-      }
-      updateThemeToggleIcon();
-    }
-
-    function toggleKeepsTheme() {
-      const current = getKeepsTheme();
-      // Cycle: light → dark → auto (null)
-      let next;
-      if (current === 'light') next = 'dark';
-      else if (current === 'dark') next = null;
-      else next = 'light'; // auto → light
-      if (next) {
-        localStorage.setItem('keeps-theme', next);
-      } else {
-        localStorage.removeItem('keeps-theme');
-      }
-      applyKeepsTheme(next);
-    }
-
-    function updateThemeToggleIcon() {
-      const btn = document.getElementById('theme-toggle');
-      if (!btn) return;
-      const theme = getKeepsTheme();
-      if (!theme) {
-        // Auto mode
-        btn.textContent = '\u25D1'; // ◑ half circle = auto
-        btn.title = 'Theme: auto (system) — click for light';
-      } else if (theme === 'light') {
-        btn.textContent = '\u2600'; // ☀
-        btn.title = 'Theme: light — click for dark';
-      } else {
-        btn.textContent = '\u263D'; // ☽
-        btn.title = 'Theme: dark — click for auto';
-      }
-    }
-
-    // Apply saved theme immediately
-    applyKeepsTheme(getKeepsTheme());
+    // Theme: auto only (follows system prefers-color-scheme)
+    localStorage.removeItem('keeps-theme');
+    document.documentElement.removeAttribute('data-theme');
 
     // =========================================
     // KidLisp.com Keeps - Index Page
@@ -7181,8 +7113,6 @@
         .catch(() => { el.innerHTML = '2.5 <span class="tez-sym"></span>'; });
     })();
 
-    // Update theme toggle icon after DOM is ready
-    updateThemeToggleIcon();
 
     // (Removed dynamic 's'↔'$' logo swap)
   </script>
