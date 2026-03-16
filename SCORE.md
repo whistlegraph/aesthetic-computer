@@ -15,9 +15,9 @@ As implemented in this monorepo through the direction of [@jeffrey](https://prom
 ## Front Door
 
 <!-- stats:start -->
-356 built-in pieces (338 JS + 18 KidLisp), ~86 API endpoints.<br>
-2811 registered handles, 265 user-published pieces, 4428 paintings, 16634 KidLisp programs, 18062 chat messages, 20 prints ordered.<br>
-*Last refreshed: Mar 13, 2026*
+359 built-in pieces (341 JS + 18 KidLisp), ~90 API endpoints.<br>
+2812 registered handles, 265 user-published pieces, 4429 paintings, 16779 KidLisp programs, 18107 chat messages, 20 prints ordered.<br>
+*Last refreshed: Mar 16, 2026*
 <!-- stats:end -->
 
 Visit https://aesthetic.computer — press the top left of the screen or type any key to activate the prompt.

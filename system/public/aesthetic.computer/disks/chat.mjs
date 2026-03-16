@@ -1719,7 +1719,11 @@ function paint(
       countLabel = chatterCount + " online";
     }
 
-    // Render count label
+    // Render count label (with 1px shadow for contrast)
+    ink(0, 0, 0, 180).write(countLabel, {
+      x: presenceX + 1,
+      top: presenceY + 1,
+    }, false, undefined, false, "MatrixChunky8");
     ink(onlineFgColor).write(countLabel, {
       x: presenceX,
       top: presenceY,
@@ -1738,6 +1742,10 @@ function paint(
 
         // Stop if we'd overlap the ticker area
         if (handleX + hWidth > tickerLeftEdge) {
+          ink(0, 0, 0, 180).write("…", {
+            x: handleX + 1,
+            top: presenceY + 1,
+          }, false, undefined, false, "MatrixChunky8");
           ink(onlineFgColor).write("…", {
             x: handleX,
             top: presenceY,
@@ -1752,6 +1760,10 @@ function paint(
           let charX = handleX;
           for (let c = 0; c < h.length && c < customColors.length; c++) {
             const col = customColors[c];
+            ink(0, 0, 0, 180).write(h[c], {
+              x: charX + 1,
+              top: presenceY + 1,
+            }, false, undefined, false, "MatrixChunky8");
             ink(col.r, col.g, col.b).write(h[c], {
               x: charX,
               top: presenceY,
@@ -1760,6 +1772,10 @@ function paint(
           }
           if (h.length > customColors.length) {
             const remaining = h.slice(customColors.length);
+            ink(0, 0, 0, 180).write(remaining, {
+              x: charX + 1,
+              top: presenceY + 1,
+            }, false, undefined, false, "MatrixChunky8");
             if (Array.isArray(handleColor)) {
               ink(...handleColor).write(remaining, {
                 x: charX,
@@ -1774,6 +1790,10 @@ function paint(
           }
         } else {
           fetchHandleColors(cleanHandle, api).catch(() => {});
+          ink(0, 0, 0, 180).write(h, {
+            x: handleX + 1,
+            top: presenceY + 1,
+          }, false, undefined, false, "MatrixChunky8");
           if (Array.isArray(handleColor)) {
             ink(...handleColor).write(h, {
               x: handleX,
