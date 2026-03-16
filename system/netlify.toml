@@ -1454,6 +1454,11 @@ to = "/api/:splat"
 status = 200
 force = true
 [[redirects]]
+from = "https://keeps.kidlisp.com/technology"
+to = "/kidlisp.com/keeps-tech.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://keeps.kidlisp.com/*"
 to = "/kidlisp.com/keeps.html"
 status = 200
