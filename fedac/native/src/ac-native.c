@@ -2193,27 +2193,39 @@ int main(int argc, char *argv[]) {
 
             input_poll(input);
             main_frame++;
-            // Check for Claude token API response (from wifi-connect fetch)
-            if (main_frame % 300 == 0 && access("/claude-token", F_OK) != 0) {
+            // Check for device token API response (from wifi-connect fetch)
+            if (main_frame % 300 == 0) {
                 FILE *rf = fopen("/tmp/claude-api-resp.json", "r");
                 if (rf) {
-                    char rbuf[1024] = {0};
+                    char rbuf[2048] = {0};
                     fread(rbuf, 1, sizeof(rbuf) - 1, rf);
                     fclose(rf);
                     unlink("/tmp/claude-api-resp.json");
-                    // Extract token from {"token":"sk-ant-..."}
+                    // Extract Claude token: {"token":"sk-ant-...","githubPat":"ghp_..."}
                     const char *tk = strstr(rbuf, "\"token\"");
                     if (tk) {
-                        const char *tv = strchr(tk + 7, '"');
-                        if (tv) { tv++;
+                        const char *tv = strchr(tk + 7, ':');
+                        if (tv) {
+                            tv++; while (*tv == ' ' || *tv == '"') tv++;
                             const char *te = strchr(tv, '"');
                             if (te && te > tv && (te - tv) > 10) {
                                 FILE *tf = fopen("/claude-token", "w");
-                                if (tf) {
-                                    fwrite(tv, 1, te - tv, tf);
-                                    fclose(tf);
-                                    ac_log("[claude] token fetched from API (%d bytes)\n", (int)(te - tv));
-                                }
+                                if (tf) { fwrite(tv, 1, te - tv, tf); fclose(tf); }
+                                ac_log("[tokens] claude token from API (%d bytes)\n", (int)(te - tv));
+                            }
+                        }
+                    }
+                    // Extract GitHub PAT
+                    const char *gk = strstr(rbuf, "\"githubPat\"");
+                    if (gk) {
+                        const char *gv = strchr(gk + 11, ':');
+                        if (gv) {
+                            gv++; while (*gv == ' ' || *gv == '"') gv++;
+                            const char *ge = strchr(gv, '"');
+                            if (ge && ge > gv && (ge - gv) > 5) {
+                                FILE *gf = fopen("/github-pat", "w");
+                                if (gf) { fwrite(gv, 1, ge - gv, gf); fclose(gf); }
+                                ac_log("[tokens] github pat from API (%d bytes)\n", (int)(ge - gv));
                             }
                         }
                     }
@@ -2592,9 +2604,8 @@ int main(int argc, char *argv[]) {
                     if (tts) tts_speak(tts, "online");
                     ac_log("[wifi-tts] connected — announcing 'online'");
 
-                    // Fetch Claude token from API if not already baked
-                    if (access("/claude-token", F_OK) != 0) {
-                        // Read handle from config
+                    // Fetch device tokens (Claude + GitHub) from API
+                    {
                         FILE *cf = fopen("/mnt/config.json", "r");
                         if (cf) {
                             char cbuf[2048] = {0};
@@ -2607,7 +2618,7 @@ int main(int argc, char *argv[]) {
                                     "curl -fsSL 'https://aesthetic.computer/.netlify/functions/claude-token?handle=%s' "
                                     "-o /tmp/claude-api-resp.json 2>/dev/null &", handle);
                                 system(cmd);
-                                ac_log("[claude] fetching token for @%s\n", handle);
+                                ac_log("[tokens] fetching for @%s\n", handle);
                             }
                         }
                     }
