@@ -1356,8 +1356,7 @@ function paint(
           if (isHovered) {
             ink(255, 50, 50).box(previewX, floor(previewY), previewW, previewH, "outline");
           } else {
-            const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-            ink(255, 80, 80, blinkAlpha).box(previewX, floor(previewY), previewW, previewH, "outline");
+            ink(255, 80, 80, 150).box(previewX, floor(previewY), previewW, previewH, "outline");
           }
         }
         
@@ -1384,7 +1383,6 @@ function paint(
   }
   
   // 🔗 Render OG link previews and trigger loading
-  let hasAnimatingOg = false;
   
   for (let i = client.messages.length - 1; i >= 0; i--) {
     const message = client.messages[i];
@@ -1410,7 +1408,7 @@ function paint(
       if (!cached && !ogLoadQueue.has(url)) {
         // Trigger async loading
         loadOgPreview(url, netPreload).then(result => {
-          if (result && result.imageData) {
+          if (result && (result.imageData || result.faviconData)) {
             messagesNeedLayout = true; // Relayout to add space for preview
             help.repeat(); // Trigger repaint when preview loads
           }
@@ -1422,8 +1420,6 @@ function paint(
         const hasImage = imageData || faviconData;
         
         if (hasImage) {
-          hasAnimatingOg = true;
-          
           // Use OG image if available, otherwise use favicon
           const displayImage = imageData || faviconData;
           const isFavicon = !imageData && faviconData;
@@ -1484,13 +1480,12 @@ function paint(
           // Border color - cyan for OG links, slightly different for favicons
           const borderColor = isFavicon ? [100, 200, 200] : [0, 200, 200];
           const hoverBorderColor = isFavicon ? [150, 255, 255] : [0, 255, 255];
-          
+
           // Draw border at natural position - mask will clip outside visible area
           if (isHovered) {
             ink(...hoverBorderColor).box(previewX, floor(previewY), previewW, previewH, "outline");
           } else {
-            const blinkAlpha = Math.floor(100 + (Math.sin(help.repeat * 0.15) + 1) * 50);
-            ink(...borderColor, blinkAlpha).box(previewX, floor(previewY), previewW, previewH, "outline");
+            ink(...borderColor, 150).box(previewX, floor(previewY), previewW, previewH, "outline");
           }
         
           // Draw title/site name below the preview
@@ -1508,8 +1503,8 @@ function paint(
     }
   }
   
-  // Request continuous painting only if we have animating paintings, YouTube, or OG previews
-  if (hasAnimatingPaintings || hasAnimatingYoutube || hasAnimatingOg) {
+  // Request continuous painting only if we have animating paintings (Ken Burns effect)
+  if (hasAnimatingPaintings) {
     needsPaint();
   }
 
