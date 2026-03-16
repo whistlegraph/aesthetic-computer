@@ -14,7 +14,7 @@
   <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <style>
     @font-face {
@@ -38,6 +38,7 @@
       --purple: rgb(205, 92, 155);
       --font-mono: 'Noto Sans Mono', 'SF Mono', 'Consolas', monospace;
       --font-display: 'YWFTProcessing-Regular', monospace;
+      --font-fun: 'Comic Relief', 'Comic Sans MS', cursive;
       --radius: 8px;
     }
 
@@ -76,16 +77,28 @@
     }
 
     .logo {
-      font-family: var(--font-display);
-      font-size: 18px;
+      font-family: var(--font-fun);
+      font-weight: bold;
+      font-size: 20px;
       text-decoration: none;
-      background: linear-gradient(135deg, var(--accent), var(--purple), var(--blue));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      display: flex;
+      align-items: center;
+      gap: 0;
     }
-
-    .logo span { font-size: 13px; opacity: 0.6; }
+    .logo:hover { text-decoration: none; }
+    .logo span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
+    .logo .buy-b { color: #FF6B6B; }
+    .logo .buy-u { color: #4ECDC4; }
+    .logo .buy-y { color: #FFE66D; }
+    .logo .dot { color: #70D6FF; text-shadow: none; }
+    .logo .baby-k { color: #FF6B6B; }
+    .logo .baby-i { color: #4ECDC4; }
+    .logo .baby-d { color: #FFE66D; }
+    .logo .baby-l { color: #A8E6CF; }
+    .logo .baby-i2 { color: #FF8B94; }
+    .logo .baby-s { color: #F7DC6F; }
+    .logo .baby-p { color: #BB8FCE; }
+    .logo .com-part { color: #70D6FF; text-shadow: none; }
 
     .header-right {
       display: flex;
@@ -161,6 +174,24 @@
       overflow: hidden;
       position: relative;
     }
+    .card-thumb-placeholder {
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, var(--bg3), var(--bg2), var(--bg3));
+      background-size: 200% 200%;
+      animation: shimmer 2s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: var(--text2);
+      opacity: 0.5;
+    }
+    @keyframes shimmer {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
     .card-thumb img {
       width: 100%; height: 100%;
       object-fit: cover;
@@ -421,7 +452,7 @@
 <body>
 
   <header>
-    <a href="/" class="logo">buy.kidlisp<span>.com</span></a>
+    <a href="/" class="logo"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     <div class="header-right">
       <div class="live-dot" id="live-dot" title="Live"></div>
       <button class="wallet-btn" id="wallet-btn"><svg class="tez-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.1 11.4l3.9-4V5h-7.1V2H9.1v3H2v2.5l3.9 3.9c-2.3 1-3.9 3.3-3.9 6V22h7v-4.6c0-1.7 1.3-3 3-3s3 1.3 3 3V22h7v-4.6c0-2.7-1.6-5-3.9-6zM5.5 7h13l-2.4 2.5H7.9L5.5 7z"/></svg> Connect Wallet</button>
@@ -468,7 +499,7 @@
   </div>
 
   <footer>
-    <a href="https://keeps.kidlisp.com" class="logo">keeps.kidlisp<span>.com</span></a>
+    <a href="https://keeps.kidlisp.com" class="logo" style="font-size:14px;"><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
   </footer>
 
 <script>
@@ -590,7 +621,7 @@
         price_xtz
         timestamp
         seller_address
-        token { token_id name thumbnail_uri }
+        token { token_id name thumbnail_uri artifact_uri }
       }
     }`;
 
@@ -617,7 +648,7 @@
         price_xtz
         recipient_address
         creator_address
-        token { token_id name thumbnail_uri }
+        token { token_id name thumbnail_uri artifact_uri }
       }
     }`;
     const res = await fetch(OBJKT_GQL, {
@@ -716,10 +747,12 @@
       const price = formatXTZ(l.price_xtz);
       const seller = l.seller_address?.slice(0, 8) + '…';
       const askId = l.id || l.bigmap_key;
+      const hasThumb = thumb || webp;
       return `<div class="card" data-id="${askId}">
         <div class="card-thumb">
-          ${thumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+          ${hasThumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
           ${webp ? `<img class="hover-webp" src="${webp}" alt="${name}" loading="lazy" />` : ''}
+          ${!hasThumb ? `<div class="card-thumb-placeholder">✦</div>` : ''}
         </div>
         <div class="card-body">
           <div class="card-code">${name}</div>
@@ -757,6 +790,7 @@
     }
 
     grid.innerHTML = soldEvents.map((ev, i) => {
+      ev._isSold = true;
       const name = ev.token?.name || `#${ev.token?.token_id}`;
       const thumb = thumbUrl(ev.token?.thumbnail_uri, ev.token?.name);
       const webp = animatedWebpUrl(ev.token?.thumbnail_uri);
@@ -776,6 +810,51 @@
         </div>
       </div>`;
     }).join('');
+
+    // Sold cards open modal too (view-only)
+    grid.querySelectorAll('.sold-card').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const idx = Number(card.dataset.idx);
+        const ev = soldEvents[idx];
+        if (ev) openSoldModal(ev);
+      });
+    });
+  }
+
+  function openSoldModal(ev) {
+    const name = ev.token?.name || `#${ev.token?.token_id}`;
+    const tokenId = ev.token?.token_id;
+    const price = formatXTZ(ev.price_xtz);
+    const code = name.startsWith('$') ? name.slice(1) : tokenId;
+
+    selectedListing = null; // Not purchasable
+    document.getElementById('modal-title').textContent = name + ' (sold)';
+    document.getElementById('modal-price').textContent = price + ' XTZ';
+    document.getElementById('modal-seller').textContent = 'Buyer: ' + ev.recipient_address;
+
+    const preview = document.getElementById('modal-preview');
+    preview.innerHTML = '';
+    const artUri = ev.token?.artifact_uri || ev.token?.thumbnail_uri;
+    if (artUri) {
+      const ipfsUrl = artUri.startsWith('ipfs://') ? 'https://ipfs.aesthetic.computer/ipfs/' + artUri.replace('ipfs://', '') : artUri;
+      const iframe = document.createElement('iframe');
+      iframe.src = ipfsUrl;
+      iframe.setAttribute('sandbox', 'allow-scripts');
+      preview.appendChild(iframe);
+    }
+
+    document.getElementById('modal-links').innerHTML = `
+      <a href="${OBJKT_BASE}/tokens/${CONTRACT}/${tokenId}" target="_blank">objkt ↗</a>
+    `;
+
+    buyBtn.disabled = true;
+    buyBtn.textContent = 'Sold';
+    buyStatus.textContent = new Date(ev.timestamp).toLocaleString();
+    buyStatus.className = 'buy-status';
+
+    history.pushState({ code }, name, '/' + (name.startsWith('$') ? name : '$' + code));
+    overlay.classList.add('open');
   }
 
   function updateStats() {
@@ -799,18 +878,24 @@
     document.getElementById('modal-price').textContent = price + ' XTZ';
     document.getElementById('modal-seller').textContent = listing.seller_address;
 
-    // Live preview iframe (full area, no nesting)
+    // Embed artifact directly from IPFS (self-contained HTML)
     const preview = document.getElementById('modal-preview');
     preview.innerHTML = '';
-    const iframe = document.createElement('iframe');
-    iframe.src = `https://keeps.kidlisp.com/${name.startsWith('$') ? name : '$' + tokenId}`;
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-    preview.appendChild(iframe);
+    const artUri = listing.token?.artifact_uri || listing.token?.thumbnail_uri;
+    if (artUri) {
+      const ipfsUrl = artUri.startsWith('ipfs://')
+        ? 'https://ipfs.aesthetic.computer/ipfs/' + artUri.replace('ipfs://', '')
+        : artUri;
+      const iframe = document.createElement('iframe');
+      iframe.src = ipfsUrl;
+      iframe.setAttribute('sandbox', 'allow-scripts');
+      preview.appendChild(iframe);
+    }
 
     // Links
     document.getElementById('modal-links').innerHTML = `
       <a href="${OBJKT_BASE}/tokens/${CONTRACT}/${tokenId}" target="_blank">objkt ↗</a>
-      <a href="${KEEPS_URL}/${name.startsWith('$') ? name : '$' + tokenId}" target="_blank">keeps ↗</a>
+      <a href="https://tzkt.io/${CONTRACT}/tokens/${tokenId}" target="_blank">tzkt ↗</a>
     `;
 
     buyStatus.textContent = '';
