@@ -1,0 +1,105 @@
+% ac-paper-layout.sty — Aesthetic Computer paper layout master template
+% Usage: \usepackage{ac-paper-layout} in each arxiv-* paper
+%
+% This package provides the shared visual identity for all AC working drafts:
+%   - AC color palette
+%   - YWFT Processing font commands (\acbold, \aclight)
+%   - Draft watermark in Processing Light font
+%   - Pals logo watermark (top-left, rotated, semi-opaque)
+%   - Section/subsection formatting
+%   - Header/footer (draft notice + page numbers)
+%   - List and paragraph settings
+%   - \ac command for "Aesthetic Computer" small caps
+%
+% Papers still define their own:
+%   - \hypersetup{pdftitle=...}
+%   - \graphicspath{...}
+%   - Additional \newcommand macros (e.g. \wg, \acos)
+%   - Extra packages (listings, multicol, etc.)
+%   - Extra font families (ComicRelief for KidLisp, etc.)
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-paper-layout}[2026/03/16 Aesthetic Computer paper layout]
+
+% === FONTS ===
+% Requires fontspec (loaded by the document before this package)
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK (Processing font + pals logo) ===
+\RequirePackage{eso-pic}
+\RequirePackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque, bleeding off edge ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "WORKING DRAFT" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} WORKING DRAFT}};
+  \end{tikzpicture}%
+}
+
+% === SECTION FORMATTING ===
+\RequirePackage{titlesec}
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\RequirePackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\RequirePackage{enumitem}
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% === HYPERREF COLORS ===
+\RequirePackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+}
+
+% === COMMON COMMANDS ===
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acdot}{{\color{acpink}.}}
+
+\endinput

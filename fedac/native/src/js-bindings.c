@@ -4593,7 +4593,8 @@ int js_load_piece(ACRuntime *rt, const char *path) {
         "if(typeof sim==='function')globalThis.sim=sim;"
         "if(typeof leave==='function')globalThis.leave=leave;"
         "if(typeof beat==='function')globalThis.beat=beat;"
-        "if(typeof configureAutopat==='function')globalThis.configureAutopat=configureAutopat;\n";
+        "if(typeof configureAutopat==='function')globalThis.configureAutopat=configureAutopat;"
+        "if(typeof system!=='undefined')globalThis.__pieceSystem=system;\n";
     size_t shim_len = strlen(export_shim);
     char *patched = malloc(len + shim_len + 1);
     memcpy(patched, src, len);
@@ -4639,9 +4640,30 @@ int js_load_piece(ACRuntime *rt, const char *path) {
     rt->sim_fn = JS_GetPropertyStr(ctx, global, "sim");
     rt->leave_fn = JS_GetPropertyStr(ctx, global, "leave");
     rt->beat_fn = JS_GetPropertyStr(ctx, global, "beat");
+
+    // Capture piece's `export const system` value (e.g. "prompt", "fps", "nopaint")
+    rt->system_mode[0] = '\0';
+    JSValue sys_val = JS_GetPropertyStr(ctx, global, "__pieceSystem");
+    if (JS_IsString(sys_val)) {
+        const char *s = JS_ToCString(ctx, sys_val);
+        if (s) {
+            strncpy(rt->system_mode, s, sizeof(rt->system_mode) - 1);
+            rt->system_mode[sizeof(rt->system_mode) - 1] = '\0';
+            JS_FreeCString(ctx, s);
+        }
+    }
+    JS_FreeValue(ctx, sys_val);
+
+    // Auto-detect FPS mode
+    if (strcmp(rt->system_mode, "fps") == 0)
+        rt->fps_system_active = 1;
+    else
+        rt->fps_system_active = 0;
+
     JS_FreeValue(ctx, global);
 
-    fprintf(stderr, "[js] Loaded piece: %s\n", path);
+    fprintf(stderr, "[js] Loaded piece: %s (system=%s)\n", path,
+            rt->system_mode[0] ? rt->system_mode : "(none)");
     fprintf(stderr, "[js] boot=%s paint=%s act=%s sim=%s beat=%s\n",
             JS_IsFunction(ctx, rt->boot_fn) ? "yes" : "no",
             JS_IsFunction(ctx, rt->paint_fn) ? "yes" : "no",
@@ -4731,6 +4753,28 @@ void js_call_act(ACRuntime *rt) {
             rt->keys_held[ev->key_code] = 1;
         else if (ev->type == AC_EVENT_KEYBOARD_UP && ev->key_code > 0 && ev->key_code < KEY_MAX)
             rt->keys_held[ev->key_code] = 0;
+    }
+
+    // System-level Escape → jump to prompt (mirrors web bios behavior).
+    // Skip if current piece IS prompt, or if piece uses system="world" or "prompt".
+    if (strcmp(rt->system_mode, "prompt") != 0 &&
+        strcmp(rt->system_mode, "world") != 0) {
+        for (int i = 0; i < input->event_count; i++) {
+            ACEvent *ev = &input->events[i];
+            if (ev->type == AC_EVENT_KEYBOARD_DOWN && ev->key_code == KEY_ESC) {
+                // Reset FPS camera state if active
+                if (rt->pen_locked) {
+                    rt->pen_locked = 0;
+                    rt->fps_system_active = 0;
+                }
+                strncpy(rt->jump_target, "prompt", sizeof(rt->jump_target) - 1);
+                rt->jump_target[sizeof(rt->jump_target) - 1] = '\0';
+                rt->jump_requested = 1;
+                rt->jump_param_count = 0;
+                ac_log("[system] Escape → prompt\n");
+                return; // Skip passing events to piece
+            }
+        }
     }
 
     if (!JS_IsFunction(rt->ctx, rt->act_fn)) return;
