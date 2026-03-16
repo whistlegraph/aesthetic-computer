@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Technology — KidLisp Keeps</title>
+  <meta name="description" content="How KidLisp Keeps works: FA2 tokens on Tezos, IPFS storage, on-chain guarantees." />
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #1e1e1e; --bg2: #252526; --bg3: #2d2d30;
+      --text: #d4d4d4; --text2: #858585; --border: #3e3e42;
+      --purple: rgb(205, 92, 155); --green: #00ff41;
+      --font-mono: 'Noto Sans Mono', 'SF Mono', 'Consolas', monospace;
+      --font-fun: 'Comic Relief', 'Comic Sans MS', cursive;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7f7f7; --bg2: #e8e8e8; --bg3: white;
+        --text: #111; --text2: #666; --border: #ddd;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-fun);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .back { color: var(--text2); text-decoration: none; font-size: 13px; }
+    .back:hover { color: var(--purple); }
+    h1 {
+      font-family: var(--font-fun);
+      font-size: 28px;
+      margin-top: 8px;
+      color: var(--purple);
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 30px 24px 60px;
+    }
+    h2 {
+      font-family: var(--font-fun);
+      font-size: 18px;
+      color: var(--purple);
+      margin: 28px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    h2:first-child { margin-top: 0; }
+    p { margin-bottom: 12px; }
+    strong { color: var(--text); }
+    ul { margin: 0 0 16px 20px; }
+    li { margin-bottom: 8px; }
+    a { color: var(--purple); }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+    .contract-box {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+    .contract-addr {
+      font-family: var(--font-mono);
+      color: var(--purple);
+      font-size: 13px;
+      word-break: break-all;
+      margin: 6px 0;
+    }
+    .contract-links {
+      display: flex; gap: 10px; margin-top: 8px;
+    }
+    .contract-links a {
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      text-decoration: none;
+      color: var(--text2);
+    }
+    .contract-links a:hover { border-color: var(--purple); color: var(--purple); }
+    .board {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 20px;
+    }
+    footer {
+      text-align: center;
+      padding: 30px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text2);
+    }
+    footer a { color: var(--purple); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="https://keeps.kidlisp.com" class="back">← keeps.kidlisp.com</a>
+    <h1>Technology</h1>
+  </header>
+  <main>
+    <h2>Live Stats</h2>
+    <div class="stat-grid" id="stats">
+      <div class="stat"><div class="stat-value" id="stat-keeps">—</div><div class="stat-label">Keeps</div></div>
+      <div class="stat"><div class="stat-value" id="stat-holders">—</div><div class="stat-label">Holders</div></div>
+      <div class="stat"><div class="stat-value" id="stat-creators">—</div><div class="stat-label">Creators</div></div>
+      <div class="stat"><div class="stat-value" id="stat-age">—</div><div class="stat-label">Live Since</div></div>
+    </div>
+
+    <h2>Keepers</h2>
+    <div class="board" id="keepers-board">Loading...</div>
+
+    <h2>Buyers</h2>
+    <div class="board" id="buyers-board">Loading...</div>
+
+    <h2>How It Works</h2>
+    <p>Each keep is an <strong>FA2 token on Tezos</strong>. Your KidLisp source is bundled into a self-contained HTML file, a thumbnail is rendered, and both are pinned to <strong>IPFS</strong>. No KidLisp servers are needed to view your token — it works on objkt and any FA2 marketplace.</p>
+    <p>Duplicate keeps are rejected on-chain by content hash. Royalties (9% author, 1% platform) are encoded at keep time and honored by all FA2 marketplaces.</p>
+
+    <div class="contract-box">
+      <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:0.04em;">Active Contract</div>
+      <div class="contract-addr" id="contract-addr">KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB</div>
+      <div class="contract-links">
+        <a href="https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank">TzKT</a>
+        <a href="https://objkt.com/collections/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank">objkt</a>
+        <a href="https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB/operations" target="_blank">Operations</a>
+      </div>
+    </div>
+
+    <h2>Your Guarantees</h2>
+    <ul>
+      <li><strong>Only you can keep.</strong> A short-lived signed permit ties the transaction to your wallet and content hash. No admin mint path exists.</li>
+      <li><strong>Only you can burn.</strong> Admin cannot burn on your behalf.</li>
+      <li><strong>Content and royalties are immutable.</strong> Nobody can change what you made or what you earn.</li>
+      <li><strong>You can freeze metadata.</strong> Irreversible, owner-only — not even admin can undo it.</li>
+      <li><strong>Transfers always work.</strong> Even if the contract is paused, FA2 transfers stay live. You can always move or sell.</li>
+    </ul>
+
+    <h2>Reports</h2>
+    <ul>
+      <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-audit-mainnet.md" target="_blank">Mainnet Audit</a></li>
+      <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v11-security-gap-analysis.md" target="_blank">v11 Security Gap Analysis</a></li>
+      <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v12-and-25-year-stability-plan.md" target="_blank">v12 + 25-Year Stability Plan</a></li>
+    </ul>
+  </main>
+
+  <footer>
+    <a href="https://keeps.kidlisp.com">keeps.kidlisp.com</a>
+  </footer>
+
+<script>
+  const CONTRACT = 'KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB';
+
+  async function loadStats() {
+    try {
+      const [tokensRes, holdersRes, opsRes] = await Promise.all([
+        fetch(`https://api.tzkt.io/v1/tokens?contract=${CONTRACT}&limit=10000&select=id`),
+        fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address`),
+        fetch(`https://api.tzkt.io/v1/contracts/${CONTRACT}`),
+      ]);
+      const tokens = await tokensRes.json();
+      const holders = await holdersRes.json();
+      const contract = await opsRes.json();
+
+      document.getElementById('stat-keeps').textContent = tokens.length;
+      document.getElementById('stat-holders').textContent = new Set(holders).size;
+
+      if (contract.firstActivity) {
+        const date = new Date(contract.firstActivityTime || contract.firstActivity);
+        document.getElementById('stat-age').textContent = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      }
+    } catch {}
+
+    // Creators (unique minters)
+    try {
+      const res = await fetch(`https://api.tzkt.io/v1/tokens?contract=${CONTRACT}&limit=10000&select=firstMinter.address`);
+      const minters = await res.json();
+      document.getElementById('stat-creators').textContent = new Set(minters.filter(Boolean)).size;
+    } catch {}
+  }
+
+  async function loadBoards() {
+    try {
+      // Keepers (top holders by count)
+      const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address,balance`);
+      const balances = await res.json();
+      const holderMap = {};
+      balances.forEach(b => {
+        const addr = typeof b === 'string' ? b : b[0] || b.address;
+        holderMap[addr] = (holderMap[addr] || 0) + 1;
+      });
+      const sorted = Object.entries(holderMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      document.getElementById('keepers-board').innerHTML = sorted.map(([addr, count], i) =>
+        `<div>${i + 1}. ${addr.slice(0, 8)}… — ${count} keeps</div>`
+      ).join('');
+    } catch { document.getElementById('keepers-board').textContent = 'Failed to load'; }
+
+    try {
+      // Buyers (recent purchases)
+      const res = await fetch('https://data.objkt.com/v3/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: `query { event(where: { fa_contract: { _eq: "${CONTRACT}" }, marketplace_event_type: { _eq: "list_buy" } }, order_by: { timestamp: desc }, limit: 10) { timestamp price_xtz recipient_address token { name } } }` }),
+      });
+      const data = await res.json();
+      const events = data?.data?.event || [];
+      document.getElementById('buyers-board').innerHTML = events.map(ev => {
+        const date = new Date(ev.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const price = (Number(ev.price_xtz) / 1_000_000).toFixed(0);
+        return `<div>${ev.recipient_address?.slice(0, 8)}… bought ${ev.token?.name || '?'} for ${price} XTZ — ${date}</div>`;
+      }).join('') || 'No purchases yet';
+    } catch { document.getElementById('buyers-board').textContent = 'Failed to load'; }
+  }
+
+  loadStats();
+  loadBoards();
+</script>
+</body>
+</html>

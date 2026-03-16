@@ -3238,70 +3238,7 @@
 
         <button id="keeps-enter-btn" class="keeps-enter-btn" style="display:none;" onclick="enterKeeps()">Enter</button>
 
-        <details class="keeps-about-tech">
-          <summary>Technology</summary>
-          <div class="keeps-about-tech-body">
-            <p class="keeps-about-tech-section-label">Live Stats</p>
-            <div class="keeps-about-stats-grid" id="keeps-live-stats">
-              <div class="keeps-about-stat">
-                <div class="keeps-about-stat-value" id="stat-total-keeps">—</div>
-                <div class="keeps-about-stat-label">Keeps</div>
-              </div>
-              <div class="keeps-about-stat">
-                <div class="keeps-about-stat-value" id="stat-unique-holders">—</div>
-                <div class="keeps-about-stat-label">Holders</div>
-              </div>
-              <div class="keeps-about-stat">
-                <div class="keeps-about-stat-value" id="stat-unique-creators">—</div>
-                <div class="keeps-about-stat-label">Creators</div>
-              </div>
-              <div class="keeps-about-stat">
-                <div class="keeps-about-stat-value" id="stat-contract-age">—</div>
-                <div class="keeps-about-stat-label">Live Since</div>
-              </div>
-            </div>
-
-            <p class="keeps-about-tech-section-label">Keepers</p>
-            <div id="keeps-keepers-board" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
-              <div style="color:var(--text-tertiary);">Loading...</div>
-            </div>
-
-            <p class="keeps-about-tech-section-label">Buyers</p>
-            <div id="keeps-buyers-board" style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);margin-bottom:16px;">
-              <div style="color:var(--text-tertiary);">Loading...</div>
-            </div>
-
-            <p class="keeps-about-tech-section-label">How It Works</p>
-            <p>Each keep is an <strong>FA2 token on Tezos</strong>. Your KidLisp source is bundled into a self-contained HTML file, a thumbnail is rendered, and both are pinned to <strong>IPFS</strong>. No KidLisp servers are needed to view your token — it works on objkt and any FA2 marketplace.</p>
-            <p>Duplicate keeps are rejected on-chain by content hash. Royalties (9% author, 1% platform) are encoded at keep time and honored by all FA2 marketplaces.</p>
-            <div class="keeps-about-contract-box">
-              <div class="keeps-about-contract-label">Active Contract</div>
-              <div id="v6-active-contract-address" style="font-family: 'Courier New', monospace; color: var(--ac-purple); font-size: 14px; word-break: break-all;">Loading...</div>
-              <div id="v6-active-contract-meta" style="margin-top: 6px; color: var(--text-tertiary); font-size: 12px;"></div>
-              <div class="keeps-about-links">
-                <a id="v6-active-contract-tzkt" class="keeps-about-link-btn primary" href="https://tzkt.io" target="_blank">TzKT</a>
-                <a id="v6-active-contract-objkt" class="keeps-about-link-btn" href="https://objkt.com" target="_blank">objkt</a>
-                <a id="v6-active-contract-ops" class="keeps-about-link-btn" href="https://tzkt.io" target="_blank">Operations</a>
-              </div>
-            </div>
-
-            <p class="keeps-about-tech-section-label">Your Guarantees</p>
-            <ul class="keeps-about-security-list">
-              <li><strong>Only you can keep.</strong> A short-lived signed permit ties the transaction to your wallet and content hash. No admin mint path exists.</li>
-              <li><strong>Only you can burn.</strong> Admin cannot burn on your behalf.</li>
-              <li><strong>Content and royalties are immutable.</strong> Nobody can change what you made or what you earn.</li>
-              <li><strong>You can freeze metadata.</strong> Irreversible, owner-only — not even admin can undo it.</li>
-              <li><strong>Transfers always work.</strong> Even if the contract is paused, FA2 transfers stay live. You can always move or sell.</li>
-            </ul>
-
-            <p class="keeps-about-tech-section-label">Reports</p>
-            <ul class="keeps-about-security-list">
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-audit-mainnet.md" target="_blank" rel="noopener noreferrer">Mainnet Audit</a></li>
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v11-security-gap-analysis.md" target="_blank" rel="noopener noreferrer">v11 Security Gap Analysis</a></li>
-              <li><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v12-and-25-year-stability-plan.md" target="_blank" rel="noopener noreferrer">v12 + 25-Year Stability Plan</a></li>
-            </ul>
-          </div>
-        </details>
+        <!-- Technology section moved to /technology page -->
       </div>
     </div>
 
@@ -7256,6 +7193,7 @@
       <a href="https://buy.kidlisp.com" class="footer-buy-link"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     </div>
     <div class="footer-links">
+      <a href="/technology" style="color:var(--text-tertiary);">Technology</a>
       <a href="https://kidlisp.com" target="_blank" rel="noopener">KidLisp.com</a>
       <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic.Computer</a>
       <a href="https://objkt.com/collection/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">Objkt Collection</a>
