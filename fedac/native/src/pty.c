@@ -569,6 +569,30 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         mkdir("/tmp/.config", 0755);
         mkdir("/tmp/.local", 0755);
         mkdir("/tmp/.local/bin", 0755);
+        // Claude Code settings: bypass permissions, trust /tmp/ac project
+        if (access("/tmp/.claude/settings.json", F_OK) != 0) {
+            FILE *sf = fopen("/tmp/.claude/settings.json", "w");
+            if (sf) {
+                fprintf(sf, "{\n"
+                    "  \"permissions\": {\n"
+                    "    \"allow\": [\"Bash(*)\", \"Read(*)\", \"Write(*)\", \"Edit(*)\", "
+                    "\"Glob(*)\", \"Grep(*)\", \"WebFetch(*)\", \"WebSearch(*)\"]\n"
+                    "  },\n"
+                    "  \"autoUpdates\": false\n"
+                    "}\n");
+                fclose(sf);
+            }
+        }
+        // Trust the /tmp/ac project so Claude doesn't ask every time
+        mkdir("/tmp/.claude/projects", 0755);
+        mkdir("/tmp/.claude/projects/-tmp-ac", 0755);
+        if (access("/tmp/.claude/projects/-tmp-ac/settings.json", F_OK) != 0) {
+            FILE *pf = fopen("/tmp/.claude/projects/-tmp-ac/settings.json", "w");
+            if (pf) {
+                fprintf(pf, "{\"isTrusted\": true}\n");
+                fclose(pf);
+            }
+        }
         // Terminal capabilities
         setenv("COLORTERM", "truecolor", 1);
         // Working directory: /tmp/ac (has CLAUDE.md for context)
