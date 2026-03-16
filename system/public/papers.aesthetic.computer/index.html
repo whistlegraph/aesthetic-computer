@@ -7,14 +7,9 @@
     <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
     <style>
-        @font-face {
-            font-family: 'YWFT Processing';
-            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
-            font-weight: bold;
-            font-display: swap;
-        }
-
         :root {
             --bg: #1a1a2e;
             --text: #e8e8e8;
@@ -23,6 +18,8 @@
             --cyan: #4ecdc4;
             --purple: #7850b4;
             --sep: rgba(255,255,255,0.06);
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
         }
 
         @media (prefers-color-scheme: light) {
@@ -30,12 +27,16 @@
                 --bg: #fafafa; --text: #1a1a2e; --dim: #888;
                 --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
                 --sep: rgba(0,0,0,0.06);
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.1);
             }
         }
         :root.light-mode {
             --bg: #fafafa; --text: #1a1a2e; --dim: #888;
             --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
             --sep: rgba(0,0,0,0.06);
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,13 +47,77 @@
             padding: 3em 2.5em; max-width: 640px;
         }
 
-        h1 {
-            font-family: 'YWFT Processing', monospace;
-            font-size: 2.4em; font-weight: bold;
-            letter-spacing: -0.03em; line-height: 1.1;
-            margin-bottom: 0.3em;
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0.5em;
         }
-        h1 .dot { color: var(--pink); }
+
+        .logo {
+            cursor: pointer;
+            font-size: 1.6em;
+            line-height: 1.1;
+        }
+        .logo:hover { opacity: 0.8; }
+        .logo-papers {
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .logo-sep {
+            color: var(--dim);
+            margin: 0 0.3em;
+            font-family: 'Berkeley Mono Variable', monospace;
+        }
+        .logo-ac {
+            font-family: 'YWFTProcessing-Regular', sans-serif;
+            font-size: 1.15em;
+            color: var(--pink);
+        }
+        .logo-dot { color: var(--cyan); }
+
+        /* Language selector (like give page) */
+        .lang-selector {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            user-select: none;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+        .lang-selector:hover { background: var(--box-bg); }
+        .lang-selector .lang-flag { font-size: 14px; }
+        .lang-selector .lang-text { font-size: 12px; color: var(--dim); font-weight: 500; }
+        .lang-selector .lang-arrow { font-size: 8px; color: var(--dim); opacity: 0.6; margin-left: 2px; }
+
+        .lang-dropdown {
+            position: absolute;
+            top: 100%; left: 0;
+            background: var(--bg);
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 100px;
+            margin-top: 2px;
+            display: none;
+        }
+        .lang-selector.open .lang-dropdown { display: block; }
+
+        .lang-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text);
+            transition: all 0.15s;
+        }
+        .lang-option:hover { background: rgba(205,92,155,0.1); }
+        .lang-option.active { color: var(--pink); }
 
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
         .sub a { color: var(--cyan); text-decoration: none; }
@@ -62,7 +127,7 @@
 
         .p { padding: 0.5em 0; border-bottom: 1px solid var(--sep); }
         .p a { text-decoration: none; }
-        .p .title { font-family: 'YWFT Processing', monospace; font-size: 1.1em; font-weight: bold; letter-spacing: -0.01em; }
+        .p .title { font-size: 1.1em; font-weight: 600; letter-spacing: -0.01em; }
         .p .title a { color: var(--text); }
         .p .title a:hover { color: var(--cyan); }
         .p .detail { color: var(--dim); font-size: 0.7em; margin-top: 0.15em; }
@@ -88,27 +153,42 @@
 
         @media (max-width: 600px) {
             body { padding: 1.5em 1em; }
-            h1 { font-size: 1.8em; }
+            .logo { font-size: 1.3em; }
+            .lang-selector .lang-text { display: none; }
         }
     </style>
 </head>
 <body>
     <a href="https://aesthetic.computer" class="pals"><img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%"></a>
 
-    <h1>Aesthetic<span class="dot">.</span>Computer Papers</h1>
+    <div class="top-bar">
+        <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-papers">papers</span><span class="logo-sep">&mdash;</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
+        <div class="lang-selector" id="langSelector">
+            <span class="lang-flag fi fi-us" id="lang-flag"></span>
+            <span class="lang-text" id="lang-text">English</span>
+            <span class="lang-arrow">&#9660;</span>
+            <div class="lang-dropdown" id="lang-dropdown">
+                <div class="lang-option active" data-lang="en" data-flag="us"><span class="fi fi-us"></span> English</div>
+                <div class="lang-option" data-lang="da" data-flag="dk"><span class="fi fi-dk"></span> Dansk</div>
+                <div class="lang-option" data-lang="es" data-flag="es"><span class="fi fi-es"></span> Espa&ntilde;ol</div>
+                <div class="lang-option" data-lang="zh" data-flag="cn"><span class="fi fi-cn"></span> &#x4E2D;&#x6587;</div>
+            </div>
+        </div>
+    </div>
+
     <div class="sub">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
-    <div class="sub">Each paper available in English, Dansk, Espa&ntilde;ol, &#x4E2D;&#x6587; &middot; Updated Mar 16 2026</div>
+    <div class="sub">Updated Mar 16 2026</div>
 
     <div class="section">Platform</div>
 
     <div class="p">
-        <div class="title"><a href="/piece-api-26-arxiv.pdf">From setup() to boot()</a></div>
-        <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp &middot; <a href="/piece-api-26-arxiv-da.pdf">da</a> <a href="/piece-api-26-arxiv-es.pdf">es</a> <a href="/piece-api-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
+        <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf">Aesthetic Computer '26</a></div>
-        <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp &middot; <a href="/aesthetic-computer-26-arxiv-da.pdf">da</a> <a href="/aesthetic-computer-26-arxiv-es.pdf">es</a> <a href="/aesthetic-computer-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
+        <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
     </div>
 
     <div class="p">
@@ -117,25 +197,25 @@
     </div>
 
     <div class="p">
-        <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf">Pieces Not Programs</a></div>
-        <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp &middot; <a href="/pieces-not-programs-26-arxiv-da.pdf">da</a> <a href="/pieces-not-programs-26-arxiv-es.pdf">es</a> <a href="/pieces-not-programs-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
+        <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/notepat-26-arxiv.pdf">notepat.com</a></div>
-        <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp &middot; <a href="/notepat-26-arxiv-da.pdf">da</a> <a href="/notepat-26-arxiv-es.pdf">es</a> <a href="/notepat-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
+        <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/ac-native-os-26-arxiv.pdf">AC Native OS</a></div>
-        <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp &middot; <a href="/ac-native-os-26-arxiv-da.pdf">da</a> <a href="/ac-native-os-26-arxiv-es.pdf">es</a> <a href="/ac-native-os-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
+        <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
     </div>
 
     <div class="section">KidLisp</div>
 
     <div class="p">
-        <div class="title"><a href="/kidlisp-26-arxiv.pdf">KidLisp '26</a></div>
-        <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp &middot; <a href="/kidlisp-26-arxiv-da.pdf">da</a> <a href="/kidlisp-26-arxiv-es.pdf">es</a> <a href="/kidlisp-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
+        <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
     </div>
 
     <div class="p">
@@ -149,52 +229,47 @@
     </div>
 
     <div class="p">
-        <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf">KidLisp Language Reference</a></div>
-        <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp &middot; <a href="/kidlisp-reference-26-arxiv-da.pdf">da</a> <a href="/kidlisp-reference-26-arxiv-es.pdf">es</a> <a href="/kidlisp-reference-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
+        <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
     </div>
 
     <div class="section">History &amp; Practice</div>
 
     <div class="p">
-        <div class="title"><a href="/whistlegraph-26-arxiv.pdf">Whistlegraph</a></div>
-        <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp &middot; <a href="/whistlegraph-26-arxiv-da.pdf">da</a> <a href="/whistlegraph-26-arxiv-es.pdf">es</a> <a href="/whistlegraph-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
+        <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/radical-computer-art-26-arxiv.pdf">Radical Computer Art</a></div>
-        <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp &middot; updated Mar 16 &middot; <a href="/radical-computer-art-26-arxiv-da.pdf">da</a> <a href="/radical-computer-art-26-arxiv-es.pdf">es</a> <a href="/radical-computer-art-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
+        <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp &middot; updated Mar 16</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/repo-archaeology-26-arxiv.pdf">Repository Archaeology</a></div>
-        <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/repo-archaeology-26-arxiv-da.pdf">da</a> <a href="/repo-archaeology-26-arxiv-es.pdf">es</a> <a href="/repo-archaeology-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
+        <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/ac-repo-archaeology">Repository Archaeology</a></div>
-        <div class="detail">Extended interactive timeline &middot; HTML</div>
-    </div>
-
-    <div class="p">
-        <div class="title"><a href="/dead-ends-26-arxiv.pdf">Dead Ends</a></div>
-        <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp &middot; <a href="/dead-ends-26-arxiv-da.pdf">da</a> <a href="/dead-ends-26-arxiv-es.pdf">es</a> <a href="/dead-ends-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Dead Ends</a></div>
+        <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp</div>
     </div>
 
     <div class="section">Meta &amp; Policy</div>
 
     <div class="p">
-        <div class="title"><a href="/network-audit-26-arxiv.pdf">Network Audit</a></div>
-        <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp &middot; <a href="/network-audit-26-arxiv-da.pdf">da</a> <a href="/network-audit-26-arxiv-es.pdf">es</a> <a href="/network-audit-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
+        <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf">Who Pays for Creative Tools?</a></div>
-        <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp &middot; <a href="/who-pays-for-creative-tools-26-arxiv-da.pdf">da</a> <a href="/who-pays-for-creative-tools-26-arxiv-es.pdf">es</a> <a href="/who-pays-for-creative-tools-26-arxiv-zh.pdf">zh</a></div>
+        <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
+        <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
     </div>
 
     <div class="p">
-        <div class="title"><a href="/citation-diversity-audit-26.pdf">Citation Diversity Audit</a></div>
-        <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp &middot; <a href="/citation-diversity-audit-26-da.pdf">da</a> <a href="/citation-diversity-audit-26-es.pdf">es</a> <a href="/citation-diversity-audit-26-zh.pdf">zh</a></div>
+        <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
+        <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
     </div>
 
     <div class="footer">
@@ -203,6 +278,47 @@
     </div>
 
     <script>
+        // Language switcher
+        const langs = { en: { flag: 'us', name: 'English' }, da: { flag: 'dk', name: 'Dansk' }, es: { flag: 'es', name: 'Espa\u00f1ol' }, zh: { flag: 'cn', name: '\u4e2d\u6587' } };
+        let currentLang = 'en';
+
+        const selector = document.getElementById('langSelector');
+        const flagEl = document.getElementById('lang-flag');
+        const textEl = document.getElementById('lang-text');
+
+        selector.addEventListener('click', (e) => {
+            if (e.target.closest('.lang-option')) {
+                const opt = e.target.closest('.lang-option');
+                setLang(opt.dataset.lang);
+                selector.classList.remove('open');
+            } else {
+                selector.classList.toggle('open');
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!selector.contains(e.target)) selector.classList.remove('open');
+        });
+
+        function setLang(lang) {
+            currentLang = lang;
+            const info = langs[lang];
+            flagEl.className = 'lang-flag fi fi-' + info.flag;
+            textEl.textContent = info.name;
+
+            // Update active state
+            document.querySelectorAll('.lang-option').forEach(o => {
+                o.classList.toggle('active', o.dataset.lang === lang);
+            });
+
+            // Update all paper links with data-base attribute
+            const suffix = lang === 'en' ? '' : '-' + lang;
+            document.querySelectorAll('.p .title a[data-base]').forEach(a => {
+                a.href = a.dataset.base + suffix + '.pdf';
+            });
+        }
+
+        // Theme toggle
         function toggleTheme() {
             const r = document.documentElement;
             if (r.classList.contains('light-mode')) { r.classList.replace('light-mode', 'dark-mode'); }
