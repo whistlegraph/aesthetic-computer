@@ -61,28 +61,6 @@
       }
     }
 
-    [data-theme="light"] {
-      --bg: #faf8ff;
-      --bg2: #f0ecf8;
-      --bg3: white;
-      --text: #1a1528;
-      --text2: #6a5f80;
-      --border: #ddd4ee;
-      --card-glow: rgba(205, 92, 155, 0.08);
-      --card-hover-glow: rgba(245, 158, 11, 0.15);
-    }
-
-    [data-theme="dark"] {
-      --bg: #12101a;
-      --bg2: #1a1726;
-      --bg3: #221e30;
-      --text: #e8e0f0;
-      --text2: #9088a0;
-      --border: #2e2840;
-      --card-glow: rgba(205, 92, 155, 0.15);
-      --card-hover-glow: rgba(245, 158, 11, 0.25);
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -106,18 +84,6 @@
       z-index: 100;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
     }
-
-    .theme-toggle {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text2);
-      width: 32px; height: 32px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 16px;
-      transition: border-color 0.15s;
-    }
-    .theme-toggle:hover { border-color: var(--accent); }
 
     .logo {
       font-family: var(--font-fun);
@@ -410,29 +376,46 @@
     /* ── Tabs ── */
     .tabs {
       display: flex;
+      align-items: center;
       gap: 0;
-      padding: 12px 20px 0;
-      max-width: 1400px;
-      margin: 0 auto;
+      padding: 0;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
     }
     .tab {
-      background: none;
-      border: 1px solid var(--border);
-      border-bottom: none;
-      color: var(--text2);
-      padding: 8px 20px;
-      font-family: var(--font-mono);
-      font-size: 13px;
+      flex: 1 1 50%;
+      min-width: 0;
+      padding: 18px 12px;
+      font-family: var(--font-fun);
+      font-size: 20px;
       font-weight: 700;
+      text-align: center;
+      background: var(--bg3);
+      border: none;
+      border-bottom: 4px solid transparent;
       cursor: pointer;
-      border-radius: var(--radius) var(--radius) 0 0;
-      transition: background 0.15s, color 0.15s;
+      transition: all 0.15s;
+      user-select: none;
     }
-    .tab:hover { color: var(--text); }
-    .tab.active {
-      background: var(--accent-bg);
-      border-color: var(--accent);
-      color: var(--accent);
+    .tab:hover { filter: brightness(1.05); }
+    .tab[data-tab="fresh"] {
+      color: var(--green);
+      background: rgba(0, 255, 136, 0.1);
+    }
+    .tab[data-tab="sold"] {
+      color: var(--red);
+      background: rgba(255, 107, 107, 0.1);
+    }
+    .tab.active[data-tab="fresh"] {
+      background: rgba(0, 255, 136, 0.2);
+      border-bottom-color: var(--green);
+      box-shadow: inset 0 -1px 0 rgba(0, 255, 136, 0.5);
+    }
+    .tab.active[data-tab="sold"] {
+      background: rgba(255, 107, 107, 0.2);
+      border-bottom-color: var(--red);
+      box-shadow: inset 0 -1px 0 rgba(255, 107, 107, 0.5);
     }
 
     .card-buy-btn {
@@ -543,7 +526,6 @@
   <header>
     <a href="/" class="logo"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     <div class="header-right">
-      <button class="theme-toggle" id="theme-toggle" title="Toggle theme">☀</button>
       <div class="live-dot" id="live-dot" title="Live"></div>
       <button class="wallet-btn" id="wallet-btn"><svg class="tez-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M16.1 11.4l3.9-4V5h-7.1V2H9.1v3H2v2.5l3.9 3.9c-2.3 1-3.9 3.3-3.9 6V22h7v-4.6c0-1.7 1.3-3 3-3s3 1.3 3 3V22h7v-4.6c0-2.7-1.6-5-3.9-6zM5.5 7h13l-2.4 2.5H7.9L5.5 7z"/></svg> Connect Wallet</button>
     </div>
@@ -596,23 +578,6 @@
 <script>
 (function() {
   'use strict';
-
-  // ── Theme toggle ──
-  const themeBtn = document.getElementById('theme-toggle');
-  function getTheme() { return localStorage.getItem('buy-theme') || ''; }
-  function applyTheme(t) {
-    if (t) { document.documentElement.setAttribute('data-theme', t); }
-    else { document.documentElement.removeAttribute('data-theme'); }
-    themeBtn.textContent = (t === 'light' || (!t && window.matchMedia('(prefers-color-scheme: light)').matches)) ? '🌙' : '☀';
-  }
-  applyTheme(getTheme());
-  themeBtn.addEventListener('click', () => {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-      (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    const next = isDark ? 'light' : 'dark';
-    localStorage.setItem('buy-theme', next);
-    applyTheme(next);
-  });
 
   // ── Config ──
   const CONTRACT = 'KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB';
