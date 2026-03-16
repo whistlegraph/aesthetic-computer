@@ -336,6 +336,11 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                         pthread_mutex_unlock(&wifi->lock);
                         ac_log("[wifi] Connected! IP: %s", ip);
 
+                        // Save credentials for auto-reconnect
+                        strncpy(wifi->last_ssid, ssid, WIFI_SSID_MAX - 1);
+                        strncpy(wifi->last_pass, password ? password : "", WIFI_PASS_MAX - 1);
+                        wifi->reconnect_failures = 0;
+
                         // Ensure resolv.conf has DNS fallbacks
                         mkdir("/etc", 0755);
                         FILE *rf = fopen("/etc/resolv.conf", "a");
@@ -431,20 +436,26 @@ static void wifi_do_disconnect(ACWifi *wifi) {
 // Worker thread
 // ============================================================
 
+// Check if interface still has an IP (connectivity watchdog)
+static int wifi_check_link(ACWifi *wifi) {
+    if (!wifi->iface[0]) return 0;
+    char cmd[128];
+    snprintf(cmd, sizeof(cmd),
+             "ip -4 addr show %s 2>/dev/null | grep -q 'inet '", wifi->iface);
+    return system(cmd) == 0;
+}
+
 static void *wifi_thread_fn(void *arg) {
     ACWifi *wifi = (ACWifi *)arg;
+    int watchdog_counter = 0;
 
     while (wifi->thread_running) {
-        // Wait for a command (with 200ms timeout so we can check thread_running)
+        // Wait for a command (with 2s timeout for watchdog checks)
         pthread_mutex_lock(&wifi->lock);
         if (wifi->pending_cmd == WIFI_CMD_NONE) {
             struct timespec ts;
             clock_gettime(CLOCK_REALTIME, &ts);
-            ts.tv_nsec += 200000000; // 200ms
-            if (ts.tv_nsec >= 1000000000) {
-                ts.tv_sec += 1;
-                ts.tv_nsec -= 1000000000;
-            }
+            ts.tv_sec += 2; // 2-second watchdog interval
             pthread_cond_timedwait(&wifi->cond, &wifi->lock, &ts);
         }
 
@@ -458,6 +469,7 @@ static void *wifi_thread_fn(void *arg) {
             strncpy(ssid, wifi->cmd_ssid, WIFI_SSID_MAX - 1);
             strncpy(pass, wifi->cmd_pass, WIFI_PASS_MAX - 1);
         }
+        WiFiState cur_state = wifi->state;
         pthread_mutex_unlock(&wifi->lock);
 
         // Execute command (blocking calls are fine — we're on the wifi thread)
@@ -466,6 +478,31 @@ static void *wifi_thread_fn(void *arg) {
             case WIFI_CMD_CONNECT:    wifi_do_connect(wifi, ssid, pass); break;
             case WIFI_CMD_DISCONNECT: wifi_do_disconnect(wifi); break;
             default: break;
+        }
+
+        // Watchdog: check connectivity every ~10s (5 iterations × 2s)
+        if (cmd == WIFI_CMD_NONE && cur_state == WIFI_STATE_CONNECTED) {
+            watchdog_counter++;
+            if (watchdog_counter >= 5) {
+                watchdog_counter = 0;
+                if (!wifi_check_link(wifi)) {
+                    ac_log("[wifi] Connection lost — auto-reconnecting to '%s'",
+                           wifi->last_ssid);
+                    wifi_set_state_and_status(wifi, WIFI_STATE_CONNECTING,
+                                              "reconnecting...");
+                    wifi_do_connect(wifi, wifi->last_ssid, wifi->last_pass);
+                    if (wifi->state != WIFI_STATE_CONNECTED) {
+                        wifi->reconnect_failures++;
+                        ac_log("[wifi] Reconnect failed (%d)",
+                               wifi->reconnect_failures);
+                        // Back off: wait longer between retries
+                        if (wifi->reconnect_failures > 3)
+                            sleep(wifi->reconnect_failures * 2);
+                    }
+                }
+            }
+        } else {
+            watchdog_counter = 0;
         }
     }
 

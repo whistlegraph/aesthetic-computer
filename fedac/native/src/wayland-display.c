@@ -81,6 +81,23 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = buffer_release,
 };
 
+// ── Temporary seat listener (captures capabilities for input_init_wayland) ──
+
+static void init_seat_caps(void *data, struct wl_seat *seat, uint32_t caps) {
+    (void)seat;
+    ACWaylandDisplay *wd = data;
+    wd->seat_caps = caps;
+}
+
+static void init_seat_name(void *data, struct wl_seat *seat, const char *name) {
+    (void)data; (void)seat; (void)name;
+}
+
+static const struct wl_seat_listener init_seat_listener = {
+    .capabilities = init_seat_caps,
+    .name = init_seat_name,
+};
+
 // ── Registry listener ──
 
 static void registry_global(void *data, struct wl_registry *registry,
@@ -96,7 +113,11 @@ static void registry_global(void *data, struct wl_registry *registry,
         wd->xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
         xdg_wm_base_add_listener(wd->xdg_wm_base, &xdg_wm_base_listener, wd);
     } else if (strcmp(interface, wl_seat_interface.name) == 0) {
-        wd->seat = wl_registry_bind(registry, name, &wl_seat_interface, 5);
+        wd->seat = wl_registry_bind(registry, name, &wl_seat_interface,
+                                      version > 5 ? 5 : version);
+        // Add temp listener NOW so capabilities event isn't lost during roundtrip.
+        // input_init_wayland will use cached seat_caps to bind keyboard/pointer/touch.
+        wl_seat_add_listener(wd->seat, &init_seat_listener, wd);
     }
 }
 

@@ -48,6 +48,11 @@ typedef struct {
     pid_t wpa_pid;            // wpa_supplicant process
     pid_t dhcp_pid;           // dhclient process
 
+    // Auto-reconnect state
+    char last_ssid[WIFI_SSID_MAX];   // last successfully connected SSID
+    char last_pass[WIFI_PASS_MAX];   // last password used
+    int reconnect_failures;          // consecutive reconnect failures
+
     // --- Threading ---
     pthread_t thread;
     pthread_mutex_t lock;

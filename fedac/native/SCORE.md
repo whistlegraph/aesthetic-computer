@@ -160,6 +160,10 @@ Critical fixes applied to the OTA flash path:
 5. **Double sync with delay**: `syncfs` + `sync` + 500ms sleep + `sync` before verify and before reboot, giving vfat write-back time to flush.
 6. **Error logging**: syncfs failures, mount failures, and device detection logged with errno.
 
+## Architecture
+
+See [internals.md](internals.md) for the full boot sequence and system architecture narrative.
+
 ## Operational Checks
 
 - USB logs must be checked on every release candidate:
