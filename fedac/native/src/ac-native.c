@@ -1433,6 +1433,27 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
         }
 
+        // Auth badges (bottom-left): crab = Claude, octopus = GitHub
+        if (f > 60 && alpha > 80) {
+            int badge_x = 8;
+            int badge_y = screen->height - 20;
+            double badge_t = (double)(f - 60) / 40.0;
+            if (badge_t > 1.0) badge_t = 1.0;
+            int badge_alpha = (int)(200.0 * badge_t);
+            // Claude token (crab emoji representation)
+            if (access("/claude-token", F_OK) == 0 || getenv("CLAUDE_CODE_OAUTH_TOKEN")) {
+                graph_ink(graph, (ACColor){255, 140, 60, (uint8_t)badge_alpha});
+                font_draw_matrix(graph, "claude", badge_x, badge_y, 1);
+                badge_x += font_measure_matrix("claude", 1) + 6;
+            }
+            // GitHub token (octocat)
+            if (access("/github-pat", F_OK) == 0 || getenv("GH_TOKEN")) {
+                graph_ink(graph, (ACColor){140, 180, 255, (uint8_t)badge_alpha});
+                font_draw_matrix(graph, "github", badge_x, badge_y, 1);
+                badge_x += font_measure_matrix("github", 1) + 6;
+            }
+        }
+
         // Bottom: shrinking time bar + W hint
         int bar_full = screen->width - 40;
         int bar_remaining = (int)((1.0 - t) * bar_full);
