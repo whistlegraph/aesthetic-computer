@@ -339,6 +339,7 @@ a:hover { text-decoration: underline; }
           <div class="kv"><span class="k"><span class="dot" id="svc-session-dot"></span> session</span><span class="v" id="svc-session-meta">...</span></div>
           <div class="kv"><span class="k"><span class="dot" id="svc-feed-dot"></span> feed</span><span class="v" id="svc-feed-meta">...</span></div>
           <div class="kv"><span class="k"><span class="dot" id="svc-insta-dot"></span> instagram</span><span class="v" id="svc-insta-meta">...</span></div>
+          <div class="kv"><span class="k"><span class="dot" id="svc-tiktok-dot"></span> tiktok</span><span class="v" id="svc-tiktok-meta">...</span></div>
           <div style="margin-top:8px">
             <div class="card-hd">redis</div>
             <div id="redisTile" class="loading">loading...</div>
@@ -458,6 +459,24 @@ a:hover { text-decoration: underline; }
             <button class="btn" id="instaVerifyBtn">verify</button>
           </span>
           <span id="insta-msg" style="font-size:11px;color:var(--fg2);margin-left:6px"></span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:6px">
+        <div class="card-hd"><span class="dot" id="tiktok-dot"></span> tiktok</div>
+        <div class="kv"><span class="k">status</span><span class="v" id="tiktok-status">...</span></div>
+        <div class="kv"><span class="k">account</span><span class="v" id="tiktok-account">-</span></div>
+        <div class="kv"><span class="k">token age</span><span class="v" id="tiktok-age">-</span></div>
+        <div class="kv"><span class="k">expires</span><span class="v" id="tiktok-expires">-</span></div>
+        <div id="tiktok-stats" style="display:none;margin-top:4px">
+          <div class="kv"><span class="k">followers</span><span class="v" id="tiktok-followers">-</span></div>
+          <div class="kv"><span class="k">likes</span><span class="v" id="tiktok-likes">-</span></div>
+          <div class="kv"><span class="k">videos</span><span class="v" id="tiktok-videos">-</span></div>
+        </div>
+        <div id="tiktok-actions" style="margin-top:6px">
+          <button class="btn" id="tiktokConnectBtn">connect</button>
+          <button class="btn" id="tiktokDisconnectBtn" style="display:none">disconnect</button>
+          <button class="btn" id="tiktokRefreshBtn" style="display:none">refresh token</button>
+          <span id="tiktok-msg" style="font-size:11px;color:var(--fg2);margin-left:6px"></span>
         </div>
       </div>
     </div>
@@ -1069,6 +1088,100 @@ document.getElementById('instaLogoutBtn').onclick = async () => {
     });
     msg.textContent = '';
     loadInstaStatus();
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
+// --- TikTok ---
+async function loadTiktokStatus() {
+  try {
+    const d = await authFetch('/api/tiktok/status').then(r => r.json());
+    const ok = d.connected;
+    dot('tiktok-dot', ok);
+    dot('svc-tiktok-dot', ok);
+    const el = document.getElementById('tiktok-status');
+    const metaEl = document.getElementById('svc-tiktok-meta');
+    if (ok) {
+      el.textContent = 'connected'; el.className = 'v ok';
+      if (metaEl) { metaEl.textContent = '@' + (d.username || '?'); metaEl.className = 'v ok'; }
+      document.getElementById('tiktokConnectBtn').style.display = 'none';
+      document.getElementById('tiktokDisconnectBtn').style.display = '';
+      document.getElementById('tiktokRefreshBtn').style.display = '';
+      // Fetch live stats
+      try {
+        const profile = await fetch('/tiktok?action=profile').then(r => r.json());
+        if (profile.followerCount != null) {
+          document.getElementById('tiktok-stats').style.display = '';
+          document.getElementById('tiktok-followers').textContent = profile.followerCountFormatted;
+          document.getElementById('tiktok-likes').textContent = profile.likesCountFormatted;
+          document.getElementById('tiktok-videos').textContent = profile.videoCountFormatted;
+        }
+      } catch {}
+    } else {
+      el.textContent = 'not connected'; el.className = 'v err';
+      if (metaEl) { metaEl.textContent = 'offline'; metaEl.className = 'v err'; }
+      document.getElementById('tiktokConnectBtn').style.display = '';
+      document.getElementById('tiktokDisconnectBtn').style.display = 'none';
+      document.getElementById('tiktokRefreshBtn').style.display = 'none';
+      document.getElementById('tiktok-stats').style.display = 'none';
+    }
+    document.getElementById('tiktok-account').textContent = d.username ? '@' + d.username : '-';
+    document.getElementById('tiktok-age').textContent = d.sessionAge != null ? fmtDuration(d.sessionAge) : '-';
+    document.getElementById('tiktok-expires').textContent = d.expiresAt ? new Date(d.expiresAt).toLocaleString() : '-';
+  } catch (e) {
+    dot('tiktok-dot', false);
+    dot('svc-tiktok-dot', false);
+    const metaEl = document.getElementById('svc-tiktok-meta');
+    if (metaEl) { metaEl.textContent = 'error'; metaEl.className = 'v err'; }
+  }
+}
+
+document.getElementById('tiktokConnectBtn').onclick = async () => {
+  const msg = document.getElementById('tiktok-msg');
+  msg.textContent = 'redirecting...';
+  try {
+    const d = await authFetch('/api/tiktok/auth').then(r => r.json());
+    if (d.url) {
+      const popup = window.open(d.url, 'tiktok-auth', 'width=600,height=700');
+      // Poll for popup close
+      const check = setInterval(() => {
+        if (!popup || popup.closed) {
+          clearInterval(check);
+          msg.textContent = '';
+          loadTiktokStatus();
+        }
+      }, 1000);
+    } else {
+      msg.textContent = d.error || 'failed to get auth URL';
+    }
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('tiktokDisconnectBtn').onclick = async () => {
+  const msg = document.getElementById('tiktok-msg');
+  msg.textContent = 'disconnecting...';
+  try {
+    await fetch('/api/tiktok/disconnect', {
+      method: 'POST',
+      headers: accessToken ? { Authorization: 'Bearer ' + accessToken } : {},
+    });
+    msg.textContent = '';
+    loadTiktokStatus();
+  } catch (e) {
+    msg.textContent = 'error: ' + e.message;
+  }
+};
+
+document.getElementById('tiktokRefreshBtn').onclick = async () => {
+  const msg = document.getElementById('tiktok-msg');
+  msg.textContent = 'refreshing...';
+  try {
+    const d = await authFetch('/api/tiktok/refresh', { method: 'POST' }).then(r => r.json());
+    msg.textContent = d.ok ? 'refreshed!' : 'refresh failed';
+    loadTiktokStatus();
   } catch (e) {
     msg.textContent = 'error: ' + e.message;
   }
@@ -1741,7 +1854,7 @@ document.getElementById('browseSearch').addEventListener('keydown', (e) => {
 let browseLoaded = false;
 
 function loadAll() {
-  loadOverview(); loadCollections(); loadStorage(); loadServices(); loadBilling(); loadInstaStatus();
+  loadOverview(); loadCollections(); loadStorage(); loadServices(); loadBilling(); loadInstaStatus(); loadTiktokStatus();
   // Atlas compare is deferred — only load when that sub-tab is first visited
   let atlasLoaded = false;
   const origClick = document.querySelector('.sub-tab-btn[data-subtab="atlas"]');
@@ -1760,6 +1873,7 @@ function loadAll() {
   setInterval(loadServices, 60000);
   setInterval(loadBilling, 60000);
   setInterval(loadInstaStatus, 60000);
+  setInterval(loadTiktokStatus, 60000);
 }
 
 initAuth();
