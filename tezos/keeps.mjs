@@ -2826,6 +2826,42 @@ async function adminTransfer(tokenId, fromAddress, toAddress, options = {}) {
 }
 
 // ============================================================================
+// Send XTZ
+// ============================================================================
+
+async function sendTez(toAddress, amount, network = 'mainnet') {
+  const { tezos, credentials, config } = await createTezosClient(network);
+
+  let resolvedAddress = toAddress;
+  if (toAddress.endsWith('.tez')) {
+    console.log(`\n🔍 Resolving ${toAddress}...`);
+    resolvedAddress = await resolveTezDomain(toAddress);
+    console.log(`   → ${resolvedAddress}`);
+  }
+
+  const mutez = Math.floor(amount * 1_000_000);
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  💸 Send XTZ                                                ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  console.log(`📡 Network:  ${config.name}`);
+  console.log(`📤 From:     ${credentials.address}`);
+  console.log(`📥 To:       ${resolvedAddress}${toAddress !== resolvedAddress ? ` (${toAddress})` : ''}`);
+  console.log(`💵 Amount:   ${amount} XTZ\n`);
+
+  const op = await tezos.contract.transfer({ to: resolvedAddress, amount: mutez, mutez: true });
+
+  console.log(`   ⏳ Operation: ${op.hash}`);
+  console.log('   ⏳ Waiting for confirmation...');
+  await op.confirmation(1);
+
+  console.log('\n✅ Sent!');
+  console.log(`   🔗 ${config.explorer}/${op.hash}\n`);
+  return { hash: op.hash };
+}
+
+// ============================================================================
 // FA2 Transfer
 // ============================================================================
 
@@ -4221,6 +4257,24 @@ async function main() {
       case 'unpause':
         await unpauseContract({ network: getNetwork(1) });
         break;
+
+      case 'send': {
+        if (!args[1] || !args[2]) {
+          console.error('Usage: node keeps.mjs send <to_address> <amount_xtz> [network]');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs send aesthetic.tez 3 --wallet=staging --yes');
+          process.exit(1);
+        }
+        const sendTo = args[1];
+        const sendAmt = parseFloat(args[2]);
+        if (isNaN(sendAmt) || sendAmt <= 0) {
+          console.error('❌ Invalid amount.');
+          process.exit(1);
+        }
+        await sendTez(sendTo, sendAmt, getNetwork(3));
+        break;
+      }
 
       case 'transfer': {
         if (!args[1] || !args[2]) {
