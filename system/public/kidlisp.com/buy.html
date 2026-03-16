@@ -492,10 +492,49 @@
     /* ── Footer ── */
     footer {
       text-align: center;
-      padding: 30px 20px;
+      padding: 40px 20px;
       border-top: 1px solid var(--border);
       margin-top: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
     }
+    .footer-label {
+      font-family: var(--font-fun);
+      font-size: 13px;
+      color: var(--text2);
+    }
+    .footer-keeps {
+      font-family: var(--font-fun);
+      font-weight: bold;
+      font-size: 20px;
+      text-decoration: none;
+      display: inline-flex;
+      gap: 0;
+    }
+    .footer-keeps:hover { text-decoration: none; }
+    .footer-keeps span { text-shadow: 1px 1px 0px rgba(0,0,0,0.3); }
+    @keyframes keeps-green {
+      0%   { color: #00ff41; }
+      25%  { color: #39ff7a; }
+      50%  { color: #00c832; }
+      75%  { color: #80ffb0; }
+      100% { color: #00ff41; }
+    }
+    .footer-keeps .kl0 { color: #00ff41; animation: keeps-green 3s ease-in-out infinite; }
+    .footer-keeps .kl1 { color: #00ff41; animation: keeps-green 3s ease-in-out infinite -0.6s; }
+    .footer-keeps .kl2 { color: #00ff41; animation: keeps-green 3s ease-in-out infinite -1.2s; }
+    .footer-keeps .kl3 { color: #00ff41; animation: keeps-green 3s ease-in-out infinite -1.8s; }
+    .footer-keeps .kl4 { color: #00ff41; animation: keeps-green 3s ease-in-out infinite -2.4s; }
+    .footer-keeps .baby-k { color: #FF6B6B; }
+    .footer-keeps .baby-i { color: #4ECDC4; }
+    .footer-keeps .baby-d { color: #FFE66D; }
+    .footer-keeps .baby-l { color: #A8E6CF; }
+    .footer-keeps .baby-i2 { color: #FF8B94; }
+    .footer-keeps .baby-s { color: #F7DC6F; }
+    .footer-keeps .baby-p { color: #BB8FCE; }
+    .footer-keeps .com-part { color: #70D6FF; text-shadow: none; }
   </style>
 </head>
 <body>
@@ -549,7 +588,8 @@
   </div>
 
   <footer>
-    <a href="https://keeps.kidlisp.com" class="logo" style="font-size:14px;"><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
+    <div class="footer-label">See also:</div>
+    <a href="https://keeps.kidlisp.com" class="footer-keeps"><span class="kl0">k</span><span class="kl1">e</span><span class="kl2">e</span><span class="kl3">p</span><span class="kl4">s</span><span class="com-part">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
   </footer>
 
 <script>
