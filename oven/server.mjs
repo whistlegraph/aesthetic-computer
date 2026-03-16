@@ -1477,17 +1477,29 @@ app.get('/kidlisp-og/tzkt-cover.jpg', async (req, res) => {
 app.get('/kidlisp-og/tzkt-logo.jpg', async (req, res) => {
   try {
     addServerLog('info', '🖼️', 'TzKT logo (200x200)');
-    const svg = Buffer.from(`<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="#1a1a2e"/>
-      <text x="100" y="160" font-family="Comic Sans MS, cursive" font-size="180" font-weight="bold"
-        fill="limegreen" text-anchor="middle"
-        style="paint-order: stroke; stroke: rgba(0,0,0,0.4); stroke-width: 4px;">$</text>
-    </svg>`);
-    const jpg = await sharp(svg).jpeg({ quality: 90 }).toBuffer();
-    res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Content-Length', jpg.length);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(jpg);
+    // Render $ in Comic Relief via Puppeteer (lightweight, ~3s)
+    const puppeteer = await import('puppeteer');
+    const browser = await puppeteer.default.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width: 200, height: 200, deviceScaleFactor: 2 });
+      await page.setContent(`<!DOCTYPE html><html><head>
+        <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@700&display=swap" rel="stylesheet">
+        <style>
+          *{margin:0;padding:0}
+          body{width:200px;height:200px;display:flex;align-items:center;justify-content:center;background:white}
+          .d{font-family:'Comic Relief',cursive;font-size:170px;font-weight:700;color:limegreen}
+        </style></head>
+        <body><div class="d">$</div></body></html>`, { waitUntil: 'networkidle0' });
+      await page.evaluate(() => document.fonts.ready);
+      await new Promise(r => setTimeout(r, 300));
+      const png = await page.screenshot({ type: 'png' });
+      const jpg = await sharp(png).resize(200, 200).jpeg({ quality: 90 }).toBuffer();
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', jpg.length);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(jpg);
+    } finally { await page.close(); await browser.close(); }
   } catch (error) {
     console.error('TzKT logo error:', error);
     res.status(500).json({ error: error.message });
