@@ -103,7 +103,7 @@ build_initramfs() {
                 process.stdout.write(c.claudeAiOauth.accessToken);
             " 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/claude-token" > /dev/null
             sudo chmod 600 "${INITRAMFS_ROOT}/claude-token"
-            log "  claude token: baked ($(wc -c < "${INITRAMFS_ROOT}/claude-token") bytes)"
+            log "  claude token: baked ($(sudo wc -c < "${INITRAMFS_ROOT}/claude-token") bytes)"
         fi
         # Bake GitHub PAT if available (for git operations on device)
         local GH_PAT=$(gh auth token 2>/dev/null)
