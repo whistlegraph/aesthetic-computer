@@ -326,8 +326,24 @@ static void handle_csi(ACPty *pty, char final) {
         pty->cursor_x = 0;
         pty->cursor_y = pty->scroll_top;
         break;
-    case 'h': case 'l': // Set/Reset Mode (ignore most, just eat them)
+    case 'h': case 'l': { // Set/Reset Mode
+        int set = (final == 'h');
+        // DEC private modes have '?' prefix in csi_buf
+        if (pty->csi_len > 0 && pty->csi_buf[0] == '?') {
+            int p2[8] = {0}; int c2;
+            c2 = parse_csi_params(pty->csi_buf + 1, pty->csi_len - 1, p2, 8);
+            int p = c2 > 0 ? p2[0] : 0;
+            if (p == 25) {
+                // DECTCEM: show/hide cursor
+                pty->cursor_visible = set;
+            } else if (p == 1049 && set) {
+                // Enter alternate screen: home cursor
+                pty->cursor_x = 0;
+                pty->cursor_y = 0;
+            }
+        }
         break;
+    }
     case '@': { // Insert Characters
         int n = params[0] ? params[0] : 1;
         int y = pty->cursor_y;
@@ -480,6 +496,7 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
     pty->cur_bg = PTY_COLOR_DEFAULT_BG;
     pty->scroll_top = 0;
     pty->scroll_bottom = pty->rows - 1;
+    pty->cursor_visible = 1;
     pty_clear(pty);
 
     // Pre-flight checks: log what we're about to spawn

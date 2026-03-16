@@ -55,6 +55,7 @@ typedef struct {
     int alive;           // 1 = child process running
     int exit_code;       // exit code when child exits (127=not found, 128+sig=signal)
     int grid_dirty;      // 1 = grid changed since last JS read
+    int cursor_visible;  // 1 = cursor shown (?25h), 0 = hidden (?25l)
 
     // Saved cursor position (for ESC 7 / ESC 8)
     int saved_x, saved_y;

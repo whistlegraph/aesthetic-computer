@@ -335,8 +335,8 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
     system.log("[qr] url=" + detectedUrl.substring(0, 60) + "... len=" + detectedUrl.length);
   }
 
-  // Blinking cursor
-  if (Math.floor(cursorBlink / 30) % 2 === 0) {
+  // Blinking cursor — only when PTY reports cursor visible (?25h)
+  if (pty.cursorVisible !== false && Math.floor(cursorBlink / 30) % 2 === 0) {
     const cx = (pty.cursorX || 0) * cellW;
     const cy = (pty.cursorY || 0) * cellH;
     ink(T.fg, T.fg, T.fg, 180);
