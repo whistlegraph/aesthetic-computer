@@ -1,0 +1,185 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{78,203,113}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={Auditoría de diversidad en citas de los artículos de Aesthetic Computer}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Auditoría de diversidad en citas}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Serie de artículos de Aesthetic Computer, marzo 2026}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://papers.aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Auditamos las prácticas de citación de la serie de artículos de \ac{}---ocho artículos académicos que abarcan computación creativa, diseño de lenguajes, sistemas operativos y diseño de instrumentos digitales. La auditoría revela una subrepresentación significativa de mujeres ($\sim$11\%), académicos no occidentales ($\sim$5\%) e investigadores negros, indígenas y latinoamericanos ($\sim$6\%) entre los $\sim$80 autores únicos citados. Identificamos obras específicas que fortalecerían cada artículo mientras diversifican el fundamento académico, proponemos objetivos de integración por artículo del 30\% de mujeres y 20\% de autores no occidentales, y publicamos una lista de lectura abierta organizada por área de déficit. Este documento es tanto una autoevaluación como un compromiso de mejora continua.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Por qué esta auditoría}
+
+La serie de artículos de \ac{}~\citep{scudder2026ac, scudder2026kidlisp, scudder2026acos, scudder2026pieces, scudder2026notepat} hace afirmaciones sobre acceso, inclusión y expresión creativa. Un proyecto que aboga por el acceso universal a la computación creativa debe examinar si sus fundamentos académicos reflejan la diversidad que defiende.
+
+Las prácticas de citación no son neutrales. Constituyen una economía del conocimiento: a quién citamos moldea a quién se lee, a quién se contrata, a quién se financia, y cuyas ideas se tratan como fundacionales~\citep{benjamin2019race}.
+
+\section{Estado actual}
+
+\subsection{Demografía}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Dimensión} & \textbf{Conteo} & \textbf{\%} \\
+\midrule
+Autoras mujeres & $\sim$9 & 11\% \\
+Autores no-EE.UU./RU/UE & $\sim$4 & 5\% \\
+Negros / Indígenas / LatAm / Asiáticos & $\sim$5 & 6\% \\
+Autocitas (Scudder) & 5 & 6\% \\
+\midrule
+\textbf{Total autores únicos} & $\sim$80 & 100\% \\
+\bottomrule
+\end{tabular}
+\caption{Demografía de autores en todos los artículos (marzo 2026).}
+\label{tab:demographics}
+\end{table}
+
+El corpus de citas es abrumadoramente blanco, masculino y euroamericano. Esto no es inusual para artículos de computación creativa---las referencias canónicas del campo fueron creadas por equipos basados en MIT, NYU, ITP y Cambridge. Pero ``no inusual'' no es ``aceptable.''
+
+\section{Análisis de déficits}
+
+Identificamos cinco áreas donde el corpus de citas es más débil: mujeres en programación creativa (Chicau, Knotts, Parrish, Compton, Jack), estudios de computación negra (Benjamin, Noble, Brock, McIlwain), teoría no occidental (Yuk Hui, Steyerl, Eshun), computación indígena y decolonial (Lewis et al., Costanza-Chock, Escobar), y programación creativa latinoamericana (Barragán, Bel, Montoya-Moraga).
+
+\section{Objetivos por artículo}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Artículo} & \textbf{Adiciones sugeridas} \\
+\midrule
+AC '26 & Hui (objetos digitales), Costanza-Chock (justicia en diseño), Parrish (edu prog. creativa) \\
+\addlinespace
+KidLisp '26 & Compton (Tracery), Chicau (programación coreográfica), Barragán (Wiring) \\
+\addlinespace
+notepat '26 & Knotts (música en red), Eshun (ficción sonora), Plant (historia de computación) \\
+\addlinespace
+Piezas '26 & Benjamin (sesgo en diseño), Steyerl (imagen pobre), Plant (Zeros and Ones) \\
+\addlinespace
+SO '26 & Barragán (Wiring), McIlwain (Black Software), Lewis et al.\ (IA indígena) \\
+\addlinespace
+Arqueología '26 & Brock (Distributed Blackness), Hui (tecnodiversidad) \\
+\bottomrule
+\end{tabularx}
+\caption{Adiciones de citas dirigidas por artículo. Objetivo: 30\% mujeres, 20\% no occidentales.}
+\label{tab:targets}
+\end{table}
+
+\section{Objetivos y compromisos}
+
+\subsection{Objetivos cuantitativos}
+
+\begin{itemize}
+  \item \textbf{30\% autoras mujeres} en la serie de artículos (actualmente 11\%)
+  \item \textbf{20\% autores no-EE.UU./RU/UE} (actualmente 5\%)
+  \item \textbf{15\% académicos negros, indígenas, LatAm, asiáticos} (actualmente 6\%)
+  \item \textbf{Ningún artículo con menos de 2 citas de autoras mujeres}
+\end{itemize}
+
+\subsection{Compromisos de proceso}
+
+\begin{enumerate}
+  \item \textbf{Verificación de diversidad en cada revisión}: Antes de enviar cualquier artículo, re-ejecutar la auditoría contra la demografía actual de citas
+  \item \textbf{Mantenimiento de lista de lectura}: La sección de diversidad en citas del platter es un documento vivo
+  \item \textbf{Obtención de texto completo}: Donde sea posible, obtener y archivar versiones de acceso abierto de las obras citadas
+  \item \textbf{Compromiso honesto}: Citar obras porque fortalecen el argumento, no porque diversifican una hoja de cálculo
+\end{enumerate}
+
+\section{Una evaluación honesta}
+
+Esta auditoría revela un patrón común en la autorreflexión académica: el autor es consciente del problema, puede nombrar a los académicos que deberían ser citados, y tiene la infraestructura técnica para seguir el progreso---pero aún no ha hecho la lectura. Saber que Ruha Benjamin escribió ``Race After Technology'' no es lo mismo que haberlo leído, entendido e integrado sus ideas en la práctica de diseño propia.
+
+La brecha entre conciencia y práctica es donde comienza este trabajo. La lista de lectura en el platter es un compromiso de cerrar esa brecha. Los objetivos por artículo son un mecanismo de rendición de cuentas. La auditoría misma---publicada junto a los artículos que critica---es una invitación a los lectores para que el autor cumpla con el estándar que se fija a sí mismo.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

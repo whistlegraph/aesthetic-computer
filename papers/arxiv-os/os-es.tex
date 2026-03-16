@@ -1,0 +1,369 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={Jeffrey Alan Scudder},pdftitle={AC Native OS '26: Un sistema operativo de computación creativa sobre metal desnudo}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\lstdefinelanguage{acjs}{morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},sensitive=true,morecomment=[l]{//},morestring=[b]",morestring=[b]',morestring=[b]`,escapeinside={|}{|}}
+\lstdefinestyle{acjsstyle}{language=acjs,keywordstyle=[1]\color{jskw}\bfseries,keywordstyle=[2]\color{jsfn}\bfseries,commentstyle=\color{jscmt}\itshape,stringstyle=\color{jsstr}}
+\lstset{basicstyle=\ttfamily\small,breaklines=true,frame=single,rulecolor=\color{acgray!30},backgroundcolor=\color{acgray!5},xleftmargin=0.5em,xrightmargin=0.5em,aboveskip=0.5em,belowskip=0.5em}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} AC Native OS '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Un sistema operativo de computación creativa sobre metal desnudo}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Hardware excedente, personalización profunda y el instrumento post-OLPC}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Presentamos \acos{}, un sistema operativo Linux sobre metal desnudo que arranca cualquier computadora x86\_64 directamente en un instrumento de computación creativa en 7,3 segundos. Todo el sistema---un kernel personalizado, un entorno de ejecución en C de 11.943 líneas ejecutándose como PID~1, y un motor JavaScript QuickJS---cabe en un único binario UEFI de 89\,MB sin espacio de usuario, sin gestor de paquetes y sin entorno de escritorio. El SO introduce un modelo de \emph{personalización a nivel de dispositivo}: cada máquina arranca con el identificador del propietario, un esquema de colores personalizado y un saludo hablado, haciendo que la identidad sea una propiedad del sistema operativo en lugar de una capa de aplicación. Sostenemos que instalar este SO en portátiles de mercancía excedente---ThinkPads retirados, máquinas corporativas fuera de leasing, inventario no vendido---crea una alternativa viable tanto al modelo OLPC de hardware educativo a medida como al modelo Apple de identidad-a-través-de-ecosistema-comercial. Donde OLPC diseñó un portátil de \$100 que costó \$200, y Apple vende una identidad de \$1.000 que requiere un dispositivo de \$1.000, \acos{} convierte una máquina excedente de \$50 en un instrumento creativo personal con actualizaciones por aire, sin infraestructura de TI y sin costo continuo. Describimos la arquitectura, el modelo de personalización, el sistema de actualización OTA y las implicaciones para el acceso a la computación creativa.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introducción}
+
+El proyecto One Laptop Per Child (OLPC)~\citep{negroponte1995being, kraemer2009olpc} propuso que el acceso universal a la computación requería diseñar hardware nuevo---un portátil de \$100 construido específicamente para educación. El portátil XO se envió con un SO personalizado (Sugar), hardware personalizado y un modelo de distribución personalizado. El proyecto produjo ideas importantes pero luchó con una tensión fundamental: el hardware personalizado es costoso de diseñar, fabricar y mantener, y el objetivo de \$100 nunca se alcanzó a escala.
+
+Mientras tanto, el mercado de computación de consumo produce un excedente constante de máquinas funcionales. Los ciclos de leasing corporativo retiran millones de portátiles cada 3--5 años. Los excesos de inventario minorista, pedidos cancelados y defectos cosméticos generan inventarios en almacenes. Los recicladores de residuos electrónicos reciben máquinas con años de vida útil restante. Estas computadoras excedentes---ThinkPads, EliteBooks, Latitudes---están disponibles por \$30--80 con procesadores modernos, 8--16\,GB de RAM, WiFi, teclados y pantallas.
+
+\acos{} toma el enfoque opuesto a OLPC: en lugar de diseñar hardware personalizado, diseñamos un sistema operativo personalizado que transforma \emph{cualquier} máquina x86\_64 de mercancía en un instrumento de computación creativa dedicado. Todo el SO es un único archivo. Grabarlo en una unidad USB toma menos de un minuto. La máquina arranca en 7,3 segundos en un instrumento musical, una herramienta de dibujo o un entorno de programación---con el nombre del propietario en la pantalla y su voz saludándole por su nombre.
+
+Este artículo describe la arquitectura del sistema~(\S\ref{sec:architecture}), el modelo de personalización~(\S\ref{sec:personalization}), la tesis del hardware excedente~(\S\ref{sec:surplus}), el sistema de actualización OTA~(\S\ref{sec:ota}), comparaciones con enfoques existentes~(\S\ref{sec:related}) e implicaciones para el acceso a la computación creativa~(\S\ref{sec:implications}).
+
+\section{Arquitectura}
+\label{sec:architecture}
+
+\acos{} se estructura en cuatro capas: un kernel Linux mínimo, un initramfs comprimido con LZ4, un entorno de ejecución en C que se ejecuta como PID~1, y un motor JavaScript QuickJS que ejecuta programas interactivos (``piezas'').
+
+\subsection{Cadena de arranque}
+
+El sistema arranca vía UEFI sin cargador de arranque. El kernel Linux (6.14.2) está compilado como un stub EFI---el kernel \emph{es} el cargador de arranque. Contiene un initramfs incrustado comprimido con LZ4, por lo que todo el sistema operativo es un único archivo: \texttt{BOOTX64.EFI} en una partición de sistema EFI FAT32.
+
+\begin{enumerate}
+  \item El firmware UEFI carga \texttt{EFI/BOOT/BOOTX64.EFI} (89\,MB)
+  \item El kernel descomprime initramfs en tmpfs
+  \item \texttt{/init} (enlace simbólico a \texttt{/ac-native}) inicia como PID~1
+  \item Montar \texttt{/proc}, \texttt{/sys}, \texttt{/dev}, \texttt{/tmp}
+  \item Montar partición EFI en \texttt{/mnt}, leer \texttt{config.json}
+  \item Inicializar pantalla DRM, renderizar splash de arranque personalizado
+  \item Inicializar audio ALSA, reproducir tono de arranque (E5$\rightarrow$B5)
+  \item Inicializar dispositivos de entrada (teclado, trackpad, pantalla táctil)
+  \item Auto-conectar WiFi (silencioso, sin interacción del usuario)
+  \item Cargar pieza por defecto, llamar \texttt{boot()}, entrar en bucle principal
+\end{enumerate}
+
+Tiempo total de arranque desde encendido hasta pieza interactiva: \textbf{7,3 segundos}.
+
+\subsection{El entorno de ejecución}
+
+El entorno de ejecución en C (\texttt{ac-native}, 11.943 líneas en 14 archivos fuente) reemplaza todo el espacio de usuario tradicional del SO. No hay \texttt{systemd}, no hay shell, no hay gestor de paquetes, no hay prompt de login. El entorno de ejecución gestiona directamente:
+
+\begin{itemize}
+  \item \textbf{Pantalla}: Modesetting DRM/KMS, framebuffer de software con doble búfer
+  \item \textbf{Audio}: ALSA PCM a 192\,kHz, sintetizador polifónico de 32 voces con reverberación
+  \item \textbf{Entrada}: Sondeo evdev para teclado, trackpad, pantalla táctil, teclas analógicas
+  \item \textbf{WiFi}: Integración wpa\_supplicant, auto-conexión, DHCP
+  \item \textbf{Cámara}: Captura V4L2, conversión YUYV, escaneo de códigos QR
+  \item \textbf{Voz}: Texto a voz vía flite (voces masculina y femenina)
+  \item \textbf{Red}: Cliente WebSocket con TLS, UDP, HTTP vía curl
+\end{itemize}
+
+\subsection{Ejecución de piezas}
+
+Las piezas son módulos ES de JavaScript (\texttt{.mjs}) ejecutados por QuickJS~\citep{bellard2005quickjs}. El entorno de ejecución expone funciones C a JavaScript como la API ``system''---primitivas gráficas, síntesis de audio, eventos de entrada, información de hardware y control del sistema. El ciclo de vida de las piezas refleja la plataforma \ac{} basada en navegador~\citep{scudder2026ac}: \texttt{boot()}, \texttt{act()}, \texttt{sim()}, \texttt{paint()}, ejecutándose a 60\,fps.
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ system, screen }) {
+  system.tts(|\textcolor{jsstr}{"welcome"}|)
+}
+
+function paint({ wipe, ink, write, screen }) {
+  wipe(|\textcolor{jsnum}{20}|, |\textcolor{jsnum}{10}|, |\textcolor{jsnum}{40}|)
+  ink(|\textcolor{jsnum}{255}|)
+  write(|\textcolor{jsstr}{"hello"}|, { center: |\textcolor{jsstr}{"xy"}| })
+}
+
+export { boot, paint };
+\end{lstlisting}
+
+Las piezas pueden intercambiarse en caliente sin reiniciar vía \texttt{system.jump("piece-name")}. El SO incluye 11 piezas incluyendo un instrumento de teclado cromático, un navegador de línea de comandos, un panel de gestión del sistema, un cliente de chat de Claude AI y un emulador de terminal.
+
+\subsection{Presupuesto de tamaño}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Componente} & \textbf{Tamaño} \\
+\midrule
+Kernel Linux (compilado) & $\sim$10\,MB \\
+Binario ac-native & 1,2\,MB \\
+Motor QuickJS & 0,8\,MB \\
+Bibliotecas compartidas (libc, libdrm, ALSA, SSL, flite) & $\sim$45\,MB \\
+Firmware WiFi (iwlwifi) & 4,9\,MB \\
+Piezas, fuentes, certificados & $\sim$28\,MB \\
+\midrule
+Initramfs (sin comprimir) & $\sim$201\,MB \\
+Initramfs (comprimido LZ4) & $\sim$90\,MB \\
+\textbf{Imagen final (vmlinuz)} & \textbf{$\sim$89\,MB} \\
+\bottomrule
+\end{tabular}
+\caption{Desglose del tamaño del sistema.}
+\label{tab:size}
+\end{table}
+
+Todo el sistema operativo es más pequeño que una descarga típica de navegador. Cabe en cualquier unidad USB fabricada en los últimos 15 años.
+
+\section{Personalización a nivel de dispositivo}
+\label{sec:personalization}
+
+Los sistemas operativos de consumo ubican la identidad en cuentas de capa de aplicación: un Apple ID, una cuenta de Google, un login de Microsoft. El dispositivo en sí es genérico hasta que un usuario inicia sesión. \acos{} invierte esto: la identidad es una propiedad de la partición de arranque.
+
+\subsection{config.json}
+
+Un archivo JSON en la partición de sistema EFI almacena la identidad del propietario:
+
+\begin{lstlisting}[style=acjsstyle]
+{
+  |\textcolor{jsstr}{"handle"}|: |\textcolor{jsstr}{"jeffrey"}|,
+  |\textcolor{jsstr}{"colors"}|: [|\textcolor{jsnum}{180}|, |\textcolor{jsnum}{72}|, |\textcolor{jsnum}{135}|],
+  |\textcolor{jsstr}{"tokens"}|: { |\textcolor{jsstr}{"claude"}|: |\textcolor{jsstr}{"..."}| }
+}
+\end{lstlisting}
+
+Este archivo persiste entre actualizaciones del SO porque el proceso OTA reemplaza el binario del kernel pero preserva el resto de la partición EFI. El dispositivo recuerda a quién pertenece incluso mientras su software evoluciona.
+
+\subsection{El arranque como saludo}
+
+Cuando la máquina se enciende, la secuencia de arranque renderiza el identificador del propietario en texto arcoíris animado en la pantalla de bienvenida: ``hi @jeffrey.'' El motor de texto a voz pronuncia el saludo en voz alta: ``hi jeffrey.'' Al apagar: ``bye jeffrey.'' La computadora \emph{te conoce} al nivel más profundo de la pila de software---no porque hayas iniciado sesión en un servicio, sino porque tu nombre está escrito en la partición de arranque.
+
+Este es un modelo fundamentalmente diferente tanto de Apple (identidad a través de compra y cuenta) como de OLPC (identidad a través de distribución institucional). Aquí, la identidad se inscribe directamente en el dispositivo por el acto de grabarlo. La persona que prepara la unidad USB---un profesor, un padre, un amigo o el propio usuario---escribe el nombre del propietario en los primeros momentos de consciencia de la máquina.
+
+\subsection{Identidad de compilación}
+
+Cada compilación del SO recibe un nombre único derivado de su hash de commit git: un adjetivo emparejado con un animal (p.~ej., ``keen-egret,'' ``swift-otter,'' ``bright-phoenix''). Este nombre se muestra en texto dorado durante el arranque, se pronuncia vía TTS y se expone a las piezas a través de \texttt{system.hw.buildName}. La máquina tiene \emph{dos} identidades: a quién pertenece y qué versión de sí misma está ejecutando. Ambas se anuncian al arrancar.
+
+El sistema de nomenclatura produce 73.000 combinaciones únicas (365 animales $\times$ 200 adjetivos) y es determinista: el mismo commit siempre produce el mismo nombre. Los usuarios desarrollan afecto por los nombres de sus compilaciones. La máquina no es un número de serie; es ``keen-egret.''
+
+\section{La tesis del hardware excedente}
+\label{sec:surplus}
+
+\subsection{La lección de OLPC}
+
+OLPC demostró que los enfoques de hardware-primero para el acceso a la computación enfrentan desafíos acumulativos~\citep{kraemer2009olpc}: los costos de desarrollo de hardware personalizado exceden las proyecciones, la fabricación a escala requiere asociaciones institucionales que restringen el diseño, y la infraestructura de mantenimiento/reparación debe construirse desde cero. El objetivo de \$100 del portátil XO se convirtió en \$188 en producción. Sugar OS, a pesar de su diseño innovador, no pudo sostener un ecosistema de desarrolladores alrededor de hardware a medida.
+
+El Raspberry Pi~\citep{raspberry2012} abordó parcialmente el costo (\$35) pero introdujo fricción diferente: los usuarios deben suministrar un monitor, teclado, ratón, tarjeta SD y fuente de alimentación---accesorios que a menudo cuestan más que la placa. El costo total de una estación de trabajo Pi funcional se aproxima a \$150--200.
+
+\subsection{El excedente como material}
+
+El mercado de excedentes de portátiles x86\_64 ofrece una ecuación completamente diferente. Un ThinkPad X1 Carbon retirado (cosecha 2019--2021) se vende por \$50--80 con:
+
+\begin{itemize}
+  \item Pantalla de 14'' 1080p o 2K
+  \item Procesador Intel de 4--8 núcleos
+  \item 8--16\,GB de RAM
+  \item WiFi 6, Bluetooth
+  \item Teclado completo y trackpad
+  \item Batería de 6--10 horas
+  \item Carga USB-C (universal)
+\end{itemize}
+
+Estas son computadoras completas y autónomas que no necesitan más que una unidad USB para convertirse en instrumentos creativos. El excedente existe por los ciclos de renovación corporativa, no porque el hardware haya fallado. Un ThinkPad de 2020 ejecutando \acos{} arranca más rápido, funciona más suavemente y presenta una experiencia más enfocada que la misma máquina ejecutando Windows 11.
+
+\subsection{La economía}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Enfoque} & \textbf{Costo dispositivo} & \textbf{Accesorios} \\
+\midrule
+OLPC XO-1 & \$188 & \$0 \\
+Raspberry Pi 5 & \$35 & \$100--150 \\
+Chromebook (nuevo) & \$200--300 & \$0 \\
+iPad (precio edu) & \$299 & \$0--130 \\
+ThinkPad excedente + AC OS & \$50--80 & \$0 \\
+\bottomrule
+\end{tabular}
+\caption{Costo comparativo de enfoques de acceso a computación.}
+\label{tab:cost}
+\end{table}
+
+El enfoque de excedentes no requiere fabricación, ni cadena de suministro, ni cantidades mínimas de pedido. Una escuela, un centro comunitario o un individuo pueden adquirir máquinas de una en una de recicladores locales, mercados en línea o departamentos de TI corporativos. Cada máquina se graba con un USB de \acos{} personalizado en menos de un minuto.
+
+\subsection{Contra el modelo Apple}
+
+El enfoque de Apple para la computación personal vincula la identidad del dispositivo a una relación comercial. Tu nombre aparece en el dispositivo porque lo compraste a través de un Apple ID. Tus preferencias persisten porque se sincronizan a través de iCloud. Tus herramientas creativas están disponibles porque te suscribes a servicios. El dispositivo es personal porque es \emph{comprado}.
+
+\acos{} propone que la identidad del dispositivo puede ser inscrita en lugar de comprada. Un portátil excedente de \$50 con ``hi @maria'' en su pantalla de arranque, sus colores favoritos en la bienvenida y su nombre pronunciado en voz alta es \emph{más personal} que un MacBook de \$1.000 que no saluda a nadie. La personalización es más profunda---vive debajo de la capa de aplicación, debajo del escritorio, en los primeros momentos de la secuencia de arranque---y no cuesta nada más allá del acto de escribir un archivo de configuración.
+
+Esto no es un argumento contra el hardware de calidad. Es un argumento de que la relación entre una persona y su computadora no necesita estar mediada por una compra, una cuenta o una suscripción. El instrumento sabe quién eres porque alguien---quizás tú---\emph{se lo dijo}.
+
+\section{Actualizaciones por aire}
+\label{sec:ota}
+
+Un desafío crítico para cualquier proyecto de computación distribuida es el mantenimiento. Los despliegues de OLPC lucharon con las actualizaciones de software en regiones con conectividad limitada~\citep{warschauer2004technology}. Los Chromebooks resuelven esto con conectividad a la nube obligatoria. \acos{} toma un camino intermedio: las actualizaciones son automáticas cuando hay WiFi disponible, pero el dispositivo es completamente funcional sin conexión.
+
+\subsection{Mecanismo de actualización}
+
+\begin{enumerate}
+  \item Al conectarse a WiFi, el SO verifica \texttt{/api/native/version}
+  \item Si existe una compilación más nueva, descarga la nueva imagen del kernel ($\sim$89\,MB) con seguimiento de progreso
+  \item La nueva imagen se escribe en la partición EFI, reemplazando \texttt{BOOTX64.EFI}
+  \item Una verificación SHA256 byte a byte confirma la escritura
+  \item El dispositivo reinicia en la nueva versión
+\end{enumerate}
+
+El archivo \texttt{config.json} se preserva entre actualizaciones---el dispositivo retiene la identidad, colores y tokens de su propietario. El proceso de actualización está reforzado contra pérdida de energía: la imagen fuente se valida antes de copiar, el sistema de archivos se sincroniza doblemente, y la verificación ocurre contra una partición montada de nuevo para prevenir artefactos de caché.
+
+\subsection{Sin infraestructura de TI}
+
+A diferencia de los despliegues de Chromebook que requieren Google Admin Console, perfiles MDM y cuentas institucionales de Google Workspace, \acos{} no requiere infraestructura de gestión. Cada dispositivo es autónomo. Las actualizaciones se propagan cuando el dispositivo se conecta a cualquier red WiFi. No hay inscripción, no hay gestión de flota, no hay licenciamiento por dispositivo. El costo operativo es cero.
+
+\section{Trabajo relacionado}
+\label{sec:related}
+
+\textbf{Proyectos de SO educativo.} Sugar OS (OLPC) fue pionero en el sistema operativo educativo de propósito único pero fue restringido por su dependencia del hardware. Endless OS se orienta a hardware de baja especificación con contenido offline-primero pero retiene una metáfora de escritorio tradicional. PrimTux y Edubuntu personalizan distribuciones Linux para educación pero no reimaginan la capa de SO en sí.
+
+\textbf{Sistemas de propósito único y quiosco.} Los SOs de señalización digital (Screenly, Yodeck) demuestran que los despliegues Linux de propósito único pueden mantenerse a escala vía actualizaciones OTA. \acos{} aplica este modelo operativo a la computación creativa en lugar de la exhibición de contenido.
+
+\textbf{Acceso a la computación creativa.} Processing~\citep{reas2007processing} y Scratch~\citep{resnick2009scratch} redujeron la barrera de acceso a la programación creativa pero asumen un SO de propósito general debajo. Sonic Pi~\citep{aaron2016sonic} funciona en Raspberry Pi pero requiere Raspbian. \acos{} elimina la dependencia del SO por completo---la herramienta creativa \emph{es} el SO.
+
+\textbf{Herramientas conviviales.} El concepto de ``herramientas para la convivialidad'' de Illich~\citep{illich1973tools}---herramientas que expanden la autonomía personal en lugar de requerir expertise especializado---resuena con el diseño de \acos{}. El dispositivo no requiere administración de sistemas, ni soporte de TI, ni conocimiento técnico más allá de conectar una unidad USB. El construccionismo de Papert~\citep{papert1980mindstorms} informa la elección de un instrumento creativo (no un dispositivo de consumo de contenido) como la experiencia por defecto.
+
+\textbf{Teoría de medios.} El argumento de Kittler de que el software oscurece la realidad material de la computación~\citep{kittler1995no} es invertido por \acos{}: sin entorno de escritorio, sin gestor de ventanas y sin capas de abstracción, la relación entre código y hardware se hace visible. La bienvenida de arranque se renderiza directamente al framebuffer DRM. La síntesis de audio escribe directamente a búferes PCM de ALSA. La observación de McLuhan de que el medio moldea el mensaje~\citep{mcluhan1964understanding} se aplica literalmente: el sistema operativo \emph{es} el instrumento, y sus restricciones (una pieza a la vez, gráficos en modo inmediato, síntesis de audio directa) moldean la producción creativa.
+
+\section{Implicaciones y trabajo futuro}
+\label{sec:implications}
+
+\subsection{Un modelo de distribución}
+
+La tesis del hardware excedente sugiere un modelo de distribución: las organizaciones adquieren portátiles retirados a granel (\$30--80 cada uno), graban USBs personalizados de \acos{} y los distribuyen. Los dispositivos arrancan en instrumentos creativos que se actualizan solos. El costo por dispositivo es una fracción de cualquier enfoque existente, y el impacto ambiental es negativo---las máquinas se desvían de los flujos de residuos electrónicos.
+
+Un aula de 30 instrumentos de computación creativa podría aprovisionarse por \$1.500--2.400 en hardware, más el trabajo de grabar unidades USB. Sin suscripción continua, sin contrato de soporte de TI, sin cuentas gestionadas.
+
+\subsection{El dispositivo como instrumento}
+
+La elección de arrancar en un instrumento musical (notepat, un teclado cromático) en lugar de un escritorio o un navegador es deliberada. El dispositivo no es una ``computadora'' en el sentido de consumo---es un instrumento que resulta ser programable. Este encuadre, tomado de la filosofía de diseño de \ac{} de ``instrumento, no IDE,'' cambia la relación del usuario con la máquina. No ``usas'' el dispositivo; lo \emph{tocas}.
+
+\subsection{El mantenimiento como cuidado}
+
+El ``Manifiesto por el arte del mantenimiento'' de Ukeles~\citep{ukeles1969manifesto} reenmarca el mantenimiento como un acto creativo. El sistema OTA de \acos{} encarna esto: cada actualización tiene un nombre (``keen-egret'' se convierte en ``swift-otter''), el dispositivo anuncia su nueva identidad, y la transición es un pequeño evento en lugar de un proceso invisible en segundo plano. El mantenimiento se hace visible, incluso celebrado.
+
+\subsection{Limitaciones}
+
+El sistema actualmente se orienta a máquinas UEFI x86\_64, excluyendo Chromebooks ARM y hardware más antiguo solo-BIOS. El soporte WiFi depende del firmware Intel iwlwifi; los adaptadores Broadcom y Realtek aún no están soportados. El modelo de una pieza a la vez limita la multitarea. El rasterizador por software, aunque suficiente para gráficos 2D a 60\,fps, no puede acelerar el renderizado 3D. Estas restricciones son elecciones arquitectónicas, no limitaciones permanentes.
+
+\subsection{Direcciones futuras}
+
+\begin{itemize}
+  \item \textbf{Soporte ARM}: Orientarse a Chromebooks (Mediatek/Qualcomm) accedería al mayor grupo de hardware educativo excedente
+  \item \textbf{Red en malla}: Compartición de piezas peer-to-peer y multijugador sin infraestructura de internet
+  \item \textbf{GPU de hardware}: Nodos de renderizado DRM para gráficos acelerados preservando el modelo de metal desnudo
+  \item \textbf{Multi-pieza}: Navegación de piezas en pantalla dividida o con pestañas para multitarea ligera
+  \item \textbf{Grabación comunitaria}: Eventos donde los participantes graban y personalizan máquinas excedentes juntos
+\end{itemize}
+
+\section{Conclusión}
+
+\acos{} demuestra que una experiencia completa de computación creativa puede entregarse en 89\,MB, arrancar en 7,3 segundos y ejecutarse en hardware que cuesta menos que un libro de texto. Al orientarse a portátiles de mercancía excedente en lugar de hardware a medida, el sistema esquiva los desafíos de fabricación, distribución y mantenimiento que restringieron a OLPC. Al ubicar la identidad en la partición de arranque en lugar de una cuenta comercial, ofrece un modelo de personalización que es más profundo que el de Apple y no cuesta nada.
+
+El sistema no es un prototipo o una prueba de concepto. Está desplegado en hardware físico, recibe actualizaciones OTA y ejecuta un entorno de ejecución de computación creativa completamente funcional con síntesis de audio, redes WiFi, entrada de cámara y texto a voz. Sus 11.943 líneas de C reemplazan todo el espacio de usuario tradicional.
+
+La pregunta que \acos{} plantea no es técnica sino económica y cultural: dado que millones de computadoras funcionales se descartan cada año, y que un sistema operativo creativo completo cabe en 89\,MB, ¿qué impide que cada persona tenga un instrumento creativo personal? La respuesta no es el costo del hardware, ni la complejidad del software, ni los requisitos de infraestructura. Puede ser simplemente que nadie lo ha intentado.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

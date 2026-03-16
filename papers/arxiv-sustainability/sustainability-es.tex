@@ -1,0 +1,157 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={¿Quién paga por las herramientas creativas?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} ¿Quién paga por las herramientas creativas?}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Financiación, agotamiento y supervivencia en la computación creativa de código abierto}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Un estudio comparativo de 28 autores de herramientas, de Perl a TempleOS a Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Las herramientas de computación creativa---Processing, p5.js, Sonic Pi, Pure Data, Hydra, TidalCycles, openFrameworks, Scratch y similares---son usadas por millones. Sus creadores típicamente no reciben pago de nadie, o reciben pago de instituciones cuyo apoyo está condicionado a factores no relacionados con la herramienta. Este artículo examina los historiales de financiación de 28 autores de herramientas creativas de código abierto, identificando seis modelos de sostenibilidad: \emph{subsidio académico}, \emph{patrocinio corporativo}, \emph{sacrificio personal}, \emph{crowdfunding comunitario}, \emph{ganancias inesperadas} y \emph{ningún modelo en absoluto}. Encontramos que la mediana de la brecha entre la creación de una herramienta y su primera financiación sostenible es de 8 años, que el agotamiento afecta a los creadores independientemente del nivel de financiación, y que las herramientas más ampliamente usadas no son las herramientas mejor financiadas. Cruzamos estos hallazgos con la propia experiencia del autor construyendo \ac{}---una plataforma con más de 2.800 usuarios registrados, más de 93.000 sesiones y más de 16.000 programas escritos por su comunidad---a lo largo de cinco años sin la cobertura institucional que protegió a cada herramienta comparable en el campo. Sostenemos que la dependencia del campo de la computación creativa del subsidio invisible---de universidades, de cónyuges, de cuentas de ahorro, de la salud---no es un modelo de financiación sino la ausencia de uno.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introducción}
+
+Lauren McCarthy creó p5.js en 2013 y pasó la siguiente década manteniéndolo de 10 a 20 horas semanales no compensadas además de su puesto en UCLA~\citep{mccarthy2023making}. Rich Hickey gastó 2,5 años de sus ahorros de jubilación construyendo Clojure~\citep{hickey2020history}. Samuel Aaron fue despedido de Cambridge en 2019 y tuvo que ``enfocarse 100\% en la supervivencia financiera''~\citep{aaron2016sonic}. \_why the lucky stiff eliminó toda su existencia digital después de ser doxeado, sin haber recibido jamás un centavo por su trabajo.
+
+Terry A. Davis pasó 14,7 años construyendo TempleOS---un sistema operativo completo de 64 bits con un lenguaje de programación personalizado, compilador, kernel, editor y juegos---121.176 líneas de código, completamente solo, financiado por pagos de discapacidad del Seguro Social mientras vivía con sus padres. Cuando esa vivienda colapsó en 2017, vivió en una van. El 11 de agosto de 2018, fue arrollado y muerto por un tren en The Dalles, Oregón. Tenía 48 años. El sistema que construyó se compara con el Xerox Alto y Plan 9. Su creador murió sin hogar.
+
+Estos no son casos extremos. Son la condición normal del desarrollo de herramientas creativas de código abierto.
+
+\section{Los cinco modelos}
+
+\subsection{Subsidio académico}
+
+El modelo de financiación más común: un salario universitario que paga por enseñanza e investigación, con desarrollo de herramientas realizado como trabajo no pagado clasificado como ``servicio.'' McCarthy, Puckette (UCSD/Pure Data), Reas (UCLA/Processing), Wang (Stanford/ChucK)---todos subsidian el trabajo de herramientas con salarios académicos. La fragilidad: cuando la posición académica termina, la herramienta muere de hambre.
+
+\subsection{Patrocinio corporativo}
+
+Van Rossum (Google/Dropbox/Microsoft), Matz (NaCl/Heroku), Wall (O'Reilly)---empresas cuyos negocios se benefician de la existencia de la herramienta. Pero incluso con respaldo corporativo continuo, la toxicidad comunitaria en PEP 572 llevó a Van Rossum a renunciar como BDFL en 2018.
+
+\subsection{Sacrificio personal}
+
+Hickey gastó 2,5 años de ahorros de jubilación. Processing pasó \textbf{11 años} (2001--2012) sin financiación dedicada. Bret Victor experimentó dos colapsos de financiación en rápida sucesión.
+
+\subsection{Crowdfunding comunitario}
+
+Patreon, Open Collective, Ko-fi. Los montos son típicamente modestos. El crowdfunding funciona como suplemento a otra fuente de ingresos. No sostiene, en ningún caso encuestado, a un creador como ingreso principal.
+
+\subsection{Ganancia inesperada}
+
+En 2021, la Processing Foundation recibió aproximadamente \textbf{\$10 millones} en donaciones NFT/crypto. Esto fue más dinero del que la Fundación había recibido en sus primeros 9 años de existencia combinados. El evento fue irrepetible.
+
+\subsection{Ningún modelo}
+
+Terry Davis construyó TempleOS con pagos de discapacidad del Seguro Social ($\sim$\$750--1.200/mes). Goodiepal fue expulsado de la Real Academia por ``tener el tipo equivocado de amigos''~\citep{goodiepal2012elcamino}. Sin ni siquiera un salario universitario, el cuerpo del creador se convierte en la infraestructura. Cuando el cuerpo falla, el proyecto se convierte en orphanware de dominio público o desaparece.
+
+\section{La brecha}
+
+La mediana de tiempo entre la creación de una herramienta y su primera fuente de financiación sostenible es de \textbf{8 años}. Processing: 11. p5.js: 10. TidalCycles: 12+. TempleOS: --- (creador murió 2018). Aesthetic Computer: 5+ (en curso).
+
+\section{La posición del autor}
+
+\ac{} ha estado en desarrollo desde 2021~\citep{scudder2026ac}. \textbf{2019--2021}: Profesor Asistente, Southern Oregon University. Salario: $\sim$\$45.000/año. Renunció en 2021. \textbf{2021--2022}: Ingresos NFT de Radical Digital Painting generaron aproximadamente \$250.000---la única ventana de ingresos significativos desde dejar la academia. \textbf{2023--2026}: Sin salario. Agotamiento de ahorros. Para marzo de 2026, facturas de infraestructura por \$912 estaban vencidas; DigitalOcean suspendió el backend de la plataforma.
+
+Cada otra herramienta en este artículo fue construida bajo una cobertura institucional. \ac{} no tiene ninguna.
+
+\section{Qué funcionaría}
+
+\begin{itemize}
+  \item \textbf{Fondos de tecnología soberana}: El Sovereign Tech Fund de Alemania dio a p5.js 450.000 EUR. Este modelo podría extenderse a herramientas creativas.
+  \item \textbf{Cooperativas de trabajadores}: La EMMA Technology Cooperative de Ramsey Nasser ofrece una alternativa.
+  \item \textbf{Becas corporativas a largo plazo}: La beca de 28 años de Matz con NaCl es el arreglo más duradero.
+  \item \textbf{Estipendios de mantenimiento}: Ukeles argumentó que el mantenimiento es un acto creativo~\citep{ukeles1969manifesto}.
+  \item \textbf{Contabilidad honesta}: Cada artículo sobre una herramienta creativa debería incluir una sección sobre cómo se financió su desarrollo.
+\end{itemize}
+
+\section{Conclusión}
+
+Las herramientas de computación creativa usadas por millones de estudiantes, artistas y músicos son construidas y mantenidas por personas que, en la mayoría de los casos, no reciben pago por hacerlo. Su trabajo es subsidiado por universidades que no lo valoran, por corporaciones cuyos intereses pueden divergir, por ahorros personales que se agotan, y por salud que se deteriora. El campo no tiene un modelo de financiación; tiene una colección de estrategias de supervivencia.
+
+El patrón es consistente: cada herramienta de computación creativa ampliamente usada fue construida bajo una cobertura institucional que la documentación de la herramienta rara vez reconoce. Cuando la cobertura se retira, el creador queda expuesto. Cuando no hay cobertura para empezar, el cuerpo del creador se convierte en la infraestructura, y los cuerpos fallan.
+
+El autor de este artículo está en el año cinco con 2.800 usuarios y sin apoyo institucional. Esto no es una queja; es un dato. El siguiente dato será determinado por si el campo desarrolla un modelo de financiación o continúa dependiendo de los cuerpos de sus creadores.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
