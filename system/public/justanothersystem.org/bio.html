@@ -13,12 +13,12 @@
   <meta property="og:description" content="Jeffrey Alan Scudder is a painter based in Los Angeles working across canvas, custom software, and live performance. Creator of Aesthetic Computer, Whistlegraph, and No Paint." />
   <meta property="og:url" content="https://justanothersystem.org/bio" />
   <meta property="og:type" content="profile" />
-  <meta property="og:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--01.jpg" />
+  <meta property="og:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Bio — Jeffrey Alan Scudder" />
   <meta name="twitter:description" content="Jeffrey Alan Scudder is a painter based in Los Angeles working across canvas, custom software, and live performance. Creator of Aesthetic Computer, Whistlegraph, and No Paint." />
   <meta name="twitter:site" content="@whistlegraph" />
-  <meta name="twitter:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--01.jpg" />
+  <meta name="twitter:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" />
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -105,7 +105,7 @@
     .hero-slideshow {
       position: relative;
       width: 280px;
-      height: 280px;
+      aspect-ratio: 4815 / 5902;
       overflow: hidden;
       margin-bottom: 1.5rem;
       border-radius: 4px;
@@ -117,7 +117,6 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      object-position: 50% 35%;
       opacity: 0;
       transition: opacity 1.2s ease-in-out;
     }
@@ -509,14 +508,9 @@
     <!-- HERO -->
     <div class="hero">
       <div class="hero-slideshow" id="heroSlideshow">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--05.jpg" alt="Jeffrey Alan Scudder" class="active">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--12.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--20.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--28.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--35.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--42.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--48.jpg" alt="Jeffrey Alan Scudder">
-        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--55.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" alt="Jeffrey Alan Scudder" class="active">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
+        <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
       </div>
       <h1>Jeffrey Alan Scudder</h1>
       <div class="tagline">Painter &middot; b. 1989, Assonet, MA</div>
@@ -555,31 +549,12 @@
 
   <script>
     (function () {
-      // Reuse give.aesthetic.computer headshot focal data so faces stay centered.
-      const headshotsData = {
-        'jeffery-av--05.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--12.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--20.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--28.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--35.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--42.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--48.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-        'jeffery-av--55.jpg': { focal: [50, 35], pois: [{ t: 'f', box: [30, 15, 40, 40] }], aspect: 0.667, src: 'headshots' },
-      };
-      const defaultFocal = [50, 35];
       const kbAnims = ['kb-zoom-center', 'kb-zoom-in', 'kb-zoom-out'];
       const duration = 6000; // ms per slide
       const fadeDuration = 1500; // ms (matches CSS transition)
       const slideshow = document.getElementById('heroSlideshow');
       const slides = Array.from(slideshow.querySelectorAll('img'));
       let current = 0;
-
-      slides.forEach((img) => {
-        const filename = img.src.split('/').pop() || '';
-        const data = headshotsData[filename];
-        const focal = Array.isArray(data?.focal) ? data.focal : defaultFocal;
-        img.style.objectPosition = `${focal[0]}% ${focal[1]}%`;
-      });
 
       function applyKenBurns(img, animName) {
         img.style.animation = 'none';
