@@ -4283,6 +4283,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                               JS_NewInt32(ctx, current_rt->pty.rows));
             JS_SetPropertyStr(ctx, pty_obj, "dirty",
                               JS_NewBool(ctx, current_rt->pty.grid_dirty));
+            JS_SetPropertyStr(ctx, pty_obj, "cursorVisible",
+                              JS_NewBool(ctx, current_rt->pty.cursor_visible));
 
             // Expose grid as flat array: [ch, fg, bg, bold, ...] per cell, row by row
             // Only send if dirty (perf optimization)
@@ -4356,6 +4358,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                               JS_NewInt32(ctx, current_rt->pty2.rows));
             JS_SetPropertyStr(ctx, pty2_obj, "dirty",
                               JS_NewBool(ctx, current_rt->pty2.grid_dirty));
+            JS_SetPropertyStr(ctx, pty2_obj, "cursorVisible",
+                              JS_NewBool(ctx, current_rt->pty2.cursor_visible));
 
             if (current_rt->pty2.grid_dirty) {
                 ACPty *p = &current_rt->pty2;

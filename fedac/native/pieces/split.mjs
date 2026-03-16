@@ -140,8 +140,8 @@ function renderPane(pty, grid, xOff, paneCols, paneRows, isActive, ink, box, wri
     }
   }
 
-  // Blinking cursor
-  if (isActive && Math.floor(cursorBlink / 30) % 2 === 0) {
+  // Blinking cursor — only when PTY reports cursor visible (?25h)
+  if (isActive && pty.cursorVisible !== false && Math.floor(cursorBlink / 30) % 2 === 0) {
     const cx = xOff + (pty.cursorX || 0) * cellW;
     const cy = (pty.cursorY || 0) * cellH;
     ink(T.fg, T.fg, T.fg, 180);
