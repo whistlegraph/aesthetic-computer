@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>papers · Aesthetic Computer</title>
     <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
+    <meta property="og:title" content="papers — Aesthetic.Computer" />
+    <meta property="og:description" content="17 papers by Jeffrey Alan Scudder on creative computing, KidLisp, and Aesthetic Computer." />
+    <meta property="og:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://papers.aesthetic.computer" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
@@ -118,6 +127,23 @@
         }
         .lang-option:hover { background: rgba(205,92,155,0.1); }
         .lang-option.active { color: var(--pink); }
+
+        .lang-badge {
+            display: inline-block;
+            font-size: 0.5em;
+            padding: 1px 5px;
+            border-radius: 3px;
+            background: var(--pink);
+            color: var(--bg);
+            font-weight: 600;
+            vertical-align: middle;
+            margin-left: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .lang-badge.visible { opacity: 1; }
 
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
         .sub a { color: var(--cyan); text-decoration: none; }
@@ -342,6 +368,15 @@
             const suffix = lang === 'en' ? '' : '-' + lang;
             document.querySelectorAll('.p .title a[data-base]').forEach(a => {
                 a.href = a.dataset.base + suffix + '.pdf';
+                // Add/update language badge
+                let badge = a.querySelector('.lang-badge');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'lang-badge';
+                    a.appendChild(badge);
+                }
+                badge.textContent = lang === 'en' ? '' : info.name;
+                badge.classList.toggle('visible', lang !== 'en');
             });
         }
 
