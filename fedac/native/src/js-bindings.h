@@ -91,6 +91,7 @@ typedef struct {
     int pen_locked;                      // 1 = pointer lock mode (FPS camera)
     int keys_held[KEY_MAX];              // Per-key held state (indexed by Linux keycode)
     int fps_system_active;               // 1 = piece uses system="fps" (3D mode)
+    char system_mode[32];                // piece's `export const system` value, e.g. "prompt", "fps", "nopaint"
 
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)
