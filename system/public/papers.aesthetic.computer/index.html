@@ -6,7 +6,7 @@
     <title>papers · Aesthetic Computer</title>
     <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
     <meta property="og:title" content="papers — Aesthetic.Computer" />
-    <meta property="og:description" content="17 papers by Jeffrey Alan Scudder on creative computing, KidLisp, and Aesthetic Computer." />
+    <meta property="og:description" content="18 papers by Jeffrey Alan Scudder on creative computing, KidLisp, and Aesthetic Computer." />
     <meta property="og:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -29,6 +29,7 @@
             --sep: rgba(255,255,255,0.06);
             --box-bg: rgba(255,255,255,0.03);
             --box-border: rgba(255,255,255,0.1);
+            --col-divider: rgba(255,255,255,0.08);
         }
 
         @media (prefers-color-scheme: light) {
@@ -38,6 +39,7 @@
                 --sep: rgba(0,0,0,0.06);
                 --box-bg: rgba(0,0,0,0.03);
                 --box-border: rgba(0,0,0,0.1);
+                --col-divider: rgba(0,0,0,0.08);
             }
         }
         :root.light-mode {
@@ -46,6 +48,7 @@
             --sep: rgba(0,0,0,0.06);
             --box-bg: rgba(0,0,0,0.03);
             --box-border: rgba(0,0,0,0.1);
+            --col-divider: rgba(0,0,0,0.08);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,7 +56,9 @@
             background: var(--bg); color: var(--text);
             font-family: 'Berkeley Mono Variable', monospace;
             font-size: 14px; line-height: 1.6;
-            padding: 1em 2.5em; max-width: 640px;
+            padding: 1em 2.5em;
+            max-width: 700px;
+            margin: 0 auto;
         }
 
         .top-bar {
@@ -98,6 +103,7 @@
             user-select: none;
             border-radius: 4px;
             transition: background 0.15s;
+            margin-left: auto;
         }
         .lang-selector:hover { background: var(--box-bg); }
         .lang-selector .lang-flag { font-size: 14px; }
@@ -106,13 +112,13 @@
 
         .lang-dropdown {
             position: absolute;
-            top: 100%; left: 0;
+            top: 100%; right: 0;
             background: var(--bg);
             border: 1px solid var(--box-border);
             border-radius: 4px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             z-index: 100;
-            min-width: 100px;
+            min-width: 110px;
             margin-top: 2px;
             display: none;
         }
@@ -124,6 +130,9 @@
             font-size: 12px;
             color: var(--text);
             transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .lang-option:hover { background: rgba(205,92,155,0.1); }
         .lang-option.active { color: var(--pink); }
@@ -145,20 +154,49 @@
         }
         .lang-badge.visible { opacity: 1; }
 
-        .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.3em; }
+        .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
-        .p { padding: 0.5em 0.6em; margin: 0 -0.6em; border-bottom: 1px solid var(--sep); border-radius: 4px; transition: background 0.15s; }
+        /* Papers grid */
+        .papers-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .p {
+            padding: 0.6em 0.7em;
+            border-bottom: 1px solid var(--sep);
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
         .p:nth-child(even) { background: var(--sep); }
         .p:hover { background: var(--box-bg); }
         .p a { text-decoration: none; }
         .p .title { font-size: 1.3em; font-weight: normal; letter-spacing: -0.01em; }
         .p .title a { color: var(--text); }
         .p .title a:hover { color: var(--cyan); }
-        .p .detail { color: var(--dim); font-size: 0.7em; margin-top: 0.15em; }
+        .p .detail { color: var(--dim); font-size: 0.75em; margin-top: 0.2em; line-height: 1.5; }
         .p .detail a { color: var(--purple); }
         .p .detail a:hover { text-decoration: underline; }
         .p .updated { color: var(--cyan); font-size: 0.6em; margin-bottom: 0.1em; opacity: 0.85; }
+
+        /* Cards format link */
+        .cards-link {
+            display: inline-block;
+            font-size: 0.55em;
+            padding: 1px 5px;
+            border-radius: 3px;
+            border: 1px solid var(--purple);
+            color: var(--purple);
+            font-weight: 500;
+            vertical-align: middle;
+            margin-left: 4px;
+            text-decoration: none;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+        }
+        .cards-link:hover { opacity: 1; }
 
         .footer {
             margin-top: 2.5em; padding-top: 1em;
@@ -177,10 +215,66 @@
         .pals { position: fixed; bottom: 1.2em; right: 1.2em; width: 48px; opacity: 0.4; }
         .pals:hover { opacity: 1; }
 
-        @media (max-width: 600px) {
+        /* === MOBILE (<600px) === */
+        @media (max-width: 599px) {
             body { padding: 0.75em 1em; }
             .logo { font-size: 1.3em; }
             .lang-selector .lang-text { display: none; }
+            .p .title { font-size: 1.15em; }
+            .p .detail { font-size: 0.7em; }
+        }
+
+        /* === DESKTOP (900px+) — newspaper 2-column === */
+        @media (min-width: 900px) {
+            body {
+                max-width: 1100px;
+                padding: 2em 3em;
+                font-size: 15px;
+            }
+            .logo { font-size: 2.2em; }
+            .sub { font-size: 0.9em; margin-bottom: 1em; }
+            .papers-grid {
+                grid-template-columns: repeat(2, 1fr);
+                column-gap: 2em;
+            }
+            /* Headline — first paper spans full width */
+            .papers-grid .p:first-child {
+                grid-column: 1 / -1;
+                border-bottom: 2px solid var(--sep);
+                padding-bottom: 0.8em;
+                margin-bottom: 0.3em;
+            }
+            .papers-grid .p:first-child .title { font-size: 2em; }
+            .papers-grid .p:first-child .detail { font-size: 0.9em; }
+            /* Column divider via left border on right-column items */
+            .papers-grid .p:nth-child(2n+1):not(:first-child) {
+                border-right: 1px solid var(--col-divider);
+                padding-right: 2em;
+            }
+            .p .title { font-size: 1.6em; }
+            .p .detail { font-size: 0.85em; }
+            .p { padding: 0.7em 0.5em; }
+            .footer { font-size: 0.8em; }
+        }
+
+        /* === XL (1400px+) — newspaper 3-column === */
+        @media (min-width: 1400px) {
+            body {
+                max-width: 1400px;
+                padding: 2.5em 4em;
+                font-size: 16px;
+            }
+            .logo { font-size: 2.6em; }
+            .sub { font-size: 1em; }
+            .papers-grid {
+                grid-template-columns: repeat(3, 1fr);
+                column-gap: 2.5em;
+            }
+            .papers-grid .p:first-child .title { font-size: 2.4em; }
+            .papers-grid .p:first-child .detail { font-size: 1em; }
+            .p .title { font-size: 1.8em; }
+            .p .detail { font-size: 0.9em; }
+            .pals { width: 64px; }
         }
     </style>
 </head>
@@ -197,6 +291,7 @@
                 <div class="lang-option active" data-lang="en" data-flag="us"><span class="fi fi-us"></span> English</div>
                 <div class="lang-option" data-lang="da" data-flag="dk"><span class="fi fi-dk"></span> Dansk</div>
                 <div class="lang-option" data-lang="es" data-flag="es"><span class="fi fi-es"></span> Espa&ntilde;ol</div>
+                <div class="lang-option" data-lang="zh" data-flag="cn"><span class="fi fi-cn"></span> 中文</div>
             </div>
         </div>
     </div>
@@ -204,109 +299,117 @@
     <div class="sub">Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
 
     <!-- papers-start -->
+    <div class="papers-grid">
 
-    <div class="p">
+    <div class="p" data-paper-id="who-pays">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
         <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="whistlegraph">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
         <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="archaeology">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
         <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="pieces">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
         <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="network-audit">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
         <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="kidlisp-ref">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
         <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="kidlisp">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
         <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="dead-ends">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Dead Ends</a></div>
         <div class="detail">Failed Experiments and Abandoned Approaches &middot; arXiv 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="diversity">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
         <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="os">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
         <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="ac">
         <div class="updated" data-time="2026-03-16T22:07:00Z"></div>
         <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
         <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="goodiepal">
         <div class="updated" data-time="2026-03-16T21:45:00Z"></div>
         <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
         <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="api">
         <div class="updated" data-time="2026-03-15T09:56:00Z"></div>
         <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
         <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="els">
         <div class="updated" data-time="2026-03-15T07:40:00Z"></div>
         <div class="title"><a href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026)</a></div>
         <div class="detail">A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="notepat">
         <div class="updated" data-time="2026-03-14T18:04:00Z"></div>
         <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
         <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="folk-songs">
+        <div class="updated" data-time="2026-03-16T12:00:00Z"></div>
+        <div class="title"><a href="/folk-songs-26-arxiv.pdf" data-base="/folk-songs-26-arxiv">Playable Folk Songs</a></div>
+        <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; cards 21pp</div>
+    </div>
+
+    <div class="p" data-paper-id="joss-kidlisp">
         <div class="updated" data-time="2026-03-11T00:57:00Z"></div>
         <div class="title"><a href="/kidlisp-26-joss.pdf">KidLisp '26</a></div>
         <div class="detail">JOSS Summary &middot; 3pp</div>
     </div>
 
-    <div class="p">
+    <div class="p" data-paper-id="joss-ac">
         <div class="updated" data-time="2026-03-11T00:57:00Z"></div>
         <div class="title"><a href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26</a></div>
         <div class="detail">JOSS Summary &middot; 2pp</div>
     </div>
 
+    </div>
     <!-- papers-end -->
 
     <div class="footer">
@@ -333,8 +436,115 @@
             el.textContent = relativeTime(el.dataset.time);
         });
 
+        // === Translations for paper titles and details ===
+        const translations = {
+            'who-pays': {
+                da: { title: 'Hvem betaler for kreative v\u00e6rkt\u00f8jer?', detail: 'Finansiering, udtr\u00e6ndthed og overlevelse i open source kreativ computing \u00b7 arXiv 5pp' },
+                es: { title: '\u00bfQui\u00e9n paga por las herramientas creativas?', detail: 'Financiaci\u00f3n, agotamiento y supervivencia en computaci\u00f3n creativa de c\u00f3digo abierto \u00b7 arXiv 5pp' },
+                zh: { title: '\u8c01\u4e3a\u521b\u610f\u5de5\u5177\u4ed8\u8d39\uff1f', detail: '\u5f00\u6e90\u521b\u610f\u8ba1\u7b97\u4e2d\u7684\u8d44\u91d1\u3001\u5026\u6020\u4e0e\u751f\u5b58 \u00b7 arXiv 5pp' }
+            },
+            'whistlegraph': {
+                da: { title: 'Whistlegraph', detail: 'Tegning, sang og det grafiske partitur som viral form \u00b7 arXiv 4pp' },
+                es: { title: 'Whistlegraph', detail: 'Dibujo, canto y la partitura gr\u00e1fica como forma viral \u00b7 arXiv 4pp' },
+                zh: { title: 'Whistlegraph', detail: '\u7ed8\u753b\u3001\u6b4c\u5531\u4e0e\u56fe\u5f62\u4e50\u8c31\u4f5c\u4e3a\u75c5\u6bd2\u5f0f\u4f20\u64ad\u5f62\u5f0f \u00b7 arXiv 4pp' }
+            },
+            'archaeology': {
+                da: { title: 'Repository-ark\u00e6ologi', detail: 'Sp\u00f8ring af ACs udvikling gennem dens Git-historie \u00b7 arXiv 3pp' },
+                es: { title: 'Arqueolog\u00eda de repositorios', detail: 'Rastreando la evoluci\u00f3n de AC a trav\u00e9s de su historial Git \u00b7 arXiv 3pp' },
+                zh: { title: '\u4ed3\u5e93\u8003\u53e4\u5b66', detail: '\u901a\u8fc7Git\u5386\u53f2\u8ffd\u6eafAC\u7684\u6f14\u53d8 \u00b7 arXiv 3pp' }
+            },
+            'pieces': {
+                da: { title: 'St\u00fckker, ikke programmer', detail: 'St\u00fckket som enhed for kreativ erkendelse \u00b7 arXiv 4pp' },
+                es: { title: 'Piezas, no programas', detail: 'La pieza como unidad de cognici\u00f3n creativa \u00b7 arXiv 4pp' },
+                zh: { title: '\u4f5c\u54c1\uff0c\u800c\u975e\u7a0b\u5e8f', detail: '\u4f5c\u54c1\u4f5c\u4e3a\u521b\u610f\u8ba4\u77e5\u7684\u5355\u5143 \u00b7 arXiv 4pp' }
+            },
+            'network-audit': {
+                da: { title: 'Netv\u00e6rksrevision', detail: 'Hvem bruger Aesthetic Computer og hvad laver de? \u00b7 arXiv 4pp' },
+                es: { title: 'Auditor\u00eda de red', detail: '\u00bfQui\u00e9n usa Aesthetic Computer y qu\u00e9 crean? \u00b7 arXiv 4pp' },
+                zh: { title: '\u7f51\u7edc\u5ba1\u8ba1', detail: '\u8c01\u5728\u4f7f\u7528Aesthetic Computer\uff0c\u4ed6\u4eec\u521b\u4f5c\u4e86\u4ec0\u4e48\uff1f \u00b7 arXiv 4pp' }
+            },
+            'kidlisp-ref': {
+                da: { title: 'KidLisp sprogreference', detail: '118 indbyggede funktioner i 12 kategorier \u00b7 arXiv 4pp' },
+                es: { title: 'Referencia del lenguaje KidLisp', detail: '118 funciones integradas en 12 categor\u00edas \u00b7 arXiv 4pp' },
+                zh: { title: 'KidLisp \u8bed\u8a00\u53c2\u8003', detail: '12\u4e2a\u7c7b\u522b\u7684118\u4e2a\u5185\u7f6e\u51fd\u6570 \u00b7 arXiv 4pp' }
+            },
+            'kidlisp': {
+                da: { title: "KidLisp '26", detail: 'En minimal Lisp til generativ kunst p\u00e5 en social platform \u00b7 arXiv 6pp' },
+                es: { title: "KidLisp '26", detail: 'Un Lisp m\u00ednimo para arte generativo en una plataforma social \u00b7 arXiv 6pp' },
+                zh: { title: "KidLisp '26", detail: '\u793e\u4ea4\u5e73\u53f0\u4e0a\u7528\u4e8e\u751f\u6210\u827a\u672f\u7684\u6700\u7b80Lisp \u00b7 arXiv 6pp' }
+            },
+            'dead-ends': {
+                da: { title: 'Blindgyder', detail: 'Fejlslagne eksperimenter og opgivne tilgange \u00b7 arXiv 4pp' },
+                es: { title: 'Callejones sin salida', detail: 'Experimentos fallidos y enfoques abandonados \u00b7 arXiv 4pp' },
+                zh: { title: '\u6b7b\u80e1\u540c', detail: '\u5931\u8d25\u7684\u5b9e\u9a8c\u548c\u653e\u5f03\u7684\u65b9\u6cd5 \u00b7 arXiv 4pp' }
+            },
+            'diversity': {
+                da: { title: 'Revision af citatdiversitet', detail: 'Diversitet og inklusion i AC-artikelcitater \u00b7 4pp' },
+                es: { title: 'Auditor\u00eda de diversidad de citas', detail: 'Diversidad e inclusi\u00f3n en las citas de art\u00edculos de AC \u00b7 4pp' },
+                zh: { title: '\u5f15\u7528\u591a\u6837\u6027\u5ba1\u8ba1', detail: 'AC\u8bba\u6587\u5f15\u7528\u4e2d\u7684\u591a\u6837\u6027\u4e0e\u5305\u5bb9\u6027 \u00b7 4pp' }
+            },
+            'os': {
+                da: { title: 'AC Native OS', detail: 'Et bare-metal kreativt computing-operativsystem \u00b7 arXiv 5pp' },
+                es: { title: 'AC Native OS', detail: 'Un sistema operativo bare-metal para computaci\u00f3n creativa \u00b7 arXiv 5pp' },
+                zh: { title: 'AC Native OS', detail: '\u88f8\u673a\u521b\u610f\u8ba1\u7b97\u64cd\u4f5c\u7cfb\u7edf \u00b7 arXiv 5pp' }
+            },
+            'ac': {
+                da: { title: "Aesthetic Computer '26", detail: 'En mobil-f\u00f8rst k\u00f8retid til kreativ computing \u00b7 arXiv 5pp' },
+                es: { title: "Aesthetic Computer '26", detail: 'Un entorno de ejecuci\u00f3n m\u00f3vil para computaci\u00f3n creativa \u00b7 arXiv 5pp' },
+                zh: { title: "Aesthetic Computer '26", detail: '\u79fb\u52a8\u4f18\u5148\u7684\u521b\u610f\u8ba1\u7b97\u8fd0\u884c\u65f6 \u00b7 arXiv 5pp' }
+            },
+            'goodiepal': {
+                da: { title: 'Radikal computerkunst', detail: 'Goodiepalianske tilgange i Aesthetic Computer \u00b7 arXiv 5pp' },
+                es: { title: 'Arte computacional radical', detail: 'Enfoques Goodiepalianos en Aesthetic Computer \u00b7 arXiv 5pp' },
+                zh: { title: '\u6fc0\u8fdb\u8ba1\u7b97\u673a\u827a\u672f', detail: 'Aesthetic Computer\u4e2d\u7684Goodiepal\u5f0f\u65b9\u6cd5 \u00b7 arXiv 5pp' }
+            },
+            'api': {
+                da: { title: 'Fra setup() til boot()', detail: 'Processing i kernen af Piece API \u00b7 arXiv 7pp' },
+                es: { title: 'De setup() a boot()', detail: 'Processing en el n\u00facleo de la Piece API \u00b7 arXiv 7pp' },
+                zh: { title: '\u4ece setup() \u5230 boot()', detail: 'Piece API\u6838\u5fc3\u4e2d\u7684Processing \u00b7 arXiv 7pp' }
+            },
+            'notepat': {
+                da: { title: 'notepat.com', detail: 'Fra tastaturleget\u00f8j til systemets hovedd\u00f8r \u00b7 arXiv 5pp' },
+                es: { title: 'notepat.com', detail: 'De juguete de teclado a puerta principal del sistema \u00b7 arXiv 5pp' },
+                zh: { title: 'notepat.com', detail: '\u4ece\u952e\u76d8\u73a9\u5177\u5230\u7cfb\u7edf\u524d\u95e8 \u00b7 arXiv 5pp' }
+            },
+            'folk-songs': {
+                da: { title: 'Spillbare folkesange', detail: 'Mundtlig tradition m\u00f8der browsertastaturet \u00b7 kort 21pp' },
+                es: { title: 'Canciones populares tocables', detail: 'La tradici\u00f3n oral se encuentra con el teclado del navegador \u00b7 tarjetas 21pp' },
+                zh: { title: '\u53ef\u6f14\u594f\u7684\u6c11\u6b4c', detail: '\u53e3\u5934\u4f20\u7edf\u4e0e\u6d4f\u89c8\u5668\u952e\u76d8\u7684\u76f8\u9047 \u00b7 \u5361\u7247 21pp' }
+            },
+            'joss-kidlisp': {
+                da: { title: "KidLisp '26", detail: 'JOSS-sammendrag \u00b7 3pp' },
+                es: { title: "KidLisp '26", detail: 'Resumen JOSS \u00b7 3pp' },
+                zh: { title: "KidLisp '26", detail: 'JOSS\u6458\u8981 \u00b7 3pp' }
+            },
+            'joss-ac': {
+                da: { title: "Aesthetic Computer '26", detail: 'JOSS-sammendrag \u00b7 2pp' },
+                es: { title: "Aesthetic Computer '26", detail: 'Resumen JOSS \u00b7 2pp' },
+                zh: { title: "Aesthetic Computer '26", detail: 'JOSS\u6458\u8981 \u00b7 2pp' }
+            },
+            'els': {
+                da: { title: 'KidLisp (ELS 2026)', detail: 'En minimal Lisp til generativ kunst med social komposition \u00b7 ELS ACM SIGS 4pp' },
+                es: { title: 'KidLisp (ELS 2026)', detail: 'Un Lisp m\u00ednimo para arte generativo con composici\u00f3n social \u00b7 ELS ACM SIGS 4pp' },
+                zh: { title: 'KidLisp (ELS 2026)', detail: '\u7528\u4e8e\u751f\u6210\u827a\u672f\u548c\u793e\u4ea4\u521b\u4f5c\u7684\u6700\u7b80Lisp \u00b7 ELS ACM SIGS 4pp' }
+            }
+        };
+
+        // Store original English text on first load
+        document.querySelectorAll('.p[data-paper-id]').forEach(el => {
+            const titleA = el.querySelector('.title a');
+            const detail = el.querySelector('.detail');
+            if (titleA) el.dataset.titleEn = titleA.textContent;
+            if (detail) el.dataset.detailEn = detail.innerHTML;
+        });
+
         // Language switcher
-        const langs = { en: { flag: 'us', name: 'English' }, da: { flag: 'dk', name: 'Dansk' }, es: { flag: 'es', name: 'Espa\u00f1ol' } };
+        const langs = {
+            en: { flag: 'us', name: 'English' },
+            da: { flag: 'dk', name: 'Dansk' },
+            es: { flag: 'es', name: 'Espa\u00f1ol' },
+            zh: { flag: 'cn', name: '\u4e2d\u6587' }
+        };
         let currentLang = 'en';
 
         const selector = document.getElementById('langSelector');
@@ -365,6 +575,7 @@
                 o.classList.toggle('active', o.dataset.lang === lang);
             });
 
+            // Update PDF URLs
             const suffix = lang === 'en' ? '' : '-' + lang;
             document.querySelectorAll('.p .title a[data-base]').forEach(a => {
                 a.href = a.dataset.base + suffix + '.pdf';
@@ -377,6 +588,26 @@
                 }
                 badge.textContent = lang === 'en' ? '' : info.name;
                 badge.classList.toggle('visible', lang !== 'en');
+            });
+
+            // Swap titles and details
+            document.querySelectorAll('.p[data-paper-id]').forEach(el => {
+                const id = el.dataset.paperId;
+                const titleA = el.querySelector('.title a');
+                const detail = el.querySelector('.detail');
+                if (!titleA || !detail) return;
+
+                if (lang === 'en') {
+                    // Restore original English
+                    titleA.childNodes[0].textContent = el.dataset.titleEn;
+                    detail.innerHTML = el.dataset.detailEn;
+                } else {
+                    const t = translations[id]?.[lang];
+                    if (t) {
+                        titleA.childNodes[0].textContent = t.title;
+                        detail.innerHTML = t.detail;
+                    }
+                }
             });
         }
 
