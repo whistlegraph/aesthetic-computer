@@ -408,6 +408,13 @@ function act({ event: e, system }) {
     return;
   }
 
+  // Ctrl+N — open split view (left=current cmd, right=sh)
+  if (ctrlHeld && key === "n") {
+    const name = lastCmd.split("/").pop() || "claude";
+    system.jump("split:" + name);
+    return;
+  }
+
   // Ctrl+key → control character
   if (ctrlHeld && key.length === 1) {
     const code = key.toLowerCase().charCodeAt(0);

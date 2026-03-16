@@ -84,6 +84,10 @@ typedef struct {
     ACPty pty;
     int pty_active;                      // 1 = PTY session is running
 
+    // PTY2 — second terminal for split-screen
+    ACPty pty2;
+    int pty2_active;                     // 1 = PTY2 session is running
+
     // 3D rendering state
     ACCamera3D camera3d;                 // FPS camera
     ACDepthBuffer *depth_buf;            // Depth buffer (created on first use)
