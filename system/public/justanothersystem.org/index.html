@@ -179,7 +179,6 @@
     </div>
   </div>
 
-  <canvas id="debugCanvas" style="position:fixed;inset:0;z-index:3;pointer-events:none;width:100%;height:100%;"></canvas>
   <div class="progress-bar" id="progressBar"></div>
 
   <script>
@@ -192,82 +191,54 @@
     const slideshowEl = document.getElementById('slideshow');
     const locationEl = document.getElementById('location');
     const progressBar = document.getElementById('progressBar');
-    const debugCanvas = document.getElementById('debugCanvas');
-    const debugCtx = debugCanvas.getContext('2d');
 
-    function resizeDebugCanvas() {
-      debugCanvas.width = window.innerWidth;
-      debugCanvas.height = window.innerHeight;
-    }
-    resizeDebugCanvas();
-    window.addEventListener('resize', resizeDebugCanvas);
-
-    // Draw the quad corners on the debug canvas, mapped to viewport coords
-    // The image is displayed with object-fit: cover, so we need to compute
-    // where each % coordinate lands on screen.
-    function drawDebugQuad(corners, imgW, imgH) {
-      const vpW = debugCanvas.width;
-      const vpH = debugCanvas.height;
-      debugCtx.clearRect(0, 0, vpW, vpH);
+    // Create an SVG debug overlay inside a slide using % coords directly.
+    // The SVG sits on top of the img with the same size, so its viewBox
+    // percentages map 1:1 to image percentages — no screen-space math needed.
+    function addDebugQuad(slideEl, corners) {
+      // Remove any previous debug overlay
+      const old = slideEl.querySelector('.debug-quad');
+      if (old) old.remove();
 
       if (!corners) return;
 
-      // object-fit: cover math — figure out how the image is placed
-      const imgAspect = imgW / imgH;
-      const vpAspect = vpW / vpH;
-      let drawW, drawH, offsetX, offsetY;
-      if (imgAspect > vpAspect) {
-        // image is wider than viewport — height fills, sides crop
-        drawH = vpH;
-        drawW = vpH * imgAspect;
-        offsetX = (vpW - drawW) / 2;
-        offsetY = 0;
-      } else {
-        // image is taller than viewport — width fills, top/bottom crop
-        drawW = vpW;
-        drawH = vpW / imgAspect;
-        offsetX = 0;
-        offsetY = (vpH - drawH) / 2;
-      }
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'debug-quad');
+      svg.setAttribute('viewBox', '0 0 100 100');
+      svg.setAttribute('preserveAspectRatio', 'none');
+      svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;';
 
-      // Map corner percentages to screen pixels
-      const screenCorners = corners.map(([xp, yp]) => [
-        offsetX + (xp / 100) * drawW,
-        offsetY + (yp / 100) * drawH,
-      ]);
+      // Quad fill
+      const points = corners.map(([x, y]) => `${x},${y}`).join(' ');
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      poly.setAttribute('points', points);
+      poly.setAttribute('fill', 'rgba(255, 0, 255, 0.2)');
+      poly.setAttribute('stroke', 'rgba(255, 0, 255, 0.9)');
+      poly.setAttribute('stroke-width', '0.4');
+      poly.setAttribute('vector-effect', 'non-scaling-stroke');
+      svg.appendChild(poly);
 
-      // Draw filled quad with transparency
-      debugCtx.fillStyle = 'rgba(255, 0, 255, 0.15)';
-      debugCtx.beginPath();
-      debugCtx.moveTo(screenCorners[0][0], screenCorners[0][1]);
-      for (let i = 1; i < screenCorners.length; i++) {
-        debugCtx.lineTo(screenCorners[i][0], screenCorners[i][1]);
-      }
-      debugCtx.closePath();
-      debugCtx.fill();
-
-      // Draw quad outline
-      debugCtx.strokeStyle = 'rgba(255, 0, 255, 0.8)';
-      debugCtx.lineWidth = 2;
-      debugCtx.beginPath();
-      debugCtx.moveTo(screenCorners[0][0], screenCorners[0][1]);
-      for (let i = 1; i < screenCorners.length; i++) {
-        debugCtx.lineTo(screenCorners[i][0], screenCorners[i][1]);
-      }
-      debugCtx.closePath();
-      debugCtx.stroke();
-
-      // Draw corner dots with labels
-      debugCtx.fillStyle = '#ff0';
-      debugCtx.font = '14px monospace';
+      // Corner dots + labels
       const labels = ['TL', 'TR', 'BR', 'BL'];
-      screenCorners.forEach(([x, y], i) => {
-        debugCtx.beginPath();
-        debugCtx.arc(x, y, 6, 0, Math.PI * 2);
-        debugCtx.fill();
-        debugCtx.fillStyle = '#ff0';
-        debugCtx.fillText(`${labels[i]} (${corners[i][0]}%, ${corners[i][1]}%)`, x + 10, y - 8);
+      corners.forEach(([x, y], i) => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', x);
+        circle.setAttribute('cy', y);
+        circle.setAttribute('r', '0.8');
+        circle.setAttribute('fill', '#ff0');
+        svg.appendChild(circle);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', x + 1.5);
+        text.setAttribute('y', y - 1);
+        text.setAttribute('fill', '#ff0');
+        text.setAttribute('font-size', '3');
+        text.setAttribute('font-family', 'monospace');
+        text.textContent = `${labels[i]} (${x}%, ${y}%)`;
+        svg.appendChild(text);
       });
+
+      slideEl.appendChild(svg);
     }
 
     let slides = [];
@@ -420,8 +391,8 @@
         const vpH = window.innerHeight;
 
         if (entry.corners) {
-          // Debug: draw quad overlay
-          drawDebugQuad(entry.corners, img.naturalWidth, img.naturalHeight);
+          // Debug: draw quad overlay inside the slide (moves with transforms)
+          addDebugQuad(activeSlide, entry.corners);
 
           // Start: perspective-corrected (artwork fills viewport)
           const matrix = computePerspectiveTransform(
@@ -438,7 +409,7 @@
           }
         } else {
           // No corners: use Ken Burns
-          debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+          addDebugQuad(activeSlide, null);
           KB_CLASSES.forEach(c => activeSlide.classList.remove(c));
           activeSlide.classList.add(KB_CLASSES[currentIndex % KB_CLASSES.length]);
         }
