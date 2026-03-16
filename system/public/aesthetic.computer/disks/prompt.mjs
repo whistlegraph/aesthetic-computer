@@ -5061,8 +5061,8 @@ function paint($) {
   // 💻 OS button — blue, blinky, computery
   if (topRightBtnChoice === "os" && showLoginCurtain) {
     const t = performance.now() / 1000;
-    const btnPaddingTop = 8;
-    const btnPaddingRight = 10;
+    const btnPaddingTop = 6;
+    const btnPaddingRight = 6;
 
     const osBtnText = "x86 OS";
     const osBtnY = btnPaddingTop;
