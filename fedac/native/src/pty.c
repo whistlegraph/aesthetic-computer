@@ -540,6 +540,30 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("SSL_CERT_DIR", "/etc/ssl/certs", 0);
         setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
         setenv("NODE_EXTRA_CA_CERTS", "/etc/pki/tls/certs/ca-bundle.crt", 0);
+        // GitHub PAT (for git operations)
+        {
+            FILE *gf = fopen("/github-pat", "r");
+            if (gf) {
+                char pat[256] = {0};
+                if (fgets(pat, sizeof(pat), gf)) {
+                    pat[strcspn(pat, "\r\n")] = '\0';
+                    if (pat[0]) {
+                        setenv("GH_TOKEN", pat, 1);
+                        setenv("GITHUB_TOKEN", pat, 1);
+                        // Configure git credential helper
+                        mkdir("/tmp/.config", 0755);
+                        mkdir("/tmp/.config/git", 0755);
+                        FILE *gc = fopen("/tmp/.gitconfig", "w");
+                        if (gc) {
+                            fprintf(gc, "[user]\n\tname = Jeffrey Alan Scudder\n\temail = mail@aesthetic.computer\n");
+                            fprintf(gc, "[credential \"https://github.com\"]\n\thelper = !f() { echo username=whistlegraph; echo password=%s; }; f\n", pat);
+                            fclose(gc);
+                        }
+                    }
+                }
+                fclose(gf);
+            }
+        }
         // Claude directories
         mkdir("/tmp/.claude", 0755);
         mkdir("/tmp/.config", 0755);

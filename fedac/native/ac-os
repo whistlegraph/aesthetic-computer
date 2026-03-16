@@ -105,6 +105,13 @@ build_initramfs() {
             sudo chmod 600 "${INITRAMFS_ROOT}/claude-token"
             log "  claude token: baked ($(wc -c < "${INITRAMFS_ROOT}/claude-token") bytes)"
         fi
+        # Bake GitHub PAT if available (for git operations on device)
+        local GH_PAT=$(gh auth token 2>/dev/null)
+        if [ -n "${GH_PAT}" ]; then
+            echo -n "${GH_PAT}" | sudo tee "${INITRAMFS_ROOT}/github-pat" > /dev/null
+            sudo chmod 600 "${INITRAMFS_ROOT}/github-pat"
+            log "  github pat: baked (${#GH_PAT} chars)"
+        fi
         # Bake Claude state file (init copies to /tmp/.claude.json)
         if [ -f "${HOME}/.claude.json" ]; then
             node -e "
