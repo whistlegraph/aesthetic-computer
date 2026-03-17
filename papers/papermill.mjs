@@ -142,6 +142,29 @@ function findTranslatedFiles(format) {
   return results;
 }
 
+function findCardsFiles() {
+  const results = [];
+  for (const [dir, info] of Object.entries(PAPER_MAP)) {
+    const paperDir = join(PAPERS_DIR, dir);
+    if (!existsSync(paperDir)) continue;
+    const texFile = join(paperDir, `${info.base}-cards.tex`);
+    const pdfFile = join(paperDir, `${info.base}-cards.pdf`);
+    results.push({
+      dir,
+      lang: "en",
+      format: "cards",
+      base: info.base,
+      siteName: info.siteName,
+      texFile,
+      pdfFile,
+      texExists: existsSync(texFile),
+      pdfExists: existsSync(pdfFile),
+      sitePdf: join(SITE_DIR, `${info.siteName}-cards.pdf`),
+    });
+  }
+  return results;
+}
+
 function buildPaper(entry) {
   if (!entry.texExists) {
     console.log(
@@ -321,15 +344,33 @@ if (cmd === "status" || !cmd) {
     if (LANGS.indexOf(f.lang) === LANGS.length - 1)
       process.stdout.write("\n");
   }
-  console.log();
+  // Cards status
+  const cardsFiles = findCardsFiles();
+  const hasCards = cardsFiles.some((f) => f.texExists);
+  if (hasCards) {
+    console.log("Cards Format\n");
+    console.log("Paper".padEnd(30) + "Status");
+    console.log("-".repeat(42));
+    for (const f of cardsFiles) {
+      const status = f.pdfExists ? "PDF" : f.texExists ? "tex" : "---";
+      console.log(f.dir.padEnd(30) + status);
+    }
+    console.log();
+  }
 } else if (cmd === "build") {
-  const files = findTranslatedFiles(formatFlag).filter(
-    (f) => !langFilter || f.lang === langFilter,
-  );
+  let files;
+  if (formatFlag === "cards") {
+    // Build English cards
+    files = findCardsFiles();
+  } else {
+    files = findTranslatedFiles(formatFlag).filter(
+      (f) => !langFilter || f.lang === langFilter,
+    );
+  }
   const toBuild = files.filter((f) => f.texExists);
   const label = formatFlag ? ` (${formatFlag} format)` : "";
   console.log(
-    `\nBuilding ${toBuild.length} translated paper${toBuild.length !== 1 ? "s" : ""}${label}...\n`,
+    `\nBuilding ${toBuild.length} paper${toBuild.length !== 1 ? "s" : ""}${label}...\n`,
   );
   let ok = 0,
     fail = 0;
@@ -347,8 +388,8 @@ if (cmd === "status" || !cmd) {
   for (const entry of toDeploy) {
     deployPaper(entry);
   }
-  // Also deploy cards format if any exist
-  const cardsFiles = findTranslatedFiles("cards");
+  // Deploy English cards PDFs
+  const cardsFiles = findCardsFiles();
   const cardsToDeploy = cardsFiles.filter((f) => f.pdfExists);
   if (cardsToDeploy.length > 0) {
     console.log(
