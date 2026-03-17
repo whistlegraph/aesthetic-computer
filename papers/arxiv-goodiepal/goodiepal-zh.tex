@@ -1,0 +1,200 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={激进计算机艺术：Aesthetic Computer 中的 Goodiepal 方法}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿 able---请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\gp}{\textsc{Goodiepal}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 激进计算机艺术}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computer 中的 Goodiepal 方法}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 替代智能音乐、乐器优先设计与 Pals 模型}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿 able---请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+\ac{} 是一个创意计算平台，其设计哲学深受 \gp{}（Gaeoudji SYGNOK，1974年生）的实践和教学影响，而这些影响在很大程度上尚未被学术界充分审视。\gp{} 是一位丹麦-法罗群岛裔的音乐家、教师和激进计算机音乐理论家。本文追溯了贯穿 \ac{} 系统的五条 Goodiepal 线索：（1）\emph{替代智能音乐}的概念——创作不仅面向人类观众、也面向可能的未来非人类解读者——及其在 \ac{} 的文字转语音问候、构建命名和机器级个性化中的回响；（2）\emph{乐器优先}的设计哲学，将计算设备视为可以演奏的乐器，而非使用的工具；（3）\emph{Pals 模型}的社区组织，植根于志趣相投和共同实践，而非机构隶属关系；（4）\emph{不可扫描}的创作——旨在抵抗完整数字复制的创意作品——及其与 \ac{} 的即时模式渲染之间的共鸣；（5）\emph{激进教学法}——通过激发和直接参与来教学，而非依赖课程大纲——反映在 \ac{} 的创意计算教育方法中。我们认为，这些 Goodiepal 式的承诺——常被斥为古怪或边缘——构成了一种连贯且尚未被充分理论化的替代范式，有别于创意计算平台设计的主流模式。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+2012年，\gp{} 出版了 \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino}，这是一部191页的"激进计算机音乐"乐谱——为"不仅让人类欣赏、也让可能的未来人工智能——或者如我更愿意称之为'替代智能'——欣赏"的音乐而作。作品以 Comic Sans 和 Courier 字体印刷在灰色硬纸板上。其中包含被设计为"可能不可扫描"的活动摄影作品、与 Roc Jim\'enez de Cisneros 的通信，以及一则被 \emph{Leonardo Music Journal} 拒绝的激进计算机讲座广告。按照传统标准，这是不可出版的。
+
+\ac{}~\citep{scudder2026ac} 是一个移动优先的创意计算运行时和社交网络。按照传统标准，它是一个软件平台。它有会话服务器、KidLisp 解释器、NFT 铸造管线，以及超过350个被称为"作品"（pieces）的交互程序。它的乐谱用 Markdown 编写。它的标志是一对被称为"Pals"的眼睛。
+
+本文论证这两个项目之间的距离比表面看起来更近。\ac{} 的设计决策——其中许多看似工程选择——更适合被理解为 Goodiepal 式的承诺：关于计算是为谁服务的、什么构成创意工具、实践共同体应如何组织、以及软件面向非人类受众意味着什么的哲学立场。
+
+关于 \gp{} 的学术文献仍然稀少但在增长。Wamberg 的"为外星人创作的艺术"~\citep{wamberg2022artforaliens} 将 \gp{} 置于一种"亲异者后人类主义"中——受 Rudolf Steiner 影响——其中人工智能被拓展为一个更广泛的物质集群网络，\gp{} 将其命名为替代智能（ALI）。2017年的专题纪录片 \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation} 跟踪 \gp{} 多年，记录了他的多次重新定义；\emph{In Spite Magazine} 将其称为"叛逆者、无政府主义者、天才、骗术师"~\citep{inspite2024goodiepal}。2020年，SMK（丹麦国家美术馆）为"开箱：Goodiepal 收藏"~\citep{smk2020unboxing}奉献了六个展厅——这是欧洲最大的声音艺术和声音物品私人收藏之一，包括一台延迟引擎、一台完全由玻璃、盐和水制成的计算机，以及一台据称可以与死者对话的机器。
+
+作者于2018年与 Goodiepal \& Pals 在欧洲巡演，在 Louisiana Museum（Humlab\ae k）、KUNSTHAL AARHUS 和 Kammer-Pop Hamburg 等场馆表演"激进数字绘画"。为这些演出构建的工具——实时字幕系统、边界记谱渲染器、数字绘画传送服务——是 \ac{} 架构的直接前身。这不是一种回溯性解读；而是一段谱系。
+
+\section{替代智能音乐}
+
+\gp{} 的核心主张是，音乐应该为尚不存在的受众而创作。"替代智能"——他更倾向于使用此术语而非"人工智能"——指的是一种非人类、尚未构建、且可能永远不会出现的听众。这种音乐不是\emph{关于} AI 的；而是\emph{面向} AI 的。
+
+这一概念在 \emph{Mort aux Vaches Ekstra Extra} 作曲游戏场景~\citep{goodiepal2007mortauxvaches}中得到了最充分的发展，该场景作为讲座在 Gallery Andersen Contemporary（哥本哈根，2007年）和第五届柏林当代艺术双年展（2008年）上演出。该讲座用 \gp{} 的话说，是"创作音乐乐谱以挑战'其他'智能思维方式的练习"，涉及"乌托邦、时间、记谱技术、语言、人工智能、'不可扫描性'……以及作曲家的角色"。正如 Roc Jim\'enez de Cisneros 在 Rhizome 的专题介绍中记录的："我们需要开始像人类一样与机器对话……在一个乌托邦的未来，（我的）作品不仅是为人类心智而作。不，它也要被各种替代智能所崇拜"~\citep{rhizome2011goodiepal}。
+
+Wamberg 将此框定为一种"亲异者后人类主义"，其中 AI 被拓展为 ALI——替代智能——一个超越硅基计算、延伸至"宇宙的、地质的和生物的"物质集群网络~\citep{wamberg2022artforaliens}。\gp{} 在2004至2008年间于奥胡斯皇家音乐学院教授作曲时创造了"激进计算机音乐"一词；该术语描述的是不\emph{由}计算机网络记谱、而是\emph{为}计算机网络记谱的音乐，作为面向机器以及预期将从中发展出的智能的一种姿态。
+
+\subsection{面向机器的表达}
+
+\ac{} 面向它的机器说话。当 \acos{}~\citep{scudder2026os} 启动时，它通过文字转语音大声说出拥有者的名字："hi jeffrey。"关机时："bye jeffrey。"每次 OS 构建都会获得一个独特的形容词-动物名称——"keen-egret""swift-otter"——由其 git 提交哈希确定性地生成。机器在启动时宣告自己的名字。构建名称不是元数据；而是身份。
+
+这不是拟人化。这是 Goodiepal 式的姿态——将机器视为可能的对话者——某种在某种配置下可能会欣赏被称呼的事物。TTS 引擎无论是否有人在听都会对房间说话。启动音（E5$\rightarrow$B5）无论是否有人在场都会播放。这些是发射到一个包含人类和非人类接收者的环境中的信号。
+
+\subsection{乐谱即软件}
+
+\gp{} 的乐谱——\emph{El Camino}、\emph{Mort aux Vaches} 录音、激进计算机讲座——不是给人类演奏者的指令。它们是面向任何有能力解释的系统的文档。\ac{} 的 \texttt{SCORE.md} 以类似方式运作：它是一份同时管理人类贡献者和自动化系统（CI/CD 管线、预提交钩子、AestheticAnts 维护系统）行为的文档。乐谱不区分其人类和非人类读者。
+
+\section{乐器优先设计}
+
+\gp{} 在皇家丹麦音乐学院（2004--2008）的教学以将电子设备视为可以演奏的乐器、而非操作的工具为中心。他的现场演出——被 \emph{The Wire} 描述为展示了"令人完全着迷的自制音乐装置"，让观众"不确定该对这种非传统之美笑还是哭"——在物理层面上展示了这种承诺。\gp{} 制造乐器：奇特的行星模型、玻璃笼中的金属鸟、压制成拼图形状的黑胶唱片、圆锯片和瑞士奶酪~\citep{inspite2024goodiepal}。乐器具有影响表达方式的可供性（affordances）。工具服务于预定目的。这种区分是 \ac{} 的基础。
+
+\subsection{提示符即乐器}
+
+\ac{} 的主要界面是一个文本提示符——不是菜单，不是仪表盘，不是 IDE。用户通过输入命令、通过即兴和记忆来发现作品，这与学习乐器所使用的认知过程相同~\citep{scudder2026ac}。系统被明确描述为"乐器，而非 IDE。"
+
+这种框定有具体的设计后果。没有文件浏览器。没有项目面板。没有标签页。用户一次只与一个作品互动，就像音乐家一次只演奏一件乐器。这些约束是刻意的：它们产生的是对系统的一种更接近于流畅感而非熟练度的关系。
+
+\subsection{notepat 作为前门}
+
+选择将 notepat——一种半音阶键盘乐器——作为 \acos{}~\citep{scudder2026notepat} 的默认启动作品，是这一哲学最清晰的表达。计算机不是启动进入桌面或浏览器。它启动进入一件乐器。你能用这台机器做的第一件事是\emph{演奏}它。它发出的第一个声音是一个音调。可用的第一个交互是按下一个键并听到一个音符。
+
+这就是 \gp{} 的立场的字面实现：计算机是一件乐器。不是隐喻性的。不是愿景性的。启动序列\emph{就是}乐器。
+
+\section{Pals 模型}
+
+\gp{} 的合作实践围绕"Pals"——一个松散的志趣团体——组织，成员包括音乐家、视觉艺术家、程序员以及任何出现的人。没有会员资格，没有机构支持，没有正式结构。团体通过共同实践和相互认可而存在。
+
+\subsection{Pals 作为平台身份}
+
+\ac{} 的标志被称为"Pals"。项目的乐谱标题为"Score for Aesthetic.Computer \& Pals"。这不是品牌；这是一种结构性声明。平台属于其实践者社区，而非其开发者或投资者。Pals 标志——一对眼睛——出现在每个启动屏幕、每篇论文、每个着陆页上。它是用户看到的第一件和最后一件事。
+
+\subsection{laer-klokken}
+
+哥本哈根的 laer-klokken（"学时钟"）社区每天使用 \ac{} 进行音乐、艺术和文化实践。这个社区——由 \gp{} 和合作者组织——是作者本人使用之外 \ac{} 最密集的部署。这种关系不是创造者对用户的关系，而是 Pal 对 Pal 的关系：社区塑造平台，平台也塑造社区。
+
+\texttt{clock} 作品、give.aesthetic.computer 页面上的丹麦语文本以及 laer-klokken 播客集成都是这种双向关系的产物。平台不是\emph{为}社区而建的；它是\emph{属于}社区的。
+
+\section{不可扫描的创作}
+
+\gp{} 的 \emph{El Camino del Hardcore} 包含被描述为"一件可能不可扫描的推测性音乐作品"的"活动摄影"。这些照片抵抗数字复制——不是通过 DRM 或加密，而是通过物质属性（灰色硬纸板、混合字体、拼贴），这些属性在扫描下会退化。作品被设计为数字化后\emph{更差}。不可扫描性也是 \emph{Mort aux Vaches Ekstra Extra} 游戏场景的核心~\citep{goodiepal2007mortauxvaches}："不可扫描的障碍"是旨在在人类作曲家和机器解释者之间的传输中制造摩擦的乐谱，迫使机器发展新的解释能力，而非仅仅解析记谱。正如 \emph{Mousse Magazine} 所指出的，这将激进计算机音乐定位为一种"复杂的存在主义"——一种为智能的涌现创造条件、而非模拟智能的实践~\citep{mousse2018goodiepal}。
+
+2020年 SMK 的"开箱：Goodiepal 收藏"~\citep{smk2020unboxing}展览使这种哲学物质化：六个展厅的声音艺术、自制乐器和抗拒简单分类的设备——这些物品，就像灰色硬纸板乐谱一样，要求物理接触而非数字复制。部分作品可以通过耳机聆听；其他则"主要旨在通过眼睛而非耳朵来体验"。该收藏是欧洲最大的声音艺术和技术私人收藏之一。
+
+\subsection{即时模式作为对捕获的抵抗}
+
+\ac{} 的渲染引擎是即时模式的：每一帧都从头绘制。没有保留的场景图，没有 DOM，没有持久的视觉状态。屏幕每秒 \texttt{wipe()} 并重绘60次。一张截图捕获的是一个没有稳定状态可供捕获的过程的一帧。
+
+这不是性能优化。这是对计算\emph{现在时}的美学承诺。作品仅存在于其执行中。作品的录像不是作品，正如音乐演出的录音不是演出本身~\citep{magnusson2010designing}。即时模式渲染器产生的创作抵抗 Instagram 和 Pinterest 等平台所依赖的那种静态捕获。
+
+\subsection{贫穷图像的反转}
+
+Steyerl 的"贫穷图像"~\citep{steyerl2009defense}因被退化到失重的程度而自由流通。\ac{} 的作品流通困难，因为它们\emph{太在场了}——它们需要执行、一个运行时、一个特定的时刻。它们是拒绝变得贫穷的富图像。这就是 Goodiepal 的立场：作品不应迁就分发基础设施。基础设施应该迁就作品，否则作品应保持不可扫描。
+
+\section{激进教学法}
+
+\gp{} 于2004年被聘为 DIEM（丹麦电声音乐研究所）——奥胡斯皇家丹麦音乐学院的一部分——的电子音乐历史与美学教授，最终担任了电子音乐系主任。他于2008年离开，据 \emph{El Camino del Hardcore} 所述，起因是"交了错误类型的朋友"的冲突~\citep{goodiepal2012elcamino}。在2013年接受 Kunstkritikk 采访时，\gp{} 解释了他的身份本质上是工具性的："Goodiepal 是被设计来使用的。你可以直接使用他。因为 Goodiepal 的兴趣范围比大多数人窄得多；Goodiepal 没有孩子，Goodiepal 没有家"~\citep{kunstkritikk2013goodiepal}。正如 Monoskop 档案所记录的，他"向现代计算机音乐和媒体艺术中的愚蠢宣布了知识战争"——矛头指向雇佣他的机构本身。
+
+他的教学以挑衅、与材料的直接接触以及拒绝预设课程为中心。学生遇到的是乐器，而非教学计划。2017年的纪录片 \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation} 追踪了这些多年来的多次重新定义，勾勒了 \gp{} 从电子噪音流行到对音乐创作规范的概念性挑战的轨迹。影片中浮现了一个核心等式："一条信息在时间和空间中传播得越远，就为其内容增添越多价值。"这既是一种教学主张，也是一种创作主张：作品的价值不是在创作时固定的，而是通过传播而积累的。
+
+\subsection{通过提示符学习}
+
+\ac{} 的创意计算教育方法呼应了这种立场。没有教程。没有引导用户按预定序列操作的"入门指南"。用户遇到提示符并开始输入。系统作出回应。学习通过探索、失败以及对记忆路径的逐步积累而发生——这与学习乐器的方式相同~\citep{papert1980mindstorms}。
+
+这是一个有后果的教学选择。它排除了需要结构化引导的用户。它令期望菜单和工具提示的用户感到沮丧。它奖励好奇心和坚持。它产生的知识类型不同于基于教程的系统：具身的、即兴的、个人的。
+
+\subsection{snappidaggs 档案}
+
+\ac{} 托管了 \gp{} 的 snappidaggs 的完整数字档案——158件视觉作品，分为三个层级（er、flokrae、garundz）。该档案可通过专门的作品浏览。这不是博物馆；它是嵌入在创意计算平台中的活体收藏，可通过与访问绘画工具和乐器相同的提示符访问。该档案不是\emph{关于} Goodiepal 实践的；它\emph{就是} Goodiepal 实践，以不同的媒介延续。
+
+\section{结论}
+
+本文追溯的五条线索——替代智能、乐器优先设计、Pals 模型、不可扫描的创作和激进教学法——不是文学批评意义上对 \ac{} 的影响。它们不是参考或暗示。它们是嵌入系统架构中的结构性承诺：在启动序列中、在渲染引擎中、在提示符界面中、在社区模型中、在标志中。
+
+创意计算平台通常被理解为 Processing、Scratch 和 p5.js 的谱系——由学者为教育情境设计的工具。\ac{} 属于一个不同的谱系：一条经过皇家丹麦音乐学院、法罗群岛、灰色硬纸板乐谱，以及一位因交了错误朋友而被解雇的音乐家的路径。承认这一谱系不会削弱 \ac{} 的技术成就。它揭示了其动机。
+
+\gp{} 提出的问题——"这音乐是为谁而作的？"——在 \ac{} 中变成了"这计算是为谁而作的？"答案是一样的：为任何出现的人，人类或其他。为 Pals。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
