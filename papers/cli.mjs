@@ -63,7 +63,7 @@ const PAPER_MAP = {
   "arxiv-dead-ends": {
     base: "dead-ends",
     siteName: "dead-ends-26-arxiv",
-    title: "Dead Ends",
+    title: "Vestigial Features",
   },
   "arxiv-diversity": {
     base: "diversity",
@@ -293,7 +293,7 @@ function updateIndex(entries) {
     "whistlegraph-26-arxiv":
       "Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp",
     "dead-ends-26-arxiv":
-      "Failed Experiments and Abandoned Approaches &middot; arXiv 4pp",
+      "Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp",
     "repo-archaeology-26-arxiv":
       'Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a>',
     "citation-diversity-audit-26":
