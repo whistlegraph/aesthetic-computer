@@ -617,6 +617,21 @@
         const initLang = pathLang || paramLang;
         if (initLang && langs[initLang]) setLang(initLang);
 
+        // Add cards links to papers that have a cards version
+        document.querySelectorAll('.p .title a[data-base]').forEach(a => {
+            const base = a.dataset.base;
+            const detail = a.closest('.p').querySelector('.detail');
+            if (detail) {
+                const cardsLink = document.createElement('a');
+                cardsLink.href = base + '-cards.pdf';
+                cardsLink.className = 'cards-link';
+                cardsLink.textContent = 'cards';
+                cardsLink.title = 'Mobile-friendly card format';
+                detail.appendChild(document.createTextNode(' '));
+                detail.appendChild(cardsLink);
+            }
+        });
+
         // Theme toggle
         function toggleTheme() {
             const r = document.documentElement;
