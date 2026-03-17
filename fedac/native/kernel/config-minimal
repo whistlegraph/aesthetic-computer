@@ -3231,7 +3231,9 @@ CONFIG_USB_STORAGE=y
 # end of USB Physical Layer drivers
 
 # CONFIG_USB_GADGET is not set
-# CONFIG_TYPEC is not set
+CONFIG_TYPEC=y
+CONFIG_TYPEC_UCSI=y
+CONFIG_UCSI_ACPI=y
 # CONFIG_USB_ROLE_SWITCH is not set
 # CONFIG_MMC is not set
 # CONFIG_SCSI_UFSHCD is not set
