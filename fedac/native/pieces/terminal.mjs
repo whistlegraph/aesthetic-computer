@@ -339,8 +339,21 @@ function paint({ wipe, ink, box, write, qr, system, screen }) {
   if (pty.cursorVisible !== false && Math.floor(cursorBlink / 30) % 2 === 0) {
     const cx = (pty.cursorX || 0) * cellW;
     const cy = (pty.cursorY || 0) * cellH;
-    ink(T.fg, T.fg, T.fg, 180);
+    // Solid block cursor — always visible regardless of cell color beneath
+    ink(T.fg, T.fg, T.fg);
     box(cx, cy, cellW, cellH);
+    // Redraw character at cursor position in background color (inverted) so it's readable
+    const ci = ((pty.cursorY || 0) * ptyCols + (pty.cursorX || 0)) * CELL_SIZE;
+    if (ci >= 0 && ci < grid.length) {
+      const ch = grid[ci];
+      if (ch > 32) {
+        const rep = charReplace(ch);
+        if (rep) {
+          ink(0, 0, 0);
+          write(rep, { x: cx, y: cy, font: 1 });
+        }
+      }
+    }
   }
 }
 
