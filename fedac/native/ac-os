@@ -335,6 +335,12 @@ XDGOPEN
         sudo rm -f "${INITRAMFS_ROOT}/bin/node"
     fi
 
+    # Copy extra firmware blobs from source tree into initramfs
+    if [ -d "${SCRIPT_DIR}/firmware" ]; then
+        log "Copying firmware blobs..."
+        sudo cp -r "${SCRIPT_DIR}/firmware/"* "${INITRAMFS_ROOT}/lib/firmware/" 2>/dev/null || true
+    fi
+
     # Repack cpio + zstd (better compression than lz4, kernel supports it)
     log "Repacking initramfs..."
     cd "${INITRAMFS_ROOT}"
