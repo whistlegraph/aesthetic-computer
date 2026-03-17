@@ -165,6 +165,15 @@
 \setlength{\parindent}{0em}
 \setlength{\parskip}{0.5em}
 
+% === HYPHENATION & LINE BREAKING ===
+% Critical for narrow card columns (~3.2in) — without this, long words
+% (URLs, compound terms like "platform-as-infrastructure") overflow.
+\tolerance=1000                    % allow slightly loose lines before forcing overfull
+\emergencystretch=1.5em            % extra stretch as last resort before overfull box
+\setlength{\hfuzz}{12pt}           % suppress watermark overlay overfull warnings
+\hyphenpenalty=50                  % encourage hyphenation (default 50, lower = more)
+\exhyphenpenalty=50                % also break at explicit hyphens in compounds
+
 % === HYPERREF ===
 \RequirePackage{hyperref}
 \hypersetup{
