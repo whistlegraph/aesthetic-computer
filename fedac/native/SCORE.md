@@ -160,6 +160,16 @@ Critical fixes applied to the OTA flash path:
 5. **Double sync with delay**: `syncfs` + `sync` + 500ms sleep + `sync` before verify and before reboot, giving vfat write-back time to flush.
 6. **Error logging**: syncfs failures, mount failures, and device detection logged with errno.
 
+## Next Features
+
+- **Multitouch input**: Track touch slots in `input.c` (MT protocol B),
+  expose multiple simultaneous touch points to JS pieces via `act({ event })`.
+  Enables chord playing in notepat and multi-finger gestures on 2-in-1 devices.
+- **Firmware blobs**: Add Realtek (RTW88/RTW89), MediaTek (MT7921/MT7925),
+  and Intel SOF audio firmware to initramfs for runtime driver loading.
+- **@sat hardware validation**: Get `lspci -nn` dump from ARDOR NEO G15
+  to confirm WiFi chip and audio codec, then add matching firmware.
+
 ## Architecture
 
 See [internals.md](internals.md) for the full boot sequence and system architecture narrative.
