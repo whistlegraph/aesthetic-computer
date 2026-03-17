@@ -1,0 +1,38 @@
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}The Laptop Orchestra Landscape}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}PLOrk: The Gold Standard}{7}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}L2Ork: The Linux Counter-Proposal}{7}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The University Trap}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}What the Numbers Say}{8}{subsection.2.4}%
+\contentsline {section}{\numberline {3}The Surplus Tsunami}{10}{section.3}%
+\contentsline {subsection}{\numberline {3.1}240 Million Machines}{10}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Global E-Waste Context}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Chromebook Graveyard}{11}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Surplus Pricing}{11}{subsection.3.4}%
+\contentsline {section}{\numberline {4}AC Native OS as Instrument}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Architecture in Brief}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Built-In Synthesis}{12}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}The Laptop Already Has Everything}{13}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Network-Native Ensemble}{14}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Personalization as Identity}{14}{subsection.4.5}%
+\contentsline {section}{\numberline {5}The Dedicated-Device Landscape}{15}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Nintendo Switch (\$299)}{15}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Steam Deck (\$399)}{15}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Teenage Engineering}{16}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}The Insight}{16}{subsection.5.4}%
+\contentsline {section}{\numberline {6}From Ensemble to Planet}{17}{section.6}%
+\contentsline {subsection}{\numberline {6.1}PLOrk's Scaling Limit}{17}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}AC OS's Scaling Curve}{17}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}The 240-Million-Seat Orchestra}{17}{subsection.6.3}%
+\contentsline {section}{\numberline {7}PLOrk the Planet: A Proposal}{19}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Community Flashing Events}{19}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}School Programs Without Budgets}{19}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Beyond the University}{19}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}The Distributed Orchestra}{20}{subsection.7.4}%
+\contentsline {section}{\numberline {8}What PLOrk Got Right}{21}{section.8}%
+\contentsline {section}{\numberline {9}Music, Access, and Political Economy}{22}{section.9}%
+\contentsline {section}{\numberline {10}Lessons from OLPC}{23}{section.10}%
+\contentsline {section}{\numberline {11}Limitations}{24}{section.11}%
+\contentsline {section}{\numberline {12}Future Work}{25}{section.12}%
+\contentsline {section}{\numberline {13}Conclusion}{26}{section.13}%
+\contentsfinish 

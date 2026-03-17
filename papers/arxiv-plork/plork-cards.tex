@@ -1,0 +1,409 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from plork.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra command not in the sty
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\hypersetup{
+  pdftitle={PLOrk'ing the Planet: From Laptop Orchestra to Planetary Instrument},
+}
+
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} PLOrk'ing the Planet}\par
+\vspace{0.3em}
+{\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} From Laptop Orchestra to Planetary Instrument}\par
+\vspace{0.2em}
+{\aclight\fontsize{8pt}{10pt}\selectfont\color{acgray} Surplus Hardware, Bare-Metal Synthesis, and the 240-Million-Machine Orchestra}\par
+\vspace{0.8em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} March 2026}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Introduction}
+
+The Princeton Laptop Orchestra was not a band with laptops. It was a proposition: that the laptop could be an orchestral instrument, that software could produce spatially rich sound, that a network of computers could constitute an ensemble as legitimate as a string quartet. Dan Trueman, Perry Cook, Scott Smallwood, and Ge Wang built PLOrk in 2005 at Princeton University~\citep{trueman2006plork, trueman2007why}, and the proposition held. The music was real. The performances were compelling. The pedagogy was transformative.
+
+But PLOrk was built at Princeton. Each station required a MacBook (\$1{,}300+), a custom hemispherical speaker~\citep{snyder2015hemispherical}, an 8-channel amplifier, a power conditioner, a rack enclosure, and controllers. Total cost per seat: conservatively \$1{,}500.
+
+This was not a barrier for Princeton. It was a barrier for everyone else.
+
+Over the following decade, laptop orchestras proliferated across universities---SLOrk at Stanford~\citep{wang2009designing}, L2Ork at Virginia Tech~\citep{bukvic2010l2ork}, CLOrk at Concordia, BLOrk at Colorado, and more. At peak, perhaps thirty ensembles existed worldwide. Every single one lived inside a university.
+
+The laptop orchestra movement peaked at approximately 500--1{,}000 participants per year, globally. For comparison, 1.2 million American children play in school bands. The laptop orchestra was a beautiful idea that reached almost no one.
+
+This paper argues that the limiting factor was never artistic---but economic and infrastructural. We present \acos{}, a bare-metal operating system that transforms any surplus x86\_64 laptop into a complete musical instrument at a cost two orders of magnitude below the PLOrk model.
+
+\section{The Laptop Orchestra Landscape}
+
+\subsection{PLOrk: The Gold Standard}
+
+Trueman~\citep{trueman2007why} articulated the core problem: a laptop's built-in speakers produce thin, directionless sound that cannot ``fill a room the way an acoustic instrument does.'' The hemispherical speaker---a geodesic shell with six drivers---gave each station a physical acoustic presence, a \emph{body} for its sound.
+
+This was musically correct and economically disastrous. PLOrk's 15-station setup represented an investment north of \$30{,}000 in equipment alone.
+
+\subsection{L2Ork: The Linux Counter-Proposal}
+
+Ivica Ico Bukvic at Virginia Tech built L2Ork~\citep{bukvic2010l2ork} as an explicit cost reduction: Linux netbooks, Pd-L2Ork, cheaper hemispherical speakers. Result: \$750 per seat, a 50\% reduction.
+
+L2Ork democratized the laptop orchestra within the university system. It did not escape it.
+
+\subsection{The University Trap}
+
+The pattern is consistent across all thirty-plus laptop orchestras:
+
+\begin{itemize}
+  \item \textbf{Enrollment-gated}: only registered students participate
+  \item \textbf{Department-funded}: equipment budgets from music or CS departments
+  \item \textbf{Space-dependent}: dedicated rehearsal rooms with network infrastructure
+  \item \textbf{Staff-dependent}: faculty directors, technical assistants, IT support
+  \item \textbf{Semester-bound}: ensembles form and dissolve on academic calendars
+  \item \textbf{Geographically fixed}: you must be physically at the university
+\end{itemize}
+
+These are structural consequences of the cost model. When each seat costs \$750--1{,}500 and requires custom hardware, the ensemble \emph{must} be institutionally managed.
+
+\subsection{What the Numbers Say}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Model} & \textbf{Seat} & \textbf{30} & \textbf{1000} \\
+\midrule
+PLOrk       & \$1{,}500+ & \$45K+ & impossible \\
+L2Ork       & \$750      & \$22.5K & impossible \\
+SLOrk       & \$1{,}200+ & \$36K+ & impossible \\
+Sonic Pi    & \$150--200 & \$4.5K & \$150K \\
+\textbf{AC OS} & \textbf{\$50--80} & \textbf{\$1.5K} & \textbf{\$50K} \\
+\bottomrule
+\end{tabular}
+\caption{Cost comparison across laptop orchestra models.}
+\end{table}
+
+At PLOrk prices, a 1{,}000-person laptop orchestra is a fantasy. At AC~OS prices, it costs less than a single PLOrk setup. The difference is not incremental. It is a phase change.
+
+\section{The Surplus Tsunami}
+
+\subsection{240 Million Machines}
+
+On October 14, 2025, Microsoft ended support for Windows~10~\citep{canalys2024windows}. Canalys estimated that 240 million PCs---machines whose hardware is fully functional but whose processors do not meet Windows~11's requirements---were rendered ``obsolete'' overnight.
+
+These are not ancient machines. They are 2017--2020 era laptops with quad-core processors, 8\,GB RAM, 1080p screens, and WiFi. They became e-waste not because they broke, but because Microsoft decided they were done.
+
+\subsection{The Global E-Waste Context}
+
+The UN Global E-waste Monitor 2024~\citep{forti2024ewaste} reports 62 million tonnes of e-waste generated globally per year, growing at 2.6 million tonnes annually. Only 22.3\% is documented as properly collected and recycled.
+
+Every surplus laptop diverted from this stream into a musical instrument is a small environmental intervention. At scale, a program that repurposes even 0.1\% of the annual PC surplus would produce 240{,}000 instruments per year.
+
+\subsection{The Chromebook Graveyard}
+
+The U.S. PIRG report~\citep{pirg2023chromebook} documents how school districts cycle through Chromebooks every 3--5 years, spending \$1.8 billion on devices designed to be replaced. A district that flashed retired Chromebooks with \acos{} could turn its e-waste budget into an instrument program.
+
+\subsection{Surplus Pricing}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Machine} & \textbf{Price} \\
+\midrule
+ThinkPad X1 Carbon (6--8th) & \$40--80 \\
+ThinkPad T480/T490 & \$35--70 \\
+HP EliteBook 840 G5/G6 & \$40--75 \\
+Dell Latitude 7400/7410 & \$45--80 \\
+Lenovo IdeaPad (various) & \$25--50 \\
+\bottomrule
+\end{tabular}
+\caption{Surplus laptop pricing, March 2026.}
+\end{table}
+
+Every one boots \acos{} in under 8 seconds. Every one has a keyboard, trackpad, mic, speakers, screen, and WiFi. Every one is a complete musical instrument waiting for an 89\,MB file.
+
+\section{AC Native OS as Instrument}
+
+Where PLOrk required assembling an instrument from components, \acos{} proposes that the surplus laptop \emph{already is} the instrument. It merely needs to be told.
+
+\subsection{Architecture in Brief}
+
+\acos{} is a single 89\,MB UEFI binary containing a Linux kernel, an LZ4-compressed initramfs, and an 11{,}943-line C runtime that runs as PID~1~\citep{scudder2026os}. There is no userspace, no desktop, no package manager, no shell.
+
+Boot time: \textbf{7.3 seconds} from power button to playable instrument.
+
+\subsection{Built-In Synthesis}
+
+The runtime includes a 32-voice polyphonic synthesizer with ADSR envelopes, multiple waveforms, and a global reverb processor. Audio runs at 192\,kHz through ALSA PCM.
+
+This is the critical divergence from PLOrk. Trueman's hemispherical speaker solved spatial sound projection. \acos{} sidesteps the problem entirely: the built-in laptop speakers \emph{are} the speakers. Not omnidirectional, not hemispherical, not acoustically ideal. But \emph{there}.
+
+For a 15-person PLOrk in a concert hall, hemispherical speakers are the right answer. For a 1{,}000-person distributed ensemble in classrooms, parks, and living rooms, the laptop's own speakers are the right answer.
+
+\subsection{The Laptop Already Has Everything}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{PLOrk Requires} & \textbf{Surplus Has} \\
+\midrule
+MacBook & Any x86\_64 laptop \\
+Hemi speaker & Built-in speakers \\
+8-ch amplifier & Built-in amp \\
+Power conditioner & AC adapter / battery \\
+Rack enclosure & Laptop chassis \\
+MIDI controller & Keyboard + trackpad \\
+ChucK/Max license & AC OS (free) \\
+Network infra & WiFi (built-in) \\
+IT staff & OTA updates (auto) \\
+\bottomrule
+\end{tabular}
+\caption{PLOrk requirements vs. surplus laptop capabilities.}
+\end{table}
+
+\subsection{Network-Native Ensemble}
+
+\ac{} includes built-in multiplayer networking: WebSocket for reliable events and UDP for low-latency real-time data. Any \acos{} device on the same WiFi can join an ensemble session with zero configuration.
+
+Three people with surplus laptops in a park can form a laptop orchestra.
+
+\subsection{Personalization as Identity}
+
+Each \acos{} device boots with its owner's handle displayed and spoken aloud: ``hi @maria.'' The machine is not a generic terminal---it is \emph{Maria's instrument}, and it knows it.
+
+Every orchestra instrument has a name. Now every laptop does too.
+
+\section{The Dedicated-Device Landscape}
+
+\subsection{Nintendo Switch (\$299)}
+
+The Switch is a handheld computer with touchscreen, speakers, WiFi, motion sensors, and detachable controllers. It runs a custom OS that boots in seconds. Users navigate programs by name. No file manager, no desktop.
+
+The structural similarity to \acos{} is striking. The Switch has sold 146 million units~\citep{nintendo2024earnings}---proof that people adopt dedicated devices when the experience is coherent and the barrier is a power button.
+
+The difference: the Switch costs \$299. A surplus ThinkPad running \acos{} costs \$50.
+
+\subsection{Steam Deck (\$399)}
+
+Valve's Steam Deck is a handheld x86\_64 PC running custom Linux that boots directly into a game library---architecturally almost exactly what \acos{} does. Valve has sold 5--10 million units. The Steam Deck proves the model. \acos{} runs it on hardware that already exists.
+
+\subsection{Teenage Engineering}
+
+The OP-1 Field (\$1{,}999), EP-133 (\$299), TX-6 (\$1{,}199). Purpose-built devices for music creation. Beautiful objects. Functionally, luxury goods. At \$2{,}000, inaccessible to those who most need creative instruments.
+
+An OP-1 for every child in a school costs \$600{,}000 for 300 units. A surplus laptop for every child costs \$15{,}000. The question is not whether a ThinkPad is as beautiful as an OP-1. It is whether beauty should be a prerequisite for access.
+
+\subsection{The Insight}
+
+The consumer market has already answered ``Will people use dedicated devices?'' with 146 million Switches and 5--10 million Steam Decks. \acos{} applies the model to surplus hardware: same pattern, radically different economics.
+
+The surplus laptop is not a degraded general-purpose computer. It is an \emph{unrealized dedicated device}---one that was always capable of being an instrument, but was running Windows instead.
+
+\section{From Ensemble to Planet}
+
+\subsection{PLOrk's Scaling Limit}
+
+PLOrk serves 15 people per semester. Over twenty years: approximately 600 individual participants. To scale to 1{,}000 seats is physically impossible---the hemispherical speakers alone would require a warehouse.
+
+The PLOrk model scales \emph{linearly with cost and logarithmically with complexity}. It is beautiful, but it cannot reproduce.
+
+\subsection{AC OS's Scaling Curve}
+
+\acos{} scales linearly with cost and \emph{sublinearly with complexity}. Each additional instrument: one surplus laptop, one USB flash, sixty seconds. The OTA update system means every instrument maintains itself.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Scale} & \textbf{PLOrk} & \textbf{AC OS} \\
+\midrule
+15 seats & \$22{,}500 & \$750 \\
+100 seats & \$150{,}000 & \$5{,}000 \\
+1{,}000 seats & impossible & \$50{,}000 \\
+10{,}000 seats & impossible & \$500K \\
+\bottomrule
+\end{tabular}
+\caption{Scaling costs. PLOrk becomes impossible beyond $\sim$50 seats.}
+\end{table}
+
+\subsection{The 240-Million-Seat Orchestra}
+
+If 1\% of Windows~10 surplus machines were flashed with \acos{}, the result: 2.4 million creative instruments. OLPC deployed 3 million XO laptops over its entire lifetime---at a cost of billions. One percent of the surplus, at zero manufacturing cost, matches OLPC's entire deployment.
+
+The instruments already exist. They are sitting in closets, warehouses, and recycling bins. The software to activate them is 89\,MB.
+
+\section{PLOrk the Planet: A Proposal}
+
+\subsection{Community Flashing Events}
+
+A community event where participants bring surplus laptops and leave with instruments. One person with USB drives and a table. Each machine is personalized (``What's your name?''), flashed (sixty seconds), booted (seven seconds), and handed back.
+
+Simpler than a voter registration drive, cheaper than a school bake sale.
+
+\subsection{School Programs Without Budgets}
+
+A school district retiring Windows~10 machines can redirect the hardware to an instrument program instead of a recycler. The ``equipment budget'' is zero---the equipment already exists. Surplus ThinkPads from corporate donors at \$30--50 each produce a 30-instrument classroom ensemble for \$900--1{,}500.
+
+\subsection{Beyond the University}
+
+At \$50 per instrument with zero ongoing costs, laptop ensembles become viable for:
+
+\begin{itemize}
+  \item After-school programs and community centers
+  \item Youth orchestras and maker spaces
+  \item Senior centers and retirement communities
+  \item Incarcerated populations (no internet required)
+  \item Refugee camps (battery-powered, WiFi optional)
+  \item Rural and remote communities
+\end{itemize}
+
+None of these contexts could support a PLOrk station. All can support a surplus laptop.
+
+\subsection{The Distributed Orchestra}
+
+Because \acos{} networking operates over standard WiFi and internet, a laptop orchestra need not be in the same room: city-wide simultaneous performances, school-to-school ensembles, cross-border telematic events, asynchronous relay compositions passed between time zones.
+
+\section{What PLOrk Got Right}
+
+This paper is not a critique of PLOrk. PLOrk is one of the most important developments in computer music:
+
+\begin{enumerate}
+  \item \textbf{Legitimacy}: proved laptop ensembles produce real music
+  \item \textbf{Spatialization}: demonstrated that electronic instruments benefit from acoustic presence
+  \item \textbf{Composition}: generated new repertoire~\citep{smallwood2008composing} and strategies for networked instruments
+  \item \textbf{Pedagogy}: a model for creative computing education~\citep{trueman2007why}
+  \item \textbf{Community}: created a new social form
+\end{enumerate}
+
+What PLOrk missed---and what was not its mission to solve---was access. The proposition here is not to replace PLOrk, but to fulfill the dream it started: that a network of computers could be a new kind of orchestra. PLOrk proved it could be. \acos{} proposes to make it so cheap that the proof becomes planetary.
+
+\section{Music, Access, and Political Economy}
+
+Attali argued in \emph{Noise}~\citep{attali1985noise} that music is prophetic: changes in music anticipate changes in political economy. The laptop orchestra, in Attali's framework, is a composition-era ensemble---but the university laptop orchestra gates participation behind enrollment and tuition. It is composition-era music with representation-era access controls.
+
+Turino~\citep{turino2008music} distinguishes \emph{participatory} music (success = degree of participation) from \emph{presentational} music (success = quality for an audience). A planetary laptop orchestra is participatory by default. There is no stage. There are only participants.
+
+Illich's ``tools for conviviality''~\citep{illich1973tools} completes the frame. A convivial tool can be used by anyone, without specialized training, to accomplish purposes they determine themselves. A PLOrk station is not a convivial tool. A surplus laptop running \acos{} approaches conviviality: it boots into a playable instrument, requires no configuration, and belongs to its owner.
+
+\section{Lessons from OLPC}
+
+OLPC~\citep{negroponte1995being, kraemer2009olpc} deployed 3 million XO laptops at a cost of billions. It failed because: purpose-built unfamiliar hardware, proprietary parts, no software ecosystem, government coordination requirements, and high per-unit cost.
+
+\acos{} inverts every failure mode:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\linewidth}{lXX}
+\toprule
+\textbf{Failure} & \textbf{OLPC} & \textbf{AC OS} \\
+\midrule
+Hardware & XO (\$188) & Surplus (\$50) \\
+Form & Unfamiliar & Standard laptop \\
+Repair & Proprietary & Commodity \\
+Deploy & Govt. ministry & One person + USB \\
+Scale & 3M over 10yr & 240M already exist \\
+\bottomrule
+\end{tabularx}
+\caption{OLPC failure modes vs. AC OS.}
+\end{table}
+
+The deepest lesson: hardware-first deployments fail when they require manufacturing, logistics, and institutional coordination. \acos{} requires none of these because the hardware already exists. The deployment mechanism is a file, not a supply chain.
+
+\section{Limitations}
+
+\textbf{Audio quality.} Built-in laptop speakers are acoustically poor. For ensembles larger than a room, external amplification is needed.
+
+\textbf{ARM support.} \acos{} targets x86\_64 only. Most educational Chromebooks use ARM processors. This is the most critical engineering gap.
+
+\textbf{No formal evaluation.} No user study, no controlled experiment. The access claims are grounded in hardware economics, not empirical pedagogy.
+
+\textbf{Single-author project.} The bus factor is one. A planetary deployment cannot depend on a single maintainer.
+
+\textbf{Network latency.} Internet latency (50--200ms) fundamentally changes what music is possible. ``Latency as compositional parameter'' is an open research problem, not a solved one.
+
+\textbf{No curriculum.} The instrument exists; the pedagogy does not. Without it, deploying hardware into schools risks repeating OLPC's pattern.
+
+\section{Future Work}
+
+\textbf{ARM Chromebook support}---the most impactful engineering target, unlocking millions of additional instruments from school surplus.
+
+\textbf{Built-in composition tools}---sequencers, pattern editors, looping tools, and collaborative composition interfaces as pieces.
+
+\textbf{Spatialization without speakers}---using the ensemble's distributed physical positions to create emergent spatial audio fields. A ring of 30 laptops \emph{is} a hemispherical speaker, if the software knows where each one is.
+
+\textbf{Curriculum development}---adapting PLOrk's pedagogy~\citep{trueman2007why} for zero-infrastructure contexts.
+
+\textbf{Mesh networking}---peer-to-peer ensemble connectivity without internet infrastructure for outdoor spaces, rural areas, and developing regions.
+
+\section{Conclusion}
+
+In 2005, Dan Trueman asked ``Why a laptop orchestra?''~\citep{trueman2007why} and gave a compelling answer. He was right. PLOrk proved it.
+
+Twenty years later, the question is different. Not ``why a laptop orchestra?'' but ``why only \emph{one}?''
+
+The answer has been economic. The laptop orchestra was expensive, so it stayed in the university.
+
+\acos{} removes the economic barrier. An 89\,MB file. A \$50 surplus laptop. Seven seconds to boot. Built-in synthesis, networking, personalization, updates. No speakers to build, no software to install, no IT department, no institution.
+
+With 240 million PCs entering surplus from Windows~10 alone, and 62 million tonnes of e-waste annually~\citep{forti2024ewaste}, the raw material for a planetary laptop orchestra is embarrassingly abundant. The hardware exists. The software exists. The network exists. The music, as PLOrk showed us twenty years ago, is real.
+
+PLOrk'ing the planet is not a metaphor. It is a logistics problem. And the logistics just got a hundred times cheaper.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
