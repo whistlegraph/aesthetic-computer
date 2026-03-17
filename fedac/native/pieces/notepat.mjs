@@ -151,11 +151,7 @@ let lastBatPercent = -1;     // for battery change TTS
 // Auto-connect: try "aesthetic.computer" hotspot when not connected
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
-// Fallback networks to try if AC hotspot isn't available (cycled in order)
-const FALLBACK_WIFI = [
-  { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
-  { ssid: "ATTcifXGXi", pass: "=dvt%mnk8h6z" },
-];
+// Additional networks loaded from /mnt/wifi_creds.json
 let autoConnectFrame = 0;    // counts frames; try every ~5s (300 frames)
 let autoConnectBlink = 0;    // blink counter for antenna icon while polling
 let autoConnectTry = 0;      // increments each attempt
@@ -636,7 +632,7 @@ function act({ event: e, sound, wifi, system }) {
           const net = nets[entry.idx];
           const savedCred = savedCreds.find((c) => c.ssid === net.ssid) ||
             (net.ssid === AC_SSID ? { pass: AC_PASS } : null) ||
-            FALLBACK_WIFI.find((f) => f.ssid === net.ssid);
+            null;
           if (savedCred) {
             wifi?.connect(net.ssid, savedCred.pass);
             activeScreen = "notepat";
@@ -1516,8 +1512,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // All known credentials
   const knownCreds = [
     { ssid: AC_SSID, pass: AC_PASS },
-    ...FALLBACK_WIFI,
-    ...savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid)),
+    ...savedCreds.filter((c) => c.ssid !== AC_SSID),
   ];
   const knownSSIDs = new Set(knownCreds.map((c) => c.ssid));
 
@@ -2165,8 +2160,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const scannedSSIDs = new Set(scannedNets.map((n) => n.ssid));
     const allSaved = [
       { ssid: AC_SSID, pass: AC_PASS },
-      ...FALLBACK_WIFI,
-      ...savedCreds.filter((c) => c.ssid !== AC_SSID && !FALLBACK_WIFI.find((f) => f.ssid === c.ssid)),
+      ...savedCreds.filter((c) => c.ssid !== AC_SSID),
     ];
     // Saved networks not currently visible in scan
     const offlineSaved = allSaved.filter((c) => !scannedSSIDs.has(c.ssid));
@@ -2231,7 +2225,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       for (let i = 0; i < offlineSaved.length && row < maxRows; i++, row++) {
         const cred = offlineSaved[i];
         const ry = listY + row * rowH;
-        const isPreset = cred.ssid === AC_SSID || FALLBACK_WIFI.find((f) => f.ssid === cred.ssid);
+        const isPreset = cred.ssid === AC_SSID;
 
         const isSelSaved = row === wifiSelectedIdx;
         if (isSelSaved) {

@@ -49,6 +49,7 @@ const PIECE_DESC = {
   "chart":         "diagram sketch",
   "f3ral3xp":      "feral expression",
   "3x3":           "ortholinear pad",
+  "theme":         "prompt theme",
   "error":         "error screen",
   "404":           "not found",
 };
@@ -56,10 +57,6 @@ const PIECE_DESC = {
 // WiFi auto-connect state
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
-const FALLBACK_WIFI = [
-  { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
-  { ssid: "ATTcifXGXi", pass: "=dvt%mnk8h6z" },
-];
 const CREDS_PATH = "/mnt/wifi_creds.json";
 let savedCreds = [];
 let autoConnectFrame = 0;
@@ -107,6 +104,14 @@ circle w/2 h/2 (? 2 4 8)`,
 
 function boot({ system }) {
   message = "";
+  // Load saved theme from config (persists across reboots)
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    if (raw) {
+      const cfg = JSON.parse(raw);
+      if (cfg.theme) __theme.apply(cfg.theme);
+    }
+  } catch (_) {}
   // Discover all available pieces dynamically
   PIECE_NAMES = (system?.listPieces?.() || []).filter(n => n !== "prompt" && n !== "lisp" && n !== "cc");
   PIECE_NAMES.sort();
@@ -420,8 +425,7 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
     autoConnectFrame++;
     const knownCreds = [
       { ssid: AC_SSID, pass: AC_PASS },
-      ...FALLBACK_WIFI,
-      ...savedCreds.filter(c => c.ssid !== AC_SSID && !FALLBACK_WIFI.find(f => f.ssid === c.ssid)),
+      ...savedCreds.filter(c => c.ssid !== AC_SSID),
     ];
     const knownSSIDs = new Set(knownCreds.map(c => c.ssid));
     const isConnecting = wifi.state === 3 || wifi.state === 4;
