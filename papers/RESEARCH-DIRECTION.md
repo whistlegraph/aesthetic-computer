@@ -16,7 +16,20 @@
 
 ## Per-Paper Revision Plans
 
-### 0. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
+### 0a. PLORKing the Planet (arXiv — `arxiv-plork/plork.tex`)
+**Status**: Working draft, ~8 pages, WORKING DRAFT watermark
+**Current citations**: ~25 (PLOrk, L2Ork, SLOrk, Attali, Turino, Illich, OLPC, e-waste, surplus pricing)
+**Core argument**: PLOrk proved laptop orchestras are musically legitimate but the model is trapped in universities at $1,500+/seat. AC Native OS + surplus hardware ($50/seat) removes the economic barrier entirely — 240M Windows 10 EOL machines = raw material for a planetary laptop orchestra.
+**What's needed**:
+- [ ] Add figures: PLOrk vs AC OS cost scaling chart, surplus hardware photo grid, ensemble network diagram
+- [ ] Get exact PLOrk equipment cost figures from Trueman 2006/2007 papers (currently estimated)
+- [ ] Add real AC OS ensemble performance test results (latency, voice count, network throughput)
+- [ ] Cite Ge Wang's ChucK papers more specifically for SLOrk technical details
+- [ ] Add section on software-defined spatialization (distributed speakers as emergent hemispherical speaker)
+- [ ] Research and cite post-COVID laptop orchestra status (many dissolved?)
+- [ ] Consider NIME 2027 submission (laptop orchestras + new instruments = core NIME topic)
+
+### 0b. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
 **Status**: Working draft, ~6 pages, WORKING DRAFT watermark
 **Current citations**: ~15 (OLPC, Kittler, McLuhan, Illich, Papert, Ukeles, Raspberry Pi, Sonic Pi)
 **Core argument**: Flashing surplus commodity laptops with a bare-metal creative OS offers a post-OLPC, post-Apple model of personal computing — deeper personalization at lower cost with zero infrastructure
