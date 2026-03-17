@@ -166,6 +166,15 @@ let dragStartPos = null; // Position where drag started
 let dragDistanceThreshold = 5; // Pixels moved before considered a scroll
 let hoveredMessageIndex = null; // Index of message currently being hovered
 
+// 📜 Inertial / bouncy scroll physics
+let scrollVelocity = 0; // Current scroll velocity (pixels/frame)
+let isFlinging = false; // True when inertial scroll is active
+const SCROLL_FRICTION = 0.92; // Velocity multiplier per frame (lower = more friction)
+const SCROLL_MIN_VELOCITY = 0.5; // Stop threshold
+const BOUNCE_STIFFNESS = 0.15; // Spring constant for bounce-back
+const BOUNCE_DAMPING = 0.7; // Damping for bounce oscillation
+const MAX_OVERSCROLL = 60; // Max pixels past edge
+
 let rowHeight;
 const lineGap = 1,
   topMargin = 31,
@@ -2564,6 +2573,8 @@ function act(
     if (e.is("touch")) {
       dragStartPos = { x: e.x, y: e.y };
       isDragging = false; // Reset - will become true if we move enough
+      isFlinging = false; // Stop inertial scroll on new touch
+      scrollVelocity = 0;
     }
 
     // 👈 Tapping
@@ -3082,12 +3093,20 @@ function act(
           isDragging = true; // Mark as dragging - will prevent link activation on lift
         }
       }
-      
+
+      // Stop any active fling when user grabs again
+      isFlinging = false;
+      scrollVelocity = e.delta.y; // Track last delta for fling
+
       scroll += e.delta.y;
       store["chat:scroll"] = scroll;
-      boundScroll();
-      // computeMessagesLayout(api);
+      boundScrollSoft();
       messagesNeedLayout = true;
+    }
+
+    // 📜 Start inertial fling on lift
+    if (e.is("lift") && isDragging && Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY) {
+      isFlinging = true;
     }
 
     if (e.is("keyboard:down:arrowdown")) {
@@ -3107,10 +3126,10 @@ function act(
     }
 
     if (e.is("scroll")) {
+      isFlinging = false;
       scroll -= e.y;
       store["chat:scroll"] = scroll;
       boundScroll();
-      // computeMessagesLayout(api);
       messagesNeedLayout = true;
     }
 
@@ -3454,7 +3473,46 @@ function act(
   }
 }
 
-function sim({ api, num, send, net }) {
+function sim({ api, num, send, net, store }) {
+  // 📜 Inertial scroll physics
+  if (isFlinging) {
+    const max = totalScrollHeight - chatHeight + 5;
+    const outOfBounds = scroll < 0 || scroll > max;
+
+    if (outOfBounds) {
+      // Bounce back with spring physics
+      const target = scroll < 0 ? 0 : max;
+      const displacement = scroll - target;
+      scrollVelocity -= displacement * BOUNCE_STIFFNESS;
+      scrollVelocity *= BOUNCE_DAMPING;
+      scroll += scrollVelocity;
+
+      // Settle once close enough
+      if (Math.abs(displacement) < 0.5 && Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY) {
+        scroll = target;
+        scrollVelocity = 0;
+        isFlinging = false;
+      }
+    } else {
+      // Normal inertial coast
+      scrollVelocity *= SCROLL_FRICTION;
+      scroll += scrollVelocity;
+
+      // If we've coasted past an edge, keep flinging (spring will catch it)
+      if (scroll < 0 || scroll > max) {
+        scrollVelocity *= 0.5; // Dampen when hitting edge
+      }
+
+      if (Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY) {
+        scrollVelocity = 0;
+        isFlinging = false;
+      }
+    }
+
+    store["chat:scroll"] = scroll;
+    messagesNeedLayout = true;
+  }
+
   if (input) {
     // 🔍 Sync autocomplete skipHistory and skipEnter flags with TextInput
     // Only skip Enter when autocomplete is truly visible with selectable items AND keyboard is open
@@ -3614,9 +3672,15 @@ function setR8dioVolume(vol, send) {
 
 function boundScroll() {
   if (scroll < 0) scroll = 0;
-  if (scroll > totalScrollHeight - chatHeight + 5) {
-    scroll = totalScrollHeight - chatHeight + 5;
-  }
+  const max = totalScrollHeight - chatHeight + 5;
+  if (scroll > max) scroll = max;
+}
+
+// Soft bound allows overscroll up to MAX_OVERSCROLL (for bounce feel while dragging)
+function boundScrollSoft() {
+  const max = totalScrollHeight - chatHeight + 5;
+  if (scroll < -MAX_OVERSCROLL) scroll = -MAX_OVERSCROLL;
+  if (scroll > max + MAX_OVERSCROLL) scroll = max + MAX_OVERSCROLL;
 }
 
 // 🎨 Load painting preview by code

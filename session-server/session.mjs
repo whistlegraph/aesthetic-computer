@@ -2651,9 +2651,9 @@ wss.on("connection", async (ws, req) => {
           emitProfilePresence(worldHandle, `world:${piece}:hide`, ["world", "showing"]);
         }
 
-        // Intercept chats and filter them.
+        // Intercept chats and filter them (skip for laer-klokken).
         if (label === "write") {
-          msg.content = filter(msg.content);
+          if (piece !== "laer-klokken") msg.content = filter(msg.content);
           const chatText =
             typeof msg.content === "string" ? msg.content : msg.content?.text;
           if (chatText) {

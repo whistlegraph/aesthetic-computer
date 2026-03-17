@@ -43,6 +43,13 @@ function saveMetadata(meta) {
   writeFileSync(METADATA_PATH, JSON.stringify(meta, null, 2) + "\n", "utf8");
 }
 
+// Translation key from paper dir (matches keys in index.html inline translations)
+function translationKey(dir) {
+  const key = dir.replace("arxiv-", "");
+  const overrides = { "kidlisp-reference": "kidlisp-ref", "sustainability": "who-pays" };
+  return overrides[key] || key;
+}
+
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
   "arxiv-ac": {
@@ -365,8 +372,9 @@ function updateIndex(entries) {
     const hasCards = existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`));
     const createdStr = p.created ? fmtDate(p.created) : "";
     const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
+    const tKey = translationKey(p.dir);
     papersHtml += `
-    <div class="p"${hasCards ? "" : ` data-no-cards="1"`}>
+    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}>
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
@@ -375,8 +383,9 @@ function updateIndex(entries) {
   for (const ex of extras) {
     const createdStr = ex.created ? fmtDate(ex.created) : "";
     const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
+    const exKey = { "joss-ac": "joss-ac", "joss-kidlisp": "joss-kidlisp", "els-kidlisp": "els" }[ex.metaKey] || ex.metaKey;
     papersHtml += `
-    <div class="p">
+    <div class="p" data-paper-id="${exKey}">
         <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
         <div class="detail">${ex.detail}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(ex.mtime)}</span></div>
