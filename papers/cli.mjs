@@ -120,6 +120,16 @@ const PAPER_MAP = {
     siteName: "plorking-the-planet-26-arxiv",
     title: "PLOrk'ing the Planet",
   },
+  "arxiv-folk-songs": {
+    base: "folk-songs",
+    siteName: "folk-songs-26-arxiv",
+    title: "Playable Folk Songs",
+  },
+  "arxiv-complex": {
+    base: "complex",
+    siteName: "sucking-on-the-complex-26-arxiv",
+    title: "Sucking on the Complex",
+  },
 };
 
 function texName(base, lang) {
@@ -234,14 +244,36 @@ function updateIndex(entries) {
 
   const meta = loadMetadata();
 
-  // Collect deployed English PDFs with their timestamps
+  // Importance ranking — curated order for 2026 impact
+  const IMPORTANCE = {
+    "aesthetic-computer-26-arxiv": 1,
+    "kidlisp-26-arxiv": 2,
+    "plorking-the-planet-26-arxiv": 3,
+    "ac-native-os-26-arxiv": 4,
+    "piece-api-26-arxiv": 5,
+    "who-pays-for-creative-tools-26-arxiv": 6,
+    "pieces-not-programs-26-arxiv": 7,
+    "notepat-26-arxiv": 8,
+    "radical-computer-art-26-arxiv": 9,
+    "whistlegraph-26-arxiv": 10,
+    "sucking-on-the-complex-26-arxiv": 11,
+    "dead-ends-26-arxiv": 12,
+    "folk-songs-26-arxiv": 13,
+    "repo-archaeology-26-arxiv": 14,
+    "network-audit-26-arxiv": 15,
+    "kidlisp-reference-26-arxiv": 16,
+    "citation-diversity-audit-26": 17,
+  };
+
+  // Collect deployed English PDFs sorted by importance
   const papers = [];
   for (const e of entries.filter((e) => e.lang === "en" && e.sitePdfExists)) {
     const stat = statSync(e.sitePdf);
     const m = meta[e.dir] || {};
-    papers.push({ ...e, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0 });
+    const rank = IMPORTANCE[e.siteName] || 99;
+    papers.push({ ...e, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0, rank });
   }
-  papers.sort((a, b) => b.mtime - a.mtime);
+  papers.sort((a, b) => a.rank - b.rank);
 
   // Also include JOSS/ELS papers that aren't in PAPER_MAP
   const extraPdfs = [
@@ -308,6 +340,10 @@ function updateIndex(entries) {
       "A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp",
     "plorking-the-planet-26-arxiv":
       "Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv",
+    "folk-songs-26-arxiv":
+      "Oral Tradition Meets the Browser Keyboard &middot; arXiv",
+    "sucking-on-the-complex-26-arxiv":
+      "Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp",
   };
 
   function fmtTime(d) {
