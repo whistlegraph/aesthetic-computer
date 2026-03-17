@@ -1,0 +1,18 @@
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Origins (June--July 2024)}{5}{section.2}%
+\contentsline {section}{\numberline {3}Feature Growth}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Audio engine (2024--2025)}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Input and hardware (2024--2026)}{7}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Visual design}{8}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}DAW integration: Ableton Live}{8}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Network and system integration}{10}{subsection.3.5}%
+\contentsline {section}{\numberline {4}The Bare-Metal Port}{11}{section.4}%
+\contentsline {section}{\numberline {5}Derivatives and Reuse}{13}{section.5}%
+\contentsline {section}{\numberline {6}Infrastructure Pulled into Existence}{15}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Routing and branding}{15}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Testing infrastructure}{15}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Piece-hit analytics}{16}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Political Economy of a Piece}{18}{section.7}%
+\contentsline {section}{\numberline {8}Current Scale}{21}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{22}{section.9}%
+\contentsfinish 
