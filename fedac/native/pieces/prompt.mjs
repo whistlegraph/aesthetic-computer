@@ -129,7 +129,7 @@ function boot({ system }) {
   } catch (_) {}
 }
 
-function act({ event: e, system }) {
+function act({ event: e, system, sound }) {
   if (e.is("keyboard:down:shift")) { shiftHeld = true; return; }
   if (e.is("keyboard:up:shift")) { shiftHeld = false; return; }
 
@@ -137,6 +137,21 @@ function act({ event: e, system }) {
     const key = e.key;
     cursorFrame = 0;
     cursorVisible = true;
+
+    // Voice every keystroke
+    if (key.length === 1) {
+      sound?.speak?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
+    } else if (key === "space") {
+      sound?.speak?.("space");
+    } else if (key === "backspace") {
+      sound?.speak?.("back");
+    } else if (key === "enter" || key === "return") {
+      sound?.speak?.("enter");
+    } else if (key === "escape") {
+      sound?.speak?.("clear");
+    } else if (key === "tab") {
+      sound?.speak?.("tab");
+    }
 
     if (key === "tab") {
       // Tab completion
@@ -468,24 +483,10 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
   // Input text with syntax highlighting
   drawHighlighted(input, x0, y0, charW, ink, write, font);
 
-  // Pink block cursor with wifi status glow
+  // Pure block cursor
   if (cursorVisible) {
     const cx = x0 + cursor * charW;
-
-    // WiFi glow: subtle colored shadow behind cursor
-    if (wifi?.connected) {
-      // Connected: faint green glow left edge
-      const pulse = 20 + Math.floor(10 * Math.sin(frame * 0.05));
-      ink(30, 80 + pulse, 40, 60);
-      box(cx - 1, y0, 1, charH, true);
-    } else if (wifi) {
-      // Disconnected: faint red pulse left edge
-      const pulse = frame % 90 < 45 ? 40 : 15;
-      ink(80 + pulse, 20, 20, 50);
-      box(cx - 1, y0, 1, charH, true);
-    }
-
-    ink(T.cursor[0], T.cursor[1], T.cursor[2], 180);
+    ink(T.cursor[0], T.cursor[1], T.cursor[2]);
     box(cx, y0, charW, charH, true);
     // Draw character under cursor if not at end
     if (cursor < input.length) {
