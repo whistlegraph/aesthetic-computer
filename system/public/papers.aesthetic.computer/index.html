@@ -226,56 +226,32 @@
             .p .detail { font-size: 0.7em; }
         }
 
-        /* === DESKTOP (900px+) — newspaper 2-column === */
+        /* === DESKTOP (900px+) — single column, larger text === */
         @media (min-width: 900px) {
             body {
-                max-width: 1100px;
+                max-width: 800px;
                 padding: 2em 3em;
-                font-size: 15px;
-            }
-            .logo { font-size: 2.2em; }
-            .sub { font-size: 0.9em; margin-bottom: 1em; }
-            .papers-grid {
-                grid-template-columns: repeat(2, 1fr);
-                column-gap: 2em;
-            }
-            /* Headline — first paper spans full width */
-            .papers-grid .p:first-child {
-                grid-column: 1 / -1;
-                border-bottom: 2px solid var(--sep);
-                padding-bottom: 0.8em;
-                margin-bottom: 0.3em;
-            }
-            .papers-grid .p:first-child .title { font-size: 2em; }
-            .papers-grid .p:first-child .detail { font-size: 0.9em; }
-            /* Column divider via left border on right-column items */
-            .papers-grid .p:nth-child(2n+1):not(:first-child) {
-                border-right: 1px solid var(--col-divider);
-                padding-right: 2em;
-            }
-            .p .title { font-size: 1.6em; }
-            .p .detail { font-size: 0.85em; }
-            .p { padding: 0.7em 0.5em; }
-            .footer { font-size: 0.8em; }
-        }
-
-        /* === XL (1400px+) — newspaper 3-column === */
-        @media (min-width: 1400px) {
-            body {
-                max-width: 1400px;
-                padding: 2.5em 4em;
                 font-size: 16px;
             }
-            .logo { font-size: 2.6em; }
-            .sub { font-size: 1em; }
-            .papers-grid {
-                grid-template-columns: repeat(3, 1fr);
-                column-gap: 2.5em;
+            .logo { font-size: 2.2em; }
+            .sub { font-size: 1em; margin-bottom: 1em; }
+            .p .title { font-size: 1.6em; }
+            .p .detail { font-size: 0.95em; }
+            .p { padding: 0.7em 0.5em; }
+            .footer { font-size: 0.85em; }
+        }
+
+        /* === XL (1400px+) — single column, even larger === */
+        @media (min-width: 1400px) {
+            body {
+                max-width: 960px;
+                padding: 2.5em 4em;
+                font-size: 17px;
             }
-            .papers-grid .p:first-child .title { font-size: 2.4em; }
-            .papers-grid .p:first-child .detail { font-size: 1em; }
+            .logo { font-size: 2.6em; }
+            .sub { font-size: 1.1em; }
             .p .title { font-size: 1.8em; }
-            .p .detail { font-size: 0.9em; }
+            .p .detail { font-size: 1em; }
             .pals { width: 64px; }
         }
     </style>
