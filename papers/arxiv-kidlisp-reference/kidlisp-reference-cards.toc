@@ -10,7 +10,7 @@
 \contentsline {subsection}{\numberline {2.8}Text (4 functions)}{10}{subsection.2.8}%
 \contentsline {subsection}{\numberline {2.9}Input (3 functions)}{11}{subsection.2.9}%
 \contentsline {subsection}{\numberline {2.10}Audio (6 functions)}{11}{subsection.2.10}%
-\contentsline {subsection}{\numberline {2.11}3D Graphics (8 functions)}{11}{subsection.2.11}%
+\contentsline {subsection}{\numberline {2.11}3D Graphics (8 functions)}{12}{subsection.2.11}%
 \contentsline {subsection}{\numberline {2.12}Composition via \texttt {\$}-Codes}{12}{subsection.2.12}%
 \contentsline {section}{\numberline {3}Evaluation Model}{14}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Deterministic Randomness}{14}{subsection.3.1}%

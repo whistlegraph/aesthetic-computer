@@ -20,7 +20,7 @@
 %   - Extra font families
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ac-paper-cards}[2026/03/17 Aesthetic Computer cards layout v2]
+\ProvidesPackage{ac-paper-cards}[2026/03/17 Aesthetic Computer cards layout v3]
 
 % === PAGE SIZE (phone-proportioned card) ===
 \RequirePackage[
@@ -51,6 +51,34 @@
 \definecolor{aclight-bg}{RGB}{248,246,250}
 \definecolor{accard}{RGB}{255,255,255}
 \definecolor{draftcolor}{RGB}{180,72,135}
+
+% === RANDOM CAPS for Aesthetic.Computer branding ===
+% Uses XeTeX primitive \uniformdeviate for random 0/1 per letter.
+% Each compile produces a different capitalization.
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+% === PDF BASE NAME (set by each paper for footer URL) ===
+\newcommand{\acpdfbase}{}
+
+% Helper: full URL for current page
+\newcommand{\acfooterurl}{%
+  \ifx\acpdfbase\empty\else
+    \tiny\color{acgray}%
+    \href{https://papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}%
+    {papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}%
+  \fi
+}
 
 % === CARD FRAMES ===
 \RequirePackage{tcolorbox}
@@ -112,14 +140,15 @@
 \RequirePackage{tikz}
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
-    % Subtle pals logo bottom-right
-    \node[opacity=0.04, anchor=south east, rotate=0]
-      at ([xshift=-0.2cm, yshift=0.4cm]current page.south east)
-      {\includegraphics[width=2.5cm]{pals}};
-    % Faint draft text
-    \node[opacity=0.07, rotate=35, anchor=center]
+    % Subtle pals watermark — small, faint, bottom-right
+    \node[opacity=0.015, anchor=south east]
+      at ([xshift=-0.15cm, yshift=0.3cm]current page.south east)
+      {\includegraphics[width=1cm]{pals}};
+    % Draft watermark — two lines, transparent
+    \node[opacity=0.04, rotate=35, anchor=center, align=center]
       at (current page.center)
-      {{\aclight\fontsize{1.4cm}{1.6cm}\selectfont\color{acpink} WORKING DRAFT}};
+      {{\aclight\fontsize{1.1cm}{1.3cm}\selectfont\color{acpink} WORKING DRAFT}\\[0.1cm]
+       {\aclight\fontsize{0.4cm}{0.5cm}\selectfont\color{acpink} not for citation}};
   \end{tikzpicture}%
 }
 
@@ -151,10 +180,9 @@
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
 \fancyhead[R]{\tiny\color{acpink}\textit{draft}}
-% Card number — centered, small, styled
-\fancyfoot[C]{%
-  {\small\color{acgray}\thepage}%
-}
+% Footer: URL with page anchor on left, page number on right
+\fancyfoot[L]{\acfooterurl}
+\fancyfoot[R]{{\small\color{acgray}\thepage}}
 
 % === LIST SETTINGS ===
 \RequirePackage{enumitem}
@@ -193,7 +221,7 @@
   {\titlerule*[0.6em]{\tiny\color{acgray}.}\color{acpurple}\contentspage}
 
 % === COMMON COMMANDS ===
-\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
 \newcommand{\acdot}{{\color{acpink}.}}
 \newcommand{\np}{\textsc{notepat}}
 
