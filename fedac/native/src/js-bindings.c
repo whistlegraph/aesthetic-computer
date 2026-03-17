@@ -2986,10 +2986,12 @@ static JSValue js_set_power_role(JSContext *ctx, JSValueConst this_val, int argc
         if (role) JS_FreeCString(ctx, role);
         return JS_NewBool(ctx, 0);
     }
+    // Validate role
     if (strcmp(role, "source") != 0 && strcmp(role, "sink") != 0) {
         JS_FreeCString(ctx, port); JS_FreeCString(ctx, role);
         return JS_NewBool(ctx, 0);
     }
+    // Validate port name (must be "portN")
     if (strncmp(port, "port", 4) != 0 || !port[4]) {
         JS_FreeCString(ctx, port); JS_FreeCString(ctx, role);
         return JS_NewBool(ctx, 0);
@@ -3963,15 +3965,19 @@ static JSValue build_system_obj(JSContext *ctx) {
             struct dirent *te;
             while ((te = readdir(tcdir))) {
                 if (strncmp(te->d_name, "port", 4) != 0) continue;
+                // Skip partner/plug entries like "port0-partner"
                 if (strchr(te->d_name + 4, '-')) continue;
                 char tmp[256], rbuf[64] = {0};
                 snprintf(tmp, sizeof(tmp), "/sys/class/typec/%s/power_role", te->d_name);
                 if (read_sysfs(tmp, rbuf, sizeof(rbuf)) <= 0) continue;
+                // rbuf is like "[source] sink" or "source [sink]"
                 const char *current_role = "unknown";
                 int can_swap = 0;
                 if (strstr(rbuf, "[source]")) current_role = "source";
                 else if (strstr(rbuf, "[sink]")) current_role = "sink";
+                // If both roles appear, swap is supported
                 if (strstr(rbuf, "source") && strstr(rbuf, "sink")) can_swap = 1;
+                // Data role
                 char drbuf[64] = {0};
                 snprintf(tmp, sizeof(tmp), "/sys/class/typec/%s/data_role", te->d_name);
                 read_sysfs(tmp, drbuf, sizeof(drbuf));
@@ -3991,7 +3997,7 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, sys, "typec", typec);
     }
 
-    // system.setPowerRole(port, role)
+    // system.setPowerRole(port, role) — swap USB-C power role ("source" or "sink")
     JS_SetPropertyStr(ctx, sys, "setPowerRole", JS_NewCFunction(ctx, js_set_power_role, "setPowerRole", 2));
 
     // Tablet mode (lid folded back on convertible laptops)
