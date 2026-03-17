@@ -1,0 +1,273 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={网络审计：谁在使用 Aesthetic Computer，他们创作了什么？}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿——请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 网络审计}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 谁在使用 Aesthetic Computer，他们创作了什么？}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 平台身份、地理分布与创意产出的自我评估}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿——请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+\ac{} 不收集人口统计数据。它没有年龄字段、没有性别字段、没有种族字段、没有收入字段。它只知道用户的三件事：他们选择的用户名、他们创作的内容，以及——通过启动遥测——他们创作时大致身处何方。本文基于系统实际收集的数据，对 \ac{} 平台进行网络审计：2,811个注册用户名、93,122次带有地理信息头的启动会话、59位作者编写的16,634个 \kl{} 程序、18,062条聊天消息、4,428幅绘画、265个已发布作品和2,900条心情状态。我们分析了平台的用户分布（创作者/消费者比例、幂律贡献模式、地理覆盖范围）、社交拓扑（聊天参与度、爱心反应、心情模式），以及创意产出（\kl{} 函数的实际使用情况、最受访问的作品、\texttt{\$}-code 嵌入图如何构建组合结构）。我们论证，\emph{缺少}人口统计数据本身就是一种设计立场——兼具解放潜力和真实局限——而通过用户\emph{创作了什么}而非他们\emph{是谁}来审计平台，会产生关于社区的不同类型的知识。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+平台审计通常从人口统计开始：有多少用户、什么年龄、什么性别、什么种族、什么地点、什么收入等级。这些类别之所以构成审计的框架，是因为它们构成了平台的框架：社交媒体公司收集人口统计数据以出售广告，因此数据存在且可供分析。
+
+\ac{}~\citep{scudder2026ac} 不出售广告。它不收集人口统计数据。用户使用电子邮件地址注册并选择一个用户名——一个单词，成为他们在平台上的身份。这个用户名，以及在其名下创作的作品，构成了平台对该用户的全部了解。
+
+这一限制——源于隐私原则，而非疏忽——意味着传统的平台审计是不可能的。我们无法报告 \ac{} 用户群的年龄分布、性别构成或种族组成，因为我们不知道，也从未询问过。我们能报告的是平台实际观察到的内容：来自网络请求头的地理信号、四种内容类型的创意产出、通过聊天和反应进行的社交互动，以及 \kl{} 程序中的语言特性采用情况。
+
+本文呈现的就是这样一份审计。它必然是不完整的——每份审计都是如此——但它坦诚地说明了它测量了什么以及无法测量什么。
+
+\section{人口普查}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xr}
+\toprule
+\textbf{指标} & \textbf{数量} \\
+\midrule
+Auth0 账户（总计） & 18,187 \\
+Auth0 账户（已验证） & 5,373 \\
+注册 @用户名 & 2,811 \\
+启动会话（累计） & 93,122 \\
+\midrule
+KidLisp 程序 & 16,634 \\
+绘画 & 4,428 \\
+聊天消息 & 18,062 \\
+心情（状态更新） & 2,900 \\
+已发布作品 & 265 \\
+录像带（视频录制） & 102 \\
+时钟 & 333 \\
+已订购实体印刷品 & 20 \\
+\bottomrule
+\end{tabularx}
+\caption{截至2026年3月的平台人口普查。}
+\label{tab:census}
+\end{table}
+
+从账户创建（18,187）到用户名注册（2,811）到内容创作（约1,100名用户至少有一幅绘画、一条心情或一个程序）再到持续贡献（约59位 \kl{} 作者）的漏斗，遵循了 Eghbal 在开源社区中描述的模式~\citep{eghbal2020working}：一个庞大的观察者外围，一个较小的偶尔贡献者环，以及一个微小的高产创作者核心。
+
+\subsection{创作者/消费者比例}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{活动} & \textbf{用户数} & \textbf{占用户名 \%} \\
+\midrule
+至少绘画过一次 & 1,067 & 38.0\% \\
+发布过心情 & 997 & 35.5\% \\
+编写过 KidLisp & 59 & 2.1\% \\
+发布过作品 & 19 & 0.7\% \\
+\bottomrule
+\end{tabularx}
+\caption{创作者参与率。}
+\label{tab:creators}
+\end{table}
+
+38\% 的注册用户进行过绘画——与 YouTube（估计创作者比例为1--3\%）或 SoundCloud（约10\%）等平台相比，这是一个极高的创作率。绘画不需要编程知识；它是平台上最低摩擦的创作行为。下降到 \kl{} 的2.1\% 和作品创作的0.7\% 反映了基于文本的创意编程的更高技能门槛。
+
+59位 \kl{} 作者编写了16,634个程序：每位作者的中位数为12个程序，前四分之一的作者各产出180+个程序。这种极端偏斜遵循创意社区特有的幂律分布~\citep{barabasi1999emergence}：少数高产作者产出了大部分内容，而长尾的休闲创作者各产出一两个程序。
+
+\section{地理分布}
+
+\ac{} 的启动遥测通过 Netlify 边缘请求头捕获每次会话的国家、地区和城市信息。这些数据的收集不使用 cookie、不使用跟踪像素，也不使用用户同意表——它们包含在 HTTP 请求本身中。
+
+\subsection{请求头显示的内容}
+
+\texttt{boots} 集合包含93,122条记录，其地理数据来源于：\texttt{x-country}（ISO 国家代码）、\texttt{x-nf-subdivision-code}（地区/州）、\texttt{x-nf-city}（城市名称）和 \texttt{x-nf-client-connection-ip}（客户端 IP）。这些数据反映的是\emph{用户网络连接的来源地}，不一定是用户居住的地方。
+
+完整的地理分析需要直接查询 \texttt{boots} MongoDB 集合，计划作为配套数据报告发布。可用的字段支持：
+
+\begin{itemize}
+  \item 国家级别分布（每个国家有多少会话）
+  \item 城市级别聚类（哪些城市有集中使用）
+  \item 按时区的时间模式（不同地区的用户何时启动系统）
+  \item 来源分析（哪些网站链接到 \ac{}）
+\end{itemize}
+
+\subsection{请求头未显示的内容}
+
+地理请求头揭示的是网络位置，而非身份。使用 VPN 的用户会显示在不同的国家。在大学上网的用户显示的是大学的位置，而非其家庭住址。使用移动数据的用户可能显示在最近基站所在的城市。数据在方向上是有用的，但并不精确。
+
+更重要的是，地理位置不是传统审计所关注的人口统计类别的代理指标。知道一个会话来自 Lagos 并不能告诉我们用户的年龄、性别、收入或教育程度。它告诉我们在 Lagos 有人使用了 \ac{}，这本身是有意义的——但这与人口统计数据提供的知识类型不同。
+
+\section{创意产出分析}
+
+\subsection{KidLisp 函数采用}
+
+\texttt{/api/store-kidlisp?stats=functions} 端点返回每个 \kl{} 内置函数的使用统计数据，按程序受欢迎度（访问量）加权。这些数据揭示了用户实际采用了哪些创作功能~\citep{scudder2026kidlisp}。
+
+基于语言设计的预期模式：
+\begin{itemize}
+  \item \textbf{图形基元}（\texttt{wipe}、\texttt{ink}、\texttt{box}、\texttt{circle}、\texttt{line}）应占主导地位——它们是产生可见输出的最直接方式
+  \item \textbf{变换}（\texttt{scroll}、\texttt{zoom}、\texttt{spin}）应出现在以动画为重点的程序中
+  \item \textbf{控制流}（\texttt{repeat}、\texttt{def}、\texttt{if}）应与程序复杂度相关
+  \item \textbf{\$-code 嵌入}应揭示社交组合图——哪些程序充当其他程序的构建模块
+  \item \textbf{颜色名称}应显示社区的调色板偏好
+\end{itemize}
+
+完整的函数采用分析及加权排名计划作为配套数据报告发布，需要直接查询 \texttt{kidlisp} MongoDB 集合。
+
+\subsection{\$-Code 组合图}
+
+\kl{} 的主要抽象机制——通过短代码嵌入程序——创建了一个隐式依赖图。当程序 A 包含 \texttt{(\$cow)} 时，它依赖于程序 ``cow''。这个图具有可观察的属性：
+
+\begin{itemize}
+  \item \textbf{枢纽程序}：被许多其他程序引用的程序（视觉基元、实用模式）
+  \item \textbf{叶子程序}：嵌入其他程序但自身未被嵌入的程序
+  \item \textbf{深度}：观察到的最大嵌入链为7层
+  \item \textbf{跨作者组合}：不同作者的程序相互嵌入，构成了一种通过代码而非对话发生的社交协作
+\end{itemize}
+
+这个图是一个独特的数据集：它将创意协作捕获为依赖关系，而非显式的社交互动。两个从未交谈过的用户可能通过共享的构建模块程序而紧密相连。
+
+\section{社交拓扑}
+
+\subsection{聊天}
+
+18,062条消息分布在两个聊天实例中（\texttt{chat-system} 用于主平台，\texttt{chat-clock} 用于 laer-klokken 社区）。消息可归属于用户名，从而实现按用户的参与度分析。爱心（反应）创建了一个二部用户-消息亲和图。
+
+\subsection{心情}
+
+2,900条心情更新——简短的状态消息，可以交叉发布到 ATProto 并镜像到 Bluesky。心情是纵向的：它们有时间戳，可以作为用户参与度的时间序列进行分析。一个定期发布心情的用户即使没有产出视觉作品，也活跃在社区中。
+
+\subsection{用户名作为身份}
+
+用户名系统作为一种设计选择值得关注。用户名是用户选择的单个词：\texttt{@jeffrey}、\texttt{@prutti}、\texttt{@cow}。它在设计上不携带人口统计信号。平台无法从用户名推断年龄。无法推断性别。无法推断种族。这既是一种局限，也是一种解放。
+
+局限在于：我们无法评估平台是否服务于多元化群体，因为我们不知道这些群体是谁。解放在于：用户以他们选择的名字为人所知，而非以分配给他们的类别~\citep{costanzachock2020design}。用户名就是身份。作品就是传记。
+
+\section{我们无法测量的}
+
+这一节与前面各节同样重要。
+
+\begin{itemize}
+  \item \textbf{年龄}：未知。无注册字段。
+  \item \textbf{性别}：未知。无注册字段。
+  \item \textbf{种族/民族}：未知。无注册字段。
+  \item \textbf{收入}：未知。无注册字段。
+  \item \textbf{残疾状况}：未知。无注册字段。
+  \item \textbf{教育水平}：未知。无注册字段。
+  \item \textbf{会话时长}：部分可用（启动开始/完成时间戳存在，但完成率不稳定）
+  \item \textbf{导航路径}：未跟踪。无页面浏览分析。
+  \item \textbf{社交图}：不存在关注/好友机制。社交连接从聊天参与和 \$-code 组合中推断。
+  \item \textbf{流失}：账户不被删除（GDPR 删除按请求手动处理）。我们无法区分不活跃用户和已离开的用户。
+\end{itemize}
+
+这些字段的缺失并非偶然。\ac{} 建立在这样一个原则之上：创意平台应尽可能少地了解其用户，除了他们通过创意作品选择分享的内容~\citep{illich1973tools}。这一原则有其代价：我们无法报告公平性，无法识别服务不足的群体，无法衡量平台是否再现了现有的差距。这些是基于用户名的身份系统无法解决的真实局限。
+
+Benjamin 的观察——``种族中立''的设计往往编码了现有偏见~\citep{benjamin2019race}——在此适用。不收集人口统计数据的决定与平等服务所有人口群体的决定不同。一个不询问种族的平台，仍然可能因其设计选择（仅英语界面、以美国为中心的时区、艺术学院美学）而系统性地沿种族线排除人群——却永远不自知。
+
+\section{走向测量}
+
+未来的工作可以在不损害基于用户名的身份模型的前提下解决某些差距：
+
+\begin{itemize}
+  \item \textbf{地理深度分析}：对93,122条启动记录按国家、城市和时间模式进行完整分析。这是可用的最强多样性代理指标。
+  \item \textbf{语言分析}：聊天消息和心情包含自然语言，可用于分析语言多样性（使用的语言、语码转换模式）。
+  \item \textbf{自愿调查}：定期的匿名调查可以收集人口统计数据，而不将其与用户名关联。
+  \item \textbf{按用户群的函数采用}：按函数使用模式对 \kl{} 作者进行分组，可能揭示与不同实践社区相关的独特创作"方言"。
+  \item \textbf{时间参与曲线}：启动时间戳分析可以揭示用户是否集中在特定时区，暗示地理聚类。
+\end{itemize}
+
+\section{结论}
+
+本审计报告了 \ac{} 对其用户的了解：2,811个用户名、93,122次来自可识别地理位置的会话，以及一批创意作品（16,634个程序、4,428幅绘画、18,062条消息、265个作品），构成了平台的真正产出。它没有报告 \ac{} 不了解的内容：用户名背后的人的年龄、性别、种族、收入或教育程度。
+
+对于这一缺口的传统回应是收集缺失的数据。设计正义的回应~\citep{costanzachock2020design}是追问这些类别本身是服务于社区，还是仅仅使社区对需要人口统计分类来填写资助申请和影响报告的机构变得可读。\ac{} 迄今的回答是——少知道一些，多信任一些：让用户名成为身份，让作品自己说话，并接受不知道屏幕另一端究竟是谁的认识论代价。
+
+这是一份关于一个不完美系统的诚实审计。不完美之处已被记录。系统是活的。用户是真实的。他们创作的东西是他们是谁的最佳证据。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
