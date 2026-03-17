@@ -30,6 +30,7 @@ let npRef = null; // stored needsPaint for live updates
 let hasClaude = null; // null=loading, true/false
 let hasGit = null;
 let setupBtn = null; // "set up tokens" button shown when missing
+let showTokenHint = false;
 
 // Color palettes for dark/light mode (deprecated builds use red tones)
 const scheme = {
@@ -316,6 +317,22 @@ function paint($) {
           [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
         );
         y += setupBtn.height + 4;
+        if (showTokenHint) {
+          ink(...C.instText);
+          $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+          y += matrixH + 2;
+          if (!hasClaude) {
+            ink(...C.instKey);
+            $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+            y += matrixH + 2;
+          }
+          if (!hasGit) {
+            ink(...C.instKey);
+            $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+            y += matrixH + 2;
+          }
+          y += 4;
+        }
       } else if (hasClaude && hasGit) {
         ink(...C.date);
         $.write("device ready", { x: pad + 120, y: y - rowH - 2 });
@@ -494,12 +511,13 @@ function act({ event: e, needsPaint, download }) {
     });
   }
 
-  // Setup tokens button: open docs / hint
+  // Setup tokens button: show hint text
   if (setupBtn && token) {
     setupBtn.btn.act(e, {
       push: () => {
-        // Open token setup docs in a new tab
-        window.open("https://console.anthropic.com/settings/keys", "_blank");
+        // Toggle hint visibility
+        showTokenHint = !showTokenHint;
+        needsPaint();
       },
     });
   }
