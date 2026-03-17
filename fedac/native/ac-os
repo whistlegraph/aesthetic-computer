@@ -857,7 +857,7 @@ require_clean() {
     # Pre-compute build name and timestamp while cwd is clean (build_kernel changes directory)
     # AC_BUILD_TS is captured once and passed to Make via env so the binary, upload metadata,
     # and .version file all use the exact same timestamp (prevents "current" vs "available" mismatch).
-export AC_BUILD_NAME=$(bash scripts/build-name.sh 2>/dev/null || echo "unknown")
+export AC_BUILD_NAME=$(cd "${SCRIPT_DIR}" && bash scripts/build-name.sh 2>/dev/null || echo "unknown")
 export AC_BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
 log "Build name: ${AC_BUILD_NAME}"
 
