@@ -1,0 +1,662 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={PLOrk'ing the Planet: Fra laptoporkester til planetarisk instrument},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} PLOrk'ing the Planet}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Fra laptoporkester til planetarisk instrument}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Overskudshardware, bare-metal-syntese og 240-millioner-maskiners orkester}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+I 2005 grundlagde Dan Trueman og Perry Cook Princeton Laptop Orchestra (PLOrk)---femten stationer, hver best{\aa}ende af en MacBook, en specialfremstillet hemisf{\ae}risk h{\o}jttaler, et 8-kanals forst{\ae}rkerrack og en r{\ae}kke controllere, der k{\o}rte ChucK og Max/MSP. PLOrk beviste, at laptopensembler er en musikalsk legitim performanceform, og aff{\o}dte over tredive universitetslaptoporkestre verden over. Men tyve {\aa}r senere er hvert eneste af disse ensembler stadig fanget inden for et universitet: afh{\ae}ngigt af indskrivning, finansieret af afdelinger, anbragt i dedikerede studier og betjent af teknisk personale. Laptoporkestret forlod aldrig campus. Vi argumenterer for, at PLOrk-modellen indeholder en skaleringsumulighed: hver plads koster \$1.500+, kr{\ae}ver specialfremstillede h{\o}jttalere, afh{\ae}nger af institutionel infrastruktur og betjener h{\o}jst 15 personer pr. semester. L2Ork (Virginia Tech) reducerede prisen til \$750/plads med Linux-netbooks og billigere hemisf{\ae}riske h{\o}jttalere, men forblev universitetsbundet. Laptoporkesterdr{\o}mmen---at netv{\ae}rkscomputere kunne v{\ae}re en ny slags ensembleinstrument---var altid en dr{\o}m om adgang. Den fejlede p{\aa} adgang. Denne artikel pr{\ae}senterer et konkret alternativ. \acos{} er et 89\,MB styresystem, der starter enhver overskuds-x86\_64-laptop op som et dedikeret musikinstrument p{\aa} 7,3 sekunder: indbygget 32-stemmers polyfon synthesizer, netv{\ae}rksnativ ensembleforbindelse, personlig identitet og over-the-air-opdateringer. En overskuds-ThinkPad koster \$50. USB-flashen tager \'{e}t minut. Ingen hemisf{\ae}riske h{\o}jttalere, ingen forst{\ae}rkerracks, ingen Max/MSP-licenser, ingen IT-afdeling. Med 240 millioner pc'er erkl{\ae}ret forst{\ae}ldede af Windows~10-end-of-life og 62 millioner ton e-affald genereret {\aa}rligt, eksisterer r{\aa}materialet til et planetarisk laptoporkester allerede. Sp{\o}rgsm{\aa}let er ikke, om vi har r{\aa}d til at PLOrk'e planeten. Det er, om vi har r{\aa}d til at lade v{\ae}re.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUKTION ============
+
+\section{Introduktion}
+
+Princeton Laptop Orchestra var ikke et band med laptops. Det var en p{\aa}stand: at laptopen kunne v{\ae}re et orkestrinstrument, at software kunne producere rumligt rig lyd, at et netv{\ae}rk af computere kunne udg{\o}re et ensemble lige s{\aa} legitimt som en strygekvartet. Dan Trueman, Perry Cook, Scott Smallwood og Ge Wang byggede PLOrk i 2005 p{\aa} Princeton University~\citep{trueman2006plork, trueman2007why}, og p{\aa}standen holdt. Musikken var virkelig. Performancerne var overbevisende. P{\ae}dagogikken var transformativ.
+
+Men PLOrk blev bygget p{\aa} Princeton. Hver af de femten performancestationer kr{\ae}vede en MacBook (\$1.300+), en specialfremstillet hemisf{\ae}risk h{\o}jttaler designet af Jeff Snyder~\citep{snyder2015hemispherical} til at projicere lyd omnidirektionelt som et akustisk instrument, en 8-kanals lydforst{\ae}rker, en str{\o}mkonditionerer, et rackgeh{\ae}use og en r{\ae}kke controllere---MIDI-keyboards, grafiktablets, Wiimote-interfaces, tryk- og hældningssensorer. Softwarestakken inkluderede ChucK~\citep{wang2003chuck}, Max/MSP (licenseret) og specialfremstillet netv{\ae}rkskode. Samlet pris per plads: konservativt \$1.500, sandsynligvis h{\o}jere n{\aa}r man medregner fremstillingsarbejde og institutionelle overhead.
+
+Dette var ikke en barriere for Princeton. Det var en barriere for alle andre.
+
+I l{\o}bet af det f{\o}lgende {\aa}rti spredte laptoporkestre sig over universiteterne---SLOrk p{\aa} Stanford~\citep{wang2009designing}, L2Ork p{\aa} Virginia Tech~\citep{bukvic2010l2ork}, CLOrk p{\aa} Concordia, BLOrk p{\aa} Colorado, HELO p{\aa} Huddersfield, OLO i Oslo, SCLOrk p{\aa} Santa Clara, CMU Laptop Orchestra p{\aa} Carnegie Mellon, ensembler p{\aa} Indiana, Georgia Tech, UBC og Universidad Nacional de M\'{u}sica i Peru. P{\aa} toppen eksisterede m{\aa}ske tredive ensembler p{\aa} verdensplan. Hvert eneste levede inden for et universitet. Hvert eneste kr{\ae}vede institutionel finansiering, dedikeret lokale, teknisk personale og indskrevne studerende.
+
+Laptoporkesterbev{\ae}gelsen toppede ved ca. 500--1.000 deltagere pr. {\aa}r, globalt. Til sammenligning spiller 1,2 millioner amerikanske b{\o}rn i skoleorkestre~\citep{warschauer2004technology}. Laptoporkestret var en smuk id\'{e}, der n{\aa}ede n{\ae}sten ingen.
+
+Denne artikel argumenterer for, at den begr{\ae}nsende faktor aldrig var kunstnerisk---PLOrk afgjorde det sp{\o}rgsm{\aa}l i {\aa}r \'{e}t---men {\o}konomisk og infrastrukturel. Vi pr{\ae}senterer \acos{}, et bare-metal-styresystem, der forvandler enhver overskuds-x86\_64-laptop til et komplet musikinstrument til en pris to st{\o}rrelsesordener under PLOrk-modellen, og foresl{\aa}r, at den resulterende {\o}konomi g{\o}r et \emph{planetarisk} laptoporkester ikke blot muligt, men, givet omfanget af tilg{\ae}ngelig overskudshardware, n{\ae}sten uundg{\aa}eligt.
+
+% ============ 2. LAPTOPORKESTERLANDSKABET ============
+
+\section{Laptoporkesterlandskabet}
+\label{sec:landscape}
+
+\subsection{PLOrk: Guldstandarden}
+
+PLOrks design var omhyggeligt. Trueman~\citep{trueman2007why} formulerede kerneproblemet: en laptops indbyggede h{\o}jttalere producerer tynd, retningsl{\o}s lyd, der ikke kan ``fylde et rum, som et akustisk instrument g{\o}r.'' Den hemisf{\ae}riske h{\o}jttaler---en geod{\ae}tisk skal med seks drivere, der str{\aa}ler udad i en halvkugle---var l{\o}sningen. Den gav hver laptopstation en fysisk akustisk tilstedev{\ae}relse, en \emph{krop} for sin lyd. Laptopen blev, i Truemans forst{\aa}elsesramme, ikke en controller, der udl{\o}ste samples, men et instrument med rumlige karakteristika.
+
+Dette var musikalsk korrekt og {\o}konomisk katastrofalt. Hver hemisf{\ae}risk h{\o}jttaler var h{\aa}ndbygget. Forst{\ae}rkere, racks og str{\o}mkonditionerere tilf{\o}jede volumen og omkostning. Resultatet var et ensemble, der lyd fantastisk og kostede en formue. PLOrks 15-stations ops{\ae}tning, fuldt udstyret, repr{\ae}senterede en investering nord for \$30.000 i udstyr alene---f{\o}r man regnede lokalet, netv{\ae}rksinfrastrukturen, softwarelicenserne og det tekniske personale til at vedligeholde det hele med.
+
+\subsection{L2Ork: Linux-modforslaget}
+
+Ivica Ico Bukvic p{\aa} Virginia Tech erkendte adgangsproblemet og byggede L2Ork~\citep{bukvic2010l2ork}, Linux Laptop Orchestra, som en eksplicit omkostningsreduktion. L2Ork erstattede MacBooks med Linux-netbooks, Max/MSP med Pd-L2Ork (en specialtilpasset fork af Pure Data) og Princetons hemisf{\ae}riske h{\o}jttalere med billigere hemisf{\ae}riske designs med standarddrivere. Resultatet: ca. \$750 pr. plads, en 50\% reduktion.
+
+L2Ork var et v{\ae}sentligt bidrag. Bukvics insisteren p{\aa} open source-software og prisvenlig hardware var filosofisk i overensstemmelse med adgangsmissionen. Men \$750/plads kr{\ae}ver stadig institutionel anskaffelse. Hemisf{\ae}riske h{\o}jttalere, selv billigere, kr{\ae}ver stadig fremstilling. Pd-L2Ork kr{\ae}ver stadig installation, konfiguration og vedligeholdelse p{\aa} en v{\ae}rts-Linux-distribution. L2Ork demokratiserede laptoporkestret inden for universitetssystemet. Det undslap det ikke.
+
+\subsection{Universitetsf{\ae}lden}
+
+M{\o}nstret er konsistent p{\aa} tv{\ae}rs af alle 30+ laptoporkestre:
+
+\begin{itemize}
+  \item \textbf{Indskrivningskrav}: kun indskrevne studerende deltager
+  \item \textbf{Afdelingsfinansieret}: udstyrsbudgetter fra musik- eller datalogi-afdelinger
+  \item \textbf{Lokaleafh{\ae}ngigt}: dedikerede {\o}velokaler med netv{\ae}rksinfrastruktur
+  \item \textbf{Personaleafh{\ae}ngigt}: fakultetsdirekt{\o}rer, tekniske assistenter, IT-support
+  \item \textbf{Semesterbundet}: ensembler dannes og opl{\o}ses efter akademiske kalendere
+  \item \textbf{Geografisk fastl{\aa}st}: man skal fysisk v{\ae}re p{\aa} universitetet
+\end{itemize}
+
+Disse er ikke tilf{\ae}ldige begr{\ae}nsninger. De er strukturelle konsekvenser af prismodellen. N{\aa}r hver plads koster \$750--1.500 og kr{\ae}ver specialhardware, \emph{m{\aa}} ensemblet v{\ae}re institutionelt styret. Udstyret er for dyrt at miste, for specialiseret at erstatte og for komplekst at vedligeholde uden teknisk personale. Universitetet er ikke bare v{\ae}rten---det er den eneste levedygtige v{\ae}rt.
+
+\subsection{Hvad tallene siger}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Ensemblemodel} & \textbf{Pr. plads} & \textbf{30 pladser} & \textbf{1000 pladser} \\
+\midrule
+PLOrk (Princeton)       & \$1.500+ & \$45.000+ & umuligt \\
+L2Ork (Virginia Tech)   & \$750      & \$22.500  & umuligt \\
+SLOrk (Stanford)        & \$1.200+ & \$36.000+ & umuligt \\
+Sonic Pi + Pi hardware   & \$150--200 & \$4.500   & \$150.000 \\
+\textbf{AC OS + overskud} & \textbf{\$50--80} & \textbf{\$1.500} & \textbf{\$50.000} \\
+\bottomrule
+\end{tabular}
+\caption{Prissammenligning p{\aa} tv{\ae}rs af laptoporkestermodeller. ``Umuligt'' angiver, at modellens afh{\ae}ngighed af specialfremstilling og institutionel infrastruktur forhindrer skalering ud over ca. 50 pladser.}
+\label{tab:cost}
+\end{table}
+
+Tabellen fort{\ae}ller historien. Til PLOrk-priser er et 1.000-personers laptoporkester en fantasi. Til AC~OS-priser koster det mindre end en enkelt PLOrk-ops{\ae}tning. Forskellen er ikke trinvis. Det er et faseskift.
+
+% ============ 3. OVERSKUDS-TSUNAMIEN ============
+
+\section{Overskuds-tsunamien}
+\label{sec:surplus}
+
+\subsection{240 millioner maskiner}
+
+Den 14. oktober 2025 afsluttede Microsoft supporten for Windows~10~\citep{canalys2024windows}. Canalys anslog, at 240 millioner pc'er p{\aa} verdensplan---maskiner, hvis hardware er fuldt funktionsdygtig, men hvis processorer ikke opfylder Windows~11's TPM~2.0- og CPU-generationskrav---blev gjort ``for{\ae}ldede'' fra den ene dag til den anden. Det er ikke gamle maskiner. Det er 2017--2020-{\ae}ra laptops med quad-core-processorer, 8\,GB RAM, 1080p-sk{\ae}rme og WiFi. De blev e-affald, ikke fordi de gik i stykker, men fordi Microsoft besluttede, at de var f{\ae}rdige.
+
+Dette er den st{\o}rste enkelthoved-overskudsbegivenhed i personal computing-historien. Og den ankommer oven p{\aa} de eksisterende overskudsstr{\o}mme: virksomhedsleasingreturer (3--5 {\aa}rs opdateringscyklusser), skole-Chromebook-cirkulation~\citep{pirg2023chromebook}, detaillageroverskud og den stabile str{\o}m af kosmetisk beskadigede, men funktionelle maskiner ind i istandsaettelseskanaler.
+
+\subsection{Den globale e-affaldskontekst}
+
+FN's Global E-waste Monitor 2024~\citep{forti2024ewaste} rapporterer 62 millioner ton e-affald genereret globalt pr. {\aa}r, voksende med 2,6 millioner ton {\aa}rligt. Kun 22,3\% er dokumenteret som korrekt indsamlet og genanvendt. Resten deponeres, forbr{\ae}ndes eller eksporteres til uformelle forarbejdningsoperationer i det globale syd, hvor arbejdere---ofte b{\o}rn---udvinder metaller under farlige forhold.
+
+Enhver overskudslaptop, der omdirigeres fra denne str{\o}m til et musikinstrument, er en lille milj{\o}m{\ae}ssig intervention. I stor skala ville et program, der genbruger blot 0,1\% af det {\aa}rlige pc-overskud, producere 240.000 instrumenter om {\aa}ret.
+
+\subsection{Chromebook-kirkeg{\aa}rden}
+
+U.S. PIRG Education Funds ``Chromebook Churn''-rapport~\citep{pirg2023chromebook} dokumenterer, hvordan skoledistrikter p{\aa} landsplan cykler gennem Chromebooks hver 3--5 {\aa}r og bruger ansl{\aa}et \$1,8 milliarder p{\aa} enheder designet til at blive udskiftet. Googles Auto Update Expiration (AUE)-politik g{\o}r Chromebooks usupporterede efter en fast dato uanset hardwarens tilstand. Oakland Unified alene administrerer 40.000 Chromebooks p{\aa} denne cyklus.
+
+Den tragiske ironi: skoler kasserer Chromebooks, hvis hardware overstiger kravene til et fuldt kreativt computerinstrument, og bruger derefter \$200--300 p{\aa} nye. Et distrikt, der flashede pensionerede Chromebooks med \acos{}, kunne forvandle sit e-affaldsbudget til et instrumentprogram.
+
+(Bem{\ae}rk: \acos{} m{\aa}lretter i {\o}jeblikket x86\_64 UEFI-maskiner. De fleste uddannelses-Chromebooks bruger ARM-processorer. ARM-support er et prim{\ae}rt udviklinigm{\aa}l---se afsnit~\ref{sec:future}. Intel-Chromebooks er dog umiddelbart kompatible.)
+
+\subsection{Overskudspriser}
+
+Aktuelle (marts 2026) priser p{\aa} overskudslaptops p{\aa} engrosistandsaettermarkeder og sekund{\ae}re markedspladser:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Maskine} & \textbf{Prisinterval} \\
+\midrule
+ThinkPad X1 Carbon (6.--8. gen) & \$40--80 \\
+ThinkPad T480/T490 & \$35--70 \\
+HP EliteBook 840 G5/G6 & \$40--75 \\
+Dell Latitude 7400/7410 & \$45--80 \\
+Dell Latitude 5400 & \$30--55 \\
+HP ProBook 440 G6/G7 & \$30--60 \\
+Lenovo IdeaPad (diverse) & \$25--50 \\
+\bottomrule
+\end{tabular}
+\caption{Overskudslaptop-priser, marts 2026. Priserne afspejler engros (\textgreater 10 enheder) fra certificerede istandsaettere. Alle modeller inkluderer 1080p-sk{\ae}rm, 4+ kerner, 8+\,GB RAM, WiFi, fuldt tastatur og 4+ timers batteri.}
+\label{tab:surplus}
+\end{table}
+
+Hver eneste af disse maskiner starter \acos{} p{\aa} under 8 sekunder. Hver eneste har et fuldt tastatur, en touchpad, en mikrofon, h{\o}jttalere, en sk{\ae}rm og WiFi. Hver eneste er et komplet, selvst{\ae}ndigt musikinstrument, der venter p{\aa} en 89\,MB fil.
+
+% ============ 4. AC NATIVE OS SOM INSTRUMENT ============
+
+\section{AC Native OS som instrument}
+\label{sec:instrument}
+
+Hvor PLOrk kr{\ae}vede at samle et instrument af komponenter---laptop plus h{\o}jttaler plus forst{\ae}rker plus rack plus controllere plus software---foresl{\aa}r \acos{}, at overskudslaptopen \emph{allerede er} instrumentet. Den beh{\o}ver blot at f{\aa} det at vide.
+
+\subsection{Arkitektur i kort form}
+
+\acos{} er en enkelt 89\,MB UEFI-bin{\ae}r indeholdende en Linux-kerne, et LZ4-komprimeret initramfs og en 11.943-linjers C-runtime, der k{\o}rer som PID~1~\citep{scudder2026os}. Der er intet userspace, intet skrivebordsmilj{\o}, ingen pakkeh{\aa}ndtering, ingen shell. Runtimen h{\aa}ndterer direkte display (DRM/KMS), lyd (ALSA ved 192\,kHz), input (evdev), WiFi (wpa\_supplicant), kamera (V4L2) og tale (flite). Interaktive programmer (``pieces'') er JavaScript ES-moduler eksekveret af QuickJS~\citep{bellard2019quickjs}.
+
+Opstartstid: \textbf{7,3 sekunder} fra tænd-knap til spilleklart instrument.
+
+\subsection{Indbygget syntese}
+
+Runtimen inkluderer en 32-stemmers polyfon synthesizer med per-stemme ADSR-envelopes, flere b{\o}lgeformer (sinus, trekant, savsav, puls, st{\o}j) og en global reverb-processor. Lyd k{\o}rer p{\aa} 192\,kHz gennem ALSA PCM---den samme gr{\ae}nseflade, der bruges af professionelle lydarbejdsstationer, uden overhead fra PulseAudio, PipeWire eller JACK.
+
+Dette er den kritiske afvigelse fra PLOrk. Truemans hemisf{\ae}riske h{\o}jttaler l{\o}ste problemet med rumlig lydprojektion for laptopensembler. \acos{} omg{\aa}r problemet helt: laptopens indbyggede h{\o}jttalere er h{\o}jttalerne. De er ikke omnidirektionelle, ikke hemisf{\ae}riske, ikke akustisk ideelle. Men de er \emph{der}---i enhver overskudslaptop, allerede tilsluttet, kr{\ae}ver ingen fremstilling, ingen forst{\ae}rkere, ingen str{\o}mkonditionerere, ingen racks.
+
+For et 15-personers PLOrk-ensemble, der optr{\ae}der i en koncertsal, er hemisf{\ae}riske h{\o}jttalere det rigtige svar. For et 1.000-personers distribueret ensemble, der optr{\ae}der i klasselokaler, medborgerhuse, parker og stuer, er laptopens egne h{\o}jttalere det rigtige svar. Den hemisf{\ae}riske h{\o}jttaler var en l{\o}sning p{\aa} et koncertsalsproblem. Det planetariske laptoporkester er ikke en koncertsal.
+
+\subsection{Laptopen har allerede alt}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{PLOrk kr{\ae}ver} & \textbf{Overskudslaptop har} \\
+\midrule
+MacBook & Enhver x86\_64 laptop \\
+Hemisf{\ae}risk h{\o}jttaler & Indbyggede h{\o}jttalere \\
+8-kanals forst{\ae}rker & Indbygget forst{\ae}rker (ALSA) \\
+Str{\o}mkonditionerer & Str{\o}madapter eller batteri \\
+Rackgeh{\ae}use & Laptop-chassis \\
+MIDI-controller & Tastatur + touchpad \\
+ChucK/Max/MSP-licens & AC OS (gratis, indbygget) \\
+Netv{\ae}rksinfrastruktur & WiFi (indbygget) \\
+IT-personale & OTA-opdateringer (automatisk) \\
+\bottomrule
+\end{tabular}
+\caption{PLOrk-komponentkrav vs. overskudslaptop-kapabiliteter.}
+\label{tab:plork-vs-surplus}
+\end{table}
+
+Overskudslaptopen er ikke en forringet PLOrk-station. Den er en \emph{anderledes slags instrument}---selvst{\ae}ndigt, b{\ae}rbart, batteridrevet, personligt ejet og umiddelbart spilklart. Hvad den mangler i akustisk projektion, vinder den i uafh{\ae}ngighed. En PLOrk-station kan ikke forlade {\o}velokalet. En AC~OS-laptop kan tage overalt hen.
+
+\subsection{Netv{\ae}rksnativt ensemble}
+
+\ac{} inkluderer indbygget multiplayer-netv{\ae}rk: WebSocket til p{\aa}lidelige begivenheder (deltag, forlad, score, tilstand) og UDP til lav-latens realtidsdata (position, hastighed, kontinuerte controllere). Enhver \acos{}-enhed p{\aa} det samme WiFi-netv{\ae}rk kan tilslutte sig en ensemblesession med nul konfiguration. Sessionsserveren~\citep{scudder2026ac} h{\aa}ndterer routing, og pieces kan definere vilk{\aa}rlige netv{\ae}rksprotokoller til ensembleinteraktion.
+
+PLOrks netv{\ae}rk kr{\ae}vede specialinfrastruktur og teknisk ops{\ae}tning til hver performance. \acos{}-ensemblenetv{\ae}rk er altid t{\ae}ndt, indbygget i OS-laget og fungerer p{\aa} ethvert WiFi---inklusive en telefonhotspot. Tre mennesker med overskudslaptops i en park kan danne et laptoporkester.
+
+\subsection{Personalisering som instrumentidentitet}
+
+Hver \acos{}-enhed starter med ejerens handle vist og sagt h{\o}jt: ``hi @maria.'' Farver, tokens og pr{\ae}ferencer gemmes i \texttt{config.json} p{\aa} EFI-partitionen, vedvarende p{\aa} tv{\ae}rs af OTA-opdateringer~\citep{scudder2026os}. Maskinen er ikke en generisk terminal---den er \emph{Marias instrument}, og den ved det.
+
+I en ensemblekontekst betyder dette, at hvert instrument er navngivet. Dirigenten (eller netv{\ae}rket) kan adressere ``@marias'' maskine, route lyd til den, tildele den en stemme. Instrumentidentitet er ikke en tilf{\o}jelse; den er fundamental. Ethvert orkesterinstrument har et navn. Nu har enhver laptop det ogs{\aa}.
+
+% ============ 5. DEDIKEREDE ENHEDSSAMMENLIGNINGER ============
+
+\section{Landskabet for dedikerede enheder}
+\label{sec:devices}
+
+Overskudslaptopen er ikke den eneste b{\ae}rbare computerenhed til \$50--300-prispunktet. Forbrugermarkedet accepterer allerede---entusiastisk---specialbyggede computerenheder, der g{\o}r \'{e}n ting godt. Sammenligningen belyser, hvad \acos{} er og ikke er.
+
+\subsection{Nintendo Switch (\$299 ny, \$150 brugt)}
+
+Switch er den mest succesfulde dedikerede kreative computerenhed i historien, sk{\o}nt den ikke markedsf{\o}res s{\aa}dan. Den er en h{\aa}ndholdt computer med touchsk{\ae}rm, h{\o}jttalere, WiFi, Bluetooth, bev{\ae}gelsessensorer, aftagelige controllere og en dock til TV-output. Den k{\o}rer et specialstyresystem, der starter p{\aa} sekunder til en enkelt gr{\ae}nseflade. Brugere navigerer et bibliotek af interaktive programmer (``spil'') ved navn. Der er ingen filh{\aa}ndtering, intet skrivebord, ingen terminal.
+
+Den strukturelle lighed med \acos{} er sl{\aa}ende: begge er enkelform{\aa}ls-styresystemer p{\aa} b{\ae}rbar hardware, begge starter hurtigt til en interaktiv oplevelse, begge bruger WiFi til multiplayer. Switch har solgt 146 millioner enheder~\citep{nintendo2024earnings}---bevis p{\aa}, at offentligheden vil adoptere dedikerede computerenheder, n{\aa}r oplevelsen er sammenh{\ae}ngende, og barrieren for adgang er en t{\ae}nd-knap.
+
+Forskellen er form{\aa}l og {\o}konomi. Switch koster \$299 ny. En overskuds-ThinkPad med \acos{} koster \$50. Switch er en lukket platform ejet af Nintendo. \acos{} er {\aa}ben, modificerbar og selvopdaterende. Switch kan ikke omprogrammeres af sin ejer. En \acos{}-enhed k{\o}rer brugerforfattede pieces. Men Switch beviser formfaktoren: en b{\ae}rbar, specialbygget, {\o}jeblikkelig-p{\aa} computerenhed er noget, folk {\o}nsker, forst{\aa}r og bruger dagligt.
+
+\subsection{Steam Deck (\$399 ny, \$250 brugt)}
+
+Valves Steam Deck er en h{\aa}ndholdt x86\_64-pc, der k{\o}rer en specialtilpasset Linux-distribution (SteamOS), der starter direkte ind i et spilbibliotek. Den er, arkitektonisk, n{\ae}sten pr{\ae}cis hvad \acos{} g{\o}r: et specialbygget Linux-milj{\o} p{\aa} standardhardware x86\_64, optimeret til et enkelt brugsscenarie, med hurtig opstart og en kurateret gr{\ae}nseflade.
+
+Steam Deck demonstrerer, at ``bare-metal Linux p{\aa} x86\_64''-tilgangen fungerer kommercielt. Valve har solgt ansl{\aa}et 5--10 millioner enheder. Brugere accepterer og foretr{\ae}kker den dedikerede oplevelse frem for et alment skrivebord. Steam Deck beviser ogs{\aa}, at indbyggede h{\o}jttalere, sk{\o}nt akustisk beskedne, er acceptable til interaktive medier, n{\aa}r oplevelsen i {\o}vrigt er overbevisende.
+
+Hvor Steam Deck kr{\ae}ver specialbygget hardware (\$399), k{\o}rer \acos{} p{\aa} hardware, der allerede eksisterer og koster \$50. Steam Deck k{\o}rer spil; \acos{} k{\o}rer pieces. Men den konceptuelle arkitektur---specialtilpasset Linux, hurtig opstart, kurateret bibliotek, indbygget netv{\ae}rk---er f{\ae}lles.
+
+\subsection{Teenage Engineering (OP-1, EP-133, TX-6)}
+
+Teenage Engineerings produktlinje repr{\ae}senterer den h{\o}je ende af dedikerede kreative instrumenter: OP-1 Field (\$1.999), EP-133 K.O. II (\$299), TX-6 mixer (\$1.199). Disse er specialbyggede enheder til musikskabelse med specialhardware, indbyggede h{\o}jttalere, batteri og meningsfulde gr{\ae}nseflader. De er smukke objekter. De er ogs{\aa}, funktionelt, luksusvarer. OP-1's prim{\ae}re marked er ikke arbejdende musikere eller studerende---det er velstillede voksne hobbyister. Enheden optr{\ae}der oftere i YouTube-unboxing-videoer og NAMM-messestandene end i klasselokaler eller medborgerhuse. Til \$2.000 er den utilg{\ae}ngelig for de befolkningsgrupper, der mest har brug for kreative instrumenter.
+
+Dette er m{\o}nstret: dedikeret musikhardware m{\aa}lretter enten institutioner (PLOrk, Ableton Push i universitetsstudier) eller velstillede enkeltpersoner (Teenage Engineering, Elektron, Moog). Midten---prism{\ae}ssigt overkommelige, programmerbare, personligt ejede instrumenter til folk uden institutionel tilknytning eller disponibel indkomst---er tom.
+
+\acos{} p{\aa} en overskudslaptop kan ikke matche Teenage Engineerings industrielle design. ThinkPad-tastaturet er ikke et sequencer-grid. Laptopformfaktoren er ikke et lomme\-instrument. Men \acos{} tilbyder, hvad intet luksusinstrument kan: skala, programmerbarhed og nul marginalomkostning. En OP-1 til hvert barn p{\aa} en skole koster \$600.000 for 300 enheder. En overskudslaptop til hvert barn koster \$15.000. OP-1 kan ikke omprogrammeres af sin ejer. \acos{}-instrumentet k{\o}rer ethvert piece, dets ejer skriver eller downloader. Sp{\o}rgsm{\aa}let er ikke, om en ThinkPad er lige s{\aa} smuk som en OP-1. Det er, om sk{\o}nhed b{\o}r v{\ae}re en foruds{\ae}tning for adgang.
+
+\subsection{Indsigten fra dedikerede enheder}
+
+Forbrugerelektronikmarkedet har allerede besvaret sp{\o}rgsm{\aa}let ``Vil folk bruge dedikerede computerenheder?'' med 146 millioner Switches, 5--10 millioner Steam Decks og et blomstrende marked for specialbygget musikhardware. \acos{} anvender den dedikerede enhedsmodel p{\aa} overskudshardware: samme arkitektoniske m{\o}nster (hurtig opstart, enkelt form{\aa}l, kurateret gr{\ae}nseflade, indbygget netv{\ae}rk), radikalt anderledes {\o}konomi (gratis software p{\aa} \$50-hardware i stedet for \$300--400 specialbyggede enheder).
+
+Overskudslaptopen er ikke en forringet alment computerenhed. Den er en \emph{urealiseret dedikeret enhed}---en der altid var i stand til at v{\ae}re et instrument, men som k{\o}rte Windows i stedet.
+
+% ============ 6. SKALERINGSARGUMENTET ============
+
+\section{Fra ensemble til planet}
+\label{sec:scaling}
+
+\subsection{PLOrks skaleringsgrænse}
+
+PLOrk betjener 15 personer pr. semester. Over tyve {\aa}r, med fuld tilmelding hvert semester, har PLOrk betjent ca. 600 individuelle deltagere. Dette er et generøst estimat---mange studerende deltager i flere semestre, og ensemblet k{\o}rer ikke hvert semester.
+
+At skalere PLOrk til 100 pladser ville kr{\ae}ve \$150.000+ i udstyr, et st{\o}rre performancelokale, flere forst{\ae}rkere, mere str{\o}minfrastruktur, mere teknisk personale. At skalere til 1.000 pladser er fysisk umuligt---de hemisf{\ae}riske h{\o}jttalere alene ville kr{\ae}ve et lager.
+
+PLOrk-modellen skalerer \emph{line{\ae}rt med omkostning og logaritmisk med kompleksitet}. Hver ekstra plads kr{\ae}ver ikke bare udstyr, men proportionalt mere logistisk overhead. Dette er den fundamentale begr{\ae}nsning: PLOrk er et h{\aa}ndv{\ae}rksinstrument. Det er smukt, men det kan ikke reproducere sig selv.
+
+\subsection{AC OS's skaleringskurve}
+
+\acos{} skalerer line{\ae}rt med omkostning og \emph{subline{\ae}rt med kompleksitet}. Hvert ekstra instrument er \'{e}n overskudslaptop mere og \'{e}n USB-flash---tres sekunders arbejde. Der er ingen h{\o}jttalere at bygge, ingen racks at tilslutte, ingen software at installere, ingen konti at klarg{\o}re. OTA-opdateringssystemet betyder, at hvert instrument vedligeholder sig selv. At tilf{\o}je det 1.001. instrument til en fl{\aa}de p{\aa} 1.000 tager den samme indsats som at tilf{\o}je det andet til en fl{\aa}de p{\aa} \'{e}t.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Skala} & \textbf{PLOrk-model} & \textbf{AC OS-model} \\
+\midrule
+15 pladser & \$22.500 & \$750 \\
+30 pladser & \$45.000 & \$1.500 \\
+100 pladser & \$150.000 & \$5.000 \\
+1.000 pladser & umuligt & \$50.000 \\
+10.000 pladser & umuligt & \$500.000 \\
+100.000 pladser & umuligt & \$5.000.000 \\
+\bottomrule
+\end{tabular}
+\caption{Skaleringsomkostninger. PLOrk-modellen bliver fysisk umulig over ca. 50 pladser p{\aa} grund af fremstillings- og pladsbegr{\ae}nsninger. AC~OS-modellen skalerer line{\ae}rt med hardwareomkostning alene; software- og vedligeholdelsesomkostning er nul ved enhver skala.}
+\label{tab:scaling}
+\end{table}
+
+Til \$50 pr. instrument koster et byomsp{\ae}ndende laptoporkester p{\aa} 1.000 instrumenter \$50.000---prisen p{\aa} en enkelt veludstyret PLOrk-installation. Et nationalt program, der distribuerer 100.000 instrumenter, koster \$5 millioner---mindre end en enkelt OLPC-landeudrulning, der typisk kostede \$10--50 millioner~\citep{kraemer2009olpc} for hardware, der ofte stod ubrugt.
+
+\subsection{240-millioner-pladser-orkestret}
+
+Windows~10 end-of-life-overskuddet repr{\ae}senterer 240 millioner potentielle instrumenter. Ikke alle er x86\_64 laptops. Ikke alle har funktionelle batterier. Ikke alle er tilg{\ae}ngelige. Men selv en br{\o}kdel af dette overskud, korrekt omdirigeret, dv{\ae}rger enhver uddannelsesteknologiudrulning i historien.
+
+Overvej: hvis 1\% af Windows~10-overskudsmaskinerne blev flashet med \acos{}, ville resultatet v{\ae}re 2,4 millioner kreative instrumenter distribueret p{\aa} verdensplan. OLPC-projektet udrullede p{\aa} sit h{\o}jdepunkt ca. 3 millioner XO-laptops over hele sin levetid---til en pris p{\aa} milliarder. \'{E}n procent af Windows~10-overskuddet, til nul fremstillingsomkostning og \$0 pr. enhed for software, matcher OLPCs samlede udrulning.
+
+Instrumenterne eksisterer allerede. De sidder i skabe, lagre og genbrugsbeholdere. Softwaren til at aktivere dem er 89\,MB.
+
+% ============ 6. PLORK PLANETEN ============
+
+\section{PLOrk planeten: Et konkret forslag}
+\label{sec:proposal}
+
+\subsection{Kommunale flashbegivenheder}
+
+Den simpleste udrulningsmodel: en kommunal begivenhed, hvor deltagere medbringer overskudslaptops og forlader med instrumenter. Begivenheden kr{\ae}ver \'{e}n person med USB-drev, en \texttt{config.json}-skabelon og et bord. Hver maskine personaliseres (``Hvad hedder du?''), flashes (tres sekunder), startes (syv sekunder) og gives tilbage. Deltageren forlader med et personligt kreativt instrument, der vil opdatere sig selv for evigt.
+
+Dette er ikke spekulativt. Det er en ligetil logistikoperation---simplere end en v{\ae}lgerregistreringsdrive, billigere end et skolebageri.
+
+\subsection{Skoleprogrammer uden udstyrsbudgetter}
+
+Et skoledistrikt, der pensionerer Chromebooks eller Windows~10-maskiner, kan omdirigere hardwaren til et instrumentprogram i stedet for en genbruger. Intel-baserede Chromebooks og alle x86\_64-pc'er er umiddelbart kompatible. ``Udstyrsbudgettet'' er nul---udstyret eksisterer allerede og er allerede betalt for. Den eneste omkostning er arbejdet med at flashe USB-drev.
+
+For skoler, der allerede har kasseret deres hardware: overskuds-ThinkPads fra virksomhedsdonorer til \$30--50 stykket producerer et 30-instruments klasseensemble for \$900--1.500. Dette er mindre end det {\aa}rlige softwareabonnement for de fleste skoleteknologiprogrammer.
+
+\subsection{Fritids- og lokalensembler}
+
+Laptoporkestret har aldrig eksisteret uden for universitetet, fordi det aldrig har v{\ae}ret {\o}konomisk overkommeligt uden for universitetet. Til \$50 pr. instrument med nul l{\o}bende omkostninger bliver laptopensembler levedygtige for:
+
+\begin{itemize}
+  \item Fritidsmusikprogrammer
+  \item Medborgerhuse og biblioteker
+  \item Ungdomsorkestre og maker spaces
+  \item {\AE}ldrecentre og plejehjem
+  \item Indsatte (intet internet kr{\ae}ves til lokalt ensemble)
+  \item Flygtningelejre og katastrofebistand (batteridrevet, WiFi valgfrit)
+  \item Landlige og fjerntliggende samfund (OTA-opdateringer via enhver forbindelse)
+\end{itemize}
+
+Ingen af disse kontekster kunne underst{\o}tte en PLOrk-station. Alle kan underst{\o}tte en overskudslaptop.
+
+\subsection{Det distribuerede orkester}
+
+Fordi \acos{}-ensemblenetv{\ae}rk fungerer over standard WiFi og internetforbindelser, beh{\o}ver et laptoporkester ikke v{\ae}re i det samme lokale. Et piece designet til distribueret performance---hvor latens er en kompositorisk parameter snarere end en fejl---muligg{\o}r:
+
+\begin{itemize}
+  \item Byomsp{\ae}ndende samtidige performances
+  \item Skole-til-skole inter-distrikts-ensembler
+  \item Gr{\ae}nseoverskridende telematiske orkesterbegivenheder
+  \item Asynkrone ``stafet''-kompositioner, der videregives mellem tidszoner
+\end{itemize}
+
+Concordia Laptop Orchestra (CLOrk) har eksperimenteret med telematisk performance i akademiske kontekster. \acos{} g{\o}r telematisk performance tilg{\ae}ngelig for enhver med WiFi og en overskudslaptop.
+
+% ============ 7. HVAD PLORK FIK RET I ============
+
+\section{Hvad PLOrk fik ret i (og hvad det oversa)}
+\label{sec:lessons}
+
+Denne artikel er ikke en kritik af PLOrks kunst eller p{\ae}dagogik. PLOrk er en af de vigtigste udviklinger i computermusik, og dets bidrag er grundl{\ae}ggende:
+
+\begin{enumerate}
+  \item \textbf{Legitimitet}: PLOrk beviste, at laptopensembler producerer rigtig musik, ikke gimmicks. Dette var ikke indlysende i 2005.
+  \item \textbf{Spatialisering}: Den hemisf{\ae}riske h{\o}jttaler demonstrerede, at elektroniske instrumenter drager fordel af akustisk tilstedev{\ae}relse. Denne indsigt best{\aa}r, selv n{\aa}r den specifikke l{\o}sning {\ae}ndrer sig.
+  \item \textbf{Komposition}: PLOrk genererede et nyt repertoire~\citep{smallwood2008composing} og nye kompositoriske strategier for netv{\ae}rksinstrumenter. Dette v{\ae}rk er direkte anvendeligt p{\aa} ethvert laptopensemble i enhver skala.
+  \item \textbf{P{\ae}dagogik}: PLOrks kursusstruktur---kombinerende performance, komposition, instrumentdesign og akustisk forskning---er en model for kreativ computerundervisning~\citep{trueman2007why}.
+  \item \textbf{F{\ae}llesskab}: PLOrk skabte en ny social form---laptoporkestret som ensemble---der genererede gl{\ae}de, samarbejde og kunstnerisk opdagelse.
+\end{enumerate}
+
+Hvad PLOrk oversa---og hvad det i retf{\ae}rdighedens navn ikke var dets mission at l{\o}se---var adgang. PLOrk var et forskningsprojekt p{\aa} et eliteuniversitet. Det var designet til at besvare sp{\o}rgsm{\aa}let ``Kan laptopensembler v{\ae}re musikalsk meningsfulde?'' Det var ikke designet til at besvare ``Kan alle have et?''
+
+L2Ork bev{\ae}gede sig mod adgangssp{\o}rgsm{\aa}let med billigere hardware og open source-software, men den strukturelle afh{\ae}ngighed af institutionel infrastruktur forblev. Sonic Pi~\citep{aaron2016sonic} adresserede individuel adgang til musikkodning, men er et enkelbrugerv{\ae}rkt{\o}j p{\aa} et v{\ae}rts-OS, ikke et ensembleinstrument. Ingen af disse projekter har foresl{\aa}et en model, hvor laptoporkestret kunne fungere uden nogen institution overhovedet.
+
+Det er forslaget her. Ikke at erstatte PLOrk, men at opfylde den dr{\o}m, PLOrk startede: at et netv{\ae}rk af computere kunne v{\ae}re en ny slags orkester. PLOrk beviste, at det kunne. \acos{} foresl{\aa}r at g{\o}re det s{\aa} billigt, at beviset bliver planetarisk.
+
+% ============ 8. MUSIK OG POLITISK {\O}KONOMI ============
+
+\section{Musik, adgang og politisk {\o}konomi}
+\label{sec:theory}
+
+Jacques Attali argumenterede i \emph{Noise}~\citep{attali1985noise} for, at musik er profetisk: {\ae}ndringer i produktion og distribution af musik foregriber {\ae}ndringer i politisk {\o}konomi. Musikkens historie bev{\ae}ger sig fra ritual (offer) til repr{\ae}sentation (koncertsal) til gentagelse (indspilning) til hvad Attali kaldte \emph{komposition}---en modus, hvor alle skaber, hvor skellet mellem udf{\o}rende og publikum opl{\o}ses.
+
+Laptoporkestret er, i Attalis ramme, et kompositions{\ae}ra-ensemble. Der er intet publikum i traditionel forstand; deltagerne er samtidig komponister, udf{\o}rende og lyttere. Men hvis kompositions{\ae}raens musik defineres ved universel deltagelse, s{\aa} er universitetslaptoporkestret en selvmodsigelse: det begraver deltagelse bag indskrivning, undervisningsafgift og geografi. Det er kompositions{\ae}ra-musik med repr{\ae}sentations{\ae}ra-adgangskontrol.
+
+Thomas Turino~\citep{turino2008music} skelner mellem \emph{participatorisk} musik (hvor succes m{\aa}les p{\aa} graden af deltagelse) og \emph{pr{\ae}sentationel} musik (hvor succes m{\aa}les p{\aa} kvaliteten af performancen for et publikum). PLOrk-performances er pr{\ae}sentationelle---de finder sted p{\aa} koncertscener for siddende lyttere. Men PLOrk-\emph{pr{\o}ven} er participatorisk---alle spiller, alle eksperimenterer, den kollektive lyd er pointen.
+
+Et planetarisk laptoporkester er participatorisk som standard. Der er ingen scene. Der er intet publikum. Der er kun deltagere, hver med sit eget instrument, der forbinder sig, n{\aa}r og hvordan de v{\ae}lger. Turinos ramme forudsiger, at dette skift---fra pr{\ae}sentationelt laptoporkester til participatorisk---vil {\ae}ndre ikke blot, hvem der spiller, men hvad ``at spille'' betyder.
+
+Ivan Illichs ``redskaber til konvivialitet''~\citep{illich1973tools} fuldf{\o}rer den teoretiske ramme. Et konvivialt redskab er et, der kan bruges af hvem som helst, uden specialuddannelse, til at opn{\aa} form{\aa}l, de selv bestemmer. En PLOrk-station---med sin hemisf{\ae}riske h{\o}jttaler, forst{\ae}rkerrack og ChucK-patch---er ikke et konvivialt redskab. Det kr{\ae}ver tr{\ae}ning, infrastruktur og institutionel st{\o}tte. En overskudslaptop med \acos{} n{\ae}rmer sig konvivialitet: den starter op som et spilleklart instrument, kr{\ae}ver ingen konfiguration, opdaterer sig selv og tilh{\o}rer sin ejer.
+
+% ============ 9. RELATERET ARBEJDE ============
+
+\section{Relateret arbejde}
+\label{sec:related}
+
+\textbf{Laptoporkestre.} PLOrk~\citep{trueman2006plork} etablerede formen. L2Ork~\citep{bukvic2010l2ork} demonstrerede Linux-levedygtighed og omkostningsreduktion. SLOrk~\citep{wang2009designing} bidrog med ChucK-baseret p{\ae}dagogik og IKEA-salatsk{\aa}l-h{\o}jttaleren. Over tredive universitetsensembler har v{\ae}ret i drift siden 2005. Ingen har fungeret uden for et universitet.
+
+\textbf{Musikkodning for adgang.} Sonic Pi~\citep{aaron2016sonic} k{\o}rer p{\aa} Raspberry Pi og desktop-OS'er og underviser i musik gennem live coding. Det er det n{\ae}rmeste eksisterende projekt p{\aa} demokratiseret computermusik, men er enkelbruger, kr{\ae}ver et v{\ae}rts-OS og er ikke et ensembleinstrument.
+
+\textbf{Uddannelseshardware.} OLPC~\citep{negroponte1995being, kraemer2009olpc} demonstrerede b{\aa}de ambitionen og fejltilstanden for hardware-f{\o}rst-adgang. Raspberry Pi~\citep{raspberry2012} sænkede boardprisen, men ikke den samlede systemomkostning. Chromebooks~\citep{pirg2023chromebook} opn{\aa}ede skoleskala-udrulning, men med planlagt for{\ae}ldelse og leverand{\o}rl{\aa}sning.
+
+\textbf{Kreative computerplatforme.} Processing~\citep{reas2007processing} og Scratch~\citep{resnick2009scratch} s{\ae}nkede barriererne for kreativ kodning, men antager et alment OS. \ac{}~\citep{scudder2026ac} leverer den webbaserede platform; \acos{}~\citep{scudder2026os} eliminerer OS-afh{\ae}ngigheden helt.
+
+\textbf{Teori.} Attali~\citep{attali1985noise} om musik som politisk profeti; Turino~\citep{turino2008music} om participatorisk vs. pr{\ae}sentationel performance; Illich~\citep{illich1973tools} om konviviale redskaber; Papert~\citep{papert1980mindstorms} om konstruktionistisk l{\ae}ring; Kittler~\citep{kittler1995no} om computerens materialitet; McLuhan~\citep{mcluhan1964understanding} om medier som milj{\o}; Ukeles~\citep{ukeles1969manifesto} om vedligeholdelse som kreativ praksis.
+
+% ============ 10. OLPC: L{\AE}RINGER FRA DEN SIDSTE PLANET{\AE}RE AMBITION ============
+
+\section{L{\ae}ringer fra OLPC}
+\label{sec:olpc}
+
+One Laptop Per Child-projektet~\citep{negroponte1995being, kraemer2009olpc} er den n{\ae}rmeste pr{\ae}cedens for den ambition, der beskrives her---og det mest l{\ae}rerige fiasko. Nicholas Negroponte annoncerede i 2005 (samme {\aa}r som PLOrks grundl{\ae}ggelse), at MIT ville producere en \$100-laptop og distribuere den til ethvert barn i udviklingslandene. XO-laptopen blev leveret i 2007 til \$188. Over sin levetid udrullede OLPC ca. 3 millioner enheder i ca. 40 lande, til en samlet programomkostning ansl{\aa}et i milliardklassen, n{\aa}r logistik, uddannelse og regeringspartnerskaber medregnes.
+
+OLPC fejlede af grunde, der nu er veldokumenterede~\citep{kraemer2009olpc}: hardwaren var specialbygget og ukendt (en ny formfaktor, et nyt OS, en ny gr{\ae}nseflade); lokal reparation var umulig, fordi dele var propriet{\ae}re; softwaren (Sugar OS) havde intet {\o}kosystem og ingen kontinuitet med, hvad l{\ae}rere eller studerende allerede kendte; udrulninger kr{\ae}vede regeringsgodkendelse, ministeriekoordinering og logistikk{\ae}der, der brød sammen i felten; og enhedsprisen, sk{\o}nt lavere end kommercielle laptops, var stadig for h{\o}j for de fattigste kontekster, n{\aa}r den blev multipliceret med millioner.
+
+\acos{} inverterer enhver af disse fejltilstande:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{OLPC-fejltilstand} & \textbf{OLPC} & \textbf{AC OS} \\
+\midrule
+Hardware & Specialbygget XO (\$188) & Overskudslaptops (\$50), allerede fremstillet \\
+Formfaktor & Ukendt for brugere & Standardlaptop, allerede kendt \\
+Reparation & Propriet{\ae}re dele & Standardhardware, lokalt servicerbar \\
+Software & Sugar OS (ny, intet {\o}kosystem) & AC OS (specialbygget men selvopdaterende) \\
+Udrulning & Regeringsministeriekoordinering & \'{E}n person med USB-drev \\
+Enhedspris & \$188 + logistik & \$50 hardware + \$0 software \\
+Opn{\aa}et skala & 3M enheder over 10 {\aa}r & 240M maskiner eksisterer allerede \\
+\bottomrule
+\end{tabularx}
+\caption{OLPC-fejltilstande og AC OS-modstykker.}
+\label{tab:olpc}
+\end{table}
+
+Den dybeste l{\ae}ring fra OLPC er, at hardware-f{\o}rst-udrulninger fejler, n{\aa}r de kr{\ae}ver fremstilling, logistik og institutionel koordinering. \acos{} kr{\ae}ver ingen af disse, fordi hardwaren allerede eksisterer, allerede er distribueret globalt og allerede kasseres. Udrulningsmekanismen er en fil, ikke en forsyningsk{\ae}de.
+
+% ============ 11. BEGR{\AE}NSNINGER ============
+
+\section{Begr{\ae}nsninger}
+\label{sec:limitations}
+
+Denne artikel fremf{\o}rer en ambiti{\o}s p{\aa}stand. Begr{\ae}nsningerne er virkelige og b{\o}r siges direkte.
+
+\textbf{Lydkvalitet.} Indbyggede laptop-h{\o}jttalere er akustisk ringe. De mangler basrespons, har begr{\ae}nset dynamisk omfang og projicerer lyd snævert. Truemans hemisf{\ae}riske h{\o}jttaler l{\o}ste et virkeligt problem---elektroniske instrumenter har brug for akustisk tilstedev{\ae}relse for at fungere musikalsk i ensemblekontekster. En overskuds-ThinkPads h{\o}jttalere kan ikke matche dette. Til intime eller sm{\aa}gruppekontekster kan indbyggede h{\o}jttalere v{\ae}re tilstr{\ae}kkelige. Til ethvert ensemble st{\o}rre end et rum kr{\ae}ves ekstern forst{\ae}rkning, hvilket delvist udhuler p{\aa}standen om ``ingen ekstra hardware.''
+
+\textbf{ARM-support.} \acos{} m{\aa}lretter i {\o}jeblikket kun x86\_64 UEFI-maskiner. Majoriteten af overskuds-uddannelses-Chromebooks bruger ARM-processorer (Mediatek, Qualcomm). Indtil ARM-support er leveret, forbliver den st{\o}rste enkelte pulje af overskuds-uddannelseshardware utilg{\ae}ngelig. Dette er den mest kritiske ingeni{\o}rm{\ae}ssige mangel.
+
+\textbf{Ingen formel evaluering.} Denne artikel pr{\ae}senterer intet brugerstudie, intet kontrolleret eksperiment, ingen systematisk evaluering af musikalsk kvalitet, l{\ae}ringsresultater eller ensemblekoordinering. P{\aa}standene om adgang, omkostning og skalerbarhed er funderet i hardware{\o}konomi og logistikanalyse, ikke empirisk p{\ae}dagogisk forskning. En stringent evaluering---der sammenligner musikalske resultater mellem et PLOrk-lignende ensemble og et \acos{}-ensemble af tilsvarende st{\o}rrelse---ville v{\ae}sentligt styrke argumentet.
+
+\textbf{Enkeltforfatter-projekt.} \acos{} er prim{\ae}rt forfattet af \'{e}n person. Bus-faktoren er \'{e}n. En planetarisk udrulning kan ikke afh{\ae}nge af en enkelt vedligeholder. Systemet m{\aa} dokumenteres, kodebasen m{\aa} v{\ae}re l{\ae}sbar for nye bidragydere, og OTA-opdateringsinfrastrukturen m{\aa} v{\ae}re modstandsdygtig over for sin skabers frav{\ae}r.
+
+\textbf{Netv{\ae}rkslatens.} Distribueret ensembleperformance over internettet indf{\o}rer latens, der fundamentalt {\ae}ndrer, hvilken musik der er mulig. Lokal WiFi-latens (1--5ms) tillader t{\ae}t synkronisering. Internetlatens (50--200ms) g{\o}r det ikke. Artiklen peger p{\aa} ``latens som kompositorisk parameter,'' men demonstrerer ikke kompositioner, der f{\aa}r dette til at fungere musikalsk. Dette er et {\aa}bent forskningsproblem, ikke et l{\o}st.
+
+\textbf{Intet pensum.} PLOrks p{\ae}dagogik~\citep{trueman2007why} blev udviklet over {\aa}rs undervisning. \acos{} har intet pensum, ingen lektionsplaner, ingen dokumenteret undervisningspraksis. Instrumentet eksisterer; p{\ae}dagogikken g{\o}r ikke. Uden den risikerer udrulning af hardware i skoler at gentage OLPCs m{\o}nster med at distribuere enheder uden den uddannelsesm{\ae}ssige infrastruktur til at g{\o}re dem meningsfulde.
+
+% ============ 12. FREMTIDIGT ARBEJDE ============
+
+\section{Implikationer og fremtidigt arbejde}
+\label{sec:future}
+
+\subsection{ARM Chromebook-support}
+
+Det mest virkningsfulde ingeni{\o}rm{\ae}ssige m{\aa}l er ARM-support til Mediatek- og Qualcomm-Chromebooks---den mest udbredte overskuds-uddannelseshardware p{\aa} verdensplan. At opn{\aa} dette ville {\aa}bne millioner af yderligere instrumenter fra skoleoverskud alene.
+
+\subsection{Indbyggede kompositionsv{\ae}rkt{\o}jer}
+
+Nuv{\ae}rende \acos{}-pieces inkluderer et kromatisk keyboard, en kommandonavigator og et systempanel. Ensembleanvendelsen kr{\ae}ver sequencere, m{\o}nstereditorer, looping-v{\ae}rkt{\o}jer og kollaborative kompositionsgr{\ae}nseflader---alt som pieces, hot-swappable ved k{\o}rselstid.
+
+\subsection{Spatialisering uden h{\o}jttalere}
+
+PLOrks indsigt om rumlig lyd forbliver gyldig, selv n{\aa}r l{\o}sningen {\ae}ndrer sig. Fremtidigt arbejde inkluderer softwaredefineret spatialisering: at bruge ensemblets distribuerede fysiske positioner (rapporteret via UDP) til at skabe emergente rumlige lydfelter fra aggregatet af mange laptop-h{\o}jttalere. En ring af 30 laptops \emph{er} en hemisf{\ae}risk h{\o}jttaler, hvis softwaren ved, hvor hver enkelt er.
+
+\subsection{Pensumudvikling}
+
+PLOrks p{\ae}dagogik~\citep{trueman2007why}---kombinerende performance, komposition, instrumentdesign og akustisk forskning---b{\o}r tilpasses nulinfrastruktur-kontekster. Det betyder pensumplaner, der antager intet dedikeret lokale, intet teknisk personale, ingen forudg{\aa}ende programmeringserfaring og instrumenter, som deltagerne ejer og tager med hjem.
+
+\subsection{Mesh-netv{\ae}rk}
+
+Peer-to-peer-ensembleforbindelse uden internetinfrastruktur ville muligg{\o}re performances p{\aa} steder uden WiFi: udend{\o}rs rum, landdistrikter, udviklingslande. Bluetooth-mesh eller ad-hoc WiFi mellem \acos{}-enheder er et aktivt udviklingsm{\aa}l.
+
+% ============ 13. KONKLUSION ============
+
+\section{Konklusion}
+
+I 2005 spurgte Dan Trueman ``Hvorfor et laptoporkester?''~\citep{trueman2007why} og gav et overbevisende svar: fordi netv{\ae}rkscomputere kan v{\ae}re en ny slags ensemble, med nye klangfarver, nye rumlige karakteristika, nye kompositoriske muligheder og nye sociale konfigurationer. Han havde ret. PLOrk beviste det.
+
+Tyve {\aa}r senere er sp{\o}rgsm{\aa}let et andet. Ikke ``hvorfor et laptoporkester?'' men ``hvorfor kun \emph{\'{e}t}?'' Hvorfor tredive, p{\aa} tredive universiteter, der betjener et par hundrede mennesker om {\aa}ret? Hvorfor ikke tre hundrede eller tre tusind eller tre millioner?
+
+Svaret har v{\ae}ret {\o}konomisk. Hemisf{\ae}riske h{\o}jttalere koster penge. Forst{\ae}rkerracks koster penge. MacBooks koster penge. Max/MSP-licenser koster penge. Teknisk personale koster penge. Laptoporkestret var dyrt, s{\aa} det forblev det eneste sted, hvor dyre ting til sm{\aa} grupper af mennesker tolereres: universitetet.
+
+\acos{} fjerner den {\o}konomiske barriere. En 89\,MB fil. En \$50 overskudslaptop. Syv sekunder til opstart. Indbygget syntese, indbygget netv{\ae}rk, indbygget personalisering, indbyggede opdateringer. Ingen h{\o}jttalere at bygge, ingen software at installere, ingen IT-afdeling til at vedligeholde, ingen institution til at huse det.
+
+Med 240 millioner pc'er, der g{\aa}r ind p{\aa} overskudsmarkedet fra Windows~10 alene, og 62 millioner ton e-affald, der akkumuleres {\aa}rligt~\citep{forti2024ewaste}, er r{\aa}materialet til et planetarisk laptoporkester ikke knapt---det er pinligt rigeligt. Hardwaren eksisterer. Softwaren eksisterer. Netv{\ae}rket eksisterer. Musikken er, som PLOrk viste os for tyve {\aa}r siden, virkelig.
+
+PLOrk'ing the Planet er ikke en metafor. Det er et logistikproblem. Og logistikken er lige blevet hundrede gange billigere.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}
+\noindent\textit{Oversat fra engelsk. Originalversion tilg{\ae}ngelig p{\aa} \url{https://papers.aesthetic.computer}}
+
+% ============ REFERENCER ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
