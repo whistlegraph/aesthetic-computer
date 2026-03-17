@@ -10,11 +10,14 @@
 \contentsline {subsection}{\numberline {3.4}The pipeline}{11}{subsection.3.4}%
 \contentsline {section}{\numberline {4}The Structural Trap}{13}{section.4}%
 \contentsline {section}{\numberline {5}Free Spaces of Play}{15}{section.5}%
-\contentsline {section}{\numberline {6}Anti-Environments}{17}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Goodiepal}{17}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Aesthetic Computer}{17}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Indigenous and decolonial computing}{18}{subsection.6.3}%
-\contentsline {subsection}{\numberline {6.4}The key distinction}{19}{subsection.6.4}%
-\contentsline {section}{\numberline {7}The Art Fair Paradox}{20}{section.7}%
-\contentsline {section}{\numberline {8}Conclusion}{21}{section.8}%
+\contentsline {section}{\numberline {6}Two Pedagogies}{17}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The art school}{17}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The tech school}{19}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Anti-Environments}{21}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Goodiepal}{21}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{21}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{22}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}The key distinction}{23}{subsection.7.4}%
+\contentsline {section}{\numberline {8}The Art Fair Paradox}{24}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{25}{section.9}%
 \contentsfinish 
