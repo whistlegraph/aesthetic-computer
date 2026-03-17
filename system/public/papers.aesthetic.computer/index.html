@@ -396,7 +396,7 @@
     <div class="p" data-paper-id="folk-songs">
         <div class="updated" data-time="2026-03-16T12:00:00Z"></div>
         <div class="title"><a href="/folk-songs-26-arxiv.pdf" data-base="/folk-songs-26-arxiv" data-size="88">Playable Folk Songs</a></div>
-        <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; cards 21pp</div>
+        <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; arXiv 4pp</div>
     </div>
 
     <div class="p" data-paper-id="joss-kidlisp">
@@ -620,10 +620,8 @@
         if (initLang && langs[initLang]) setLang(initLang);
 
         // Add cards links to papers that have a cards version
-        // Skip folk-songs — its main PDF is already cards format
         document.querySelectorAll('.p .title a[data-base]').forEach(a => {
             const base = a.dataset.base;
-            if (base.includes('folk-songs')) return;
             const detail = a.closest('.p').querySelector('.detail');
             if (detail) {
                 const cardsLink = document.createElement('a');
