@@ -118,7 +118,7 @@ const PAPER_MAP = {
   "arxiv-plork": {
     base: "plork",
     siteName: "plorking-the-planet-26-arxiv",
-    title: "PLORKing the Planet",
+    title: "PLOrk'ing the Planet",
   },
 };
 
