@@ -1,0 +1,60 @@
+#!/bin/sh
+# AC Native OS init — DRM direct boot, cage transition happens in userspace
+
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /dev/pts /dev/shm /tmp /run /etc
+mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
+mount -t tmpfs tmpfs /dev/shm 2>/dev/null
+mount -t tmpfs tmpfs /tmp 2>/dev/null
+mount -t tmpfs tmpfs /run 2>/dev/null
+
+# Restore baked credentials from initramfs rootfs (before tmpfs hid them)
+# The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
+# Copy from the initramfs backup location instead.
+# Restore baked files from initramfs rootfs (tmpfs mount hid them)
+if [ -f /claude-creds.json ]; then
+    mkdir -p /tmp/.claude
+    cp /claude-creds.json /tmp/.claude/.credentials.json
+    cp /claude-state.json /tmp/.claude.json 2>/dev/null
+    # Seed Claude Code settings — suppresses "installMethod native" startup warning
+    printf '{\n  "permissions": {\n    "allow": ["Bash(*)", "Read(*)", "Write(*)", "Edit(*)", "Glob(*)", "Grep(*)", "WebFetch(*)", "WebSearch(*)"]\n  },\n  "autoUpdates": false,\n  "installMethod": "native"\n}\n' > /tmp/.claude/settings.json
+fi
+# CLAUDE.md working directory for Claude Code
+if [ -d /tmp/ac ]; then
+    # Already baked at /tmp/ac/CLAUDE.md — just needs to survive tmpfs
+    true
+else
+    mkdir -p /tmp/ac
+fi
+# Copy CLAUDE.md from initramfs if it was baked there
+[ -f /device-claude.md ] && { mkdir -p /tmp/ac; cp /device-claude.md /tmp/ac/CLAUDE.md 2>/dev/null; }
+
+# Log to /tmp (ac-native copies to USB)
+ilog() { echo "ac-init: $*" >> /tmp/ac-init.log 2>/dev/null; }
+ilog "start"
+
+# zram swap
+modprobe zram 2>/dev/null
+echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+
+# Loopback
+ip link set lo up 2>/dev/null
+
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
+export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+export SSL_CERT_DIR="/etc/ssl/certs"
+
+# /etc/group and /etc/passwd needed by seatd (started later by ac-native)
+echo "root:x:0:" > /etc/group
+echo "root:x:0:root" > /etc/passwd
+
+# Performance governor
+for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+  echo performance > "$g" 2>/dev/null
+done
+
+ilog "exec-ac-native"
+exec /ac-native /piece.mjs
