@@ -1,0 +1,236 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Sucking on the Complex: Hegemon\'{i}a de plataformas, cr\'{i}tica-como-contenido y la necesidad de anti-entornos}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Sucking on the Complex}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Hegemon\'{\i}a de plataformas, cr\'{\i}tica-como-contenido y la necesidad de anti-entornos}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+La infraestructura medi\'{a}tica del mundo del arte contempor\'{a}neo est\'{a} controlada por dos empresas: Meta y ByteDance. Ninguna carrera art\'{\i}stica existe hoy sin alimentar con datos a Instagram o TikTok, plataformas que aplanan todas las disciplinas creativas en ``contenido,'' clasifican la cultura seg\'{u}n m\'{e}tricas de interacci\'{o}n y empujan conductualmente a los artistas hacia burbujas algor\'{\i}tmicas sin libre agencia. Este art\'{\i}culo distingue entre dos respuestas a este entorno totalizado. La \emph{cr\'{\i}tica-como-arte}---el modo dominante en galer\'{\i}as e instituciones---se\~{n}ala el poder del complejo de plataformas, pero solo refuerza la conciencia de su dominio; la cr\'{\i}tica misma se convierte en contenido que alimenta la m\'{a}quina. Los \emph{anti-entornos}---t\'{e}rmino tomado de Marshall McLuhan---construyen infraestructura alternativa con nuevos comportamientos y procesos en torno a los medios, creando espacios libres de juego donde el arte puede crecer sin la interferencia de la direcci\'{o}n algor\'{\i}tmica. Revisamos artistas prominentes cuyo trabajo cr\'{\i}tico con las plataformas ha sido exhibido en grandes instituciones, analizamos por qu\'{e} la cr\'{\i}tica institucional de las plataformas es estructuralmente autodestructiva y argumentamos que la \'{u}nica v\'{\i}a de escape del complejo es construir fuera de \'{e}l.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{El entorno totalizado}
+
+Instagram es la galer\'{\i}a. TikTok es el canal de distribuci\'{o}n. Juntos, Meta y ByteDance constituyen el entorno medi\'{a}tico totalizado del arte contempor\'{a}neo. No hay exterior.
+
+Para artistas emergentes y de media carrera, la presencia en plataformas es cada vez m\'{a}s una condici\'{o}n previa para visitas de estudio, invitaciones a ferias y atenci\'{o}n de coleccionistas. Las m\'{e}tricas de plataforma---seguidores, tasa de interacci\'{o}n, frecuencia de publicaciones---se han convertido en indicadores sustitutos de relevancia cultural. El precio de la visibilidad es datos: cada interacci\'{o}n alimenta la m\'{a}quina publicitaria que financia la plataforma~\citep{zuboff2019surveillance}.
+
+Esto no es una elecci\'{o}n. Es infraestructura. As\'{\i} como un artista en los a\~{n}os sesenta necesitaba una galer\'{\i}a para ser visible, un artista en 2026 necesita una cuenta de Instagram. La diferencia es que la galer\'{\i}a cobraba una comisi\'{o}n sobre las ventas; la plataforma toma datos de comportamiento de cada scroll, pausa, like y compartir---no solo del artista, sino de todos los que se encuentran con la obra~\citep{srnicek2017platform}.
+
+Marshall McLuhan argument\'{o} que no se puede percibir un entorno desde su interior. Un entorno es invisible para sus habitantes precisamente porque es total. La \'{u}nica forma de hacer visible un entorno es construir un \emph{anti-entorno}---una contra-estructura cuya diferencia con el entorno dominante revela la forma del entorno~\citep{mcluhan1969playboy}. Lo que se sigue de esto: no se puede criticar el complejo de plataformas desde dentro. Solo se puede se\~{n}alarlo. Para verlo realmente, hay que construir algo diferente.
+
+Este art\'{\i}culo observa que la producci\'{o}n cultural en plataformas opera bajo condiciones fundamentalmente diferentes de las que hist\'{o}ricamente han producido arte. El algoritmo es un coautor invisible---que da forma a lo que se ve, se recompensa y, por tanto, se crea. El arte ha requerido hist\'{o}ricamente espacios libres de juego~\citep{winnicott1971playing, huizinga1938homo}: espacios ininterrumpidos e ingobernados donde las cosas crecen en sus propios t\'{e}rminos, con nuevos comportamientos y nuevos procesos en torno a los medios. La plataforma no tiene tales espacios. La \'{u}nica v\'{\i}a de escape es construir anti-entornos.
+
+\section{El complejo}
+
+\subsection{Hegemon\'{\i}a}
+
+Meta (Facebook, Instagram, Threads, WhatsApp) y ByteDance (TikTok, Douyin) median conjuntamente la visibilidad cultural de casi todos los artistas en activo del mundo. Instagram por s\'{\i} solo tiene m\'{a}s de tres mil millones de usuarios activos mensuales; es la plataforma principal de descubrimiento para galer\'{\i}as, curadores, coleccionistas e instituciones. El formato de v\'{\i}deo corto de TikTok se ha convertido en el mecanismo de distribuci\'{o}n predeterminado para la performance, el proceso de estudio y la educaci\'{o}n art\'{\i}stica. Juntos constituyen lo que \citet{nieborg2018platformization} llaman la ``plataformizaci\'{o}n de la producci\'{o}n cultural'': la mercanc\'{\i}a cultural contingente, conformada no por la intenci\'{o}n art\'{\i}stica sino por la l\'{o}gica de clasificaci\'{o}n de la plataforma.
+
+\subsection{Empujones conductuales}
+
+El algoritmo no muestra arte pasivamente. Da forma activamente a qu\'{e} arte se produce. Cuando un artista publica una pintura y recibe alta interacci\'{o}n, el algoritmo la muestra a m\'{a}s personas. El artista, al ver la respuesta, hace m\'{a}s pinturas similares. El algoritmo se estrecha; el artista se estrecha. Esto no es censura---es empuje conductual, el mismo mecanismo que \citet{zuboff2019surveillance} identifica como el n\'{u}cleo del capitalismo de vigilancia: la predicci\'{o}n y modificaci\'{o}n del comportamiento humano a gran escala, con fines de lucro.
+
+El resultado son burbujas culturales. Un artista que hace pintura abstracta ve pintura abstracta. Un artista que hace v\'{\i}deo conceptual ve v\'{\i}deo conceptual. El algoritmo, optimizando para la interacci\'{o}n, separa disciplinas que hist\'{o}ricamente exist\'{\i}an en conversaci\'{o}n: pintura y escultura y performance y cr\'{\i}tica y teor\'{\i}a, todo en la misma revista, la misma galer\'{\i}a, la misma escuela. La plataforma no tiene tales espacios. Todo es el feed.
+
+\subsection{Aplanamiento}
+
+En Instagram, una pintura de Gerhard Richter ocupa el mismo cuadrado de 1080$\times$1080 p\'{\i}xeles que una fotograf\'{\i}a del almuerzo de alguien. Un v\'{\i}deo de Marina Abramovi{\'c} actuando se encuentra en el mismo scroll que una tendencia de baile y un tutorial de cocina. La plataforma no distingue entre arte y entretenimiento, entre el trabajo de d\'{e}cadas y el trabajo de segundos. Esto no es un fallo de curaci\'{o}n; es el dise\~{n}o de la plataforma~\citep{chun2016updating}. La interacci\'{o}n es la \'{u}nica m\'{e}trica. El arte que no genera interacci\'{o}n no existe.
+
+La infraestructura hist\'{o}rica que manten\'{\i}a espacios espec\'{\i}ficos por disciplina---revistas, cat\'{a}logos, cr\'{\i}tica especializada, financiaci\'{o}n departamental---ha sido reemplazada por un \'{u}nico feed. \citet{lovink2011networks} llama a esto la ``red sin causa'': una estructura que conecta todo y no contextualiza nada.
+
+\section{Cr\'{\i}tica-como-arte: Se\~{n}alar al poder}
+
+La respuesta art\'{\i}stica dominante a la hegemon\'{\i}a de las plataformas ha sido hacer obra \emph{sobre} ella. Esta obra se exhibe en las instituciones culturales m\'{a}s prestigiosas del mundo. Se celebra, se colecciona y se discute. Las condiciones estructurales que describe permanecen inalteradas.
+
+\subsection{Trevor Paglen}
+
+Paglen fotograf\'{\i}a instalaciones militares clasificadas desde kil\'{o}metros de distancia, documenta la infraestructura f\'{\i}sica de la vigilancia (cables submarinos, estaciones terrestres de sat\'{e}lite) y ha reunido conjuntos de datos que exponen las im\'{a}genes de entrenamiento utilizadas en la inteligencia artificial de reconocimiento facial. Su trabajo ha sido exhibido en el Whitney Museum, el MoMA, el Smithsonian, Pace Gallery y la Bienal de Venecia. Es riguroso, bien investigado y visualmente convincente.
+
+Pero solo se\~{n}ala al poder. El visitante de la galer\'{\i}a se va m\'{a}s informado sobre cu\'{a}n vasto es el aparato de vigilancia---y ese es el problema. La obra publicita el alcance del complejo. No construye contra-infraestructura, no crea sistemas alternativos, no ofrece rutas de escape. La conclusi\'{o}n del visitante no es ``aqu\'{\i} hay una herramienta para resistir'' sino ``la resistencia es probablemente f\'{u}til, mira lo grande que es esto.''
+
+\subsection{Hito Steyerl}
+
+\citet{steyerl2017duty} describe un mundo de ``arte libre de impuestos''---arte producido en las zonas de libre comercio del capital global, circulando sin fricci\'{o}n, libre de impuestos y sin ra\'{\i}ces. Sus videoinstalaciones en la Serpentine, la Bienal de Venecia y el Park Avenue Armory son an\'{a}lisis brillantes de la circulaci\'{o}n digital, el trabajo de plataforma y la pol\'{\i}tica de la pantalla.
+
+Pero su an\'{a}lisis se publica en Instagram, se comparte en TikTok y se discute en las plataformas que critica. La cr\'{\i}tica alimenta la m\'{a}quina. \citet{steyerl2009poor} argument\'{o} que la ``imagen pobre'' gana poder pol\'{\i}tico a trav\'{e}s de su circulaci\'{o}n en baja resoluci\'{o}n; pero en Instagram, toda imagen---pobre o rica---genera los mismos datos de comportamiento para el motor publicitario de Meta.
+
+\subsection{Zach Blas}
+
+\citet{blas2014informatic} desarroll\'{o} la ``Facial Weaponization Suite'' (2011--2014): m\'{a}scaras colectivas generadas a partir de datos biom\'{e}tricos que derrotan el reconocimiento facial. La obra ha sido exhibida en el ICA London y presentada en la Tate Modern. Es una met\'{a}fora poderosa de la opacidad colectiva, del derecho a no ser visto.
+
+Pero la m\'{a}scara es un objeto art\'{\i}stico en una vitrina. No es una herramienta que se pueda llevar puesta. Fue dise\~{n}ada para la pared de la galer\'{\i}a, no para la calle. El gesto hacia la resistencia est\'{a} contenido por la instituci\'{o}n que lo alberga.
+
+\subsection{El pipeline}
+
+El problema estructural no es que estos artistas sean insinceros. Es que el pipeline de la plataforma a la instituci\'{o}n es en s\'{\i} mismo el complejo en funcionamiento. La secuencia es: crear contenido para el feed $\rightarrow$ ser descubierto por curadores (que te encontraron en Instagram) $\rightarrow$ exhibir el mismo contenido o cr\'{\i}tica en instituciones culturales dise\~{n}adas para albergar los artefactos m\'{a}s refinados de la civilizaci\'{o}n.
+
+Este pipeline degrada ambos extremos. Hace que el feed se sienta como arte---``vi la nueva obra de Paglen en mi Instagram''---y hace que la instituci\'{o}n se sienta como un feed---stand tras stand de contenido en Art Basel, fotografiado y publicado antes de que la pintura se seque. \citet{fraser2005critique} identific\'{o} este ciclo en la cr\'{\i}tica institucional hace tres d\'{e}cadas; la hegemon\'{\i}a de plataformas es el mismo problema estructural con el capitalismo de vigilancia superpuesto.
+
+\citet{ulman2014excellences} guioniz\'{o} una performance de cinco meses en Instagram en 2014, manipulando la l\'{o}gica de aspiraci\'{o}n y autoexhibici\'{o}n de la plataforma. La obra fue adquirida por la Tate. Es instructiva: la pieza de Ulman tuvo \'{e}xito precisamente porque era indistinguible del contenido. La plataforma no supo que estaba siendo utilizada como material. Los datos de comportamiento que gener\'{o} fueron id\'{e}nticos a los de publicaciones genuinas de estilo de vida. El algoritmo no distingue entre cr\'{\i}tica y aprobaci\'{o}n. La fotograf\'{\i}a de Paglen de una instalaci\'{o}n de la NSA obtiene m\'{a}s likes que una pintura de paisaje. Ambas generan interacci\'{o}n. Ambas alimentan la m\'{a}quina.
+
+\section{La trampa estructural}
+
+Los artistas no eligen las plataformas libremente. La plataforma \emph{es} la infraestructura. Sin Instagram, no hay visitas a galer\'{\i}as, no hay visitas de estudio, no hay atenci\'{o}n de coleccionistas. Sin TikTok, no hay desarrollo de audiencia para artistas j\'{o}venes, no hay momento viral que se traduzca en inter\'{e}s institucional.
+
+Las m\'{e}tricas de plataforma---n\'{u}mero de seguidores, tasas de interacci\'{o}n, visualizaciones de stories---se han convertido en el indicador sustituto del valor cultural. Una galer\'{\i}a que decide entre dos artistas de calidad similar elegir\'{a} al que tenga m\'{a}s seguidores, porque los seguidores se traducen en asistencia a la inauguraci\'{o}n, que se traduce en cobertura de prensa, que se traduce en ventas. Esto no es cinismo; es comportamiento racional dentro de un sistema que ha convertido las m\'{e}tricas de plataforma en la legibilidad principal de la relevancia cultural.
+
+La consecuencia es el colapso disciplinar. Pintura, escultura, performance, v\'{\i}deo, instalaci\'{o}n, sonido, escritura, cr\'{\i}tica---todo se convierte en ``contenido visual'' en Instagram, ``v\'{\i}deo corto'' en TikTok. Las distinciones hist\'{o}ricas entre disciplinas, cultivadas durante siglos, se disuelven en un \'{u}nico formato optimizado para la atenci\'{o}n~\citep{chun2016updating}. No hay equivalente de \textit{Artforum} u \textit{October} en Instagram---ning\'{u}n espacio donde la historia, teor\'{\i}a y autocomprensi\'{o}n de una disciplina puedan desarrollarse sin interferencia algor\'{\i}tmica. \citet{noble2018algorithms} demuestra que incluso la b\'{u}squeda---el acto de buscar---est\'{a} moldeada por sistemas opacos de clasificaci\'{o}n que reproducen jerarqu\'{\i}as existentes; la misma l\'{o}gica estructural gobierna el feed de arte.
+
+\citet{terranova2000free} identific\'{o} esto hace veinticinco a\~{n}os como ``trabajo gratuito'': el trabajo no remunerado de la producci\'{o}n cultural que genera valor para las plataformas. Los artistas son los trabajadores gratuitos m\'{a}s dedicados de la econom\'{\i}a de la atenci\'{o}n. Producen contenido de alta calidad y emocionalmente resonante---exactamente el material que el algoritmo necesita para mantener a los usuarios desplaz\'{a}ndose---y reciben a cambio la ilusi\'{o}n de visibilidad, una visibilidad que la plataforma puede revocar en cualquier momento cambiando el algoritmo.
+
+\section{Espacios libres de juego}
+
+El arte no crece en feeds. Crece en espacios libres.
+
+\citet{winnicott1971playing} llam\'{o} a esto ``espacio potencial''---un \'{a}rea transicional de experiencia entre la realidad interior y exterior, ni cuestionada ni concedida. Es el espacio donde ocurre el juego, donde se forman los s\'{\i}mbolos, donde la experiencia creativa se hace posible. El espacio potencial es fr\'{a}gil. Requiere seguridad, continuidad y libertad frente a la intrusi\'{o}n.
+
+\citet{huizinga1938homo} describi\'{o} el ``c\'{\i}rculo m\'{a}gico'' del juego: un espacio acotado con sus propias reglas, separado de la vida ordinaria. Dentro del c\'{\i}rculo m\'{a}gico, las reglas del mundo exterior quedan suspendidas. Un tablero de ajedrez es un c\'{\i}rculo m\'{a}gico. Una sala de ensayo es un c\'{\i}rculo m\'{a}gico. Un estudio, cuando funciona, es un c\'{\i}rculo m\'{a}gico.
+
+La plataforma no tiene c\'{\i}rculo m\'{a}gico. Cada acto creativo realizado en Instagram es inmediatamente medido, clasificado, jerarquizado y retroalimentado como datos de interacci\'{o}n. No hay espacio ininterrumpido. El algoritmo siempre est\'{a} observando, siempre puntuando, siempre empujando. El ``espacio potencial'' colapsa en m\'{e}tricas en el momento en que la obra se publica.
+
+El arte crece en espacios donde \emph{no} es dirigido. Un estudio. Una residencia. Una sala de ensayo. Un cuaderno de bocetos. Una conversaci\'{o}n nocturna que no lleva a nada \'{u}til. Estos espacios no tienen algoritmo. No tienen m\'{e}tricas de interacci\'{o}n. No tienen empujes conductuales. La plataforma los ha eliminado---no destruy\'{e}ndolos f\'{\i}sicamente, sino condicionando la visibilidad a publicar. Si no publicas, no existes. Y si publicas, el algoritmo dirige lo que haces despu\'{e}s. \citet{benjamin2019race} llama a esto el ``New Jim Code'': tecnolog\'{\i}as que parecen neutrales pero codifican y amplifican las estructuras de poder existentes. La direcci\'{o}n algor\'{\i}tmica de la producci\'{o}n art\'{\i}stica es una de tales codificaciones---recompensa lo que ya es legible para el sistema y penaliza lo que no lo es.
+
+\section{Dos pedagog\'{\i}as}
+
+La crisis de las plataformas es tambi\'{e}n una crisis pedag\'{o}gica. Lo que se ense\~{n}a a los estudiantes---espiritual, ambicional, visceralmente---determina qu\'{e} tipo de cultura construyen.
+
+\subsection{La escuela de arte}
+
+\citet{elkins2001why} argumenta que el arte no puede ense\~{n}arse---no porque sea inense\~{n}able, sino porque lo que sucede en una buena escuela de arte no puede reducirse a un curr\'{\i}culo. La cr\'{\i}tica, la visita de estudio, los a\~{n}os de hacer obra que fracasa: estas son las condiciones bajo las cuales se forma el conocimiento art\'{\i}stico singular. \citet{singerman1999art} traza c\'{o}mo la universidad estadounidense dio forma a lo que el arte pod\'{\i}a ser, del taller al oficio a la teor\'{\i}a. \citet{deduve1994attitude} identifica tres paradigmas: la academia (talento-imitaci\'{o}n), la Bauhaus (creatividad-medio-invenci\'{o}n) y la escuela de arte de posguerra (actitud-pr\'{a}ctica-deconstrucci\'{o}n). Cada uno cre\'{o} diferentes tipos de artistas porque cada uno cre\'{o} diferentes espacios de formaci\'{o}n.
+
+La escuela de arte en su mejor momento es un c\'{\i}rculo m\'{a}gico~\citep{huizinga1938homo}. Los estudiantes hacen obra sin m\'{e}tricas. La cr\'{\i}tica es un ritual de atenci\'{o}n sostenida---a veces brutal, a veces silenciosa, siempre lenta---donde un grupo de personas mira una cosa durante una hora e intenta decir lo que es. No hay algoritmo. No hay puntuaci\'{o}n de interacci\'{o}n. La ambici\'{o}n no es escalar sino profundizar. \citet{hooks1994teaching} llama a esto ``pedagog\'{\i}a comprometida'': la ense\~{n}anza como pr\'{a}ctica de libertad, donde el bienestar del docente y del estudiante importa tanto como el contenido~\citep{freire1970pedagogy}.
+
+\citet{spivak2012aesthetic} argumenta que la educaci\'{o}n est\'{e}tica---el entrenamiento riguroso de la imaginaci\'{o}n---es necesaria para la solidaridad \'{e}tica, para la capacidad de aprehender la doble atadura en el coraz\'{o}n de la democracia. La escuela de arte ense\~{n}a esto. Instagram no.
+
+El concepto de Bernard Stiegler de \emph{idiotexto}---la memoria singular tejida a trav\'{e}s de pr\'{o}tesis t\'{e}cnicas---describe exactamente lo que una buena educaci\'{o}n art\'{\i}stica produce~\citep{staunaes2021stiegler, stiegler1998technics}. A lo largo de a\~{n}os de pr\'{a}ctica de estudio, el estudiante construye una espiral de conocimiento: cada obra incorpora y transforma la anterior, creando una retenci\'{o}n terciaria---una memoria externalizada---que es irreductiblemente personal. La cr\'{\i}tica, el estudio, el cuaderno de bocetos, la pieza fallida: estas son las pr\'{o}tesis a trav\'{e}s de las cuales se forma el idiotexto. La plataforma cortocircuita esta espiral. Reemplaza a\~{n}os de acumulaci\'{o}n lenta con retroalimentaci\'{o}n instant\'{a}nea, sustituyendo la profundidad del idiotexto por la amplitud del feed.
+
+\subsection{La escuela t\'{e}cnica}
+
+\citet{turner2006counterculture} traza c\'{o}mo los ideales antibur\'{o}cr\'{a}ticos de la contracultura de los a\~{n}os sesenta fueron reutilizados como el utopismo digital de Silicon Valley a trav\'{e}s de Stewart Brand, el Whole Earth Catalog y Stanford. El proceso de cinco pasos de design thinking de la d.school---empatizar, definir, idear, prototipar, probar---es el paradigma Bauhaus de creatividad-medio-invenci\'{o}n despojado de criticidad y acelerado a velocidad de sprint. \citet{vinsel2020innovation} lo llama ``discurso de innovaci\'{o}n'': una mentira intelectual y moral que nos lleva a centrarnos en la novedad mientras ignoramos el mantenimiento.
+
+La escuela t\'{e}cnica ense\~{n}a una alineaci\'{o}n espiritual completamente diferente. La ambici\'{o}n es escalar. La m\'{e}trica es crecimiento. El medio es el pitch deck. Meta retir\'{o} oficialmente ``move fast and break things'' en 2014, pero la teolog\'{\i}a persiste: la disrupci\'{o}n es inherentemente buena, lo nuevo es inherentemente mejor, lo que no puede medirse no existe. La escuela de arte te ense\~{n}a a sentarte con la ambig\"{u}edad durante a\~{n}os. La escuela t\'{e}cnica te ense\~{n}a a resolver la ambig\"{u}edad en un sprint.
+
+El peligro no es que la pedagog\'{\i}a t\'{e}cnica exista---los ingenieros necesitan construir cosas---sino que ha colonizado la pedagog\'{\i}a art\'{\i}stica. Programas de ``codificaci\'{o}n creativa'' que en realidad son incubadoras de startups. Programas de MFA que exigen declaraciones art\'{\i}sticas escritas como pitch decks. Visitas de estudio que se sienten como rese\~{n}as de producto. La metodolog\'{\i}a de design thinking importada a las escuelas de arte, reemplazando la cr\'{\i}tica lenta e incuantificable con la revisi\'{o}n de sprint r\'{a}pida y basada en m\'{e}tricas. Cuando las escuelas de arte ense\~{n}an a los estudiantes a optimizar para la interacci\'{o}n, les est\'{a}n ense\~{n}ando a mamar del complejo.
+
+\section{Anti-entornos}
+
+No se puede criticar el complejo desde dentro. Hay que construir algo diferente.
+
+El anti-entorno de McLuhan no es una protesta. Es una estructura. Hace visible el entorno dominante no describi\'{e}ndolo sino siendo diferente de \'{e}l. El pez no ve el agua hasta que est\'{a} en tierra~\citep{mcluhan1964understanding}. \citet{lanier2018ten} llega a una conclusi\'{o}n similar desde dentro de la industria: argumenta que la modificaci\'{o}n conductual de las redes sociales hace imposible la agencia creativa significativa y que la \'{u}nica respuesta racional es irse. Existen precedentes hist\'{o}ricos: la radio comunitaria, las redes de mail art, la cultura de los fanzines y los circuitos de distribuci\'{o}n de Fluxus funcionaron como anti-entornos frente a los medios de difusi\'{o}n de su \'{e}poca. Algunos sobrevivieron; muchos fueron absorbidos.
+
+\subsection{Goodiepal}
+
+Goodiepal (G{\ae}oudjiansen) es un compositor dan\'{e}s-fero\'{e}s y pedagogo radical que rechaza completamente la l\'{o}gica de plataformas~\citep{scudder2026goodiepal}. Distribuye su obra a trav\'{e}s de conferencias itinerantes (a menudo en velom\'{o}vil), medios transportados a mano y transmisi\'{o}n cara a cara. Su El Camino del Hardcore documenta las condiciones laborales de la computaci\'{o}n radical. La obra \emph{es} la infraestructura: no hay separaci\'{o}n entre el arte y el sistema que lo transporta. No critica a Meta. Nunca lo ha necesitado.
+
+\subsection{Aesthetic Computer}
+
+\ac{} construye su propio runtime, su propia red social, su propio instrumento (\np{}.com), su propio sistema operativo~\citep{scudder2026ac, scudder2026notepat, scudder2026os}. No es cr\'{\i}tica-como-arte sino infraestructura-como-arte. Los comportamientos son nuevos: rutas memorizables en lugar de feeds, pieces en lugar de publicaciones, instrumentos que se tocan en lugar de perfiles que se curan. La plataforma \emph{es} la obra. El proyecto Whistlegraph~\citep{scudder2026whistlegraph}, que alcanz\'{o} aproximadamente 2,6 millones de seguidores en TikTok, demostr\'{o} que la cultura viral pod\'{\i}a construirse sobre una base de dibujo y canto en lugar de optimizaci\'{o}n algor\'{\i}tmica. La contradicci\'{o}n es real: el anti-entorno alcanz\'{o} su mayor audiencia \emph{a trav\'{e}s} del complejo. Cuando TikTok elimin\'{o} la cuenta, los 2,6 millones de seguidores desaparecieron de la noche a la ma\~{n}ana---pero la pr\'{a}ctica creativa subyacente de dibujar y cantar sobrevivi\'{o}, porque nunca hab\'{\i}a dependido de la infraestructura de la plataforma. La audiencia se perdi\'{o}. La pr\'{a}ctica no.
+
+\subsection{Computaci\'{o}n ind\'{\i}gena y decolonial}
+
+\citet{lewis2018making} proponen ``crear parentesco con las m\'{a}quinas''---un marco ind\'{\i}gena para la computaci\'{o}n que centra la interacci\'{o}n relacional en lugar de la transaccional, el cuidado en lugar de la extracci\'{o}n, el parentesco en lugar del consumo. \citet{escobar2018designs} describe ``dise\~{n}os para el pluriverso'': pr\'{a}cticas de dise\~{n}o arraigadas en la interdependencia radical que rechazan la monocultura de la l\'{o}gica de plataformas. \citet{costanzachock2020design} articula la justicia del dise\~{n}o como pr\'{a}ctica liderada por la comunidad. Estas no son cr\'{\i}ticas a Meta. Son planos para mundos que no necesitan a Meta.
+
+\subsection{La distinci\'{o}n clave}
+
+Paglen fotograf\'{\i}a la NSA desde fuera de la valla. \ac{} construye una valla alrededor de otro patio---con nuevos instrumentos, nuevos procesos, nuevas formas de ser creativo que no requieren alimentar con datos a Meta. La canci\'{o}n popular sobrevive sin plataformas, a trav\'{e}s de la acci\'{o}n humana directa~\citep{scudder2026ac}. La pieza se ejecuta en metal desnudo, sin navegador, sin conexi\'{o}n a internet. El anti-entorno no est\'{a} contra el complejo. Simplemente est\'{a} en otro lugar.
+
+\section{La paradoja de la feria de arte}
+
+Art Basel, Frieze y la Bienal de Venecia dependen todas de Instagram para el marketing, el desarrollo de audiencia y la captaci\'{o}n de coleccionistas. Los artistas exhibidos en estas ferias deben tener presencia en plataformas para ser ``descubribles.'' La feria misma se convierte en contenido: fotograf\'{\i}as de stands, publicaciones del preview VIP, historias de coleccionistas, visitas al estudio del artista---todo publicado, todo medido, todo alimentando el mismo motor conductual.
+
+Incluso el trabajo ``anti-plataforma'' se plataformiza en el momento en que se fotograf\'{\i}a y se publica. Una conferencia de Goodiepal se convierte en una story de Instagram. Una pieza de \ac{} se convierte en un demo de TikTok. \citet{haacke1971shapolsky} expuso los intereses inmobiliarios detr\'{a}s de los patronos de museos en 1971; hoy la exposici\'{o}n ser\'{\i}a un carrusel de Instagram. La cr\'{\i}tica estructural es la misma---pero ahora hay capitalismo de vigilancia superpuesto, y la propia instituci\'{o}n necesita la plataforma tanto como el artista.
+
+\citet{illich1973tools} escribi\'{o}: ``Elijo el t\'{e}rmino `convivialidad' para designar lo opuesto a la productividad industrial.'' El anti-entorno para el arte es convivial: est\'{a} construido a escala humana, a mano, para el uso en lugar del consumo, fuera de la l\'{o}gica de la interacci\'{o}n y la extracci\'{o}n.
+
+\section{Conclusi\'{o}n}
+
+El complejo es real. Se puede criticar desde dentro---y la cr\'{\i}tica ser\'{a} medida, clasificada, jerarquizada y monetizada. O se pueden construir anti-entornos: nuevos espacios, nuevos comportamientos, nuevos procesos en torno a los medios. Idealmente ambos. Pero la cr\'{\i}tica sola, exhibida en instituciones que dependen del complejo para su audiencia, solo demuestra la totalidad del complejo.
+
+Los anti-entornos son m\'{a}s dif\'{\i}ciles de construir, m\'{a}s dif\'{\i}ciles de sostener y m\'{a}s dif\'{\i}ciles de financiar que la cr\'{\i}tica-como-arte. Ese es el punto. Si fueran f\'{a}ciles, la plataforma ya los habr\'{\i}a absorbido. La dificultad es la se\~{n}al de que algo real se est\'{a} intentando: un espacio libre de juego, ininterrumpido por el algoritmo, donde el arte---no el contenido---pueda crecer.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}
+\noindent\textit{Traducido del ingl\'{e}s. Versi\'{o}n original disponible en \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
