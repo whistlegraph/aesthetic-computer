@@ -289,6 +289,18 @@ function paint($) {
 
   const builds = releases.releases || [];
 
+  // One-line description
+  ink(...C.instText);
+  $.write("A Linux kernel with an embedded initramfs — boots any x86 PC from USB.", { x: pad, y, wrap: w - pad * 2 }, undefined, undefined, false, "MatrixChunky8");
+  const descLen = 70 * 6; // approximate char count * charW
+  const descLines = Math.ceil(descLen / (w - pad * 2));
+  y += matrixH * descLines + 6;
+
+  // Divider
+  ink(...C.divider);
+  drawLine(pad, y, w - pad, y);
+  y += 6;
+
   // Download section for logged-in users
   if (handle && token && downloadBtn && !downloading) {
     // OS label (big, personal)
