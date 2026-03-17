@@ -191,7 +191,7 @@ function boot({ user, api, ui, needsPaint }) {
       if (releases) makeButtons(ui, releases);
       // Check device token status (Claude + GitHub)
       if (t) {
-        fetch("/api/claude-token", {
+        fetch("/.netlify/functions/claude-token", {
           headers: { Authorization: "Bearer " + t },
         })
           .then((r) => r.json())
