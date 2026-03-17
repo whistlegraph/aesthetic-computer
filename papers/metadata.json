@@ -1,0 +1,82 @@
+{
+  "arxiv-ac": {
+    "created": "2026-03-04",
+    "revisions": 18
+  },
+  "arxiv-api": {
+    "created": "2026-03-15",
+    "revisions": 10
+  },
+  "arxiv-archaeology": {
+    "created": "2026-03-13",
+    "revisions": 12
+  },
+  "arxiv-complex": {
+    "created": "2026-03-17",
+    "revisions": 5
+  },
+  "arxiv-dead-ends": {
+    "created": "2026-03-14",
+    "revisions": 12
+  },
+  "arxiv-diversity": {
+    "created": "2026-03-14",
+    "revisions": 11
+  },
+  "arxiv-folk-songs": {
+    "created": "2026-03-16",
+    "revisions": 6
+  },
+  "arxiv-goodiepal": {
+    "created": "2026-03-14",
+    "revisions": 11
+  },
+  "arxiv-kidlisp": {
+    "created": "2026-03-03",
+    "revisions": 25
+  },
+  "arxiv-kidlisp-reference": {
+    "created": "2026-03-15",
+    "revisions": 12
+  },
+  "arxiv-network-audit": {
+    "created": "2026-03-15",
+    "revisions": 12
+  },
+  "arxiv-notepat": {
+    "created": "2026-03-08",
+    "revisions": 16
+  },
+  "arxiv-os": {
+    "created": "2026-03-13",
+    "revisions": 13
+  },
+  "arxiv-pieces": {
+    "created": "2026-03-08",
+    "revisions": 13
+  },
+  "arxiv-plork": {
+    "created": "2026-03-17",
+    "revisions": 2
+  },
+  "arxiv-sustainability": {
+    "created": "2026-03-14",
+    "revisions": 15
+  },
+  "arxiv-whistlegraph": {
+    "created": "2026-03-14",
+    "revisions": 12
+  },
+  "joss-ac": {
+    "created": "2026-03-04",
+    "revisions": 4
+  },
+  "joss-kidlisp": {
+    "created": "2026-03-03",
+    "revisions": 6
+  },
+  "els-kidlisp": {
+    "created": "2026-03-15",
+    "revisions": 1
+  }
+}
