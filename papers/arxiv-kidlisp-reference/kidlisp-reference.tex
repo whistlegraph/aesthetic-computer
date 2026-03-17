@@ -71,7 +71,20 @@
 \fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
 \fancyfoot[C]{\footnotesize\thepage}
 
-\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
 \newcommand{\kl}{\textsc{KidLisp}}
 
 % === KIDLISP LISTING STYLE ===
@@ -140,7 +153,7 @@
 {\kidlispfont\fontsize{9pt}{11pt}\selectfont\color{acgray} Syntax, Semantics, Timing, Color, and the \texttt{\$}-Code Composition System}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
-{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.3em}
 {\small\color{acpurple} \url{https://aesthetic.computer}}\par

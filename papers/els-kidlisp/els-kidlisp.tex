@@ -55,6 +55,22 @@
   showstringspaces=false,
 }
 
+\definecolor{acpink}{RGB}{180,72,135}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
 \begin{document}
 
 \title{[Paper] KidLisp: A Minimal Lisp for Generative Art with Social Composition}
@@ -63,7 +79,7 @@
 \author{Jeffrey Alan Scudder}
 \orcid{0009-0007-4460-4913}
 \affiliation{%
-  \institution{Aesthetic Inc.}
+  \institution{Aesthetic.Computer}
   \city{New York}
   \state{NY}
   \country{USA}

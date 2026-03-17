@@ -13,7 +13,7 @@
 \contentsline {subsection}{\numberline {4.2}API injection via destructuring}{15}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Separation of simulation and rendering}{16}{subsection.4.3}%
 \contentsline {subsection}{\numberline {4.4}Unified event handling}{17}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Drawing primitives: stateless by default}{18}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.5}Drawing primitives: stateless by default}{19}{subsection.4.5}%
 \contentsline {subsection}{\numberline {4.6}No canvas configuration}{20}{subsection.4.6}%
 \contentsline {section}{\numberline {5}API Surface Comparison}{21}{section.5}%
 \contentsline {subsection}{\numberline {5.1}Naming philosophy}{21}{subsection.5.1}%

@@ -45,7 +45,20 @@
 \fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
 \fancyfoot[C]{\footnotesize\thepage}
 
-\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
 
 \setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
 \setlength{\columnsep}{1.8em}
@@ -66,10 +79,10 @@
 \vspace{0.2em}
 {\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Funding, Burnout, and Survival in Open-Source Creative Computing}\par
 \vspace{0.3em}
-{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Comparative Study of 28 Tool Authors, from Perl to TempleOS to Aesthetic Computer}\par
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Comparative Study of 28 Tool Authors, from Perl to TempleOS to \acrandname{}}\par
 \vspace{0.6em}
 {\normalsize Jeffrey Alan Scudder}\par
-{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
 \vspace{0.3em}
 {\small\color{acpurple} \url{https://aesthetic.computer}}\par
@@ -236,7 +249,7 @@ The erasure is not always intentional. It is structural: the people with institu
 
 The author left a tenure-track academic position in 2021 to develop \ac{} and the Whistlegraph project full-time. Since then, \ac{} has been built without institutional support---no university, corporation, or foundation backing. A detailed financial history is available upon request for research purposes.
 
-Two community-driven funding mechanisms have emerged. First, \texttt{give.aesthetic.computer}---a direct donation page where users contribute to keep the platform's infrastructure online. Second, \texttt{aesthetic.direct}---an equity investment page offering aligned investors a stake in Aesthetic Inc., the company behind the platform. A small number of individual investors have participated through SAFE agreements (the ``booted-by'' model, named after the platform's boot sequence). Neither mechanism has produced institutional-scale funding; both depend on individual belief in the project rather than market returns or grant cycles.
+Two community-driven funding mechanisms have emerged. First, \texttt{give.aesthetic.computer}---a direct donation page where users contribute to keep the platform's infrastructure online. Second, \texttt{aesthetic.direct}---an equity investment page offering aligned investors a stake in Aesthetic.Computer, the company behind the platform. A small number of individual investors have participated through SAFE agreements (the ``booted-by'' model, named after the platform's boot sequence). Neither mechanism has produced institutional-scale funding; both depend on individual belief in the project rather than market returns or grant cycles.
 
 Every other tool in this paper was built under an institutional umbrella. Processing had MIT, then UCLA. p5.js had UCLA. Sonic Pi had Cambridge. ChucK had Stanford. Pure Data had UCSD. Even Perl had O'Reilly. \ac{} has none of these. The comparison is not ``funded tool vs. unfunded tool.'' It is ``tool built inside an institution vs. tool built outside all institutions.''
 
