@@ -57,6 +57,8 @@ RUN dnf clean all && rm -rf /var/cache/dnf && \
       texlive-fancyhdr texlive-microtype texlive-listings texlive-ragged2e \
       texlive-draftwatermark texlive-fontspec texlive-unicode-math \
       texlive-collection-mathscience \
+      texlive-xecjk texlive-tcolorbox texlive-environ \
+      google-noto-sans-cjk-sc-fonts google-noto-sans-mono-cjk-sc-fonts \
         && dnf clean all && rm -rf /var/cache/dnf
 
 # --- FFmpeg from RPM Fusion ---------------------------------------------------
