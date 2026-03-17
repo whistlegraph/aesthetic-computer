@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>Bio — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
   <meta name="description" content="Jeffrey Alan Scudder is a painter based in Los Angeles working across canvas, custom software, and live performance. Creator of Aesthetic Computer, Whistlegraph, and No Paint.">
@@ -58,6 +59,10 @@
       }
     }
 
+    html {
+      color-scheme: light dark;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -96,10 +101,21 @@
       position: relative;
       overflow: hidden;
       border-radius: 4px;
-      aspect-ratio: 3 / 4;
     }
 
-    .bio-portrait img {
+    /* First image flows normally to establish container height */
+    .bio-portrait img:first-child {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      object-position: 50% 20%;
+      opacity: 1;
+      transition: opacity 1.2s ease-in-out;
+    }
+
+    /* Subsequent images overlay on top */
+    .bio-portrait img:not(:first-child) {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -110,12 +126,12 @@
       transition: opacity 1.2s ease-in-out;
     }
 
-    .bio-portrait img:first-child {
+    .bio-portrait img.active {
       opacity: 1;
     }
 
-    .bio-portrait img.active {
-      opacity: 1;
+    .bio-portrait img:first-child:not(.active) {
+      opacity: 0;
     }
 
     @keyframes kb-zoom-in {
