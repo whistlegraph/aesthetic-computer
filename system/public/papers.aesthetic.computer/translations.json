@@ -276,13 +276,33 @@
     },
     "da": {
       "title": "Sucking on the Complex",
-      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-milj{\\o}er"
+      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-miljøer"
+    },
+    "es": {
+      "title": "Sucking on the Complex",
+      "subtitle": "Hegemonía de plataformas, crítica-como-contenido y la necesidad de anti-entornos"
+    },
+    "zh": {
+      "title": "Sucking on the Complex",
+      "subtitle": "平台霸权、批判作为内容与反环境的需要"
     }
   },
   "plork": {
     "en": {
-      "title": "PLORKing the Planet",
+      "title": "PLOrk'ing the Planet",
       "subtitle": "From Laptop Orchestra to Planetary Instrument"
+    },
+    "da": {
+      "title": "PLOrk'ing the Planet",
+      "subtitle": "Fra bærbar orkester til planetarisk instrument"
+    },
+    "es": {
+      "title": "PLOrk'ing the Planet",
+      "subtitle": "De orquesta de portátiles a instrumento planetario"
+    },
+    "zh": {
+      "title": "PLOrk'ing the Planet",
+      "subtitle": "从笔记本电脑乐队到行星乐器"
     }
   }
 }

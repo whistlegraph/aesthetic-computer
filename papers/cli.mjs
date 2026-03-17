@@ -31,8 +31,8 @@ const SITE_DIR = join(
 );
 const BUILDLOG = join(PAPERS_DIR, "BUILDLOG.md");
 const METADATA_PATH = join(PAPERS_DIR, "metadata.json");
-const LANGS = ["en", "da", "es"];
-const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish" };
+const LANGS = ["en", "da", "es", "zh"];
+const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish", zh: "Chinese" };
 
 function loadMetadata() {
   if (!existsSync(METADATA_PATH)) return {};
