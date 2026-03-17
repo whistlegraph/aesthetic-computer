@@ -1,0 +1,198 @@
+PLORKing the Planet — Paper Agenda
+===================================
+Jeffrey Alan Scudder / Aesthetic Inc.
+Started: 2026-03-17
+
+THESIS
+------
+PLOrk (Princeton Laptop Orchestra, est. 2005) proved that laptop ensembles
+are a legitimate performance and pedagogical form — but it did so at Princeton
+prices: custom hemispherical speakers, MacBooks, 8-channel amps, racks, and
+institutional infrastructure. Twenty years later, the laptop orchestra model
+remains trapped inside universities. L2Ork (Virginia Tech) tried to cut costs
+with Linux netbooks ($750/seat vs PLOrk's ~$1500+/seat) but still required
+custom speaker builds and institutional support.
+
+AC Native OS changes the equation entirely. A single 89 MB file turns any
+surplus x86_64 laptop ($30–80) into a dedicated musical instrument with
+built-in synthesis, network connectivity, personalization, and OTA updates.
+No hemispherical speakers needed — the laptop IS the instrument. No ChucK,
+no Max/MSP, no Pure Data install — the runtime is the OS. No IT department —
+the devices update themselves over WiFi.
+
+With 240 million PCs rendered "obsolete" by Windows 10 end-of-life (Oct 2025),
+and 62 million tonnes of e-waste generated globally per year, the raw material
+for a planetary laptop orchestra already exists. It's sitting in warehouses,
+school closets, and e-waste bins. The question is not whether we can afford
+to PLOrk the planet — it's whether we can afford not to.
+
+CRITICAL STANCE
+---------------
+- PLOrk is beautiful but elitist: Princeton endowment, custom hardware,
+  enrollment-gated access
+- L2Ork improved cost but remained institutional
+- SLOrk, CLOrk, BLOrk etc. are all university-bound
+- The laptop orchestra movement peaked at ~30 ensembles worldwide, all academic
+- Sonic Pi democratized music coding but still needs a host OS + speakers
+- OLPC tried hardware-first global access and failed ($100 became $188+)
+- Chromebook "churn" costs schools $1.8 billion in premature disposal
+- 240 million Windows 10 PCs about to become e-waste = largest surplus event
+  in computing history
+
+THE AC OS ANSWER
+----------------
+- $50 surplus ThinkPad + 89 MB flash = complete instrument
+- Built-in 32-voice polyphonic synth with reverb (192 kHz ALSA)
+- Built-in speakers are the speakers — no hemispherical rig needed
+- Personalized boot: "hi @maria" spoken aloud, name on screen
+- OTA updates over any WiFi — no IT infrastructure
+- Pieces hot-swap: keyboard instrument → drum machine → sequencer
+- Multiplayer via WebSocket + UDP — ensemble networking built in
+- Cost per seat: $50–80 (vs PLOrk ~$1500, L2Ork ~$750, new Chromebook $200–300)
+
+PAPER STRUCTURE
+---------------
+
+1. INTRODUCTION — The PLOrk Dream and Its Limits
+   - PLOrk (2005): Dan Trueman, Perry Cook, Ge Wang
+   - 15 stations, hemispherical speakers, ChucK/Max/MSP
+   - Spawned 30+ university laptop orchestras worldwide
+   - But: all academic, all institutional, all expensive
+   - The dream of a laptop orchestra was always a dream of access
+   - Twenty years later: access is still gated
+
+2. THE LAPTOP ORCHESTRA LANDSCAPE
+   - PLOrk: ~$1500+/seat (MacBook + hemi speaker + amp rack + controllers)
+   - L2Ork: ~$750/seat (Linux netbooks + cheaper hemis + Pd-L2Ork)
+   - SLOrk: Stanford, ChucK, IKEA salad bowl speakers
+   - CLOrk, BLOrk, HELO, OLO, SCLOrk, etc.
+   - Common requirements: institutional affiliation, equipment budget,
+     dedicated space, technical staff, semester-long commitment
+   - Sonic Pi: free software but still needs hardware + OS + speakers
+   - Total worldwide laptop orchestra participants: maybe 500–1000/year?
+
+3. THE SURPLUS TSUNAMI
+   - Windows 10 EOL (Oct 14, 2025): 240 million PCs declared obsolete
+   - UN Global E-waste Monitor 2024: 62 Mt/year, only 22% recycled
+   - Chromebook churn: schools replacing millions of devices every 3–5 years
+   - Oakland USD alone: 40,000 Chromebooks expiring
+   - Corporate refresh cycles: ThinkPads, EliteBooks, Latitudes at $30–80
+   - These machines have: 1080p screens, 4–8 cores, 8–16 GB RAM, WiFi,
+     keyboards, speakers, 6–10 hr batteries
+   - The hardware for a million laptop orchestras already exists
+
+4. AC NATIVE OS AS INSTRUMENT
+   - Architecture: single 89 MB UEFI binary, boots in 7.3 seconds
+   - No userspace, no desktop, no package manager
+   - 11,943-line C runtime as PID 1
+   - QuickJS JavaScript engine for piece execution
+   - Built-in: 32-voice synth, ALSA audio, WiFi, camera, TTS, WebSocket
+   - Device-level personalization: config.json on EFI partition
+   - OTA updates preserve identity across software evolution
+   - Piece ecosystem: keyboard instruments, sequencers, visualizers, AI chat
+
+5. FROM ENSEMBLE TO PLANET — The PLOrk Scaling Problem
+   - PLOrk serves 15 people per semester at Princeton
+   - Scaling PLOrk means: more speakers, more amps, more rack gear, more space
+   - Scaling AC OS means: more USB drives
+   - Cost comparison table:
+     | Approach              | 30-seat | 100-seat | 1000-seat | 10000-seat |
+     | PLOrk model           | $45,000 | $150,000 | impossible | impossible |
+     | L2Ork model           | $22,500 | $75,000  | impossible | impossible |
+     | AC OS + surplus       | $1,500  | $5,000   | $50,000    | $500,000   |
+   - At AC OS prices, a city-wide laptop orchestra costs less than
+     one PLOrk setup
+   - At AC OS prices, a national laptop orchestra is cheaper than
+     a school computer lab
+
+6. PLORK THE PLANET — A Concrete Proposal
+   - Community flashing events: bring your dead laptop, leave with an instrument
+   - School programs: surplus laptops from corporate donors, flashed with AC OS
+   - After-school ensembles: no equipment budget needed
+   - Remote/rural access: OTA updates work on any WiFi, even tethered phones
+   - International: the same USB image works on any x86_64 machine anywhere
+   - Mesh networking (future): peer-to-peer ensemble without internet
+   - The PLOrk model inverted: instead of bringing people to the orchestra,
+     bring the orchestra to the people
+
+7. WHAT THE LAPTOP ORCHESTRA TAUGHT US (AND WHAT IT MISSED)
+   - PLOrk proved: laptop ensembles are musically legitimate
+   - PLOrk proved: spatialized sound matters (hemispherical speakers)
+   - PLOrk proved: new instruments need new compositions
+   - PLOrk missed: accessibility, global reach, non-institutional contexts
+   - L2Ork proved: Linux + cheaper hardware works
+   - L2Ork missed: still university-bound, still needs speaker builds
+   - Sonic Pi proved: code-as-music is pedagogically powerful
+   - Sonic Pi missed: still needs a host OS, still a single-user tool
+   - AC OS synthesizes all lessons: instrument-grade audio on bare metal,
+     network-native ensemble, zero-cost software, near-zero hardware cost
+
+8. RELATED WORK
+   - Trueman & Cook (2006): PLOrk Year 1
+   - Bukvic (2010): L2Ork introduction
+   - Wang (2008): SLOrk
+   - Aaron (2016): Sonic Pi
+   - Negroponte/OLPC: hardware-first access failure
+   - Illich: tools for conviviality
+   - Papert: constructionism
+   - Ukeles: maintenance as art
+   - Kittler: no software (AC OS makes hardware/software boundary visible)
+   - Attali: Noise — music as political economy
+   - Turino: Music as Social Life — participatory vs presentational
+
+9. IMPLICATIONS AND FUTURE WORK
+   - ARM Chromebook support: access the largest surplus pool
+   - Built-in composition tools: sequencer pieces, pattern editors
+   - Telematic performance: CLOrk-style cross-network ensembles via AC networking
+   - Curriculum development: PLOrk pedagogy adapted for zero-infrastructure
+   - Cultural adaptation: pieces can encode local musical traditions
+   - The planetary laptop orchestra as public utility
+
+10. CONCLUSION
+    - PLOrk showed us what a laptop orchestra could be
+    - AC OS shows us what a laptop orchestra could cost: almost nothing
+    - The surplus exists. The software exists. The network exists.
+    - PLORKing the planet is not a metaphor. It's a logistics problem.
+    - And the logistics just got 100x cheaper.
+
+RESEARCH NEEDED
+---------------
+[x] PLOrk founding, equipment, costs, publications
+[x] L2Ork costs, Linux approach, Ico Bukvic's philosophy
+[x] SLOrk, CLOrk, other laptop orchestras worldwide
+[x] Windows 10 EOL surplus figures (240M PCs)
+[x] UN e-waste statistics (62 Mt/year, 22% recycled)
+[x] Chromebook churn ($1.8B cost to schools)
+[x] Surplus laptop pricing ($30–80 for ThinkPads)
+[x] OLPC failure analysis
+[x] Sonic Pi accessibility model
+[x] Hemispherical speaker designs and costs
+[ ] Jacques Attali "Noise" — music as prophecy of social organization
+[ ] Thomas Turino "Music as Social Life" — participatory performance
+[ ] Dan Trueman publications on PLOrk pedagogy
+[ ] Ge Wang publications on ChucK and laptop orchestra design
+[ ] Current state of laptop orchestras post-COVID
+
+PLATTER ADDITIONS
+-----------------
+- Trueman et al. 2006 "PLOrk: The Princeton Laptop Orchestra, Year 1" (ICMC)
+- Bukvic 2010 "Introducing L2Ork: The Linux Laptop Orchestra" (Linux Journal)
+- Wang 2008 "Stanford Laptop Orchestra"
+- Trueman 2007 "Why a Laptop Orchestra?" (Organised Sound)
+- Attali 1985 "Noise: The Political Economy of Music"
+- Turino 2008 "Music as Social Life"
+- Snyder (PLOrk hemispherical speaker design)
+- PIRG 2023 "Chromebook Churn" report
+- UN/ITU 2024 "Global E-waste Monitor"
+- Canalys 2024 (240M PCs figure for Windows 10 EOL)
+
+TONE
+----
+- Dominant, not defensive. AC OS is the answer, not "an" answer.
+- Critical of institutional gatekeeping in laptop orchestra movement.
+- Respectful of PLOrk's artistic and intellectual contributions.
+- Unsparing about the cost barrier and who it excludes.
+- Concrete numbers throughout — this is an economic argument as much
+  as an artistic one.
+- The paper should make the reader feel that NOT doing this is the
+  irrational position.
