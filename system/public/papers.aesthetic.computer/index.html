@@ -620,8 +620,10 @@
         if (initLang && langs[initLang]) setLang(initLang);
 
         // Add cards links to papers that have a cards version
+        // Skip folk-songs — its main PDF is already cards format
         document.querySelectorAll('.p .title a[data-base]').forEach(a => {
             const base = a.dataset.base;
+            if (base.includes('folk-songs')) return;
             const detail = a.closest('.p').querySelector('.detail');
             if (detail) {
                 const cardsLink = document.createElement('a');
