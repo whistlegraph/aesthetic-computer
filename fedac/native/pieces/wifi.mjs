@@ -4,10 +4,6 @@
 
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
-const FALLBACK_WIFI = [
-  { ssid: "ATT2AWTpcr", pass: "t84q%7%g2h8u" },
-  { ssid: "ATTcifXGXi", pass: "=dvt%mnk8h6z" },
-];
 const CREDS_PATH = "/mnt/wifi_creds.json";
 const SHIFT_MAP = {
   "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
@@ -97,7 +93,6 @@ function act({ event: e, sound, system, wifi }) {
         // Second tap: connect
         const allSaved = [
           { ssid: AC_SSID, pass: AC_PASS },
-          ...FALLBACK_WIFI,
           ...savedCreds,
         ];
         const cred = allSaved.find(c => c.ssid === entry.ssid);
@@ -194,8 +189,7 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
   const scannedSSIDs = new Set(scannedNets.map(n => n.ssid));
   const allSaved = [
     { ssid: AC_SSID, pass: AC_PASS },
-    ...FALLBACK_WIFI,
-    ...savedCreds.filter(c => c.ssid !== AC_SSID && !FALLBACK_WIFI.find(f => f.ssid === c.ssid)),
+    ...savedCreds.filter(c => c.ssid !== AC_SSID),
   ];
   const offlineSaved = allSaved.filter(c => !scannedSSIDs.has(c.ssid));
 
@@ -259,7 +253,7 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     for (let i = 0; i < offlineSaved.length && row < maxRows; i++, row++) {
       const cred = offlineSaved[i];
       const ry = listY + row * rowH;
-      const isPreset = cred.ssid === AC_SSID || FALLBACK_WIFI.find(f => f.ssid === cred.ssid);
+      const isPreset = cred.ssid === AC_SSID;
       const isSelected = row === selectedIdx;
 
       if (isSelected) {
