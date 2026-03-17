@@ -1939,6 +1939,14 @@ int main(int argc, char *argv[]) {
     ac_log("[ac-native] Audio: %s\n", audio && audio->pcm ? "OK" : "NO PCM");
     ac_log("[ac-native] Backlight: %s (max=%d)\n", bl_path[0] ? bl_path : "none", bl_max);
     ac_log("[ac-native] Input devices: %d\n", input ? input->count : 0);
+    // Log each input device name for debugging keyboard issues
+    if (input) {
+        for (int i = 0; i < input->count; i++) {
+            char dname[256] = "?";
+            ioctl(input->fds[i], EVIOCGNAME(sizeof(dname)), dname);
+            ac_log("[input] dev%d: %s\n", i, dname);
+        }
+    }
     ac_log("[ac-native] NuPhy: has_analog=%d hidraw=%d\n",
            input ? input->has_analog : -1, input ? input->hidraw_count : -1);
     ac_log("[ac-native] JS: boot=%d paint=%d act=%d sim=%d\n",

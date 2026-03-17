@@ -1,0 +1,662 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={PLOrk'ing the Planet: De la orquesta de laptops al instrumento planetario},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} PLOrk'ing the Planet}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} De la orquesta de laptops al instrumento planetario}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Hardware excedente, s\'{\i}ntesis bare-metal y la orquesta de 240 millones de m\'{a}quinas}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+En 2005, Dan Trueman y Perry Cook fundaron la Princeton Laptop Orchestra (PLOrk)---quince estaciones, cada una compuesta por un MacBook, un altavoz hemisf\'{e}rico personalizado, un rack de amplificador de 8 canales y un conjunto de controladores, ejecutando ChucK y Max/MSP. PLOrk demostr\'{o} que los ensambles de laptops son una forma de interpretaci\'{o}n musicalmente leg\'{\i}tima, generando m\'{a}s de treinta orquestas universitarias de laptops en todo el mundo. Pero veinte a\~{n}os despu\'{e}s, cada uno de estos ensambles permanece atrapado dentro de una universidad: restringido por la matr\'{\i}cula, financiado por departamentos, alojado en estudios dedicados y operado por personal t\'{e}cnico. La orquesta de laptops nunca sali\'{o} del campus. Argumentamos que el modelo PLOrk contiene una imposibilidad de escalado: cada asiento cuesta \$1.500+, requiere fabricaci\'{o}n de altavoces personalizados, depende de infraestructura institucional y atiende como m\'{a}ximo a 15 personas por semestre. L2Ork (Virginia Tech) redujo el costo a \$750/asiento con netbooks Linux y altavoces hemisf\'{e}ricos m\'{a}s baratos, pero permaneci\'{o} ligado a la universidad. El sue\~{n}o de la orquesta de laptops---que computadoras en red pudieran ser un nuevo tipo de instrumento de ensamble---siempre fue un sue\~{n}o de acceso. Fall\'{o} en el acceso. Este art\'{\i}culo presenta una alternativa concreta. \acos{} es un sistema operativo de 89\,MB que arranca cualquier laptop x86\_64 excedente en un instrumento musical dedicado en 7,3 segundos: sintetizador polif\'{o}nico de 32 voces integrado, conectividad de ensamble nativa de red, identidad personalizada y actualizaciones over-the-air. Un ThinkPad excedente cuesta \$50. La copia al USB toma un minuto. Sin altavoces hemisf\'{e}ricos, sin racks de amplificador, sin licencias de Max/MSP, sin departamento de TI. Con 240 millones de PCs declarados obsoletos por el fin de vida de Windows~10 y 62 millones de toneladas de residuos electr\'{o}nicos generados anualmente, la materia prima para una orquesta planetaria de laptops ya existe. La pregunta no es si podemos permitirnos PLOrk'ear el planeta. Es si podemos permitirnos no hacerlo.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCCI\'{O}N ============
+
+\section{Introducci\'{o}n}
+
+La Princeton Laptop Orchestra no era una banda con laptops. Era una proposici\'{o}n: que la laptop pod\'{\i}a ser un instrumento orquestal, que el software pod\'{\i}a producir sonido espacialmente rico, que una red de computadoras pod\'{\i}a constituir un ensamble tan leg\'{\i}timo como un cuarteto de cuerdas. Dan Trueman, Perry Cook, Scott Smallwood y Ge Wang construyeron PLOrk en 2005 en la Princeton University~\citep{trueman2006plork, trueman2007why}, y la proposici\'{o}n se sostuvo. La m\'{u}sica era real. Las interpretaciones eran convincentes. La pedagog\'{\i}a era transformadora.
+
+Pero PLOrk fue construido en Princeton. Cada una de las quince estaciones de interpretaci\'{o}n requer\'{\i}a un MacBook (\$1.300+), un altavoz hemisf\'{e}rico personalizado dise\~{n}ado por Jeff Snyder~\citep{snyder2015hemispherical} para proyectar sonido omnidireccionalmente como un instrumento ac\'{u}stico, un amplificador de audio de 8 canales, un acondicionador de corriente, un gabinete de rack y un conjunto de controladores---teclados MIDI, tabletas gr\'{a}ficas, interfaces Wiimote, sensores de presi\'{o}n e inclinaci\'{o}n. La pila de software inclu\'{\i}a ChucK~\citep{wang2003chuck}, Max/MSP (con licencia) y c\'{o}digo de red personalizado. Costo total por asiento: conservadoramente \$1.500, probablemente m\'{a}s alto si se tiene en cuenta el trabajo de fabricaci\'{o}n y los costos institucionales generales.
+
+Esto no era una barrera para Princeton. Era una barrera para todos los dem\'{a}s.
+
+Durante la d\'{e}cada siguiente, las orquestas de laptops proliferaron en las universidades---SLOrk en Stanford~\citep{wang2009designing}, L2Ork en Virginia Tech~\citep{bukvic2010l2ork}, CLOrk en Concordia, BLOrk en Colorado, HELO en Huddersfield, OLO en Oslo, SCLOrk en Santa Clara, la CMU Laptop Orchestra en Carnegie Mellon, ensambles en Indiana, Georgia Tech, UBC y la Universidad Nacional de M\'{u}sica en Per\'{u}. En su punto m\'{a}ximo, quiz\'{a}s exist\'{\i}an treinta ensambles en todo el mundo. Cada uno viv\'{\i}a dentro de una universidad. Cada uno requer\'{\i}a financiaci\'{o}n institucional, espacio dedicado, personal t\'{e}cnico y estudiantes matriculados.
+
+El movimiento de orquestas de laptops alcanz\'{o} un m\'{a}ximo de aproximadamente 500--1.000 participantes por a\~{n}o, globalmente. Para comparar, 1,2 millones de ni\~{n}os estadounidenses tocan en bandas escolares~\citep{warschauer2004technology}. La orquesta de laptops fue una idea hermosa que no lleg\'{o} a casi nadie.
+
+Este art\'{\i}culo argumenta que el factor limitante nunca fue art\'{\i}stico---PLOrk resolvi\'{o} esa cuesti\'{o}n en el a\~{n}o uno---sino econ\'{o}mico e infraestructural. Presentamos \acos{}, un sistema operativo bare-metal que transforma cualquier laptop x86\_64 excedente en un instrumento musical completo a un costo dos \'{o}rdenes de magnitud inferior al modelo PLOrk, y proponemos que la econom\'{\i}a resultante hace que una orquesta de laptops \emph{planetaria} sea no solo posible sino, dado el volumen de hardware excedente disponible, casi inevitable.
+
+% ============ 2. EL PANORAMA DE LAS ORQUESTAS DE LAPTOPS ============
+
+\section{El panorama de las orquestas de laptops}
+\label{sec:landscape}
+
+\subsection{PLOrk: El est\'{a}ndar de oro}
+
+El dise\~{n}o de PLOrk fue meticuloso. Trueman~\citep{trueman2007why} articul\'{o} el problema central: los altavoces integrados de una laptop producen un sonido delgado y sin direcci\'{o}n que no puede ``llenar una sala como lo hace un instrumento ac\'{u}stico.'' El altavoz hemisf\'{e}rico---una estructura geod\'{e}sica con seis transductores radiando hacia afuera en una semiesfera---fue la soluci\'{o}n. Dio a cada estaci\'{o}n de laptop una presencia ac\'{u}stica f\'{\i}sica, un \emph{cuerpo} para su sonido. La laptop se convirti\'{o}, en el marco de Trueman, no en un controlador que disparaba samples sino en un instrumento con caracter\'{\i}sticas espaciales.
+
+Esto fue musicalmente correcto y econ\'{o}micamente desastroso. Cada altavoz hemisf\'{e}rico se constru\'{\i}a a mano. Los amplificadores, racks y acondicionadores de corriente a\~{n}ad\'{\i}an volumen y costo. El resultado fue un ensamble que sonaba extraordinariamente y costaba una fortuna. La configuraci\'{o}n de 15 estaciones de PLOrk, completamente equipada, representaba una inversi\'{o}n superior a \$30.000 solo en equipamiento---antes de contar la sala, la infraestructura de red, las licencias de software y el personal t\'{e}cnico para mantenerlo todo.
+
+\subsection{L2Ork: La contrapropuesta Linux}
+
+Ivica Ico Bukvic en Virginia Tech reconoci\'{o} el problema de acceso y construy\'{o} L2Ork~\citep{bukvic2010l2ork}, la Linux Laptop Orchestra, como una reducci\'{o}n expl\'{\i}cita de costos. L2Ork reemplaz\'{o} los MacBooks con netbooks Linux, Max/MSP con Pd-L2Ork (un fork personalizado de Pure Data) y los altavoces hemisf\'{e}ricos de Princeton con dise\~{n}os hemisf\'{e}ricos m\'{a}s baratos utilizando transductores est\'{a}ndar. El resultado: aproximadamente \$750 por asiento, una reducci\'{o}n del 50\%.
+
+L2Ork fue una contribuci\'{o}n significativa. La insistencia de Bukvic en software de c\'{o}digo abierto y hardware asequible estaba filos\'{o}ficamente alineada con la misi\'{o}n de acceso. Pero \$750/asiento todav\'{\i}a requiere adquisici\'{o}n institucional. Los altavoces hemisf\'{e}ricos, incluso los m\'{a}s baratos, todav\'{\i}a requieren fabricaci\'{o}n. Pd-L2Ork todav\'{\i}a requiere instalaci\'{o}n, configuraci\'{o}n y mantenimiento en una distribuci\'{o}n Linux anfitriona. L2Ork democratiz\'{o} la orquesta de laptops dentro del sistema universitario. No escap\'{o} de \'{e}l.
+
+\subsection{La trampa universitaria}
+
+El patr\'{o}n es consistente en las m\'{a}s de treinta orquestas de laptops:
+
+\begin{itemize}
+  \item \textbf{Restringido por matr\'{\i}cula}: solo participan estudiantes matriculados
+  \item \textbf{Financiado por departamentos}: presupuestos de equipamiento de departamentos de m\'{u}sica o inform\'{a}tica
+  \item \textbf{Dependiente de espacio}: salas de ensayo dedicadas con infraestructura de red
+  \item \textbf{Dependiente de personal}: directores de facultad, asistentes t\'{e}cnicos, soporte de TI
+  \item \textbf{Vinculado al semestre}: los ensambles se forman y disuelven seg\'{u}n calendarios acad\'{e}micos
+  \item \textbf{Fijo geogr\'{a}ficamente}: hay que estar f\'{\i}sicamente en la universidad
+\end{itemize}
+
+Estas no son restricciones incidentales. Son consecuencias estructurales del modelo de costos. Cuando cada asiento cuesta \$750--1.500 y requiere hardware personalizado, el ensamble \emph{debe} ser gestionado institucionalmente. El equipo es demasiado caro para perderlo, demasiado especializado para reemplazarlo y demasiado complejo para mantenerlo sin personal t\'{e}cnico. La universidad no es solo el anfitri\'{o}n---es el \'{u}nico anfitri\'{o}n viable.
+
+\subsection{Lo que dicen los n\'{u}meros}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Modelo de ensamble} & \textbf{Por asiento} & \textbf{30 asientos} & \textbf{1000 asientos} \\
+\midrule
+PLOrk (Princeton)       & \$1.500+ & \$45.000+ & imposible \\
+L2Ork (Virginia Tech)   & \$750      & \$22.500  & imposible \\
+SLOrk (Stanford)        & \$1.200+ & \$36.000+ & imposible \\
+Sonic Pi + Pi hardware   & \$150--200 & \$4.500   & \$150.000 \\
+\textbf{AC OS + excedente} & \textbf{\$50--80} & \textbf{\$1.500} & \textbf{\$50.000} \\
+\bottomrule
+\end{tabular}
+\caption{Comparaci\'{o}n de costos entre modelos de orquesta de laptops. ``Imposible'' indica que la dependencia del modelo en fabricaci\'{o}n personalizada e infraestructura institucional impide escalar m\'{a}s all\'{a} de $\sim$50 asientos.}
+\label{tab:cost}
+\end{table}
+
+La tabla cuenta la historia. A precios PLOrk, una orquesta de laptops de 1.000 personas es una fantas\'{\i}a. A precios AC~OS, cuesta menos que una sola configuraci\'{o}n PLOrk. La diferencia no es incremental. Es un cambio de fase.
+
+% ============ 3. EL TSUNAMI DEL EXCEDENTE ============
+
+\section{El tsunami del excedente}
+\label{sec:surplus}
+
+\subsection{240 millones de m\'{a}quinas}
+
+El 14 de octubre de 2025, Microsoft finaliz\'{o} el soporte para Windows~10~\citep{canalys2024windows}. Canalys estim\'{o} que 240 millones de PCs en todo el mundo---m\'{a}quinas cuyo hardware es completamente funcional pero cuyos procesadores no cumplen los requisitos de TPM~2.0 y generaci\'{o}n de CPU de Windows~11---fueron declarados ``obsoletos'' de la noche a la ma\~{n}ana. No son m\'{a}quinas antiguas. Son laptops de la era 2017--2020 con procesadores quad-core, 8\,GB de RAM, pantallas de 1080p y WiFi. Se convirtieron en residuos electr\'{o}nicos no porque se rompieran, sino porque Microsoft decidi\'{o} que hab\'{\i}an terminado.
+
+Este es el mayor evento \'{u}nico de excedente en la historia de la computaci\'{o}n personal. Y llega sobre los flujos de excedente ya existentes: devoluciones de arrendamiento corporativo (ciclos de renovaci\'{o}n de 3--5 a\~{n}os), rotaci\'{o}n de Chromebooks escolares~\citep{pirg2023chromebook}, excedente de inventario minorista y el flujo constante de m\'{a}quinas cosm\'{e}ticamente da\~{n}adas pero funcionales hacia canales de reacondicionamiento.
+
+\subsection{El contexto global de los residuos electr\'{o}nicos}
+
+El Monitor Global de Residuos Electr\'{o}nicos 2024 de la ONU~\citep{forti2024ewaste} reporta 62 millones de toneladas de residuos electr\'{o}nicos generados globalmente por a\~{n}o, creciendo a 2,6 millones de toneladas anuales. Solo el 22,3\% est\'{a} documentado como correctamente recolectado y reciclado. El resto se deposita en vertederos, se incinera o se exporta a operaciones de procesamiento informal en el Sur Global, donde trabajadores---a menudo ni\~{n}os---extraen metales en condiciones peligrosas.
+
+Cada laptop excedente desviada de este flujo hacia un instrumento musical es una peque\~{n}a intervenci\'{o}n ambiental. A escala, un programa que reutilice apenas el 0,1\% del excedente anual de PCs producir\'{\i}a 240.000 instrumentos por a\~{n}o.
+
+\subsection{El cementerio de Chromebooks}
+
+El informe ``Chromebook Churn'' del U.S. PIRG Education Fund~\citep{pirg2023chromebook} documenta c\'{o}mo los distritos escolares en todo el pa\'{\i}s rotan Chromebooks cada 3--5 a\~{n}os, gastando un estimado de \$1.800 millones en dispositivos dise\~{n}ados para ser reemplazados. La pol\'{\i}tica de Auto Update Expiration (AUE) de Google deja sin soporte los Chromebooks despu\'{e}s de una fecha fija independientemente del estado del hardware. Oakland Unified solo gestiona 40.000 Chromebooks en este ciclo.
+
+La ir\'{o}nica tragedia: las escuelas descartan Chromebooks cuyo hardware supera los requisitos para un instrumento completo de computaci\'{o}n creativa, y luego gastan \$200--300 en nuevos. Un distrito que flasheara los Chromebooks retirados con \acos{} podr\'{\i}a convertir su presupuesto de residuos electr\'{o}nicos en un programa de instrumentos.
+
+(Nota: \acos{} actualmente se dirige a m\'{a}quinas x86\_64 UEFI. La mayor\'{\i}a de los Chromebooks educativos usan procesadores ARM. El soporte ARM es un objetivo de desarrollo primario---ver Secci\'{o}n~\ref{sec:future}. Los Chromebooks Intel, sin embargo, son inmediatamente compatibles.)
+
+\subsection{Precios del excedente}
+
+Precios actuales (marzo 2026) de laptops excedentes en mercados de reacondicionamiento al por mayor y mercados secundarios:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{M\'{a}quina} & \textbf{Rango de precios} \\
+\midrule
+ThinkPad X1 Carbon (6a--8a gen) & \$40--80 \\
+ThinkPad T480/T490 & \$35--70 \\
+HP EliteBook 840 G5/G6 & \$40--75 \\
+Dell Latitude 7400/7410 & \$45--80 \\
+Dell Latitude 5400 & \$30--55 \\
+HP ProBook 440 G6/G7 & \$30--60 \\
+Lenovo IdeaPad (varios) & \$25--50 \\
+\bottomrule
+\end{tabular}
+\caption{Precios de laptops excedentes, marzo 2026. Los precios reflejan compras al por mayor (\textgreater 10 unidades) de reacondicionadores certificados. Todos los modelos incluyen pantalla 1080p, 4+ n\'{u}cleos, 8+\,GB RAM, WiFi, teclado completo y 4+ horas de bater\'{\i}a.}
+\label{tab:surplus}
+\end{table}
+
+Cada una de estas m\'{a}quinas arranca \acos{} en menos de 8 segundos. Cada una tiene un teclado completo, un touchpad, un micr\'{o}fono, altavoces, una pantalla y WiFi. Cada una es un instrumento musical completo y aut\'{o}nomo esperando un archivo de 89\,MB.
+
+% ============ 4. AC NATIVE OS COMO INSTRUMENTO ============
+
+\section{AC Native OS como instrumento}
+\label{sec:instrument}
+
+Donde PLOrk requer\'{\i}a ensamblar un instrumento a partir de componentes---laptop m\'{a}s altavoz m\'{a}s amplificador m\'{a}s rack m\'{a}s controladores m\'{a}s software---\acos{} propone que la laptop excedente \emph{ya es} el instrumento. Solo necesita que se lo digan.
+
+\subsection{Arquitectura en breve}
+
+\acos{} es un \'{u}nico binario UEFI de 89\,MB que contiene un kernel Linux, un initramfs comprimido con LZ4 y un runtime en C de 11.943 l\'{\i}neas que se ejecuta como PID~1~\citep{scudder2026os}. No hay espacio de usuario, no hay entorno de escritorio, no hay gestor de paquetes, no hay shell. El runtime gestiona directamente la pantalla (DRM/KMS), el audio (ALSA a 192\,kHz), la entrada (evdev), el WiFi (wpa\_supplicant), la c\'{a}mara (V4L2) y el habla (flite). Los programas interactivos (``pieces'') son m\'{o}dulos ES de JavaScript ejecutados por QuickJS~\citep{bellard2019quickjs}.
+
+Tiempo de arranque: \textbf{7,3 segundos} desde el bot\'{o}n de encendido hasta instrumento listo para tocar.
+
+\subsection{S\'{\i}ntesis integrada}
+
+El runtime incluye un sintetizador polif\'{o}nico de 32 voces con envolventes ADSR por voz, m\'{u}ltiples formas de onda (seno, tri\'{a}ngulo, sierra, pulso, ruido) y un procesador de reverberaci\'{o}n global. El audio funciona a 192\,kHz a trav\'{e}s de ALSA PCM---la misma interfaz usada por estaciones de trabajo de audio profesionales, sin la sobrecarga de PulseAudio, PipeWire o JACK.
+
+Esta es la divergencia cr\'{\i}tica respecto a PLOrk. El altavoz hemisf\'{e}rico de Trueman resolvi\'{o} el problema de la proyecci\'{o}n espacial del sonido para ensambles de laptops. \acos{} evita el problema por completo: los altavoces integrados de la laptop son los altavoces. No son omnidireccionales, no son hemisf\'{e}ricos, no son ac\'{u}sticamente ideales. Pero \emph{est\'{a}n ah\'{\i}}---en cada laptop excedente, ya conectados, sin requerir fabricaci\'{o}n, sin amplificadores, sin acondicionadores de corriente, sin racks.
+
+Para un ensamble PLOrk de 15 personas actuando en una sala de conciertos, los altavoces hemisf\'{e}ricos son la respuesta correcta. Para un ensamble distribuido de 1.000 personas actuando en aulas, centros comunitarios, parques y salas de estar, los propios altavoces de la laptop son la respuesta correcta. El altavoz hemisf\'{e}rico fue una soluci\'{o}n a un problema de sala de conciertos. La orquesta planetaria de laptops no es una sala de conciertos.
+
+\subsection{La laptop ya tiene todo}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{PLOrk requiere} & \textbf{Laptop excedente tiene} \\
+\midrule
+MacBook & Cualquier laptop x86\_64 \\
+Altavoz hemisf\'{e}rico & Altavoces integrados \\
+Amplificador de 8 canales & Amplificador integrado (ALSA) \\
+Acondicionador de corriente & Adaptador AC o bater\'{\i}a \\
+Gabinete de rack & Chasis de laptop \\
+Controlador MIDI & Teclado + touchpad \\
+Licencia ChucK/Max/MSP & AC OS (gratuito, integrado) \\
+Infraestructura de red & WiFi (integrado) \\
+Personal de TI & Actualizaciones OTA (autom\'{a}ticas) \\
+\bottomrule
+\end{tabular}
+\caption{Requisitos de componentes PLOrk vs. capacidades de la laptop excedente.}
+\label{tab:plork-vs-surplus}
+\end{table}
+
+La laptop excedente no es una estaci\'{o}n PLOrk degradada. Es un \emph{tipo diferente de instrumento}---aut\'{o}nomo, port\'{a}til, alimentado por bater\'{\i}a, de propiedad personal y listo para tocar inmediatamente. Lo que le falta en proyecci\'{o}n ac\'{u}stica lo gana en independencia. Una estaci\'{o}n PLOrk no puede salir de la sala de ensayo. Una laptop AC~OS puede ir a cualquier parte.
+
+\subsection{Ensamble nativo de red}
+
+\ac{} incluye redes multijugador integradas: WebSocket para eventos confiables (unirse, salir, puntuaci\'{o}n, estado) y UDP para datos en tiempo real de baja latencia (posici\'{o}n, velocidad, controladores continuos). Cualquier dispositivo \acos{} en la misma red WiFi puede unirse a una sesi\'{o}n de ensamble con cero configuraci\'{o}n. El servidor de sesiones~\citep{scudder2026ac} gestiona el enrutamiento, y los pieces pueden definir protocolos de red arbitrarios para la interacci\'{o}n del ensamble.
+
+La red de PLOrk requer\'{\i}a infraestructura personalizada y configuraci\'{o}n t\'{e}cnica para cada actuaci\'{o}n. La red de ensamble de \acos{} est\'{a} siempre activa, integrada en la capa del SO y funciona en cualquier WiFi---incluyendo un hotspot de tel\'{e}fono. Tres personas con laptops excedentes en un parque pueden formar una orquesta de laptops.
+
+\subsection{Personalizaci\'{o}n como identidad del instrumento}
+
+Cada dispositivo \acos{} arranca con el handle de su propietario mostrado y dicho en voz alta: ``hi @maria.'' Colores, tokens y preferencias se almacenan en \texttt{config.json} en la partici\'{o}n EFI, persistiendo a trav\'{e}s de las actualizaciones OTA~\citep{scudder2026os}. La m\'{a}quina no es un terminal gen\'{e}rico---es \emph{el instrumento de Mar\'{\i}a}, y lo sabe.
+
+En un contexto de ensamble, esto significa que cada instrumento tiene nombre. El director (o la red) puede dirigirse a la m\'{a}quina de ``@maria'', enrutar audio hacia ella, asignarle una voz. La identidad del instrumento no es un complemento; es fundamental. Cada instrumento de orquesta tiene un nombre. Ahora cada laptop tambi\'{e}n.
+
+% ============ 5. COMPARACI\'{O}N CON DISPOSITIVOS DEDICADOS ============
+
+\section{El panorama de dispositivos dedicados}
+\label{sec:devices}
+
+La laptop excedente no es el \'{u}nico dispositivo inform\'{a}tico port\'{a}til en el rango de precio de \$50--300. El mercado de consumo ya acepta---con entusiasmo---dispositivos inform\'{a}ticos construidos a prop\'{o}sito que hacen una cosa bien. La comparaci\'{o}n ilumina lo que \acos{} es y no es.
+
+\subsection{Nintendo Switch (\$299 nueva, \$150 usada)}
+
+La Switch es el dispositivo inform\'{a}tico creativo dedicado m\'{a}s exitoso de la historia, aunque no se comercializa as\'{\i}. Es una computadora port\'{a}til con pantalla t\'{a}ctil, altavoces, WiFi, Bluetooth, sensores de movimiento, controles desmontables y una base para salida de TV. Ejecuta un SO personalizado que arranca en segundos hacia una \'{u}nica interfaz. Los usuarios navegan una biblioteca de programas interactivos (``juegos'') por nombre. No hay gestor de archivos, no hay escritorio, no hay terminal.
+
+La similitud estructural con \acos{} es llamativa: ambos son sistemas operativos de prop\'{o}sito \'{u}nico en hardware port\'{a}til, ambos arrancan r\'{a}pido hacia una experiencia interactiva, ambos usan WiFi para multijugador. La Switch ha vendido 146 millones de unidades~\citep{nintendo2024earnings}---prueba de que el p\'{u}blico adoptar\'{a} dispositivos inform\'{a}ticos dedicados cuando la experiencia es coherente y la barrera de entrada es un bot\'{o}n de encendido.
+
+La diferencia es prop\'{o}sito y econom\'{\i}a. La Switch cuesta \$299 nueva. Un ThinkPad excedente con \acos{} cuesta \$50. La Switch es una plataforma cerrada propiedad de Nintendo. \acos{} es abierto, modificable y auto-actualizable. La Switch no puede ser reprogramada por su propietario. Un dispositivo \acos{} ejecuta pieces creados por el usuario. Pero la Switch prueba el factor de forma: un dispositivo inform\'{a}tico port\'{a}til, construido a prop\'{o}sito, instant\'{a}neamente encendido, es algo que la gente quiere, entiende y usa a diario.
+
+\subsection{Steam Deck (\$399 nueva, \$250 usada)}
+
+La Steam Deck de Valve es un PC x86\_64 port\'{a}til que ejecuta una distribuci\'{o}n Linux personalizada (SteamOS) que arranca directamente en una biblioteca de juegos. Es, arquitect\'{o}nicamente, casi exactamente lo que hace \acos{}: un entorno Linux construido a prop\'{o}sito en hardware x86\_64 est\'{a}ndar, optimizado para un solo caso de uso, con arranque r\'{a}pido e interfaz curada.
+
+La Steam Deck demuestra que el enfoque de ``Linux bare-metal en x86\_64'' funciona comercialmente. Valve ha vendido un estimado de 5--10 millones de unidades. Los usuarios aceptan y prefieren la experiencia dedicada sobre un escritorio de prop\'{o}sito general. La Steam Deck tambi\'{e}n prueba que los altavoces integrados, aunque ac\'{u}sticamente modestos, son aceptables para medios interactivos cuando la experiencia es por lo dem\'{a}s convincente.
+
+Donde la Steam Deck requiere hardware construido a prop\'{o}sito (\$399), \acos{} funciona en hardware que ya existe y cuesta \$50. La Steam Deck ejecuta juegos; \acos{} ejecuta pieces. Pero la arquitectura conceptual---Linux personalizado, arranque r\'{a}pido, biblioteca curada, redes integradas---es compartida.
+
+\subsection{Teenage Engineering (OP-1, EP-133, TX-6)}
+
+La l\'{\i}nea de productos de Teenage Engineering representa el extremo alto de los instrumentos creativos dedicados: OP-1 Field (\$1.999), EP-133 K.O. II (\$299), TX-6 mixer (\$1.199). Son dispositivos construidos a prop\'{o}sito para la creaci\'{o}n musical con hardware personalizado, altavoces integrados, bater\'{\i}a e interfaces con opini\'{o}n. Son objetos hermosos. Tambi\'{e}n son, funcionalmente, bienes de lujo. El mercado principal del OP-1 no son m\'{u}sicos profesionales ni estudiantes---son adultos adinerados aficionados. El dispositivo aparece m\'{a}s a menudo en v\'{\i}deos de unboxing de YouTube y stands de la feria NAMM que en aulas o centros comunitarios. A \$2.000, es inaccesible para las poblaciones que m\'{a}s necesitan instrumentos creativos.
+
+Este es el patr\'{o}n: el hardware musical dedicado se dirige a instituciones (PLOrk, Ableton Push en estudios universitarios) o a individuos adinerados (Teenage Engineering, Elektron, Moog). El medio---instrumentos asequibles, programables, de propiedad personal para personas sin afiliaci\'{o}n institucional ni ingresos disponibles---est\'{a} vac\'{\i}o.
+
+\acos{} en una laptop excedente no puede igualar el dise\~{n}o industrial de Teenage Engineering. El teclado de la ThinkPad no es una cuadr\'{\i}cula de secuenciador. El factor de forma de la laptop no es un instrumento de bolsillo. Pero \acos{} ofrece lo que ning\'{u}n instrumento de lujo puede: escala, programabilidad y costo marginal cero. Un OP-1 para cada ni\~{n}o en una escuela cuesta \$600.000 por 300 unidades. Una laptop excedente para cada ni\~{n}o cuesta \$15.000. El OP-1 no puede ser reprogramado por su propietario. El instrumento \acos{} ejecuta cualquier piece que su due\~{n}o escriba o descargue. La pregunta no es si una ThinkPad es tan hermosa como un OP-1. Es si la belleza deber\'{\i}a ser un prerrequisito para el acceso.
+
+\subsection{La perspectiva de los dispositivos dedicados}
+
+El mercado de electr\'{o}nica de consumo ya ha respondido la pregunta ``\textquestiondown Usar\'{a} la gente dispositivos inform\'{a}ticos dedicados?'' con 146 millones de Switches, 5--10 millones de Steam Decks y un pr\'{o}spero mercado de hardware musical construido a prop\'{o}sito. \acos{} aplica el modelo de dispositivo dedicado al hardware excedente: mismo patr\'{o}n arquitect\'{o}nico (arranque r\'{a}pido, prop\'{o}sito \'{u}nico, interfaz curada, redes integradas), econom\'{\i}a radicalmente diferente (software gratuito en hardware de \$50 en lugar de dispositivos construidos a prop\'{o}sito de \$300--400).
+
+La laptop excedente no es una computadora de prop\'{o}sito general degradada. Es un \emph{dispositivo dedicado no realizado}---uno que siempre fue capaz de ser un instrumento, pero estaba ejecutando Windows en su lugar.
+
+% ============ 6. EL ARGUMENTO DE ESCALADO ============
+
+\section{Del ensamble al planeta}
+\label{sec:scaling}
+
+\subsection{El l\'{\i}mite de escalado de PLOrk}
+
+PLOrk atiende a 15 personas por semestre. En veinte a\~{n}os, asumiendo matr\'{\i}cula completa cada semestre, PLOrk ha atendido a aproximadamente 600 participantes individuales. Esta es una estimaci\'{o}n generosa---muchos estudiantes participan en m\'{u}ltiples semestres, y el ensamble no funciona todos los per\'{\i}odos.
+
+Escalar PLOrk a 100 asientos requerir\'{\i}a \$150.000+ en equipamiento, un espacio de actuaci\'{o}n m\'{a}s grande, m\'{a}s amplificadores, m\'{a}s infraestructura el\'{e}ctrica, m\'{a}s personal t\'{e}cnico. Escalar a 1.000 asientos es f\'{\i}sicamente imposible---los altavoces hemisf\'{e}ricos solos requerir\'{\i}an un almac\'{e}n.
+
+El modelo PLOrk escala \emph{linealmente con el costo y logar\'{\i}tmicamente con la complejidad}. Cada asiento adicional requiere no solo equipamiento sino proporcionalmente m\'{a}s sobrecarga log\'{\i}stica. Esta es la restricci\'{o}n fundamental: PLOrk es un instrumento artesanal. Es hermoso, pero no puede reproducirse.
+
+\subsection{La curva de escalado de AC OS}
+
+\acos{} escala linealmente con el costo y \emph{sublinealmente con la complejidad}. Cada instrumento adicional es una laptop excedente m\'{a}s y un flasheo USB---sesenta segundos de trabajo. No hay altavoces que construir, no hay racks que cablear, no hay software que instalar, no hay cuentas que provisionar. El sistema de actualizaciones OTA significa que cada instrumento se mantiene solo. A\~{n}adir el instrumento 1.001 a una flota de 1.000 requiere el mismo esfuerzo que a\~{n}adir el segundo a una flota de uno.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Escala} & \textbf{Modelo PLOrk} & \textbf{Modelo AC OS} \\
+\midrule
+15 asientos & \$22.500 & \$750 \\
+30 asientos & \$45.000 & \$1.500 \\
+100 asientos & \$150.000 & \$5.000 \\
+1.000 asientos & imposible & \$50.000 \\
+10.000 asientos & imposible & \$500.000 \\
+100.000 asientos & imposible & \$5.000.000 \\
+\bottomrule
+\end{tabular}
+\caption{Costos de escalado. El modelo PLOrk se vuelve f\'{\i}sicamente imposible m\'{a}s all\'{a} de $\sim$50 asientos debido a restricciones de fabricaci\'{o}n y espacio. El modelo AC~OS escala linealmente solo con el costo de hardware; el costo de software y mantenimiento es cero a cualquier escala.}
+\label{tab:scaling}
+\end{table}
+
+A \$50 por instrumento, una orquesta de laptops a nivel de ciudad de 1.000 instrumentos cuesta \$50.000---el precio de una sola instalaci\'{o}n PLOrk bien equipada. Un programa nacional que distribuya 100.000 instrumentos cuesta \$5 millones---menos que un solo despliegue OLPC por pa\'{\i}s, que t\'{\i}picamente costaba \$10--50 millones~\citep{kraemer2009olpc} en hardware que a menudo quedaba sin usar.
+
+\subsection{La orquesta de 240 millones de asientos}
+
+El excedente del fin de vida de Windows~10 representa 240 millones de instrumentos potenciales. No todos son laptops x86\_64. No todos tienen bater\'{\i}as funcionales. No todos son accesibles. Pero incluso una fracci\'{o}n de este excedente, debidamente desviado, empeque\~{n}ece cualquier despliegue de tecnolog\'{\i}a educativa en la historia.
+
+Consideremos: si el 1\% de las m\'{a}quinas excedentes de Windows~10 fueran flasheadas con \acos{}, el resultado ser\'{\i}an 2,4 millones de instrumentos creativos distribuidos en todo el mundo. El proyecto OLPC, en su apogeo, despleg\'{o} aproximadamente 3 millones de laptops XO durante toda su vida \'{u}til---a un costo de miles de millones. El uno por ciento del excedente de Windows~10, con cero costo de fabricaci\'{o}n y \$0 por unidad de software, iguala el despliegue total de OLPC.
+
+Los instrumentos ya existen. Est\'{a}n en armarios, almacenes y contenedores de reciclaje. El software para activarlos son 89\,MB.
+
+% ============ 6. PLORK EL PLANETA ============
+
+\section{PLOrk el planeta: Una propuesta concreta}
+\label{sec:proposal}
+
+\subsection{Eventos comunitarios de flasheo}
+
+El modelo de despliegue m\'{a}s simple: un evento comunitario donde los participantes traen laptops excedentes y se van con instrumentos. El evento requiere una persona con unidades USB, una plantilla \texttt{config.json} y una mesa. Cada m\'{a}quina se personaliza (``\textquestiondown C\'{o}mo te llamas?''), se flashea (sesenta segundos), se arranca (siete segundos) y se devuelve. El participante se va con un instrumento creativo personal que se actualizar\'{a} solo para siempre.
+
+Esto no es especulativo. Es una operaci\'{o}n log\'{\i}stica sencilla---m\'{a}s simple que una campa\~{n}a de registro de votantes, m\'{a}s barata que una venta de pasteles escolar.
+
+\subsection{Programas escolares sin presupuesto de equipamiento}
+
+Un distrito escolar que retira Chromebooks o m\'{a}quinas Windows~10 puede redirigir el hardware a un programa de instrumentos en lugar de a un reciclador. Los Chromebooks basados en Intel y todos los PCs x86\_64 son inmediatamente compatibles. El ``presupuesto de equipamiento'' es cero---el equipo ya existe y ya fue pagado. El \'{u}nico costo es el trabajo de flashear unidades USB.
+
+Para escuelas que ya descartaron su hardware: ThinkPads excedentes de donantes corporativos a \$30--50 cada uno producen un ensamble de aula de 30 instrumentos por \$900--1.500. Esto es menos que la suscripci\'{o}n anual de software para la mayor\'{\i}a de los programas de tecnolog\'{\i}a escolar.
+
+\subsection{Ensambles extracurriculares y comunitarios}
+
+La orquesta de laptops nunca ha existido fuera de la universidad porque nunca ha sido econ\'{o}micamente viable fuera de la universidad. A \$50 por instrumento sin costos recurrentes, los ensambles de laptops se vuelven viables para:
+
+\begin{itemize}
+  \item Programas de m\'{u}sica extracurriculares
+  \item Centros comunitarios y bibliotecas
+  \item Orquestas juveniles y espacios maker
+  \item Centros de mayores y residencias
+  \item Poblaciones encarceladas (no se requiere internet para ensamble local)
+  \item Campos de refugiados y ayuda en desastres (funciona con bater\'{\i}a, WiFi opcional)
+  \item Comunidades rurales y remotas (actualizaciones OTA v\'{\i}a cualquier conexi\'{o}n)
+\end{itemize}
+
+Ninguno de estos contextos podr\'{\i}a soportar una estaci\'{o}n PLOrk. Todos pueden soportar una laptop excedente.
+
+\subsection{La orquesta distribuida}
+
+Dado que las redes de ensamble de \acos{} operan sobre WiFi est\'{a}ndar y conexiones de internet, una orquesta de laptops no necesita estar en la misma sala. Un piece dise\~{n}ado para interpretaci\'{o}n distribuida---donde la latencia es un par\'{a}metro composicional en lugar de un defecto---permite:
+
+\begin{itemize}
+  \item Interpretaciones simult\'{a}neas a nivel de ciudad
+  \item Ensambles inter-distritales de escuela a escuela
+  \item Eventos de orquesta telem\'{a}tica transfronterizos
+  \item Composiciones de ``relevo'' as\'{\i}ncronas pasadas entre zonas horarias
+\end{itemize}
+
+La Concordia Laptop Orchestra (CLOrk) ha experimentado con interpretaci\'{o}n telem\'{a}tica en contextos acad\'{e}micos. \acos{} hace la interpretaci\'{o}n telem\'{a}tica accesible para cualquiera con WiFi y una laptop excedente.
+
+% ============ 7. LO QUE PLORK HIZO BIEN ============
+
+\section{Lo que PLOrk hizo bien (y lo que se le escap\'{o})}
+\label{sec:lessons}
+
+Este art\'{\i}culo no es una cr\'{\i}tica de la calidad art\'{\i}stica o pedag\'{o}gica de PLOrk. PLOrk es uno de los desarrollos m\'{a}s importantes en la m\'{u}sica por computadora, y sus contribuciones son fundacionales:
+
+\begin{enumerate}
+  \item \textbf{Legitimidad}: PLOrk demostr\'{o} que los ensambles de laptops producen m\'{u}sica real, no trucos. Esto no era evidente en 2005.
+  \item \textbf{Espacializaci\'{o}n}: El altavoz hemisf\'{e}rico demostr\'{o} que los instrumentos electr\'{o}nicos se benefician de la presencia ac\'{u}stica. Esta percepci\'{o}n persiste incluso cuando la soluci\'{o}n espec\'{\i}fica cambia.
+  \item \textbf{Composici\'{o}n}: PLOrk gener\'{o} un nuevo repertorio~\citep{smallwood2008composing} y nuevas estrategias composicionales para instrumentos en red. Este cuerpo de trabajo es directamente aplicable a cualquier ensamble de laptops a cualquier escala.
+  \item \textbf{Pedagog\'{\i}a}: La estructura del curso de PLOrk---combinando interpretaci\'{o}n, composici\'{o}n, dise\~{n}o de instrumentos e investigaci\'{o}n ac\'{u}stica---es un modelo para la educaci\'{o}n en computaci\'{o}n creativa~\citep{trueman2007why}.
+  \item \textbf{Comunidad}: PLOrk cre\'{o} una nueva forma social---la orquesta de laptops como ensamble---que gener\'{o} alegr\'{\i}a, colaboraci\'{o}n y descubrimiento art\'{\i}stico.
+\end{enumerate}
+
+Lo que PLOrk pas\'{o} por alto---y lo que, en justicia, no era su misi\'{o}n resolver---fue el acceso. PLOrk fue un proyecto de investigaci\'{o}n en una universidad de \'{e}lite. Fue dise\~{n}ado para responder la pregunta ``\textquestiondown Pueden los ensambles de laptops ser musicalmente significativos?'' No fue dise\~{n}ado para responder ``\textquestiondown Puede todo el mundo tener uno?''
+
+L2Ork avanz\'{o} hacia la cuesti\'{o}n del acceso con hardware m\'{a}s barato y software de c\'{o}digo abierto, pero la dependencia estructural de la infraestructura institucional permaneci\'{o}. Sonic Pi~\citep{aaron2016sonic} abord\'{o} el acceso individual a la codificaci\'{o}n musical pero es una herramienta para un solo usuario en un SO anfitri\'{o}n, no un instrumento de ensamble. Ninguno de estos proyectos ha propuesto un modelo donde la orquesta de laptops pueda operar sin ninguna instituci\'{o}n en absoluto.
+
+Esa es la proposici\'{o}n aqu\'{\i}. No reemplazar a PLOrk, sino cumplir el sue\~{n}o que PLOrk comenz\'{o}: que una red de computadoras podr\'{\i}a ser un nuevo tipo de orquesta. PLOrk demostr\'{o} que pod\'{\i}a serlo. \acos{} propone hacerlo tan barato que la prueba se vuelva planetaria.
+
+% ============ 8. M\'{U}SICA Y ECONOM\'{\I}A POL\'{\I}TICA ============
+
+\section{M\'{u}sica, acceso y econom\'{\i}a pol\'{\i}tica}
+\label{sec:theory}
+
+Jacques Attali argument\'{o} en \emph{Noise}~\citep{attali1985noise} que la m\'{u}sica es prof\'{e}tica: los cambios en la producci\'{o}n y distribuci\'{o}n de la m\'{u}sica anticipan cambios en la econom\'{\i}a pol\'{\i}tica. La historia de la m\'{u}sica se mueve del ritual (sacrificio) a la representaci\'{o}n (sala de conciertos) a la repetici\'{o}n (grabaci\'{o}n) a lo que Attali llam\'{o} \emph{composici\'{o}n}---un modo donde todos crean, donde la distinci\'{o}n entre int\'{e}rprete y audiencia se disuelve.
+
+La orquesta de laptops, en el marco de Attali, es un ensamble de la era de la composici\'{o}n. No hay audiencia en el sentido tradicional; los participantes son simult\'{a}neamente compositores, int\'{e}rpretes y oyentes. Pero si la m\'{u}sica de la era de la composici\'{o}n se define por la participaci\'{o}n universal, entonces la orquesta universitaria de laptops es una contradicci\'{o}n: restringe la participaci\'{o}n detr\'{a}s de la matr\'{\i}cula, la colegiatura y la geograf\'{\i}a. Es m\'{u}sica de la era de la composici\'{o}n con controles de acceso de la era de la representaci\'{o}n.
+
+Thomas Turino~\citep{turino2008music} distingue entre m\'{u}sica \emph{participativa} (donde el \'{e}xito se mide por el grado de participaci\'{o}n) y m\'{u}sica \emph{presentacional} (donde el \'{e}xito se mide por la calidad de la interpretaci\'{o}n para una audiencia). Las actuaciones de PLOrk son presentacionales---se realizan en escenarios de concierto para oyentes sentados. Pero el \emph{ensayo} de PLOrk es participativo---todos tocan, todos experimentan, el sonido colectivo es el punto.
+
+Una orquesta planetaria de laptops es participativa por defecto. No hay escenario. No hay audiencia. Solo hay participantes, cada uno con su propio instrumento, conect\'{a}ndose cuando y como eligen. El marco de Turino predice que este cambio---de orquesta de laptops presentacional a participativa---cambiar\'{a} no solo qui\'{e}n toca sino lo que ``tocar'' significa.
+
+Las ``herramientas para la convivialidad'' de Ivan Illich~\citep{illich1973tools} completan el marco te\'{o}rico. Una herramienta convivial es aquella que puede ser usada por cualquiera, sin formaci\'{o}n especializada, para lograr prop\'{o}sitos que ellos mismos determinan. Una estaci\'{o}n PLOrk---con su altavoz hemisf\'{e}rico, rack de amplificador y patch de ChucK---no es una herramienta convivial. Requiere formaci\'{o}n, infraestructura y apoyo institucional. Una laptop excedente con \acos{} se aproxima a la convivialidad: arranca en un instrumento listo para tocar, no requiere configuraci\'{o}n, se actualiza sola y pertenece a su due\~{n}o.
+
+% ============ 9. TRABAJO RELACIONADO ============
+
+\section{Trabajo relacionado}
+\label{sec:related}
+
+\textbf{Orquestas de laptops.} PLOrk~\citep{trueman2006plork} estableci\'{o} la forma. L2Ork~\citep{bukvic2010l2ork} demostr\'{o} la viabilidad de Linux y la reducci\'{o}n de costos. SLOrk~\citep{wang2009designing} contribuy\'{o} con pedagog\'{\i}a basada en ChucK y el altavoz de bol de ensalada IKEA. M\'{a}s de treinta ensambles universitarios han operado desde 2005. Ninguno ha operado fuera de una universidad.
+
+\textbf{Codificaci\'{o}n musical para el acceso.} Sonic Pi~\citep{aaron2016sonic} funciona en Raspberry Pi y SOs de escritorio, ense\~{n}ando m\'{u}sica a trav\'{e}s de live coding. Es el proyecto existente m\'{a}s cercano a la m\'{u}sica por computadora democratizada, pero es de un solo usuario, requiere un SO anfitri\'{o}n y no es un instrumento de ensamble.
+
+\textbf{Hardware educativo.} OLPC~\citep{negroponte1995being, kraemer2009olpc} demostr\'{o} tanto la ambici\'{o}n como el modo de fallo del acceso centrado en hardware. Raspberry Pi~\citep{raspberry2012} baj\'{o} el costo de la placa pero no el costo total del sistema. Chromebooks~\citep{pirg2023chromebook} lograron despliegue a escala escolar pero con obsolescencia programada y dependencia del proveedor.
+
+\textbf{Plataformas de computaci\'{o}n creativa.} Processing~\citep{reas2007processing} y Scratch~\citep{resnick2009scratch} bajaron las barreras de la codificaci\'{o}n creativa pero asumen un SO de prop\'{o}sito general. \ac{}~\citep{scudder2026ac} proporciona la plataforma web; \acos{}~\citep{scudder2026os} elimina la dependencia del SO por completo.
+
+\textbf{Teor\'{\i}a.} Attali~\citep{attali1985noise} sobre la m\'{u}sica como profec\'{\i}a pol\'{\i}tica; Turino~\citep{turino2008music} sobre interpretaci\'{o}n participativa vs. presentacional; Illich~\citep{illich1973tools} sobre herramientas conviviales; Papert~\citep{papert1980mindstorms} sobre aprendizaje construccionista; Kittler~\citep{kittler1995no} sobre la materialidad de la computaci\'{o}n; McLuhan~\citep{mcluhan1964understanding} sobre medios como entorno; Ukeles~\citep{ukeles1969manifesto} sobre el mantenimiento como pr\'{a}ctica creativa.
+
+% ============ 10. OLPC: LECCIONES DE LA \'{U}LTIMA AMBICI\'{O}N PLANETARIA ============
+
+\section{Lecciones del OLPC}
+\label{sec:olpc}
+
+El proyecto One Laptop Per Child~\citep{negroponte1995being, kraemer2009olpc} es el precedente m\'{a}s cercano a la ambici\'{o}n descrita aqu\'{\i}---y el fracaso m\'{a}s instructivo. Nicholas Negroponte anunci\'{o} en 2005 (el mismo a\~{n}o de la fundaci\'{o}n de PLOrk) que el MIT producir\'{\i}a una laptop de \$100 y la distribuir\'{\i}a a cada ni\~{n}o en el mundo en desarrollo. La laptop XO se envi\'{o} en 2007 a \$188. Durante su vida \'{u}til, OLPC despleg\'{o} aproximadamente 3 millones de unidades en unos 40 pa\'{\i}ses, a un costo total del programa estimado en miles de millones cuando se contabilizan log\'{\i}stica, capacitaci\'{o}n y alianzas gubernamentales.
+
+OLPC fracas\'{o} por razones que ahora est\'{a}n bien documentadas~\citep{kraemer2009olpc}: el hardware era construido a prop\'{o}sito y desconocido (un factor de forma novedoso, un SO novedoso, una interfaz novedosa); la reparaci\'{o}n local era imposible porque las piezas eran propietarias; el software (Sugar OS) no ten\'{\i}a ecosistema ni continuidad con lo que maestros o estudiantes ya conoc\'{\i}an; los despliegues requer\'{\i}an apoyo gubernamental, coordinaci\'{o}n ministerial y cadenas log\'{\i}sticas que se desmoronaban en el campo; y el costo por unidad, aunque menor que laptops comerciales, segu\'{\i}a siendo demasiado alto para los contextos m\'{a}s pobres cuando se multiplicaba por millones.
+
+\acos{} invierte cada uno de estos modos de fallo:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Modo de fallo OLPC} & \textbf{OLPC} & \textbf{AC OS} \\
+\midrule
+Hardware & XO construido a prop\'{o}sito (\$188) & Laptops excedentes (\$50), ya fabricadas \\
+Factor de forma & Desconocido para usuarios & Laptop est\'{a}ndar, ya conocida \\
+Reparaci\'{o}n & Piezas propietarias & Hardware est\'{a}ndar, reparable localmente \\
+Software & Sugar OS (novedoso, sin ecosistema) & AC OS (a prop\'{o}sito pero auto-actualizable) \\
+Despliegue & Coordinaci\'{o}n ministerial gubernamental & Una persona con unidades USB \\
+Costo por unidad & \$188 + log\'{\i}stica & \$50 hardware + \$0 software \\
+Escala lograda & 3M unidades en 10 a\~{n}os & 240M m\'{a}quinas ya existen \\
+\bottomrule
+\end{tabularx}
+\caption{Modos de fallo de OLPC y contrapartes de AC OS.}
+\label{tab:olpc}
+\end{table}
+
+La lecci\'{o}n m\'{a}s profunda del OLPC es que los despliegues centrados en hardware fracasan cuando requieren fabricaci\'{o}n, log\'{\i}stica y coordinaci\'{o}n institucional. \acos{} no requiere nada de esto porque el hardware ya existe, ya est\'{a} distribuido globalmente y ya est\'{a} siendo descartado. El mecanismo de despliegue es un archivo, no una cadena de suministro.
+
+% ============ 11. LIMITACIONES ============
+
+\section{Limitaciones}
+\label{sec:limitations}
+
+Este art\'{\i}culo presenta una afirmaci\'{o}n ambiciosa. Las limitaciones son reales y deben exponerse con claridad.
+
+\textbf{Calidad de audio.} Los altavoces integrados de las laptops son ac\'{u}sticamente deficientes. Carecen de respuesta de graves, tienen rango din\'{a}mico limitado y proyectan el sonido de forma estrecha. El altavoz hemisf\'{e}rico de Trueman resolvi\'{o} un problema real---los instrumentos electr\'{o}nicos necesitan presencia ac\'{u}stica para funcionar musicalmente en contextos de ensamble. Los altavoces de un ThinkPad excedente no pueden igualar esto. Para contextos \'{\i}ntimos o de grupo peque\~{n}o, los altavoces integrados pueden ser suficientes. Para cualquier ensamble mayor que una habitaci\'{o}n, se necesita amplificaci\'{o}n externa, erosionando parcialmente la afirmaci\'{o}n de ``sin hardware adicional.''
+
+\textbf{Soporte ARM.} \acos{} actualmente solo se dirige a m\'{a}quinas x86\_64 UEFI. La mayor\'{\i}a de los Chromebooks educativos excedentes usan procesadores ARM (Mediatek, Qualcomm). Hasta que el soporte ARM est\'{e} disponible, el mayor conjunto \'{u}nico de hardware educativo excedente permanece inaccesible. Esta es la brecha de ingenier\'{\i}a m\'{a}s cr\'{\i}tica.
+
+\textbf{Sin evaluaci\'{o}n formal.} Este art\'{\i}culo no presenta ning\'{u}n estudio de usuarios, ning\'{u}n experimento controlado, ninguna evaluaci\'{o}n sistem\'{a}tica de calidad musical, resultados de aprendizaje o coordinaci\'{o}n de ensamble. Las afirmaciones sobre acceso, costo y escalabilidad se basan en econom\'{\i}a de hardware y an\'{a}lisis log\'{\i}stico, no en investigaci\'{o}n pedag\'{o}gica emp\'{\i}rica. Una evaluaci\'{o}n rigurosa---que compare resultados musicales entre un ensamble tipo PLOrk y un ensamble \acos{} de tama\~{n}o equivalente---fortalecer\'{\i}a sustancialmente el argumento.
+
+\textbf{Proyecto de un solo autor.} \acos{} est\'{a} principalmente escrito por una persona. El factor bus es uno. Un despliegue planetario no puede depender de un solo mantenedor. El sistema debe estar documentado, la base de c\'{o}digo debe ser legible para nuevos contribuidores, y la infraestructura de actualizaciones OTA debe ser resiliente ante la ausencia de su creador.
+
+\textbf{Latencia de red.} La interpretaci\'{o}n distribuida de ensamble por internet introduce latencia que cambia fundamentalmente qu\'{e} m\'{u}sica es posible. La latencia WiFi local (1--5ms) permite sincronizaci\'{o}n ajustada. La latencia de internet (50--200ms) no. El art\'{\i}culo apunta a ``la latencia como par\'{a}metro composicional'' pero no demuestra composiciones que hagan esto funcionar musicalmente. Este es un problema de investigaci\'{o}n abierto, no resuelto.
+
+\textbf{Sin curr\'{\i}culo.} La pedagog\'{\i}a de PLOrk~\citep{trueman2007why} se desarroll\'{o} durante a\~{n}os de ense\~{n}anza. \acos{} no tiene curr\'{\i}culo, ni planes de lecci\'{o}n, ni pr\'{a}ctica docente documentada. El instrumento existe; la pedagog\'{\i}a no. Sin ella, desplegar hardware en escuelas corre el riesgo de repetir el patr\'{o}n de OLPC de distribuir dispositivos sin la infraestructura educativa para hacerlos significativos.
+
+% ============ 12. TRABAJO FUTURO ============
+
+\section{Implicaciones y trabajo futuro}
+\label{sec:future}
+
+\subsection{Soporte ARM para Chromebooks}
+
+El objetivo de ingenier\'{\i}a de mayor impacto es el soporte ARM para Chromebooks Mediatek y Qualcomm---el hardware educativo excedente m\'{a}s abundante en todo el mundo. Lograr esto desbloquear\'{\i}a millones de instrumentos adicionales solo del excedente escolar.
+
+\subsection{Herramientas de composici\'{o}n integradas}
+
+Los pieces actuales de \acos{} incluyen un teclado crom\'{a}tico, un navegador de comandos y un panel del sistema. El caso de uso de ensamble demanda secuenciadores, editores de patrones, herramientas de bucle e interfaces de composici\'{o}n colaborativa---todo como pieces, intercambiables en tiempo de ejecuci\'{o}n.
+
+\subsection{Espacializaci\'{o}n sin altavoces}
+
+La percepci\'{o}n de PLOrk sobre el sonido espacial sigue siendo v\'{a}lida incluso cuando la soluci\'{o}n cambia. El trabajo futuro incluye espacializaci\'{o}n definida por software: usar las posiciones f\'{\i}sicas distribuidas del ensamble (reportadas v\'{\i}a UDP) para crear campos de audio espacial emergentes a partir del agregado de muchos altavoces de laptop. Un anillo de 30 laptops \emph{es} un altavoz hemisf\'{e}rico, si el software sabe d\'{o}nde est\'{a} cada uno.
+
+\subsection{Desarrollo curricular}
+
+La pedagog\'{\i}a de PLOrk~\citep{trueman2007why}---combinando interpretaci\'{o}n, composici\'{o}n, dise\~{n}o de instrumentos e investigaci\'{o}n ac\'{u}stica---deber\'{\i}a adaptarse a contextos de cero infraestructura. Esto significa curr\'{\i}culos que asuman ning\'{u}n espacio dedicado, ning\'{u}n personal t\'{e}cnico, ninguna experiencia previa en programaci\'{o}n e instrumentos que los participantes posean y se lleven a casa.
+
+\subsection{Redes mesh}
+
+La conectividad de ensamble peer-to-peer sin infraestructura de internet permitir\'{\i}a actuaciones en lugares sin WiFi: espacios al aire libre, \'{a}reas rurales, regiones en desarrollo. Bluetooth mesh o WiFi ad-hoc entre dispositivos \acos{} es un objetivo de desarrollo activo.
+
+% ============ 13. CONCLUSI\'{O}N ============
+
+\section{Conclusi\'{o}n}
+
+En 2005, Dan Trueman pregunt\'{o} ``\textquestiondown Por qu\'{e} una orquesta de laptops?''~\citep{trueman2007why} y dio una respuesta convincente: porque las computadoras en red pueden ser un nuevo tipo de ensamble, con nuevos timbres, nuevas caracter\'{\i}sticas espaciales, nuevas posibilidades composicionales y nuevas configuraciones sociales. Ten\'{\i}a raz\'{o}n. PLOrk lo demostr\'{o}.
+
+Veinte a\~{n}os despu\'{e}s, la pregunta es diferente. No ``\textquestiondown por qu\'{e} una orquesta de laptops?'' sino ``\textquestiondown por qu\'{e} solo \emph{una}?'' \textquestiondown Por qu\'{e} treinta, en treinta universidades, atendiendo a unos pocos cientos de personas al a\~{n}o? \textquestiondown Por qu\'{e} no trescientas, o tres mil, o tres millones?
+
+La respuesta ha sido econ\'{o}mica. Los altavoces hemisf\'{e}ricos cuestan dinero. Los racks de amplificador cuestan dinero. Los MacBooks cuestan dinero. Las licencias de Max/MSP cuestan dinero. El personal t\'{e}cnico cuesta dinero. La orquesta de laptops era cara, as\'{\i} que se qued\'{o} en el \'{u}nico lugar donde las cosas caras para pocas personas se toleran: la universidad.
+
+\acos{} elimina la barrera econ\'{o}mica. Un archivo de 89\,MB. Una laptop excedente de \$50. Siete segundos para arrancar. S\'{\i}ntesis integrada, redes integradas, personalizaci\'{o}n integrada, actualizaciones integradas. Sin altavoces que construir, sin software que instalar, sin departamento de TI que mantener, sin instituci\'{o}n que lo albergue.
+
+Con 240 millones de PCs entrando al mercado de excedentes solo por Windows~10, y 62 millones de toneladas de residuos electr\'{o}nicos acumul\'{a}ndose anualmente~\citep{forti2024ewaste}, la materia prima para una orquesta planetaria de laptops no es escasa---es vergonzosamente abundante. El hardware existe. El software existe. La red existe. La m\'{u}sica, como PLOrk nos mostr\'{o} hace veinte a\~{n}os, es real.
+
+PLOrk'ing the Planet no es una met\'{a}fora. Es un problema log\'{\i}stico. Y la log\'{\i}stica acaba de abaratarse cien veces.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}
+\noindent\textit{Traducido del ingl\'{e}s. Versi\'{o}n original disponible en \url{https://papers.aesthetic.computer}}
+
+% ============ REFERENCIAS ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
