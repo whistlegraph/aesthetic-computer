@@ -106,6 +106,11 @@ const PAPER_MAP = {
     siteName: "whistlegraph-26-arxiv",
     paperId: "whistlegraph",
   },
+  "arxiv-complex": {
+    base: "complex",
+    siteName: "sucking-on-the-complex-26-arxiv",
+    paperId: "complex",
+  },
 };
 
 // --- File discovery ---
