@@ -1,0 +1,20 @@
+\contentsline {section}{\numberline {1}The Totalized Environment}{4}{section.1}%
+\contentsline {section}{\numberline {2}The Complex}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Hegemony}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Behavioral nudging}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Flattening}{7}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Trevor Paglen}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Hito Steyerl}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Zach Blas}{10}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}The pipeline}{11}{subsection.3.4}%
+\contentsline {section}{\numberline {4}The Structural Trap}{13}{section.4}%
+\contentsline {section}{\numberline {5}Free Spaces of Play}{15}{section.5}%
+\contentsline {section}{\numberline {6}Anti-Environments}{17}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Goodiepal}{17}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Aesthetic Computer}{17}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Indigenous and decolonial computing}{18}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}The key distinction}{19}{subsection.6.4}%
+\contentsline {section}{\numberline {7}The Art Fair Paradox}{20}{section.7}%
+\contentsline {section}{\numberline {8}Conclusion}{21}{section.8}%
+\contentsfinish 

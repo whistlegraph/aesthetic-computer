@@ -28,6 +28,7 @@ const PAPER_MAP = {
   "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs" },
   "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?" },
   "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph" },
+  "arxiv-complex": { base: "complex", title: "Sucking on the Complex" },
 };
 
 function extractFromTex(content) {
