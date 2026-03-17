@@ -30,8 +30,18 @@ const SITE_DIR = join(
   "../system/public/papers.aesthetic.computer",
 );
 const BUILDLOG = join(PAPERS_DIR, "BUILDLOG.md");
+const METADATA_PATH = join(PAPERS_DIR, "metadata.json");
 const LANGS = ["en", "da", "es"];
 const LANG_NAMES = { en: "English", da: "Danish", es: "Spanish" };
+
+function loadMetadata() {
+  if (!existsSync(METADATA_PATH)) return {};
+  return JSON.parse(readFileSync(METADATA_PATH, "utf8"));
+}
+
+function saveMetadata(meta) {
+  writeFileSync(METADATA_PATH, JSON.stringify(meta, null, 2) + "\n", "utf8");
+}
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
@@ -104,6 +114,11 @@ const PAPER_MAP = {
     base: "whistlegraph",
     siteName: "whistlegraph-26-arxiv",
     title: "Whistlegraph",
+  },
+  "arxiv-plork": {
+    base: "plork",
+    siteName: "plorking-the-planet-26-arxiv",
+    title: "PLORKing the Planet",
   },
 };
 
@@ -217,11 +232,14 @@ function updateIndex(entries) {
     return;
   }
 
+  const meta = loadMetadata();
+
   // Collect deployed English PDFs with their timestamps
   const papers = [];
   for (const e of entries.filter((e) => e.lang === "en" && e.sitePdfExists)) {
     const stat = statSync(e.sitePdf);
-    papers.push({ ...e, mtime: stat.mtime });
+    const m = meta[e.dir] || {};
+    papers.push({ ...e, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0 });
   }
   papers.sort((a, b) => b.mtime - a.mtime);
 
@@ -231,17 +249,20 @@ function updateIndex(entries) {
       file: "aesthetic-computer-26-joss.pdf",
       title: "Aesthetic Computer '26",
       detail: "JOSS Summary &middot; 2pp",
+      metaKey: "joss-ac",
     },
     {
       file: "kidlisp-26-joss.pdf",
       title: "KidLisp '26",
       detail: "JOSS Summary &middot; 3pp",
+      metaKey: "joss-kidlisp",
     },
     {
       file: "kidlisp-els-2026.pdf",
       title: "KidLisp (ELS 2026)",
       detail:
         "A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp",
+      metaKey: "els-kidlisp",
     },
   ];
   const extras = [];
@@ -249,7 +270,8 @@ function updateIndex(entries) {
     const fp = join(SITE_DIR, ex.file);
     if (existsSync(fp)) {
       const stat = statSync(fp);
-      extras.push({ ...ex, mtime: stat.mtime });
+      const m = meta[ex.metaKey] || {};
+      extras.push({ ...ex, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0 });
     }
   }
   extras.sort((a, b) => b.mtime - a.mtime);
@@ -284,6 +306,8 @@ function updateIndex(entries) {
       "A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp",
     "aesthetic-computer-26-arxiv":
       "A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp",
+    "plorking-the-planet-26-arxiv":
+      "Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv",
   };
 
   function fmtTime(d) {
@@ -294,23 +318,32 @@ function updateIndex(entries) {
     return `${m} ${day} ${h}:${min}`;
   }
 
+  function fmtDate(d) {
+    return `${d.slice(5, 7)}/${d.slice(8, 10)}`;
+  }
+
   // Build paper entries HTML
   let papersHtml = "";
   for (const p of papers) {
     const detail = DETAILS[p.siteName] || "";
+    const hasCards = existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`));
+    const createdStr = p.created ? fmtDate(p.created) : "";
+    const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
     papersHtml += `
-    <div class="p">
+    <div class="p"${hasCards ? "" : ` data-no-cards="1"`}>
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
-        <div class="updated">${fmtTime(p.mtime)}</div>
+        <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
     </div>\n`;
   }
   for (const ex of extras) {
+    const createdStr = ex.created ? fmtDate(ex.created) : "";
+    const revStr = ex.revisions > 0 ? `r${ex.revisions}` : "";
     papersHtml += `
     <div class="p">
         <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
         <div class="detail">${ex.detail}</div>
-        <div class="updated">${fmtTime(ex.mtime)}</div>
+        <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(ex.mtime)}</span></div>
     </div>\n`;
   }
 
@@ -344,6 +377,48 @@ function updateIndex(entries) {
 
   writeFileSync(indexPath, html);
   console.log(`  INDEX updated with ${papers.length + extras.length} papers sorted by last built.`);
+}
+
+function verify() {
+  const indexPath = join(SITE_DIR, "index.html");
+  if (!existsSync(indexPath)) {
+    console.log("  SKIP verify (index.html not found)");
+    return true;
+  }
+  const html = readFileSync(indexPath, "utf8");
+
+  // Extract all href links to PDFs from the generated paper entries
+  const hrefRe = /href="\/([^"]+\.pdf)"/g;
+  let match;
+  const linked = new Set();
+  while ((match = hrefRe.exec(html)) !== null) {
+    linked.add(match[1]);
+  }
+
+  // Also check cards links — only for papers that have cards (no data-no-cards attr)
+  const paperBlockRe = /<div class="p"(?:(?!data-no-cards)[^>])*>[\s\S]*?data-base="\/([^"]+)"[\s\S]*?<\/div>\s*<\/div>/g;
+  while ((match = paperBlockRe.exec(html)) !== null) {
+    linked.add(`${match[1]}-cards.pdf`);
+  }
+
+  let ok = 0;
+  let broken = 0;
+  for (const pdf of [...linked].sort()) {
+    const fp = join(SITE_DIR, pdf);
+    if (existsSync(fp)) {
+      ok++;
+    } else {
+      console.log(`  BROKEN  /${pdf}`);
+      broken++;
+    }
+  }
+  console.log(`  ${ok} OK, ${broken} broken link${broken !== 1 ? "s" : ""}`);
+  if (broken > 0) {
+    console.log(
+      "\n  ⚠  Some papers have broken PDF links. Build cards or remove dead links.",
+    );
+  }
+  return broken === 0;
 }
 
 // --- CLI ---
@@ -395,8 +470,8 @@ if (cmd === "status" || !cmd) {
   }
   console.log("\nDone.\n");
 } else if (cmd === "publish") {
-  // Full pipeline: build all → deploy → update index
-  console.log("\n=== PUBLISH: build all → deploy → update index ===\n");
+  // Full pipeline: build all → deploy → update index → verify
+  console.log("\n=== PUBLISH: build all → deploy → update index → verify ===\n");
 
   const files = findAll();
   const toBuild = files.filter((f) => f.texExists);
@@ -417,8 +492,18 @@ if (cmd === "status" || !cmd) {
     deployOne(entry);
   }
 
+  // Increment revisions in metadata for all built papers (English only to avoid double-counting)
+  const meta = loadMetadata();
+  const builtDirs = new Set(built.map((e) => e.dir));
+  for (const dir of builtDirs) {
+    if (!meta[dir]) meta[dir] = { created: new Date().toISOString().slice(0, 10), revisions: 0 };
+    meta[dir].revisions = (meta[dir].revisions || 0) + 1;
+  }
+  saveMetadata(meta);
+  console.log(`  METADATA updated (${builtDirs.size} papers incremented).\n`);
+
   // Update index
-  console.log("\nUpdating index...\n");
+  console.log("Updating index...\n");
   const indexEntries = findAll();
   // Refresh sitePdfExists after deploy
   for (const e of indexEntries) {
@@ -427,7 +512,24 @@ if (cmd === "status" || !cmd) {
   updateIndex(indexEntries);
 
   if (built.length) appendBuildLog(built, failed);
+
+  // Verify all linked PDFs exist
+  console.log("\n=== VERIFY ===\n");
+  verify();
+
   console.log("\nPublish complete.\n");
+} else if (cmd === "index") {
+  console.log("\nUpdating index...\n");
+  const indexEntries = findAll();
+  for (const e of indexEntries) {
+    e.sitePdfExists = existsSync(e.sitePdf);
+  }
+  updateIndex(indexEntries);
+  console.log("\nDone.\n");
+} else if (cmd === "verify") {
+  console.log("\n=== VERIFY: checking all linked PDFs ===\n");
+  const allOk = verify();
+  process.exit(allOk ? 0 : 1);
 } else if (cmd === "log") {
   if (existsSync(BUILDLOG)) {
     console.log(readFileSync(BUILDLOG, "utf8"));
@@ -441,8 +543,9 @@ papers cli — build, deploy, and track all AC papers
 Usage:
   node papers/cli.mjs build [lang]     Build PDFs (all langs, or: en, da, es)
   node papers/cli.mjs deploy           Copy built PDFs to site directory
-  node papers/cli.mjs publish          Build all + deploy + update index
+  node papers/cli.mjs publish          Build all + deploy + update index + verify
   node papers/cli.mjs status           Show build status for all papers
+  node papers/cli.mjs verify           Check all linked PDFs exist
   node papers/cli.mjs log              Show build log
 `);
 }
