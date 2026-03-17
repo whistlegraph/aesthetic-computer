@@ -111,6 +111,11 @@ const PAPER_MAP = {
     siteName: "sucking-on-the-complex-26-arxiv",
     paperId: "complex",
   },
+  "arxiv-plork": {
+    base: "plork",
+    siteName: "plorking-the-planet-26-arxiv",
+    paperId: "plork",
+  },
 };
 
 // --- File discovery ---
