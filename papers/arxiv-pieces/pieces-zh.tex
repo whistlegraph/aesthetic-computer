@@ -1,0 +1,260 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={作品而非程序},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{工作草稿——请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} 作品而非程序}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 作品作为 \ac{} 中创意认知的单位}\par
+\vspace{0.6em}
+{\normalsize Jeffrey Alan Scudder}\par
+{\small\color{acgray} Aesthetic Inc.}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 工作草稿——请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+\ac{} 将其交互程序称为\emph{作品}（pieces）——不是草图、补丁、脚本或应用。本文论证这一用词选择不是装饰性的。它从音乐和视觉艺术中引入了一个框架，在该框架中，创意作品是一个\emph{有作者的、可表演的、可迭代的工件}，而非机器的规格说明。我们追溯作品作为计算单位的谱系，将其与 Processing 草图、Max/MSP 补丁、Unix 进程、Smalltalk 镜像和 Jupyter notebook 进行比较。然后我们考察 AC 作品的实际形态：单文件、URL 可寻址的程序，具有模拟具身智能体的感知-行动循环的生命周期（\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}、\texttt{leave}）~\citep{varela1991embodied}。我们论证，围绕作品概念——而非程序概念——进行命名和设计，会在作者、平台和受众之间产生质的不同关系：一种软件被实践而非仅仅被部署的关系。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+当 Turing 在1936年定义计算时，他将基本对象称为"可计算数"，由"机器"产生~\citep{turing1936computable}。\emph{程序}（program）一词——来自希腊语 \emph{programma}，意为公告或书面通知——作为这种官僚框架的自然延伸进入了计算。程序是一组指令，一个待执行的计划。程序是正确的或不正确的。它们编译通过或编译不过。它们被部署，而非被表演。
+
+创意计算的历史，在一定程度上，是对这种框架的缓慢侵蚀。Processing 草图~\citep{reas2007processing}用某种一次性的、探索性的东西取代了程序。Max/MSP 补丁~\citep{puckette1988patcher}用活的数据流图取代了源文件。Scratch~\citep{resnick2009scratch}用拼接积木取代了指令序列。每次重命名也是一次重新设计：新单位的功能承载着关于谁在创作、需要多长时间、什么算作完成的新假设。
+
+\ac{} 将其程序称为\emph{作品}~\citep{scudder2026ac}。本文考察为什么这很重要。
+
+\section{创意单位的谱系}
+
+\subsection{音乐作品}
+
+在音乐中，一件\emph{作品}（piece）是一个完整的、有作者的创作，至少以两种形式存在：乐谱（符号规格）和演奏（实例化）。它们并不相同——演奏各有差异，乐谱需要解读，作品随时间积累变体。一件作品永远不会被任何单次演奏穷尽。它也是社会性定位的：作品有名称、作者、首演和经典。它们被教授、分析、翻唱和遗忘。
+
+这种二元性——规格与演奏、文本与施行——在程序概念中是缺失的。程序通常与其源代码（或二进制文件）等同。其"演奏"是附带的；重要的是输出是否正确。
+
+\subsection{Processing 草图}
+
+Processing 草图~\citep{reas2007processing}刻意引入了艺术语域。\emph{草图}（sketch）一词暗示不完整、探索和迭代。草图不被部署；它们被分享、在其基础上构建或被放弃。Processing 环境用围绕编写、运行和导出组织的 IDE 强化了这一点——一个更接近绘画而非工程的循环。
+
+草图模型有其局限：草图是本地文件，不是 URL。它们不由平台进行社会化分发。它们的生命周期在窗口关闭时结束。
+
+\subsection{Max/MSP 补丁}
+
+Max 的\emph{补丁}（patch）~\citep{puckette1988patcher,puckette1996pure}是数据流图而非控制流序列。补丁通过空间方式构建，通过连接而非书写。它们本质上是表演性的：一个 Max 补丁在未运行时没有意义，其行为由流经它的实时数据定义。这使得补丁更接近乐器而非程序——它们被演奏，而非被执行。
+
+补丁在特定方式上也是短暂的：关闭并重新打开一个补丁会返回相同的结构，但演奏状态消失了。补丁是乐谱；运行实例是演奏。
+
+\subsection{Unix 进程}
+
+Unix \emph{进程}（process）是一个不同的概念：不是源代码或二进制文件，而是运行中的实例——一个正在执行的程序，拥有自己的地址空间、文件描述符和 PID。进程是演奏，而非乐谱。Unix 哲学（一个工具做一件事，通过管道组合）将进程视为可组合的基元而非有作者的作品。进程在艺术意义上没有作者；在管理意义上有所有者。
+
+Unix 模型强大且持久，但它指向与作品概念相反的方向：朝向正确性、可组合性和系统管理，而非作者身份、迭代和表达。
+
+\subsection{Smalltalk 镜像与 Jupyter notebook}
+
+Alan Kay 的 Smalltalk~\citep{kay1977personal}提出了一个不同的单位：\emph{镜像}（image）——所有对象及其状态的持久化、活的快照。镜像不是一个需要编译的文件；它是一个供人居住的世界。对象接收消息；环境作出响应。这比程序概念更接近作品概念，但它没有转移到主流创意编程中，因为它抵抗了现代操作系统的以文件为单位的范式。
+
+Jupyter notebook 占据了一个有趣的中间位置：它同时是文档（叙事）和进程（可执行单元格）。Notebook 比程序更接近散文，但其单位是单元格，而非整体。
+
+\section{AC 作品是什么}
+
+\ac{} 作品是一个单独的 \texttt{.mjs} 或 \texttt{.lisp} 文件，导出生命周期函数：
+
+\begin{itemize}
+  \item \texttt{boot} —— 初始化，加载时运行一次，
+  \item \texttt{paint} —— 渲染，每帧运行，
+  \item \texttt{act} —— 事件处理（输入、网络、时间），
+  \item \texttt{sim} —— 模拟逻辑，每帧运行，
+  \item \texttt{leave} —— 退出时清理。
+\end{itemize}
+
+这个生命周期不是随意的。它映射到具身认知科学所描述的感知-行动循环~\citep{varela1991embodied}：一个智能体感知其环境（\texttt{act}），更新其内部状态（\texttt{sim}），并产生输出（\texttt{paint}）。作品不是计算的规格说明；它是一个持续认知过程的描述。
+
+\subsection{URL 可寻址性}
+
+每个作品都可以通过 URL 寻址：\texttt{aesthetic.computer/piece-name}。这使得作品成为可记忆的路径而非文件。URL 命名空间就是作品命名空间。用户发现作品的方式与发现音乐作品的方式相同——通过名称、通过引用、通过浏览收藏。这就是 AC 与 IDE 和沙盒的区别：作品在技术之前首先是社会性的。
+
+\subsection{即时模式渲染模型}
+
+\ac{} 使用即时模式图形：\texttt{paint} 每帧被调用，屏幕从头重建。没有保留的场景图，没有持久的 DOM，没有对象模型。这在认知上是重要的：作品是时间和状态的纯函数，而非累积结构。程序员以\emph{现在画什么}来思考，而非\emph{改变什么}。这与音乐家在演奏中的思维方式一致——不是"我正按住什么音符"而是"我接下来弹什么。"
+
+\subsection{作者身份与迭代}
+
+作品有作者。它们以名称发布、被归属、并可通过 \texttt{source} 命令进行分叉。当用户执行 \texttt{source piece-name} 时，他们获得作品源代码的副本并成为新的作者。这是音乐中翻唱的概念：拿一件现有作品并使其成为你自己的。
+
+迭代循环——编写、发布、演奏、观察、修改——比软件部署更接近音乐创作或视觉艺术实践。\citet{mcpherson2020idiomatic} 记录了计算机音乐语言如何通过使某些惯用法变得容易来塑造审美结果；作品生命周期通过使迭代的、表演性的开发成为最小阻力路径来塑造所创作的内容。
+
+\section{作品作为认知延伸}
+
+Clark 和 Chalmers 论证，当外部工具被可靠地使用、可用且被认可时，认知过程可以延伸到这些工具中~\citep{clark1998extended}。一个用于思考的笔记本是认知系统的一部分；笔记本中的内容与记忆中的事实同样"在心智中"。
+
+一个经常被演奏的作品正是在这个意义上成为认知延伸。\texttt{notepat}~\citep{scudder2026notepat}不仅仅是 Jeffrey 用来发声的工具；它是音乐思维的假体。对 \texttt{notepat} 的401次提交不是对实用工具的 bug 修复——它们是对认知器官的精炼。作品与其作者共同进化。
+
+这就是 \citet{magnusson2010designing} 所描述的乐器的认识论维度：乐器是"认识论工具"，塑造其演奏者能够思考和表达的东西。数字乐器与原声乐器不同，因为它们是软件——而软件可以被其用户修改。当工具是一个作品，其作者也是其演奏者时，乐器与作品之间的边界消解。
+
+\subsection{命名路径作为助记符}
+
+Norman 的功能可供性概念~\citep{norman1988design}描述了物体如何暗示其可能的用途。一个 URL 可寻址的作品提供记忆和回访的功能可供性：名称 \texttt{notepat} 不仅是标识符，而是助记符——一条回到实践的路径。AC 命名空间是一个助记景观。知道 \texttt{wrl}、\texttt{grid}、\texttt{clock}、\texttt{prompt} 的用户已经内化了一张可能体验的地图。这就是音乐经典的运作方式：作品的名称是实践的把手，而不仅仅是文件的标签。
+
+\section{作品 vs.\ 程序：一个比较}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X X}
+\toprule
+ & \textbf{程序} & \textbf{作品} \\
+\midrule
+评估单位 & 正确性 & 表达 \\
+主要生命周期 & 编译、运行、退出 & 启动、演奏、离开 \\
+作者身份 & 所有者（用户/root） & 艺术家 \\
+社会单位 & 可执行二进制文件 & 命名 URL \\
+迭代模式 & 调试、重新部署 & 修改、重新发布 \\
+与时间的关系 & 终止 & 持续 \\
+分叉隐喻 & Fork（git） & 翻唱（音乐） \\
+完成条件 & 测试通过 & 永远不会（只会被放弃） \\
+\bottomrule
+\end{tabularx}
+\caption{程序 vs.\ 作品作为创意单位。}
+\label{tab:comparison}
+\end{table}
+
+\section{对平台设计的影响}
+
+作品概念对 \ac{} 有具体的设计后果：
+
+\begin{enumerate}
+  \item \textbf{一个文件，一个作品。} 没有项目结构，没有构建系统，没有平台 API 之外的依赖。作品是自包含的，因为一件音乐作品是自包含的。
+  \item \textbf{提示符即乐器。} AC 命令提示符是浏览、演奏和发布作品的界面。它被设计为可记忆的，就像键盘布局——而非可配置的，像 GUI。
+  \item \textbf{发布即表演。} 执行 \texttt{publish} 是一种创作行为，而非部署行为。作品立即进入命名空间，任何拥有 URL 的人都可以演奏。
+  \item \textbf{浏览器即音乐厅。} 网页浏览器~\citep{wyse2013viability}是表演空间。它已经存在于每台设备上；它已经是社会化的。作品在浏览器中运行不是因为它在技术上最优，而是因为它是现存最可及的表演场所。
+  \item \textbf{现场编程即排练。} 模块加载器在保存时热重载作品。这不是开发者便利——它等同于在节奏中练习：作者在作品变化时演奏它，而非之后。
+\end{enumerate}
+
+\section{结论}
+
+将交互程序称为\emph{作品}是一种设计宣言：它断言思考创意软件的正确框架不是工程框架（正确性、部署、维护），而是艺术框架（作者身份、迭代、表演、实践）。Processing 草图在2001年做了类似的宣言。Max 的补丁在1988年做了。AC 的作品在2024年再次做出，在浏览器中，有 URL 命名空间。
+
+每次重新框定都带来不同的功能可供性。AC 中的作品概念突出了：可记忆的 URL 优于可安装的应用，即时模式渲染优于保留的场景图，生命周期函数优于事件监听器，翻唱优于分叉。这些不仅仅是命名选择——它们是约束，正如 \citet{magnusson2010designing} 所论证的，通过界定来启用。
+
+更深层的宣言是，围绕作品概念设计的软件将\emph{实践}视为用户与程序之间的基本关系。不是安装，不是配置，不是部署——实践。作品是你回来、精炼和表演的东西。它延伸你的认知~\citep{clark1998extended}，正是因为它足够稳定可以被学习，又足够灵活可以成长。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

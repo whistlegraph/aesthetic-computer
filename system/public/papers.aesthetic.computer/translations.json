@@ -47,6 +47,10 @@
     "es": {
       "title": "Arqueología del repositorio",
       "subtitle": "Trazando la evolución de Aesthetic Computer a través de su historial Git"
+    },
+    "zh": {
+      "title": "仓库考古学",
+      "subtitle": "通过 Git 历史追溯 Aesthetic Computer 的演变"
     }
   },
   "dead-ends": {
@@ -79,6 +83,10 @@
     "es": {
       "title": "Auditoría de diversidad en citas",
       "subtitle": "Serie de artículos de Aesthetic Computer, marzo 2026"
+    },
+    "zh": {
+      "title": "引用多样性审计",
+      "subtitle": "Aesthetic Computer 论文系列，2026年3月"
     }
   },
   "folk-songs": {
@@ -111,6 +119,10 @@
     "es": {
       "title": "Arte computacional radical",
       "subtitle": "Enfoques goodiepalianos en Aesthetic Computer"
+    },
+    "zh": {
+      "title": "激进计算机艺术",
+      "subtitle": "Aesthetic Computer 中的 Goodiepal 方法"
     }
   },
   "kidlisp": {
@@ -143,6 +155,10 @@
     "es": {
       "title": "KidLisp Referencia del lenguaje",
       "subtitle": "118 funciones integradas en 12 categorías para arte generativo"
+    },
+    "zh": {
+      "title": "KidLisp 语言参考",
+      "subtitle": "12 个类别中的 118 个生成艺术内置函数"
     }
   },
   "network-audit": {
@@ -157,6 +173,10 @@
     "es": {
       "title": "Auditoría de red",
       "subtitle": "¿Quién usa Aesthetic Computer y qué crean?"
+    },
+    "zh": {
+      "title": "网络审计",
+      "subtitle": "谁在使用 Aesthetic Computer，他们创作了什么？"
     }
   },
   "notepat": {
@@ -171,6 +191,10 @@
     "es": {
       "title": "notepat.com",
       "subtitle": "De juguete de teclado a puerta principal del sistema"
+    },
+    "zh": {
+      "title": "notepat.com",
+      "subtitle": "从键盘玩具到系统前门"
     }
   },
   "os": {
@@ -185,6 +209,10 @@
     "es": {
       "title": "AC Native OS '26",
       "subtitle": "Un sistema operativo de computación creativa sobre metal desnudo"
+    },
+    "zh": {
+      "title": "AC Native OS '26",
+      "subtitle": "一个裸机创意计算操作系统"
     }
   },
   "pieces": {
@@ -199,6 +227,10 @@
     "es": {
       "title": "Piezas, no programas",
       "subtitle": "La pieza como unidad de cognición creativa en Aesthetic Computer"
+    },
+    "zh": {
+      "title": "作品而非程序",
+      "subtitle": "作品作为 Aesthetic Computer 中创意认知的单位"
     }
   },
   "who-pays": {
@@ -213,6 +245,10 @@
     "es": {
       "title": "¿Quién paga por las herramientas creativas?",
       "subtitle": "Financiación, agotamiento y supervivencia en la computación creativa de código abierto"
+    },
+    "zh": {
+      "title": "谁为创意工具买单？",
+      "subtitle": "开源创意计算中的资金、倦怠与生存"
     }
   },
   "whistlegraph": {
@@ -227,6 +263,10 @@
     "es": {
       "title": "Whistlegraph",
       "subtitle": "Dibujo, canto y la partitura gráfica como forma viral"
+    },
+    "zh": {
+      "title": "Whistlegraph",
+      "subtitle": "绘画、歌唱与图形乐谱作为病毒式传播形式"
     }
   }
 }
