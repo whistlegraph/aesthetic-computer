@@ -2328,6 +2328,26 @@ to = "/papers.aesthetic.computer/index.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://papers.aesthetic.computer/en"
+to = "/papers.aesthetic.computer/index.html?lang=en"
+status = 200
+force = true
+[[redirects]]
+from = "https://papers.aesthetic.computer/da"
+to = "/papers.aesthetic.computer/index.html?lang=da"
+status = 200
+force = true
+[[redirects]]
+from = "https://papers.aesthetic.computer/es"
+to = "/papers.aesthetic.computer/index.html?lang=es"
+status = 200
+force = true
+[[redirects]]
+from = "https://papers.aesthetic.computer/cn"
+to = "/papers.aesthetic.computer/index.html?lang=zh"
+status = 200
+force = true
+[[redirects]]
 from = "https://papers.aesthetic.computer/platter"
 to = "/papers.aesthetic.computer/platter.html"
 status = 200
