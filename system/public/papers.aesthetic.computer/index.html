@@ -611,6 +611,12 @@
             });
         }
 
+        // Read language from URL path (/da, /cn, /es) or query param (?lang=da)
+        const pathLang = { '/da': 'da', '/es': 'es', '/cn': 'zh', '/en': 'en', '/zh': 'zh' }[location.pathname];
+        const paramLang = new URLSearchParams(location.search).get('lang');
+        const initLang = pathLang || paramLang;
+        if (initLang && langs[initLang]) setLang(initLang);
+
         // Theme toggle
         function toggleTheme() {
             const r = document.documentElement;
