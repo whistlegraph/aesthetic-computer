@@ -172,3 +172,21 @@ See [internals.md](internals.md) for the full boot sequence and system architect
 - Any `curl exit=77` or cert-path errors are a release blocker.
 - Any repeated mic open/close race errors are a release blocker.
 - Flash verify must report `OK: N bytes match` — any `MISMATCH` is a release blocker.
+
+## Commits from the Device
+
+When a commit is made directly from a running AC native device (via Claude Code on-device):
+
+- **Prefix**: `[ac-native]` at the start of the commit subject line
+- **Body**: Include `Committed from AC native device.` as the last line
+
+Example:
+```
+[ac-native] enable CONFIG_TYPEC, UCSI, UCSI_ACPI for USB-C power role swap
+
+Adds USB Type-C connector class support.
+
+Committed from AC native device.
+```
+
+This distinguishes on-device commits from dev-machine commits in git log.
