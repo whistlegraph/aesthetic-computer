@@ -1,0 +1,11 @@
+\contentsline {section}{\numberline {1}The Argument}{5}{section.1}%
+\contentsline {section}{\numberline {2}The Instrument}{7}{section.2}%
+\contentsline {section}{\numberline {3}The Encoding}{8}{section.3}%
+\contentsline {section}{\numberline {4}A Catalog of Playable Melodies}{10}{section.4}%
+\contentsline {section}{\numberline {5}The Folk Process as Version Control}{12}{section.5}%
+\contentsline {section}{\numberline {6}Computational Dimensions}{14}{section.6}%
+\contentsline {section}{\numberline {7}Related Instruments}{16}{section.7}%
+\contentsline {section}{\numberline {8}The Bare-Metal Folk Instrument}{18}{section.8}%
+\contentsline {section}{\numberline {9}Future Work}{19}{section.9}%
+\contentsline {section}{\numberline {10}Conclusion}{20}{section.10}%
+\contentsfinish 
