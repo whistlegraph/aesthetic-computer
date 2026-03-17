@@ -25,6 +25,11 @@ included_env_vars = []
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["BUILDS_PASSWORD"]
 
+[functions.claude-token]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.register-build]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
