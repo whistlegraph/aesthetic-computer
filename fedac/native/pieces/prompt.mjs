@@ -21,7 +21,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "login",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -51,8 +51,10 @@ const PIECE_DESC = {
   "chart":         "diagram sketch",
   "f3ral3xp":      "feral expression",
   "3x3":           "ortholinear pad",
+  "print":         "printer / thermal",
   "theme":         "prompt theme",
   "voice":         "system voice",
+  "login":         "switch identity",
   "dark":          "dark mode",
   "light":         "light mode",
   "auto":          "auto dark/light",
