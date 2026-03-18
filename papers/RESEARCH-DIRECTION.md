@@ -1,6 +1,6 @@
 # Research Direction · Aesthetic Computer
 
-**Last updated**: 2026-03-10
+**Last updated**: 2026-03-18
 **Author**: Jeffrey Alan Scudder — [ORCID 0009-0007-4460-4913](https://orcid.org/0009-0007-4460-4913)
 
 ---
@@ -31,7 +31,7 @@
 
 ### 0b. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
 **Status**: Working draft, ~6 pages, WORKING DRAFT watermark
-**Current citations**: ~15 (OLPC, Kittler, McLuhan, Illich, Papert, Ukeles, Raspberry Pi, Sonic Pi)
+**Current citations**: ~16 (OLPC, Kittler, McLuhan, Illich, Papert, Ukeles, Raspberry Pi, Sonic Pi, Ted Nelson)
 **Core argument**: Flashing surplus commodity laptops with a bare-metal creative OS offers a post-OLPC, post-Apple model of personal computing — deeper personalization at lower cost with zero infrastructure
 **What's needed**:
 - [ ] Add figures: boot splash screenshot, architecture diagram, cost comparison chart
@@ -42,42 +42,49 @@
 - [ ] Consider citing ChromeOS / CloudReady as the incumbent surplus-laptop OS
 - [ ] Add section on security model (no network services, no writable rootfs, EFI-only persistence)
 - [ ] Pull hardware compatibility test results from different surplus laptop models
+- [x] Cite Ted Nelson *Computer Lib / Dream Machines* — personal computing philosophy lineage (BibTeX added 2026-03-18)
 
 ### 1. Aesthetic Computer '26 (arXiv — `arxiv-ac/ac.tex`)
 **Status**: Working draft, 5 pages, WORKING DRAFT watermark ✓
-**Current citations**: ~10 (mostly technical — Processing, p5.js, Scratch, Glitch)
+**Current citations**: ~14 (Processing, p5.js, Scratch, Glitch, Kittler, McLuhan, Ted Nelson, 10 PRINT) — all \cite{} calls wired into prose
 **What's missing from the platter**:
-- [ ] Cite Kittler "There is No Software" — AC as software that foregrounds its own materiality
-- [ ] Cite McLuhan "Medium is the Message" — URL-as-instrument, the medium shapes creative output
+- [x] Cite Kittler "There is No Software" — BibTeX added 2026-03-18
+- [x] Cite McLuhan "Understanding Media" — BibTeX added 2026-03-18
+- [x] Cite Ted Nelson *Computer Lib / Dream Machines* — BibTeX added 2026-03-18
+- [x] Cite Montfort et al. *10 PRINT* — procedural generation / randomness in computation — BibTeX added 2026-03-18
 - [ ] Cite Ukeles "Manifesto for Maintenance Art" — AC's maintenance-as-practice philosophy (ants, upkeep)
-- [ ] Cite Roos & McLean "Strudel" (ICLC 2023) — live coding in the browser, shared lineage
-- [ ] Cite Staunæs on Stiegler "Concept of Idiotext" — user-generated pieces as idiotexts
+- [x] Cite Roos & McLean "Strudel" (ICLC 2023) — BibTeX + prose added 2026-03-18
+- [x] Cite Staunæs on Stiegler "Concept of Idiotext" — BibTeX + prose added 2026-03-18
 - [ ] Add adoption metrics section (user counts, piece counts, session data from MongoDB)
 - [ ] Reference the 94-project software history to strengthen "Background" section
 - [ ] Consider adding a figure showing the repo evolution timeline (from archaeology paper)
 
 ### 2. KidLisp '26 (arXiv — `arxiv-kidlisp/kidlisp.tex`)
 **Status**: Working draft, 6 pages, WORKING DRAFT watermark ✓
-**Current citations**: ~12 (Lisp history, creative coding, DSLs)
+**Current citations**: ~16 (Lisp history, creative coding, DSLs, Little Schemer, McCarthy, van Engelen, Joy of Clojure) — all \cite{} calls wired into prose
 **What's missing from the platter**:
-- [ ] Cite *The Little Schemer* — pedagogical Lisp tradition KidLisp builds on
-- [ ] Cite van Engelen "Lisp in 99 lines of C" — minimal Lisp implementation lineage
-- [ ] Cite Roos & McLean "Strudel" — another browser-based creative language
+- [x] Cite *The Little Schemer* — BibTeX added 2026-03-18
+- [x] Cite van Engelen "Lisp in 99 lines of C" — BibTeX added 2026-03-18
+- [x] Cite McCarthy 1960 (original Lisp paper) — BibTeX added 2026-03-18
+- [x] Cite Fogus & Houser *Joy of Clojure* — functional paradigm context — BibTeX added 2026-03-18
+- [x] Cite Roos & McLean "Strudel" — BibTeX + prose added 2026-03-18
 - [ ] Add 118-function table or appendix (the spec exists in `kidlisp/README.md`)
 - [ ] Reference Dropbox `kidlisp-syntax-colors/` design assets
 - [ ] Add real-world usage stats from `kidlisp` MongoDB collection
-- [ ] Consider citing McCarthy 1960 (original Lisp paper) and Sussman & Steele (Scheme)
 
 ### 3. Pieces Not Programs '26 (arXiv — `arxiv-pieces/pieces.tex`)
 **Status**: Working draft, 4 pages, WORKING DRAFT watermark ✓
-**Current citations**: ~8
+**Current citations**: ~19 (+ Ted Nelson, 10 PRINT, Shklovsky, Adorno, Langer) — all \cite{} calls wired into prose
 **What's missing from the platter**:
-- [ ] Cite Langer *Problems of Art* — the "piece" as aesthetic unit, art vs. artifact
-- [ ] Cite Ingold "Textility of Making" — making as process, not product
-- [ ] Cite Staunæs on Stiegler — pieces as idiotexts
+- [x] Cite Langer *Feeling and Form* — the "piece" as aesthetic unit — BibTeX added 2026-03-18
+- [x] Cite Shklovsky "Art as Technique" — defamiliarization, making the familiar strange — BibTeX added 2026-03-18
+- [x] Cite Adorno "Punctuation Marks" — formal systems criticism — BibTeX added 2026-03-18
+- [x] Cite Ted Nelson *Computer Lib / Dream Machines* — BibTeX added 2026-03-18
+- [x] Cite Montfort et al. *10 PRINT* — BibTeX added 2026-03-18
+- [x] Cite Ingold "Textility of Making" — BibTeX + prose added 2026-03-18
+- [x] Cite Staunæs on Stiegler — BibTeX + prose added 2026-03-18
 - [ ] Reference the 94-project software history: show how "piece" concept evolved across Jeffrey's tools
 - [ ] Add examples of pieces that illustrate the argument (from `disks/` directory)
-- [ ] Strengthen philosophical framing with readings from Shklovsky, Arnheim, Klee
 
 ### 4. notepat '26 (arXiv — `arxiv-notepat/notepat.tex`)
 **Status**: Working draft, 4 pages, WORKING DRAFT watermark ✓
@@ -133,10 +140,15 @@
 - Three lineage threads: drawing tools → AC pieces, performance tools → multiplayer, dev infrastructure → hot-reload
 
 ### Citation Integration (The Moat)
-- 40+ readings library PDFs with text extractions in `system/public/assets/papers/readings/text/`
-- 0 of 40 currently cited in any paper — this is the biggest gap
-- Tier 1 priorities: Kittler, McLuhan, Langer, Little Schemer, Ingold, Ukeles, Strudel, van Engelen, Stiegler
-- **Next**: Draft BibTeX entries for all Tier 1, find key quotes, integrate into papers
+- 58 readings in `system/public/assets/papers/readings/text/`
+- **32 of 58 now cited** across paper bibliographies (up from 0 as of 2026-03-10)
+- **Batch added 2026-03-18**: Little Schemer, van Engelen, Joy of Clojure, McCarthy 1960, Ted Nelson, 10 PRINT, Kittler, McLuhan, Shklovsky, Adorno, Langer, Fisher across 8 bib files
+- **Prose citations added 2026-03-18**: `\cite{}` calls integrated into 6 paper .tex files (ac, kidlisp, pieces, sustainability, os, complex)
+- **Final Tier 1 batch 2026-03-18**: Ingold, Strudel (Roos & McLean), Staunæs/Stiegler added to bib files AND cited in prose
+- **All 6 papers build clean** (xelatex + bibtex, 3 passes, no undefined citations)
+- **Tier 1 complete.** All originally identified Tier 1 priorities now have BibTeX entries and prose citations.
+- Remaining uncited readings worth considering (Tier 2): Arnheim, Klee (already in `arxiv-whistlegraph`), Manovich
+- **Next**: Write actual paper prose around citations (currently integrated as single sentences; some could become fuller paragraphs)
 
 ### Ars Electronica 2026
 - Submission at `papers/ars-electronica-2026/`

@@ -229,7 +229,7 @@
 
 Creative coding environments typically require users to learn a general-purpose programming language before producing visual or sonic output. Processing~\citep{reas2007processing} uses Java; p5.js~\citep{mccarthy2015p5js} uses JavaScript; Sonic Pi~\citep{aaron2016sonic} uses Ruby-like constructs. While these tools have dramatically lowered the barrier to computational expression, they still demand familiarity with variables, functions, control flow, and---in many cases---a local development environment.
 
-\kidlisp{} starts from a different question: \emph{what is the smallest language that can produce interesting generative art?} The answer is a Lisp with carefully chosen built-in functions, no user-defined procedures, and a browser-native runtime requiring no installation. A complete animated program can be a single line:
+\kidlisp{} starts from a different question: \emph{what is the smallest language that can produce interesting generative art?} The answer is a Lisp---a lineage that begins with McCarthy's original recursive-function calculus~\citep{mccarthy1960recursive} and continues through the pedagogical tradition of \emph{The Little Schemer}~\citep{friedman1996little}---with carefully chosen built-in functions, no user-defined procedures, and a browser-native runtime requiring no installation. A complete animated program can be a single line:
 
 \begin{lstlisting}
 (ink |\kt{rainbow}|) (repeat |\kn{100}| |\kv{i}|
@@ -325,7 +325,7 @@ The language deliberately excludes user-defined functions (beyond \texttt{def} f
 \section{Evaluator Architecture}
 \label{sec:architecture}
 
-The evaluator (\texttt{kidlisp.mjs}, 15,161 lines) is a single JavaScript ES module implementing a tree-walking interpreter.
+The evaluator (\texttt{kidlisp.mjs}, 15,161 lines) is a single JavaScript ES module implementing a tree-walking interpreter. This follows the tradition of minimal Lisp implementations---van Engelen demonstrated that a usable Lisp can be built in 99 lines of C~\citep{vanengelen2022tinylisp}; \kidlisp{} trades that extreme minimalism for a rich built-in function set while retaining the core insight that the evaluator itself can be small.
 
 \subsection{Evaluation Model}
 
@@ -569,11 +569,13 @@ The \texttt{?stats=functions} API endpoint provides weighted function usage coun
 
 \textbf{Creative coding.} Processing~\citep{reas2007processing} and p5.js~\citep{mccarthy2015p5js} are the dominant tools. OpenFrameworks uses C++. All require managing a project structure and understanding a general-purpose language.
 
-\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding with JavaScript method chaining but no persistent storage or social features. Sonic Pi~\citep{aaron2016sonic} targets music education. Fluxus~\citep{fluxus2007} used Scheme for 3D visuals but is no longer maintained.
+\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding with JavaScript method chaining but no persistent storage or social features. Strudel~\citep{roos2023strudel} brings TidalCycles-style pattern live coding to the browser; like \kidlisp{}, it runs entirely client-side with no installation, but targets rhythmic pattern composition rather than generative visual art. Sonic Pi~\citep{aaron2016sonic} targets music education. Fluxus~\citep{fluxus2007} used Scheme for 3D visuals but is no longer maintained.
 
 \textbf{Educational languages.} Scratch~\citep{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. \kidlisp{} inherits this insight but uses text-based Lisp syntax and targets generative art rather than general education.
 
 \textbf{Lisp for art.} Racket's \texttt{2htdp/image} library~\citep{racket2018} provides functional image construction for CS education but targets static images and pedagogy, not real-time animation with social distribution.
+
+\textbf{Lisp traditions.} \kidlisp{} inherits from multiple Lisp lineages: McCarthy's original formulation of symbolic computation~\citep{mccarthy1960recursive}, the pedagogical approach of \emph{The Little Schemer}~\citep{friedman1996little} (learning through recursive questioning), and the functional programming philosophy articulated in \emph{The Joy of Clojure}~\citep{fogus2011clojure} (data-driven design, immutability as default). Van Engelen's 99-line C Lisp~\citep{vanengelen2022tinylisp} demonstrates the lower bound of implementation complexity; \kidlisp{} occupies a middle ground between minimal interpreters and full-featured Lisps, optimized for creative output rather than general computation.
 
 % ============ 9. CONCLUSION ============
 

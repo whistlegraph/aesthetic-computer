@@ -156,9 +156,9 @@ The history of creative computing has been, in part, a slow erosion of this fram
 
 \subsection{The musical piece}
 
-In music, a \emph{piece} is a complete, authored work that exists in at least two forms: the score (symbolic specification) and the performance (instantiation). These are not identical---performances differ, scores are interpreted, and pieces accumulate variants over time. A piece is never exhausted by any single performance. It is also socially situated: pieces have names, authors, premieres, and canons. They are taught, analyzed, covered, and forgotten.
+In music, a \emph{piece} is a complete, authored work that exists in at least two forms: the score (symbolic specification) and the performance (instantiation). Langer's \emph{Feeling and Form}~\citep{langer1953feeling} argues that art is not self-expression but the creation of ``forms symbolic of human feeling''---the piece is the form, not the feeling; it is a crafted artifact that \emph{presents} experience rather than \emph{reports} it. These are not identical---performances differ, scores are interpreted, and pieces accumulate variants over time. A piece is never exhausted by any single performance. It is also socially situated: pieces have names, authors, premieres, and canons. They are taught, analyzed, covered, and forgotten.
 
-This duality---spec and performance, text and enactment---is absent from the program concept. A program is typically identified with its source (or binary). Its ``performance'' is incidental; what matters is whether the output is correct.
+This duality---spec and performance, text and enactment---is absent from the program concept. A program is typically identified with its source (or binary). Its ``performance'' is incidental; what matters is whether the output is correct. Nelson's \emph{Computer Lib / Dream Machines}~\citep{nelson1974computerlib} envisioned a different relationship: the computer as a medium for dream-like interactive exploration, where the boundary between author and audience dissolves.
 
 \subsection{The Processing sketch}
 
@@ -204,9 +204,11 @@ Every piece is addressable by URL: \texttt{aesthetic.computer/piece-name}. This 
 
 \subsection{The immediate-mode rendering model}
 
-\ac{} uses immediate-mode graphics: \texttt{paint} is called every frame, and the screen is rebuilt from scratch. There is no retained scene graph, no persistent DOM, no object model. This is cognitively significant: the piece is a pure function of time and state, not an accumulated structure. The programmer thinks in terms of \emph{what to draw now}, not \emph{what to change}. This aligns with how musicians think during performance---not ``what note am I holding'' but ``what do I play next.''
+\ac{} uses immediate-mode graphics: \texttt{paint} is called every frame, and the screen is rebuilt from scratch. There is no retained scene graph, no persistent DOM, no object model. This is cognitively significant: the piece is a pure function of time and state, not an accumulated structure. The programmer thinks in terms of \emph{what to draw now}, not \emph{what to change}. This aligns with how musicians think during performance---not ``what note am I holding'' but ``what do I play next.'' The \emph{10 PRINT} project~\citep{montfort201210print} demonstrated that even a single line of procedural code can be the basis for rich aesthetic investigation; AC's immediate-mode model extends this insight to interactive, real-time programs.
 
 \subsection{Authorship and iteration}
+
+\citet{ingold2010textility} argues that making is not the imposition of form on matter but a process of ``following the materials''---a textility, a weaving of practitioner and medium. The piece, in AC, is the record of this weaving: not a finished product but a trace of ongoing practice. Stiegler's concept of \emph{idiotext}---the singular memory woven through technical prostheses~\citep{staunaes2021stiegler, stiegler1998technics}---describes exactly what a piece becomes over time: an externalized memory, irreducibly personal, that grows through iteration rather than deployment.
 
 Pieces have authors. They are published by name, attributed, and fork-able via the \texttt{source} command. When a user issues \texttt{source piece-name}, they receive a copy of the piece's source and become a new author. This is the musical concept of covering: taking an existing work and making it yours.
 
@@ -263,7 +265,7 @@ The piece concept has concrete design consequences for \ac{}:
 
 Calling interactive programs \emph{pieces} is a design claim: it asserts that the right framework for thinking about creative software is not the engineering framework (correctness, deployment, maintenance) but the artistic one (authorship, iteration, performance, practice). The Processing sketch made a similar claim in 2001. Max's patch made it in 1988. AC's piece makes it again, in a browser, with a URL namespace, in 2024.
 
-Each reframing carries different affordances. The piece concept in AC foregrounds: memorizable URLs over installable apps, immediate-mode rendering over retained scene graphs, lifecycle functions over event listeners, and covering over forking. These are not just naming choices---they are constraints that, as \citet{magnusson2010designing} argues, enable by delimiting.
+Each reframing carries different affordances. The piece concept in AC foregrounds: memorizable URLs over installable apps, immediate-mode rendering over retained scene graphs, lifecycle functions over event listeners, and covering over forking. These are not just naming choices---they are constraints that, as \citet{magnusson2010designing} argues, enable by delimiting. Shklovsky called this \emph{defamiliarization}~\citep{shklovsky1917art}: art works by making the familiar strange, by forcing perception where habit would otherwise let us sleepwalk. Calling programs ``pieces'' is a defamiliarizing move---it disrupts the engineering frame and forces the user to perceive the creative act. Adorno's essay on punctuation~\citep{adorno1990punctuation} makes a parallel argument: that formal choices in notation are not cosmetic but constitutive---they shape what can be thought.
 
 The deeper claim is that software designed around the piece concept treats \emph{practice} as the fundamental relationship between a user and a program. Not installation, not configuration, not deployment---practice. The piece is something you return to, refine, and perform. It extends your cognition~\citep{clark1998extended} precisely because it is stable enough to be learned and flexible enough to grow.
 
