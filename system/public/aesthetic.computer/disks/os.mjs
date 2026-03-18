@@ -5,7 +5,7 @@
 // Each mirror must host /os-releases, /os-image, and /ws endpoints.
 const MIRRORS = [
   { id: "nyc", label: "NYC (direct)", oven: "https://oven.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso" },
-  { id: "edge", label: "Edge (global CDN)", oven: "https://os.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://os.aesthetic.computer/os/latest.iso" },
+  { id: "edge", label: "Edge (global CDN)", oven: "https://oven-edge.aesthetic-computer.workers.dev", ws: "wss://oven.aesthetic.computer/ws", iso: "https://oven-edge.aesthetic-computer.workers.dev/os/latest.iso" },
 ];
 let mirrorIdx = 1; // Default to edge CDN
 function mirror() { return MIRRORS[mirrorIdx]; }
