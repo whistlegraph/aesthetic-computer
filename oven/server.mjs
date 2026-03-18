@@ -18,6 +18,7 @@ import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML,
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
 import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeBuild } from './native-builder.mjs';
+import { startPoller as startNativeGitPoller, getPollerStatus as getNativePollerStatus } from './native-git-poller.mjs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -3164,10 +3165,11 @@ app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
 // ── Native OTA Build ──────────────────────────────────────────────────────
 // Builds fedac/native kernel + uploads vmlinuz to DO Spaces CDN.
 // Auth: same OS_BUILD_ADMIN_KEY used for /os-base-build.
-// Triggered automatically by GitHub Actions on push to fedac/native/.
+// Auto-triggered by native-git-poller.mjs (polls origin/main every 60s).
+// Can also be triggered manually via POST with admin key.
 
 app.get('/native-build', (req, res) => {
-  res.json(getNativeBuildsSummary());
+  res.json({ ...getNativeBuildsSummary(), poller: getNativePollerStatus() });
 });
 
 app.get('/native-build/:jobId', (req, res) => {
@@ -3486,6 +3488,9 @@ if (dev) {
         addServerLog('error', '❌', `Scheduled OG regen failed: ${err.message}`);
       });
     }, 6 * 60 * 60 * 1000); // 6 hours
+
+    // Start native OTA git poller — watches for fedac/native/ changes
+    startNativeGitPoller({ startNativeBuild, addServerLog });
   });
 }
 
