@@ -125,9 +125,26 @@ self.addEventListener('fetch', (event) => {
               }
               return networkResponse;
             })
-            .catch((err) => {
+            .catch(async (err) => {
               // Return cached version if network fails (silent)
               if (cachedResponse) return cachedResponse;
+              // No cache available - retry before giving up
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                  await new Promise(r => setTimeout(r, 500 * attempt));
+                  const retryResponse = await fetch(event.request);
+                  if (retryResponse.ok) {
+                    try {
+                      const clone = retryResponse.clone();
+                      const body = await clone.clone().text();
+                      if (body && body.length > 0) {
+                        await cache.put(cacheKey, clone);
+                      }
+                    } catch {}
+                  }
+                  return retryResponse;
+                } catch {}
+              }
               throw err;
             });
           
