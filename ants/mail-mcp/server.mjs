@@ -252,12 +252,20 @@ server.tool(
 // --- mail_send ---
 server.tool(
   "mail_send",
-  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch.",
+  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch. For replies, set in_reply_to and references for proper threading.",
   {
     to: z.string().describe("Recipient email address"),
     cc: z.string().optional().describe("CC email address(es), comma-separated"),
     subject: z.string().describe("Email subject"),
     body: z.string().describe("Email body (plain text)"),
+    in_reply_to: z
+      .string()
+      .optional()
+      .describe("Message-ID of the email being replied to (for threading)"),
+    references: z
+      .string()
+      .optional()
+      .describe("Space-separated Message-IDs for the thread (for threading)"),
     preserve_case: z
       .boolean()
       .optional()
@@ -273,7 +281,7 @@ server.tool(
       .default("ac-mail")
       .describe("Which msmtp account to send from (ac-mail or jas-mail)"),
   },
-  async ({ to, cc, subject, body, preserve_case, signature, from_account }) => {
+  async ({ to, cc, subject, body, in_reply_to, references, preserve_case, signature, from_account }) => {
     try {
       const style = await loadEmailStyle();
       const styled = applyEmailStyle({
@@ -291,6 +299,17 @@ server.tool(
         `To: ${to}`,
       ];
       if (cc) headers.push(`Cc: ${cc}`);
+      if (in_reply_to) {
+        const irt = in_reply_to.startsWith("<") ? in_reply_to : `<${in_reply_to}>`;
+        headers.push(`In-Reply-To: ${irt}`);
+      }
+      if (references) {
+        const refs = references
+          .split(/\s+/)
+          .map((r) => (r.startsWith("<") ? r : `<${r}>`))
+          .join(" ");
+        headers.push(`References: ${refs}`);
+      }
       headers.push(
         `Subject: ${styled.subject}`,
         "MIME-Version: 1.0",
