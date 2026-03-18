@@ -10,6 +10,7 @@
 //   /*                     → proxy to oven (cached 5 min)
 
 const ORIGIN = "https://oven.aesthetic.computer";
+const ORIGIN_HOST = "oven.aesthetic.computer";
 const SPACES = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com";
 
 const CORS = {
@@ -89,8 +90,9 @@ export default {
 
     const response = await fetch(originUrl, {
       method: request.method,
-      headers: request.headers,
+      headers: { "host": ORIGIN_HOST, "accept": request.headers.get("accept") || "*/*" },
       body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      redirect: "follow",
       cf: {
         cacheTtl: request.method === "GET" && ttl > 0 ? ttl : 0,
         cacheEverything: request.method === "GET" && ttl > 0,
