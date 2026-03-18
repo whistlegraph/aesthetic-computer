@@ -2856,7 +2856,31 @@ app.get('/os-image', async (req, res) => {
   const reqPiece = req.query.piece || 'notepat';
   const bootPiece = ALLOWED_PIECES.includes(reqPiece) ? reqPiece : 'notepat';
 
-  console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece})`);
+  // WiFi/internet toggle (default: enabled)
+  const wifiParam = req.query.wifi;
+  const wifiEnabled = wifiParam !== '0' && wifiParam !== 'false';
+
+  // Fetch device tokens (Claude + GitHub) from DB
+  let claudeToken = '', githubPat = '';
+  try {
+    const mongoUri = process.env.MONGODB_CONNECTION_STRING;
+    const dbName = process.env.MONGODB_NAME;
+    if (mongoUri) {
+      const { MongoClient } = await import('mongodb');
+      const client = new MongoClient(mongoUri);
+      await client.connect();
+      const doc = await client.db(dbName).collection('@handles').findOne({ _id: sub });
+      if (doc) {
+        claudeToken = doc.claudeCodeToken || '';
+        githubPat = doc.githubPat || '';
+      }
+      await client.close();
+    }
+  } catch (err) {
+    console.warn(`[os-image] Token lookup failed: ${err.message}`);
+  }
+
+  console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece}, wifi: ${wifiEnabled}, claude: ${!!claudeToken}, git: ${!!githubPat})`);
 
   // Get template (cached in memory)
   let imgData;
@@ -2868,12 +2892,17 @@ app.get('/os-image', async (req, res) => {
   }
 
   // Build personalized config (padded to CONFIG_PAD_SIZE)
-  const config = JSON.stringify({
+  const configObj = {
     handle,
     piece: bootPiece,
     sub: userInfo.sub || '',
     email: userInfo.email || '',
-  });
+    token: token,
+  };
+  if (claudeToken) configObj.claudeToken = claudeToken;
+  if (githubPat) configObj.githubPat = githubPat;
+  if (!wifiEnabled) configObj.wifi = false;
+  const config = JSON.stringify(configObj);
   const padded = config + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE - config.length));
   const configBytes = Buffer.from(padded);
 
