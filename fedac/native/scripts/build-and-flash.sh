@@ -579,6 +579,10 @@ if [ "${SKIP_KERNEL}" -eq 0 ] || [ ! -f "${VMLINUZ}" ]; then
     # Apply config
     cp "${KERNEL_DIR}/config-minimal" "${KERNEL_SRC}/.config"
 
+    # Fix firmware dir to match actual build location (config-minimal has a hardcoded path)
+    FIRMWARE_ABS="$(cd "${BUILD_DIR}" && pwd)/firmware"
+    sed -i "s|^CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"${FIRMWARE_ABS}\"|" "${KERNEL_SRC}/.config"
+
     # Set initramfs source path
     INITRAMFS_ABS="$(cd "${BUILD_DIR}" && pwd)/initramfs.cpio.lz4"
     echo "CONFIG_INITRAMFS_SOURCE=\"${INITRAMFS_ABS}\"" >> "${KERNEL_SRC}/.config"
