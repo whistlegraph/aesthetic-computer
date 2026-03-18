@@ -184,22 +184,42 @@ static void send_register(ACMachines *m, ACWifi *wifi) {
 }
 
 // ── Session log upload (on connect) ──────────────────────────
+// Sends full boot log in chunks (up to 32KB total, 8KB per message)
 
-static void upload_session_log(ACMachines *m) {
-    char raw[3200] = "";
-    int len = read_file("/mnt/ac-native.log", raw, sizeof(raw));
+#define LOG_CHUNK_SIZE 7000   // raw bytes per chunk (leaves room for JSON overhead)
+#define LOG_MAX_TOTAL  32000  // max total log bytes to upload
+
+static void upload_log_file(ACMachines *m, const char *path, const char *logType) {
+    char raw[LOG_MAX_TOTAL + 1];
+    memset(raw, 0, sizeof(raw));
+    int len = read_file(path, raw, LOG_MAX_TOTAL);
     if (len <= 0) return;
 
-    // JSON-escape the log content
-    char escaped[3600];
-    json_escape(raw, len, escaped, sizeof(escaped));
+    int chunk = 0;
+    int offset = 0;
+    while (offset < len) {
+        int clen = len - offset;
+        if (clen > LOG_CHUNK_SIZE) clen = LOG_CHUNK_SIZE;
 
-    char msg[4000];
-    snprintf(msg, sizeof(msg),
-        "{\"type\":\"log\",\"logType\":\"session\","
-        "\"message\":\"%s\"}", escaped);
-    sq_push(m, msg);
-    ac_log("[machines] session log queued (%d bytes)\n", len);
+        char escaped[LOG_CHUNK_SIZE * 2];
+        json_escape(raw + offset, clen, escaped, sizeof(escaped));
+
+        char msg[LOG_CHUNK_SIZE * 2 + 256];
+        snprintf(msg, sizeof(msg),
+            "{\"type\":\"log\",\"logType\":\"%s\","
+            "\"data\":{\"chunk\":%d,\"offset\":%d,\"total\":%d},"
+            "\"message\":\"%s\"}", logType, chunk, offset, len, escaped);
+        sq_push(m, msg);
+
+        offset += clen;
+        chunk++;
+    }
+    ac_log("[machines] %s log queued (%d bytes, %d chunks)\n", logType, len, chunk);
+}
+
+static void upload_session_log(ACMachines *m) {
+    upload_log_file(m, "/mnt/ac-native.log", "session");
+    upload_log_file(m, "/mnt/ac-audio.log", "audio");
 }
 
 // ── Crash report upload ──────────────────────────────────────

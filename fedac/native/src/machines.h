@@ -9,8 +9,8 @@
 
 #define MACHINES_HEARTBEAT_FRAMES  1800  // ~30s at 60fps
 #define MACHINES_RECONNECT_FRAMES  300   // ~5s
-#define MACHINES_SEND_QUEUE_SIZE   8
-#define MACHINES_SEND_MSG_SIZE     4096
+#define MACHINES_SEND_QUEUE_SIZE   16
+#define MACHINES_SEND_MSG_SIZE     16384
 
 typedef struct {
     ACWs *ws;
