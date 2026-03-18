@@ -56,5 +56,23 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
+# Dump kernel boot log to USB for debugging (no dmesg binary, read /dev/kmsg)
+ilog "dmesg-dump"
+for dev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
+  if [ -b "$dev" ]; then
+    mkdir -p /mnt
+    mount "$dev" /mnt 2>/dev/null && {
+      cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null &
+      KMSG_PID=$!
+      sleep 1
+      kill $KMSG_PID 2>/dev/null
+      cp /tmp/ac-init.log /mnt/init.log 2>/dev/null
+      sync
+      umount /mnt 2>/dev/null
+      break
+    }
+  fi
+done
+
 ilog "exec-ac-native"
 exec /ac-native /piece.mjs
