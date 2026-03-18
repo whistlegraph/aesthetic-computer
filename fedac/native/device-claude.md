@@ -2,6 +2,15 @@
 
 You are running on an AC Native OS device — a minimal Linux system booted from USB or internal disk. This is NOT a standard Linux desktop. Here's what you need to know.
 
+## Startup: Always Check System Health
+
+At the start of every conversation, run this to get a quick performance snapshot:
+```sh
+echo "=== PERF ===" && tail -3 /mnt/perf/$(ls -1 /mnt/perf/ 2>/dev/null | tail -1) 2>/dev/null || echo "no perf data" && echo "=== TRACE ===" && ls /mnt/trace/ 2>/dev/null || echo "no traces" && echo "=== MEM ===" && free -h 2>/dev/null | head -2 && echo "=== LOAD ===" && cat /proc/loadavg 2>/dev/null
+```
+If any frame's `total_us` exceeds 16667 (16.67ms = one 60fps frame), investigate the spike.
+If trace files exist in `/mnt/trace/`, summarize active tracers.
+
 ## System Overview
 
 - **OS**: Custom Linux 6.14.2 kernel with embedded initramfs (no package manager)
@@ -64,6 +73,34 @@ ac-native is the only userspace process (PID 1). It provides:
 Pieces are JS modules with lifecycle functions (boot/paint/act/sim).
 The user types commands in a prompt piece, which can jump to other pieces.
 
+## Performance & BPF Tracing
+
+The system has kernel-level BPF tracing and frame-level perf recording.
+
+### Perf data (always active)
+- `/mnt/perf/NNNN.csv` — frame-level timing at 60fps, rotated every 30s (10 chunks = 5 min)
+- Columns: `frame,total_us,act_us,sim_us,paint_us,present_us,voices,events,heap_mb,flags`
+- Quick health check: `tail -5 /mnt/perf/$(ls -1 /mnt/perf/ | tail -1)` — look for total_us > 16667 (missed frames)
+
+### BPF trace data (on-demand via ac-trace)
+- `ac-trace syscall` — syscall frequency/latency profiling
+- `ac-trace frame` — DRM page flip jitter (>20ms spikes)
+- `ac-trace alsa` — ALSA underrun (xrun) detection
+- `ac-trace input` — evdev input latency
+- `ac-trace alloc` — kernel memory allocation profiling
+- `ac-trace status` — show what's active
+- `ac-trace stop` — stop all tracers
+- Output goes to `/mnt/trace/<name>.csv`
+
+### Trace marker correlation
+When `/tmp/.trace-active` exists, ac-native writes `frame:<N> total:<us>` markers
+into the ftrace ring buffer for correlating kernel events with frame numbers.
+```sh
+touch /tmp/.trace-active    # enable trace markers
+rm /tmp/.trace-active       # disable
+cat /sys/kernel/tracing/trace | tail -20   # read raw ftrace buffer
+```
+
 ## Common Tasks
 
 ### Check system info
@@ -71,6 +108,14 @@ The user types commands in a prompt piece, which can jump to other pieces.
 cat /mnt/config.json
 cat /proc/version
 free -h
+```
+
+### Quick perf check
+```sh
+# Last 5 frames from most recent perf chunk
+tail -5 /mnt/perf/$(ls -1 /mnt/perf/ 2>/dev/null | tail -1) 2>/dev/null
+# Check for frame spikes (>16.7ms = missed 60fps)
+awk -F, 'NR>1 && $2>16667 {print "SPIKE frame="$1" total="$2"us"}' /mnt/perf/$(ls -1 /mnt/perf/ 2>/dev/null | tail -1) 2>/dev/null
 ```
 
 ### Network check
