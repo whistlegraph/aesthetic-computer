@@ -15933,6 +15933,7 @@ async function handle(retryCount = 0) {
       const newHandle = "@" + storedHandle;
       if (HANDLE === newHandle) return;
       HANDLE = "@" + storedHandle;
+      if (USER && !USER.handle) USER.handle = storedHandle; // Sync to user object
       if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
       if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
       send({ type: "handle", content: HANDLE });
@@ -15950,6 +15951,7 @@ async function handle(retryCount = 0) {
         const newHandle = "@" + data.handle;
         if (newHandle === HANDLE) return;
         HANDLE = newHandle;
+        if (USER && !USER.handle) USER.handle = data.handle; // Sync to user object
         if (typeof window !== 'undefined') window.acHANDLE = HANDLE; // Expose for UDP identity
         if (typeof window !== 'undefined' && window.acBootCanvas?.setHandle) window.acBootCanvas.setHandle(HANDLE);
         send({ type: "handle", content: HANDLE });

@@ -175,8 +175,9 @@ function connectOvenWs(ui, needsPaint) {
   ovenWs.onerror = () => {}; // onclose will fire after this
 }
 
-function boot({ user, api, ui, needsPaint }) {
-  handle = user?.handle || null;
+function boot({ user, handle: getHandle, api, ui, needsPaint }) {
+  const h = getHandle?.();
+  handle = (h ? h.replace(/^@/, "") : null) || user?.handle || null;
   uiRef = ui;
   npRef = needsPaint;
 
