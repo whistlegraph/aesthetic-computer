@@ -31,6 +31,7 @@ const PAPER_MAP = {
   "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv" },
   "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv" },
   "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
+  "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv" },
 };
 
 function extractFromTex(content) {
