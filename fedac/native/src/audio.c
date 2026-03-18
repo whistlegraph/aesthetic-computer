@@ -659,18 +659,24 @@ ACAudio *audio_init(void) {
     snprintf(audio->audio_status, sizeof(audio->audio_status), "initializing");
     audio->audio_init_retries = 0;
 
-    // Wait for sound card to appear (i915 GPU init can delay HDA probe)
+    // Wait for sound card to appear
     fprintf(stderr, "[audio] Waiting for sound card...\n");
     int card_found = 0;
-    for (int w = 0; w < 400; w++) { // up to 8 seconds (was 4)
+    for (int w = 0; w < 400; w++) { // up to 8 seconds
         if (access("/dev/snd/pcmC0D0p", F_OK) == 0 ||
             access("/dev/snd/pcmC1D0p", F_OK) == 0 ||
             access("/dev/snd/pcmC2D0p", F_OK) == 0) { card_found = 1; break; }
         usleep(20000);
     }
     if (!card_found) {
-        fprintf(stderr, "[audio] WARNING: no sound card after 8s wait\n");
-        snprintf(audio->audio_status, sizeof(audio->audio_status), "no card (8s timeout)");
+        // Distinguish: HDA controller present (codec probe failed) vs no hardware at all
+        if (access("/dev/snd/controlC0", F_OK) == 0) {
+            fprintf(stderr, "[audio] WARNING: HDA controller present but codec not probed after 8s\n");
+            snprintf(audio->audio_status, sizeof(audio->audio_status), "HDA ctrl ok, codec not probed");
+        } else {
+            fprintf(stderr, "[audio] WARNING: no sound card after 8s wait\n");
+            snprintf(audio->audio_status, sizeof(audio->audio_status), "no card (8s timeout)");
+        }
     }
 
     // Dump sound card info for diagnostics (write to USB log if mounted)
@@ -703,7 +709,6 @@ ACAudio *audio_init(void) {
     }
 
     // Open ALSA — try multiple cards and devices
-    // i915 HDMI audio may grab card 0, pushing HDA codec to card 1
     snd_pcm_t *pcm = NULL;
     const char *devices[] = {
         "hw:0,0", "hw:1,0", "hw:0,1", "hw:1,1",
