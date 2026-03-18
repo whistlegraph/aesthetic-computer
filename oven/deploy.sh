@@ -67,6 +67,7 @@ rsync -avz --progress --delete \
   --exclude='*.iso' \
   --exclude='*.qcow2' \
   --exclude='*.log' \
+  --exclude='native/build/' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
   "$FEDAC_SOURCE/" \
   "root@$OVEN_HOST:$REMOTE_DIR/fedac/"
@@ -75,6 +76,13 @@ END_FEDAC_SYNC=$(date +%s%3N)
 FEDAC_SYNC_TIME=$((END_FEDAC_SYNC - END_AC_SYNC))
 echo ""
 echo "✅ fedac sync complete in ${FEDAC_SYNC_TIME}ms"
+
+# Install kernel build tools needed for native OTA builds (idempotent)
+echo ""
+echo "🔧 Installing native kernel build tools..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
+  "apt-get install -y -q gcc make flex bison libelf-dev libssl-dev bc cpio lz4 musl-tools python3 pahole 2>&1 | tail -5 || true"
+echo "✅ Kernel build tools ready"
 
 # Optional vault-managed admin key for /os-base-build endpoints
 echo ""
