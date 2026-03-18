@@ -39,6 +39,7 @@
 static volatile int running = 1;
 static FILE *logfile = NULL;
 int ac_log_stderr_muted = 0;  // When set, ac_log skips stderr (PTY active)
+int voice_off = 0;            // When set, keystroke TTS is disabled
 static int is_removable(const char *blkname);
 static void get_parent_block(const char *part, char *out, int out_sz);
 
@@ -2001,6 +2002,13 @@ int main(int argc, char *argv[]) {
                    rt->handle[0] ? rt->handle : "(none)",
                    rt->piece[0] ? rt->piece : "(none)");
 
+            // Check voice config (voice: "off" disables keystroke TTS)
+            char voice_cfg[16] = {0};
+            if (parse_config_string(json, "\"voice\"", voice_cfg, sizeof(voice_cfg))) {
+                voice_off = (strcmp(voice_cfg, "off") == 0);
+                ac_log("[config] voice: %s\n", voice_cfg);
+            }
+
             // Bake Claude/GitHub tokens from config.json directly to disk
             char ct[512] = {0}, gp[256] = {0};
             if (parse_config_string(json, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
@@ -2472,7 +2480,7 @@ int main(int argc, char *argv[]) {
                     }
                     // Instant TTS: play cached sound immediately (bypasses JS frame delay)
                     // Only in prompt mode (other pieces control their own voicing)
-                    if (tts && strcmp(rt->system_mode, "prompt") == 0) {
+                    if (tts && !voice_off && strcmp(rt->system_mode, "prompt") == 0) {
                         const char *kn = input->events[i].key_name;
                         if (kn && kn[0] && kn[1] == 0) {
                             // Single printable character

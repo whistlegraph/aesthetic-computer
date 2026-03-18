@@ -12,6 +12,7 @@ let message = "";
 let messageFrame = 0;
 let shiftHeld = false;
 let frame = 0;
+let voiceOff = false; // true when user sets voice to "off"
 let T = __theme.update(); // global theme (auto dark/light)
 let tabMatches = []; // current tab completion candidates
 let tabIndex = -1;   // cycling index for tab
@@ -121,6 +122,7 @@ function boot({ system }) {
       if (cfg.darkMode === "dark") __theme._forceDark = true;
       else if (cfg.darkMode === "light") __theme._forceDark = false;
       if (cfg.darkMode) { __theme._lastCheck = 0; __theme.update(); }
+      voiceOff = cfg.voice === "off";
     }
   } catch (_) {}
   // Discover all available pieces dynamically
@@ -150,18 +152,20 @@ function act({ event: e, system, sound }) {
     cursorVisible = true;
 
     // Keystroke voicing (JS fallback — C input loop also fires for zero-latency)
-    if (key.length === 1) {
-      sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
-    } else if (key === "space") {
-      sound?.speakCached?.("space");
-    } else if (key === "backspace") {
-      sound?.speakCached?.("back");
-    } else if (key === "enter" || key === "return") {
-      sound?.speakCached?.("enter");
-    } else if (key === "escape") {
-      sound?.speakCached?.("clear");
-    } else if (key === "tab") {
-      sound?.speakCached?.("tab");
+    if (!voiceOff) {
+      if (key.length === 1) {
+        sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
+      } else if (key === "space") {
+        sound?.speakCached?.("space");
+      } else if (key === "backspace") {
+        sound?.speakCached?.("back");
+      } else if (key === "enter" || key === "return") {
+        sound?.speakCached?.("enter");
+      } else if (key === "escape") {
+        sound?.speakCached?.("clear");
+      } else if (key === "tab") {
+        sound?.speakCached?.("tab");
+      }
     }
 
     if (key === "tab") {
