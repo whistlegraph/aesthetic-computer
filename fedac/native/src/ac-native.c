@@ -291,14 +291,26 @@ static void try_mount_log(void) {
             if (pass == 1 && rem == 1) continue;
 
             if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
-                logfile = fopen("/mnt/ac-native.log", "w");
+                logfile = fopen("/mnt/ac-native.log", "a");
                 if (logfile) {
-                    // Immediate test write to verify logging works
+                    // Separator between boots for multi-boot log history
+                    fprintf(logfile, "\n=== BOOT %s ===\n", devs[i]);
                     fprintf(logfile, "[ac-native] Log opened on %s (removable=%d)\n", devs[i], rem);
                     fflush(logfile);
                     fsync(fileno(logfile));
                     strncpy(log_dev, devs[i], sizeof(log_dev) - 1);
                     fprintf(stderr, "[ac-native] Log: %s -> /mnt/ac-native.log (removable=%d)\n", devs[i], rem);
+                    // Log available block devices for storage diagnostics
+                    {
+                        const char *bdevs[] = {"sda","sdb","sdc","sdd","nvme0n1","nvme1n1","mmcblk0","mmcblk1",NULL};
+                        for (int b = 0; bdevs[b]; b++) {
+                            char bp[48]; snprintf(bp, sizeof(bp), "/sys/block/%s", bdevs[b]);
+                            if (access(bp, F_OK) == 0) {
+                                int brem = is_removable(bdevs[b]);
+                                ac_log("[storage] /dev/%s removable=%d\n", bdevs[b], brem);
+                            }
+                        }
+                    }
                     // Dump init debug lines to USB from /tmp/ac-init.log (written by init)
                     // and also try kmsg as backup
                     {
@@ -680,18 +692,23 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...");
 
-    // Prefer current /mnt only when it is removable and contains a kernel.
+    // Detect source layout: monolithic (BOOTX64.EFI is kernel) or
+    // systemd-boot (BOOTX64.EFI is bootloader, kernel at EFI/Linux/*)
+    int systemd_boot_layout = 0;
+
+    // Prefer current /mnt only when it is removable and has a bootable layout.
     if (log_dev[0]) {
         char blk[32] = "";
         get_parent_block(log_dev + 5, blk, sizeof(blk));
         if (blk[0] && is_removable(blk) == 1 &&
-            access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0) {
+            (access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+             access("/mnt/EFI/Linux/vmlinuz-ac-native", F_OK) == 0)) {
             strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
             source_dev[sizeof(source_dev) - 1] = '\0';
         }
     }
 
-    // Fallback: scan removable partitions for BOOTX64.EFI
+    // Fallback: scan removable partitions for bootable layout
     if (!source_dev[0]) {
         const char *src_candidates[] = {
             "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1", NULL
@@ -703,7 +720,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             get_parent_block(src_candidates[i] + 5, blk, sizeof(blk));
             if (!blk[0] || is_removable(blk) != 1) continue;
             if (mount(src_candidates[i], "/tmp/src", "vfat", 0, NULL) != 0) continue;
-            if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0) {
+            if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+                access("/tmp/src/EFI/Linux/vmlinuz-ac-native", F_OK) == 0) {
                 strncpy(source_dev, src_candidates[i], sizeof(source_dev) - 1);
                 source_dev[sizeof(source_dev) - 1] = '\0';
                 strncpy(source_mount, "/tmp/src", sizeof(source_mount) - 1);
@@ -715,10 +733,30 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         }
     }
 
+    // Detect systemd-boot layout (separate kernel + initramfs + loader config)
+    {
+        char sbl_check[128];
+        snprintf(sbl_check, sizeof(sbl_check), "%s/EFI/Linux/vmlinuz-ac-native", source_mount);
+        if (access(sbl_check, F_OK) == 0) {
+            systemd_boot_layout = 1;
+            ac_log("[install] Detected systemd-boot layout\n");
+        }
+    }
+
     snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
-    if (!source_dev[0] || access(kernel_src, F_OK) != 0) {
+    if (!source_dev[0] || (access(kernel_src, F_OK) != 0 && !systemd_boot_layout)) {
         ac_log("[install] No removable install source with kernel found\n");
+        // Log available block devices for diagnostics
+        ac_log("[install] Block devices:\n");
+        const char *scan[] = {"sda","sdb","sdc","sdd","nvme0n1","nvme1n1","mmcblk0",NULL};
+        for (int i = 0; scan[i]; i++) {
+            char dp[32]; snprintf(dp, sizeof(dp), "/sys/block/%s", scan[i]);
+            if (access(dp, F_OK) == 0) {
+                int rem = is_removable(scan[i]);
+                ac_log("[install]   /dev/%s removable=%d\n", scan[i], rem);
+            }
+        }
         if (source_mounted_tmp) umount("/tmp/src");
         return 0;
     }
@@ -845,9 +883,43 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     ac_log("[install] repartitioned OK, retrying copy\n");
                 }
             }
-            // Copy kernel
-            long sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
-            ac_log("[install] copy result: %ld bytes\n", sz);
+            // Copy kernel (and initramfs/loader for systemd-boot layout)
+            long sz = 0;
+            if (systemd_boot_layout) {
+                // systemd-boot: copy bootloader, kernel, initramfs, and loader config
+                char src[256], dst[256];
+
+                // Copy bootloader as BOOTX64.EFI
+                snprintf(src, sizeof(src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
+                sz = copy_file(src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+                ac_log("[install] bootloader: %ld bytes\n", sz);
+
+                // Copy kernel
+                mkdir("/tmp/hd/EFI/Linux", 0755);
+                snprintf(src, sizeof(src), "%s/EFI/Linux/vmlinuz-ac-native", source_mount);
+                long ksz = copy_file(src, "/tmp/hd/EFI/Linux/vmlinuz-ac-native");
+                ac_log("[install] kernel: %ld bytes\n", ksz);
+
+                // Copy initramfs
+                snprintf(src, sizeof(src), "%s/initramfs.cpio.lz4", source_mount);
+                long isz = copy_file(src, "/tmp/hd/initramfs.cpio.lz4");
+                ac_log("[install] initramfs: %ld bytes\n", isz);
+
+                // Copy loader config
+                mkdir("/tmp/hd/loader", 0755);
+                mkdir("/tmp/hd/loader/entries", 0755);
+                snprintf(src, sizeof(src), "%s/loader/loader.conf", source_mount);
+                copy_file(src, "/tmp/hd/loader/loader.conf");
+                snprintf(src, sizeof(src), "%s/loader/entries/ac-native.conf", source_mount);
+                copy_file(src, "/tmp/hd/loader/entries/ac-native.conf");
+
+                sz = ksz > 0 ? ksz : sz; // use kernel size as success indicator
+            } else {
+                // Monolithic: single BOOTX64.EFI is the kernel
+                sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+                ac_log("[install] copy result: %ld bytes\n", sz);
+            }
+
             if (sz > 0) {
                 // Also overwrite Windows Boot Manager path (ThinkPad BIOS often
                 // boots this first regardless of boot order) — but only if space permits
@@ -855,13 +927,10 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 long free_bytes = 0;
                 if (statvfs("/tmp/hd", &vfs) == 0)
                     free_bytes = (long)vfs.f_bavail * (long)vfs.f_bsize;
-                if (free_bytes > sz + 1048576) {
+                if (!systemd_boot_layout && free_bytes > sz + 1048576) {
                     mkdir("/tmp/hd/EFI/Microsoft", 0755);
                     mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
                     copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
-                } else {
-                    ac_log("[install] Skipping MS boot path: %ldMB free < %ldMB needed\n",
-                            free_bytes / 1048576, (sz + 1048576) / 1048576);
                 }
 
                 // Preserve user handle/piece config on installed disk.
@@ -875,8 +944,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
 
                 sync();
                 installed = 1;
-                ac_log("[install] Installed %ld bytes from %s to %s\n",
-                        sz, source_dev, devpath);
+                ac_log("[install] Installed from %s to %s (systemd-boot=%d)\n",
+                        source_dev, devpath, systemd_boot_layout);
             }
 
             umount("/tmp/hd");

@@ -3814,6 +3814,34 @@ async function halt($, text) {
     flashColor = "pink";
     makeFlash($);
     return true;
+  } else if (slugWithoutColon === "claude" && params[0]?.startsWith("sk-ant-")) {
+    // 🤖 Store Claude API token for device OS builds.
+    const res = await net.userRequest("POST", "/.netlify/functions/claude-token", {
+      token: params[0],
+    });
+    if (res?.saved?.length) {
+      flashColor = [0, 255, 0];
+      notice("CLAUDE TOKEN SAVED");
+    } else {
+      flashColor = [255, 0, 0];
+      notice(res?.message || "FAILED", ["yellow", "red"]);
+    }
+    makeFlash($);
+    return true;
+  } else if (slugWithoutColon === "git" && params[0]?.startsWith("ghp_")) {
+    // 🐙 Store GitHub PAT for device OS builds.
+    const res = await net.userRequest("POST", "/.netlify/functions/claude-token", {
+      githubPat: params[0],
+    });
+    if (res?.saved?.length) {
+      flashColor = [0, 255, 0];
+      notice("GITHUB TOKEN SAVED");
+    } else {
+      flashColor = [255, 0, 0];
+      notice(res?.message || "FAILED", ["yellow", "red"]);
+    }
+    makeFlash($);
+    return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
     const githubUrl = "https://github.com/digitpain/aesthetic.computer";
     if (!openExternalFromIframe(githubUrl)) jump(githubUrl);

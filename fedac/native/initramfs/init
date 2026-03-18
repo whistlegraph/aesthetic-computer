@@ -9,6 +9,8 @@ mount -t devpts devpts /dev/pts -o ptmxmode=0666 2>/dev/null
 mount -t tmpfs tmpfs /dev/shm 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
+mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 
 # Restore baked credentials from initramfs rootfs (before tmpfs hid them)
 # The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
