@@ -4,6 +4,7 @@
 const VOICES = [
   { id: "female", label: "female", desc: "default voice" },
   { id: "male", label: "male", desc: "deeper voice" },
+  { id: "off", label: "off", desc: "disable keystroke voicing" },
 ];
 
 let selected = 0;
