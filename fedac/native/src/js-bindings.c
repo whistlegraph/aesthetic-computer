@@ -1216,6 +1216,17 @@ static JSValue js_speak(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
+// sound.speakCached(key) — instant playback of pre-rendered letter/key
+static JSValue js_speak_cached(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->tts) return JS_UNDEFINED;
+    const char *key = JS_ToCString(ctx, argv[0]);
+    if (!key) return JS_UNDEFINED;
+    tts_speak_cached(current_rt->tts, key);
+    JS_FreeCString(ctx, key);
+    return JS_UNDEFINED;
+}
+
 // ============================================================
 // Event System
 // ============================================================
@@ -1574,7 +1585,7 @@ static const char *js_init_code =
     "    if (now - t._lastCheck < 5000) return t;\n"
     "    t._lastCheck = now;\n"
     "    var h = getLAHour();\n"
-    "    t.dark = (h >= 20 || h < 7);\n"
+    "    t.dark = (t._forceDark !== undefined) ? !!t._forceDark : (h >= 20 || h < 7);\n"
     "    t.hour = h;\n"
     "    // Backgrounds\n"
     "    t.bg     = t.dark ? [20, 20, 25]    : [240, 238, 232];\n"
@@ -1940,6 +1951,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
 
     // TTS
     JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));
+    JS_SetPropertyStr(ctx, sound, "speakCached", JS_NewCFunction(ctx, js_speak_cached, "speakCached", 1));
 
     // sound.paint (visualization helpers)
     JSValue sound_paint = JS_NewObject(ctx);

@@ -1794,6 +1794,7 @@ int main(int argc, char *argv[]) {
         }
         audio_boot_beep(audio);
         tts = tts_init(audio);
+        tts_precache(tts);
 
         // Startup fade animation (black → white, hides kernel text)
         ac_log("[ac-native] pre-fade: display=%p screen=%p w=%d h=%d\n",
