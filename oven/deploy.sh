@@ -153,6 +153,25 @@ fi
 "
 echo "✅ OS cache path ready: $REMOTE_DIR/cache"
 
+# Set up native git repo for auto-polling OTA builds
+echo ""
+echo "📦 Setting up native git repo for OTA auto-builds..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+NATIVE_GIT_DIR=/opt/oven/native-git
+if [ ! -d \$NATIVE_GIT_DIR/.git ]; then
+  echo '  Cloning repo (first time)...'
+  git clone --branch main --single-branch https://github.com/whistlegraph/aesthetic-computer.git \$NATIVE_GIT_DIR
+else
+  echo '  Git repo exists, fetching latest...'
+  cd \$NATIVE_GIT_DIR && git fetch origin main --quiet && git merge origin/main --ff-only --quiet || true
+fi
+if id -u oven >/dev/null 2>&1; then
+  chown -R oven:oven \$NATIVE_GIT_DIR
+fi
+echo '  Done.'
+"
+echo "✅ Native git repo ready"
+
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
   echo ""
