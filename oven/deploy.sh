@@ -81,7 +81,7 @@ echo "✅ fedac sync complete in ${FEDAC_SYNC_TIME}ms"
 echo ""
 echo "🔧 Installing native kernel build tools..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
-  "apt-get install -y -q gcc make flex bison libelf-dev libssl-dev bc cpio lz4 musl-tools python3 pahole 2>&1 | tail -5 || true"
+  "apt-get install -y -q gcc make flex bison libelf-dev libssl-dev bc cpio lz4 musl-tools python3 pahole libdrm-dev libasound2-dev 2>&1 | tail -5 || true"
 echo "✅ Kernel build tools ready"
 
 # Optional vault-managed admin key for /os-base-build endpoints
