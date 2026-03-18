@@ -26,19 +26,47 @@ Sorted by most recently edited/added.
 
 ## Building
 
-```bash
-# Prerequisites: xelatex + bibtex must be installed in the dev container.
-# The Dockerfile includes texlive-xetex and related packages for this.
+### Automatic (Oven Papermill)
 
-# arXiv papers (xelatex + bibtex, 3 passes)
+PDFs are auto-built on the oven server whenever `papers/` changes are pushed to `main`.
+The pipeline polls git every 60s, detects changes, and runs `node papers/cli.mjs publish`
+(xelatex 3-pass for all 17 papers × 4 languages + deploy + index update).
+
+- **Monitor:** `GET oven.aesthetic.computer/papers-build`
+- **Manual trigger:** `POST oven.aesthetic.computer/papers-build` (requires admin key)
+- **SSE logs:** `GET oven.aesthetic.computer/papers-build/:jobId/stream`
+- **Source:** `oven/papers-builder.mjs`, `oven/papers-git-poller.mjs`
+
+### Manual (Local)
+
+```bash
+# Full pipeline: build all → deploy → update index → verify
+node papers/cli.mjs publish
+
+# Build only English PDFs
+node papers/cli.mjs build en
+
+# Build only Danish translations
+node papers/cli.mjs build da
+
+# Build cards format
+node papers/papermill.mjs build --format cards
+
+# Check status of all papers
+node papers/cli.mjs status
+```
+
+### Prerequisites
+
+```bash
+# Dev container / local: xelatex + bibtex must be installed
+# Oven server: texlive installed automatically via oven/deploy.sh
+
+# Individual paper (manual 3-pass build)
 cd papers/arxiv-ac && xelatex ac.tex && bibtex ac && xelatex ac.tex && xelatex ac.tex
-cd papers/arxiv-kidlisp && xelatex kidlisp.tex && bibtex kidlisp && xelatex kidlisp.tex && xelatex kidlisp.tex
-cd papers/arxiv-os && xelatex os.tex && bibtex os && xelatex os.tex && xelatex os.tex
-cd papers/arxiv-api && xelatex api.tex && bibtex api && xelatex api.tex && xelatex api.tex
 
 # JOSS papers (pandoc)
 cd papers/joss-ac && pandoc paper.md --citeproc --pdf-engine=xelatex -o paper.pdf
-cd papers/joss-kidlisp && pandoc paper.md --citeproc --pdf-engine=xelatex -o paper.pdf
 ```
 
 ## Formats
