@@ -12,9 +12,9 @@ import { spawn } from "child_process";
 const MAX_RECENT_JOBS = 10;
 const MAX_LOG_LINES = 2000;
 
-// fedac/native/ lives at /opt/oven/fedac/native/ on the oven droplet.
+// fedac/native/ lives in the native-git repo on oven (polled by native-git-poller).
 const NATIVE_DIR =
-  process.env.NATIVE_DIR || path.resolve(process.cwd(), "fedac/native");
+  process.env.NATIVE_DIR || "/opt/oven/native-git/fedac/native";
 
 // Kernel build cache: symlinked from fedac/native/build so kernel object
 // files survive rsync --delete between commits (5-10x faster warm builds).
