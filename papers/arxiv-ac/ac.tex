@@ -249,9 +249,9 @@ This paper describes the design principles~(\S\ref{sec:principles}), system arch
 \label{sec:principles}
 
 \begin{enumerate}
-  \item \textbf{Instrument, not IDE.} The interface is designed to function like a musical instrument, on which users discover their own memorizable paths through the network of commands and published pieces. As literacy grows through play, users improvise, recombine, and expand their repertoire.
+  \item \textbf{Instrument, not IDE.} The interface is designed to function like a musical instrument, on which users discover their own memorizable paths through the network of commands and published pieces. This echoes Nelson's vision of personal computing as creative liberation~\citep{nelson1974computerlib}: the computer as an expressive medium, not a bureaucratic tool. As literacy grows through play, users improvise, recombine, and expand their repertoire.
   \item \textbf{Mobile-first.} Every interaction targets touch input on phones and tablets. Desktop support follows naturally; the reverse does not hold.
-  \item \textbf{URL-addressable.} Every piece, every parameter combination, every user's work is a URL. Sharing is navigation; navigation is sharing.
+  \item \textbf{URL-addressable.} Every piece, every parameter combination, every user's work is a URL. Sharing is navigation; navigation is sharing. McLuhan's observation that the medium shapes the message~\citep{mcluhan1964understanding} applies literally: the URL \emph{is} the instrument, and its memorability shapes what gets made and shared.
   \item \textbf{Single-file programs.} Following Processing's sketchbook model and Unix's philosophy of small composable programs, each piece is one file---no project structure, no build step, no dependencies.
   \item \textbf{Social by default.} User handles, chat, moods, and profiles are part of the runtime, not bolted-on services.
 \end{enumerate}
@@ -273,7 +273,7 @@ The BIOS (\texttt{bios.mjs}, 20,935 lines) is the runtime orchestrator. It manag
 
 \subsection{Disk API}
 
-The Disk (\texttt{disk.mjs}, 15,879 lines) provides the complete API surface that pieces use. It manages piece loading, lifecycle dispatch, and exposes drawing primitives, audio, input, networking, and UI components. All graphics operations are immediate-mode---there is no retained scene graph.
+The Disk (\texttt{disk.mjs}, 15,879 lines) provides the complete API surface that pieces use. It manages piece loading, lifecycle dispatch, and exposes drawing primitives, audio, input, networking, and UI components. All graphics operations are immediate-mode---there is no retained scene graph. Kittler argued that software obscures the material reality of computation~\citep{kittler1995nosoftware}; AC's immediate-mode model resists this by making the relationship between code and screen explicit---every pixel is drawn every frame, with nothing hidden behind abstraction layers.
 
 \subsection{Module Loader}
 
@@ -506,9 +506,11 @@ The single-file piece model limits program complexity. Pieces cannot import shar
 
 \textbf{Social coding.} Scratch~\citep{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. OpenProcessing~\citep{openprocessing2009} and Glitch~\citep{glitch2017} provide web-based sharing for creative code. AC differs by making social features part of the runtime itself, not a surrounding website.
 
-\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding. Sonic Pi~\citep{aaron2016sonic} targets music education with a live-coding REPL. AC's stage mode (transparent editor over full-screen canvas) enables similar live performance contexts.
+\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding. Strudel~\citep{roos2023strudel} brings TidalCycles-style pattern live coding to the browser with no installation. Sonic Pi~\citep{aaron2016sonic} targets music education with a live-coding REPL. AC's stage mode (transparent editor over full-screen canvas) enables similar live performance contexts.
 
 \textbf{Mobile creative tools.} Most creative coding tools assume desktop use. AC's mobile-first design---touch input, prompt navigation, phone-sized canvases---targets contexts where desktop tools cannot reach.
+
+\textbf{Procedural and generative traditions.} The \emph{10 PRINT} project~\citep{montfort201210print} demonstrated that a single line of BASIC could be the basis for serious study of computational aesthetics. AC's piece model shares this commitment to minimal, complete programs as creative units---each piece is a self-contained generative artifact that can be studied, shared, and varied.
 
 % ============ 12. CONCLUSION ============
 
@@ -516,7 +518,7 @@ The single-file piece model limits program complexity. Pieces cannot import shar
 
 \ac{} demonstrates that a creative computing platform can be organized around a text prompt rather than a graphical IDE, that social infrastructure integrated directly into the runtime produces different engagement patterns than external social layers, and that a mobile-first browser-native approach makes creative coding accessible in contexts desktop tools cannot reach.
 
-The platform's 354 built-in pieces, 265 user-published works, and 16,244 KidLisp programs constitute a growing corpus of creative computing artifacts. The prompt-as-instrument metaphor---where users build fluency through memorization and improvisation rather than menu navigation---offers an alternative model for how people might relate to creative software.
+The platform's 354 built-in pieces, 265 user-published works, and 16,244 KidLisp programs constitute a growing corpus of creative computing artifacts---what \citet{staunaes2021stiegler}, reading Stiegler, would call a collective \emph{idiotext}: an externalized memory woven through technical prostheses, irreducibly shaped by its community of authors. The prompt-as-instrument metaphor---where users build fluency through memorization and improvisation rather than menu navigation---offers an alternative model for how people might relate to creative software.
 
 AC is open source under the ISC license at \url{https://github.com/digitpain/aesthetic.computer}.
 

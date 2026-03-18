@@ -1,4 +1,4 @@
-\begin{thebibliography}{7}
+\begin{thebibliography}{12}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -19,6 +19,17 @@ Matthias Felleisen, Robert~Bruce Findler, Matthew Flatt, and Shriram
 \newblock Technical report, PLT Inc., 2018.
 \newblock URL \url{https://racket-lang.org}.
 
+\bibitem[Fogus and Houser(2011)]{fogus2011clojure}
+Michael Fogus and Chris Houser.
+\newblock \emph{The Joy of Clojure}.
+\newblock Manning Publications, 2011.
+\newblock ISBN 978-1-935182-64-1.
+
+\bibitem[Friedman and Felleisen(1996)]{friedman1996little}
+Daniel~P. Friedman and Matthias Felleisen.
+\newblock \emph{The Little Schemer}.
+\newblock MIT Press, 4th edition, 1996.
+
 \bibitem[Griffiths(2007)]{fluxus2007}
 Dave Griffiths.
 \newblock Fluxus: A rapid prototyping tool for live coding audio visual
@@ -29,6 +40,13 @@ Dave Griffiths.
 Olivia Jack.
 \newblock Hydra: Live coding networked visuals, 2019.
 \newblock URL \url{https://hydra.ojack.xyz}.
+
+\bibitem[McCarthy(1960)]{mccarthy1960recursive}
+John McCarthy.
+\newblock Recursive functions of symbolic expressions and their computation by
+  machine, part i.
+\newblock \emph{Communications of the ACM}, 3\penalty0 (4):\penalty0 184--195,
+  1960.
 
 \bibitem[McCarthy(2015)]{mccarthy2015p5js}
 Lauren McCarthy.
@@ -51,5 +69,17 @@ Mitchel Resnick, John Maloney, Andr{\'e}s Monroy-Hern{\'a}ndez, Natalie Rusk,
 \newblock Scratch: Programming for all.
 \newblock \emph{Communications of the ACM}, 52\penalty0 (11):\penalty0 60--67,
   2009.
+
+\bibitem[Roos and McLean(2023)]{roos2023strudel}
+Felix Roos and Alex McLean.
+\newblock Strudel: Live coding patterns on the web.
+\newblock In \emph{Proceedings of the International Conference on Live Coding
+  (ICLC)}, 2023.
+
+\bibitem[van Engelen(2022)]{vanengelen2022tinylisp}
+Robert~A. van Engelen.
+\newblock Lisp in 99 lines of c and how to write one yourself, 2022.
+\newblock URL \url{https://github.com/Robert-van-Engelen/tinylisp}.
+\newblock Updated 2025.
 
 \end{thebibliography}
