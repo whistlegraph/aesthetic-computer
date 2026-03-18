@@ -4,12 +4,10 @@
 // Download mirrors — add new entries to expand coverage.
 // Each mirror must host /os-releases, /os-image, and /ws endpoints.
 const MIRRORS = [
-  { id: "nyc", label: "NYC (default)", oven: "https://oven.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso" },
-  // Future mirrors:
-  // { id: "eu",  label: "EU",  oven: "https://oven-eu.aesthetic.computer",  ws: "wss://oven-eu.aesthetic.computer/ws",  iso: "..." },
-  // { id: "ru",  label: "Russia", oven: "https://oven-ru.aesthetic.computer", ws: "wss://oven-ru.aesthetic.computer/ws", iso: "..." },
+  { id: "nyc", label: "NYC (direct)", oven: "https://oven.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso" },
+  { id: "edge", label: "Edge (global CDN)", oven: "https://oven-edge.aesthetic-computer.workers.dev", ws: "wss://oven.aesthetic.computer/ws", iso: "https://oven-edge.aesthetic-computer.workers.dev/os-template-iso" },
 ];
-let mirrorIdx = 0;
+let mirrorIdx = 1; // Default to edge CDN
 function mirror() { return MIRRORS[mirrorIdx]; }
 function OVEN_BASE() { return mirror().oven; }
 function RELEASES_URL() { return OVEN_BASE() + "/os-releases"; }
