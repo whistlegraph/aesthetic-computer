@@ -1216,6 +1216,19 @@ static JSValue js_speak(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return JS_UNDEFINED;
 }
 
+// sound.speakVoice(text, male) — speak with voice selection (0=female, 1=male)
+static JSValue js_speak_voice(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2 || !current_rt->tts) return JS_UNDEFINED;
+    const char *text = JS_ToCString(ctx, argv[0]);
+    if (!text) return JS_UNDEFINED;
+    int male = 0;
+    JS_ToInt32(ctx, &male, argv[1]);
+    tts_speak_voice(current_rt->tts, text, male);
+    JS_FreeCString(ctx, text);
+    return JS_UNDEFINED;
+}
+
 // sound.speakCached(key) — instant playback of pre-rendered letter/key
 static JSValue js_speak_cached(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1951,6 +1964,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
 
     // TTS
     JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));
+    JS_SetPropertyStr(ctx, sound, "speakVoice", JS_NewCFunction(ctx, js_speak_voice, "speakVoice", 2));
     JS_SetPropertyStr(ctx, sound, "speakCached", JS_NewCFunction(ctx, js_speak_cached, "speakCached", 1));
 
     // sound.paint (visualization helpers)
