@@ -2904,6 +2904,28 @@ int main(int argc, char *argv[]) {
                     .flags = (uint8_t)((input->pointer_x || input->pointer_y ? 2 : 0)),
                 };
                 perf_record(&pr);
+
+                // Write frame marker to ftrace ring buffer for BPF correlation.
+                // Only active when /tmp/.trace-active exists (zero cost otherwise).
+                {
+                    static int trace_marker_fd = -2; // -2 = unchecked
+                    if (trace_marker_fd == -2) {
+                        struct stat _tst;
+                        if (stat("/tmp/.trace-active", &_tst) == 0)
+                            trace_marker_fd = open("/sys/kernel/tracing/trace_marker",
+                                                   O_WRONLY | O_CLOEXEC);
+                        else
+                            trace_marker_fd = -1;
+                    }
+                    if (trace_marker_fd >= 0) {
+                        char _tbuf[64];
+                        int _tlen = snprintf(_tbuf, sizeof(_tbuf),
+                            "frame:%u total:%u\n",
+                            (uint32_t)main_frame, pr.total_us);
+                        (void)write(trace_marker_fd, _tbuf, _tlen);
+                    }
+                }
+
                 // Flush chunk to disk every 30 seconds (fsync'd, crash-safe)
                 if (main_frame - perf_flush_frame >= PERF_CHUNK_FRAMES) {
                     perf_flush();
