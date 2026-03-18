@@ -14,6 +14,12 @@ void tts_speak(ACTts *tts, const char *text);
 // Speak with voice selection (male=0 for female/default, male=1 for male)
 void tts_speak_voice(ACTts *tts, const char *text, int male);
 
+// Speak a single cached letter/word instantly (pre-rendered at init)
+void tts_speak_cached(ACTts *tts, const char *key);
+
+// Pre-cache common single-character utterances (called at init)
+void tts_precache(ACTts *tts);
+
 // Check if currently speaking
 int tts_is_speaking(ACTts *tts);
 

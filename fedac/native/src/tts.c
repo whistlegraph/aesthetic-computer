@@ -17,6 +17,12 @@ cst_voice *register_cmu_us_kal(void);  // male
 
 #define TTS_QUEUE_SIZE 16
 #define TTS_MAX_TEXT 256
+#define TTS_CACHE_SLOTS 128  // ASCII range for single-char cache
+
+typedef struct {
+    float *samples;   // resampled PCM at output rate
+    int num_samples;
+} TtsCacheEntry;
 
 struct ACTts {
     ACAudio *audio;
@@ -34,6 +40,11 @@ struct ACTts {
     int queue_head;
     int queue_tail;
     int queue_count;
+
+    // Pre-rendered single-character cache for instant playback
+    TtsCacheEntry cache[TTS_CACHE_SLOTS];
+    // Named cache for special keys
+    TtsCacheEntry cache_space, cache_back, cache_enter, cache_clear, cache_tab;
 };
 
 static void *tts_thread_fn(void *arg) {
@@ -163,6 +174,92 @@ void tts_speak_voice(ACTts *tts, const char *text, int male) {
         pthread_cond_signal(&tts->cond);
     }
     pthread_mutex_unlock(&tts->lock);
+}
+
+// Pre-render a single utterance into a cache entry
+static void tts_cache_render(ACTts *tts, TtsCacheEntry *entry, const char *text) {
+    cst_wave *wave = flite_text_to_wave(text, tts->voice);
+    if (!wave) { entry->samples = NULL; entry->num_samples = 0; return; }
+
+    int src_rate = wave->sample_rate;
+    int dst_rate = (int)tts->audio->actual_rate;
+    if (dst_rate <= 0) dst_rate = AUDIO_SAMPLE_RATE;
+    double ratio = (double)dst_rate / (double)src_rate;
+    int out_n = (int)(wave->num_samples * ratio);
+
+    entry->samples = malloc(out_n * sizeof(float));
+    entry->num_samples = out_n;
+
+    for (int i = 0; i < out_n; i++) {
+        double src_pos = i / ratio;
+        int idx = (int)src_pos;
+        double frac = src_pos - idx;
+        float s0 = (idx < wave->num_samples) ? wave->samples[idx] / 32768.0f : 0.0f;
+        float s1 = (idx + 1 < wave->num_samples) ? wave->samples[idx + 1] / 32768.0f : 0.0f;
+        entry->samples[i] = s0 + (s1 - s0) * (float)frac;
+    }
+    delete_wave(wave);
+}
+
+void tts_precache(ACTts *tts) {
+    if (!tts) return;
+    fprintf(stderr, "[tts] Pre-caching letters...\n");
+    // Cache printable ASCII a-z, 0-9
+    for (int c = 'a'; c <= 'z'; c++) {
+        char s[2] = { (char)c, 0 };
+        tts_cache_render(tts, &tts->cache[c], s);
+    }
+    for (int c = '0'; c <= '9'; c++) {
+        char s[2] = { (char)c, 0 };
+        tts_cache_render(tts, &tts->cache[c], s);
+    }
+    // Cache special keys
+    tts_cache_render(tts, &tts->cache_space, "space");
+    tts_cache_render(tts, &tts->cache_back, "back");
+    tts_cache_render(tts, &tts->cache_enter, "enter");
+    tts_cache_render(tts, &tts->cache_clear, "clear");
+    tts_cache_render(tts, &tts->cache_tab, "tab");
+    fprintf(stderr, "[tts] Pre-cache done (36 letters + 5 keys)\n");
+}
+
+void tts_speak_cached(ACTts *tts, const char *key) {
+    if (!tts || !key || !key[0]) return;
+
+    TtsCacheEntry *entry = NULL;
+
+    // Single printable char
+    if (key[1] == 0 && (unsigned char)key[0] < TTS_CACHE_SLOTS) {
+        char c = key[0];
+        // Map uppercase to lowercase cache
+        if (c >= 'A' && c <= 'Z') c = c - 'A' + 'a';
+        entry = &tts->cache[(unsigned char)c];
+    }
+    // Named special keys
+    else if (strcmp(key, "space") == 0) entry = &tts->cache_space;
+    else if (strcmp(key, "back") == 0) entry = &tts->cache_back;
+    else if (strcmp(key, "enter") == 0) entry = &tts->cache_enter;
+    else if (strcmp(key, "clear") == 0) entry = &tts->cache_clear;
+    else if (strcmp(key, "tab") == 0) entry = &tts->cache_tab;
+
+    if (!entry || !entry->samples || entry->num_samples == 0) {
+        // Fallback to live synthesis
+        tts_speak(tts, key);
+        return;
+    }
+
+    // Write cached PCM directly to ring buffer (instant, no synthesis)
+    int buf_size = tts->audio->tts_buf_size;
+    float *buf = tts->audio->tts_buf;
+
+    // Cancel any currently playing TTS by resetting write position
+    tts->audio->tts_write_pos = tts->audio->tts_read_pos;
+
+    for (int i = 0; i < entry->num_samples; i++) {
+        int next_wp = (tts->audio->tts_write_pos + 1) % buf_size;
+        if (next_wp == tts->audio->tts_read_pos) break; // buffer full, skip rest
+        buf[tts->audio->tts_write_pos] = entry->samples[i];
+        tts->audio->tts_write_pos = next_wp;
+    }
 }
 
 int tts_is_speaking(ACTts *tts) {
