@@ -269,6 +269,12 @@ function execute(cmd, system) {
     system?.poweroff?.();
     return;
   }
+  if (lower === "login") {
+    message = "~> login";
+    messageFrame = 0;
+    system?.jump?.("login");
+    return;
+  }
   if (lower === "clear") {
     history = [];
     message = "";
