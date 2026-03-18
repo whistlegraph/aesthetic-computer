@@ -2051,8 +2051,11 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
         }
         JS_SetPropertyStr(ctx, obj, "networks", networks);
     } else {
+        extern int wifi_disabled;
         JS_SetPropertyStr(ctx, obj, "state", JS_NewInt32(ctx, WIFI_STATE_OFF));
-        JS_SetPropertyStr(ctx, obj, "status", JS_NewString(ctx, "no wifi"));
+        JS_SetPropertyStr(ctx, obj, "status",
+            JS_NewString(ctx, wifi_disabled ? "disabled" : "no wifi"));
+        JS_SetPropertyStr(ctx, obj, "disabled", JS_NewBool(ctx, wifi_disabled));
         JS_SetPropertyStr(ctx, obj, "connected", JS_FALSE);
         JS_SetPropertyStr(ctx, obj, "networks", JS_NewArray(ctx));
     }
@@ -3373,6 +3376,12 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
     char needle[256];
     snprintf(needle, sizeof(needle), "\"%s\"", key);
 
+    // Detect if value is a bare literal (boolean/number) — don't quote it
+    int is_bare = (strcmp(val, "true") == 0 || strcmp(val, "false") == 0 ||
+                   (val[0] >= '0' && val[0] <= '9') || val[0] == '-');
+    const char *qL = is_bare ? "" : "\"";
+    const char *qR = is_bare ? "" : "\"";
+
     char *existing = strstr(buf, needle);
     if (existing && buf[0] == '{') {
         // Key exists — find value start (after ":") and end (next , or })
@@ -3390,8 +3399,8 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
             }
             if (vend) {
                 int prefix_len = (int)(vstart - buf);
-                snprintf(out, sizeof(out), "%.*s\"%s\"%s",
-                         prefix_len, buf, val, vend);
+                snprintf(out, sizeof(out), "%.*s%s%s%s%s",
+                         prefix_len, buf, qL, val, qR, vend);
             }
         }
     } else if (buf[0] == '{') {
@@ -3406,12 +3415,12 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
                     has_content = 1; break;
                 }
             }
-            snprintf(out, sizeof(out), "%.*s%s\"%s\":\"%s\"}",
-                     prefix_len, buf, has_content ? "," : "", key, val);
+            snprintf(out, sizeof(out), "%.*s%s\"%s\":%s%s%s}",
+                     prefix_len, buf, has_content ? "," : "", key, qL, val, qR);
         }
     } else {
         // No valid JSON — create new
-        snprintf(out, sizeof(out), "{\"%s\":\"%s\"}", key, val);
+        snprintf(out, sizeof(out), "{\"%s\":%s%s%s}", key, qL, val, qR);
     }
 
     f = fopen("/mnt/config.json", "w");
