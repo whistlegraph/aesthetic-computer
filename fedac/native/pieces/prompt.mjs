@@ -50,6 +50,9 @@ const PIECE_DESC = {
   "f3ral3xp":      "feral expression",
   "3x3":           "ortholinear pad",
   "theme":         "prompt theme",
+  "dark":          "dark mode",
+  "light":         "light mode",
+  "auto":          "auto dark/light",
   "error":         "error screen",
   "404":           "not found",
 };
@@ -110,6 +113,9 @@ function boot({ system }) {
     if (raw) {
       const cfg = JSON.parse(raw);
       if (cfg.theme) __theme.apply(cfg.theme);
+      if (cfg.darkMode === "dark") __theme._forceDark = true;
+      else if (cfg.darkMode === "light") __theme._forceDark = false;
+      if (cfg.darkMode) { __theme._lastCheck = 0; __theme.update(); }
     }
   } catch (_) {}
   // Discover all available pieces dynamically
@@ -138,19 +144,19 @@ function act({ event: e, system, sound }) {
     cursorFrame = 0;
     cursorVisible = true;
 
-    // Voice every keystroke
+    // Voice every keystroke (pre-cached for instant playback)
     if (key.length === 1) {
-      sound?.speak?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
+      sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
     } else if (key === "space") {
-      sound?.speak?.("space");
+      sound?.speakCached?.("space");
     } else if (key === "backspace") {
-      sound?.speak?.("back");
+      sound?.speakCached?.("back");
     } else if (key === "enter" || key === "return") {
-      sound?.speak?.("enter");
+      sound?.speakCached?.("enter");
     } else if (key === "escape") {
-      sound?.speak?.("clear");
+      sound?.speakCached?.("clear");
     } else if (key === "tab") {
-      sound?.speak?.("tab");
+      sound?.speakCached?.("tab");
     }
 
     if (key === "tab") {
@@ -307,6 +313,35 @@ function execute(cmd, system) {
     delete cfg.sub;
     system?.writeFile?.("/mnt/config.json", JSON.stringify(cfg, null, 2));
     message = had ? "logged out (was @" + had + ")" : "already logged out";
+    messageFrame = 0;
+    return;
+  }
+
+  // Dark/light mode override
+  if (lower === "dark") {
+    __theme._forceDark = true;
+    __theme._lastCheck = 0;
+    __theme.update();
+    system?.saveConfig?.("darkMode", "dark");
+    message = "dark mode";
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "light") {
+    __theme._forceDark = false;
+    __theme._lastCheck = 0;
+    __theme.update();
+    system?.saveConfig?.("darkMode", "light");
+    message = "light mode";
+    messageFrame = 0;
+    return;
+  }
+  if (lower === "auto") {
+    __theme._forceDark = undefined;
+    __theme._lastCheck = 0;
+    __theme.update();
+    system?.saveConfig?.("darkMode", "auto");
+    message = "auto dark/light (LA time)";
     messageFrame = 0;
     return;
   }
