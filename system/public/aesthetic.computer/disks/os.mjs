@@ -1,11 +1,21 @@
 // os, 2026.03.12
 // FedAC OS — build list with commit messages; download your personalized copy.
 
-const OVEN_BASE = "https://oven.aesthetic.computer";
-const RELEASES_URL = OVEN_BASE + "/os-releases";
-const OVEN_IMAGE_URL = OVEN_BASE + "/os-image";
-const OVEN_WS_URL = "wss://oven.aesthetic.computer/ws";
-const TEMPLATE_ISO_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso";
+// Download mirrors — add new entries to expand coverage.
+// Each mirror must host /os-releases, /os-image, and /ws endpoints.
+const MIRRORS = [
+  { id: "nyc", label: "NYC (default)", oven: "https://oven.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso" },
+  // Future mirrors:
+  // { id: "eu",  label: "EU",  oven: "https://oven-eu.aesthetic.computer",  ws: "wss://oven-eu.aesthetic.computer/ws",  iso: "..." },
+  // { id: "ru",  label: "Russia", oven: "https://oven-ru.aesthetic.computer", ws: "wss://oven-ru.aesthetic.computer/ws", iso: "..." },
+];
+let mirrorIdx = 0;
+function mirror() { return MIRRORS[mirrorIdx]; }
+function OVEN_BASE() { return mirror().oven; }
+function RELEASES_URL() { return OVEN_BASE() + "/os-releases"; }
+function OVEN_IMAGE_URL() { return OVEN_BASE() + "/os-image"; }
+function OVEN_WS_URL() { return mirror().ws; }
+function TEMPLATE_ISO_URL() { return mirror().iso; }
 const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const CONFIG_PAD = 4096;
 const BOOT_PIECES = ["notepat", "prompt", "chat", "laer-klokken"];
@@ -23,6 +33,7 @@ let downloadStatus = "";
 let downloadBtn = null;
 let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
+let mirrorBtn = null; // "mirror: NYC" selector
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
@@ -120,7 +131,7 @@ const scheme = {
 let uiRef = null; // store ui for later button creation
 
 function fetchReleases(ui, needsPaint) {
-  fetch(RELEASES_URL)
+  fetch(RELEASES_URL())
     .then((r) => r.json())
     .then((data) => {
       releases = data;
@@ -150,7 +161,7 @@ function connectOvenWs(ui, needsPaint) {
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
 
   try {
-    ovenWs = new WebSocket(OVEN_WS_URL);
+    ovenWs = new WebSocket(OVEN_WS_URL());
   } catch (err) {
     console.error("[os] WS connect error:", err);
     wsReconnectTimer = setTimeout(() => connectOvenWs(ui, needsPaint), 10000);
@@ -234,6 +245,11 @@ function makeButtons(ui) {
   updateDownloadBtn(ui);
   updateBootBtn(ui);
   updateWifiBtn(ui);
+  updateMirrorBtn(ui);
+}
+
+function updateMirrorBtn(ui) {
+  mirrorBtn = new ui.TextButton("mirror: " + mirror().label, { x: 6, y: 0 });
 }
 
 function updateDownloadBtn(ui) {
@@ -395,6 +411,19 @@ function paint($) {
         [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 230],
       );
       y += wifiBtn.height + 4;
+    }
+
+    // Mirror selector
+    if (mirrorBtn && MIRRORS.length > 1) {
+      mirrorBtn.reposition({ x: pad, y });
+      mirrorBtn.paint(
+        $,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 200],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        undefined,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 230],
+      );
+      y += mirrorBtn.height + 4;
     }
 
     // Download button
@@ -568,6 +597,17 @@ function act({ event: e, needsPaint, download }) {
     });
   }
 
+  // Mirror selector
+  if (mirrorBtn && MIRRORS.length > 1) {
+    mirrorBtn.btn.act(e, {
+      push: () => {
+        mirrorIdx = (mirrorIdx + 1) % MIRRORS.length;
+        if (uiRef) updateMirrorBtn(uiRef);
+        needsPaint();
+      },
+    });
+  }
+
   // Setup tokens button: show hint text
   if (setupBtn && token) {
     setupBtn.btn.act(e, {
@@ -602,7 +642,7 @@ async function startDownload(needsPaint) {
   needsPaint();
 
   try {
-    const url = OVEN_IMAGE_URL + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0");
+    const url = OVEN_IMAGE_URL() + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0");
     console.log("[os] Fetching:", url);
     const res = await fetch(url, {
       headers: { Authorization: "Bearer " + token },
@@ -674,7 +714,7 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 
   try {
-    const res = await fetch(TEMPLATE_ISO_URL);
+    const res = await fetch(TEMPLATE_ISO_URL());
     if (!res.ok) throw new Error("Download failed: " + res.status);
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
