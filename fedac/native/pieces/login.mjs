@@ -1,49 +1,57 @@
 // login.mjs — AC Native identity switching piece
-// Opens browser for Auth0 login, then rewrites config.json and reboots.
+// Usage: `login ABCD12` (device key from aesthetic.computer `device-key` command)
 //
 // Flow:
-// 1. POST to device-pair API → get pairing code
-// 2. Open browser to device-pair-login page (Auth0 flow)
-// 3. Browser closes → poll device-pair API for claimed credentials
-// 4. Write new config.json → reboot
+// 1. User generates a device key on their phone (web prompt: `device-key`)
+// 2. On native device, types `login ABCD12`
+// 3. Device polls device-pair API with that code
+// 4. Gets back handle + tokens, writes config.json, reboots
 
 const API_BASE = "https://aesthetic.computer/.netlify/functions/device-pair";
-let state = "init"; // init | requesting | waiting | browsing | polling | success | error
+let state = "init"; // init | polling | success | error
 let pairCode = "";
 let message = "";
 let frame = 0;
 let pollAttempts = 0;
 let newHandle = "";
+let successFrame = 0;
 
-function boot({ system }) {
-  state = "requesting";
-  message = "requesting pairing code...";
-  // POST to create a device pair code
-  const body = JSON.stringify({ action: "create" });
-  const headers = JSON.stringify({ "Content-Type": "application/json" });
-  system?.fetchPost?.(API_BASE, body, headers);
+function boot({ system, params, colon }) {
+  // Get code from params: `login ABCD12` or `login:ABCD12`
+  const code = params?.[0] || colon?.[0] || "";
+  if (!code || code.length < 4) {
+    state = "error";
+    message = "usage: login CODE";
+    return;
+  }
+  pairCode = code.toUpperCase();
+  state = "polling";
+  pollAttempts = 0;
+  system?.fetch?.(API_BASE + "?code=" + pairCode);
 }
 
-function act({ event: e, system }) {
+function act({ event: e, system, params, colon }) {
   if (!e.is("keyboard:down")) return;
 
   if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
-    if (state !== "browsing") {
+    if (state !== "success") {
       system?.jump?.("prompt");
     }
   }
 
   // Retry on error
   if (state === "error" && (e.is("keyboard:down:enter") || e.is("keyboard:down:return"))) {
-    state = "requesting";
-    message = "requesting pairing code...";
-    const body = JSON.stringify({ action: "create" });
-    const headers = JSON.stringify({ "Content-Type": "application/json" });
-    system?.fetchPost?.(API_BASE, body, headers);
+    if (pairCode) {
+      state = "polling";
+      pollAttempts = 0;
+      system?.fetch?.(API_BASE + "?code=" + pairCode);
+    } else {
+      system?.jump?.("prompt");
+    }
   }
 }
 
-function paint({ wipe, ink, write, screen, system }) {
+function paint({ wipe, ink, write, screen, system, sound }) {
   frame++;
   const T = __theme.update();
   const w = screen.width, h = screen.height;
@@ -69,60 +77,13 @@ function paint({ wipe, ink, write, screen, system }) {
 
   const stateY = 52;
 
-  // Step 1: Wait for pair code from API
-  if (state === "requesting") {
-    const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
-    ink(200, 180, 100);
-    write("requesting code" + dots, { x: pad, y: stateY, size: 1, font });
-
-    // Poll for fetch result
-    if (system?.fetchResult !== undefined && system?.fetchResult !== null) {
-      try {
-        const data = JSON.parse(system.fetchResult);
-        if (data.code) {
-          pairCode = data.code;
-          state = "waiting";
-          message = "";
-        } else {
-          state = "error";
-          message = data.message || "failed to get code";
-        }
-      } catch (err) {
-        state = "error";
-        message = "bad response";
-      }
-    }
-    if (system?.fetchError) {
-      state = "error";
-      message = "network error";
-    }
-  }
-
-  // Step 2: Got code — open browser
-  if (state === "waiting") {
-    ink(255, 255, 255);
-    write("code: " + pairCode, { x: pad, y: stateY, size: 2, font: "matrix" });
-    ink(120, 200, 140);
-    write("opening browser...", { x: pad, y: stateY + 24, size: 1, font });
-
-    // Open browser (this blocks until Firefox exits)
-    state = "browsing";
-    const url = "https://aesthetic.computer/api/device-pair-login?code=" + pairCode;
-    system?.openBrowser?.(url);
-    // Browser closed — start polling
-    state = "polling";
-    pollAttempts = 0;
-    message = "checking login status...";
-    system?.fetch?.(API_BASE + "?code=" + pairCode);
-  }
-
-  // Step 3: Poll for claimed credentials
+  // Poll for claimed credentials
   if (state === "polling") {
     const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
     ink(120, 180, 255);
-    write("checking" + dots, { x: pad, y: stateY, size: 1, font });
-    ink(T.fgMute);
-    write("code: " + pairCode, { x: pad, y: stateY + 14, size: 1, font });
+    write("checking key" + dots, { x: pad, y: stateY, size: 1, font });
+    ink(255, 255, 255);
+    write(pairCode, { x: pad, y: stateY + 16, size: 2, font: "matrix" });
 
     if (system?.fetchResult !== undefined && system?.fetchResult !== null) {
       try {
@@ -137,65 +98,59 @@ function paint({ wipe, ink, write, screen, system }) {
             email: data.email || "",
             token: data.token || "",
           };
+          if (data.claudeToken) cfg.claudeToken = data.claudeToken;
+          if (data.githubPat) cfg.githubPat = data.githubPat;
+
           // Write main config
           system?.writeFile?.("/mnt/config.json", JSON.stringify(cfg));
 
-          // Write device tokens if present
-          if (data.claudeToken) {
-            system?.writeFile?.("/claude-token", data.claudeToken);
-            system?.saveConfig?.("claudeToken", data.claudeToken);
-          }
-          if (data.githubPat) {
-            system?.writeFile?.("/github-pat", data.githubPat);
-            system?.saveConfig?.("githubPat", data.githubPat);
-          }
+          // Write device tokens
+          if (data.claudeToken) system?.writeFile?.("/claude-token", data.claudeToken);
+          if (data.githubPat) system?.writeFile?.("/github-pat", data.githubPat);
 
           state = "success";
-          message = "identity switched to @" + data.handle;
+          successFrame = frame;
+          sound?.synth?.({ type: "sine", tone: 660, duration: 0.15, volume: 0.12, attack: 0.005, decay: 0.1 });
         } else if (data.status === "pending") {
-          // Not yet — retry
+          // Not claimed yet — keep polling
           pollAttempts++;
-          if (pollAttempts < 30) {
-            // Poll again (paint runs at ~60fps, so delay via frame count)
-            if (frame % 120 === 0) {
-              system?.fetch?.(API_BASE + "?code=" + pairCode);
-            }
-          } else {
+          if (pollAttempts >= 60) {
             state = "error";
-            message = "login timed out";
+            message = "key expired — generate a new one";
           }
+        } else if (data.message) {
+          state = "error";
+          message = data.message;
         } else {
           state = "error";
-          message = data.message || "code expired";
+          message = "key not found or expired";
         }
       } catch (err) {
         state = "error";
-        message = "bad response";
+        message = "bad response from server";
       }
     }
     if (system?.fetchError) {
-      pollAttempts++;
-      if (pollAttempts < 10) {
-        // Retry
-        if (frame % 120 === 0) {
-          system?.fetch?.(API_BASE + "?code=" + pairCode);
-        }
-      } else {
-        state = "error";
-        message = "network error during poll";
-      }
+      state = "error";
+      message = "network error — check wifi";
+    }
+
+    // Re-poll every ~2 seconds (120 frames at 60fps) if still pending
+    if (state === "polling" && frame % 120 === 0 && pollAttempts > 0) {
+      system?.fetch?.(API_BASE + "?code=" + pairCode);
     }
   }
 
-  // Step 4: Success — reboot countdown
+  // Success — reboot
   if (state === "success") {
     ink(80, 255, 120);
     write("logged in as @" + newHandle, { x: pad, y: stateY, size: 2, font: "matrix" });
-    ink(200, 200, 100);
-    write("rebooting...", { x: pad, y: stateY + 24, size: 1, font });
 
-    // Reboot after a brief pause
-    if (frame % 180 === 0) {
+    const elapsed = frame - successFrame;
+    if (elapsed < 120) {
+      ink(200, 200, 100);
+      write("rebooting in " + Math.ceil((120 - elapsed) / 60) + "...", { x: pad, y: stateY + 24, size: 1, font });
+    } else {
       system?.reboot?.();
     }
   }
@@ -203,13 +158,21 @@ function paint({ wipe, ink, write, screen, system }) {
   // Error state
   if (state === "error") {
     ink(255, 80, 80);
-    write("error: " + message, { x: pad, y: stateY, size: 1, font });
+    write("error", { x: pad, y: stateY, size: 1, font });
+    ink(200, 120, 100);
+    write(message, { x: pad, y: stateY + 14, size: 1, font });
     ink(T.fgMute);
-    write("enter: retry  esc: back", { x: pad, y: stateY + 14, size: 1, font });
+    if (pairCode) {
+      write("enter: retry  esc: back", { x: pad, y: stateY + 30, size: 1, font });
+    } else {
+      write("on your phone, type: device-key", { x: pad, y: stateY + 30, size: 1, font });
+      write("then here: login CODE", { x: pad, y: stateY + 44, size: 1, font });
+      write("esc: back", { x: pad, y: stateY + 60, size: 1, font });
+    }
   }
 
   // Bottom hint
-  if (state !== "browsing" && state !== "success") {
+  if (state !== "success") {
     ink(T.fgMute, T.fgMute + 10, T.fgMute);
     write("esc: back", { x: pad, y: h - 12, size: 1, font });
   }
