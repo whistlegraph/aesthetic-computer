@@ -57,6 +57,12 @@ build_binary() {
         err "Binary does NOT contain current git hash ${EXPECTED_HASH} — stale build!"
         exit 1
     fi
+
+    # Build BPF trace tools (ftrace fallback — no clang/libbpf required)
+    if [ -f "${SCRIPT_DIR}/bpf/Makefile" ]; then
+        log "Building BPF trace tools..."
+        make -C "${SCRIPT_DIR}/bpf" CC="${CC_USE}" 2>&1 | tail -3 || true
+    fi
 }
 
 build_initramfs() {

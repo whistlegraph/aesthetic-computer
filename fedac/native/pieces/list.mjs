@@ -18,6 +18,7 @@ const TOOLS = [
   { name: "machine",  desc: "hardware info" },
   { name: "geo",      desc: "IP geolocation" },
   { name: "chat",     desc: "live chat room" },
+  { name: "print",    desc: "printer / thermal" },
   { name: "list",     desc: "this screen" },
 ];
 

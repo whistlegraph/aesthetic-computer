@@ -3527,6 +3527,124 @@ static JSValue js_list_pieces(JSContext *ctx, JSValueConst this_val, int argc, J
     return arr;
 }
 
+// system.listPrinters() — detect USB printers via /dev/usb/lp* and sysfs
+static JSValue js_list_printers(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    JSValue arr = JS_NewArray(ctx);
+    uint32_t idx = 0;
+
+    // Scan /dev/usb/lp* devices
+    DIR *d = opendir("/dev/usb");
+    if (d) {
+        struct dirent *ent;
+        while ((ent = readdir(d)) != NULL) {
+            if (strncmp(ent->d_name, "lp", 2) != 0) continue;
+            char devpath[64];
+            snprintf(devpath, sizeof(devpath), "/dev/usb/%s", ent->d_name);
+
+            JSValue printer = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, printer, "device", JS_NewString(ctx, devpath));
+            JS_SetPropertyStr(ctx, printer, "id", JS_NewString(ctx, ent->d_name));
+
+            // Try to find printer name via sysfs usbmisc
+            char syspath[256], name[128] = {0}, vendor[128] = {0};
+            snprintf(syspath, sizeof(syspath),
+                     "/sys/class/usbmisc/%s/device/../product", ent->d_name);
+            FILE *fp = fopen(syspath, "r");
+            if (fp) {
+                if (fgets(name, sizeof(name), fp)) {
+                    char *nl = strchr(name, '\n');
+                    if (nl) *nl = 0;
+                }
+                fclose(fp);
+            }
+            snprintf(syspath, sizeof(syspath),
+                     "/sys/class/usbmisc/%s/device/../manufacturer", ent->d_name);
+            fp = fopen(syspath, "r");
+            if (fp) {
+                if (fgets(vendor, sizeof(vendor), fp)) {
+                    char *nl = strchr(vendor, '\n');
+                    if (nl) *nl = 0;
+                }
+                fclose(fp);
+            }
+
+            if (name[0])
+                JS_SetPropertyStr(ctx, printer, "name", JS_NewString(ctx, name));
+            else
+                JS_SetPropertyStr(ctx, printer, "name",
+                                  JS_NewString(ctx, ent->d_name));
+            if (vendor[0])
+                JS_SetPropertyStr(ctx, printer, "vendor",
+                                  JS_NewString(ctx, vendor));
+
+            JS_SetPropertyUint32(ctx, arr, idx++, printer);
+        }
+        closedir(d);
+    }
+    return arr;
+}
+
+// system.printRaw(devicePath, byteArray) — write raw bytes to printer device
+// byteArray is a JS array of integers (0-255)
+static JSValue js_print_raw(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2) return JS_FALSE;
+    const char *devpath = JS_ToCString(ctx, argv[0]);
+    if (!devpath) return JS_FALSE;
+
+    // Validate device path starts with /dev/usb/lp
+    if (strncmp(devpath, "/dev/usb/lp", 11) != 0) {
+        ac_log("[print] rejected non-printer path: %s\n", devpath);
+        JS_FreeCString(ctx, devpath);
+        return JS_FALSE;
+    }
+
+    // Get array length
+    JSValue lenVal = JS_GetPropertyStr(ctx, argv[1], "length");
+    uint32_t len = 0;
+    JS_ToUint32(ctx, &len, lenVal);
+    JS_FreeValue(ctx, lenVal);
+
+    if (len == 0 || len > 65536) {
+        ac_log("[print] invalid data length: %u\n", len);
+        JS_FreeCString(ctx, devpath);
+        return JS_FALSE;
+    }
+
+    // Build byte buffer from JS array
+    uint8_t *buf = malloc(len);
+    if (!buf) {
+        JS_FreeCString(ctx, devpath);
+        return JS_FALSE;
+    }
+    for (uint32_t i = 0; i < len; i++) {
+        JSValue v = JS_GetPropertyUint32(ctx, argv[1], i);
+        int32_t b = 0;
+        JS_ToInt32(ctx, &b, v);
+        JS_FreeValue(ctx, v);
+        buf[i] = (uint8_t)(b & 0xFF);
+    }
+
+    // Open device and write
+    FILE *fp = fopen(devpath, "wb");
+    if (!fp) {
+        ac_log("[print] failed to open %s: %s\n", devpath, strerror(errno));
+        free(buf);
+        JS_FreeCString(ctx, devpath);
+        return JS_FALSE;
+    }
+
+    size_t written = fwrite(buf, 1, len, fp);
+    fflush(fp);
+    fclose(fp);
+    free(buf);
+
+    ac_log("[print] wrote %zu/%u bytes to %s\n", written, len, devpath);
+    JS_FreeCString(ctx, devpath);
+    return written == len ? JS_TRUE : JS_FALSE;
+}
+
 static JSValue js_jump(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -4586,6 +4704,12 @@ static JSValue build_system_obj(JSContext *ctx) {
     // system.listPieces() — scan /pieces/*.mjs and return name array
     JS_SetPropertyStr(ctx, sys, "listPieces",
                       JS_NewCFunction(ctx, js_list_pieces, "listPieces", 0));
+
+    // Printer detection and raw printing
+    JS_SetPropertyStr(ctx, sys, "listPrinters",
+                      JS_NewCFunction(ctx, js_list_printers, "listPrinters", 0));
+    JS_SetPropertyStr(ctx, sys, "printRaw",
+                      JS_NewCFunction(ctx, js_print_raw, "printRaw", 2));
 
     // Volume and brightness control from JS
     JS_SetPropertyStr(ctx, sys, "volumeAdjust",
