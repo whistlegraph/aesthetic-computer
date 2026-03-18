@@ -9,7 +9,8 @@ const ORIGIN = "https://oven.aesthetic.computer";
 // Cache TTL by path pattern (seconds)
 const CACHE_RULES = [
   { match: /\/os-releases/, ttl: 60 },         // 1 min
-  { match: /\/os-image/, ttl: 7200 },           // 2 hours (large binary)
+  { match: /\/os-image/, ttl: 0 },             // NEVER cache (personalized per user)
+  { match: /\/os-template-iso/, ttl: 86400 },  // 24 hours (generic, no creds)
   { match: /\/health/, ttl: 10 },               // 10 sec
   { match: /.*/, ttl: 300 },                    // 5 min default
 ];
@@ -34,6 +35,18 @@ export default {
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
+    }
+
+    // Template ISO — proxy from DO Spaces (cached at edge for 24h)
+    if (url.pathname === "/os-template-iso") {
+      const isoUrl = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso";
+      const isoRes = await fetch(isoUrl, {
+        cf: { cacheTtl: 86400, cacheEverything: true },
+      });
+      const out = new Response(isoRes.body, isoRes);
+      out.headers.set("Access-Control-Allow-Origin", "*");
+      out.headers.set("X-Edge-Pop", request.cf?.colo || "unknown");
+      return out;
     }
 
     const originUrl = ORIGIN + url.pathname + url.search;
