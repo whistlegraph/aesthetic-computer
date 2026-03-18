@@ -544,13 +544,20 @@ static void load_boot_visual_config(void) {
     if (!cfg) cfg = fopen("/default-config.json", "r");
     if (!cfg) return;
 
-    char buf[4096] = {0};
+    char buf[32768] = {0};
     size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
     fclose(cfg);
     buf[n] = '\0';
 
+    // Skip identity block marker line if present ("AC_IDENTITY_BLOCK_V1\n")
+    char *json = buf;
+    if (strncmp(buf, "AC_IDENTITY_BLOCK_V1", 20) == 0) {
+        char *nl = strchr(buf, '\n');
+        if (nl) json = nl + 1;
+    }
+
     char handle[64] = {0};
-    if (parse_config_string(buf, "\"handle\"", handle, sizeof(handle))) {
+    if (parse_config_string(json, "\"handle\"", handle, sizeof(handle))) {
         setenv("AC_HANDLE", handle, 1);
         if ((int)strlen(handle) < (int)sizeof(boot_title) - 20) {
             // Time-of-day greeting based on LA time
@@ -562,11 +569,11 @@ static void load_boot_visual_config(void) {
             snprintf(boot_title, sizeof(boot_title), "%s @%s", greeting, handle);
         }
     }
-    parse_boot_title_colors(buf);
+    parse_boot_title_colors(json);
 
     // Read wifi flag (default: enabled)
     int wifi_val = 1;
-    if (parse_config_bool(buf, "\"wifi\"", &wifi_val)) {
+    if (parse_config_bool(json, "\"wifi\"", &wifi_val)) {
         wifi_disabled = !wifi_val;
         ac_log("[config] wifi: %s\n", wifi_disabled ? "disabled" : "enabled");
     }
@@ -1976,24 +1983,32 @@ int main(int argc, char *argv[]) {
     {
         FILE *cfg = fopen("/mnt/config.json", "r");
         if (cfg) {
-            char buf[4096] = {0};
+            char buf[32768] = {0};
             size_t n = fread(buf, 1, sizeof(buf) - 1, cfg);
             buf[n] = '\0';
             fclose(cfg);
-            parse_config_string(buf, "\"handle\"", rt->handle, sizeof(rt->handle));
-            parse_config_string(buf, "\"piece\"", rt->piece, sizeof(rt->piece));
+
+            // Skip identity block marker line if present
+            char *json = buf;
+            if (strncmp(buf, "AC_IDENTITY_BLOCK_V1", 20) == 0) {
+                char *nl = strchr(buf, '\n');
+                if (nl) json = nl + 1;
+            }
+
+            parse_config_string(json, "\"handle\"", rt->handle, sizeof(rt->handle));
+            parse_config_string(json, "\"piece\"", rt->piece, sizeof(rt->piece));
             ac_log("[ac-native] Config: handle=%s piece=%s\n",
                    rt->handle[0] ? rt->handle : "(none)",
                    rt->piece[0] ? rt->piece : "(none)");
 
             // Bake Claude/GitHub tokens from config.json directly to disk
             char ct[512] = {0}, gp[256] = {0};
-            if (parse_config_string(buf, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
+            if (parse_config_string(json, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
                 FILE *tf = fopen("/claude-token", "w");
                 if (tf) { fputs(ct, tf); fclose(tf); }
                 ac_log("[tokens] claude token from config (%d bytes)\n", (int)strlen(ct));
             }
-            if (parse_config_string(buf, "\"githubPat\"", gp, sizeof(gp)) && gp[0]) {
+            if (parse_config_string(json, "\"githubPat\"", gp, sizeof(gp)) && gp[0]) {
                 FILE *gf = fopen("/github-pat", "w");
                 if (gf) { fputs(gp, gf); fclose(gf); }
                 ac_log("[tokens] github pat from config (%d bytes)\n", (int)strlen(gp));
