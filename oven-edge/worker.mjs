@@ -10,7 +10,6 @@
 //   /*                     → proxy to oven (cached 5 min)
 
 const ORIGIN = "https://oven.aesthetic.computer";
-const ORIGIN_HOST = "oven.aesthetic.computer";
 const SPACES = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com";
 
 const CORS = {
@@ -88,16 +87,15 @@ export default {
     else if (/\/os-image/.test(path)) ttl = 0; // personalized — never cache
     else if (/\/health/.test(path)) ttl = 10;
 
-    const response = await fetch(originUrl, {
+    // Rewrite the URL to use the origin hostname directly.
+    // oven-origin.aesthetic.computer is DNS-only (not CF-proxied)
+    // so Workers won't loop on it. The redirect: "follow" is safe here.
+    const originReq = new Request(originUrl, {
       method: request.method,
-      headers: { "host": ORIGIN_HOST, "accept": request.headers.get("accept") || "*/*" },
+      headers: request.headers,
       body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-      redirect: "follow",
-      cf: {
-        cacheTtl: request.method === "GET" && ttl > 0 ? ttl : 0,
-        cacheEverything: request.method === "GET" && ttl > 0,
-      },
     });
+    const response = await fetch(originReq);
 
     const out = new Response(response.body, response);
     for (const [k, v] of Object.entries(edgeHeaders(request, { "X-Cache-Ttl": String(ttl) }))) out.headers.set(k, v);
