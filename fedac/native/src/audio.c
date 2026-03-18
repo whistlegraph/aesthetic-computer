@@ -655,12 +655,22 @@ ACAudio *audio_init(void) {
     audio->tts_write_pos = 0;
     audio->tts_volume = 2.5f;  // Boost flite output (naturally quiet)
 
+    snprintf(audio->audio_device, sizeof(audio->audio_device), "none");
+    snprintf(audio->audio_status, sizeof(audio->audio_status), "initializing");
+    audio->audio_init_retries = 0;
+
     // Wait for sound card to appear (i915 GPU init can delay HDA probe)
     fprintf(stderr, "[audio] Waiting for sound card...\n");
-    for (int w = 0; w < 200; w++) { // up to 4 seconds
+    int card_found = 0;
+    for (int w = 0; w < 400; w++) { // up to 8 seconds (was 4)
         if (access("/dev/snd/pcmC0D0p", F_OK) == 0 ||
-            access("/dev/snd/pcmC1D0p", F_OK) == 0) break;
+            access("/dev/snd/pcmC1D0p", F_OK) == 0 ||
+            access("/dev/snd/pcmC2D0p", F_OK) == 0) { card_found = 1; break; }
         usleep(20000);
+    }
+    if (!card_found) {
+        fprintf(stderr, "[audio] WARNING: no sound card after 8s wait\n");
+        snprintf(audio->audio_status, sizeof(audio->audio_status), "no card (8s timeout)");
     }
 
     // Dump sound card info for diagnostics (write to USB log if mounted)
@@ -704,10 +714,12 @@ ACAudio *audio_init(void) {
     int err = -1;
     int card_idx = 0;
     for (int i = 0; devices[i]; i++) {
+        audio->audio_init_retries++;
         err = snd_pcm_open(&pcm, devices[i], SND_PCM_STREAM_PLAYBACK, 0);
         if (err >= 0) {
             fprintf(alog, "[audio] Opened ALSA device: %s\n", devices[i]);
             fprintf(stderr, "[audio] Opened ALSA device: %s\n", devices[i]);
+            snprintf(audio->audio_device, sizeof(audio->audio_device), "%s", devices[i]);
             if (sscanf(devices[i], "hw:%d", &card_idx) != 1 &&
                 sscanf(devices[i], "plughw:%d", &card_idx) != 1)
                 card_idx = 0;
@@ -719,6 +731,7 @@ ACAudio *audio_init(void) {
     if (alog != stderr) { fflush(alog); fclose(alog); }
     if (err < 0) {
         fprintf(stderr, "[audio] Cannot open any ALSA device\n");
+        snprintf(audio->audio_status, sizeof(audio->audio_status), "no ALSA device found");
         // Audio is optional — return the struct but with no PCM
         audio->pcm = NULL;
         return audio;
@@ -769,6 +782,8 @@ ACAudio *audio_init(void) {
     fprintf(stderr, "[audio] ALSA: requested %dHz, got %uHz, period=%lu, buffer=%lu (%.1fms latency)\n",
             AUDIO_SAMPLE_RATE, rate, (unsigned long)period, (unsigned long)buffer_size,
             (double)period / rate * 1000.0);
+    snprintf(audio->audio_status, sizeof(audio->audio_status),
+             "ok %uHz %lufrm", rate, (unsigned long)period);
     if (rate != AUDIO_SAMPLE_RATE)
         fprintf(stderr, "[audio] WARNING: got %uHz instead of %dHz\n", rate, AUDIO_SAMPLE_RATE);
 

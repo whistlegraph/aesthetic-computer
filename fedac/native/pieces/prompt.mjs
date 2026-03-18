@@ -149,8 +149,20 @@ function act({ event: e, system, sound }) {
     cursorFrame = 0;
     cursorVisible = true;
 
-    // Note: keystroke voicing is handled by C input loop for zero-latency TTS.
-    // (system_mode "prompt" triggers tts_speak_cached in ac-native.c)
+    // Keystroke voicing (JS fallback — C input loop also fires for zero-latency)
+    if (key.length === 1) {
+      sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
+    } else if (key === "space") {
+      sound?.speakCached?.("space");
+    } else if (key === "backspace") {
+      sound?.speakCached?.("back");
+    } else if (key === "enter" || key === "return") {
+      sound?.speakCached?.("enter");
+    } else if (key === "escape") {
+      sound?.speakCached?.("clear");
+    } else if (key === "tab") {
+      sound?.speakCached?.("tab");
+    }
 
     if (key === "tab") {
       // Tab completion

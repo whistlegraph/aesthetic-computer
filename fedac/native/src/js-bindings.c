@@ -4153,6 +4153,21 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, hw, "buildName", JS_NewString(ctx, AC_BUILD_NAME));
 #endif
 
+        // Audio diagnostics
+        if (current_rt->audio) {
+            JS_SetPropertyStr(ctx, hw, "audioDevice",
+                JS_NewString(ctx, current_rt->audio->audio_device));
+            JS_SetPropertyStr(ctx, hw, "audioStatus",
+                JS_NewString(ctx, current_rt->audio->audio_status));
+            JS_SetPropertyStr(ctx, hw, "audioRetries",
+                JS_NewInt32(ctx, current_rt->audio->audio_init_retries));
+            JS_SetPropertyStr(ctx, hw, "audioRate",
+                JS_NewInt32(ctx, (int)current_rt->audio->actual_rate));
+        } else {
+            JS_SetPropertyStr(ctx, hw, "audioStatus",
+                JS_NewString(ctx, "no audio subsystem"));
+        }
+
         JS_SetPropertyStr(ctx, sys, "hw", hw);
     }
 
