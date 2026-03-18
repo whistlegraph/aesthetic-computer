@@ -84,6 +84,13 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
   "apt-get install -y -q gcc make flex bison libelf-dev libssl-dev bc cpio lz4 musl-tools python3 pahole libdrm-dev libasound2-dev flite1-dev pkg-config 2>&1 | tail -5 || true"
 echo "✅ Kernel build tools ready"
 
+# Install TeX Live for papers PDF builds (idempotent)
+echo ""
+echo "📄 Installing TeX Live for papers builds..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
+  "apt-get install -y -q texlive-xetex texlive-fonts-extra texlive-latex-extra texlive-bibtex-extra fonts-droid-fallback 2>&1 | tail -5 || true"
+echo "✅ TeX Live ready"
+
 # Optional vault-managed admin key for /os-base-build endpoints
 echo ""
 if [ -f "$VAULT_OS_KEY" ]; then
