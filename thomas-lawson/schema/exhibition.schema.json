@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exhibition.schema.json",
+  "title": "Exhibition",
+  "description": "An exhibition curated by or featuring Thomas Lawson",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier (nanoid)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Exhibition title"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe identifier",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$"
+    },
+    "year": {
+      "type": ["integer", "null"],
+      "description": "Year the exhibition took place",
+      "minimum": 1950,
+      "maximum": 2030
+    },
+    "yearEnd": {
+      "type": ["integer", "null"],
+      "description": "End year for multi-year exhibitions",
+      "minimum": 1950,
+      "maximum": 2030
+    },
+    "venue": {
+      "type": ["string", "null"],
+      "description": "Gallery, museum, or venue name"
+    },
+    "city": {
+      "type": ["string", "null"],
+      "description": "City where the exhibition was held"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["artist", "curator", "both"],
+      "default": "curator",
+      "description": "Lawson's role in the exhibition"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Exhibition description or statement"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "caption": { "type": ["string", "null"] },
+          "primary": { "type": "boolean", "default": false }
+        },
+        "required": ["url"]
+      }
+    },
+    "artworkIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of artworks shown in this exhibition"
+    },
+    "sourceUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "Original page URL on thomaslawson.com"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": ["id", "title", "slug"]
+}
