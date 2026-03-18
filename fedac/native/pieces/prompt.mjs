@@ -394,6 +394,38 @@ function execute(cmd, system) {
     }
   }
 
+  // "git TOKEN" — associate GitHub PAT with your handle
+  if (baseWord === "git" && spaceIdx > 0) {
+    const pat = cmd.slice(spaceIdx + 1).trim();
+    if (pat.startsWith("ghp_")) {
+      message = "saving github token...";
+      messageFrame = 0;
+      let handle = "";
+      let acToken = "";
+      try {
+        const raw = system?.readFile?.("/mnt/config.json");
+        if (raw) {
+          const cfg = JSON.parse(raw);
+          handle = cfg.handle || "";
+          acToken = cfg.token || "";
+        }
+      } catch (_) {}
+      if (!handle) {
+        message = "not logged in — flash from authenticated CLI first";
+        messageFrame = 0;
+        return;
+      }
+      const url = "https://aesthetic.computer/.netlify/functions/claude-token";
+      const body = JSON.stringify({ githubPat: pat });
+      const headers = JSON.stringify({ "Content-Type": "application/json", "Authorization": "Bearer " + acToken });
+      system?.fetchPost?.(url, body, headers);
+      system?.writeFile?.("/github-pat", pat);
+      message = "github token saved for @" + handle;
+      messageFrame = 0;
+      return;
+    }
+  }
+
   // "papers" opens papers.aesthetic.computer
   if (lower === "papers") {
     message = "~> papers.aesthetic.computer";

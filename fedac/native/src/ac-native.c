@@ -448,6 +448,7 @@ extern int drm_release_master(void *display);
 extern int drm_acquire_master(void *display);
 
 // Boot title — defaults to "notepat", overridden by config.json handle
+int wifi_disabled = 0; // set from config.json "wifi":false (extern'd in js-bindings.c)
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
 static int boot_title_colors_len = 0;
@@ -473,6 +474,19 @@ static int parse_config_string(const char *json, const char *key, char *out, int
     memcpy(out, q1 + 1, len);
     out[len] = 0;
     return 1;
+}
+
+static int parse_config_bool(const char *json, const char *key, int *out) {
+    if (!json || !key || !out) return 0;
+    const char *kp = strstr(json, key);
+    if (!kp) return 0;
+    const char *colon = strchr(kp, ':');
+    if (!colon) return 0;
+    const char *p = colon + 1;
+    while (*p == ' ' || *p == '\t') p++;
+    if (strncmp(p, "true", 4) == 0) { *out = 1; return 1; }
+    if (strncmp(p, "false", 5) == 0) { *out = 0; return 1; }
+    return 0;
 }
 
 static int parse_json_int_field(const char *start, const char *limit, const char *key, int *out) {
@@ -548,6 +562,13 @@ static void load_boot_visual_config(void) {
         }
     }
     parse_boot_title_colors(buf);
+
+    // Read wifi flag (default: enabled)
+    int wifi_val = 1;
+    if (parse_config_bool(buf, "\"wifi\"", &wifi_val)) {
+        wifi_disabled = !wifi_val;
+        ac_log("[config] wifi: %s\n", wifi_disabled ? "disabled" : "enabled");
+    }
 
     // Extract claudeCreds JSON and write to /tmp for PTY to pick up
     const char *cc = strstr(buf, "\"claudeCreds\"");
@@ -1852,7 +1873,8 @@ int main(int argc, char *argv[]) {
             input = input_init_wayland(wayland_display, display->width, display->height, pixel_scale);
 
         // WiFi is already running from parent — just connect to it
-        wifi = wifi_init();
+        if (!wifi_disabled)
+            wifi = wifi_init();
     } else
 #endif
     {
@@ -1918,9 +1940,15 @@ int main(int argc, char *argv[]) {
         }
 
         // Init WiFi
-        if (!headless && display)
-            draw_boot_status(&graph, screen, display, "starting wifi...");
-        wifi = wifi_init();
+        if (!wifi_disabled) {
+            if (!headless && display)
+                draw_boot_status(&graph, screen, display, "starting wifi...");
+            wifi = wifi_init();
+        } else {
+            if (!headless && display)
+                draw_boot_status(&graph, screen, display, "wifi disabled");
+            ac_log("[ac-native] WiFi disabled by config\n");
+        }
 
         // Init secondary HDMI display (if connected)
         if (display && !display->is_fbdev) {
@@ -1954,6 +1982,19 @@ int main(int argc, char *argv[]) {
             ac_log("[ac-native] Config: handle=%s piece=%s\n",
                    rt->handle[0] ? rt->handle : "(none)",
                    rt->piece[0] ? rt->piece : "(none)");
+
+            // Bake Claude/GitHub tokens from config.json directly to disk
+            char ct[512] = {0}, gp[256] = {0};
+            if (parse_config_string(buf, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
+                FILE *tf = fopen("/claude-token", "w");
+                if (tf) { fputs(ct, tf); fclose(tf); }
+                ac_log("[tokens] claude token from config (%d bytes)\n", (int)strlen(ct));
+            }
+            if (parse_config_string(buf, "\"githubPat\"", gp, sizeof(gp)) && gp[0]) {
+                FILE *gf = fopen("/github-pat", "w");
+                if (gf) { fputs(gp, gf); fclose(gf); }
+                ac_log("[tokens] github pat from config (%d bytes)\n", (int)strlen(gp));
+            }
         }
     }
 
