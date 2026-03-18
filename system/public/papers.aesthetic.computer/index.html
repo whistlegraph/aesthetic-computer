@@ -430,6 +430,9 @@
     </div>
 
     <script>
+        // Cache-bust version — updated by papermill deploy
+        window.__papersVersion = '20260318';
+
         // Relative timestamps
         function relativeTime(iso) {
             const diff = Date.now() - new Date(iso).getTime();
@@ -597,10 +600,10 @@
                 o.classList.toggle('active', o.dataset.lang === lang);
             });
 
-            // Update PDF URLs
+            // Update PDF URLs (cache-bust with build version)
             const suffix = lang === 'en' ? '' : '-' + lang;
             document.querySelectorAll('.p .title a[data-base]').forEach(a => {
-                a.href = a.dataset.base + suffix + '.pdf';
+                a.href = a.dataset.base + suffix + '.pdf?v=' + window.__papersVersion;
                 // Add/update language badge
                 let badge = a.querySelector('.lang-badge');
                 if (!badge) {
@@ -685,7 +688,7 @@
             // Cards stack icon (only if cards PDF exists)
             if (!noCards) {
                 const cardsLink = document.createElement('a');
-                cardsLink.href = base + '-cards.pdf';
+                cardsLink.href = base + '-cards.pdf?v=' + window.__papersVersion;
                 cardsLink.className = 'fmt-icon cards-icon';
                 cardsLink.title = 'Mobile-friendly cards format';
                 cardsLink.innerHTML = cardsSvg('var(--purple)'.replace('var(--purple)', getComputedStyle(document.documentElement).getPropertyValue('--purple').trim() || '#7850b4'));
@@ -718,6 +721,11 @@
             }
             icons.appendChild(pdfLink);
             titleDiv.appendChild(icons);
+        });
+
+        // Bust cache on initial PDF links
+        document.querySelectorAll('.p .title a[data-base]').forEach(a => {
+            if (!a.href.includes('?v=')) a.href += '?v=' + window.__papersVersion;
         });
 
         // Make whole paper block clickable
