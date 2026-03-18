@@ -61,6 +61,7 @@ FALSE_POSITIVE_ALLOWLIST=(
   "class="                 # HTML class attributes
   "className="             # React className
   "AC_PASS"                # Default wifi AP password (public, not a secret)
+  "enter password"         # UI label in wifi.mjs password prompt
 )
 
 secret_errors=0

@@ -24,6 +24,7 @@ typedef enum {
     WIFI_CMD_SCAN,
     WIFI_CMD_CONNECT,
     WIFI_CMD_DISCONNECT,
+    WIFI_CMD_AUTOCONNECT,
 } WiFiCommand;
 
 typedef struct {
@@ -81,6 +82,10 @@ void wifi_disconnect(ACWifi *wifi);
 // Kept for API compatibility; main thread just reads wifi->state.
 int wifi_scan_poll(ACWifi *wifi);
 int wifi_connect_poll(ACWifi *wifi);
+
+// Auto-connect on boot: scan, match against saved creds, connect to best.
+// Non-blocking — posts scan+connect commands to the wifi thread.
+void wifi_autoconnect(ACWifi *wifi);
 
 // Stop thread and free
 void wifi_destroy(ACWifi *wifi);

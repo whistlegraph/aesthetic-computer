@@ -149,20 +149,8 @@ function act({ event: e, system, sound }) {
     cursorFrame = 0;
     cursorVisible = true;
 
-    // Voice every keystroke (pre-cached for instant playback)
-    if (key.length === 1) {
-      sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);
-    } else if (key === "space") {
-      sound?.speakCached?.("space");
-    } else if (key === "backspace") {
-      sound?.speakCached?.("back");
-    } else if (key === "enter" || key === "return") {
-      sound?.speakCached?.("enter");
-    } else if (key === "escape") {
-      sound?.speakCached?.("clear");
-    } else if (key === "tab") {
-      sound?.speakCached?.("tab");
-    }
+    // Note: keystroke voicing is handled by C input loop for zero-latency TTS.
+    // (system_mode "prompt" triggers tts_speak_cached in ac-native.c)
 
     if (key === "tab") {
       // Tab completion
@@ -652,4 +640,5 @@ function paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {
 
 function sim() {}
 
-export { boot, paint, act, sim };
+const system = "prompt";
+export { boot, paint, act, sim, system };
