@@ -20,6 +20,8 @@ Just came across this piece in Art Newpaper.
 
 Art in a Broader Context
 
+> **Fía:** "I fixed the typos/content edits you suggested!"
+
 I foreground curating in this section but it also includes education. Maybe say a bit more about that in intro?
 
 Pat Douthewaite
@@ -35,6 +37,8 @@ Pat Douthewaite
 - [ ] Change "Writings" to "Essay"
 
 Critical Perspectives
+
+> **Fía:** "Does Father and Son have an artist I could list?"
 
 - [ ] Walter Robinson is the lead image above, so maybe switch out here, replace with Jack Goldstein.
 
@@ -101,10 +105,12 @@ Dissent
 - [ ] Captions.
 
 - [ ] Image used twice?
+  > **Fía:** "Yes, is there another one we could use instead?"
 
 ART SCHOOL
 
 - [ ] This section needs a rethink. Maybe placed elsewhere? I could write a longer intro and there is a good interview that Sohrab Mohrebi did.
+  > **Fía:** "Let's definitely link out to as many relevant resources as possible! For exhibitions, texts, etc."
 
 ---
 
@@ -133,6 +139,8 @@ GREED
 Greed, 1980
 
 43"x53" oil and oilstick on canvas, with painted wood frame
+
+> **Fía:** "I formatted these all to be h x w on the website"
 
 HE DIED LIKE
 
@@ -238,7 +246,11 @@ SHE SLEW
 
 She Slew Schoolmate, 1982
 
+> **Fía:** "the text on the artwork reads 'She slew her schoolmate'; does it matter?"
+
 8"x10 graphite on processed Xerox on paper
+
+> **Fía:** "dimensions?"
 
 ---
 
@@ -255,6 +267,7 @@ In the Studio
 
 - [x] In the captions add materials and dimensions — **DONE on live site**
 - [ ] Add couple of sentences about what I was doing?
+  > **Fía:** "sounds great!"
 - [ ] Reorder images per Tom's requested sequence
 
 ### 1980-82
@@ -274,6 +287,7 @@ In the Studio
 - [ ] more sentences and a lot of work on captions and reshuffling.
 - [ ] Also a whole show missing, Party's Over. And maybe some more on La Jolla show
 - [ ] Should we also add some working drawings for public projects that were getting started at this time?
+  > **Fía:** "I like this idea!"
 
 ### 1991-93
 
@@ -377,24 +391,28 @@ GOLD DOG (diptych)
 Good Dog, 1978
 
 Diptych 30"X45" oilstick on paper
+> **Fía:** "each panel?"
 
 TWO BOXERS
 
 Mirror Boxers, 1978
 
 Diptych 30"x45" oilstick on paper
+> **Fía:** "each panel?"
 
 TINY DOG
 
 Tiny Dog, 1978
 
 Diptych 30"x45" oilstick on paper
+> **Fía:** "each panel?"
 
 TWO DOGS Burgundy
 
 Mirror Bassets, 1978
 
 Diptych 30"x45" oilstick on paper
+> **Fía:** "each panel?"
 
 GOLD DOG
 
@@ -418,24 +436,31 @@ Red Shoe, 1979
 Notes
 
 Do we want a different name for this? The description seems good (although I have to get more active adding and moving items – maybe there should be a schedule? Every 6 months? Every year?)
+> **Fía:** "Discuss"
 
 To add:
 
 - [x] Info on Rabkin Prize, link to interview — **DONE (listed with Substack link)**
 
 - [x] Press release and install shots of Chez Max show — **PARTIALLY DONE (listed, may need more)**
+  > **Fía:** "Should this exhibition have its own page on 'Beyond the Studio', perhaps where the install shots could go?"
 
 - [ ] Link to Chex Max discussion once published on EOB
+  > **Fía:** "TBD"
 
 - [x] Press release and install shots of AF Projects show — **PARTIALLY DONE (listed with Vimeo)**
+  > **Fía:** "your exhibition page on the gallery website is password-protected: https://www.louise-alexander.com/exhibition/thomas-lawson-attending-to-the-bats"
 
 - [ ] One or two recent paintings?
+  > **Fía:** "TBC"
 
 - [ ] Something about the drawing class?
+  > **Fía:** "TBC"
 
 To move:
 
 - [ ] Spike essay to Bookshelf — **NOT DONE (not on Bookshelf or Notes currently)**
+  > **Fía:** "Moved to 'considering other artists'--would you suggest a different category?"
 
 - [ ] Remove the 3 drawings/paintings and replace
 
@@ -565,6 +590,7 @@ Lots of issues to fix here
 ### Memory Lingers Here
 
 - [ ] Work on captions. Do we need so many images?
+  > **Fía:** "I think we can remove 2-3"
 
 ### Glasgow Projects
 
