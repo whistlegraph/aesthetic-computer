@@ -17,6 +17,7 @@ import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
+import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeBuild } from './native-builder.mjs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -3157,6 +3158,90 @@ app.post('/os-base-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
     return res.status(400).json(result);
   }
   addServerLog('info', '🛑', `OS base build cancel requested: ${req.params.jobId}`);
+  return res.json(result);
+});
+
+// ── Native OTA Build ──────────────────────────────────────────────────────
+// Builds fedac/native kernel + uploads vmlinuz to DO Spaces CDN.
+// Auth: same OS_BUILD_ADMIN_KEY used for /os-base-build.
+// Triggered automatically by GitHub Actions on push to fedac/native/.
+
+app.get('/native-build', (req, res) => {
+  res.json(getNativeBuildsSummary());
+});
+
+app.get('/native-build/:jobId', (req, res) => {
+  const tail = Math.max(0, Math.min(2000, parseInt(req.query.tail, 10) || 200));
+  const includeLogs = req.query.logs === '1' || req.query.logs === 'true';
+  const job = getNativeBuild(req.params.jobId, { includeLogs, tail });
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  return res.json(job);
+});
+
+app.get('/native-build/:jobId/stream', (req, res) => {
+  const jobId = req.params.jobId;
+  const initial = getNativeBuild(jobId, { includeLogs: true, tail: 500 });
+  if (!initial) return res.status(404).json({ error: 'Job not found' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+
+  let sentLogs = 0;
+  const sendEvent = (type, data) => {
+    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
+
+  if (Array.isArray(initial.logs) && initial.logs.length > 0) {
+    sendEvent('logs', { logs: initial.logs });
+    sentLogs = initial.logs.length;
+  }
+  sendEvent('status', { id: initial.id, status: initial.status, stage: initial.stage, percent: initial.percent });
+
+  const timer = setInterval(() => {
+    const job = getNativeBuild(jobId, { includeLogs: true, tail: 2000 });
+    if (!job) { clearInterval(timer); res.end(); return; }
+    const logs = Array.isArray(job.logs) ? job.logs : [];
+    if (logs.length > sentLogs) {
+      sendEvent('logs', { logs: logs.slice(sentLogs) });
+      sentLogs = logs.length;
+    }
+    sendEvent('status', { id: job.id, status: job.status, stage: job.stage, percent: job.percent, error: job.error });
+    if (job.status === 'success' || job.status === 'failed' || job.status === 'cancelled') {
+      sendEvent('complete', { status: job.status, error: job.error });
+      clearInterval(timer);
+      res.end();
+    }
+  }, 1000);
+
+  req.on('close', () => clearInterval(timer));
+});
+
+app.post('/native-build', requireOSBuildAdmin, async (req, res) => {
+  try {
+    const job = await startNativeBuild({
+      ref: req.body?.ref || 'unknown',
+      changed_paths: req.body?.changed_paths || '',
+    });
+    addServerLog('info', '🔨', `Native OTA build started: ${job.id} (ref=${job.ref}, flags=${job.flags.join(' ') || 'none'})`);
+    return res.status(202).json(job);
+  } catch (err) {
+    if (err.code === 'NATIVE_BUILD_BUSY') {
+      return res.status(409).json({ error: err.message, activeJobId: err.activeJobId });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/native-build/:jobId/cancel', requireOSBuildAdmin, (req, res) => {
+  const result = cancelNativeBuild(req.params.jobId);
+  if (!result.ok) return res.status(400).json(result);
+  addServerLog('info', '🛑', `Native build cancel requested: ${req.params.jobId}`);
   return res.json(result);
 });
 
