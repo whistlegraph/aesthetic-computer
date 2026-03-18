@@ -1,33 +1,33 @@
 \contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
 \contentsline {section}{\numberline {2}Design Principles}{6}{section.2}%
-\contentsline {section}{\numberline {3}Architecture}{7}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Boot Loader}{7}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}BIOS}{7}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Disk API}{8}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Module Loader}{8}{subsection.3.4}%
-\contentsline {section}{\numberline {4}The Piece Model}{9}{section.4}%
-\contentsline {section}{\numberline {5}Multi-Language Runtime}{11}{section.5}%
-\contentsline {section}{\numberline {6}The Prompt}{12}{section.6}%
-\contentsline {subsection}{\numberline {6.1}URL Routing}{12}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Command Categories}{12}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Social Infrastructure}{14}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Identity}{14}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Real-Time Communication}{14}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Moods}{14}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Live Profiles}{15}{subsection.7.4}%
-\contentsline {section}{\numberline {8}Publishing and Distribution}{16}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Publish and Source}{16}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Pack System}{16}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Custom Domains}{16}{subsection.8.3}%
-\contentsline {subsection}{\numberline {8.4}Media Export}{17}{subsection.8.4}%
-\contentsline {section}{\numberline {9}Development History}{18}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Origins: No Paint (2020--2021)}{18}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}Foundation (2022--2023)}{18}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}Expansion (2024)}{19}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}Platform Integration (2025--2026)}{19}{subsection.9.4}%
-\contentsline {section}{\numberline {10}Evaluation}{21}{section.10}%
-\contentsline {subsection}{\numberline {10.1}Observations}{21}{subsection.10.1}%
-\contentsline {subsection}{\numberline {10.2}Limitations}{22}{subsection.10.2}%
-\contentsline {section}{\numberline {11}Related Work}{23}{section.11}%
-\contentsline {section}{\numberline {12}Conclusion}{24}{section.12}%
+\contentsline {section}{\numberline {3}Architecture}{8}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Boot Loader}{8}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}BIOS}{8}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Disk API}{9}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Module Loader}{9}{subsection.3.4}%
+\contentsline {section}{\numberline {4}The Piece Model}{10}{section.4}%
+\contentsline {section}{\numberline {5}Multi-Language Runtime}{12}{section.5}%
+\contentsline {section}{\numberline {6}The Prompt}{13}{section.6}%
+\contentsline {subsection}{\numberline {6.1}URL Routing}{13}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Command Categories}{13}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Social Infrastructure}{15}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Identity}{15}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Real-Time Communication}{15}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Moods}{15}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Live Profiles}{16}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Publishing and Distribution}{17}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Publish and Source}{17}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Pack System}{17}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Custom Domains}{17}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Media Export}{18}{subsection.8.4}%
+\contentsline {section}{\numberline {9}Development History}{19}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Origins: No Paint (2020--2021)}{19}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Foundation (2022--2023)}{19}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Expansion (2024)}{20}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Platform Integration (2025--2026)}{20}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Evaluation}{22}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Observations}{22}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Limitations}{23}{subsection.10.2}%
+\contentsline {section}{\numberline {11}Related Work}{24}{section.11}%
+\contentsline {section}{\numberline {12}Conclusion}{26}{section.12}%
 \contentsfinish 

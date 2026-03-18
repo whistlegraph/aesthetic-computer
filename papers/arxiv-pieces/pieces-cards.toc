@@ -1,10 +1,10 @@
 \contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
 \contentsline {section}{\numberline {2}Genealogy of Creative Units}{6}{section.2}%
 \contentsline {subsection}{\numberline {2.1}The musical piece}{6}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}The Processing sketch}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.2}The Processing sketch}{7}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}The Max/MSP patch}{7}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}The Unix process}{8}{subsection.2.4}%
-\contentsline {subsection}{\numberline {2.5}The Smalltalk image and Jupyter notebook}{8}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.5}The Smalltalk image and Jupyter notebook}{9}{subsection.2.5}%
 \contentsline {section}{\numberline {3}What AC Pieces Are}{10}{section.3}%
 \contentsline {subsection}{\numberline {3.1}URL addressability}{10}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}The immediate-mode rendering model}{11}{subsection.3.2}%

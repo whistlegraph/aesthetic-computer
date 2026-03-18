@@ -26,11 +26,69 @@
   Path=../../system/public/type/webfonts/,
   Extension=.ttf
 ]
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{wipe,ink,line,box,circle,tri,plot,flood,shape,zoom,scroll,spin,blur,contrast,embed,layer,width,height,frame,time,wiggle,melody,mic,suck,sort,form,trans,cube,move,scale,hop,overtone,resolution,write,text,type,stamp,paste,point,poly,noise,fade,pan,unpan,mask,unmask,flip},
+  morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
+  morekeywords=[3]{repeat},
+  morekeywords=[4]{random,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  escapeinside={|}{|},
+}
+\lstset{
+  language=kidlisp,
+  basicstyle=\ttfamily\small,
+  keywordstyle=[1]\color{klfn}\bfseries,
+  keywordstyle=[2]\color{klform}\bfseries,
+  keywordstyle=[3]\color{klrepeat}\bfseries,
+  keywordstyle=[4]\color{klmath},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  stringstyle=\color{acpink},
+  morestring=[b]",
+  literate=
+    {:}{{{\color{acgray}:}}}{1}
+    {,}{{{\color{acgray},}}}{1}
+    {\{}{{{\color{acgray}\{}}}{1}
+    {\}}{{{\color{acgray}\}}}}{1},
+}
 
 \makeatletter
 \def\input@path{{../}}
 \makeatother
 \usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+\newcommand{\kidlisp}{\textsc{KidLisp}}
+\definecolor{klbrand}{RGB}{205,92,155}    % kidlisp.com primary (--ac-purple)
+\definecolor{klcyan}{RGB}{112,214,255}     % kidlisp.com ".com" cyan (#70D6FF)
+\definecolor{kldark}{RGB}{48,43,58}        % kidlisp.com dark purple
+\definecolor{klfn}{RGB}{0,136,170}       % Built-in functions (teal)
+\definecolor{klform}{RGB}{119,51,170}    % Special forms: def, if, let (purple)
+\definecolor{klrepeat}{RGB}{170,0,170}   % repeat (magenta)
+\definecolor{klnum}{RGB}{204,0,102}      % Numbers (deep pink)
+\definecolor{klstr}{RGB}{170,120,0}      % Strings, color names, timing (dark gold)
+\definecolor{klcmt}{RGB}{102,102,102}    % Comments (gray)
+\definecolor{klmath}{RGB}{0,136,0}       % Math operators (green)
+\definecolor{klvar}{RGB}{204,102,0}      % Variables (orange)
+\definecolor{klembed}{RGB}{0,136,0}      % $code references (green)
 
 \hypersetup{
   pdftitle={KidLisp '26: A Minimal Lisp for Generative Art},
@@ -45,18 +103,17 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
 {\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Kid{\color{acpurple}Lisp} '26}\par
 \vspace{0.3em}
 \vspace{0.5em}
-{\normalsize Jeffrey Alan Scudder}\par
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-{\small\color{acgray} \url{https://papers.aesthetic.computer/kidlisp-26-arxiv-cards.pdf}}\par
 \vspace{0.8em}
 \rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}\par
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
 \vspace{0.3em}
 {\footnotesize\color{acgray} March 2026}\par
 \end{center}
@@ -74,7 +131,7 @@
 
 Creative coding environments typically require users to learn a general-purpose programming language before producing visual or sonic output. Processing~\citep{reas2007processing} uses Java; p5.js~\citep{mccarthy2015p5js} uses JavaScript; Sonic Pi~\citep{aaron2016sonic} uses Ruby-like constructs. While these tools have dramatically lowered the barrier to computational expression, they still demand familiarity with variables, functions, control flow, and---in many cases---a local development environment.
 
-\kidlisp{} starts from a different question: \emph{what is the smallest language that can produce interesting generative art?} The answer is a Lisp with carefully chosen built-in functions, no user-defined procedures, and a browser-native runtime requiring no installation. A complete animated program can be a single line:
+\kidlisp{} starts from a different question: \emph{what is the smallest language that can produce interesting generative art?} The answer is a Lisp---a lineage that begins with McCarthy's original recursive-function calculus~\citep{mccarthy1960recursive} and continues through the pedagogical tradition of \emph{The Little Schemer}~\citep{friedman1996little}---with carefully chosen built-in functions, no user-defined procedures, and a browser-native runtime requiring no installation. A complete animated program can be a single line:
 
 \begin{lstlisting}
 (ink |\kt{rainbow}|) (repeat |\kn{100}| |\kv{i}|
@@ -170,7 +227,7 @@ The language deliberately excludes user-defined functions (beyond \texttt{def} f
 \section{Evaluator Architecture}
 \label{sec:architecture}
 
-The evaluator (\texttt{kidlisp.mjs}, 15,161 lines) is a single JavaScript ES module implementing a tree-walking interpreter.
+The evaluator (\texttt{kidlisp.mjs}, 15,161 lines) is a single JavaScript ES module implementing a tree-walking interpreter. This follows the tradition of minimal Lisp implementations---van Engelen demonstrated that a usable Lisp can be built in 99 lines of C~\citep{vanengelen2022tinylisp}; \kidlisp{} trades that extreme minimalism for a rich built-in function set while retaining the core insight that the evaluator itself can be small.
 
 \subsection{Evaluation Model}
 
@@ -414,11 +471,13 @@ The \texttt{?stats=functions} API endpoint provides weighted function usage coun
 
 \textbf{Creative coding.} Processing~\citep{reas2007processing} and p5.js~\citep{mccarthy2015p5js} are the dominant tools. OpenFrameworks uses C++. All require managing a project structure and understanding a general-purpose language.
 
-\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding with JavaScript method chaining but no persistent storage or social features. Sonic Pi~\citep{aaron2016sonic} targets music education. Fluxus~\citep{fluxus2007} used Scheme for 3D visuals but is no longer maintained.
+\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding with JavaScript method chaining but no persistent storage or social features. Strudel~\citep{roos2023strudel} brings TidalCycles-style pattern live coding to the browser; like \kidlisp{}, it runs entirely client-side with no installation, but targets rhythmic pattern composition rather than generative visual art. Sonic Pi~\citep{aaron2016sonic} targets music education. Fluxus~\citep{fluxus2007} used Scheme for 3D visuals but is no longer maintained.
 
 \textbf{Educational languages.} Scratch~\citep{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. \kidlisp{} inherits this insight but uses text-based Lisp syntax and targets generative art rather than general education.
 
 \textbf{Lisp for art.} Racket's \texttt{2htdp/image} library~\citep{racket2018} provides functional image construction for CS education but targets static images and pedagogy, not real-time animation with social distribution.
+
+\textbf{Lisp traditions.} \kidlisp{} inherits from multiple Lisp lineages: McCarthy's original formulation of symbolic computation~\citep{mccarthy1960recursive}, the pedagogical approach of \emph{The Little Schemer}~\citep{friedman1996little} (learning through recursive questioning), and the functional programming philosophy articulated in \emph{The Joy of Clojure}~\citep{fogus2011clojure} (data-driven design, immutability as default). Van Engelen's 99-line C Lisp~\citep{vanengelen2022tinylisp} demonstrates the lower bound of implementation complexity; \kidlisp{} occupies a middle ground between minimal interpreters and full-featured Lisps, optimized for creative output rather than general computation.
 
 % ============ 9. CONCLUSION ============
 
