@@ -433,16 +433,152 @@ static void wifi_do_disconnect(ACWifi *wifi) {
 }
 
 // ============================================================
+// Auto-connect (runs on wifi thread)
+// ============================================================
+
+// Hardcoded fallback SSID/pass (matches wifi.mjs AC_SSID/AC_PASS)
+#define AC_SSID "aesthetic.computer"
+#define AC_PASS "aesthetic.computer"
+
+static void wifi_do_autoconnect(ACWifi *wifi) {
+    ac_log("[wifi] Auto-connect: scanning for saved networks...");
+
+    // Step 1: Scan
+    wifi_do_scan(wifi);
+    if (wifi->network_count == 0) {
+        ac_log("[wifi] Auto-connect: no networks found");
+        wifi_set_state_and_status(wifi, WIFI_STATE_SCAN_DONE, "no networks");
+        return;
+    }
+
+    // Step 2: Read saved credentials from /mnt/wifi_creds.json
+    // Format: [{"ssid":"MyNet","pass":"secret"}, ...]
+    typedef struct { char ssid[WIFI_SSID_MAX]; char pass[WIFI_PASS_MAX]; } SavedCred;
+    SavedCred creds[16];
+    int cred_count = 0;
+
+    // Always include the AC preset as first entry
+    strncpy(creds[0].ssid, AC_SSID, WIFI_SSID_MAX - 1);
+    strncpy(creds[0].pass, AC_PASS, WIFI_PASS_MAX - 1);
+    cred_count = 1;
+
+    FILE *fp = fopen("/mnt/wifi_creds.json", "r");
+    if (fp) {
+        char buf[2048] = "";
+        size_t n = fread(buf, 1, sizeof(buf) - 1, fp);
+        buf[n] = 0;
+        fclose(fp);
+
+        // Minimal JSON array parse: find each {"ssid":"...","pass":"..."}
+        char *p = buf;
+        while ((p = strstr(p, "\"ssid\"")) && cred_count < 16) {
+            char *sq = strchr(p + 6, '"'); // opening quote of ssid value
+            if (!sq) break;
+            sq++;
+            char *eq = strchr(sq, '"'); // closing quote
+            if (!eq) break;
+
+            int len = (int)(eq - sq);
+            if (len > 0 && len < WIFI_SSID_MAX) {
+                strncpy(creds[cred_count].ssid, sq, len);
+                creds[cred_count].ssid[len] = 0;
+
+                // Find corresponding "pass" value
+                creds[cred_count].pass[0] = 0;
+                char *pp = strstr(eq, "\"pass\"");
+                if (pp) {
+                    char *pq = strchr(pp + 6, '"');
+                    if (pq) {
+                        pq++;
+                        char *pe = strchr(pq, '"');
+                        if (pe) {
+                            int plen = (int)(pe - pq);
+                            if (plen >= 0 && plen < WIFI_PASS_MAX) {
+                                strncpy(creds[cred_count].pass, pq, plen);
+                                creds[cred_count].pass[plen] = 0;
+                            }
+                        }
+                    }
+                }
+
+                // Skip duplicates of AC preset
+                if (strcmp(creds[cred_count].ssid, AC_SSID) != 0)
+                    cred_count++;
+            }
+            p = eq + 1;
+        }
+        ac_log("[wifi] Auto-connect: loaded %d saved networks", cred_count);
+    } else {
+        ac_log("[wifi] Auto-connect: no saved creds, using preset only");
+    }
+
+    // Step 3: Match scanned networks against saved creds (by signal strength)
+    // Networks are already sorted by signal (strongest first) from wifi_do_scan
+    pthread_mutex_lock(&wifi->lock);
+    for (int i = 0; i < wifi->network_count; i++) {
+        for (int j = 0; j < cred_count; j++) {
+            if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) {
+                char ssid[WIFI_SSID_MAX], pass[WIFI_PASS_MAX];
+                strncpy(ssid, creds[j].ssid, WIFI_SSID_MAX - 1);
+                ssid[WIFI_SSID_MAX - 1] = 0;
+                strncpy(pass, creds[j].pass, WIFI_PASS_MAX - 1);
+                pass[WIFI_PASS_MAX - 1] = 0;
+                pthread_mutex_unlock(&wifi->lock);
+
+                ac_log("[wifi] Auto-connect: trying '%s' (signal %d dBm)",
+                       ssid, wifi->networks[i].signal);
+                wifi_do_connect(wifi, ssid, pass);
+
+                if (wifi->state == WIFI_STATE_CONNECTED) {
+                    ac_log("[wifi] Auto-connect: success!");
+                    return;
+                }
+                ac_log("[wifi] Auto-connect: '%s' failed, trying next...", ssid);
+                pthread_mutex_lock(&wifi->lock);
+                break; // Move to next scanned network
+            }
+        }
+    }
+    pthread_mutex_unlock(&wifi->lock);
+
+    ac_log("[wifi] Auto-connect: no saved network matched or connected");
+    wifi_set_state_and_status(wifi, WIFI_STATE_SCAN_DONE, "no saved network");
+}
+
+// ============================================================
 // Worker thread
 // ============================================================
 
 // Check if interface still has an IP (connectivity watchdog)
+// Also updates signal_strength while connected.
 static int wifi_check_link(ACWifi *wifi) {
     if (!wifi->iface[0]) return 0;
-    char cmd[128];
+    char cmd[256];
     snprintf(cmd, sizeof(cmd),
              "ip -4 addr show %s 2>/dev/null | grep -q 'inet '", wifi->iface);
-    return system(cmd) == 0;
+    int has_ip = system(cmd) == 0;
+
+    // Update signal strength
+    if (has_ip) {
+        snprintf(cmd, sizeof(cmd),
+                 "iw dev %s link 2>/dev/null | grep signal | awk '{print $2}'",
+                 wifi->iface);
+        FILE *fp = popen(cmd, "r");
+        if (fp) {
+            char buf[32] = "";
+            if (fgets(buf, sizeof(buf), fp)) {
+                int sig = atoi(buf);
+                if (sig < 0) {
+                    pthread_mutex_lock(&wifi->lock);
+                    wifi->signal_strength = sig;
+                    pthread_mutex_unlock(&wifi->lock);
+                }
+            }
+            pclose(fp);
+        }
+    }
+
+    return has_ip;
 }
 
 static void *wifi_thread_fn(void *arg) {
@@ -474,9 +610,10 @@ static void *wifi_thread_fn(void *arg) {
 
         // Execute command (blocking calls are fine — we're on the wifi thread)
         switch (cmd) {
-            case WIFI_CMD_SCAN:       wifi_do_scan(wifi); break;
-            case WIFI_CMD_CONNECT:    wifi_do_connect(wifi, ssid, pass); break;
-            case WIFI_CMD_DISCONNECT: wifi_do_disconnect(wifi); break;
+            case WIFI_CMD_SCAN:          wifi_do_scan(wifi); break;
+            case WIFI_CMD_CONNECT:       wifi_do_connect(wifi, ssid, pass); break;
+            case WIFI_CMD_DISCONNECT:    wifi_do_disconnect(wifi); break;
+            case WIFI_CMD_AUTOCONNECT:   wifi_do_autoconnect(wifi); break;
             default: break;
         }
 
@@ -722,6 +859,15 @@ int wifi_scan_poll(ACWifi *wifi) {
 int wifi_connect_poll(ACWifi *wifi) {
     (void)wifi;
     return 0;
+}
+
+void wifi_autoconnect(ACWifi *wifi) {
+    if (!wifi || !wifi->iface[0] || !wifi->thread_running) return;
+
+    pthread_mutex_lock(&wifi->lock);
+    wifi->pending_cmd = WIFI_CMD_AUTOCONNECT;
+    pthread_cond_signal(&wifi->cond);
+    pthread_mutex_unlock(&wifi->lock);
 }
 
 void wifi_destroy(ACWifi *wifi) {

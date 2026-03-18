@@ -1944,6 +1944,8 @@ int main(int argc, char *argv[]) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...");
             wifi = wifi_init();
+            // Auto-connect to saved/preset network on boot
+            if (wifi) wifi_autoconnect(wifi);
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled");
@@ -2443,12 +2445,36 @@ int main(int argc, char *argv[]) {
                        main_frame, input->event_count, input->has_analog,
                        input->hidraw_count, analog_active, input->count);
             }
-            // Log key events to USB
+            // Log key events to USB + instant TTS for key presses
             for (int i = 0; i < input->event_count; i++) {
-                if (logfile && (input->events[i].type == AC_EVENT_KEYBOARD_DOWN ||
-                                input->events[i].type == AC_EVENT_KEYBOARD_UP)) {
-                    ac_log("[key] %s code=%d name=%s pressure=%.3f\n",
-                           input->events[i].type == AC_EVENT_KEYBOARD_DOWN ? "DOWN" : "UP",
+                if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN) {
+                    if (logfile) {
+                        ac_log("[key] DOWN code=%d name=%s pressure=%.3f\n",
+                               input->events[i].key_code,
+                               input->events[i].key_name,
+                               input->events[i].pressure);
+                    }
+                    // Instant TTS: play cached sound immediately (bypasses JS frame delay)
+                    // Only in prompt mode (other pieces control their own voicing)
+                    if (tts && strcmp(rt->system_mode, "prompt") == 0) {
+                        const char *kn = input->events[i].key_name;
+                        if (kn && kn[0] && kn[1] == 0) {
+                            // Single printable character
+                            tts_speak_cached(tts, kn);
+                        } else if (kn && strcmp(kn, "space") == 0) {
+                            tts_speak_cached(tts, "space");
+                        } else if (kn && strcmp(kn, "backspace") == 0) {
+                            tts_speak_cached(tts, "back");
+                        } else if (kn && (strcmp(kn, "enter") == 0 || strcmp(kn, "return") == 0)) {
+                            tts_speak_cached(tts, "enter");
+                        } else if (kn && strcmp(kn, "escape") == 0) {
+                            tts_speak_cached(tts, "clear");
+                        } else if (kn && strcmp(kn, "tab") == 0) {
+                            tts_speak_cached(tts, "tab");
+                        }
+                    }
+                } else if (input->events[i].type == AC_EVENT_KEYBOARD_UP && logfile) {
+                    ac_log("[key] UP code=%d name=%s pressure=%.3f\n",
                            input->events[i].key_code,
                            input->events[i].key_name,
                            input->events[i].pressure);
