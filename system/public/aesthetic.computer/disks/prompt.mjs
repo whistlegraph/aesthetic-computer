@@ -1404,10 +1404,19 @@ async function halt($, text) {
 
   // Roughly parse out the text (could also do a full `parse` here.)
   const tokens = text.split(" ");
-  const slug = tokens[0]; // Note: Includes colon params.
-  const slugWithoutColon = slug.split(":")[0];
+  let slug = tokens[0]; // Note: Includes colon params.
+  let slugWithoutColon = slug.split(":")[0];
   const params = tokens.slice(1);
   const input = $.system.prompt.input; // Reference to the TextInput.
+
+  // 📎 Command aliases.
+  const aliases = { ls: "list" };
+  if (aliases[slugWithoutColon]) {
+    text = text.replace(slugWithoutColon, aliases[slugWithoutColon]);
+    tokens[0] = slug.replace(slugWithoutColon, aliases[slugWithoutColon]);
+    slug = tokens[0];
+    slugWithoutColon = slug.split(":")[0];
+  }
 
   const openExternalFromIframe = (url) => {
     if (!net.iframe) return false;

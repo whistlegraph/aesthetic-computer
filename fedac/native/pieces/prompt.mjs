@@ -21,7 +21,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -40,6 +40,7 @@ const PIECE_DESC = {
   "machine":       "hardware info",
   "roz":           "generative art",
   "list":          "all commands",
+  "ls":            "→ list",
   "clock":         "melody clock",
   "brick-breaker": "paddle + ball game",
   "gostop":        "go/stop rhythm",
@@ -389,6 +390,14 @@ function execute(cmd, system) {
       messageFrame = 0;
       return;
     }
+  }
+
+  // "ls" is an alias for "list"
+  if (baseName === "ls" || baseWord === "ls") {
+    message = "~> list";
+    messageFrame = 0;
+    system?.jump?.("list");
+    return;
   }
 
   // "code" is an alias for "claude" piece
