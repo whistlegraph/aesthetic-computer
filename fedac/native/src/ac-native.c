@@ -38,6 +38,7 @@
 
 static volatile int running = 1;
 static FILE *logfile = NULL;
+int ac_log_stderr_muted = 0;  // When set, ac_log skips stderr (PTY active)
 static int is_removable(const char *blkname);
 static void get_parent_block(const char *part, char *out, int out_sz);
 
@@ -170,12 +171,12 @@ static void signal_handler(int sig) {
     }
 }
 
-// Log to both stderr and logfile
+// Log to stderr (when unmuted) and logfile
 void ac_log(const char *fmt, ...) {
     va_list args, args2;
     va_start(args, fmt);
     va_copy(args2, args);
-    vfprintf(stderr, fmt, args);
+    if (!ac_log_stderr_muted) vfprintf(stderr, fmt, args);
     va_end(args);
     if (logfile) {
         vfprintf(logfile, fmt, args2);

@@ -14,6 +14,7 @@
 #include <termios.h>
 
 extern void ac_log(const char *fmt, ...);
+extern int ac_log_stderr_muted;
 
 // Standard ANSI 16-color palette
 static const uint8_t ansi_colors[16][3] = {
@@ -709,6 +710,7 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
     fcntl(pty->master_fd, F_SETFL, flags | O_NONBLOCK);
 
     ac_log("[pty] spawned pid=%d cmd=%s cols=%d rows=%d\n", pid, cmd, cols, rows);
+    ac_log_stderr_muted = 1;  // Suppress stderr while PTY child is running
     return 0;
 }
 
@@ -776,6 +778,7 @@ int pty_check_alive(ACPty *pty) {
     pid_t result = waitpid(pty->child_pid, &status, WNOHANG);
     if (result == pty->child_pid) {
         pty->alive = 0;
+        ac_log_stderr_muted = 0;  // Restore stderr logging
         if (WIFEXITED(status)) {
             int code = WEXITSTATUS(status);
             pty->exit_code = code;
@@ -815,5 +818,6 @@ void pty_destroy(ACPty *pty) {
     }
     pty->alive = 0;
     pty->child_pid = 0;
+    ac_log_stderr_muted = 0;  // Restore stderr logging
     ac_log("[pty] destroyed\n");
 }
