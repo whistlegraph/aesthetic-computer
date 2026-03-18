@@ -15,6 +15,7 @@
  *   node keeps.mjs sell <token> <xtz>  - List a token on Objkt marketplace
  *   node keeps.mjs accept <offer_id>   - Accept a specific Objkt offer
  *   node keeps.mjs accept:auto ...      - Accept best offers above thresholds
+ *   node keeps.mjs buy <ask_id>        - Buy a listed token (fulfill_ask)
  *   node keeps.mjs upload <piece>      - Upload bundle to IPFS
  */
 
@@ -3428,6 +3429,174 @@ async function acceptOffersAboveThreshold(items = [], options = {}) {
   return results;
 }
 
+// ============================================================================
+// Buy (fulfill_ask)
+// ============================================================================
+
+async function loadActiveAskById(askId) {
+  const numericId = Number.parseInt(String(askId), 10);
+  if (!Number.isInteger(numericId) || numericId < 0) {
+    throw new Error(`Invalid ask id "${askId}".`);
+  }
+
+  const data = await objktGraphQL(
+    `
+    query {
+      listing_active(
+        where:{
+          _or:[
+            {id:{_eq:${numericId}}},
+            {bigmap_key:{_eq:${numericId}}}
+          ]
+        }
+        order_by:{timestamp:desc}
+        limit:5
+      ) {
+        id
+        bigmap_key
+        price_xtz
+        seller_address
+        marketplace_contract
+        marketplace { name }
+        amount_left
+        timestamp
+        token { token_id name fa_contract }
+      }
+    }
+    `
+  );
+
+  const rows = Array.isArray(data?.listing_active) ? data.listing_active : [];
+  if (rows.length === 0) return null;
+
+  return rows.find((row) => Number.parseInt(String(row?.id), 10) === numericId)
+    || rows.find((row) => Number.parseInt(String(row?.bigmap_key), 10) === numericId)
+    || rows[0];
+}
+
+async function buyToken(askIdInput, options = {}) {
+  const network = options.network || 'mainnet';
+  const apply = options.apply === true;
+
+  const { tezos, credentials, config } = await createTezosClient(network);
+  const contractAddress = loadContractAddress(network);
+  const askId = Number.parseInt(String(askIdInput), 10);
+
+  if (!Number.isInteger(askId) || askId < 0) {
+    throw new Error(`Invalid ask id "${askIdInput}".`);
+  }
+
+  // Try objkt GraphQL first, fall back to TzKT bigmap lookup
+  let listing = await loadActiveAskById(askId);
+  let priceMutez, tokenId, tokenName, sellerAddress, marketplaceContract, faContract;
+
+  if (listing) {
+    priceMutez = Number.parseInt(String(listing.price_xtz || 0), 10);
+    tokenId = Number.parseInt(String(listing.token?.token_id), 10);
+    tokenName = listing.token?.name || `#${tokenId}`;
+    sellerAddress = listing.seller_address;
+    marketplaceContract = listing.marketplace_contract;
+    faContract = listing.token?.fa_contract;
+  } else {
+    // Fallback: read directly from TzKT bigmap
+    const bigmapId = 684371; // objktcom marketplace v6.2 asks bigmap
+    const resp = await fetch(`https://api.tzkt.io/v1/bigmaps/${bigmapId}/keys/${askId}`);
+    if (!resp.ok) throw new Error(`Ask #${askId} not found (TzKT ${resp.status}).`);
+    const entry = await resp.json();
+    if (!entry?.active) throw new Error(`Ask #${askId} is no longer active.`);
+    const val = entry.value;
+    priceMutez = Number.parseInt(String(val?.amount || 0), 10);
+    tokenId = Number.parseInt(String(val?.token?.token_id), 10);
+    tokenName = `#${tokenId}`;
+    sellerAddress = val?.creator;
+    faContract = val?.token?.address;
+    marketplaceContract = 'KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X';
+  }
+
+  if (!Number.isInteger(priceMutez) || priceMutez <= 0) {
+    throw new Error(`Ask #${askId} has invalid price.`);
+  }
+
+  if (faContract && faContract !== contractAddress) {
+    // Allow buying from any FA2, but warn if not the current keeps contract
+    console.log(`⚠️  Token is from ${faContract}, not current keeps contract ${contractAddress}.`);
+  }
+
+  const priceXTZ = (priceMutez / 1_000_000).toFixed(6);
+  const balance = await tezos.tz.getBalance(credentials.address);
+  const balanceXTZ = balance.toNumber() / 1_000_000;
+
+  if (balanceXTZ < priceMutez / 1_000_000) {
+    throw new Error(
+      `Insufficient balance: ${balanceXTZ.toFixed(6)} XTZ available, need ${priceXTZ} XTZ.`
+    );
+  }
+
+  const objktBase = network === 'mainnet' ? 'https://objkt.com' : 'https://ghostnet.objkt.com';
+  const tokenUrl = faContract
+    ? `${objktBase}/tokens/${faContract}/${tokenId}`
+    : `${objktBase}/tokens/${contractAddress}/${tokenId}`;
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🛒 Buy Token (fulfill_ask)                                  ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+  console.log(`📡 Network:      ${config.name}`);
+  console.log(`📍 Contract:     ${faContract || contractAddress}`);
+  console.log(`🛒 Marketplace:  ${marketplaceContract}`);
+  console.log(`🎨 Token:        [${tokenId}] ${tokenName}`);
+  console.log(`🧾 Ask ID:       ${askId}`);
+  console.log(`💵 Price:        ${priceXTZ} XTZ (${priceMutez} mutez)`);
+  console.log(`👤 Seller:       ${sellerAddress || 'unknown'}`);
+  console.log(`👤 Buyer:        ${credentials.address}`);
+  console.log(`💰 Balance:      ${balanceXTZ.toFixed(6)} XTZ`);
+  console.log(`🔗 View:         ${tokenUrl}\n`);
+
+  if (!apply) {
+    console.log('⚠️  DRY RUN: no transaction sent. Add --yes to buy on chain.\n');
+    return {
+      askId,
+      tokenId,
+      tokenName,
+      priceMutez,
+      priceXTZ: Number(priceXTZ),
+      sellerAddress,
+      marketplaceContract,
+      dryRun: true,
+    };
+  }
+
+  const marketContract = await tezos.contract.at(marketplaceContract);
+
+  const op = await marketContract.methodsObject.fulfill_ask({
+    ask_id: askId,
+    amount: 1,               // editions to buy
+    proxy_for: null,
+    condition_extra: null,
+    referrers: new MichelsonMap(),
+  }).send({ amount: priceMutez, mutez: true });
+
+  console.log(`   ⏳ Transaction: ${op.hash}`);
+  console.log('   ⏳ Waiting for confirmation...');
+  await op.confirmation(1);
+
+  console.log('\n✅ Purchase complete!');
+  console.log(`   🎨 Token: [${tokenId}] ${tokenName}`);
+  console.log(`   💵 Paid: ${priceXTZ} XTZ`);
+  console.log(`   🔗 Explorer: ${config.explorer}/${op.hash}`);
+  console.log(`   🔗 Objkt: ${tokenUrl}\n`);
+
+  return {
+    askId,
+    tokenId,
+    tokenName,
+    priceMutez,
+    priceXTZ: Number(priceXTZ),
+    sellerAddress,
+    marketplaceContract,
+    hash: op.hash,
+  };
+}
+
 async function showMarketSnapshot(network = 'mainnet', options = {}) {
   if (network !== 'mainnet') {
     throw new Error('Market snapshot currently supports mainnet only.');
@@ -4047,6 +4216,29 @@ async function main() {
         break;
       }
         
+      case 'buy': {
+        if (!args[1]) {
+          console.error('Usage: node keeps.mjs buy <ask_id> [network] [--marketplace=<KT1...>] [--yes]');
+          console.error('');
+          console.error('Fulfill an active Objkt marketplace listing (ask) to buy a token.');
+          console.error('');
+          console.error('Examples:');
+          console.error('  node keeps.mjs buy 12589569 --wallet=aesthetic           # Dry run');
+          console.error('  node keeps.mjs buy 12589569 --wallet=aesthetic --yes     # Live purchase');
+          process.exit(1);
+        }
+
+        const buyMarketFlag = flags.find(f => f.startsWith('--marketplace='));
+        const buyMarketplace = buyMarketFlag ? buyMarketFlag.split('=').slice(1).join('=').trim() : null;
+
+        await buyToken(args[1], {
+          network: getNetwork(2),
+          marketplaceContract: buyMarketplace,
+          apply: flags.includes('--yes') || flags.includes('--apply'),
+        });
+        break;
+      }
+
       case 'upload':
         if (!args[1]) {
           console.error('Usage: node keeps.mjs upload <piece>');
@@ -4324,6 +4516,7 @@ Commands:
   sell:batch <ref=price>...     Batch-list multiple tokens on Objkt
   accept <offer_id> [network]   Accept one active Objkt offer (dry-run unless --yes)
   accept:auto <ref=min>...      Accept best offers above per-token thresholds
+  buy <ask_id> [network]        Buy a listed token (fulfill_ask, dry-run unless --yes)
   update <token_id> <piece>     Update token metadata (re-upload bundle)
   lock <token_id>               Permanently lock token metadata
   burn <token_id>               Burn token (allows re-keeping piece)
@@ -4388,6 +4581,7 @@ Examples:
   node keeps.mjs sell:batch '$faim=5.5' '$tezz=5.8' '$bip=6' --wallet=aesthetic --yes
   node keeps.mjs accept 12179750 --wallet=aesthetic --min=13 --yes
   node keeps.mjs accept:auto '19=8.5' '20=9' '21=10' '22=10.5' '23=12' '24=13' --wallet=aesthetic --yes
+  node keeps.mjs buy 12589569 --wallet=aesthetic --yes
   node keeps.mjs update 0 wand              # Re-upload bundle & update metadata
   node keeps.mjs lock 0                     # Permanently lock token 0
   node keeps.mjs burn 0                     # Burn token 0 (allows re-mint)
@@ -4446,6 +4640,7 @@ export {
   listBatchForSale,
   acceptOffer,
   acceptOffersAboveThreshold,
+  buyToken,
   uploadToIPFS,
   mintToken,
   updateMetadata,
