@@ -4,3 +4,8 @@ compatibility_date = "2024-01-01"
 workers_dev = true
 # Custom domain os.aesthetic.computer is set via Workers Domains API
 # (not routes — routes cause same-zone subrequest loops)
+
+# R2 bucket for template ISOs + manifests (enable R2 in dashboard first)
+# [[r2_buckets]]
+# binding = "OS_IMAGES"
+# bucket_name = "ac-os-images"
