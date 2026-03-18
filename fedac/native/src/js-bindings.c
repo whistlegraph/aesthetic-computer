@@ -3437,6 +3437,10 @@ static JSValue js_save_config(JSContext *ctx, JSValueConst this_val, int argc, J
             strncpy(current_rt->handle, val, sizeof(current_rt->handle) - 1);
         } else if (current_rt && strcmp(key, "piece") == 0) {
             strncpy(current_rt->piece, val, sizeof(current_rt->piece) - 1);
+        } else if (strcmp(key, "voice") == 0) {
+            extern int voice_off;
+            voice_off = (strcmp(val, "off") == 0);
+            ac_log("[config] voice_off = %d\n", voice_off);
         }
     } else {
         ac_log("[config] ERROR: cannot write /mnt/config.json\n");
