@@ -2834,12 +2834,12 @@ app.get('/os-image', async (req, res) => {
     return res.status(401).json({ error: `Authentication failed: ${err.message}` });
   }
 
-  // Look up handle
+  // Look up handle by sub (avoids stale /user cache for new handles)
   let handle = '';
-  const email = userInfo.email || '';
+  const sub = userInfo.sub || '';
   try {
     const handleRes = await fetch(
-      `https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`
+      `https://aesthetic.computer/handle?for=${encodeURIComponent(sub)}`
     );
     if (handleRes.ok) {
       const data = await handleRes.json();
