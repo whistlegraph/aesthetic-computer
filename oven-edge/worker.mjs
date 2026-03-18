@@ -1,26 +1,16 @@
 // oven-edge — Cloudflare Worker that caches OTA downloads at the edge.
-// Proxies from the origin oven (NYC) and caches at the nearest Cloudflare POP.
+// Serves at edge.aesthetic.computer, proxies from origin oven (NYC).
 //
-// First request: hits origin
-// Subsequent requests from same region: served from edge cache
+// Routes:
+//   /os/latest.iso         → latest template ISO (cached 24h at edge)
+//   /os/<name>.iso         → specific build ISO (cached 24h)
+//   /os/<name>.vmlinuz     → specific build kernel (cached 24h)
+//   /os-releases           → build list (cached 1 min)
+//   /os-image              → personalized image (NEVER cached)
+//   /*                     → proxy to oven (cached 5 min)
 
 const ORIGIN = "https://oven.aesthetic.computer";
-
-// Cache TTL by path pattern (seconds)
-const CACHE_RULES = [
-  { match: /\/os-releases/, ttl: 60 },         // 1 min
-  { match: /\/os-image/, ttl: 0 },             // NEVER cache (personalized per user)
-  { match: /\/os-template-iso/, ttl: 86400 },  // 24 hours (generic, no creds)
-  { match: /\/health/, ttl: 10 },               // 10 sec
-  { match: /.*/, ttl: 300 },                    // 5 min default
-];
-
-function getCacheTtl(path) {
-  for (const rule of CACHE_RULES) {
-    if (rule.match.test(path)) return rule.ttl;
-  }
-  return 300;
-}
+const SPACES = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,46 +18,87 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+function edgeHeaders(request, extra = {}) {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "X-Edge-Pop": request.cf?.colo || "unknown",
+    ...extra,
+  };
+}
+
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    const path = url.pathname;
 
     // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
     }
 
-    // Template ISO — proxy from DO Spaces (cached at edge for 24h)
-    if (url.pathname === "/os-template-iso") {
-      const isoUrl = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso";
-      const isoRes = await fetch(isoUrl, {
+    // --- /os/latest.iso → latest template ISO from DO Spaces ---
+    if (path === "/os/latest.iso" || path === "/os-template-iso") {
+      const isoUrl = SPACES + "/os/native-notepat-latest.iso";
+      const res = await fetch(isoUrl, {
         cf: { cacheTtl: 86400, cacheEverything: true },
       });
-      const out = new Response(isoRes.body, isoRes);
-      out.headers.set("Access-Control-Allow-Origin", "*");
-      out.headers.set("X-Edge-Pop", request.cf?.colo || "unknown");
+      const out = new Response(res.body, res);
+      out.headers.set("Content-Disposition", "attachment; filename=ac-os-latest.iso");
+      for (const [k, v] of Object.entries(edgeHeaders(request))) out.headers.set(k, v);
       return out;
     }
 
-    const originUrl = ORIGIN + url.pathname + url.search;
-    const ttl = getCacheTtl(url.pathname);
+    // --- /os/<name>.vmlinuz → named build kernel from DO Spaces ---
+    const vmlinuzMatch = path.match(/^\/os\/([a-z]+-[a-z]+)\.vmlinuz$/);
+    if (vmlinuzMatch) {
+      const name = vmlinuzMatch[1];
+      const vmzUrl = SPACES + "/os/builds/" + name + ".vmlinuz";
+      const res = await fetch(vmzUrl, {
+        cf: { cacheTtl: 86400, cacheEverything: true },
+      });
+      if (!res.ok) return new Response("Build not found: " + name, { status: 404 });
+      const out = new Response(res.body, res);
+      out.headers.set("Content-Disposition", "attachment; filename=" + name + ".vmlinuz");
+      for (const [k, v] of Object.entries(edgeHeaders(request))) out.headers.set(k, v);
+      return out;
+    }
 
-    // Proxy to origin with Cloudflare edge caching
+    // --- /os/<name>.iso → named build ISO from DO Spaces ---
+    const isoMatch = path.match(/^\/os\/([a-z]+-[a-z]+)\.iso$/);
+    if (isoMatch) {
+      const name = isoMatch[1];
+      const isoUrl = SPACES + "/os/builds/" + name + ".iso";
+      const res = await fetch(isoUrl, {
+        cf: { cacheTtl: 86400, cacheEverything: true },
+      });
+      if (!res.ok) return new Response("Build not found: " + name, { status: 404 });
+      const out = new Response(res.body, res);
+      out.headers.set("Content-Disposition", "attachment; filename=" + name + ".iso");
+      for (const [k, v] of Object.entries(edgeHeaders(request))) out.headers.set(k, v);
+      return out;
+    }
+
+    // --- Proxy everything else to oven origin ---
+    const originUrl = ORIGIN + path + url.search;
+
+    // Cache rules by path
+    let ttl = 300; // 5 min default
+    if (/\/os-releases/.test(path)) ttl = 60;
+    else if (/\/os-image/.test(path)) ttl = 0; // personalized — never cache
+    else if (/\/health/.test(path)) ttl = 10;
+
     const response = await fetch(originUrl, {
       method: request.method,
       headers: request.headers,
       body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
       cf: {
-        cacheTtl: request.method === "GET" ? ttl : 0,
-        cacheEverything: request.method === "GET",
+        cacheTtl: request.method === "GET" && ttl > 0 ? ttl : 0,
+        cacheEverything: request.method === "GET" && ttl > 0,
       },
     });
 
-    // Clone and add debug + CORS headers
     const out = new Response(response.body, response);
-    out.headers.set("Access-Control-Allow-Origin", "*");
-    out.headers.set("X-Edge-Pop", request.cf?.colo || "unknown");
-    out.headers.set("X-Cache-Ttl", String(ttl));
+    for (const [k, v] of Object.entries(edgeHeaders(request, { "X-Cache-Ttl": String(ttl) }))) out.headers.set(k, v);
     return out;
   },
 };

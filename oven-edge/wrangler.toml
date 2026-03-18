@@ -1,6 +1,5 @@
 name = "oven-edge"
 main = "worker.mjs"
 compatibility_date = "2024-01-01"
-
-# Custom domain — set up in Cloudflare DNS
-# routes = [{ pattern = "edge.aesthetic.computer/*", zone_name = "aesthetic.computer" }]
+workers_dev = true
+routes = [{ pattern = "os.aesthetic.computer/*", zone_name = "aesthetic.computer" }]
