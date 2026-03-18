@@ -3,21 +3,23 @@
 \contentsline {subsection}{\numberline {2.1}Hegemony}{6}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}Behavioral nudging}{6}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Flattening}{7}{subsection.2.3}%
-\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{9}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Trevor Paglen}{9}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Hito Steyerl}{10}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Zach Blas}{10}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}The pipeline}{11}{subsection.3.4}%
-\contentsline {section}{\numberline {4}The Structural Trap}{13}{section.4}%
-\contentsline {section}{\numberline {5}Free Spaces of Play}{15}{section.5}%
-\contentsline {section}{\numberline {6}Two Pedagogies}{17}{section.6}%
-\contentsline {subsection}{\numberline {6.1}The art school}{17}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The tech school}{19}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Anti-Environments}{21}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Goodiepal}{21}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{22}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{23}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}The key distinction}{23}{subsection.7.4}%
-\contentsline {section}{\numberline {8}The Art Fair Paradox}{25}{section.8}%
-\contentsline {section}{\numberline {9}Conclusion}{27}{section.9}%
+\contentsline {subsection}{\numberline {2.4}The orchestra as organizational power}{8}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Trevor Paglen}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Hito Steyerl}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Zach Blas}{12}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Mindy Seu}{13}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}The pipeline}{14}{subsection.3.5}%
+\contentsline {section}{\numberline {4}The Structural Trap}{16}{section.4}%
+\contentsline {section}{\numberline {5}Free Spaces of Play}{18}{section.5}%
+\contentsline {section}{\numberline {6}Two Pedagogies}{20}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The art school}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The tech school}{22}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Anti-Environments}{24}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Goodiepal}{25}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{25}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{26}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}The key distinction}{27}{subsection.7.4}%
+\contentsline {section}{\numberline {8}The Art Fair Paradox}{28}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{30}{section.9}%
 \contentsfinish 

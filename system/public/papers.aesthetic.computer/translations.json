@@ -1,7 +1,7 @@
 {
   "ac": {
     "en": {
-      "title": "Aesthetic. Computer '26",
+      "title": "\\acrandname{} '26",
       "subtitle": "A Mobile-First Runtime for Creative Computing"
     },
     "da": {
@@ -38,7 +38,7 @@
   "archaeology": {
     "en": {
       "title": "Repository Archaeology",
-      "subtitle": "Tracing the Evolution of Aesthetic Computer Through Its Git History"
+      "subtitle": "Tracing the Evolution of \\acrandname{} Through Its Git History"
     },
     "da": {
       "title": "Repository-arkæologi",
@@ -74,7 +74,7 @@
   "diversity": {
     "en": {
       "title": "Citation Diversity Audit",
-      "subtitle": "Aesthetic Computer Paper Series, March 2026"
+      "subtitle": "\\acrandname{} Paper Series, March 2026"
     },
     "da": {
       "title": "Citationsdiversitetsrevision",
@@ -110,7 +110,7 @@
   "goodiepal": {
     "en": {
       "title": "Radical Computer Art",
-      "subtitle": "Goodiepalian Approaches in Aesthetic Computer"
+      "subtitle": "Goodiepalian Approaches in \\acrandname{}"
     },
     "da": {
       "title": "Radikal computerkunst",
@@ -164,7 +164,7 @@
   "network-audit": {
     "en": {
       "title": "Network Audit",
-      "subtitle": "Who Uses Aesthetic Computer and What Do They Make?"
+      "subtitle": "Who Uses \\acrandname{} and What Do They Make?"
     },
     "da": {
       "title": "Netværksrevision",
@@ -276,15 +276,15 @@
     },
     "da": {
       "title": "Sucking on the Complex",
-      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-miljøer"
+      "subtitle": "Platformhegemoni, kritik-som-indhold og behovet for anti-milj{\\o}er"
     },
     "es": {
       "title": "Sucking on the Complex",
-      "subtitle": "Hegemonía de plataformas, crítica-como-contenido y la necesidad de anti-entornos"
+      "subtitle": "Hegemon\\'{\\i}a de plataformas, cr\\'{\\i}tica-como-contenido y la necesidad de anti-entornos"
     },
     "zh": {
       "title": "Sucking on the Complex",
-      "subtitle": "平台霸权、批判作为内容与反环境的需要"
+      "subtitle": "平台霸权、批评即内容与反环境的需要"
     }
   },
   "plork": {
@@ -294,15 +294,15 @@
     },
     "da": {
       "title": "PLOrk'ing the Planet",
-      "subtitle": "Fra bærbar orkester til planetarisk instrument"
+      "subtitle": "Fra laptoporkester til planetarisk instrument"
     },
     "es": {
       "title": "PLOrk'ing the Planet",
-      "subtitle": "De orquesta de portátiles a instrumento planetario"
+      "subtitle": "De la orquesta de laptops al instrumento planetario"
     },
     "zh": {
       "title": "PLOrk'ing the Planet",
-      "subtitle": "从笔记本电脑乐队到行星乐器"
+      "subtitle": "从笔记本电脑管弦乐团到行星乐器"
     }
   }
 }

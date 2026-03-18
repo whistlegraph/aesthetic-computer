@@ -14,21 +14,23 @@ import { join, basename, dirname } from "path";
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 
 const PAPER_MAP = {
-  "arxiv-ac": { base: "ac", title: "Aesthetic\\acdot Computer '26" },
-  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}" },
-  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology" },
-  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features" },
-  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit" },
-  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art" },
-  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26" },
-  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference" },
-  "arxiv-network-audit": { base: "network-audit", title: "Network Audit" },
-  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}" },
-  "arxiv-os": { base: "os", title: "AC Native OS '26" },
-  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs" },
-  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?" },
-  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph" },
-  "arxiv-complex": { base: "complex", title: "Sucking on the Complex" },
+  "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv" },
+  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv" },
+  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv" },
+  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features", siteName: "dead-ends-26-arxiv" },
+  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit", siteName: "citation-diversity-audit-26" },
+  "arxiv-folk-songs": { base: "folk-songs", title: "Playable Folk Songs", siteName: "folk-songs-26-arxiv" },
+  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art", siteName: "radical-computer-art-26-arxiv" },
+  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26", siteName: "kidlisp-26-arxiv" },
+  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference", siteName: "kidlisp-reference-26-arxiv" },
+  "arxiv-network-audit": { base: "network-audit", title: "Network Audit", siteName: "network-audit-26-arxiv" },
+  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv" },
+  "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv" },
+  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv" },
+  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv" },
+  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv" },
+  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv" },
+  "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
 };
 
 function extractFromTex(content) {
@@ -85,14 +87,72 @@ function extractFromTex(content) {
     abstract = abstractMatch[1].trim();
   }
 
+  // Extract extra \newcommand definitions from the preamble (before \begin{document})
+  const preamble = content.substring(0, bodyStart);
+  const extraCommands = [];
+  // Match \newcommand{\acos} and similar custom commands (not \ac, \np, \acrandname which are in the sty)
+  const cmdRe = /^(\\newcommand\{\\(?!ac\b|np\b|acdot\b|acrandletter\b|acrandname\b)[a-zA-Z]+\}.*)$/gm;
+  let cmdMatch;
+  while ((cmdMatch = cmdRe.exec(preamble)) !== null) {
+    extraCommands.push(cmdMatch[1]);
+  }
+
+  // Extract extra \definecolor lines not already in ac-paper-cards.sty
+  // (sty defines: acpink, acpurple, acdark, acgray, aclight-bg, accard, draftcolor)
+  const styColors = new Set(["acpink", "acpurple", "acdark", "acgray", "aclight-bg", "accard", "draftcolor"]);
+  const colorRe = /^(\\definecolor\{([^}]+)\}.*)$/gm;
+  let colorMatch;
+  while ((colorMatch = colorRe.exec(preamble)) !== null) {
+    if (!styColors.has(colorMatch[2])) {
+      extraCommands.push(colorMatch[1]);
+    }
+  }
+
+  // Extract extra graphicspath entries (some papers reference other paper's figures)
+  // Use greedy match to handle nested braces like {{figures/}{../../papers/arxiv-ac/figures/}}
+  const multiGpMatch = content.match(/\\graphicspath\{(.+)\}/);
+  const fullGraphicspath = multiGpMatch ? multiGpMatch[1] : `{${graphicspath}}`;
+
+  // Extract lstdefinestyle and lstset blocks (brace-balanced)
+  const lstStyles = [];
+  const lstBlockRe = /\\(?:lstdefinestyle|lstset|lstdefinelanguage)\b/g;
+  let lstMatch;
+  while ((lstMatch = lstBlockRe.exec(preamble)) !== null) {
+    // Find the opening { of the definition body and balance braces
+    let pos = lstMatch.index + lstMatch[0].length;
+    // For lstdefinestyle/lstdefinelanguage, skip the {name} part first
+    if (lstMatch[0] !== "\\lstset") {
+      const nameStart = preamble.indexOf("{", pos);
+      if (nameStart === -1) continue;
+      const nameEnd = preamble.indexOf("}", nameStart);
+      if (nameEnd === -1) continue;
+      pos = nameEnd + 1;
+    }
+    const bodyStart = preamble.indexOf("{", pos);
+    if (bodyStart === -1) continue;
+    let depth = 1;
+    let i = bodyStart + 1;
+    while (i < preamble.length && depth > 0) {
+      if (preamble[i] === "{") depth++;
+      else if (preamble[i] === "}") depth--;
+      i++;
+    }
+    if (depth === 0) {
+      lstStyles.push(preamble.substring(lstMatch.index, i));
+    }
+  }
+
   return {
     pdftitle,
     subtitle,
     graphicspath,
+    fullGraphicspath,
     hasListings,
     hasCJK,
     cjkFont,
     hasKidlispFonts,
+    extraCommands,
+    lstStyles,
     abstract,
     mainBody,
     titleContent,
@@ -113,6 +173,16 @@ function generateCardsTeX(dir, info, parsed) {
 
   const title = info.title || parsed.pdftitle;
   const subtitle = parsed.subtitle || "";
+
+  // Extra custom commands from the base .tex preamble
+  const extraCmds = parsed.extraCommands.length > 0
+    ? "\n% Extra commands from base paper\n" + parsed.extraCommands.join("\n")
+    : "";
+
+  // Custom listing styles from the base .tex preamble
+  const lstStyleBlock = parsed.lstStyles.length > 0
+    ? "\n" + parsed.lstStyles.join("\n")
+    : "";
 
   const abstractCard = parsed.abstract
     ? `% ============================================================
@@ -140,24 +210,26 @@ ${parsed.abstract}
 ${cjkBlock ? "\n" + cjkBlock : ""}
 
 \\usepackage{graphicx}
-\\graphicspath{{${parsed.graphicspath}}}
+\\graphicspath{${parsed.fullGraphicspath}}
 \\usepackage{booktabs}
 \\usepackage{tabularx}
 \\usepackage{ragged2e}
 \\usepackage{microtype}
 \\usepackage{natbib}
 ${extraPackages.join("\n")}
-${kidlispFonts ? "\n" + kidlispFonts : ""}
+${kidlispFonts ? "\n" + kidlispFonts : ""}${lstStyleBlock}
 
 \\makeatletter
 \\def\\input@path{{../}}
 \\makeatother
 \\usepackage{ac-paper-cards}
+${extraCmds}
 
 \\hypersetup{
   pdftitle={${parsed.pdftitle}},
 }
 
+\\renewcommand{\\acpdfbase}{${info.siteName}}
 \\begin{document}
 
 % ============================================================
@@ -166,17 +238,17 @@ ${kidlispFonts ? "\n" + kidlispFonts : ""}
 \\thispagestyle{empty}
 \\vspace*{\\fill}
 \\begin{center}
-\\includegraphics[height=3em]{pals}\\par\\vspace{0.6em}
+\\includegraphics[height=8em]{pals}\\par\\vspace{0.3em}
 {\\acbold\\fontsize{20pt}{24pt}\\selectfont\\color{acdark} ${title}}\\par
 \\vspace{0.3em}
-${subtitle ? `{\\aclight\\fontsize{10pt}{12pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.8em}` : "\\vspace{0.5em}"}
-{\\normalsize Jeffrey Alan Scudder}\\par
-{\\small\\color{acgray} Aesthetic Inc.}\\par
+${subtitle ? `{\\fontsize{10pt}{12pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.8em}` : "\\vspace{0.5em}"}
+{\\normalsize\\color{cyan!70!blue}\\textbf{@jeffrey}}\\par
+{\\small\\color{acgray} Aesthetic.Computer}\\par
 {\\small\\color{acgray} ORCID: \\href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\\par
 \\vspace{0.8em}
 \\rule{0.6\\textwidth}{1pt}\\par
 \\vspace{0.4em}
-{\\small\\color{acpink}\\textbf{[ working draft --- not for citation ]}}\\par
+{\\small\\color{acpink!40}\\textit{working draft --- not for citation}}\\par
 \\vspace{0.3em}
 {\\footnotesize\\color{acgray} March 2026}\\par
 \\end{center}
