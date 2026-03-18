@@ -269,10 +269,11 @@ function execute(cmd, system) {
     system?.poweroff?.();
     return;
   }
-  if (lower === "login") {
+  if (baseWord === "login") {
+    const code = cmd.slice(spaceIdx > 0 ? spaceIdx + 1 : cmd.length).trim();
     message = "~> login";
     messageFrame = 0;
-    system?.jump?.("login");
+    system?.jump?.(code ? "login:" + code : "login");
     return;
   }
   if (lower === "clear") {

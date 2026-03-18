@@ -3814,6 +3814,37 @@ async function halt($, text) {
     flashColor = "pink";
     makeFlash($);
     return true;
+  } else if (slug === "device-key" || slug === "devicekey") {
+    // 🔑 Generate a device pairing key (pre-claimed with current user's identity).
+    // User types this key on a native device to switch it to their identity.
+    try {
+      // Step 1: Create a pairing code
+      const createRes = await fetch("/.netlify/functions/device-pair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create" }),
+      });
+      const createData = await createRes.json();
+      if (!createData.code) throw new Error(createData.message || "failed");
+
+      // Step 2: Immediately claim it with current user's auth
+      const claimRes = await net.userRequest(
+        "POST",
+        "/.netlify/functions/device-pair",
+        { action: "claim", code: createData.code },
+      );
+      if (!claimRes?.handle) throw new Error(claimRes?.message || "claim failed");
+
+      flashColor = [0, 255, 0];
+      notice(createData.code, ["green", "white"]);
+      console.log(`🔑 Device key: ${createData.code} (expires in 10 min)`);
+      console.log(`   On the device, type: login ${createData.code}`);
+    } catch (err) {
+      flashColor = [255, 0, 0];
+      notice(err.message || "FAILED", ["yellow", "red"]);
+    }
+    makeFlash($);
+    return true;
   } else if (slugWithoutColon === "claude" && params[0]?.startsWith("sk-ant-")) {
     // 🤖 Store Claude API token for device OS builds.
     const res = await net.userRequest("POST", "/.netlify/functions/claude-token", {
