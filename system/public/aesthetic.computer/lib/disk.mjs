@@ -7503,7 +7503,20 @@ async function load(
           });
           
           // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
-          response = await fetch(fullUrl, { cache: 'no-store' });
+          // Retry on network failure (bad connections drop fetches)
+          {
+            const maxAttempts = 3;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                response = await fetch(fullUrl, { cache: 'no-store' });
+                break;
+              } catch (fetchErr) {
+                if (attempt >= maxAttempts) throw fetchErr;
+                console.warn(`🔄 Piece fetch attempt ${attempt}/${maxAttempts} failed, retrying in ${attempt}s...`);
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+              }
+            }
+          }
           const fetchEndTime = performance.now();
           diskTimings.fetchComplete = Math.round(fetchEndTime - diskTimingStart);
           // Silent: fetch completed
@@ -7747,7 +7760,26 @@ async function load(
         });
         
         sourceCode = updatedCode;
-        loadedModule = await import(blobUrl);
+        // Retry dynamic import on network failures (sub-dependency fetches can fail on bad connections)
+        {
+          const maxImportAttempts = 3;
+          for (let attempt = 1; attempt <= maxImportAttempts; attempt++) {
+            try {
+              loadedModule = await import(blobUrl);
+              break;
+            } catch (importErr) {
+              const isNetworkError = importErr.toString().includes("Failed to fetch");
+              if (attempt < maxImportAttempts && isNetworkError) {
+                console.warn(`🔄 Module import attempt ${attempt}/${maxImportAttempts} failed, retrying in ${1.5 * attempt}s...`);
+                URL.revokeObjectURL(blobUrl);
+                blobUrl = URL.createObjectURL(new Blob([updatedCode], { type: "application/javascript" }));
+                await new Promise(r => setTimeout(r, 1500 * attempt));
+              } else {
+                throw importErr;
+              }
+            }
+          }
+        }
         
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
@@ -7774,7 +7806,8 @@ async function load(
     // Determine if this was a fetch failure (404/403) vs a module import/compile error.
     // Only try language fallbacks if this was a missing .mjs path.
     const isFetchError = err.message === "404" || err.message === "403";
-    const isModuleImportError = err.toString().includes("Failed to fetch dynamically imported module") ||
+    const isNetworkImportError = err.toString().includes("Failed to fetch dynamically imported module");
+    const isModuleImportError = isNetworkImportError ||
                                 err.toString().includes("Unexpected token") ||
                                 err.toString().includes("SyntaxError") ||
                                 err.toString().includes("Cannot use import");
@@ -7882,7 +7915,12 @@ async function load(
     } else {
       // Module import/compile error - the .mjs file exists but has errors
       // Don't try language fallbacks, just show the error
-      if (isModuleImportError) {
+      if (isNetworkImportError) {
+        console.error(
+          `😡 "${path}" module import failed (network error loading dependencies after ${3} retries):`,
+          err,
+        );
+      } else if (isModuleImportError) {
         console.error(
           `😡 "${path}" module import failed (JS error in the piece):`,
           err,
