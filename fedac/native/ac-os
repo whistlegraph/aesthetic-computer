@@ -643,12 +643,18 @@ generate_template_iso() {
     rm -rf "${STAGING}" "${EFI_IMG}" "${ISO}"
     mkdir -p "${STAGING}"
 
-    # Create padded config.json (4096 bytes, space-padded) in ISO root
+    # Create identity block (32KB, zero-padded) in ISO root.
+    # The block starts with a marker so the edge worker can verify alignment,
+    # followed by JSON config, zero-padded to exactly 32768 bytes.
+    local IDENTITY_SIZE=32768
+    local IDENTITY_MARKER="AC_IDENTITY_BLOCK_V1"
     local CONFIG_TMP="${STAGING}/config.json"
-    printf '{"handle":"","piece":"notepat","sub":"","email":""}' > "${CONFIG_TMP}"
+    # Marker (20 bytes) + newline + JSON + zero-padding to 32KB
+    printf '%s\n' "${IDENTITY_MARKER}" > "${CONFIG_TMP}"
+    printf '{"handle":"","piece":"notepat","sub":"","email":""}' >> "${CONFIG_TMP}"
     local CURRENT_SIZE=$(stat -c%s "${CONFIG_TMP}")
-    local PAD_SIZE=$((4096 - CURRENT_SIZE))
-    dd if=/dev/zero bs=1 count=${PAD_SIZE} 2>/dev/null | tr '\0' ' ' >> "${CONFIG_TMP}"
+    local PAD_SIZE=$((IDENTITY_SIZE - CURRENT_SIZE))
+    dd if=/dev/zero bs=1 count=${PAD_SIZE} 2>/dev/null >> "${CONFIG_TMP}"
 
     # Create FAT32 EFI System Partition image for El Torito boot
     dd if=/dev/zero of="${EFI_IMG}" bs=1M count=${EFI_MB} status=none
@@ -674,6 +680,39 @@ generate_template_iso() {
     local ISO_BYTES=$(stat -c%s "${ISO}")
     local ISO_MB=$(( ISO_BYTES / 1048576 ))
     log "Template ISO: ${ISO} (${ISO_MB}MB)" >&2
+
+    # Find the identity block offset by searching for the marker in the ISO.
+    # Record it in a manifest so the edge worker can patch without scanning.
+    local OFFSET=$(python3 -c "
+import sys
+marker = b'${IDENTITY_MARKER}\n'
+with open('${ISO}', 'rb') as f:
+    data = f.read()
+    idx = data.find(marker)
+    print(idx if idx >= 0 else -1)
+" 2>/dev/null)
+
+    if [ "${OFFSET}" = "-1" ] || [ -z "${OFFSET}" ]; then
+        log "WARNING: Identity block marker not found in ISO!" >&2
+    else
+        log "Identity block at offset ${OFFSET} (${IDENTITY_SIZE} bytes)" >&2
+    fi
+
+    # Write manifest alongside the ISO
+    local MANIFEST="/tmp/ac-manifest.json"
+    cat > "${MANIFEST}" << MANIFEST_EOF
+{
+  "name": "${AC_BUILD_NAME:-unknown}",
+  "hash": "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)",
+  "timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "identityBlockOffset": ${OFFSET:--1},
+  "identityBlockSize": ${IDENTITY_SIZE},
+  "identityMarker": "${IDENTITY_MARKER}",
+  "isoSize": ${ISO_BYTES}
+}
+MANIFEST_EOF
+    log "Manifest: ${MANIFEST}" >&2
+
     echo "${ISO}"
 }
 
@@ -810,6 +849,27 @@ upload_ota() {
                     -T "${TEMPLATE_ISO}" \
                     --max-time 300 && {
                     log "Template .iso uploaded"
+                    # Upload manifest for edge worker ISO patching
+                    local MANIFEST="/tmp/ac-manifest.json"
+                    if [ -f "${MANIFEST}" ]; then
+                        local MANIFEST_STEP
+                        MANIFEST_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
+                            -H "Authorization: Bearer ${AC_TOKEN}" \
+                            -H "X-Build-Name: ${BUILD_NAME}" \
+                            -H "X-Manifest-Upload: true" \
+                            --max-time 30 2>/dev/null) || true
+                        if [ -n "${MANIFEST_STEP}" ]; then
+                            local MANIFEST_PUT=$(echo "$MANIFEST_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).manifest_put_url||''))" 2>/dev/null)
+                            if [ -n "${MANIFEST_PUT}" ]; then
+                                curl -sf -X PUT "${MANIFEST_PUT}" \
+                                    -H "Content-Type: application/json" \
+                                    -H "x-amz-acl: public-read" \
+                                    -T "${MANIFEST}" \
+                                    --max-time 30 && log "Manifest uploaded" \
+                                    || log "Manifest upload failed (non-fatal)"
+                            fi
+                        fi
+                    fi
                     # Flush oven's in-memory cache so downloads get the new template immediately
                     curl -sf -X POST "https://oven.aesthetic.computer/os-cache-flush" \
                         --max-time 10 && log "Oven template cache flushed" \

@@ -2780,8 +2780,10 @@ app.post('/os-cache-flush', (req, res) => {
 const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
 const TEMPLATE_ISO_URL = `${RELEASES_BASE}/native-notepat-latest.iso`;
 const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`; // legacy fallback
-const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
-const CONFIG_PAD_SIZE = 4096;
+const CONFIG_MARKER_LEGACY = '{"handle":"","piece":"notepat","sub":"","email":""}';
+const CONFIG_PAD_SIZE_LEGACY = 4096;
+const IDENTITY_MARKER = 'AC_IDENTITY_BLOCK_V1';
+const IDENTITY_BLOCK_SIZE = 32768;
 
 // Cache the decompressed template in memory
 let templateCache = null;
@@ -2814,6 +2816,68 @@ async function getTemplate() {
   console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB`);
   return templateCache;
 }
+
+// User config endpoint for edge worker ISO patching
+app.get('/api/user-config', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Authorization required' });
+
+  let userInfo;
+  try {
+    const uiRes = await fetch('https://hi.aesthetic.computer/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!uiRes.ok) throw new Error(`Auth0 ${uiRes.status}`);
+    userInfo = await uiRes.json();
+  } catch (err) {
+    return res.status(401).json({ error: `Authentication failed: ${err.message}` });
+  }
+
+  const sub = userInfo.sub || '';
+  let handle = '';
+  try {
+    const handleRes = await fetch(`https://aesthetic.computer/handle?for=${encodeURIComponent(sub)}`);
+    if (handleRes.ok) {
+      const data = await handleRes.json();
+      handle = data.handle || '';
+    }
+  } catch (_) {}
+
+  if (!handle) return res.status(403).json({ error: 'No handle found' });
+
+  let claudeToken = '', githubPat = '';
+  try {
+    const mongoUri = process.env.MONGODB_CONNECTION_STRING;
+    const dbName = process.env.MONGODB_NAME;
+    if (mongoUri) {
+      const { MongoClient } = await import('mongodb');
+      const client = new MongoClient(mongoUri);
+      await client.connect();
+      const doc = await client.db(dbName).collection('@handles').findOne({ _id: sub });
+      if (doc) {
+        claudeToken = doc.claudeCodeToken || '';
+        githubPat = doc.githubPat || '';
+      }
+      await client.close();
+    }
+  } catch (err) {
+    console.warn(`[user-config] Token lookup failed: ${err.message}`);
+  }
+
+  const reqPiece = req.query.piece || 'notepat';
+  const ALLOWED_PIECES = ['notepat', 'prompt', 'chat', 'laer-klokken'];
+  const bootPiece = ALLOWED_PIECES.includes(reqPiece) ? reqPiece : 'notepat';
+  const wifiParam = req.query.wifi;
+  const wifiEnabled = wifiParam !== '0' && wifiParam !== 'false';
+
+  const config = { handle, piece: bootPiece, sub, email: userInfo.email || '', token };
+  if (claudeToken) config.claudeToken = claudeToken;
+  if (githubPat) config.githubPat = githubPat;
+  if (!wifiEnabled) config.wifi = false;
+
+  res.json(config);
+});
 
 app.get('/os-image', async (req, res) => {
   // Auth: verify AC token
@@ -2891,7 +2955,7 @@ app.get('/os-image', async (req, res) => {
     return res.status(503).json({ error: `Template not available: ${err.message}` });
   }
 
-  // Build personalized config (padded to CONFIG_PAD_SIZE)
+  // Build personalized config JSON
   const configObj = {
     handle,
     piece: bootPiece,
@@ -2902,23 +2966,40 @@ app.get('/os-image', async (req, res) => {
   if (claudeToken) configObj.claudeToken = claudeToken;
   if (githubPat) configObj.githubPat = githubPat;
   if (!wifiEnabled) configObj.wifi = false;
-  const config = JSON.stringify(configObj);
-  const padded = config + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE - config.length));
-  const configBytes = Buffer.from(padded);
+  const configJson = JSON.stringify(configObj);
 
-  // Find and patch all config placeholders (ISO has one in the filesystem + one in the EFI partition)
-  const markerBuf = Buffer.from(CONFIG_MARKER);
-  let idx = imgData.indexOf(markerBuf);
-  if (idx === -1) {
-    return res.status(500).json({ error: 'Template image missing config placeholder' });
-  }
+  // Try new identity block format first (32KB, marker-prefixed)
+  const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
+  let idx = imgData.indexOf(identityMarkerBuf);
   let patchCount = 0;
-  while (idx !== -1) {
-    configBytes.copy(imgData, idx);
-    patchCount++;
-    idx = imgData.indexOf(markerBuf, idx + CONFIG_PAD_SIZE);
+
+  if (idx !== -1) {
+    // New format: marker + newline + JSON + zero-padding to 32KB
+    while (idx !== -1) {
+      const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
+      const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
+      header.copy(block);
+      block.copy(imgData, idx);
+      patchCount++;
+      idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
+    }
+    console.log(`[os-image] Patched ${patchCount} identity block(s) for @${handle} (v1, 32KB)`);
+  } else {
+    // Legacy format: plain JSON padded to 4KB with spaces
+    const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
+    idx = imgData.indexOf(legacyMarkerBuf);
+    if (idx === -1) {
+      return res.status(500).json({ error: 'Template image missing config placeholder' });
+    }
+    const padded = configJson + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE_LEGACY - configJson.length));
+    const configBytes = Buffer.from(padded);
+    while (idx !== -1) {
+      configBytes.copy(imgData, idx);
+      patchCount++;
+      idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
+    }
+    console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle} (legacy, 4KB)`);
   }
-  console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle}`);
 
   // Stream the patched ISO (Fedora Media Writer / Balena Etcher / dd compatible)
   addServerLog('success', '💿', `OS ISO for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);

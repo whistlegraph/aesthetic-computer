@@ -10,7 +10,7 @@ export default async (request) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST",
         "Access-Control-Allow-Headers":
-          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Versioned-Upload, X-Versioned-Key, X-Commit-Msg, X-Handle",
+          "Authorization, Content-Type, X-Build-Name, X-Git-Hash, X-Build-Ts, X-Sha256, X-Size, X-Finalize, X-Template-Upload, X-Manifest-Upload, X-Versioned-Upload, X-Versioned-Key, X-Commit-Msg, X-Handle",
       },
     });
   }
@@ -275,6 +275,27 @@ export default async (request) => {
     } catch (err) {
       return Response.json(
         { error: `Versioned presign failed: ${err.message}` },
+        { status: 500 },
+      );
+    }
+  }
+
+  // Manifest presigned URL (for edge worker ISO patching)
+  const isManifest = request.headers.get("x-manifest-upload") === "true";
+  if (isManifest) {
+    try {
+      const manifestUrl = await presignUrl(
+        "os/latest-manifest.json",
+        "application/json",
+      );
+      return Response.json({
+        step: "manifest-upload",
+        manifest_put_url: manifestUrl,
+        user: userSub,
+      });
+    } catch (err) {
+      return Response.json(
+        { error: `Manifest presign failed: ${err.message}` },
         { status: 500 },
       );
     }
