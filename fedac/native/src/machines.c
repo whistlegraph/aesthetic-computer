@@ -382,6 +382,27 @@ void machines_tick(ACMachines *m, ACWifi *wifi, int frame, int fps,
     }
 }
 
+void machines_flush_logs(ACMachines *m) {
+    if (!m->ws || !m->ws->connected) return;
+
+    ac_log("[machines] flushing final shutdown logs\n");
+    upload_log_file(m, "/mnt/ac-native.log", "shutdown");
+    upload_log_file(m, "/mnt/ac-audio.log", "audio-shutdown");
+
+    // Drain the entire send queue (blocking — we're shutting down)
+    int attempts = 0;
+    while (m->sq_count > 0 && attempts < 300) { // up to ~3 seconds
+        if (m->ws->send_pending) {
+            usleep(10000); // 10ms wait for send completion
+            ws_poll(m->ws);
+        } else {
+            sq_drain_one(m);
+        }
+        attempts++;
+    }
+    ac_log("[machines] shutdown flush done (queue=%d)\n", m->sq_count);
+}
+
 void machines_destroy(ACMachines *m) {
     if (m->ws) {
         ws_close(m->ws);

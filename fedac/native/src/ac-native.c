@@ -2969,6 +2969,8 @@ int main(int argc, char *argv[]) {
 
     // Cleanup (TTS bye + shutdown chime already fired at power-press time)
     ac_log("[ac-native] Shutting down\n");
+    // Upload the complete boot-to-shutdown log before tearing down
+    machines_flush_logs(&g_machines);
     machines_destroy(&g_machines);
 
     if (logfile) { fclose(logfile); logfile = NULL; }

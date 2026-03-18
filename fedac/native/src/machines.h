@@ -40,5 +40,8 @@ void machines_init(ACMachines *m);
 void machines_tick(ACMachines *m, ACWifi *wifi, int frame, int fps,
                    const char *current_piece);
 
+// Flush final logs before shutdown (blocking drain of send queue)
+void machines_flush_logs(ACMachines *m);
+
 // Call at shutdown
 void machines_destroy(ACMachines *m);
