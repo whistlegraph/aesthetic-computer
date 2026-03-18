@@ -1494,6 +1494,10 @@ async function halt($, text) {
     // 💸 Jump to billing dashboard
     jump(`https://bills.aesthetic.computer`);
     return true;
+  } else if (slug === "papers") {
+    // 📄 Jump to Papers site
+    jump(`https://papers.aesthetic.computer`);
+    return true;
   } else if (slug === "news" || slug === "nws") {
     // 📰 Jump to News site
     jump(`https://news.aesthetic.computer`);
