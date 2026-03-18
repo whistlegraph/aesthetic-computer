@@ -12,6 +12,7 @@
 %   - Index card after title shows section overview
 %   - Card numbers centered at bottom
 %   - AC color palette and Processing fonts
+%   - Hairline border on every page
 %
 % Papers still define their own:
 %   - \hypersetup{pdftitle=...}
@@ -20,7 +21,7 @@
 %   - Extra font families
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{ac-paper-cards}[2026/03/17 Aesthetic Computer cards layout v3]
+\ProvidesPackage{ac-paper-cards}[2026/03/17 Aesthetic Computer cards layout v4]
 
 % === PAGE SIZE (phone-proportioned card) ===
 \RequirePackage[
@@ -68,30 +69,21 @@
   \acrandletter{e}{E}\acrandletter{r}{R}%
 }
 
-% === PDF BASE NAME (set by each paper for footer URL) ===
+% === PDF BASE NAME (set by each paper for margin URL) ===
 \newcommand{\acpdfbase}{}
-
-% Helper: full URL for current page
-\newcommand{\acfooterurl}{%
-  \ifx\acpdfbase\empty\else
-    \tiny\color{acgray}%
-    \href{https://papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}%
-    {papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}%
-  \fi
-}
 
 % === CARD FRAMES ===
 \RequirePackage{tcolorbox}
 \tcbuselibrary{breakable,skins}
 
-% Card environment — a rounded box that can span a full page
+% Card environment — borderless content box
 \newtcolorbox{card}[1][]{%
   enhanced,
   breakable,
   colback=accard,
-  colframe=acpurple!25,
+  colframe=accard,
   arc=6pt,
-  boxrule=0.6pt,
+  boxrule=0pt,
   left=8pt,
   right=8pt,
   top=6pt,
@@ -101,14 +93,14 @@
   #1
 }
 
-% Accent card (pink border)
+% Accent card (subtle pink)
 \newtcolorbox{accentcard}[1][]{%
   enhanced,
   breakable,
   colback=accard,
-  colframe=acpink!40,
+  colframe=acpink!15,
   arc=6pt,
-  boxrule=0.8pt,
+  boxrule=0.3pt,
   left=8pt,
   right=8pt,
   top=6pt,
@@ -123,9 +115,9 @@
   enhanced,
   breakable,
   colback=acdark!8,
-  colframe=acdark!30,
+  colframe=acdark!8,
   arc=6pt,
-  boxrule=0.5pt,
+  boxrule=0pt,
   left=8pt,
   right=8pt,
   top=6pt,
@@ -135,20 +127,34 @@
   #1
 }
 
-% === DRAFT WATERMARK ===
+% === PAGE BORDER + DRAFT WATERMARK + MARGIN URL ===
 \RequirePackage{eso-pic}
 \RequirePackage{tikz}
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
-    % Subtle pals watermark — small, faint, bottom-right
-    \node[opacity=0.015, anchor=south east]
-      at ([xshift=-0.15cm, yshift=0.3cm]current page.south east)
-      {\includegraphics[width=1cm]{pals}};
-    % Draft watermark — two lines, transparent
-    \node[opacity=0.04, rotate=35, anchor=center, align=center]
-      at (current page.center)
-      {{\aclight\fontsize{1.1cm}{1.3cm}\selectfont\color{acpink} WORKING DRAFT}\\[0.1cm]
-       {\aclight\fontsize{0.4cm}{0.5cm}\selectfont\color{acpink} not for citation}};
+    % Hairline border on every page
+    \draw[acgray!30, line width=0.2pt]
+      ([xshift=2pt, yshift=2pt]current page.south west) rectangle
+      ([xshift=-2pt, yshift=-2pt]current page.north east);
+    % Draft watermark — tiled pattern across content pages (skip cover)
+    \ifnum\c@page>1\relax
+      \foreach \xoff in {-3cm, 0cm, 3cm} {
+        \foreach \yoff in {-4cm, -1cm, 2cm, 5cm} {
+          \node[opacity=0.08, rotate=35, anchor=center, font=\aclight\fontsize{0.55cm}{0.65cm}\selectfont]
+            at ([xshift=\xoff, yshift=\yoff]current page.center)
+            {\color{red!70!acpink}WORKING DRAFT};
+        }
+      }
+      \node[opacity=0.12, rotate=35, anchor=center, font=\aclight\fontsize{0.3cm}{0.35cm}\selectfont]
+        at ([yshift=-0.5cm]current page.center)
+        {\color{red!70!acpink}not for citation};
+    \fi
+    % Rotated URL running up the left margin
+    \ifx\acpdfbase\empty\else
+      \node[rotate=90, anchor=south, font=\tiny, color=acgray, opacity=0.35]
+        at ([xshift=0.15cm, yshift=0.4cm]current page.south west)
+        {papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage};
+    \fi
   \end{tikzpicture}%
 }
 
@@ -179,10 +185,10 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
-\fancyhead[R]{\tiny\color{acpink}\textit{draft}}
-% Footer: URL with page anchor on left, page number on right
-\fancyfoot[L]{\acfooterurl}
-\fancyfoot[R]{{\small\color{acgray}\thepage}}
+\fancyhead[R]{}
+% Footer: page number center, pals logo bottom-right
+\fancyfoot[C]{{\small\color{acgray}\thepage}}
+\fancyfoot[R]{\raisebox{-0.1em}{\includegraphics[height=0.9em]{pals}}}
 
 % === LIST SETTINGS ===
 \RequirePackage{enumitem}
@@ -224,6 +230,47 @@
 \newcommand{\ac}{\textsc{Aesthetic.Computer}}
 \newcommand{\acdot}{{\color{acpink}.}}
 \newcommand{\np}{\textsc{notepat}}
+
+% === PAPER INTER-LINKING (§shortcodes) ===
+% Usage: \acref{plork} renders as §plork linking to the cards PDF
+%        In regular papers, links go to regular PDFs instead.
+% Cyan text with subtle drop shadow via TikZ.
+\newcommand{\acrefdef}[2]{\expandafter\def\csname acref@#1\endcsname{#2}}
+\newcommand{\acrefurl}[1]{\csname acref@#1\endcsname}
+% Paper ID → PDF base name mapping
+\acrefdef{ac}{aesthetic-computer-26-arxiv}
+\acrefdef{kidlisp}{kidlisp-26-arxiv}
+\acrefdef{plork}{plorking-the-planet-26-arxiv}
+\acrefdef{os}{ac-native-os-26-arxiv}
+\acrefdef{api}{piece-api-26-arxiv}
+\acrefdef{pieces}{pieces-not-programs-26-arxiv}
+\acrefdef{notepat}{notepat-26-arxiv}
+\acrefdef{goodiepal}{radical-computer-art-26-arxiv}
+\acrefdef{whistlegraph}{whistlegraph-26-arxiv}
+\acrefdef{complex}{sucking-on-the-complex-26-arxiv}
+\acrefdef{dead-ends}{dead-ends-26-arxiv}
+\acrefdef{folk-songs}{folk-songs-26-arxiv}
+\acrefdef{archaeology}{repo-archaeology-26-arxiv}
+\acrefdef{network}{network-audit-26-arxiv}
+\acrefdef{kidlisp-ref}{kidlisp-reference-26-arxiv}
+\acrefdef{diversity}{citation-diversity-audit-26}
+\acrefdef{sustainability}{who-pays-for-creative-tools-26-arxiv}
+% Cards format: §id links to cards PDF
+\newcommand{\acref}[1]{%
+  \href{https://papers.aesthetic.computer/\acrefurl{#1}-cards.pdf}%
+  {\tikz[baseline=(X.base)]{%
+    \node[inner sep=0pt, outer sep=0pt] (X) {\color{cyan!70!blue}\texttt{§#1}};%
+    \node[inner sep=0pt, outer sep=0pt, opacity=0.15] at ([xshift=0.3pt, yshift=-0.3pt]X) {\color{black}\texttt{§#1}};%
+  }}%
+}
+% Regular paper format: §id links to regular PDF
+\newcommand{\acpref}[1]{%
+  \href{https://papers.aesthetic.computer/\acrefurl{#1}.pdf}%
+  {\tikz[baseline=(X.base)]{%
+    \node[inner sep=0pt, outer sep=0pt] (X) {\color{cyan!70!blue}\texttt{§#1}};%
+    \node[inner sep=0pt, outer sep=0pt, opacity=0.15] at ([xshift=0.3pt, yshift=-0.3pt]X) {\color{black}\texttt{§#1}};%
+  }}%
+}
 
 % === INDEX CARD (table of contents on its own card) ===
 % Call \cardindex after the title card to generate a section overview
