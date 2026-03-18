@@ -579,8 +579,24 @@ if [ "${SKIP_KERNEL}" -eq 0 ] || [ ! -f "${VMLINUZ}" ]; then
     # Apply config
     cp "${KERNEL_DIR}/config-minimal" "${KERNEL_SRC}/.config"
 
-    # Fix firmware dir to match actual build location (config-minimal has a hardcoded path)
+    # Ensure built-in firmware blobs exist (kernel embeds these via CONFIG_EXTRA_FIRMWARE)
     FIRMWARE_ABS="$(cd "${BUILD_DIR}" && pwd)/firmware"
+    mkdir -p "${FIRMWARE_ABS}"
+    for fw in iwlwifi-9260-th-b0-jf-b0-46.ucode iwlwifi-cc-a0-77.ucode iwlwifi-QuZ-a0-hr-b0-77.ucode iwlwifi-QuZ-a0-jf-b0-77.ucode; do
+        if [ ! -f "${FIRMWARE_ABS}/${fw}" ]; then
+            if [ -f "/lib/firmware/${fw}" ]; then
+                cp "/lib/firmware/${fw}" "${FIRMWARE_ABS}/${fw}"
+            elif [ -f "/lib/firmware/${fw}.zst" ]; then
+                zstd -d "/lib/firmware/${fw}.zst" -o "${FIRMWARE_ABS}/${fw}" 2>/dev/null
+            elif [ -f "/lib/firmware/${fw}.xz" ]; then
+                xz -dk "/lib/firmware/${fw}.xz" -c > "${FIRMWARE_ABS}/${fw}" 2>/dev/null
+            else
+                log "WARNING: firmware ${fw} not found in /lib/firmware/"
+            fi
+        fi
+    done
+
+    # Fix firmware dir to match actual build location (config-minimal has a hardcoded path)
     sed -i "s|^CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"${FIRMWARE_ABS}\"|" "${KERNEL_SRC}/.config"
 
     # Set initramfs source path
