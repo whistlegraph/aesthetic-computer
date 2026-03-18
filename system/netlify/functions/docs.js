@@ -2825,6 +2825,11 @@ void draw() {
         desc: "Aesthetic.computer news.",
         done: true,
       },
+      papers: {
+        sig: "papers",
+        desc: "Open papers.aesthetic.computer.",
+        done: true,
+      },
       nela: {
         sig: "nela",
         desc: "Open NELA Computer Club.",

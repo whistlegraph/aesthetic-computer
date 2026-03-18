@@ -21,7 +21,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -41,6 +41,7 @@ const PIECE_DESC = {
   "roz":           "generative art",
   "list":          "all commands",
   "ls":            "→ list",
+  "papers":        "papers site",
   "clock":         "melody clock",
   "brick-breaker": "paddle + ball game",
   "gostop":        "go/stop rhythm",
@@ -51,6 +52,7 @@ const PIECE_DESC = {
   "f3ral3xp":      "feral expression",
   "3x3":           "ortholinear pad",
   "theme":         "prompt theme",
+  "voice":         "system voice",
   "dark":          "dark mode",
   "light":         "light mode",
   "auto":          "auto dark/light",
@@ -390,6 +392,14 @@ function execute(cmd, system) {
       messageFrame = 0;
       return;
     }
+  }
+
+  // "papers" opens papers.aesthetic.computer
+  if (lower === "papers") {
+    message = "~> papers.aesthetic.computer";
+    messageFrame = 0;
+    // Native can't open a browser — show the URL as a message
+    return;
   }
 
   // "ls" is an alias for "list"
