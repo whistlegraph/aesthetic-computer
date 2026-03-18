@@ -146,6 +146,11 @@ typedef struct {
     int16_t hdmi_period[512*2]; // interleaved S16 staging buffer
     int hdmi_period_pos;        // samples written so far
     int hdmi_period_size;       // target period size in frames
+
+    // Diagnostic info (exposed to JS via system.hw)
+    char audio_device[32];      // ALSA device name that opened successfully
+    char audio_status[64];      // human-readable status ("ok", "no card", etc.)
+    int audio_init_retries;     // how many devices we tried before success
 } ACAudio;
 
 // Initialize ALSA audio engine (returns NULL if no audio device)

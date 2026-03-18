@@ -262,6 +262,16 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     }
   }
 
+  // Audio status
+  if (hw?.audioStatus) {
+    const ok = hw.audioStatus.startsWith("ok");
+    ink(...(ok ? c("bar") : [220, 80, 80]));
+    let audioStr = "audio: " + hw.audioStatus;
+    if (hw.audioDevice && hw.audioDevice !== "none") audioStr += " [" + hw.audioDevice + "]";
+    write(audioStr, { x: sx, y: ry, size: 1, font });
+    ry += lineH;
+  }
+
   if (hw?.load1 !== undefined) {
     ink(...c("dim"));
     write(`load ${hw.load1.toFixed(2)} ${(hw.load5 || 0).toFixed(2)} ${(hw.load15 || 0).toFixed(2)}`, { x: sx, y: ry, size: 1, font });
