@@ -10,7 +10,7 @@
 
 
 \usepackage{graphicx}
-\graphicspath{{figures/}}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{ragged2e}
@@ -26,11 +26,67 @@
   Path=../../system/public/type/webfonts/,
   Extension=.ttf
 ]
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{def,if,repeat,once,later,die,let,do,fn},
+  morekeywords=[2]{wipe,ink,line,box,circle,tri,plot,flood,shape,write,type,paste,print},
+  morekeywords=[3]{scroll,zoom,spin,blur,contrast,suck,pan,sort,resetSpin,smoothspin,unpan,fill,outline,stroke,nofill,nostroke},
+  morekeywords=[4]{random,wiggle,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max,mod},
+  morekeywords=[5]{width,height,frame,time,resolution,fps,screen,pen,hand,gamepad,mic,amplitude},
+  morekeywords=[6]{cube,form,trans,move,scale,hop,delay,jump,melody,overtone,speaker,sound},
+  morekeywords=[7]{embed,layer,fade,bake,list,get,set,tap},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  literate=
+    {(}{{{\color{klparen}(}}}1
+    {)}{{{\color{klparen})}}}1
+    {\$}{{{\color{klspecial}\$}}}1,
+}
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,
+  basicstyle=\ttfamily\small,
+  keywordstyle=[1]\color{klkw}\bfseries,
+  keywordstyle=[2]\color{klfn}\bfseries,
+  keywordstyle=[3]\color{acpurple},
+  keywordstyle=[4]\color{klnum},
+  keywordstyle=[5]\color{klspecial},
+  keywordstyle=[6]\color{klfn},
+  keywordstyle=[7]\color{acpink},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+  numberstyle=\tiny\color{klcmt},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{klbg},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  showstringspaces=false,
+}
+\lstset{style=kidlispstyle}
 
 \makeatletter
 \def\input@path{{../}}
 \makeatother
 \usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\kl}{\textsc{KidLisp}}
+\definecolor{klbrand}{RGB}{205,92,155}    % kidlisp.com primary (--ac-purple)
+\definecolor{klcyan}{RGB}{112,214,255}     % kidlisp.com ".com" cyan (#70D6FF)
+\definecolor{kldark}{RGB}{48,43,58}        % kidlisp.com dark purple
+\definecolor{klparen}{RGB}{140,140,160}
+\definecolor{klkw}{RGB}{119,51,170}
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klcolor}{RGB}{204,80,0}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{44,145,44}
+\definecolor{klcmt}{RGB}{140,140,140}
+\definecolor{klvar}{RGB}{50,50,50}
+\definecolor{klspecial}{RGB}{180,72,135}
+\definecolor{klbg}{RGB}{250,248,252}
 
 \hypersetup{
   pdftitle={KidLisp Language Reference: 118 Built-ins in 12 Categories},
@@ -45,18 +101,17 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
 {\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} KidLisp Language Reference}\par
 \vspace{0.3em}
 \vspace{0.5em}
-{\normalsize Jeffrey Alan Scudder}\par
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-{\small\color{acgray} \url{https://papers.aesthetic.computer/kidlisp-reference-26-arxiv-cards.pdf}}\par
 \vspace{0.8em}
 \rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}\par
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
 \vspace{0.3em}
 {\footnotesize\color{acgray} March 2026}\par
 \end{center}

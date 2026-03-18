@@ -1,34 +1,34 @@
 \contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
-\contentsline {section}{\numberline {2}Language Design}{7}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Design Principles}{7}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Function Categories}{8}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Timing Syntax}{8}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}What KidLisp Omits}{10}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Evaluator Architecture}{11}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Evaluation Model}{11}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Deterministic Rendering}{11}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Chaos Mode}{12}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Performance}{12}{subsection.3.4}%
-\contentsline {section}{\numberline {4}Storage and Distribution}{14}{section.4}%
-\contentsline {subsection}{\numberline {4.1}MongoDB Storage}{14}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Code Generation}{15}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}REST API}{15}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Embedding and Composition}{16}{subsection.4.4}%
-\contentsline {section}{\numberline {5}Media Pipeline}{18}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Recording to MP4}{18}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Social Preview Images}{19}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Asset Delivery}{20}{subsection.5.3}%
-\contentsline {section}{\numberline {6}Development Environment}{21}{section.6}%
-\contentsline {section}{\numberline {7}Development History}{22}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Phase 1: Prototype (April--June 2024)}{22}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Phase 2: Hiatus (July 2024--May 2025)}{22}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Phase 3: Rapid Expansion (June--August 2025)}{23}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{23}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{24}{subsection.7.5}%
-\contentsline {section}{\numberline {8}Evaluation}{26}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Function Usage Analytics}{26}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}Observations}{27}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}Limitations}{27}{subsection.8.3}%
-\contentsline {section}{\numberline {9}Related Work}{28}{section.9}%
-\contentsline {section}{\numberline {10}Conclusion}{29}{section.10}%
+\contentsline {section}{\numberline {2}Language Design}{8}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Design Principles}{8}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Function Categories}{9}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Timing Syntax}{9}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}What KidLisp Omits}{11}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Evaluator Architecture}{12}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Evaluation Model}{12}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Deterministic Rendering}{13}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Chaos Mode}{13}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Performance}{13}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Storage and Distribution}{15}{section.4}%
+\contentsline {subsection}{\numberline {4.1}MongoDB Storage}{15}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Code Generation}{16}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}REST API}{16}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Embedding and Composition}{17}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Media Pipeline}{19}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Recording to MP4}{19}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Social Preview Images}{20}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Asset Delivery}{21}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Development Environment}{22}{section.6}%
+\contentsline {section}{\numberline {7}Development History}{23}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Phase 1: Prototype (April--June 2024)}{23}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Phase 2: Hiatus (July 2024--May 2025)}{23}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Phase 3: Rapid Expansion (June--August 2025)}{24}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{24}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{25}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Evaluation}{27}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Function Usage Analytics}{27}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Observations}{28}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Limitations}{28}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Related Work}{29}{section.9}%
+\contentsline {section}{\numberline {10}Conclusion}{31}{section.10}%
 \contentsfinish 

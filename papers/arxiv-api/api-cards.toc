@@ -26,7 +26,7 @@
 \contentsline {subsection}{\numberline {7.2}Processing (2001)}{26}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}p5.js (2014)}{27}{subsection.7.3}%
 \contentsline {subsection}{\numberline {7.4}openFrameworks (2005)}{27}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}The instrument turn}{27}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.5}The instrument turn}{28}{subsection.7.5}%
 \contentsline {section}{\numberline {8}Worked Example: A Bouncing Ball}{29}{section.8}%
 \contentsline {subsection}{\numberline {8.1}Processing}{29}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}p5.js}{30}{subsection.8.2}%

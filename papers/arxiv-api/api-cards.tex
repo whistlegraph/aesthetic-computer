@@ -18,11 +18,81 @@
 \usepackage{natbib}
 \usepackage{listings}
 
+\lstdefinelanguage{processing}{
+  morekeywords=[1]{void,int,float,boolean,color,String,class,new,if,else,for,while,return,public,private,extends,import},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,size,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,pushMatrix,popMatrix,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+\lstdefinelanguage{p5js}{
+  morekeywords=[1]{function,let,const,var,if,else,for,while,return,new,class,export},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,createCanvas,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,push,pop,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount,createGraphics,random,noise,map,constrain,dist,lerp},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from,for},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,pen,event,boot,paint,act,sim,leave,paste,plot,poly,flood,form,cursor,handle,num,geo,ui},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+\lstdefinestyle{processingstyle}{
+  language=processing,
+  keywordstyle=[1]\color{pjkw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{pjcmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+\lstdefinestyle{p5style}{
+  language=p5js,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  numbers=none,
+  tabsize=2,
+}
 
 \makeatletter
 \def\input@path{{../}}
 \makeatother
 \usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+\definecolor{pjkw}{RGB}{204,102,0}
+\definecolor{pjfn}{RGB}{0,102,153}
+\definecolor{pjcmt}{RGB}{102,102,102}
 
 \hypersetup{
   pdftitle={From setup() to boot(): Processing at the Core of the Piece API},
@@ -37,19 +107,18 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
 {\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} From \texttt{setup()} to \texttt{boot()}}\par
 \vspace{0.3em}
-{\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} Processing at the Core of the Piece API}\par
+{\fontsize{10pt}{12pt}\selectfont\color{acpink} Processing at the Core of the Piece API}\par
 \vspace{0.8em}
-{\normalsize Jeffrey Alan Scudder}\par
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-{\small\color{acgray} \url{https://papers.aesthetic.computer/piece-api-26-arxiv-cards.pdf}}\par
 \vspace{0.8em}
 \rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}\par
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
 \vspace{0.3em}
 {\footnotesize\color{acgray} March 2026}\par
 \end{center}
