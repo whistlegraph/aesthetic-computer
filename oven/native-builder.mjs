@@ -119,7 +119,7 @@ async function setupBuildCache() {
     await fs.symlink(CACHE_DIR, buildLink);
     return;
   }
-  if (stat.isSymlink()) return;
+  if (stat.isSymbolicLink()) return;
   if (stat.isDirectory()) {
     try {
       await fs.rename(buildLink, CACHE_DIR);
