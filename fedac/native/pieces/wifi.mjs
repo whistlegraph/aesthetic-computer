@@ -284,16 +284,60 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     }
   }
 
-  // Connected info
+  // Connection status panel (bottom area)
+  const panelY = h - 52;
+
   if (wifi.connected && wifi.ip) {
-    ink(80, 200, 80);
-    const sshLabel = system?.sshStarted ? "  ssh root@" + wifi.ip : "";
-    write("connected: " + wifi.ip + sshLabel, { x: 20, y: h - 26, size: 1, font: "font_1" });
+    // Connected: show SSID, IP, signal, SSH
+    ink(30, 50, 30);
+    box(10, panelY, w - 20, 40, true);
+    ink(50, 70, 50);
+    box(10, panelY, w - 20, 40, "outline");
+
+    ink(80, 230, 80);
+    write(wifi.ssid || "connected", { x: 16, y: panelY + 4, size: 1, font: "font_1" });
+
+    ink(160, 220, 160);
+    write(wifi.ip, { x: 16, y: panelY + 16, size: 1, font: "font_1" });
+
+    // Signal strength (if available)
+    if (wifi.signal) {
+      const sig = wifi.signal;
+      const qual = sig > -50 ? "excellent" : sig > -60 ? "good" : sig > -70 ? "fair" : "weak";
+      ink(120, 180, 120);
+      write(sig + " dBm (" + qual + ")", { x: w / 2, y: panelY + 4, size: 1, font: "font_1" });
+    }
+
+    if (system?.sshStarted) {
+      ink(100, 160, 200);
+      write("ssh root@" + wifi.ip, { x: w / 2, y: panelY + 16, size: 1, font: "font_1" });
+    }
+  } else if (wifi.state === 3) {
+    // Connecting
+    const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
+    ink(30, 35, 50);
+    box(10, panelY, w - 20, 40, true);
+    ink(200, 200, 80);
+    write("connecting" + dots, { x: 16, y: panelY + 4, size: 1, font: "font_1" });
+    ink(140, 140, 80);
+    write(wifi.status || "", { x: 16, y: panelY + 16, size: 1, font: "font_1" });
+  } else if (wifi.state === 5) {
+    // Failed
+    ink(50, 25, 25);
+    box(10, panelY, w - 20, 40, true);
+    ink(230, 80, 80);
+    write("failed", { x: 16, y: panelY + 4, size: 1, font: "font_1" });
+    ink(180, 100, 100);
+    write(wifi.status || "unknown error", { x: 16, y: panelY + 16, size: 1, font: "font_1" });
   }
 
-  // Bottom
+  // Bottom hints
   ink(60, 80, 60);
-  write("esc: back", { x: w - 60, y: h - 26, size: 1, font: "font_1" });
+  write("esc: back", { x: w - 60, y: h - 10, size: 1, font: "font_1" });
+  if (wifi.iface) {
+    ink(50, 50, 60);
+    write(wifi.iface, { x: 16, y: h - 10, size: 1, font: "font_1" });
+  }
 
   // Rescan every ~10s when not connected
   if (frame % 600 === 0 && !wifi.connected) {

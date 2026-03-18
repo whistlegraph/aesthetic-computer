@@ -2039,6 +2039,7 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
         JS_SetPropertyStr(ctx, obj, "ssid", JS_NewString(ctx, wifi->connected_ssid));
         JS_SetPropertyStr(ctx, obj, "ip", JS_NewString(ctx, wifi->ip_address));
         JS_SetPropertyStr(ctx, obj, "iface", JS_NewString(ctx, wifi->iface));
+        JS_SetPropertyStr(ctx, obj, "signal", JS_NewInt32(ctx, wifi->signal_strength));
 
         // Networks array
         JSValue networks = JS_NewArray(ctx);
