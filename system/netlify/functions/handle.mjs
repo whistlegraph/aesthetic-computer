@@ -412,6 +412,15 @@ export async function handler(event, context) {
           await KeyValue.set("userIDs", otherSub, handle);
         }
 
+        // Bust /user endpoint cache so handle is immediately visible
+        if (user.email) {
+          for (const wh of ["true", "false"]) {
+            for (const wt of ["true", "false"]) {
+              await KeyValue.del("userCache", `email:${user.email}:${tenant}:${wh}:${wt}`);
+            }
+          }
+        }
+
         // 🔥 Publish the new handle association to redis for chat servers.
         await KeyValue.pub(
           "handle:update",
