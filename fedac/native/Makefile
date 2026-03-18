@@ -103,9 +103,13 @@ QRGEN_OBJS := $(patsubst $(QRGENDIR)/%.c,$(BUILDDIR)/qrgen-%.o,$(QRGEN_SRCS))
 
 TARGET := $(BUILDDIR)/ac-native
 
-.PHONY: all clean quickjs test
+.PHONY: all clean quickjs test bpf
 
 all: quickjs $(TARGET)
+
+# BPF trace tools (ftrace fallback by default; full BPF: make bpf HAS_LIBBPF=1)
+bpf:
+	$(MAKE) -C bpf CC=$(CC)
 
 $(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS) $(WL_PROTO_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)

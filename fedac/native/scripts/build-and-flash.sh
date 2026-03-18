@@ -422,6 +422,14 @@ DHCLIENT_SCRIPT
     # Claude Code needs /bin/bash — symlink to sh (busybox ash is close enough)
     [ -f "${INITRAMFS_DIR}/bin/sh" ] && ln -sf sh "${INITRAMFS_DIR}/bin/bash"
 
+    # BPF trace tool (if built)
+    BPF_TRACE="${NATIVE_DIR}/bpf/ac-trace"
+    if [ -f "${BPF_TRACE}" ]; then
+        cp "${BPF_TRACE}" "${INITRAMFS_DIR}/bin/ac-trace"
+        chmod +x "${INITRAMFS_DIR}/bin/ac-trace"
+        log "  ac-trace: $(du -sh "${INITRAMFS_DIR}/bin/ac-trace" | cut -f1)"
+    fi
+
     # Symlink WiFi binaries into /bin/ so system() calls find them via PATH
     for bin in "${WIFI_BINS[@]}"; do
         bname="$(basename "$bin")"
