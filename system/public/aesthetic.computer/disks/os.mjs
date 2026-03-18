@@ -5,6 +5,9 @@ const OVEN_BASE = "https://oven.aesthetic.computer";
 const RELEASES_URL = OVEN_BASE + "/os-releases";
 const OVEN_IMAGE_URL = OVEN_BASE + "/os-image";
 const OVEN_WS_URL = "wss://oven.aesthetic.computer/ws";
+const TEMPLATE_ISO_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso";
+const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
+const CONFIG_PAD = 4096;
 const BOOT_PIECES = ["notepat", "prompt", "chat", "laer-klokken"];
 
 let releases = null;
@@ -20,6 +23,8 @@ let downloadStatus = "";
 let downloadBtn = null;
 let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
+let wifiEnabled = true;
+let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
 let dlFn = null;
 let ovenWs = null;
@@ -120,7 +125,7 @@ function fetchReleases(ui, needsPaint) {
     .then((data) => {
       releases = data;
       loading = false;
-      if (handle && token && ui) makeButtons(ui, data);
+      if (handle && token && ui) makeButtons(ui);
       // Log recent builds to console
       const builds = data?.releases || [];
       console.log(`[os] ${builds.length} builds loaded:`);
@@ -160,7 +165,7 @@ function connectOvenWs(ui, needsPaint) {
       if (msg.type === "os:new-build" && msg.releases) {
         console.log("[os] Live build push:", msg.releases?.releases?.[0]?.name);
         releases = msg.releases;
-        if (handle && token && ui) makeButtons(ui, releases);
+        if (handle && token && ui) makeButtons(ui);
         needsPaint();
       }
     } catch (_) {}
@@ -189,7 +194,7 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
     api?.authorize?.().then((t) => {
       token = t;
       console.log("[os] Authorized, token:", t ? "ok" : "missing");
-      if (releases) makeButtons(ui, releases);
+      if (releases) makeButtons(ui);
       // Check device token status (Claude + GitHub)
       if (t) {
         fetch("/.netlify/functions/claude-token", {
@@ -215,7 +220,8 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
       needsPaint();
     });
   } else {
-    console.log("[os] No handle — download disabled");
+    console.log("[os] No handle — template download available");
+    makeButtons(ui);
   }
 }
 
@@ -224,11 +230,10 @@ function leave() {
   if (ovenWs) { try { ovenWs.close(); } catch (_) {} ovenWs = null; }
 }
 
-function makeButtons(ui, rel) {
-  const latest = rel?.releases?.[0];
-  if (!latest) return;
+function makeButtons(ui) {
   updateDownloadBtn(ui);
   updateBootBtn(ui);
+  updateWifiBtn(ui);
 }
 
 function updateDownloadBtn(ui) {
@@ -245,6 +250,10 @@ function osLabel() {
 function updateBootBtn(ui) {
   const piece = BOOT_PIECES[bootPieceIdx];
   bootBtn = new ui.TextButton("boot to: " + piece, { x: 6, y: 0 });
+}
+
+function updateWifiBtn(ui) {
+  wifiBtn = new ui.TextButton("internet: " + (wifiEnabled ? "ON" : "OFF"), { x: 6, y: 0 });
 }
 
 function timeAgo(ts) {
@@ -302,16 +311,25 @@ function paint($) {
   drawLine(pad, y, w - pad, y);
   y += 6;
 
-  // Download section for logged-in users
-  if (handle && token && downloadBtn && !downloading) {
-    // OS label (big, personal)
-    const label = osLabel();
-    ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
-    const labelLines = Math.ceil(label.length * charW / (w - pad * 2));
-    y += rowH * labelLines + 4;
+  // Download section (logged-in gets personalized, otherwise template)
+  if (downloadBtn && !downloading) {
+    const isPersonal = handle && token;
 
-    // Device token status
-    if (hasClaude !== null) {
+    // OS label
+    if (isPersonal) {
+      const label = osLabel();
+      ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
+      const labelLines = Math.ceil(label.length * charW / (w - pad * 2));
+      y += rowH * labelLines + 4;
+    } else {
+      const latest = releases?.releases?.[0];
+      const label = "AC Native OS" + (latest ? " — " + latest.name : "");
+      ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
+      y += rowH + 4;
+    }
+
+    // Device token status (logged-in only)
+    if (isPersonal && hasClaude !== null) {
       const cIcon = hasClaude ? "+" : "-";
       const gIcon = hasGit ? "+" : "-";
       ink(...(hasClaude ? C.current : [255, 80, 80]));
@@ -365,6 +383,20 @@ function paint($) {
       y += bootBtn.height + 4;
     }
 
+    // WiFi toggle
+    if (wifiBtn) {
+      wifiBtn.reposition({ x: pad, y });
+      const wOn = wifiEnabled;
+      wifiBtn.paint(
+        $,
+        [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 200],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        undefined,
+        [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 230],
+      );
+      y += wifiBtn.height + 4;
+    }
+
     // Download button
     downloadBtn.reposition({ x: pad, y });
     downloadBtn.paint(
@@ -374,7 +406,13 @@ function paint($) {
       undefined,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
     );
-    y += downloadBtn.height + 6;
+    y += downloadBtn.height + 4;
+
+    // Hint for template users
+    if (!isPersonal) {
+      ink(...C.loginHint).write("log in for a personalized build", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+      y += matrixH + 4;
+    }
 
     // Divider
     ink(...C.divider);
@@ -417,9 +455,6 @@ function paint($) {
       ink(140, 160, 180).write(downloadStatus, { x: pad, y });
       y += rowH + 2;
     }
-  } else if (!handle || !token) {
-    ink(...C.loginHint).write("log in to download your os", { x: pad, y });
-    y += rowH + 4;
   }
 
   // Build list — 2 rows per build
@@ -512,13 +547,22 @@ function act({ event: e, needsPaint, download }) {
   if (downloading) return;
 
   // Boot-to button: cycle through pieces on tap
-  if (bootBtn && token) {
+  if (bootBtn) {
     bootBtn.btn.act(e, {
       push: () => {
         bootPieceIdx = (bootPieceIdx + 1) % BOOT_PIECES.length;
-        if (uiRef) {
-          updateBootBtn(uiRef);
-        }
+        if (uiRef) updateBootBtn(uiRef);
+        needsPaint();
+      },
+    });
+  }
+
+  // WiFi toggle
+  if (wifiBtn) {
+    wifiBtn.btn.act(e, {
+      push: () => {
+        wifiEnabled = !wifiEnabled;
+        if (uiRef) updateWifiBtn(uiRef);
         needsPaint();
       },
     });
@@ -528,17 +572,22 @@ function act({ event: e, needsPaint, download }) {
   if (setupBtn && token) {
     setupBtn.btn.act(e, {
       push: () => {
-        // Toggle hint visibility
         showTokenHint = !showTokenHint;
         needsPaint();
       },
     });
   }
 
-  if (!token || !downloadBtn) return;
+  if (!downloadBtn) return;
 
   downloadBtn.btn.act(e, {
-    push: () => startDownload(needsPaint),
+    push: () => {
+      if (handle && token) {
+        startDownload(needsPaint);
+      } else {
+        startTemplateDownload(needsPaint);
+      }
+    },
   });
 }
 
@@ -553,7 +602,7 @@ async function startDownload(needsPaint) {
   needsPaint();
 
   try {
-    const url = OVEN_IMAGE_URL + "?piece=" + encodeURIComponent(piece);
+    const url = OVEN_IMAGE_URL + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0");
     console.log("[os] Fetching:", url);
     const res = await fetch(url, {
       headers: { Authorization: "Bearer " + token },
@@ -606,6 +655,99 @@ async function startDownload(needsPaint) {
     downloadStatus = "done!";
   } catch (err) {
     console.error("[os] Download failed:", err);
+    downloadStatus = "error: " + err.message;
+  }
+
+  downloading = false;
+  downloadProgress = 0;
+  needsPaint();
+}
+
+async function startTemplateDownload(needsPaint) {
+  downloading = true;
+  downloadProgress = 0;
+  downloadMB = 0;
+  downloadTotalMB = 0;
+  const piece = BOOT_PIECES[bootPieceIdx];
+  downloadStatus = "downloading template os... (boot to: " + piece + ")";
+  console.log("[os] Template download, piece:", piece, "wifi:", wifiEnabled);
+  needsPaint();
+
+  try {
+    const res = await fetch(TEMPLATE_ISO_URL);
+    if (!res.ok) throw new Error("Download failed: " + res.status);
+
+    const contentLength = parseInt(res.headers.get("content-length") || "0");
+    downloadTotalMB = contentLength / 1048576;
+    downloadStatus = "downloading...";
+    needsPaint();
+
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      downloadMB = received / 1048576;
+      if (contentLength > 0) downloadProgress = received / contentLength;
+      needsPaint();
+    }
+
+    downloadStatus = "patching config...";
+    needsPaint();
+
+    const total = chunks.reduce((s, c) => s + c.length, 0);
+    const combined = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Patch the config marker with selected piece + wifi flag
+    const config = JSON.stringify({
+      handle: "",
+      piece,
+      sub: "",
+      email: "",
+      ...(wifiEnabled ? {} : { wifi: false }),
+    });
+    const markerBytes = new TextEncoder().encode(CONFIG_MARKER);
+    const configBytes = new TextEncoder().encode(config);
+    const padded = new Uint8Array(CONFIG_PAD);
+    padded.fill(0x20); // space-pad
+    padded.set(configBytes);
+
+    // Find and replace all occurrences of the marker
+    let patched = 0;
+    for (let i = 0; i <= combined.length - CONFIG_PAD; i++) {
+      let match = true;
+      for (let j = 0; j < markerBytes.length; j++) {
+        if (combined[i + j] !== markerBytes[j]) { match = false; break; }
+      }
+      if (match) {
+        combined.set(padded, i);
+        patched++;
+        i += CONFIG_PAD - 1;
+      }
+    }
+    console.log("[os] Patched", patched, "config regions");
+
+    const latest = releases?.releases?.[0];
+    const coreName = "AC-" + (latest?.name || "native");
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
+    const filename = `ac-os-${piece}-${coreName}-${ts}.iso`;
+
+    console.log("[os] Template download complete:", filename, (total / 1048576).toFixed(1) + "MB");
+    dlFn(filename, combined, { type: "application/octet-stream" });
+    downloadStatus = "done!";
+  } catch (err) {
+    console.error("[os] Template download failed:", err);
     downloadStatus = "error: " + err.message;
   }
 
