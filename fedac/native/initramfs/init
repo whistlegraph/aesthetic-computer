@@ -58,16 +58,17 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-# Dump kernel boot log to USB for debugging (no dmesg binary, read /dev/kmsg)
-ilog "dmesg-dump"
+# Mount USB/ESP early and leave mounted for ac-native to reuse
+# (UEFI firmware may lock the boot partition after unmount, preventing remount)
+ilog "mount-early"
+mkdir -p /mnt
 for dev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
   if [ -b "$dev" ]; then
-    mkdir -p /mnt
     mount "$dev" /mnt 2>/dev/null && {
       timeout 0.2 cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null || true
       cp /tmp/ac-init.log /mnt/init.log 2>/dev/null
       sync
-      umount /mnt 2>/dev/null
+      ilog "mounted $dev at /mnt (kept for ac-native)"
       break
     }
   fi
