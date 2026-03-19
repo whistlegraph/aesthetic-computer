@@ -3183,16 +3183,18 @@ static JSValue js_poweroff(JSContext *ctx, JSValueConst this_val, int argc, JSVa
         audio_shutdown_sound(current_rt->audio);
         usleep(500000);
     }
-    ac_log("[poweroff] syncing filesystems...");
+    ac_log("[poweroff] pid=%d, syncing filesystems...\n", getpid());
     ac_log_flush();
-    sync(); usleep(500000); sync(); usleep(500000); sync();
-    ac_log("[poweroff] executing power off syscall");
+    sync(); usleep(300000); sync();
+    ac_log("[poweroff] executing power off...\n");
     ac_log_flush();
     if (getpid() == 1) {
-        reboot(LINUX_REBOOT_CMD_POWER_OFF);
+        int r = reboot(LINUX_REBOOT_CMD_POWER_OFF);
+        ac_log("[poweroff] reboot() returned %d errno=%d\n", r, errno);
     } else {
         // Under cage: tell PID 1 to power off, then exit so cage closes
-        kill(1, SIGTERM);  // SIGTERM = poweroff request
+        ac_log("[poweroff] sending SIGTERM to PID 1\n");
+        kill(1, SIGTERM);
         _exit(0);
     }
     return JS_UNDEFINED;
