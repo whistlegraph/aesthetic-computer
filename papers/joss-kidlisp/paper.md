@@ -7,7 +7,7 @@ tags:
   - creative coding
   - domain-specific language
 authors:
-  - name: Jeffrey Alan Scudder
+  - name: @jeffrey
     orcid: 0009-0007-4460-4913
     affiliation: 1
 affiliations:
@@ -241,7 +241,7 @@ validated by the human author, who made all design decisions.
 
 # Acknowledgements
 
-Written and produced by Jeffrey Alan Scudder. Thanks to the 59 KidLisp authors on
+Written and produced by @jeffrey. Thanks to the 59 KidLisp authors on
 Aesthetic Computer for creating the corpus and providing feedback on language
 design.
 

@@ -124,4 +124,4 @@ NIME, xCoAx, ACM CHI, SIGGRAPH, Prix Ars Electronica, S+T+ARTS — all missed fo
 
 ## Author
 
-Jeffrey Alan Scudder — ORCID: [0009-0007-4460-4913](https://orcid.org/0009-0007-4460-4913)
+@jeffrey — ORCID: [0009-0007-4460-4913](https://orcid.org/0009-0007-4460-4913)

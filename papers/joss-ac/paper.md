@@ -7,7 +7,7 @@ tags:
   - browser runtime
   - generative art
 authors:
-  - name: Jeffrey Alan Scudder
+  - name: @jeffrey
     orcid: 0009-0007-4460-4913
     affiliation: 1
 affiliations:
@@ -117,6 +117,6 @@ The platform's 2,801 registered users, 16,244 KidLisp programs, 4,404 paintings,
 
 # Assemblage
 
-Written and produced by Jeffrey Alan Scudder. Tools used in the making of Aesthetic Computer and this paper include: JavaScript, Node.js, Vim, various LLMs (Claude, GPT, Gemini, etc.), fish shell, Git, Firefox, and a lot of coffee. Thanks to the AC community for creating the corpus and providing feedback, and to the 14 contributors to the open-source repository.
+Written and produced by @jeffrey. Tools used in the making of Aesthetic Computer and this paper include: JavaScript, Node.js, Vim, various LLMs (Claude, GPT, Gemini, etc.), fish shell, Git, Firefox, and a lot of coffee. Thanks to the AC community for creating the corpus and providing feedback, and to the 14 contributors to the open-source repository.
 
 # References
