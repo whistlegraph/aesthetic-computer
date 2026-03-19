@@ -2808,6 +2808,9 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
+                // Flush log on piece transition so USB pull captures it
+                if (logfile) { fflush(logfile); fsync(fileno(logfile)); }
+
                 // Clear screen and call boot() on new piece
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
                 js_call_boot(rt);
