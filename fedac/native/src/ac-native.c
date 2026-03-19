@@ -21,6 +21,7 @@
 #include <linux/reboot.h>
 #include <linux/input.h>
 #include <sys/ioctl.h>
+#include <pthread.h>
 
 #include "drm-display.h"
 #include "framebuffer.h"
@@ -266,10 +267,16 @@ char log_dev[32] = "";  // non-static: accessed by js-bindings.c for flash targe
 static void try_mount_log(void) {
     mkdir("/mnt", 0755);
     // Wait for USB block devices to appear (up to 2s after EFI handoff)
-    fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
-    for (int w = 0; w < 100; w++) {
-        if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
-        usleep(20000);
+    // Skip the wait on NVMe boots when no USB is already present
+    int usb_found = (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0);
+    if (!usb_found && access("/dev/nvme0n1p1", F_OK) == 0) {
+        fprintf(stderr, "[ac-native] NVMe boot, no USB — skipping USB wait\n");
+    } else if (!usb_found) {
+        fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
+        for (int w = 0; w < 100; w++) {
+            if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
+            usleep(20000);
+        }
     }
     fprintf(stderr, "[ac-native] sda1=%s sdb1=%s\n",
             access("/dev/sda1", F_OK) == 0 ? "yes" : "no",
@@ -1381,7 +1388,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
     // Any other key → skip animation and start playing
-    int total_frames = 300; // 5 seconds — room for TTS greeting
+    int total_frames = 180; // 3 seconds
     int skip_anim = 0;
     int w_pressed = 0;
     for (int f = 0; f < total_frames && !skip_anim && !w_pressed; f++) {
@@ -1926,7 +1933,7 @@ int main(int argc, char *argv[]) {
         }
         audio_boot_beep(audio);
         tts = tts_init(audio);
-        tts_precache(tts);
+        // Skip tts_precache here — defer to background after piece loads
 
         // Startup fade animation (black → white, hides kernel text)
         ac_log("[ac-native] pre-fade: display=%p screen=%p w=%d h=%d\n",
@@ -2125,14 +2132,6 @@ int main(int argc, char *argv[]) {
            JS_IsFunction(rt->ctx, rt->sim_fn));
     if (logfile) { fflush(logfile); }
 
-    // Ready: wait for speech to finish + ring buffer to drain, then melody
-    if (tts) {
-        tts_wait(tts);
-        usleep(300000); // Let TTS ring buffer drain
-    }
-    audio_ready_melody(audio);
-    usleep(400000); // Let melody ring out before playing
-
     // Prewarm audio engine so first keypress has zero latency
     audio_prewarm(audio);
 
@@ -2140,8 +2139,27 @@ int main(int argc, char *argv[]) {
     input_poll(input);
     input->event_count = 0;
 
-    // Call boot()
+    // Call boot() immediately — melody plays over the already-running piece
     js_call_boot(rt);
+
+    // Precache TTS in background — user won't type for several seconds
+    pthread_t tts_precache_thread;
+    int tts_precache_spawned = 0;
+    if (tts) {
+        tts_precache_spawned = (pthread_create(&tts_precache_thread, NULL,
+                                                (void *(*)(void *))tts_precache, tts) == 0);
+    }
+
+    // Let TTS finish and play ready melody (non-blocking to piece)
+    if (tts) {
+        tts_wait(tts);
+        usleep(300000); // Let TTS ring buffer drain
+    }
+    audio_ready_melody(audio);
+
+    // Join TTS precache thread before entering main loop
+    if (tts_precache_spawned)
+        pthread_join(tts_precache_thread, NULL);
 
     // Init performance logger
     perf_init();
