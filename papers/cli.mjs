@@ -2,16 +2,22 @@
 // papers cli — build, deploy, and track all AC papers
 //
 // Usage:
-//   node papers/cli.mjs build [lang]     Build PDFs (all langs, or: en, da, es)
+//   node papers/cli.mjs build [lang]     Build PDFs (all langs, or: en, da, es, zh)
+//   node papers/cli.mjs build --force    Rebuild everything (skip mtime check)
 //   node papers/cli.mjs deploy           Copy built PDFs to site directory
 //   node papers/cli.mjs publish          Build all + deploy + update index
+//   node papers/cli.mjs publish --force  Full pipeline, force-rebuilding everything
 //   node papers/cli.mjs status           Show build status for all papers
 //   node papers/cli.mjs log              Show build log
 //
+// Builds are incremental: a paper is only rebuilt when its source files (.tex,
+// .bib, .sty, figures/*) are newer than the output PDF. Pass --force to bypass.
+//
 // Examples:
-//   node papers/cli.mjs build            Build everything (en + da + es)
-//   node papers/cli.mjs build en         Build only English PDFs
-//   node papers/cli.mjs publish          Full pipeline: build all → deploy → update index
+//   node papers/cli.mjs build            Build changed papers (en + da + es + zh)
+//   node papers/cli.mjs build en         Build changed English PDFs only
+//   node papers/cli.mjs build --force    Rebuild everything
+//   node papers/cli.mjs publish          Full incremental pipeline
 
 import { execSync } from "child_process";
 import {
@@ -21,6 +27,7 @@ import {
   readFileSync,
   writeFileSync,
   statSync,
+  readdirSync,
 } from "fs";
 import { join, basename } from "path";
 
@@ -184,6 +191,64 @@ function findAll(langFilter) {
     }
   }
   return results;
+}
+
+// Shared style files at the papers/ root — changes here affect all papers.
+const SHARED_STY = [
+  join(PAPERS_DIR, "ac-paper-layout.sty"),
+  join(PAPERS_DIR, "ac-paper-cards.sty"),
+].filter(existsSync);
+
+// Collect mtimes of all source files that could affect a paper's output.
+// Returns the most recent mtime (ms), or Infinity if any file is missing.
+function sourcesMtime(entry) {
+  const paperDir = join(PAPERS_DIR, entry.dir);
+  const sources = [];
+
+  // The .tex file itself
+  sources.push(entry.texFile);
+
+  // All .bib and .sty files in the paper directory
+  try {
+    for (const f of readdirSync(paperDir)) {
+      if (f.endsWith(".bib") || f.endsWith(".sty")) {
+        sources.push(join(paperDir, f));
+      }
+    }
+  } catch {}
+
+  // Figures directory (all files)
+  const figDir = join(paperDir, "figures");
+  try {
+    for (const f of readdirSync(figDir)) {
+      sources.push(join(figDir, f));
+    }
+  } catch {}
+
+  // Shared style files
+  sources.push(...SHARED_STY);
+
+  let newest = 0;
+  for (const src of sources) {
+    try {
+      const mt = statSync(src).mtimeMs;
+      if (mt > newest) newest = mt;
+    } catch {
+      return Infinity; // missing source → must rebuild
+    }
+  }
+  return newest;
+}
+
+// Returns true if the paper needs rebuilding (source newer than PDF, or no PDF).
+function needsRebuild(entry) {
+  if (!entry.pdfExists) return true;
+  try {
+    const pdfMtime = statSync(entry.pdfFile).mtimeMs;
+    return sourcesMtime(entry) > pdfMtime;
+  } catch {
+    return true;
+  }
 }
 
 function buildOne(entry) {
@@ -477,7 +542,10 @@ function verify() {
 }
 
 // --- CLI ---
-const [, , cmd, langFilter] = process.argv;
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const positional = args.filter((a) => !a.startsWith("--"));
+const [cmd, langFilter] = positional;
 
 if (cmd === "status" || !cmd) {
   const files = findAll();
@@ -502,17 +570,22 @@ if (cmd === "status" || !cmd) {
 } else if (cmd === "build") {
   const filter = langFilter && LANGS.includes(langFilter) ? langFilter : null;
   const files = findAll(filter);
-  const toBuild = files.filter((f) => f.texExists);
+  const candidates = files.filter((f) => f.texExists);
+  const toBuild = force ? candidates : candidates.filter(needsRebuild);
+  const skipped = candidates.length - toBuild.length;
+  const mode = force ? " (forced)" : "";
   console.log(
-    `\nBuilding ${toBuild.length} paper${toBuild.length !== 1 ? "s" : ""}${filter ? ` (${LANG_NAMES[filter]})` : " (all languages)"}...\n`,
+    `\nBuilding ${toBuild.length} paper${toBuild.length !== 1 ? "s" : ""}${filter ? ` (${LANG_NAMES[filter]})` : " (all languages)"}${mode}...`,
   );
+  if (skipped > 0) console.log(`  (${skipped} up-to-date, skipped)`);
+  console.log();
   const built = [];
   const failed = [];
   for (const entry of toBuild) {
     if (buildOne(entry)) built.push(entry);
     else failed.push(entry);
   }
-  console.log(`\nDone: ${built.length} built, ${failed.length} failed.\n`);
+  console.log(`\nDone: ${built.length} built, ${skipped} skipped, ${failed.length} failed.\n`);
   if (built.length) appendBuildLog(built, failed);
 } else if (cmd === "deploy") {
   const files = findAll();
@@ -525,19 +598,24 @@ if (cmd === "status" || !cmd) {
   }
   console.log("\nDone.\n");
 } else if (cmd === "publish") {
-  // Full pipeline: build all → deploy → update index → verify
-  console.log("\n=== PUBLISH: build all → deploy → update index → verify ===\n");
+  // Full pipeline: build (incremental) → deploy → update index → verify
+  const mode = force ? " (forced)" : " (incremental)";
+  console.log(`\n=== PUBLISH${mode}: build → deploy → update index → verify ===\n`);
 
   const files = findAll();
-  const toBuild = files.filter((f) => f.texExists);
-  console.log(`Building ${toBuild.length} papers (all languages)...\n`);
+  const candidates = files.filter((f) => f.texExists);
+  const toBuild = force ? candidates : candidates.filter(needsRebuild);
+  const skipped = candidates.length - toBuild.length;
+  console.log(`Building ${toBuild.length} papers (all languages)...`);
+  if (skipped > 0) console.log(`  (${skipped} up-to-date, skipped)`);
+  console.log();
   const built = [];
   const failed = [];
   for (const entry of toBuild) {
     if (buildOne(entry)) built.push(entry);
     else failed.push(entry);
   }
-  console.log(`\nBuild: ${built.length} OK, ${failed.length} failed.\n`);
+  console.log(`\nBuild: ${built.length} OK, ${skipped} skipped, ${failed.length} failed.\n`);
 
   // Re-scan after build to pick up new PDFs
   const deployFiles = findAll();
@@ -596,11 +674,16 @@ if (cmd === "status" || !cmd) {
 papers cli — build, deploy, and track all AC papers
 
 Usage:
-  node papers/cli.mjs build [lang]     Build PDFs (all langs, or: en, da, es)
+  node papers/cli.mjs build [lang]     Build changed PDFs (all langs, or: en, da, es, zh)
+  node papers/cli.mjs build --force    Rebuild all PDFs (skip mtime check)
   node papers/cli.mjs deploy           Copy built PDFs to site directory
-  node papers/cli.mjs publish          Build all + deploy + update index + verify
+  node papers/cli.mjs publish          Incremental build + deploy + update index + verify
+  node papers/cli.mjs publish --force  Full rebuild + deploy + update index + verify
   node papers/cli.mjs status           Show build status for all papers
   node papers/cli.mjs verify           Check all linked PDFs exist
   node papers/cli.mjs log              Show build log
+
+Builds are incremental by default — only papers with source files newer than
+their output PDF are rebuilt. Use --force to bypass.
 `);
 }
