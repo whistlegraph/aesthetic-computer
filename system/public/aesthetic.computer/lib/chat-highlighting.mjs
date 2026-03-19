@@ -141,11 +141,30 @@ export function parseMessageElements(message) {
     urlRanges.push({ start: match.index, end: match.index + match[0].length });
   }
 
+  // Parse email addresses (before @handles so we can skip emails in handle matching)
+  const emailRegex = /[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/gi;
+  const emailRanges = [];
+  while ((match = emailRegex.exec(message)) !== null) {
+    elements.push({
+      type: "email",
+      text: match[0],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+    emailRanges.push({ start: match.index, end: match.index + match[0].length });
+  }
+
   // Parse @handles
   // Handles can only contain a-z, 0-9, underscores and periods (not at start/end)
   // They should stop at quotes, parentheses, and other special characters
   const handleRegex = /@[a-z0-9]+([._][a-z0-9]+)*/gi;
   while ((match = handleRegex.exec(message)) !== null) {
+    // Skip if this @mention is part of an email address
+    const isInsideEmail = emailRanges.some(range =>
+      match.index >= range.start && match.index < range.end
+    );
+    if (isInsideEmail) continue;
+
     elements.push({
       type: "handle",
       text: match[0],
@@ -320,6 +339,8 @@ export const defaultColorTheme = {
   kidlispHover: "yellow",
   clock: [0, 200, 255], // Light blue for clock references
   clockHover: "yellow",
+  email: "cyan", // Email addresses
+  emailHover: "yellow",
   r8dio: [255, 0, 255], // Magenta for r8dio radio links
   r8dioHover: "yellow",
 };
@@ -466,12 +487,17 @@ export function getElementAction(element, fullMessage, allElements) {
       result.jumpTarget = "r8dio";
       break;
       
+    case "email":
+      result.description = "Send email";
+      result.jumpTarget = "out:mailto:" + element.text;
+      break;
+
     case "youtube":
       result.description = "Watch YouTube video";
       result.videoId = element.videoId;
       result.jumpTarget = "youtube:" + element.videoId;
       break;
-      
+
     default:
       return null;
   }
@@ -480,7 +506,7 @@ export function getElementAction(element, fullMessage, allElements) {
 }
 
 // List of interactive element types that should trigger actions
-export const interactiveTypes = ["handle", "url", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "clock", "r8dio", "youtube"];
+export const interactiveTypes = ["handle", "url", "email", "prompt", "prompt-content", "kidlisp-token", "painting", "kidlisp", "clock", "r8dio", "youtube"];
 
 // Check if an element type is interactive (can be clicked)
 export function isInteractiveType(type) {
