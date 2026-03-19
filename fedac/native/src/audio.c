@@ -1359,65 +1359,58 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     snd_mixer_selem_register(mixer, NULL, NULL);
     snd_mixer_load(mixer);
 
-    // Try multiple mixer element names — ThinkPads may use Speaker/Headphone
-    // instead of Master depending on the HDA codec
+    // Adjust ALL playback volume elements — on Realtek ALC codecs,
+    // Master controls digital gain, Speaker/Headphone control the amplifier.
+    // Both need to be set for audible volume change.
     const char *try_names[] = {"Master", "Speaker", "Headphone", "PCM", NULL};
-    snd_mixer_elem_t *elem = NULL;
-    for (int n = 0; try_names[n] && !elem; n++) {
+    int adjusted = 0;
+    for (int n = 0; try_names[n]; n++) {
+        snd_mixer_elem_t *elem = NULL;
         for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e)) {
             if (!snd_mixer_selem_is_active(e)) continue;
             const char *name = snd_mixer_selem_get_name(e);
-            if (strcasecmp(name, try_names[n]) == 0) { elem = e; break; }
+            if (strcasecmp(name, try_names[n]) == 0 && snd_mixer_selem_has_playback_volume(e))
+                { elem = e; break; }
         }
-    }
-    if (!elem) {
-        // Log available mixer elements for debugging
-        ac_log("[audio] volume: no Master/Speaker/Headphone/PCM found on %s. Available:\n", card_name);
-        for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e)) {
-            const char *name = snd_mixer_selem_get_name(e);
-            ac_log("[audio]   %s%s%s\n", name,
-                    snd_mixer_selem_has_playback_volume(e) ? " [vol]" : "",
-                    snd_mixer_selem_is_active(e) ? "" : " [inactive]");
-        }
-        snd_mixer_close(mixer);
-        return;
-    }
-    {
-        ac_log("[audio] volume: using '%s' on %s, delta=%d\n",
-               snd_mixer_selem_get_name(elem), card_name, delta);
+        if (!elem) continue;
 
         if (delta == 0) {
-            // Toggle mute via volume (most reliable across codecs)
-            if (snd_mixer_selem_has_playback_volume(elem)) {
-                long min, max, cur;
-                snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
-                snd_mixer_selem_get_playback_volume(elem, 0, &cur);
-                if (!muted) {
-                    pre_mute_volume = cur;
-                    snd_mixer_selem_set_playback_volume_all(elem, min);
-                    muted = 1;
-                } else {
-                    long restore = (pre_mute_volume > min) ? pre_mute_volume : max * 80 / 100;
-                    snd_mixer_selem_set_playback_volume_all(elem, restore);
-                    // Ensure all switches are unmuted too
-                    unmute_all_switches(mixer);
-                    muted = 0;
-                }
-            }
-        } else if (snd_mixer_selem_has_playback_volume(elem)) {
+            // Toggle mute
             long min, max, cur;
             snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
             snd_mixer_selem_get_playback_volume(elem, 0, &cur);
-            long step = (max - min) * 5 / 100; // 5% per step
+            if (!muted) {
+                pre_mute_volume = cur;
+                snd_mixer_selem_set_playback_volume_all(elem, min);
+            } else {
+                long restore = (pre_mute_volume > min) ? pre_mute_volume : max * 80 / 100;
+                snd_mixer_selem_set_playback_volume_all(elem, restore);
+            }
+            ac_log("[audio] volume: mute toggle '%s' on %s\n", try_names[n], card_name);
+        } else {
+            long min, max, cur;
+            snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+            snd_mixer_selem_get_playback_volume(elem, 0, &cur);
+            long step = (max - min) * 5 / 100;
+            if (step < 1) step = 1;
             long newvol = cur + step * delta;
             if (newvol < min) newvol = min;
             if (newvol > max) newvol = max;
             snd_mixer_selem_set_playback_volume_all(elem, newvol);
-            ac_log("[audio] volume: %ld → %ld (range %ld-%ld, step %ld)\n", cur, newvol, min, max, step);
-            // Also ensure all unmuted
-            unmute_all_switches(mixer);
-            muted = 0;
+            ac_log("[audio] volume: '%s' %ld→%ld (range %ld-%ld)\n", try_names[n], cur, newvol, min, max);
         }
+        adjusted++;
+    }
+    if (delta == 0) { muted = !muted; }
+    if (adjusted) {
+        unmute_all_switches(mixer);
+        if (delta != 0) muted = 0;
+    } else {
+        // No elements found — log what's available
+        ac_log("[audio] volume: no playback elements on %s. Available:\n", card_name);
+        for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e))
+            ac_log("[audio]   %s%s\n", snd_mixer_selem_get_name(e),
+                    snd_mixer_selem_has_playback_volume(e) ? " [vol]" : "");
     }
     snd_mixer_close(mixer);
 

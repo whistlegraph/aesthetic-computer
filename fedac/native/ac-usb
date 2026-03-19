@@ -69,9 +69,9 @@ case "${CMD}" in
         CONTAINER=$(sudo docker create --privileged -v /dev:/dev alpine:latest sh -c "
             apk add --quiet dosfstools
             mkdir -p /mnt/usb /out
-            # Try data partition (sda2) first, fall back to ESP (sda1)
+            # Try ESP (sda1) first — that's where ac-native writes logs
             mounted=''
-            for p in ${USB_DEV}2 ${USB_DEV}1; do
+            for p in ${USB_DEV}1 ${USB_DEV}2; do
                 [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
             done
             [ -z \"\$mounted\" ] && { echo 'Could not mount USB'; exit 1; }
