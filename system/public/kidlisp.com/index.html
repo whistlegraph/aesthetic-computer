@@ -13575,159 +13575,200 @@ s("ape_breaks_3").loopAt(2)</textarea>
           z-index: 100000;
           backdrop-filter: blur(4px);
         }
-        
+        [data-theme="light"] .preferences-modal-backdrop {
+          background: rgba(255, 255, 255, 0.75);
+        }
+
         .preferences-modal-content {
           background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
           border-radius: 16px;
-          padding: 20px;
-          max-width: 360px;
+          padding: 16px;
+          max-width: 340px;
           width: 90%;
+          max-height: 85vh;
+          overflow-y: auto;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
           border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+        [data-theme="light"] .preferences-modal-content {
+          background: linear-gradient(135deg, #f5f0e8 0%, #ebe4d8 100%);
+          border-color: rgba(0, 0, 0, 0.1);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
         .preferences-modal-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 14px;
         }
-        
+
         .preferences-modal-title {
           margin: 0;
           color: #f0e6d3;
           font-family: 'Comic Relief', 'Comic Sans MS', cursive;
-          font-size: 22px;
+          font-size: 18px;
           font-weight: bold;
           display: flex;
           align-items: center;
           gap: 8px;
         }
-        
+        [data-theme="light"] .preferences-modal-title {
+          color: #2a2a2a;
+        }
+
         .preferences-modal-title .title-gear {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
           color: #f0e6d3;
           animation: gear-spin-slow 4s linear infinite;
         }
-        
+        [data-theme="light"] .preferences-modal-title .title-gear {
+          color: #2a2a2a;
+        }
+
         @keyframes gear-spin-slow {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        
+
         .preferences-modal-close {
           background: none;
           border: none;
           color: #888;
-          font-size: 20px;
+          font-size: 18px;
           cursor: pointer;
           padding: 4px 8px;
           border-radius: 4px;
           transition: all 0.2s;
         }
-        
+
         .preferences-modal-close:hover {
           color: #fff;
           background: rgba(255,255,255,0.1);
         }
-        
-        .preferences-section {
-          margin-bottom: 20px;
+        [data-theme="light"] .preferences-modal-close:hover {
+          color: #000;
+          background: rgba(0,0,0,0.08);
         }
-        
+
+        .preferences-section {
+          margin-bottom: 14px;
+        }
+
         .preferences-section:last-child {
           margin-bottom: 0;
         }
-        
+
         .preferences-label {
           color: #888;
           font-family: monospace;
-          font-size: 12px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 1px;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
           display: block;
         }
-        
+        [data-theme="light"] .preferences-label {
+          color: #999;
+        }
+
         .preferences-options {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
         }
-        
+
         .preferences-option {
           flex: 1;
-          min-width: 80px;
-          padding: 12px 16px;
-          border: 2px solid rgba(255, 255, 255, 0.1);
-          border-radius: 10px;
-          background: rgba(0, 0, 0, 0.3);
-          color: #aaa;
-          font-family: monospace;
-          font-size: 14px;
-          cursor: pointer;
-          transition: all 0.2s;
-          text-align: center;
-        }
-        
-        .preferences-option:hover {
-          border-color: rgba(255, 255, 255, 0.3);
-          color: #fff;
-        }
-        
-        .preferences-option.active {
-          border-color: #4ecdc4;
-          background: rgba(78, 205, 196, 0.15);
-          color: #4ecdc4;
-        }
-        
-        .preferences-option .option-icon {
-          font-size: 20px;
-          display: block;
-          margin-bottom: 4px;
-        }
-        
-        .preferences-option .option-text {
-          font-size: 11px;
-          opacity: 0.8;
-        }
-        
-        .lang-options {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-        }
-        
-        .lang-option-btn {
-          padding: 10px 12px;
+          min-width: 70px;
+          padding: 8px 10px;
           border: 2px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           background: rgba(0, 0, 0, 0.3);
           color: #aaa;
           font-family: monospace;
-          font-size: 13px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: center;
+        }
+        [data-theme="light"] .preferences-option {
+          border-color: rgba(0, 0, 0, 0.1);
+          background: rgba(255, 255, 255, 0.6);
+          color: #666;
+        }
+
+        .preferences-option:hover {
+          border-color: rgba(255, 255, 255, 0.3);
+          color: #fff;
+        }
+        [data-theme="light"] .preferences-option:hover {
+          border-color: rgba(0, 0, 0, 0.25);
+          color: #222;
+        }
+
+        .preferences-option.active {
+          border-color: #4ecdc4;
+          background: rgba(78, 205, 196, 0.15);
+          color: #4ecdc4;
+        }
+
+        .preferences-option .option-icon {
+          font-size: 16px;
+          display: block;
+          margin-bottom: 2px;
+        }
+
+        .preferences-option .option-text {
+          font-size: 10px;
+          opacity: 0.8;
+        }
+
+        .lang-options {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 6px;
+        }
+
+        .lang-option-btn {
+          padding: 7px 10px;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.3);
+          color: #aaa;
+          font-family: monospace;
+          font-size: 12px;
           cursor: pointer;
           transition: all 0.2s;
           text-align: left;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
         }
-        
+        [data-theme="light"] .lang-option-btn {
+          border-color: rgba(0, 0, 0, 0.1);
+          background: rgba(255, 255, 255, 0.6);
+          color: #666;
+        }
+
         .lang-option-btn:hover {
           border-color: rgba(255, 255, 255, 0.3);
           color: #fff;
         }
-        
+        [data-theme="light"] .lang-option-btn:hover {
+          border-color: rgba(0, 0, 0, 0.25);
+          color: #222;
+        }
+
         .lang-option-btn.active {
           border-color: #4ecdc4;
           background: rgba(78, 205, 196, 0.15);
           color: #4ecdc4;
         }
-        
+
         .lang-option-btn .lang-flag {
-          font-size: 18px;
+          font-size: 16px;
         }
 
         /* GPU Rendering toggle section */
@@ -13735,28 +13776,37 @@ s("ape_breaks_3").loopAt(2)</textarea>
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 8px 0;
+          padding: 5px 0;
         }
         .pref-toggle-row.master {
-          padding: 10px 12px;
+          padding: 8px 10px;
           background: rgba(0, 0, 0, 0.3);
           border-radius: 8px;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
+        }
+        [data-theme="light"] .pref-toggle-row.master {
+          background: rgba(0, 0, 0, 0.05);
         }
         .pref-toggle-label {
           color: #ccc;
           font-family: monospace;
-          font-size: 13px;
+          font-size: 12px;
+        }
+        [data-theme="light"] .pref-toggle-label {
+          color: #555;
         }
         .pref-toggle-row.master .pref-toggle-label {
           color: #f0e6d3;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: bold;
+        }
+        [data-theme="light"] .pref-toggle-row.master .pref-toggle-label {
+          color: #2a2a2a;
         }
         .pref-toggle-switch {
           position: relative;
-          width: 40px;
-          height: 22px;
+          width: 36px;
+          height: 20px;
           flex-shrink: 0;
         }
         .pref-toggle-switch input {
@@ -13768,15 +13818,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
           position: absolute;
           top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(255, 255, 255, 0.15);
-          border-radius: 11px;
+          border-radius: 10px;
           cursor: pointer;
           transition: background 0.2s;
+        }
+        [data-theme="light"] .pref-toggle-slider {
+          background: rgba(0, 0, 0, 0.15);
         }
         .pref-toggle-slider::before {
           content: '';
           position: absolute;
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
           left: 3px;
           top: 3px;
           background: #888;
@@ -13787,13 +13840,16 @@ s("ape_breaks_3").loopAt(2)</textarea>
           background: rgba(78, 205, 196, 0.3);
         }
         .pref-toggle-switch input:checked + .pref-toggle-slider::before {
-          transform: translateX(18px);
+          transform: translateX(16px);
           background: #4ecdc4;
         }
         .pref-gpu-effects {
-          padding-left: 12px;
+          padding-left: 10px;
           border-left: 2px solid rgba(255, 255, 255, 0.05);
           transition: opacity 0.2s;
+        }
+        [data-theme="light"] .pref-gpu-effects {
+          border-left-color: rgba(0, 0, 0, 0.06);
         }
         .pref-gpu-effects.disabled {
           opacity: 0.35;
@@ -13803,58 +13859,64 @@ s("ape_breaks_3").loopAt(2)</textarea>
         /* Dashboard / Profile section */
         .pref-dashboard {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 6px;
         }
         .pref-gauge {
           background: rgba(0, 0, 0, 0.35);
-          border-radius: 10px;
-          padding: 10px 12px 8px;
+          border-radius: 8px;
+          padding: 6px 8px 5px;
           text-align: center;
           position: relative;
           overflow: hidden;
+        }
+        [data-theme="light"] .pref-gauge {
+          background: rgba(0, 0, 0, 0.04);
         }
         .pref-gauge.wide {
           grid-column: 1 / -1;
         }
         .pref-gauge-label {
           font-family: monospace;
-          font-size: 10px;
+          font-size: 9px;
           color: #888;
           text-transform: uppercase;
           letter-spacing: 1px;
-          margin-bottom: 6px;
+          margin-bottom: 3px;
         }
         .pref-gauge-value {
           font-family: monospace;
-          font-size: 22px;
+          font-size: 16px;
           font-weight: bold;
           color: #f0e6d3;
           line-height: 1;
         }
+        [data-theme="light"] .pref-gauge-value {
+          color: #2a2a2a;
+        }
         .pref-gauge-value.small {
-          font-size: 13px;
+          font-size: 11px;
           color: #aaa;
           font-weight: normal;
         }
         .pref-gauge-unit {
-          font-size: 11px;
+          font-size: 10px;
           color: #777;
           margin-left: 2px;
         }
         /* Needle gauge (semicircle) */
         .pref-needle-wrap {
-          width: 80px;
-          height: 44px;
-          margin: 0 auto 4px;
+          width: 56px;
+          height: 30px;
+          margin: 0 auto 2px;
           position: relative;
           overflow: hidden;
         }
         .pref-needle-bg {
-          width: 80px;
-          height: 80px;
+          width: 56px;
+          height: 56px;
           border-radius: 50%;
-          border: 3px solid rgba(255,255,255,0.08);
+          border: 2px solid rgba(255,255,255,0.08);
           border-bottom-color: transparent;
           border-right-color: transparent;
           transform: rotate(-45deg);
@@ -13862,26 +13924,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
           position: absolute;
           top: 0; left: 0;
         }
-        .pref-needle-arc {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          border: 3px solid transparent;
-          border-top-color: #4ecdc4;
-          border-left-color: #4ecdc4;
-          transform: rotate(-45deg);
-          box-sizing: border-box;
-          position: absolute;
-          top: 0; left: 0;
-          clip-path: none;
-          transition: clip-path 0.3s;
+        [data-theme="light"] .pref-needle-bg {
+          border-color: rgba(0,0,0,0.08);
+          border-bottom-color: transparent;
+          border-right-color: transparent;
         }
         .pref-needle {
           position: absolute;
           bottom: 0;
           left: 50%;
           width: 2px;
-          height: 36px;
+          height: 24px;
           background: #f0e6d3;
           transform-origin: bottom center;
           transform: rotate(-90deg);
@@ -13891,10 +13944,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
         .pref-needle::after {
           content: '';
           position: absolute;
-          bottom: -3px;
-          left: -3px;
-          width: 8px;
-          height: 8px;
+          bottom: -2px;
+          left: -2px;
+          width: 6px;
+          height: 6px;
           background: #f0e6d3;
           border-radius: 50%;
         }
@@ -13907,31 +13960,37 @@ s("ape_breaks_3").loopAt(2)</textarea>
         /* Status dot */
         .pref-status-dot {
           display: inline-block;
-          width: 8px;
-          height: 8px;
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
-          margin-right: 6px;
+          margin-right: 5px;
           vertical-align: middle;
         }
-        .pref-status-dot.running { background: #4ecdc4; box-shadow: 0 0 6px #4ecdc4; }
-        .pref-status-dot.paused { background: #ffd93d; box-shadow: 0 0 6px #ffd93d; }
+        .pref-status-dot.running { background: #4ecdc4; box-shadow: 0 0 5px #4ecdc4; }
+        .pref-status-dot.paused { background: #ffd93d; box-shadow: 0 0 5px #ffd93d; }
         .pref-status-dot.stopped { background: #666; }
         .pref-info-grid {
           display: grid;
           grid-template-columns: auto 1fr;
-          gap: 2px 10px;
+          gap: 1px 8px;
           text-align: left;
           font-family: monospace;
-          font-size: 11px;
+          font-size: 10px;
         }
         .pref-info-key {
           color: #666;
+        }
+        [data-theme="light"] .pref-info-key {
+          color: #999;
         }
         .pref-info-val {
           color: #aaa;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        [data-theme="light"] .pref-info-val {
+          color: #555;
         }
       `;
       document.head.appendChild(style);
@@ -14101,23 +14160,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
             </div>
             <div class="pref-gauge-value" id="pref-fps-value">--</div>
           </div>
-          <div class="pref-gauge" id="pref-dash-frames">
-            <div class="pref-gauge-label">Frames</div>
-            <div class="pref-needle-wrap">
-              <div class="pref-needle-bg"></div>
-              <div class="pref-needle" id="pref-frames-needle"></div>
-            </div>
-            <div class="pref-gauge-value" id="pref-frames-value">0</div>
-          </div>
           <div class="pref-gauge" id="pref-dash-status">
             <div class="pref-gauge-label">State</div>
-            <div class="pref-gauge-value" id="pref-status-value" style="margin-top:6px">
+            <div class="pref-gauge-value" id="pref-status-value" style="margin-top:4px">
               <span class="pref-status-dot stopped"></span>idle
             </div>
           </div>
           <div class="pref-gauge" id="pref-dash-memory">
             <div class="pref-gauge-label">Memory</div>
-            <div class="pref-gauge-value" id="pref-memory-value" style="margin-top:6px">--</div>
+            <div class="pref-gauge-value" id="pref-memory-value" style="margin-top:4px">--</div>
           </div>
           <div class="pref-gauge wide" id="pref-dash-device">
             <div class="pref-gauge-label">Device</div>
@@ -14295,18 +14346,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const deg = -90 + (clamped / 120) * 180;
         fpsNeedle.style.transform = `rotate(${deg}deg)`;
         fpsNeedle.className = 'pref-needle ' + (fps < 20 ? 'red' : fps < 45 ? 'yellow' : 'green');
-        fpsValue.textContent = fps || '--';
-      }
-
-      // Frames needle: spins based on frame count (wraps every 1000)
-      const framesNeedle = preferencesModal.querySelector('#pref-frames-needle');
-      const framesValue = preferencesModal.querySelector('#pref-frames-value');
-      if (framesNeedle && framesValue) {
         const fc = fpsTracker.frameCount;
-        const deg = -90 + ((fc % 1000) / 1000) * 180;
-        framesNeedle.style.transform = `rotate(${deg}deg)`;
-        framesNeedle.className = 'pref-needle green';
-        framesValue.textContent = fc.toLocaleString();
+        fpsValue.innerHTML = fps ? `${fps} <span class="pref-gauge-unit">${fc.toLocaleString()}f</span>` : '--';
       }
 
       // Status
