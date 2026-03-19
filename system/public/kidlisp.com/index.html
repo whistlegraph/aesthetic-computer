@@ -13799,6 +13799,140 @@ s("ape_breaks_3").loopAt(2)</textarea>
           opacity: 0.35;
           pointer-events: none;
         }
+
+        /* Dashboard / Profile section */
+        .pref-dashboard {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .pref-gauge {
+          background: rgba(0, 0, 0, 0.35);
+          border-radius: 10px;
+          padding: 10px 12px 8px;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+        }
+        .pref-gauge.wide {
+          grid-column: 1 / -1;
+        }
+        .pref-gauge-label {
+          font-family: monospace;
+          font-size: 10px;
+          color: #888;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 6px;
+        }
+        .pref-gauge-value {
+          font-family: monospace;
+          font-size: 22px;
+          font-weight: bold;
+          color: #f0e6d3;
+          line-height: 1;
+        }
+        .pref-gauge-value.small {
+          font-size: 13px;
+          color: #aaa;
+          font-weight: normal;
+        }
+        .pref-gauge-unit {
+          font-size: 11px;
+          color: #777;
+          margin-left: 2px;
+        }
+        /* Needle gauge (semicircle) */
+        .pref-needle-wrap {
+          width: 80px;
+          height: 44px;
+          margin: 0 auto 4px;
+          position: relative;
+          overflow: hidden;
+        }
+        .pref-needle-bg {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          border: 3px solid rgba(255,255,255,0.08);
+          border-bottom-color: transparent;
+          border-right-color: transparent;
+          transform: rotate(-45deg);
+          box-sizing: border-box;
+          position: absolute;
+          top: 0; left: 0;
+        }
+        .pref-needle-arc {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          border: 3px solid transparent;
+          border-top-color: #4ecdc4;
+          border-left-color: #4ecdc4;
+          transform: rotate(-45deg);
+          box-sizing: border-box;
+          position: absolute;
+          top: 0; left: 0;
+          clip-path: none;
+          transition: clip-path 0.3s;
+        }
+        .pref-needle {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          width: 2px;
+          height: 36px;
+          background: #f0e6d3;
+          transform-origin: bottom center;
+          transform: rotate(-90deg);
+          transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+          border-radius: 1px;
+        }
+        .pref-needle::after {
+          content: '';
+          position: absolute;
+          bottom: -3px;
+          left: -3px;
+          width: 8px;
+          height: 8px;
+          background: #f0e6d3;
+          border-radius: 50%;
+        }
+        .pref-needle.red { background: #ff6b6b; }
+        .pref-needle.red::after { background: #ff6b6b; }
+        .pref-needle.yellow { background: #ffd93d; }
+        .pref-needle.yellow::after { background: #ffd93d; }
+        .pref-needle.green { background: #4ecdc4; }
+        .pref-needle.green::after { background: #4ecdc4; }
+        /* Status dot */
+        .pref-status-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          margin-right: 6px;
+          vertical-align: middle;
+        }
+        .pref-status-dot.running { background: #4ecdc4; box-shadow: 0 0 6px #4ecdc4; }
+        .pref-status-dot.paused { background: #ffd93d; box-shadow: 0 0 6px #ffd93d; }
+        .pref-status-dot.stopped { background: #666; }
+        .pref-info-grid {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 2px 10px;
+          text-align: left;
+          font-family: monospace;
+          font-size: 11px;
+        }
+        .pref-info-key {
+          color: #666;
+        }
+        .pref-info-val {
+          color: #aaa;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -13811,6 +13945,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (preferencesModal) {
         preferencesModal.style.display = 'flex';
         updatePreferencesModalContent();
+        // Live-update dashboard gauges while modal is open
+        clearInterval(dashboardInterval);
+        dashboardInterval = setInterval(updateDashboardGauges, 250);
         return;
       }
       
@@ -13950,6 +14087,46 @@ s("ape_breaks_3").loopAt(2)</textarea>
       `;
       content.appendChild(renderSection);
 
+      // Dashboard / Profile section
+      const dashSection = document.createElement('div');
+      dashSection.className = 'preferences-section';
+      dashSection.innerHTML = `
+        <span class="preferences-label">Dashboard</span>
+        <div class="pref-dashboard">
+          <div class="pref-gauge" id="pref-dash-fps">
+            <div class="pref-gauge-label">FPS</div>
+            <div class="pref-needle-wrap">
+              <div class="pref-needle-bg"></div>
+              <div class="pref-needle" id="pref-fps-needle"></div>
+            </div>
+            <div class="pref-gauge-value" id="pref-fps-value">--</div>
+          </div>
+          <div class="pref-gauge" id="pref-dash-frames">
+            <div class="pref-gauge-label">Frames</div>
+            <div class="pref-needle-wrap">
+              <div class="pref-needle-bg"></div>
+              <div class="pref-needle" id="pref-frames-needle"></div>
+            </div>
+            <div class="pref-gauge-value" id="pref-frames-value">0</div>
+          </div>
+          <div class="pref-gauge" id="pref-dash-status">
+            <div class="pref-gauge-label">State</div>
+            <div class="pref-gauge-value" id="pref-status-value" style="margin-top:6px">
+              <span class="pref-status-dot stopped"></span>idle
+            </div>
+          </div>
+          <div class="pref-gauge" id="pref-dash-memory">
+            <div class="pref-gauge-label">Memory</div>
+            <div class="pref-gauge-value" id="pref-memory-value" style="margin-top:6px">--</div>
+          </div>
+          <div class="pref-gauge wide" id="pref-dash-device">
+            <div class="pref-gauge-label">Device</div>
+            <div class="pref-info-grid" id="pref-device-info"></div>
+          </div>
+        </div>
+      `;
+      content.appendChild(dashSection);
+
       preferencesModal.appendChild(content);
       
       // Close on backdrop click
@@ -13971,6 +14148,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
       // Setup event handlers
       setupPreferencesHandlers();
       updatePreferencesModalContent();
+      // Live-update dashboard gauges while modal is open
+      clearInterval(dashboardInterval);
+      dashboardInterval = setInterval(updateDashboardGauges, 250);
     }
     
     // Setup preferences modal event handlers
@@ -14096,10 +14276,111 @@ s("ape_breaks_3").loopAt(2)</textarea>
           }
         }
       } catch {}
+
+      // Dashboard gauges
+      updateDashboardGauges();
     }
-    
+
+    let dashboardInterval = null;
+
+    function updateDashboardGauges() {
+      if (!preferencesModal) return;
+
+      // FPS needle: 0 → -90deg, 60 → 0deg, 120 → +90deg (beyond 60 is bonus)
+      const fps = fpsTracker.fps;
+      const fpsNeedle = preferencesModal.querySelector('#pref-fps-needle');
+      const fpsValue = preferencesModal.querySelector('#pref-fps-value');
+      if (fpsNeedle && fpsValue) {
+        const clamped = Math.min(120, Math.max(0, fps));
+        const deg = -90 + (clamped / 120) * 180;
+        fpsNeedle.style.transform = `rotate(${deg}deg)`;
+        fpsNeedle.className = 'pref-needle ' + (fps < 20 ? 'red' : fps < 45 ? 'yellow' : 'green');
+        fpsValue.textContent = fps || '--';
+      }
+
+      // Frames needle: spins based on frame count (wraps every 1000)
+      const framesNeedle = preferencesModal.querySelector('#pref-frames-needle');
+      const framesValue = preferencesModal.querySelector('#pref-frames-value');
+      if (framesNeedle && framesValue) {
+        const fc = fpsTracker.frameCount;
+        const deg = -90 + ((fc % 1000) / 1000) * 180;
+        framesNeedle.style.transform = `rotate(${deg}deg)`;
+        framesNeedle.className = 'pref-needle green';
+        framesValue.textContent = fc.toLocaleString();
+      }
+
+      // Status
+      const statusValue = preferencesModal.querySelector('#pref-status-value');
+      if (statusValue) {
+        const state = isPlaying ? (isPaused ? 'paused' : 'running') : 'stopped';
+        const label = isPlaying ? (isPaused ? 'paused' : 'running') : 'idle';
+        statusValue.innerHTML = `<span class="pref-status-dot ${state}"></span>${label}`;
+      }
+
+      // Memory (Chrome only)
+      const memValue = preferencesModal.querySelector('#pref-memory-value');
+      if (memValue) {
+        if (performance.memory) {
+          const mb = Math.round(performance.memory.usedJSHeapSize / 1048576);
+          const limit = Math.round(performance.memory.jsHeapSizeLimit / 1048576);
+          memValue.innerHTML = `${mb}<span class="pref-gauge-unit">MB</span>`;
+        } else {
+          memValue.textContent = 'n/a';
+          memValue.classList.add('small');
+        }
+      }
+
+      // Device info (populate once)
+      const deviceInfo = preferencesModal.querySelector('#pref-device-info');
+      if (deviceInfo && !deviceInfo.dataset.populated) {
+        deviceInfo.dataset.populated = '1';
+        const ua = navigator.userAgent;
+        let browser = 'Unknown';
+        if (ua.includes('Firefox/')) browser = 'Firefox ' + ua.split('Firefox/')[1].split(' ')[0];
+        else if (ua.includes('Edg/')) browser = 'Edge ' + ua.split('Edg/')[1].split(' ')[0];
+        else if (ua.includes('Chrome/')) browser = 'Chrome ' + ua.split('Chrome/')[1].split(' ')[0];
+        else if (ua.includes('Safari/')) browser = 'Safari ' + (ua.split('Version/')[1]||'').split(' ')[0];
+
+        let os = navigator.platform || 'Unknown';
+        if (ua.includes('Mac OS X')) os = 'macOS';
+        else if (ua.includes('Windows')) os = 'Windows';
+        else if (ua.includes('Linux')) os = 'Linux';
+        else if (ua.includes('Android')) os = 'Android';
+        else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+
+        let gpu = 'Unknown';
+        try {
+          const c = document.createElement('canvas');
+          const g = c.getContext('webgl2') || c.getContext('webgl');
+          if (g) {
+            const ext = g.getExtension('WEBGL_debug_renderer_info');
+            if (ext) gpu = g.getParameter(ext.UNMASKED_RENDERER_WEBGL);
+            else gpu = g.getParameter(g.RENDERER);
+          }
+        } catch {}
+        // Truncate long GPU strings
+        if (gpu.length > 42) gpu = gpu.slice(0, 40) + '…';
+
+        const dpr = window.devicePixelRatio || 1;
+        const res = `${screen.width}×${screen.height} @${dpr}x`;
+
+        const rows = [
+          ['Browser', browser],
+          ['OS', os],
+          ['Screen', res],
+          ['GPU', gpu],
+          ['Cores', navigator.hardwareConcurrency || '?'],
+        ];
+        deviceInfo.innerHTML = rows.map(([k, v]) =>
+          `<span class="pref-info-key">${k}</span><span class="pref-info-val" title="${v}">${v}</span>`
+        ).join('');
+      }
+    }
+
     // Close preferences modal
     function closePreferencesModal() {
+      clearInterval(dashboardInterval);
+      dashboardInterval = null;
       if (preferencesModal) {
         preferencesModal.style.display = 'none';
         if (preferencesModal.escHandler) {
@@ -17707,6 +17988,26 @@ s("ape_breaks_3").loopAt(2)</textarea>
     let isSoftStopped = false; // Track if soft-stopped (paused but tab still open)
     let userStopped = false; // Track if user explicitly stopped (prevent auto-play)
     let lastCode = ''; // Track last code for auto-reload
+
+    // 📊 FPS tracker — measures intervals between kidlisp-trace messages
+    const fpsTracker = {
+      times: [],       // recent frame timestamps (last 60)
+      fps: 0,          // smoothed FPS
+      peak: 0,         // peak FPS seen
+      frameCount: 0,   // total frames
+      tick() {
+        const now = performance.now();
+        this.times.push(now);
+        if (this.times.length > 60) this.times.shift();
+        this.frameCount++;
+        if (this.times.length > 1) {
+          const elapsed = (now - this.times[0]) / 1000;
+          this.fps = Math.round((this.times.length - 1) / elapsed);
+          if (this.fps > this.peak) this.peak = this.fps;
+        }
+      },
+      reset() { this.times = []; this.fps = 0; this.frameCount = 0; },
+    };
     
     // 📏 Pixel Rulers System (shown when paused)
     const rulerSystem = {
@@ -18469,6 +18770,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       isPlaying = false;
       isPaused = false;
       isSoftStopped = false; // Clear soft-stopped state on full stop
+      fpsTracker.reset();
       shouldAutoPlay = false; // IMPORTANT: prevent auto-play from re-triggering
       lastCode = '';
       sendButton.classList.remove('playing');
@@ -19372,7 +19674,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (window.signalDecryptionReady) {
           window.signalDecryptionReady();
         }
-        
+        fpsTracker.tick();
         if (event.data.trace && Array.isArray(event.data.trace)) {
           vizSystem.executionTrace = event.data.trace;
           vizSystem.frameCount++;
