@@ -137,6 +137,16 @@ const PAPER_MAP = {
     siteName: "sucking-on-the-complex-26-arxiv",
     title: "Sucking on the Complex",
   },
+  "arxiv-kidlisp-cards": {
+    base: "kidlisp-cards",
+    siteName: "kidlisp-cards-26-arxiv",
+    title: "KidLisp Cards",
+  },
+  "arxiv-score-analysis": {
+    base: "score-analysis",
+    siteName: "reading-the-score-26-arxiv",
+    title: "Reading the Score",
+  },
 };
 
 function texName(base, lang) {
