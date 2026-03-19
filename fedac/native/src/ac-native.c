@@ -1660,19 +1660,24 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
                              ACDisplay *display, const char *status) {
     static int boot_frame = 0;
-    // Time-of-day themed background
+    // Time-of-day themed background (light for day, dark for night)
     int la_hour = get_la_hour();
+    int is_day = (la_hour >= 7 && la_hour < 18);
     uint8_t bg_r, bg_g, bg_b;
-    if (la_hour >= 5 && la_hour < 8) {
-        bg_r = 100; bg_g = 45; bg_b = 20;  // sunrise orange
-    } else if (la_hour >= 8 && la_hour < 12) {
-        bg_r = 25; bg_g = 50; bg_b = 90;   // morning sky
-    } else if (la_hour >= 12 && la_hour < 17) {
-        bg_r = 90; bg_g = 65; bg_b = 20;   // afternoon gold
-    } else if (la_hour >= 17 && la_hour < 20) {
-        bg_r = 80; bg_g = 25; bg_b = 60;   // sunset purple
+    if (is_day) {
+        if (la_hour < 12) {
+            bg_r = 235; bg_g = 230; bg_b = 220;  // morning cream
+        } else {
+            bg_r = 240; bg_g = 235; bg_b = 215;  // afternoon warm white
+        }
     } else {
-        bg_r = 15; bg_g = 15; bg_b = 40;   // night deep blue
+        if (la_hour >= 5 && la_hour < 7) {
+            bg_r = 100; bg_g = 45; bg_b = 20;  // sunrise orange
+        } else if (la_hour >= 18 && la_hour < 20) {
+            bg_r = 80; bg_g = 25; bg_b = 60;   // sunset purple
+        } else {
+            bg_r = 15; bg_g = 15; bg_b = 40;   // night deep blue
+        }
     }
 
     struct timespec anim_time;
@@ -1726,7 +1731,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         }
 
         // Subtitle (slight counter-bounce)
-        uint8_t sub = 140;
+        uint8_t sub = is_day ? 100 : 140;
         graph_ink(graph, (ACColor){sub, sub, sub, 255});
         int sw = font_measure_matrix("aesthetic.computer", 1);
         font_draw_matrix(graph, "aesthetic.computer",
@@ -1737,7 +1742,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
         if (status) {
             int slide = (int)((1.0 - bounce_t) * 40);
             if (slide < 0) slide = 0;
-            uint8_t sc = 120;
+            uint8_t sc = is_day ? 80 : 120;
             graph_ink(graph, (ACColor){sc, sc, sc, (uint8_t)(255 * bounce_t)});
             int stw = font_measure_matrix(status, 1);
             font_draw_matrix(graph, status,
@@ -2506,8 +2511,8 @@ int main(int argc, char *argv[]) {
                                input->events[i].pressure);
                     }
                     // Instant TTS: play cached sound immediately (bypasses JS frame delay)
-                    // Only in prompt mode (other pieces control their own voicing)
-                    if (tts && !voice_off && strncmp(rt->system_mode, "prompt", 6) == 0) {
+                    // Only when running prompt.mjs (other pieces should not voice keystrokes)
+                    if (tts && !voice_off && strcmp(rt->piece, "prompt") == 0) {
                         const char *kn = input->events[i].key_name;
                         if (kn && kn[0] && kn[1] == 0) {
                             // Single printable character
