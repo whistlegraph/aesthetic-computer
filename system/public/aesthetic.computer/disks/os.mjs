@@ -293,11 +293,18 @@ function paint($) {
   const C = dark ? scheme.dark : scheme.light;
   $.wipe(...C.bg);
 
-  const pad = 6;
+  const isMobile = w < 360;
+  const isNarrow = w < 500;
+  const pad = isMobile ? 6 : isNarrow ? 8 : 12;
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
-  let y = 18 - scrollY;
+  const matrixW = 4; // MatrixChunky8 char width
+  const wrapW = w - pad * 2;
+  const btnGap = isMobile ? 6 : 4;
+  // Center buttons on narrow screens, left-align on desktop
+  const btnX = (btn) => isNarrow ? Math.floor((w - btn.width) / 2) : pad;
+  let y = (isMobile ? 12 : 18) - scrollY;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -314,10 +321,10 @@ function paint($) {
   const builds = releases.releases || [];
 
   // One-line description
+  const descText = "A Linux kernel with an embedded initramfs — boots any x86 PC from USB.";
   ink(...C.instText);
-  $.write("A Linux kernel with an embedded initramfs — boots any x86 PC from USB.", { x: pad, y, wrap: w - pad * 2 }, undefined, undefined, false, "MatrixChunky8");
-  const descLen = 70 * 6; // approximate char count * charW
-  const descLines = Math.ceil(descLen / (w - pad * 2));
+  $.write(descText, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+  const descLines = Math.ceil((descText.length * matrixW) / wrapW);
   y += matrixH * descLines + 6;
 
   // Divider
@@ -332,14 +339,15 @@ function paint($) {
     // OS label
     if (isPersonal) {
       const label = osLabel();
-      ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
-      const labelLines = Math.ceil(label.length * charW / (w - pad * 2));
+      ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
+      const labelLines = Math.ceil((label.length * charW) / wrapW);
       y += rowH * labelLines + 4;
     } else {
       const latest = releases?.releases?.[0];
       const label = "AC Native OS" + (latest ? " — " + latest.name : "");
-      ink(...C.handle).write(label, { x: pad, y, wrap: w - pad * 2 });
-      y += rowH + 4;
+      ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
+      const labelLines = Math.ceil((label.length * charW) / wrapW);
+      y += rowH * labelLines + 4;
     }
 
     // Device token status (logged-in only)
@@ -353,7 +361,7 @@ function paint($) {
       y += rowH + 2;
 
       if ((!hasClaude || !hasGit) && setupBtn) {
-        setupBtn.reposition({ x: pad, y });
+        setupBtn.reposition({ x: btnX(setupBtn), y });
         setupBtn.paint(
           $,
           [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
@@ -361,19 +369,19 @@ function paint($) {
           undefined,
           [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
         );
-        y += setupBtn.height + 4;
+        y += setupBtn.height + btnGap;
         if (showTokenHint) {
           ink(...C.instText);
-          $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+          $.write("on device, type in prompt:", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
           y += matrixH + 2;
           if (!hasClaude) {
             ink(...C.instKey);
-            $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+            $.write("  claude sk-ant-XXXX", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
             y += matrixH + 2;
           }
           if (!hasGit) {
             ink(...C.instKey);
-            $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+            $.write("  git ghp_XXXX", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
             y += matrixH + 2;
           }
           y += 4;
@@ -386,7 +394,7 @@ function paint($) {
 
     // Boot-to selector
     if (bootBtn) {
-      bootBtn.reposition({ x: pad, y });
+      bootBtn.reposition({ x: btnX(bootBtn), y });
       bootBtn.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
@@ -394,12 +402,12 @@ function paint($) {
         undefined,
         [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
       );
-      y += bootBtn.height + 4;
+      y += bootBtn.height + btnGap;
     }
 
     // WiFi toggle
     if (wifiBtn) {
-      wifiBtn.reposition({ x: pad, y });
+      wifiBtn.reposition({ x: btnX(wifiBtn), y });
       const wOn = wifiEnabled;
       wifiBtn.paint(
         $,
@@ -408,12 +416,12 @@ function paint($) {
         undefined,
         [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 230],
       );
-      y += wifiBtn.height + 4;
+      y += wifiBtn.height + btnGap;
     }
 
     // Mirror selector
     if (mirrorBtn && MIRRORS.length > 1) {
-      mirrorBtn.reposition({ x: pad, y });
+      mirrorBtn.reposition({ x: btnX(mirrorBtn), y });
       mirrorBtn.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, ...C.current, 200],
@@ -421,11 +429,19 @@ function paint($) {
         undefined,
         [C.bootBtnBg, C.bootBtnBorder, ...C.current, 230],
       );
-      y += mirrorBtn.height + 4;
+      y += mirrorBtn.height + btnGap;
     }
 
-    // Download button
-    downloadBtn.reposition({ x: pad, y });
+    y += isNarrow ? 4 : 2; // Extra spacing before download
+
+    // Download button — draw wider bg on mobile for emphasis
+    const dlX = btnX(downloadBtn);
+    downloadBtn.reposition({ x: dlX, y });
+    if (isNarrow) {
+      // Full-width highlight behind download button on mobile
+      ink(...C.dlBtnBg, 120).box(pad, y - 2, wrapW, downloadBtn.height + 4);
+      ink(...C.dlBtnBorder, 60).box(pad, y - 2, wrapW, downloadBtn.height + 4, "outline");
+    }
     downloadBtn.paint(
       $,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
@@ -433,36 +449,38 @@ function paint($) {
       undefined,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
     );
-    y += downloadBtn.height + 4;
+    y += downloadBtn.height + btnGap;
 
     // Hint for template users
     if (!isPersonal) {
-      ink(...C.loginHint).write("log in for a personalized build", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+      ink(...C.loginHint).write("log in for a personalized build", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
       y += matrixH + 4;
     }
 
     // Divider
     ink(...C.divider);
     drawLine(pad, y, w - pad, y);
-    y += 6;
+    y += 8;
 
     // "How to Install" header
-    ink(...C.instHeader).write("How to Install", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 4;
+    ink(...C.instHeader).write("How to Install", { x: isNarrow ? Math.floor(w / 2 - "How to Install".length * matrixW / 2) : pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 6;
 
-    // Instructions (matrix font)
-    ink(...C.instText).write("1 flash .iso with Fedora Media Writer", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 2;
-    ink(...C.instText).write("2 plug USB into any x86 PC", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 2;
-    ink(...C.instText).write("3 enter BIOS boot menu:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 2;
-    ink(...C.instKey).write("  F12 Dell/Lenovo  F9 HP", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 2;
-    ink(...C.instKey).write("  F2 ASUS/Acer  ESC others", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 2;
-    ink(...C.instText).write("4 select USB drive to boot", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 8;
+    // Instructions (matrix font, all wrapped)
+    const instLines = [
+      [C.instText, "1 flash .iso with Fedora Media Writer"],
+      [C.instText, "2 plug USB into any x86 PC"],
+      [C.instText, "3 enter BIOS boot menu:"],
+      [C.instKey, "  F12 Dell/Lenovo  F9 HP"],
+      [C.instKey, "  F2 ASUS/Acer  ESC others"],
+      [C.instText, "4 select USB drive to boot"],
+    ];
+    for (const [color, text] of instLines) {
+      ink(...color).write(text, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+      const lines = Math.ceil((text.length * matrixW) / wrapW);
+      y += matrixH * lines + 3;
+    }
+    y += 5;
 
     // Divider before builds
     ink(...C.divider);
@@ -479,20 +497,23 @@ function paint($) {
     ink(255).write(mb + total + "MB " + pct + "%", { x: pad + 4, y: y + 4 });
     y += 22;
     if (downloadStatus) {
-      ink(140, 160, 180).write(downloadStatus, { x: pad, y });
-      y += rowH + 2;
+      ink(140, 160, 180).write(downloadStatus, { x: pad, y, wrap: wrapW });
+      const statusLines = Math.ceil((downloadStatus.length * charW) / wrapW);
+      y += rowH * statusLines + 2;
     }
   }
 
-  // Build list — 2 rows per build
+  // Build list — 2 rows per build (3 on narrow screens)
+  const maxNameChars = isNarrow ? Math.floor(wrapW / charW / 3) : 30;
   for (let i = 0; i < builds.length; i++) {
-    const entryH = 24;
+    const entryH = isNarrow ? 32 : 24;
     if (y > h + entryH) break;
 
     const b = builds[i];
     const isCurrent = i === 0 && !b.deprecated;
     const isDep = !!b.deprecated;
-    const name = b.name || "?";
+    const rawName = b.name || "?";
+    const name = rawName.length > maxNameChars ? rawName.slice(0, maxNameChars - 1) + "~" : rawName;
     const hash = (b.git_hash || "?").slice(0, 7);
     const ago = timeAgo(b.build_ts);
     const msg = b.commit_msg || "";
@@ -502,6 +523,7 @@ function paint($) {
       const marker = isCurrent ? "> " : "  ";
       let x = pad;
 
+      // Row 1: name + hash + time (+ handle on wider screens)
       ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
       $.write(marker + name, { x, y });
       const nameEndX = x + (marker.length + name.length) * charW;
@@ -517,7 +539,8 @@ function paint($) {
         x += (ago.length + 1) * charW;
       }
 
-      if (who) {
+      // Handle: on narrow screens show on row 2, otherwise same row
+      if (who && !isNarrow) {
         ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
         $.write("@" + who, { x, y });
       }
@@ -525,19 +548,26 @@ function paint($) {
       // Strikethrough line for deprecated builds
       if (isDep) {
         ink(...C.depStrike, 140);
-        const lineEndX = who ? x + (who.length + 1) * charW : x;
+        const lineEndX = who && !isNarrow ? x + (who.length + 1) * charW : x;
         drawLine(pad + charW * 2, y + 4, lineEndX, y + 4);
       }
 
+      // Row 2 on narrow: handle; on wide: commit message
+      const msgY = isNarrow ? y + rowH * 2 + 1 : y + rowH + 1;
+      if (isNarrow && who) {
+        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
+        $.write("  @" + who, { x: pad, y: y + rowH + 1 });
+      }
+
       if (msg) {
-        const maxChars = Math.floor((w - pad * 2 - charW) / charW);
+        const maxChars = Math.floor((wrapW - charW) / charW);
         const display = msg.length > maxChars ? msg.slice(0, maxChars - 1) + "~" : msg;
         ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-        $.write("  " + display, { x: pad, y: y + rowH + 1 });
+        $.write("  " + display, { x: pad, y: msgY });
         if (isDep) {
           ink(...C.depStrike, 100);
           const msgW = Math.min(display.length + 2, maxChars) * charW;
-          drawLine(pad, y + rowH + 5, pad + msgW, y + rowH + 5);
+          drawLine(pad, msgY + 4, pad + msgW, msgY + 4);
         }
       }
 
@@ -553,7 +583,7 @@ function paint($) {
   if (builds.length > 0) {
     const countLabel = builds.length + " builds";
     ink(...C.date);
-    $.write(countLabel, { x: w - pad - countLabel.length * charW, y: h - rowH - 2 });
+    $.write(countLabel, { x: w - pad - countLabel.length * charW, y: h - rowH - pad });
   }
 }
 
@@ -567,6 +597,13 @@ function act({ event: e, needsPaint, download }) {
 
   if (e.is("scroll")) {
     scrollY = Math.max(0, scrollY + (e.delta || 0));
+    needsPaint();
+    return;
+  }
+
+  // Recreate buttons on resize for responsive layout
+  if (e.is("reframed")) {
+    if (uiRef && (handle && token || releases)) makeButtons(uiRef);
     needsPaint();
     return;
   }
