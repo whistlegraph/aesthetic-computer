@@ -47,10 +47,10 @@ let layerCompositeUniforms = null;
 // Some Android GPUs claim WebGL2 but silently produce blank output with highp.
 let fragPrecision = "highp";
 
-// Mobile safe mode — Mali and Adreno GPUs produce rendering artifacts or silent
-// failures on sharpen and contrast/composite. When true, gpuSharpen and gpuComposite
-// return false so the caller falls back to CPU. Blur now uses Dual Kawase (separate
-// algorithm designed for mobile GPUs) so it does NOT need this workaround.
+// Mobile safe mode — Mali and Adreno GPUs produce intermittent blank output on
+// OffscreenCanvas WebGL2 (tested: Jelly Star WebView, Mali-G57 MC2). When true,
+// ALL GPU effects return false (CPU fallback) EXCEPT gpuBlur which uses Dual Kawase
+// (a mobile-native algorithm with separate mip-chain FBOs that avoids the hazard).
 let mobileSafeMode = false;
 
 // Accumulated values (matching CPU behavior)
@@ -1389,7 +1389,8 @@ export function gpuSpin(pixels, width, height, steps, anchorX = null, anchorY = 
   if (!initWebGL2(width, height)) {
     return false;
   }
-  
+  if (mobileSafeMode) return false;
+
   try {
     // Determine bounds
     const minX = mask?.x ?? 0;
@@ -1469,12 +1470,12 @@ export function gpuComposite(pixels, width, height, options = {}) {
   if (zoom === 1.0 && scrollX === 0 && scrollY === 0 && !flipY && contrast === 1.0 && brightness === 0) {
     return true;
   }
-  if (mobileSafeMode) return false;
 
   if (!initWebGL2(width, height)) {
     return false;
   }
-  
+  if (mobileSafeMode) return false;
+
   try {
     const minX = mask?.x ?? 0;
     const minY = mask?.y ?? 0;
@@ -1546,7 +1547,8 @@ export function gpuComposite(pixels, width, height, options = {}) {
  */
 export function gpuZoom(pixels, width, height, scale = 1.0, anchorX = 0.5, anchorY = 0.5, mask = null) {
   if (scale === 1.0) return true;
-  
+  if (mobileSafeMode) return false;
+
   // Use composite shader with only zoom enabled
   return gpuComposite(pixels, width, height, {
     zoom: scale,
@@ -1572,7 +1574,8 @@ export function gpuZoom(pixels, width, height, scale = 1.0, anchorX = 0.5, ancho
  */
 export function gpuScroll(pixels, width, height, dx = 0, dy = 0, mask = null) {
   if (dx === 0 && dy === 0) return true;
-  
+  if (mobileSafeMode) return false;
+
   // Use composite shader with only scroll enabled
   return gpuComposite(pixels, width, height, {
     zoom: 1.0,
@@ -1597,7 +1600,8 @@ export function gpuScroll(pixels, width, height, dx = 0, dy = 0, mask = null) {
  */
 export function gpuContrast(pixels, width, height, level = 1.0, mask = null) {
   if (level === 1.0) return true;
-  
+  if (mobileSafeMode) return false;
+
   // Use composite shader with only contrast enabled
   return gpuComposite(pixels, width, height, {
     zoom: 1.0,
@@ -1622,7 +1626,8 @@ export function gpuContrast(pixels, width, height, level = 1.0, mask = null) {
  */
 export function gpuBrightness(pixels, width, height, adjustment = 0, mask = null) {
   if (adjustment === 0) return true;
-  
+  if (mobileSafeMode) return false;
+
   // Use composite shader with only brightness enabled
   return gpuComposite(pixels, width, height, {
     zoom: 1.0,
@@ -1646,7 +1651,8 @@ export function gpuBrightness(pixels, width, height, adjustment = 0, mask = null
  */
 export function gpuInvert(pixels, width, height, mask = null) {
   if (!initialized || !gl || !invertProgram) return false;
-  
+  if (mobileSafeMode) return false;
+
   try {
     ensureResources(width, height);
     
@@ -1808,11 +1814,11 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
  */
 export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
   if (strength <= 0) return true;
-  if (mobileSafeMode) return false;
 
   if (!initWebGL2(width, height)) {
     return false;
   }
+  if (mobileSafeMode) return false;
   
   try {
     const minX = mask?.x ?? 0;
@@ -1877,6 +1883,7 @@ export function gpuShear(pixels, width, height, shearX = 0, shearY = 0, mask = n
   if (!initWebGL2(width, height)) {
     return false;
   }
+  if (mobileSafeMode) return false;
 
   try {
     const minX = mask?.x ?? 0;
@@ -1944,6 +1951,7 @@ export function gpuSuck(pixels, width, height, displacement, direction, centerX,
   if (!initWebGL2(width, height)) {
     return false;
   }
+  if (mobileSafeMode) return false;
 
   try {
     const minX = mask?.x ?? 0;
@@ -2020,7 +2028,8 @@ export function gpuFlood(pixels, width, height, x, y, fillColor) {
   if (!initWebGL2(width, height)) {
     return { success: false, area: 0 };
   }
-  
+  if (mobileSafeMode) return { success: false, area: 0 };
+
   try {
     // Get target color at seed point (RGBA 0-255)
     const seedIdx = (y * width + x) * 4;
@@ -2191,7 +2200,8 @@ export function gpuCompositeLayers(backgroundPixels, width, height, layers) {
   if (!layerCompositeProgram || !layerTextures || !layers || layers.length === 0) {
     return { success: false };
   }
-  
+  if (mobileSafeMode) return { success: false };
+
   if (layers.length > MAX_LAYERS) {
     console.warn(`🎮 GPU Layer Composite: Too many layers (${layers.length}), max is ${MAX_LAYERS}`);
     return { success: false };
