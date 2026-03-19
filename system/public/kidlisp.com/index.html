@@ -13729,6 +13729,76 @@ s("ape_breaks_3").loopAt(2)</textarea>
         .lang-option-btn .lang-flag {
           font-size: 18px;
         }
+
+        /* GPU Rendering toggle section */
+        .pref-toggle-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 0;
+        }
+        .pref-toggle-row.master {
+          padding: 10px 12px;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 8px;
+          margin-bottom: 8px;
+        }
+        .pref-toggle-label {
+          color: #ccc;
+          font-family: monospace;
+          font-size: 13px;
+        }
+        .pref-toggle-row.master .pref-toggle-label {
+          color: #f0e6d3;
+          font-size: 14px;
+          font-weight: bold;
+        }
+        .pref-toggle-switch {
+          position: relative;
+          width: 40px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .pref-toggle-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .pref-toggle-slider {
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 11px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .pref-toggle-slider::before {
+          content: '';
+          position: absolute;
+          width: 16px;
+          height: 16px;
+          left: 3px;
+          top: 3px;
+          background: #888;
+          border-radius: 50%;
+          transition: transform 0.2s, background 0.2s;
+        }
+        .pref-toggle-switch input:checked + .pref-toggle-slider {
+          background: rgba(78, 205, 196, 0.3);
+        }
+        .pref-toggle-switch input:checked + .pref-toggle-slider::before {
+          transform: translateX(18px);
+          background: #4ecdc4;
+        }
+        .pref-gpu-effects {
+          padding-left: 12px;
+          border-left: 2px solid rgba(255, 255, 255, 0.05);
+          transition: opacity 0.2s;
+        }
+        .pref-gpu-effects.disabled {
+          opacity: 0.35;
+          pointer-events: none;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -13834,7 +13904,52 @@ s("ape_breaks_3").loopAt(2)</textarea>
         </div>
       `;
       content.appendChild(langSection);
-      
+
+      // Rendering section (GPU toggle + individual effects)
+      const renderSection = document.createElement('div');
+      renderSection.className = 'preferences-section';
+      renderSection.innerHTML = `
+        <span class="preferences-label">Rendering</span>
+        <div class="pref-toggle-row master">
+          <span class="pref-toggle-label">GPU Acceleration</span>
+          <label class="pref-toggle-switch">
+            <input type="checkbox" id="pref-gpu-master">
+            <span class="pref-toggle-slider"></span>
+          </label>
+        </div>
+        <div class="pref-gpu-effects disabled" id="pref-gpu-effects">
+          <div class="pref-toggle-row">
+            <span class="pref-toggle-label">Spin / Zoom / Scroll</span>
+            <label class="pref-toggle-switch">
+              <input type="checkbox" id="pref-gpu-spin" checked>
+              <span class="pref-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="pref-toggle-row">
+            <span class="pref-toggle-label">Flood Fill</span>
+            <label class="pref-toggle-switch">
+              <input type="checkbox" id="pref-gpu-flood" checked>
+              <span class="pref-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="pref-toggle-row">
+            <span class="pref-toggle-label">Contrast / Brightness</span>
+            <label class="pref-toggle-switch">
+              <input type="checkbox" id="pref-gpu-contrast" checked>
+              <span class="pref-toggle-slider"></span>
+            </label>
+          </div>
+          <div class="pref-toggle-row">
+            <span class="pref-toggle-label">Layer Compositing</span>
+            <label class="pref-toggle-switch">
+              <input type="checkbox" id="pref-gpu-composite" checked>
+              <span class="pref-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      `;
+      content.appendChild(renderSection);
+
       preferencesModal.appendChild(content);
       
       // Close on backdrop click
@@ -13898,6 +14013,33 @@ s("ape_breaks_3").loopAt(2)</textarea>
           }
         });
       });
+
+      // GPU rendering toggles
+      const gpuMaster = preferencesModal.querySelector('#pref-gpu-master');
+      const gpuEffectsPanel = preferencesModal.querySelector('#pref-gpu-effects');
+      const gpuEffectIds = ['pref-gpu-spin', 'pref-gpu-flood', 'pref-gpu-contrast', 'pref-gpu-composite'];
+
+      function onGpuChanged() {
+        const masterOn = gpuMaster.checked;
+        gpuEffectsPanel.classList.toggle('disabled', !masterOn);
+        const config = {
+          gpu: masterOn,
+          effects: {
+            spin: preferencesModal.querySelector('#pref-gpu-spin').checked,
+            flood: preferencesModal.querySelector('#pref-gpu-flood').checked,
+            contrast: preferencesModal.querySelector('#pref-gpu-contrast').checked,
+            composite: preferencesModal.querySelector('#pref-gpu-composite').checked,
+          },
+        };
+        try { localStorage.setItem('kidlisp-gpu-config', JSON.stringify(config)); } catch {}
+        sendToIframe({ type: 'kidlisp-gpu-config', config });
+      }
+
+      gpuMaster.addEventListener('change', onGpuChanged);
+      gpuEffectIds.forEach(id => {
+        const el = preferencesModal.querySelector('#' + id);
+        if (el) el.addEventListener('change', onGpuChanged);
+      });
     }
     
     // Update preferences modal to reflect current state
@@ -13933,6 +14075,27 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const lang = btn.getAttribute('data-lang');
         btn.classList.toggle('active', lang === currentLang);
       });
+
+      // Update GPU rendering toggles from localStorage
+      try {
+        const stored = localStorage.getItem('kidlisp-gpu-config');
+        if (stored) {
+          const config = JSON.parse(stored);
+          const gpuMaster = preferencesModal.querySelector('#pref-gpu-master');
+          const gpuEffectsPanel = preferencesModal.querySelector('#pref-gpu-effects');
+          if (gpuMaster) {
+            gpuMaster.checked = !!config.gpu;
+            gpuEffectsPanel?.classList.toggle('disabled', !config.gpu);
+          }
+          if (config.effects) {
+            const map = { spin: '#pref-gpu-spin', flood: '#pref-gpu-flood', contrast: '#pref-gpu-contrast', composite: '#pref-gpu-composite' };
+            for (const [key, sel] of Object.entries(map)) {
+              const el = preferencesModal.querySelector(sel);
+              if (el) el.checked = config.effects[key] !== false;
+            }
+          }
+        }
+      } catch {}
     }
     
     // Close preferences modal
@@ -18881,6 +19044,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
         hasRequestedKidlispConsole = true;
         sendToIframe({ type: 'kidlisp-console-enable' });
       }
+
+      // Send stored GPU rendering config to iframe
+      try {
+        const gpuStored = localStorage.getItem('kidlisp-gpu-config');
+        if (gpuStored) {
+          sendToIframe({ type: 'kidlisp-gpu-config', config: JSON.parse(gpuStored) });
+        }
+      } catch {}
     });
 
     // Update initial console message
@@ -19141,7 +19312,13 @@ s("ape_breaks_3").loopAt(2)</textarea>
 
         // Always (re-)send enable when iframe signals ready - the worker is now definitely wired.
         sendToIframe({ type: 'kidlisp-console-enable' });
-        
+
+        // Re-send GPU config on iframe ready
+        try {
+          const gpuStored = localStorage.getItem('kidlisp-gpu-config');
+          if (gpuStored) sendToIframe({ type: 'kidlisp-gpu-config', config: JSON.parse(gpuStored) });
+        } catch {}
+
         // Mark that we want to auto-play, but wait for piece to be ready
         // Only auto-play on aesthetic-computer platform
         // Don't auto-play if user explicitly stopped
