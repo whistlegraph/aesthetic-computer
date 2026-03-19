@@ -5134,11 +5134,11 @@ function paint($) {
   if (topRightBtnChoice === "os" && showLoginCurtain) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
-    const btnPaddingRight = 6;
+    const btnPaddingRight = 3;
 
     const osBtnText = "x86 OS";
     const osBtnY = btnPaddingTop;
-    const osBtnX = screen.width - 52 - btnPaddingRight;
+    const osBtnX = screen.width - 58 - btnPaddingRight;
 
     if (!osBtn) {
       osBtn = new $.ui.TextButton(osBtnText, { x: osBtnX, y: osBtnY });
