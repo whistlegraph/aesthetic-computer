@@ -58,32 +58,5 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-# Mount USB data partition early and leave mounted for ac-native
-# UEFI locks the ESP (sda1) after loading the kernel, so use sda2 for data
-# Wait briefly for USB partition table scan to complete
-ilog "mount-early"
-mkdir -p /mnt
-# Wait up to 2s for USB partitions to appear
-i=0; while [ $i -lt 20 ]; do
-  [ -b /dev/sda2 ] || [ -b /dev/sda1 ] || [ -b /dev/sdb1 ] && break
-  sleep 0.1 2>/dev/null || sleep 1
-  i=$((i+1))
-done
-ilog "usb-wait done i=$i sda1=$([ -b /dev/sda1 ] && echo y || echo n) sda2=$([ -b /dev/sda2 ] && echo y || echo n)"
-mounted=""
-for dev in /dev/sda2 /dev/sdb2 /dev/sda1 /dev/sdb1 /dev/sdc1; do
-  if [ -b "$dev" ]; then
-    mount "$dev" /mnt 2>/dev/null && {
-      timeout 0.2 cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null || true
-      cp /tmp/ac-init.log /mnt/init.log 2>/dev/null
-      sync
-      mounted="$dev"
-      ilog "mounted $dev at /mnt (kept for ac-native)"
-      break
-    }
-  fi
-done
-[ -z "$mounted" ] && ilog "WARNING: no USB/ESP mounted"
-
 ilog "exec-ac-native"
 exec /ac-native /piece.mjs
