@@ -293,22 +293,27 @@ uniform float u_radius;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
+// Precomputed Gaussian weights (sigma ≈ radius/3) for offsets 0..7.
+// Avoids exp() which silently returns 0 on some Mali GPUs at highp.
+const float W[8] = float[8](
+  1.0, 0.9394, 0.7788, 0.5698, 0.3679, 0.2096, 0.1054, 0.0468
+);
+
 void main() {
   ivec2 tc = ivec2(v_texCoord * u_resolution);
   ivec2 size = ivec2(u_resolution);
-  vec4 sum = vec4(0.0);
-  float totalWeight = 0.0;
-  float sigma = max(u_radius / 3.0, 0.5);
-  float invTwoSigmaSq = -0.5 / (sigma * sigma);
+  int r = int(u_radius);
+  vec4 sum = texelFetch(u_texture, tc, 0) * W[0];
+  float totalWeight = W[0];
 
-  // Unrolled: sample offsets -7 to +7 (covers blur radius up to 7)
-  for (int d = -7; d <= 7; d++) {
-    int sx = clamp(tc.x + d, 0, size.x - 1);
-    float w = exp(float(d * d) * invTwoSigmaSq);
-    // Skip taps beyond requested radius
-    w *= step(float(abs(d)), u_radius);
-    sum += texelFetch(u_texture, ivec2(sx, tc.y), 0) * w;
-    totalWeight += w;
+  for (int d = 1; d <= 7; d++) {
+    if (d > r) break;
+    float w = W[d];
+    int sxL = max(tc.x - d, 0);
+    int sxR = min(tc.x + d, size.x - 1);
+    sum += texelFetch(u_texture, ivec2(sxL, tc.y), 0) * w;
+    sum += texelFetch(u_texture, ivec2(sxR, tc.y), 0) * w;
+    totalWeight += w + w;
   }
 
   fragColor = sum / totalWeight;
@@ -328,20 +333,26 @@ uniform float u_radius;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
+// Same precomputed weights as horizontal pass.
+const float W[8] = float[8](
+  1.0, 0.9394, 0.7788, 0.5698, 0.3679, 0.2096, 0.1054, 0.0468
+);
+
 void main() {
   ivec2 tc = ivec2(v_texCoord * u_resolution);
   ivec2 size = ivec2(u_resolution);
-  vec4 sum = vec4(0.0);
-  float totalWeight = 0.0;
-  float sigma = max(u_radius / 3.0, 0.5);
-  float invTwoSigmaSq = -0.5 / (sigma * sigma);
+  int r = int(u_radius);
+  vec4 sum = texelFetch(u_texture, tc, 0) * W[0];
+  float totalWeight = W[0];
 
-  for (int d = -7; d <= 7; d++) {
-    int sy = clamp(tc.y + d, 0, size.y - 1);
-    float w = exp(float(d * d) * invTwoSigmaSq);
-    w *= step(float(abs(d)), u_radius);
-    sum += texelFetch(u_texture, ivec2(tc.x, sy), 0) * w;
-    totalWeight += w;
+  for (int d = 1; d <= 7; d++) {
+    if (d > r) break;
+    float w = W[d];
+    int syU = max(tc.y - d, 0);
+    int syD = min(tc.y + d, size.y - 1);
+    sum += texelFetch(u_texture, ivec2(tc.x, syU), 0) * w;
+    sum += texelFetch(u_texture, ivec2(tc.x, syD), 0) * w;
+    totalWeight += w + w;
   }
 
   fragColor = sum / totalWeight;
@@ -351,7 +362,6 @@ void main() {
 // SHARPEN SHADER - Unsharp mask convolution
 // =========================================================================
 const SHARPEN_FRAGMENT_SHADER = `#version 300 es
-// highp is mandatory in WebGL2 and needed for correct texel offsets on Android GPUs
 precision highp float;
 
 uniform sampler2D u_texture;
@@ -363,37 +373,42 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
-  vec2 pixelCoord = v_texCoord * u_resolution;
-  
-  // Check if outside working area (with 1px border for kernel)
-  if (pixelCoord.x < u_bounds.x + 1.0 || pixelCoord.x >= u_bounds.z - 1.0 ||
-      pixelCoord.y < u_bounds.y + 1.0 || pixelCoord.y >= u_bounds.w - 1.0) {
-    fragColor = texture(u_texture, v_texCoord);
+  // Use texelFetch with integer coordinates — matches working effects
+  // and avoids texture() float UV issues on Mali GPUs.
+  ivec2 tc = ivec2(v_texCoord * u_resolution);
+  ivec2 size = ivec2(u_resolution);
+
+  int minX = int(u_bounds.x);
+  int minY = int(u_bounds.y);
+  int maxX = int(u_bounds.z);
+  int maxY = int(u_bounds.w);
+
+  // Outside working area (with 1px border for kernel) — pass through
+  if (tc.x < minX + 1 || tc.x >= maxX - 1 || tc.y < minY + 1 || tc.y >= maxY - 1) {
+    fragColor = texelFetch(u_texture, tc, 0);
     return;
   }
-  
-  vec2 texel = 1.0 / u_resolution;
-  
-  // Sample center and neighbors
-  vec4 center = texture(u_texture, v_texCoord);
-  vec4 top    = texture(u_texture, v_texCoord + vec2(0.0, -texel.y));
-  vec4 bottom = texture(u_texture, v_texCoord + vec2(0.0,  texel.y));
-  vec4 left   = texture(u_texture, v_texCoord + vec2(-texel.x, 0.0));
-  vec4 right  = texture(u_texture, v_texCoord + vec2( texel.x, 0.0));
-  
+
+  // Sample center and 4 neighbors via texelFetch
+  vec4 center = texelFetch(u_texture, tc, 0);
+  vec4 top    = texelFetch(u_texture, ivec2(tc.x, tc.y - 1), 0);
+  vec4 bottom = texelFetch(u_texture, ivec2(tc.x, tc.y + 1), 0);
+  vec4 left   = texelFetch(u_texture, ivec2(tc.x - 1, tc.y), 0);
+  vec4 right  = texelFetch(u_texture, ivec2(tc.x + 1, tc.y), 0);
+
   // Skip transparent pixels
   if (center.a == 0.0) {
     fragColor = center;
     return;
   }
-  
+
   // Unsharp mask: center * (1 + 4*strength) - neighbors * strength
-  float centerWeight = 1.0 + 4.0 * u_strength;
-  float edgeWeight = -u_strength;
-  
-  vec3 sharpened = center.rgb * centerWeight + 
-                   (top.rgb + bottom.rgb + left.rgb + right.rgb) * edgeWeight;
-  
+  float cw = 1.0 + 4.0 * u_strength;
+  float ew = -u_strength;
+
+  vec3 sharpened = center.rgb * cw +
+                   (top.rgb + bottom.rgb + left.rgb + right.rgb) * ew;
+
   fragColor = vec4(clamp(sharpened, 0.0, 1.0), center.a);
 }`;
 
@@ -1707,6 +1722,10 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Sync between passes — Mali-G57 has pipeline hazards when
+    // reading a texture that was just rendered to in a prior draw call.
+    gl.finish();
 
     // PASS 2: Vertical blur (pingPong -> output)
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);

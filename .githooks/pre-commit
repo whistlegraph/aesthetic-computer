@@ -62,6 +62,7 @@ FALSE_POSITIVE_ALLOWLIST=(
   "className="             # React className
   "AC_PASS"                # Default wifi AP password (public, not a secret)
   "enter password"         # UI label in wifi.mjs password prompt
+  "Seed pass"              # GPU shader comment in gpu-effects.mjs
 )
 
 secret_errors=0
