@@ -7,6 +7,7 @@ const { tan, floor, random } = Math;
 
 export function boot($, options) {
   starfield = new Starfield($, options?.stars);
+  if (options?.speed) starfield.speed = options.speed;
 }
 
 // 🧮 Sim(ulate)
