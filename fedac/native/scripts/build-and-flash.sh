@@ -787,6 +787,17 @@ fi
 # Ensure /lib64 is on the dynamic linker search path
 mkdir -p "${INITRAMFS_DIR}/etc"
 echo "/lib64" > "${INITRAMFS_DIR}/etc/ld.so.conf"
+echo "/lib/x86_64-linux-gnu" >> "${INITRAMFS_DIR}/etc/ld.so.conf"
+
+# Ensure /lib/x86_64-linux-gnu exists (Ubuntu binaries like iw link against this path)
+mkdir -p "${INITRAMFS_DIR}/lib/x86_64-linux-gnu"
+# Symlink all lib64 .so files into the Ubuntu canonical path
+for lib in "${INITRAMFS_DIR}/lib64/"*.so*; do
+    [ -f "$lib" ] || continue
+    base="$(basename "$lib")"
+    [ ! -e "${INITRAMFS_DIR}/lib/x86_64-linux-gnu/${base}" ] && \
+        ln -sf "../../lib64/${base}" "${INITRAMFS_DIR}/lib/x86_64-linux-gnu/${base}" 2>/dev/null || true
+done
 
 # Generate initramfs manifest (for build parity verification between local/oven)
 cd "${INITRAMFS_DIR}"
