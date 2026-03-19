@@ -13284,6 +13284,7 @@ async function makeFrame({ data: { type, content } }) {
             
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
+            graph.gpuLogTick(); // 📊 GPU effect logging every 8 frames
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
             

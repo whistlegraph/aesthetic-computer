@@ -279,9 +279,8 @@ void main() {
 
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (horizontal pass)
-// Mali-safe: no uniform arrays, no dynamic indexing, no early break.
-// Uses texelFetch with integer coords and hardcoded Gaussian weights.
-// Radius controlled by u_radius uniform — samples up to 7 pixels each side.
+// Fully unrolled — no arrays, no dynamic indexing, no loop break.
+// Maximum Android GPU compatibility (Mali, Adreno, PowerVR).
 // =========================================================================
 const BLUR_H_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -293,35 +292,56 @@ uniform float u_radius;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-// Precomputed Gaussian weights (sigma ≈ radius/3) for offsets 0..7.
-// Avoids exp() which silently returns 0 on some Mali GPUs at highp.
-const float W[8] = float[8](
-  1.0, 0.9394, 0.7788, 0.5698, 0.3679, 0.2096, 0.1054, 0.0468
-);
-
 void main() {
   ivec2 tc = ivec2(v_texCoord * u_resolution);
-  ivec2 size = ivec2(u_resolution);
+  int mx = int(u_resolution.x) - 1;
   int r = int(u_radius);
-  vec4 sum = texelFetch(u_texture, tc, 0) * W[0];
-  float totalWeight = W[0];
 
-  for (int d = 1; d <= 7; d++) {
-    if (d > r) break;
-    float w = W[d];
-    int sxL = max(tc.x - d, 0);
-    int sxR = min(tc.x + d, size.x - 1);
-    sum += texelFetch(u_texture, ivec2(sxL, tc.y), 0) * w;
-    sum += texelFetch(u_texture, ivec2(sxR, tc.y), 0) * w;
-    totalWeight += w + w;
+  vec4 sum = texelFetch(u_texture, tc, 0);
+  float tw = 1.0;
+
+  if (r >= 1) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-1,0), tc.y), 0) * 0.9394;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+1,mx), tc.y), 0) * 0.9394;
+    tw += 1.8788;
+  }
+  if (r >= 2) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-2,0), tc.y), 0) * 0.7788;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+2,mx), tc.y), 0) * 0.7788;
+    tw += 1.5576;
+  }
+  if (r >= 3) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-3,0), tc.y), 0) * 0.5698;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+3,mx), tc.y), 0) * 0.5698;
+    tw += 1.1396;
+  }
+  if (r >= 4) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-4,0), tc.y), 0) * 0.3679;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+4,mx), tc.y), 0) * 0.3679;
+    tw += 0.7358;
+  }
+  if (r >= 5) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-5,0), tc.y), 0) * 0.2096;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+5,mx), tc.y), 0) * 0.2096;
+    tw += 0.4192;
+  }
+  if (r >= 6) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-6,0), tc.y), 0) * 0.1054;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+6,mx), tc.y), 0) * 0.1054;
+    tw += 0.2108;
+  }
+  if (r >= 7) {
+    sum += texelFetch(u_texture, ivec2(max(tc.x-7,0), tc.y), 0) * 0.0468;
+    sum += texelFetch(u_texture, ivec2(min(tc.x+7,mx), tc.y), 0) * 0.0468;
+    tw += 0.0936;
   }
 
-  fragColor = sum / totalWeight;
+  fragColor = sum / tw;
 }`;
 
 // =========================================================================
 // BLUR SHADER - Separable Gaussian blur (vertical pass)
-// Mali-safe: same approach as horizontal, swapped axis.
+// Fully unrolled — same approach as horizontal, swapped axis.
 // =========================================================================
 const BLUR_V_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
@@ -333,29 +353,51 @@ uniform float u_radius;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-// Same precomputed weights as horizontal pass.
-const float W[8] = float[8](
-  1.0, 0.9394, 0.7788, 0.5698, 0.3679, 0.2096, 0.1054, 0.0468
-);
-
 void main() {
   ivec2 tc = ivec2(v_texCoord * u_resolution);
-  ivec2 size = ivec2(u_resolution);
+  int my = int(u_resolution.y) - 1;
   int r = int(u_radius);
-  vec4 sum = texelFetch(u_texture, tc, 0) * W[0];
-  float totalWeight = W[0];
 
-  for (int d = 1; d <= 7; d++) {
-    if (d > r) break;
-    float w = W[d];
-    int syU = max(tc.y - d, 0);
-    int syD = min(tc.y + d, size.y - 1);
-    sum += texelFetch(u_texture, ivec2(tc.x, syU), 0) * w;
-    sum += texelFetch(u_texture, ivec2(tc.x, syD), 0) * w;
-    totalWeight += w + w;
+  vec4 sum = texelFetch(u_texture, tc, 0);
+  float tw = 1.0;
+
+  if (r >= 1) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-1,0)), 0) * 0.9394;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+1,my)), 0) * 0.9394;
+    tw += 1.8788;
+  }
+  if (r >= 2) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-2,0)), 0) * 0.7788;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+2,my)), 0) * 0.7788;
+    tw += 1.5576;
+  }
+  if (r >= 3) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-3,0)), 0) * 0.5698;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+3,my)), 0) * 0.5698;
+    tw += 1.1396;
+  }
+  if (r >= 4) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-4,0)), 0) * 0.3679;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+4,my)), 0) * 0.3679;
+    tw += 0.7358;
+  }
+  if (r >= 5) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-5,0)), 0) * 0.2096;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+5,my)), 0) * 0.2096;
+    tw += 0.4192;
+  }
+  if (r >= 6) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-6,0)), 0) * 0.1054;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+6,my)), 0) * 0.1054;
+    tw += 0.2108;
+  }
+  if (r >= 7) {
+    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-7,0)), 0) * 0.0468;
+    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+7,my)), 0) * 0.0468;
+    tw += 0.0936;
   }
 
-  fragColor = sum / totalWeight;
+  fragColor = sum / tw;
 }`;
 
 // =========================================================================
@@ -1205,8 +1247,16 @@ function initWebGL2(width, height) {
     
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, outputTexture, 0);
+
+    // Check framebuffer completeness — some Android GPUs silently fail here
+    const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+      console.error(`🎮 GPU Effects: Output framebuffer incomplete (0x${fbStatus.toString(16)})`);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    
+
     // Create ping-pong texture and framebuffer for multi-pass effects (blur)
     pingPongTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
@@ -1215,10 +1265,17 @@ function initWebGL2(width, height) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    
+
     pingPongFramebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, pingPongFramebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pingPongTexture, 0);
+
+    const ppStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (ppStatus !== gl.FRAMEBUFFER_COMPLETE) {
+      console.error(`🎮 GPU Effects: PingPong framebuffer incomplete (0x${ppStatus.toString(16)})`);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return false;
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     
     // Create flood fill JFA textures and framebuffers (RGBA32F for position data)
