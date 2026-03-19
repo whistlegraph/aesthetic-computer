@@ -36,7 +36,7 @@ Decision on 2026-03-10:
 Planned command (exact text approved):
 
 ```bash
-node tezos/keeps.mjs set-collection-media mainnet --wallet=keeps --name="KidLisp -1" --description="Keeps on this contract are one version behind. To upgrade your keep, visit https://keeps.kidlisp.com and connect."
+node tezos/keeps.mjs set-collection-media mainnet --wallet=keeps --name="KidLisp -1" --description="Keeps on this contract are one version behind. To upgrade your keep, visit https://keep.kidlisp.com and connect."
 ```
 
 Explicitly deferred until manual go-ahead:

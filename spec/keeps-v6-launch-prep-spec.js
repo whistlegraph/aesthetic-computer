@@ -70,7 +70,7 @@ describe('🚀 Keeps v6 Launch Prep - Source Checks', () => {
     expect(keepsCliSource).toContain("KeepsFA2v6/step_002_cont_0_contract.tz");
     expect(keepsCliSource).toContain("name: 'KidLisp'");
     expect(keepsCliSource).toContain("version: '6.0.0'");
-    expect(keepsCliSource).toContain("description: 'https://keeps.kidlisp.com'");
+    expect(keepsCliSource).toContain("description: 'https://keep.kidlisp.com'");
     expect(keepsCliSource).toContain('keepFeeMutez: 2_500_000');
     expect(keepsCliSource).toContain("await deployContract(getNetwork(1), { contractProfile })");
   });

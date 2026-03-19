@@ -1,4 +1,4 @@
-# Keeps Permalink Modals — keeps.kidlisp.com/$code
+# Keeps Permalink Modals — keep.kidlisp.com/$code
 
 **Date:** March 12, 2026
 **Status:** Plan
@@ -8,22 +8,22 @@
 
 ## Context
 
-The keeps.kidlisp.com market tab currently shows KidLisp keeps as cards that link directly to objkt.com. This sends users away from the AC ecosystem. The Tezos NFT market landscape report (March 12, 2026) notes that "discovery and collector relationship management matter more than squeezing the floor." Permalinks with social cards directly serve discovery — when someone shares `keeps.kidlisp.com/$cow` on Twitter, it should unfurl into a rich card with the piece's animated thumbnail and market status, driving traffic back to the keeps site rather than objkt.
+The keep.kidlisp.com market tab currently shows KidLisp keeps as cards that link directly to objkt.com. This sends users away from the AC ecosystem. The Tezos NFT market landscape report (March 12, 2026) notes that "discovery and collector relationship management matter more than squeezing the floor." Permalinks with social cards directly serve discovery — when someone shares `keep.kidlisp.com/$cow` on Twitter, it should unfurl into a rich card with the piece's animated thumbnail and market status, driving traffic back to the keeps site rather than objkt.
 
 **KidLisp collection snapshot:** 34 items, 9 owners, floor 12 XTZ, total volume 254.5 XTZ, 1 active listing.
 
 ---
 
-## URL Pattern: `keeps.kidlisp.com/$code`
+## URL Pattern: `keep.kidlisp.com/$code`
 
-**Recommendation: Use `keeps.kidlisp.com/$code`** (not `buy.kidlisp.com`).
+**Recommendation: Use `keep.kidlisp.com/$code`** (not `buy.kidlisp.com`).
 
 Reasons:
 - `$` prefix is already the canonical KidLisp piece naming convention
 - Short, memorable, consistent with AC's "memorizable paths" philosophy
 - No new DNS records, Netlify config, or separate site needed
 - `$` is URL-safe (no percent-encoding required)
-- Example: `keeps.kidlisp.com/$cow`
+- Example: `keep.kidlisp.com/$cow`
 
 ---
 
@@ -105,7 +105,7 @@ Twitter/Facebook crawlers don't run JS, so OG tags must be in the initial HTML.
 export default async function(request, context) {
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
-  if (!host.includes('keeps.kidlisp.com')) return context.next();
+  if (!host.includes('keep.kidlisp.com')) return context.next();
 
   const seg = url.pathname.replace(/^\/+/, '').split('/')[0];
   if (!seg.startsWith('$')) return context.next();
@@ -123,7 +123,7 @@ export default async function(request, context) {
 
 ### Meta Tags Injected
 ```html
-<meta property="og:url" content="https://keeps.kidlisp.com/$CODE" />
+<meta property="og:url" content="https://keep.kidlisp.com/$CODE" />
 <meta property="og:title" content="$CODE · KidLisp Keep" />
 <meta property="og:description" content="For Sale — 12 XTZ | KidLisp generative art on Tezos" />
 <meta property="og:image" content="https://oven.aesthetic.computer/preview/1200x630/CODE.png" />
@@ -148,7 +148,7 @@ path = "/*"
 (Host filtering done inside the function since edge functions may not support subdomain-scoped paths.)
 
 ### Fallback
-If edge functions don't work well with subdomain routing, fall back to modifying `system/netlify/functions/index.mjs` (the keeps.kidlisp.com handler around line 182) to detect `$code` paths and inject meta tags there. This is slightly slower but is a proven pattern used for `top.kidlisp.com`.
+If edge functions don't work well with subdomain routing, fall back to modifying `system/netlify/functions/index.mjs` (the keep.kidlisp.com handler around line 182) to detect `$code` paths and inject meta tags there. This is slightly slower but is a proven pattern used for `top.kidlisp.com`.
 
 ---
 
@@ -201,7 +201,7 @@ Phases 1+2 ship as one commit. Phase 3 is a separate commit. Phase 4 is independ
 ## Verification
 
 1. **Modal**: Click a market card → modal opens with piece details, animated thumbnail, market status. Escape/backdrop closes it.
-2. **Permalink**: Navigate to `keeps.kidlisp.com/$cow` → market tab activates, modal auto-opens for `$cow`.
+2. **Permalink**: Navigate to `keep.kidlisp.com/$cow` → market tab activates, modal auto-opens for `$cow`.
 3. **Copy/Share**: Copy permalink button copies correct URL. Share on X opens tweet intent with URL.
-4. **Social card**: Use Twitter Card Validator or `curl -A Twitterbot keeps.kidlisp.com/$cow` → verify OG tags are present with correct title, description, and image URL.
+4. **Social card**: Use Twitter Card Validator or `curl -A Twitterbot keep.kidlisp.com/$cow` → verify OG tags are present with correct title, description, and image URL.
 5. **Browser back/forward**: Open modal → press back → modal closes, URL returns to `/market`.

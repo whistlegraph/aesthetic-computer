@@ -132,7 +132,7 @@ function renderKeeps() {
 
   if (keeps.length === 0) {
     container.innerHTML =
-      '<div class="keeps-empty">No keeps yet<a href="https://keeps.kidlisp.com" target="_blank" rel="noopener">Browse keeps</a></div>';
+      '<div class="keeps-empty">No keeps yet<a href="https://keep.kidlisp.com" target="_blank" rel="noopener">Browse keeps</a></div>';
     return;
   }
 
