@@ -5438,15 +5438,15 @@ const BLOCK_SIZE = 64; // Process in 64x64 blocks
 let spinSkipCounter = 0;
 
 // 🚀 GPU EFFECTS: WebGL2-accelerated effects via OffscreenCanvas
-// Set to true to force ALL KidLisp effects through CPU path (no WebGL).
-const FORCE_CPU = true;
+// Runtime-configurable: set via setGpuConfig() from kidlisp.com preferences.
+let gpuEnabled = false; // Master GPU toggle (default off — was FORCE_CPU=true)
 let gpuSpinModule = null;
-let gpuSpinEnabled = !FORCE_CPU;
+let gpuSpinEnabled = gpuEnabled;
 let gpuSpinAvailable = null; // null = not checked yet
 let gpuFloodAvailable = null; // null = not checked yet (separate check for float textures)
-let gpuFloodEnabled = !FORCE_CPU;
+let gpuFloodEnabled = gpuEnabled;
 let gpuLayerCompositeAvailable = null; // null = not checked yet
-let gpuLayerCompositeEnabled = !FORCE_CPU;
+let gpuLayerCompositeEnabled = gpuEnabled;
 let gpuInitPromise = null; // Promise for initialization
 
 // 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
@@ -5685,7 +5685,7 @@ function setGpuFlood(enabled) {
 }
 
 // 🧪 EXPERIMENTAL: Toggle GPU contrast for performance testing
-let gpuContrastEnabled = !FORCE_CPU;
+let gpuContrastEnabled = gpuEnabled;
 function setGpuContrast(enabled) {
   gpuContrastEnabled = enabled;
   console.log(`🎮 GPU Contrast ${enabled ? 'ENABLED' : 'DISABLED'}`);
@@ -5695,6 +5695,21 @@ function setGpuContrast(enabled) {
 function setGpuLayerComposite(enabled) {
   gpuLayerCompositeEnabled = enabled;
   console.log(`🎮 GPU Layer Composite ${enabled ? 'ENABLED' : 'DISABLED'}`);
+}
+
+// 🎛️ Unified GPU config — called from kidlisp.com preferences via postMessage
+// config: { gpu: bool, effects: { spin: bool, flood: bool, contrast: bool, composite: bool } }
+function setGpuConfig(config) {
+  gpuEnabled = !!config.gpu;
+  const effects = config.effects || {};
+  // When master GPU is off, all effects are off regardless of individual settings
+  gpuSpinEnabled = gpuEnabled && (effects.spin !== false);
+  gpuFloodEnabled = gpuEnabled && (effects.flood !== false);
+  gpuContrastEnabled = gpuEnabled && (effects.contrast !== false);
+  gpuLayerCompositeEnabled = gpuEnabled && (effects.composite !== false);
+  console.log(`🎮 GPU Config: master=${gpuEnabled}, spin=${gpuSpinEnabled}, flood=${gpuFloodEnabled}, contrast=${gpuContrastEnabled}, composite=${gpuLayerCompositeEnabled}`);
+  // Re-init GPU module if enabling for the first time
+  if (gpuEnabled && !gpuSpinModule) initGpuEffects();
 }
 
 /**
@@ -9283,6 +9298,7 @@ export {
   setGpuFlood,
   setGpuContrast,
   setGpuLayerComposite,
+  setGpuConfig,
   compositeLayers,
   batchedEffects,
   initGpuEffects,

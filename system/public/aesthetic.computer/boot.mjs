@@ -1783,6 +1783,10 @@ function receive(event) {
     // Tell bios.mjs/worker about the theme change
     window.acSEND?.({ type: "dark-mode", content: { enabled: isDark } });
     return;
+  } else if (event.data?.type === "kidlisp-gpu-config") {
+    // GPU rendering config from kidlisp.com preferences
+    window.acSEND?.({ type: "gpu-config", content: event.data.config });
+    return;
   } else if (event.data?.type === "keep-mint-prepare") {
     // Handle mint preparation request from kidlisp.com
     // This runs in the iframe which has auth cookies

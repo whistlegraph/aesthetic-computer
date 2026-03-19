@@ -10470,6 +10470,11 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "gpu-config") {
+    graph.setGpuConfig(content);
+    return;
+  }
+
   if (type === "forms:baked") {
     //console.log("🍞 Forms baked:", content);
     //noPaint = false;
