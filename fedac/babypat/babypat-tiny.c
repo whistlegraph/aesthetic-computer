@@ -145,6 +145,78 @@ static void beep(uint32_t freq) {
 }
 static void hush(void) { outb(0x61, inb(0x61) & ~3); }
 
+// --- USB Log ---
+// UEFI Simple File System + File protocol (hand-rolled)
+typedef struct _EFI_FP {
+    uint64_t Revision;
+    EFI_STATUS (*Open)(struct _EFI_FP *self, struct _EFI_FP **out, CHAR16 *name, uint64_t mode, uint64_t attr);
+    EFI_STATUS (*Close)(struct _EFI_FP *self);
+    void *Delete;
+    EFI_STATUS (*Read)(struct _EFI_FP *self, UINTN *sz, void *buf);
+    EFI_STATUS (*Write)(struct _EFI_FP *self, UINTN *sz, void *buf);
+    void *GetPosition, *SetPosition, *GetInfo, *SetInfo;
+    EFI_STATUS (*Flush)(struct _EFI_FP *self);
+} EFI_FP;
+
+typedef struct {
+    uint64_t Revision;
+    EFI_STATUS (*OpenVolume)(void *self, EFI_FP **root);
+} EFI_SFS;
+
+typedef struct {
+    uint32_t Revision;
+    EFI_HANDLE ParentHandle;
+    void *SystemTable;
+    EFI_HANDLE DeviceHandle;
+    // ... more fields but we only need DeviceHandle
+} EFI_LI;
+
+static EFI_GUID li_guid = {0x5B1B31A1, 0x9562, 0x11d2, {0x8E,0x3F,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
+static EFI_GUID sfs_guid = {0x964E5B22, 0x6459, 0x11D2, {0x8E,0x39,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
+
+static EFI_FP *logfile;
+static EFI_ST *g_st;
+
+static void log_open(EFI_HANDLE img, EFI_ST *st) {
+    g_st = st;
+    EFI_LI *li;
+    if (st->BS->LocateProtocol(&li_guid, 0, (void**)&li)) return;
+    // Use HandleProtocol via OpenProtocol field... but we don't have it in BS
+    // Instead: use LocateProtocol for SFS (boot volume)
+    EFI_SFS *sfs;
+    if (st->BS->LocateProtocol(&sfs_guid, 0, (void**)&sfs)) return;
+    EFI_FP *root;
+    if (sfs->OpenVolume(sfs, &root)) return;
+    root->Open(root, &logfile, u"\\EFI\\babypat.log",
+        0x8000000000000003ULL, 0); // CREATE | WRITE | READ
+}
+
+static void log_str(char *s) {
+    if (!logfile) return;
+    UINTN len = 0;
+    while (s[len]) len++;
+    logfile->Write(logfile, &len, s);
+    logfile->Flush(logfile);
+}
+
+static void log_num(char *label, uint64_t val) {
+    char buf[80];
+    char *p = buf;
+    while (*label) *p++ = *label++;
+    // Simple hex
+    *p++ = '0'; *p++ = 'x';
+    int started = 0;
+    for (int i = 60; i >= 0; i -= 4) {
+        uint8_t nib = (val >> i) & 0xF;
+        if (nib || started || i == 0) {
+            *p++ = nib < 10 ? '0' + nib : 'a' + nib - 10;
+            started = 1;
+        }
+    }
+    *p++ = '\r'; *p++ = '\n'; *p = 0;
+    log_str(buf);
+}
+
 // --- Notes: 24 keys, notepat layout, 2 octaves ---
 static const struct { char k; uint8_t n, o, r, g, b; } N[] = {
     {'c', 0,0, 255, 30, 30}, {'v', 1,0, 255, 80,  0}, {'d', 2,0, 255,150,  0},
@@ -164,15 +236,29 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_ST *st) {
     st->ConOut->EnableCursor(st->ConOut, 0);
     st->ConOut->ClearScreen(st->ConOut);
 
+    log_open(img, st);
+    log_str("babypat-tiny boot\r\n");
+
     EFI_GOP *gop;
-    if (st->BS->LocateProtocol(&gop_guid, 0, (void **)&gop))
+    if (st->BS->LocateProtocol(&gop_guid, 0, (void **)&gop)) {
+        log_str("GOP FAILED\r\n");
         return 1;
+    }
 
     fb = (uint32_t *)(UINTN)gop->Mode->FBBase;
     fb_n = (UINTN)gop->Mode->Info->PPSL * gop->Mode->Info->VRes;
     is_rgb = (gop->Mode->Info->PixFmt == 0);
 
+    log_str("GOP OK\r\n");
+    log_num("  fb=", gop->Mode->FBBase);
+    log_num("  pixels=", fb_n);
+    log_num("  w=", gop->Mode->Info->HRes);
+    log_num("  h=", gop->Mode->Info->VRes);
+    log_num("  stride=", gop->Mode->Info->PPSL);
+    log_num("  pixfmt=", gop->Mode->Info->PixFmt);
+
     flood(0);
+    log_str("flood black done\r\n");
 
     uint8_t fade = 0;
     for (;;) {

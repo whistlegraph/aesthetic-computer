@@ -38,6 +38,47 @@ static void beep(UINT32 freq) {
 
 static void hush(void) { outb(0x61, inb(0x61) & ~3); }
 
+// --- USB Log ---
+static EFI_FILE_HANDLE logfile;
+
+static void log_open(EFI_HANDLE img) {
+    EFI_LOADED_IMAGE *li;
+    EFI_GUID li_guid = EFI_LOADED_IMAGE_PROTOCOL_GUID;
+    if (EFI_ERROR(uefi_call_wrapper(BS->HandleProtocol, 3, img, &li_guid, (void**)&li)))
+        return;
+    EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *fs;
+    EFI_GUID fs_guid = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
+    if (EFI_ERROR(uefi_call_wrapper(BS->HandleProtocol, 3, li->DeviceHandle, &fs_guid, (void**)&fs)))
+        return;
+    EFI_FILE_HANDLE root;
+    if (EFI_ERROR(uefi_call_wrapper(fs->OpenVolume, 2, fs, &root)))
+        return;
+    uefi_call_wrapper(root->Open, 5, root, &logfile, L"\\EFI\\babypat.log",
+        EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_READ, 0);
+}
+
+static void log_str(CHAR8 *s) {
+    if (!logfile) return;
+    UINTN len = 0;
+    while (s[len]) len++;
+    uefi_call_wrapper(logfile->Write, 3, logfile, &len, s);
+    uefi_call_wrapper(logfile->Flush, 1, logfile);
+}
+
+static void log_hex(CHAR8 *label, UINTN val) {
+    CHAR8 buf[80];
+    CHAR8 *p = buf;
+    while (*label) *p++ = *label++;
+    *p++ = '0'; *p++ = 'x';
+    for (int i = 60; i >= 0; i -= 4) {
+        UINT8 nibble = (val >> i) & 0xF;
+        if (nibble || i == 0 || p > buf + 4)
+            *p++ = nibble < 10 ? '0' + nibble : 'a' + nibble - 10;
+    }
+    *p++ = '\r'; *p++ = '\n'; *p = 0;
+    log_str(buf);
+}
+
 // --- Note table ---
 // 24 keys: a-z mapped to two chromatic octaves (notepat layout)
 // key -> {semitone 0-11, octave offset 0-1, r, g, b}
@@ -63,17 +104,36 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *st) {
     uefi_call_wrapper(BS->SetWatchdogTimer, 4, 0, 0, 0, NULL);
     uefi_call_wrapper(ST->ConOut->EnableCursor, 2, ST->ConOut, FALSE);
 
+    // Log
+    log_open(img);
+    log_str("babypat boot\r\n");
+
     // GOP
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
     EFI_GUID guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-    if (EFI_ERROR(uefi_call_wrapper(BS->LocateProtocol, 3, &guid, NULL, (void**)&gop)))
+    EFI_STATUS gop_status = uefi_call_wrapper(BS->LocateProtocol, 3, &guid, NULL, (void**)&gop);
+    if (EFI_ERROR(gop_status)) {
+        log_str("GOP FAILED\r\n");
+        log_hex("  status=", gop_status);
         return EFI_UNSUPPORTED;
+    }
     fb = (UINT32*)(UINTN)gop->Mode->FrameBufferBase;
     fb_size = (UINTN)gop->Mode->Info->PixelsPerScanLine * gop->Mode->Info->VerticalResolution;
     prgb = (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor);
 
+    log_str("GOP OK\r\n");
+    log_hex("  fb=", (UINTN)fb);
+    log_hex("  fb_size=", fb_size);
+    log_hex("  stride=", gop->Mode->Info->PixelsPerScanLine);
+    log_hex("  height=", gop->Mode->Info->VerticalResolution);
+    log_hex("  width=", gop->Mode->Info->HorizontalResolution);
+    log_hex("  pixfmt=", gop->Mode->Info->PixelFormat);
+    log_hex("  mode=", gop->Mode->Mode);
+    log_hex("  max_mode=", gop->Mode->MaxMode);
+
     // Start black
     flood(0);
+    log_str("flood black done\r\n");
 
     UINT8 fade = 0; // brightness counter
 
@@ -81,6 +141,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *st) {
         EFI_INPUT_KEY key;
         EFI_STATUS s = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &key);
 
+        if (!EFI_ERROR(s)) {
+            log_hex("key unicode=", key.UnicodeChar);
+            log_hex("key scan=", key.ScanCode);
+        }
         if (!EFI_ERROR(s) && key.UnicodeChar >= 'a' && key.UnicodeChar <= 'z') {
             char ch = (char)key.UnicodeChar;
             for (int i = 0; i < 24; i++) {
