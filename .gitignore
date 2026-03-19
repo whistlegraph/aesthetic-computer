@@ -359,3 +359,11 @@ papers/**/*.bbl
 papers/**/*.blg
 papers/**/*.log
 papers/**/*.out
+
+# babypat build artifacts
+fedac/babypat/*.o
+fedac/babypat/*.so
+fedac/babypat/*.efi
+fedac/babypat/*.elf
+fedac/babypat/*.bin
+fedac/babypat/*.img
