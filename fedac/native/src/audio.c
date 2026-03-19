@@ -1359,11 +1359,30 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     snd_mixer_selem_register(mixer, NULL, NULL);
     snd_mixer_load(mixer);
 
-    snd_mixer_elem_t *elem;
-    for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
-        if (!snd_mixer_selem_is_active(elem)) continue;
-        const char *name = snd_mixer_selem_get_name(elem);
-        if (strcasecmp(name, "Master") != 0) continue;
+    // Try multiple mixer element names — ThinkPads may use Speaker/Headphone
+    // instead of Master depending on the HDA codec
+    const char *try_names[] = {"Master", "Speaker", "Headphone", "PCM", NULL};
+    snd_mixer_elem_t *elem = NULL;
+    for (int n = 0; try_names[n] && !elem; n++) {
+        for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e)) {
+            if (!snd_mixer_selem_is_active(e)) continue;
+            const char *name = snd_mixer_selem_get_name(e);
+            if (strcasecmp(name, try_names[n]) == 0) { elem = e; break; }
+        }
+    }
+    if (!elem) {
+        // Log available mixer elements for debugging
+        fprintf(stderr, "[audio] volume: no Master/Speaker/Headphone/PCM found on %s. Available:\n", card_name);
+        for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e)) {
+            const char *name = snd_mixer_selem_get_name(e);
+            fprintf(stderr, "[audio]   %s%s%s\n", name,
+                    snd_mixer_selem_has_playback_volume(e) ? " [vol]" : "",
+                    snd_mixer_selem_is_active(e) ? "" : " [inactive]");
+        }
+        snd_mixer_close(mixer);
+        return;
+    }
+    {
 
         if (delta == 0) {
             // Toggle mute via volume (most reliable across codecs)
@@ -1396,7 +1415,6 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             unmute_all_switches(mixer);
             muted = 0;
         }
-        break;
     }
     snd_mixer_close(mixer);
 
