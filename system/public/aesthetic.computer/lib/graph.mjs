@@ -6250,36 +6250,62 @@ function spinBlockBased(steps, anchorX, anchorY, spinStart) {
   
   spinBuffer.set(pixels);
 
-  // Pure rotation via inverse rotation matrix — no sqrt, no atan2.
-  const rad = (integerSteps * PI) / 180;
-  const cosA = cos(rad);
-  const sinA = Math.sin(rad);
+  // Vortex algorithm: angle change = steps / distance from center.
+  // Pixels near the center rotate more than pixels at the edges,
+  // creating the characteristic spiral/swirl pattern.
+  const twoPi = 2 * PI;
   const maxXMinus1 = maxX - 1;
   const maxYMinus1 = maxY - 1;
 
   for (let destY = minY; destY < maxY; destY++) {
     const dy = destY - centerY;
+    const dy2 = dy * dy;
     const destRowOffset = destY * width;
-    // Pre-compute the Y contribution to the rotation
-    const rotYx = dy * sinA + centerX;
-    const rotYy = dy * cosA + centerY;
 
     for (let destX = minX; destX < maxX; destX++) {
       const dx = destX - centerX;
+      const distanceSquared = dx * dx + dy2;
 
-      // Inverse rotation: where did this pixel come from?
-      const srcXf = dx * cosA + rotYx;
-      const srcYf = -dx * sinA + rotYy;
+      // Center pixel — no rotation needed
+      if (distanceSquared < 1.0) {
+        const idx = (destRowOffset + destX) * 4;
+        pixels[idx] = spinBuffer[idx];
+        pixels[idx + 1] = spinBuffer[idx + 1];
+        pixels[idx + 2] = spinBuffer[idx + 2];
+        pixels[idx + 3] = spinBuffer[idx + 3];
+        continue;
+      }
+
+      const distance = sqrt(distanceSquared);
+      const angle = Math.atan2(dy, dx);
+      const totalAngleChange = integerSteps / distance;
+
+      let sourceAngle = angle - totalAngleChange;
+      sourceAngle = sourceAngle - twoPi * floor(sourceAngle / twoPi);
+      if (sourceAngle < 0) sourceAngle += twoPi;
+
+      const srcXf = centerX + distance * cos(sourceAngle);
+      const srcYf = centerY + distance * Math.sin(sourceAngle);
 
       // Wrap into bounds
-      let srcX = Math.round(srcXf);
-      let srcY = Math.round(srcYf);
-      srcX = minX + ((srcX - minX) % workingWidth + workingWidth) % workingWidth;
-      srcY = minY + ((srcY - minY) % workingHeight + workingHeight) % workingHeight;
-      if (srcX > maxXMinus1) srcX = maxXMinus1;
-      if (srcY > maxYMinus1) srcY = maxYMinus1;
+      let wrappedSrcX = srcXf;
+      let wrappedSrcY = srcYf;
 
-      const srcIdx = (srcY * width + srcX) * 4;
+      if (srcXf < minX || srcXf >= maxX) {
+        const normalizedX = srcXf - minX;
+        wrappedSrcX = minX + (normalizedX - workingWidth * floor(normalizedX / workingWidth));
+        if (wrappedSrcX < minX) wrappedSrcX += workingWidth;
+      }
+      if (srcYf < minY || srcYf >= maxY) {
+        const normalizedY = srcYf - minY;
+        wrappedSrcY = minY + (normalizedY - workingHeight * floor(normalizedY / workingHeight));
+        if (wrappedSrcY < minY) wrappedSrcY += workingHeight;
+      }
+
+      const nearestSrcX = Math.max(minX, Math.min(maxXMinus1, Math.round(wrappedSrcX)));
+      const nearestSrcY = Math.max(minY, Math.min(maxYMinus1, Math.round(wrappedSrcY)));
+
+      const srcIdx = (nearestSrcY * width + nearestSrcX) * 4;
       const destIdx = (destRowOffset + destX) * 4;
 
       pixels[destIdx] = spinBuffer[srcIdx];
