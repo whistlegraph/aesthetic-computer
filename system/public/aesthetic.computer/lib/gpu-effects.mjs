@@ -30,8 +30,11 @@ let vao = null;
 let spinUniforms = null;
 let compositeUniforms = null;
 let invertUniforms = null;  // Invert shader uniforms
-let blurHUniforms = null;
-let blurVUniforms = null;
+let kawaseDownProgram = null;  // Dual Kawase blur downsample
+let kawaseUpProgram = null;    // Dual Kawase blur upsample
+let kawaseDownUniforms = null;
+let kawaseUpUniforms = null;
+let kawaseMips = [];           // [{texture, framebuffer, width, height}, ...] mip chain
 let sharpenUniforms = null;
 let floodSeedUniforms = null;
 let floodJFAUniforms = null;
@@ -45,10 +48,9 @@ let layerCompositeUniforms = null;
 let fragPrecision = "highp";
 
 // Mobile safe mode — Mali and Adreno GPUs produce rendering artifacts or silent
-// failures on multi-pass effects (blur, sharpen, contrast/composite). When true,
-// gpuBlur, gpuSharpen, and gpuComposite return false so the caller falls back to
-// CPU implementations. Single-pass effects (spin, zoom, scroll, flood, shear, suck)
-// still use the GPU.
+// failures on sharpen and contrast/composite. When true, gpuSharpen and gpuComposite
+// return false so the caller falls back to CPU. Blur now uses Dual Kawase (separate
+// algorithm designed for mobile GPUs) so it does NOT need this workaround.
 let mobileSafeMode = false;
 
 // Accumulated values (matching CPU behavior)
@@ -285,126 +287,60 @@ void main() {
 }`;
 
 // =========================================================================
-// BLUR SHADER - Separable Gaussian blur (horizontal pass)
-// Fully unrolled — no arrays, no dynamic indexing, no loop break.
-// Maximum Android GPU compatibility (Mali, Adreno, PowerVR).
+// DUAL KAWASE BLUR — Downsample pass (ARM SIGGRAPH 2015)
+// 5-tap diagonal sampling at half-pixel offsets. Uses texture() with LINEAR
+// filtering to exploit free bilinear interpolation. No arrays, no loops.
+// Works on Mali, Adreno, PowerVR — the standard mobile blur algorithm.
 // =========================================================================
-const BLUR_H_FRAGMENT_SHADER = `#version 300 es
+const KAWASE_DOWN_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_texture;
-uniform vec2 u_resolution;
-uniform float u_radius;
+uniform vec2 u_texelSize;  // 1.0 / source resolution
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
-  ivec2 tc = ivec2(v_texCoord * u_resolution);
-  int mx = int(u_resolution.x) - 1;
-  int r = int(u_radius);
+  vec2 hp = u_texelSize * 0.5;
 
-  vec4 sum = texelFetch(u_texture, tc, 0);
-  float tw = 1.0;
+  vec4 color = texture(u_texture, v_texCoord) * 4.0;
+  color += texture(u_texture, v_texCoord + vec2(-hp.x, -hp.y));
+  color += texture(u_texture, v_texCoord + vec2( hp.x, -hp.y));
+  color += texture(u_texture, v_texCoord + vec2(-hp.x,  hp.y));
+  color += texture(u_texture, v_texCoord + vec2( hp.x,  hp.y));
 
-  if (r >= 1) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-1,0), tc.y), 0) * 0.9394;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+1,mx), tc.y), 0) * 0.9394;
-    tw += 1.8788;
-  }
-  if (r >= 2) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-2,0), tc.y), 0) * 0.7788;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+2,mx), tc.y), 0) * 0.7788;
-    tw += 1.5576;
-  }
-  if (r >= 3) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-3,0), tc.y), 0) * 0.5698;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+3,mx), tc.y), 0) * 0.5698;
-    tw += 1.1396;
-  }
-  if (r >= 4) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-4,0), tc.y), 0) * 0.3679;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+4,mx), tc.y), 0) * 0.3679;
-    tw += 0.7358;
-  }
-  if (r >= 5) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-5,0), tc.y), 0) * 0.2096;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+5,mx), tc.y), 0) * 0.2096;
-    tw += 0.4192;
-  }
-  if (r >= 6) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-6,0), tc.y), 0) * 0.1054;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+6,mx), tc.y), 0) * 0.1054;
-    tw += 0.2108;
-  }
-  if (r >= 7) {
-    sum += texelFetch(u_texture, ivec2(max(tc.x-7,0), tc.y), 0) * 0.0468;
-    sum += texelFetch(u_texture, ivec2(min(tc.x+7,mx), tc.y), 0) * 0.0468;
-    tw += 0.0936;
-  }
-
-  fragColor = sum / tw;
+  fragColor = color / 8.0;
 }`;
 
 // =========================================================================
-// BLUR SHADER - Separable Gaussian blur (vertical pass)
-// Fully unrolled — same approach as horizontal, swapped axis.
+// DUAL KAWASE BLUR — Upsample pass
+// 8-tap pattern: 4 cardinal (1x) + 4 diagonal (2x), total weight 12.
 // =========================================================================
-const BLUR_V_FRAGMENT_SHADER = `#version 300 es
+const KAWASE_UP_FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
 uniform sampler2D u_texture;
-uniform vec2 u_resolution;
-uniform float u_radius;
+uniform vec2 u_texelSize;  // 1.0 / source resolution (input mip)
 
 in vec2 v_texCoord;
 out vec4 fragColor;
 
 void main() {
-  ivec2 tc = ivec2(v_texCoord * u_resolution);
-  int my = int(u_resolution.y) - 1;
-  int r = int(u_radius);
+  vec2 hp = u_texelSize * 0.5;
 
-  vec4 sum = texelFetch(u_texture, tc, 0);
-  float tw = 1.0;
+  vec4 color = vec4(0.0);
+  color += texture(u_texture, v_texCoord + vec2(-hp.x * 2.0, 0.0));
+  color += texture(u_texture, v_texCoord + vec2( hp.x * 2.0, 0.0));
+  color += texture(u_texture, v_texCoord + vec2(0.0, -hp.y * 2.0));
+  color += texture(u_texture, v_texCoord + vec2(0.0,  hp.y * 2.0));
 
-  if (r >= 1) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-1,0)), 0) * 0.9394;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+1,my)), 0) * 0.9394;
-    tw += 1.8788;
-  }
-  if (r >= 2) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-2,0)), 0) * 0.7788;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+2,my)), 0) * 0.7788;
-    tw += 1.5576;
-  }
-  if (r >= 3) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-3,0)), 0) * 0.5698;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+3,my)), 0) * 0.5698;
-    tw += 1.1396;
-  }
-  if (r >= 4) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-4,0)), 0) * 0.3679;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+4,my)), 0) * 0.3679;
-    tw += 0.7358;
-  }
-  if (r >= 5) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-5,0)), 0) * 0.2096;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+5,my)), 0) * 0.2096;
-    tw += 0.4192;
-  }
-  if (r >= 6) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-6,0)), 0) * 0.1054;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+6,my)), 0) * 0.1054;
-    tw += 0.2108;
-  }
-  if (r >= 7) {
-    sum += texelFetch(u_texture, ivec2(tc.x, max(tc.y-7,0)), 0) * 0.0468;
-    sum += texelFetch(u_texture, ivec2(tc.x, min(tc.y+7,my)), 0) * 0.0468;
-    tw += 0.0936;
-  }
+  color += texture(u_texture, v_texCoord + vec2(-hp.x,  hp.y)) * 2.0;
+  color += texture(u_texture, v_texCoord + vec2( hp.x,  hp.y)) * 2.0;
+  color += texture(u_texture, v_texCoord + vec2(-hp.x, -hp.y)) * 2.0;
+  color += texture(u_texture, v_texCoord + vec2( hp.x, -hp.y)) * 2.0;
 
-  fragColor = sum / tw;
+  fragColor = color / 12.0;
 }`;
 
 // =========================================================================
@@ -829,8 +765,7 @@ void main() {
   fragColor = color;
 }`;
 
-let blurHProgram = null;
-let blurVProgram = null;
+// (blur now uses Kawase downsample/upsample — see kawaseDownProgram/kawaseUpProgram)
 let sharpenProgram = null;
 let pingPongTexture = null;  // For multi-pass effects
 let pingPongFramebuffer = null;
@@ -869,13 +804,24 @@ function resizeTextures(width, height) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
   }
   
+  // Resize Kawase mip chain
+  let mipW = width, mipH = height;
+  for (let i = 0; i < kawaseMips.length; i++) {
+    mipW = Math.max(1, mipW >> 1);
+    mipH = Math.max(1, mipH >> 1);
+    gl.bindTexture(gl.TEXTURE_2D, kawaseMips[i].texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, mipW, mipH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    kawaseMips[i].width = mipW;
+    kawaseMips[i].height = mipH;
+  }
+
   // Resize canvas
   canvas.width = width;
   canvas.height = height;
-  
+
   // Reallocate readback buffer
   readbackBuffer = new Uint8Array(width * height * 4);
-  
+
   lastWidth = width;
   lastHeight = height;
 }
@@ -973,31 +919,31 @@ function initWebGL2(width, height) {
       return false;
     }
     
-    // Compile blur horizontal program
-    const blurHVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-    const blurHFrag = compileShader(gl, gl.FRAGMENT_SHADER, BLUR_H_FRAGMENT_SHADER);
-    if (!blurHVert || !blurHFrag) return false;
-    
-    blurHProgram = gl.createProgram();
-    gl.attachShader(blurHProgram, blurHVert);
-    gl.attachShader(blurHProgram, blurHFrag);
-    gl.linkProgram(blurHProgram);
-    if (!gl.getProgramParameter(blurHProgram, gl.LINK_STATUS)) {
-      console.error('🎮 GPU Effects: Blur H program link failed:', gl.getProgramInfoLog(blurHProgram));
+    // Compile Kawase downsample program
+    const kawaseDownVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const kawaseDownFrag = compileShader(gl, gl.FRAGMENT_SHADER, KAWASE_DOWN_FRAGMENT_SHADER);
+    if (!kawaseDownVert || !kawaseDownFrag) return false;
+
+    kawaseDownProgram = gl.createProgram();
+    gl.attachShader(kawaseDownProgram, kawaseDownVert);
+    gl.attachShader(kawaseDownProgram, kawaseDownFrag);
+    gl.linkProgram(kawaseDownProgram);
+    if (!gl.getProgramParameter(kawaseDownProgram, gl.LINK_STATUS)) {
+      console.error('🎮 GPU Effects: Kawase Down program link failed:', gl.getProgramInfoLog(kawaseDownProgram));
       return false;
     }
-    
-    // Compile blur vertical program
-    const blurVVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
-    const blurVFrag = compileShader(gl, gl.FRAGMENT_SHADER, BLUR_V_FRAGMENT_SHADER);
-    if (!blurVVert || !blurVFrag) return false;
-    
-    blurVProgram = gl.createProgram();
-    gl.attachShader(blurVProgram, blurVVert);
-    gl.attachShader(blurVProgram, blurVFrag);
-    gl.linkProgram(blurVProgram);
-    if (!gl.getProgramParameter(blurVProgram, gl.LINK_STATUS)) {
-      console.error('🎮 GPU Effects: Blur V program link failed:', gl.getProgramInfoLog(blurVProgram));
+
+    // Compile Kawase upsample program
+    const kawaseUpVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const kawaseUpFrag = compileShader(gl, gl.FRAGMENT_SHADER, KAWASE_UP_FRAGMENT_SHADER);
+    if (!kawaseUpVert || !kawaseUpFrag) return false;
+
+    kawaseUpProgram = gl.createProgram();
+    gl.attachShader(kawaseUpProgram, kawaseUpVert);
+    gl.attachShader(kawaseUpProgram, kawaseUpFrag);
+    gl.linkProgram(kawaseUpProgram);
+    if (!gl.getProgramParameter(kawaseUpProgram, gl.LINK_STATUS)) {
+      console.error('🎮 GPU Effects: Kawase Up program link failed:', gl.getProgramInfoLog(kawaseUpProgram));
       return false;
     }
     
@@ -1070,16 +1016,14 @@ function initWebGL2(width, height) {
       u_texture: gl.getUniformLocation(invertProgram, 'u_texture'),
     };
     
-    blurHUniforms = {
-      u_resolution: gl.getUniformLocation(blurHProgram, 'u_resolution'),
-      u_radius: gl.getUniformLocation(blurHProgram, 'u_radius'),
-      u_texture: gl.getUniformLocation(blurHProgram, 'u_texture'),
+    kawaseDownUniforms = {
+      u_texelSize: gl.getUniformLocation(kawaseDownProgram, 'u_texelSize'),
+      u_texture: gl.getUniformLocation(kawaseDownProgram, 'u_texture'),
     };
 
-    blurVUniforms = {
-      u_resolution: gl.getUniformLocation(blurVProgram, 'u_resolution'),
-      u_radius: gl.getUniformLocation(blurVProgram, 'u_radius'),
-      u_texture: gl.getUniformLocation(blurVProgram, 'u_texture'),
+    kawaseUpUniforms = {
+      u_texelSize: gl.getUniformLocation(kawaseUpProgram, 'u_texelSize'),
+      u_texture: gl.getUniformLocation(kawaseUpProgram, 'u_texture'),
     };
     
     sharpenUniforms = {
@@ -1341,9 +1285,30 @@ function initWebGL2(width, height) {
       }
     }
     
+    // Create Kawase blur mip chain (up to 4 levels: 1/2, 1/4, 1/8, 1/16)
+    // Each level has its own texture (LINEAR filtering) and framebuffer.
+    kawaseMips = [];
+    let mipW = width, mipH = height;
+    for (let i = 0; i < 4; i++) {
+      mipW = Math.max(1, mipW >> 1);
+      mipH = Math.max(1, mipH >> 1);
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, mipW, mipH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      kawaseMips.push({ texture: tex, framebuffer: fbo, width: mipW, height: mipH });
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
     // Pre-allocate readback buffer
     readbackBuffer = new Uint8Array(width * height * 4);
-    
+
     lastWidth = width;
     lastHeight = height;
     initialized = true;
@@ -1734,95 +1699,89 @@ export function isGpuEffectsAvailable() {
 }
 
 /**
- * Generate Gaussian weights for blur kernel
- */
-function generateGaussianWeights(kernelSize) {
-  const weights = new Float32Array(16);  // Max 16 weights
-  const radius = Math.floor(kernelSize / 2);
-  const sigma = radius / 3.0;
-  
-  let sum = 0;
-  for (let i = 0; i < kernelSize; i++) {
-    const x = i - radius;
-    const weight = Math.exp(-(x * x) / (2 * sigma * sigma));
-    weights[i] = weight;
-    sum += weight;
-  }
-  
-  // Normalize
-  for (let i = 0; i < kernelSize; i++) {
-    weights[i] /= sum;
-  }
-  
-  return weights;
-}
-
-/**
- * GPU-accelerated Gaussian blur (separable, 2-pass)
+ * GPU-accelerated Dual Kawase blur (ARM SIGGRAPH 2015)
+ * Downsample/upsample through a mip chain — works on Mali, Adreno, PowerVR.
+ * Uses texture() with LINEAR filtering (bilinear interpolation trick).
  * @param {Uint8ClampedArray} pixels - Source/destination pixel buffer
  * @param {number} width - Buffer width
  * @param {number} height - Buffer height
- * @param {number} strength - Blur strength (radius)
- * @param {Object|null} mask - Optional mask bounds {x, y, width, height}
+ * @param {number} strength - Blur strength (maps to mip levels: 1-2→1, 3-4→2, 5-7→3+)
+ * @param {Object|null} mask - Optional mask bounds (ignored — Kawase operates full-frame)
  * @returns {boolean}
  */
 export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
   if (strength <= 0.1) return true;
-  if (mobileSafeMode) return false;
 
   if (!initWebGL2(width, height)) {
     return false;
   }
-  
+
+  if (!kawaseDownProgram || !kawaseUpProgram || kawaseMips.length === 0) {
+    return false;
+  }
+
   try {
-    const minX = mask?.x ?? 0;
-    const minY = mask?.y ?? 0;
-    const maxX = mask ? mask.x + mask.width : width;
-    const maxY = mask ? mask.y + mask.height : height;
-    
-    // Calculate blur radius (capped at 7 for the unrolled shader)
-    const blurRadius = Math.min(Math.max(1, Math.floor(strength)), 7);
-    
-    // Flush prior GPU work — Mali drivers have pipeline hazards when
-    // multiple effects run back-to-back (e.g. scroll → blur).
-    gl.finish();
+    // Map blur strength to number of downsample/upsample levels (1-4)
+    const levels = Math.min(4, Math.max(1, Math.ceil(strength / 2)));
 
-    // Upload pixels to texture
+    // Upload pixels to input texture — switch to LINEAR for Kawase sampling
     gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-    // PASS 1: Horizontal blur (texture -> pingPong)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, pingPongFramebuffer);
-    gl.viewport(0, 0, width, height);
-    gl.useProgram(blurHProgram);
-
-    gl.uniform2f(blurHUniforms.u_resolution, width, height);
-    gl.uniform1f(blurHUniforms.u_radius, blurRadius);
-    gl.uniform1i(blurHUniforms.u_texture, 0);
 
     gl.bindVertexArray(vao);
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // Sync between passes — Mali-G57 has pipeline hazards when
-    // reading a texture that was just rendered to in a prior draw call.
-    gl.finish();
+    // === DOWNSAMPLE CHAIN ===
+    gl.useProgram(kawaseDownProgram);
+    gl.uniform1i(kawaseDownUniforms.u_texture, 0);
 
-    // PASS 2: Vertical blur (pingPong -> output)
+    let srcTex = texture;
+    let srcW = width, srcH = height;
+
+    for (let i = 0; i < levels; i++) {
+      const mip = kawaseMips[i];
+      gl.uniform2f(kawaseDownUniforms.u_texelSize, 1.0 / srcW, 1.0 / srcH);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, mip.framebuffer);
+      gl.viewport(0, 0, mip.width, mip.height);
+      gl.bindTexture(gl.TEXTURE_2D, srcTex);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      srcTex = mip.texture;
+      srcW = mip.width;
+      srcH = mip.height;
+    }
+
+    // === UPSAMPLE CHAIN ===
+    gl.useProgram(kawaseUpProgram);
+    gl.uniform1i(kawaseUpUniforms.u_texture, 0);
+
+    for (let i = levels - 2; i >= 0; i--) {
+      const mip = kawaseMips[i];
+      gl.uniform2f(kawaseUpUniforms.u_texelSize, 1.0 / srcW, 1.0 / srcH);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, mip.framebuffer);
+      gl.viewport(0, 0, mip.width, mip.height);
+      gl.bindTexture(gl.TEXTURE_2D, srcTex);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      srcTex = mip.texture;
+      srcW = mip.width;
+      srcH = mip.height;
+    }
+
+    // Final upsample back to full resolution → output framebuffer
+    gl.uniform2f(kawaseUpUniforms.u_texelSize, 1.0 / srcW, 1.0 / srcH);
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.useProgram(blurVProgram);
-
-    gl.uniform2f(blurVUniforms.u_resolution, width, height);
-    gl.uniform1f(blurVUniforms.u_radius, blurRadius);
-    gl.uniform1i(blurVUniforms.u_texture, 0);
-
-    // VAO already bound
-    gl.bindTexture(gl.TEXTURE_2D, pingPongTexture);
+    gl.viewport(0, 0, width, height);
+    gl.bindTexture(gl.TEXTURE_2D, srcTex);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // Read back pixels (no Y-flip needed since we didn't flip on upload)
+    // Read back result
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, readbackBuffer);
+
+    // Restore NEAREST filtering on input texture (other effects need pixel-perfect)
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     if (!sanityCheck(readbackBuffer, pixels, "Blur")) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2376,8 +2335,13 @@ export function cleanupGpuEffects() {
     if (spinProgram) gl.deleteProgram(spinProgram);
     if (compositeProgram) gl.deleteProgram(compositeProgram);
     if (invertProgram) gl.deleteProgram(invertProgram);
-    if (blurHProgram) gl.deleteProgram(blurHProgram);
-    if (blurVProgram) gl.deleteProgram(blurVProgram);
+    if (kawaseDownProgram) gl.deleteProgram(kawaseDownProgram);
+    if (kawaseUpProgram) gl.deleteProgram(kawaseUpProgram);
+    for (const mip of kawaseMips) {
+      if (mip.texture) gl.deleteTexture(mip.texture);
+      if (mip.framebuffer) gl.deleteFramebuffer(mip.framebuffer);
+    }
+    kawaseMips = [];
     if (sharpenProgram) gl.deleteProgram(sharpenProgram);
     if (shearProgram) gl.deleteProgram(shearProgram);
     if (suckProgram) gl.deleteProgram(suckProgram);
