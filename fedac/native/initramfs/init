@@ -58,21 +58,25 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-# Mount USB/ESP early and leave mounted for ac-native to reuse
-# (UEFI firmware may lock the boot partition after unmount, preventing remount)
+# Mount USB data partition early and leave mounted for ac-native
+# UEFI locks the ESP (sda1) after loading the kernel, so use sda2 for data
+# Try sda2 first (dedicated data partition), then fall back to sda1/sdb1
 ilog "mount-early"
 mkdir -p /mnt
-for dev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
+mounted=""
+for dev in /dev/sda2 /dev/sdb2 /dev/sda1 /dev/sdb1 /dev/sdc1; do
   if [ -b "$dev" ]; then
     mount "$dev" /mnt 2>/dev/null && {
       timeout 0.2 cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null || true
       cp /tmp/ac-init.log /mnt/init.log 2>/dev/null
       sync
+      mounted="$dev"
       ilog "mounted $dev at /mnt (kept for ac-native)"
       break
     }
   fi
 done
+[ -z "$mounted" ] && ilog "WARNING: no USB/ESP mounted"
 
 ilog "exec-ac-native"
 exec /ac-native /piece.mjs
