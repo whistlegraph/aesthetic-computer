@@ -40,6 +40,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| Reading the Score: A Critical Analysis of SCORE.md | arXiv (LaTeX) | `arxiv-score-analysis/score-analysis.pdf` | `arxiv-score-analysis/score-analysis.tex` |
 | KidLisp Cards: Programs That Fit on a Card | arXiv (LaTeX) | `arxiv-kidlisp-cards/kidlisp-cards.pdf` | `arxiv-kidlisp-cards/kidlisp-cards.tex` |
 | PLORKing the Planet: From Laptop Orchestra to Planetary Organ | arXiv (LaTeX, 8pp) | `arxiv-plork/plork.pdf` | `arxiv-plork/plork.tex` |
 | From setup() to boot(): Processing at the Core of the Piece API | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |

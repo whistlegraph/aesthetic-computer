@@ -248,33 +248,9 @@ if [ "$warnings" -gt 0 ]; then
 fi
 
 ###############################################################################
-# PART 3: AUTO-REBUILD PAPERS (when .tex files change)
+# PART 3: PAPERS — oven builds PDFs automatically on push to main
+# (see papers/SCORE.md § Building § Automatic)
+# No local rebuild needed in pre-commit.
 ###############################################################################
-
-# Check if any papers/*.tex files are staged
-staged_tex=$(git diff --cached --name-only --diff-filter=d | grep '^papers/.*\.tex$' | grep -v '\-cards\.tex$' || true)
-
-if [ -n "$staged_tex" ]; then
-  echo -e "${GREEN}📄 Paper .tex files changed — rebuilding PDFs...${NC}"
-
-  # Run full publish pipeline (build → deploy → index → verify)
-  if "$NODE_BIN" papers/cli.mjs publish 2>&1 | tail -10; then
-    echo -e "${GREEN}✓ Papers rebuilt and deployed${NC}"
-
-    # Re-stage all generated/updated paper outputs
-    git add papers/metadata.json papers/BUILDLOG.md 2>/dev/null || true
-    git add papers/*/*.pdf 2>/dev/null || true
-    git add system/public/papers.aesthetic.computer/*.pdf 2>/dev/null || true
-    git add system/public/papers.aesthetic.computer/index.html 2>/dev/null || true
-  else
-    echo -e "${YELLOW}⚠️  Paper rebuild had issues — check output above${NC}"
-    # Still stage whatever was generated
-    git add papers/metadata.json papers/BUILDLOG.md 2>/dev/null || true
-    git add papers/*/*.pdf 2>/dev/null || true
-    git add system/public/papers.aesthetic.computer/*.pdf 2>/dev/null || true
-    git add system/public/papers.aesthetic.computer/index.html 2>/dev/null || true
-  fi
-  echo ""
-fi
 
 exit 0

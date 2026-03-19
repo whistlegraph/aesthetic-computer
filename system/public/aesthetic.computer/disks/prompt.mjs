@@ -5118,11 +5118,11 @@ function paint($) {
       }
       ink(...bgColor).box(soBox, "fill");
       ink(...textColor).box(soBox, "outline");
-      if (useTinyFont) { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }); }
+      if (useTinyFont) { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8"); }
       else { ink(...textColor).write("SO", { x: soBox.x + btnPadX, y: soBox.y + btnPadY }); }
       ink(...bgColor).box(softBox, "fill");
       ink(...textColor).box(softBox, "outline");
-      if (useTinyFont) { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }); }
+      if (useTinyFont) { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8"); }
       else { ink(...textColor).write("SOFT", { x: softBox.x + btnPadX, y: softBox.y + btnPadY }); }
     }
     $.needsPaint();

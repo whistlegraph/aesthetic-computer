@@ -5449,7 +5449,7 @@ let gpuInitPromise = null; // Promise for initialization
 
 // 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
 const GPU_FAIL_THRESHOLD = 3; // Disable after this many failures
-const GPU_CACHE_KEY = "ac-gpu-disabled-v2"; // Bumped to re-test after Mali shader fixes
+const GPU_CACHE_KEY = "ac-gpu-disabled-v3"; // v3: fully unrolled shaders + FB checks + logging
 const gpuFailCounts = {
   spin: 0, composite: 0, blur: 0, sharpen: 0,
   shear: 0, suck: 0, flood: 0, zoom: 0, scroll: 0,
@@ -5472,6 +5472,7 @@ try {
 } catch {}
 
 function gpuFailed(effectName) {
+  gpuFrameLog.failed.add(effectName);
   gpuFailCounts[effectName] = (gpuFailCounts[effectName] || 0) + 1;
   if (gpuFailCounts[effectName] >= GPU_FAIL_THRESHOLD && !gpuDisabled[effectName]) {
     gpuDisabled[effectName] = true;
@@ -5497,6 +5498,7 @@ function onGpuFailover(callback) {
 
 function gpuOk(effectName) {
   if (gpuFailCounts[effectName] > 0) gpuFailCounts[effectName] = 0;
+  gpuFrameLog.ok.add(effectName);
 }
 
 function gpuAllowed(effectName) {
@@ -5505,6 +5507,67 @@ function gpuAllowed(effectName) {
 
 function getGpuStatus() {
   return { failCounts: { ...gpuFailCounts }, disabled: { ...gpuDisabled } };
+}
+
+// 📊 GPU frame logging — tracks effect usage every 8 frames
+const gpuFrameLog = {
+  frameCount: 0,
+  ok: new Set(),        // effects that succeeded this period
+  failed: new Set(),    // effects that failed this period
+  disabled: new Set(),  // effects skipped (auto-disabled)
+  rendererCached: null, // GPU renderer string (cached on first query)
+};
+
+function gpuLogTick() {
+  gpuFrameLog.frameCount++;
+  if (gpuFrameLog.frameCount % 8 !== 0) return;
+
+  // Capture renderer on first tick
+  if (!gpuFrameLog.rendererCached) {
+    try {
+      if (typeof OffscreenCanvas !== "undefined") {
+        const c = new OffscreenCanvas(1, 1);
+        const g = c.getContext("webgl2");
+        if (g) {
+          const dbg = g.getExtension("WEBGL_debug_renderer_info");
+          gpuFrameLog.rendererCached = dbg
+            ? g.getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+            : "unknown";
+          g.getExtension("WEBGL_lose_context")?.loseContext();
+        } else {
+          gpuFrameLog.rendererCached = "no-webgl2";
+        }
+      } else {
+        gpuFrameLog.rendererCached = "no-offscreen";
+      }
+    } catch {
+      gpuFrameLog.rendererCached = "error";
+    }
+  }
+
+  const ok = [...gpuFrameLog.ok];
+  const failed = [...gpuFrameLog.failed];
+  const dis = Object.keys(gpuDisabled).filter(k => gpuDisabled[k]);
+
+  // Always log on frames 8, 16, 24 then every 64 frames after
+  if (gpuFrameLog.frameCount <= 24 || gpuFrameLog.frameCount % 64 === 0) {
+    console.log(`🎮 GPU [f${gpuFrameLog.frameCount}] renderer=${gpuFrameLog.rendererCached} ok=[${ok}] fail=[${failed}] disabled=[${dis}]`);
+  }
+
+  // Report to telemetry on frame 8 (first status report) and when failures occur
+  if (gpuFrameLog.frameCount === 8 || failed.length > 0) {
+    gpuTelemetry.report("gpu-status", null, {
+      frame: gpuFrameLog.frameCount,
+      renderer: gpuFrameLog.rendererCached,
+      ok,
+      failed,
+      disabled: dis,
+    });
+  }
+
+  // Reset per-period sets
+  gpuFrameLog.ok.clear();
+  gpuFrameLog.failed.clear();
 }
 
 // 📡 GPU telemetry — batches failure reports and sends to /api/kidlisp-log
@@ -9197,4 +9260,5 @@ export {
   initGpuEffects,
   getGpuStatus,
   onGpuFailover,
+  gpuLogTick,
 };
