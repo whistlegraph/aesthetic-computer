@@ -845,7 +845,7 @@ async function boot({
   handleColorsCache.clear();
 
   // Boot starfield with a clear backdrop.
-  starfield.boot(api, { stars: 128 });
+  starfield.boot(api, { stars: 128, speed: 4.2 });
   starfield.wipe(false);
 
   // TODO: How could I not keep reloading these sounds?
@@ -5750,6 +5750,82 @@ function paint($) {
       alpha: $.dark ? 0.3 : 0.9,
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
+
+    // 🧊 Spinning wireframe cube (centered behind login buttons)
+    {
+      const cx = screen.width / 2;
+      const cy = screen.height / 2; // Centered at login button area
+      const size = min(screen.width, screen.height) * 0.2;
+      const fov = 260;
+      const ay = motdFrame * 0.03; // Y-axis spin (fast)
+      const ax = motdFrame * 0.018; // X-axis tilt (fast)
+
+      // Unit cube vertices centered at origin
+      const verts = [
+        [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+        [-1,-1, 1],[1,-1, 1],[1,1, 1],[-1,1, 1],
+      ];
+      // 12 edges
+      const edges = [
+        [0,1],[1,2],[2,3],[3,0], // back face
+        [4,5],[5,6],[6,7],[7,4], // front face
+        [0,4],[1,5],[2,6],[3,7], // connecting
+      ];
+
+      // Rotate and project
+      const projected = verts.map(([x, y, z]) => {
+        // Rotate Y
+        let rx = x * cos(ay) - z * sin(ay);
+        let rz = x * sin(ay) + z * cos(ay);
+        // Rotate X
+        let ry = y * cos(ax) - rz * sin(ax);
+        rz = y * sin(ax) + rz * cos(ax);
+        // Perspective
+        const scale = fov / (fov + rz * size);
+        return [cx + rx * size * scale, cy + ry * size * scale, rz];
+      });
+
+      // Draw edges with varied polychrome coloring (randomized per-edge hue offset)
+      const waveOffset = motdFrame * 0.05;
+      edges.forEach(([a, b], i) => {
+        const depth = (projected[a][2] + projected[b][2]) / 2;
+        const brightness = 0.55 + depth * 0.25; // Back edges dimmer
+        // Varied hue — edges jump around the spectrum rather than sequential
+        const hue = ((i * 0.37 + sin(motdFrame * 0.02 + i) * 0.3) + waveOffset) % 1;
+        // HSV-ish to RGB (6 sector)
+        const sector = abs(hue) * 6;
+        const f = sector - floor(sector);
+        let r, g, bl;
+        const s = floor(sector) % 6;
+        if (s === 0) { r = 1; g = f; bl = 0; }
+        else if (s === 1) { r = 1 - f; g = 1; bl = 0; }
+        else if (s === 2) { r = 0; g = 1; bl = f; }
+        else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
+        else if (s === 4) { r = f; g = 0; bl = 1; }
+        else { r = 1; g = 0; bl = 1 - f; }
+        const alpha = $.dark ? 120 : 180;
+        ink(
+          floor(r * 255 * brightness),
+          floor(g * 255 * brightness),
+          floor(bl * 255 * brightness),
+          alpha,
+        ).line(
+          projected[a][0], projected[a][1],
+          projected[b][0], projected[b][1],
+        );
+      });
+
+      // Vertex particles — small dots at cube corners with random bright colors
+      const particleColors = [
+        [255, 80, 200], [80, 255, 220], [255, 255, 80],
+        [80, 200, 255], [255, 120, 80], [180, 80, 255],
+      ];
+      projected.forEach(([px, py], i) => {
+        const pColor = particleColors[(i + floor(motdFrame * 0.04)) % particleColors.length];
+        const flicker = 0.6 + sin(motdFrame * 0.1 + i * 1.3) * 0.4;
+        ink(...pColor, floor(flicker * ($.dark ? 150 : 200))).box(px - 1, py - 1, 2, 2);
+      });
+    }
 
     // Stats / Analytics - UNITICKER System (unified ticker combining chat, laer-klokken, and media)
     $.layer(2); // Render ticker on top of tooltips
