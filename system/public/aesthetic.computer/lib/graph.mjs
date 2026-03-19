@@ -5438,13 +5438,15 @@ const BLOCK_SIZE = 64; // Process in 64x64 blocks
 let spinSkipCounter = 0;
 
 // 🚀 GPU EFFECTS: WebGL2-accelerated effects via OffscreenCanvas
+// Set to true to force ALL KidLisp effects through CPU path (no WebGL).
+const FORCE_CPU = true;
 let gpuSpinModule = null;
-let gpuSpinEnabled = true; // Enable by default, falls back to CPU if unavailable
+let gpuSpinEnabled = !FORCE_CPU;
 let gpuSpinAvailable = null; // null = not checked yet
 let gpuFloodAvailable = null; // null = not checked yet (separate check for float textures)
-let gpuFloodEnabled = true; // Enable by default, falls back to CPU if unavailable
+let gpuFloodEnabled = !FORCE_CPU;
 let gpuLayerCompositeAvailable = null; // null = not checked yet
-let gpuLayerCompositeEnabled = true; // Enable by default, falls back to CPU if unavailable
+let gpuLayerCompositeEnabled = !FORCE_CPU;
 let gpuInitPromise = null; // Promise for initialization
 
 // 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
@@ -5683,7 +5685,7 @@ function setGpuFlood(enabled) {
 }
 
 // 🧪 EXPERIMENTAL: Toggle GPU contrast for performance testing
-let gpuContrastEnabled = true;  // Enable by default
+let gpuContrastEnabled = !FORCE_CPU;
 function setGpuContrast(enabled) {
   gpuContrastEnabled = enabled;
   console.log(`🎮 GPU Contrast ${enabled ? 'ENABLED' : 'DISABLED'}`);
