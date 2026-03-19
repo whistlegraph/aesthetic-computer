@@ -640,6 +640,8 @@ function paint(
     handleHover: [255, 255, 0],
     url: [0, 255, 255],
     urlHover: [255, 255, 0],
+    email: [0, 255, 255],
+    emailHover: [255, 255, 0],
     prompt: [0, 255, 0],
     promptContent: [0, 255, 255],
     promptHover: [255, 255, 0],
@@ -913,6 +915,8 @@ function paint(
                   color = theme.handle;
                 }
               }
+            } else if (element.type === "email") {
+              color = isHovered ? theme.emailHover : theme.email;
             } else if (element.type === "url") {
               color = isHovered ? theme.urlHover : theme.url;
             } else if (element.type === "prompt") {
@@ -2883,6 +2887,16 @@ function act(
                   };
                 }
                 break;
+              } else if (element.type === "email") {
+                beep();
+                linkConfirmModal = {
+                  type: "email",
+                  text: element.text,
+                  displayText: element.text,
+                  description: "Send email",
+                  action: () => jump("out:mailto:" + element.text)
+                };
+                break;
               } else if (element.type === "url") {
                 beep();
                 // Show confirmation modal for external URL
@@ -4230,6 +4244,8 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
         colorCodedText = `\\cyan\\${elementText}\\white\\`;
       } else if (element.type === "handle") {
         colorCodedText = `\\pink\\${elementText}\\white\\`;
+      } else if (element.type === "email") {
+        colorCodedText = `\\cyan\\${elementText}\\white\\`;
       } else if (element.type === "url") {
         colorCodedText = `\\cyan\\${elementText}\\white\\`;
       } else if (element.type === "prompt") {
@@ -4491,6 +4507,9 @@ function generateDynamicColorMessage(message, theme) {
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "handle") {
       const color = isHovered ? theme.handleHover : theme.handle;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
+    } else if (element.type === "email") {
+      const color = isHovered ? theme.emailHover : theme.email;
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "url") {
       const color = isHovered ? theme.urlHover : theme.url;
