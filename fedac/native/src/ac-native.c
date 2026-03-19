@@ -291,13 +291,15 @@ static void try_mount_log(void) {
     {
         // Wait for USB block devices to appear (up to 2s after EFI handoff)
         // Skip the wait on NVMe boots when no USB is already present
-        int usb_found = (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0);
+        int usb_found = (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0 ||
+                         access("/dev/sda2", F_OK) == 0 || access("/dev/sdb2", F_OK) == 0);
         if (!usb_found && access("/dev/nvme0n1p1", F_OK) == 0) {
             fprintf(stderr, "[ac-native] NVMe boot, no USB — skipping USB wait\n");
         } else if (!usb_found) {
             fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
             for (int w = 0; w < 100; w++) {
-                if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
+                if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0 ||
+                    access("/dev/sda2", F_OK) == 0) break;
                 usleep(20000);
             }
         }
@@ -305,6 +307,7 @@ static void try_mount_log(void) {
                 access("/dev/sda1", F_OK) == 0 ? "yes" : "no",
                 access("/dev/sdb1", F_OK) == 0 ? "yes" : "no");
     const char *devs[] = {
+        "/dev/sda2", "/dev/sdb2",  // data partition (UEFI doesn't lock these)
         "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1",
         "/dev/nvme0n1p1", "/dev/nvme1n1p1",
         NULL
