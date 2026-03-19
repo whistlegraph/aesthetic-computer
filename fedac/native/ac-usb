@@ -96,8 +96,42 @@ case "${CMD}" in
             umount /mnt/usb
         "
         ;;
+    flash)
+        VMLINUZ="${2:-}"
+        if [ -z "${VMLINUZ}" ]; then
+            echo "Downloading latest OTA build..."
+            VMLINUZ="/tmp/ac-native-latest.vmlinuz"
+            curl -fSL -o "${VMLINUZ}" \
+                "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.vmlinuz"
+        fi
+        [ -f "${VMLINUZ}" ] || { echo "File not found: ${VMLINUZ}"; exit 1; }
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        SIZE=$(wc -c < "${VMLINUZ}")
+        echo "Flashing ${VMLINUZ} ($(( SIZE / 1024 / 1024 ))MB) to ${USB_DEV}..."
+        SPLASH_EFI="$(dirname "$0")/bootloader/splash.efi"
+        # Pipe kernel via stdin into Docker (volume mounts fail in devcontainer)
+        cat "${VMLINUZ}" | sudo docker run --rm -i --privileged -v /dev:/dev \
+            alpine:latest sh -c "
+                apk add --quiet dosfstools sfdisk
+                cat > /tmp/vmlinuz
+                echo 'label: gpt
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
+                sync; sleep 1
+                mkfs.vfat -F 32 -n AC-NATIVE ${USB_DEV}1
+                mkdir -p /mnt/usb
+                mount ${USB_DEV}1 /mnt/usb
+                mkdir -p /mnt/usb/EFI/BOOT
+                cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
+                ls -lh /mnt/usb/EFI/BOOT/BOOTX64.EFI
+                sync
+                umount /mnt/usb
+                echo 'Done!'
+            "
+        rm -f /workspaces/aesthetic-computer/.flash-vmlinuz 2>/dev/null
+        echo "Flash complete: ${USB_DEV}"
+        ;;
     *)
-        echo "Usage: ac-usb {ls|sha256|logs|read <path>}"
+        echo "Usage: ac-usb {ls|sha256|logs|read <path>|flash [vmlinuz]}"
         exit 1
         ;;
 esac

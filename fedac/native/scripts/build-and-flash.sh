@@ -360,8 +360,11 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
 
     # Copy flite TTS libraries (core + slt female + kal male voices)
     for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_slt.so.2.2 libflite_cmu_us_kal.so.2.2; do
-        src="/usr/lib64/${flib}"
-        if [ -f "$src" ]; then
+        src=""
+        for dir in /usr/lib64 /usr/lib/x86_64-linux-gnu; do
+            [ -f "${dir}/${flib}" ] && src="${dir}/${flib}" && break
+        done
+        if [ -n "$src" ]; then
             cp "$src" "${INITRAMFS_DIR}/lib64/"
             # Create soname symlinks
             ln -sf "$flib" "${INITRAMFS_DIR}/lib64/$(echo $flib | sed 's/\.so\..*/\.so/')" 2>/dev/null || true
@@ -549,6 +552,101 @@ if [ -f "${BUILD_DIR}/ac-native" ]; then
     done
     log "Bundled $(ldd "${BUILD_DIR}/ac-native" 2>/dev/null | grep -c '\.so') shared libs"
 fi
+
+# ── Wayland compositor stack (cage + seatd + Mesa GPU) ──
+# cage: Wayland kiosk compositor — runs ac-native as a Wayland client
+# seatd: seat daemon required by wlroots/cage for DRM access
+# These enable browser popups (OAuth), GPU acceleration, and multi-client Wayland.
+CAGE_BIN="$(command -v cage 2>/dev/null || true)"
+SEATD_BIN="$(command -v seatd 2>/dev/null || true)"
+
+if [ -n "${CAGE_BIN}" ] && [ -f "${CAGE_BIN}" ]; then
+    log "Bundling cage Wayland compositor..."
+    cp "${CAGE_BIN}" "${INITRAMFS_DIR}/bin/cage"
+    chmod +x "${INITRAMFS_DIR}/bin/cage"
+    for lib in $(ldd "${CAGE_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    done
+    log "  cage: $(du -sh "${INITRAMFS_DIR}/bin/cage" | cut -f1)"
+else
+    warn "cage not installed — Wayland compositor unavailable"
+fi
+
+if [ -n "${SEATD_BIN}" ] && [ -f "${SEATD_BIN}" ]; then
+    cp "${SEATD_BIN}" "${INITRAMFS_DIR}/bin/seatd"
+    chmod +x "${INITRAMFS_DIR}/bin/seatd"
+    for lib in $(ldd "${SEATD_BIN}" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -nL "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    done
+    log "  seatd: $(du -sh "${INITRAMFS_DIR}/bin/seatd" | cut -f1)"
+else
+    warn "seatd not installed — seat daemon unavailable"
+fi
+
+# Mesa GPU stack (EGL, GBM, DRI drivers) — needed for cage/Wayland GPU rendering
+# Search both Fedora (/usr/lib64/) and Debian (/usr/lib/x86_64-linux-gnu/) paths
+find_lib() {
+    for dir in /usr/lib64 /usr/lib/x86_64-linux-gnu; do
+        local f="${dir}/$1"
+        [ -f "$f" ] && echo "$f" && return
+        f="$(readlink -f "${dir}/$1" 2>/dev/null)"
+        [ -f "$f" ] && echo "$f" && return
+    done
+}
+find_dri() {
+    for dir in /usr/lib64/dri /usr/lib/x86_64-linux-gnu/dri; do
+        [ -e "${dir}/$1" ] && echo "${dir}/$1" && return
+    done
+}
+
+log "Bundling Mesa GPU + Wayland libs..."
+mkdir -p "${INITRAMFS_DIR}/lib64/dri"
+
+for lib in libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 libgbm.so.1 libGL.so.1 \
+           libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0 \
+           libwayland-client.so.0 libwayland-cursor.so.0 libwayland-egl.so.1 \
+           libwayland-server.so.0 libxkbcommon.so.0 libinput.so.10 \
+           libexpat.so.1 libffi.so.8; do
+    src="$(find_lib "$lib")"
+    if [ -n "$src" ] && [ -f "$src" ]; then
+        cp -nL "$src" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        ln -sf "$(basename "$src")" "${INITRAMFS_DIR}/lib64/${lib}" 2>/dev/null || true
+    fi
+done
+
+# Mesa gallium (monolithic driver — contains iris/i915/swrast)
+GALLIUM=$(ls /usr/lib64/libgallium-*.so /usr/lib/x86_64-linux-gnu/libgallium-*.so 2>/dev/null | head -1)
+[ -f "$GALLIUM" ] && cp "$GALLIUM" "${INITRAMFS_DIR}/lib64/"
+
+# DRI driver stubs
+for drv in iris_dri.so i915_dri.so kms_swrast_dri.so swrast_dri.so libdril_dri.so; do
+    src="$(find_dri "$drv")"
+    if [ -n "$src" ]; then
+        if [ -L "$src" ]; then
+            tgt=$(readlink "$src")
+            # Copy the target file too
+            tgt_full="$(dirname "$src")/$tgt"
+            [ -f "$tgt_full" ] && cp -n "$tgt_full" "${INITRAMFS_DIR}/lib64/dri/" 2>/dev/null || true
+            ln -sf "$tgt" "${INITRAMFS_DIR}/lib64/dri/${drv}"
+        elif [ -f "$src" ]; then
+            cp "$src" "${INITRAMFS_DIR}/lib64/dri/"
+        fi
+    fi
+done
+
+GPU_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/dri" 2>/dev/null | cut -f1)
+log "  Mesa GPU: dri=${GPU_SIZE:-0} gallium=$(du -sh "${GALLIUM}" 2>/dev/null | cut -f1 || echo none)"
+
+# xkb keyboard data (needed for Wayland keyboard layout)
+for xkb_dir in /usr/share/X11/xkb /usr/share/xkb; do
+    if [ -d "$xkb_dir" ]; then
+        mkdir -p "${INITRAMFS_DIR}/usr/share/X11"
+        cp -aL "$xkb_dir" "${INITRAMFS_DIR}/usr/share/X11/xkb" 2>/dev/null || \
+            cp -rL "$xkb_dir" "${INITRAMFS_DIR}/usr/share/X11/xkb" 2>/dev/null || true
+        log "  xkb: $(du -sh "${INITRAMFS_DIR}/usr/share/X11/xkb" 2>/dev/null | cut -f1)"
+        break
+    fi
+done
 
 # Init: shell script that starts seatd + cage + ac-native (Wayland compositor mode)
 # Falls back to direct ac-native exec if cage is not available
