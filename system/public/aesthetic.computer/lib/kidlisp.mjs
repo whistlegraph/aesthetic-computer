@@ -4202,13 +4202,30 @@ class KidLisp {
             }
           } else {
             // 🐌 SLOW PATH: No burn - composite all layers individually
-            
+
             // Step 1: Paste layer 0 (all drawing before first bake, or all drawing if no bake)
             // Always paste layer0 to ensure thin lines are rendered (optimization removed due to false negatives)
             // 🎯 FIX: Use pasteWithAlpha with alpha=255 instead of $.paste to handle overlapping embedded layers at (0,0)
             if (this.layer0 && this.layer0.pixels) {
               // Check dimensions match before pasting to avoid bounds errors
               if (this.layer0.width === screen.width && this.layer0.height === screen.height) {
+
+                // 📊 Diagnostic: check layer0 has pixel data before compositing
+                if (this.frameCount % 8 === 0 && this.frameCount <= 64) {
+                  let nonZero = 0;
+                  const l0 = this.layer0.pixels;
+                  const step = Math.max(1, (l0.length / 200) | 0);
+                  for (let i = 0; i < l0.length; i += step) { if (l0[i] !== 0) nonZero++; }
+                  const screenNZ = (() => {
+                    let nz = 0;
+                    const sp = screen.pixels;
+                    const st = Math.max(1, (sp.length / 200) | 0);
+                    for (let i = 0; i < sp.length; i += st) { if (sp[i] !== 0) nz++; }
+                    return nz;
+                  })();
+                  console.log(`🎨 [f${this.frameCount}] layer0: ${this.layer0.width}x${this.layer0.height} nonZero=${nonZero}/200 | screen: ${screen.width}x${screen.height} nonZero=${screenNZ}/200 | embeds=${this.embeddedLayers?.length || 0} bakes=${this.bakes?.length || 0}`);
+                }
+
                 try {
                   // Use pasteWithAlpha instead of $.paste - this respects alpha channel in layer0
                   // and prevents it from overwriting transparent pixels in embedded layers at (0,0)
@@ -4310,6 +4327,10 @@ class KidLisp {
           // These run AFTER embedded layers are composited, so they affect the full result
           // 🚀 GPU OPTIMIZATION: Batch compatible effects (zoom/scroll/contrast/brightness) into ONE GPU pass
           if (this.postCompositeCommands && this.postCompositeCommands.length > 0) {
+            // 📊 Diagnostic: log which post-composite commands run
+            if (this.frameCount % 8 === 0 && this.frameCount <= 64) {
+              console.log(`🎨 [f${this.frameCount}] post-composite: [${this.postCompositeCommands.map(c => c.name).join(', ')}]`);
+            }
             // Execute each post-composite command directly via its captured closure
             // This ensures zoom/scroll/etc. operate on the composited screen buffer
             for (const cmd of this.postCompositeCommands) {
