@@ -708,7 +708,8 @@ ACAudio *audio_init(void) {
         }
     }
 
-    // Open ALSA — try multiple cards and devices
+    // Open ALSA — try multiple cards and devices, with retries for race conditions.
+    // On fast NVMe boots the HDA codec may not be fully probed when we first try.
     snd_pcm_t *pcm = NULL;
     const char *devices[] = {
         "hw:0,0", "hw:1,0", "hw:0,1", "hw:1,1",
@@ -718,24 +719,32 @@ ACAudio *audio_init(void) {
     };
     int err = -1;
     int card_idx = 0;
-    for (int i = 0; devices[i]; i++) {
-        audio->audio_init_retries++;
-        err = snd_pcm_open(&pcm, devices[i], SND_PCM_STREAM_PLAYBACK, 0);
-        if (err >= 0) {
-            fprintf(alog, "[audio] Opened ALSA device: %s\n", devices[i]);
-            fprintf(stderr, "[audio] Opened ALSA device: %s\n", devices[i]);
-            snprintf(audio->audio_device, sizeof(audio->audio_device), "%s", devices[i]);
-            if (sscanf(devices[i], "hw:%d", &card_idx) != 1 &&
-                sscanf(devices[i], "plughw:%d", &card_idx) != 1)
-                card_idx = 0;
-            break;
+    for (int attempt = 0; attempt < 5 && err < 0; attempt++) {
+        if (attempt > 0) {
+            fprintf(alog, "[audio] Retry %d/4 — waiting 2s for codec probe...\n", attempt);
+            fprintf(stderr, "[audio] Retry %d/4 — waiting 2s for codec probe...\n", attempt);
+            usleep(2000000); // 2 seconds between retries
         }
-        fprintf(alog, "[audio] Failed %s: %s\n", devices[i], snd_strerror(err));
+        for (int i = 0; devices[i]; i++) {
+            audio->audio_init_retries++;
+            err = snd_pcm_open(&pcm, devices[i], SND_PCM_STREAM_PLAYBACK, 0);
+            if (err >= 0) {
+                fprintf(alog, "[audio] Opened ALSA device: %s (attempt %d)\n", devices[i], attempt);
+                fprintf(stderr, "[audio] Opened ALSA device: %s (attempt %d)\n", devices[i], attempt);
+                snprintf(audio->audio_device, sizeof(audio->audio_device), "%s", devices[i]);
+                if (sscanf(devices[i], "hw:%d", &card_idx) != 1 &&
+                    sscanf(devices[i], "plughw:%d", &card_idx) != 1)
+                    card_idx = 0;
+                break;
+            }
+            if (attempt == 0)
+                fprintf(alog, "[audio] Failed %s: %s\n", devices[i], snd_strerror(err));
+        }
     }
     audio->card_index = card_idx;
     if (alog != stderr) { fflush(alog); fclose(alog); }
     if (err < 0) {
-        fprintf(stderr, "[audio] Cannot open any ALSA device\n");
+        fprintf(stderr, "[audio] Cannot open any ALSA device after 5 attempts\n");
         snprintf(audio->audio_status, sizeof(audio->audio_status), "no ALSA device found");
         // Audio is optional — return the struct but with no PCM
         audio->pcm = NULL;
