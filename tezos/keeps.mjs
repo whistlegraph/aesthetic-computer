@@ -107,8 +107,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '11.0.0',
-      description: 'https://keeps.kidlisp.com',
-      homepage: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
+      homepage: 'https://keep.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -125,8 +125,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '10.0.0',
-      description: 'https://keeps.kidlisp.com',
-      homepage: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
+      homepage: 'https://keep.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -143,8 +143,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '9.0.0',
-      description: 'https://keeps.kidlisp.com',
-      homepage: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
+      homepage: 'https://keep.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -160,8 +160,8 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '8.0.0',
-      description: 'https://keeps.kidlisp.com',
-      homepage: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
+      homepage: 'https://keep.kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
       imageUri: 'https://oven.aesthetic.computer/keeps/latest',
@@ -177,7 +177,7 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '7.0.0',
-      description: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
       homepage: 'https://kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
@@ -194,7 +194,7 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp',
       version: '6.0.0',
-      description: 'https://keeps.kidlisp.com',
+      description: 'https://keep.kidlisp.com',
       homepage: 'https://kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
@@ -211,7 +211,7 @@ const CONTRACT_PROFILES = {
     metadata: {
       name: 'KidLisp Keeps RC',
       version: '5.0.0-rc',
-      description: 'https://keeps.kidlisp.com/rc',
+      description: 'https://keep.kidlisp.com/rc',
       homepage: 'https://kidlisp.com',
       interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
       authors: ['aesthetic.computer'],
@@ -2228,7 +2228,7 @@ async function setCollectionMedia(options = {}) {
     version: existingMetadata.version || "2.0.0",
     interfaces: existingMetadata.interfaces || ["TZIP-012", "TZIP-016", "TZIP-021"],
     authors: existingMetadata.authors || ["aesthetic.computer"],
-    homepage: homepage || existingMetadata.homepage || "https://keeps.kidlisp.com"
+    homepage: homepage || existingMetadata.homepage || "https://keep.kidlisp.com"
   };
   
   if (options.name) {
@@ -4321,7 +4321,7 @@ async function main() {
           console.error('  node keeps.mjs set-collection-media --name="KidLisp Keeps (Staging)"');
           console.error('  node keeps.mjs set-collection-media --image=ipfs://Qm...');
           console.error('  node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest');
-          console.error('  node keeps.mjs set-collection-media --homepage=https://keeps.kidlisp.com');
+          console.error('  node keeps.mjs set-collection-media --homepage=https://keep.kidlisp.com');
           console.error('  node keeps.mjs set-collection-media --description="KidLisp generative art collection"');
           process.exit(1);
         }
@@ -4602,7 +4602,7 @@ v4 Examples:
   
   # Collection media (use live endpoint for dynamic thumbnail)
   node keeps.mjs set-collection-media --image=https://oven.aesthetic.computer/keeps/latest
-  node keeps.mjs set-collection-media --homepage=https://keeps.kidlisp.com
+  node keeps.mjs set-collection-media --homepage=https://keep.kidlisp.com
   node keeps.mjs set-collection-media --image=ipfs://QmXxx --description="KidLisp art"
   node keeps.mjs lock-collection            # Lock collection metadata forever
   node keeps.mjs deprecate-staging --wallet=staging                     # Dry run

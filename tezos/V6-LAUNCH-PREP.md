@@ -32,7 +32,7 @@ node tezos/keeps.mjs deploy mainnet --wallet=kidlisp --contract=v6
 ```
 
 Notes:
-- `--contract=v6` applies production metadata (`KidLisp`, `6.0.0`, keeps.kidlisp.com).
+- `--contract=v6` applies production metadata (`KidLisp`, `6.0.0`, keep.kidlisp.com).
 - Initial storage uses fee `2_500_000` mutez (2.5 XTZ), royalty `1000` bps, paused `false`.
 - Mint flow reads `default_royalty_bps` from contract storage and applies it to new token metadata.
 

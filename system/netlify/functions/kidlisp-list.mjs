@@ -43,13 +43,13 @@ export async function handler(event) {
     
     // Resolve handles for users
     const userSubs = [...new Set(pieces.filter(p => p.user).map(p => p.user))];
-    const handleDocs = userSubs.length > 0 
-      ? await handlesCol.find({ user: { $in: userSubs } }).toArray()
+    const handleDocs = userSubs.length > 0
+      ? await handlesCol.find({ _id: { $in: userSubs } }).toArray()
       : [];
-    
+
     const handleMap = {};
     handleDocs.forEach(h => {
-      handleMap[h.user] = h._id; // _id is the handle string
+      handleMap[h._id] = h.handle;
     });
     
     // Format response

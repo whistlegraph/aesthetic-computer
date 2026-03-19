@@ -1,4 +1,4 @@
-// keeps-social.js — SSR meta tag injection for social crawlers on keeps.kidlisp.com/$code permalinks
+// keeps-social.js — SSR meta tag injection for social crawlers on keep.kidlisp.com/$code permalinks
 
 const CRAWLER_RE = /twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|applebot/i;
 const OBJKT_GRAPHQL = 'https://data.objkt.com/v3/graphql';
@@ -7,8 +7,8 @@ export default async function handleRequest(request, context) {
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
 
-  // Only handle keeps.kidlisp.com
-  if (!host.includes('keeps.kidlisp.com')) return context.next();
+  // Only handle keep.kidlisp.com
+  if (!host.includes('keep.kidlisp.com')) return context.next();
 
   const seg = url.pathname.replace(/^\/+/, '').split('/')[0];
 
@@ -35,7 +35,7 @@ export default async function handleRequest(request, context) {
     // Build meta tag values
     const title = `$${code}`;
     const description = buildDescription(tokenData);
-    const permalink = `https://keeps.kidlisp.com/$${code}`;
+    const permalink = `https://keep.kidlisp.com/$${code}`;
 
     // Replace the static OG/Twitter meta tags with dynamic ones
     html = html.replace(

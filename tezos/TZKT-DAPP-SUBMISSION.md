@@ -11,7 +11,7 @@ Updated: March 9, 2026
 - **Author**: `Aesthetic.Computer`
 - **Long description**:
   `KidLisp Keeps is the minting and provenance layer for KidLisp, the generative art language used on aesthetic.computer. Artists keep works directly from their own handle into an auditable FA2 collection on Tezos, with immutable chain history, creator attribution, and IPFS-hosted media artifacts. The app is designed around clear artist ownership, transparent contract versioning, and long-term collector readability across chain explorers and marketplaces.`
-- **CTA button link**: `https://keeps.kidlisp.com`
+- **CTA button link**: `https://keep.kidlisp.com`
 
 ## Related Contract Addresses
 
@@ -38,6 +38,6 @@ Optional (include if TzKT wants historical lineage too):
 
 ## Reference Links
 
-- App: `https://keeps.kidlisp.com`
+- App: `https://keep.kidlisp.com`
 - Active contract (TzKT): `https://tzkt.io/KT1HoPURtwqXy58UYfZYh4ufoaMSNcsb9pCF`
 - Active collection (objkt): `https://objkt.com/collections/KT1HoPURtwqXy58UYfZYh4ufoaMSNcsb9pCF`
