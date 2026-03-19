@@ -350,6 +350,14 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
     log "WiFi firmware: ${FW_SIZE:-0}"
 
+    # Copy extra firmware blobs from source tree (i915 GPU, Intel SOF audio, etc.)
+    EXTRA_FW_DIR="${SCRIPT_DIR}/../firmware"
+    if [ -d "${EXTRA_FW_DIR}" ]; then
+        cp -r "${EXTRA_FW_DIR}/"* "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
+        EXTRA_FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
+        log "Total firmware (with GPU/audio): ${EXTRA_FW_SIZE}"
+    fi
+
     # Copy flite TTS libraries (core + slt female + kal male voices)
     for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_slt.so.2.2 libflite_cmu_us_kal.so.2.2; do
         src="/usr/lib64/${flib}"
