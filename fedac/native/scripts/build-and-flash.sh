@@ -498,6 +498,31 @@ for util in git rg jq; do
     fi
 done
 
+# ── Claude Code native binary ──
+# Download or use cached Bun SEA binary (no Node.js required on device)
+CLAUDE_CACHE="${BUILD_DIR}/claude-native"
+CLAUDE_GCS="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
+if [ ! -f "${CLAUDE_CACHE}" ] || [ "$(find "${CLAUDE_CACHE}" -mtime +7 2>/dev/null)" ]; then
+    CLAUDE_VER=$(curl -fsSL "${CLAUDE_GCS}/latest" 2>/dev/null || true)
+    if [ -n "${CLAUDE_VER}" ]; then
+        log "Downloading Claude Code ${CLAUDE_VER}..."
+        curl -fsSL "${CLAUDE_GCS}/${CLAUDE_VER}/linux-x64/claude" -o "${CLAUDE_CACHE}.tmp" && \
+            mv "${CLAUDE_CACHE}.tmp" "${CLAUDE_CACHE}" && \
+            chmod +x "${CLAUDE_CACHE}"
+    fi
+fi
+if [ -f "${CLAUDE_CACHE}" ]; then
+    cp "${CLAUDE_CACHE}" "${INITRAMFS_DIR}/bin/claude"
+    chmod +x "${INITRAMFS_DIR}/bin/claude"
+    # DO NOT strip — Bun SEA binary; stripping destroys embedded JS
+    for lib in $(ldd "${CLAUDE_CACHE}" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+    done
+    log "  claude: $(du -sh "${INITRAMFS_DIR}/bin/claude" | cut -f1) (native binary)"
+else
+    warn "Claude Code binary not available — Claude will not work on device"
+fi
+
 # Git credential helper — reads GitHub PAT from /github-pat (baked by ac-os)
 cat > "${INITRAMFS_DIR}/bin/git-credential-ac" << 'GIT_CRED'
 #!/bin/sh
