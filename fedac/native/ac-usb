@@ -69,12 +69,21 @@ case "${CMD}" in
         CONTAINER=$(sudo docker create --privileged -v /dev:/dev alpine:latest sh -c "
             apk add --quiet dosfstools
             mkdir -p /mnt/usb /out
-            mount ${USB_DEV}1 /mnt/usb
+            # Try data partition (sda2) first, fall back to ESP (sda1)
+            mounted=''
+            for p in ${USB_DEV}2 ${USB_DEV}1; do
+                [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
+            done
+            [ -z \"\$mounted\" ] && { echo 'Could not mount USB'; exit 1; }
+            echo \"Mounted \$mounted\"
+            ls -la /mnt/usb/
             # Copy logs and perf data
             cp /mnt/usb/ac-native.log /out/ 2>/dev/null || true
             cp -r /mnt/usb/perf /out/ 2>/dev/null || true
             cp /mnt/usb/config.json /out/ 2>/dev/null || true
             cp /mnt/usb/booted-version /out/ 2>/dev/null || true
+            cp /mnt/usb/dmesg.log /out/ 2>/dev/null || true
+            cp /mnt/usb/init.log /out/ 2>/dev/null || true
             ls -la /out/
             umount /mnt/usb
         ")
