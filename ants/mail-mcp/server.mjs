@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { execFile as execFileCb } from "node:child_process";
+import { execFile as execFileCb, spawn as spawnCb } from "node:child_process";
 import { promisify } from "node:util";
 import { access, readFile } from "node:fs/promises";
 
@@ -99,8 +99,23 @@ async function ensureMuIndex() {
 }
 
 async function run(cmd, args, { input, timeout = 30_000 } = {}) {
+  if (input !== undefined) {
+    // execFile doesn't pipe input to stdin; use spawn instead.
+    return new Promise((resolve, reject) => {
+      const child = spawnCb(cmd, args, { timeout });
+      let stdout = "", stderr = "";
+      child.stdout.on("data", (d) => (stdout += d));
+      child.stderr.on("data", (d) => (stderr += d));
+      child.on("close", (code) => {
+        if (code !== 0) return reject(new Error(`${cmd} exited ${code}: ${stderr.trim()}`));
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+      });
+      child.on("error", reject);
+      child.stdin.write(input);
+      child.stdin.end();
+    });
+  }
   const opts = { timeout, maxBuffer: 10 * 1024 * 1024 };
-  if (input !== undefined) opts.input = input;
   const { stdout, stderr } = await execFile(cmd, args, opts);
   return { stdout: stdout.trim(), stderr: stderr.trim() };
 }
