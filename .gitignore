@@ -1,3 +1,6 @@
+# Wrangler local cache
+.wrangler/
+
 # MongoDB backup (contains user data)
 mongodb-backup/
 
