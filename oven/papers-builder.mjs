@@ -129,12 +129,10 @@ async function commitAndPushPDFs(job) {
   await git(["config", "user.email", "oven@aesthetic.computer"]);
   await git(["config", "user.name", "Oven (aesthetic.computer)"]);
 
-  // Stage the site directory (PDFs + index.html), metadata, and source PDFs
-  await git(["add", "--force", SITE_DIR]);
-  await git(["add", "--force", METADATA]);
-  // Also stage the built PDFs in the papers source dirs (they're tracked in git).
-  // Use git's pathspec glob (requires ":(glob)" prefix) since execFile has no shell expansion.
-  await git(["add", "--force", "--", ":(glob)papers/arxiv-*/*.pdf"]);
+  // Stage ALL changes in the working tree — publish generates PDFs, index.html,
+  // metadata.json, BUILDLOG.md, .aux files, etc. We need to stage everything
+  // so that `git pull --rebase` doesn't fail on unstaged changes.
+  await git(["add", "-A"]);
 
   // Check if there are actually staged changes
   const status = await git(["diff", "--cached", "--name-only"]);
