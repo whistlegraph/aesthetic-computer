@@ -128,6 +128,45 @@ type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
                 echo 'Done!'
             "
         rm -f /workspaces/aesthetic-computer/.flash-vmlinuz 2>/dev/null
+        # Inject credentials + handle into config.json on the USB
+        HANDLE="${3:-jeffrey}"
+        CONFIG_JSON=""
+        CLAUDE_TOKEN=""
+        GITHUB_PAT=""
+        if [ -f "${HOME}/.claude/.credentials.json" ]; then
+            CLAUDE_TOKEN=$(node -e "
+                const c=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+                process.stdout.write(c.claudeAiOauth?.accessToken || '');
+            " 2>/dev/null || true)
+        fi
+        if [ -f "${HOME}/.config/gh/hosts.yml" ]; then
+            GITHUB_PAT=$(grep 'oauth_token:' "${HOME}/.config/gh/hosts.yml" 2>/dev/null | head -1 | awk '{print $2}' || true)
+        fi
+        if [ -n "${CLAUDE_TOKEN}" ] || [ -n "${GITHUB_PAT}" ]; then
+            CONFIG_JSON=$(node -e "
+                const c = {handle: '${HANDLE}'};
+                if ('${CLAUDE_TOKEN}') c.claudeToken = '${CLAUDE_TOKEN}';
+                if ('${GITHUB_PAT}') c.githubPat = '${GITHUB_PAT}';
+                process.stdout.write(JSON.stringify(c));
+            " 2>/dev/null || true)
+        fi
+        if [ -n "${CONFIG_JSON}" ]; then
+            echo "${CONFIG_JSON}" | sudo docker run --rm -i --privileged -v /dev:/dev \
+                alpine:latest sh -c "
+                    apk add --quiet dosfstools
+                    cat > /tmp/config.json
+                    mkdir -p /mnt/usb
+                    mount ${USB_DEV}1 /mnt/usb
+                    cp /tmp/config.json /mnt/usb/config.json
+                    echo \"Wrote config.json (handle: ${HANDLE}, claude: $([ -n "${CLAUDE_TOKEN}" ] && echo yes || echo no), github: $([ -n "${GITHUB_PAT}" ] && echo yes || echo no))\"
+                    sync
+                    umount /mnt/usb
+                "
+        else
+            echo "No credentials found — config.json not written"
+            echo "  Claude: ~/.claude/.credentials.json"
+            echo "  GitHub: ~/.config/gh/hosts.yml"
+        fi
         echo "Flash complete: ${USB_DEV}"
         ;;
     *)

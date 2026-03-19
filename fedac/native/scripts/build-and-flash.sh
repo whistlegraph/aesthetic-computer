@@ -657,6 +657,19 @@ cp "${SCRIPT_DIR}/../initramfs/init" "${INITRAMFS_DIR}/init"
 chmod +x "${INITRAMFS_DIR}/init"
 log "Init: cage+Wayland boot script installed"
 
+# Generate initramfs manifest (for build parity verification between local/oven)
+cd "${INITRAMFS_DIR}"
+find . -type f -o -type l | sort | while IFS= read -r f; do
+    if [ -L "$f" ]; then
+        printf "L %s -> %s\n" "$f" "$(readlink "$f")"
+    else
+        printf "F %s %s\n" "$(wc -c < "$f")" "$f"
+    fi
+done > "${BUILD_DIR}/initramfs-manifest.txt"
+cp "${BUILD_DIR}/initramfs-manifest.txt" "${INITRAMFS_DIR}/manifest.txt"
+MANIFEST_LINES=$(wc -l < "${BUILD_DIR}/initramfs-manifest.txt")
+log "Manifest: ${MANIFEST_LINES} entries (${BUILD_DIR}/initramfs-manifest.txt)"
+
 # Create cpio + lz4
 INITRAMFS_CPIO="${BUILD_DIR}/initramfs.cpio"
 cd "${INITRAMFS_DIR}"
