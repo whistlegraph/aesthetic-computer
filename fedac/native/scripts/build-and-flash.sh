@@ -588,15 +588,17 @@ fi
 find_lib() {
     for dir in /usr/lib64 /usr/lib/x86_64-linux-gnu; do
         local f="${dir}/$1"
-        [ -f "$f" ] && echo "$f" && return
-        f="$(readlink -f "${dir}/$1" 2>/dev/null)"
-        [ -f "$f" ] && echo "$f" && return
+        [ -f "$f" ] && echo "$f" && return 0
+        f="$(readlink -f "${dir}/$1" 2>/dev/null || true)"
+        [ -f "$f" ] && echo "$f" && return 0
     done
+    return 0  # not found is OK
 }
 find_dri() {
     for dir in /usr/lib64/dri /usr/lib/x86_64-linux-gnu/dri; do
-        [ -e "${dir}/$1" ] && echo "${dir}/$1" && return
+        [ -e "${dir}/$1" ] && echo "${dir}/$1" && return 0
     done
+    return 0  # not found is OK
 }
 
 log "Bundling Mesa GPU + Wayland libs..."
@@ -615,8 +617,8 @@ for lib in libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 libgbm.so.1 libGL.so.1 \
 done
 
 # Mesa gallium (monolithic driver — contains iris/i915/swrast)
-GALLIUM=$(ls /usr/lib64/libgallium-*.so /usr/lib/x86_64-linux-gnu/libgallium-*.so 2>/dev/null | head -1)
-[ -f "$GALLIUM" ] && cp "$GALLIUM" "${INITRAMFS_DIR}/lib64/"
+GALLIUM=$(ls /usr/lib64/libgallium-*.so /usr/lib/x86_64-linux-gnu/libgallium-*.so 2>/dev/null | head -1 || true)
+[ -n "$GALLIUM" ] && [ -f "$GALLIUM" ] && cp "$GALLIUM" "${INITRAMFS_DIR}/lib64/"
 
 # DRI driver stubs
 for drv in iris_dri.so i915_dri.so kms_swrast_dri.so swrast_dri.so libdril_dri.so; do
