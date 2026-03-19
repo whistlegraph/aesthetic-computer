@@ -2808,7 +2808,7 @@ function paint({
   }
 
   if (paintPictureOverlay) {
-    wipe(0);
+    wipe(isDark ? 0 : 255);
 
     if (active.length === 0) {
       page(picture);
@@ -2925,7 +2925,7 @@ function paint({
       api.kidlisp(klX, klY, klW, klH, kidlispBackground);
     }
   } else if (visualizerFullscreen && !recitalMode) {
-    wipe(0); // Black background first
+    wipe(isDark ? 0 : 255);
     sound.paint.bars(
       api,
       amplitude,
@@ -2938,7 +2938,7 @@ function paint({
       { primaryColor, secondaryColor },
     );
   } else if (recitalMode) {
-    wipe(0); // Pure black background for recital mode
+    wipe(isDark ? 0 : 255);
     // Draw fullscreen visualizer behind wireframe UI
     sound.paint.bars(
       api,
