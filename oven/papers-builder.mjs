@@ -7,7 +7,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
-import { spawn } from "child_process";
+import { spawn, execFile } from "child_process";
 
 const MAX_RECENT_JOBS = 10;
 const MAX_LOG_LINES = 2000;
@@ -103,6 +103,70 @@ function wireStream(job, proc, streamName) {
   });
 }
 
+function git(args, cwd = GIT_REPO_DIR) {
+  return new Promise((resolve, reject) => {
+    execFile("git", args, { cwd, timeout: 60_000 }, (err, stdout, stderr) => {
+      if (err) {
+        err.stderr = stderr;
+        return reject(err);
+      }
+      resolve(stdout.trim());
+    });
+  });
+}
+
+// After a successful publish, commit the built PDFs + index + metadata and push
+// to origin so Netlify can deploy them via the papers.aesthetic.computer subdomain.
+async function commitAndPushPDFs(job) {
+  const SITE_DIR = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
+  const METADATA = path.join(GIT_REPO_DIR, "papers", "metadata.json");
+
+  addLogLine(job, "stdout", "  GIT: staging built PDFs...");
+  job.stage = "git-push";
+  job.percent = 96;
+
+  // Configure git identity for the oven bot
+  await git(["config", "user.email", "oven@aesthetic.computer"]);
+  await git(["config", "user.name", "Oven (aesthetic.computer)"]);
+
+  // Stage the site directory (PDFs + index.html), metadata, and source PDFs
+  await git(["add", "--force", SITE_DIR]);
+  await git(["add", "--force", METADATA]);
+  // Also stage the built PDFs in the papers source dirs (they're tracked in git).
+  // Use git's pathspec glob (requires ":(glob)" prefix) since execFile has no shell expansion.
+  await git(["add", "--force", "--", ":(glob)papers/arxiv-*/*.pdf"]);
+
+  // Check if there are actually staged changes
+  const status = await git(["diff", "--cached", "--name-only"]);
+  if (!status) {
+    addLogLine(job, "stdout", "  GIT: no changes to commit — PDFs unchanged");
+    return;
+  }
+
+  const changedFiles = status.split("\n");
+  const pdfCount = changedFiles.filter((f) => f.endsWith(".pdf")).length;
+  const msg = `[papers] oven auto-build: ${pdfCount} PDF${pdfCount !== 1 ? "s" : ""} updated`;
+
+  addLogLine(job, "stdout", `  GIT: committing ${changedFiles.length} file(s)...`);
+  await git(["commit", "-m", msg]);
+
+  // Pull any changes that landed while we were building (rebase our commit on top)
+  addLogLine(job, "stdout", "  GIT: pulling latest before push...");
+  try {
+    await git(["pull", "--rebase", "origin", "main"]);
+  } catch (pullErr) {
+    // If rebase fails (conflict), abort and report — our PDFs are binary so this shouldn't happen
+    try { await git(["rebase", "--abort"]); } catch {}
+    throw pullErr;
+  }
+
+  addLogLine(job, "stdout", "  GIT: pushing to origin/main...");
+  job.percent = 98;
+  await git(["push", "origin", "main"]);
+
+  addLogLine(job, "stdout", `  GIT: pushed — ${msg}`);
+}
+
 async function runPapersJob(job) {
   try {
     job.status = "running";
@@ -137,6 +201,14 @@ async function runPapersJob(job) {
         else resolve();
       });
     });
+
+    // Commit and push built PDFs back to the repo for Netlify deployment
+    try {
+      await commitAndPushPDFs(job);
+    } catch (pushErr) {
+      // Git push failure is non-fatal — PDFs were still built successfully
+      addLogLine(job, "stderr", `  GIT PUSH FAILED: ${pushErr.message}${pushErr.stderr ? " | " + pushErr.stderr.trim() : ""}`);
+    }
 
     job.status = "success";
     job.stage = "done";

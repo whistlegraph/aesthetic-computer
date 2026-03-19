@@ -174,10 +174,30 @@ else
 fi
 if id -u oven >/dev/null 2>&1; then
   chown -R oven:oven \$NATIVE_GIT_DIR
+  su - oven -s /bin/bash -c 'git config --global --add safe.directory /opt/oven/native-git' 2>/dev/null || true
 fi
 echo '  Done.'
 "
 echo "✅ Native git repo ready"
+
+# Configure git push credentials for papers PDF auto-push
+echo ""
+echo "🔑 Configuring git push credentials for papers auto-build..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+NATIVE_GIT_DIR=/opt/oven/native-git
+# Read OVEN_GH_TOKEN from .env if it exists
+OVEN_GH_TOKEN=\$(grep '^OVEN_GH_TOKEN=' $REMOTE_DIR/.env 2>/dev/null | cut -d= -f2-)
+if [ -n \"\$OVEN_GH_TOKEN\" ]; then
+  cd \$NATIVE_GIT_DIR
+  # Set push URL with token authentication (fetch stays anonymous HTTPS)
+  git remote set-url --push origin https://x-access-token:\${OVEN_GH_TOKEN}@github.com/whistlegraph/aesthetic-computer.git
+  echo '  Push URL configured with token auth'
+else
+  echo '  WARNING: OVEN_GH_TOKEN not found in $REMOTE_DIR/.env — papers auto-push will fail'
+  echo '  Add OVEN_GH_TOKEN=ghp_... to aesthetic-computer-vault/oven/.env and re-deploy'
+fi
+"
+echo "✅ Git push credentials configured"
 
 # Restart unless --no-restart flag
 if [ "$1" != "--no-restart" ]; then
