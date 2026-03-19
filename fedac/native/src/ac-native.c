@@ -1414,31 +1414,37 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Startup greeting — time-of-day + handle + "enjoy Los Angeles" + build name
-        if (f == 10 && tts) {
-            char greet[256];
+        // Startup greeting — time-of-day + handle, or boot melody if no handle
+        if (f == 10) {
             const char *at = strchr(boot_title, '@');
-            int hour = get_la_hour();
-            const char *tod;
-            if (hour >= 5 && hour < 12)       tod = "good morning";
-            else if (hour >= 12 && hour < 17)  tod = "good afternoon";
-            else                               tod = "good evening";
+            if (at && tts) {
+                // Personalized TTS greeting
+                char greet[256];
+                int hour = get_la_hour();
+                const char *tod;
+                if (hour >= 5 && hour < 12)       tod = "good morning";
+                else if (hour >= 12 && hour < 17)  tod = "good afternoon";
+                else                               tod = "good evening";
 #ifdef AC_BUILD_NAME
-            char name_tts[64];
-            strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
-            name_tts[sizeof(name_tts) - 1] = 0;
-            for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
-            if (at)
+                char name_tts[64];
+                strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
+                name_tts[sizeof(name_tts) - 1] = 0;
+                for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
                 snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles! %s.", tod, at + 1, name_tts);
-            else
-                snprintf(greet, sizeof(greet), "%s. %s.", tod, name_tts);
 #else
-            if (at)
                 snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles!", tod, at + 1);
-            else
-                snprintf(greet, sizeof(greet), "%s", tod);
 #endif
-            tts_speak(tts, greet);
+                tts_speak(tts, greet);
+            } else if (audio) {
+                // No handle — play a short ascending arpeggio (C E G C')
+                audio_synth(audio, WAVE_SINE, 523.3, 0.15, 0.6, 0.003, 0.10, -0.3); // C5
+            }
+        }
+        // Stagger the arpeggio notes across frames for no-handle boot
+        if (!strchr(boot_title, '@') && audio) {
+            if (f == 20)  audio_synth(audio, WAVE_SINE, 659.3, 0.15, 0.6, 0.003, 0.10, 0.0);  // E5
+            if (f == 30)  audio_synth(audio, WAVE_SINE, 784.0, 0.15, 0.6, 0.003, 0.10, 0.3);  // G5
+            if (f == 42)  audio_synth(audio, WAVE_SINE, 1047.0, 0.20, 0.5, 0.003, 0.15, 0.0); // C6
         }
         // W hint is visual only — no TTS
 
