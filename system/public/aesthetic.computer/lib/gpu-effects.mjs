@@ -78,13 +78,11 @@ precision highp float;
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform vec2 u_center;
-uniform float u_steps;    // angle in degrees
+uniform float u_steps;    // vortex intensity (same unit as CPU spinBlockBased)
 uniform vec4 u_bounds;
 
 in vec2 v_texCoord;
 out vec4 fragColor;
-
-const float DEG_TO_RAD = 3.14159265359 / 180.0;
 
 void main() {
   int destX = int(gl_FragCoord.x);
@@ -100,18 +98,27 @@ void main() {
     return;
   }
 
-  // Pure rotation via inverse rotation matrix (no sqrt, no atan)
-  float rad = u_steps * DEG_TO_RAD;
-  float cosA = cos(rad);
-  float sinA = sin(rad);
-
+  // Vortex algorithm: angle_change = steps / distance (matches CPU path)
+  // Pixels near center rotate more, creating the spiral/swirl effect.
   float dx = float(destX) - u_center.x;
   float dy = float(destY) - u_center.y;
+  float dist2 = dx * dx + dy * dy;
 
-  float srcXf = dx * cosA + dy * sinA + u_center.x;
-  float srcYf = -dx * sinA + dy * cosA + u_center.y;
+  // Center pixel — no rotation needed
+  if (dist2 < 1.0) {
+    fragColor = texelFetch(u_texture, ivec2(destX, destY), 0);
+    return;
+  }
 
-  // Wrap into bounds
+  float dist = sqrt(dist2);
+  float angle = atan(dy, dx);
+  float angleChange = u_steps / dist;
+  float srcAngle = angle - angleChange;
+
+  float srcXf = u_center.x + dist * cos(srcAngle);
+  float srcYf = u_center.y + dist * sin(srcAngle);
+
+  // Wrap into bounds (toroidal)
   int boundsW = maxX - minX;
   int boundsH = maxY - minY;
   int srcX = int(round(srcXf));
