@@ -241,10 +241,13 @@ fi
 # build-and-flash.sh runs under sudo where npx is unavailable.
 mkdir -p "${INITRAMFS_DIR}/jslib"
 
+# Always create lib64 — even if ac-native is static, other bundled tools
+# (curl, iw, wpa_supplicant, busybox, git, jq) are dynamically linked.
+mkdir -p "${INITRAMFS_DIR}/lib64"
+
 # Copy shared libs (if dynamic build)
 if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     log "Copying shared libraries for dynamic binary..."
-    mkdir -p "${INITRAMFS_DIR}/lib64"
     for lib in $(ldd "${BUILD_DIR}/ac-native" | grep -oP '/\S+'); do
         [ -f "$lib" ] && cp "$lib" "${INITRAMFS_DIR}/lib64/"
     done
@@ -355,8 +358,55 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     if [ -d "${EXTRA_FW_DIR}" ]; then
         cp -r "${EXTRA_FW_DIR}/"* "${INITRAMFS_DIR}/lib/firmware/" 2>/dev/null || true
         EXTRA_FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
-        log "Total firmware (with GPU/audio): ${EXTRA_FW_SIZE}"
+        log "Total firmware (with source tree blobs): ${EXTRA_FW_SIZE}"
     fi
+
+    # Copy ALL i915 GPU firmware from host (supports Kaby Lake, Coffee Lake, etc.)
+    # The source tree only has MTL/ARL blobs; the oven has firmware for all generations.
+    if [ -d "/lib/firmware/i915" ]; then
+        mkdir -p "${INITRAMFS_DIR}/lib/firmware/i915"
+        I915_COUNT=0
+        for fw in /lib/firmware/i915/*; do
+            [ -f "$fw" ] || continue
+            dest="${INITRAMFS_DIR}/lib/firmware/i915/$(basename "${fw%.xz}")"
+            dest="${dest%.zst}"
+            if [ ! -f "$dest" ]; then
+                case "$fw" in
+                    *.xz)  xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                    *.zst) zstd -d "$fw" -o "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                    *)     cp "$fw" "$dest" ;;
+                esac
+                I915_COUNT=$((I915_COUNT + 1))
+            fi
+        done
+        log "  i915 firmware: ${I915_COUNT} new blobs from /lib/firmware/i915/"
+    fi
+
+    # Copy Intel SOF audio firmware from host (topology + IPC files)
+    for sof_dir in /lib/firmware/intel/sof /lib/firmware/intel/sof-ipc4 \
+                   /lib/firmware/intel/sof-tplg /lib/firmware/intel/sof-ipc4-tplg; do
+        if [ -d "$sof_dir" ]; then
+            dest_dir="${INITRAMFS_DIR}/lib/firmware/intel/$(basename "$sof_dir")"
+            mkdir -p "$dest_dir"
+            for fw in "$sof_dir"/*; do
+                [ -f "$fw" ] || continue
+                dest="$dest_dir/$(basename "${fw%.xz}")"
+                dest="${dest%.zst}"
+                if [ ! -f "$dest" ]; then
+                    case "$fw" in
+                        *.xz)  xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                        *.zst) zstd -d "$fw" -o "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                        *)     cp "$fw" "$dest" ;;
+                    esac
+                fi
+            done
+        fi
+    done
+    SOF_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware/intel" 2>/dev/null | cut -f1 || true)
+    log "  Intel SOF audio firmware: ${SOF_SIZE:-none}"
+
+    TOTAL_FW_SIZE=$(du -sh "${INITRAMFS_DIR}/lib/firmware" 2>/dev/null | cut -f1)
+    log "Total firmware (all generations): ${TOTAL_FW_SIZE}"
 
     # Copy flite TTS libraries (core + slt female + kal male voices)
     for flib in libflite.so.2.2 libflite_cmulex.so.2.2 libflite_usenglish.so.2.2 libflite_cmu_us_slt.so.2.2 libflite_cmu_us_kal.so.2.2; do
@@ -681,6 +731,42 @@ done
 cp "${SCRIPT_DIR}/../initramfs/init" "${INITRAMFS_DIR}/init"
 chmod +x "${INITRAMFS_DIR}/init"
 log "Init: cage+Wayland boot script installed"
+
+# ── Resolve ALL transitive shared library dependencies ──
+# Individual binary copies above use ldd per-binary, but miss transitive deps
+# (e.g. libnl-genl-3.so needed by iw/wpa_supplicant, libcurl.so.4 needed by curl).
+# Run ldd on every ELF binary/lib in the initramfs and copy anything still missing.
+log "Resolving transitive shared library dependencies..."
+TRANS_COPIED=0
+for pass in 1 2; do
+    # Find all ELF files (binaries + shared libs) in the initramfs
+    NEEDS_COPY=0
+    while IFS= read -r elf_file; do
+        [ -f "$elf_file" ] || continue
+        # Skip non-ELF files (scripts, data)
+        file "$elf_file" 2>/dev/null | grep -q "ELF" || continue
+        for lib in $(ldd "$elf_file" 2>/dev/null | grep -oP '/[^ ()]+\.so[^ ()]*'); do
+            [ -f "$lib" ] || continue
+            base="$(basename "$lib")"
+            # Check if already in lib64/
+            if [ ! -f "${INITRAMFS_DIR}/lib64/${base}" ]; then
+                cp "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null && NEEDS_COPY=1 && TRANS_COPIED=$((TRANS_COPIED + 1))
+                # Also create unversioned .so symlink
+                novers="$(echo "$base" | sed 's/\.so\..*/\.so/')"
+                [ "$novers" != "$base" ] && ln -sf "$base" "${INITRAMFS_DIR}/lib64/$novers" 2>/dev/null || true
+            fi
+            # Also check canonical path (e.g. /usr/lib64/libnl-genl-3.so.200)
+            dest_dir="${INITRAMFS_DIR}$(dirname "$lib")"
+            if [ ! -f "${dest_dir}/${base}" ]; then
+                mkdir -p "$dest_dir"
+                cp -n "$lib" "$dest_dir/" 2>/dev/null || true
+            fi
+        done
+    done < <(find "${INITRAMFS_DIR}" -type f \( -name "*.so*" -o -path "*/bin/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -name "ac-native" \) 2>/dev/null)
+    # Second pass catches deps-of-deps; break early if nothing new was found
+    [ "${NEEDS_COPY}" -eq 0 ] && break
+done
+log "Transitive deps: ${TRANS_COPIED} additional libraries copied"
 
 # Generate initramfs manifest (for build parity verification between local/oven)
 cd "${INITRAMFS_DIR}"
