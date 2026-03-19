@@ -64,10 +64,7 @@ for dev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
   if [ -b "$dev" ]; then
     mkdir -p /mnt
     mount "$dev" /mnt 2>/dev/null && {
-      cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null &
-      KMSG_PID=$!
-      sleep 1
-      kill $KMSG_PID 2>/dev/null
+      timeout 0.2 cat /dev/kmsg > /mnt/dmesg.log 2>/dev/null || true
       cp /tmp/ac-init.log /mnt/init.log 2>/dev/null
       sync
       umount /mnt 2>/dev/null
