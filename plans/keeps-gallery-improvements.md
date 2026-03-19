@@ -1,7 +1,7 @@
 # Keeps Gallery Improvements Plan
 
 ## Overview
-Four changes to `keeps.kidlisp.com` for performance and usability:
+Four changes to `keep.kidlisp.com` for performance and usability:
 1. Static PNG thumbnails (not animated WebP)
 2. Paginated gallery with page controls (not infinite scroll)
 3. IntersectionObserver that loads/unloads images based on visibility
@@ -221,7 +221,7 @@ Note: With pagination (24 items per page), this is a nice-to-have but still usef
 
 ## 4. Permalinks for Unkept Pieces
 
-**Why:** Currently `keeps.kidlisp.com/$code` only resolves kept tokens (via Objkt query). Unkept pieces should also resolve — the store-kidlisp cache has them all.
+**Why:** Currently `keep.kidlisp.com/$code` only resolves kept tokens (via Objkt query). Unkept pieces should also resolve — the store-kidlisp cache has them all.
 
 ### File: `system/public/kidlisp.com/keeps.html`
 
@@ -296,9 +296,9 @@ The OG image URL (`oven.aesthetic.computer/preview/1200x630/$code.png`) already 
 
 ## Testing
 
-1. Load `keeps.kidlisp.com` — verify PNG thumbnails load (check Network tab for `.png` requests)
+1. Load `keep.kidlisp.com` — verify PNG thumbnails load (check Network tab for `.png` requests)
 2. Verify pagination: prev/next buttons, page counter, search resets to page 1
 3. Verify images unload when scrolled away (inspect `<img>` elements — `src` should clear)
-4. Visit `keeps.kidlisp.com/$cow` (kept) — should show keep detail with price
-5. Visit `keeps.kidlisp.com/$someunkeptcode` (unkept) — should show piece detail with run/edit links
-6. Test social crawler with: `curl -A "Twitterbot" https://keeps.kidlisp.com/$cow`
+4. Visit `keep.kidlisp.com/$cow` (kept) — should show keep detail with price
+5. Visit `keep.kidlisp.com/$someunkeptcode` (unkept) — should show piece detail with run/edit links
+6. Test social crawler with: `curl -A "Twitterbot" https://keep.kidlisp.com/$cow`

@@ -32,7 +32,7 @@
       "matches": [
         "https://aesthetic.computer/*",
         "https://*.aesthetic.computer/*",
-        "https://keeps.kidlisp.com/*",
+        "https://keep.kidlisp.com/*",
         "https://*.kidlisp.com/*",
         "https://objkt.com/*",
         "http://localhost:8888/*",

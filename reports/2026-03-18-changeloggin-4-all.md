@@ -110,7 +110,7 @@ The bare-metal creative OS hit several milestones:
 - IPFS artifacts iframe preview
 - Light/dark theme toggle
 
-### keeps.kidlisp.com
+### keep.kidlisp.com
 - Broadside-style preamble
 - Unkept/Kept tabs (color-coded red/green)
 - Market tab with objkt.com listings

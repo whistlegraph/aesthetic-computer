@@ -76,7 +76,7 @@ async function deploy() {
   const contractMetadataJson = JSON.stringify({
     name: obscureName,
     version: '5.0.0-rc',
-    description: 'https://keeps.kidlisp.com/rc',
+    description: 'https://keep.kidlisp.com/rc',
     homepage: 'https://kidlisp.com',
     interfaces: ['TZIP-012', 'TZIP-016', 'TZIP-021'],
     authors: ['aesthetic.computer'],

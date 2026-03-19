@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- KidLisp.com Keeps - Index of KidLisp $codes cached via store-kidlisp -->
-<!-- URL: keeps.kidlisp.com -->
+<!-- URL: keep.kidlisp.com -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -9,7 +9,7 @@
 
   <!-- Open Graph / Social Preview -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://keeps.kidlisp.com" />
+  <meta property="og:url" content="https://keep.kidlisp.com" />
   <meta property="og:title" content="KidLisp Keeps — Generative Art on Tezos" />
   <meta property="og:description" content="Browse, collect, and trade interactive generative artworks written in KidLisp — a minimal Lisp for creative computing on Aesthetic.Computer." />
   <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
@@ -4237,7 +4237,7 @@
     });
 
     // Tab + About routing
-    const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+    const isKeepsDomain = window.location.hostname === 'keep.kidlisp.com';
 
     function normalizeTabName(tabName) {
       if (tabName === 'kept') return 'kept';
@@ -4344,7 +4344,7 @@
       const tzktBase = network === 'mainnet' ? 'https://tzkt.io' : `https://${network}.tzkt.io`;
       const tzktUrl = `${tzktBase}/${contract}/tokens/${tokenId}`;
       const acUrl = `https://aesthetic.computer/${code}`;
-      const permalink = `https://keeps.kidlisp.com/$${code}`;
+      const permalink = `https://keep.kidlisp.com/$${code}`;
 
       const statusClass = entry.status === 'sold' ? 'sold' : entry.status === 'active' ? 'active' : 'unlisted';
       const statusText = entry.status === 'sold' ? 'Sold' : entry.status === 'active' ? 'For Sale' : 'Not Listed';
@@ -5597,7 +5597,7 @@
     async function initAuth0() {
       try {
         if (!window.auth0) return;
-        const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+        const isKeepsDomain = window.location.hostname === 'keep.kidlisp.com';
         const redirectUri = isKeepsDomain ? window.location.origin + '/' : window.location.origin + window.location.pathname;
         acAuth0Client = await window.auth0.createAuth0Client({
           domain: 'aesthetic.us.auth0.com',
@@ -5696,7 +5696,7 @@
     async function keepsLogout() {
       if (!acAuth0Client) return;
       acUser = null; acToken = null; acHandle = null;
-      const isKeepsDomain = window.location.hostname === 'keeps.kidlisp.com';
+      const isKeepsDomain = window.location.hostname === 'keep.kidlisp.com';
       const returnTo = isKeepsDomain ? window.location.origin + '/' : window.location.origin + window.location.pathname;
       await acAuth0Client.logout({ logoutParams: { returnTo } });
     }

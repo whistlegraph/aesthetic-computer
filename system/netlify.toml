@@ -563,7 +563,7 @@ function = "media"
 path = "/api/os-release-upload"
 function = "os-release-upload"
 
-# keeps.kidlisp.com/$code — social crawler meta tag injection
+# keep.kidlisp.com/$code — social crawler meta tag injection
 [[edge_functions]]
 path = "/*"
 function = "keeps-social"
@@ -1372,7 +1372,7 @@ force = true
 # Keeps → subdomain redirect
 [[redirects]]
 from = "https://kidlisp.com/keeps"
-to = "https://keeps.kidlisp.com/"
+to = "https://keep.kidlisp.com/"
 status = 301
 force = true
 # Learn / reference page
@@ -1405,7 +1405,7 @@ force = true
 # Keeps → subdomain redirect
 [[redirects]]
 from = "https://www.kidlisp.com/keeps"
-to = "https://keeps.kidlisp.com/"
+to = "https://keep.kidlisp.com/"
 status = 301
 force = true
 # Learn / reference page
@@ -1447,24 +1447,36 @@ to = "/kidlisp.com/learn.html"
 status = 200
 force = true
 
-# keeps.kidlisp.com subdomain
+# Legacy keeps.kidlisp.com → keep.kidlisp.com redirect
+[[redirects]]
+from = "https://keeps.kidlisp.com/*"
+to = "https://keep.kidlisp.com/:splat"
+status = 301
+force = true
 [[redirects]]
 from = "https://keeps.kidlisp.com"
+to = "https://keep.kidlisp.com/"
+status = 301
+force = true
+
+# keep.kidlisp.com subdomain
+[[redirects]]
+from = "https://keep.kidlisp.com"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
 [[redirects]]
-from = "https://keeps.kidlisp.com/api/*"
+from = "https://keep.kidlisp.com/api/*"
 to = "/api/:splat"
 status = 200
 force = true
 [[redirects]]
-from = "https://keeps.kidlisp.com/technology"
+from = "https://keep.kidlisp.com/technology"
 to = "/kidlisp.com/keeps-tech.html"
 status = 200
 force = true
 [[redirects]]
-from = "https://keeps.kidlisp.com/*"
+from = "https://keep.kidlisp.com/*"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = true
@@ -2269,13 +2281,13 @@ status = 200
 force = false
 [[redirects]]
 # Keeps - local dev mirroring production subdomain
-# Local dev: https://localhost:8888/keeps.kidlisp.com/
-from = "/keeps.kidlisp.com/*"
+# Local dev: https://localhost:8888/keep.kidlisp.com/
+from = "/keep.kidlisp.com/*"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = false
 [[redirects]]
-from = "/keeps.kidlisp.com"
+from = "/keep.kidlisp.com"
 to = "/kidlisp.com/keeps.html"
 status = 200
 force = false

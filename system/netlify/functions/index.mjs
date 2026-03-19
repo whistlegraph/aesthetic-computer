@@ -178,8 +178,8 @@ async function fun(event, context) {
     }
   }
 
-  // Serve keeps.kidlisp.com locally
-  if (event.path.startsWith("/keeps.kidlisp.com")) {
+  // Serve keep.kidlisp.com locally
+  if (event.path.startsWith("/keep.kidlisp.com")) {
     try {
       let htmlContent = await fs.readFile(
         path.join(process.cwd(), "public/kidlisp.com/keeps.html"),

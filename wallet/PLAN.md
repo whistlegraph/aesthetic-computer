@@ -1,6 +1,6 @@
 # Keeps Wallet — Beacon Protocol Implementation Plan
 
-**Goal:** Make Keeps Wallet a drop-in replacement for Temple Wallet by implementing the Beacon SDK postMessage protocol. Any dApp using Beacon (keeps.kidlisp.com, objkt.com, etc.) will see Keeps Wallet as a connectable wallet — no custom integration needed.
+**Goal:** Make Keeps Wallet a drop-in replacement for Temple Wallet by implementing the Beacon SDK postMessage protocol. Any dApp using Beacon (keep.kidlisp.com, objkt.com, etc.) will see Keeps Wallet as a connectable wallet — no custom integration needed.
 
 ---
 
@@ -167,7 +167,7 @@ window.dispatchEvent(new CustomEvent('keeps:ready'));
 
 **Design philosophy:** The wallet is not a finance app. It's a living collection. You open it and you see your keeps running. Everything else is invisible until needed.
 
-**Style guide:** Match `keeps.kidlisp.com` — same CSS variables, fonts, and feel.
+**Style guide:** Match `keep.kidlisp.com` — same CSS variables, fonts, and feel.
 
 ```css
 /* Fonts */
@@ -239,7 +239,7 @@ The popup loads the KidLisp evaluator (`kidlisp.mjs`) and creates a `<canvas>` p
     "matches": [
       "https://aesthetic.computer/*",
       "https://*.aesthetic.computer/*",
-      "https://keeps.kidlisp.com/*",
+      "https://keep.kidlisp.com/*",
       "https://*.kidlisp.com/*",
       "https://objkt.com/*",
       "http://localhost:8888/*",
@@ -262,7 +262,7 @@ Track connected dApps:
 {
   beacon_peers: {
     [dAppId]: {
-      name: "keeps.kidlisp.com",
+      name: "keep.kidlisp.com",
       publicKey: "...",
       connectedAt: timestamp,
       permissions: ["sign", "operation_request"]
@@ -310,7 +310,7 @@ Need to add or verify:
 
 1. **Unit test Beacon crypto** — encrypt/decrypt roundtrip with known test vectors
 2. **Ping/pong discovery** — Load extension, open a page with Beacon SDK, verify wallet appears in wallet list
-3. **Permission request** — Connect from keeps.kidlisp.com, verify address returned matches wallet
+3. **Permission request** — Connect from keep.kidlisp.com, verify address returned matches wallet
 4. **Operation request** — Mint a keep on ghostnet, verify confirmation popup appears, transaction succeeds
 5. **Sign payload** — Sign arbitrary bytes, verify signature is valid ed25519
 6. **Disconnect** — Disconnect from dApp, verify session cleared
@@ -329,7 +329,7 @@ Need to add or verify:
 6. **Operation & sign handlers** (Step 2 continued) — full transaction support
 7. **Session management** (Step 7) — track connected dApps
 8. **Popup UI updates** (Step 8) — connected dApps view
-9. **Testing on keeps.kidlisp.com** — end-to-end validation
+9. **Testing on keep.kidlisp.com** — end-to-end validation
 
 ---
 

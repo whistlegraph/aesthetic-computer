@@ -264,7 +264,7 @@ async function enumerateTokens(contractAddress) {
   }));
 }
 
-// ── STEP 1: Rebake media (job-based — same as keeps.kidlisp.com) ──
+// ── STEP 1: Rebake media (job-based — same as keep.kidlisp.com) ──
 //
 // Uses keep-prepare + keep-status polling instead of keep-mint SSE streaming.
 // This is more reliable because the heavy work runs in a Netlify background
@@ -382,7 +382,7 @@ async function rebakeMedia(piece, walletAddress) {
 //
 // Uses keep-update with mode="prepare" to get Michelson params,
 // then signs locally with the user's Tezos private key (same flow as
-// keeps.kidlisp.com's Beacon wallet signing, but headless).
+// keep.kidlisp.com's Beacon wallet signing, but headless).
 //
 // Private key sources (checked in order):
 //   1. --tezos-key CLI flag
