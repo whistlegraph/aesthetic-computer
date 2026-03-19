@@ -299,7 +299,10 @@ static void try_mount_log(void) {
             if (pass == 0 && rem != 1) continue;
             if (pass == 1 && rem == 1) continue;
 
-            if (mount(devs[i], "/mnt", "vfat", 0, NULL) == 0) {
+            int mr = mount(devs[i], "/mnt", "vfat", 0, NULL);
+            if (mr != 0)
+                fprintf(stderr, "[ac-native] mount %s failed: %s\n", devs[i], strerror(errno));
+            if (mr == 0) {
                 logfile = fopen("/mnt/ac-native.log", "a");
                 if (logfile) {
                     // Separator between boots for multi-boot log history
