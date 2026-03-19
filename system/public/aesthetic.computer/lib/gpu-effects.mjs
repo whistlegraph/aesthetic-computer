@@ -44,6 +44,13 @@ let layerCompositeUniforms = null;
 // Some Android GPUs claim WebGL2 but silently produce blank output with highp.
 let fragPrecision = "highp";
 
+// Mobile safe mode — Mali and Adreno GPUs produce rendering artifacts or silent
+// failures on multi-pass effects (blur, sharpen, contrast/composite). When true,
+// gpuBlur, gpuSharpen, and gpuComposite return false so the caller falls back to
+// CPU implementations. Single-pass effects (spin, zoom, scroll, flood, shear, suck)
+// still use the GPU.
+let mobileSafeMode = false;
+
 // Accumulated values (matching CPU behavior)
 let spinAccumulator = 0;
 let scrollAccumulatorX = 0;
@@ -908,6 +915,22 @@ function initWebGL2(width, height) {
     }
     console.log(`🎮 GPU Effects: fragment precision = ${fragPrecision}`);
 
+    // Detect GPU renderer — Mali and Adreno GPUs need CPU fallback for
+    // blur/sharpen/contrast due to multi-pass rendering artifacts.
+    try {
+      const dbgInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbgInfo) {
+        const renderer = gl.getParameter(dbgInfo.UNMASKED_RENDERER_WEBGL);
+        console.log('🎮 GPU Effects: renderer = ' + renderer);
+        if (/mali|adreno/i.test(renderer)) {
+          mobileSafeMode = true;
+          console.log('🎮 GPU Effects: Mali/Adreno detected — blur/sharpen/contrast will use CPU fallback');
+        }
+      }
+    } catch {
+      // Extension unavailable — assume desktop GPU, no workaround needed.
+    }
+
     // Compile spin program
     const spinVert = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
     const spinFrag = compileShader(gl, gl.FRAGMENT_SHADER, SPIN_FRAGMENT_SHADER);
@@ -1481,7 +1504,8 @@ export function gpuComposite(pixels, width, height, options = {}) {
   if (zoom === 1.0 && scrollX === 0 && scrollY === 0 && !flipY && contrast === 1.0 && brightness === 0) {
     return true;
   }
-  
+  if (mobileSafeMode) return false;
+
   if (!initWebGL2(width, height)) {
     return false;
   }
@@ -1744,7 +1768,8 @@ function generateGaussianWeights(kernelSize) {
  */
 export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
   if (strength <= 0.1) return true;
-  
+  if (mobileSafeMode) return false;
+
   if (!initWebGL2(width, height)) {
     return false;
   }
@@ -1824,7 +1849,8 @@ export function gpuBlur(pixels, width, height, strength = 1, mask = null) {
  */
 export function gpuSharpen(pixels, width, height, strength = 1, mask = null) {
   if (strength <= 0) return true;
-  
+  if (mobileSafeMode) return false;
+
   if (!initWebGL2(width, height)) {
     return false;
   }
