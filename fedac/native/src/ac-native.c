@@ -1981,11 +1981,13 @@ int main(int argc, char *argv[]) {
                 should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
             if (install_ok) should_reboot = 1;
             if (should_reboot && getpid() == 1) {
-                if (tts) { tts_speak(tts, "rebooting"); tts_wait(tts); }
+                if (tts) { tts_speak(tts, "powering off"); tts_wait(tts); }
                 audio_shutdown_sound(audio);
                 usleep(600000);
                 sync();
-                reboot(LINUX_REBOOT_CMD_RESTART);
+                // Cold power-off instead of warm reboot — HDA codec doesn't
+                // reinitialize properly on warm reboot, causing ALSA failure.
+                reboot(LINUX_REBOOT_CMD_POWER_OFF);
                 while (running) sleep(1);
             }
         }
