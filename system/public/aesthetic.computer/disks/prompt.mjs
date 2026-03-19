@@ -5134,7 +5134,7 @@ function paint($) {
   if (topRightBtnChoice === "os" && showLoginCurtain) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
-    const btnPaddingRight = 3;
+    const btnPaddingRight = 6;
 
     const osBtnText = "x86 OS";
     const osBtnY = btnPaddingTop;
@@ -5757,8 +5757,8 @@ function paint($) {
       const cy = screen.height / 2; // Centered at login button area
       const size = min(screen.width, screen.height) * 0.2;
       const fov = 260;
-      const ay = motdFrame * 0.03; // Y-axis spin (fast)
-      const ax = motdFrame * 0.018; // X-axis tilt (fast)
+      const ay = motdFrame * 0.008; // Y-axis spin (chill)
+      const ax = motdFrame * 0.005; // X-axis tilt (chill)
 
       // Unit cube vertices centered at origin
       const verts = [
