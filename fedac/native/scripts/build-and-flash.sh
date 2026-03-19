@@ -755,18 +755,38 @@ for pass in 1 2; do
                 novers="$(echo "$base" | sed 's/\.so\..*/\.so/')"
                 [ "$novers" != "$base" ] && ln -sf "$base" "${INITRAMFS_DIR}/lib64/$novers" 2>/dev/null || true
             fi
-            # Also check canonical path (e.g. /usr/lib64/libnl-genl-3.so.200)
-            dest_dir="${INITRAMFS_DIR}$(dirname "$lib")"
-            if [ ! -f "${dest_dir}/${base}" ]; then
-                mkdir -p "$dest_dir"
-                cp -n "$lib" "$dest_dir/" 2>/dev/null || true
-            fi
+            # All libs go into lib64/ only — no canonical-path copies.
+            # /lib is a symlink to lib64/, so duplicating into /lib/x86_64-linux-gnu/
+            # would create a real directory that shadows the symlink and wastes ~84 MB.
         done
     done < <(find "${INITRAMFS_DIR}" -type f \( -name "*.so*" -o -path "*/bin/*" -o -path "*/sbin/*" -o -path "*/usr/sbin/*" -o -name "ac-native" \) 2>/dev/null)
     # Second pass catches deps-of-deps; break early if nothing new was found
     [ "${NEEDS_COPY}" -eq 0 ] && break
 done
 log "Transitive deps: ${TRANS_COPIED} additional libraries copied"
+
+# ── Deduplicate shared libraries ──
+# The build copies libs into lib64/ (primary) but transitive deps and ldd
+# also populated lib/x86_64-linux-gnu/ with identical copies (~84 MB waste).
+# Replace duplicates with symlinks; keep lib64/ as the single source of truth.
+if [ -d "${INITRAMFS_DIR}/lib/x86_64-linux-gnu" ]; then
+    DUP_SAVED=0
+    for dup in "${INITRAMFS_DIR}/lib/x86_64-linux-gnu/"*; do
+        [ -f "$dup" ] || continue
+        base="$(basename "$dup")"
+        if [ -f "${INITRAMFS_DIR}/lib64/${base}" ]; then
+            DUP_SIZE=$(wc -c < "$dup")
+            rm "$dup"
+            ln -sf "../../lib64/${base}" "$dup"
+            DUP_SAVED=$((DUP_SAVED + DUP_SIZE))
+        fi
+    done
+    log "Deduplicated lib/x86_64-linux-gnu/: saved $((DUP_SAVED / 1048576)) MB"
+fi
+
+# Ensure /lib64 is on the dynamic linker search path
+mkdir -p "${INITRAMFS_DIR}/etc"
+echo "/lib64" > "${INITRAMFS_DIR}/etc/ld.so.conf"
 
 # Generate initramfs manifest (for build parity verification between local/oven)
 cd "${INITRAMFS_DIR}"

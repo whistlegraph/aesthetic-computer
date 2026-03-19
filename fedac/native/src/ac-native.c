@@ -410,7 +410,7 @@ static void init_machine_id(void) {
         } else {
             rval = (unsigned int)(time(NULL) ^ getpid());
         }
-        snprintf(g_machine_id, sizeof(g_machine_id), "notepat-%08x", rval);
+        snprintf(g_machine_id, sizeof(g_machine_id), "ac-%08x", rval);
         f = fopen("/mnt/.machine-id", "w");
         if (f) {
             fprintf(f, "%s\n", g_machine_id);
