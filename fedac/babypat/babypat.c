@@ -137,23 +137,42 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *st) {
 
     UINT8 fade = 0; // brightness counter
 
+    // Reset keyboard input
+    uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
+
+    // Signal we're alive: brief white flash
+    flood(rgb(255, 255, 255));
+    uefi_call_wrapper(BS->Stall, 1, 300000);
+    flood(0);
+
     for (;;) {
+        // Block until ANY key event
+        UINTN idx;
+        uefi_call_wrapper(BS->WaitForEvent, 3, 1, &ST->ConIn->WaitForKey, &idx);
+
         EFI_INPUT_KEY key;
         EFI_STATUS s = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &key);
 
         if (!EFI_ERROR(s)) {
-            log_hex("key unicode=", key.UnicodeChar);
-            log_hex("key scan=", key.ScanCode);
-        }
-        if (!EFI_ERROR(s) && key.UnicodeChar >= 'a' && key.UnicodeChar <= 'z') {
-            char ch = (char)key.UnicodeChar;
-            for (int i = 0; i < 24; i++) {
-                if (N[i].k == ch) {
-                    flood(rgb(N[i].r, N[i].g, N[i].b));
-                    beep(F[N[i].n] << N[i].o);
-                    fade = 20;
-                    break;
+            // Flash magenta on ANY key to prove input works
+            flood(rgb(255, 0, 255));
+            uefi_call_wrapper(BS->Stall, 1, 200000);
+
+            if (key.UnicodeChar >= 'a' && key.UnicodeChar <= 'z') {
+                char ch = (char)key.UnicodeChar;
+                for (int i = 0; i < 24; i++) {
+                    if (N[i].k == ch) {
+                        flood(rgb(N[i].r, N[i].g, N[i].b));
+                        beep(F[N[i].n] << N[i].o);
+                        fade = 20;
+                        break;
+                    }
                 }
+            } else {
+                // Non a-z key: show cyan briefly
+                flood(rgb(0, 255, 255));
+                uefi_call_wrapper(BS->Stall, 1, 500000);
+                flood(0);
             }
         }
 
@@ -162,7 +181,5 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE *st) {
             fade--;
             if (fade == 0) { flood(0); hush(); }
         }
-
-        uefi_call_wrapper(BS->Stall, 1, 16000);
     }
 }
