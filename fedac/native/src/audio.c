@@ -481,6 +481,15 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
+            // Apply system volume (software gain — hardware mixer may not attenuate)
+            {
+                double vol = audio->system_volume * 0.01; // 0-100 → 0.0-1.0
+                // Use squared curve for more natural volume perception
+                vol = vol * vol;
+                mix_l *= vol;
+                mix_r *= vol;
+            }
+
             // Soft clip and convert to int16
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
@@ -489,6 +498,7 @@ static void *audio_thread_fn(void *arg) {
             buffer[i * 2 + 1] = (int16_t)(mix_r * 26000);
 
             // HDMI audio: 1-pole low-pass filter + downsample
+            // (volume already applied above to mix_l/mix_r)
             if (audio->hdmi_pcm) {
                 // LP filter (alpha ≈ 0.18 → ~3kHz cutoff at 48kHz)
                 float alpha = 0.18f;
