@@ -636,8 +636,9 @@ for drv in iris_dri.so i915_dri.so kms_swrast_dri.so swrast_dri.so libdril_dri.s
     fi
 done
 
-GPU_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/dri" 2>/dev/null | cut -f1)
-log "  Mesa GPU: dri=${GPU_SIZE:-0} gallium=$(du -sh "${GALLIUM}" 2>/dev/null | cut -f1 || echo none)"
+GPU_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/dri" 2>/dev/null | cut -f1 || true)
+GALLIUM_SIZE=$([ -n "${GALLIUM:-}" ] && du -sh "$GALLIUM" 2>/dev/null | cut -f1 || echo "none")
+log "  Mesa GPU: dri=${GPU_SIZE:-0} gallium=${GALLIUM_SIZE}"
 
 # xkb keyboard data (needed for Wayland keyboard layout)
 for xkb_dir in /usr/share/X11/xkb /usr/share/xkb; do
