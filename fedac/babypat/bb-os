@@ -48,27 +48,33 @@ flash() {
         exit 1
     fi
 
-    log "Flashing to ${USB_DEV}..."
+    log "Flashing to ${USB_DEV} (FAT32, 512MB ESP — matches ac-os)..."
+
+    # Use mtools (no mount/root needed for copy step, matches ac-os pattern)
     ssh "${HOST}" "sudo bash -c '
         set -e
-        EFI=/home/me/aesthetic-computer/fedac/babypat/babypat-tiny.efi
-
-        dd if=/dev/zero of=${USB_DEV} bs=1M count=4 2>/dev/null
-        sfdisk --force ${USB_DEV} <<PARTEOF
+        sfdisk ${USB_DEV} <<PARTEOF
 label: gpt
-type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=32M
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M
 PARTEOF
         sleep 2
         partprobe ${USB_DEV} 2>/dev/null || true
         sleep 1
+        mkfs.vfat -F 32 -n BABYPAT ${USB_DEV}1
+    '" 2>&1
 
-        mkfs.vfat -F 12 -n BABYPAT ${USB_DEV}1
-        mkdir -p /tmp/bb-mnt
-        mount ${USB_DEV}1 /tmp/bb-mnt
-        mkdir -p /tmp/bb-mnt/EFI/BOOT
-        cp \$EFI /tmp/bb-mnt/EFI/BOOT/BOOTX64.EFI
+    # mtools copy (works unprivileged on the host)
+    local PART="${USB_DEV}1"
+    ssh "${HOST}" "bash -c '
+        set -e
+        PART=${PART}
+        EFI=/home/me/aesthetic-computer/fedac/babypat/babypat-tiny.efi
+        sudo mmd -i \${PART} ::EFI
+        sudo mmd -i \${PART} ::EFI/BOOT
+        sudo mcopy -i \${PART} \${EFI} ::EFI/BOOT/BOOTX64.EFI
         sync
-        umount /tmp/bb-mnt
+        echo \"Contents:\"
+        sudo mdir -i \${PART} ::EFI/BOOT/
     '" 2>&1
 
     log "Flashed babypat to ${USB_DEV}"
