@@ -1372,10 +1372,10 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     }
     if (!elem) {
         // Log available mixer elements for debugging
-        fprintf(stderr, "[audio] volume: no Master/Speaker/Headphone/PCM found on %s. Available:\n", card_name);
+        ac_log("[audio] volume: no Master/Speaker/Headphone/PCM found on %s. Available:\n", card_name);
         for (snd_mixer_elem_t *e = snd_mixer_first_elem(mixer); e; e = snd_mixer_elem_next(e)) {
             const char *name = snd_mixer_selem_get_name(e);
-            fprintf(stderr, "[audio]   %s%s%s\n", name,
+            ac_log("[audio]   %s%s%s\n", name,
                     snd_mixer_selem_has_playback_volume(e) ? " [vol]" : "",
                     snd_mixer_selem_is_active(e) ? "" : " [inactive]");
         }
@@ -1383,6 +1383,8 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
         return;
     }
     {
+        ac_log("[audio] volume: using '%s' on %s, delta=%d\n",
+               snd_mixer_selem_get_name(elem), card_name, delta);
 
         if (delta == 0) {
             // Toggle mute via volume (most reliable across codecs)
@@ -1411,6 +1413,7 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             if (newvol < min) newvol = min;
             if (newvol > max) newvol = max;
             snd_mixer_selem_set_playback_volume_all(elem, newvol);
+            ac_log("[audio] volume: %ld → %ld (range %ld-%ld, step %ld)\n", cur, newvol, min, max, step);
             // Also ensure all unmuted
             unmute_all_switches(mixer);
             muted = 0;
