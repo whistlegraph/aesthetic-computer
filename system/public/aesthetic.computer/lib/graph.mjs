@@ -5449,7 +5449,7 @@ let gpuInitPromise = null; // Promise for initialization
 
 // 🎯 Adaptive GPU failure tracking — auto-disable effects that keep failing
 const GPU_FAIL_THRESHOLD = 3; // Disable after this many failures
-const GPU_CACHE_KEY = "ac-gpu-disabled-v3"; // v3: fully unrolled shaders + FB checks + logging
+const GPU_CACHE_KEY = "ac-gpu-disabled-v4"; // v4: Kawase blur + mobileSafeMode blocks all effects on Mali/Adreno
 const gpuFailCounts = {
   spin: 0, composite: 0, blur: 0, sharpen: 0,
   shear: 0, suck: 0, flood: 0, zoom: 0, scroll: 0,
