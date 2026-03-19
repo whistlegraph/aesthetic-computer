@@ -1,137 +1,31 @@
 % !TEX program = xelatex
-\documentclass[10pt,letterpaper,twocolumn]{article}
+% Cards format — auto-generated from kidlisp-cards.tex by cards-convert.mjs
+\documentclass[11pt]{article}
 
-% === GEOMETRY ===
-\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
-
-% === FONTS ===
 \usepackage{fontspec}
 \usepackage{unicode-math}
-
 \setmainfont{Latin Modern Roman}
 \setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
 
-% Custom AC fonts
-\newfontfamily\acbold{ywft-processing-bold}[
-  Path=../../system/public/type/webfonts/,
-  Extension=.ttf
-]
-\newfontfamily\aclight{ywft-processing-light}[
-  Path=../../system/public/type/webfonts/,
-  Extension=.ttf
-]
-\newfontfamily\kidlispfont{ComicRelief-Regular}[
-  Path=../arxiv-kidlisp/fonts/,
-  Extension=.ttf
-]
-\newfontfamily\kidlispbold{ComicRelief-Bold}[
-  Path=../arxiv-kidlisp/fonts/,
-  Extension=.ttf
-]
-\setmonofont{Latin Modern Mono}[Scale=0.85]
 
-% === PACKAGES ===
-\usepackage{xcolor}
-\usepackage{titlesec}
-\usepackage{enumitem}
-\usepackage{booktabs}
-\usepackage{tabularx}
-\usepackage{fancyhdr}
-\usepackage{hyperref}
 \usepackage{graphicx}
 \graphicspath{{figures/}{../arxiv-kidlisp/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
 \usepackage{ragged2e}
 \usepackage{microtype}
-\usepackage{listings}
 \usepackage{natbib}
-\usepackage[colorspec=0.92]{draftwatermark}
+\usepackage{listings}
 
-% === COLORS (AC palette) ===
-\definecolor{acpink}{RGB}{180,72,135}
-\definecolor{acpurple}{RGB}{120,80,180}
-\definecolor{acdark}{RGB}{64,56,74}
-\definecolor{acgray}{RGB}{119,119,119}
-\definecolor{klbrand}{RGB}{205,92,155}
-\definecolor{klcyan}{RGB}{112,214,255}
-\definecolor{kldark}{RGB}{48,43,58}
-\definecolor{draftcolor}{RGB}{205,92,155}
-
-% === DRAFT WATERMARK ===
-\DraftwatermarkOptions{
-  text=WORKING DRAFT,
-  fontsize=3cm,
-  color=draftcolor!18,
-  angle=45,
-  pos={0.5\paperwidth, 0.5\paperheight}
-}
-
-% === KIDLISP SYNTAX COLORS ===
-\definecolor{klfn}{RGB}{0,136,170}
-\definecolor{klform}{RGB}{119,51,170}
-\definecolor{klrepeat}{RGB}{170,0,170}
-\definecolor{klnum}{RGB}{204,0,102}
-\definecolor{klstr}{RGB}{170,120,0}
-\definecolor{klcmt}{RGB}{102,102,102}
-\definecolor{klmath}{RGB}{0,136,0}
-\definecolor{klvar}{RGB}{204,102,0}
-\definecolor{klembed}{RGB}{0,136,0}
-
-% KidLisp inline color macros
-\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
-\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
-\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
-\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
-\newcommand{\km}[1]{\textcolor{klmath}{#1}}
-
-% === HYPERREF ===
-\hypersetup{
-  colorlinks=true,
-  linkcolor=acpurple,
-  urlcolor=acpurple,
-  citecolor=acpurple,
-  pdfauthor={@jeffrey},
-  pdftitle={KidLisp Cards: Programs That Fit on a Card},
-}
-
-% === SECTION FORMATTING ===
-\titleformat{\section}
-  {\normalfont\bfseries\normalsize\uppercase}
-  {\thesection.}
-  {0.5em}
-  {}
-\titlespacing{\section}{0pt}{1.2em}{0.3em}
-
-\titleformat{\subsection}
-  {\normalfont\bfseries\small}
-  {\thesubsection}
-  {0.5em}
-  {}
-\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
-
-% === HEADER/FOOTER ===
-\pagestyle{fancy}
-\fancyhf{}
-\renewcommand{\headrulewidth}{0pt}
-\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
-\fancyfoot[C]{\footnotesize\thepage}
-
-% === CUSTOM COMMANDS ===
-\newcommand{\acdot}{{\color{acpink}.}}
-\newcommand{\kidlisp}{\textsc{KidLisp}}
-\newcount\acrandtmp
-\newcommand{\acrandletter}[2]{%
-  \acrandtmp=\uniformdeviate 2\relax
-  \ifnum\acrandtmp=0\relax#1\else#2\fi%
-}
-\newcommand{\acrandname}{%
-  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
-  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
-  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
-  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
-  \acrandletter{e}{E}\acrandletter{r}{R}%
-}
-
-% === LISTINGS ===
+\newfontfamily\kidlispbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\kidlispfont{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
 \lstdefinelanguage{kidlisp}{
   morekeywords=[1]{wipe,ink,line,box,circle,tri,plot,flood,shape,zoom,scroll,spin,blur,contrast,embed,layer,width,height,frame,time,wiggle,melody,mic,suck,sort,form,trans,cube,move,scale,hop,overtone,resolution,write,text,type,stamp,paste,point,poly,noise,fade,pan,unpan,mask,unmask,flip,crawl,left,right,up,down,goto,face,outline,fill,stroke},
   morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
@@ -160,7 +54,6 @@
   aboveskip=0.5em,
   belowskip=0.5em,
 }
-
 \lstdefinelanguage{python}{
   morekeywords={def,return,import,from,class,if,else,for,in,with,as,try,except,None,True,False,self,and,or,not,lambda,yield,pass,break,continue,raise,while},
   sensitive=true,
@@ -172,56 +65,68 @@
   language=kidlisp,
 }
 
-% === LIST SETTINGS ===
-\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
-\setlist[enumerate]{nosep, leftmargin=1.2em}
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
 
-% === COLUMN SEPARATION ===
-\setlength{\columnsep}{1.8em}
+% Extra commands from base paper
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+\newcommand{\kidlisp}{\textsc{KidLisp}}
+\definecolor{klbrand}{RGB}{205,92,155}
+\definecolor{klcyan}{RGB}{112,214,255}
+\definecolor{kldark}{RGB}{48,43,58}
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klform}{RGB}{119,51,170}
+\definecolor{klrepeat}{RGB}{170,0,170}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{170,120,0}
+\definecolor{klcmt}{RGB}{102,102,102}
+\definecolor{klmath}{RGB}{0,136,0}
+\definecolor{klvar}{RGB}{204,102,0}
+\definecolor{klembed}{RGB}{0,136,0}
 
-% === PARAGRAPH SETTINGS ===
-\setlength{\parindent}{1em}
-\setlength{\parskip}{0.3em}
+\hypersetup{
+  pdftitle={KidLisp Cards: Programs That Fit on a Card},
+}
 
-\tolerance=800
-\emergencystretch=1em
-\hyphenpenalty=50
-
+\renewcommand{\acpdfbase}{kidlisp-cards-26-arxiv}
 \begin{document}
 
-% ============ TITLE BLOCK ============
-
-\twocolumn[{%
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
 \begin{center}
-\includegraphics[height=4em]{pals}\par\vspace{0.5em}
-{\kidlispbold\fontsize{24pt}{28pt}\selectfont\color{kldark} Kid{\color{klbrand}Lisp} Cards}\par
-\vspace{0.2em}
-{\kidlispfont\fontsize{11pt}{13pt}\selectfont\color{klbrand} Programs That Fit on a Card}\par
-\vspace{0.6em}
-{\normalsize @jeffrey}\par
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Kid{\color{acpurple}Lisp} Cards}\par
+\vspace{0.3em}
+\vspace{0.5em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
 \vspace{0.3em}
-{\small\color{acpurple} \url{https://kidlisp.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
-\vspace{0.6em}
-\rule{\textwidth}{1.5pt}
-\vspace{0.5em}
+{\footnotesize\color{acgray} March 2026}\par
 \end{center}
+\vspace*{\fill}
 
-\begin{center}
-{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
-\end{center}
-\vspace{0.3em}
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
 
-\begin{quote}
-\small\noindent\textbf{Abstract.}
-\kidlisp{} programs are short. A typical program is 2--4 lines of S-expressions that produce a complete visual composition---a starburst, a spiral, a quilt, a fractal. This brevity is not incidental but designed: the language omits user-defined functions, recursion, and abstraction mechanisms, so programs stay flat and legible. We observe that this flatness creates a natural correspondence between programs and physical cards. A \kidlisp{} program, its source code, and its rendered output can coexist on a single printed card. This paper describes the \emph{KidLisp Cards} format---a deck of programs organized by visual category---and a Python rendering pipeline (PIL-based interpreter) that produces card images outside the browser. We discuss what cards are now (a curated notebook of visual koans), what they could become (trading cards, pedagogical sequences, printed scores, postal art), and how the card constraint feeds back into language design.
-\end{quote}
-\vspace{0.5em}
-}]
-
-% ============ 1. INTRODUCTION ============
-
+% ============================================================
+% BODY
+% ============================================================
 \section{Introduction}
 
 Most programming languages produce programs that are too long to print on an index card. This is a consequence of abstraction: general-purpose languages encourage decomposition into functions, classes, modules, and files. The program is distributed across a codebase. No single artifact captures the whole.
