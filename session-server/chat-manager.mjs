@@ -189,7 +189,7 @@ export class ChatManager {
           from,
           text: message.deleted
             ? "[deleted]"
-            : filter(message.text, this.filterDebug) || "message forgotten",
+            : (instance.config.name === "chat-clock" ? message.text : filter(message.text, this.filterDebug)) || "message forgotten",
           redactedText: message.redactedText,
           when: message.when,
           sub: message.user || undefined,
@@ -417,7 +417,7 @@ export class ChatManager {
         redact(message);
         filteredText = message.text;
       } else {
-        filteredText = filter(message.text, this.filterDebug);
+        filteredText = instance.config.name === "chat-clock" ? message.text : filter(message.text, this.filterDebug);
       }
 
       // Get server time
