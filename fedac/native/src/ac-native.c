@@ -1324,8 +1324,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     }
     fprintf(stderr, "[boot-anim] %d event devices\n", key_fd_count);
 
-    // Start with a black frame immediately (hides any kernel text)
-    graph_wipe(graph, (ACColor){0, 0, 0, 255});
+    // Start with a solid frame immediately (hides any kernel text)
+    // White for daytime, black for evening/night
+    int boot_hour = get_la_hour();
+    int boot_is_day = (boot_hour >= 7 && boot_hour < 18);
+    graph_wipe(graph, boot_is_day
+        ? (ACColor){255, 255, 255, 255}
+        : (ACColor){0, 0, 0, 255});
     ac_display_present(display, screen, 3);
 
     // Check if this is a fresh boot of a new version
@@ -1433,25 +1438,35 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
         // W hint is visual only — no TTS
 
-        // Fade from black to time-of-day themed bg (complete in first 0.3s)
+        // Fade from black/white to time-of-day themed bg (complete in first 0.3s)
         double fade_t = t * 3.33;
         if (fade_t > 1.0) fade_t = 1.0;
         int hour = get_la_hour();
+        int is_day = (hour >= 7 && hour < 18);  // light mode 7am-6pm
         int target_r, target_g, target_b;
-        if (hour >= 5 && hour < 8) {
-            target_r = 100; target_g = 45; target_b = 20;  // sunrise orange
-        } else if (hour >= 8 && hour < 12) {
-            target_r = 25; target_g = 50; target_b = 90;   // morning sky blue
-        } else if (hour >= 12 && hour < 17) {
-            target_r = 90; target_g = 65; target_b = 20;   // afternoon gold
-        } else if (hour >= 17 && hour < 20) {
-            target_r = 80; target_g = 25; target_b = 60;   // sunset purple
+        if (is_day) {
+            // Light mode: soft warm backgrounds
+            if (hour >= 7 && hour < 12) {
+                target_r = 235; target_g = 230; target_b = 220;  // morning cream
+            } else {
+                target_r = 240; target_g = 235; target_b = 215;  // afternoon warm white
+            }
         } else {
-            target_r = 15; target_g = 15; target_b = 40;   // night deep blue
+            // Dark mode: rich atmospheric backgrounds
+            if (hour >= 5 && hour < 7) {
+                target_r = 100; target_g = 45; target_b = 20;  // sunrise orange
+            } else if (hour >= 18 && hour < 20) {
+                target_r = 80; target_g = 25; target_b = 60;   // sunset purple
+            } else {
+                target_r = 15; target_g = 15; target_b = 40;   // night deep blue
+            }
         }
-        int bg_r = (int)(target_r * fade_t);
-        int bg_g = (int)(target_g * fade_t);
-        int bg_b = (int)(target_b * fade_t);
+        int start_r = is_day ? 255 : 0;
+        int start_g = is_day ? 255 : 0;
+        int start_b = is_day ? 255 : 0;
+        int bg_r = start_r + (int)((target_r - start_r) * fade_t);
+        int bg_g = start_g + (int)((target_g - start_g) * fade_t);
+        int bg_b = start_b + (int)((target_b - start_b) * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
 
         // Title — per-handle palette (fallback rainbow), animated pulse
@@ -1500,21 +1515,31 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             int panel_h = bname[0] ? 28 : 20;
             int panel_x = screen->width - panel_w - 3;
             int panel_y = 3;
-            graph_ink(graph, (ACColor){0, 0, 0, (uint8_t)(alpha * 0.82)});
+            graph_ink(graph, is_day
+                ? (ACColor){255, 255, 255, (uint8_t)(alpha * 0.7)}
+                : (ACColor){0, 0, 0, (uint8_t)(alpha * 0.82)});
             graph_box(graph, panel_x, panel_y, panel_w, panel_h, 1);
-            // Build name (top line, golden)
+            // Build name (top line)
             if (bname[0]) {
-                graph_ink(graph, (ACColor){255, 200, 60, (uint8_t)alpha});
+                graph_ink(graph, is_day
+                    ? (ACColor){140, 100, 0, (uint8_t)alpha}
+                    : (ACColor){255, 200, 60, (uint8_t)alpha});
                 font_draw_matrix(graph, bname, panel_x + 4, panel_y + 3, 1);
             }
             int line_y = panel_y + (bname[0] ? 11 : 3);
-            graph_ink(graph, (ACColor){255, 255, 255, (uint8_t)alpha});
+            graph_ink(graph, is_day
+                ? (ACColor){60, 60, 60, (uint8_t)alpha}
+                : (ACColor){255, 255, 255, (uint8_t)alpha});
             font_draw_matrix(graph, ver, panel_x + 4, line_y, 1);
-            graph_ink(graph, (ACColor){210, 235, 220, (uint8_t)alpha});
+            graph_ink(graph, is_day
+                ? (ACColor){80, 100, 90, (uint8_t)alpha}
+                : (ACColor){210, 235, 220, (uint8_t)alpha});
             font_draw_matrix(graph, bts, panel_x + 4, line_y + 8, 1);
             // "FRESH" badge when first boot of this version
             if (is_new_version) {
-                graph_ink(graph, (ACColor){80, 255, 120, (uint8_t)alpha});
+                graph_ink(graph, is_day
+                    ? (ACColor){0, 140, 60, (uint8_t)alpha}
+                    : (ACColor){80, 255, 120, (uint8_t)alpha});
                 font_draw_matrix(graph, "FRESH", panel_x - font_measure_matrix("FRESH", 1) - 4, panel_y + 6, 1);
             }
         }
@@ -1525,7 +1550,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             double sub_t = (double)(f - 130) / 30.0;
             if (sub_t > 1.0) sub_t = 1.0;
             int sub_alpha = (int)(180.0 * sub_t);
-            graph_ink(graph, (ACColor){220, 180, 140, (uint8_t)sub_alpha});
+            graph_ink(graph, is_day
+                ? (ACColor){120, 100, 80, (uint8_t)sub_alpha}
+                : (ACColor){220, 180, 140, (uint8_t)sub_alpha});
             const char *subtitle = "enjoy Los Angeles!";
             int sw = font_measure_matrix(subtitle, 1);
             font_draw_matrix(graph, subtitle,
@@ -2480,7 +2507,7 @@ int main(int argc, char *argv[]) {
                     }
                     // Instant TTS: play cached sound immediately (bypasses JS frame delay)
                     // Only in prompt mode (other pieces control their own voicing)
-                    if (tts && !voice_off && strcmp(rt->system_mode, "prompt") == 0) {
+                    if (tts && !voice_off && strncmp(rt->system_mode, "prompt", 6) == 0) {
                         const char *kn = input->events[i].key_name;
                         if (kn && kn[0] && kn[1] == 0) {
                             // Single printable character
