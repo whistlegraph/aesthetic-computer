@@ -2651,14 +2651,15 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       const leftEdge = baseX;
       const rightEdge = Math.round(baseX + gridWidth);
 
+      const gridColor = globalThis.__theme?.dark === false ? [0, 0, 0] : [255, 255, 255];
       for (let col = 0; col <= layout.buttonsPerRow; col += 1) {
         const x = Math.round(baseX + col * layout.buttonWidth);
-        p.ink(255, 255, 255, gridAlpha).line(x, topEdge, x, bottomEdge);
+        p.ink(...gridColor, gridAlpha).line(x, topEdge, x, bottomEdge);
       }
 
       for (let row = 0; row <= layout.totalRows; row += 1) {
         const y = Math.round(row * layout.buttonHeight);
-        p.ink(255, 255, 255, gridAlpha).line(leftEdge, y, rightEdge, y);
+        p.ink(...gridColor, gridAlpha).line(leftEdge, y, rightEdge, y);
       }
     }
 
@@ -2678,7 +2679,8 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       // Offset box Y by gridTop since painting starts at gridTop
       const relBox = { ...btn.box, y: btn.box.y - gridTop };
       p.ink(tinted, 196).box(relBox);
-      p.ink(90, 110, 120).box(relBox, "outline");
+      const olColor = globalThis.__theme?.dark === false ? [140, 150, 160] : [90, 110, 120];
+      p.ink(...olColor).box(relBox, "outline");
     });
   });
 
@@ -2781,21 +2783,28 @@ function paint({
     typeof amplitudeRaw === "number" &&
     Number.isFinite(amplitudeRaw);
   const matrixGlyphMetrics = resolveMatrixGlyphMetrics(typeface);
+  // Use global theme for background when no note is active
+  const theme = globalThis.__theme;
+  if (theme) theme.update();
+  const isDark = theme ? theme.dark : true;
+
   let bg;
   const latestNote = active.length > 0 ? active[active.length - 1] : null;
   const activeBg = latestNote
     ? darkenColor(colorFromNote(latestNote, num), tap ? 0.55 : 0.45)
     : null;
 
+  const defaultBg = isDark ? [0, 0, 180] : [220, 225, 235];
+
   if (!tap) {
-    bg = activeBg ?? [50, 50, 255];
+    bg = activeBg ?? (isDark ? [50, 50, 255] : [200, 210, 230]);
 
     if (perc && !activeBg) {
       bg = perc;
       perc = null;
     }
   } else {
-    bg = activeBg ?? [0, 0, 180];
+    bg = activeBg ?? defaultBg;
   }
 
   if (paintPictureOverlay) {
