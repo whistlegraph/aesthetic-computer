@@ -1,0 +1,116 @@
+#!/bin/bash
+# bb-os — Single command for babypat operations
+# Usage:
+#   bb-os build        Build babypat.efi
+#   bb-os flash        Build + flash USB
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+EFI="${SCRIPT_DIR}/babypat-tiny.efi"
+
+CMD="${1:-build}"
+
+log()  { echo -e "\033[0;35m[bb-os]\033[0m $*"; }
+err()  { echo -e "\033[0;31m[bb-os]\033[0m $*" >&2; }
+
+build() {
+    log "Building babypat..."
+    cd "${SCRIPT_DIR}"
+    make tiny 2>&1
+    log "Built: $(wc -c < "${EFI}" | tr -d ' ') bytes"
+}
+
+flash() {
+    if [ ! -f "${EFI}" ]; then
+        err "No babypat.efi — building first"
+        build
+    fi
+
+    # Find USB via host SSH (devcontainer can't access /dev/sda)
+    local HOST="me@172.17.0.1"
+    log "Finding USB on host..."
+    local USB_DEV
+    USB_DEV=$(ssh -o ConnectTimeout=5 "${HOST}" "bash -c '
+        for dev in sda sdb sdc; do
+            if [ -e /sys/block/\${dev} ]; then
+                tran=\$(cat /sys/block/\${dev}/device/transport 2>/dev/null || udevadm info /dev/\${dev} 2>/dev/null | grep ID_BUS | head -1 | cut -d= -f2)
+                if [ \"\${tran}\" = \"usb\" ] || [ -e /sys/block/\${dev}/removable ] && [ \$(cat /sys/block/\${dev}/removable 2>/dev/null) = 1 ]; then
+                    echo /dev/\${dev}
+                    exit 0
+                fi
+            fi
+        done
+        exit 1
+    '" 2>/dev/null) || true
+
+    if [ -z "${USB_DEV}" ]; then
+        err "No USB device found on host"
+        exit 1
+    fi
+
+    log "Flashing to ${USB_DEV}..."
+    ssh "${HOST}" "sudo bash -c '
+        set -e
+        EFI=/home/me/aesthetic-computer/fedac/babypat/babypat-tiny.efi
+
+        dd if=/dev/zero of=${USB_DEV} bs=1M count=4 2>/dev/null
+        sfdisk --force ${USB_DEV} <<PARTEOF
+label: gpt
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=32M
+PARTEOF
+        sleep 2
+        partprobe ${USB_DEV} 2>/dev/null || true
+        sleep 1
+
+        mkfs.vfat -F 12 -n BABYPAT ${USB_DEV}1
+        mkdir -p /tmp/bb-mnt
+        mount ${USB_DEV}1 /tmp/bb-mnt
+        mkdir -p /tmp/bb-mnt/EFI/BOOT
+        cp \$EFI /tmp/bb-mnt/EFI/BOOT/BOOTX64.EFI
+        sync
+        umount /tmp/bb-mnt
+    '" 2>&1
+
+    log "Flashed babypat to ${USB_DEV}"
+}
+
+read_log() {
+    local HOST="me@172.17.0.1"
+    local USB_DEV
+    USB_DEV=$(ssh -o ConnectTimeout=5 "${HOST}" "bash -c '
+        for dev in sda sdb sdc; do
+            if [ -e /sys/block/\${dev} ]; then
+                tran=\$(cat /sys/block/\${dev}/device/transport 2>/dev/null || udevadm info /dev/\${dev} 2>/dev/null | grep ID_BUS | head -1 | cut -d= -f2)
+                if [ \"\${tran}\" = \"usb\" ] || [ -e /sys/block/\${dev}/removable ] && [ \$(cat /sys/block/\${dev}/removable 2>/dev/null) = 1 ]; then
+                    echo /dev/\${dev}
+                    exit 0
+                fi
+            fi
+        done
+        exit 1
+    '" 2>/dev/null) || true
+
+    if [ -z "${USB_DEV}" ]; then
+        err "No USB device found on host"
+        exit 1
+    fi
+
+    log "Reading log from ${USB_DEV}1..."
+    ssh "${HOST}" "sudo bash -c '
+        mkdir -p /tmp/bb-mnt
+        mount ${USB_DEV}1 /tmp/bb-mnt 2>/dev/null
+        if [ -f /tmp/bb-mnt/EFI/babypat.log ]; then
+            cat /tmp/bb-mnt/EFI/babypat.log
+        else
+            echo \"No log file found\"
+        fi
+        umount /tmp/bb-mnt
+    '" 2>&1
+}
+
+case "${CMD}" in
+    build)       build ;;
+    flash)       build && flash ;;
+    log)         read_log ;;
+    *)           echo "Usage: bb-os {build|flash|log}"; exit 1 ;;
+esac
