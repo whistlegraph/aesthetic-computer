@@ -4921,8 +4921,8 @@ function paint($) {
       giveBtnText = "GIVE " + currencies[currencyIndex];
     }
 
-    const btnPaddingTop = 8;
-    const btnPaddingRight = 10;
+    const btnPaddingTop = 3;
+    const btnPaddingRight = 3;
     const btnWidth = 56;
     const giveBtnY = btnPaddingTop;
     const giveBtnX = screen.width - btnWidth - btnPaddingRight;
@@ -5027,7 +5027,7 @@ function paint($) {
     const charHeight = useTinyFont ? 7 : 12;
     const btnPadX = 2;
     const btnPadY = 2;
-    const btnPaddingRight = useTinyFont ? 4 : 6;
+    const btnPaddingRight = 3;
     const spacingScale = useTinyFont ? 0.6 : 1;
     const boxHeight = charHeight + btnPadY * 2;
     const boxWidth = (text) => text.length * charWidth + btnPadX * 2;
@@ -5035,27 +5035,27 @@ function paint($) {
     let soConfig, softConfig, lineStyle;
     if (soSoftConfigIndex === 0) {
       const btnSpacing = Math.max(minSpacing, Math.floor(10 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
+      const baseY = 3;
       softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
       soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
       lineStyle = "wavy";
     } else if (soSoftConfigIndex === 1) {
       const baseX = screen.width - boxWidth("SOFT") - btnPaddingRight;
       const vertSpacing = Math.max(minSpacing, Math.floor(8 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
+      const baseY = 3;
       soConfig = { x: baseX, y: baseY };
       softConfig = { x: baseX, y: soConfig.y + boxHeight + vertSpacing };
       lineStyle = "elbow";
     } else if (soSoftConfigIndex === 2) {
       const diagSpacing = Math.max(minSpacing * 3, Math.floor(30 * spacingScale));
       const vertOffset = Math.max(minSpacing * 2, Math.floor(16 * spacingScale));
-      const baseY = useTinyFont ? 3 : 6;
+      const baseY = 3;
       soConfig = { x: screen.width - boxWidth("SO") - btnPaddingRight - diagSpacing, y: baseY };
       softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY + vertOffset };
       lineStyle = "bezier";
     } else {
       const btnSpacing = Math.max(minSpacing * 2, Math.floor(20 * spacingScale));
-      const baseY = useTinyFont ? 6 : 12;
+      const baseY = useTinyFont ? 3 : 6;
       softConfig = { x: screen.width - boxWidth("SOFT") - btnPaddingRight, y: baseY };
       soConfig = { x: softConfig.x - boxWidth("SO") - btnSpacing, y: baseY };
       lineStyle = "wavy";
@@ -5133,8 +5133,8 @@ function paint($) {
   // 💻 OS button — blue, blinky, computery
   if (topRightBtnChoice === "os" && showLoginCurtain) {
     const t = performance.now() / 1000;
-    const btnPaddingTop = 6;
-    const btnPaddingRight = 6;
+    const btnPaddingTop = 3;
+    const btnPaddingRight = 3;
 
     const osBtnText = "x86 OS";
     const osBtnY = btnPaddingTop;
