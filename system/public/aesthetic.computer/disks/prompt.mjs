@@ -6800,7 +6800,7 @@ function paint($) {
               : [
                   [40, 35, 20, 128],    // fill: dark orange (behind)
                   [80, 70, 40, 128],    // outline: lighter orange
-                  128,                  // text alpha
+                  200,                  // text alpha
                   [40, 35, 20, 128]
                 ]
             : isHover
@@ -6813,7 +6813,7 @@ function paint($) {
               : [
                   [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
                   [40, 50, 60, 128],    // outline: lighter blue/gray
-                  128,                  // text alpha
+                  200,                  // text alpha
                   [20, 25, 30, 128]
                 ];
         commitBtn.paint($, colors);
