@@ -152,6 +152,10 @@ typedef struct {
     int hdmi_period_pos;        // samples written so far
     int hdmi_period_size;       // target period size in frames
 
+    // Recording tap: if set, called after each mixed period with final int16 PCM
+    void (*rec_callback)(const int16_t *pcm, int frames, void *userdata);
+    void *rec_userdata;
+
     // Diagnostic info (exposed to JS via system.hw)
     char audio_device[32];      // ALSA device name that opened successfully
     char audio_status[64];      // human-readable status ("ok", "no card", etc.)

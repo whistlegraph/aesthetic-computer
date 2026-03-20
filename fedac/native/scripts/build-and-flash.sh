@@ -83,6 +83,8 @@ if command -v dnf &>/dev/null; then
     command -v iw &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} iw"
     [ -d /lib/firmware ] && ls /lib/firmware/iwlwifi-cc-a0-* &>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} iwlwifi-mvm-firmware"
     [ -f /lib/firmware/regulatory.db ]    || PKGS_NEEDED="${PKGS_NEEDED} wireless-regdb"
+    # ffmpeg libs for video recording
+    pkg-config --exists libavcodec 2>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} ffmpeg-free-devel"
     # Flash tools
     if [ -n "${FLASH_DEV}" ]; then
         command -v mmd &>/dev/null        || PKGS_NEEDED="${PKGS_NEEDED} mtools"

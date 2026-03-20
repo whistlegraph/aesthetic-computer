@@ -33,8 +33,19 @@ ALSA_CFLAGS := $(shell pkg-config --cflags alsa 2>/dev/null)
 ALSA_LIBS   := $(shell pkg-config --libs alsa 2>/dev/null || echo "-lasound")
 FLITE_LIBS  := -lflite -lflite_cmulex -lflite_usenglish -lflite_cmu_us_slt -lflite_cmu_us_kal
 
+# ffmpeg libraries for video recording (optional: disabled if not found)
+HAVE_AVCODEC := $(shell pkg-config --exists libavcodec libavformat libavutil libswscale libswresample 2>/dev/null && echo 1)
+ifeq ($(HAVE_AVCODEC),1)
+  AV_CFLAGS := $(shell pkg-config --cflags libavcodec libavformat libavutil libswscale libswresample 2>/dev/null)
+  AV_LIBS   := $(shell pkg-config --libs libavcodec libavformat libavutil libswscale libswresample 2>/dev/null)
+endif
+
 CFLAGS  += $(DRM_CFLAGS) $(ALSA_CFLAGS)
 LDFLAGS += $(DRM_LIBS) $(ALSA_LIBS) $(FLITE_LIBS)
+ifeq ($(HAVE_AVCODEC),1)
+  CFLAGS  += -DHAVE_AVCODEC $(AV_CFLAGS)
+  LDFLAGS += $(AV_LIBS)
+endif
 
 # SDL2 GPU-accelerated display (optional: make USE_SDL=1)
 ifdef USE_SDL
@@ -73,7 +84,8 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
         $(SRCDIR)/machines.c \
-        $(SRCDIR)/js-bindings.c
+        $(SRCDIR)/js-bindings.c \
+        $(SRCDIR)/recorder.c
 
 # Wayland display backend (conditional)
 ifdef USE_WAYLAND
