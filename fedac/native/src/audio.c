@@ -1110,7 +1110,19 @@ static void *capture_thread_func(void *arg) {
             continue;
         }
 
+        // Skip first chunk after recording starts — it contains stale
+        // pre-buffered audio from before the user pressed rec.
+        int is_first_rec_chunk = (audio->recording && audio->sample_write_pos == 0);
+
         float peak = 0.0f;
+        // Simple compressor: track envelope, apply gain reduction
+        static float env = 0.0f;         // envelope follower
+        static float comp_gain = 1.0f;   // current gain
+        const float threshold = 0.5f;    // compress above this
+        const float ratio = 4.0f;        // 4:1 compression
+        const float attack = 0.002f;     // fast attack
+        const float release = 0.0001f;   // slow release
+
         for (int s = 0; s < n; s++) {
             float sample;
             if (channels == 1) {
@@ -1118,18 +1130,39 @@ static void *capture_thread_func(void *arg) {
             } else {
                 sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f;
             }
+
+            // Envelope follower
             float abs_s = fabsf(sample);
+            if (abs_s > env)
+                env += attack * (abs_s - env);
+            else
+                env += release * (abs_s - env);
+
+            // Compute gain reduction
+            if (env > threshold) {
+                float over = env - threshold;
+                float reduced = threshold + over / ratio;
+                comp_gain = reduced / env;
+            } else {
+                // Slowly return to unity
+                comp_gain += 0.0001f * (1.0f - comp_gain);
+            }
+
+            sample *= comp_gain;
             if (abs_s > peak) peak = abs_s;
 
             // Always write to ring buffer
             audio->mic_ring[audio->mic_ring_pos % audio->sample_max_len] = sample;
             audio->mic_ring_pos++;
 
-            // Direct-write when recording
-            if (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
+            // Direct-write when recording (skip first stale chunk)
+            if (audio->recording && !is_first_rec_chunk &&
+                audio->sample_write_pos < audio->sample_max_len) {
                 audio->sample_buf[audio->sample_write_pos++] = sample;
             }
         }
+        // If we skipped the first chunk, mark that we've consumed it
+        // by writing at least 0 (sample_write_pos stays 0, next chunk writes)
         audio->mic_level = peak;
 
         if (audio->recording && audio->sample_write_pos >= audio->sample_max_len) {
