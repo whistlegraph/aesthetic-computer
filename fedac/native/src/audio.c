@@ -552,6 +552,10 @@ static void *audio_thread_fn(void *arg) {
         audio->total_frames += AUDIO_PERIOD_SIZE;
         audio->time = (double)audio->total_frames / rate;
 
+        // Recording tap: send mixed PCM to recorder (if active)
+        if (audio->rec_callback)
+            audio->rec_callback(buffer, AUDIO_PERIOD_SIZE, audio->rec_userdata);
+
         // Write to ALSA (handle short writes to avoid dropped samples/clicks)
         snd_pcm_t *pcm = (snd_pcm_t *)audio->pcm;
         int remaining = AUDIO_PERIOD_SIZE;
@@ -853,18 +857,10 @@ ACAudio *audio_init(void) {
                 fprintf(stderr, "[audio] Volume %s: %ld/%ld\n", name, max, max);
             }
 
-            // Ensure capture paths are enabled so mic input is not silently muted.
-            if (snd_mixer_selem_has_capture_switch(elem)) {
-                snd_mixer_selem_set_capture_switch_all(elem, 1);
-                fprintf(stderr, "[audio] Capture switch ON: %s\n", name);
-            }
-            if (snd_mixer_selem_has_capture_volume(elem)) {
-                long cmin, cmax;
-                snd_mixer_selem_get_capture_volume_range(elem, &cmin, &cmax);
-                long cset = cmin + ((cmax - cmin) * 9) / 10; // avoid clipping at absolute max
-                snd_mixer_selem_set_capture_volume_all(elem, cset);
-                fprintf(stderr, "[audio] Capture volume %s: %ld/%ld\n", name, cset, cmax);
-            }
+            // NOTE: Do NOT touch capture mixer controls here — on the 11e Yoga
+            // Gen 5, enabling capture switches at boot (before any capture PCM
+            // is open) puts the HDA codec into a bad state that causes EIO when
+            // the capture stream is later opened with period/buffer params.
         }
         snd_mixer_close(mixer);
     } else {
