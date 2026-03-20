@@ -1140,6 +1140,41 @@ static void *capture_thread_func(void *arg) {
     ac_log("[mic] hot-mic running at %u Hz, %u ch, period=%lu buf=%lu\n",
            rate, channels, (unsigned long)actual_period, (unsigned long)actual_buffer);
 
+    // Re-enable capture mixer controls AFTER PCM hw_params (some HDA codecs
+    // reset mixer routing when a capture stream is configured)
+    {
+        snd_mixer_t *cmix = NULL;
+        // Extract card number from device name (e.g., "plughw:0,0" -> "hw:0")
+        int cnum = 0;
+        const char *d = audio->mic_device;
+        while (*d && (*d < '0' || *d > '9')) d++;
+        if (*d) cnum = atoi(d);
+        char ccard[16];
+        snprintf(ccard, sizeof(ccard), "hw:%d", cnum);
+        if (snd_mixer_open(&cmix, 0) >= 0) {
+            snd_mixer_attach(cmix, ccard);
+            snd_mixer_selem_register(cmix, NULL, NULL);
+            snd_mixer_load(cmix);
+            snd_mixer_elem_t *elem;
+            for (elem = snd_mixer_first_elem(cmix); elem; elem = snd_mixer_elem_next(elem)) {
+                if (!snd_mixer_selem_is_active(elem)) continue;
+                if (snd_mixer_selem_has_capture_switch(elem)) {
+                    snd_mixer_selem_set_capture_switch_all(elem, 1);
+                    ac_log("[mic] capture switch ON: %s\n", snd_mixer_selem_get_name(elem));
+                }
+                if (snd_mixer_selem_has_capture_volume(elem)) {
+                    long cmin, cmax;
+                    snd_mixer_selem_get_capture_volume_range(elem, &cmin, &cmax);
+                    long cset = cmin + ((cmax - cmin) * 9) / 10;
+                    snd_mixer_selem_set_capture_volume_all(elem, cset);
+                    ac_log("[mic] capture volume %s: %ld/%ld\n",
+                           snd_mixer_selem_get_name(elem), cset, cmax);
+                }
+            }
+            snd_mixer_close(cmix);
+        }
+    }
+
     // Explicitly prepare + start the capture stream to avoid blocking forever
     snd_pcm_prepare(cap);
     int start_rc = snd_pcm_start(cap);
