@@ -1250,7 +1250,41 @@ int audio_mic_stop(ACAudio *audio) {
         ac_log("[mic] recording stopped (ring), sample_len=%d ring_span=%d sample_rate=%u\n",
                audio->sample_len, end - start, audio->sample_rate);
     }
+    // Auto-trim silence from start (threshold: ~0.01 = -40dB)
+    if (audio->sample_len > 0) {
+        const float trim_threshold = 0.01f;
+        int trim_start = 0;
+        while (trim_start < audio->sample_len &&
+               fabsf(audio->sample_buf[trim_start]) < trim_threshold) {
+            trim_start++;
+        }
+        if (trim_start > 0 && trim_start < audio->sample_len) {
+            int new_len = audio->sample_len - trim_start;
+            memmove(audio->sample_buf, audio->sample_buf + trim_start,
+                    new_len * sizeof(float));
+            audio->sample_len = new_len;
+            ac_log("[mic] auto-trimmed %d silent samples from start\n", trim_start);
+        }
+    }
+
     return audio->sample_len;
+}
+
+// --- Sample bank: get/load data for per-key samples ---
+int audio_sample_get_data(ACAudio *audio, float *out, int max_len) {
+    if (!audio || !out || audio->sample_len == 0) return 0;
+    int len = audio->sample_len < max_len ? audio->sample_len : max_len;
+    memcpy(out, audio->sample_buf, len * sizeof(float));
+    return len;
+}
+
+void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
+    if (!audio || !data || len <= 0) return;
+    if (len > audio->sample_max_len) len = audio->sample_max_len;
+    memcpy(audio->sample_buf, data, len * sizeof(float));
+    audio->sample_len = len;
+    if (rate > 0) audio->sample_rate = rate;
+    ac_log("[sample] loaded %d samples (%d Hz)\n", len, audio->sample_rate);
 }
 
 // --- Sample playback ---
