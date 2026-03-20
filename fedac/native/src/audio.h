@@ -202,6 +202,10 @@ void audio_sample_kill(ACAudio *audio, uint64_t id, double fade);
 void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
                          double base_freq, double volume, double pan);
 
+// Sample bank: get/load data for per-key sample storage
+int audio_sample_get_data(ACAudio *audio, float *out, int max_len);
+void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate);
+
 // Adjust system volume: delta is -5 to +5 (percentage points), 0 = toggle mute
 void audio_volume_adjust(ACAudio *audio, int delta);
 
