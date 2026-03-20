@@ -2787,7 +2787,11 @@ class TextInput {
         this.#moveDeltaX = 0;
         this.shifting = false;
         this.#recentlyShifting = true; // Track that we just finished character sliding
-        
+
+        // Unlock keyboard after swipe — the draw handler locked it, and
+        // backdropTouchOff would otherwise prevent the unlock below.
+        $.send({ type: "keyboard:unlock" });
+
         // Reset the recently shifting flag after a short delay
         setTimeout(() => {
           this.#recentlyShifting = false;
