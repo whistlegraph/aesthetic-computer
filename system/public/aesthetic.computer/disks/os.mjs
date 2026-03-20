@@ -584,6 +584,7 @@ function act({ event: e, needsPaint, download }) {
   dlFn = download;
 
   if (e.is("dark-mode") || e.is("light-mode")) {
+    if (uiRef && (handle && token || releases)) makeButtons(uiRef);
     needsPaint();
     return;
   }
