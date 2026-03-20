@@ -208,6 +208,34 @@
 \hyphenpenalty=50                  % encourage hyphenation (default 50, lower = more)
 \exhyphenpenalty=50                % also break at explicit hyphens in compounds
 
+% === TABLE OVERFLOW PREVENTION ===
+% Cards are only ~3.2in wide — tables must never exceed column width.
+\RequirePackage{tabularx}              % auto-stretching X columns
+\RequirePackage{adjustbox}             % fallback: shrink oversized tables
+% Wrap every tabular/tabularx in adjustbox max width=\linewidth
+% so no table can ever overflow the card edge.
+% Also reduce font size in tables for better fit on narrow cards.
+\let\origintabular\tabular
+\let\oriendtabular\endtabular
+\renewenvironment{tabular}[1]{%
+  \small%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabular{#1}%
+}{%
+  \oriendtabular%
+  \end{adjustbox}%
+}
+\let\origintabularx\tabularx
+\let\oriendtabularx\endtabularx
+\renewenvironment{tabularx}[2]{%
+  \small%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabularx{#1}{#2}%
+}{%
+  \oriendtabularx%
+  \end{adjustbox}%
+}
+
 % === HYPERREF ===
 \RequirePackage{hyperref}
 \hypersetup{
