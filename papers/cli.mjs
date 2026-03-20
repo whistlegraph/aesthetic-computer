@@ -154,6 +154,11 @@ const PAPER_MAP = {
     siteName: "reading-the-score-26-arxiv",
     title: "Reading the Score",
   },
+  "arxiv-calarts": {
+    base: "calarts",
+    siteName: "calarts-callouts-papers-26-arxiv",
+    title: "CalArts, Callouts, and Papers",
+  },
 };
 
 function texName(base, lang) {
