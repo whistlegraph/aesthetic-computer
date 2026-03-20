@@ -1111,8 +1111,13 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
-    // Use ALSA default period/buffer (don't force small values —
-    // HDA Intel PCH capture hangs with period=128/buffer=512)
+    // Set standard capture period/buffer — ALSA defaults can be absurdly
+    // large (period=32768/buf=1M) which blocks forever on HDA Intel PCH,
+    // but too-small values (128/512) also hang. 1024/8192 is standard.
+    snd_pcm_uframes_t period_frames = 1024;
+    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
+    snd_pcm_uframes_t buffer_frames = 8192;
+    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
 
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
