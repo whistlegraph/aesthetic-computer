@@ -6,7 +6,7 @@
     <title>papers · Aesthetic Computer</title>
     <meta name="description" content="Academic papers on Aesthetic Computer and KidLisp.">
     <meta property="og:title" content="papers — Aesthetic.Computer" />
-    <meta property="og:description" content="18 papers by Jeffrey Alan Scudder on creative computing, KidLisp, and Aesthetic Computer." />
+    <meta property="og:description" content="Papers by @jeffrey on creative computing, KidLisp, and Aesthetic Computer." />
     <meta property="og:image" content="https://papers.aesthetic.computer/papers-og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -833,6 +833,23 @@
                 if (e.target.closest('a')) return;
                 const link = p.querySelector('.title a');
                 if (link) link.click();
+            });
+        });
+
+        // Track paper PDF views/downloads
+        function trackHit(paper, format) {
+            const lang = currentLang || 'en';
+            navigator.sendBeacon(
+                'https://aesthetic.computer/api/paper-hit',
+                JSON.stringify({ paper, format, lang })
+            );
+        }
+        document.querySelectorAll('.p').forEach(p => {
+            const id = p.dataset.paperId;
+            if (!id) return;
+            p.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]').forEach(a => {
+                const fmt = a.href.includes('-cards') ? 'cards' : 'pdf';
+                a.addEventListener('click', () => trackHit(id, fmt));
             });
         });
 
