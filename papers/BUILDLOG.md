@@ -1146,3 +1146,27 @@ Failed:
 - PLOrk'ing the Planet [zh]
 - Playable Folk Songs [zh]
 - Sucking on the Complex [zh]
+
+## 2026-03-20 07:56
+
+Built:
+- CalArts, Callouts, and Papers [en] → calarts-callouts-papers-26-arxiv.pdf
+
+Failed:
+- Aesthetic Computer '26 [zh]
+- From setup() to boot() [zh]
+- Repository Archaeology [zh]
+- Vestigial Features [zh]
+- Citation Diversity Audit [zh]
+- Radical Computer Art [zh]
+- KidLisp '26 [zh]
+- KidLisp Language Reference [zh]
+- Network Audit [zh]
+- notepat.com [zh]
+- AC Native OS [zh]
+- Pieces Not Programs [zh]
+- Who Pays for Creative Tools? [zh]
+- Whistlegraph [zh]
+- PLOrk'ing the Planet [zh]
+- Playable Folk Songs [zh]
+- Sucking on the Complex [zh]
