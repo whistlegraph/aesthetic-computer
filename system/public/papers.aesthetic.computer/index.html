@@ -187,6 +187,60 @@
         .p .revisions { color: var(--purple); opacity: 0.75; }
         /* .filesize replaced by .fmt-label in format icons */
 
+        /* === PSYCHO papers === */
+        .p.psycho {
+            animation: psycho-wiggle 3s ease-in-out infinite;
+            transform-origin: center;
+            border-left: 2px solid var(--pink);
+            position: relative;
+            overflow: visible;
+        }
+        .p.psycho::before {
+            content: 'PSYCHO';
+            position: absolute;
+            top: 0.3em;
+            right: 0.6em;
+            font-size: 0.55em;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            color: var(--pink);
+            opacity: 0.5;
+            animation: psycho-pulse 2s ease-in-out infinite;
+        }
+        .p.psycho .title .psycho-char {
+            display: inline-block;
+            animation: psycho-color 4s linear infinite, psycho-letter-wiggle 2s ease-in-out infinite;
+        }
+        .p.psycho:hover .title .psycho-char {
+            animation: psycho-color 0.8s linear infinite, psycho-letter-wiggle 0.4s ease-in-out infinite;
+        }
+        @keyframes psycho-wiggle {
+            0%, 100% { transform: rotate(0deg); }
+            15% { transform: rotate(-0.3deg) translateX(-0.5px); }
+            30% { transform: rotate(0.2deg) translateY(0.5px); }
+            50% { transform: rotate(-0.15deg); }
+            70% { transform: rotate(0.25deg) translateX(0.3px); }
+            85% { transform: rotate(-0.1deg) translateY(-0.3px); }
+        }
+        @keyframes psycho-color {
+            0%   { color: #cd5c9b; }
+            16%  { color: #7850b4; }
+            33%  { color: #4ecdc4; }
+            50%  { color: #e8e860; }
+            66%  { color: #ff6b6b; }
+            83%  { color: #4ecdc4; }
+            100% { color: #cd5c9b; }
+        }
+        @keyframes psycho-letter-wiggle {
+            0%, 100% { transform: translateY(0); }
+            25% { transform: translateY(-1px) rotate(-2deg); }
+            75% { transform: translateY(1px) rotate(2deg); }
+        }
+        @keyframes psycho-pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 0.2; }
+        }
+
         /* Format icons row */
         .format-icons {
             display: inline-flex;
@@ -416,7 +470,7 @@
         <div class="meta-row"><span class="created" title="Created">03/19</span><span class="revisions" title="Revisions">r4</span><span class="updated" title="Last updated">Mar 20 07:56</span></div>
     </div>
 
-    <div class="p" data-paper-id="calarts" data-no-cards="1">
+    <div class="p" data-paper-id="calarts" data-no-cards="1" data-psycho="1">
         <div class="title"><a href="/calarts-callouts-papers-26-arxiv.pdf" data-base="/calarts-callouts-papers-26-arxiv">CalArts, Callouts, and Papers</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/20</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 20 07:56</span></div>
@@ -744,6 +798,30 @@
         // Bust cache on initial PDF links
         document.querySelectorAll('.p .title a[data-base]').forEach(a => {
             if (!a.href.includes('?v=')) a.href += '?v=' + window.__papersVersion;
+        });
+
+        // PSYCHO papers: add class, split title into per-character color-cycling spans
+        document.querySelectorAll('.p[data-psycho="1"]').forEach(p => {
+            p.classList.add('psycho');
+            const titleA = p.querySelector('.title a');
+            if (!titleA) return;
+            const text = titleA.childNodes[0]?.textContent || titleA.textContent;
+            // Preserve other children (lang badges, format icons)
+            const otherNodes = Array.from(titleA.childNodes).slice(1);
+            titleA.textContent = '';
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                if (ch === ' ') {
+                    titleA.appendChild(document.createTextNode(' '));
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'psycho-char';
+                    span.textContent = ch;
+                    span.style.animationDelay = (i * 0.15) + 's, ' + (i * 0.08) + 's';
+                    titleA.appendChild(span);
+                }
+            }
+            otherNodes.forEach(n => titleA.appendChild(n));
         });
 
         // Make whole paper block clickable
