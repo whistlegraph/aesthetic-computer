@@ -1111,11 +1111,8 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
-    // Set small period + buffer for low-latency capture
-    snd_pcm_uframes_t period_frames = 128;  // ~2.7ms at 48kHz
-    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
-    snd_pcm_uframes_t buffer_frames = 512;  // 4 periods
-    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
+    // Use ALSA default period/buffer (don't force small values —
+    // HDA Intel PCH capture hangs with period=128/buffer=512)
 
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
@@ -1175,35 +1172,13 @@ static void *capture_thread_func(void *arg) {
         }
     }
 
-    // Explicitly prepare + start the capture stream to avoid blocking forever
-    snd_pcm_prepare(cap);
-    int start_rc = snd_pcm_start(cap);
-    if (start_rc < 0 && start_rc != -EPIPE) {
-        ac_log("[mic] snd_pcm_start failed: %s (continuing anyway)\n", snd_strerror(start_rc));
-    }
-
-    int read_frames = (int)actual_period;
-    if (read_frames < 64) read_frames = 64;
-    if (read_frames > 512) read_frames = 512;
+    // Simple blocking reads — matches original working approach.
+    // Do NOT use snd_pcm_wait/snd_pcm_start or force small periods;
+    // HDA Intel PCH capture hangs with those on bare metal.
     int16_t buf[1024 * 2]; // max stereo
     int first_read = 1;
     while (audio->mic_hot) {
-        // Wait for data with timeout to prevent infinite blocking
-        int ready = snd_pcm_wait(cap, 200); // 200ms timeout
-        if (ready == 0) {
-            // Timeout — device not producing data, try to restart
-            if (first_read) {
-                ac_log("[mic] WARNING: capture device not producing data, retrying...\n");
-                snd_pcm_prepare(cap);
-                snd_pcm_start(cap);
-            }
-            continue;
-        }
-        if (ready < 0) {
-            snd_pcm_recover(cap, ready, 0);
-            continue;
-        }
-        int n = snd_pcm_readi(cap, buf, read_frames);
+        int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
             if (n < 0) {
