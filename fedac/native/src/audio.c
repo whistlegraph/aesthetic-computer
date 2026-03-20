@@ -317,6 +317,7 @@ static void *audio_thread_fn(void *arg) {
 
                 // Interpolated read for L channel
                 int slen = audio->sample_len;
+                if (slen <= 0) { sv->active = 0; continue; }
                 int p0l = (int)pos_l;
                 if (sv->loop) {
                     p0l = ((p0l % slen) + slen) % slen;
@@ -348,7 +349,7 @@ static void *audio_thread_fn(void *arg) {
 
                 sv->position += sv->speed;
                 if (sv->position >= audio->sample_len) {
-                    if (sv->loop) {
+                    if (sv->loop && audio->sample_len > 0) {
                         // Wrap for seamless looping
                         while (sv->position >= audio->sample_len)
                             sv->position -= audio->sample_len;
