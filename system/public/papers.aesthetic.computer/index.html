@@ -198,14 +198,19 @@
         .p.psycho::before {
             content: 'PSYCHO';
             position: absolute;
-            top: 0.3em;
-            right: 0.6em;
-            font-size: 0.55em;
-            font-weight: 700;
-            letter-spacing: 0.15em;
-            color: var(--pink);
-            opacity: 0.5;
-            animation: psycho-pulse 2s ease-in-out infinite;
+            top: 0.2em;
+            right: 0.4em;
+            font-size: 1.1em;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            animation: psycho-blink 0.6s steps(1) infinite;
+        }
+        @keyframes psycho-blink {
+            0%   { color: #ff2222; background: #000; padding: 1px 6px; }
+            25%  { color: #ffdd00; background: transparent; padding: 1px 6px; }
+            50%  { color: #000; background: #fff; padding: 1px 6px; }
+            75%  { color: #fff; background: #ff2222; padding: 1px 6px; }
         }
         .p.psycho .title .psycho-char {
             display: inline-block;
@@ -236,10 +241,7 @@
             25% { transform: translateY(-1px) rotate(-2deg); }
             75% { transform: translateY(1px) rotate(2deg); }
         }
-        @keyframes psycho-pulse {
-            0%, 100% { opacity: 0.5; }
-            50% { opacity: 0.2; }
-        }
+        /* psycho-pulse replaced by psycho-blink */
 
         /* Format icons row */
         .format-icons {
