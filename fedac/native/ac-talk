@@ -1,0 +1,59 @@
+#!/bin/bash
+# ac-talk — Speak text on the Docker host machine via TTS
+# Usage: ac-talk "Hello world"
+#        ac-talk -v espeak "Hello world"
+#        echo "build done" | ac-talk
+
+DOCKER_HOST_IP="${AC_HOST_IP:-172.17.0.1}"
+SSH_USER="${AC_HOST_USER:-me}"
+VOICE="${VOICE:-flite}"
+
+# Parse flags
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -v|--voice) VOICE="$2"; shift 2 ;;
+        -h|--help)
+            echo "Usage: ac-talk [-v flite|espeak] \"text to speak\""
+            echo "       echo \"text\" | ac-talk"
+            echo ""
+            echo "Speaks text on the Docker host machine."
+            echo "Env: AC_HOST_IP (default: 172.17.0.1)"
+            echo "     AC_HOST_USER (default: me)"
+            echo "     VOICE (default: flite)"
+            exit 0 ;;
+        --) shift; break ;;
+        -*) echo "Unknown flag: $1" >&2; exit 1 ;;
+        *) break ;;
+    esac
+done
+
+# Get text from args or stdin
+TEXT="$*"
+if [ -z "${TEXT}" ]; then
+    TEXT=$(cat)
+fi
+
+if [ -z "${TEXT}" ]; then
+    echo "ac-talk: no text provided" >&2
+    exit 1
+fi
+
+# Escape single quotes for remote shell
+ESCAPED=$(printf '%s' "${TEXT}" | sed "s/'/'\\\\''/g")
+
+case "${VOICE}" in
+    espeak|espeak-ng)
+        CMD="espeak-ng '${ESCAPED}' 2>/dev/null || espeak '${ESCAPED}' 2>/dev/null"
+        ;;
+    flite|*)
+        CMD="flite -t '${ESCAPED}' 2>/dev/null"
+        ;;
+esac
+
+ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o LogLevel=ERROR \
+    "${SSH_USER}@${DOCKER_HOST_IP}" "${CMD}" 2>/dev/null
+
+if [ $? -ne 0 ]; then
+    echo "ac-talk: failed to reach host at ${DOCKER_HOST_IP}" >&2
+    exit 1
+fi
