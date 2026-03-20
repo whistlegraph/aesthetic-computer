@@ -5138,7 +5138,7 @@ function paint($) {
 
     const osBtnText = "x86 OS";
     const osBtnY = btnPaddingTop;
-    const osBtnX = screen.width - 58 - btnPaddingRight;
+    const osBtnX = screen.width - 46 - btnPaddingRight;
 
     if (!osBtn) {
       osBtn = new $.ui.TextButton(osBtnText, { x: osBtnX, y: osBtnY });
