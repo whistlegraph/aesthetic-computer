@@ -33,6 +33,7 @@
 #include "tts.h"
 #include "js-bindings.h"
 #include "machines.h"
+#include "recorder.h"
 #ifdef USE_WAYLAND
 #include "wayland-display.h"
 #endif
@@ -1780,6 +1781,11 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
     }
 }
 
+// Audio recording tap callback (adapts rec_callback signature to recorder_submit_audio)
+static void rec_audio_tap(const int16_t *pcm, int frames, void *userdata) {
+    recorder_submit_audio((ACRecorder *)userdata, pcm, frames);
+}
+
 int main(int argc, char *argv[]) {
     struct timespec boot_start;
     clock_gettime(CLOCK_MONOTONIC, &boot_start);
@@ -2331,12 +2337,25 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
+    // Video recorder (F9 to toggle) — declared before headless branch so cleanup is in scope
+    ACRecorder *recorder = NULL;
+
     if (headless) {
         for (int i = 0; i < 10 && running; i++) {
             js_call_sim(rt);
             js_call_paint(rt);
         }
     } else {
+#ifdef HAVE_AVCODEC
+        if (screen && audio) {
+            recorder = recorder_create(screen->width, screen->height, 60,
+                                       audio->actual_rate ? audio->actual_rate : 192000);
+            if (recorder) {
+                ac_log("[ac-native] recorder ready (%dx%d)\n", screen->width, screen->height);
+            }
+        }
+#endif
+
         // Main loop
         struct timespec frame_time;
         clock_gettime(CLOCK_MONOTONIC, &frame_time);
@@ -2618,6 +2637,40 @@ int main(int argc, char *argv[]) {
                         // Click sound: higher = brighter, lower = dimmer
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
+                    }
+                    // Recording: F9 toggles MP4 recording
+                    else if (strcmp(input->events[i].key_name, "f9") == 0 && recorder) {
+                        if (recorder_is_recording(recorder)) {
+                            // Stop: remove audio tap, finalize file
+                            if (audio) {
+                                audio->rec_callback = NULL;
+                                audio->rec_userdata = NULL;
+                            }
+                            recorder_stop(recorder);
+                            // Descending tone = stopped
+                            audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.2, 0.001, 0.10, 0.0);
+                            audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.15, 0.03, 0.09, 0.0);
+                        } else {
+                            // Start: generate timestamped filename, wire up audio tap
+                            mkdir("/mnt/rec", 0755);
+                            time_t now = time(NULL);
+                            struct tm *tm = gmtime(&now);
+                            char rec_path[128];
+                            snprintf(rec_path, sizeof(rec_path),
+                                     "/mnt/rec/%04d-%02d-%02d_%02d-%02d-%02d.mp4",
+                                     tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                                     tm->tm_hour, tm->tm_min, tm->tm_sec);
+                            if (recorder_start(recorder, rec_path) == 0) {
+                                // Wire up audio tap
+                                if (audio) {
+                                    audio->rec_userdata = recorder;
+                                    audio->rec_callback = rec_audio_tap;
+                                }
+                                // Ascending tone = started
+                                audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.2, 0.001, 0.10, 0.0);
+                                audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.15, 0.03, 0.09, 0.0);
+                            }
+                        }
                     }
                     else if (strcmp(input->events[i].key_name, "power") == 0 ||
                              input->events[i].key_code == KEY_POWER)
@@ -2953,6 +3006,19 @@ int main(int argc, char *argv[]) {
                 }
             }
 
+            // Submit frame to recorder (after cursor overlay, before display)
+            if (recorder_is_recording(recorder))
+                recorder_submit_video(recorder, screen->pixels, screen->stride);
+
+            // Draw recording indicator (red dot + duration)
+            if (recorder_is_recording(recorder)) {
+                graph_page(&graph, screen);
+                graph_ink(&graph, (ACColor){255, 40, 40, 255});
+                // Red dot at top-right (4px circle)
+                int rx = screen->width - 8, ry = 4;
+                graph_circle(&graph, rx, ry, 3, 1);
+            }
+
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
             ac_display_present(display, screen, pixel_scale);
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
@@ -3044,6 +3110,13 @@ int main(int argc, char *argv[]) {
 
             frame_sync_60fps(&frame_time);
         }
+    }
+
+    // Stop recording if active
+    if (recorder) {
+        if (audio) { audio->rec_callback = NULL; audio->rec_userdata = NULL; }
+        recorder_destroy(recorder);
+        recorder = NULL;
     }
 
     // Flush final perf data
