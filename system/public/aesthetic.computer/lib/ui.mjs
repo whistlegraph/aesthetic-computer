@@ -1031,7 +1031,7 @@ class TextButtonSmall {
   #cw = 4;
   #ch = 7;
   #padL = 2; // Left padding
-  #padR = 1; // Right padding
+  #padR = 2; // Right padding
   #padY = 2; // Vertical padding
   #offset;
 
