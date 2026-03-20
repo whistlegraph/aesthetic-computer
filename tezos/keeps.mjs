@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+process.noDeprecation = true;
 /**
  * 🔮 Keeps - Tezos FA2 Contract Management with Taquito
  * 
