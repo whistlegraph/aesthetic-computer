@@ -1030,7 +1030,7 @@ class TextButtonSmall {
   // MatrixChunky8: 4px char width, 7px char height
   #cw = 4;
   #ch = 7;
-  #padX = 2; // Horizontal padding
+  #padX = 1; // Horizontal padding
   #padY = 2; // Vertical padding
   #offset;
   
