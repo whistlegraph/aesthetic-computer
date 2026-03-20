@@ -1055,12 +1055,47 @@ static void *capture_thread_func(void *arg) {
         return NULL;
     }
 
+    // Enable capture mixer controls NOW (after PCM open, in the capture thread)
+    // Must NOT be done in audio_init — that causes EIO on some HDA codecs.
+    {
+        int cnum = 0;
+        const char *d = audio->mic_device;
+        while (*d && (*d < '0' || *d > '9')) d++;
+        if (*d) cnum = atoi(d);
+        char ccard[16];
+        snprintf(ccard, sizeof(ccard), "hw:%d", cnum);
+        snd_mixer_t *cmix = NULL;
+        if (snd_mixer_open(&cmix, 0) >= 0) {
+            snd_mixer_attach(cmix, ccard);
+            snd_mixer_selem_register(cmix, NULL, NULL);
+            snd_mixer_load(cmix);
+            snd_mixer_elem_t *elem;
+            for (elem = snd_mixer_first_elem(cmix); elem; elem = snd_mixer_elem_next(elem)) {
+                if (!snd_mixer_selem_is_active(elem)) continue;
+                if (snd_mixer_selem_has_capture_switch(elem)) {
+                    snd_mixer_selem_set_capture_switch_all(elem, 1);
+                    ac_log("[mic] capture switch ON: %s\n", snd_mixer_selem_get_name(elem));
+                }
+                if (snd_mixer_selem_has_capture_volume(elem)) {
+                    long cmin, cmax;
+                    snd_mixer_selem_get_capture_volume_range(elem, &cmin, &cmax);
+                    long cset = cmin + ((cmax - cmin) * 9) / 10;
+                    snd_mixer_selem_set_capture_volume_all(elem, cset);
+                    ac_log("[mic] capture volume %s: %ld/%ld\n",
+                           snd_mixer_selem_get_name(elem), cset, cmax);
+                }
+            }
+            snd_mixer_close(cmix);
+        }
+    }
+
     audio->sample_rate = rate;
     audio->sample_write_pos = 0;
     audio->mic_connected = 1;
     ac_log("[mic] recording at %u Hz, %u ch\n", rate, channels);
 
     int16_t buf[1024 * 2]; // max stereo
+    float peak = 0.0f;
     while (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
         int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
@@ -1075,13 +1110,16 @@ static void *capture_thread_func(void *arg) {
             } else {
                 sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f;
             }
+            float abs_s = fabsf(sample);
+            if (abs_s > peak) peak = abs_s;
             audio->sample_buf[audio->sample_write_pos++] = sample;
         }
+        audio->mic_level = peak; // update level meter live
     }
 
     audio->sample_len = audio->sample_write_pos;
-    ac_log("[mic] recorded %d samples (%.2fs)\n",
-           audio->sample_len, (double)audio->sample_len / audio->sample_rate);
+    ac_log("[mic] recorded %d samples (%.2fs) peak=%.4f\n",
+           audio->sample_len, (double)audio->sample_len / audio->sample_rate, peak);
     snd_pcm_close(cap);
     audio->mic_connected = 0;
     audio->recording = 0;
@@ -1122,8 +1160,11 @@ int audio_mic_start(ACAudio *audio) {
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
     audio->recording = 0;
-    // Thread is detached and will exit on its own when it sees recording=0
-    usleep(50000); // 50ms for thread to finish last read
+    // Wait for capture thread to finish writing sample_len (ALSA defaults
+    // can have large periods so the last snd_pcm_readi may block ~700ms)
+    for (int i = 0; i < 500 && audio->mic_connected; i++) {
+        usleep(2000); // 2ms per iter, max 1s
+    }
     ac_log("[mic] recording stopped, sample_len=%d sample_rate=%u\n",
            audio->sample_len, audio->sample_rate);
     return audio->sample_len;
