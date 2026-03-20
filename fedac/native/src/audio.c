@@ -1034,7 +1034,6 @@ static void *capture_thread_func(void *arg) {
         return NULL;
     }
 
-    // Configure — NO period/buffer setting (ALSA defaults work on this HDA)
     snd_pcm_hw_params_t *hw;
     snd_pcm_hw_params_alloca(&hw);
     snd_pcm_hw_params_any(cap, hw);
@@ -1049,6 +1048,15 @@ static void *capture_thread_func(void *arg) {
 
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
+
+    // Set period=1024 (~21ms) for low-latency capture. This previously
+    // caused EIO but the root causes were: HDMI audio open (exhausting
+    // HDA streams), 6-period playback buffer, and capture mixer in
+    // audio_init. All three are now fixed.
+    snd_pcm_uframes_t period_frames = 1024;
+    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
+    snd_pcm_uframes_t buffer_frames = 8192;
+    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
 
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
@@ -1110,10 +1118,6 @@ static void *capture_thread_func(void *arg) {
             continue;
         }
 
-        // Skip first chunk after recording starts — it contains stale
-        // pre-buffered audio from before the user pressed rec.
-        int is_first_rec_chunk = (audio->recording && audio->sample_write_pos == 0);
-
         float peak = 0.0f;
         // Simple compressor: track envelope, apply gain reduction
         static float env = 0.0f;         // envelope follower
@@ -1155,9 +1159,8 @@ static void *capture_thread_func(void *arg) {
             audio->mic_ring[audio->mic_ring_pos % audio->sample_max_len] = sample;
             audio->mic_ring_pos++;
 
-            // Direct-write when recording (skip first stale chunk)
-            if (audio->recording && !is_first_rec_chunk &&
-                audio->sample_write_pos < audio->sample_max_len) {
+            // Direct-write when recording
+            if (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
                 audio->sample_buf[audio->sample_write_pos++] = sample;
             }
         }
