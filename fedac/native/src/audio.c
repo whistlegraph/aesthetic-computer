@@ -1111,14 +1111,6 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
-    // Set standard capture period/buffer — ALSA defaults can be absurdly
-    // large (period=32768/buf=1M) which blocks forever on HDA Intel PCH,
-    // but too-small values (128/512) also hang. 1024/8192 is standard.
-    snd_pcm_uframes_t period_frames = 1024;
-    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
-    snd_pcm_uframes_t buffer_frames = 8192;
-    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
-
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to configure capture");
@@ -1142,57 +1134,12 @@ static void *capture_thread_func(void *arg) {
     ac_log("[mic] hot-mic running at %u Hz, %u ch, period=%lu buf=%lu\n",
            rate, channels, (unsigned long)actual_period, (unsigned long)actual_buffer);
 
-    // Re-enable capture mixer controls AFTER PCM hw_params (some HDA codecs
-    // reset mixer routing when a capture stream is configured)
-    {
-        snd_mixer_t *cmix = NULL;
-        // Extract card number from device name (e.g., "plughw:0,0" -> "hw:0")
-        int cnum = 0;
-        const char *d = audio->mic_device;
-        while (*d && (*d < '0' || *d > '9')) d++;
-        if (*d) cnum = atoi(d);
-        char ccard[16];
-        snprintf(ccard, sizeof(ccard), "hw:%d", cnum);
-        if (snd_mixer_open(&cmix, 0) >= 0) {
-            snd_mixer_attach(cmix, ccard);
-            snd_mixer_selem_register(cmix, NULL, NULL);
-            snd_mixer_load(cmix);
-            snd_mixer_elem_t *elem;
-            for (elem = snd_mixer_first_elem(cmix); elem; elem = snd_mixer_elem_next(elem)) {
-                if (!snd_mixer_selem_is_active(elem)) continue;
-                if (snd_mixer_selem_has_capture_switch(elem)) {
-                    snd_mixer_selem_set_capture_switch_all(elem, 1);
-                    ac_log("[mic] capture switch ON: %s\n", snd_mixer_selem_get_name(elem));
-                }
-                if (snd_mixer_selem_has_capture_volume(elem)) {
-                    long cmin, cmax;
-                    snd_mixer_selem_get_capture_volume_range(elem, &cmin, &cmax);
-                    long cset = cmin + ((cmax - cmin) * 9) / 10;
-                    snd_mixer_selem_set_capture_volume_all(elem, cset);
-                    ac_log("[mic] capture volume %s: %ld/%ld\n",
-                           snd_mixer_selem_get_name(elem), cset, cmax);
-                }
-            }
-            snd_mixer_close(cmix);
-        }
-    }
-
     // Simple blocking reads — matches original working approach.
     int16_t buf[1024 * 2]; // max stereo
     int first_read = 1;
-    int eio_retries = 0;
     while (audio->mic_hot) {
         int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
-            if (n == -EIO && eio_retries < 5) {
-                // HDA stream error — reset and retry
-                eio_retries++;
-                ac_log("[mic] EIO on capture read (retry %d/5), resetting stream...\n", eio_retries);
-                snd_pcm_drop(cap);
-                usleep(50000); // 50ms pause
-                snd_pcm_prepare(cap);
-                continue;
-            }
             n = snd_pcm_recover(cap, n, 0);
             if (n < 0) {
                 snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
