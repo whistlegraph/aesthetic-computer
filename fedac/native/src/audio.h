@@ -120,7 +120,7 @@ typedef struct {
     int sample_max_len;         // buffer capacity
     unsigned int sample_rate;   // capture sample rate (for speed calc)
     volatile int recording;     // 1 = buffering mic input to sample_buf
-    int sample_write_pos;       // write cursor during recording
+    volatile int sample_write_pos; // write cursor during recording
     volatile int mic_connected; // 1 = capture device currently open
     volatile int mic_hot;       // 1 = hot-mic thread running (device stays open)
     volatile float mic_level;   // raw peak level (0.0-1.0) per chunk
