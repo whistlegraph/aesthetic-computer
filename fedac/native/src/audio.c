@@ -783,7 +783,7 @@ ACAudio *audio_init(void) {
     snd_pcm_uframes_t period = AUDIO_PERIOD_SIZE;
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
 
-    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 6;  // 6 periods for better underrun tolerance
+    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 3;  // 3 periods (~3ms total at 192kHz)
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
 
     err = snd_pcm_hw_params(pcm, params);
@@ -867,67 +867,14 @@ ACAudio *audio_init(void) {
         fprintf(stderr, "[audio] Cannot open mixer\n");
     }
 
-    // Force-unmute via HDA codec verbs (bypasses ALSA mixer abstraction)
-    // ALC257: Node 0x14 = Speaker, Node 0x21 = HP Out
-    // Pin Widget Control verb (0x707) with OUT enabled (0x40)
-    // Amp Gain/Mute verb: 0x3 = set output amp, 0xb0 = unmute + gain
-    {
-        FILE *codec = fopen("/proc/asound/card0/codec#0", "r");
-        if (codec) {
-            fprintf(stderr, "[audio] HDA codec found, sending unmute verbs\n");
-            fclose(codec);
-            // Write verbs to hwdep (if available) — fallback: use sysfs
-            char verb_path[128];
-            snprintf(verb_path, sizeof(verb_path), "/sys/class/sound/hwC0D0/init_pin_configs");
-            if (access(verb_path, F_OK) == 0)
-                fprintf(stderr, "[audio] HDA sysfs: %s\n", verb_path);
-        }
-    }
-
     // Read initial system volume
     audio->system_volume = read_system_volume_card(card_idx);
     fprintf(stderr, "[audio] System volume: %d%%\n", audio->system_volume);
 
-    // Try to open HDMI audio device (non-blocking, best-effort)
-    {
-        // Intel HDA HDMI subdevices: device 3, 7, 8 on card 0 or 1
-        const char *hdmi_devs[] = {
-            "hdmi:0,0", "hdmi:0,1", "hdmi:0,2", "hdmi:0,3",
-            "hdmi:1,0", "hdmi:1,1",
-            "plughw:0,3", "plughw:0,7", "plughw:0,8",
-            "plughw:1,3", "plughw:1,7",
-            NULL
-        };
-        for (int hi = 0; hdmi_devs[hi] && !audio->hdmi_pcm; hi++) {
-            snd_pcm_t *hpcm = NULL;
-            if (snd_pcm_open(&hpcm, hdmi_devs[hi], SND_PCM_STREAM_PLAYBACK,
-                              SND_PCM_NONBLOCK) != 0) continue;
-            snd_pcm_hw_params_t *hp;
-            snd_pcm_hw_params_alloca(&hp);
-            if (snd_pcm_hw_params_any(hpcm, hp) < 0 ||
-                snd_pcm_hw_params_set_access(hpcm, hp, SND_PCM_ACCESS_RW_INTERLEAVED) < 0 ||
-                snd_pcm_hw_params_set_format(hpcm, hp, SND_PCM_FORMAT_S16_LE) < 0 ||
-                snd_pcm_hw_params_set_channels(hpcm, hp, 2) < 0) {
-                snd_pcm_close(hpcm); continue;
-            }
-            unsigned int hrate = 48000;
-            snd_pcm_hw_params_set_rate_near(hpcm, hp, &hrate, NULL);
-            snd_pcm_uframes_t hperiod = 512;
-            snd_pcm_hw_params_set_period_size_near(hpcm, hp, &hperiod, NULL);
-            if (snd_pcm_hw_params(hpcm, hp) < 0) { snd_pcm_close(hpcm); continue; }
-            snd_pcm_prepare(hpcm);
-            audio->hdmi_pcm = hpcm;
-            audio->hdmi_rate = hrate;
-            audio->hdmi_period_size = (int)hperiod;
-            // Downsample ratio: every N primary samples → 1 HDMI sample
-            audio->hdmi_downsample_n = (int)((double)rate / hrate + 0.5);
-            if (audio->hdmi_downsample_n < 1) audio->hdmi_downsample_n = 1;
-            fprintf(stderr, "[audio] HDMI audio: %s @ %uHz, downsample 1/%d\n",
-                    hdmi_devs[hi], hrate, audio->hdmi_downsample_n);
-        }
-        if (!audio->hdmi_pcm)
-            fprintf(stderr, "[audio] No HDMI audio device\n");
-    }
+    // HDMI audio disabled — opening HDMI PCM streams on the same HDA controller
+    // can exhaust controller streams and cause EIO on capture.
+    audio->hdmi_pcm = NULL;
+    fprintf(stderr, "[audio] HDMI audio: disabled\n");
 
     // Start audio thread
     audio->running = 1;
