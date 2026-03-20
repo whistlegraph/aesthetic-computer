@@ -500,7 +500,8 @@ DHCLIENT_SCRIPT
     done
 
     # Need basic utilities for shell commands (grep, awk, pgrep, killall, ls, rfkill, curl, etc.)
-    for util in grep awk sed pgrep killall cat ls head cut rfkill which curl sleep mkdir chmod sfdisk mkfs.vfat; do
+    # efibootmgr: sets UEFI boot order after OTA flash (prevents stale vendor boot entries)
+    for util in grep awk sed pgrep killall cat ls head cut rfkill which curl sleep mkdir chmod sfdisk mkfs.vfat efibootmgr; do
         UTIL_PATH="$(command -v "$util" 2>/dev/null || true)"
         if [ -n "$UTIL_PATH" ] && [ -f "$UTIL_PATH" ]; then
             cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/"
