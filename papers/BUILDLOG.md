@@ -1170,3 +1170,80 @@ Failed:
 - PLOrk'ing the Planet [zh]
 - Playable Folk Songs [zh]
 - Sucking on the Complex [zh]
+
+## 2026-03-20 14:57
+
+Built:
+- Aesthetic Computer '26 [en] → aesthetic-computer-26-arxiv.pdf
+- Aesthetic Computer '26 [es] → aesthetic-computer-26-arxiv-es.pdf
+- From setup() to boot() [en] → piece-api-26-arxiv.pdf
+- From setup() to boot() [da] → piece-api-26-arxiv-da.pdf
+- From setup() to boot() [es] → piece-api-26-arxiv-es.pdf
+- Repository Archaeology [en] → repo-archaeology-26-arxiv.pdf
+- Repository Archaeology [da] → repo-archaeology-26-arxiv-da.pdf
+- Repository Archaeology [es] → repo-archaeology-26-arxiv-es.pdf
+- Vestigial Features [en] → dead-ends-26-arxiv.pdf
+- Vestigial Features [da] → dead-ends-26-arxiv-da.pdf
+- Vestigial Features [es] → dead-ends-26-arxiv-es.pdf
+- Citation Diversity Audit [en] → citation-diversity-audit-26.pdf
+- Citation Diversity Audit [da] → citation-diversity-audit-26-da.pdf
+- Citation Diversity Audit [es] → citation-diversity-audit-26-es.pdf
+- Radical Computer Art [en] → radical-computer-art-26-arxiv.pdf
+- Radical Computer Art [da] → radical-computer-art-26-arxiv-da.pdf
+- Radical Computer Art [es] → radical-computer-art-26-arxiv-es.pdf
+- KidLisp '26 [en] → kidlisp-26-arxiv.pdf
+- KidLisp '26 [da] → kidlisp-26-arxiv-da.pdf
+- KidLisp '26 [es] → kidlisp-26-arxiv-es.pdf
+- KidLisp Language Reference [en] → kidlisp-reference-26-arxiv.pdf
+- KidLisp Language Reference [da] → kidlisp-reference-26-arxiv-da.pdf
+- KidLisp Language Reference [es] → kidlisp-reference-26-arxiv-es.pdf
+- Network Audit [en] → network-audit-26-arxiv.pdf
+- Network Audit [da] → network-audit-26-arxiv-da.pdf
+- Network Audit [es] → network-audit-26-arxiv-es.pdf
+- notepat.com [en] → notepat-26-arxiv.pdf
+- notepat.com [da] → notepat-26-arxiv-da.pdf
+- notepat.com [es] → notepat-26-arxiv-es.pdf
+- AC Native OS [en] → ac-native-os-26-arxiv.pdf
+- AC Native OS [da] → ac-native-os-26-arxiv-da.pdf
+- AC Native OS [es] → ac-native-os-26-arxiv-es.pdf
+- Pieces Not Programs [en] → pieces-not-programs-26-arxiv.pdf
+- Pieces Not Programs [da] → pieces-not-programs-26-arxiv-da.pdf
+- Pieces Not Programs [es] → pieces-not-programs-26-arxiv-es.pdf
+- Who Pays for Creative Tools? [en] → who-pays-for-creative-tools-26-arxiv.pdf
+- Who Pays for Creative Tools? [da] → who-pays-for-creative-tools-26-arxiv-da.pdf
+- Who Pays for Creative Tools? [es] → who-pays-for-creative-tools-26-arxiv-es.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- PLOrk'ing the Planet [en] → plorking-the-planet-26-arxiv.pdf
+- PLOrk'ing the Planet [da] → plorking-the-planet-26-arxiv-da.pdf
+- PLOrk'ing the Planet [es] → plorking-the-planet-26-arxiv-es.pdf
+- Playable Folk Songs [en] → folk-songs-26-arxiv.pdf
+- Sucking on the Complex [en] → sucking-on-the-complex-26-arxiv.pdf
+- Sucking on the Complex [da] → sucking-on-the-complex-26-arxiv-da.pdf
+- Sucking on the Complex [es] → sucking-on-the-complex-26-arxiv-es.pdf
+- KidLisp Cards [en] → kidlisp-cards-26-arxiv.pdf
+- Reading the Score [en] → reading-the-score-26-arxiv.pdf
+- CalArts, Callouts, and Papers [en] → calarts-callouts-papers-26-arxiv.pdf
+
+Failed:
+- Aesthetic Computer '26 [da]
+- Aesthetic Computer '26 [zh]
+- From setup() to boot() [zh]
+- Repository Archaeology [zh]
+- Vestigial Features [zh]
+- Citation Diversity Audit [zh]
+- Radical Computer Art [zh]
+- KidLisp '26 [zh]
+- KidLisp Language Reference [zh]
+- Network Audit [zh]
+- notepat.com [zh]
+- AC Native OS [zh]
+- Pieces Not Programs [zh]
+- Who Pays for Creative Tools? [zh]
+- Whistlegraph [zh]
+- PLOrk'ing the Planet [zh]
+- Playable Folk Songs [da]
+- Playable Folk Songs [es]
+- Playable Folk Songs [zh]
+- Sucking on the Complex [zh]
