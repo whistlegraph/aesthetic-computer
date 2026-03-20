@@ -1140,11 +1140,34 @@ static void *capture_thread_func(void *arg) {
     ac_log("[mic] hot-mic running at %u Hz, %u ch, period=%lu buf=%lu\n",
            rate, channels, (unsigned long)actual_period, (unsigned long)actual_buffer);
 
+    // Explicitly prepare + start the capture stream to avoid blocking forever
+    snd_pcm_prepare(cap);
+    int start_rc = snd_pcm_start(cap);
+    if (start_rc < 0 && start_rc != -EPIPE) {
+        ac_log("[mic] snd_pcm_start failed: %s (continuing anyway)\n", snd_strerror(start_rc));
+    }
+
     int read_frames = (int)actual_period;
     if (read_frames < 64) read_frames = 64;
     if (read_frames > 512) read_frames = 512;
     int16_t buf[1024 * 2]; // max stereo
+    int first_read = 1;
     while (audio->mic_hot) {
+        // Wait for data with timeout to prevent infinite blocking
+        int ready = snd_pcm_wait(cap, 200); // 200ms timeout
+        if (ready == 0) {
+            // Timeout — device not producing data, try to restart
+            if (first_read) {
+                ac_log("[mic] WARNING: capture device not producing data, retrying...\n");
+                snd_pcm_prepare(cap);
+                snd_pcm_start(cap);
+            }
+            continue;
+        }
+        if (ready < 0) {
+            snd_pcm_recover(cap, ready, 0);
+            continue;
+        }
         int n = snd_pcm_readi(cap, buf, read_frames);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
@@ -1155,6 +1178,10 @@ static void *capture_thread_func(void *arg) {
                 break;
             }
             continue;
+        }
+        if (first_read) {
+            ac_log("[mic] first capture read: %d frames\n", n);
+            first_read = 0;
         }
         audio->mic_last_chunk = n;
 
@@ -1238,6 +1265,16 @@ int audio_mic_start(ACAudio *audio) {
     if (!audio->mic_hot) {
         int rc = audio_mic_open(audio);
         if (rc != 0) return rc;
+    }
+    // Wait for capture thread to start producing data (up to 500ms)
+    if (audio->mic_ring_pos == 0 && audio->mic_hot) {
+        for (int i = 0; i < 250 && audio->mic_ring_pos == 0; i++) {
+            __sync_synchronize();
+            usleep(2000); // 2ms per iter, max 500ms
+        }
+        if (audio->mic_ring_pos == 0) {
+            ac_log("[mic] WARNING: capture thread not producing data after 500ms\n");
+        }
     }
     // Kill any playing sample voices
     for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
