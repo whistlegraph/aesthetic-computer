@@ -301,10 +301,10 @@ function paint($) {
   const matrixH = 9;
   const matrixW = 4; // MatrixChunky8 char width
   const wrapW = w - pad * 2;
-  const btnGap = isMobile ? 6 : 4;
-  // Center buttons on narrow screens, left-align on desktop
-  const btnX = (btn) => isNarrow ? Math.floor((w - btn.width) / 2) : pad;
-  let y = (isMobile ? 12 : 18) - scrollY;
+  const btnGap = isMobile ? 8 : 4;
+  // Always left-align buttons
+  const btnX = (btn) => pad;
+  let y = (isMobile ? 28 : 22) - scrollY;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -320,34 +320,39 @@ function paint($) {
 
   const builds = releases.releases || [];
 
-  // One-line description
+  // Section header: colored bar with title
+  const secBarH = matrixH + 8;
+  function sectionHeader(title, barColor) {
+    ink(...barColor).box(0, y, w, secBarH);
+    ink(...C.instHeader).write(title, { x: pad, y: y + 4 }, undefined, undefined, false, "MatrixChunky8");
+    y += secBarH + (isMobile ? 10 : 8);
+  }
+
+  // --- ABOUT ---
   const descText = "A Linux kernel with an embedded initramfs — boots any x86 PC from USB.";
   ink(...C.instText);
   $.write(descText, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
   const descLines = Math.ceil((descText.length * matrixW) / wrapW);
-  y += matrixH * descLines + 6;
+  y += matrixH * descLines + (isMobile ? 14 : 10);
 
-  // Divider
-  ink(...C.divider);
-  drawLine(pad, y, w - pad, y);
-  y += 6;
-
-  // Download section (logged-in gets personalized, otherwise template)
+  // --- DOWNLOAD section ---
   if (downloadBtn && !downloading) {
     const isPersonal = handle && token;
+
+    sectionHeader("Download", dark ? [18, 24, 40] : [215, 220, 235]);
 
     // OS label
     if (isPersonal) {
       const label = osLabel();
       ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
       const labelLines = Math.ceil((label.length * charW) / wrapW);
-      y += rowH * labelLines + 4;
+      y += rowH * labelLines + 6;
     } else {
       const latest = releases?.releases?.[0];
       const label = "AC Native OS" + (latest ? " — " + latest.name : "");
       ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
       const labelLines = Math.ceil((label.length * charW) / wrapW);
-      y += rowH * labelLines + 4;
+      y += rowH * labelLines + 6;
     }
 
     // Device token status (logged-in only)
@@ -358,7 +363,7 @@ function paint($) {
       $.write(cIcon + " claude", { x: pad, y });
       ink(...(hasGit ? C.current : [255, 80, 80]));
       $.write(gIcon + " git", { x: pad + 60, y });
-      y += rowH + 2;
+      y += rowH + 4;
 
       if ((!hasClaude || !hasGit) && setupBtn) {
         setupBtn.reposition({ x: btnX(setupBtn), y });
@@ -388,7 +393,7 @@ function paint($) {
         }
       } else if (hasClaude && hasGit) {
         ink(...C.date);
-        $.write("device ready", { x: pad + 120, y: y - rowH - 2 });
+        $.write("device ready", { x: pad + 120, y: y - rowH - 4 });
       }
     }
 
@@ -432,16 +437,10 @@ function paint($) {
       y += mirrorBtn.height + btnGap;
     }
 
-    y += isNarrow ? 4 : 2; // Extra spacing before download
+    y += isMobile ? 8 : 4;
 
-    // Download button — draw wider bg on mobile for emphasis
-    const dlX = btnX(downloadBtn);
-    downloadBtn.reposition({ x: dlX, y });
-    if (isNarrow) {
-      // Full-width highlight behind download button on mobile
-      ink(...C.dlBtnBg, 120).box(pad, y - 2, wrapW, downloadBtn.height + 4);
-      ink(...C.dlBtnBorder, 60).box(pad, y - 2, wrapW, downloadBtn.height + 4, "outline");
-    }
+    // Download button
+    downloadBtn.reposition({ x: btnX(downloadBtn), y });
     downloadBtn.paint(
       $,
       [C.dlBtnBg, C.dlBtnBorder, C.dlBtnText, 255],
@@ -457,16 +456,11 @@ function paint($) {
       y += matrixH + 4;
     }
 
-    // Divider
-    ink(...C.divider);
-    drawLine(pad, y, w - pad, y);
-    y += 8;
+    y += isMobile ? 14 : 10;
 
-    // "How to Install" header
-    ink(...C.instHeader).write("How to Install", { x: isNarrow ? Math.floor(w / 2 - "How to Install".length * matrixW / 2) : pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 6;
+    // --- INSTALL section ---
+    sectionHeader("How to Install", dark ? [14, 20, 32] : [210, 215, 230]);
 
-    // Instructions (matrix font, all wrapped)
     const instLines = [
       [C.instText, "1 flash .iso with Fedora Media Writer"],
       [C.instText, "2 plug USB into any x86 PC"],
@@ -478,14 +472,13 @@ function paint($) {
     for (const [color, text] of instLines) {
       ink(...color).write(text, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
       const lines = Math.ceil((text.length * matrixW) / wrapW);
-      y += matrixH * lines + 3;
+      y += matrixH * lines + 4;
     }
-    y += 5;
 
-    // Divider before builds
-    ink(...C.divider);
-    drawLine(pad, y, w - pad, y);
-    y += 6;
+    y += isMobile ? 14 : 10;
+
+    // --- BUILDS section ---
+    sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238]);
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
