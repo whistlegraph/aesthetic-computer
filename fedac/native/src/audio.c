@@ -655,6 +655,9 @@ ACAudio *audio_init(void) {
     audio->capture_thread_running = 0;
     memset(audio->mic_waveform, 0, sizeof(audio->mic_waveform));
     audio->mic_waveform_pos = 0;
+    audio->mic_ring = calloc(audio->sample_max_len, sizeof(float));
+    audio->mic_ring_pos = 0;
+    audio->rec_start_ring_pos = 0;
     snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
@@ -1169,6 +1172,11 @@ static void *capture_thread_func(void *arg) {
             float abs_s = fabsf(sample);
             if (abs_s > peak) peak = abs_s;
 
+            // Always write to ring buffer (recording extracts from it)
+            audio->mic_ring[audio->mic_ring_pos % audio->sample_max_len] = sample;
+            audio->mic_ring_pos++;
+
+            // Also direct-write when recording (fast path)
             if (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
                 audio->sample_buf[audio->sample_write_pos++] = sample;
             }
@@ -1234,30 +1242,42 @@ int audio_mic_start(ACAudio *audio) {
     // Kill any playing sample voices
     for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
         audio->sample_voices[i].active = 0;
+    // Record ring buffer position so we can extract audio on stop
+    audio->rec_start_ring_pos = audio->mic_ring_pos;
     // Reset write position FIRST (atomic int write), then set recording flag.
-    // The capture thread only writes when recording==1, and checks sample_write_pos,
-    // so resetting pos before setting the flag avoids any race.
     audio->sample_len = 0;
     audio->sample_write_pos = 0;
     __sync_synchronize(); // memory barrier: ensure pos=0 is visible before recording=1
     audio->recording = 1;
-    ac_log("[mic] recording started (instant)\n");
+    ac_log("[mic] recording started (instant), ring_pos=%d\n", audio->rec_start_ring_pos);
     return 0;
 }
 
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
-    // If the capture thread hasn't written anything yet (events batched in one
-    // frame), spin briefly so at least one ALSA period (~2.7ms) can arrive.
-    if (audio->sample_write_pos == 0 && audio->mic_hot) {
-        for (int i = 0; i < 50 && audio->sample_write_pos == 0; i++)
-            usleep(100); // 0.1ms per iter, max 5ms
-    }
     audio->recording = 0;
     __sync_synchronize();
-    audio->sample_len = audio->sample_write_pos;
-    ac_log("[mic] recording stopped, sample_len=%d sample_rate=%u\n",
-           audio->sample_len, audio->sample_rate);
+
+    int direct_len = audio->sample_write_pos;
+    if (direct_len > 0) {
+        // Fast path: capture thread wrote directly to sample_buf
+        audio->sample_len = direct_len;
+        ac_log("[mic] recording stopped (direct), sample_len=%d sample_rate=%u\n",
+               audio->sample_len, audio->sample_rate);
+    } else {
+        // Fallback: extract from ring buffer (handles batched events / race)
+        int end = audio->mic_ring_pos;
+        int start = audio->rec_start_ring_pos;
+        int len = end - start;
+        if (len < 0) len = 0; // shouldn't happen with monotonic pos
+        if (len > audio->sample_max_len) len = audio->sample_max_len;
+        for (int i = 0; i < len; i++) {
+            audio->sample_buf[i] = audio->mic_ring[(start + i) % audio->sample_max_len];
+        }
+        audio->sample_len = len;
+        ac_log("[mic] recording stopped (ring fallback), sample_len=%d ring_span=%d sample_rate=%u\n",
+               audio->sample_len, end - start, audio->sample_rate);
+    }
     return audio->sample_len;
 }
 
