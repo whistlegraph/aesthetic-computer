@@ -93,18 +93,13 @@ function makeSnapshot(job, opts = {}) {
 }
 
 // Determine build-and-flash.sh flags based on which paths changed.
-// - src/ or Makefile changed → full build (binary + initramfs + kernel)
-// - kernel/config-minimal changed → full build (forces kernel reconfigure)
-// - anything else (pieces/, initramfs/, initramfs-scripts/) → --skip-binary
+// Never skip binary: AC_BUILD_NAME and AC_GIT_HASH are compiled into the
+// binary via CFLAGS and change on every commit. The Makefile's CFLAGS
+// signature check (`.cflags` md5) handles incremental rebuilds efficiently —
+// only object files are recompiled when flags change, not the full kernel.
+// Skipping the binary causes version string mismatch (device shows stale name).
 function buildFlagsFor(changedPaths = "") {
-  const paths = changedPaths.split(",").filter(Boolean);
-  const needsFullBuild = paths.some(
-    (p) =>
-      p.includes("fedac/native/src/") ||
-      p.includes("fedac/native/Makefile") ||
-      p.includes("fedac/native/kernel/")
-  );
-  return needsFullBuild ? [] : ["--skip-binary"];
+  return [];
 }
 
 // Symlink fedac/native/build → CACHE_DIR so kernel object files survive
