@@ -1222,8 +1222,12 @@ static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int arg
         memcpy(ptr, audio->sample_buf, len * sizeof(float));
     }
 
-    // Create Float32Array view
-    JSValue f32 = JS_NewTypedArray(ctx, 1, &ab, JS_TYPED_ARRAY_FLOAT32);
+    // Create Float32Array view via global constructor
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue ctor = JS_GetPropertyStr(ctx, global, "Float32Array");
+    JSValue f32 = JS_CallConstructor(ctx, ctor, 1, &ab);
+    JS_FreeValue(ctx, ctor);
+    JS_FreeValue(ctx, global);
     JS_FreeValue(ctx, ab);
     return f32;
 }
