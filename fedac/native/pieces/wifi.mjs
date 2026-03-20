@@ -1,6 +1,7 @@
 // wifi.mjs — AC Native WiFi management piece
 // Shows available networks, connects, manages saved credentials.
 // Jumped to from prompt.mjs via "net" or "wifi" command.
+// Respects __theme (dark/light mode + presets).
 
 const AC_SSID = "aesthetic.computer";
 const AC_PASS = "aesthetic.computer";
@@ -17,6 +18,8 @@ let shiftHeld = false;
 let cursorBlink = 0;
 let savedCreds = [];
 let frame = 0;
+let connectingSSID = ""; // track which SSID we're connecting to
+let lastState = 0;       // track state changes for feedback
 
 function boot({ system }) {
   // Load saved credentials
@@ -41,11 +44,11 @@ function act({ event: e, sound, system, wifi }) {
       return;
     }
     if (e.is("keyboard:down:enter")) {
-      const nets = wifi?.networks || [];
       const merged = globalThis.__wifiMergedList || [];
       const entry = merged[selectedIdx];
       if (entry && password.length > 0) {
         wifi?.connect?.(entry.ssid, password);
+        connectingSSID = entry.ssid;
         // Save credentials
         if (!savedCreds.find(c => c.ssid === entry.ssid)) {
           savedCreds.push({ ssid: entry.ssid, pass: password });
@@ -77,12 +80,39 @@ function act({ event: e, sound, system, wifi }) {
     return;
   }
 
+  const merged = globalThis.__wifiMergedList || [];
+
+  // Keyboard navigation
+  if (e.is("keyboard:down:arrowdown")) {
+    let next = selectedIdx + 1;
+    while (next < merged.length && merged[next].type === "separator") next++;
+    if (next < merged.length) {
+      selectedIdx = next;
+      sound?.synth({ type: "sine", tone: 440, duration: 0.03, volume: 0.08, attack: 0.002, decay: 0.02 });
+    }
+    return;
+  }
+  if (e.is("keyboard:down:arrowup")) {
+    let prev = selectedIdx - 1;
+    while (prev >= 0 && merged[prev].type === "separator") prev--;
+    if (prev >= 0) {
+      selectedIdx = prev;
+      sound?.synth({ type: "sine", tone: 440, duration: 0.03, volume: 0.08, attack: 0.002, decay: 0.02 });
+    }
+    return;
+  }
+  if (e.is("keyboard:down:enter")) {
+    if (selectedIdx >= 0 && selectedIdx < merged.length) {
+      connectEntry(merged[selectedIdx], wifi, sound, system);
+    }
+    return;
+  }
+
   // Touch: select or connect to network
   if (e.is("touch")) {
     const { x, y } = e;
     const rowH = 16;
     const listY = 44;
-    const merged = globalThis.__wifiMergedList || [];
 
     const tappedRow = Math.floor((y - listY) / rowH);
     if (tappedRow >= 0 && tappedRow < merged.length) {
@@ -91,22 +121,7 @@ function act({ event: e, sound, system, wifi }) {
 
       if (tappedRow === selectedIdx) {
         // Second tap: connect
-        const allSaved = [
-          { ssid: AC_SSID, pass: AC_PASS },
-          ...savedCreds,
-        ];
-        const cred = allSaved.find(c => c.ssid === entry.ssid);
-
-        if (cred) {
-          wifi?.connect?.(cred.ssid, cred.pass);
-          sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.06 });
-        } else if (entry.encrypted) {
-          passwordMode = true;
-          password = "";
-          cursorBlink = 0;
-        } else {
-          wifi?.connect?.(entry.ssid, "");
-        }
+        connectEntry(entry, wifi, sound, system);
       } else {
         selectedIdx = tappedRow;
         sound?.synth({ type: "sine", tone: 440, duration: 0.03, volume: 0.08, attack: 0.002, decay: 0.02 });
@@ -115,9 +130,42 @@ function act({ event: e, sound, system, wifi }) {
   }
 }
 
-function paint({ wipe, ink, box, write, screen, system, wifi }) {
+function connectEntry(entry, wifi, sound, system) {
+  const allSaved = [
+    { ssid: AC_SSID, pass: AC_PASS },
+    ...savedCreds,
+  ];
+  const cred = allSaved.find(c => c.ssid === entry.ssid);
+
+  if (cred) {
+    wifi?.connect?.(cred.ssid, cred.pass);
+    connectingSSID = cred.ssid;
+    sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.06 });
+  } else if (entry.encrypted) {
+    passwordMode = true;
+    password = "";
+    cursorBlink = 0;
+  } else {
+    wifi?.connect?.(entry.ssid, "");
+    connectingSSID = entry.ssid;
+    sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.06 });
+  }
+}
+
+function paint({ wipe, ink, box, write, screen, system, wifi, sound }) {
   frame++;
+  const T = __theme.update();
   const w = screen.width, h = screen.height;
+
+  // Play sound on state transitions
+  if (wifi && wifi.state !== lastState) {
+    if (wifi.state === 4 && lastState === 3) { // CONNECTED after CONNECTING
+      sound?.synth({ type: "sine", tone: 880, duration: 0.15, volume: 0.12, attack: 0.005, decay: 0.1 });
+    } else if (wifi.state === 5 && lastState === 3) { // FAILED after CONNECTING
+      sound?.synth({ type: "sine", tone: 220, duration: 0.2, volume: 0.12, attack: 0.005, decay: 0.15 });
+    }
+    lastState = wifi ? wifi.state : 0;
+  }
 
   // Password entry fullscreen
   if (passwordMode && wifi) {
@@ -126,53 +174,53 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     const entry = merged[selectedIdx];
     const ssid = entry ? entry.ssid : "?";
 
-    wipe(10, 10, 15);
+    wipe(T.bg[0], T.bg[1], T.bg[2]);
 
-    ink(220, 220, 230);
+    ink(T.fg, T.fg, T.fg);
     const titleX = Math.max(10, (w - ssid.length * 18) / 2);
     write(ssid, { x: titleX, y: h / 2 - 50, size: 2, font: "matrix" });
 
-    ink(120, 120, 130);
+    ink(T.fgDim, T.fgDim, T.fgDim);
     write("enter password:", { x: 20, y: h / 2 - 24, size: 2, font: "font_1" });
 
     // Password field
-    ink(25, 25, 30);
+    ink(T.bgAlt[0], T.bgAlt[1], T.bgAlt[2]);
     box(18, h / 2 - 6, w - 36, 18, true);
-    ink(70, 70, 80);
+    ink(T.border[0], T.border[1], T.border[2]);
     box(18, h / 2 - 6, w - 36, 18, "outline");
 
     const cursor = (cursorBlink % 60) < 35 ? "|" : "";
-    ink(220, 220, 230);
+    ink(T.fg, T.fg, T.fg);
     write(password + cursor, { x: 22, y: h / 2 - 2, size: 1, font: "font_1" });
 
-    ink(80, 80, 90);
+    ink(T.fgMute, T.fgMute, T.fgMute);
     write("Enter: connect    Esc: cancel", { x: 20, y: h / 2 + 22, size: 1, font: "font_1" });
 
     if (wifi.state === 3) {
-      ink(200, 200, 80);
+      ink(T.warn[0], T.warn[1], T.warn[2]);
       write("connecting...", { x: 20, y: h / 2 + 40, size: 1, font: "font_1" });
     } else if (wifi.state === 5) {
-      ink(220, 80, 80);
+      ink(T.err[0], T.err[1], T.err[2]);
       write("failed: " + (wifi.status || "?"), { x: 20, y: h / 2 + 40, size: 1, font: "font_1" });
     }
     return;
   }
 
-  wipe(10, 10, 15);
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   // Title
-  ink(220, 220, 230);
+  ink(T.fg, T.fg, T.fg);
   write("WiFi Networks", { x: 20, y: 12, size: 2, font: "matrix" });
 
-  // Status
-  ink(120, 120, 130);
+  // Status line
+  ink(T.fgDim, T.fgDim, T.fgDim);
   const statusStr = wifi ? ((wifi.status || "scanning...") + (wifi.iface ? " [" + wifi.iface + "]" : "")) : "no wifi";
   write(statusStr, { x: 20, y: 30, size: 1, font: "font_1" });
 
   if (!wifi) {
-    ink(200, 80, 80);
+    ink(T.err[0], T.err[1], T.err[2]);
     write("wifi not available", { x: 20, y: 60, size: 1, font: "font_1" });
-    ink(60, 80, 60);
+    ink(T.fgMute, T.fgMute, T.fgMute);
     write("esc: back", { x: 10, y: h - 12, size: 1, font: "font_1" });
     return;
   }
@@ -196,7 +244,7 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
   const rowH = 16;
   const listY = 44;
   const totalRows = scannedNets.length + (offlineSaved.length > 0 ? 1 + offlineSaved.length : 0);
-  const maxRows = Math.min(totalRows, Math.floor((h - listY - 30) / rowH));
+  const maxRows = Math.min(totalRows, Math.floor((h - listY - 60) / rowH));
   globalThis.__wifiMergedList = [];
 
   let row = 0;
@@ -207,35 +255,45 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
     const ry = listY + row * rowH;
     const isSaved = allSaved.find(c => c.ssid === net.ssid);
     const isSelected = row === selectedIdx;
+    const isConnecting = wifi.state === 3 && connectingSSID === net.ssid;
+    const isConnected = wifi.connected && wifi.ssid === net.ssid;
 
     if (isSelected) {
-      ink(40, 55, 80);
+      ink(T.bar[0], T.bar[1], T.bar[2]);
       box(10, ry, w - 20, rowH, true);
     }
 
     // Signal bars
     const bars = net.signal > -50 ? 4 : net.signal > -60 ? 3 : net.signal > -70 ? 2 : 1;
     for (let b = 0; b < 4; b++) {
-      if (b < bars) ink(80, 200, 80);
-      else ink(40, 40, 45);
+      if (b < bars) ink(T.ok[0], T.ok[1], T.ok[2]);
+      else ink(T.bgDim[0], T.bgDim[1], T.bgDim[2]);
       box(16 + b * 4, ry + 10 - (b + 1) * 2, 3, (b + 1) * 2, true);
     }
 
     // SSID
-    if (isSaved) ink(100, 220, 100);
-    else ink(220, 220, 230);
+    if (isConnected) ink(T.ok[0], T.ok[1], T.ok[2]);
+    else if (isSaved) ink(T.ok[0], T.ok[1], T.ok[2]);
+    else ink(T.fg, T.fg, T.fg);
     const ssidDisplay = net.ssid.length > 26 ? net.ssid.slice(0, 25) + "~" : net.ssid;
     write(ssidDisplay, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
-    // Right side
-    if (isSelected) {
-      ink(80, 180, 255);
+    // Right side status
+    if (isConnected) {
+      ink(T.ok[0], T.ok[1], T.ok[2]);
+      write("connected", { x: w - 60, y: ry + 2, size: 1, font: "font_1" });
+    } else if (isConnecting) {
+      const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
+      ink(T.warn[0], T.warn[1], T.warn[2]);
+      write("connecting" + dots, { x: w - 72, y: ry + 2, size: 1, font: "font_1" });
+    } else if (isSelected) {
+      ink(T.link[0], T.link[1], T.link[2]);
       write("connect", { x: w - 52, y: ry + 2, size: 1, font: "font_1" });
     } else if (isSaved) {
-      ink(60, 160, 60);
+      ink(T.fgMute, T.fgMute, T.fgMute);
       write("saved", { x: w - 40, y: ry + 2, size: 1, font: "font_1" });
     } else if (net.encrypted) {
-      ink(80, 80, 90);
+      ink(T.fgMute, T.fgMute, T.fgMute);
       write("*", { x: w - 20, y: ry + 2, size: 1, font: "font_1" });
     }
 
@@ -245,7 +303,7 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
   // Saved/preset networks not in scan
   if (offlineSaved.length > 0 && row < maxRows) {
     const sepY = listY + row * rowH;
-    ink(80, 80, 90);
+    ink(T.fgMute, T.fgMute, T.fgMute);
     write("-- saved (not in range) --", { x: 20, y: sepY + 2, size: 1, font: "font_1" });
     globalThis.__wifiMergedList.push({ type: "separator" });
     row++;
@@ -257,26 +315,26 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
       const isSelected = row === selectedIdx;
 
       if (isSelected) {
-        ink(35, 40, 55);
+        ink(T.bar[0], T.bar[1], T.bar[2]);
         box(10, ry, w - 20, rowH, true);
       }
 
       for (let b = 0; b < 4; b++) {
-        ink(30, 30, 35);
+        ink(T.bgDim[0], T.bgDim[1], T.bgDim[2]);
         box(16 + b * 4, ry + 10 - (b + 1) * 2, 3, (b + 1) * 2, true);
       }
 
-      ink(120, 120, 130);
+      ink(T.fgDim, T.fgDim, T.fgDim);
       write(cred.ssid, { x: 36, y: ry + 2, size: 1, font: "font_1" });
 
       if (isSelected) {
-        ink(80, 180, 255);
+        ink(T.link[0], T.link[1], T.link[2]);
         write("connect", { x: w - 52, y: ry + 2, size: 1, font: "font_1" });
       } else if (isPreset) {
-        ink(80, 120, 160);
+        ink(T.fgMute, T.fgMute, T.fgMute);
         write("preset", { x: w - 44, y: ry + 2, size: 1, font: "font_1" });
       } else {
-        ink(60, 140, 60);
+        ink(T.fgMute, T.fgMute, T.fgMute);
         write("saved", { x: w - 40, y: ry + 2, size: 1, font: "font_1" });
       }
 
@@ -289,53 +347,64 @@ function paint({ wipe, ink, box, write, screen, system, wifi }) {
 
   if (wifi.connected && wifi.ip) {
     // Connected: show SSID, IP, signal, SSH
-    ink(30, 50, 30);
+    const okBg = T.dark ? [20, 40, 20] : [220, 245, 220];
+    const okBorder = T.dark ? [40, 60, 40] : [180, 220, 180];
+    ink(okBg[0], okBg[1], okBg[2]);
     box(10, panelY, w - 20, 40, true);
-    ink(50, 70, 50);
+    ink(okBorder[0], okBorder[1], okBorder[2]);
     box(10, panelY, w - 20, 40, "outline");
 
-    ink(80, 230, 80);
+    ink(T.ok[0], T.ok[1], T.ok[2]);
     write(wifi.ssid || "connected", { x: 16, y: panelY + 4, size: 1, font: "font_1" });
 
-    ink(160, 220, 160);
+    ink(T.fg, T.fg, T.fg);
     write(wifi.ip, { x: 16, y: panelY + 16, size: 1, font: "font_1" });
 
-    // Signal strength (if available)
+    // Signal strength
     if (wifi.signal) {
       const sig = wifi.signal;
       const qual = sig > -50 ? "excellent" : sig > -60 ? "good" : sig > -70 ? "fair" : "weak";
-      ink(120, 180, 120);
+      ink(T.fgDim, T.fgDim, T.fgDim);
       write(sig + " dBm (" + qual + ")", { x: w / 2, y: panelY + 4, size: 1, font: "font_1" });
     }
 
     if (system?.sshStarted) {
-      ink(100, 160, 200);
+      ink(T.link[0], T.link[1], T.link[2]);
       write("ssh root@" + wifi.ip, { x: w / 2, y: panelY + 16, size: 1, font: "font_1" });
     }
   } else if (wifi.state === 3) {
     // Connecting
     const dots = ".".repeat((Math.floor(frame / 15) % 3) + 1);
-    ink(30, 35, 50);
+    const warnBg = T.dark ? [30, 30, 15] : [255, 250, 220];
+    ink(warnBg[0], warnBg[1], warnBg[2]);
     box(10, panelY, w - 20, 40, true);
-    ink(200, 200, 80);
+    ink(T.warn[0], T.warn[1], T.warn[2]);
     write("connecting" + dots, { x: 16, y: panelY + 4, size: 1, font: "font_1" });
-    ink(140, 140, 80);
-    write(wifi.status || "", { x: 16, y: panelY + 16, size: 1, font: "font_1" });
+    ink(T.fgDim, T.fgDim, T.fgDim);
+    write((connectingSSID || wifi.status || ""), { x: 16, y: panelY + 16, size: 1, font: "font_1" });
   } else if (wifi.state === 5) {
     // Failed
-    ink(50, 25, 25);
+    const errBg = T.dark ? [40, 15, 15] : [255, 230, 230];
+    ink(errBg[0], errBg[1], errBg[2]);
     box(10, panelY, w - 20, 40, true);
-    ink(230, 80, 80);
+    ink(T.err[0], T.err[1], T.err[2]);
     write("failed", { x: 16, y: panelY + 4, size: 1, font: "font_1" });
-    ink(180, 100, 100);
-    write(wifi.status || "unknown error", { x: 16, y: panelY + 16, size: 1, font: "font_1" });
+    ink(T.fgDim, T.fgDim, T.fgDim);
+    write((connectingSSID ? connectingSSID + ": " : "") + (wifi.status || "unknown error"), { x: 16, y: panelY + 16, size: 1, font: "font_1" });
+  } else if (wifi.state === 1) {
+    // Scanning
+    const dots = ".".repeat((Math.floor(frame / 20) % 3) + 1);
+    ink(T.bgAlt[0], T.bgAlt[1], T.bgAlt[2]);
+    box(10, panelY, w - 20, 40, true);
+    ink(T.fgDim, T.fgDim, T.fgDim);
+    write("scanning" + dots, { x: 16, y: panelY + 12, size: 1, font: "font_1" });
   }
 
   // Bottom hints
-  ink(60, 80, 60);
+  ink(T.fgMute, T.fgMute, T.fgMute);
   write("esc: back", { x: w - 60, y: h - 10, size: 1, font: "font_1" });
   if (wifi.iface) {
-    ink(50, 50, 60);
+    ink(T.fgMute, T.fgMute, T.fgMute);
     write(wifi.iface, { x: 16, y: h - 10, size: 1, font: "font_1" });
   }
 
