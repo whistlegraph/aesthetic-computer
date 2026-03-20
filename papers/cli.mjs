@@ -158,6 +158,7 @@ const PAPER_MAP = {
     base: "calarts",
     siteName: "calarts-callouts-papers-26-arxiv",
     title: "CalArts, Callouts, and Papers",
+    psycho: true,
   },
 };
 
@@ -186,6 +187,7 @@ function findAll(langFilter) {
         base: info.base,
         title: info.title,
         siteName: info.siteName,
+        psycho: !!info.psycho,
         texFile,
         pdfFile,
         texExists: existsSync(texFile),
@@ -454,7 +456,7 @@ function updateIndex(entries) {
     const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
     const tKey = translationKey(p.dir);
     papersHtml += `
-    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}>
+    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""}>
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
