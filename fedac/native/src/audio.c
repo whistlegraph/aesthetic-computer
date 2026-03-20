@@ -1178,13 +1178,21 @@ static void *capture_thread_func(void *arg) {
     }
 
     // Simple blocking reads — matches original working approach.
-    // Do NOT use snd_pcm_wait/snd_pcm_start or force small periods;
-    // HDA Intel PCH capture hangs with those on bare metal.
     int16_t buf[1024 * 2]; // max stereo
     int first_read = 1;
+    int eio_retries = 0;
     while (audio->mic_hot) {
         int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
+            if (n == -EIO && eio_retries < 5) {
+                // HDA stream error — reset and retry
+                eio_retries++;
+                ac_log("[mic] EIO on capture read (retry %d/5), resetting stream...\n", eio_retries);
+                snd_pcm_drop(cap);
+                usleep(50000); // 50ms pause
+                snd_pcm_prepare(cap);
+                continue;
+            }
             n = snd_pcm_recover(cap, n, 0);
             if (n < 0) {
                 snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
