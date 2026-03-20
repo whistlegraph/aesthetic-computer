@@ -1205,6 +1205,59 @@ static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, J
     return JS_UNDEFINED;
 }
 
+// sound.sample.getData() — returns Float32Array of current sample buffer
+static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || audio->sample_len == 0) return JS_UNDEFINED;
+
+    int len = audio->sample_len;
+    JSValue ab = JS_NewArrayBuffer(ctx, NULL, len * sizeof(float), NULL, NULL, 0);
+    if (JS_IsException(ab)) return JS_UNDEFINED;
+
+    // Get the buffer pointer and copy data
+    size_t ab_len = 0;
+    uint8_t *ptr = JS_GetArrayBuffer(ctx, &ab_len, ab);
+    if (ptr) {
+        memcpy(ptr, audio->sample_buf, len * sizeof(float));
+    }
+
+    // Create Float32Array view
+    JSValue f32 = JS_NewTypedArray(ctx, 1, &ab, JS_TYPED_ARRAY_FLOAT32);
+    JS_FreeValue(ctx, ab);
+    return f32;
+}
+
+// sound.sample.loadData(float32array, rate) — load sample data from JS array
+static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1) return JS_FALSE;
+
+    size_t byte_len = 0;
+    size_t byte_off = 0;
+    size_t bytes_per = 0;
+    JSValue ab = JS_GetTypedArrayBuffer(ctx, argv[0], &byte_off, &byte_len, &bytes_per);
+    if (JS_IsException(ab)) return JS_FALSE;
+
+    size_t ab_len = 0;
+    uint8_t *ptr = JS_GetArrayBuffer(ctx, &ab_len, ab);
+    JS_FreeValue(ctx, ab);
+    if (!ptr) return JS_FALSE;
+
+    float *data = (float *)(ptr + byte_off);
+    int len = (int)(byte_len / sizeof(float));
+
+    unsigned int rate = 48000;
+    if (argc >= 2 && JS_IsNumber(argv[1])) {
+        double r; JS_ToFloat64(ctx, &r, argv[1]);
+        if (r > 0) rate = (unsigned int)r;
+    }
+
+    audio_sample_load_data(audio, data, len, rate);
+    return JS_TRUE;
+}
+
 // sound.speak(text)
 static JSValue js_speak(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1960,6 +2013,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JSValue samp = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, samp, "play", JS_NewCFunction(ctx, js_sample_play, "play", 1));
     JS_SetPropertyStr(ctx, samp, "kill", JS_NewCFunction(ctx, js_sample_kill, "kill", 2));
+    JS_SetPropertyStr(ctx, samp, "getData", JS_NewCFunction(ctx, js_sample_get_data, "getData", 0));
+    JS_SetPropertyStr(ctx, samp, "loadData", JS_NewCFunction(ctx, js_sample_load_data, "loadData", 2));
     JS_SetPropertyStr(ctx, sound, "sample", samp);
 
     // TTS

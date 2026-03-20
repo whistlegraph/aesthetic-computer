@@ -21,6 +21,12 @@ let recStartTime = 0;      // Date.now() when recording started
 const MAX_REC_SECS = 10;   // matches AUDIO_MAX_SAMPLE_SECS
 const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
 
+// Per-key sample bank: End key arms, tone key records to that key only
+let sampleBank = {};       // key -> { data: Float32Array, len: number, rate: number }
+let globalSample = null;   // { data: Float32Array, len: number, rate: number } — Home recording
+let endArmed = false;      // true while End key is held (arm per-key recording)
+let perKeyRecording = null; // key currently recording in per-key mode
+
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
   return pitchShift * fxMix;
@@ -448,13 +454,31 @@ function act({ event: e, sound, wifi, system }) {
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
     if (key === "arrowup") { octave = Math.min(9, octave + 1); return; }
     if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
-    // Home key: hold to record in sample mode
-    if (key === "home" && wave === "sample" && !recording) {
+    // Home key: hold to record GLOBAL sample
+    if (key === "home" && wave === "sample" && !recording && !perKeyRecording) {
       const ok = !!sound?.microphone?.rec?.();
       recording = ok;
-      recPointerId = null; // keyboard-driven, no pointer
+      recPointerId = null;
       if (ok) recStartTime = Date.now();
       console.log(`[mic] rec-home: ok=${ok}`);
+      return;
+    }
+    // End key: arm per-key recording mode
+    if (key === "end" && wave === "sample") {
+      endArmed = true;
+      console.log(`[sample-bank] armed for per-key recording`);
+      return;
+    }
+    // Delete key: clear all per-key samples, reset to global/default
+    if (key === "delete" && wave === "sample") {
+      sampleBank = {};
+      console.log(`[sample-bank] cleared all per-key samples`);
+      // Restore global sample if we have one
+      if (globalSample) {
+        sound.sample.loadData(globalSample.data, globalSample.rate);
+        sampleLoaded = true;
+      }
+      sound.synth({ type: "noise", tone: 200, duration: 0.1, volume: 0.15, attack: 0.001, decay: 0.08 });
       return;
     }
     if (key === "arrowleft") {
@@ -490,6 +514,18 @@ function act({ event: e, sound, wifi, system }) {
     }
 
     const noteName = KEY_TO_NOTE[key];
+    // Per-key recording: End armed + tone key = record to that key
+    if (noteName && endArmed && wave === "sample" && !perKeyRecording && !recording) {
+      const ok = !!sound?.microphone?.rec?.();
+      if (ok) {
+        perKeyRecording = key;
+        recStartTime = Date.now();
+        console.log(`[sample-bank] recording to key '${key}' (${noteName})`);
+      }
+      return; // Suppress note playback while recording
+    }
+    // If this key is currently recording in per-key mode, suppress playback
+    if (perKeyRecording === key) return;
     if (noteName && !sounds[key]) {
       const [letter, offset] = parseNote(noteName);
       const noteOctave = octave + offset;
@@ -502,8 +538,13 @@ function act({ event: e, sound, wifi, system }) {
       const vol = 0.15 + velocity * 0.55;
       const playFreq = freq * Math.pow(2, effectivePitchShift());
 
-      if (wave === "sample" && sampleLoaded) {
-        // Play recorded sample at this pitch, looping while key is held
+      if (wave === "sample" && (sampleLoaded || sampleBank[key])) {
+        // Load per-key sample if available, otherwise use global
+        if (sampleBank[key]) {
+          sound.sample.loadData(sampleBank[key].data, sampleBank[key].rate);
+        } else if (globalSample) {
+          sound.sample.loadData(globalSample.data, globalSample.rate);
+        }
         const smp = sound.sample.play({
           tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
         });
@@ -532,9 +573,37 @@ function act({ event: e, sound, wifi, system }) {
   if (e.is("keyboard:up")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
-    // Home key release: stop recording
+    // Home key release: stop global recording + save to global sample
     if (key === "home" && recording && recPointerId === null) {
       stopSampleRecording(sound, "home-lift");
+      // Save global sample data for bank restore
+      const data = sound.sample.getData?.();
+      if (data && data.length > 0) {
+        globalSample = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
+        console.log(`[sample-bank] global sample saved (${data.length} samples)`);
+      }
+      return;
+    }
+    // End key release: disarm per-key recording
+    if (key === "end") {
+      endArmed = false;
+      console.log(`[sample-bank] disarmed`);
+      return;
+    }
+    // Per-key recording stop: tone key released while recording to it
+    if (perKeyRecording && key === perKeyRecording) {
+      const len = sound?.microphone?.cut?.() || 0;
+      if (len > 0) {
+        const data = sound.sample.getData?.();
+        if (data && data.length > 0) {
+          sampleBank[key] = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
+          console.log(`[sample-bank] saved ${data.length} samples to key '${key}'`);
+          sampleLoaded = true;
+          // Confirmation beep
+          sound.synth({ type: "sine", tone: 660, duration: 0.05, volume: 0.15, attack: 0.002, decay: 0.04 });
+        }
+      }
+      perKeyRecording = null;
       return;
     }
     if (sounds[key]) {
