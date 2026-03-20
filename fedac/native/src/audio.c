@@ -1266,8 +1266,16 @@ int audio_mic_stop(ACAudio *audio) {
                audio->sample_len, audio->sample_rate);
     } else {
         // Fallback: extract from ring buffer (handles batched events / race)
-        int end = audio->mic_ring_pos;
+        // Spin briefly if capture thread hasn't produced data yet
         int start = audio->rec_start_ring_pos;
+        if (audio->mic_hot) {
+            for (int i = 0; i < 50; i++) {
+                __sync_synchronize();
+                if (audio->mic_ring_pos != start) break;
+                usleep(200); // 0.2ms per iter, max 10ms
+            }
+        }
+        int end = audio->mic_ring_pos;
         int len = end - start;
         if (len < 0) len = 0; // shouldn't happen with monotonic pos
         if (len > audio->sample_max_len) len = audio->sample_max_len;
