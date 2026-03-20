@@ -1247,7 +1247,14 @@ int audio_mic_start(ACAudio *audio) {
 
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
+    // If the capture thread hasn't written anything yet (events batched in one
+    // frame), spin briefly so at least one ALSA period (~2.7ms) can arrive.
+    if (audio->sample_write_pos == 0 && audio->mic_hot) {
+        for (int i = 0; i < 50 && audio->sample_write_pos == 0; i++)
+            usleep(100); // 0.1ms per iter, max 5ms
+    }
     audio->recording = 0;
+    __sync_synchronize();
     audio->sample_len = audio->sample_write_pos;
     ac_log("[mic] recording stopped, sample_len=%d sample_rate=%u\n",
            audio->sample_len, audio->sample_rate);
