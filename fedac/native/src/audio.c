@@ -1057,11 +1057,9 @@ void audio_set_fx_mix(ACAudio *audio, float mix) {
     audio->target_fx_mix = mix;
 }
 
-// --- Hot-mic capture thread ---
-// Device stays open while mic_hot is set; audio is always read to keep
-// ALSA happy and the level meter live, but only written to sample_buf
-// when recording is true.  This eliminates the device-open latency on
-// every rec press.
+// --- Thread-per-recording capture (original working approach) ---
+// Opens device fresh each recording, reads directly, closes on stop.
+// Hot-mic was tried but causes EIO on some HDA codecs (11e Yoga Gen 5).
 static void *capture_thread_func(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     snd_pcm_t *cap = NULL;
@@ -1070,34 +1068,28 @@ static void *capture_thread_func(void *arg) {
     const char *devices[] = {"hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
                              "plughw:0,0", "plughw:1,0", "default", NULL};
     for (int i = 0; devices[i]; i++) {
-        int open_rc = snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0);
-        if (open_rc == 0) {
+        if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
             snprintf(audio->mic_device, sizeof(audio->mic_device), "%s", devices[i]);
-            audio->mic_last_error[0] = 0;
             ac_log("[mic] opened capture device: %s\n", devices[i]);
             break;
         }
-        ac_log("[mic] open failed %s: %s\n", devices[i], snd_strerror(open_rc));
         cap = NULL;
     }
     if (!cap) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "no capture device found");
-        audio->mic_connected = 0;
-        audio->mic_level = 0.0f;
         ac_log("[mic] no capture device found\n");
-        audio->mic_hot = 0;
+        audio->recording = 0;
         return NULL;
     }
 
-    // Configure capture
+    // Configure capture — NO period/buffer setting, use ALSA defaults
     snd_pcm_hw_params_t *hw;
     snd_pcm_hw_params_alloca(&hw);
     snd_pcm_hw_params_any(cap, hw);
     snd_pcm_hw_params_set_access(cap, hw, SND_PCM_ACCESS_RW_INTERLEAVED);
     snd_pcm_hw_params_set_format(cap, hw, SND_PCM_FORMAT_S16_LE);
 
-    // Try mono, fall back to stereo
     unsigned int channels = 1;
     if (snd_pcm_hw_params_set_channels(cap, hw, 1) < 0) {
         channels = 2;
@@ -1107,97 +1099,42 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
-    // Set reasonable period/buffer (ALSA defaults can be 32768/1M which
-    // blocks forever). Do NOT touch mixer after hw_params — that causes EIO.
-    snd_pcm_uframes_t period_frames = 1024;
-    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
-    snd_pcm_uframes_t buffer_frames = 8192;
-    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
-
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to configure capture");
-        audio->mic_connected = 0;
-        audio->mic_level = 0.0f;
         ac_log("[mic] failed to configure capture\n");
         snd_pcm_close(cap);
-        audio->mic_hot = 0;
+        audio->recording = 0;
         return NULL;
     }
 
     audio->sample_rate = rate;
+    audio->sample_write_pos = 0;
     audio->mic_connected = 1;
-    audio->mic_level = 0.0f;
-    audio->mic_last_chunk = 0;
+    ac_log("[mic] recording at %u Hz, %u ch\n", rate, channels);
 
-    // Log actual negotiated parameters
-    snd_pcm_uframes_t actual_period = 0, actual_buffer = 0;
-    snd_pcm_hw_params_get_period_size(hw, &actual_period, NULL);
-    snd_pcm_hw_params_get_buffer_size(hw, &actual_buffer);
-    ac_log("[mic] hot-mic running at %u Hz, %u ch, period=%lu buf=%lu\n",
-           rate, channels, (unsigned long)actual_period, (unsigned long)actual_buffer);
-
-    // Simple blocking reads — matches original working approach.
     int16_t buf[1024 * 2]; // max stereo
-    int first_read = 1;
-    while (audio->mic_hot) {
+    while (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
         int n = snd_pcm_readi(cap, buf, 512);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
-            if (n < 0) {
-                snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
-                         "capture read failed: %s", snd_strerror(n));
-                ac_log("[mic] capture read failed: %s\n", snd_strerror(n));
-                break;
-            }
+            if (n < 0) break;
             continue;
         }
-        if (first_read) {
-            ac_log("[mic] first capture read: %d frames\n", n);
-            first_read = 0;
-        }
-        audio->mic_last_chunk = n;
-
-        // Always compute level + fill waveform ring; only buffer when recording
-        float peak = 0.0f;
-        // Downsample into waveform ring: pick evenly spaced samples from chunk
-        int wf_step = n > 8 ? n / 8 : 1; // ~8 samples per chunk into ring
-        for (int s = 0; s < n; s++) {
+        for (int s = 0; s < n && audio->sample_write_pos < audio->sample_max_len; s++) {
             float sample;
             if (channels == 1) {
                 sample = buf[s] / 32768.0f;
             } else {
                 sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f;
             }
-            float abs_s = fabsf(sample);
-            if (abs_s > peak) peak = abs_s;
-
-            // Always write to ring buffer (recording extracts from it)
-            audio->mic_ring[audio->mic_ring_pos % audio->sample_max_len] = sample;
-            audio->mic_ring_pos++;
-
-            // Also direct-write when recording (fast path)
-            if (audio->recording && audio->sample_write_pos < audio->sample_max_len) {
-                audio->sample_buf[audio->sample_write_pos++] = sample;
-            }
-
-            // Feed waveform ring (downsampled)
-            if (s % wf_step == 0) {
-                audio->mic_waveform[audio->mic_waveform_pos % MIC_WAVEFORM_SIZE] = sample;
-                audio->mic_waveform_pos++;
-            }
-        }
-        audio->mic_level = peak; // raw peak, no smoothing
-
-        // Cap recording at buffer limit
-        if (audio->recording && audio->sample_write_pos >= audio->sample_max_len) {
-            audio->sample_len = audio->sample_write_pos;
-            audio->recording = 0;
-            ac_log("[mic] recording buffer full (%d samples)\n", audio->sample_len);
+            audio->sample_buf[audio->sample_write_pos++] = sample;
         }
     }
 
-    ac_log("[mic] hot-mic thread exiting, device=%s\n", audio->mic_device);
+    audio->sample_len = audio->sample_write_pos;
+    ac_log("[mic] recorded %d samples (%.2fs)\n",
+           audio->sample_len, (double)audio->sample_len / audio->sample_rate);
     snd_pcm_close(cap);
     audio->mic_connected = 0;
     audio->recording = 0;
@@ -1205,19 +1142,10 @@ static void *capture_thread_func(void *arg) {
 }
 
 int audio_mic_open(ACAudio *audio) {
-    if (!audio || audio->mic_hot || audio->capture_thread_running) return -1;
+    // No-op in thread-per-recording mode — device opens on rec start
+    if (!audio) return -1;
     audio->mic_hot = 1;
-    audio->capture_thread_running = 1;
-    audio->mic_last_error[0] = 0;
-    ac_log("[mic] opening hot-mic\n");
-    if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
-        audio->mic_hot = 0;
-        audio->capture_thread_running = 0;
-        snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
-                 "failed to create capture thread");
-        ac_log("[mic] failed to create capture thread\n");
-        return -1;
-    }
+    ac_log("[mic] mic ready (thread-per-recording mode)\n");
     return 0;
 }
 
@@ -1225,77 +1153,32 @@ void audio_mic_close(ACAudio *audio) {
     if (!audio) return;
     audio->recording = 0;
     audio->mic_hot = 0;
-    if (audio->capture_thread_running) {
-        pthread_join(audio->capture_thread, NULL);
-        audio->capture_thread_running = 0;
-    }
-    ac_log("[mic] hot-mic closed\n");
+    ac_log("[mic] mic closed\n");
 }
 
 int audio_mic_start(ACAudio *audio) {
     if (!audio || audio->recording) return -1;
-    // If hot-mic isn't running yet, open it first
-    if (!audio->mic_hot) {
-        int rc = audio_mic_open(audio);
-        if (rc != 0) return rc;
-    }
-    // Wait for capture thread to start producing data (up to 500ms)
-    if (audio->mic_ring_pos == 0 && audio->mic_hot) {
-        for (int i = 0; i < 250 && audio->mic_ring_pos == 0; i++) {
-            __sync_synchronize();
-            usleep(2000); // 2ms per iter, max 500ms
-        }
-        if (audio->mic_ring_pos == 0) {
-            ac_log("[mic] WARNING: capture thread not producing data after 500ms\n");
-        }
-    }
+    audio->recording = 1;
+    audio->sample_len = 0;
     // Kill any playing sample voices
     for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
         audio->sample_voices[i].active = 0;
-    // Record ring buffer position so we can extract audio on stop
-    audio->rec_start_ring_pos = audio->mic_ring_pos;
-    // Reset write position FIRST (atomic int write), then set recording flag.
-    audio->sample_len = 0;
-    audio->sample_write_pos = 0;
-    __sync_synchronize(); // memory barrier: ensure pos=0 is visible before recording=1
-    audio->recording = 1;
-    ac_log("[mic] recording started (instant), ring_pos=%d\n", audio->rec_start_ring_pos);
+    if (pthread_create(&audio->capture_thread, NULL, capture_thread_func, audio) != 0) {
+        audio->recording = 0;
+        return -1;
+    }
+    pthread_detach(audio->capture_thread);
+    ac_log("[mic] recording started\n");
     return 0;
 }
 
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
     audio->recording = 0;
-    __sync_synchronize();
-
-    int direct_len = audio->sample_write_pos;
-    if (direct_len > 0) {
-        // Fast path: capture thread wrote directly to sample_buf
-        audio->sample_len = direct_len;
-        ac_log("[mic] recording stopped (direct), sample_len=%d sample_rate=%u\n",
-               audio->sample_len, audio->sample_rate);
-    } else {
-        // Fallback: extract from ring buffer (handles batched events / race)
-        // Spin briefly if capture thread hasn't produced data yet
-        int start = audio->rec_start_ring_pos;
-        if (audio->mic_hot) {
-            for (int i = 0; i < 50; i++) {
-                __sync_synchronize();
-                if (audio->mic_ring_pos != start) break;
-                usleep(200); // 0.2ms per iter, max 10ms
-            }
-        }
-        int end = audio->mic_ring_pos;
-        int len = end - start;
-        if (len < 0) len = 0; // shouldn't happen with monotonic pos
-        if (len > audio->sample_max_len) len = audio->sample_max_len;
-        for (int i = 0; i < len; i++) {
-            audio->sample_buf[i] = audio->mic_ring[(start + i) % audio->sample_max_len];
-        }
-        audio->sample_len = len;
-        ac_log("[mic] recording stopped (ring fallback), sample_len=%d ring_span=%d sample_rate=%u\n",
-               audio->sample_len, end - start, audio->sample_rate);
-    }
+    // Thread is detached and will exit on its own when it sees recording=0
+    usleep(50000); // 50ms for thread to finish last read
+    ac_log("[mic] recording stopped, sample_len=%d sample_rate=%u\n",
+           audio->sample_len, audio->sample_rate);
     return audio->sample_len;
 }
 
