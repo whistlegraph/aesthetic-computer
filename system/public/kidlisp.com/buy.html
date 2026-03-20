@@ -153,29 +153,24 @@
     .wallet-btn:hover { background: rgba(78, 205, 196, 0.25); box-shadow: 0 0 12px rgba(78, 205, 196, 0.3); }
     .wallet-btn.connected { border-color: var(--green); color: var(--green); background: rgba(0, 255, 136, 0.1); }
 
-    /* ── Stats bar ── */
-    .stats {
-      display: flex;
-      gap: 20px;
-      padding: 10px 20px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-family: var(--font-mono);
-      color: var(--text2);
-      flex-wrap: wrap;
-    }
-    .stats strong { color: var(--gold); }
-
-    /* ── Grid ── */
+    /* ── Grid (Fresh = single column list, Sold = dense grid) ── */
     .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 14px;
-      padding: 20px;
-      max-width: 1400px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      max-width: 640px;
       margin: 0 auto;
     }
+    .grid.sold-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 4px;
+      max-width: 1400px;
+      padding: 10px;
+    }
 
+    /* ── Fresh card (horizontal tile) ── */
     .card {
       background: var(--bg2);
       border: 1px solid var(--border);
@@ -184,15 +179,20 @@
       cursor: pointer;
       transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
       box-shadow: 0 2px 8px var(--card-glow);
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
     }
     .card:hover {
       border-color: var(--accent);
-      transform: translateY(-3px) scale(1.01);
-      box-shadow: 0 8px 24px var(--card-hover-glow);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--card-hover-glow);
     }
 
     .card-thumb {
-      aspect-ratio: 1;
+      width: 120px;
+      min-height: 90px;
+      flex-shrink: 0;
       background: var(--bg3);
       overflow: hidden;
       position: relative;
@@ -218,34 +218,28 @@
     .card-thumb img {
       width: 100%; height: 100%;
       object-fit: cover;
-      image-rendering: pixelated;
-      transition: opacity 0.15s;
-    }
-    .card-thumb img.hover-webp {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
       image-rendering: auto;
     }
-    .card:hover .card-thumb img.hover-webp { opacity: 1; }
-    .card:hover .card-thumb img.static-png { opacity: 0; }
 
     .card-body {
-      padding: 8px 10px;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      justify-content: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
     }
 
     .card-code {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       font-family: var(--font-mono);
       color: var(--purple);
     }
 
     .card-price {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--gold);
       text-shadow: 0 0 8px rgba(255, 230, 109, 0.3);
@@ -258,6 +252,43 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    /* ── Sold mini-cards (dense grid of stills) ── */
+    .sold-mini {
+      aspect-ratio: 1;
+      background: var(--bg3);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sold-mini:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px var(--card-hover-glow);
+      z-index: 1;
+    }
+    .sold-mini img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+    }
+    .sold-mini .sold-mini-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      color: var(--gold);
+      text-align: center;
+      padding: 2px;
+    }
+    .sold-mini:hover .sold-mini-overlay { opacity: 1; }
 
     /* ── Detail modal ── */
     .modal-overlay {
@@ -432,55 +463,20 @@
       background: linear-gradient(135deg, var(--accent), var(--neon-pink));
       color: #000;
       border: none;
-      padding: 7px 0;
+      padding: 7px 14px;
       font-family: var(--font-fun);
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      width: 100%;
       transition: opacity 0.15s, transform 0.15s;
       letter-spacing: 0.02em;
+      border-radius: 6px;
+      white-space: nowrap;
+      align-self: center;
+      flex-shrink: 0;
     }
     .card-buy-btn:hover { opacity: 0.9; transform: scale(1.02); }
     .card-buy-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    .card.sold-card { opacity: 0.75; }
-    .card.sold-card .card-price { color: var(--red); }
-    .card-sold-label {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--red);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-    .card-date {
-      font-size: 10px;
-      color: var(--text2);
-    }
-
-    /* ── Sort controls ── */
-    .controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 20px 0;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-    .sort-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--text2);
-      padding: 4px 10px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .sort-btn.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--accent-bg);
-    }
 
     /* ── Footer ── */
     footer {
@@ -541,22 +537,9 @@
     </div>
   </header>
 
-  <div class="stats" id="stats">
-    <span><strong id="stat-items">—</strong> items</span>
-    <span><strong id="stat-listed">—</strong> listed</span>
-    <span>floor <strong id="stat-floor">—</strong> XTZ</span>
-    <span>owners <strong id="stat-owners">—</strong></span>
-  </div>
-
   <div class="tabs">
     <button class="tab active" data-tab="fresh">Fresh</button>
     <button class="tab" data-tab="sold">Sold</button>
-  </div>
-
-  <div class="controls" id="controls">
-    <button class="sort-btn active" data-sort="price-asc">Price ↑</button>
-    <button class="sort-btn" data-sort="price-desc">Price ↓</button>
-    <button class="sort-btn" data-sort="newest">Newest</button>
   </div>
 
   <div class="grid" id="grid">
@@ -603,7 +586,6 @@
   let soldEvents = [];
   let walletAddress = null;
   let beaconClient = null;
-  let currentSort = 'price-asc';
   let currentTab = 'fresh';
   let selectedListing = null;
 
@@ -743,15 +725,6 @@
     return data?.data?.event || [];
   }
 
-  async function fetchCollectionStats() {
-    try {
-      const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address`);
-      const owners = await res.json();
-      const unique = new Set(owners);
-      return { owners: unique.size };
-    } catch { return { owners: '—' }; }
-  }
-
   function formatXTZ(mutez) {
     return (Number(mutez) / 1_000_000).toFixed(mutez % 1_000_000 === 0 ? 0 : 2);
   }
@@ -776,39 +749,12 @@
     return uri;
   }
 
-  // ── Sorting ──
-  function sortListings(list) {
-    const sorted = [...list];
-    switch (currentSort) {
-      case 'price-asc':
-        sorted.sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz));
-        break;
-      case 'price-desc':
-        sorted.sort((a, b) => Number(b.price_xtz) - Number(a.price_xtz));
-        break;
-      case 'newest':
-        sorted.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        break;
-    }
-    return sorted;
-  }
-
-  document.querySelectorAll('.sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSort = btn.dataset.sort;
-      renderGrid();
-    });
-  });
-
   // ── Tabs ──
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       currentTab = tab.dataset.tab;
-      document.getElementById('controls').style.display = currentTab === 'fresh' ? 'flex' : 'none';
       renderGrid();
     });
   });
@@ -817,7 +763,9 @@
   function renderGrid() {
     if (currentTab === 'sold') return renderSoldGrid();
 
-    const sorted = sortListings(listings);
+    grid.classList.remove('sold-grid');
+    // Sort by price ascending by default
+    const sorted = [...listings].sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz));
     if (!sorted.length) {
       grid.innerHTML = '<div class="loading">No active listings</div>';
       return;
@@ -825,24 +773,21 @@
 
     grid.innerHTML = sorted.map(l => {
       const name = l.token?.name || `#${l.token?.token_id}`;
-      const thumb = thumbUrl(l.token?.thumbnail_uri, l.token?.name);
-      const webp = animatedWebpUrl(l.token?.thumbnail_uri);
+      // Use animated IPFS thumbnail by default instead of static oven PNG
+      const animated = animatedWebpUrl(l.token?.thumbnail_uri);
       const price = formatXTZ(l.price_xtz);
       const seller = l.seller_address?.slice(0, 8) + '…';
       const askId = l.id || l.bigmap_key;
-      const hasThumb = thumb || webp;
       return `<div class="card" data-id="${askId}">
         <div class="card-thumb">
-          ${hasThumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
-          ${webp ? `<img class="hover-webp" src="${webp}" alt="${name}" loading="lazy" />` : ''}
-          ${!hasThumb ? `<div class="card-thumb-placeholder">✦</div>` : ''}
+          ${animated ? `<img src="${animated}" alt="${name}" loading="lazy" />` : `<div class="card-thumb-placeholder">✦</div>`}
         </div>
         <div class="card-body">
           <div class="card-code">${name}</div>
           <div class="card-price">${price} XTZ</div>
           <div class="card-seller">${seller}</div>
         </div>
-        <button class="card-buy-btn" data-ask="${askId}">${walletAddress ? 'Buy Now — ' + price + ' XTZ' : 'Connect to Buy'}</button>
+        <button class="card-buy-btn" data-ask="${askId}">${walletAddress ? 'Buy — ' + price + ' XTZ' : 'Buy'}</button>
       </div>`;
     }).join('');
 
@@ -855,7 +800,7 @@
       });
     });
 
-    // Buy Now button → direct purchase (no modal)
+    // Buy button → direct purchase (no modal)
     grid.querySelectorAll('.card-buy-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -867,6 +812,7 @@
   }
 
   function renderSoldGrid() {
+    grid.classList.add('sold-grid');
     if (!soldEvents.length) {
       grid.innerHTML = '<div class="loading">No sales yet</div>';
       return;
@@ -876,27 +822,14 @@
       ev._isSold = true;
       const name = ev.token?.name || `#${ev.token?.token_id}`;
       const thumb = thumbUrl(ev.token?.thumbnail_uri, ev.token?.name);
-      const webp = animatedWebpUrl(ev.token?.thumbnail_uri);
       const price = formatXTZ(ev.price_xtz);
-      const date = new Date(ev.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const buyer = ev.recipient_address?.slice(0, 8) + '…';
-      return `<div class="card sold-card" data-idx="${i}">
-        <div class="card-thumb">
-          ${thumb ? `<img class="static-png" src="${thumb}" alt="${name}" loading="lazy" />` : ''}
-          ${webp ? `<img class="hover-webp" src="${webp}" alt="${name}" loading="lazy" />` : ''}
-        </div>
-        <div class="card-body">
-          <div class="card-code">${name}</div>
-          <div class="card-price">${price} XTZ</div>
-          <div class="card-sold-label">SOLD</div>
-          <div class="card-date">${date} → ${buyer}</div>
-        </div>
+      return `<div class="sold-mini" data-idx="${i}">
+        ${thumb ? `<img src="${thumb}" alt="${name}" loading="lazy" />` : ''}
+        <div class="sold-mini-overlay">${name}<br>${price} XTZ</div>
       </div>`;
     }).join('');
 
-    // Sold cards open modal too (view-only)
-    grid.querySelectorAll('.sold-card').forEach(card => {
-      card.style.cursor = 'pointer';
+    grid.querySelectorAll('.sold-mini').forEach(card => {
       card.addEventListener('click', () => {
         const idx = Number(card.dataset.idx);
         const ev = soldEvents[idx];
@@ -940,14 +873,6 @@
     overlay.classList.add('open');
   }
 
-  function updateStats() {
-    document.getElementById('stat-listed').textContent = listings.length;
-    if (listings.length) {
-      const prices = listings.map(l => Number(l.price_xtz));
-      const floor = Math.min(...prices) / 1_000_000;
-      document.getElementById('stat-floor').textContent = floor.toFixed(floor % 1 === 0 ? 0 : 2);
-    }
-  }
 
   // ── Modal (fullscreen) ──
   function openModal(listing) {
@@ -1070,7 +995,7 @@
     // Remove from local listings
     listings = listings.filter(l => (l.id || l.bigmap_key) !== (listing.id || listing.bigmap_key));
     renderGrid();
-    updateStats();
+
 
     return response.transactionHash;
   }
@@ -1139,7 +1064,7 @@
       soldEvents = soldData;
       liveDot.classList.remove('error');
       renderGrid();
-      updateStats();
+  
       // Route from URL on first load (after listings are available)
       if (!selectedListing) routeFromURL();
     } catch (err) {
@@ -1148,23 +1073,8 @@
     }
   }
 
-  async function loadStats() {
-    try {
-      const res = await fetch(`https://api.tzkt.io/v1/tokens?contract=${CONTRACT}&limit=10000&select=id`);
-      const tokens = await res.json();
-      document.getElementById('stat-items').textContent = tokens.length;
-    } catch {}
-
-    try {
-      const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=10000&select=account.address`);
-      const owners = await res.json();
-      document.getElementById('stat-owners').textContent = new Set(owners).size;
-    } catch {}
-  }
-
   // Boot
   loadMarket();
-  loadStats();
   initWallet().catch(() => {});
   setInterval(loadMarket, REFRESH_MS);
 })();
