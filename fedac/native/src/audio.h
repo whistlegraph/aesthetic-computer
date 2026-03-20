@@ -130,6 +130,11 @@ typedef struct {
     pthread_t capture_thread;
     volatile int capture_thread_running; // 1 while capture thread is alive
 
+    // Continuous capture ring buffer (always written by capture thread)
+    float *mic_ring;            // ring buffer, same capacity as sample_buf
+    volatile int mic_ring_pos;  // monotonic write position (mod sample_max_len)
+    volatile int rec_start_ring_pos; // ring position when recording started
+
     // Live mic waveform ring buffer (for visualization)
     #define MIC_WAVEFORM_SIZE 128
     float mic_waveform[128];    // circular buffer of recent samples (downsampled)

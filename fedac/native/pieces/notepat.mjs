@@ -17,6 +17,8 @@ const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let recording = false;     // true while holding REC
 let recPointerId = null;   // touch pointer currently holding REC button
+let recStartTime = 0;      // Date.now() when recording started
+const MAX_REC_SECS = 10;   // matches AUDIO_MAX_SAMPLE_SECS
 const SAMPLE_BASE_FREQ = 261.63; // C4 — base pitch for sample playback
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
@@ -451,6 +453,7 @@ function act({ event: e, sound, wifi, system }) {
       const ok = !!sound?.microphone?.rec?.();
       recording = ok;
       recPointerId = null; // keyboard-driven, no pointer
+      if (ok) recStartTime = Date.now();
       console.log(`[mic] rec-home: ok=${ok}`);
       return;
     }
@@ -687,6 +690,7 @@ function act({ event: e, sound, wifi, system }) {
           const ok = !!sound?.microphone?.rec?.();
           recording = ok;
           recPointerId = ok ? pid : null;
+          if (ok) recStartTime = Date.now();
           const mic = sound?.microphone || {};
           console.log(`[mic] rec-touch: ok=${ok} connected=${!!mic.connected} device=${mic.device || "none"} err=${mic.lastError || ""}`);
           if (!ok) sound?.synth?.({ type: "sine", tone: 220, duration: 0.08, volume: 0.16, attack: 0.002, decay: 0.06 });
@@ -2014,11 +2018,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const obx = w - octBtnW;
     const octHov = hoverX >= obx && hoverY >= waveRowY && hoverY < waveRowY + waveRowH;
     if (wave === "sample" && recording) {
-      // Recording — red pulse
+      // Recording — red pulse with countdown bar
+      const recElapsed = (Date.now() - recStartTime) / 1000;
+      const recRemain = Math.max(0, MAX_REC_SECS - recElapsed);
+      const recFrac = recRemain / MAX_REC_SECS;
       ink(200, 30, 30);
       box(obx, waveRowY, octBtnW, waveRowH, true);
+      // Countdown bar (shrinks from full width as time runs out)
+      const barH = 2;
+      const barW = Math.round((octBtnW - 2) * recFrac);
+      ink(255, 80, 80);
+      box(obx + 1, waveRowY + waveRowH - barH - 1, barW, barH, true);
       ink(255, 255, 255);
-      write("REC", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+      write(recRemain.toFixed(1), { x: obx + 2, y: waveRowY + 2, size: 1, font: "font_1" });
     } else if (wave === "sample") {
       // REC button (idle)
       ink(dark ? (octHov ? 80 : 50) : (octHov ? 180 : 210),
@@ -2344,6 +2356,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 }
 
 function sim({ pressures, sound }) {
+  // Auto-stop recording at max duration
+  if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
+    stopSampleRecording(sound, "max-duration");
+  }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
     const wasDark = dark;
