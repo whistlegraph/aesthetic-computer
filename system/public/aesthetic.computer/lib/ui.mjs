@@ -1030,13 +1030,14 @@ class TextButtonSmall {
   // MatrixChunky8: 4px char width, 7px char height
   #cw = 4;
   #ch = 7;
-  #padX = 1; // Horizontal padding
+  #padL = 2; // Left padding
+  #padR = 1; // Right padding
   #padY = 2; // Vertical padding
   #offset;
-  
+
   constructor(text = "Button", pos = { x: 0, y: 0 }) {
     this.txt = text;
-    this.#offset = { x: this.#padX, y: this.#padY };
+    this.#offset = { x: this.#padL, y: this.#padY };
     this.btn = new Button(this.#computePosition(text, { ...pos }));
   }
   
@@ -1070,7 +1071,7 @@ class TextButtonSmall {
   
   get width() {
     const visibleText = stripColorCodes(this.txt);
-    return visibleText.length * this.#cw + this.#padX * 2;
+    return visibleText.length * this.#cw + this.#padL + this.#padR;
   }
 
   get height() {
@@ -1079,7 +1080,7 @@ class TextButtonSmall {
 
   #computePosition(text, pos = { x: 0, y: 0 }) {
     const visibleText = stripColorCodes(text);
-    const w = visibleText.length * this.#cw + this.#padX * 2;
+    const w = visibleText.length * this.#cw + this.#padL + this.#padR;
     const h = this.#ch + this.#padY * 2;
     
     let x = pos.x || 0;
