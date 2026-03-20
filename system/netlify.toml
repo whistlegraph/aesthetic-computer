@@ -295,6 +295,12 @@ included_files = ["backend/**/*.mjs"]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_env_vars = ["CONTEXT", "MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
 
+[functions.paper-hit]
+# Track paper PDF views/downloads
+included_files = ["backend/**/*.mjs"]
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+
 [functions.keep-confirm]
 # Confirm client-side wallet mints and update MongoDB
 included_files = ["backend/**/*.mjs"]
@@ -1866,6 +1872,10 @@ status = 200
 [[redirects]]
 from = "/api/boot-log"
 to = "/.netlify/functions/boot-log"
+status = 200
+[[redirects]]
+from = "/api/paper-hit"
+to = "/.netlify/functions/paper-hit"
 status = 200
 [[redirects]]
 from = "/api/kidlisp-log"
