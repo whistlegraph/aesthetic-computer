@@ -1111,6 +1111,13 @@ static void *capture_thread_func(void *arg) {
     unsigned int rate = 48000;
     snd_pcm_hw_params_set_rate_near(cap, hw, &rate, NULL);
 
+    // Set reasonable period/buffer (ALSA defaults can be 32768/1M which
+    // blocks forever). Do NOT touch mixer after hw_params — that causes EIO.
+    snd_pcm_uframes_t period_frames = 1024;
+    snd_pcm_hw_params_set_period_size_near(cap, hw, &period_frames, NULL);
+    snd_pcm_uframes_t buffer_frames = 8192;
+    snd_pcm_hw_params_set_buffer_size_near(cap, hw, &buffer_frames);
+
     if (snd_pcm_hw_params(cap, hw) < 0) {
         snprintf(audio->mic_last_error, sizeof(audio->mic_last_error),
                  "failed to configure capture");
