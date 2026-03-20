@@ -3081,6 +3081,69 @@ static void *flash_thread_fn(void *arg) {
         return NULL;
     }
 
+    // Set UEFI boot order so firmware boots our kernel (not a stale vendor entry).
+    // Many OEM firmwares (HP, Dell, Lenovo) have hardcoded boot entries pointing at
+    // vendor-specific EFI paths. Without updating the boot order, the firmware may
+    // boot an old kernel (e.g. from a previous OS install) instead of ours.
+    {
+        // Mount efivarfs if not already mounted (needed to write UEFI variables)
+        struct stat evs;
+        if (stat("/sys/firmware/efi/efivars", &evs) == 0) {
+            // Try mounting (harmless if already mounted)
+            mount("efivarfs", "/sys/firmware/efi/efivars", "efivarfs", 0, NULL);
+
+            // Extract disk device from partition path for efibootmgr --disk
+            // e.g. /dev/sda1 -> /dev/sda, /dev/nvme0n1p1 -> /dev/nvme0n1
+            char disk[64] = "", partnum[8] = "";
+            strncpy(disk, rt->flash_device, sizeof(disk) - 1);
+            char *p = disk + strlen(disk) - 1;
+            // Walk back past the partition number
+            while (p > disk && *p >= '0' && *p <= '9') p--;
+            if (p > disk) {
+                strncpy(partnum, p + 1, sizeof(partnum) - 1);
+                // For NVMe: /dev/nvme0n1p1 -> strip 'p' before part number
+                if (*p == 'p' && p > disk && *(p-1) >= '0' && *(p-1) <= '9')
+                    *p = '\0';
+                else
+                    *(p + 1) = '\0';
+            }
+
+            // Use efibootmgr if available (cleanest approach)
+            char cmd[512];
+            snprintf(cmd, sizeof(cmd),
+                "efibootmgr -c -d %s -p %s -L 'AC Native OS' "
+                "-l '\\EFI\\BOOT\\BOOTX64.EFI' 2>&1",
+                disk, partnum[0] ? partnum : "1");
+            ac_log("[flash] setting UEFI boot entry: %s", cmd);
+            flash_tlog(rt, "efibootmgr: %s %s part=%s", disk, partnum, partnum[0] ? partnum : "1");
+
+            FILE *efip = popen(cmd, "r");
+            if (efip) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), efip)) {
+                    // Trim newline
+                    char *nl = strchr(buf, '\n');
+                    if (nl) *nl = '\0';
+                    ac_log("[flash] efibootmgr: %s", buf);
+                    flash_tlog(rt, "efi: %s", buf);
+                }
+                int rc = pclose(efip);
+                if (rc == 0) {
+                    ac_log("[flash] UEFI boot entry created successfully");
+                    flash_tlog(rt, "efi_boot=ok");
+                } else {
+                    ac_log("[flash] efibootmgr exit=%d (boot entry may not be set)", rc);
+                    flash_tlog(rt, "efi_boot=fail(%d)", rc);
+                }
+            } else {
+                ac_log("[flash] efibootmgr not available — UEFI boot order unchanged");
+                flash_tlog(rt, "efi_boot=no_efibootmgr");
+            }
+        } else {
+            ac_log("[flash] no EFI variables support — skipping boot order update");
+        }
+    }
+
     // Remove downloaded file to free /tmp space
     unlink(rt->flash_src);
     ac_log("[flash] done: %ld bytes written, verified OK", copied);
