@@ -1071,8 +1071,8 @@ static void *capture_thread_func(void *arg) {
     snd_pcm_t *cap = NULL;
 
     // Try to open capture device
-    const char *devices[] = {"default", "plughw:0,0", "plughw:1,0",
-                             "hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7", NULL};
+    const char *devices[] = {"hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
+                             "plughw:0,0", "plughw:1,0", "default", NULL};
     for (int i = 0; devices[i]; i++) {
         int open_rc = snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0);
         if (open_rc == 0) {
