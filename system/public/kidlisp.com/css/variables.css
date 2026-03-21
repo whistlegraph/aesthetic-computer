@@ -1,0 +1,112 @@
+/* KidLisp Editor - CSS Variables & Themes */
+
+:root {
+  /* Light mode (default) */
+  --bg-primary: #f7f7f7;
+  --bg-secondary: #e8e8e8;
+  --bg-tertiary: white;
+  --text-primary: #111;
+  --text-secondary: #333;
+  --text-tertiary: #666;
+  --border-color: #ddd;
+  --border-subtle: #e0e0e0;
+  --code-bg: #e8e8e8;
+  --code-text: #a31515;
+  --editor-bg: #fafafa;
+  --editor-text: #111;
+  --editor-border: #ddd;
+  
+  /* Font stacks */
+  --font-mono: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  --font-display: 'YWFTProcessing-Regular', monospace;
+  --font-fun: 'Comic Relief', 'Comic Sans MS', cursive;
+  
+  /* Brand colors */
+  --ac-purple: rgb(205, 92, 155);
+  --ac-purple-light: rgb(240, 235, 250);
+  --ac-purple-dark: rgb(48, 43, 58);
+  
+  /* Editor colors */
+  --editor-yellow: #fffacd;
+  --editor-brown: #2a2520;
+  --editor-brown-light: #3a3530;
+  
+  /* Console colors */
+  --console-bg: #4a3020;
+  --console-text: #ff9f43;
+  --console-header-bg: #3d2817;
+  
+  /* Tab colors */
+  --tab-examples-bg: rgba(59, 130, 246, 0.2);
+  --tab-examples-active: rgba(59, 130, 246, 0.4);
+  --tab-keeps-bg: rgba(205, 92, 155, 0.2);
+  --tab-keeps-active: rgba(205, 92, 155, 0.4);
+  --tab-reference-bg: rgba(34, 197, 94, 0.2);
+  --tab-reference-active: rgba(34, 197, 94, 0.4);
+  
+  /* Button colors */
+  --btn-play: rgb(76, 175, 80);
+  --btn-play-hover: rgb(102, 187, 106);
+  --btn-pause: rgb(255, 193, 7);
+  --btn-stop: rgb(244, 67, 54);
+  
+  /* Spacing */
+  --header-height: 44px;
+  --mobile-header-height: 40px;
+  --gutter-size: 4px;
+}
+
+/* Dark mode via media query */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --text-primary: #d4d4d4;
+    --text-secondary: #d4d4d4;
+    --text-tertiary: #858585;
+    --border-color: #3e3e42;
+    --border-subtle: #3e3e42;
+    --code-bg: #252526;
+    --code-text: #ce9178;
+    --editor-bg: #1e1e1e;
+    --editor-text: #d4d4d4;
+    --editor-border: #333;
+    
+    --btn-play: rgb(102, 187, 106);
+    --btn-stop: rgb(239, 83, 80);
+  }
+}
+
+/* Manual theme overrides via data-theme attribute */
+[data-theme="light"] {
+  --bg-primary: #f7f7f7;
+  --bg-secondary: #e8e8e8;
+  --bg-tertiary: white;
+  --text-primary: #111;
+  --text-secondary: #333;
+  --text-tertiary: #666;
+  --border-color: #ddd;
+  --border-subtle: #e0e0e0;
+  --code-bg: #e8e8e8;
+  --code-text: #a31515;
+  --editor-bg: #fafafa;
+  --editor-text: #111;
+  --editor-border: #ddd;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-tertiary: #2d2d30;
+  --text-primary: #d4d4d4;
+  --text-secondary: #d4d4d4;
+  --text-tertiary: #858585;
+  --border-color: #3e3e42;
+  --border-subtle: #3e3e42;
+  --code-bg: #252526;
+  --code-text: #ce9178;
+  --editor-bg: #1e1e1e;
+  --editor-text: #d4d4d4;
+  --editor-border: #333;
+}

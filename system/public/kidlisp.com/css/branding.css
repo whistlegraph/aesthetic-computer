@@ -1,0 +1,136 @@
+/* KidLisp Editor - Branding & Logo */
+
+/* ============================================
+   KIDLISP LOGO
+   ============================================ */
+
+.baby-colors {
+  font-weight: bold;
+  font-family: var(--font-fun);
+  font-size: 20px;
+  line-height: 32px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.baby-colors span {
+  display: inline-block;
+  text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.05em;
+}
+
+.baby-colors .com-part {
+  color: #70D6FF;
+  text-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .baby-colors .com-part { color: #70D6FF; }
+}
+
+/* ============================================
+   CONNECTIVITY INDICATOR (the dot)
+   ============================================ */
+
+.baby-colors .connectivity-dot {
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+
+.baby-colors .connectivity-dot.disconnected {
+  color: #ff4444;
+  text-shadow: 1px 1px 0px rgba(255, 68, 68, 0.3);
+}
+
+.baby-colors .connectivity-dot.connecting {
+  color: #ff8800;
+  text-shadow: 1px 1px 0px rgba(255, 136, 0, 0.3);
+  animation: connectingPulse 1s ease-in-out infinite;
+}
+
+.baby-colors .connectivity-dot.waiting {
+  color: #ffdd00;
+  text-shadow: 1px 1px 0px rgba(255, 221, 0, 0.3);
+}
+
+.baby-colors .connectivity-dot.connected {
+  color: #00ff88;
+  text-shadow: 1px 1px 0px rgba(0, 255, 136, 0.3);
+}
+
+.baby-colors .connectivity-dot.receiving {
+  animation: receivingBlink 0.2s ease-in-out 2;
+}
+
+@keyframes connectingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes receivingBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; transform: scale(1.2); }
+}
+
+/* ============================================
+   PREVIEW TITLE (Aesthetic.Computer)
+   ============================================ */
+
+#preview-title {
+  font-family: var(--font-display);
+  font-weight: bold;
+  font-size: 16px;
+  color: rgb(88, 78, 108);
+  margin-left: 0px;
+  display: inline-block;
+  line-height: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #preview-title { color: rgb(188, 168, 218); }
+}
+
+[data-theme="dark"] #preview-title { color: rgb(188, 168, 218); }
+
+#preview-title .bounce-dot {
+  font-weight: 900;
+  font-size: 1.2em;
+  text-shadow: 1px 0 0 currentColor;
+  margin: 0 1px;
+  color: var(--ac-purple);
+}
+
+/* Code display in preview title */
+#preview-title .code-display {
+  font-family: var(--font-mono);
+  font-weight: normal;
+  letter-spacing: 0.05em;
+}
+
+@keyframes scramble {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+#preview-title .code-display.generating {
+  animation: scramble 0.3s ease-in-out 3;
+}
+
+#preview-title .bounce-dot.generating {
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+/* ============================================
+   BOUNCE ANIMATION
+   ============================================ */
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.bounce-dot {
+  display: inline-block;
+  animation: bounce 1.2s ease-in-out 3;
+  font-weight: bold;
+}
