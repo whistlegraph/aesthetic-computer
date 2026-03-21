@@ -1,0 +1,17 @@
+[Unit]
+Description=Oven Video Processing Service
+After=network.target
+
+[Service]
+Type=simple
+User=oven
+WorkingDirectory=/opt/oven
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/oven/server.mjs
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/oven/oven.log
+StandardError=append:/var/log/oven/oven-error.log
+
+[Install]
+WantedBy=multi-user.target
