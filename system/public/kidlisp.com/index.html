@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <script>console.clear();</script>
   <meta charset="utf-8">
   <title>KidLisp.com</title>
   
@@ -23,16 +24,23 @@
   <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous">
   <!-- Note: We use inline @font-face instead of external CSS which has broken relative URLs -->
-  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" media="print" onload="this.media='all'" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js" async onload="window.__auth0SDKReady=true"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <!-- Flag icons for language selector (lazy-loaded — not needed at startup) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" media="print" onload="this.media='all'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <!-- Modular CSS Architecture -->
-  <link rel="stylesheet" href="/kidlisp.com/css/main.css" />
+  <!-- Modular CSS Architecture (parallel <link> tags instead of chained @import) -->
+  <link rel="stylesheet" href="/kidlisp.com/css/variables.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/layout.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/components.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/splits.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/branding.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/editor.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/keeps.css" />
+  <link rel="stylesheet" href="/kidlisp.com/css/mobile.css" />
   <style>
     /* iOS Safari font fix - explicit absolute URLs with font-display: swap */
     @font-face {
@@ -561,7 +569,7 @@
     
     #settings-gear {
       position: absolute;
-      right: 32px; /* Left of the collapse arrow at right: 12px */
+      right: 12px; /* Default position (desktop / 4x4 — no collapse arrow) */
       top: 50%;
       transform: translateY(-50%);
       width: 16px;
@@ -7998,6 +8006,7 @@
       display: inline-block;
       animation: letterWiggle 0.4s ease-in-out infinite;
       text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+      will-change: transform;
     }
     
     .splash-letter:nth-child(1) { animation-delay: 0ms; }
@@ -9598,8 +9607,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
     </div>
   </div>
 
-  <!-- Split.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/split.js/1.6.0/split.min.js"></script>
+  <!-- Split.js (async, self-hosted, UMD patched to always set window.Split) -->
+  <script src="/aesthetic.computer/dep/split.min.js" async></script>
 
   <!-- Monaco Editor ESM - using jsDelivr for modern ESM support -->
   <script type="module">
@@ -10526,13 +10535,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       },
     };
 
-    // SVG cards generated from LaTeX (in /cards/svg/)
-    const svgCards = [
-      'drawing-line',
-      'drawing-box',
-      'colors-ink',
-      'colors-wipe',
-    ];
+    // SVG cards generated from LaTeX (in /cards/svg/) — disabled for now
+    const svgCards = [];
 
     const cardDecks = {
       'aesthetic-computer': [
@@ -11513,10 +11517,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
     syncUiModeClass();
     
     function initSplits() {
+      // Guard: Split.js might not be loaded yet (async script)
+      if (typeof Split === 'undefined' && window.innerWidth > 768) {
+        console.log('[layout] initSplits: Split.js not loaded yet, skipping');
+        return;
+      }
+      console.log('[layout] initSplits: running, isMobile:', window.innerWidth <= 768, 'Split defined:', typeof Split !== 'undefined');
+
       // Destroy existing splits
       splits.forEach(s => s.destroy());
       splits = [];
-      
+
       const isMobile = window.innerWidth <= 768;
       const mainSplit = document.getElementById('main-split');
       let topRow = document.getElementById('top-row');
@@ -11620,7 +11631,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         
         // Reset mobile headers flag so they can be re-initialized when returning to mobile
         mobileHeadersInitialized = false;
-        
+
         // Clear mobile-mode inline styles from all panels so Split.js can control them
         [editorPanel, previewPanel, consolePanel, referencePanel].forEach(panel => {
           if (panel) {
@@ -11631,6 +11642,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
             delete panel.dataset.collapsed;
             delete panel.dataset.savedHeight;
             delete panel.dataset.savedFlex;
+
+            // Clean up mobile header artifacts (inline cursor, collapse indicators)
+            const headers = panel.querySelectorAll('.editor-header, .docs-header');
+            headers.forEach(h => {
+              h.style.cursor = '';
+              h.style.userSelect = '';
+              h.style.webkitUserSelect = '';
+              h.style.touchAction = '';
+              h.classList.remove('dragging');
+            });
+            const indicators = panel.querySelectorAll('.mobile-collapse-indicator');
+            indicators.forEach(ind => ind.remove());
           }
         });
         
@@ -12417,9 +12440,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
         // Touch events on header (entire header is draggable)
         // Even if touching interactive elements, allow drag - just suppress their click
         header.addEventListener('touchstart', (e) => {
+          // Only allow drag in mobile/single-column mode
+          if (window.innerWidth > 768) return;
+
           const startedOnInteractive = shouldSkipDrag(e.target);
           const targetElement = e.target;
-          
+
           // Only stop propagation if NOT on interactive element
           // (let interactive elements handle their own events normally)
           if (!startedOnInteractive) {
@@ -12469,9 +12495,12 @@ s("ape_breaks_3").loopAt(2)</textarea>
         // Mouse events on header (entire header is draggable)
         // Even if clicking interactive elements, allow drag - just suppress their click
         header.addEventListener('mousedown', (e) => {
+          // Only allow drag in mobile/single-column mode
+          if (window.innerWidth > 768) return;
+
           const startedOnInteractive = shouldSkipDrag(e.target);
           const targetElement = e.target;
-          
+
           // Only stop propagation if NOT on interactive element
           if (!startedOnInteractive) {
             e.stopPropagation();
@@ -12520,8 +12549,55 @@ s("ape_breaks_3").loopAt(2)</textarea>
       });
     }
     
-    // Initialize on load
-    initSplits();
+    // ── Global Init Pipeline ──
+    // Wait for async deps, then run init stages in order.
+    function whenReady(checkFn) {
+      return new Promise(resolve => {
+        (function poll() {
+          if (checkFn()) return resolve();
+          setTimeout(poll, 50);
+        })();
+      });
+    }
+
+    // Stage 1: Split.js loaded (or mobile — no Split needed)
+    console.log('[layout] pipeline started, width:', window.innerWidth, 'Split defined:', typeof Split !== 'undefined');
+    whenReady(() => window.innerWidth <= 768 || typeof Split !== 'undefined')
+      .then(() => {
+        console.log('[layout] stage 1: Split.js ready, calling initSplits()');
+        initSplits();
+        console.log('[layout] initSplits done, splits.length:', splits.length, 'gutters:', document.querySelectorAll('.gutter').length);
+        if (window.innerWidth <= 768) return; // No center square on mobile
+        // Stage 2: Wait for gutters to have real dimensions
+        return whenReady(() => {
+          const g = document.querySelector('.gutter');
+          if (!g) return false;
+          const r = g.getBoundingClientRect();
+          return r.width > 0 || r.height > 0;
+        });
+      })
+      .then(() => {
+        if (window.innerWidth <= 768) return;
+        console.log('[layout] stage 2: gutters laid out');
+        // Stage 3: One frame for layout to settle, then place the nob
+        return new Promise(resolve => requestAnimationFrame(resolve));
+      })
+      .then(() => {
+        if (window.innerWidth <= 768) return;
+        console.log('[layout] stage 3: placing center square');
+        updateCenterSquarePosition();
+        setupCenterSquareDrag();
+
+        const observer = new MutationObserver(() => updateCenterSquarePosition());
+        const mainSplit = document.getElementById('main-split');
+        if (mainSplit) {
+          observer.observe(mainSplit, {
+            attributes: true,
+            attributeFilter: ['style'],
+            subtree: true
+          });
+        }
+      });
     
     // Editor auto-height for single column mode
     // Starts enabled, disabled once user manually drags the editor panel
@@ -12814,25 +12890,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       document.addEventListener('pointerup', endDrag);
     }
 
-    // Initialize everything
-    setTimeout(() => {
-      updateCenterSquarePosition();
-      setupCenterSquareDrag();
-      
-      // Update center square position when splits are dragged
-      const observer = new MutationObserver(() => {
-        updateCenterSquarePosition();
-      });
-      
-      const mainSplit = document.getElementById('main-split');
-      if (mainSplit) {
-        observer.observe(mainSplit, {
-          attributes: true,
-          attributeFilter: ['style'],
-          subtree: true
-        });
-      }
-    }, 500);
+    // Center square init is handled by the Global Init Pipeline above.
 
     import { tokenize } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
     import { KidLisp } from 'https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs';
@@ -13219,6 +13277,20 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }, 100);
     }
     
+    // Batch console scroll-to-bottom to avoid forced reflow on every log line
+    let _consoleScrollRafPending = false;
+    function scheduleConsoleScroll() {
+      if (_consoleScrollRafPending) return;
+      _consoleScrollRafPending = true;
+      requestAnimationFrame(() => {
+        _consoleScrollRafPending = false;
+        const co = document.getElementById('console-output');
+        if (co) co.scrollTop = co.scrollHeight;
+        const mc = document.getElementById('mobile-console-output');
+        if (mc) mc.scrollTop = mc.scrollHeight;
+      });
+    }
+
     // 📸 Add console image entry from snap function
     function addConsoleImageEntry(data) {
       const { imageDataUrl, frameCount, timestamp, dimensions, pieceCode, pieceLabel, filename, userHandle, embeddedSource } = data;
@@ -13308,8 +13380,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (mugBtn) entry.appendChild(mugBtn);
       
       consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-      
+
       // Also sync to mobile console (clone the entry and re-attach mug button handler)
       const mobileConsole = document.getElementById('mobile-console-output');
       if (mobileConsole) {
@@ -13325,10 +13396,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           clonedMugBtn.addEventListener('mouseleave', () => { clonedMugBtn.style.opacity = '0.85'; clonedMugBtn.style.transform = 'scale(1)'; clonedMugBtn.style.background = 'rgba(139, 90, 43, 0.8)'; });
         }
         mobileConsole.appendChild(clone);
-        mobileConsole.scrollTop = mobileConsole.scrollHeight;
       }
+      scheduleConsoleScroll();
     }
-    
+
     // Generate timestamped filename like bios.mjs does
     function generateConsoleImageFilename(pieceCode) {
       const d = new Date();
@@ -14993,16 +15064,15 @@ s("ape_breaks_3").loopAt(2)</textarea>
       }
       
       consoleOutput.appendChild(entry);
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-      
+
       // Also sync to mobile console (clone the entry)
       const mobileConsole = document.getElementById('mobile-console-output');
       if (mobileConsole) {
         const clone = entry.cloneNode(true);
         mobileConsole.appendChild(clone);
-        mobileConsole.scrollTop = mobileConsole.scrollHeight;
       }
-      
+      scheduleConsoleScroll();
+
       return entry;
     }
     
@@ -15599,7 +15669,14 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Make editor globally accessible for other parts of the page
       window.editor = editor;
-      
+
+      // --- YIELD TO BROWSER ---
+      // Editor DOM is now in the page. Yield so the browser can paint it and
+      // keep splash / CSS animations smooth on lower-end CPUs.
+      // Use requestAnimationFrame to let the browser render the editor DOM
+      // before continuing with heavyweight init (KIDLISP_DOCS, event handlers).
+      requestAnimationFrame(() => { setTimeout(() => {
+
       // ==================== KIDLISP DOCUMENTATION CONTEXT MENU ====================
       // Custom right-click context menu for KidLisp documentation lookup
       
@@ -16665,7 +16742,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       updateStageContext();
 
       // ==================== END KIDLISP DOCUMENTATION CONTEXT MENU ====================
-      
+
       // Log editor initialization
       logEditorInit('Monaco', { theme: initialTheme, language: 'kidlisp' });
       logBoot('editor', 'Monaco ready');
@@ -17039,11 +17116,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
         }
         window.decorationTimeout = setTimeout(() => {
           syntaxHighlighter.applyDecorations(true);
-        }, 50);
-        // Don't save scrambled animation content to localStorage
-        if (!(window.isDecrypting && window.isDecrypting())) {
-          localStorage.setItem('kidlisp-code', editor.getValue());
+        }, 250);
+        // Debounce localStorage writes to avoid blocking the main thread on every keystroke
+        if (window.localStorageSaveTimeout) {
+          clearTimeout(window.localStorageSaveTimeout);
         }
+        window.localStorageSaveTimeout = setTimeout(() => {
+          // Don't save scrambled animation content to localStorage
+          if (!(window.isDecrypting && window.isDecrypting())) {
+            localStorage.setItem('kidlisp-code', editor.getValue());
+          }
+        }, 500);
         
         // Clear URL and code identifier when content changes
         const currentPath = window.location.pathname;
@@ -17081,10 +17164,6 @@ s("ape_breaks_3").loopAt(2)</textarea>
           lineDecorationsWidth: maxLines > 1 ? 10 : 0
         });
       }
-      
-      editor.onDidChangeModelContent(() => {
-        updateLineNumbers();
-      });
       
       updateLineNumbers();
 
@@ -17219,12 +17298,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
         });
       }
       
-      // Update clear button visibility on content change
+      // Update clear/slide button visibility on content change
+      // Note: updateLineNumbers and applyDecorations are already handled by other
+      // onDidChangeModelContent handlers with proper debouncing — don't duplicate here.
       editor.onDidChangeModelContent(() => {
-        updateLineNumbers();
-        syntaxHighlighter.applyDecorations(true);
         updateClearButtonVisibility();
-        // Also update slide button visibility (depends on whether code has numbers)
         if (window.updateSlideButtonVisibility) window.updateSlideButtonVisibility();
       });
       
@@ -17965,6 +18043,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (window.triggerSplashAnimation) {
         window.triggerSplashAnimation();
       }
+
+      }, 0); }); // end deferred init (rAF + setTimeout yield)
     });
 
     let isInitialLoad = true;
@@ -21631,13 +21711,16 @@ s("ape_breaks_3").loopAt(2)</textarea>
     function processTickerAnimations(container) {
       const tickers = container.querySelectorAll('.ticker-wrapper[data-ticker-content]');
       tickers.forEach(ticker => {
+        // Skip tickers already processed (avoids redundant layout thrashing)
+        if (ticker.classList.contains('ticker-scroll') || ticker.classList.contains('ticker-static')) return;
+
         const parent = ticker.closest('.example-code');
         if (!parent) return;
-        
+
         // Get the encoded original content
         const encodedContent = ticker.getAttribute('data-ticker-content');
         if (!encodedContent) return;
-        
+
         // Temporarily allow overflow to get true content width
         const originalOverflow = parent.style.overflow;
         parent.style.overflow = 'visible';
@@ -22275,13 +22358,20 @@ s("ape_breaks_3").loopAt(2)</textarea>
         canvas.style.cursor = 'grabbing';
       });
       
+      let treeRafPending = false;
       canvas.addEventListener('mousemove', (e) => {
         if (!dragging) return;
         vizSystem.tree.pan.x += e.clientX - lastX;
         vizSystem.tree.pan.y += e.clientY - lastY;
         lastX = e.clientX;
         lastY = e.clientY;
-        renderTree();
+        if (!treeRafPending) {
+          treeRafPending = true;
+          requestAnimationFrame(() => {
+            treeRafPending = false;
+            renderTree();
+          });
+        }
       });
       
       canvas.addEventListener('mouseup', () => {
@@ -24365,6 +24455,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
             if (msg.content.piece === "*refresh*" || msg.content.piece === "kidlisp.com") {
               log.socket.log("Reloading entire page...");
               setTimeout(() => {
+                console.clear();
                 window.location.reload();
               }, 150); // Wait a moment for backend to be ready
             }

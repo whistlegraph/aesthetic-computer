@@ -20,6 +20,11 @@ export class MonacoKidLispHighlighter {
     this.isUpdating = false;
     this.updateLoopRunning = false;
 
+    // Tokenization cache — avoid re-tokenizing when code hasn't changed
+    this._cachedCode = '';
+    this._cachedTokens = null;
+    this._cachedTokenPositions = null;
+
     // Options
     this.enableTimingBlinks = options.enableTimingBlinks !== false;
     this.lightModeHighContrast = options.lightModeHighContrast ?? false;
@@ -111,38 +116,51 @@ export class MonacoKidLispHighlighter {
     }
 
     try {
-      // Use KidLisp's tokenizer
-      const tokens = tokenize(code);
+      // Use cached tokenization if code hasn't changed (avoids expensive re-tokenize during blinks)
+      let tokens, tokenPositions;
+      if (code === this._cachedCode && this._cachedTokens) {
+        tokens = this._cachedTokens;
+        tokenPositions = this._cachedTokenPositions;
+      } else {
+        tokens = tokenize(code);
+        // Pre-compute token positions so we don't redo string scanning each frame
+        tokenPositions = [];
+        let searchPos = 0;
+        for (const token of tokens) {
+          const tokenPos = code.indexOf(token, searchPos);
+          if (tokenPos === -1) {
+            tokenPositions.push(null);
+            continue;
+          }
+          const beforeToken = code.substring(0, tokenPos);
+          const lines = beforeToken.split('\n');
+          const lineNumber = lines.length;
+          const columnNumber = lines[lines.length - 1].length + 1;
+          const endColumn = columnNumber + token.length;
+          tokenPositions.push({ lineNumber, columnNumber, endColumn });
+          searchPos = tokenPos + token.length;
+        }
+        this._cachedCode = code;
+        this._cachedTokens = tokens;
+        this._cachedTokenPositions = tokenPositions;
+      }
+
       this.kidlisp.initializeSyntaxHighlighting(code);
 
-      // Track position in code
-      let searchPos = 0;
-
       tokens.forEach((token, index) => {
+        const pos = tokenPositions[index];
+        if (!pos) return;
+
         // Get the color from KidLisp's getTokenColor method
         let colorName = this.kidlisp.getTokenColor(token, tokens, index);
 
-        // Find the token's position in the code starting from searchPos
-        const tokenPos = code.indexOf(token, searchPos);
-        if (tokenPos === -1) return;
-
-        // Calculate line and column from position
-        const beforeToken = code.substring(0, tokenPos);
-        const lines = beforeToken.split('\n');
-        const lineNumber = lines.length;
-        const columnNumber = lines[lines.length - 1].length + 1;
-        const endColumn = columnNumber + token.length;
+        const { lineNumber, columnNumber, endColumn } = pos;
 
         // Validate range
-        if (lineNumber < 1 || columnNumber < 1 || endColumn < columnNumber) {
-          searchPos = tokenPos + token.length;
-          return;
-        }
+        if (lineNumber < 1 || columnNumber < 1 || endColumn < columnNumber) return;
 
         // Handle special coloring cases
         this._handleTokenDecoration(token, colorName, decorations, lineNumber, columnNumber, endColumn);
-
-        searchPos = tokenPos + token.length;
       });
 
     } catch (error) {
@@ -365,14 +383,12 @@ export class MonacoKidLispHighlighter {
       if (!this.isUpdating && this.editor && this.editor.getModel()) {
         const animating = shouldAnimate();
         if (animating) {
-          // Playing — update at 60fps for timing blinks
-          requestAnimationFrame(() => {
-            this.kidlisp.isEditMode = true;
-            this.applyDecorations(true);
-            if (window.perfCounters) window.perfCounters.decorations++;
-            lastAnimating = true;
-            setTimeout(scheduleUpdate, 16);
-          });
+          // Playing — update at ~20fps for timing blinks (50ms; visually sufficient)
+          this.kidlisp.isEditMode = true;
+          this.applyDecorations(true);
+          if (window.perfCounters) window.perfCounters.decorations++;
+          lastAnimating = true;
+          setTimeout(scheduleUpdate, 50);
         } else {
           // Not playing — only redecorate when code changes or transitioning from playing
           const currentCode = this.editor.getModel().getValue();

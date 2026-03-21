@@ -678,6 +678,124 @@ async function testErrorHandling(harness) {
   });
 }
 
+// Layout verification tests
+async function testLayout(harness) {
+  await harness.runTest('Split.js loaded and panels created', async () => {
+    const result = await harness.evaluate(`({
+      splitDefined: typeof Split !== 'undefined',
+      gutterCount: document.querySelectorAll('.gutter').length,
+      panelCount: document.querySelectorAll('.split-panel, [id$="-panel"]').length
+    })`);
+    info(`Split defined: ${result.splitDefined}, gutters: ${result.gutterCount}, panels: ${result.panelCount}`);
+    if (!result.splitDefined) throw new Error('Split.js not loaded');
+    if (result.gutterCount < 1) throw new Error('No gutters in DOM');
+  });
+
+  await harness.runTest('All 4 panels visible with non-zero dimensions', async () => {
+    const result = await harness.evaluate(`
+      (function() {
+        const ids = ['editor-panel', 'preview-panel', 'reference-panel', 'console-panel'];
+        return ids.map(id => {
+          const el = document.getElementById(id);
+          if (!el) return { id, exists: false };
+          const r = el.getBoundingClientRect();
+          return { id, exists: true, width: Math.round(r.width), height: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left) };
+        });
+      })()
+    `);
+    for (const panel of result) {
+      if (!panel.exists) throw new Error(`${panel.id} not found`);
+      if (panel.width < 50 || panel.height < 30) throw new Error(`${panel.id} too small: ${panel.width}x${panel.height}`);
+      info(`${panel.id}: ${panel.width}x${panel.height} @ (${panel.left}, ${panel.top})`);
+    }
+  });
+
+  await harness.runTest('Panels roughly fill viewport (no large gaps)', async () => {
+    const result = await harness.evaluate(`
+      (function() {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const panels = ['editor-panel', 'preview-panel', 'reference-panel', 'console-panel'];
+        let totalArea = 0;
+        panels.forEach(id => {
+          const r = document.getElementById(id)?.getBoundingClientRect();
+          if (r) totalArea += r.width * r.height;
+        });
+        const viewportArea = vw * vh;
+        return { viewportArea, totalArea, coverage: Math.round((totalArea / viewportArea) * 100) };
+      })()
+    `);
+    info(`Panel coverage: ${result.coverage}% of viewport`);
+    if (result.coverage < 70) throw new Error(`Panels only cover ${result.coverage}% — layout broken`);
+  });
+
+  await harness.runTest('Center square nob positioned (desktop only)', async () => {
+    const result = await harness.evaluate(`
+      (function() {
+        if (window.innerWidth <= 768) return { mobile: true };
+        const cs = document.getElementById('center-square');
+        if (!cs) return { exists: false };
+        const r = cs.getBoundingClientRect();
+        const vw = window.innerWidth, vh = window.innerHeight;
+        return {
+          exists: true,
+          display: cs.style.display,
+          x: Math.round(r.left + r.width / 2),
+          y: Math.round(r.top + r.height / 2),
+          viewportCenter: { x: Math.round(vw / 2), y: Math.round(vh / 2) },
+          distFromCenter: Math.round(Math.sqrt(Math.pow(r.left + r.width/2 - vw/2, 2) + Math.pow(r.top + r.height/2 - vh/2, 2)))
+        };
+      })()
+    `);
+    if (result.mobile) { info('Mobile — skipping center square test'); return; }
+    if (!result.exists) throw new Error('Center square not found');
+    if (result.display === 'none') throw new Error('Center square hidden');
+    info(`Nob at (${result.x}, ${result.y}), viewport center (${result.viewportCenter.x}, ${result.viewportCenter.y}), dist: ${result.distFromCenter}px`);
+    // Should be within ~30% of viewport center (gutters may not be perfectly centered)
+    const maxDist = Math.max(result.viewportCenter.x, result.viewportCenter.y) * 0.4;
+    if (result.distFromCenter > maxDist) throw new Error(`Nob too far from center: ${result.distFromCenter}px (max ${Math.round(maxDist)}px)`);
+  });
+
+  await harness.runTest('No mobile collapse indicators on desktop', async () => {
+    const result = await harness.evaluate(`({
+      isMobile: window.innerWidth <= 768,
+      indicatorCount: document.querySelectorAll('.mobile-collapse-indicator').length
+    })`);
+    if (result.isMobile) { info('Mobile — skipping'); return; }
+    if (result.indicatorCount > 0) throw new Error(`Found ${result.indicatorCount} mobile collapse indicators on desktop`);
+    info('No mobile collapse indicators present');
+  });
+
+  await harness.runTest('Settings gear positioned (not in top-left corner)', async () => {
+    const result = await harness.evaluate(`
+      (function() {
+        const gear = document.getElementById('settings-gear');
+        if (!gear) return { exists: false };
+        const r = gear.getBoundingClientRect();
+        return { exists: true, right: Math.round(window.innerWidth - r.right), top: Math.round(r.top), width: Math.round(r.width) };
+      })()
+    `);
+    if (!result.exists) throw new Error('Settings gear not found');
+    info(`Gear: ${result.width}px wide, ${result.right}px from right edge, ${result.top}px from top`);
+    // In 4x4 mode gear is inside the editor panel, so check relative to panel not viewport
+    if (result.right > 700) throw new Error(`Gear too far from right edge: ${result.right}px`);
+  });
+
+  await harness.runTest('Gutters have non-zero dimensions', async () => {
+    const result = await harness.evaluate(`
+      Array.from(document.querySelectorAll('.gutter')).map((g, i) => {
+        const r = g.getBoundingClientRect();
+        return { i, cls: g.className, width: Math.round(r.width), height: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left) };
+      })
+    `);
+    for (const g of result) {
+      const isHoriz = g.cls.includes('horizontal');
+      const dim = isHoriz ? g.width : g.height;
+      if (dim < 2) throw new Error(`Gutter ${g.i} (${g.cls}) has zero ${isHoriz ? 'width' : 'height'}`);
+      info(`Gutter ${g.i}: ${g.width}x${g.height} @ (${g.left}, ${g.top})`);
+    }
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Main
 // ═══════════════════════════════════════════════════════════════════════════
@@ -696,6 +814,7 @@ async function main() {
     
     const testSuites = {
       'basic': testBasicConnectivity,
+      'layout': testLayout,
       'editor': testEditorInteractions,
       'playback': testPlaybackControls,
       'ui': testUIInteractions,

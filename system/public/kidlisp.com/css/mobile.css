@@ -202,6 +202,11 @@
     background: rgba(128, 128, 128, 0.25);
   }
   
+  /* Settings gear moves left to make room for collapse arrow */
+  #settings-gear {
+    right: 32px;
+  }
+
   /* Collapse indicator triangles */
   .mobile-collapse-indicator {
     position: absolute;
