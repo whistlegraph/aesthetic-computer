@@ -9,9 +9,27 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <stdarg.h>
 
 // Defined in ac-native.c
 extern void ac_log(const char *fmt, ...);
+
+// Write to both ac_log and the wifi ring buffer (readable from JS)
+static void wifi_log(ACWifi *wifi, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+static void wifi_log(ACWifi *wifi, const char *fmt, ...) {
+    char buf[128];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+    ac_log("[wifi] %s", buf);
+    if (wifi) {
+        int idx = wifi->log_count % 32;
+        strncpy(wifi->log[idx], buf, 127);
+        wifi->log[idx][127] = 0;
+        wifi->log_count++;
+    }
+}
 
 // ============================================================
 // Helpers (called from wifi thread only — blocking is fine)
@@ -178,7 +196,7 @@ static void wifi_do_scan(ACWifi *wifi) {
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "%d networks", w);
     pthread_mutex_unlock(&wifi->lock);
 
-    ac_log("[wifi] Scan complete: %d networks", w);
+    wifi_log(wifi, "Scan complete: %d networks", w);
 }
 
 // ============================================================
@@ -189,7 +207,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     if (!ssid || !wifi->iface[0]) return;
 
     wifi_set_state_and_status(wifi, WIFI_STATE_CONNECTING, "connecting...");
-    ac_log("[wifi] Connecting to '%s'", ssid);
+    wifi_log(wifi, "Connecting to '%s'", ssid);
 
     // Kill any existing wpa_supplicant / dhclient
     if (wifi->wpa_pid > 0) {
@@ -233,7 +251,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
         snprintf(sock_path, sizeof(sock_path),
                  "/var/run/wpa_supplicant/%s", wifi->iface);
         if (unlink(sock_path) == 0)
-            ac_log("[wifi] Removed stale socket: %s", sock_path);
+            wifi_log(wifi, "Removed stale socket: %s", sock_path);
     }
 
     // Start wpa_supplicant
@@ -267,7 +285,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     while (connect_ticks < 1200 && wifi->thread_running) { // ~60 seconds max (50ms polls)
         // Check if a new command interrupted us
         if (wifi->pending_cmd != WIFI_CMD_NONE) {
-            ac_log("[wifi] Connect interrupted by new command");
+            wifi_log(wifi, "Connect interrupted by new command");
             return;
         }
 
@@ -293,7 +311,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
             strncpy(state_str, st, sizeof(state_str) - 1);
             state_str[strcspn(state_str, "\n\r")] = 0;
             if (state_str[0] && strcmp(state_str, last_wpa_state) != 0) {
-                ac_log("[wifi] WPA state: %s (tick %d)", state_str, connect_ticks);
+                wifi_log(wifi, "WPA: %s (tick %d)", state_str, connect_ticks);
                 strncpy(last_wpa_state, state_str, sizeof(last_wpa_state) - 1);
                 // Update user-visible status with WPA state detail
                 if (strstr(state_str, "SCANNING"))
@@ -310,7 +328,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
         if (strstr(line, "COMPLETED")) {
             // WPA connected — start DHCP if not already running
             if (!dhcp_started) {
-                ac_log("[wifi] WPA connected, starting DHCP");
+                wifi_log(wifi, "WPA connected, starting DHCP");
                 wifi_set_status(wifi, "getting IP...");
 
                 pid_t dpid = fork();
@@ -357,7 +375,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                         wifi->state = WIFI_STATE_CONNECTED;
                         snprintf(wifi->status_msg, sizeof(wifi->status_msg), "%s", ip);
                         pthread_mutex_unlock(&wifi->lock);
-                        ac_log("[wifi] Connected! IP: %s", ip);
+                        wifi_log(wifi, "Connected! IP: %s", ip);
 
                         // Save credentials for auto-reconnect
                         strncpy(wifi->last_ssid, ssid, WIFI_SSID_MAX - 1);
@@ -386,12 +404,12 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                 pid_t r = waitpid(wifi->dhcp_pid, &status, WNOHANG);
                 if (r > 0) {
                     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-                        ac_log("[wifi] dhclient exit %d", WEXITSTATUS(status));
+                        wifi_log(wifi, "dhclient exit %d", WEXITSTATUS(status));
                         FILE *dlog = fopen("/tmp/dhclient.log", "r");
                         if (dlog) {
                             char dline[256];
                             while (fgets(dline, sizeof(dline), dlog))
-                                ac_log("[dhclient] %s", dline);
+                                wifi_log(wifi, "dhclient: %s", dline);
                             fclose(dlog);
                         }
                         // Retry DHCP on next iteration
@@ -399,7 +417,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                         dhcp_started = 0;
                     }
                     if (WIFSIGNALED(status)) {
-                        ac_log("[wifi] dhclient killed by signal %d", WTERMSIG(status));
+                        wifi_log(wifi, "dhclient killed by signal %d", WTERMSIG(status));
                         wifi->dhcp_pid = 0;
                         dhcp_started = 0;
                     }
@@ -409,7 +427,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
             // Still waiting for WPA auth
             if (connect_ticks > 200) { // ~10 seconds (50ms polls)
                 wifi_set_state_and_status(wifi, WIFI_STATE_FAILED, "auth failed");
-                ac_log("[wifi] Connection timeout");
+                wifi_log(wifi, "Auth failed after %d ticks", connect_ticks);
                 return;
             }
         }
@@ -418,7 +436,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     // Timed out
     if (wifi->state == WIFI_STATE_CONNECTING) {
         wifi_set_state_and_status(wifi, WIFI_STATE_FAILED, "timeout");
-        ac_log("[wifi] Connect timed out after 60s");
+        wifi_log(wifi, "Connect timed out after 60s (last WPA: %s)", last_wpa_state);
     }
 }
 
@@ -452,7 +470,7 @@ static void wifi_do_disconnect(ACWifi *wifi) {
     snprintf(wifi->status_msg, sizeof(wifi->status_msg), "disconnected");
     pthread_mutex_unlock(&wifi->lock);
 
-    ac_log("[wifi] Disconnected");
+    wifi_log(wifi, "Disconnected");
 }
 
 // ============================================================
@@ -464,12 +482,12 @@ static void wifi_do_disconnect(ACWifi *wifi) {
 #define AC_PASS "aesthetic.computer"
 
 static void wifi_do_autoconnect(ACWifi *wifi) {
-    ac_log("[wifi] Auto-connect: scanning for saved networks...");
+    wifi_log(wifi, "Auto-connect: scanning...");
 
     // Step 1: Scan
     wifi_do_scan(wifi);
     if (wifi->network_count == 0) {
-        ac_log("[wifi] Auto-connect: no networks found");
+        wifi_log(wifi, "Auto-connect: no networks found");
         wifi_set_state_and_status(wifi, WIFI_STATE_SCAN_DONE, "no networks");
         return;
     }
@@ -530,9 +548,9 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
             }
             p = eq + 1;
         }
-        ac_log("[wifi] Auto-connect: loaded %d saved networks", cred_count);
+        wifi_log(wifi, "Auto-connect: %d saved creds", cred_count);
     } else {
-        ac_log("[wifi] Auto-connect: no saved creds, using preset only");
+        wifi_log(wifi, "Auto-connect: no saved creds, preset only");
     }
 
     // Step 3: Match scanned networks against saved creds (by signal strength)
@@ -548,15 +566,15 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
                 pass[WIFI_PASS_MAX - 1] = 0;
                 pthread_mutex_unlock(&wifi->lock);
 
-                ac_log("[wifi] Auto-connect: trying '%s' (signal %d dBm)",
+                wifi_log(wifi, "Trying '%s' (%d dBm)",
                        ssid, wifi->networks[i].signal);
                 wifi_do_connect(wifi, ssid, pass);
 
                 if (wifi->state == WIFI_STATE_CONNECTED) {
-                    ac_log("[wifi] Auto-connect: success!");
+                    wifi_log(wifi, "Auto-connect: success!");
                     return;
                 }
-                ac_log("[wifi] Auto-connect: '%s' failed, trying next...", ssid);
+                wifi_log(wifi, "'%s' failed, trying next...", ssid);
                 pthread_mutex_lock(&wifi->lock);
                 break; // Move to next scanned network
             }
@@ -564,7 +582,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     }
     pthread_mutex_unlock(&wifi->lock);
 
-    ac_log("[wifi] Auto-connect: no saved network matched or connected");
+    wifi_log(wifi, "Auto-connect: no match");
     wifi_set_state_and_status(wifi, WIFI_STATE_SCAN_DONE, "no saved network");
 }
 
@@ -646,14 +664,14 @@ static void *wifi_thread_fn(void *arg) {
             if (watchdog_counter >= 5) {
                 watchdog_counter = 0;
                 if (!wifi_check_link(wifi)) {
-                    ac_log("[wifi] Connection lost — auto-reconnecting to '%s'",
+                    wifi_log(wifi, "Connection lost — reconnecting '%s'",
                            wifi->last_ssid);
                     wifi_set_state_and_status(wifi, WIFI_STATE_CONNECTING,
                                               "reconnecting...");
                     wifi_do_connect(wifi, wifi->last_ssid, wifi->last_pass);
                     if (wifi->state != WIFI_STATE_CONNECTED) {
                         wifi->reconnect_failures++;
-                        ac_log("[wifi] Reconnect failed (%d)",
+                        wifi_log(wifi, "Reconnect failed (%d)",
                                wifi->reconnect_failures);
                         // Back off: wait longer between retries
                         if (wifi->reconnect_failures > 3)
