@@ -1247,76 +1247,78 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Initialize user status bar
   updateUserStatusBar();
   
-  // 🚀 Netlify Deploy Status Bar
-  // Polls the Netlify API to show live deploy status in the status bar.
-  // Reads NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID from environment.
-  let statusBarDeploy: vscode.StatusBarItem;
-  let deployPollInterval: NodeJS.Timeout | undefined;
+  // 🔥 AC-OS OTA Build Status Bar
+  // Polls oven.aesthetic.computer/native-build to show live OTA build status.
+  let statusBarOTA: vscode.StatusBarItem;
+  let otaPollInterval: NodeJS.Timeout | undefined;
 
-  interface NetlifyDeploy {
-    id: string;
-    state: string; // 'building' | 'enqueued' | 'uploading' | 'processing' | 'ready' | 'error'
-    branch: string;
-    title?: string;
-    created_at: string;
-    published_at?: string;
-    deploy_time?: number;
-    error_message?: string;
-    commit_ref?: string;
+  interface OTABuildState {
+    activeJobId: string | null;
+    active: {
+      id: string;
+      ref: string;
+      status: string;
+      stage: string;
+      percent: number;
+      elapsedMs: number;
+      error?: string;
+    } | null;
+    recent: Array<{
+      id: string;
+      ref: string;
+      status: string;
+      stage: string;
+      percent: number;
+      elapsedMs: number;
+      finishedAt?: string;
+      error?: string;
+      flags?: string[];
+    }>;
   }
 
-  function getDeployIcon(state: string): string {
-    switch (state) {
-      case 'building':
-      case 'uploading':
-      case 'processing':
-        return '$(sync~spin)';
-      case 'enqueued':
-        return '$(clock)';
-      case 'ready':
-        return '$(check)';
-      case 'error':
-        return '$(error)';
-      default:
-        return '$(cloud)';
+  function getOTAIcon(stage: string, status: string): string {
+    if (status === 'running') {
+      switch (stage) {
+        case 'binary': return '$(gear~spin)';
+        case 'initramfs': return '$(package~spin)';
+        case 'kernel': return '$(cpu~spin)';
+        case 'smoke-test': return '$(beaker~spin)';
+        case 'upload': return '$(cloud-upload~spin)';
+        default: return '$(sync~spin)';
+      }
+    }
+    switch (status) {
+      case 'success': return '$(check)';
+      case 'failed': return '$(error)';
+      case 'cancelled': return '$(close)';
+      default: return '$(flame)';
     }
   }
 
-  function getDeployColor(state: string): vscode.ThemeColor | undefined {
-    switch (state) {
-      case 'building':
-      case 'uploading':
-      case 'processing':
-        return new vscode.ThemeColor('statusBarItem.warningBackground');
-      case 'error':
-        return new vscode.ThemeColor('statusBarItem.errorBackground');
-      default:
-        return undefined;
+  function getOTAColor(status: string): vscode.ThemeColor | undefined {
+    switch (status) {
+      case 'running': return new vscode.ThemeColor('statusBarItem.warningBackground');
+      case 'failed': return new vscode.ThemeColor('statusBarItem.errorBackground');
+      default: return undefined;
     }
   }
 
-  async function fetchLatestDeploy(): Promise<NetlifyDeploy | null> {
-    const token = process.env.NETLIFY_AUTH_TOKEN;
-    const siteId = process.env.NETLIFY_SITE_ID;
-    if (!token || !siteId) return null;
-
+  async function fetchOTAStatus(): Promise<OTABuildState | null> {
     try {
       const https = await import("https");
       return new Promise((resolve) => {
         const req = https.request({
-          hostname: 'api.netlify.com',
-          path: `/api/v1/sites/${siteId}/deploys?per_page=1`,
+          hostname: 'oven.aesthetic.computer',
+          path: '/native-build',
           method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}`, 'User-Agent': 'aesthetic-computer-vscode' },
+          headers: { 'User-Agent': 'aesthetic-computer-vscode' },
           timeout: 5000,
         }, (res: any) => {
           let data = '';
           res.on('data', (chunk: string) => data += chunk);
           res.on('end', () => {
-            try {
-              const deploys = JSON.parse(data);
-              resolve(Array.isArray(deploys) && deploys.length > 0 ? deploys[0] : null);
-            } catch { resolve(null); }
+            try { resolve(JSON.parse(data)); }
+            catch { resolve(null); }
           });
         });
         req.on('error', () => resolve(null));
@@ -1328,83 +1330,89 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }
   }
 
-  async function updateDeployStatusBar() {
-    if (!statusBarDeploy) {
-      statusBarDeploy = vscode.window.createStatusBarItem(
+  async function updateOTAStatusBar() {
+    if (!statusBarOTA) {
+      statusBarOTA = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
         99,
       );
-      statusBarDeploy.command = "aestheticComputer.showDeployDetails";
-      context.subscriptions.push(statusBarDeploy);
+      statusBarOTA.command = "aestheticComputer.showOTADetails";
+      context.subscriptions.push(statusBarOTA);
     }
 
-    const deploy = await fetchLatestDeploy();
-    if (!deploy) {
-      statusBarDeploy.text = '$(cloud) Netlify';
-      statusBarDeploy.tooltip = 'Could not fetch deploy status.\nCheck NETLIFY_AUTH_TOKEN and NETLIFY_SITE_ID.';
-      statusBarDeploy.backgroundColor = undefined;
-      statusBarDeploy.show();
+    const state = await fetchOTAStatus();
+    if (!state) {
+      statusBarOTA.text = '$(flame) OTA';
+      statusBarOTA.tooltip = 'Could not reach oven.aesthetic.computer';
+      statusBarOTA.backgroundColor = undefined;
+      statusBarOTA.show();
       return;
     }
 
-    const icon = getDeployIcon(deploy.state);
-    const branch = deploy.branch || 'main';
-    const shortRef = deploy.commit_ref?.substring(0, 7) || '';
-    const stateLabel = deploy.state === 'ready' ? 'live' : deploy.state;
+    if (state.active) {
+      const a = state.active;
+      const elapsed = Math.round(a.elapsedMs / 1000);
+      const ref = a.ref?.substring(0, 7) || '';
+      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${a.stage} ${a.percent}%`;
+      statusBarOTA.backgroundColor = getOTAColor('running');
+      statusBarOTA.tooltip = `AC-OS Building\nStage: ${a.stage} (${a.percent}%)\nCommit: ${ref}\nElapsed: ${elapsed}s`;
+    } else if (state.recent?.length > 0) {
+      const r = state.recent[0];
+      const ref = r.ref?.substring(0, 7) || '';
+      const elapsed = Math.round(r.elapsedMs / 1000);
+      const time = r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString() : '';
+      const label = r.status === 'success' ? 'OTA' : r.status;
+      statusBarOTA.text = `${getOTAIcon(r.stage, r.status)} ${label}`;
+      statusBarOTA.backgroundColor = getOTAColor(r.status);
+      let tip = `AC-OS: ${r.status}\nCommit: ${ref}\nBuild time: ${elapsed}s`;
+      if (time) tip += `\nFinished: ${time}`;
+      if (r.error) tip += `\nError: ${r.error}`;
+      statusBarOTA.tooltip = tip;
+    }
 
-    statusBarDeploy.text = `${icon} ${stateLabel}`;
-    statusBarDeploy.backgroundColor = getDeployColor(deploy.state);
-
-    const time = deploy.published_at ? new Date(deploy.published_at).toLocaleTimeString() : '';
-    const duration = deploy.deploy_time ? `${deploy.deploy_time}s` : '';
-    let tip = `Netlify: ${deploy.state}\nBranch: ${branch}`;
-    if (shortRef) tip += `\nCommit: ${shortRef}`;
-    if (time) tip += `\nPublished: ${time}`;
-    if (duration) tip += `\nBuild time: ${duration}`;
-    if (deploy.title) tip += `\n${deploy.title}`;
-    if (deploy.error_message) tip += `\nError: ${deploy.error_message}`;
-    statusBarDeploy.tooltip = tip;
-    statusBarDeploy.show();
-
-    // Poll faster when a build is in progress
-    adjustDeployPollRate(deploy.state);
+    statusBarOTA.show();
+    adjustOTAPollRate(state);
   }
 
-  let currentPollRate = 30000; // default: 30s
-  function adjustDeployPollRate(state: string) {
-    const isActive = ['building', 'uploading', 'processing', 'enqueued'].includes(state);
-    const newRate = isActive ? 5000 : 30000; // 5s when building, 30s when idle
-    if (newRate !== currentPollRate) {
-      currentPollRate = newRate;
-      startDeployPolling();
+  let otaPollRate = 30000;
+  function adjustOTAPollRate(state: OTABuildState | null) {
+    const isActive = !!state?.active;
+    const newRate = isActive ? 3000 : 30000; // 3s when building, 30s idle
+    if (newRate !== otaPollRate) {
+      otaPollRate = newRate;
+      startOTAPolling();
     }
   }
 
-  function startDeployPolling() {
-    if (deployPollInterval) clearInterval(deployPollInterval);
-    deployPollInterval = setInterval(() => updateDeployStatusBar(), currentPollRate);
+  function startOTAPolling() {
+    if (otaPollInterval) clearInterval(otaPollInterval);
+    otaPollInterval = setInterval(() => updateOTAStatusBar(), otaPollRate);
   }
 
-  // Initialize deploy status bar
-  updateDeployStatusBar();
-  startDeployPolling();
+  updateOTAStatusBar();
+  startOTAPolling();
 
-  // Command to show deploy details / open Netlify dashboard
   context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.showDeployDetails", async () => {
-      const siteId = process.env.NETLIFY_SITE_ID;
-      const deploy = await fetchLatestDeploy();
-      const actions = ['Open Netlify Dashboard', 'Refresh'];
-      if (deploy) {
-        const msg = `Deploy: ${deploy.state} | Branch: ${deploy.branch} | ${deploy.title || deploy.commit_ref?.substring(0, 7) || ''}`;
-        const choice = await vscode.window.showInformationMessage(msg, ...actions);
-        if (choice === 'Open Netlify Dashboard') {
-          vscode.env.openExternal(vscode.Uri.parse(`https://app.netlify.com/sites/aesthetic-computer/deploys`));
-        } else if (choice === 'Refresh') {
-          updateDeployStatusBar();
-        }
-      } else {
-        vscode.window.showWarningMessage('Could not fetch Netlify deploy status. Check env vars.');
+    vscode.commands.registerCommand("aestheticComputer.showOTADetails", async () => {
+      const state = await fetchOTAStatus();
+      if (!state) {
+        vscode.window.showWarningMessage('Could not reach oven.aesthetic.computer');
+        return;
+      }
+      const actions = ['Open Oven', 'Pull & Flash', 'Refresh'];
+      const recent = state.recent?.[0];
+      const msg = state.active
+        ? `OTA Building: ${state.active.stage} ${state.active.percent}% (${Math.round(state.active.elapsedMs / 1000)}s)`
+        : `OTA: ${recent?.status || 'unknown'} | ${recent?.ref?.substring(0, 7) || ''} | ${Math.round((recent?.elapsedMs || 0) / 1000)}s`;
+      const choice = await vscode.window.showInformationMessage(msg, ...actions);
+      if (choice === 'Open Oven') {
+        vscode.env.openExternal(vscode.Uri.parse('https://oven.aesthetic.computer/native-build'));
+      } else if (choice === 'Pull & Flash') {
+        const terminal = vscode.window.createTerminal('AC-OS Flash');
+        terminal.show();
+        terminal.sendText('fedac/native/ac-os pull');
+      } else if (choice === 'Refresh') {
+        updateOTAStatusBar();
       }
     })
   );
