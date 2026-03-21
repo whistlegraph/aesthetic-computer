@@ -37,6 +37,16 @@
       "width": 400,
       "height": 250,
       "type": "effect"
+    },
+    {
+      "name": "AC 🎹 knob-map (aesthetic.computer)",
+      "piece": "knob-map",
+      "description": "Map MIDI note numbers to any Ableton parameter — play keys to control knobs",
+      "width": 250,
+      "height": 170,
+      "type": "midi",
+      "source": "AC-KnobMap.amxd.json",
+      "version": "1.0.0"
     }
   ],
   "defaults": {
