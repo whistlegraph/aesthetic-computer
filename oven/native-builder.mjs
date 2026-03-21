@@ -54,6 +54,10 @@ function addLogLine(job, stream, line) {
       job.percent = Math.max(job.percent, 10);
     }
   }
+  if (clean.match(/SMOKE TEST|smoke_test|qemu/i)) {
+    job.stage = "smoke-test";
+    job.percent = Math.max(job.percent, 80);
+  }
   if (clean.match(/Uploading|uploaded:/i)) {
     job.stage = "upload";
     job.percent = Math.max(job.percent, 90);
@@ -181,9 +185,22 @@ async function runBuildJob(job) {
     const buildScript = path.join(NATIVE_DIR, "scripts/build-and-flash.sh");
     await runPhase(job, "build", "bash", [buildScript, ...job.flags], NATIVE_DIR);
 
+    job.percent = 80;
+
+    // Phase 2: QEMU smoke test (boot kernel, check serial for success/panic)
+    const acOs = path.join(NATIVE_DIR, "ac-os");
+    try {
+      await runPhase(job, "smoke-test", "bash", [acOs, "test"], NATIVE_DIR);
+      addLogLine(job, "stdout", "  SMOKE TEST: passed");
+    } catch (smokeErr) {
+      addLogLine(job, "stderr", `  SMOKE TEST: failed — ${smokeErr.message}`);
+      // Non-fatal for now — log warning but continue upload
+      // TODO: make this fatal once QEMU + virtio-gpu is reliable
+    }
+
     job.percent = 85;
 
-    // Phase 2: upload vmlinuz to DO Spaces CDN
+    // Phase 3: upload vmlinuz to DO Spaces CDN
     const vmlinuz = path.join(CACHE_DIR, "vmlinuz");
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
     await runPhase(job, "upload", "bash", [uploadScript, vmlinuz], NATIVE_DIR, {
