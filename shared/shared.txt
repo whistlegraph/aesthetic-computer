@@ -1,1 +1,0 @@
-This directory contains source files that are symlinked to other directories in the monorepo.

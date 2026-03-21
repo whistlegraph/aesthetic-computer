@@ -1,8 +1,0 @@
-{
-    "servers": {
-        "shopify-dev-mcp": {
-            "command": "npx",
-            "args": ["-y", "@shopify/dev-mcp@latest"]
-        }
-    }
-}

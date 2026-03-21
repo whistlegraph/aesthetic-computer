@@ -1,5 +1,0 @@
-# Keeps Wallet Extension - Ignore built files
-dist/
-node_modules/
-.chrome-test-profile/
-*.log
