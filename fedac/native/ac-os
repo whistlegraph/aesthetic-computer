@@ -366,6 +366,9 @@ XDGOPEN
     sudo find . -print0 | sudo cpio --null -ov --format=newc \
         > "${BUILD_DIR}/initramfs.cpio" 2>/dev/null
     lz4 -l -9 -f "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4"
+
+    # Fix ownership so non-root users (oven) can rebuild next time
+    sudo chown -R "$(whoami)" "${INITRAMFS_ROOT}" "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4" 2>/dev/null || true
 }
 
 build_kernel() {
