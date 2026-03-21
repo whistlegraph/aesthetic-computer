@@ -1,0 +1,50 @@
+#!/bin/bash
+# ac-say — Speak text AND flash the screen on the Docker host
+# Usage: ac-say "Build complete!"
+#        ac-say --blink green "Success"
+#        ac-say --no-blink "quiet message"
+#        echo "done" | ac-say
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BLINK_COLORS="red green"
+DO_BLINK=1
+
+# Parse flags
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --blink) BLINK_COLORS="$2"; shift 2 ;;
+        --no-blink) DO_BLINK=0; shift ;;
+        -v|--voice) export VOICE="$2"; shift 2 ;;
+        -h|--help)
+            echo "Usage: ac-say [--blink 'colors'] [--no-blink] [-v voice] \"text\""
+            echo "       echo \"text\" | ac-say"
+            echo ""
+            echo "Speaks text and flashes the screen on the Docker host."
+            echo "  --blink 'red green'  Set flash colors (default: red green)"
+            echo "  --no-blink           TTS only, no screen flash"
+            echo "  -v flite|espeak      TTS engine (default: flite)"
+            exit 0 ;;
+        --) shift; break ;;
+        -*) echo "Unknown flag: $1" >&2; exit 1 ;;
+        *) break ;;
+    esac
+done
+
+# Get text from args or stdin
+TEXT="$*"
+if [ -z "${TEXT}" ]; then
+    TEXT=$(cat)
+fi
+
+if [ -z "${TEXT}" ]; then
+    echo "ac-say: no text provided" >&2
+    exit 1
+fi
+
+# Flash screen (background, non-blocking)
+if [ ${DO_BLINK} -eq 1 ]; then
+    "${SCRIPT_DIR}/ac-blink" ${BLINK_COLORS} &
+fi
+
+# Speak
+"${SCRIPT_DIR}/ac-talk" "${TEXT}"
