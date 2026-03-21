@@ -38,9 +38,11 @@ fi
 ilog() { echo "ac-init: $*" >> /tmp/ac-init.log 2>/dev/null; }
 ilog "start"
 
-# zram swap
-modprobe zram 2>/dev/null
-echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+# zram swap (module may not be available)
+if modprobe zram 2>/dev/null && [ -e /sys/block/zram0/disksize ]; then
+    echo 1G > /sys/block/zram0/disksize && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+    ilog "zram: 1G swap enabled"
+fi
 
 # Loopback
 ip link set lo up 2>/dev/null
@@ -54,10 +56,24 @@ export SSL_CERT_DIR="/etc/ssl/certs"
 echo "root:x:0:" > /etc/group
 echo "root:x:0:root" > /etc/passwd
 
-# Performance governor
-for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-  echo performance > "$g" 2>/dev/null
+# Performance governor (cpufreq may not be available)
+if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
+    for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo performance > "$g" 2>/dev/null
+    done
+fi
+
+# Wait for DRM device (GPU driver may not be ready yet)
+WAIT=0
+while [ ! -e /dev/dri/card0 ] && [ $WAIT -lt 30 ]; do
+    sleep 0.1
+    WAIT=$((WAIT + 1))
 done
+if [ -e /dev/dri/card0 ]; then
+    ilog "drm ready after ${WAIT}00ms"
+else
+    ilog "WARNING: /dev/dri/card0 not found after 3s"
+fi
 
 ilog "starting ac-native"
 
