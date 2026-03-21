@@ -41,6 +41,7 @@ build_binary() {
         fi
     fi
     # Run make and capture exit code (pipefail not needed — check make directly)
+    mkdir -p "${BUILD_DIR}"
     local MAKE_LOG="${BUILD_DIR}/.make.log"
     make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" > "${MAKE_LOG}" 2>&1
     local MAKE_RC=$?
