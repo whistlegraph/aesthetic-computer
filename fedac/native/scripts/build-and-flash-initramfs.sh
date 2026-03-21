@@ -95,6 +95,28 @@ if command -v dnf &>/dev/null; then
         log "Installing missing packages:${PKGS_NEEDED}"
         sudo dnf install -y ${PKGS_NEEDED} || err "Failed to install packages"
     fi
+elif command -v apt-get &>/dev/null; then
+    PKGS_NEEDED=""
+    command -v cpio &>/dev/null           || PKGS_NEEDED="${PKGS_NEEDED} cpio"
+    command -v lz4 &>/dev/null            || PKGS_NEEDED="${PKGS_NEEDED} lz4"
+    command -v bc &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} bc"
+    command -v perl &>/dev/null           || PKGS_NEEDED="${PKGS_NEEDED} perl"
+    command -v make &>/dev/null           || PKGS_NEEDED="${PKGS_NEEDED} make"
+    command -v curl &>/dev/null           || PKGS_NEEDED="${PKGS_NEEDED} curl"
+    command -v jq &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} jq"
+    command -v wpa_supplicant &>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} wpasupplicant"
+    command -v dhclient &>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} isc-dhcp-client"
+    command -v iw &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} iw"
+    command -v busybox &>/dev/null        || PKGS_NEEDED="${PKGS_NEEDED} busybox-static"
+    command -v git &>/dev/null            || PKGS_NEEDED="${PKGS_NEEDED} git"
+    [ -d /usr/share/alsa ]               || PKGS_NEEDED="${PKGS_NEEDED} alsa-utils"
+    [ -f /lib/firmware/regulatory.db ] 2>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} wireless-regdb"
+    ls /lib/firmware/iwlwifi-* &>/dev/null 2>&1 || PKGS_NEEDED="${PKGS_NEEDED} linux-firmware"
+    if [ -n "${PKGS_NEEDED}" ]; then
+        log "Installing missing packages (apt):${PKGS_NEEDED}"
+        sudo apt-get update -qq 2>/dev/null || true
+        sudo apt-get install -y -qq ${PKGS_NEEDED} 2>&1 | tail -3 || err "Failed to install packages"
+    fi
 fi
 
 MISSING=""
