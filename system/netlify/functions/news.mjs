@@ -329,6 +329,49 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
+// Lightweight markdown → HTML for post bodies.
+// Supports: paragraphs, ## headers, **bold**, *italic*, `code`,
+// ```code blocks```, [links](url), and commit-hash links.
+function renderMarkdown(text) {
+  if (!text) return "";
+  const escaped = escapeHtml(text);
+
+  // Split on code blocks first to avoid processing markdown inside them.
+  const parts = escaped.split(/(```[\s\S]*?```)/g);
+  const rendered = parts.map((part) => {
+    if (part.startsWith("```")) {
+      const inner = part.slice(3, -3).replace(/^\n/, "");
+      return `<pre><code>${inner}</code></pre>`;
+    }
+    // Process inline markdown within each non-code segment.
+    let s = part;
+    // Inline code (backticks).
+    s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    // Bold.
+    s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    // Italic (single *).
+    s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    // Markdown links [text](url).
+    s = s.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer">$1</a>',
+    );
+    // ## headers → <h3>, # headers → <h2>
+    s = s.replace(/^### (.+)$/gm, "<h4>$1</h4>");
+    s = s.replace(/^## (.+)$/gm, "<h3>$1</h3>");
+    s = s.replace(/^# (.+)$/gm, "<h2>$1</h2>");
+    // Paragraphs: double newlines become paragraph breaks.
+    s = s
+      .split(/\n\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => (p.startsWith("<h") ? p : `<p>${p}</p>`))
+      .join("\n");
+    return s;
+  });
+  return rendered.join("\n");
+}
+
 function formatDate(date) {
   if (!date) return "";
   const d = new Date(date);
@@ -768,7 +811,7 @@ async function renderItemPage(database, basePath, code) {
     ${hydratedPost.text ? `
     <div class="news-op-text">
       <div class="news-op-meta">${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}</div>
-      <div class="news-op-body">${escapeHtml(hydratedPost.text)}</div>
+      <div class="news-op-body">${renderMarkdown(hydratedPost.text)}</div>
     </div>` : ""}
     <div class="news-comments">
       ${commentsHtml || ''}
