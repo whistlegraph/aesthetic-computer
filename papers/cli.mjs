@@ -160,6 +160,16 @@ const PAPER_MAP = {
     title: "CalArts, Callouts, and Papers",
     psycho: true,
   },
+  "arxiv-open-schools": {
+    base: "open-schools",
+    siteName: "open-schools-26-arxiv",
+    title: "Get Closed Source Out of Schools",
+  },
+  "arxiv-futures": {
+    base: "futures",
+    siteName: "five-years-from-now-26-arxiv",
+    title: "Five Years from Now",
+  },
 };
 
 function texName(base, lang) {
@@ -352,6 +362,8 @@ function updateIndex(entries) {
     "network-audit-26-arxiv": 15,
     "kidlisp-reference-26-arxiv": 16,
     "citation-diversity-audit-26": 17,
+    "open-schools-26-arxiv": 18,
+    "five-years-from-now-26-arxiv": 19,
   };
 
   // Collect deployed English PDFs sorted by importance
