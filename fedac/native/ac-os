@@ -70,7 +70,7 @@ build_binary() {
 }
 
 build_initramfs() {
-    log "Building initramfs (sudo)..."
+    log "Building initramfs..."
     cd "${SCRIPT_DIR}"
 
     # KidLisp: npx not available under sudo, bundle as user then copy
