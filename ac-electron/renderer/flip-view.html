@@ -662,6 +662,15 @@
       if (e.isMainFrame) {
         const piece = extractPieceName(e.url);
         console.log('[flip] In-page navigation to piece:', piece);
+        // Intercept 'local' and 'prod' to switch servers
+        if (piece === 'local' || piece === 'prod') {
+          const base = piece === 'local'
+            ? 'http://localhost:8888'
+            : 'https://aesthetic.computer';
+          console.log(`[flip] Switching to ${piece} server: ${base}`);
+          webviewEl.src = `${base}/prompt?desktop`;
+          return;
+        }
         ipcRenderer.invoke('set-current-piece', piece);
         syncMasterVolume();
       }

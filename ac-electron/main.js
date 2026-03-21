@@ -2506,6 +2506,25 @@ app.on('web-contents-created', (event, contents) => {
         }
         return;
       }
+      // Handle 'local' / 'prod' commands - switch between dev and production servers
+      try {
+        const navUrl = new URL(url);
+        const pathname = navUrl.pathname.replace(/^\//, '');
+        if (pathname === 'local' || pathname === 'prod') {
+          navEvent.preventDefault();
+          const base = pathname === 'local'
+            ? 'http://localhost:8888'
+            : 'https://aesthetic.computer';
+          const hostWin = BrowserWindow.getAllWindows().find(win =>
+            !win.isDestroyed() && win.webContents.id === contents.hostWebContents?.id
+          );
+          if (hostWin) {
+            console.log(`[main] Switching to ${pathname} server: ${base}`);
+            hostWin.webContents.send('navigate', `${base}/prompt?desktop`);
+          }
+          return;
+        }
+      } catch (e) {}
       if (url.startsWith('ac://open')) {
         navEvent.preventDefault();
         let targetUrl = '';
