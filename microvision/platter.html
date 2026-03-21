@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>platter · MicroVision Research</title>
+    <meta name="description" content="Reverse chronology of MicroVision (MVIS) research, analysis, and correspondence compiled from the Scudder family email archive.">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a017;
+            --green: #4ecb71;
+            --red: #e05555;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #f5f5f5;
+                --text: #1a1a2e;
+                --dim: #666;
+                --pink: #b4489a;
+                --cyan: #0891b2;
+                --purple: #7850b4;
+                --gold: #a07800;
+                --green: #0a8a3e;
+                --red: #c03030;
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.12);
+            }
+        }
+
+        :root.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: #b4489a;
+            --cyan: #0891b2;
+            --purple: #7850b4;
+            --gold: #a07800;
+            --green: #0a8a3e;
+            --red: #c03030;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            -webkit-text-size-adjust: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+            padding: 2em;
+            min-height: 100vh;
+        }
+
+        .header { margin-bottom: 2em; }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 2.2em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+        }
+
+        h1 .dot { color: var(--pink); }
+        .subtitle { color: var(--dim); font-size: 0.85em; }
+
+        .stats {
+            color: var(--dim);
+            font-size: 0.8em;
+            margin-top: 0.5em;
+        }
+        .stats span { color: var(--cyan); }
+
+        .search-bar {
+            margin: 1.5em 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            padding: 0.5em 0;
+        }
+
+        .search-bar input {
+            width: 100%;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            padding: 0.6em 1em;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .search-bar input:focus { border-color: var(--cyan); }
+        .search-bar input::placeholder { color: var(--dim); }
+
+        .section {
+            margin-bottom: 2em;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin-bottom: 0.8em;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header h2 {
+            font-size: 1em;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .section-header .count {
+            color: var(--dim);
+            font-size: 0.85em;
+        }
+
+        .section-header .toggle {
+            color: var(--dim);
+            font-size: 0.75em;
+            transition: transform 0.15s;
+        }
+
+        .section-header.collapsed .toggle { transform: rotate(-90deg); }
+
+        .section-header[data-color="pink"] h2 { color: var(--pink); }
+        .section-header[data-color="cyan"] h2 { color: var(--cyan); }
+        .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header[data-color="gold"] h2 { color: var(--gold); }
+        .section-header[data-color="green"] h2 { color: var(--green); }
+        .section-header[data-color="red"] h2 { color: var(--red); }
+
+        .section-items { }
+        .section-items.hidden { display: none; }
+
+        .item {
+            display: block;
+            padding: 0.5em 0.8em;
+            text-decoration: none;
+            color: var(--text);
+            border-radius: 4px;
+            transition: background 0.1s;
+        }
+
+        .item:hover { background: var(--box-bg); }
+        .item .date { color: var(--cyan); margin-right: 0.8em; font-size: 0.85em; flex-shrink: 0; }
+        .item .from { color: var(--gold); margin-right: 0.6em; font-size: 0.85em; }
+        .item .title { }
+        .item .desc { color: var(--dim); font-size: 0.85em; margin-top: 0.2em; }
+
+        .item-group {
+            margin-bottom: 1.2em;
+        }
+
+        .item-group-label {
+            color: var(--dim);
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.3em 0.8em;
+        }
+
+        .era-label {
+            color: var(--purple);
+            font-size: 0.8em;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 0.8em 0.8em 0.3em;
+            border-top: 1px solid var(--box-border);
+            margin-top: 0.5em;
+        }
+
+        .callout {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            padding: 1em 1.2em;
+            margin: 0.5em 0;
+            font-size: 0.9em;
+            line-height: 1.7;
+        }
+
+        .callout .quote {
+            color: var(--dim);
+            font-style: italic;
+        }
+
+        .callout .number {
+            color: var(--cyan);
+            font-weight: 600;
+        }
+
+        .people-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.8em;
+            padding: 0 0.8em;
+        }
+
+        .person {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            padding: 0.8em 1em;
+        }
+
+        .person .name { font-weight: 600; margin-bottom: 0.2em; }
+        .person .role { color: var(--dim); font-size: 0.85em; }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer a { color: var(--purple); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+
+        .pals-logo-corner {
+            position: fixed;
+            bottom: 1.5em;
+            right: 1.5em;
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .pals-logo-corner:hover { opacity: 1; }
+
+        .no-results {
+            color: var(--dim);
+            padding: 2em;
+            text-align: center;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.6em; }
+            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+            .people-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <a href="https://aesthetic.computer" class="pals-logo-corner">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
+    </a>
+
+    <div class="header">
+        <h1>MicroVision<span class="dot">.</span>platter</h1>
+        <div class="subtitle">Reverse chronology of MVIS research, analysis, and correspondence — compiled from the Scudder family email archive (2015–2026).</div>
+        <div class="stats">
+            <span>17</span> entries · <span>11</span> years · <span>45+</span> emails · <span>3</span> spreadsheets · <span>2</span> hosted assets · <span>1</span> AI valuation · <span>1</span> takeover theory
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="search" placeholder="Search chronology..." autofocus>
+    </div>
+
+    <div class="no-results" id="no-results">No matching entries.</div>
+
+    <div id="sections">
+
+    <!-- KEY PEOPLE -->
+    <div class="section" data-section="people">
+        <div class="section-header" data-color="gold" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Key People</h2>
+            <span class="count">the cast</span>
+        </div>
+        <div class="section-items">
+            <div class="people-grid">
+                <div class="person">
+                    <div class="name">Walter "Walt" Scudder</div>
+                    <div class="role">Jeffrey's dad. Long-time MVIS retail investor, spreadsheet builder, active on r/MVIS Reddit. IEEE member. Emails from bigwalt59@comcast.net, katketch45@comcast.net, wscudder@ieee.org.</div>
+                </div>
+                <div class="person">
+                    <div class="name">Roger Collamati</div>
+                    <div class="role">Walt's friend. Hub of a ~15-person MVIS investor email group. Forwards Peter's blog posts and CC analysis to the circle.</div>
+                </div>
+                <div class="person">
+                    <div class="name">Peter (petersmvis.blogspot.com)</div>
+                    <div class="role">MVIS blogger Walt corresponds with directly. Has insider-adjacent contacts — spoke with an Amazon Alexa engineer about the interactive laser projector.</div>
+                </div>
+                <div class="person">
+                    <div class="name">Bob & Chad Zawistowski</div>
+                    <div class="role">Friends Walt shares financial models with. Chad (Bob's son, RIT/startup background) provided skeptical counteranalysis of Walt's bull case in 2019.</div>
+                </div>
+                <div class="person">
+                    <div class="name">Jeffrey Alan Scudder</div>
+                    <div class="role">Walt's son. MVIS shareholder (TD Ameritrade / Schwab). Hosts Walt's files on assets.aesthetic.computer for the blog community.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVERSE CHRONOLOGY -->
+    <div class="section" data-section="chronology">
+        <div class="section-header" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Reverse Chronology</h2>
+            <span class="count">17 entries · 2026–2015</span>
+        </div>
+        <div class="section-items">
+
+            <!-- ERA: DEFENSE + AI VALUATION -->
+            <div class="era-label">2026 — AI Valuation & Defense Pivot</div>
+
+            <div class="item" data-searchable="aim intelligent machines takeover acquisition shared office autonomous earthmoving dcvc defense lidar">
+                <span class="date">2026-03-20</span>
+                <span class="from">Walt (via Jeffrey)</span>
+                <span class="title">AIM Intelligent Machines Takeover Theory</span>
+                <div class="desc">Walt believes AIM (autonomous earthmoving, DCVC-backed, defense contracts) will acquire MVIS. Signal: they now share office space in Seattle/Eastside. AIM needs exactly what MVIS makes — compact LiDAR for heavy equipment autonomy. MVIS market cap only ~$190M.</div>
+            </div>
+
+            <div class="item" data-searchable="grok valuation lidar ar near eye display anduril defense market cap">
+                <span class="date">2026-03-20</span>
+                <span class="from">Jeffrey → mail@ac</span>
+                <span class="title">Grok Valuation Analysis (Blind — No MVIS Name Given)</span>
+                <div class="desc">Prompted Grok to value a hypothetical company matching MVIS specs. Result: $2–5B market cap, $200–500M NED licensing deal, $6–$16 price target. Peter's technique: tell AI to exclude biased sources.</div>
+            </div>
+
+            <!-- ERA: 2025 -->
+            <div class="era-label">2025 — Anduril, ZF, NVIDIA Partnerships</div>
+
+            <div class="item" data-searchable="retail investor day town hall reddit">
+                <span class="date">2025-07-11</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">MicroVision Retail Investor Day Town Hall (Replay)</span>
+                <div class="desc">Reddit link to the replay of MVIS's retail investor town hall session.</div>
+            </div>
+
+            <div class="item" data-searchable="anduril zf nvidia copilot pdf defense automotive ai">
+                <span class="date">2025-04-05</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">CoPilot Discussion: MicroVision + Anduril, ZF, NVIDIA</span>
+                <div class="desc">CoPilot-generated PDF analyzing MVIS collaborations with Anduril (defense), ZF (auto Tier 1), NVIDIA (AI). Hosted on assets.aesthetic.computer for r/MVIS community.</div>
+            </div>
+
+            <!-- ERA: 2024 -->
+            <div class="era-label">2024 — Interactive Spreadsheet Analysis</div>
+
+            <div class="item" data-searchable="spreadsheet lidar autos industrial robots analysis xlsx">
+                <span class="date">2024-10-09</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">MVIS Lidar Spreadsheet v2 (Autos + Industrial Robots)</span>
+                <div class="desc">Expanded interactive spreadsheet with user-adjustable variables. Hosted as HTML at assets.aesthetic.computer/mvis/fall-2024/spreadsheet.html for Reddit.</div>
+            </div>
+
+            <div class="item" data-searchable="spreadsheet lidar analysis google sheets variables">
+                <span class="date">2024-03-17</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">MVIS Lidar Spreadsheet v1</span>
+                <div class="desc">"All the cells highlighted are variables where users can input their own ideas." First version of Walt's scenario-modeling spreadsheet.</div>
+            </div>
+
+            <!-- ERA: 2021 -->
+            <div class="era-label">2021 — TD Ameritrade Review</div>
+
+            <div class="item" data-searchable="td ameritrade shares sold rebuy stock price trading account">
+                <span class="date">2021-11-17</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">TD Ameritrade Account Review — Buy Back Recommendation</span>
+                <div class="desc">Jeffrey sold 1,100 shares at avg $13.54 ($14,894 total). Walt urged rebuy at $8.62. Projection: buy at $9, sell at $40 = $34,100 profit. "I am convinced there will be some major announcements."</div>
+            </div>
+
+            <!-- ERA: 2020 -->
+            <div class="era-label">2020 — Amazon Breadcrumbs & Volume Explosion</div>
+
+            <div class="item" data-searchable="apple stm stmicroelectronics blog post">
+                <span class="date">2020-07-26</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">Apple / STM / MVIS Blog Post</span>
+                <div class="desc">Document connecting Apple, STMicroelectronics, and MicroVision technology (Apple_STM_MVIS.docx).</div>
+            </div>
+
+            <div class="item" data-searchable="trading volume shares float explosion spike 842 million">
+                <span class="date">2020-05-09</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">Trading Volume Explosion Analysis</span>
+                <div class="desc">842M shares traded Apr–May 2020 vs 14.9M in 2019 (56x). In 6 trading days: 687.6M shares = 5x the entire 130M float. "My gut tells me something big is going on."</div>
+            </div>
+
+            <div class="item" data-searchable="amazon echo alexa whole foods salmon platter interactive display breadcrumbs peter">
+                <span class="date">2020-01-07</span>
+                <span class="from">Walt → Peter → Jeffrey</span>
+                <span class="title">Amazon Breadcrumbs Investigation</span>
+                <div class="desc">Walt discovered MVIS data sheet image matched a Whole Foods salmon platter listing. Peter confirmed: spoke with Amazon engineer who reacted with "shock and startle" about laser projector in Alexa.</div>
+            </div>
+
+            <!-- ERA: 2019 -->
+            <div class="era-label">2019 — PPS Modeling & Bull/Bear Debate</div>
+
+            <div class="item" data-searchable="pps calculation model pe ratio bull bear chad bob zawistowski hololens foxconn">
+                <span class="date">2019-03-10</span>
+                <span class="from">Walt → Bob Z → Chad Z → Jeffrey</span>
+                <span class="title">Future PPS Calculations (Bull vs Bear)</span>
+                <div class="desc">Walt's bull case: 1B units, PE 14, 30%+ margins. Chad's bear case: 35M units, PE 5, $1.70 target. Key debate: is MVIS more like Nvidia or Micron?</div>
+            </div>
+
+            <!-- ERA: 2018 -->
+            <div class="era-label">2018 — "MSFT and AMZN Are the Mystery Customers"</div>
+
+            <div class="item" data-searchable="roger collamati q2 conference call blog peter microsoft amazon">
+                <span class="date">2018-08-02</span>
+                <span class="from">Roger → Walt → Jeffrey</span>
+                <span class="title">Q2 Conference Call & Blog Analysis</span>
+                <div class="desc">Roger: "Hang in there." Walt: "I personally think two of the big ones MVIS has been working with are MSFT and AMZN."</div>
+            </div>
+
+            <!-- ERA: 2017 -->
+            <div class="era-label">2017 — Analyst Reports & Chinese Smartphones</div>
+
+            <div class="item" data-searchable="voga v phone china laser projector">
+                <span class="date">2017-07-26</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">VOGA V Phone Review (MVIS Engine Inside)</span>
+                <div class="desc">"I think this phone with the MVIS engine will become very popular in China."</div>
+            </div>
+
+            <div class="item" data-searchable="rdi report apple stm stmicroelectronics 3d sensor bullish analyst">
+                <span class="date">2017-03-23</span>
+                <span class="from">Walt → Roger</span>
+                <span class="title">RDI Bullish Report + Apple/STM Rumors</span>
+                <div class="desc">"If rumors about STM having large order from Apple for a 3D sensor that includes Microvision's product prove true — this stock could be a real winner."</div>
+            </div>
+
+            <!-- ERA: 2016 -->
+            <div class="era-label">2016 — "Bottom of the First Inning"</div>
+
+            <div class="item" data-searchable="q4 conference call baseball sharp sony foxconn short interest">
+                <span class="date">2016-03-08</span>
+                <span class="from">Walt → Jeffrey</span>
+                <span class="title">Q4 Conference Call: "Bottom of the First Inning"</span>
+                <div class="desc">"MVIS has a runner (Sharp) on first and another runner (Sony) on second with no outs." Tracked Robohon robot, Xperia Agent, Foxconn acquisition of Sharp.</div>
+            </div>
+
+            <div class="item" data-searchable="ces 2016 sony mpcl1 celluon ford hud pico projector christmas">
+                <span class="date">2016-01-06</span>
+                <span class="from">Walt → Roger</span>
+                <span class="title">CES 2016: Sony MPCL1 + Ford HUD</span>
+                <div class="desc">Sony MPCL1 at CES, Celluon PicoPro ($299–$450), Ford HUD partnership. Walt gave Jeffrey a Sony MPCL1 for Christmas 2015.</div>
+            </div>
+
+            <!-- ERA: 2015 -->
+            <div class="era-label">2015 — The Beginning</div>
+
+            <div class="item" data-searchable="roger collamati distribution list why microvision pico projector paradigm shift">
+                <span class="date">2015-07-27</span>
+                <span class="from">Roger → (15 people) → Walt → Jeffrey</span>
+                <span class="title">Roger Collamati: "Why MicroVision?"</span>
+                <div class="desc">"Why this company will be the next big investment to have." MVIS trading at $3.40. First appearance of Roger's 15-person distribution list.</div>
+            </div>
+
+            <div class="item" data-searchable="peter blog picop projection smartphone screen bigger">
+                <span class="date">2015-06-09</span>
+                <span class="from">Roger → Walt → Jeffrey</span>
+                <span class="title">Peter's Blog: "Why MicroVision? Because THIS."</span>
+                <div class="desc">The founding thesis: consumers demand bigger screens, PicoP projection is the answer. This idea would evolve through interactive displays, HoloLens, LiDAR, and defense tech over the next decade.</div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- THESIS EVOLUTION -->
+    <div class="section" data-section="thesis">
+        <div class="section-header" data-color="pink" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Thesis Evolution</h2>
+            <span class="count">5 phases over 11 years</span>
+        </div>
+        <div class="section-items">
+            <div class="callout">
+                <strong>Phase 1: Pico Projectors (2015–2017)</strong><br>
+                Bet: MVIS laser beam scanning gets embedded in smartphones and robots.<br>
+                Partners tracked: Sony, Sharp, Foxconn, Celluon, Ford.<br>
+                Key product: Sony MPCL1 pico projector.
+            </div>
+            <div class="callout">
+                <strong>Phase 2: Interactive Displays & HoloLens (2018–2019)</strong><br>
+                Walt's conviction: Microsoft and Amazon are MVIS's "mystery customers."<br>
+                Known deals: $25.2M contract (suspected HoloLens 2), $10M display-only license (suspected FoxConn).<br>
+                Walt built PPS models projecting 1B units/year at PE 14.
+            </div>
+            <div class="callout">
+                <strong>Phase 3: Amazon Breadcrumbs (2020)</strong><br>
+                Detective work: MVIS data sheet → Whole Foods salmon platter → Echo form factor.<br>
+                Peter confirmed Amazon engineer contact. Trading volume exploded 56x YoY.<br>
+                Apple/STM connection explored.
+            </div>
+            <div class="callout">
+                <strong>Phase 4: LiDAR Pivot & Spreadsheets (2021–2024)</strong><br>
+                MVIS pivoted to automotive LiDAR. Walt built interactive scenario-modeling spreadsheets.<br>
+                Jeffrey hosted files on aesthetic.computer for the Reddit/blog community.<br>
+                Walt tracked Jeffrey's brokerage account, urged rebuy at $8.62.
+            </div>
+            <div class="callout">
+                <strong>Phase 5: Defense + AI Valuation + AIM Theory (2025–2026)</strong><br>
+                Anduril (defense), ZF (auto Tier 1), NVIDIA (AI) partnerships.<br>
+                Grok AI valuation: <span class="number">$2–5B market cap</span>, <span class="number">$200–500M</span> NED licensing.<br>
+                Price target: <span class="number">$6–$16</span>. Special dividend of $2 would "kill shorts."<br>
+                <strong>New signal:</strong> AIM Intelligent Machines (autonomous earthmoving, DCVC-backed) now sharing office space with MVIS. Walt's call: AIM takeover.
+            </div>
+        </div>
+    </div>
+
+    <!-- HOSTED ASSETS -->
+    <div class="section" data-section="assets">
+        <div class="section-header" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Hosted Assets</h2>
+            <span class="count">files on assets.aesthetic.computer</span>
+        </div>
+        <div class="section-items">
+            <a class="item" href="https://assets.aesthetic.computer/mvis/2025%20CoPilot%20discussion%20on%20Mircrovision's%20collaboration%20with%20Anduril,%20ZF%20and%20NVIDIA.pdf">
+                <span class="date">2025-04</span> CoPilot Discussion: Anduril, ZF, NVIDIA (PDF)
+            </a>
+            <a class="item" href="https://assets.aesthetic.computer/mvis/fall-2024/spreadsheet.html">
+                <span class="date">2024-10</span> MVIS Lidar Spreadsheet Analysis (HTML)
+            </a>
+        </div>
+    </div>
+
+    <!-- EXTERNAL LINKS -->
+    <div class="section" data-section="links">
+        <div class="section-header" data-color="purple" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>External Links</h2>
+            <span class="count">blogs, reddit, podcasts</span>
+        </div>
+        <div class="section-items">
+            <a class="item" href="https://www.reddit.com/r/MVIS/" target="_blank">r/MVIS — Reddit community</a>
+            <a class="item" href="http://petersmvis.blogspot.com/" target="_blank">Peter's MVIS Blog (petersmvis.blogspot.com)</a>
+            <a class="item" href="https://www.reddit.com/r/Anduril/s/04VflOEqzW" target="_blank">Anduril Reddit thread (2026)</a>
+            <a class="item" href="https://www.reddit.com/r/MVIS/s/bOaCrOBaeQ" target="_blank">r/MVIS — Peter on AI search filtering</a>
+            <a class="item" href="https://www.pixelworks.com/en" target="_blank">Pixelworks</a>
+        </div>
+    </div>
+
+    </div><!-- /sections -->
+
+    <div class="footer">
+        <span>Compiled from the Scudder family email archive · <a href="https://aesthetic.computer">aesthetic.computer</a></span>
+        <button class="theme-toggle" onclick="toggleTheme()">toggle theme</button>
+    </div>
+
+    <script>
+        function toggleSection(header) {
+            header.classList.toggle("collapsed");
+            const items = header.nextElementSibling;
+            items.classList.toggle("hidden");
+        }
+
+        function toggleTheme() {
+            const root = document.documentElement;
+            if (root.classList.contains("light-mode")) {
+                root.classList.remove("light-mode");
+                root.classList.add("dark-mode");
+            } else if (root.classList.contains("dark-mode")) {
+                root.classList.remove("dark-mode");
+                root.classList.add("light-mode");
+            } else {
+                root.classList.add("light-mode");
+            }
+        }
+
+        const searchInput = document.getElementById("search");
+        const noResults = document.getElementById("no-results");
+
+        searchInput.addEventListener("input", () => {
+            const query = searchInput.value.toLowerCase().trim();
+            const sections = document.querySelectorAll(".section");
+            let anyVisible = false;
+
+            sections.forEach(section => {
+                const items = section.querySelectorAll(".item, .callout, .person, .era-label");
+                let sectionVisible = false;
+
+                items.forEach(item => {
+                    const text = item.textContent.toLowerCase() + (item.dataset.searchable || "");
+                    const match = !query || text.includes(query);
+                    item.style.display = match ? "" : "none";
+                    if (match) sectionVisible = true;
+                });
+
+                section.style.display = sectionVisible || !query ? "" : "none";
+                if (sectionVisible) anyVisible = true;
+            });
+
+            noResults.style.display = query && !anyVisible ? "block" : "none";
+        });
+    </script>
+</body>
+</html>
