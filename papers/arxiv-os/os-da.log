@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023/Debian) (preloaded format=xelatex 2026.3.18)  20 MAR 2026 14:53
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023/Debian) (preloaded format=xelatex 2026.3.18)  21 MAR 2026 02:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1740,6 +1740,9 @@ L3 programming layer <2024-01-22>
 
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
 Package rerunfilecheck Info: File `os-da.out' has not changed.
 (rerunfilecheck)             Checksum: 5EEE76102D34DFAF0ED425856A08AC65;3730.
