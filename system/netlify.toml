@@ -1681,6 +1681,10 @@ from = "/api/print/*"
 to = "/.netlify/functions/print"
 status = 200
 [[redirects]]
+from = "/api/blank"
+to = "/.netlify/functions/blank"
+status = 200
+[[redirects]]
 from = "/api/mug"
 to = "/.netlify/functions/mug"
 status = 200
