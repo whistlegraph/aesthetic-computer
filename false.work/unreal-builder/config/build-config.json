@@ -1,0 +1,49 @@
+{
+  "project": {
+    "name": "SpiderLily",
+    "uprojectPath": "SpiderLily/SpiderLily.uproject",
+    "description": "false.work Studio - Spider Lily UE5 Project"
+  },
+  "perforce": {
+    "depot": "//depot/SpiderLily/SL_main/...",
+    "workspaceName": "spiderlily_build_workspace",
+    "workspaceRoot": "D:\\Perforce"
+  },
+  "build": {
+    "platforms": ["Win64"],
+    "configurations": {
+      "Development": {
+        "cook": true,
+        "pak": true,
+        "compress": false,
+        "iterative": true
+      },
+      "Shipping": {
+        "cook": true,
+        "pak": true,
+        "compress": true,
+        "iterative": false
+      },
+      "DebugGame": {
+        "cook": true,
+        "pak": false,
+        "compress": false,
+        "iterative": true
+      }
+    }
+  },
+  "paths": {
+    "ue5Engine": "C:\\Program Files\\Epic Games\\UE_5.4",
+    "buildOutput": "D:\\Builds",
+    "logOutput": "D:\\Builds\\Logs"
+  },
+  "artifacts": {
+    "retentionDays": 30,
+    "maxBuilds": 10
+  },
+  "notifications": {
+    "enabled": false,
+    "discordWebhook": "",
+    "slackWebhook": ""
+  }
+}

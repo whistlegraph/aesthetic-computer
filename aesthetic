@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# boot up the platform in a terminal
+# running emacs inside
+clear
+
+echo -e "\n\033[1;37m*** Booting the Aesthetic Computer Platform ***\033[0m\n"
+
+# clear out everything inside .emacs.d except the .gitignore
+if [ "$1" = "reset:emacs" ]; then
+  echo "*** -> Clearing emacs plugins."
+  cd ~/.emacs.d
+  find . -mindepth 1 -maxdepth 1 -not -name '.gitignore' -not -name '.' -not -name '..' | xargs rm -rf > /dev/null 2>&1 
+  cd - > /dev/null
+else
+ echo "*** -> Using cached emacs configuration."
+fi
+
+echo "*** -> Starting emacs daemon..."
+
+# Kill any existing emacs daemon
+emacsclient -e '(kill-emacs)' 2>/dev/null || true
+
+# Start emacs daemon with the aesthetic computer configuration
+emacs -q --daemon -l ~/aesthetic-computer/dotfiles/dot_config/emacs.el
+
+# Wait for daemon to be ready
+echo "*** -> Waiting for daemon to be ready..."
+while ! emacsclient -e 't' >/dev/null 2>&1; do
+  sleep 1
+done
+
+if [ "$1" = "fish" ]; then
+  echo "*** -> Starting fish shell..."
+  fish
+else
+  echo "*** -> Starting emacsclient..."
+  # Start emacsclient with aesthetic backend
+  emacsclient -c --eval "(aesthetic-backend (quote \"$1\"))"
+fi
+
+echo -e "\n\033[1;35m*** Goodbye ***\033[0m\n"

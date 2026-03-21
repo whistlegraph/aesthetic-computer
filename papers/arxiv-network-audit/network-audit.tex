@@ -1,0 +1,286 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Network Audit: Who Uses Aesthetic Computer and What Do They Make?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Network Audit}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Who Uses \acrandname{} and What Do They Make?}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Self-Assessment of Platform Identity, Geography, and Creative Output}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+\ac{} does not collect demographic data. It has no age field, no gender field, no race field, no income field. It knows three things about its users: their chosen handle, what they make, and---through boot telemetry---approximately where they are when they make it. This paper presents a network audit of the \ac{} platform using only data the system actually collects: 2,811 registered handles, 93,122 boot sessions with geographic headers, 16,634 \kl{} programs by 59 authors, 18,062 chat messages, 4,428 paintings, 265 published pieces, and 2,900 moods. We analyze the platform's user distribution (creator/consumer ratio, power-law contribution patterns, geographic reach), its social topology (chat participation, hearts, mood patterns), and its creative output (which \kl{} functions are actually used, which pieces are most visited, how the \texttt{\$}-code embedding graph structures composition). We argue that the \emph{absence} of demographic data is itself a design position---one with both liberatory potential and real limitations---and that auditing a platform through what its users \emph{make} rather than who they \emph{are} produces a different kind of knowledge about community.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+Platform audits typically begin with demographics: how many users, what age, what gender, what race, what location, what income bracket. These categories structure the audit because they structure the platform: social media companies collect demographic data to sell advertising, so the data exists and can be analyzed.
+
+\ac{}~\citep{scudder2026ac} does not sell advertising. It does not collect demographic data. A user registers with an email address and chooses a handle---a single word that becomes their identity on the platform. That handle, and the things made under it, constitute the platform's entire knowledge of the person.
+
+This constraint---born from privacy principles, not from negligence---means that a conventional platform audit is impossible. We cannot report on the age distribution, gender breakdown, or racial composition of \ac{}'s user base, because we do not know and have never asked. What we can report on is what the platform actually observes: geographic signals from network headers, creative output across four content types, social interaction through chat and reactions, and language feature adoption in \kl{} programs.
+
+This paper presents that audit. It is necessarily incomplete---every audit is---but it is honest about what it measures and what it cannot.
+
+\section{The Census}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Auth0 accounts (total) & 18,187 \\
+Auth0 accounts (verified) & 5,373 \\
+Registered @handles & 2,811 \\
+Boot sessions (lifetime) & 93,122 \\
+\midrule
+KidLisp programs & 16,634 \\
+Paintings & 4,428 \\
+Chat messages & 18,062 \\
+Moods (status updates) & 2,900 \\
+Published pieces & 265 \\
+Tapes (video recordings) & 102 \\
+Clocks & 333 \\
+Physical prints ordered & 20 \\
+\bottomrule
+\end{tabularx}
+\caption{Platform census as of March 2026.}
+\label{tab:census}
+\end{table}
+
+The funnel from account creation (18,187) to handle registration (2,811) to content creation ($\sim$1,100 users with at least one painting, mood, or program) to sustained contribution ($\sim$59 \kl{} authors) follows the pattern Eghbal describes in open-source communities~\citep{eghbal2020working}: a large periphery of observers, a smaller ring of occasional contributors, and a tiny core of prolific creators.
+
+\subsection{Creator/Consumer Ratio}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{Activity} & \textbf{Users} & \textbf{\% of Handles} \\
+\midrule
+Painted at least once & 1,067 & 38.0\% \\
+Posted a mood & 997 & 35.5\% \\
+Wrote KidLisp & 59 & 2.1\% \\
+Published a piece & 19 & 0.7\% \\
+\bottomrule
+\end{tabularx}
+\caption{Creator participation rates.}
+\label{tab:creators}
+\end{table}
+
+38\% of registered users have painted---a remarkably high creation rate compared to platforms like YouTube (estimated 1--3\% creator rate) or SoundCloud ($\sim$10\%). Painting requires no programming knowledge; it is the lowest-friction creative act available. The drop to 2.1\% for \kl{} and 0.7\% for piece authoring reflects the higher skill barrier of text-based creative coding.
+
+The 59 \kl{} authors have written 16,634 programs: a median of 12 programs per author, with the top quartile producing 180+ programs each. This extreme skew follows the power-law distribution characteristic of creative communities~\citep{barabasi1999emergence}: a small number of prolific authors produce the majority of content, while the long tail of casual creators produces one or two programs each.
+
+\section{Geographic Distribution}
+
+\ac{}'s boot telemetry captures country, region, and city from Netlify edge headers for every session. This data is collected without cookies, without tracking pixels, and without user consent forms---it arrives in the HTTP request itself.
+
+\subsection{What the Headers Show}
+
+The \texttt{boots} collection contains 93,122 records with geographic data derived from: \texttt{x-country} (ISO country code), \texttt{x-nf-subdivision-code} (region/state), \texttt{x-nf-city} (city name), and \texttt{x-nf-client-connection-ip} (client IP). This data reflects \emph{where the user's network connection originates}, not necessarily where the user lives.
+
+A full geographic analysis requires querying the \texttt{boots} MongoDB collection directly, which is planned as a companion data report. The fields available support:
+
+\begin{itemize}
+  \item Country-level distribution (how many sessions from each country)
+  \item City-level clustering (which cities have concentrated usage)
+  \item Temporal patterns by timezone (when do users in different regions boot the system)
+  \item Referer analysis (what sites link to \ac{})
+\end{itemize}
+
+\subsection{What the Headers Don't Show}
+
+Geographic headers reveal network location, not identity. A user on a VPN appears in a different country. A user at a university appears at the university's location, not their home. A user on mobile data may appear in the nearest cell tower's city. The data is directionally useful but not precise.
+
+More importantly, geographic location is not a proxy for the demographic categories that conventional audits care about. Knowing that a session originated in Lagos tells us nothing about the user's age, gender, income, or education. It tells us that someone in Lagos used \ac{}, which is itself meaningful---but it is a different kind of knowledge than demographics provide.
+
+\section{Creative Output Analysis}
+
+\subsection{KidLisp Function Adoption}
+
+The \texttt{/api/store-kidlisp?stats=functions} endpoint returns usage statistics for every \kl{} built-in, weighted by program popularity (hits). This data reveals which creative affordances users actually adopt~\citep{scudder2026kidlisp}.
+
+Expected patterns based on language design:
+\begin{itemize}
+  \item \textbf{Graphics primitives} (\texttt{wipe}, \texttt{ink}, \texttt{box}, \texttt{circle}, \texttt{line}) should dominate---they are the most immediate way to produce visible output
+  \item \textbf{Transformations} (\texttt{scroll}, \texttt{zoom}, \texttt{spin}) should appear in animation-focused programs
+  \item \textbf{Control flow} (\texttt{repeat}, \texttt{def}, \texttt{if}) should correlate with program complexity
+  \item \textbf{\$-code embeds} should reveal the social composition graph---which programs serve as building blocks for others
+  \item \textbf{Color names} should show palette preferences across the community
+\end{itemize}
+
+A full function adoption analysis with weighted rankings is planned as a companion data report, requiring direct MongoDB queries against the \texttt{kidlisp} collection.
+
+\subsection{The \$-Code Composition Graph}
+
+\kl{}'s primary abstraction mechanism---embedding programs by short code---creates an implicit dependency graph. When program A contains \texttt{(\$cow)}, it depends on program ``cow.'' This graph has observable properties:
+
+\begin{itemize}
+  \item \textbf{Hub programs}: programs referenced by many others (visual primitives, utility patterns)
+  \item \textbf{Leaf programs}: programs that embed others but are not themselves embedded
+  \item \textbf{Depth}: the maximum embedding chain observed is 7 layers
+  \item \textbf{Cross-author composition}: programs by different authors embedding each other constitute a social collaboration that happens through code rather than conversation
+\end{itemize}
+
+This graph is a unique dataset: it captures creative collaboration as dependency, not as explicit social interaction. Two users who have never spoken may be deeply connected through shared building-block programs.
+
+\section{Social Topology}
+
+\subsection{Chat}
+
+18,062 messages across two chat instances (\texttt{chat-system} for the main platform, \texttt{chat-clock} for the laer-klokken community). Messages are attributable to handles, enabling per-user participation analysis. Hearts (reactions) create a bipartite user-message affinity graph.
+
+\subsection{Moods}
+
+2,900 mood updates---short status messages that can be cross-posted to ATProto and mirrored to Bluesky. Moods are longitudinal: they have timestamps and can be analyzed as a time series of user engagement. A user who posts moods regularly is present in the community even if they are not producing visual work.
+
+\subsection{The Handle as Identity}
+
+The handle system deserves attention as a design choice. A handle is a single word chosen by the user: \texttt{@jeffrey}, \texttt{@prutti}, \texttt{@cow}. It carries no demographic signal by design. The platform cannot infer age from a handle. It cannot infer gender. It cannot infer race. This is both a limitation and a liberation.
+
+The limitation: we cannot assess whether the platform serves diverse populations, because we do not know who the populations are. The liberation: users are known by what they choose to be called, not by categories assigned to them~\citep{costanzachock2020design}. The handle is the identity. The work is the biography.
+
+\section{What We Cannot Measure}
+
+This section is as important as the preceding ones.
+
+\begin{itemize}
+  \item \textbf{Age}: unknown. No registration field.
+  \item \textbf{Gender}: unknown. No registration field.
+  \item \textbf{Race/ethnicity}: unknown. No registration field.
+  \item \textbf{Income}: unknown. No registration field.
+  \item \textbf{Disability status}: unknown. No registration field.
+  \item \textbf{Education level}: unknown. No registration field.
+  \item \textbf{Session duration}: partially available (boot start/complete timestamps exist but completion rate is variable)
+  \item \textbf{Navigation paths}: not tracked. No page-view analytics.
+  \item \textbf{Social graph}: no follow/friend mechanism exists. Social connection is inferred from chat participation and \$-code composition.
+  \item \textbf{Churn}: accounts are not deleted (GDPR deletion is manual on request). We cannot distinguish an inactive user from a departed one.
+\end{itemize}
+
+The absence of these fields is not accidental. \ac{} was built on the principle that a creative platform should know as little as possible about its users beyond what they choose to share through their creative work~\citep{illich1973tools}. This principle has costs: we cannot report on equity, we cannot identify underserved populations, we cannot measure whether the platform reproduces existing disparities. These are real limitations that a handle-only identity system cannot address.
+
+Benjamin's observation that ``race-neutral'' design often encodes existing biases~\citep{benjamin2019race} applies here. The decision not to collect demographic data is not the same as the decision to serve all demographics equally. A platform that does not ask about race may still, through its design choices (English-only interface, US-centric time zones, art-school aesthetic), systematically exclude people along racial lines without ever knowing it.
+
+\section{Toward Measurement}
+
+Future work could address some gaps without compromising the handle-only identity model:
+
+\begin{itemize}
+  \item \textbf{Geographic deep dive}: Full analysis of the 93,122 boot records by country, city, and temporal pattern. This is the strongest proxy for diversity available.
+  \item \textbf{Language analysis}: Chat messages and moods contain natural language that could be analyzed for linguistic diversity (languages used, code-switching patterns).
+  \item \textbf{Opt-in surveys}: Periodic anonymous surveys could collect demographic data without linking it to handles.
+  \item \textbf{Function adoption by user cluster}: Grouping \kl{} authors by function usage patterns could reveal distinct creative ``dialects'' that correlate with different communities of practice.
+  \item \textbf{Temporal engagement curves}: Boot timestamp analysis could reveal whether users concentrate in particular time zones, suggesting geographic clusters.
+\end{itemize}
+
+\section{Conclusion}
+
+This audit reports what \ac{} knows about its users: 2,811 handles, 93,122 sessions from identifiable geographic locations, and a body of creative work (16,634 programs, 4,428 paintings, 18,062 messages, 265 pieces) that constitutes the platform's real output. It does not report what \ac{} does not know: the age, gender, race, income, or education of the people behind the handles.
+
+The conventional response to this gap is to collect the missing data. The design justice response~\citep{costanzachock2020design} is to ask whether the categories themselves serve the community or merely make it legible to institutions that require demographic breakdowns for funding applications and impact reports. \ac{}'s answer---so far---has been to know less and trust more: to let handles be identities, to let work speak for itself, and to accept the epistemic cost of not knowing who, exactly, is on the other side of the screen.
+
+This is an honest audit of an imperfect system. The imperfections are documented. The system is live. The users are real. What they make is the best evidence of who they are.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

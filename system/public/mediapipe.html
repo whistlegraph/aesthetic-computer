@@ -1,0 +1,240 @@
+<!-- This file implements @mediapipe hand tracking, and is used
+     for isolated testing purposes. It's functionality is currently
+     integrated into `bios.mjs` 23.04.29.20.54 -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Mediapipe Hands - New</title>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+    crossorigin="anonymous"></script>
+
+  <script src="aesthetic.computer/dep/@mediapipe/hands/hands.js"
+    crossorigin="anonymous"></script> <!-- Only needed for HAND_CONNECTIONS -->
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js"
+    crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <style>
+    body {
+      margin: 0;
+    }
+
+    video, canvas {
+      position: absolute;
+      left: 0px;
+      top: 0px;
+      image-rendering: pixelated;
+      /* Mirror all visuals in this test. */
+      transform: scaleX(-1);
+    }
+
+    video {
+      background: rgba(255, 0, 0, 0.5);
+      opacity: 1;
+    }
+  </style>
+
+  <video id="cam" autoplay playsinline></video>
+  <canvas id="hand"></canvas>
+
+  <script type="module">
+    // Choose a version of @mediapipe/tasks-vision / @mediapipe/hands.
+    const useLegacy = new URLSearchParams(window.location.search).get('useLegacy') === 'true';
+    if (useLegacy) document.title = "Mediapipe Hands - Old";
+
+    const handAPI = {};
+
+    // Read frames from video and draw data to canvas.
+    const video = document.getElementById("cam");
+    const canvas = document.getElementById("hand");
+    const ctx = canvas.getContext("2d");
+
+    const buffer = document.createElement("canvas");
+    const bufferCtx = buffer.getContext("2d");
+
+    let processing = false;
+
+    if (useLegacy) {
+      // Use older version, which will require adding a script tag
+      // to the DOM.
+
+      const script = document.createElement('script');
+      script.src = 'aesthetic.computer/dep/@mediapipe/hands/hands.js';
+      script.crossOrigin = 'anonymous';
+
+      script.onload = function () {
+        const config = {
+          locateFile: (file) => {
+            return `aesthetic.computer/dep/@mediapipe/hands/${file}`;
+          }
+        };
+
+        handAPI.hands = new Hands(config);
+
+        handAPI.hands.setOptions({
+          selfieMode: false,
+          maxNumHands: 1,
+          modelComplexity: 0,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+
+        handAPI.hands.onResults((data) => {
+          diagram({ landmarks: data.multiHandLandmarks })
+        });
+      };
+
+      document.head.appendChild(script);
+    } else {
+      // Use newer version.
+      const { HandLandmarker, FilesetResolver } = await import(
+        "/aesthetic.computer/dep/@mediapipe/tasks-vision/vision_bundle.js"
+      );
+
+      const vision = await FilesetResolver.forVisionTasks(
+        "/aesthetic.computer/dep/@mediapipe/tasks-vision/wasm"
+      );
+
+      handAPI.HandLandmarker = HandLandmarker;
+      handAPI.vision = vision;
+      handAPI.hl = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: `./models/hand_landmarker.task`,
+          delegate: "GPU",
+        },
+        canvas: document.createElement("canvas"),
+        runningMode: "VIDEO",
+        minHandDetectionConfidence: 0.25,
+        minHandPresenceConfidence: 0.25,
+        minTrackingConfidence: 0.25,
+        modelComplexity: 0,
+        numHands: 1,
+      });
+    }
+
+    function frame() {
+      // Actual resolution.
+      buffer.width = window.innerWidth;
+      buffer.height = window.innerHeight;
+
+      canvas.width = buffer.width;
+      canvas.height = buffer.height;
+
+      canvas.style.width = video.style.width = window.innerWidth + "px";
+      canvas.style.height = video.style.height = window.innerHeight + "px";
+    }
+
+    function requestVideo() {
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+
+      const iOS = /(iPad|iPhone|iPod)/g.test(navigator.userAgent);
+      if (iOS) {
+        const temp = width;
+        width = height;
+        height = temp;
+      }
+
+      navigator.mediaDevices
+        .getUserMedia({
+          // Request webcam data.
+          video: {
+            width: { ideal: width },
+            height: { ideal: height },
+            frameRate: { ideal: 60 },
+          },
+        })
+        .then((stream) => {
+          video.srcObject = stream;
+          processing = true;
+          video.addEventListener("loadeddata", process);
+        });
+    }
+
+    requestVideo();
+    frame();
+    let resizeTimer;
+
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(function () {
+        processing = false; // Stop everything.
+        video.srcObject.getTracks().forEach((track) => track.stop());
+        video.removeEventListener("loadeddata", process);
+        // Get a new video and resize the buffers.
+        requestVideo();
+        frame();
+      }, 250);
+    }); // Attach frame to a resize event.
+
+    function diagram(data) {
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (data.landmarks) {
+        for (const landmarks of data.landmarks) {
+          drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
+            color: "#00FF00",
+            lineWidth: 5,
+          });
+          drawLandmarks(ctx, landmarks, {
+            color: "#FF0000",
+            lineWidth: 2,
+          });
+        }
+      }
+      ctx.restore();
+    }
+
+    async function process() {
+      // Drawing a video frame to the buffer (mirrored, proportion adjusted). 
+      // const videoAR = video.videoWidth / video.videoHeight;
+      // const bufferAR = buffer.width / buffer.height;
+      // let outWidth, outHeight, outX = 0, outY = 0;
+
+      // if (videoAR <= bufferAR) {
+      //   // Tall to wide.
+      //   outWidth = buffer.width;
+      //   outHeight = outWidth / videoAR;
+      // } else {
+      //   // Wide to tall. 
+      //   outHeight = buffer.height;
+      //   outWidth = outHeight * videoAR;
+      // }
+
+      // outY = ((buffer.height - outHeight) / 2); // Adjusting position.
+      // outX = ((buffer.width - outWidth) / 2);
+
+      // bufferCtx.save();
+      // bufferCtx.scale(-1, 1); // Draw mirrored.
+      // bufferCtx.drawImage(video, -outX - outWidth, outY, outWidth, outHeight);
+      // bufferCtx.restore();
+
+      let data;
+      if (useLegacy) {
+        await handAPI.hands?.send({ image: video });
+      } else {
+        data = handAPI.hl.detectForVideo(video, performance.now());
+        diagram(data);
+      }
+
+      // Keep processing the data on every display frame.
+      if (processing === true) window.requestAnimationFrame(process);
+    }
+
+    function toggleProcessing() {
+      processing = !processing;
+      if (processing) window.requestAnimationFrame(process);
+    }
+
+    window.onkeydown = toggleProcessing; // TODO: Remove me.
+  </script>
+</body>
+
+</html>

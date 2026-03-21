@@ -1,0 +1,10 @@
+:8000 {
+	root * .
+	file_server browse
+	
+	header {
+		Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate"
+		Pragma "no-cache"
+		Expires "0"
+	}
+}

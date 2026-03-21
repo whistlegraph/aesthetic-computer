@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #181318;
+      color: #fff;
+      font-family: 'Berkeley Mono', 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+    }
+    body[data-theme="light"] {
+      background: #fcf7c5;
+      color: #281e5a;
+    }
+
+    #canvas {
+      position: absolute;
+      top: 44px;
+      left: 0;
+      width: 100%;
+      height: calc(100% - 44px - 36px);
+      cursor: default;
+    }
+
+    /* Header */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: rgba(24, 19, 24, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+    }
+    body[data-theme="light"] .header {
+      background: rgba(252, 247, 197, 0.95);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff69b4;
+    }
+    .status-dot.online { background: #0f0; }
+    body[data-theme="light"] .status-dot { background: #387adf; }
+    body[data-theme="light"] .status-dot.online { background: #006400; }
+
+    .header-center {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #666;
+    }
+    body[data-theme="light"] .header-center { color: #806060; }
+
+    .header-right {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    body[data-theme="light"] .btn {
+      background: rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      color: #281e5a;
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: #ff69b4;
+    }
+    body[data-theme="light"] .btn:hover {
+      background: rgba(0, 0, 0, 0.12);
+      border-color: #006400;
+    }
+
+    /* Status bar */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: rgba(24, 19, 24, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      font-size: 11px;
+      color: #666;
+    }
+    body[data-theme="light"] .status-bar {
+      background: rgba(252, 247, 197, 0.95);
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
+      color: #806060;
+    }
+
+    .tooltip {
+      position: fixed;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 11px;
+      pointer-events: none;
+      z-index: 1000;
+      white-space: pre;
+      font-family: inherit;
+      display: none;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    body[data-theme="light"] .tooltip {
+      background: rgba(252, 247, 197, 0.95);
+      color: #281e5a;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="header">
+    <div class="header-left">
+      <div class="status-dot" id="status-dot"></div>
+      <span>Aesthetic.Computer</span>
+      <span id="process-count">0 processes</span>
+    </div>
+    <div class="header-center">
+      <span id="uptime">—</span>
+      <span id="cpu-info">—</span>
+      <span id="mem-info">—</span>
+    </div>
+    <div class="header-right">
+      <button class="btn" onclick="window.ProcessTree2D?.resetView()">Reset</button>
+      <button class="btn" onclick="window.ProcessTree2D?.toggleTheme()">🌓</button>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="status-bar">
+    <span id="hover-info">Hover over a process for details</span>
+    <span id="zoom-info">Scroll to zoom • Click+Drag to pan</span>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script src="process-tree-2d.js"></script>
+</body>
+</html>

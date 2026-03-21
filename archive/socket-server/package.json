@@ -1,0 +1,30 @@
+{
+  "name": "socket-server",
+  "version": "1.0.0",
+  "description": "A node socket server for multi-user rooms and local development.",
+  "type": "module",
+  "main": "socket.js",
+  "scripts": {
+    "server": "node socket.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jeffrey Alan Scudder",
+  "license": "ISC",
+  "dependencies": {
+    "@geckos.io/server": "^2.2.3",
+    "chokidar": "^3.5.3",
+    "dotenv": "^16.0.0",
+    "fastify": "^4.10.2",
+    "got": "^12.5.3",
+    "ip": "github:jaiswarvipin/node-ip",
+    "twilio": "^3.83.0",
+    "ws": "^8.4.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.6",
+    "utf-8-validate": "^5.0.8"
+  },
+  "devDependencies": {
+    "prettier": "^2.7.1"
+  }
+}

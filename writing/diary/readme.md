@@ -1,0 +1,3 @@
+# diary
+
+Python software.

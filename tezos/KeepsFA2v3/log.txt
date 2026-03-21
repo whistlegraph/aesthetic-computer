@@ -1,0 +1,14 @@
+Comment...
+ h1: Keeps FA2 v3 - Compile Test
+Creating contract KT1TezoooozzSmartPyzzSTATiCzzzwwBFA1
+ -> (Pair "tz1SfRoaCkrBkXqTzhz67QYVPJAU9Y2g48kq" (Pair {} (Pair False (Pair 0 (Pair {} (Pair {} (Pair {} (Pair 0 (Pair {} (Pair {} {}))))))))))
+file KeepsFA2v3/step_002_cont_0_storage.tz
+file KeepsFA2v3/step_002_cont_0_storage.json
+file KeepsFA2v3/step_002_cont_0_storage.py
+file KeepsFA2v3/step_002_cont_0_types.py
+file KeepsFA2v3/step_002_cont_0_contract.tz contract KeepsFA2
+file KeepsFA2v3/step_002_cont_0_contract.json contract KeepsFA2
+Comment...
+ h2: Contract compiled successfully
+Comment...
+ p: v3 features: token owner/creator can edit metadata

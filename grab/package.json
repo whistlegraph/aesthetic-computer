@@ -1,0 +1,42 @@
+{
+  "name": "@aesthetic-computer/grab",
+  "version": "1.0.0",
+  "description": "Browser rendering worker for screenshot generation",
+  "type": "module",
+  "main": "src/worker.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "./scripts/deploy.fish production",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "logs": "wrangler tail aesthetic-grab",
+    "logs:production": "wrangler tail aesthetic-grab --env production",
+    "setup": "./scripts/setup-browser-binding.fish"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "browser-rendering",
+    "screenshot",
+    "puppeteer",
+    "durable-objects"
+  ],
+  "author": "Jeffrey Scudder",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@cloudflare/puppeteer": "^1.0.4",
+    "@cloudflare/workers-types": "^4.20231218.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.4",
+    "wrangler": "^4.42.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

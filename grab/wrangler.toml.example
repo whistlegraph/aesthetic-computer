@@ -1,0 +1,57 @@
+name = "aesthetic-grab"
+main = "src/index.ts"
+compatibility_date = "2023-09-04"
+compatibility_flags = ["nodejs_compat"]
+account_id = "YOUR_ACCOUNT_ID"
+
+# Custom domain
+routes = [
+  { pattern = "grab.aesthetic.computer", custom_domain = true }
+]
+
+# Production environment for aesthetic.computer
+[vars]
+ENVIRONMENT = "production"
+DOMAIN = "grab.aesthetic.computer"
+
+# Cache Configuration
+CACHE_TTL_SECONDS = "3600"
+CDN_CACHE_TTL_SECONDS = "86400"
+
+# Screenshot Configuration
+MAX_SCREENSHOT_AGE_MS = "604800000"
+BROWSER_TIMEOUT_MS = "30000"
+MAX_VIEWPORT_WIDTH = "1920"
+MAX_VIEWPORT_HEIGHT = "1080"
+
+# Rate Limiting
+MAX_REQUESTS_PER_MINUTE = "60"
+MAX_BROWSER_SESSIONS = "10"
+
+# Browser Rendering API binding
+[browser]
+binding = "MYBROWSER"
+
+# Durable Object Bindings
+[[durable_objects.bindings]]
+name = "BROWSER"
+class_name = "Browser"
+
+# Durable Object Migrations
+[[migrations]]
+tag = "v1"
+new_classes = ["ScreenshotDO"]
+
+[[migrations]]
+tag = "v2"
+renamed_classes = [{from = "ScreenshotDO", to = "Browser"}]
+
+# R2 Bucket Binding (optional - for long-term caching)
+# Uncomment and configure after creating bucket:
+# [[r2_buckets]]
+# binding = "SCREENSHOTS"
+# bucket_name = "aesthetic-screenshots"
+
+# Rate Limiting Configuration
+[limits]
+# cpu_ms = 50000  # 50 seconds max CPU time

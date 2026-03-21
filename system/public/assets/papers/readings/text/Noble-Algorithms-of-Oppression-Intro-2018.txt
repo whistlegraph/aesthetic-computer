@@ -1,0 +1,624 @@
+98459348583751203850540594353045050963590345345954135353095
+03495345345034903486893485092485035304590943058203453049233
+03495872983569823713900395738401932481034183052938573538418
+why are black women so
+09234093857485310394839430087508238411874193701938453419098
+98029384771573438434873895289347237980988423628348798718234
+why are black women so angry
+98459348583751203850540594353045050963590345345954135353095
+03495345345034903486893485092485035304590943058203453049234
+why are black women so loud
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419054
+why are black women so mean
+98029384771573438434873895289347237980988423628348798718234
+why are black women so attractive
+59348583751203850540594353045050963590345345954135353095345
+03495345345034903486893485092485035304590943058203453049233
+why are black women so lazy
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419087
+why are black women so annoying
+98029384771573438434873895289347237980988423628348798718234
+59348583751203850540594353045050963590345345954135353095269
+why are black women so confident
+03495345345034903486893485092485035304590943058203453049231
+why are black women so sassy
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419045
+why are black women so insecure
+98029384771573438434873895289347237980988423628348798718234
+45934858375120385054059435304505096359034534595413535309522
+03495345345034903486893485092485035304590943058203453049233
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419025
+98029384771573438434873895289347237980988423628348798718234
+45934858375120385054059435304505096359034534595413535309578
+03495345345034903486893485092485035304590943058203453049232
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419025
+98029384771573438434873895289347237980988423628348798718234
+59348583751203850540594353045050963590345345954135353095358
+03495345345034903486893485092485035304590943058203453049234
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419036
+98029384771573438434873895289347237980988423628348798718234
+59348583751203850540594353045050963590345345954135353095357
+03495345345034903486893485092485035304590943058203453049239
+03495872983569823713900395738401932481034183052938573538418
+09234093857485310394839430087508238411874193701938453419032
+98029384771573438434873895289347237980988423628348798718234
+59348583751203850540594353045050963590345345954135353095267
+03495345345034903486893485092485035304590943058203453049231
+03495872983569823713900395738401932481034183052938573538418
+
+ALGORITHMS
+OF
+OPPRESSION
+HOW SEARCH ENGINES
+REINFORCE RACISM
+
+SAFIYA UMOJA NOBLE
+
+Contents
+
+Acknowledgments
+
+ix
+
+		 Introduction: The Power of Algorithms
+
+1
+
+1. A Society, Searching
+
+15
+
+2. Searching for Black Girls
+
+64
+
+3. Searching for People and Communities
+
+110
+
+4. Searching for Protections from Search Engines
+
+119
+
+5. The Future of Knowledge in the Public
+
+134
+
+6. The Future of Information Culture
+
+153
+
+		 Conclusion: Algorithms of Oppression
+
+171
+
+		Epilogue
+
+183
+
+Notes
+
+187
+
+References
+
+201
+
+Index
+
+219
+
+About the Author
+
+229
+
+vii
+
+Noble_i_229.indd 7
+
+12/12/17 9:47 AM
+
+Introduction
+The Power of Algorithms
+
+A Society, Searching
+This book is about the power of algorithms in the age of neoliberalism
+
+Searching
+forthose
+Black
+Girlsdecisions reinforce oppressive social relaand the ways
+digital
+
+tionships and enact new modes of racial profiling, which I have termed
+technological redlining. By making visible the ways that capital, race, and
+gender are factors in creating unequal conditions, I am bringing light
+Searching
+for People and Communities
+to various forms of technological redlining that are on the rise. The
+near-­ubiquitous use of algorithmically driven software, both visible and
+invisible to everyday people, demands a closer inspection of what values
+are prioritized
+such automated
+decision-­
+aking systems. Typically,
+Searching
+forinProtections
+from
+SearchmEngines
+the practice of redlining has been most often used in real estate and
+banking circles, creating and deepening inequalities by race, such that,
+for example, people of color are more likely to pay higher interest rates
+The
+Future just
+of Knowledge
+Public
+or premiums
+because they in
+arethe
+Black
+or Latino, especially if they live
+in low-­income neighborhoods. On the Internet and in our everyday uses
+of technology, discrimination is also embedded in computer code and,
+increasingly,
+intelligence
+technologies that we are reliant on,
+The
+Futureinofartificial
+Information
+Culture
+by choice or not. I believe that artificial intelligence will become a major
+human rights issue in the twenty-­first century. We are only beginning to
+understand the long-­term consequences of these decision-­making tools
+Conclusion
+in both masking and deepening social inequality. This book is just the
+start of trying to make these consequences visible. There will be many
+more, by myself and others, who will try to make sense of the consequences of automated decision making through algorithms in society.
+Epilogue
+Part of the challenge of understanding algorithmic oppression is to
+understand that mathematical formulations to drive automated decisions are made by human beings. While we often think of terms such as
+“big data” and “algorithms” as being benign, neutral, or objective, they
+are anything but. The people who make these decisions hold all types of
+1
+
+Noble_i_229.indd 1
+
+12/12/17 9:47 AM
+
+2
+
+|
+
+Introduction
+
+values, many of which openly promote racism, sexism, and false notions
+of meritocracy, which is well documented in studies of Silicon Valley
+and other tech corridors.
+For example, in the midst of a federal investigation of Google’s alleged
+persistent wage gap, where women are systematically paid less than men
+in the company’s workforce, an “antidiversity” manifesto authored by
+James Damore went viral in August 2017,1 supported by many Google
+employees, arguing that women are psychologically inferior and incapable of being as good at software engineering as men, among other
+patently false and sexist assertions. As this book was moving into press,
+many Google executives and employees were actively rebuking the assertions of this engineer, who reportedly works on Google search infrastructure. Legal cases have been filed, boycotts of Google from the
+political far right in the United States have been invoked, and calls for
+greater expressed commitments to gender and racial equity at Google
+and in Silicon Valley writ large are under way. What this antidiversity
+screed has underscored for me as I write this book is that some of the
+very people who are developing search algorithms and architecture are
+willing to promote sexist and racist attitudes openly at work and beyond,
+while we are supposed to believe that these same employees are developing “neutral” or “objective” decision-­making tools. Human beings are
+developing the digital platforms we use, and as I present evidence of the
+recklessness and lack of regard that is often shown to women and people
+of color in some of the output of these systems, it will become increasingly difficult for technology companies to separate their systematic and
+inequitable employment practices, and the far-­right ideological bents of
+some of their employees, from the products they make for the public.
+My goal in this book is to further an exploration into some of these
+digital sense-­making processes and how they have come to be so fundamental to the classification and organization of information and at
+what cost. As a result, this book is largely concerned with examining the
+commercial co-­optation of Black identities, experiences, and communities in the largest and most powerful technology companies to date,
+namely, Google. I closely read a few distinct cases of algorithmic oppression for the depth of their social meaning to raise a public discussion of the broader implications of how privately managed, black-­boxed
+information-­sorting tools have become essential to many data-­driven
+
+Noble_i_229.indd 2
+
+12/12/17 9:47 AM
+
+Introduction
+
+|
+
+3
+
+decisions. I want us to have broader public conversations about the implications of the artificial intelligentsia for people who are already systematically marginalized and oppressed. I will also provide evidence and
+argue, ultimately, that large technology monopolies such as Google need
+to be broken up and regulated, because their consolidated power and
+cultural influence make competition largely impossible. This monopoly
+in the information sector is a threat to democracy, as is currently coming to the fore as we make sense of information flows through digital
+media such as Google and Facebook in the wake of the 2016 United
+States presidential election.
+I situate my work against the backdrop of a twelve-­year professional
+career in multicultural marketing and advertising, where I was invested
+in building corporate brands and selling products to African Americans
+and Latinos (before I became a university professor). Back then, I believed, like many urban marketing professionals, that companies must
+pay attention to the needs of people of color and demonstrate respect
+for consumers by offering services to communities of color, just as is
+done for most everyone else. After all, to be responsive and responsible
+to marginalized consumers was to create more market opportunity. I
+spent an equal amount of time doing risk management and public relations to insulate companies from any adverse risk to sales that they
+might experience from inadvertent or deliberate snubs to consumers of
+color who might perceive a brand as racist or insensitive. Protecting my
+former clients from enacting racial and gender insensitivity and helping
+them bolster their brands by creating deep emotional and psychological attachments to their products among communities of color was my
+professional concern for many years, which made an experience I had
+in fall 2010 deeply impactful. In just a few minutes while searching on
+the web, I experienced the perfect storm of insult and injury that I could
+not turn away from. While Googling things on the Internet that might
+be interesting to my stepdaughter and nieces, I was overtaken by the
+results. My search on the keywords “black girls” yielded HotBlackPussy.
+com as the first hit.
+Hit indeed.
+Since that time, I have spent innumerable hours teaching and researching all the ways in which it could be that Google could completely
+fail when it came to providing reliable or credible information about
+
+Noble_i_229.indd 3
+
+12/12/17 9:47 AM
+
+4
+
+|
+
+Introduction
+
+Figure I.1. First search result on keywords “black girls,” September 2011.
+
+women and people of color yet experience seemingly no repercussions
+whatsoever. Two years after this incident, I collected searches again, only
+to find similar results, as documented in figure I.1.
+In 2012, I wrote an article for Bitch magazine about how women and
+feminism are marginalized in search results. By August 2012, Panda (an
+update to Google’s search algorithm) had been released, and pornography was no longer the first series of results for “black girls”; but other
+girls and women of color, such as Latinas and Asians, were still pornified. By August of that year, the algorithm changed, and porn was suppressed in the case of a search on “black girls.” I often wonder what kind
+of pressures account for the changing of search results over time. It is
+impossible to know when and what influences proprietary algorithmic
+design, other than that human beings are designing them and that they
+are not up for public discussion, except as we engage in critique and
+protest.
+This book was born to highlight cases of such algorithmically driven
+data failures that are specific to people of color and women and to underscore the structural ways that racism and sexism are fundamental
+to what I have coined algorithmic oppression. I am writing in the spirit
+of other critical women of color, such as Latoya Peterson, cofounder of
+the blog Racialicious, who has opined that racism is the fundamental
+application program interface (API) of the Internet. Peterson has argued that anti-­Blackness is the foundation on which all racism toward
+other groups is predicated. Racism is a standard protocol for organizing behavior on the web. As she has said, so perfectly, “The idea of a
+n*gger API makes me think of a racism API, which is one of our core
+arguments all along—­oppression operates in the same formats, runs the
+same scripts over and over. It is tweaked to be context specific, but it’s
+all the same source code. And the key to its undoing is recognizing how
+many of us are ensnared in these same basic patterns and modifying our
+
+Noble_i_229.indd 4
+
+12/12/17 9:47 AM
+
+Introduction
+
+|
+
+5
+
+own actions.”2 Peterson’s allegation is consistent with what many people
+feel about the hostility of the web toward people of color, particularly
+in its anti-­Blackness, which any perusal of YouTube comments or other
+message boards will serve up. On one level, the everyday racism and
+commentary on the web is an abhorrent thing in itself, which has been
+detailed by others; but it is entirely different with the corporate platform
+vis-­à-­vis an algorithmically crafted web search that offers up racism and
+sexism as the first results. This process reflects a corporate logic of either
+willful neglect or a profit imperative that makes money from racism and
+sexism. This inquiry is the basis of this book.
+In the following pages, I discuss how “hot,” “sugary,” or any other
+kind of “black pussy” can surface as the primary representation of Black
+girls and women on the first page of a Google search, and I suggest that
+something other than the best, most credible, or most reliable information output is driving Google. Of course, Google Search is an advertising
+company, not a reliable information company. At the very least, we must
+ask when we find these kinds of results, Is this the best information?
+For whom? We must ask ourselves who the intended audience is for a
+variety of things we find, and question the legitimacy of being in a “filter
+bubble,”3 when we do not want racism and sexism, yet they still find
+their way to us. The implications of algorithmic decision making of this
+sort extend to other types of queries in Google and other digital media
+platforms, and they are the beginning of a much-­needed reassessment
+of information as a public good. We need a full-­on reevaluation of the
+implications of our information resources being governed by corporate-­
+controlled advertising companies. I am adding my voice to a number
+of scholars such as Helen Nissenbaum and Lucas Introna, Siva Vaidhyanathan, Alex Halavais, Christian Fuchs, Frank Pasquale, Kate Crawford, Tarleton Gillespie, Sarah T. Roberts, Jaron Lanier, and Elad Segev,
+to name a few, who are raising critiques of Google and other forms of
+corporate information control (including artificial intelligence) in hopes
+that more people will consider alternatives.
+Over the years, I have concentrated my research on unveiling the
+many ways that African American people have been contained and
+constrained in classification systems, from Google’s commercial search
+engine to library databases. The development of this concentration was
+born of my research training in library and information science. I think
+
+Noble_i_229.indd 5
+
+12/12/17 9:47 AM
+
+6
+
+|
+
+Introduction
+
+of these issues through the lenses of critical information studies and critical race and gender studies. As marketing and advertising have directly
+shaped the ways that marginalized people have come to be represented
+by digital records such as search results or social network activities, I
+have studied why it is that digital media platforms are resoundingly
+characterized as “neutral technologies” in the public domain and often,
+unfortunately, in academia. Stories of “glitches” found in systems do not
+suggest that the organizing logics of the web could be broken but, rather,
+that these are occasional one-­off moments when something goes terribly
+wrong with near-­perfect systems. With the exception of the many scholars whom I reference throughout this work and the journalists, bloggers, and whistleblowers whom I will be remiss in not naming, very few
+people are taking notice. We need all the voices to come to the fore and
+impact public policy on the most unregulated social experiment of our
+times: the Internet.
+These data aberrations have come to light in various forms. In 2015,
+U.S. News and World Report reported that a “glitch” in Google’s algorithm led to a number of problems through auto-­tagging and facial-­
+recognition software that was apparently intended to help people search
+through images more successfully. The first problem for Google was that
+its photo application had automatically tagged African Americans as
+“apes” and “animals.”4 The second major issue reported by the Post was
+that Google Maps searches on the word “N*gger”5 led to a map of the
+White House during Obama’s presidency, a story that went viral on the
+Internet after the social media personality Deray McKesson tweeted it.
+These incidents were consistent with the reports of Photoshopped
+images of a monkey’s face on the image of First Lady Michelle Obama
+that were circulating through Google Images search in 2009. In 2015,
+you could still find digital traces of the Google autosuggestions that associated Michelle Obama with apes. Protests from the White House led
+to Google forcing the image down the image stack, from the first page,
+so that it was not as visible.6 In each case, Google’s position is that it
+is not responsible for its algorithm and that problems with the results
+would be quickly resolved. In the Washington Post article about “N*gger
+House,” the response was consistent with other apologies by the company: “‘Some inappropriate results are surfacing in Google Maps that
+should not be, and we apologize for any offense this may have caused,’
+
+Noble_i_229.indd 6
+
+12/12/17 9:47 AM
+
+Figure I.2. Google Images results for the keyword “gorillas,” April 7, 2016.
+
+Figure I.3. Google Maps search on “N*gga House” leads to the White House,
+April 7, 2016.
+7
+
+Noble_i_229.indd 7
+
+12/12/17 9:47 AM
+
+Figure I.4. Tweet by Deray McKesson about Google Maps search and the White
+House, 2015.
+
+8
+
+Noble_i_229.indd 8
+
+12/12/17 9:47 AM
+
+Introduction
+
+|
+
+9
+
+Figure I.5. Standard Google’s “related” searches associates “Michelle Obama” with the
+term “ape.”
+
+a Google spokesperson told U.S. News in an email late Tuesday. ‘Our
+teams are working to fix this issue quickly.’”7
+***
+These human and machine errors are not without consequence, and
+there are several cases that demonstrate how racism and sexism are
+part of the architecture and language of technology, an issue that needs
+attention and remediation. In many ways, these cases that I present are
+specific to the lives and experiences of Black women and girls, people
+largely understudied by scholars, who remain ever precarious, despite
+our living in the age of Oprah and Beyoncé in Shondaland. The implications of such marginalization are profound. The insights about sexist
+or racist biases that I convey here are important because information
+organizations, from libraries to schools and universities to governmental
+agencies, are increasingly reliant on or being displaced by a variety of
+web-­based “tools” as if there are no political, social, or economic consequences of doing so. We need to imagine new possibilities in the area of
+information access and knowledge generation, particularly as headlines
+about “racist algorithms” continue to surface in the media with limited
+discussion and analysis beyond the superficial.
+
+Noble_i_229.indd 9
+
+12/12/17 9:47 AM
+
+10
+
+|
+
+Introduction
+
+Inevitably, a book written about algorithms or Google in the twenty-­
+first century is out of date immediately upon printing. Technology is
+changing rapidly, as are technology company configurations via mergers, acquisitions, and dissolutions. Scholars working in the fields of
+information, communication, and technology struggle to write about
+specific moments in time, in an effort to crystallize a process or a phenomenon that may shift or morph into something else soon thereafter.
+As a scholar of information and power, I am most interested in communicating a series of processes that have happened, which provide
+evidence of a constellation of concerns that the public might take up
+as meaningful and important, particularly as technology impacts social
+relations and creates unintended consequences that deserve greater attention. I have been writing this book for several years, and over time,
+Google’s algorithms have admittedly changed, such that a search for
+“black girls” does not yield nearly as many pornographic results now
+as it did in 2011. Nonetheless, new instances of racism and sexism keep
+appearing in news and social media, and so I use a variety of these cases
+to make the point that algorithmic oppression is not just a glitch in the
+system but, rather, is fundamental to the operating system of the web.
+It has direct impact on users and on our lives beyond using Internet
+applications. While I have spent considerable time researching Google,
+this book tackles a few cases of other algorithmically driven platforms to
+illustrate how algorithms are serving up deleterious information about
+people, creating and normalizing structural and systemic isolation, or
+practicing digital redlining, all of which reinforce oppressive social and
+economic relations.
+While organizing this book, I have wanted to emphasize one main
+point: there is a missing social and human context in some types of
+algorithmically driven decision making, and this matters for everyone engaging with these types of technologies in everyday life. It is of
+particular concern for marginalized groups, those who are problematically represented in erroneous, stereotypical, or even pornographic
+ways in search engines and who have also struggled for nonstereotypical or nonracist and nonsexist depictions in the media and in libraries.
+There is a deep body of extant research on the harmful effects of stereotyping of women and people of color in the media, and I encourage
+
+Noble_i_229.indd 10
+
+12/12/17 9:47 AM
+
+Introduction
+
+|
+
+11
+
+readers of this book who do not understand why the perpetuation of
+racist and sexist images in society is problematic to consider a deeper
+dive into such scholarship.
+This book is organized into six chapters. In chapter 1, I explore the
+important theme of corporate control over public information, and I
+show several key Google searches. I look to see what kinds of results
+Google’s search engine provides about various concepts, and I offer a
+cautionary discussion of the implications of what these results mean in
+historical and social contexts. I also show what Google Images offers on
+basic concepts such as “beauty” and various professional identities and
+why we should care.
+In chapter 2, I discuss how Google Search reinforces stereotypes, illustrated by searches on a variety of identities that include “black girls,”
+“Latinas,” and “Asian girls.” Previously, in my work published in the
+Black Scholar,8 I looked at the postmortem Google autosuggest searches
+following the death of Trayvon Martin, an African American teenager
+whose murder ignited the #BlackLivesMatter movement on Twitter
+and brought attention to the hundreds of African American children,
+women, and men killed by police or extrajudicial law enforcement. To
+add a fuller discussion to that research, I elucidate the processes involved
+in Google’s PageRank search protocols, which range from leveraging
+digital footprints from people9 to the way advertising and marketing
+interests influence search results to how beneficial this is to the interests
+of Google as it profits from racism and sexism, particularly at the height
+of a media spectacle.
+In chapter 3, I examine the importance of noncommercial search engines and information portals, specifically looking at the case of how a
+mass shooter and avowed White supremacist, Dylann Roof, allegedly
+used Google Search in the development of his racial attitudes, attitudes
+that led to his murder of nine African American AME Church members
+while they worshiped in their South Carolina church in the summer
+of 2015. The provision of false information that purports to be credible news, and the devastating consequences that can come from this
+kind of algorithmically driven information, is an example of why we
+cannot afford to outsource and privatize uncurated information on the
+increasingly neoliberal, privatized web. I show how important records
+
+Noble_i_229.indd 11
+
+12/12/17 9:47 AM
+
+12
+
+|
+
+Introduction
+
+are to the public and explore the social importance of both remembering and forgetting, as digital media platforms thrive on never or rarely
+forgetting. I discuss how information online functions as a type of record, and I argue that much of this information and its harmful effects
+should be regulated or subject to legal protections. Furthermore, at a
+time when “right to be forgotten” legislation is gaining steam in the European Union, efforts to regulate the ways that technology companies
+hold a monopoly on public information about individuals and groups
+need further attention in the United States. Chapter 3 is about the future
+of information culture, and it underscores the ways that information is
+not neutral and how we can reimagine information culture in the service
+of eradicating social inequality.
+Chapter 4 is dedicated to critiquing the field of information studies
+and foregrounds how these issues of public information through classification projects on the web, such as commercial search, are old problems
+that we must solve as a scholarly field of researchers and practitioners.
+I offer a brief survey of how library classification projects undergird the
+invention of search engines such as Google and how our field is implicated in the algorithmic process of sorting and classifying information and records. In chapter 5, I discuss the future of knowledge in the
+public and reference the work of library and information professionals,
+in particular, as important to the development and cultivation of equitable classification systems, since these are the precursors to commercial
+search engines. This chapter is essential history for library and information professionals, who are less likely to be trained on the politics of
+cataloguing and classification bias in their professional training. Chapter
+6 explores public policy and why we need regulation in our information environments, particularly as they are increasingly controlled by
+corporations.
+To conclude, I move the discussion beyond Google, to help readers
+think about the impact of algorithms on how people are represented
+in other seemingly benign business transactions. I look at the “colorblind” organizing logic of Yelp and how business owners are revolting
+due to loss of control over how they are represented and the impact
+of how the public finds them. Here, I share an interview with Kandis
+from New York,10 whose livelihood has been dramatically affected by
+public-­policy changes such as the dismantling of affirmative action on
+
+Noble_i_229.indd 12
+
+12/12/17 9:47 AM
+
+Introduction
+
+|
+
+13
+
+college campuses, which have hurt her local Black-­hair-­care business
+in a prestigious college town. Her story brings to light the power that
+algorithms have on her everyday life and leaves us with more to think
+about in the ecosystem of algorithmic power. The book closes with a
+call to recognize the importance of how algorithms are shifting social
+relations in many ways—­more ways than this book can cover—­and
+should be regulated with more impactful public policy in the United
+States than we currently have. My hope is that this book will directly
+impact the many kinds of algorithmic decisions that can have devastating consequences for people who are already marginalized by institutional racism and sexism, including the 99% who own so little
+wealth in the United States that the alarming trend of social inequality is not likely to reverse without our active resistance and intervention. Electoral politics and financial markets are just two of many of
+these institutional wealth-­consolidation projects that are heavily influenced by algorithms and artificial intelligence. We need to cause a
+shift in what we take for granted in our everyday use of digital media
+platforms.
+I consider my work a practical project, the goal of which is to eliminate social injustice and change the ways in which people are oppressed
+with the aid of allegedly neutral technologies. My intention in looking
+at these cases serves two purposes. First, we need interdisciplinary research and scholarship in information studies and library and information science that intersects with gender and women’s studies, Black/
+African American studies, media studies, and communications to better describe and understand how algorithmically driven platforms are
+situated in intersectional sociohistorical contexts and embedded within
+social relations. My hope is that this work will add to the voices of my
+many colleagues across several fields who are raising questions about
+the legitimacy and social consequences of algorithms and artificial intelligence. Second, now, more than ever, we need experts in the social
+sciences and digital humanities to engage in dialogue with activists
+and organizers, engineers, designers, information technologists, and
+public-­policy makers before blunt artificial-­intelligence decision making
+trumps nuanced human decision making. This means that we must look
+at how the outsourcing of information practices from the public sector
+facilitates privatization of what we previously thought of as the public
+
+Noble_i_229.indd 13
+
+12/12/17 9:47 AM
+
+14
+
+|
+
+Introduction
+
+domain11 and how corporate-­controlled governments and companies
+subvert our ability to intervene in these practices.
+We have to ask what is lost, who is harmed, and what should be forgotten with the embrace of artificial intelligence in decision making. It is
+of no collective social benefit to organize information resources on the
+web through processes that solidify inequality and marginalization—­on
+that point I am hopeful many people will agree.
+
+Noble_i_229.indd 14
+
+12/12/17 9:47 AM
+
+

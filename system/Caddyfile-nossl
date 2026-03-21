@@ -1,0 +1,20 @@
+:8111 {
+	root * public
+	file_server # browse
+	encode gzip
+
+	# No TLS/SSL - for use in GitHub Codespaces where port forwarding handles HTTPS
+	@changed {
+		file {
+			try_files {path}
+		}
+	}
+
+	handle @changed {
+		header Cache-Control no-store
+	}
+
+	handle {
+		header Cache-Control "public, max-age=3600"
+	}
+}

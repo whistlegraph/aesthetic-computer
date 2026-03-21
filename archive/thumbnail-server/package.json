@@ -1,0 +1,23 @@
+{
+  "name": "thumbnail-server",
+  "version": "1.0.0",
+  "description": "A node server for taking pretty screenshots of of aesthetic.computer pieces",
+  "type": "module",
+  "scripts": {
+    "server": "kill-port 8081; node thumbnail.js",
+    "deps": "playwright install chrome",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jeffrey Alan Scudder",
+  "license": "ISC",
+  "dependencies": {
+    "chrome-aws-lambda": "^10.1.0",
+    "dotenv": "^16.0.0",
+    "fastify": "^4.2.0",
+    "playwright": "^1.23.4"
+  },
+  "devDependencies": {
+    "kill-port": "^2.0.1",
+    "prettier": "^2.5.1"
+  }
+}

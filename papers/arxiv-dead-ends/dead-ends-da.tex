@@ -1,0 +1,174 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={Vestigiale funktioner: Sovende stier, evolutionære grene og forladte tilgange}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Vestigiale funktioner}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Sovende stier, evolutionære grene og forladte tilgange}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} En evolutionær morfologi af Aesthetic Computer (2021--2026)}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Akademiske artikler om softwaresystemer beskriver næsten udelukkende, hvad der virker. Denne artikel beskriver, hvad der gik i dvale. Over fem års udvikling akkumulerede \ac{} 16 vestigiale funktioner---kodestier, der var aktivt udviklet, tjente et formål i en periode og derefter gik stille. Som vestigiale organer i biologi er disse funktioner ikke dødt væv: nogle kan reaktiveres, hvis betingelserne ændrer sig, nogle bidrog med genetisk materiale til de funktioner, der overlevede, og nogle atroferede, fordi organismen udviklede sig forbi dem. Vi katalogiserer disse funktioner i fem kategorier: \emph{platformforgrening}, \emph{infrastruktureksperimenter}, \emph{monetiseringsforsøg}, \emph{enkeltbrugerværktøjer} og \emph{for tidlige abstraktioner}. Vi argumenterer for, at et projekts vestigiale funktioner---ikke dets fiaskoer---afslører dets evolutionære bane, og at dvale ikke er død.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+\ac{}'s git-historik indeholder 11.000+ commits~\citep{scudder2026archaeology}. De publicerede artikler beskriver de commits, der førte et sted hen. Denne artikel beskriver de commits, der gik stille.
+
+Softwareevolution, ligesom biologisk evolution, foregår ved forgrening. De fleste grene bliver ikke til stammen. Men i modsætning til døde grene på et træ kan sovende kodestier i et softwareprojekt reaktiveres. \ac{} er usædvanlig ved at vedligeholde en \texttt{GRAVEYARD.txt}-fil, men ``kirkegård'' er den forkerte metafor. En bedre er blindtarmen: en struktur, hvis originale funktion har ændret sig, der vedbliver i reduceret form, og som endnu kan vise sig nyttig under andre betingelser.
+
+\section{Platformfragmentering}
+\label{sec:fragmentation}
+
+Den dyreste kategori af blindgyde i \ac{}'s historie er forsøget på at bygge native applikationer til alle platforme simultant. Mellem 2023 og 2025 blev fungerende prototyper bygget til: Web, Electron desktop-app, Android-app, Apple TV-app (planlagt, aldrig startet), Feral File FF1-hardware, FedAC-kiosk og AC Native OS.
+
+Af disse syv mål er kun to i øjeblikket aktive: webplatformen og bare-metal OS'et.
+
+\subsection{Electron-appen}
+
+En komplet Electron-applikation blev bygget med kodesigneringscertifikater. Den blev aldrig distribueret til en eneste bruger. \textbf{Hvad der blev reddet:} Kiosktilstandsindsigterne informerede bare-metal OS-tilgangen.
+
+\subsection{Android-appen}
+
+En komplet Android-applikation blev bygget i Kotlin. En Google Play Console-konto blev aldrig oprettet. \textbf{Hvad der blev reddet:} Kiosk-smagsvarianten validerede konceptet om en enkeltformåls AC-enhed, der blev designmålet for \acos{}.
+
+\subsection{Mønstret}
+
+Hver platformforsøg fulgte den samme bue: byg en fungerende prototype, forbered distributionsinfrastruktur, stå derefter stille ved ``den sidste kilometer.'' Fiaskoen var ikke teknisk---hver prototype virkede. Fiaskoen var \emph{opmærksomhedsmæssig}: at vedligeholde syv platformmål med en enkelt udvikler betød, at ingen modtog den vedvarende opmærksomhed, der krævedes for at nå produktionskvalitet.
+
+\section{Infrastruktur-overengineering}
+
+\subsection{Jamsocket-sessionsserveren}
+
+Erstattet med en enkelt monolitisk server. \textbf{Hvorfor det fejlede:} Overheadet ved at styre efemære containere oversteg fordelene for en platform med titals samtidige brugere, ikke tusindvis.
+
+\subsection{Bumper-systemet}
+
+Bygget, deployed og fjernet uden at efterlade et spor i den nuværende kodebase. Den reneste blindgyde i projektet.
+
+\subsection{Silo-migreringen}
+
+En selvhostet MongoDB-instans blev provisioneret på DigitalOcean. Migreringen blev aldrig eksekveret. Silo-dropletten kører for \$12/måned, tom. \textbf{Omkostning:} \$12/måned $\times$ 6 måneder = \$72 (og stigende) for en ubrugt server.
+
+\section{Monetiseringseksperimenter}
+
+\subsection{Tezos NFT'er (Keeps)}
+
+Den tekniske infrastruktur virker. Markedet ankom ikke. \textbf{Hvad der blev reddet:} KidLisp piece-kodesystemet blev det generelle piece-adresseringsskema.
+
+\subsection{Sotce.net-abonnementer}
+
+Bygget med Stripe-integration. Teknisk komplet. Abonnentvækst forblev beskeden.
+
+\subsection{Printful-merchandise}
+
+Ubetydelig omsætning. \textbf{Mønster:} Alle tre monetiseringseksperimenter deler den samme struktur: teknisk komplette, kommercielt inerte.
+
+\section{Værktøjer bygget til én person}
+
+Hvert af disse funktioner---båndoptageren, Windows-containerudvikling, \texttt{.pjs}-compileren---blev bygget til at løse et problem, som kun udvikleren oplevede. Dette er den erhvervsmæssige risiko ved soloudvikling: brugergrundlaget er $n=1$.
+
+\section{For tidlige abstraktioner}
+
+\subsection{Generisk kiosktilstand}
+
+Forsøgt at bygge en samlet ``kiosktilstand''-abstraktion. Opgivet til fordel for platformspecifikke implementeringer. \textbf{Hvad der blev reddet:} Indsigten, at kioskcomputing kræver hardwarespecifikke løsninger, førte direkte til bare-metal OS-tilgangen.
+
+\section{Evolutionær morfologi}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{Xrrr}
+\toprule
+\textbf{Kategori} & \textbf{Antal} & \textbf{Bidrog} & \textbf{Genopliveligt} \\
+\midrule
+Platformforgrening & 5 & 80\% & 3 \\
+Infrastruktureksp. & 3 & 33\% & 1 \\
+Monetisering & 3 & 33\% & 3 \\
+Enkeltbrugerværktøjer & 3 & 0\% & 0 \\
+For tidlige abstraktioner & 2 & 100\% & 0 \\
+\midrule
+\textbf{Total} & \textbf{16} & \textbf{50\%} & \textbf{7} \\
+\bottomrule
+\end{tabularx}
+\caption{Vestigiale funktioner efter kategori. ``Bidrog'' = andel der bidrog med kode eller indsigter til overlevende funktioner.}
+\label{tab:vestigial}
+\end{table}
+
+Den vigtigste sovende sti i \ac{}'s historie er den, der producerede det mest værdifulde resultat: forsøget på at bygge en generisk kioskabstraktion gik i dvale, hvilket tvang skabelsen af bare-metal OS'et fra bunden---nu projektets mest teknisk distinktive bidrag.
+
+\section{Konklusion}
+
+Seksten vestigiale funktioner på fem år. Halvdelen bidrog med kode eller indsigter til overlevende funktioner; syv forbliver genoplivelige. Den biologiske metafor er mere ærlig end ``fiasko'': disse er ikke dødt væv, men sovende strukturer i et levende system.
+
+Brooks observerede, at ``plan to throw one away; you will, anyhow''~\citep{brooks1975mythical}. \ac{} satte seksten til side. Syv kunne vågne i morgen. Det syttende forsøg---et enkelt-fil styresystem, der booter på 7,3 sekunder---kører stadig.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

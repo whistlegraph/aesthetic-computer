@@ -1,0 +1,97 @@
+{
+  "prim": "Pair",
+  "args": [
+    { "bytes": "697066733a2f2f516d58595a" },
+    {
+      "prim": "Pair",
+      "args": [
+        { "bytes": "5b5d" },
+        {
+          "prim": "Pair",
+          "args": [
+            { "bytes": "516d58595a" },
+            {
+              "prim": "Pair",
+              "args": [
+                { "bytes": "6b69646c697370" },
+                {
+                  "prim": "Pair",
+                  "args": [
+                    { "bytes": "5b226165737468657469632e636f6d7075746572225d" },
+                    {
+                      "prim": "Pair",
+                      "args": [
+                        { "bytes": "30" },
+                        {
+                          "prim": "Pair",
+                          "args": [
+                            { "bytes": "41207465737420746f6b656e20666f72206165737468657469632e636f6d7075746572" },
+                            {
+                              "prim": "Pair",
+                              "args": [
+                                { "bytes": "697066733a2f2f516d58595a" },
+                                {
+                                  "prim": "Pair",
+                                  "args": [
+                                    { "bytes": "5b5d" },
+                                    {
+                                      "prim": "Pair",
+                                      "args": [
+                                        { "bytes": "74727565" },
+                                        {
+                                          "prim": "Pair",
+                                          "args": [
+                                            { "bytes": "68747470733a2f2f6578616d706c652e636f6d2f6d657461646174612e6a736f6e" },
+                                            {
+                                              "prim": "Pair",
+                                              "args": [
+                                                { "bytes": "5465737420546f6b656e" },
+                                                {
+                                                  "prim": "Pair",
+                                                  "args": [
+                                                    { "string": "tz1WxrQuZ4CK1MBUa2GqUWK1yJ4J6EtG1Gwi" },
+                                                    {
+                                                      "prim": "Pair",
+                                                      "args": [
+                                                        { "bytes": "c2a920416c6c207269676874732072657365727665642e" },
+                                                        {
+                                                          "prim": "Pair",
+                                                          "args": [
+                                                            { "bytes": "66616c7365" },
+                                                            {
+                                                              "prim": "Pair",
+                                                              "args": [
+                                                                { "bytes": "4b454550" },
+                                                                { "prim": "Pair", "args": [ { "bytes": "5b5d" }, { "bytes": "697066733a2f2f516d58595a" } ] }
+                                                              ]
+                                                            }
+                                                          ]
+                                                        }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

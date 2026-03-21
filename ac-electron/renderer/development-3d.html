@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aesthetic Computer - 3D View</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      overflow: hidden;
+      background: transparent !important;
+      -webkit-user-select: none;
+    }
+    
+    /* Drag handle for frameless window - top bar only */
+    #drag-handle {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      -webkit-app-region: drag;
+      z-index: 100;
+    }
+    
+    /* Canvas container */
+    #canvas-container {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 10;
+    }
+    
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Mode indicator - shows briefly on flip */
+    #mode-indicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 10px 24px;
+      border-radius: 25px;
+      font-family: system-ui, sans-serif;
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    #mode-indicator.visible {
+      opacity: 1;
+    }
+    
+    /* Hint text */
+    #hint {
+      position: fixed;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.35);
+      font-family: system-ui, sans-serif;
+      font-size: 11px;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 2s ease;
+    }
+    
+    #hint.hidden {
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="drag-handle"></div>
+  <div id="canvas-container"></div>
+  <div id="hint">Click edges to flip · Click center to interact · Scroll to zoom</div>
+  <div id="mode-indicator">⚡ Front</div>
+
+  <script type="module">
+    import * as THREE from '../node_modules/three/build/three.module.js';
+    
+    const { ipcRenderer } = require('electron');
+    
+    // ========== Three.js Setup ==========
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = null; // Transparent background
+    
+    const camera = new THREE.PerspectiveCamera(
+      50, 
+      window.innerWidth / window.innerHeight, 
+      0.1, 
+      1000
+    );
+    camera.position.z = 2.8;
+    
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true,
+      premultipliedAlpha: false
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x000000, 0); // Transparent
+    container.appendChild(renderer.domElement);
+    
+    // ========== Card Geometry ==========
+    const aspect = 16 / 10;
+    const cardWidth = 2.4;
+    const cardHeight = cardWidth / aspect;
+    
+    // Margin size for flip zone (0-1 UV space, 0.1 = 10% from edges)
+    const MARGIN_SIZE = 0.12;
+    
+    // Offscreen texture dimensions
+    const TEX_WIDTH = 1280;
+    const TEX_HEIGHT = 800;
+    
+    // Front texture placeholder
+    const frontCanvas = document.createElement('canvas');
+    frontCanvas.width = TEX_WIDTH;
+    frontCanvas.height = TEX_HEIGHT;
+    const frontCtx = frontCanvas.getContext('2d');
+    frontCtx.fillStyle = '#0a0a15';
+    frontCtx.fillRect(0, 0, frontCanvas.width, frontCanvas.height);
+    frontCtx.fillStyle = '#fff';
+    frontCtx.font = '32px system-ui';
+    frontCtx.textAlign = 'center';
+    frontCtx.fillText('⚡ Loading...', frontCanvas.width / 2, frontCanvas.height / 2);
+    const frontTexture = new THREE.CanvasTexture(frontCanvas);
+    
+    // Back texture placeholder
+    const backCanvas = document.createElement('canvas');
+    backCanvas.width = TEX_WIDTH;
+    backCanvas.height = TEX_HEIGHT;
+    const backCtx = backCanvas.getContext('2d');
+    backCtx.fillStyle = '#0a0012';
+    backCtx.fillRect(0, 0, backCanvas.width, backCanvas.height);
+    backCtx.fillStyle = '#fff';
+    backCtx.font = '32px system-ui';
+    backCtx.textAlign = 'center';
+    backCtx.fillText('🩸 Terminal', backCanvas.width / 2, backCanvas.height / 2);
+    const backTexture = new THREE.CanvasTexture(backCanvas);
+    
+    // Semi-transparent materials - see through to other side
+    const frontMaterial = new THREE.MeshBasicMaterial({ 
+      map: frontTexture,
+      side: THREE.FrontSide,
+      transparent: true,
+      opacity: 0.88
+    });
+    
+    const backMaterial = new THREE.MeshBasicMaterial({ 
+      map: backTexture,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0.88
+    });
+    
+    const cardGeometry = new THREE.PlaneGeometry(cardWidth, cardHeight);
+    
+    // Front and back meshes
+    const frontMesh = new THREE.Mesh(cardGeometry, frontMaterial);
+    const backMesh = new THREE.Mesh(cardGeometry, backMaterial);
+    
+    // Card group
+    const card = new THREE.Group();
+    card.add(frontMesh);
+    card.add(backMesh);
+    scene.add(card);
+    
+    // ========== Edge Glow Effect ==========
+    const edgeGeometry = new THREE.EdgesGeometry(cardGeometry);
+    const edgeMaterial = new THREE.LineBasicMaterial({ 
+      color: 0x8844ff,
+      transparent: true,
+      opacity: 0.4
+    });
+    const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+    card.add(edges);
+    
+    // ========== Animation State ==========
+    let targetRotation = 0;
+    let currentRotation = 0;
+    let showingBack = false;
+    let isInMargin = false;
+    let isInCenter = false;
+    let lastUV = null;
+    
+    const modeIndicator = document.getElementById('mode-indicator');
+    const hint = document.getElementById('hint');
+    
+    // Hide hint after first interaction
+    let hintShown = true;
+    function hideHint() {
+      if (hintShown) {
+        hint.classList.add('hidden');
+        hintShown = false;
+      }
+    }
+    
+    // ========== Raycaster for Mouse Picking ==========
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    
+    function updateMouse(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    }
+    
+    function checkIntersection() {
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects([frontMesh, backMesh]);
+      return intersects.length > 0 ? intersects[0] : null;
+    }
+    
+    // Check if UV is in the margin zone (edges)
+    function isInMarginZone(uv) {
+      if (!uv) return false;
+      return uv.x < MARGIN_SIZE || uv.x > (1 - MARGIN_SIZE) || 
+             uv.y < MARGIN_SIZE || uv.y > (1 - MARGIN_SIZE);
+    }
+    
+    // Convert UV to offscreen pixel coordinates
+    function uvToPixel(uv, width, height) {
+      return {
+        x: Math.floor(uv.x * width),
+        y: Math.floor((1 - uv.y) * height) // Flip Y
+      };
+    }
+    
+    // ========== Mouse Events ==========
+    renderer.domElement.addEventListener('mousemove', (e) => {
+      updateMouse(e);
+      const hit = checkIntersection();
+      
+      if (hit && hit.uv) {
+        lastUV = hit.uv.clone();
+        const inMargin = isInMarginZone(hit.uv);
+        
+        if (inMargin) {
+          // In margin - show flip cursor
+          isInMargin = true;
+          isInCenter = false;
+          edgeMaterial.opacity = 0.7;
+          edgeMaterial.color.setHex(0xaa66ff);
+          renderer.domElement.style.cursor = 'pointer';
+        } else {
+          // In center - show interact cursor
+          isInMargin = false;
+          isInCenter = true;
+          edgeMaterial.opacity = 0.3;
+          edgeMaterial.color.setHex(0x8844ff);
+          renderer.domElement.style.cursor = 'crosshair';
+          
+          // Forward mouse move to offscreen window
+          const target = showingBack ? 'back' : 'front';
+          const pixel = uvToPixel(hit.uv, TEX_WIDTH, TEX_HEIGHT);
+          ipcRenderer.send('forward-mouse', {
+            target,
+            type: 'mouseMove',
+            x: pixel.x,
+            y: pixel.y
+          });
+        }
+      } else {
+        isInMargin = false;
+        isInCenter = false;
+        lastUV = null;
+        edgeMaterial.opacity = 0.3;
+        edgeMaterial.color.setHex(0x8844ff);
+        renderer.domElement.style.cursor = 'default';
+      }
+    });
+    
+    renderer.domElement.addEventListener('mousedown', (e) => {
+      updateMouse(e);
+      const hit = checkIntersection();
+      
+      if (hit && hit.uv) {
+        hideHint();
+        
+        if (isInMarginZone(hit.uv)) {
+          // Clicked margin = FLIP
+          showingBack = !showingBack;
+          targetRotation = showingBack ? Math.PI : 0;
+          
+          modeIndicator.textContent = showingBack ? '🩸 Back' : '⚡ Front';
+          modeIndicator.classList.add('visible');
+          setTimeout(() => modeIndicator.classList.remove('visible'), 1200);
+        } else {
+          // Clicked center = forward click to offscreen
+          const target = showingBack ? 'back' : 'front';
+          const pixel = uvToPixel(hit.uv, TEX_WIDTH, TEX_HEIGHT);
+          ipcRenderer.send('forward-mouse', {
+            target,
+            type: 'mouseDown',
+            x: pixel.x,
+            y: pixel.y,
+            button: 'left',
+            clickCount: 1
+          });
+        }
+      }
+    });
+    
+    renderer.domElement.addEventListener('mouseup', (e) => {
+      if (isInCenter && lastUV) {
+        const target = showingBack ? 'back' : 'front';
+        const pixel = uvToPixel(lastUV, TEX_WIDTH, TEX_HEIGHT);
+        ipcRenderer.send('forward-mouse', {
+          target,
+          type: 'mouseUp',
+          x: pixel.x,
+          y: pixel.y,
+          button: 'left',
+          clickCount: 1
+        });
+      }
+    });
+    
+    // Scroll to zoom
+    renderer.domElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      hideHint();
+      
+      if (isInCenter && lastUV) {
+        // Forward scroll to offscreen window
+        const target = showingBack ? 'back' : 'front';
+        const pixel = uvToPixel(lastUV, TEX_WIDTH, TEX_HEIGHT);
+        ipcRenderer.send('forward-mouse', {
+          target,
+          type: 'mouseWheel',
+          x: pixel.x,
+          y: pixel.y,
+          button: e.deltaY // Use button field for delta
+        });
+      } else {
+        // Zoom camera
+        camera.position.z = Math.max(1.5, Math.min(5, camera.position.z + e.deltaY * 0.003));
+      }
+    }, { passive: false });
+    
+    // Keyboard input - forward to offscreen or use as shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Tab = flip shortcut
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        hideHint();
+        showingBack = !showingBack;
+        targetRotation = showingBack ? Math.PI : 0;
+        modeIndicator.textContent = showingBack ? '🩸 Back' : '⚡ Front';
+        modeIndicator.classList.add('visible');
+        setTimeout(() => modeIndicator.classList.remove('visible'), 1200);
+        return;
+      }
+      
+      // Escape = reset view
+      if (e.key === 'Escape') {
+        targetRotation = 0;
+        showingBack = false;
+        camera.position.z = 2.8;
+        return;
+      }
+      
+      // Forward all other keys to the appropriate offscreen window
+      const target = showingBack ? 'back' : 'front';
+      const modifiers = [];
+      if (e.metaKey) modifiers.push('meta');
+      if (e.ctrlKey) modifiers.push('control');
+      if (e.altKey) modifiers.push('alt');
+      if (e.shiftKey) modifiers.push('shift');
+      
+      // For terminal (back), send directly to PTY
+      if (showingBack) {
+        // Convert key to PTY-compatible string
+        let ptyKey = e.key;
+        if (e.key === 'Enter') ptyKey = '\r';
+        else if (e.key === 'Backspace') ptyKey = '\x7f';
+        else if (e.key === 'ArrowUp') ptyKey = '\x1b[A';
+        else if (e.key === 'ArrowDown') ptyKey = '\x1b[B';
+        else if (e.key === 'ArrowRight') ptyKey = '\x1b[C';
+        else if (e.key === 'ArrowLeft') ptyKey = '\x1b[D';
+        else if (e.ctrlKey && e.key.length === 1) {
+          // Ctrl+letter = control character
+          ptyKey = String.fromCharCode(e.key.toUpperCase().charCodeAt(0) - 64);
+        } else if (e.key.length > 1) {
+          return; // Skip function keys, etc.
+        }
+        
+        ipcRenderer.send('forward-pty-input', ptyKey);
+      } else {
+        // Forward to front window
+        ipcRenderer.send('forward-key', {
+          target,
+          type: 'keyDown',
+          keyCode: e.key,
+          modifiers
+        });
+      }
+    });
+    
+    // ========== Offscreen Render Updates ==========
+    let frontDataTexture = null;
+    let backDataTexture = null;
+    
+    ipcRenderer.on('front-frame', (event, frame) => {
+      updateDataTexture('front', frame, frontMaterial);
+    });
+    
+    ipcRenderer.on('back-frame', (event, frame) => {
+      updateDataTexture('back', frame, backMaterial);
+    });
+    
+    function updateDataTexture(side, frame, material) {
+      const { width, height, data } = frame;
+      if (!width || !height || width <= 0 || height <= 0) return;
+      
+      const pixels = data instanceof Uint8Array ? data : new Uint8Array(data);
+      
+      if (side === 'front') {
+        if (!frontDataTexture || frontDataTexture.image.width !== width) {
+          frontDataTexture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
+          frontDataTexture.flipY = true;
+          frontDataTexture.needsUpdate = true;
+          material.map = frontDataTexture;
+          material.needsUpdate = true;
+        } else {
+          frontDataTexture.image.data.set(pixels);
+          frontDataTexture.needsUpdate = true;
+        }
+      } else {
+        if (!backDataTexture || backDataTexture.image.width !== width) {
+          backDataTexture = new THREE.DataTexture(pixels, width, height, THREE.RGBAFormat);
+          backDataTexture.flipY = true;
+          backDataTexture.needsUpdate = true;
+          material.map = backDataTexture;
+          material.needsUpdate = true;
+        } else {
+          backDataTexture.image.data.set(pixels);
+          backDataTexture.needsUpdate = true;
+        }
+      }
+    }
+    
+    // Request offscreen windows to start
+    ipcRenderer.send('start-offscreen-rendering');
+    
+    // ========== Animation Loop ==========
+    let lastTime = performance.now();
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+      
+      // Smooth rotation interpolation
+      const rotationSpeed = 6;
+      currentRotation += (targetRotation - currentRotation) * Math.min(delta * rotationSpeed, 1);
+      card.rotation.y = currentRotation;
+      
+      // Subtle floating effect
+      card.position.y = Math.sin(now / 1500) * 0.01;
+      
+      // Edge pulse when in margin zone
+      if (isInMargin) {
+        edgeMaterial.opacity = 0.5 + Math.sin(now / 150) * 0.2;
+      }
+      
+      renderer.render(scene, camera);
+    }
+    
+    animate();
+    
+    // ========== Resize Handler ==========
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    console.log('3D View initialized - click edges to flip, center to interact');
+  </script>
+</body>
+</html>

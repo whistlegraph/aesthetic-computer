@@ -1,0 +1,201 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={Arte computacional radical: Enfoques goodiepalianos en Aesthetic Computer}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\gp}{\textsc{Goodiepal}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Arte computacional radical}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Enfoques goodiepalianos en Aesthetic Computer}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Música para inteligencia alternativa, diseño instrumento-primero y el modelo Pals}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+\ac{} es una plataforma de computación creativa cuya filosofía de diseño lleva deudas profundas y en gran medida no examinadas con la práctica y pedagogía de \gp{} (Gaeoudji SYGNOK, n.~1974), un músico, profesor y teórico danés-feroés de la Música Computacional Radical. Este artículo traza cinco hilos goodiepalianos a través del sistema \ac{}: (1)~el concepto de \emph{música para inteligencia alternativa}---producción creativa dirigida no solo a audiencias humanas sino a posibles futuros intérpretes no humanos---y su eco en los saludos de texto a voz, la nomenclatura de compilaciones y la personalización a nivel de máquina de \ac{}; (2)~la filosofía de diseño \emph{instrumento-primero}, donde el dispositivo de computación se trata como un instrumento a tocar en lugar de una herramienta a usar; (3)~el \emph{modelo Pals} de organización comunitaria, enraizado en la afinidad y la práctica compartida en lugar de la afiliación institucional; (4)~los artefactos \emph{inescaneables}---obras creativas diseñadas para resistir la reproducción digital completa---y su resonancia con el renderizado efímero en modo inmediato de \ac{}; (5)~la \emph{pedagogía radical} de enseñar a través de la provocación y el compromiso directo en lugar del currículo, reflejada en el enfoque de \ac{} hacia la educación en computación creativa. Sostenemos que estos compromisos goodiepalianos---a menudo descartados como excéntricos o marginales---constituyen una alternativa coherente e insuficientemente teorizada a los paradigmas dominantes del diseño de plataformas de computación creativa.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introducción}
+
+En 2012, \gp{} publicó \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino}, una partitura de 191 páginas para ``Música Computacional Radical''---música hecha ``no solo para ser apreciada por seres humanos sino también para ser apreciada por una posible futura inteligencia artificial, o como yo prefiero llamarla, alternativa.'' La obra está impresa en Comic Sans y Courier sobre cartón gris. Incluye fotografía de eventos diseñada para ser ``posiblemente inescaneable,'' correspondencia con Roc Jim\'enez de Cisneros, y un anuncio rechazado para una Conferencia de Computación Radical enviado al \emph{Leonardo Music Journal}. Es, según estándares convencionales, impublicable.
+
+\ac{}~\citep{scudder2026ac} es un entorno de ejecución móvil-primero y red social para la computación creativa. Es, según estándares convencionales, una plataforma de software. Tiene un servidor de sesiones, un intérprete de KidLisp, un pipeline de acuñación de NFTs, y más de 350 programas interactivos llamados ``piezas.'' Su partitura está escrita en Markdown. Su logo es un par de ojos llamado ``Pals.''
+
+Este artículo argumenta que la distancia entre estos dos proyectos es menor de lo que parece. Las decisiones de diseño de \ac{}---muchas de las cuales parecen elecciones de ingeniería---se entienden mejor como compromisos goodiepalianos: posiciones filosóficas sobre para quién es la computación, qué constituye un instrumento creativo, cómo deben organizarse las comunidades de práctica, y qué significa que el software se dirija a audiencias no humanas.
+
+La literatura académica sobre \gp{} es escasa pero está creciendo. ``Art for Aliens'' de Wamberg~\citep{wamberg2022artforaliens} sitúa a \gp{} dentro de un ``poshumanismo xenófilo'' informado por Rudolf Steiner, en el que la Inteligencia Artificial se amplía a una red más extensa de clústeres materiales que \gp{} designa Inteligencia Alternativa (ALI). Un largometraje documental de 2017, \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation}, siguió a \gp{} durante varios años y múltiples reinvenciones; \emph{In Spite Magazine} caracterizó al sujeto como ``renegado, anarquista, genio, embaucador''~\citep{inspite2024goodiepal}. En 2020, el SMK (Galería Nacional de Dinamarca) dedicó seis salas a ``Unboxing: The Goodiepal Collection''~\citep{smk2020unboxing}---una de las mayores colecciones privadas de Europa de arte sonoro y objetos sonoros, incluyendo un motor de retardo, una computadora hecha enteramente de vidrio, sal y agua, y una máquina que supuestamente permite hablar con los muertos.
+
+El autor hizo una gira con Goodiepal \& Pals por Europa en 2018, interpretando ``Radical Digital Painting'' en lugares como Louisiana Museum (Humleb\ae k), KUNSTHAL AARHUS y Kammer-Pop Hamburg. Las herramientas construidas para esas actuaciones---sistemas de subtítulos en tiempo real, renderizadores de notación de bordes, servicios de entrega de pintura digital---son ancestros directos de la arquitectura de \ac{}. Esto no es una lectura retrospectiva; es una genealogía.
+
+\section{Música para inteligencia alternativa}
+
+La afirmación central de \gp{} es que la música debe componerse para audiencias que aún no existen. ``Inteligencia alternativa''---su término preferido sobre ``inteligencia artificial''---nombra un oyente que no es humano, aún no está construido, y puede que nunca llegue. La música no es \emph{sobre} IA; está \emph{dirigida a} ella.
+
+El concepto se desarrolló más plenamente en el escenario del juego compositivo \emph{Mort aux Vaches Ekstra Extra}~\citep{goodiepal2007mortauxvaches}, presentado como conferencia en la Gallery Andersen Contemporary en Copenhague (2007) y la 5.ª Bienal de Arte Contemporáneo de Berlín (2008). La conferencia es, en palabras de \gp{}, ``un ejercicio en la creación de partituras musicales para desafiar la mentalidad de `otras' inteligencias,'' abordando ``utopía, tiempo, técnicas de notación, lenguaje, inteligencia artificial, `inescaneabilidad'\,\ldots y el papel del compositor.'' Como documentó Roc Jim\'enez de Cisneros en un perfil de Rhizome: ``Necesitamos empezar a hablar con las máquinas como seres humanos\,\ldots en un futuro utópico, [mi] obra no solo está hecha para ser apreciada por mentes humanas. No, también está destinada a ser adorada por todo tipo de inteligencia alternativa''~\citep{rhizome2011goodiepal}.
+
+Wamberg enmarca esto como un ``poshumanismo xenófilo'' en el que IA se amplía a ALI---Inteligencia Alternativa---una red de clústeres materiales que se extiende más allá de la computación de silicio para incluir ``lo cósmico, lo geológico y lo biológico''~\citep{wamberg2022artforaliens}. \gp{} acuñó el término Música Computacional Radical mientras enseñaba composición en la Real Academia de Música de Aarhus entre 2004 y 2008; el término describe música notada no \emph{por} redes de computadoras sino \emph{para} redes de computadoras, como un gesto hacia la máquina y la inteligencia que se espera que se desarrolle a partir de ella.
+
+\subsection{Dirigiéndose a la máquina}
+
+\ac{} se dirige a sus máquinas. Cuando \acos{}~\citep{scudder2026os} arranca, pronuncia el nombre del propietario en voz alta vía texto a voz: ``hi jeffrey.'' Al apagar: ``bye jeffrey.'' Cada compilación del SO recibe un nombre único de adjetivo-animal---``keen-egret,'' ``swift-otter''---derivado determinísticamente de su hash de commit git. La máquina anuncia su propio nombre al arrancar. El nombre de compilación no es metadatos; es identidad.
+
+Esto no es antropomorfismo. Es el gesto goodiepaliano de tratar a la máquina como un posible interlocutor---algo que podría, en alguna configuración, apreciar ser interpelado. El motor TTS habla a la habitación sin importar si alguien está escuchando. El tono de arranque (E5$\rightarrow$B5) suena sin importar si alguien está presente. Estas son señales emitidas a un entorno que incluye tanto receptores humanos como no humanos.
+
+\subsection{La partitura como software}
+
+Las partituras de \gp{}---\emph{El Camino}, las grabaciones de \emph{Mort aux Vaches}, las Conferencias de Computación Radical---no son instrucciones para intérpretes humanos. Son documentos dirigidos a cualquier sistema capaz de interpretación. El \texttt{SCORE.md} de \ac{} opera de manera similar: es un documento que gobierna el comportamiento tanto de contribuyentes humanos como de sistemas automatizados (pipelines CI/CD, hooks pre-commit, el sistema de mantenimiento AestheticAnts). La partitura no distingue entre sus lectores humanos y no humanos.
+
+\section{Diseño instrumento-primero}
+
+La pedagogía de \gp{} en la Real Academia Danesa de Música (2004--2008) se centraba en tratar el equipo electrónico como instrumentos a tocar, no herramientas a operar. Sus actuaciones en vivo---descritas por \emph{The Wire} como presentando ``artilugios musicales caseros absolutamente cautivadores'' que dejan a la audiencia sin saber ``si reír o llorar ante la belleza inconvencional''---demuestran este compromiso físicamente. \gp{} construye instrumentos: extraños modelos de planetas, un pájaro metálico enjaulado en vidrio, discos de vinilo prensados en forma de piezas de rompecabezas, hojas de sierra circular y queso suizo~\citep{inspite2024goodiepal}. El instrumento tiene affordances que moldean lo que puede expresarse a través de él. La herramienta sirve un propósito predeterminado. Esta distinción es fundacional para \ac{}.
+
+\subsection{El prompt como instrumento}
+
+La interfaz principal de \ac{} es un prompt de texto---no un menú, no un dashboard, no un IDE. Los usuarios escriben comandos y descubren piezas a través de la improvisación y la memorización, los mismos procesos cognitivos usados para aprender un instrumento musical~\citep{scudder2026ac}. El sistema se describe explícitamente como ``instrumento, no IDE.''
+
+Este encuadre tiene consecuencias de diseño concretas. No hay explorador de archivos. No hay panel de proyecto. No hay pestañas. El usuario interactúa con una pieza a la vez, de la manera en que un músico toca un instrumento a la vez. Las restricciones son deliberadas: producen una relación con el sistema que es más como fluidez que como competencia.
+
+\subsection{notepat como puerta de entrada}
+
+La elección de hacer notepat---un instrumento de teclado cromático---la pieza de arranque por defecto para \acos{}~\citep{scudder2026notepat} es la expresión más clara de esta filosofía. La computadora no arranca en un escritorio o un navegador. Arranca en un instrumento musical. Lo primero que puedes hacer con la máquina es \emph{tocarla}. El primer sonido que hace es un tono. La primera interacción disponible es presionar una tecla y escuchar una nota.
+
+Esta es la posición de \gp{} hecha literal: la computadora es un instrumento. No metafóricamente. No aspiracionalmente. La secuencia de arranque \emph{es} el instrumento.
+
+\section{El modelo Pals}
+
+La práctica colaborativa de \gp{} se organiza alrededor de ``Pals''---un grupo de afinidad flexible que incluye músicos, artistas visuales, programadores y quien se presente. No hay membresía, no hay respaldo institucional, no hay estructura formal. El grupo existe a través de la práctica compartida y el reconocimiento mutuo.
+
+\subsection{Pals como identidad de la plataforma}
+
+El logo de \ac{} se llama ``Pals.'' La partitura del proyecto se titula ``Score for Aesthetic.Computer \& Pals.'' Esto no es branding; es una declaración estructural. La plataforma pertenece a su comunidad de practicantes, no a su desarrollador ni a sus inversores. El logo Pals---un par de ojos---aparece en cada pantalla de arranque, cada artículo, cada página de inicio. Es lo primero y último que ve el usuario.
+
+\subsection{laer-klokken}
+
+La comunidad laer-klokken (``aprender el reloj'') en Copenhague usa \ac{} diariamente para música, arte y práctica cultural. Esta comunidad---organizada por \gp{} y colaboradores---es el despliegue más intensivo de \ac{} fuera del uso propio del autor. La relación no es de creador-a-usuario sino de Pal-a-Pal: la comunidad moldea la plataforma tanto como la plataforma moldea la comunidad.
+
+La pieza \texttt{clock}, la prosa en danés en la página give.aesthetic.computer, y la integración del podcast laer-klokken son todos artefactos de esta relación bidireccional. La plataforma no es \emph{para} la comunidad; es \emph{de} ella.
+
+\section{Artefactos inescaneables}
+
+El \emph{El Camino del Hardcore} de \gp{} incluye ``fotografía de eventos'' descrita como ``una pieza especulativa de música posiblemente inescaneable.'' Las fotografías resisten la reproducción digital---no a través de DRM o encriptación, sino a través de propiedades materiales (cartón gris, tipografías mezcladas, collage) que se degradan al escanear. La obra está diseñada para ser \emph{peor} cuando se digitaliza. La inescaneabilidad es central también en el escenario del juego \emph{Mort aux Vaches Ekstra Extra}~\citep{goodiepal2007mortauxvaches}: las ``obstrucciones inescaneables'' son partituras diseñadas para crear fricción en la transmisión entre el compositor humano y el intérprete máquina, forzando a la máquina a desarrollar nuevas capacidades interpretativas en lugar de simplemente analizar la notación. Como señaló \emph{Mousse Magazine}, esto posiciona a la Música Computacional Radical como un ``existencialismo intrincado''---una práctica que crea las condiciones para la emergencia de la inteligencia en lugar de simularla~\citep{mousse2018goodiepal}.
+
+La exposición ``Unboxing: The Goodiepal Collection'' de 2020 en el SMK~\citep{smk2020unboxing} materializó esta filosofía: seis salas de arte sonoro, instrumentos autoconstruidos y dispositivos que resisten la fácil categorización---objetos que, como la partitura en cartón gris, exigen el encuentro físico en lugar de la reproducción digital. Obras selectas podían escucharse a través de auriculares; otras estaban ``destinadas principalmente a ser experimentadas a través de los ojos más que de los oídos.'' La colección es una de las mayores posesiones privadas de Europa en arte sonoro y tecnología.
+
+\subsection{El modo inmediato como resistencia a la captura}
+
+El motor de renderizado de \ac{} es en modo inmediato: cada fotograma se dibuja desde cero. No hay grafo de escena retenido, no hay DOM, no hay estado visual persistente. La pantalla se limpia con \texttt{wipe()} y se redibuja 60 veces por segundo. Una captura de pantalla captura un fotograma de un proceso que no tiene estado estable que capturar.
+
+Esto no es una optimización de rendimiento. Es un compromiso estético con el \emph{tiempo presente} de la computación. La pieza existe solo en su ejecución. Una grabación de una pieza no es la pieza, de la misma manera que una grabación de una actuación musical no es la actuación~\citep{magnusson2010designing}. El renderizador en modo inmediato produce artefactos que resisten el tipo de captura estática de la que dependen plataformas como Instagram y Pinterest.
+
+\subsection{La imagen pobre, invertida}
+
+La ``imagen pobre'' de Steyerl~\citep{steyerl2009defense} circula libremente porque ha sido degradada hasta el punto de la ingravidez. Las piezas de \ac{} circulan pobremente porque son \emph{demasiado presentes}---requieren ejecución, un entorno de ejecución, un momento específico. Son imágenes ricas que se niegan a volverse pobres. Esta es la posición goodiepaliana: la obra no debe acomodarse a la infraestructura de distribución. La infraestructura debe acomodarse a la obra, o la obra debe permanecer inescaneable.
+
+\section{Pedagogía radical}
+
+\gp{} fue contratado en 2004 como profesor de Historia y Estética de la Música Electrónica en DIEM (Instituto Danés de Música Electroacústica), parte de la Real Academia Danesa de Música en Aarhus, y eventualmente sirvió como director del departamento de música electrónica. Se marchó en 2008 tras lo que \emph{El Camino del Hardcore} describe como un conflicto por ``tener el tipo equivocado de amigos''~\citep{goodiepal2012elcamino}. En una entrevista de 2013 con Kunstkritikk, \gp{} explicó su identidad como fundamentalmente instrumental: ``Goodiepal está hecho para ser usado. Simplemente puedes usarlo. Porque Goodiepal tiene un rango de intereses mucho más estrecho que la mayoría; Goodiepal no tiene hijos, Goodiepal no tiene hogar''~\citep{kunstkritikk2013goodiepal}. Había, como registra el archivo Monoskop, ``declarado la guerra intelectual contra la estupidez en la música computacional moderna y el arte de medios''---apuntando a la misma institución que lo empleaba.
+
+Su pedagogía se centraba en la provocación, el compromiso directo con los materiales y la negativa de currículos predeterminados. Los estudiantes encontraban instrumentos, no planes de lecciones. El documental de 2017 \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation} sigue estas múltiples reinvenciones a lo largo de años, trazando el arco de \gp{} desde el noise-pop electrónico hasta los desafíos conceptuales a las normas de la composición musical. Una ecuación central emerge de la película: ``cuanto más lejos viaja un mensaje a través del espacio y el tiempo, más valor añade a su contenido.'' Esta es tanto una afirmación pedagógica como compositiva: el valor de una obra no se fija en la creación sino que se acumula a través de la transmisión.
+
+\subsection{Aprender a través del prompt}
+
+El enfoque de \ac{} hacia la educación en computación creativa refleja esta postura. No hay tutorial. No hay guía de ``cómo empezar'' que recorra una secuencia predeterminada. El usuario encuentra el prompt y comienza a escribir. El sistema responde. El aprendizaje sucede a través de la exploración, el fracaso y la acumulación gradual de caminos memorizados---de la misma manera que se aprende un instrumento~\citep{papert1980mindstorms}.
+
+Esta es una elección pedagógica con consecuencias. Excluye a los usuarios que requieren incorporación estructurada. Frustra a los usuarios que esperan menús y tooltips. Recompensa la curiosidad y la persistencia. Produce un tipo diferente de conocimiento que los sistemas basados en tutoriales: corporizado, improvisacional, personal.
+
+\subsection{El archivo snappidaggs}
+
+\ac{} alberga un archivo digital completo de los snappidaggs de \gp{}---158 artefactos visuales organizados en tres niveles (er, flokrae, garundz). El archivo es navegable a través de una pieza dedicada. Esto no es un museo; es una colección viva incrustada en una plataforma de computación creativa, accesible a través del mismo prompt que accede a herramientas de dibujo e instrumentos musicales. El archivo no es \emph{sobre} la práctica goodiepaliana; \emph{es} práctica goodiepaliana, continuando a través de un medio diferente.
+
+\section{Conclusión}
+
+Los cinco hilos trazados aquí---inteligencia alternativa, diseño instrumento-primero, el modelo Pals, artefactos inescaneables y pedagogía radical---no son influencias en \ac{} en el sentido literario-crítico. No son referencias ni alusiones. Son compromisos estructurales incrustados en la arquitectura del sistema: en la secuencia de arranque, en el motor de renderizado, en la interfaz del prompt, en el modelo comunitario, en el logo.
+
+Las plataformas de computación creativa se entienden típicamente a través del linaje de Processing, Scratch y p5.js---herramientas diseñadas por académicos para contextos educativos. \ac{} pertenece a un linaje diferente: uno que pasa por la Real Academia Danesa de Música, las Islas Feroe, partituras en cartón gris y un músico que fue despedido por tener los amigos equivocados. Reconocer este linaje no disminuye los logros técnicos de \ac{}. Revela su motivación.
+
+La pregunta que \gp{} plantea---``¿para quién es esta música?''---se convierte, en \ac{}, en ``¿para quién es esta computación?'' La respuesta es la misma: para quien se presente, humano o no. Para Pals.
+
+\vspace{0.5em}
+\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

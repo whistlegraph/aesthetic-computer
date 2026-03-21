@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Composition</title>
+    <style>
+        html {
+            background: rgb(48, 48, 48);
+            display: flex;
+            margin: 1.25em;
+            min-height: 100%;
+        }
+        body {
+            font-family: monospace;
+            font-size: 1.5em;
+            background: #ccc;
+            user-select: none;
+            padding: 1em;
+            max-width: 80%;
+            margin: auto;
+            border-radius: 1em;
+            border: 3px solid rgba(32, 32, 32, 0.5);
+            box-sizing: border-box;
+            min-width: 480px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            font-weight: normal;
+            margin: 0;
+            margin-bottom: -1.25em;
+            text-align: right;
+        }
+
+        input {
+            font-family: monospace;
+            padding: 10px;
+            font-size: 1em;
+            border-radius: 0.25em;
+            border-width: 0.2em;
+            border-color: rgba(0, 0, 0, 0.5);
+        }
+
+        textarea {
+            display: block;
+            font-size: 1em;
+            padding: 10px;
+            border-radius: 0.25em;
+            border-width: 0.2em;
+            border-color: rgba(0, 0, 0, 0.5);
+        }
+
+        label {
+            padding: 0.1em;
+            display: block;
+            opacity: 0.5;
+            margin-bottom: 0.25em;
+        }
+
+        input[type=checkbox] {
+            transform: scale(2.5);
+            margin-top: 0.5em;
+            margin-left: 0.55em;
+            margin-bottom: 0.65em;
+        }
+
+        input[type=submit] {
+            margin-top: 0.5em;
+            border-radius: 0.25em;
+            background-color: rgb(150, 255, 150);
+            cursor: pointer;
+        }
+
+        input[type=submit]:hover {
+            background-color: rgb(100, 255, 100);
+        }
+
+        textarea::-webkit-input-placeholder {
+            color: black;
+            opacity: 0.25;
+        }
+
+        .instructions {
+            margin-top: 0.5em;
+            margin-bottom: 1em;
+            display: block;
+            opacity: 0.25;
+            font-size: 0.8em;
+            padding-left: 0.25em;
+        }
+
+        hr {
+            border: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.1);
+            margin-bottom: 0.5em;
+            margin-top: 0.5em;
+            border-radius: 3px;
+        }
+
+        nav {
+            background: yellow;
+            display: block;
+            padding: 0.5em;
+            padding-left: 0.75em;
+            border-radius: 0.5em;
+            margin-top: 1.25em;
+            border: 3px solid rgba(32, 32, 32, 0.5);
+            box-sizing: border-box;
+            font-size: 0.8em;
+        }
+
+        nav a {
+            color: black;
+            opacity: 0.5;
+        }
+
+        nav a:hover {
+            opacity: 1.0;
+        }
+
+        ol {
+            margin: 0;
+            padding-left: 1.75em;
+        }
+
+        .nav-label {
+            display: block;
+            margin-bottom: 0.5em;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.8em;
+            color: slategray;
+            opacity: 0.5;
+        }
+
+        footer a {
+            color: slategray;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🎵</h1>
+
+<label for="bpm">Beats Per Minute</label>
+<input id="bpm" type="number" min="8" max="320" value="80">
+
+<hr>
+
+<label for="melody">Melody</label>
+<textarea placeholder="ABCDEFG" id="melody" rows="4" cols="32"></textarea>
+<span class="instructions">
+  Enter ABCDEFG in any order or length.
+  <br>
+  Use _ to pause for a beat.
+</span>
+
+<hr>
+
+<label for="loop">Loop</label>
+<input id="loop" type="checkbox">
+
+<hr>
+
+<input id="play" type="submit" value="Play">
+
+<nav>
+    <span class="nav-label">Playlist</span>
+    <ol>
+        <li>
+            <a href="/system/public#stage">O & M's Melody (80)</a>
+        </li>
+        <li>
+            <a href="/system/public?bpm=140#stage">O & M's Speedy (140)</a>
+        </li>
+        <li>
+            <a href="/system/public?bpm=120&melody=ABCDEFG&loop=true#stage">Looped Increasing Scale (120)</a>
+        </li>
+        <li>
+            <a href="/system/public?bpm=80&melody=GFEDCBA&loop=true#stage">Looped Decreasing Scale (80)</a>
+        </li>
+        <li>
+            <a href="/system/public?bpm=180&melody=ADGDADGDABCEFBCEFA&loop=true#stage">Scary Descent (Looped) (180)</a>
+        </li>
+        <li>
+            <a href="/system/public?bpm=90&melody=AAABAAACAAAEDDDEEEBBBFFFCC____CC____G________CBA&loop=false#stage">Jeffrey's Melody (90)</a>
+        </li>
+    </ol>
+</nav>
+
+<span class="instructions" style="text-align: left; margin-bottom: 1.25em;">
+    Copy the URL after pressing <i>Play</i> to save.
+</span>
+
+<hr>
+
+<footer>
+    aesthetic.computer by <a href="https://whistlegraph.com">whistlegraph</a> 2021.11
+    <br>
+</footer>
+
+<script>
+    const playEl = document.querySelector("#play");
+    const bpmEl = document.querySelector("#bpm");
+    const melodyEl = document.querySelector("#melody");
+    const loopEl = document.querySelector("#loop");
+
+    playEl.addEventListener("click", () => {
+        const params =  new URLSearchParams({
+            bpm: bpmEl.value || 80,
+            melody: melodyEl.value.replace(/\s/g, "").replace(/^_*/, "") || "ABCDEFG",
+            loop: loopEl.checked
+        });
+
+        window.location.href = '/?' + params.toString() + "#stage";
+        //window.location.href = "https://aesthetic.computer" + '?' + params.toString()
+    });
+</script>
+
+</body>
+</html>

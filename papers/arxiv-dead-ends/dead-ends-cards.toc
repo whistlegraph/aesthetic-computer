@@ -1,0 +1,25 @@
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Platform Fragmentation}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The Electron App}{7}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Android App}{7}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The Feral File Integration}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The Pattern}{8}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Infrastructure Over-Engineering}{10}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Jamsocket Session Server}{10}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Bumper System}{11}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Silo Migration}{11}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Monetization Experiments}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Tezos NFTs (Keeps)}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Sotce.net Subscriptions}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Printful Merchandise}{13}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Tools Built for One Person}{14}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The Tape Recorder}{14}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Windows Container Development}{14}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}The \texttt {.pjs} Compiler}{14}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Premature Abstractions}{16}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Generic Kiosk Mode}{16}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The FFOS Fork}{16}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Evolutionary Morphology}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}What Dormancy Reveals}{19}{subsection.7.1}%
+\contentsline {section}{\numberline {8}Conclusion}{21}{section.8}%
+\contentsfinish 

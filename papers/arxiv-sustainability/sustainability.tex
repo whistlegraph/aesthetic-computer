@@ -1,0 +1,293 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Who Pays for Creative Tools?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Who Pays for Creative Tools?}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Funding, Burnout, and Survival in Open-Source Creative Computing}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} A Comparative Study of 28 Tool Authors, from Perl to TempleOS to \acrandname{}}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+Creative computing tools---Processing, p5.js, Sonic Pi, Pure Data, Hydra, TidalCycles, openFrameworks, Scratch, and their kin---are used by millions. Their creators are typically paid by no one, or paid by institutions whose support is contingent on factors unrelated to the tool. This paper surveys the funding histories of 28 open-source creative tool authors, identifying six sustainability models: \emph{academic subsidy} (university salary funds unpaid tool work), \emph{corporate patronage} (a company pays for aligned interests), \emph{personal sacrifice} (savings, retirement funds, health), \emph{community crowdfunding} (Patreon, Open Collective, Ko-fi), and \emph{windfall} (unexpected one-time events like NFT donations), and \emph{no model at all} (disability benefits, homelessness, death). We find that the median gap between a tool's creation and its first sustainable funding is 8 years, that burnout affects creators regardless of funding level, and that the tools most widely used are not the tools best funded. We cross-reference these findings with the author's own experience building \ac{}---a platform with 2,800+ registered users, 93,000+ sessions, and 16,000+ programs written by its community---over five years without the institutional umbrella that sheltered every comparable tool in the field. We argue that the creative computing field's reliance on invisible subsidy---from universities, from spouses, from savings accounts, from health---is not a funding model but the absence of one.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduction}
+
+Lauren McCarthy created p5.js in 2013 and spent the next decade maintaining it for 10--20 uncompensated hours per week on top of her UCLA professorship~\citep{mccarthy2023making}. Rich Hickey spent 2.5 years of his retirement savings building Clojure before anyone paid him for it~\citep{hickey2020history}. Samuel Aaron was made redundant from Cambridge in 2019 and had to ``focus 100\% on financial survival,'' reducing Sonic Pi development to ``a snail's pace''~\citep{aaron2016sonic}. \_why the lucky stiff, one of Ruby's most beloved contributors, deleted his entire digital existence after being doxed, having never received a cent for his work.
+
+Terry A. Davis spent 14.7 years building TempleOS---a complete 64-bit operating system with a custom programming language, compiler, kernel, editor, and games---121,176 lines of code, entirely alone, funded by Social Security disability payments while living with his parents. When that housing collapsed in 2017, he lived in a van. On August 11, 2018, he was struck and killed by a train in The Dalles, Oregon. He was 48. The system he built is compared to the Xerox Alto and Plan 9. Its creator died homeless.
+
+These are not edge cases. They are the normal condition of open-source creative tool development. The tools work. Their creators, often, do not.
+
+This paper surveys 28 creative tool authors across four decades, from Larry Wall's creation of Perl in 1987 to the author's ongoing development of \ac{}~\citep{scudder2026ac}. For each, we identify: who paid for the work, when payment began relative to creation, what the creator sacrificed, and whether the funding arrangement survived. The result is a taxonomy of sustainability models---and a record of their failures.
+
+\section{The Five Models}
+
+\subsection{Academic Subsidy}
+
+The most common funding model for creative computing tools is not a funding model at all: it is a university salary that pays for teaching and research, with tool development performed as unpaid labor classified as ``service'' or ``creative practice.''
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{Creator} & \textbf{Institution} & \textbf{Years} \\
+\midrule
+Miller Puckette & UCSD & 30+ \\
+Casey Reas & UCLA & 15+ \\
+Lauren McCarthy & UCLA & 10+ \\
+Ge Wang & Stanford & 17+ \\
+Thor Magnusson & Sussex/Iceland & 20+ \\
+Dan Shiffman & NYU ITP & 15+ \\
+Olia Lialina & Merz Akademie & 25+ \\
+Hernando Barrag\'an & U. de Los Andes & 20+ \\
+John Maeda & MIT Media Lab & 12 \\
+\bottomrule
+\end{tabularx}
+\caption{Academic positions subsidizing creative tool development.}
+\label{tab:academic}
+\end{table}
+
+The subsidy is real but hidden. McCarthy's 10--20 weekly hours of unpaid p5.js maintenance were possible because UCLA paid her a salary for other work. Puckette created Pure Data after losing control of Max/MSP to a commercial licensee; his UCSD professorship funded the rebuild. Wang's ChucK exists because Stanford CCRMA pays him to do research. In each case, the tool is a byproduct of an academic career, not its purpose.
+
+The model has a critical fragility: when the academic position ends, the tool starves. Aaron's redundancy from Cambridge in 2019 is the clearest case---Sonic Pi development collapsed when the university withdrew support. Maeda's departure from MIT effectively killed Design By Numbers; Processing survived only because his students took it independent.
+
+\subsection{Corporate Patronage}
+
+A company whose business benefits from a tool's existence pays the creator to maintain it.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{Creator} & \textbf{Patron} & \textbf{Duration} \\
+\midrule
+Larry Wall & O'Reilly & 7 years \\
+Guido van Rossum & Google/Dropbox/MS & 20+ years \\
+Matz & NaCl/Heroku & 28+ years \\
+Evan Czaplicki & NoRedInk & 7+ years \\
+\bottomrule
+\end{tabularx}
+\caption{Corporate patronage arrangements.}
+\label{tab:corporate}
+\end{table}
+
+Van Rossum's trajectory is the most corporately supported in our survey: CWI, CNRI, Google (50\% Python time), Dropbox, Microsoft. Every employer paid him to work on Python. Yet even with continuous corporate backing, community toxicity over PEP 572 drove him to resign as BDFL in 2018 after 29 years: ``people went to social media and said things that really hurt me personally.''
+
+Wall's O'Reilly patronage ended around 2002. He was ``officially unemployed for not quite five years'' afterward, developing Perl~6 through stomach surgery and prolonged illness. The patron left; the creator remained.
+
+Czaplicki is the most articulate voice on why patronage is insufficient. His Strange Loop talks~\citep{czaplicki2018hard, czaplicki2023economics} describe the structural unsustainability of donation-based funding and the ``Why don't you just...'' demands that exhaust maintainers. He deliberately constrained Elm's growth rather than scale unsustainably.
+
+\subsection{Personal Sacrifice}
+
+When no institution pays, creators pay with their own resources: savings, health, relationships, future earning capacity.
+
+Hickey spent 2.5 years of retirement savings building Clojure because ``I couldn't convince people of my ideas in the abstract, so I had to build the implementation myself.'' The gap from self-funding to sustainable support (Cognitect, then Nubank acquisition) was approximately 8 years.
+
+Processing went \textbf{11 years} (2001--2012) without dedicated funding. The Processing Foundation was created in 2012 specifically because volunteer labor could no longer sustain the project. For the first decade, the ``vast majority of code was written by a small number of people volunteering their time with no paid full-time developers.''
+
+Bret Victor experienced two funding collapses in rapid succession---SAP withdrew from CDG, then Sam Altman defunded HARC ``just months after they moved into a renovated building in Oakland.'' Victor's Apple savings likely bridged the gaps. Dynamicland eventually became a 501(c)(3), but the trajectory was defined by institutional betrayal.
+
+\subsection{Community Crowdfunding}
+
+Patreon, Open Collective, Ko-fi, and similar platforms enable users to directly fund creators. The amounts are typically modest.
+
+Aaron's Sonic Pi survives on Patreon donations and paid talks. Olivia Jack's Hydra runs on Open Collective contributions and \$200 microgrants. Alex McLean's TidalCycles transitioned from personal Ko-fi to Open Collective. Shiffman supplements his NYU salary with Coding Train YouTube revenue and Patreon.
+
+The pattern: crowdfunding works as a supplement to another income source. It does not, in any case we surveyed, sustain a creator as a primary income. The tools with the most users (Processing, p5.js, Scratch) are not the tools with the most crowdfunding.
+
+\subsection{Windfall}
+
+In 2021, the Processing Foundation received approximately \textbf{\$10 million} in NFT/crypto donations from generative artists using Processing and p5.js. This was more money than the Foundation had received in its first 9 years of existence combined. It allowed them to hire full-time staff for the first time.
+
+This event was unrepeatable, unpredictable, and unplannable. It transformed a 20-year-old project overnight. No other creative tool in our survey has experienced a comparable windfall. It is not a model; it is luck.
+
+\subsection{No Model At All}
+
+Some creators have no funding model whatsoever---not even the hidden subsidy of a university salary. They build on disability payments, savings, or nothing.
+
+Terry Davis built TempleOS on Social Security disability ($\sim$\$750--1,200/month) while living with his parents. When he lost housing in 2017, fans brought supplies but he refused their offers of shelter. His YouTube channel was suspended; his PayPal was compromised by others; even small donations could not reach him. He continued posting from public libraries until his death. The project is public domain. He gave it away for free.
+
+Goodiepal's \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino}---a 191-page score for ``Radical Computer Music'' printed on gray cardboard---documents the labor conditions of this model from the inside. The text describes being expelled from the Royal Danish Academy of Music, the piece taking ``ages to bring into reality,'' the anxiety of ``creating something which would only make sense in my own possibly diseased brain.'' The score is addressed to ``a possible future alternative intelligence''---an audience that does not yet exist and may never pay.
+
+The ``no model'' category is the terminal case. Without even a university salary or corporate patron to provide structure, the creator's body becomes the infrastructure. When the body fails---through illness, homelessness, or death---the project either becomes public domain orphanware or disappears entirely.
+
+\section{The Gap}
+
+The median time between a tool's creation and its first sustainable funding source:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{Tool} & \textbf{Created} & \textbf{Gap (years)} \\
+\midrule
+Processing & 2001 & 11 \\
+Clojure & 2005 & 8 \\
+Perl & 1987 & 8 \\
+Sonic Pi & 2012 & 7 \\
+Ruby & 1993 & 4 \\
+p5.js & 2013 & 10 \\
+TidalCycles & 2009 & 12+ \\
+Hydra & 2018 & --- \\
+TempleOS & 2003 & --- (creator died 2018) \\
+Aesthetic Computer & 2021 & 5+ (ongoing) \\
+\bottomrule
+\end{tabularx}
+\caption{Gap between creation and first sustainable funding. ``---'' indicates no sustainable funding achieved.}
+\label{tab:gap}
+\end{table}
+
+The median gap is \textbf{8 years}. During this period, creators subsidize their tools through the models described above---or they stop.
+
+\section{The Erasure Problem}
+
+Hernando Barrag\'an created Wiring as his master's thesis at IDII in 2003~\citep{barragan2004wiring}. His advisor, Massimo Banzi, and colleagues adapted Wiring's design for cheaper hardware and launched Arduino. Arduino raised \$54 million. Wiring received nothing. For years, Barrag\'an received no public credit. At the 2013 Open Hardware Summit, an Arduino team member acknowledged they ``hadn't done a very good job acknowledging Wiring.''
+
+This is the starkest case, but the pattern---student creates tool, institution or advisor benefits---runs throughout creative computing. Maeda's students created Processing from his Design By Numbers; Maeda became president of RISD while Processing's creators spent a decade without funding.
+
+The erasure is not always intentional. It is structural: the people with institutional power (professors, advisors, corporate sponsors) are positioned to capture value from tools created by people without it (students, postdocs, independent developers).
+
+\section{The Author's Position}
+
+\ac{} has been in development since 2021~\citep{scudder2026ac}. The author includes this section because the silence around funding in academic papers about creative tools perpetuates the myth that they emerge from pure intellectual effort.
+
+The author left a tenure-track academic position in 2021 to develop \ac{} and the Whistlegraph project full-time. Since then, \ac{} has been built without institutional support---no university, corporation, or foundation backing. A detailed financial history is available upon request for research purposes.
+
+Two community-driven funding mechanisms have emerged. First, \texttt{give.aesthetic.computer}---a direct donation page where users contribute to keep the platform's infrastructure online. Second, \texttt{aesthetic.direct}---an equity investment page offering aligned investors a stake in Aesthetic.Computer, the company behind the platform. A small number of individual investors have participated through SAFE agreements (the ``booted-by'' model, named after the platform's boot sequence). Neither mechanism has produced institutional-scale funding; both depend on individual belief in the project rather than market returns or grant cycles.
+
+Every other tool in this paper was built under an institutional umbrella. Processing had MIT, then UCLA. p5.js had UCLA. Sonic Pi had Cambridge. ChucK had Stanford. Pure Data had UCSD. Even Perl had O'Reilly. \ac{} has none of these. The comparison is not ``funded tool vs. unfunded tool.'' It is ``tool built inside an institution vs. tool built outside all institutions.''
+
+This matters because \ac{} is not a prototype. It has a registered user base, tens of thousands of boot sessions, thousands of KidLisp programs, and hundreds of user-published pieces. The author's prior project, Whistlegraph, reached 2.6 million TikTok followers. People build on and take ideas from the platform's design---the prompt-as-instrument metaphor, the piece model, the approach to generative art on social platforms. The work has institutional recognition (KADIST, SMK National Gallery of Denmark, ZKM, Rhizome) and a community that uses it daily.
+
+The platform is real. The users are real. The funding is not.
+
+\section{What Would Work}
+
+Eghbal's \emph{Roads and Bridges}~\citep{eghbal2016roads} and \emph{Working in Public}~\citep{eghbal2020working} document the infrastructure crisis in open-source software broadly. Creative computing tools face a compounded version of the same crisis: they are infrastructure (used by millions), they are art (valued culturally but not commercially), and they are education (essential for pedagogy but unfunded as such).
+
+Czaplicki's farming metaphor is apt: ``saving in favorable seasons to endure lean ones.'' But creative tool authors rarely have favorable seasons. The Processing Foundation's NFT windfall was a once-in-a-generation favorable season. Most creators experience only lean ones.
+
+Models that might work:
+\begin{itemize}
+  \item \textbf{Sovereign tech funds}: Germany's Sovereign Tech Fund gave p5.js EUR 450,000. This model---government funding for open-source infrastructure---could be extended to creative tools.
+  \item \textbf{Worker cooperatives}: Ramsey Nasser's EMMA Technology Cooperative (4-person co-op in NYC) offers an alternative to both solo precarity and corporate employment.
+  \item \textbf{Long-term corporate fellowships}: Matz's 28-year NaCl fellowship is the most durable arrangement in our survey. Companies that depend on creative tools could offer similar arrangements.
+  \item \textbf{Maintenance stipends}: Ukeles argued that maintenance is a creative act~\citep{ukeles1969manifesto}. Stipends for maintaining existing tools---not just building new ones---would address the most common point of failure.
+  \item \textbf{Honest accounting}: Every paper about a creative tool should include a section on how its development was funded. The silence around funding perpetuates the myth that tools emerge from pure intellectual effort, obscuring the material conditions that make them possible.
+\end{itemize}
+
+\section{Conclusion}
+
+The creative computing tools used by millions of students, artists, and musicians are built and maintained by people who are, in most cases, not paid to do so. Their labor is subsidized by universities that do not value it, by corporations whose interests may diverge, by personal savings that deplete, and by health that deteriorates. The field has no funding model; it has a collection of coping strategies.
+
+Mark Fisher argued that capitalist realism---the pervasive sense that there is no alternative to the current system---functions not by prohibiting dissent but by making alternatives unimaginable~\citep{fisher2009capitalist}. The creative tool funding crisis operates under the same logic: it is easier to imagine a world without independent creative tools than a world where their creators are paid. This paper does not solve the problem. It names it. The 26 creators surveyed here---from Wall to McCarthy to Puckette to the author---share a common condition: they made tools that other people need, and they were not compensated at a level commensurate with that need. The gap between creation and funding is measured in years. The toll is measured in burnout, redundancy, illness, and disappearance.
+
+The question is not whether creative tools are valuable. They manifestly are. The question is whether the people who make them can continue. For some, the answer has been no. Davis died alongside railroad tracks after building a 121,000-line operating system on disability payments. \_why deleted everything after being doxed, having never received a cent. Aaron faced ``financial survival'' after Cambridge withdrew support. Van Rossum resigned after 29 years of community abuse. Wall developed Perl through unemployment and surgery. Goodiepal was expelled from the Royal Academy for ``having the wrong type of friends.''
+
+The pattern is consistent: every widely-used creative computing tool was built under an institutional umbrella---a university, a corporation, a foundation---that the tool's own documentation rarely acknowledges. When the umbrella is removed, the creator is exposed. When there is no umbrella to begin with, the creator's body becomes the infrastructure, and bodies fail.
+
+The author of this paper is in year five with an active user base and no institutional support. This is not a complaint; it is a data point. The next data point will be determined by whether the field develops a funding model or continues to rely on the bodies of its creators.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,297 @@
+% !TEX program = xelatex
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+\hypersetup{
+  pdftitle={Spillbare folkesange: Mundtlig tradition møder browsertastaturet},
+}
+
+% Listing style for notepat song notation
+\lstdefinestyle{notepat}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=flexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Spillbare}\par
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} folkesange}\par
+\vspace{0.3em}
+{\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} Mundtlig tradition møder browsertastaturet}\par
+\vspace{0.8em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Marts 2026}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% ABSTRACT CARD
+% ============================================================
+\clearpage
+\begin{accentcard}
+\cardtitle{Abstrakt}
+
+Folkesange udviklede sig til at være spillbare uden noder, huskbare uden instrumenter og forkbare uden tilladelse. Disse egenskaber---begrænset toneomfang, gentagen struktur, mundtlig overlevering---gør folkemelodier strukturelt ideelle for en browserbaseret tastatursynthesizer.
+
+\vspace{0.3em}
+
+Denne artikel beskriver integrationen af spillbare folkesange i \np{}.com, et kromatisk tastaturinstrument der afbilder QWERTY-taster til musikalske noder. Vi indkoder folkemelodier i et letvægts \texttt{NOTE:word}-format, der parrer hver tone med dens tekststavelse, hvilket skaber en guidet performance-tilstand, hvor instrumentet lærer sangen én node ad gangen.
+
+\vspace{0.3em}
+
+Vi gennemgår folkemelodisamlinger egnede til denne indkodning, analyserer hvorfor folkesanges strukturelle begrænsninger passer til tastatur-som-instrument-grænseflader, og argumenterer for, at folkeprocessen---variation, udvælgelse, mundtlig overlevering---har en naturlig digital analog i URL-delbare, forkbare sangindkodninger.
+\end{accentcard}
+
+% ============================================================
+% SECTION 1: THE ARGUMENT
+% ============================================================
+\section{Argumentet}
+
+Folkesange er menneskehedens ældste open source-software.
+
+De har ingen enkelt forfatter. De vedligeholdes af et fællesskab. De overleveres mundtligt---hvilket betyder, at de skal være simple nok til at huske, begrænsede nok til at gengive og fleksible nok til at tilpasse. Enhver sanger er en bidragyder; enhver fremførelse er en fork.
+
+\vspace{0.3em}
+
+Det er præcis de egenskaber, der gør en melodi spillbar på et QWERTY-tastatur.
+
+\begin{card}
+\cardtitle{Hvorfor folkesange?}
+\begin{itemize}
+  \item \textbf{Snævert toneomfang}: De fleste folkemelodier spænder over 1--1,5 oktaver~\citep{lomax1968folk}. \np{}'s to-oktav knapgitter dækker dem fuldstændigt.
+  \item \textbf{Pentatonisk bias}: Mange traditioner foretrækker 5-toneskalaer~\citep{kodaly1971folk}, hvilket reducerer den kognitive belastning ved at finde den næste tone.
+  \item \textbf{Gentagen struktur}: 8-takts fraser der gentages, spørgsmål-og-svar-mønstre, vers-omkvæd-former---alt sammen letter hukommelse og guidet afspilning.
+  \item \textbf{Ingen forkerte noder}: I pentatoniske melodier er tilstødende skalatoner konsonante. Orff Schulwerk-metoden udnytter samme egenskab med aftagelige xylofonstave~\citep{orff1978schulwerk}.
+\end{itemize}
+\end{card}
+
+% ============================================================
+% SECTION 2: THE INSTRUMENT
+% ============================================================
+\section{Instrumentet}
+
+\np{}.com er en browserbaseret kromatisk synthesizer bygget som et ``piece'' (interaktivt program) inde i \ac{}~\citep{scudder2026ac, scudder2026notepat}. Det afbilder QWERTY-tastaturet til 24 kromatiske noder fordelt over to oktaver, med oktavskift til at dække hele pianoets omfang.
+
+\begin{darkcard}
+\textbf{Sangtilstand} omdanner \np{} fra et fritstillet instrument til en guidet performance-grænseflade. Et rullende tekstspor viser den aktuelle stavelse; kun den korrekte node er aktiv; tryk på den fører videre til næste stavelse. Spilleren kan ikke lave en fejl---de kan kun vente.
+\end{darkcard}
+
+Denne ``støttehjuls''-tilgang---blokering af forkerte noder, fremhævning af den rigtige---afspejler Orff- og Kod\'aly-pædagogikkerne, der begrænser instrumentet til at matche elevens aktuelle niveau~\citep{kodaly1971folk, orff1978schulwerk}.
+
+% ============================================================
+% SECTION 3: THE ENCODING
+% ============================================================
+\section{Indkodningen}
+
+Sange i \np{} indkodes som mellemrumsadskilt \texttt{NOTE:word}-par:
+
+\notesong{C:Twin- C:-kle G:twin- G:-kle A:lit- A:-tle G:star,\\
+F:how F:I E:won- E:-der D:what D:you C:are.}
+
+Hvert token er et nodenavn (\texttt{C}, \texttt{G}, \texttt{A}, \texttt{F\#}, osv.) parret med en tekststavelse via kolon. Bindestreger angiver stavelsesfortsættelse: en afsluttende bindestreg (\texttt{Twin-}) betyder, at næste token fortsætter samme ord; en indledende bindestreg (\texttt{-kle}) er fortsættelsen.
+
+\begin{card}
+\cardtitle{Designegenskaber}
+\begin{itemize}
+  \item \textbf{Menneskelæseligt}: En musiker kan prima vista-læse indkodningen direkte.
+  \item \textbf{URL-sikkert}: Sange kan sendes som URL-parametre til \np{}.
+  \item \textbf{Forkbart}: Kopier, rediger, del---folkeprocessen i en tekststreng.
+  \item \textbf{Minimalt}: Ingen varighed, ingen dynamik, intet tempo. Spilleren styrer alle tre.
+\end{itemize}
+\end{card}
+
+Fraværet af rytmeinformation er bevidst. I mundtlig tradition tilhører rytmen udøveren, ikke partituret~\citep{lomax1968folk}. Indkodningen fanger \emph{hvad} der skal spilles; spilleren bestemmer \emph{hvordan}.
+
+% ============================================================
+% SECTION 4: A CATALOG
+% ============================================================
+\section{Et katalog over spillbare melodier}
+
+Vi gennemgik folkesangssamlinger fra flere traditioner og udvalgte melodier optimeret til \np{}'s to-oktav gitter. Udvælgelseskriterier: toneomfang $\leq$\,15 halvtoner, pentatonisk eller simpel diatonisk skala, og kulturel genkendelighed.
+
+\begin{card}
+\cardtitle{Pentatoniske (5 toner)}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{Sang} & \textbf{Oprindelse} & \textbf{Omfang} \\
+\midrule
+Amazing Grace & Amerikansk & P5+okt \\
+Auld Lang Syne & Skotsk & okt \\
+Arirang & Koreansk & okt \\
+Sakura & Japansk & m7 \\
+Mo Li Hua & Kinesisk & okt \\
+Swing Low & Spiritual & okt \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+\begin{card}
+\cardtitle{Snævert omfang ($<$ oktav)}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{Sang} & \textbf{Oprindelse} & \textbf{Omfang} \\
+\midrule
+Mary Had a Little Lamb & Amerikansk & P5 \\
+Hot Cross Buns & Engelsk & M3 \\
+Fr\`ere Jacques & Fransk & M6 \\
+London Bridge & Engelsk & P5 \\
+Korobeiniki & Russisk & okt \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+\begin{card}
+\cardtitle{Modale \& diatoniske}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{Sang} & \textbf{Oprindelse} & \textbf{Omfang} \\
+\midrule
+Greensleeves & Engelsk & 10. \\
+Scarborough Fair & Engelsk & okt \\
+Danny Boy & Irsk & 10. \\
+Shenandoah & Amerikansk & 10. \\
+Hava Nagila & Israelsk & okt \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+% ============================================================
+% SECTION 5: FOLK PROCESS AS VERSION CONTROL
+% ============================================================
+\section{Folkeprocessen som versionsstyring}
+
+International Folk Music Council identificerede tre egenskaber ved folkeprocessen: \emph{kontinuitet} (forbindelse mellem nutid og fortid), \emph{variation} (den kreative impuls hos individuelle udøvere) og \emph{udvælgelse} (fællesskabet bestemmer, hvilke former der overlever)~\citep{karpeles1955definition}.
+
+\begin{accentcard}
+Disse afbildes direkte til softwareversionsstyring:
+
+\vspace{0.3em}
+\begin{tabularx}{\linewidth}{lX}
+\textbf{Kontinuitet} & \texttt{main}-branch \\
+\textbf{Variation} & commits, forks \\
+\textbf{Udvælgelse} & merge-beslutninger, adoption \\
+\end{tabularx}
+\end{accentcard}
+
+En \np{}-sangindkodning er en URL. At dele en sang er at dele et link. At ændre en sang er at redigere en tekststreng og dele et nyt link. Den ``mundtlige tradition'' bliver en tradition af URL'er---melodien overleveres ikke gennem hukommelse, men gennem hypertekst.
+
+Dette er ikke metaforisk. Essen Associative Code (ESAC)-databasen, startet i 1982, indkodede $\sim$8.000 europæiske og kinesiske folkesange i en computervenlig notation inspireret af kinesisk \textit{jianpu}~\citep{schaffrath1995esac}. \np{}'s \texttt{NOTE:word}-format er en direkte efterkommer af denne tradition: indkodning af melodi som tekst, så beregning og overlevering bliver mulig.
+
+% ============================================================
+% SECTION 6: COMPUTATIONAL MUSICOLOGY
+% ============================================================
+\section{Beregningsmæssige dimensioner}
+
+Passmore et al.\ modellerede folkemelodier som udviklende sekvenser fra et 12-tone ``alfabet'' og anvendte sekvensaligneringsmetoder lånt fra molekylær genetik på 10.062 japanske og engelske melodier~\citep{passmore2023cultural}. De fandt, at toneændringer med mindre melodisk påvirkning har større sandsynlighed for at overleve---et selektionspres der favoriserer den enkelhed, folkesange er kendt for.
+
+\begin{card}
+\cardtitle{Hvorfor dette er vigtigt for \np{}}
+
+Hvis folkemelodier er underlagt evolutionært selektionspres mod enkelhed, så \emph{konvergerer} de mod de egenskaber, der gør dem spillbare på begrænsede grænseflader. QWERTY-tastaturet er ikke en fattig erstatning for et klaver---det er en begrænsning, der matcher den begrænsning, folkeprocessen allerede anvender.
+\end{card}
+
+Lomax' cantometrics-projekt kodede 37 aspekter af performance-stil på tværs af 5.776 sange fra 1.026 samfund og fandt, at performance-stil (ikke melodisk indhold) var den primære kulturelle indikator~\citep{lomax1968folk}. Dette understøtter \np{}'s designbeslutning om at indkode tonehøjde men ikke rytme: den kulturelt betydningsfulde variation sker i \emph{hvordan} noderne fremføres, hvilket er præcis det, spilleren styrer.
+
+% ============================================================
+% SECTION 7: RELATED INSTRUMENTS
+% ============================================================
+\section{Relaterede instrumenter}
+
+\begin{card}
+\cardtitle{aQWERTYon}
+NYU's Music Experience Design Lab byggede aQWERTYon, et browserinstrument der afbilder QWERTY-taster til skalatrin, så der er ``ingen forkerte noder''~\citep{hein2017aqwertyon}. \np{} adskiller sig på to måder: det bruger \emph{kromatisk} afbildning (forkerte noder er mulige og pædagogisk nyttige), og det parrer noder med sangtekst (sangen lærer sig selv).
+\end{card}
+
+\begin{card}
+\cardtitle{ABC Notation}
+De facto-standarden for folkemusikindkodning, ABC notation repræsenterer melodi som tekst~\citep{walshaw2011abc}. \texttt{abcjs}-biblioteket renderer ABC som interaktivt nodeblad i browsere. \np{}'s indkodning er simplere---ingen varighed, ingen taktstreger---fordi den ikke er et notationssystem, men et \emph{performance-script}: den fortæller spilleren, hvad der skal trykkes, ikke hvordan musikken ser ud.
+\end{card}
+
+\begin{card}
+\cardtitle{Tunepal}
+Et musikinformationssøgningssystem, der forbinder musikere med 13.290 traditionelle irske melodier via forespørgsel-ved-spil~\citep{duggan2009tunepal}. Tunepal finder melodier; \np{} lærer dem. De er komplementære.
+\end{card}
+
+% ============================================================
+% SECTION 8: THE BARE-METAL FOLK INSTRUMENT
+% ============================================================
+\section{Bare-metal-folkeinstrumentet}
+
+\np{} kører ikke kun i browsere, men på bare metal---en 987-linjers QuickJS-port der booter som PID~1 på AC Native OS~\citep{scudder2026os}. En laptop der kører \np{} på bare metal er, i bogstavelig forstand, et folkeinstrument: en enkelformålsenhed til at spille sange, uden styresystem, uden skrivebord, uden distraktioner.
+
+\begin{accentcard}
+Konvergensen er fuldstændig: folkesange, designet til at blive spillet på det simpleste tilgængelige instrument, kørende på den simplest mulige computer---en Linux-kerne, en framebuffer og et tastatur.
+\end{accentcard}
+
+% ============================================================
+% SECTION 9: FUTURE WORK
+% ============================================================
+\section{Fremtidigt arbejde}
+
+\begin{card}
+\begin{itemize}
+  \item \textbf{Crowdsourcet indkodning}: Et offentligt arkiv af \texttt{NOTE:word}-indkodninger, indsendt som URL'er, versioneret som folkesange selv.
+  \item \textbf{Tværkulturelle samlinger}: Indkodning af melodier fra Essen-, Roud- og Lomax-arkiverne til \np{}-format, med tilladelse og kreditering.
+  \item \textbf{Adaptiv sværhedsgrad}: Udvidelse af toneomfanget efterhånden som spilleren mestrer simplere sange---en Kod\'aly-lignende progression gennem folkerepertoiret.
+  \item \textbf{Flerspiller-folkesessions}: To \np{}-spillere på samme sang, én spiller melodi, én spiller harmoni---en digital \textit{session} i den irske traditionelle forstand.
+  \item \textbf{Optagelse og deling}: Optag en fremførelse som lyd, par den med indkodnings-URL'en og post den---en mundtlig tradition med kvitteringer.
+\end{itemize}
+\end{card}
+
+% ============================================================
+% CONCLUSION CARD
+% ============================================================
+\section{Konklusion}
+
+Folkesange overlevede århundreder uden notation, uden optagelse, uden instrumenter. De overlevede, fordi de var simple nok til at huske, fleksible nok til at tilpasse og værdifulde nok til at dele.
+
+Et browsertastatur, der lærer disse sange én node ad gangen, er ikke et brud med folketraditionen. Det \emph{er} folketraditionen---tilpasset, endnu en gang, til det forhåndenværende instrument.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.3em}
+\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

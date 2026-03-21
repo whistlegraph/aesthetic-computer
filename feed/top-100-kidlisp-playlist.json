@@ -1,0 +1,1016 @@
+{
+  "dpVersion": "1.1.0",
+  "title": "Top 100 as of Thursday, January 29, 2026",
+  "summary": "The 100 most popular KidLisp pieces by total hits",
+  "items": [
+    {
+      "title": "$bop",
+      "source": "https://device.kidlisp.com/$bop?playlist=true&duration=24&index=0&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bop"
+      }
+    },
+    {
+      "title": "$pie",
+      "source": "https://device.kidlisp.com/$pie?playlist=true&duration=24&index=1&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$pie"
+      }
+    },
+    {
+      "title": "$roz",
+      "source": "https://device.kidlisp.com/$roz?playlist=true&duration=24&index=2&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$roz"
+      }
+    },
+    {
+      "title": "$cow",
+      "source": "https://device.kidlisp.com/$cow?playlist=true&duration=24&index=3&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$cow"
+      }
+    },
+    {
+      "title": "$39i",
+      "source": "https://device.kidlisp.com/$39i?playlist=true&duration=24&index=4&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$39i"
+      }
+    },
+    {
+      "title": "$nsh",
+      "source": "https://device.kidlisp.com/$nsh?playlist=true&duration=24&index=5&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$nsh"
+      }
+    },
+    {
+      "title": "$ceo",
+      "source": "https://device.kidlisp.com/$ceo?playlist=true&duration=24&index=6&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ceo"
+      }
+    },
+    {
+      "title": "$r2f",
+      "source": "https://device.kidlisp.com/$r2f?playlist=true&duration=24&index=7&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$r2f"
+      }
+    },
+    {
+      "title": "$4xa",
+      "source": "https://device.kidlisp.com/$4xa?playlist=true&duration=24&index=8&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$4xa"
+      }
+    },
+    {
+      "title": "$inz",
+      "source": "https://device.kidlisp.com/$inz?playlist=true&duration=24&index=9&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$inz"
+      }
+    },
+    {
+      "title": "$87a",
+      "source": "https://device.kidlisp.com/$87a?playlist=true&duration=24&index=10&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$87a"
+      }
+    },
+    {
+      "title": "$wezo",
+      "source": "https://device.kidlisp.com/$wezo?playlist=true&duration=24&index=11&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wezo"
+      }
+    },
+    {
+      "title": "$woe",
+      "source": "https://device.kidlisp.com/$woe?playlist=true&duration=24&index=12&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$woe"
+      }
+    },
+    {
+      "title": "$wifz",
+      "source": "https://device.kidlisp.com/$wifz?playlist=true&duration=24&index=13&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wifz"
+      }
+    },
+    {
+      "title": "$lei",
+      "source": "https://device.kidlisp.com/$lei?playlist=true&duration=24&index=14&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$lei"
+      }
+    },
+    {
+      "title": "$4bb",
+      "source": "https://device.kidlisp.com/$4bb?playlist=true&duration=24&index=15&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$4bb"
+      }
+    },
+    {
+      "title": "$c4x",
+      "source": "https://device.kidlisp.com/$c4x?playlist=true&duration=24&index=16&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$c4x"
+      }
+    },
+    {
+      "title": "$bels",
+      "source": "https://device.kidlisp.com/$bels?playlist=true&duration=24&index=17&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bels"
+      }
+    },
+    {
+      "title": "$ock",
+      "source": "https://device.kidlisp.com/$ock?playlist=true&duration=24&index=18&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ock"
+      }
+    },
+    {
+      "title": "$1fi",
+      "source": "https://device.kidlisp.com/$1fi?playlist=true&duration=24&index=19&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$1fi"
+      }
+    },
+    {
+      "title": "$6cc",
+      "source": "https://device.kidlisp.com/$6cc?playlist=true&duration=24&index=20&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$6cc"
+      }
+    },
+    {
+      "title": "$857",
+      "source": "https://device.kidlisp.com/$857?playlist=true&duration=24&index=21&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$857"
+      }
+    },
+    {
+      "title": "$woww",
+      "source": "https://device.kidlisp.com/$woww?playlist=true&duration=24&index=22&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$woww"
+      }
+    },
+    {
+      "title": "$7xl",
+      "source": "https://device.kidlisp.com/$7xl?playlist=true&duration=24&index=23&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$7xl"
+      }
+    },
+    {
+      "title": "$febs",
+      "source": "https://device.kidlisp.com/$febs?playlist=true&duration=24&index=24&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$febs"
+      }
+    },
+    {
+      "title": "$fky",
+      "source": "https://device.kidlisp.com/$fky?playlist=true&duration=24&index=25&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$fky"
+      }
+    },
+    {
+      "title": "$berz",
+      "source": "https://device.kidlisp.com/$berz?playlist=true&duration=24&index=26&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$berz"
+      }
+    },
+    {
+      "title": "$o6p",
+      "source": "https://device.kidlisp.com/$o6p?playlist=true&duration=24&index=27&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$o6p"
+      }
+    },
+    {
+      "title": "$bap",
+      "source": "https://device.kidlisp.com/$bap?playlist=true&duration=24&index=28&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bap"
+      }
+    },
+    {
+      "title": "$wwi",
+      "source": "https://device.kidlisp.com/$wwi?playlist=true&duration=24&index=29&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wwi"
+      }
+    },
+    {
+      "title": "$plw",
+      "source": "https://device.kidlisp.com/$plw?playlist=true&duration=24&index=30&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$plw"
+      }
+    },
+    {
+      "title": "$lzb",
+      "source": "https://device.kidlisp.com/$lzb?playlist=true&duration=24&index=31&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$lzb"
+      }
+    },
+    {
+      "title": "$air",
+      "source": "https://device.kidlisp.com/$air?playlist=true&duration=24&index=32&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$air"
+      }
+    },
+    {
+      "title": "$pif",
+      "source": "https://device.kidlisp.com/$pif?playlist=true&duration=24&index=33&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$pif"
+      }
+    },
+    {
+      "title": "$zo5",
+      "source": "https://device.kidlisp.com/$zo5?playlist=true&duration=24&index=34&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$zo5"
+      }
+    },
+    {
+      "title": "$wib",
+      "source": "https://device.kidlisp.com/$wib?playlist=true&duration=24&index=35&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wib"
+      }
+    },
+    {
+      "title": "$9ay",
+      "source": "https://device.kidlisp.com/$9ay?playlist=true&duration=24&index=36&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$9ay"
+      }
+    },
+    {
+      "title": "$kl5",
+      "source": "https://device.kidlisp.com/$kl5?playlist=true&duration=24&index=37&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$kl5"
+      }
+    },
+    {
+      "title": "$bair",
+      "source": "https://device.kidlisp.com/$bair?playlist=true&duration=24&index=38&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bair"
+      }
+    },
+    {
+      "title": "$mtz",
+      "source": "https://device.kidlisp.com/$mtz?playlist=true&duration=24&index=39&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$mtz"
+      }
+    },
+    {
+      "title": "$omd",
+      "source": "https://device.kidlisp.com/$omd?playlist=true&duration=24&index=40&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$omd"
+      }
+    },
+    {
+      "title": "$wes",
+      "source": "https://device.kidlisp.com/$wes?playlist=true&duration=24&index=41&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wes"
+      }
+    },
+    {
+      "title": "$mz4",
+      "source": "https://device.kidlisp.com/$mz4?playlist=true&duration=24&index=42&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$mz4"
+      }
+    },
+    {
+      "title": "$b4t",
+      "source": "https://device.kidlisp.com/$b4t?playlist=true&duration=24&index=43&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$b4t"
+      }
+    },
+    {
+      "title": "$ga1",
+      "source": "https://device.kidlisp.com/$ga1?playlist=true&duration=24&index=44&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ga1"
+      }
+    },
+    {
+      "title": "$dbh",
+      "source": "https://device.kidlisp.com/$dbh?playlist=true&duration=24&index=45&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$dbh"
+      }
+    },
+    {
+      "title": "$4wi",
+      "source": "https://device.kidlisp.com/$4wi?playlist=true&duration=24&index=46&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$4wi"
+      }
+    },
+    {
+      "title": "$inc",
+      "source": "https://device.kidlisp.com/$inc?playlist=true&duration=24&index=47&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$inc"
+      }
+    },
+    {
+      "title": "$epk",
+      "source": "https://device.kidlisp.com/$epk?playlist=true&duration=24&index=48&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$epk"
+      }
+    },
+    {
+      "title": "$fdj",
+      "source": "https://device.kidlisp.com/$fdj?playlist=true&duration=24&index=49&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$fdj"
+      }
+    },
+    {
+      "title": "$h6g",
+      "source": "https://device.kidlisp.com/$h6g?playlist=true&duration=24&index=50&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$h6g"
+      }
+    },
+    {
+      "title": "$ri3",
+      "source": "https://device.kidlisp.com/$ri3?playlist=true&duration=24&index=51&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ri3"
+      }
+    },
+    {
+      "title": "$otoc",
+      "source": "https://device.kidlisp.com/$otoc?playlist=true&duration=24&index=52&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$otoc"
+      }
+    },
+    {
+      "title": "$bjn",
+      "source": "https://device.kidlisp.com/$bjn?playlist=true&duration=24&index=53&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bjn"
+      }
+    },
+    {
+      "title": "$nrb",
+      "source": "https://device.kidlisp.com/$nrb?playlist=true&duration=24&index=54&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$nrb"
+      }
+    },
+    {
+      "title": "$olp",
+      "source": "https://device.kidlisp.com/$olp?playlist=true&duration=24&index=55&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$olp"
+      }
+    },
+    {
+      "title": "$h67",
+      "source": "https://device.kidlisp.com/$h67?playlist=true&duration=24&index=56&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$h67"
+      }
+    },
+    {
+      "title": "$reeb",
+      "source": "https://device.kidlisp.com/$reeb?playlist=true&duration=24&index=57&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$reeb"
+      }
+    },
+    {
+      "title": "$ory",
+      "source": "https://device.kidlisp.com/$ory?playlist=true&duration=24&index=58&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ory"
+      }
+    },
+    {
+      "title": "$niy",
+      "source": "https://device.kidlisp.com/$niy?playlist=true&duration=24&index=59&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$niy"
+      }
+    },
+    {
+      "title": "$y95",
+      "source": "https://device.kidlisp.com/$y95?playlist=true&duration=24&index=60&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$y95"
+      }
+    },
+    {
+      "title": "$ayc",
+      "source": "https://device.kidlisp.com/$ayc?playlist=true&duration=24&index=61&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ayc"
+      }
+    },
+    {
+      "title": "$qkn",
+      "source": "https://device.kidlisp.com/$qkn?playlist=true&duration=24&index=62&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$qkn"
+      }
+    },
+    {
+      "title": "$i5t",
+      "source": "https://device.kidlisp.com/$i5t?playlist=true&duration=24&index=63&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$i5t"
+      }
+    },
+    {
+      "title": "$boo",
+      "source": "https://device.kidlisp.com/$boo?playlist=true&duration=24&index=64&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$boo"
+      }
+    },
+    {
+      "title": "$wiww",
+      "source": "https://device.kidlisp.com/$wiww?playlist=true&duration=24&index=65&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wiww"
+      }
+    },
+    {
+      "title": "$faim",
+      "source": "https://device.kidlisp.com/$faim?playlist=true&duration=24&index=66&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$faim"
+      }
+    },
+    {
+      "title": "$dlb",
+      "source": "https://device.kidlisp.com/$dlb?playlist=true&duration=24&index=67&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$dlb"
+      }
+    },
+    {
+      "title": "$noc",
+      "source": "https://device.kidlisp.com/$noc?playlist=true&duration=24&index=68&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$noc"
+      }
+    },
+    {
+      "title": "$peil",
+      "source": "https://device.kidlisp.com/$peil?playlist=true&duration=24&index=69&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$peil"
+      }
+    },
+    {
+      "title": "$rzo",
+      "source": "https://device.kidlisp.com/$rzo?playlist=true&duration=24&index=70&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$rzo"
+      }
+    },
+    {
+      "title": "$sepb",
+      "source": "https://device.kidlisp.com/$sepb?playlist=true&duration=24&index=71&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$sepb"
+      }
+    },
+    {
+      "title": "$isd",
+      "source": "https://device.kidlisp.com/$isd?playlist=true&duration=24&index=72&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$isd"
+      }
+    },
+    {
+      "title": "$78o",
+      "source": "https://device.kidlisp.com/$78o?playlist=true&duration=24&index=73&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$78o"
+      }
+    },
+    {
+      "title": "$qv6",
+      "source": "https://device.kidlisp.com/$qv6?playlist=true&duration=24&index=74&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$qv6"
+      }
+    },
+    {
+      "title": "$aes",
+      "source": "https://device.kidlisp.com/$aes?playlist=true&duration=24&index=75&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$aes"
+      }
+    },
+    {
+      "title": "$iqa",
+      "source": "https://device.kidlisp.com/$iqa?playlist=true&duration=24&index=76&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$iqa"
+      }
+    },
+    {
+      "title": "$fnv",
+      "source": "https://device.kidlisp.com/$fnv?playlist=true&duration=24&index=77&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$fnv"
+      }
+    },
+    {
+      "title": "$w5m",
+      "source": "https://device.kidlisp.com/$w5m?playlist=true&duration=24&index=78&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$w5m"
+      }
+    },
+    {
+      "title": "$qxx",
+      "source": "https://device.kidlisp.com/$qxx?playlist=true&duration=24&index=79&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$qxx"
+      }
+    },
+    {
+      "title": "$uni",
+      "source": "https://device.kidlisp.com/$uni?playlist=true&duration=24&index=80&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$uni"
+      }
+    },
+    {
+      "title": "$uvc",
+      "source": "https://device.kidlisp.com/$uvc?playlist=true&duration=24&index=81&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$uvc"
+      }
+    },
+    {
+      "title": "$n4a",
+      "source": "https://device.kidlisp.com/$n4a?playlist=true&duration=24&index=82&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$n4a"
+      }
+    },
+    {
+      "title": "$bial",
+      "source": "https://device.kidlisp.com/$bial?playlist=true&duration=24&index=83&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bial"
+      }
+    },
+    {
+      "title": "$3pr",
+      "source": "https://device.kidlisp.com/$3pr?playlist=true&duration=24&index=84&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$3pr"
+      }
+    },
+    {
+      "title": "$zba",
+      "source": "https://device.kidlisp.com/$zba?playlist=true&duration=24&index=85&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$zba"
+      }
+    },
+    {
+      "title": "$wa9",
+      "source": "https://device.kidlisp.com/$wa9?playlist=true&duration=24&index=86&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wa9"
+      }
+    },
+    {
+      "title": "$eel",
+      "source": "https://device.kidlisp.com/$eel?playlist=true&duration=24&index=87&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$eel"
+      }
+    },
+    {
+      "title": "$u2b",
+      "source": "https://device.kidlisp.com/$u2b?playlist=true&duration=24&index=88&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$u2b"
+      }
+    },
+    {
+      "title": "$bell",
+      "source": "https://device.kidlisp.com/$bell?playlist=true&duration=24&index=89&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$bell"
+      }
+    },
+    {
+      "title": "$uen",
+      "source": "https://device.kidlisp.com/$uen?playlist=true&duration=24&index=90&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$uen"
+      }
+    },
+    {
+      "title": "$tgo",
+      "source": "https://device.kidlisp.com/$tgo?playlist=true&duration=24&index=91&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$tgo"
+      }
+    },
+    {
+      "title": "$nece",
+      "source": "https://device.kidlisp.com/$nece?playlist=true&duration=24&index=92&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$nece"
+      }
+    },
+    {
+      "title": "$ljk",
+      "source": "https://device.kidlisp.com/$ljk?playlist=true&duration=24&index=93&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$ljk"
+      }
+    },
+    {
+      "title": "$cjg",
+      "source": "https://device.kidlisp.com/$cjg?playlist=true&duration=24&index=94&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$cjg"
+      }
+    },
+    {
+      "title": "$weus",
+      "source": "https://device.kidlisp.com/$weus?playlist=true&duration=24&index=95&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$weus"
+      }
+    },
+    {
+      "title": "$wah",
+      "source": "https://device.kidlisp.com/$wah?playlist=true&duration=24&index=96&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$wah"
+      }
+    },
+    {
+      "title": "$17m",
+      "source": "https://device.kidlisp.com/$17m?playlist=true&duration=24&index=97&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$17m"
+      }
+    },
+    {
+      "title": "$mpl",
+      "source": "https://device.kidlisp.com/$mpl?playlist=true&duration=24&index=98&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$mpl"
+      }
+    },
+    {
+      "title": "$gdc",
+      "source": "https://device.kidlisp.com/$gdc?playlist=true&duration=24&index=99&total=100",
+      "duration": 24,
+      "license": "open",
+      "provenance": {
+        "type": "offChainURI",
+        "uri": "https://kidlisp.com/$gdc"
+      }
+    }
+  ],
+  "defaults": {
+    "display": {
+      "scaling": "fit",
+      "background": "#000000",
+      "margin": "0%"
+    },
+    "license": "open",
+    "duration": 24
+  }
+}

@@ -1,0 +1,86 @@
+*** Ideas ***
+(Old ones from README on 23.02.10.18.57)
+
+Rewrite my old Python `Diary` program.
+  - Mint diary entries.
+
+Remake Shrub
+
+Improve documentation.
+  - In console when the whole thing opens.
+  - Have a global keyboard shortcut to spit documentation to console... for each
+    function!
+  - Get jsDocs working: https://jsdoc.app/about-configuring-jsdoc.html
+
+Development Improvements
+  Would the best way to produce a scripting language be by making a fully
+  curry-able system or some domain specific languages using `` then
+  combining them?
+  -- See here for a notation example of inline s-expressions: https://hag.codes
+
+  Could an editing session or new disk be started from the prompt? Maybe it
+  could load a GitHub codespace?
+
+  - How to make use of xterm.js? Could it be used for this project or not...
+
+  Implement drawing / gesture based disk launchers from the prompt.
+
+  Take over right click so no context menu shows up.
+
+  Ink types? ... can they be procedural using a buffer?
+
+  What would a build script for releasing a single disk or
+  stack of disks look like?
+
+    1. Make a new directory D for the build.
+    2. Copy a subset of /disks/public to D/disks
+    3. Copy index.html, style.css, boot-rolled.js and /computer to D.
+    4. Modify boot-rolled.js to start loading from the first listed disk.
+    5. Generate metadata.json for the work.
+    6. Zip and upload to fxHash or put whole directory into Pinata.
+    7. Test to make sure everything works.
+    8. Mint on a contract (or Cancel and remove files from IPFS).
+
+  What would a full system / suite release look like?
+
+    Using the build script with a set of chosen disks where the main
+    disk is a shell interface.
+
+    Document the API by generating the commands inside a disk and print
+    them to the console using keyboard shortcuts.
+
+    - [] Generate full API docs in the prompt disk.
+
+  Make my first generative disk / piece and mint it.
+    - Test it in Chrome / Safari / and Firefox.
+    - In larger multi-disk IPFS exports, a new root path must be defined other
+      than `prompt`. See disk.js `load` function.
+
+  Make a quick fullscreen button (make a new keyboard input module).
+
+  Fix Firefox: https://bugzilla.mozilla.org/show_bug.cgi?id=1247687
+
+  Add a new deployment scheme that actually allows my websocket server to
+  function... this might mean leaving behind Vercel or configuring it
+  for different directories in my repository, running separate server code
+  for sockets.
+
+  Add syntax notification of some kind for disk files, using a comment at
+  the top. This would eventually allow me to completely
+  change from JavaScript.
+
+  Add stochastic syntax / DSL for basic drawing?
+  Example: wipe.ink.line.line.line.ink("red").box;
+
+  What cryptocurrency / web3.js lib would I hook an editor up to
+  for minting, uploading edition data, etc?
+
+  Make a video-recording app that generates 3 letter codes? - to augment
+  my hand-written notes and pages.
+
+  Add ability to define the logical / simulation framerate.
+
+  Give myself the ability to automate testing of system using "robot".
+
+  Write a simple note taking program with saving and loading of drawings
+  and also recording and playback?

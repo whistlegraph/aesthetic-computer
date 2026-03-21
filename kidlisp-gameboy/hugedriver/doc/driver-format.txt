@@ -1,0 +1,71 @@
+A hUGEDriver pattern is a series of 64 rows in this format:
+
+  Note     Instr    Effect
+NNNNNNNN, IIIIEEEE, XXXXYYYY
+
+where
+
+N = Note code
+I = Instrument code
+E = Effect code
+X = Effect param 1
+Y = Effect param 2
+
+A hUGEDriver table is a series of 16 rows in this format:
+
+  Note     Instr    Effect
+NNNNNNNN, IIIIEEEE, XXXXYYYY
+
+where
+
+N = Note code
+I = Jump number
+E = Effect code
+X = Effect param 1
+Y = Effect param 2
+
+If the note code is greater than 71 then it's considered to be an empty note cell.
+
+00 is an empty instrument cell.
+
+000 is an empty effect cell.
+
+Effect list
+
+0 - Arpeggio
+1 - Slide up
+2 - Slide down
+3 - Toneporta
+4 - Vibrato
+5 - Set master volume
+6 - Call routine
+7 - Note delay
+8 - Set panning
+9 - Set duty cycle
+A - Volslide
+B - Position jump
+C - Set volume
+D - Pattern break
+E - Note cut
+F - Set speed
+
+Instrument formats
+
+-=-=-Square-=-=-
+1: Sweep NR10
+2: Length NR11
+3: Envelope NR12
+4: Highmask (%xytttttt) where X is set if it is a trigger note
+   (should always be 1) and Y is the length enabled flag
+   and T is the table number
+
+-=-=-Wave-=-=-
+1: Length NR31
+2: Sound level NR32
+3: Waveform number associated with this instrument
+4: Highmask as shown before
+
+-=-=-Noise-=-=-
+1: Envelope NR42
+2: Highmask + Length combined; 1 bit for counter step, 1 bit for length enabled, followed by the length itself
+3: Table

@@ -1,0 +1,185 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{multicol}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{listings}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{acgreen}{RGB}{78,203,113}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={@jeffrey},pdftitle={Citationsdiversitetsrevision for Aesthetic Computer artikelserien}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Citationsdiversitetsrevision}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computer artikelserien, marts 2026}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://papers.aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Vi reviderer citationspraksisserne på tværs af \ac{} artikelserien---otte akademiske artikler, der spænder over kreativ computing, sprogdesign, styresystemer og digitalt instrumentdesign. Revisionen afslører betydelig underrepræsentation af kvinder ($\sim$11\%), ikke-vestlige forskere ($\sim$5\%) og sorte, oprindelige og latinamerikanske forskere ($\sim$6\%) blandt de $\sim$80 unikke forfattere, der citeres. Vi identificerer specifikke værker, der ville styrke hver artikel, mens de diversificerer det videnskabelige fundament, foreslår per-artikel integrationsmål på 30\% kvinder og 20\% ikke-vestlige forfattere, og publicerer en åben læseliste organiseret efter mangelområde. Dette dokument er både en selvevaluering og en forpligtelse til løbende forbedring.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Hvorfor denne revision}
+
+\ac{} artikelserien~\citep{scudder2026ac, scudder2026kidlisp, scudder2026acos, scudder2026pieces, scudder2026notepat} fremsætter påstande om adgang, inklusion og kreativt udtryk. Et projekt, der argumenterer for universel kreativ computing-adgang, må undersøge, om dets videnskabelige fundament afspejler den diversitet, det fortaler for.
+
+Citationspraksisser er ikke neutrale. De udgør en videnøkonomi: hvem vi citerer, former hvem der bliver læst, hvem der bliver ansat, hvem der bliver finansieret, og hvis idéer der behandles som grundlæggende~\citep{benjamin2019race}.
+
+\section{Nuværende tilstand}
+
+\subsection{Demografi}
+
+\begin{table}[h]
+\small\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Dimension} & \textbf{Antal} & \textbf{\%} \\
+\midrule
+Kvindelige forfattere & $\sim$9 & 11\% \\
+Ikke-US/UK/EU-forfattere & $\sim$4 & 5\% \\
+Sorte / oprindelige / LatAm / asiatiske & $\sim$5 & 6\% \\
+Selvhenvisninger (Scudder) & 5 & 6\% \\
+\midrule
+\textbf{Totale unikke forfattere} & $\sim$80 & 100\% \\
+\bottomrule
+\end{tabular}
+\caption{Forfatterdemografi på tværs af alle artikler (marts 2026).}
+\label{tab:demographics}
+\end{table}
+
+Citationskorpusset er overvejende hvidt, mandligt og euroamerikansk. Dette er ikke usædvanligt for kreative computingartikler, men ``ikke usædvanligt'' er ikke ``acceptabelt.''
+
+\section{Mangelanalyse}
+
+\subsection{Kvinder i kreativ kodning}
+
+Nøglefigurer inkluderer: \textbf{Joana Chicau}~\citep{chicau2021choreo}, \textbf{Shelly Knotts}~\citep{knotts2015algorithmic}, \textbf{Allison Parrish}~\citep{parrish2015programming}, \textbf{Kate Compton}~\citep{compton2015tracery}.
+
+\subsection{Sorte computingstudier}
+
+\textbf{Ruha Benjamin}~\citep{benjamin2019race}, \textbf{Safiya Umoja Noble}~\citep{noble2018algorithms}, \textbf{Andr\'e Brock}~\citep{brock2020distributed}, \textbf{Charlton McIlwain}~\citep{mcilwain2019black}.
+
+\subsection{Ikke-vestlig teori}
+
+\textbf{Yuk Hui}~\citep{hui2016existence, hui2019recursion}: digital ontologi, teknodiversitet. \textbf{Hito Steyerl}~\citep{steyerl2009poor}: ``In Defense of the Poor Image.'' \textbf{Kodwo Eshun}~\citep{eshun1998brilliant}: afrofuturistisk sonic fiction.
+
+\subsection{Oprindelig og dekolonial computing}
+
+\textbf{Lewis et al.}~\citep{lewis2018kin}, \textbf{Sasha Costanza-Chock}~\citep{costanza2020design}, \textbf{Arturo Escobar}~\citep{escobar2018designs}.
+
+\subsection{Latinamerikansk kreativ kodning}
+
+\textbf{Hernando Barrag\'an}~\citep{barragan2004wiring}: colombiansk skaber af Wiring.
+
+\section{Per-artikel integrationsmål}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Artikel} & \textbf{Foreslåede tilføjelser} \\
+\midrule
+AC '26 & Hui (digitale objekter), Costanza-Chock (design justice), Parrish (kreativ kodning udd.) \\
+\addlinespace
+KidLisp '26 & Compton (Tracery), Chicau (koreografisk kodning), Barrag\'an (Wiring) \\
+\addlinespace
+notepat '26 & Knotts (netværksmusik), Eshun (sonic fiction), Plant (computinghistorie) \\
+\addlinespace
+Pieces '26 & Benjamin (designbias), Steyerl (fattige billeder), Plant (Zeros and Ones) \\
+\addlinespace
+OS '26 & Barrag\'an (Wiring), McIlwain (Black Software), Lewis et al.\ (oprindelig AI) \\
+\addlinespace
+Arkæologi '26 & Brock (Distributed Blackness), Hui (teknodiversitet) \\
+\bottomrule
+\end{tabularx}
+\caption{Målrettede citationstilføjelser per artikel. Mål: 30\% kvinder, 20\% ikke-vestlige.}
+\label{tab:targets}
+\end{table}
+
+\section{Mål og forpligtelser}
+
+\subsection{Kvantitative mål}
+
+\begin{itemize}
+  \item \textbf{30\% kvindelige forfattere} på tværs af artikelserien (i øjeblikket 11\%)
+  \item \textbf{20\% ikke-US/UK/EU-forfattere} (i øjeblikket 5\%)
+  \item \textbf{15\% sorte, oprindelige, LatAm, asiatiske forskere} (i øjeblikket 6\%)
+  \item \textbf{Ingen artikel med færre end 2 kvinde-forfattede citationer}
+\end{itemize}
+
+Disse mål er aspirationelle minimumskrav, ikke lofter. De bør opfyldes ved at tilføje relevant forskning, ikke ved at fjerne eksisterende citationer eller tilføje symbolske referencer.
+
+\subsection{Procesforpligtelser}
+
+\begin{enumerate}
+  \item \textbf{Diversitetstjek ved hver revision}: Før indsendelse af nogen artikel, genkør revisionen mod aktuelle citationsdemografier
+  \item \textbf{Vedligeholdelse af læseliste}: En levende dokument---nye værker tilføjes, efterhånden som de opdages og læses
+  \item \textbf{Ærligt engagement}: Citér værker, fordi de styrker argumentet, ikke fordi de diversificerer et regneark
+\end{enumerate}
+
+\section{En ærlig vurdering}
+
+Denne revision afslører et almindeligt mønster i akademisk selvrefleksion: forfatteren er bevidst om problemet, kan navngive de forskere, der bør citeres, og har den tekniske infrastruktur til at spore fremskridt---men har endnu ikke gjort læsearbejdet. At vide, at Ruha Benjamin skrev ``Race After Technology'' er ikke det samme som at have læst den, forstået den og integreret dens indsigter i ens designpraksis.
+
+Gabet mellem bevidsthed og praksis er, hvor dette arbejde begynder.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

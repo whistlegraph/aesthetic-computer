@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dis-Order Pamphlet v6 Bifold</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=DM+Serif+Display&family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,700;1,9..144,400&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Spectral:ital,wght@0,400;0,700;1,400&family=UnifrakturMaguntia&family=Pirata+One&family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sheet-w: 11in;
+      --sheet-h: 8.5in;
+      --ink: #151515;
+      --paper: #f5f5f3;
+      --purple: #2a1438;
+      --purple-mid: #3d1f52;
+      --rule: rgba(0, 0, 0, 0.22);
+      --title-font: "Bodoni Moda", serif;
+      --body-font: "Crimson Pro", serif;
+      --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ddd;
+      color: var(--ink);
+      font-family: var(--body-font);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* =============================================
+       FONT PALETTE — preview section (screen only)
+       ============================================= */
+    .font-palette {
+      width: var(--sheet-w);
+      height: var(--sheet-h);
+      margin: 0 auto;
+      background: #fff;
+      padding: 0.35in;
+      border: 1px solid #ccc;
+      page-break-after: always;
+      break-after: page;
+      overflow: hidden;
+    }
+    .font-palette h2 {
+      font-family: var(--sans);
+      font-size: 14pt;
+      margin: 0 0 0.15in;
+      color: #444;
+    }
+    .font-palette p.note {
+      font-family: var(--sans);
+      font-size: 9pt;
+      color: #888;
+      margin: 0 0 0.25in;
+    }
+    .font-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.2in;
+    }
+    .font-card {
+      border: 1px solid #e0e0e0;
+      padding: 0.18in;
+      background: #fafafa;
+    }
+    .font-card.dark {
+      background: var(--purple);
+      border-color: #1a0a22;
+    }
+    .font-card.dark .font-label { color: rgba(255,255,255,0.5); }
+    .font-card.dark .font-sample { color: #f0e8f5; }
+    .font-card.dark .font-body-sample { color: rgba(240,232,245,0.8); }
+    .font-label {
+      font-family: var(--sans);
+      font-size: 8pt;
+      color: #999;
+      margin: 0 0 0.06in;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .font-sample {
+      font-size: 32pt;
+      line-height: 1.1;
+      margin: 0;
+      color: #111;
+    }
+    .font-body-sample {
+      font-size: 11pt;
+      line-height: 1.4;
+      margin: 0.08in 0 0;
+      color: #333;
+    }
+
+    /* =============================================
+       PAMPHLET LAYOUT
+       ============================================= */
+    .sheet {
+      width: var(--sheet-w);
+      height: var(--sheet-h);
+      margin: 0.2in auto 0;
+      background: var(--paper);
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .sheet:last-of-type {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .fold {
+      background: var(--rule);
+      height: 100%;
+    }
+
+    .panel {
+      position: relative;
+      padding: 0.18in;
+      overflow: hidden;
+    }
+
+    /* --- COVER (outside-right) --- */
+    .outside-right {
+      padding: 0;
+      position: relative;
+      background: var(--purple);
+      color: #f0e8f5;
+      isolation: isolate;
+      overflow: hidden;
+      margin-right: -4px;
+      margin-bottom: -4px;
+    }
+
+    .ari-painting {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      pointer-events: none;
+    }
+
+    .ari-painting-multiply {
+      mix-blend-mode: multiply;
+      opacity: 0.95;
+      filter: saturate(1.8) contrast(1.15);
+    }
+
+    .ari-painting-screen {
+      mix-blend-mode: screen;
+      opacity: 0.38;
+      filter: saturate(3) brightness(0.7);
+    }
+
+    .cover-collage {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .puppet {
+      position: absolute;
+      mix-blend-mode: screen;
+      filter: invert(1) contrast(1.8) brightness(1.15);
+      object-fit: contain;
+    }
+
+    .cover-bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.22in 0.3in 0.28in;
+      background: linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 60%, transparent 100%);
+      filter: drop-shadow(0 3px 16px rgba(0,0,0,0.85));
+    }
+
+    .cover-title {
+      font-size: 0.72in;
+      line-height: 1;
+      margin: 0;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+    }
+
+    .cover-title .lf { font-weight: 400; }
+
+    .cover-dates {
+      margin: 0.07in 0 0;
+      font-family: var(--body-font);
+      font-size: 0.2in;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: 0.02em;
+    }
+
+    /* --- INSIDE RIGHT (description + credits) --- */
+    .inside-right {
+      padding: 0.2in 0.24in 0.28in;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+
+    .inside-right-header {
+      text-align: center;
+      padding: 0.1in 0 0.1in;
+      border-top: 2px solid #7c2d91;
+      border-bottom: 2px solid #7c2d91;
+    }
+
+    .inside-right .design-credit-inline {
+      margin: 0.14in 0 0;
+      font-size: 0.105in;
+      color: #7c2d91;
+      letter-spacing: 0.05em;
+      text-align: right;
+      font-family: var(--body-font);
+    }
+
+    .inside-right-header .skirball-title {
+      font-family: 'Cinzel', serif;
+      font-size: 0.22in;
+      color: #7c2d91;
+      font-weight: 400;
+      margin: 0 0 0.07in;
+      letter-spacing: 0.05em;
+      line-height: 1.2;
+    }
+
+    .inside-right-header .skirball-desc {
+      margin: 0;
+      font-size: 0.135in;
+      line-height: 1.5;
+      text-align: justify;
+    }
+
+    .inside-right-top {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1;
+      gap: 0.18in;
+      padding: 0.16in 0;
+      border-top: 1px solid rgba(0,0,0,0.15);
+      border-bottom: 1px solid rgba(0,0,0,0.15);
+    }
+
+    .inside-right-top .back-description {
+      margin: 0 0.12in;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 0.23in;
+      line-height: 1.55;
+      text-align: justify;
+    }
+
+    .credit-role {
+      color: #7c2d91;
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    .inside-right .back-credits {
+      border-top: none;
+      border-bottom: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .credit-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.03in;
+      padding: 0.1in 0;
+      border-top: 1px solid rgba(0,0,0,0.12);
+    }
+
+    .credit-block:last-child {
+      border-bottom: 1px solid rgba(0,0,0,0.12);
+    }
+
+    .credit-title {
+      font-family: 'Fraunces', serif;
+      font-size: 0.155in;
+      color: #7c2d91;
+      font-weight: 400;
+      margin: 0;
+      text-align: left;
+      letter-spacing: 0.04em;
+    }
+
+    .inside-right .back-credit-copy {
+      margin: 0;
+      font-size: 0.135in;
+      line-height: 1.42;
+      text-align: left;
+    }
+
+    .inside-right .skirball-bio {
+      display: none;
+    }
+
+    .bio-row {
+      break-inside: avoid;
+      margin: 0 0 0.04in;
+      padding: 0.01in 0;
+    }
+
+    .bio-name {
+      margin: 0;
+      font-size: 0.125in;
+      line-height: 1.1;
+      font-weight: 400;
+    }
+
+    .outside-left .bio-name {
+      color: #7c2d91;
+      font-size: 0.175in;
+      line-height: 1.25;
+    }
+
+    .bio-copy {
+      margin: 0.006in 0 0;
+      font-size: 0.093in;
+      line-height: 1.18;
+    }
+
+    /* --- INSIDE LEFT (strip images + headings) --- */
+    .inside-left {
+      padding: 0.14in 0.2in;
+      display: grid;
+      grid-template-rows: repeat(5, 1fr);
+      gap: 0.04in;
+      align-content: center;
+    }
+
+    .strip-with-label {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.12in;
+    }
+
+    .strip {
+      position: relative;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      width: 1.38in;
+      height: 1.38in;
+      flex-shrink: 0;
+    }
+
+    .strip-heading {
+      font-family: 'Fraunces', serif;
+      font-size: 0.2in;
+      line-height: 1.2;
+      font-weight: 400;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .strip-number {
+      display: inline;
+      font-family: 'Fraunces', serif;
+      font-size: 0.24in;
+      margin-right: 0.06in;
+      color: #7c2d91;
+      line-height: 1;
+    }
+
+    /* --- BACK COVER (outside-left — bios) --- */
+    .outside-left {
+      padding: 0.1in 0.12in;
+      overflow: hidden;
+    }
+
+    .outside-left-bios {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0 0.08in;
+      height: 100%;
+    }
+
+    .bio-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .back-description {
+      margin: 0;
+      font-size: 0.125in;
+      line-height: 1.3;
+      text-align: justify;
+    }
+
+    .back-description + .back-description {
+      margin-top: -0.02in;
+    }
+
+    .panel-rule {
+      height: 1px;
+      background: rgba(0, 0, 0, 0.45);
+      margin: 0;
+    }
+
+    /* Credits — on back cover, justified */
+    .back-credits {
+      border-top: 1px solid rgba(0, 0, 0, 0.35);
+      padding-top: 0.06in;
+      display: grid;
+      gap: 0.03in;
+    }
+
+    .back-credit-item {
+      margin: 0;
+    }
+
+    .back-credit-copy {
+      margin: 0;
+      font-size: 0.098in;
+      line-height: 1.2;
+      text-align: justify;
+    }
+
+    /* Skirball paragraph bio on back cover */
+    .skirball-bio {
+      border-top: 1px solid rgba(0, 0, 0, 0.25);
+      padding-top: 0.05in;
+      align-self: end;
+    }
+
+    .skirball-bio p {
+      margin: 0;
+      font-size: 0.088in;
+      line-height: 1.22;
+      text-align: justify;
+    }
+
+    .skirball-bio .bio-name {
+      font-size: 0.1in;
+      margin-bottom: 0.01in;
+    }
+
+    @page {
+      size: 11in 8.5in;
+      margin: 0;
+    }
+
+    @media print {
+      html, body { background: transparent; }
+      .sheet { margin: 0; }
+      .font-palette { margin: 0; border: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================
+       SHEET 1 — Inside-right (bios) + Cover
+       ============================================ -->
+  <section class="sheet">
+    <article class="panel inside-right">
+      <div class="back-credits">
+        <div class="credit-block">
+          <p class="back-credit-copy">Choreographed and directed by Mamie Green. Concept by Mamie Green and Rebecca Schultz. Puppets by Freak Nature Puppets and Abby Sage. Original live score by Patrick Shiroishi and Dylan Fujioka. Script by Rebecca Schultz. Set design by Ari Salka. Lighting design by Kaitlin Trimble. Dramaturgy by Livia Reiner.</p>
+        </div>
+        <div class="credit-block">
+          <p class="back-credit-copy">Performed by Tim Griffin Allan, Sophie Becker, Nico Fife, Anaya Gonzalez, Ryley Polak, Abby Sage, and Roxanne Steinberg.</p>
+        </div>
+        <div class="credit-block">
+          <p class="back-credit-copy">Thank you to the Skirball Cultural Center, Community Engagement Grants, Oracle Egg BROILER Residency, and Reboot for supporting this project.</p>
+        </div>
+      </div>
+
+      <div class="inside-right-top">
+        <p class="back-description"><span style="font-style:normal;font-family:'Cormorant Garamond',serif;font-weight:400;">Dis-order</span> is a performance, a communal ritual, and a family drama that asks what forces move through us when we enact an ancient spring rite, and what is left unspoken when we gather around the table.</p>
+        <p class="back-description">Staged &agrave; la Judy Chicago's <span style="font-style:normal;font-family:'Cormorant Garamond',serif;font-weight:400;">The Dinner Party</span>, the piece references the Passover seder, Greek mythology, and Pina Bausch's <span style="font-style:normal;font-family:'Cormorant Garamond',serif;font-weight:400;">Rite of Spring</span> to examine the performance of ritual and the rigidity of roles and stories within families, communities, and institutions.</p>
+      </div>
+
+      <div class="inside-right-header">
+        <p class="skirball-title">The Skirball Cultural Center</p>
+        <p class="skirball-desc">The Skirball Cultural Center is a place of meeting guided by the Jewish tradition of welcoming the stranger and inspired by the American democratic ideals of freedom and equality. We welcome people of all communities and generations to participate in cultural experiences that celebrate discovery and hope, foster human connections, and call upon us to help build a more just society.</p>
+      </div>
+      <p class="design-credit-inline">Program Design by Aesthetic.Computer &amp; F&iacute;a Benitez</p>
+    </article>
+
+    <div class="fold"></div>
+
+    <article class="panel outside-right">
+      <img class="ari-painting ari-painting-multiply" src="../../system/public/assets/gigs/disorder-program/images-v2/cover.jpg" />
+      <img class="ari-painting ari-painting-screen" src="../../system/public/assets/gigs/disorder-program/images-v2/cover.jpg" />
+      <div class="cover-collage">
+        <!-- large anchors -->
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-8.png"
+             style="width:108%; top:-4%; left:-4%; opacity:0.38; transform:rotate(-2deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-4.png"
+             style="width:68%; top:2%; right:-14%; opacity:0.44; transform:rotate(6deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-7.png"
+             style="width:65%; top:22%; left:-6%; opacity:0.34; transform:rotate(-9deg);" />
+        <!-- mid-layer -->
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-13.png"
+             style="width:76%; top:36%; right:-12%; opacity:0.32; transform:rotate(4deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-9.png"
+             style="width:60%; top:8%; left:2%; opacity:0.24; transform:rotate(-5deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-10.png"
+             style="width:42%; top:52%; left:-2%; opacity:0.32; transform:rotate(11deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-3.png"
+             style="width:46%; top:1%; right:-10%; opacity:0.30; transform:rotate(-13deg);" />
+        <!-- light scatter -->
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-6.png"
+             style="width:40%; top:42%; right:-8%; opacity:0.24; transform:rotate(8deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-2.png"
+             style="width:34%; top:60%; right:4%; opacity:0.26; transform:rotate(16deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-5.png"
+             style="width:32%; top:30%; right:-4%; opacity:0.22; transform:rotate(-10deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-11.png"
+             style="width:34%; top:53%; right:-6%; opacity:0.22; transform:rotate(5deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-12.png"
+             style="width:30%; top:66%; right:-8%; opacity:0.22; transform:rotate(-14deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-1.png"
+             style="width:26%; top:74%; left:12%; opacity:0.18; transform:rotate(-6deg);" />
+      </div>
+      <!-- top-layer puppets: smaller, scattered, above painting but below title -->
+      <div class="cover-collage">
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-6.png"
+             style="width:28%; top:8%; left:6%; opacity:0.55; transform:rotate(-14deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-11.png"
+             style="width:22%; top:18%; right:8%; opacity:0.5; transform:rotate(11deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-5.png"
+             style="width:20%; top:44%; left:14%; opacity:0.48; transform:rotate(7deg);" />
+        <img class="puppet" src="../../system/public/assets/gigs/disorder-program/images-v3/puppets/puppet-2.png"
+             style="width:18%; top:55%; right:12%; opacity:0.45; transform:rotate(-9deg);" />
+      </div>
+      <div class="cover-bottom">
+        <h1 class="cover-title"><span class="lf" style="font-family:'Pirata One',cursive;">d</span><span class="lf" style="font-family:'Cinzel',serif;">i</span><span class="lf" style="font-family:'UnifrakturMaguntia',cursive;">s</span><span class="lf" style="font-family:'Fraunces',serif;">-</span><span class="lf" style="font-family:'Cormorant Garamond',serif;font-style:italic;">o</span><span class="lf" style="font-family:'DM Serif Display',serif;">r</span><span class="lf" style="font-family:'Playfair Display',serif;">d</span><span class="lf" style="font-family:'Spectral',serif;font-style:italic;">e</span><span class="lf" style="font-family:'Bodoni Moda',serif;">r</span></h1>
+        <p class="cover-dates">march 19 and 20, 2026</p>
+      </div>
+    </article>
+  </section>
+
+  <!-- ============================================
+       SHEET 2 — Inside-left (sections + images) + Back Cover
+       ============================================ -->
+  <section class="sheet">
+    <article class="panel inside-left">
+      <div class="strip-with-label">
+        <div class="strip" style="background-image:url('../../system/public/assets/gigs/disorder-program/images-v3/i-begin-with-fire.png')"></div>
+        <p class="strip-heading"><span class="strip-number">I.</span>begin with fire</p>
+      </div>
+      <div class="strip-with-label">
+        <div class="strip" style="background-image:url('../../system/public/assets/gigs/disorder-program/images-v3/ii-wicked-child.png')"></div>
+        <p class="strip-heading"><span class="strip-number">II.</span>wicked child bacchanal</p>
+      </div>
+      <div class="strip-with-label">
+        <div class="strip" style="background-image:url('../../system/public/assets/gigs/disorder-program/images-v3/iii-total-darkness.png')"></div>
+        <p class="strip-heading"><span class="strip-number">III.</span>total darkness</p>
+      </div>
+      <div class="strip-with-label">
+        <div class="strip" style="background-image:url('../../system/public/assets/gigs/disorder-program/images-v3/iv-lovers-pastoral.png')"></div>
+        <p class="strip-heading"><span class="strip-number">IV.</span>lovers' pastoral</p>
+      </div>
+      <div class="strip-with-label">
+        <div class="strip" style="background-image:url('../../system/public/assets/gigs/disorder-program/images-v3/v-death-of-first-born.png')"></div>
+        <p class="strip-heading"><span class="strip-number">V.</span>death of the first born</p>
+      </div>
+    </article>
+
+    <div class="fold"></div>
+
+    <article class="panel outside-left">
+      <div class="outside-left-bios">
+        <!-- Column 1: Mamie, Freak Nature, Rebecca, Ari -->
+        <div class="bio-column">
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Pirata One',cursive;font-size:0.19in;">Mamie Green</p>
+            <p class="bio-copy">is a choreographer and the director of VOLTA, an interdisciplinary performance project that fuses physicality, theatricality, and multidisciplinary approaches to performance. Named in Fjord Review's "Best of Dance 2023" and Bachtrack's "Young Choreographers to Watch," Green's work has been presented across the US, Europe, and the UK at the MAXXI National Museum, Jeffrey Deitch, Ace Hotel Brooklyn, MAK Center at the Schindler House, New Hollywood Theater, and Skirball Cultural Center with upcoming presentations at the Guggenheim Museum in Bilbao, Spain and the Foster Theater in Portland, Oregon in 2026. Green holds a BFA from Mason Gross School of the Arts.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Cinzel',serif;font-size:0.155in;">Freak Nature Puppets</p>
+            <p class="bio-copy">is an artist collective from Los Angeles, CA. Their work channels dreamlike narratives through giant puppetry, leading to unexpected and playful conclusions. Freak Nature's theatrical work is inspired by the avant-garde progressive puppetry of Bread and Puppet Theater, the oddball physical theater of Mummenshanz, and the anarchist children's entertainment of Pee-Wee Herman. Freak Nature's past collaborators &amp; co-presenters include Dead &amp; Company, the Bob Baker Marionette Theater, Eric Andre, KCRW, Poncili Creaci&oacute;n, David Zwirner Gallery, and Childish Gambino.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:0.24in;">Rebecca Schultz</p>
+            <p class="bio-copy">writes fiction and criticism. Her work has appeared in the <em>Los Angeles Review of Books</em>, <em>BOMB</em>, <em>Full-Stop</em>, and the <em>Santa Monica Review</em>, where it was nominated for a Pushcart Prize. She teaches fiction and poetry at UC Irvine.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'DM Serif Display',serif;font-size:0.19in;">Ari Salka</p>
+            <p class="bio-copy">is a Los Angeles-based artist whose practice spans painting, drawing, and poetry. He received a BFA from SAIC (2016) and an MFA in Painting from UCLA (2019). Salka was awarded the Yale Norfolk Summer School of Art's Ellen Battell Stoeckel Fellowship in Norfolk, CT (2015). Salka has lectured as a visiting artist at UCLA, Chapman University, and Bennington College. Salka's work is in the permanent collections of the John M. Flaxman Library, LACA, UCLA Arts Library, and the ROSA KWIR Archive. His artist book is currently available for purchase at MOCA, and he looks forward to an upcoming solo museum exhibition at XELA Art in 2027.</p>
+          </div>
+        </div>
+        <!-- Column 2: Patrick, Dylan, Tim, Sophie, Nico -->
+        <div class="bio-column">
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Fraunces',serif;">Patrick Shiroishi</p>
+            <p class="bio-copy">is a Japanese-American multi-instrumentalist, composer &amp; poet based in Los Angeles. Over the last decade he has established himself as one of the premier improvising musicians in the city, playing solo &amp; in numerous collaborative projects. He has presented work &amp; performed at the Museum of Contemporary Art, the Metropolitan Museum of Art, the Broad Museum, The Getty, been commissioned by the LA Philharmonic and toured around the world in various solo &amp; band configurations including The Armed &amp; contemporary classical ensemble Wild Up.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Playfair Display',serif;font-style:italic;">Dylan Fujioka</p>
+            <p class="bio-copy">is a Japanese American multi-instrumentalist &amp; composer born and raised in Los Angeles, CA. He is most known for his drumming/recording &amp; performances in bands across multiple genres and collaborations. He also composes for film and television. His multicultural upbringing has directly shaped and influenced his style and sound.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'DM Serif Display',serif;font-size:0.16in;">Tim Griffin Allan</p>
+            <p class="bio-copy">is a New York-based actor thrilled to be here and briefly escaping the frigid East Coast winter. He has recently performed in plays at Pioneer Works, Abrons Arts Center, and Studio 17. On screen, he has appeared in films and television shows for A24, HBO, MUBI, and CBS. Allan is also a member of a rival puppet troupe PussyPaws Puppetry, though he agreed to a temporary puppet truce, hiding the felt knives in order to collaborate with Freak Nature, Mamie Green, and this dangerously talented cast.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Bodoni Moda',serif;font-size:0.17in;">Sophie Becker</p>
+            <p class="bio-copy">is a New York-based ventriloquist and actor working at the intersection of ventriloquism, theater, and experimental comedy. With a cast of recurring characters, including her dummy, Ronnie, Sophie has performed at MoMA PS1, De Studio (Belgium), the Marriott Marquis in Times Square, the Rockaway Film Festival, Jean's Lafayette, Art Omi, and NADA Miami, among others.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Libre Baskerville',serif;font-size:0.16in;">Nico Fife</p>
+            <p class="bio-copy">is an actor, writer, puppeteer, director, and strong mover from Long Beach, California. Nico received a BA in Theater from USC, and is currently an Associate Company Member at The Actors' Gang Theater Company in Culver City. Nico is an active practitioner and teacher of Viewpoints, especially working with youth and with formerly incarcerated artists. Nico has recently performed in <em>Children of The Winter Kingdom</em> (Crow, Emperor Weasel, Ensemble) with The Actors' Gang, in <em>Clown Pit Revolution</em> (Sasha Faguette), and various comedy shows throughout the city. Thank you to Mamie, to Sater &amp; Freak Nature Puppets, and to the entire cast and crew for having me on this journey!</p>
+          </div>
+        </div>
+        <!-- Column 3: Anaya, Ryley, Abby, Roxanne -->
+        <div class="bio-column">
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Pirata One',cursive;font-size:0.19in;">Anaya Gonzalez</p>
+            <p class="bio-copy">is a dancer who enjoys promoting emotional experiences for others through movement and is deeply determined in the pursuit of crafting and cultivating art. They have studied at the University of North Carolina School of the Arts, studying ballet &amp; the following contemporary techniques: Lim&oacute;n, Cunningham, Alexander, floorwork and has performed pieces by Darrel Moultrie, Rena Butler, Jose Lim&oacute;n, and Trey McIntyre. During her professional career she was recently a full time BODYTRAFFIC company dancer performing works by Micaela Taylor, Matthew Neenan, Juel D. Lane, and Trey Mcintyre.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Fraunces',serif;font-size:0.17in;">Ryley Polak</p>
+            <p class="bio-copy">is a dancer and teacher based in Los Angeles, California where he received his BFA in commercial dance from Hussian College. Ryley was signed by the Movement Talent Agency which represents him as both a dancer and educator. Throughout his professional career he has worked on sets of commercials, movies, music videos, and TV shows such as A24's "Dick's: The Musical", "VROOM" SuperBowl commercial, and Anna Margo's "Bad Friend" music video. Ryley has been a performer with Mike Tyus, Jaclyn Royal, Mandy Moore, and many others and has performed internationally with Royal Flux and Volta Collective in Italy, Canada, London, Cyprus, and more.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Spectral',serif;font-style:italic;font-size:0.18in;">Abby Sage</p>
+            <p class="bio-copy">is a singer, songwriter, and multidisciplinary artist whose work blends storytelling with a cinematic sense of atmosphere. Known for her haunting vocals and emotionally vivid songwriting, Sage's music explores themes of vulnerability, transformation, and memory, often drawing listeners into deeply personal yet expansive sonic worlds. Beyond music, Sage's creative practice extends into visual and performance art. She builds and designs handcrafted puppets, using them as expressive characters that blur the boundaries between object, performer, and storyteller. Her puppetry explores movement, symbolism, and the emotional language of gesture.</p>
+          </div>
+          <div class="bio-row">
+            <p class="bio-name" style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:0.2in;">Roxanne Steinberg</p>
+            <p class="bio-copy">a Bennington College alumna, is a dancer and choreographer who brought Body Weather Laboratory training from Japan to Los Angeles in 1988. She teaches and performs worldwide. An artist-in-residence at the Electric Lodge with her partner, Oguri, she leads workshops and directs Flower of the Season, a platform for experimental work. Since 2005, Steinberg has been engaged in Lauren Bon's Metabolic Studio. Current collaborations include artists Carmina Escobar, Carole Kim, Jill Goldman, and Paul Chavez. A 2020 COLA Fellow, Steinberg's practice incorporates textiles, ceramics, cooking, spoken word, and audience interaction to transform space and perception.</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+</body>
+</html>

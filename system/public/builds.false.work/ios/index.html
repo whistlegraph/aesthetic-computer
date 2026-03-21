@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider Lily - iOS Build</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .build-info {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .install-btn {
+            display: inline-block;
+            background: #007AFF;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        .install-btn:hover {
+            background: #0051D5;
+        }
+        .download-link {
+            display: inline-block;
+            color: #007AFF;
+            text-decoration: none;
+            margin: 10px 0;
+        }
+        .instructions {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 30px;
+        }
+        .instructions h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .instructions ol {
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕷️ Spider Lily</h1>
+        <div class="build-info">
+            iOS Build - November 25, 2025<br>
+            Bundle ID: work.false.SpiderLily<br>
+            Team ID: F7G74Z35B8<br>
+            Size: 878 MB
+        </div>
+        
+        <a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="install-btn">
+            📱 Install on iOS Device
+        </a>
+        <br>
+        <a href="SpiderLily-latest.ipa" class="download-link" download>
+            ⬇️ Download IPA File
+        </a>
+        
+        <div class="note">
+            <strong>⚠️ Important:</strong> This is a development build. Your device must be registered with the Apple Developer account (Team ID: F7G74Z35B8) to install this app.
+        </div>
+        
+        <div class="instructions">
+            <h2>Installation Instructions</h2>
+            <h3>Method 1: Direct Install (Easiest - Safari only)</h3>
+            <ol>
+                <li><strong>Open this page in Safari on your iOS device</strong> (Chrome/Firefox won't work for installation links)</li>
+                <li>Tap the blue "Install on iOS Device" button above</li>
+                <li>Tap "Install" when prompted</li>
+                <li>The app icon will appear on your home screen with a grayed-out appearance</li>
+                <li>Go to <strong>Settings → General → VPN & Device Management</strong></li>
+                <li>Under "Developer App", tap on <strong>"Apple Development: make@false.work"</strong></li>
+                <li>Tap <strong>"Trust Apple Development: make@false.work"</strong></li>
+                <li>Tap "Trust" again in the confirmation dialog</li>
+                <li>Return to home screen - the app icon should now be active</li>
+            </ol>
+            
+            <h3>Method 2: Install via Mac with Xcode</h3>
+            <ol>
+                <li>Download the IPA file using the link above</li>
+                <li>Connect your iOS device to your Mac via USB</li>
+                <li>Open Xcode → Window → Devices and Simulators</li>
+                <li>Select your device from the left sidebar</li>
+                <li>Click the "+" button under "Installed Apps"</li>
+                <li>Browse to and select the downloaded SpiderLily-latest.ipa file</li>
+                <li>Follow steps 5-9 from Method 1 to trust the developer profile</li>
+            </ol>
+            
+            <h3>Method 3: Install via Mac with Finder</h3>
+            <ol>
+                <li>Download the IPA file using the link above</li>
+                <li>Connect your iOS device to your Mac via USB</li>
+                <li>Open Finder - your device should appear in the sidebar</li>
+                <li>Click on your device</li>
+                <li>Drag and drop the .ipa file onto the Files section</li>
+                <li>Follow steps 5-9 from Method 1 to trust the developer profile</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
