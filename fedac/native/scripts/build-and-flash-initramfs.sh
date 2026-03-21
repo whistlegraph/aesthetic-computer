@@ -184,7 +184,14 @@ if [ -f "${INITRAMFS_DIR}/piece.mjs" ] && [ "${PIECE_PATH}" = "${INITRAMFS_DIR}/
 fi
 
 rm -rf "${INITRAMFS_DIR}"
-mkdir -p "${INITRAMFS_DIR}"/{dev,proc,sys,tmp,mnt}
+mkdir -p "${INITRAMFS_DIR}"/{dev,proc,sys,tmp,mnt,run,etc}
+
+# Create essential device nodes — kernel needs /dev/console before running init
+# Without these: "Warning: unable to open an initial console"
+sudo mknod -m 622 "${INITRAMFS_DIR}/dev/console" c 5 1
+sudo mknod -m 666 "${INITRAMFS_DIR}/dev/null" c 1 3
+sudo mknod -m 666 "${INITRAMFS_DIR}/dev/zero" c 1 5
+sudo mknod -m 666 "${INITRAMFS_DIR}/dev/tty" c 5 0
 
 # Copy binary
 cp "${BUILD_DIR}/ac-native" "${INITRAMFS_DIR}/ac-native"
