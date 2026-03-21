@@ -1,0 +1,211 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{fontspec}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{framed}
+
+% Classic Computer Modern (arxiv default feel)
+\setmainfont{Latin Modern Roman}
+
+\definecolor{secblue}{RGB}{42,90,138}
+\definecolor{dimgray}{RGB}{120,120,120}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{datecyan}{RGB}{0,120,140}
+\definecolor{goldhl}{RGB}{160,120,0}
+\definecolor{grokred}{RGB}{180,50,50}
+\definecolor{claudeblue}{RGB}{50,100,170}
+\definecolor{lightbg}{RGB}{245,245,250}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=secblue,
+  citecolor=acpurple,
+}
+
+\titleformat{\section}
+  {\normalfont\bfseries\large\color{secblue}}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.4em}{0.4em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\normalsize\color{acpurple}}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.6em}
+
+\setlist[itemize]{nosep, leftmargin=1.4em, itemsep=0.15em}
+\setlist[enumerate]{nosep, leftmargin=1.4em}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries\color{secblue} Blind Valuation Comparison}\\[0.3em]
+{\large\color{dimgray} The Same Question, Multiple AI Engines}\\[0.4em]
+{\normalsize March 2026}
+\end{center}
+
+\vspace{0.5em}
+\hrule
+\vspace{1em}
+
+\section{The Question}
+
+The following question was posed to multiple AI systems. No company is named. The question describes capabilities and asks for a market valuation based solely on what the technology does.
+
+\begin{framed}
+\small
+I would like you to answer the following question while NOT looking at any publication or article that mentions a specific company.
+
+I would like an assessment of the market value of a company that has proven it can mass produce a LiDAR unit that is the size of four candy bars (full-sized, not giant sized, or a ``mini'') glued together that can detect moving vehicles at up to three hundred feet, and can produce a high-definition, time of flight depth data for automobiles using ADAS. They can be produced to be sold at a price of about \$250 US, and four of them can cover 360 degrees around a moving automobile.
+
+The LiDAR can be added to existing forklifts, with a ``bolt-on'' solution, that will actually be integrated with the software on the drive systems of these existing forklifts to prevent industrial and warehouse accidents.
+
+The LiDAR can also be used to assist in automating heavy equipment, allowing multiple machines to be operated by a single person.
+
+This company also produces a miniature laser projector that can and has enabled Augmented Reality Glasses, using low power, producing a high-definition picture, a three-dimensional picture, and fit in a pair of Ray Ban glasses.
+
+Given the advancement of self-driving vehicles and equipment, and the pending appearance of augmented reality use in the military, industry and among consumers, what do you think the market capitalization of a company such as this should be? It is currently able to produce these items on a mass scale.
+
+Ballpark estimate on what this company should sell its rights to the Near Eye Display would also be appreciated.
+\end{framed}
+
+\section{Grok's Answer}
+
+{\small\color{grokred}\textbf{Engine: Grok (xAI)}}
+
+\fcolorbox{grokred}{grokred!5}{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+\textbf{Market Cap Estimate:} \$2--5 billion (bull case: \$5--10B by 2028)\\
+\textbf{NED Licensing Deal:} \$200--500 million\\
+\textbf{Implied Price Target:} \$6--\$16/share}}
+
+\subsection{Grok's Market Sizing}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Segment} & \textbf{2025 Market} & \textbf{2030 Projection} & \textbf{Revenue Potential} \\
+\midrule
+Automotive LiDAR (ADAS) & \$1.2--1.9B & \$9--25B & \$500M--\$2B \\
+Industrial LiDAR & \$3--8B & \$6--13B & \$200--500M \\
+AR Near-Eye Display & \$2.2B & \$6.7B & \$300--800M \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Grok's comparable companies: Hesai (\textasciitilde\$3.8B), Ouster (\textasciitilde\$1.3B), Aeva (\textasciitilde\$0.9B), Himax (\textasciitilde\$1.7B), Kopin (\textasciitilde\$0.4B).
+
+Grok notes the NED IP could fetch \$200--500M based on historical AR/VR deals: Microsoft acquired AR patents from Osterhout Group for \textasciitilde\$150M (2014), Google licensed XR IP from HTC for \$250M (2025), Infinite Reality bought Touchcast for \$500M in AR/AI tech (2025).
+
+\section{Claude's Answer}
+
+{\small\color{claudeblue}\textbf{Engine: Claude (Anthropic) --- using web search for current market data}}
+
+\fcolorbox{claudeblue}{claudeblue!5}{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+\textbf{Market Cap Estimate:} \$3--7 billion\\
+\textbf{NED Licensing Deal:} \$250--600 million\\
+\textbf{Rationale:} Three TAMs converging in a single company is extremely rare --- the sum-of-parts alone justifies multi-billion valuation}}
+
+\subsection{Claude's Market Sizing (from current research data)}
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Segment} & \textbf{Current Market} & \textbf{2030 Projection} \\
+\midrule
+Automotive LiDAR (ADAS) & \$1.19--1.23B (2024--25) & \$5.3--9.6B \\
+Autonomous Construction Equipment & \$4.4--4.6B (2024) & \$9.7--9.9B \\
+Autonomous Forklift Market & \$4.8--7.8B (2024--25) & \$10.2--13.8B \\
+AR Near-Eye Display & \$1.2B (2026) & surpassing \$1B/yr for first time \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Claude's Reasoning}
+
+\textbf{LiDAR for Automotive ADAS.}
+The automotive LiDAR market is projected to reach \$5.3--9.6B by 2030 with CAGRs of 34--42\%. A company that can mass-produce at \$250/unit with 300-foot range in a compact form factor is positioned at exactly the price point OEMs need for mass-market ADAS (not just luxury vehicles). At 5--10\% market share by 2030, that is \$500M--\$1B in annual automotive LiDAR revenue alone.
+
+\textbf{Industrial: Forklifts.}
+The autonomous forklift market is projected to reach \$10--14B by 2030. Bolt-on LiDAR for existing fleets is particularly valuable because it doesn't require replacing equipment --- the installed base of forklifts is enormous. OSHA reports 85 fatal forklift accidents and 34,900 serious injuries annually in the US alone. LiDAR-based SLAM systems reduce pick-and-place errors by up to 70\% and increase pallet movement productivity by 25\%. A bolt-on safety retrofit that integrates with existing drive systems addresses a massive liability and insurance cost for warehouse operators.
+
+\textbf{Heavy Equipment Automation.}
+The autonomous construction equipment market is projected to reach \$9.7--9.9B by 2030 at 13--14\% CAGR. The ability to let a single operator control multiple machines remotely addresses the industry's acute skilled labor shortage. 5G and IoT connectivity are enabling real-time fleet management for exactly this use case.
+
+\textbf{Near-Eye Display / AR Glasses.}
+Near-eye display revenue is surpassing \$1B for the first time in 2026, with shipments rebounding to 20.2M units (57.9\% YoY increase). Meta, Apple, Huawei, and Pico are all launching new MR products in 2026. A miniature laser projector that fits in Ray Ban-sized frames, produces HD 3D images at low power, is the exact component these companies need. TriLite's competing module is $<$1cm\textsuperscript{3} and 1.5g --- proving the market wants exactly this form factor.
+
+The NED IP is worth \$250--600M because: (a) the military AR market alone justifies premium pricing for proven, low-power, high-def projection; (b) a consumer AR glasses maker (Meta, Apple, or EssilorLuxottica, whose market cap hit 126.5B euros in 2024 partly on Meta Ray-Ban smart glasses momentum) would pay significant premiums for exclusive NED licensing; (c) historical comps support \$150--500M for AR/VR IP deals.
+
+\subsection{Claude's Valuation Logic}
+
+\begin{itemize}
+\item \textbf{Sum-of-parts approach:} LiDAR automotive (\$1.5--3B at 10--15x forward revenue) + Industrial bolt-on (\$500M--1B) + NED IP (\$250--600M) = \$2.25--4.6B floor
+\item \textbf{Platform premium:} A company that spans automotive, industrial, defense, and consumer AR from a single MEMS-based technology platform commands a multiple above sum-of-parts --- similar to how Hesai at \$3.8B trades on a narrower product line
+\item \textbf{Comparable range:} \$3--7B, with downside of \$2B (conservative execution) and upside of \$10B+ if AR glasses adoption accelerates per 2026 forecasts
+\end{itemize}
+
+\section{Side-by-Side Summary}
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+& {\color{grokred}\textbf{Grok (xAI)}} & {\color{claudeblue}\textbf{Claude (Anthropic)}} \\
+\midrule
+\textbf{Market Cap (base case)} & \$2--5B & \$3--7B \\
+\textbf{Market Cap (bull case)} & \$5--10B by 2028 & \$10B+ if AR accelerates \\
+\textbf{NED Licensing Value} & \$200--500M & \$250--600M \\
+\textbf{Auto LiDAR TAM (2030)} & \$9--25B & \$5.3--9.6B \\
+\textbf{Industrial TAM (2030)} & \$6--13B & \$10--14B (forklifts alone) \\
+\textbf{NED/AR TAM (2030)} & \$6.7B & \$1.2B (2026, accelerating) \\
+\textbf{Key Strength Noted} & Diversified dual-tech & Three TAMs from one platform \\
+\textbf{Key Risk Noted} & Competition from Bosch, Qualcomm & Execution on mass production \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Where They Agree}
+
+\begin{itemize}
+\item Both engines independently valued this hypothetical company at \textbf{multi-billion dollars} --- far above the price it would currently trade at if undervalued
+\item Both see the NED/AR IP as worth \textbf{\$200M+ minimum} as a standalone licensing deal
+\item Both identify the \textbf{combination} of LiDAR + NED in one company as the key differentiator --- no pure-play competitor spans both markets
+\item Both flag autonomous heavy equipment and forklift safety as \textbf{underappreciated} revenue streams relative to the automotive LiDAR narrative
+\end{itemize}
+
+\subsection{Where They Differ}
+
+\begin{itemize}
+\item Grok uses a wider automotive LiDAR TAM range (\$9--25B) vs Claude's more conservative (\$5.3--9.6B) based on latest analyst reports
+\item Claude puts more weight on the industrial/forklift segment (\$10--14B TAM) as a nearer-term revenue driver
+\item Claude's base case is slightly higher (\$3--7B vs \$2--5B) due to platform premium for spanning three TAMs
+\item Grok specifically modeled the ``short killer'' dividend scenario; Claude focused on sum-of-parts
+\end{itemize}
+
+\vspace{1em}
+\hrule
+\vspace{0.5em}
+\begin{center}
+{\small\color{dimgray} Blind Valuation Comparison --- March 2026\\
+Both engines answered without being told the company's name, ticker, or history.}
+\end{center}
+
+\end{document}
