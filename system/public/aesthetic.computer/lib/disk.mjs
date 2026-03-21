@@ -5561,9 +5561,21 @@ const $paintApi = {
     const charSpacing = blockW * scale;
     let cursorX = 0; // accumulated character offset along `right`
 
+    if (!$paintApi.write3D._logCount) $paintApi.write3D._logCount = 0;
+    if ($paintApi.write3D._logCount < 5) {
+      const testGlyph = tf.glyphs?.["T"];
+      console.log("🔤 write3D frame", $paintApi.write3D._logCount, {
+        text,
+        glyphFound: !!testGlyph,
+        hasCommands: !!testGlyph?.commands,
+        commandCount: testGlyph?.commands?.length,
+      });
+      $paintApi.write3D._logCount++;
+    }
+
     for (let ci = 0; ci < text.length; ci++) {
       const char = text[ci];
-      const glyph = tf.glyphs?.[char];
+      const glyph = tf.getGlyph?.(char) || tf.glyphs?.[char];
       const advance = tf.getAdvance?.(char) ?? blockW;
 
       if (glyph?.commands) {
