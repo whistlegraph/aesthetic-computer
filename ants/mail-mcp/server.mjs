@@ -3,7 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { execFile as execFileCb, spawn as spawnCb } from "node:child_process";
 import { promisify } from "node:util";
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
+import { basename } from "node:path";
 
 const execFile = promisify(execFileCb);
 
@@ -267,7 +268,7 @@ server.tool(
 // --- mail_send ---
 server.tool(
   "mail_send",
-  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch. For replies, set in_reply_to and references for proper threading.",
+  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch. For replies, set in_reply_to and references for proper threading. Supports file attachments via the attachments parameter (array of absolute paths).",
   {
     to: z.string().describe("Recipient email address"),
     cc: z.string().optional().describe("CC email address(es), comma-separated"),
@@ -295,8 +296,12 @@ server.tool(
       .optional()
       .default("ac-mail")
       .describe("Which msmtp account to send from (ac-mail or jas-mail)"),
+    attachments: z
+      .array(z.string())
+      .optional()
+      .describe("Array of absolute file paths to attach (e.g. [\"/path/to/file.pdf\"])"),
   },
-  async ({ to, cc, subject, body, in_reply_to, references, preserve_case, signature, from_account }) => {
+  async ({ to, cc, subject, body, in_reply_to, references, preserve_case, signature, from_account, attachments }) => {
     try {
       const style = await loadEmailStyle();
       const styled = applyEmailStyle({
@@ -325,13 +330,54 @@ server.tool(
           .join(" ");
         headers.push(`References: ${refs}`);
       }
-      headers.push(
-        `Subject: ${styled.subject}`,
-        "MIME-Version: 1.0",
-        "Content-Type: text/plain; charset=UTF-8",
-        "Content-Transfer-Encoding: 8bit",
-      );
-      const message = [...headers, "", styled.body].join("\r\n");
+      headers.push(`Subject: ${styled.subject}`, "MIME-Version: 1.0");
+
+      let message;
+      if (attachments && attachments.length > 0) {
+        // MIME multipart with attachments
+        const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        headers.push(
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        );
+        const parts = [
+          ...headers,
+          "",
+          `--${boundary}`,
+          "Content-Type: text/plain; charset=UTF-8",
+          "Content-Transfer-Encoding: 8bit",
+          "",
+          styled.body,
+        ];
+        for (const filePath of attachments) {
+          await stat(filePath); // throws if missing
+          const fileData = await readFile(filePath);
+          const name = basename(filePath);
+          const ext = name.split(".").pop()?.toLowerCase();
+          const mime = ext === "pdf" ? "application/pdf"
+            : ext === "png" ? "image/png"
+            : ext === "jpg" || ext === "jpeg" ? "image/jpeg"
+            : ext === "html" ? "text/html"
+            : ext === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : "application/octet-stream";
+          parts.push(
+            `--${boundary}`,
+            `Content-Type: ${mime}; name="${name}"`,
+            "Content-Transfer-Encoding: base64",
+            `Content-Disposition: attachment; filename="${name}"`,
+            "",
+            fileData.toString("base64").replace(/(.{76})/g, "$1\r\n"),
+          );
+        }
+        parts.push(`--${boundary}--`);
+        message = parts.join("\r\n");
+      } else {
+        // Plain text (no attachments)
+        headers.push(
+          "Content-Type: text/plain; charset=UTF-8",
+          "Content-Transfer-Encoding: 8bit",
+        );
+        message = [...headers, "", styled.body].join("\r\n");
+      }
 
       const { stdout, stderr } = await run(MSMTP, ["-a", account, "-t"], { input: message });
       return {
