@@ -1,9 +1,0 @@
-{
-  "name": "help",
-  "version": "2.0.0",
-  "type": "module",
-  "main": "server.mjs",
-  "dependencies": {
-    "dotenv": "^17.2.3"
-  }
-}

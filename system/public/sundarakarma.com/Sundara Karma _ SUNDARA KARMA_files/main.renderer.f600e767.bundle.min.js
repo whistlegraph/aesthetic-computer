@@ -1,1 +1,0 @@
-"use strict";(self.webpackJsonp__wix_thunderbolt_app=self.webpackJsonp__wix_thunderbolt_app||[]).push([[867],{47647:()=>{}},p=>{var s;s=47647,p(p.s=s)}]);
