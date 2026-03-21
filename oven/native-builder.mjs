@@ -42,14 +42,14 @@ function addLogLine(job, stream, line) {
   job.updatedAt = nowISO();
 
   // Parse progress hints from build-and-flash.sh + upload-release.sh output
-  if (clean.includes("[build]")) {
-    if (clean.match(/kernel|bzImage|vmlinuz/i)) {
+  if (clean.includes("[build]") || clean.includes("[ac-os]")) {
+    if (clean.match(/Building kernel|bzImage|vmlinuz/i)) {
       job.stage = "kernel";
       job.percent = Math.max(job.percent, 55);
-    } else if (clean.match(/initramfs|cpio|lz4/i)) {
+    } else if (clean.match(/initramfs|cpio|lz4|Repacking|Copying firmware/i)) {
       job.stage = "initramfs";
       job.percent = Math.max(job.percent, 30);
-    } else if (clean.match(/binary|ac-native|gcc|musl/i)) {
+    } else if (clean.match(/Building binary|Built:|ac-native|gcc|musl/i)) {
       job.stage = "binary";
       job.percent = Math.max(job.percent, 10);
     }
