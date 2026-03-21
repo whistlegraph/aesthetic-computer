@@ -12,8 +12,20 @@ import Stripe from "stripe";
 import { respond } from "../../backend/http.mjs";
 import { email } from "../../backend/email.mjs";
 import { authorize } from "../../backend/authorization.mjs";
+import { connect } from "../../backend/database.mjs";
 
 const dev = process.env.CONTEXT === "dev";
+
+// Cache secrets from MongoDB
+let cachedSecrets = null;
+async function getSecrets() {
+  if (cachedSecrets) return cachedSecrets;
+  const { db } = await connect();
+  const secrets = await db.collection("secrets").findOne({ _id: "blank" });
+  if (!secrets) throw new Error("Blank secrets not found in database");
+  cachedSecrets = secrets;
+  return cachedSecrets;
+}
 const stripeKey = dev
   ? process.env.STRIPE_API_TEST_PRIV_KEY
   : process.env.STRIPE_API_PRIV_KEY;
@@ -230,9 +242,15 @@ export async function handler(event) {
     return respond(400, { error: "Missing stripe-signature header" });
   }
 
-  const secret = dev
-    ? process.env.STRIPE_ENDPOINT_DEV_SECRET
-    : process.env.STRIPE_ENDPOINT_BLANK_SECRET;
+  let secret;
+  try {
+    const secrets = await getSecrets();
+    secret = dev
+      ? process.env.STRIPE_ENDPOINT_DEV_SECRET
+      : secrets.stripeWebhookSecret;
+  } catch (err) {
+    return respond(500, { message: `Secrets Error: ${err.message}` });
+  }
 
   let hookEvent;
   try {
@@ -264,9 +282,8 @@ export async function handler(event) {
 
     // Store order in MongoDB
     try {
-      const { connect } = await import("../../backend/database.mjs");
-      const database = await connect();
-      const orders = database.db.collection("blank-orders");
+      const { db } = await connect();
+      const orders = db.collection("blank-orders");
 
       await orders.insertOne({
         stripeSessionId: session.id,
