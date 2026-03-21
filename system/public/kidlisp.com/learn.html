@@ -183,7 +183,7 @@
       display: none;
       animation: hello-fade 0.2s ease;
     }
-    .hello-page.active { display: flex; gap: 10px; align-items: flex-start; }
+    .hello-page.active { display: block; }
     @keyframes hello-fade {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -214,10 +214,8 @@
       font-size: 13px;
       line-height: 1.4;
       color: var(--text-secondary);
-      flex: 1;
-      min-width: 100px;
-      margin: 0;
-      padding: 4px 0;
+      margin: 6px 0 0 0;
+      padding: 0;
     }
     .hello-nav {
       display: flex;
@@ -262,7 +260,6 @@
       background: var(--accent);
     }
     @media (max-width: 400px) {
-      .hello-page.active { flex-direction: column; }
       .hello-text { font-size: 12px; }
       .hello-code { font-size: 11px; }
     }
@@ -522,44 +519,47 @@
     <div class="hello-book">
       <div class="hello-page active" data-page="1">
         <div class="hello-illustration">
-          <pre class="hello-code">(wipe "black")
-(ink "yellow")
-(circle 80 60 30)</pre>
+          <pre class="hello-code">(circle)</pre>
         </div>
-        <p class="hello-text">KidLisp is a tiny language for making pictures that move.</p>
+        <p class="hello-text">One word in parentheses draws a circle. That's KidLisp.</p>
       </div>
       <div class="hello-page" data-page="2">
         <div class="hello-illustration">
-          <pre class="hello-code">(ink red)
-(circle 80 80 (wiggle 40))
-(ink blue)
-(line)</pre>
+          <pre class="hello-code">(ink red, circle)</pre>
         </div>
-        <p class="hello-text">You write parentheses around words and numbers. That's it. Each line draws something to the screen.</p>
+        <p class="hello-text">Commas chain commands. Set a color, then draw.</p>
       </div>
       <div class="hello-page" data-page="3">
         <div class="hello-illustration">
-          <pre class="hello-code">(repeat 100 i
-  (ink (? red blue lime))
-  (circle (wiggle w)
-          (wiggle h) 8))</pre>
+          <pre class="hello-code">(wipe black, ink lime, box 40 40 80)</pre>
         </div>
-        <p class="hello-text">Loops, randomness, and color are all built in. A hundred circles in three lines.</p>
+        <p class="hello-text">Wipe the screen, pick a color, draw a shape — all in one line.</p>
       </div>
       <div class="hello-page" data-page="4">
         <div class="hello-illustration">
-          <pre class="hello-code">(wipe "navy")
-(ink rainbow)
-(1s (blur 1))
-(circle 80 60 (sin f)* 30)</pre>
+          <pre class="hello-code">(ink (? red blue lime), circle (wiggle w) (wiggle h) 20)</pre>
         </div>
-        <p class="hello-text">Time happens on its own. Things move, blur, and change because the code runs every frame.</p>
+        <p class="hello-text">Randomness and motion are built in. Every frame picks a new color and wiggles.</p>
       </div>
       <div class="hello-page" data-page="5">
-        <div class="hello-illustration" style="font-size: 32px; display: flex; align-items: center; justify-content: center;">
+        <div class="hello-illustration">
+          <pre class="hello-code">(repeat 50 i
+  (ink (? red blue lime))
+  (circle (wiggle w) (wiggle h) 8))</pre>
+        </div>
+        <p class="hello-text">Loops make patterns. Fifty random circles in three lines.</p>
+      </div>
+      <div class="hello-page" data-page="6">
+        <div class="hello-illustration">
+          <pre class="hello-code">(wipe navy, ink rainbow, 1s (blur 1), circle 80 60 (* (sin f) 30))</pre>
+        </div>
+        <p class="hello-text">Time, blur, and math — code runs every frame so things move on their own.</p>
+      </div>
+      <div class="hello-page" data-page="7">
+        <div class="hello-illustration" style="font-size: 24px; display: flex; align-items: center; justify-content: center;">
           ( )
         </div>
-        <p class="hello-text">There are 118 functions to explore. Type something in the editor and press play. That's all you need to start.</p>
+        <p class="hello-text">118 functions to explore. Type something and press play.</p>
       </div>
       <div class="hello-nav">
         <button class="hello-prev" disabled>&larr;</button>
