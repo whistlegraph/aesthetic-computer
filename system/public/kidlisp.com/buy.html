@@ -128,16 +128,6 @@
       50% { opacity: 0.4; }
     }
 
-    .tez-sym {
-      display: inline-block;
-      width: 0.75em;
-      height: 0.75em;
-      vertical-align: -0.05em;
-      background: currentColor;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
-    }
-
     .wallet-btn {
       background: linear-gradient(135deg, rgba(78, 205, 196, 0.15), rgba(205, 92, 155, 0.15));
       border: 1px solid var(--neon-cyan);
@@ -290,7 +280,7 @@
     }
     .sold-mini:hover .sold-mini-overlay { opacity: 1; }
 
-    /* ── Detail modal ── */
+    /* ── Detail modal (responsive full-page) ── */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -306,21 +296,27 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      height: 100%;
     }
 
     .modal-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 20px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--border);
       background: var(--bg2);
+      flex-shrink: 0;
     }
 
     .modal-title {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--purple);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .modal-close {
@@ -328,6 +324,7 @@
       color: var(--text2);
       border: 1px solid var(--border);
       width: 36px; height: 36px;
+      flex-shrink: 0;
       border-radius: var(--radius);
       cursor: pointer;
       font-size: 18px;
@@ -347,32 +344,55 @@
     }
 
     .modal-footer {
-      padding: 14px 20px;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
       border-top: 1px solid var(--border);
       background: var(--bg2);
+      flex-shrink: 0;
       flex-wrap: wrap;
     }
 
     .modal-price {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       color: var(--blue);
     }
 
-    .modal-seller {
-      font-size: 11px;
-      color: var(--text2);
+    .modal-info {
       flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
+
+    .modal-seller {
+      font-size: 10px;
+      color: var(--text2);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .modal-permalink {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--neon-cyan);
+      cursor: pointer;
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .modal-permalink:hover { text-decoration: underline; }
 
     .buy-btn {
       background: linear-gradient(135deg, var(--accent), var(--neon-pink));
       color: #000;
       border: none;
-      padding: 12px 28px;
+      padding: 12px 24px;
       border-radius: var(--radius);
       font-family: var(--font-fun);
       font-size: 15px;
@@ -380,14 +400,15 @@
       cursor: pointer;
       transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
       box-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
+      flex-shrink: 0;
     }
     .buy-btn:hover { opacity: 0.9; transform: scale(1.03); box-shadow: 0 4px 20px rgba(245, 158, 11, 0.5); }
     .buy-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
     .buy-status {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text2);
-      min-height: 18px;
+      min-height: 16px;
       width: 100%;
     }
     .buy-status.success { color: var(--green); }
@@ -463,17 +484,19 @@
       background: linear-gradient(135deg, var(--accent), var(--neon-pink));
       color: #000;
       border: none;
-      padding: 7px 14px;
+      padding: 10px 16px;
+      margin-right: 10px;
       font-family: var(--font-fun);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.15s;
       letter-spacing: 0.02em;
-      border-radius: 6px;
+      border-radius: 8px;
       white-space: nowrap;
       align-self: center;
       flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
     }
     .card-buy-btn:hover { opacity: 0.9; transform: scale(1.02); }
     .card-buy-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -533,7 +556,7 @@
     <a href="/" class="logo"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     <div class="header-right">
       <div class="live-dot" id="live-dot" title="Live"></div>
-      <button class="wallet-btn" id="wallet-btn"><span class="tez-sym"></span> Connect Wallet</button>
+      <button class="wallet-btn" id="wallet-btn">ꜩ Connect Tezos</button>
     </div>
   </header>
 
@@ -555,8 +578,11 @@
       <div class="modal-preview" id="modal-preview"></div>
       <div class="modal-footer">
         <div class="modal-price" id="modal-price"></div>
-        <div class="modal-seller" id="modal-seller"></div>
-        <button class="buy-btn" id="buy-btn" disabled>Connect wallet to buy</button>
+        <div class="modal-info">
+          <div class="modal-seller" id="modal-seller"></div>
+          <a class="modal-permalink" id="modal-permalink" target="_blank"></a>
+        </div>
+        <button class="buy-btn" id="buy-btn" disabled>Connect Tezos to buy</button>
         <div class="buy-status" id="buy-status"></div>
         <div class="modal-links" id="modal-links"></div>
       </div>
@@ -653,21 +679,19 @@
     updateWalletUI();
   }
 
-  const tezSvg = '<span class="tez-sym"></span>';
-
   function updateWalletUI() {
     if (walletAddress) {
-      walletBtn.innerHTML = tezSvg + ' ' + walletAddress.slice(0, 5) + '…' + walletAddress.slice(-4);
+      walletBtn.textContent = 'ꜩ ' + walletAddress.slice(0, 5) + '…' + walletAddress.slice(-4);
       walletBtn.classList.add('connected');
       if (selectedListing) {
         buyBtn.disabled = false;
         buyBtn.textContent = 'Buy for ' + formatXTZ(selectedListing.price_xtz) + ' XTZ';
       }
     } else {
-      walletBtn.innerHTML = tezSvg + ' Connect Wallet';
+      walletBtn.textContent = 'ꜩ Connect Tezos';
       walletBtn.classList.remove('connected');
       buyBtn.disabled = true;
-      buyBtn.textContent = 'Connect wallet to buy';
+      buyBtn.textContent = 'Connect Tezos to buy';
     }
   }
 
@@ -844,10 +868,16 @@
     const price = formatXTZ(ev.price_xtz);
     const code = name.startsWith('$') ? name.slice(1) : tokenId;
 
+    const permalink = location.origin + '/' + (name.startsWith('$') ? name : '$' + code);
+
     selectedListing = null; // Not purchasable
     document.getElementById('modal-title').textContent = name + ' (sold)';
     document.getElementById('modal-price').textContent = price + ' XTZ';
     document.getElementById('modal-seller').textContent = 'Buyer: ' + ev.recipient_address;
+
+    const permalinkEl = document.getElementById('modal-permalink');
+    permalinkEl.textContent = permalink;
+    permalinkEl.href = permalink;
 
     const preview = document.getElementById('modal-preview');
     preview.innerHTML = '';
@@ -882,9 +912,15 @@
     const tokenId = listing.token?.token_id;
     const code = name.startsWith('$') ? name.slice(1) : tokenId;
 
+    const permalink = location.origin + '/' + (name.startsWith('$') ? name : '$' + code);
+
     document.getElementById('modal-title').textContent = name;
     document.getElementById('modal-price').textContent = price + ' XTZ';
     document.getElementById('modal-seller').textContent = listing.seller_address;
+
+    const permalinkEl = document.getElementById('modal-permalink');
+    permalinkEl.textContent = permalink;
+    permalinkEl.href = permalink;
 
     // Embed artifact directly from IPFS (self-contained HTML)
     const preview = document.getElementById('modal-preview');
@@ -919,7 +955,7 @@
       }
     } else {
       buyBtn.disabled = false;
-      buyBtn.textContent = 'Connect wallet to buy';
+      buyBtn.textContent = 'Connect Tezos to buy';
     }
 
     // Update URL to permalink
@@ -927,20 +963,22 @@
     overlay.classList.add('open');
   }
 
-  function closeModal() {
+  function closeModal(fromPopstate) {
     overlay.classList.remove('open');
     selectedListing = null;
     document.getElementById('modal-preview').innerHTML = '';
-    history.pushState({}, '', '/');
+    if (!fromPopstate) history.pushState({}, '', '/');
   }
 
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && selectedListing) closeModal(); });
+  document.getElementById('modal-close').addEventListener('click', () => closeModal(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal(false);
+  });
 
   // Handle back button
   window.addEventListener('popstate', () => {
-    if (selectedListing) {
-      closeModal();
+    if (overlay.classList.contains('open')) {
+      closeModal(true);
     } else {
       routeFromURL();
     }
@@ -1046,7 +1084,7 @@
       buyBtn.textContent = 'Purchased!';
       buyStatus.textContent = 'tx: ' + txHash.slice(0, 12) + '…';
       buyStatus.className = 'buy-status success';
-      setTimeout(closeModal, 3000);
+      setTimeout(() => closeModal(false), 3000);
     } catch (err) {
       const msg = err?.message || String(err);
       buyStatus.textContent = msg.includes('aborted') || msg.includes('cancel') ? 'Cancelled' : msg.slice(0, 80);
