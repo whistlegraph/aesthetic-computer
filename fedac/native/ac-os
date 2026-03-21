@@ -38,8 +38,11 @@ build_binary() {
     cd "${SCRIPT_DIR}"
     CC_USE="${CC:-}"
     if [ -z "${CC_USE}" ]; then
+        # Only use musl-gcc if shared libs are also musl-linked (Fedora).
+        # On Ubuntu/Debian, shared libs are glibc — mixing musl binary + glibc libs crashes.
         if command -v musl-gcc &>/dev/null \
-           && echo '#include <linux/input.h>' | musl-gcc -E -x c - &>/dev/null 2>&1; then
+           && echo '#include <linux/input.h>' | musl-gcc -E -x c - &>/dev/null 2>&1 \
+           && ! ldd /usr/lib/*/libasound.so.2 2>/dev/null | grep -q 'libc.so.6'; then
             CC_USE=musl-gcc
         else
             CC_USE=gcc
