@@ -272,9 +272,38 @@ mkdir -p "${INITRAMFS_DIR}/lib64"
 # Copy shared libs (if dynamic build)
 if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     log "Copying shared libraries for dynamic binary..."
-    for lib in $(ldd "${BUILD_DIR}/ac-native" | grep -oP '/\S+'); do
-        [ -f "$lib" ] && cp "$lib" "${INITRAMFS_DIR}/lib64/"
-    done
+
+    # Detect musl-linked binary (interpreter is ld-musl-*, ldd won't work)
+    if file "${BUILD_DIR}/ac-native" | grep -q "ld-musl"; then
+        log "  musl-linked binary detected"
+        # Copy musl dynamic linker
+        MUSL_LD=$(find /usr/lib /lib -name "ld-musl-x86_64.so.1" -type f 2>/dev/null | head -1)
+        if [ -n "${MUSL_LD}" ]; then
+            cp "${MUSL_LD}" "${INITRAMFS_DIR}/lib64/"
+            # Also symlink to /lib/ where the binary expects it
+            mkdir -p "${INITRAMFS_DIR}/lib"
+            ln -sf ../lib64/ld-musl-x86_64.so.1 "${INITRAMFS_DIR}/lib/ld-musl-x86_64.so.1"
+            log "  musl linker: ${MUSL_LD}"
+        fi
+        # Copy musl libc (the linker IS the libc for musl)
+        # Also copy system libs the binary links against (readelf approach)
+        if command -v readelf &>/dev/null; then
+            for needed in $(readelf -d "${BUILD_DIR}/ac-native" 2>/dev/null | grep NEEDED | grep -oP '\[.*?\]' | tr -d '[]'); do
+                # Search common lib paths
+                for dir in /usr/lib/x86_64-linux-gnu /usr/lib64 /lib/x86_64-linux-gnu /lib64 /usr/lib; do
+                    if [ -f "${dir}/${needed}" ]; then
+                        cp -nL "${dir}/${needed}" "${INITRAMFS_DIR}/lib64/" 2>/dev/null
+                        break
+                    fi
+                done
+            done
+        fi
+    else
+        # Standard glibc binary — ldd works
+        for lib in $(ldd "${BUILD_DIR}/ac-native" | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp "$lib" "${INITRAMFS_DIR}/lib64/"
+        done
+    fi
     # Symlink /lib -> /lib64 (some lookups use /lib)
     ln -sf lib64 "${INITRAMFS_DIR}/lib"
 fi
