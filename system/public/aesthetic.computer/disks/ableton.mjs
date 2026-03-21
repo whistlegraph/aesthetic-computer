@@ -115,7 +115,7 @@ function paint({ wipe, ink, screen, write, line, box, pen, dark }) {
   }
 }
 
-function act({ event: e, pen, sound }) {
+function act({ event: e, pen, sound, download }) {
   if (!plugins.length) return;
 
   if (e.is("move") || e.is("draw")) {
@@ -132,7 +132,15 @@ function act({ event: e, pen, sound }) {
   if (e.is("touch") && hoveredButton) {
     const plugin = hoveredButton.plugin;
     sound.synth({ type: "sine", tone: 440, beats: 0.1, volume: 0.3 });
-    window.open(plugin.m4l.downloadUrl, "_blank");
+
+    // Fetch the .amxd binary then trigger a file save via the download API
+    fetch(plugin.m4l.downloadUrl)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => {
+        download(plugin.m4l.fileName, new Uint8Array(buf));
+      })
+      .catch((err) => console.error("Download failed:", err));
+
     fetch(`/m4l-plugins/${plugin.code}/download`, { method: "POST" }).catch(
       () => {},
     );
