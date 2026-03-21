@@ -941,29 +941,21 @@ class TextButton {
     }
 
     if (pos.center === "x") {
-      return {
-        x: (pos.screen?.x || 0) + (pos.screen?.width || 0) / 2 - w / 2,
-        y: (pos.screen?.y || 0) + (pos.y || 0),
-        w,
-        h,
-      };
+      x = (pos.screen?.x || 0) + (pos.screen?.width || 0) / 2 - w / 2;
+    } else {
+      x = (pos.screen?.x || 0) + (pos.x || 0);
+      if (pos.right !== undefined) {
+        x += pos.screen.width - pos.right - w;
+      } else {
+        x += pos.left || 0;
+      }
     }
 
-    // Position from top left if x and y are set on pos
-    x = (pos.screen?.x || 0) + (pos.x || 0);
     y = (pos.screen?.y || 0) + (pos.y || 0);
-
-    // Compute "bottom" and "right" properties if they exist.
     if (pos.bottom !== undefined) {
       y += pos.screen.height - pos.bottom - this.#h;
     } else {
       y += pos.top || 0;
-    }
-
-    if (pos.right !== undefined) {
-      x += pos.screen.width - pos.right - w;
-    } else {
-      x += pos.left || 0;
     }
 
     return { x, y, w, h };
@@ -1097,12 +1089,14 @@ class TextButtonSmall {
         return { x: sx + sw / 2 - w / 2, y: sy + sh / 2 - h / 2, w, h };
       }
       if (pos.center === "x") {
-        return { x: sx + sw / 2 - w / 2, y: sy + y, w, h };
+        x = sx + sw / 2 - w / 2;
       }
-      if (pos.right !== undefined) {
-        x = sx + sw - pos.right - w;
-      } else {
-        x = sx + (pos.left || pos.x || 0);
+      if (pos.center !== "x") {
+        if (pos.right !== undefined) {
+          x = sx + sw - pos.right - w;
+        } else {
+          x = sx + (pos.left || pos.x || 0);
+        }
       }
       if (pos.bottom !== undefined) {
         y = sy + sh - pos.bottom - h;
