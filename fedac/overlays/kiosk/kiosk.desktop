@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=FedAC Kiosk
+Comment=Firefox Kiosk (no desktop)
+Exec=/usr/local/bin/kiosk-session.sh
+Type=Application
+DesktopNames=GNOME

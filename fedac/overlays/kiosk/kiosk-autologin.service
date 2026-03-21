@@ -1,0 +1,21 @@
+[Unit]
+Description=FedAC Kiosk — direct Wayland session (no GDM)
+After=systemd-logind.service local-fs.target kiosk-piece-server.service
+Requires=systemd-logind.service
+Wants=kiosk-piece-server.service
+
+[Service]
+Type=simple
+User=liveuser
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=journal+console
+StandardError=journal+console
+Environment=XDG_SESSION_TYPE=wayland
+ExecStart=/usr/local/bin/kiosk-session.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical.target
