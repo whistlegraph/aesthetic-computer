@@ -2074,6 +2074,27 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Check for previous crash (written by signal handler)
+    {
+        FILE *cf = fopen("/mnt/crash.json", "r");
+        if (cf) {
+            char cbuf[512] = {0};
+            fread(cbuf, 1, sizeof(cbuf) - 1, cf);
+            fclose(cf);
+            char sig[32] = {0};
+            parse_config_string(cbuf, "\"signal\"", sig, sizeof(sig));
+            if (sig[0]) {
+                rt->crash_active = 1;
+                rt->crash_frame = 0;
+                snprintf(rt->crash_msg, sizeof(rt->crash_msg),
+                         "previous crash: %s", sig);
+                ac_log("[ac-native] Previous crash detected: %s\n", sig);
+            }
+            // Remove crash file so we don't re-show it
+            remove("/mnt/crash.json");
+        }
+    }
+
     // Override piece_path from config.json boot piece (pieces bundled at /pieces/)
     // Resolve aliases: "claude" and "cc" → terminal (with param "claude")
     if (strcmp(rt->piece, "claude") == 0 || strcmp(rt->piece, "cc") == 0) {
@@ -2844,9 +2865,13 @@ int main(int argc, char *argv[]) {
                 }
                 JS_FreeValue(rt->ctx, global);
 
-                // Reset counters
+                // Reset counters and crash state
                 rt->paint_count = 0;
                 rt->sim_count = 0;
+                rt->crash_active = 0;
+                rt->crash_count = 0;
+                rt->crash_frame = 0;
+                rt->crash_msg[0] = 0;
 
                 // NOTE: "claude" and "cc" aliases removed — claude.mjs handles auth curtain
                 // before jumping to terminal:claude itself.
@@ -2883,6 +2908,26 @@ int main(int argc, char *argv[]) {
             js_call_paint(rt);
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
+
+            // Crash overlay — red bar with error message when JS throws
+            if (rt->crash_active) {
+                rt->crash_frame++;
+                int bar_h = 24;
+                int flash = (rt->crash_frame < 30) ? (rt->crash_frame % 6 < 3 ? 255 : 180) : 200;
+                graph_ink(&graph, (ACColor){flash, 0, 0, 240});
+                graph_box(&graph, 0, 0, screen->width, bar_h, 1);
+                graph_ink(&graph, (ACColor){255, 255, 255, 255});
+                font_draw_matrix(&graph, "CRASH", 4, 4, 2);
+                // Truncate message to fit screen
+                char crash_display[128];
+                snprintf(crash_display, sizeof(crash_display), "%s", rt->crash_msg);
+                graph_ink(&graph, (ACColor){255, 200, 200, 255});
+                font_draw_matrix(&graph, crash_display, 60, 8, 1);
+                // Auto-dismiss after 5 seconds (300 frames at 60fps)
+                if (rt->crash_frame > 300) {
+                    rt->crash_active = 0;
+                }
+            }
 
             // Software cursor on its own overlay buffer (unaffected by KidLisp effects)
             if (cursor_fb && input && (input->pointer_x || input->pointer_y)) {

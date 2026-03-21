@@ -977,8 +977,10 @@ pull_ota() {
     fi
     log "SHA256 verified: ${ACTUAL_HASH:0:16}..."
 
-    # Override VMLINUZ so flash_usb uses the downloaded kernel
+    # Override VMLINUZ and build name so flash_usb uses the downloaded kernel
+    # (not the locally-generated name from scripts/build-name.sh)
     VMLINUZ="${PULLED_KERNEL}"
+    export AC_BUILD_NAME="${BUILD_NAME}"
     log "Ready to flash: ${BUILD_NAME}"
 }
 

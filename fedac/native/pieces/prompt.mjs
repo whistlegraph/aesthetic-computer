@@ -333,6 +333,27 @@ function execute(cmd, system) {
     return;
   }
 
+  // Set default boot piece
+  if (baseWord === "boot") {
+    if (spaceIdx > 0) {
+      const pieceName = cmd.slice(spaceIdx + 1).trim();
+      if (pieceName) {
+        system?.saveConfig?.("piece", pieceName);
+        message = "boot → " + pieceName;
+      } else {
+        message = "usage: boot <piece-name>";
+      }
+    } else {
+      // Show current boot piece
+      const raw = system?.readFile?.("/mnt/config.json");
+      let cur = "notepat";
+      if (raw) try { cur = JSON.parse(raw).piece || cur; } catch (_) {}
+      message = "boot piece: " + cur;
+    }
+    messageFrame = 0;
+    return;
+  }
+
   // Dark/light mode override
   if (lower === "dark") {
     __theme._forceDark = true;
