@@ -1,0 +1,238 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{fontspec}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{tabularx}
+
+% Classic Computer Modern (arxiv default feel)
+\setmainfont{Latin Modern Roman}
+
+\definecolor{secblue}{RGB}{42,90,138}
+\definecolor{dimgray}{RGB}{120,120,120}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{datecyan}{RGB}{0,120,140}
+\definecolor{goldhl}{RGB}{160,120,0}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=secblue,
+  citecolor=acpurple,
+}
+
+\titleformat{\section}
+  {\normalfont\bfseries\large\color{secblue}}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.4em}{0.4em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\normalsize\color{acpurple}}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.6em}
+
+\setlist[itemize]{nosep, leftmargin=1.4em, itemsep=0.15em}
+\setlist[enumerate]{nosep, leftmargin=1.4em}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries\color{secblue} MicroVision Takeover Potential Report}\\[0.4em]
+{\large March 2026}
+\end{center}
+
+\vspace{0.5em}
+\hrule
+\vspace{1em}
+
+\section{Current State (March 2026)}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\textbf{Stock Price:} & \$0.61/share \\
+\textbf{Market Cap:} & \textasciitilde\$190M \\
+\textbf{Analyst Target:} & \$2.50 (Strong Buy, 2 analysts) \\
+\textbf{Ownership:} & 27.5\% institutional, 9.8\% insiders, 62.7\% retail \\
+\end{tabularx}
+
+\subsection{Recent Developments}
+
+\begin{itemize}
+\item New CEO \textbf{Glen DeVos} executing ``Pivot to Profit'' strategy
+\item Acquired \textbf{Luminar Technologies' LiDAR assets} (Iris + Halo sensors) for \$33M --- completed Feb 2026
+\item Raised \textbf{\$43M via senior secured convertible notes} to accelerate acquisition synergies
+\item CEO, directors, and executives \textbf{buying MVIS stock} (March 2026, \$310K aggregate at \$0.5322/share)
+\item Partnerships with \textbf{Anduril} (defense), \textbf{ZF} (auto Tier 1), \textbf{NVIDIA} (AI/compute)
+\end{itemize}
+
+\section{Latest News Timeline}
+
+{\color{datecyan}\textbf{2026-03-16}} --- \textit{\href{https://www.stocktitan.net/news/MVIS/micro-vision-ceo-directors-and-executives-buy-mvis-4d82b0ctt79m.html}{Insiders Buy \$310K in MVIS Stock.}}
+All executive officers and U.S. board members committed to purchase shares at \$0.5322/share --- direct purchases from the company, not open market.
+
+{\color{datecyan}\textbf{2026-03-05}} --- \textit{D. Boral Capital Downgrades to Hold.}
+Downgrade from Buy to Hold, citing ``uncertainty around near-term sales growth and continued spending pressures.'' Stock fell \textasciitilde19\% post-earnings.
+
+{\color{datecyan}\textbf{2026-03-04}} --- \textit{\href{https://seekingalpha.com/news/4561075-microvision-outlines-10m-15m-2026-revenue-target-amid-lidar-2_0-transformation-and-expanded}{Q4 \& Full Year 2025 Earnings.}}
+Q4 revenue: \$0.2M (vs \$1.7M prior year). Full year 2025: \$1.2M (vs \$4.7M in 2024). Net loss included \$29.4M impairment charge. \textbf{2026 revenue guidance: \$10--15M} --- mostly industrial, with balance from automotive (includes Luminar streams). Cash burn for 2026: \$65--70M. Cash on hand: \$74.8M.
+
+{\color{datecyan}\textbf{2026-02-25}} --- \textit{\href{https://ir.microvision.com/news/press-releases/detail/438/microvision-business-update-and-fireside-chat-on-february}{CEO Fireside Chat --- ``LiDAR 2.0'' Strategy.}}
+Glen DeVos outlined rationale for two acquisitions and the ``LiDAR 2.0'' transformation with expanded defense push.
+
+{\color{datecyan}\textbf{2026-02-24}} --- \textit{\$43M Convertible Notes Issued.}
+Senior secured notes to defer repayment obligations and accelerate Luminar + Scantinel integration.
+
+{\color{datecyan}\textbf{2026-01-27}} --- \textit{\href{https://ir.microvision.com/news/press-releases/detail/436/microvision-announces-agreement-to-acquire-luminar-assets}{Luminar Assets Acquisition (\$33M).}}
+Acquired Iris + Halo LiDAR sensor IP, inventory, key engineering talent, and select commercial contracts.
+
+{\color{datecyan}\textbf{2025-12-16}} --- \textit{\href{https://ir.microvision.com/news/press-releases/detail/435/microvision-reports-commercial-momentum-in-industrial}{First MOVIA L Shipments --- EU Defense OEM.}}
+Initial order for MOVIA L sensors with integrated software shipped. Repeat orders continuing in 2026. DeVos: suited for ``mission-critical systems, whether protecting lives on the battlefield or cargo in industrial transport.''
+
+{\color{datecyan}\textbf{2025-11-10}} --- \textit{Scantinel Photonics Acquisition (FMCW LiDAR).}
+Acquired 1550nm FMCW ultra-long-range LiDAR tech + team in southern Germany. Targets commercial vehicles.
+
+\subsection{Product Roadmap}
+
+\begin{itemize}
+\item \textbf{MOVIA S} --- next-gen industrial sensor, production launch Q4 2026
+\item \textbf{FMCW ultra-long-range} --- roadmap via ex-Scantinel team (Germany)
+\item \textbf{MOVIA L} --- shipping now to EU defense OEM, repeat orders ongoing
+\item \textbf{MAVIN} --- long-range ADAS sensor, integrated with NVIDIA DRIVE platform
+\end{itemize}
+
+\section{AIM Intelligent Machines --- Takeover Theory}
+
+\fcolorbox{acpink}{acpink!8}{\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule}{%
+\textbf{\color{acpink}Thesis:} AIM Intelligent Machines will take over MicroVision. They now share office space.}}
+
+AIM Intelligent Machines retrofits heavy earthmoving equipment (excavators, dozers, trucks) to operate autonomously using LiDAR + AI. They are DCVC-backed with defense contracts.
+
+\subsection{Why the Fit Is Almost Too Clean}
+
+\begin{itemize}
+\item AIM is in \textbf{Bellevue/Monroe, WA} --- a few miles from MVIS in \textbf{Redmond, WA}
+\item AIM needs compact, affordable LiDAR for harsh outdoor environments --- MVIS makes exactly that
+\item MVIS's MAVIN (long-range) + MOVIA (short/mid-range) at \textasciitilde\$250/unit fits AIM's cost model
+\item Overlapping defense angle: AIM defense contracts + MVIS/Anduril partnership
+\item MVIS at \textasciitilde\$190M market cap is very acquirable
+\item \textbf{Shared offices} = deeper than a partnership (joint engineering, due diligence, or pre-acquisition integration)
+\end{itemize}
+
+\section{Grok AI Blind Valuation (March 20, 2026)}
+
+Grok was prompted to value a hypothetical company matching MVIS's exact capabilities \textit{without naming MicroVision} --- avoiding biased press coverage.
+
+\begin{center}
+\fcolorbox{secblue}{secblue!6}{\begin{tabular}{@{}ll@{}}
+\textbf{\color{secblue}Market Cap Estimate} & \$2--5 billion (bull case: \$5--10B by 2028) \\[3pt]
+\textbf{\color{secblue}NED Licensing Deal} & \$200--500 million \\[3pt]
+\textbf{\color{secblue}Implied Price Target} & \$6--\$16/share \\[3pt]
+\textbf{\color{secblue}Short killer} & A special dividend of \$2 from NED licensing \\
+\end{tabular}}
+\end{center}
+
+\subsection{Market Opportunity (Grok's Numbers)}
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Segment} & \textbf{2025 Market} & \textbf{2030 Projection} & \textbf{MVIS Revenue Potential} \\
+\midrule
+Automotive LiDAR (ADAS) & \$1.2--1.9B & \$9--25B & \$500M--\$2B (5--10\% share) \\
+Industrial LiDAR & \$3--8B & \$6--13B & \$200--500M \\
+AR Near-Eye Display & \$2.2B & \$6.7B & \$300--800M \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Comparable Companies}
+
+\begin{center}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Company} & \textbf{Focus} & \textbf{Market Cap} \\
+\midrule
+Hesai Group & Auto/Industrial LiDAR & \textasciitilde\$3.8B \\
+Ouster & Multi-sector LiDAR & \textasciitilde\$1.3B \\
+Aeva Technologies & Automotive LiDAR & \textasciitilde\$0.9B \\
+Himax Technologies & Display tech (AR) & \textasciitilde\$1.7B \\
+Kopin Corporation & Micro-displays for AR & \textasciitilde\$0.4B \\
+\textbf{MicroVision} & \textbf{LiDAR + NED + AR} & \textbf{\textasciitilde\$0.19B} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Reverse Chronology --- 11 Years of MVIS Research}
+
+\subsection*{2025 --- Anduril, ZF, NVIDIA Partnerships}
+
+{\color{datecyan}\textbf{2025-07-11}} --- MicroVision Retail Investor Day Town Hall session (replay available on r/MVIS).
+
+{\color{datecyan}\textbf{2025-04-05}} --- CoPilot-generated analysis of MicroVision's collaborations with Anduril (defense), ZF (auto Tier 1), and NVIDIA (AI/compute). Circulated to the MVIS blog community.
+
+\subsection*{2024 --- Interactive Spreadsheet Analysis}
+
+{\color{datecyan}\textbf{2024-10-09}} --- MVIS Lidar Spreadsheet v2, expanded to include automotive and industrial robotics applications. Interactive with user-adjustable variables for scenario modeling.
+
+{\color{datecyan}\textbf{2024-03-17}} --- MVIS Lidar Spreadsheet v1. ``All the cells highlighted are variables where users can input their own ideas and it will do the calculations to produce the financial results of whatever scenarios they personally feel will happen.''
+
+\subsection*{2021 --- Brokerage Review}
+
+{\color{datecyan}\textbf{2021-11-17}} --- Brokerage account review. 1,100 shares had been sold at avg \$13.54/share (\$14,894 total). With MVIS closing at \$8.62. Rebuy was urged. Projection: buy 1,100 shares at \$9 (\$9,900), sell at \$40 = \$34,100 profit.
+
+\subsection*{2020 --- Amazon Breadcrumbs \& Volume Explosion}
+
+{\color{datecyan}\textbf{2020-05-09}} --- Trading volume analysis: 842M shares traded Apr--May 2020 vs 14.9M in the same period 2019 (56x increase). In 6 trading days, volume was 5x the entire 130M share float. ``My gut feel tells me something big is going on.''
+
+{\color{datecyan}\textbf{2020-01-07}} --- A MVIS interactive display data sheet showed a ``poached salmon platter'' image with a description identical to a Whole Foods Bellevue listing. The projector housing resembled the Amazon Echo form factor. An MVIS blogger confirmed independently that an Amazon Alexa engineer reacted with ``shock and startle'' when asked about the interactive laser projector timeline.
+
+\subsection*{2019 --- PPS Modeling \& Bull/Bear Debate}
+
+{\color{datecyan}\textbf{2019-03-10}} --- A retail investor PPS model was built: 1 billion units/year, PE of 14, 30\%+ margins. A skeptic countered with 35M units, PE of 5, resulting in a \$1.70 target. Known deals at the time: \$25.2M contract (suspected HoloLens 2), \$10M display-only license (suspected FoxConn).
+
+\subsection*{2018 --- ``MSFT and AMZN Are the Mystery Customers''}
+
+{\color{datecyan}\textbf{2018-08-02}} --- After Q2 conference call analysis, Retail investor analysis concluded: ``I personally think two of the big ones MVIS has been working with are MSFT and AMZN.''
+
+\subsection*{2017 --- Analyst Reports \& Chinese Smartphones}
+
+{\color{datecyan}\textbf{2017-07-26}} --- VOGA V phone review (MVIS laser projector engine inside). ``I think this phone with the MVIS engine will become very popular in China.''
+
+{\color{datecyan}\textbf{2017-03-23}} --- RDI issued a bullish report. ``If rumors about STM having large order from Apple for a 3D sensor that includes Microvision's product prove true --- this stock could be a real winner.''
+
+\subsection*{2016 --- ``Bottom of the First Inning''}
+
+{\color{datecyan}\textbf{2016-03-08}} --- After Q4 conference call: ``MVIS has a runner (Sharp) on first and another runner (Sony) on second with no outs.'' Tracked Sharp Robohon robot, Sony Xperia Agent, Foxconn's acquisition of Sharp.
+
+{\color{datecyan}\textbf{2016-01-06}} --- CES 2016: Sony MPCL1 pico projector (using MicroVision engine) prominently displayed. Celluon PicoPro and PicoAir portable projectors (\$299--\$450). Ford HUD partnership.
+
+\subsection*{2015 --- The Beginning}
+
+{\color{datecyan}\textbf{2015-07-27}} --- Roger Collamati sent his MVIS investment thesis to a 15-person distribution list: ``Why this company will be the next big investment to have.'' MVIS was trading at \$3.40.
+
+{\color{datecyan}\textbf{2015-06-09}} --- The founding thesis from the MVIS blog community: consumers demand bigger screens, and PicoP projection is the answer. This idea would evolve through interactive displays, HoloLens, LiDAR, and defense tech over the next decade.
+
+\vspace{1em}
+\hrule
+\vspace{0.5em}
+\begin{center}
+{\small\color{dimgray} March 20, 2026}
+\end{center}
+
+\end{document}
