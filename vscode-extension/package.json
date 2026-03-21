@@ -192,6 +192,10 @@
       {
         "command": "aestheticComputer.welcome",
         "title": "Aesthetic Computer: Welcome ✨"
+      },
+      {
+        "command": "aestheticComputer.showOTADetails",
+        "title": "AC-OS: OTA Build Status"
       }
     ],
     "grammars": [
