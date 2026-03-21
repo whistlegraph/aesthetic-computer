@@ -160,9 +160,9 @@
       padding: 10px;
     }
 
-    /* ── Fresh card (horizontal tile) ── */
+    /* ── Fresh card (full-bleed background strip) ── */
     .card {
-      background: var(--bg2);
+      position: relative;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
@@ -171,7 +171,18 @@
       box-shadow: 0 2px 8px var(--card-glow);
       display: flex;
       flex-direction: row;
-      align-items: stretch;
+      align-items: center;
+      min-height: 100px;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--bg3);
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.15) 100%);
+      z-index: 1;
     }
     .card:hover {
       border-color: var(--accent);
@@ -179,40 +190,16 @@
       box-shadow: 0 6px 20px var(--card-hover-glow);
     }
 
-    .card-thumb {
-      width: 120px;
-      min-height: 90px;
-      flex-shrink: 0;
-      background: var(--bg3);
-      overflow: hidden;
-      position: relative;
-    }
-    .card-thumb-placeholder {
-      width: 100%; height: 100%;
-      background: linear-gradient(135deg, var(--bg3), var(--bg2), var(--bg3));
-      background-size: 200% 200%;
-      animation: shimmer 2s ease-in-out infinite;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      color: var(--text2);
-      opacity: 0.5;
-    }
     @keyframes shimmer {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
 
-    .card-thumb img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      image-rendering: auto;
-    }
-
     .card-body {
-      padding: 10px 14px;
+      position: relative;
+      z-index: 2;
+      padding: 14px 18px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -222,25 +209,27 @@
     }
 
     .card-code {
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 700;
       font-family: var(--font-mono);
-      color: var(--purple);
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6);
     }
 
     .card-price {
       font-size: 16px;
       font-weight: 700;
       color: var(--gold);
-      text-shadow: 0 0 8px rgba(255, 230, 109, 0.3);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     }
 
     .card-seller {
       font-size: 10px;
-      color: var(--text2);
+      color: rgba(255,255,255,0.6);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
     }
 
     /* ── Sold mini-cards (dense grid of stills) ── */
@@ -389,21 +378,21 @@
     .modal-permalink:hover { text-decoration: underline; }
 
     .buy-btn {
-      background: linear-gradient(135deg, var(--accent), var(--neon-pink));
-      color: #000;
+      background: var(--gold);
+      color: #1a1528;
       border: none;
-      padding: 12px 24px;
+      padding: 14px 32px;
       border-radius: var(--radius);
       font-family: var(--font-fun);
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 700;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
-      box-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
+      box-shadow: 0 2px 12px rgba(255, 230, 109, 0.25);
       flex-shrink: 0;
     }
-    .buy-btn:hover { opacity: 0.9; transform: scale(1.03); box-shadow: 0 4px 20px rgba(245, 158, 11, 0.5); }
-    .buy-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .buy-btn:hover { opacity: 0.9; transform: scale(1.03); box-shadow: 0 4px 20px rgba(255, 230, 109, 0.4); }
+    .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 
     .buy-status {
       font-size: 11px;
@@ -481,13 +470,15 @@
     }
 
     .card-buy-btn {
-      background: linear-gradient(135deg, var(--accent), var(--neon-pink));
-      color: #000;
+      position: relative;
+      z-index: 2;
+      background: var(--gold);
+      color: #1a1528;
       border: none;
-      padding: 10px 16px;
-      margin-right: 10px;
+      padding: 12px 20px;
+      margin-right: 14px;
       font-family: var(--font-fun);
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.15s;
@@ -496,10 +487,9 @@
       white-space: nowrap;
       align-self: center;
       flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
     }
-    .card-buy-btn:hover { opacity: 0.9; transform: scale(1.02); }
-    .card-buy-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .card-buy-btn:hover { opacity: 0.85; transform: scale(1.03); }
+    .card-buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
     /* ── Footer ── */
     footer {
@@ -615,6 +605,25 @@
   let currentTab = 'fresh';
   let selectedListing = null;
 
+  // ── Address → .tez domain resolver ──
+  const domainCache = {};
+  async function resolveSellerNames(addresses) {
+    const unknown = [...new Set(addresses)].filter(a => !(a in domainCache));
+    if (!unknown.length) return;
+    await Promise.all(unknown.map(async (addr) => {
+      try {
+        const res = await fetch(`https://api.tzkt.io/v1/domains?owner=${addr}&limit=1`);
+        const data = await res.json();
+        domainCache[addr] = data?.[0]?.name || null;
+      } catch { domainCache[addr] = null; }
+    }));
+  }
+  function sellerName(addr) {
+    if (!addr) return '?';
+    const domain = domainCache[addr];
+    return domain || addr;
+  }
+
   // ── DOM ──
   const grid = document.getElementById('grid');
   const walletBtn = document.getElementById('wallet-btn');
@@ -710,7 +719,7 @@
         price_xtz
         timestamp
         seller_address
-        token { token_id name thumbnail_uri artifact_uri }
+        token { token_id name thumbnail_uri artifact_uri creators { creator_address } }
       }
     }`;
 
@@ -797,26 +806,28 @@
 
     grid.innerHTML = sorted.map(l => {
       const name = l.token?.name || `#${l.token?.token_id}`;
-      // Use animated IPFS thumbnail by default instead of static oven PNG
       const animated = animatedWebpUrl(l.token?.thumbnail_uri);
       const price = formatXTZ(l.price_xtz);
-      const seller = l.seller_address?.slice(0, 8) + '…';
+      const seller = sellerName(l.seller_address);
+      const creator = l.token?.creators?.[0]?.creator_address;
+      const creatorLabel = creator ? sellerName(creator) : '';
+      const listed = new Date(l.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       const askId = l.id || l.bigmap_key;
-      return `<div class="card" data-id="${askId}">
-        <div class="card-thumb">
-          ${animated ? `<img src="${animated}" alt="${name}" loading="lazy" />` : `<div class="card-thumb-placeholder">✦</div>`}
-        </div>
+      const bgStyle = animated ? `background-image:url('${animated}')` : '';
+      return `<div class="card" data-id="${askId}" style="${bgStyle}">
         <div class="card-body">
           <div class="card-code">${name}</div>
           <div class="card-price">${price} XTZ</div>
-          <div class="card-seller">${seller}</div>
+          <div class="card-seller">seller: ${seller}</div>
+          ${creatorLabel ? `<div class="card-seller">author: ${creatorLabel}</div>` : ''}
+          <div class="card-seller">listed: ${listed}</div>
         </div>
         <button class="card-buy-btn" data-ask="${askId}">${walletAddress ? 'Buy — ' + price + ' XTZ' : 'Buy'}</button>
       </div>`;
     }).join('');
 
     // Card click → modal
-    grid.querySelectorAll('.card-thumb, .card-body').forEach(el => {
+    grid.querySelectorAll('.card-body').forEach(el => {
       el.addEventListener('click', () => {
         const id = el.closest('.card').dataset.id;
         const listing = listings.find(l => String(l.id || l.bigmap_key) === id);
@@ -1101,6 +1112,11 @@
       listings = freshData;
       soldEvents = soldData;
       liveDot.classList.remove('error');
+      const allAddrs = [
+        ...freshData.map(l => l.seller_address),
+        ...freshData.flatMap(l => (l.token?.creators || []).map(c => c.creator_address)),
+      ];
+      await resolveSellerNames(allAddrs);
       renderGrid();
   
       // Route from URL on first load (after listings are available)
