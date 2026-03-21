@@ -20,6 +20,10 @@
     height: 100%;
   }
   
+  #center-square {
+    display: none !important;
+  }
+
   main {
     flex-direction: column;
     height: 100%;
