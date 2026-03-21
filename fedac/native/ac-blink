@@ -1,0 +1,54 @@
+#!/bin/bash
+# ac-blink — Flash the Docker host screen red then green
+# Usage: ac-blink              # red→green (default)
+#        ac-blink green        # just green
+#        ac-blink red          # just red
+#        ac-blink red green    # red then green
+
+DOCKER_HOST_IP="${AC_HOST_IP:-172.17.0.1}"
+SSH_USER="${AC_HOST_USER:-me}"
+
+COLORS="${*:-red green}"
+
+# Python script that creates a fullscreen colored overlay, briefly
+PYSCRIPT='
+import tkinter as tk
+import sys, time
+
+colors = sys.argv[1:]
+if not colors:
+    colors = ["red", "green"]
+
+root = tk.Tk()
+root.attributes("-fullscreen", True)
+root.attributes("-topmost", True)
+root.configure(cursor="none")
+root.overrideredirect(True)
+
+# Map color names to hex
+cmap = {
+    "red": "#ff2222",
+    "green": "#22ff22",
+    "blue": "#2222ff",
+    "white": "#ffffff",
+    "yellow": "#ffff22",
+    "orange": "#ff8800",
+    "purple": "#aa22ff",
+}
+
+for i, c in enumerate(colors):
+    hex_c = cmap.get(c, c)
+    delay_ms = i * 200
+    root.after(delay_ms, lambda hc=hex_c: root.configure(bg=hc))
+
+root.after(len(colors) * 200, root.destroy)
+root.mainloop()
+'
+
+ESCAPED_PY=$(printf '%s' "${PYSCRIPT}" | sed "s/'/'\\\\''/g")
+
+ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o LogLevel=ERROR \
+    "${SSH_USER}@${DOCKER_HOST_IP}" \
+    "DISPLAY=:0 python3 -c '${ESCAPED_PY}' ${COLORS} 2>/dev/null" &
+
+exit 0

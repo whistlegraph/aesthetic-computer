@@ -73,6 +73,17 @@ build_initramfs() {
     log "Building initramfs..."
     cd "${SCRIPT_DIR}"
 
+    # The old build-and-flash.sh populates the initramfs root (dirs, init script,
+    # pieces, shared libs, WiFi bins, ALSA config, firmware, busybox, etc.)
+    # Run it with --skip-kernel --skip-binary to only do initramfs setup.
+    # The shim (scripts/build-and-flash.sh) must NOT call back into ac-os.
+    local OLD_SCRIPT="${SCRIPT_DIR}/scripts/build-and-flash-initramfs.sh"
+    if [ -f "${OLD_SCRIPT}" ]; then
+        log "Populating initramfs root..."
+        sudo bash "${OLD_SCRIPT}" --skip-kernel --skip-binary 2>&1 \
+            | grep -E "Baked|pieces|WiFi|ALSA|libs|firmware|init|Bundled|error|config" || true
+    fi
+
     # KidLisp: npx not available under sudo, bundle as user then copy
     local KIDLISP_SRC="${SCRIPT_DIR}/../../system/public/aesthetic.computer/lib/kidlisp.mjs"
     if [ -f "${KIDLISP_SRC}" ] && command -v npx &>/dev/null; then
