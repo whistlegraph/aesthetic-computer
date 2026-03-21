@@ -1,4 +1,4 @@
-// keeps-social.js — SSR meta tag injection for social crawlers on keep.kidlisp.com/$code permalinks
+// keeps-social.js — SSR meta tag injection for social crawlers on keep/buy.kidlisp.com/$code permalinks
 
 const CRAWLER_RE = /twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|applebot/i;
 const OBJKT_GRAPHQL = 'https://data.objkt.com/v3/graphql';
@@ -7,8 +7,10 @@ export default async function handleRequest(request, context) {
   const url = new URL(request.url);
   const host = request.headers.get('host') || '';
 
-  // Only handle keep.kidlisp.com
-  if (!host.includes('keep.kidlisp.com')) return context.next();
+  // Only handle keep.kidlisp.com and buy.kidlisp.com
+  const isBuy = host.includes('buy.kidlisp.com');
+  const isKeep = host.includes('keep.kidlisp.com');
+  if (!isBuy && !isKeep) return context.next();
 
   const seg = url.pathname.replace(/^\/+/, '').split('/')[0];
 
@@ -34,8 +36,9 @@ export default async function handleRequest(request, context) {
 
     // Build meta tag values
     const title = `$${code}`;
-    const description = buildDescription(tokenData);
-    const permalink = `https://keep.kidlisp.com/$${code}`;
+    const subdomain = isBuy ? 'buy' : 'keep';
+    const description = buildDescription(tokenData, isBuy);
+    const permalink = `https://${subdomain}.kidlisp.com/$${code}`;
 
     // Replace the static OG/Twitter meta tags with dynamic ones
     html = html.replace(
@@ -123,15 +126,19 @@ async function fetchTokenData(code) {
   };
 }
 
-function buildDescription(tokenData) {
-  if (!tokenData) return 'KidLisp generative art preserved on Tezos.';
+function buildDescription(tokenData, isBuy) {
+  if (!tokenData) {
+    return isBuy ? 'Buy KidLisp generative art on Tezos.' : 'KidLisp generative art preserved on Tezos.';
+  }
 
   const { listing } = tokenData;
   if (listing) {
     const xtz = (Number(listing.price_xtz) / 1_000_000).toFixed(2);
-    return `For Sale — ${xtz} XTZ | KidLisp generative art on Tezos`;
+    return isBuy
+      ? `Buy now — ${xtz} XTZ | KidLisp generative art on Tezos`
+      : `For Sale — ${xtz} XTZ | KidLisp generative art on Tezos`;
   }
-  return 'KidLisp generative art preserved on Tezos.';
+  return isBuy ? 'Buy KidLisp generative art on Tezos.' : 'KidLisp generative art preserved on Tezos.';
 }
 
 function escapeAttr(str) {
