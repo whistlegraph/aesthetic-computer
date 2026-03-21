@@ -15,6 +15,11 @@ INITRAMFS_ROOT="${BUILD_DIR}/initramfs-root"
 
 CMD="${1:-build}"
 
+# Freeze version strings once — all stages use the same values
+export AC_GIT_HASH="${AC_GIT_HASH:-$(cd "${SCRIPT_DIR}" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
+export AC_BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
+export AC_BUILD_NAME="${AC_BUILD_NAME:-$(cd "${SCRIPT_DIR}" && bash scripts/build-name.sh 2>/dev/null || echo "unknown")}"
+
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
 
@@ -40,13 +45,10 @@ build_binary() {
             CC_USE=gcc
         fi
     fi
-    # Freeze git hash before make — HEAD may move if papers oven pushes mid-build
-    local FROZEN_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-
-    # Run make and capture exit code (pipefail not needed — check make directly)
+    # Run make and capture exit code — version strings frozen at top of script
     mkdir -p "${BUILD_DIR}"
     local MAKE_LOG="${BUILD_DIR}/.make.log"
-    make CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" GIT_HASH="${FROZEN_HASH}" BUILD_NAME="${AC_BUILD_NAME}" > "${MAKE_LOG}" 2>&1
+    make -j$(nproc) CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" GIT_HASH="${AC_GIT_HASH}" BUILD_NAME="${AC_BUILD_NAME}" > "${MAKE_LOG}" 2>&1
     local MAKE_RC=$?
     grep -E "Built:|error:" "${MAKE_LOG}" || true
     if [ ${MAKE_RC} -ne 0 ]; then
@@ -55,10 +57,10 @@ build_binary() {
         exit 1
     fi
     # Verify the binary embeds the frozen git hash
-    if strings "${BUILD_DIR}/ac-native" | grep -q "${FROZEN_HASH}"; then
-        log "Binary verified: contains ${FROZEN_HASH}"
+    if strings "${BUILD_DIR}/ac-native" | grep -q "${AC_GIT_HASH}"; then
+        log "Binary verified: contains ${AC_GIT_HASH}"
     else
-        err "Binary does NOT contain git hash ${FROZEN_HASH} — stale build!"
+        err "Binary does NOT contain git hash ${AC_GIT_HASH} — stale build!"
         exit 1
     fi
 
@@ -414,23 +416,19 @@ record_build() {
         log "Node not available — skipping MongoDB build record"
         return 0
     fi
-    local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
     local SHA=$(sha256sum "${VMLINUZ}" 2>/dev/null | cut -d' ' -f1)
     local SIZE=$(stat -c%s "${VMLINUZ}" 2>/dev/null || echo 0)
-    # Use pre-computed build name from case block (avoids cwd issues after build_kernel cd)
-    local BUILD_NAME="${AC_BUILD_NAME:-$(cd "${SCRIPT_DIR}" && bash scripts/build-name.sh 2>/dev/null || echo "unknown")}"
 
     cd "${SCRIPT_DIR}"
-    log "Recording build: ${BUILD_NAME} (${GIT_HASH})"
+    log "Recording build: ${AC_BUILD_NAME} (${AC_GIT_HASH})"
     echo "{
-        \"name\": \"${BUILD_NAME}\",
+        \"name\": \"${AC_BUILD_NAME}\",
         \"buildNum\": -1,
-        \"version\": \"${GIT_HASH}-${BUILD_TS}\",
+        \"version\": \"${AC_GIT_HASH}-${AC_BUILD_TS}\",
         \"sha256\": \"${SHA}\",
         \"size\": ${SIZE},
-        \"git_hash\": \"${GIT_HASH}\",
-        \"build_ts\": \"${BUILD_TS}\",
+        \"git_hash\": \"${AC_GIT_HASH}\",
+        \"build_ts\": \"${AC_BUILD_TS}\",
         \"url\": \"local\",
         \"target\": \"${1:-build}\",
         \"user\": \"${AC_USER_SUB:-${ADMIN_SUB:-unknown}}\"
@@ -759,15 +757,12 @@ upload_ota() {
 
     # Build metadata (use pre-computed name from top level, skip dirty check —
     # require_clean already ensured clean state and stashed any hook artifacts)
-    local GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-    local BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
-    local BUILD_NAME="${AC_BUILD_NAME:-$(bash scripts/build-name.sh 2>/dev/null || echo "upload-$(date +%s)")}"
     local COMMIT_MSG=$(git log -1 --format=%s HEAD 2>/dev/null | head -c 200)
     local SIZE=$(stat -c%s "${VMLINUZ}")
     local SIZE_MB=$(( SIZE / 1048576 ))
     local SHA=$(sha256sum "${VMLINUZ}" | cut -d' ' -f1)
 
-    log "Uploading ${BUILD_NAME} (${GIT_HASH}, ${SIZE_MB}MB)..."
+    log "Uploading ${AC_BUILD_NAME} (${AC_GIT_HASH}, ${SIZE_MB}MB)..."
 
     local UPLOAD_URL="${AC_UPLOAD_URL:-https://aesthetic.computer/api/os-release-upload}"
 
@@ -775,9 +770,9 @@ upload_ota() {
     local STEP1
     STEP1=$(curl -sf -X POST "${UPLOAD_URL}" \
         -H "Authorization: Bearer ${AC_TOKEN}" \
-        -H "X-Build-Name: ${BUILD_NAME}" \
-        -H "X-Git-Hash: ${GIT_HASH}" \
-        -H "X-Build-Ts: ${BUILD_TS}" \
+        -H "X-Build-Name: ${AC_BUILD_NAME}" \
+        -H "X-Git-Hash: ${AC_GIT_HASH}" \
+        -H "X-Build-Ts: ${AC_BUILD_TS}" \
         -H "X-Commit-Msg: ${COMMIT_MSG}" \
         -H "X-Handle: ${AC_USER_HANDLE}" \
         --max-time 30) || {
@@ -809,9 +804,9 @@ upload_ota() {
     local RESPONSE
     RESPONSE=$(curl -sf -X POST "${UPLOAD_URL}" \
         -H "Authorization: Bearer ${AC_TOKEN}" \
-        -H "X-Build-Name: ${BUILD_NAME}" \
-        -H "X-Git-Hash: ${GIT_HASH}" \
-        -H "X-Build-Ts: ${BUILD_TS}" \
+        -H "X-Build-Name: ${AC_BUILD_NAME}" \
+        -H "X-Git-Hash: ${AC_GIT_HASH}" \
+        -H "X-Build-Ts: ${AC_BUILD_TS}" \
         -H "X-Commit-Msg: ${COMMIT_MSG}" \
         -H "X-Finalize: true" \
         -H "X-Sha256: ${SHA}" \
@@ -831,11 +826,11 @@ upload_ota() {
     log "  URL: ${URL}"
 
     # Step 3b: Upload versioned archive (for rollback support)
-    local VERSIONED_KEY="os/builds/${BUILD_NAME}.vmlinuz"
+    local VERSIONED_KEY="os/builds/${AC_BUILD_NAME}.vmlinuz"
     local VERSIONED_STEP
     VERSIONED_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
         -H "Authorization: Bearer ${AC_TOKEN}" \
-        -H "X-Build-Name: ${BUILD_NAME}" \
+        -H "X-Build-Name: ${AC_BUILD_NAME}" \
         -H "X-Versioned-Upload: true" \
         -H "X-Versioned-Key: ${VERSIONED_KEY}" \
         --max-time 30 2>/dev/null) || true
@@ -860,7 +855,7 @@ upload_ota() {
         local ISO_STEP
         ISO_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
             -H "Authorization: Bearer ${AC_TOKEN}" \
-            -H "X-Build-Name: ${BUILD_NAME}" \
+            -H "X-Build-Name: ${AC_BUILD_NAME}" \
             -H "X-Template-Upload: true" \
             --max-time 30) || { log "Template presign failed (non-fatal)"; }
 
@@ -880,7 +875,7 @@ upload_ota() {
                         local MANIFEST_STEP
                         MANIFEST_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
                             -H "Authorization: Bearer ${AC_TOKEN}" \
-                            -H "X-Build-Name: ${BUILD_NAME}" \
+                            -H "X-Build-Name: ${AC_BUILD_NAME}" \
                             -H "X-Manifest-Upload: true" \
                             --max-time 30 2>/dev/null) || true
                         if [ -n "${MANIFEST_STEP}" ]; then
@@ -908,13 +903,13 @@ upload_ota() {
     # Record in MongoDB
     if command -v node &>/dev/null; then
         echo "{
-            \"name\": \"${BUILD_NAME}\",
+            \"name\": \"${AC_BUILD_NAME}\",
             \"buildNum\": -1,
-            \"version\": \"${GIT_HASH}-${BUILD_TS}\",
+            \"version\": \"${AC_GIT_HASH}-${AC_BUILD_TS}\",
             \"sha256\": \"${SHA}\",
             \"size\": ${SIZE},
-            \"git_hash\": \"${GIT_HASH}\",
-            \"build_ts\": \"${BUILD_TS}\",
+            \"git_hash\": \"${AC_GIT_HASH}\",
+            \"build_ts\": \"${AC_BUILD_TS}\",
             \"url\": \"${URL}\",
             \"target\": \"upload\",
             \"user\": \"${AC_USER_SUB:-${ADMIN_SUB:-unknown}}\"
@@ -977,7 +972,7 @@ pull_ota() {
     VERSION_INFO=$(curl -sf "${VERSION_URL}") || { err "Failed to fetch version from CDN"; exit 1; }
     local BUILD_NAME=$(echo "${VERSION_INFO}" | head -1)
     local KERNEL_SIZE=$(echo "${VERSION_INFO}" | tail -1)
-    log "Latest OTA: ${BUILD_NAME} (${KERNEL_SIZE} bytes)"
+    log "Latest OTA: ${AC_BUILD_NAME} (${KERNEL_SIZE} bytes)"
 
     # Download kernel (use /tmp — build dir may be a broken symlink in devcontainers)
     local PULL_DIR="/tmp/ac-os-pull"
@@ -1004,8 +999,8 @@ pull_ota() {
     # Override VMLINUZ and build name so flash_usb uses the downloaded kernel
     # (not the locally-generated name from scripts/build-name.sh)
     VMLINUZ="${PULLED_KERNEL}"
-    export AC_BUILD_NAME="${BUILD_NAME}"
-    log "Ready to flash: ${BUILD_NAME}"
+    export AC_BUILD_NAME="${AC_BUILD_NAME}"
+    log "Ready to flash: ${AC_BUILD_NAME}"
 }
 
 case "${CMD}" in
