@@ -1,7 +1,7 @@
 // blank, 26.03.20
 // AC Blank — AC Native Laptop product page & checkout
 
-const { floor, sin, min, max } = Math;
+const { floor, sin, cos, abs, min, max, PI } = Math;
 
 // Pricing (cents)
 const pricing = {
@@ -24,7 +24,7 @@ let checkoutError = null;
 let buyPending = false;
 let thanks = false;
 
-// UI elements
+// UI elements (TextButtons)
 let buyBtn = null;
 let tierBtns = [];
 let currencyBtn = null;
@@ -32,8 +32,6 @@ let currencyBtn = null;
 // Animation
 let frame = 0;
 
-const pad = 6;
-const charW = 8;
 const charH = 16;
 
 function displayAmount(amt, cur) {
@@ -67,40 +65,34 @@ async function boot({ params, ui, screen, cursor, hud, api }) {
   fetchCheckout(api);
 }
 
+function tierText(i) {
+  const t = tiers[i];
+  const tierAmt = currency === "dkk" ? t.dkk : t.amount;
+  return `${displayAmount(tierAmt, currency)}  ${t.desc}`;
+}
+
 function setupButtons(ui, screen) {
-  const w = screen.width;
   const h = screen.height;
 
   // Buy button (bottom center)
-  const buyText = getBuyText();
-  const buyW = buyText.length * charW + pad * 4;
-  const buyH = charH + pad * 3;
-  buyBtn = new ui.Button(
-    floor((w - buyW) / 2),
-    h - buyH - 12,
-    buyW,
-    buyH,
-  );
+  buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 12, screen });
 
-  // Tier buttons (3 across, above buy button)
-  const tierW = floor(min(w - 24, 280));
-  const tierH = charH + pad * 2;
-  const tierY = buyBtn.box.y - (tierH + 6) * 3 - 12;
+  // Tier buttons (stacked, above buy button)
+  const tierStartY = buyBtn.btn.box.y - (buyBtn.height + 6) * 3 - 8;
   tierBtns = tiers.map((t, i) => {
-    const btn = new ui.Button(
-      floor((w - tierW) / 2),
-      tierY + i * (tierH + 6),
-      tierW,
-      tierH,
-    );
-    btn._tierIndex = i;
-    return btn;
+    return new ui.TextButton(tierText(i), {
+      center: "x",
+      y: tierStartY + i * (buyBtn.height + 6),
+      screen,
+    });
   });
 
   // Currency toggle (top right)
-  const curText = currency.toUpperCase();
-  const curW = curText.length * charW + pad * 2;
-  currencyBtn = new ui.Button(w - curW - 8, 8, curW, charH + pad);
+  currencyBtn = new ui.TextButton(currency.toUpperCase(), {
+    top: 8,
+    right: 8,
+    screen,
+  });
 }
 
 async function fetchCheckout(api) {
@@ -195,105 +187,147 @@ function paint({ wipe, ink, write, box, line, screen }) {
     screen,
   });
 
+  // 💻 Wireframe laptop (two hinged halves)
+  {
+    const cx = floor(w / 2);
+    const laptopTop = specY + charH * 2 + 16;
+    const laptopBottom = tierBtns.length > 0 ? tierBtns[0].btn.box.y - 12 : h * 0.55;
+    const cy = floor((laptopTop + laptopBottom) / 2);
+    const size = min(w, laptopBottom - laptopTop) * 0.28;
+    const fov = 260;
+    const ay = frame * 0.008;
+    const ax = frame * 0.005;
+
+    // Hinge angle: smoothly open and close
+    const hingeAngle = (sin(frame * 0.012) * 0.5 + 0.5) * PI * 0.85 + PI * 0.1;
+
+    // Half-box dimensions: wide, thin, moderate depth
+    const hw = 1.4, hh = 0.08, hd = 0.9;
+
+    // Bottom half (base)
+    const base = [
+      [-hw, -hh, -hd], [ hw, -hh, -hd], [ hw,  hh, -hd], [-hw,  hh, -hd],
+      [-hw, -hh,  hd], [ hw, -hh,  hd], [ hw,  hh,  hd], [-hw,  hh,  hd],
+    ];
+
+    // Top half (lid) — hinged at back edge
+    const lidLocal = [
+      [-hw, -hh, 0], [ hw, -hh, 0], [ hw, hh, 0], [-hw, hh, 0],
+      [-hw, -hh, 2 * hd], [ hw, -hh, 2 * hd], [ hw, hh, 2 * hd], [-hw, hh, 2 * hd],
+    ];
+    const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
+    const lid = lidLocal.map(([lx, ly, lz]) => {
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
+      return [lx, ry + hh, rz - hd];
+    });
+
+    const halfEdges = [
+      [0,1],[1,2],[2,3],[3,0],
+      [4,5],[5,6],[6,7],[7,4],
+      [0,4],[1,5],[2,6],[3,7],
+    ];
+
+    const project = ([x, y, z]) => {
+      let rx = x * cos(ay) - z * sin(ay);
+      let rz = x * sin(ay) + z * cos(ay);
+      let ry = y * cos(ax) - rz * sin(ax);
+      rz = y * sin(ax) + rz * cos(ax);
+      const scale = fov / (fov + rz * size);
+      return [cx + rx * size * scale, cy + ry * size * scale, rz];
+    };
+
+    const projBase = base.map(project);
+    const projLid = lid.map(project);
+
+    const waveOffset = frame * 0.05;
+    const drawEdges = (proj, edgeOffset) => {
+      halfEdges.forEach(([a, b], i) => {
+        const depth = (proj[a][2] + proj[b][2]) / 2;
+        const brightness = 0.55 + depth * 0.15;
+        const hue = (((i + edgeOffset) * 0.37 + sin(frame * 0.02 + i + edgeOffset) * 0.3) + waveOffset) % 1;
+        const sector = abs(hue) * 6;
+        const f = sector - floor(sector);
+        let r, g, bl;
+        const s = floor(sector) % 6;
+        if (s === 0) { r = 1; g = f; bl = 0; }
+        else if (s === 1) { r = 1 - f; g = 1; bl = 0; }
+        else if (s === 2) { r = 0; g = 1; bl = f; }
+        else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
+        else if (s === 4) { r = f; g = 0; bl = 1; }
+        else { r = 1; g = 0; bl = 1 - f; }
+        ink(
+          floor(r * 255 * brightness),
+          floor(g * 255 * brightness),
+          floor(bl * 255 * brightness),
+          140,
+        ).line(
+          proj[a][0], proj[a][1],
+          proj[b][0], proj[b][1],
+        );
+      });
+    };
+
+    drawEdges(projBase, 0);
+    drawEdges(projLid, 12);
+
+    // Vertex particles
+    const particleColors = [
+      [255, 80, 200], [80, 255, 220], [255, 255, 80],
+      [80, 200, 255], [255, 120, 80], [180, 80, 255],
+    ];
+    [...projBase, ...projLid].forEach(([px, py], i) => {
+      const pColor = particleColors[(i + floor(frame * 0.04)) % particleColors.length];
+      const flicker = 0.6 + sin(frame * 0.1 + i * 1.3) * 0.4;
+      ink(...pColor, floor(flicker * 150)).box(px - 1, py - 1, 2, 2);
+    });
+  }
+
   // Tier buttons
+  const $ = { ink };
   tierBtns.forEach((btn, i) => {
     const t = tiers[i];
     const tierAmt = currency === "dkk" ? t.dkk : t.amount;
     const isSelected = amount === tierAmt;
-    const isHover = btn.down;
 
-    let fillColor, borderColor, textColor;
-    if (isSelected) {
-      fillColor = [40, 50, 40];
-      borderColor = [120, 200, 120];
-      textColor = [220, 255, 220];
-    } else if (isHover) {
-      fillColor = [35, 35, 40];
-      borderColor = [150, 150, 180];
-      textColor = [200, 200, 220];
-    } else {
-      fillColor = [22, 22, 25];
-      borderColor = [60, 60, 65];
-      textColor = [140, 140, 145];
-    }
+    const selectedScheme = [[40, 50, 40], [120, 200, 120], [220, 255, 220]];
+    const defaultScheme = [[22, 22, 25], [60, 60, 65], [140, 140, 145]];
+    const hoverScheme = [[35, 35, 40], [150, 150, 180], [200, 200, 220]];
 
-    ink(...fillColor).box(btn.box, "fill");
-    ink(...borderColor).box(btn.box, "outline");
-
-    // Left: price
-    const priceText = displayAmount(tierAmt, currency);
-    ink(...textColor).write(priceText, {
-      x: btn.box.x + pad * 2,
-      y: btn.box.y + pad,
-    });
-
-    // Right: description
-    ink(...(isSelected ? [160, 200, 160] : [90, 90, 95])).write(t.desc, {
-      x: btn.box.x + btn.box.w - t.desc.length * charW - pad * 2,
-      y: btn.box.y + pad,
-    });
-
-    // Selection indicator
-    if (isSelected) {
-      ink(120, 200, 120).write(">", {
-        x: btn.box.x + pad - 2,
-        y: btn.box.y + pad,
-      });
-    }
+    btn.paint($, isSelected ? selectedScheme : defaultScheme, hoverScheme);
   });
 
   // Buy button
   if (buyBtn) {
-    const buyText = getBuyText();
-    const isHover = buyBtn.down;
-    const isPending = buyPending;
+    buyBtn.reposition({ center: "x", bottom: 12, screen }, getBuyText());
 
-    // Recalculate width for current text
-    const buyW = buyText.length * charW + pad * 4;
-    buyBtn.box.w = buyW;
-    buyBtn.box.x = floor((w - buyW) / 2);
-
-    let fillColor, borderColor, textColor;
-    if (isPending) {
+    let scheme, hover;
+    if (buyPending) {
       const pulse = sin(performance.now() / 150) * 0.5 + 0.5;
-      fillColor = [30 + pulse * 30, 40 + pulse * 20, 30];
-      borderColor = [150 + pulse * 105, 200 + pulse * 55, 100];
-      textColor = [200 + pulse * 55, 220 + pulse * 35, 180];
+      scheme = [
+        [floor(30 + pulse * 30), floor(40 + pulse * 20), 30],
+        [floor(150 + pulse * 105), floor(200 + pulse * 55), 100],
+        [floor(200 + pulse * 55), floor(220 + pulse * 35), 180],
+      ];
+      hover = scheme;
     } else if (checkoutError) {
-      fillColor = [50, 25, 25];
-      borderColor = [200, 80, 80];
-      textColor = [255, 120, 120];
-    } else if (isHover) {
-      fillColor = [40, 55, 40];
-      borderColor = [150, 255, 150];
-      textColor = [200, 255, 200];
+      scheme = [[50, 25, 25], [200, 80, 80], [255, 120, 120]];
+      hover = scheme;
     } else {
       const blink = sin(performance.now() / 500) * 0.3 + 0.7;
-      fillColor = [25, 35, 25];
-      borderColor = [
-        floor(80 + blink * 70),
-        floor(160 + blink * 95),
-        floor(80 + blink * 70),
+      scheme = [
+        [25, 35, 25],
+        [floor(80 + blink * 70), floor(160 + blink * 95), floor(80 + blink * 70)],
+        [180, 230, 180],
       ];
-      textColor = [180, 230, 180];
+      hover = [[40, 55, 40], [150, 255, 150], [200, 255, 200]];
     }
-
-    ink(...fillColor).box(buyBtn.box, "fill");
-    ink(...borderColor).box(buyBtn.box, "outline");
-    ink(...textColor).write(buyText, {
-      x: buyBtn.box.x + pad * 2,
-      y: buyBtn.box.y + floor(pad * 1.5),
-    });
+    buyBtn.paint($, scheme, hover);
   }
 
   // Currency toggle (top right)
   if (currencyBtn) {
-    const curText = currency.toUpperCase();
-    const isHover = currencyBtn.down;
-    ink(isHover ? 200 : 80).write(curText, {
-      x: currencyBtn.box.x + pad,
-      y: currencyBtn.box.y + floor(pad / 2),
-    });
+    currencyBtn.paint($, [[12, 12, 14], [50, 50, 55], [80, 80, 85]], [[12, 12, 14], [120, 120, 130], [200, 200, 210]]);
   }
 
   // Subtle bottom line
@@ -319,6 +353,8 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         if (newAmount !== amount) {
           amount = newAmount;
           sound?.synth({ type: "sine", tone: 600 + i * 150, duration: 0.06, volume: 0.3 });
+          // Update tier labels to reflect selection
+          tierBtns.forEach((tb, j) => tb.replaceLabel(tierText(j)));
           fetchCheckout(api);
         }
       },
@@ -329,7 +365,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
   currencyBtn?.act(e, {
     push: () => {
       currency = currency === "usd" ? "dkk" : "usd";
-      // Map current amount to equivalent tier in new currency
       const tierIdx = tiers.findIndex(
         (t) => (currency === "usd" ? t.dkk : t.amount) === amount,
       );
@@ -340,11 +375,8 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         amount = pricing[currency].suggested;
       }
       sound?.synth({ type: "sine", tone: 700, duration: 0.05, volume: 0.2 });
-      // Update currency button size
-      const curText = currency.toUpperCase();
-      const curW = curText.length * charW + pad * 2;
-      currencyBtn.box.w = curW;
-      currencyBtn.box.x = screen.width - curW - 8;
+      currencyBtn.reposition({ top: 8, right: 8, screen }, currency.toUpperCase());
+      tierBtns.forEach((tb, j) => tb.replaceLabel(tierText(j)));
       fetchCheckout(api);
     },
   });
@@ -361,7 +393,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
         jump(checkoutUrl);
       } else if (checkoutError) {
-        // Retry
         checkoutError = null;
         fetchCheckout(api);
         sound?.synth({ type: "sine", tone: 550, duration: 0.06, volume: 0.3 });
