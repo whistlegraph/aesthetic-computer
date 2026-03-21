@@ -262,6 +262,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     // Poll for WPA completion + DHCP (blocking loop on this thread)
     int connect_ticks = 0;
     int dhcp_started = 0;
+    char last_wpa_state[64] = "";
 
     while (connect_ticks < 1200 && wifi->thread_running) { // ~60 seconds max (50ms polls)
         // Check if a new command interrupted us
@@ -283,6 +284,28 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
         char line[128] = "";
         fgets(line, sizeof(line), wfp);
         pclose(wfp);
+
+        // Extract WPA state for logging/status
+        {
+            char *eq = strchr(line, '=');
+            const char *st = eq ? eq + 1 : line;
+            char state_str[64] = "";
+            strncpy(state_str, st, sizeof(state_str) - 1);
+            state_str[strcspn(state_str, "\n\r")] = 0;
+            if (state_str[0] && strcmp(state_str, last_wpa_state) != 0) {
+                ac_log("[wifi] WPA state: %s (tick %d)", state_str, connect_ticks);
+                strncpy(last_wpa_state, state_str, sizeof(last_wpa_state) - 1);
+                // Update user-visible status with WPA state detail
+                if (strstr(state_str, "SCANNING"))
+                    wifi_set_status(wifi, "scanning...");
+                else if (strstr(state_str, "ASSOCIATING"))
+                    wifi_set_status(wifi, "associating...");
+                else if (strstr(state_str, "4WAY_HANDSHAKE"))
+                    wifi_set_status(wifi, "authenticating...");
+                else if (strstr(state_str, "GROUP_HANDSHAKE"))
+                    wifi_set_status(wifi, "group handshake...");
+            }
+        }
 
         if (strstr(line, "COMPLETED")) {
             // WPA connected — start DHCP if not already running
