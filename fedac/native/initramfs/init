@@ -14,16 +14,22 @@ mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
 
 # Early USB mount for init logging (before ac-native starts)
+# Wait up to 3s for block devices to appear
 INIT_LOG=""
-for usbdev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
-    if [ -b "$usbdev" ]; then
-        mkdir -p /mnt/usb
-        mount -o rw "$usbdev" /mnt/usb 2>/dev/null && {
-            INIT_LOG="/mnt/usb/ac-init.log"
-            echo "=== AC Init $(date 2>/dev/null || echo 'boot') ===" > "$INIT_LOG"
-            break
-        }
-    fi
+USB_WAIT=0
+while [ $USB_WAIT -lt 30 ]; do
+    for usbdev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
+        if [ -b "$usbdev" ]; then
+            mkdir -p /mnt/usb
+            mount -o rw "$usbdev" /mnt/usb 2>/dev/null && {
+                INIT_LOG="/mnt/usb/ac-init.log"
+                echo "=== AC Init $(date 2>/dev/null || echo 'boot') ===" > "$INIT_LOG"
+                break 2
+            }
+        fi
+    done
+    sleep 0.1
+    USB_WAIT=$((USB_WAIT + 1))
 done
 # Log helper — writes to USB if mounted, always to kmsg
 ilog() {
