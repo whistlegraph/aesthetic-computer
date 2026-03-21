@@ -1,0 +1,50 @@
+# FedAC GRUB2 Theme
+# Dark purple background with pals logo, large readable text
+
+title-text: ""
+desktop-color: "#1a0a2e"
+desktop-image: "background.png"
+
++ boot_menu {
+  left = 50%-250
+  top = 60%
+  width = 500
+  height = 220
+  item_font = "DejaVu Sans Bold 36"
+  selected_item_font = "DejaVu Sans Bold 36"
+  item_color = "#d4a0ff"
+  selected_item_color = "#ffffff"
+  item_height = 52
+  item_padding = 8
+  item_spacing = 12
+  item_icon_space = 0
+  icon_width = 0
+  icon_height = 0
+  selected_item_pixmap_style = "select_*.png"
+  scrollbar = false
+  menu_pixmap_style = "menu_*.png"
+}
+
++ label {
+  left = 50%-200
+  top = 92%
+  width = 400
+  height = 30
+  text = "aesthetic.computer"
+  font = "DejaVu Sans 18"
+  color = "#8855bb"
+  align = "center"
+}
+
++ progress_bar {
+  id = "__timeout__"
+  left = 50%-150
+  top = 85%
+  width = 300
+  height = 8
+  fg_color = "#d4a0ff"
+  bg_color = "#2a1a3e"
+  border_color = "#2a1a3e"
+  text_color = "#00000000"
+  font = "DejaVu Sans 10"
+}

@@ -1,0 +1,180 @@
+#!/bin/bash
+# ac-usb — List and inspect USB devices through Docker (for devcontainer environments)
+# Usage:
+#   ac-usb              List all USB block devices
+#   ac-usb ls           Same as above
+#   ac-usb read PATH    Read a file from USB partition (e.g., ac-usb read EFI/BOOT/BOOTX64.EFI)
+#   ac-usb logs         Pull /logs/ and /perf/ from USB /mnt partition
+#   ac-usb sha256       Show SHA256 of BOOTX64.EFI on USB
+set -e
+
+CMD="${1:-ls}"
+
+find_usb_dev() {
+    for dev in sda sdb sdc; do
+        if [ -e "/sys/block/${dev}/removable" ]; then
+            local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
+            if [ "${rem}" = "1" ] && [ -e "/sys/block/${dev}" ]; then
+                echo "/dev/${dev}"
+                return 0
+            fi
+        fi
+    done
+    if [ -e "/sys/block/sda" ]; then
+        echo "/dev/sda"
+        return 0
+    fi
+    return 1
+}
+
+docker_usb() {
+    # Run a command inside a privileged container with USB access
+    sudo docker run --rm --privileged -v /dev:/dev alpine:latest sh -c "$1" 2>&1
+}
+
+case "${CMD}" in
+    ls|list)
+        echo "=== USB Block Devices ==="
+        lsblk 2>/dev/null | grep -E "^sd|─sd" || echo "(none found)"
+        echo ""
+        USB_DEV="$(find_usb_dev 2>/dev/null)" || { echo "No removable USB detected"; exit 0; }
+        echo "USB device: ${USB_DEV}"
+        echo ""
+        echo "=== Partition contents ==="
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb 2>/dev/null && {
+                echo '--- ${USB_DEV}1 ---'
+                find /mnt/usb -type f | head -50
+                echo ''
+                du -sh /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null
+                umount /mnt/usb
+            } || echo 'Could not mount ${USB_DEV}1'
+        "
+        ;;
+    sha256|hash)
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb
+            sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null || echo 'No EFI file found'
+            umount /mnt/usb
+        "
+        ;;
+    logs)
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        mkdir -p /tmp/usb-logs
+        CONTAINER=$(sudo docker create --privileged -v /dev:/dev alpine:latest sh -c "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb /out
+            # Try ESP (sda1) first — that's where ac-native writes logs
+            mounted=''
+            for p in ${USB_DEV}1 ${USB_DEV}2; do
+                [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
+            done
+            [ -z \"\$mounted\" ] && { echo 'Could not mount USB'; exit 1; }
+            echo \"Mounted \$mounted\"
+            ls -la /mnt/usb/
+            # Copy logs and perf data
+            cp /mnt/usb/ac-native.log /out/ 2>/dev/null || true
+            cp -r /mnt/usb/perf /out/ 2>/dev/null || true
+            cp /mnt/usb/config.json /out/ 2>/dev/null || true
+            cp /mnt/usb/booted-version /out/ 2>/dev/null || true
+            cp /mnt/usb/dmesg.log /out/ 2>/dev/null || true
+            cp /mnt/usb/init.log /out/ 2>/dev/null || true
+            ls -la /out/
+            umount /mnt/usb
+        ")
+        sudo docker start -a "${CONTAINER}"
+        sudo docker cp "${CONTAINER}:/out/." /tmp/usb-logs/ 2>/dev/null
+        sudo docker rm "${CONTAINER}" 2>/dev/null
+        echo ""
+        echo "Logs copied to /tmp/usb-logs/"
+        ls -la /tmp/usb-logs/
+        ;;
+    read)
+        FILE="${2:?Usage: ac-usb read <path>}"
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        docker_usb "
+            apk add --quiet dosfstools
+            mkdir -p /mnt/usb
+            mount ${USB_DEV}1 /mnt/usb
+            cat '/mnt/usb/${FILE}' 2>/dev/null || echo 'File not found: ${FILE}'
+            umount /mnt/usb
+        "
+        ;;
+    flash)
+        VMLINUZ="${2:-}"
+        if [ -z "${VMLINUZ}" ]; then
+            echo "Downloading latest OTA build..."
+            VMLINUZ="/tmp/ac-native-latest.vmlinuz"
+            curl -fSL -o "${VMLINUZ}" \
+                "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.vmlinuz"
+        fi
+        [ -f "${VMLINUZ}" ] || { echo "File not found: ${VMLINUZ}"; exit 1; }
+        USB_DEV="$(find_usb_dev)" || { echo "No USB found"; exit 1; }
+        SIZE=$(wc -c < "${VMLINUZ}")
+        echo "Flashing ${VMLINUZ} ($(( SIZE / 1024 / 1024 ))MB) to ${USB_DEV}..."
+        SPLASH_EFI="$(dirname "$0")/bootloader/splash.efi"
+        # Pipe kernel via stdin into Docker (volume mounts fail in devcontainer)
+        cat "${VMLINUZ}" | sudo docker run --rm -i --privileged -v /dev:/dev \
+            alpine:latest sh -c "
+                apk add --quiet dosfstools sfdisk
+                cat > /tmp/vmlinuz
+                echo 'label: gpt
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
+                sync; sleep 1
+                mkfs.vfat -F 32 -n AC-NATIVE ${USB_DEV}1
+                mkdir -p /mnt/usb
+                mount ${USB_DEV}1 /mnt/usb
+                mkdir -p /mnt/usb/EFI/BOOT
+                cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
+                ls -lh /mnt/usb/EFI/BOOT/BOOTX64.EFI
+                sync
+                umount /mnt/usb
+                echo 'Done!'
+            "
+        rm -f /workspaces/aesthetic-computer/.flash-vmlinuz 2>/dev/null
+        # Inject handle (always) + optional credentials into config.json on the USB
+        HANDLE="${3:-jeffrey}"
+        CLAUDE_TOKEN=""
+        GITHUB_PAT=""
+        if [ -f "${HOME}/.claude/.credentials.json" ]; then
+            CLAUDE_TOKEN=$(node -e "
+                const c=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
+                process.stdout.write(c.claudeAiOauth?.accessToken || '');
+            " 2>/dev/null || true)
+        fi
+        if [ -f "${HOME}/.config/gh/hosts.yml" ]; then
+            GITHUB_PAT=$(grep 'oauth_token:' "${HOME}/.config/gh/hosts.yml" 2>/dev/null | head -1 | awk '{print $2}' || true)
+        fi
+        # Always write config.json with at least the handle
+        CONFIG_JSON=$(node -e "
+            const c = {handle: '${HANDLE}'};
+            if ('${CLAUDE_TOKEN}') c.claudeToken = '${CLAUDE_TOKEN}';
+            if ('${GITHUB_PAT}') c.githubPat = '${GITHUB_PAT}';
+            process.stdout.write(JSON.stringify(c));
+        " 2>/dev/null || true)
+        if [ -z "${CONFIG_JSON}" ]; then
+            CONFIG_JSON="{\"handle\":\"${HANDLE}\"}"
+        fi
+        echo "${CONFIG_JSON}" | sudo docker run --rm -i --privileged -v /dev:/dev \
+            alpine:latest sh -c "
+                apk add --quiet dosfstools
+                cat > /tmp/config.json
+                mkdir -p /mnt/usb
+                mount ${USB_DEV}1 /mnt/usb
+                cp /tmp/config.json /mnt/usb/config.json
+                echo \"Wrote config.json (handle: ${HANDLE}, claude: $([ -n "${CLAUDE_TOKEN}" ] && echo yes || echo no), github: $([ -n "${GITHUB_PAT}" ] && echo yes || echo no))\"
+                sync
+                umount /mnt/usb
+            "
+        echo "Flash complete: ${USB_DEV}"
+        ;;
+    *)
+        echo "Usage: ac-usb {ls|sha256|logs|read <path>|flash [vmlinuz]}"
+        exit 1
+        ;;
+esac

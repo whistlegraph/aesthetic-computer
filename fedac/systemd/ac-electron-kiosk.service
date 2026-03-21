@@ -1,0 +1,19 @@
+[Unit]
+Description=Aesthetic Computer Electron Kiosk
+After=graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/ac/bin/aesthetic-computer.AppImage --no-sandbox --kiosk
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+# Limits
+MemoryMax=4G
+CPUQuota=90%
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=FedAC Kiosk
+Exec=/usr/local/bin/kiosk-start.sh
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
