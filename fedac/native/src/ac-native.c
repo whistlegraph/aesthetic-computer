@@ -1878,7 +1878,20 @@ int main(int argc, char *argv[]) {
         }
         if (!display) {
             fprintf(stderr, "[ac-native] FATAL: No display\n");
-            if (getpid() == 1) { sleep(5); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
+            // Dump device diagnostics for debugging
+            fprintf(stderr, "[ac-native] /dev/dri contents:\n");
+            system("ls -la /dev/dri/ 2>&1 || echo '  /dev/dri does not exist'");
+            fprintf(stderr, "[ac-native] /dev/fb contents:\n");
+            system("ls -la /dev/fb* 2>&1 || echo '  no framebuffer devices'");
+            fprintf(stderr, "[ac-native] PCI GPU devices:\n");
+            system("cat /sys/bus/pci/devices/*/class 2>/dev/null | grep -c 0x03 || echo '  0'");
+            system("for d in /sys/bus/pci/devices/*; do c=$(cat $d/class 2>/dev/null); [ \"${c#0x03}\" != \"$c\" ] && echo \"  $(basename $d) $c $(cat $d/vendor $d/device 2>/dev/null)\"; done");
+            fprintf(stderr, "[ac-native] dmesg DRM/i915:\n");
+            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display\\|error' | tail -20");
+            // Write diagnostics to USB too
+            system("cat /proc/cmdline >> /mnt/usb/ac-init.log 2>/dev/null");
+            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/usb/ac-init.log 2>/dev/null");
+            if (getpid() == 1) { sleep(30); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
             return 1;
         }
 
