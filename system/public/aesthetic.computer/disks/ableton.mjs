@@ -242,4 +242,11 @@ function act({ event: e, pen, sound, download }) {
   }
 }
 
-export { paint, act, sim };
+function meta() {
+  return {
+    title: "AC Max for Live",
+    desc: "Download Aesthetic Computer devices for Ableton Live.",
+  };
+}
+
+export { paint, act, sim, meta };
