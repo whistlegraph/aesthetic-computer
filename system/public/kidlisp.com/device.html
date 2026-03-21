@@ -1,0 +1,4346 @@
+<!DOCTYPE html>
+<!-- KidLisp.com Device Mode - Optimized for FF1 and display devices -->
+<!-- URL format: device.kidlisp.com/codeId -->
+<!-- Loads KidLisp $code URLs with default density=1 for 4K displays -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>KidLisp.com · Device</title>
+  <meta name="description" content="KidLisp generative art on display" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="KidLisp · Device" />
+  <meta property="og:description" content="KidLisp generative art on display" />
+  <meta property="og:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="KidLisp · Device" />
+  <meta name="twitter:description" content="KidLisp generative art on display" />
+  <meta name="twitter:image" content="https://oven.aesthetic.computer/kidlisp-og.png" />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <!-- Google Fonts - Noto Sans Mono (Monaco-like) and Comic Relief (kidlisp branding) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <!-- QR Code library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <!-- 🚀 Eager source fetch - starts immediately before DOM loads -->
+  <script>
+    (function() {
+      // Parse codeId from URL immediately
+      const pathname = window.location.pathname;
+      const hostname = window.location.hostname;
+      const pathParts = pathname.split('/').filter(p => p);
+      let codeId = null;
+      
+      if (hostname === 'device.kidlisp.com') {
+        codeId = pathParts[0] || null;
+      } else if (pathname.startsWith('/device.kidlisp.com/')) {
+        codeId = pathParts[1] || null;
+      } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
+        codeId = pathParts[2] || null;
+      }
+      
+      if (codeId) {
+        const pieceCode = (codeId.startsWith('$') ? codeId.slice(1) : codeId).split(':')[0];
+        const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
+        const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+        const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
+        
+        // Start fetch immediately - store promise globally for later use
+        window.__eagerSourceFetch = fetch(url, { credentials: 'omit' })
+          .then(r => r.ok ? r.json() : null)
+          .catch(() => null);
+        console.log('🚀 Eager source fetch started for:', pieceCode);
+      }
+    })();
+  </script>
+  <!-- 🎨 Set UI scale BEFORE styles load to prevent flash -->
+  <script>
+    // Calculate smart default density based on screen resolution
+    // 4K (3840x2160+) → density 8 (larger pixels for viewing distance)
+    // 1080x1080 (FF1 art computer) → density 4 (proportional to 4K)
+    // Everything else → density 3 (good default for most displays)
+    function getSmartDensity() {
+      const screenWidth = window.screen.width * (window.devicePixelRatio || 1);
+      const screenHeight = window.screen.height * (window.devicePixelRatio || 1);
+      const maxDim = Math.max(screenWidth, screenHeight);
+
+      if (maxDim >= 3840) return 8;  // 4K+
+      // Square ~1080 displays (FF1 art computer) — proportional to 4K density
+      if (Math.abs(screenWidth - screenHeight) < 100 && maxDim >= 1000 && maxDim <= 1200) return 4;
+      return 3;                       // Default for all other resolutions
+    }
+
+    // Calculate smart UI scale based on density and screen characteristics
+    // UI scale should be proportional to density for visual consistency
+    // On native 4K (dpr=1), we need extra scaling since browser doesn't auto-scale
+    function getSmartUIScale(density) {
+      const dpr = window.devicePixelRatio || 1;
+      const screenWidth = window.screen.width;
+      const screenHeight = window.screen.height;
+      const maxDim = Math.max(screenWidth, screenHeight);
+      const hostname = window.location.hostname;
+
+      // Hardcoded optimal UI scales for common TV/display resolutions
+      // Format: [width, height, dpr] → uiScale
+      const resolutionMap = [
+        // 4K displays (device mode - TV viewing distance needs large UI)
+        { w: 3840, h: 2160, dpr: 1, scale: 30 },  // 4K native (e.g., F1 FF1)
+        // Square displays (FF1 art computer - 1080x1080)
+        { w: 1080, h: 1080, dpr: 1, scale: 12 },  // FF1 art computer
+        { w: 1920, h: 1200, dpr: 2, scale: 12 },  // Retina laptop (e.g., MacBook 16")
+        { w: 1920, h: 1080, dpr: 2, scale: 12 },  // Retina laptop 1080p
+        // 1080p displays
+        { w: 1920, h: 1080, dpr: 1, scale: 15 },  // 1080p native
+        { w: 1366, h: 768, dpr: 1, scale: 10 },   // 1366x768 laptop
+        { w: 1440, h: 900, dpr: 1, scale: 12 },   // 1440x900 laptop
+        // Mobile/portrait
+        { w: 800, h: 1280, dpr: 1, scale: 9 },    // Standard portrait phone
+      ];
+
+      // Try to find an exact or close match
+      for (const entry of resolutionMap) {
+        if (screenWidth === entry.w && screenHeight === entry.h && dpr === entry.dpr) {
+          return entry.scale;  // Exact match
+        }
+      }
+
+      // Fallback to proportional calculation
+      const baseScale = density * 1.5;
+
+      // Device subdomains (device.kidlisp.com, top.kidlisp.com) are typically
+      // displayed on 4K TVs/displays viewed from a distance - use larger UI
+      // BUT only if the screen is actually 4K resolution
+      const isDeviceSubdomain = hostname === 'device.kidlisp.com' ||
+                                hostname === 'top.kidlisp.com' ||
+                                hostname === 'calm.kidlisp.com' ||
+                                window.location.pathname.startsWith('/device.kidlisp.com') ||
+                                window.location.pathname.startsWith('/top.kidlisp.com') ||
+                                window.location.pathname.startsWith('/calm.kidlisp.com');
+
+      // Check if this is a 4K-class display (3840x2160 or similar)
+      // FF1 reports CSS pixels 1920x1200 which is 4K scaled by dpr=2
+      // Native 4K would be 3840+ with dpr=1
+      const is4KDisplay = (maxDim >= 3840 && dpr === 1) ||
+                          (maxDim >= 1920 && screenHeight >= 1080 && dpr >= 2);
+
+      // Check if this is a square art display (~1080x1080, FF1 art computer)
+      const isSquareArtDisplay = Math.abs(screenWidth - screenHeight) < 100 &&
+                                  maxDim >= 1000 && maxDim <= 1200;
+
+      if (isDeviceSubdomain && is4KDisplay) {
+        // FF1/device mode on 4K: 2x multiplier for comfortable TV viewing distance
+        // (density=4 → baseScale=6 → scale≈12, close to default 20 which already works for 4K)
+        return Math.round(baseScale * 2);
+      }
+
+      // Square art display (FF1 art computer)
+      if (isSquareArtDisplay) return 12;
+
+      // Device subdomain on laptop (NOT 4K) falls through to normal scaling below
+
+      // For native 4K/high-res with dpr=1, apply additional multiplier
+      if (dpr === 1 && maxDim >= 3840) return Math.round(baseScale * 20);  // 4K native
+      if (dpr === 1 && maxDim >= 2560) return Math.round(baseScale * 10);  // 1440p native
+      return Math.round(baseScale);                                         // Retina/scaled displays (normal desktop)
+    }
+
+    // Get density from URL params, fallback to smart density
+    const urlParams = new URLSearchParams(window.location.search);
+    window.densityParam = parseInt(urlParams.get('density')) || getSmartDensity();
+
+    // Dedicated display flag — true for 4K TVs and square art computers (FF1)
+    // Controls density-based progress bar thickness vs fixed 2px laptop default.
+    const physicalMax = Math.max(window.screen.width, window.screen.height) * (window.devicePixelRatio || 1);
+    const physicalW = window.screen.width * (window.devicePixelRatio || 1);
+    const physicalH = window.screen.height * (window.devicePixelRatio || 1);
+    const isSquareArtDisplay = Math.abs(physicalW - physicalH) < 100 && physicalMax >= 1000 && physicalMax <= 1200;
+    window.is4KDisplay = physicalMax >= 3840 || isSquareArtDisplay;
+
+    // Set CSS custom property for density-based sizing (for piece rendering)
+    document.documentElement.style.setProperty('--density', window.densityParam);
+
+    // Set UI scale - can be explicit via ?ui_scale=X or derived from density
+    // UI scale is proportional to density for visual consistency
+    const uiScale = parseInt(urlParams.get('ui_scale')) || getSmartUIScale(window.densityParam);
+    document.documentElement.style.setProperty('--ui-scale', uiScale);
+    console.log('📺 UI Scale:', uiScale, '(density=' + window.densityParam + ', dpr=' + (window.devicePixelRatio || 1) + ', screen=' + window.screen.width + 'x' + window.screen.height + ')');
+
+    // Show body after UI scale is set
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.classList.add('ready');
+    });
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html {
+      /* UI scale for DOM elements - independent of piece rendering density */
+      /* Default to 20 for good visibility on FF1/device displays (increased for 4K TVs) */
+      /* Set on html only so JS override on documentElement propagates to body via inheritance */
+      --ui-scale: 30;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    }
+
+    @media (prefers-color-scheme: light) {
+      html, body { background: #fff; }
+    }
+
+    /* Hide body until UI scale is set to prevent flash */
+    body {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    body.ready {
+      opacity: 1;
+    }
+
+    #display-iframe,
+    #display-iframe-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+      z-index: 1;
+    }
+    #display-iframe-back {
+      z-index: 0;
+      opacity: 0;
+    }
+
+    /* Boot screen - now handled by iframe's boot animation */
+    #boot-screen {
+      display: none;
+    }
+
+    /* KidLisp source overlay - shows during loading */
+    #source-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15;
+      pointer-events: auto;
+      touch-action: manipulation;
+      transition: opacity 0.5s ease;
+      /* Prevent text selection on all overlay elements */
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    
+    /* Source code always visible with piece info */
+    #source-overlay {
+      /* Always visible - no hidden state */
+    }
+    
+    /* Source code display - top left */
+    #source-code {
+      position: absolute;
+      top: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
+      bottom: calc(var(--ui-scale, 8) * 26px);
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      line-height: 1.5;
+      color: #fff;
+      overflow: hidden;
+      /* Harsh shadow matching stats for visibility on complex animations */
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      /* Gray offset shadow matching QR container - increased for visibility */
+      box-shadow: calc(var(--ui-scale, 8) * 1px) calc(var(--ui-scale, 8) * 1px) 0 rgba(0, 0, 0, 0.6);
+      white-space: pre-wrap;
+      word-break: break-word;
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    /* Monaco container - always visible, fills the source code area */
+    #monaco-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 1;
+      overflow: hidden;
+    }
+
+    /* Remove Monaco borders */
+    #monaco-container .monaco-editor,
+    #monaco-container .monaco-editor .overflow-guard {
+      border: none !important;
+      outline: none !important;
+    }
+
+    /* Better text spacing in Monaco */
+    #monaco-container .monaco-editor .view-line {
+      letter-spacing: 0.5px;
+    }
+
+    /* Hide cursor and disable click/selection in device Monaco */
+    #monaco-container .monaco-editor .cursors-layer {
+      display: none !important;
+    }
+    #monaco-container .monaco-editor .view-overlays .current-line,
+    #monaco-container .monaco-editor .view-overlays .selected-text {
+      display: none !important;
+    }
+    #monaco-container .monaco-editor .inputarea {
+      pointer-events: none !important;
+    }
+    #monaco-container .monaco-editor .view-lines {
+      cursor: default !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    #monaco-container .monaco-editor .margin {
+      pointer-events: none !important;
+    }
+
+    /* Unified text size for all DOM elements */
+    #code-label,
+    #piece-handle,
+    #piece-hits,
+    #piece-when,
+    #ff1-playlist-title,
+    #ff1-playlist-position {
+      font-size: calc(var(--ui-scale, 8) * 2.5px) !important;
+      line-height: 1.5 !important;
+    }
+
+    /* UI elements always visible - they have their own scramble animations */
+    #qr-wrap,
+    #piece-info,
+    #source-code,
+    #piece-handle,
+    #piece-hits,
+    #piece-when,
+    .ff1-module {
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    /* Wiggle warning before slide-out */
+    @keyframes wiggle {
+      0%, 100% { transform: translate(0, 0); }
+      15% { transform: translate(-2px, 1px); }
+      30% { transform: translate(2px, -1px); }
+      45% { transform: translate(-1px, 2px); }
+      60% { transform: translate(1px, -2px); }
+      75% { transform: translate(-2px, -1px); }
+      90% { transform: translate(2px, 1px); }
+    }
+
+    #source-overlay.wiggle-warning #qr-wrap,
+    #source-overlay.wiggle-warning #piece-info,
+    #source-overlay.wiggle-warning #source-code {
+      animation: wiggle 0.3s ease-in-out infinite;
+    }
+
+    /* When slid-out is added while still wiggling, cancel the animation
+       so the CSS transform transition can smoothly slide elements out */
+    #source-overlay.slid-out.wiggle-warning #qr-wrap,
+    #source-overlay.slid-out.wiggle-warning #piece-info,
+    #source-overlay.slid-out.wiggle-warning #source-code {
+      animation: none;
+    }
+
+    /* Slide animations for overlay elements during playback */
+    /* QR slides to bottom-right corner */
+    #source-overlay.slid-out #qr-wrap,
+    #source-overlay.tap-hidden #qr-wrap {
+      transform: translate(120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Stats slide to bottom-left corner */
+    #source-overlay.slid-out #piece-info,
+    #source-overlay.tap-hidden #piece-info {
+      transform: translate(-120%, 120%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Source code slides to top-left corner */
+    #source-overlay.slid-out #source-code,
+    #source-overlay.tap-hidden #source-code {
+      transform: translate(-50%, -120%);
+      opacity: 0;
+    }
+    
+    /* Hover override - when user hovers, reveal all elements even if slid-out */
+    #source-overlay.slid-out.hover-reveal #qr-wrap,
+    #source-overlay.slid-out.hover-reveal #piece-info,
+    #source-overlay.slid-out.hover-reveal #source-code,
+    #source-overlay.tap-hidden.hover-reveal #qr-wrap,
+    #source-overlay.tap-hidden.hover-reveal #piece-info,
+    #source-overlay.tap-hidden.hover-reveal #source-code {
+      transform: translate(0, 0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    #source-code-inner.scrolling {
+      animation: codeScroll var(--scroll-duration, 12s) ease-in-out infinite;
+      animation-delay: 2s;
+    }
+    
+    @keyframes codeScroll {
+      0%, 15% { transform: translateY(0); }
+      85%, 100% { transform: translateY(var(--scroll-distance, 0)); }
+    }
+
+    /* Custom context menu for Monaco */
+    #monaco-context-menu {
+      position: fixed;
+      background: rgba(20, 20, 20, 0.95);
+      border: 2px solid #ff69b4;
+      padding: 8px 0;
+      z-index: 9999;
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: 14px;
+      min-width: 200px;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+
+    #monaco-context-menu.visible {
+      display: block;
+    }
+
+    .monaco-context-item {
+      padding: 8px 16px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.1s ease;
+      user-select: none;
+    }
+
+    .monaco-context-item:hover {
+      background: rgba(255, 105, 180, 0.3);
+    }
+    
+    /* QR code and label - bottom right (like give.aesthetic.computer) */
+    #qr-wrap {
+      position: absolute;
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      right: calc(var(--ui-scale, 8) * 3px);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      z-index: 24;
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      padding-right: calc(var(--ui-scale, 8) * 0.5px);
+      padding-bottom: calc(var(--ui-scale, 8) * 0.5px);
+      transform-origin: bottom right;
+    }
+    
+    #qr-wrap:hover {
+      transform: scale(1.08);
+    }
+    
+    #qr-wrap:active {
+      transform: scale(0.98);
+    }
+    
+    #code-label {
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-weight: 400;
+      color: #fff;
+      background: #000;
+      padding: calc(var(--ui-scale, 8) * 0.35px) calc(var(--ui-scale, 8) * 0.5px);
+      margin-bottom: 0;
+      text-transform: none; /* Keep original case */
+      /* Gray offset shadow matching QR container */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
+    }
+    
+    #code-label .code-dollar {
+      color: #fff;
+    }
+    
+    #code-label .code-name {
+      color: #fff;
+    }
+    
+    #qr-container {
+      background: #fff;
+      padding: calc(var(--ui-scale, 8) * 0.25px);
+      line-height: 0;
+      width: calc(var(--ui-scale, 8) * 13.65px);
+      height: calc(var(--ui-scale, 8) * 13.65px);
+      /* Gray offset hard shadow like disk.mjs pixel-rendered QR codes */
+      box-shadow: calc(var(--ui-scale, 8) * 0.5px) calc(var(--ui-scale, 8) * 0.5px) 0 rgba(64, 64, 64, 0.8);
+      opacity: 0; /* Hidden until QR code is generated */
+      transition: opacity 0.2s ease;
+    }
+
+    #qr-container.qr-ready {
+      opacity: 1; /* Show once QR is generated */
+    }
+
+    #qr-container svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    
+    /* Handle and hits info - bottom left (device replaces disk.mjs overlay) */
+    #piece-info {
+      position: absolute;
+      bottom: calc(var(--ui-scale, 8) * 3px);
+      left: calc(var(--ui-scale, 8) * 3px);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      line-height: 1.4;
+      z-index: 16;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    
+    #piece-handle {
+      color: rgb(255, 107, 157);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    
+    #piece-handle:hover {
+      opacity: 0.7;
+    }
+    
+    #piece-hits {
+      color: rgb(255, 217, 61);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    #piece-when {
+      color: rgb(180, 180, 180);
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    /* FF1 module - self-contained box for FF1 cast functionality */
+    /* In playlist mode, includes title and position; always includes copy button */
+    .ff1-module {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+      margin-top: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      pointer-events: auto;
+      transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      position: relative;
+      z-index: 10;
+    }
+
+    .ff1-module.overlap-fade {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ff1-module.overlap-fade .ff1-playlist-title,
+    .ff1-module.overlap-fade .ff1-playlist-position,
+    .ff1-module.overlap-fade .piece-ff1-copy .ff1-cmd {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
+      max-width: 100%;
+    }
+    
+    /* Playlist header inside FF1 module (only shown in slideshow mode) */
+    .ff1-playlist-header {
+      display: none;
+      width: 100%;
+      padding-bottom: calc(var(--ui-scale, 8) * 0.3px);
+      margin-bottom: calc(var(--ui-scale, 8) * 0.2px);
+    }
+
+    .ff1-playlist-header.visible {
+      display: none;
+    }
+    
+    .ff1-playlist-title {
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      font-weight: 400;
+      line-height: 1.2;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    .ff1-playlist-position {
+      color: rgba(255, 215, 0, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      white-space: nowrap;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+    
+    /* FF1 CLI copy button inside module */
+    .piece-ff1-copy {
+      display: none;
+      align-items: center;
+      gap: calc(var(--ui-scale, 8) * 0.5px);
+      margin: 0;
+      padding: calc(var(--ui-scale, 8) * 0.25px) 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Noto Sans Mono', monospace;
+      font-size: calc(var(--ui-scale, 8) * 2.5px);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      pointer-events: auto;
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+      width: 100%;
+    }
+    
+    .piece-ff1-copy:hover {
+      opacity: 0.8;
+    }
+    
+    .piece-ff1-copy:active {
+      transform: scale(0.98);
+    }
+    
+    .ff1-module.copied .piece-ff1-copy {
+      color: rgba(100, 255, 100, 0.9);
+    }
+
+    .ff1-module.overlap-fade {
+      opacity: 1;
+    }
+    
+    .piece-ff1-copy .ff1-icon {
+      height: calc(var(--ui-scale, 8) * 3px);
+      width: auto;
+      margin-right: calc(var(--ui-scale, 8) * 0.5px);
+      filter: invert(1) drop-shadow(1px 1px 0 #000) drop-shadow(-1px -1px 0 #000) drop-shadow(1px -1px 0 #000) drop-shadow(-1px 1px 0 #000) drop-shadow(2px 2px 0 #000);
+    }
+    
+    .piece-ff1-copy .ff1-cmd {
+      color: rgba(255, 255, 255, 0.8);
+      white-space: nowrap;
+    }
+
+    .piece-ff1-copy .ff1-quote {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .piece-ff1-copy .ff1-url {
+      color: cyan;
+    }
+    
+    /* KidLisp syntax highlighting */
+    /* All syntax highlighting needs harsh shadows for visibility */
+    .hl-comment,
+    .hl-string,
+    .hl-number,
+    .hl-keyword,
+    .hl-api,
+    .hl-color,
+    .hl-timing,
+    .hl-paren,
+    .hl-code-ref,
+    .hl-code-id,
+    .hl-paint-ref,
+    .hl-paint-id,
+    .hl-fade,
+    .hl-fade-sep,
+    .hl-fade-dir,
+    .hl-fade-colon,
+    .hl-rainbow,
+    .hl-zebra,
+    .scramble-char {
+      text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 2px 2px 0 #000;
+    }
+
+    .hl-comment { color: #6272a4; font-style: italic; }
+    .hl-string { color: orange; }
+    .hl-number { color: lime; }
+    .hl-keyword { color: pink; }
+    .hl-api { color: cyan; }
+    .hl-color { /* inline style sets actual color */ }
+    .hl-timing { color: #ffb86c; font-weight: bold; }
+    .hl-paren { color: #888; }
+    .hl-code-ref { color: limegreen; font-weight: bold; }
+    .hl-code-id { color: lime; }
+    .hl-paint-ref { color: magenta; font-weight: bold; }
+    .hl-paint-id { color: orange; }
+    .hl-fade { font-weight: bold; }
+    .hl-fade-sep { color: mediumseagreen; }
+    .hl-fade-dir { color: cyan; }
+    .hl-fade-colon { color: lime; }
+
+    /* Scramble coloring: start white, then transition to target color */
+    .scramble-char {
+      color: #fff;
+      transition: color 4s ease var(--color-delay, 0s);
+    }
+
+    #source-code-inner.scramble-coloring .scramble-char {
+      color: var(--target-color, #fff);
+    }
+
+    /* Hide overlay until boot starts (avoid initial flicker) */
+    body.booting #source-overlay {
+      opacity: 0;
+    }
+
+    /* Reduce ghosting during scramble */
+    #source-overlay.scrambling #source-code,
+    #source-overlay.scrambling #source-code .scramble-char {
+      text-shadow: none;
+    }
+    
+    /* Rainbow animation */
+    @keyframes rainbowCycle {
+      0% { color: red; }
+      14% { color: orange; }
+      28% { color: yellow; }
+      42% { color: lime; }
+      57% { color: cyan; }
+      71% { color: blue; }
+      85% { color: magenta; }
+      100% { color: red; }
+    }
+    
+    .hl-rainbow {
+      animation: rainbowCycle 2s linear infinite;
+      font-weight: bold;
+    }
+    
+    .hl-rainbow-0 { animation-delay: 0s; }
+    .hl-rainbow-1 { animation-delay: -0.28s; }
+    .hl-rainbow-2 { animation-delay: -0.56s; }
+    .hl-rainbow-3 { animation-delay: -0.84s; }
+    .hl-rainbow-4 { animation-delay: -1.12s; }
+    .hl-rainbow-5 { animation-delay: -1.40s; }
+    .hl-rainbow-6 { animation-delay: -1.68s; }
+    
+    /* Zebra animation */
+    @keyframes zebraCycle {
+      0%, 49% { color: white; }
+      50%, 100% { color: #333; }
+    }
+    
+    .hl-zebra {
+      animation: zebraCycle 1s steps(1) infinite;
+      font-weight: bold;
+    }
+    
+    .hl-zebra-0 { animation-delay: 0s; }
+    .hl-zebra-1 { animation-delay: -0.5s; }
+    
+    /* Timing blink animation */
+    @keyframes hl-timing-blink {
+      0%, 90% { opacity: 1; }
+      95% { opacity: 0.4; color: lime; }
+      100% { opacity: 1; }
+    }
+    
+    .hl-timing-active {
+      animation: hl-timing-blink var(--timing-duration, 1s) ease-in-out infinite;
+    }
+
+    /* Error display */
+    #error-screen {
+      display: none;
+      position: absolute;
+      inset: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      z-index: 20;
+    }
+    
+    #error-screen.visible {
+      display: flex;
+    }
+    
+    .error-text {
+      color: rgb(255, 100, 100);
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+      max-width: 80%;
+    }
+
+    /* YouTube-style progress bar for playlist mode */
+    #progress-bar {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%; /* Full width of screen */
+      height: 1px; /* Thin line, overridden by JS based on density */
+      background: #000; /* Black background */
+      z-index: 100;
+      margin: 0;
+      padding: 0;
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      opacity: 0;
+    }
+
+    #progress-bar.visible {
+      display: block;
+      opacity: 1;
+    }
+
+    #progress-bar.fading-in {
+      opacity: 1;
+      transition: opacity 2s ease;
+    }
+    
+    #progress-bar.hidden-mid {
+      opacity: 0;
+    }
+
+    #progress-bar.thin-mid {
+      height: 2px !important;
+      opacity: 0.3;
+      transition: height 0.4s ease, opacity 0.4s ease;
+    }
+
+    #progress-bar.force-visible {
+      opacity: 1 !important;
+    }
+
+    #progress-bar.force-hidden {
+      opacity: 0 !important;
+    }
+
+    #progress-fill {
+      height: 100%;
+      width: 0%;
+      /* White fill over black background - looks like it's filling in */
+      background: #fff;
+      transition: width 0.25s linear;
+    }
+
+    /* FPS meter - top right (hidden by default) */
+    #fps-meter {
+      display: none;
+      position: fixed;
+      top: 0;
+      right: 0;
+      font-family: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: calc(var(--ui-scale, 8) * 1.5px);
+      color: lime;
+      text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.5);
+      z-index: 99999;
+      pointer-events: none;
+      text-align: right;
+      padding: calc(var(--ui-scale, 8) * 0.5px);
+    }
+
+    /* Playlist info overlay - DEPRECATED, now consolidated into bottom-left piece-info */
+    #playlist-info {
+      display: none !important; /* Hidden - all info moved to bottom-left piece-info */
+    }
+    
+    #playlist-info.visible {
+      display: none !important;
+    }
+    
+    #playlist-title,
+    #playlist-position,
+    #ff1-cast-btn {
+      display: none !important; /* Unused - bottom-left handles this now */
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       RESPONSIVE STYLES - Scale UI down on smaller viewports
+       Prevents element overlapping and ensures readability across screen sizes
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    /* Large tablets / Small laptops (1024px - 1366px) */
+    @media (max-width: 1366px) {
+      html {
+        --ui-scale: clamp(10, 1.8vw, 20);
+      }
+    }
+
+    /* Tablets (768px - 1024px) */
+    @media (max-width: 1024px) {
+      html {
+        --ui-scale: clamp(8, 1.5vw, 15);
+      }
+    }
+
+    /* Small tablets / Large phones (600px - 768px) */
+    @media (max-width: 768px) {
+      html {
+        --ui-scale: clamp(7, 1.3vw, 12);
+      }
+
+      #source-code {
+        top: calc(var(--ui-scale) * 2px);
+        left: calc(var(--ui-scale) * 2px);
+        right: calc(var(--ui-scale) * 2px);
+        bottom: calc(var(--ui-scale) * 18px);
+      }
+
+      #qr-wrap {
+        bottom: calc(var(--ui-scale) * 2px);
+        right: calc(var(--ui-scale) * 2px);
+      }
+
+      #piece-info {
+        bottom: calc(var(--ui-scale) * 2px);
+        left: calc(var(--ui-scale) * 2px);
+        max-width: calc(100% - var(--ui-scale) * 14px);
+      }
+    }
+
+    /* Extra small screens - prevent any overlap */
+    @media (max-width: 600px) {
+      html {
+        --ui-scale: clamp(5, 1.2vw, 9);
+      }
+    }
+
+    /* Short viewports - scale down UI when height is limited */
+    @media (max-height: 600px) {
+      html {
+        --ui-scale: clamp(5, 1vh, 10);
+      }
+
+      #source-code {
+        bottom: calc(var(--ui-scale) * 16px);
+      }
+    }
+
+    /* Very short viewports - more aggressive scaling */
+    @media (max-height: 400px) {
+      html {
+        --ui-scale: clamp(4, 0.8vh, 7);
+      }
+
+      #source-code {
+        font-size: calc(var(--ui-scale) * 2px);
+        bottom: calc(var(--ui-scale) * 12px);
+      }
+    }
+
+    /* MOBILE RESPONSIVE STYLES - 9x16 portrait aspect ratio
+       Targets phones in portrait mode to prevent element overlapping */
+    @media (max-aspect-ratio: 10/16) and (max-width: 600px) {
+      :root {
+        /* Mobile layout spacing and dimensions */
+        --mobile-spacing: 12px;
+        --mobile-qr-size: 64px;
+        --mobile-qr-padding: 3px;
+        /* Height reserved for bottom overlays (QR + label + piece info area) */
+        --mobile-bottom-reserve: 130px;
+        /* 
+         * Total width for QR section to prevent piece-info overlap:
+         * QR container (64px) + inner padding (3px * 2) + right margin (12px) + gap (12px * 2)
+         */
+        --mobile-qr-total-width: calc(var(--mobile-qr-size) + var(--mobile-qr-padding) * 2 + var(--mobile-spacing) * 3);
+      }
+      
+      /* Source code - readable on mobile */
+      #source-code {
+        top: var(--mobile-spacing);
+        left: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+        bottom: var(--mobile-bottom-reserve); /* Leave room for bottom overlays */
+        font-size: 12px;
+      }
+      
+      /* QR wrap - repositioned with proper padding for mobile */
+      #qr-wrap {
+        bottom: var(--mobile-spacing);
+        right: var(--mobile-spacing);
+        padding-right: 0;
+        padding-bottom: 0;
+      }
+      
+      #code-label {
+        font-size: 12px;
+        padding: 3px 6px;
+        padding-bottom: 5px;
+      }
+      
+      #qr-container {
+        width: var(--mobile-qr-size);
+        height: var(--mobile-qr-size);
+        padding: var(--mobile-qr-padding);
+      }
+      
+      /* Piece info - left-aligned on mobile */
+      #piece-info {
+        bottom: var(--mobile-spacing);
+        left: var(--mobile-spacing);
+        font-size: 12px;
+        max-width: calc(100% - var(--mobile-qr-total-width)); /* Prevent overlap with QR */
+        align-items: flex-start;
+      }
+      
+      /* FF1 module - flush left-aligned on mobile */
+      .ff1-module {
+        margin-top: 8px;
+        padding: 0;
+        gap: 4px;
+        align-items: flex-start;
+        margin-left: 0;
+      }
+      
+      .ff1-playlist-header {
+        padding-bottom: 4px;
+        margin-bottom: 3px;
+        padding-left: 0;
+      }
+      
+      .ff1-playlist-title {
+        font-size: 12px;
+      }
+
+      .ff1-playlist-position {
+        font-size: 12px;
+      }
+
+      /* FF1 copy button - flush left on mobile, no icon indent */
+      .piece-ff1-copy {
+        padding: 3px 0;
+        font-size: 12px;
+        gap: 5px;
+        justify-content: flex-start;
+        margin-left: 0;
+      }
+      
+      .piece-ff1-copy .ff1-icon {
+        height: 14px;
+        margin-right: 4px;
+        margin-left: 0;
+      }
+      
+      .piece-ff1-copy .ff1-cmd {
+        /* Full command always visible */
+      }
+      
+      /* Progress bar - thinner on mobile */
+      #progress-bar {
+        height: 2px;
+      }
+      
+      /* FPS meter - smaller on mobile */
+      #fps-meter {
+        font-size: 10px;
+        padding: 4px;
+      }
+    }
+
+  </style>
+
+  <!-- Monaco Editor - using jsDelivr CDN -->
+  <script type="module">
+    // Configure Monaco Environment before loading
+    window.MonacoEnvironment = {
+      getWorkerUrl: function(moduleId, label) {
+        // Use data URLs for workers to avoid CORS issues
+        const workerCode = `self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/' };
+          importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/base/worker/workerMain.js');`;
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(workerCode);
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
+
+  <!-- Monaco Editor Setup -->
+  <script>
+    // Wait for Monaco loader to be ready
+    let deviceMonacoEditor = null;
+
+    function initMonaco() {
+      if (typeof require === 'undefined') {
+        setTimeout(initMonaco, 100);
+        return;
+      }
+
+      require.config({
+        paths: {
+          vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
+        }
+      });
+
+      require(['vs/editor/editor.main'], function() {
+        console.log('📺 Monaco loaded for device mode');
+
+        // Register KidLisp language
+        monaco.languages.register({ id: 'kidlisp' });
+
+        // Simple Monaco language definition
+        monaco.languages.setMonarchTokensProvider('kidlisp', {
+          tokenizer: {
+            root: [
+              [/./, 'text']
+            ]
+          }
+        });
+
+        // Define theme for device mode - darker background with light text
+        monaco.editor.defineTheme('kidlisp-device', {
+          base: 'vs-dark',
+          inherit: true,
+          rules: [
+            { token: 'text', foreground: 'ffffff' }
+          ],
+          colors: {
+            'editor.background': '#00000000', // Transparent to see through
+            'editor.foreground': '#ffffff',
+            'editorCursor.foreground': '#FF69B4',
+            'editor.lineHighlightBackground': '#ffffff08',
+            'editorLineNumber.foreground': '#ffffff40',
+            'editorLineNumber.activeForeground': '#ffffff80',
+            'editor.selectionBackground': '#ff8c0066',
+            'editor.inactiveSelectionBackground': '#ff8c0033',
+          }
+        });
+
+        // Create Monaco editor in the container
+        const container = document.getElementById('monaco-container');
+        if (container) {
+          // Calculate font size to match scramble overlay
+          // Scramble uses: calc(var(--ui-scale, 8) * 2.5px)
+          const uiScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale') || '8');
+          const fontSize = uiScale * 2.5;
+          const lineHeight = fontSize * 1.5;
+
+          deviceMonacoEditor = monaco.editor.create(container, {
+            value: '',
+            language: 'kidlisp',
+            theme: 'kidlisp-device',
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            lineNumbers: 'off',
+            glyphMargin: false,
+            folding: false,
+            lineDecorationsWidth: 0,
+            lineNumbersMinChars: 0,
+            roundedSelection: false,
+            renderLineHighlight: 'none',
+            selectionHighlight: false,
+            occurrencesHighlight: 'off',
+            overviewRulerLanes: 0,
+            scrollbar: {
+              vertical: 'hidden',
+              horizontal: 'hidden',
+              useShadows: false
+            },
+            automaticLayout: true,
+            wordWrap: 'off',
+            wrappingStrategy: 'advanced',
+            readOnly: true,
+            domReadOnly: true, // Prevent mobile keyboard from opening
+            cursorStyle: 'line',
+            cursorBlinking: 'hidden',
+            cursorWidth: 0,
+            padding: { top: 0, bottom: 0 },
+            hover: { enabled: false },
+            parameterHints: { enabled: false },
+            quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
+            codeLens: false,
+            lightbulb: { enabled: 'off' },
+            inlayHints: { enabled: 'off' },
+            links: false,
+            contextmenu: false, // Disable default, we'll add custom
+            accessibilitySupport: 'off',
+            renderWhitespace: 'none',
+            renderControlCharacters: false,
+          });
+
+          // Make globally accessible
+          window.deviceMonacoEditor = deviceMonacoEditor;
+
+          // Setup KidLisp syntax highlighting
+          setupDeviceMonacoHighlighting(deviceMonacoEditor);
+
+          // Add custom context menu
+          setupCustomContextMenu(container);
+
+          console.log('📺 Monaco editor created for device mode');
+        }
+      });
+    }
+
+    // Auto-scroll Monaco source code when content overflows the visible area.
+    // Scrolls slowly top-to-bottom, pauses, then resets and repeats.
+    let monacoAutoScrollTimer = null;
+    function startMonacoAutoScroll(editor) {
+      if (monacoAutoScrollTimer) clearInterval(monacoAutoScrollTimer);
+      if (!editor) return;
+      const model = editor.getModel();
+      if (!model) return;
+      const lineCount = model.getLineCount();
+      const visibleLines = Math.floor(editor.getLayoutInfo().height / editor.getOption(monaco.editor.EditorOption.lineHeight));
+      if (lineCount <= visibleLines) return; // No scroll needed
+      let scrollTop = 0;
+      const maxScroll = editor.getScrollHeight() - editor.getLayoutInfo().height;
+      const pxPerTick = 0.5; // Slow scroll speed
+      const pauseAtEnd = 3000; // ms to pause at bottom
+      const pauseAtTop = 3000; // ms to pause at top
+      let pausing = false;
+      let pauseTimeout = null;
+      // Start with a pause at top
+      pausing = true;
+      pauseTimeout = setTimeout(() => { pausing = false; }, pauseAtTop);
+      monacoAutoScrollTimer = setInterval(() => {
+        if (pausing) return;
+        scrollTop += pxPerTick;
+        if (scrollTop >= maxScroll) {
+          scrollTop = maxScroll;
+          editor.setScrollTop(scrollTop);
+          pausing = true;
+          pauseTimeout = setTimeout(() => {
+            scrollTop = 0;
+            editor.setScrollTop(0);
+            pausing = true;
+            pauseTimeout = setTimeout(() => { pausing = false; }, pauseAtTop);
+          }, pauseAtEnd);
+          return;
+        }
+        editor.setScrollTop(scrollTop);
+      }, 32); // ~30fps
+    }
+
+    function stopMonacoAutoScroll() {
+      if (monacoAutoScrollTimer) {
+        clearInterval(monacoAutoScrollTimer);
+        monacoAutoScrollTimer = null;
+      }
+    }
+
+    // Setup syntax highlighting for device mode using MonacoKidLispHighlighter
+    async function setupDeviceMonacoHighlighting(editor) {
+      try {
+        // Dynamically import the highlighting module and KidLisp library
+        const { setupKidLispHighlighting } = await import('https://aesthetic.computer/kidlisp.com/js/monaco-kidlisp-highlighting.mjs');
+
+        // Setup highlighting with timing blinks enabled for device mode
+        const highlighter = setupKidLispHighlighting(editor, {
+          enableTimingBlinks: true,
+          lightModeHighContrast: false // Device mode uses dark theme
+        });
+
+        // Start timing blinks animation loop
+        highlighter.startTimingBlinksLoop(() => true);
+
+        console.log('📺 KidLisp syntax highlighting enabled for device mode');
+      } catch (error) {
+        console.error('📺 Failed to setup KidLisp highlighting:', error);
+      }
+    }
+
+    // Setup custom context menu for Monaco
+    function setupCustomContextMenu(editorContainer) {
+      const contextMenu = document.getElementById('monaco-context-menu');
+      if (!contextMenu || !editorContainer) return;
+
+      let currentCodeId = null;
+
+      // Store code ID globally for context menu
+      window.setCurrentCodeIdForContext = (codeId) => {
+        currentCodeId = codeId;
+      };
+
+      function openContextMenuAt(x, y) {
+        contextMenu.style.left = x + 'px';
+        contextMenu.style.top = y + 'px';
+        contextMenu.classList.add('visible');
+        console.log('📺 Custom context menu opened');
+      }
+
+      // Block left/middle clicks on Monaco to prevent cursor positioning and selection
+      editorContainer.addEventListener('mousedown', (e) => {
+        if (e.button !== 2) { // Allow right-click for context menu
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true); // Use capture phase to intercept before Monaco
+
+      // Handle context menu on Monaco editor (right-click / long-press)
+      editorContainer.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openContextMenuAt(e.pageX, e.pageY);
+      });
+
+      // Handle context menu anywhere on the page (right-click)
+      document.body.addEventListener('contextmenu', (e) => {
+        // Don't interfere with Monaco's context menu handler
+        if (editorContainer.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openContextMenuAt(e.pageX, e.pageY);
+      });
+
+      // Two-finger tap opens context menu on mobile (anywhere)
+      document.body.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          // Use midpoint of two fingers
+          const x = (e.touches[0].pageX + e.touches[1].pageX) / 2;
+          const y = (e.touches[0].pageY + e.touches[1].pageY) / 2;
+          openContextMenuAt(x, y);
+        }
+      }, { passive: false });
+
+      // Handle menu item clicks
+      contextMenu.querySelectorAll('.monaco-context-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+          const action = e.target.dataset.action;
+          contextMenu.classList.remove('visible');
+
+          if (action === 'toggle-ui') {
+            // Toggle UI visibility
+            const overlay = document.getElementById('source-overlay');
+            const progressBar = document.getElementById('progress-bar');
+            if (overlay.classList.contains('tap-hidden')) {
+              // Show UI
+              overlay.classList.remove('tap-hidden');
+              overlay.classList.add('hover-reveal');
+              progressBar.classList.add('force-visible');
+              progressBar.classList.remove('force-hidden');
+              progressBar.classList.remove('hidden-mid');
+              updateFF1Overlap();
+            } else {
+              // Hide UI
+              overlay.classList.add('tap-hidden');
+              overlay.classList.remove('hover-reveal');
+              progressBar.classList.add('force-hidden');
+              progressBar.classList.remove('force-visible');
+              updateFF1Overlap();
+            }
+            return;
+          }
+
+          if (!currentCodeId) {
+            console.warn('📺 No code ID available for context menu');
+            return;
+          }
+
+          const cleanCode = currentCodeId.startsWith('$') ? currentCodeId.slice(1) : currentCodeId;
+
+          if (action === 'edit') {
+            // Edit on KidLisp.com
+            window.open(`https://kidlisp.com/${cleanCode}`, '_blank');
+          } else if (action === 'view') {
+            // View on Prompt.ac
+            window.open(`https://prompt.ac/$${cleanCode}`, '_blank');
+          } else if (action === 'bundle') {
+            // Keep Offline - use bundle~$code route
+            const bundleUrl = `https://aesthetic.computer/bundle~$${cleanCode}`;
+            console.log('📺 Opening bundle URL:', bundleUrl);
+            window.open(bundleUrl, '_blank');
+          }
+        });
+      });
+
+      // Close menu when clicking elsewhere (not on menu items)
+      document.addEventListener('click', (e) => {
+        if (contextMenu.classList.contains('visible') && !contextMenu.contains(e.target)) {
+          contextMenu.classList.remove('visible');
+        }
+      });
+
+      // Prevent body pointerdown from hiding overlay when context menu is open
+      // but allow clicks ON the context menu items to pass through
+      document.body.addEventListener('pointerdown', (e) => {
+        if (contextMenu.classList.contains('visible')) {
+          if (contextMenu.contains(e.target)) return; // Let menu item clicks through
+          e.stopImmediatePropagation();
+          contextMenu.classList.remove('visible');
+        }
+      }, true); // Use capture phase to intercept before other handlers
+    }
+
+    // Start initialization after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMonaco);
+    } else {
+      initMonaco();
+    }
+  </script>
+</head>
+<body>
+  <!-- Boot animation now handled by iframe's acBootCanvas with device mode -->
+  
+  <!-- KidLisp source overlay with syntax highlighting and QR -->
+  <div id="source-overlay" class="scrambling">
+    <div id="source-code">
+      <div id="monaco-container"></div>
+    </div>
+    <div id="qr-wrap">
+      <div id="code-label"></div>
+      <div id="qr-container"></div>
+    </div>
+    <div id="piece-info">
+      <div id="piece-handle"></div>
+      <div id="piece-hits"></div>
+      <div id="piece-when"></div>
+      <div id="ff1-module" class="ff1-module">
+        <div id="ff1-playlist-header" class="ff1-playlist-header">
+          <div id="ff1-playlist-title" class="ff1-playlist-title"></div>
+          <div id="ff1-playlist-position" class="ff1-playlist-position"></div>
+        </div>
+        <button id="piece-ff1-copy" class="piece-ff1-copy" title="Copy FF1 CLI command">
+          <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="" class="ff1-icon">
+          <span class="ff1-cmd">ff1 play ...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="error-screen">
+    <div class="error-text" id="error-text"></div>
+  </div>
+  
+  <iframe id="display-iframe"></iframe>
+  <iframe id="display-iframe-back"></iframe>
+  
+  <!-- YouTube-style progress bar for playlist mode -->
+  <div id="progress-bar">
+    <div id="progress-fill"></div>
+  </div>
+  
+  <!-- FPS meter for performance comparison -->
+  <div id="fps-meter">FPS: --</div>
+
+  <!-- Custom context menu for Monaco -->
+  <div id="monaco-context-menu">
+    <div class="monaco-context-item" data-action="toggle-ui">Toggle UI</div>
+    <div class="monaco-context-item" data-action="edit">Edit on KidLisp.com</div>
+    <div class="monaco-context-item" data-action="view">View on Prompt.ac</div>
+    <div class="monaco-context-item" data-action="bundle">Keep Offline</div>
+  </div>
+  
+  <!-- DEPRECATED: Playlist info overlay - kept for backwards compatibility but hidden via CSS -->
+  <!-- All playlist info is now in the #ff1-module inside #piece-info -->
+  <div id="playlist-info">
+    <div id="playlist-title"></div>
+    <div id="playlist-position"></div>
+    <button id="ff1-cast-btn" title="Copy FF1 CLI command to cast this playlist">
+      <img src="https://assets.aesthetic.computer/kidlisp.com/feralfile-logo.png" alt="FF1" class="ff1-logo">
+      <span class="ff1-text">Copy FF1 Command</span>
+    </button>
+  </div>
+  
+  <script>
+    // FPS meter - calculated locally from iframe's frame timing
+    (function() {
+      const meter = document.getElementById('fps-meter');
+      const iframe = document.getElementById('display-iframe');
+      let frameCount = 0;
+      let lastTime = performance.now();
+      let currentFps = 0;
+      
+      // Listen for FPS reports from the iframe (if supported)
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'ac:fps-report') {
+          currentFps = e.data.fps;
+          meter.innerHTML = 'FPS: ' + currentFps;
+          meter.style.color = currentFps >= 30 ? 'lime' : currentFps >= 15 ? 'yellow' : 'red';
+        }
+      });
+      
+      // Fallback: calculate FPS from local animation frame
+      function updateFps() {
+        frameCount++;
+        const now = performance.now();
+        const elapsed = now - lastTime;
+        
+        if (elapsed >= 1000) {
+          currentFps = Math.round(frameCount * 1000 / elapsed);
+          meter.innerHTML = 'FPS: ' + currentFps;
+          meter.style.color = currentFps >= 30 ? 'lime' : currentFps >= 15 ? 'yellow' : 'red';
+          frameCount = 0;
+          lastTime = now;
+        }
+        
+        requestAnimationFrame(updateFps);
+      }
+      
+      // Start FPS counting after iframe loads
+      iframe.addEventListener('load', () => {
+        setTimeout(() => {
+          updateFps();
+          // Also request FPS from iframe in case it reports its own
+          iframe.contentWindow?.postMessage({ type: 'ac:request-fps' }, '*');
+        }, 500);
+      });
+    })();
+  </script>
+  
+  <script>
+    // 🔓 KidLisp Scramble/Decode Animation for Device Mode
+    // Shows scrambled code during boot, reveals when piece starts running
+    // Each character has its own rhythm seeded by its original source character
+    (function() {
+      const SCRAMBLE_CHARS_LOWER = 'abcdefghijklmnopqrstuvwxyz';
+      const SCRAMBLE_CHARS_UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const SCRAMBLE_CHARS_OTHER = '0123456789(),-=+*/<>:;\"\'.!?@#$%^&_~`[]{}|';
+      
+      let isScrambling = false;
+      let scrambleIntervalId = null;
+      let pendingSource = null;
+      let decodeResolver = null;
+      let waitingForDecode = false;
+      let currentBootMessage = ''; // Current boot message to weave into scramble
+      let scrambleColorTimeout = null;
+
+      // Detect slideshow/playlist mode early to skip legacy initial scramble
+      const scrambleParams = new URLSearchParams(window.location.search);
+      const hasPlaylist = !!(scrambleParams.get('playlist_url') || scrambleParams.get('slideshow'));
+      
+      const HL_COLOR_MAP = {
+        'hl-comment': '#6272a4',
+        'hl-string': 'orange',
+        'hl-number': 'lime',
+        'hl-keyword': 'pink',
+        'hl-api': 'cyan',
+        'hl-timing': '#ffb86c',
+        'hl-paren': '#888',
+        'hl-code-ref': 'limegreen',
+        'hl-code-id': 'lime',
+        'hl-paint-ref': 'magenta',
+        'hl-paint-id': 'orange',
+        'hl-fade-sep': 'mediumseagreen',
+        'hl-fade-dir': 'cyan',
+        'hl-fade-colon': 'lime',
+      };
+      
+      // Per-character state for seeded rhythms
+      let charStates = []; // { lastChange: timestamp, interval: ms, currentChar: string }
+      let globalTick = 0;
+
+      function scheduleScrambleColoring(inner) {
+        if (!inner) return;
+        inner.classList.remove('scramble-coloring');
+        if (scrambleColorTimeout) {
+          clearTimeout(scrambleColorTimeout);
+        }
+        scrambleColorTimeout = setTimeout(() => {
+          inner.classList.add('scramble-coloring');
+        }, 0);
+      }
+      
+      // Expose setter for boot message
+      window.setBootMessage = function(msg) {
+        // Clean up the message
+        if (msg?.startsWith?.('ready:')) {
+          currentBootMessage = '';  // Clear on ready
+        } else if (msg?.includes?.('(')) {
+          // Strip timing info
+          currentBootMessage = msg.replace(/\s*\([^)]+\)\s*/g, '').toLowerCase();
+        } else {
+          currentBootMessage = (msg || '').toLowerCase();
+        }
+      };
+      
+      // Get a seeded "random" value from a character (deterministic per char)
+      function charSeed(char) {
+        return char.charCodeAt(0);
+      }
+      
+      function escapeHtmlChar(char) {
+        if (char === '&') return '&amp;';
+        if (char === '<') return '&lt;';
+        if (char === '>') return '&gt;';
+        return char;
+      }
+      
+      function buildColorMapFromHighlightedHtml(highlightedHtml) {
+        if (!highlightedHtml) return [];
+        const temp = document.createElement('div');
+        temp.innerHTML = highlightedHtml;
+        const colors = [];
+        const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
+        let node = walker.nextNode();
+        while (node) {
+          let color = null;
+          let el = node.parentElement;
+          while (el) {
+            if (!color && el.classList?.contains('hl-color')) {
+              const style = el.getAttribute('style') || '';
+              const match = style.match(/color\s*:\s*([^;]+)/i);
+              if (match) color = match[1];
+            }
+            if (!color && el.classList) {
+              for (const cls of el.classList) {
+                if (HL_COLOR_MAP[cls]) {
+                  color = HL_COLOR_MAP[cls];
+                  break;
+                }
+              }
+            }
+            if (color) break;
+            el = el.parentElement;
+          }
+          const text = node.textContent || '';
+          for (let i = 0; i < text.length; i++) {
+            colors.push(color);
+          }
+          node = walker.nextNode();
+        }
+        return colors;
+      }
+      
+      // Calculate inverse/opposite color for dynamic shadows
+      function getInverseColor(colorStr) {
+        if (!colorStr) return 'rgb(0, 0, 0)'; // Default to black shadow
+
+        // Parse RGB from various formats
+        let r, g, b;
+        const rgbMatch = colorStr.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+        const hexMatch = colorStr.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+
+        if (rgbMatch) {
+          r = parseInt(rgbMatch[1]);
+          g = parseInt(rgbMatch[2]);
+          b = parseInt(rgbMatch[3]);
+        } else if (hexMatch) {
+          r = parseInt(hexMatch[1], 16);
+          g = parseInt(hexMatch[2], 16);
+          b = parseInt(hexMatch[3], 16);
+        } else {
+          return 'rgb(0, 0, 0)'; // Fallback
+        }
+
+        // Calculate inverse
+        const invR = 255 - r;
+        const invG = 255 - g;
+        const invB = 255 - b;
+
+        return `rgb(${invR}, ${invG}, ${invB})`;
+      }
+
+      // Scramble a character (preserve whitespace and casing)
+      function getScrambledChar(original) {
+        if (original === '\n' || original === ' ' || original === '\t') return original;
+        // Preserve casing
+        if (original >= 'a' && original <= 'z') {
+          return SCRAMBLE_CHARS_LOWER[Math.floor(Math.random() * SCRAMBLE_CHARS_LOWER.length)];
+        }
+        if (original >= 'A' && original <= 'Z') {
+          return SCRAMBLE_CHARS_UPPER[Math.floor(Math.random() * SCRAMBLE_CHARS_UPPER.length)];
+        }
+        // For numbers and symbols, use other chars
+        return SCRAMBLE_CHARS_OTHER[Math.floor(Math.random() * SCRAMBLE_CHARS_OTHER.length)];
+      }
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // CENTRALIZED 24FPS SCRAMBLE CLOCK
+      // All scrambling is synchronized to the same beat
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      const SCRAMBLE_24FPS = 1000 / 24; // ~41.67ms per frame
+      const scrambleCallbacks = new Set();
+      let scrambleClockId = null;
+
+      // Start the global scramble clock
+      function startScrambleClock() {
+        if (scrambleClockId) return; // Already running
+
+        scrambleClockId = setInterval(() => {
+          // Call all registered callbacks on each beat
+          scrambleCallbacks.forEach(callback => {
+            try {
+              callback();
+            } catch (e) {
+              console.error('Scramble callback error:', e);
+            }
+          });
+        }, SCRAMBLE_24FPS);
+      }
+
+      // Helper to add rhythmic variation - sometimes skip beats
+      function shouldSkipBeat() {
+        return Math.random() < 0.15; // 15% chance to skip a frame
+      }
+
+      // Initialize per-character states from source
+      function initCharStates(source) {
+        const chars = source.split('');
+        charStates = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') {
+            return { isWhitespace: true, char: char };
+          }
+          // Seed interval from character code: range 100ms to 600ms
+          const seed = charSeed(char);
+          const interval = 100 + ((seed * 7 + idx * 3) % 500);
+          return {
+            isWhitespace: false,
+            original: char,
+            currentChar: getScrambledChar(char),
+            interval: interval,
+            lastChange: performance.now() - Math.random() * interval, // Stagger start times
+            tickOffset: (seed + idx) % 20, // Phase offset for visual variety
+          };
+        });
+      }
+      
+      // Build scrambled HTML using per-character rhythm and syntax colors
+      function buildScrambledTextWithRhythm(source) {
+        const now = performance.now();
+        globalTick++;
+        
+        // Initialize states if needed
+        if (charStates.length !== source.length) {
+          initCharStates(source);
+        }
+        
+        const result = charStates.map((state, idx) => {
+          if (state.isWhitespace) return escapeHtmlChar(state.char);
+
+          // Check if this character should change based on its own rhythm
+          const elapsed = now - state.lastChange;
+          if (elapsed >= state.interval) {
+            state.currentChar = getScrambledChar(state.original);
+            state.lastChange = now;
+          }
+
+          const char = escapeHtmlChar(state.currentChar);
+          const colorDelayMs = 200 + ((state.original.charCodeAt(0) * 5 + idx * 7) % 1800);
+          const colorDelay = (colorDelayMs / 1000).toFixed(2);
+
+          // Dynamic shadow: opposite of target color
+          const inverseShadow = state.color ? getInverseColor(state.color) : 'rgb(0, 0, 0)';
+          const shadowStyle = `1px 1px 0 ${inverseShadow}, -1px -1px 0 ${inverseShadow}, 1px -1px 0 ${inverseShadow}, -1px 1px 0 ${inverseShadow}, 2px 2px 0 ${inverseShadow}`;
+
+          const colorStyle = state.color
+            ? ` style="--target-color: ${state.color}; --color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`
+            : ` style="--color-delay: ${colorDelay}s; text-shadow: ${shadowStyle};"`;
+          return `<span class="scramble-char"${colorStyle}>${char}</span>`;
+        });
+        
+        // Weave boot message into random positions
+        if (currentBootMessage && currentBootMessage.length > 0) {
+          // Find all line boundaries
+          const lines = [];
+          let lineStart = 0;
+          for (let i = 0; i < result.length; i++) {
+            if (result[i] === '\n') {
+              if (i - lineStart > currentBootMessage.length + 4) {
+                lines.push({ start: lineStart, end: i });
+              }
+              lineStart = i + 1;
+            }
+          }
+          if (result.length - lineStart > currentBootMessage.length + 4) {
+            lines.push({ start: lineStart, end: result.length });
+          }
+          
+          // Insert into ~30% of lines
+          if (lines.length > 0) {
+            const shuffled = [...lines].sort(() => Math.random() - 0.5);
+            const insertCount = Math.max(1, Math.floor(shuffled.length * 0.3));
+            
+            for (let n = 0; n < insertCount; n++) {
+              const line = shuffled[n];
+              const lineLength = line.end - line.start;
+              const insertPos = line.start + Math.floor(Math.random() * (lineLength - currentBootMessage.length - 2)) + 1;
+              
+              for (let i = 0; i < currentBootMessage.length; i++) {
+                const targetIdx = insertPos + i;
+                if (targetIdx < result.length && result[targetIdx] !== '\n') {
+                  result[targetIdx] = currentBootMessage[i];
+                }
+              }
+            }
+          }
+        }
+        
+        return result.join('');
+      }
+      
+      // Show scrambled placeholder immediately on page load with continuous animation
+      // Uses eager-fetched source for correct length, with per-character rhythm
+      let initialScrambleFrame = null;
+      let initialScrambleActive = true;
+      let eagerSource = null; // Will be set from eager fetch
+      let lastScrambleRenderTime = 0;
+      (function showInitialScramble() {
+        const inner = document.getElementById('source-code-inner');
+        const overlay = document.getElementById('source-overlay');
+        if (!inner) return;
+        if (hasPlaylist) return;
+        document.body.classList.add('booting');
+
+        scheduleScrambleColoring(inner);
+        
+        // Check if eager fetch completed - use that source for scrambling
+        if (window.__eagerSourceFetch) {
+          window.__eagerSourceFetch.then(data => {
+            if (data?.source && initialScrambleActive) {
+              eagerSource = data.source;
+              initCharStates(eagerSource, null); // Initialize per-character rhythms
+              console.log('🚀 Eager source ready for scramble:', eagerSource.length, 'chars');
+            }
+          });
+        }
+        
+        // Use global 24fps clock with rhythmic variation for per-character updates
+        function animateInitialScramble() {
+          if (!initialScrambleActive) return;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep clock running
+          }
+
+          // Use eager source if available, otherwise show nothing (waiting)
+          if (eagerSource) {
+            inner.innerHTML = buildScrambledTextWithRhythm(eagerSource);
+            document.body.classList.remove('booting');
+          }
+        }
+
+        // Register with global clock
+        scrambleCallbacks.add(animateInitialScramble);
+        startScrambleClock();
+        initialScrambleFrame = animateInitialScramble; // Store reference for cleanup
+      })();
+      
+      // Stop initial scramble when real scramble starts
+      function stopInitialScramble() {
+        initialScrambleActive = false;
+        if (initialScrambleFrame) {
+          scrambleCallbacks.delete(initialScrambleFrame);
+          initialScrambleFrame = null;
+        }
+        document.body.classList.remove('booting');
+      }
+      
+      // Global stop function for slideshow mode to cancel any scramble
+      window.stopScrambleAnimation = function() {
+        stopInitialScramble();
+        isScrambling = false;
+        waitingForDecode = false;
+        pendingSource = null;
+        if (scrambleIntervalId) {
+          scrambleCallbacks.delete(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
+        const inner = document.getElementById('source-code-inner');
+        if (inner) inner.classList.remove('scramble-coloring');
+
+        // Immediately remove scrambling class to stop all animations (QR, metadata, etc.)
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) overlay.classList.remove('scrambling');
+      };
+      
+      // Start scramble animation - applies directly to Monaco
+      window.startScrambleAnimation = function(source) {
+        const overlay = document.getElementById('source-overlay');
+        if (!source || !window.deviceMonacoEditor) return;
+
+        // Stop the initial placeholder scramble
+        stopInitialScramble();
+
+        // Add scrambling class to trigger all animations (QR, metadata, etc.)
+        if (overlay) overlay.classList.add('scrambling');
+
+        pendingSource = source;
+        isScrambling = true;
+        waitingForDecode = true;
+
+        // Initialize per-character rhythms for the source
+        initCharStates(source);
+
+        console.log('📺 Starting Monaco scramble animation at 24fps...');
+
+        // Set initial scrambled text first
+        const initialScrambled = source.split('').map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') return char;
+          return getScrambledChar(char);
+        }).join('');
+        window.deviceMonacoEditor.setValue(initialScrambled);
+
+        // Syntax highlighting is now handled automatically by MonacoKidLispHighlighter
+        // (Old manual decoration system removed)
+
+        // Build scrambled text for Monaco
+        function buildScrambledMonacoText(source) {
+          const chars = source.split('');
+          return chars.map((char, idx) => {
+            const state = charStates[idx];
+            if (!state || state.isWhitespace) return char;
+
+            const now = performance.now();
+            const elapsed = now - state.lastChange;
+            if (elapsed >= state.interval) {
+              state.currentChar = getScrambledChar(state.original);
+              state.lastChange = now;
+            }
+            return state.currentChar;
+          }).join('');
+        }
+
+        // Use global 24fps clock to update Monaco content
+        function scrambleLoop() {
+          if (!isScrambling || !waitingForDecode) return;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return;
+          }
+
+          // Update Monaco with scrambled text
+          const scrambledText = buildScrambledMonacoText(pendingSource);
+          window.deviceMonacoEditor.setValue(scrambledText);
+        }
+
+        // Register with global clock
+        scrambleCallbacks.add(scrambleLoop);
+        startScrambleClock();
+        scrambleIntervalId = scrambleLoop;
+
+        // If piece is already ready (preloaded/swapped), auto-decode after
+        // a longer scramble to give all animations time to synchronize and look smooth
+        if (window._pieceAlreadyReady) {
+          window._pieceAlreadyReady = false;
+          console.log('📺 Piece already ready - will auto-decode after synchronized scramble');
+          setTimeout(() => {
+            window.signalDecode?.();
+          }, 1600); // Increased from 800ms to allow all animations to sync and finish together
+        }
+
+        // Return promise that resolves when decode is triggered
+        return new Promise(resolve => {
+          decodeResolver = resolve;
+        });
+      };
+      
+      // Signal to start decoding (called when piece starts running)
+      window.signalDecode = function() {
+        if (!waitingForDecode || !pendingSource) {
+          // Piece is ready but scramble hasn't started yet (API fetch still pending).
+          // Set flag so startScrambleAnimation auto-decodes when it begins.
+          if (!waitingForDecode && !pendingSource) {
+            window._pieceAlreadyReady = true;
+            console.log('📺 signalDecode: scramble not started yet — flagged for auto-decode');
+          }
+          return;
+        }
+
+        console.log('📺 Signal received - starting decode animation');
+        waitingForDecode = false;
+
+        if (scrambleIntervalId) {
+          scrambleCallbacks.delete(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
+
+        // Start reveal animation
+        revealCode();
+      };
+      
+      // Reveal animation - characters reveal individually in Monaco
+      function revealCode() {
+        if (!pendingSource || !window.deviceMonacoEditor) {
+          finalize();
+          return;
+        }
+
+        const chars = pendingSource.split('');
+        const revealStartTime = performance.now();
+        const revealDuration = 800; // Total reveal time in ms
+        
+        // Each character has a reveal time based on its seed
+        const revealTimes = chars.map((char, idx) => {
+          if (char === '\n' || char === ' ' || char === '\t') return 0; // Whitespace reveals instantly
+          const seed = char.charCodeAt(0);
+          // Stagger reveals: seed determines when in the reveal window this char appears
+          // Mix in position for variety, but keep some randomness
+          const positionFactor = idx / chars.length;
+          const seedFactor = (seed % 100) / 100;
+          // Combine: mostly position-based (left to right feel) with seed variation
+          return (positionFactor * 0.7 + seedFactor * 0.3) * revealDuration;
+        });
+        
+        const settled = new Array(chars.length).fill(false);
+        
+        function animateReveal() {
+          if (!isScrambling) {
+            finalize();
+            return;
+          }
+
+          const now = performance.now();
+          const elapsed = now - revealStartTime;
+
+          // Safety: Force complete if exceeded duration
+          if (elapsed > revealDuration * 1.5) {
+            finalize();
+            return;
+          }
+
+          // Build current text with characters revealing over time
+          const currentText = chars.map((char, i) => {
+            if (char === '\n' || char === ' ' || char === '\t') return char;
+
+            // Check if this character should be revealed yet
+            if (elapsed >= revealTimes[i]) {
+              settled[i] = true;
+              return char; // Show original character
+            }
+
+            // Still scrambling
+            if (charStates[i] && !charStates[i].isWhitespace) {
+              const state = charStates[i];
+              const stateElapsed = now - state.lastChange;
+              if (stateElapsed >= state.interval) {
+                state.currentChar = getScrambledChar(state.original);
+                state.lastChange = now;
+              }
+              return state.currentChar;
+            }
+
+            return getScrambledChar(char);
+          }).join('');
+
+          // Update Monaco
+          window.deviceMonacoEditor.setValue(currentText);
+
+          // Check if done
+          if (settled.every(s => s)) {
+            finalize();
+            return;
+          }
+
+          requestAnimationFrame(animateReveal);
+        }
+
+        requestAnimationFrame(animateReveal);
+      }
+      
+      // Finalize - set final code in Monaco and apply syntax highlighting
+      function finalize() {
+        const overlay = document.getElementById('source-overlay');
+
+        // Remove scrambling class
+        if (overlay) {
+          overlay.classList.remove('scrambling');
+          console.log('📺 Decode complete - Monaco showing final code');
+        }
+
+        // Reveal all continuous text scrambles (label, handle, hits)
+        window.revealAllTextScrambles?.();
+
+        // Set final source code in Monaco
+        if (window.deviceMonacoEditor && pendingSource) {
+          window.deviceMonacoEditor.setValue(pendingSource);
+          startMonacoAutoScroll(window.deviceMonacoEditor);
+        }
+
+        isScrambling = false;
+        pendingSource = null;
+
+        if (decodeResolver) {
+          decodeResolver();
+          decodeResolver = null;
+        }
+      }
+      
+      // Stop scramble immediately
+      window.stopScramble = function() {
+        isScrambling = false;
+        waitingForDecode = false;
+        if (scrambleIntervalId) {
+          scrambleCallbacks.delete(scrambleIntervalId);
+          scrambleIntervalId = null;
+        }
+        finalize();
+      };
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // TEXT ELEMENT SCRAMBLE ANIMATIONS
+      // Scramble and reveal text in UI elements (QR label, metadata, etc.)
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      // Continuous scramble text content of an element with rhythmic timing
+      window.scrambleTextElement = function(element, targetText, duration = 600, continuous = false) {
+        if (!element || !targetText) return;
+
+        const chars = targetText.split('');
+        const startTime = performance.now();
+
+        function animate() {
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
+          }
+
+          const now = performance.now();
+          const elapsed = now - startTime;
+          const progress = continuous ? 0 : Math.min(elapsed / duration, 1);
+
+          // Build scrambled text with progressive reveal (or continuous scramble if continuous=true)
+          const result = chars.map((char, idx) => {
+            if (continuous) {
+              // Continuous scrambling - always scramble
+              return getScrambledChar(char);
+            } else {
+              // Reveal characters progressively based on position and time
+              const revealThreshold = (idx / chars.length) * 0.7 + 0.3; // Stagger: 30-100%
+              if (progress >= revealThreshold) {
+                return char; // Revealed
+              } else {
+                return getScrambledChar(char);
+              }
+            }
+          }).join('');
+
+          element.textContent = result;
+
+          if (!continuous && progress >= 1) {
+            element.textContent = targetText; // Final reveal
+            // Unregister from clock
+            if (element._scrambleCallback) {
+              scrambleCallbacks.delete(element._scrambleCallback);
+              element._scrambleCallback = null;
+            }
+          }
+        }
+
+        // Cancel any previous animation on this element
+        if (element._scrambleCallback) {
+          scrambleCallbacks.delete(element._scrambleCallback);
+        }
+
+        // Store target text so it can be revealed later
+        element._scrambleTarget = targetText;
+
+        // Register callback with global clock
+        element._scrambleCallback = animate;
+        scrambleCallbacks.add(animate);
+
+        // Start global clock if not running
+        startScrambleClock();
+
+        animate(); // Run immediately
+      };
+
+      // Stop all continuous text scrambles and reveal final text
+      window.revealAllTextScrambles = function() {
+        const els = [
+          document.querySelector('#code-label .code-dollar'),
+          document.querySelector('#code-label .code-name'),
+          document.getElementById('piece-handle'),
+          document.getElementById('piece-hits'),
+          document.getElementById('piece-when'),
+          document.getElementById('ff1-playlist-position'),
+          document.getElementById('ff1-playlist-title'),
+          document.querySelector('.ff1-cmd'),
+        ];
+        for (const el of els) {
+          if (!el) continue;
+          if (el._scrambleCallback) {
+            scrambleCallbacks.delete(el._scrambleCallback);
+            el._scrambleCallback = null;
+          }
+          // Use stored HTML if available (for formatted elements like ff1 cmd)
+          if (el._scrambleTargetHTML) {
+            el.innerHTML = el._scrambleTargetHTML;
+          } else if (el._scrambleTarget) {
+            el.textContent = el._scrambleTarget;
+          }
+        }
+      };
+
+      // Regenerate QR code on every chunk (24fps) - stops when metadata stops
+      window.scrambleQRCodeRegenerate = function(qrUrl, container) {
+        if (!container || typeof qrcode === 'undefined') return;
+
+        let scrambling = true;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_~';
+
+        function regenerateRandomQR() {
+          if (!scrambling) return;
+
+          // Generate random URL variation (scramble the URL)
+          const randomUrl = qrUrl.split('').map(char => {
+            if (Math.random() < 0.3) { // 30% chance to scramble each char
+              return chars[Math.floor(Math.random() * chars.length)];
+            }
+            return char;
+          }).join('');
+
+          try {
+            const qrGen = qrcode(0, 'L');
+            qrGen.addData(randomUrl);
+            qrGen.make();
+            const svg = qrGen.createSvgTag(2, 0);
+            container.innerHTML = svg;
+            const svgEl = container.querySelector('svg');
+            if (svgEl) {
+              svgEl.style.display = 'block';
+              svgEl.style.width = '100%';
+              svgEl.style.height = '100%';
+            }
+          } catch (e) {
+            // If QR generation fails, just skip this frame
+          }
+        }
+
+        // Register with global 24fps clock
+        function animate() {
+          if (!scrambling) return;
+
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return;
+          }
+
+          regenerateRandomQR();
+        }
+
+        // Store callback so we can stop it later
+        container._qrRegenerateCallback = animate;
+        scrambleCallbacks.add(animate);
+        startScrambleClock();
+
+        // Stop regenerating when overlay is no longer scrambling
+        const overlay = document.getElementById('source-overlay');
+        if (overlay) {
+          const observer = new MutationObserver(() => {
+            if (!overlay.classList.contains('scrambling')) {
+              scrambling = false;
+              if (container._qrRegenerateCallback) {
+                scrambleCallbacks.delete(container._qrRegenerateCallback);
+                container._qrRegenerateCallback = null;
+              }
+
+              // Generate final correct QR
+              try {
+                const qrGen = qrcode(0, 'L');
+                qrGen.addData(qrUrl);
+                qrGen.make();
+                const svg = qrGen.createSvgTag(2, 0);
+                container.innerHTML = svg;
+                const svgEl = container.querySelector('svg');
+                if (svgEl) {
+                  svgEl.style.display = 'block';
+                  svgEl.style.width = '100%';
+                  svgEl.style.height = '100%';
+                }
+                console.log('📺 QR regeneration stopped - final QR displayed');
+              } catch (e) {
+                console.error('📺 Failed to generate final QR:', e);
+              }
+
+              observer.disconnect();
+            }
+          });
+
+          observer.observe(overlay, {
+            attributes: true,
+            attributeFilter: ['class']
+          });
+        }
+
+        console.log('📺 QR regeneration started');
+      };
+
+      // OLD: Scramble QR code SVG by randomizing rect positions with 24fps rhythmic animation
+      window.scrambleQRCode = function(svgElement, duration = 800, continuous = false) {
+        if (!svgElement) return;
+
+        const rects = Array.from(svgElement.querySelectorAll('rect'));
+        if (rects.length === 0) return;
+
+        // Store original positions
+        const originalPositions = rects.map(rect => ({
+          x: parseFloat(rect.getAttribute('x') || 0),
+          y: parseFloat(rect.getAttribute('y') || 0),
+          rect: rect
+        }));
+
+        const startTime = performance.now();
+        let intervalId;
+
+        function animate() {
+          // Rhythmic skip - sometimes skip this beat
+          if (shouldSkipBeat()) {
+            return; // Skip this frame but keep interval running
+          }
+
+          const elapsed = performance.now() - startTime;
+          const progress = continuous ? 0 : Math.min(elapsed / duration, 1);
+
+          // Ease out cubic for smooth settle (when not continuous)
+          const eased = continuous ? 0 : (1 - Math.pow(1 - progress, 3));
+
+          originalPositions.forEach(({ x, y, rect }, idx) => {
+            if (continuous || progress < 1) {
+              // Scramble phase: random offsets
+              const scrambleAmount = continuous ? 3 : ((1 - eased) * 20); // Subtle continuous or decreasing
+              const offsetX = (Math.random() - 0.5) * scrambleAmount;
+              const offsetY = (Math.random() - 0.5) * scrambleAmount;
+              rect.setAttribute('x', x + offsetX);
+              rect.setAttribute('y', y + offsetY);
+            } else {
+              // Final settle to original position
+              rect.setAttribute('x', x);
+              rect.setAttribute('y', y);
+            }
+          });
+
+          if (!continuous && progress >= 1) {
+            // Restore original positions and stop
+            originalPositions.forEach(({ x, y, rect }) => {
+              rect.setAttribute('x', x);
+              rect.setAttribute('y', y);
+            });
+            // Unregister from clock
+            if (svgElement._qrScrambleCallback) {
+              scrambleCallbacks.delete(svgElement._qrScrambleCallback);
+              svgElement._qrScrambleCallback = null;
+            }
+          }
+        }
+
+        // Cancel any previous animation on this SVG
+        if (svgElement._qrScrambleCallback) {
+          scrambleCallbacks.delete(svgElement._qrScrambleCallback);
+        }
+
+        // Register callback with global clock
+        svgElement._qrScrambleCallback = animate;
+        scrambleCallbacks.add(animate);
+
+        // Start global clock if not running
+        startScrambleClock();
+
+        animate(); // Run immediately
+      };
+
+      // Listen for boot-log messages from iframe
+      let decodeTriggered = false;
+
+      // Allow slideshow to reset decode state for new slides
+      window.resetDecodeState = function() {
+        decodeTriggered = false;
+      };
+
+      window.addEventListener('message', (e) => {
+        if (e.data?.type === 'boot-log') {
+          const msg = e.data.message;
+          console.log('📺 Boot log:', msg);
+
+          // Feed the boot message to the scramble animation (woven into text)
+          window.setBootMessage?.(msg);
+
+          // Signal decode when piece is actually ready (first frame painted)
+          // Wait for "ready:" which means the piece is rendering, not just loading
+          if (!decodeTriggered && msg?.startsWith?.('ready:')) {
+            decodeTriggered = true;
+            window.signalDecode?.();
+            console.log('📺 Decode triggered by:', msg);
+          }
+        }
+      });
+    })();
+  </script>
+  
+  <script>
+    // Listen for density changes from iframe (Cmd+/- keyboard controls)
+    window.addEventListener('message', (e) => {
+      // Accept both message formats: 'ac:density-change' (new) and 'ac-density-change' (legacy)
+      if ((e.data?.type === 'ac:density-change' || e.data?.type === 'ac-density-change') && typeof e.data.density === 'number') {
+        window.densityParam = e.data.density;
+        document.documentElement.style.setProperty('--density', window.densityParam);
+        // Update UI scale proportionally when density changes
+        const newUiScale = getSmartUIScale(window.densityParam);
+        document.documentElement.style.setProperty('--ui-scale', newUiScale);
+        // Update progress bar height (1.5x density for medium thickness)
+        const progressBar = document.getElementById('progress-bar');
+        if (progressBar) progressBar.style.height = `${window.is4KDisplay ? Math.max(2, Math.round(1.5 * window.densityParam)) : 2}px`;
+        console.log('📺 Density updated from iframe:', window.densityParam, '→ UI Scale:', newUiScale);
+      }
+    });
+    
+    // Default display parameters for FF1 and display devices
+    // (getSmartDensity is defined earlier in the density setup script)
+    const DEVICE_DEFAULTS = {
+      density: getSmartDensity(), // Smart density based on screen resolution
+      device: true,   // Device mode - auto-enables audio, combines tv+nogap+noauth
+      tv: true,       // Non-interactive TV mode
+      nogap: true,    // Borderless / no gap
+      nolabel: true,  // Hide labels
+      noauth: true,   // No auth prompts
+      popout: true,   // Popout mode
+      perf: false     // Performance/FPS HUD (opt-in)
+    };
+    
+    // Parse URL and query params
+    const params = new URLSearchParams(window.location.search);
+    const pathname = window.location.pathname;
+    const hostname = window.location.hostname;
+    
+    // UI elements
+    const iframe = document.getElementById('display-iframe');
+    const iframeBack = document.getElementById('display-iframe-back');
+    const errorScreen = document.getElementById('error-screen');
+    const errorText = document.getElementById('error-text');
+    
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOCKLOGS - Remote console log forwarding via WebSocket
+    // When ?socklogs is present, hijack console and send logs to session-server
+    // Use 'ac-ff1 logs' to view logs from CLI
+    // ══════════════════════════════════════════════════════════════════════════
+    const socklogsEnabled = params.has('socklogs');
+    let socklogsWs = null;
+    let socklogsQueue = []; // Buffer logs before connection established
+    const socklogsDeviceId = `ff1-${Date.now().toString(36)}`; // Unique device ID
+    
+    if (socklogsEnabled) {
+      console.log('🔌 SockLogs enabled - connecting to session-server...');
+      // TODO: Once SSL is configured on production origin, this will work via Cloudflare
+      // For now, socklogs only works in local dev mode
+      const sessionUrl = dev 
+        ? 'wss://localhost:8889/socklogs?role=device&deviceId=' + socklogsDeviceId
+        : 'wss://session-server.aesthetic.computer/socklogs?role=device&deviceId=' + socklogsDeviceId;
+      
+      try {
+        socklogsWs = new WebSocket(sessionUrl);
+        
+        socklogsWs.onopen = () => {
+          console.log('🔌 SockLogs connected:', socklogsDeviceId);
+          // Flush queued logs
+          for (const entry of socklogsQueue) {
+            socklogsWs.send(JSON.stringify(entry));
+          }
+          socklogsQueue = [];
+        };
+        
+        socklogsWs.onclose = () => {
+          console.log('🔌 SockLogs disconnected');
+          socklogsWs = null;
+        };
+        
+        socklogsWs.onerror = (e) => {
+          console.warn('🔌 SockLogs error:', e);
+        };
+        
+        // Hijack console methods
+        const originalConsole = {};
+        ['log', 'warn', 'error', 'info', 'debug'].forEach(method => {
+          originalConsole[method] = console[method].bind(console);
+          console[method] = (...args) => {
+            // Call original
+            originalConsole[method](...args);
+            
+            // Format message
+            const message = args.map(a => {
+              try {
+                return typeof a === 'object' ? JSON.stringify(a) : String(a);
+              } catch {
+                return String(a);
+              }
+            }).join(' ');
+            
+            const entry = {
+              type: 'log',
+              level: method,
+              message,
+              timestamp: Date.now(),
+              url: window.location.href
+            };
+            
+            // Send or queue
+            if (socklogsWs?.readyState === WebSocket.OPEN) {
+              socklogsWs.send(JSON.stringify(entry));
+            } else {
+              socklogsQueue.push(entry);
+              if (socklogsQueue.length > 100) socklogsQueue.shift(); // Limit queue
+            }
+          };
+        });
+        
+        // Capture errors
+        window.addEventListener('error', (e) => {
+          const entry = {
+            type: 'log',
+            level: 'error',
+            message: `[UNCAUGHT] ${e.message} at ${e.filename}:${e.lineno}`,
+            timestamp: Date.now(),
+            url: window.location.href
+          };
+          if (socklogsWs?.readyState === WebSocket.OPEN) {
+            socklogsWs.send(JSON.stringify(entry));
+          } else {
+            socklogsQueue.push(entry);
+          }
+        });
+        
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', (e) => {
+          const entry = {
+            type: 'log',
+            level: 'error',
+            message: `[UNHANDLED REJECTION] ${e.reason}`,
+            timestamp: Date.now(),
+            url: window.location.href
+          };
+          if (socklogsWs?.readyState === WebSocket.OPEN) {
+            socklogsWs.send(JSON.stringify(entry));
+          } else {
+            socklogsQueue.push(entry);
+          }
+        });
+        
+      } catch (e) {
+        console.warn('🔌 SockLogs setup failed:', e);
+      }
+    }
+    
+    // Boot logging (console only, no DOM log)
+    function addLog(msg, type = 'info') {
+      console.log(`[${type.toUpperCase()}] ${msg}`);
+    }
+    
+    // Determine display mode and URL
+    const dev = hostname === 'localhost' || hostname === 'local.aesthetic.computer';
+    const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    
+    // Check if this is an FF1/device subdomain (top/calm/device.kidlisp.com)
+    const isDeviceSubdomain = hostname === 'device.kidlisp.com' || hostname === 'top.kidlisp.com' || hostname === 'calm.kidlisp.com';
+    const isTopPlaylist = hostname === 'top.kidlisp.com' || pathname.startsWith('/top.kidlisp.com');
+    const isCalmPlaylist = hostname === 'calm.kidlisp.com' || pathname.startsWith('/calm.kidlisp.com');
+
+    // Calm mode: hide all overlay UI (QR, source code, piece info) — only progress bar visible
+    if (isCalmPlaylist) {
+      const overlay = document.getElementById('source-overlay');
+      if (overlay) overlay.style.display = 'none';
+      // Start front iframe invisible — fade in when first piece is ready
+      iframe.style.opacity = '0';
+    }
+
+    const logDevice = (...args) => {
+      console.log('📺 DEVICE:', ...args);
+      addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' '));
+    };
+    
+    const FEED_URL = 'https://feed.aesthetic.computer';
+
+    // Resolve a playlist shortcut (e.g. "top100", "colors") to a full feed URL
+    // by searching all playlists on the feed API and matching by title.
+    async function resolvePlaylistUrl(shortcut) {
+      try {
+        // Title-matching rules for shortcuts
+        const matchers = {
+          'top100': (title) => /^top 100/i.test(title),
+          'colors': (title) => /^colors/i.test(title),
+          'chords': (title) => /^chords/i.test(title),
+          'calm': (title) => /^calm/i.test(title),
+        };
+
+        const matcher = matchers[shortcut];
+        if (!matcher) {
+          console.warn('📺 Unknown playlist shortcut:', shortcut);
+          return null;
+        }
+
+        // Search all playlists on the feed (paginated, newest first)
+        let cursor = null;
+        let match = null;
+        do {
+          const qs = cursor ? `?limit=100&sort=desc&cursor=${encodeURIComponent(cursor)}` : '?limit=100&sort=desc';
+          const resp = await fetch(`${FEED_URL}/api/v1/playlists${qs}`);
+          if (!resp.ok) throw new Error(`Playlist list failed: ${resp.status}`);
+          const data = await resp.json();
+          const items = data.items || [];
+
+          match = items.find(p => matcher(p.title || ''));
+          if (match) break;
+
+          cursor = data.hasMore ? data.cursor : null;
+        } while (cursor);
+
+        if (match) {
+          const url = `${FEED_URL}/api/v1/playlists/${match.id}`;
+          console.log('📺 Resolved shortcut', shortcut, '→', match.title, url);
+          return url;
+        }
+
+        console.warn('📺 No playlist found for shortcut:', shortcut);
+        return null;
+      } catch (err) {
+        console.error('📺 Failed to resolve playlist shortcut:', shortcut, err);
+        return null;
+      }
+    }
+    
+    // Parse codeId or playlist path:
+    // device.kidlisp.com/codeId
+    // device.kidlisp.com/playlist/top100 (short playlist URL)
+    // top.kidlisp.com (auto-loads top100 playlist)
+    // localhost:8888/kidlisp.com/device/codeId
+    // localhost:8888/device.kidlisp.com/codeId
+    // localhost:8888/top.kidlisp.com
+    let codeId = null;
+    let slideshowShortcut = null;  // Will be set if using /playlist/xxx path
+    let handleFilter = null;  // Filter playlist by @handle (e.g., top.kidlisp.com/@jeffrey)
+    let anonFilter = false;   // Filter to anonymous pieces only (top.kidlisp.com/anon)
+    const pathParts = pathname.split('/').filter(p => p);
+    
+    console.log('📺 Routing debug:', { hostname, pathname, pathParts });
+    
+    // top.kidlisp.com auto-loads top100 playlist
+    if (hostname === 'top.kidlisp.com') {
+      slideshowShortcut = 'top100';
+      // Check for handle filter: top.kidlisp.com/@jeffrey
+      if (pathParts[0] && pathParts[0].startsWith('@')) {
+        handleFilter = pathParts[0]; // e.g., "@jeffrey"
+        console.log('📺 Handle filter:', handleFilter);
+      } else if (pathParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled');
+      }
+      console.log('📺 Matched top.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
+    } else if (pathname.startsWith('/top.kidlisp.com')) {
+      // Local dev: localhost:8888/top.kidlisp.com
+      slideshowShortcut = 'top100';
+      // Check for handle filter in local dev path
+      const topParts = pathname.replace('/top.kidlisp.com', '').split('/').filter(p => p);
+      if (topParts[0] && topParts[0].startsWith('@')) {
+        handleFilter = topParts[0];
+        console.log('📺 Handle filter (local dev):', handleFilter);
+      } else if (topParts[0] === 'anon') {
+        anonFilter = true;
+        console.log('📺 Anonymous filter enabled (local dev)');
+      }
+    } else if (hostname === 'calm.kidlisp.com') {
+      // calm.kidlisp.com auto-loads hand-curated calm playlist
+      slideshowShortcut = 'calm';
+      console.log('📺 Matched calm.kidlisp.com, set slideshowShortcut:', slideshowShortcut);
+    } else if (pathname.startsWith('/calm.kidlisp.com')) {
+      // Local dev: localhost:8888/calm.kidlisp.com
+      slideshowShortcut = 'calm';
+    } else if (hostname === 'device.kidlisp.com') {
+      // Production: device.kidlisp.com/codeId or /playlist/top100
+      if (pathParts[0] === 'playlist' && pathParts[1]) {
+        slideshowShortcut = pathParts[1].toLowerCase();
+      } else {
+        codeId = pathParts[0] || null;
+      }
+    } else if (pathname.startsWith('/device.kidlisp.com/')) {
+      // Local dev: localhost:8888/device.kidlisp.com/codeId or /playlist/top100
+      if (pathParts[1] === 'playlist' && pathParts[2]) {
+        slideshowShortcut = pathParts[2].toLowerCase();
+      } else {
+        codeId = pathParts[1] || null;
+      }
+    } else if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'device') {
+      // Local dev: localhost:8888/kidlisp.com/device/codeId
+      codeId = pathParts[2] || null;
+    }
+    
+    // Ensure $ prefix on codeId (device.kidlisp.com/roz → $roz)
+    if (codeId && !codeId.startsWith('$')) {
+      codeId = '$' + codeId;
+    }
+    
+    // Allow param overrides of defaults
+    const density = params.get('density') ?? DEVICE_DEFAULTS.density;
+    const device = params.get('device') ?? DEVICE_DEFAULTS.device;
+    const tv = params.get('tv') ?? DEVICE_DEFAULTS.tv;
+    const nogap = params.get('nogap') ?? DEVICE_DEFAULTS.nogap;
+    const nolabel = params.get('nolabel') ?? DEVICE_DEFAULTS.nolabel;
+    const noauth = params.get('noauth') ?? DEVICE_DEFAULTS.noauth;
+    const popout = params.get('popout') ?? DEVICE_DEFAULTS.popout;
+    const perf = params.get('perf') ?? DEVICE_DEFAULTS.perf;
+    const nohud = params.has('nohud'); // Hide device.html overlays: code-label, QR, piece-info, progress-bar
+
+    // Playlist mode params (for DP-1 playlist progress bar)
+    const isPlaylist = params.get('playlist') === 'true';
+    const playlistDuration = parseInt(params.get('duration')) || 35; // seconds
+    
+    // Slideshow mode params (for full DP-1 playlist client)
+    // playlist_url: URL to a DP-1 playlist JSON (e.g., feed.aesthetic.computer/api/v1/playlists/{id})
+    // start_index: Which item to start from (0-based, default 0)
+    // OR use short path: /playlist/top100, /playlist/colors, /playlist/chords
+    let playlistUrl = params.get('playlist_url');
+    const startIndex = parseInt(params.get('start_index')) || 0;
+    
+    // Playlist shortcut resolution is deferred to init() since it requires async fetch.
+    // If handle or anon filter is active, we'll build a dynamic playlist from the API instead.
+    const usesDynamicPlaylist = handleFilter || anonFilter;
+
+    // Flag to indicate we're in slideshow mode (set in init() after async resolution)
+    let slideshowMode = !!playlistUrl;
+    
+    // Slideshow state (populated when playlist_url is provided)
+    let slideshowPlaylist = null;  // The fetched DP-1 playlist
+    let slideshowIndex = startIndex;  // Current item index
+    let slideshowTimer = null;  // Timer for auto-advance
+    let shuffleDeck = [];  // Calm shuffle deck — indices popped in order, reshuffled when empty
+    let slideshowSources = {};  // Batch-fetched sources { code: { source, handle, hits, when } }
+    let slideshowInitialBoot = true;  // True until first piece sends "ready:"
+    let slideshowCacheWarmed = false;  // True after cache data sent to iframe
+    let slideshowNavigateSupported = false;  // True once jump() works (confirmed by ready: signal)
+    let slideshowNavigateFallbackTimer = null;  // Timeout for fallback to iframe.src reload
+    let slideshowAwaitingNavigateReady = false;  // True while waiting for jump() to send ready:
+
+    // 🌊 Crossfade state (calm playlists only — dual-iframe live crossfade)
+    const CROSSFADE_MS = 50000;  // 50-second crossfade (~10s solo per piece)
+    let crossfadeEnabled = isCalmPlaylist;  // Only calm gets crossfade
+    let crossfadeActive = false;  // True during a crossfade transition
+    let frontIframe = iframe;     // Currently visible iframe
+    let backIframe = iframeBack;  // Hidden iframe for preloading next piece
+    let crossfadeSwapTimer = null;  // Timer to swap iframes after crossfade completes
+
+    // 🧹 Memory hygiene: full page refresh every ~30 minutes of playlist playback.
+    // This clears accumulated caches (tapeEmbeds, singletonDollarCodeCache, etc.)
+    // that the singleton KidLisp instance never releases between piece transitions.
+    // The refresh happens at the next piece transition so it's seamless.
+    const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+    let slideshowSessionStart = Date.now();
+    
+    // Build query string for display params
+    function buildDisplayParams() {
+      const p = new URLSearchParams();
+      if (density !== null) p.set('density', density);
+      if (device) p.set('device', 'true');
+      if (tv) p.set('tv', 'true');
+      if (nogap) p.set('nogap', 'true');
+      if (nolabel) p.set('nolabel', 'true');
+      if (noauth) p.set('noauth', 'true');
+      if (popout) p.set('popout', 'true');
+      if (perf) p.set('perf', 'true');
+      if (crossfadeEnabled) p.set('crossfade', CROSSFADE_MS);
+      if (crossfadeEnabled) p.set('maxfps', '24'); // TEMP: 24fps for testing calm display mode (normally 60)
+      p.set('noboot', 'true'); // Skip boot animation for clean device display
+      p.set('t', Date.now()); // Cache bust
+      return p.toString();
+    }
+    
+    function showError(msg) {
+      errorText.textContent = msg;
+      errorScreen.classList.add('visible');
+    }
+    
+    // Initialize display
+    async function init() {
+      // Resolve playlist shortcut (e.g. "top100") to a feed URL via the channel
+      if (slideshowShortcut && !usesDynamicPlaylist && !playlistUrl) {
+        console.log('📺 Resolving playlist shortcut:', slideshowShortcut);
+        playlistUrl = await resolvePlaylistUrl(slideshowShortcut);
+        if (playlistUrl) {
+          slideshowMode = true;
+          console.log('📺 Resolved playlist shortcut:', slideshowShortcut, '→', playlistUrl);
+        } else {
+          console.error('📺 Could not resolve playlist shortcut:', slideshowShortcut);
+        }
+      } else if (usesDynamicPlaylist) {
+        playlistUrl = 'dynamic';
+        slideshowMode = true;
+        console.log('📺 Dynamic playlist mode:', handleFilter ? `handle=${handleFilter}` : 'anon');
+      }
+
+      logDevice('init', { codeId, density, dev, hostname, pathname, playlistUrl });
+
+      // 🫥 nohud: hide all device.html overlays for a clean display
+      if (nohud) {
+        const hide = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+        hide('qr-wrap');
+        hide('piece-info');
+        hide('progress-bar');
+      }
+
+      // Check if we're in slideshow mode (playlist_url param provided)
+      if (playlistUrl) {
+        initSlideshow();
+        return;
+      }
+      
+      if (!codeId) {
+        const domain = isDeviceSubdomain ? hostname : 'device.kidlisp.com';
+        showError(`Usage: ${domain}/{codeId} or ?playlist_url=...`);
+        return;
+      }
+      
+      // Set page title (codeId already includes $ prefix)
+      document.title = `KidLisp.com · ${codeId}`;
+      
+      // Handle iframe load
+      iframe.addEventListener('load', () => {
+        logDevice('iframe loaded');
+        // Source overlay stays visible always - shows code and QR
+      });
+
+      // Listen for iframe errors
+      iframe.addEventListener('error', (e) => {
+        addLog(`iframe error: ${e.message || 'unknown'}`, 'error');
+      });
+
+      // Progress bar will be started when piece is ready (not on iframe load)
+      // See window.addEventListener('message', ...) for boot-log 'ready' handler
+      console.log('📺 Playlist mode:', isPlaylist, 'duration:', playlistDuration);
+      console.log('📺 Waiting for piece ready before starting progress bar...');
+
+      // Fetch and display source FIRST — source code / QR must appear
+      // before the piece starts playing in the iframe.
+      await fetchAndDisplaySource(codeId);
+
+      // Now load the piece in iframe
+      // codeId (e.g. "$zo5") loads the stored kidlisp code from MongoDB
+      iframe.src = `${aestheticUrl}/${codeId}?${buildDisplayParams()}`;
+      logDevice('iframe src', { src: iframe.src });
+      
+      // Setup the FF1 CLI copy button for single pieces
+      setupFF1CopyButton(codeId);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SLIDESHOW MODE - Full DP-1 playlist client
+    // Fetches playlist from playlist_url and auto-advances through items
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Build a DP-1 playlist dynamically from the store-kidlisp API
+    async function buildDynamicPlaylist() {
+      const apiBase = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+      let apiUrl = `${apiBase}/api/store-kidlisp?recent=true&sort=hits&limit=100`;
+      
+      if (handleFilter) {
+        apiUrl += `&handle=${encodeURIComponent(handleFilter)}`;
+      }
+      
+      console.log('📺 Fetching dynamic playlist from:', apiUrl);
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      const data = await response.json();
+      let pieces = data.recent || [];
+
+      // For anon filter, keep only pieces with no handle
+      if (anonFilter) {
+        pieces = pieces.filter(p => !p.handle);
+      }
+
+      if (pieces.length === 0) {
+        throw new Error(handleFilter ? `No pieces found for ${handleFilter}` : 'No anonymous pieces found');
+      }
+
+      // Deduplicate near-identical sources (e.g. same piece with one number tweaked).
+      // Uses 3-char ngram Jaccard similarity — pieces already sorted by hits desc,
+      // so first occurrence is the highest-hit version.
+      function getNgrams(src, n = 3) {
+        const grams = new Set();
+        for (let i = 0; i <= src.length - n; i++) grams.add(src.substring(i, i + n));
+        return grams;
+      }
+      function jaccardSim(a, b) {
+        let inter = 0;
+        for (const g of a) { if (b.has(g)) inter++; }
+        const union = a.size + b.size - inter;
+        return union === 0 ? 0 : inter / union;
+      }
+      const beforeDedup = pieces.length;
+      const uniquePieces = [];
+      const uniqueNgrams = [];
+      for (const p of pieces) {
+        if (!p.source) { uniquePieces.push(p); continue; }
+        const grams = getNgrams(p.source);
+        let isDup = false;
+        for (const existing of uniqueNgrams) {
+          if (jaccardSim(grams, existing) > 0.85) { isDup = true; break; }
+        }
+        if (!isDup) {
+          uniquePieces.push(p);
+          uniqueNgrams.push(grams);
+        }
+      }
+      pieces = uniquePieces;
+      if (pieces.length < beforeDedup) {
+        console.log(`📺 Deduped: ${beforeDedup} → ${pieces.length} unique works`);
+      }
+
+      const duration = 24;
+      const filterLabel = handleFilter || 'anonymous';
+      const dateFormatted = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      // Pre-populate slideshowSources from the data we already have
+      // (the recent API returns source, handle, hits, when)
+      for (const p of pieces) {
+        if (p.code && p.source) {
+          slideshowSources[p.code] = {
+            source: p.source,
+            handle: p.handle || null,
+            hits: p.hits || 0,
+            when: p.when || null,
+          };
+        }
+      }
+
+      return {
+        dpVersion: '1.1.0',
+        title: `Top ${pieces.length} by ${filterLabel} as of ${dateFormatted}`,
+        summary: handleFilter ? `Top KidLisp pieces by ${handleFilter}` : 'Top anonymous KidLisp pieces',
+        items: pieces.map((p, i) => ({
+          title: `$${p.code}`,
+          source: `https://device.kidlisp.com/$${p.code}`,
+          duration,
+          license: 'open',
+          provenance: { type: 'offChainURI' },
+        })),
+        defaults: { display: { scaling: 'fit', background: '#000000', margin: '0%' }, license: 'open', duration }
+      };
+    }
+    
+    // Fisher-Yates shuffle of [0..length), optionally excluding one index
+    // (used for calm shuffle: exclude last-played to avoid immediate repeat on reshuffle)
+    function buildShuffleDeck(length, excludeIndex = -1) {
+      const indices = Array.from({ length }, (_, i) => i).filter(i => i !== excludeIndex);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      return indices;
+    }
+
+    async function initSlideshow() {
+      console.log('📺 Initializing slideshow mode with URL:', playlistUrl);
+      
+      // Get the FF1 module elements (playlist info is now inside the FF1 module)
+      const playlistTitle = document.getElementById('ff1-playlist-title');
+      const playlistPosition = document.getElementById('ff1-playlist-position');
+
+      if (playlistTitle) window.scrambleTextElement?.(playlistTitle, 'Loading playlist...', 600, true);
+      
+      // Setup FF1 copy button for playlist mode (also shows playlist header)
+      setupFF1CopyButtonForPlaylist();
+      
+      try {
+        if (usesDynamicPlaylist) {
+          // Build playlist dynamically from store-kidlisp API
+          slideshowPlaylist = await buildDynamicPlaylist();
+        } else {
+          // Fetch the DP-1 playlist from feed server
+          const response = await fetch(playlistUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch playlist: ${response.status}`);
+          }
+          slideshowPlaylist = await response.json();
+        }
+        console.log('📺 Playlist loaded:', slideshowPlaylist.title, 'with', slideshowPlaylist.items?.length, 'items');
+        
+        if (!slideshowPlaylist.items || slideshowPlaylist.items.length === 0) {
+          showError('Playlist is empty');
+          return;
+        }
+        
+        // Update playlist title in FF1 module - scramble then reveal
+        if (playlistTitle) window.scrambleTextElement?.(playlistTitle, slideshowPlaylist.title || 'Untitled Playlist', 600, false);
+
+        // Clamp start index to valid range
+        if (slideshowIndex >= slideshowPlaylist.items.length) {
+          slideshowIndex = 0;
+        }
+
+        // Calm shuffle: build deck and pick first item randomly
+        if (isCalmPlaylist) {
+          shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length);
+          slideshowIndex = shuffleDeck.pop();
+          console.log('🎴 Calm shuffle deck built:', shuffleDeck.length + 1, 'items, starting at index', slideshowIndex);
+        }
+
+        // Set page title
+        document.title = `KidLisp.com · ${slideshowPlaylist.title || 'Slideshow'}`;
+
+        // Start playing the first piece immediately (don't wait for batch fetch)
+        playCurrentItem();
+
+        // Batch fetch all kidlisp sources in background for cache warming + metadata
+        // This runs concurrently while the first piece boots in the iframe.
+        // Sources are sent to the iframe via ac:warm-cache when the first piece sends "ready:".
+        const allCodes = slideshowPlaylist.items
+          .map(item => (item.title || '').replace('$', ''))
+          .filter(Boolean);
+        if (allCodes.length > 0) {
+          const apiBase = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+          const batchSize = 50;
+          for (let i = 0; i < allCodes.length; i += batchSize) {
+            const batch = allCodes.slice(i, i + batchSize);
+            try {
+              const resp = await fetch(`${apiBase}/api/store-kidlisp?codes=${batch.join(',')}`, { credentials: 'omit' });
+              const data = await resp.json();
+              if (data.results) {
+                for (const [code, info] of Object.entries(data.results)) {
+                  if (info) slideshowSources[code] = info;
+                }
+              }
+            } catch (e) {
+              console.warn('📺 Batch fetch failed for chunk:', e);
+            }
+          }
+          console.log(`📺 Batch fetched ${Object.keys(slideshowSources).length} / ${allCodes.length} sources`);
+        }
+        
+      } catch (e) {
+        console.error('📺 Failed to load playlist:', e);
+        showError(`Failed to load playlist: ${e.message}`);
+      }
+    }
+    
+    // Convert a playlist item to an iframe-loadable URL
+    function resolveItemUrl(item) {
+      let itemUrl = item.source || item.url || '';
+      // Always convert kidlisp.com subdomain URLs to aesthetic.computer for the iframe
+      // These subdomain URLs serve device.html, which would create an infinite loop!
+      const subdomainMatch = itemUrl.match(/(?:device|calm|top)\.kidlisp\.com\/(\$?[a-z0-9_-]+)/i);
+      if (subdomainMatch) {
+        const rawCode = subdomainMatch[1];
+        const code = rawCode.startsWith('$') ? rawCode : `$${rawCode}`;
+        itemUrl = `${aestheticUrl}/${code}?${buildDisplayParams()}`;
+      } else if (!itemUrl.includes('aesthetic.computer')) {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      } else {
+        const separator = itemUrl.includes('?') ? '&' : '?';
+        itemUrl = `${itemUrl}${separator}${buildDisplayParams()}`;
+      }
+      return itemUrl;
+    }
+
+    async function playCurrentItem() {
+      if (!slideshowPlaylist || !slideshowPlaylist.items) return;
+
+      // 🧹 Memory hygiene: if we've been running long enough, do a full
+      // page refresh at this natural transition point. The URL preserves
+      // the current slideshowIndex via start_index so playback continues
+      // seamlessly from the next piece.
+      if (slideshowMode && Date.now() - slideshowSessionStart >= REFRESH_INTERVAL_MS) {
+        const elapsed = ((Date.now() - slideshowSessionStart) / 60000).toFixed(1);
+        console.log(`🧹 Memory refresh after ${elapsed} min — reloading at index ${slideshowIndex}`);
+        const url = new URL(location.href);
+        url.searchParams.set('start_index', String(slideshowIndex));
+        location.replace(url.toString());
+        return; // Page will reload
+      }
+
+      const item = slideshowPlaylist.items[slideshowIndex];
+      if (!item) {
+        console.log('📺 No more items, looping to start');
+        slideshowIndex = 0;
+        playCurrentItem();
+        return;
+      }
+
+      const codeId = (item.title || '').startsWith('$') ? item.title : `$${item.title || ''}`;
+      const code = codeId.replace('$', '');
+      const sourcePreview = slideshowSources[code]?.source?.trim().slice(0, 60).replace(/\n/g, ' ') || '(source pending)';
+      if (isCalmPlaylist) {
+        console.log(`🌿 Calm [${slideshowIndex + 1}/${slideshowPlaylist.items.length}] ${codeId} — ${sourcePreview}`);
+      } else {
+        console.log('📺 Playing item', slideshowIndex + 1, '/', slideshowPlaylist.items.length, ':', codeId);
+      }
+
+      // Reset progress bar flag for new piece
+      progressBarStarted = false;
+
+      // Get duration from item or playlist defaults
+      const duration = item.duration || slideshowPlaylist.defaults?.duration || 35;
+
+      // Clear any existing timer
+      if (slideshowTimer) {
+        clearTimeout(slideshowTimer);
+      }
+
+      if (slideshowInitialBoot) {
+        // ═══ FIRST PIECE: Full iframe boot with scramble animation ═══
+        if (!isCalmPlaylist) {
+          window.resetDecodeState?.();
+
+          // Scramble all UI elements
+          const playlistPosition = document.getElementById('ff1-playlist-position');
+          if (playlistPosition) {
+            window.scrambleTextElement?.(playlistPosition, `${slideshowIndex + 1} - ${slideshowPlaylist.items.length}`, 500, true);
+          }
+          const playlistTitleEl = document.getElementById('ff1-playlist-title');
+          if (playlistTitleEl && slideshowPlaylist.title) {
+            window.scrambleTextElement?.(playlistTitleEl, slideshowPlaylist.title, 600, true);
+          }
+          const ff1CmdSpan = document.querySelector('.ff1-cmd');
+          if (ff1CmdSpan && currentFF1Command) {
+            ff1CmdSpan._scrambleTargetHTML = formatFF1Command(currentFF1Command);
+            window.scrambleTextElement?.(ff1CmdSpan, currentFF1Command, 600, true);
+          }
+
+          // Fetch and display source FIRST — source code / QR must appear
+          // before the piece starts playing in the iframe.
+          await fetchAndDisplaySource(codeId);
+        }
+
+        // Now load the piece in iframe (full boot)
+        const itemUrl = resolveItemUrl(item);
+        frontIframe.src = itemUrl;
+
+        // Progress bar starts when "ready:" arrives
+        window.pendingSlideshowDuration = duration;
+        if (isCalmPlaylist) console.log(`🌿 Calm boot — ${codeId} — ${sourcePreview}`);
+        else console.log('📺 Initial boot — waiting for piece ready...');
+      } else if (crossfadeEnabled) {
+        // ═══ CALM CROSSFADE: Load next piece in back iframe, crossfade live ═══
+        // Use scramble animation for overlay text (skip for calm — no overlay)
+        if (!isCalmPlaylist) fetchAndDisplaySource(codeId);
+        window.pendingSlideshowDuration = duration;
+
+        // Cancel any in-progress crossfade
+        if (crossfadeSwapTimer) {
+          clearTimeout(crossfadeSwapTimer);
+          crossfadeSwapTimer = null;
+        }
+
+        // Load new piece in the back iframe
+        const itemUrl = resolveItemUrl(item);
+        crossfadeActive = true;
+        backIframe.src = itemUrl;
+        console.log(`🌊 Crossfade → ${codeId} — ${sourcePreview}`);
+        // The crossfade starts when backIframe sends "ready:" (handled in message listener)
+
+      } else {
+        // ═══ SUBSEQUENT PIECES: Try jump() via postMessage, fall back to iframe.src ═══
+
+        // Quick-cut: instantly update all overlay text (no scramble)
+        updateOverlayInstant(codeId, code);
+        window.pendingSlideshowDuration = duration;
+
+        // Send navigate postMessage and set fallback timer
+        slideshowAwaitingNavigateReady = true;
+        frontIframe.contentWindow?.postMessage({ type: 'ac:navigate', to: codeId }, '*');
+        console.log('📺 Jump to', codeId, slideshowNavigateSupported ? '(navigate confirmed)' : '— trying navigate...');
+
+        // Safety fallback — only if navigate truly fails (inline HTML handler should work)
+        if (slideshowNavigateFallbackTimer) clearTimeout(slideshowNavigateFallbackTimer);
+        slideshowNavigateFallbackTimer = setTimeout(() => {
+          slideshowNavigateFallbackTimer = null;
+          slideshowAwaitingNavigateReady = false;
+          console.warn('📺 Navigate timeout (10s), falling back to iframe.src reload for', codeId);
+          slideshowNavigateSupported = false;
+          const itemUrl = resolveItemUrl(item);
+          frontIframe.src = itemUrl;
+          fetchAndDisplaySource(codeId);
+        }, 10000);
+      }
+
+      // Set timer to advance to next item
+      slideshowTimer = setTimeout(() => {
+        if (isCalmPlaylist) {
+          // Deck shuffle: pop next index; reshuffle when empty, excluding last-played
+          if (shuffleDeck.length === 0) {
+            shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length, slideshowIndex);
+            console.log('🎴 Calm shuffle deck exhausted — reshuffled', shuffleDeck.length, 'items');
+          }
+          slideshowIndex = shuffleDeck.pop();
+        } else {
+          slideshowIndex = (slideshowIndex + 1) % slideshowPlaylist.items.length;
+        }
+        playCurrentItem();
+      }, duration * 1000);
+    }
+
+    // Quick-cut update of overlay for instant transitions (no scramble)
+    function updateOverlayInstant(codeId, code) {
+      // Cancel any in-flight fetchAndDisplaySource so stale results don't restart scrambles
+      _fetchId++;
+      // Stop any running scramble animations first
+      window.revealAllTextScrambles?.();
+      window.stopScrambleAnimation?.();
+
+      // Update code label
+      const labelEl = document.getElementById('code-label');
+      if (labelEl) {
+        labelEl.innerHTML = `<span class="code-dollar">$</span><span class="code-name">${code}</span>`;
+      }
+
+      // Update QR code
+      const qrContainer = document.getElementById('qr-container');
+      const qrUrl = `https://kidlisp.com/${codeId}`;
+      if (qrContainer && typeof qrcode !== 'undefined') {
+        try {
+          const qrGen = qrcode(0, 'L');
+          qrGen.addData(qrUrl);
+          qrGen.make();
+          qrContainer.innerHTML = qrGen.createSvgTag(2, 0);
+          const svgEl = qrContainer.querySelector('svg');
+          if (svgEl) {
+            svgEl.style.display = 'block';
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+            // Show QR container now that SVG is ready
+            qrContainer.classList.add('qr-ready');
+          }
+        } catch (e) {}
+      }
+
+      // Update QR wrap click handler
+      const qrWrap = document.getElementById('qr-wrap');
+      if (qrWrap) {
+        qrWrap.onclick = () => {
+          if (confirm(`Edit ${codeId} on KidLisp.com?`)) window.open(qrUrl, '_blank');
+        };
+        qrWrap.title = `Tap to edit ${codeId}`;
+      }
+
+      // Update metadata from batch-fetched sources
+      const data = slideshowSources[code];
+      if (data) {
+        displayPieceInfo(data, true); // true = instant (no scramble)
+      }
+
+      // Update position
+      const posEl = document.getElementById('ff1-playlist-position');
+      if (posEl) posEl.textContent = `${slideshowIndex + 1} - ${slideshowPlaylist.items.length}`;
+
+      // Update playlist title
+      const titleEl = document.getElementById('ff1-playlist-title');
+      if (titleEl && slideshowPlaylist.title) titleEl.textContent = slideshowPlaylist.title;
+
+      // Update ff1 cmd (restore formatted HTML)
+      const ff1CmdSpan = document.querySelector('.ff1-cmd');
+      if (ff1CmdSpan && currentFF1Command) {
+        ff1CmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+      }
+
+      // Update source code in Monaco (instant, no scramble)
+      if (data?.source && window.deviceMonacoEditor) {
+        window.deviceMonacoEditor.setValue(data.source);
+        startMonacoAutoScroll(window.deviceMonacoEditor);
+      }
+
+      // Re-check overlap
+      requestAnimationFrame(updateFF1Overlap);
+    }
+    
+    // Returns a color for the progress fill: white until the very end,
+    // then a quick 3-frame flash of yellow → orange → red at 100%
+    let _flashFrame = 0;
+    let _flashTimer = null;
+    function getProgressColor(pct) {
+      if (pct < 100) { _flashFrame = 0; return '#fff'; }
+      // At 100%: kick off a 3-frame flash (yellow → orange → red) ~33ms each
+      if (_flashFrame === 0 && !_flashTimer) {
+        const fill = document.getElementById('progress-fill');
+        const colors = ['#ffff00', '#ff8800', '#ff3333'];
+        _flashFrame = 1;
+        fill.style.backgroundColor = colors[0];
+        let i = 1;
+        _flashTimer = setInterval(() => {
+          if (i < colors.length) {
+            fill.style.backgroundColor = colors[i];
+            i++;
+          } else {
+            clearInterval(_flashTimer);
+            _flashTimer = null;
+            _flashFrame = 0;
+          }
+        }, 33);
+      }
+      return '#fff';
+    }
+
+    function startSlideshowProgressBar(duration) {
+      const progressBar = document.getElementById('progress-bar');
+      const progressFill = document.getElementById('progress-fill');
+      const overlay = document.getElementById('source-overlay');
+      
+      // On 4K/TV: density-based thickness; on laptop: always 2px
+      const barHeight = window.is4KDisplay ? Math.max(2, Math.round(1.5 * densityParam)) : 2;
+      progressBar.style.height = `${barHeight}px`;
+      progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
+      
+      // Reset progress — disable transition so it snaps to left, reset color to white
+      if (_flashTimer) { clearInterval(_flashTimer); _flashTimer = null; }
+      _flashFrame = 0;
+      progressFill.style.transition = 'none';
+      progressFill.style.width = '0%';
+      progressFill.style.backgroundColor = '#fff';
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
+      progressBar.classList.remove('hidden-mid');
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
+      if (overlay) overlay.classList.remove('slid-out');
+      
+      const startTime = Date.now();
+      const durationMs = duration * 1000;
+      
+      function updateProgress() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(100, (elapsed / durationMs) * 100);
+        currentProgressPercent = progress;
+        progressFill.style.width = `${progress}%`;
+        
+        // Slide overlay elements for fullscreen viewing:
+        // Device subdomains: time-based (show first 6s, wiggle 1s warning, hide middle, show last 6s)
+        // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
+        if (overlay) {
+          const elapsedSec = elapsed / 1000;
+          const remainingSec = (durationMs - elapsed) / 1000;
+          if (isDeviceSubdomain) {
+            const shouldWiggle = elapsedSec > 5 && elapsedSec <= 6 && remainingSec > 6;
+            const shouldSlideOut = elapsedSec > 6 && remainingSec > 6;
+            // Wiggle → slide: keep wiggle-warning while slid-out is active briefly
+            // (CSS rule cancels animation so transform transition can take over)
+            // Clean up wiggle-warning 0.5s after slide-out starts
+            const shouldCleanupWiggle = elapsedSec > 6.5 || remainingSec <= 6;
+            if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
+              overlay.classList.add('wiggle-warning');
+            } else if (shouldCleanupWiggle && overlay.classList.contains('wiggle-warning')) {
+              overlay.classList.remove('wiggle-warning');
+            }
+            if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+              overlay.classList.add('slid-out');
+            } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+              overlay.classList.remove('slid-out');
+            }
+          } else {
+            const shouldSlideOut = progress > 16.67 && progress < 83.33;
+            if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+              overlay.classList.add('slid-out');
+            } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+              overlay.classList.remove('slid-out');
+            }
+          }
+        }
+
+        // Progress bar: always visible, just thinner + less opaque during slide-out
+        {
+          const elapsedSec = elapsed / 1000;
+          const remainingSec = (durationMs - elapsed) / 1000;
+          const inMiddle = isDeviceSubdomain
+            ? elapsedSec > 6 && remainingSec > 6
+            : progress > 16.67 && progress < 83.33;
+          if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.add('thin-mid');
+          } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+            progressBar.classList.remove('thin-mid');
+          }
+        }
+        
+        // Fade white → yellow → orange → red in last 30%
+        progressFill.style.backgroundColor = getProgressColor(progress);
+
+        updateFF1Overlap();
+
+        if (progress < 100) {
+          requestAnimationFrame(updateProgress);
+        }
+      }
+
+      requestAnimationFrame(updateProgress);
+    }
+    
+    // Fetch KidLisp source from API (uses eager fetch if available)
+    let _fetchId = 0; // Incremented on each call; stale completions are discarded
+    async function fetchAndDisplaySource(codeId) {
+      const myFetchId = ++_fetchId;
+      console.log('📺 fetchAndDisplaySource called with:', codeId);
+      // Strip $ prefix and any :fps colon params for API call and display
+      const pieceCode = (codeId.startsWith('$') ? codeId.slice(1) : codeId).split(':')[0];
+      const displayCode = '$' + pieceCode;
+
+      // Store code ID for context menu
+      if (window.setCurrentCodeIdForContext) {
+        window.setCurrentCodeIdForContext(displayCode);
+      }
+      
+      // Always generate QR code and label first (even before source loads)
+      generateQRAndLabel(displayCode);
+      
+      try {
+        // 1. Use pre-populated slideshowSources (instant — no network)
+        let data = slideshowSources[pieceCode] || null;
+        if (data) {
+          console.log('📺 Using cached slideshowSources for:', pieceCode);
+        }
+
+        // 2. Use eager fetch result if available
+        if (!data && window.__eagerSourceFetch) {
+          console.log('📺 Using eager-fetched source');
+          data = await window.__eagerSourceFetch;
+        }
+
+        // 3. Fallback to regular API fetch
+        if (!data) {
+          const apiUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+          const url = `${apiUrl}/api/store-kidlisp?code=${pieceCode}`;
+          console.log('📺 Fetching source from:', url);
+          const response = await fetch(url, { credentials: 'omit' });
+          console.log('📺 Source fetch response:', response.status, response.statusText);
+          if (response.ok) {
+            data = await response.json();
+          }
+        }
+        
+        if (myFetchId !== _fetchId) {
+          console.log('📺 Stale fetch discarded for:', codeId);
+          return;
+        }
+        if (data) {
+          console.log('📺 Source data:', data);
+          if (data.source) {
+            displaySourceCode(data.source);
+          } else {
+            console.log('📺 No source in response');
+          }
+          // Display handle and hits
+          displayPieceInfo(data);
+        } else {
+          console.log('📺 Source fetch failed or no data');
+        }
+      } catch (e) {
+        console.log('📺 Could not fetch source:', e);
+      }
+    }
+    
+    // Store decoration IDs so they persist
+    let currentMonacoDecorations = [];
+
+    // Apply KidLisp syntax highlighting to Monaco using decorations
+    function applyMonacoSyntaxHighlighting(source, highlightedHtml) {
+      if (!window.deviceMonacoEditor || !window.monaco) {
+        console.warn('📺 Monaco not ready for highlighting');
+        return;
+      }
+
+      console.log('📺 applyMonacoSyntaxHighlighting called');
+      console.log('📺 Source length:', source.length);
+      console.log('📺 Highlighted HTML length:', highlightedHtml.length);
+
+      // Parse the highlighted HTML to extract colors and positions
+      const temp = document.createElement('div');
+      temp.innerHTML = highlightedHtml;
+
+      console.log('📺 Parsed HTML, child nodes:', temp.childNodes.length);
+
+      const decorations = [];
+      const colorStyles = new Map(); // Cache CSS styles per color
+      const lines = source.split('\n');
+      let charIndex = 0;
+
+      // Create CSS class for a color (cached)
+      function getColorClass(color) {
+        const colorKey = color.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const className = `monaco-syntax-${colorKey}`;
+
+        if (!colorStyles.has(colorKey)) {
+          // Create and inject CSS for this color
+          // Must use Monaco's DOM structure path
+          const style = document.createElement('style');
+          style.id = `monaco-color-${colorKey}`;
+          style.textContent = `.monaco-editor .view-line > span > span.${className} { color: ${color} !important; font-weight: bold; }`;
+          document.head.appendChild(style);
+          colorStyles.set(colorKey, className);
+          console.log('📺 Created Monaco style:', className, '→', color);
+        }
+
+        return className;
+      }
+
+      // Walk through the highlighted HTML and create Monaco decorations
+      const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
+      let node = walker.nextNode();
+
+      console.log('📺 Walking HTML tree...');
+
+      while (node) {
+        const text = node.textContent || '';
+        const parent = node.parentElement;
+
+        console.log('📺 Text node:', JSON.stringify(text), 'parent:', parent?.tagName, parent?.className);
+
+        // Get color from parent element
+        let color = null;
+        let el = parent;
+        while (el && el !== temp) {
+          const style = el.getAttribute('style') || '';
+          const colorMatch = style.match(/color\s*:\s*([^;]+)/i);
+          if (colorMatch) {
+            color = colorMatch[1].trim();
+            break;
+          }
+          // Check for class-based colors
+          if (el.classList) {
+            if (el.classList.contains('hl-comment')) color = '#6272a4';
+            else if (el.classList.contains('hl-string')) color = 'orange';
+            else if (el.classList.contains('hl-number')) color = 'lime';
+            else if (el.classList.contains('hl-keyword')) color = 'pink';
+            else if (el.classList.contains('hl-api')) color = 'cyan';
+            else if (el.classList.contains('hl-timing')) color = '#ffb86c';
+            else if (el.classList.contains('hl-paren')) color = '#888';
+            else if (el.classList.contains('hl-code-ref')) color = 'limegreen';
+            else if (el.classList.contains('hl-code-id')) color = 'lime';
+            else if (el.classList.contains('hl-paint-ref')) color = 'magenta';
+            else if (el.classList.contains('hl-paint-id')) color = 'orange';
+            else if (el.classList.contains('hl-fade')) color = '#ffb86c';
+            else if (el.classList.contains('hl-fade-sep')) color = 'mediumseagreen';
+            else if (el.classList.contains('hl-fade-dir')) color = 'cyan';
+            else if (el.classList.contains('hl-fade-colon')) color = 'lime';
+            // Rainbow colors (from CSS animation cycle)
+            else if (el.classList.contains('hl-rainbow-0')) color = 'red';
+            else if (el.classList.contains('hl-rainbow-1')) color = 'magenta';
+            else if (el.classList.contains('hl-rainbow-2')) color = 'blue';
+            else if (el.classList.contains('hl-rainbow-3')) color = 'cyan';
+            else if (el.classList.contains('hl-rainbow-4')) color = 'green';
+            else if (el.classList.contains('hl-rainbow-5')) color = 'yellow';
+            else if (el.classList.contains('hl-rainbow-6')) color = 'orange';
+            // Zebra colors (alternating)
+            else if (el.classList.contains('hl-zebra-0')) color = 'white';
+            else if (el.classList.contains('hl-zebra-1')) color = '#333';
+
+            if (color) break;
+          }
+          el = el.parentElement;
+        }
+
+        // Create decoration if we have a color
+        if (color && text.length > 0) {
+          console.log('📺 Found color', color, 'for text:', JSON.stringify(text));
+          const className = getColorClass(color);
+
+          for (let i = 0; i < text.length; i++) {
+            const currentChar = text[i];
+            if (currentChar !== '\n') {
+              // Find line and column for this character
+              let lineNum = 1;
+              let colNum = 1;
+              let counted = 0;
+              for (let l = 0; l < lines.length; l++) {
+                if (counted + lines[l].length >= charIndex + i) {
+                  lineNum = l + 1;
+                  colNum = (charIndex + i - counted) + 1;
+                  break;
+                }
+                counted += lines[l].length + 1; // +1 for newline
+              }
+
+              decorations.push({
+                range: new monaco.Range(lineNum, colNum, lineNum, colNum + 1),
+                options: {
+                  inlineClassName: className
+                }
+              });
+            }
+            charIndex++;
+          }
+        } else if (text.trim().length > 0) {
+          // Default color for identifiers/variables (matches kidlisp.mjs default)
+          console.log('📺 No color for text:', JSON.stringify(text), '- using default orange');
+          const className = getColorClass('orange');
+
+          for (let i = 0; i < text.length; i++) {
+            const currentChar = text[i];
+            if (currentChar !== '\n' && currentChar.trim() !== '') {
+              // Find line and column for this character
+              let lineNum = 1;
+              let colNum = 1;
+              let counted = 0;
+              for (let l = 0; l < lines.length; l++) {
+                if (counted + lines[l].length >= charIndex + i) {
+                  lineNum = l + 1;
+                  colNum = (charIndex + i - counted) + 1;
+                  break;
+                }
+                counted += lines[l].length + 1; // +1 for newline
+              }
+
+              decorations.push({
+                range: new window.monaco.Range(lineNum, colNum, lineNum, colNum + 1),
+                options: {
+                  inlineClassName: className
+                }
+              });
+            }
+          }
+          charIndex += text.length;
+        } else {
+          // Pure whitespace - skip it
+          console.log('📺 Whitespace text - skipping', text.length, 'chars');
+          charIndex += text.length;
+        }
+
+        node = walker.nextNode();
+      }
+
+      // Apply all decorations at once and store the IDs
+      console.log('📺 About to apply', decorations.length, 'decorations');
+      console.log('📺 First few decorations:', decorations.slice(0, 3));
+      console.log('📺 Color styles created:', Array.from(colorStyles.entries()));
+
+      currentMonacoDecorations = window.deviceMonacoEditor.deltaDecorations(currentMonacoDecorations, decorations);
+
+      console.log('📺 Applied decorations, new IDs:', currentMonacoDecorations.length);
+      console.log('📺 Total:', decorations.length, 'Monaco syntax decorations with', colorStyles.size, 'colors');
+    }
+
+    // Display source code with scramble animation
+    function displaySourceCode(source) {
+      if (!source) return;
+
+      console.log('📺 displaySourceCode called with', source.length, 'chars');
+
+      // Stop any running auto-scroll and scramble animation before starting new one
+      stopMonacoAutoScroll();
+      if (window.stopScrambleAnimation) window.stopScrambleAnimation();
+
+      // Start scramble animation in Monaco - will decode when piece starts running
+      // Note: Syntax highlighting is handled automatically by MonacoKidLispHighlighter
+      if (window.startScrambleAnimation && window.deviceMonacoEditor) {
+        window.startScrambleAnimation(source);
+        console.log('📺 Monaco scramble animation started');
+      } else if (window.deviceMonacoEditor) {
+        // Fallback: show code immediately if scramble not available
+        window.deviceMonacoEditor.setValue(source);
+        startMonacoAutoScroll(window.deviceMonacoEditor);
+        console.log('📺 Source loaded into Monaco (no scramble)');
+      } else {
+        console.warn('📺 Monaco not ready yet');
+      }
+    }
+    
+    
+    // Generate QR code pointing to kidlisp.com/$piece
+    function generateQRAndLabel(displayCode) {
+      console.log('📺 generateQRAndLabel called with:', displayCode);
+      const labelEl = document.getElementById('code-label');
+      const qrContainer = document.getElementById('qr-container');
+      const qrWrap = document.getElementById('qr-wrap');
+
+      // Build label with colored $ and code
+      if (labelEl) {
+        const dollar = '$'; // Always show $
+        const code = displayCode.startsWith('$') ? displayCode.slice(1) : displayCode;
+        const targetText = dollar + code;
+
+        // Create HTML structure for scrambling
+        labelEl.innerHTML = `<span class="code-dollar">${dollar}</span><span class="code-name">${code}</span>`;
+
+        // Scramble only the code part, keep $ always visible
+        const codeSpan = labelEl.querySelector('.code-name');
+        if (codeSpan) window.scrambleTextElement?.(codeSpan, code, 600, true);
+        // Note: dollarSpan is NOT scrambled - $ stays visible during animation
+
+        console.log('📺 Label set with scramble:', targetText);
+      }
+
+      // Generate QR code pointing to kidlisp.com (NOT aesthetic.computer)
+      const qrUrl = `https://kidlisp.com/${displayCode}`;
+
+      // Make QR wrap clickable with confirmation dialog
+      if (qrWrap) {
+        qrWrap.onclick = () => {
+          // Show native confirmation dialog
+          const confirmed = confirm(`Edit ${displayCode} on KidLisp.com?`);
+          if (confirmed) {
+            window.open(qrUrl, '_blank');
+          }
+        };
+        qrWrap.title = `Tap to edit ${displayCode}`;
+      }
+
+      if (qrContainer && typeof qrcode !== 'undefined') {
+        try {
+          console.log('📺 Generating QR for:', qrUrl);
+
+          // Store QR URL globally for regeneration during scramble
+          window.currentQRUrl = qrUrl;
+          window.qrContainer = qrContainer;
+
+          // Initial QR generation
+          const qrGen = qrcode(0, 'L');
+          qrGen.addData(qrUrl);
+          qrGen.make();
+          const svg = qrGen.createSvgTag(2, 0);
+          qrContainer.innerHTML = svg;
+          const svgEl = qrContainer.querySelector('svg');
+          if (svgEl) {
+            // Size is set by CSS using --density variable
+            svgEl.style.display = 'block';
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+
+            // Show QR container now that SVG is ready
+            qrContainer.classList.add('qr-ready');
+
+            // 🎲 REGENERATE QR CODE on every chunk! Stops when everything else stops
+            window.scrambleQRCodeRegenerate?.(qrUrl, qrContainer);
+
+            console.log('📺 QR SVG created with regeneration animation');
+          }
+        } catch (e) {
+          console.error('📺 QR generation error:', e);
+        }
+      } else {
+        console.log('📺 QR container not found or qrcode lib not loaded');
+      }
+    }
+    
+    // Display handle and hits info (instant=true skips scramble for quick-cut transitions)
+    function displayPieceInfo(data, instant = false) {
+      const handleEl = document.getElementById('piece-handle');
+      const hitsEl = document.getElementById('piece-hits');
+      const whenEl = document.getElementById('piece-when');
+
+      if (handleEl) {
+        if (data.handle) {
+          const handleText = data.handle;
+          handleEl.style.color = 'rgb(255, 107, 157)';
+          handleEl.style.cursor = 'pointer';
+          handleEl.onclick = () => {
+            window.open(`https://prompt.ac/@${data.handle}`, '_blank');
+          };
+          handleEl.title = `Chat with ${data.handle}`;
+
+          if (instant) {
+            handleEl.textContent = handleText;
+          } else {
+            window.scrambleTextElement?.(handleEl, handleText, 500, true);
+          }
+        } else {
+          const anonText = 'anonymous';
+          handleEl.style.color = 'rgb(150, 150, 150)';
+          handleEl.style.cursor = 'default';
+          handleEl.onclick = null;
+          handleEl.title = '';
+
+          if (instant) {
+            handleEl.textContent = anonText;
+          } else {
+            window.scrambleTextElement?.(handleEl, anonText, 500, true);
+          }
+        }
+      }
+
+      if (hitsEl && typeof data.hits === 'number') {
+        const hitsText = data.hits.toLocaleString() + ' hits';
+        if (instant) {
+          hitsEl.textContent = hitsText;
+        } else {
+          window.scrambleTextElement?.(hitsEl, hitsText, 550, true);
+        }
+      }
+
+      if (whenEl && data.when) {
+        const date = new Date(data.when);
+        const formatted = date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        if (instant) {
+          whenEl.textContent = formatted;
+        } else {
+          window.scrambleTextElement?.(whenEl, formatted, 600, true);
+        }
+      }
+
+      // Re-check overlap after stats update
+      requestAnimationFrame(updateFF1Overlap);
+    }
+
+    function updateFF1Overlap() {
+      const pieceInfo = document.getElementById('piece-info');
+      const ff1Module = document.getElementById('ff1-module');
+      const qrWrap = document.getElementById('qr-wrap');
+      if (!pieceInfo || !qrWrap) return;
+
+      // Temporarily reset scale to measure natural size
+      pieceInfo.style.transform = '';
+      pieceInfo.style.transformOrigin = '';
+
+      const infoRect = pieceInfo.getBoundingClientRect();
+      const qrRect = qrWrap.getBoundingClientRect();
+      const uiScaleValue = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 10;
+      const margin = Math.max(12, uiScaleValue * 1.5);
+
+      // Check horizontal overlap: piece-info right edge vs qr-wrap left edge
+      const availableWidth = qrRect.left - margin - infoRect.left;
+      const neededWidth = infoRect.width;
+
+      // Check vertical overlap: do the two elements share vertical space?
+      const verticalOverlap = !(infoRect.bottom < qrRect.top - margin || infoRect.top > qrRect.bottom + margin);
+
+      let scale = 1;
+      if (verticalOverlap && neededWidth > availableWidth && availableWidth > 0) {
+        scale = Math.max(0.5, availableWidth / neededWidth);
+      }
+
+      if (scale < 1) {
+        pieceInfo.style.transform = `scale(${scale})`;
+        pieceInfo.style.transformOrigin = 'bottom left';
+      }
+
+      // Also toggle overlap-fade on ff1-module for text truncation
+      if (ff1Module) {
+        ff1Module.classList.toggle('overlap-fade', scale < 0.95);
+      }
+    }
+
+    window.addEventListener('resize', () => requestAnimationFrame(updateFF1Overlap));
+    
+    // Track current FF1 CLI command (shared between single and playlist modes)
+    let currentFF1Command = '';
+    let ff1ButtonInitialized = false;
+    
+    // Initialize FF1 button click handler (only once)
+    function formatFF1Command(cmd) {
+      const match = cmd.match(/ff1 play\s+"(.+)"/i);
+      if (!match) return cmd;
+      const url = match[1]
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `ff1 play <span class="ff1-quote">"</span><span class="ff1-url">${url}</span><span class="ff1-quote">"</span>`;
+    }
+
+    function initFF1Button() {
+      if (ff1ButtonInitialized) return;
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      const ff1Module = document.getElementById('ff1-module');
+      if (!copyBtn) return;
+      
+      copyBtn.addEventListener('click', async () => {
+        if (!currentFF1Command) return;
+        
+        const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+        try {
+          await navigator.clipboard.writeText(currentFF1Command);
+          if (ff1Module) ff1Module.classList.add('copied');
+          if (cmdSpan) cmdSpan.textContent = 'COPIED TO CLIPBOARD';
+          
+          setTimeout(() => {
+            if (ff1Module) ff1Module.classList.remove('copied');
+            if (cmdSpan) cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+          }, 2000);
+        } catch (e) {
+          console.error('📺 Failed to copy:', e);
+          alert('FF1 CLI Command:\n\n' + currentFF1Command);
+        }
+      });
+      
+      ff1ButtonInitialized = true;
+    }
+    
+    // Setup the FF1 CLI copy button for single pieces
+    function setupFF1CopyButton(pieceCodeId) {
+      // Skip if we're in slideshow mode - playlist setup handles FF1 button
+      if (slideshowMode) return;
+      
+      initFF1Button();
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      if (!copyBtn) return;
+      
+      // Hide playlist header (not in playlist mode)
+      const playlistHeader = document.getElementById('ff1-playlist-header');
+      if (playlistHeader) playlistHeader.classList.remove('visible');
+      
+      // Build the device URL for the CLI command (official FF1 CLI format)
+      const cleanCode = (pieceCodeId.startsWith('$') ? pieceCodeId.slice(1) : pieceCodeId).split(':')[0];
+      const deviceUrl = `https://device.kidlisp.com/${cleanCode}`;
+      currentFF1Command = `ff1 play "${deviceUrl}"`;
+      
+      // Update button text to show the actual command
+      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+      if (cmdSpan) {
+        cmdSpan.innerHTML = formatFF1Command(currentFF1Command);
+        cmdSpan.title = currentFF1Command;
+      }
+      
+      console.log('📺 FF1 copy button setup with command:', currentFF1Command);
+    }
+    
+    // Setup the FF1 CLI copy button for slideshow/playlist mode
+    // Shows the slideshow URL instead of individual piece URLs
+    // Also shows playlist title/position inside the FF1 module
+    function setupFF1CopyButtonForPlaylist() {
+      initFF1Button();
+      
+      const copyBtn = document.getElementById('piece-ff1-copy');
+      const playlistHeader = document.getElementById('ff1-playlist-header');
+      if (!copyBtn) return;
+      
+      // Show the playlist header inside the FF1 module
+      if (playlistHeader) {
+        playlistHeader.classList.add('visible');
+      }
+      
+      // Build the playlist URL for the CLI command (official FF1 CLI format)
+      // Use nice short subdomain URLs when available, otherwise use full URL
+      let slideshowUrl;
+      if (handleFilter) {
+        slideshowUrl = `https://top.kidlisp.com/${handleFilter}`;
+      } else if (anonFilter) {
+        slideshowUrl = 'https://top.kidlisp.com/anon';
+      } else if (slideshowShortcut === 'top100') {
+        slideshowUrl = 'https://top.kidlisp.com';
+      } else if (slideshowShortcut === 'calm') {
+        slideshowUrl = 'https://calm.kidlisp.com';
+      } else if (slideshowShortcut) {
+        slideshowUrl = `https://device.kidlisp.com/playlist/${slideshowShortcut}`;
+      } else {
+        // Fall back to full playlist_url encoded
+        slideshowUrl = `https://device.kidlisp.com/?playlist_url=${encodeURIComponent(playlistUrl)}`;
+      }
+      const cliCmd = `ff1 play "${slideshowUrl}"`;
+      currentFF1Command = cliCmd;
+      
+      // Scramble the FF1 command text, store formatted HTML for reveal
+      const cmdSpan = copyBtn.querySelector('.ff1-cmd');
+      if (cmdSpan) {
+        cmdSpan._scrambleTargetHTML = formatFF1Command(cliCmd);
+        cmdSpan.title = cliCmd;
+        window.scrambleTextElement?.(cmdSpan, cliCmd, 600, true);
+      }
+
+      console.log('📺 FF1 copy button setup for playlist with command:', cliCmd);
+    }
+    
+    // KidLisp syntax highlighter (matches kidlisp.com/give.aesthetic.computer)
+    function highlightKidlisp(code) {
+      if (!code) return '';
+      // Escape HTML first
+      let html = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // CSS color map
+      const cssColors = {
+        aliceblue: [240, 248, 255], aqua: [0, 255, 255], aquamarine: [127, 255, 212],
+        azure: [240, 255, 255], beige: [245, 245, 220], black: [0, 0, 0],
+        blue: [0, 0, 255], brown: [165, 42, 42], chartreuse: [127, 255, 0],
+        coral: [255, 127, 80], crimson: [220, 20, 60], cyan: [0, 255, 255],
+        darkblue: [0, 0, 139], darkcyan: [0, 139, 139], darkgreen: [0, 100, 0],
+        darkgray: [169, 169, 169], darkgrey: [169, 169, 169], darkmagenta: [139, 0, 139],
+        darkorange: [255, 140, 0], darkred: [139, 0, 0], darkviolet: [148, 0, 211],
+        deeppink: [255, 20, 147], deepskyblue: [0, 191, 255], dodgerblue: [30, 144, 255],
+        firebrick: [178, 34, 34], forestgreen: [34, 139, 34], fuchsia: [255, 0, 255],
+        gold: [255, 215, 0], gray: [128, 128, 128], grey: [128, 128, 128],
+        green: [0, 128, 0], greenyellow: [173, 255, 47], hotpink: [255, 105, 180],
+        indigo: [75, 0, 130], ivory: [255, 255, 240], khaki: [240, 230, 140],
+        lavender: [230, 230, 250], lawngreen: [124, 252, 0], lemonchiffon: [255, 250, 205],
+        lightblue: [173, 216, 230], lightcoral: [240, 128, 128], lightcyan: [224, 255, 255],
+        lightgray: [211, 211, 211], lightgrey: [211, 211, 211], lightgreen: [144, 238, 144],
+        lightpink: [255, 182, 193], lightskyblue: [135, 206, 250], lightyellow: [255, 255, 224],
+        lime: [0, 255, 0], limegreen: [50, 205, 50], magenta: [255, 0, 255],
+        maroon: [128, 0, 0], mediumblue: [0, 0, 205], mediumorchid: [186, 85, 211],
+        mediumpurple: [147, 112, 219], mediumseagreen: [60, 179, 113], midnightblue: [25, 25, 112],
+        mintcream: [245, 255, 250], mistyrose: [255, 228, 225], navy: [0, 0, 128],
+        olive: [128, 128, 0], olivedrab: [107, 142, 35], orange: [255, 165, 0],
+        orangered: [255, 69, 0], orchid: [218, 112, 214], palegreen: [152, 251, 152],
+        pink: [255, 192, 203], plum: [221, 160, 221], purple: [128, 0, 128],
+        rebeccapurple: [102, 51, 153], red: [255, 0, 0], royalblue: [65, 105, 225],
+        salmon: [250, 128, 114], seagreen: [46, 139, 87], sienna: [160, 82, 45],
+        silver: [192, 192, 192], skyblue: [135, 206, 235], slateblue: [106, 90, 205],
+        slategray: [112, 128, 144], snow: [255, 250, 250], springgreen: [0, 255, 127],
+        steelblue: [70, 130, 180], tan: [210, 180, 140], teal: [0, 128, 128],
+        thistle: [216, 191, 216], tomato: [255, 99, 71], turquoise: [64, 224, 208],
+        violet: [238, 130, 238], wheat: [245, 222, 179], white: [255, 255, 255],
+        yellow: [255, 255, 0], yellowgreen: [154, 205, 50]
+      };
+      
+      // Rainbow text helper
+      function rainbowText(text) {
+        return text.split('').map((char, i) => 
+          `<span class="hl-rainbow hl-rainbow-${i % 7}">${char}</span>`
+        ).join('');
+      }
+      
+      // Zebra text helper
+      function zebraText(text) {
+        return text.split('').map((char, i) => 
+          `<span class="hl-zebra hl-zebra-${i % 2}">${char}</span>`
+        ).join('');
+      }
+      
+      // Fade text helper
+      function fadeText(fadeStr) {
+        const parts = fadeStr.split(':');
+        if (parts.length < 2) return `<span class="hl-fade">${fadeStr}</span>`;
+        const colors = parts[1].split('-');
+        const direction = parts[2] || '';
+        
+        let result = '<span class="hl-fade" style="color: #ffb86c;">fade</span><span class="hl-fade-colon">:</span>';
+        colors.forEach((c, i) => {
+          const rgb = cssColors[c.toLowerCase()];
+          if (rgb) {
+            result += `<span class="hl-color" style="color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})">${c}</span>`;
+          } else if (c === 'rainbow') {
+            result += rainbowText(c);
+          } else if (c === 'zebra') {
+            result += zebraText(c);
+          } else {
+            result += `<span class="hl-fade">${c}</span>`;
+          }
+          if (i < colors.length - 1) result += '<span class="hl-fade-sep">-</span>';
+        });
+        if (direction) {
+          result += `<span class="hl-fade-colon">:</span><span class="hl-fade-dir">${direction}</span>`;
+        }
+        return result;
+      }
+      
+      // Code reference helper ($code)
+      function codeRefText(codeRef) {
+        const dollar = codeRef[0];
+        const id = codeRef.slice(1);
+        return `<span class="hl-code-ref">${dollar}</span><span class="hl-code-id">${id}</span>`;
+      }
+      
+      // Paint reference helper (#painting)
+      function paintRefText(paintRef) {
+        const hash = paintRef[0];
+        const id = paintRef.slice(1);
+        return `<span class="hl-paint-ref">${hash}</span><span class="hl-paint-id">${id}</span>`;
+      }
+      
+      // Token placeholders
+      const tokens = [];
+      function token(match, cls, style) {
+        const idx = tokens.length;
+        const styleAttr = style ? ` style="${style}"` : '';
+        tokens.push(`<span class="${cls}"${styleAttr}>${match}</span>`);
+        return `\x01T${idx}T\x01`;
+      }
+      
+      function tokenRaw(html) {
+        const idx = tokens.length;
+        tokens.push(html);
+        return `\x01T${idx}T\x01`;
+      }
+      
+      // Apply syntax highlighting (order matters)
+      
+      // $code references
+      html = html.replace(/(\$[0-9A-Za-z]+)/g, m => tokenRaw(codeRefText(m)));
+      
+      // #painting references
+      html = html.replace(/(#[0-9A-Fa-f]{1,8})\b/g, m => tokenRaw(paintRefText(m)));
+      
+      // Fade patterns
+      html = html.replace(/\b(fade:[a-z0-9-]+(?::[a-z]+)?)\b/gi, m => tokenRaw(fadeText(m)));
+      
+      // Rainbow keyword
+      html = html.replace(/\b(rainbow)\b/g, m => tokenRaw(rainbowText(m)));
+      
+      // Zebra keyword
+      html = html.replace(/\b(zebra)\b/g, m => tokenRaw(zebraText(m)));
+      
+      // Comments
+      html = html.replace(/(^|\n)(;[^\n]*)/g, (m, pre, comment) => pre + token(comment, 'hl-comment'));
+      
+      // Timing patterns
+      html = html.replace(/(^|[\s(])(\d*\.?\d+)([sf](\.{1,3}|!?))/g, (m, pre, num, suffix) => {
+        const full = num + suffix;
+        const unit = suffix[0];
+        const duration = unit === 's' ? parseFloat(num) : parseFloat(num) / 60;
+        const idx = tokens.length;
+        tokens.push(`<span class="hl-timing hl-timing-active" data-duration="${duration}">${full}</span>`);
+        return pre + `\x01T${idx}T\x01`;
+      });
+      
+      // Strings
+      html = html.replace(/("[^"]*")/g, m => token(m, 'hl-string'));
+      
+      // Numbers
+      html = html.replace(/\b(\d+\.?\d*)\b/g, m => token(m, 'hl-number'));
+      
+      // Keywords
+      const keywords = ['def', 'fn', 'if', 'cond', 'let', 'loop', 'repeat', 'later', 'tap', 'drag', 'lift', 'key', 'draw', 'frame', 'now', 'once'];
+      keywords.forEach(kw => {
+        html = html.replace(new RegExp(`\\b(${kw})\\b`, 'g'), m => token(m, 'hl-keyword'));
+      });
+      
+      // API calls
+      const apiCalls = ['wipe', 'ink', 'line', 'box', 'circle', 'text', 'pan', 'zoom', 'blur', 'noise', 'width', 'height', 'wiggle', 'grid', 'plot', 'stamp', 'scroll', 'contrast', 'fps'];
+      apiCalls.forEach(api => {
+        html = html.replace(new RegExp(`\\b(${api})\\b`, 'g'), m => token(m, 'hl-api'));
+      });
+      
+      // Colors
+      const colorNames = Object.keys(cssColors).filter(c => c !== 'rainbow' && c !== 'zebra');
+      colorNames.forEach(colorName => {
+        const rgb = cssColors[colorName];
+        const colorStyle = `color: rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        html = html.replace(new RegExp(`\\b(${colorName})\\b`, 'gi'), m => token(m, 'hl-color', colorStyle));
+      });
+      
+      // Parens
+      html = html.replace(/([()])/g, m => token(m, 'hl-paren'));
+      
+      // Replace tokens back
+      html = html.replace(/\x01T(\d+)T\x01/g, (_, idx) => tokens[parseInt(idx)]);
+      return html;
+    }
+    
+    // Progress bar elements (must be declared before init() calls startProgressBar)
+    const progressBar = document.getElementById('progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    let progressStartTime = null;
+    let currentProgressPercent = 0;
+    
+    function startProgressBar() {
+      console.log('📺 startProgressBar called, densityParam:', densityParam);
+      // On 4K/TV: density-based thickness; on laptop: always 2px
+      const barHeight = window.is4KDisplay ? Math.max(2, Math.round(1.5 * densityParam)) : 2;
+      console.log('📺 Progress bar height:', barHeight);
+      progressBar.style.height = `${barHeight}px`;
+      progressBar.classList.add('visible');
+      progressBar.classList.add('fading-in');
+      console.log('📺 Progress bar visible class added');
+      // Reset progress fill to 0% instantly (no animation)
+      progressFill.style.transition = 'none';
+      progressFill.style.width = '0%';
+      progressFill.style.backgroundColor = '#fff';
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
+      progressStartTime = Date.now();
+      updateProgressBar();
+      setTimeout(() => progressBar.classList.remove('fading-in'), 2000);
+    }
+    
+    // Track if piece has changed (for auto-reload logic)
+    let pieceHasChanged = false;
+    let progressBarStarted = false;
+    
+    window.addEventListener('message', (e) => {
+      // Listen for boot-log ready message to start progress bar
+      if (e.data?.type === 'boot-log') {
+        const msg = e.data.message;
+        // Surface iframe fps cap confirmation to parent console
+        if (msg?.startsWith?.('maxfps:')) {
+          console.log(`🎞️ [iframe] ${msg}`);
+        }
+        // Start progress bar when piece is fully ready (after black screen / loading)
+        // "ready: ..." is the final boot message indicating piece is running
+        if (msg?.startsWith?.('ready:')) {
+          // 🌅 Calm initial fade-in: first piece ready on front iframe
+          if (crossfadeEnabled && slideshowInitialBoot && e.source === frontIframe.contentWindow) {
+            frontIframe.style.transition = 'opacity 3s ease';
+            frontIframe.style.opacity = '1';
+            console.log('🌅 Calm initial fade-in triggered');
+            // Immediately start loading next piece — don't wait for duration timer.
+            // Defer via setTimeout(0) so cache warming below sets slideshowInitialBoot=false first.
+            if (slideshowTimer) { clearTimeout(slideshowTimer); slideshowTimer = null; }
+            setTimeout(() => {
+              if (shuffleDeck.length === 0) shuffleDeck = buildShuffleDeck(slideshowPlaylist.items.length, slideshowIndex);
+              slideshowIndex = shuffleDeck.pop();
+              playCurrentItem();
+            }, 0);
+          }
+
+          // 🌊 Crossfade: back iframe is ready — start the live crossfade
+          if (crossfadeActive && e.source === backIframe.contentWindow) {
+            console.log('🌊 Back iframe ready — starting crossfade');
+            // Apply CSS transition and swap opacity
+            frontIframe.style.transition = `opacity ${CROSSFADE_MS}ms linear`;
+            backIframe.style.transition = `opacity ${CROSSFADE_MS}ms linear`;
+            frontIframe.style.opacity = '0';
+            backIframe.style.opacity = '1';
+            // After crossfade completes, swap roles
+            if (crossfadeSwapTimer) clearTimeout(crossfadeSwapTimer);
+            crossfadeSwapTimer = setTimeout(() => {
+              crossfadeSwapTimer = null;
+              // Swap front/back
+              const temp = frontIframe;
+              frontIframe = backIframe;
+              backIframe = temp;
+              // Update z-index so new front is on top
+              frontIframe.style.zIndex = '1';
+              backIframe.style.zIndex = '0';
+              // Reset back iframe opacity instantly (no transition) for next crossfade
+              backIframe.style.transition = 'none';
+              backIframe.style.opacity = '0';
+              backIframe.offsetHeight; // Force reflow
+              backIframe.style.transition = '';
+              crossfadeActive = false;
+              console.log('🌊 Crossfade complete — iframes swapped');
+            }, CROSSFADE_MS);
+          }
+
+          // Check if this ready came from a successful jump() navigate
+          if (slideshowAwaitingNavigateReady && !slideshowInitialBoot) {
+            slideshowAwaitingNavigateReady = false;
+            if (slideshowNavigateFallbackTimer) {
+              clearTimeout(slideshowNavigateFallbackTimer);
+              slideshowNavigateFallbackTimer = null;
+            }
+            slideshowNavigateSupported = true;
+            console.log('📺 Navigate confirmed working via jump()');
+          }
+
+          // Warm the kidlisp cache after first boot in slideshow mode
+          if (slideshowMode && slideshowInitialBoot && !slideshowCacheWarmed) {
+            slideshowCacheWarmed = true;
+            slideshowInitialBoot = false;
+            const codesToWarm = {};
+            for (const [code, info] of Object.entries(slideshowSources)) {
+              if (info?.source) codesToWarm[code] = info.source;
+            }
+            if (Object.keys(codesToWarm).length > 0) {
+              frontIframe.contentWindow?.postMessage({ type: 'ac:warm-cache', codes: codesToWarm }, '*');
+              console.log(`📺 Sent ${Object.keys(codesToWarm).length} codes to warm iframe cache`);
+            }
+          }
+
+          if (!progressBarStarted) {
+            progressBarStarted = true;
+            console.log('📺 Piece ready, starting progress bar now');
+
+            // Check if we're in slideshow mode with a pending duration
+            // (calm mode: no progress bar — crossfade IS the progress indicator)
+            if (isCalmPlaylist) {
+              window.pendingSlideshowDuration = null;
+            } else if (window.pendingSlideshowDuration) {
+              startSlideshowProgressBar(window.pendingSlideshowDuration);
+              window.pendingSlideshowDuration = null;
+            } else if (!slideshowMode) {
+              // Single piece mode: 35 second progress bar, then soft restart
+              startProgressBar();
+            }
+          }
+        }
+        pieceHasChanged = true;
+      }
+      // Also mark as changed on other activity signals
+      if (e.data?.type === 'ready' || e.data?.type === 'ac:fps-report') {
+        pieceHasChanged = true;
+      }
+    });
+    
+    function updateProgressBar() {
+      if (!progressStartTime) return;
+      
+      const elapsed = (Date.now() - progressStartTime) / 1000;
+      const progress = Math.min(100, (elapsed / playlistDuration) * 100);
+      currentProgressPercent = progress;
+      progressFill.style.width = `${progress}%`;
+      
+      // Slide overlay elements for fullscreen viewing:
+      // Device subdomains: time-based (show first 6s, wiggle 1s warning, hide middle, show last 6s)
+      // Others: percentage-based (first 1/6, middle 4/6, last 1/6)
+      const overlay = document.getElementById('source-overlay');
+      if (overlay) {
+        const remainingSec = playlistDuration - elapsed;
+        if (isDeviceSubdomain) {
+          const shouldWiggle = elapsed > 5 && elapsed <= 6 && remainingSec > 6;
+          const shouldSlideOut = elapsed > 6 && remainingSec > 6;
+          // Wiggle → slide: keep wiggle-warning while slid-out is active briefly
+          // (CSS rule cancels animation so transform transition can take over)
+          // Clean up wiggle-warning 0.5s after slide-out starts
+          const shouldCleanupWiggle = elapsed > 6.5 || remainingSec <= 6;
+          if (shouldWiggle && !overlay.classList.contains('wiggle-warning')) {
+            overlay.classList.add('wiggle-warning');
+          } else if (shouldCleanupWiggle && overlay.classList.contains('wiggle-warning')) {
+            overlay.classList.remove('wiggle-warning');
+          }
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
+        } else {
+          const shouldSlideOut = progress > 16.67 && progress < 83.33;
+          if (shouldSlideOut && !overlay.classList.contains('slid-out')) {
+            overlay.classList.add('slid-out');
+          } else if (!shouldSlideOut && overlay.classList.contains('slid-out')) {
+            overlay.classList.remove('slid-out');
+          }
+        }
+      }
+
+      // Progress bar: device subdomains get thinner (not hidden) during slide-out
+      // Others: fully hidden during middle section
+      {
+        const remainingSec = playlistDuration - elapsed;
+        const inMiddle = isDeviceSubdomain
+          ? elapsed > 6 && remainingSec > 6
+          : progress > 16.67 && progress < 83.33;
+        if (inMiddle && !progressBar.classList.contains('thin-mid')) {
+          progressBar.classList.add('thin-mid');
+        } else if (!inMiddle && progressBar.classList.contains('thin-mid')) {
+          progressBar.classList.remove('thin-mid');
+        }
+      }
+      
+      // Fade white → yellow → orange → red in last 30%
+      progressFill.style.backgroundColor = getProgressColor(progress);
+
+      updateFF1Overlap();
+      
+      if (progress < 100) {
+        requestAnimationFrame(updateProgressBar);
+      } else {
+        // Progress bar complete - soft reload for smooth restart
+        console.log('📺 Progress bar complete - restarting piece');
+        reloadPiece();
+      }
+    }
+    
+    // Reload the current piece (soft reload - just iframe)
+    function reloadPiece() {
+      console.log('📺 Reloading piece...');
+      pieceHasChanged = false;
+      progressStartTime = Date.now();
+      progressFill.style.transition = 'none'; // Snap to left instantly
+      progressFill.style.width = '0%';
+      progressFill.style.backgroundColor = '#fff'; // Reset color to white
+      progressFill.offsetWidth; // Force reflow so 0% renders before transition re-enables
+      progressFill.style.transition = '';
+      iframe.src = iframe.src.replace(/&t=\d+/, '') + '&t=' + Date.now();
+      requestAnimationFrame(updateProgressBar);
+    }
+
+    // Tap-to-toggle UI feature removed - use right-click context menu instead
+    
+    // Start the app
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Keeps Wallet — KidLisp Keeps</title>
+  <meta name="description" content="Keeps Wallet is a Tezos browser extension for your KidLisp keeps collection." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/gif" href="https://assets.aesthetic.computer/kidlisp-favicon.gif" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&family=Noto+Sans+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'YWFTProcessing-Regular';
+      src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'),
+           url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff') format('woff');
+      font-weight: normal; font-style: normal; font-display: swap;
+    }
+
+    :root {
+      --bg-primary: #f7f7f7;
+      --bg-secondary: #e8e8e8;
+      --bg-tertiary: white;
+      --text-primary: #111;
+      --text-secondary: #333;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --ac-purple: rgb(205, 92, 155);
+      --font-mono: 'Noto Sans Mono', 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+      --font-display: 'YWFTProcessing-Regular', monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #252526;
+        --bg-tertiary: #2d2d30;
+        --text-primary: #d4d4d4;
+        --text-secondary: #d4d4d4;
+        --text-tertiary: #858585;
+        --border-color: #3e3e42;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    a { color: var(--ac-purple); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .page {
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .title {
+      font-family: var(--font-display);
+      font-size: 42px;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-tertiary);
+      margin-bottom: 40px;
+      line-height: 1.6;
+    }
+
+    .download-btn {
+      display: inline-block;
+      padding: 14px 36px;
+      border: 2px solid var(--ac-purple);
+      border-radius: 24px;
+      color: var(--ac-purple);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 150ms ease;
+      margin-bottom: 48px;
+    }
+    .download-btn:hover {
+      background: var(--ac-purple);
+      color: white;
+      text-decoration: none;
+    }
+
+    .steps {
+      text-align: left;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 40px;
+    }
+
+    .steps-title {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .step:last-child { margin-bottom: 0; }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--ac-purple);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+
+    .step code {
+      background: var(--bg-secondary);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 40px;
+      text-align: left;
+    }
+
+    .feature {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .feature-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .feature-desc {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    .back {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .version {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+    }
+
+    .wip-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1.5px solid var(--ac-purple);
+      color: var(--ac-purple);
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="wip-badge">Work in Progress</div>
+    <div class="title">Keeps Wallet</div>
+    <div class="subtitle">
+      A Tezos wallet for your keeps collection.<br>
+      Import your seed phrase from Temple or Kukai.
+    </div>
+
+    <a href="keeps-wallet.zip" download class="download-btn">Download Keeps Wallet</a>
+
+    <div class="steps">
+      <div class="steps-title">Install</div>
+      <div class="step">
+        <span class="step-num">1</span>
+        <span>Unzip the downloaded file</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span>Open <code>chrome://extensions</code> in Chrome</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span>Enable <strong>Developer mode</strong> (top right toggle)</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span>Click <strong>Load unpacked</strong> and select the unzipped folder</span>
+      </div>
+      <div class="step">
+        <span class="step-num">5</span>
+        <span>Click the extension icon, import your seed phrase, and see your keeps</span>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">Your keeps, alive</div>
+        <div class="feature-desc">Open the wallet and see your collection. That's the whole UI.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Beacon compatible</div>
+        <div class="feature-desc">Works with any Tezos dApp — keep.kidlisp.com, objkt.com, and more.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Self-custody</div>
+        <div class="feature-desc">Your keys never leave the extension. Encrypted with your password.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Import from Temple</div>
+        <div class="feature-desc">Same seed phrase, same address. Your keeps come with you.</div>
+      </div>
+    </div>
+
+    <div class="version">v0.1.0 — Chrome extension (Manifest V3)</div>
+    <div class="back"><a href="/">Back to keep.kidlisp.com</a></div>
+  </div>
+</body>
+</html>

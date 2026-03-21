@@ -25,7 +25,19 @@ let handle = "";       // current user handle from config
 let sub = "";          // auth0 sub from config
 let token = "";        // auth token for chat server authorization
 let connected = false;
-let scrollOffset = 0;  // scroll position for message list
+
+// Pixel-based scroll with inertial physics
+let scroll = 0;           // pixel offset (0 = bottom, positive = scrolled up)
+let scrollVelocity = 0;
+let isFlinging = false;
+let isDragging = false;
+let dragStartPos = null;
+let lastDragY = 0;
+const SCROLL_FRICTION = 0.92;
+const SCROLL_MIN_VELOCITY = 0.5;
+const BOUNCE_STIFFNESS = 0.15;
+const BOUNCE_DAMPING = 0.7;
+const DRAG_THRESHOLD = 5;
 
 function boot({ system, params }) {
   // Allow room override via params: system.jump("chat:clock")
@@ -75,7 +87,7 @@ function act({ event: e, system, sound }) {
         console.log("[chat] sent: " + msg.substring(0, 120));
         // Add locally immediately
         messages.push({ from: "@" + (handle || "me"), text: text, when: Date.now() });
-        scrollOffset = 0; // scroll to bottom
+        scroll = 0; // scroll to bottom
         if (sound && sound.synth) sound.synth({ type: "sine", tone: 880, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
       }
       inputText = "";
@@ -94,8 +106,8 @@ function act({ event: e, system, sound }) {
     if (key === "arrowright") { if (cursor < inputText.length) cursor++; return; }
     if (key === "home") { cursor = 0; return; }
     if (key === "end") { cursor = inputText.length; return; }
-    if (key === "arrowup") { scrollOffset = Math.min(scrollOffset + 1, Math.max(0, messages.length - 3)); return; }
-    if (key === "arrowdown") { scrollOffset = Math.max(0, scrollOffset - 1); return; }
+    if (key === "arrowup") { scroll += 13; return; }
+    if (key === "arrowdown") { scroll = Math.max(0, scroll - 13); return; }
 
     if (key === "space") {
       inputText = inputText.slice(0, cursor) + " " + inputText.slice(cursor);
@@ -107,6 +119,39 @@ function act({ event: e, system, sound }) {
       inputText = inputText.slice(0, cursor) + ch + inputText.slice(cursor);
       cursor++;
     }
+  }
+
+  // Touch scrolling
+  if (e.is("touch")) {
+    const y = e.pointer?.y ?? e.y ?? 0;
+    dragStartPos = y;
+    lastDragY = y;
+    isDragging = false;
+    isFlinging = false;
+    scrollVelocity = 0;
+  }
+
+  if (e.is("draw")) {
+    const y = e.pointer?.y ?? e.y ?? 0;
+    if (dragStartPos !== null) {
+      if (!isDragging && Math.abs(y - dragStartPos) > DRAG_THRESHOLD) {
+        isDragging = true;
+      }
+      if (isDragging) {
+        const dy = lastDragY - y; // drag up = positive scroll
+        scroll += dy;
+        scrollVelocity = dy;
+      }
+      lastDragY = y;
+    }
+  }
+
+  if (e.is("lift")) {
+    if (isDragging && Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY) {
+      isFlinging = true;
+    }
+    isDragging = false;
+    dragStartPos = null;
   }
 }
 
@@ -219,19 +264,21 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
     }
   }
 
-  // Messages area
+  // Messages area (pixel-based scroll)
   const msgTop = 15;
   const msgBottom = inputY - 6;
   const lineH = charH + 3;
-  const maxVisible = Math.floor((msgBottom - msgTop) / lineH);
+  const chatHeight = msgBottom - msgTop;
+  const totalContentH = messages.length * lineH;
 
-  const startIdx = Math.max(0, messages.length - maxVisible - scrollOffset);
-  const endIdx = Math.min(messages.length, startIdx + maxVisible);
-
-  let my = msgTop;
-  for (let i = startIdx; i < endIdx; i++) {
+  // Render messages from bottom up, offset by scroll
+  // scroll=0 means latest messages visible at bottom
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    if (my + lineH > msgBottom) break;
+    // Position: bottom-aligned, scrolled
+    const baseY = msgBottom - (messages.length - i) * lineH;
+    const my = baseY + Math.floor(scroll);
+    if (my + lineH < msgTop || my > msgBottom) continue; // clip
 
     // From label
     var displayFrom = msg.from || "?";
@@ -247,12 +294,10 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
     const maxChars = Math.floor(maxTextW / charW);
     ink(200, 195, 210);
     write(msg.text.slice(0, maxChars), { x: textX, y: my, size: 1, font });
-
-    my += lineH;
   }
 
   // Scroll indicator
-  if (scrollOffset > 0) {
+  if (scroll > 1) {
     ink(100, 80, 120);
     write("^ scroll ^", { x: Math.floor(W / 2) - 30, y: msgTop, size: 1, font });
   }
@@ -271,8 +316,43 @@ function paint({ wipe, ink, box, line, write, screen, system, sound, wifi }) {
   write("esc:back", { x: W - 9 * charW - pad, y: inputY, size: 1, font });
 }
 
+function sim() {
+  if (!isFlinging) return;
+
+  const lineH = 13; // charH(10) + 3
+  const maxScroll = Math.max(0, messages.length * lineH - 100); // approx chat area
+
+  const outOfBounds = scroll < 0 || scroll > maxScroll;
+
+  if (outOfBounds) {
+    const target = scroll < 0 ? 0 : maxScroll;
+    const displacement = scroll - target;
+    scrollVelocity -= displacement * BOUNCE_STIFFNESS;
+    scrollVelocity *= BOUNCE_DAMPING;
+    scroll += scrollVelocity;
+
+    if (Math.abs(displacement) < 0.5 && Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY) {
+      scroll = target;
+      scrollVelocity = 0;
+      isFlinging = false;
+    }
+  } else {
+    scrollVelocity *= SCROLL_FRICTION;
+    scroll += scrollVelocity;
+
+    if (scroll < 0 || scroll > maxScroll) {
+      scrollVelocity *= 0.5;
+    }
+
+    if (Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY) {
+      scrollVelocity = 0;
+      isFlinging = false;
+    }
+  }
+}
+
 function leave({ system }) {
   // Don't disconnect WS — notepat may want it
 }
 
-export { boot, act, paint, leave };
+export { boot, act, paint, sim, leave };

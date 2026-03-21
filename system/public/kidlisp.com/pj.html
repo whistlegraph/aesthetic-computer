@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<!-- KidLisp.com PJ Mode - Piece Jockey live visualization window -->
+<!-- Receives code updates via BroadcastChannel and session server -->
+<!-- URL format: pj.kidlisp.com/code -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>KidLisp.com · PJ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    
+    #preview-iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+    
+    /* QR overlay - shown on tap */
+    #qr-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    
+    #qr-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    #qr-canvas {
+      image-rendering: pixelated;
+      border: 3px solid white;
+    }
+    
+    #qr-url {
+      margin-top: 16px;
+      font-family: monospace;
+      font-size: 18px;
+      color: rgb(205, 92, 155);
+      text-align: center;
+    }
+    
+    #qr-hint {
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    /* Boot screen */
+    #boot-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      z-index: 10;
+      transition: opacity 0.5s;
+    }
+    
+    #boot-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .boot-text {
+      color: rgba(255, 255, 255, 0.6);
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    .boot-text .channel {
+      color: rgb(205, 92, 155);
+    }
+  </style>
+</head>
+<body>
+  <!-- QR overlay - tap anywhere to show, auto-hides after 4s -->
+  <div id="qr-overlay">
+    <canvas id="qr-canvas"></canvas>
+    <div id="qr-url"></div>
+    <div id="qr-hint">Scan to join this channel</div>
+  </div>
+  
+  <div id="boot-screen">
+    <div class="boot-text">
+      Waiting for connection...<br>
+      <span class="channel" id="boot-channel"></span>
+    </div>
+  </div>
+  
+  <iframe id="preview-iframe"></iframe>
+  
+  <script>
+    // Parse channel from URL path:
+    // Path-based (primary): kidlisp.com/pj/code or localhost:8888/kidlisp.com/pj/code
+    // Subdomain (legacy): pj.kidlisp.com/code
+    // Local dev subdomain: localhost:8888/pj.kidlisp.com/code
+    let channelId = null;
+    const pathname = window.location.pathname;
+    const hostname = window.location.hostname;
+    
+    // Path-based pattern: /kidlisp.com/pj/code or /pj/code
+    const pathParts = pathname.split('/').filter(p => p);
+    if (pathParts[0] === 'kidlisp.com' && pathParts[1] === 'pj' && pathParts[2]) {
+      // /kidlisp.com/pj/code
+      channelId = pathParts[2];
+    } else if (pathParts[0] === 'pj' && pathParts[1]) {
+      // /pj/code (direct path)
+      channelId = pathParts[1];
+    } else if (pathname.startsWith('/pj.kidlisp.com/')) {
+      // Local dev subdomain pattern: /pj.kidlisp.com/code
+      channelId = pathname.split('/')[2] || null;
+    } else if (hostname === 'pj.kidlisp.com') {
+      // Subdomain production: pj.kidlisp.com/code
+      channelId = pathParts[0] || null;
+    }
+    
+    // Get initial code from query params (for direct code sharing)
+    const params = new URLSearchParams(window.location.search);
+    const initialCode = params.get('code');
+    
+    // UI elements
+    const iframe = document.getElementById('preview-iframe');
+    const bootScreen = document.getElementById('boot-screen');
+    const bootChannel = document.getElementById('boot-channel');
+    
+    // Aesthetic Computer URL (same origin for postMessage)
+    const dev = window.location.hostname === 'localhost' || 
+                window.location.hostname === 'local.aesthetic.computer';
+    const aestheticUrl = dev ? 'https://localhost:8888' : 'https://aesthetic.computer';
+    const logPj = (...args) => console.log('🧩 PJ-WINDOW:', ...args);
+    
+    // Display channel ID
+    if (channelId) {
+      bootChannel.textContent = `Channel: ${channelId}`;
+      document.title = `KidLisp.com · PJ · ${channelId}`;
+    } else {
+      bootChannel.textContent = window.opener ? 'Popout mode' : 'No channel specified';
+      if (window.opener) document.title = 'KidLisp.com · PJ · Popout';
+    }
+    logPj('init', { hostname: window.location.hostname, pathname, channelId, dev, aestheticUrl });
+    
+    // State
+    let iframeReady = false;
+    let pendingCode = null;
+    
+    // Connection status tracking
+    let wsConnected = false;
+    let editorConnected = false;
+    let lastEditorPing = 0;
+    let editorPingTimeout = null;
+    const EDITOR_PING_TIMEOUT_MS = 5000;
+
+    function handleEditorPing() {
+      lastEditorPing = Date.now();
+      editorConnected = true;
+
+      if (editorPingTimeout) clearTimeout(editorPingTimeout);
+      editorPingTimeout = setTimeout(() => {
+        editorConnected = false;
+        logPj('editor ping timeout');
+      }, EDITOR_PING_TIMEOUT_MS);
+    }
+    
+    // Initialize iframe with kidlisp piece
+    iframe.src = `${aestheticUrl}/kidlisp?nogap=true&nolabel=true&noauth=true&popout=true&t=${Date.now()}`;
+    logPj('iframe src', { src: iframe.src });
+    
+    // Wait for iframe to be ready
+    iframe.addEventListener('load', () => {
+      console.log('Iframe loaded');
+      setTimeout(() => {
+        iframeReady = true;
+        logPj('iframe ready', { hasPending: !!pendingCode, hasInitial: !!initialCode });
+        
+        // If we have pending code, send it now
+        if (pendingCode) {
+          sendCodeToIframe(pendingCode);
+          pendingCode = null;
+        } else if (initialCode) {
+          // If we have an initial code from URL, load it
+          sendCodeToIframe(initialCode);
+        }
+        
+        // Hide boot screen
+        bootScreen.classList.add('hidden');
+        // Notify opener (editor) that popout is ready for postMessage
+        if (window.opener) {
+          window.opener.postMessage({ type: 'pj-popout-ready' }, '*');
+        }
+      }, 500);
+    });
+    
+    // Send code to iframe
+    function sendCodeToIframe(code, isSlide = false) {
+      if (!iframeReady) {
+        pendingCode = code;
+        logPj('queue code (iframe not ready)', { isSlide, length: code?.length });
+        return;
+      }
+      
+      if (!isSlide) {
+        console.log('Sending code to iframe:', code.substring(0, 50) + '...');
+      }
+      
+      iframe.contentWindow.postMessage({
+        type: isSlide ? 'kidlisp-slide' : 'kidlisp-reload',
+        code: code,
+        createCode: false,
+        enableTrace: false
+      }, aestheticUrl);
+      logPj('postMessage to iframe', { isSlide, length: code?.length });
+    }
+    
+    // Send audio data to iframe
+    function sendAudioToIframe(audioData) {
+      if (!iframeReady) return;
+      iframe.contentWindow.postMessage({
+        type: 'kidlisp-audio',
+        data: audioData
+      }, aestheticUrl);
+    }
+    
+    // Send pause/resume to iframe
+    function sendPauseToIframe(paused) {
+      if (!iframeReady) return;
+      iframe.contentWindow.postMessage({
+        type: paused ? 'kidlisp-pause' : 'kidlisp-resume'
+      }, aestheticUrl);
+      logPj('postMessage pause to iframe', { paused });
+    }
+    
+    // Listen for code updates via BroadcastChannel (same-origin only)
+    if (channelId && window.BroadcastChannel) {
+      const bc = new BroadcastChannel(`kidlisp-channel-${channelId}`);
+      bc.onmessage = (event) => {
+        // Handle ping from editor
+        if (event.data?.type === 'pj-ping') {
+          handleEditorPing();
+          bc.postMessage({ type: 'pj-pong', channelId });
+          return;
+        }
+        
+        // Handle audio data from jukebox
+        if (event.data?.type === 'audio-data' && event.data?.data) {
+          sendAudioToIframe(event.data.data);
+          return;
+        }
+        
+        if (event.data?.type === 'slide-update' && event.data?.code) {
+          handleEditorPing();
+          sendCodeToIframe(event.data.code, true); // slide mode
+        } else if (event.data?.type === 'code-update' && event.data?.code) {
+          console.log('Received code via BroadcastChannel');
+          handleEditorPing();
+          sendCodeToIframe(event.data.code);
+        } else if (event.data?.type === 'pause') {
+          console.log('Received pause via BroadcastChannel');
+          sendPauseToIframe(true);
+        } else if (event.data?.type === 'resume') {
+          console.log('Received resume via BroadcastChannel');
+          sendPauseToIframe(false);
+        }
+      };
+      console.log('BroadcastChannel listener ready:', `kidlisp-channel-${channelId}`);
+      logPj('broadcast channel ready', { channelId });
+    }
+    
+    // Session server connection - prefers production, falls back to localhost
+    let sessionWs = null;
+    let wsKeepAlive = null;
+    const PROD_URL = 'wss://session-server.aesthetic.computer';
+    const LOCAL_URL = 'wss://localhost:8889';
+    const WS_KEEPALIVE_MS = 25000; // Ping every 25s to prevent idle timeout
+
+    function connectToSessionServer(forceLocal = false) {
+      // Clean up stale connection
+      if (sessionWs) { try { sessionWs.close(); } catch(e) {} sessionWs = null; }
+      if (wsKeepAlive) { clearInterval(wsKeepAlive); wsKeepAlive = null; }
+
+      const url = forceLocal ? LOCAL_URL : PROD_URL;
+      console.log('Connecting to session server:', url);
+      logPj('connect websocket', { url, forceLocal, channelId });
+
+      try {
+        sessionWs = new WebSocket(url);
+      } catch (e) {
+        console.warn('Session server connection failed:', e);
+        if (!forceLocal) {
+          console.log('Trying localhost fallback...');
+          setTimeout(() => connectToSessionServer(true), 500);
+        } else {
+          setTimeout(() => connectToSessionServer(forceLocal), 3000);
+        }
+        return;
+      }
+
+      sessionWs.onopen = () => {
+        console.log('Connected to session server:', forceLocal ? 'localhost' : 'production');
+        wsConnected = true;
+
+        // Subscribe to code channel
+        if (channelId) {
+          sessionWs.send(JSON.stringify({
+            type: 'code-channel:sub',
+            content: channelId
+          }));
+          console.log('Subscribed to code channel:', channelId);
+          logPj('subscribed channel', { channelId, forceLocal });
+        }
+
+        // Start keepalive pings to prevent idle timeout
+        wsKeepAlive = setInterval(() => {
+          if (sessionWs?.readyState === WebSocket.OPEN) {
+            sessionWs.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, WS_KEEPALIVE_MS);
+      };
+
+      sessionWs.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+
+          // Handle ping from editor (heartbeat)
+          if (msg.type === 'pj-ping') {
+            handleEditorPing();
+            sessionWs.send(JSON.stringify({
+              type: 'pj-pong',
+              content: channelId
+            }));
+            return;
+          }
+
+          // Handle audio data from jukebox
+          if (msg.type === 'audio' && msg.content) {
+            sendAudioToIframe(msg.content);
+            return;
+          }
+
+          // Handle slide updates (low-latency value changes)
+          if (msg.type === 'slide' && msg.content?.piece) {
+            handleEditorPing();
+            sendCodeToIframe(msg.content.piece, true);
+          }
+
+          // Handle code updates from the channel
+          if (msg.type === 'code' && msg.content?.piece) {
+            console.log('Received code via session server');
+            handleEditorPing();
+            sendCodeToIframe(msg.content.piece);
+          }
+
+          // Handle pause/resume
+          if (msg.type === 'pause') {
+            console.log('Received pause via session server');
+            sendPauseToIframe(true);
+          }
+          if (msg.type === 'resume') {
+            console.log('Received resume via session server');
+            sendPauseToIframe(false);
+          }
+        } catch (err) {
+          console.warn('Error parsing session message:', err);
+        }
+      };
+
+      sessionWs.onerror = () => {
+        console.warn('Session server error');
+        sessionWs?.close();
+        if (!forceLocal) {
+          console.log('Production unreachable, trying localhost...');
+          setTimeout(() => connectToSessionServer(true), 500);
+        } else {
+          setTimeout(() => connectToSessionServer(forceLocal), 3000);
+        }
+      };
+
+      sessionWs.onclose = () => {
+        console.log('Session server disconnected, reconnecting...');
+        sessionWs = null;
+        wsConnected = false;
+        editorConnected = false;
+        if (wsKeepAlive) { clearInterval(wsKeepAlive); wsKeepAlive = null; }
+        setTimeout(() => connectToSessionServer(forceLocal), 2000);
+      };
+    }
+    
+    // UDP (geckos.io) connection for low-latency audio data
+    let udpChannel = null;
+    let udpConnected = false;
+    let udpReconnectTimer = null;
+    let GeckosClient = null;
+
+    async function connectToUDP(forceLocal = false) {
+      if (udpConnected || udpChannel) return;
+
+      // Lazy-load geckos.io client
+      if (!GeckosClient) {
+        try {
+          const mod = await import(`${aestheticUrl}/aesthetic.computer/dep/geckos.io-client.3.0.2.min.js`);
+          GeckosClient = mod.default;
+        } catch (e) {
+          console.warn('🩰 PJ UDP: Failed to load geckos.io client:', e);
+          return;
+        }
+      }
+
+      const url = forceLocal ? 'https://localhost' : 'https://session-server.aesthetic.computer';
+      const port = forceLocal ? 8889 : 443;
+      const isLocalDev = forceLocal || dev;
+      logPj('UDP connecting', { url, port, forceLocal });
+
+      try {
+        const iceServers = isLocalDev
+          ? [
+              { urls: 'stun:localhost:3478' },
+              { urls: 'turn:localhost:3478', username: 'aesthetic', credential: 'computer123' },
+              { urls: 'turn:localhost:3478?transport=tcp', username: 'aesthetic', credential: 'computer123' },
+            ]
+          : [{ urls: 'stun:stun.l.google.com:19302' }];
+
+        udpChannel = GeckosClient({
+          url,
+          port,
+          iceServers,
+          iceTransportPolicy: isLocalDev ? 'relay' : 'all',
+        });
+      } catch (e) {
+        console.warn('🩰 PJ UDP: Failed to create geckos channel:', e);
+        udpChannel = null;
+        return;
+      }
+
+      udpChannel.onConnect((error) => {
+        if (error) {
+          logPj('UDP error', { error: error.message || error, forceLocal });
+          udpChannel = null;
+          if (!forceLocal) {
+            setTimeout(() => connectToUDP(true), 500);
+          } else {
+            udpReconnectTimer = setTimeout(() => connectToUDP(forceLocal), 3000);
+          }
+          return;
+        }
+
+        udpConnected = true;
+        logPj('UDP connected', { url, port });
+
+
+        udpChannel.emit('udp:identity', JSON.stringify({
+          role: 'pj-viewer',
+          codeChannel: channelId
+        }));
+
+        // Listen for audio data over UDP
+        udpChannel.on('udp:audio', (data) => {
+          try {
+            const audioData = JSON.parse(data);
+            if (audioData.codeChannel === channelId) {
+              sendAudioToIframe(audioData);
+            }
+          } catch (e) {}
+        });
+
+        // Listen for slide/code updates over UDP (lowest latency keystrokes)
+        udpChannel.on('slide:code', (data) => {
+          try {
+            const msg = JSON.parse(data);
+            if (msg.codeChannel === channelId && msg.code) {
+              handleEditorPing();
+              sendCodeToIframe(msg.code, true); // slide mode = no buffer reset
+            }
+          } catch (e) {}
+        });
+      });
+
+      udpChannel.onDisconnect(() => {
+        logPj('UDP disconnected');
+        udpConnected = false;
+        udpChannel = null;
+
+        if (channelId) {
+          udpReconnectTimer = setTimeout(() => connectToUDP(forceLocal), 3000);
+        }
+      });
+    }
+
+    // Start session server connection if we have a channel
+    if (channelId) {
+      connectToSessionServer();
+      connectToUDP();
+    }
+    
+    // Listen for code updates via postMessage (from parent editor)
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      
+      // Slide update from editor (low-latency value changes)
+      if (data?.type === 'kidlisp-slide-update' && data?.code) {
+        sendCodeToIframe(data.code, true);
+      }
+      
+      // Code update from editor
+      if (data?.type === 'kidlisp-code-update' && data?.code) {
+        console.log('Received code via postMessage');
+        sendCodeToIframe(data.code);
+      }
+      
+      // Audio data from editor (amp, aux params)
+      if (data?.type === 'kidlisp-audio' && data?.data) {
+        sendAudioToIframe(data.data);
+      }
+
+      // Pause/resume from editor
+      if (data?.type === 'kidlisp-pause') {
+        console.log('Received pause via postMessage');
+        sendPauseToIframe(true);
+      }
+      if (data?.type === 'kidlisp-resume') {
+        console.log('Received resume via postMessage');
+        sendPauseToIframe(false);
+      }
+      
+      // Forward messages from iframe if needed
+      if (data?.type === 'boot-log' || data?.type === 'ready') {
+        // Boot messages - hide boot screen when ready
+        if (data?.type === 'ready') {
+          bootScreen.classList.add('hidden');
+        }
+      }
+    });
+    
+    // Fullscreen toggle
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    });
+    
+    // QR overlay - tap to show, auto-hide after 4 seconds
+    const qrOverlay = document.getElementById('qr-overlay');
+    const qrCanvas = document.getElementById('qr-canvas');
+    const qrUrl = document.getElementById('qr-url');
+    let qrHideTimeout = null;
+    let qrDrawn = false;
+    
+    // Simple QR code generator (inline for no dependencies)
+    // Based on qr-creator-es6 - MIT license
+    const QR = (() => {
+      const EC_L = 1, EC_M = 0, EC_Q = 3, EC_H = 2;
+      const MODE_8BIT = 4;
+      
+      function create(text, ecl = EC_L) {
+        const data = [];
+        for (let i = 0; i < text.length; i++) data.push(text.charCodeAt(i));
+        
+        // Find smallest version that fits
+        let version = 1, size, capacity;
+        const ecBlocks = [[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16]];
+        
+        for (version = 1; version <= 10; version++) {
+          size = version * 4 + 17;
+          const idx = (version - 1) * 4 + ecl;
+          if (idx < ecBlocks.length) {
+            const block = ecBlocks[idx];
+            capacity = block.length === 3 ? block[0] * block[2] : block[0] * block[2] + block[3] * block[5];
+            if (data.length + 3 <= capacity) break;
+          }
+        }
+        if (version > 10) version = 10;
+        size = version * 4 + 17;
+        
+        // Create modules array
+        const modules = [];
+        for (let i = 0; i < size; i++) {
+          modules[i] = [];
+          for (let j = 0; j < size; j++) modules[i][j] = null;
+        }
+        
+        // Add finder patterns
+        const addFinder = (row, col) => {
+          for (let r = -1; r <= 7; r++) {
+            for (let c = -1; c <= 7; c++) {
+              const rr = row + r, cc = col + c;
+              if (rr >= 0 && rr < size && cc >= 0 && cc < size) {
+                modules[rr][cc] = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                  (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                  (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+              }
+            }
+          }
+        };
+        addFinder(0, 0);
+        addFinder(0, size - 7);
+        addFinder(size - 7, 0);
+        
+        // Timing patterns
+        for (let i = 8; i < size - 8; i++) {
+          modules[6][i] = modules[i][6] = i % 2 === 0;
+        }
+        
+        // Dark module
+        modules[size - 8][8] = true;
+        
+        // Fill remaining with data pattern (simplified)
+        let bitIdx = 0;
+        const bits = [];
+        bits.push(0, 1, 0, 0); // Mode 4
+        const lenBits = version < 10 ? 8 : 16;
+        for (let i = lenBits - 1; i >= 0; i--) bits.push((data.length >> i) & 1);
+        for (const byte of data) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
+        
+        // Fill data
+        let up = true;
+        for (let col = size - 1; col > 0; col -= 2) {
+          if (col === 6) col--;
+          for (let i = 0; i < size; i++) {
+            const row = up ? size - 1 - i : i;
+            for (let c = 0; c < 2; c++) {
+              const cc = col - c;
+              if (modules[row][cc] === null) {
+                modules[row][cc] = bitIdx < bits.length ? bits[bitIdx++] === 1 : false;
+              }
+            }
+          }
+          up = !up;
+        }
+        
+        // Fill any remaining nulls
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (modules[r][c] === null) modules[r][c] = false;
+          }
+        }
+        
+        return { modules, size };
+      }
+      
+      return { create };
+    })();
+    
+    function drawQR() {
+      if (!channelId || qrDrawn) return;
+      
+      const dev = window.location.hostname === 'localhost' || window.location.hostname === 'local.aesthetic.computer';
+      const url = dev 
+        ? `${window.location.origin}/pj.kidlisp.com/${channelId}`
+        : `https://pj.kidlisp.com/${channelId}`;
+      
+      try {
+        const { modules, size } = QR.create(url);
+        const cellSize = Math.max(4, Math.floor(200 / size));
+        const canvasSize = size * cellSize;
+        
+        qrCanvas.width = canvasSize;
+        qrCanvas.height = canvasSize;
+        const ctx = qrCanvas.getContext('2d');
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasSize, canvasSize);
+        
+        ctx.fillStyle = '#000000';
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            if (modules[y][x]) {
+              ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            }
+          }
+        }
+        
+        qrUrl.textContent = url;
+        qrDrawn = true;
+      } catch (e) {
+        console.error('QR generation failed:', e);
+      }
+    }
+    
+    function showQR() {
+      drawQR();
+      qrOverlay.classList.add('visible');
+      
+      // Clear any existing timeout
+      if (qrHideTimeout) clearTimeout(qrHideTimeout);
+      
+      // Auto-hide after 4 seconds
+      qrHideTimeout = setTimeout(() => {
+        qrOverlay.classList.remove('visible');
+      }, 4000);
+    }
+    
+    function hideQR() {
+      qrOverlay.classList.remove('visible');
+      if (qrHideTimeout) {
+        clearTimeout(qrHideTimeout);
+        qrHideTimeout = null;
+      }
+    }
+    
+    // Tap anywhere to show QR (but not on overlay itself to allow it to stay)
+    document.addEventListener('click', (e) => {
+      if (qrOverlay.classList.contains('visible')) {
+        hideQR();
+      } else {
+        showQR();
+      }
+    });
+    
+    // Update title when receiving code
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'url:updated' && event.data?.slug) {
+        document.title = `$${event.data.slug} • KidLisp`;
+      }
+    });
+    
+    // Prevent accidental close
+    window.addEventListener('beforeunload', (e) => {
+      // Only warn if we have an active channel
+      if (channelId && iframeReady) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+    
+    // Periodically ping opener so the editor can reconnect after refresh
+    if (window.opener) {
+      setInterval(() => {
+        try { window.opener.postMessage({ type: 'pj-popout-ready' }, '*'); }
+        catch (e) {} // opener may have closed
+      }, 2000);
+    }
+
+    console.log('KidLisp PJ window initialized', { channel: channelId, dev });
+  </script>
+</body>
+</html>
