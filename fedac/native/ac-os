@@ -72,8 +72,6 @@ build_binary() {
 build_initramfs() {
     log "Building initramfs (sudo)..."
     cd "${SCRIPT_DIR}"
-    sudo bash scripts/build-and-flash.sh --skip-kernel --skip-binary 2>&1 \
-        | grep -E "Baked|KidLisp|Initramfs:|error" || true
 
     # KidLisp: npx not available under sudo, bundle as user then copy
     local KIDLISP_SRC="${SCRIPT_DIR}/../../system/public/aesthetic.computer/lib/kidlisp.mjs"
