@@ -154,13 +154,13 @@ function paint($) {
 
   wipe(...bg);
 
-  // Debug: test write3D with a flat plane (identity projection)
+  // Debug: test write3D with a flat plane (identity projection, scale 3)
   ink(255, 0, 0).write3D("TEST", {
     origin: [20, 20, 0],
     right: [1, 0, 0],
     down: [0, 1, 0],
     project: ([x, y, z]) => [x, y],
-  });
+  }, 3);
 
   // Thanks page
   if (thanks) {
