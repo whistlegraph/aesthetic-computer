@@ -36,18 +36,7 @@ fi
 build_binary() {
     log "Building binary..."
     cd "${SCRIPT_DIR}"
-    CC_USE="${CC:-}"
-    if [ -z "${CC_USE}" ]; then
-        # Only use musl-gcc if shared libs are also musl-linked (Fedora).
-        # On Ubuntu/Debian, shared libs are glibc — mixing musl binary + glibc libs crashes.
-        if command -v musl-gcc &>/dev/null \
-           && echo '#include <linux/input.h>' | musl-gcc -E -x c - &>/dev/null 2>&1 \
-           && ! ldd /usr/lib/*/libasound.so.2 2>/dev/null | grep -q 'libc.so.6'; then
-            CC_USE=musl-gcc
-        else
-            CC_USE=gcc
-        fi
-    fi
+    CC_USE="${CC:-gcc}"
     # Run make and capture exit code — version strings frozen at top of script
     mkdir -p "${BUILD_DIR}"
     local MAKE_LOG="${BUILD_DIR}/.make.log"
@@ -66,6 +55,21 @@ build_binary() {
         err "Binary does NOT contain git hash ${AC_GIT_HASH} — stale build!"
         exit 1
     fi
+
+    # Telemetry: check binary can resolve all shared libs
+    local INTERP=$(readelf -l "${BUILD_DIR}/ac-native" 2>/dev/null | grep -oP '(?<=interpreter: ).*(?=\])')
+    log "Binary interpreter: ${INTERP:-static}"
+    local MISSING_LIBS=""
+    for lib in $(readelf -d "${BUILD_DIR}/ac-native" 2>/dev/null | grep -oP '(?<=\[)lib[^\]]+'); do
+        if ! ldconfig -p 2>/dev/null | grep -q "$lib"; then
+            MISSING_LIBS="${MISSING_LIBS} ${lib}"
+        fi
+    done
+    if [ -n "${MISSING_LIBS}" ]; then
+        err "Binary has missing shared libs:${MISSING_LIBS}"
+        exit 1
+    fi
+    log "Binary shared libs: all resolved"
 
     # Build BPF trace tools (ftrace fallback — no clang/libbpf required)
     if [ -f "${SCRIPT_DIR}/bpf/Makefile" ]; then
@@ -374,6 +378,67 @@ XDGOPEN
 
     # Fix ownership so non-root users (oven) can rebuild next time
     sudo chown -R "$(whoami)" "${INITRAMFS_ROOT}" "${BUILD_DIR}/initramfs.cpio" "${BUILD_DIR}/initramfs.cpio.lz4" 2>/dev/null || true
+
+    # === Validate initramfs will boot ===
+    log "Validating initramfs..."
+    local BOOT_OK=1
+
+    # 1. init script exists and is executable
+    if [ ! -x "${INITRAMFS_ROOT}/init" ]; then
+        err "VALIDATE: /init missing or not executable"
+        BOOT_OK=0
+    fi
+
+    # 2. ac-native binary exists
+    if [ ! -f "${INITRAMFS_ROOT}/ac-native" ]; then
+        err "VALIDATE: /ac-native missing"
+        BOOT_OK=0
+    fi
+
+    # 3. Dynamic linker matches binary's interpreter
+    local INTERP=$(readelf -l "${INITRAMFS_ROOT}/ac-native" 2>/dev/null | grep -oP '(?<=interpreter: ).*(?=\])')
+    if [ -n "${INTERP}" ] && [ ! -f "${INITRAMFS_ROOT}${INTERP}" ]; then
+        err "VALIDATE: binary needs ${INTERP} but it's missing from initramfs"
+        BOOT_OK=0
+    else
+        log "  linker: ${INTERP} OK"
+    fi
+
+    # 4. All NEEDED shared libs exist in initramfs
+    local MISSING=""
+    for lib in $(readelf -d "${INITRAMFS_ROOT}/ac-native" 2>/dev/null | grep -oP '(?<=\[)lib[^\]]+'); do
+        if [ ! -f "${INITRAMFS_ROOT}/lib/${lib}" ] && [ ! -f "${INITRAMFS_ROOT}/lib64/${lib}" ]; then
+            MISSING="${MISSING} ${lib}"
+        fi
+    done
+    if [ -n "${MISSING}" ]; then
+        err "VALIDATE: missing shared libs in initramfs:${MISSING}"
+        BOOT_OK=0
+    else
+        log "  shared libs: all present"
+    fi
+
+    # 5. piece.mjs exists
+    if [ ! -f "${INITRAMFS_ROOT}/piece.mjs" ]; then
+        err "VALIDATE: /piece.mjs missing"
+        BOOT_OK=0
+    fi
+
+    # 6. WiFi firmware exists (non-fatal warning)
+    if ! ls "${INITRAMFS_ROOT}/lib/firmware/iwlwifi"*.ucode &>/dev/null; then
+        log "  WARNING: no iwlwifi firmware — WiFi will not work"
+    else
+        log "  firmware: $(ls ${INITRAMFS_ROOT}/lib/firmware/iwlwifi*.ucode | wc -l) iwlwifi blobs"
+    fi
+
+    local INITRAMFS_SIZE=$(du -sh "${BUILD_DIR}/initramfs.cpio.lz4" | cut -f1)
+    log "  initramfs size: ${INITRAMFS_SIZE}"
+
+    if [ "${BOOT_OK}" -eq 0 ]; then
+        err "Initramfs validation FAILED — kernel would panic. Aborting."
+        exit 1
+    fi
+    log "Initramfs validated — will boot"
 }
 
 build_kernel() {
