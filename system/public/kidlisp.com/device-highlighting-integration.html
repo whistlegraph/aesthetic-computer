@@ -1,0 +1,44 @@
+<!-- Add this script after Monaco editor setup in device.html -->
+<!-- Insert after the initMonaco() function definition -->
+
+<script type="module">
+  import { MonacoKidLispHighlighter } from './js/monaco-kidlisp-highlighting.mjs';
+
+  // Wait for Monaco editor to be ready
+  function initHighlighter() {
+    if (!window.deviceMonacoEditor || !window.monaco) {
+      setTimeout(initHighlighter, 100);
+      return;
+    }
+
+    console.log('📺 Initializing shared KidLisp highlighter');
+
+    // Create highlighter instance
+    const highlighter = new MonacoKidLispHighlighter(window.deviceMonacoEditor, {
+      enableTimingBlinks: true,
+      lightModeHighContrast: false // Device mode is always dark
+    });
+
+    // Make globally accessible
+    window.kidlispHighlighter = highlighter;
+
+    // Apply initial decorations
+    highlighter.applyDecorations();
+
+    // Start timing blinks loop (always animate in device mode)
+    highlighter.startTimingBlinksLoop(() => true);
+
+    console.log('📺 Shared KidLisp highlighter ready');
+  }
+
+  // Start initialization
+  initHighlighter();
+
+  // Override the old applyMonacoSyntaxHighlighting to use new highlighter
+  window.applyMonacoSyntaxHighlighting = function(source, highlightedHtml) {
+    console.log('📺 Applying syntax highlighting via shared module');
+    if (window.kidlispHighlighter) {
+      window.kidlispHighlighter.applyDecorations();
+    }
+  };
+</script>
