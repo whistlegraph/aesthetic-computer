@@ -129,10 +129,10 @@ async function commitAndPushPDFs(job) {
   await git(["config", "user.email", "oven@aesthetic.computer"]);
   await git(["config", "user.name", "Oven (aesthetic.computer)"]);
 
-  // Stage ALL changes in the working tree — publish generates PDFs, index.html,
-  // metadata.json, BUILDLOG.md, .aux files, etc. We need to stage everything
-  // so that `git pull --rebase` doesn't fail on unstaged changes.
-  await git(["add", "papers/", "system/public/papers.aesthetic.computer/"]);
+  // Only stage meaningful build outputs — not LaTeX intermediates (.log, .aux,
+  // .out, .fls, etc.) whose timestamps change every build even when PDFs don't.
+  await git(["add", "system/public/papers.aesthetic.computer/"]);
+  await git(["add", "papers/metadata.json", "papers/BUILDLOG.md"]).catch(() => {});
 
   // Check if there are actually staged changes
   const status = await git(["diff", "--cached", "--name-only"]);
