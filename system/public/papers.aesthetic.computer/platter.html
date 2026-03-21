@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>platter · Aesthetic Computer Research</title>
+    <meta name="description" content="Research platter: papers, plans, reports, studies, readings, and APIs for Aesthetic Computer.">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a017;
+            --green: #4ecb71;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #f5f5f5;
+                --text: #1a1a2e;
+                --dim: #666;
+                --pink: #b4489a;
+                --cyan: #0891b2;
+                --purple: #7850b4;
+                --gold: #a07800;
+                --green: #0a8a3e;
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.12);
+            }
+        }
+
+        :root.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: #b4489a;
+            --cyan: #0891b2;
+            --purple: #7850b4;
+            --gold: #a07800;
+            --green: #0a8a3e;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            -webkit-text-size-adjust: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+            padding: 2em;
+            min-height: 100vh;
+        }
+
+        .header { margin-bottom: 2em; }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 2.2em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+        }
+
+        h1 .dot { color: var(--pink); }
+        .subtitle { color: var(--dim); font-size: 0.85em; }
+
+        .stats {
+            color: var(--dim);
+            font-size: 0.8em;
+            margin-top: 0.5em;
+        }
+        .stats span { color: var(--cyan); }
+
+        .search-bar {
+            margin: 1.5em 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--bg);
+            padding: 0.5em 0;
+        }
+
+        .search-bar input {
+            width: 100%;
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 14px;
+            padding: 0.6em 1em;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .search-bar input:focus { border-color: var(--cyan); }
+        .search-bar input::placeholder { color: var(--dim); }
+
+        .section {
+            margin-bottom: 2em;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            margin-bottom: 0.8em;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header h2 {
+            font-size: 1em;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .section-header .count {
+            color: var(--dim);
+            font-size: 0.85em;
+        }
+
+        .section-header .toggle {
+            color: var(--dim);
+            font-size: 0.75em;
+            transition: transform 0.15s;
+        }
+
+        .section-header.collapsed .toggle { transform: rotate(-90deg); }
+
+        .section-header[data-color="pink"] h2 { color: var(--pink); }
+        .section-header[data-color="cyan"] h2 { color: var(--cyan); }
+        .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header[data-color="gold"] h2 { color: var(--gold); }
+        .section-header[data-color="green"] h2 { color: var(--green); }
+
+        .section-items { }
+        .section-items.hidden { display: none; }
+
+        .item {
+            display: block;
+            padding: 0.35em 0.8em;
+            text-decoration: none;
+            color: var(--text);
+            border-radius: 4px;
+            transition: background 0.1s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .item:hover { background: var(--box-bg); }
+        .item .file { color: var(--dim); margin-right: 0.5em; font-size: 0.85em; }
+
+        .item-group {
+            margin-bottom: 1em;
+        }
+
+        .item-group-label {
+            color: var(--dim);
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.3em 0.8em;
+        }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer a { color: var(--purple); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+
+        .pals-logo-corner {
+            position: fixed;
+            bottom: 1.5em;
+            right: 1.5em;
+            width: 64px;
+            height: 64px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .pals-logo-corner:hover { opacity: 1; }
+
+        @media (max-width: 600px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.6em; }
+            .pals-logo-corner { width: 48px; height: 48px; bottom: 1em; right: 1em; }
+        }
+
+        .item-links {
+            display: flex;
+            gap: 0.6em;
+            font-size: 0.8em;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .item-links a {
+            color: var(--dim);
+            text-decoration: none;
+            padding: 0.15em 0.4em;
+            border: 1px solid var(--box-border);
+            border-radius: 3px;
+            transition: color 0.1s, border-color 0.1s;
+        }
+        .item-links a:hover { color: var(--cyan); border-color: var(--cyan); }
+
+        .item-dual {
+            display: flex;
+            align-items: center;
+            padding: 0.35em 0.8em;
+            text-decoration: none;
+            color: var(--text);
+            border-radius: 4px;
+            transition: background 0.1s;
+            gap: 0.5em;
+        }
+        .item-dual:hover { background: var(--box-bg); }
+        .item-dual .file { color: var(--dim); font-size: 0.85em; flex-shrink: 0; }
+        .item-dual .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .no-results {
+            color: var(--dim);
+            padding: 2em;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <a href="https://aesthetic.computer" class="pals-logo-corner">
+        <img src="https://aesthetic.computer/purple-pals.svg" alt="AC" style="width:100%;height:100%;">
+    </a>
+
+    <div class="header">
+        <h1>Research Platter</h1>
+        <div class="subtitle">Full knowledge base for Aesthetic Computer papers and research.</div>
+        <div class="stats">
+            <span>359</span> pieces · <span>76</span> lib modules · <span>92</span> functions · <span>156</span> plans · <span>95</span> reports · <span>8</span> studies · <span>30+</span> readings · <span>20</span> papers
+        </div>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="search" placeholder="Search all research documents..." autofocus>
+    </div>
+
+    <div class="no-results" id="no-results">No matching documents.</div>
+
+    <div id="sections">
+
+    <!-- PAPERS -->
+    <div class="section" data-section="papers">
+        <div class="section-header" data-color="pink" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Papers</h2>
+            <span class="count">20 publications</span>
+        </div>
+        <div class="section-items">
+            <a class="item" href="/aesthetic-computer-26-arxiv.pdf">Aesthetic Computer '26 — A Mobile-First Runtime for Creative Computing (arXiv, 5pp)</a>
+            <a class="item" href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26 — JOSS Summary (2pp)</a>
+            <a class="item" href="/pieces-not-programs-26-arxiv.pdf">Pieces Not Programs '26 — The Piece as a Unit of Creative Cognition (arXiv, 4pp)</a>
+            <a class="item" href="/notepat-26-arxiv.pdf">notepat.com '26 — From Keyboard Toy to System Front Door (arXiv, 3pp)</a>
+            <a class="item" href="/kidlisp-26-arxiv.pdf">KidLisp '26 — A Minimal Lisp for Generative Art on a Social Platform (arXiv, 6pp)</a>
+            <a class="item" href="/kidlisp-26-joss.pdf">KidLisp '26 — JOSS Summary (3pp)</a>
+            <a class="item" href="/ac-native-os-26-arxiv.pdf">AC Native OS '26 — A Bare-Metal Creative Computing Operating System (arXiv, 5pp)</a>
+            <a class="item" href="/repo-archaeology-26-arxiv.pdf">Repository Archaeology '26 — Tracing the Evolution Through Git History (arXiv, 4pp)</a>
+            <a class="item" href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026) — A Minimal Lisp for Generative Art with Social Composition (ACM SIGS, 4pp)</a>
+            <a class="item" href="/kidlisp-reference-26-arxiv.pdf">KidLisp Language Reference '26 — 118 Built-ins in 12 Categories (arXiv, 4pp)</a>
+            <a class="item" href="/whistlegraph-26-arxiv.pdf">Whistlegraph '26 — Drawing, Singing, and the Graphic Score as Viral Form (arXiv, 4pp)</a>
+            <a class="item" href="/radical-computer-art-26-arxiv.pdf">Radical Computer Art '26 — Goodiepalian Approaches in Aesthetic Computer (arXiv, 4pp)</a>
+            <a class="item" href="/dead-ends-26-arxiv.pdf">Dead Ends '26 — Failed Experiments and Abandoned Approaches (arXiv, 4pp)</a>
+            <a class="item" href="/who-pays-for-creative-tools-26-arxiv.pdf">Who Pays for Creative Tools? '26 — Funding, Burnout, and Survival (arXiv, 4pp)</a>
+            <a class="item" href="/network-audit-26-arxiv.pdf">Network Audit '26 — Who Uses AC and What Do They Make? (arXiv, 4pp)</a>
+            <a class="item" href="/citation-diversity-audit-26.pdf">Citation Diversity Audit '26 — Diversity and Inclusion in AC Paper Citations (4pp)</a>
+        </div>
+    </div>
+
+    <!-- RUNTIME SOURCE -->
+    <div class="section" data-section="runtime">
+        <div class="section-header" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Runtime Source</h2>
+            <span class="count">boot · bios · disk · 76 lib modules</span>
+        </div>
+        <div class="section-items">
+            <div class="item-group">
+                <div class="item-group-label">Core Runtime (3 entry points)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/boot.mjs"><span class="file">boot.mjs</span> Entry point — loads BIOS, service worker, WebSocket module loader</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/bios.mjs"><span class="file">bios.mjs</span> Main runtime coordinator — piece lifecycle, routing, API surface</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/module-loader.mjs"><span class="file">module-loader.mjs</span> WebSocket-based dynamic module loading + hot reload</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Core Libraries (key modules)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/disk.mjs"><span class="file">lib/disk.mjs</span> Disk API — graphics, audio, input, UI (~572KB, the main piece API)</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/graph.mjs"><span class="file">lib/graph.mjs</span> Graphics primitives — wipe, ink, line, box, circle, plot, paste</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/kidlisp.mjs"><span class="file">lib/kidlisp.mjs</span> KidLisp evaluator — 118 built-in functions, 12 categories</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/pen.mjs"><span class="file">lib/pen.mjs</span> Pen/touch/mouse input handling</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/keyboard.mjs"><span class="file">lib/keyboard.mjs</span> Keyboard input + event system</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/speaker.mjs"><span class="file">lib/speaker.mjs</span> Audio output — Web Audio API, synthesis, samples</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/microphone.mjs"><span class="file">lib/microphone.mjs</span> Audio input — mic capture, analysis</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/ui.mjs"><span class="file">lib/ui.mjs</span> UI components — Button, TextInput, cursors</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/text.mjs"><span class="file">lib/text.mjs</span> Text rendering — bitmap fonts, write/type</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/store.mjs"><span class="file">lib/store.mjs</span> Persistent storage API</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/socket.mjs"><span class="file">lib/socket.mjs</span> WebSocket client for real-time features</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/parse.mjs"><span class="file">lib/parse.mjs</span> URL/command parsing — piece:param:colon routing</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/num.mjs"><span class="file">lib/num.mjs</span> Math utilities — random, lerp, clamp, dist, vec</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/geo.mjs"><span class="file">lib/geo.mjs</span> Geometry — Box, Point, Line primitives</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/help.mjs"><span class="file">lib/help.mjs</span> In-app help system</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Rendering & GPU</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gl.mjs"><span class="file">lib/gl.mjs</span> WebGL2 rendering context</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/glaze.mjs"><span class="file">lib/glaze.mjs</span> Post-processing shader pipeline</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/webgpu.mjs"><span class="file">lib/webgpu.mjs</span> WebGPU renderer</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-primitives.mjs"><span class="file">lib/gpu-primitives.mjs</span> GPU accelerated drawing primitives</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-effects.mjs"><span class="file">lib/gpu-effects.mjs</span> GPU shader effects</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/3d.mjs"><span class="file">lib/3d.mjs</span> 3D rendering support</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/2d.mjs"><span class="file">lib/2d.mjs</span> 2D canvas operations</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Music & Audio</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/midi.mjs"><span class="file">lib/midi.mjs</span> Web MIDI — keyboard, controller, instrument support</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/chord-detection.mjs"><span class="file">lib/chord-detection.mjs</span> Real-time chord recognition</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/melody-parser.mjs"><span class="file">lib/melody-parser.mjs</span> Musical sequence parser</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/note-colors.mjs"><span class="file">lib/note-colors.mjs</span> Note-to-color mapping</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/radio.mjs"><span class="file">lib/radio.mjs</span> Radio streaming</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Shared Modules (system + session)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/filter.mjs"><span class="file">shared/filter.mjs</span> Content filtering</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/redact.mjs"><span class="file">shared/redact.mjs</span> Content redaction</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/kidlisp-syntax.mjs"><span class="file">shared/kidlisp-syntax.mjs</span> KidLisp syntax highlighting</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/audio-analyzer.mjs"><span class="file">shared/audio-analyzer.mjs</span> Audio analysis utilities</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIECES -->
+    <div class="section" data-section="pieces">
+        <div class="section-header collapsed" data-color="gold" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Pieces</h2>
+            <span class="count">341 .mjs + 18 .lisp</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Key Interactive Pieces</div>
+                <div class="item-dual"><span class="file">notepat</span> <span class="label">Musical keyboard toy — the system front door</span> <span class="item-links"><a href="https://aesthetic.computer/notepat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/notepat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">prompt</span> <span class="label">Command prompt — system shell / piece launcher</span> <span class="item-links"><a href="https://aesthetic.computer/prompt">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/prompt.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">painting</span> <span class="label">Painting tool — full canvas with brushes and layers</span> <span class="item-links"><a href="https://aesthetic.computer/painting">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/painting.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">chat</span> <span class="label">Real-time multiplayer chat</span> <span class="item-links"><a href="https://aesthetic.computer/chat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/chat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">list</span> <span class="label">User piece browser and feed</span> <span class="item-links"><a href="https://aesthetic.computer/list">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/list.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">about</span> <span class="label">About page</span> <span class="item-links"><a href="https://aesthetic.computer/about">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/about.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">share</span> <span class="label">QR code sharing</span> <span class="item-links"><a href="https://aesthetic.computer/share">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/share.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">publish</span> <span class="label">Piece publishing flow</span> <span class="item-links"><a href="https://aesthetic.computer/publish">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/publish.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">source</span> <span class="label">Template download / fork</span> <span class="item-links"><a href="https://aesthetic.computer/source">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/source.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">login</span> <span class="label">Auth0 login flow</span> <span class="item-links"><a href="https://aesthetic.computer/login">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/login.mjs">src</a></span></div>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Creative Tools</div>
+                <div class="item-dual"><span class="file">bleep</span> <span class="label">Sound synthesizer</span> <span class="item-links"><a href="https://aesthetic.computer/bleep">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/bleep.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">stample</span> <span class="label">Audio sampling pad</span> <span class="item-links"><a href="https://aesthetic.computer/stample">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/stample.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">beat</span> <span class="label">Beat sequencer</span> <span class="item-links"><a href="https://aesthetic.computer/beat">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/beat.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">tape</span> <span class="label">Audio/video recorder</span> <span class="item-links"><a href="https://aesthetic.computer/tape">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/tape.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">melody</span> <span class="label">Melody composer</span> <span class="item-links"><a href="https://aesthetic.computer/melody">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/melody.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">freehand</span> <span class="label">Freehand drawing tool</span> <span class="item-links"><a href="https://aesthetic.computer/freehand">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/freehand.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">line</span> <span class="label">Line drawing</span> <span class="item-links"><a href="https://aesthetic.computer/line">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/line.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">circle</span> <span class="label">Circle drawing</span> <span class="item-links"><a href="https://aesthetic.computer/circle">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/circle.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">box</span> <span class="label">Rectangle drawing</span> <span class="item-links"><a href="https://aesthetic.computer/box">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/box.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">spray</span> <span class="label">Spray paint</span> <span class="item-links"><a href="https://aesthetic.computer/spray">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spray.mjs">src</a></span></div>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Games & Toys</div>
+                <div class="item-dual"><span class="file">wand</span> <span class="label">Magic wand toy</span> <span class="item-links"><a href="https://aesthetic.computer/wand">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wand.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">balls</span> <span class="label">Bouncing balls</span> <span class="item-links"><a href="https://aesthetic.computer/balls">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/balls.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">wg</span> <span class="label">Whistlegraph</span> <span class="item-links"><a href="https://aesthetic.computer/wg">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wg.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">spider</span> <span class="label">Spider game</span> <span class="item-links"><a href="https://aesthetic.computer/spider">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spider.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">1v1</span> <span class="label">Multiplayer duel</span> <span class="item-links"><a href="https://aesthetic.computer/1v1">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/1v1.mjs">src</a></span></div>
+                <div class="item-dual"><span class="file">smear</span> <span class="label">Paint smearing</span> <span class="item-links"><a href="https://aesthetic.computer/smear">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/smear.mjs">src</a></span></div>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">KidLisp Pieces (18 .lisp files)</div>
+                <div class="item-dual"><span class="file">code.lisp</span> <span class="label">KidLisp editor & runner</span> <span class="item-links"><a href="https://aesthetic.computer/code">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/code.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">brush.lisp</span> <span class="label">Generative brush</span> <span class="item-links"><a href="https://aesthetic.computer/brush">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/brush.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">lab.lisp</span> <span class="label">KidLisp lab/playground</span> <span class="item-links"><a href="https://aesthetic.computer/lab">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/lab.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">spinning-cube.lisp</span> <span class="label">3D spinning cube</span> <span class="item-links"><a href="https://aesthetic.computer/spinning-cube">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/spinning-cube.lisp">src</a></span></div>
+                <div class="item-dual"><span class="file">handles.lisp</span> <span class="label">Handle display</span> <span class="item-links"><a href="https://aesthetic.computer/handles">live</a><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/handles.lisp">src</a></span></div>
+                <span class="item"><span class="file">+ 13 more</span> addition, subtraction, tests, timing, profiles...</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Full listing: 341 .mjs + 18 .lisp pieces</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks">Browse all pieces on GitHub</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVERS & SERVICES -->
+    <div class="section" data-section="servers">
+        <div class="section-header collapsed" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Servers & Services</h2>
+            <span class="count">92 functions · 5 services · 7 session modules</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Netlify Functions (92 serverless endpoints)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions"><span class="file">system/netlify/functions/</span> Auth, content, keeps, chat, billing, telemetry, KidLisp storage</a>
+                <a class="item" href="https://aesthetic.computer/api/api-docs"><span class="file">api/api-docs</span> LLM-friendly API documentation (live)</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Oven (screenshot + rendering service)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/server.mjs"><span class="file">oven/server.mjs</span> Express server — OG previews, keeps rendering, MP4 conversion</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/baker.mjs"><span class="file">oven/baker.mjs</span> Puppeteer screenshot pipeline</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/bundler.mjs"><span class="file">oven/bundler.mjs</span> Piece bundler for offline/native</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/grabber.mjs"><span class="file">oven/grabber.mjs</span> Screenshot capture</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Session Server (real-time WebSocket)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/session.mjs"><span class="file">session.mjs</span> WebSocket server — Geckos.io, chat, multiplayer, presence</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/chat-manager.mjs"><span class="file">chat-manager.mjs</span> Chat room management</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/hearts.mjs"><span class="file">hearts.mjs</span> Hearts/reactions system</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/dashboard.mjs"><span class="file">dashboard.mjs</span> Admin dashboard</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Silo (admin dashboard + DB browser)</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/silo/server.mjs"><span class="file">silo/server.mjs</span> Dashboard API — MongoDB browser, health, firehose</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Cloudflare Workers</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/dp1-feed"><span class="file">dp1-feed/</span> feed.aesthetic.computer — ATProto activity feed generator</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grab"><span class="file">grab/</span> grab.aesthetic.computer — Browser Rendering screenshots</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- READINGS -->
+    <div class="section" data-section="readings">
+        <div class="section-header" data-color="purple" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Readings Library</h2>
+            <span class="count">30+ texts with full-text extracts</span>
+        </div>
+        <div class="section-items">
+            <div class="item-group">
+                <div class="item-group-label">Art Theory & Aesthetics</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/assets/papers/readings/BIBLIOGRAPHY.md"><span class="file">BIBLIOGRAPHY.md</span> Full bibliography check-in with tier rankings</a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Langer_Susanne_K_Problems_of_Art_Ten_Philosophical_Lectures.txt">Susanne K. Langer — <em>Problems of Art</em> (1957) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Arnheim_Rudolf_Art_and_Visual_Perception_1974.txt">Rudolf Arnheim — <em>Art and Visual Perception</em> (1974) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Klee_Paul_Pedagogical_Sketchbook_1953.txt">Paul Klee — <em>Pedagogical Sketchbook</em> (1925) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Point%20and%20line%20to%20plane%20-%20Wassily%20Kandinsky.txt">Wassily Kandinsky — <em>Point and Line to Plane</em> (1926) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Ukeles-Manifesto-for-Maintenance-Art-1969.txt">Mierle Laderman Ukeles — <em>Manifesto for Maintenance Art</em> (1969) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Gobolinks.txt">Ruth McEnery Stuart — <em>Gobolinks</em> (1896) <span class="file">txt · rough</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Media & Critical Theory</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/mcluhan.mediummessage.txt">Marshall McLuhan — "The Medium is the Message" (1964) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Kittler-nosoftware.txt">Friedrich Kittler — "There is No Software" (1995) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Capitalist%20Realism_%20Is%20There%20No%20Alternat%20-%20Mark%20Fisher.txt">Mark Fisher — <em>Capitalist Realism</em> (2009) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/shklovsky.txt">Viktor Shklovsky — "Art as Device" (1917) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Adorno-Theodor-W-Punctuation-Marks.txt">Theodor Adorno — "Punctuation Marks" (1958) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/harman-1.txt">Graham Harman — "Revenge of the Surface" (~2011) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Making & Materiality</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Ingold-2009-Textility-of-making.txt">Tim Ingold — "The Textility of Making" (2009) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/lines-a-brief-history.txt">Tim Ingold — <em>Lines: A Brief History</em> (2007) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Marking_Scoring_Storing_and_Speculating.txt">David Joselit — "Marking, Scoring, Storing, and Speculating" (2016) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Computing & Language</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Eglash_Ron_African_Fractals_Modern_Computing_and_Indigenous_Design.txt">Ron Eglash — <em>African Fractals</em> (1999) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/The%20Little%20Schemer.txt">Friedman & Felleisen — <em>The Little Schemer</em> (1996) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/tinylisp-van-engelen.txt">Dr. Robert van Engelen — "Lisp in 99 lines of C" (2022) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/strudel-iclc2023.txt">Felix Roos & Alex McLean — "Strudel: live coding on the Web" (ICLC 2023) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">On Jeffrey's Work</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/merle-nunneley-whistlegraphs.txt">Merle Nunneley — article on Whistlegraphs (UCL London) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/stiegler-idiotext.txt">Asker Bryld Staun&aelig;s — "Stiegler's Concept of Idiotext" (2021) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/lawson-last-exit-painting.txt">Thomas Lawson — "Last Exit: Painting" (Artforum, 1981) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Goodiepal-Equation-Documentary-Transcript-2017.txt">Goodiepal / Sami S&auml;np&auml;kkil&auml; — <em>The Goodiepal Equation</em> documentary transcript (2017, auto-generated English from YouTube) <span class="file">txt &middot; 1505 lines</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Games & Play</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Microscope%20RPG.txt">Ben Robbins — <em>Microscope RPG</em> (2011) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Platform Hegemony & Critique-as-Content (Sucking the Complex)</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/HRW-Video-Unavailable-2020.txt">Human Rights Watch — "Video Unavailable": Social Media Platforms Remove Evidence of War Crimes (2020) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Bishop-Digital-Divide-Artforum-2012.txt">Claire Bishop &mdash; "Digital Divide: Contemporary Art and New Media" (Artforum, Sept 2012) <span class="file">txt &middot; full text from Monoskop PDF</span></a>
+                <span class="item" style="color:var(--dim)">Jerry Saltz &mdash; "MoMA's Glorified Lava Lamp" (Vulture, Feb 2023) <span class="file">paywalled &middot; <a href="https://www.vulture.com/article/jerry-saltz-moma-refik-anadol-unsupervised.html" style="color:var(--dim)">source</a></span></span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Syms-Mundane-Afrofuturist-Manifesto-2013.txt">Martine Syms &mdash; "The Mundane Afrofuturist Manifesto" (Rhizome, 2013) <span class="file">txt &middot; reconstructed from multiple sources</span></a>
+                <span class="item" style="color:var(--dim)">Kyle Chayka &mdash; <em>Filterworld: How Algorithms Flattened Culture</em> (Doubleday, 2024) <span class="file">book &middot; no open access</span></span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Dash-NFTs-Werent-Supposed-Atlantic-2021.txt">Anil Dash &mdash; "NFTs Weren't Supposed to End Like This" (The Atlantic, Apr 2021) <span class="file">txt &middot; summary + follow-up (paywall)</span></a>
+                <span class="item" style="color:var(--dim)">Strafella &amp; Berg &mdash; "Twitter Bodhisattva: Ai Weiwei's Media Politics" (Asian Studies Review, 2015) <span class="file">paywalled &middot; <a href="https://www.academia.edu/87490274/_Twitter_Bodhisattva_Ai_Weiwei_s_Media_Politics" style="color:var(--dim)">academia.edu</a></span></span>
+                <span class="item" style="color:var(--dim)">Eyal Weizman &mdash; <em>Forensic Architecture: Violence at the Threshold of Detectability</em> (Zone Books, 2017) <span class="file">book &middot; no open access</span></span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Budge-Objects-in-Focus-Instagram-2017.txt">Kylie Budge &mdash; "Objects in Focus: Museum Visitors and Instagram" (Curator, 2017) <span class="file">txt &middot; abstract only (Wiley paywall)</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Zylinska-AI-Art-Machine-Visions-2020.txt">Joanna Zylinska — <em>AI Art: Machine Visions and Warped Dreams</em> (Open Humanities Press, 2020, CC BY-SA) <span class="file">txt &middot; 4823 lines</span></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- CITATION DIVERSITY -->
+    <div class="section" data-section="diversity">
+        <div class="section-header" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Citation Diversity</h2>
+            <span class="count">audit &amp; reading list</span>
+        </div>
+        <div class="section-items">
+            <div class="item-group">
+                <div class="item-group-label">Current Audit (across 9 papers, 68 unique works cited)</div>
+                <span class="item" style="color:var(--dim)">Women authors: ~11% (9 of ~80 unique authors)</span>
+                <span class="item" style="color:var(--dim)">Non-US/UK/EU authors: ~5%</span>
+                <span class="item" style="color:var(--dim)">Black / Indigenous / LatAm / Asian scholars: ~6%</span>
+                <span class="item" style="color:var(--dim)">Goal: each paper cites at least 30% women, 20% non-Western authors</span>
+                <a class="item" href="/citation-diversity-audit-26.pdf" style="color:var(--green)">Full audit paper: Citation Diversity Audit '26 (4pp PDF)</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Women in Creative Coding &amp; Live Coding</div>
+                <span class="item">Joana Chicau &mdash; "Choreo-graphic-hypothesis" (web choreography as live coding)</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Knotts-Algorithmic-Interfaces-2016.txt">Shelly Knotts &mdash; "Algorithmic Interfaces" (ICLI 2016) <span class="file">txt</span></a>
+                <span class="item">Amy Alexander &mdash; software art, browser-based performance</span>
+                <span class="item">Phoenix Perry &mdash; physical computing, game design pedagogy</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Parrish-Language-Models-Poetry-2021.txt">Allison Parrish &mdash; "Language models can only write poetry" (2021) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Compton-Casual-Creators-2015.txt">Kate Compton &mdash; "Casual Creators" (ICCC 2015) <span class="file">txt</span></a>
+                <span class="item">Ramsey Nasser &mdash; non-Latin programming languages (&#1602;&#1604;&#1576;), language design</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Black Computing &amp; Technology Studies</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Benjamin-Race-After-Technology-Lecture-2019.txt">Ruha Benjamin &mdash; <em>Race After Technology</em> lecture (Harvard, 2019) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Noble-Algorithms-of-Oppression-Intro-2018.txt">Safiya Umoja Noble &mdash; <em>Algorithms of Oppression</em> introduction (2018) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Brock-Distributed-Blackness-Intro-2020.txt">Andr&eacute; Brock &mdash; <em>Distributed Blackness</em> introduction (2020) <span class="file">txt</span></a>
+                <span class="item">Charlton McIlwain &mdash; <em>Black Software</em> (2019) &mdash; no open access available</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Eglash_Ron_African_Fractals_Modern_Computing_and_Indigenous_Design.txt">Ron Eglash &mdash; <em>African Fractals</em> (1999) [already cited] <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Latin American Creative Coding</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Barragan-Wiring-Thesis-2004.txt">Hernando Barrag&aacute;n &mdash; <em>Wiring: Prototyping Physical Interaction Design</em> thesis (2004) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Barragan-Untold-History-Arduino.txt">Hernando Barrag&aacute;n &mdash; "The Untold History of Arduino" <span class="file">txt</span></a>
+                <span class="item">Aar&oacute;n Montoya-Moraga &mdash; creative coding education, p5.js community</span>
+                <span class="item">C&aacute;ssia Bel &mdash; live coding, feminist creative tech (Brazil)</span>
+                <span class="item">Andr&eacute;s Monroy-Hern&aacute;ndez &mdash; Scratch community research [already cited]</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Asian &amp; Non-Western Media Theory</div>
+                <span class="item">Yuk Hui &mdash; <em>On the Existence of Digital Objects</em> (2016) &mdash; digital ontology, technodiversity</span>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Hui-Recursion-Contingency-Interview-2019.txt">Yuk Hui &mdash; interview on <em>Recursion and Contingency</em> (2019) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Steyerl-In-Defense-of-the-Poor-Image-2009.txt">Hito Steyerl &mdash; "In Defense of the Poor Image" (2009) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Eshun-More-Brilliant-Than-the-Sun-1998.txt">Kodwo Eshun &mdash; <em>More Brilliant Than the Sun</em> (1998) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Plant-Zeros-and-Ones-1997.txt">Sadie Plant &mdash; <em>Zeros and Ones</em> (1997) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Indigenous &amp; Decolonial Computing</div>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Lewis-et-al-Making-Kin-with-the-Machines-2018.txt">Lewis, Arista, Pechawis, Kite &mdash; "Making Kin with the Machines" (2018, CC-BY 4.0) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Costanza-Chock-Design-Justice-2020.txt">Sasha Costanza-Chock &mdash; <em>Design Justice</em> introduction (2020, MIT Press OA) <span class="file">txt</span></a>
+                <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/Escobar-Designs-for-the-Pluriverse-2018.txt">Arturo Escobar &mdash; <em>Designs for the Pluriverse</em> (2018) <span class="file">txt</span></a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Suggested additions per paper</div>
+                <span class="item" style="color:var(--cyan)">AC '26: Yuk Hui (digital objects), Costanza-Chock (design justice), Parrish (creative coding edu)</span>
+                <span class="item" style="color:var(--cyan)">KidLisp '26: Nasser (non-Latin PLs), Compton (Tracery), Eglash (already cited)</span>
+                <span class="item" style="color:var(--cyan)">notepat '26: Perry (physical computing), Knotts (network music), Eshun (sonic fiction)</span>
+                <span class="item" style="color:var(--cyan)">Pieces '26: Benjamin (design bias), Plant (computing history), Steyerl (digital materiality)</span>
+                <span class="item" style="color:var(--cyan)">OS '26: Barrag&aacute;n (Wiring), McIlwain (Black Software), Lewis et al (Indigenous AI)</span>
+                <span class="item" style="color:var(--cyan)">Archaeology '26: Brock (Distributed Blackness), Chun (already cited), Hui (technodiversity)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="section" data-section="reports">
+        <div class="section-header collapsed" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Reports</h2>
+            <span class="count">95 documents</span>
+        </div>
+        <div class="section-items hidden" id="reports-list"></div>
+    </div>
+
+    <!-- PLANS -->
+    <div class="section" data-section="plans">
+        <div class="section-header collapsed" data-color="gold" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Plans</h2>
+            <span class="count">156 documents</span>
+        </div>
+        <div class="section-items hidden" id="plans-list"></div>
+    </div>
+
+    <!-- STUDIES -->
+    <div class="section" data-section="studies">
+        <div class="section-header" data-color="green" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Studies</h2>
+            <span class="count">8 documents</span>
+        </div>
+        <div class="section-items" id="studies-list"></div>
+    </div>
+
+    <!-- REFERENCE -->
+    <div class="section" data-section="reference">
+        <div class="section-header collapsed" data-color="purple" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Reference</h2>
+            <span class="count">70 documents</span>
+        </div>
+        <div class="section-items hidden" id="reference-list">
+            <div class="item-group">
+                <div class="item-group-label">Strudel / Live Coding</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/strudel">reference/strudel/ — full Strudel source + ICLC paper</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">API & Language Reference</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/api/javascript-api.md">reference/api/javascript-api.md — AC JavaScript API reference</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/kidlisp/language-reference.md">reference/kidlisp/language-reference.md — KidLisp language reference</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/pieces/structure.md">reference/pieces/structure.md — Piece structure reference</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">KidLisp Reports</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/analysis-report.md">KidLisp Architecture Analysis vs TinyLisp</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/comparison-metrics.md">TinyLisp vs KidLisp: Architecture Comparison</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/raku-syntax-inspirations.md">Raku Syntactical Ideas for KidLisp</a>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/implementation-guide.md">KidLisp Optimization Implementation Guide</a>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Ableton / Music</div>
+                <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/ableton">reference/ableton/ — Ableton integration guides</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- APIS & DATA -->
+    <div class="section" data-section="apis">
+        <div class="section-header collapsed" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>APIs & Data Sources</h2>
+            <span class="count">92 endpoints · 32+ collections</span>
+        </div>
+        <div class="section-items hidden">
+            <div class="item-group">
+                <div class="item-group-label">Live API Endpoints</div>
+                <a class="item" href="https://aesthetic.computer/api/api-docs">api/api-docs — LLM-friendly API documentation</a>
+                <a class="item" href="https://aesthetic.computer/api/version">api/version — platform version</a>
+                <a class="item" href="https://aesthetic.computer/api/metrics">api/metrics — platform metrics</a>
+                <span class="item"><span class="file">92 total</span> Netlify serverless functions (auth, content, keeps, chat, billing, telemetry)</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">MongoDB Collections (key)</div>
+                <span class="item">users · @handles · pieces · kidlisp · paintings · tapes · moods</span>
+                <span class="item">chat-system · chat-sotce · chat-clock · hearts</span>
+                <span class="item">piece-hits · news-posts · products · boots · logs</span>
+                <span class="item">oven-bakes · kidlisp-codes · bundle-telemetry</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Services</div>
+                <span class="item">oven.aesthetic.computer — screenshot, OG preview, MP4, keeps rendering (~40 endpoints)</span>
+                <span class="item">silo.aesthetic.computer — admin dashboard, DB browser, firehose, service health</span>
+                <span class="item">session-server — WebSocket real-time (chat, multiplayer, presence)</span>
+                <span class="item">feed.aesthetic.computer — Cloudflare Worker, ATProto activity feed</span>
+                <span class="item">grab.aesthetic.computer — Cloudflare Browser Rendering screenshots</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">External Integrations</div>
+                <span class="item">Tezos blockchain (keeps NFT contract)</span>
+                <span class="item">ATProto / Bluesky (cross-posting, federation)</span>
+                <span class="item">DigitalOcean Spaces (CDN: art, user, at-blobs buckets)</span>
+                <span class="item">Auth0 (aesthetic.us.auth0.com, sotce.us.auth0.com)</span>
+                <span class="item">Dropbox (me@jas.life — 1.3 TiB readings, archives, tapes)</span>
+            </div>
+            <div class="item-group">
+                <div class="item-group-label">Platform Stats (SCORE.md)</div>
+                <span class="item">359 built-in pieces · 2,810 handles · 265 user pieces</span>
+                <span class="item">4,425 paintings · 16,523 KidLisp programs · 18,048 chat messages</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOFTWARE HISTORY -->
+    <div class="section" data-section="software-history">
+        <div class="section-header collapsed" data-color="cyan" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Jeffrey's Software History (Pre-AC)</h2>
+            <span class="count">94 projects — from 50+ GitHub repos, Dropbox, bin-sc archive, CV (2007–2024)</span>
+        </div>
+        <div class="section-items hidden">
+            <h3 style="color: var(--pink); margin: 0.8em 0 0.4em; font-size: 0.95em;">Major Software Works (12)</h3>
+            <div class="item-dual"><span class="file">thePRBAT</span> <span class="label">Polygon Replicating Bitmap Authoring Tool — digital imaging (2011, Flash/SWF)</span></div>
+            <div class="item-dual"><span class="file">No Paint</span> <span class="label">"A picture-making instrument" — Rails → JS shim → WebGL → iOS → Vercel (2014–2020)</span> <span class="item-links"><a href="https://nopaint.art">live</a><a href="https://github.com/whistlegraph/nopaint">src</a><a href="https://nopaint-org.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">JeffreyPaint</span> <span class="label">"My paint program" — JS + Unity + macOS .dmg (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/jeffreypaint">src</a></span></div>
+            <div class="item-dual"><span class="file">Shrub</span> <span class="label">iOS app (Linked by Air, 2014) → 2017 web prototype</span></div>
+            <div class="item-dual"><span class="file">Finger Quilt</span> <span class="label">Quilting-inspired drawing tool for iOS (2016, Swift)</span> <span class="item-links"><a href="https://github.com/whistlegraph/finger-quilt">src</a></span></div>
+            <div class="item-dual"><span class="file">Traveller</span> <span class="label">Processing → 3 macOS .app builds, generative tool (2015)</span></div>
+            <div class="item-dual"><span class="file">Mood Engine</span> <span class="label">"Maskware's MOOD Engine" — native C (2015)</span> <span class="item-links"><a href="https://github.com/whistlegraph/mood">src</a></span></div>
+            <div class="item-dual"><span class="file">bt</span> <span class="label">"My first computer game" (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/bt">src</a></span></div>
+            <div class="item-dual"><span class="file">Dot</span> <span class="label">"A dot plotting application" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/dot">src</a></span></div>
+            <div class="item-dual"><span class="file">Rect</span> <span class="label">"Rectangle game" — only Rust project (2019)</span> <span class="item-links"><a href="https://github.com/whistlegraph/rect">src</a></span></div>
+            <div class="item-dual"><span class="file">ShelbySoft</span> <span class="label">VoiceRecorder.app + VoiceWriter.app (macOS)</span></div>
+            <div class="item-dual"><span class="file">TDA</span> <span class="label">Teacher Directed Activity — educational software</span></div>
+
+            <h3 style="color: var(--cyan); margin: 0.8em 0 0.4em; font-size: 0.95em;">Web Applications &amp; Creative Tools (15)</h3>
+            <div class="item-dual"><span class="file">drawings</span> <span class="label">"An archive of my drawings" — drawings.rey.sc (2015, Ruby)</span> <span class="item-links"><a href="https://github.com/whistlegraph/drawings">src</a><a href="https://drawings-rey-sc.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">Word Web</span> <span class="label">Hyperlinked text creation (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/word_web">src</a><a href="https://ww-rey-sc.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">bigwalt59</span> <span class="label">Hypertext poem — Global Game Jam 2015 w/ Lali Foster</span> <span class="item-links"><a href="https://github.com/whistlegraph/bigwalt59">src</a><a href="https://bigwalt59-com.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">Exploding Dinner</span> <span class="label">"ttt fork to rails (a text game)" (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/explodingdinner">src</a></span></div>
+            <div class="item-dual"><span class="file">Tumpin</span> <span class="label">"Tumpin for left.gallery by JAS" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/tumpin">src</a></span></div>
+            <div class="item-dual"><span class="file">Ten Minute Painting</span> <span class="label">"Homage to Tan Lin's Eleven Minute Painting" — acquired by SMK Denmark (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/ten-minute-painting">src</a></span></div>
+            <div class="item-dual"><span class="file">Flower Eater</span> <span class="label">"One button web game about a girl who eats flowers" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/flower-eater.com">src</a></span></div>
+            <div class="item-dual"><span class="file">BW-Flower</span> <span class="label">Black &amp; white flower — native C (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/BW-Flower">src</a></span></div>
+            <div class="item-dual"><span class="file">Meeting Mr. Kid Pix</span> <span class="label">Internet Archive Artist in Residence (2019)</span></div>
+            <div class="item-dual"><span class="file">allmyfriendsatonce.com</span> <span class="label">Web project — Jeffrey as programmer (2013)</span></div>
+            <div class="item-dual"><span class="file">drawinghomework.net</span> <span class="label">Collaborative drawing platform (2016–2017)</span></div>
+            <div class="item-dual"><span class="file">Grid Walker, Thumbnailer, cc_paint</span> <span class="label">Game, utility, paint tools</span></div>
+            <div class="item-dual"><span class="file">Marker, Cricket</span> <span class="label">Drawing tool (2015), creative tool</span></div>
+            <div class="item-dual"><span class="file">paint-prototype</span> <span class="label">Unnamed paint prototype (2019)</span> <span class="item-links"><a href="https://github.com/whistlegraph/paint-prototype">src</a></span></div>
+            <div class="item-dual"><span class="file">Nudge</span> <span class="label">Under No Paint umbrella</span></div>
+
+            <h3 style="color: var(--purple); margin: 0.8em 0 0.4em; font-size: 0.95em;">Performance &amp; Collaboration Tools (5)</h3>
+            <div class="item-dual"><span class="file">Peter</span> <span class="label">"Web app + Photoshop panel for audience image uploads" — Julia Yerger (2017)</span> <span class="item-links"><a href="https://github.com/justanothersystem/peter">src</a></span></div>
+            <div class="item-dual"><span class="file">border-notation</span> <span class="label">"Border animation notation for GP&amp;PLS" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/border-notation">src</a></span></div>
+            <div class="item-dual"><span class="file">pmet-subs</span> <span class="label">"Subtitle program for Pro Monarkistisk Extratone" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/pmet-subs">src</a></span></div>
+            <div class="item-dual"><span class="file">Shutter Rub</span> <span class="label">"Fikra Design Biennal 2018 tool for Knoth &amp; Renner"</span> <span class="item-links"><a href="https://github.com/whistlegraph/fikra-18-shutter-rub">src</a></span></div>
+            <div class="item-dual"><span class="file">pic.jeffreyheart89.com</span> <span class="label">"Digital painting delivery service" (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/pic.jeffreyheart89.com">src</a></span></div>
+
+            <h3 style="color: var(--gold); margin: 0.8em 0 0.4em; font-size: 0.95em;">Websites &amp; Web Projects (13)</h3>
+            <div class="item-dual"><span class="file">Gordilloscudder</span> <span class="label">Gallery portfolio — Brooklyn (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/Gordilloscudder">src</a><a href="https://gordilloscudder-com.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">interludes-and-remnants</span> <span class="label">Exhibition website (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/interludes-and-remnants">src</a><a href="https://interludes-and-remnants-net.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">rey.sc</span> <span class="label">"rey.sc webpages" (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/rey">src</a></span></div>
+            <div class="item-dual"><span class="file">jas.life</span> <span class="label">"Homepage" (2016)</span> <span class="item-links"><a href="https://github.com/whistlegraph/jas.life">src</a></span></div>
+            <div class="item-dual"><span class="file">justanothersystem.org</span> <span class="label">RDP lecture tour team site (2017)</span> <span class="item-links"><a href="https://github.com/justanothersystem/www.justanothersystem.org">src</a></span></div>
+            <div class="item-dual"><span class="file">Attn: Trap</span> <span class="label">"Essay for Parallelograms, 2013" — interactive web essay</span> <span class="item-links"><a href="https://github.com/whistlegraph/Attn-Trap">src</a></span></div>
+            <div class="item-dual"><span class="file">digitpain.com</span> <span class="label">The digitpain.com website (2022)</span> <span class="item-links"><a href="https://github.com/whistlegraph/digitpain.com">src</a></span></div>
+            <div class="item-dual"><span class="file">currentcondition.org</span> <span class="label">Current Condition (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/current_condition">src</a></span></div>
+            <div class="item-dual"><span class="file">Konstanet 2016</span> <span class="label">"Web Component for Konstanet Group Show"</span> <span class="item-links"><a href="https://github.com/whistlegraph/konstanet-2016">src</a></span></div>
+            <div class="item-dual"><span class="file">Lauri</span> <span class="label">"Lauri Solin's Digital Paintings" (2018)</span> <span class="item-links"><a href="https://github.com/whistlegraph/lauri">src</a></span></div>
+            <div class="item-dual"><span class="file">syl.rey.sc</span> <span class="label">Course syllabi — Parsons &amp; UCLA</span> <span class="item-links"><a href="https://syl-rey-sc.jas.life">archive</a></span></div>
+            <div class="item-dual"><span class="file">bin.sc</span> <span class="label">109GB personal file archive</span></div>
+            <div class="item-dual"><span class="file">digpain.org, maskware.net, daisychainbook.com</span> <span class="label">Creative web domains</span></div>
+
+            <h3 style="color: var(--green); margin: 0.8em 0 0.4em; font-size: 0.95em;">Professional &amp; Client Work (9)</h3>
+            <div class="item-dual"><span class="file">Linked by Air</span> <span class="label">Institutional web design (2013–2014)</span></div>
+            <div class="item-dual"><span class="file">Printed Matter</span> <span class="label">NY &amp; LA Art Book Fair websites (2012–2013)</span></div>
+            <div class="item-dual"><span class="file">art.yale.edu</span> <span class="label">Student admin — Yale School of Art wiki (2012)</span></div>
+            <div class="item-dual"><span class="file">GIPHY</span> <span class="label">Technical Curator + giphy-upload-proxy (2017)</span> <span class="item-links"><a href="https://github.com/whistlegraph/giphy-upload-proxy">src</a></span></div>
+            <div class="item-dual"><span class="file">NADA banners</span> <span class="label">New Art Dealers Association (2016)</span> <span class="item-links"><a href="https://github.com/whistlegraph/nada-banners">src</a></span></div>
+            <div class="item-dual"><span class="file">Kickstarter</span> <span class="label">Contract web dev (2016)</span></div>
+            <div class="item-dual"><span class="file">Juan Dominguez app</span> <span class="label">"Cross-platform mobile app for California lawyer" (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/juan-dominguez-mobile-app">src</a></span></div>
+            <div class="item-dual"><span class="file">Quake Pebble</span> <span class="label">Pebble smartwatch project (2014)</span> <span class="item-links"><a href="https://github.com/whistlegraph/quake-pebble">src</a></span></div>
+            <div class="item-dual"><span class="file">buccellati-digital-brochure</span> <span class="label">Luxury jewelry brand brochure</span></div>
+
+            <h3 style="color: var(--purple); margin: 0.8em 0 0.4em; font-size: 0.95em;">Developer Tools (5)</h3>
+            <div class="item-dual"><span class="file">live</span> <span class="label">"Reloads browser automatically" — live-reload server (2016, Ruby)</span> <span class="item-links"><a href="https://github.com/whistlegraph/live">src</a></span></div>
+            <div class="item-dual"><span class="file">cfg</span> <span class="label">Early dotfiles (2013, VimL)</span> <span class="item-links"><a href="https://github.com/whistlegraph/cfg">src</a></span></div>
+            <div class="item-dual"><span class="file">tools</span> <span class="label">"Directory of web based creative tools" — drawing software catalog</span> <span class="item-links"><a href="https://github.com/justanothersystem/tools">src</a></span></div>
+            <div class="item-dual"><span class="file">headless-chrome</span> <span class="label">Netlify headless Chrome — precursor to oven (2022)</span> <span class="item-links"><a href="https://github.com/whistlegraph/netlify-functions-headless-chrome">src</a></span></div>
+            <div class="item-dual"><span class="file">dotfiles</span> <span class="label">"All my configuration" (2021)</span> <span class="item-links"><a href="https://github.com/whistlegraph/dotfiles">src</a></span></div>
+
+            <h3 style="color: var(--pink); margin: 0.8em 0 0.4em; font-size: 0.95em;">Generative Art &amp; Blockchain (2021–2023)</h3>
+            <div class="item-dual"><span class="file">DIGITPAIN</span> <span class="label">5-iteration painting + Ableton + Blender 3D + GLB sculptures</span></div>
+            <div class="item-dual"><span class="file">hell_ world</span> <span class="label">Generative art — Wild.xyz (2023, 150+ outputs)</span> <span class="item-links"><a href="https://wild.xyz/jeffrey-scudder/hell-world">wild.xyz</a></span></div>
+            <div class="item-dual"><span class="file">harbingers-player</span> <span class="label">NFT art player (2022)</span> <span class="item-links"><a href="https://github.com/whistlegraph/harbingers-player">src</a></span></div>
+            <div class="item-dual"><span class="file">spooky-treez-player</span> <span class="label">NFT art player (2022, TypeScript)</span> <span class="item-links"><a href="https://github.com/whistlegraph/spooky-treez-player">src</a></span></div>
+            <div class="item-dual"><span class="file">the-longest-whistlegraph-ever</span> <span class="label">"Microsite for Rhizome" — New Museum (2022)</span> <span class="item-links"><a href="https://github.com/whistlegraph/the-longest-whistlegraph-ever">src</a></span></div>
+            <div class="item-dual"><span class="file">ordfish, sotce world, textfence, inscriptions, basedballz</span> <span class="label">Generative art / ordinals / animation</span></div>
+
+            <h3 style="color: var(--cyan); margin: 0.8em 0 0.4em; font-size: 0.95em;">AC Platform Evolution (4 repos, 2021–present)</h3>
+            <div class="item-dual"><span class="file">system-ac</span> <span class="label">"My virtual computer system for loading and running disks" — started on Glitch (2021-08)</span> <span class="item-links"><a href="https://github.com/whistlegraph/system-ac">src</a></span></div>
+            <div class="item-dual"><span class="file">disks-ac</span> <span class="label">Original disks: prompt, doodle, plot, pull, stage, starfield, tracker, whistlegraph (2021-08)</span> <span class="item-links"><a href="https://github.com/whistlegraph/disks-ac">src</a></span></div>
+            <div class="item-dual"><span class="file">2022.aesthetic.computer</span> <span class="label">"Compute aesthetically" — first merged monorepo (2021-12)</span> <span class="item-links"><a href="https://github.com/whistlegraph/2022.aesthetic.computer">src</a></span></div>
+            <div class="item-dual"><span class="file">aesthetic-computer</span> <span class="label">Current monorepo (2022-12–present)</span> <span class="item-links"><a href="https://github.com/whistlegraph/aesthetic-computer">src</a></span></div>
+
+            <h3 style="color: var(--dim); margin: 0.8em 0 0.4em; font-size: 0.95em;">Archived &amp; Miscellaneous (18+)</h3>
+            <div class="item-dual"><span class="file">whistlebotv2, double-pj, Explained Pictures, Soft Wallpaper, Pop Sounds</span> <span class="label">Bot, camera, lecture, creative, audio</span></div>
+            <div class="item-dual"><span class="file">false.work GameBoy, agenda</span> <span class="label">UE5 experiments, personal diary (2022)</span></div>
+            <div class="item-dual"><span class="file">2017 prototypes</span> <span class="label">spot, semaphore, recorder.js, Dr. Dot Stream, WASM Tests, fall</span></div>
+            <div class="item-dual"><span class="file">Processing + ChucK</span> <span class="label">Creative coding &amp; audio (2007–2016)</span></div>
+            <div class="item-dual"><span class="file">16 Dropbox zipped repos</span> <span class="label">block, fe, Maskware, soulseek, clocktower-audio-player, UbuTriplex, etc.</span></div>
+
+            <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/jas-software-history.txt" style="margin-top: 0.5em; font-size: 0.85em;">Full software history with all archive locations &amp; GitHub links (plain text)</a>
+        </div>
+    </div>
+
+    <!-- SELF -->
+    <div class="section" data-section="self">
+        <div class="section-header collapsed" data-color="pink" onclick="toggleSection(this)">
+            <span class="toggle">&#9660;</span>
+            <h2>Jeffrey's Documents</h2>
+            <span class="count">CV, proposals, personal statements</span>
+        </div>
+        <div class="section-items hidden">
+            <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/jas-cv.txt">Jeffrey Alan Scudder — Academic CV</a>
+            <a class="item" href="https://aesthetic.computer/assets/papers/readings/text/jas-personal-statement.txt">Jeffrey Alan Scudder — Personal Statement: Core Beliefs</a>
+            <span class="item">Jeffrey Alan Scudder — Portfolio (UCLA, 2022)</span>
+            <span class="item">Jeffrey Alan Scudder — AC Proposal for Social Software Cycle 2 (UCLA DESMA, 2026)</span>
+            <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jeffrey-alan-scudder-fact-check.md">Jeffrey Alan Scudder — Fact-Checked Report</a>
+            <a class="item" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jeffrey-economic-history.md">Jeffrey Alan Scudder — Economic History &amp; Funding Timeline</a>
+            <a class="item" href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a>
+        </div>
+    </div>
+
+    </div><!-- /sections -->
+
+    <div class="footer">
+        <span><a href="/">papers</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://github.com/whistlegraph/aesthetic-computer">source</a></span>
+        <button class="theme-toggle" onclick="toggleTheme()">theme</button>
+    </div>
+
+    <script>
+        // Data for dynamically populated sections
+        const reports = [
+            ["2026-01-03-dollar-code-loading-issue.md","$code Loading Issue Investigation"],
+            ["2026-01-12-websocket-module-loader.md","WebSocket Module Loader Status Report"],
+            ["2026-01-21-emacs-stack-report.md","Emacs Stack Report (Docker)"],
+            ["2026-01-31-notepat-hover-overlay-experiment.md","Notepat hover overlay experiment"],
+            ["2026-02-16-score-tone-analysis.md","On the Voice of SCORE.md"],
+            ["2026-02-17-you-are-not-just-your-brain.md","You Are Not (Just) Your Brain & AC"],
+            ["2026-02-19-what-is-happening-to-writing.md","What Is Happening to Writing? & AC"],
+            ["2026-02-21-rest-of-day.md","Rest of Day — Friday, February 20, 2026"],
+            ["2026-02-27-mail-inbox-emacs-mcp-secrets-report.md","Mail Inbox + Emacs MCP + Secrets"],
+            ["2026-03-07-macbook-xdr-display.md","MacBook Pro XDR Display Issue"],
+            ["2026-03-10-keeps-audit-mainnet.md","Keeps Contract Audit (mainnet)"],
+            ["2026-03-10-keeps-v11-security-gap-analysis.md","Keeps v11 Security Gap Analysis"],
+            ["2026-03-10-keeps-v12-and-25-year-stability-plan.md","Keeps v12 + 25-Year Stability Plan"],
+            ["README.md","Intelligence at the Edges: Master Summary"],
+            ["UX-TRACK.md","UX Track: Designing for Living Intelligence"],
+            ["ac-html-frontend-style-guide.md","AC HTML Frontend Style Guide"],
+            ["ac-piece-style-guide.md","AC Piece (Disk) Style Guide"],
+            ["account-deletion-audit.md","Account Deletion Feature Audit"],
+            ["android-app-report.md","Android App Report"],
+            ["api-security-analysis-2026-02-12.md","Security Analysis: JS Piece Execution API"],
+            ["autopat-plan.md","Autopat plan (notepat autoplay)"],
+            ["boot-performance-2026-01-28.md","Boot Performance Report"],
+            ["bop-blur-gray-issue-2026-02-05.md","$bop Gray Screen / Blur Issue"],
+            ["bumper-viewport-issue.md","Bumper Viewport Issue"],
+            ["chat-hearts.md","Chat Hearts Implementation"],
+            ["chat-paint-performance.md","Chat Paint Performance"],
+            ["clock-stample-code-feature.md","Clock Stample Code Feature"],
+            ["clock-syntax-and-sequence-advancement.md","Clock Syntax & Sequence Advancement"],
+            ["coordinate-regression-fix.md","Pen Coordinate Regression (SOLVED)"],
+            ["core-loop-visibility-analysis.md","Core Loop & Page Visibility"],
+            ["cryptocat-revival-ac-dms.md","Cryptocat Revival for AC DMs"],
+            ["email-blast-give-ac-status-2026-02.md","Email Blast Status: give.ac"],
+            ["fedac-sub-1gb-os-feasibility.md","FedAC Sub-1GB OS Feasibility"],
+            ["feed-channels.md","Feed Broadcast Plan"],
+            ["feral-file-email-reply-experiments.md","Feral File Tezos FA2 Integration"],
+            ["flusser-underdevelopment-ac.md","Flusser's Phenomenology & AC"],
+            ["funding-action-plan-2026-03-03.md","Funding Action Plan"],
+            ["gpu-rendering-pipeline-study.md","GPU Rendering Pipeline Study"],
+            ["ink-function-gradient-documentation.md","Ink Function & Gradient Docs"],
+            ["javascript-mjs-mode-feasibility.md","JS/MJS Mode for kidlisp.com"],
+            ["jeffrey-alan-scudder-fact-check.md","Jeffrey Alan Scudder Fact Check"],
+            ["jukebox-feature-analysis.md","KidLisp Jukebox Feature"],
+            ["keep-mint-loop-bug.md","Keep Mint Infinite Loop Bug"],
+            ["keep-performance.md","Keep Mint Performance"],
+            ["kidlisp-all-chains-comparison-2026-02.md","KidLisp Multi-Chain Comparison"],
+            ["kidlisp-fa2-contract-spec.md","KidLisp FA2 Contract Spec"],
+            ["kidlisp-feral-file-architecture-analysis.md","KidLisp Feral File Architecture"],
+            ["kidlisp-hybrid-strategy-solana-tezos-2026-02.md","KidLisp Hybrid: Tezos + Solana"],
+            ["kidlisp-tezos-vs-solana-pumpfun-2026-02.md","KidLisp Revenue: Tezos vs Solana"],
+            ["kidlisp-x-ff1-art-computer-integration-proposal.md","AC KidLisp x FF1 Art Computer"],
+            ["llm-high-metaphors.md","Beyond Documentation: LLM Metaphors"],
+            ["merry-crossfade-kidlisp-compositor-study.md","Merry Crossfade Compositor Study"],
+            ["monetization-stack-2026-02.md","Monetization Report"],
+            ["mongodb-migration-2026-02.md","MongoDB Migration Report"],
+            ["network-scan-report-2026-02-27-1640-pst.md","Network Scan Report"],
+            ["neural-primitives-full-stack.md","Neural Primitives Full Stack"],
+            ["notepat-audio-latency-report.md","Notepat Audio Latency"],
+            ["notepat-stability.md","Notepat Stability Test"],
+            ["notification-system-analysis-2026.md","Notification System Analysis"],
+            ["offline-audio-rendering-clock-usb.md","Offline Audio & Clock USB Export"],
+            ["orcid-integration.md","ORCID Integration"],
+            ["parallel-kidlisp-workers-feasibility.md","Parallel KidLisp Workers"],
+            ["patch-command-admin-pr-agent.md","Patch Command Admin PR Agent"],
+            ["pen-handling-regression-analysis.md","Pen Handling Regression"],
+            ["portal-wars-report.md","Web Portals vs Open Web"],
+            ["privacy-policy-audit.md","Privacy Policy Audit"],
+            ["rendering-stack-reframe-analysis.md","Rendering Stack Reframe"],
+            ["sandbox-canvas-performance-report.md","Sandbox Canvas Performance"],
+            ["shared-array-buffer-and-embedding.md","SharedArrayBuffer & Embedding"],
+            ["sotce-canvas-garden-progress.md","Sotce Canvas Garden Progress"],
+            ["sotce-canvas-garden.md","Sotce Canvas Garden"],
+            ["spotify-dj-feasibility-report.md","Spotify DJ Feasibility"],
+            ["stample-layout-redesign.md","Stample Layout Redesign"],
+            ["stample-recording-bug.md","Stample Recording Bug"],
+            ["strudel-integration-analysis.md","Strudel Integration for Jukebox"],
+            ["tape-command-research.md","Tape Command Research"],
+            ["thinkpad-ac-kiosk-report.md","ThinkPad AC Kiosk"],
+            ["try-pages-shared-client-lib-feasibility-2026-02-27.md","Shared Try Page Client Lib"],
+            ["usb-uke-to-dj-deck-feasibility.md","USB Uke to DJ Deck"],
+            ["video-underlay-ui-diagnostics.md","Video Underlay UI Diagnostics"],
+            ["vscode-container-crash-debugging.md","VS Code Container Crash"],
+            ["websocket-module-loading.md","WebSocket Module Loading"],
+            ["webusb-dj-stick-generator.md","WebUSB DJ Stick Generator"],
+            ["yairi-model-700-guitar.md","Yairi Model 700 Guitar"],
+            ["report.md","Report"],
+            ["keep-modal-consolidation.md","Keep Modal Consolidation"],
+            ["jeffrey-economic-history.md","Jeffrey Economic History"],
+            ["2026-03-19-android-gpu-rendering-investigation.md","Android Gpu Rendering Investigation"],
+            ["2026-03-18-changeloggin-4-all.md","Changeloggin 4 All"],
+            ["2026-03-15-ac-native-browser-wayland-debug.md","Ac Native Browser Wayland Debug"],
+            ["2026-03-14-quest-3-bare-metal-linux-feasibility.md","Quest 3 Bare Metal Linux Feasibility"],
+            ["2026-03-12-tezos-nft-market-landscape.md","Tezos Nft Market Landscape"],
+            ["2026-03-12-jeffrey-kidlisp-sessions-and-keep-report.md","Jeffrey Kidlisp Sessions And Keep Report"],
+            ["2026-03-12-jeffrey-kidlisp-canonical-thumb-gallery.md","Jeffrey Kidlisp Canonical Thumb Gallery"],
+            ["2026-03-11-keeps-market-report.md","Keeps Market Report"],
+        ];
+
+        const plans = [
+            ["1v1-host-info-qr.md","1v1 Piece: Host Info & QR Code"],
+            ["1v1-quake-fps.md","1v1 Multiplayer Quake-like FPS"],
+            ["3d-text-rendering.md","3D Text Rendering (sign)"],
+            ["AC-ELECTRON-DEVENV-PLAN.md","AC Electron App Plan"],
+            ["KIDLISP-EDITOR-ARCHITECTURE.md","KidLisp Editor Architecture"],
+            ["KIDLISP-MULTI-PLATFORM-BOOKS.md","KidLisp Multi-Platform Books"],
+            ["KIDLISP_DEBUG_ANALYSIS.md","KidLisp Rendering Pipeline"],
+            ["KIDLISP_INTEGRATION_PLAN.md","KidLisp Integration with Painting API"],
+            ["RENDERER-BACKENDS.md","GPU Renderer Backends"],
+            ["REAL_TIME_PAINTING_SYNC.md","Real-Time Painting Sync"],
+            ["abc123-alphabet-numbers-system.md","ABC123 Alphabet & Numbers"],
+            ["apple-tv-app.md","Apple TV (tvOS) App"],
+            ["atproto-data-architecture.md","ATProto Data Architecture"],
+            ["atproto-integration-plan.md","ATProto Integration"],
+            ["atproto-pds-roadmap.md","ATProto PDS Roadmap"],
+            ["blur-implementation.md","Blur Function Implementation"],
+            ["chat-migration-to-session-server.md","Chat Migration to Session Server"],
+            ["clock-sigil-shortcodes.md","Clock Sigil Shortcodes"],
+            ["cross-tab-painting-sync.md","Cross-Tab Painting Sync"],
+            ["docs-js-lua-overhaul-hitlist.md","Docs Overhaul: MJS vs L5"],
+            ["electron-desktop-release.md","Electron Desktop Release"],
+            ["fedac-auto-updater.md","FedAC Auto-Updater"],
+            ["gpu-kidlisp-effects-acceleration.md","GPU KidLisp Effects"],
+            ["help-service.md","Help Service"],
+            ["implementation-unified-kidlisp.md","Unified KidLisp"],
+            ["keeps-redesign.md","Keeps Redesign"],
+            ["keeps-next-steps.md","Keeps Next Steps"],
+            ["kidlisp-background-persistence-feature.md","KidLisp Background Persistence"],
+            ["kidlisp-console-screenshots.md","KidLisp Console Screenshots"],
+            ["kidlisp-ecosystem-report.md","KidLisp Ecosystem Report"],
+            ["kidlisp-feral-file-architecture-analysis.md","KidLisp Feral File Architecture"],
+            ["kidlisp-latex-cards.md","KidLisp LaTeX Cards"],
+            ["kidlisp-live-parameter-editing.md","KidLisp Live Parameter Editing"],
+            ["kidlisp-m4l-integration.md","KidLisp Max for Live"],
+            ["kidlisp-make-integration.md","KidLisp Make Integration"],
+            ["kidlisp-og-preview.md","KidLisp OG Preview"],
+            ["kidlisp-singleton-refactor.md","KidLisp Singleton Refactor"],
+            ["kidlisp-slide-mode.md","KidLisp Slide Mode"],
+            ["kidlisp-visualization-tabs.md","KidLisp Visualization Tabs"],
+            ["l5-lua-processing-support.md","L5 Lua Processing Support"],
+            ["language-translation-pieces.md","Language Translation Pieces"],
+            ["lexicon-publication.md","Lexicon Publication"],
+            ["list-improvements.md","List Improvements"],
+            ["list-redesign.md","List Redesign"],
+            ["news-aesthetic-computer-hn-kidlisp-plan.md","News: AC on HN + KidLisp"],
+            ["notepat-kidlisp-background.md","Notepat KidLisp Background"],
+            ["oven-unified-capture-service.md","Oven Unified Capture"],
+            ["paypal-integration.md","PayPal Integration"],
+            ["pedal.md","Pedal"],
+            ["piece-analytics.md","Piece Analytics"],
+            ["recursive-embedded-kidlisp.md","Recursive Embedded KidLisp"],
+            ["remote-device-control.md","Remote Device Control"],
+            ["restrict-untrusted-piece-apis.md","Restrict Untrusted Piece APIs"],
+            ["robo.md","Robo"],
+            ["session-server-architecture.md","Session Server Architecture"],
+            ["solo-mode.md","Solo Mode"],
+            ["stow-file-upload-feature.md","Stow File Upload"],
+            ["tape-camera-av-feature.md","Tape Camera AV"],
+            ["tape-mp4-conversion-service.md","Tape MP4 Conversion"],
+            ["tape-player-refactor.md","Tape Player Refactor"],
+            ["tape-viewer-implementation.md","Tape Viewer Implementation"],
+            ["tv-fyp-implementation.md","TV FYP Implementation"],
+            ["tv-piece-plan.md","TV Piece Plan"],
+            ["unified-kidlisp-execution.md","Unified KidLisp Execution"],
+            ["vst-ableton-notepat-plugin.md","VST Ableton Notepat Plugin"],
+            ["webgpu-renderer-plan.md","WebGPU Renderer"],
+            ["websocket-module-loader.md","WebSocket Module Loader"],
+            ["zoom-vs-suck-implementation-report.md","Zoom Vs Suck Implementation Report"],
+            ["zebra-color-sequence-implementation.md","Zebra Color Sequence Implementation"],
+            ["whats-missing-from-ac-os-to-make-claude-shine.md","Whats Missing From Ac Os To Make Claude Shine"],
+            ["WEATHER-PIECE-ARCHITECTURE.md","WEATHER PIECE ARCHITECTURE"],
+            ["vscode-theme-development.md","Vscode Theme Development"],
+            ["vscode-chrome-devtools-mcp-integration.md","Vscode Chrome Devtools Mcp Integration"],
+            ["video-tape-post-implementation-complete.md","Video Tape Post Implementation Complete"],
+            ["video-tape-post-feature.md","Video Tape Post Feature"],
+            ["video-scrub-line-visibility-issue.md","Video Scrub Line Visibility Issue"],
+            ["video-button-reframe-issue.md","Video Button Reframe Issue"],
+            ["VIDEO_PROGRESS_IMPROVEMENTS.md","VIDEO PROGRESS IMPROVEMENTS"],
+            ["unifont-moods-fix.md","Unifont Moods Fix"],
+            ["unifont-character-width-fix.md","Unifont Character Width Fix"],
+            ["udp-multiplayer-analysis.md","Udp Multiplayer Analysis"],
+            ["tv-multi-tape-transition-system.md","Tv Multi Tape Transition System"],
+            ["TODO-kidlisp-fixes.md","TODO Kidlisp Fixes"],
+            ["teia-to-objkt-rename.md","Teia To Objkt Rename"],
+            ["tape-viewer-testing.md","Tape Viewer Testing"],
+            ["tape-viewer-symbol-design.md","Tape Viewer Symbol Design"],
+            ["TAPE-VIDEO-PROCESSING.md","TAPE VIDEO PROCESSING"],
+            ["TAPE-PREVIEW-ISSUE-ANALYSIS.md","TAPE PREVIEW ISSUE ANALYSIS"],
+            ["suck-redesign-notes.md","Suck Redesign Notes"],
+            ["suck-function-fixed.md","Suck Function Fixed"],
+            ["sotce-fyp-pages.md","Sotce Fyp Pages"],
+            ["slgb-spider-lily-gameboy-autoload.md","Slgb Spider Lily Gameboy Autoload"],
+            ["session-server-status-page.md","Session Server Status Page"],
+            ["session-dashboard-progress.md","Session Dashboard Progress"],
+            ["SECURITY-SECRETS.md","SECURITY SECRETS"],
+            ["sameboy-unreal-gameboy-on-texture.md","Sameboy Unreal Gameboy On Texture"],
+            ["rgb-first-line-color-support.md","Rgb First Line Color Support"],
+            ["repeat-alias-research.md","Repeat Alias Research"],
+            ["PROMPT-TOOLTIP-SYSTEM.md","PROMPT TOOLTIP SYSTEM"],
+            ["profile-scorecard-realtime-plan.md","Profile Scorecard Realtime Plan"],
+            ["per-note-waveform-visualization.md","Per Note Waveform Visualization"],
+            ["painting-short-codes-plan.md","Painting Short Codes Plan"],
+            ["pack-$39i.md","Pack $39i"],
+            ["oskie-audio-1v1.md","Oskie Audio 1v1"],
+            ["objkt-to-pack-mode-rename.md","Objkt To Pack Mode Rename"],
+            ["NOPAINT_COLOR_HIGHLIGHTING_PLAN.md","NOPAINT COLOR HIGHLIGHTING PLAN"],
+            ["news-todo.md","News Todo"],
+            ["native-web-pieces-low-hanging-fruit.md","Native Web Pieces Low Hanging Fruit"],
+            ["native-piece-mapping.md","Native Piece Mapping"],
+            ["nanoclaw-help-integration.md","Nanoclaw Help Integration"],
+            ["MULTIPLE-GAMEPAD-SUPPORT.md","MULTIPLE GAMEPAD SUPPORT"],
+            ["multi-font-chat.md","Multi Font Chat"],
+            ["mug-piece-ux.md","Mug Piece Ux"],
+            ["MOODS-BLUESKY-PERMALINKS.md","MOODS BLUESKY PERMALINKS"],
+            ["kidlisp-stage-mode-single-pane.md","Kidlisp Stage Mode Single Pane"],
+            ["kidlisp-mic-global.md","Kidlisp Mic Global"],
+            ["kidlisp-malformed-code-protection.md","Kidlisp Malformed Code Protection"],
+            ["kidlisp-hud-text-layout-issue.md","Kidlisp Hud Text Layout Issue"],
+            ["kidlisp-filled-circle-mode-support.md","Kidlisp Filled Circle Mode Support"],
+            ["kidlisp-embedding-fix.md","Kidlisp Embedding Fix"],
+            ["kidlisp-color-buffer-issue-2025-09-27.md","Kidlisp Color Buffer Issue 2025 09 27"],
+            ["kidlisp-cards-report.md","Kidlisp Cards Report"],
+            ["kidlisp-cards-palette.md","Kidlisp Cards Palette"],
+            ["kidlisp-blur-buffer-context-issue.md","Kidlisp Blur Buffer Context Issue"],
+            ["keeps-permalink-modals.md","Keeps Permalink Modals"],
+            ["keeps-gallery-improvements.md","Keeps Gallery Improvements"],
+            ["keeps-final-report.md","Keeps Final Report"],
+            ["judge-deployment.md","Judge Deployment"],
+            ["jesper-per-english-audio.md","Jesper Per English Audio"],
+            ["hud-drag-fix.md","Hud Drag Fix"],
+            ["HOTLINK-MODULARIZATION.md","HOTLINK MODULARIZATION"],
+            ["glaze-resize-sync.md","Glaze Resize Sync"],
+            ["git-commit-status-indicator.md","Git Commit Status Indicator"],
+            ["FISH-RENAME-ERROR-INVESTIGATION.md","FISH RENAME ERROR INVESTIGATION"],
+            ["firefox-on-ac-native.md","Firefox On Ac Native"],
+            ["EMBEDDED_LAYER_PERSISTENCE_BUG.md","EMBEDDED LAYER PERSISTENCE BUG"],
+            ["EMAIL-BLAST-GIVE-AC.md","EMAIL BLAST GIVE AC"],
+            ["emacs-tab-cleanup.md","Emacs Tab Cleanup"],
+            ["EMACS-EAT-STABILITY.md","EMACS EAT STABILITY"],
+            ["electron-per-window-volume-slider.md","Electron Per Window Volume Slider"],
+            ["edge-personalized-iso-delivery.md","Edge Personalized Iso Delivery"],
+            ["docs-l5-touchpoints-report.md","Docs L5 Touchpoints Report"],
+            ["density-keyboard-shortcuts.md","Density Keyboard Shortcuts"],
+            ["clock-parallel-timing-fix.md","Clock Parallel Timing Fix"],
+            ["clock-native-feasibility.md","Clock Native Feasibility"],
+            ["chat-jump-routing-analysis.md","Chat Jump Routing Analysis"],
+            ["chat-hearts.md","Chat Hearts"],
+            ["button-width-sizing-issue.md","Button Width Sizing Issue"],
+            ["BRUSH_ARTERY_TESTS_REPORT.md","BRUSH ARTERY TESTS REPORT"],
+            ["bdf-rotation-issue.md","Bdf Rotation Issue"],
+            ["bdf-matrix-glyph-rendering-teia-export-bug.md","Bdf Matrix Glyph Rendering Teia Export Bug"],
+            ["bake-layer-persistence-fix.md","Bake Layer Persistence Fix"],
+            ["artery-tui-emacs-eat-fix.md","Artery Tui Emacs Eat Fix"],
+            ["android-app-screenshots.md","Android App Screenshots"],
+            ["ac-machines-remote-monitoring.md","Ac Machines Remote Monitoring"],
+            ["ac-command-robustness.md","Ac Command Robustness"],
+        ];
+
+        const studies = [
+            ["ac-cli-public-plan.md","Public kidlisp CLI (Bun + npm)"],
+            ["artery-boot-detection.md","Artery Boot Detection & Telemetry"],
+            ["fedac-fedora-boot-to-ac.md","FedAC: Fedora Boot-to-AC OS"],
+            ["kidlisp-native-os-notepat-ac-native-study.md","Native KidLisp for Notepat + AC"],
+            ["l5lua-org-style-study.md","l5lua.org Visual Style + Logo"],
+            ["oven-amp-spoofing-report.md","Oven Amp Spoofing Feature"],
+            ["roz-function-profile-for-kidlisp-decree-26.md","$roz Function Profile for KidLisp"],
+            ["seashells-neural-bytebeat-garden-study.md","Seashells x Neural Garden"],
+        ];
+
+        const GH = "https://github.com/whistlegraph/aesthetic-computer/blob/main/";
+
+        function renderList(el, items, dir) {
+            el.innerHTML = items.map(([file, title]) =>
+                `<a class="item" href="${GH}${dir}/${file}" data-search="${file} ${title}"><span class="file">${file.replace('.md','')}</span> ${title}</a>`
+            ).join('');
+        }
+
+        renderList(document.getElementById('reports-list'), reports, 'reports');
+        renderList(document.getElementById('plans-list'), plans, 'plans');
+        renderList(document.getElementById('studies-list'), studies, 'studies');
+
+        function toggleSection(header) {
+            header.classList.toggle('collapsed');
+            const items = header.nextElementSibling;
+            items.classList.toggle('hidden');
+        }
+
+        // Search
+        const searchInput = document.getElementById('search');
+        const noResults = document.getElementById('no-results');
+
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            const sections = document.querySelectorAll('.section');
+            let anyVisible = false;
+
+            sections.forEach(section => {
+                const items = section.querySelectorAll('.item');
+                let sectionHasMatch = false;
+
+                items.forEach(item => {
+                    const text = (item.textContent + ' ' + (item.dataset.search || '')).toLowerCase();
+                    const match = !q || text.includes(q);
+                    item.style.display = match ? '' : 'none';
+                    if (match) sectionHasMatch = true;
+                });
+
+                section.style.display = sectionHasMatch ? '' : 'none';
+                if (sectionHasMatch) anyVisible = true;
+
+                // Auto-expand sections when searching
+                if (q && sectionHasMatch) {
+                    section.querySelector('.section-header').classList.remove('collapsed');
+                    section.querySelector('.section-items').classList.remove('hidden');
+                }
+            });
+
+            noResults.style.display = anyVisible ? 'none' : 'block';
+        });
+
+        function toggleTheme() {
+            const root = document.documentElement;
+            const isLight = root.classList.contains('light-mode');
+            const isDark = root.classList.contains('dark-mode');
+            if (isLight) { root.classList.remove('light-mode'); root.classList.add('dark-mode'); }
+            else if (isDark) { root.classList.remove('dark-mode'); root.classList.add('light-mode'); }
+            else {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                root.classList.add(prefersDark ? 'light-mode' : 'dark-mode');
+            }
+        }
+    </script>
+</body>
+</html>

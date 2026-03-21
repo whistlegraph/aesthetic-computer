@@ -1,0 +1,200 @@
+# Top @fifi kidlisp programs by hits
+
+## 1. hits=363 hash=10796b7bd2f6d9d949ab326dafac1f6388153da95dbbb50ded40de3c29eaf10c
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.25s... .7 ?) 
+bake
+write (.25s... "dog" "god") 160 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 2. hits=335 hash=948fd52974da58719cc99f1c7e455deedb15bb2a25f987a06c007d38b65dc3a3
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.25s... .7 ?) 
+bake
+write (.25s... "dog" "god") 170 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 3. hits=330 hash=2eb0413fad9f3a5d844e934e6ae041056606e6a6f5d04bf4cc6a0f3b87fecf09
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.25s... .7 ?) 
+bake
+write (.25s... "dog" "god") w/2 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 4. hits=308 hash=cb69756f011e440e8130874df486522c82d7557ae9bfc07c93f67e39afe8bc57
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.25s... .7 ?) 
+bake
+write (.25s... "dog" "god") 150 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 5. hits=271 hash=b96e1f2fa6b13e78079ef4cc5e33c523f9247f25660a50c81a210f985e41f280
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.5s... .7 ?) 
+bake
+write (.35s... "dog" "god") w/2 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 6. hits=242 hash=3b5a1eb97d3170838bd9911b36d2e2bf5e4683fdce4cd3d9f0841e0693da2870
+white
+stamp #48q 150 150 1
+scroll frame 12
+#e8j
+blur 2
+bake
+zoom (.5s... .5 1 ?)
+scroll width/2 5
+blur 2
+spin -3
+fps 24
+bake
+write "miracle mindset" 150 153 white
+scroll width/2
+zoom (1s... 2 .7 ?)
+spin -3
+
+## 7. hits=229 hash=23934854ba7896d97076ee99df6fa7e731a3c4d2d3373994e23a9edc28172151
+white
+stamp #48q 150 150 1
+scroll width/4 12
+#e8j
+blur 2
+bake
+zoom (.5s... .5 1 ?)
+scroll width/2 5
+blur 2
+spin -3
+fps 24
+bake
+write "miracle mindset" 150 153 white
+scroll width/2
+zoom (1s... 2 .7 ?)
+spin -3
+
+## 8. hits=214 hash=f522afe589e8785edcb7dd039cd1cb6e8ea19ed2db6fb58d597874aeae2f117f
+fade:lightsteelblue-pink-lightgreen:vertical
+spin -10 
+scroll frame -5
+scroll width/5 frame
+blur 2
+bake
+stamp #dml 270 280 1.2 20
+blur (1s... 1 2)
+zoom (.25s... .8 ?)
+spin -10
+bake
+stamp #o2d 190 h/2 1.3 
+blur 2 
+zoom (.25s... .7 ?) 
+bake
+write (.25s... "dog" "god") 165 h/2 zebra
+fps 24
+stamp #dml 60 80 .8 170
+blur 2
+
+## 9. hits=200 hash=fb35362efdc14631b0937a1cc18a33a969e309946b01382b883bca8c258933ed
+white
+stamp #48q 150 150 1
+scroll width/4 12
+scroll frame
+#e8j
+blur 2
+bake
+zoom (.5s... .5 1 ?)
+scroll width/2 5
+blur 2
+spin -3
+fps 24
+bake
+write "miracle mindset" 150 153 white
+scroll width/2
+zoom (1s... 2 .7 ?)
+spin -3
+
+## 10. hits=197 hash=9cc79abb15bc69d3efcde07800f14d59dccf2ffece7d5f3fc8cd4e48a199776b
+white
+stamp #48q 150 150 1
+scroll frame 12
+#e8j
+blur 2
+bake
+zoom (.5s... .5 1 ?)
+scroll width/4 5
+blur 2
+spin -3
+fps 24
+bake
+write "miracle mindset" 150 150 white
+scroll width/2
+zoom (1s... 2 .7 ?)
+spin -3

@@ -1,0 +1,164 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={Netværksrevision: Hvem bruger Aesthetic Computer, og hvad laver de?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Netværksrevision}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Hvem bruger Aesthetic Computer, og hvad laver de?}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} En selvevaluering af platformidentitet, geografi og kreativt output}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+\ac{} indsamler ikke demografiske data. Det har intet aldersfelt, intet kønsfelt, intet racefelt, intet indkomstfelt. Det ved tre ting om sine brugere: deres valgte handle, hvad de laver, og---gennem boottelemetri---omtrent hvor de er, når de laver det. Denne artikel præsenterer en netværksrevision af \ac{}-platformen udelukkende ved brug af data, systemet faktisk indsamler: 2.811 registrerede handles, 93.122 bootsessioner med geografiske headere, 16.634 \kl{}-programmer af 59 forfattere, 18.062 chatbeskeder, 4.428 malerier, 265 publicerede pieces og 2.900 stemninger. Vi argumenterer for, at \emph{fraværet} af demografiske data i sig selv er en designposition---én med både frigørende potentiale og reelle begrænsninger---og at revision af en platform gennem, hvad dens brugere \emph{laver} snarere end hvem de \emph{er}, producerer en anden type viden om fællesskab.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+Platformrevisioner begynder typisk med demografi. \ac{}~\citep{scudder2026ac} sælger ikke reklamer. Det indsamler ikke demografiske data. En bruger registrerer sig med en e-mailadresse og vælger et handle. Det handle, og de ting lavet under det, udgør platformens samlede viden om personen.
+
+Denne begrænsning---født af privacyprincipper, ikke af forsømmelighed---betyder, at en konventionel platformrevision er umulig. Hvad vi kan rapportere om, er, hvad platformen faktisk observerer: geografiske signaler fra netværksheadere, kreativt output på tværs af fire indholdstyper, social interaktion gennem chat og reaktioner, og sprogfunktionsadoption i \kl{}-programmer.
+
+\section{Folketællingen}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{Xr}
+\toprule
+\textbf{Metrik} & \textbf{Antal} \\
+\midrule
+Auth0-konti (total) & 18.187 \\
+Auth0-konti (verificerede) & 5.373 \\
+Registrerede @handles & 2.811 \\
+Bootsessioner (livstid) & 93.122 \\
+\midrule
+KidLisp-programmer & 16.634 \\
+Malerier & 4.428 \\
+Chatbeskeder & 18.062 \\
+Stemninger (statusopdateringer) & 2.900 \\
+Publicerede pieces & 265 \\
+Bånd (videooptagelser) & 102 \\
+Ure & 333 \\
+Fysiske print bestilt & 20 \\
+\bottomrule
+\end{tabularx}
+\caption{Platformfolketælling per marts 2026.}
+\label{tab:census}
+\end{table}
+
+Tragten fra kontooprettelse (18.187) til handleregistrering (2.811) til indholdsskabelse ($\sim$1.100 brugere med mindst ét maleri, stemning eller program) til vedvarende bidrag ($\sim$59 \kl{}-forfattere) følger mønstret, Eghbal beskriver i open source-fællesskaber~\citep{eghbal2020working}.
+
+\subsection{Skaber/forbruger-forhold}
+
+38\% af registrerede brugere har malet---en bemærkelsesværdig høj skabelsesrate. Faldet til 2,1\% for \kl{} og 0,7\% for piece-forfatterskab afspejler den højere færdighedsbarriere ved tekstbaseret kreativ kodning.
+
+\section{Geografisk distribution}
+
+\ac{}'s boottelemetri fanger land, region og by fra Netlify edge-headere for hver session. Disse data indsamles uden cookies, uden sporingspixels og uden brugersamtykkeformularer.
+
+\section{Kreativt outputanalyse}
+
+\subsection{\$-kode kompositionsgrafen}
+
+\kl{}'s primære abstraktionsmekanisme---indlejring af programmer via kort kode---skaber en implicit afhængighedsgraf. Denne graf er et unikt datasæt: det fanger kreativt samarbejde som afhængighed, ikke som eksplicit social interaktion.
+
+\section{Social topologi}
+
+\subsection{Chat}
+
+18.062 beskeder på tværs af to chatinstanser. Hjerter (reaktioner) skaber en bipartit bruger-besked affinitetsgraf.
+
+\subsection{Handle som identitet}
+
+Handlesystemet fortjener opmærksomhed som et designvalg. Et handle er et enkelt ord valgt af brugeren. Det bærer intet demografisk signal ved design. Platformen kan ikke udlede alder fra et handle. Den kan ikke udlede køn. Den kan ikke udlede race. Dette er både en begrænsning og en befrielse.
+
+\section{Hvad vi ikke kan måle}
+
+\begin{itemize}
+  \item \textbf{Alder}: ukendt. Intet registreringsfelt.
+  \item \textbf{Køn}: ukendt. Intet registreringsfelt.
+  \item \textbf{Race/etnicitet}: ukendt. Intet registreringsfelt.
+  \item \textbf{Indkomst}: ukendt. Intet registreringsfelt.
+  \item \textbf{Handicapstatus}: ukendt. Intet registreringsfelt.
+  \item \textbf{Uddannelsesniveau}: ukendt. Intet registreringsfelt.
+\end{itemize}
+
+Fraværet af disse felter er ikke tilfældigt. \ac{} blev bygget på princippet om, at en kreativ platform bør vide så lidt som muligt om sine brugere ud over, hvad de vælger at dele gennem deres kreative arbejde~\citep{illich1973tools}. Dette princip har omkostninger: vi kan ikke rapportere om lighed, vi kan ikke identificere undertjente populationer, vi kan ikke måle, om platformen reproducerer eksisterende uligheder.
+
+Benjamins observation om, at ``raceneutralt'' design ofte indkoder eksisterende bias~\citep{benjamin2019race} gælder her. Beslutningen om ikke at indsamle demografiske data er ikke det samme som beslutningen om at betjene alle demografier ligeligt.
+
+\section{Konklusion}
+
+Denne revision rapporterer, hvad \ac{} ved om sine brugere: 2.811 handles, 93.122 sessioner fra identificerbare geografiske lokationer, og en samling kreativt arbejde, der udgør platformens reelle output. Den rapporterer ikke, hvad \ac{} ikke ved.
+
+Det konventionelle svar på dette hul er at indsamle de manglende data. Design justice-svaret~\citep{costanzachock2020design} er at spørge, om kategorierne selv tjener fællesskabet. \ac{}'s svar---indtil videre---har været at vide mindre og stole mere: at lade handles være identiteter, at lade arbejde tale for sig selv, og at acceptere den epistemiske omkostning ved ikke at vide, hvem der præcist er på den anden side af skærmen.
+
+Dette er en ærlig revision af et ufuldkomment system. Ufuldkommenhederne er dokumenterede. Systemet er live. Brugerne er virkelige. Hvad de laver, er det bedste bevis på, hvem de er.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

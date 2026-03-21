@@ -1,0 +1,8 @@
+# Ignore build-artifact PDFs inside paper source dirs
+# (published PDFs live in system/public/papers.aesthetic.computer/)
+arxiv-*/*.pdf
+arxiv-*/*.aux
+arxiv-*/*.bbl
+arxiv-*/*.blg
+arxiv-*/*.log
+arxiv-*/*.out

@@ -1,0 +1,17 @@
+{
+  "name": "aesthetic-micro",
+  "version": "1.0.0",
+  "description": "Dependencies for the aesthetic-micro system.",
+  "type": "module",
+  "scripts": {
+    "start": "node backend.mjs",
+    "compile": "wat2wasm processor.wat -o public/processor.wasm"
+  },
+  "author": "Jeffrey Alan Scudder",
+  "dependencies": {
+    "@fastify/static": "^6.12.0",
+    "chokidar": "^3.5.3",
+    "fastify": "^4.25.2",
+    "ws": "^8.16.0"
+  }
+}

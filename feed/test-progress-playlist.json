@@ -1,0 +1,40 @@
+{
+  "dpVersion": "1.1.0",
+  "title": "Test Progress Bar Playlist",
+  "items": [
+    {
+      "title": "$bop",
+      "source": "https://device.kidlisp.com/$bop?playlist=true&duration=24&index=0&total=5",
+      "duration": 24,
+      "license": "open"
+    },
+    {
+      "title": "$pie",
+      "source": "https://device.kidlisp.com/$pie?playlist=true&duration=24&index=1&total=5",
+      "duration": 24,
+      "license": "open"
+    },
+    {
+      "title": "$roz",
+      "source": "https://device.kidlisp.com/$roz?playlist=true&duration=24&index=2&total=5",
+      "duration": 24,
+      "license": "open"
+    },
+    {
+      "title": "$cow",
+      "source": "https://device.kidlisp.com/$cow?playlist=true&duration=24&index=3&total=5",
+      "duration": 24,
+      "license": "open"
+    },
+    {
+      "title": "$39i",
+      "source": "https://device.kidlisp.com/$39i?playlist=true&duration=24&index=4&total=5",
+      "duration": 24,
+      "license": "open"
+    }
+  ],
+  "defaults": {
+    "duration": 24,
+    "license": "open"
+  }
+}

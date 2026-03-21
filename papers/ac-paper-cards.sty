@@ -1,0 +1,343 @@
+% ac-paper-cards.sty — Aesthetic Computer "cards" paper layout
+% A mobile-friendly, single-column format where each page is a card.
+%
+% Usage: \usepackage{ac-paper-cards} in place of ac-paper-layout
+%
+% Design philosophy:
+%   - Every page is a self-contained card (like a slide deck in PDF form)
+%   - Small page size (~4" × 6") optimized for phone screens
+%   - Large, readable type — no pinch-to-zoom needed
+%   - Single column, generous whitespace
+%   - Sections auto-break to new cards (header always at top)
+%   - Index card after title shows section overview
+%   - Card numbers centered at bottom
+%   - AC color palette and Processing fonts
+%   - Hairline border on every page
+%
+% Papers still define their own:
+%   - \hypersetup{pdftitle=...}
+%   - \graphicspath{...}
+%   - Additional packages (listings, etc.)
+%   - Extra font families
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-paper-cards}[2026/03/17 Aesthetic Computer cards layout v4]
+
+% === PAGE SIZE (phone-proportioned card) ===
+\RequirePackage[
+  paperwidth=4in,
+  paperheight=6in,
+  top=0.45in,
+  bottom=0.55in,
+  left=0.4in,
+  right=0.4in,
+]{geometry}
+
+% === FONTS ===
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === COLORS (AC palette) ===
+\RequirePackage{xcolor}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{aclight-bg}{RGB}{248,246,250}
+\definecolor{accard}{RGB}{255,255,255}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === RANDOM CAPS for Aesthetic.Computer branding ===
+% Uses XeTeX primitive \uniformdeviate for random 0/1 per letter.
+% Each compile produces a different capitalization.
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+% === PDF BASE NAME (set by each paper for margin URL) ===
+\newcommand{\acpdfbase}{}
+
+% === CARD FRAMES ===
+\RequirePackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+% Card environment — borderless content box
+\newtcolorbox{card}[1][]{%
+  enhanced,
+  breakable,
+  colback=accard,
+  colframe=accard,
+  arc=6pt,
+  boxrule=0pt,
+  left=8pt,
+  right=8pt,
+  top=6pt,
+  bottom=6pt,
+  before skip=0pt,
+  after skip=0pt,
+  #1
+}
+
+% Accent card (subtle pink)
+\newtcolorbox{accentcard}[1][]{%
+  enhanced,
+  breakable,
+  colback=accard,
+  colframe=acpink!15,
+  arc=6pt,
+  boxrule=0.3pt,
+  left=8pt,
+  right=8pt,
+  top=6pt,
+  bottom=6pt,
+  before skip=0pt,
+  after skip=0pt,
+  #1
+}
+
+% Dark card (for code/examples)
+\newtcolorbox{darkcard}[1][]{%
+  enhanced,
+  breakable,
+  colback=acdark!8,
+  colframe=acdark!8,
+  arc=6pt,
+  boxrule=0pt,
+  left=8pt,
+  right=8pt,
+  top=6pt,
+  bottom=6pt,
+  before skip=4pt,
+  after skip=4pt,
+  #1
+}
+
+% === PAGE BORDER + DRAFT WATERMARK + MARGIN URL ===
+\RequirePackage{eso-pic}
+\RequirePackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % Hairline border on every page
+    \draw[acgray!30, line width=0.2pt]
+      ([xshift=2pt, yshift=2pt]current page.south west) rectangle
+      ([xshift=-2pt, yshift=-2pt]current page.north east);
+    % Draft watermark — tiled pattern across content pages (skip cover)
+    \ifnum\c@page>1\relax
+      \foreach \xoff in {-3cm, 0cm, 3cm} {
+        \foreach \yoff in {-4cm, -1cm, 2cm, 5cm} {
+          \node[opacity=0.08, rotate=35, anchor=center, font=\aclight\fontsize{0.55cm}{0.65cm}\selectfont]
+            at ([xshift=\xoff, yshift=\yoff]current page.center)
+            {\color{red!70!acpink}WORKING DRAFT};
+        }
+      }
+      \node[opacity=0.12, rotate=35, anchor=center, font=\aclight\fontsize{0.3cm}{0.35cm}\selectfont]
+        at ([yshift=-0.5cm]current page.center)
+        {\color{red!70!acpink}not for citation};
+    \fi
+    % Rotated URL running up the left margin
+    \ifx\acpdfbase\empty\else
+      \node[rotate=90, anchor=south, font=\tiny, color=acgray, opacity=0.35]
+        at ([xshift=0.15cm, yshift=0.4cm]current page.south west)
+        {papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage};
+    \fi
+  \end{tikzpicture}%
+}
+
+% === SECTION FORMATTING (card-aware) ===
+\RequirePackage{titlesec}
+
+% Sections: start on a new card (new page), header at top
+\newcommand{\origsection}{}
+\let\origsection\section
+\renewcommand{\section}{\clearpage\origsection}
+
+\titleformat{\section}
+  {\acbold\large\color{acdark}}
+  {\thesection.}
+  {0.4em}
+  {}
+\titlespacing{\section}{0pt}{0em}{0.5em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\normalsize\color{acpurple}}
+  {\thesubsection}
+  {0.4em}
+  {}
+\titlespacing{\subsection}{0pt}{0.6em}{0.2em}
+
+% === HEADER/FOOTER ===
+\RequirePackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[R]{}
+% Footer: page number center, pals logo bottom-right
+\fancyfoot[C]{{\small\color{acgray}\thepage}}
+\fancyfoot[R]{\raisebox{-0.1em}{\includegraphics[height=0.9em]{pals}}}
+
+% === LIST SETTINGS ===
+\RequirePackage{enumitem}
+\setlist[itemize]{nosep, leftmargin=1em, itemsep=0.15em}
+\setlist[enumerate]{nosep, leftmargin=1em, itemsep=0.15em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.5em}
+
+% === HYPHENATION & LINE BREAKING ===
+% Critical for narrow card columns (~3.2in) — without this, long words
+% (URLs, compound terms like "platform-as-infrastructure") overflow.
+\tolerance=1000                    % allow slightly loose lines before forcing overfull
+\emergencystretch=1.5em            % extra stretch as last resort before overfull box
+\setlength{\hfuzz}{12pt}           % suppress watermark overlay overfull warnings
+\hyphenpenalty=50                  % encourage hyphenation (default 50, lower = more)
+\exhyphenpenalty=50                % also break at explicit hyphens in compounds
+
+% === TABLE OVERFLOW PREVENTION ===
+% Cards are only ~3.2in wide — tables must never exceed column width.
+\RequirePackage{tabularx}              % auto-stretching X columns
+\RequirePackage{adjustbox}             % fallback: shrink oversized tables
+% Wrap every tabular/tabularx in adjustbox max width=\linewidth
+% so no table can ever overflow the card edge.
+% Also reduce font size in tables for better fit on narrow cards.
+\let\origintabular\tabular
+\let\oriendtabular\endtabular
+\renewenvironment{tabular}[1]{%
+  \small%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabular{#1}%
+}{%
+  \oriendtabular%
+  \end{adjustbox}%
+}
+\let\origintabularx\tabularx
+\let\oriendtabularx\endtabularx
+\renewenvironment{tabularx}[2]{%
+  \small%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabularx{#1}{#2}%
+}{%
+  \oriendtabularx%
+  \end{adjustbox}%
+}
+
+% === HYPERREF ===
+\RequirePackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpink,
+  citecolor=acpurple,
+}
+
+% === TABLE OF CONTENTS STYLING (for index card) ===
+\RequirePackage{titletoc}
+\contentsmargin{0pt}
+\titlecontents{section}[0em]
+  {\smallskip\small}
+  {\color{acpurple}\thecontentslabel.\enspace\color{acdark}}
+  {\color{acdark}}
+  {\titlerule*[0.6em]{\tiny\color{acgray}.}\color{acpurple}\contentspage}
+
+% === COMMON COMMANDS ===
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\np}{\textsc{notepat}}
+
+% === PAPER INTER-LINKING (§shortcodes) ===
+% Usage: \acref{plork} renders as §plork linking to the cards PDF
+%        In regular papers, links go to regular PDFs instead.
+% Cyan text with subtle drop shadow via TikZ.
+\newcommand{\acrefdef}[2]{\expandafter\def\csname acref@#1\endcsname{#2}}
+\newcommand{\acrefurl}[1]{\csname acref@#1\endcsname}
+% Paper ID → PDF base name mapping
+\acrefdef{ac}{aesthetic-computer-26-arxiv}
+\acrefdef{kidlisp}{kidlisp-26-arxiv}
+\acrefdef{plork}{plorking-the-planet-26-arxiv}
+\acrefdef{os}{ac-native-os-26-arxiv}
+\acrefdef{api}{piece-api-26-arxiv}
+\acrefdef{pieces}{pieces-not-programs-26-arxiv}
+\acrefdef{notepat}{notepat-26-arxiv}
+\acrefdef{goodiepal}{radical-computer-art-26-arxiv}
+\acrefdef{whistlegraph}{whistlegraph-26-arxiv}
+\acrefdef{complex}{sucking-on-the-complex-26-arxiv}
+\acrefdef{dead-ends}{dead-ends-26-arxiv}
+\acrefdef{folk-songs}{folk-songs-26-arxiv}
+\acrefdef{archaeology}{repo-archaeology-26-arxiv}
+\acrefdef{network}{network-audit-26-arxiv}
+\acrefdef{kidlisp-ref}{kidlisp-reference-26-arxiv}
+\acrefdef{diversity}{citation-diversity-audit-26}
+\acrefdef{sustainability}{who-pays-for-creative-tools-26-arxiv}
+% Cards format: §id links to cards PDF
+\newcommand{\acref}[1]{%
+  \href{https://papers.aesthetic.computer/\acrefurl{#1}-cards.pdf}%
+  {\tikz[baseline=(X.base)]{%
+    \node[inner sep=0pt, outer sep=0pt] (X) {\color{cyan!70!blue}\texttt{§#1}};%
+    \node[inner sep=0pt, outer sep=0pt, opacity=0.15] at ([xshift=0.3pt, yshift=-0.3pt]X) {\color{black}\texttt{§#1}};%
+  }}%
+}
+% Regular paper format: §id links to regular PDF
+\newcommand{\acpref}[1]{%
+  \href{https://papers.aesthetic.computer/\acrefurl{#1}.pdf}%
+  {\tikz[baseline=(X.base)]{%
+    \node[inner sep=0pt, outer sep=0pt] (X) {\color{cyan!70!blue}\texttt{§#1}};%
+    \node[inner sep=0pt, outer sep=0pt, opacity=0.15] at ([xshift=0.3pt, yshift=-0.3pt]X) {\color{black}\texttt{§#1}};%
+  }}%
+}
+
+% === INDEX CARD (table of contents on its own card) ===
+% Call \cardindex after the title card to generate a section overview
+\newcommand{\cardindex}{%
+  \clearpage
+  \thispagestyle{fancy}
+  \vspace*{0.2em}
+  {\acbold\normalsize\color{acdark} Index}\par
+  \vspace{0.3em}
+  \rule{\linewidth}{0.5pt}\par
+  \vspace{0.4em}
+  {\@starttoc{toc}}
+  \vspace*{\fill}
+}
+
+% Card-specific commands
+\newcommand{\cardtitle}[1]{%
+  {\acbold\large\color{acdark}#1}\par\vspace{0.3em}%
+}
+\newcommand{\cardsubtitle}[1]{%
+  {\aclight\normalsize\color{acpink}#1}\par\vspace{0.2em}%
+}
+\newcommand{\cardnote}[1]{%
+  {\small\color{acgray}\textit{#1}}%
+}
+
+% Song notation display (for showing notepat rawSong format)
+\newcommand{\notesong}[1]{%
+  \begin{darkcard}
+  {\ttfamily\small #1}
+  \end{darkcard}
+}
+
+% Big quote for card format
+\newcommand{\cardquote}[2]{%
+  \begin{accentcard}
+  \textit{``#1''}\\[0.3em]
+  {\small\color{acgray}--- #2}
+  \end{accentcard}
+}
+
+\endinput

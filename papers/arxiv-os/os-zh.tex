@@ -1,0 +1,468 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={AC Native OS '26：一个裸机创意计算操作系统},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿——请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} AC Native OS '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 一个裸机创意计算操作系统}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 剩余硬件、深度个性化与后 OLPC 乐器}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿——请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+我们介绍 \acos{}，一个裸机 Linux 操作系统，可以在7.3秒内将任何 x86\_64 计算机直接启动为创意计算乐器。整个系统——一个定制内核、一个作为 PID~1 运行的11,943行 C 运行时，以及一个 QuickJS JavaScript 引擎——装在一个89\,MB 的 UEFI 二进制文件中，没有用户空间、没有包管理器、没有桌面环境。该操作系统引入了一种\emph{设备级个性化}模型：每台机器启动时带有拥有者的用户名、自定义配色方案和一句语音问候，使身份成为操作系统的属性而非应用层的属性。我们论证，将这个操作系统刷入剩余的商用笔记本电脑——退役的 ThinkPad、租约到期的企业机器、未售出的库存——创造了一种可行的替代方案，既区别于 OLPC 的定制教育硬件模式，也区别于 Apple 的通过商业生态系统实现身份认同的模式。OLPC 设计了一台成本200美元的100美元笔记本，Apple 出售一个需要1,000美元设备的1,000美元身份认同，而 \acos{} 将一台50美元的剩余机器变成一件个人创意乐器，提供空中更新，无需 IT 基础设施，无持续成本。我们描述了架构、个性化模型、OTA 更新系统，以及对创意计算普及的影响。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{引言}
+
+"每个孩子一台笔记本电脑"（OLPC）项目~\citep{negroponte1995being, kraemer2009olpc} 提出，普及计算需要设计新硬件——一台专为教育打造的100美元笔记本。XO 笔记本配备了定制操作系统（Sugar）、定制硬件和定制分发模式。该项目产生了重要的理念，但在一个根本性矛盾中挣扎：定制硬件的设计、制造和维护成本高昂，100美元的目标从未大规模实现。
+
+与此同时，消费计算市场不断产出大量功能完好的剩余机器。企业租赁周期每3--5年退役数百万台笔记本电脑。零售过剩库存、取消的订单和外观缺陷产生了仓库库存。电子废弃物回收商收到还有多年使用寿命的机器。这些剩余计算机——ThinkPad、EliteBook、Latitude——以30--80美元的价格出售，配备现代处理器、8--16\,GB 内存、WiFi、键盘和屏幕。
+
+\acos{} 采取了与 OLPC 相反的方法：我们不设计定制硬件，而是设计一个定制操作系统，将\emph{任何}商用 x86\_64 机器变成专用的创意计算乐器。整个操作系统是一个文件。将其刷入 USB 驱动器不到一分钟。机器在7.3秒内启动为一件乐器、一个绘画工具或一个编程环境——屏幕上显示拥有者的名字，语音用名字问候他们。
+
+本文描述了系统架构（\S\ref{sec:architecture}）、个性化模型（\S\ref{sec:personalization}）、剩余硬件论点（\S\ref{sec:surplus}）、OTA 更新系统（\S\ref{sec:ota}）、与现有方法的比较（\S\ref{sec:related}），以及对创意计算普及的影响（\S\ref{sec:implications}）。
+
+% ============ 2. ARCHITECTURE ============
+
+\section{架构}
+\label{sec:architecture}
+
+\acos{} 由四个层次组成：一个最小化 Linux 内核、一个 LZ4 压缩的 initramfs、一个作为 PID~1 运行的 C 运行时，以及一个执行交互程序（"作品"）的 QuickJS JavaScript 引擎。
+
+\subsection{启动链}
+
+系统通过 UEFI 启动，无需引导加载程序。Linux 内核（6.14.2）编译为 EFI 存根——内核\emph{就是}引导加载程序。它包含一个用 LZ4 压缩的嵌入式 initramfs，因此整个操作系统是一个文件：FAT32 EFI 系统分区上的 \texttt{BOOTX64.EFI}。
+
+\begin{enumerate}
+  \item UEFI 固件加载 \texttt{EFI/BOOT/BOOTX64.EFI}（89\,MB）
+  \item 内核将 initramfs 解压到 tmpfs
+  \item \texttt{/init}（指向 \texttt{/ac-native} 的符号链接）作为 PID~1 启动
+  \item 挂载 \texttt{/proc}、\texttt{/sys}、\texttt{/dev}、\texttt{/tmp}
+  \item 挂载 EFI 分区到 \texttt{/mnt}，读取 \texttt{config.json}
+  \item 初始化 DRM 显示，渲染个性化启动画面
+  \item 初始化 ALSA 音频，播放启动音（E5$\rightarrow$B5）
+  \item 初始化输入设备（键盘、触控板、触摸屏）
+  \item 自动连接 WiFi（静默，无用户交互）
+  \item 加载默认作品，调用 \texttt{boot()}，进入主循环
+\end{enumerate}
+
+从开机到可交互作品的总启动时间：\textbf{7.3秒}。
+
+\subsection{运行时}
+
+C 运行时（\texttt{ac-native}，14个源文件共11,943行）取代了整个传统操作系统用户空间。没有 \texttt{systemd}，没有 shell，没有包管理器，没有登录提示。运行时直接管理：
+
+\begin{itemize}
+  \item \textbf{显示}：DRM/KMS 模式设置，双缓冲软件帧缓冲
+  \item \textbf{音频}：192\,kHz ALSA PCM，32声部复音合成器，带混响
+  \item \textbf{输入}：evdev 轮询键盘、触控板、触摸屏、模拟按键
+  \item \textbf{WiFi}：wpa\_supplicant 集成，自动连接，DHCP
+  \item \textbf{摄像头}：V4L2 捕获，YUYV 转换，二维码扫描
+  \item \textbf{语音}：通过 flite 实现文字转语音（男声和女声）
+  \item \textbf{网络}：带 TLS 的 WebSocket 客户端，UDP，通过 curl 的 HTTP
+\end{itemize}
+
+\subsection{作品执行}
+
+作品是由 QuickJS~\citep{bellard2005quickjs} 执行的 JavaScript ES 模块（\texttt{.mjs}）。运行时将 C 函数暴露给 JavaScript 作为"system" API——图形基元、音频合成、输入事件、硬件信息和系统控制。作品生命周期与基于浏览器的 \ac{} 平台~\citep{scudder2026ac}一致：\texttt{boot()}、\texttt{act()}、\texttt{sim()}、\texttt{paint()}，以60\,fps 运行。
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ system, screen }) {
+  system.tts(|\textcolor{jsstr}{"welcome"}|)
+}
+
+function paint({ wipe, ink, write, screen }) {
+  wipe(|\textcolor{jsnum}{20}|, |\textcolor{jsnum}{10}|, |\textcolor{jsnum}{40}|)
+  ink(|\textcolor{jsnum}{255}|)
+  write(|\textcolor{jsstr}{"hello"}|, { center: |\textcolor{jsstr}{"xy"}| })
+}
+
+export { boot, paint };
+\end{lstlisting}
+
+作品可以通过 \texttt{system.jump("piece-name")} 热切换而无需重启。操作系统附带11个作品，包括半音阶键盘乐器、命令行导航器、系统管理面板、Claude AI 聊天客户端和终端模拟器。
+
+\subsection{体积预算}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{组件} & \textbf{大小} \\
+\midrule
+Linux 内核（编译后） & $\sim$10\,MB \\
+ac-native 二进制文件 & 1.2\,MB \\
+QuickJS 引擎 & 0.8\,MB \\
+共享库（libc、libdrm、ALSA、SSL、flite） & $\sim$45\,MB \\
+WiFi 固件（iwlwifi） & 4.9\,MB \\
+作品、字体、证书 & $\sim$28\,MB \\
+\midrule
+Initramfs（未压缩） & $\sim$201\,MB \\
+Initramfs（LZ4 压缩） & $\sim$90\,MB \\
+\textbf{最终镜像（vmlinuz）} & \textbf{$\sim$89\,MB} \\
+\bottomrule
+\end{tabular}
+\caption{系统体积分解。}
+\label{tab:size}
+\end{table}
+
+整个操作系统比一次典型的浏览器下载还小。它可以装入过去15年制造的任何 USB 驱动器中。
+
+% ============ 3. DEVICE-LEVEL PERSONALIZATION ============
+
+\section{设备级个性化}
+\label{sec:personalization}
+
+消费类操作系统将身份定位在应用层账户中：Apple ID、Google 账户、Microsoft 登录。在用户登录之前，设备本身是通用的。\acos{} 将此颠倒：身份是启动分区的属性。
+
+\subsection{config.json}
+
+EFI 系统分区上的一个 JSON 文件存储拥有者的身份：
+
+\begin{lstlisting}[style=acjsstyle]
+{
+  |\textcolor{jsstr}{"handle"}|: |\textcolor{jsstr}{"jeffrey"}|,
+  |\textcolor{jsstr}{"colors"}|: [|\textcolor{jsnum}{180}|, |\textcolor{jsnum}{72}|, |\textcolor{jsnum}{135}|],
+  |\textcolor{jsstr}{"tokens"}|: { |\textcolor{jsstr}{"claude"}|: |\textcolor{jsstr}{"..."}| }
+}
+\end{lstlisting}
+
+此文件在操作系统更新中保持不变，因为 OTA 过程替换内核二进制文件但保留 EFI 分区的其余部分。设备记住它属于谁，即使其软件在演进。
+
+\subsection{启动即问候}
+
+当机器通电时，启动序列在闪屏上用动画彩虹文字渲染拥有者的用户名："hi @jeffrey。"文字转语音引擎大声说出问候："hi jeffrey。"关机时："bye jeffrey。"计算机在软件栈的最深层\emph{认识你}——不是因为你登录了某个服务，而是因为你的名字写在了启动分区中。
+
+这是一种与 Apple（通过购买和账户实现身份）和 OLPC（通过机构分发实现身份）都根本不同的模型。在这里，身份通过刷机行为直接铭刻在设备中。准备 USB 驱动器的人——老师、父母、朋友或用户自己——将拥有者的名字写入机器意识的最初时刻。
+
+\subsection{构建身份}
+
+每个操作系统构建版本获得一个由 git 提交哈希派生的唯一名称：一个形容词搭配一个动物（例如 ``keen-egret''、``swift-otter''、``bright-phoenix''）。这个名称在启动时以金色文字显示，通过 TTS 朗读，并通过 \texttt{system.hw.buildName} 暴露给作品。机器有\emph{两个}身份：它属于谁，以及它运行的是哪个版本。两者都在启动时宣告。
+
+命名系统产生73,000个唯一组合（365种动物 $\times$ 200个形容词），并且是确定性的：同一个提交始终产生相同的名称。用户对他们的构建名称产生感情。机器不是序列号；它是 ``keen-egret''。
+
+% ============ 4. THE SURPLUS HARDWARE THESIS ============
+
+\section{剩余硬件论点}
+\label{sec:surplus}
+
+\subsection{OLPC 的教训}
+
+OLPC 证明了以硬件为先的计算普及方法面临复合挑战~\citep{kraemer2009olpc}：定制硬件开发成本超出预期，规模化制造需要限制设计的机构合作，维修/维护基础设施必须从零建起。XO 笔记本的100美元目标在生产时变成了188美元。Sugar OS 尽管设计创新，无法围绕定制硬件维持开发者生态系统。
+
+Raspberry Pi~\citep{raspberry2012} 部分解决了成本问题（35美元），但引入了不同的摩擦：用户必须提供显示器、键盘、鼠标、SD 卡和电源——配件通常比开发板本身还贵。一个功能完整的 Pi 工作站总成本接近150--200美元。
+
+\subsection{剩余作为材料}
+
+x86\_64 笔记本剩余市场提供了完全不同的方程式。一台退役的 ThinkPad X1 Carbon（2019--2021年份）以50--80美元出售，配备：
+
+\begin{itemize}
+  \item 14英寸 1080p 或 2K 显示屏
+  \item 4--8核 Intel 处理器
+  \item 8--16\,GB 内存
+  \item WiFi 6、蓝牙
+  \item 完整键盘和触控板
+  \item 6--10小时电池
+  \item USB-C 充电（通用）
+\end{itemize}
+
+这些是完整、自包含的计算机，只需一个 USB 驱动器即可成为创意乐器。剩余的存在是因为企业更新周期，而非硬件故障。一台运行 \acos{} 的2020年 ThinkPad 启动更快、运行更流畅，并提供比同一台机器运行 Windows 11 更专注的体验。
+
+\subsection{经济性}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{方法} & \textbf{设备成本} & \textbf{配件} \\
+\midrule
+OLPC XO-1 & \$188 & \$0 \\
+Raspberry Pi 5 & \$35 & \$100--150 \\
+Chromebook（新品） & \$200--300 & \$0 \\
+iPad（教育价格） & \$299 & \$0--130 \\
+剩余 ThinkPad + AC OS & \$50--80 & \$0 \\
+\bottomrule
+\end{tabular}
+\caption{计算普及方法的成本比较。}
+\label{tab:cost}
+\end{table}
+
+剩余方法不需要制造、不需要供应链、不需要最低订购量。学校、社区中心或个人可以从本地回收商、在线市场或企业 IT 部门一次一台地获取机器。每台机器在一分钟内刷入个性化的 \acos{} USB。
+
+\subsection{反对 Apple 模式}
+
+Apple 的个人计算方法将设备身份绑定到商业关系上。你的名字出现在设备上是因为你通过 Apple ID 购买了它。你的偏好持久保存是因为它们通过 iCloud 同步。你的创意工具可用是因为你订阅了服务。设备是个人的，因为它是\emph{被购买的}。
+
+\acos{} 提出，设备身份可以被铭刻而非被购买。一台50美元的剩余笔记本，启动屏幕上写着"hi @maria"，闪屏上是她最喜欢的颜色，大声说出她的名字，比一台不问候任何人的1,000美元 MacBook \emph{更加个人}。个性化更深入——它存在于应用层之下、桌面之下、启动序列的最初时刻——而且除了写一个配置文件之外不需要任何成本。
+
+这不是反对高质量硬件的论证。这是一个论证：一个人与他们的计算机之间的关系不需要以购买、账户或订阅为中介。乐器知道你是谁，因为某人——也许是你自己——\emph{告诉了它}。
+
+% ============ 5. OTA UPDATES ============
+
+\section{空中更新}
+\label{sec:ota}
+
+任何分布式计算项目的关键挑战是维护。OLPC 部署在连接有限的地区遭遇了软件更新困难~\citep{warschauer2004technology}。Chromebook 通过强制云连接解决了这个问题。\acos{} 采取了中间路线：WiFi 可用时自动更新，但设备在离线状态下完全可用。
+
+\subsection{更新机制}
+
+\begin{enumerate}
+  \item WiFi 连接后，操作系统检查 \texttt{/api/native/version}
+  \item 如果存在更新的构建版本，下载新的内核镜像（约89\,MB），带进度跟踪
+  \item 新镜像写入 EFI 分区，替换 \texttt{BOOTX64.EFI}
+  \item 逐字节 SHA256 验证确认写入
+  \item 设备重启进入新版本
+\end{enumerate}
+
+\texttt{config.json} 文件在更新中保持不变——设备保留拥有者的身份、颜色和令牌。更新过程针对断电做了加固：源镜像在复制前进行验证，文件系统双重同步，验证针对新挂载的分区进行以防止缓存伪像。
+
+\subsection{无需 IT 基础设施}
+
+与需要 Google Admin Console、MDM 配置文件和机构 Google Workspace 账户的 Chromebook 部署不同，\acos{} 不需要任何管理基础设施。每台设备是自主的。更新在设备连接到任何 WiFi 网络时传播。无需注册、无需设备群管理、无需每台设备许可。运营成本为零。
+
+% ============ 6. RELATED WORK ============
+
+\section{相关工作}
+\label{sec:related}
+
+\textbf{教育操作系统项目。} Sugar OS（OLPC）开创了单一用途教育操作系统，但受其硬件依赖性的限制。Endless OS 针对低规格硬件提供离线优先内容，但保留了传统桌面隐喻。PrimTux 和 Edubuntu 为教育定制 Linux 发行版，但没有重新构想操作系统层本身。
+
+\textbf{信息亭与单一用途系统。} 数字标牌操作系统（Screenly、Yodeck）证明了单一用途 Linux 部署可以通过 OTA 更新大规模维护。\acos{} 将这种运营模型应用于创意计算而非内容展示。
+
+\textbf{创意计算普及。} Processing~\citep{reas2007processing} 和 Scratch~\citep{resnick2009scratch} 降低了创意编程的门槛，但假设底层有一个通用操作系统。Sonic Pi~\citep{aaron2016sonic} 在 Raspberry Pi 上运行，但需要 Raspbian。\acos{} 完全消除了操作系统依赖——创意工具\emph{就是}操作系统。
+
+\textbf{自治工具。} Illich 的"自治工具"概念~\citep{illich1973tools}——扩展个人自主性而非要求专业知识的工具——与 \acos{} 的设计产生共鸣。设备不需要系统管理、不需要 IT 支持、不需要超过插入 USB 驱动器的技术知识。Papert 的建构主义~\citep{papert1980mindstorms}影响了选择创意乐器（而非内容消费设备）作为默认体验。
+
+\textbf{媒体理论。} Kittler 关于软件遮蔽计算物质现实的论点~\citep{kittler1995no}被 \acos{} 颠倒了：没有桌面环境、没有窗口管理器、没有抽象层，代码与硬件之间的关系变得可见。启动画面直接渲染到 DRM 帧缓冲。音频合成直接写入 ALSA PCM 缓冲。McLuhan 关于媒介塑造信息的观察~\citep{mcluhan1964understanding}在此字面适用：操作系统\emph{就是}乐器，其约束（一次一个作品、即时模式图形、直接音频合成）塑造了创意产出。
+
+% ============ 7. IMPLICATIONS ============
+
+\section{影响与未来工作}
+\label{sec:implications}
+
+\subsection{一种分发模型}
+
+剩余硬件论点暗示了一种分发模型：组织批量采购退役笔记本（每台30--80美元），刷入个性化的 \acos{} USB，然后分发。设备启动为自动更新的创意乐器。每台设备的成本是任何现有方法的一小部分，环境影响是负的——机器从电子废弃物流中被转移。
+
+一间30台创意计算乐器的教室可以用1,500--2,400美元的硬件加上刷 USB 驱动器的人工来配备。无需持续订阅、无需 IT 支持合同、无需托管账户。
+
+\subsection{设备即乐器}
+
+选择启动为乐器（notepat，一种半音阶键盘）而非桌面或浏览器是刻意的。设备不是消费者意义上的"计算机"——它是一件恰好可编程的乐器。这种框定，借鉴自 \ac{} 的"乐器，而非 IDE"设计哲学，改变了用户与机器的关系。你不是在"使用"设备；你在\emph{演奏}它。
+
+\subsection{维护即关怀}
+
+Ukeles 的"维护艺术宣言"~\citep{ukeles1969manifesto}将维护重新框定为一种创造性行为。\acos{} 的 OTA 系统体现了这一点：每次更新都有一个名称（"keen-egret"变为"swift-otter"），设备宣告其新身份，过渡是一个小事件而非看不见的后台过程。维护变得可见，甚至被庆祝。
+
+\subsection{局限性}
+
+系统目前针对 x86\_64 UEFI 机器，不包括 ARM Chromebook 和较旧的仅 BIOS 硬件。WiFi 支持依赖 Intel iwlwifi 固件；Broadcom 和 Realtek 适配器尚未支持。一次一个作品的模型限制了多任务处理。软件光栅化器虽然足以在60\,fps 下进行2D 图形渲染，但无法加速3D 渲染。这些约束是架构选择，而非永久性限制。
+
+\subsection{未来方向}
+
+\begin{itemize}
+  \item \textbf{ARM 支持}：针对 Chromebook（Mediatek/Qualcomm）将获取最大的剩余教育硬件池
+  \item \textbf{网状网络}：无需互联网基础设施的点对点作品共享和多人游戏
+  \item \textbf{硬件 GPU}：DRM 渲染节点用于加速图形，同时保持裸机模型
+  \item \textbf{多作品}：分屏或标签式作品导航，用于轻量级多任务
+  \item \textbf{社区刷机}：参与者一起刷入和个性化剩余机器的活动
+\end{itemize}
+
+% ============ 8. CONCLUSION ============
+
+\section{结论}
+
+\acos{} 证明了完整的创意计算体验可以装在89\,MB 中，在7.3秒内启动，并在成本低于一本教科书的硬件上运行。通过针对剩余商用笔记本而非定制硬件，系统规避了制约 OLPC 的制造、分发和维护挑战。通过将身份定位在启动分区而非商业账户中，它提供了一种比 Apple 更深入且零成本的个性化模型。
+
+系统不是原型或概念验证。它部署在物理硬件上，接收 OTA 更新，运行一个功能完整的创意计算运行时，具备音频合成、WiFi 网络、摄像头输入和文字转语音。其11,943行 C 代码取代了整个传统用户空间。
+
+\acos{} 提出的问题不是技术性的，而是经济和文化性的：既然每年有数百万台功能完好的计算机被丢弃，而一个完整的创意操作系统仅需89\,MB，是什么阻止了每个人拥有一件个人创意乐器？答案不是硬件成本，不是软件复杂性，也不是基础设施需求。也许仅仅是因为还没有人尝试过。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

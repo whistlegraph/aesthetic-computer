@@ -1,0 +1,32 @@
+# Security: Treat private keys and certificates as binary files
+# This prevents git from diffing them and makes accidental commits more obvious
+
+# Private Keys
+*.pem binary
+*.key binary
+*.p12 binary
+*.pfx binary
+**/id_rsa binary
+**/id_dsa binary
+**/id_ecdsa binary
+**/id_ed25519 binary
+**/*_rsa binary
+**/*_dsa binary
+**/*_ecdsa binary
+**/*_ed25519 binary
+session_server binary
+session_server.pub binary
+
+# Certificates
+*.crt binary
+*.cer binary
+*.p7b binary
+*.p7c binary
+*.der binary
+
+# Prevent diff on sensitive config files
+.env.local binary
+.env.secret binary
+.env.secrets binary
+**/gcp-*service*.json binary
+**/*-adminsdk*.json binary

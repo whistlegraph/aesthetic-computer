@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.mood",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A mood entry from Aesthetic Computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["mood", "when", "ref"],
+        "properties": {
+          "mood": {
+            "type": "string",
+            "maxLength": 5000,
+            "description": "The mood text content"
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the mood was created (ISO 8601)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Reference to source database record for bidirectional sync"
+          }
+        }
+      }
+    }
+  }
+}
+

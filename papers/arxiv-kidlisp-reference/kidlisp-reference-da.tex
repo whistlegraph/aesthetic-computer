@@ -1,0 +1,416 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\kidlispfont{ComicRelief-Regular}[Path=../arxiv-kidlisp/fonts/,Extension=.ttf]
+\newfontfamily\kidlispbold{ComicRelief-Bold}[Path=../arxiv-kidlisp/fonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{multicol}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{listings}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{klbrand}{RGB}{205,92,155}\definecolor{klcyan}{RGB}{112,214,255}\definecolor{kldark}{RGB}{48,43,58}\definecolor{draftcolor}{RGB}{205,92,155}
+
+\definecolor{klparen}{RGB}{140,140,160}\definecolor{klkw}{RGB}{119,51,170}\definecolor{klfn}{RGB}{0,136,170}\definecolor{klcolor}{RGB}{204,80,0}\definecolor{klnum}{RGB}{204,0,102}\definecolor{klstr}{RGB}{44,145,44}\definecolor{klcmt}{RGB}{140,140,140}\definecolor{klvar}{RGB}{50,50,50}\definecolor{klspecial}{RGB}{180,72,135}\definecolor{klbg}{RGB}{250,248,252}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={KidLisp sprogreference: 118 indbyggede funktioner i 12 kategorier}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{def,if,repeat,once,later,die,let,do,fn},
+  morekeywords=[2]{wipe,ink,line,box,circle,tri,plot,flood,shape,write,type,paste,print},
+  morekeywords=[3]{scroll,zoom,spin,blur,contrast,suck,pan,sort,resetSpin,smoothspin,unpan,fill,outline,stroke,nofill,nostroke},
+  morekeywords=[4]{random,wiggle,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max,mod},
+  morekeywords=[5]{width,height,frame,time,resolution,fps,screen,pen,hand,gamepad,mic,amplitude},
+  morekeywords=[6]{cube,form,trans,move,scale,hop,delay,jump,melody,overtone,speaker,sound},
+  morekeywords=[7]{embed,layer,fade,bake,list,get,set,tap},
+  sensitive=true,morecomment=[l]{;},morestring=[b]",
+  literate={(}{{{\color{klparen}(}}}1 {)}{{{\color{klparen})}}}1 {\$}{{{\color{klspecial}\$}}}1,
+}
+
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,basicstyle=\ttfamily\small,
+  keywordstyle=[1]\color{klkw}\bfseries,keywordstyle=[2]\color{klfn}\bfseries,
+  keywordstyle=[3]\color{acpurple},keywordstyle=[4]\color{klnum},
+  keywordstyle=[5]\color{klspecial},keywordstyle=[6]\color{klfn},keywordstyle=[7]\color{acpink},
+  commentstyle=\color{klcmt}\itshape,stringstyle=\color{klstr},numberstyle=\tiny\color{klcmt},
+  breaklines=true,frame=single,rulecolor=\color{acgray!30},backgroundcolor=\color{klbg},
+  xleftmargin=0.5em,xrightmargin=0.5em,aboveskip=0.5em,belowskip=0.5em,showstringspaces=false,
+}
+
+\lstset{style=kidlispstyle}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\kidlispbold\fontsize{26pt}{30pt}\selectfont\color{kldark} Kid{\color{klbrand}Lisp} sprogreference}\par
+\vspace{0.2em}
+{\kidlispfont\fontsize{11pt}{13pt}\selectfont\color{klbrand} 118 indbyggede funktioner i 12 kategorier til generativ kunst}\par
+\vspace{0.3em}
+{\kidlispfont\fontsize{9pt}{11pt}\selectfont\color{acgray} Syntaks, semantik, timing, farve og \texttt{\$}-kode kompositionssystemet}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+\kl{} er en minimal Lisp-dialekt til generativ kunst med 118 indbyggede funktioner fordelt på 12 kategorier, ingen brugerdefinerede funktioner, ingen rekursion, ingen fil-I/O og intet netværk. Det er sikkert ved konstruktion: et \kl{}-program kan ikke bryde ud af sin sandbox, crashe sin vært eller tilgå ressourcer ud over sit lærred. Denne artikel fungerer som en komplet sprogreference, der dokumenterer enhver indbygget funktion med syntaksfremhævede eksempler, timingsystemet (frame-baseret og sekundbaseret planlægning uden callbacks), farvemodellen (navngivne farver, RGB, gradienter, mønstre), \texttt{\$}-kode kompositionssystemet (indlejring af programmer ved reference som den primære abstraktionsmekanisme) og evalueringsmodellen (fuld AST-reevaluering hvert frame med deterministisk PRNG). Vi præsenterer \kl{} som et sprog designet omkring \emph{udeladelse}: hvad det ikke kan, er lige så bevidst som hvad det kan, og begrænsningerne producerer et kreativt rum, som 59 forfattere har brugt til at skrive 16.634 programmer.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Syntaks}
+
+\kl{} bruger S-udtrykssyntaks~\citep{mccarthy1960recursive}. Ethvert udtryk er enten et atom (tal, streng, symbol) eller en liste omsluttet af parenteser:
+
+\begin{lstlisting}
+; Atomer
+42                    ; tal
+"hello"               ; streng
+red                   ; symbol (farvenavn)
+
+; Lister (funktionsapplikation)
+(wipe "navy")         ; ryd skærm marineblå
+(ink "red")           ; sæt tegnefarve
+(box 10 10 50 50)     ; tegn rektangel
+(circle 64 64 30)     ; tegn cirkel
+\end{lstlisting}
+
+Der er ingen operatorer, ingen infiks-notation, ingen speciel syntaks ud over parenteser, strenge, tal og symboler. Aritmetik bruger præfiks-notation:
+
+\begin{lstlisting}
+(+ 1 2)              ; => 3
+(* 3 (+ 1 2))        ; => 9
+(- 10 3)             ; => 7
+(/ 100 4)            ; => 25
+(% 17 5)             ; => 2 (modulo)
+\end{lstlisting}
+
+\section{De 12 kategorier}
+
+\subsection{Grafik (9 funktioner)}
+
+Tegneprimitiver opererer i immediate-mode---hvert kald renderer direkte til framebufferen.
+
+\begin{lstlisting}
+(wipe "black")        ; ryd lærred
+(ink "cyan")          ; sæt farve
+(line 0 0 128 128)    ; diagonal linje
+(box 10 10 40 40)     ; rektangel
+(circle 64 64 20)     ; cirkel i centrum
+(tri 32 10 10 54 54 54) ; trekant
+(plot 64 64)          ; enkelt pixel
+(flood 64 64)         ; oversvømmelsesfyld
+(shape 10 10 50 10 30 50) ; polygon
+\end{lstlisting}
+
+\texttt{fill} og \texttt{outline} kontrollerer, om former er udfyldte eller stregede:
+
+\begin{lstlisting}
+(fill)                ; udfyldte former
+(ink "red")
+(circle 64 64 30)     ; massiv rød cirkel
+
+(outline)             ; stregede former
+(ink "white")
+(circle 64 64 30)     ; hvid ring
+\end{lstlisting}
+
+\subsection{Transformationer (11 funktioner)}
+
+Pixelniveau-transformationer opererer på framebufferen efter tegning:
+
+\begin{lstlisting}
+(scroll 1 0)          ; flyt pixels til højre
+(zoom 1.01)           ; langsom zoom ind
+(spin 1)              ; rotér 1 grad
+(blur 2)              ; gaussisk sløring
+(contrast 1.2)        ; øg kontrast
+(suck 0.5)            ; radial forskydning
+(sort)                ; sortér pixels efter lysstyrke
+\end{lstlisting}
+
+Transformationer \emph{akkumulerer} på tværs af frames, hvilket producerer animation uden eksplicit tilstandsstyring.
+
+\subsection{Matematik (14 funktioner)}
+
+\begin{lstlisting}
+(sin (* frame 0.05))  ; sinusbølge
+(cos (* frame 0.03))  ; cosinusbølge
+(random)              ; 0-255
+(random 10)           ; 0-9
+(random 5 15)         ; 5-14
+(wiggle 10)           ; tilfældig +/-5
+(floor 3.7)           ; => 3
+(abs -5)              ; => 5
+(sqrt 16)             ; => 4
+(min 3 7 1)           ; => 1
+(max 3 7 1)           ; => 7
+\end{lstlisting}
+
+\texttt{random} bruger en seedet PRNG initialiseret fra programmets korte kode, hvilket gør alt generativt output \textbf{deterministisk}: det samme program producerer altid det samme visuelle.
+
+\subsection{Farve (19+ navngivne farver)}
+
+\begin{lstlisting}
+(ink "red")           ; navngivet farve
+(ink 255 0 0)         ; RGB
+(ink 255 0 0 128)     ; RGBA (semi-transparent)
+(ink "fade:red-blue") ; horisontal gradient
+(ink (fade "cyan" "magenta" "vertical"))
+(ink "rainbow")       ; gentagende regnbue
+(ink "zebra")         ; stribet mønster
+\end{lstlisting}
+
+\subsection{System og display (9 funktioner)}
+
+\begin{lstlisting}
+(def w width)         ; skærmbredde
+(def h height)        ; skærmhøjde
+frame                 ; nuværende framenummer
+time                  ; sekunder forløbet
+
+(resolution "half")   ; halv opløsning
+(resolution 64 64)    ; eksplicit 64x64
+(fps 30)              ; sæt framerate
+\end{lstlisting}
+
+\subsection{Kontrolflow (7 funktioner)}
+
+\begin{lstlisting}
+; Variabeldefinition
+(def x 50)
+(def y (+ 10 (* frame 0.5)))
+
+; Betinget
+(if (> frame 60)
+  (ink "red")
+  (ink "blue"))
+
+; Løkke
+(repeat 10 i
+  (circle (* i 12) 64 5))
+
+; Eksekvér én gang (ikke hvert frame)
+(once (wipe "black"))
+
+; Lokal binding
+(let ((cx 64) (cy 64))
+  (circle cx cy 30))
+\end{lstlisting}
+
+\subsection{Timing}
+
+\kl{}'s timingsystem bruger \emph{inline-planlægning} snarere end callbacks:
+
+\begin{lstlisting}
+; Frame-baseret timing
+(0 (wipe "black"))    ; hvert frame
+(1 (spin 5))          ; hvert 2. frame
+(30f (ink "red"))     ; efter 30 frames
+
+; Sekundbaseret timing
+(1s (wipe "red"))     ; efter 1 sekund
+(2.5s (ink "gold"))   ; efter 2,5 sekunder
+(1s! (write "!" 10 10)) ; affyr én gang ved 1s
+
+; Gentagende intervaller
+(0.5s... (spin 45))   ; hvert 0,5 sekund
+(1s... (scroll 1 0))  ; hvert sekund
+\end{lstlisting}
+
+Dette eliminerer behovet for \texttt{setTimeout}, \texttt{setInterval} eller animationsframe-callbacks. Tid er en \emph{egenskab ved udtrykket}, ikke en funktion kaldt på det.
+
+\subsection{Tekst (4 funktioner)}
+
+\begin{lstlisting}
+(write "hello" 10 20) ; tekst ved position
+(write "centreret"    ; centreret tekst
+  (/ width 2) (/ height 2))
+(type "typed" 10 10)  ; skrivemaskineeffekt
+\end{lstlisting}
+
+\subsection{Input (3 funktioner)}
+
+\begin{lstlisting}
+; Pen/museposition og -tilstand
+(if pen
+  (circle pen.x pen.y 5))
+
+; Berøringsinput
+(if hand
+  (line hand.x hand.y 64 64))
+\end{lstlisting}
+
+\subsection{Lyd (6 funktioner)}
+
+\begin{lstlisting}
+; Mikrofoninput
+(def vol (mic))       ; amplitude 0-255
+(circle 64 64 vol)    ; lydreaktiv
+
+; Melodiafspilning
+(melody "C4 E4 G4 C5")
+
+; Overtonharmonikker
+(overtone 440 3)      ; 3. harmonik af A4
+\end{lstlisting}
+
+\subsection{3D-grafik (8 funktioner)}
+
+\begin{lstlisting}
+(cube "mycube")       ; opret 3D-kube
+(form "mycube"
+  (move 0 0 -5)       ; position
+  (scale 2)           ; størrelse
+  (spin (* frame 0.5) 1 1 0)) ; rotér
+\end{lstlisting}
+
+\subsection{Komposition via \texttt{\$}-koder}
+
+Den mest karakteristiske funktion i \kl{} er dens kompositionssystem. I stedet for brugerdefinerede funktioner refererer programmer til andre programmer via deres korte kode:
+
+\begin{lstlisting}
+; Indlejr et andet program som et lag
+($cow)                ; eksekvér program "cow"
+($nece 10 20)         ; send parametre
+
+; Flerlagskomposition
+(wipe "black")
+($cow)                ; baggrundsslag
+($faim)               ; forgrundslag
+\end{lstlisting}
+
+Programmer hentes fra MongoDB, caches i RAM og IndexedDB og indholdsadresseres via SHA-256. \texttt{\$}-kodesystemet erstatter brugerdefinerede funktioner, moduler og biblioteker med en enkelt social mekanisme: \emph{find et program nogen har lavet, referér det via kode, komponér med det}.
+
+\section{Evalueringsmodel}
+
+\kl{} reevaluerer sit \textbf{hele AST hvert frame}. Der er ingen bevaret tilstand ud over eksplicit definerede variabler. \texttt{frame}- og \texttt{time}-variablerne inkrementeres automatisk. Transformationer som \texttt{zoom}, \texttt{scroll} og \texttt{spin} akkumulerer i framebufferen.
+
+Denne model eliminerer \texttt{setup()}/\texttt{draw()}-opdelingen kendt fra Processing~\citep{reas2007processing}. Enhver linje i et \kl{}-program eksekverer hvert frame.
+
+\subsection{Deterministisk tilfældighed}
+
+\texttt{random} er seedet fra programmets korte kode. Det samme program producerer identisk output på enhver enhed, hver gang. Dette gør \kl{}-programmer til \emph{reproducerbar generativ kunst}.
+
+\subsection{Kaostilstand}
+
+Ugyldig input producerer ikke fejlmeddelelser. I stedet detekterer \kl{} lave genkendelsesforhold og renderer kunstnerisk visuelt output. Brugeren ser aldrig ``SyntaxError.'' De ser farver.
+
+\section{Design via udeladelse}
+
+\kl{} mangler bevidst:
+
+\begin{itemize}
+  \item \textbf{Brugerdefinerede funktioner}: erstattet af \texttt{\$}-kode komposition
+  \item \textbf{Rekursion}: forhindrer uendelige løkker og stakoverløb
+  \item \textbf{Fil-I/O}: lærredet er det eneste output
+  \item \textbf{Netværk}: programmer kan ikke hente eksterne data
+  \item \textbf{Strengmanipulation}: ingen \texttt{concat}, \texttt{split}, \texttt{replace}
+  \item \textbf{Fejlmeddelelser}: erstattet af kaostilstand
+  \item \textbf{Import/require}: erstattet af \texttt{\$}-koder
+  \item \textbf{Objekter/klasser}: data er tal, strenge og lister
+\end{itemize}
+
+Hver udeladelse er en designbeslutning. Fraværet af brugerdefinerede funktioner tvinger komposition gennem det sociale lag. Fraværet af fejlmeddelelser betyder, at begyndere aldrig møder en mur af rød tekst. Fraværet af netværk betyder, at ethvert program er selvstændigt og sikkert at køre.
+
+Dette følger princippet om, at et sprogs begrænsninger definerer dets kreative rum mere end dets funktioner~\citep{papert1980mindstorms, compton2015casual}. \kl{} er ikke et generelt sprog, der tilfældigvis laver kunst. Det er et kunstsprog, der \emph{ikke kan} gøre andet.
+
+\section{Komplet indbygget indeks}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{Kategori} & \textbf{Antal} & \textbf{Kernefunktioner} \\
+\midrule
+Grafik & 9 & wipe, ink, line, box, circle \\
+Transformationer & 11 & scroll, zoom, spin, blur, suck \\
+Matematik & 14 & +, -, *, /, random, sin, cos \\
+Farve & 19+ & red, blue, fade, rainbow, zebra \\
+System/Display & 9 & width, height, frame, time \\
+Kontrolflow & 7 & def, if, repeat, once, let \\
+Tekst/Output & 4 & write, type, paste, print \\
+Input & 3 & pen, hand, gamepad \\
+Lyd & 6 & mic, melody, overtone, sound \\
+3D-grafik & 8 & cube, form, trans, move, scale \\
+Komposition & 4 & \$code, layer, bake, embed \\
+Data & 4 & list, get, set, let \\
+\midrule
+\textbf{Total} & \textbf{118} & \\
+\bottomrule
+\end{tabularx}
+\caption{Alle 118 indbyggede funktioner efter kategori.}
+\label{tab:builtins}
+\end{table}
+
+\section{Eksempel: Komplet program}
+
+Et komplet \kl{}-program, der tegner et lydreaktivt partikelfelt med orbital bevægelse:
+
+\begin{lstlisting}
+"black"
+(def vol (+ 5 (* (mic) 0.2)))
+(repeat 50 i
+  (def angle (* i 0.1256))
+  (def r (+ 20 (* vol (sin (+ (* frame 0.02) angle)))))
+  (def cx (+ 64 (* r (cos (+ angle (* frame 0.01))))))
+  (def cy (+ 64 (* r (sin (+ angle (* frame 0.01))))))
+  (ink (+ 100 (* i 3)) 50 (+ 150 (* i 2)))
+  (circle cx cy (+ 1 (random 3))))
+(blur 1)
+(zoom 1.002)
+\end{lstlisting}
+
+Dette program: sætter en sort baggrund, læser mikrofonamplitude, tegner 50 partikler i orbitale baner moduleret af lyd, farver dem med en beregnet gradient, anvender en let sløring og zoomer langsomt ind. Det kører ved 60 FPS. Det er 12 linjer langt. Det kræver ingen imports, ingen setup-funktion, ingen animationsløkke og ingen hændelseslyttere.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,315 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={notepat.com：从键盘玩具到系统前门},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{工作草稿——请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 从键盘玩具到系统前门}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 工作草稿——请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+\texttt{notepat} 于2024年6月作为 \ac{}~\citep{scudder2026ac} 内一个200行的半音阶键盘草图诞生。经过401次提交和20个月的发展，它增长到浏览器端7,903行和裸机端987行，积累了五种波形类型、混响效果、模拟压力感应、一个作为 PID~1 启动的裸机 Linux 移植版、一个品牌域名（\texttt{notepat.com}）、一个专用测试框架、一个 alpha 版 Ableton Live 设备、一个 VST3 插件脚手架，以及六个衍生作品。本文追溯了这一增长过程：\texttt{notepat} 的起源、它获得的功能、它催生的基础设施，以及一个单独的作品如何成为更大的创意计算系统的战略前门。我们将这一轨迹框定为一个作品的\emph{政治经济学}——一个作品不断增长的能力、它推动的平台决策，以及它随时间吸引的资源之间的反馈循环。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+创意编程平台通常在系统层面进行评估：语言设计、编辑器功能、社区规模~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}。即使在数字乐器研究中，分析单位通常是乐器类别或交互范式，而非单个工件在数年间的演变~\citep{magnusson2010designing,marquez2018dmi}。本文采用更窄但更长的视角：\ac{} 中的一个作品——\texttt{notepat}——跨越20个月的积极开发。
+
+\texttt{notepat} 是一件旋律键盘乐器。它可以通过 \texttt{aesthetic.computer/notepat} 和品牌域名 \texttt{notepat.com} 直接访问。截至2026年3月，它是系统中最复杂的作品，裸机硬件上的默认启动作品，也是性能测试基础设施的主要测试对象。这些都不是最初计划的。乐器在增长，平台围绕着它增长。
+
+\section{起源（2024年6月--7月）}
+
+第一次提交出现在2024年6月27日，名为 \texttt{notepad}——一个后来被重新解读为 ``note'' 和 ``pad'' 混成词的拼写错误。初始版本是一个最简键盘采样器：QWERTY 键映射到半音阶音符，单一正弦波形，除了活动键的彩色矩形外没有 UI。
+
+五天内，这个作品获得了：
+\begin{itemize}
+  \item 合成器淡出（25\,ms 线性衰减以防止咔嗒声），
+  \item 项目索引中的文档引用，
+  \item 更正后的名称 \texttt{notepat}。
+\end{itemize}
+
+在这个阶段，作品大约200行。它使用了标准的 \ac{} 作品生命周期（\texttt{boot}、\texttt{paint}、\texttt{act}）和平台内置的 \texttt{sound.synth} API。设计刻意简单：一个可记忆的名词，一件即时可演奏的乐器，无需任何配置。这种早期的极简主义与 \citet{magnusson2010designing} 所描述的生产性约束一致——一个有界的搜索空间，同时聚焦演奏者和开发者。
+
+\section{功能增长}
+
+\subsection{音频引擎（2024--2025）}
+
+合成器表面沿多个轴扩展，直接由演奏需求驱动。这正是 \citet{mcpherson2020idiomatic} 在计算机音乐语言中所描述的动态：工具获得反映和强化其主要用户审美偏好的"惯用模式"。
+
+\begin{itemize}
+  \item \textbf{波形}：正弦波 $\rightarrow$ 三角波、锯齿波、方波、噪声（通过键盘快捷键或参数选择）。
+  \item \textbf{混响}：三击延迟线（120\,ms 间隔），0.55反馈系数，湿/干混合通过触控板 X 轴滑块控制。裸机上的逐采样平滑（$\alpha \approx 5 \times 10^{-5}$，192\,kHz）消除了拉链噪声。
+  \item \textbf{音高偏移}：通过触控板 Y 轴连续 $\pm$1 八度，带逐采样指数平滑（$\alpha \approx 3 \times 10^{-4}$，192\,kHz）。
+  \item \textbf{八度控制}：9个八度（1--9），通过方向键导航。
+  \item \textbf{快速模式}：快速起音/衰减切换，用于断奏演奏。
+  \item \textbf{节拍器}：节奏同步的节拍指示器（20--300 BPM），重拍视觉闪烁。
+\end{itemize}
+
+\subsection{输入与硬件（2024--2026）}
+
+三项硬件集成工作由 \texttt{notepat} 的表现力需求驱动。\citet{tahiroglu2020probes} 将数字乐器描述为改变我们对其运行的计算和物理基底的思考方式的"探针"。\texttt{notepat} 正是以这种方式进行了探测：
+
+\begin{enumerate}
+  \item \textbf{NuPhy Air60 HE 模拟键盘}：从 USB 捕获中逆向工程 WebHID 协议。64字节激活命令；每键16位压力报告；速度加权合成。需要裸机内核中的 \texttt{CONFIG\_HIDRAW=y}。
+  \item \textbf{触控板作为表情控制器}：X 轴控制混响湿混合，Y 轴控制音高偏移。这些映射是为 \texttt{notepat} 的演奏风格设计的，尚未通用化。
+  \item \textbf{HDMI 辅助显示}：在演出期间由混合音符颜色驱动的纯色输出。于2026年3月添加到 \texttt{ac-native}，受现场使用驱动。
+\end{enumerate}
+
+\subsection{视觉设计}
+
+界面从简单的彩色矩形演变为分层系统：
+
+\begin{itemize}
+  \item 24格分屏网格（左八度 4$\times$3 + 右八度 4$\times$3），
+  \item 状态栏：时钟（洛杉矶时间含夏令时）、波形、八度、采样率、音量、电池、WiFi 天线图标，
+  \item 迷你钢琴键盘可视化，带八度着色和黑键圆点标注，
+  \item MatrixChunky8 字体的 HUD 标签，带 \texttt{.com} 上标品牌，
+  \item 背景色调随时间变化（黎明/正午/下午/日落/夜晚），
+  \item 音符颜色系统：每个半音映射到一种色调（C = 红色到 B = 紫色），活动音符混入背景。
+\end{itemize}
+
+\subsection{DAW 集成：Ableton Live}
+
+2025年1月，创建了一个 alpha 版 Max for Live 设备（\texttt{AC Notepat.amxd}），用于将 \texttt{notepat} 嵌入 Ableton Live。该设备使用 Max~9 的 \texttt{jweb\textasciitilde} 对象——一个支持音频的嵌入式网页浏览器——来加载 \texttt{notepat} 作品，并通过 \texttt{plugout\textasciitilde} 将其 Web Audio 输出直接路由到 Ableton 的混音器。
+
+这种集成需要解决浏览器和裸机环境中不存在的几个问题：
+
+\begin{itemize}
+  \item \textbf{离线打包}：一个自包含 HTML 包生成器（\texttt{bundle-html.js}）递归发现所有 ES 模块依赖，内联字体字形，生成一个带有虚拟文件系统（VFS）和 fetch 拦截器的 gzip 压缩自解压 HTML 文件。
+  \item \textbf{PACK 模式下的 AudioWorklet}：标准 AudioWorklet 加载路径需要服务器；打包版本从 VFS 创建 blob URL 来加载预打包的 speaker worklet（\texttt{speaker-bundled.mjs}，约50\,KB）。
+  \item \textbf{MIDI 到键盘的转换}：一个计划中的映射层将 MIDI 音符开/关事件转换为 \texttt{notepat} 的键盘事件模型，CC1（调制轮）控制混响混合，弯音控制滑音模式。
+\end{itemize}
+
+一个并行的 VST3 插件工作（\texttt{ac-vst/}）搭建了一个基于 C++ Steinberg SDK 的插件，配有基于 WebView 的 UI，目标是比 Max for Live 更具可移植性的分发路径。两项工作仍处于 alpha 阶段；由于 worklet 加载限制，音频引擎在离线打包环境中尚未运行。
+
+DAW 集成代表了 \texttt{notepat} 政治经济学中的第五个反馈循环：\textbf{分发压力 $\rightarrow$ 打包基础设施}。希望在专业音乐制作环境中提供 \texttt{notepat} 的愿望，迫使平台开发了离线 HTML 打包、VFS 模拟和 worklet 预打包功能——这些是其他任何作品都未要求过的基础设施。
+
+\subsection{网络与系统集成}
+
+\begin{itemize}
+  \item WiFi UI：全屏网络扫描器，带信号强度条、SSID 选择器、密码输入——内置于作品本身，用于没有 OS UI 的裸机环境。
+  \item 暗色模式：洛杉矶时间晚7点/早7点自动切换，在 C 和 JavaScript 中均有匹配的夏令时计算。
+  \item 投影仪和演奏会模式，用于演出场景。
+\end{itemize}
+
+\section{裸机移植}
+
+2024年末，\texttt{notepat} 被移植到 \texttt{ac-native}：一个从 USB 启动、作为 PID~1 运行、无操作系统的自定义 Linux 运行时。裸机版本（987行）运行在 QuickJS 上，通过 DRM/KMS 哑缓冲区以 3$\times$ 最近邻 CPU 放大进行渲染，并通过直接 ALSA \texttt{hw:} 访问在192\,kHz 下合成音频。
+
+在裸机 Linux 环境中嵌入实时音频合成器是一个活跃的研究领域。\citet{turchet2021elk} 描述了 Elk Audio OS——一个使用 Xenomai 实时内核扩展的基于 Linux 的操作系统，用于嵌入式硬件上的亚毫秒音频延迟——作为该领域的最先进技术。\texttt{ac-native} 的方法不同：它不是一个通用嵌入式音频操作系统，而是一个没有 RTOS 层的单作品运行时，依赖大型 ALSA 周期缓冲区（192\,kHz 下128个采样）和纯软件合成引擎，支持32声部复音。
+
+这次移植并非附带的。整个 \texttt{ac-native} 项目——自定义内核配置、initramfs 构建管线、ALSA 音频引擎、evdev 输入处理、通过 \texttt{wpa\_supplicant} 的 WiFi 管理、DRM/KMS 显示——主要是为了在物理硬件上将 \texttt{notepat} 作为专用乐器运行而构建的。作品证明了平台的合理性。
+
+启动序列反映了这一承诺：内核初始化后，\texttt{ac-native} 显示彩虹动画标题，然后加载 \texttt{notepat.mjs} 作为默认作品。乐器在开机后约2秒即可演奏。
+
+\section{衍生作品与复用}
+
+六个工件直接源自 \texttt{notepat}：
+
+\begin{enumerate}
+  \item \textbf{\texttt{autopat.mjs}}（214行）：带有内置点唱机（Twinkle、Bach 片段、音阶）的自动播放包装器。导入并委托给 \texttt{notepat} 的核心生命周期函数。
+  \item \textbf{\texttt{notepat-tv.mjs}}（55行）：用于艺术装置的 UDP 驱动远程可视化器。接收音符数据并在投影面上驱动海龟图形。
+  \item \textbf{\texttt{notepat-convert.mjs}}（103行）：记谱翻译库；将单字母键盘快捷键转换为扩展旋律语法。被 \texttt{clock}、\texttt{stample} 和其他音乐作品复用。
+  \item \textbf{裸机 \texttt{notepat.mjs}}（987行）：为 QuickJS 独立重新实现，共享键盘映射和 UI 约定，但适配了直接硬件访问。
+  \item \textbf{\texttt{AC Notepat.amxd}}（Max for Live 设备）：通过 \texttt{jweb\textasciitilde} 将 \texttt{notepat} 嵌入 Ableton Live，将 Web Audio 合成直接路由到 DAW 混音器。Alpha 版，2025年1月。
+  \item \textbf{\texttt{ac-vst} 插件}（C++/Steinberg SDK）：带有 WebView UI 的 VST3 脚手架，用于 DAW 无关的分发。包含 MIDI 输入处理、音频总线路由和参数自动化存根。
+\end{enumerate}
+
+\section{催生的基础设施}
+
+\subsection{路由与品牌}
+
+域名 \texttt{notepat.com} 在边缘被重写到主索引函数中的 \texttt{notepat} slug。这需要专用的主机匹配逻辑、自定义 Open Graph 元数据，以及演奏期间可见的品牌 HUD 元素。\texttt{notepat} 是系统中唯一拥有自己域名的作品。乐器 HUD 中可见的 \texttt{.com} 上标将这种双重身份编码到了演奏界面本身。
+
+\subsection{测试基础设施}
+
+\texttt{notepat} 相对于其他作品拥有不成比例的测试投入：
+
+\begin{itemize}
+  \item \textbf{延迟测试框架}（\texttt{artery/test-notepat-latency.mjs}）：通过 Chrome DevTools Protocol 测量键盘到声音的延迟；报告均值、中位数、p95、p99。当前测量值：417\,ms（目标：$<$30\,ms）。
+  \item \textbf{稳定性测试框架}（\texttt{artery/test-notepat-stability.mjs}）：以可配置强度（2--20 音符/秒）进行5分钟模糊测试；监测堆增长、声音字典大小、延迟退化。最新结果：3,229个音符，$-$14\% 堆，0 警告。
+  \item 跨 \texttt{artery/}、\texttt{tests/} 和 \texttt{.vscode/tests/} 共14个测试脚本。
+\end{itemize}
+
+延迟差距（417\,ms vs.\ 30\,ms 目标）代表了一个开放的研究问题。它与已知的浏览器音频调度约束和 Web Audio API 从 JavaScript 进行事件分发的成本一致。这一差距在裸机版本中不会出现，那里 192\,kHz 的 ALSA \texttt{hw:} 访问和直接 evdev 轮询可以实现低于10\,ms 的起音延迟。
+
+\subsection{作品访问量分析}
+
+作品访问量跟踪系统（\texttt{/api/piece-hit}）构建于2025年12月。它在服务器端将页面加载记录到 MongoDB，区分系统和用户作品。在初始遥测窗口（2025-12-31 至 2026-01-02）中，\texttt{notepat} 记录了27次访问，在44个被跟踪的内置作品中排名第4。当前的检测限制——没有类型化命名空间、没有认证归属、即发即忘的 POST 调用在 Netlify Functions 运行时完成前被终止——意味着自2024年以来 \texttt{notepat} 使用情况的完整画面未被捕获。即发即忘的 bug 已于2026年3月识别并修复。
+
+\section{一个作品的政治经济学}
+
+Kurzweil 的"加速回报定律"描述了技术系统如何以加速的速度积累能力，因为每一次进步都为下一次进步创造条件~\citep{kurzweil2005singularity}。在单个创意作品的尺度上，类似的动态是可见的。\texttt{notepat} 的轨迹展示了一个作品与其宿主平台之间的反馈循环，\citet{nieborg2018platformization} 在文化产业层面描述了这种动态：平台功能塑造生产，生产需求反过来重塑平台。
+
+\begin{enumerate}
+  \item \textbf{功能压力 $\rightarrow$ 平台能力}：\texttt{notepat} 需要混响，于是音频引擎获得了延迟线。它需要模拟压力，于是 \texttt{ac-native} 获得了 HID raw 支持。它需要辅助显示，于是 HDMI 输出被添加到 DRM 后端。
+  \item \textbf{品牌压力 $\rightarrow$ 路由决策}：对可记忆 URL 的渴望导致了 \texttt{notepat.com}，这需要边缘函数主机重写和自定义社交预览。
+  \item \textbf{质量压力 $\rightarrow$ 测试投入}：\texttt{notepat} 的延迟回归推动了通用作品测试框架（artery）的建设，该框架现在惠及所有作品。
+  \item \textbf{硬件压力 $\rightarrow$ 整个运行时}：在专用硬件上运行 \texttt{notepat} 的雄心证明了构建 \texttt{ac-native} 的合理性：自定义内核、initramfs、ALSA 引擎、DRM 显示、WiFi 协议栈——数千行 C 代码。
+  \item \textbf{分发压力 $\rightarrow$ 打包基础设施}：在 Ableton Live 中嵌入 \texttt{notepat} 的愿望迫使平台开发了带有虚拟文件系统、fetch 拦截器和预打包 AudioWorklets 的离线 HTML 打包——这些基础设施是其他任何作品都未要求过的。
+\end{enumerate}
+
+\citet{born2015music} 观察到，音乐技术投资从来不是中性的——它反映并强化了建造者和资助者的审美优先级、社会地位和资源。\texttt{notepat} 的轨迹在个体开发者和单个开源乐器的尺度上使这一点变得可见：对一个作品的持续个人投入实质性地塑造了系统中每个其他作品在技术上的可能性。
+
+现场编程社区已经为这种实践与工具之间的关系发展出明确的词汇~\citep{blackwell2022livecoding}：乐器与演奏者共同进化。\texttt{notepat} 的401次提交记录了这种非现场编程语境下的共同进化——一件通过使用而非通过前期设计积累能力的持久乐器。
+
+\section{当前规模}
+
+表~\ref{tab:scale} 总结了截至2026年3月8日 \texttt{notepat} 的规模。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l r}
+\toprule
+\textbf{指标} & \textbf{值} \\
+\midrule
+提交次数（浏览器版本） & 401 \\
+浏览器代码行数 & 7{,}903 \\
+裸机代码行数 & 987 \\
+衍生作品 & 6 \\
+总生态系统代码行数 & 9{,}262 \\
+波形类型 & 5 \\
+专用测试脚本 & 14 \\
+仓库中提及 ``notepat'' 的文件 & 159 \\
+年龄（首次提交） & 2024年6月27日 \\
+\bottomrule
+\end{tabularx}
+\caption{notepat 规模指标（2026年3月8日）。}
+\label{tab:scale}
+\end{table}
+
+\section{结论}
+
+\texttt{notepat} 证明了单个作品可以作为创意计算平台的战略重心。它从200行键盘草图增长到拥有自己域名、硬件运行时、DAW 集成和测试基础设施的9,000行生态系统，这并非计划之中——它从持续使用和上述反馈循环中涌现。
+
+方法论贡献是一个分析单位：\emph{作品轨迹}。研究单个作品的完整提交历史——它获得了哪些功能、催生了哪些基础设施、衍生了哪些后续作品——揭示了在系统层面不可见的平台动态。数字乐器研究已将 DMI 寿命作为采用问题加以审视~\citep{marquez2018dmi}，也将 DMI 作为计算基底的探针~\citep{tahiroglu2020probes}。作品轨迹将这两种视角与政治经济学视角相结合：乐器积累能力，而这种积累对承载它们的系统产生实质性后果。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

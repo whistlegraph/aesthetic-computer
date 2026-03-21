@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AC × DOLLHOUSE · Aesthetic Computer</title>
+  <meta charset="utf-8">
+  <meta name="author" content="Jeffrey Alan Scudder">
+  <meta name="description" content="What Aesthetic Computer can bring to DOLLHOUSE at Turbo Cheap for Frieze LA.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta property="og:title" content="AC × DOLLHOUSE">
+  <meta property="og:description" content="Aesthetic Computer for DOLLHOUSE at Turbo Cheap — Frieze LA">
+  <meta property="og:type" content="website">
+  <style>
+    /* jas.life-inspired: monospace, monochrome, live background, document feel */
+
+    :root {
+      --bg: rgb(0, 0, 0);
+      --fg: rgb(166, 201, 208);
+      --wrapper-bg: rgba(0, 0, 0, 0.7);
+      --link: rgb(100, 180, 255);
+      --link-visited: rgb(140, 120, 180);
+      --link-hover: rgb(255, 200, 100);
+      --link-active: rgb(255, 150, 200);
+      --accent: rgb(205, 92, 155);
+      --mark-color: rgb(166, 201, 208);
+      --mark-bg: black;
+      --hr-bg: rgb(20, 30, 40);
+      --hr-border: rgb(100, 150, 180);
+      --cmd-bg: rgba(205, 92, 155, 0.15);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: rgb(250, 248, 245);
+        --fg: rgb(30, 30, 30);
+        --wrapper-bg: rgba(250, 248, 245, 0.75);
+        --link: rgb(0, 80, 180);
+        --link-visited: rgb(80, 40, 120);
+        --link-hover: rgb(200, 80, 0);
+        --link-active: rgb(180, 0, 0);
+        --accent: rgb(180, 60, 130);
+        --mark-color: rgb(0, 100, 120);
+        --mark-bg: rgb(220, 240, 245);
+        --hr-bg: rgb(220, 215, 210);
+        --hr-border: rgb(180, 175, 170);
+        --cmd-bg: rgba(205, 92, 155, 0.1);
+      }
+    }
+
+    /* Live AC background */
+    #aesthetic {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      border: 0;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-size: 100%;
+      margin: 0;
+      font-family: monospace;
+      background-color: var(--bg);
+      color: var(--fg);
+      -webkit-text-size-adjust: none;
+      display: flex;
+      justify-content: center;
+      min-height: 100%;
+    }
+
+    #wrapper {
+      background: var(--wrapper-bg);
+      padding: 1em 1.25em 1.5em;
+      max-width: 640px;
+      width: 100%;
+      margin: 1.5em 0;
+      border-radius: 8px;
+      align-self: flex-start;
+    }
+
+    a, a:visited:hover { color: var(--link); }
+    a:active, a:visited:active { color: var(--link-active); }
+    a:visited { color: var(--link-visited); }
+    a:hover { color: var(--link-hover); }
+
+    h1 {
+      font-size: 1.5em;
+      margin-bottom: 0;
+      padding-top: 0.25em;
+    }
+
+    h2 {
+      font-size: 1.15em;
+      margin-top: 0.25em;
+      margin-bottom: 0.5em;
+    }
+
+    mark {
+      color: var(--mark-color);
+      background: var(--mark-bg);
+    }
+
+    hr {
+      margin-top: 0.5em;
+      margin-bottom: 0.5em;
+      width: calc(100% + 1em);
+      margin-left: -0.5em;
+      height: 6px;
+      border-left: none;
+      border-right: none;
+      border-width: 2px;
+      background-color: var(--hr-bg);
+      border-color: var(--hr-border);
+    }
+
+    p {
+      margin: 0.5em 0;
+      line-height: 1.6;
+    }
+
+    /* AC command prompt links — open modals */
+    .cmd {
+      color: var(--accent);
+      background: var(--cmd-bg);
+      padding: 1px 4px;
+      border-radius: 2px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .cmd:hover {
+      background: rgba(205, 92, 155, 0.3);
+      color: var(--accent);
+    }
+
+    /* Prompt-style clickable piece links */
+    .prompt {
+      display: block;
+      font-size: 0.9em;
+      margin: 0.4em 0;
+      padding: 0.3em 0.5em;
+      background: rgba(205, 92, 155, 0.08);
+      border-left: 3px solid var(--accent);
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .prompt:hover {
+      background: rgba(205, 92, 155, 0.2);
+      color: var(--accent);
+    }
+
+    .prompt .arrow { opacity: 0.4; }
+
+    /* Description text */
+    .desc {
+      font-size: 0.85em;
+      opacity: 0.6;
+      margin-left: 0.5em;
+    }
+
+    /* Section labels */
+    .section-label {
+      font-size: 0.8em;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0.5em 0 0;
+    }
+
+    /* Indented block */
+    .indent {
+      margin-left: 1em;
+    }
+
+    /* List style */
+    ul {
+      margin: 0.3em 0;
+      padding-left: 1.5em;
+    }
+
+    ul li {
+      margin: 0.2em 0;
+      line-height: 1.5;
+    }
+
+    /* Simple table */
+    table {
+      border-collapse: collapse;
+      margin: 0.5em 0;
+      font-size: 0.9em;
+      width: 100%;
+    }
+
+    td {
+      padding: 0.2em 0.5em 0.2em 0;
+      vertical-align: top;
+    }
+
+    td:first-child {
+      white-space: nowrap;
+      opacity: 0.6;
+      padding-right: 1em;
+    }
+
+    /* Footer */
+    .sig {
+      opacity: 0.4;
+      font-size: 0.85em;
+      margin-top: 0.5em;
+    }
+
+    /* Modal (for opening pieces) */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-bg {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-frame {
+      position: relative;
+      width: 92%;
+      max-width: 960px;
+      height: 85vh;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(205, 92, 155, 0.25),
+                  0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: -36px;
+      right: 4px;
+      background: rgba(255, 255, 255, 0.85);
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-size: 18px;
+      cursor: pointer;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .modal-close:hover {
+      background: #fff;
+      transform: scale(1.1);
+    }
+
+    .modal-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 16px;
+    }
+
+    /* Inline embeds */
+    .embed {
+      margin: 0.75em 0;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .embed iframe {
+      display: block;
+      width: 100%;
+      height: 240px;
+      border: none;
+    }
+
+    .embed-label {
+      font-size: 0.8em;
+      padding: 0.3em 0.5em;
+      background: rgba(205, 92, 155, 0.12);
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <!-- Live AC piece as page background -->
+  <iframe id="aesthetic" src="https://aesthetic.computer/starfield?nolabel&nogap&noboot=true"></iframe>
+
+  <div id="wrapper">
+    <center>
+      <h1>
+        <mark>AC × DOLLHOUSE</mark>
+        <br>
+        <span style="opacity: 0.5;">a proposal for</span>
+        <a href="https://turbo.cheap">Turbo Cheap</a>
+      </h1>
+    </center>
+
+    <hr>
+
+    <p>
+      Hey John — this is what
+      <a href="https://aesthetic.computer">Aesthetic Computer</a>
+      can do for DOLLHOUSE.
+    </p>
+
+    <p>
+      Click any <a href="#" class="cmd" onclick="return false">pink link</a>
+      below to open a live preview.
+    </p>
+
+    <hr>
+
+    <h1 style="margin-top: 0.25em;"><mark>One Room</mark></h1>
+    <h2>Jeffrey fills a room with AC</h2>
+
+    <p>
+      I bring a device with HDMI out running a browser fullscreen.
+      The projection is live software — not a video loop. It responds
+      to time and input. Audience scans a QR and interacts from their phone.
+    </p>
+
+    <p><strong>Instruments:</strong></p>
+
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('notepat'); return false">notepat</a>
+      — Keyboard-driven musical instrument. Audience sees a visual piano
+      reacting to notes in real time. Scan the QR, play the room from
+      your phone. Keys light up. Sound fills the space. Multiple people
+      can play at once.
+    </p>
+    <div class="embed">
+      <div class="embed-label">&gt; notepat.com</div>
+      <iframe src="https://notepat.com?density=2" allow="autoplay"></iframe>
+    </div>
+
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('clock'); return false">clock</a>
+      — UTC-synchronized clock that plays generative melodies.
+      Compact notation like
+      <a href="#" class="cmd" onclick="openPiece('clock:cdefg'); return false">clock cdefg</a>
+      loops melodies with waveform control, swing, parallel tracks,
+      and tempo shifts. The room becomes a ticking musical object.
+    </p>
+    <div class="embed">
+      <div class="embed-label">&gt; aesthetic.computer/clock *wibe</div>
+      <iframe src="https://aesthetic.computer/clock *wibe?density=2" allow="autoplay"></iframe>
+    </div>
+
+    <p>
+      <a href="#" class="cmd" onclick="openPiece('kidlisp'); return false">kidlisp</a>
+      — Minimal Lisp for generative art. 118 built-in functions.
+      Spinning cubes, procedural patterns, color fields, 3D forms.
+      The QR takes you to <a href="https://kidlisp.com">kidlisp.com</a>
+      where you can live-edit the code running on the wall.
+    </p>
+
+    <p>
+      I'd likely combine these — KidLisp visuals as base layer,
+      <a href="#" class="cmd" onclick="openPiece('notepat'); return false">notepat</a>
+      or <a href="#" class="cmd" onclick="openPiece('clock'); return false">clock</a>
+      for sound, with slideshow sequencing between pieces.
+      Or a custom piece for DOLLHOUSE.
+      The key: <em>live software</em>, not a recording. The room is awake.
+    </p>
+
+    <div class="embed">
+      <div class="embed-label">&gt; top.kidlisp.com/@jeffrey</div>
+      <iframe src="https://top.kidlisp.com/@jeffrey?density=4" allow="autoplay" style="height: 360px;"></iframe>
+    </div>
+
+    <p style="opacity: 0.5; font-size: 0.85em;">
+      I have a box that runs all of this at 4K over HDMI.
+      Only requirements: power + projection surface.
+    </p>
+
+    <hr>
+
+    <p>
+      Happy to fill a room and make it sing.
+    </p>
+
+  </div>
+
+  <script>
+    function openPiece(cmd) {
+      var piece = cmd.startsWith('$') ? cmd.slice(1) : cmd;
+      var url = piece === 'kidlisp'
+        ? 'https://kidlisp.com'
+        : 'https://aesthetic.computer/' + piece;
+
+      var old = document.getElementById('ac-modal');
+      if (old) old.remove();
+
+      var m = document.createElement('div');
+      m.id = 'ac-modal';
+      m.className = 'modal';
+      m.innerHTML =
+        '<div class="modal-bg"></div>' +
+        '<div class="modal-frame">' +
+        '<button class="modal-close">&times;</button>' +
+        '<iframe src="' + url + '" allow="autoplay"></iframe>' +
+        '</div>';
+      document.body.appendChild(m);
+
+      m.querySelector('.modal-bg').onclick = closeModal;
+      m.querySelector('.modal-close').onclick = closeModal;
+      document.addEventListener('keydown', escModal);
+    }
+
+    function closeModal() {
+      var m = document.getElementById('ac-modal');
+      if (m) m.remove();
+      document.removeEventListener('keydown', escModal);
+    }
+
+    function escModal(e) {
+      if (e.key === 'Escape') closeModal();
+    }
+
+    // Live reload in dev mode
+    if (location.hostname === 'localhost' || location.hostname.includes('local')) {
+      var wsUrl = location.protocol === 'https:'
+        ? 'wss://localhost:8889'
+        : 'ws://localhost:8889';
+
+      function connectWS() {
+        var ws = new WebSocket(wsUrl);
+        ws.onopen = function() { console.log('🔄 Live reload connected'); };
+        ws.onmessage = function(e) {
+          try {
+            var msg = JSON.parse(e.data);
+            if (msg.type === 'reload' && msg.content?.piece === '*refresh*') {
+              console.log('🔄 Reloading...');
+              location.reload();
+            }
+          } catch(err) {}
+        };
+        ws.onclose = function() { setTimeout(connectWS, 2000); };
+        ws.onerror = function() { ws.close(); };
+      }
+      connectWS();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+Left Hand
+
+B D F#
+D
+B D F#
+D
+B D F#
+D
+B D F#
+D
+B E G
+E
+B D F#
+D
+
+Right Hand
+
+*B Minor*
+B T I J U L M N M L U J I T B
+X V D E W G A B A G W E D V X
+
+u  b  t  i
+j  u  i  u  i  u
+b  i  b  w  i  b
+j  i  t 
+u  b  t  i
+j  u  i  u  i u
+b  i  b  w  i  b
+b  t  i  j  u
+l  m  l  u  l  m
+n  m  l  m  n  '  n  u
+i  t  b  t  i  j  u  l
+m  l  u  l  m  n  m  l
+m  n  ;  l  j  l  ;  '
+o  '  u 
+u  b  t  i
+j  u  i  u  i  u
+b  i  b  w  i  b
+
+*P1
+
+F# b  C# D
+u  b  t  i
+w  x  v  d
+
+E  F# D  F# D  F#
+j  u  i  u  i  u
+e  w  d  w  d  w
+
+b  D  b  f# D  b
+b  i  b  w  i  b
+x  d  x  ?  d  x 
+
+*P2
+
+E  D  C#
+j  i  t 
+
+F# b  C# D
+u  b  t  i
+
+E  F# D  F# D F#
+j  u  i  u  i u
+
+b  D  b  f# D  b
+b  i  b  w  i  b
+
+* P3
+
+b  C# D  E  F#
+b  t  i  j  u
+
+G  A  G  F# G  A
+l  m  l  u  l  m
+
+B  A  G  A  B  C# B  F#
+n  m  l  m  n  '  n  u
+
+D  C# b | C# D  E  F# G 
+i  t  b | t  i  j  u  l
+
+A  G  F# G  A  B  A  G
+m  l  u  l  m  n  m  l
+
+A  B  C  G  E  G  C  C#
+m  n  ;  l  j  l  ;  '
+
+Ab C#  ->  F# 
+o  '   ->  u 
+
+* P4
+
+F# b C# D  E F#
+u  b t  i  j u
+
+D  F# D  F# b  D
+i  u  i  u  b  i
+
+b  f# D  b  E  D  C# F#
+b  w  i  b  j  i  t  u
+
+b  C# D  E  F# D  F# D F#
+b  t  i  j  u  i  u  i u
+
+b  D  b  f# D  b
+b  i  b  w  i  b

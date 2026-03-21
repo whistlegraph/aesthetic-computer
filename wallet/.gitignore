@@ -1,0 +1,11 @@
+# Wallet repo-specific ignores
+node_modules/
+*.log
+
+# Extension build artifacts
+extension/dist/
+extension/*.zip
+extension/.chrome-test-profile/
+
+# Generated icons (build from SVG)
+extension/icons/*.png

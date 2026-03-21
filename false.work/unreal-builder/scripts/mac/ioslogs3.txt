@@ -1,0 +1,3 @@
+Error: Unknown option '--device'
+Usage: devicectl device info [--verbose] [--quiet] [--timeout <seconds>] [--json-output <path>] [--log-output <path>] <subcommand>
+  See 'devicectl device info --help' for more information.

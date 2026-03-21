@@ -1,0 +1,156 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}\usepackage{microtype}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={Hvem betaler for kreative værktøjer?}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Hvem betaler for kreative værktøjer?}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Finansiering, udbrændthed og overlevelse i open source kreativ computing}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Et komparativt studie af 28 værktøjsforfattere, fra Perl til TempleOS til Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Kreative computingværktøjer---Processing, p5.js, Sonic Pi, Pure Data, Hydra, TidalCycles, openFrameworks, Scratch og deres artsfæller---bruges af millioner. Deres skabere betales typisk af ingen, eller betales af institutioner, hvis støtte er betinget af faktorer uden relation til værktøjet. Denne artikel undersøger finansieringshistorierne for 28 open source kreative værktøjsforfattere og identificerer seks bæredygtighedsmodeller: \emph{akademisk subsidiering}, \emph{virksomhedspatronage}, \emph{personlig opofrelse}, \emph{fællesskabs-crowdfunding}, \emph{uventet gevinstfald} og \emph{ingen model overhovedet}. Vi finder, at mediangabet mellem et værktøjs skabelse og dets første bæredygtige finansiering er 8 år, at udbrændthed rammer skabere uanset finansieringsniveau, og at de mest brugte værktøjer ikke er de bedst finansierede. Vi argumenterer for, at det kreative computing-felts afhængighed af usynlig subsidiering---fra universiteter, fra ægtefæller, fra opsparingskonti, fra helbred---ikke er en finansieringsmodel, men fraværet af en.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+Lauren McCarthy skabte p5.js i 2013 og brugte det næste årti på at vedligeholde det 10--20 ulønnet timer om ugen oven på sin UCLA-professorstilling~\citep{mccarthy2023making}. Rich Hickey brugte 2,5 år af sine pensionsopsparinger på at bygge Clojure. Samuel Aaron blev afskediget fra Cambridge i 2019 og måtte ``fokusere 100\% på økonomisk overlevelse.'' \_why the lucky stiff slettede hele sin digitale eksistens efter at være blevet doxet, uden nogensinde at have modtaget en krone for sit arbejde.
+
+Terry A. Davis brugte 14,7 år på at bygge TempleOS---et komplet 64-bit styresystem---121.176 linjer kode, helt alene, finansieret af Social Security-handicapydelser. Da hans bolig kollapsede i 2017, levede han i en varevogn. Den 11. august 2018 blev han ramt og dræbt af et tog. Han var 48.
+
+Disse er ikke undtagelsestilfælde. De er den normale tilstand for open source kreativ værktøjsudvikling. Værktøjerne virker. Deres skabere gør det ofte ikke.
+
+\section{De fem modeller}
+
+\subsection{Akademisk subsidiering}
+
+Den mest almindelige finansieringsmodel er ikke en finansieringsmodel overhovedet: det er en universitetsløn, der betaler for undervisning og forskning, med værktøjsudvikling udført som ulønnet arbejde klassificeret som ``service'' eller ``kreativ praksis.''
+
+McCarthys 10--20 ugentlige timer af ulønnet p5.js-vedligeholdelse var mulige, fordi UCLA betalte hende løn for andet arbejde. Modellen har en kritisk skrøbelighed: når den akademiske stilling ophører, sulter værktøjet.
+
+\subsection{Virksomhedspatronage}
+
+Van Rossums bane er den mest virksomhedsunderstøttede i vores undersøgelse. Dog drev fællesskabstoksicitet omkring PEP 572 ham til at træde tilbage som BDFL i 2018 efter 29 år.
+
+Walls O'Reilly-patronage ophørte ca. 2002. Han var ``officielt arbejdsløs i knap fem år'' derefter og udviklede Perl~6 gennem maveoperation og langvarig sygdom.
+
+\subsection{Personlig opofrelse}
+
+Processing gik \textbf{11 år} (2001--2012) uden dedikeret finansiering. Processing Foundation blev oprettet i 2012, specifikt fordi frivilligt arbejde ikke længere kunne opretholde projektet.
+
+\subsection{Fællesskabs-crowdfunding}
+
+Mønstret: crowdfunding virker som supplement til en anden indkomstkilde. Det opretholder ikke, i noget tilfælde vi undersøgte, en skaber som primær indkomst.
+
+\subsection{Gevinstfald}
+
+I 2021 modtog Processing Foundation ca. \textbf{\$10 millioner} i NFT/krypto-donationer. Denne begivenhed var ugentagelig og uforudsigelig. Det er ikke en model; det er held.
+
+\subsection{Ingen model overhovedet}
+
+Terry Davis byggede TempleOS på Social Security-handicapydelser ($\sim$\$750--1.200/måned). Goodiepals \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino} dokumenterer denne models arbejdsvilkår indefra. ``Ingen model''-kategorien er terminaltilfældet. Når kroppen svigter, bliver projektet enten public domain-forældreløst software eller forsvinder helt.
+
+\section{Gabet}
+
+Mediangabet mellem et værktøjs skabelse og dets første bæredygtige finansieringskilde er \textbf{8 år}.
+
+\section{Udvisningsproblemet}
+
+Hernando Barrag\'an skabte Wiring som sin masterafhandling. Hans vejleder og kollegaer tilpassede Wirings design til billigere hardware og lancerede Arduino. Arduino rejste \$54 millioner. Wiring modtog intet.
+
+\section{Forfatterens position}
+
+\ac{} har været under udvikling siden 2021~\citep{scudder2026ac}. Forfatterens økonomiske historie dokumenteres i detaljer, fordi tavsheden om finansiering i akademiske artikler om kreative værktøjer opretholder myten om, at de opstår af ren intellektuel anstrengelse.
+
+\textbf{2019--2021:} Adjunkt, Southern Oregon University. Løn: $\sim$\$45.000/år. Opsagde i 2021.
+
+\textbf{2021--2022:} NFT-indtægt genererede ca. \$250.000 under kryptoopsvinget---den eneste periode med væsentlig indkomst siden afgang fra akademia.
+
+\textbf{2023--2026:} Ingen løn. Opsparing neddrages. Per marts 2026 var infrastrukturregninger på \$912 forfaldne; DigitalOcean suspenderede platformens backend.
+
+Ethvert andet værktøj i denne artikel blev bygget under en institutionel paraply. \ac{} har ingen af disse. Platformen er reel. Brugerne er virkelige. Finansieringen er det ikke.
+
+\section{Hvad der ville virke}
+
+\begin{itemize}
+  \item \textbf{Suveræne teknologifonde}: Tysklands Sovereign Tech Fund gav p5.js EUR 450.000.
+  \item \textbf{Arbejderkooperativer}: Ramsey Nassers EMMA Technology Cooperative tilbyder et alternativ til både soloprækaritet og virksomhedsansættelse.
+  \item \textbf{Vedligeholdelsesstipendier}: Ukeles argumenterede for, at vedligeholdelse er en kreativ handling~\citep{ukeles1969manifesto}. Stipendier til vedligeholdelse af eksisterende værktøjer ville adressere det mest almindelige fejlpunkt.
+  \item \textbf{Ærlig bogføring}: Enhver artikel om et kreativt værktøj bør inkludere en sektion om, hvordan dets udvikling blev finansieret.
+\end{itemize}
+
+\section{Konklusion}
+
+De kreative computingværktøjer, der bruges af millioner af studerende, kunstnere og musikere, bygges og vedligeholdes af mennesker, der i de fleste tilfælde ikke betales for det. Deres arbejde subsidieres af universiteter, der ikke værdsætter det, af virksomheder, hvis interesser kan divergere, af personlige opsparinger, der tømmes, og af helbred, der forværres. Feltet har ingen finansieringsmodel; det har en samling mestringsstrategier.
+
+Denne artikel løser ikke problemet. Den navngiver det. Mønstret er konsistent: ethvert vidt brugt kreativt computingværktøj blev bygget under en institutionel paraply, som værktøjets egen dokumentation sjældent anerkender. Når paraplyen fjernes, eksponeres skaberen. Når der ikke er nogen paraply til at begynde med, bliver skaberens krop infrastrukturen, og kroppe svigter.
+
+Forfatteren af denne artikel er i år fem med 2.800 brugere og ingen institutionel støtte. Dette er ikke en klage; det er et datapunkt.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

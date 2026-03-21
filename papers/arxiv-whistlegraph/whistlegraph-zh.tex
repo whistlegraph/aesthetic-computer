@@ -1,0 +1,228 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setCJKsansfont{Droid Sans Fallback}
+\setCJKmonofont{Droid Sans Fallback}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Whistlegraph：绘画、歌唱与图形乐谱作为病毒式传播形式}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿——请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\wg}{\textsc{Whistlegraph}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Whistlegraph}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 绘画、歌唱与图形乐谱作为病毒式传播形式}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 从 Ashland 小木屋到260万粉丝再到 Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿——请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+Whistlegraph 是绘画、歌唱和诗歌的可记忆混合体：每条画线对应一行被唱出的诗句，产生一个同时是图画、歌曲和自身复制说明书的图形乐谱。该形式于2019年由作者发明，在 COVID-19 大流行期间由一个三人组（@jeffrey、Alex Freundlich、Camille Klein）在 Oregon 州 Ashland 发展，通过短视频音乐绘画教程在 TikTok 上获得了260万粉丝，直至三人组于2023年11月分离。本文将 whistlegraph 作为一种形式进行记录：其结构、与实验音乐中图形乐谱的关系、在一个为舞蹈和对口型设计的平台上的意外走红、机构接受（Rhizome/New Museum 委约、Feral File 展览、Schneider Museum 装置、KADIST 收藏），以及作为 \ac{}~\citep{scudder2026ac} 直接前身的角色。我们论证，whistlegraph 的力量在于其\emph{可复制性}——任何能画一条线、唱一个音符的人都能表演一个——而这种可复制性，而非算法推广，解释了其病毒式传播。Whistlegraph 是一个教你如何演奏它的乐谱。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+"I'm a butterfly. Flapping for you guys. It's just a costume. I put on in my room。"一只手在纸上画一只蝴蝶，同时一个声音唱出这些歌词。每只翅膀是一条线；每条线是一句歌词；完成的图画是任何人都可以通过描绘线条并唱出歌词来表演的乐谱。视频长15秒。它于2020年初发布在 TikTok 上。数百万人观看了它。
+
+这就是一个 whistlegraph：绘画、歌唱和诗歌的可记忆混合体，其中每个笔触对应一个被唱出的音节，产生一个同时是艺术作品、歌曲和自身复制说明书的图形乐谱~\citep{dirt2023whistlegraph}。该形式由作者于2019年发明，在 COVID-19 大流行期间与 Alex Freundlich 和 Camille Klein 发展为三人组实践，扩展至260万 TikTok 粉丝，在 New Museum 和 Feral File 上展出，然后——在三人组于2023年11月分离后——直接注入了 \ac{} 的设计中。
+
+本文不是回顾。它是对一种从多种实践交汇处涌现的形式的记录——激进数字绘画~\citep{scudder2017manifesto}、Goodiepal 的激进计算机音乐~\citep{goodiepal2012elcamino}、基于约束的艺术，以及短视频社交——该形式继续影响作者的当前工作。Whistlegraph 是作者绘画实践与创意计算平台之间的桥梁。
+
+\section{形式}
+
+\subsection{结构}
+
+一个 whistlegraph 有三个同时进行的层次：
+
+\begin{enumerate}
+  \item \textbf{视觉}：实时绘制的画，通常用笔或马克笔在纸上，或粉笔在黑板上。每个笔触是刻意的，对应一个音乐元素。
+  \item \textbf{音乐}：被唱出的旋律。每个音符与一个绘画笔触对齐。旋律简单到足以在观看一两次后记住。
+  \item \textbf{文本}：作为诗歌功能的歌词。歌词描述、叙述或指导。它们短到足以记住。
+\end{enumerate}
+
+完成的图画充当\emph{图形乐谱}——一个编码了复制表演所需全部信息的视觉文档。任何能看到图画并回忆起旋律的人都可以表演这个 whistlegraph。乐谱教你如何演奏它。
+
+这种自文档化特性将 whistlegraph 与实验音乐中的其他图形乐谱区分开来~\citep{magnusson2010designing}。Cage 或 Cardew 的图形乐谱需要解读——表演者必须决定视觉标记在音乐上意味着什么。Whistlegraph 不需要解读。标记与声音之间的关系是一对一的，在原始表演中建立并保存在录像中。乐谱不是即兴演奏的提示；它是伪装成图画的一组精确指令。
+
+\subsection{时长与约束}
+
+大多数 whistlegraph 持续5--30秒。约束是刻意的：形式必须足够短以便一次观看即可记忆，足够简单以便儿童可以复制，足够完整以便完成的图画作为独立图像令人满意。这些约束——简洁、简单、完整——是 whistlegraph 的设计参数。它们呼应了 Klee 的教学练习~\citep{klee1925pedagogical}和 Kandinsky 的点-线-面分析~\citep{kandinsky1926point}，但被转换为 TikTok 15秒竖屏视频的原生格式。
+
+最长的 whistlegraph——"The Longest Whistlegraph Ever (so far)"，由 Rhizome 委约~\citep{rhizome2022longest}——持续约22分钟，用粉笔在一块顶部挂有铃铛的 4$\times$6 英尺黑板上表演。它是证明约束的例外：New Museum 的观众保持了持续的注意力，因为他们已经被数百个15秒 whistlegraph 训练，期待这种形式特有的标记与旋律的融合。
+
+\section{起源}
+
+\subsection{激进数字绘画}
+
+Whistlegraph 从作者自2016年以来活跃的激进数字绘画（RDP）实践中涌现~\citep{scudder2017manifesto}。RDP 将数字绘画视为传统绘画的下一个材料基底，而非补充："绘画只是一种图片消息。"在美国和欧洲的65场以上讲座-表演——包括2018年与 Goodiepal \& Pals 的欧洲巡演和第35届混沌通信大会上的演讲~\citep{scudder2018rdp35c3}——发展了一种将绘画、讲述和表演融合为单一行为的格式。
+
+Whistlegraph 将 RDP 讲座非正式地做的事情正式化了：同步创作行为和叙述行为。RDP 讲座是即兴的、不可重复的，而 whistlegraph 是谱写的、可记忆的、可复制的。从即兴到作曲——从讲座到乐谱——是关键创新。
+
+\subsection{COVID-19 与三人组}
+
+2020年，在 COVID-19 封锁期间，作者在 Oregon 州 Ashland 的一间小木屋中与 Alex Freundlich 和 Camille Klein 组成了三人组。大流行消除了现场表演和讲座巡演的可能性。TikTok 在封锁期间人气爆发，为匹配 whistlegraph 自然时长的短视频提供了平台。
+
+三人组发布音乐绘画教程：一只手画画，一个声音唱歌，镜头同时捕获两者，结果是一个15秒的视频，教观众自己复制这个 whistlegraph。该格式天然适合 TikTok 的合拍和混剪功能，允许观众与原始视频一起表演。Whistlegraph 不仅是被消费的内容；它是被表演的乐谱。
+
+\section{病毒式传播}
+
+\subsection{增长}
+
+@whistlegraph TikTok 账号在2020至2023年间从零增长到260万粉丝。增长是有机的——没有付费推广、没有算法操控、没有追随潮流。病毒机制是形式本身：学会一个 whistlegraph 的观众想要表演它，而他们的表演将形式介绍给他们自己的受众。
+
+"I'm a Butterfly"——与音乐人 bo en 的合作——是最早的爆款。它的旋律（"I'm a butterfly / flapping for you guys / it's just a costume / I put on in my room"）和它的画（一只用四笔画出的简单蝴蝶）足够令人难忘，以至于通过重复而非推荐传播。
+
+\subsection{为什么它在 TikTok 上有效}
+
+TikTok 的主导内容格式——舞蹈挑战、对口型、喜剧短剧——与 whistlegraph 共享一个结构属性：它们是\emph{可复制的表演}。一个舞蹈挑战在观众学会编舞并发布自己的版本时成功。Whistlegraph 是一个具有相同病毒机制的绘画挑战：学习乐谱，表演它，发布它。
+
+但 whistlegraph 引入了其他 TikTok 格式中缺失的一个元素：\emph{原创作曲}。舞蹈挑战使用现有歌曲。对口型使用现有音频。Whistlegraph 是它自己的歌曲、自己的画、自己的使用说明书。它不从其他媒介借用病毒性；它从自身结构中生成病毒性。
+
+这是 Papert 的连接~\citep{papert1980mindstorms}：whistlegraph 是一个"微世界"，学习者通过构建某些东西来建构知识。观众不是被动地消费 whistlegraph；他们主动复制它，并在这样做的过程中，学到了关于视觉标记与音符之间关系的东西。
+
+\section{机构接受}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{机构} & \textbf{作品} & \textbf{年份} \\
+\midrule
+Rhizome / New Museum & 委约 + 表演 & 2022 \\
+Feral File & Ten Whistlegraphs（45版） & 2022 \\
+Taipei Dangdai & NFT Launch Stage & 2022 \\
+Schneider Museum (SOU) & 户外装置 & 2021 \\
+KADIST (San Francisco) & RDP \#98 入藏 & 2021 \\
+SMK（丹麦） & Ten Minute Painting & 2018 \\
+Rhizome ArtBase & 永久收录 & 2022 \\
+\bottomrule
+\end{tabularx}
+\caption{机构展览与收藏。}
+\label{tab:institutions}
+\end{table}
+
+机构轨迹以其速度著称：从 TikTok 教程到 Rhizome/New Museum 委约不到两年。Rhizome 委约~\citep{rhizome2022longest}——作为与 New Museum 合作呈现的 First Look 系列的一部分——包括一场粉笔现场表演、一部22分钟 4K 视频、IPFS 上的令牌门控手稿和录音，以及在 Queens 面向13--18岁青少年的工作坊（由 Deutsche Bank Americas Foundation 资助）。作品被收录入 Rhizome 的 ArtBase，将一种 TikTok 原生艺术形式与 Olia Lialina 和 JODI 的网络艺术放在同一个收藏中。
+
+Feral File 展览~\citep{feralfile2022ten}——十个 whistlegraph 作为 ERC-721 令牌，每个包含视频表演、图形乐谱和精选 TikTok 选集——售出45版。它还在 Taipei Dangdai 与 Art Blocks 和 Outland 一同展出。
+
+一本60页小册子，由 Asher Penn（\emph{Sex Magazine}）编辑，于2023年6月出版，印数750册。它包含对所有三位三人组成员的采访和 Jacob Ciocci（Paper Rad）题为"The Butterfly Effect / Rules Set You Free"的文章~\citep{ciocci2023butterfly}，将 whistlegraph 与 Paper Rad 的基于规则、社区生成艺术的遗产联系起来。
+
+\section{音乐}
+
+三人组在流媒体平台上发布音乐：单曲（"Infinitely Falling, Pop Sounds"、"Whistlegraph Practice"、"What's Inside Your Heart?"）和一张录音室专辑 \emph{Music 2 Whistlegraph 2}（2022年12月，由 Charlie Kamin-Allen 制作）。专辑将 whistlegraph 形式扩展为更长的作品，同时保留核心原则：每个音乐元素对应一个视觉标记。
+
+音乐不是副业。它是 whistlegraph 的另一半。没有音乐的图形乐谱是一幅画；没有图形乐谱的音乐是一首歌；合在一起，它们才是 whistlegraph。流媒体发行以一种可以独立于 TikTok 流通的格式记录了这种融合。
+
+\section{分离与延续}
+
+2023年11月，三人组因未来目标的冲突而分离。作者获得了对团体社交媒体平台的唯一访问权，包括拥有260万粉丝的 TikTok 账号。@whistlegraph 用户名现在发布 \ac{} 内容。
+
+分离结束了三人组，但没有结束这种形式。Whistlegraph 的核心属性——可复制性、标记-旋律对应、图形乐谱作为使用说明书——直接影响了 \ac{} 的设计：
+
+\begin{itemize}
+  \item \textbf{提示符即乐器}的隐喻（通过即兴发现的可记忆路径）呼应了 whistlegraph 的可记忆乐谱。
+  \item \textbf{作品模型}（在一个语境中运行的自包含程序）呼应了 whistlegraph 的自包含表演。
+  \item \textbf{即时模式渲染器}（每帧从头绘制）呼应了 whistlegraph 对绘画必须实时发生而非作为静态工件的坚持。
+  \item \textbf{TikTok 到平台的管线}——社交网络上的260万粉丝导入创意计算平台——是一种没有其他创意工具尝试过的分发模型。
+\end{itemize}
+
+Whistlegraph 不是 \ac{} 的弯路。它是大多数创意计算工具从未拥有的受众建设阶段。Processing 有 MIT；p5.js 有 UCLA；Sonic Pi 有 Cambridge。\ac{} 有260万人，他们知道绘画和音乐可以是同一件事。
+
+\section{图形乐谱作为界面}
+
+Whistlegraph 提出，一幅画可以是一个界面——不是界面的表征（像线框图），而是一个编码自身执行指令的\emph{功能性}界面。这是与 \ac{} 设计哲学的连接：提示符是一个通过响应你的输入来教你如何使用它的界面。作品是一个通过交互揭示其功能可供性的界面。Whistlegraph 是一个通过描绘来揭示其旋律的界面。
+
+Eshun 的"声音小说"~\citep{eshun1998more}——构建它所描述的现实的音乐——在 whistlegraph 中有视觉类比：一幅构建它所描绘的表演的画。图形乐谱不是\emph{关于} whistlegraph 的文档；它\emph{就是} whistlegraph，就像一段代码不是关于程序的文档，而是程序本身。
+
+\section{结论}
+
+Whistlegraph 是一种本不该在 TikTok 上有效的形式。它不是舞蹈。它不是对口型。它不是喜剧短剧。它是一个人慢慢地画着同时轻声唱着。它获得了260万粉丝，因为它提供了 TikTok 原生格式所不具备的东西：一个你可以学的乐谱、一幅你可以画的画、一首你可以唱的歌，以及同时做这三件事的指令。
+
+该形式的机构接受——Rhizome、New Museum、Feral File、KADIST、SMK——确认了 whistlegraph 被承认为艺术。其 TikTok 接受确认了它被承认为内容。其在 \ac{} 中的延续确认了它被承认为设计方法论。它三者兼是，因为它被设计为可复制的，而可复制性是连接艺术（乐谱）、内容（视频）和界面设计（提示符）的属性。
+
+作者"牺牲了随心所欲地轻松绘画的乐趣，换取了推进其工具技艺的痛苦"~\citep{scudder2019drawing}。Whistlegraph 是绘画还很轻松的最后一个项目。此后的一切都是在构建工具。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

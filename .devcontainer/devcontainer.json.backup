@@ -1,0 +1,136 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.241.1/containers/codespaces-linux
+// And for devcontainer cli usage check out: https://github.com/devcontainers/cli?tab=readme-ov-file
+{
+  "name": "Default",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "BUILDKIT_INLINE_CACHE": "1",
+      "DOCKER_BUILDKIT": "1",
+      "FEDORA_IMAGE": "quay.io/fedora/fedora:latest"
+    }
+  },
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "HOST_IP": "${localEnv:HOST_IP}",
+    "WSL_DISTRO_NAME": "${localEnv:WSL_DISTRO_NAME}",
+    "DOCKER_BUILDKIT": "1",
+    "COMPOSE_DOCKER_CLI_BUILD": "1"
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder}/.devcontainer/.emacs.d,target=/home/me/.emacs.d,type=bind,consistency=cached",
+    "source=${localWorkspaceFolder}/.devcontainer/envs,target=/home/me/envs,type=bind,consistency=cached",
+    "source=aesthetic-fish-data,target=/home/me/.local/share/fish,type=volume",
+    "source=aesthetic-copilot-data,target=/home/me/.copilot,type=volume",
+    "source=codespaces-linux-var-lib-docker,target=/var/lib/docker,type=volume",
+    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
+    "type=bind,source=/var/run/docker.sock,target=/var/run/docker.sock"
+    // NOTE: /etc/localtime mount removed - it doesn't exist on macOS and breaks container start.
+    // Docker Desktop on macOS handles timezone sync automatically.
+  ],
+  // "features": {
+  //   "ghcr.io/devcontainers/features/python:1": "none"
+  // },
+  "forwardPorts": [8888, 8111, 8889, 8083, 8084, 8085, 4040, 12345, 3478, 10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007],
+  "portsAttributes": {
+    "8888": {
+      "label": "Aesthetic Computer",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    },
+    "3478": {
+      "label": "TURN Server",
+      "protocol": "udp",
+      "onAutoForward": "silent"
+    },
+    "8111": {
+      "label": "Caddy",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "8889": {
+      "label": "Session Server",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "8083": {
+      "label": "Chat System",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "8084": {
+      "label": "Chat SOTCE",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "8085": {
+      "label": "Chat Clock",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    }
+  },
+  "customizations": {
+    "codespaces": {
+      "machine": "largePremiumLinux"
+    },
+    "vscode": {
+      "extensions": [],
+      "settings": {
+        "settingsSync.ignoredExtensions": ["github.copilot-chat", "github.copilot"],
+        "extensions.ignoreRecommendations": true,
+        "remote.extensionKind": {
+          "github.copilot-chat": ["ui"],
+          "github.copilot": ["ui"]
+        },
+        "extensions.autoUpdate": false,
+        "settingsSync.keybindingsPerPlatform": false,
+        "git.autorefresh": false,
+        "files.watcherExclude": {
+          "**/node_modules/**": true,
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/dist/**": true,
+          "**/packed/**": true,
+          "**/archive/**": true
+        }
+      }
+    }
+  },
+  "runArgs": [
+    // 📋 Clipboard also requires `xhost +local:docker` to be set on the host.
+    "-v",
+    "/tmp/.X11-unix:/tmp/.X11-unix",
+    "-q",
+    "--cap-add=SYS_PTRACE",
+    "--security-opt=apparmor=unconfined",
+    "--name",
+    "aesthetic",
+    "--hostname",
+    "aesthetic",
+    "--init",
+    "--memory=12g",
+    "--memory-swap=12g",
+    "--shm-size=2g",
+    "--cgroupns=host",
+    "--tmpfs=/tmp:noexec,nosuid,size=2g",
+    "-p",
+    "0.0.0.0:8888:8888",
+    "-p",
+    "0.0.0.0:8889:8889",
+    "-p",
+    "0.0.0.0:3478:3478/udp",
+    "-p",
+    "0.0.0.0:49160-49167:49160-49167/udp",
+    "-p",
+    "0.0.0.0:10000-10007:10000-10007/udp",
+    "--ulimit",
+    "nofile=131072:131072"
+    // "--network",
+    // "host"
+  ],
+  "initializeCommand": ["sh", "-c", ".devcontainer/scripts/prepare-host.sh"],
+  "postStartCommand": "sh .devcontainer/scripts/poststart-wrapper.sh",
+  "postAttachCommand": "sh .devcontainer/scripts/post-attach.sh"
+  // .waiter file is now created inside entry.fish to avoid terminal popup in Codespaces
+}

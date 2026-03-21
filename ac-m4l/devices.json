@@ -1,0 +1,47 @@
+{
+  "devices": [
+    {
+      "name": "AC KidLisp.com",
+      "piece": "kidlisp.com/device",
+      "description": "KidLisp.com Device View - receives code from kidlisp.com IDE",
+      "width": 400,
+      "height": 300,
+      "devUrl": "https://localhost:8888/kidlisp.com/device",
+      "prodUrl": "https://kidlisp.com/device"
+    },
+    {
+      "name": "AC 🟪 notepat (https://aesthetic.computer/notepat)",
+      "piece": "notepat",
+      "description": "Aesthetic Computer Notepat with Ableton Sync",
+      "width": 500,
+      "height": 169
+    },
+    {
+      "name": "AC 🟪 metronome (https://aesthetic.computer/metronome)",
+      "piece": "metronome",
+      "description": "Aesthetic Computer Metronome with Ableton Sync",
+      "width": 200,
+      "height": 169
+    },
+    {
+      "name": "AC 🟪 prompt (https://aesthetic.computer/prompt)",
+      "piece": "prompt",
+      "description": "Aesthetic Computer Prompt with Ableton Sync",
+      "width": 200,
+      "height": 200
+    },
+    {
+      "name": "AC 🎸 pedal (https://aesthetic.computer/pedal)",
+      "piece": "pedal",
+      "description": "Aesthetic Computer Audio Effect Pedal - filter-style plugin with audio input",
+      "width": 400,
+      "height": 250,
+      "type": "effect"
+    }
+  ],
+  "defaults": {
+    "density": 1.5,
+    "latency": 0,
+    "baseUrl": "https://localhost:8888"
+  }
+}

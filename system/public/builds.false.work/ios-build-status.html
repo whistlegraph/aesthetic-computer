@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iOS Build Status - SpiderLily | builds.false.work</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+      background: #0d0d0d;
+      color: #e8e8e8;
+      line-height: 1.75;
+      padding: 2.5rem;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+    .container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: #151515;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 2.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      color: #fff;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .platform-tag {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      margin-right: 0.6rem;
+      background: #1a1a1a;
+      border: 1px solid #ff00ff;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #ff00ff;
+      letter-spacing: 0.03em;
+    }
+    .back-link {
+      color: #666;
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+    }
+    .back-link:hover {
+      color: #ffaa00;
+    }
+    
+    /* TODO Banner */
+    .todo-banner {
+      background: linear-gradient(135deg, #1a0a00 0%, #0d0500 100%);
+      border: 2px solid #ff5500;
+      border-radius: 6px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .todo-banner h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #ff5500;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 20px rgba(255,85,0,0.3);
+    }
+    .todo-banner p {
+      color: #cc8855;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+    
+    /* Status Banner */
+    .status-banner {
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 0.01em;
+    }
+    .status-warning {
+      background: linear-gradient(135deg, #1a1200 0%, #0d0900 100%);
+      border-left: 4px solid #ffaa00;
+      color: #ffcc44;
+    }
+    
+    /* Progress Banner */
+    .progress-banner {
+      background: linear-gradient(135deg, #0a1a0a 0%, #050d05 100%);
+      border: 2px solid #44aa44;
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .progress-banner h3 {
+      color: #66dd66;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .progress-banner p {
+      color: #88bb88;
+      font-size: 0.85rem;
+    }
+    
+    /* Sections */
+    section {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      margin-bottom: 1.75rem;
+    }
+    section h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 1rem 1.5rem;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2a2a2a;
+      color: #ffaa00;
+      letter-spacing: 0.02em;
+    }
+    .content {
+      padding: 1.5rem;
+    }
+    
+    /* Meta Grid */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .meta-item {
+      background: #141414;
+      padding: 0.85rem 1rem;
+      border-radius: 4px;
+      border-left: 3px solid #333;
+    }
+    .meta-label {
+      color: #666;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.35rem;
+    }
+    .meta-value {
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    
+    /* Priority Fix Steps */
+    .fix-step {
+      background: #141414;
+      border: 1px solid #252525;
+      border-radius: 6px;
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+    .fix-header {
+      display: flex;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      background: #181818;
+      border-bottom: 1px solid #252525;
+      gap: 0.85rem;
+    }
+    .fix-priority {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+    .priority-1 { background: #2a0a0a; color: #ff6666; border: 2px solid #ff3333; }
+    .priority-2 { background: #2a1a0a; color: #ffaa66; border: 2px solid #ff8800; }
+    .priority-3 { background: #2a2a0a; color: #ffff66; border: 2px solid #cccc00; }
+    .priority-4 { background: #0a2a0a; color: #66ff66; border: 2px solid #00cc00; }
+    
+    .fix-title {
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: 0.01em;
+    }
+    .fix-severity {
+      margin-left: auto;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .severity-critical { background: #2a0a0a; color: #ff5555; border: 1px solid #ff3333; }
+    .severity-high { background: #2a1a0a; color: #ffaa55; border: 1px solid #ff8800; }
+    .severity-medium { background: #2a2a0a; color: #dddd55; border: 1px solid #aaaa00; }
+    .severity-low { background: #0a2a0a; color: #55dd55; border: 1px solid #00aa00; }
+    .severity-fixed { background: #0a2a0a; color: #44ff44; border: 1px solid #00ff00; }
+    
+    .fix-body {
+      padding: 1.5rem;
+    }
+    .fix-body p {
+      margin-bottom: 1rem;
+      color: #aaa;
+      line-height: 1.8;
+    }
+    .fix-body h4 {
+      color: #888;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 1.5rem 0 0.85rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #222;
+    }
+    .fix-body h4:first-child {
+      margin-top: 0;
+    }
+    
+    /* Steps List */
+    ol.steps {
+      margin-left: 0;
+      padding-left: 1.75rem;
+      color: #ccc;
+    }
+    ol.steps li {
+      margin-bottom: 0.85rem;
+      padding-left: 0.5rem;
+      line-height: 1.8;
+    }
+    ol.steps li::marker {
+      color: #ffaa00;
+      font-weight: 700;
+    }
+    
+    /* Code Blocks */
+    pre {
+      background: #0d0d0d;
+      padding: 1rem 1.25rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      line-height: 1.65;
+      border: 1px solid #252525;
+      margin: 0.75rem 0;
+    }
+    code {
+      color: #e0e0e0;
+      font-family: inherit;
+    }
+    .error { color: #ff6b6b; font-weight: 500; }
+    .warning { color: #ffaa55; font-weight: 500; }
+    .path { color: #66b3ff; }
+    .setting { color: #88dd88; }
+    
+    /* Inline code highlight */
+    .fix-body code,
+    ol.steps code {
+      background: #0d0d0d;
+      padding: 0.2em 0.45em;
+      border-radius: 3px;
+      border: 1px solid #252525;
+      font-size: 0.85em;
+    }
+    
+    /* Checklist */
+    ul.checklist {
+      list-style: none;
+      padding: 0;
+    }
+    ul.checklist li {
+      padding: 0.6rem 0;
+      padding-left: 2rem;
+      position: relative;
+      border-bottom: 1px solid #1a1a1a;
+      line-height: 1.6;
+    }
+    ul.checklist li:last-child {
+      border-bottom: none;
+    }
+    ul.checklist li::before {
+      position: absolute;
+      left: 0;
+      width: 1.5rem;
+      font-size: 0.9rem;
+    }
+    ul.checklist li.done::before { content: "✅"; }
+    ul.checklist li.fail::before { content: "❌"; }
+    ul.checklist li.pending::before { content: "🔄"; }
+    ul.checklist li.fixed::before { content: "🎉"; }
+    
+    /* Two Column */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem;
+    }
+    .two-col h4 {
+      margin-bottom: 0.75rem !important;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #252525;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 700px) {
+      body { 
+        padding: 0.75rem; 
+        font-size: 13px;
+      }
+      .container { 
+        padding: 1rem;
+        border-radius: 4px;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+      header h1 {
+        font-size: 1.1rem;
+      }
+      .back-link {
+        font-size: 0.8rem;
+      }
+      .todo-banner { 
+        padding: 1.25rem 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .todo-banner h2 { 
+        font-size: 1.25rem;
+        letter-spacing: 0.08em;
+      }
+      .todo-banner p {
+        font-size: 0.85rem;
+      }
+      .status-banner {
+        padding: 1rem;
+        font-size: 0.8rem;
+        margin-bottom: 1.25rem;
+      }
+      .progress-banner {
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .progress-banner h3 {
+        font-size: 0.9rem;
+      }
+      .progress-banner p {
+        font-size: 0.8rem;
+      }
+      .summary {
+        padding: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .summary-text {
+        font-size: 0.85rem;
+        line-height: 1.7;
+      }
+      section {
+        margin-bottom: 1.25rem;
+      }
+      section h2 {
+        padding: 0.85rem 1rem;
+        font-size: 0.9rem;
+      }
+      .content {
+        padding: 1rem;
+      }
+      .meta-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+      .meta-item {
+        padding: 0.65rem 0.75rem;
+      }
+      .meta-label {
+        font-size: 0.65rem;
+      }
+      .meta-value {
+        font-size: 0.8rem;
+      }
+      .fix-header {
+        flex-wrap: wrap;
+        padding: 0.85rem 1rem;
+        gap: 0.5rem;
+      }
+      .fix-priority {
+        width: 1.85rem;
+        height: 1.85rem;
+        font-size: 0.85rem;
+      }
+      .fix-title {
+        font-size: 0.85rem;
+        flex: 1 1 calc(100% - 5rem);
+        min-width: 0;
+      }
+      .fix-severity {
+        font-size: 0.6rem;
+        padding: 0.2rem 0.5rem;
+        order: 3;
+        margin-left: 2.35rem;
+        margin-top: -0.25rem;
+      }
+      .fix-body {
+        padding: 1rem;
+      }
+      .fix-body p {
+        font-size: 0.85rem;
+        line-height: 1.7;
+      }
+      .fix-body h4 {
+        font-size: 0.7rem;
+        margin: 1.25rem 0 0.65rem;
+      }
+      ol.steps {
+        padding-left: 1.5rem;
+      }
+      ol.steps li {
+        font-size: 0.85rem;
+        margin-bottom: 0.65rem;
+        padding-left: 0.25rem;
+        line-height: 1.7;
+      }
+      pre {
+        padding: 0.75rem;
+        font-size: 0.7rem;
+        line-height: 1.5;
+        -webkit-overflow-scrolling: touch;
+      }
+      .fix-body code,
+      ol.steps code {
+        font-size: 0.8em;
+        padding: 0.15em 0.35em;
+        word-break: break-word;
+      }
+      .two-col { 
+        grid-template-columns: 1fr; 
+        gap: 1.25rem;
+      }
+      ul.checklist li {
+        font-size: 0.85rem;
+        padding: 0.5rem 0;
+        padding-left: 1.75rem;
+      }
+      .cmd {
+        padding: 0.85rem 1rem;
+      }
+      .cmd-label {
+        font-size: 0.65rem;
+      }
+      .cmd code {
+        font-size: 0.7rem;
+        word-break: break-all;
+      }
+      footer {
+        padding: 1.25rem;
+        font-size: 0.75rem;
+      }
+    }
+    
+    @media (max-width: 400px) {
+      body { padding: 0.5rem; }
+      .container { padding: 0.75rem; }
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+      .todo-banner h2 {
+        font-size: 1.1rem;
+      }
+      header h1 {
+        font-size: 1rem;
+      }
+      .platform-tag {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.45rem;
+      }
+    }
+    
+    /* Commands */
+    .cmd {
+      background: #0d0d0d;
+      padding: 1rem 1.25rem;
+      margin: 0.75rem 0;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      border-left: 3px solid #ffaa00;
+    }
+    .cmd-label {
+      color: #666;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .cmd code {
+      color: #fff;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    
+    /* Links */
+    a {
+      color: #ffaa00;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    a:hover {
+      color: #ffcc44;
+      text-decoration: underline;
+    }
+    
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 1.75rem;
+      color: #555;
+      font-size: 0.8rem;
+      border-top: 1px solid #252525;
+      margin-top: 1.25rem;
+      letter-spacing: 0.02em;
+    }
+    
+    /* Summary Box */
+    .summary {
+      background: #141414;
+      border: 1px solid #252525;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.75rem;
+    }
+    .summary-title {
+      color: #ffaa00;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
+    }
+    .summary-text {
+      color: #999;
+      font-size: 0.9rem;
+      line-height: 1.85;
+    }
+    
+    /* P4 Changes */
+    .p4-changes {
+      background: #0d0d0d;
+      border: 1px solid #252525;
+      border-radius: 4px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .p4-change {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .p4-change:last-child {
+      border-bottom: none;
+    }
+    .p4-id {
+      color: #66b3ff;
+      font-weight: 600;
+    }
+    .p4-user {
+      color: #88dd88;
+    }
+    .p4-desc {
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span class="platform-tag">📱 iOS</span> SpiderLily Build Status</h1>
+      <a href="/" class="back-link">← Back to Builds</a>
+    </header>
+
+    <div class="todo-banner">
+      <h2>🔧 2 Shaders Need Fixing</h2>
+      <p>CelShadePP_Mat and CelShadeRock materials causing dark scene on iOS</p>
+    </div>
+
+    <div class="progress-banner">
+      <h3>✅ Progress: M_FishHealth_PP is FIXED!</h3>
+      <p>Change #684 by falsework-admin successfully fixed the fish health post-process shader. It now compiles for iOS Metal.</p>
+    </div>
+
+    <div class="status-banner status-warning">
+      ⚠️ BUILD RUNS BUT SCENE IS VERY DARK — CelShadePP_Mat using GBuffer textures not available on mobile
+    </div>
+
+    <div class="summary">
+      <div class="summary-title">📋 Current Status (Nov 26, 2025 @ 10:08 PM)</div>
+      <div class="summary-text">
+        The iOS build packages, installs, and launches successfully on both test devices. However, the entire scene renders <strong>very dark</strong> because 
+        the cel-shading post-process material (<code>CelShadePP_Mat</code>) fails to compile for iOS Metal. The material uses <strong>GBuffer SceneTexture nodes</strong> 
+        which are only available in deferred rendering — iOS uses forward rendering and doesn't have GBuffer access.
+      </div>
+    </div>
+
+    <section>
+      <h2>📊 Build Information</h2>
+      <div class="content">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Project</div>
+            <div class="meta-value">SpiderLily</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Last Build</div>
+            <div class="meta-value">Nov 26, 2025 10:00 PM</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Engine</div>
+            <div class="meta-value">UE 5.6.1</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">P4 Changelist</div>
+            <div class="meta-value">#685 (latest)</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Bundle ID</div>
+            <div class="meta-value">work.false.SpiderLily</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Target</div>
+            <div class="meta-value">iOS Metal ES3.1</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>📝 Recent P4 Changes (Shader Fixes)</h2>
+      <div class="content">
+        <div class="p4-changes">
+          <div class="p4-change">
+            <span class="p4-id">#685</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Changed blendable location of CelShadePP_Mat so that it is "after bloom" for iOS</div>
+          </div>
+          <div class="p4-change">
+            <span class="p4-id">#684</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Made a conditional modification to the post processing fish health to build on iOS with Jeffrey. <strong style="color:#66ff66;">✓ THIS WORKED!</strong></div>
+          </div>
+          <div class="p4-change">
+            <span class="p4-id">#683</span> by <span class="p4-user">falsework-admin</span> — Nov 26, 2025
+            <div class="p4-desc">Made changes to iOS build settings.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>🔧 Remaining Issues to Fix</h2>
+      <div class="content">
+        
+        <!-- Priority 1 - CelShadePP_Mat -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-1">1</span>
+            <span class="fix-title">CelShadePP_Mat — GBuffer Not Available on Mobile</span>
+            <span class="fix-severity severity-critical">CRITICAL</span>
+          </div>
+          <div class="fix-body">
+            <p>This is the <strong>main issue causing the dark scene</strong>. The cel-shading post-process material is trying to access GBuffer textures (WorldNormal, BaseColor, etc.) which don't exist on iOS because mobile uses <strong>forward rendering</strong>, not deferred.</p>
+            
+            <h4>Error from Cook Log</h4>
+            <pre><code class="error">(Node SceneTexture) GBuffer scene textures not available with forward shading (platform id 11).
+(Node SceneTexture) GBuffer scene textures not available in post-processing with mobile shading (platform id 11).
+
+LogMaterial: Warning: Failed to compile Material for platform SF_METAL_ES3_1_IOS, Default Material will be used in game.</code></pre>
+            
+            <h4>Root Cause</h4>
+            <p>The material graph contains <code>SceneTexture</code> nodes set to access GBuffer data like:</p>
+            <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: #ccc;">
+              <li><code>WorldNormal</code> — Not available on mobile</li>
+              <li><code>BaseColor</code> — Not available on mobile</li>
+              <li><code>Metallic/Specular/Roughness</code> — Not available on mobile</li>
+            </ul>
+            
+            <h4>Fix in Unreal Editor</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Content/Developers/yueha/FX/CelShadePP_Mat</code></li>
+              <li>Find all <strong>SceneTexture</strong> nodes in the material graph</li>
+              <li>For each node accessing GBuffer data, either:
+                <ul style="margin-top: 0.5rem; margin-left: 1rem;">
+                  <li>Remove it and use a simpler approach</li>
+                  <li>Wrap it in a <code class="setting">Feature Level Switch</code> node with a mobile fallback</li>
+                  <li>Use only mobile-compatible inputs: <code>PostProcessInput0</code>, <code>SceneDepth</code>, <code>CustomDepth</code></li>
+                </ul>
+              </li>
+              <li>Test by previewing in <code class="setting">ES3.1 Preview Mode</code> (Settings → Preview Rendering Level)</li>
+              <li>Save, submit to P4, and trigger new iOS cook</li>
+            </ol>
+            
+            <h4>Alternative: Disable for iOS</h4>
+            <p>If cel-shading isn't critical for mobile, you can disable it:</p>
+            <ol class="steps">
+              <li>Open the Post Process Volume that uses CelShadePP_Mat</li>
+              <li>Add a branch that checks platform: <code class="setting">Is Platform Mobile</code></li>
+              <li>Skip applying this post-process on mobile platforms</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Priority 2 - CelShadeRock -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-2">2</span>
+            <span class="fix-title">CelShadeRock — Missing Material Function</span>
+            <span class="fix-severity severity-high">HIGH</span>
+          </div>
+          <div class="fix-body">
+            <p>This rock material is failing because it references a material function that doesn't exist or isn't being cooked.</p>
+            
+            <h4>Error from Cook Log</h4>
+            <pre><code class="error">LogMaterial: Warning: Failed to compile Material for platform SF_METAL_ES3_1_IOS
+  Missing Material Function
+
+Content/Developers/yueha/Migrate/Beach/Rock_Pack/Material/MI/CelShadeRock.uasset</code></pre>
+            
+            <h4>Fix in Unreal Editor</h4>
+            <ol class="steps">
+              <li>Open <code class="path">Content/Developers/yueha/Migrate/Beach/Rock_Pack/Material/MI/CelShadeRock</code></li>
+              <li>Look for any <strong>Material Function</strong> nodes with a red error state</li>
+              <li>Check if the referenced function exists and is in the correct location</li>
+              <li>If the function was deleted/moved, re-link it or recreate it</li>
+              <li>Ensure all referenced functions are set to be cooked (<code class="setting">Used with</code> settings)</li>
+              <li>Save and submit to P4</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- FIXED - M_FishHealth_PP -->
+        <div class="fix-step">
+          <div class="fix-header">
+            <span class="fix-priority priority-4">✓</span>
+            <span class="fix-title">M_FishHealth_PP — SceneTextureLookup Issue</span>
+            <span class="fix-severity severity-fixed">FIXED</span>
+          </div>
+          <div class="fix-body">
+            <p style="color: #66dd66;"><strong>This issue has been resolved!</strong> Change #684 by falsework-admin added a conditional modification that makes this shader compile for iOS.</p>
+            
+            <h4>Original Error (Now Fixed)</h4>
+            <pre><code class="warning" style="text-decoration: line-through;">error: use of undeclared identifier 'SceneTextureLookup'; did you mean 'MobileSceneTextureLookup'?
+    sum += SceneTextureLookup(ViewportUVToSceneTextureUV(pos,TexIndex), TexIndex, false);</code></pre>
+            
+            <p>The fix likely used a <code>Feature Level Switch</code> or platform-specific branching to use mobile-compatible functions on iOS.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section>
+      <h2>✅ Component Status</h2>
+      <div class="content">
+        <div class="two-col">
+          <div>
+            <h4 style="color:#8f8;margin-bottom:0.5rem;">✓ Working</h4>
+            <ul class="checklist">
+              <li class="done">Code signing &amp; provisioning</li>
+              <li class="done">App packaging (.app bundle)</li>
+              <li class="done">Device installation</li>
+              <li class="done">App launches successfully</li>
+              <li class="done">Level loads (L_VerticalSlice_Demo)</li>
+              <li class="done">Touch input detected</li>
+              <li class="fixed">M_FishHealth_PP shader (FIXED!)</li>
+              <li class="done">FMOD binaries linked</li>
+            </ul>
+          </div>
+          <div>
+            <h4 style="color:#f88;margin-bottom:0.5rem;">✗ Needs Fix</h4>
+            <ul class="checklist">
+              <li class="fail">CelShadePP_Mat (GBuffer access)</li>
+              <li class="fail">CelShadeRock (missing function)</li>
+              <li class="pending">Scene brightness/lighting</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>📱 Test Devices</h2>
+      <div class="content">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">aesthetic.computer</div>
+            <div class="meta-value">iPhone 14 Pro Max</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Matthew Doyle's iPhone</div>
+            <div class="meta-value">iPhone 16 Pro Max</div>
+          </div>
+        </div>
+        <p style="margin-top: 1rem; color: #888; font-size: 0.85rem;">Both devices have the latest build installed and exhibit the same dark scene issue.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>🎯 Next Steps</h2>
+      <div class="content">
+        <ol class="steps">
+          <li><strong>Fix CelShadePP_Mat</strong> — Replace GBuffer SceneTexture nodes with mobile-compatible alternatives or add Feature Level Switch</li>
+          <li><strong>Fix CelShadeRock</strong> — Re-link the missing material function</li>
+          <li><strong>Submit to P4</strong> — Use <code>falsework-admin</code> workspace</li>
+          <li><strong>Ping Jeffrey</strong> — Trigger new iOS cook + deploy from Mac Mini</li>
+          <li><strong>Test on devices</strong> — Verify scene renders correctly with proper brightness</li>
+        </ol>
+      </div>
+    </section>
+
+    <section>
+      <h2>💻 Quick Commands</h2>
+      <div class="content">
+        <div class="cmd">
+          <div class="cmd-label">Force P4 Sync:</div>
+          <code>p4 -H "falseworks-Mac-mini.local" sync -f</code>
+        </div>
+        <div class="cmd">
+          <div class="cmd-label">iOS Cook + Stage:</div>
+          <code>RunUAT.sh BuildCookRun -project=SpiderLily.uproject -platform=IOS -cook -stage -pak</code>
+        </div>
+        <div class="cmd">
+          <div class="cmd-label">Deploy to Matthew's iPhone:</div>
+          <code>xcrun devicectl device install app --device 9654E2B8-... SpiderLily.app</code>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <a href="https://false.work">false.work</a> • Updated November 26, 2025 @ 10:08 PM
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+name = "aesthetic-feed"
+main = "worker.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Production environment for aesthetic.computer
+[vars]
+ENVIRONMENT = "production"
+SELF_HOSTED_DOMAINS = "feed.aesthetic.computer"
+JWT_ISSUER = ""
+JWT_AUDIENCE = ""
+JWT_PUBLIC_KEY = ""
+
+# Production KV namespaces (aesthetic.computer)
+[[kv_namespaces]]
+binding = "DP1_PLAYLISTS"
+id = "c93604481d454a6688b9596ea8fcf28b"
+
+[[kv_namespaces]]
+binding = "DP1_CHANNELS"
+id = "7dc3d2ce84104527aa7e2b993e8ac426"
+
+[[kv_namespaces]]
+binding = "DP1_PLAYLIST_ITEMS"
+id = "8906a302de0946f2a86bd2c1a447fdce"
+
+# Production Queue configuration
+[[queues.producers]]
+binding = "DP1_WRITE_QUEUE"
+queue = "dp1-write-operations-prod"
+
+# Rate limiting configuration
+[limits]
+cpu_ms = 30000
+
+# Build configuration
+[build]
+command = "npm run worker:build"
+
+# Secrets (set via wrangler secret put)
+# API_SECRET - Bearer token secret
+# ED25519_PRIVATE_KEY - Server signing key (REQUIRED)

@@ -1,0 +1,6 @@
+other contributors (names -> handles)
+
+sage: @mxsage
+tina: @tinatari
+dan:  @rcrdlbl
+maya: @mayaman

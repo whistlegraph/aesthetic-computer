@@ -1,0 +1,766 @@
+@import url("https://fonts.googleapis.com/css2?family=Grenze+Gotisch&family=Karla&family=VT323&display=swap");
+
+@media only screen and (max-width: 520px) {
+  html {
+    font-size: 13px;
+  }
+  body {
+    padding: 0.25em !important;
+  }
+  .card-number {
+    font-size: 10px !important;
+  }
+  .painting-metadata-selfie::before {
+    bottom: 0.15em !important;
+  }
+  #nft-card {
+    margin-top: -1.1em !important;
+  }
+}
+
+@media only screen and (min-width: 900px) {
+  html {
+    font-size: 18px;
+  }
+  .card-number {
+    font-size: 16px !important;
+  }
+  main {
+    max-width: 728px !important;
+  }
+  #nft-card {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+html {
+  background-color: hsl(0, 100% 0%);
+  animation: wild 60s linear infinite alternate;
+}
+
+html.big {
+  background-color: black;
+  animation: none;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Karla", monospace;
+  padding: 1em;
+  color: rgb(255, 255, 255);
+  display: flex;
+  flex-direction: column;
+  -webkit-text-size-adjust: 100%;
+}
+
+code {
+  font-family: sans-serif;
+}
+
+@keyframes wild {
+  0% {
+    background-color: hsl(30, 80%, 7%);
+  }
+  8.3% {
+    background-color: hsl(60, 80%, 7%);
+  }
+  16.6% {
+    background-color: hsl(90, 80%, 7%);
+  }
+  24.9% {
+    background-color: hsl(120, 80%, 7%);
+  }
+  33.2% {
+    background-color: hsl(150, 80%, 7%);
+  }
+  41.5% {
+    background-color: hsl(180, 80%, 7%);
+  }
+  49.8% {
+    background-color: hsl(210, 80%, 7%);
+  }
+  58.1% {
+    background-color: hsl(240, 80%, 7%);
+  }
+  66.4% {
+    background-color: hsl(270, 80%, 7%);
+  }
+  74.7% {
+    background-color: hsl(300, 80%, 7%);
+  }
+  88% {
+    background-color: hsl(330, 80%, 7%);
+  }
+  100% {
+    background-color: hsl(360, 80%, 7%);
+  }
+}
+
+@keyframes rgb {
+  0% {
+    color: rgb(255, 255, 255);
+  }
+  30% {
+    color: rgb(255, 200, 200);
+  }
+  60% {
+    color: rgb(200, 255, 200);
+  }
+  100% {
+    color: rgb(200, 200, 255);
+  }
+}
+
+a:not(.image-link):hover {
+  filter: brightness(1.2);
+}
+
+header a,
+header a:visited,
+header a:active {
+  color: rgb(222, 222, 222);
+}
+
+header a:active {
+  color: rgb(255, 255, 255);
+}
+
+.bundle-link {
+  color: rgb(222, 222, 222);
+}
+
+.content a,
+.content a:visited,
+.content a:active {
+  color: rgb(222, 222, 222);
+}
+
+.video-container {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  margin-bottom: 0.75em;
+}
+
+.video-container.half:first-of-type {
+  margin-right: 1em;
+}
+
+.video-container.half {
+  width: 50%;
+  margin-left: 0;
+}
+
+.video-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.video-container::after {
+  padding-top: 56.25%;
+  display: block;
+  content: "";
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.5em;
+}
+
+h1 {
+  font-weight: normal;
+  font-size: 250%;
+  font-family: "Grenze Gotisch", monospace;
+  margin: 0;
+  margin-top: -0.5em;
+  margin-bottom: 0.2em;
+  user-select: none;
+}
+
+h1 a {
+  text-decoration: none;
+  filter: drop-shadow(0px 0px 4px black);
+  animation: rgb 6s linear infinite alternate;
+}
+
+h2 {
+  font-weight: normal;
+  font-family: "Grenze Gotisch", monospace;
+  margin: 0;
+  margin-bottom: 0.5em;
+  animation: rgb 12s linear infinite alternate;
+}
+
+h2.system-header {
+  font-family: "Karla", monospace;
+  margin-bottom: 1em;
+  animation: none;
+  opacity: 0.85;
+}
+
+h3 {
+  font-size: 1em;
+  font-weight: normal;
+  font-family: "Karla", monospace;
+  opacity: 0.85;
+  margin-top: 1em;
+  padding-left: 0.5em;
+}
+
+h3:first-of-type {
+  margin-top: 0;
+}
+
+main {
+  margin: auto;
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 520px;
+  min-width: 355px;
+}
+
+header {
+  width: 100%;
+  position: relative;
+}
+
+header span {
+  display: block;
+  text-align: right;
+}
+
+mark {
+  border-radius: 0.25em;
+  padding: 0 0.2em;
+  background: rgba(255, 255, 0, 0.25);
+}
+
+em.big {
+  font-style: normal;
+  font-size: 200%;
+}
+
+em.emoji {
+  position: relative;
+  font-style: normal;
+}
+
+em.emoji::after {
+  content: "💬";
+  position: absolute;
+  top: -0.15em;
+  left: 0.25em;
+}
+
+em.number {
+  font-style: normal;
+  font-size: 150%;
+  margin-top: -0.3em;
+  vertical-align: top;
+}
+
+.small {
+  margin-top: 0.75em;
+  font-size: 80%;
+}
+
+.hidden-link {
+  display: contents;
+  text-decoration: none;
+}
+
+.paintings {
+  margin-top: 1.5em;
+  width: 100%;
+}
+
+.paintings.grid {
+  padding-top: 20px;
+  font-size: 0;
+  display: grid;
+  grid-template-columns: auto auto auto auto auto;
+  grid-auto-flow: row dense;
+  grid-gap: 1px;
+}
+
+.paintings.grid.lots {
+  padding-top: 0;
+}
+
+.paintings.grid.lots.bundled {
+  border-top: 2px solid rgba(255, 255, 255, 0.5);
+  border-right: 2px solid rgba(255, 255, 255, 0.35);
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  background-color: rgba(127, 127, 127, 0.5);
+}
+
+.paintings.single-painting {
+  margin-top: 0;
+}
+
+#big-painting {
+  width: 100vw;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#big-painting:active {
+  opacity: 0.8;
+}
+
+#big-painting a.image-link {
+  font-size: 0;
+  cursor: w-resize;
+}
+
+#big-painting img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2em;
+  box-sizing: border-box;
+}
+
+.content {
+  margin-top: 2em;
+  width: 100%;
+}
+
+.content.one-line {
+  margin-top: 0.5em;
+  margin-bottom: 0;
+}
+
+.grid-card {
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+.card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-left: 0;
+  padding: 0.5em;
+  padding-bottom: 0.25em;
+  border-radius: 0.5em;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+  border-right: 2px solid rgba(255, 255, 255, 0.15);
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.75);
+  box-sizing: border-box;
+  margin-bottom: 24px;
+  box-shadow: 0px 4px 16px rgb(8, 8, 8);
+}
+
+
+#nft-card {
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  opacity: 0.5;
+  filter: saturate(0.1) brightness(0.5) contrast(1.2);
+  margin-bottom: 2em;
+  margin-top: 0em;
+  margin-left: auto;
+  margin-right: auto;
+  box-shadow: 0px 4px 16px rgb(8, 8, 8);
+}
+
+.card-number {
+  position: absolute;
+  left: 0.25em;
+  top: 0.25em;
+  color: white;
+  text-shadow: 0px 0px 2px black;
+  font-size: 14px;
+  padding: 0px 0.25em;
+  border-radius: 0.25em;
+  background: rgba(0, 0, 0, 0.8);
+  filter: invert(1);
+}
+
+.grid-card a {
+  position: relative;
+}
+
+.card img,
+.grid-card img {
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  margin-left: 0;
+  vertical-align: top;
+  border-radius: 0.125em;
+}
+
+.card a:hover {
+  filter: brightness(1.1);
+}
+
+#nav-list {
+  text-align: left;
+  font-size: 75%;
+  background: black;
+  padding: 0.25em 0.5em;
+  display: block;
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 0.25em;
+  left: 0;
+  bottom: -0.25em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#nav-list::after {
+  content: "👀";
+  position: absolute;
+  top: -0.95em;
+  left: -0.5em;
+}
+
+#nav-list a:not(:last-child) {
+  padding-right: 0.2em;
+}
+
+.painting-inspect {
+  cursor: zoom-in;
+  transition: 0.1s transform;
+}
+
+.painting-inspect:active {
+  transform: scale(0.98) !important;
+}
+
+.painting-inspect:hover {
+  transform: scale(0.99);
+}
+
+.painting-metadata {
+  display: flex;
+  flex-direction: column;
+}
+
+.painting-metadata:last-child {
+  padding-bottom: 0.5em;
+}
+
+.painting-metadata-top {
+  display: flex;
+  flex-direction: row;
+}
+
+.painting-metadata-top:hover .painting-number {
+  opacity: 0.7;
+}
+
+.painting-metadata-top:hover .painting-title {
+  opacity: 0.3;
+}
+
+.painting-metadata-top span {
+  display: block;
+  padding-top: 0.75em;
+  margin-bottom: -0.5em;
+  font-size: 80%;
+  animation: rgb 32s linear infinite alternate;
+}
+
+audio {
+  width: 100%;
+  opacity: 1;
+  display: block;
+  margin-bottom: 1em;
+  height: 1.85em;
+  filter: brightness(0.2) sepia(1) hue-rotate(240deg);
+}
+
+.painting-metadata-description {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  opacity: 0.5;
+  position: relative;
+  max-width: calc(100% - 1.85em);
+  padding-left: 0.5em;
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
+  line-height: 1.35em;
+}
+
+.painting-metadata-lists {
+  display: inline;
+}
+
+.painting-metadata-tools {
+  display: block;
+  font-size: 80%;
+  opacity: 0.35;
+}
+
+.painting-metadata-bottom {
+  margin-bottom: -0.35em;
+}
+
+.painting-metadata-bottom-row-1 {
+  display: flex;
+}
+
+.painting-metadata-bottom-row-2 {
+  margin-top: 0.25em;
+  display: flex;
+}
+
+.painting-metadata-location {
+  display: block;
+  font-size: 80%;
+  opacity: 0.35;
+}
+
+.painting-metadata-selfie::before {
+  content: "🙂";
+  position: absolute;
+  bottom: 0.05em;
+  left: 0.25em;
+}
+
+.painting-metadata-selfie {
+  position: relative;
+  display: block;
+  font-size: 80%;
+  opacity: 0.4;
+  background: rgba(255, 255, 0, 0.5);
+  border-radius: 1em 0.25em 0.25em 1em;
+  min-width: 8.5em;
+  text-align: right;
+  padding: 0.2em 0.45em 0.25em 0.45em;
+  color: yellow;
+  margin: auto 0 0.15em auto;
+}
+
+.painting-metadata-instagramurl,
+.painting-metadata-ipfsurl,
+.painting-metadata-jsonurl {
+  display: block;
+  font-size: 80%;
+  opacity: 0.35;
+  text-align: right;
+  background: rgba(0, 255, 0, 0.35);
+  border-radius: 0.25em;
+  padding: 0.2em 0.45em 0.25em 0.45em;
+  color: lime;
+  margin: auto 0 3px auto;
+}
+
+.painting-metadata-instagramurl a,
+.painting-metadata-ipfsurl a,
+.painting-metadata-jsonurl a {
+  text-decoration: none;
+}
+
+.painting-metadata-instagramurl:hover {
+  opacity: 0.5;
+  background: rgba(0, 255, 0, 0.5);
+}
+
+.painting-metadata-jsonurl {
+  color: cyan;
+  background: rgba(90, 255, 255, 0.3);
+}
+
+.painting-metadata-jsonurl:hover {
+  opacity: 0.5;
+  background: rgba(90, 255, 255, 0.5);
+}
+
+.painting-metadata-ipfsurl {
+  color: white;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.painting-metadata-ipfsurl:hover {
+  opacity: 0.5;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.painting-metadata ul {
+  display: inline-block;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  margin-bottom: 3px;
+  line-height: 2em;
+}
+
+.painting-metadata li {
+  display: inline-block;
+}
+
+.painting-metadata li:last-child {
+  padding-right: 0.25em;
+}
+
+.data-label {
+  background: rgb(48, 48, 48);
+  padding: 0.2em 0.5em 0.25em 0.5em;
+  border-radius: 1em 0.25em 0.25em 1em;
+  box-sizing: border-box;
+  margin-right: 0.1em;
+  min-width: 6em;
+  text-align: right;
+  display: inline-block;
+}
+
+.painting-metadata-tools li:not(:last-of-type):after {
+  content: ",";
+}
+
+.painting-number {
+  margin-right: auto;
+  margin-top: -0.85em;
+  font-family: "Grenze Gotisch", monospace;
+  user-select: none;
+  opacity: 0.5;
+}
+
+.painting-title {
+  font-size: 200% !important;
+  font-family: "VT323", monospace;
+  margin-right: 0em;
+  margin-left: auto;
+  margin-top: -0.7em;
+  opacity: 0.15;
+}
+
+.small-title {
+  font-size: 180% !important;
+}
+
+#edit-painting-form {
+  display: flex;
+  flex-direction: column;
+}
+
+#edit-painting-form label {
+  display: block;
+  opacity: 0.75;
+  margin-bottom: 0.5em;
+}
+
+#edit-painting-form label:not(:first-child) {
+  margin-top: 0.5em;
+}
+
+#edit-painting-form textarea,
+#edit-painting-form input[type="password"],
+#edit-painting-form input[type="number"],
+#edit-painting-form input[type="text"] {
+  width: 100%;
+  opacity: 0.5;
+  padding: 0.4em;
+  font-size: 1em;
+  font-family: "Karla";
+  margin-bottom: 0.5em;
+  box-sizing: border-box;
+  border-radius: 0.25em;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: black;
+  color: white;
+}
+
+#edit-painting-form input[type="number"] {
+  width: 4em;
+}
+
+#edit-painting-form input[type="checkbox"] {
+  margin: 0;
+  width: 1.5em;
+  height: 1.5em;
+  margin-bottom: 0.5em;
+  opacity: 0.75;
+}
+
+#edit-painting-form input[type="submit"] {
+  font-family: "Karla";
+  display: inline-block;
+  font-size: 1.5em;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1em;
+  opacity: 0.75;
+  cursor: pointer;
+  color: white;
+  background: black;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  padding: 0.4em;
+  border-radius: 0.25em;
+}
+
+#edit-painting-form input[type="submit"]:active {
+  opacity: 1;
+}
+
+.edit-painting-form-subseries-group {
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+  display: flex;
+  width: 100%;
+}
+
+.edit-painting-form-subseries-group div:first-child {
+  margin-left: 0;
+  width: 60%;
+}
+
+.edit-painting-form-subseries-group div:last-child {
+  width: 20%;
+  margin-left: 1em;
+}
+
+hr {
+  border: 0;
+  width: 100%;
+  height: 2px;
+  background: white;
+  opacity: 0.25;
+  margin-top: 1em;
+}
+
+footer {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  display: flex;
+  width: 100%;
+  font-size: 150%;
+  font-family: "Grenze Gotisch", monospace;
+}
+
+footer a,
+footer a:visited,
+footer a:active {
+  animation: rgb 10s linear infinite alternate;
+}
+
+#right-link {
+  margin-right: 0;
+  margin-left: auto;
+}
+
+#left-link {
+  margin-left: 0;
+  margin-right: auto;
+}
+
