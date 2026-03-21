@@ -1,0 +1,218 @@
+***Agenda***
+
+* Wednesday October 19
+
+(during my noon)
+ [] Pay NY Taxes
+ [] Pay any Ashland bills
+ [] Inbox Zero.
+ [] Look into my Federal and Oregon tax payment options.
+   - [] Download all documents from accountant.
+   - [] Review emails and look at links.
+   - [] Contact IRS / send initial payment.
+
+* Thursday October 20
+ [] Start putting UCLA app together.
+
+-Future
+(wild)
+[] Make 128 drawings.
+
+(aesthetic.computer)
+[] Make VR drawing tool.
+[] Put out whistlegraph recorder.
+
+(curiosity)
+[] Explore the Figma Developer API & Make a "hello world" example.
+   https://www.figma.com/developers/api
+
+(personal)
+[] Start DIGITPAIN podcast.
+[] Figure out health insurance
+
+-Past
+
+Wild Notes: Sept. 21
+- audience
+  legacy audience, traditional art world network
+  academic audience
+  whistlegraph on tiktok
+  nft collectorbase on twitter
+- mechanism
+  ?
+
+* September
+[x] Text Johanna to say Hi
+
+* Saturday, September 10
+(whistlegraph)
+[x] Finish microsite for film.
+
+(personal)
+[x] Email tax lady all my documents.
+
+(aesthetic.computer)
+[x] Complete multi-touch support.
+
+(outland)
+ \cancelled\ [] Plan next Outland video. (or cancel series?)
+* Monday, Sept. 19
+(aesthetic.computer)
+[x] Complete multi-touch support.
+
+* Tuesday, Sept 14.
+Notes on community -
+  * develop relationships with individuals
+  * create a compelling why
+  * find a model and value system that works for you
+  * all communities are centered around a goal
+
+(outland)
+[x] Plan next Outland video / email them.
+
+(personal)
+[x] Pay ashland utility bills.
+[x] Email tax lady all my documents.
+
+* Monday, Sept. 13
+(whistlegraph)
+[x] Finish microsite for film.
+
+* Tuesday, September 6
+(whistlegraph)
+[x] Finish film (final copies online and in Dropbox).
+
+* Monday, September 5
+(feral-file)
+[x] Finish harbingers-player.
+
+* Sunday, September 4
+(aesthetic.computer)
+[x] Start multi-touch support.
+
+* Saturday, September 1
+(whistlegraph)
+[x] Work more on the recorder.
+[x] Start long piece microsite.
+
+* Thursday, August 18
+(aesthetic.computer)
+[x] Meet with Niki 
+[x] Finish letter to Lucia
+
+* Sunday, August 14
+[x] Call Amelia
+
+* Saturday, August 13
+(whistlegraph)
+[x] Editing session.
+(aesthetic.computer)
+[x] 2 hrs with Artur.
+
+* Friday, Aug 12
+[x] US Bank @ 1pm
+(aesthetic.computer)
+[X] Onboard REAS
+[X] Onboard Artur
+
+* Tuesday, Aug. 9
+[X] Voiceover / Finish & Deliver Bear Market Diaries, Episode 2
+
+* Monday, Aug. 8
+[x] Call accountants
+[x] Make Bear Market Diaries, Episode 2
+
+  Possible topics:
+
+    Art vs. Content
+    NFTs and Currency
+    Tenets of Generative Art
+      Primary Form / Behavior / Gesture
+      (Frank Stella gesture clip from Painters Painting)
+      Games
+    Generative Art Cliches
+    Spirographs - tell a story...
+
+    Imagination / Content
+
+       _______
+       | * * |
+       |-----|
+     ____/ \____
+
+     Creative Software
+
+     old way
+     * pirate creative software to post on ad networks
+
+     new way
+     * software is free, the artifacts made from it are minted
+       on a market, with royalties for the software makers
+
+    * makes stick figure - lines coming out
+    * those lines lead to pictures / photographs / music notes / paint brushes
+    * "the things you make and share online should follow you around"
+    * makes stick figure - floating media coming out... lines, connected to boxes
+      pull in images and music notes from people
+    * (how to represent a feed?)
+    * identity... 
+    *** profile as art form / "profile art" and the pfp
+
+    The relationship between hardware and software right now...
+      - Sensors
+      - DALL-E's source imagery is from...
+        Commercial imagery optimized for ad-networks and likes.
+      - DALL-E's source imagery is NOT from...
+      - DALL-E Censors
+
+* Saturday, Aug. 6
+(Whistlegraph)
+[x] Editing from 11-2pm
+[x] Editing from 6-9pm
+(aesthetic.computer)
+[x] Niki from 3-6pm.
+
+Sunday, July 31
+(Whistlegraph)
+[X] Send any Sex Magazine related emails.
+
+Saturday, July 30
+[x] Go through my inbox. 
+  [x] Email accountants again (use a different email address)
+(aesthetic.computer)
+[x] Reschedule Fri. meeting with Nina
+
+Friday, July 29
+(personal)
+[x] Try out KDE desktop / fix fractional scaling.
+
+Sunday, July 25
+(Whistlegraph)
+[x] Figure out video shoot / email Brian.
+  - [x] Talk to Alex + Cam first.
+
+Wednesday, July 28
+[x] WILD Whistlegraph Intro.
+[x] Chat with Celine.
+[x] July 28 * p1xelfool: Feral File Opening
+
+Thursday-Saturday, July 22-24
+[x] Firm up Wild travel to NYC. (Email them back.)
+[x] Order bus or train to providence for upcoming tuesday.
+
+Wednesday, July 21
+[x] Install nyxt.
+[x] Order my flight back to Medford. 
+[x] Pay Asher
+[x] Clean house for Molly's visit.
+[x] Get back to Remy about graphing on 27th? 
+[x] Message Dorothy about 3 nights in Ashland.
+[x] Get back to Nina about rescheduling our next meeting.
+[x] Help Niki with Laptop.
+[x] Add to a.c repo:
+  - [x] https://github.com/samdenty/console-feed 
+  - [x] Using hands / hand cursor with pinch to draw,
+        as global input method...
+
+***Notes***
+How to remove KDE: sudo dnf groupremove -y "KDE Plasma Workspaces"

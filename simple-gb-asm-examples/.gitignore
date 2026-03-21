@@ -1,0 +1,6 @@
+*.o
+*.gb
+*.sym
+*.map
+*.2bpp
+*-tilemap.tilemap

@@ -1,0 +1,24 @@
+// Hello, 24.02.25.16.23
+// PeaceScript hello world.
+
+const blurRad = 2; // 🍃 These params control the form of the blur,
+const featherRad = 10;
+const minBlurSamples = 64; // 🏃‍♀️ and these affect the speed of the blur.
+const sampleScalingFactor = 4;
+
+let radius;
+
+const { random, cos, sin, sqrt, max, min, PI } = Math;
+
+function paint({ ink, pen }) {
+  if (!radius) {
+    params = params.map((str) => parseInt(str));
+    radius = params[0] || 16;
+  }
+
+  if (pen?.drawing) {
+    @Draw a blue circle@ 
+  }
+}
+
+export { paint, brush };

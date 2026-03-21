@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AC-Pack Local Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #555;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 AC-Pack Local Test</h1>
+        <p>Test your packed aesthetic.computer pieces locally before uploading to Teia.</p>
+        
+        <div class="test-section">
+            <h2>Piece Preview</h2>
+            <div class="controls">
+                <input type="file" id="zipFile" accept=".zip" />
+                <button onclick="loadZip()">Load Zip</button>
+                <button onclick="testTeia()">Test with Teia Parameters</button>
+                <button onclick="clearTest()">Clear</button>
+            </div>
+            <iframe id="testFrame" src="about:blank"></iframe>
+        </div>
+        
+        <div class="test-section">
+            <h2>Console Log</h2>
+            <div id="log" class="log">Ready to test...</div>
+        </div>
+    </div>
+
+    <script>
+        let currentFiles = {};
+        
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${timestamp}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        async function loadZip() {
+            const fileInput = document.getElementById('zipFile');
+            if (!fileInput.files[0]) {
+                log('Please select a zip file first');
+                return;
+            }
+            
+            log('Loading zip file...');
+            
+            try {
+                // Use JSZip to extract the files
+                if (!window.JSZip) {
+                    await loadJSZip();
+                }
+                
+                const zip = new JSZip();
+                const zipContent = await zip.loadAsync(fileInput.files[0]);
+                
+                currentFiles = {};
+                
+                // Extract all files
+                for (const [path, file] of Object.entries(zipContent.files)) {
+                    if (!file.dir) {
+                        if (path.endsWith('.html') || path.endsWith('.css') || path.endsWith('.mjs') || path.endsWith('.js')) {
+                            currentFiles[path] = await file.async('text');
+                        } else {
+                            currentFiles[path] = await file.async('blob');
+                        }
+                    }
+                }
+                
+                log(`Extracted ${Object.keys(currentFiles).length} files`);
+                
+                // Find and load index.html
+                const indexFile = currentFiles['index.html'];
+                if (indexFile) {
+                    loadIntoFrame(indexFile);
+                } else {
+                    log('Error: No index.html found in zip');
+                }
+                
+            } catch (error) {
+                log(`Error loading zip: ${error.message}`);
+            }
+        }
+        
+        function loadIntoFrame(htmlContent) {
+            const frame = document.getElementById('testFrame');
+            
+            // Create a blob URL for the HTML content
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            frame.src = url;
+            log('Loaded index.html into frame');
+            
+            // Listen for console messages from the iframe
+            frame.onload = () => {
+                try {
+                    const frameWindow = frame.contentWindow;
+                    const originalConsoleLog = frameWindow.console.log;
+                    
+                    frameWindow.console.log = function(...args) {
+                        log(`[FRAME] ${args.join(' ')}`);
+                        originalConsoleLog.apply(frameWindow.console, args);
+                    };
+                    
+                    const originalConsoleError = frameWindow.console.error;
+                    frameWindow.console.error = function(...args) {
+                        log(`[ERROR] ${args.join(' ')}`);
+                        originalConsoleError.apply(frameWindow.console, args);
+                    };
+                    
+                } catch (e) {
+                    log('Could not access frame console (CORS)');
+                }
+            };
+        }
+        
+        function testTeia() {
+            const frame = document.getElementById('testFrame');
+            if (!frame.src || frame.src === 'about:blank') {
+                log('Please load a zip file first');
+                return;
+            }
+            
+            // Add Teia-like parameters
+            const teiaParams = '?viewer=tz1TeiaTestViewer123&creator=tz1TeiaTestCreator456&objkt=false';
+            
+            // If the frame already has a URL, modify it
+            const currentUrl = frame.src;
+            if (currentUrl.includes('?')) {
+                frame.src = currentUrl.split('?')[0] + teiaParams;
+            } else {
+                frame.src = currentUrl + teiaParams;
+            }
+            
+            log('Testing with Teia parameters: ' + teiaParams);
+        }
+        
+        function clearTest() {
+            document.getElementById('testFrame').src = 'about:blank';
+            document.getElementById('log').innerHTML = 'Cleared...\n';
+            currentFiles = {};
+        }
+        
+        async function loadJSZip() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        log('AC-Pack Local Test ready');
+        log('1. Select a zip file created by ac-pack');
+        log('2. Click "Load Zip" to extract and preview');
+        log('3. Click "Test with Teia Parameters" to simulate Teia environment');
+    </script>
+</body>
+</html>

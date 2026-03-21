@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+/**
+ * Quick launcher for Ableton Session View
+ * 
+ * Runs the session view with the extracted XML file
+ */
+
+import { spawn } from 'node:child_process';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const sessionViewerPath = resolve(__dirname, 'ableton-simple-viewer.mjs');
+
+console.log('🎛️  Starting Simple Ableton Session View (Auto-Play Fast)...\n');
+
+const child = spawn('node', [sessionViewerPath, '/workspaces/aesthetic-computer/system/public/assets/wipppps/zzzZWAP_extracted.xml'], {
+  stdio: 'inherit',
+  cwd: __dirname
+});
+
+child.on('close', (code) => {
+  console.log(`\n🎵 Session ended with code ${code}`);
+});
+
+child.on('error', (error) => {
+  console.error('❌ Error starting session:', error.message);
+});

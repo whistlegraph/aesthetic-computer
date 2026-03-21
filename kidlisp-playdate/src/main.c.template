@@ -1,0 +1,53 @@
+// main.c - KidLisp Playdate Entry Point
+// This is the generated main.c template that includes compiled KidLisp code
+
+#include <stdio.h>
+#include <stdlib.h>
+#include "pd_api.h"
+#include "kidlisp.h"
+
+// Forward declarations
+static int update(void* userdata);
+
+// === USER VARIABLES (generated from def statements) ===
+// KIDLISP_VARIABLES_PLACEHOLDER
+
+// === USER FUNCTIONS (generated from later statements) ===
+// KIDLISP_FUNCTIONS_PLACEHOLDER
+
+// === MAIN LOOP (generated from KidLisp code) ===
+static void kidlisp_main(void) {
+    // KIDLISP_MAIN_PLACEHOLDER
+}
+
+// Playdate event handler
+#ifdef _WINDLL
+__declspec(dllexport)
+#endif
+int eventHandler(PlaydateAPI* pd, PDSystemEvent event, uint32_t arg) {
+    (void)arg;
+    
+    if (event == kEventInit) {
+        // Initialize KidLisp runtime
+        kl_init(pd);
+        
+        // Set update callback
+        pd->system->setUpdateCallback(update, pd);
+    }
+    
+    return 0;
+}
+
+// Frame update
+static int update(void* userdata) {
+    (void)userdata;
+    
+    // Update KidLisp state (buttons, crank, frame counter)
+    kl_update();
+    
+    // Run the KidLisp program
+    kidlisp_main();
+    
+    // Return 1 to indicate display needs updating
+    return 1;
+}

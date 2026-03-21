@@ -1,0 +1,673 @@
+<!--
+Aesthetic Direct, 24.10.19.22.43
+Corportate updates from Aesthetic Computer.
+
+#region 🏁 TODO
+#endregion 
+-->
+<html>
+
+<head>
+  <title>Announcing Aesthetic Inc.</title>
+  <meta name="description" content="A new company for the Aesthetic Computer project." />
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --report-card-ratio: 10/16.6;
+      --report-card-bg: rgb(255, 255, 230);
+      --bg: rgb(235, 235, 235);
+    }
+
+    body {
+      font-family: sans-serif;
+      background-color: rgb(235, 235, 235);
+      opacity: 1;
+      -webkit-text-size-adjust: none;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    h2 {
+      font-family: serif;
+      font-weight: normal;
+      font-size: 1.75em;
+      margin: 0;
+      /* background: pink; */
+      filter: drop-shadow(1px 2px 1px rgba(252, 156, 252, 0.5));
+    }
+
+    h3 {
+      margin: 0;
+      font-weight: normal;
+      font-style: italic;
+      font-size: 80%;
+      padding-top: 0.25em;
+      padding-left: 0;
+      padding-right: 0em;
+      text-align: right;
+    }
+
+    h4 {
+      font-weight: normal;
+      font-family: monospace;
+      margin: 0;
+      position: absolute;
+      right: 2em;
+      bottom: 2em;
+      font-size: 12px;
+    }
+
+    h4 a {
+      color: black !important;
+      text-decoration: none;
+    }
+
+    strong.subheading {
+      font-size: 110%;
+      font-weight: bold;
+    }
+
+    #corner-label {
+      font-family: monospace;
+      font-weight: normal;
+      font-size: 22px;
+      margin: 0;
+      position: fixed;
+      top: 12px;
+      left: 16px;
+      z-index: 3;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #corner-label:hover {
+      color: purple;
+    }
+
+    #corner-label:active {
+      color: gray;
+    }
+
+    #corner-label:before {
+      content: "";
+      height: 3em;
+      width: 100vw;
+      position: absolute;
+      z-index: -1;
+      top: -12px;
+      left: -16px;
+      background: linear-gradient(to bottom,
+          var(--bg) 50%,
+          transparent 100%);
+    }
+
+    #wrapper {
+      opacity: 1;
+      transition: opacity 0.5s;
+      margin: 12px 16px 12px 16px;
+      position: relative;
+    }
+
+    #wrapper.fetching {
+      opacity: 0;
+    }
+
+    code {
+      font-weight: bold;
+    }
+
+    #report-card-wrapper {
+      background: rgb(245, 245, 235);
+      width: 300px;
+      /* aspect-ratio: var(--report-card-ratio); */
+      margin-top: 2em;
+      margin-left: auto;
+      margin-right: auto;
+      margin-bottom: 2em;
+      overflow: hidden;
+      border: 2px solid;
+      border-radius: 8px;
+      box-shadow: 2px 2px 4px rgba(0, 255, 0, 0.25);
+    }
+
+    #report-card-wrapper.fetching {
+      border: 2px solid rgb(64, 64, 96);
+      box-shadow: none;
+    }
+
+    #report-card-wrapper.fetching #report-card {
+      background: rgb(245, 245, 235);
+      color: rgb(64, 64, 96);
+    }
+
+    #report-card {
+      background: var(--report-card-bg);
+      display: flex;
+      /* aspect-ratio: var(--report-card-ratio); */
+      min-height: 250px;
+      font-size: 16px;
+      width: 300px;
+      transition: background 0.25s;
+      opacity: 1;
+      flex-direction: column;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    .stat-item {
+      position: relative;
+    }
+
+    .stat-item span {
+      background: var(--report-card-bg);
+      z-index: 1;
+    }
+
+    .stat-item span:first-child {
+      padding-right: 4px;
+    }
+
+    .stat-item span:last-child {
+      padding-left: 4px;
+    }
+
+    .stat-item:not(.unruled)::after {
+      content: "";
+      width: 100%;
+      height: 0.05em;
+      top: 0.65em;
+      /* calc(0.5em + 0.05em); */
+      opacity: 0.15;
+      position: absolute;
+      background: black;
+      z-index: 0;
+    }
+
+    .stat-item span {
+      background: rgb(255, 255, 230);
+    }
+
+    #report-card-wrapper.fetching #report-card-timestamp,
+    #report-card-wrapper.fetching #report-card-marks {
+      opacity: 0;
+      display: none;
+    }
+
+    #report-card-fetching {
+      display: none;
+    }
+
+    #report-card-wrapper.fetching #report-card-fetching {
+      display: block;
+      margin: auto;
+      font-family: monospace;
+      font-size: 75%;
+    }
+
+    #report-card-wrapper.fetching #report-card-fetching::after {
+      content: "...";
+      /* Reserve space for 3 dots */
+      visibility: hidden;
+      /* Make the content invisible */
+      display: inline-block;
+      margin-left: 0;
+      width: 1em;
+      /* Adjust width to fit the dots */
+      text-align: left;
+      animation: dots 0.75s steps(3, end) infinite;
+    }
+
+    @keyframes dots {
+      0% {
+        visibility: hidden;
+        content: "";
+      }
+
+      25% {
+        visibility: visible;
+        content: ".";
+      }
+
+      50% {
+        visibility: visible;
+        content: "..";
+      }
+
+      75% {
+        visibility: visible;
+        content: "...";
+      }
+
+      100% {
+        visibility: hidden;
+        content: "";
+      }
+    }
+
+    #report-card sub.fail {
+      display: block;
+      color: red;
+      margin: auto;
+    }
+
+    #report-card-title {
+      /* background: tan; */
+      font-family: serif;
+      text-align: center;
+      top: 4.5%;
+      width: 100%;
+      position: absolute;
+      font-size: 1.5em;
+    }
+
+    #report-card-timestamp {
+      /* background: cyan; */
+      font-family: serif;
+      font-size: 90%;
+      text-align: center;
+      top: calc(5% + 2em);
+      width: 100%;
+      position: absolute;
+    }
+
+    #report-card-marks {
+      /* background: yellow; */
+      font-family: monospace;
+      font-size: 75%;
+      margin-top: calc(5% + 5.3em);
+      margin-bottom: 2.5em;
+      padding: 0em 2em;
+      width: 100%;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    a#edited {
+      color: blue;
+    }
+
+    a#edited:hover {
+      color: purple;
+    }
+
+    a#edited:active {
+      color: red;
+    }
+
+    code a {
+      text-decoration: none;
+    }
+
+    hr {
+      width: 100vw;
+      margin: 0;
+      margin-left: -16px;
+      padding: 0;
+      height: 2.5px;
+      border-left: 0;
+      border-right: 0;
+      border-width: 1.75px;
+      background: rgb(225, 215, 235);
+    }
+
+    article {
+      position: relative;
+      margin-top: 4em;
+      margin-bottom: 2em;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 600px;
+      background: rgb(250, 250, 250);
+      padding: 2em 2em 1em 2em;
+      box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.25);
+      border: 1px solid black;
+      /* aspect-ratio: 8/10; */
+    }
+
+    article a {
+      color: rgb(0, 0, 150);
+    }
+
+    article a:hover {
+      color: rgb(50, 50, 250);
+    }
+
+    article a:active {
+      color: red;
+    }
+
+    article code a {
+      color: purple;
+    }
+
+
+    article p {
+      font-size: 80%;
+      padding-top: 1em;
+      padding-bottom: 8em;
+      line-height: 1.5em;
+    }
+
+    #inc-proof {
+      max-width: 100%;
+      width: 180px;
+      border-radius: 4px;
+      border: 1px solid black;
+      /* filter: drop-shadow(1px 1px 1px gray); */
+      position: absolute;
+      bottom: 0.6em;
+      left: 0.5em;
+      transform: rotate(-1deg);
+    }
+
+    #home img {
+      user-select: none;
+      margin-bottom: -0.75em;
+    }
+
+    #home:hover {
+      filter: saturate(0.5);
+    }
+
+    #home:active {
+      filter: saturate(1);
+    }
+
+    sub {
+      position: relative;
+      font-size: 80%;
+      z-index: 2;
+    }
+
+    code {
+      color: purple;
+      font-size: 115%;
+      font-weight: normal;
+    }
+
+    code.select {
+      color: darkgreen;
+      background: rgba(0, 0, 0, 0.075);
+    }
+
+    code.nolink {
+      color: maroon;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    img {
+      max-width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="wrapper" class="fetching">
+    <h1 id="corner-label">direct</h1>
+    <!-- Directs -->
+
+    <article>
+      <h2>Announcing Aesthetic&nbsp;Inc.</h2>
+      <h3>November 18, 2024</h3>
+      <h4><a href="https://aesthetic.computer/@jeffrey">@jeffrey</a></h4>
+      <p>
+        I'm excited to announce the incorporation of <b>Aesthetic Inc.</b>, a company
+        founded to support the development and growth of the <a href="https://aesthetic.computer">Aesthetic Computer
+          project</a> which I began <a href="https://github.com/whistlegraph/aesthetic-computer">coding</a> in April
+        2021.
+        <br><br>
+        Aesthetic Inc.'s mission is to lift the computational literacy level of mass audiences by making computing more
+        playable and accessible through the invention, distribution and productization of new media instruments.
+        <br><br>
+        After 10+ years making and teaching in the software arts, I desired new tools to publish and connect my work
+        across platforms and device types, and educate more effectively through an integrated system. Today AC is
+        growing outside interest in the field through viral mobile experiences and raising the skills of future students
+        through an innovatively accessible software stack.
+        <br><br>
+        Built as a mobile-first runtime and social network, the <a
+          href="https://aesthetic.computer">aesthetic.computer</a> domain and apps are home to art and
+        music-making utilities, toys, games and a budding community passionate about the medium.
+        <br><br>
+        AC's client interface is designed to function like a musical instrument, on which users discover their own
+        memorizable paths in the network of commands and published pieces. As users grow their code and media literacy
+        through play and exploration, they are able to improvise, recombine, and expand their performable repertoire
+        with the computer.
+        <br><br>
+        <img id="screenshot" src="https://assets.aesthetic.computer/direct/screenshot.png">
+        <br><br>
+        Every software piece on Aesthetic Computer is its own addressable doorway to the larger system. Most new users
+        enter through built-in pieces like <code>notepat</code> or those published by user handles like
+        <code>@bash/hub</code>* where no further onboarding or downloading of specific client software is required to
+        fully experience them. We connect online through <code>chat</code> and play in-person by prefixing any piece
+        with <code>share</code>.
+        <br><br>
+        Commercial components in the AC stack include support for priced ticketing of pieces like <code>botce</code>,
+        mail ordering user media customized physical items like stickers through the <code class="nolink">print</code>
+        command and monthly subscription based network services like on <code>sotce-net</code>.
+        <br>
+        <span style="float: right; margin-top: 0.5em;">
+          *<small><code>@bash/hub</code> piece by <code class="nolink">rackodo</code> on <a
+              href="https://github.com/rackodo">GitHub</a>.
+          </small>
+        </span>
+        <br><br>
+        <strong class="subheading">Technical Progress</strong>
+        <br><br>
+        Today Aesthetic Computer maintains a growing library of <strong>250+</strong> runtime
+        API commands in <code>docs</code> for JavaScript programmers and a built-in <code>list</code> of
+        <strong>150+</strong> pieces
+        and commands for entering into <code>prompt</code>. Users can enter <code>list</code> commands to play games
+        together, interact with LLM characters, or learn musical instruments.
+        <br><br>
+        Platform and piece development takes place from within the <a
+          href="https://marketplace.visualstudio.com/items?itemName=aesthetic-computer.aesthetic-computer-code">AC VS
+          Code Extension</a>
+        which saw its first college level
+        use with students at UCLA this year.
+        <br><br>
+        This winter I worked on a programming language designed especially for AC called <a
+          href="https://github.com/whistlegraph/aesthetic-computer/">Kid Lisp</a> which I will build a mobile friendly
+        graphic editor for in 2025. Simple expressions like <code
+          class="select">(wipe gray) (ink red) (write (* 2 3 4))</code> now evaluate to full pieces when entered into
+        <code>prompt</code>. Using the <code class="select">.lisp</code> extension is supported when publishing by drag
+        and drop or in VS Code.
+        <br><br>
+        <code>Chat</code> released in the spring and has since grown a scene of
+        daily users who exchange technical help and immediate bug reports. I personally keep up
+        with <code>chat</code> by using the native notifications in the <a
+          href="https://apps.apple.com/us/app/aesthetic-computer/id6450940883">AC
+          iOS App</a>.
+        <br>
+        <br>
+        This summer I designed the <code>notepat</code> keyboard instrument, made refinements to
+        <code>metronome</code>, <code>tone</code>, <code>bleep</code> and added automixing and additional wavetypes to
+        the sound system.
+
+        You can prefix these pieces with <code class="nolink">source</code> in <code>prompt</code> to view their code
+        and roadmap.
+
+        <br>
+        <br>
+        Project progress and upcoming plans can be found in the repository's <a
+          href="https://github.com/whistlegraph/aesthetic-computer/blob/main/README.md">README.md</a> file and live platform statistics are
+        below in the <b>AC Report Card</b>.
+        <br>
+        <br>
+        <strong class="subheading">Interested Investors</strong>
+        <br><br>
+        Aesthetic Inc. is actively seeking seed investment. Please reach out at
+        <a href="mailto:mail@aesthetic.computer?subject=Investing%20in%20Aesthetic%20Inc.">mail@aesthetic.computer</a>
+        for a detailed offer letter or <a href="https://calendly.com/aesthetic-computer/demo">book a demo</a> and say
+        "hi" in <code>chat</code> to learn more.
+      </p>
+      <img id="inc-proof" src="https://assets.aesthetic.computer/aesthetic-inc/aesthetic-inc-proof.png">
+    </article>
+
+    <hr>
+
+    <!-- Reports -->
+    <div id="report-card-wrapper" class="fetching">
+      <div id="report-card">
+        <div id="report-card-title">AC Report Card</div>
+        <div id="report-card-timestamp"></div>
+        <div id="report-card-marks"></div>
+        <div id="report-card-fetching">Generating</div>
+      </div>
+    </div>
+    <hr>
+    <center>
+      <a id="home" href="/"><img width="128" src="https://assets.aesthetic.computer/images/purple-pals.svg"></a>
+      <br>
+      <!--
+      <sub><a id="edited"
+          href="https://github.com/whistlegraph/aesthetic-computer/commits/main/system/public/aesthetic-direct.html">Edited
+          on October 19, 2024</a></sub>
+      <br>
+      <br>
+      -->
+    </center>
+  </div>
+
+  <script type="module">
+    // Hide corner-label if not coming from AC.
+    // const fromAesthetic =
+    //   (document.referrer.indexOf("https://aesthetic.computer") > -1 ||
+    //     document.referrer.indexOf("localhost") > -1);
+    // if (!fromAesthetic) document.querySelector("#corner-label")?.classList.add("hidden");
+
+    // Wire up all <code> tags to link to pieces. 
+    document.querySelectorAll('article p code:not(.select):not(.nolink)').forEach((code) => {
+      code.innerHTML = `<a href="https://aesthetic.computer/${code.innerText}">${code.innerText}</a>`;
+    });
+
+    // Wire up back button to go to `prompt`.
+    const cornerLabel = document.getElementById("corner-label");
+    cornerLabel.onclick = () => {
+      if (window.location.host !== 'aesthetic.direct') {
+        window.location.href = "/"
+      } else {
+        window.location.href = "https://aesthetic.computer"
+      }
+    };
+
+    // Get live metrics.
+    const reportCardWrapper = document.getElementById("report-card-wrapper");
+    const reportCard = document.getElementById("report-card");
+    const reportCardMarks = document.getElementById("report-card-marks");
+    const reportCardTimestamp = document.getElementById("report-card-timestamp");
+    const wrapper = document.getElementById("wrapper");
+    const fail = '<sub class="fail">Could not retrieve metrics.</sub>';
+    setTimeout(() => {
+      wrapper.classList.remove("fetching");
+    }, 0);
+    try {
+      const response = await fetch('/api/metrics');
+      if (response.status === 200) {
+        const data = await response.json();
+
+        const numberFormatter = new Intl.NumberFormat('en-US');
+
+        const stats = [
+          { label: "*** aesthetic-computer ***", value: null },
+          { label: "&nbsp;", value: null },
+          { label: "Handles set", value: data.handles },
+          { label: "Moods collected", value: data.moods },
+          { label: "Paintings done", value: data.paintings },
+          { label: "Prints ordered", value: data.printsOrdered },
+          { label: "Pieces published", value: data.pieces },
+          { label: "Tickets sold", value: data.tickets },
+          { label: "`sotce-net` subscribers", value: data.sotceSubscribers },
+          { label: "Chats sent", value: data.chatMessages },
+          { label: "Logs broadcast", value: data.logs },
+          { label: "Active accounts (30 days)", value: data.active },
+          { label: "Total signups (10/22/2024)", value: 16636 },
+          // { label: "Unique visits (30 days)", value: 'TBA' },
+          // { label: "&nbsp;", value: null },
+          // { label: "`sotce-net` pages published", value: data.pagesPublished },
+          // { label: "Pages crumpled", value: data.pagesCrumpled },
+          // { label: "Touches", value: data.touches },
+          // { label: "Active accounts (30 days)", value: data.sotceActive },
+          // { label: "Total signups (10/22/2024)", value: 540 },
+          // { label: "Unique visits (30 days)", value: 'TBA' },
+        ];
+
+        stats.forEach(stat => {
+          const statItem = document.createElement("div");
+          statItem.style.display = "flex";
+          statItem.style.justifyContent = "space-between";
+          statItem.classList.add("stat-item");
+
+          const label = document.createElement("span");
+          label.innerHTML = stat.label;
+
+          statItem.appendChild(label);
+
+          if (stat.value) {
+            const value = document.createElement("span");
+            value.innerText = numberFormatter.format(stat.value);
+            statItem.appendChild(value);
+          } else {
+            label.style.margin = "auto";
+            statItem.classList.add('unruled');
+          }
+
+          reportCardMarks.appendChild(statItem);
+        });
+
+        const now = data.time;
+        reportCardTimestamp.innerText = now;
+
+        reportCardWrapper.classList.remove('fetching');
+      } else {
+        reportCard.innerHTML = fail;
+      }
+    } catch (error) {
+      reportCard.innerHTML = fail;
+    }
+  </script>
+
+  <!-- Development reload logic. -->
+  <script>
+    let reconnectInterval = false;
+    function connect() {
+      clearInterval(reconnectInterval);
+      let ws;
+      try {
+        let connectionUrl = "wss://localhost:8889";
+        if (window.location.host === "local.aesthetic.computer") {
+          connectionUrl = "wss://session.local.aesthetic.computer";
+        }
+        ws = new WebSocket(connectionUrl);
+      } catch {
+        console.warn("🧦 Connection failed.");
+        return;
+      }
+
+      // ws.onopen = (e) => console.log("🧦 Connected:", e);
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "reload" && msg.content.piece === "*refresh*") {
+          setTimeout(() => {
+            console.log("🧦 Reloading...");
+            const url = new URL(window.location.href);
+            window.location.href = url.toString();
+          }, 150); // Wait a sec for backend functions to reload.
+        }
+      };
+
+      ws.onclose = (e) => {
+        // console.log("🧦 🔴 Closed:", e);
+        reconnectInterval = setInterval(connect, 1000);
+      };
+    }
+    connect();
+  </script>
+</body>
+
+</html>

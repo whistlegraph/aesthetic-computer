@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repository Archaeology: Tracing the Evolution of Aesthetic Computer Through Its Git History</title>
+    <meta name="description" content="A working draft tracing the technical evolution of Aesthetic Computer through 4 repositories, 11,000+ commits, and 94 predecessor projects (2021-2025).">
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="preload" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous">
+    <style>
+        @font-face {
+            font-family: 'YWFT Processing';
+            src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+            font-weight: normal;
+            font-display: swap;
+        }
+
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #888;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a017;
+            --green: #4ecb71;
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #f5f5f5;
+                --text: #1a1a2e;
+                --dim: #666;
+                --pink: #b4489a;
+                --cyan: #0891b2;
+                --purple: #7850b4;
+                --gold: #a07800;
+                --green: #0a8a3e;
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.12);
+            }
+        }
+
+        :root.light-mode {
+            --bg: #f5f5f5;
+            --text: #1a1a2e;
+            --dim: #666;
+            --pink: #b4489a;
+            --cyan: #0891b2;
+            --purple: #7850b4;
+            --gold: #a07800;
+            --green: #0a8a3e;
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.12);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            -webkit-text-size-adjust: none;
+            cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+            padding: 2em;
+            min-height: 100vh;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .draft-banner {
+            background: rgba(212, 160, 23, 0.15);
+            border: 1px solid var(--gold);
+            border-radius: 6px;
+            padding: 0.6em 1em;
+            margin-bottom: 2em;
+            font-size: 0.85em;
+            color: var(--gold);
+        }
+
+        h1 {
+            font-family: 'YWFT Processing', monospace;
+            font-size: 1.8em;
+            font-weight: normal;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.3em;
+            line-height: 1.3;
+        }
+
+        h1 .dot { color: var(--pink); }
+
+        .meta {
+            color: var(--dim);
+            font-size: 0.85em;
+            margin-bottom: 2em;
+        }
+        .meta a { color: var(--cyan); text-decoration: none; }
+        .meta a:hover { text-decoration: underline; }
+
+        h2 {
+            font-size: 1.15em;
+            color: var(--pink);
+            margin: 2em 0 0.8em;
+            letter-spacing: 0.02em;
+        }
+
+        h3 {
+            font-size: 1em;
+            color: var(--cyan);
+            margin: 1.5em 0 0.5em;
+        }
+
+        p {
+            margin-bottom: 1em;
+        }
+
+        a { color: var(--cyan); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .timeline {
+            border-left: 2px solid var(--box-border);
+            margin: 1em 0 1.5em 0.5em;
+            padding-left: 1.5em;
+        }
+
+        .timeline-entry {
+            margin-bottom: 1.2em;
+            position: relative;
+        }
+
+        .timeline-entry::before {
+            content: '';
+            position: absolute;
+            left: -1.75em;
+            top: 0.55em;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--pink);
+        }
+
+        .timeline-entry.major::before {
+            background: var(--cyan);
+            width: 12px;
+            height: 12px;
+            left: -1.8em;
+        }
+
+        .timeline-date {
+            color: var(--gold);
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .timeline-title {
+            font-weight: 600;
+        }
+
+        .timeline-detail {
+            color: var(--dim);
+            font-size: 0.9em;
+        }
+
+        .commit-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+            font-size: 0.85em;
+        }
+
+        .commit-table th {
+            text-align: left;
+            color: var(--dim);
+            border-bottom: 1px solid var(--box-border);
+            padding: 0.4em 0.6em;
+            font-weight: 600;
+        }
+
+        .commit-table td {
+            padding: 0.35em 0.6em;
+            border-bottom: 1px solid var(--box-border);
+            vertical-align: top;
+        }
+
+        .commit-table td:first-child {
+            color: var(--gold);
+            white-space: nowrap;
+            width: 8em;
+        }
+
+        .stat-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8em;
+            margin: 1em 0;
+        }
+
+        .stat {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            padding: 0.8em 1em;
+        }
+
+        .stat-number {
+            font-size: 1.6em;
+            font-weight: 600;
+            color: var(--cyan);
+        }
+
+        .stat-label {
+            color: var(--dim);
+            font-size: 0.8em;
+        }
+
+        .file-tree {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            padding: 1em 1.2em;
+            font-size: 0.85em;
+            margin: 1em 0;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+
+        .file-tree .dir { color: var(--cyan); }
+        .file-tree .file { color: var(--dim); }
+        .file-tree .highlight { color: var(--pink); }
+
+        blockquote {
+            border-left: 3px solid var(--purple);
+            padding-left: 1em;
+            margin: 1em 0;
+            color: var(--dim);
+            font-style: italic;
+        }
+
+        .footnotes {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            font-size: 0.8em;
+            color: var(--dim);
+        }
+
+        .footer {
+            margin-top: 3em;
+            padding-top: 1em;
+            border-top: 1px solid var(--box-border);
+            color: var(--dim);
+            font-size: 0.75em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer a { color: var(--purple); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        .theme-toggle {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: 0.85em;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 600px) {
+            body { padding: 1.2em; }
+            h1 { font-size: 1.4em; }
+            .stat-box { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="draft-banner">WORKING DRAFT &mdash; March 2026</div>
+
+<h1>Repository Archaeology<span class="dot">:</span> Tracing the Evolution of Aesthetic<span class="dot">.</span>Computer Through Its Git History</h1>
+
+<div class="meta">
+    Jeffrey Alan Scudder &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a><br>
+    March 2026 &middot; Working Draft &middot; <a href="/">papers.aesthetic.computer</a>
+</div>
+
+<h2>Abstract</h2>
+
+<p>This paper traces the complete technical evolution of Aesthetic Computer (AC) through its git history, from a Glitch-hosted prototype in August 2021 to a 11,314-commit monorepo serving 337 interactive pieces. By examining four successive repositories, 50+ GitHub repos across two accounts, a 109GB legacy server archive, and a Dropbox archive spanning a decade of creative software practice, we reconstruct how a single artist-programmer's tools, prototypes, and creative instruments converged into a unified platform. The investigation reveals 94 predecessor projects (2007&ndash;2020) that directly inform AC's design philosophy: that software is a material for art-making, and that each tool an artist builds is a step toward a more complete instrument.</p>
+
+<h2>1. The Four Repositories</h2>
+
+<p>Aesthetic Computer did not begin as a monorepo. It evolved through four successive GitHub repositories, each representing a distinct architectural phase:</p>
+
+<div class="stat-box">
+    <div class="stat">
+        <div class="stat-number">4</div>
+        <div class="stat-label">successive repositories</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">11,314</div>
+        <div class="stat-label">total commits (current repo)</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">38</div>
+        <div class="stat-label">months of development</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">94</div>
+        <div class="stat-label">predecessor projects</div>
+    </div>
+</div>
+
+<h3>1.1 system-ac (August 10 &ndash; December 17, 2021)</h3>
+
+<p><a href="https://github.com/whistlegraph/system-ac">whistlegraph/system-ac</a> &mdash; <em>"My virtual computer system for loading and running disks."</em></p>
+
+<p>The first commit was made on August 10, 2021 and immediately merged from Glitch, revealing that AC began as a Glitch remix. The repository contains 38 commits over four months, authored variously as "Jeffrey Alan Scudder," "Jeffrey Scudder," and "whistlegraph" &mdash; a trace of the identity consolidation happening in parallel with the code.</p>
+
+<p>The initial architecture was minimal: a single <code>boot.js</code> entry point, a <code>bios.js</code> runtime, and a library of modules including <code>disk.js</code>, <code>geo.js</code>, <code>graph.js</code>, <code>pen.js</code>, <code>speaker.js</code>, and a sound system with sine and square wave generators. The metaphor was already established: a computer that loads and runs <em>disks</em>.</p>
+
+<div class="file-tree"><span class="dir">public/</span>
+  <span class="highlight">boot.js</span>
+  <span class="dir">computer/</span>
+    <span class="highlight">bios.js</span>
+    <span class="dir">lib/</span>
+      <span class="file">disk.js, geo.js, graph.js, help.js, loop.js, num.js, pen.js, speaker.js, ui.js</span>
+      <span class="dir">sound/</span>
+        <span class="file">note.js, sine.js, square.js, volume.js</span>
+  <span class="dir">dep/gl-matrix/</span></div>
+
+<p>Key development milestones in this period:</p>
+
+<table class="commit-table">
+<tr><th>Date</th><th>Milestone</th></tr>
+<tr><td>Aug 10</td><td>Initial commit, merged from Glitch</td></tr>
+<tr><td>Aug 14</td><td>Setup offline development environment</td></tr>
+<tr><td>Aug 18</td><td>"Finish basic metronome and square instrument"</td></tr>
+<tr><td>Sep 1&ndash;2</td><td>Attack, decay, volume, pan for square waves; named parameters</td></tr>
+<tr><td>Oct 20</td><td>"Add basic triangle rasterization and 3d environment"</td></tr>
+<tr><td>Oct 30</td><td>"Complete first animated notation piece" &mdash; <code>disks.aesthetic.computer</code> host added</td></tr>
+<tr><td>Nov 2</td><td>"Pull" prototype: a touch-based interactive drawing system</td></tr>
+<tr><td>Nov 8</td><td>Custom resolution support, alpha blending, consolidated boot</td></tr>
+<tr><td>Nov 28</td><td>Pen refactored from singleton to class &mdash; a pivotal API design decision</td></tr>
+<tr><td>Dec 7&ndash;8</td><td>Grid rendering and interaction</td></tr>
+<tr><td>Dec 12&ndash;16</td><td>JSON-serialized drawings, tracker disk, scrollable score</td></tr>
+<tr><td>Dec 17</td><td>"Contextualize painting api so that makeBuffer now makes a new painting"</td></tr>
+</table>
+
+<p>The dev server ran on port 8080 with self-signed SSL certs &mdash; HTTPS was required from day one, likely for WebRTC and audio APIs.</p>
+
+<h3>1.2 disks-ac (October 30 &ndash; December 17, 2021)</h3>
+
+<p><a href="https://github.com/whistlegraph/disks-ac">whistlegraph/disks-ac</a> &mdash; <em>"A bunch of disks that are compatible with the 'whistlegraph/system' repo."</em></p>
+
+<p>This companion repository held the creative content separately from the runtime. Its <code>package.json</code> reveals the coupling: <code>"system": "file:../system"</code> &mdash; the disks imported system as a local dependency. The dev server ran on port 8081, one above system.</p>
+
+<p>The 12 original disks represent AC's founding creative vocabulary:</p>
+
+<table class="commit-table">
+<tr><th>Disk</th><th>Purpose</th></tr>
+<tr><td>prompt.js</td><td>Command-line text input &mdash; the system's front door</td></tr>
+<tr><td>doodle.js</td><td>Free drawing</td></tr>
+<tr><td>plot.js</td><td>Grid-based pixel plotting with save/load</td></tr>
+<tr><td>pull.js</td><td>Touch-interactive colored shape manipulation</td></tr>
+<tr><td>stage.js</td><td>Musical notation performance space</td></tr>
+<tr><td>starfield.js</td><td>Generative star animation</td></tr>
+<tr><td>tracker.js</td><td>Scrollable music score/sequencer</td></tr>
+<tr><td>whistlegraph.js</td><td>Whistlegraph playback/performance</td></tr>
+<tr><td>metronome-test.js</td><td>Audio timing test</td></tr>
+<tr><td>alex-row.js</td><td>A piece by/for Alex (Freundlich)</td></tr>
+<tr><td>blank.js</td><td>Empty template</td></tr>
+<tr><td>api.js</td><td>API demonstration</td></tr>
+</table>
+
+<p>Also preserved: <code>old/worker-disk.js</code> &mdash; evidence that a Web Worker-based disk execution model was attempted and abandoned early. The current system uses a worker-based "hypervisor" pattern, suggesting this early experiment was revisited later with more success.</p>
+
+<h3>1.3 2022.aesthetic.computer (December 22, 2021 &ndash; December 23, 2022)</h3>
+
+<p><a href="https://github.com/whistlegraph/2022.aesthetic.computer">whistlegraph/2022.aesthetic.computer</a> &mdash; <em>"Compute aesthetically."</em></p>
+
+<p>On December 22, 2021, the system and disks repos were merged: <em>"import sources from previous repositories"</em>, followed immediately by <em>"rm disks duplicates."</em> This was the first monorepo. The tagline changed from a technical description to a creative imperative.</p>
+
+<p>This year-long repository captures AC's transformation from a personal instrument into a platform. Key architectural additions visible in the commit log:</p>
+
+<div class="timeline">
+    <div class="timeline-entry major">
+        <div class="timeline-date">January 2, 2022</div>
+        <div class="timeline-title">"Start working on a spray drawing tool for iPad & Apple Pencil"</div>
+        <div class="timeline-detail">First evidence of Apple Pencil pressure sensitivity. Same day: "Add iOS / macOS native shim."</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">January 5, 2022</div>
+        <div class="timeline-title">"Get a basic IPFS demo working"</div>
+        <div class="timeline-detail">Web3/decentralized storage explored early.</div>
+    </div>
+    <div class="timeline-entry major">
+        <div class="timeline-date">January 7, 2022</div>
+        <div class="timeline-title">"Consolidate disks into system"</div>
+        <div class="timeline-detail">The two-repo architecture was already a friction point after just 2 weeks of merged development.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">January 10, 2022</div>
+        <div class="timeline-title">"Begin working on prompt, wiring up the keyboard"</div>
+        <div class="timeline-detail">The prompt &mdash; AC's signature text interface &mdash; gets its keyboard input.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">January 11, 2022</div>
+        <div class="timeline-title">"Hook up microphone and start code path for video"</div>
+        <div class="timeline-detail">Audio/video input &mdash; the camera as creative input.</div>
+    </div>
+    <div class="timeline-entry major">
+        <div class="timeline-date">October 2022</div>
+        <div class="timeline-title">"Revamp of pieces hypervisor / structural changes in worker messaging; fast switching between pieces"</div>
+        <div class="timeline-detail">The disk/piece execution model matures. Pieces can now transition instantly without page refresh.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">October 24, 2022</div>
+        <div class="timeline-title">"Meta Quest 2 keyboard updates / more HID work"</div>
+        <div class="timeline-detail">VR headset support &mdash; AC running inside a Quest 2.</div>
+    </div>
+    <div class="timeline-entry major">
+        <div class="timeline-date">November 2022</div>
+        <div class="timeline-title">VR integration: "cadwand vr hello world," 3D wand tool, GLTF/GLB export</div>
+        <div class="timeline-detail">Full VR controller support, 3D model export. AC becomes a VR sculpting tool.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">December 2022</div>
+        <div class="timeline-title">"Complete ethereum login / connect flow"</div>
+        <div class="timeline-detail">Web3 authentication. Session server with Jamsocket backends. Live-reload dev tools.</div>
+    </div>
+</div>
+
+<p>The top-level tree at the end of 2022 reveals the platform's full scope:</p>
+
+<div class="file-tree"><span class="dir">system/</span>           <span class="file">&mdash; Main runtime, Netlify deployment</span>
+<span class="dir">session-server/</span>    <span class="file">&mdash; Real-time WebSocket backend (Jamsocket)</span>
+<span class="dir">socket-server/</span>     <span class="file">&mdash; Additional socket infrastructure</span>
+<span class="dir">piece-server/</span>      <span class="file">&mdash; Remote piece serving</span>
+<span class="dir">thumbnail-server/</span>  <span class="file">&mdash; Screenshot generation (precursor to oven)</span>
+<span class="dir">stream/</span>            <span class="file">&mdash; Streaming infrastructure</span>
+<span class="dir">storage/</span>           <span class="file">&mdash; Data persistence layer</span>
+<span class="dir">apple/</span>             <span class="file">&mdash; iOS/macOS native shim</span>
+<span class="dir">ethereum/</span>          <span class="file">&mdash; Web3 integration</span>
+<span class="dir">digitpain.com/</span>     <span class="file">&mdash; Artist identity site</span></div>
+
+<h3>1.4 aesthetic-computer (December 23, 2022 &ndash; present)</h3>
+
+<p><a href="https://github.com/whistlegraph/aesthetic-computer">whistlegraph/aesthetic-computer</a> &mdash; the current repository.</p>
+
+<p>The first commit: <em>"Initial commit."</em> The second: <em>"copy all previous sources into the new repo; todos."</em> The third: <em>"first netlify deploy."</em> Three commits in 35 minutes on December 23, 2022 &mdash; a fresh start on the same day the previous repo received its final commit.</p>
+
+<p>As of March 2026, this repository contains <strong>11,314 commits</strong> across 38 months. From the first 50 commits we can see the immediate priorities: Whistlegraph recorder infrastructure, Instagram in-app browser debugging (a recurring adversary), shader work on the prompt grain effect, and 3D geometry generation.</p>
+
+<p>Key milestones traced through commit message searches:</p>
+
+<table class="commit-table">
+<tr><th>Feature</th><th>First appearance</th></tr>
+<tr><td>Auth (Auth0)</td><td>Jan 5, 2023 &mdash; "start on user auth," "mock out login and logout commands for the prompt"</td></tr>
+<tr><td>Session server</td><td>Jan 21, 2023 &mdash; Jamsocket-based real-time backends</td></tr>
+<tr><td>KidLisp</td><td>~Feb 2023 &mdash; "automatically run kidlisp tests," parameters, inline expression arithmetic</td></tr>
+<tr><td>Multiplayer</td><td>~Mar 2023 &mdash; "add multiplayer listings," "Add 1v1 multiplayer FPS game"</td></tr>
+<tr><td>Tezos/NFT</td><td>~2023 &mdash; "wip on tezos integration for kidlisp," later renamed from "NFT" to "keep"</td></tr>
+<tr><td>notepat</td><td>~2023 &mdash; "notepad -> notepat and scaffold beat" (the rename that became a product)</td></tr>
+<tr><td>BIOS evolution</td><td>~2023&ndash;24 &mdash; "implement version switching (default to legacy) in bios.mjs"</td></tr>
+<tr><td>Mobile</td><td>Jan 2023 &mdash; "ios support for camera," "android text editing," "android flag to mobile camera"</td></tr>
+</table>
+
+<h2>2. The Predecessor Projects</h2>
+
+<p>AC did not emerge from nothing. Cross-referencing two GitHub accounts (<a href="https://github.com/whistlegraph">whistlegraph</a> with 50+ repos and <a href="https://github.com/justanothersystem">justanothersystem</a> with 3 repos), a Dropbox archive, a 109GB legacy DigitalOcean droplet at <code>bin-sc.jas.life</code>, and Jeffrey's CV, we identify <strong>94 predecessor projects</strong> spanning 2007&ndash;2020.</p>
+
+<h3>2.1 The Drawing Software Lineage</h3>
+
+<p>AC is, at its core, a drawing program. The lineage is clear:</p>
+
+<div class="timeline">
+    <div class="timeline-entry major">
+        <div class="timeline-date">2011</div>
+        <div class="timeline-title">thePRBAT &mdash; Polygon Replicating Bitmap Authoring Tool</div>
+        <div class="timeline-detail">Flash/SWF. Jeffrey's BFA thesis tool at Ringling College. Bitmap authoring through polygon replication.</div>
+    </div>
+    <div class="timeline-entry major">
+        <div class="timeline-date">2014</div>
+        <div class="timeline-title">JeffreyPaint &mdash; "My paint program"</div>
+        <div class="timeline-detail">JavaScript web app + Unity port + macOS .dmg. (<a href="https://github.com/whistlegraph/jeffreypaint">GitHub</a>)</div>
+    </div>
+    <div class="timeline-entry major">
+        <div class="timeline-date">2014&ndash;2020</div>
+        <div class="timeline-title">No Paint &mdash; "A picture-making instrument"</div>
+        <div class="timeline-detail">The constraint: you can only paint, never erase. Five incarnations across six years: Rails app (2014) &rarr; JS shim (2016) &rarr; WebGL prototype (2018) &rarr; iOS/Cordova (2019) &rarr; Vercel site (2020). Six repos: <a href="https://github.com/whistlegraph/nopaint.org">nopaint.org</a>, <a href="https://github.com/whistlegraph/no_paint_shim">no_paint_shim</a>, <a href="https://github.com/whistlegraph/nopaint">nopaint</a>, <a href="https://github.com/whistlegraph/paint-prototype">paint-prototype</a>, <a href="https://github.com/whistlegraph/nopaint-server">nopaint-server</a>. Live at <a href="https://nopaint.art">nopaint.art</a>.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">2015</div>
+        <div class="timeline-title">Mood Engine &mdash; "Maskware's MOOD Engine"</div>
+        <div class="timeline-detail">Native C application. (<a href="https://github.com/whistlegraph/mood">GitHub</a>)</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">2015</div>
+        <div class="timeline-title">Traveller</div>
+        <div class="timeline-detail">Processing &rarr; 3 standalone macOS .app builds. Generative/interactive piece with "full-mode, big-dot" and "half-mode" variants.</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">2016</div>
+        <div class="timeline-title">Finger Quilt</div>
+        <div class="timeline-detail">iOS app in Swift. Quilting-as-drawing. (<a href="https://github.com/whistlegraph/finger-quilt">GitHub</a>)</div>
+    </div>
+    <div class="timeline-entry">
+        <div class="timeline-date">2017</div>
+        <div class="timeline-title">Dot &mdash; "A dot plotting application"</div>
+        <div class="timeline-detail">JavaScript. (<a href="https://github.com/whistlegraph/dot">GitHub</a>) &mdash; directly prefigures AC's <code>plot</code> disk.</div>
+    </div>
+</div>
+
+<p>Jeffrey also maintained a curated <a href="https://github.com/justanothersystem/tools">directory of web-based drawing tools</a> (2017, hosted on Glitch as weird-drawing-tools.glitch.me) &mdash; a research document cataloging dozens of drawing programs including his own No Paint and thePRBAT alongside tools by others. This catalog represents the conscious study of drawing-software-as-medium that informed AC's design.</p>
+
+<h3>2.2 The Performance Software Lineage</h3>
+
+<p>AC's real-time, multiplayer, and performance features trace to tools built for the Radical Digital Painting lecture tour and Goodiepal &amp; Pals collaborations:</p>
+
+<ul style="margin: 0.5em 0 1em 1.5em;">
+<li><strong>Peter</strong> (2017) &mdash; "A web app and Photoshop panel that allows audience members to upload expiring images for Julia [Yerger] to work with." Real-time audience participation. (<a href="https://github.com/justanothersystem/peter">GitHub</a>)</li>
+<li><strong>border-notation</strong> (2017) &mdash; "Border animation notation program for GP&amp;PLS." Music notation in the browser. (<a href="https://github.com/whistlegraph/border-notation">GitHub</a>)</li>
+<li><strong>pmet-subs</strong> (2017) &mdash; Real-time subtitle display for Goodiepal performance. (<a href="https://github.com/whistlegraph/pmet-subs">GitHub</a>)</li>
+<li><strong>Shutter Rub</strong> (2018) &mdash; Tool for Knoth &amp; Renner at Fikra Design Biennal. (<a href="https://github.com/whistlegraph/fikra-18-shutter-rub">GitHub</a>)</li>
+<li><strong>pic.jeffreyheart89.com</strong> (2017) &mdash; "Digital painting delivery service." (<a href="https://github.com/whistlegraph/pic.jeffreyheart89.com">GitHub</a>)</li>
+</ul>
+
+<h3>2.3 The Infrastructure Lineage</h3>
+
+<p>Even AC's infrastructure has predecessors:</p>
+
+<ul style="margin: 0.5em 0 1em 1.5em;">
+<li><strong>live</strong> (2016) &mdash; "Reloads browser automatically." A Ruby live-reload server. AC's current hot-reload WebSocket system is the descendant. (<a href="https://github.com/whistlegraph/live">GitHub</a>)</li>
+<li><strong>cfg</strong> (2013) &mdash; VimL dotfiles from Yale MFA era. The first configuration-as-practice. (<a href="https://github.com/whistlegraph/cfg">GitHub</a>)</li>
+<li><strong>netlify-functions-headless-chrome</strong> (2022) &mdash; Headless Chrome screenshots on Netlify. Direct precursor to the oven screenshot service. (<a href="https://github.com/whistlegraph/netlify-functions-headless-chrome">GitHub</a>)</li>
+<li><strong>giphy-upload-proxy</strong> (2017) &mdash; "A proxy application for GIPHY's Upload endpoint." Server-side media processing experience. (<a href="https://github.com/whistlegraph/giphy-upload-proxy">GitHub</a>)</li>
+</ul>
+
+<h3>2.4 Languages Used Across Projects</h3>
+
+<p>The predecessor projects span an unusual range for a single practitioner: JavaScript (dominant), Ruby (Rails era), Swift (iOS), Java (Android shim), C (Mood Engine, BW-Flower), Rust (Rect), VimL (dotfiles), Processing (Traveller), Flash/ActionScript (thePRBAT), Lua (PICO-8), and TypeScript (later players). AC consolidates this polyglot history into a JavaScript-first platform with KidLisp as its embedded language.</p>
+
+<h2>3. Architectural Patterns</h2>
+
+<h3>3.1 The Disk/Piece Metaphor</h3>
+
+<p>From the first system-ac commit, the metaphor was "disks" loaded by a "system" with a "bios." This metaphor &mdash; borrowed from personal computing history &mdash; persists through all four repos. The rename from "disk" to "piece" happened during the 2022.aesthetic.computer period, aligning the technical term with the artistic one. A piece of software. A piece of music. A piece of art.</p>
+
+<h3>3.2 The Prompt as Interface</h3>
+
+<p>The prompt &mdash; a blinking text cursor where users type piece names &mdash; appears in the very first disks-ac repo as <code>prompt.js</code>. It later became notepat's keyboard and AC's primary navigation system. The prompt is not a command line; it is a <em>musical</em> interface, where typing a word like <code>notepat</code> is an act of recall and invocation, like humming a melody to find a song.</p>
+
+<h3>3.3 Two-Repo to Monorepo</h3>
+
+<p>The system/disks split lasted exactly 4 months before being merged. The split reflected a conceptual distinction (runtime vs. content) that proved impractical. The merge happened twice more: into 2022.aesthetic.computer and then into the current repo. Each consolidation discarded git history in favor of a clean start &mdash; a deliberate choice to prioritize forward momentum over archaeological continuity, which is precisely what makes this reconstruction necessary.</p>
+
+<h2>4. Quantitative Summary</h2>
+
+<div class="stat-box">
+    <div class="stat">
+        <div class="stat-number">94</div>
+        <div class="stat-label">predecessor projects (2007&ndash;2020)</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">50+</div>
+        <div class="stat-label">GitHub repos (whistlegraph + JAS)</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">337</div>
+        <div class="stat-label">.mjs pieces in current repo</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">18</div>
+        <div class="stat-label">.lisp pieces (KidLisp)</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">76</div>
+        <div class="stat-label">lib modules</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">83</div>
+        <div class="stat-label">Netlify serverless functions</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">5</div>
+        <div class="stat-label">services (oven, session, silo, feed, grab)</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">109 GB</div>
+        <div class="stat-label">legacy archive (bin-sc.jas.life)</div>
+    </div>
+</div>
+
+<h2>5. Conclusion</h2>
+
+<p>Aesthetic Computer is not a project that began on August 10, 2021. It is the convergence of a decade of creative software practice &mdash; from thePRBAT (2011) through No Paint's five incarnations (2014&ndash;2020), through performance tools for Goodiepal &amp; Pals, through a curated catalog of every web-based drawing tool the author could find, through a Rust rectangle game and a PICO-8 drawing cart and a Pebble smartwatch experiment, through 65+ lecture performances on the thesis that digital tools are painting's next material ground.</p>
+
+<p>The git history reveals what manifestos cannot: the daily accumulation of decisions, the abandoned paths (worker-disk.js, the two-repo split), the convergences (system + disks &rarr; monorepo), and the renames that carry meaning (disk &rarr; piece, notepad &rarr; notepat, NFT &rarr; keep). Every commit is a brushstroke in the longest painting Jeffrey Alan Scudder has ever made.</p>
+
+<blockquote>"something composed in 30 minutes (like a whistlegraph!) could live for an eternity."<br>&mdash; Jeffrey Alan Scudder, Personal Statement: Core Beliefs</blockquote>
+
+<div class="footnotes">
+<h3 style="color: var(--dim); margin-bottom: 0.5em;">Sources</h3>
+<p>GitHub: <a href="https://github.com/whistlegraph/system-ac">whistlegraph/system-ac</a> (38 commits), <a href="https://github.com/whistlegraph/disks-ac">whistlegraph/disks-ac</a> (30 commits), <a href="https://github.com/whistlegraph/2022.aesthetic.computer">whistlegraph/2022.aesthetic.computer</a> (~500 commits), <a href="https://github.com/whistlegraph/aesthetic-computer">whistlegraph/aesthetic-computer</a> (11,314 commits). 50+ additional repos across whistlegraph and justanothersystem accounts. Legacy server: bin-sc.jas.life (162.243.163.221). Dropbox archive. CV and fact-check report from <a href="https://aesthetic.computer/assets/papers/readings/text/jas-software-history.txt">jas-software-history.txt</a>.</p>
+</div>
+
+<div class="footer">
+    <span><a href="/">papers</a> &middot; <a href="/platter">platter</a> &middot; <a href="https://aesthetic.computer">aesthetic.computer</a></span>
+    <button class="theme-toggle" onclick="toggleTheme()">theme</button>
+</div>
+
+<script>
+    function toggleTheme() {
+        const root = document.documentElement;
+        const isLight = root.classList.contains('light-mode');
+        const isDark = root.classList.contains('dark-mode');
+        if (isLight) {
+            root.classList.remove('light-mode');
+            root.classList.add('dark-mode');
+        } else if (isDark) {
+            root.classList.remove('dark-mode');
+            root.classList.add('light-mode');
+        } else {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            root.classList.add(prefersDark ? 'light-mode' : 'dark-mode');
+        }
+    }
+</script>
+</body>
+</html>

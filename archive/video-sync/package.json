@@ -1,0 +1,13 @@
+{
+  "name": "video-sync",
+  "version": "1.0.0",
+  "description": "Created for Georgica Pettus' `Screenplay` work.",
+  "main": "server.js",
+  "dependencies": {
+    "ws": "^8.4.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Jeffrey Alan Scudder (digitpain)"
+}

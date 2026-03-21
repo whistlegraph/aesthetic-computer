@@ -1,0 +1,57 @@
+Complete!
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose start aesthetic-fedora qcow2
+ERROR: DepsolveError: running osbuild-depsolve-dnf failed:
+DNF error occurred: MarkingErrors: Error occurred when marking packages for installation: Problems in request:
+missing packages: nvim
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ nvim blueprint.toml 
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose start aesthetic-fedora qcow2
+ERROR: DepsolveError: running osbuild-depsolve-dnf failed:
+DNF error occurred: MarkingErrors: Error occurred when marking packages for installation: Problems in request:
+missing packages: nvim
+me@fedora:~/aesthetic-computer/fedora-image$ nvim blueprint.toml 
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose start aesthetic-fedora qcow2
+^NERROR: DepsolveError: running osbuild-depsolve-dnf failed:
+DNF error occurred: MarkingErrors: Error occurred when marking packages for installation: Problems in request:
+missing packages: nvim
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli blueprints push blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli blueprints list
+aesthetic-fedora
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose start aesthetic-fedora qcow2
+Compose 6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b added to the queue
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ ls -A
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ composer-cli compose list
+ERROR: List Error: you do not have permission to access /run/weldr/api.socket.  Check to make sure that you are a member of the weldr group
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose list
+ID                                     Status    Blueprint          Version   Type
+6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b   RUNNING   aesthetic-fedora   1.0.1     qcow2
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose log compose-id
+ERROR: UnknownUUID: compose-id is not a valid build uuid
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose log 6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b
+Build 6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b is still running.
+
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose log 6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b
+Build 6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b is still running.
+
+me@fedora:~/aesthetic-computer/fedora-image$ ls
+blueprint.toml
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose list
+ID                                     Status    Blueprint          Version   Type
+6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b   RUNNING   aesthetic-fedora   1.0.1     qcow2
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose list
+ID                                     Status    Blueprint          Version   Type
+6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b   RUNNING   aesthetic-fedora   1.0.1     qcow2
+me@fedora:~/aesthetic-computer/fedora-image$ sudo composer-cli compose list
+ID                                     Status    Blueprint          Version   Type
+6f25eac4-a4c1-4b2c-985f-ad65cb4efc8b   RUNNING   aesthetic-fedora   1.0.1     qcow2
+me@fedora:~/aesthetic-computer/fedora-image$ 

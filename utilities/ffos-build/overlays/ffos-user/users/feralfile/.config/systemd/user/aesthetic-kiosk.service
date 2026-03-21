@@ -1,0 +1,24 @@
+[Unit]
+Description=Aesthetic Computer Kiosk (Offline Starfield)
+After=graphical-session.target dbus.socket
+Wants=dbus.socket
+
+[Service]
+Type=simple
+# Boot straight to offline notepat bundle (no internet required)
+Environment=AC_URL=file:///opt/ac/offline-pieces/notepat.html
+# To use online mode instead, uncomment this line:
+# Environment=AC_URL=https://aesthetic.computer?tv=true&nogap=true&nolabel=true
+ExecStartPre=/bin/sleep 3
+ExecStart=/home/feralfile/scripts/start-aesthetic-kiosk.sh
+Restart=always
+RestartSec=5
+StartLimitBurst=10
+StartLimitIntervalSec=120
+
+# Resource protection
+MemoryMax=1G
+CPUQuota=90%
+
+[Install]
+WantedBy=default.target

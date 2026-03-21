@@ -1,0 +1,543 @@
+; Rainbow Bars - GameBoy Color Demo
+; Scrolling rainbow colored bars
+
+INCLUDE "hardware.inc"
+
+SECTION "Header", ROM0[$100]
+    jp EntryPoint
+    ds $143 - @, 0
+    db $C0          ; GBC only flag
+    ds $150 - @, 0
+
+SECTION "Variables", WRAM0
+wScrollY: db
+wFrameCounter: db
+wColorCycle: db
+
+SECTION "EntryPoint", ROM0[$150]
+EntryPoint:
+    ; Wait for VBlank
+.waitVBlank:
+    ld a, [rLY]
+    cp 144
+    jp c, .waitVBlank
+
+    ; Turn off LCD
+    xor a
+    ld [rLCDC], a
+    
+    ; Copy tiles
+    ld de, Tiles
+    ld hl, $9000
+    ld bc, TilesEnd - Tiles
+.copyTiles:
+    ld a, [de]
+    ld [hl+], a
+    inc de
+    dec bc
+    ld a, b
+    or c
+    jp nz, .copyTiles
+    
+    ; Fill tilemap with horizontal bars
+    ld hl, $9800
+    ld b, 18        ; 18 rows
+    xor a           ; Tile index
+.rowLoop:
+    ld c, 32        ; 32 columns
+.colLoop:
+    ld [hl+], a
+    dec c
+    jr nz, .colLoop
+    inc a           ; Next tile for next row
+    and $07         ; Cycle 0-7
+    dec b
+    jr nz, .rowLoop
+    
+    ; Set up GBC palettes
+    call SetupPalettes
+    
+    ; Set tilemap attributes for colors
+    ld a, 1
+    ld [rVBK], a    ; Switch to VRAM bank 1 (attributes)
+    
+    ld hl, $9800
+    ld b, 18
+    xor a
+.attrRowLoop:
+    ld c, 32
+.attrColLoop:
+    ld [hl+], a
+    dec c
+    jr nz, .attrColLoop
+    inc a
+    and $07         ; Cycle through palettes 0-7
+    dec b
+    jr nz, .attrRowLoop
+    
+    xor a
+    ld [rVBK], a    ; Back to VRAM bank 0
+    
+    ; Set DMG palette fallback
+    ld a, %11100100
+    ld [rBGP], a
+    
+    ; Initialize variables
+    xor a
+    ld [wScrollY], a
+    ld [wFrameCounter], a
+    ld [wColorCycle], a
+    
+    ; Turn on LCD
+    ld a, LCDC_ON | LCDC_BG_ON
+    ld [rLCDC], a
+
+Main:
+    ; Wait for VBlank
+    ld a, [rLY]
+    cp 144
+    jp nc, Main
+.waitVBlank2:
+    ld a, [rLY]
+    cp 144
+    jp c, .waitVBlank2
+    
+    ; Update every frame for smooth scroll
+    ld a, [wScrollY]
+    inc a
+    ld [wScrollY], a
+    ld [rSCY], a
+    
+    ; Cycle colors every 30 frames
+    ld a, [wFrameCounter]
+    inc a
+    ld [wFrameCounter], a
+    cp 30
+    jp nz, Main
+    
+    xor a
+    ld [wFrameCounter], a
+    
+    ld a, [wColorCycle]
+    inc a
+    and $1F
+    ld [wColorCycle], a
+    call UpdatePalettes
+    
+    jp Main
+
+SetupPalettes:
+    ; Set up 8 different colored palettes
+    ; Palette 0 - Red shades
+    ld a, $80       ; Auto-increment, palette 0
+    ld [rBCPS], a
+    ld a, $00       ; Black
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $15       ; Dark red
+    ld [rBCPD], a
+    ld a, $00
+    ld [rBCPD], a
+    ld a, $1F       ; Red
+    ld [rBCPD], a
+    ld a, $00
+    ld [rBCPD], a
+    ld a, $3F       ; Bright red
+    ld [rBCPD], a
+    ld a, $00
+    ld [rBCPD], a
+    
+    ; Palette 1 - Green shades
+    ld a, $88
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $A0       ; Dark green
+    ld [rBCPD], a
+    ld a, $02
+    ld [rBCPD], a
+    ld a, $E0       ; Green
+    ld [rBCPD], a
+    ld a, $03
+    ld [rBCPD], a
+    ld a, $E0       ; Bright green
+    ld [rBCPD], a
+    ld a, $07
+    ld [rBCPD], a
+    
+    ; Palette 2 - Blue shades
+    ld a, $90
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $00       ; Dark blue
+    ld [rBCPD], a
+    ld a, $0A
+    ld [rBCPD], a
+    ld a, $00       ; Blue
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $00       ; Bright blue
+    ld [rBCPD], a
+    ld a, $3F
+    ld [rBCPD], a
+    
+    ; Palette 3 - Yellow shades
+    ld a, $98
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $B5       ; Dark yellow
+    ld [rBCPD], a
+    ld a, $02
+    ld [rBCPD], a
+    ld a, $DF       ; Yellow
+    ld [rBCPD], a
+    ld a, $03
+    ld [rBCPD], a
+    ld a, $FF       ; Bright yellow
+    ld [rBCPD], a
+    ld a, $03
+    ld [rBCPD], a
+    
+    ; Palette 4 - Cyan shades
+    ld a, $A0
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $A0
+    ld [rBCPD], a
+    ld a, $0A
+    ld [rBCPD], a
+    ld a, $E0
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $E0
+    ld [rBCPD], a
+    ld a, $3F
+    ld [rBCPD], a
+    
+    ; Palette 5 - Magenta shades
+    ld a, $A8
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $15
+    ld [rBCPD], a
+    ld a, $0A
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $3F
+    ld [rBCPD], a
+    ld a, $3F
+    ld [rBCPD], a
+    
+    ; Palette 6 - Orange shades
+    ld a, $B0
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $95
+    ld [rBCPD], a
+    ld a, $01
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $02
+    ld [rBCPD], a
+    ld a, $9F
+    ld [rBCPD], a
+    ld a, $03
+    ld [rBCPD], a
+    
+    ; Palette 7 - Purple shades
+    ld a, $B8
+    ld [rBCPS], a
+    ld a, $00
+    ld [rBCPD], a
+    ld [rBCPD], a
+    ld a, $0A
+    ld [rBCPD], a
+    ld a, $05
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ld a, $0F
+    ld [rBCPD], a
+    ld a, $3F
+    ld [rBCPD], a
+    ld a, $1F
+    ld [rBCPD], a
+    ret
+
+UpdatePalettes:
+    ; Rotate palette colors dynamically
+    ; Each palette shifts through the color spectrum
+    
+    ld a, [wColorCycle]
+    ld b, a
+    
+    ; Update all 8 palettes with shifted colors
+    ld c, 0         ; Palette counter
+.paletteLoop:
+    ; Calculate palette address
+    ld a, c
+    sla a
+    sla a
+    sla a           ; Multiply by 8
+    or $80          ; Auto-increment
+    ld [rBCPS], a
+    
+    ; Calculate color offset for this palette
+    ld a, b         ; wColorCycle
+    ld d, a
+    ld a, c         ; Palette number
+    sla a
+    sla a           ; Multiply by 4 for offset
+    add d           ; Add cycle offset
+    and $1F         ; Keep in 0-31 range
+    
+    ; Generate colors based on position in cycle
+    call GenerateShiftingColor
+    
+    ; Next palette
+    inc c
+    ld a, c
+    cp 8
+    jr nz, .paletteLoop
+    ret
+
+GenerateShiftingColor:
+    ; Generate a color based on value in A (0-31)
+    ; Creates a smooth rainbow effect
+    push bc
+    ld b, a
+    
+    ; Color 0 - always black
+    xor a
+    ld [rBCPD], a
+    ld [rBCPD], a
+    
+    ; Color 1 - Dark shade
+    ld a, b
+    call .calcRGB
+    srl d           ; Halve brightness
+    srl e
+    srl c
+    ld a, d
+    ld [rBCPD], a
+    ld a, e
+    or c
+    ld [rBCPD], a
+    
+    ; Color 2 - Medium shade
+    ld a, b
+    add 5           ; Offset for variation
+    and $1F
+    call .calcRGB
+    ld a, d
+    ld [rBCPD], a
+    ld a, e
+    or c
+    ld [rBCPD], a
+    
+    ; Color 3 - Bright shade
+    ld a, b
+    add 10          ; More offset
+    and $1F
+    call .calcRGB
+    ; Boost brightness
+    ld a, d
+    or $1F
+    ld [rBCPD], a
+    ld a, e
+    or c
+    or $1F
+    ld [rBCPD], a
+    
+    pop bc
+    ret
+
+.calcRGB:
+    ; Calculate RGB values based on position (0-31) in A
+    ; Returns: D=low byte, E=high byte (bits 0-4), C=high byte (bits 5-7)
+    push af
+    
+    ; Determine which third of spectrum (0-10=red, 11-21=green, 22-31=blue)
+    cp 11
+    jr c, .redPhase
+    cp 22
+    jr c, .greenPhase
+    
+.bluePhase:
+    ; Blue to Red transition
+    sub 22
+    ld b, a
+    ld a, 9
+    sub b           ; Inverse for fade
+    
+    ; Red component (fading in)
+    sla a
+    and $1F
+    ld d, a         ; Low byte = red (bits 0-4)
+    
+    ; Blue component (high, fading out)
+    ld a, b
+    sla a
+    sla a
+    and $1F
+    ld c, a
+    sla c
+    sla c
+    sla c           ; Shift to bits 5-7 of high byte
+    
+    xor a
+    ld e, a         ; Green in middle bits
+    jr .done
+    
+.greenPhase:
+    ; Green to Blue transition
+    sub 11
+    ld b, a
+    
+    ; Green component (fading out)
+    ld a, 10
+    sub b
+    and $1F
+    sla a
+    sla a
+    sla a
+    ld e, a         ; Green in bits 5-7 of low byte
+    
+    ; Blue component (fading in)
+    ld a, b
+    sla a
+    and $1F
+    ld c, a
+    sla c
+    sla c
+    sla c           ; Blue in high byte
+    
+    xor a
+    ld d, a         ; No red
+    jr .done
+    
+.redPhase:
+    ; Red to Green transition
+    ld b, a
+    
+    ; Red component (high, fading out)
+    ld a, 10
+    sub b
+    sla a
+    and $1F
+    ld d, a         ; Red in low byte
+    
+    ; Green component (fading in)
+    ld a, b
+    sla a
+    and $1F
+    sla a
+    sla a
+    sla a
+    ld e, a         ; Green in low byte bits 5-7
+    
+    xor a
+    ld c, a         ; No blue
+    
+.done:
+    pop af
+    ret
+
+Tiles:
+    ; Tile 0 - Solid
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    dw `33333333
+    
+    ; Tile 1
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    
+    ; Tile 2
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    dw `11111111
+    
+    ; Tile 3 - Gradient
+    dw `33333333
+    dw `33333333
+    dw `22222222
+    dw `22222222
+    dw `22222222
+    dw `11111111
+    dw `11111111
+    dw `00000000
+    
+    ; Tile 4
+    dw `33332222
+    dw `33332222
+    dw `33332222
+    dw `33332222
+    dw `22221111
+    dw `22221111
+    dw `22221111
+    dw `22221111
+    
+    ; Tile 5
+    dw `22221111
+    dw `22221111
+    dw `22221111
+    dw `22221111
+    dw `11110000
+    dw `11110000
+    dw `11110000
+    dw `11110000
+    
+    ; Tile 6
+    dw `33333333
+    dw `22222222
+    dw `11111111
+    dw `00000000
+    dw `33333333
+    dw `22222222
+    dw `11111111
+    dw `00000000
+    
+    ; Tile 7
+    dw `33221100
+    dw `33221100
+    dw `33221100
+    dw `33221100
+    dw `33221100
+    dw `33221100
+    dw `33221100
+    dw `33221100
+TilesEnd:

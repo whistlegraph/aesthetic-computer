@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.news",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A news headline from Aesthetic Computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["headline", "when"],
+        "properties": {
+          "headline": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "The news headline text"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Full article body text (optional)"
+          },
+          "link": {
+            "type": "string",
+            "format": "uri",
+            "description": "External link to full article (optional)"
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the news was published (ISO 8601)"
+          },
+          "tags": {
+            "type": "array",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Category tags for the news item"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Reference to source database record for bidirectional sync"
+          }
+        }
+      }
+    }
+  }
+}

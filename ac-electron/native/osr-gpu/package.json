@@ -1,0 +1,15 @@
+{
+  "name": "osr-gpu",
+  "version": "1.0.0",
+  "description": "Native addon for Electron OSR GPU shared texture handling",
+  "main": "build/Release/osr-gpu.node",
+  "scripts": {
+    "install": "node-gyp rebuild",
+    "build": "node-gyp rebuild",
+    "clean": "node-gyp clean"
+  },
+  "dependencies": {
+    "node-addon-api": "^7.1.0"
+  },
+  "gypfile": true
+}

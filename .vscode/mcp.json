@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "emacs": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/artery/emacs-mcp.mjs"
+      ],
+      "env": {
+        "EMACSCLIENT": "/usr/sbin/emacsclient"
+      }
+    }
+  }
+}

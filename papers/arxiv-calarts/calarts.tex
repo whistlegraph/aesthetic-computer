@@ -1,0 +1,203 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === PSYCHO watermark ===
+\usepackage{eso-pic}
+\usepackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "PSYCHO" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} PSYCHO}};
+  \end{tikzpicture}%
+}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={CalArts, Callouts, and Papers: Art School as Operating System}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{PSYCHO paper --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} CalArts, Callouts, and Papers}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Art School as Operating System}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ PSYCHO paper --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+CalArts (California Institute of the Arts) was founded in 1961 by Walt Disney as a total art school---a place where animation, music, theater, dance, film, and fine art would exist under one roof, cross-pollinating without disciplinary walls. This paper argues that CalArts functions as an \emph{operating system} for creative production: a set of foundational assumptions about what art is, how it is taught, and what an artist should become. We examine the school's unique culture of ``callouts''---the crit, the hallway conversation, the institutional dare---and how this oral tradition produces knowledge that cannot be written down. We then turn to the paper itself: why this series of academic papers exists, what it means for an artist-programmer to write theory, and whether the paper form is itself a kind of callout---a public challenge that forces ideas to stand exposed in the open. CalArts taught the author to make work that talks back. These papers are that work talking back in a register the art world was not expecting.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{The Disney Machine}
+
+Walt Disney founded CalArts in 1961 by merging the Chouinard Art Institute and the Los Angeles Conservatory of Music. He wanted an art school that worked like his studio: all the disciplines in one building, sharing tools and ideas. Disney died before the Valencia campus opened in 1971, but the structure he demanded---no walls between departments, shared facilities, a culture of cross-disciplinary collision---shaped everything that followed.
+
+The founding vision was industrial. Disney needed animators who could draw, musicians who understood timing, actors who could improvise to a storyboard. The school was a talent pipeline for the studio~\citep{singerman1999art}. But something else happened. The faculty Disney's heirs hired---among them Allan Kaprow, Judy Chicago, John Baldessari, Miriam Schapiro, Nam June Paik---turned the interdisciplinary structure into a laboratory for postwar American art. The machine Disney built to produce animators became a machine that produced conceptual artists, feminist performance, video art, and eventually the generation that would define post-studio practice.
+
+The operating system analogy is exact. An OS does not make the software; it provides the environment in which software can run. CalArts does not make the art; it provides the conditions---spatial, social, pedagogical---in which a particular kind of artist becomes possible. Change the OS and you change what can be made.
+
+\section{Callouts}
+
+\subsection{The crit as oral tradition}
+
+The crit at CalArts is not a grade. It is a callout. Someone puts work on the wall and the room responds---not with rubrics or learning outcomes but with the unscripted, sometimes brutal, sometimes generous honesty of people who have been looking at art together for long enough to skip pleasantries.
+
+\citet{elkins2001why} argues that the crit is unteachable in the same way art is unteachable: what happens in a good crit cannot be reduced to a method. It is an oral tradition. The knowledge produced in a three-hour crit exists only in the room. It cannot be written down without becoming something else---a summary, a review, a judgment. The crit is live. It is a performance of attention~\citep{hooks1994teaching}.
+
+CalArts crits are famous for their intensity. The school's small size (roughly 1,500 students), residential campus, and interdisciplinary structure mean that a painter's crit might include a composer, an animator, a filmmaker, and a dancer. The feedback is not discipline-specific. It is \emph{perceptual}: what does this do to my body, my ear, my sense of time? The callout is not ``this is good painting.'' The callout is ``this is alive'' or ``this is dead.''
+
+\subsection{Hallway knowledge}
+
+Most of what CalArts teaches happens outside the classroom. The hallways of the main building---a brutalist megastructure designed by Ladd \& Kelsey---function as an informal salon. A composer walks past a sculptor's open studio and hears a sound that changes both of their work. A filmmaker screens dailies at 2 AM and a dancer wanders in and starts improvising to the footage.
+
+This is not curriculum. It is \emph{architecture}. The building forces collision. The cafeteria (the only one) forces everyone into the same room. The hallways are wide enough to stop and talk. The studios are open. The practice rooms leak sound. The building is an instrument that plays the people inside it.
+
+\citet{deduve1994attitude} identifies three paradigms of art education: the academy (talent-imitation), the Bauhaus (creativity-medium-invention), and the postwar art school (attitude-practice-deconstruction). CalArts invented a fourth: \emph{proximity}. Put different disciplines close enough together and they contaminate each other. The contamination is the education.
+
+\subsection{The institutional dare}
+
+CalArts runs on dares. Not explicit ones---no one says ``I dare you.'' But the culture is organized around a challenge structure: can you make something that holds up in a room full of people who are better than you? Can you present work that survives the callout?
+
+This is different from the tech-school sprint review, where work is evaluated against user stories and acceptance criteria~\citep{vinsel2020innovation}. The CalArts dare has no criteria. There is no rubric. The question is not ``does this meet the brief?'' The question is ``does this need to exist?'' The dare is existential, not functional.
+
+The dare also operates between departments. A music student who makes a piece with video is daring the film students to pay attention. A dancer who codes an interactive installation is daring the art students to take technology seriously. The dare is the mechanism of cross-disciplinary contamination. It says: your discipline is not sufficient. Come play in mine.
+
+\section{Why Papers}
+
+\subsection{The paper as callout}
+
+This paper series---twenty papers written in three weeks---is itself a callout. It says: an artist-programmer can write theory. Not ``theory-lite,'' not ``artist statements with citations,'' but real papers with real arguments and real bibliographies that engage with real scholarship.
+
+The art world does not expect this. Artists are expected to make work and let critics write about it. The division of labor is clear: artists produce, critics explain, historians contextualize. When an artist writes theory, the institutional response is suspicion. Is it real scholarship? Is it vanity publishing? Is it art?
+
+The answer is: it does not matter. The paper is a callout. It forces the ideas to stand in the open, exposed to criticism, in a format that the academy recognizes and the art world does not control. \citet{fraser2005critique} noted that institutional critique became an institution. These papers attempt something different: not critique of the institution but \emph{use} of the institution's own format---the academic paper---as artistic material.
+
+\subsection{The paper as instrument}
+
+A paper is a technology. It has a format (sections, citations, abstract, bibliography), a distribution system (journals, preprints, repositories), and a social protocol (peer review, citation, response). Like any technology, it can be played.
+
+\ac{} treats the piece as the fundamental unit of creative cognition~\citep{scudder2026pieces}. A piece is a single file that exports lifecycle functions: \texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}. A paper has the same structure: it boots (abstract), paints (argument), acts (engages with prior work), and simulates (proposes consequences). The paper is a piece written in \LaTeX{} instead of JavaScript.
+
+This is not metaphor. The papers are built with the same infrastructure as the software: a CLI (\texttt{papers/cli.mjs}), incremental builds, multi-language deployment, automated publishing. The paper \emph{is} software. The argument \emph{is} the program.
+
+\subsection{The PSYCHO designation}
+
+This paper is marked PSYCHO. Not ``Working Draft,'' not ``Preprint,'' not ``Under Review.'' PSYCHO.
+
+The designation is a callout to the paper format itself. Academic papers pretend to be neutral---objective reports of findings, written in passive voice, stripped of personality. The PSYCHO label refuses this pretense. It says: this paper has a voice, it has an agenda, it has a temperature. It is not neutral. It is not trying to be.
+
+The word ``psycho'' comes from the Greek \textit{psykhe}---soul, mind, breath. A PSYCHO paper is a paper with a soul. It breathes. It has opinions that are not hedged with ``further research is needed.'' It makes claims and dares you to disagree.
+
+\section{CalArts and Aesthetic Computer}
+
+\subsection{The OS inheritance}
+
+The author attended CalArts (MFA Art, 2012). The experience is the substrate on which \ac{} is built. Not the techniques---CalArts does not teach programming---but the \emph{assumptions}: that disciplines should contaminate each other, that the medium is not the point, that the dare is more important than the deliverable, that art is a way of being in the world rather than a product to be shipped.
+
+\ac{} inherits CalArts's operating system. The piece model---one file, immediate-mode graphics, lifecycle functions---is the digital equivalent of the open studio: anyone can see what you are making, anyone can fork it, anyone can call it out. The social network is organized around \emph{paths} (memorizable URLs) rather than feeds, the same way CalArts is organized around hallways rather than algorithms.
+
+\np{}.com is the clearest CalArts inheritance. It is an instrument that anyone can play, that does not require training, that rewards exploration over expertise. The hallway encounter---stumbling onto someone else's work and being changed by it---is the design pattern. You type a URL. You land on a piece. You play it. You move on. No feed. No algorithm. No metrics. Just proximity.
+
+\subsection{The crit goes online}
+
+Publishing these papers is a crit. The room is the internet. The callout is public. The work is exposed---not to a room of fifteen people who know you but to anyone with a browser and an opinion.
+
+This is terrifying in the same way a CalArts crit is terrifying: you cannot control the response. The work either holds or it does not. The dare is the same dare: does this need to exist?
+
+\section{Against Neutrality}
+
+The academic paper pretends to be a window---transparent, letting you see the research behind it. But every window is also a frame. The paper format frames what can be said: passive voice, hedged claims, deference to prior work, the fiction of objectivity~\citep{freire1970pedagogy}.
+
+CalArts teaches the opposite. Stand behind your work. Say what you mean. If you cannot defend it in the room, it is not ready. The callout is a technology of accountability: it forces you to own your claims in front of people who will push back.
+
+These papers are written in that spirit. They have a voice. They make claims. They cite scholarship not to hide behind it but to argue with it, to build on it, to dare it to respond. The PSYCHO designation is a flag: this paper is not pretending to be neutral. It has a position. It has a temperature. It is standing in the room, waiting for the callout.
+
+\citet{spivak2012aesthetic} argues that aesthetic education trains the imagination for ethical solidarity. CalArts does this---not through curriculum but through proximity, through the dare, through the crit that forces you to see your work through someone else's eyes. These papers attempt the same thing in a different medium: to train the reader's imagination for a different kind of creative computing, one built on instruments rather than feeds, on pieces rather than products, on callouts rather than engagement metrics.
+
+\section{Conclusion}
+
+CalArts is an operating system. Its kernel is proximity. Its shell is the crit. Its process model is the dare. \ac{} runs on the same OS, ported from the physical campus to the browser to bare metal~\citep{scudder2026ac, scudder2026os}.
+
+The callout is the mechanism. The paper is the format. The PSYCHO designation is the temperature. Together they say: art can write theory, theory can be art, and neither needs permission from the institutions that claim to own them.
+
+These papers are hallway knowledge, finally written down---knowing that the writing changes them, knowing that the crit never ends, knowing that the dare is the point.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

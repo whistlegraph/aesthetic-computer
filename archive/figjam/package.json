@@ -1,0 +1,17 @@
+{
+  "name": "aesthetic.computer",
+  "version": "1.0.0",
+  "description": "An interactive aesthetic.computer window.",
+  "main": "code.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc --watch"
+  },
+  "author": "",
+  "license": "",
+  "devDependencies": {
+    "@figma/plugin-typings": "*",
+    "@figma/widget-typings": "*",
+    "typescript": "*"
+  }
+}

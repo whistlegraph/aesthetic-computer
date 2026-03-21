@@ -1,0 +1,1 @@
+cmd_Release/osr-gpu.node := c++ -bundle -undefined dynamic_lookup -Wl,-search_paths_first -mmacosx-version-min=10.15 -arch arm64 -L./Release -stdlib=libc++  -o Release/osr-gpu.node Release/obj.target/osr-gpu/src/binding_mac.o -framework OpenGL -framework IOSurface -framework Cocoa

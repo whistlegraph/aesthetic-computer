@@ -1,0 +1,60 @@
+<html>
+
+<head>
+  <title>Sotce Net - Wrap Test</title>
+  <style>
+    #text {
+      background: yellow;
+      text-align: justify;
+      overflow: hidden;
+      transform-origin: top left;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="text">
+    Shavasana brought this to mind. She does love how memories show themselves out in the supine state. She was too
+    young then and wanted to be so old. She chose him because of his careful images and because of how he wrote to her.
+    Sharp cold and eyes all over. Soon after rapid texting she went to see him. Shorter than he said he would be. Small
+    even. Suspicious seeming. Still went with him to his apartment. Scandi style work from home kawaii decor in there.
+    Saw all the figurines and light wood. Saw his work on display. Saw the photos of his open relationship girlfriend.
+    Striking. Surveyed his cool objects and new money. Sat on the red couch across the room from him. Stared. Slavic
+    like her. Same age as Sean is now. She was interested in eating his food and looking around. Secretly she wanted to
+    become like him too. Sort of dripped out and independent off of art. She wanted to learn how people could be this
+    way. She had never met a man who wasn’t her teacher or her uncle. She wondered if she was smart (special?) enough to
+    talk to him or if he was pretending like she was for sexual aspirations. Sad instant noodles of a vegan variety
+    offered. Slurped them like worms. Something else packaged too that she can’t remember now. Seaweed or cookies. Soon
+    she was nodding off on the couch in the brilliant air conditioning. She felt him touch her hands, arms, shoulders.
+    She would learn later that her body reserved its deepest rest for the company of men. She would learn that sleep
+    came very reverently when she felt guarded by a neurotic seeming someone. She woke up with him fully lying on her,
+    his back crushed into hers. She felt his bird bones digging. Spine to spine. Something was taboo about this,
+    something was incorrect. Suddenly startled, had to get out of there. Stayed too long and had a feeling. Serial
+    killer vibes. Still she felt like she was breaking a promise. She told him she’d come back. She would get
+    comfortable lying like this. She was too young to even have a purse to grab. Slanted gold light on the floor.
+    Stumbling downstairs still stuck in her
+  </div>
+  <script>
+    const text = document.getElementById("text");
+    function layout() {
+      const baseWidth = 500;
+      const goalWidth = window.innerWidth / 2;
+      const scale = goalWidth / baseWidth;
+
+      const ratio = 4 / 5;
+      const height = baseWidth / ratio;
+
+      text.style.width = baseWidth + "px";
+      text.style.height = height + "px";
+      text.style.fontSize = baseWidth * 0.03 + "px";
+      text.style.lineHeight = (baseWidth * 0.03 * 1.6) + "px";
+      
+      text.style.transform = "scale(" + scale + ")";
+    }
+    window.addEventListener("resize", layout);
+    layout();
+  </script>
+</body>
+
+</html>
+

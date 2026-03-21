@@ -1,0 +1,21 @@
+\contentsline {section}{\numberline {1}Syntax}{4}{section.1}%
+\contentsline {section}{\numberline {2}The 12 Categories}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Graphics (9 functions)}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Transformations (11 functions)}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Math (14 functions)}{6}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Color (19+ named colors)}{7}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}System \& Display (9 functions)}{8}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Control Flow (7 functions)}{9}{subsection.2.6}%
+\contentsline {subsection}{\numberline {2.7}Timing}{10}{subsection.2.7}%
+\contentsline {subsection}{\numberline {2.8}Text (4 functions)}{10}{subsection.2.8}%
+\contentsline {subsection}{\numberline {2.9}Input (3 functions)}{11}{subsection.2.9}%
+\contentsline {subsection}{\numberline {2.10}Audio (6 functions)}{11}{subsection.2.10}%
+\contentsline {subsection}{\numberline {2.11}3D Graphics (8 functions)}{11}{subsection.2.11}%
+\contentsline {subsection}{\numberline {2.12}Composition via \texttt {\$}-Codes}{12}{subsection.2.12}%
+\contentsline {section}{\numberline {3}Evaluation Model}{14}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Deterministic Randomness}{14}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Chaos Mode}{15}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Design by Omission}{16}{section.4}%
+\contentsline {section}{\numberline {5}Complete Built-in Index}{18}{section.5}%
+\contentsline {section}{\numberline {6}Example: Complete Program}{19}{section.6}%
+\contentsfinish 

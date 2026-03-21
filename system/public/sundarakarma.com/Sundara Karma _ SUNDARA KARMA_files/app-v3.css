@@ -1,0 +1,241 @@
+.seated-wrapper {
+  color: #000;
+  padding: 5%;
+  margin-bottom: 5%;
+}
+
+.seated-events-table {
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.seated-event-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
+  justify-content: space-between;
+  padding: 14px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  -webkit-transition: background 0.3s ease-in-out;
+  -o-transition: background 0.3s ease-in-out;
+  transition: background 0.3s ease-in-out;
+  cursor: pointer;
+}
+
+.seated-event-row.seated-event-row-highlighted {
+  padding-bottom: 30px;
+  margin-bottom: 30px;
+  border-bottom: solid 1px #fff;
+}
+
+.seated-event-row:hover {
+  background: rgba(0, 0, 0, 0.05);
+  -webkit-transition: background 0.1s ease-in-out;
+  -o-transition: background 0.1s ease-in-out;
+  transition: background 0.1s ease-in-out;
+}
+
+.seated-event-description-cells {
+  width: 65%;
+}
+
+.seated-event-venue-cell {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+}
+
+.seated-event-venue-name {
+  width: 60%;
+}
+
+.seated-event-venue-location {
+  width: 40%;
+}
+
+.seated-event-date-cell {
+  font-weight: 700;
+  text-transform: uppercase !important;
+}
+
+.seated-event-details-cell {
+  display: block;
+  opacity: 0.7;
+}
+
+.seated-event-link-cells {
+  display: flex;
+}
+
+.seated-event-row-greater-than-2-buttons .seated-event-link-cells {
+  flex-direction: column;
+}
+
+.seated-event-link-cell {
+  align-items: center;
+  display: flex;
+}
+
+.seated-event-row-greater-than-2-buttons .seated-event-link {
+  margin-left: 0;
+}
+
+.seated-event-link,
+.seated-event-link:visited,
+.seated-event-link1,
+.seated-event-link1:visited,
+.seated-event-link2,
+.seated-event-link2:visited,
+.seated-event-link3,
+.seated-event-link3:visited {
+  color: #000;
+  border: 2px solid rgba(0, 0, 0, 1);
+  background: rgba(255, 255, 255, 1);
+  border-radius: 3px;
+  display: block;
+  font-size: 12px;
+  margin: 4px 0 4px 9px;
+  overflow: hidden;
+  padding: 6px 3px;
+  text-align: center;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  min-width: 120px;
+  text-transform: uppercase !important;
+}
+
+.seated-event-link:hover,
+.seated-event-link1:hover,
+.seated-event-link2:hover,
+.seated-event-link3:hover {
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 1);
+  border-radius: 3px;
+  display: block;
+  font-size: 12px;
+  overflow: hidden;
+  padding: 6px 3px;
+  text-align: center;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  min-width: 120px;
+  text-transform: uppercase !important;
+  -webkit-transition: background 0.2s ease-in-out;
+  -o-transition: background 0.2s ease-in-out;
+  transition: background 0.2s ease-in-out;
+}
+
+.seated-follow-box {
+  padding: 30px 0;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.seated-follow-text {
+  font-weight: 700;
+  text-align: center;
+}
+
+.seated-follow-link,
+.seated-follow-link:visited {
+  display: inline-block;
+  margin-top: 10px;
+  color: #000;
+  border: 2px solid rgba(0, 0, 0, 1);
+  background: rgba(255, 255, 255, 1);
+  border-radius: 3px;
+  font-size: 12px;
+  overflow: hidden;
+  padding: 12px 3px;
+  text-align: center;
+  -o-text-overflow: ellipsis;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+  padding-left: 20px;
+  padding-right: 20px;
+  text-transform: uppercase !important;
+}
+
+.seated-follow-link:hover {
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 1);
+  -webkit-transition: background 0.2s ease-in-out;
+  -o-transition: background 0.2s ease-in-out;
+  transition: background 0.2s ease-in-out;
+}
+
+@media screen and (max-width: 1024px) {
+  .seated-event-venue-name {
+    width: 90%;
+  }
+
+  .seated-event-venue-location {
+    width: 90%;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .seated-event-link-cells {
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .seated-event-link-cell {
+    display: block;
+  }
+
+  .seated-event-link {
+    margin-left: 0;
+  }
+
+  .seated-event-venue-cell {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-flow: column;
+    -ms-flex-flow: column;
+    flex-flow: column;
+  }
+}
+
+@media screen and (max-width: 580px) {
+  .seated-event-row {
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-flow: column;
+    -ms-flex-flow: column;
+    flex-flow: column;
+  }
+
+  .seated-event-link-cells {
+    margin-top: 16px;
+  }
+
+  .seated-event-link-cell {
+    display: block;
+  }
+
+  .seated-event-description-cells {
+    width: 100%;
+    text-align: center;
+  }
+
+  .seated-event-venue-cell {
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
+    align-items: center;
+    margin-bottom: 0px;
+  }
+}

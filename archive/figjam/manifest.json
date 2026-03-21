@@ -1,0 +1,12 @@
+{
+  "name": "aesthetic.computer",
+  "id": "1063242302174004514",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": [
+    "figjam"
+  ],
+  "containsWidget": true,
+  "widgetApi": "1.0.0",
+  "ui": "ui.html"
+}

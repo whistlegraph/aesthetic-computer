@@ -1,0 +1,58 @@
+#!/bin/bash
+# Quick reference commands for moods ATProto integration
+# All commands assume you're in /workspaces/aesthetic-computer/at
+
+echo "🦋 Moods ATProto Integration - Quick Commands"
+echo "=============================================="
+echo ""
+
+echo "📋 Phase 1: Lexicon Creation"
+echo "   node scripts/create-mood-lexicon.mjs --deploy"
+echo ""
+
+echo "📋 Phase 4: Migration"
+echo "   # Dry run"
+echo "   node scripts/migrate-moods-to-atproto.mjs"
+echo ""
+echo "   # Migrate single user"
+echo "   node scripts/migrate-moods-to-atproto.mjs @jeffrey --execute"
+echo ""
+echo "   # Migrate all users"
+echo "   node scripts/migrate-moods-to-atproto.mjs --execute"
+echo ""
+
+echo "📋 Phase 5: Auditing"
+echo "   # Audit specific user"
+echo "   node scripts/audit-mood-atproto-sync.mjs @jeffrey"
+echo ""
+echo "   # Audit first 10 users"
+echo "   node scripts/audit-mood-atproto-sync.mjs 10"
+echo ""
+echo "   # Audit first 50 users"
+echo "   node scripts/audit-mood-atproto-sync.mjs 50"
+echo ""
+
+echo "📋 Testing Commands"
+echo "   # Test mood creation (local)"
+echo "   curl -X POST http://localhost:8888/api/mood \\"
+echo "     -H 'Authorization: Bearer YOUR_TOKEN' \\"
+echo "     -H 'Content-Type: application/json' \\"
+echo "     -d '{\"mood\": \"testing atproto integration!\"}'"
+echo ""
+echo "   # Test mood retrieval"
+echo "   curl https://aesthetic.computer/api/mood/all"
+echo ""
+echo "   # Query MongoDB for moods with ATProto sync"
+echo "   mongosh 'mongodb+srv://...' --eval 'db.moods.find({\"atproto.uri\": {\$exists: true}}).limit(5)'"
+echo ""
+
+echo "📋 Monitoring Queries"
+echo "   # Count moods missing ATProto sync"
+echo "   mongosh 'mongodb+srv://...' --eval 'db.moods.countDocuments({deleted: {\$ne: true}, \"atproto.uri\": {\$exists: false}})'"
+echo ""
+echo "   # Count moods with ATProto sync"
+echo "   mongosh 'mongodb+srv://...' --eval 'db.moods.countDocuments({\"atproto.uri\": {\$exists: true}})'"
+echo ""
+
+echo "=============================================="
+echo "See MOODS-ATPROTO-INTEGRATION-PLAN.md for full details"

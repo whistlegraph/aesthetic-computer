@@ -1,0 +1,1345 @@
+{
+  "title": "Aesthetic Computer API Structure Analysis",
+  "timestamp": "2025-09-16T17:49:01.267Z",
+  "summary": {
+    "totalAPIObjects": 2,
+    "totalFunctions": 210,
+    "fileSize": 361608,
+    "fileLines": 9940
+  },
+  "apis": {
+    "commonApi": {
+      "description": "The commonApi object provides core functionality",
+      "propertyCount": 231,
+      "properties": [
+        {
+          "name": "undef",
+          "type": "value",
+          "description": "value property: undef"
+        },
+        {
+          "name": "clock",
+          "type": "object",
+          "description": "Time synchronization"
+        },
+        {
+          "name": "offset",
+          "type": "function",
+          "description": "function property: offset"
+        },
+        {
+          "name": "resync",
+          "type": "function",
+          "description": "function property: resync"
+        },
+        {
+          "name": "time",
+          "type": "function",
+          "description": "Current time"
+        },
+        {
+          "name": "penLock",
+          "type": "arrow-function",
+          "description": "arrow-function property: penLock"
+        },
+        {
+          "name": "chat",
+          "type": "value",
+          "description": "value property: chat"
+        },
+        {
+          "name": "dark",
+          "type": "value",
+          "description": "value property: dark"
+        },
+        {
+          "name": "theme",
+          "type": "object",
+          "description": "object property: theme"
+        },
+        {
+          "name": "light",
+          "type": "object",
+          "description": "object property: light"
+        },
+        {
+          "name": "wipeBG",
+          "type": "value",
+          "description": "value property: wipeBG"
+        },
+        {
+          "name": "wipeNum",
+          "type": "value",
+          "description": "value property: wipeNum"
+        },
+        {
+          "name": "dark",
+          "type": "object",
+          "description": "object property: dark"
+        },
+        {
+          "name": "wipeBG",
+          "type": "value",
+          "description": "value property: wipeBG"
+        },
+        {
+          "name": "wipeNum",
+          "type": "value",
+          "description": "value property: wipeNum"
+        },
+        {
+          "name": "glaze",
+          "type": "function",
+          "description": "function property: glaze"
+        },
+        {
+          "name": "toggleHUD",
+          "type": "function",
+          "description": "function property: toggleHUD"
+        },
+        {
+          "name": "jump",
+          "type": "function",
+          "description": "function property: jump"
+        },
+        {
+          "name": "canShare",
+          "type": "value",
+          "description": "value property: canShare"
+        },
+        {
+          "name": "leaving",
+          "type": "value",
+          "description": "value property: leaving"
+        },
+        {
+          "name": "handle",
+          "type": "arrow-function",
+          "description": "arrow-function property: handle"
+        },
+        {
+          "name": "notice",
+          "type": "arrow-function",
+          "description": "arrow-function property: notice"
+        },
+        {
+          "name": "delay",
+          "type": "arrow-function",
+          "description": "arrow-function property: delay"
+        },
+        {
+          "name": "blink",
+          "type": "arrow-function",
+          "description": "arrow-function property: blink"
+        },
+        {
+          "name": "ticket",
+          "type": "arrow-function",
+          "description": "arrow-function property: ticket"
+        },
+        {
+          "name": "mint",
+          "type": "value",
+          "description": "value property: mint"
+        },
+        {
+          "name": "print",
+          "type": "value",
+          "description": "value property: print"
+        },
+        {
+          "name": "method",
+          "type": "value",
+          "description": "value property: method"
+        },
+        {
+          "name": "body",
+          "type": "value",
+          "description": "value property: body"
+        },
+        {
+          "name": "zip",
+          "type": "arrow-function",
+          "description": "arrow-function property: zip"
+        },
+        {
+          "name": "motion",
+          "type": "object",
+          "description": "object property: motion"
+        },
+        {
+          "name": "on",
+          "type": "value",
+          "description": "value property: on"
+        },
+        {
+          "name": "start",
+          "type": "arrow-function",
+          "description": "arrow-function property: start"
+        },
+        {
+          "name": "stop",
+          "type": "arrow-function",
+          "description": "arrow-function property: stop"
+        },
+        {
+          "name": "current",
+          "type": "object",
+          "description": "object property: current"
+        },
+        {
+          "name": "speak",
+          "type": "function",
+          "description": "function property: speak"
+        },
+        {
+          "name": "act",
+          "type": "arrow-function",
+          "description": "arrow-function property: act"
+        },
+        {
+          "name": "get",
+          "type": "object",
+          "description": "object property: get"
+        },
+        {
+          "name": "picture",
+          "type": "arrow-function",
+          "description": "arrow-function property: picture"
+        },
+        {
+          "name": "painting",
+          "type": "arrow-function",
+          "description": "arrow-function property: painting"
+        },
+        {
+          "name": "by",
+          "type": "value",
+          "description": "value property: by"
+        },
+        {
+          "name": "upload",
+          "type": "value",
+          "description": "value property: upload"
+        },
+        {
+          "name": "code",
+          "type": "object",
+          "description": "object property: code"
+        },
+        {
+          "name": "channel",
+          "type": "arrow-function",
+          "description": "arrow-function property: channel"
+        },
+        {
+          "name": "type",
+          "type": "value",
+          "description": "value property: type"
+        },
+        {
+          "name": "content",
+          "type": "object",
+          "description": "object property: content"
+        },
+        {
+          "name": "encode",
+          "type": "value",
+          "description": "value property: encode"
+        },
+        {
+          "name": "file",
+          "type": "value",
+          "description": "value property: file"
+        },
+        {
+          "name": "authorize",
+          "type": "value",
+          "description": "value property: authorize"
+        },
+        {
+          "name": "hand",
+          "type": "object",
+          "description": "object property: hand"
+        },
+        {
+          "name": "hud",
+          "type": "object",
+          "description": "object property: hud"
+        },
+        {
+          "name": "label",
+          "type": "arrow-function",
+          "description": "arrow-function property: label"
+        },
+        {
+          "name": "currentStatusColor",
+          "type": "arrow-function",
+          "description": "arrow-function property: currentStatusColor"
+        },
+        {
+          "name": "currentLabel",
+          "type": "arrow-function",
+          "description": "arrow-function property: currentLabel"
+        },
+        {
+          "name": "text",
+          "type": "value",
+          "description": "value property: text"
+        },
+        {
+          "name": "plainText",
+          "type": "value",
+          "description": "value property: plainText"
+        },
+        {
+          "name": "btn",
+          "type": "value",
+          "description": "value property: btn"
+        },
+        {
+          "name": "labelBack",
+          "type": "arrow-function",
+          "description": "arrow-function property: labelBack"
+        },
+        {
+          "name": "history",
+          "type": "value",
+          "description": "value property: history"
+        },
+        {
+          "name": "bgm",
+          "type": "object",
+          "description": "object property: bgm"
+        },
+        {
+          "name": "set",
+          "type": "function",
+          "description": "function property: set"
+        },
+        {
+          "name": "stop",
+          "type": "arrow-function",
+          "description": "arrow-function property: stop"
+        },
+        {
+          "name": "data",
+          "type": "object",
+          "description": "object property: data"
+        },
+        {
+          "name": "system",
+          "type": "object",
+          "description": "System utilities"
+        },
+        {
+          "name": "world",
+          "type": "object",
+          "description": "object property: world"
+        },
+        {
+          "name": "teleported",
+          "type": "value",
+          "description": "value property: teleported"
+        },
+        {
+          "name": "telepos",
+          "type": "value",
+          "description": "value property: telepos"
+        },
+        {
+          "name": "teleport",
+          "type": "arrow-function",
+          "description": "arrow-function property: teleport"
+        },
+        {
+          "name": "nopaint",
+          "type": "object",
+          "description": "object property: nopaint"
+        },
+        {
+          "name": "buffer",
+          "type": "value",
+          "description": "value property: buffer"
+        },
+        {
+          "name": "recording",
+          "type": "value",
+          "description": "value property: recording"
+        },
+        {
+          "name": "record",
+          "type": "value",
+          "description": "value property: record"
+        },
+        {
+          "name": "gestureRecord",
+          "type": "value",
+          "description": "value property: gestureRecord"
+        },
+        {
+          "name": "startRecord",
+          "type": "function",
+          "description": "function property: startRecord"
+        },
+        {
+          "name": "label",
+          "type": "value",
+          "description": "value property: label"
+        },
+        {
+          "name": "painting",
+          "type": "object",
+          "description": "object property: painting"
+        },
+        {
+          "name": "pixels",
+          "type": "value",
+          "description": "value property: pixels"
+        },
+        {
+          "name": "width",
+          "type": "value",
+          "description": "value property: width"
+        },
+        {
+          "name": "height",
+          "type": "value",
+          "description": "value property: height"
+        },
+        {
+          "name": "addToRecord",
+          "type": "function",
+          "description": "function property: addToRecord"
+        },
+        {
+          "name": "is",
+          "type": "value",
+          "description": "value property: is"
+        },
+        {
+          "name": "undo",
+          "type": "object",
+          "description": "object property: undo"
+        },
+        {
+          "name": "needsBake",
+          "type": "value",
+          "description": "value property: needsBake"
+        },
+        {
+          "name": "needsPresent",
+          "type": "value",
+          "description": "value property: needsPresent"
+        },
+        {
+          "name": "bakeOnLeave",
+          "type": "value",
+          "description": "value property: bakeOnLeave"
+        },
+        {
+          "name": "no",
+          "type": "arrow-function",
+          "description": "arrow-function property: no"
+        },
+        {
+          "name": "width",
+          "type": "value",
+          "description": "value property: width"
+        },
+        {
+          "name": "height",
+          "type": "value",
+          "description": "value property: height"
+        },
+        {
+          "name": "source",
+          "type": "value",
+          "description": "value property: source"
+        },
+        {
+          "name": "resetTransform",
+          "type": "arrow-function",
+          "description": "arrow-function property: resetTransform"
+        },
+        {
+          "name": "storeTransform",
+          "type": "arrow-function",
+          "description": "arrow-function property: storeTransform"
+        },
+        {
+          "name": "translation",
+          "type": "value",
+          "description": "value property: translation"
+        },
+        {
+          "name": "zoom",
+          "type": "value",
+          "description": "value property: zoom"
+        },
+        {
+          "name": "translation",
+          "type": "object",
+          "description": "object property: translation"
+        },
+        {
+          "name": "zoomLevel",
+          "type": "value",
+          "description": "value property: zoomLevel"
+        },
+        {
+          "name": "translate",
+          "type": "arrow-function",
+          "description": "arrow-function property: translate"
+        },
+        {
+          "name": "zoom",
+          "type": "arrow-function",
+          "description": "arrow-function property: zoom"
+        },
+        {
+          "name": "brush",
+          "type": "object",
+          "description": "object property: brush"
+        },
+        {
+          "name": "transform",
+          "type": "arrow-function",
+          "description": "arrow-function property: transform"
+        },
+        {
+          "name": "x",
+          "type": "value",
+          "description": "value property: x"
+        },
+        {
+          "name": "y",
+          "type": "value",
+          "description": "value property: y"
+        },
+        {
+          "name": "pointToPainting",
+          "type": "arrow-function",
+          "description": "arrow-function property: pointToPainting"
+        },
+        {
+          "name": "updateBrush",
+          "type": "arrow-function",
+          "description": "arrow-function property: updateBrush"
+        },
+        {
+          "name": "present",
+          "type": "value",
+          "description": "value property: present"
+        },
+        {
+          "name": "noBang",
+          "type": "value",
+          "description": "value property: noBang"
+        },
+        {
+          "name": "width",
+          "type": "value",
+          "description": "value property: width"
+        },
+        {
+          "name": "height",
+          "type": "value",
+          "description": "value property: height"
+        },
+        {
+          "name": "pixels",
+          "type": "value",
+          "description": "value property: pixels"
+        },
+        {
+          "name": "source",
+          "type": "value",
+          "description": "value property: source"
+        },
+        {
+          "name": "width",
+          "type": "value",
+          "description": "value property: width"
+        },
+        {
+          "name": "height",
+          "type": "value",
+          "description": "value property: height"
+        },
+        {
+          "name": "resetTransform",
+          "type": "value",
+          "description": "value property: resetTransform"
+        },
+        {
+          "name": "replace",
+          "type": "value",
+          "description": "value property: replace"
+        },
+        {
+          "name": "width",
+          "type": "value",
+          "description": "value property: width"
+        },
+        {
+          "name": "height",
+          "type": "value",
+          "description": "value property: height"
+        },
+        {
+          "name": "pixels",
+          "type": "value",
+          "description": "value property: pixels"
+        },
+        {
+          "name": "source",
+          "type": "value",
+          "description": "value property: source"
+        },
+        {
+          "name": "message",
+          "type": "value",
+          "description": "value property: message"
+        },
+        {
+          "name": "abort",
+          "type": "arrow-function",
+          "description": "arrow-function property: abort"
+        },
+        {
+          "name": "flatten",
+          "type": "arrow-function",
+          "description": "arrow-function property: flatten"
+        },
+        {
+          "name": "connect",
+          "type": "arrow-function",
+          "description": "arrow-function property: connect"
+        },
+        {
+          "name": "wiggle",
+          "type": "function",
+          "description": "function property: wiggle"
+        },
+        {
+          "name": "dark",
+          "type": "value",
+          "description": "value property: dark"
+        },
+        {
+          "name": "gpuReady",
+          "type": "value",
+          "description": "value property: gpuReady"
+        },
+        {
+          "name": "gpu",
+          "type": "object",
+          "description": "object property: gpu"
+        },
+        {
+          "name": "message",
+          "type": "arrow-function",
+          "description": "arrow-function property: message"
+        },
+        {
+          "name": "text",
+          "type": "object",
+          "description": "object property: text"
+        },
+        {
+          "name": "capitalize",
+          "type": "value",
+          "description": "value property: capitalize"
+        },
+        {
+          "name": "reverse",
+          "type": "value",
+          "description": "value property: reverse"
+        },
+        {
+          "name": "width",
+          "type": "arrow-function",
+          "description": "arrow-function property: width"
+        },
+        {
+          "name": "height",
+          "type": "arrow-function",
+          "description": "arrow-function property: height"
+        },
+        {
+          "name": "box",
+          "type": "arrow-function",
+          "description": "Draw a rectangle"
+        },
+        {
+          "name": "num",
+          "type": "object",
+          "description": "object property: num"
+        },
+        {
+          "name": "add",
+          "type": "value",
+          "description": "value property: add"
+        },
+        {
+          "name": "wrap",
+          "type": "value",
+          "description": "value property: wrap"
+        },
+        {
+          "name": "even",
+          "type": "value",
+          "description": "value property: even"
+        },
+        {
+          "name": "odd",
+          "type": "value",
+          "description": "value property: odd"
+        },
+        {
+          "name": "clamp",
+          "type": "value",
+          "description": "value property: clamp"
+        },
+        {
+          "name": "rand",
+          "type": "value",
+          "description": "value property: rand"
+        },
+        {
+          "name": "randInt",
+          "type": "value",
+          "description": "value property: randInt"
+        },
+        {
+          "name": "randInd",
+          "type": "value",
+          "description": "value property: randInd"
+        },
+        {
+          "name": "randIntArr",
+          "type": "value",
+          "description": "value property: randIntArr"
+        },
+        {
+          "name": "randIntRange",
+          "type": "value",
+          "description": "value property: randIntRange"
+        },
+        {
+          "name": "rangedInts",
+          "type": "value",
+          "description": "value property: rangedInts"
+        },
+        {
+          "name": "multiply",
+          "type": "value",
+          "description": "value property: multiply"
+        },
+        {
+          "name": "perlin",
+          "type": "value",
+          "description": "value property: perlin"
+        },
+        {
+          "name": "dist",
+          "type": "value",
+          "description": "value property: dist"
+        },
+        {
+          "name": "dist3d",
+          "type": "value",
+          "description": "value property: dist3d"
+        },
+        {
+          "name": "radians",
+          "type": "value",
+          "description": "value property: radians"
+        },
+        {
+          "name": "degrees",
+          "type": "value",
+          "description": "value property: degrees"
+        },
+        {
+          "name": "lerp",
+          "type": "value",
+          "description": "value property: lerp"
+        },
+        {
+          "name": "map",
+          "type": "value",
+          "description": "value property: map"
+        },
+        {
+          "name": "arrMax",
+          "type": "value",
+          "description": "value property: arrMax"
+        },
+        {
+          "name": "arrCompress",
+          "type": "value",
+          "description": "value property: arrCompress"
+        },
+        {
+          "name": "Track",
+          "type": "value",
+          "description": "value property: Track"
+        },
+        {
+          "name": "timestamp",
+          "type": "value",
+          "description": "value property: timestamp"
+        },
+        {
+          "name": "p2",
+          "type": "value",
+          "description": "value property: p2"
+        },
+        {
+          "name": "midp",
+          "type": "value",
+          "description": "value property: midp"
+        },
+        {
+          "name": "number",
+          "type": "value",
+          "description": "value property: number"
+        },
+        {
+          "name": "intersects",
+          "type": "value",
+          "description": "value property: intersects"
+        },
+        {
+          "name": "signedCeil",
+          "type": "value",
+          "description": "value property: signedCeil"
+        },
+        {
+          "name": "signedFloor",
+          "type": "value",
+          "description": "value property: signedFloor"
+        },
+        {
+          "name": "vec2",
+          "type": "value",
+          "description": "value property: vec2"
+        },
+        {
+          "name": "vec3",
+          "type": "value",
+          "description": "value property: vec3"
+        },
+        {
+          "name": "vec4",
+          "type": "value",
+          "description": "value property: vec4"
+        },
+        {
+          "name": "mat3",
+          "type": "value",
+          "description": "value property: mat3"
+        },
+        {
+          "name": "mat4",
+          "type": "value",
+          "description": "value property: mat4"
+        },
+        {
+          "name": "quat",
+          "type": "value",
+          "description": "value property: quat"
+        },
+        {
+          "name": "parseColor",
+          "type": "value",
+          "description": "value property: parseColor"
+        },
+        {
+          "name": "findColor",
+          "type": "value",
+          "description": "value property: findColor"
+        },
+        {
+          "name": "saturate",
+          "type": "value",
+          "description": "value property: saturate"
+        },
+        {
+          "name": "desaturate",
+          "type": "value",
+          "description": "value property: desaturate"
+        },
+        {
+          "name": "shiftRGB",
+          "type": "value",
+          "description": "value property: shiftRGB"
+        },
+        {
+          "name": "rgbToHexStr",
+          "type": "value",
+          "description": "value property: rgbToHexStr"
+        },
+        {
+          "name": "hexToRgb",
+          "type": "value",
+          "description": "value property: hexToRgb"
+        },
+        {
+          "name": "blend",
+          "type": "value",
+          "description": "value property: blend"
+        },
+        {
+          "name": "rgbToHsl",
+          "type": "value",
+          "description": "value property: rgbToHsl"
+        },
+        {
+          "name": "hslToRgb",
+          "type": "value",
+          "description": "value property: hslToRgb"
+        },
+        {
+          "name": "rainbow",
+          "type": "value",
+          "description": "value property: rainbow"
+        },
+        {
+          "name": "zebra",
+          "type": "value",
+          "description": "value property: zebra"
+        },
+        {
+          "name": "resetZebraCache",
+          "type": "value",
+          "description": "value property: resetZebraCache"
+        },
+        {
+          "name": "geo",
+          "type": "object",
+          "description": "object property: geo"
+        },
+        {
+          "name": "Box",
+          "type": "value",
+          "description": "value property: Box"
+        },
+        {
+          "name": "DirtyBox",
+          "type": "value",
+          "description": "value property: DirtyBox"
+        },
+        {
+          "name": "Grid",
+          "type": "value",
+          "description": "value property: Grid"
+        },
+        {
+          "name": "Circle",
+          "type": "value",
+          "description": "value property: Circle"
+        },
+        {
+          "name": "linePointsFromAngle",
+          "type": "value",
+          "description": "value property: linePointsFromAngle"
+        },
+        {
+          "name": "pointFrom",
+          "type": "value",
+          "description": "value property: pointFrom"
+        },
+        {
+          "name": "Race",
+          "type": "value",
+          "description": "value property: Race"
+        },
+        {
+          "name": "Quantizer",
+          "type": "value",
+          "description": "value property: Quantizer"
+        },
+        {
+          "name": "ui",
+          "type": "object",
+          "description": "object property: ui"
+        },
+        {
+          "name": "Button",
+          "type": "value",
+          "description": "value property: Button"
+        },
+        {
+          "name": "TextButton",
+          "type": "value",
+          "description": "value property: TextButton"
+        },
+        {
+          "name": "TextInput",
+          "type": "value",
+          "description": "value property: TextInput"
+        },
+        {
+          "name": "help",
+          "type": "object",
+          "description": "object property: help"
+        },
+        {
+          "name": "choose",
+          "type": "value",
+          "description": "value property: choose"
+        },
+        {
+          "name": "flip",
+          "type": "value",
+          "description": "value property: flip"
+        },
+        {
+          "name": "repeat",
+          "type": "value",
+          "description": "value property: repeat"
+        },
+        {
+          "name": "every",
+          "type": "value",
+          "description": "value property: every"
+        },
+        {
+          "name": "any",
+          "type": "value",
+          "description": "value property: any"
+        },
+        {
+          "name": "anyIndex",
+          "type": "value",
+          "description": "value property: anyIndex"
+        },
+        {
+          "name": "anyKey",
+          "type": "value",
+          "description": "value property: anyKey"
+        },
+        {
+          "name": "resampleArray",
+          "type": "value",
+          "description": "value property: resampleArray"
+        },
+        {
+          "name": "each",
+          "type": "value",
+          "description": "value property: each"
+        },
+        {
+          "name": "shuffleInPlace",
+          "type": "value",
+          "description": "value property: shuffleInPlace"
+        },
+        {
+          "name": "serializePainting",
+          "type": "arrow-function",
+          "description": "arrow-function property: serializePainting"
+        },
+        {
+          "name": "deserializePainting",
+          "type": "arrow-function",
+          "description": "arrow-function property: deserializePainting"
+        },
+        {
+          "name": "gizmo",
+          "type": "object",
+          "description": "object property: gizmo"
+        },
+        {
+          "name": "rec",
+          "type": "value",
+          "description": "value property: rec"
+        },
+        {
+          "name": "net",
+          "type": "object",
+          "description": "Network functions"
+        },
+        {
+          "name": "signup",
+          "type": "arrow-function",
+          "description": "arrow-function property: signup"
+        },
+        {
+          "name": "login",
+          "type": "arrow-function",
+          "description": "arrow-function property: login"
+        },
+        {
+          "name": "logout",
+          "type": "arrow-function",
+          "description": "arrow-function property: logout"
+        },
+        {
+          "name": "pieces",
+          "type": "arrow-function",
+          "description": "arrow-function property: pieces"
+        },
+        {
+          "name": "requestDocs",
+          "type": "value",
+          "description": "value property: requestDocs"
+        },
+        {
+          "name": "userRequest",
+          "type": "value",
+          "description": "value property: userRequest"
+        },
+        {
+          "name": "Authorization",
+          "type": "value",
+          "description": "value property: Authorization"
+        },
+        {
+          "name": "status",
+          "type": "value",
+          "description": "value property: status"
+        },
+        {
+          "name": "udp",
+          "type": "arrow-function",
+          "description": "arrow-function property: udp"
+        },
+        {
+          "name": "hiccup",
+          "type": "arrow-function",
+          "description": "arrow-function property: hiccup"
+        },
+        {
+          "name": "log",
+          "type": "function",
+          "description": "function property: log"
+        },
+        {
+          "name": "level",
+          "type": "value",
+          "description": "value property: level"
+        },
+        {
+          "name": "message",
+          "type": "value",
+          "description": "value property: message"
+        },
+        {
+          "name": "device",
+          "type": "value",
+          "description": "value property: device"
+        },
+        {
+          "name": "timestamp",
+          "type": "value",
+          "description": "value property: timestamp"
+        },
+        {
+          "name": "level",
+          "type": "value",
+          "description": "value property: level"
+        },
+        {
+          "name": "message",
+          "type": "value",
+          "description": "value property: message"
+        },
+        {
+          "name": "device",
+          "type": "value",
+          "description": "value property: device"
+        },
+        {
+          "name": "timestamp",
+          "type": "value",
+          "description": "value property: timestamp"
+        },
+        {
+          "name": "needsPaint",
+          "type": "arrow-function",
+          "description": "arrow-function property: needsPaint"
+        },
+        {
+          "name": "pieceCount",
+          "type": "value",
+          "description": "value property: pieceCount"
+        }
+      ]
+    },
+    "paintApi": {
+      "description": "The paintApi object provides core functionality",
+      "propertyCount": 12,
+      "properties": [
+        {
+          "name": "write",
+          "type": "function",
+          "description": "Draw text"
+        },
+        {
+          "name": "x",
+          "type": "value",
+          "description": "value property: x"
+        },
+        {
+          "name": "y",
+          "type": "value",
+          "description": "value property: y"
+        },
+        {
+          "name": "x",
+          "type": "value",
+          "description": "value property: x"
+        },
+        {
+          "name": "y",
+          "type": "value",
+          "description": "value property: y"
+        },
+        {
+          "name": "clonePixels",
+          "type": "value",
+          "description": "value property: clonePixels"
+        },
+        {
+          "name": "colorsMatch",
+          "type": "value",
+          "description": "value property: colorsMatch"
+        },
+        {
+          "name": "color",
+          "type": "value",
+          "description": "value property: color"
+        },
+        {
+          "name": "resize",
+          "type": "value",
+          "description": "value property: resize"
+        },
+        {
+          "name": "Camera",
+          "type": "value",
+          "description": "value property: Camera"
+        },
+        {
+          "name": "Form",
+          "type": "value",
+          "description": "value property: Form"
+        },
+        {
+          "name": "Dolly",
+          "type": "value",
+          "description": "value property: Dolly"
+        }
+      ]
+    }
+  },
+  "categories": {
+    "graphics": {
+      "description": "Drawing and visual output functions",
+      "count": 52,
+      "functions": [
+        "clonePixels",
+        "colorsMatch",
+        "color",
+        "resize",
+        "Camera",
+        "Form",
+        "Dolly",
+        "l",
+        "blend",
+        "edit",
+        "copy",
+        "pixel",
+        "flood",
+        "lineAngle",
+        "pline",
+        "pppline",
+        "oval",
+        "circle",
+        "tri",
+        "poly",
+        "box",
+        "shape",
+        "grid",
+        "draw",
+        "printLine",
+        "pan",
+        "unpan",
+        "savepan",
+        "loadpan",
+        "mask",
+        "unmask",
+        "steal",
+        "putback",
+        "skip",
+        "scroll",
+        "spin",
+        "sort",
+        "zoom",
+        "suck",
+        "contrast",
+        "shear",
+        "noise16",
+        "noise16DIGITPAIN",
+        "noise16Aesthetic",
+        "noise16Sotce",
+        "noiseTinted",
+        "bresenham",
+        "ink",
+        "wipe",
+        "plot",
+        "line"
+      ]
+    },
+    "input": {
+      "description": "User input handling and event processing",
+      "count": 56,
+      "functions": [
+        "act",
+        "pen",
+        "keyboard",
+        "pointer",
+        "event",
+        "touch"
+      ]
+    },
+    "audio": {
+      "description": "Sound generation and audio processing",
+      "count": 34,
+      "functions": [
+        "tone",
+        "sound",
+        "noise",
+        "mic",
+        "audio",
+        "synth"
+      ]
+    },
+    "utility": {
+      "description": "Helper functions and utilities",
+      "count": 0,
+      "functions": []
+    },
+    "system": {
+      "description": "System-level functions and configuration",
+      "count": 68,
+      "functions": [
+        "boot",
+        "screen",
+        "leave",
+        "system",
+        "clock",
+        "time",
+        "resolution"
+      ]
+    },
+    "uncategorized": {
+      "description": "Other API functions",
+      "count": 0,
+      "functions": []
+    }
+  }
+}

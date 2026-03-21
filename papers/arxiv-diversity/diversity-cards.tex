@@ -1,0 +1,254 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from diversity.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\definecolor{acgreen}{RGB}{78,203,113}
+
+\hypersetup{
+  pdftitle={Diversity and Inclusion in Aesthetic Computer Paper Citations},
+}
+
+\renewcommand{\acpdfbase}{citation-diversity-audit-26}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Citation Diversity Audit}\par
+\vspace{0.3em}
+{\fontsize{10pt}{12pt}\selectfont\color{acpink} \acrandname{} Paper Series, March 2026}\par
+\vspace{0.8em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} March 2026}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Why This Audit}
+
+The \ac{} paper series~\citep{scudder2026ac, scudder2026kidlisp, scudder2026acos, scudder2026pieces, scudder2026notepat} makes claims about access, inclusion, and creative expression. A project that argues for universal creative computing access---surplus laptops as instruments, URL-addressable programs, social distribution by default---must examine whether its scholarly foundations reflect the diversity it advocates for.
+
+Citation practices are not neutral. They constitute a knowledge economy: who we cite shapes who gets read, who gets hired, who gets funded, and whose ideas are treated as foundational~\citep{benjamin2019race}. A paper series dominated by white, male, US/UK/European authors reproduces the very exclusions it claims to resist.
+
+This audit is not an accusation but a diagnostic. The current citation distribution reflects the author's training, reading history, and the structure of the fields drawn upon (media theory, computer science, HCI). Changing it requires deliberate effort over time.
+
+% ============ 2. CURRENT STATE ============
+
+\section{Current State}
+
+\subsection{Corpus}
+
+The audit covers eight papers:
+
+\begin{enumerate}
+  \item \emph{Aesthetic Computer '26} (arXiv, 5pp)
+  \item \emph{KidLisp '26} (arXiv, 6pp)
+  \item \emph{Pieces Not Programs '26} (arXiv, 4pp)
+  \item \emph{notepat.com '26} (arXiv, 3pp)
+  \item \emph{AC Native OS '26} (arXiv, 5pp)
+  \item \emph{Repository Archaeology '26} (arXiv, 4pp)
+  \item \emph{Aesthetic Computer '26} (JOSS, 2pp)
+  \item \emph{KidLisp '26} (JOSS, 3pp)
+\end{enumerate}
+
+Plus a readings library of 30+ full-text sources maintained in the research platter at \texttt{papers.aesthetic.computer/platter}.
+
+\subsection{Demographics}
+
+Across all papers, approximately 68 unique works are cited by $\sim$80 unique authors (some works have multiple authors). We categorize authors along three axes: gender, geography, and race/ethnicity. These categories are imperfect and externally ascribed; we use them as rough indicators of representation, not identity claims.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Dimension} & \textbf{Count} & \textbf{\%} \\
+\midrule
+Women authors & $\sim$9 & 11\% \\
+Non-US/UK/EU authors & $\sim$4 & 5\% \\
+Black / Indigenous / LatAm / Asian & $\sim$5 & 6\% \\
+Self-citations (Scudder) & 5 & 6\% \\
+\midrule
+\textbf{Total unique authors} & $\sim$80 & 100\% \\
+\bottomrule
+\end{tabular}
+\caption{Author demographics across all papers (March 2026).}
+\label{tab:demographics}
+\end{table}
+
+\subsection{What This Means}
+
+The citation corpus is overwhelmingly white, male, and Euro-American. This is not unusual for creative computing papers---the field's canonical references (Processing, Scratch, p5.js, Sonic Pi) were created by teams based at MIT, NYU, ITP, and Cambridge. But ``not unusual'' is not ``acceptable.'' The \ac{} project explicitly positions itself as an alternative to dominant computing paradigms; its citations should reflect alternative voices.
+
+% ============ 3. GAP ANALYSIS ============
+
+\section{Gap Analysis}
+
+We identify five areas where the citation corpus is weakest.
+
+\subsection{Women in Creative Coding}
+
+The creative coding and live coding communities include significant work by women that our papers do not cite. Key figures include:
+
+\begin{itemize}
+  \item \textbf{Joana Chicau}~\citep{chicau2021choreo}: choreographic coding, embodied algorithms
+  \item \textbf{Shelly Knotts}~\citep{knotts2015algorithmic}: algorithmic collaboration in network music
+  \item \textbf{Allison Parrish}~\citep{parrish2015programming}: computational poetry, creative coding pedagogy
+  \item \textbf{Kate Compton}~\citep{compton2015tracery}: Tracery generative text language
+  \item \textbf{Lauren McCarthy}: already cited (p5.js) but underacknowledged as a creative practitioner
+  \item \textbf{Olivia Jack}: already cited (Hydra) but underacknowledged as a Latin American voice in live coding
+\end{itemize}
+
+\subsection{Black Computing Studies}
+
+A project claiming to democratize computing access must engage with scholarship on who has historically been excluded from computing and why:
+
+\begin{itemize}
+  \item \textbf{Ruha Benjamin}~\citep{benjamin2019race}: ``Race After Technology'' examines how design decisions encode racial hierarchies
+  \item \textbf{Safiya Umoja Noble}~\citep{noble2018algorithms}: ``Algorithms of Oppression'' on search engines and racial bias
+  \item \textbf{Andr\'e Brock}~\citep{brock2020distributed}: ``Distributed Blackness'' on Black digital culture and platform design
+  \item \textbf{Charlton McIlwain}~\citep{mcilwain2019black}: ``Black Software'' on the hidden history of Black computing
+\end{itemize}
+
+\subsection{Non-Western Theory}
+
+The media theory citations draw exclusively from European traditions (Kittler, McLuhan, Adorno). Non-Western theorists offer frameworks directly relevant to \ac{}'s design:
+
+\begin{itemize}
+  \item \textbf{Yuk Hui}~\citep{hui2016existence, hui2019recursion}: digital ontology, technodiversity---argues that technology need not follow a single Western developmental trajectory
+  \item \textbf{Hito Steyerl}~\citep{steyerl2009poor}: ``In Defense of the Poor Image'' on circulation, resolution, and digital materiality---directly relevant to \ac{}'s pixel-art aesthetic and URL-as-medium approach
+  \item \textbf{Kodwo Eshun}~\citep{eshun1998brilliant}: Afrofuturist sonic fiction---relevant to notepat and audio synthesis work
+\end{itemize}
+
+\subsection{Indigenous and Decolonial Computing}
+
+The OS paper's surplus-hardware thesis has implications for computing sovereignty that Indigenous scholars have addressed:
+
+\begin{itemize}
+  \item \textbf{Lewis et al.}~\citep{lewis2018kin}: ``Making Kin with the Machines'' proposes Indigenous protocols for AI and computing
+  \item \textbf{Sasha Costanza-Chock}~\citep{costanza2020design}: ``Design Justice'' on community-led design practices
+  \item \textbf{Arturo Escobar}~\citep{escobar2018designs}: ``Designs for the Pluriverse'' on decolonial approaches to design
+\end{itemize}
+
+\subsection{Latin American Creative Coding}
+
+Olivia Jack (Hydra, already cited) is Colombian. The broader Latin American creative coding community is underrepresented:
+
+\begin{itemize}
+  \item \textbf{Hernando Barrag\'an}~\citep{barragan2004wiring}: Colombian creator of Wiring, the direct ancestor of Arduino---foundational to physical computing yet rarely cited
+  \item \textbf{C\'assia Bel}: Brazilian live coder and feminist creative technologist
+  \item \textbf{Aar\'on Montoya-Moraga}: creative coding educator, p5.js community organizer
+\end{itemize}
+
+% ============ 4. PER-PAPER TARGETS ============
+
+\section{Per-Paper Integration Targets}
+
+For each paper in the series, we identify specific works from the gap analysis that would strengthen the argument while diversifying the citation base.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Paper} & \textbf{Suggested Additions} \\
+\midrule
+AC '26 & Hui (digital objects), Costanza-Chock (design justice), Parrish (creative coding edu) \\
+\addlinespace
+KidLisp '26 & Compton (Tracery), Chicau (choreographic coding), Barrag\'an (Wiring) \\
+\addlinespace
+notepat '26 & Knotts (network music), Eshun (sonic fiction), Plant (computing history) \\
+\addlinespace
+Pieces '26 & Benjamin (design bias), Steyerl (poor image), Plant (Zeros and Ones) \\
+\addlinespace
+OS '26 & Barrag\'an (Wiring), McIlwain (Black Software), Lewis et al.\ (Indigenous AI) \\
+\addlinespace
+Archaeology '26 & Brock (Distributed Blackness), Hui (technodiversity) \\
+\bottomrule
+\end{tabularx}
+\caption{Targeted citation additions per paper. Goal: 30\% women, 20\% non-Western.}
+\label{tab:targets}
+\end{table}
+
+% ============ 5. TARGETS ============
+
+\section{Targets and Commitments}
+
+\subsection{Quantitative Goals}
+
+\begin{itemize}
+  \item \textbf{30\% women authors} across the paper series (currently 11\%)
+  \item \textbf{20\% non-US/UK/EU authors} (currently 5\%)
+  \item \textbf{15\% Black, Indigenous, LatAm, Asian scholars} (currently 6\%)
+  \item \textbf{No paper with fewer than 2 women-authored citations}
+\end{itemize}
+
+These targets are aspirational minimums, not ceilings. They should be met by adding relevant scholarship, not by removing existing citations or adding tokenistic references.
+
+\subsection{Process Commitments}
+
+\begin{enumerate}
+  \item \textbf{Diversity check on every revision}: Before submitting any paper, re-run the audit against current citation demographics
+  \item \textbf{Reading list maintenance}: The platter's Citation Diversity section is a living document---new works are added as they are discovered and read
+  \item \textbf{Full-text sourcing}: Where possible, obtain and archive open-access versions of cited works in the readings library for genuine engagement, not drive-by citation
+  \item \textbf{Honest engagement}: Cite works because they strengthen the argument, not because they diversify a spreadsheet. If a work is cited, it should be read, understood, and integrated into the paper's reasoning
+\end{enumerate}
+
+% ============ 6. HONEST ASSESSMENT ============
+
+\section{An Honest Assessment}
+
+This audit reveals a common pattern in academic self-reflection: the author is aware of the problem, can name the scholars who should be cited, and has the technical infrastructure to track progress---but has not yet done the reading. Knowing that Ruha Benjamin wrote ``Race After Technology'' is not the same as having read it, understood it, and integrated its insights into one's design practice.
+
+The gap between awareness and practice is where this work begins. The reading list in the platter is a commitment to close that gap. The per-paper targets are a mechanism for accountability. The audit itself---published alongside the papers it critiques---is an invitation for readers to hold the author to the standard he sets for himself.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

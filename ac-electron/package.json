@@ -1,0 +1,163 @@
+{
+  "name": "aesthetic-computer",
+  "version": "0.1.36",
+  "description": "Aesthetic Computer",
+  "homepage": "https://aesthetic.computer",
+  "author": "Aesthetic Computer <hi@aesthetic.computer>",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --inspect=9229 --remote-debugging-port=9222",
+    "start:prod": "electron . --inspect=9229 --remote-debugging-port=9222",
+    "start:dev": "electron . --dev --inspect=9229 --remote-debugging-port=9222",
+    "start:shell": "electron . --shell --inspect=9229 --remote-debugging-port=9222",
+    "dev": "fish dev.fish --dev",
+    "dev:prod": "fish dev.fish --prod",
+    "dev:watch": "fish dev.fish --dev --watch",
+    "electron": "./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+    "icons": "node scripts/generate-icons.mjs",
+    "native:build": "cd native/osr-gpu && npm install && npm run build || echo 'Native addon build skipped'",
+    "native:rebuild": "electron-rebuild -f -w osr-gpu -o native/osr-gpu",
+    "prebuild": "npm run icons && npm run native:build || echo 'Native addon build skipped'",
+    "build": "electron-builder --mac --win --linux",
+    "build:mac": "electron-builder --mac --universal",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux",
+    "build:rpm": "bash rpm/build-rpm.sh",
+    "build:rpm:install": "bash rpm/build-rpm.sh --install",
+    "build:rpm:host": "bash rpm/build-rpm.sh --from-host",
+    "setup:host:mac-signing": "bash scripts/setup-host-mac-signing.sh",
+    "build:host:mac": "bash scripts/build-publish-host-mac.sh --skip-publish",
+    "release:host:mac": "bash scripts/build-publish-host-mac.sh",
+    "publish:mac": "electron-builder --mac --universal --publish always",
+    "release": "electron-builder --mac --universal --publish always"
+  },
+  "build": {
+    "appId": "computer.aesthetic.app",
+    "productName": "Aesthetic Computer",
+    "copyright": "Copyright © 2025 Aesthetic Computer",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "extraMetadata": {
+      "name": "aesthetic-computer"
+    },
+    "extraResources": [
+      {
+        "from": "build/icons/trayTemplate.png",
+        "to": "trayTemplate.png"
+      },
+      {
+        "from": "build/icons/trayTemplate@2x.png",
+        "to": "trayTemplate@2x.png"
+      },
+      {
+        "from": "build/icons/16x16.png",
+        "to": "tray-icon.png"
+      }
+    ],
+    "afterSign": "scripts/notarize.js",
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": false,
+      "extendInfo": {
+        "NSDesktopFolderUsageDescription": "Aesthetic Computer needs access to your Desktop to manage the workspace.",
+        "NSDocumentsFolderUsageDescription": "Aesthetic Computer needs access to Documents for file operations.",
+        "NSDownloadsFolderUsageDescription": "Aesthetic Computer needs access to Downloads for file operations."
+      }
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "webview-preload.js",
+      "offscreen-manager.js",
+      "ff1-bridge.js",
+      "renderer/**/*",
+      "build/icons/trayTemplate.png",
+      "build/icons/trayTemplate@2x.png",
+      "native/osr-gpu/build/Release/*.node",
+      "!node_modules/**/*",
+      "node_modules/@xterm/**/*",
+      "node_modules/node-pty/**/*",
+      "node_modules/three/**/*",
+      "node_modules/electron-updater/**/*",
+      "node_modules/fs-extra/**/*",
+      "node_modules/graceful-fs/**/*",
+      "node_modules/jsonfile/**/*",
+      "node_modules/universalify/**/*",
+      "node_modules/builder-util-runtime/**/*",
+      "node_modules/lazy-val/**/*",
+      "node_modules/semver/**/*",
+      "node_modules/lodash.isequal/**/*",
+      "node_modules/lodash.escaperegexp/**/*",
+      "node_modules/sax/**/*",
+      "node_modules/debug/**/*",
+      "node_modules/ms/**/*",
+      "node_modules/js-yaml/**/*",
+      "node_modules/argparse/**/*",
+      "node_modules/tiny-typed-emitter/**/*"
+    ],
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "win": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Graphics"
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://releases.aesthetic.computer/desktop"
+    }
+  },
+  "keywords": [
+    "creative-coding",
+    "art",
+    "graphics"
+  ],
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "@electron/rebuild": "^4.0.2",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-webgl": "^0.18.0",
+    "@xterm/xterm": "^5.5.0",
+    "electron-updater": "^6.3.9",
+    "node-pty": "^1.1.0",
+    "three": "^0.182.0"
+  }
+}

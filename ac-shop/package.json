@@ -1,0 +1,24 @@
+{
+  "name": "ac-shop",
+  "version": "1.0.0",
+  "license": "UNLICENSED",
+  "scripts": {
+    "shopify": "shopify",
+    "build": "shopify app build",
+    "dev": "shopify app dev",
+    "info": "shopify app info",
+    "generate": "shopify app generate",
+    "deploy": "shopify app deploy"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "trustedDependencies": [
+    "@shopify/plugin-cloudflare"
+  ],
+  "author": "me",
+  "private": true,
+  "workspaces": [
+    "extensions/*"
+  ]
+}

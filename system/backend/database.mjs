@@ -1,0 +1,340 @@
+// Database, 23.07.09.17.33
+// Manages database connections to MongoDB.
+// And has application-specific queries.
+
+import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
+
+let client;
+let clientPromise; // For connection reuse in serverless
+
+async function connect() {
+  // Read environment variables at runtime, not at module load time
+  const mongoDBConnectionString = process.env.MONGODB_CONNECTION_STRING;
+  const mongoDBName = process.env.MONGODB_NAME;
+  
+  // Validate environment variables
+  if (!mongoDBConnectionString) {
+    throw new Error('MONGODB_CONNECTION_STRING environment variable is not set');
+  }
+  if (!mongoDBName) {
+    throw new Error('MONGODB_NAME environment variable is not set');
+  }
+
+  // Reuse existing connection if available (critical for serverless)
+  if (client) {
+    try {
+      // Verify connection is still alive
+      await client.db().admin().ping();
+      console.log(`♻️ Reusing existing MongoDB connection`);
+      return { db: client.db(mongoDBName), disconnect };
+    } catch (e) {
+      // Connection dead, clear it
+      console.log(`⚠️ Existing connection dead, reconnecting...`);
+      client = null;
+      clientPromise = null;
+    }
+  }
+
+  // If a connection is in progress, wait for it
+  if (clientPromise) {
+    try {
+      client = await clientPromise;
+      return { db: client.db(mongoDBName), disconnect };
+    } catch (e) {
+      clientPromise = null;
+    }
+  }
+
+  // Try multiple connection strategies
+  // TLS is controlled by the connection string (mongodb+srv:// defaults to TLS,
+  // mongodb:// defaults to no TLS). Don't force tls: true here.
+  const strategies = [
+    {
+      name: 'standard',
+      options: {
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+      }
+    },
+    {
+      name: 'direct',
+      options: {
+        directConnection: true,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        socketTimeoutMS: 30000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+      }
+    },
+    {
+      name: 'minimal',
+      options: {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+        maxPoolSize: 10,
+        minPoolSize: 1,
+      }
+    }
+  ];
+
+  let lastError;
+  
+  for (const strategy of strategies) {
+    try {
+      const newClient = new MongoClient(mongoDBConnectionString, strategy.options);
+      clientPromise = newClient.connect();
+      client = await clientPromise;
+
+      console.log(`✅ MongoDB connected successfully (${strategy.name})`);
+      const db = client.db(mongoDBName);
+      return { db, disconnect };
+    } catch (error) {
+      console.log(`❌ Connection failed (${strategy.name}):`, error.message);
+      lastError = error;
+      clientPromise = null;
+      if (client) {
+        try { await client.close(); } catch (e) { /* ignore */ }
+        client = null;
+      }
+    }
+  }
+  
+  // All strategies failed
+  throw lastError;
+}
+
+async function disconnect() {
+  // In serverless, don't actually close - let connection be reused
+  // The connection will be cleaned up when the Lambda container is recycled
+  // if (client) await client.close?.();
+}
+
+// Re-usable calls to the application.
+async function moodFor(sub, database) {
+  const collection = database.db.collection("moods");
+  const record = (
+    await collection.find({ user: sub }).sort({ when: -1 }).limit(1).toArray()
+  )[0]; // Most recent mood or `undefined` if none are found.
+  if (record?.mood) {
+    record.mood = record.mood.replaceAll("\\n", "\n"); // Replace \\n -> \n.
+  }
+  return record;
+}
+
+// Get all moods with handles included.
+// 🗒️ There will be no `\n` filtering here, so it should happen on client rendering.
+async function allMoods(database, handles = null) {
+  const collection = database.db.collection("moods");
+  const matchStage = { deleted: { $ne: true } };
+
+  // Refactored to support comma-separated list of handles
+  if (handles) {
+    const handleList = handles
+      .split(",")
+      .map((h) => h.trim().replace(/^@/, ""))
+      .filter(Boolean);
+    
+    matchStage["handleInfo.handle"] = { $in: handleList };
+  }
+
+  const pipeline = [
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: "$handleInfo" },
+    {
+      $match: matchStage,
+    },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: { $concat: ["@", "$handleInfo.handle"] },
+        atproto: 1,
+      },
+    },
+    { $sort: { when: -1 } },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+  return records;
+}
+
+/**
+ * Get a single mood by handle and ATProto rkey (for permalinks)
+ * @param {Object} database - MongoDB connection
+ * @param {string} handle - Handle like "@jeffrey" or "jeffrey"
+ * @param {string} rkey - ATProto record key
+ * @returns {Promise<Object|null>} Mood object or null
+ */
+async function getMoodByRkey(database, handle, rkey) {
+  const collection = database.db.collection("moods");
+
+  // Normalize handle (remove @ if present)
+  const normalizedHandle = handle.replace(/^@/, "");
+
+  const pipeline = [
+    {
+      $lookup: {
+        from: "@handles",
+        localField: "user",
+        foreignField: "_id",
+        as: "handleInfo",
+      },
+    },
+    { $unwind: "$handleInfo" },
+    {
+      $match: {
+        "handleInfo.handle": normalizedHandle,
+        "atproto.rkey": rkey,
+        deleted: { $ne: true },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        mood: 1,
+        when: 1,
+        handle: { $concat: ["@", "$handleInfo.handle"] },
+        atproto: 1,
+        bluesky: 1,
+      },
+    },
+  ];
+
+  const records = await collection.aggregate(pipeline).toArray();
+  return records[0] || null;
+}
+
+
+export { connect, ObjectId, moodFor, allMoods, getMoodByRkey };
+
+// Demo code from MongoDB's connection page: (23.08.15.19.59)
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+// const client = new MongoClient(uri, {
+//   serverApi: {
+//     version: ServerApiVersion.v1,
+//     strict: true,
+//     deprecationErrors: true,
+//   }
+// });
+
+// async function run() {
+//   try {
+//     // Connect the client to the server	(optional starting in v4.7)
+//     await client.connect();
+//     // Send a ping to confirm a successful connection
+//     await client.db("admin").command({ ping: 1 });
+//     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+//   } finally {
+//     // Ensures that the client will close when you finish/error
+//     await client.close();
+//   }
+// }
+// run().catch(console.dir);
+
+// 🧻🖌️ Paintings media migrations:
+
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+
+async function listAndSaveMedia(mediaType) {
+  if (!["painting", "piece"].includes(mediaType)) {
+    throw new Error(
+      'Invalid media type provided. Expected "painting" or "piece"',
+    );
+  }
+
+  const s3User = new S3Client({
+    endpoint: "https://" + process.env.USER_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.ART_KEY,
+      secretAccessKey: process.env.ART_SECRET,
+    },
+  });
+
+  const { db, disconnect } = await connect();
+  const collection = db.collection(mediaType + "s"); // Adjust collection name based on media type
+  await collection.createIndex({ user: 1 });
+  await collection.createIndex({ when: 1 });
+  await collection.createIndex({ slug: 1 });
+  await collection.createIndex({ slug: 1, user: 1 }, { unique: true });
+
+  // Iterate through each user's top-level directory
+  const userDirectories = await listDirectories({
+    s3: s3User,
+    bucket: process.env.USER_SPACE_NAME,
+  });
+
+  for (const dir of userDirectories) {
+    // Check for `auth0` prefix and list its subdirectories
+    if (dir.startsWith("auth0")) {
+      console.log("Dir:", dir);
+
+      const subDirectories = await listDirectories(
+        { s3: s3User, bucket: process.env.USER_SPACE_NAME },
+        dir,
+      );
+
+      // Check if the media type subdirectory exists
+      if (subDirectories.includes(dir + mediaType + "/")) {
+        const files = await listFiles(
+          { s3: s3User, bucket: process.env.USER_SPACE_NAME },
+          dir + mediaType + "/",
+        );
+
+        for (const file of files) {
+          const extension = mediaType === "painting" ? ".png" : ".mjs";
+          // TODO: Eventually add other media types...
+
+          if (file.endsWith(extension)) {
+            const slug = file.split("/").pop().replace(extension, "");
+            const user = dir.split("/")[0];
+            const existingRecord = await collection.findOne({ slug, user });
+            if (!existingRecord) {
+              const record = {
+                slug,
+                user,
+                when: new Date(),
+              };
+              await collection.insertOne(record);
+              console.log(`✅ Added ${mediaType} entry for:`, slug);
+            } else {
+              console.log(`⚠️ ${mediaType} already exists for:`, slug);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  disconnect();
+}
+
+// Helper function to list directories for a given S3 client
+async function listDirectories(client, prefix = "") {
+  const params = { Bucket: client.bucket, Delimiter: "/", Prefix: prefix };
+  const response = await client.s3.send(new ListObjectsV2Command(params));
+  return response.CommonPrefixes
+    ? response.CommonPrefixes.map((prefix) => prefix.Prefix)
+    : [];
+}
+
+// Helper function to list files for a given S3 client and prefix
+async function listFiles(client, prefix) {
+  const params = { Bucket: client.bucket, Prefix: prefix };
+  const response = await client.s3.send(new ListObjectsV2Command(params));
+  return response.Contents.map((file) => file.Key);
+}
+
+export { listAndSaveMedia };

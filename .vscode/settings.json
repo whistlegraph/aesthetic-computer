@@ -1,0 +1,101 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/archive/**": true,
+    "**/packed/**": true,
+    "**/reference/**": true,
+    "**/.emacs.d/**": true,
+    "**/ac-event-daemon/target/**": true,
+    "**/.netlify/**": true,
+    "**/dist/**": true,
+    "**/kidlisp-n64/**": true,
+    "**/feed/**": true,
+    "**/ac-electron/**": true,
+    "**/builds/**": true,
+    "**/android/**": true,
+    "**/apple/**": true,
+    "**/.vscode-server/**": true,
+    "**/teia/**": true,
+    "**/ethereum/**": true,
+    "**/tezos/**": true,
+    "**/wallet/**": true,
+    "**/objkt/**": true,
+    "**/plotters/**": true,
+    "**/modes/**": true,
+    "**/lectures/**": true,
+    "**/notebook/**": true,
+    "**/paintings/**": true,
+    "**/experiments/**": true,
+    "**/gpu/**": true,
+    "**/simple-gb-asm-examples/**": true
+  },
+  "git.enabled": true,
+  "git.path": "/usr/sbin/git",
+  "git.autoRepositoryDetection": true,
+  "search.followSymlinks": false,
+  "search.useGlobalIgnoreFiles": false,
+  "search.useIgnoreFiles": false,
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.emacs.d": true,
+    "**/.netlify": true,
+    "**/.vscode-test-web/**": true,
+    "**/aesthetic-computer-code/**": false,
+    "**/aesthetic-computer-vault/**": false,
+    "**/ac-event-daemon/target/**": true,
+    "**/ac-event-daemon/Cargo.lock": true,
+    "**/teia/output/**": true,
+    "**/archive/**": true,
+    "**/packed/**": true,
+    "**/.git/objects/**": true,
+    "**/reference/tools/output/**": true,
+    "**/*.AppImage": true,
+    "**/*.dmg": true,
+    "**/dist/**": true
+  },
+  "files.exclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/teia/output/**": false,
+    "**/archive/**": false,
+    "**/packed/**": false
+  },
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "javascript.suggest.enabled": true,
+  "workbench.list.smoothScrolling": true,
+  "terminal.integrated.smoothScrolling": true,
+  "notebook.lineNumbers": "on",
+  "editor.minimap.autohide": "mouseover",
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python-envs.pythonProjects": [],
+  "github.copilot.chat.mcp.enabled": true,
+  "github.copilot.chat.mcp.servers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-chrome-devtools"
+      ]
+    }
+  },
+  "deno.enable": true,
+  "deno.enablePaths": [
+    "system/netlify/edge-functions"
+  ],
+  "deno.unstable": true,
+  "deno.importMap": ".netlify/edge-functions-import-map.json",
+  "task.quickOpen.showAll": true,
+  "task.allowAutomaticTasks": "on",
+  "github.copilot.advanced": {
+    "defaultModel": "claude-opus-4.5"
+  },
+  "python.defaultInterpreterPath": "/opt/py311/bin/python",
+  "jupyter.kernels.filter": [],
+  "jupyter.notebookFileRoot": "${workspaceFolder}",
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor",
+    "*.ipynb": "jupyter-notebook"
+  }
+}

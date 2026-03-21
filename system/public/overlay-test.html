@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AC Overlay Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
+            color: lime;
+            font-family: monospace;
+            font-size: 10rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .word {
+            border: 4px solid lime;
+            padding: 2rem;
+            background: rgba(0,255,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="word" id="word">DEFAULT</div>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const word = urlParams.get('word') || 'TEST';
+        const type = urlParams.get('type') || 'default';
+        
+        console.log('URL params:', { word, type });
+        
+        document.getElementById('word').textContent = word.toUpperCase();
+        
+        // Debug info
+        console.log('Element text set to:', document.getElementById('word').textContent);
+        
+        // Keep window open for inspection (auto-close disabled)
+        // const duration = parseInt(urlParams.get('duration')) || 3000;
+        // setTimeout(() => {
+        //     try { window.close(); } catch(e) { console.log('Cannot close window'); }
+        // }, duration);
+    </script>
+</body>
+</html>

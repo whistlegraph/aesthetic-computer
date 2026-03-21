@@ -1,0 +1,9 @@
+[
+  {
+    "prim": "Pair",
+    "args": [
+      { "string": "tz1WxrQuZ4CK1MBUa2GqUWK1yJ4J6EtG1Gwi" },
+      [ { "prim": "Pair", "args": [ { "string": "tz1Rp4Bv8iUhYnNoCryHQgNzN2D7i3L1LF9C" }, { "prim": "Pair", "args": [ { "int": "0" }, { "int": "1" } ] } ] } ]
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "aesthetic.computer",
+			"path": ".."
+		},
+		{
+			"name": "agenda",
+			"path": "../../agenda"
+		}
+	],
+	"settings": {}
+}

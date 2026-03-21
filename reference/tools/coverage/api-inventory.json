@@ -1,0 +1,638 @@
+{
+  "timestamp": "2025-09-16T17:40:23.009Z",
+  "fileSize": 361608,
+  "lineCount": 9940,
+  "functions": [
+    {
+      "name": "isSandboxed",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "getSafeUrlParts",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "leave",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "bake",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "addUndoPainting",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "toggleHUDVisibility",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "enableFrameBasedMonitoring",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "checkPaintingChanges",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "isQROverlayCacheDisabled",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "isHUDLabelCacheDisabled",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "stripColorCodes",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "updateHUDStatus",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "darkMode",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "uploadPainting",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "isLeaving",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "jump",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "loadLine",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "speak",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "newLine",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "characterWrap",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "processMessage",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "handlePaintingUpdate",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "generatePaintingHash",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "startPaintingChangeMonitoring",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "stopPaintingChangeMonitoring",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "session",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "ink",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "ink2",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "initializeGlobalKidLisp",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "getGlobalKidLisp",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "updateKidLispAudio",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "normalizeAngle",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "form",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "prefetchPicture",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "paste",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "stamp",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "makeLayout",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "kidlisp",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "executeLispCode",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "globals",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "painting",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "load",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "reload",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "startSocket",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "alias",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "videoFrame",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "send",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "makeFrame",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "paintSound",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "paintWaveform",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "getSampleData",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "play",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "getDuration",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "synth",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "load",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "save",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "createShadowText",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "handle",
+      "exported": false,
+      "async": true
+    },
+    {
+      "name": "downloadScreenshot",
+      "exported": false,
+      "async": false
+    },
+    {
+      "name": "maybeLeave",
+      "exported": false,
+      "async": false
+    }
+  ],
+  "exports": [
+    {
+      "name": "noWorker",
+      "type": "object"
+    }
+  ],
+  "apiSurface": {
+    "graphics": [
+      {
+        "name": "isSandboxed",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "addUndoPainting",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "checkPaintingChanges",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "uploadPainting",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "loadLine",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "newLine",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "handlePaintingUpdate",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "generatePaintingHash",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "startPaintingChangeMonitoring",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "stopPaintingChangeMonitoring",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "ink",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "ink2",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "painting",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "paintSound",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "paintWaveform",
+        "exported": false,
+        "async": false
+      }
+    ],
+    "input": [],
+    "audio": [
+      {
+        "name": "updateKidLispAudio",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "play",
+        "exported": false,
+        "async": false
+      }
+    ],
+    "networking": [
+      {
+        "name": "session",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "startSocket",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "send",
+        "exported": false,
+        "async": false
+      }
+    ],
+    "utilities": [],
+    "uncategorized": [
+      {
+        "name": "getSafeUrlParts",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "leave",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "bake",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "toggleHUDVisibility",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "enableFrameBasedMonitoring",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "isQROverlayCacheDisabled",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "isHUDLabelCacheDisabled",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "stripColorCodes",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "updateHUDStatus",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "darkMode",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "isLeaving",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "jump",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "speak",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "characterWrap",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "processMessage",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "initializeGlobalKidLisp",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "getGlobalKidLisp",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "normalizeAngle",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "form",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "prefetchPicture",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "paste",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "stamp",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "makeLayout",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "kidlisp",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "executeLispCode",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "globals",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "load",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "reload",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "alias",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "videoFrame",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "makeFrame",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "getSampleData",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "getDuration",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "synth",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "load",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "save",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "createShadowText",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "handle",
+        "exported": false,
+        "async": true
+      },
+      {
+        "name": "downloadScreenshot",
+        "exported": false,
+        "async": false
+      },
+      {
+        "name": "maybeLeave",
+        "exported": false,
+        "async": false
+      }
+    ]
+  },
+  "stats": {
+    "totalFunctions": 60,
+    "exportedFunctions": 0,
+    "asyncFunctions": 9,
+    "categories": {
+      "graphics": 15,
+      "input": 0,
+      "audio": 2,
+      "networking": 3,
+      "utilities": 0,
+      "uncategorized": 40
+    }
+  }
+}

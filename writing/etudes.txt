@@ -1,0 +1,25 @@
+1 space gaps (alternating)
+
+CD
+DE
+EW
+WR
+RQ
+QH
+HI
+IJ
+JU
+UO
+OP
+
+VS
+SF
+FG
+GA
+AB
+BT
+TI
+YK
+KL
+LM
+MN

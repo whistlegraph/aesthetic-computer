@@ -1,0 +1,229 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}\setsansfont{Latin Modern Sans}\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+
+\usepackage{xcolor}\usepackage{titlesec}\usepackage{enumitem}\usepackage{booktabs}\usepackage{tabularx}\usepackage{fancyhdr}\usepackage{hyperref}\usepackage{graphicx}\usepackage{ragged2e}\usepackage{microtype}\usepackage{natbib}\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}\definecolor{acpurple}{RGB}{120,80,180}\definecolor{acdark}{RGB}{64,56,74}\definecolor{acgray}{RGB}{119,119,119}\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45,pos={0.5\paperwidth, 0.5\paperheight}}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdfauthor={@jeffrey},pdftitle={notepat.com: Fra tastaturlegetøj til systemets hoveddør}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+\setlength{\columnsep}{1.8em}\setlength{\parindent}{1em}\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Fra tastaturlegetøj til systemets hoveddør}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+\texttt{notepat} begyndte i juni 2024 som en 200-linjers kromatisk tastaturskitse inde i \ac{}~\citep{scudder2026ac}. Over 401 commits og 20 måneder voksede det til 7.903 linjer i browseren og 987 linjer på bare metal, med akkumulering af fem bølgeformtyper, rumklang, analog trykfølsomhed, en bare-metal Linux-port der booter som PID~1, et branddomæne (\texttt{notepat.com}), et dedikeret testharness, en alfa Ableton Live-enhed, et VST3-plugin-skelet og seks afledte pieces. Denne artikel sporer den vækst: hvad \texttt{notepat} startede som, hvilke funktioner det fik, hvilken infrastruktur det trak ind i eksistens, og hvordan et enkelt piece kom til at fungere som den strategiske hoveddør til et større kreativt computing-system. Vi indramme denne bane som en \emph{politisk økonomi for et piece}---feedbackløkkerne mellem et pieces voksende kapabiliteter, de platformbeslutninger det motiverer, og de ressourcer det tiltrækker over tid.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+Kreative kodningsplatforme evalueres typisk på systemniveau: sprogdesign, editor-affordances, fællesskabsstørrelse~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. Selv inden for forskning i digitale musikinstrumenter er analyseenheden normalt instrumentklassen eller interaktionsparadigmet snarere end evolutionen af en enkelt artefakt over år~\citep{magnusson2010designing,marquez2018dmi}. Denne artikel tager et snævrere og længere objektiv: ét piece---\texttt{notepat}---inde i \ac{}, studeret over 20 måneder med aktiv udvikling.
+
+\texttt{notepat} er et melodisk tastaturinstrument. Det er direkte adresserbart som \texttt{aesthetic.computer/notepat} og gennem branddomænet \texttt{notepat.com}. Per marts 2026 er det det mest komplekse piece i systemet, standardboot-piecet på bare-metal hardware og det primære emne for ydeevnetestinfrastruktur. Intet af dette var planlagt fra starten. Instrumentet voksede, og platformen voksede omkring det.
+
+\section{Oprindelse (juni--juli 2024)}
+
+Den første commit optræder 27. juni 2024 under navnet \texttt{notepad}---en tastefejl, der senere blev genfortolket som et portmanteau af ``note'' og ``pad.'' Den indledende version var en minimal tastatursampler: QWERTY-taster afbildet til kromatiske noder, en enkelt sinusbølgeform, ingen UI ud over farvede rektangler for aktive taster.
+
+Inden for fem dage havde piecet fået:
+\begin{itemize}
+  \item Synth-udklang (25\,ms lineært fald for at forhindre klik),
+  \item Dokumentationsreferencer i projektindekset,
+  \item Det korrigerede navn \texttt{notepat}.
+\end{itemize}
+
+På dette tidspunkt var piecet ca. 200 linjer. Det brugte standard \ac{} piece-livscyklussen (\texttt{boot}, \texttt{paint}, \texttt{act}) og platformens indbyggede \texttt{sound.synth}-API. Designet var bevidst simpelt: ét hukommelsesvenligt navneord, ét umiddelbart spillebart instrument, ingen konfiguration nødvendig. Denne tidlige minimalisme er konsistent med, hvad \citet{magnusson2010designing} beskriver som produktiv begrænsning---et afgrænset søgerum, der fokuserer både spiller og udvikler.
+
+\section{Funktionsvækst}
+
+\subsection{Lydmotor (2024--2025)}
+
+Synteseoverfladen udvidede sig langs flere akser drevet direkte af spillebehov. Dette er den dynamik, \citet{mcpherson2020idiomatic} beskriver i computermusiksprog: værktøjer opnår ``idiomatiske mønstre,'' der afspejler og forstærker de æstetiske præferencer hos deres primære brugere.
+
+\begin{itemize}
+  \item \textbf{Bølgeformer}: sinus $\rightarrow$ trekant, savtand, firkant, støj (valgbar via tastaturgenvej eller parameter).
+  \item \textbf{Rumklang}: tre-tap forsinkelselinje (120\,ms intervaller), 0,55 feedbackkoefficient, wet/dry-mix kontrollerbar via trackpad X-akse-skyder.
+  \item \textbf{Toneforskydning}: kontinuerlig $\pm$1 oktav via trackpad Y-akse.
+  \item \textbf{Oktavkontrol}: 9 oktaver (1--9), navigerbare via piletaster.
+  \item \textbf{Hurtigtilstand}: hurtig attack/decay-skift til staccatospil.
+  \item \textbf{Metronom}: temposynkroniseret taktindikator (20--300 BPM), visuelt blink på nedslag.
+\end{itemize}
+
+\subsection{Input og hardware (2024--2026)}
+
+Tre hardwareintegrationsbestræbelser blev drevet af \texttt{notepat}'s udtrykskrav. Digitale musikinstrumenter beskrives af \citet{tahiroglu2020probes} som ``sonder,'' der ændrer, hvordan vi tænker om det computationelle og fysiske substrat, de kører på. \texttt{notepat} sonderede på præcis denne måde:
+
+\begin{enumerate}
+  \item \textbf{NuPhy Air60 HE analogt tastatur}: WebHID-protokol reverse-engineered fra USB-optagelser. 64-byte aktiveringskombinationer; 16-bit trykrapporter per tast; velocity-vægtet syntese.
+  \item \textbf{Trackpad som udtrykscontroller}: X-akse kontrollerer rumklang wet-mix, Y-akse kontrollerer toneforskydning.
+  \item \textbf{HDMI sekundær skærm}: ensfarvet output drevet af blandede nodefarver under performance.
+\end{enumerate}
+
+\subsection{Visuelt design}
+
+Grænsefladen udviklede sig fra enkle farvede rektangler til et lagdelt system:
+
+\begin{itemize}
+  \item 24-felt opdelt gitter (4$\times$3 venstre oktav + 4$\times$3 højre oktav),
+  \item Statuslinje: ur (LA-tid med DST), bølgeform, oktav, samplerate, lydstyrke, batteri, WiFi-antenneikon,
+  \item Mini-pianovisualisering med oktavskygning og sort-tast-priknotation,
+  \item HUD-etiket i MatrixChunky8-skrifttype med \texttt{.com}-overskriftbranding,
+  \item Baggrundstone reaktiv på tidspunkt (daggry/middag/eftermiddag/solnedgang/nat),
+  \item Nodefarvesystem: hver halvtone afbildet til en farvetone (C~=~rød til B~=~violet), aktive noder blandes ind i baggrund.
+\end{itemize}
+
+\subsection{DAW-integration: Ableton Live}
+
+I januar 2025 blev en alfa Max for Live-enhed (\texttt{AC Notepat.amxd}) oprettet til at indlejre \texttt{notepat} inde i Ableton Live. Enheden bruger Max~9's \texttt{jweb\textasciitilde}-objekt---en lydaktiveret indlejret webbrowser---til at indlæse \texttt{notepat}-piecet og route dets Web Audio-output direkte ind i Abletons mixer via \texttt{plugout\textasciitilde}.
+
+Denne integration krævede løsning af flere problemer, der ikke var til stede i browser- eller bare-metal-konteksterne:
+
+\begin{itemize}
+  \item \textbf{Offline bundling}: en selvstændig HTML-bundle-generator der rekursivt opdager alle ES-modulafhængigheder og producerer en gzip-komprimeret selvudpakkende HTML-fil med et virtuelt filsystem (VFS) og fetch-interceptor.
+  \item \textbf{AudioWorklet i PACK-tilstand}: den standard AudioWorklet-indlæsningssti kræver en server; den bundlede version opretter blob-URL'er fra VFS'en.
+  \item \textbf{MIDI-til-tastatur-oversættelse}: et planlagt afbildningslag konverterer MIDI note-on/off-hændelser til \texttt{notepat}'s tastaturhændelsesmodel.
+\end{itemize}
+
+DAW-integrationen repræsenterer en femte feedbackløkke i \texttt{notepat}'s politiske økonomi: \textbf{distributionspres $\rightarrow$ bundlinginfrastruktur}.
+
+\subsection{Netværks- og systemintegration}
+
+\begin{itemize}
+  \item WiFi UI: fuldskærms netværksscanner med signalstyrkesøjler, SSID-vælger, adgangskodeindtastning---bygget ind i selve piecet til bare-metal-kontekster, hvor intet OS-UI eksisterer.
+  \item Mørk tilstand: automatisk skift ved 19/07 LA-tid, med matchende DST-beregning i både C og JavaScript.
+  \item Projektor- og recitaltilstande til performancekontekster.
+\end{itemize}
+
+\section{Bare-metal-porten}
+
+I slutningen af 2024 blev \texttt{notepat} portet til \texttt{ac-native}: en tilpasset Linux-køretid, der booter fra USB som PID~1 uden styresystem. Bare-metal-versionen (987 linjer) kører på QuickJS, renderer via DRM/KMS dumb buffers med 3$\times$ nærmeste-nabo CPU-opskalering og syntetiserer lyd gennem direkte ALSA \texttt{hw:}-adgang ved 192\,kHz.
+
+Denne port var ikke tilfældig. Hele \texttt{ac-native}-projektet---tilpasset kernekonfiguration, initramfs-buildpipeline, ALSA-lydmotor, evdev-inputhåndtering, WiFi-styring via \texttt{wpa\_supplicant}, DRM/KMS-skærm---blev primært bygget til at køre \texttt{notepat} på fysisk hardware som et dedikeret instrument. Piecet retfærdiggjorde platformen.
+
+\section{Afledte og genbrug}
+
+Seks artefakter stammer direkte fra \texttt{notepat}:
+
+\begin{enumerate}
+  \item \textbf{\texttt{autopat.mjs}} (214 linjer): autoplay-wrapper med indbygget jukebox.
+  \item \textbf{\texttt{notepat-tv.mjs}} (55 linjer): UDP-drevet fjernvisualisering til kunstinstallationer.
+  \item \textbf{\texttt{notepat-convert.mjs}} (103 linjer): notationsoversættelsesbibliotek.
+  \item \textbf{Bare-metal \texttt{notepat.mjs}} (987 linjer): selvstændig reimplementering til QuickJS.
+  \item \textbf{\texttt{AC Notepat.amxd}} (Max for Live-enhed): indlejrer \texttt{notepat} inde i Ableton Live.
+  \item \textbf{\texttt{ac-vst} plugin} (C++/Steinberg SDK): VST3-skelet med WebView UI.
+\end{enumerate}
+
+\section{Infrastruktur trukket ind i eksistens}
+
+\subsection{Routing og branding}
+
+Domænet \texttt{notepat.com} omskrives ved kanten til \texttt{notepat}-slugget i den primære indeksfunktion. Dette krævede dedikeret værtsmatchningslogik, tilpassede Open Graph-metadata og et brandet HUD-element synligt under spil.
+
+\subsection{Testinfrastruktur}
+
+\texttt{notepat} har uforholdsmæssig stor testinvestering sammenlignet med andre pieces:
+
+\begin{itemize}
+  \item \textbf{Latensharness}: måler tastatur-til-lyd-latens via Chrome DevTools Protocol; rapporterer gennemsnit, median, p95, p99. Aktuel måling: 417\,ms (mål: $<$30\,ms).
+  \item \textbf{Stabilitetsharness}: 5-minutters fuzz-test ved konfigurerbar intensitet (2--20 noder/sek); overvåger heap-vækst, lydbogsstørrelse, latensforringelse.
+  \item 14 totale testscripts på tværs af \texttt{artery/}, \texttt{tests/} og \texttt{.vscode/tests/}.
+\end{itemize}
+
+\section{Politisk økonomi for et piece}
+
+\texttt{notepat}'s bane illustrerer feedbackløkker mellem et piece og dets værtsplatform, som \citet{nieborg2018platformization} beskriver på niveauet af kulturindustrier:
+
+\begin{enumerate}
+  \item \textbf{Funktionspres $\rightarrow$ platformkapabilitet}: \texttt{notepat} behøvede rumklang, så lydmotoren fik forsinkelseslinjer. Det behøvede analogt tryk, så \texttt{ac-native} fik HID raw-understøttelse.
+  \item \textbf{Brandingpres $\rightarrow$ routingbeslutninger}: ønsket om en hukommelsesvenlig URL førte til \texttt{notepat.com}.
+  \item \textbf{Kvalitetspres $\rightarrow$ testinvestering}: en latensregression i \texttt{notepat} motiverede konstruktionen af et generelt piece-testharness.
+  \item \textbf{Hardwarepres $\rightarrow$ hele køretiden}: ambitionen om at køre \texttt{notepat} på dedikeret hardware retfærdiggjorde bygningen af \texttt{ac-native}.
+  \item \textbf{Distributionspres $\rightarrow$ bundlinginfrastruktur}: ønsket om at indlejre \texttt{notepat} inde i Ableton Live tvang platformen til at udvikle offline HTML-bundling.
+\end{enumerate}
+
+\section{Nuværende skala}
+
+\begin{table}[h]
+\small\centering
+\begin{tabularx}{\columnwidth}{l r}
+\toprule
+\textbf{Metrik} & \textbf{Værdi} \\
+\midrule
+Commits (browserversion) & 401 \\
+Browser LOC & 7.903 \\
+Bare-metal LOC & 987 \\
+Afledte pieces & 6 \\
+Totale økosystem-LOC & 9.262 \\
+Bølgeformtyper & 5 \\
+Dedikerede testscripts & 14 \\
+Filer der nævner ``notepat'' i repo & 159 \\
+Alder (første commit) & 27. juni 2024 \\
+\bottomrule
+\end{tabularx}
+\caption{notepat-skalaindikatorer (8. marts 2026).}
+\label{tab:scale}
+\end{table}
+
+\section{Konklusion}
+
+\texttt{notepat} demonstrerer, at et enkelt piece kan fungere som det strategiske tyngdepunkt for en kreativ computing-platform. Dets vækst fra en 200-linjers tastaturskitse til et 9.000-linjers økosystem med eget domæne, hardwarekøretid, DAW-integration og testinfrastruktur var ikke planlagt---det opstod fra vedvarende brug og feedbackløkkerne beskrevet ovenfor.
+
+Det metodologiske bidrag er en analyseenhed: \emph{piece-banen}. At studere et enkelt piece på tværs af dets fulde commit-historik afslører platformdynamikker, der er usynlige på systemniveau.
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

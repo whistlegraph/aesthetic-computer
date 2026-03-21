@@ -1,0 +1,416 @@
+:root {
+  color-scheme: light;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  background-color: rgb(32, 32, 32);
+  touch-action: none;
+  overflow: hidden;
+  margin: 0;
+  cursor: none;
+  /*display: flex;*/
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: none;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjMzAzMDMwIj48L3JlY3Q+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiMzMDMwMzAiPjwvcmVjdD48L3N2Zz4=");
+  background-size: 4px 4px;
+  background-repeat: repeat;
+  cursor: url('cursors/precise.svg') 12 12, auto;
+}
+
+/* Light theme checkerboard (from kidlisp.com editor) */
+body.light-theme {
+  background-color: rgb(232, 232, 232);
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjZDBkMGQwIj48L3JlY3Q+PHJlY3QgeD0iMTAiIHk9IjEwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiNkMGQwZDAiPjwvcmVjdD48L3N2Zz4=");
+}
+
+/* Remove checkerboard for embedded contexts (like VS Code notebooks) */
+
+body.nogap {
+  background-image: none;
+  /* Background must be transparent so parent container (like kidlisp.com iframe) shows through */
+  background-color: transparent !important;
+}
+
+/* Ensure #aesthetic-computer has no hairline gaps in nogap mode */
+body.nogap #aesthetic-computer {
+  border-radius: 0px;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.embed {
+  background-color: transparent;
+}
+
+body.vscode {
+  background-color: rgb(32, 32, 32) !important;
+}
+
+body.native-cursor {
+  cursor: auto;
+  /* touch-action: none; */
+  /* TODO: Did this break anything with zooming? 22.09.04.23.33 */
+}
+
+/* body.native-cursor canvas[data-type="ui"] { opacity: 0 !important; } */
+
+canvas {
+  touch-action: none;
+}
+
+input,
+form {
+  pointer-events: none;
+  user-select: none;
+}
+
+#console {
+  font-family: Berkeley Mono Variable, sans serif;
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1000;
+  padding: 0.8em;
+  font-size: 1.25em;
+}
+
+#console.hidden {
+  display: none;
+}
+
+#aesthetic-computer {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2.5px;
+}
+
+body.nogap #aesthetic-computer {
+  border-radius: 0px;
+}
+
+#aesthetic-computer.hidden {
+  opacity: 0;
+}
+
+#aesthetic-computer.reloading {
+  filter: blur(2px) grayscale(0.75);
+  transition: 0.25s filter;
+}
+
+/* Overlay DOM Content */
+#content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: all;
+  touch-action: manipulation;
+  -webkit-touch-callout: default;
+  display: flex;
+}
+
+/* Underlay DOM Content */
+#underlay {
+  position: fixed;
+  z-index: -1;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+#underlay video {
+  width: 100%;
+  height: 100%;
+  /* Checkerboard background... */
+  /* background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='2' height='2'><rect x='0' y='0' width='1' height='1' fill='%23fff' fill-opacity='0.1'/><rect x='1' y='1' width='1' height='1' fill='%23fff' fill-opacity='0.1'/></svg>"); */
+  /* background-size: 12px; */
+  object-fit: contain;
+  /* object-fit: cover; */
+  background: rgb(32, 32, 32);
+}
+
+/* Tape canvas: fill the underlay, no letterboxing. */
+#underlay canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#recordings {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  pointer-events: all;
+  touch-action: manipulation;
+  background: rgba(0, 0, 0, 0.25);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  font-family: YWFTProcessing-Regular, sans-serif;
+  font-size: 4vmin;
+  /* font-family: Berkeley Mono Variable, sans serif; */
+}
+
+#recordings video {
+  height: 80%;
+  width: 100%;
+}
+
+#recordings a,
+#recordings-close {
+  text-align: center;
+}
+
+#recordings a {
+  color: white;
+  padding: 2vmin;
+  text-decoration: none;
+  background: rgba(0, 0, 200, 1);
+  cursor: none;
+}
+
+#recordings a:hover {
+  background: rgba(0, 0, 255, 1);
+}
+
+#recordings-close:hover {
+  background: rgba(255, 0, 0, 1);
+}
+
+#recordings-close {
+  display: inline-block;
+  padding: 2vmin;
+  background: rgba(200, 0, 0, 1);
+}
+
+#recordings-wrapper {
+  border-radius: 2vmin;
+  width: 80vw;
+  height: 80vh;
+  margin: auto;
+  background: rgba(127, 127, 127, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Picture in Picture */
+
+/*
+#pip-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  pointer-events: none;
+  touch-action: none;
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+#pip {
+  pointer-events: all;
+  touch-action: manipulation;
+  border: none;
+  width: 80%;
+  height: 80%;
+  margin: auto;
+}
+*/
+
+/*font-family: 'Berkeley Mono Variable', monospace;*/
+/*
+#modal {
+  font-variation-settings: 'wght' 120;
+  font-family: 'YWFTProcessing-Regular', monospace;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  color: rgb(128, 128, 128);
+  backdrop-filter: saturate(0);
+  display: none;
+}
+
+#modal.on { display: flex; }
+
+#modal #bumper {
+  margin: 1em auto auto 1em;
+  background: rgb(0, 0, 0, 0.25);
+  padding: 1.15em 1em 1em 1em;
+}
+*/
+
+canvas {
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/*
+canvas[data-type="ui"],
+canvas[data-type="glaze"],
+canvas[data-type="3d"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+*/
+
+canvas[data-type="freeze"] {
+  pointer-events: none;
+}
+
+
+canvas[data-type="glaze"].first-glaze {
+  transition: 0.5s opacity;
+}
+
+
+canvas[data-type="glaze"] {
+  z-index: 2;
+}
+
+canvas[data-type="freeze"] {
+  z-index: 3;
+}
+
+canvas[data-type="freeze"] {
+  position: fixed;
+}
+
+canvas[data-type="ui"] {
+  z-index: 6;
+  /* filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5)); */
+  /* This is *really* slow. */
+  /* display: none; */
+}
+
+canvas[data-type="webgpu"] {
+  z-index: 1; /* Below UI and glaze, but above main canvas */
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+canvas[data-type="2d"] {
+  z-index: 7;
+}
+
+canvas[data-type="debug"] {
+  z-index: 8;
+  /* filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5)); */
+  /* transform: rotateX(0.01deg); */
+  /* Make sure we are using the GPU compositor. */
+  /* display: none; */
+}
+
+canvas[data-type="3d"] {
+  z-index: -1; /* Behind webgl-composite canvas for proper layering */
+  /* width: 100% !important; */
+  /* height: 100% !important; */
+  opacity: 0;
+}
+
+canvas[data-type="3d"].visible {
+  opacity: 1;
+}
+
+#VRButton {
+  position: absolute;
+  bottom: 0.5em;
+  right: 0.5em;
+  cursor: none;
+  font-family: YWFTProcessing-Regular, sans-serif;
+  padding: 0.2em 0.2em 0.1em 0.18em;
+  line-height: 100%;
+  border: 0.05em solid rgb(200, 0, 0);
+  color: rgb(200, 0, 0);
+  background: none;
+  font-size: 2.5em;
+  z-index: 5;
+}
+
+#VRButton:hover {
+  border: 0.05em solid rgb(0, 200, 200);
+  color: rgb(0, 200, 200);
+  background: rgb(23, 2, 99, 0.25);
+}
+
+#VRButton:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+#camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
+
+/* Boot Log Overlay */
+#boot-log {
+  position: fixed;
+  top: 1em;
+  left: 1em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(14px, 2.5vmin, 18px);
+  color: rgb(150, 60, 120);
+  z-index: 99999;
+  pointer-events: none;
+  transition: opacity 0.5s ease-out;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  line-height: 1.4;
+}
+
+#boot-log.hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+
+#boot-log .blink {
+  animation: boot-blink 0.5s infinite;
+}
+
+#boot-log-lines div {
+  animation: boot-line-fade 0.8s ease-out forwards;
+}
+
+@keyframes boot-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes boot-line-fade {
+  0% {
+    color: rgb(255, 180, 255);
+    text-shadow: 0 0 8px rgba(255, 100, 200, 0.8);
+  }
+  100% {
+    color: rgb(150, 60, 120);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  }
+}

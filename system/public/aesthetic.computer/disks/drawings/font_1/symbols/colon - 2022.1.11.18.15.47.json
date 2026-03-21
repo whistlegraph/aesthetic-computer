@@ -1,0 +1,23 @@
+{
+  "resolution": [
+    6,
+    10
+  ],
+  "date": "2022-01-12T02:15:47.065Z",
+  "commands": [
+    {
+      "name": "point",
+      "args": [
+        2,
+        6
+      ]
+    },
+    {
+      "name": "point",
+      "args": [
+        2,
+        3
+      ]
+    }
+  ]
+}

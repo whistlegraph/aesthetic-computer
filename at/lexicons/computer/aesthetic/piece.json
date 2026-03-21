@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.piece",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A piece (interactive program) from Aesthetic Computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["slug", "when", "ref"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "The piece identifier (e.g., 'wand')",
+            "maxLength": 100
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Creation timestamp (ISO 8601)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference for bidirectional sync",
+            "maxLength": 24
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+Two Balls: for a Wilson and N Players 
+
+0. Wilson stands outside quad.
+1. Place B1 in center of quad.
+2. Players gather around the ball.
+3. Start dribbling B2 rhythmically.
+4. Players walk the edges accordingly.
+5. Pause, spin B2 in air and catch.
+  - a. Speak word under primary index finger.
+  - b. If no word then continue dribbling. 
+6. Players interpret word synchronously.
+7. If "Wilson" is called, players compete for B1.
+8. Winner becomes the Wilson after singing.
+   "Round the quad we wilson ball
+    where all the strips have different calls"
+9. Repeat from 0 with new Wilson.
+
+Current issues - any Wilson can dribble for an indeterminate
+                 duration and the game will not progress.

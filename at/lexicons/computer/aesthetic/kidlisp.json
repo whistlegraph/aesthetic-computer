@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.kidlisp",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A KidLisp code snippet from Aesthetic Computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["source", "code", "when", "ref"],
+        "properties": {
+          "source": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "The KidLisp source code"
+          },
+          "code": {
+            "type": "string",
+            "description": "Short alphanumeric code for easy lookup",
+            "maxLength": 10
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Creation timestamp (ISO 8601)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference for bidirectional sync",
+            "maxLength": 24
+          }
+        }
+      }
+    }
+  }
+}

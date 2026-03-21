@@ -1,0 +1,430 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from ac.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{wipe,ink,line,box,circle,write,wiggle,shape,scroll,spin,zoom,blur,contrast,embed,layer,width,height,frame,time,form,trans,cube,move,scale,hop,overtone,melody,mic,resolution,sort,fade,stamp,paste,flood,poly,noise,flip},
+  morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
+  morekeywords=[3]{repeat},
+  morekeywords=[4]{random,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  escapeinside={|}{|},
+}
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,
+  keywordstyle=[1]\color{klfn}\bfseries,
+  keywordstyle=[2]\color{klform}\bfseries,
+  keywordstyle=[3]\color{klrepeat}\bfseries,
+  keywordstyle=[4]\color{klmath},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klform}{RGB}{119,51,170}
+\definecolor{klrepeat}{RGB}{170,0,170}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{170,120,0}
+\definecolor{klcmt}{RGB}{102,102,102}
+\definecolor{klmath}{RGB}{0,136,0}
+\definecolor{klvar}{RGB}{204,102,0}
+\definecolor{klembed}{RGB}{0,136,0}
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+\hypersetup{
+  pdftitle={Aesthetic Computer '26: A Mobile-First Runtime for Creative Computing},
+}
+
+\renewcommand{\acpdfbase}{aesthetic-computer-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} \acrandname{} '26}\par
+\vspace{0.3em}
+{\fontsize{10pt}{12pt}\selectfont\color{acpink} A Mobile-First Runtime for Creative Computing}\par
+\vspace{0.8em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} March 2026}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Introduction}
+
+Creative coding platforms have steadily lowered the barrier to computational expression. Processing~\citep{reas2007processing} introduced the sketchbook metaphor; p5.js~\citep{mccarthy2015p5js} brought it to the browser; Scratch~\citep{resnick2009scratch} made programming accessible to children through block-based visual programming. Yet these tools share a common assumption: the user interacts with an \emph{editor}---a code editor, a block canvas, an IDE.
+
+\ac{} starts from a different premise. The primary interface is a \textbf{text prompt}---a command line into which users type short, memorizable names to launch interactive programs. There is no file browser, no project panel, no menu bar. The experience is closer to a musical instrument than a development environment: users discover commands through exploration, build muscle memory through repetition, and eventually improvise by recombining pieces fluently.
+
+The platform originated from observations during the development of No Paint~(2020), a pixel art tool whose community of non-technical users began contributing custom brushes and stamps. The manual integration process---hours or days per contribution---motivated building a system where anyone could publish interactive programs instantly. Development began in 2021, with the current repository spanning 11,045 commits from December 2022 to March 2026.
+
+This paper describes the design principles~(\S\ref{sec:principles}), system architecture~(\S\ref{sec:architecture}), piece model~(\S\ref{sec:pieces}), multi-language runtime~(\S\ref{sec:languages}), prompt interface~(\S\ref{sec:prompt}), social infrastructure~(\S\ref{sec:social}), publishing and distribution~(\S\ref{sec:publishing}), development history~(\S\ref{sec:history}), and adoption~(\S\ref{sec:evaluation}). The companion paper~\citep{scudder2026kidlisp} covers the KidLisp language in detail.
+
+% ============ 2. DESIGN PRINCIPLES ============
+
+\section{Design Principles}
+\label{sec:principles}
+
+\begin{enumerate}
+  \item \textbf{Instrument, not IDE.} The interface is designed to function like a musical instrument, on which users discover their own memorizable paths through the network of commands and published pieces. This echoes Nelson's vision of personal computing as creative liberation~\citep{nelson1974computerlib}: the computer as an expressive medium, not a bureaucratic tool. As literacy grows through play, users improvise, recombine, and expand their repertoire.
+  \item \textbf{Mobile-first.} Every interaction targets touch input on phones and tablets. Desktop support follows naturally; the reverse does not hold.
+  \item \textbf{URL-addressable.} Every piece, every parameter combination, every user's work is a URL. Sharing is navigation; navigation is sharing. McLuhan's observation that the medium shapes the message~\citep{mcluhan1964understanding} applies literally: the URL \emph{is} the instrument, and its memorability shapes what gets made and shared.
+  \item \textbf{Single-file programs.} Following Processing's sketchbook model and Unix's philosophy of small composable programs, each piece is one file---no project structure, no build step, no dependencies.
+  \item \textbf{Social by default.} User handles, chat, moods, and profiles are part of the runtime, not bolted-on services.
+\end{enumerate}
+
+% ============ 3. ARCHITECTURE ============
+
+\section{Architecture}
+\label{sec:architecture}
+
+The system comprises four major components: the boot loader, the BIOS runtime, the Disk API, and the module loader.
+
+\subsection{Boot Loader}
+
+The boot loader (\texttt{boot.mjs}, 1,948 lines) initializes three subsystems in parallel: a WebSocket connection to the session server (800ms timeout with HTTP fallback), a Service Worker for persistent module caching, and an IndexedDB store for offline module storage. Boot telemetry logs browser, device type, screen resolution, and performance timings to \texttt{/api/boot-log}.
+
+\subsection{BIOS}
+
+The BIOS (\texttt{bios.mjs}, 20,935 lines) is the runtime orchestrator. It manages the 60fps rendering loop, routes input events (keyboard, touch, mouse, gamepad, MIDI), coordinates piece lifecycle transitions, and maintains the WebGL compositing layer (``glaze'') for post-processing effects. The BIOS also manages the tape recording system for capturing piece performances as frame sequences with synchronized audio.
+
+\subsection{Disk API}
+
+The Disk (\texttt{disk.mjs}, 15,879 lines) provides the complete API surface that pieces use. It manages piece loading, lifecycle dispatch, and exposes drawing primitives, audio, input, networking, and UI components. All graphics operations are immediate-mode---there is no retained scene graph. Kittler argued that software obscures the material reality of computation~\citep{kittler1995nosoftware}; AC's immediate-mode model resists this by making the relationship between code and screen explicit---every pixel is drawn every frame, with nothing hidden behind abstraction layers.
+
+\subsection{Module Loader}
+
+The module loader streams JavaScript modules over WebSocket from the session server, bypassing the HTTP proxy chain for faster loading. On first load, modules are cached in IndexedDB. Subsequent visits load from cache, falling back to HTTP if the session server is unavailable. This produces near-instant piece loading on repeat visits.
+
+% ============ 4. THE PIECE MODEL ============
+
+\section{The Piece Model}
+\label{sec:pieces}
+
+A piece is a single \texttt{.mjs} (JavaScript) or \texttt{.lisp} (KidLisp) file that exports up to five lifecycle functions:
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ wipe, screen, params }) {
+  // Runs once when piece loads
+}
+
+function paint({ wipe, ink, line, circle }) {
+  wipe(|\textcolor{jsstr}{"navy"}|)
+  ink(|\textcolor{jsstr}{"pink"}|)
+  circle(screen.width / |\textcolor{jsnum}{2}|,
+         screen.height / |\textcolor{jsnum}{2}|, |\textcolor{jsnum}{50}|)
+}
+
+function act({ event: e }) {
+  if (e.is(|\textcolor{jsstr}{"keyboard:down:space"}|)) { }
+}
+
+function sim() { }  // Per-frame logic
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+The API object passed to each function provides:
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{Category} & \textbf{Functions} \\
+\midrule
+Graphics & \texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}, \texttt{circle}, \texttt{poly}, \texttt{paste}, \texttt{plot}, \texttt{flood} \\
+Text & \texttt{write}, \texttt{form}, \texttt{TextInput} \\
+Input & \texttt{event}, \texttt{pen}, \texttt{hand}, \texttt{gamepad} \\
+Audio & \texttt{sound}, \texttt{speaker}, \texttt{microphone}, \texttt{melody} \\
+UI & \texttt{ui.Button}, \texttt{ui.TextInput}, \texttt{cursor} \\
+System & \texttt{screen}, \texttt{jump}, \texttt{store}, \texttt{net}, \texttt{send} \\
+\bottomrule
+\end{tabularx}
+\caption{Piece API categories.}
+\label{tab:api}
+\end{table}
+
+Pieces follow Processing's sketchbook model---one source file per explorable idea---combined with Unix's philosophy of user-level composability across small, single-purpose programs.
+
+% ============ 5. MULTI-LANGUAGE RUNTIME ============
+
+\section{Multi-Language Runtime}
+\label{sec:languages}
+
+AC supports two programming languages: JavaScript (ES modules, \texttt{.mjs}) and KidLisp (a minimal Lisp dialect, \texttt{.lisp}). The system currently includes 336 JavaScript pieces and 18 KidLisp pieces.
+
+JavaScript pieces have full access to Web APIs and the Disk API surface. KidLisp pieces use a 15,161-line tree-walking evaluator~\citep{scudder2026kidlisp} that provides 118 built-in functions for drawing, color, transformation, math, animation, and audio---with no file I/O, networking, or string manipulation, making arbitrary user-submitted code safe to execute.
+
+KidLisp programs can also be entered directly as URLs. The expression \texttt{(wipe blue)} is URL-encoded and executable at \texttt{aesthetic.computer/(\%28wipe\%20blue\%29)}. Short codes (\texttt{\$cow}, \texttt{\$27z}) resolve to stored programs via MongoDB lookup.
+
+The architecture supports additional language backends. Any language that can target the piece lifecycle (boot/paint/act/sim/leave) and call the Disk API can be integrated as a new evaluator.
+
+% ============ 6. THE PROMPT ============
+
+\section{The Prompt}
+\label{sec:prompt}
+
+The prompt (\texttt{prompt.mjs}, 9,386 lines) is itself a piece---the most complex one in the system. It serves as the primary navigation interface, implementing over 60 commands.
+
+\subsection{URL Routing}
+
+Every piece is URL-addressable through a parser (\texttt{parse.mjs}) that supports multiple parameter conventions:
+
+\begin{itemize}
+  \item \textbf{Simple}: \texttt{aesthetic.computer/notepat}
+  \item \textbf{Colon params}: \texttt{tone:440:sine}
+  \item \textbf{Space params}: \texttt{notepat 180 major} (encoded as tildes in URLs)
+  \item \textbf{User pieces}: \texttt{@bash/hub}
+  \item \textbf{KidLisp codes}: \texttt{\$cow}
+  \item \textbf{Shortcodes}: \texttt{!abc} (video), \texttt{*bako} (clock melody)
+\end{itemize}
+
+\subsection{Command Categories}
+
+The prompt implements commands for navigation (\texttt{list}, \texttt{back}), creation (\texttt{publish}, \texttt{source}, \texttt{pack}), social interaction (\texttt{chat}, \texttt{mood}, \texttt{profile}), identity (\texttt{handle}, \texttt{login}), recording (\texttt{tape}, \texttt{share}), and piece sequencing (\texttt{merry}, which chains pieces with timing).
+
+% ============ 7. SOCIAL INFRASTRUCTURE ============
+
+\section{Social Infrastructure}
+\label{sec:social}
+
+Unlike platforms where social features are external services (GitHub, Discord), AC integrates social infrastructure directly into the runtime.
+
+\subsection{Identity}
+
+Users register \texttt{@handles} through the prompt. Handles resolve to MongoDB user records and serve as namespaces for published pieces (\texttt{@handle/piece-name}). As of March 2026, 2,801 handles are registered.
+
+\subsection{Real-Time Communication}
+
+The session server provides WebSocket-based real-time features: public chat (18,020 messages), presence tracking (which piece each user is currently viewing), and multiplayer state synchronization for collaborative pieces.
+
+\subsection{Moods}
+
+Users post short text updates (``moods'') visible on their profiles. Moods are dual-written to MongoDB and ATProto (the protocol underlying Bluesky), enabling federation with the broader social web.
+
+\subsection{Live Profiles}
+
+The profile piece displays a real-time scorecard: online/offline status, current piece, WebSocket latency, and counts of paintings, published pieces, KidLisp programs, chat messages, and moods---all updated live via WebSocket streaming.
+
+% ============ 8. PUBLISHING & DISTRIBUTION ============
+
+\section{Publishing and Distribution}
+\label{sec:publishing}
+
+\subsection{Publish and Source}
+
+The \texttt{publish} command uploads a piece to DigitalOcean Spaces and registers it in MongoDB under the user's handle. The \texttt{source} command downloads any piece's source code as a template for forking.
+
+\subsection{Pack System}
+
+The \texttt{pack} command bundles a piece into a self-contained HTML file via the oven service. The output includes the piece code, all runtime dependencies, and embedded fonts---a single file that works offline with no server. This enables distribution via email, USB drives, blockchain minting (Tezos/Teia), and archival.
+
+\subsection{Custom Domains}
+
+Pieces can be served as standalone applications on custom domains. \texttt{notepat.com} routes to the \texttt{notepat} music sequencer piece; \texttt{kidlisp.com} serves the KidLisp IDE. Netlify edge functions detect the hostname and rewrite routing accordingly, including custom Open Graph meta tags for social sharing.
+
+\subsection{Media Export}
+
+The oven service (\texttt{oven.aesthetic.computer}) converts recorded sessions into MP4 video via FFmpeg, generates Open Graph preview images for social sharing, and serves QR codes for piece URLs. Tape recordings capture frame sequences with per-frame timing data and optional audio.
+
+% ============ 9. DEVELOPMENT HISTORY ============
+
+\section{Development History}
+\label{sec:history}
+
+The following timeline is reconstructed from the git history of the Aesthetic Computer repository (11,045 commits between December 2022 and March 2026). The project's conceptual origins trace to 2020 with No Paint.
+
+\subsection{Origins: No Paint (2020--2021)}
+
+No Paint, a pixel art tool released in 2020, built a community of non-technical users who contributed custom brushes and stamps. The manual integration bottleneck---each contribution required developer intervention---motivated building a platform where anyone could publish interactive programs instantly.
+
+\subsection{Foundation (2022--2023)}
+
+The current repository begins in December 2022. Through 2023 (3,766 commits), the core runtime took shape: the BIOS rendering loop, Disk API, prompt interface, piece lifecycle, and initial set of built-in pieces. September 2023 saw peak early activity (542 commits) as the multiplayer session server and real-time chat were integrated.
+
+\subsection{Expansion (2024)}
+
+The year 2024 (2,698 commits) saw the addition of KidLisp (April), the painting system, handle registration, mood posts, and the tape recording infrastructure. Activity peaked in April (379 commits) and October (336 commits).
+
+\subsection{Platform Integration (2025--2026)}
+
+Development accelerated dramatically in late 2025: October saw 700 commits, November 663, December 525. The KidLisp IDE launched at \texttt{kidlisp.com} (November 2025), ATProto/Bluesky federation was added, the pack system matured, and the oven service began generating social preview images. January 2026 was the single busiest month (1,095 commits), driven by KidLisp refinement, chaos mode, 3D primitives, and stage mode for live performance.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrl}
+\toprule
+\textbf{Period} & \textbf{Commits} & \textbf{Milestone} \\
+\midrule
+2020--2021 & --- & No Paint; AC conception \\
+Dec 2022 & 47 & Repository begins \\
+2023 & 3{,}766 & Core runtime, prompt, multiplayer \\
+2024 & 2{,}698 & KidLisp, painting, handles, moods \\
+Jan--May 2025 & 318 & Maintenance period \\
+Jun--Dec 2025 & 2{,}962 & IDE, pack, oven, federation \\
+Jan--Mar 2026 & 2{,}149 & Chaos mode, 3D, stage mode \\
+\midrule
+\textbf{Total} & \textbf{11{,}045} & \\
+\bottomrule
+\end{tabular}
+\caption{Development activity by period.}
+\label{tab:history}
+\end{table}
+
+The project is primarily single-author: @jeffrey accounts for approximately 98\% of commits, with contributions from 14 additional collaborators.
+
+% ============ 10. EVALUATION ============
+
+\section{Evaluation}
+\label{sec:evaluation}
+
+Adoption metrics as of March 2026 are shown in Table~\ref{tab:adoption}.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Built-in pieces & 354 (336 JS + 18 KidLisp) \\
+User-published pieces & 265 \\
+API endpoints & 78 \\
+Registered handles & 2,801 \\
+Paintings created & 4,404 \\
+KidLisp programs & 16,244 \\
+Chat messages & 18,020 \\
+Core runtime (lines) & $\sim$63,300 \\
+\bottomrule
+\end{tabular}
+\caption{Platform metrics (March 2026).}
+\label{tab:adoption}
+\end{table}
+
+\subsection{Observations}
+
+\textbf{Prompt as discovery mechanism.} Users report discovering pieces by typing guesses into the prompt---trying words like \texttt{piano}, \texttt{draw}, \texttt{chat}---and finding what exists. This accidental discovery is a deliberate design outcome of the flat namespace.
+
+\textbf{Mobile engagement.} The mobile-first design means users interact with AC on phones during commutes, in waiting rooms, and in classrooms---contexts where desktop creative coding tools are inaccessible.
+
+\textbf{Social fabric drives retention.} The integration of chat, moods, and profiles creates a social context that keeps users returning. Users check moods, respond in chat, and discover new pieces through social activity rather than search.
+
+\subsection{Limitations}
+
+The single-file piece model limits program complexity. Pieces cannot import shared libraries or split across multiple modules (though they can embed KidLisp programs via \texttt{\$code} references). The prompt interface, while powerful for experienced users, presents a steep discovery curve for newcomers who expect visual affordances.
+
+% ============ 11. RELATED WORK ============
+
+\section{Related Work}
+
+\textbf{Creative coding.} Processing~\citep{reas2007processing} and p5.js~\citep{mccarthy2015p5js} established the sketchbook paradigm. AC inherits the single-file model but replaces the editor with a prompt and adds social infrastructure.
+
+\textbf{Social coding.} Scratch~\citep{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. OpenProcessing~\citep{openprocessing2009} and Glitch~\citep{glitch2017} provide web-based sharing for creative code. AC differs by making social features part of the runtime itself, not a surrounding website.
+
+\textbf{Live coding.} Hydra~\citep{hydra2019} provides browser-based live visual coding. Strudel~\citep{roos2023strudel} brings TidalCycles-style pattern live coding to the browser with no installation. Sonic Pi~\citep{aaron2016sonic} targets music education with a live-coding REPL. AC's stage mode (transparent editor over full-screen canvas) enables similar live performance contexts.
+
+\textbf{Mobile creative tools.} Most creative coding tools assume desktop use. AC's mobile-first design---touch input, prompt navigation, phone-sized canvases---targets contexts where desktop tools cannot reach.
+
+\textbf{Procedural and generative traditions.} The \emph{10 PRINT} project~\citep{montfort201210print} demonstrated that a single line of BASIC could be the basis for serious study of computational aesthetics. AC's piece model shares this commitment to minimal, complete programs as creative units---each piece is a self-contained generative artifact that can be studied, shared, and varied.
+
+% ============ 12. CONCLUSION ============
+
+\section{Conclusion}
+
+\ac{} demonstrates that a creative computing platform can be organized around a text prompt rather than a graphical IDE, that social infrastructure integrated directly into the runtime produces different engagement patterns than external social layers, and that a mobile-first browser-native approach makes creative coding accessible in contexts desktop tools cannot reach.
+
+The platform's 354 built-in pieces, 265 user-published works, and 16,244 KidLisp programs constitute a growing corpus of creative computing artifacts---what \citet{staunaes2021stiegler}, reading Stiegler, would call a collective \emph{idiotext}: an externalized memory woven through technical prostheses, irreducibly shaped by its community of authors. The prompt-as-instrument metaphor---where users build fluency through memorization and improvisation rather than menu navigation---offers an alternative model for how people might relate to creative software.
+
+AC is open source under the ISC license at \url{https://github.com/digitpain/aesthetic.computer}.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

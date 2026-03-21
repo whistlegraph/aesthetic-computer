@@ -1,0 +1,21 @@
+{
+  "name": "ableton-reference-analyzer",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Tools to analyze Ableton Live .als (unzipped XML) project structure vs a blank template for aesthetic computer timeline reconstruction.",
+  "scripts": {
+    "analyze": "node analyze-ableton.mjs",
+    "run-full": "node run-full-track.mjs",
+    "timeline": "node timeline.mjs"
+  },
+  "bin": {
+    "ableton-sim": "./simulate-ableton.mjs"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "chalk": "^5.3.0",
+    "pretty-bytes": "^6.1.1",
+    "saxes": "^6.0.0"
+  }
+}

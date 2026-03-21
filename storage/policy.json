@@ -1,0 +1,20 @@
+{
+  "Rules": [
+    {
+      "ID": "Delete after a week",
+      "Status": "Enabled",
+      "Prefix": "",
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "AbortIncompleteMultipartUpload",
+      "Prefix": "",
+      "Status": "Enabled",
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,262 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Reading the Score},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% === TITLE ===
+\twocolumn[
+\begin{center}
+{\acbold\LARGE Reading the Score: A Critical Analysis of\\SCORE.md as Governance, Interface, and Creative Form\par}
+\vspace{0.4em}
+{\large @jeffrey}\\
+{\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
+{\small\color{acgray} \url{https://aesthetic.computer}}
+\vspace{0.3em}
+
+\rule{0.6\textwidth}{0.5pt}
+\vspace{0.3em}
+
+\begin{minipage}{0.85\textwidth}
+\small
+\textbf{Abstract.}
+The Aesthetic Computer project replaced its README with a document called SCORE.md.
+This paper examines what that renaming did---and what it left undone.
+Drawing on fifteen papers written from the project's research platter, we
+read the score against its own aspirations: as governance document, as
+technical reference, as creative form. We find that the score succeeds as
+an organizing metaphor but struggles as a document---caught between
+the demands of AI agents, new contributors, the project's own history,
+and the author's creative practice. We identify six tensions in the
+current score and propose a revision framework that takes the musical
+metaphor seriously: a score should tell you how to perform, not just
+what the instruments are.
+\end{minipage}
+\vspace{1em}
+\end{center}
+]
+
+\section{What Is a Score?}
+
+In music, a score is a set of instructions for producing a temporal event. It is not the event itself---it is the document that makes the event reproducible. A score carries within it an implicit theory of what matters: which parameters must be specified and which can be left to the performer's judgment.
+
+When the Aesthetic Computer project renamed its README.md to SCORE.md in early March 2026, it imported this entire framework. The gesture was deliberate. The project already understood its programs as ``pieces'' rather than applications~\citep{scudder2026pieces}, its interface as an instrument~\citep{scudder2026notepat}, and its graphic notation (Whistlegraph) as a viral score~\citep{scudder2026whistlegraph}. Renaming the governance document was a way of saying: this too is something to be performed from.
+
+But a score implies performers. And the question this paper asks is: who performs from SCORE.md, and does the document actually help them?
+
+\section{The Platter and the Score}
+
+The Aesthetic Computer research platter currently holds seventeen papers, organized into a papermill with automated builds, four-language translations, and a cards format for physical distribution~\citep{scudder2026cards}. Reading across these papers reveals a project of considerable ambition and internal coherence---but also a project whose self-description (the score) has not kept pace with its self-understanding (the papers).
+
+The papers tell a story the score does not. Consider:
+
+\begin{itemize}
+\item The ``Pieces Not Programs'' paper~\citep{scudder2026pieces} argues that the word ``piece'' imports a musical framework where works are authored, performable, and iterable. The score mentions pieces but never explains this framing.
+\item The notepat paper~\citep{scudder2026notepat} documents five feedback loops through which a single piece pulled an entire platform into existence. The score lists notepat as one piece among 359.
+\item The sustainability paper~\citep{scudder2026sustainability} identifies a median 8-year gap between tool creation and sustainable funding, with case studies ending in disability and death. The score has sponsor badges.
+\item The Native OS paper~\citep{scudder2026os} argues that surplus x86\_64 laptops at \$50 each are the material basis for a planetary creative instrument. The score lists build commands.
+\item The KidLisp Cards paper~\citep{scudder2026cards} demonstrates that program brevity produces a new publication format---the card as executable score. The score does not mention cards.
+\end{itemize}
+
+In each case, the paper articulates a thesis that gives meaning to what the score merely catalogs. The score has the facts but not the argument.
+
+\section{Six Tensions}
+
+Reading the score against the papers reveals six tensions that a revision should address.
+
+\subsection{Audience Confusion}
+
+The score opens with a message to AI agents (``If you find something interesting\ldots leave a breadcrumb'') and then immediately shifts to human onboarding (``press the top left of the screen''). The ``Front Door'' section addresses end users. The ``Back Door'' section addresses developers. The ``Ant Guidance'' section addresses automated agents. The ``Embodiments'' section tries to reconcile all three.
+
+This is not wrong---a score can address multiple performers. But a musical score makes the performer's part legible at a glance. SCORE.md requires the reader to figure out which parts are for them. A conductor's score and a violinist's part are different documents for good reason.
+
+\subsection{Catalog vs. Argument}
+
+The score is organized as a catalog: architecture, commands, endpoints, backlogs, market queries. This is useful reference material, but it communicates nothing about \emph{why} the project exists or what principles govern its development.
+
+The papers collectively articulate at least five core arguments:
+\begin{enumerate}
+\item Creative software should be designed as an instrument, not a tool~\citep{scudder2026goodiepal}.
+\item The ``piece'' is a unit of creative cognition, not a program~\citep{scudder2026pieces}.
+\item Constraint (in language design, in form factor) is generative, not limiting~\citep{scudder2026kidlisp, scudder2026cards}.
+\item Surplus hardware + custom OS = planetary-scale access~\citep{scudder2026os, scudder2026plork}.
+\item Creative tools require economic models that don't kill their makers~\citep{scudder2026sustainability}.
+\end{enumerate}
+
+None of these arguments appear in the score. A first-time reader of SCORE.md would know \emph{what} Aesthetic Computer is (a runtime with pieces, a prompt, some servers) but not \emph{why} it exists or what it believes.
+
+\subsection{The Backlog Problem}
+
+The score contains an ``AC Native Backlog'' section with seven items mixing completed tasks (``Claude native binary'') with aspirational features (``A/B kernel slots with auto-rollback''). This is a project management artifact, not a score. It communicates tactical state, not strategic direction.
+
+The ant philosophy (in \texttt{ants/mindset-and-rules.md}) explicitly warns against speculative work: ``IDLE is valid---wandering is the job, not failure.'' Yet the backlog in the score is precisely speculative work, presented as if it were the project's plan. The sub-scores (fedac/native/SCORE.md, papers/SCORE.md) handle this better by separating guidance from task lists.
+
+\subsection{The Keeps Market Block}
+
+The score dedicates 90 lines to Tezos/Objkt GraphQL queries for checking Keeps NFT market stats. This is operational tooling for one contributor (the author). It is valuable reference material, but it dominates the score's latter half and sends an unintended signal: that NFT market monitoring is a core concern of the project, on par with architecture and development workflow.
+
+The ``Dead Ends'' paper~\citep{scudder2026deadends} explicitly categorizes Tezos/Keeps as a monetization experiment with uncertain future. The score presents it as settled infrastructure.
+
+\subsection{Missing Voices}
+
+The ``Network Audit'' paper~\citep{scudder2026audit} reveals that AC has 2,811 registered handles but only 2.1\% write KidLisp and 0.7\% publish pieces. The ``Diversity'' paper~\citep{scudder2026diversity} acknowledges that 80\% of cited authors are Western men. The ``Sustainability'' paper~\citep{scudder2026sustainability} documents the human cost of unsupported tool-making.
+
+The score does not engage with any of this. It presents adoption numbers (``2812 registered handles, 265 user-published pieces'') as achievement rather than as data requiring interpretation. The papers are more honest than the score.
+
+\subsection{Sub-Scores vs. Main Score}
+
+The project now has six SCORE.md files: root, papers, fedac, fedac/native, opinion, and vault. The sub-scores are generally better documents than the main score. The papers score leads with a ``Mill Mission'' that explains \emph{why} it exists. The native score defines ``shipped'' with five verifiable criteria. The vault score maps the security posture.
+
+The main score, by contrast, tries to be everything: README, architecture doc, developer guide, operational runbook, and NFT dashboard. The sub-scores succeeded by being specific. The main score struggles by being comprehensive.
+
+\section{The Score Metaphor, Taken Seriously}
+
+If SCORE.md is a score, what kind of score should it be? The musical analogy suggests several properties:
+
+\textbf{A score tells you how to begin.} The current score's ``Front Door'' does this adequately for end users but not for contributors or agents. A performer picking up a score needs to know: what instrument am I playing? Where do I enter? What is the tempo?
+
+\textbf{A score has parts.} Different performers read different parts. The current score mixes all parts into one document. The sub-scores are, in effect, individual parts that have been extracted. The main score should be the conductor's score: an overview that points to parts, not a union of all parts.
+
+\textbf{A score implies a performance practice.} There are conventions about how to read and execute a score that are not written in the score itself. The ant mindset document serves this function for AI agents. Nothing equivalent exists for human contributors.
+
+\textbf{A score can be revised.} Scores have editions. The current SCORE.md has no version history or changelog within the document itself. It reads as if it were always this way, when in fact it was a README until two weeks ago.
+
+\textbf{A score is not the performance.} The score should not try to contain the project. It should be the minimal document from which the project can be performed. Everything else---backlogs, market queries, operational tooling---belongs in parts or appendices.
+
+\section{What the Papers Know That the Score Doesn't}
+
+The most striking finding from reading all seventeen papers against the score is how much richer the project's self-understanding is in the papers than in the score. The papers contain:
+
+\begin{itemize}
+\item A theory of creative cognition (pieces as perception-action cycles)
+\item A political economy of tool-making (who pays, who burns out, who dies)
+\item A design philosophy (instrument-first, constraint-as-generative, flat-over-deep)
+\item A material argument about hardware (surplus laptops as planetary instrument)
+\item An honest audit of failures (16 dead ends, 50\% contribution rate)
+\item A citation diversity commitment with specific targets
+\item A publishing infrastructure (the mill) with its own mission statement
+\end{itemize}
+
+The score contains none of this. It is a technical document that happens to be called a score. The revision should make it an actual score: a document that carries the project's arguments, not just its architecture.
+
+\section{Toward a Revised Score}
+
+A revised SCORE.md should:
+
+\begin{enumerate}
+\item \textbf{Lead with why.} State what the project believes and why it exists, drawing on the arguments articulated across the papers. The mill mission in papers/SCORE.md is a model for this.
+\item \textbf{Separate parts from conductor's score.} Move operational details (Keeps queries, backlog items, command references) into sub-scores or appendices. The main score should be readable in five minutes.
+\item \textbf{Name its audiences.} Explicitly address the three performer types (end users, human contributors, AI agents) with clear entry points for each.
+\item \textbf{Include the honest numbers.} Present adoption data with interpretation, not just as badges. 2.1\% KidLisp authorship is a fact that means something---the score should say what.
+\item \textbf{Reference the papers.} The platter exists. The score should point to it as the project's extended self-understanding, not ignore it.
+\item \textbf{Acknowledge its own history.} Note that this document was a README until March 2026, and that the renaming was itself a creative act with consequences.
+\item \textbf{Be shorter.} The current score is 361 lines. A score that takes itself seriously should be closer to the length of a piece that fits on a card.
+\end{enumerate}
+
+\section{Conclusion}
+
+SCORE.md is a good name for what the Aesthetic Computer project needs: a document that makes the project performable. But the current score is a catalog, not a composition. It lists what the project contains without arguing for what it means. The papers on the research platter---written in the same weeks as the score---contain the arguments, the honest assessments, and the creative frameworks that the score lacks.
+
+The most productive revision would not add to the score but subtract from it, moving operational detail into sub-scores and replacing it with the project's actual beliefs. The sub-scores (papers, native, vault) already demonstrate this approach. The main score should learn from its own parts.
+
+A score is not a description of an orchestra. It is the minimum notation required to produce music. SCORE.md should aspire to the same economy.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

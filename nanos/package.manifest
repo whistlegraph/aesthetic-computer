@@ -1,0 +1,8 @@
+{
+  "Args": [
+    "/usr/bin/sbcl", "--script"
+  ],
+  "Program": "sbcl_2.3.6-2.fc39//usr/bin/sbcl",
+  "Version": "2.3.6-2.fc39",
+  "BaseVolumeSz": "2g"
+}

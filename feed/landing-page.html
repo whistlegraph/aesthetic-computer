@@ -1,0 +1,972 @@
+<!--
+DP-1 Feed Landing Page for feed.aesthetic.computer
+Live channel/playlist explorer backed by SQLite
+Created: 2026.02.20
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>feed · Aesthetic Computer</title>
+  <meta name="description" content="DP-1 feed server for Aesthetic Computer — channels and playlists for user-generated art, code, music, and more">
+  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+
+  <style>
+    /* -- reset & root -- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    ::-webkit-scrollbar { display: none; }
+
+    /* -- dark (default) -- */
+    :root {
+      --bg: #1a1a2e;
+      --text: #e8e8e8;
+      --dim: #888;
+      --pink: #ff6b9d;
+      --cyan: #4ecdc4;
+      --green: #6bcb77;
+      --gold: #ffd93d;
+      --box-bg: rgba(255,255,255,0.03);
+      --box-border: rgba(255,255,255,0.1);
+    }
+
+    /* -- light -- */
+    body.light-mode {
+      --bg: #f5f5f5;
+      --text: #1a1a2e;
+      --dim: #666;
+      --pink: rgb(205, 92, 155);
+      --cyan: #0891b2;
+      --green: #059669;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.12);
+    }
+
+    body {
+      font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-text-size-adjust: none;
+      background: var(--bg);
+      color: var(--text);
+      cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
+    }
+
+    a { color: var(--pink); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* -- animations -- */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* -- layout -- */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2em 1em;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    /* -- header -- */
+    header {
+      text-align: center;
+      padding: 2em 0 1.5em;
+      margin-bottom: 1.5em;
+    }
+
+    .logo {
+      font-size: 2.2em;
+      font-weight: normal;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.1em;
+    }
+
+    .logo b { color: var(--pink); }
+    .dot-pink { color: var(--pink); font-weight: bold; }
+    .dot-cyan { color: var(--cyan); font-weight: bold; }
+
+    .subtitle {
+      color: var(--dim);
+      font-size: 0.85em;
+      margin-bottom: 1em;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+      margin-right: 0.3em;
+      vertical-align: middle;
+    }
+
+    .status-dot.offline {
+      background: #ef4444;
+      animation: none;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 0.6em;
+      flex-wrap: wrap;
+      font-size: 0.8em;
+    }
+
+    .stat {
+      padding: 0.3em 0.7em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      color: var(--dim);
+    }
+
+    .stat strong { color: var(--pink); }
+
+    /* -- sections -- */
+    .section {
+      margin-bottom: 1.5em;
+      animation: slideIn 0.5s ease-out both;
+    }
+
+    .section:nth-child(2) { animation-delay: 0.1s; }
+    .section:nth-child(3) { animation-delay: 0.2s; }
+    .section:nth-child(4) { animation-delay: 0.3s; }
+
+    .section-hd {
+      font-size: 0.85em;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.6em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-count { color: var(--pink); }
+
+    /* -- channel card -- */
+    .channel-card {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      padding: 1.2em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .channel-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--pink), var(--cyan));
+    }
+
+    .channel-title {
+      font-size: 1.3em;
+      margin-bottom: 0.2em;
+    }
+
+    .channel-title b { color: var(--pink); }
+
+    .channel-meta {
+      color: var(--dim);
+      font-size: 0.85em;
+      line-height: 1.6;
+    }
+
+    .channel-curator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      color: var(--cyan);
+    }
+
+    /* -- playlist rows -- */
+    .playlist-list {
+      border: 1px solid var(--box-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .pl-row {
+      padding: 0.8em 1em;
+      border-bottom: 1px solid var(--box-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.8em;
+      cursor: pointer;
+      transition: background 0.15s, padding-left 0.15s;
+    }
+
+    .pl-row:last-child { border-bottom: none; }
+    .pl-row:hover { background: var(--box-bg); padding-left: 1.2em; }
+    .pl-row.open { background: var(--box-bg); }
+
+    .pl-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .pl-icon {
+      font-size: 1.1em;
+      flex-shrink: 0;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .pl-row:nth-child(2) .pl-icon { animation-delay: 0.3s; }
+    .pl-row:nth-child(3) .pl-icon { animation-delay: 0.6s; }
+    .pl-row:nth-child(4) .pl-icon { animation-delay: 0.9s; }
+    .pl-row:nth-child(5) .pl-icon { animation-delay: 1.2s; }
+
+    .pl-info { min-width: 0; }
+
+    .pl-title {
+      color: var(--text);
+      font-weight: normal;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pl-summary {
+      font-size: 0.8em;
+      color: var(--dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 400px;
+    }
+
+    .pl-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+      flex-shrink: 0;
+      font-size: 0.8em;
+      color: var(--dim);
+    }
+
+    .badge {
+      padding: 0.15em 0.5em;
+      border-radius: 3px;
+      font-size: 0.75em;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-dynamic {
+      background: rgba(255,107,157,0.12);
+      color: var(--pink);
+    }
+
+    .badge-static {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      color: var(--dim);
+    }
+
+    /* -- expanded piece list -- */
+    .pl-items {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      border-bottom: 1px solid var(--box-border);
+    }
+
+    .pl-items.open {
+      max-height: 2000px;
+      transition: max-height 0.5s ease-in;
+    }
+
+    .pl-items:last-child { border-bottom: none; }
+
+    .pl-items-inner {
+      padding: 0.5em 1em 0.8em;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 0.3em;
+    }
+
+    .piece {
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+      padding: 0.25em 0.4em;
+      border-radius: 3px;
+      transition: background 0.1s;
+      font-size: 0.85em;
+    }
+
+    .piece:hover { background: rgba(255,107,157,0.08); }
+
+    .piece-code {
+      color: var(--pink);
+      text-decoration: none;
+      font-weight: normal;
+    }
+
+    .piece-code:hover { text-decoration: underline; }
+
+    /* -- api endpoints -- */
+    .endpoint-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.3em;
+    }
+
+    @media (max-width: 500px) {
+      .endpoint-grid { grid-template-columns: 1fr; }
+    }
+
+    .ep {
+      padding: 0.4em 0.6em;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      display: flex;
+      gap: 0.5em;
+      font-size: 0.8em;
+    }
+
+    .ep .method {
+      color: var(--cyan);
+      font-weight: normal;
+      flex-shrink: 0;
+      min-width: 2.5em;
+    }
+
+    .ep .path { color: var(--dim); }
+
+    /* -- footer -- */
+    footer {
+      margin-top: 2.5em;
+      padding-top: 1em;
+      border-top: 1px solid var(--box-border);
+      text-align: center;
+      font-size: 0.8em;
+      color: var(--dim);
+    }
+
+    footer .heart {
+      color: var(--pink);
+      display: inline-block;
+      animation: float 2s ease-in-out infinite;
+    }
+
+    /* -- responsive -- */
+    @media (max-width: 600px) {
+      .container { padding: 1em 0.6em; }
+      .logo { font-size: 1.6em; }
+      .pl-summary { display: none; }
+      .pl-right span:last-child { display: none; }
+      .pl-items-inner { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+    }
+
+    .loading { color: var(--dim); animation: pulse 1.5s ease-in-out infinite; }
+
+    /* -- tv player -- */
+    .tv-wrapper {
+      margin-bottom: 1.5em;
+      animation: slideIn 0.5s ease-out both;
+    }
+
+    .tv-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5em;
+    }
+
+    .tv-label {
+      font-size: 0.85em;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .tv-now-playing {
+      font-size: 0.8em;
+      color: var(--pink);
+    }
+
+    .tv-screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--box-border);
+    }
+
+    .tv-screen iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    .tv-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      margin-top: 0.5em;
+    }
+
+    .tv-btn {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.8em;
+      padding: 0.3em 0.6em;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .tv-btn:hover {
+      background: rgba(255,107,157,0.08);
+      border-color: var(--pink);
+    }
+
+    .tv-btn.active {
+      border-color: var(--pink);
+      color: var(--pink);
+    }
+
+    .tv-progress {
+      flex: 1;
+      height: 3px;
+      background: var(--box-border);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .tv-progress-bar {
+      height: 100%;
+      background: var(--pink);
+      border-radius: 2px;
+      transition: width 0.3s linear;
+    }
+
+    .tv-index {
+      font-size: 0.75em;
+      color: var(--dim);
+      min-width: 4em;
+      text-align: right;
+    }
+
+    .tv-playlist-picker {
+      display: flex;
+      gap: 0.3em;
+      margin-top: 0.4em;
+      flex-wrap: wrap;
+    }
+
+    .tv-playlist-chip {
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-radius: 4px;
+      color: var(--dim);
+      font-family: inherit;
+      font-size: 0.75em;
+      padding: 0.2em 0.5em;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .tv-playlist-chip:hover {
+      border-color: var(--pink);
+      color: var(--text);
+    }
+
+    .tv-playlist-chip.active {
+      border-color: var(--pink);
+      color: var(--pink);
+      background: rgba(255,107,157,0.08);
+    }
+
+    /* -- modal overlay -- */
+    .feed-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feed-modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+    }
+
+    .feed-modal-content {
+      position: relative;
+      width: 90%;
+      max-width: 900px;
+      height: 80vh;
+      background: var(--bg);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .feed-modal-close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .feed-modal-close:hover {
+      background: #fff;
+      transform: scale(1.1);
+    }
+
+    .feed-modal-content iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo"><b>feed</b><span class="dot-pink">.</span><b>aesthetic</b><span class="dot-cyan">.</span><b>computer</b></div>
+      <p class="subtitle">channels and playlists for aesthetic computer</p>
+      <div class="stats" id="stats">
+        <span class="loading">connecting...</span>
+      </div>
+    </header>
+
+    <div class="tv-wrapper" id="tv-wrapper" style="display:none">
+      <div class="tv-header">
+        <span class="tv-label">now playing</span>
+        <span class="tv-now-playing" id="tv-now-playing"></span>
+      </div>
+      <div class="tv-screen">
+        <iframe id="tv-iframe" allow="autoplay" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+      <div class="tv-controls">
+        <button class="tv-btn" id="tv-prev" title="Previous">&#9664;</button>
+        <button class="tv-btn" id="tv-playpause" title="Play/Pause">&#9646;&#9646;</button>
+        <button class="tv-btn" id="tv-next" title="Next">&#9654;</button>
+        <div class="tv-progress" id="tv-progress">
+          <div class="tv-progress-bar" id="tv-progress-bar"></div>
+        </div>
+        <span class="tv-index" id="tv-index"></span>
+      </div>
+      <div class="tv-playlist-picker" id="tv-playlist-picker"></div>
+    </div>
+
+    <div id="content">
+      <div class="loading" style="text-align:center;padding:2em">loading feed...</div>
+    </div>
+
+    <div class="section" id="api-section" style="animation-delay:0.3s">
+      <div class="section-hd">API</div>
+      <div class="endpoint-grid">
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/health</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items/:id</span></div>
+      </div>
+    </div>
+
+    <footer>
+      <a href="https://github.com/whistlegraph/dp1-feed">dp1-feed</a>
+      &middot; <a href="https://aesthetic.computer" onclick="event.preventDefault(); openModal(this.href)">aesthetic.computer</a>
+      &middot; <a href="https://kidlisp.com" onclick="event.preventDefault(); openModal(this.href)">kidlisp</a>
+      <br>
+      <span class="heart">~</span>
+    </footer>
+  </div>
+
+  <script>
+    // Theme: follow system preference
+    function applyTheme() {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        document.body.classList.add('light-mode');
+      } else {
+        document.body.classList.remove('light-mode');
+      }
+    }
+    applyTheme();
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme);
+
+    const API = '/api/v1';
+    const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+    // Pick an icon for a channel or playlist
+    const channelIcons = {
+      kidlisp: '\u{1F4BB}',      // laptop
+      paintings: '\u{1F3A8}',    // artist palette
+      mugs: '\u{2615}',         // hot beverage
+      clocks: '\u{23F0}',       // alarm clock
+      moods: '\u{1F30A}',       // wave
+      chats: '\u{1F4AC}',       // speech bubble
+      instruments: '\u{1F3B9}', // musical keyboard
+      tapes: '\u{1F4FC}',       // videocassette
+    };
+
+    function chIcon(title) {
+      const t = (title || '').toLowerCase();
+      for (const [k, v] of Object.entries(channelIcons)) {
+        if (t.includes(k)) return v;
+      }
+      return '\u{1F4BF}';
+    }
+
+    function plIcon(title) {
+      const t = (title || '').toLowerCase();
+      if (t.includes('top 100')) return '\u{1F3B0}';
+      if (t.includes('@jeffrey')) return '\u{1F451}';
+      if (t.includes('@fifi')) return '\u{1F338}';
+      if (t.includes('color')) return '\u{1F308}';
+      if (t.includes('chord')) return '\u{1F3B9}';
+      if (t.includes('recent')) return '\u{2728}';
+      if (t.includes('mood')) return '\u{1F30A}';
+      if (t.includes('chat')) return '\u{1F4AC}';
+      return '\u{1F4BF}';
+    }
+
+    async function load() {
+      // Health
+      try {
+        const [health, info] = await Promise.all([
+          fetch(`${API}/health`).then(r => r.json()),
+          fetch(`${API}`).then(r => r.json()),
+        ]);
+        const el = document.getElementById('stats');
+        const dot = health.status === 'ok'
+          ? '<span class="status-dot"></span>'
+          : '<span class="status-dot offline"></span>';
+        const parts = [dot + '<span class="stat"><strong>online</strong></span>'];
+        if (info.version) parts.push(`<span class="stat">v<strong>${esc(info.version)}</strong></span>`);
+        if (info.runtime) parts.push(`<span class="stat">${esc(info.runtime)}</span>`);
+        parts.push('<span class="stat">sqlite</span>');
+        el.innerHTML = parts.join('');
+      } catch (e) {
+        document.getElementById('stats').innerHTML =
+          '<span class="status-dot offline"></span><span class="stat" style="color:#ef4444"><strong>offline</strong></span>';
+      }
+
+      // Channels + playlists
+      try {
+        const chData = await fetch(`${API}/channels`).then(r => r.json());
+        const channels = chData.items || [];
+
+        // Fetch all playlists for all channels
+        const allPlaylists = [];
+        const plById = {};
+        for (const ch of channels) {
+          for (const url of (ch.playlists || [])) {
+            const id = url.split('/').pop();
+            if (!plById[id]) {
+              const p = await fetch(`${API}/playlists/${id}`).then(r => r.json()).catch(() => null);
+              if (p) { plById[id] = p; allPlaylists.push(p); }
+            }
+          }
+        }
+
+        window._playlists = []; // will be filled in channel order
+        let globalIdx = 0;
+        let totalPlaylists = 0;
+        let totalItems = 0;
+        allPlaylists.forEach(p => { totalPlaylists++; totalItems += (p.items?.length || 0); });
+
+        // Stats summary
+        const statsEl = document.getElementById('stats');
+        const existingStats = statsEl.innerHTML;
+        statsEl.innerHTML = existingStats +
+          ` <span class="stat"><strong>${channels.length}</strong> channels</span>` +
+          ` <span class="stat"><strong>${totalPlaylists}</strong> playlists</span>` +
+          ` <span class="stat"><strong>${totalItems}</strong> items</span>`;
+
+        let html = '';
+
+        for (const ch of channels) {
+          const chPlIds = (ch.playlists || []).map(url => url.split('/').pop());
+          const chPls = chPlIds.map(id => plById[id]).filter(Boolean);
+          const chItems = chPls.reduce((n, p) => n + (p.items?.length || 0), 0);
+          const icon = chIcon(ch.title);
+
+          html += `<div class="section">
+            <div class="channel-card">
+              <div class="channel-title"><span style="margin-right:0.3em">${icon}</span><b>${esc(ch.title)}</b></div>
+              <div class="channel-meta">${esc(ch.summary || '')}</div>
+              <div class="channel-meta" style="margin-top:0.4em">
+                <span class="channel-curator">${esc(ch.curator || '-')}</span>
+                &middot; ${chPls.length} playlists &middot; ${chItems} items
+              </div>
+            </div>
+            <div class="playlist-list" style="margin-top:0.5em">`;
+
+          for (const p of chPls) {
+            const idx = globalIdx++;
+            window._playlists[idx] = p;
+            const count = p.items?.length || 0;
+            const isStatic = /(color|chord|chat)/i.test(p.title || '');
+            const pIcon = plIcon(p.title);
+
+            html += `<div class="pl-row" onclick="toggle(${idx})" id="plr-${idx}">
+              <div class="pl-left">
+                <span class="pl-icon">${pIcon}</span>
+                <div class="pl-info">
+                  <div class="pl-title">${esc(p.title || p.slug)}</div>
+                  <div class="pl-summary">${esc(p.summary || '')}</div>
+                </div>
+              </div>
+              <div class="pl-right">
+                <span class="badge ${isStatic ? 'badge-static' : 'badge-dynamic'}">${isStatic ? 'static' : 'daily'}</span>
+                <span>${count}</span>
+                <button class="tv-btn" onclick="event.stopPropagation(); tvSwitchPlaylist('${p.id}')" title="Play on TV" style="font-size:0.9em;padding:0.15em 0.4em">&#9654;</button>
+              </div>
+            </div>
+            <div class="pl-items" id="pli-${idx}">
+              <div class="pl-items-inner" id="plic-${idx}"></div>
+            </div>`;
+          }
+
+          html += '</div></div>';
+        }
+
+        document.getElementById('content').innerHTML = html;
+
+        // Start TV player — default to Colors playlist
+        tv.allPlaylists = allPlaylists;
+        const colorsPlaylist = allPlaylists.find(p => /^colors$/i.test(p.title));
+        if (colorsPlaylist) tvLoad(colorsPlaylist);
+        else if (allPlaylists.length) tvLoad(allPlaylists[0]);
+        tvBuildPicker();
+      } catch (e) {
+        document.getElementById('content').innerHTML =
+          '<div style="text-align:center;color:var(--dim);padding:2em">could not load feed data</div>';
+      }
+    }
+
+    function toggle(i) {
+      const items = document.getElementById('pli-' + i);
+      const row = document.getElementById('plr-' + i);
+      const inner = document.getElementById('plic-' + i);
+      if (!items) return;
+
+      const wasOpen = items.classList.contains('open');
+      items.classList.toggle('open');
+      row.classList.toggle('open');
+
+      // Lazy-render items on first open
+      if (!wasOpen && inner && !inner.dataset.loaded) {
+        const p = window._playlists?.[i];
+        if (p?.items?.length) {
+          inner.innerHTML = p.items.map((item, j) => {
+            const code = item.title || item.id || '-';
+            const url = item.url || '#';
+            return `<div class="piece"><a class="piece-code" href="${esc(url)}" onclick="event.preventDefault(); openModal(this.href)">${esc(code)}</a></div>`;
+          }).join('');
+        } else {
+          inner.innerHTML = '<div style="color:var(--dim);grid-column:1/-1">empty</div>';
+        }
+        inner.dataset.loaded = '1';
+      }
+    }
+
+    // -- Modal --
+    function openModal(url) {
+      const existing = document.getElementById('feed-modal');
+      if (existing) existing.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'feed-modal';
+      modal.className = 'feed-modal';
+      modal.innerHTML = `
+        <div class="feed-modal-backdrop"></div>
+        <div class="feed-modal-content">
+          <button class="feed-modal-close">\u00d7</button>
+          <iframe src="${url}" frameborder="0"></iframe>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      modal.querySelector('.feed-modal-backdrop').addEventListener('click', closeModal);
+      modal.querySelector('.feed-modal-close').addEventListener('click', closeModal);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('feed-modal');
+      if (modal) modal.remove();
+      document.removeEventListener('keydown', handleEscape);
+    }
+
+    function handleEscape(e) {
+      if (e.key === 'Escape') closeModal();
+    }
+
+    // -- TV Player --
+    const tv = {
+      items: [],
+      index: 0,
+      playing: true,
+      timer: null,
+      elapsed: 0,
+      tick: null,
+      playlistId: null,
+      allPlaylists: [],  // filled after load
+    };
+
+    function tvLoad(playlist) {
+      tv.items = (playlist.items || []).slice();
+      tv.index = 0;
+      tv.playlistId = playlist.id;
+      tv.playing = true;
+      // highlight active chip
+      document.querySelectorAll('.tv-playlist-chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.id === playlist.id);
+      });
+      tvShow();
+      document.getElementById('tv-wrapper').style.display = '';
+    }
+
+    function tvShow() {
+      if (!tv.items.length) return;
+      const item = tv.items[tv.index];
+      const iframe = document.getElementById('tv-iframe');
+      iframe.src = item.source || item.url || '';
+      document.getElementById('tv-now-playing').textContent = item.title || '';
+      document.getElementById('tv-index').textContent =
+        `${tv.index + 1} / ${tv.items.length}`;
+      tv.elapsed = 0;
+      tvUpdateProgress();
+      tvStartTimer();
+    }
+
+    function tvStartTimer() {
+      tvStopTimer();
+      if (!tv.playing) return;
+      const duration = tv.items[tv.index]?.duration || 8;
+      tv.elapsed = 0;
+      tv.tick = setInterval(() => {
+        tv.elapsed += 0.25;
+        tvUpdateProgress();
+        if (tv.elapsed >= duration) {
+          tvNext();
+        }
+      }, 250);
+    }
+
+    function tvStopTimer() {
+      if (tv.tick) { clearInterval(tv.tick); tv.tick = null; }
+    }
+
+    function tvUpdateProgress() {
+      const duration = tv.items[tv.index]?.duration || 8;
+      const pct = Math.min(100, (tv.elapsed / duration) * 100);
+      document.getElementById('tv-progress-bar').style.width = pct + '%';
+    }
+
+    function tvNext() {
+      tv.index = (tv.index + 1) % tv.items.length;
+      tvShow();
+    }
+
+    function tvPrev() {
+      tv.index = (tv.index - 1 + tv.items.length) % tv.items.length;
+      tvShow();
+    }
+
+    function tvToggle() {
+      tv.playing = !tv.playing;
+      document.getElementById('tv-playpause').innerHTML =
+        tv.playing ? '&#9646;&#9646;' : '&#9654;';
+      document.getElementById('tv-playpause').classList.toggle('active', !tv.playing);
+      if (tv.playing) tvStartTimer(); else tvStopTimer();
+    }
+
+    document.getElementById('tv-prev').addEventListener('click', tvPrev);
+    document.getElementById('tv-next').addEventListener('click', tvNext);
+    document.getElementById('tv-playpause').addEventListener('click', tvToggle);
+    document.getElementById('tv-progress').addEventListener('click', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      const duration = tv.items[tv.index]?.duration || 8;
+      tv.elapsed = pct * duration;
+      tvUpdateProgress();
+    });
+
+    // Build playlist picker chips after data loads
+    function tvBuildPicker() {
+      const picker = document.getElementById('tv-playlist-picker');
+      picker.innerHTML = tv.allPlaylists.map(p => {
+        const icon = plIcon(p.title);
+        return `<button class="tv-playlist-chip${p.id === tv.playlistId ? ' active' : ''}"
+          data-id="${p.id}" onclick="tvSwitchPlaylist('${p.id}')">${icon} ${esc(p.title)}</button>`;
+      }).join('');
+    }
+
+    function tvSwitchPlaylist(id) {
+      const pl = tv.allPlaylists.find(p => p.id === id);
+      if (pl) tvLoad(pl);
+    }
+
+    load();
+  </script>
+</body>
+</html>

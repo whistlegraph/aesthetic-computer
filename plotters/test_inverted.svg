@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="20mm" viewBox="0 0 40 20">
+  <g stroke="black" stroke-width="0.4" fill="none">
+    <!-- Short stroke at left -->
+    <line x1="5" y1="5" x2="20" y2="5" />
+    <!-- Short stroke at right -->
+    <line x1="20" y1="15" x2="35" y2="15" />
+  </g>
+</svg>
