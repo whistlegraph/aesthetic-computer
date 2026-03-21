@@ -317,7 +317,10 @@ static void *audio_thread_fn(void *arg) {
 
                 // Interpolated read for L channel
                 int slen = audio->sample_len;
-                if (slen <= 0) { sv->active = 0; continue; }
+                int smax = audio->sample_max_len;
+                if (slen <= 0 || smax <= 0) { sv->active = 0; continue; }
+                // Clamp slen to buffer bounds (sample_len may change mid-read)
+                if (slen > smax) slen = smax;
                 int p0l = (int)pos_l;
                 if (sv->loop) {
                     p0l = ((p0l % slen) + slen) % slen;
@@ -325,6 +328,8 @@ static void *audio_thread_fn(void *arg) {
                     sv->active = 0; continue;
                 }
                 int p1l = p0l + 1; if (p1l >= slen) p1l = sv->loop ? 0 : p0l;
+                // Final bounds check against actual buffer size
+                if (p0l >= smax || p1l >= smax) { sv->active = 0; continue; }
                 double fl = pos_l - p0l;
                 double samp_l = audio->sample_buf[p0l] * (1.0 - fl)
                               + audio->sample_buf[p1l] * fl;
@@ -336,7 +341,9 @@ static void *audio_thread_fn(void *arg) {
                 } else if (p0r >= slen) {
                     p0r = slen - 1;
                 }
+                if (p0r < 0) p0r = 0;
                 int p1r = p0r + 1; if (p1r >= slen) p1r = sv->loop ? 0 : p0r;
+                if (p0r >= smax || p1r >= smax) { sv->active = 0; continue; }
                 double fr = pos_r - p0r;
                 double samp_r = audio->sample_buf[p0r] * (1.0 - fr)
                               + audio->sample_buf[p1r] * fr;
@@ -1229,6 +1236,12 @@ int audio_mic_start(ACAudio *audio) {
 int audio_mic_stop(ACAudio *audio) {
     if (!audio) return 0;
     audio->recording = 0;
+    __sync_synchronize();
+
+    // Kill all sample voices BEFORE touching sample_buf —
+    // playback thread reads sample_buf[]/sample_len without locks
+    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
+        audio->sample_voices[i].active = 0;
     __sync_synchronize();
 
     int direct_len = audio->sample_write_pos;
