@@ -5316,6 +5316,14 @@ void js_call_boot(ACRuntime *rt) {
     }
 }
 
+// Helper: record a JS crash for the overlay
+static void js_record_crash(ACRuntime *rt, const char *fn_name, const char *msg) {
+    rt->crash_active = 1;
+    rt->crash_count++;
+    rt->crash_frame = 0;
+    snprintf(rt->crash_msg, sizeof(rt->crash_msg), "%s(): %s", fn_name, msg ? msg : "unknown");
+}
+
 void js_call_paint(ACRuntime *rt) {
     if (!JS_IsFunction(rt->ctx, rt->paint_fn)) return;
     current_rt = rt;
@@ -5328,6 +5336,7 @@ void js_call_paint(ACRuntime *rt) {
         JSValue stack = JS_GetPropertyStr(rt->ctx, exc, "stack");
         const char *stack_str = JS_ToCString(rt->ctx, stack);
         fprintf(stderr, "[js] paint() error: %s\n%s\n", str, stack_str ? stack_str : "");
+        js_record_crash(rt, "paint", str);
         if (stack_str) JS_FreeCString(rt->ctx, stack_str);
         JS_FreeValue(rt->ctx, stack);
         JS_FreeCString(rt->ctx, str);
@@ -5387,6 +5396,7 @@ void js_call_act(ACRuntime *rt) {
             const char *stack_str = JS_ToCString(rt->ctx, stack);
             fprintf(stderr, "[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
             ac_log("[js] act() error: %s\n%s\n", str, stack_str ? stack_str : "");
+            js_record_crash(rt, "act", str);
             if (stack_str) JS_FreeCString(rt->ctx, stack_str);
             JS_FreeValue(rt->ctx, stack);
             JS_FreeCString(rt->ctx, str);
@@ -5425,6 +5435,7 @@ void js_call_sim(ACRuntime *rt) {
         JSValue stack = JS_GetPropertyStr(rt->ctx, exc, "stack");
         const char *stack_str = JS_ToCString(rt->ctx, stack);
         fprintf(stderr, "[js] sim() error: %s\n%s\n", str, stack_str ? stack_str : "");
+        js_record_crash(rt, "sim", str);
         if (stack_str) JS_FreeCString(rt->ctx, stack_str);
         JS_FreeValue(rt->ctx, stack);
         JS_FreeCString(rt->ctx, str);
