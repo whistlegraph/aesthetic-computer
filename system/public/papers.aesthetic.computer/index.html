@@ -181,6 +181,7 @@
         .p .detail a { color: var(--purple); }
         .p .detail a:hover { text-decoration: underline; }
         .p .meta-row { display: flex; gap: 1em; font-size: 0.85em; margin-bottom: 0.1em; align-items: center; }
+        .p .meta-row .hits { color: var(--cyan); }
         .p .updated { color: var(--cyan); opacity: 0.85; }
         .p .created { color: var(--dim); opacity: 0.7; }
         .p .created::before { content: "est "; }
@@ -852,6 +853,44 @@
                 a.addEventListener('click', () => trackHit(id, fmt));
             });
         });
+
+        // Sort papers by hit count (most read first) and show counts
+        (async () => {
+            try {
+                const res = await fetch('https://aesthetic.computer/api/paper-hit');
+                if (!res.ok) return;
+                const { stats } = await res.json();
+                // Aggregate hits per paper (combine pdf + cards formats)
+                const totals = {};
+                for (const s of stats) {
+                    const id = s._id.paper;
+                    totals[id] = (totals[id] || 0) + s.count;
+                }
+                const container = document.querySelector('.p')?.parentElement;
+                if (!container) return;
+                const papers = [...container.querySelectorAll('.p')];
+                // Inject hit counts into meta rows
+                for (const p of papers) {
+                    const id = p.dataset.paperId;
+                    const count = totals[id] || 0;
+                    const metaRow = p.querySelector('.meta-row');
+                    if (metaRow && count > 0) {
+                        const span = document.createElement('span');
+                        span.className = 'hits';
+                        span.title = 'Views';
+                        span.textContent = count + ' view' + (count !== 1 ? 's' : '');
+                        metaRow.prepend(span);
+                    }
+                }
+                // Sort descending by hits
+                papers.sort((a, b) => {
+                    const ha = totals[a.dataset.paperId] || 0;
+                    const hb = totals[b.dataset.paperId] || 0;
+                    return hb - ha;
+                });
+                for (const p of papers) container.appendChild(p);
+            } catch {}
+        })();
 
         // Theme toggle
         function toggleTheme() {
