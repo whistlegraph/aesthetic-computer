@@ -100,6 +100,13 @@ typedef struct {
     // User config (read from /mnt/config.json on EFI partition)
     char handle[64];                     // e.g. "jeffrey" (without @)
     char piece[64];                      // default piece name, e.g. "notepat"
+
+    // JS crash overlay — set when paint/act/sim throws an unhandled exception
+    int  crash_active;                   // 1 = crash bar visible
+    int  crash_count;                    // total JS exceptions since piece load
+    char crash_msg[256];                 // last error message
+    char crash_piece[64];               // piece that crashed
+    int  crash_frame;                    // frame counter for animation
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings
