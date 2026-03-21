@@ -13,6 +13,28 @@ mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
 
+# Early USB mount for init logging (before ac-native starts)
+INIT_LOG=""
+for usbdev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
+    if [ -b "$usbdev" ]; then
+        mkdir -p /mnt/usb
+        mount -o rw "$usbdev" /mnt/usb 2>/dev/null && {
+            INIT_LOG="/mnt/usb/ac-init.log"
+            echo "=== AC Init $(date 2>/dev/null || echo 'boot') ===" > "$INIT_LOG"
+            break
+        }
+    fi
+done
+# Log helper — writes to USB if mounted, always to kmsg
+ilog() {
+    echo "[init] $*"
+    [ -n "$INIT_LOG" ] && echo "[init] $*" >> "$INIT_LOG"
+}
+ilog "devtmpfs mounted, USB=${usbdev:-none}"
+ilog "devices: $(ls /dev/dri/ 2>/dev/null || echo 'no /dev/dri')"
+ilog "fb: $(ls /dev/fb* 2>/dev/null || echo 'no fb')"
+ilog "pci gpu: $(cat /sys/bus/pci/devices/*/class 2>/dev/null | grep -c '0x03' || echo 0) devices"
+
 # Restore baked credentials from initramfs rootfs (before tmpfs hid them)
 # The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
 # Copy from the initramfs backup location instead.
@@ -65,14 +87,17 @@ fi
 
 # Wait for DRM device (GPU driver may not be ready yet)
 WAIT=0
-while [ ! -e /dev/dri/card0 ] && [ $WAIT -lt 30 ]; do
+while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/dri/card1 ] && [ $WAIT -lt 50 ]; do
     sleep 0.1
     WAIT=$((WAIT + 1))
 done
-if [ -e /dev/dri/card0 ]; then
-    ilog "drm ready after ${WAIT}00ms"
+if [ -e /dev/dri/card0 ] || [ -e /dev/dri/card1 ]; then
+    DRM_DEV=$(ls /dev/dri/card* 2>/dev/null | head -1)
+    ilog "drm ready: ${DRM_DEV} after ${WAIT}00ms"
 else
-    ilog "WARNING: /dev/dri/card0 not found after 3s"
+    ilog "WARNING: no /dev/dri/card* found after 5s — trying framebuffer"
+    # List what devices exist for debugging
+    ls /dev/dri/ /dev/fb* 2>/dev/null | while read f; do ilog "  dev: $f"; done
 fi
 
 ilog "starting ac-native"
