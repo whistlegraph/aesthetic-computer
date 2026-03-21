@@ -392,14 +392,25 @@ if [ "${WIFI_COPIED}" -gt 0 ]; then
     mkdir -p "${INITRAMFS_DIR}/lib/firmware"
     # Regulatory database (required for WiFi scanning)
     for rdb in regulatory.db regulatory.db.p7s; do
-        [ -f "/lib/firmware/$rdb" ] && cp "/lib/firmware/$rdb" "${INITRAMFS_DIR}/lib/firmware/"
+        if [ -f "/lib/firmware/$rdb" ]; then
+            cp "/lib/firmware/$rdb" "${INITRAMFS_DIR}/lib/firmware/"
+        elif [ -f "/lib/firmware/${rdb}.zst" ]; then
+            zstd -d "/lib/firmware/${rdb}.zst" -o "${INITRAMFS_DIR}/lib/firmware/$rdb" 2>/dev/null
+        elif [ -f "/lib/firmware/${rdb}.xz" ]; then
+            xz -dk "/lib/firmware/${rdb}.xz" -c > "${INITRAMFS_DIR}/lib/firmware/$rdb" 2>/dev/null
+        fi
     done
     for pattern in "iwlwifi-9260-th-b0-jf-b0-*" "iwlwifi-cc-a0-*" "iwlwifi-QuZ-a0-hr-b0-*" "iwlwifi-QuZ-a0-jf-b0-*"; do
         # Get the latest (highest version number) firmware file
         fw=$(ls -v /lib/firmware/${pattern}.ucode* 2>/dev/null | tail -1 || true)
         if [ -n "$fw" ] && [ -f "$fw" ]; then
             dest="${INITRAMFS_DIR}/lib/firmware/$(basename "${fw%.xz}")"
-            xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest"
+            dest="${dest%.zst}"
+            case "$fw" in
+                *.xz)  xz -dk "$fw" -c > "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                *.zst) zstd -d "$fw" -o "$dest" 2>/dev/null || cp "$fw" "$dest" ;;
+                *)     cp "$fw" "$dest" ;;
+            esac
             log "  firmware: $(basename "$dest") ($(du -sh "$dest" | cut -f1))"
         fi
     done
