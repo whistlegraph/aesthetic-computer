@@ -244,9 +244,10 @@ static void mount_minimal_fs(void) {
     // Bring up loopback interface (needed for Claude OAuth callback server)
     system("/bin/ip link set lo up 2>/dev/null || /usr/sbin/ip link set lo up 2>/dev/null || ifconfig lo up 2>/dev/null");
 
-    // Wait for display device (up to 1s)
-    for (int i = 0; i < 100; i++) {
+    // Wait for display device (up to 10s — Gemini Lake GPUs can be slow)
+    for (int i = 0; i < 1000; i++) {
         if (access("/dev/dri/card0", F_OK) == 0 ||
+            access("/dev/dri/card1", F_OK) == 0 ||
             access("/dev/fb0", F_OK) == 0) break;
         usleep(10000);
     }
