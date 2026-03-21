@@ -2110,6 +2110,18 @@ static JSValue build_wifi_obj(JSContext *ctx, ACWifi *wifi) {
             JS_SetPropertyUint32(ctx, networks, i, net);
         }
         JS_SetPropertyStr(ctx, obj, "networks", networks);
+
+        // Log ring buffer (last 32 messages from wifi thread)
+        JSValue logs = JS_NewArray(ctx);
+        int total = wifi->log_count;
+        int count = total < 32 ? total : 32;
+        for (int i = 0; i < count; i++) {
+            // Read in chronological order (oldest first)
+            int idx = (total >= 32) ? ((total - 32 + i) % 32) : i;
+            JS_SetPropertyUint32(ctx, logs, i,
+                JS_NewString(ctx, wifi->log[idx]));
+        }
+        JS_SetPropertyStr(ctx, obj, "logs", logs);
     } else {
         extern int wifi_disabled;
         JS_SetPropertyStr(ctx, obj, "state", JS_NewInt32(ctx, WIFI_STATE_OFF));
