@@ -4936,28 +4936,32 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
+      background: rgba(250, 204, 21, 0.12);
+    }
+    [data-theme="dark"] #list-content {
+      background: rgba(250, 204, 21, 0.08);
     }
     
-    /* Per-subcontent gradients matching subtab colors */
-    #examples-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.1) 40%, transparent 100%); 
+    /* Per-subcontent gradients — yellow base tint with colored top gradient */
+    #examples-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.3) 0%, rgba(59, 130, 246, 0.1) 40%, rgba(250, 204, 21, 0.08) 100%);
     }
-    [data-theme="dark"] #examples-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.35) 0%, rgba(59, 130, 246, 0.1) 40%, transparent 100%); 
+    [data-theme="dark"] #examples-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(59, 130, 246, 0.35) 0%, rgba(59, 130, 246, 0.1) 40%, rgba(250, 204, 21, 0.05) 100%);
     }
-    
-    #recent-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.3) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); 
+
+    #recent-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.3) 0%, rgba(249, 115, 22, 0.1) 40%, rgba(250, 204, 21, 0.08) 100%);
     }
-    [data-theme="dark"] #recent-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.35) 0%, rgba(249, 115, 22, 0.1) 40%, transparent 100%); 
+    [data-theme="dark"] #recent-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(249, 115, 22, 0.35) 0%, rgba(249, 115, 22, 0.1) 40%, rgba(250, 204, 21, 0.05) 100%);
     }
-    
-    #history-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.3) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); 
+
+    #history-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.3) 0%, rgba(180, 130, 90, 0.1) 40%, rgba(250, 204, 21, 0.08) 100%);
     }
-    [data-theme="dark"] #history-subcontent:not(.hidden) { 
-      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.35) 0%, rgba(180, 130, 90, 0.1) 40%, transparent 100%); 
+    [data-theme="dark"] #history-subcontent:not(.hidden) {
+      background: linear-gradient(to bottom, rgba(180, 130, 90, 0.35) 0%, rgba(180, 130, 90, 0.1) 40%, rgba(250, 204, 21, 0.05) 100%);
     }
     
     #keeps-subcontent:not(.hidden) {
@@ -9320,7 +9324,7 @@
           <div class="tab active" data-tab="guide" id="guide-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Learn</div>
           <div class="tab" data-tab="list" id="list-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">List</div>
           <div class="tab" data-tab="jukebox" id="jukebox-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Music</div>
-          <div class="tab" data-tab="jockey" id="jockey-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0;">Jockey</div>
+          <div class="tab" data-tab="jockey" id="jockey-tab" style="width: 94px; min-width: 94px; box-sizing: border-box; padding: 0; display: none;">Jockey</div>
         </div>
         <!-- Console content (shown in mobile single-column mode) -->
         <div class="docs-content hidden" id="mobile-console-content">
@@ -23975,6 +23979,18 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (ddChannel) ddChannel.textContent = codeChannelId || '—';
       if (url) {
         drawPjQr('pj-dropdown-qr', url, 120);
+      }
+      // Show/hide Jockey tab based on PJ state
+      const jockeyTab = document.getElementById('jockey-tab');
+      if (jockeyTab) {
+        jockeyTab.style.display = isBroadcasting ? '' : 'none';
+        // If hiding jockey tab while it's active, switch to Learn
+        if (!isBroadcasting && jockeyTab.classList.contains('active')) {
+          jockeyTab.classList.remove('active');
+          document.getElementById('jockey-content')?.classList.add('hidden');
+          document.getElementById('guide-tab')?.classList.add('active');
+          document.getElementById('guide-content')?.classList.remove('hidden');
+        }
       }
       // Jockey tab
       updateJockeyPanel();
