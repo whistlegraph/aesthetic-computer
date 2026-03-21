@@ -5544,6 +5544,62 @@ const $paintApi = {
   LINE,
   CUBEL,
   ORIGIN,
+  // Project text glyphs onto a 3D plane, drawing each character's line/point
+  // commands through a projection function.
+  // Usage: ink(r,g,b,a).write3D("text", { origin, right, down, project }, scale)
+  //   origin: [x,y,z] — top-left of the first character in world space
+  //   right:  [x,y,z] — unit-ish direction for text flow (gets scaled by glyph size)
+  //   down:   [x,y,z] — unit-ish direction for descending lines
+  //   project: ([x,y,z]) => [screenX, screenY] — world-to-screen projection
+  //   scale: multiplier for glyph coordinate spacing (default 1)
+  write3D: function (text, plane, scale = 1) {
+    if (!text || !plane || !tf) return $activePaintApi;
+    const { origin, right, down, project } = plane;
+    if (!origin || !right || !down || !project) return $activePaintApi;
+
+    const blockW = tf.blockWidth || 6;
+    const charSpacing = blockW * scale;
+    let cursorX = 0; // accumulated character offset along `right`
+
+    for (let ci = 0; ci < text.length; ci++) {
+      const char = text[ci];
+      const glyph = tf.glyphs?.[char];
+      const advance = tf.getAdvance?.(char) ?? blockW;
+
+      if (glyph?.commands) {
+        for (const { name, args } of glyph.commands) {
+          if (name === "point") {
+            const px = (cursorX + args[0] * scale);
+            const py = args[1] * scale;
+            const wx = origin[0] + px * right[0] + py * down[0];
+            const wy = origin[1] + px * right[1] + py * down[1];
+            const wz = origin[2] + px * right[2] + py * down[2];
+            const [sx, sy] = project([wx, wy, wz]);
+            $activePaintApi.box(Math.floor(sx), Math.floor(sy), 1, 1);
+          } else if (name === "line") {
+            const x1 = cursorX + args[0] * scale;
+            const y1 = args[1] * scale;
+            const x2 = cursorX + args[2] * scale;
+            const y2 = args[3] * scale;
+            const w1x = origin[0] + x1 * right[0] + y1 * down[0];
+            const w1y = origin[1] + x1 * right[1] + y1 * down[1];
+            const w1z = origin[2] + x1 * right[2] + y1 * down[2];
+            const w2x = origin[0] + x2 * right[0] + y2 * down[0];
+            const w2y = origin[1] + x2 * right[1] + y2 * down[1];
+            const w2z = origin[2] + x2 * right[2] + y2 * down[2];
+            const [s1x, s1y] = project([w1x, w1y, w1z]);
+            const [s2x, s2y] = project([w2x, w2y, w2z]);
+            graph.line(
+              Math.floor(s1x), Math.floor(s1y),
+              Math.floor(s2x), Math.floor(s2y),
+            );
+          }
+        }
+      }
+      cursorX += advance * scale;
+    }
+    return $activePaintApi;
+  },
 };
 
 // TODO: Eventually move this to `num`. 24.07.23.18.52

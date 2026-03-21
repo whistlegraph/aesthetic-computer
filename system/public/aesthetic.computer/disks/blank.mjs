@@ -1,7 +1,7 @@
 // blank, 26.03.20
 // AC Blank — AC Native Laptop product page & checkout
 
-const { floor, sin, cos, abs, min, max, PI } = Math;
+const { floor, sin, cos, abs, min, max, PI, sqrt } = Math;
 
 // Pricing (cents)
 const pricing = {
@@ -31,31 +31,37 @@ let currencyBtn = null;
 
 // Animation
 let frame = 0;
+let scrollY = 0;
 
 const charH = 16;
+
+// Scrolling text lines
+const scrollLines = [
+  "AC Native Laptop",
+  "",
+  "A surplus laptop running AC Native OS.",
+  "Stable commands. Nothing extra.",
+  "Like a blank tape waiting to be filled.",
+  "",
+  "Lenovo ThinkPad Yoga 11e",
+  "11.6\" touchscreen · flip design",
+  "",
+];
 
 function displayAmount(amt, cur) {
   if (cur === "dkk") return `${(amt / 100).toFixed(0)} kr`;
   return `$${(amt / 100).toFixed(0)}`;
 }
 
-function tierLabel(amt) {
-  if (amt >= 51200) return "tutorial";
-  if (amt > 9600) return "support";
-  return "blank";
-}
-
 function getBuyText() {
   if (buyPending) return "CHECKING OUT...";
-  if (checkoutError) return "RETRY";
   return `BUY ${displayAmount(amount, currency)}`;
 }
 
-async function boot({ params, ui, screen, cursor, hud, api }) {
+async function boot({ params, ui, screen, cursor, hud, api, dark }) {
   cursor("native");
   hud.labelBack();
 
-  // Check for thanks state
   if (params[0] === "thanks") {
     thanks = true;
     return;
@@ -72,22 +78,18 @@ function tierText(i) {
 }
 
 function setupButtons(ui, screen) {
-  const h = screen.height;
+  buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
 
-  // Buy button (bottom center)
-  buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 12, screen });
-
-  // Tier buttons (stacked, above buy button)
-  const tierStartY = buyBtn.btn.box.y - (buyBtn.height + 6) * 3 - 8;
+  const gap = buyBtn.height + 6;
+  const tierStartY = buyBtn.btn.box.y - gap * tiers.length - 8;
   tierBtns = tiers.map((t, i) => {
     return new ui.TextButton(tierText(i), {
       center: "x",
-      y: tierStartY + i * (buyBtn.height + 6),
+      y: tierStartY + i * gap,
       screen,
     });
   });
 
-  // Currency toggle (top right)
   currencyBtn = new ui.TextButton(currency.toUpperCase(), {
     top: 8,
     right: 8,
@@ -128,92 +130,79 @@ async function fetchCheckout(api) {
   }
 }
 
-function paint({ wipe, ink, write, box, line, screen }) {
+function paint($) {
+  const { wipe, ink, write, write3D, box, line, screen, dark: isDark } = $;
   frame += 1;
   const w = screen.width;
   const h = screen.height;
 
-  // Dark background
-  wipe(12, 12, 14);
+  // Theme colors
+  const bg = isDark ? [12, 12, 14] : [245, 243, 240];
+  const fg = isDark ? 255 : 20;
+  const fgDim = isDark ? 120 : 100;
+  const fgFaint = isDark ? 60 : 160;
+  const btnFill = isDark ? [22, 22, 25] : [230, 230, 232];
+  const btnOutline = isDark ? [60, 60, 65] : [180, 180, 185];
+  const btnText = isDark ? [140, 140, 145] : [60, 60, 65];
+  const selFill = isDark ? [40, 50, 40] : [220, 235, 220];
+  const selOutline = isDark ? [120, 200, 120] : [60, 150, 60];
+  const selText = isDark ? [220, 255, 220] : [30, 80, 30];
+  const hoverFill = isDark ? [35, 35, 40] : [240, 240, 245];
+  const hoverOutline = isDark ? [150, 150, 180] : [120, 120, 150];
+  const hoverText = isDark ? [200, 200, 220] : [40, 40, 60];
+  const wireAlpha = isDark ? 140 : 120;
+
+  wipe(...bg);
+
+  // Debug: test write3D with a flat plane (identity projection)
+  ink(255, 0, 0).write3D("TEST", {
+    origin: [20, 20, 0],
+    right: [1, 0, 0],
+    down: [0, 1, 0],
+    project: ([x, y, z]) => [x, y],
+  });
 
   // Thanks page
   if (thanks) {
     const cy = floor(h / 2);
-    ink(255).write("your blank is coming.", {
-      center: "x",
-      y: cy - 30,
-      screen,
-    });
-    ink(140).write("we'll be in touch.", { center: "x", y: cy, screen });
+    ink(fg).write("your blank is coming.", { center: "x", y: cy - 30, screen });
+    ink(fgDim).write("we'll be in touch.", { center: "x", y: cy, screen });
     return;
   }
 
-  // Title
-  const titleY = floor(h * 0.08);
-  ink(255).write("AC Blank", {
-    center: "x",
-    y: titleY,
-    screen,
-  });
+  // Compute button zone height
+  const btnH = buyBtn ? buyBtn.height + 6 : 26;
+  const uiZoneH = btnH * (tiers.length + 1) + 20;
+  const contentBottom = h - uiZoneH - 20;
 
-  // Subtitle
-  ink(120).write("AC Native Laptop", {
-    center: "x",
-    y: titleY + charH + 4,
-    screen,
-  });
-
-  // Description block
-  const descY = titleY + charH * 2 + 16;
-  const descLines = [
-    "A surplus laptop running AC Native OS.",
-    "Stable commands. Nothing extra.",
-    "Like a blank tape waiting to be filled.",
-  ];
-  descLines.forEach((ln, i) => {
-    ink(90).write(ln, { center: "x", y: descY + i * (charH + 2), screen });
-  });
-
-  // Specs
-  const specY = descY + descLines.length * (charH + 2) + 12;
-  ink(70).write("Lenovo ThinkPad Yoga 11e", {
-    center: "x",
-    y: specY,
-    screen,
-  });
-  ink(50).write("11.6\" touchscreen · flip design", {
-    center: "x",
-    y: specY + charH + 2,
-    screen,
-  });
-
-  // 💻 Wireframe laptop (two hinged halves)
+  // 💻 Wireframe laptop (turntable swivel)
   {
     const cx = floor(w / 2);
-    const laptopTop = specY + charH * 2 + 16;
-    const laptopBottom = tierBtns.length > 0 ? tierBtns[0].btn.box.y - 12 : h * 0.55;
-    const cy = floor((laptopTop + laptopBottom) / 2);
-    const size = min(w, laptopBottom - laptopTop) * 0.28;
+    const laptopTop = 20;
+    const cy = floor((laptopTop + contentBottom) / 2);
+    const size = min(w * 0.45, (contentBottom - laptopTop) * 0.35);
     const fov = 260;
+
+    // Turntable rotation (slow steady swivel)
     const ay = frame * 0.008;
-    const ax = frame * 0.005;
+    const ax = 0.3; // fixed downward tilt
 
-    // Hinge angle: smoothly open and close
-    const hingeAngle = (sin(frame * 0.012) * 0.5 + 0.5) * PI * 0.85 + PI * 0.1;
+    // Fixed open angle (~120 degrees)
+    const hingeAngle = PI * 0.67;
 
-    // Half-box dimensions: wide, thin, moderate depth
+    // Half-box dimensions
     const hw = 1.4, hh = 0.08, hd = 0.9;
 
-    // Bottom half (base)
+    // Base (keyboard half)
     const base = [
-      [-hw, -hh, -hd], [ hw, -hh, -hd], [ hw,  hh, -hd], [-hw,  hh, -hd],
-      [-hw, -hh,  hd], [ hw, -hh,  hd], [ hw,  hh,  hd], [-hw,  hh,  hd],
+      [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
+      [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
     ];
 
-    // Top half (lid) — hinged at back edge
+    // Lid — hinged at back edge
     const lidLocal = [
-      [-hw, -hh, 0], [ hw, -hh, 0], [ hw, hh, 0], [-hw, hh, 0],
-      [-hw, -hh, 2 * hd], [ hw, -hh, 2 * hd], [ hw, hh, 2 * hd], [-hw, hh, 2 * hd],
+      [-hw, -hh, 0], [hw, -hh, 0], [hw, hh, 0], [-hw, hh, 0],
+      [-hw, -hh, 2 * hd], [hw, -hh, 2 * hd], [hw, hh, 2 * hd], [-hw, hh, 2 * hd],
     ];
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
     const lid = lidLocal.map(([lx, ly, lz]) => {
@@ -223,9 +212,9 @@ function paint({ wipe, ink, write, box, line, screen }) {
     });
 
     const halfEdges = [
-      [0,1],[1,2],[2,3],[3,0],
-      [4,5],[5,6],[6,7],[7,4],
-      [0,4],[1,5],[2,6],[3,7],
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7],
     ];
 
     const project = ([x, y, z]) => {
@@ -260,11 +249,8 @@ function paint({ wipe, ink, write, box, line, screen }) {
           floor(r * 255 * brightness),
           floor(g * 255 * brightness),
           floor(bl * 255 * brightness),
-          140,
-        ).line(
-          proj[a][0], proj[a][1],
-          proj[b][0], proj[b][1],
-        );
+          wireAlpha,
+        ).line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
       });
     };
 
@@ -281,57 +267,158 @@ function paint({ wipe, ink, write, box, line, screen }) {
       const flicker = 0.6 + sin(frame * 0.1 + i * 1.3) * 0.4;
       ink(...pColor, floor(flicker * 150)).box(px - 1, py - 1, 2, 2);
     });
+
+    // 🖥️ "AC Blank" projected in 3D on the lid screen
+    // Screen face: inner face of lid (y=-hh before hinge)
+    const inset = 0.15;
+    const screenTL = [-hw + inset, -hh - 0.002, inset];
+    const screenTR = [hw - inset, -hh - 0.002, inset];
+    const screenBL = [-hw + inset, -hh - 0.002, 2 * hd - inset];
+
+    // Transform screen corners through hinge rotation
+    const hingeXform = ([lx, ly, lz]) => {
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
+      return [lx, ry + hh, rz - hd];
+    };
+    const sTL = hingeXform(screenTL);
+    const sTR = hingeXform(screenTR);
+    const sBL = hingeXform(screenBL);
+
+    // Compute plane vectors (right = TL→TR, down = TL→BL)
+    const planeRight = [sTR[0] - sTL[0], sTR[1] - sTL[1], sTR[2] - sTL[2]];
+    const planeDown = [sBL[0] - sTL[0], sBL[1] - sTL[1], sBL[2] - sTL[2]];
+
+    // Screen-space normal check (is it facing the camera?)
+    const projTL = project(sTL);
+    const projTR = project(sTR);
+    const projBL = project(sBL);
+    const ex1 = projTR[0] - projTL[0], ey1 = projTR[1] - projTL[1];
+    const ex2 = projBL[0] - projTL[0], ey2 = projBL[1] - projTL[1];
+    const cross = ex1 * ey2 - ey1 * ex2;
+
+    if (cross > 0) {
+      const maxCross = size * size * 0.5;
+      const facing = min(1, abs(cross) / maxCross);
+      const textAlpha = floor(facing * 255);
+
+      // Plane width in world units
+      const planeW = sqrt(planeRight[0] ** 2 + planeRight[1] ** 2 + planeRight[2] ** 2);
+      const planeH = sqrt(planeDown[0] ** 2 + planeDown[1] ** 2 + planeDown[2] ** 2);
+
+      // Normalize plane vectors per glyph-pixel unit
+      // A glyph pixel at scale 1 = 1/planeW of the right vector (scaled to fit ~20 chars)
+      const glyphScale = planeW / (6 * 14); // fit ~14 chars across screen width
+      const rn = [planeRight[0] / planeW * glyphScale,
+                  planeRight[1] / planeW * glyphScale,
+                  planeRight[2] / planeW * glyphScale];
+      const dn = [planeDown[0] / planeH * glyphScale,
+                  planeDown[1] / planeH * glyphScale,
+                  planeDown[2] / planeH * glyphScale];
+
+      // Center "AC Blank" (8 chars × 6px = 48px wide, 10px tall)
+      const textW = 8 * 6; // glyph pixels
+      const textH = 10;
+      const offsetR = (planeW / glyphScale - textW) / 2;
+      const offsetD = (planeH / glyphScale - textH) / 2;
+
+      // Origin = screen TL + centering offset
+      const textOrigin = [
+        sTL[0] + offsetR * rn[0] + offsetD * dn[0],
+        sTL[1] + offsetR * rn[1] + offsetD * dn[1],
+        sTL[2] + offsetR * rn[2] + offsetD * dn[2],
+      ];
+
+      const titleColor = isDark ? [255, 255, 255] : [20, 20, 20];
+      ink(titleColor[0], titleColor[1], titleColor[2], textAlpha)
+        .write3D("AC Blank", {
+          origin: textOrigin,
+          right: rn,
+          down: dn,
+          project,
+        });
+    }
+  }
+
+  // Scrolling text (description, between laptop and buttons)
+  {
+    scrollY += 0.3;
+    const scrollAreaTop = contentBottom - 10;
+    const lineH = charH + 4;
+    const totalScrollH = scrollLines.length * lineH;
+    const scrollOffset = scrollY % totalScrollH;
+
+    for (let i = 0; i < scrollLines.length; i++) {
+      const ln = scrollLines[i];
+      if (!ln) continue;
+      const rawY = scrollAreaTop - scrollOffset + i * lineH;
+      // Wrap around
+      const y = rawY < scrollAreaTop - totalScrollH
+        ? rawY + totalScrollH
+        : rawY;
+      if (y < scrollAreaTop - lineH || y > scrollAreaTop + lineH * 2) continue;
+      // Fade out as it scrolls up
+      const dist = scrollAreaTop - y;
+      const alpha = max(0, min(255, 255 - floor(dist * 3)));
+      const color = i === 0 ? fgDim : fgFaint;
+      ink(color, color, color, alpha).write(ln, { center: "x", y: floor(y), screen });
+    }
   }
 
   // Tier buttons
-  const $ = { ink };
+  const $btn = { ink };
   tierBtns.forEach((btn, i) => {
     const t = tiers[i];
     const tierAmt = currency === "dkk" ? t.dkk : t.amount;
     const isSelected = amount === tierAmt;
-
-    const selectedScheme = [[40, 50, 40], [120, 200, 120], [220, 255, 220]];
-    const defaultScheme = [[22, 22, 25], [60, 60, 65], [140, 140, 145]];
-    const hoverScheme = [[35, 35, 40], [150, 150, 180], [200, 200, 220]];
-
-    btn.paint($, isSelected ? selectedScheme : defaultScheme, hoverScheme);
+    btn.paint(
+      $btn,
+      isSelected ? [selFill, selOutline, selText] : [btnFill, btnOutline, btnText],
+      [hoverFill, hoverOutline, hoverText],
+    );
   });
 
   // Buy button
   if (buyBtn) {
-    buyBtn.reposition({ center: "x", bottom: 12, screen }, getBuyText());
+    buyBtn.reposition({ center: "x", bottom: 20, screen }, getBuyText());
 
     let scheme, hover;
     if (buyPending) {
       const pulse = sin(performance.now() / 150) * 0.5 + 0.5;
-      scheme = [
-        [floor(30 + pulse * 30), floor(40 + pulse * 20), 30],
-        [floor(150 + pulse * 105), floor(200 + pulse * 55), 100],
-        [floor(200 + pulse * 55), floor(220 + pulse * 35), 180],
-      ];
-      hover = scheme;
-    } else if (checkoutError) {
-      scheme = [[50, 25, 25], [200, 80, 80], [255, 120, 120]];
+      scheme = isDark
+        ? [[floor(30 + pulse * 30), floor(40 + pulse * 20), 30],
+           [floor(150 + pulse * 105), floor(200 + pulse * 55), 100],
+           [floor(200 + pulse * 55), floor(220 + pulse * 35), 180]]
+        : [[floor(200 + pulse * 30), floor(220 + pulse * 20), 200],
+           [floor(60 + pulse * 40), floor(120 + pulse * 40), 60],
+           [floor(30 + pulse * 20), floor(80 + pulse * 30), 30]];
       hover = scheme;
     } else {
       const blink = sin(performance.now() / 500) * 0.3 + 0.7;
-      scheme = [
-        [25, 35, 25],
-        [floor(80 + blink * 70), floor(160 + blink * 95), floor(80 + blink * 70)],
-        [180, 230, 180],
-      ];
-      hover = [[40, 55, 40], [150, 255, 150], [200, 255, 200]];
+      scheme = isDark
+        ? [[25, 35, 25],
+           [floor(80 + blink * 70), floor(160 + blink * 95), floor(80 + blink * 70)],
+           [180, 230, 180]]
+        : [[220, 235, 220],
+           [floor(40 + blink * 40), floor(100 + blink * 55), floor(40 + blink * 40)],
+           [30, 80, 30]];
+      hover = isDark
+        ? [[40, 55, 40], [150, 255, 150], [200, 255, 200]]
+        : [[210, 230, 210], [40, 180, 40], [20, 60, 20]];
     }
-    buyBtn.paint($, scheme, hover);
+    buyBtn.paint($btn, scheme, hover);
   }
 
-  // Currency toggle (top right)
+  // Currency toggle
   if (currencyBtn) {
-    currencyBtn.paint($, [[12, 12, 14], [50, 50, 55], [80, 80, 85]], [[12, 12, 14], [120, 120, 130], [200, 200, 210]]);
+    const curDefault = isDark
+      ? [[12, 12, 14], [50, 50, 55], [80, 80, 85]]
+      : [[245, 243, 240], [180, 180, 185], [100, 100, 105]];
+    const curHover = isDark
+      ? [[12, 12, 14], [120, 120, 130], [200, 200, 210]]
+      : [[245, 243, 240], [100, 100, 110], [40, 40, 50]];
+    currencyBtn.paint($btn, curDefault, curHover);
   }
-
-  // Subtle bottom line
-  ink(30).line(0, h - 1, w, h - 1);
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
@@ -341,7 +428,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
     setupButtons(ui, screen);
   }
 
-  // Tier selection
   tierBtns.forEach((btn, i) => {
     btn.act(e, {
       down: () => {
@@ -353,7 +439,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         if (newAmount !== amount) {
           amount = newAmount;
           sound?.synth({ type: "sine", tone: 600 + i * 150, duration: 0.06, volume: 0.3 });
-          // Update tier labels to reflect selection
           tierBtns.forEach((tb, j) => tb.replaceLabel(tierText(j)));
           fetchCheckout(api);
         }
@@ -361,7 +446,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
     });
   });
 
-  // Currency toggle
   currencyBtn?.act(e, {
     push: () => {
       currency = currency === "usd" ? "dkk" : "usd";
@@ -369,8 +453,7 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         (t) => (currency === "usd" ? t.dkk : t.amount) === amount,
       );
       if (tierIdx >= 0) {
-        amount =
-          currency === "dkk" ? tiers[tierIdx].dkk : tiers[tierIdx].amount;
+        amount = currency === "dkk" ? tiers[tierIdx].dkk : tiers[tierIdx].amount;
       } else {
         amount = pricing[currency].suggested;
       }
@@ -381,7 +464,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
     },
   });
 
-  // Buy button
   buyBtn?.act(e, {
     down: () => {
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
@@ -393,6 +475,7 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
         jump(checkoutUrl);
       } else if (checkoutError) {
+        // Silently retry
         checkoutError = null;
         fetchCheckout(api);
         sound?.synth({ type: "sine", tone: 550, duration: 0.06, volume: 0.3 });
