@@ -1,3 +1,0 @@
-# Ignore performance test reports (they're generated)
-*.json
-*.html
