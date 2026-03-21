@@ -33,10 +33,17 @@ M4L_HEADER_MIDI_EFFECT = b"ampf\x04\x00\x00\x00mmmmmeta\x04\x00\x00\x00\x00\x00\
 
 def generate_patcher(device: dict, defaults: dict, production: bool = False) -> dict:
     """Generate a complete M4L patcher for a device."""
-    
+
+    # If device has a source JSON file, load it directly
+    source = device.get("source")
+    if source:
+        source_path = Path(__file__).parent / source
+        with open(source_path) as f:
+            return json.load(f)
+
     # Check if this is an effect device (has audio input)
     is_effect = device.get("type") == "effect"
-    
+
     if is_effect:
         return generate_effect_patcher(device, defaults, production)
     else:
@@ -696,9 +703,16 @@ def generate_instrument_patcher(device: dict, defaults: dict, production: bool =
 
 def build_device(device: dict, defaults: dict, production: bool = False) -> bytes:
     """Build a complete .amxd file for a device."""
-    
-    patcher = generate_patcher(device, defaults, production)
-    
+
+    # Source-based devices load patcher from a JSON file (no jweb~ generation)
+    source = device.get("source")
+    if source:
+        source_path = Path(__file__).parent / source
+        with open(source_path) as f:
+            patcher = json.load(f)
+    else:
+        patcher = generate_patcher(device, defaults, production)
+
     # Serialize patcher to JSON
     patcher_json = json.dumps(patcher, separators=(',', ':')).encode('utf-8')
     
@@ -748,14 +762,23 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
     built = []
     for device in devices:
         piece = device["piece"]
+        # Skip devices with slashes in piece names (can't be filenames)
+        if '/' in piece:
+            print(f"\n⏭️  Skipping {piece} (slash in name)")
+            continue
         device_type = device.get("type", "instrument")
         type_label = device_type.capitalize()
         
-        # Build filename
-        if production:
-            filename = f"AC 🎸 {piece} (aesthetic.computer).amxd" if device_type == "effect" else f"AC 🟪 {piece} (aesthetic.computer).amxd"
+        # Build filename — icon by type
+        icons = {"effect": "🎸", "midi": "🎹", "instrument": "🟪"}
+        icon = icons.get(device_type, "🟪")
+        # Source-based devices (like knob-map) use the same name in dev and prod
+        if device.get("source"):
+            filename = f"AC {icon} {piece} (aesthetic.computer).amxd"
+        elif production:
+            filename = f"AC {icon} {piece} (aesthetic.computer).amxd"
         else:
-            filename = f"AC 🎸 {piece} (localhost:8888).amxd" if device_type == "effect" else f"AC 🟪 {piece} (localhost:8888).amxd"
+            filename = f"AC {icon} {piece} (localhost:8888).amxd"
         
         # Build device
         data = build_device(device, defaults, production)

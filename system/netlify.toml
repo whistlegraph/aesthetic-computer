@@ -587,6 +587,17 @@ from = "/api/version"
 to = "/.netlify/functions/version"
 status = 200
 
+# M4L plugins API
+[[redirects]]
+from = "/m4l-plugins"
+to = "/.netlify/functions/m4l-plugins"
+status = 200
+
+[[redirects]]
+from = "/m4l-plugins/*"
+to = "/.netlify/functions/m4l-plugins/:splat"
+status = 200
+
 # FF1 API routes
 [[redirects]]
 from = "/api/ff1/*"
