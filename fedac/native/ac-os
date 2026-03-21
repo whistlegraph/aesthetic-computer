@@ -373,6 +373,15 @@ build_kernel() {
     else
         cd "${LINUX_DIR}"
     fi
+    # Inject built-in firmware paths if firmware blobs exist locally
+    local FW_DIR="${BUILD_DIR}/firmware"
+    if [ -d "${FW_DIR}" ] && ls "${FW_DIR}"/*.ucode &>/dev/null; then
+        local FW_LIST=$(cd "${FW_DIR}" && ls *.ucode 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+        sed -i "s|^CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" "${LINUX_DIR}/.config"
+        sed -i "s|^CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"${FW_DIR}\"|" "${LINUX_DIR}/.config"
+        log "Built-in firmware: ${FW_LIST}"
+    fi
+
     # Copy fresh initramfs into kernel tree (kernel embeds it — must be updated!)
     log "Syncing initramfs into kernel tree..."
     sudo cp "${BUILD_DIR}/initramfs.cpio.lz4" "${LINUX_DIR}/initramfs.cpio.lz4"
