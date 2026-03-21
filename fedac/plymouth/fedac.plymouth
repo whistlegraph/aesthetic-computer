@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=FedAC
+Description=Aesthetic Computer Boot — pals on purple
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/fedac
+ScriptFile=/usr/share/plymouth/themes/fedac/fedac.script

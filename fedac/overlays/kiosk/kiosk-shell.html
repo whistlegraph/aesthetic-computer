@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FedAC Kiosk</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+#piece-frame{position:fixed;inset:0;width:100%;height:100%;border:none;z-index:0}
+
+/* HUD: bottom-right overlay, semi-transparent, always interactive */
+#hud{
+  position:fixed;bottom:0;right:0;z-index:9999;
+  font-family:'Courier New',monospace;font-size:12px;color:#ccc;
+  display:flex;flex-direction:column;align-items:flex-end;
+  gap:2px;padding:6px 8px;
+  pointer-events:none;
+
+/* Volume controls row */
+.hud-row{
+  display:flex;align-items:center;gap:4px;
+  background:rgba(0,0,0,0.55);border-radius:4px;
+  padding:3px 6px;pointer-events:auto;
+  cursor:default;user-select:none;
+}
+.hud-btn{
+  background:none;border:none;color:#ccc;
+  font-family:inherit;font-size:14px;
+  cursor:pointer;padding:2px 4px;border-radius:3px;
+  line-height:1;
+}
+.hud-btn:hover{background:rgba(255,255,255,0.15);color:#fff}
+.hud-btn:active{background:rgba(255,255,255,0.25)}
+.hud-label{font-size:11px;min-width:2.8em;text-align:center}
+.hud-bat{font-size:11px;display:flex;align-items:center;gap:3px}
+
+/* Volume slider (hidden by default, shown on hover/click) */
+.vol-slider{
+  -webkit-appearance:none;appearance:none;
+  width:60px;height:3px;background:rgba(255,255,255,0.25);
+  border-radius:2px;outline:none;cursor:pointer;
+}
+.vol-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:10px;height:10px;
+  background:#fff;border-radius:50%;cursor:pointer;
+}
+.vol-slider::-moz-range-thumb{
+  width:10px;height:10px;
+  background:#fff;border:none;border-radius:50%;cursor:pointer;
+}
+</style>
+</head>
+<body>
+<iframe id="piece-frame" src="piece.html?density=__DENSITY__&nogap=true&noauth=true" allow="autoplay; midi; camera; microphone; geolocation"></iframe>
+
+<div id="hud">
+  <!-- Volume row -->
+  <div class="hud-row" id="vol-row">
+    <button class="hud-btn" id="vol-down" title="Volume down">&#x25C0;</button>
+    <button class="hud-btn" id="vol-icon" title="Mute/unmute">&#x1f50a;</button>
+    <input type="range" class="vol-slider" id="vol-slider" min="0" max="100" value="50" title="Volume">
+    <span class="hud-label" id="vol-label">50%</span>
+    <button class="hud-btn" id="vol-up" title="Volume up">&#x25B6;</button>
+  </div>
+  <!-- Battery row (hidden if no battery) -->
+  <div class="hud-row" id="bat-row" style="display:none">
+    <span class="hud-bat"><span id="bat-icon">&#x1f50b;</span> <span id="bat-label">--</span></span>
+  </div>
+</div>
+
+<script>
+const hud = document.getElementById('hud');
+const volIcon = document.getElementById('vol-icon');
+const volLabel = document.getElementById('vol-label');
+const volSlider = document.getElementById('vol-slider');
+const volDown = document.getElementById('vol-down');
+const volUp = document.getElementById('vol-up');
+const batRow = document.getElementById('bat-row');
+const batIcon = document.getElementById('bat-icon');
+const batLabel = document.getElementById('bat-label');
+
+// Volume API helpers
+async function setVolume(val) {
+  try {
+    await fetch('/api/volume', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({volume: val})
+    });
+    pollStatus();
+  } catch(e) {}
+}
+
+async function adjustVolume(delta) {
+  try {
+    await fetch('/api/volume', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({delta: delta})
+    });
+    pollStatus();
+  } catch(e) {}
+}
+
+async function toggleMute() {
+  try {
+    await fetch('/api/volume', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({mute: 'toggle'})
+    });
+    pollStatus();
+  } catch(e) {}
+}
+
+// Event handlers
+volDown.addEventListener('click', () => adjustVolume('-5%'));
+volUp.addEventListener('click', () => adjustVolume('+5%'));
+volIcon.addEventListener('click', () => toggleMute());
+
+let sliderDragging = false;
+volSlider.addEventListener('input', () => { sliderDragging = true; });
+volSlider.addEventListener('change', () => {
+  setVolume((volSlider.value / 100).toFixed(2));
+  sliderDragging = false;
+});
+
+// Poll status
+async function pollStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    // Volume
+    const v = data.volume;
+    const pct = Math.round((v?.volume ?? 0.5) * 100);
+    if (!sliderDragging) volSlider.value = pct;
+    volLabel.textContent = v?.muted ? 'MUTE' : pct + '%';
+    volIcon.textContent = v?.muted ? '\u{1f507}' : pct > 60 ? '\u{1f50a}' : pct > 20 ? '\u{1f509}' : '\u{1f508}';
+    // Battery
+    const b = data.battery;
+    if (b?.present) {
+      batRow.style.display = '';
+      const bp = b.percent ?? 0;
+      batIcon.textContent = b.status === 'Charging' ? '\u26a1' : bp > 20 ? '\u{1f50b}' : '\u{1faab}';
+      batLabel.textContent = bp + '%' + (b.status === 'Charging' ? ' \u26a1' : '');
+    } else {
+      batRow.style.display = 'none';
+    }
+  } catch (e) { /* server not ready */ }
+}
+
+setInterval(pollStatus, 3000);
+pollStatus();
+</script>
+</body>
+</html>

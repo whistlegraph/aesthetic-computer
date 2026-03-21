@@ -1,0 +1,42 @@
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-type='nothing'
+
+[org/gnome/desktop/notifications]
+show-banners=false
+
+[org/gnome/desktop/background]
+picture-uri=''
+picture-uri-dark=''
+primary-color='#000000'
+color-shading-type='solid'
+
+[org/gnome/desktop/interface]
+enable-animations=false
+
+[org/gnome/shell]
+welcome-dialog-last-shown-version='99.0'
+favorite-apps=@as []
+enabled-extensions=@as []
+
+[org/gnome/shell/extensions/dash-to-dock]
+dock-fixed=false
+autohide=true
+intellihide=true
+
+[org/gnome/desktop/wm/preferences]
+auto-raise=true
+
+[org/gnome/software]
+first-run=false
+allow-updates=false
+
+[org/gnome/gnome-initial-setup]
+show-in=@as []

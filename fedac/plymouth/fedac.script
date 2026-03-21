@@ -1,0 +1,62 @@
+# FedAC Plymouth Boot Script
+# Shows pals.png centered on dark purple background with gentle pulse
+
+# Dark purple background (RGB: 26, 10, 36 — similar to AC aesthetic)
+Window.SetBackgroundTopColor(0.10, 0.04, 0.14);
+Window.SetBackgroundBottomColor(0.06, 0.02, 0.10);
+
+# Load pals image
+pals_image = Image("pals.png");
+pals_sprite = Sprite(pals_image);
+
+# Center the pals image
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+image_width = pals_image.GetWidth();
+image_height = pals_image.GetHeight();
+
+# Scale pals to ~30% of screen height (looks good on laptop screens)
+scale = (screen_height * 0.30) / image_height;
+scaled_image = pals_image.Scale(image_width * scale, image_height * scale);
+pals_sprite.SetImage(scaled_image);
+
+scaled_width = image_width * scale;
+scaled_height = image_height * scale;
+
+pals_sprite.SetX(screen_width / 2 - scaled_width / 2);
+pals_sprite.SetY(screen_height / 2 - scaled_height / 2 - 20);
+
+# Subtle opacity pulse animation
+progress = 0;
+
+fun refresh_callback() {
+  progress++;
+  # Gentle sine pulse between 0.7 and 1.0 opacity
+  # Using approximation: sin via triangle wave
+  cycle = progress % 120;
+  if (cycle < 60)
+    opacity = 0.7 + (cycle / 60.0) * 0.3;
+  else
+    opacity = 1.0 - ((cycle - 60) / 60.0) * 0.3;
+  pals_sprite.SetOpacity(opacity);
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Password prompt (if disk encryption is enabled)
+fun display_password_callback(prompt, bullets) {
+  # Show password entry below pals
+  # Plymouth handles the actual input — we just position it
+  prompt_sprite = Sprite();
+  prompt_sprite.SetPosition(screen_width / 2 - 100, screen_height / 2 + scaled_height / 2 + 40, 10);
+}
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+# Boot progress (optional — shows below pals)
+fun boot_progress_callback(duration, progress_val) {
+  # Could add a progress bar here
+  # For now, the pulse animation provides visual feedback
+}
+
+Plymouth.SetBootProgressFunction(boot_progress_callback);
