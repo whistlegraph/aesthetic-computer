@@ -16,14 +16,15 @@ import { Buffer } from "buffer";
 // This provides Monaco-parity highlighting for .lisp files in VS Code
 import * as KidLispSyntax from "./kidlisp-syntax";
 
-// Dynamically import path, fs, and child_process to ensure web compatibility.
-let path: any, fs: any, cp: any;
+// Dynamically import path, fs, child_process, and http to ensure web compatibility.
+let path: any, fs: any, cp: any, http: any;
 let _modulesReady: Promise<void>;
 _modulesReady = (async () => {
   if (typeof window === "undefined") {
     path = await import("path");
     fs = await import("fs");
     cp = await import("child_process");
+    http = await import("http");
   }
 })();
 
@@ -2100,6 +2101,53 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       }
     }
   });
+
+  // 🌐 CDP Command Server — local HTTP endpoint for test harnesses and automation
+  if (http) {
+    const CDP_PORT = 19998;
+    const cdpServer = http.createServer(async (req: any, res: any) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+      if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+      if (req.url === "/status") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, extension: "aesthetic-computer" }));
+        return;
+      }
+
+      if (req.url === "/command" && req.method === "POST") {
+        const body: Buffer[] = [];
+        req.on("data", (chunk: Buffer) => body.push(chunk));
+        req.on("end", async () => {
+          try {
+            const { command, args } = JSON.parse(Buffer.concat(body).toString());
+            const result = await vscode.commands.executeCommand(command, ...(args || []));
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true, result: result ?? null }));
+          } catch (e: any) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: false, error: e.message }));
+          }
+        });
+        return;
+      }
+
+      res.writeHead(404);
+      res.end("Not found");
+    });
+
+    cdpServer.listen(CDP_PORT, "127.0.0.1", () => {
+      console.log(`🌐 CDP command server listening on http://127.0.0.1:${CDP_PORT}`);
+    });
+    cdpServer.on("error", (e: any) => {
+      if (e.code === "EADDRINUSE") {
+        console.log(`🌐 CDP command server port ${CDP_PORT} already in use, skipping`);
+      }
+    });
+    context.subscriptions.push({ dispose: () => cdpServer.close() });
+  }
 }
 
 // 📓 Documentation
