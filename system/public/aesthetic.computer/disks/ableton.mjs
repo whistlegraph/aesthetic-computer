@@ -228,7 +228,7 @@ function act({ event: e, pen, sound, download }) {
     fetch(plugin.m4l.downloadUrl)
       .then((res) => res.arrayBuffer())
       .then((buf) => {
-        download(plugin.m4l.fileName, new Uint8Array(buf));
+        download(plugin.m4l.fileName, new Uint8Array(buf), { sharing: true });
         downloading = null;
       })
       .catch((err) => {
