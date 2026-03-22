@@ -1527,7 +1527,14 @@ app.get('/kidlisp-og/site/:site.png', async (req, res) => {
   try {
     addServerLog('info', '🖼️', `Site OG: ${site}.kidlisp.com`);
     const result = await generateKidlispOGImage('mosaic', false);
-    const bg = await sharp(result.buffer).blur(6).toBuffer();
+    // If cached, download the image from CDN; otherwise use the buffer directly
+    let mosaicBuffer = result.buffer;
+    if (!mosaicBuffer && result.url) {
+      const resp = await fetch(result.url);
+      if (!resp.ok) throw new Error(`Failed to fetch cached mosaic: ${resp.status}`);
+      mosaicBuffer = Buffer.from(await resp.arrayBuffer());
+    }
+    const bg = await sharp(mosaicBuffer).blur(6).toBuffer();
     const darkOverlay = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.4)"/></svg>`);
     const prefixLetters = site === 'keeps'
       ? 'keeps'.split('').map(c => `<tspan fill="#00ff41">${c}</tspan>`).join('')
