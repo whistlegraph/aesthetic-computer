@@ -1820,6 +1820,10 @@ int main(int argc, char *argv[]) {
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    signal(SIGSEGV, signal_handler);
+    signal(SIGBUS, signal_handler);
+    signal(SIGABRT, signal_handler);
+    signal(SIGFPE, signal_handler);
 #ifdef USE_WAYLAND
     // Under Wayland: no DRM handoff signals needed (browser is sibling client)
     if (!getenv("WAYLAND_DISPLAY"))
