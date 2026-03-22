@@ -424,7 +424,7 @@ CONFIG_HOTPLUG_CPU=y
 CONFIG_LEGACY_VSYSCALL_XONLY=y
 # CONFIG_LEGACY_VSYSCALL_NONE is not set
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="console=tty0 loglevel=1 quiet vt.global_cursor_default=0 init=/init mitigations=off snd_intel_dspcfg.dsp_driver=0 snd_hda_intel.power_save=0 nmi_watchdog=0 tsc=reliable no_timer_check acpi_backlight=native thinkpad_acpi.brightness_enable=1 i8042.reset i8042.nomux"
+CONFIG_CMDLINE="console=tty0 loglevel=4 vt.global_cursor_default=0 init=/init mitigations=off snd_intel_dspcfg.dsp_driver=0 snd_hda_intel.power_save=0 nmi_watchdog=0 tsc=reliable no_timer_check acpi_backlight=native thinkpad_acpi.brightness_enable=1 i8042.reset i8042.nomux"
 # CONFIG_CMDLINE_OVERRIDE is not set
 CONFIG_MODIFY_LDT_SYSCALL=y
 # CONFIG_STRICT_SIGALTSTACK_SIZE is not set
@@ -1156,8 +1156,8 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 CONFIG_FW_LOADER=y
 CONFIG_FW_LOADER_PAGED_BUF=y
 CONFIG_FW_LOADER_SYSFS=y
-CONFIG_EXTRA_FIRMWARE=""
-CONFIG_EXTRA_FIRMWARE_DIR=""
+CONFIG_EXTRA_FIRMWARE="iwlwifi-9260-th-b0-jf-b0-46.ucode iwlwifi-cc-a0-77.ucode iwlwifi-QuZ-a0-hr-b0-77.ucode iwlwifi-QuZ-a0-jf-b0-77.ucode"
+CONFIG_EXTRA_FIRMWARE_DIR="/workspaces/aesthetic-computer/fedac/native/build/firmware"
 CONFIG_FW_LOADER_USER_HELPER=y
 # CONFIG_FW_LOADER_USER_HELPER_FALLBACK is not set
 # CONFIG_FW_LOADER_COMPRESS is not set
@@ -2595,9 +2595,9 @@ CONFIG_DRM_GEM_SHMEM_HELPER=y
 #
 # end of ARM devices
 
-CONFIG_DRM_RADEON=y
-CONFIG_DRM_AMDGPU=y
-CONFIG_DRM_NOUVEAU=y
+# CONFIG_DRM_RADEON is not set
+# CONFIG_DRM_AMDGPU is not set
+# CONFIG_DRM_NOUVEAU is not set
 CONFIG_DRM_I915=y
 CONFIG_DRM_I915_FORCE_PROBE=""
 CONFIG_DRM_I915_CAPTURE_ERROR=y
@@ -2642,7 +2642,7 @@ CONFIG_DRM_I915_TIMESLICE_DURATION=1
 # CONFIG_DRM_AST is not set
 # CONFIG_DRM_MGAG200 is not set
 CONFIG_DRM_QXL=y
-CONFIG_DRM_VIRTIO_GPU=y
+# CONFIG_DRM_VIRTIO_GPU is not set
 CONFIG_DRM_PANEL=y
 
 #
@@ -2665,7 +2665,7 @@ CONFIG_DRM_PANEL_BRIDGE=y
 CONFIG_DRM_BOCHS=y
 CONFIG_DRM_CIRRUS_QEMU=y
 # CONFIG_DRM_GM12U320 is not set
-CONFIG_DRM_SIMPLEDRM=y
+# CONFIG_DRM_SIMPLEDRM is not set
 # CONFIG_DRM_VBOXVIDEO is not set
 # CONFIG_DRM_GUD is not set
 # CONFIG_DRM_SSD130X is not set
@@ -2684,7 +2684,7 @@ CONFIG_FB=y
 # CONFIG_FB_ASILIANT is not set
 # CONFIG_FB_IMSTT is not set
 # CONFIG_FB_VGA16 is not set
-CONFIG_FB_VESA=y
+# CONFIG_FB_VESA is not set
 CONFIG_FB_EFI=y
 # CONFIG_FB_N411 is not set
 # CONFIG_FB_HGA is not set

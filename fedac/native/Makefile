@@ -7,9 +7,9 @@ QJSDIR   := $(BUILDDIR)/quickjs
 
 # Use musl for static linking if available, else gcc
 CC       ?= gcc
-GIT_HASH   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_HASH   := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TS   ?= $(shell date -u '+%Y-%m-%dT%H:%M')
-BUILD_NAME ?= $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
+BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
 QUIRCDIR   := lib/quirc/lib
 QRGENDIR   := lib/qrcodegen
 CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
@@ -125,7 +125,7 @@ bpf:
 
 $(TARGET): $(OBJS) $(QJS_OBJS) $(QUIRC_OBJS) $(QRGEN_OBJS) $(WL_PROTO_OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
-	@echo "Built: $@ ($$(wc -c < $@ | tr -d ' ') bytes)"
+	@echo "Built: $@ ($(shell wc -c < $@ | tr -d ' ') bytes)"
 
 # All .c files depend on all project headers (simple but correct)
 HEADERS := $(wildcard $(SRCDIR)/*.h)
