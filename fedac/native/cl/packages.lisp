@@ -9,8 +9,9 @@
   (:export #:sys-open #:sys-close #:sys-read #:sys-write
            #:sys-ioctl #:sys-mmap #:sys-munmap
            #:sys-mount #:sys-umount
-           #:sys-reboot #:sys-poweroff
-           #:+o-rdonly+ #:+o-rdwr+ #:+o-nonblock+ #:+o-cloexec+
+           #:sys-reboot #:sys-poweroff #:sys-getpid
+           #:sys-fork #:sys-execvp #:sys-waitpid
+           #:+o-rdonly+ #:+o-wronly+ #:+o-rdwr+ #:+o-nonblock+ #:+o-cloexec+
            #:+prot-read+ #:+prot-write+ #:+map-shared+
            #:+clock-monotonic+))
 
