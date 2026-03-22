@@ -57,12 +57,10 @@ log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 # ── Optional: Build Common Lisp variant ──
 if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
     log "Step 1b: Building ac-native (Common Lisp)..."
-    SBCL_CORE="/cache/sbcl-ql.core"
-    SBCL_CMD="sbcl"
-    [ -f "$SBCL_CORE" ] && SBCL_CMD="sbcl --core $SBCL_CORE"
     CL_DIR="$NATIVE/cl"
-    # Build standalone binary
-    $SBCL_CMD --non-interactive \
+    # Build standalone binary via SBCL + Quicklisp
+    sbcl --non-interactive \
+        --eval '(load "/opt/quicklisp/setup.lisp")' \
         --eval '(require :asdf)' \
         --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
         --eval '(asdf:load-system :ac-native)' \
