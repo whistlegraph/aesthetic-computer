@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Copy source into container-local dir to avoid bind-mount permission issues
 if [ -d "/src/fedac/native" ] && [ ! -w "/src/fedac/native" ]; then
-    log "Copying source to /build-src (bind-mount is read-only)..."
+    echo "[ac-os] Copying source to /build-src (bind-mount is read-only)..."
     cp -a /src/fedac/native /build-src 2>/dev/null || cp -r /src/fedac/native /build-src
     # Also need the system dir for KidLisp
     [ -d /src/system ] && ln -sf /src/system /build-src/../system 2>/dev/null || true
