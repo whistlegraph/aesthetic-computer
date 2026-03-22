@@ -8,7 +8,8 @@ SRC="${AC_SRC:-/repo}"
 OUT="${AC_OUT:-/out}"
 NATIVE="$SRC/fedac/native"
 BUILD="$NATIVE/build"
-KVER="${KERNEL_VERSION:-6.14.2}"
+KVER="${KERNEL_VERSION:-6.19.9}"
+KMAJOR="${KVER%%.*}"
 
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
