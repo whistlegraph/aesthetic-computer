@@ -11,7 +11,7 @@ FROM fedora:43
 
 # ── All packages needed for ac-native + kernel build ──
 RUN dnf install -y --setopt=install_weak_deps=False \
-    gcc make cpio lz4 bc perl flex bison \
+    gcc make cpio lz4 bc perl flex bison diffutils \
     elfutils-libelf-devel openssl-devel \
     curl jq git tar xz findutils pkgconf-pkg-config zstd \
     ca-certificates \
@@ -34,7 +34,7 @@ RUN mkdir -p /cache && cd /cache \
     && curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ \
     && ln -sf quickjs-2024-01-13 quickjs \
     && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
-    && echo "=== Cached: QuickJS + Linux 6.14.2 ==="
+    && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
 
 # ── Verify tools ──
 RUN gcc --version | head -1 && busybox --help >/dev/null 2>&1 && echo "OK"
