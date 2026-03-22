@@ -59,5 +59,27 @@ for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
   echo performance > "$g" 2>/dev/null
 done
 
-ilog "exec-ac-native"
-exec /ac-native /piece.mjs
+ilog "start-ac-native"
+
+# Run ac-native in a loop — if it crashes, show red screen + restart
+CRASH_COUNT=0
+while true; do
+    /ac-native /piece.mjs
+    EXIT_CODE=$?
+    CRASH_COUNT=$((CRASH_COUNT + 1))
+    ilog "ac-native exited with code $EXIT_CODE (crash #$CRASH_COUNT)"
+
+    # Write crash info to USB if mounted
+    if [ -d /mnt/usb ]; then
+        echo "crash #$CRASH_COUNT exit=$EXIT_CODE time=$(date +%s 2>/dev/null || echo ?)" >> /mnt/usb/crash.log
+    fi
+
+    # Flash screen red via framebuffer (if available)
+    if [ -c /dev/fb0 ]; then
+        # Fill framebuffer with red (0x00FF0000 in BGRA)
+        dd if=/dev/zero bs=4096 count=512 2>/dev/null | tr '\0' '\377' > /dev/fb0 2>/dev/null
+    fi
+
+    sleep 2
+    ilog "restarting ac-native..."
+done
