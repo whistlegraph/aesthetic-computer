@@ -7,7 +7,7 @@
 ## The source is COPY'd into the image — no bind mounts needed.
 ## Output: /out/vmlinuz + /out/build.json
 
-FROM fedora:41
+FROM fedora:43
 
 # ── All packages needed for ac-native + kernel build ──
 RUN dnf install -y --setopt=install_weak_deps=False \
@@ -33,7 +33,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
 RUN mkdir -p /cache && cd /cache \
     && curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ \
     && ln -sf quickjs-2024-01-13 quickjs \
-    && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.14.2.tar.xz | tar xJ \
+    && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
     && echo "=== Cached: QuickJS + Linux 6.14.2 ==="
 
 # ── Verify tools ──
