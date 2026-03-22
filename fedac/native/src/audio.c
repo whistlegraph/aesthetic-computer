@@ -1297,18 +1297,17 @@ int audio_sample_get_data(ACAudio *audio, float *out, int max_len) {
 }
 
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
-    if (!audio || !data || len <= 0 || !audio->sample_buf) return;
+    if (!audio || !data || len <= 0 || !audio->sample_buf_back) return;
     if (len > audio->sample_max_len) len = audio->sample_max_len;
-    // Kill all active sample voices first — prevents reading during write
-    pthread_mutex_lock(&audio->lock);
-    for (int i = 0; i < AUDIO_MAX_SAMPLE_VOICES; i++)
-        audio->sample_voices[i].active = 0;
-    audio->sample_len = 0;  // prevent audio callback from reading
-    __sync_synchronize();
-    // Now safe to write — no readers
-    memcpy(audio->sample_buf, data, len * sizeof(float));
+    // Write to back buffer (only JS thread writes here — safe without lock)
+    memcpy(audio->sample_buf_back, data, len * sizeof(float));
     if (len < audio->sample_max_len)
-        memset(audio->sample_buf + len, 0, (audio->sample_max_len - len) * sizeof(float));
+        memset(audio->sample_buf_back + len, 0, (audio->sample_max_len - len) * sizeof(float));
+    // Swap pointers under lock — audio callback checks sample_loading flag
+    pthread_mutex_lock(&audio->lock);
+    float *tmp = audio->sample_buf;
+    audio->sample_buf = audio->sample_buf_back;
+    audio->sample_buf_back = tmp;
     audio->sample_len = len;
     if (rate > 0) audio->sample_rate = rate;
     __sync_synchronize();
