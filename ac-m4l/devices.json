@@ -39,14 +39,14 @@
       "type": "effect"
     },
     {
-      "name": "AC 🎹 knob-map (aesthetic.computer)",
-      "piece": "knob-map",
-      "description": "Map MIDI note numbers to any Ableton parameter — play keys to control knobs",
+      "name": "AC 🎹 spreadnob (aesthetic.computer)",
+      "piece": "spreadnob",
+      "description": "Spread any knob across your MIDI keys",
       "width": 250,
       "height": 170,
       "type": "midi",
       "source": "AC-KnobMap.amxd.json",
-      "version": "1.0.3"
+      "version": "1.0.4"
     }
   ],
   "defaults": {

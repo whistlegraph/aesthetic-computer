@@ -16,7 +16,7 @@
     "enablehscroll": 0,
     "enablevscroll": 0,
     "devicewidth": 250.0,
-    "description": "Map MIDI note numbers to any Ableton parameter value",
+    "description": "Spreadnob — spread any knob across your MIDI keys",
     "boxes": [
       {
         "box": {
@@ -41,7 +41,7 @@
           "patching_rect": [700.0, 32.0, 100.0, 20.0],
           "presentation": 1,
           "presentation_rect": [10.0, 8.0, 95.0, 20.0],
-          "text": "KNOB MAP",
+          "text": "AC SPREAD NOB",
           "fontsize": 13.0,
           "fontface": 1,
           "textcolor": [0.875, 0.863, 0.922, 1.0]
@@ -56,7 +56,7 @@
           "patching_rect": [810.0, 32.0, 50.0, 18.0],
           "presentation": 1,
           "presentation_rect": [200.0, 11.0, 42.0, 18.0],
-          "text": "v1.0.3",
+          "text": "v1.0.4",
           "fontsize": 10.0,
           "textcolor": [0.486, 0.467, 0.584, 1.0]
         }
@@ -597,7 +597,7 @@
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [30.0, 420.0, 115.0, 22.0],
-          "text": "print [AC-KNOBMAP]"
+          "text": "print [AC-SPREADNOB]"
         }
       }
     ],
