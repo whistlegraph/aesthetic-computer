@@ -220,7 +220,24 @@ fi
 echo "root:x:0:" > "$IROOT/etc/group"
 echo "root:x:0:root" > "$IROOT/etc/passwd"
 
-# ── 2n: KidLisp bundle ──
+# ── 2n: Claude Code ──
+CLAUDE_BIN=""
+for p in /claude-bin /usr/local/bin/claude /home/me/.local/share/claude/versions/*; do
+    [ -f "$p" ] && CLAUDE_BIN="$p" && break
+done
+if [ -n "$CLAUDE_BIN" ]; then
+    cp "$CLAUDE_BIN" "$IROOT/bin/claude"
+    chmod +x "$IROOT/bin/claude"
+    # Copy its shared libs
+    for lib in $(ldd "$CLAUDE_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -nL "$lib" "$IROOT/lib64/" 2>/dev/null || true
+    done
+    log "  Claude Code: $(du -sh "$IROOT/bin/claude" | cut -f1)"
+else
+    log "  Claude Code: not available (mount with -v /path/to/claude:/claude-bin)"
+fi
+
+# ── 2o: KidLisp bundle ──
 if command -v npx &>/dev/null && [ -f "$SRC/system/public/aesthetic.computer/lib/kidlisp.mjs" ]; then
     log "  Bundling KidLisp..."
     cd "$SRC"
