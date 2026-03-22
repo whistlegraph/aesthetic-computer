@@ -1253,8 +1253,7 @@ static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int ar
 
     size_t ab_len = 0;
     uint8_t *ptr = JS_GetArrayBuffer(ctx, &ab_len, ab);
-    JS_FreeValue(ctx, ab);
-    if (!ptr) return JS_FALSE;
+    if (!ptr) { JS_FreeValue(ctx, ab); return JS_FALSE; }
 
     float *data = (float *)(ptr + byte_off);
     int len = (int)(byte_len / sizeof(float));
@@ -1266,6 +1265,7 @@ static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int ar
     }
 
     audio_sample_load_data(audio, data, len, rate);
+    JS_FreeValue(ctx, ab);  // Free AFTER memcpy — ptr is into this buffer
     return JS_TRUE;
 }
 

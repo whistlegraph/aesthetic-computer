@@ -66,8 +66,18 @@ CRASH_COUNT=0
 while true; do
     /ac-native /piece.mjs
     EXIT_CODE=$?
+
+    # Clean exit (0) = shutdown requested — don't restart
+    if [ "$EXIT_CODE" = "0" ]; then
+        ilog "ac-native exited cleanly — shutting down"
+        sync
+        poweroff -f 2>/dev/null || reboot -f 2>/dev/null
+        sleep 10
+        break
+    fi
+
     CRASH_COUNT=$((CRASH_COUNT + 1))
-    ilog "ac-native exited with code $EXIT_CODE (crash #$CRASH_COUNT)"
+    ilog "ac-native crashed with code $EXIT_CODE (crash #$CRASH_COUNT)"
 
     # Write crash info to USB if mounted
     if [ -d /mnt/usb ]; then
@@ -76,7 +86,6 @@ while true; do
 
     # Flash screen red via framebuffer (if available)
     if [ -c /dev/fb0 ]; then
-        # Fill framebuffer with red (0x00FF0000 in BGRA)
         dd if=/dev/zero bs=4096 count=512 2>/dev/null | tr '\0' '\377' > /dev/fb0 2>/dev/null
     fi
 
