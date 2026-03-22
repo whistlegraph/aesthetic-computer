@@ -717,7 +717,7 @@ static long copy_file(const char *src, const char *dst) {
 // Auto-install kernel to internal drive's EFI System Partition
 // Returns 1 on success, 0 on failure.
 static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
-                              ACDisplay *display) {
+                              ACDisplay *display, int pixel_scale) {
     char source_mount[32] = "/mnt";
     char source_dev[32] = "";
     int source_mounted_tmp = 0;
@@ -2021,7 +2021,7 @@ int main(int argc, char *argv[]) {
 
         // Install kernel to internal drive (only if user held W during boot)
         if (getpid() == 1 && want_install) {
-            int install_ok = auto_install_to_hd(&graph, screen, display);
+            int install_ok = auto_install_to_hd(&graph, screen, display, pixel_scale);
             int should_reboot = 1;
             if (!headless && display)
                 should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
