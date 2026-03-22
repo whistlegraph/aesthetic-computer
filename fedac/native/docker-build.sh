@@ -2,9 +2,7 @@
 # AC Native OS — Minimal reproducible build
 # Builds: C binary → initramfs → kernel → vmlinuz
 # Input: /src (repo), Output: /out/vmlinuz
-set -euo pipefail
-# Disable pipefail for make pipelines (warnings cause false failures)
-run_make() { set +o pipefail; "$@"; local rc=$?; set -o pipefail; return $rc; }
+set -eu
 
 SRC="${AC_SRC:-/repo}"
 OUT="${AC_OUT:-/out}"
@@ -49,9 +47,9 @@ if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
     cd "$NATIVE"
 fi
 
-run_make make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
+make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
-    2>&1 | tee "$BUILD/.make.log"
+    > "$BUILD/.make.log" 2>&1 || true
 
 [ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
