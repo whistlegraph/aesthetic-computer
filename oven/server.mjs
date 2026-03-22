@@ -1526,7 +1526,7 @@ app.get('/kidlisp-og/site/:site.png', async (req, res) => {
   if (!['keeps', 'buy'].includes(site)) return res.status(400).json({ error: 'Invalid site', valid: ['keeps', 'buy'] });
   try {
     addServerLog('info', '🖼️', `Site OG: ${site}.kidlisp.com`);
-    const result = await generateKidlispOGImage('mosaic', true);
+    const result = await generateKidlispOGImage('mosaic', false);
     const bg = await sharp(result.buffer).blur(6).toBuffer();
     const darkOverlay = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.4)"/></svg>`);
     const prefixLetters = site === 'keeps'

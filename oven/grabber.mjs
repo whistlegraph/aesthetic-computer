@@ -3214,10 +3214,9 @@ export async function closeAll() {
 // KidLisp.com Dynamic OG Preview Image Generation
 // =============================================================================
 
-// Cache for OG image URL (memory cache with TTL)
+// Cache for OG image URLs, keyed by layout (memory cache with TTL)
 const ogImageCache = {
-  url: null,
-  expires: 0,
+  byLayout: {},  // { [layout]: { url, expires } }
   generatedAt: null,
   featuredPiece: null,
 };
@@ -3362,27 +3361,30 @@ async function fetchTopKidlispHits(limit = 20) {
 async function getCachedOGImage(layout = 'featured') {
   const today = getTodayKey();
   const key = `og/kidlisp/${today}-${layout}.png`;
-  
-  // Check memory cache first
-  if (ogImageCache.url && Date.now() < ogImageCache.expires) {
-    console.log(`📦 OG image from memory cache: ${ogImageCache.url}`);
-    return ogImageCache.url;
+
+  // Check memory cache first (per-layout)
+  const cached = ogImageCache.byLayout[layout];
+  if (cached?.url && Date.now() < cached.expires) {
+    console.log(`📦 OG image from memory cache (${layout}): ${cached.url}`);
+    return cached.url;
   }
-  
+
   // Check Spaces for today's image
   try {
     await spacesClient.send(new HeadObjectCommand({
       Bucket: SPACES_BUCKET,
       Key: key,
     }));
-    
+
     const url = `${SPACES_CDN_BASE}/${key}`;
-    
-    // Update memory cache (1hr TTL)
-    ogImageCache.url = url;
-    ogImageCache.expires = Date.now() + 60 * 60 * 1000;
-    
-    console.log(`📦 OG image from Spaces cache: ${url}`);
+
+    // Update memory cache (1hr TTL, per-layout)
+    ogImageCache.byLayout[layout] = {
+      url,
+      expires: Date.now() + 60 * 60 * 1000,
+    };
+
+    console.log(`📦 OG image from Spaces cache (${layout}): ${url}`);
     return url;
   } catch (err) {
     // Not found in cache
@@ -3408,9 +3410,11 @@ async function uploadOGImageToSpaces(buffer, layout = 'featured') {
   
   const url = `${SPACES_CDN_BASE}/${key}`;
   
-  // Update memory cache
-  ogImageCache.url = url;
-  ogImageCache.expires = Date.now() + 60 * 60 * 1000;
+  // Update memory cache (per-layout)
+  ogImageCache.byLayout[layout] = {
+    url,
+    expires: Date.now() + 60 * 60 * 1000,
+  };
   ogImageCache.generatedAt = new Date().toISOString();
   
   console.log(`📤 OG image uploaded to Spaces: ${url}`);
@@ -4287,10 +4291,16 @@ export async function generateKidlispOGImage(layout = 'featured', forceRegenerat
  * Get OG image cache status
  */
 export function getOGImageCacheStatus() {
+  const layouts = {};
+  for (const [layout, entry] of Object.entries(ogImageCache.byLayout)) {
+    layouts[layout] = {
+      cached: !!entry.url && Date.now() < entry.expires,
+      url: entry.url,
+      expires: entry.expires ? new Date(entry.expires).toISOString() : null,
+    };
+  }
   return {
-    cached: !!ogImageCache.url && Date.now() < ogImageCache.expires,
-    url: ogImageCache.url,
-    expires: ogImageCache.expires ? new Date(ogImageCache.expires).toISOString() : null,
+    layouts,
     generatedAt: ogImageCache.generatedAt,
     featuredPiece: ogImageCache.featuredPiece,
   };
@@ -4304,12 +4314,13 @@ export function getOGImageCacheStatus() {
 export async function getLatestOGImageUrl(layout = 'mosaic') {
   const today = getTodayKey();
   const key = `og/kidlisp/${today}-${layout}.png`;
-  
-  // Check memory cache first
-  if (ogImageCache.url && ogImageCache.url.includes(today)) {
-    return ogImageCache.url;
+
+  // Check memory cache first (per-layout)
+  const cached = ogImageCache.byLayout[layout];
+  if (cached?.url && cached.url.includes(today)) {
+    return cached.url;
   }
-  
+
   // Check Spaces for today's image
   try {
     await spacesClient.send(new HeadObjectCommand({
@@ -4317,8 +4328,10 @@ export async function getLatestOGImageUrl(layout = 'mosaic') {
       Key: key,
     }));
     const url = `${SPACES_CDN_BASE}/${key}`;
-    ogImageCache.url = url;
-    ogImageCache.expires = Date.now() + 60 * 60 * 1000;
+    ogImageCache.byLayout[layout] = {
+      url,
+      expires: Date.now() + 60 * 60 * 1000,
+    };
     return url;
   } catch (err) {
     // Not found - return yesterday's image if available
