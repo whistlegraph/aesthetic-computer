@@ -1,4 +1,5 @@
 ;;; Main entry point — AC Native OS (Common Lisp edition)
+;;; First boot: just show a colored screen to prove DRM works
 
 (in-package :ac-native)
 
@@ -7,40 +8,34 @@
 (defun compute-pixel-scale (display-w)
   "Compute pixel scale targeting ~300px wide."
   (let ((target (max 1 (min 16 (floor display-w 300)))))
-    ;; Prefer clean divisors within ±3
     (loop for delta from 0 to 3 do
       (let ((s (+ target delta)))
-        (when (and (>= s 1) (<= s 16)
-                   (zerop (mod display-w s)))
+        (when (and (>= s 1) (<= s 16) (zerop (mod display-w s)))
           (return-from compute-pixel-scale s)))
       (let ((s (- target delta)))
-        (when (and (>= s 1)
-                   (zerop (mod display-w s)))
+        (when (and (>= s 1) (zerop (mod display-w s)))
           (return-from compute-pixel-scale s))))
     target))
 
-(defun mount-minimal-fs ()
-  "Mount essential pseudo-filesystems (PID 1 only)."
-  (ac-native.syscalls:sys-mount "proc" "/proc" "proc")
-  (ac-native.syscalls:sys-mount "sysfs" "/sys" "sysfs")
-  (ac-native.syscalls:sys-mount "devtmpfs" "/dev" "devtmpfs")
-  (ac-log "mounted proc, sysfs, devtmpfs~%"))
-
 (defun main ()
   "AC Native OS entry point."
-  (ac-log "~%═══════════════════════════════════════~%")
-  (ac-log "  AC Native OS (Common Lisp)~%")
-  (ac-log "  SBCL ~A~%" (lisp-implementation-version))
-  (ac-log "═══════════════════════════════════════~%~%")
+  ;; Log to stderr (visible on serial console)
+  (format *error-output* "~%════════════════════════════════════~%")
+  (format *error-output* "  AC Native OS (Common Lisp)~%")
+  (format *error-output* "  SBCL ~A~%" (lisp-implementation-version))
+  (format *error-output* "════════════════════════════════════~%~%")
+  (force-output *error-output*)
 
-  ;; PID 1 duties
-  (when (= (ac-native.syscalls:sys-getpid) 1)
-    (mount-minimal-fs))
-
-  ;; Init display
-  (let ((display (ac-native.drm:drm-init)))
+  ;; Try to init display
+  (let ((display (handler-case (ac-native.drm:drm-init)
+                   (error (e)
+                     (format *error-output* "[cl] DRM init error: ~A~%" e)
+                     (force-output *error-output*)
+                     nil))))
     (unless display
-      (ac-log "FATAL: no display~%")
+      (format *error-output* "[cl] FATAL: no display — sleeping 30s~%")
+      (force-output *error-output*)
+      (sleep 30)
       (return-from main 1))
 
     (let* ((dw (ac-native.drm:display-width display))
@@ -51,35 +46,41 @@
            (screen (fb-create sw sh))
            (graph (make-graph :fb screen :screen screen)))
 
-      (ac-log "display: ~Dx~D  scale: ~D  screen: ~Dx~D~%"
+      (format *error-output* "[cl] display: ~Dx~D  scale: ~D  screen: ~Dx~D~%"
               dw dh scale sw sh)
+      (force-output *error-output*)
 
-      ;; Main loop
+      ;; Main loop — just cycle colors
       (setf *running* t)
-      (unwind-protect
-          (loop while *running* do
-            ;; TODO: input-poll
-            ;; TODO: js-call-act
-            ;; TODO: js-call-sim
+      (let ((frame 0))
+        (unwind-protect
+            (loop while *running* do
+              (incf frame)
+              ;; Cycle background
+              (let* ((t-val (* frame 0.02))
+                     (r (floor (+ 40 (* 40 (sin t-val)))))
+                     (g (floor (+ 20 (* 20 (sin (* t-val 1.3))))))
+                     (b (floor (+ 80 (* 80 (sin (* t-val 0.7)))))))
+                (graph-wipe graph (make-color :r r :g g :b b))
 
-            ;; Demo: cycle background color
-            (let* ((t-ms (monotonic-time-ms))
-                   (r (floor (+ 128 (* 127 (sin (* t-ms 0.001))))))
-                   (g (floor (+ 128 (* 127 (sin (* t-ms 0.0013))))))
-                   (b (floor (+ 128 (* 127 (sin (* t-ms 0.0017)))))))
-              (graph-wipe graph (make-color :r r :g g :b b))
-              ;; Draw a box in the center
-              (graph-ink graph (make-color :r 255 :g 255 :b 255 :a 200))
-              (graph-box graph (- (floor sw 2) 20) (- (floor sh 2) 20) 40 40)
-              ;; Draw a circle
-              (graph-ink graph (make-color :r 255 :g 100 :b 50))
-              (graph-circle graph (floor sw 2) (floor sh 2) 15))
+                ;; White box in center
+                (graph-ink graph (make-color :r 255 :g 255 :b 255 :a 200))
+                (graph-box graph (- (floor sw 2) 30) (- (floor sh 2) 30) 60 60)
 
-            ;; Present
-            (ac-native.drm:drm-present display screen scale)
-            (frame-sync-60fps))
+                ;; Orange circle
+                (graph-ink graph (make-color :r 255 :g 140 :b 50))
+                (graph-circle graph (floor sw 2) (floor sh 2) 20))
 
-        ;; Cleanup
-        (fb-destroy screen)
-        (ac-native.drm:drm-destroy display)
-        (ac-log "shutdown complete~%")))))
+              ;; Present
+              (ac-native.drm:drm-present display screen scale)
+              (frame-sync-60fps)
+
+              ;; Exit after 10 seconds (for testing)
+              (when (> frame 600)
+                (setf *running* nil)))
+
+          ;; Cleanup
+          (fb-destroy screen)
+          (ac-native.drm:drm-destroy display)
+          (format *error-output* "[cl] shutdown~%")
+          (force-output *error-output*))))))
