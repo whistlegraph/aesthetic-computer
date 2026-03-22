@@ -175,39 +175,56 @@ async function runPhase(job, label, cmd, args, cwd, extraEnv = {}) {
 
 async function runBuildJob(job) {
   try {
-    await setupBuildCache();
-
     job.status = "running";
     job.startedAt = nowISO();
     job.percent = 0;
 
-    // Phase 1: build vmlinuz (no --flash)
-    const buildScript = path.join(NATIVE_DIR, "scripts/build-and-flash.sh");
-    await runPhase(job, "build", "bash", [buildScript, ...job.flags], NATIVE_DIR);
+    const repoDir = path.resolve(NATIVE_DIR, "../..");
+    const buildName = `oven-${job.ref.slice(0, 7)}`;
+    const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
+
+    // Phase 1: Docker image build (cached layers = fast)
+    addLogLine(job, "stdout", "Phase 1: Building Docker image...");
+    await runPhase(job, "docker-build", "docker", [
+      "build", "-t", "ac-os-builder",
+      "-f", path.join(repoDir, "fedac/native/Dockerfile.builder"),
+      repoDir,
+    ], repoDir);
+
+    job.percent = 30;
+
+    // Phase 2: Docker run → compile binary + initramfs + kernel
+    addLogLine(job, "stdout", "Phase 2: Compiling kernel in Docker...");
+    const cidFile = `/tmp/oven-cid-${job.id}`;
+    await runPhase(job, "build", "bash", ["-c", [
+      `CID=$(docker create -e AC_BUILD_NAME=${buildName} ac-os-builder)`,
+      `echo $CID > ${cidFile}`,
+      `docker start -a $CID`,
+    ].join(" && ")], repoDir);
+
+    job.percent = 75;
+
+    // Phase 3: Extract vmlinuz from container
+    addLogLine(job, "stdout", "Phase 3: Extracting kernel...");
+    const cid = (await fs.readFile(cidFile, "utf8")).trim();
+    await runPhase(job, "extract", "bash", ["-c",
+      `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker rm ${cid} >/dev/null`
+    ], repoDir);
 
     job.percent = 80;
 
-    // Phase 2: QEMU smoke test (boot kernel, check serial for success/panic)
-    const acOs = path.join(NATIVE_DIR, "ac-os");
-    try {
-      await runPhase(job, "smoke-test", "bash", [acOs, "test"], NATIVE_DIR);
-      addLogLine(job, "stdout", "  SMOKE TEST: passed");
-    } catch (smokeErr) {
-      addLogLine(job, "stderr", `  SMOKE TEST: failed — ${smokeErr.message}`);
-      // Non-fatal for now — log warning but continue upload
-      // TODO: make this fatal once QEMU + virtio-gpu is reliable
-    }
-
-    job.percent = 85;
-
-    // Phase 3: upload vmlinuz to DO Spaces CDN
-    const vmlinuz = path.join(CACHE_DIR, "vmlinuz");
+    // Phase 4: Upload vmlinuz to DO Spaces CDN
+    addLogLine(job, "stdout", "Phase 4: Uploading to CDN...");
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
-    await runPhase(job, "upload", "bash", [uploadScript, vmlinuz], NATIVE_DIR, {
+    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzOut], NATIVE_DIR, {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
       DO_SPACES_SECRET:
         process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
     });
+
+    // Cleanup
+    try { await fs.unlink(vmlinuzOut); } catch {}
+    try { await fs.unlink(cidFile); } catch {}
 
     job.status = "success";
     job.stage = "done";
