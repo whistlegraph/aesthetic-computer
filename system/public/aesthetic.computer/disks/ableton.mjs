@@ -225,7 +225,12 @@ function act({ event: e, pen, sound, download }) {
 
     downloading = plugin.code;
 
-    fetch(plugin.m4l.downloadUrl)
+    const url = plugin.m4l.downloadUrl;
+    // Use versioned CDN URL if available
+    const vUrl = url.includes("assets.aesthetic.computer")
+      ? url
+      : `https://assets.aesthetic.computer/m4l/${encodeURIComponent(plugin.m4l.fileName)}`;
+    fetch(vUrl)
       .then((res) => res.arrayBuffer())
       .then((buf) => {
         download(plugin.m4l.fileName, new Uint8Array(buf), { sharing: true });
