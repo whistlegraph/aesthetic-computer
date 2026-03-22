@@ -29,6 +29,10 @@
 
 ;;; Monotonic clock
 
+(cffi:defcstruct timespec
+  (tv-sec :long)
+  (tv-nsec :long))
+
 (cffi:defcfun ("clock_gettime" %clock-gettime) :int
   (clk-id :int)
   (tp :pointer))
@@ -42,10 +46,6 @@
     (let ((sec (cffi:foreign-slot-value ts '(:struct timespec) 'tv-sec))
           (nsec (cffi:foreign-slot-value ts '(:struct timespec) 'tv-nsec)))
       (+ (* sec 1000.0d0) (/ nsec 1000000.0d0)))))
-
-(cffi:defcstruct timespec
-  (tv-sec :long)
-  (tv-nsec :long))
 
 (cffi:defcfun ("clock_nanosleep" %clock-nanosleep) :int
   (clk-id :int)
