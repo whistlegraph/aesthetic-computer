@@ -1154,7 +1154,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
 static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
                                       ACDisplay *display, ACInput *input,
                                       ACTts *tts, ACAudio *audio,
-                                      int install_ok) {
+                                      int install_ok, int pixel_scale) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
@@ -2024,7 +2024,7 @@ int main(int argc, char *argv[]) {
             int install_ok = auto_install_to_hd(&graph, screen, display, pixel_scale);
             int should_reboot = 1;
             if (!headless && display)
-                should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok);
+                should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
             if (install_ok) should_reboot = 1;
             if (should_reboot && getpid() == 1) {
                 if (tts) { tts_speak(tts, "powering off"); tts_wait(tts); }
