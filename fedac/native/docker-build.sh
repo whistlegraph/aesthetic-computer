@@ -48,9 +48,9 @@ fi
 
 make -j$(nproc) CC=gcc \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
-    > "$BUILD/.make.log" 2>&1
+    2>&1 | tee "$BUILD/.make.log" | tail -5
 
-[ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; cat "$BUILD/.make.log"; exit 1; }
+[ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 
 # ══════════════════════════════════════════════
