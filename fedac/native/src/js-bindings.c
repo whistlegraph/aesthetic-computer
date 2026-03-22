@@ -1211,17 +1211,17 @@ static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int arg
     ACAudio *audio = current_rt ? current_rt->audio : NULL;
     if (!audio || !audio->sample_buf || audio->sample_len <= 0) return JS_UNDEFINED;
 
-    // Snapshot length and clamp to buffer size (race protection)
+    // Lock to prevent sample_buf pointer swap during copy
+    pthread_mutex_lock(&audio->lock);
     int len = audio->sample_len;
     if (len > audio->sample_max_len) len = audio->sample_max_len;
-    if (len <= 0) return JS_UNDEFINED;
+    if (len <= 0) { pthread_mutex_unlock(&audio->lock); return JS_UNDEFINED; }
 
-    // Allocate a copy buffer on the stack/heap, copy under fence
     size_t byte_len = (size_t)len * sizeof(float);
     float *copy = malloc(byte_len);
-    if (!copy) return JS_UNDEFINED;
-    __sync_synchronize();
+    if (!copy) { pthread_mutex_unlock(&audio->lock); return JS_UNDEFINED; }
     memcpy(copy, audio->sample_buf, byte_len);
+    pthread_mutex_unlock(&audio->lock);
 
     // Create ArrayBuffer from our copy
     JSValue ab = JS_NewArrayBuffer(ctx, (uint8_t *)copy, byte_len,
