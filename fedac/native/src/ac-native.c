@@ -682,7 +682,7 @@ static ACColor title_char_color(int ci, int frame, int alpha) {
 
 // Forward declarations
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
-                             ACDisplay *display, const char *status);
+                             ACDisplay *display, const char *status, int pixel_scale);
 
 // Check if a block device is removable (USB = 1, internal = 0)
 static int is_removable(const char *blkname) {
@@ -726,7 +726,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
 
     ac_log("[install] auto_install_to_hd starting\n");
     if (display)
-        draw_boot_status(graph, screen, display, "installing to disk...");
+        draw_boot_status(graph, screen, display, "installing to disk...", pixel_scale);
 
     // Detect source layout: monolithic (BOOTX64.EFI is kernel) or
     // systemd-boot (BOOTX64.EFI is bootloader, kernel at EFI/Linux/*)
@@ -890,7 +890,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (display) {
                         char msg[80];
                         snprintf(msg, sizeof(msg), "expanding to 1024MB...");
-                        draw_boot_status(graph, screen, display, msg);
+                        draw_boot_status(graph, screen, display, msg, pixel_scale);
                     }
                     umount("/tmp/hd");
                     // Repartition: create 1024MB EFI System Partition
@@ -910,7 +910,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
                         ac_log("[install] remount failed after repartition\n");
                         if (display)
-                            draw_boot_status(graph, screen, display, "repartition failed!");
+                            draw_boot_status(graph, screen, display, "repartition failed!", pixel_scale);
                         usleep(2000000);
                         continue;
                     }
@@ -989,7 +989,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     }
 
     if (installed && display) {
-        draw_boot_status(graph, screen, display, "installed to disk!");
+        draw_boot_status(graph, screen, display, "installed to disk!", pixel_scale);
         usleep(800000);
     } else if (!installed) {
         ac_log("[install] No suitable HD partition found for install\n");
@@ -1094,7 +1094,7 @@ static void play_install_failure_beep(ACAudio *audio) {
 // Returns 1 if user confirms with Y, 0 if N/Escape
 static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
                                  ACDisplay *display, int *fds, int nfds,
-                                 ACTts *tts, ACAudio *audio) {
+                                 ACTts *tts, ACAudio *audio, int pixel_scale) {
     int is_dark = 1; // always dark
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
@@ -1661,7 +1661,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // If W was pressed, show y/n confirmation
     int result = 0;
     if (w_pressed) {
-        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count, tts, audio);
+        result = draw_install_confirm(graph, screen, display, key_fds, key_fd_count, tts, audio, pixel_scale);
     }
 
     for (int i = 0; i < key_fd_count; i++) close(key_fds[i]);
@@ -1671,7 +1671,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 // Draw a status frame during boot (white bg, bouncy title + status text)
 // Renders multiple frames with a bounce animation
 static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
-                             ACDisplay *display, const char *status) {
+                             ACDisplay *display, const char *status, int pixel_scale) {
     static int boot_frame = 0;
     // Time-of-day themed background (light for day, dark for night)
     int la_hour = get_la_hour();
@@ -1992,7 +1992,7 @@ int main(int argc, char *argv[]) {
         if (!headless) {
             want_install = draw_startup_fade(&graph, screen, display, tts, audio, pixel_scale);
             if (!want_install)
-                draw_boot_status(&graph, screen, display, "starting input...");
+                draw_boot_status(&graph, screen, display, "starting input...", pixel_scale);
         }
 
         // Init input (DRM path)
@@ -2041,13 +2041,13 @@ int main(int argc, char *argv[]) {
         // Init WiFi
         if (!wifi_disabled) {
             if (!headless && display)
-                draw_boot_status(&graph, screen, display, "starting wifi...");
+                draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
             wifi = wifi_init();
             // Auto-connect to saved/preset network on boot
             if (wifi) wifi_autoconnect(wifi);
         } else {
             if (!headless && display)
-                draw_boot_status(&graph, screen, display, "wifi disabled");
+                draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
             ac_log("[ac-native] WiFi disabled by config\n");
         }
 
