@@ -1846,7 +1846,7 @@ int main(int argc, char *argv[]) {
     extern void *g_display;  // expose to js-bindings for browser DRM handoff
     ACFramebuffer *screen = NULL;
     ACInput *input = NULL;
-    int pixel_scale = 3;  // Default: 1/3 display resolution (3x nearest-neighbor)
+    int pixel_scale = 3;  // Default: computed below to target ~300px wide
 #ifdef USE_WAYLAND
     ACWaylandDisplay *wayland_display = NULL;
     int is_wayland = 0;
@@ -1900,6 +1900,13 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        // Target ~300px wide for consistent pixel density across displays
+        pixel_scale = display->width / 300;
+        if (pixel_scale < 1) pixel_scale = 1;
+        if (pixel_scale > 16) pixel_scale = 16;
+        ac_log("pixel_scale=%d (display %dx%d -> screen %dx%d)\n",
+               pixel_scale, display->width, display->height,
+               display->width / pixel_scale, display->height / pixel_scale);
         screen = fb_create(display->width / pixel_scale, display->height / pixel_scale);
         if (!screen) {
 #ifdef USE_WAYLAND
