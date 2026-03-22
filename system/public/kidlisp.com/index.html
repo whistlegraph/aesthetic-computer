@@ -14086,6 +14086,30 @@ s("ape_breaks_3").loopAt(2)</textarea>
         [data-theme="light"] .pref-info-val {
           color: #555;
         }
+
+        /* Wide/short screens: go horizontal so content doesn't overflow vertically */
+        @media (min-width: 600px) and (max-height: 700px) {
+          .preferences-modal-content {
+            max-width: 640px;
+            max-height: 90vh;
+            padding: 14px 20px;
+          }
+          .preferences-modal-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 20px;
+          }
+          .preferences-section {
+            margin-bottom: 6px;
+          }
+        }
+
+        /* General desktop: allow wider modal */
+        @media (min-width: 600px) and (min-height: 701px) {
+          .preferences-modal-content {
+            max-width: 440px;
+          }
+        }
       `;
       document.head.appendChild(style);
     }
@@ -14128,7 +14152,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
       header.appendChild(closeBtn);
       
       content.appendChild(header);
-      
+
+      // Body wrapper for responsive grid layout
+      const body = document.createElement('div');
+      body.className = 'preferences-modal-body';
+
       // Theme section
       const themeSection = document.createElement('div');
       themeSection.className = 'preferences-section';
@@ -14149,7 +14177,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           </button>
         </div>
       `;
-      content.appendChild(themeSection);
+      body.appendChild(themeSection);
 
       // Workspace section
       const workspaceSection = document.createElement('div');
@@ -14167,7 +14195,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           </button>
         </div>
       `;
-      content.appendChild(workspaceSection);
+      body.appendChild(workspaceSection);
       
       // Language section
       const langSection = document.createElement('div');
@@ -14193,7 +14221,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           </button>
         </div>
       `;
-      content.appendChild(langSection);
+      body.appendChild(langSection);
 
       // Rendering section (GPU toggle + individual effects)
       const renderSection = document.createElement('div');
@@ -14238,7 +14266,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
           </div>
         </div>
       `;
-      content.appendChild(renderSection);
+      body.appendChild(renderSection);
 
       // Dashboard / Profile section
       const dashSection = document.createElement('div');
@@ -14270,8 +14298,9 @@ s("ape_breaks_3").loopAt(2)</textarea>
           </div>
         </div>
       `;
-      content.appendChild(dashSection);
+      body.appendChild(dashSection);
 
+      content.appendChild(body);
       preferencesModal.appendChild(content);
       
       // Close on backdrop click
