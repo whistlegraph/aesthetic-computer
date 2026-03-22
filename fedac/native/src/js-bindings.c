@@ -1206,6 +1206,12 @@ static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, J
 }
 
 // sound.sample.getData() — returns Float32Array of current sample buffer
+// Proper free callback for JS_NewArrayBuffer (3-arg signature, not plain free)
+static void js_free_array_buffer(JSRuntime *rt, void *opaque, void *ptr) {
+    (void)rt; (void)opaque;
+    free(ptr);
+}
+
 static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     ACAudio *audio = current_rt ? current_rt->audio : NULL;
@@ -1225,7 +1231,7 @@ static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int arg
 
     // Create ArrayBuffer from our copy
     JSValue ab = JS_NewArrayBuffer(ctx, (uint8_t *)copy, byte_len,
-                                   (JSFreeArrayBufferDataFunc *)free, NULL, 0);
+                                   js_free_array_buffer, NULL, 0);
     if (JS_IsException(ab)) { free(copy); return JS_UNDEFINED; }
 
     // Create Float32Array view
