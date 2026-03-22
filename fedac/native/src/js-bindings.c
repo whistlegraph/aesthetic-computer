@@ -1267,6 +1267,8 @@ static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int ar
 
     float *data = (float *)(ptr + byte_off);
     int len = (int)(byte_len / sizeof(float));
+    ac_log("[sample] loadData: byte_len=%zu byte_off=%zu bytes_per=%zu ab_len=%zu len=%d\n",
+           byte_len, byte_off, bytes_per, ab_len, len);
 
     unsigned int rate = 48000;
     if (argc >= 2 && JS_IsNumber(argv[1])) {
