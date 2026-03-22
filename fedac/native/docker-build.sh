@@ -54,28 +54,7 @@ make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
 [ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 
-# ── Optional: Build Common Lisp variant ──
-if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
-    log "Step 1b: Building ac-native (Common Lisp)..."
-    CL_DIR="$NATIVE/cl"
-    # Build standalone binary via SBCL + Quicklisp
-    sbcl --non-interactive \
-        --eval '(load "/opt/quicklisp/setup.lisp")' \
-        --eval '(require :asdf)' \
-        --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
-        --eval '(asdf:load-system :ac-native)' \
-        --eval "(ac-native.build:build \"$BUILD/ac-native-cl\")" \
-        2>&1 || { err "CL build failed"; exit 1; }
-    if [ -f "$BUILD/ac-native-cl" ]; then
-        log "  CL Binary: $(stat -c%s "$BUILD/ac-native-cl") bytes"
-        # Replace C binary with CL binary
-        cp "$BUILD/ac-native" "$BUILD/ac-native-c"
-        cp "$BUILD/ac-native-cl" "$BUILD/ac-native"
-        log "  Using Common Lisp binary"
-    else
-        err "CL binary not produced — falling back to C"
-    fi
-fi
+# CL build happens after initramfs (step 2) — see below
 
 # ══════════════════════════════════════════════
 # Step 2: Build initramfs from scratch
@@ -279,6 +258,32 @@ BROKEN_FINAL=$(find "$IROOT" -type l ! -exec test -e {} \; -print 2>/dev/null | 
 TOTAL_FILES=$(find "$IROOT" -type f | wc -l)
 log "  Initramfs: $TOTAL_FILES files, $BROKEN_FINAL broken symlinks"
 [ "$BROKEN_FINAL" -gt 0 ] && err "  WARNING: broken symlinks remain!"
+
+# ── Optional: Swap in Common Lisp binary ──
+if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
+    log "Step 2b: Building ac-native (Common Lisp)..."
+    CL_DIR="$NATIVE/cl"
+    sbcl --non-interactive \
+        --eval '(load "/opt/quicklisp/setup.lisp")' \
+        --eval '(require :asdf)' \
+        --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
+        --eval '(asdf:load-system :ac-native)' \
+        --eval "(ac-native.build:build \"$BUILD/ac-native-cl\")" \
+        2>&1 || { err "CL build failed"; }
+    if [ -f "$BUILD/ac-native-cl" ]; then
+        log "  CL Binary: $(stat -c%s "$BUILD/ac-native-cl") bytes"
+        # Swap into initramfs (keep C version in build dir)
+        cp "$IROOT/ac-native" "$BUILD/ac-native-c"
+        cp "$BUILD/ac-native-cl" "$IROOT/ac-native"
+        # Add libzstd (CL runtime needs it, C binary doesn't)
+        for lib in /lib64/libzstd.so*; do
+            [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
+        done
+        log "  Swapped CL binary into initramfs"
+    else
+        err "CL binary not produced — using C binary"
+    fi
+fi
 
 # ══════════════════════════════════════════════
 # Step 3: Pack initramfs (cpio + lz4)
