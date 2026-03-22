@@ -115,18 +115,6 @@
       gap: 10px;
     }
 
-    .live-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-    }
-    .live-dot.error { background: var(--red); animation: none; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
 
     .wallet-btn {
       background: linear-gradient(135deg, rgba(78, 205, 196, 0.15), rgba(205, 92, 155, 0.15));
@@ -545,7 +533,6 @@
   <header>
     <a href="/" class="logo"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     <div class="header-right">
-      <div class="live-dot" id="live-dot" title="Live"></div>
       <button class="wallet-btn" id="wallet-btn">ꜩ Connect Tezos</button>
     </div>
   </header>
@@ -627,7 +614,6 @@
   // ── DOM ──
   const grid = document.getElementById('grid');
   const walletBtn = document.getElementById('wallet-btn');
-  const liveDot = document.getElementById('live-dot');
   const overlay = document.getElementById('modal-overlay');
   const buyBtn = document.getElementById('buy-btn');
   const buyStatus = document.getElementById('buy-status');
@@ -798,7 +784,7 @@
 
     grid.classList.remove('sold-grid');
     // Sort by price ascending by default
-    const sorted = [...listings].sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz));
+    const sorted = [...listings].sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz) || Number(a.token?.token_id || 0) - Number(b.token?.token_id || 0));
     if (!sorted.length) {
       grid.innerHTML = '<div class="loading">No active listings</div>';
       return;
@@ -1111,7 +1097,6 @@
       const [freshData, soldData] = await Promise.all([fetchListings(), fetchSoldEvents()]);
       listings = freshData;
       soldEvents = soldData;
-      liveDot.classList.remove('error');
       const allAddrs = [
         ...freshData.map(l => l.seller_address),
         ...freshData.flatMap(l => (l.token?.creators || []).map(c => c.creator_address)),
@@ -1122,7 +1107,6 @@
       // Route from URL on first load (after listings are available)
       if (!selectedListing) routeFromURL();
     } catch (err) {
-      liveDot.classList.add('error');
       console.error('[buy] Failed to load:', err);
     }
   }
@@ -1130,7 +1114,6 @@
   // Boot
   loadMarket();
   initWallet().catch(() => {});
-  setInterval(loadMarket, REFRESH_MS);
 })();
 </script>
 
