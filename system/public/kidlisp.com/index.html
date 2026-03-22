@@ -569,7 +569,7 @@
     
     #settings-gear {
       position: absolute;
-      right: 12px; /* Default position (desktop / 4x4 — no collapse arrow) */
+      right: 32px; /* Default: left of collapse arrow (single-column / mobile) */
       top: 50%;
       transform: translateY(-50%);
       width: 16px;
@@ -7735,6 +7735,7 @@
       position: fixed;
       width: 16px;
       height: 16px;
+      display: none; /* Hidden by default — shown by JS when Split.js gutters exist */
       background: radial-gradient(circle at 35% 35%, rgba(255, 180, 220, 0.95), rgba(205, 120, 170, 0.9));
       border: 2px solid rgba(180, 100, 150, 0.6);
       border-radius: 50%;
@@ -11660,7 +11661,11 @@ s("ape_breaks_3").loopAt(2)</textarea>
             indicators.forEach(ind => ind.remove());
           }
         });
-        
+
+        // Move gear closer to edge when no collapse arrows exist
+        const gear = document.getElementById('settings-gear');
+        if (gear) gear.style.right = '12px';
+
         // Also reset main-split flex styles from mobile
         if (mainSplit) {
           mainSplit.style.display = '';
@@ -12122,6 +12127,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
           indicator.className = 'mobile-collapse-indicator';
           header.appendChild(indicator);
         }
+
+        // Push gear left of the collapse arrow
+        const gear = document.getElementById('settings-gear');
+        if (gear) gear.style.right = '32px';
         
         // Elements that should NOT start a drag (interactive elements)
         const skipDragSelectors = [
@@ -12673,9 +12682,10 @@ s("ape_breaks_3").loopAt(2)</textarea>
     function updateCenterSquarePosition() {
       const centerSquare = document.getElementById('center-square');
       if (!centerSquare) return;
-      
-      const isMobile = window.innerWidth <= 768;
-      if (isMobile) {
+
+      // Hide in single-column / mobile mode (no Split.js gutters)
+      const gutterCount = document.querySelectorAll('.gutter').length;
+      if (window.innerWidth <= 768 || gutterCount === 0) {
         centerSquare.style.display = 'none';
         return;
       }
