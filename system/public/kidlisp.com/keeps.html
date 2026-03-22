@@ -2379,22 +2379,6 @@
       color: var(--ac-purple);
     }
 
-    .mint-heartbeat {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4a9c5d;
-      display: none;
-      margin-left: 8px;
-      flex-shrink: 0;
-      animation: heartbeatBlink 1s ease-in-out infinite;
-    }
-    .mint-heartbeat.active { display: inline-block; }
-    .mint-heartbeat.lost { background: #d9534f; animation: none; }
-    @keyframes heartbeatBlink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
 
     .mint-body {
       padding: 20px;
@@ -3299,7 +3283,7 @@
   <div class="keeps-mint-overlay" id="mint-overlay">
     <div class="keeps-mint-modal">
       <div class="mint-header">
-        <span class="mint-header-title" id="mint-title">Keep $code</span><span class="mint-heartbeat" id="mint-heartbeat"></span>
+        <span class="mint-header-title" id="mint-title">Keep $code</span>
         <button class="keeps-modal-close" onclick="closeMintModal()">&times;</button>
       </div>
       <div class="mint-body">
@@ -6002,8 +5986,6 @@
       mintAutoSyncAfterRebake = false;
       document.getElementById('mint-overlay').classList.remove('open');
       document.body.style.overflow = '';
-      const hb = document.getElementById('mint-heartbeat');
-      if (hb) { hb.classList.remove('active', 'lost'); }
       if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
       if (mintAbortController) {
         mintAbortController.abort();
@@ -6047,10 +6029,6 @@
         }
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
         addTrackEntry('Wallet connected: ' + address.slice(0, 8) + '...' + address.slice(-4));
-
-        // Activate heartbeat
-        const hb = document.getElementById('mint-heartbeat');
-        if (hb) { hb.classList.add('active'); hb.classList.remove('lost'); }
 
         // Refresh token
         if (acAuth0Client) {
@@ -6116,8 +6094,6 @@
       } catch (err) {
         if (err.name === 'AbortError') return;
         console.error('Mint flow error:', err);
-        const hb = document.getElementById('mint-heartbeat');
-        if (hb) { hb.classList.add('lost'); }
         const message = err.message || 'Unexpected error';
         const lastStage = Object.keys(mintStepStates).reverse().find(k => mintStepStates[k]?.status === 'active');
         setMintStep(lastStage || 'validate', 'error', message);
@@ -6149,8 +6125,6 @@
           pollCount++;
           if (pollCount > MAX_POLLS) {
             stopPolling();
-            const hb = document.getElementById('mint-heartbeat');
-            if (hb) { hb.classList.add('lost'); }
             setMintStep(lastStage || 'thumbnail', 'error', 'Preparation timed out');
             showMintError('Preparation timed out. Try again.', true);
             resolve();
@@ -6201,8 +6175,6 @@
             const jobAge = jobUpdatedAt ? Date.now() - jobUpdatedAt : 0;
             if (job.status === 'preparing' && jobAge > STAGE_STUCK_THRESHOLD_MS) {
               stopPolling();
-              const hb = document.getElementById('mint-heartbeat');
-              if (hb) { hb.classList.add('lost'); }
               setMintStep(job.stage || 'ipfs', 'error', `Stuck at ${job.stageMessage || job.stage} — try again`);
               showMintError(`Pipeline appears stuck at "${job.stageMessage || job.stage}". The background process may have crashed. Try again.`, true);
               resolve();
@@ -6431,10 +6403,6 @@
                 document.getElementById('mint-confirm-btn').disabled = false;
               }
 
-              // Hide heartbeat on success
-              const hb = document.getElementById('mint-heartbeat');
-              if (hb) { hb.classList.remove('active'); }
-
               resolve();
               return;
             }
@@ -6443,8 +6411,6 @@
             if (job.status === 'failed') {
               stopPolling();
               const failStage = job.errorStage || job.stage || 'validate';
-              const hb = document.getElementById('mint-heartbeat');
-              if (hb) { hb.classList.add('lost'); }
               setMintStep(failStage, 'error', job.error || 'Preparation failed');
               addTrackEntry(job.error || 'Preparation failed', 'error');
               showMintError(job.error || 'Preparation failed', true);

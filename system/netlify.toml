@@ -1496,6 +1496,11 @@ to = "/kidlisp.com/keeps-tech.html"
 status = 200
 force = true
 [[redirects]]
+from = "https://keep.kidlisp.com/wallet"
+to = "/kidlisp.com/wallet/index.html"
+status = 200
+force = true
+[[redirects]]
 from = "https://keep.kidlisp.com/*"
 to = "/kidlisp.com/keeps.html"
 status = 200
