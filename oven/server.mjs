@@ -1443,10 +1443,10 @@ app.get('/kidlisp-og.png', async (req, res) => {
     const url = await getLatestOGImageUrl(layout);
     
     if (url) {
-      // Redirect to CDN - instant response
+      // Redirect to CDN - instant response (302 so browsers don't permanently cache stale redirects)
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('X-Cache', 'CDN');
-      return res.redirect(301, url);
+      return res.redirect(302, url);
     }
     
     // No cached image yet - trigger background regeneration and serve a recent fallback
@@ -1526,13 +1526,22 @@ app.get('/kidlisp-og/site/:site.png', async (req, res) => {
   if (!['keeps', 'buy'].includes(site)) return res.status(400).json({ error: 'Invalid site', valid: ['keeps', 'buy'] });
   try {
     addServerLog('info', '🖼️', `Site OG: ${site}.kidlisp.com`);
-    const result = await generateKidlispOGImage('mosaic', false);
-    // If cached, download the image from CDN; otherwise use the buffer directly
-    let mosaicBuffer = result.buffer;
-    if (!mosaicBuffer && result.url) {
-      const resp = await fetch(result.url);
-      if (!resp.ok) throw new Error(`Failed to fetch cached mosaic: ${resp.status}`);
+    // Use raw mosaic (no branding text) as background
+    const rawUrl = await getLatestOGImageUrl('mosaic-raw');
+    let mosaicBuffer;
+    if (rawUrl) {
+      const resp = await fetch(rawUrl);
+      if (!resp.ok) throw new Error(`Failed to fetch raw mosaic: ${resp.status}`);
       mosaicBuffer = Buffer.from(await resp.arrayBuffer());
+    } else {
+      // Fallback: generate mosaic and use its buffer (will have branding but better than nothing)
+      const result = await generateKidlispOGImage('mosaic', false);
+      mosaicBuffer = result.buffer;
+      if (!mosaicBuffer && result.url) {
+        const resp = await fetch(result.url);
+        if (!resp.ok) throw new Error(`Failed to fetch mosaic: ${resp.status}`);
+        mosaicBuffer = Buffer.from(await resp.arrayBuffer());
+      }
     }
     const bg = await sharp(mosaicBuffer).blur(6).toBuffer();
     const darkOverlay = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="rgba(0,0,0,0.4)"/></svg>`);

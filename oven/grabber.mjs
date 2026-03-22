@@ -3618,7 +3618,12 @@ async function generateMosaicOGImage(topPieces) {
     mosaic = await sharp(mosaic)
       .blur(8) // sigma value - higher = more blur
       .toBuffer();
-    
+
+    // Upload raw mosaic (no branding) for site-specific OG images to composite on
+    uploadOGImageToSpaces(mosaic, 'mosaic-raw').catch(err =>
+      console.error('Failed to upload raw mosaic:', err.message)
+    );
+
     // Add dark overlay to make text pop, then add branding
     const darkOverlay = Buffer.from(`
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
