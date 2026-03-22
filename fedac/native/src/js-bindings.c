@@ -1241,6 +1241,7 @@ static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int arg
 // sound.sample.loadData(float32array, rate) — load sample data from JS array
 static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
+    if (!current_rt) return JS_FALSE;
     ACAudio *audio = current_rt->audio;
     if (!audio || argc < 1) return JS_FALSE;
 
