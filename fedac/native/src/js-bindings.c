@@ -1208,21 +1208,27 @@ static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, J
 // sound.sample.getData() — returns Float32Array of current sample buffer
 static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
-    ACAudio *audio = current_rt->audio;
-    if (!audio || audio->sample_len == 0) return JS_UNDEFINED;
+    ACAudio *audio = current_rt ? current_rt->audio : NULL;
+    if (!audio || !audio->sample_buf || audio->sample_len <= 0) return JS_UNDEFINED;
 
+    // Snapshot length and clamp to buffer size (race protection)
     int len = audio->sample_len;
-    JSValue ab = JS_NewArrayBuffer(ctx, NULL, len * sizeof(float), NULL, NULL, 0);
-    if (JS_IsException(ab)) return JS_UNDEFINED;
+    if (len > audio->sample_max_len) len = audio->sample_max_len;
+    if (len <= 0) return JS_UNDEFINED;
 
-    // Get the buffer pointer and copy data
-    size_t ab_len = 0;
-    uint8_t *ptr = JS_GetArrayBuffer(ctx, &ab_len, ab);
-    if (ptr) {
-        memcpy(ptr, audio->sample_buf, len * sizeof(float));
-    }
+    // Allocate a copy buffer on the stack/heap, copy under fence
+    size_t byte_len = (size_t)len * sizeof(float);
+    float *copy = malloc(byte_len);
+    if (!copy) return JS_UNDEFINED;
+    __sync_synchronize();
+    memcpy(copy, audio->sample_buf, byte_len);
 
-    // Create Float32Array view via global constructor
+    // Create ArrayBuffer from our copy
+    JSValue ab = JS_NewArrayBuffer(ctx, (uint8_t *)copy, byte_len,
+                                   (JSFreeArrayBufferDataFunc *)free, NULL, 0);
+    if (JS_IsException(ab)) { free(copy); return JS_UNDEFINED; }
+
+    // Create Float32Array view
     JSValue global = JS_GetGlobalObject(ctx);
     JSValue ctor = JS_GetPropertyStr(ctx, global, "Float32Array");
     JSValue f32 = JS_CallConstructor(ctx, ctor, 1, &ab);
