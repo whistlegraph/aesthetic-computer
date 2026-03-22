@@ -19,7 +19,8 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     ffmpeg-free-devel \
     wpa_supplicant dhcp-client iw \
     iwlwifi-mvm-firmware wireless-regdb \
-    linux-firmware \
+    linux-firmware linux-firmware-whence \
+    intel-gpu-firmware \
     busybox mtools dosfstools \
     mesa-libgbm mesa-libgbm-devel \
     mesa-libEGL mesa-libEGL-devel \
