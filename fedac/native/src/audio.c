@@ -656,6 +656,7 @@ ACAudio *audio_init(void) {
     // Sample buffer (10 seconds at max 48kHz capture rate)
     audio->sample_max_len = 48000 * AUDIO_MAX_SAMPLE_SECS;
     audio->sample_buf = calloc(audio->sample_max_len, sizeof(float));
+    audio->sample_buf_back = calloc(audio->sample_max_len, sizeof(float));
     audio->sample_len = 0;
     audio->sample_rate = 48000; // default, overwritten by actual capture rate
     audio->sample_next_id = 1;
@@ -1292,14 +1293,23 @@ int audio_sample_get_data(ACAudio *audio, float *out, int max_len) {
 }
 
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
-    if (!audio || !data || len <= 0) return;
+    if (!audio || !data || len <= 0 || !audio->sample_buf_back) return;
     if (len > audio->sample_max_len) len = audio->sample_max_len;
+    // Write to back buffer (JS thread only — no lock needed for the write)
+    memcpy(audio->sample_buf_back, data, len * sizeof(float));
+    // Zero the rest
+    if (len < audio->sample_max_len)
+        memset(audio->sample_buf_back + len, 0, (audio->sample_max_len - len) * sizeof(float));
+    // Atomic pointer swap: audio thread instantly sees the new buffer
     pthread_mutex_lock(&audio->lock);
-    memcpy(audio->sample_buf, data, len * sizeof(float));
+    float *tmp = audio->sample_buf;
+    audio->sample_buf = audio->sample_buf_back;
+    audio->sample_buf_back = tmp;
     audio->sample_len = len;
     if (rate > 0) audio->sample_rate = rate;
+    __sync_synchronize(); // full memory barrier
     pthread_mutex_unlock(&audio->lock);
-    ac_log("[sample] loaded %d samples (%d Hz)\n", len, audio->sample_rate);
+    ac_log("[sample] loaded %d samples (%d Hz) [swapped]\n", len, audio->sample_rate);
 }
 
 // --- Sample playback ---
