@@ -915,22 +915,30 @@
       font-weight: 700;
     }
 
-    .keeps-price-tez { color: #60a5fa !important; }
-    .keeps-price-usd { color: #4ade80 !important; }
-
-    /* Tezos symbol fallback for iOS — inline SVG replaces ꜩ glyph */
-    .tez-sym {
+    .code-slot {
+      display: inline;
+      font-family: var(--font-mono, monospace);
+    }
+    .code-slot .slot-char {
       display: inline-block;
-      width: 0.75em;
-      height: 0.75em;
-      vertical-align: -0.05em;
-      background: currentColor;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15.68 4.68v3.42l-4.35 4.35h4.35v2.53h-4.35v2.09c0 1.55.83 2.33 2.33 2.33.62 0 1.34-.18 1.76-.36l.56 2.33c-.62.27-1.64.53-2.72.53-3.15 0-4.46-1.81-4.46-4.59v-2.33H6.32v-1.2l6.5-6.76V4.68h2.86z'/%3E%3C/svg%3E") center/contain no-repeat;
+      transition: opacity 0.12s, transform 0.12s;
+      color: limegreen !important;
+    }
+    .code-slot .slot-char.flip {
+      opacity: 0;
+      transform: translateY(-0.3em);
+    }
+    .code-slot .slot-dollar {
+      color: limegreen !important;
     }
 
+    .keeps-price-tez { color: #60a5fa !important; }
+    .keeps-price-tez .tez-prefix { vertical-align: 0.1em; }
+    .keeps-price-usd { color: #4ade80 !important; }
+
+
     .keeps-about-lede .keeps-fee-detail {
-      font-size: 0.85em;
+      font-size: 1em;
       opacity: 0.7;
     }
 
@@ -2217,10 +2225,10 @@
     }
     .keeps-auth-btn.wallet:hover { border-color: #e05555; color: #ff6b6b; }
     .keeps-auth-btn.wallet.linked {
-      color: #e0a030;
-      border-color: rgba(224, 160, 48, 0.4);
+      color: #e05555;
+      border-color: rgba(224, 85, 85, 0.4);
     }
-    .keeps-auth-btn.wallet.linked:hover { border-color: #e0a030; color: #ffb844; }
+    .keeps-auth-btn.wallet.linked:hover { border-color: #e05555; color: #ff6b6b; }
     .keeps-auth-btn.wallet.connected {
       color: #40c060;
       border-color: rgba(64, 192, 96, 0.4);
@@ -2874,7 +2882,7 @@
               <button class="keeps-user-logout-btn" onclick="event.stopPropagation(); keepsLogout()">Log Out</button>
             </div>
           </div>
-          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()"><span class="tez-sym"></span> Connect</button>
+          <button class="keeps-auth-btn wallet" id="keeps-wallet-btn" style="display:none;" onclick="handleWalletBtn()">ꜩ Connect Tezos</button>
         </div>
       </div>
     </div>
@@ -3202,13 +3210,13 @@
     </div>
 
     <!-- About content (shown before Enter, above castle) -->
-    <div id="keeps-about-inline" style="display:none; overflow-y:auto; padding:20px 24px 0; width:100%; max-width:580px;">
+    <div id="keeps-about-inline" style="display:none; overflow-y:auto; padding:20px 24px 0; width:100%; max-width:720px;">
       <div class="keeps-about-simple">
         <div class="keeps-about-lede">
+          <span>All <span class="kl-brand"><span style="color:#FF6B6B">K</span><span style="color:#4ECDC4">i</span><span style="color:#FFE66D">d</span><span style="color:#A8E6CF">L</span><span style="color:#FF8B94">i</span><span style="color:#F7DC6F">s</span><span style="color:#BB8FCE">p</span><span style="color:#70D6FF">.com</span></span> pieces are given a unique <span class="code-slot" id="code-slot">$code</span>.</span>
           <span>Keep your KidLisp pieces on Tezos.</span>
-          <span>Each keep costs <span class="keeps-price keeps-price-tez">2.5 <span class="tez-sym"></span></span> <span class="keeps-fee-detail">(<span id="keeps-xtz-usd" class="keeps-price-usd">~$0.91 USD</span>)</span></span>
-          <span>Every piece gets a unique $code.</span>
           <span>A KidLisp piece can only be kept by its author.</span>
+          <span>Each keep costs <span class="keeps-price keeps-price-tez"><span class="tez-prefix">ꜩ</span>&thinsp;2.5</span> <span class="keeps-fee-detail">(<span id="keeps-xtz-usd" class="keeps-price-usd">~$0.91 USD</span>)</span></span>
         </div>
 
         <button id="keeps-enter-btn" class="keeps-enter-btn" style="display:none;" onclick="enterKeeps()">Enter</button>
@@ -3302,7 +3310,7 @@
         <div class="mint-track-log" id="mint-track-log"></div>
         <div class="mint-actions" id="mint-actions-start" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
-          <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos <span class="tez-sym"></span></button>
+          <button class="mint-action-btn primary" id="mint-start-btn" onclick="beginMintFlow()">Keep on Tezos ꜩ</button>
         </div>
         <div class="mint-actions" id="mint-actions" style="display:none;">
           <button class="mint-action-btn cancel" onclick="cancelMint()">Cancel</button>
@@ -3623,17 +3631,17 @@
       if (mintWalletAddress) {
         // Actively connected via Beacon
         const short = mintWalletAddress.slice(0, 7) + '…' + mintWalletAddress.slice(-4);
-        walletBtn.innerHTML = '<span class="tez-sym"></span> ' + short;
+        walletBtn.innerHTML = 'ꜩ ' + short;
         walletBtn.title = mintWalletAddress + ' — click to disconnect';
         walletBtn.classList.add('connected');
       } else if (linkedWalletAddress) {
         // Linked in DB but not actively connected
         const short = linkedWalletAddress.slice(0, 7) + '…' + linkedWalletAddress.slice(-4);
-        walletBtn.innerHTML = '<span class="tez-sym"></span> ' + short + ' (offline)';
+        walletBtn.innerHTML = 'ꜩ ' + short + ' (offline)';
         walletBtn.title = linkedWalletAddress + ' — linked but not connected, click to reconnect';
         walletBtn.classList.add('linked');
       } else {
-        walletBtn.innerHTML = '<span class="tez-sym"></span> Connect';
+        walletBtn.innerHTML = 'ꜩ Connect Tezos';
         walletBtn.title = 'Connect Tezos wallet';
       }
     }
@@ -4011,7 +4019,7 @@
         <div class="keeps-card-actions">
           ${isActiveKept
             ? `<span class="keeps-card-btn kept-badge" title="Kept on Tezos${activeKeepInfo?.tokenId != null ? ` · Token #${activeKeepInfo.tokenId}` : ''}">&#x2714; Kept</span>`
-            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos"><span class="tez-sym"></span> Keep</button>` : '')}
+            : (canManageKeep ? `<button class="keeps-card-btn keep-btn" data-code="${entry.code}" title="Keep on Tezos">ꜩ Keep</button>` : '')}
           ${timeStr ? `<span style="margin-left: auto; font-size: 12px; color: var(--text-tertiary);">${timeStr}</span>` : ''}
         </div>`;
 
@@ -4369,7 +4377,7 @@
         <div class="keep-detail-body">
           <div class="keep-detail-row">
             <span class="keep-detail-status ${statusClass}">${statusText}</span>
-            <span class="keep-detail-price ${statusClass}">${xtz} <span class="tez-sym"></span></span>
+            <span class="keep-detail-price ${statusClass}">ꜩ${xtz}</span>
           </div>
           <div class="keep-detail-row"><span class="keep-detail-label">Token</span><span class="keep-detail-value">#${escapeHtml(String(tokenId))}</span></div>
           ${sideInfo}
@@ -4841,7 +4849,7 @@
           <div class="market-card-body">
             <span class="market-card-code">${escapeHtml(code)}</span>
             <span class="market-card-status ${statusClass}">${statusText}</span>
-            <span class="market-card-price ${entry.status === 'sold' ? 'sold' : ''}">${xtz} <span class="tez-sym"></span></span>
+            <span class="market-card-price ${entry.status === 'sold' ? 'sold' : ''}">ꜩ${xtz}</span>
             ${seller ? `<span class="market-card-seller">${escapeHtml(sideText)}</span>` : ''}
             <span class="market-card-objkt">${entry.status === 'sold' ? 'view on objkt ↗' : 'buy on objkt ↗'}</span>
           </div>
@@ -5961,7 +5969,7 @@
       if (startBtn) {
         startBtn.innerHTML = autoSync
           ? 'Upgrade Legacy Bundle'
-          : (rebake ? 'Regenerate Media' : 'Keep on Tezos <span class="tez-sym"></span>');
+          : (rebake ? 'Regenerate Media' : 'Keep on Tezos ꜩ');
         startBtn.onclick = () => {
           const startActions = document.getElementById('mint-actions-start');
           if (startActions) startActions.style.display = 'none';
@@ -7107,11 +7115,35 @@
           const price = data?.tezos?.usd;
           if (price) el.textContent = '~$' + (price * 2.5).toFixed(2) + ' USD';
         })
-        .catch(() => { el.innerHTML = '2.5 <span class="tez-sym"></span>'; });
+        .catch(() => { el.textContent = '~$0.91 USD'; });
     })();
 
 
-    // (Removed dynamic 's'↔'$' logo swap)
+    // $code slot animation
+    (function() {
+      const el = document.getElementById('code-slot');
+      if (!el) return;
+      const codes = ['cow', 'zen', 'dot', 'orb', 'hex', 'ray', 'arc', 'pod', 'hum', 'web'];
+      const maxLen = Math.max(...codes.map(c => c.length));
+      // Build DOM: $ + character slots
+      el.innerHTML = '<span class="slot-dollar">$</span>' +
+        Array.from({length: maxLen}, () => '<span class="slot-char"></span>').join('');
+      const chars = el.querySelectorAll('.slot-char');
+      // Each character cycles independently on its own timer
+      chars.forEach((ch, j) => {
+        let ci = 0;
+        ch.textContent = codes[0][j] || '';
+        function flip() {
+          ch.classList.add('flip');
+          setTimeout(() => {
+            ci = (ci + 1) % codes.length;
+            ch.textContent = codes[ci][j] || '';
+            ch.classList.remove('flip');
+          }, 120);
+        }
+        setInterval(flip, 400 + j * 150);
+      });
+    })();
   </script>
 
   <footer class="keeps-footer">
@@ -7119,16 +7151,6 @@
       <span class="footer-buy-label">See also:</span>
       <a href="https://buy.kidlisp.com" class="footer-buy-link"><span class="buy-b">b</span><span class="buy-u">u</span><span class="buy-y">y</span><span class="dot">.</span><span class="baby-k">K</span><span class="baby-i">i</span><span class="baby-d">d</span><span class="baby-l">L</span><span class="baby-i2">i</span><span class="baby-s">s</span><span class="baby-p">p</span><span class="com-part">.com</span></a>
     </div>
-    <div class="footer-links">
-      <a href="/technology" style="color:var(--text-tertiary);">Technology</a>
-      <a href="https://kidlisp.com" target="_blank" rel="noopener">KidLisp.com</a>
-      <a href="https://aesthetic.computer" target="_blank" rel="noopener">Aesthetic.Computer</a>
-      <a href="https://objkt.com/collection/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">Objkt Collection</a>
-      <a href="https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB" target="_blank" rel="noopener">TzKT Explorer</a>
-      <a href="/wallet">Wallet</a>
-    </div>
-    <div class="footer-contract">FA2 Contract: KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB</div>
-    <div>KidLisp Keeps — generative art preserved on Tezos</div>
   </footer>
 
 <!-- Development live reload via session-server -->
