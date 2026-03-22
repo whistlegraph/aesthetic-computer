@@ -4,20 +4,9 @@
 # Input: /src (repo), Output: /out/vmlinuz
 set -euo pipefail
 
-# Copy source into container-local dir to avoid bind-mount permission issues
-if [ -d "/src/fedac/native" ] && [ ! -w "/src/fedac/native" ]; then
-    echo "[ac-os] Copying source to /build-src (bind-mount is read-only)..."
-    cp -a /src/fedac/native /build-src 2>/dev/null || cp -r /src/fedac/native /build-src
-    # Also need the system dir for KidLisp
-    [ -d /src/system ] && ln -sf /src/system /build-src/../system 2>/dev/null || true
-    SRC_NATIVE="/build-src"
-else
-    SRC_NATIVE="${AC_SRC:-/src}/fedac/native"
-fi
-
-SRC="${AC_SRC:-/src}"
+SRC="${AC_SRC:-/repo}"
 OUT="${AC_OUT:-/out}"
-NATIVE="$SRC_NATIVE"
+NATIVE="$SRC/fedac/native"
 BUILD="$NATIVE/build"
 KVER="${KERNEL_VERSION:-6.14.2}"
 
