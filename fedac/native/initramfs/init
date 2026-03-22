@@ -13,34 +13,6 @@ mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
 
-# Early USB mount for init logging (before ac-native starts)
-# Wait up to 3s for block devices to appear
-INIT_LOG=""
-USB_WAIT=0
-while [ $USB_WAIT -lt 30 ]; do
-    for usbdev in /dev/sda1 /dev/sdb1 /dev/sdc1; do
-        if [ -b "$usbdev" ]; then
-            mkdir -p /mnt/usb
-            mount -o rw "$usbdev" /mnt/usb 2>/dev/null && {
-                INIT_LOG="/mnt/usb/ac-init.log"
-                echo "=== AC Init $(date 2>/dev/null || echo 'boot') ===" > "$INIT_LOG"
-                break 2
-            }
-        fi
-    done
-    sleep 0.1
-    USB_WAIT=$((USB_WAIT + 1))
-done
-# Log helper — writes to USB if mounted, always to kmsg
-ilog() {
-    echo "[init] $*"
-    [ -n "$INIT_LOG" ] && echo "[init] $*" >> "$INIT_LOG"
-}
-ilog "devtmpfs mounted, USB=${usbdev:-none}"
-ilog "devices: $(ls /dev/dri/ 2>/dev/null || echo 'no /dev/dri')"
-ilog "fb: $(ls /dev/fb* 2>/dev/null || echo 'no fb')"
-ilog "pci gpu: $(cat /sys/bus/pci/devices/*/class 2>/dev/null | grep -c '0x03' || echo 0) devices"
-
 # Restore baked credentials from initramfs rootfs (before tmpfs hid them)
 # The build bakes Claude creds at /tmp/.claude/ but tmpfs mount hides them.
 # Copy from the initramfs backup location instead.
@@ -66,11 +38,9 @@ fi
 ilog() { echo "ac-init: $*" >> /tmp/ac-init.log 2>/dev/null; }
 ilog "start"
 
-# zram swap (module may not be available)
-if modprobe zram 2>/dev/null && [ -e /sys/block/zram0/disksize ]; then
-    echo 1G > /sys/block/zram0/disksize && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
-    ilog "zram: 1G swap enabled"
-fi
+# zram swap
+modprobe zram 2>/dev/null
+echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
 
 # Loopback
 ip link set lo up 2>/dev/null
@@ -84,79 +54,10 @@ export SSL_CERT_DIR="/etc/ssl/certs"
 echo "root:x:0:" > /etc/group
 echo "root:x:0:root" > /etc/passwd
 
-# Performance governor (cpufreq may not be available)
-if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
-    for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        echo performance > "$g" 2>/dev/null
-    done
-fi
-
-# Wait for DRM device (GPU driver may not be ready yet)
-WAIT=0
-while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/dri/card1 ] && [ $WAIT -lt 50 ]; do
-    sleep 0.1
-    WAIT=$((WAIT + 1))
+# Performance governor
+for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+  echo performance > "$g" 2>/dev/null
 done
-if [ -e /dev/dri/card0 ] || [ -e /dev/dri/card1 ]; then
-    DRM_DEV=$(ls /dev/dri/card* 2>/dev/null | head -1)
-    ilog "drm ready: ${DRM_DEV} after ${WAIT}00ms"
-else
-    ilog "WARNING: no /dev/dri/card* found after 5s — trying framebuffer"
-    # List what devices exist for debugging
-    ls /dev/dri/ /dev/fb* 2>/dev/null | while read f; do ilog "  dev: $f"; done
-fi
 
-ilog "starting ac-native"
-
-# Run ac-native as a child (NOT exec) so init survives crashes.
-# If ac-native segfaults, we catch it, paint a red crash screen,
-# log the error, and restart after a brief pause.
-CRASH_COUNT=0
-MAX_CRASHES=5
-
-while true; do
-    /ac-native /piece.mjs
-    EXIT_CODE=$?
-    CRASH_COUNT=$((CRASH_COUNT + 1))
-
-    ilog "ac-native exited with code ${EXIT_CODE} (crash #${CRASH_COUNT})"
-
-    # Clean exit (code 0) means intentional shutdown
-    if [ "${EXIT_CODE}" -eq 0 ]; then
-        ilog "clean exit — powering off"
-        poweroff -f 2>/dev/null
-        sleep 999
-    fi
-
-    # Paint red crash screen to framebuffer
-    FB="/dev/fb0"
-    if [ -c "${FB}" ]; then
-        # Get framebuffer dimensions
-        FB_W=$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null | cut -d, -f1)
-        FB_H=$(cat /sys/class/graphics/fb0/virtual_size 2>/dev/null | cut -d, -f2)
-        FB_W=${FB_W:-1920}
-        FB_H=${FB_H:-1080}
-        # Fill with dark red (BGRA: 00 00 80 FF)
-        TOTAL=$((FB_W * FB_H * 4))
-        dd if=/dev/zero bs=4096 count=$((TOTAL / 4096 + 1)) 2>/dev/null | \
-            tr '\000' '\200' > "${FB}" 2>/dev/null
-        # Override: write solid red pixels (0x00 0x00 0xCC 0xFF pattern)
-        {
-            PIXEL=$(printf '\x00\x00\xcc\xff')
-            yes "${PIXEL}" | head -c "${TOTAL}"
-        } > "${FB}" 2>/dev/null
-        ilog "crash screen displayed on ${FB} (${FB_W}x${FB_H})"
-    fi
-
-    # Save crash info to USB (ac-native writes log to USB on next boot)
-    echo "{\"exit\":${EXIT_CODE},\"crash\":${CRASH_COUNT},\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%S 2>/dev/null || echo unknown)\"}" > /tmp/crash.json
-
-    # Too many crashes — give up
-    if [ "${CRASH_COUNT}" -ge "${MAX_CRASHES}" ]; then
-        ilog "max crashes (${MAX_CRASHES}) reached — halting"
-        sleep 999999
-    fi
-
-    ilog "restarting in 3s..."
-    sleep 3
-done
+ilog "exec-ac-native"
+exec /ac-native /piece.mjs
