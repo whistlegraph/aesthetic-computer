@@ -115,8 +115,9 @@ typedef struct {
     float tts_fade;             // 0.0-1.0 per-sample envelope (prevents click on start/stop)
 
     // Microphone capture + sample playback
-    float *sample_buf;          // recorded sample (mono, at capture rate)
-    int sample_len;             // length in samples (0 = no sample)
+    float *sample_buf;          // recorded sample (mono, at capture rate) — audio thread reads
+    float *sample_buf_back;     // back buffer for double-buffering — JS thread writes here
+    volatile int sample_len;    // length in samples (0 = no sample)
     int sample_max_len;         // buffer capacity
     unsigned int sample_rate;   // capture sample rate (for speed calc)
     volatile int recording;     // 1 = buffering mic input to sample_buf

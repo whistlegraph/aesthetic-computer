@@ -1900,10 +1900,24 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        // Target ~300px wide for consistent pixel density across displays
-        pixel_scale = display->width / 300;
-        if (pixel_scale < 1) pixel_scale = 1;
-        if (pixel_scale > 16) pixel_scale = 16;
+        // Target ~300px wide, but pick a scale where width AND height divide evenly
+        {
+            int target = display->width / 300;
+            if (target < 1) target = 1;
+            if (target > 16) target = 16;
+            // Search outward from target for a clean divisor
+            pixel_scale = target;
+            for (int delta = 0; delta <= target; delta++) {
+                int s = target + delta;
+                if (s >= 1 && s <= 16 && display->width % s == 0 && display->height % s == 0) {
+                    pixel_scale = s; break;
+                }
+                s = target - delta;
+                if (s >= 1 && display->width % s == 0 && display->height % s == 0) {
+                    pixel_scale = s; break;
+                }
+            }
+        }
         ac_log("pixel_scale=%d (display %dx%d -> screen %dx%d)\n",
                pixel_scale, display->width, display->height,
                display->width / pixel_scale, display->height / pixel_scale);
