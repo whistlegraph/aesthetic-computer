@@ -80,8 +80,11 @@ chmod +x "$IROOT/init"
 # ── 2c: ac-native binary ──
 cp "$BUILD/ac-native" "$IROOT/ac-native"
 
-# ── 2d: Default piece ──
+# ── 2d: Pieces ──
 cp "$NATIVE/pieces/prompt.mjs" "$IROOT/piece.mjs"
+mkdir -p "$IROOT/pieces"
+cp "$NATIVE/pieces/"*.mjs "$IROOT/pieces/" 2>/dev/null || true
+log "  Pieces: $(ls "$IROOT/pieces/" | wc -l)"
 
 # ── 2e: /dev nodes (needed before devtmpfs mounts) ──
 mknod "$IROOT/dev/console" c 5 1 2>/dev/null || true
