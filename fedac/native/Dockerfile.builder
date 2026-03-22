@@ -37,8 +37,11 @@ RUN mkdir -p /cache && cd /cache \
     && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
     && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
 
+# ── Install esbuild for KidLisp bundling ──
+RUN npm install -g esbuild
+
 # ── Verify tools ──
-RUN gcc --version | head -1 && busybox --help >/dev/null 2>&1 && echo "OK"
+RUN gcc --version | head -1 && busybox --help >/dev/null 2>&1 && esbuild --version && echo "OK"
 
 # ── Copy source into image ──
 COPY . /repo
