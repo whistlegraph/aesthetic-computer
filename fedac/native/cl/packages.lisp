@@ -49,7 +49,11 @@
 (defpackage :ac-native.alsa
   (:use :cl :cffi)
   (:export #:pcm-open #:pcm-close #:pcm-writei #:pcm-prepare
-           #:pcm-set-params #:mixer-set-capture-volume))
+           #:pcm-set-params #:mixer-set-capture-volume
+           #:snd-strerror
+           #:+snd-pcm-stream-playback+ #:+snd-pcm-stream-capture+
+           #:+snd-pcm-format-s16-le+ #:+snd-pcm-format-float-le+
+           #:+snd-pcm-access-rw-interleaved+))
 
 (defpackage :ac-native.audio
   (:use :cl :cffi :bordeaux-threads
