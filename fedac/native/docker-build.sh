@@ -24,6 +24,7 @@ KVER="${KERNEL_VERSION:-6.14.2}"
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
 
+rm -f "$BUILD" 2>/dev/null  # Remove if it's a file (old git symlink)
 mkdir -p "$BUILD" "$OUT"
 
 # ── Git info ──
