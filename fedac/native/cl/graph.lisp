@@ -4,8 +4,8 @@
 
 (defstruct graph
   "Immediate-mode 2D graphics context."
-  (fb nil :type (or null ac-native.framebuffer:framebuffer))
-  (screen nil :type (or null ac-native.framebuffer:framebuffer))
+  (fb nil)     ; ac-native.framebuffer:framebuffer
+  (screen nil) ; ac-native.framebuffer:framebuffer
   (ink-color (make-color :r 255 :g 255 :b 255 :a 255) :type color))
 
 (defun graph-wipe (g color)
