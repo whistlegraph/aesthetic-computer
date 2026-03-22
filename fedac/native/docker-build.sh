@@ -184,7 +184,7 @@ for d in /usr/lib/firmware /lib/firmware; do
 done
 if [ -n "$FWDIR" ]; then
     # WiFi
-    for fw in "$FWDIR"/iwlwifi-*.ucode "$FWDIR"/iwlwifi-*.ucode.zst; do
+    for fw in "$FWDIR"/iwlwifi-*.ucode "$FWDIR"/iwlwifi-*.ucode.zst "$FWDIR"/iwlwifi-*.ucode.xz; do
         [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
     done
     # Regulatory
@@ -197,9 +197,12 @@ if [ -n "$FWDIR" ]; then
 else
     log "  WARNING: No firmware directory found!"
 fi
-# Decompress any .zst files
+# Decompress any .zst or .xz files
 for zst in "$IROOT/lib/firmware/"*.zst "$IROOT/lib/firmware/i915/"*.zst; do
     [ -f "$zst" ] && zstd -d --rm "$zst" 2>/dev/null || true
+done
+for xzf in "$IROOT/lib/firmware/"*.xz "$IROOT/lib/firmware/i915/"*.xz; do
+    [ -f "$xzf" ] && xz -d "$xzf" 2>/dev/null || true
 done
 FW_COUNT=$(find "$IROOT/lib/firmware" -type f | wc -l)
 log "  Firmware: $FW_COUNT files"
