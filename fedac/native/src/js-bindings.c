@@ -1173,7 +1173,11 @@ static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, J
     JS_FreeValue(ctx, v);
 
     uint64_t id = audio_sample_play(audio, freq, base_freq, volume, pan, loop);
-    if (id == 0) return JS_UNDEFINED;
+    if (id == 0) {
+        ac_log("[sample] play FAILED (sample_len=%d)\n", audio->sample_len);
+        return JS_UNDEFINED;
+    }
+    ac_log("[sample] play OK id=%llu freq=%.1f vol=%.2f\n", (unsigned long long)id, freq, volume);
 
     // Return object with id, update(), isSample
     JSValue snd = JS_NewObject(ctx);
