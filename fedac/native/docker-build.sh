@@ -31,12 +31,18 @@ log "Building $BUILD_NAME ($GIT_HASH)"
 log "Step 1/4: Compiling ac-native..."
 cd "$NATIVE"
 
-# Download QuickJS if needed
+# Use cached QuickJS (from Docker image) or download
 if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
-    log "  Downloading QuickJS..."
-    cd "$BUILD"
-    curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ
-    ln -sf quickjs-2024-01-13 quickjs
+    if [ -d /cache/quickjs ]; then
+        log "  Using cached QuickJS..."
+        cp -a /cache/quickjs-2024-01-13 "$BUILD/"
+        ln -sf quickjs-2024-01-13 "$BUILD/quickjs"
+    else
+        log "  Downloading QuickJS..."
+        cd "$BUILD"
+        curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ
+        ln -sf quickjs-2024-01-13 quickjs
+    fi
     cd "$NATIVE"
 fi
 
@@ -232,11 +238,16 @@ log "  Initramfs: $((INITRAMFS_SIZE / 1048576))MB compressed"
 log "Step 4/4: Building kernel..."
 LINUX_DIR="$BUILD/linux-$KVER"
 
-# Download kernel source if needed
+# Use cached kernel source or download
 if [ ! -f "$LINUX_DIR/Makefile" ]; then
-    log "  Downloading Linux $KVER..."
-    cd "$BUILD"
-    curl -sL "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KVER}.tar.xz" | tar xJ
+    if [ -d "/cache/linux-$KVER" ]; then
+        log "  Using cached Linux $KVER..."
+        cp -a "/cache/linux-$KVER" "$BUILD/"
+    else
+        log "  Downloading Linux $KVER..."
+        cd "$BUILD"
+        curl -sL "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KVER}.tar.xz" | tar xJ
+    fi
 fi
 
 # Copy config
