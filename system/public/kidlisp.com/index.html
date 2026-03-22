@@ -291,6 +291,15 @@
       padding: 0 !important;
     }
 
+    /* Ensure Monaco context menu and widgets render above all page UI */
+    .monaco-menu-container,
+    .shadow-root-host,
+    .monaco-editor .context-view,
+    .monaco-action-bar,
+    .monaco-editor .editor-widget {
+      z-index: 200000 !important;
+    }
+
     /* Flush Monaco text to top-left edge in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .lines-content {
       padding-left: 8px !important;
