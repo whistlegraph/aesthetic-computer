@@ -7,7 +7,7 @@
 ## The source is COPY'd into the image — no bind mounts needed.
 ## Output: /out/vmlinuz + /out/build.json
 
-FROM fedora:43
+FROM fedora:41
 
 # ── All packages needed for ac-native + kernel build ──
 RUN dnf install -y --setopt=install_weak_deps=False \
