@@ -54,6 +54,31 @@ make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
 [ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 
+# ── Optional: Build Common Lisp variant ──
+if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
+    log "Step 1b: Building ac-native (Common Lisp)..."
+    SBCL_CORE="/cache/sbcl-ql.core"
+    SBCL_CMD="sbcl"
+    [ -f "$SBCL_CORE" ] && SBCL_CMD="sbcl --core $SBCL_CORE"
+    CL_DIR="$NATIVE/cl"
+    # Build standalone binary
+    $SBCL_CMD --non-interactive \
+        --eval '(require :asdf)' \
+        --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
+        --eval '(asdf:load-system :ac-native)' \
+        --eval "(ac-native.build:build \"$BUILD/ac-native-cl\")" \
+        2>&1 || { err "CL build failed"; exit 1; }
+    if [ -f "$BUILD/ac-native-cl" ]; then
+        log "  CL Binary: $(stat -c%s "$BUILD/ac-native-cl") bytes"
+        # Replace C binary with CL binary
+        cp "$BUILD/ac-native" "$BUILD/ac-native-c"
+        cp "$BUILD/ac-native-cl" "$BUILD/ac-native"
+        log "  Using Common Lisp binary"
+    else
+        err "CL binary not produced — falling back to C"
+    fi
+fi
+
 # ══════════════════════════════════════════════
 # Step 2: Build initramfs from scratch
 # ══════════════════════════════════════════════
