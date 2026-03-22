@@ -1127,7 +1127,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
         font_draw_matrix(graph, yn, (screen->width - yw) / 2,
                          screen->height / 2 + 20, 1);
 
-        ac_display_present(display, screen, 3);
+        ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
 
         // Read key events
@@ -1206,7 +1206,7 @@ static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
             font_draw_matrix(graph, line4, (screen->width - l4w) / 2, screen->height / 2 + 48, 1);
         }
 
-        ac_display_present(display, screen, 3);
+        ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
 
         if (!input) {
@@ -1292,7 +1292,8 @@ static int is_installed_on_hd(void) {
 // Draw startup fade animation (black → white with title)
 // Returns 1 if user pressed W and confirmed install, 0 otherwise
 static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
-                              ACDisplay *display, ACTts *tts, ACAudio *audio) {
+                              ACDisplay *display, ACTts *tts, ACAudio *audio,
+                              int pixel_scale) {
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
     // Show install option whenever booting from USB (even if already installed —
@@ -1337,7 +1338,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     graph_wipe(graph, boot_is_day
         ? (ACColor){255, 255, 255, 255}
         : (ACColor){0, 0, 0, 255});
-    ac_display_present(display, screen, 3);
+    ac_display_present(display, screen, pixel_scale);
 
     // Check if this is a fresh boot of a new version
     int is_new_version = 0;
@@ -1653,7 +1654,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                              (screen->width - hw) / 2, screen->height - 18, 1);
         }
 
-        ac_display_present(display, screen, 3);
+        ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
     }
 
@@ -1777,7 +1778,7 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        ac_display_present(display, screen, 3);
+        ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
     }
 }
@@ -1989,7 +1990,7 @@ int main(int argc, char *argv[]) {
                display ? display->width : -1, display ? display->height : -1);
         int want_install = 0;
         if (!headless) {
-            want_install = draw_startup_fade(&graph, screen, display, tts, audio);
+            want_install = draw_startup_fade(&graph, screen, display, tts, audio, pixel_scale);
             if (!want_install)
                 draw_boot_status(&graph, screen, display, "starting input...");
         }
