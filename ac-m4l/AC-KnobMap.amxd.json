@@ -56,7 +56,7 @@
           "patching_rect": [810.0, 32.0, 50.0, 18.0],
           "presentation": 1,
           "presentation_rect": [200.0, 11.0, 42.0, 18.0],
-          "text": "v1.0.2",
+          "text": "v1.0.3",
           "fontsize": 10.0,
           "textcolor": [0.486, 0.467, 0.584, 1.0]
         }
@@ -263,35 +263,13 @@
 
       {
         "box": {
-          "id": "obj-thisdevice",
-          "maxclass": "newobj",
-          "numinlets": 1,
-          "numoutlets": 3,
-          "outlettype": ["bang", "int", "int"],
-          "patching_rect": [30.0, 30.0, 95.0, 22.0],
-          "text": "live.thisdevice"
-        }
-      },
-      {
-        "box": {
           "id": "obj-songpath",
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 3,
           "outlettype": ["", "", ""],
           "patching_rect": [30.0, 70.0, 120.0, 22.0],
-          "text": "live.path live_set"
-        }
-      },
-      {
-        "box": {
-          "id": "obj-song-reader",
-          "maxclass": "newobj",
-          "numinlets": 2,
-          "numoutlets": 3,
-          "outlettype": ["", "", ""],
-          "patching_rect": [30.0, 150.0, 80.0, 22.0],
-          "text": "live.object"
+          "text": "live.path"
         }
       },
       {
@@ -313,18 +291,7 @@
           "numoutlets": 1,
           "outlettype": [""],
           "patching_rect": [200.0, 110.0, 165.0, 22.0],
-          "text": "getattr selected_parameter"
-        }
-      },
-      {
-        "box": {
-          "id": "obj-grab-dist",
-          "maxclass": "newobj",
-          "numinlets": 1,
-          "numoutlets": 2,
-          "outlettype": ["bang", "int"],
-          "patching_rect": [30.0, 200.0, 40.0, 22.0],
-          "text": "t b i"
+          "text": "path live_set view selected_parameter"
         }
       },
       {
@@ -636,23 +603,18 @@
     ],
 
     "lines": [
-      {"patchline": {"destination": ["obj-songpath", 0], "source": ["obj-thisdevice", 0]}},
-      {"patchline": {"destination": ["obj-song-reader", 1], "source": ["obj-songpath", 1]}},
-
       {"patchline": {"destination": ["obj-grab-filter", 0], "source": ["obj-grab", 0]}},
       {"patchline": {"destination": ["obj-msg-getsel", 0], "source": ["obj-grab-filter", 0]}},
-      {"patchline": {"destination": ["obj-song-reader", 0], "source": ["obj-msg-getsel", 0]}},
+      {"patchline": {"destination": ["obj-songpath", 0], "source": ["obj-msg-getsel", 0]}},
 
-      {"patchline": {"destination": ["obj-grab-dist", 0], "source": ["obj-song-reader", 0]}},
+      {"patchline": {"destination": ["obj-reader-min", 1], "source": ["obj-songpath", 1]}},
+      {"patchline": {"destination": ["obj-reader-max", 1], "source": ["obj-songpath", 1]}},
+      {"patchline": {"destination": ["obj-reader-name", 1], "source": ["obj-songpath", 1]}},
+      {"patchline": {"destination": ["obj-writer", 1], "source": ["obj-songpath", 1]}},
 
-      {"patchline": {"destination": ["obj-reader-min", 1], "source": ["obj-grab-dist", 1]}},
-      {"patchline": {"destination": ["obj-reader-max", 1], "source": ["obj-grab-dist", 1]}},
-      {"patchline": {"destination": ["obj-reader-name", 1], "source": ["obj-grab-dist", 1]}},
-      {"patchline": {"destination": ["obj-writer", 1], "source": ["obj-grab-dist", 1]}},
-
-      {"patchline": {"destination": ["obj-msg-getmin", 0], "source": ["obj-grab-dist", 0]}},
-      {"patchline": {"destination": ["obj-msg-getmax", 0], "source": ["obj-grab-dist", 0]}},
-      {"patchline": {"destination": ["obj-msg-getname", 0], "source": ["obj-grab-dist", 0]}},
+      {"patchline": {"destination": ["obj-msg-getmin", 0], "source": ["obj-songpath", 0]}},
+      {"patchline": {"destination": ["obj-msg-getmax", 0], "source": ["obj-songpath", 0]}},
+      {"patchline": {"destination": ["obj-msg-getname", 0], "source": ["obj-songpath", 0]}},
 
       {"patchline": {"destination": ["obj-reader-min", 0], "source": ["obj-msg-getmin", 0]}},
       {"patchline": {"destination": ["obj-reader-max", 0], "source": ["obj-msg-getmax", 0]}},
