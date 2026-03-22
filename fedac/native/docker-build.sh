@@ -94,7 +94,7 @@ for cmd in sh sleep mkdir mount umount cat echo ls cp mv rm ln chmod chown \
     date dd find grep head kill ps sed sort tail tee test touch tr wc which \
     mktemp printf seq stat basename dirname env expr true false readlink \
     realpath rmdir uniq yes tar gzip gunzip hostname id ip modprobe \
-    mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami; do
+    mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami awk; do
     ln -s busybox "$IROOT/bin/$cmd"
 done
 
