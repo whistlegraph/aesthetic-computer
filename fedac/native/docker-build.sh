@@ -265,7 +265,7 @@ rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
 
 # Build
 log "  Compiling ($(nproc) cores)..."
-make -j$(nproc) bzImage 2>&1 | tail -3
+make -j$(nproc) KALLSYMS_EXTRA_PASS=1 bzImage 2>&1 | tail -3
 
 # Copy output
 cp arch/x86/boot/bzImage "$BUILD/vmlinuz"
