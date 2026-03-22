@@ -256,9 +256,20 @@ cp "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"
 # Copy initramfs into kernel tree
 cp "$BUILD/initramfs.cpio.lz4" "$LINUX_DIR/initramfs.cpio.lz4"
 
-# Configure
+# Configure — force-disable bloated GPU drivers that olddefconfig enables
 cd "$LINUX_DIR"
 make olddefconfig 2>&1 | tail -3
+
+# Strip GPU drivers that Fedora defaults enable (they cause KALLSYMS overflow)
+scripts/config --disable DRM_AMDGPU
+scripts/config --disable DRM_NOUVEAU
+scripts/config --disable DRM_RADEON
+scripts/config --disable DRM_QXL
+scripts/config --disable DRM_BOCHS
+scripts/config --disable DRM_CIRRUS_QEMU
+scripts/config --disable DRM_VIRTIO_GPU
+scripts/config --enable DRM_SIMPLEDRM
+make olddefconfig 2>&1 | tail -1
 
 # Clean initramfs object to force re-embed
 rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
