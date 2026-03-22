@@ -177,16 +177,26 @@ done
 
 # ── 2j: Firmware ──
 log "  Copying firmware..."
-# WiFi
-for fw in /lib/firmware/iwlwifi-*.ucode /usr/lib/firmware/iwlwifi-*.ucode; do
-    [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
+# Find firmware dir (Fedora: /usr/lib/firmware or /lib/firmware)
+FWDIR=""
+for d in /usr/lib/firmware /lib/firmware; do
+    [ -d "$d/i915" ] && FWDIR="$d" && break
 done
-cp -L /lib/firmware/regulatory.db "$IROOT/lib/firmware/" 2>/dev/null || true
-cp -L /lib/firmware/regulatory.db.p7s "$IROOT/lib/firmware/" 2>/dev/null || true
-# GPU (i915)
-for fw in /lib/firmware/i915/*; do
-    [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
-done
+if [ -n "$FWDIR" ]; then
+    # WiFi
+    for fw in "$FWDIR"/iwlwifi-*.ucode "$FWDIR"/iwlwifi-*.ucode.zst; do
+        [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
+    done
+    # Regulatory
+    cp -L "$FWDIR/regulatory.db" "$IROOT/lib/firmware/" 2>/dev/null || true
+    cp -L "$FWDIR/regulatory.db.p7s" "$IROOT/lib/firmware/" 2>/dev/null || true
+    # GPU (i915)
+    for fw in "$FWDIR"/i915/*; do
+        [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
+    done
+else
+    log "  WARNING: No firmware directory found!"
+fi
 # Decompress any .zst files
 for zst in "$IROOT/lib/firmware/"*.zst "$IROOT/lib/firmware/i915/"*.zst; do
     [ -f "$zst" ] && zstd -d --rm "$zst" 2>/dev/null || true
