@@ -1294,9 +1294,11 @@ int audio_sample_get_data(ACAudio *audio, float *out, int max_len) {
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
     if (!audio || !data || len <= 0) return;
     if (len > audio->sample_max_len) len = audio->sample_max_len;
+    pthread_mutex_lock(&audio->lock);
     memcpy(audio->sample_buf, data, len * sizeof(float));
     audio->sample_len = len;
     if (rate > 0) audio->sample_rate = rate;
+    pthread_mutex_unlock(&audio->lock);
     ac_log("[sample] loaded %d samples (%d Hz)\n", len, audio->sample_rate);
 }
 
