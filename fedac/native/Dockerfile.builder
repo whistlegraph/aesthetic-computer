@@ -32,17 +32,13 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     && dnf clean all && rm -rf /var/cache/dnf
 
 # ── Install Quicklisp + CL dependencies for Lisp build variant ──
-RUN sbcl --non-interactive \
-    --eval '(require :asdf)' \
-    --eval '(load (make-pathname :name "quicklisp" :type "lisp" :defaults (merge-pathnames "quicklisp/" (user-homedir-pathname))))' \
-    2>/dev/null || \
-    (curl -sfo /tmp/ql.lisp https://beta.quicklisp.org/quicklisp.lisp && \
-     sbcl --non-interactive \
+RUN curl -sfo /tmp/ql.lisp https://beta.quicklisp.org/quicklisp.lisp \
+    && sbcl --non-interactive \
        --load /tmp/ql.lisp \
        --eval '(quicklisp-quickstart:install :path "/opt/quicklisp/")' \
        --eval '(ql:quickload (list :cffi :bordeaux-threads :alexandria))' \
-       --eval '(sb-ext:save-lisp-and-die "/cache/sbcl-ql.core" :purify t)' && \
-     rm /tmp/ql.lisp)
+       --eval '(sb-ext:save-lisp-and-die "/cache/sbcl-ql.core" :purify t)' \
+    && rm /tmp/ql.lisp
 
 # ── Pre-download QuickJS + Linux kernel source ──
 RUN mkdir -p /cache && cd /cache \
