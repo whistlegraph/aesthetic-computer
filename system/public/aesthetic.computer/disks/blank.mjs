@@ -351,6 +351,7 @@ function paint($) {
 
     // Bezel corners (slightly larger than screen)
     const bezelY = lidMid + lidThick / 2 + 0.001;
+    // Screen faces toward base (positive y direction from lid)
     const bezelTL = [-hw + bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelTR = [hw - bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelBL = [-hw + bezelInset, bezelY, hingeInset - 0.07];
