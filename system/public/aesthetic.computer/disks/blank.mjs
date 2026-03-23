@@ -230,30 +230,35 @@ function paint($) {
     // Collect all drawable quads with z-depth
     const drawList = [];
 
-    // Base + lid faces
-    // Only add front-facing faces (proper backface culling — no both-winding hack)
-    const addFaces = (proj, color, tag) => {
-      for (const [a, b, c, d] of faceQuads) {
-        const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
-        const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
-        if (e1x * e2y - e1y * e2x >= 0) continue; // back-facing → skip
+    // 3D face normal backface culling — works regardless of vertex winding
+    // Compute view direction (camera looks toward +z in world, before rotations)
+    // After ay (Y-rot) and ax (X-rot), the view direction is:
+    const viewDirX = sin(ay) * cos(ax);
+    const viewDirY = sin(ax);
+    const viewDirZ = cos(ay) * cos(ax);
+
+    const addFaces = (verts3d, proj, color, tag) => {
+      const frontFaces = new Set();
+      for (let fi = 0; fi < faceQuads.length; fi++) {
+        const [a, b, c, d] = faceQuads[fi];
+        // 3D face normal via cross product of two edges
+        const e1 = [verts3d[b][0] - verts3d[a][0], verts3d[b][1] - verts3d[a][1], verts3d[b][2] - verts3d[a][2]];
+        const e2 = [verts3d[d][0] - verts3d[a][0], verts3d[d][1] - verts3d[a][1], verts3d[d][2] - verts3d[a][2]];
+        const nx = e1[1] * e2[2] - e1[2] * e2[1];
+        const ny = e1[2] * e2[0] - e1[0] * e2[2];
+        const nz = e1[0] * e2[1] - e1[1] * e2[0];
+        // Dot with view direction — positive = facing camera
+        const dot = nx * viewDirX + ny * viewDirY + nz * viewDirZ;
+        if (dot <= 0) continue; // back-facing
+        frontFaces.add(fi);
         const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
         drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
       }
+      return frontFaces;
     };
-    // Lid winding flips due to hinge transform — use reversed face quads
-    const faceQuadsFlipped = faceQuads.map(([a, b, c, d]) => [d, c, b, a]);
-    const addFacesFlipped = (proj, color, tag) => {
-      for (const [a, b, c, d] of faceQuadsFlipped) {
-        const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
-        const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
-        if (e1x * e2y - e1y * e2x >= 0) continue;
-        const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
-        drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
-      }
-    };
-    addFaces(projBase, baseColor, "base");
-    addFacesFlipped(projLid, lidColor, "lid");
+
+    const baseFrontFaces = addFaces(base, projBase, baseColor, "base");
+    const lidFrontFaces = addFaces(lid, projLid, lidColor, "lid");
 
     // Keyboard keys (on base top face, y = -0.001 just above y=0)
     const kbInset = 0.18;
@@ -333,15 +338,31 @@ function paint($) {
       });
     }
 
-    // Wireframe edges — white, semi-transparent, blinky
-    const addEdges = (proj) => {
+    // Wireframe edges — only for edges that touch at least one front-facing face
+    // Map each edge to which faces it belongs to
+    const edgeFaceMap = {}; // "a-b" → [faceIdx, ...]
+    faceQuads.forEach(([a, b, c, d], fi) => {
+      const edges = [[a,b],[b,c],[c,d],[d,a]];
+      // For our quads: edges are [a,b],[b,c=next],[c,d],[d,a]
+      // But faceQuads use 4 verts, edges are between consecutive + wrap
+      [[a,b],[b,c],[c,d],[d,a]].forEach(([ea, eb]) => {
+        const key = min(ea,eb) + "-" + max(ea,eb);
+        (edgeFaceMap[key] = edgeFaceMap[key] || []).push(fi);
+      });
+    });
+
+    const addEdges = (proj, frontFaces) => {
       halfEdges.forEach(([a, b]) => {
+        const key = min(a,b) + "-" + max(a,b);
+        const faces = edgeFaceMap[key] || [];
+        // Only draw if at least one adjacent face is front-facing
+        if (!faces.some(fi => frontFaces.has(fi))) return;
         const z = (proj[a][2] + proj[b][2]) / 2;
         drawList.push({ z, type: "edge", proj, a, b });
       });
     };
-    addEdges(projBase);
-    addEdges(projLid);
+    addEdges(projBase, baseFrontFaces);
+    addEdges(projLid, lidFrontFaces);
 
     // Sort back-to-front (highest z = farthest = draw first)
     drawList.sort((a, b) => b.z - a.z);
@@ -362,10 +383,12 @@ function paint($) {
       }
     }
 
-    // ⌨️ Keyboard keys — only draw when lid isn't occluding the base
-    const baseAvgZ = projBase.reduce((s, v) => s + v[2], 0) / projBase.length;
+    // ⌨️ Keyboard keys — only draw when base top face (faceQuads[0]) is front-facing
+    // and lid isn't in front of base
+    const baseTopVisible = baseFrontFaces.has(0);
     const lidAvgZ = projLid.reduce((s, v) => s + v[2], 0) / projLid.length;
-    const kbNotOccluded = lidAvgZ > baseAvgZ; // lid is farther = behind base
+    const baseAvgZ = projBase.reduce((s, v) => s + v[2], 0) / projBase.length;
+    const kbNotOccluded = baseTopVisible && lidAvgZ >= baseAvgZ;
     if (kbVisible && kbNotOccluded) {
       for (const key of kbKeys) {
         const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = key.pts;
