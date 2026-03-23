@@ -24,45 +24,47 @@
 ;;; ── Helper: read struct fields from libdrm opaque pointers ──
 ;;; drmModeRes fields (offsets determined by libdrm ABI)
 
+;;; Offsets verified with gcc offsetof() on Fedora 43 libdrm
 (defun res-count-connectors (res)
-  (cffi:mem-ref (cffi:inc-pointer res 24) :int32))
+  (cffi:mem-ref (cffi:inc-pointer res 32) :int32))
 
 (defun res-connectors (res)
-  (cffi:mem-ref (cffi:inc-pointer res 16) :pointer))
+  (cffi:mem-ref (cffi:inc-pointer res 40) :pointer))
 
 (defun res-count-crtcs (res)
-  (cffi:mem-ref (cffi:inc-pointer res 40) :int32))
+  (cffi:mem-ref (cffi:inc-pointer res 16) :int32))
 
 (defun res-crtcs (res)
-  (cffi:mem-ref (cffi:inc-pointer res 32) :pointer))
+  (cffi:mem-ref (cffi:inc-pointer res 24) :pointer))
 
 ;;; drmModeConnector fields
 (defun conn-status (conn)
-  (cffi:mem-ref (cffi:inc-pointer conn 4) :uint32))
+  "connection field at offset 16 (1=connected)."
+  (cffi:mem-ref (cffi:inc-pointer conn 16) :uint32))
 
 (defun conn-connector-id (conn)
   (cffi:mem-ref conn :uint32))
 
 (defun conn-encoder-id (conn)
-  (cffi:mem-ref (cffi:inc-pointer conn 8) :uint32))
+  (cffi:mem-ref (cffi:inc-pointer conn 4) :uint32))
 
 (defun conn-count-modes (conn)
-  (cffi:mem-ref (cffi:inc-pointer conn 36) :int32))
+  (cffi:mem-ref (cffi:inc-pointer conn 32) :int32))
 
 (defun conn-modes (conn)
   "Pointer to array of drmModeModeInfo structs."
-  (cffi:mem-ref (cffi:inc-pointer conn 28) :pointer))
+  (cffi:mem-ref (cffi:inc-pointer conn 40) :pointer))
 
 ;;; drmModeEncoder fields
 (defun enc-crtc-id (enc)
-  (cffi:mem-ref (cffi:inc-pointer enc 4) :uint32))
+  (cffi:mem-ref (cffi:inc-pointer enc 8) :uint32))
 
-;;; drmModeModeInfo: hdisplay at offset 8, vdisplay at offset 10
+;;; drmModeModeInfo: hdisplay at offset 4, vdisplay at offset 14
 (defun mode-hdisplay (mode-ptr)
-  (cffi:mem-ref (cffi:inc-pointer mode-ptr 8) :uint16))
+  (cffi:mem-ref (cffi:inc-pointer mode-ptr 4) :uint16))
 
 (defun mode-vdisplay (mode-ptr)
-  (cffi:mem-ref (cffi:inc-pointer mode-ptr 10) :uint16))
+  (cffi:mem-ref (cffi:inc-pointer mode-ptr 14) :uint16))
 
 (defconstant +mode-info-size+ 68 "sizeof(drmModeModeInfo)")
 
