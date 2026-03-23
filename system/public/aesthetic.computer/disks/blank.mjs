@@ -142,16 +142,14 @@ function paint($) {
 
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
 
-    // Lid in local space: SAME orientation as base — extends DOWN from y=gap
-    // y: gap to lidThick+gap, z: 0 to 2*hd
-    // When rotated 180°, this mirrors perfectly:
-    //   y flips sign → extends UP from pivot (co-planar with base going down)
-    //   z flips sign → extends in -z (opposite direction from base)
+    // Lid in local space: extends DOWN from y=0, same as base
+    // y: 0 to lidThick, z: gap to 2*hd (gap keeps hinge edges from touching)
+    // At 180°: y flips → extends UP (flush with base top), z flips → extends behind
     const lidLocal = [
-      [-hw, gap, 0], [hw, gap, 0],
-      [hw, lidThick + gap, 0], [-hw, lidThick + gap, 0],
-      [-hw, gap, 2 * hd], [hw, gap, 2 * hd],
-      [hw, lidThick + gap, 2 * hd], [-hw, lidThick + gap, 2 * hd],
+      [-hw, 0, gap], [hw, 0, gap],
+      [hw, lidThick, gap], [-hw, lidThick, gap],
+      [-hw, 0, 2 * hd], [hw, 0, 2 * hd],
+      [hw, lidThick, 2 * hd], [-hw, lidThick, 2 * hd],
     ];
 
     // Rotate lid around pivot (y=0, z=0 in local = pivot point)
@@ -342,15 +340,15 @@ function paint($) {
     const inset = 0.15;
     const bezelInset = 0.08;
     const hingeInset = 0.35; // larger inset at hinge end (away from base)
-    // Screen is on the INNER face of the lid (y = gap in lid local).
-    const screenY = gap + 0.002;
+    // Screen is on the INNER face of the lid (y = 0 in lid local).
+    const screenY = 0.002;
     const screenTL = [-hw + inset, screenY, 2 * hd - inset];
     const screenTR = [hw - inset, screenY, 2 * hd - inset];
     const screenBL = [-hw + inset, screenY, hingeInset];
     const screenBR = [hw - inset, screenY, hingeInset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelY = gap + 0.001;
+    const bezelY = 0.001;
     const bezelTL = [-hw + bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelTR = [hw - bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelBL = [-hw + bezelInset, bezelY, hingeInset - 0.07];
