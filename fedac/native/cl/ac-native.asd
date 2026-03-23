@@ -6,7 +6,7 @@
   :version "0.1.0"
   :author "Aesthetic Computer"
   :license "MIT"
-  :depends-on ("cffi" "bordeaux-threads" "alexandria")
+  :depends-on ("cffi" "bordeaux-threads" "alexandria" "swank")
   :serial t
   :components
   ((:file "packages")
