@@ -139,26 +139,53 @@ function paint($) {
     const hingeAngle = from + ease * (to - from);
 
     // Half-box dimensions (proportional to ThinkPad Yoga 11e: ~290mm × 202mm × 22mm)
-    // Width:Depth ratio ≈ 1.44:1, thickness is thin
     const hw = 1.44, hh = 0.07, hd = 1.0;
+    // Hinge arm length — offsets the lid's pivot outward from the base
+    const hingeR = hh * 3.5; // enough clearance for 360° rotation
 
-    // Base (keyboard half)
+    // Base (bottom slab, y from 0 to 2*hh)
     const base = [
-      [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
-      [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
+      [-hw, 0, -hd], [hw, 0, -hd], [hw, 2 * hh, -hd], [-hw, 2 * hh, -hd],
+      [-hw, 0, hd], [hw, 0, hd], [hw, 2 * hh, hd], [-hw, 2 * hh, hd],
     ];
 
-    // Lid — hinged at back edge
-    const lidLocal = [
-      [-hw, -hh, 0], [hw, -hh, 0], [hw, hh, 0], [-hw, hh, 0],
-      [-hw, -hh, 2 * hd], [hw, -hh, 2 * hd], [hw, hh, 2 * hd], [-hw, hh, 2 * hd],
-    ];
+    // Lid (top slab, local y from -2*hh to 0, local z from 0 to 2*hd)
+    // Hinge arm: two small links from base back-top to lid pivot
+    // The lid pivot is offset by hingeR above the base top at the back edge
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
+
+    // Hinge pivot in world space: above the base top-back corner
+    const pivotY = -hingeR;
+    const pivotZ = -hd;
+
+    const lidLocal = [
+      [-hw, -2 * hh, 0], [hw, -2 * hh, 0], [hw, 0, 0], [-hw, 0, 0],
+      [-hw, -2 * hh, 2 * hd], [hw, -2 * hh, 2 * hd], [hw, 0, 2 * hd], [-hw, 0, 2 * hd],
+    ];
     const lid = lidLocal.map(([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
       const rz = ly * sinH + lz * cosH;
-      return [lx, ry + hh, rz - hd];
+      return [lx, ry + pivotY, rz + pivotZ];
     });
+
+    // Hinge barrels (two small boxes connecting base to lid pivot)
+    const barrelW = 0.15;
+    const barrelPositions = [-hw * 0.6, hw * 0.6]; // left and right barrel
+    const hingeVerts = [];
+    for (const bx of barrelPositions) {
+      // Each barrel goes from base top-back to lid pivot point
+      const bHalf = barrelW / 2;
+      // Base attachment: at base top (y=0), back edge (z=-hd)
+      const by0 = 0, bz0 = -hd;
+      // Lid attachment: at pivot (y=pivotY, z=pivotZ)
+      const by1 = pivotY, bz1 = pivotZ;
+      hingeVerts.push([
+        [bx - bHalf, by0, bz0 - bHalf], [bx + bHalf, by0, bz0 - bHalf],
+        [bx + bHalf, by1, bz1 - bHalf], [bx - bHalf, by1, bz1 - bHalf],
+        [bx - bHalf, by0, bz0 + bHalf], [bx + bHalf, by0, bz0 + bHalf],
+        [bx + bHalf, by1, bz1 + bHalf], [bx - bHalf, by1, bz1 + bHalf],
+      ]);
+    }
 
     const halfEdges = [
       [0, 1], [1, 2], [2, 3], [3, 0],
@@ -204,12 +231,19 @@ function paint($) {
     addFaces(projBase, baseColor, "base", false);
     addFaces(projLid, lidColor, "lid", true);
 
-    // Keyboard keys (on base top face)
+    // Hinge barrels
+    const hingeColor = isDark ? [40, 40, 45] : [140, 140, 148];
+    for (const hv of hingeVerts) {
+      const projH = hv.map(project);
+      addFaces(projH, hingeColor, "hinge", false);
+    }
+
+    // Keyboard keys (on base top face, y = -0.001 just above y=0)
     const kbInset = 0.18;
-    const kbTL = project([-hw + kbInset, -hh - 0.001, -hd + kbInset]);
-    const kbTR = project([hw - kbInset, -hh - 0.001, -hd + kbInset]);
-    const kbBL = project([-hw + kbInset, -hh - 0.001, hd - kbInset * 3]);
-    const kbBR = project([hw - kbInset, -hh - 0.001, hd - kbInset * 3]);
+    const kbTL = project([-hw + kbInset, -0.001, -hd + kbInset]);
+    const kbTR = project([hw - kbInset, -0.001, -hd + kbInset]);
+    const kbBL = project([-hw + kbInset, -0.001, hd - kbInset * 3]);
+    const kbBR = project([hw - kbInset, -0.001, hd - kbInset * 3]);
     const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
     const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
     if (ke1x * ke2y - ke1y * ke2x < 0) {
@@ -251,13 +285,18 @@ function paint($) {
     };
     addEdges(projBase, 0);
     addEdges(projLid, 12);
+    for (const hv of hingeVerts) {
+      addEdges(hv.map(project), 24);
+    }
 
     // Vertex particles
     const particleColors = [
       [255, 80, 200], [80, 255, 220], [255, 255, 80],
       [80, 200, 255], [255, 120, 80], [180, 80, 255],
     ];
-    [...projBase, ...projLid].forEach(([px, py, pz], i) => {
+    const allVerts = [...projBase, ...projLid];
+    for (const hv of hingeVerts) allVerts.push(...hv.map(project));
+    allVerts.forEach(([px, py, pz], i) => {
       drawList.push({ z: pz - 0.15, type: "particle", px, py, i });
     });
 
@@ -303,24 +342,25 @@ function paint($) {
     // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
     const bezelInset = 0.08;
-    // Screen is on the INNER face of the lid (y = +hh in lid local).
+    // Screen is on the INNER face of the lid (y = 0 in lid local).
     // When lid is open, far edge (z=2*hd) is visually at the TOP,
     // hinge edge (z=0) is at the BOTTOM.
-    const screenTL = [-hw + inset, hh + 0.002, 2 * hd - inset];
-    const screenTR = [hw - inset, hh + 0.002, 2 * hd - inset];
-    const screenBL = [-hw + inset, hh + 0.002, inset];
-    const screenBR = [hw - inset, hh + 0.002, inset];
+    const screenTL = [-hw + inset, 0.002, 2 * hd - inset];
+    const screenTR = [hw - inset, 0.002, 2 * hd - inset];
+    const screenBL = [-hw + inset, 0.002, inset];
+    const screenBR = [hw - inset, 0.002, inset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelTL = [-hw + bezelInset, hh + 0.001, 2 * hd - bezelInset];
-    const bezelTR = [hw - bezelInset, hh + 0.001, 2 * hd - bezelInset];
-    const bezelBL = [-hw + bezelInset, hh + 0.001, bezelInset];
-    const bezelBR = [hw - bezelInset, hh + 0.001, bezelInset];
+    const bezelTL = [-hw + bezelInset, 0.001, 2 * hd - bezelInset];
+    const bezelTR = [hw - bezelInset, 0.001, 2 * hd - bezelInset];
+    const bezelBL = [-hw + bezelInset, 0.001, bezelInset];
+    const bezelBR = [hw - bezelInset, 0.001, bezelInset];
 
+    // Same transform as lid vertices
     const hingeXform = ([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
       const rz = ly * sinH + lz * cosH;
-      return [lx, ry + hh, rz - hd];
+      return [lx, ry + pivotY, rz + pivotZ];
     };
     const sTL = hingeXform(screenTL), sTR = hingeXform(screenTR);
     const sBL = hingeXform(screenBL), sBR = hingeXform(screenBR);
