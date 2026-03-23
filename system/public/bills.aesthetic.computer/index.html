@@ -358,6 +358,73 @@
         .card p { font-size: 0.82em; line-height: 1.8; }
         .card p strong { color: var(--pink); }
 
+        /* Current goal banner */
+        .goal-focus {
+            margin-bottom: 1em;
+            padding: 1em;
+            border: 1px solid var(--pink);
+            background: linear-gradient(135deg, rgba(255, 107, 157, 0.16), rgba(78, 205, 196, 0.12));
+            box-shadow: 0 0 0 1px rgba(255, 107, 157, 0.1) inset;
+        }
+        .goal-kicker {
+            font-size: 0.7em;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--cyan);
+        }
+        .goal-title {
+            margin-top: 0.25em;
+            font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+            font-size: 1.35em;
+            line-height: 1.2;
+            color: var(--pink);
+        }
+        .goal-amount {
+            margin-top: 0.18em;
+            font-size: 2em;
+            color: var(--green);
+            font-variant-numeric: tabular-nums;
+        }
+        .goal-sub {
+            margin-top: 0.35em;
+            font-size: 0.84em;
+            line-height: 1.6;
+        }
+        .goal-split {
+            margin-top: 0.8em;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.45em;
+        }
+        .goal-item {
+            padding: 0.55em;
+            border: 1px solid var(--box-border);
+            background: rgba(0, 0, 0, 0.15);
+        }
+        .goal-item-label {
+            font-size: 0.68em;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--dim);
+        }
+        .goal-item-value {
+            margin-top: 0.15em;
+            font-size: 1.2em;
+            font-variant-numeric: tabular-nums;
+        }
+        .goal-item-note {
+            margin-top: 0.15em;
+            font-size: 0.72em;
+            color: var(--dim);
+        }
+        .goal-item-mac .goal-item-value { color: var(--pink); }
+        .goal-item-framework .goal-item-value { color: var(--cyan); }
+        .goal-item-buffer .goal-item-value { color: var(--gold); }
+
+        body.light-mode .goal-item {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
         /* Collapsible */
         details { margin-bottom: 0.5em; }
 
@@ -454,6 +521,9 @@
             .net-flow { grid-template-columns: 1fr; gap: 0.3em; padding: 0.8em; }
             .flow-op { font-size: 1em; }
             .flow-value { font-size: 1.4em; }
+            .goal-title { font-size: 1.1em; }
+            .goal-amount { font-size: 1.55em; }
+            .goal-split { grid-template-columns: 1fr; }
             table { font-size: 0.78em; }
             td, th { padding: 0.25em 0.35em; }
             .service-map { grid-template-columns: repeat(3, 1fr); }
@@ -498,6 +568,10 @@
                 <div class="alert-dot red"></div>
                 <div class="alert-text"><strong>GitHub overdue</strong> — ~$500 unpaid. <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></div>
             </div>
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>Claude Code Max locked out</strong> — $100 overdue and tooling access is blocked.</div>
+            </div>
             <div class="alert alert-ok">
                 <div class="alert-dot green"></div>
                 <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
@@ -524,6 +598,88 @@
                 <div class="flow-value" id="flow-net" style="color: var(--dim);" class="loading">...</div>
             </div>
         </div>
+
+        <hr class="section-divider">
+
+        <!-- Actions -->
+        <h2>priority actions</h2>
+
+        <div class="goal-focus">
+            <div class="goal-kicker">Current goal</div>
+            <div class="goal-title">replace broken laptops and restore reliable daily development</div>
+            <div class="goal-amount">$2,310 target</div>
+            <p class="goal-sub">Money given right now goes directly to these replacements and setup costs.</p>
+            <div class="goal-split">
+                <div class="goal-item goal-item-mac">
+                    <div class="goal-item-label">macbook-neo</div>
+                    <div class="goal-item-value">$799</div>
+                    <div class="goal-item-note">A18 Pro, 13-inch, 512GB</div>
+                </div>
+                <div class="goal-item goal-item-framework">
+                    <div class="goal-item-label">framework-12</div>
+                    <div class="goal-item-value">$1,300</div>
+                    <div class="goal-item-note">i5, 32GB RAM, 1TB NVMe</div>
+                </div>
+                <div class="goal-item goal-item-buffer">
+                    <div class="goal-item-label">tax + setup buffer</div>
+                    <div class="goal-item-value">$211</div>
+                    <div class="goal-item-note">Adapters, tax, setup margin</div>
+                </div>
+            </div>
+        </div>
+
+        <h3>urgent — before april</h3>
+        <div class="card">
+            <p><strong>1.</strong> Fix Netlify payment NOW — period ends ~Mar 27, aesthetic.computer at risk</p>
+            <p><strong>2.</strong> Resolve Shopify — shop.aesthetic.computer offline, /api/shop broken, product carousel dead</p>
+            <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
+            <p><strong>4.</strong> Restore Claude Code Max access — $100 overdue and currently locked out</p>
+        </div>
+
+        <h3>machine state — updated mar 23, 2026</h3>
+        <table>
+            <thead><tr><th>machine</th><th>type</th><th>state</th><th class="hide-mobile">notes</th></tr></thead>
+            <tbody>
+                <tr><td>jeffrey-windows</td><td>workstation</td><td><span class="pill pill-green">fine</span></td><td class="hide-mobile">Primary machine is healthy.</td></tr>
+                <tr><td>jeffrey-macbook</td><td>laptop</td><td><span class="pill pill-red">degraded</span></td><td class="hide-mobile">Screen broke; very difficult to use.</td></tr>
+                <tr><td>x1-nano-g2</td><td>laptop</td><td><span class="pill pill-red">unstable</span></td><td class="hide-mobile">Random shutdowns tied to NVMe issues.</td></tr>
+                <tr><td>jas-fedora (x1 nano gen 1?)</td><td>laptop</td><td><span class="pill pill-red">offline</span></td><td class="hide-mobile">Broken shift key + smashed power port; out of commission.</td></tr>
+                <tr><td>mac-mini</td><td>server</td><td><span class="pill pill-cyan">not mine</span></td><td class="hide-mobile">Build server; not a personal laptop.</td></tr>
+                <tr><td>legacy-2016 / session-server / silo</td><td>vps</td><td><span class="pill pill-purple">servers</span></td><td class="hide-mobile">Infrastructure hosts, not personal laptops.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>where your money goes right now</h3>
+        <div class="card">
+            <p><strong>transparent breakdown:</strong> Donations are prioritized for replacement laptops first so development can stay online.</p>
+        </div>
+        <table>
+            <thead><tr><th>item</th><th>target spec</th><th>est. one-time</th><th class="hide-mobile">pricing notes</th></tr></thead>
+            <tbody>
+                <tr><td>macbook-neo</td><td>A18 Pro, 13-inch, 512GB SSD, Touch ID model</td><td class="money">~$799</td><td class="hide-mobile">Apple lists MacBook Neo from $599; 512GB target budgeted above base.</td></tr>
+                <tr><td>framework-12</td><td>DIY i5-1334U, 32GB DDR5, 1TB NVMe, Linux (no Windows license)</td><td class="money">~$1300</td><td class="hide-mobile">Framework config math: $699 base + $405 (32GB) + $196 (1TB).</td></tr>
+                <tr style="color: var(--pink);"><td>wishlist subtotal</td><td>before tax/accessories</td><td class="money">~$2099</td><td class="hide-mobile">Funding target for replacements.</td></tr>
+                <tr><td>wishlist target (+10%)</td><td>tax + adapters + setup margin</td><td class="money">~$2310</td><td class="hide-mobile">10% buffer on subtotal for checkout reality.</td></tr>
+            </tbody>
+        </table>
+        <div class="card">
+            <p><strong>sources:</strong> <a href="https://www.apple.com/shop/buy-mac">apple.com/shop/buy-mac</a> · <a href="https://www.apple.com/macbook-neo/specs/">apple.com/macbook-neo/specs</a> · <a href="https://frame.work/products/laptop12-diy-intel-13gen/configuration/new">frame.work laptop 12 configurator</a></p>
+        </div>
+
+        <h3>completed</h3>
+        <div class="card">
+            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE (Thanks Casey!)</p>
+        </div>
+
+        <h3>check in april</h3>
+        <div class="card">
+            <p><strong>5.</strong> GCP/Nanos billing — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
+            <p><strong>6.</strong> Domain renewal dates — check 8 domains for upcoming expirations</p>
+            <p><strong>7.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
+            <p><strong>8.</strong> Evaluate cost reduction plan — legacy-2016 + Redis + downgrades (~$107/mo savings)</p>
+        </div>
+
+        <hr class="section-divider">
 
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- INCOME -->
@@ -610,8 +766,8 @@
         <div class="stats">
             <div class="stat-box">
                 <div class="stat-label">overdue</div>
-                <div class="stat-value" style="color: var(--red);">~$519</div>
-                <div class="stat-sub">GitHub ~$500 + Netlify $19</div>
+                <div class="stat-value" style="color: var(--red);">~$619</div>
+                <div class="stat-sub">GitHub ~$500 + Netlify $19 + Claude $100</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">monthly</div>
@@ -640,6 +796,7 @@
             <div class="svc income"><div class="svc-name">keeps</div><div class="svc-cost">tezos</div></div>
             <div class="svc income"><div class="svc-name">gives</div><div class="svc-cost">stripe</div></div>
             <div class="svc down"><div class="svc-name">shopify</div><div class="svc-cost">offline</div></div>
+            <div class="svc down"><div class="svc-name">claude-max</div><div class="svc-cost">$100 due + locked</div></div>
             <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
             <div class="svc ok"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
             <div class="svc ok"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
@@ -665,6 +822,7 @@
                 <tr><td><span class="pill pill-red">critical</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — period ends ~Mar 27, site at risk</td></tr>
                 <tr><td><span class="pill pill-red">offline</span></td><td>Shopify</td><td class="money">$0</td><td class="hide-mobile">shop.aesthetic.computer down — store closed</td></tr>
                 <tr><td><span class="pill pill-red">overdue</span></td><td>GitHub</td><td class="money">~$500</td><td class="hide-mobile">Prior months (Codespaces/Copilot)</td></tr>
+                <tr><td><span class="pill pill-red">locked</span></td><td>Claude Code Max</td><td class="money">$100</td><td class="hide-mobile">Subscription overdue; account access currently blocked</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">Paid — all droplets restored</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Self-hosted on DO silo — restored</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, 2 Workers</td></tr>
@@ -745,61 +903,6 @@
                 </table>
             </div>
         </details>
-
-        <hr class="section-divider">
-
-        <!-- Actions -->
-        <h2>priority actions</h2>
-
-        <h3>urgent — before april</h3>
-        <div class="card">
-            <p><strong>1.</strong> Fix Netlify payment NOW — period ends ~Mar 27, aesthetic.computer at risk</p>
-            <p><strong>2.</strong> Resolve Shopify — shop.aesthetic.computer offline, /api/shop broken, product carousel dead</p>
-            <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
-        </div>
-
-        <h3>machine state — updated mar 23, 2026</h3>
-        <table>
-            <thead><tr><th>machine</th><th>type</th><th>state</th><th class="hide-mobile">notes</th></tr></thead>
-            <tbody>
-                <tr><td>jeffrey-windows</td><td>workstation</td><td><span class="pill pill-green">fine</span></td><td class="hide-mobile">Primary machine is healthy.</td></tr>
-                <tr><td>jeffrey-macbook</td><td>laptop</td><td><span class="pill pill-red">degraded</span></td><td class="hide-mobile">Screen broke; very difficult to use.</td></tr>
-                <tr><td>x1-nano-g2</td><td>laptop</td><td><span class="pill pill-red">unstable</span></td><td class="hide-mobile">Random shutdowns tied to NVMe issues.</td></tr>
-                <tr><td>jas-fedora (x1 nano gen 1?)</td><td>laptop</td><td><span class="pill pill-red">offline</span></td><td class="hide-mobile">Broken shift key + smashed power port; out of commission.</td></tr>
-                <tr><td>mac-mini</td><td>server</td><td><span class="pill pill-cyan">not mine</span></td><td class="hide-mobile">Build server; not a personal laptop.</td></tr>
-                <tr><td>legacy-2016 / session-server / silo</td><td>vps</td><td><span class="pill pill-purple">servers</span></td><td class="hide-mobile">Infrastructure hosts, not personal laptops.</td></tr>
-            </tbody>
-        </table>
-
-        <h3>wishlist — replacement hardware</h3>
-        <div class="card">
-            <p><strong>goal:</strong> Recover reliable daily laptop workflow after MacBook + ThinkPad failures.</p>
-        </div>
-        <table>
-            <thead><tr><th>item</th><th>target spec</th><th>est. one-time</th><th class="hide-mobile">pricing notes</th></tr></thead>
-            <tbody>
-                <tr><td>macbook-neo</td><td>A18 Pro, 13-inch, 512GB SSD, Touch ID model</td><td class="money">~$799</td><td class="hide-mobile">Apple lists MacBook Neo from $599; 512GB target budgeted above base.</td></tr>
-                <tr><td>framework-12</td><td>DIY i5-1334U, 32GB DDR5, 1TB NVMe, Linux (no Windows license)</td><td class="money">~$1300</td><td class="hide-mobile">Framework config math: $699 base + $405 (32GB) + $196 (1TB).</td></tr>
-                <tr style="color: var(--pink);"><td>wishlist subtotal</td><td>before tax/accessories</td><td class="money">~$2099</td><td class="hide-mobile">Funding target for replacements.</td></tr>
-                <tr><td>wishlist target (+10%)</td><td>tax + adapters + setup margin</td><td class="money">~$2310</td><td class="hide-mobile">10% buffer on subtotal for checkout reality.</td></tr>
-            </tbody>
-        </table>
-        <div class="card">
-            <p><strong>sources:</strong> <a href="https://www.apple.com/shop/buy-mac">apple.com/shop/buy-mac</a> · <a href="https://www.apple.com/macbook-neo/specs/">apple.com/macbook-neo/specs</a> · <a href="https://frame.work/products/laptop12-diy-intel-13gen/configuration/new">frame.work laptop 12 configurator</a></p>
-        </div>
-
-        <h3>completed</h3>
-        <div class="card">
-            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE (Thanks Casey!)</p>
-        </div>
-
-        <h3>check in april</h3>
-        <div class="card">
-            <p><strong>4.</strong> GCP/Nanos billing — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
-            <p><strong>5.</strong> Domain renewal dates — check 8 domains for upcoming expirations</p>
-            <p><strong>6.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
-            <p><strong>7.</strong> Evaluate cost reduction plan — legacy-2016 + Redis + downgrades (~$107/mo savings)</p>
-        </div>
 
         <div class="footer">
             <span id="footer-date">...</span>
