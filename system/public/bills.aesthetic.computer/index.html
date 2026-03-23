@@ -619,53 +619,6 @@
             <button class="bill-tab active" type="button" data-view-target="needs" role="tab" aria-selected="true">Needs</button>
         </div>
 
-        <!-- Alerts -->
-        <div class="alerts">
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>Netlify CRITICAL</strong> — billing period ends ~Mar 27. Fix payment NOW or aesthetic.computer goes down.</div>
-            </div>
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>Shopify offline</strong> — shop.aesthetic.computer is down. Product pages, /api/shop, and carousel broken.</div>
-            </div>
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>GitHub overdue</strong> — ~$500 unpaid. <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></div>
-            </div>
-            <div class="alert">
-                <div class="alert-dot red"></div>
-                <div class="alert-text"><strong>Claude Code Max locked out</strong> — $100 overdue and tooling access is blocked.</div>
-            </div>
-            <div class="alert alert-ok">
-                <div class="alert-dot green"></div>
-                <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- NET FLOW SUMMARY -->
-        <!-- ═══════════════════════════════════════════════════ -->
-
-        <div class="net-flow">
-            <div class="flow-block">
-                <div class="flow-label">income / mo</div>
-                <div class="flow-value" id="flow-income" style="color: var(--green);" class="loading">...</div>
-            </div>
-            <div class="flow-op">-</div>
-            <div class="flow-block">
-                <div class="flow-label">costs / mo</div>
-                <div class="flow-value" style="color: var(--red);">~$151</div>
-            </div>
-            <div class="flow-op">=</div>
-            <div class="flow-block">
-                <div class="flow-label">net / mo</div>
-                <div class="flow-value" id="flow-net" style="color: var(--dim);" class="loading">...</div>
-            </div>
-        </div>
-
-        <hr class="section-divider">
-
         <section class="bill-section" data-view="needs">
         <div class="needs-support">
             <a class="give-bumper" href="https://give.aesthetic.computer">give.aesthetic.computer</a>
@@ -673,9 +626,6 @@
                 <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
             </div>
         </div>
-
-        <!-- Actions -->
-        <h2>priority actions</h2>
 
         <div class="goal-focus">
             <div class="goal-kicker">Current goal</div>
@@ -749,7 +699,7 @@
 
         <h3>completed</h3>
         <div class="card">
-            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE (Thanks Casey!)</p>
+            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE</p>
         </div>
 
         <h3>check in april</h3>
@@ -1071,14 +1021,18 @@
             const flowIncomeEl = document.getElementById('flow-income');
             const flowNetEl = document.getElementById('flow-net');
 
-            flowIncomeEl.textContent = '~$' + Math.round(totalMonthlyIncome);
-            flowIncomeEl.classList.remove('loading');
+            if (flowIncomeEl) {
+                flowIncomeEl.textContent = '~$' + Math.round(totalMonthlyIncome);
+                flowIncomeEl.classList.remove('loading');
+            }
 
-            flowNetEl.textContent = (net >= 0 ? '+$' : '-$') + Math.abs(Math.round(net));
-            flowNetEl.style.color = net >= 0
-                ? 'var(--green)'
-                : 'var(--red)';
-            flowNetEl.classList.remove('loading');
+            if (flowNetEl) {
+                flowNetEl.textContent = (net >= 0 ? '+$' : '-$') + Math.abs(Math.round(net));
+                flowNetEl.style.color = net >= 0
+                    ? 'var(--green)'
+                    : 'var(--red)';
+                flowNetEl.classList.remove('loading');
+            }
         }
 
         (async function loadGives() {

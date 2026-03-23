@@ -2349,6 +2349,65 @@ to = "/kidlisp.com/buy.html"
 status = 200
 force = false
 [[redirects]]
+# bills.aesthetic.computer - local dev mirroring production subdomain
+# Local dev: https://localhost:8888/bills.aesthetic.computer/
+from = "/bills.aesthetic.computer"
+to = "/bills.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/bills.aesthetic.computer/*"
+to = "/bills.aesthetic.computer/:splat"
+status = 200
+force = false
+[[redirects]]
+# give.aesthetic.computer - local dev mirroring production subdomain
+# Local dev: https://localhost:8888/give.aesthetic.computer/
+from = "/give.aesthetic.computer"
+to = "/give.aesthetic.computer/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/da"
+to = "/give.aesthetic.computer/index.html?lang=da&currency=dkk"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/es"
+to = "/give.aesthetic.computer/index.html?lang=es&currency=usd"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/de"
+to = "/give.aesthetic.computer/index.html?lang=de&currency=eur"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/cn"
+to = "/give.aesthetic.computer/index.html?lang=zh&currency=usd"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/api/give-portal"
+to = "/.netlify/functions/give-portal"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/api/give"
+to = "/.netlify/functions/give"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/api/billing"
+to = "/.netlify/functions/billing"
+status = 200
+force = true
+[[redirects]]
+from = "/give.aesthetic.computer/*"
+to = "/give.aesthetic.computer/:splat"
+status = 200
+force = false
+[[redirects]]
 # PJ mode via kidlisp.com domain - kidlisp.com/pj/code (subdomain fallback)
 from = "https://kidlisp.com/pj/*"
 to = "/kidlisp.com/pj.html"
@@ -2362,6 +2421,22 @@ force = true
 [[redirects]]
 # SPA fallback for kidlisp.com routes - only for paths without file extensions
 # force = false ensures static files (js, css, etc.) are served directly
+from = "/kidlisp.com"
+to = "/kidlisp.com/index.html"
+status = 200
+force = true
+[[redirects]]
+# Explicit editor entrypoint for local dev
+from = "/kidlisp.com/editor"
+to = "/kidlisp.com/index.html"
+status = 200
+force = true
+[[redirects]]
+from = "/kidlisp.com/editor/*"
+to = "/kidlisp.com/index.html"
+status = 200
+force = true
+[[redirects]]
 from = "/kidlisp.com/*"
 to = "/kidlisp.com/index.html"
 status = 200
