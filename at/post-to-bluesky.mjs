@@ -11,7 +11,7 @@
  *   node post-to-bluesky.mjs "New painting!" --image painting.png
  */
 
-import { BskyAgent } from '@atproto/api'
+import { AtpAgent } from '@atproto/api'
 import { config } from 'dotenv'
 import { readFileSync } from 'fs'
 
@@ -34,7 +34,7 @@ async function postToBluesky(text, options = {}) {
   console.log(`\n📤 Posting to Bluesky as @${BSKY_IDENTIFIER}`)
   console.log(`📡 Using service: ${BSKY_SERVICE}\n`)
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     // Login

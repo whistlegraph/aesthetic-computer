@@ -11,7 +11,7 @@
  *   node share-random-painting.mjs --preview
  */
 
-import { BskyAgent, RichText } from '@atproto/api'
+import { AtpAgent, RichText } from '@atproto/api'
 import { config } from 'dotenv'
 import { writeFileSync } from 'fs'
 import sharp from 'sharp'
@@ -191,7 +191,7 @@ async function postToBluesky(paintingData, imageBuffer) {
 
   console.log(`📤 Posting to Bluesky as @${BSKY_IDENTIFIER}\n`)
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     // Login

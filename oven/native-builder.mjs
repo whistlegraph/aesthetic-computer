@@ -58,10 +58,18 @@ function addLogLine(job, stream, line) {
     job.logs.splice(0, job.logs.length - MAX_LOG_LINES);
   job.updatedAt = nowISO();
 
-  // Throttled progress broadcast (every 2s max)
-  if (progressCallback && Date.now() - lastProgressBroadcast > 2000) {
-    lastProgressBroadcast = Date.now();
-    progressCallback(makeSnapshot(job));
+  // Broadcast every log line with the last few lines attached
+  if (progressCallback) {
+    const now = Date.now();
+    // Full snapshot every 2s, lightweight log-only message in between
+    if (now - lastProgressBroadcast > 2000) {
+      lastProgressBroadcast = now;
+      const snap = makeSnapshot(job);
+      snap.recentLines = job.logs.slice(-8).map(l => l.line);
+      progressCallback(snap);
+    } else {
+      progressCallback({ id: job.id, line: clean, stage: job.stage, percent: job.percent });
+    }
   }
 
   // Parse progress hints from build-and-flash.sh + upload-release.sh output
