@@ -5603,8 +5603,7 @@ const $paintApi = {
         const [refDX, refDY] = projectPt(0, 1);
         const pxW = Math.ceil(Math.sqrt((refRX - refX) ** 2 + (refRY - refY) ** 2)) || 1;
         const pxH = Math.ceil(Math.sqrt((refDX - refX) ** 2 + (refDY - refY) ** 2)) || 1;
-        // Use the larger dimension + 1 to ensure no gaps
-        const pxSize = Math.max(pxW, pxH) + 1;
+        const pxSize = Math.max(pxW, pxH);
 
         // Render each "on" pixel as a box at its projected center
         const renderPixel = (gx, gy) => {
@@ -5631,7 +5630,9 @@ const $paintApi = {
             if (name === "point") {
               renderPixel(args[0], args[1]);
             } else if (name === "line") {
-              // Lines: project endpoints and draw
+              // Render pixel boxes at both endpoints + line between
+              renderPixel(args[0], args[1]);
+              renderPixel(args[2], args[3]);
               const [s1x, s1y] = projectPt(args[0], args[1]);
               const [s2x, s2y] = projectPt(args[2], args[3]);
               $activePaintApi.line(
