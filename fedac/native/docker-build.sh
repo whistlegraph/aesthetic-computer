@@ -42,6 +42,40 @@ show_kernel_error_context() {
     tail -220 "$log_file" >&2 || true
 }
 
+run_make_with_heartbeat() {
+    local log_file="$1"
+    shift
+    local heartbeat_secs="${AC_KERNEL_HEARTBEAT_SECS:-20}"
+    local last_count="-1"
+    local last_line=""
+    local line_count
+    local current_line
+
+    : > "$log_file"
+    "$@" >"$log_file" 2>&1 &
+    local make_pid=$!
+
+    while kill -0 "$make_pid" 2>/dev/null; do
+        sleep "$heartbeat_secs"
+        [ -f "$log_file" ] || continue
+        line_count=$(wc -l <"$log_file" 2>/dev/null || echo 0)
+        current_line=$(tail -1 "$log_file" 2>/dev/null || true)
+        current_line="${current_line:0:180}"
+        if [ "$line_count" != "$last_count" ] || [ "$current_line" != "$last_line" ]; then
+            log "  [kernel] running... lines=$line_count last=$current_line"
+            last_count="$line_count"
+            last_line="$current_line"
+        else
+            log "  [kernel] running... lines=$line_count (no new lines yet)"
+        fi
+    done
+
+    if wait "$make_pid"; then
+        return 0
+    fi
+    return $?
+}
+
 log "Building $BUILD_NAME ($GIT_HASH)"
 
 # ══════════════════════════════════════════════
@@ -334,6 +368,62 @@ fi
 # Copy config
 cp "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"
 
+# Stage built-in firmware blobs referenced by CONFIG_EXTRA_FIRMWARE
+# into a container-local directory and rewrite CONFIG_EXTRA_FIRMWARE_DIR.
+FIRMWARE_ABS="$BUILD/firmware"
+mkdir -p "$FIRMWARE_ABS"
+
+HOST_FWDIR=""
+for d in /usr/lib/firmware /lib/firmware; do
+    if [ -d "$d" ]; then
+        HOST_FWDIR="$d"
+        break
+    fi
+done
+
+copy_builtin_fw_blob() {
+    local rel="$1"
+    local src_base="$2"
+    local dst="$FIRMWARE_ABS/$rel"
+    mkdir -p "$(dirname "$dst")"
+    if [ -f "$src_base/$rel" ]; then
+        cp -L "$src_base/$rel" "$dst"
+        return 0
+    fi
+    if [ -f "$src_base/$rel.zst" ]; then
+        zstd -d "$src_base/$rel.zst" -o "$dst" 2>/dev/null && return 0
+    fi
+    if [ -f "$src_base/$rel.xz" ]; then
+        xz -dc "$src_base/$rel.xz" >"$dst" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+FW_LIST=$(sed -n 's/^CONFIG_EXTRA_FIRMWARE="\([^"]*\)"/\1/p' "$LINUX_DIR/.config" | head -1)
+if [ -n "$FW_LIST" ]; then
+    if [ -z "$HOST_FWDIR" ]; then
+        err "Kernel config requests built-in firmware but no /usr/lib/firmware or /lib/firmware directory was found."
+        exit 1
+    fi
+
+    missing_fw=""
+    for fw in $FW_LIST; do
+        if ! copy_builtin_fw_blob "$fw" "$HOST_FWDIR"; then
+            missing_fw="$missing_fw $fw"
+        fi
+    done
+
+    if [ -n "$missing_fw" ]; then
+        err "Missing built-in firmware blobs:$missing_fw"
+        err "Looked under: $HOST_FWDIR (including .zst/.xz variants)"
+        exit 1
+    fi
+
+    sed -i "s|^CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"$FIRMWARE_ABS\"|" "$LINUX_DIR/.config"
+    log "  Built-in firmware dir: $FIRMWARE_ABS"
+    log "  Built-in firmware files: $FW_LIST"
+fi
+
 # Copy initramfs into kernel tree
 cp "$BUILD/initramfs.cpio.lz4" "$LINUX_DIR/initramfs.cpio.lz4"
 
@@ -361,14 +451,14 @@ make clean 2>/dev/null || true
 # Build
 log "  Compiling (${KERNEL_JOBS} cores)..."
 KERNEL_LOG="$BUILD/kernel-build.log"
-if ! make -j"${KERNEL_JOBS}" KALLSYMS_EXTRA_PASS=1 bzImage >"$KERNEL_LOG" 2>&1; then
+if ! run_make_with_heartbeat "$KERNEL_LOG" make -j"${KERNEL_JOBS}" KALLSYMS_EXTRA_PASS=1 bzImage; then
     err "Kernel compile failed while building bzImage (parallel pass)."
     show_kernel_error_context "$KERNEL_LOG"
     if [ "${KERNEL_JOBS}" -gt 1 ]; then
         err "Retrying kernel build in serial mode (-j1, V=1) for deterministic diagnostics..."
         make clean 2>/dev/null || true
         KERNEL_LOG_RETRY="$BUILD/kernel-build-retry.log"
-        if ! make -j1 V=1 KALLSYMS_EXTRA_PASS=1 bzImage >"$KERNEL_LOG_RETRY" 2>&1; then
+        if ! run_make_with_heartbeat "$KERNEL_LOG_RETRY" make -j1 V=1 KALLSYMS_EXTRA_PASS=1 bzImage; then
             err "Kernel compile failed again in serial retry."
             show_kernel_error_context "$KERNEL_LOG_RETRY"
             exit 1
