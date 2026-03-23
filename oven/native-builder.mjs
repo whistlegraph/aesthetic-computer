@@ -8,6 +8,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
+import { MongoClient } from "mongodb";
 
 function runSync(cmd, args, cwd) {
   return new Promise((resolve) => {
@@ -21,6 +22,8 @@ function runSync(cmd, args, cwd) {
 
 const MAX_RECENT_JOBS = 10;
 const MAX_LOG_LINES = 2000;
+const NATIVE_BUILD_COLLECTION =
+  process.env.NATIVE_BUILD_COLLECTION || "oven-native-builds";
 
 // fedac/native/ lives in the native-git repo on oven (polled by native-git-poller).
 const NATIVE_DIR =
@@ -37,6 +40,8 @@ let activeJobId = null;
 
 let progressCallback = null;
 let lastProgressBroadcast = 0;
+let nativeBuildMongoClient = null;
+let nativeBuildMongoDb = null;
 
 export function onNativeBuildProgress(cb) {
   progressCallback = cb;
@@ -44,6 +49,73 @@ export function onNativeBuildProgress(cb) {
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+function toDateOrNull(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+async function getNativeBuildMongo() {
+  if (nativeBuildMongoDb) return nativeBuildMongoDb;
+  const uri = process.env.MONGODB_CONNECTION_STRING;
+  const dbName = process.env.MONGODB_NAME;
+  if (!uri || !dbName) return null;
+  try {
+    nativeBuildMongoClient = await MongoClient.connect(uri);
+    nativeBuildMongoDb = nativeBuildMongoClient.db(dbName);
+    await nativeBuildMongoDb
+      .collection(NATIVE_BUILD_COLLECTION)
+      .createIndex({ when: -1 });
+    await nativeBuildMongoDb
+      .collection(NATIVE_BUILD_COLLECTION)
+      .createIndex({ buildName: 1, when: -1 });
+    return nativeBuildMongoDb;
+  } catch (err) {
+    console.error("[native-builder] MongoDB connect failed:", err.message);
+    return null;
+  }
+}
+
+async function persistNativeBuildRecord(job) {
+  try {
+    const db = await getNativeBuildMongo();
+    if (!db) return;
+    const startedAt = toDateOrNull(job.startedAt);
+    const finishedAt = toDateOrNull(job.finishedAt);
+    const durationMs =
+      startedAt && finishedAt ? Math.max(0, finishedAt - startedAt) : null;
+    const record = {
+      jobId: job.id,
+      buildName: job.buildName || null,
+      ref: job.ref || null,
+      gitHash: job.ref && job.ref !== "unknown" ? String(job.ref).slice(0, 40) : null,
+      status: job.status || "unknown",
+      stage: job.stage || null,
+      percent: Number.isFinite(job.percent) ? job.percent : null,
+      error: job.error || null,
+      exitCode: Number.isFinite(job.exitCode) ? job.exitCode : null,
+      commitMsg: job.commitMsg || null,
+      flags: Array.isArray(job.flags) ? job.flags : [],
+      changedPaths: job.changedPaths || "",
+      createdAt: toDateOrNull(job.createdAt),
+      startedAt,
+      updatedAt: toDateOrNull(job.updatedAt),
+      finishedAt,
+      durationMs,
+      logCount: Array.isArray(job.logs) ? job.logs.length : 0,
+      logTail: Array.isArray(job.logs)
+        ? job.logs.slice(-120).map((l) => l.line)
+        : [],
+      source: "oven-native-builder",
+      when: new Date(),
+    };
+    await db.collection(NATIVE_BUILD_COLLECTION).insertOne(record);
+  } catch (err) {
+    console.error("[native-builder] Failed to persist build record:", err.message);
+  }
 }
 
 function stripAnsi(s) {
@@ -200,6 +272,7 @@ async function runPhase(job, label, cmd, args, cwd, extraEnv = {}) {
     proc.on("error", reject);
     proc.on("close", (code) => {
       job.process = null;
+      job.exitCode = code;
       if (code !== 0) reject(new Error(`${label} failed (exit ${code})`));
       else resolve();
     });
@@ -331,6 +404,7 @@ async function runBuildJob(job) {
     job.status = "success";
     job.stage = "done";
     job.percent = 100;
+    job.error = null;
     job.finishedAt = nowISO();
     if (progressCallback) progressCallback(makeSnapshot(job));
   } catch (err) {
@@ -340,6 +414,7 @@ async function runBuildJob(job) {
     job.error = err.message || String(err);
     if (progressCallback) progressCallback(makeSnapshot(job));
   } finally {
+    await persistNativeBuildRecord(job);
     if (activeJobId === job.id) activeJobId = null;
   }
 }
