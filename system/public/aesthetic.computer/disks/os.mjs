@@ -14,9 +14,19 @@ function RELEASES_URL() { return OVEN_BASE() + "/os-releases"; }
 function OVEN_IMAGE_URL() { return OVEN_BASE() + "/os-image"; }
 function OVEN_WS_URL() { return mirror().ws; }
 function TEMPLATE_ISO_URL() { return mirror().iso; }
+function templateIsoUrl() {
+  const base = mirror().iso;
+  if (variantIdx === 0) return base;
+  // CL variant: replace 'native-notepat' with 'cl-native-notepat'
+  return base.replace("native-notepat", "cl-native-notepat");
+}
 const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const CONFIG_PAD = 4096;
 const BOOT_PIECES = ["notepat", "prompt", "chat", "laer-klokken"];
+const VARIANTS = [
+  { id: "c", label: "C" },
+  { id: "cl", label: "Common Lisp" },
+];
 
 let releases = null;
 let loading = true;
@@ -31,6 +41,8 @@ let downloadStatus = "";
 let downloadBtn = null;
 let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
+let variantIdx = 0;   // index into VARIANTS (0=C, 1=Common Lisp)
+let variantBtn = null; // "build: C" selector
 let mirrorBtn = null; // "mirror: NYC" selector
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
@@ -242,6 +254,7 @@ function leave() {
 function makeButtons(ui) {
   updateDownloadBtn(ui);
   updateBootBtn(ui);
+  updateVariantBtn(ui);
   updateWifiBtn(ui);
   updateMirrorBtn(ui);
 }
@@ -250,13 +263,18 @@ function updateMirrorBtn(ui) {
   mirrorBtn = new ui.TextButton("mirror: " + mirror().label, { x: 6, y: 0 });
 }
 
+function updateVariantBtn(ui) {
+  variantBtn = new ui.TextButton("build: " + VARIANTS[variantIdx].label, { x: 6, y: 0 });
+}
+
 function updateDownloadBtn(ui) {
   downloadBtn = new ui.TextButton("download", { x: 6, y: 0 });
 }
 
 function osLabel() {
   const latest = releases?.releases?.[0];
-  const coreName = "AC-" + (latest?.name || "native");
+  const variantPrefix = variantIdx === 1 ? "CL-" : "";
+  const coreName = variantPrefix + "AC-" + (latest?.name || "native");
   const piece = BOOT_PIECES[bootPieceIdx];
   return `@${handle}-os-${piece}-${coreName}`;
 }
@@ -408,6 +426,19 @@ function paint($) {
         [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
       );
       y += bootBtn.height + btnGap;
+    }
+
+    // Build variant selector
+    if (variantBtn) {
+      variantBtn.reposition({ x: btnX(variantBtn), y });
+      variantBtn.paint(
+        $,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        undefined,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 230],
+      );
+      y += variantBtn.height + btnGap;
     }
 
     // WiFi toggle
@@ -615,6 +646,17 @@ function act({ event: e, needsPaint, download }) {
     });
   }
 
+  // Build variant selector
+  if (variantBtn) {
+    variantBtn.btn.act(e, {
+      push: () => {
+        variantIdx = (variantIdx + 1) % VARIANTS.length;
+        if (uiRef) updateVariantBtn(uiRef);
+        needsPaint();
+      },
+    });
+  }
+
   // WiFi toggle
   if (wifiBtn) {
     wifiBtn.btn.act(e, {
@@ -671,7 +713,7 @@ async function startDownload(needsPaint) {
   needsPaint();
 
   try {
-    const url = OVEN_IMAGE_URL() + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0");
+    const url = OVEN_IMAGE_URL() + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0") + (variantIdx === 1 ? "&variant=cl" : "");
     console.log("[os] Fetching:", url);
     const res = await fetch(url, {
       headers: { Authorization: "Bearer " + token },
@@ -713,7 +755,8 @@ async function startDownload(needsPaint) {
     }
 
     const latest = releases?.releases?.[0];
-    const coreName = "AC-" + (latest?.name || "native");
+    const variantPrefix = variantIdx === 1 ? "CL-" : "";
+    const coreName = variantPrefix + "AC-" + (latest?.name || "native");
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
@@ -743,7 +786,7 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 
   try {
-    const res = await fetch(TEMPLATE_ISO_URL());
+    const res = await fetch(templateIsoUrl());
     if (!res.ok) throw new Error("Download failed: " + res.status);
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
@@ -806,7 +849,8 @@ async function startTemplateDownload(needsPaint) {
     console.log("[os] Patched", patched, "config regions");
 
     const latest = releases?.releases?.[0];
-    const coreName = "AC-" + (latest?.name || "native");
+    const variantPrefix = variantIdx === 1 ? "CL-" : "";
+    const coreName = variantPrefix + "AC-" + (latest?.name || "native");
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;

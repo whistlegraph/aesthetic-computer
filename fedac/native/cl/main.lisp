@@ -119,6 +119,9 @@
 (defvar *metronome-flash* 0.0 "Visual flash intensity 0-1, decays per frame.")
 (defvar *metronome-phase* 0.0 "Pendulum swing -1..1.")
 
+;; Identity
+(defvar *boot-handle* nil "Handle from config, set during boot splash.")
+
 ;; Network
 (defvar *ip-address* "")
 
@@ -148,6 +151,15 @@
              *active-voices*))
   (clrhash *active-voices*)
   (clrhash *active-notes*))
+
+;;; ── Boot splash ──
+
+(defun time-greeting ()
+  "Return time-of-day greeting string."
+  (let ((hour (nth-value 2 (get-decoded-time))))
+    (cond ((and (>= hour 5) (< hour 12)) "good morning")
+          ((and (>= hour 12) (< hour 17)) "good afternoon")
+          (t "good evening"))))
 
 ;;; ── Main ──
 
@@ -187,6 +199,53 @@
       (force-output *error-output*)
 
       (font-init)
+
+      ;; ── Boot splash ──
+      (let* ((cfg (ac-native.config:load-config))
+             (handle (ac-native.config:config-handle cfg))
+             (has-handle (and handle (string/= handle "") (string/= handle "unknown")))
+             (greeting (time-greeting))
+             (splash-start (monotonic-time-ms)))
+        ;; Write tokens
+        (handler-case (ac-native.config:write-device-tokens cfg)
+          (error (e)
+            (format *error-output* "[notepat] token write error: ~A~%" e)
+            (force-output *error-output*)))
+        ;; Store handle for status display
+        (setf *boot-handle* (if has-handle handle nil))
+        ;; Show splash for 3 seconds or until keypress
+        (loop while (< (- (monotonic-time-ms) splash-start) 3000) do
+          (let ((events (ac-native.input:input-poll input)))
+            (when (some (lambda (ev) (eq (ac-native.input:event-type ev) :key-down)) events)
+              (return)))
+          ;; Paint splash
+          (graph-wipe graph (make-color :r 10 :g 12 :b 18))
+          (let ((cy (floor sh 3)))
+            (if has-handle
+                (progn
+                  ;; Greeting
+                  (graph-ink graph (make-color :r 140 :g 160 :b 200 :a 220))
+                  (font-draw graph greeting
+                             (- (floor sw 2) (floor (font-measure greeting) 2)) cy)
+                  ;; @handle
+                  (let ((htxt (format nil "@~A" handle)))
+                    (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 255))
+                    (font-draw graph htxt
+                               (- (floor sw 2) (floor (font-measure htxt) 2)) (+ cy 14)))
+                  ;; Subtitle
+                  (graph-ink graph (make-color :r 80 :g 80 :b 100 :a 160))
+                  (font-draw graph "aesthetic.computer"
+                             (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) (+ cy 32)))
+                (progn
+                  ;; No handle: just show name
+                  (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 255))
+                  (font-draw graph "aesthetic.computer"
+                             (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) cy)
+                  (graph-ink graph (make-color :r 140 :g 160 :b 200 :a 180))
+                  (font-draw graph "notepat"
+                             (- (floor sw 2) (floor (font-measure "notepat") 2)) (+ cy 18)))))
+          (ac-native.drm:drm-present display screen scale)
+          (frame-sync-60fps)))
 
       ;; Start Swank server for remote REPL
       (handler-case
@@ -480,6 +539,12 @@
             (when *quick-mode*
               (graph-ink graph (make-color :r 255 :g 200 :b 50 :a 200))
               (font-draw graph "Q" (+ 3 (* 8 6)) 3))
+
+            ;; Handle (top-left, after piece name)
+            (when *boot-handle*
+              (let ((htxt (format nil "@~A" *boot-handle*)))
+                (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 140))
+                (font-draw graph htxt (+ 3 (* (if *quick-mode* 10 8) 6)) 3)))
 
             ;; Octave (top-left, below title)
             (graph-ink graph (make-color :r 160 :g 160 :b 170 :a 180))
