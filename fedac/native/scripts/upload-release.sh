@@ -135,6 +135,14 @@ if [ -n "${OTA_CHANNEL:-}" ]; then
   echo "  channel: ${OTA_CHANNEL}"
 fi
 
+# ISO-only mode: skip vmlinuz uploads entirely, just push the ISO and exit
+if [ "$ISO_ONLY" = "1" ]; then
+  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1)"
+  do_upload "$ISO_PATH" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+  echo "ISO published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+  exit 0
+fi
+
 # Upload files (vmlinuz last — it's large, others are the canary)
 do_upload "$TMP/version.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.version"  "text/plain"
 do_upload "$TMP/sha256.txt"   "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"   "text/plain"
@@ -174,14 +182,6 @@ do_upload "$RELEASES_JSON" "os/${CHANNEL_PREFIX}releases.json" "application/json
 if command -v node &>/dev/null; then
   echo "{\"name\":\"$BUILD_NAME\",\"buildNum\":$BUILD_NUM,\"version\":\"$FULL_VERSION\",\"sha256\":\"$SHA256\",\"size\":$SIZE,\"git_hash\":\"$GIT_HASH\",\"build_ts\":\"$BUILD_TS\",\"url\":\"${BASE_URL}/os/native-notepat-latest.vmlinuz\"}" \
     | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
-fi
-
-# Upload ISO if available (from --iso flag or alongside vmlinuz)
-if [ "$ISO_ONLY" = "1" ]; then
-  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1)"
-  do_upload "$ISO_PATH" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
-  echo "ISO published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
-  exit 0
 fi
 
 # Also upload ISO if it exists next to vmlinuz
