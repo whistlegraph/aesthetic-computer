@@ -5586,8 +5586,9 @@ const $paintApi = {
           offY = glyph.offset[1] * scale;
         }
 
-        // Helper: project a glyph-local pixel at (gx, gy) to screen
-        const projectPixel = (gx, gy) => {
+        // Compute projected pixel size once for this glyph
+        // by measuring the screen distance of one glyph-pixel step
+        const projectPt = (gx, gy) => {
           const px = cursorX + (gx * scale + offX);
           const py = gy * scale + offY;
           const wx = origin[0] + px * right[0] + py * down[0];
@@ -5596,29 +5597,30 @@ const $paintApi = {
           return project([wx, wy, wz]);
         };
 
+        // Measure projected pixel size (distance for 1 glyph-pixel in each axis)
+        const [refX, refY] = projectPt(0, 0);
+        const [refRX, refRY] = projectPt(1, 0);
+        const [refDX, refDY] = projectPt(0, 1);
+        const pxW = Math.ceil(Math.sqrt((refRX - refX) ** 2 + (refRY - refY) ** 2)) || 1;
+        const pxH = Math.ceil(Math.sqrt((refDX - refX) ** 2 + (refDY - refY) ** 2)) || 1;
+        // Use the larger dimension + 1 to ensure no gaps
+        const pxSize = Math.max(pxW, pxH) + 1;
+
+        // Render each "on" pixel as a box at its projected center
+        const renderPixel = (gx, gy) => {
+          const [sx, sy] = projectPt(gx + 0.5, gy + 0.5);
+          const bx = Math.floor(sx - pxSize / 2);
+          const by = Math.floor(sy - pxSize / 2);
+          $activePaintApi.box(bx, by, pxSize, pxSize);
+        };
+
         // BDF pixel-based glyphs (MatrixChunky8, etc.)
         if (glyph.pixels) {
           for (let row = 0; row < glyph.pixels.length; row++) {
             const pixelRow = glyph.pixels[row];
             if (!Array.isArray(pixelRow)) continue;
             for (let col = 0; col < pixelRow.length; col++) {
-              if (pixelRow[col] !== 1) continue;
-              // Project all 4 corners of this pixel cell for a filled quad
-              const [s0x, s0y] = projectPixel(col, row);
-              const [s1x, s1y] = projectPixel(col + 1, row);
-              const [s2x, s2y] = projectPixel(col + 1, row + 1);
-              const [s3x, s3y] = projectPixel(col, row + 1);
-              // Fill with two triangles
-              graph.tri(
-                Math.round(s0x), Math.round(s0y),
-                Math.round(s1x), Math.round(s1y),
-                Math.round(s2x), Math.round(s2y),
-              );
-              graph.tri(
-                Math.round(s0x), Math.round(s0y),
-                Math.round(s2x), Math.round(s2y),
-                Math.round(s3x), Math.round(s3y),
-              );
+              if (pixelRow[col] === 1) renderPixel(col, row);
             }
           }
         }
@@ -5627,24 +5629,11 @@ const $paintApi = {
         if (glyph.commands) {
           for (const { name, args } of glyph.commands) {
             if (name === "point") {
-              // Draw as a filled quad so pixels connect at scale
-              const [s0x, s0y] = projectPixel(args[0], args[1]);
-              const [s1x, s1y] = projectPixel(args[0] + 1, args[1]);
-              const [s2x, s2y] = projectPixel(args[0] + 1, args[1] + 1);
-              const [s3x, s3y] = projectPixel(args[0], args[1] + 1);
-              graph.tri(
-                Math.round(s0x), Math.round(s0y),
-                Math.round(s1x), Math.round(s1y),
-                Math.round(s2x), Math.round(s2y),
-              );
-              graph.tri(
-                Math.round(s0x), Math.round(s0y),
-                Math.round(s2x), Math.round(s2y),
-                Math.round(s3x), Math.round(s3y),
-              );
+              renderPixel(args[0], args[1]);
             } else if (name === "line") {
-              const [s1x, s1y] = projectPixel(args[0], args[1]);
-              const [s2x, s2y] = projectPixel(args[2], args[3]);
+              // Lines: project endpoints and draw
+              const [s1x, s1y] = projectPt(args[0], args[1]);
+              const [s2x, s2y] = projectPt(args[2], args[3]);
               $activePaintApi.line(
                 Math.floor(s1x), Math.floor(s1y),
                 Math.floor(s2x), Math.floor(s2y),
