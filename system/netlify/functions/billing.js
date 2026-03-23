@@ -61,9 +61,14 @@ const PROVIDERS = {
     },
   },
   mongodb: {
-    name: "MongoDB Atlas",
-    description: "Database",
-    // Atlas billing requires org-level API access
+    name: "MongoDB",
+    description: "Database (self-hosted on DO silo)",
+    // Migrated from Atlas to self-hosted on silo.aesthetic.computer
+  },
+  shopify: {
+    name: "Shopify",
+    description: "E-commerce / product store",
+    // shop.aesthetic.computer — currently offline
   },
   pinata: {
     name: "Pinata",
@@ -252,8 +257,17 @@ function getStaticEstimates() {
       name: PROVIDERS.mongodb.name,
       description: PROVIDERS.mongodb.description,
       estimated: true,
-      monthlyEstimate: 0, // M0 free tier
-      note: "Atlas M0 free tier",
+      monthlyEstimate: 0,
+      note: "Self-hosted on DO silo (cost included in DigitalOcean)",
+    },
+    {
+      provider: "shopify",
+      name: PROVIDERS.shopify.name,
+      description: PROVIDERS.shopify.description,
+      estimated: true,
+      monthlyEstimate: 0,
+      status: "offline",
+      note: "shop.aesthetic.computer — store offline as of March 2026",
     },
     {
       provider: "anthropic",
