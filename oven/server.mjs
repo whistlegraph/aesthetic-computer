@@ -23,6 +23,7 @@ import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersB
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { MongoClient } from 'mongodb';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -48,6 +49,14 @@ const activityLogBuffer = [];
 const MAX_ACTIVITY_LOG = 100;
 let wss = null; // Will be set after server starts
 
+const NATIVE_BUILD_COLLECTION =
+  process.env.NATIVE_BUILD_COLLECTION || 'oven-native-builds';
+const NATIVE_BUILD_STATUS_CACHE_MS = 30000;
+let nativeBuildStatusMongoClient = null;
+let nativeBuildStatusMongoDb = null;
+let nativeBuildStatusCacheAt = 0;
+let nativeBuildStatusCache = { byName: new Map(), failedAttempts: [] };
+
 function addServerLog(type, icon, msg) {
   const entry = { time: new Date().toISOString(), type, icon, msg };
   activityLogBuffer.unshift(entry);
@@ -60,6 +69,86 @@ function addServerLog(type, icon, msg) {
     wss.clients.forEach(client => {
       if (client.readyState === 1) client.send(logMsg);
     });
+  }
+}
+
+function toIsoOrNull(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+async function getNativeBuildStatusMongoDb() {
+  if (nativeBuildStatusMongoDb) return nativeBuildStatusMongoDb;
+  const uri = process.env.MONGODB_CONNECTION_STRING;
+  const dbName = process.env.MONGODB_NAME;
+  if (!uri || !dbName) return null;
+  try {
+    nativeBuildStatusMongoClient = await MongoClient.connect(uri);
+    nativeBuildStatusMongoDb = nativeBuildStatusMongoClient.db(dbName);
+    return nativeBuildStatusMongoDb;
+  } catch (err) {
+    console.error('[os-releases] MongoDB connect failed:', err.message);
+    return null;
+  }
+}
+
+async function getNativeBuildStatusData() {
+  const now = Date.now();
+  if (now - nativeBuildStatusCacheAt < NATIVE_BUILD_STATUS_CACHE_MS) {
+    return nativeBuildStatusCache;
+  }
+
+  const db = await getNativeBuildStatusMongoDb();
+  if (!db) {
+    nativeBuildStatusCacheAt = now;
+    nativeBuildStatusCache = { byName: new Map(), failedAttempts: [] };
+    return nativeBuildStatusCache;
+  }
+
+  try {
+    const docs = await db
+      .collection(NATIVE_BUILD_COLLECTION)
+      .find({})
+      .sort({ when: -1 })
+      .limit(250)
+      .toArray();
+
+    const byName = new Map();
+    const failedAttempts = [];
+    for (const doc of docs) {
+      const name = String(doc.buildName || doc.name || '').trim();
+      if (!name) continue;
+      const status = String(doc.status || 'unknown').toLowerCase();
+      const ref = String(doc.ref || doc.gitHash || '').trim();
+      const item = {
+        name,
+        status,
+        ref: ref || null,
+        error: doc.error || null,
+        commitMsg: doc.commitMsg || null,
+        buildTs:
+          toIsoOrNull(doc.finishedAt) ||
+          toIsoOrNull(doc.startedAt) ||
+          toIsoOrNull(doc.createdAt) ||
+          toIsoOrNull(doc.when) ||
+          null,
+      };
+      if (!byName.has(name)) byName.set(name, item);
+      if ((status === 'failed' || status === 'cancelled') && failedAttempts.length < 8) {
+        failedAttempts.push(item);
+      }
+    }
+
+    nativeBuildStatusCacheAt = now;
+    nativeBuildStatusCache = { byName, failedAttempts };
+    return nativeBuildStatusCache;
+  } catch (err) {
+    console.error('[os-releases] Failed to load native build statuses:', err.message);
+    nativeBuildStatusCacheAt = now;
+    nativeBuildStatusCache = { byName: new Map(), failedAttempts: [] };
+    return nativeBuildStatusCache;
   }
 }
 
@@ -2790,6 +2879,36 @@ app.get('/os-releases', async (req, res) => {
     const r = await fetch(`${RELEASES_BASE}/releases.json`);
     if (!r.ok) return res.status(r.status).json({ error: 'Failed to fetch releases' });
     const data = await r.json();
+    const releases = Array.isArray(data?.releases) ? data.releases : [];
+
+    const { byName, failedAttempts } = await getNativeBuildStatusData();
+    const releaseNames = new Set();
+    for (const rel of releases) {
+      const name = String(rel?.name || '').trim();
+      if (!name) continue;
+      releaseNames.add(name);
+      const statusMeta = byName.get(name);
+      if (statusMeta?.status) rel.status = statusMeta.status;
+      else if (!rel.status) rel.status = 'success';
+      if (statusMeta?.error && !rel.error) rel.error = statusMeta.error;
+      if (statusMeta?.buildTs && !rel.last_attempt_ts) rel.last_attempt_ts = statusMeta.buildTs;
+    }
+
+    const failedRows = failedAttempts
+      .filter((it) => !releaseNames.has(it.name))
+      .map((it) => ({
+        name: it.name,
+        git_hash: it.ref ? it.ref.slice(0, 40) : null,
+        build_ts: it.buildTs || new Date().toISOString(),
+        commit_msg: it.commitMsg || it.error || `build ${it.status}`,
+        status: it.status,
+        error: it.error || null,
+        deprecated: true,
+        attempt_only: true,
+        size: 0,
+      }));
+
+    data.releases = releases.concat(failedRows);
     res.json(data);
   } catch (err) {
     res.status(502).json({ error: err.message });

@@ -380,6 +380,35 @@ function timeAgo(ts) {
   return Math.floor(mo / 12) + "y";
 }
 
+function buildStatusInfo(build, isCurrent, isDep, darkMode) {
+  let status = (build?.status || "").toLowerCase();
+  if (!status) status = isDep ? "deprecated" : "success";
+
+  if (status === "done") status = "success";
+  if (status === "queued") status = "queue";
+
+  const dark = {
+    success: { label: "ok", color: [100, 225, 140] },
+    failed: { label: "fail", color: [255, 125, 125] },
+    cancelled: { label: "stop", color: [235, 185, 115] },
+    running: { label: "run", color: [120, 185, 255] },
+    queue: { label: "queue", color: [170, 185, 220] },
+    deprecated: { label: "old", color: [170, 130, 130] },
+    unknown: { label: "?", color: [150, 155, 170] },
+  };
+  const light = {
+    success: { label: "ok", color: [20, 115, 45] },
+    failed: { label: "fail", color: [170, 35, 35] },
+    cancelled: { label: "stop", color: [140, 95, 15] },
+    running: { label: "run", color: [30, 95, 175] },
+    queue: { label: "queue", color: [90, 105, 145] },
+    deprecated: { label: "old", color: [130, 95, 95] },
+    unknown: { label: "?", color: [120, 125, 135] },
+  };
+  const table = darkMode ? dark : light;
+  return table[status] || table.unknown;
+}
+
 function paint($) {
   const { screen, ink, line: drawLine, dark, mask, unmask } = $;
   const { width: w, height: h } = screen;
@@ -697,6 +726,7 @@ function paint($) {
     const msg = b.commit_msg || "";
     const who = b.handle || "";
     const sizeMB = b.size ? (b.size / 1048576).toFixed(0) + "MB" : "";
+    const statusInfo = buildStatusInfo(b, isCurrent, isDep, dark);
 
     // Alternating strip background
     const strip = i % 2 === 0 ? stripA : stripB;
@@ -736,6 +766,14 @@ function paint($) {
     if (who && !isNarrow) {
       ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
       $.write("@" + who, { x, y: ry });
+    }
+
+    // Status tag on right edge
+    if (statusInfo) {
+      const tag = "[" + statusInfo.label + "]";
+      const tagX = w - pad - tag.length * charW;
+      ink(...statusInfo.color);
+      $.write(tag, { x: tagX, y: ry });
     }
 
     // Strikethrough for deprecated
