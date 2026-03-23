@@ -31,10 +31,7 @@ const stripeKey = dev
   : process.env.STRIPE_API_PRIV_KEY;
 
 // Pricing (cents)
-const pricing = {
-  usd: { min: 9600, suggested: 12800, max: 51200 },
-  dkk: { min: 67200, suggested: 89600, max: 358400 },
-};
+const AMOUNT = 12800; // $128
 
 // Shipping options
 const shippingOptions = [
@@ -52,7 +49,7 @@ const shippingOptions = [
   {
     shipping_rate_data: {
       type: "fixed_amount",
-      fixed_amount: { amount: 1200, currency: "usd" },
+      fixed_amount: { amount: 1600, currency: "usd" },
       display_name: "USPS Priority Mail",
       delivery_estimate: {
         minimum: { unit: "business_day", value: 2 },
@@ -60,50 +57,8 @@ const shippingOptions = [
       },
     },
   },
-  {
-    shipping_rate_data: {
-      type: "fixed_amount",
-      fixed_amount: { amount: 2500, currency: "usd" },
-      display_name: "International (DK / EU)",
-      delivery_estimate: {
-        minimum: { unit: "business_day", value: 7 },
-        maximum: { unit: "business_day", value: 21 },
-      },
-    },
-  },
 ];
 
-// DKK shipping options (same structure, different currency)
-const shippingOptionsDKK = [
-  {
-    shipping_rate_data: {
-      type: "fixed_amount",
-      fixed_amount: { amount: 0, currency: "dkk" },
-      display_name: "Hand delivery",
-      delivery_estimate: {
-        minimum: { unit: "business_day", value: 1 },
-        maximum: { unit: "business_day", value: 14 },
-      },
-    },
-  },
-  {
-    shipping_rate_data: {
-      type: "fixed_amount",
-      fixed_amount: { amount: 8400, currency: "dkk" },
-      display_name: "PostNord / International",
-      delivery_estimate: {
-        minimum: { unit: "business_day", value: 5 },
-        maximum: { unit: "business_day", value: 14 },
-      },
-    },
-  },
-];
-
-function tierFromAmount(amount) {
-  if (amount >= 51200) return "tutorial";
-  if (amount > 9600) return "support";
-  return "blank";
-}
 
 export async function handler(event) {
   // CORS preflight
@@ -115,21 +70,10 @@ export async function handler(event) {
   if (event.httpMethod === "GET") {
     return respond(200, {
       product: "AC Blank",
-      model: "Lenovo ThinkPad Yoga 11e (Gen 4/5)",
+      model: "Lenovo ThinkPad 11e Yoga Gen 6",
       description:
-        "A surplus laptop running AC Native OS — a pared-down creative computing instrument with only stable, permanent commands. Like a blank tape waiting to be filled.",
-      pricing,
-      tiers: {
-        blank: { label: "AC Blank", description: "Laptop + AC Native OS" },
-        support: {
-          label: "AC Blank + Support",
-          description: "Supports AC development",
-        },
-        tutorial: {
-          label: "AC Blank + Tutorial",
-          description: "In-person meeting & tutorial in LA",
-        },
-      },
+        "Buy a @jeffrey approved Thinkpad 11e Yoga Gen 6 (refurbished / used) pre-flashed with AC Native today! Comes decorated with recovery USB. (No USB C Charger Included)",
+      amount: AMOUNT,
     });
   }
 
@@ -146,72 +90,44 @@ export async function handler(event) {
   // 1. Create checkout session
   if (event.queryStringParameters?.new === "true") {
     try {
-      const body = JSON.parse(event.body || "{}");
-      const currency = (body.currency || "usd").toLowerCase();
-      const currencyConfig = pricing[currency];
-
-      if (!currencyConfig) {
-        return respond(400, { error: `Unsupported currency: ${currency}` });
-      }
-
-      const amount = parseInt(body.amount) || currencyConfig.suggested;
-
-      if (amount < currencyConfig.min || amount > currencyConfig.max) {
-        return respond(400, {
-          error: `Amount must be between ${currencyConfig.min} and ${currencyConfig.max} for ${currency.toUpperCase()}`,
-        });
-      }
-
-      const tier = tierFromAmount(amount);
       const domain = dev
         ? `https://${event.headers.host}`
         : "https://aesthetic.computer";
-
-      const amountDisplay =
-        currency === "dkk"
-          ? `${(amount / 100).toFixed(0)} kr`
-          : `$${(amount / 100).toFixed(2)}`;
-
-      let productName = "AC Blank";
-      if (tier === "tutorial") productName += " + Tutorial";
 
       const sessionConfig = {
         line_items: [
           {
             price_data: {
-              currency,
+              currency: "usd",
               product_data: {
-                name: productName,
+                name: "AC Blank",
                 description:
-                  tier === "tutorial"
-                    ? "AC Native Laptop + in-person tutorial in Los Angeles"
-                    : "Surplus laptop running AC Native OS",
+                  "Thinkpad 11e Yoga Gen 6 (refurbished / used) pre-flashed with AC Native. Comes decorated with recovery USB.",
+                images: [
+                  "https://p3-ofp.static.pub/fes/cms/2022/03/28/4wfdaky6aue1z6x5xmxkl9ms8gdpmz225363.png",
+                ],
               },
-              unit_amount: amount,
+              unit_amount: AMOUNT,
             },
             quantity: 1,
           },
         ],
         metadata: {
           type: "blank",
-          tier,
-          model: "yoga-11e",
-          amount: amountDisplay,
-          currency,
+          model: "yoga-11e-gen6",
+          amount: `$${(AMOUNT / 100).toFixed(0)}`,
+          currency: "usd",
         },
         mode: "payment",
-        shipping_address_collection: { allowed_countries: ["US", "DK"] },
-        shipping_options:
-          currency === "dkk" ? shippingOptionsDKK : shippingOptions,
+        shipping_address_collection: { allowed_countries: ["US"] },
+        shipping_options: shippingOptions,
         success_url: `${domain}/blank~thanks`,
         cancel_url: `${domain}/blank`,
         automatic_tax: { enabled: true },
         custom_text: {
           submit: {
             message:
-              tier === "tutorial"
-                ? "We'll reach out to schedule your in-person session in LA."
-                : "We'll flash your Blank with AC Native OS and ship it your way.",
+              "We'll flash your Blank with AC Native OS and ship it your way.",
           },
         },
         custom_fields: [
@@ -270,14 +186,13 @@ export async function handler(event) {
     }
 
     const metadata = hookEvent.data.object.metadata;
-    const tier = metadata.tier || "blank";
     const customerEmail = session.customer_details?.email;
     const customerName = session.shipping_details?.name || "Friend";
     const note =
       session.custom_fields?.find((f) => f.key === "note")?.text?.value || null;
 
     console.log(
-      `✅ Blank order: ${tier} tier, ${metadata.amount}, ${customerEmail}`,
+      `✅ Blank order: ${metadata.amount}, ${customerEmail}`,
     );
 
     // Store order in MongoDB
@@ -295,9 +210,8 @@ export async function handler(event) {
         },
         product: {
           model: metadata.model,
-          tier,
-          amount: parseInt(metadata.amount) || 0,
-          currency: metadata.currency,
+          amount: AMOUNT,
+          currency: "usd",
         },
         note,
         status: "paid",
@@ -311,21 +225,13 @@ export async function handler(event) {
     }
 
     // Send confirmation email to buyer
-    const tierLabel =
-      tier === "tutorial"
-        ? "AC Blank + Tutorial"
-        : tier === "support"
-          ? "AC Blank (thank you for your support!)"
-          : "AC Blank";
-
     await email({
       to: customerEmail,
       subject: "your blank is coming!",
       html: `
-        <h2>${tierLabel}</h2>
+        <h2>AC Blank</h2>
         <p>hi ${customerName},</p>
         <p>thank you for your order! we'll flash your blank with AC Native OS and get it to you soon.</p>
-        ${tier === "tutorial" ? "<p><b>we'll reach out separately to schedule your in-person tutorial session in los angeles.</b></p>" : ""}
         ${note ? `<p>your note: <em>${note}</em></p>` : ""}
         <p>
           <b><a href="https://aesthetic.computer">aesthetic.computer</a></b><br>
@@ -337,10 +243,9 @@ export async function handler(event) {
     // Notify us internally
     await email({
       to: "mail@aesthetic.computer",
-      subject: `new blank order! (${tier}) — ${metadata.amount}`,
+      subject: `new blank order! — ${metadata.amount}`,
       html: `
         <h2>New Blank Order</h2>
-        <p><b>Tier:</b> ${tier}</p>
         <p><b>Amount:</b> ${metadata.amount}</p>
         <p><b>Customer:</b> ${customerName} (${customerEmail})</p>
         <p><b>Shipping:</b><br>
@@ -354,7 +259,7 @@ export async function handler(event) {
       `,
     });
 
-    return respond(200, { received: true, tier });
+    return respond(200, { received: true });
   }
 
   return respond(400, { message: `Unhandled event: ${hookEvent.type}` });
