@@ -158,13 +158,16 @@ function paint($) {
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
 
     // Lid is thinner than base (~70% thickness — display panel vs motherboard/battery)
-    const lidH = hh * 1.4; // lid half-thickness (thinner than base 2*hh)
+    const lidH = hh * 1.4; // lid total thickness
     const hingeGap = hh * 0.3; // small clearance gap for swivel
+    // Hinge attaches at the CENTER of the lid's thickness (y-midpoint)
+    // Lid local: y centered on 0 so barrel connects at middle, z from 0 to 2*hd
+    const lidHalfY = lidH / 2;
     const lidLocal = [
-      [-hw, hingeGap, 0], [hw, hingeGap, 0],
-      [hw, lidH + hingeGap, 0], [-hw, lidH + hingeGap, 0],
-      [-hw, hingeGap, 2 * hd], [hw, hingeGap, 2 * hd],
-      [hw, lidH + hingeGap, 2 * hd], [-hw, lidH + hingeGap, 2 * hd],
+      [-hw, -lidHalfY + hingeGap, 0], [hw, -lidHalfY + hingeGap, 0],
+      [hw, lidHalfY + hingeGap, 0], [-hw, lidHalfY + hingeGap, 0],
+      [-hw, -lidHalfY + hingeGap, 2 * hd], [hw, -lidHalfY + hingeGap, 2 * hd],
+      [hw, lidHalfY + hingeGap, 2 * hd], [-hw, lidHalfY + hingeGap, 2 * hd],
     ];
 
     // Lid rotates around the barrel center at the seam
@@ -354,19 +357,20 @@ function paint($) {
     // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
     const bezelInset = 0.08;
+    const hingeInset = 0.35; // larger inset at hinge end (away from base)
     // Screen is on the INNER face of the lid (y = hingeGap in lid local).
-    const screenY = hingeGap + 0.002;
+    const screenY = -lidHalfY + hingeGap + 0.002;
     const screenTL = [-hw + inset, screenY, 2 * hd - inset];
     const screenTR = [hw - inset, screenY, 2 * hd - inset];
-    const screenBL = [-hw + inset, screenY, inset];
-    const screenBR = [hw - inset, screenY, inset];
+    const screenBL = [-hw + inset, screenY, hingeInset];
+    const screenBR = [hw - inset, screenY, hingeInset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelY = hingeGap + 0.001;
+    const bezelY = -lidHalfY + hingeGap + 0.001;
     const bezelTL = [-hw + bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelTR = [hw - bezelInset, bezelY, 2 * hd - bezelInset];
-    const bezelBL = [-hw + bezelInset, bezelY, bezelInset];
-    const bezelBR = [hw - bezelInset, bezelY, bezelInset];
+    const bezelBL = [-hw + bezelInset, bezelY, hingeInset - 0.07];
+    const bezelBR = [hw - bezelInset, bezelY, hingeInset - 0.07];
 
     // Same transform as lid vertices (rotate around barrel center)
     const hingeXform = ([lx, ly, lz]) => {
