@@ -164,91 +164,107 @@ function paint($) {
     const projBase = base.map(project);
     const projLid = lid.map(project);
 
-    // 🎨 Solid faces (draw before wireframe edges)
-    // Face definitions: [v0, v1, v2, v3] in CCW order when front-facing
-    const baseFaces = [
-      [0, 1, 5, 4], // top (y = -hh)
-      [3, 2, 6, 7], // bottom (y = +hh)
-      [0, 3, 7, 4], // left
-      [1, 2, 6, 5], // right
-      [0, 1, 2, 3], // back
-      [4, 5, 6, 7], // front
+    // 🎨 Z-sorted rendering: collect all faces, sort back-to-front, draw
+    const faceQuads = [
+      [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4],
+      [1, 2, 6, 5], [0, 1, 2, 3], [4, 5, 6, 7],
     ];
-    const lidFaces = [
-      [0, 1, 5, 4], // outer (y = -hh)
-      [3, 2, 6, 7], // inner (y = +hh, screen side)
-      [0, 3, 7, 4], // left
-      [1, 2, 6, 5], // right
-      [0, 1, 2, 3], // hinge edge
-      [4, 5, 6, 7], // far edge
-    ];
-
     const baseColor = isDark ? [22, 22, 26] : [200, 200, 205];
     const lidColor = isDark ? [18, 18, 22] : [190, 190, 195];
+    const keyColor = isDark ? [35, 35, 40] : [170, 170, 178];
 
-    const drawFaces = (proj, faces, color) => {
-      for (const [a, b, c, d] of faces) {
-        // Backface cull via 2D cross product
+    // Collect all drawable quads with z-depth
+    const drawList = [];
+
+    // Base + lid faces
+    const addFaces = (proj, color, tag) => {
+      for (const [a, b, c, d] of faceQuads) {
         const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
         const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
-        if (e1x * e2y - e1y * e2x >= 0) continue; // back-facing
-        const depth = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
-        const shade = max(0.5, min(1, 0.8 - depth * 0.15));
-        ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
-        tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
-        tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
+        if (e1x * e2y - e1y * e2x >= 0) continue;
+        const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+        drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
       }
     };
+    addFaces(projBase, baseColor, "base");
+    addFaces(projLid, lidColor, "lid");
 
-    drawFaces(projBase, baseFaces, baseColor);
-    drawFaces(projLid, lidFaces, lidColor);
-
-    // ⌨️ QWERTY keyboard on base top face (y = -hh)
-    {
-      const kbInset = 0.18;
-      const kbTL = [-hw + kbInset, -hh - 0.001, -hd + kbInset];
-      const kbTR = [hw - kbInset, -hh - 0.001, -hd + kbInset];
-      const kbBL = [-hw + kbInset, -hh - 0.001, hd - kbInset * 3];
-      const kbBR = [hw - kbInset, -hh - 0.001, hd - kbInset * 3];
-      const pTL = project(kbTL), pTR = project(kbTR);
-      const pBL = project(kbBL), pBR = project(kbBR);
-      // Visibility check
-      const ke1x = pTR[0] - pTL[0], ke1y = pTR[1] - pTL[1];
-      const ke2x = pBL[0] - pTL[0], ke2y = pBL[1] - pTL[1];
-      if (ke1x * ke2y - ke1y * ke2x < 0) {
-        const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-        const rowCount = rows.length;
-        for (let r = 0; r < rowCount; r++) {
-          const row = rows[r];
-          const t0 = (r + 0.15) / rowCount, t1 = (r + 0.85) / rowCount;
-          const indent = r * 0.03; // stagger rows
-          for (let k = 0; k < row.length; k++) {
-            const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
-            const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
-            // Bilinear interpolation for key corners
-            const lerp = (a, b, t) => a + (b - a) * t;
-            const kx0 = lerp(lerp(pTL[0], pTR[0], u0), lerp(pBL[0], pBR[0], u0), t0);
-            const ky0 = lerp(lerp(pTL[1], pTR[1], u0), lerp(pBL[1], pBR[1], u0), t0);
-            const kx1 = lerp(lerp(pTL[0], pTR[0], u1), lerp(pBL[0], pBR[0], u1), t0);
-            const ky1 = lerp(lerp(pTL[1], pTR[1], u1), lerp(pBL[1], pBR[1], u1), t0);
-            const kx2 = lerp(lerp(pTL[0], pTR[0], u1), lerp(pBL[0], pBR[0], u1), t1);
-            const ky2 = lerp(lerp(pTL[1], pTR[1], u1), lerp(pBL[1], pBR[1], u1), t1);
-            const kx3 = lerp(lerp(pTL[0], pTR[0], u0), lerp(pBL[0], pBR[0], u0), t1);
-            const ky3 = lerp(lerp(pTL[1], pTR[1], u0), lerp(pBL[1], pBR[1], u0), t1);
-            const keyShade = isDark ? [35, 35, 40] : [170, 170, 178];
-            ink(keyShade[0], keyShade[1], keyShade[2]);
-            tri(kx0, ky0, kx1, ky1, kx2, ky2);
-            tri(kx0, ky0, kx2, ky2, kx3, ky3);
-          }
+    // Keyboard keys (on base top face)
+    const kbInset = 0.18;
+    const kbTL = project([-hw + kbInset, -hh - 0.001, -hd + kbInset]);
+    const kbTR = project([hw - kbInset, -hh - 0.001, -hd + kbInset]);
+    const kbBL = project([-hw + kbInset, -hh - 0.001, hd - kbInset * 3]);
+    const kbBR = project([hw - kbInset, -hh - 0.001, hd - kbInset * 3]);
+    const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
+    const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
+    if (ke1x * ke2y - ke1y * ke2x < 0) {
+      const kbZ = (kbTL[2] + kbTR[2] + kbBL[2] + kbBR[2]) / 4;
+      const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+      const lerp = (a, b, t) => a + (b - a) * t;
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        const t0 = (r + 0.15) / rows.length, t1 = (r + 0.85) / rows.length;
+        const indent = r * 0.03;
+        for (let k = 0; k < row.length; k++) {
+          const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
+          const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
+          drawList.push({
+            z: kbZ - 0.001, // slightly in front of base top face
+            type: "key",
+            pts: [
+              [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t0),
+               lerp(lerp(kbTL[1], kbTR[1], u0), lerp(kbBL[1], kbBR[1], u0), t0)],
+              [lerp(lerp(kbTL[0], kbTR[0], u1), lerp(kbBL[0], kbBR[0], u1), t0),
+               lerp(lerp(kbTL[1], kbTR[1], u1), lerp(kbBL[1], kbBR[1], u1), t0)],
+              [lerp(lerp(kbTL[0], kbTR[0], u1), lerp(kbBL[0], kbBR[0], u1), t1),
+               lerp(lerp(kbTL[1], kbTR[1], u1), lerp(kbBL[1], kbBR[1], u1), t1)],
+              [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t1),
+               lerp(lerp(kbTL[1], kbTR[1], u0), lerp(kbBL[1], kbBR[1], u0), t1)],
+            ],
+          });
         }
       }
     }
 
+    // Wireframe edges
     const waveOffset = frame * 0.05;
-    const drawEdges = (proj, edgeOffset) => {
+    const addEdges = (proj, edgeOffset) => {
       halfEdges.forEach(([a, b], i) => {
-        const depth = (proj[a][2] + proj[b][2]) / 2;
-        const brightness = 0.55 + depth * 0.15;
+        const z = (proj[a][2] + proj[b][2]) / 2;
+        drawList.push({ z: z - 0.01, type: "edge", proj, a, b, i, edgeOffset });
+      });
+    };
+    addEdges(projBase, 0);
+    addEdges(projLid, 12);
+
+    // Vertex particles
+    const particleColors = [
+      [255, 80, 200], [80, 255, 220], [255, 255, 80],
+      [80, 200, 255], [255, 120, 80], [180, 80, 255],
+    ];
+    [...projBase, ...projLid].forEach(([px, py, pz], i) => {
+      drawList.push({ z: pz - 0.02, type: "particle", px, py, i });
+    });
+
+    // Sort back-to-front (highest z = farthest = draw first)
+    drawList.sort((a, b) => b.z - a.z);
+
+    // Draw everything in sorted order
+    for (const item of drawList) {
+      if (item.type === "face") {
+        const { proj, verts: [a, b, c, d], color } = item;
+        const shade = max(0.5, min(1, 0.8 - item.z * 0.15));
+        ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
+        tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
+        tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
+      } else if (item.type === "key") {
+        const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = item.pts;
+        ink(keyColor[0], keyColor[1], keyColor[2]);
+        tri(x0, y0, x1, y1, x2, y2);
+        tri(x0, y0, x2, y2, x3, y3);
+      } else if (item.type === "edge") {
+        const { proj, a, b, i, edgeOffset } = item;
+        const brightness = 0.55 + item.z * 0.15;
         const hue = (((i + edgeOffset) * 0.37 + sin(frame * 0.02 + i + edgeOffset) * 0.3) + waveOffset) % 1;
         const sector = abs(hue) * 6;
         const f = sector - floor(sector);
@@ -260,28 +276,14 @@ function paint($) {
         else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
         else if (s === 4) { r = f; g = 0; bl = 1; }
         else { r = 1; g = 0; bl = 1 - f; }
-        ink(
-          floor(r * 255 * brightness),
-          floor(g * 255 * brightness),
-          floor(bl * 255 * brightness),
-          wireAlpha,
-        ).line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
-      });
-    };
-
-    drawEdges(projBase, 0);
-    drawEdges(projLid, 12);
-
-    // Vertex particles
-    const particleColors = [
-      [255, 80, 200], [80, 255, 220], [255, 255, 80],
-      [80, 200, 255], [255, 120, 80], [180, 80, 255],
-    ];
-    [...projBase, ...projLid].forEach(([px, py], i) => {
-      const pColor = particleColors[(i + floor(frame * 0.04)) % particleColors.length];
-      const flicker = 0.6 + sin(frame * 0.1 + i * 1.3) * 0.4;
-      ink(...pColor, floor(flicker * 150)).box(px - 1, py - 1, 2, 2);
-    });
+        ink(floor(r * 255 * brightness), floor(g * 255 * brightness), floor(bl * 255 * brightness), wireAlpha)
+          .line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
+      } else if (item.type === "particle") {
+        const pColor = particleColors[(item.i + floor(frame * 0.04)) % particleColors.length];
+        const flicker = 0.6 + sin(frame * 0.1 + item.i * 1.3) * 0.4;
+        ink(...pColor, floor(flicker * 150)).box(item.px - 1, item.py - 1, 2, 2);
+      }
+    }
 
     // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
