@@ -58,6 +58,12 @@ let hasGit = null;
 let setupBtn = null; // "set up tokens" button shown when missing
 let showTokenHint = false;
 
+// Build telemetry
+let activeBuild = null;    // { id, status, stage, percent, ref, error }
+let buildLogLines = [];    // last few log lines
+const MAX_BUILD_LOGS = 6;
+let buildPollTimer = null;
+
 // Color palettes for dark/light mode (deprecated builds use red tones)
 const scheme = {
   dark: {
@@ -166,6 +172,20 @@ function fetchReleases(ui, needsPaint) {
     });
 }
 
+function fetchBuildStatus(needsPaint) {
+  fetch(OVEN_BASE() + "/native-build")
+    .then(r => r.json())
+    .then(data => {
+      if (data.active) {
+        activeBuild = data.active;
+        needsPaint();
+      } else {
+        activeBuild = null;
+      }
+    })
+    .catch(() => {});
+}
+
 function connectOvenWs(ui, needsPaint) {
   if (ovenWs) { try { ovenWs.close(); } catch (_) {} }
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
@@ -189,6 +209,18 @@ function connectOvenWs(ui, needsPaint) {
         if (handle && token && ui) makeButtons(ui);
         needsPaint();
       }
+      if (msg.type === "os:build-progress" && msg.build) {
+        activeBuild = msg.build;
+        if (msg.build.status === "success" || msg.build.status === "failed" || msg.build.status === "cancelled") {
+          // Build done — refresh releases list
+          setTimeout(() => {
+            activeBuild = null;
+            fetchReleases(ui, needsPaint);
+            needsPaint();
+          }, 3000);
+        }
+        needsPaint();
+      }
     } catch (_) {}
   };
 
@@ -209,6 +241,10 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
 
   fetchReleases(ui, needsPaint); // initial load
   connectOvenWs(ui, needsPaint); // live updates
+
+  // Check for active builds
+  fetchBuildStatus(needsPaint);
+  buildPollTimer = setInterval(() => fetchBuildStatus(needsPaint), 30000);
 
   if (handle) {
     console.log("[os] Authorizing @" + handle + "...");
@@ -248,6 +284,7 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
 
 function leave() {
   if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+  if (buildPollTimer) { clearInterval(buildPollTimer); buildPollTimer = null; }
   if (ovenWs) { try { ovenWs.close(); } catch (_) {} ovenWs = null; }
 }
 
@@ -352,6 +389,43 @@ function paint($) {
   $.write(descText, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
   const descLines = Math.ceil((descText.length * matrixW) / wrapW);
   y += matrixH * descLines + (isMobile ? 14 : 10);
+
+  // --- ACTIVE BUILD ---
+  if (activeBuild) {
+    sectionHeader("Building", dark ? [20, 28, 20] : [215, 235, 215]);
+
+    // Status line: stage + percentage
+    const stageLabel = activeBuild.stage || "starting";
+    const pct = activeBuild.percent || 0;
+    ink(...C.current);
+    $.write(stageLabel + " " + pct + "%", { x: pad, y });
+    y += rowH + 4;
+
+    // Progress bar
+    const barW = w - pad * 2;
+    const barH = 8;
+    ink(...C.progressBg).box(pad, y, barW, barH);
+    const fillW = Math.floor((barW - 2) * pct / 100);
+    ink(...C.progress).box(pad + 1, y + 1, fillW, barH - 2);
+    y += barH + 6;
+
+    // Build ref (short hash)
+    if (activeBuild.ref && activeBuild.ref !== "unknown") {
+      const refTxt = activeBuild.ref.slice(0, 11);
+      ink(...C.hash);
+      $.write(refTxt, { x: pad, y });
+      y += rowH + 2;
+    }
+
+    // Error message if failed
+    if (activeBuild.error) {
+      ink(255, 80, 80);
+      $.write(activeBuild.error, { x: pad, y, wrap: wrapW });
+      y += rowH + 2;
+    }
+
+    y += isMobile ? 10 : 6;
+  }
 
   // --- DOWNLOAD section ---
   if (downloadBtn && !downloading) {
