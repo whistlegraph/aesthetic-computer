@@ -642,8 +642,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
   // console.log("🟢 Aesthetic Computer Extension: Activated");
   extContext = context;
 
-  const savedGoal = context.globalState.get("goalState");
-
   // Load the docs from the web.
   if (!docs) {
     try {
@@ -1263,6 +1261,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       percent: number;
       elapsedMs: number;
       error?: string;
+      buildName?: string;
+      commitMsg?: string;
     } | null;
     recent: Array<{
       id: string;
@@ -1273,6 +1273,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       elapsedMs: number;
       finishedAt?: string;
       error?: string;
+      buildName?: string;
+      commitMsg?: string;
       flags?: string[];
     }>;
   }
@@ -1353,20 +1355,25 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     if (state.active) {
       const a = state.active;
       const elapsed = Math.round(a.elapsedMs / 1000);
-      const ref = a.ref?.substring(0, 7) || '';
-      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${a.stage} ${a.percent}%`;
+      const name = a.buildName || a.ref?.substring(0, 7) || '';
+      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${name} ${a.stage} ${a.percent}%`;
       statusBarOTA.backgroundColor = getOTAColor('running');
-      statusBarOTA.tooltip = `AC-OS Building\nStage: ${a.stage} (${a.percent}%)\nCommit: ${ref}\nElapsed: ${elapsed}s`;
+      let tip = `AC-OS Building: ${name}\nStage: ${a.stage} (${a.percent}%)\nElapsed: ${elapsed}s`;
+      if (a.commitMsg) tip += `\n${a.commitMsg}`;
+      if (a.ref) tip += `\nCommit: ${a.ref.substring(0, 11)}`;
+      statusBarOTA.tooltip = tip;
     } else if (state.recent?.length > 0) {
       const r = state.recent[0];
-      const ref = r.ref?.substring(0, 7) || '';
+      const name = r.buildName || r.ref?.substring(0, 7) || '';
       const elapsed = Math.round(r.elapsedMs / 1000);
       const time = r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString() : '';
-      const label = r.status === 'success' ? 'OTA' : r.status;
-      statusBarOTA.text = `${getOTAIcon(r.stage, r.status)} ${label}`;
+      const icon = getOTAIcon(r.stage, r.status);
+      statusBarOTA.text = r.status === 'success' ? `${icon} ${name}` : `${icon} ${r.status}`;
       statusBarOTA.backgroundColor = getOTAColor(r.status);
-      let tip = `AC-OS: ${r.status}\nCommit: ${ref}\nBuild time: ${elapsed}s`;
-      if (time) tip += `\nFinished: ${time}`;
+      let tip = `AC-OS: ${r.status} — ${name}`;
+      if (r.commitMsg) tip += `\n${r.commitMsg}`;
+      tip += `\nBuild time: ${elapsed}s`;
+      if (time) tip += ` | Finished: ${time}`;
       if (r.error) tip += `\nError: ${r.error}`;
       statusBarOTA.tooltip = tip;
     }
@@ -1400,174 +1407,58 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         vscode.window.showWarningMessage('Could not reach oven.aesthetic.computer');
         return;
       }
-      const actions = ['Open Oven', 'Pull & Flash', 'Refresh'];
-      const recent = state.recent?.[0];
-      const msg = state.active
-        ? `OTA Building: ${state.active.stage} ${state.active.percent}% (${Math.round(state.active.elapsedMs / 1000)}s)`
-        : `OTA: ${recent?.status || 'unknown'} | ${recent?.ref?.substring(0, 7) || ''} | ${Math.round((recent?.elapsedMs || 0) / 1000)}s`;
-      const choice = await vscode.window.showInformationMessage(msg, ...actions);
-      if (choice === 'Open Oven') {
+
+      const items: vscode.QuickPickItem[] = [];
+
+      // Active build at top
+      if (state.active) {
+        const a = state.active;
+        const name = a.buildName || a.ref?.substring(0, 7) || 'building';
+        items.push({
+          label: `$(sync~spin) ${name}`,
+          description: `${a.stage} ${a.percent}%`,
+          detail: a.commitMsg || `ref: ${a.ref?.substring(0, 11) || '?'}`,
+        });
+      }
+
+      // Recent builds
+      for (const r of state.recent || []) {
+        const name = r.buildName || r.ref?.substring(0, 7) || '?';
+        const icon = r.status === 'success' ? '$(check)' : r.status === 'failed' ? '$(error)' : '$(close)';
+        const elapsed = Math.round(r.elapsedMs / 1000);
+        const time = r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString() : '';
+        items.push({
+          label: `${icon} ${name}`,
+          description: `${r.status} — ${elapsed}s${time ? ' — ' + time : ''}`,
+          detail: r.commitMsg || (r.error ? `Error: ${r.error}` : `ref: ${r.ref?.substring(0, 11) || '?'}`),
+        });
+      }
+
+      // Action items at bottom
+      items.push(
+        { label: '', kind: vscode.QuickPickItemKind.Separator },
+        { label: '$(globe) Open Oven Dashboard', description: 'oven.aesthetic.computer' },
+        { label: '$(cloud-download) Pull & Flash USB', description: 'ac-os pull' },
+        { label: '$(refresh) Refresh', description: '' },
+      );
+
+      const pick = await vscode.window.showQuickPick(items, {
+        title: 'AC-OS OTA Builds',
+        placeHolder: 'Select a build or action...',
+      });
+
+      if (pick?.label.includes('Open Oven')) {
         vscode.env.openExternal(vscode.Uri.parse('https://oven.aesthetic.computer/native-build'));
-      } else if (choice === 'Pull & Flash') {
+      } else if (pick?.label.includes('Pull & Flash')) {
         const terminal = vscode.window.createTerminal('AC-OS Flash');
         terminal.show();
         terminal.sendText('fedac/native/ac-os pull');
-      } else if (choice === 'Refresh') {
+      } else if (pick?.label.includes('Refresh')) {
         updateOTAStatusBar();
       }
     })
   );
 
-  // �🚩 Goal
-  let statusBarGoal: vscode.StatusBarItem;
-  let goalLocation: vscode.Range;
-  let goalFilePath: string; // Store the file path for use in the jump command
-
-  function updateStatusBarItem(text: string, filename: string, line: number) {
-    if (!statusBarGoal) {
-      statusBarGoal = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
-        100,
-      );
-      statusBarGoal.command = "aestheticComputer.visitGoal";
-      statusBarGoal.color = new vscode.ThemeColor(
-        "statusBarItem.prominentForeground",
-      );
-      statusBarGoal.show();
-      context.subscriptions.push(statusBarGoal);
-    }
-
-    statusBarGoal.text = `$(output) Aesthetic ${text} ${filename}:${line}`;
-    statusBarGoal.tooltip = text;
-  }
-
-  // Save state function (add this inside your setGoal command)
-  function saveGoalState(
-    text: string,
-    filePath: string,
-    range: vscode.Range,
-    filename: string,
-  ) {
-    const goalState = {
-      text: text,
-      filePath: filePath,
-      filename: filename,
-      lineStart: range.start.line,
-      characterStart: range.start.character,
-      lineEnd: range.end.line,
-      characterEnd: range.end.character,
-    };
-    context.globalState.update("goalState", goalState);
-  }
-
-  function processGoalText(text: string) {
-    const pattern = /-\s*\[(.*?)\]\s*/g;
-    const match = pattern.exec(text);
-    const replacement = match && match[1] ? match[1] + " " : "🚩 ";
-    return replacement + text.replace(pattern, "").trim();
-  }
-
-  function restoreGoal(savedGoal: any) {
-    goalFilePath = savedGoal.filePath;
-    goalLocation = new vscode.Range(
-      new vscode.Position(savedGoal.lineStart, savedGoal.characterStart),
-      new vscode.Position(savedGoal.lineEnd, savedGoal.characterEnd),
-    );
-
-    updateStatusBarItem(
-      savedGoal.text,
-      savedGoal.filename,
-      savedGoal.lineStart + 1,
-    );
-  }
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.setGoal", () => {
-      const editor = vscode.window.activeTextEditor;
-      if (editor) {
-        const cursorPosition = editor.selection.active;
-        const line = editor.document.lineAt(cursorPosition.line);
-        const text = processGoalText(line.text);
-        goalLocation = line.range;
-        goalFilePath = editor.document.uri.fsPath;
-        const filename = editor.document.fileName.split("/").pop() as string;
-
-        updateStatusBarItem(text, filename, cursorPosition.line + 1);
-        saveGoalState(text, goalFilePath, goalLocation, filename);
-      }
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("aestheticComputer.visitGoal", () => {
-      if (goalFilePath && goalLocation) {
-        // Search among all editors, not just visible ones
-        let targetEditor = vscode.window.visibleTextEditors.find(
-          (editor) => editor.document.uri.fsPath === goalFilePath,
-        );
-
-        const openDocument = (document: any) => {
-          vscode.window
-            .showTextDocument(document, {
-              preview: false,
-              viewColumn: targetEditor?.viewColumn, // Use existing view column if available
-              selection: goalLocation,
-            })
-            .then((editor) => {
-              editor.revealRange(
-                goalLocation,
-                vscode.TextEditorRevealType.InCenter,
-              );
-            });
-        };
-
-        if (targetEditor) {
-          openDocument(targetEditor.document);
-        } else {
-          vscode.workspace.openTextDocument(goalFilePath).then(openDocument);
-        }
-      }
-    }),
-  );
-
-  // Listen for text document changes
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument((event) => {
-      if (
-        goalFilePath &&
-        goalLocation &&
-        event.document.uri.fsPath === goalFilePath
-      ) {
-        updateStatusBasedOnLineChange(event);
-      }
-    }),
-  );
-
-  function updateStatusBasedOnLineChange(
-    event: vscode.TextDocumentChangeEvent,
-  ) {
-    if (!goalLocation) return;
-
-    // Check if the change affects the line of interest
-    const lineOfInterest = goalLocation.start.line;
-    for (const change of event.contentChanges) {
-      if (
-        change.range.start.line <= lineOfInterest &&
-        change.range.end.line >= lineOfInterest
-      ) {
-        // The line of interest has been changed, update the status bar
-        const text = processGoalText(
-          event.document.lineAt(lineOfInterest).text,
-        );
-        const filename = event.document.fileName.split("/").pop() as string;
-        updateStatusBarItem(text, filename, lineOfInterest + 1);
-        saveGoalState(text, goalFilePath, goalLocation, filename);
-        break;
-      }
-    }
-  }
-
-  if (savedGoal) restoreGoal(savedGoal);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
