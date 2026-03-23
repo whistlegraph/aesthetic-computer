@@ -117,12 +117,17 @@ function paint($) {
     const size = min(availW, availH);
     const fov = 260;
 
-    // Sinusoidal front-facing swivel (stays mostly facing the viewer)
-    const ay = PI + sin(frame * 0.01) * 0.6; // centered on front face, ±34° swivel
-    const ax = 0.3; // fixed downward tilt
+    // Full slow turntable rotation
+    const ay = frame * 0.006;
+    const ax = 0.35; // fixed downward tilt
 
-    // Fixed open angle (~120 degrees)
-    const hingeAngle = PI * 0.67;
+    // Animated hinge: smoothly cycle between laptop (~120°) and tablet (360°)
+    // ~6 second hold in each mode, ~3 second transition
+    const hingeCycle = (frame * 0.008) % (2 * PI);
+    const hingeT = (sin(hingeCycle) * 0.5 + 0.5); // 0 = laptop, 1 = tablet
+    const laptopAngle = PI * 0.67;  // ~120° open
+    const tabletAngle = PI * 2;     // 360° folded flat back
+    const hingeAngle = laptopAngle + hingeT * (tabletAngle - laptopAngle);
 
     // Half-box dimensions (proportional to ThinkPad Yoga 11e: ~290mm × 202mm × 22mm)
     // Width:Depth ratio ≈ 1.44:1, thickness is thin
