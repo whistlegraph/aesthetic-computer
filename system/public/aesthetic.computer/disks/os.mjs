@@ -40,6 +40,11 @@ let variantBtn = null; // "build: C" selector
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
+let autoScroll = false;
+let autoScrollSpeed = 0.3;
+let autoScrollDelay = 3000;
+let loadTime = 0;
+let totalContentH = 0;
 let dlFn = null;
 let ovenWs = null;
 let wsReconnectTimer = null;
@@ -81,6 +86,9 @@ const scheme = {
     instText: [60, 70, 90],
     instKey: [120, 140, 180],
     divider: [30, 35, 50],
+    secDlBg: [12, 18, 14],       // download section bg (green tint)
+    secInstBg: [12, 14, 22],     // install section bg (blue tint)
+    secBuildBg: [14, 12, 20],    // builds section bg (purple tint)
     dlBtnBg: [20, 60, 30],
     dlBtnBorder: [40, 120, 50],
     dlBtnText: [80, 255, 140],
@@ -119,6 +127,9 @@ const scheme = {
     instText: [100, 110, 130],
     instKey: [60, 80, 130],
     divider: [210, 215, 225],
+    secDlBg: [232, 242, 234],
+    secInstBg: [232, 234, 244],
+    secBuildBg: [236, 232, 242],
     dlBtnBg: [210, 240, 215],
     dlBtnBorder: [80, 170, 100],
     dlBtnText: [20, 100, 40],
@@ -145,6 +156,7 @@ function fetchReleases(ui, needsPaint) {
     .then((data) => {
       releases = data;
       loading = false;
+      if (!loadTime) loadTime = Date.now();
       if (handle && token && ui) makeButtons(ui);
       // Log recent builds to console
       const builds = data?.releases || [];
@@ -363,9 +375,13 @@ function paint($) {
 
   const builds = releases.releases || [];
 
-  // Section header: colored bar with title
+  // Section rendering — header bar + tinted content background
   const secBarH = matrixH + 8;
-  function sectionHeader(title, barColor) {
+  function sectionHeader(title, barColor, bgColor, bgH) {
+    // Content background (paint first, behind everything)
+    if (bgColor && bgH) {
+      ink(...bgColor).box(0, y, w, secBarH + bgH);
+    }
     ink(...barColor).box(0, y, w, secBarH);
     ink(...C.instHeader).write(title, { x: pad, y: y + 4 }, undefined, undefined, false, "MatrixChunky8");
     y += secBarH + (isMobile ? 10 : 8);
@@ -380,7 +396,7 @@ function paint($) {
 
   // --- ACTIVE BUILD ---
   if (activeBuild) {
-    sectionHeader("Building", dark ? [20, 28, 20] : [215, 235, 215]);
+    sectionHeader("Building", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120);
 
     // Status line: stage + percentage
     const stageLabel = activeBuild.stage || "starting";
@@ -434,7 +450,7 @@ function paint($) {
   if (downloadBtn && !downloading) {
     const isPersonal = handle && token;
 
-    sectionHeader("Download", dark ? [18, 24, 40] : [215, 220, 235]);
+    sectionHeader("Download", dark ? [18, 24, 40] : [215, 220, 235], C.secDlBg, 300);
 
     // OS label
     if (isPersonal) {
@@ -555,7 +571,7 @@ function paint($) {
     y += isMobile ? 14 : 10;
 
     // --- INSTALL section ---
-    sectionHeader("How to Install", dark ? [14, 20, 32] : [210, 215, 230]);
+    sectionHeader("How to Install", dark ? [14, 20, 32] : [210, 215, 230], C.secInstBg, 120);
 
     const instLines = [
       [C.instText, "1 flash .iso with Fedora Media Writer"],
@@ -574,7 +590,7 @@ function paint($) {
     y += isMobile ? 14 : 10;
 
     // --- BUILDS section ---
-    sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238]);
+    sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238], C.secBuildBg, 2000);
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
@@ -692,9 +708,12 @@ function paint($) {
     y += entryH;
   }
 
+  // Track total content height for auto-scroll
+  totalContentH = y + scrollY + 20;
+
   // Footer
   if (builds.length > 0) {
-    const countLabel = builds.length + " builds";
+    const countLabel = builds.length + " builds" + (autoScroll ? " (auto)" : "");
     ink(...C.date);
     $.write(countLabel, { x: w - pad - countLabel.length * charW, y: h - rowH - pad });
   }
@@ -710,6 +729,7 @@ function act({ event: e, needsPaint, download }) {
   }
 
   if (e.is("scroll")) {
+    autoScroll = false;
     scrollY = Math.max(0, scrollY + (e.delta || 0));
     needsPaint();
     return;
@@ -717,6 +737,7 @@ function act({ event: e, needsPaint, download }) {
 
   // Touch drag scrolling
   if (e.is("draw")) {
+    autoScroll = false;
     scrollY = Math.max(0, scrollY - (e.dy || 0));
     needsPaint();
     return;
@@ -954,5 +975,21 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 }
 
+function sim({ screen, needsPaint }) {
+  const viewH = screen.height;
+  // Auto-start after delay
+  if (loadTime > 0 && !autoScroll && Date.now() - loadTime >= autoScrollDelay && scrollY === 0) {
+    autoScroll = true;
+  }
+  // Auto-scroll
+  if (autoScroll && totalContentH > viewH) {
+    scrollY += autoScrollSpeed;
+    if (scrollY >= totalContentH - viewH) {
+      scrollY = 0; // loop
+    }
+    needsPaint();
+  }
+}
+
 export const desc = "FedAC OS — view builds and download your copy.";
-export { boot, paint, act, leave };
+export { boot, paint, act, sim, leave };
