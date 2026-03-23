@@ -164,6 +164,86 @@ function paint($) {
     const projBase = base.map(project);
     const projLid = lid.map(project);
 
+    // 🎨 Solid faces (draw before wireframe edges)
+    // Face definitions: [v0, v1, v2, v3] in CCW order when front-facing
+    const baseFaces = [
+      [0, 1, 5, 4], // top (y = -hh)
+      [3, 2, 6, 7], // bottom (y = +hh)
+      [0, 3, 7, 4], // left
+      [1, 2, 6, 5], // right
+      [0, 1, 2, 3], // back
+      [4, 5, 6, 7], // front
+    ];
+    const lidFaces = [
+      [0, 1, 5, 4], // outer (y = -hh)
+      [3, 2, 6, 7], // inner (y = +hh, screen side)
+      [0, 3, 7, 4], // left
+      [1, 2, 6, 5], // right
+      [0, 1, 2, 3], // hinge edge
+      [4, 5, 6, 7], // far edge
+    ];
+
+    const baseColor = isDark ? [22, 22, 26] : [200, 200, 205];
+    const lidColor = isDark ? [18, 18, 22] : [190, 190, 195];
+
+    const drawFaces = (proj, faces, color) => {
+      for (const [a, b, c, d] of faces) {
+        // Backface cull via 2D cross product
+        const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
+        const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
+        if (e1x * e2y - e1y * e2x >= 0) continue; // back-facing
+        const depth = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+        const shade = max(0.5, min(1, 0.8 - depth * 0.15));
+        ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
+        tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
+        tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
+      }
+    };
+
+    drawFaces(projBase, baseFaces, baseColor);
+    drawFaces(projLid, lidFaces, lidColor);
+
+    // ⌨️ QWERTY keyboard on base top face (y = -hh)
+    {
+      const kbInset = 0.18;
+      const kbTL = [-hw + kbInset, -hh - 0.001, -hd + kbInset];
+      const kbTR = [hw - kbInset, -hh - 0.001, -hd + kbInset];
+      const kbBL = [-hw + kbInset, -hh - 0.001, hd - kbInset * 3];
+      const kbBR = [hw - kbInset, -hh - 0.001, hd - kbInset * 3];
+      const pTL = project(kbTL), pTR = project(kbTR);
+      const pBL = project(kbBL), pBR = project(kbBR);
+      // Visibility check
+      const ke1x = pTR[0] - pTL[0], ke1y = pTR[1] - pTL[1];
+      const ke2x = pBL[0] - pTL[0], ke2y = pBL[1] - pTL[1];
+      if (ke1x * ke2y - ke1y * ke2x < 0) {
+        const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+        const rowCount = rows.length;
+        for (let r = 0; r < rowCount; r++) {
+          const row = rows[r];
+          const t0 = (r + 0.15) / rowCount, t1 = (r + 0.85) / rowCount;
+          const indent = r * 0.03; // stagger rows
+          for (let k = 0; k < row.length; k++) {
+            const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
+            const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
+            // Bilinear interpolation for key corners
+            const lerp = (a, b, t) => a + (b - a) * t;
+            const kx0 = lerp(lerp(pTL[0], pTR[0], u0), lerp(pBL[0], pBR[0], u0), t0);
+            const ky0 = lerp(lerp(pTL[1], pTR[1], u0), lerp(pBL[1], pBR[1], u0), t0);
+            const kx1 = lerp(lerp(pTL[0], pTR[0], u1), lerp(pBL[0], pBR[0], u1), t0);
+            const ky1 = lerp(lerp(pTL[1], pTR[1], u1), lerp(pBL[1], pBR[1], u1), t0);
+            const kx2 = lerp(lerp(pTL[0], pTR[0], u1), lerp(pBL[0], pBR[0], u1), t1);
+            const ky2 = lerp(lerp(pTL[1], pTR[1], u1), lerp(pBL[1], pBR[1], u1), t1);
+            const kx3 = lerp(lerp(pTL[0], pTR[0], u0), lerp(pBL[0], pBR[0], u0), t1);
+            const ky3 = lerp(lerp(pTL[1], pTR[1], u0), lerp(pBL[1], pBR[1], u0), t1);
+            const keyShade = isDark ? [35, 35, 40] : [170, 170, 178];
+            ink(keyShade[0], keyShade[1], keyShade[2]);
+            tri(kx0, ky0, kx1, ky1, kx2, ky2);
+            tri(kx0, ky0, kx2, ky2, kx3, ky3);
+          }
+        }
+      }
+    }
+
     const waveOffset = frame * 0.05;
     const drawEdges = (proj, edgeOffset) => {
       halfEdges.forEach(([a, b], i) => {
@@ -290,15 +370,26 @@ function paint($) {
         sTR[2] + offsetR * rn[2] + offsetD * dn[2],
       ];
 
-      const titleColor = isDark ? [180, 220, 255] : [100, 180, 255];
-      ink(titleColor[0], titleColor[1], titleColor[2], textAlpha)
-        .write3D(screenText, {
-          origin: textOrigin,
-          right: rn,
-          down: dn,
-          project,
-          typeface: "MatrixChunky8",
-        });
+      // Glitchy digital blue — vary per-pixel via pixelCallback
+      ink(0).write3D(screenText, {
+        origin: textOrigin,
+        right: rn,
+        down: dn,
+        project,
+        typeface: "MatrixChunky8",
+        pixelCallback: (sx, sy, gx, gy, ci) => {
+          // Hash-ish seed from position + frame for shimmer
+          const seed = (gx * 7 + gy * 13 + ci * 31 + frame * 3) & 0xFF;
+          const flicker = sin(frame * 0.15 + seed * 0.1) * 0.5 + 0.5;
+          // Blue/cyan palette with occasional white flash
+          const flash = (seed + frame) % 47 === 0;
+          const r = flash ? 220 : floor(20 + flicker * 40);
+          const g = flash ? 240 : floor(80 + flicker * 100 + seed * 0.2);
+          const b = flash ? 255 : floor(180 + flicker * 75);
+          const a = floor(textAlpha * (0.6 + flicker * 0.4));
+          ink(r, g, b, a);
+        },
+      });
     }
   }
 

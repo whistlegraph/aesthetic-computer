@@ -5605,11 +5605,15 @@ const $paintApi = {
         const pxH = Math.sqrt((refDX - refX) ** 2 + (refDY - refY) ** 2) || 1;
         const pxSize = Math.max(1, Math.round((pxW + pxH) / 2));
 
+        // Optional per-pixel callback (lets caller vary ink per pixel)
+        const pixelCb = plane.pixelCallback;
+
         // Render each "on" pixel as a box at its projected center
         const renderPixel = (gx, gy) => {
           const [sx, sy] = projectPt(gx + 0.5, gy + 0.5);
           const bx = Math.floor(sx - pxSize / 2);
           const by = Math.floor(sy - pxSize / 2);
+          if (pixelCb) pixelCb(bx, by, gx, gy, ci);
           $activePaintApi.box(bx, by, pxSize, pxSize);
         };
 
