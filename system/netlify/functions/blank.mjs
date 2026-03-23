@@ -100,9 +100,9 @@ export async function handler(event) {
             price_data: {
               currency: "usd",
               product_data: {
-                name: "AC Blank",
+                name: "AC Blank 1",
                 description:
-                  "Thinkpad 11e Yoga Gen 6 (refurbished / used) pre-flashed with AC Native. Comes decorated with recovery USB.",
+                  "A @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.",
                 images: [
                   "https://p3-ofp.static.pub/fes/cms/2022/03/28/4wfdaky6aue1z6x5xmxkl9ms8gdpmz225363.png",
                 ],
