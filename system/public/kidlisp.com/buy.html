@@ -472,9 +472,21 @@
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.15s;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
     }
-    .album-row:hover {
-      background: var(--bg3);
+    .album-row::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, var(--bg) 0%, rgba(18, 16, 26, 0.85) 40%, rgba(18, 16, 26, 0.6) 100%);
+      pointer-events: none;
+    }
+    .album-row > * { position: relative; z-index: 1; }
+    .album-row:hover::before {
+      background: linear-gradient(90deg, var(--bg3) 0%, rgba(34, 30, 48, 0.85) 40%, rgba(34, 30, 48, 0.5) 100%);
     }
     .album-rank {
       font-size: 18px;
@@ -963,10 +975,13 @@
     grid.innerHTML = albums.map((album, i) => {
       const name = album.alias || sellerName(album.address);
       const tokens = album.tokens.sort((a, b) => Number(a.tokenId) - Number(b.tokenId));
+      const lastToken = tokens[tokens.length - 1];
+      const lastThumb = animatedWebpUrl(lastToken?.thumbnailUri);
+      const rowBg = lastThumb ? `background-image:url('${lastThumb}')` : '';
       const pct = Math.round((album.tokens.length / maxCount) * 100);
       const medal = i === 0 ? '\uD83E\uDD47' : i === 1 ? '\uD83E\uDD48' : i === 2 ? '\uD83E\uDD49' : `${i + 1}`;
       return `<div class="album-entry">
-        <div class="album-row" data-idx="${i}">
+        <div class="album-row" data-idx="${i}" style="${rowBg}">
           <div class="album-rank">${medal}</div>
           <div class="album-name">${name}</div>
           <div class="album-bar-wrap">
