@@ -5439,7 +5439,7 @@ let spinSkipCounter = 0;
 
 // 🚀 GPU EFFECTS: WebGL2-accelerated effects via OffscreenCanvas
 // Runtime-configurable: set via setGpuConfig() from kidlisp.com preferences.
-let gpuEnabled = false; // Master GPU toggle (default off — was FORCE_CPU=true)
+let gpuEnabled = true; // Master GPU toggle (default on)
 let gpuSpinModule = null;
 let gpuSpinEnabled = gpuEnabled;
 let gpuSpinAvailable = null; // null = not checked yet
