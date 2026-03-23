@@ -140,8 +140,10 @@ function paint($) {
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm (each slab ~10mm)
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    // Lid connects at barrel center (no offset) — minor clipping at ~180° is OK
-    const barrelR = 0;
+    // Both slabs share a surface at y=0 (the seam). Barrel pivot is at this seam.
+    // Base extends downward (y: 0 to 2*hh), lid extends downward in local too
+    // but gets flipped by the hinge rotation so at 0° it sits above the base,
+    // and at 180° both are co-planar extending in opposite z directions.
 
     // Base slab (y: 0 to 2*hh, z: -hd to +hd)
     const base = [
@@ -149,25 +151,26 @@ function paint($) {
       [-hw, 0, hd], [hw, 0, hd], [hw, 2 * hh, hd], [-hw, 2 * hh, hd],
     ];
 
-    // Barrel hinge center: at back edge of base, at the top surface
-    const barrelCY = 0;       // base top surface
-    const barrelCZ = -hd;     // at the back edge
+    // Barrel hinge center: at the seam (y=0), back edge (z=-hd)
+    const barrelCY = 0;
+    const barrelCZ = -hd;
 
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
 
-    // Lid: local coords, hinge edge at z=0, extends to z=2*hd
-    // y: -2*hh to 0 (lid thickness, inner face at y=0)
+    // Lid is thinner than base (~70% thickness — display panel vs motherboard/battery)
+    const lidH = hh * 1.4; // lid half-thickness (thinner than base 2*hh)
+    const hingeGap = hh * 0.3; // small clearance gap for swivel
     const lidLocal = [
-      [-hw, -2 * hh, 0], [hw, -2 * hh, 0], [hw, 0, 0], [-hw, 0, 0],
-      [-hw, -2 * hh, 2 * hd], [hw, -2 * hh, 2 * hd], [hw, 0, 2 * hd], [-hw, 0, 2 * hd],
+      [-hw, hingeGap, 0], [hw, hingeGap, 0],
+      [hw, lidH + hingeGap, 0], [-hw, lidH + hingeGap, 0],
+      [-hw, hingeGap, 2 * hd], [hw, hingeGap, 2 * hd],
+      [hw, lidH + hingeGap, 2 * hd], [-hw, lidH + hingeGap, 2 * hd],
     ];
 
-    // Lid transform: lid's inner face (y=0) starts at barrelR from barrel center
-    // and orbits around it
+    // Lid rotates around the barrel center at the seam
     const lid = lidLocal.map(([lx, ly, lz]) => {
-      const oy = ly - barrelR; // offset from barrel center
-      const ry = oy * cosH - lz * sinH;
-      const rz = oy * sinH + lz * cosH;
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
       return [lx, ry + barrelCY, rz + barrelCZ];
     });
 
@@ -351,25 +354,24 @@ function paint($) {
     // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
     const bezelInset = 0.08;
-    // Screen is on the INNER face of the lid (y = 0 in lid local).
-    // When lid is open, far edge (z=2*hd) is visually at the TOP,
-    // hinge edge (z=0) is at the BOTTOM.
-    const screenTL = [-hw + inset, 0.002, 2 * hd - inset];
-    const screenTR = [hw - inset, 0.002, 2 * hd - inset];
-    const screenBL = [-hw + inset, 0.002, inset];
-    const screenBR = [hw - inset, 0.002, inset];
+    // Screen is on the INNER face of the lid (y = hingeGap in lid local).
+    const screenY = hingeGap + 0.002;
+    const screenTL = [-hw + inset, screenY, 2 * hd - inset];
+    const screenTR = [hw - inset, screenY, 2 * hd - inset];
+    const screenBL = [-hw + inset, screenY, inset];
+    const screenBR = [hw - inset, screenY, inset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelTL = [-hw + bezelInset, 0.001, 2 * hd - bezelInset];
-    const bezelTR = [hw - bezelInset, 0.001, 2 * hd - bezelInset];
-    const bezelBL = [-hw + bezelInset, 0.001, bezelInset];
-    const bezelBR = [hw - bezelInset, 0.001, bezelInset];
+    const bezelY = hingeGap + 0.001;
+    const bezelTL = [-hw + bezelInset, bezelY, 2 * hd - bezelInset];
+    const bezelTR = [hw - bezelInset, bezelY, 2 * hd - bezelInset];
+    const bezelBL = [-hw + bezelInset, bezelY, bezelInset];
+    const bezelBR = [hw - bezelInset, bezelY, bezelInset];
 
-    // Same transform as lid vertices (orbit barrel center at barrelR)
+    // Same transform as lid vertices (rotate around barrel center)
     const hingeXform = ([lx, ly, lz]) => {
-      const oy = ly - barrelR;
-      const ry = oy * cosH - lz * sinH;
-      const rz = oy * sinH + lz * cosH;
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
       return [lx, ry + barrelCY, rz + barrelCZ];
     };
     const sTL = hingeXform(screenTL), sTR = hingeXform(screenTR);
