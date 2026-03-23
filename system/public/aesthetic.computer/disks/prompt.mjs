@@ -188,6 +188,7 @@ let login, // A login button in the center of the display.
 let giveBtn; // GIVE button (top-right slot)
 let soBtn, softBtn; // SO SOFT ad buttons
 let osBtn; // OS button (top-right slot)
+let blankAdBtn; // 💻 Blank laptop ad button (top-right slot)
 let soSoftBlinkPhase = 0;
 let soSoftConfigIndex = 0;
 let soSoftConfigChangeTime = 0;
@@ -195,7 +196,7 @@ let soSoftLastTinyFont = false;
 let giveBtnParticles = [];
 
 // 🎰 Top-right slot: A/B test — pick one randomly on page load
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "os", "products"];
+const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "os", "products", "blank"];
 const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
@@ -5198,6 +5199,51 @@ function paint($) {
     osBtn = null;
   }
 
+  // 💻 Blank laptop ad — minimal, dark, monochrome
+  if (topRightBtnChoice === "blank" && showLoginCurtain) {
+    const t = performance.now() / 1000;
+    const btnPaddingTop = 3;
+    const btnPaddingRight = 3;
+
+    const blankBtnText = "laptop";
+    const blankBtnY = btnPaddingTop;
+    const blankBtnX = screen.width - blankBtnText.length * 6 - 12 - btnPaddingRight;
+
+    if (!blankAdBtn) {
+      blankAdBtn = new $.ui.TextButton(blankBtnText, { x: blankBtnX, y: blankBtnY });
+    } else {
+      blankAdBtn.reposition({ x: blankBtnX, y: blankBtnY }, blankBtnText);
+    }
+
+    const btnBox = blankAdBtn?.btn?.box;
+    if (btnBox) {
+      const isDown = blankAdBtn.btn.down;
+      const isHover = blankAdBtn.btn.over && !isDown;
+
+      // Subtle pulse between dark grays
+      const pulse = Math.sin(t * 1.5) * 0.5 + 0.5;
+      let bgR = Math.floor(20 + pulse * 15);
+      let bgG = bgR;
+      let bgB = bgR;
+
+      if (isDown) { bgR = bgG = bgB = 60; }
+      else if (isHover) { bgR = bgG = bgB = 45; }
+
+      ink(bgR, bgG, bgB).box(btnBox, "fill");
+
+      // Thin outline — faint white
+      const outlineAlpha = Math.floor(60 + pulse * 40);
+      ink(255, 255, 255, outlineAlpha).box(btnBox, "outline");
+
+      // Text
+      const textBright = isDown ? 180 : (isHover ? 160 : Math.floor(100 + pulse * 40));
+      ink(textBright, textBright, textBright).write(blankBtnText, { x: btnBox.x + 4, y: btnBox.y + 4 });
+    }
+    $.needsPaint();
+  } else {
+    blankAdBtn = null;
+  }
+
   // 📦 Paint SHOP products in top-right corner (active when slot shows "products")
   if (topRightBtnChoice === "products") {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
@@ -8121,6 +8167,15 @@ function act({
     });
   }
 
+  // 💻 Blank laptop ad button
+  if (blankAdBtn && !blankAdBtn.btn.disabled) {
+    blankAdBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); jump("blank"); },
+      cancel: () => cancelSound(),
+    });
+  }
+
   // 📦 Product button interaction
   {
     const showLoginCurtainAct =
@@ -8442,6 +8497,7 @@ function act({
       (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
       (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
       (osBtn?.btn?.disabled === false && osBtn?.btn?.box.contains(e)) ||
+      (blankAdBtn?.btn?.disabled === false && blankAdBtn?.btn?.box.contains(e)) ||
       (products.getShopBoxButton()?.disabled === false && products.getShopBoxButton()?.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
