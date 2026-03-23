@@ -201,4 +201,6 @@ echo ""
 echo "Release published: $BUILD_NAME ($FULL_VERSION)"
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}releases.json"
-[ -f "$ISO_SIBLING" ] && echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+if [ -f "$ISO_SIBLING" ]; then
+  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+fi
