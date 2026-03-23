@@ -204,26 +204,38 @@ async function runBuildJob(job) {
 
     job.percent = 75;
 
-    // Phase 3: Extract vmlinuz from container
-    addLogLine(job, "stdout", "Phase 3: Extracting kernel...");
+    // Phase 3: Extract vmlinuz + ISO from container
+    addLogLine(job, "stdout", "Phase 3: Extracting kernel + ISO...");
     const cid = (await fs.readFile(cidFile, "utf8")).trim();
+    const isoOut = `/tmp/oven-iso-${job.id}`;
     await runPhase(job, "extract", "bash", ["-c",
-      `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker rm ${cid} >/dev/null`
+      `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null; docker rm ${cid} >/dev/null`
     ], repoDir);
 
     job.percent = 80;
 
-    // Phase 4: Upload vmlinuz to DO Spaces CDN
+    // Phase 4: Upload vmlinuz + ISO to DO Spaces CDN
     addLogLine(job, "stdout", "Phase 4: Uploading to CDN...");
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
-    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzOut], NATIVE_DIR, {
+    const uploadEnv = {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
       DO_SPACES_SECRET:
         process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
-    });
+    };
+    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzOut], NATIVE_DIR, uploadEnv);
+
+    // Upload ISO if it was generated
+    try {
+      await fs.access(isoOut);
+      addLogLine(job, "stdout", "  Uploading ISO...");
+      await runPhase(job, "upload-iso", "bash", ["-c",
+        `${uploadScript} --iso ${isoOut}`
+      ], NATIVE_DIR, uploadEnv);
+    } catch { addLogLine(job, "stdout", "  No ISO generated — skipping"); }
 
     // Cleanup C build
     try { await fs.unlink(vmlinuzOut); } catch {}
+    try { await fs.unlink(isoOut); } catch {}
     try { await fs.unlink(cidFile); } catch {}
 
     job.percent = 85;
