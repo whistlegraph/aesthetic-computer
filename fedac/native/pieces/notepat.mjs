@@ -15,6 +15,7 @@ let waveIndex = 0;
 let quickMode = false;
 const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
+let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
 let recPointerId = null;   // touch pointer currently holding REC button
 let recStartTime = 0;      // Date.now() when recording started
@@ -539,11 +540,11 @@ function act({ event: e, sound, wifi, system }) {
       const playFreq = freq * Math.pow(2, effectivePitchShift());
 
       if (wave === "sample" && (sampleLoaded || sampleBank[key])) {
-        // Load per-key sample if available, otherwise use global
-        if (sampleBank[key]) {
-          sound.sample.loadData(sampleBank[key].data, sampleBank[key].rate);
-        } else if (globalSample) {
-          sound.sample.loadData(globalSample.data, globalSample.rate);
+        // Only reload sample data if switching to a different sample
+        const targetSample = sampleBank[key] || globalSample;
+        if (targetSample && targetSample !== lastLoadedSample) {
+          sound.sample.loadData(targetSample.data, targetSample.rate);
+          lastLoadedSample = targetSample;
         }
         const smp = sound.sample.play({
           tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
@@ -580,6 +581,7 @@ function act({ event: e, sound, wifi, system }) {
       const data = sound.sample.getData?.();
       if (data && data.length > 0) {
         globalSample = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
+        lastLoadedSample = null;  // force reload on next key press
         console.log(`[sample-bank] global sample saved (${data.length} samples)`);
       }
       return;
