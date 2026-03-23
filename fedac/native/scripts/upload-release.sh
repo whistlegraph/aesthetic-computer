@@ -154,21 +154,27 @@ curl -sf "${BASE_URL}/os/${CHANNEL_PREFIX}releases.json" -o "$RELEASES_JSON" 2>/
   || echo '{"releases":[]}' > "$RELEASES_JSON"
 
 # Append new entry (keep last 50)
-python3 - "$RELEASES_JSON" "$FULL_VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" "$BUILD_NAME" <<'PYEOF'
+COMMIT_MSG=$(git -C "$SCRIPT_DIR" log -1 --format="%s" 2>/dev/null || echo "")
+BUILD_HANDLE="${AC_HANDLE:-}"
+
+python3 - "$RELEASES_JSON" "$FULL_VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" "$BUILD_NAME" "$CHANNEL_PREFIX" "$COMMIT_MSG" "$BUILD_HANDLE" <<'PYEOF'
 import sys, json
-path, version, sha256, size, git_hash, build_ts, name = sys.argv[1:]
+path, version, sha256, size, git_hash, build_ts, name, channel_prefix, commit_msg, handle = sys.argv[1:]
 with open(path) as f:
     data = json.load(f)
 releases = data.get("releases", [])
-releases.insert(0, {
+entry = {
     "version": version,
     "name": name,
     "sha256": sha256,
     "size": int(size),
     "git_hash": git_hash,
     "build_ts": build_ts,
-    "url": "https://releases.aesthetic.computer/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
-})
+    "url": f"https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/{channel_prefix}native-notepat-latest.vmlinuz",
+    "commit_msg": commit_msg,
+    "handle": handle,
+}
+releases.insert(0, entry)
 data["releases"] = releases[:50]
 data["latest"] = version
 data["latest_name"] = name

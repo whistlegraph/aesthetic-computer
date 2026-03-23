@@ -409,12 +409,27 @@ function paint($) {
     ink(...C.progress).box(pad + 1, y + 1, fillW, barH - 2);
     y += barH + 6;
 
+    // Build name (adjective-animal from build-name.sh)
+    if (activeBuild.buildName) {
+      ink(...C.name);
+      $.write(activeBuild.buildName, { x: pad, y });
+      y += rowH + 2;
+    }
+
     // Build ref (short hash)
     if (activeBuild.ref && activeBuild.ref !== "unknown") {
       const refTxt = activeBuild.ref.slice(0, 11);
       ink(...C.hash);
       $.write(refTxt, { x: pad, y });
       y += rowH + 2;
+    }
+
+    // Commit message
+    if (activeBuild.commitMsg) {
+      ink(...C.msg);
+      $.write(activeBuild.commitMsg, { x: pad, y, wrap: wrapW });
+      const msgLines = Math.ceil((activeBuild.commitMsg.length * charW) / wrapW);
+      y += rowH * msgLines + 2;
     }
 
     // Error message if failed
