@@ -1,30 +1,33 @@
-;;; Font rendering — bitmap font draw/measure
+;;; Font rendering — 6x10 bitmap font
 
 (in-package :ac-native.font)
 
 (defun font-init ()
   "Load font data. Called once at startup."
-  ;; TODO: populate *font-8x8* from header data
+  ;; Data is statically defined in font-data.lisp
   )
 
 (defun font-draw (graph text x y &key (size 1))
-  "Draw TEXT at (X, Y) using the 8x8 bitmap font."
-  (declare (ignore graph text x y size))
-  ;; TODO: implement
-  )
+  "Draw TEXT at (X, Y) using the 6x10 bitmap font, scaled by SIZE."
+  (declare (type fixnum x y size))
+  (let ((cx x))
+    (loop for ch across text do
+      (let ((idx (- (char-code ch) 32)))
+        (when (and (>= idx 0) (< idx 95))
+          (dotimes (row +font-h+)
+            (let ((byte (aref *font-6x10* idx row)))
+              (dotimes (col +font-w+)
+                (when (logbitp (- 7 col) byte)
+                  (if (= size 1)
+                      (graph-plot graph (+ cx col) (+ y row))
+                      ;; Scaled: draw size x size block per pixel
+                      (dotimes (dy size)
+                        (dotimes (dx size)
+                          (graph-plot graph
+                                     (+ cx (* col size) dx)
+                                     (+ y (* row size) dy)))))))))))
+      (incf cx (* +font-w+ size)))))
 
 (defun font-measure (text &key (size 1))
-  "Return the pixel width of TEXT in the 8x8 font."
-  (declare (ignore size))
-  (* (length text) 8))
-
-(defun font-draw-matrix (graph text x y size)
-  "Draw TEXT using the MatrixChunky8 font."
-  (declare (ignore graph text x y size))
-  ;; TODO: implement
-  )
-
-(defun font-measure-matrix (text size)
-  "Return pixel width of TEXT in MatrixChunky8."
-  (declare (ignore size))
-  (* (length text) 10))
+  "Return the pixel width of TEXT in the 6x10 font."
+  (* (length text) +font-w+ size))

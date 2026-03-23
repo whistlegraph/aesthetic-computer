@@ -77,25 +77,48 @@
 
 (defun fb-copy-scaled (src dst-ptr dst-w dst-h dst-stride scale)
   "Copy SRC framebuffer to a foreign memory region at DST-PTR, scaling up by SCALE.
-   Used by DRM present to blit the small render buffer to the display."
+   Used by DRM present to blit the small render buffer to the display.
+   Optimized: expand each source row into a temp row, then memcpy to fill scale rows."
   (declare (optimize (speed 3) (safety 0))
            (type fixnum dst-w dst-h dst-stride scale)
            (type framebuffer src))
-  (let ((sw (framebuffer-width src))
-        (sh (framebuffer-height src))
-        (sp (framebuffer-pixels src)))
-    (dotimes (sy sh)
-      (dotimes (sx sw)
-        (let ((pixel (cffi:mem-aref sp :uint32 (+ sx (* sy sw)))))
-          ;; Replicate pixel into scale x scale block
-          (dotimes (dy scale)
-            (let ((oy (* (+ (* (+ (* sy scale) dy) 1) 0) 1))) ; row offset placeholder
-              (declare (ignore oy))
-              (let ((row (+ (* sy scale) dy)))
-                (when (< row dst-h)
-                  (dotimes (dx scale)
-                    (let ((col (+ (* sx scale) dx)))
-                      (when (< col dst-w)
-                        (setf (cffi:mem-aref dst-ptr :uint32
-                                             (+ col (* row dst-stride)))
-                              pixel)))))))))))))
+  (let* ((sw (framebuffer-width src))
+         (sh (framebuffer-height src))
+         (sp (framebuffer-pixels src))
+         (row-bytes (* dst-stride 4)))  ; bytes per destination row
+    ;; For scale=1, use fast memcpy path
+    (if (= scale 1)
+        (let ((copy-w (min sw dst-w)))
+          (dotimes (y (min sh dst-h))
+            (cffi:foreign-funcall "memcpy"
+              :pointer (cffi:inc-pointer dst-ptr (* y row-bytes))
+              :pointer (cffi:inc-pointer sp (* y sw 4))
+              :unsigned-long (* copy-w 4)
+              :pointer)))
+        ;; General case: expand each source row, then replicate
+        (let* ((expanded-w (min (* sw scale) dst-w))
+               (expanded-bytes (* expanded-w 4)))
+          ;; Temp buffer for one expanded row
+          (cffi:with-foreign-object (tmp :uint32 expanded-w)
+            (dotimes (sy sh)
+              (let ((dst-y0 (* sy scale)))
+                (when (>= dst-y0 dst-h) (return))
+                ;; Expand source row: replicate each pixel `scale` times
+                (let ((src-row-offset (* sy sw)))
+                  (dotimes (sx sw)
+                    (let ((pixel (cffi:mem-aref sp :uint32 (+ src-row-offset sx)))
+                          (dx0 (* sx scale)))
+                      (when (>= dx0 dst-w) (return))
+                      (dotimes (dx scale)
+                        (let ((col (+ dx0 dx)))
+                          (when (>= col expanded-w) (return))
+                          (setf (cffi:mem-aref tmp :uint32 col) pixel))))))
+                ;; Copy expanded row to each of the `scale` destination rows
+                (dotimes (dy scale)
+                  (let ((row (+ dst-y0 dy)))
+                    (when (>= row dst-h) (return))
+                    (cffi:foreign-funcall "memcpy"
+                      :pointer (cffi:inc-pointer dst-ptr (* row row-bytes))
+                      :pointer tmp
+                      :unsigned-long expanded-bytes
+                      :pointer))))))))))
