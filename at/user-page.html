@@ -610,6 +610,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
 <body>
   <div class="container">
     <header>
+      <a href="https://at.aesthetic.computer" style="text-decoration: none; color: inherit;"><div style="font-size: 0.75em; color: rgb(205, 92, 155); margin-bottom: 0.3em;">← at.aesthetic.computer</div></a>
       <h1 id="handle-display">Loading...</h1>
       <div class="subtitle" id="did-display"></div>
       <div class="stats" id="stats"></div>
@@ -1604,7 +1605,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
       // Create initial card HTML with preview container
       const previewCode = value.code ? value.code.replace(/[^a-zA-Z0-9_-]/g, '') : '';
       const kidlispPreviewHtml = previewCode
-        ? `<a href="https://kidlisp.com/$${previewCode}" target="_blank" rel="noreferrer" class="kidlisp-preview-card">
+        ? `<a href="https://aesthetic.computer/$${previewCode}" target="_blank" rel="noreferrer" class="kidlisp-preview-card">
             <img class="kidlisp-webp" src="https://oven.aesthetic.computer/grab/webp/200/200/$${previewCode}?duration=4000&fps=8&quality=80&density=1&nowait=true" alt="KidLisp preview" loading="lazy" />
             <div class="kidlisp-preview-overlay" data-kidlisp-code="${previewCode}">
               <div class="kidlisp-preview-code">${value.source ? value.source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''}</div>
@@ -1647,7 +1648,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
             }
             const qrImg = overlay.querySelector('.kidlisp-preview-qr img');
             if (qrImg && value.code) {
-              const qrUrl = buildQrDataUrl(`https://kidlisp.com/$${value.code}`, 3, 0);
+              const qrUrl = buildQrDataUrl(`https://aesthetic.computer/$${value.code}`, 3, 0);
               if (qrUrl) qrImg.src = qrUrl;
             }
           }
@@ -1661,7 +1662,7 @@ Uses ONLY ATProto APIs - no aesthetic.computer backend dependencies
         if (overlay) {
           const qrImg = overlay.querySelector('.kidlisp-preview-qr img');
           if (qrImg) {
-            const qrUrl = buildQrDataUrl(`https://kidlisp.com/$${value.code}`, 3, 0);
+            const qrUrl = buildQrDataUrl(`https://aesthetic.computer/$${value.code}`, 3, 0);
             if (qrUrl) qrImg.src = qrUrl;
           }
         }
