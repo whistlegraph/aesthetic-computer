@@ -375,27 +375,21 @@ mmd -i "$EFI_IMG" ::EFI ::EFI/BOOT 2>/dev/null
 mcopy -i "$EFI_IMG" "$BUILD/vmlinuz" ::EFI/BOOT/BOOTX64.EFI
 mcopy -i "$EFI_IMG" "$ISO_DIR/config.json" ::config.json
 
-# Build ISO with EFI boot support
+# Build hybrid ISO with xorriso (EFI boot via El Torito + GPT for dd/USB)
+# Uses -append_partition to attach the EFI image, matching ac-os generate_template_iso().
 if command -v xorriso &>/dev/null; then
     xorriso -as mkisofs \
         -o "$ISO_OUT" \
-        -e efi.img -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        "$ISO_DIR" 2>/dev/null
-    # Embed EFI image into ISO for hybrid boot
-    cp "$EFI_IMG" "$ISO_DIR/efi.img"
-    xorriso -as mkisofs \
-        -o "$ISO_OUT" \
-        -e efi.img -no-emul-boot \
-        "$ISO_DIR" 2>/dev/null
-elif command -v genisoimage &>/dev/null; then
-    genisoimage -o "$ISO_OUT" \
-        -efi-boot efi.img \
+        -V "AC_NATIVE" \
+        -J -joliet-long \
+        -append_partition 2 0xef "$EFI_IMG" \
+        -e --interval:appended_partition_2:all:: \
         -no-emul-boot \
-        "$ISO_DIR" 2>/dev/null
+        -isohybrid-gpt-basdat \
+        "$ISO_DIR" 2>&1 | grep -v "^xorriso\|^Drive\|^Media" || true
 else
-    # Fallback: raw disk image (dd-able)
-    log "  No ISO tools — creating raw disk image"
+    # Fallback: raw EFI disk image (dd-able)
+    log "  No xorriso — creating raw disk image"
     cp "$EFI_IMG" "$ISO_OUT"
 fi
 
