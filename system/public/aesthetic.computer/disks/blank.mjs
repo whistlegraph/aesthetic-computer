@@ -81,7 +81,7 @@ async function fetchCheckout(api) {
 }
 
 function paint($) {
-  const { wipe, ink, screen, dark: isDark, poly } = $;
+  const { wipe, ink, screen, dark: isDark, tri } = $;
   frame += 1;
   const w = screen.width;
   const h = screen.height;
@@ -206,20 +206,19 @@ function paint($) {
     // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
     const bezelInset = 0.08;
-    // When lid is open, the far edge (z=2*hd) is visually at the TOP
-    // and the hinge edge (z=0) is at the BOTTOM. So:
-    //   visual TL = far-left, visual TR = far-right
-    //   visual BL = hinge-left, visual BR = hinge-right
-    const screenTL = [-hw + inset, -hh - 0.002, 2 * hd - inset]; // far-left (visual top-left)
-    const screenTR = [hw - inset, -hh - 0.002, 2 * hd - inset];  // far-right (visual top-right)
-    const screenBL = [-hw + inset, -hh - 0.002, inset];           // hinge-left (visual bottom-left)
-    const screenBR = [hw - inset, -hh - 0.002, inset];            // hinge-right (visual bottom-right)
+    // Screen is on the INNER face of the lid (y = +hh in lid local).
+    // When lid is open, far edge (z=2*hd) is visually at the TOP,
+    // hinge edge (z=0) is at the BOTTOM.
+    const screenTL = [-hw + inset, hh + 0.002, 2 * hd - inset];
+    const screenTR = [hw - inset, hh + 0.002, 2 * hd - inset];
+    const screenBL = [-hw + inset, hh + 0.002, inset];
+    const screenBR = [hw - inset, hh + 0.002, inset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelTL = [-hw + bezelInset, -hh - 0.001, 2 * hd - bezelInset];
-    const bezelTR = [hw - bezelInset, -hh - 0.001, 2 * hd - bezelInset];
-    const bezelBL = [-hw + bezelInset, -hh - 0.001, bezelInset];
-    const bezelBR = [hw - bezelInset, -hh - 0.001, bezelInset];
+    const bezelTL = [-hw + bezelInset, hh + 0.001, 2 * hd - bezelInset];
+    const bezelTR = [hw - bezelInset, hh + 0.001, 2 * hd - bezelInset];
+    const bezelBL = [-hw + bezelInset, hh + 0.001, bezelInset];
+    const bezelBR = [hw - bezelInset, hh + 0.001, bezelInset];
 
     const hingeXform = ([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
@@ -248,21 +247,19 @@ function paint($) {
       const facing = min(1, abs(cross) / maxCross);
       const screenAlpha = floor(facing * 220);
 
-      // Bezel (dark border around screen)
+      // Bezel (dark border around screen) — two filled triangles
       const pBTL = project(bTL), pBTR = project(bTR);
       const pBBL = project(bBL), pBBR = project(bBR);
       const bezelColor = isDark ? [30, 30, 32] : [60, 60, 65];
-      ink(bezelColor[0], bezelColor[1], bezelColor[2], screenAlpha).poly(
-        pBTL[0], pBTL[1], pBTR[0], pBTR[1],
-        pBBR[0], pBBR[1], pBBL[0], pBBL[1],
-      );
+      ink(bezelColor[0], bezelColor[1], bezelColor[2], screenAlpha);
+      tri(pBTL[0], pBTL[1], pBTR[0], pBTR[1], pBBR[0], pBBR[1]);
+      tri(pBTL[0], pBTL[1], pBBR[0], pBBR[1], pBBL[0], pBBL[1]);
 
-      // Screen fill (dark background)
+      // Screen fill (dark background) — two filled triangles
       const screenColor = isDark ? [8, 8, 12] : [20, 22, 28];
-      ink(screenColor[0], screenColor[1], screenColor[2], screenAlpha).poly(
-        projTL[0], projTL[1], projTR[0], projTR[1],
-        projBR[0], projBR[1], projBL[0], projBL[1],
-      );
+      ink(screenColor[0], screenColor[1], screenColor[2], screenAlpha);
+      tri(projTL[0], projTL[1], projTR[0], projTR[1], projBR[0], projBR[1]);
+      tri(projTL[0], projTL[1], projBR[0], projBR[1], projBL[0], projBL[1]);
 
       // Screen text
       const textAlpha = floor(facing * 255);
