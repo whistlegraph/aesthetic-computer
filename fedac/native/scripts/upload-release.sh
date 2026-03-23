@@ -3,15 +3,27 @@
 # Publishes: native-notepat-latest.vmlinuz, .sha256, .version, and updates releases.json
 #
 # Usage: ./upload-release.sh [vmlinuz_path]
+#        ./upload-release.sh --iso [iso_path]    # Upload ISO only
 # Credentials auto-loaded from aesthetic-computer-vault/fedac/native/upload.env
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-VMLINUZ="${1:-${SCRIPT_DIR}/../build/vmlinuz}"
-if [ ! -f "$VMLINUZ" ]; then
-  echo "Error: vmlinuz not found at $VMLINUZ" >&2
-  exit 1
+ISO_ONLY=0
+if [ "${1:-}" = "--iso" ]; then
+  ISO_ONLY=1
+  ISO_PATH="${2:-${SCRIPT_DIR}/../build/ac-os.iso}"
+  if [ ! -f "$ISO_PATH" ]; then
+    echo "Error: ISO not found at $ISO_PATH" >&2
+    exit 1
+  fi
+  VMLINUZ="/dev/null"  # not used but needed for cred loading below
+else
+  VMLINUZ="${1:-${SCRIPT_DIR}/../build/vmlinuz}"
+  if [ ! -f "$VMLINUZ" ]; then
+    echo "Error: vmlinuz not found at $VMLINUZ" >&2
+    exit 1
+  fi
 fi
 
 # Credentials — check env (set by ac-os), session cache, plaintext vault, or GPG decrypt
@@ -164,7 +176,23 @@ if command -v node &>/dev/null; then
     | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
 fi
 
+# Upload ISO if available (from --iso flag or alongside vmlinuz)
+if [ "$ISO_ONLY" = "1" ]; then
+  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1)"
+  do_upload "$ISO_PATH" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+  echo "ISO published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+  exit 0
+fi
+
+# Also upload ISO if it exists next to vmlinuz
+ISO_SIBLING="$(dirname "$VMLINUZ")/ac-os.iso"
+if [ -f "$ISO_SIBLING" ]; then
+  echo "  Uploading ISO ($(du -sh "$ISO_SIBLING" | cut -f1))..."
+  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+fi
+
 echo ""
 echo "Release published: $BUILD_NAME ($FULL_VERSION)"
-echo "  ${BASE_URL}/os/native-notepat-latest.vmlinuz"
-echo "  ${BASE_URL}/os/releases.json"
+echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
+echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}releases.json"
+[ -f "$ISO_SIBLING" ] && echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"

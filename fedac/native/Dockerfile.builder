@@ -13,7 +13,7 @@ FROM fedora:43
 RUN dnf install -y --setopt=install_weak_deps=False \
     gcc make cpio lz4 bc perl flex bison diffutils \
     elfutils-libelf-devel openssl-devel \
-    curl jq git tar xz findutils pkgconf-pkg-config zstd \
+    curl jq git tar xz findutils pkgconf-pkg-config zstd xorriso \
     ca-certificates \
     alsa-lib-devel libdrm-devel flite-devel \
     ffmpeg-free-devel \
