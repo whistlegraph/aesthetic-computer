@@ -140,8 +140,8 @@ function paint($) {
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm (each slab ~10mm)
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    // Barrel hinge radius — must be >= slab thickness for 360° clearance
-    const barrelR = hh * 2.5;
+    // Barrel hinge radius — just over slab thickness for tight 360° clearance
+    const barrelR = hh * 1.15;
 
     // Base slab (y: 0 to 2*hh, z: -hd to +hd)
     const base = [
@@ -149,43 +149,51 @@ function paint($) {
       [-hw, 0, hd], [hw, 0, hd], [hw, 2 * hh, hd], [-hw, 2 * hh, hd],
     ];
 
-    // Barrel hinge center: at back edge of base, vertically centered in slab
-    const barrelCY = hh;      // center of base slab thickness
+    // Barrel hinge center: at back edge of base, at the top surface
+    const barrelCY = 0;       // base top surface
     const barrelCZ = -hd;     // at the back edge
 
-    // Lid: local coords, hinge edge at z=0, extends to z=2*hd
-    // y: -2*hh to 0 (sits above barrel center when closed)
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
+
+    // Lid: local coords, hinge edge at z=0, extends to z=2*hd
+    // y: -2*hh to 0 (lid thickness, inner face at y=0)
     const lidLocal = [
       [-hw, -2 * hh, 0], [hw, -2 * hh, 0], [hw, 0, 0], [-hw, 0, 0],
       [-hw, -2 * hh, 2 * hd], [hw, -2 * hh, 2 * hd], [hw, 0, 2 * hd], [-hw, 0, 2 * hd],
     ];
 
-    // Lid transform: rotate around barrel center, then offset by barrelR
-    // The lid's hinge edge orbits the barrel center at radius barrelR
+    // Lid transform: lid's inner face (y=0) starts at barrelR from barrel center
+    // and orbits around it
     const lid = lidLocal.map(([lx, ly, lz]) => {
-      // Offset ly so the lid's inner face (y=0) is at barrelR from center
-      const oy = ly - barrelR;
+      const oy = ly - barrelR; // offset from barrel center
       const ry = oy * cosH - lz * sinH;
       const rz = oy * sinH + lz * cosH;
       return [lx, ry + barrelCY, rz + barrelCZ];
     });
 
-    // Hinge barrels — wider than tall, flush with base back edge
-    const barrelW = 0.25;       // wide
-    const barrelH = hh * 1.8;   // shorter than wide
-    const barrelD = hh * 1.5;
+    // Hinge barrels — wider than tall, rotate WITH the lid
+    const barrelW = 0.28;       // wide
+    const barrelH = hh * 1.6;   // shorter than wide
+    const barrelD = hh * 1.4;
     const barrelPositions = [-hw * 0.65, hw * 0.65];
     const hingeVerts = [];
     for (const bx of barrelPositions) {
       const bw = barrelW / 2, bh = barrelH / 2, bd = barrelD / 2;
-      const cy = barrelCY, cz = barrelCZ;
-      hingeVerts.push([
-        [bx - bw, cy - bh, cz - bd], [bx + bw, cy - bh, cz - bd],
-        [bx + bw, cy + bh, cz - bd], [bx - bw, cy + bh, cz - bd],
-        [bx - bw, cy - bh, cz + bd], [bx + bw, cy - bh, cz + bd],
-        [bx + bw, cy + bh, cz + bd], [bx - bw, cy + bh, cz + bd],
-      ]);
+      // Barrel local coords (centered on barrel axis)
+      const barrelLocal = [
+        [bx - bw, -bh, -bd], [bx + bw, -bh, -bd],
+        [bx + bw, bh, -bd], [bx - bw, bh, -bd],
+        [bx - bw, -bh, bd], [bx + bw, -bh, bd],
+        [bx + bw, bh, bd], [bx - bw, bh, bd],
+      ];
+      // Rotate barrels with the lid (half the lid angle — they sit at the joint)
+      const halfA = hingeAngle * 0.5;
+      const cH = cos(halfA), sH = sin(halfA);
+      hingeVerts.push(barrelLocal.map(([vx, vy, vz]) => {
+        const ry = vy * cH - vz * sH;
+        const rz = vy * sH + vz * cH;
+        return [vx, ry + barrelCY, rz + barrelCZ];
+      }));
     }
 
     const halfEdges = [
