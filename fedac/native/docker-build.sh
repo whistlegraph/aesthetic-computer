@@ -334,8 +334,8 @@ scripts/config --disable DRM_VIRTIO_GPU
 scripts/config --enable DRM_SIMPLEDRM
 make olddefconfig 2>&1 | tail -1
 
-# Clean initramfs object to force re-embed
-rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
+# Clean stale objects to avoid config mismatch errors
+make clean 2>/dev/null || true
 
 # Build
 log "  Compiling ($(nproc) cores)..."
