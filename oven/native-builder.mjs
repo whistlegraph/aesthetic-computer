@@ -222,9 +222,48 @@ async function runBuildJob(job) {
         process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
     });
 
-    // Cleanup
+    // Cleanup C build
     try { await fs.unlink(vmlinuzOut); } catch {}
     try { await fs.unlink(cidFile); } catch {}
+
+    job.percent = 85;
+
+    // Phase 5: Build CL variant (non-blocking — failure doesn't fail the job)
+    const clChanged = (job.changedPaths || "").includes("fedac/native/cl/");
+    if (clChanged) {
+      try {
+        addLogLine(job, "stdout", "Phase 5: Building Common Lisp variant...");
+        const clCidFile = `/tmp/oven-cl-cid-${job.id}`;
+        const clVmlinuzOut = `/tmp/oven-cl-vmlinuz-${job.id}`;
+        const clBuildName = `cl-${job.ref.slice(0, 7)}`;
+
+        await runPhase(job, "cl-build", "bash", ["-c", [
+          `CID=$(docker create -e AC_BUILD_NAME=${clBuildName} -e AC_BUILD_LISP=1 ac-os-builder)`,
+          `echo $CID > ${clCidFile}`,
+          `docker start -a $CID`,
+        ].join(" && ")], repoDir);
+
+        const clCid = (await fs.readFile(clCidFile, "utf8")).trim();
+        await runPhase(job, "cl-extract", "bash", ["-c",
+          `docker cp ${clCid}:/tmp/ac-build/vmlinuz ${clVmlinuzOut} && docker rm ${clCid} >/dev/null`
+        ], repoDir);
+
+        // Upload CL variant to separate OTA channel
+        addLogLine(job, "stdout", "Uploading CL variant to CDN...");
+        const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
+        await runPhase(job, "cl-upload", "bash", [uploadScript, clVmlinuzOut], NATIVE_DIR, {
+          DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
+          DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
+          OTA_CHANNEL: "cl",  // uploads to os/cl-native-notepat-latest.vmlinuz
+        });
+
+        try { await fs.unlink(clVmlinuzOut); } catch {}
+        try { await fs.unlink(clCidFile); } catch {}
+        addLogLine(job, "stdout", "CL variant uploaded successfully");
+      } catch (clErr) {
+        addLogLine(job, "stderr", `CL build failed (non-fatal): ${clErr.message}`);
+      }
+    }
 
     job.status = "success";
     job.stage = "done";
@@ -265,6 +304,7 @@ export async function startNativeBuild(options = {}) {
     process: null,
     exitCode: null,
     error: null,
+    changedPaths: options.changed_paths || "",
     logs: [],
   };
 
