@@ -205,6 +205,13 @@ async function runBuildJob(job) {
     job.percent = 0;
 
     const repoDir = path.resolve(NATIVE_DIR, "../..");
+
+    // Resolve ref from git HEAD if manual trigger didn't provide one
+    if (!job.ref || job.ref === "unknown") {
+      const headRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
+      if (headRef) job.ref = headRef;
+    }
+
     const buildName = await runSync("bash", ["scripts/build-name.sh"], NATIVE_DIR) || `oven-${job.ref.slice(0, 7)}`;
     const commitMsg = await runSync("git", ["log", "-1", "--format=%s", job.ref], repoDir) || "";
     job.buildName = buildName;
