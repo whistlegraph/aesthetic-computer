@@ -23,6 +23,24 @@ GIT_HASH="${AC_GIT_HASH:-$(cd "$SRC" 2>/dev/null && git rev-parse --short HEAD 2
 BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
 BUILD_NAME="${AC_BUILD_NAME:-docker-build}"
 HANDLE="${AC_HANDLE:-jeffrey}"
+KERNEL_JOBS="${AC_KERNEL_JOBS:-$(nproc)}"
+
+show_kernel_error_context() {
+    local log_file="$1"
+    local line
+    local start
+    local end
+
+    line=$(grep -n -m 1 -E '(^|[^[:alpha:]])error:|Error [0-9]+|No rule to make target|undefined reference' "$log_file" | cut -d: -f1 || true)
+    if [ -n "$line" ]; then
+        start=$((line > 80 ? line - 80 : 1))
+        end=$((line + 160))
+        err "  Kernel error context (lines ${start}-${end}):"
+        sed -n "${start},${end}p" "$log_file" >&2
+    fi
+    err "  Kernel build tail (last 220 lines):"
+    tail -220 "$log_file" >&2 || true
+}
 
 log "Building $BUILD_NAME ($GIT_HASH)"
 
@@ -321,7 +339,9 @@ cp "$BUILD/initramfs.cpio.lz4" "$LINUX_DIR/initramfs.cpio.lz4"
 
 # Configure — force-disable bloated GPU drivers that olddefconfig enables
 cd "$LINUX_DIR"
-make olddefconfig 2>&1 | tail -3
+KCFG_LOG="$BUILD/kernel-olddefconfig.log"
+make olddefconfig >"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed"; tail -80 "$KCFG_LOG" >&2; exit 1; }
+tail -3 "$KCFG_LOG" || true
 
 # Strip GPU drivers that Fedora defaults enable (they cause KALLSYMS overflow)
 scripts/config --disable DRM_AMDGPU
@@ -332,16 +352,28 @@ scripts/config --disable DRM_BOCHS
 scripts/config --disable DRM_CIRRUS_QEMU
 scripts/config --disable DRM_VIRTIO_GPU
 scripts/config --enable DRM_SIMPLEDRM
-make olddefconfig 2>&1 | tail -1
+make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig (post-config) failed"; tail -120 "$KCFG_LOG" >&2; exit 1; }
+tail -1 "$KCFG_LOG" || true
 
 # Clean stale objects to avoid config mismatch errors
 make clean 2>/dev/null || true
 
 # Build
-log "  Compiling ($(nproc) cores)..."
-make -j$(nproc) KALLSYMS_EXTRA_PASS=1 bzImage 2>&1 | tail -3
+log "  Compiling (${KERNEL_JOBS} cores)..."
+KERNEL_LOG="$BUILD/kernel-build.log"
+if ! make -j"${KERNEL_JOBS}" KALLSYMS_EXTRA_PASS=1 bzImage >"$KERNEL_LOG" 2>&1; then
+    err "Kernel compile failed while building bzImage."
+    show_kernel_error_context "$KERNEL_LOG"
+    exit 1
+fi
+tail -3 "$KERNEL_LOG" || true
 
 # Copy output
+if [ ! -f arch/x86/boot/bzImage ]; then
+    err "Kernel build completed but arch/x86/boot/bzImage is missing."
+    show_kernel_error_context "$KERNEL_LOG"
+    exit 1
+fi
 cp arch/x86/boot/bzImage "$BUILD/vmlinuz"
 cp arch/x86/boot/bzImage "$OUT/vmlinuz" 2>/dev/null || true
 
