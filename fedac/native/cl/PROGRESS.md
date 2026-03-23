@@ -1,4 +1,4 @@
-# AC Native OS — Common Lisp Edition Progress
+# AC Native OS — Common Lisp Edition Progress (2026.03.23)
 
 ## Overview
 
