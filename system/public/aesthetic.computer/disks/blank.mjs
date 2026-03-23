@@ -146,7 +146,7 @@ function paint($) {
 
     // Lid centered on base midpoint (y=hh) so both halves align when flat
     // At 180°: y flips around pivot → lid centered at y=hh, same as base center
-    const lidMid = hh; // base midpoint
+    const lidMid = -hh; // flips to +hh at 180° to match base midpoint
     const lidLocal = [
       [-hw, lidMid + lidThick / 2, gap], [hw, lidMid + lidThick / 2, gap],
       [hw, lidMid - lidThick / 2, gap], [-hw, lidMid - lidThick / 2, gap],
