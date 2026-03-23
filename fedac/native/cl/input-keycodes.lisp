@@ -1,14 +1,18 @@
-;;; Linux input keycodes
+;;; Linux input keycodes — full QWERTY for notepat
 
 (in-package :ac-native.input)
 
+;;; Event types
+(defconstant +ev-key+ 1)
+(defconstant +ev-rel+ 2)
+(defconstant +ev-abs+ 3)
+
+;;; Special keys
 (defconstant +key-esc+ 1)
-(defconstant +key-1+ 2)
 (defconstant +key-backspace+ 14)
 (defconstant +key-tab+ 15)
 (defconstant +key-enter+ 28)
 (defconstant +key-leftctrl+ 29)
-(defconstant +key-a+ 30)
 (defconstant +key-space+ 57)
 (defconstant +key-f1+ 59)
 (defconstant +key-up+ 103)
@@ -18,11 +22,56 @@
 (defconstant +key-home+ 102)
 (defconstant +key-end+ 107)
 (defconstant +key-power+ 116)
+(defconstant +key-minus+ 12)
+(defconstant +key-equal+ 13)
 
-;;; Event types
-(defconstant +ev-key+ 1)
-(defconstant +ev-rel+ 2)
-(defconstant +ev-abs+ 3)
+;;; Number row (for octave selection)
+(defconstant +key-1+ 2)
+(defconstant +key-2+ 3)
+(defconstant +key-3+ 4)
+(defconstant +key-4+ 5)
+(defconstant +key-5+ 6)
+(defconstant +key-6+ 7)
+(defconstant +key-7+ 8)
+(defconstant +key-8+ 9)
+(defconstant +key-9+ 10)
+(defconstant +key-0+ 11)
+
+;;; QWERTY top row
+(defconstant +key-q+ 16)
+(defconstant +key-w+ 17)
+(defconstant +key-e+ 18)
+(defconstant +key-r+ 19)
+(defconstant +key-t+ 20)
+(defconstant +key-y+ 21)
+(defconstant +key-u+ 22)
+(defconstant +key-i+ 23)
+(defconstant +key-o+ 24)
+(defconstant +key-p+ 25)
+(defconstant +key-leftbrace+ 26)
+(defconstant +key-rightbrace+ 27)
+
+;;; QWERTY home row
+(defconstant +key-a+ 30)
+(defconstant +key-s+ 31)
+(defconstant +key-d+ 32)
+(defconstant +key-f+ 33)
+(defconstant +key-g+ 34)
+(defconstant +key-h+ 35)
+(defconstant +key-j+ 36)
+(defconstant +key-k+ 37)
+(defconstant +key-l+ 38)
+(defconstant +key-semicolon+ 39)
+(defconstant +key-apostrophe+ 40)
+
+;;; QWERTY bottom row
+(defconstant +key-z+ 44)
+(defconstant +key-x+ 45)
+(defconstant +key-c+ 46)
+(defconstant +key-v+ 47)
+(defconstant +key-b+ 48)
+(defconstant +key-n+ 49)
+(defconstant +key-m+ 50)
 
 ;;; struct input_event (24 bytes on x86-64)
 (cffi:defcstruct input-event

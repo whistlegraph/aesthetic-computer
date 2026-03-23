@@ -14,17 +14,77 @@
   (next-id 1 :type fixnum)
   (lock (bordeaux-threads:make-lock "audio")))
 
+(defun unmute-all-mixers (card-name)
+  "Open the ALSA mixer for CARD-NAME, unmute all playback switches, set volumes to max."
+  (ac-native.util:ac-log "[audio] unmuting mixer: ~A~%" card-name)
+  (cffi:with-foreign-object (mixer-ptr :pointer)
+    (when (zerop (cffi:foreign-funcall "snd_mixer_open"
+                   :pointer mixer-ptr :int 0 :int))
+      (let ((mixer (cffi:mem-ref mixer-ptr :pointer)))
+        (cffi:foreign-funcall "snd_mixer_attach"
+          :pointer mixer :string card-name :int)
+        (cffi:foreign-funcall "snd_mixer_selem_register"
+          :pointer mixer :pointer (cffi:null-pointer) :pointer (cffi:null-pointer) :int)
+        (cffi:foreign-funcall "snd_mixer_load" :pointer mixer :int)
+        ;; Iterate all elements
+        (loop for elem = (cffi:foreign-funcall "snd_mixer_first_elem"
+                           :pointer mixer :pointer)
+                then (cffi:foreign-funcall "snd_mixer_elem_next"
+                       :pointer elem :pointer)
+              until (cffi:null-pointer-p elem) do
+          (let ((name (cffi:foreign-funcall "snd_mixer_selem_get_name"
+                        :pointer elem :string)))
+            (when (not (zerop (cffi:foreign-funcall "snd_mixer_selem_is_active"
+                                :pointer elem :int)))
+              ;; Unmute playback switch
+              (when (not (zerop (cffi:foreign-funcall "snd_mixer_selem_has_playback_switch"
+                                  :pointer elem :int)))
+                (cffi:foreign-funcall "snd_mixer_selem_set_playback_switch_all"
+                  :pointer elem :int 1 :int)
+                (ac-native.util:ac-log "[audio] unmuted: ~A~%" name))
+              ;; Set volume to max
+              (when (not (zerop (cffi:foreign-funcall "snd_mixer_selem_has_playback_volume"
+                                  :pointer elem :int)))
+                (cffi:with-foreign-objects ((minv :long) (maxv :long))
+                  (cffi:foreign-funcall "snd_mixer_selem_get_playback_volume_range"
+                    :pointer elem :pointer minv :pointer maxv :int)
+                  (let ((mx (cffi:mem-ref maxv :long)))
+                    (cffi:foreign-funcall "snd_mixer_selem_set_playback_volume_all"
+                      :pointer elem :long mx :int)
+                    (ac-native.util:ac-log "[audio] volume ~A: ~D~%" name mx)))))))
+        (cffi:foreign-funcall "snd_mixer_close" :pointer mixer :int)))))
+
 (defun audio-init ()
   "Initialize ALSA audio output and start the mixing thread."
-  (multiple-value-bind (pcm err) (ac-native.alsa:pcm-open "default")
+  ;; Try multiple devices with retries (HDA codec may not be probed yet)
+  (let ((devices '("hw:0,0" "hw:1,0" "hw:0,1" "hw:1,1"
+                   "plughw:0,0" "plughw:1,0" "default"))
+        (pcm nil)
+        (card-idx 0))
+    (loop for attempt from 0 below 5
+          until pcm do
+      (when (> attempt 0)
+        (ac-native.util:ac-log "[audio] retry ~D/4 — waiting 2s...~%" attempt)
+        (sleep 2))
+      (dolist (dev devices)
+        (multiple-value-bind (handle err) (ac-native.alsa:pcm-open dev)
+          (when handle
+            (ac-native.util:ac-log "[audio] opened: ~A (attempt ~D)~%" dev attempt)
+            (setf pcm handle)
+            ;; Extract card index from device name
+            (let ((pos (position #\: dev)))
+              (when pos
+                (let ((ch (char dev (1+ pos))))
+                  (when (digit-char-p ch)
+                    (setf card-idx (- (char-code ch) (char-code #\0)))))))
+            (return))
+          (when (= attempt 0)
+            (ac-native.util:ac-log "[audio] ~A: ~A~%" dev
+                                    (ac-native.alsa:snd-strerror err))))))
+
     (unless pcm
-      (ac-native.util:ac-log "[audio] failed to open: ~A~%"
-                              (ac-native.alsa:snd-strerror err))
-      ;; Try hw:0,0
-      (multiple-value-setq (pcm err) (ac-native.alsa:pcm-open "hw:0,0"))
-      (unless pcm
-        (ac-native.util:ac-log "[audio] hw:0,0 also failed~%")
-        (return-from audio-init nil)))
+      (ac-native.util:ac-log "[audio] no ALSA device found~%")
+      (return-from audio-init nil))
 
     ;; Set params: S16_LE, stereo, 48kHz, 50ms latency
     (let ((ret (ac-native.alsa:pcm-set-params
@@ -37,6 +97,12 @@
                                 (ac-native.alsa:snd-strerror ret))
         (ac-native.alsa:pcm-close pcm)
         (return-from audio-init nil)))
+
+    ;; Unmute all mixer controls and set volumes to max
+    (handler-case
+        (unmute-all-mixers (format nil "hw:~D" card-idx))
+      (error (e)
+        (ac-native.util:ac-log "[audio] mixer error: ~A~%" e)))
 
     (let ((audio (make-ac-audio :pcm pcm :running t)))
       ;; Init voice slots
