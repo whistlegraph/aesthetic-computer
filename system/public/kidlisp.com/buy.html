@@ -414,16 +414,18 @@
 
     /* ── Tabs ── */
     .tabs {
-      display: flex;
-      align-items: center;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
       gap: 0;
       padding: 0;
       background: var(--bg2);
       border-bottom: 1px solid var(--border);
       overflow: hidden;
+      width: 100%;
     }
     .tab {
-      flex: 1 1 50%;
+      width: 100%;
       min-width: 0;
       padding: 18px 12px;
       font-family: var(--font-fun);
@@ -642,7 +644,7 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="fresh">Shop</button>
-    <button class="tab" data-tab="albums">Keepers</button>
+    <button class="tab" data-tab="albums">Buyers</button>
   </div>
 
   <div class="grid" id="grid">

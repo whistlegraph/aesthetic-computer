@@ -134,6 +134,50 @@
             margin-bottom: 0.5em;
         }
 
+        /* Primary tabs */
+        .bill-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0;
+            margin-bottom: 1.2em;
+            border: 1px solid var(--box-border);
+            background: var(--box-bg);
+            overflow: hidden;
+        }
+
+        .bill-tab {
+            appearance: none;
+            border: none;
+            border-right: 1px solid var(--box-border);
+            background: transparent;
+            color: var(--dim);
+            padding: 0.8em 0.6em;
+            font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+            font-size: 0.95em;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .bill-tab:last-child { border-right: none; }
+        .bill-tab:hover { background: var(--box-bg); color: var(--text); }
+
+        .bill-tab[data-view-target="income"] { color: var(--green); }
+        .bill-tab[data-view-target="needs"] { color: var(--red); }
+
+        .bill-tab[data-view-target="income"].active {
+            background: rgba(107, 203, 119, 0.14);
+            color: var(--green);
+            box-shadow: inset 0 -2px 0 0 var(--green);
+        }
+
+        .bill-tab[data-view-target="needs"].active {
+            background: rgba(239, 68, 68, 0.14);
+            color: var(--red);
+            box-shadow: inset 0 -2px 0 0 var(--red);
+        }
+
+        .bill-section[hidden] { display: none !important; }
+
         /* Give link */
         .give-bumper {
             display: inline-block;
@@ -393,7 +437,7 @@
         .goal-split {
             margin-top: 0.8em;
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 0.45em;
         }
         .goal-item {
@@ -420,6 +464,7 @@
         .goal-item-mac .goal-item-value { color: var(--pink); }
         .goal-item-framework .goal-item-value { color: var(--cyan); }
         .goal-item-buffer .goal-item-value { color: var(--gold); }
+        .goal-item-claude .goal-item-value { color: var(--red); }
 
         body.light-mode .goal-item {
             background: rgba(255, 255, 255, 0.55);
@@ -516,6 +561,7 @@
             .header-row { flex-wrap: wrap; gap: 0.5em; }
             .header-left { gap: 0.4em; }
             .subtitle { font-size: 0.7em; }
+            .bill-tab { font-size: 0.82em; padding: 0.7em 0.5em; }
             .stats { grid-template-columns: 1fr 1fr; }
             .stat-value { font-size: 1.4em; }
             .net-flow { grid-template-columns: 1fr; gap: 0.3em; padding: 0.8em; }
@@ -601,14 +647,21 @@
 
         <hr class="section-divider">
 
+        <div class="bill-tabs" role="tablist" aria-label="Bills sections">
+            <button class="bill-tab" type="button" data-view-target="income" role="tab" aria-selected="false">Income</button>
+            <button class="bill-tab active" type="button" data-view-target="needs" role="tab" aria-selected="true">Needs</button>
+        </div>
+
+        <section class="bill-section" data-view="needs">
+
         <!-- Actions -->
         <h2>priority actions</h2>
 
         <div class="goal-focus">
             <div class="goal-kicker">Current goal</div>
-            <div class="goal-title">replace broken laptops and restore reliable daily development</div>
-            <div class="goal-amount">$2,310 target</div>
-            <p class="goal-sub">Money given right now goes directly to these replacements and setup costs.</p>
+            <div class="goal-title">replace broken laptops + restore Claude Code access for reliable daily development</div>
+            <div class="goal-amount">$2,410 target</div>
+            <p class="goal-sub">Money given right now goes directly to laptop replacements, setup costs, and restoring Claude access.</p>
             <div class="goal-split">
                 <div class="goal-item goal-item-mac">
                     <div class="goal-item-label">macbook-neo</div>
@@ -624,6 +677,11 @@
                     <div class="goal-item-label">tax + setup buffer</div>
                     <div class="goal-item-value">$211</div>
                     <div class="goal-item-note">Adapters, tax, setup margin</div>
+                </div>
+                <div class="goal-item goal-item-claude">
+                    <div class="goal-item-label">claude code max</div>
+                    <div class="goal-item-value">$100</div>
+                    <div class="goal-item-note">Overdue; access currently locked</div>
                 </div>
             </div>
         </div>
@@ -660,6 +718,8 @@
                 <tr><td>framework-12</td><td>DIY i5-1334U, 32GB DDR5, 1TB NVMe, Linux (no Windows license)</td><td class="money">~$1300</td><td class="hide-mobile">Framework config math: $699 base + $405 (32GB) + $196 (1TB).</td></tr>
                 <tr style="color: var(--pink);"><td>wishlist subtotal</td><td>before tax/accessories</td><td class="money">~$2099</td><td class="hide-mobile">Funding target for replacements.</td></tr>
                 <tr><td>wishlist target (+10%)</td><td>tax + adapters + setup margin</td><td class="money">~$2310</td><td class="hide-mobile">10% buffer on subtotal for checkout reality.</td></tr>
+                <tr><td>claude code max restore</td><td>overdue subscription (locked out)</td><td class="money">$100</td><td class="hide-mobile">Immediate tooling access restore.</td></tr>
+                <tr style="color: var(--red);"><td>current goal total</td><td>wishlist target + claude access</td><td class="money">~$2410</td><td class="hide-mobile">What incoming support is currently earmarked for.</td></tr>
             </tbody>
         </table>
         <div class="card">
@@ -678,6 +738,10 @@
             <p><strong>7.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
             <p><strong>8.</strong> Evaluate cost reduction plan — legacy-2016 + Redis + downgrades (~$107/mo savings)</p>
         </div>
+
+        </section>
+
+        <section class="bill-section" data-view="income">
 
         <hr class="section-divider">
 
@@ -753,6 +817,10 @@
                 </table>
             </div>
         </details>
+
+        </section>
+
+        <section class="bill-section" data-view="needs">
 
         <hr class="section-divider">
 
@@ -904,6 +972,8 @@
             </div>
         </details>
 
+        </section>
+
         <div class="footer">
             <span id="footer-date">...</span>
             <span><a href="https://sitemap.aesthetic.computer">sitemap</a> · <a href="https://aesthetic.computer/docs">docs</a> · <a href="https://aesthetic.computer/list">list</a></span>
@@ -930,6 +1000,35 @@
         document.getElementById('title').onclick = () => {
             location.href = 'https://aesthetic.computer';
         };
+
+        // Primary bills tabs
+        const billTabs = Array.from(document.querySelectorAll('.bill-tab'));
+        const billSections = Array.from(document.querySelectorAll('.bill-section'));
+
+        function setBillsView(view) {
+            billTabs.forEach((tab) => {
+                const active = tab.dataset.viewTarget === view;
+                tab.classList.toggle('active', active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+
+            billSections.forEach((section) => {
+                section.hidden = section.dataset.view !== view;
+            });
+
+            try { localStorage.setItem('bills:view', view); } catch (_) {}
+        }
+
+        billTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                setBillsView(tab.dataset.viewTarget);
+            });
+        });
+
+        const savedBillsView = (() => {
+            try { return localStorage.getItem('bills:view'); } catch (_) { return null; }
+        })();
+        setBillsView(savedBillsView === 'income' || savedBillsView === 'needs' ? savedBillsView : 'needs');
 
         // Footer date
         document.getElementById('footer-date').textContent =
