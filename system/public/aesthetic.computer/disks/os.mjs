@@ -308,7 +308,7 @@ function makeButtons(ui) {
 }
 
 function updateVariantBtn(ui) {
-  variantBtn = new ui.TextButton("build: " + VARIANTS[variantIdx].label, { x: 6, y: 0 });
+  variantBtn = new ui.TextButton(VARIANTS[variantIdx].label, { x: 6, y: 0 });
 }
 
 function updateDownloadBtn(ui) {
@@ -325,11 +325,11 @@ function osLabel() {
 
 function updateBootBtn(ui) {
   const piece = BOOT_PIECES[bootPieceIdx];
-  bootBtn = new ui.TextButton("boot: " + piece, { x: 6, y: 0 });
+  bootBtn = new ui.TextButton(piece, { x: 6, y: 0 });
 }
 
 function updateWifiBtn(ui) {
-  wifiBtn = new ui.TextButton("internet: " + (wifiEnabled ? "ON" : "OFF"), { x: 6, y: 0 });
+  wifiBtn = new ui.TextButton(wifiEnabled ? "ON" : "OFF", { x: 6, y: 0 });
 }
 
 function timeAgo(ts) {
@@ -518,9 +518,12 @@ function paint($) {
       }
     }
 
-    // Boot-to selector
+    // Boot-to selector: label + value button
     if (bootBtn) {
-      bootBtn.reposition({ x: btnX(bootBtn), y });
+      const labelW = "boot ".length * charW;
+      ink(...C.bootLabel);
+      $.write("boot", { x: pad, y: y + 4 });
+      bootBtn.reposition({ x: pad + labelW, y });
       bootBtn.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
@@ -533,7 +536,10 @@ function paint($) {
 
     // Build variant selector (only show when CL is available)
     if (variantBtn && clAvailable) {
-      variantBtn.reposition({ x: btnX(variantBtn), y });
+      const labelW = "build ".length * charW;
+      ink(...C.bootLabel);
+      $.write("build", { x: pad, y: y + 4 });
+      variantBtn.reposition({ x: pad + labelW, y });
       variantBtn.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, ...C.bootPiece, 200],
@@ -544,10 +550,13 @@ function paint($) {
       y += variantBtn.height + btnGap;
     }
 
-    // WiFi toggle
+    // WiFi toggle: label + value button
     if (wifiBtn) {
-      wifiBtn.reposition({ x: btnX(wifiBtn), y });
+      const labelW = "internet ".length * charW;
+      ink(...C.bootLabel);
+      $.write("internet", { x: pad, y: y + 4 });
       const wOn = wifiEnabled;
+      wifiBtn.reposition({ x: pad + labelW, y });
       wifiBtn.paint(
         $,
         [C.bootBtnBg, C.bootBtnBorder, ...(wOn ? C.current : [180, 80, 80]), 200],
