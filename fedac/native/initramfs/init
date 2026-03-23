@@ -49,6 +49,70 @@ export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
+export HOME="/tmp"
+
+# ── WiFi auto-connect ──
+# Mount USB EFI partition to read saved credentials
+USB_PART=""
+for p in /dev/sda1 /dev/sdb1 /dev/nvme0n1p1; do
+    if [ -b "$p" ]; then
+        mkdir -p /mnt
+        mount -t vfat "$p" /mnt 2>/dev/null && {
+            if [ -f /mnt/EFI/BOOT/BOOTX64.EFI ]; then USB_PART="$p"; break; fi
+            umount /mnt 2>/dev/null
+        }
+    fi
+done
+
+# Find wireless interface
+WLAN=""
+for d in /sys/class/net/wlan* /sys/class/net/wlp*; do
+    [ -d "$d" ] && WLAN=$(basename "$d") && break
+done
+
+if [ -n "$WLAN" ]; then
+    ip link set "$WLAN" up 2>/dev/null
+    mkdir -p /var/run/wpa_supplicant /etc/wpa_supplicant
+
+    # Build wpa_supplicant config from saved creds or default hotspot
+    WPA_CONF="/etc/wpa_supplicant/wpa_supplicant.conf"
+    cat > "$WPA_CONF" <<WPAEOF
+ctrl_interface=/var/run/wpa_supplicant
+update_config=1
+WPAEOF
+
+    # Read saved WiFi credentials from USB
+    if [ -f /mnt/wifi_creds.json ] && command -v busybox >/dev/null; then
+        # Simple JSON array parse: extract ssid/pass pairs
+        # Format: [{"ssid":"name","pass":"pw"}, ...]
+        cat /mnt/wifi_creds.json | sed 's/},{/}\n{/g' | while read -r line; do
+            SSID=$(echo "$line" | sed -n 's/.*"ssid"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            PASS=$(echo "$line" | sed -n 's/.*"pass"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            if [ -n "$SSID" ] && [ -n "$PASS" ]; then
+                cat >> "$WPA_CONF" <<NETEOF
+network={
+    ssid="$SSID"
+    psk="$PASS"
+}
+NETEOF
+            fi
+        done
+    fi
+
+    # Always add default hotspot
+    cat >> "$WPA_CONF" <<DEFEOF
+network={
+    ssid="aesthetic.computer"
+    psk="aesthetic.computer"
+}
+DEFEOF
+
+    # Start wpa_supplicant in background
+    wpa_supplicant -B -i "$WLAN" -c "$WPA_CONF" 2>/dev/null
+
+    # Start dhclient in background (will get IP when WiFi connects)
+    (sleep 5 && dhclient -nw "$WLAN" 2>/dev/null) &
+fi
 
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 CRASH_COUNT=0
