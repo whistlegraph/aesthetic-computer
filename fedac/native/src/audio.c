@@ -1312,7 +1312,18 @@ void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned
     if (rate > 0) audio->sample_rate = rate;
     __sync_synchronize();
     pthread_mutex_unlock(&audio->lock);
-    ac_log("[sample] loaded %d samples (%d Hz)\n", len, audio->sample_rate);
+    // Log peak value and first few samples for debugging
+    float peak = 0.0f;
+    for (int i = 0; i < len; i++) {
+        float a = fabsf(audio->sample_buf[i]);
+        if (a > peak) peak = a;
+    }
+    ac_log("[sample] loaded %d samples (%d Hz) peak=%.4f first=[%.3f,%.3f,%.3f,%.3f]\n",
+           len, audio->sample_rate, peak,
+           len > 0 ? audio->sample_buf[0] : 0,
+           len > 1 ? audio->sample_buf[1] : 0,
+           len > 2 ? audio->sample_buf[2] : 0,
+           len > 3 ? audio->sample_buf[3] : 0);
 }
 
 // --- Sample playback ---
@@ -1341,8 +1352,9 @@ uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
     sv->id = audio->sample_next_id++;
 
     pthread_mutex_unlock(&audio->lock);
-    fprintf(stderr, "[sample] play freq=%.1f base=%.1f speed=%.4f id=%lu\n",
-            freq, base_freq, sv->speed, (unsigned long)sv->id);
+    ac_log("[sample] play freq=%.1f base=%.1f speed=%.4f rate=%u/%u len=%d id=%lu\n",
+           freq, base_freq, sv->speed, audio->sample_rate, audio->actual_rate,
+           audio->sample_len, (unsigned long)sv->id);
     return sv->id;
 }
 
