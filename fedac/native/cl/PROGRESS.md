@@ -46,6 +46,15 @@ A bare-metal Common Lisp OS runtime for AC Native, using SBCL + CFFI. Boots dire
 - [x] Status bar: wave type, octave, FPS counter
 - [x] ESC triple-press to quit
 - [x] Power button to quit
+- [x] Quick mode (Shift toggles short attack for staccato)
+- [x] Metronome (Space toggle, -/= BPM, clock-synced, pendulum visual)
+- [x] Arrow left/right wave switching
+- [x] Kill voices on octave/wave change (prevents orphaned notes)
+- [x] Wave type selector bar (bottom of screen)
+- [x] Swank REPL server (port 4005, auto-start)
+- [x] IP address display on screen
+- [x] WiFi auto-connect from init (reads saved creds from USB)
+- [x] `ac-os scan` and `ac-os repl` commands for remote development
 
 ### Build System
 - [x] Docker reproducible build (Dockerfile.builder)
@@ -56,6 +65,7 @@ A bare-metal Common Lisp OS runtime for AC Native, using SBCL + CFFI. Boots dire
 ## What's Next
 
 ### Short Term
+- [ ] Audio: mixer unmute verification (silent on some boots)
 - [ ] Audio: sample recording/playback (microphone capture + sample bank)
 - [ ] Audio: echo/room effect
 - [ ] Audio: pitch shift (trackpad or slider)
