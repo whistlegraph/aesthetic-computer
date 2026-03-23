@@ -138,52 +138,53 @@ function paint($) {
     const to = keyframes[(phase + 1) % totalPhases];
     const hingeAngle = from + ease * (to - from);
 
-    // Half-box dimensions (proportional to ThinkPad Yoga 11e: ~290mm × 202mm × 22mm)
+    // Dimensions from spec: 293mm × 207mm × 19.9mm (each slab ~10mm)
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    // Hinge arm length — offsets the lid's pivot outward from the base
-    const hingeR = hh * 3.5; // enough clearance for 360° rotation
+    // Barrel hinge radius — must be >= slab thickness for 360° clearance
+    const barrelR = hh * 2.5;
 
-    // Base (bottom slab, y from 0 to 2*hh)
+    // Base slab (y: 0 to 2*hh, z: -hd to +hd)
     const base = [
       [-hw, 0, -hd], [hw, 0, -hd], [hw, 2 * hh, -hd], [-hw, 2 * hh, -hd],
       [-hw, 0, hd], [hw, 0, hd], [hw, 2 * hh, hd], [-hw, 2 * hh, hd],
     ];
 
-    // Lid (top slab, local y from -2*hh to 0, local z from 0 to 2*hd)
-    // Hinge arm: two small links from base back-top to lid pivot
-    // The lid pivot is offset by hingeR above the base top at the back edge
+    // Barrel hinge center: at back edge of base, vertically centered in slab
+    const barrelCY = hh;      // center of base slab thickness
+    const barrelCZ = -hd;     // at the back edge
+
+    // Lid: local coords, hinge edge at z=0, extends to z=2*hd
+    // y: -2*hh to 0 (sits above barrel center when closed)
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
-
-    // Hinge pivot in world space: above the base top-back corner
-    const pivotY = -hingeR;
-    const pivotZ = -hd;
-
     const lidLocal = [
       [-hw, -2 * hh, 0], [hw, -2 * hh, 0], [hw, 0, 0], [-hw, 0, 0],
       [-hw, -2 * hh, 2 * hd], [hw, -2 * hh, 2 * hd], [hw, 0, 2 * hd], [-hw, 0, 2 * hd],
     ];
+
+    // Lid transform: rotate around barrel center, then offset by barrelR
+    // The lid's hinge edge orbits the barrel center at radius barrelR
     const lid = lidLocal.map(([lx, ly, lz]) => {
-      const ry = ly * cosH - lz * sinH;
-      const rz = ly * sinH + lz * cosH;
-      return [lx, ry + pivotY, rz + pivotZ];
+      // Offset ly so the lid's inner face (y=0) is at barrelR from center
+      const oy = ly - barrelR;
+      const ry = oy * cosH - lz * sinH;
+      const rz = oy * sinH + lz * cosH;
+      return [lx, ry + barrelCY, rz + barrelCZ];
     });
 
-    // Hinge barrels (two small boxes connecting base to lid pivot)
-    const barrelW = 0.15;
-    const barrelPositions = [-hw * 0.6, hw * 0.6]; // left and right barrel
+    // Hinge barrels — wider than tall, flush with base back edge
+    const barrelW = 0.25;       // wide
+    const barrelH = hh * 1.8;   // shorter than wide
+    const barrelD = hh * 1.5;
+    const barrelPositions = [-hw * 0.65, hw * 0.65];
     const hingeVerts = [];
     for (const bx of barrelPositions) {
-      // Each barrel goes from base top-back to lid pivot point
-      const bHalf = barrelW / 2;
-      // Base attachment: at base top (y=0), back edge (z=-hd)
-      const by0 = 0, bz0 = -hd;
-      // Lid attachment: at pivot (y=pivotY, z=pivotZ)
-      const by1 = pivotY, bz1 = pivotZ;
+      const bw = barrelW / 2, bh = barrelH / 2, bd = barrelD / 2;
+      const cy = barrelCY, cz = barrelCZ;
       hingeVerts.push([
-        [bx - bHalf, by0, bz0 - bHalf], [bx + bHalf, by0, bz0 - bHalf],
-        [bx + bHalf, by1, bz1 - bHalf], [bx - bHalf, by1, bz1 - bHalf],
-        [bx - bHalf, by0, bz0 + bHalf], [bx + bHalf, by0, bz0 + bHalf],
-        [bx + bHalf, by1, bz1 + bHalf], [bx - bHalf, by1, bz1 + bHalf],
+        [bx - bw, cy - bh, cz - bd], [bx + bw, cy - bh, cz - bd],
+        [bx + bw, cy + bh, cz - bd], [bx - bw, cy + bh, cz - bd],
+        [bx - bw, cy - bh, cz + bd], [bx + bw, cy - bh, cz + bd],
+        [bx + bw, cy + bh, cz + bd], [bx - bw, cy + bh, cz + bd],
       ]);
     }
 
@@ -356,11 +357,12 @@ function paint($) {
     const bezelBL = [-hw + bezelInset, 0.001, bezelInset];
     const bezelBR = [hw - bezelInset, 0.001, bezelInset];
 
-    // Same transform as lid vertices
+    // Same transform as lid vertices (orbit barrel center at barrelR)
     const hingeXform = ([lx, ly, lz]) => {
-      const ry = ly * cosH - lz * sinH;
-      const rz = ly * sinH + lz * cosH;
-      return [lx, ry + pivotY, rz + pivotZ];
+      const oy = ly - barrelR;
+      const ry = oy * cosH - lz * sinH;
+      const rz = oy * sinH + lz * cosH;
+      return [lx, ry + barrelCY, rz + barrelCZ];
     };
     const sTL = hingeXform(screenTL), sTR = hingeXform(screenTR);
     const sBL = hingeXform(screenBL), sBR = hingeXform(screenBR);
