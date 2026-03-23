@@ -5268,47 +5268,47 @@ function paint($) {
 
     // 🟢 KidLisp.com button centered at bottom (between paste and enter buttons)
     const kidlispBtnText = "Edit on KidLisp.com";
-    
+
     // Get paste and enter button positions to center between them
     const pasteBox = $.system.prompt.input?.paste?.btn?.box;
     const enterBox = $.system.prompt.input?.enter?.btn?.box;
-    
+
     // Calculate center position between paste (left) and enter (right) buttons
     let kidlispBtnX, kidlispBtnY;
+    // TextButtonSmall: 4px per char + 2px left + 2px right padding
+    const btnWidth = kidlispBtnText.length * 4 + 4;
     if (pasteBox && enterBox) {
       // Position horizontally centered between paste's right edge and enter's left edge
       const gapStart = pasteBox.x + pasteBox.w;
       const gapEnd = enterBox.x;
       const gapCenter = gapStart + (gapEnd - gapStart) / 2;
-      const btnWidth = kidlispBtnText.length * 4 + 4; // MatrixChunky8: 4px per char + 4px padding
       kidlispBtnX = Math.floor(gapCenter - btnWidth / 2);
       kidlispBtnY = pasteBox.y; // Same Y position as the bottom buttons
     } else {
       // Fallback to bottom center if buttons not available
-      const btnWidth = kidlispBtnText.length * 4 + 4;
       kidlispBtnX = Math.floor(screen.width / 2 - btnWidth / 2);
       kidlispBtnY = screen.height - 18;
     }
-    
+
     if (!kidlispBtn) {
-      kidlispBtn = new $.ui.TextButton(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
+      kidlispBtn = new $.ui.TextButtonSmall(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
       kidlispBtn.stickyScrubbing = true;
     } else {
       kidlispBtn.reposition({ x: kidlispBtnX, y: kidlispBtnY }, kidlispBtnText);
       kidlispBtn.btn.disabled = false;
     }
-    
+
     // Paint the button with rainbow cycling colors (like GIVE button) + blinking
     const kidlispBtnBox = kidlispBtn.btn.box;
     const isKidlispBtnDown = kidlispBtn.btn.down;
     const isKidlispBtnOver = kidlispBtn.btn.over;
-    
+
     // 🌈 Rainbow cycling colors for attention-seeking effect
     const klT = performance.now() / 1000;
     const klHue = (klT * 60) % 360; // Cycle through hues
     const klPulse = Math.sin(klT * 4) * 0.5 + 0.5; // Pulsing effect (0-1)
     const klBlink = Math.floor(klT * 3) % 2; // Blink on/off 3 times per second
-    
+
     // Convert HSL to RGB
     const klHslToRgb = (h, s, l) => {
       h /= 360; s /= 100; l /= 100;
@@ -5331,19 +5331,12 @@ function paint($) {
       }
       return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
     };
-    
+
     // Bright saturated fill that cycles through rainbow
     const klFillColor = klHslToRgb(klHue, 90, 40 + klPulse * 15);
     const klTextColor = klHslToRgb((klHue + 180) % 360, 100, 85); // Complementary color for text
     const klOutlineColor = klHslToRgb((klHue + 120) % 360, 100, 60); // Triadic color for outline
-    
-    // Manually size the button box to fit the text tightly (reduce right padding)
-    const textWidth = kidlispBtnText.length * 4; // MatrixChunky8: 4px per char
-    const btnPadX = 2; // Tighter horizontal padding
-    const btnPadY = 2; // Tighter vertical padding  
-    kidlispBtnBox.w = textWidth + btnPadX * 2;
-    kidlispBtnBox.h = 7 + btnPadY * 2; // MatrixChunky8 height is 7px
-    
+
     // Background - rainbow cycling with blink effect
     if (klBlink || isKidlispBtnOver || isKidlispBtnDown) {
       const bgColor = isKidlispBtnDown ? [klFillColor[0] + 40, klFillColor[1] + 40, klFillColor[2] + 40] : klFillColor;
@@ -5351,12 +5344,12 @@ function paint($) {
     } else {
       ink(20, 20, 30).box(kidlispBtnBox); // Dark background during "off" blink
     }
-    
+
     // Animated outline
     ink(...klOutlineColor).box(kidlispBtnBox, "outline");
-    
-    // Text with complementary color (tighter positioning)
-    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + btnPadX, y: kidlispBtnBox.y + btnPadY }, undefined, undefined, false, "MatrixChunky8");
+
+    // Text with complementary color
+    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 2, y: kidlispBtnBox.y + 2 }, undefined, undefined, false, "MatrixChunky8");
 
     // Keep animating
     $.needsPaint();
