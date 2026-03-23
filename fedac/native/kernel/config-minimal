@@ -1156,8 +1156,8 @@ CONFIG_PREVENT_FIRMWARE_BUILD=y
 CONFIG_FW_LOADER=y
 CONFIG_FW_LOADER_PAGED_BUF=y
 CONFIG_FW_LOADER_SYSFS=y
-CONFIG_EXTRA_FIRMWARE=""
-CONFIG_EXTRA_FIRMWARE_DIR=""
+CONFIG_EXTRA_FIRMWARE="i915/glk_dmc_ver1_04.bin i915/kbl_dmc_ver1_04.bin iwlwifi-9260-th-b0-jf-b0-46.ucode iwlwifi-cc-a0-77.ucode iwlwifi-QuZ-a0-hr-b0-77.ucode iwlwifi-QuZ-a0-jf-b0-77.ucode"
+CONFIG_EXTRA_FIRMWARE_DIR="/workspaces/aesthetic-computer/fedac/native/build/firmware"
 CONFIG_FW_LOADER_USER_HELPER=y
 # CONFIG_FW_LOADER_USER_HELPER_FALLBACK is not set
 CONFIG_FW_LOADER_COMPRESS=y

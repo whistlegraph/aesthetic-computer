@@ -1,5 +1,9 @@
 #!/bin/sh
+<<<<<<< Updated upstream
 # AC Native OS init — DRM direct boot with crash recovery
+=======
+# AC Native OS init — simple DRM direct boot (proven working on all ThinkPads)
+>>>>>>> Stashed changes
 
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
