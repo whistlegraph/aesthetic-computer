@@ -73,9 +73,9 @@
         .header-row {
             display: flex;
             align-items: baseline;
-            justify-content: space-between;
+            justify-content: flex-start;
             gap: 1em;
-            margin-bottom: 1.5em;
+            margin-bottom: 0.8em;
         }
 
         .header-left {
@@ -192,6 +192,14 @@
             background: var(--pink);
             color: white;
             text-decoration: none;
+        }
+
+        .needs-support {
+            display: flex;
+            align-items: center;
+            gap: 0.6em;
+            flex-wrap: wrap;
+            margin-bottom: 1em;
         }
 
         /* Alerts */
@@ -575,6 +583,7 @@
             .header-left { gap: 0.4em; }
             .subtitle { font-size: 0.7em; }
             .bill-tab { font-size: 0.82em; padding: 0.7em 0.5em; }
+            .needs-support { align-items: flex-start; }
             .stats { grid-template-columns: 1fr 1fr; }
             .stat-value { font-size: 1.4em; }
             .net-flow { grid-template-columns: 1fr; gap: 0.3em; padding: 0.8em; }
@@ -603,14 +612,11 @@
                 <h1 id="title">bills</h1>
                 <div class="subtitle">aesthetic.computer — cash flow</div>
             </div>
-            <div class="sponsor-badge">
-                <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
-            </div>
         </div>
 
-        <!-- Give link -->
-        <div style="text-align: center; margin-bottom: 1.5em;">
-            <a class="give-bumper" href="https://give.aesthetic.computer">give.aesthetic.computer</a>
+        <div class="bill-tabs" role="tablist" aria-label="Bills sections">
+            <button class="bill-tab" type="button" data-view-target="income" role="tab" aria-selected="false">Income</button>
+            <button class="bill-tab active" type="button" data-view-target="needs" role="tab" aria-selected="true">Needs</button>
         </div>
 
         <!-- Alerts -->
@@ -660,12 +666,13 @@
 
         <hr class="section-divider">
 
-        <div class="bill-tabs" role="tablist" aria-label="Bills sections">
-            <button class="bill-tab" type="button" data-view-target="income" role="tab" aria-selected="false">Income</button>
-            <button class="bill-tab active" type="button" data-view-target="needs" role="tab" aria-selected="true">Needs</button>
-        </div>
-
         <section class="bill-section" data-view="needs">
+        <div class="needs-support">
+            <a class="give-bumper" href="https://give.aesthetic.computer">give.aesthetic.computer</a>
+            <div class="sponsor-badge">
+                <iframe src="https://github.com/sponsors/whistlegraph/button" title="Sponsor whistlegraph" height="32" width="114" style="border: 0;"></iframe>
+            </div>
+        </div>
 
         <!-- Actions -->
         <h2>priority actions</h2>
