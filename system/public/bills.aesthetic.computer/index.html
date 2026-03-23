@@ -762,7 +762,7 @@
             <div class="stat-box">
                 <div class="stat-label">fees earned</div>
                 <div class="stat-value loading" id="keeps-fees" style="color: var(--green);">...</div>
-                <div class="stat-sub">2.5 XTZ / mint</div>
+                <div class="stat-sub" id="keeps-fees-sub">2.5 XTZ / mint</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">minted</div>
@@ -780,10 +780,13 @@
                 <table>
                     <tbody>
                         <tr><td>contract</td><td><code id="keeps-contract">...</code></td></tr>
-                        <tr><td>network</td><td>Tezos mainnet</td></tr>
+                        <tr><td>network</td><td id="keeps-network">...</td></tr>
+                        <tr><td>profile/version</td><td id="keeps-profile">...</td></tr>
+                        <tr><td>config source</td><td id="keeps-source">...</td></tr>
                         <tr><td>mint fee</td><td>2.5 XTZ</td></tr>
                         <tr><td>royalties</td><td>10% (9% artist, 1% platform)</td></tr>
-                        <tr><td>marketplace</td><td><a id="keeps-objkt-link" href="#">view on objkt.com</a></td></tr>
+                        <tr><td>marketplace</td><td><a id="keeps-objkt-link" href="#" target="_blank" rel="noopener">view on objkt.com</a></td></tr>
+                        <tr><td>explorer</td><td><a id="keeps-tzkt-link" href="#" target="_blank" rel="noopener">view on tzkt.io</a></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1091,26 +1094,68 @@
         // LIVE DATA: Keeps (Tezos via TzKT API)
         // ═══════════════════════════════════════════════════════════
 
-        const KEEPS_CONTRACT = 'KT1J15kADMuRWh9kJZzosBeRBYPjYr7RvhoN';
+        const DEFAULT_KEEPS_CONTRACT = 'KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB';
+        const KEEPS_CONFIG_URL = '/api/keeps-config?network=mainnet';
+        const KEEPS_CONFIG_FALLBACK_URL = 'https://aesthetic.computer/api/keeps-config?network=mainnet';
         const TZKT_API = 'https://api.tzkt.io';
         const KEEPS_FEE_XTZ = 2.5;
 
-        document.getElementById('keeps-contract').textContent = KEEPS_CONTRACT;
-        document.getElementById('keeps-objkt-link').href =
-            'https://objkt.com/collection/' + KEEPS_CONTRACT;
-
         (async function loadKeeps() {
             try {
+                const keepsContractEl = document.getElementById('keeps-contract');
+                const keepsNetworkEl = document.getElementById('keeps-network');
+                const keepsProfileEl = document.getElementById('keeps-profile');
+                const keepsSourceEl = document.getElementById('keeps-source');
+                const keepsObjktLinkEl = document.getElementById('keeps-objkt-link');
+                const keepsTzktLinkEl = document.getElementById('keeps-tzkt-link');
+
+                let keepsContract = DEFAULT_KEEPS_CONTRACT;
+                let keepsNetwork = 'mainnet';
+                let keepsProfile = 'unknown';
+                let keepsVersion = '';
+                let keepsSource = 'fallback';
+                let objktUrl = 'https://objkt.com/collections/' + keepsContract;
+                let tzktUrl = 'https://tzkt.io/' + keepsContract;
+
+                try {
+                    let configRes = await fetch(KEEPS_CONFIG_URL);
+                    if (!configRes.ok) configRes = await fetch(KEEPS_CONFIG_FALLBACK_URL);
+                    if (configRes.ok) {
+                        const config = await configRes.json();
+                        if (config?.contractAddress) keepsContract = config.contractAddress;
+                        if (config?.network) keepsNetwork = config.network;
+                        if (config?.profile) keepsProfile = config.profile;
+                        if (config?.version) keepsVersion = config.version;
+                        if (config?.source) keepsSource = config.source;
+                        if (config?.objktCollectionUrl) objktUrl = config.objktCollectionUrl;
+                        if (config?.tzktContractUrl) tzktUrl = config.tzktContractUrl;
+                    }
+                } catch (e) {
+                    // fall back to default contract
+                }
+
+                objktUrl = objktUrl.includes('/collection/') || objktUrl.includes('/collections/')
+                    ? objktUrl
+                    : ('https://objkt.com/collections/' + keepsContract);
+                tzktUrl = tzktUrl || ('https://tzkt.io/' + keepsContract);
+
+                if (keepsContractEl) keepsContractEl.textContent = keepsContract;
+                if (keepsNetworkEl) keepsNetworkEl.textContent = `Tezos ${keepsNetwork}`;
+                if (keepsProfileEl) keepsProfileEl.textContent = keepsVersion ? `${keepsProfile} · ${keepsVersion}` : keepsProfile;
+                if (keepsSourceEl) keepsSourceEl.textContent = keepsSource;
+                if (keepsObjktLinkEl) keepsObjktLinkEl.href = objktUrl;
+                if (keepsTzktLinkEl) keepsTzktLinkEl.href = tzktUrl;
+
                 // Fetch contract storage for token count
-                const storageRes = await fetch(TZKT_API + '/v1/contracts/' + KEEPS_CONTRACT + '/storage');
+                const storageRes = await fetch(TZKT_API + '/v1/contracts/' + keepsContract + '/storage');
                 const storage = storageRes.ok ? await storageRes.json() : null;
 
                 // Fetch token holders
-                const holdersRes = await fetch(TZKT_API + '/v1/tokens?contract=' + KEEPS_CONTRACT + '&limit=1000');
+                const holdersRes = await fetch(TZKT_API + '/v1/tokens?contract=' + keepsContract + '&limit=1000');
                 const tokens = holdersRes.ok ? await holdersRes.json() : [];
 
                 // Count unique owners from token holders
-                const ownersRes = await fetch(TZKT_API + '/v1/tokens/balances?token.contract=' + KEEPS_CONTRACT + '&balance.gt=0&limit=1000');
+                const ownersRes = await fetch(TZKT_API + '/v1/tokens/balances?token.contract=' + keepsContract + '&balance.gt=0&limit=1000');
                 const balances = ownersRes.ok ? await ownersRes.json() : [];
                 const uniqueOwners = new Set(balances.map(b => b.account?.address)).size;
 
@@ -1131,15 +1176,34 @@
                 } catch (e) { /* use fallback */ }
 
                 // Fetch total transfer volume
-                const transfersRes = await fetch(TZKT_API + '/v1/operations/transactions?target=' + KEEPS_CONTRACT + '&entrypoint=keep&limit=1000&select=amount');
+                const transfersRes = await fetch(TZKT_API + '/v1/operations/transactions?target=' + keepsContract + '&entrypoint=keep&limit=1000&select=amount');
                 let totalVolumeXTZ = feesXTZ; // At minimum, minting fees
                 if (transfersRes.ok) {
                     const amounts = await transfersRes.json();
                     totalVolumeXTZ = amounts.reduce((sum, a) => sum + (a / 1000000), 0);
                 }
 
-                const feesUSD = Math.round(feesXTZ * xtzPrice);
-                keepsIncomeUSD = feesUSD; // Monthly approximation (project is ~1 month old)
+                // Monthly estimate from mints in the last 30 days
+                let monthlyMints = 0;
+                try {
+                    const start30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+                    const mintTransfersRes = await fetch(
+                        TZKT_API + '/v1/tokens/transfers?token.contract=' + keepsContract +
+                        '&timestamp.ge=' + encodeURIComponent(start30d) +
+                        '&limit=1000'
+                    );
+                    if (mintTransfersRes.ok) {
+                        const transfers = await mintTransfersRes.json();
+                        monthlyMints = transfers.filter(t => t.from == null).length;
+                    }
+                } catch (e) { /* keep fallback below */ }
+
+                const monthlyFeesXTZ = monthlyMints * KEEPS_FEE_XTZ;
+                keepsIncomeUSD = Math.round(monthlyFeesXTZ * xtzPrice);
+                if (monthlyMints > 0) {
+                    const keepsFeesSub = document.getElementById('keeps-fees-sub');
+                    if (keepsFeesSub) keepsFeesSub.textContent = `2.5 XTZ / mint · ${monthlyMints} mints in last 30d`;
+                }
 
                 document.getElementById('keeps-volume').textContent =
                     Math.round(totalVolumeXTZ) + ' XTZ';
