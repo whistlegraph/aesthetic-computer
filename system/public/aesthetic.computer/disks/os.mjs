@@ -592,11 +592,15 @@ function paint($) {
     }
   }
 
-  // Build list — 2 rows per build (3 on narrow screens)
+  // Build list — alternating background strips
   const maxNameChars = isNarrow ? Math.floor(wrapW / charW / 3) : 30;
+  const entryH = isNarrow ? 42 : 34;
+  const stripA = dark ? [14, 17, 26] : [232, 234, 240];
+  const stripB = dark ? [18, 22, 32] : [240, 242, 248];
+
   for (let i = 0; i < builds.length; i++) {
-    const entryH = isNarrow ? 32 : 24;
     if (y > h + entryH) break;
+    if (y < -entryH) { y += entryH; continue; }
 
     const b = builds[i];
     const isCurrent = i === 0 && !b.deprecated;
@@ -607,64 +611,84 @@ function paint($) {
     const ago = timeAgo(b.build_ts);
     const msg = b.commit_msg || "";
     const who = b.handle || "";
+    const sizeMB = b.size ? (b.size / 1048576).toFixed(0) + "MB" : "";
 
-    if (y >= -entryH) {
-      const marker = isCurrent ? "> " : "  ";
-      let x = pad;
+    // Alternating strip background
+    const strip = i % 2 === 0 ? stripA : stripB;
+    if (isCurrent) {
+      ink(...(dark ? [12, 24, 16] : [225, 240, 228])).box(0, y, w, entryH);
+    } else if (isDep) {
+      ink(...(dark ? [20, 14, 14] : [245, 235, 235])).box(0, y, w, entryH);
+    } else {
+      ink(...strip).box(0, y, w, entryH);
+    }
 
-      // Row 1: name + hash + time (+ handle on wider screens)
-      ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
-      $.write(marker + name, { x, y });
-      const nameEndX = x + (marker.length + name.length) * charW;
-      x = nameEndX + charW;
+    const ry = y + 4; // row start with padding
+    const marker = isCurrent ? "> " : "  ";
+    let x = pad;
 
-      ink(...(isCurrent ? C.hash : isDep ? C.depHash : C.hashOld));
-      $.write(hash, { x, y });
-      x += (hash.length + 1) * charW;
+    // Row 1: name + hash + time + size
+    ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
+    $.write(marker + name, { x, y: ry });
+    x = pad + (marker.length + name.length) * charW + charW;
 
-      if (ago) {
-        ink(...(isDep ? C.depHash : C.date));
-        $.write(ago, { x, y });
-        x += (ago.length + 1) * charW;
-      }
+    ink(...(isCurrent ? C.hash : isDep ? C.depHash : C.hashOld));
+    $.write(hash, { x, y: ry });
+    x += (hash.length + 1) * charW;
 
-      // Handle: on narrow screens show on row 2, otherwise same row
-      if (who && !isNarrow) {
+    if (ago) {
+      ink(...(isDep ? C.depHash : C.date));
+      $.write(ago, { x, y: ry });
+      x += (ago.length + 1) * charW;
+    }
+
+    if (sizeMB && !isNarrow) {
+      ink(...C.date);
+      $.write(sizeMB, { x, y: ry });
+      x += (sizeMB.length + 1) * charW;
+    }
+
+    if (who && !isNarrow) {
+      ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
+      $.write("@" + who, { x, y: ry });
+    }
+
+    // Strikethrough for deprecated
+    if (isDep) {
+      ink(...C.depStrike, 140);
+      const lineEndX = who && !isNarrow ? x + (who.length + 1) * charW : x;
+      drawLine(pad + charW * 2, ry + 4, lineEndX, ry + 4);
+    }
+
+    // Row 2: commit message (+ handle and size on narrow)
+    const r2y = ry + rowH + 2;
+    if (isNarrow) {
+      let nx = pad + charW * 2;
+      if (who) {
         ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
-        $.write("@" + who, { x, y });
+        $.write("@" + who, { x: nx, y: r2y });
+        nx += (who.length + 2) * charW;
       }
-
-      // Strikethrough line for deprecated builds
-      if (isDep) {
-        ink(...C.depStrike, 140);
-        const lineEndX = who && !isNarrow ? x + (who.length + 1) * charW : x;
-        drawLine(pad + charW * 2, y + 4, lineEndX, y + 4);
-      }
-
-      // Row 2 on narrow: handle; on wide: commit message
-      const msgY = isNarrow ? y + rowH * 2 + 1 : y + rowH + 1;
-      if (isNarrow && who) {
-        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
-        $.write("  @" + who, { x: pad, y: y + rowH + 1 });
-      }
-
-      if (msg) {
-        const maxChars = Math.floor((wrapW - charW) / charW);
-        const display = msg.length > maxChars ? msg.slice(0, maxChars - 1) + "~" : msg;
-        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-        $.write("  " + display, { x: pad, y: msgY });
-        if (isDep) {
-          ink(...C.depStrike, 100);
-          const msgW = Math.min(display.length + 2, maxChars) * charW;
-          drawLine(pad, msgY + 4, pad + msgW, msgY + 4);
-        }
-      }
-
-      if (i < builds.length - 1) {
-        ink(...(isDep ? C.depBar : C.bar), isCurrent ? 40 : 20);
-        drawLine(pad, y + entryH - 2, w - pad, y + entryH - 2);
+      if (sizeMB) {
+        ink(...C.date);
+        $.write(sizeMB, { x: nx, y: r2y });
       }
     }
+
+    // Row 3 (narrow) or Row 2 (wide): commit message
+    const msgY = isNarrow ? r2y + rowH + 1 : r2y;
+    if (msg) {
+      const maxChars = Math.floor((wrapW - charW * 2) / charW);
+      const display = msg.length > maxChars ? msg.slice(0, maxChars - 1) + "~" : msg;
+      ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
+      $.write("  " + display, { x: pad, y: msgY });
+      if (isDep) {
+        ink(...C.depStrike, 100);
+        const msgW = Math.min(display.length + 2, maxChars) * charW;
+        drawLine(pad, msgY + 4, pad + msgW, msgY + 4);
+      }
+    }
+
     y += entryH;
   }
 
@@ -687,6 +711,13 @@ function act({ event: e, needsPaint, download }) {
 
   if (e.is("scroll")) {
     scrollY = Math.max(0, scrollY + (e.delta || 0));
+    needsPaint();
+    return;
+  }
+
+  // Touch drag scrolling
+  if (e.is("draw")) {
+    scrollY = Math.max(0, scrollY - (e.dy || 0));
     needsPaint();
     return;
   }
