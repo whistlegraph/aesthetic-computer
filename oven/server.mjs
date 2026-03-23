@@ -17,7 +17,7 @@ import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
-import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeBuild } from './native-builder.mjs';
+import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeBuild, onNativeBuildProgress } from './native-builder.mjs';
 import { startPoller as startNativeGitPoller, getPollerStatus as getNativePollerStatus } from './native-git-poller.mjs';
 import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersBuild } from './papers-builder.mjs';
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
@@ -3641,6 +3641,16 @@ setNotifyCallback(() => {
 // Wire up grabber log messages to broadcast to clients
 setLogCallback((type, icon, msg) => {
   addServerLog(type, icon, msg);
+});
+
+// Wire up native build progress to broadcast to all WebSocket clients
+onNativeBuildProgress((snapshot) => {
+  if (wss && wss.clients) {
+    const msg = JSON.stringify({ type: 'os:build-progress', build: snapshot });
+    wss.clients.forEach(client => {
+      if (client.readyState === 1) client.send(msg);
+    });
+  }
 });
 
 wss.on('connection', async (ws) => {
