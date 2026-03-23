@@ -1,0 +1,57 @@
+{
+  "lexicon": 1,
+  "id": "computer.aesthetic.paper",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An academic paper published on papers.aesthetic.computer",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "slug", "pdfUrl", "when"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Paper title",
+            "maxLength": 300
+          },
+          "slug": {
+            "type": "string",
+            "description": "Site PDF name (e.g., 'aesthetic-computer-26-arxiv')",
+            "maxLength": 128
+          },
+          "pdfUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to the PDF on papers.aesthetic.computer",
+            "maxLength": 512
+          },
+          "languages": {
+            "type": "array",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 5
+            },
+            "description": "Available language codes (e.g., en, da, es, zh)"
+          },
+          "revisions": {
+            "type": "integer",
+            "description": "Revision count",
+            "minimum": 0
+          },
+          "when": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Publication date (ISO 8601)"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Paper directory key for bidirectional reference",
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  }
+}
