@@ -38,14 +38,31 @@
            #:graph-plot #:graph-line #:graph-box #:graph-circle))
 
 (defpackage :ac-native.font
-  (:use :cl :ac-native.graph :ac-native.framebuffer)
-  (:export #:font-init #:font-draw #:font-measure
-           #:font-draw-matrix #:font-measure-matrix))
+  (:use :cl :ac-native.color :ac-native.graph :ac-native.framebuffer)
+  (:export #:font-init #:font-draw #:font-measure))
 
 (defpackage :ac-native.input
   (:use :cl :cffi :ac-native.syscalls)
   (:export #:input-init #:input-destroy #:input-poll
-           #:make-event #:event-type #:event-key #:event-x #:event-y))
+           #:make-event #:event-type #:event-key #:event-code #:event-x #:event-y
+           ;; Special keys
+           #:+key-esc+ #:+key-backspace+ #:+key-tab+ #:+key-enter+
+           #:+key-leftctrl+ #:+key-space+ #:+key-f1+
+           #:+key-up+ #:+key-down+ #:+key-left+ #:+key-right+
+           #:+key-home+ #:+key-end+ #:+key-power+
+           #:+key-minus+ #:+key-equal+
+           ;; Number row
+           #:+key-1+ #:+key-2+ #:+key-3+ #:+key-4+ #:+key-5+
+           #:+key-6+ #:+key-7+ #:+key-8+ #:+key-9+ #:+key-0+
+           ;; QWERTY rows
+           #:+key-q+ #:+key-w+ #:+key-e+ #:+key-r+ #:+key-t+
+           #:+key-y+ #:+key-u+ #:+key-i+ #:+key-o+ #:+key-p+
+           #:+key-leftbrace+ #:+key-rightbrace+
+           #:+key-a+ #:+key-s+ #:+key-d+ #:+key-f+ #:+key-g+
+           #:+key-h+ #:+key-j+ #:+key-k+ #:+key-l+
+           #:+key-semicolon+ #:+key-apostrophe+
+           #:+key-z+ #:+key-x+ #:+key-c+ #:+key-v+ #:+key-b+
+           #:+key-n+ #:+key-m+))
 
 (defpackage :ac-native.alsa
   (:use :cl :cffi)
