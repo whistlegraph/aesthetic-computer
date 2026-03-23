@@ -177,8 +177,9 @@ function paint($) {
     const drawList = [];
 
     // Base + lid faces
-    const addFaces = (proj, color, tag) => {
-      for (const [a, b, c, d] of faceQuads) {
+    const addFaces = (proj, color, tag, flipWinding) => {
+      for (let [a, b, c, d] of faceQuads) {
+        if (flipWinding) { [a, b, c, d] = [d, c, b, a]; }
         const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
         const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
         if (e1x * e2y - e1y * e2x >= 0) continue;
@@ -186,8 +187,8 @@ function paint($) {
         drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
       }
     };
-    addFaces(projBase, baseColor, "base");
-    addFaces(projLid, lidColor, "lid");
+    addFaces(projBase, baseColor, "base", false);
+    addFaces(projLid, lidColor, "lid", true);
 
     // Keyboard keys (on base top face)
     const kbInset = 0.18;
@@ -209,7 +210,7 @@ function paint($) {
           const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
           const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
           drawList.push({
-            z: kbZ - 0.001, // slightly in front of base top face
+            z: kbZ - 0.05, // draw on top of base face
             type: "key",
             pts: [
               [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t0),
@@ -231,7 +232,7 @@ function paint($) {
     const addEdges = (proj, edgeOffset) => {
       halfEdges.forEach(([a, b], i) => {
         const z = (proj[a][2] + proj[b][2]) / 2;
-        drawList.push({ z: z - 0.01, type: "edge", proj, a, b, i, edgeOffset });
+        drawList.push({ z: z - 0.1, type: "edge", proj, a, b, i, edgeOffset });
       });
     };
     addEdges(projBase, 0);
@@ -243,7 +244,7 @@ function paint($) {
       [80, 200, 255], [255, 120, 80], [180, 80, 255],
     ];
     [...projBase, ...projLid].forEach(([px, py, pz], i) => {
-      drawList.push({ z: pz - 0.02, type: "particle", px, py, i });
+      drawList.push({ z: pz - 0.15, type: "particle", px, py, i });
     });
 
     // Sort back-to-front (highest z = farthest = draw first)
