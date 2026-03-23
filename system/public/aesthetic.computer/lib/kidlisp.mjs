@@ -6678,12 +6678,17 @@ class KidLisp {
           return;
         }
 
-        // �🍞 Scroll operates on whatever buffer is currently active (layer0 or bake buffer)
         // Scroll operates on the current drawing buffer (layer0 or bake layer)
         // This allows effects like scrolling accumulated content
-        
         if (typeof api.scroll === 'function') {
           api.scroll(dx, dy);
+        }
+
+        // 🔥 When burn was called, also scroll persistent layers so the effect
+        // accumulates across frames. burnedBuffer is ephemeral (recreated each
+        // frame), so without this the scroll would be lost on the next frame.
+        if (this.burnedBuffer) {
+          this._scrollPersistentLayers(api, dx, dy);
         }
       },
       spin: (api, args = []) => {
@@ -6700,6 +6705,11 @@ class KidLisp {
           return;
         }
         api.spin(...args);
+
+        // 🔥 When burn was called, also spin persistent layers
+        if (this.burnedBuffer) {
+          this._spinPersistentLayers(api, args);
+        }
       },
       resetSpin: (api, args = []) => {
         api.resetSpin();
@@ -6718,6 +6728,11 @@ class KidLisp {
           return;
         }
         api.smoothSpin(...args);
+
+        // 🔥 When burn was called, also smoothspin persistent layers
+        if (this.burnedBuffer) {
+          this._spinPersistentLayers(api, args, true);
+        }
       },
       sort: (api, args = []) => {
         api.sort(...args);
@@ -6754,6 +6769,22 @@ class KidLisp {
 
         // Execute zoom immediately
         performZoom();
+
+        // 🔥 When burn was called, also zoom persistent layers
+        if (this.burnedBuffer) {
+          const layers = [];
+          if (this.layer0?.pixels) layers.push(this.layer0);
+          if (this.bakes) {
+            for (const b of this.bakes) {
+              if (b?.pixels) layers.push(b);
+            }
+          }
+          for (const buf of layers) {
+            api.page(buf);
+            api.zoom(...args);
+          }
+          api.page(this.burnedBuffer);
+        }
       },
       flip: (api, args = []) => {
         // Request persistence for next frame to allow trails
@@ -8494,12 +8525,7 @@ class KidLisp {
       // Subsequent operations (blur, sharpen, scroll) will operate on it
       // BUT we must leave the graph module pointing to burnedBuffer so those
       // operations modify the correct buffer!
-      
-      // Note: Reset scroll accumulator after burn to ensure clean state
-      if (api.resetScrollState) {
-        api.resetScrollState();
-      }
-      
+
       return 0; // Burned layer is always index 0
     },
       // � Tape function - loads and plays tape recordings as embedded video
@@ -13139,6 +13165,8 @@ class KidLisp {
     this.layer0 = null;
     this.burnedBuffer = null;
     this.displayBuffer = null;
+    this._burnScrollAccX = 0;
+    this._burnScrollAccY = 0;
 
     // CRITICAL: Clear the arrays by setting length to 0, not replacing with new arrays
     // This ensures any existing references to these arrays see the cleared state
@@ -13368,6 +13396,56 @@ class KidLisp {
       height,
       pixels: new Uint8ClampedArray(width * height * 4)
     };
+  }
+
+  // 🔥 Scroll all persistent layers (layer0 + bakes) after burn.
+  // Uses its own accumulator to avoid interfering with graph.mjs's shared one.
+  _scrollPersistentLayers(api, dx, dy) {
+    if (!this._burnScrollAccX) this._burnScrollAccX = 0;
+    if (!this._burnScrollAccY) this._burnScrollAccY = 0;
+    this._burnScrollAccX += dx;
+    this._burnScrollAccY += dy;
+    const intDx = Math.trunc(this._burnScrollAccX);
+    const intDy = Math.trunc(this._burnScrollAccY);
+    this._burnScrollAccX -= intDx;
+    this._burnScrollAccY -= intDy;
+    if (intDx === 0 && intDy === 0) return;
+
+    const layers = [];
+    if (this.layer0?.pixels) layers.push(this.layer0);
+    if (this.bakes) {
+      for (const b of this.bakes) {
+        if (b?.pixels) layers.push(b);
+      }
+    }
+    for (const buf of layers) {
+      api.page(buf);
+      api.resetScrollState?.();
+      api.scroll(intDx, intDy); // integer → no accumulator remainder
+    }
+    // Restore page to burnedBuffer
+    api.page(this.burnedBuffer);
+  }
+
+  // 🔥 Spin/smoothspin all persistent layers after burn.
+  _spinPersistentLayers(api, args, smooth = false) {
+    const layers = [];
+    if (this.layer0?.pixels) layers.push(this.layer0);
+    if (this.bakes) {
+      for (const b of this.bakes) {
+        if (b?.pixels) layers.push(b);
+      }
+    }
+    for (const buf of layers) {
+      api.page(buf);
+      if (smooth) {
+        api.smoothSpin(...args);
+      } else {
+        api.spin(...args);
+      }
+    }
+    // Restore page to burnedBuffer
+    api.page(this.burnedBuffer);
   }
 
   // Helper function to paste a buffer with alpha blending
