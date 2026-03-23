@@ -199,6 +199,12 @@ function paint($) {
       }));
     }
 
+    const halfEdges = [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7],
+    ];
+
     const project = ([x, y, z]) => {
       let rx = x * cos(ay) - z * sin(ay);
       let rz = x * sin(ay) + z * cos(ay);
@@ -329,6 +335,17 @@ function paint($) {
       });
     }
 
+    // Wireframe edges — white, semi-transparent, blinky
+    const addEdges = (proj) => {
+      halfEdges.forEach(([a, b]) => {
+        const z = (proj[a][2] + proj[b][2]) / 2;
+        drawList.push({ z, type: "edge", proj, a, b });
+      });
+    };
+    addEdges(projBase);
+    addEdges(projLid);
+    for (const hv of hingeVerts) addEdges(hv.map(project));
+
     // Sort back-to-front (highest z = farthest = draw first)
     drawList.sort((a, b) => b.z - a.z);
 
@@ -340,11 +357,19 @@ function paint($) {
         ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
         tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
         tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
+      } else if (item.type === "edge") {
+        const { proj, a, b } = item;
+        const blink = sin(frame * 0.08 + a * 1.7 + b * 2.3) * 0.5 + 0.5;
+        const alpha = floor(30 + blink * 50);
+        ink(255, 255, 255, alpha).line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
       }
     }
 
-    // ⌨️ Keyboard keys — drawn after z-sorted loop, always on top of base
-    if (kbVisible) {
+    // ⌨️ Keyboard keys — only draw when lid isn't occluding the base
+    const baseAvgZ = projBase.reduce((s, v) => s + v[2], 0) / projBase.length;
+    const lidAvgZ = projLid.reduce((s, v) => s + v[2], 0) / projLid.length;
+    const kbNotOccluded = lidAvgZ > baseAvgZ; // lid is farther = behind base
+    if (kbVisible && kbNotOccluded) {
       for (const key of kbKeys) {
         const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = key.pts;
         const c = key.color || keyColor;
