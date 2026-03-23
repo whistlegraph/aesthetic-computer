@@ -499,27 +499,37 @@
     .album-tokens {
       display: none;
       flex-wrap: wrap;
-      gap: 6px;
-      padding: 8px 20px 16px 64px;
+      gap: 10px;
+      padding: 12px 20px 20px 64px;
     }
     .album-tokens.open {
       display: flex;
     }
-    .album-token-chip {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      padding: 4px 10px;
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      color: var(--text);
+    .album-thumb {
+      width: 80px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: transform 0.15s;
     }
-    .album-token-chip:hover {
-      background: var(--accent-bg);
-      border-color: var(--accent);
-      color: var(--accent);
+    .album-thumb:hover {
+      transform: scale(1.08);
+    }
+    .album-thumb img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+    .album-thumb-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text2);
+      text-align: center;
+      margin-top: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .card-buy-btn {
@@ -811,14 +821,14 @@
   }
 
   async function fetchAlbums() {
-    const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=200&select=account.address,account.alias,token.metadata.name,token.tokenId`);
+    const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=200&select=account.address,account.alias,token.metadata.name,token.tokenId,token.metadata.thumbnailUri`);
     const data = await res.json();
     // Group by holder
     const grouped = {};
     for (const b of data) {
       const addr = b['account.address'];
       if (!grouped[addr]) grouped[addr] = { address: addr, alias: b['account.alias'], tokens: [] };
-      grouped[addr].tokens.push({ name: b['token.metadata.name'], tokenId: b['token.tokenId'] });
+      grouped[addr].tokens.push({ name: b['token.metadata.name'], tokenId: b['token.tokenId'], thumbnailUri: b['token.metadata.thumbnailUri'] });
     }
     // Sort by count desc
     return Object.values(grouped).sort((a, b) => b.tokens.length - a.tokens.length);
@@ -931,7 +941,13 @@
           <div class="album-count">${album.tokens.length}</div>
         </div>
         <div class="album-tokens" data-idx="${i}">
-          ${tokens.map(t => `<span class="album-token-chip" data-code="${t.name}">${t.name}</span>`).join('')}
+          ${tokens.map(t => {
+            const thumb = animatedWebpUrl(t.thumbnailUri);
+            return `<div class="album-thumb" data-code="${t.name}">
+              ${thumb ? `<img src="${thumb}" alt="${t.name}" loading="lazy" />` : `<div style="width:80px;height:80px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)"></div>`}
+              <div class="album-thumb-label">${t.name}</div>
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
     }).join('');
@@ -943,10 +959,10 @@
       });
     });
 
-    grid.querySelectorAll('.album-token-chip').forEach(chip => {
-      chip.addEventListener('click', (e) => {
+    grid.querySelectorAll('.album-thumb').forEach(thumb => {
+      thumb.addEventListener('click', (e) => {
         e.stopPropagation();
-        const code = chip.dataset.code;
+        const code = thumb.dataset.code;
         window.open(`https://aesthetic.computer/${code}`, '_blank');
       });
     });
