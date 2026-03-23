@@ -126,7 +126,7 @@ function paint($) {
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    const lidThick = hh * 1.4; // lid is thinner than base (display vs motherboard)
+    const lidThick = hh * 0.9; // lid noticeably thinner than base (display panel)
     const gap = hh * 0.15;     // tiny gap at hinge for clearance
 
     // Pivot point: at the hinge seam between base and lid (y=0, z=0)
@@ -239,10 +239,10 @@ function paint($) {
 
     // Keyboard keys (on base top face, y = -0.001 just above y=0)
     const kbInset = 0.18;
-    const kbTL = project([-hw + kbInset, -0.001, -hd + kbInset]);
-    const kbTR = project([hw - kbInset, -0.001, -hd + kbInset]);
-    const kbBL = project([-hw + kbInset, -0.001, hd - kbInset * 3]);
-    const kbBR = project([hw - kbInset, -0.001, hd - kbInset * 3]);
+    const kbTL = project([-hw + kbInset, -0.001, kbInset]);
+    const kbTR = project([hw - kbInset, -0.001, kbInset]);
+    const kbBL = project([-hw + kbInset, -0.001, 2 * hd - kbInset * 3]);
+    const kbBR = project([hw - kbInset, -0.001, 2 * hd - kbInset * 3]);
     const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
     const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
     if (ke1x * ke2y - ke1y * ke2x < 0) {
