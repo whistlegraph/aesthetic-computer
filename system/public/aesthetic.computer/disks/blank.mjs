@@ -117,8 +117,8 @@ function paint($) {
     const size = min(availW, availH);
     const fov = 260;
 
-    // Turntable rotation (slow steady swivel)
-    const ay = frame * 0.008;
+    // Sinusoidal front-facing swivel (stays mostly facing the viewer)
+    const ay = sin(frame * 0.01) * 0.6; // ±0.6 radians (~±34°)
     const ax = 0.3; // fixed downward tilt
 
     // Fixed open angle (~120 degrees)
@@ -230,7 +230,8 @@ function paint($) {
     const bTL = hingeXform(bezelTL), bTR = hingeXform(bezelTR);
     const bBL = hingeXform(bezelBL), bBR = hingeXform(bezelBR);
 
-    const planeRight = [sTR[0] - sTL[0], sTR[1] - sTL[1], sTR[2] - sTL[2]];
+    // Negate right vector — inner face mirrors x when viewed from front
+    const planeRight = [sTL[0] - sTR[0], sTL[1] - sTR[1], sTL[2] - sTR[2]];
     const planeDown = [sBL[0] - sTL[0], sBL[1] - sTL[1], sBL[2] - sTL[2]];
 
     // Screen-space normal check (is it facing the camera?)
@@ -282,10 +283,11 @@ function paint($) {
       const offsetR = (planeW / glyphScale - textW) / 2;
       const offsetD = (planeH / glyphScale - textH) / 2;
 
+      // Origin from sTR (visual top-left when viewed from front)
       const textOrigin = [
-        sTL[0] + offsetR * rn[0] + offsetD * dn[0],
-        sTL[1] + offsetR * rn[1] + offsetD * dn[1],
-        sTL[2] + offsetR * rn[2] + offsetD * dn[2],
+        sTR[0] + offsetR * rn[0] + offsetD * dn[0],
+        sTR[1] + offsetR * rn[1] + offsetD * dn[1],
+        sTR[2] + offsetR * rn[2] + offsetD * dn[2],
       ];
 
       const titleColor = isDark ? [180, 220, 255] : [100, 180, 255];
