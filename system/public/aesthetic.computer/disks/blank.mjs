@@ -90,7 +90,7 @@ function paint($) {
   const bg = isDark ? [12, 12, 14] : [245, 243, 240];
   const fg = isDark ? 255 : 20;
   const fgDim = isDark ? 120 : 100;
-  const wireAlpha = isDark ? 140 : 120;
+
 
   wipe(...bg);
 
@@ -121,8 +121,21 @@ function paint($) {
     const ay = frame * 0.006;
     const ax = 0.3 + sin(frame * 0.003) * 0.25 + sin(frame * 0.0017) * 0.15;
 
-    // DEBUG: lock hinge to 180° (flat) to verify co-planar alignment
-    const hingeAngle = PI;
+    // Animated hinge: cycle through closed → laptop → flat → tablet
+    const closedAngle = 0.02;
+    const laptopAngle = PI * 0.67;
+    const flatAngle = PI;
+    const tabletAngle = PI * 2 - 0.02;
+    const keyframes = [closedAngle, laptopAngle, flatAngle, tabletAngle, laptopAngle];
+    const totalPhases = keyframes.length;
+    const phaseLen = 180;
+    const t = (frame % (totalPhases * phaseLen)) / phaseLen;
+    const phase = floor(t);
+    const frac = t - phase;
+    const ease = frac < 0.5 ? 2 * frac * frac : 1 - 2 * (1 - frac) * (1 - frac);
+    const from = keyframes[phase % totalPhases];
+    const to = keyframes[(phase + 1) % totalPhases];
+    const hingeAngle = from + ease * (to - from);
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm
     const hw = 1.44, hh = 0.07, hd = 1.0;
@@ -185,12 +198,6 @@ function paint($) {
         return [vx, ry + pivotY, rz + pivotZ];
       }));
     }
-
-    const halfEdges = [
-      [0, 1], [1, 2], [2, 3], [3, 0],
-      [4, 5], [5, 6], [6, 7], [7, 4],
-      [0, 4], [1, 5], [2, 6], [3, 7],
-    ];
 
     const project = ([x, y, z]) => {
       let rx = x * cos(ay) - z * sin(ay);
@@ -260,17 +267,39 @@ function paint($) {
     let kbVisible = ke1x * ke2y - ke1y * ke2x < 0;
     const kbKeys = [];
     if (kbVisible) {
-      const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+      // 6-row ThinkPad keyboard layout (key counts per row)
+      // Row 0: Fn keys (14 keys: Esc + F1-F12 + Del)
+      // Row 1: Number row (14 keys: ` 1-0 - = Bksp)
+      // Row 2: QWERTY (14 keys: Tab + Q-P + [ ] \)
+      // Row 3: Home row (13 keys: Caps + A-L + ; ' Enter)
+      // Row 4: Bottom alpha (12 keys: Shift + Z-M + , . / Shift)
+      // Row 5: Modifier row (8 keys: Ctrl Fn Win Alt Space Alt PrtSc Ctrl)
+      const rows = [14, 14, 14, 13, 12, 8];
+      const rowIndent = [0, 0, 0.02, 0.04, 0.06, 0];
+      // Keyboard occupies top 60% of base, trackpad below
+      const kbFrac = 0.58;
       const lerp = (a, b, t) => a + (b - a) * t;
       for (let r = 0; r < rows.length; r++) {
-        const row = rows[r];
-        const t0 = (r + 0.15) / rows.length, t1 = (r + 0.85) / rows.length;
-        const indent = r * 0.03;
-        for (let k = 0; k < row.length; k++) {
-          const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
-          const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
+        const nKeys = rows[r];
+        const t0 = (r + 0.1) / rows.length * kbFrac;
+        const t1 = (r + 0.9) / rows.length * kbFrac;
+        const indent = rowIndent[r];
+        for (let k = 0; k < nKeys; k++) {
+          // Row 5 has variable-width keys (space bar is wider)
+          let u0, u1;
+          if (r === 5) {
+            // Space bar is key index 4, takes ~40% width
+            const widths = [1, 1, 1, 1, 4.5, 1, 1, 1];
+            const total = widths.reduce((s, w) => s + w, 0);
+            let start = 0;
+            for (let j = 0; j < k; j++) start += widths[j];
+            u0 = (start + 0.1) / total;
+            u1 = (start + widths[k] - 0.1) / total;
+          } else {
+            u0 = indent + (k + 0.1) / nKeys * (1 - indent * 2);
+            u1 = indent + (k + 0.9) / nKeys * (1 - indent * 2);
+          }
           kbKeys.push({
-            type: "key",
             pts: [
               [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t0),
                lerp(lerp(kbTL[1], kbTR[1], u0), lerp(kbBL[1], kbBR[1], u0), t0)],
@@ -284,32 +313,25 @@ function paint($) {
           });
         }
       }
-    }
 
-    // Wireframe edges
-    const waveOffset = frame * 0.05;
-    const addEdges = (proj, edgeOffset) => {
-      halfEdges.forEach(([a, b], i) => {
-        const z = (proj[a][2] + proj[b][2]) / 2;
-        drawList.push({ z, type: "edge", proj, a, b, i, edgeOffset });
+      // Trackpad (centered, below keyboard, ~35% width of base)
+      const tpU0 = 0.32, tpU1 = 0.68;
+      const tpT0 = kbFrac + 0.05, tpT1 = 0.95;
+      const trackpadColor = isDark ? [28, 28, 32] : [180, 180, 185];
+      kbKeys.push({
+        pts: [
+          [lerp(lerp(kbTL[0], kbTR[0], tpU0), lerp(kbBL[0], kbBR[0], tpU0), tpT0),
+           lerp(lerp(kbTL[1], kbTR[1], tpU0), lerp(kbBL[1], kbBR[1], tpU0), tpT0)],
+          [lerp(lerp(kbTL[0], kbTR[0], tpU1), lerp(kbBL[0], kbBR[0], tpU1), tpT0),
+           lerp(lerp(kbTL[1], kbTR[1], tpU1), lerp(kbBL[1], kbBR[1], tpU1), tpT0)],
+          [lerp(lerp(kbTL[0], kbTR[0], tpU1), lerp(kbBL[0], kbBR[0], tpU1), tpT1),
+           lerp(lerp(kbTL[1], kbTR[1], tpU1), lerp(kbBL[1], kbBR[1], tpU1), tpT1)],
+          [lerp(lerp(kbTL[0], kbTR[0], tpU0), lerp(kbBL[0], kbBR[0], tpU0), tpT1),
+           lerp(lerp(kbTL[1], kbTR[1], tpU0), lerp(kbBL[1], kbBR[1], tpU0), tpT1)],
+        ],
+        color: trackpadColor,
       });
-    };
-    addEdges(projBase, 0);
-    addEdges(projLid, 12);
-    for (const hv of hingeVerts) {
-      addEdges(hv.map(project), 24);
     }
-
-    // Vertex particles
-    const particleColors = [
-      [255, 80, 200], [80, 255, 220], [255, 255, 80],
-      [80, 200, 255], [255, 120, 80], [180, 80, 255],
-    ];
-    const allVerts = [...projBase, ...projLid];
-    for (const hv of hingeVerts) allVerts.push(...hv.map(project));
-    allVerts.forEach(([px, py, pz], i) => {
-      drawList.push({ z: pz, type: "particle", px, py, i });
-    });
 
     // Sort back-to-front (highest z = farthest = draw first)
     drawList.sort((a, b) => b.z - a.z);
@@ -323,26 +345,6 @@ function paint($) {
         ink(floor(color[0] * shade * tint[0]), floor(color[1] * shade * tint[1]), floor(color[2] * shade * tint[2]));
         tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
         tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
-      } else if (item.type === "edge") {
-        const { proj, a, b, i, edgeOffset } = item;
-        const brightness = 0.55 + item.z * 0.15;
-        const hue = (((i + edgeOffset) * 0.37 + sin(frame * 0.02 + i + edgeOffset) * 0.3) + waveOffset) % 1;
-        const sector = abs(hue) * 6;
-        const f = sector - floor(sector);
-        let r, g, bl;
-        const s = floor(sector) % 6;
-        if (s === 0) { r = 1; g = f; bl = 0; }
-        else if (s === 1) { r = 1 - f; g = 1; bl = 0; }
-        else if (s === 2) { r = 0; g = 1; bl = f; }
-        else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
-        else if (s === 4) { r = f; g = 0; bl = 1; }
-        else { r = 1; g = 0; bl = 1 - f; }
-        ink(floor(r * 255 * brightness), floor(g * 255 * brightness), floor(bl * 255 * brightness), wireAlpha)
-          .line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
-      } else if (item.type === "particle") {
-        const pColor = particleColors[(item.i + floor(frame * 0.04)) % particleColors.length];
-        const flicker = 0.6 + sin(frame * 0.1 + item.i * 1.3) * 0.4;
-        ink(...pColor, floor(flicker * 150)).box(item.px - 1, item.py - 1, 2, 2);
       }
     }
 
@@ -350,7 +352,8 @@ function paint($) {
     if (kbVisible) {
       for (const key of kbKeys) {
         const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = key.pts;
-        ink(keyColor[0], keyColor[1], keyColor[2]);
+        const c = key.color || keyColor;
+        ink(c[0], c[1], c[2]);
         tri(x0, y0, x1, y1, x2, y2);
         tri(x0, y0, x2, y2, x3, y3);
       }
