@@ -13,6 +13,7 @@ let thanks = false;
 
 // UI elements
 let buyBtn = null;
+let userHandle = null;
 
 // Animation
 let frame = 0;
@@ -28,7 +29,7 @@ function getBuyText() {
   return `BUY ${displayAmount(amount)}`;
 }
 
-async function boot({ params, ui, screen, cursor, hud, api }) {
+async function boot({ params, ui, screen, cursor, hud, api, handle }) {
   cursor("native");
   hud.labelBack();
 
@@ -37,6 +38,7 @@ async function boot({ params, ui, screen, cursor, hud, api }) {
     return;
   }
 
+  userHandle = handle();
   setupButtons(ui, screen);
   fetchCheckout(api);
 }
@@ -79,7 +81,7 @@ async function fetchCheckout(api) {
 }
 
 function paint($) {
-  const { wipe, ink, screen, dark: isDark } = $;
+  const { wipe, ink, screen, dark: isDark, poly } = $;
   frame += 1;
   const w = screen.width;
   const h = screen.height;
@@ -108,11 +110,10 @@ function paint($) {
   // 💻 Wireframe laptop (turntable swivel)
   {
     const cx = floor(w / 2);
-    const laptopTop = 20;
-    const cy = floor((laptopTop + contentBottom) / 2);
+    const cy = floor(h / 2); // vertically centered in full screen
     // Keep laptop fully within viewport (account for rotation + lid overshoot)
     const availW = w * 0.32;
-    const availH = (contentBottom - laptopTop) * 0.25;
+    const availH = (contentBottom - 20) * 0.25;
     const size = min(availW, availH);
     const fov = 260;
 
@@ -202,20 +203,33 @@ function paint($) {
       ink(...pColor, floor(flicker * 150)).box(px - 1, py - 1, 2, 2);
     });
 
-    // 🖥️ "AC Blank" projected in 3D on the lid screen
+    // 🖥️ Screen on the lid (with bezel, solid fill, and text)
     const inset = 0.15;
-    const screenTL = [-hw + inset, -hh - 0.002, inset];
-    const screenTR = [hw - inset, -hh - 0.002, inset];
-    const screenBL = [-hw + inset, -hh - 0.002, 2 * hd - inset];
+    const bezelInset = 0.08;
+    // When lid is open, the far edge (z=2*hd) is visually at the TOP
+    // and the hinge edge (z=0) is at the BOTTOM. So:
+    //   visual TL = far-left, visual TR = far-right
+    //   visual BL = hinge-left, visual BR = hinge-right
+    const screenTL = [-hw + inset, -hh - 0.002, 2 * hd - inset]; // far-left (visual top-left)
+    const screenTR = [hw - inset, -hh - 0.002, 2 * hd - inset];  // far-right (visual top-right)
+    const screenBL = [-hw + inset, -hh - 0.002, inset];           // hinge-left (visual bottom-left)
+    const screenBR = [hw - inset, -hh - 0.002, inset];            // hinge-right (visual bottom-right)
+
+    // Bezel corners (slightly larger than screen)
+    const bezelTL = [-hw + bezelInset, -hh - 0.001, 2 * hd - bezelInset];
+    const bezelTR = [hw - bezelInset, -hh - 0.001, 2 * hd - bezelInset];
+    const bezelBL = [-hw + bezelInset, -hh - 0.001, bezelInset];
+    const bezelBR = [hw - bezelInset, -hh - 0.001, bezelInset];
 
     const hingeXform = ([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
       const rz = ly * sinH + lz * cosH;
       return [lx, ry + hh, rz - hd];
     };
-    const sTL = hingeXform(screenTL);
-    const sTR = hingeXform(screenTR);
-    const sBL = hingeXform(screenBL);
+    const sTL = hingeXform(screenTL), sTR = hingeXform(screenTR);
+    const sBL = hingeXform(screenBL), sBR = hingeXform(screenBR);
+    const bTL = hingeXform(bezelTL), bTR = hingeXform(bezelTR);
+    const bBL = hingeXform(bezelBL), bBR = hingeXform(bezelBR);
 
     const planeRight = [sTR[0] - sTL[0], sTR[1] - sTL[1], sTR[2] - sTL[2]];
     const planeDown = [sBL[0] - sTL[0], sBL[1] - sTL[1], sBL[2] - sTL[2]];
@@ -224,6 +238,7 @@ function paint($) {
     const projTL = project(sTL);
     const projTR = project(sTR);
     const projBL = project(sBL);
+    const projBR = project(sBR);
     const ex1 = projTR[0] - projTL[0], ey1 = projTR[1] - projTL[1];
     const ex2 = projBL[0] - projTL[0], ey2 = projBL[1] - projTL[1];
     const cross = ex1 * ey2 - ey1 * ex2;
@@ -231,13 +246,30 @@ function paint($) {
     if (cross > 0) {
       const maxCross = size * size * 0.5;
       const facing = min(1, abs(cross) / maxCross);
-      const textAlpha = floor(facing * 255);
+      const screenAlpha = floor(facing * 220);
 
+      // Bezel (dark border around screen)
+      const pBTL = project(bTL), pBTR = project(bTR);
+      const pBBL = project(bBL), pBBR = project(bBR);
+      const bezelColor = isDark ? [30, 30, 32] : [60, 60, 65];
+      ink(bezelColor[0], bezelColor[1], bezelColor[2], screenAlpha).poly(
+        pBTL[0], pBTL[1], pBTR[0], pBTR[1],
+        pBBR[0], pBBR[1], pBBL[0], pBBL[1],
+      );
+
+      // Screen fill (dark background)
+      const screenColor = isDark ? [8, 8, 12] : [20, 22, 28];
+      ink(screenColor[0], screenColor[1], screenColor[2], screenAlpha).poly(
+        projTL[0], projTL[1], projTR[0], projTR[1],
+        projBR[0], projBR[1], projBL[0], projBL[1],
+      );
+
+      // Screen text
+      const textAlpha = floor(facing * 255);
       const planeW = sqrt(planeRight[0] ** 2 + planeRight[1] ** 2 + planeRight[2] ** 2);
       const planeH = sqrt(planeDown[0] ** 2 + planeDown[1] ** 2 + planeDown[2] ** 2);
 
-      // MatrixChunky8: "AC Blank" = 30px wide, 8px tall
-      const glyphScale = planeW / (4 * 14); // fit ~14 MatrixChunky8 avg-width chars
+      const glyphScale = planeW / (4 * 14);
       const rn = [planeRight[0] / planeW * glyphScale,
                   planeRight[1] / planeW * glyphScale,
                   planeRight[2] / planeW * glyphScale];
@@ -245,7 +277,10 @@ function paint($) {
                   planeDown[1] / planeH * glyphScale,
                   planeDown[2] / planeH * glyphScale];
 
-      const textW = 30; // "AC Blank" in MatrixChunky8
+      // Dynamic text: "hi @handle" if logged in, "AC Blank" otherwise
+      const screenText = userHandle ? `hi ${userHandle}` : "AC Blank";
+      // Estimate width: MatrixChunky8 avg ~4px per char
+      const textW = screenText.length * 4;
       const textH = 8;
       const offsetR = (planeW / glyphScale - textW) / 2;
       const offsetD = (planeH / glyphScale - textH) / 2;
@@ -256,9 +291,9 @@ function paint($) {
         sTL[2] + offsetR * rn[2] + offsetD * dn[2],
       ];
 
-      const titleColor = isDark ? [255, 255, 255] : [20, 20, 20];
+      const titleColor = isDark ? [180, 220, 255] : [100, 180, 255];
       ink(titleColor[0], titleColor[1], titleColor[2], textAlpha)
-        .write3D("AC Blank", {
+        .write3D(screenText, {
           origin: textOrigin,
           right: rn,
           down: dn,
