@@ -1,21 +1,15 @@
 // os, 2026.03.12
 // FedAC OS — build list with commit messages; download your personalized copy.
 
-// Download mirrors — add new entries to expand coverage.
-// Each mirror must host /os-releases, /os-image, and /ws endpoints.
-const MIRRORS = [
-  { id: "nyc", label: "NYC (direct)", oven: "https://oven.aesthetic.computer", ws: "wss://oven.aesthetic.computer/ws", iso: "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/native-notepat-latest.iso" },
-  { id: "edge", label: "Edge (global CDN)", oven: "https://oven-edge.aesthetic-computer.workers.dev", ws: "wss://oven.aesthetic.computer/ws", iso: "https://oven-edge.aesthetic-computer.workers.dev/os/latest.iso" },
-];
-let mirrorIdx = 1; // Default to edge CDN
-function mirror() { return MIRRORS[mirrorIdx]; }
-function OVEN_BASE() { return mirror().oven; }
-function RELEASES_URL() { return OVEN_BASE() + "/os-releases"; }
-function OVEN_IMAGE_URL() { return OVEN_BASE() + "/os-image"; }
-function OVEN_WS_URL() { return mirror().ws; }
-function TEMPLATE_ISO_URL() { return mirror().iso; }
+const OVEN = "https://oven-edge.aesthetic-computer.workers.dev";
+const OVEN_WS = "wss://oven.aesthetic.computer/ws";
+const ISO_BASE = OVEN + "/os/latest.iso";
+function OVEN_BASE() { return OVEN; }
+function RELEASES_URL() { return OVEN + "/os-releases"; }
+function OVEN_IMAGE_URL() { return OVEN + "/os-image"; }
+function OVEN_WS_URL() { return OVEN_WS; }
 function templateIsoUrl() {
-  const base = mirror().iso;
+  const base = ISO_BASE;
   if (variantIdx === 0) return base;
   // CL variant: replace 'native-notepat' with 'cl-native-notepat'
   return base.replace("native-notepat", "cl-native-notepat");
@@ -43,7 +37,6 @@ let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
 let variantIdx = 0;   // index into VARIANTS (0=C, 1=Common Lisp)
 let variantBtn = null; // "build: C" selector
-let mirrorBtn = null; // "mirror: NYC" selector
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
@@ -293,11 +286,6 @@ function makeButtons(ui) {
   updateBootBtn(ui);
   updateVariantBtn(ui);
   updateWifiBtn(ui);
-  updateMirrorBtn(ui);
-}
-
-function updateMirrorBtn(ui) {
-  mirrorBtn = new ui.TextButton("mirror: " + mirror().label, { x: 6, y: 0 });
 }
 
 function updateVariantBtn(ui) {
@@ -545,18 +533,6 @@ function paint($) {
     }
 
     // Mirror selector
-    if (mirrorBtn && MIRRORS.length > 1) {
-      mirrorBtn.reposition({ x: btnX(mirrorBtn), y });
-      mirrorBtn.paint(
-        $,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 200],
-        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
-        undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 230],
-      );
-      y += mirrorBtn.height + btnGap;
-    }
-
     y += isMobile ? 8 : 4;
 
     // Download button
@@ -752,17 +728,6 @@ function act({ event: e, needsPaint, download }) {
       push: () => {
         wifiEnabled = !wifiEnabled;
         if (uiRef) updateWifiBtn(uiRef);
-        needsPaint();
-      },
-    });
-  }
-
-  // Mirror selector
-  if (mirrorBtn && MIRRORS.length > 1) {
-    mirrorBtn.btn.act(e, {
-      push: () => {
-        mirrorIdx = (mirrorIdx + 1) % MIRRORS.length;
-        if (uiRef) updateMirrorBtn(uiRef);
         needsPaint();
       },
     });
