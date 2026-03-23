@@ -1,14 +1,10 @@
 // blank, 26.03.20
 // AC Blank — AC Native Laptop product page & checkout
 
-const { floor, sin, min, max } = Math;
-
-const PRODUCT_IMG =
-  "https://assets.aesthetic.computer/thinkpad-11e-yoga-gen6.png";
+const { floor, sin, cos, abs, min, max, PI, sqrt } = Math;
 
 // Module state
 let amount = 12800;
-let productImg = null;
 let checkoutUrl = null;
 let checkoutReady = false;
 let checkoutError = null;
@@ -19,21 +15,9 @@ let thanks = false;
 let buyBtn = null;
 
 // Animation
-let scrollY = 0;
+let frame = 0;
 
 const charH = 16;
-
-// Scrolling text lines
-const scrollLines = [
-  "Buy a @jeffrey approved",
-  "Thinkpad 11e Yoga Gen 6 (refurbished / used)",
-  "(what he uses to develop AC OS)",
-  "pre-flashed with AC Native today!",
-  "",
-  "Comes decorated with recovery USB.",
-  "(No USB C Charger Included)",
-  "",
-];
 
 function displayAmount(amt) {
   return `$${(amt / 100).toFixed(0)}`;
@@ -44,7 +28,7 @@ function getBuyText() {
   return `BUY ${displayAmount(amount)}`;
 }
 
-async function boot({ params, ui, screen, cursor, hud, api, net, dark }) {
+async function boot({ params, ui, screen, cursor, hud, api }) {
   cursor("native");
   hud.labelBack();
 
@@ -55,11 +39,6 @@ async function boot({ params, ui, screen, cursor, hud, api, net, dark }) {
 
   setupButtons(ui, screen);
   fetchCheckout(api);
-
-  // Load product image
-  net.preload(PRODUCT_IMG).then((result) => {
-    if (result?.img) productImg = result.img;
-  });
 }
 
 function setupButtons(ui, screen) {
@@ -101,6 +80,7 @@ async function fetchCheckout(api) {
 
 function paint($) {
   const { wipe, ink, screen, dark: isDark } = $;
+  frame += 1;
   const w = screen.width;
   const h = screen.height;
 
@@ -108,7 +88,8 @@ function paint($) {
   const bg = isDark ? [12, 12, 14] : [245, 243, 240];
   const fg = isDark ? 255 : 20;
   const fgDim = isDark ? 120 : 100;
-  const fgFaint = isDark ? 60 : 160;
+  const wireAlpha = isDark ? 140 : 120;
+
   wipe(...bg);
 
   // Thanks page
@@ -124,49 +105,168 @@ function paint($) {
   const uiZoneH = btnH * 2 + 20;
   const contentBottom = h - uiZoneH - 20;
 
-  // 💻 Product image (centered above buttons)
-  if (productImg) {
-    const areaH = contentBottom - 20;
-    const maxW = floor(w * 0.85);
-    const maxH = floor(areaH * 0.85);
-    const scale = min(maxW / productImg.width, maxH / productImg.height);
-    const drawW = floor(productImg.width * scale);
-    const drawH = floor(productImg.height * scale);
-    const dx = floor((w - drawW) / 2);
-    const dy = floor(20 + (areaH - drawH) / 2);
-    ink(255).paste(productImg, dx, dy, { width: drawW, height: drawH });
-  } else {
-    ink(fgDim).write("loading...", { center: "x", y: floor(contentBottom / 2), screen });
-  }
-
-  // Scrolling text (description, between laptop and buttons)
+  // 💻 Wireframe laptop (turntable swivel)
   {
-    scrollY += 0.3;
-    const scrollAreaTop = contentBottom - 10;
-    const lineH = charH + 4;
-    const totalScrollH = scrollLines.length * lineH;
-    const scrollOffset = scrollY % totalScrollH;
+    const cx = floor(w / 2);
+    const laptopTop = 20;
+    const cy = floor((laptopTop + contentBottom) / 2);
+    const size = min(w * 0.45, (contentBottom - laptopTop) * 0.35);
+    const fov = 260;
 
-    for (let i = 0; i < scrollLines.length; i++) {
-      const ln = scrollLines[i];
-      if (!ln) continue;
-      const rawY = scrollAreaTop - scrollOffset + i * lineH;
-      // Wrap around
-      const y = rawY < scrollAreaTop - totalScrollH
-        ? rawY + totalScrollH
-        : rawY;
-      if (y < scrollAreaTop - lineH || y > scrollAreaTop + lineH * 2) continue;
-      // Fade out as it scrolls up
-      const dist = scrollAreaTop - y;
-      const alpha = max(0, min(255, 255 - floor(dist * 3)));
-      const color = i === 0 ? fgDim : fgFaint;
-      ink(color, color, color, alpha).write(ln, { center: "x", y: floor(y), screen });
+    // Turntable rotation (slow steady swivel)
+    const ay = frame * 0.008;
+    const ax = 0.3; // fixed downward tilt
+
+    // Fixed open angle (~120 degrees)
+    const hingeAngle = PI * 0.67;
+
+    // Half-box dimensions (proportional to ThinkPad Yoga 11e: ~290mm × 202mm × 22mm)
+    // Width:Depth ratio ≈ 1.44:1, thickness is thin
+    const hw = 1.44, hh = 0.07, hd = 1.0;
+
+    // Base (keyboard half)
+    const base = [
+      [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
+      [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd],
+    ];
+
+    // Lid — hinged at back edge
+    const lidLocal = [
+      [-hw, -hh, 0], [hw, -hh, 0], [hw, hh, 0], [-hw, hh, 0],
+      [-hw, -hh, 2 * hd], [hw, -hh, 2 * hd], [hw, hh, 2 * hd], [-hw, hh, 2 * hd],
+    ];
+    const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
+    const lid = lidLocal.map(([lx, ly, lz]) => {
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
+      return [lx, ry + hh, rz - hd];
+    });
+
+    const halfEdges = [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7],
+    ];
+
+    const project = ([x, y, z]) => {
+      let rx = x * cos(ay) - z * sin(ay);
+      let rz = x * sin(ay) + z * cos(ay);
+      let ry = y * cos(ax) - rz * sin(ax);
+      rz = y * sin(ax) + rz * cos(ax);
+      const scale = fov / (fov + rz * size);
+      return [cx + rx * size * scale, cy + ry * size * scale, rz];
+    };
+
+    const projBase = base.map(project);
+    const projLid = lid.map(project);
+
+    const waveOffset = frame * 0.05;
+    const drawEdges = (proj, edgeOffset) => {
+      halfEdges.forEach(([a, b], i) => {
+        const depth = (proj[a][2] + proj[b][2]) / 2;
+        const brightness = 0.55 + depth * 0.15;
+        const hue = (((i + edgeOffset) * 0.37 + sin(frame * 0.02 + i + edgeOffset) * 0.3) + waveOffset) % 1;
+        const sector = abs(hue) * 6;
+        const f = sector - floor(sector);
+        let r, g, bl;
+        const s = floor(sector) % 6;
+        if (s === 0) { r = 1; g = f; bl = 0; }
+        else if (s === 1) { r = 1 - f; g = 1; bl = 0; }
+        else if (s === 2) { r = 0; g = 1; bl = f; }
+        else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
+        else if (s === 4) { r = f; g = 0; bl = 1; }
+        else { r = 1; g = 0; bl = 1 - f; }
+        ink(
+          floor(r * 255 * brightness),
+          floor(g * 255 * brightness),
+          floor(bl * 255 * brightness),
+          wireAlpha,
+        ).line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
+      });
+    };
+
+    drawEdges(projBase, 0);
+    drawEdges(projLid, 12);
+
+    // Vertex particles
+    const particleColors = [
+      [255, 80, 200], [80, 255, 220], [255, 255, 80],
+      [80, 200, 255], [255, 120, 80], [180, 80, 255],
+    ];
+    [...projBase, ...projLid].forEach(([px, py], i) => {
+      const pColor = particleColors[(i + floor(frame * 0.04)) % particleColors.length];
+      const flicker = 0.6 + sin(frame * 0.1 + i * 1.3) * 0.4;
+      ink(...pColor, floor(flicker * 150)).box(px - 1, py - 1, 2, 2);
+    });
+
+    // 🖥️ "AC Blank" projected in 3D on the lid screen
+    const inset = 0.15;
+    const screenTL = [-hw + inset, -hh - 0.002, inset];
+    const screenTR = [hw - inset, -hh - 0.002, inset];
+    const screenBL = [-hw + inset, -hh - 0.002, 2 * hd - inset];
+
+    const hingeXform = ([lx, ly, lz]) => {
+      const ry = ly * cosH - lz * sinH;
+      const rz = ly * sinH + lz * cosH;
+      return [lx, ry + hh, rz - hd];
+    };
+    const sTL = hingeXform(screenTL);
+    const sTR = hingeXform(screenTR);
+    const sBL = hingeXform(screenBL);
+
+    const planeRight = [sTR[0] - sTL[0], sTR[1] - sTL[1], sTR[2] - sTL[2]];
+    const planeDown = [sBL[0] - sTL[0], sBL[1] - sTL[1], sBL[2] - sTL[2]];
+
+    // Screen-space normal check (is it facing the camera?)
+    const projTL = project(sTL);
+    const projTR = project(sTR);
+    const projBL = project(sBL);
+    const ex1 = projTR[0] - projTL[0], ey1 = projTR[1] - projTL[1];
+    const ex2 = projBL[0] - projTL[0], ey2 = projBL[1] - projTL[1];
+    const cross = ex1 * ey2 - ey1 * ex2;
+
+    if (cross > 0) {
+      const maxCross = size * size * 0.5;
+      const facing = min(1, abs(cross) / maxCross);
+      const textAlpha = floor(facing * 255);
+
+      const planeW = sqrt(planeRight[0] ** 2 + planeRight[1] ** 2 + planeRight[2] ** 2);
+      const planeH = sqrt(planeDown[0] ** 2 + planeDown[1] ** 2 + planeDown[2] ** 2);
+
+      // MatrixChunky8: "AC Blank" = 30px wide, 8px tall
+      const glyphScale = planeW / (4 * 14); // fit ~14 MatrixChunky8 avg-width chars
+      const rn = [planeRight[0] / planeW * glyphScale,
+                  planeRight[1] / planeW * glyphScale,
+                  planeRight[2] / planeW * glyphScale];
+      const dn = [planeDown[0] / planeH * glyphScale,
+                  planeDown[1] / planeH * glyphScale,
+                  planeDown[2] / planeH * glyphScale];
+
+      const textW = 30; // "AC Blank" in MatrixChunky8
+      const textH = 8;
+      const offsetR = (planeW / glyphScale - textW) / 2;
+      const offsetD = (planeH / glyphScale - textH) / 2;
+
+      const textOrigin = [
+        sTL[0] + offsetR * rn[0] + offsetD * dn[0],
+        sTL[1] + offsetR * rn[1] + offsetD * dn[1],
+        sTL[2] + offsetR * rn[2] + offsetD * dn[2],
+      ];
+
+      const titleColor = isDark ? [255, 255, 255] : [20, 20, 20];
+      ink(titleColor[0], titleColor[1], titleColor[2], textAlpha)
+        .write3D("AC Blank", {
+          origin: textOrigin,
+          right: rn,
+          down: dn,
+          project,
+          typeface: "MatrixChunky8",
+        });
     }
   }
 
-  const $btn = { ink };
-
   // Buy button
+  const $btn = { ink };
   if (buyBtn) {
     buyBtn.reposition({ center: "x", bottom: 20, screen }, getBuyText());
 
@@ -196,7 +296,6 @@ function paint($) {
     }
     buyBtn.paint($btn, scheme, hover);
   }
-
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
@@ -217,7 +316,6 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
         jump(checkoutUrl);
       } else if (checkoutError) {
-        // Silently retry
         checkoutError = null;
         fetchCheckout(api);
         sound?.synth({ type: "sine", tone: 550, duration: 0.06, volume: 0.3 });
@@ -251,7 +349,7 @@ async function waitForCheckout(jump, sound) {
 function meta() {
   return {
     title: "AC Blank",
-    desc: "Buy a @jeffrey approved Thinkpad 11e Yoga Gen 6 (refurbished / used) pre-flashed with AC Native today! Comes decorated with recovery USB. (No USB C Charger Included)",
+    desc: "AC Native Laptop — a surplus laptop running AC Native OS.",
   };
 }
 

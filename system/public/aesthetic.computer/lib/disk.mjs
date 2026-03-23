@@ -5546,37 +5546,32 @@ const $paintApi = {
   ORIGIN,
   // Project text glyphs onto a 3D plane, drawing each character's line/point
   // commands through a projection function.
-  // Usage: ink(r,g,b,a).write3D("text", { origin, right, down, project }, scale)
+  // Usage: ink(r,g,b,a).write3D("text", { origin, right, down, project, typeface }, scale)
   //   origin: [x,y,z] — top-left of the first character in world space
   //   right:  [x,y,z] — unit-ish direction for text flow (gets scaled by glyph size)
   //   down:   [x,y,z] — unit-ish direction for descending lines
   //   project: ([x,y,z]) => [screenX, screenY] — world-to-screen projection
+  //   typeface: optional typeface name (e.g. "MatrixChunky8") — defaults to active tf
   //   scale: multiplier for glyph coordinate spacing (default 1)
   write3D: function (text, plane, scale = 1) {
-    if (!text || !plane || !tf) return $activePaintApi;
+    if (!text || !plane) return $activePaintApi;
     const { origin, right, down, project } = plane;
     if (!origin || !right || !down || !project) return $activePaintApi;
 
-    const blockW = tf.blockWidth || 6;
-    const charSpacing = blockW * scale;
-    let cursorX = 0; // accumulated character offset along `right`
-
-    if (!$paintApi.write3D._logCount) $paintApi.write3D._logCount = 0;
-    if ($paintApi.write3D._logCount < 5) {
-      const testGlyph = tf.glyphs?.["T"];
-      console.log("🔤 write3D frame", $paintApi.write3D._logCount, {
-        text,
-        glyphFound: !!testGlyph,
-        hasCommands: !!testGlyph?.commands,
-        commandCount: testGlyph?.commands?.length,
-      });
-      $paintApi.write3D._logCount++;
+    // Resolve typeface: use specified one from cache, or fall back to active tf
+    let face = tf;
+    if (plane.typeface && typefaceCache.has(plane.typeface)) {
+      face = typefaceCache.get(plane.typeface);
     }
+    if (!face) return $activePaintApi;
+
+    const blockW = face.blockWidth || face.data?.glyphWidth || 6;
+    let cursorX = 0;
 
     for (let ci = 0; ci < text.length; ci++) {
       const char = text[ci];
-      const glyph = tf.getGlyph?.(char) || tf.glyphs?.[char];
-      const advance = tf.getAdvance?.(char) ?? blockW;
+      const glyph = face.getGlyph?.(char) || face.glyphs?.[char];
+      const advance = face.getAdvance?.(char) ?? blockW;
 
       if (glyph?.commands) {
         for (const { name, args } of glyph.commands) {
