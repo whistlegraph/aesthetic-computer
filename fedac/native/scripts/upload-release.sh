@@ -116,14 +116,21 @@ FULL_VERSION="${BUILD_NAME} ${VERSION}"
 printf '%s\n%s' "$FULL_VERSION" "$SIZE" > "$TMP/version.txt"
 printf '%s' "$SHA256"  > "$TMP/sha256.txt"
 
+# OTA channel prefix (empty for default C build, "cl-" for Common Lisp variant)
+CHANNEL_PREFIX=""
+if [ -n "${OTA_CHANNEL:-}" ]; then
+  CHANNEL_PREFIX="${OTA_CHANNEL}-"
+  echo "  channel: ${OTA_CHANNEL}"
+fi
+
 # Upload files (vmlinuz last — it's large, others are the canary)
-do_upload "$TMP/version.txt"  "os/native-notepat-latest.version"  "text/plain"
-do_upload "$TMP/sha256.txt"   "os/native-notepat-latest.sha256"   "text/plain"
-do_upload "$VMLINUZ"          "os/native-notepat-latest.vmlinuz"  "application/octet-stream"
+do_upload "$TMP/version.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.version"  "text/plain"
+do_upload "$TMP/sha256.txt"   "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"   "text/plain"
+do_upload "$VMLINUZ"          "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"  "application/octet-stream"
 
 # Fetch existing releases.json (or start fresh)
 RELEASES_JSON="$TMP/releases.json"
-curl -sf "${BASE_URL}/os/releases.json" -o "$RELEASES_JSON" 2>/dev/null \
+curl -sf "${BASE_URL}/os/${CHANNEL_PREFIX}releases.json" -o "$RELEASES_JSON" 2>/dev/null \
   || echo '{"releases":[]}' > "$RELEASES_JSON"
 
 # Append new entry (keep last 50)
@@ -140,7 +147,7 @@ releases.insert(0, {
     "size": int(size),
     "git_hash": git_hash,
     "build_ts": build_ts,
-    "url": "https://releases.aesthetic.computer/os/native-notepat-latest.vmlinuz"
+    "url": "https://releases.aesthetic.computer/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
 })
 data["releases"] = releases[:50]
 data["latest"] = version
@@ -149,7 +156,7 @@ with open(path, "w") as f:
     json.dump(data, f, indent=2)
 PYEOF
 
-do_upload "$RELEASES_JSON" "os/releases.json" "application/json"
+do_upload "$RELEASES_JSON" "os/${CHANNEL_PREFIX}releases.json" "application/json"
 
 # Record build in MongoDB
 if command -v node &>/dev/null; then
