@@ -118,7 +118,7 @@ function paint($) {
     const fov = 260;
 
     // Sinusoidal front-facing swivel (stays mostly facing the viewer)
-    const ay = sin(frame * 0.01) * 0.6; // ±0.6 radians (~±34°)
+    const ay = PI + sin(frame * 0.01) * 0.6; // centered on front face, ±34° swivel
     const ax = 0.3; // fixed downward tilt
 
     // Fixed open angle (~120 degrees)
