@@ -242,7 +242,7 @@ function paint($) {
     const ex2 = projBL[0] - projTL[0], ey2 = projBL[1] - projTL[1];
     const cross = ex1 * ey2 - ey1 * ex2;
 
-    if (cross > 0) {
+    if (cross < 0) {
       const maxCross = size * size * 0.5;
       const facing = min(1, abs(cross) / maxCross);
       const screenAlpha = floor(facing * 220);
