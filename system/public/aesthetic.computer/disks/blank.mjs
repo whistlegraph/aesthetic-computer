@@ -231,37 +231,29 @@ function paint($) {
     const drawList = [];
 
     // Base + lid faces
-    let faceIdx = 0;
+    // Only add front-facing faces (proper backface culling — no both-winding hack)
     const addFaces = (proj, color, tag) => {
       for (const [a, b, c, d] of faceQuads) {
-        const fi = faceIdx++;
         const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
         const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
-        const cross = e1x * e2y - e1y * e2x;
-        if (cross < 0) {
-          const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
-          drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag, fi });
-        } else if (cross > 0) {
-          const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
-          drawList.push({ z, type: "face", proj, verts: [d, c, b, a], color, tag, fi });
-        }
+        if (e1x * e2y - e1y * e2x >= 0) continue; // back-facing → skip
+        const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+        drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
+      }
+    };
+    // Lid winding flips due to hinge transform — use reversed face quads
+    const faceQuadsFlipped = faceQuads.map(([a, b, c, d]) => [d, c, b, a]);
+    const addFacesFlipped = (proj, color, tag) => {
+      for (const [a, b, c, d] of faceQuadsFlipped) {
+        const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
+        const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
+        if (e1x * e2y - e1y * e2x >= 0) continue;
+        const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+        drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
       }
     };
     addFaces(projBase, baseColor, "base");
-    addFaces(projLid, lidColor, "lid");
-
-    // Hinge barrels — only draw when not fully behind base+lid
-    const hingeColor = isDark ? [32, 32, 35] : [45, 45, 48];
-    const baseMinZ = min(...projBase.map(v => v[2]));
-    const lidMinZ = min(...projLid.map(v => v[2]));
-    for (const hv of hingeVerts) {
-      const projH = hv.map(project);
-      const hingeMaxZ = max(...projH.map(v => v[2]));
-      // Only add if hinge pokes out in front of at least one body
-      if (hingeMaxZ > baseMinZ || hingeMaxZ > lidMinZ) {
-        addFaces(projH, hingeColor, "hinge");
-      }
-    }
+    addFacesFlipped(projLid, lidColor, "lid");
 
     // Keyboard keys (on base top face, y = -0.001 just above y=0)
     const kbInset = 0.18;
@@ -350,11 +342,6 @@ function paint($) {
     };
     addEdges(projBase);
     addEdges(projLid);
-    for (const hv of hingeVerts) {
-      const projH = hv.map(project);
-      const hingeMaxZ = max(...projH.map(v => v[2]));
-      if (hingeMaxZ > baseMinZ || hingeMaxZ > lidMinZ) addEdges(projH);
-    }
 
     // Sort back-to-front (highest z = farthest = draw first)
     drawList.sort((a, b) => b.z - a.z);
