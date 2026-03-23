@@ -139,63 +139,63 @@ function paint($) {
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    const lidThick = hh * 0.9; // lid noticeably thinner than base (display panel)
-    const gap = hh * 0.6;      // visible gap at hinge for clearance
+    const lidThick = hh * 0.9; // lid thinner than base (display panel)
 
-    // Pivot point: at the hinge seam between base and lid (y=0, z=0)
-    // When flat at 180°, base extends forward (+z) and lid extends backward (-z)
-    // symmetrically — looks level from any camera angle.
-    const pivotY = 0;
-    const pivotZ = 0;
+    // Barrel hinge: attachment point travels a semicircular arc
+    // from base top-back (closed) to base bottom-back (tablet).
+    // Barrel radius = half total stack height (base + lid clearance)
+    const R = hh + lidThick / 2;
 
-    // Base slab: extends forward from pivot
-    // y: 0 (top) to 2*hh (bottom), z: 0 to 2*hd
+    // Attachment point on the barrel circle
+    // hingeAngle 0 → top-back (0, 0), hingeAngle 2π → bottom-back (2*hh, 0)
+    const attachY = R * (1 - cos(hingeAngle / 2));
+    const attachZ = R * sin(hingeAngle / 2);
+
+    // Base slab: y 0 (top) to 2*hh (bottom), z 0 (back) to 2*hd (front)
     const base = [
       [-hw, 0, 0], [hw, 0, 0], [hw, 2 * hh, 0], [-hw, 2 * hh, 0],
       [-hw, 0, 2 * hd], [hw, 0, 2 * hd], [hw, 2 * hh, 2 * hd], [-hw, 2 * hh, 2 * hd],
     ];
 
+    // Lid local: screen face at y=0, outer face at y=-lidThick
+    // z from 0 (hinge edge) to 2*hd (front edge)
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
-
-    // Lid centered on base midpoint (y=hh) so both halves align when flat
-    // At 180°: y flips around pivot → lid centered at y=hh, same as base center
-    const lidMid = -hh; // flips to +hh at 180° to match base midpoint
     const lidLocal = [
-      [-hw, lidMid + lidThick / 2, gap], [hw, lidMid + lidThick / 2, gap],
-      [hw, lidMid - lidThick / 2, gap], [-hw, lidMid - lidThick / 2, gap],
-      [-hw, lidMid + lidThick / 2, 2 * hd], [hw, lidMid + lidThick / 2, 2 * hd],
-      [hw, lidMid - lidThick / 2, 2 * hd], [-hw, lidMid - lidThick / 2, 2 * hd],
+      [-hw, 0, 0], [hw, 0, 0],
+      [hw, -lidThick, 0], [-hw, -lidThick, 0],
+      [-hw, 0, 2 * hd], [hw, 0, 2 * hd],
+      [hw, -lidThick, 2 * hd], [-hw, -lidThick, 2 * hd],
     ];
 
-    // Rotate lid around pivot (y=0, z=0 in local = pivot point)
+    // Lid transform: rotate by hingeAngle (2:1 vs barrel sweep), translate to attachment
     const lid = lidLocal.map(([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
       const rz = ly * sinH + lz * cosH;
-      return [lx, ry + pivotY, rz + pivotZ];
+      return [lx, attachY + ry, attachZ + rz];
     });
 
-    // Hinge barrels — wider than tall, rotate WITH the lid
-    const barrelW = 0.28;       // wide
-    const barrelH = hh * 1.6;   // shorter than wide
+    // Hinge barrels — centered at barrel center, rotate at barrel sweep rate
+    const barrelCY = R; // = hh + lidThick/2
+    const barrelCZ = 0;
+    const barrelW = 0.28;
+    const barrelH = hh * 1.6;
     const barrelD = hh * 1.4;
     const barrelPositions = [-hw * 0.65, hw * 0.65];
+    const barrelSweep = hingeAngle / 2;
+    const cB = cos(barrelSweep), sB = sin(barrelSweep);
     const hingeVerts = [];
     for (const bx of barrelPositions) {
       const bw = barrelW / 2, bh = barrelH / 2, bd = barrelD / 2;
-      // Barrel centered on base midpoint (y=hh)
       const barrelLocal = [
-        [bx - bw, hh - bh, -bd], [bx + bw, hh - bh, -bd],
-        [bx + bw, hh + bh, -bd], [bx - bw, hh + bh, -bd],
-        [bx - bw, hh - bh, bd], [bx + bw, hh - bh, bd],
-        [bx + bw, hh + bh, bd], [bx - bw, hh + bh, bd],
+        [bx - bw, -bh, -bd], [bx + bw, -bh, -bd],
+        [bx + bw, bh, -bd], [bx - bw, bh, -bd],
+        [bx - bw, -bh, bd], [bx + bw, -bh, bd],
+        [bx + bw, bh, bd], [bx - bw, bh, bd],
       ];
-      // Rotate barrels with the lid (half the lid angle — they sit at the joint)
-      const halfA = hingeAngle * 0.5;
-      const cH = cos(halfA), sH = sin(halfA);
       hingeVerts.push(barrelLocal.map(([vx, vy, vz]) => {
-        const ry = vy * cH - vz * sH;
-        const rz = vy * sH + vz * cH;
-        return [vx, ry + pivotY, rz + pivotZ];
+        const ry = vy * cB - vz * sB;
+        const rz = vy * sB + vz * cB;
+        return [vx, barrelCY + ry, barrelCZ + rz];
       }));
     }
 
@@ -363,26 +363,25 @@ function paint($) {
     const inset = 0.15;
     const bezelInset = 0.08;
     const hingeInset = 0.35; // larger inset at hinge end (away from base)
-    // Screen is on the INNER face of the lid (y = 0 in lid local).
-    const screenY = lidMid + lidThick / 2 + 0.002;
+    // Screen is on the INNER face of the lid (y=0 in lid local).
+    const screenY = 0.002;
     const screenTL = [-hw + inset, screenY, 2 * hd - inset];
     const screenTR = [hw - inset, screenY, 2 * hd - inset];
     const screenBL = [-hw + inset, screenY, hingeInset];
     const screenBR = [hw - inset, screenY, hingeInset];
 
     // Bezel corners (slightly larger than screen)
-    const bezelY = lidMid + lidThick / 2 + 0.001;
-    // Screen faces toward base (positive y direction from lid)
+    const bezelY = 0.001;
     const bezelTL = [-hw + bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelTR = [hw - bezelInset, bezelY, 2 * hd - bezelInset];
     const bezelBL = [-hw + bezelInset, bezelY, hingeInset - 0.07];
     const bezelBR = [hw - bezelInset, bezelY, hingeInset - 0.07];
 
-    // Same transform as lid vertices (rotate around barrel center)
+    // Same transform as lid vertices (barrel hinge)
     const hingeXform = ([lx, ly, lz]) => {
       const ry = ly * cosH - lz * sinH;
       const rz = ly * sinH + lz * cosH;
-      return [lx, ry + pivotY, rz + pivotZ];
+      return [lx, attachY + ry, attachZ + rz];
     };
     const sTL = hingeXform(screenTL), sTR = hingeXform(screenTR);
     const sBL = hingeXform(screenBL), sBR = hingeXform(screenBR);
