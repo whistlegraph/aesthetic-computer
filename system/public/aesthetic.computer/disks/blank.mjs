@@ -239,17 +239,29 @@ function paint($) {
 
     const addFaces = (verts3d, proj, color, tag) => {
       const frontFaces = new Set();
+      // Compute box center for outward normal correction
+      let cx3 = 0, cy3 = 0, cz3 = 0;
+      for (const v of verts3d) { cx3 += v[0]; cy3 += v[1]; cz3 += v[2]; }
+      cx3 /= verts3d.length; cy3 /= verts3d.length; cz3 /= verts3d.length;
+
       for (let fi = 0; fi < faceQuads.length; fi++) {
         const [a, b, c, d] = faceQuads[fi];
+        // Face center
+        const fcx = (verts3d[a][0] + verts3d[b][0] + verts3d[c][0] + verts3d[d][0]) / 4;
+        const fcy = (verts3d[a][1] + verts3d[b][1] + verts3d[c][1] + verts3d[d][1]) / 4;
+        const fcz = (verts3d[a][2] + verts3d[b][2] + verts3d[c][2] + verts3d[d][2]) / 4;
         // 3D face normal via cross product of two edges
-        const e1 = [verts3d[b][0] - verts3d[a][0], verts3d[b][1] - verts3d[a][1], verts3d[b][2] - verts3d[a][2]];
-        const e2 = [verts3d[d][0] - verts3d[a][0], verts3d[d][1] - verts3d[a][1], verts3d[d][2] - verts3d[a][2]];
-        const nx = e1[1] * e2[2] - e1[2] * e2[1];
-        const ny = e1[2] * e2[0] - e1[0] * e2[2];
-        const nz = e1[0] * e2[1] - e1[1] * e2[0];
-        // Dot with view direction — positive = facing camera
+        const e1x = verts3d[b][0] - verts3d[a][0], e1y = verts3d[b][1] - verts3d[a][1], e1z = verts3d[b][2] - verts3d[a][2];
+        const e2x = verts3d[d][0] - verts3d[a][0], e2y = verts3d[d][1] - verts3d[a][1], e2z = verts3d[d][2] - verts3d[a][2];
+        let nx = e1y * e2z - e1z * e2y;
+        let ny = e1z * e2x - e1x * e2z;
+        let nz = e1x * e2y - e1y * e2x;
+        // Ensure normal points OUTWARD (away from box center)
+        const outDot = nx * (fcx - cx3) + ny * (fcy - cy3) + nz * (fcz - cz3);
+        if (outDot < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        // Dot with view direction — negative = faces camera (opposes view dir)
         const dot = nx * viewDirX + ny * viewDirY + nz * viewDirZ;
-        if (dot >= 0) continue; // normal faces away from camera → back-facing
+        if (dot >= 0) continue; // faces away from camera → skip
         frontFaces.add(fi);
         const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
         drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
