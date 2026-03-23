@@ -292,9 +292,7 @@ static void *audio_thread_fn(void *arg) {
             mix_r /= mix_divisor;
 
             // Mix sample voices (pitch-shifted playback)
-            // trylock: skip sample mixing if load_data holds the lock (prevents SIGSEGV)
-            int sample_locked = (pthread_mutex_trylock(&audio->lock) == 0);
-            if (sample_locked)
+            // Lock already held from line 246 — safe to read sample_buf
             for (int v = 0; v < AUDIO_MAX_SAMPLE_VOICES; v++) {
                 SampleVoice *sv = &audio->sample_voices[v];
                 if (!sv->active) continue;
@@ -368,7 +366,7 @@ static void *audio_thread_fn(void *arg) {
                     }
                 }
             }
-            if (sample_locked) pthread_mutex_unlock(&audio->lock);
+            // (lock released at end of buffer loop)
 
             // Smooth room_mix toward target (~10ms at 192kHz)
             if (audio->room_mix != audio->target_room_mix) {
