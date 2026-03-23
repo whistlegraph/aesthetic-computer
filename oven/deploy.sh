@@ -30,6 +30,8 @@ rsync -avz --progress --delete \
   --exclude='.git' \
   --exclude='*.log' \
   --exclude='ac-source' \
+  --exclude='native-git' \
+  --exclude='secrets' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
   "$SCRIPT_DIR/" \
   "root@$OVEN_HOST:$REMOTE_DIR/"
