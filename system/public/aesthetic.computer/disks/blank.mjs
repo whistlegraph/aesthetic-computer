@@ -13,7 +13,41 @@ let thanks = false;
 
 // UI elements
 let buyBtn = null;
+let specBtn = null;
 let userHandle = null;
+
+// Handle cycling (when not logged in)
+let allHandles = [];
+let cycleIndex = 0;
+let cycleTimer = 0;
+const CYCLE_INTERVAL = 90; // frames between handle switches
+
+// Whitelist handles to highlight
+const HIGHLIGHT_HANDLES = ["sat", "fifi", "prutti"];
+
+// Handle colors cache: Map<handle, Array<{r, g, b}> | null>
+const handleColors = new Map();
+let currentDisplayColors = null; // colors for the currently displayed handle
+
+async function fetchHandleColor(handle) {
+  const clean = handle.startsWith("@") ? handle.slice(1) : handle;
+  if (handleColors.has(clean)) return handleColors.get(clean);
+  try {
+    const res = await fetch(
+      `/.netlify/functions/handle-colors?handle=${encodeURIComponent(clean)}`,
+    );
+    if (res.ok) {
+      const data = await res.json();
+      handleColors.set(clean, data.colors || null);
+      return data.colors || null;
+    }
+  } catch {}
+  handleColors.set(clean, null);
+  return null;
+}
+
+const SPEC_URL =
+  "https://psref.lenovo.com/Product/Lenovo/Lenovo_ThinkPad_11e_Yoga_Gen_6";
 
 // Animation
 let frame = 0;
@@ -41,10 +75,46 @@ async function boot({ params, ui, screen, cursor, hud, api, handle }) {
   userHandle = handle();
   setupButtons(ui, screen);
   fetchCheckout(api);
+  if (!userHandle) fetchHandles(screen);
+  // Prefetch colors for logged-in user
+  if (userHandle) fetchHandleColor(userHandle);
+  // Prefetch colors for whitelisted handles
+  HIGHLIGHT_HANDLES.forEach((h) => fetchHandleColor(h));
+}
+
+// Max chars that fit on the laptop screen text line: "hi @handle"
+// MatrixChunky8 is ~4px per char, screen plane is ~56px wide → ~14 chars
+const MAX_SCREEN_CHARS = 14;
+
+async function fetchHandles(screen) {
+  try {
+    const res = await fetch("/api/handles?tenant=aesthetic");
+    if (!res.ok) return;
+    const data = await res.json();
+    allHandles = (data.handles || [])
+      .map((h) => h.handle)
+      .filter(Boolean)
+      .filter((h) => `hi @${h}`.length <= MAX_SCREEN_CHARS);
+    // Put highlighted handles first, then shuffle the rest
+    const highlighted = [];
+    const rest = [];
+    for (const h of allHandles) {
+      if (HIGHLIGHT_HANDLES.includes(h.toLowerCase())) highlighted.push(h);
+      else rest.push(h);
+    }
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    allHandles = [...highlighted, ...rest];
+    // Prefetch colors for all displayed handles
+    allHandles.forEach((h) => fetchHandleColor(h));
+  } catch {}
 }
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
+  specBtn = new ui.TextButton("SPECS", { x: 6, bottom: 20, screen });
 }
 
 async function fetchCheckout(api) {
@@ -93,6 +163,29 @@ function paint($) {
 
 
   wipe(...bg);
+
+  // Animated backdrop — drifting primary/secondary color bands
+  {
+    const t = frame * 0.01;
+    const alpha = isDark ? 35 : 20;
+    // Red, blue, yellow — primary colors that pop against the plain laptop
+    const palette = [
+      [200, 30, 30],   // red
+      [30, 50, 200],   // blue
+      [220, 200, 20],  // yellow
+      [20, 180, 60],   // green
+      [180, 40, 180],  // magenta
+    ];
+    for (let i = 0; i < palette.length; i++) {
+      const phase = i * (PI * 2) / palette.length;
+      const bw = floor(w * 0.5);
+      const bh = floor(h * 0.35);
+      const bx = max(0, min(w - bw, floor(w * 0.5 + sin(t + phase) * w * 0.4 - bw / 2)));
+      const by = max(0, min(h - bh, floor(h * 0.5 + cos(t * 0.7 + phase) * h * 0.35 - bh / 2)));
+      const [cr, cg, cb] = palette[i];
+      ink(cr, cg, cb, alpha).box(bx, by, bw, bh, "fill");
+    }
+  }
 
   // Thanks page
   if (thanks) {
@@ -237,7 +330,6 @@ function paint($) {
     const viewDirY = sin(ax);
     const viewDirZ = cos(ay) * cos(ax);
 
-    const debugNormals = [];
     const addFaces = (verts3d, proj, color, tag) => {
       const frontFaces = new Set();
       // Compute box center for outward normal correction
@@ -265,13 +357,6 @@ function paint($) {
         nx /= nLen; ny /= nLen; nz /= nLen;
         // Dot with view direction — negative = faces camera (opposes view dir)
         const dot = nx * viewDirX + ny * viewDirY + nz * viewDirZ;
-        // Store debug normal (all faces, front or back)
-        const nScale = 0.4;
-        debugNormals.push({
-          from: [fcx, fcy, fcz],
-          to: [fcx + nx * nScale, fcy + ny * nScale, fcz + nz * nScale],
-          front: dot < 0, tag, fi,
-        });
         if (dot >= 0) continue; // faces away from camera → skip
         frontFaces.add(fi);
         const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
@@ -414,20 +499,6 @@ function paint($) {
       }
     }
 
-    // 🔍 Debug: draw face normals (green = front-facing, red = back-facing)
-    for (const dn of debugNormals) {
-      const p0 = project(dn.from);
-      const p1 = project(dn.to);
-      if (dn.front) {
-        ink(0, 255, 0, 200);
-      } else {
-        ink(255, 0, 0, 120);
-      }
-      line(p0[0], p0[1], p1[0], p1[1]);
-      // Dot at tip
-      ink(255, 255, 0, 220).box(p1[0] - 1, p1[1] - 1, 3, 3);
-    }
-
     // ⌨️ Keyboard keys — smooth fade based on facing + hinge + occlusion
     if (kbFacing) {
       for (const key of kbKeys) {
@@ -508,6 +579,23 @@ function paint($) {
       tri(projTL[0], projTL[1], projTR[0], projTR[1], projBR[0], projBR[1]);
       tri(projTL[0], projTL[1], projBR[0], projBR[1], projBL[0], projBL[1]);
 
+      // Subtle scanline / noise animation on screen
+      {
+        const st = frame * 0.02;
+        const scanA = floor(facing * 18);
+        // Horizontal scanline that scrolls down
+        const scanFrac = (st * 0.5) % 1;
+        const scanY0 = projTL[1] + (projBL[1] - projTL[1]) * scanFrac;
+        const scanY1 = scanY0 + (projBL[1] - projTL[1]) * 0.06;
+        const sxL = projTL[0] + (projBL[0] - projTL[0]) * scanFrac;
+        const sxR = projTR[0] + (projBR[0] - projTR[0]) * scanFrac;
+        const sxL1 = projTL[0] + (projBL[0] - projTL[0]) * min(1, scanFrac + 0.06);
+        const sxR1 = projTR[0] + (projBR[0] - projTR[0]) * min(1, scanFrac + 0.06);
+        ink(40, 60, 80, scanA);
+        tri(sxL, scanY0, sxR, scanY0, sxR1, scanY1);
+        tri(sxL, scanY0, sxR1, scanY1, sxL1, scanY1);
+      }
+
       // Screen text
       const textAlpha = floor(facing * 255);
       const planeW = sqrt(planeRight[0] ** 2 + planeRight[1] ** 2 + planeRight[2] ** 2);
@@ -521,8 +609,29 @@ function paint($) {
                   planeDown[1] / planeH * glyphScale,
                   planeDown[2] / planeH * glyphScale];
 
-      // Dynamic text: "hi @handle" if logged in, "AC Blank" otherwise
-      const screenText = userHandle ? `hi ${userHandle}` : "hi";
+      // Dynamic text: "hi @handle" if logged in, cycle real handles otherwise
+      let displayHandle = userHandle;
+      let handleClean = null;
+      if (!displayHandle && allHandles.length > 0) {
+        cycleTimer += 1;
+        if (cycleTimer >= CYCLE_INTERVAL) {
+          cycleTimer = 0;
+          cycleIndex = (cycleIndex + 1) % allHandles.length;
+        }
+        handleClean = allHandles[cycleIndex];
+        displayHandle = `@${handleClean}`;
+      } else if (displayHandle) {
+        handleClean = displayHandle.startsWith("@")
+          ? displayHandle.slice(1)
+          : displayHandle;
+      }
+      // Look up colors every frame (async fetch may have completed)
+      currentDisplayColors = handleClean
+        ? handleColors.get(handleClean) || null
+        : null;
+      const screenText = displayHandle ? `hi ${displayHandle}` : "hi";
+      // "hi " prefix length for color offset — "@" is at index 3
+      const handleStart = 3;
       // Estimate width: MatrixChunky8 avg ~4px per char
       const textW = screenText.length * 4;
       const textH = 8;
@@ -536,7 +645,7 @@ function paint($) {
         sTR[2] + offsetR * rn[2] + offsetD * dn[2],
       ];
 
-      // Glitchy digital blue — vary per-pixel via pixelCallback
+      // Screen text with handle colors when available
       ink(0).write3D(screenText, {
         origin: textOrigin,
         right: rn,
@@ -544,16 +653,32 @@ function paint($) {
         project,
         typeface: "MatrixChunky8",
         pixelCallback: (sx, sy, gx, gy, ci) => {
-          // Hash-ish seed from position + frame for shimmer
           const seed = (gx * 7 + gy * 13 + ci * 31 + frame * 3) & 0xFF;
           const flicker = sin(frame * 0.15 + seed * 0.1) * 0.5 + 0.5;
-          // Blue/cyan palette with occasional white flash
-          const flash = (seed + frame) % 47 === 0;
-          const r = flash ? 220 : floor(20 + flicker * 40);
-          const g = flash ? 240 : floor(80 + flicker * 100 + seed * 0.2);
-          const b = flash ? 255 : floor(180 + flicker * 75);
-          const a = floor(textAlpha * (0.6 + flicker * 0.4));
-          ink(r, g, b, a);
+          // More varied opacity — some pixels dim, some bright, some blink off
+          const opVar = sin(seed * 0.37 + frame * 0.08) * 0.5 + 0.5;
+          const dropout = ((seed * 17 + frame) % 61) < 4 ? 0.15 : 1;
+          const a = floor(textAlpha * (0.3 + opVar * 0.5 + flicker * 0.2) * dropout);
+
+          // Use handle colors for the @handle portion
+          const charIdx = ci - handleStart;
+          if (currentDisplayColors && charIdx >= 0 && charIdx < currentDisplayColors.length) {
+            const c = currentDisplayColors[charIdx];
+            const shimmer = 0.6 + flicker * 0.4;
+            ink(
+              floor(c.r * shimmer),
+              floor(c.g * shimmer),
+              floor(c.b * shimmer),
+              a,
+            );
+          } else {
+            // Default blue/cyan for "hi " prefix or no colors
+            const flash = (seed + frame) % 47 === 0;
+            const r = flash ? 220 : floor(20 + flicker * 40);
+            const g = flash ? 240 : floor(80 + flicker * 100 + seed * 0.2);
+            const b = flash ? 255 : floor(180 + flicker * 75);
+            ink(r, g, b, a);
+          }
         },
       });
     }
@@ -590,6 +715,18 @@ function paint($) {
     }
     buyBtn.paint($btn, scheme, hover);
   }
+
+  // Spec sheet link (bottom left)
+  if (specBtn) {
+    specBtn.reposition({ x: 6, bottom: 20, screen }, "SPECS");
+    const specScheme = isDark
+      ? [[20, 20, 24], fgDim, [180, 180, 190]]
+      : [[228, 228, 232], fgDim, [60, 60, 70]];
+    const specHover = isDark
+      ? [[30, 30, 38], [180, 180, 200], [220, 220, 230]]
+      : [[215, 215, 225], [60, 60, 80], [30, 30, 40]];
+    specBtn.paint($btn, specScheme, specHover);
+  }
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
@@ -598,6 +735,10 @@ function act({ event: e, screen, jump, sound, ui, api }) {
   if (e.is("reframed")) {
     setupButtons(ui, screen);
   }
+
+  specBtn?.act(e, {
+    push: () => jump(`out:${SPEC_URL}`),
+  });
 
   buyBtn?.act(e, {
     down: () => {
