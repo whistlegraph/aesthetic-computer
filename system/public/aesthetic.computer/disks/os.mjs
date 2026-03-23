@@ -37,6 +37,7 @@ let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
 let variantIdx = 0;   // index into VARIANTS (0=C, 1=Common Lisp)
 let variantBtn = null; // "build: C" selector
+let clAvailable = false; // true once we confirm CL ISO exists on CDN
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
@@ -252,6 +253,11 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
   fetchBuildStatus(needsPaint);
   buildPollTimer = setInterval(() => fetchBuildStatus(needsPaint), 30000);
 
+  // Probe CL variant availability (HEAD request)
+  fetch(ISO_BASE.replace("native-notepat", "cl-native-notepat"), { method: "HEAD" })
+    .then(r => { clAvailable = r.ok; console.log("[os] CL variant:", clAvailable ? "available" : "not yet"); needsPaint(); })
+    .catch(() => { clAvailable = false; });
+
   if (handle) {
     console.log("[os] Authorizing @" + handle + "...");
     api?.authorize?.().then((t) => {
@@ -397,10 +403,13 @@ function paint($) {
 
   // --- ACTIVE BUILD ---
   if (activeBuild) {
-    sectionHeader("Building", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120);
+    const rawStage = activeBuild.stage || "starting";
+    const isCLBuild = rawStage.startsWith("cl-");
+    const buildVariant = isCLBuild ? "Common Lisp" : "C";
+    sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120);
 
     // Status line: stage + percentage
-    const stageLabel = activeBuild.stage || "starting";
+    const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
     const pct = activeBuild.percent || 0;
     ink(...C.current);
     $.write(stageLabel + " " + pct + "%", { x: pad, y });
@@ -522,8 +531,8 @@ function paint($) {
       y += bootBtn.height + btnGap;
     }
 
-    // Build variant selector
-    if (variantBtn) {
+    // Build variant selector (only show when CL is available)
+    if (variantBtn && clAvailable) {
       variantBtn.reposition({ x: btnX(variantBtn), y });
       variantBtn.paint(
         $,
@@ -765,8 +774,8 @@ function act({ event: e, needsPaint, download }) {
     });
   }
 
-  // Build variant selector
-  if (variantBtn) {
+  // Build variant selector (only when CL is available)
+  if (variantBtn && clAvailable) {
     variantBtn.btn.act(e, {
       push: () => {
         variantIdx = (variantIdx + 1) % VARIANTS.length;
