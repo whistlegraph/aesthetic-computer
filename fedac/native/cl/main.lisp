@@ -1,5 +1,5 @@
 ;;; Notepat — AC Native OS musical keyboard instrument (Common Lisp)
-;;; Port of fedac/native/pieces/notepat.mjs core functionality
+;;; Port of fedac/native/pieces/notepat.mjs
 
 (in-package :ac-native)
 
@@ -24,12 +24,14 @@
 (defvar *chromatic* #("c" "c#" "d" "d#" "e" "f" "f#" "g" "g#" "a" "a#" "b"))
 
 (defun note-to-freq (note-name octave)
-  "Convert note name and octave to frequency in Hz.
-   A4 = 440Hz. Uses equal temperament."
+  "Convert note name and octave to frequency in Hz. A4 = 440Hz."
   (let ((idx (position note-name *chromatic* :test #'string=)))
     (if idx
         (* 440.0d0 (expt 2.0d0 (+ (- octave 4) (/ (- idx 9) 12.0d0))))
         440.0d0)))
+
+(defun note-is-sharp-p (note-name)
+  (search "#" note-name))
 
 ;;; ── Note colors (chromatic rainbow) ──
 
@@ -59,91 +61,74 @@
 (defun init-key-note-map ()
   "Populate keycode → note mapping (QWERTY layout matching JS notepat)."
   (clrhash *key-note-map*)
-  ;; Lower octave naturals
-  (setf (gethash ac-native.input:+key-c+ *key-note-map*) '("c" . 0))
-  (setf (gethash ac-native.input:+key-d+ *key-note-map*) '("d" . 0))
-  (setf (gethash ac-native.input:+key-e+ *key-note-map*) '("e" . 0))
-  (setf (gethash ac-native.input:+key-f+ *key-note-map*) '("f" . 0))
-  (setf (gethash ac-native.input:+key-g+ *key-note-map*) '("g" . 0))
-  (setf (gethash ac-native.input:+key-a+ *key-note-map*) '("a" . 0))
-  (setf (gethash ac-native.input:+key-b+ *key-note-map*) '("b" . 0))
-  ;; Lower octave sharps
-  (setf (gethash ac-native.input:+key-v+ *key-note-map*) '("c#" . 0))
-  (setf (gethash ac-native.input:+key-s+ *key-note-map*) '("d#" . 0))
-  (setf (gethash ac-native.input:+key-w+ *key-note-map*) '("f#" . 0))
-  (setf (gethash ac-native.input:+key-r+ *key-note-map*) '("g#" . 0))
-  (setf (gethash ac-native.input:+key-q+ *key-note-map*) '("a#" . 0))
-  ;; Upper octave naturals
-  (setf (gethash ac-native.input:+key-h+ *key-note-map*) '("c" . 1))
-  (setf (gethash ac-native.input:+key-i+ *key-note-map*) '("d" . 1))
-  (setf (gethash ac-native.input:+key-j+ *key-note-map*) '("e" . 1))
-  (setf (gethash ac-native.input:+key-k+ *key-note-map*) '("f" . 1))
-  (setf (gethash ac-native.input:+key-l+ *key-note-map*) '("g" . 1))
-  (setf (gethash ac-native.input:+key-m+ *key-note-map*) '("a" . 1))
-  (setf (gethash ac-native.input:+key-n+ *key-note-map*) '("b" . 1))
-  ;; Upper octave sharps
-  (setf (gethash ac-native.input:+key-t+ *key-note-map*) '("c#" . 1))
-  (setf (gethash ac-native.input:+key-y+ *key-note-map*) '("d#" . 1))
-  (setf (gethash ac-native.input:+key-u+ *key-note-map*) '("f#" . 1))
-  (setf (gethash ac-native.input:+key-o+ *key-note-map*) '("g#" . 1))
-  (setf (gethash ac-native.input:+key-p+ *key-note-map*) '("a#" . 1))
-  ;; Extension: +2 octave
-  (setf (gethash ac-native.input:+key-semicolon+ *key-note-map*) '("c" . 2))
-  (setf (gethash ac-native.input:+key-apostrophe+ *key-note-map*) '("c#" . 2))
-  (setf (gethash ac-native.input:+key-rightbrace+ *key-note-map*) '("d" . 2))
-  ;; Sub-octave
-  (setf (gethash ac-native.input:+key-z+ *key-note-map*) '("a#" . -1))
-  (setf (gethash ac-native.input:+key-x+ *key-note-map*) '("b" . -1)))
+  (flet ((m (key note off) (setf (gethash key *key-note-map*) (cons note off))))
+    ;; Lower octave naturals
+    (m ac-native.input:+key-c+ "c" 0) (m ac-native.input:+key-d+ "d" 0)
+    (m ac-native.input:+key-e+ "e" 0) (m ac-native.input:+key-f+ "f" 0)
+    (m ac-native.input:+key-g+ "g" 0) (m ac-native.input:+key-a+ "a" 0)
+    (m ac-native.input:+key-b+ "b" 0)
+    ;; Lower octave sharps
+    (m ac-native.input:+key-v+ "c#" 0) (m ac-native.input:+key-s+ "d#" 0)
+    (m ac-native.input:+key-w+ "f#" 0) (m ac-native.input:+key-r+ "g#" 0)
+    (m ac-native.input:+key-q+ "a#" 0)
+    ;; Upper octave naturals
+    (m ac-native.input:+key-h+ "c" 1) (m ac-native.input:+key-i+ "d" 1)
+    (m ac-native.input:+key-j+ "e" 1) (m ac-native.input:+key-k+ "f" 1)
+    (m ac-native.input:+key-l+ "g" 1) (m ac-native.input:+key-m+ "a" 1)
+    (m ac-native.input:+key-n+ "b" 1)
+    ;; Upper octave sharps
+    (m ac-native.input:+key-t+ "c#" 1) (m ac-native.input:+key-y+ "d#" 1)
+    (m ac-native.input:+key-u+ "f#" 1) (m ac-native.input:+key-o+ "g#" 1)
+    (m ac-native.input:+key-p+ "a#" 1)
+    ;; Extension +2
+    (m ac-native.input:+key-semicolon+ "c" 2)
+    (m ac-native.input:+key-apostrophe+ "c#" 2)
+    (m ac-native.input:+key-rightbrace+ "d" 2)
+    ;; Sub-octave
+    (m ac-native.input:+key-z+ "a#" -1) (m ac-native.input:+key-x+ "b" -1)))
 
-;;; ── Wave types ──
+;;; ── State ──
 
 (defvar *wave-names* #("sine" "triangle" "sawtooth" "square" "noise"))
 (defvar *wave-index* 0)
 (defvar *octave* 4)
+(defvar *quick-mode* nil "Short attack/release for staccato play.")
 
-;;; ── Active voices and trails ──
+;; Active voices and trails
+(defvar *active-voices* (make-hash-table :test 'eql))
+(defvar *active-notes* (make-hash-table :test 'eql))
+(defvar *trails* (make-hash-table :test 'equal))
 
-(defvar *active-voices* (make-hash-table :test 'eql)
-  "Keycode → voice-id for currently held keys.")
+;; Background color
+(defvar *bg-r* 20) (defvar *bg-g* 20) (defvar *bg-b* 25)
 
-(defvar *active-notes* (make-hash-table :test 'eql)
-  "Keycode → (note-name . actual-octave) for currently held keys.")
-
-(defvar *trails* (make-hash-table :test 'equal)
-  "note-name → brightness (1.0 → 0.0) for recently released notes.")
-
-;;; ── Background color state ──
-
-(defvar *bg-r* 20)
-(defvar *bg-g* 20)
-(defvar *bg-b* 25)
-
-;;; ── FPS tracking ──
-
+;; FPS
 (defvar *fps-display* 0)
 (defvar *fps-accum* 0.0d0)
 (defvar *fps-samples* 0)
 (defvar *fps-last-time* 0.0d0)
 
-;;; ── ESC triple-press ──
-
+;; ESC triple-press
 (defvar *esc-count* 0)
 (defvar *esc-last-frame* 0)
 
-;;; ── Network info ──
+;; Metronome
+(defvar *metronome-on* nil)
+(defvar *metronome-bpm* 120)
+(defvar *metronome-last-beat* -1)
+(defvar *metronome-flash* 0.0 "Visual flash intensity 0-1, decays per frame.")
+(defvar *metronome-phase* 0.0 "Pendulum swing -1..1.")
 
-(defvar *ip-address* "" "Current IP address for Swank display.")
+;; Network
+(defvar *ip-address* "")
 
 (defun refresh-ip ()
-  "Read current IP address from system."
   (handler-case
       (let ((output (with-output-to-string (s)
                       (sb-ext:run-program "/sbin/ip" '("-4" "-o" "addr" "show")
                         :output s :error nil))))
         (dolist (line (uiop:split-string output :separator '(#\Newline)))
-          (when (and (search "inet " line)
-                     (not (search "127.0.0.1" line)))
-            ;; Extract IP from "X: wlan0  inet 192.168.1.x/24 ..."
+          (when (and (search "inet " line) (not (search "127.0.0.1" line)))
             (let* ((inet-pos (search "inet " line))
                    (ip-start (+ inet-pos 5))
                    (slash-pos (position #\/ line :start ip-start)))
@@ -151,6 +136,18 @@
                 (setf *ip-address* (subseq line ip-start slash-pos))
                 (return))))))
     (error () nil)))
+
+;;; ── Helpers ──
+
+(defun kill-all-voices (audio)
+  "Kill all active voices (on octave/wave change)."
+  (when audio
+    (maphash (lambda (code voice-id)
+               (declare (ignore code))
+               (audio-synth-kill audio voice-id))
+             *active-voices*))
+  (clrhash *active-voices*)
+  (clrhash *active-notes*))
 
 ;;; ── Main ──
 
@@ -162,20 +159,15 @@
   (format *error-output* "════════════════════════════════════~%~%")
   (force-output *error-output*)
 
-  ;; Init key map
   (init-key-note-map)
 
-  ;; Init display
   (let ((display (handler-case (ac-native.drm:drm-init)
                    (error (e)
                      (format *error-output* "[notepat] DRM error: ~A~%" e)
-                     (force-output *error-output*)
-                     nil))))
+                     (force-output *error-output*) nil))))
     (unless display
       (format *error-output* "[notepat] FATAL: no display~%")
-      (force-output *error-output*)
-      (sleep 30)
-      (return-from main 1))
+      (force-output *error-output*) (sleep 30) (return-from main 1))
 
     (let* ((dw (ac-native.drm:display-width display))
            (dh (ac-native.drm:display-height display))
@@ -194,24 +186,14 @@
               (if audio "OK" "FAILED"))
       (force-output *error-output*)
 
-      ;; Font init
       (font-init)
 
-      ;; Start Swank server for remote REPL (port 4005)
+      ;; Start Swank server for remote REPL
       (handler-case
           (progn
             (setf swank::*communication-style* :spawn)
             (swank:create-server :port 4005 :dont-close t)
-            (format *error-output* "[notepat] Swank server on port 4005~%")
-            ;; Log IP address for connection
-            (handler-case
-                (let ((output (with-output-to-string (s)
-                                (sb-ext:run-program "/sbin/ip" '("-4" "addr" "show")
-                                  :output s :error nil))))
-                  (dolist (line (uiop:split-string output :separator '(#\Newline)))
-                    (when (search "inet " line)
-                      (format *error-output* "[notepat] ~A~%" (string-trim '(#\Space) line)))))
-              (error () nil))
+            (format *error-output* "[notepat] Swank on :4005~%")
             (force-output *error-output*))
         (error (e)
           (format *error-output* "[notepat] Swank failed: ~A~%" e)
@@ -223,7 +205,7 @@
           (loop while *running* do
             (incf frame)
 
-            ;; FPS tracking
+            ;; FPS
             (let ((now (monotonic-time-ms)))
               (when (> *fps-last-time* 0.0d0)
                 (incf *fps-accum* (- now *fps-last-time*))
@@ -233,46 +215,98 @@
                   (setf *fps-accum* 0.0d0 *fps-samples* 0)))
               (setf *fps-last-time* now))
 
+            ;; ── Metronome tick ──
+            (when (and *metronome-on* (> *metronome-bpm* 0) audio)
+              (let* ((now-ms (monotonic-time-ms))
+                     (ms-per-beat (/ 60000.0d0 *metronome-bpm*))
+                     (beat-number (floor now-ms ms-per-beat))
+                     ;; Pendulum: sinusoidal swing over 2-beat period
+                     (beat-phase (/ (mod now-ms (* ms-per-beat 2)) (* ms-per-beat 2))))
+                (setf *metronome-phase* (sin (* beat-phase pi 2.0d0)))
+                (when (/= beat-number *metronome-last-beat*)
+                  (setf *metronome-last-beat* beat-number)
+                  (setf *metronome-flash* 1.0)
+                  (let ((downbeat (zerop (mod beat-number 4))))
+                    (audio-synth audio :type 3  ; square
+                                 :tone (if downbeat 1200.0d0 800.0d0)
+                                 :duration 0.03d0
+                                 :volume (if downbeat 0.4d0 0.25d0)
+                                 :attack 0.001d0 :decay 0.02d0)))))
+
+            ;; Decay metronome flash
+            (when (> *metronome-flash* 0.0)
+              (decf *metronome-flash* 0.15)
+              (when (< *metronome-flash* 0.0) (setf *metronome-flash* 0.0)))
+
             ;; ── Input ──
             (dolist (ev (ac-native.input:input-poll input))
               (let ((type (ac-native.input:event-type ev))
                     (code (ac-native.input:event-code ev)))
 
-                ;; ── Key down ──
                 (when (eq type :key-down)
                   ;; ESC: triple-press to quit
                   (when (= code ac-native.input:+key-esc+)
-                    (if (> (- frame *esc-last-frame*) 90)
-                        (setf *esc-count* 0))
+                    (when (> (- frame *esc-last-frame*) 90) (setf *esc-count* 0))
                     (incf *esc-count*)
                     (setf *esc-last-frame* frame)
                     (when (and audio (< *esc-count* 3))
-                      (audio-synth audio :type 3 ; square
+                      (audio-synth audio :type 3
                                    :tone (if (= *esc-count* 1) 440.0d0 660.0d0)
                                    :duration 0.08d0 :volume 0.15d0
                                    :attack 0.002d0 :decay 0.06d0))
-                    (when (>= *esc-count* 3)
-                      (setf *running* nil)))
+                    (when (>= *esc-count* 3) (setf *running* nil)))
 
-                  ;; Power button
-                  (when (= code ac-native.input:+key-power+)
-                    (setf *running* nil))
+                  ;; Power
+                  (when (= code ac-native.input:+key-power+) (setf *running* nil))
 
-                  ;; Number keys: set octave
+                  ;; Shift: toggle quick mode
+                  (when (= code 42)  ; KEY_LEFTSHIFT
+                    (setf *quick-mode* (not *quick-mode*)))
+
+                  ;; Space: toggle metronome
+                  (when (= code ac-native.input:+key-space+)
+                    (setf *metronome-on* (not *metronome-on*))
+                    (when *metronome-on*
+                      (setf *metronome-last-beat* -1)))
+
+                  ;; Minus / Equal: BPM control
+                  (when (= code ac-native.input:+key-minus+)
+                    (setf *metronome-bpm* (max 20 (- *metronome-bpm* 5))))
+                  (when (= code ac-native.input:+key-equal+)
+                    (setf *metronome-bpm* (min 300 (+ *metronome-bpm* 5))))
+
+                  ;; Number keys: set octave (kills active voices)
                   (when (and (>= code ac-native.input:+key-1+)
                              (<= code ac-native.input:+key-9+))
-                    (setf *octave* (1+ (- code ac-native.input:+key-1+))))
+                    (let ((new-oct (1+ (- code ac-native.input:+key-1+))))
+                      (unless (= new-oct *octave*)
+                        (kill-all-voices audio)
+                        (setf *octave* new-oct))))
 
                   ;; Arrow up/down: octave
                   (when (= code ac-native.input:+key-up+)
-                    (setf *octave* (min 9 (1+ *octave*))))
+                    (when (< *octave* 9)
+                      (kill-all-voices audio)
+                      (incf *octave*)))
                   (when (= code ac-native.input:+key-down+)
-                    (setf *octave* (max 1 (1- *octave*))))
+                    (when (> *octave* 1)
+                      (kill-all-voices audio)
+                      (decf *octave*)))
 
-                  ;; Tab: cycle wave type
-                  (when (= code ac-native.input:+key-tab+)
+                  ;; Tab / Arrow left/right: cycle wave type
+                  (when (or (= code ac-native.input:+key-tab+)
+                            (= code ac-native.input:+key-right+))
+                    (kill-all-voices audio)
                     (setf *wave-index* (mod (1+ *wave-index*) 5))
-                    ;; Confirmation blip
+                    (when audio
+                      (let ((tones #(660.0d0 550.0d0 440.0d0 330.0d0 220.0d0)))
+                        (audio-synth audio :type *wave-index*
+                                     :tone (aref tones *wave-index*)
+                                     :duration 0.07d0 :volume 0.18d0
+                                     :attack 0.002d0 :decay 0.06d0))))
+                  (when (= code ac-native.input:+key-left+)
+                    (kill-all-voices audio)
+                    (setf *wave-index* (mod (+ *wave-index* 4) 5))
                     (when audio
                       (let ((tones #(660.0d0 550.0d0 440.0d0 330.0d0 220.0d0)))
                         (audio-synth audio :type *wave-index*
@@ -282,36 +316,33 @@
 
                   ;; Note keys
                   (let ((mapping (gethash code *key-note-map*)))
-                    (when (and mapping
-                               (not (gethash code *active-voices*))
-                               audio)
+                    (when (and mapping (not (gethash code *active-voices*)) audio)
                       (let* ((note-name (car mapping))
                              (oct-delta (cdr mapping))
                              (actual-octave (+ *octave* oct-delta))
                              (freq (note-to-freq note-name actual-octave))
-                             ;; Pan: lower notes left, higher notes right
                              (idx (position note-name *chromatic* :test #'string=))
                              (semitones (+ (* (- actual-octave 4) 12) (or idx 0)))
                              (pan (max -0.8d0 (min 0.8d0 (/ (- semitones 12) 15.0d0))))
+                             (attack (if *quick-mode* 0.002d0 0.005d0))
                              (voice-id (audio-synth audio
                                                     :type *wave-index*
                                                     :tone freq
                                                     :volume 0.7d0
-                                                    :duration 0  ; sustain
-                                                    :attack 0.005d0
+                                                    :duration 0
+                                                    :attack attack
                                                     :decay 0.1d0
                                                     :pan pan)))
                         (setf (gethash code *active-voices*) voice-id)
                         (setf (gethash code *active-notes*)
                               (cons note-name actual-octave))))))
 
-                ;; ── Key up ──
+                ;; Key up
                 (when (eq type :key-up)
                   (let ((voice-id (gethash code *active-voices*)))
                     (when (and voice-id audio)
                       (audio-synth-kill audio voice-id)
                       (remhash code *active-voices*)
-                      ;; Start trail
                       (let ((note-info (gethash code *active-notes*)))
                         (when note-info
                           (setf (gethash note-info *trails*) 1.0)
@@ -327,7 +358,7 @@
                        *trails*)
               (dolist (n dead) (remhash n *trails*)))
 
-            ;; ── Compute background color from active notes ──
+            ;; ── Background color from active notes ──
             (let ((n (hash-table-count *active-notes*)))
               (if (> n 0)
                   (let ((tr 0) (tg 0) (tb 0))
@@ -338,32 +369,35 @@
                                  (incf tg (second rgb))
                                  (incf tb (third rgb))))
                              *active-notes*)
-                    ;; Lerp toward target (darkened)
                     (let ((target-r (floor (* (floor tr n) 35) 100))
                           (target-g (floor (* (floor tg n) 35) 100))
                           (target-b (floor (* (floor tb n) 35) 100)))
                       (setf *bg-r* (+ *bg-r* (floor (- target-r *bg-r*) 4)))
                       (setf *bg-g* (+ *bg-g* (floor (- target-g *bg-g*) 4)))
                       (setf *bg-b* (+ *bg-b* (floor (- target-b *bg-b*) 4)))))
-                  ;; Decay to dark
                   (progn
                     (setf *bg-r* (+ *bg-r* (floor (- 20 *bg-r*) 8)))
                     (setf *bg-g* (+ *bg-g* (floor (- 20 *bg-g*) 8)))
                     (setf *bg-b* (+ *bg-b* (floor (- 25 *bg-b*) 8))))))
 
-            ;; ── Paint ──
+            ;; Metronome flash brightens background
+            (when (> *metronome-flash* 0.0)
+              (let ((boost (floor (* *metronome-flash* 40))))
+                (setf *bg-r* (min 255 (+ *bg-r* boost)))
+                (setf *bg-g* (min 255 (+ *bg-g* boost)))
+                (setf *bg-b* (min 255 (+ *bg-b* boost)))))
+
+            ;; ══════════════ PAINT ══════════════
             (graph-wipe graph (make-color :r *bg-r* :g *bg-g* :b *bg-b*))
 
-            ;; Draw trails — horizontal bars per note+octave
+            ;; ── Trails ──
             (maphash (lambda (trail-key val)
-                       ;; trail-key is (note-name . octave)
                        (let* ((note-name (car trail-key))
                               (oct (cdr trail-key))
                               (rgb (note-color-rgb note-name))
                               (note-idx (or (position note-name *chromatic* :test #'string=) 0))
-                              ;; Unique Y per note+octave: semitone index relative to octave 1
                               (semi (+ (* (- oct 1) 12) note-idx))
-                              (total-semitones (* 9 12))  ; octaves 1-9
+                              (total-semitones (* 9 12))
                               (bar-h (max 2 (floor (- sh 30) total-semitones)))
                               (bar-y (+ 14 (floor (* semi (- sh 30)) total-semitones)))
                               (bar-w (max 1 (floor (* val sw))))
@@ -376,7 +410,7 @@
                          (graph-box graph bar-x bar-y bar-w bar-h)))
                      *trails*)
 
-            ;; Draw active note indicators — bright bars
+            ;; ── Active note bars ──
             (maphash (lambda (code note-info)
                        (declare (ignore code))
                        (let* ((note-name (car note-info))
@@ -394,47 +428,97 @@
                          (graph-box graph 0 bar-y sw bar-h)))
                      *active-notes*)
 
-            ;; Status bar (bottom)
-            (let ((status (format nil "~A  OCT:~D  ~Dfps"
-                                  (aref *wave-names* *wave-index*)
-                                  *octave*
-                                  *fps-display*)))
-              (graph-ink graph (make-color :r 180 :g 180 :b 180 :a 200))
-              (font-draw graph status 3 (- sh 12)))
+            ;; ── Metronome pendulum ──
+            (when *metronome-on*
+              (let* ((cx (floor sw 2))
+                     (cy (- sh 24))
+                     (arm-len (min 20 (floor sh 8)))
+                     (bx (+ cx (floor (* *metronome-phase* arm-len))))
+                     (bright (floor (* *metronome-flash* 255))))
+                ;; Arm line
+                (graph-ink graph (make-color :r 180 :g 180 :b 180 :a 120))
+                (graph-line graph cx cy bx (- cy arm-len))
+                ;; Bob
+                (graph-ink graph (make-color :r (min 255 (+ 180 bright))
+                                            :g (min 255 (+ 100 bright))
+                                            :b 60 :a 220))
+                (graph-circle graph bx (- cy arm-len) 3)))
 
-            ;; "notepat" title (top-left, dim)
+            ;; ── Wave type indicators (bottom bar) ──
+            (let* ((bar-y (- sh 14))
+                   (btn-w (max 12 (floor sw 6)))
+                   (gap 2)
+                   (total-w (+ (* 5 btn-w) (* 4 gap)))
+                   (start-x (floor (- sw total-w) 2)))
+              (dotimes (i 5)
+                (let* ((bx (+ start-x (* i (+ btn-w gap))))
+                       (selected (= i *wave-index*))
+                       (col (if selected
+                                (make-color :r 255 :g 255 :b 255 :a 200)
+                                (make-color :r 100 :g 100 :b 110 :a 140))))
+                  ;; Button background
+                  (if selected
+                      (progn
+                        (graph-ink graph (make-color :r 60 :g 50 :b 80 :a 200))
+                        (graph-box graph bx bar-y btn-w 12))
+                      (progn
+                        (graph-ink graph (make-color :r 30 :g 28 :b 35 :a 150))
+                        (graph-box graph bx bar-y btn-w 12)))
+                  ;; Wave name (abbreviated to 3 chars)
+                  (graph-ink graph col)
+                  (let ((abbr (subseq (aref *wave-names* i) 0 (min 3 (length (aref *wave-names* i))))))
+                    (font-draw graph abbr
+                               (+ bx (floor (- btn-w (* (length abbr) 6)) 2))
+                               (+ bar-y 2))))))
+
+            ;; ── Status text ──
+            ;; Top-left: piece name + mode indicators
             (graph-ink graph (make-color :r 100 :g 100 :b 110 :a 150))
             (font-draw graph "notepat" 3 3)
 
-            ;; Active voice count (top-right)
+            ;; Quick mode indicator
+            (when *quick-mode*
+              (graph-ink graph (make-color :r 255 :g 200 :b 50 :a 200))
+              (font-draw graph "Q" (+ 3 (* 8 6)) 3))
+
+            ;; Octave (top-left, below title)
+            (graph-ink graph (make-color :r 160 :g 160 :b 170 :a 180))
+            (font-draw graph (format nil "OCT ~D" *octave*) 3 14)
+
+            ;; Metronome BPM (if on)
+            (when *metronome-on*
+              (graph-ink graph (make-color :r 180 :g 140 :b 60 :a 200))
+              (font-draw graph (format nil "~DBPM" *metronome-bpm*)
+                         (+ 3 (* 7 6)) 14))
+
+            ;; FPS (top-right)
+            (let ((fps-txt (format nil "~D" *fps-display*)))
+              (graph-ink graph (make-color :r 80 :g 80 :b 90 :a 120))
+              (font-draw graph fps-txt (- sw (* (length fps-txt) 6) 3) 3))
+
+            ;; Voice count (top-right, below FPS)
             (let ((vc (hash-table-count *active-voices*)))
               (when (> vc 0)
-                (let ((txt (format nil "~D" vc)))
+                (let ((txt (format nil "~Dv" vc)))
                   (graph-ink graph (make-color :r 200 :g 200 :b 200 :a 180))
-                  (font-draw graph txt (- sw (* (length txt) 6) 3) 3))))
+                  (font-draw graph txt (- sw (* (length txt) 6) 3) 14))))
 
-            ;; IP + Swank indicator (top, centered)
+            ;; IP + Swank (top center)
             (when (> (length *ip-address*) 0)
               (let ((txt (format nil "~A:4005" *ip-address*)))
                 (graph-ink graph (make-color :r 60 :g 180 :b 60 :a 160))
                 (font-draw graph txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
 
-            ;; Refresh IP every ~5 seconds (300 frames)
-            (when (zerop (mod frame 300))
-              (refresh-ip))
+            ;; Refresh IP every ~5 seconds
+            (when (zerop (mod frame 300)) (refresh-ip))
 
             ;; ── Present ──
             (ac-native.drm:drm-present display screen scale)
             (frame-sync-60fps))
 
         ;; ── Cleanup ──
-        ;; Kill all active voices
-        (when audio
-          (maphash (lambda (code voice-id)
-                     (declare (ignore code))
-                     (audio-synth-kill audio voice-id))
-                   *active-voices*)
-          (audio-destroy audio))
+        (kill-all-voices audio)
+        (when audio (audio-destroy audio))
         (ac-native.input:input-destroy input)
         (fb-destroy screen)
         (ac-native.drm:drm-destroy display)
