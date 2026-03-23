@@ -110,10 +110,10 @@ function paint($) {
   // 💻 Wireframe laptop (turntable swivel)
   {
     const cx = floor(w / 2);
-    const cy = floor(h / 2); // vertically centered in full screen
+    const cy = floor(h * 0.54); // slightly below center for optical balance
     // Keep laptop fully within viewport (account for rotation + lid overshoot)
-    const availW = w * 0.32;
-    const availH = (contentBottom - 20) * 0.25;
+    const availW = w * 0.42;
+    const availH = (contentBottom - 20) * 0.32;
     const size = min(availW, availH);
     const fov = 260;
 
