@@ -183,6 +183,14 @@ async function runBuildJob(job) {
     const buildName = `oven-${job.ref.slice(0, 7)}`;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
+    // Pre-build: prune stopped containers and dangling images to avoid disk-full failures
+    addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
+    try {
+      await runPhase(job, "prune", "docker", [
+        "system", "prune", "-af", "--filter", "until=1h",
+      ], repoDir);
+    } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
+
     // Phase 1: Docker image build (cached layers = fast)
     addLogLine(job, "stdout", "Phase 1: Building Docker image...");
     await runPhase(job, "docker-build", "docker", [
