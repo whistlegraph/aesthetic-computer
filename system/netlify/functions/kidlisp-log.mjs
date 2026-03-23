@@ -3,6 +3,7 @@
 // GET  /api/kidlisp-log — query recent logs (with optional filters)
 
 import { connect } from "../../backend/database.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 
 const COLLECTION = "kidlisp-logs";
@@ -13,6 +14,11 @@ export async function handler(event) {
   }
 
   if (event.httpMethod === "GET") {
+    // Admin-only: require auth
+    const user = await authorize(event.headers);
+    if (!user) return respond(401, { error: "Authentication required" });
+    if (!(await hasAdmin(user))) return respond(403, { error: "Admin access required" });
+
     try {
       const database = await connect();
       const col = database.db.collection(COLLECTION);
@@ -45,7 +51,11 @@ export async function handler(event) {
   }
 
   if (event.httpMethod === "DELETE") {
-    // Purge logs (for silo admin use)
+    // Admin-only: require auth
+    const delUser = await authorize(event.headers);
+    if (!delUser) return respond(401, { error: "Authentication required" });
+    if (!(await hasAdmin(delUser))) return respond(403, { error: "Admin access required" });
+
     try {
       const database = await connect();
       const col = database.db.collection(COLLECTION);
