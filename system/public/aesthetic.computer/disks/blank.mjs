@@ -4,7 +4,7 @@
 const { floor, sin, min, max } = Math;
 
 const PRODUCT_IMG =
-  "https://p3-ofp.static.pub/fes/cms/2022/03/28/4wfdaky6aue1z6x5xmxkl9ms8gdpmz225363.png";
+  "https://assets.aesthetic.computer/thinkpad-11e-yoga-gen6.png";
 
 // Module state
 let amount = 12800;
