@@ -285,6 +285,37 @@
       grid-column: 1 / -1;
     }
 
+    /* Why Give + Bills transparency bridge */
+    .why-give-section {
+      grid-column: 1 / -1;
+      background: var(--box-bg);
+      border: 1px solid var(--box-border);
+      border-left: 3px solid var(--pink);
+      border-radius: 6px;
+      padding: 0.9em 1.1em;
+      font-size: 0.9em;
+      line-height: 1.7;
+    }
+
+    .why-give-title {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1.1em;
+      color: var(--pink);
+      margin-bottom: 0.3em;
+      letter-spacing: 0.02em;
+    }
+
+    .why-give-section .why-link {
+      color: var(--gold);
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px dotted currentColor;
+    }
+
+    .why-give-section .why-link:hover {
+      text-decoration: underline;
+    }
+
     /* Language content visibility - All non-English hidden by default */
     /* Exclude dropdown options from language hiding */
     [data-lang="da"]:not(.lang-option):not(.curr-option),
@@ -7004,6 +7035,20 @@
 
       <div class="prose full-width" data-lang="da">
         🇩🇰 <a href="https://en.wikipedia.org/wiki/Goodiepal" target="_blank"><strong>Goodiepal</strong></a> og <a href="https://prompt.ac/laer-klokken" target="_blank" class="handle-link">laer-klokken</a>-fællesskabet har brugt softwaren hver dag til at dyrke fællesskab i Københavns IRL musik-, kunst- og kulturscene.
+      </div>
+
+      <div class="why-give-section full-width">
+        <div class="why-give-title" data-lang="en">Why give?</div>
+        <div class="why-give-title" data-lang="da">Hvorfor give?</div>
+        <div class="why-give-title" data-lang="de">Warum geben?</div>
+        <div class="why-give-title" data-lang="es">¿Por qué dar?</div>
+        <div class="why-give-title" data-lang="zh">为什么捐赠？</div>
+
+        <div data-lang="en">Because we publish transparent costs. See <a class="why-link" href="https://bills.aesthetic.computer" target="_blank">Bills</a> to track where support goes.</div>
+        <div data-lang="da">Fordi vi viser gennemsigtige omkostninger. Se <a class="why-link" href="https://bills.aesthetic.computer" target="_blank">Bills</a> for at følge hvor støtten går hen.</div>
+        <div data-lang="de">Weil wir unsere Kosten transparent veröffentlichen. Unter <a class="why-link" href="https://bills.aesthetic.computer" target="_blank">Bills</a> sehen Sie, wohin die Unterstützung geht.</div>
+        <div data-lang="es">Porque publicamos costos transparentes. En <a class="why-link" href="https://bills.aesthetic.computer" target="_blank">Bills</a> puedes ver a dónde va el apoyo.</div>
+        <div data-lang="zh">因为我们公开透明地展示成本。查看 <a class="why-link" href="https://bills.aesthetic.computer" target="_blank">Bills</a>，了解支持资金的去向。</div>
       </div>
 
       <div class="stats-section">
