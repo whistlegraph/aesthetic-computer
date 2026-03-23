@@ -362,9 +362,22 @@ make clean 2>/dev/null || true
 log "  Compiling (${KERNEL_JOBS} cores)..."
 KERNEL_LOG="$BUILD/kernel-build.log"
 if ! make -j"${KERNEL_JOBS}" KALLSYMS_EXTRA_PASS=1 bzImage >"$KERNEL_LOG" 2>&1; then
-    err "Kernel compile failed while building bzImage."
+    err "Kernel compile failed while building bzImage (parallel pass)."
     show_kernel_error_context "$KERNEL_LOG"
-    exit 1
+    if [ "${KERNEL_JOBS}" -gt 1 ]; then
+        err "Retrying kernel build in serial mode (-j1, V=1) for deterministic diagnostics..."
+        make clean 2>/dev/null || true
+        KERNEL_LOG_RETRY="$BUILD/kernel-build-retry.log"
+        if ! make -j1 V=1 KALLSYMS_EXTRA_PASS=1 bzImage >"$KERNEL_LOG_RETRY" 2>&1; then
+            err "Kernel compile failed again in serial retry."
+            show_kernel_error_context "$KERNEL_LOG_RETRY"
+            exit 1
+        fi
+        KERNEL_LOG="$KERNEL_LOG_RETRY"
+        log "  Serial retry succeeded."
+    else
+        exit 1
+    fi
 fi
 tail -3 "$KERNEL_LOG" || true
 
