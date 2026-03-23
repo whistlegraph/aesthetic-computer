@@ -6,7 +6,7 @@
   "Immediate-mode 2D graphics context."
   (fb nil)     ; ac-native.framebuffer:framebuffer
   (screen nil) ; ac-native.framebuffer:framebuffer
-  (ink-color (make-color :r 255 :g 255 :b 255 :a 255) :type color))
+  (ink-color (make-color :r 255 :g 255 :b 255 :a 255)))
 
 (defun graph-wipe (g color)
   "Clear the screen with COLOR."
