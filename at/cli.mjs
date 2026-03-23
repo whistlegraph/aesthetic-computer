@@ -492,7 +492,7 @@ async function commandSyncStatus() {
 
 async function commandSSH(args) {
   const { execSync } = await import("child_process");
-  const ip = process.env.PDS_SSH_HOST || "138.197.35.160";
+  const ip = process.env.PDS_SSH_HOST || "165.227.120.137";
   const key = process.env.PDS_SSH_KEY || `${process.env.HOME}/.ssh/aesthetic_pds`;
   const remoteCmd = args._.slice(1).join(" ");
 
@@ -519,7 +519,7 @@ async function commandEnvSet(args) {
     process.exit(1);
   }
 
-  const ip = process.env.PDS_SSH_HOST || "138.197.35.160";
+  const ip = process.env.PDS_SSH_HOST || "165.227.120.137";
   const sshKey = process.env.PDS_SSH_KEY || `${process.env.HOME}/.ssh/aesthetic_pds`;
   const envFile = "/pds/pds.env";
 
