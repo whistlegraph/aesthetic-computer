@@ -5601,9 +5601,9 @@ const $paintApi = {
         const [refX, refY] = projectPt(0, 0);
         const [refRX, refRY] = projectPt(1, 0);
         const [refDX, refDY] = projectPt(0, 1);
-        const pxW = Math.ceil(Math.sqrt((refRX - refX) ** 2 + (refRY - refY) ** 2)) || 1;
-        const pxH = Math.ceil(Math.sqrt((refDX - refX) ** 2 + (refDY - refY) ** 2)) || 1;
-        const pxSize = Math.max(pxW, pxH);
+        const pxW = Math.sqrt((refRX - refX) ** 2 + (refRY - refY) ** 2) || 1;
+        const pxH = Math.sqrt((refDX - refX) ** 2 + (refDY - refY) ** 2) || 1;
+        const pxSize = Math.max(1, Math.round((pxW + pxH) / 2));
 
         // Render each "on" pixel as a box at its projected center
         const renderPixel = (gx, gy) => {
