@@ -6,6 +6,8 @@
 #   ac-os upload       Upload current build as OTA release
 #   ac-os flash+upload Build + flash USB + upload OTA release
 #   ac-os pull         Download latest OTA kernel + flash USB (no local build)
+#   ac-os scan         Find AC Native OS devices on local network (Swank port 4005)
+#   ac-os repl [IP]    Connect to a running device's Swank REPL
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -1249,8 +1251,72 @@ exec qemu-system-x86_64 \
         pull_ota
         flash_usb
         ;;
+    scan)
+        SWANK_PORT=4005
+        # Get local subnet
+        SUBNET=$(ip -4 -o addr show 2>/dev/null | grep -v '127.0.0.1' | head -1 | awk '{print $4}' | sed 's|\.[0-9]*/.*||')
+        if [ -z "$SUBNET" ]; then
+            err "No network interface found"
+            exit 1
+        fi
+        log "Scanning ${SUBNET}.0/24 for AC Native OS (Swank port ${SWANK_PORT})..."
+        FOUND=0
+        for i in $(seq 1 254); do
+            IP="${SUBNET}.${i}"
+            # Parallel TCP probe with short timeout
+            (timeout 0.5 bash -c "echo >/dev/tcp/${IP}/${SWANK_PORT}" 2>/dev/null && {
+                echo ""
+                log "  ✦ Found: ${IP}:${SWANK_PORT}"
+                echo ""
+                echo "    Connect:  ac-os repl ${IP}"
+                echo "    Emacs:    M-x slime-connect → ${IP} → ${SWANK_PORT}"
+                echo ""
+            }) &
+        done
+        wait
+        [ "$FOUND" = "0" ] && log "No devices found. Is the CL build on WiFi?"
+        ;;
+    repl)
+        SWANK_IP="${2:-}"
+        SWANK_PORT=4005
+        if [ -z "$SWANK_IP" ]; then
+            # Auto-scan for first device
+            SUBNET=$(ip -4 -o addr show 2>/dev/null | grep -v '127.0.0.1' | head -1 | awk '{print $4}' | sed 's|\.[0-9]*/.*||')
+            if [ -n "$SUBNET" ]; then
+                log "Scanning for device..."
+                for i in $(seq 1 254); do
+                    IP="${SUBNET}.${i}"
+                    timeout 0.3 bash -c "echo >/dev/tcp/${IP}/${SWANK_PORT}" 2>/dev/null && {
+                        SWANK_IP="$IP"
+                        break
+                    }
+                done
+            fi
+            if [ -z "$SWANK_IP" ]; then
+                err "No device found. Usage: ac-os repl <IP>"
+                exit 1
+            fi
+        fi
+        log "Connecting to Swank at ${SWANK_IP}:${SWANK_PORT}..."
+        # Use rlwrap + netcat for a basic REPL, or sbcl if available
+        if command -v sbcl &>/dev/null; then
+            sbcl --non-interactive \
+                --eval '(require :asdf)' \
+                --eval '(asdf:load-system :swank-client)' \
+                --eval "(swank-client:slime-connect \"${SWANK_IP}\" ${SWANK_PORT})" \
+                2>/dev/null || {
+                    # Fallback: raw Swank protocol via netcat
+                    log "sbcl swank-client not available, using raw connection"
+                    exec nc "${SWANK_IP}" "${SWANK_PORT}"
+                }
+        else
+            # Raw Swank protocol — can still eval forms
+            log "Tip: install sbcl for a proper REPL experience"
+            exec nc "${SWANK_IP}" "${SWANK_PORT}"
+        fi
+        ;;
     *)
-        echo "Usage: ac-os {build|flash|upload|flash+upload|bfu|pull|simuflash|test|qemu}"
+        echo "Usage: ac-os {build|flash|upload|flash+upload|bfu|pull|scan|repl|simuflash|test|qemu}"
         exit 1
         ;;
 esac
