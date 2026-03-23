@@ -216,19 +216,15 @@ function paint($) {
       [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4],
       [1, 2, 6, 5], [0, 1, 2, 3], [4, 5, 6, 7],
     ];
-    const baseColor = isDark ? [22, 22, 26] : [200, 200, 205];
-    const lidColor = isDark ? [18, 18, 22] : [190, 190, 195];
-    const keyColor = isDark ? [35, 35, 40] : [170, 170, 178];
+    // ThinkPad black/dark gray palette
+    const baseColor = isDark ? [28, 28, 30] : [42, 42, 45];
+    const lidColor = isDark ? [24, 24, 26] : [38, 38, 40];
+    const keyColor = isDark ? [38, 38, 42] : [52, 52, 56];
 
     // Collect all drawable quads with z-depth
     const drawList = [];
 
     // Base + lid faces
-    // Pastel tints per face — subtle color shifts
-    const pastelTints = [
-      [1.0, 0.92, 0.95], [0.92, 1.0, 0.95], [0.95, 0.92, 1.0],
-      [1.0, 0.97, 0.9], [0.9, 0.97, 1.0], [0.97, 0.9, 0.97],
-    ];
     let faceIdx = 0;
     const addFaces = (proj, color, tag) => {
       for (const [a, b, c, d] of faceQuads) {
@@ -249,7 +245,7 @@ function paint($) {
     addFaces(projLid, lidColor, "lid");
 
     // Hinge barrels
-    const hingeColor = isDark ? [40, 40, 45] : [140, 140, 148];
+    const hingeColor = isDark ? [32, 32, 35] : [45, 45, 48];
     for (const hv of hingeVerts) {
       const projH = hv.map(project);
       addFaces(projH, hingeColor, "hinge", false);
@@ -276,8 +272,8 @@ function paint($) {
       // Row 5: Modifier row (8 keys: Ctrl Fn Win Alt Space Alt PrtSc Ctrl)
       const rows = [14, 14, 14, 13, 12, 8];
       const rowIndent = [0, 0, 0.02, 0.04, 0.06, 0];
-      // Keyboard occupies top 60% of base, trackpad below
-      const kbFrac = 0.58;
+      // Keyboard occupies top 55% of base, trackpad extends to near edge
+      const kbFrac = 0.55;
       const lerp = (a, b, t) => a + (b - a) * t;
       for (let r = 0; r < rows.length; r++) {
         const nKeys = rows[r];
@@ -315,9 +311,9 @@ function paint($) {
       }
 
       // Trackpad (centered, below keyboard, ~35% width of base)
-      const tpU0 = 0.32, tpU1 = 0.68;
-      const tpT0 = kbFrac + 0.05, tpT1 = 0.95;
-      const trackpadColor = isDark ? [28, 28, 32] : [180, 180, 185];
+      const tpU0 = 0.3, tpU1 = 0.7;
+      const tpT0 = kbFrac + 0.03, tpT1 = 0.98;
+      const trackpadColor = isDark ? [32, 32, 36] : [48, 48, 52];
       kbKeys.push({
         pts: [
           [lerp(lerp(kbTL[0], kbTR[0], tpU0), lerp(kbBL[0], kbBR[0], tpU0), tpT0),
@@ -339,10 +335,9 @@ function paint($) {
     // Draw everything in sorted order
     for (const item of drawList) {
       if (item.type === "face") {
-        const { proj, verts: [a, b, c, d], color, fi } = item;
-        const shade = max(0.5, min(1, 0.8 - item.z * 0.15));
-        const tint = pastelTints[fi % pastelTints.length];
-        ink(floor(color[0] * shade * tint[0]), floor(color[1] * shade * tint[1]), floor(color[2] * shade * tint[2]));
+        const { proj, verts: [a, b, c, d], color } = item;
+        const shade = max(0.6, min(1.2, 1.0 - item.z * 0.12));
+        ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
         tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
         tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
       }
@@ -409,13 +404,13 @@ function paint($) {
       // Bezel (dark border around screen) — two filled triangles
       const pBTL = project(bTL), pBTR = project(bTR);
       const pBBL = project(bBL), pBBR = project(bBR);
-      const bezelColor = isDark ? [30, 30, 32] : [60, 60, 65];
+      const bezelColor = [20, 20, 22];
       ink(bezelColor[0], bezelColor[1], bezelColor[2], screenAlpha);
       tri(pBTL[0], pBTL[1], pBTR[0], pBTR[1], pBBR[0], pBBR[1]);
       tri(pBTL[0], pBTL[1], pBBR[0], pBBR[1], pBBL[0], pBBL[1]);
 
       // Screen fill (dark background) — two filled triangles
-      const screenColor = isDark ? [8, 8, 12] : [20, 22, 28];
+      const screenColor = [6, 6, 10];
       ink(screenColor[0], screenColor[1], screenColor[2], screenAlpha);
       tri(projTL[0], projTL[1], projTR[0], projTR[1], projBR[0], projBR[1]);
       tri(projTL[0], projTL[1], projBR[0], projBR[1], projBL[0], projBL[1]);
