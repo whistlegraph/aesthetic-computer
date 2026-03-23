@@ -5596,7 +5596,7 @@ const $paintApi = {
             const w2z = origin[2] + x2 * right[2] + y2 * down[2];
             const [s1x, s1y] = project([w1x, w1y, w1z]);
             const [s2x, s2y] = project([w2x, w2y, w2z]);
-            graph.line(
+            $activePaintApi.line(
               Math.floor(s1x), Math.floor(s1y),
               Math.floor(s2x), Math.floor(s2y),
             );
