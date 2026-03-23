@@ -490,6 +490,54 @@ async function commandSyncStatus() {
   console.log();
 }
 
+async function commandSSH(args) {
+  const { execSync } = await import("child_process");
+  const ip = process.env.PDS_SSH_HOST || "138.197.35.160";
+  const key = process.env.PDS_SSH_KEY || `${process.env.HOME}/.ssh/aesthetic_pds`;
+  const remoteCmd = args._.slice(1).join(" ");
+
+  const sshCmd = remoteCmd
+    ? `ssh -i ${key} root@${ip} ${JSON.stringify(remoteCmd)}`
+    : `ssh -i ${key} root@${ip}`;
+
+  console.log(`$ ${sshCmd}\n`);
+  try {
+    execSync(sshCmd, { stdio: "inherit" });
+  } catch (e) {
+    process.exitCode = e.status || 1;
+  }
+}
+
+async function commandEnvSet(args) {
+  const { execSync } = await import("child_process");
+  const key = args._[1];
+  const value = args._[2];
+
+  if (!key || !value) {
+    console.error("Usage: ac-at env:set <KEY> <VALUE>");
+    console.error("Example: ac-at env:set PDS_CONTACT_EMAIL_ADDRESS mail@aesthetic.computer");
+    process.exit(1);
+  }
+
+  const ip = process.env.PDS_SSH_HOST || "138.197.35.160";
+  const sshKey = process.env.PDS_SSH_KEY || `${process.env.HOME}/.ssh/aesthetic_pds`;
+  const envFile = "/pds/pds.env";
+
+  console.log(`Setting ${key}=${value} on PDS (${ip})...\n`);
+
+  // Check if key already exists, update or append
+  const cmd = `ssh -i ${sshKey} root@${ip} "grep -q '^${key}=' ${envFile} && sed -i 's|^${key}=.*|${key}=${value}|' ${envFile} || echo '${key}=${value}' >> ${envFile}"`;
+
+  try {
+    execSync(cmd, { stdio: "inherit" });
+    console.log(`\nSet ${key}=${value} in ${envFile}`);
+    console.log(`Restart PDS to apply: ac-at ssh systemctl restart pds`);
+  } catch (e) {
+    console.error(`Failed to set env var: ${e.message}`);
+    process.exitCode = 1;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Help
 // ---------------------------------------------------------------------------
@@ -515,6 +563,10 @@ Admin (requires PDS_ADMIN_PASSWORD):
   accounts [--limit=N]               List PDS accounts
   account:check <handle-or-did>      Inspect account & record counts
   sync:status                        Record counts across collections
+
+Server:
+  ssh [command]                      SSH into PDS droplet (or run command)
+  env:set <KEY> <VALUE>              Set env var in PDS pds.env file
 
 Environment:
   PDS_URL              PDS endpoint (default: https://at.aesthetic.computer)
@@ -552,6 +604,8 @@ const COMMANDS = {
   accounts: commandAccounts,
   "account:check": commandAccountCheck,
   "sync:status": commandSyncStatus,
+  ssh: commandSSH,
+  "env:set": commandEnvSet,
 };
 
 async function main() {
