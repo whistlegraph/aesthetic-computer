@@ -444,9 +444,9 @@
       text-shadow: 0 2px 6px rgba(0, 255, 136, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     .tab[data-tab="albums"] {
-      color: var(--blue);
-      background: rgba(112, 214, 255, 0.1);
-      text-shadow: 0 2px 6px rgba(112, 214, 255, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+      color: var(--gold);
+      background: rgba(255, 230, 109, 0.1);
+      text-shadow: 0 2px 6px rgba(255, 230, 109, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     .tab.active[data-tab="fresh"] {
       background: rgba(0, 255, 136, 0.2);
@@ -454,9 +454,9 @@
       box-shadow: inset 0 -1px 0 rgba(0, 255, 136, 0.5);
     }
     .tab.active[data-tab="albums"] {
-      background: rgba(112, 214, 255, 0.2);
-      border-bottom-color: var(--blue);
-      box-shadow: inset 0 -1px 0 rgba(112, 214, 255, 0.5);
+      background: rgba(255, 230, 109, 0.2);
+      border-bottom-color: var(--gold);
+      box-shadow: inset 0 -1px 0 rgba(255, 230, 109, 0.5);
     }
     /* ── Albums ── */
     .albums-grid {
@@ -477,24 +477,40 @@
       background: var(--bg3);
     }
     .album-rank {
-      font-family: var(--font-mono);
-      font-size: 14px;
-      color: var(--text2);
+      font-size: 18px;
       min-width: 28px;
-      text-align: right;
+      text-align: center;
     }
     .album-name {
       font-family: var(--font-fun);
       font-size: 18px;
       font-weight: 700;
       color: var(--text);
+      flex-shrink: 0;
+    }
+    .album-bar-wrap {
       flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .album-bar {
+      height: 20px;
+      border-radius: 4px;
+      background: var(--blue);
+      transition: width 0.3s ease;
+      min-width: 4px;
+    }
+    .album-row:first-child .album-bar {
+      background: var(--gold);
     }
     .album-count {
       font-family: var(--font-mono);
-      font-size: 16px;
-      color: var(--blue);
+      font-size: 14px;
+      color: var(--text2);
       font-weight: 700;
+      flex-shrink: 0;
     }
     .album-tokens {
       display: none;
@@ -614,7 +630,7 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="fresh">Shop</button>
-    <button class="tab" data-tab="albums">Albums</button>
+    <button class="tab" data-tab="albums">Keepers</button>
   </div>
 
   <div class="grid" id="grid">
@@ -821,17 +837,29 @@
   }
 
   async function fetchAlbums() {
-    const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=200&select=account.address,account.alias,token.metadata.name,token.tokenId,token.metadata.thumbnailUri`);
-    const data = await res.json();
-    // Group by holder
+    const [balRes, creatorsRes] = await Promise.all([
+      fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=200&select=account.address,account.alias,token.metadata.name,token.tokenId,token.metadata.thumbnailUri`),
+      fetch(`https://api.tzkt.io/v1/tokens/transfers?token.contract=${CONTRACT}&from.null=true&limit=200&select=to.address,token.tokenId`),
+    ]);
+    const data = await balRes.json();
+    const creators = await creatorsRes.json();
+    // Build set of original minters (token creator = first recipient of mint)
+    const minterByToken = {};
+    for (const c of creators) minterByToken[String(c['token.tokenId'])] = c['to.address'];
+    // Build set of token IDs currently listed for sale
+    const listedIds = new Set(listings.map(l => String(l.token?.token_id)));
+    // Group by holder, excluding listed tokens and original minters
     const grouped = {};
     for (const b of data) {
       const addr = b['account.address'];
+      const tokenId = String(b['token.tokenId']);
+      if (listedIds.has(tokenId)) continue;
+      if (addr === minterByToken[tokenId]) continue;
       if (!grouped[addr]) grouped[addr] = { address: addr, alias: b['account.alias'], tokens: [] };
       grouped[addr].tokens.push({ name: b['token.metadata.name'], tokenId: b['token.tokenId'], thumbnailUri: b['token.metadata.thumbnailUri'] });
     }
-    // Sort by count desc
-    return Object.values(grouped).sort((a, b) => b.tokens.length - a.tokens.length);
+    // Sort by count desc, filter out empty
+    return Object.values(grouped).filter(a => a.tokens.length > 0).sort((a, b) => b.tokens.length - a.tokens.length);
   }
 
   function formatXTZ(mutez) {
@@ -931,13 +959,19 @@
       return;
     }
 
+    const maxCount = albums[0]?.tokens.length || 1;
     grid.innerHTML = albums.map((album, i) => {
       const name = album.alias || sellerName(album.address);
       const tokens = album.tokens.sort((a, b) => Number(a.tokenId) - Number(b.tokenId));
+      const pct = Math.round((album.tokens.length / maxCount) * 100);
+      const medal = i === 0 ? '\uD83E\uDD47' : i === 1 ? '\uD83E\uDD48' : i === 2 ? '\uD83E\uDD49' : `${i + 1}`;
       return `<div class="album-entry">
         <div class="album-row" data-idx="${i}">
-          <div class="album-rank">${i + 1}</div>
+          <div class="album-rank">${medal}</div>
           <div class="album-name">${name}</div>
+          <div class="album-bar-wrap">
+            <div class="album-bar" style="width:${pct}%"></div>
+          </div>
           <div class="album-count">${album.tokens.length}</div>
         </div>
         <div class="album-tokens" data-idx="${i}">
