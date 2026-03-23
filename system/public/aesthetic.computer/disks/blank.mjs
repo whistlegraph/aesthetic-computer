@@ -217,18 +217,29 @@ function paint($) {
     const drawList = [];
 
     // Base + lid faces
-    const addFaces = (proj, color, tag, flipWinding) => {
-      for (let [a, b, c, d] of faceQuads) {
-        if (flipWinding) { [a, b, c, d] = [d, c, b, a]; }
+    // Pastel tints per face — subtle color shifts
+    const pastelTints = [
+      [1.0, 0.92, 0.95], [0.92, 1.0, 0.95], [0.95, 0.92, 1.0],
+      [1.0, 0.97, 0.9], [0.9, 0.97, 1.0], [0.97, 0.9, 0.97],
+    ];
+    let faceIdx = 0;
+    const addFaces = (proj, color, tag) => {
+      for (const [a, b, c, d] of faceQuads) {
+        const fi = faceIdx++;
         const e1x = proj[b][0] - proj[a][0], e1y = proj[b][1] - proj[a][1];
         const e2x = proj[d][0] - proj[a][0], e2y = proj[d][1] - proj[a][1];
-        if (e1x * e2y - e1y * e2x >= 0) continue;
-        const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
-        drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
+        const cross = e1x * e2y - e1y * e2x;
+        if (cross < 0) {
+          const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+          drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag, fi });
+        } else if (cross > 0) {
+          const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
+          drawList.push({ z, type: "face", proj, verts: [d, c, b, a], color, tag, fi });
+        }
       }
     };
-    addFaces(projBase, baseColor, "base", false);
-    addFaces(projLid, lidColor, "lid", true);
+    addFaces(projBase, baseColor, "base");
+    addFaces(projLid, lidColor, "lid");
 
     // Hinge barrels
     const hingeColor = isDark ? [40, 40, 45] : [140, 140, 148];
@@ -246,7 +257,6 @@ function paint($) {
     const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
     const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
     if (ke1x * ke2y - ke1y * ke2x < 0) {
-      const kbZ = (kbTL[2] + kbTR[2] + kbBL[2] + kbBR[2]) / 4;
       const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
       const lerp = (a, b, t) => a + (b - a) * t;
       for (let r = 0; r < rows.length; r++) {
@@ -256,8 +266,12 @@ function paint($) {
         for (let k = 0; k < row.length; k++) {
           const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
           const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
+          // Per-key z from interpolated depth
+          const keyMidT = (t0 + t1) / 2;
+          const keyMidU = (u0 + u1) / 2;
+          const keyZ = lerp(lerp(kbTL[2], kbTR[2], keyMidU), lerp(kbBL[2], kbBR[2], keyMidU), keyMidT);
           drawList.push({
-            z: kbZ - 0.05, // draw on top of base face
+            z: keyZ - 0.05, // slightly in front of base face
             type: "key",
             pts: [
               [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t0),
@@ -305,9 +319,10 @@ function paint($) {
     // Draw everything in sorted order
     for (const item of drawList) {
       if (item.type === "face") {
-        const { proj, verts: [a, b, c, d], color } = item;
+        const { proj, verts: [a, b, c, d], color, fi } = item;
         const shade = max(0.5, min(1, 0.8 - item.z * 0.15));
-        ink(floor(color[0] * shade), floor(color[1] * shade), floor(color[2] * shade));
+        const tint = pastelTints[fi % pastelTints.length];
+        ink(floor(color[0] * shade * tint[0]), floor(color[1] * shade * tint[1]), floor(color[2] * shade * tint[2]));
         tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
         tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
       } else if (item.type === "key") {
