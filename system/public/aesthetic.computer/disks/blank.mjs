@@ -256,7 +256,10 @@ function paint($) {
     const kbBR = project([hw - kbInset, -0.001, 2 * hd - kbInset * 3]);
     const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
     const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
-    if (ke1x * ke2y - ke1y * ke2x < 0) {
+    // Store keyboard data to draw after sorted loop (always on top of base)
+    let kbVisible = ke1x * ke2y - ke1y * ke2x < 0;
+    const kbKeys = [];
+    if (kbVisible) {
       const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
       const lerp = (a, b, t) => a + (b - a) * t;
       for (let r = 0; r < rows.length; r++) {
@@ -266,12 +269,7 @@ function paint($) {
         for (let k = 0; k < row.length; k++) {
           const u0 = indent + (k + 0.15) / row.length * (1 - indent * 2);
           const u1 = indent + (k + 0.85) / row.length * (1 - indent * 2);
-          // Per-key z from interpolated depth
-          const keyMidT = (t0 + t1) / 2;
-          const keyMidU = (u0 + u1) / 2;
-          const keyZ = lerp(lerp(kbTL[2], kbTR[2], keyMidU), lerp(kbBL[2], kbBR[2], keyMidU), keyMidT);
-          drawList.push({
-            z: keyZ - 0.05, // slightly in front of base face
+          kbKeys.push({
             type: "key",
             pts: [
               [lerp(lerp(kbTL[0], kbTR[0], u0), lerp(kbBL[0], kbBR[0], u0), t0),
@@ -293,7 +291,7 @@ function paint($) {
     const addEdges = (proj, edgeOffset) => {
       halfEdges.forEach(([a, b], i) => {
         const z = (proj[a][2] + proj[b][2]) / 2;
-        drawList.push({ z: z - 0.1, type: "edge", proj, a, b, i, edgeOffset });
+        drawList.push({ z, type: "edge", proj, a, b, i, edgeOffset });
       });
     };
     addEdges(projBase, 0);
@@ -310,7 +308,7 @@ function paint($) {
     const allVerts = [...projBase, ...projLid];
     for (const hv of hingeVerts) allVerts.push(...hv.map(project));
     allVerts.forEach(([px, py, pz], i) => {
-      drawList.push({ z: pz - 0.15, type: "particle", px, py, i });
+      drawList.push({ z: pz, type: "particle", px, py, i });
     });
 
     // Sort back-to-front (highest z = farthest = draw first)
@@ -325,11 +323,6 @@ function paint($) {
         ink(floor(color[0] * shade * tint[0]), floor(color[1] * shade * tint[1]), floor(color[2] * shade * tint[2]));
         tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);
         tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);
-      } else if (item.type === "key") {
-        const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = item.pts;
-        ink(keyColor[0], keyColor[1], keyColor[2]);
-        tri(x0, y0, x1, y1, x2, y2);
-        tri(x0, y0, x2, y2, x3, y3);
       } else if (item.type === "edge") {
         const { proj, a, b, i, edgeOffset } = item;
         const brightness = 0.55 + item.z * 0.15;
@@ -350,6 +343,16 @@ function paint($) {
         const pColor = particleColors[(item.i + floor(frame * 0.04)) % particleColors.length];
         const flicker = 0.6 + sin(frame * 0.1 + item.i * 1.3) * 0.4;
         ink(...pColor, floor(flicker * 150)).box(item.px - 1, item.py - 1, 2, 2);
+      }
+    }
+
+    // ⌨️ Keyboard keys — drawn after z-sorted loop, always on top of base
+    if (kbVisible) {
+      for (const key of kbKeys) {
+        const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = key.pts;
+        ink(keyColor[0], keyColor[1], keyColor[2]);
+        tri(x0, y0, x1, y1, x2, y2);
+        tri(x0, y0, x2, y2, x3, y3);
       }
     }
 
