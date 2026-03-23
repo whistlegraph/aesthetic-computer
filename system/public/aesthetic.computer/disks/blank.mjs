@@ -140,8 +140,8 @@ function paint($) {
 
     // Dimensions from spec: 293mm × 207mm × 19.9mm (each slab ~10mm)
     const hw = 1.44, hh = 0.07, hd = 1.0;
-    // Barrel hinge radius — just over slab thickness for tight 360° clearance
-    const barrelR = hh * 1.15;
+    // Lid connects at barrel center (no offset) — minor clipping at ~180° is OK
+    const barrelR = 0;
 
     // Base slab (y: 0 to 2*hh, z: -hd to +hd)
     const base = [
