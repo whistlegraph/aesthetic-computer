@@ -69,6 +69,12 @@
       (setf (cffi:mem-aref (framebuffer-pixels fb) :uint32 off)
             (color-blend src-color dst)))))
 
+;;; Convenience aliases matching exported names
+(defun fb-width (fb) (framebuffer-width fb))
+(defun fb-height (fb) (framebuffer-height fb))
+(defun fb-stride (fb) (framebuffer-stride fb))
+(defun fb-pixels (fb) (framebuffer-pixels fb))
+
 (defun fb-copy-scaled (src dst-ptr dst-w dst-h dst-stride scale)
   "Copy SRC framebuffer to a foreign memory region at DST-PTR, scaling up by SCALE.
    Used by DRM present to blit the small render buffer to the display."
