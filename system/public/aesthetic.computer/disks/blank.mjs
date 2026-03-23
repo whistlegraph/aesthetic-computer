@@ -117,17 +117,26 @@ function paint($) {
     const size = min(availW, availH);
     const fov = 260;
 
-    // Full slow turntable rotation
+    // Slow turntable + gentle tilt variation (see it from all angles)
     const ay = frame * 0.006;
-    const ax = 0.35; // fixed downward tilt
+    const ax = 0.3 + sin(frame * 0.003) * 0.25 + sin(frame * 0.0017) * 0.15;
 
-    // Animated hinge: smoothly cycle between laptop (~120°) and tablet (360°)
-    // ~6 second hold in each mode, ~3 second transition
-    const hingeCycle = (frame * 0.008) % (2 * PI);
-    const hingeT = (sin(hingeCycle) * 0.5 + 0.5); // 0 = laptop, 1 = tablet
+    // Animated hinge: cycle through closed → laptop → tablet
+    // 3 keyframes with smooth easing between them
+    const closedAngle = 0.02;       // nearly closed
     const laptopAngle = PI * 0.67;  // ~120° open
     const tabletAngle = PI * 2;     // 360° folded flat back
-    const hingeAngle = laptopAngle + hingeT * (tabletAngle - laptopAngle);
+    const keyframes = [closedAngle, laptopAngle, tabletAngle, laptopAngle];
+    const totalPhases = keyframes.length;
+    const phaseLen = 180; // frames per phase (~3 sec at 60fps)
+    const t = (frame % (totalPhases * phaseLen)) / phaseLen;
+    const phase = floor(t);
+    const frac = t - phase;
+    // Smooth ease in-out
+    const ease = frac < 0.5 ? 2 * frac * frac : 1 - 2 * (1 - frac) * (1 - frac);
+    const from = keyframes[phase % totalPhases];
+    const to = keyframes[(phase + 1) % totalPhases];
+    const hingeAngle = from + ease * (to - from);
 
     // Half-box dimensions (proportional to ThinkPad Yoga 11e: ~290mm × 202mm × 22mm)
     // Width:Depth ratio ≈ 1.44:1, thickness is thin
