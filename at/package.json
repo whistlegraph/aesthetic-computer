@@ -14,7 +14,7 @@
     "test": "node test-all.mjs"
   },
   "dependencies": {
-    "@atproto/api": "^0.17.0",
+    "@atproto/api": "^0.19.4",
     "@atproto/identity": "^0.4.3",
     "@atproto/lexicon": "^0.4.2",
     "@atproto/syntax": "^0.3.1",

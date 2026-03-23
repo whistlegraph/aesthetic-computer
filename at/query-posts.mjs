@@ -10,7 +10,7 @@
  *   node query-posts.mjs aesthetic.computer --limit 20
  */
 
-import { BskyAgent } from '@atproto/api'
+import { AtpAgent } from '@atproto/api'
 import { config } from 'dotenv'
 
 config()
@@ -22,7 +22,7 @@ async function queryPosts(actor, limit = 10) {
   console.log(`📡 Using service: ${BSKY_SERVICE}`)
   console.log(`📊 Limit: ${limit}\n`)
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     const feed = await agent.getAuthorFeed({ actor, limit })

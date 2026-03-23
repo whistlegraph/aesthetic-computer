@@ -26,7 +26,7 @@
  *   node publish-lexicons.mjs --verify-dns       # Verify DNS is configured correctly
  */
 
-import { BskyAgent } from '@atproto/api';
+import { AtpAgent } from '@atproto/api';
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -348,7 +348,7 @@ async function main() {
   log(`Identifier: ${identifier}`, 'dim');
   log(`Note: Publishing lexicons to main account (aesthetic.computer)`, 'yellow');
   
-  const agent = new BskyAgent({ service: pdsUrl });
+  const agent = new AtpAgent({ service: pdsUrl });
   
   try {
     await agent.login({

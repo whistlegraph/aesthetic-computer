@@ -17,7 +17,7 @@
  *   node query-profile.mjs did:plc:z72i7hdynmk6r22z27h6tvur
  */
 
-import { BskyAgent } from '@atproto/api'
+import { AtpAgent } from '@atproto/api'
 import { config } from 'dotenv'
 
 config() // Load .env if it exists
@@ -28,7 +28,7 @@ async function queryProfile(actor) {
   console.log(`\n🔍 Querying profile for: ${actor}`)
   console.log(`📡 Using service: ${BSKY_SERVICE}\n`)
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     // Use unauthenticated API endpoint

@@ -115,7 +115,7 @@ function paint($) {
     const availW = w * 0.42;
     const availH = (contentBottom - 20) * 0.32;
     const size = min(availW, availH);
-    const fov = 260;
+    const fov = size * 5.5;
 
     // Slow turntable + gentle tilt variation (see it from all angles)
     const ay = frame * 0.006;
@@ -237,6 +237,7 @@ function paint($) {
     const viewDirY = sin(ax);
     const viewDirZ = cos(ay) * cos(ax);
 
+    const debugNormals = [];
     const addFaces = (verts3d, proj, color, tag) => {
       const frontFaces = new Set();
       // Compute box center for outward normal correction
@@ -259,8 +260,18 @@ function paint($) {
         // Ensure normal points OUTWARD (away from box center)
         const outDot = nx * (fcx - cx3) + ny * (fcy - cy3) + nz * (fcz - cz3);
         if (outDot < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        // Normalize
+        const nLen = sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= nLen; ny /= nLen; nz /= nLen;
         // Dot with view direction — negative = faces camera (opposes view dir)
         const dot = nx * viewDirX + ny * viewDirY + nz * viewDirZ;
+        // Store debug normal (all faces, front or back)
+        const nScale = 0.4;
+        debugNormals.push({
+          from: [fcx, fcy, fcz],
+          to: [fcx + nx * nScale, fcy + ny * nScale, fcz + nz * nScale],
+          front: dot < 0, tag, fi,
+        });
         if (dot >= 0) continue; // faces away from camera → skip
         frontFaces.add(fi);
         const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
@@ -278,12 +289,20 @@ function paint($) {
     const kbTR = project([hw - kbInset, -0.001, kbInset]);
     const kbBL = project([-hw + kbInset, -0.001, 2 * hd - kbInset * 3]);
     const kbBR = project([hw - kbInset, -0.001, 2 * hd - kbInset * 3]);
-    const ke1x = kbTR[0] - kbTL[0], ke1y = kbTR[1] - kbTL[1];
-    const ke2x = kbBL[0] - kbTL[0], ke2y = kbBL[1] - kbTL[1];
-    // Store keyboard data to draw after sorted loop (always on top of base)
-    let kbVisible = ke1x * ke2y - ke1y * ke2x < 0;
+    // Screen-space winding check (same approach as lid screen content)
+    const kbE1x = kbTR[0] - kbTL[0], kbE1y = kbTR[1] - kbTL[1];
+    const kbE2x = kbBL[0] - kbTL[0], kbE2y = kbBL[1] - kbTL[1];
+    const kbCross = kbE1x * kbE2y - kbE1y * kbE2x;
+    // Smooth alpha from cross product magnitude (same as screen content)
+    const kbMaxCross = size * size * 0.5;
+    const kbFacingAmount = kbCross < 0 ? min(1, abs(kbCross) / kbMaxCross) : 0;
+    // Fade with hinge angle (smooth open/close) and lid occlusion
+    const hingeFade = min(1, max(0, (hingeAngle - 0.1) / 0.5));
+    const lidOccludes = hingeAngle < PI && lidFrontFaces.has(1);
+    const kbAlpha = floor(kbFacingAmount * hingeFade * (lidOccludes ? 0 : 1) * 255);
+    const kbFacing = kbAlpha > 2;
     const kbKeys = [];
-    if (kbVisible) {
+    if (kbFacing) {
       // 6-row ThinkPad keyboard layout (key counts per row)
       // Row 0: Fn keys (14 keys: Esc + F1-F12 + Del)
       // Row 1: Number row (14 keys: ` 1-0 - = Bksp)
@@ -395,22 +414,32 @@ function paint($) {
       }
     }
 
-    // ⌨️ Keyboard keys — only draw when base top face (faceQuads[0]) is front-facing
-    // and lid isn't in front of base
-    const baseTopVisible = baseFrontFaces.has(0);
-    const lidAvgZ = projLid.reduce((s, v) => s + v[2], 0) / projLid.length;
-    const baseAvgZ = projBase.reduce((s, v) => s + v[2], 0) / projBase.length;
-    const kbNotOccluded = baseTopVisible && lidAvgZ >= baseAvgZ;
-    if (kbVisible && kbNotOccluded) {
+    // 🔍 Debug: draw face normals (green = front-facing, red = back-facing)
+    for (const dn of debugNormals) {
+      const p0 = project(dn.from);
+      const p1 = project(dn.to);
+      if (dn.front) {
+        ink(0, 255, 0, 200);
+      } else {
+        ink(255, 0, 0, 120);
+      }
+      line(p0[0], p0[1], p1[0], p1[1]);
+      // Dot at tip
+      ink(255, 255, 0, 220).box(p1[0] - 1, p1[1] - 1, 3, 3);
+    }
+
+    // ⌨️ Keyboard keys — smooth fade based on facing + hinge + occlusion
+    if (kbFacing) {
       for (const key of kbKeys) {
         const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = key.pts;
         const c = key.color || keyColor;
-        ink(c[0], c[1], c[2]);
+        ink(c[0], c[1], c[2], kbAlpha);
         tri(x0, y0, x1, y1, x2, y2);
         tri(x0, y0, x2, y2, x3, y3);
         // White blinky wireframe outline
         const blink = sin(frame * 0.08 + x0 * 0.3 + y0 * 0.7) * 0.5 + 0.5;
-        ink(255, 255, 255, floor(30 + blink * 50));
+        const wireAlpha = floor((30 + blink * 50) * kbAlpha / 255);
+        ink(255, 255, 255, wireAlpha);
         line(x0, y0, x1, y1);
         line(x1, y1, x2, y2);
         line(x2, y2, x3, y3);

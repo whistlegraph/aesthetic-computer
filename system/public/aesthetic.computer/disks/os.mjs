@@ -61,7 +61,7 @@ let showTokenHint = false;
 // Build telemetry
 let activeBuild = null;    // { id, status, stage, percent, ref, error }
 let buildLogLines = [];    // last few log lines
-const MAX_BUILD_LOGS = 6;
+const MAX_BUILD_LOGS = 10;
 let buildPollTimer = null;
 
 // Color palettes for dark/light mode (deprecated builds use red tones)
@@ -185,9 +185,22 @@ function fetchBuildStatus(needsPaint) {
     .then(data => {
       if (data.active) {
         activeBuild = data.active;
-        needsPaint();
+        // Fetch log lines for active build
+        if (data.activeJobId) {
+          fetch(OVEN_BASE() + "/native-build/" + data.activeJobId + "?logs=true&tail=10")
+            .then(r => r.json())
+            .then(detail => {
+              if (detail.logs) {
+                buildLogLines = detail.logs.slice(-MAX_BUILD_LOGS).map(l => l.line || l);
+              }
+              needsPaint();
+            })
+            .catch(() => needsPaint());
+        } else {
+          needsPaint();
+        }
       } else {
-        activeBuild = null;
+        if (activeBuild) { activeBuild = null; buildLogLines = []; needsPaint(); }
       }
     })
     .catch(() => {});
@@ -217,14 +230,32 @@ function connectOvenWs(ui, needsPaint) {
         needsPaint();
       }
       if (msg.type === "os:build-progress" && msg.build) {
-        activeBuild = msg.build;
-        if (msg.build.status === "success" || msg.build.status === "failed" || msg.build.status === "cancelled") {
+        const b = msg.build;
+        // Lightweight per-line message (has .line but no full snapshot fields)
+        if (b.line && !b.status) {
+          if (buildLogLines.length >= MAX_BUILD_LOGS) buildLogLines.shift();
+          buildLogLines.push(b.line);
+          // Update stage/percent from lightweight msg
+          if (activeBuild) {
+            if (b.stage) activeBuild.stage = b.stage;
+            if (b.percent) activeBuild.percent = b.percent;
+          }
+          needsPaint();
+          return;
+        }
+        // Full snapshot
+        activeBuild = b;
+        if (b.recentLines) {
+          buildLogLines = b.recentLines.slice(-MAX_BUILD_LOGS);
+        }
+        if (b.status === "success" || b.status === "failed" || b.status === "cancelled") {
           // Build done — refresh releases list
           setTimeout(() => {
             activeBuild = null;
+            buildLogLines = [];
             fetchReleases(ui, needsPaint);
             needsPaint();
-          }, 3000);
+          }, 5000);
         }
         needsPaint();
       }
@@ -406,7 +437,8 @@ function paint($) {
     const rawStage = activeBuild.stage || "starting";
     const isCLBuild = rawStage.startsWith("cl-");
     const buildVariant = isCLBuild ? "Common Lisp" : "C";
-    sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120);
+    const logH = buildLogLines.length * (matrixH + 1) + 8;
+    sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120 + logH);
 
     // Status line: stage + percentage
     const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
@@ -451,6 +483,18 @@ function paint($) {
       ink(255, 80, 80);
       $.write(activeBuild.error, { x: pad, y, wrap: wrapW });
       y += rowH + 2;
+    }
+
+    // Live log lines
+    if (buildLogLines.length > 0) {
+      y += 4;
+      for (const line of buildLogLines) {
+        const maxChars = Math.floor(wrapW / matrixW);
+        const display = line.length > maxChars ? line.slice(0, maxChars - 1) + "~" : line;
+        ink(...C.instText);
+        $.write(display, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+        y += matrixH + 1;
+      }
     }
 
     y += isMobile ? 10 : 6;

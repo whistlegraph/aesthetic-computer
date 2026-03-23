@@ -10,7 +10,7 @@
  *   node delete-all-posts.mjs --confirm
  */
 
-import { BskyAgent } from '@atproto/api'
+import { AtpAgent } from '@atproto/api'
 import { config } from 'dotenv'
 
 config()
@@ -31,7 +31,7 @@ async function deleteAllPosts() {
   console.log(`\n🗑️  Delete All Posts from @${BSKY_IDENTIFIER}\n`)
   console.log('═'.repeat(50) + '\n')
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     // Login

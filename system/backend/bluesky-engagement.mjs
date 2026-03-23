@@ -2,7 +2,7 @@
 // Fetch engagement (likes, reposts, replies) from Bluesky for mirrored moods
 // 2026.01.28
 
-import { BskyAgent } from "@atproto/api";
+import { AtpAgent } from "@atproto/api";
 import { shell } from "./shell.mjs";
 
 const BSKY_SERVICE = "https://bsky.social";
@@ -19,7 +19,7 @@ export async function fetchBlueskyEngagement(blueskyUri) {
 
   try {
     // Public API - no auth needed for reading
-    const agent = new BskyAgent({ service: BSKY_SERVICE });
+    const agent = new AtpAgent({ service: BSKY_SERVICE });
 
     // Get the post thread which includes engagement data
     const response = await agent.getPostThread({
@@ -99,7 +99,7 @@ function blueskyUriToWebUrl(atUri) {
  */
 export async function resolveDidToHandle(did) {
   try {
-    const agent = new BskyAgent({ service: BSKY_SERVICE });
+    const agent = new AtpAgent({ service: BSKY_SERVICE });
     const response = await agent.getProfile({ actor: did });
     return response.data.handle;
   } catch {
