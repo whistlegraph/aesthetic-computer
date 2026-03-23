@@ -392,12 +392,12 @@ Mission statement + Top Users + All Media feed
     </header>
 
     <div class="tabs">
-      <button class="tab active" data-tab="users">Top Users</button>
-      <button class="tab" data-tab="feed">All Media</button>
+      <button class="tab" data-tab="users">Top Handles</button>
+      <button class="tab active" data-tab="feed">All Media</button>
     </div>
 
     <!-- Top Users -->
-    <div class="tab-panel active" id="panel-users">
+    <div class="tab-panel" id="panel-users">
       <div class="search-box">
         <input type="text" id="search" placeholder="Search by handle..." autocomplete="off">
       </div>
@@ -408,7 +408,7 @@ Mission statement + Top Users + All Media feed
     </div>
 
     <!-- All Media Feed -->
-    <div class="tab-panel" id="panel-feed">
+    <div class="tab-panel active" id="panel-feed">
       <div class="feed-filters" id="feed-filters"></div>
       <div id="feed-container">
         <div class="loading"><div class="spinner"></div><p>Loading media...</p></div>
@@ -784,7 +784,9 @@ Mission statement + Top Users + All Media feed
     }
 
     // Init
-    fetchUsers();
+    fetchUsers().finally(() => {
+      if (!feedLoaded) loadFeed();
+    });
   </script>
 </body>
 </html>
