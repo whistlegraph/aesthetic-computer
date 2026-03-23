@@ -45,6 +45,7 @@ let autoScrollSpeed = 0.3;
 let autoScrollDelay = 3000;
 let loadTime = 0;
 let totalContentH = 0;
+let buildsViewH = 0;
 let dlFn = null;
 let ovenWs = null;
 let wsReconnectTimer = null;
@@ -343,7 +344,7 @@ function timeAgo(ts) {
 }
 
 function paint($) {
-  const { screen, ink, line: drawLine, dark } = $;
+  const { screen, ink, line: drawLine, dark, mask, unmask } = $;
   const { width: w, height: h } = screen;
   const C = dark ? scheme.dark : scheme.light;
   $.wipe(...C.bg);
@@ -359,7 +360,7 @@ function paint($) {
   const btnGap = isMobile ? 8 : 4;
   // Always left-align buttons
   const btnX = (btn) => pad;
-  let y = (isMobile ? 28 : 22) - scrollY;
+  let y = isMobile ? 28 : 22;
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -608,14 +609,20 @@ function paint($) {
     }
   }
 
-  // Build list — alternating background strips
+  // Build list — masked scrollable area with alternating strips
+  const buildsTopY = y;
+  const buildsH = h - buildsTopY - 16; // leave room for footer
+  buildsViewH = buildsH;
+  mask({ x: 0, y: buildsTopY, width: w, height: buildsH });
+  y -= scrollY; // apply scroll offset only to builds
+
   const maxNameChars = isNarrow ? Math.floor(wrapW / charW / 3) : 30;
   const entryH = isNarrow ? 42 : 34;
   const stripA = dark ? [14, 17, 26] : [232, 234, 240];
   const stripB = dark ? [18, 22, 32] : [240, 242, 248];
 
   for (let i = 0; i < builds.length; i++) {
-    if (y > h + entryH) break;
+    if (y > buildsTopY + buildsH + entryH) break;
     if (y < -entryH) { y += entryH; continue; }
 
     const b = builds[i];
@@ -708,8 +715,10 @@ function paint($) {
     y += entryH;
   }
 
-  // Track total content height for auto-scroll
-  totalContentH = y + scrollY + 20;
+  unmask();
+
+  // Track total scrollable height (builds only)
+  totalContentH = builds.length * entryH;
 
   // Footer
   if (builds.length > 0) {
@@ -730,7 +739,7 @@ function act({ event: e, needsPaint, download }) {
 
   if (e.is("scroll")) {
     autoScroll = false;
-    scrollY = Math.max(0, scrollY + (e.delta || 0));
+    scrollY = Math.max(0, Math.min(scrollY + (e.delta || 0), Math.max(0, totalContentH - buildsViewH)));
     needsPaint();
     return;
   }
@@ -738,7 +747,7 @@ function act({ event: e, needsPaint, download }) {
   // Touch drag scrolling
   if (e.is("draw")) {
     autoScroll = false;
-    scrollY = Math.max(0, scrollY - (e.dy || 0));
+    scrollY = Math.max(0, Math.min(scrollY - (e.dy || 0), Math.max(0, totalContentH - buildsViewH)));
     needsPaint();
     return;
   }
@@ -975,16 +984,15 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 }
 
-function sim({ screen, needsPaint }) {
-  const viewH = screen.height;
+function sim({ needsPaint }) {
   // Auto-start after delay
   if (loadTime > 0 && !autoScroll && Date.now() - loadTime >= autoScrollDelay && scrollY === 0) {
     autoScroll = true;
   }
-  // Auto-scroll
-  if (autoScroll && totalContentH > viewH) {
+  // Auto-scroll builds list only
+  if (autoScroll && totalContentH > buildsViewH) {
     scrollY += autoScrollSpeed;
-    if (scrollY >= totalContentH - viewH) {
+    if (scrollY >= totalContentH - buildsViewH) {
       scrollY = 0; // loop
     }
     needsPaint();
