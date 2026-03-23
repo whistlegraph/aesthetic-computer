@@ -12,7 +12,7 @@
  *   node share-latest-painting.mjs @handle --message "Custom message"
  */
 
-import { BskyAgent, RichText } from '@atproto/api'
+import { AtpAgent, RichText } from '@atproto/api'
 import { config } from 'dotenv'
 import { writeFileSync } from 'fs'
 
@@ -115,7 +115,7 @@ async function postToBluesky(paintingData, imageBuffer, message) {
   console.log(`📤 Posting to Bluesky as @${BSKY_IDENTIFIER}`)
   console.log(`📡 Using service: ${BSKY_SERVICE}\n`)
 
-  const agent = new BskyAgent({ service: BSKY_SERVICE })
+  const agent = new AtpAgent({ service: BSKY_SERVICE })
 
   try {
     // Login

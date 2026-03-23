@@ -10,7 +10,7 @@
  *   node bulk-share-paintings.mjs 10 --delay 3000
  */
 
-import { BskyAgent, RichText } from '@atproto/api'
+import { AtpAgent, RichText } from '@atproto/api'
 import { config } from 'dotenv'
 
 config()
@@ -34,7 +34,7 @@ async function login() {
   }
 
   console.log(`🔐 Logging in as @${BSKY_IDENTIFIER}...`)
-  agent = new BskyAgent({ service: BSKY_SERVICE })
+  agent = new AtpAgent({ service: BSKY_SERVICE })
   await agent.login({
     identifier: BSKY_IDENTIFIER,
     password: BSKY_APP_PASSWORD

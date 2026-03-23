@@ -2,7 +2,7 @@
 // Mirror moods to Bluesky @aesthetic.computer account
 // 2026.01.28
 
-import { BskyAgent } from "@atproto/api";
+import { AtpAgent } from "@atproto/api";
 import { shell } from "./shell.mjs";
 
 // Cache for Bluesky credentials from MongoDB
@@ -66,7 +66,7 @@ export async function postMoodToBluesky(database, moodText, handle, atprotoRkey)
   }
 
   try {
-    const agent = new BskyAgent({ service: creds.service });
+    const agent = new AtpAgent({ service: creds.service });
 
     shell.log(`🦋 Logging into Bluesky as @${creds.identifier}...`);
     await agent.login({
@@ -137,7 +137,7 @@ export async function deleteMoodFromBluesky(database, blueskyRkey) {
   }
 
   try {
-    const agent = new BskyAgent({ service: creds.service });
+    const agent = new AtpAgent({ service: creds.service });
 
     await agent.login({
       identifier: creds.identifier,

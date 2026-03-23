@@ -9,7 +9,7 @@
 console.log('\n🧪 Testing ATProto Tools\n')
 console.log('═══════════════════════════════════════\n')
 
-import { BskyAgent } from '@atproto/api'
+import { AtpAgent } from '@atproto/api'
 
 const testHandle = 'aesthetic.computer'
 const service = 'https://public.api.bsky.app'
@@ -43,7 +43,7 @@ try {
     console.log('   ⏭️  Skipped (no credentials in .env)')
     console.log('   💡 To test: Copy .env.example to .env and add credentials\n')
   } else {
-    const agent = new BskyAgent({ service: 'https://bsky.social' })
+    const agent = new AtpAgent({ service: 'https://bsky.social' })
     await agent.login({
       identifier: process.env.BSKY_IDENTIFIER,
       password: process.env.BSKY_APP_PASSWORD
