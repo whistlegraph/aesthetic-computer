@@ -1401,6 +1401,12 @@ from = "https://kidlisp.com/learn"
 to = "/kidlisp.com/learn.html"
 status = 200
 force = true
+# Proxy aesthetic.computer assets (split.js, etc.) through kidlisp.com
+[[redirects]]
+from = "https://kidlisp.com/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
+status = 200
+force = true
 [[redirects]]
 from = "https://kidlisp.com/*"
 to = "https://aesthetic.computer/kidlisp.com/:splat"
@@ -1432,6 +1438,12 @@ force = true
 [[redirects]]
 from = "https://www.kidlisp.com/learn"
 to = "/kidlisp.com/learn.html"
+status = 200
+force = true
+# Proxy aesthetic.computer assets through www.kidlisp.com
+[[redirects]]
+from = "https://www.kidlisp.com/aesthetic.computer/*"
+to = "/aesthetic.computer/:splat"
 status = 200
 force = true
 [[redirects]]
