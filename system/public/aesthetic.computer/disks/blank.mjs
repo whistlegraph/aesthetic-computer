@@ -278,7 +278,7 @@ function paint($) {
                   planeDown[2] / planeH * glyphScale];
 
       // Dynamic text: "hi @handle" if logged in, "AC Blank" otherwise
-      const screenText = userHandle ? `hi ${userHandle}` : "AC Blank";
+      const screenText = userHandle ? `hi ${userHandle}` : "hi";
       // Estimate width: MatrixChunky8 avg ~4px per char
       const textW = screenText.length * 4;
       const textH = 8;
