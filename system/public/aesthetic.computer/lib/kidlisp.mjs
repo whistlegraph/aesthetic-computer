@@ -7079,14 +7079,27 @@ class KidLisp {
           // For the first argument (image source), support unquoted URLs, paths, #codes, and @handles
           if (index === 0 && typeof arg === "string" && arg) {
             // If it's a URL (http/https), path, #code, or @handle, treat it as unquoted
-            if (arg.startsWith("http://") || arg.startsWith("https://") || 
+            if (arg.startsWith("http://") || arg.startsWith("https://") ||
                 arg.includes("/") || arg.includes("@") || arg.startsWith("#")) {
               return arg; // Return as-is for URLs, paths, #codes, and @handle/timestamp patterns
             }
           }
           // Evaluate expressions for non-string arguments (like math expressions)
-          return this.evaluate(arg, api, this.localEnv);
+          const result = this.evaluate(arg, api, this.localEnv);
+          // Guard: if first arg evaluated to a function (e.g. builtin name
+          // like "circle"), treat the raw string as an image code instead.
+          if (index === 0 && typeof result === "function") {
+            return typeof arg === "string" ? arg : result;
+          }
+          return result;
         });
+
+        // Bail out if the image source is invalid (not a string or bitmap)
+        if (processedArgs.length > 0 && typeof processedArgs[0] !== "string" &&
+            (typeof processedArgs[0] !== "object" || !processedArgs[0]?.width)) {
+          console.warn("⚠️ stamp: invalid image source", processedArgs[0]);
+          return;
+        }
 
         const performStamp = () => {
           api.stamp(...processedArgs);

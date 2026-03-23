@@ -2,6 +2,7 @@
 // POST /api/boot-log
 
 import { connect } from "../../backend/database.mjs";
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
 
 export async function handler(event) {
@@ -10,6 +11,11 @@ export async function handler(event) {
   }
 
   if (event.httpMethod === "GET") {
+    // Admin-only: require auth
+    const user = await authorize(event.headers);
+    if (!user) return respond(401, { error: "Authentication required" });
+    if (!(await hasAdmin(user))) return respond(403, { error: "Admin access required" });
+
     try {
       const database = await connect();
       const boots = database.db.collection("boots");
