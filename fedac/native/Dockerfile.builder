@@ -1,4 +1,4 @@
-## AC Native OS — Reproducible Build Container (swank)
+## AC Native OS — Reproducible Build Container (make-clean)
 ##
 ## Usage (from repo root):
 ##   docker build -t ac-os-builder -f fedac/native/Dockerfile.builder .
