@@ -9,6 +9,16 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 
+function runSync(cmd, args, cwd) {
+  return new Promise((resolve) => {
+    const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    proc.stdout.on('data', d => out += d);
+    proc.on('close', () => resolve(out.trim()));
+    proc.on('error', () => resolve(''));
+  });
+}
+
 const MAX_RECENT_JOBS = 10;
 const MAX_LOG_LINES = 2000;
 
@@ -96,6 +106,8 @@ function makeSnapshot(job, opts = {}) {
     finishedAt: job.finishedAt,
     exitCode: job.exitCode,
     error: job.error,
+    buildName: job.buildName || null,
+    commitMsg: job.commitMsg || null,
     logCount: job.logs.length,
     elapsedMs: job.startedAt
       ? (job.finishedAt ? Date.parse(job.finishedAt) : Date.now()) -
@@ -193,7 +205,10 @@ async function runBuildJob(job) {
     job.percent = 0;
 
     const repoDir = path.resolve(NATIVE_DIR, "../..");
-    const buildName = `oven-${job.ref.slice(0, 7)}`;
+    const buildName = await runSync("bash", ["scripts/build-name.sh"], NATIVE_DIR) || `oven-${job.ref.slice(0, 7)}`;
+    const commitMsg = await runSync("git", ["log", "-1", "--format=%s", job.ref], repoDir) || "";
+    job.buildName = buildName;
+    job.commitMsg = commitMsg;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
     // Pre-build: prune stopped containers and dangling images to avoid disk-full failures
