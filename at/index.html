@@ -1,0 +1,595 @@
+<!--
+ATProto PDS Landing Page for at.aesthetic.computer
+Mission statement + Top Users + All Media feed
+2026.03.23
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>at · Aesthetic Computer</title>
+  <meta name="description" content="A self-hosted ATProto Personal Data Server for the Aesthetic Computer community — paintings, moods, code, tapes, papers, and more.">
+  <link rel="icon" type="image/png"
+    href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
+
+  <style>
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { display: none; }
+
+    body {
+      margin: 0;
+      font-size: 14px;
+      font-family: monospace;
+      -webkit-text-size-adjust: none;
+      background: #f5f5f5;
+      color: #000;
+      line-height: 1.4;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1em 0.5em;
+    }
+
+    a { color: rgb(205, 92, 155); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header {
+      text-align: center;
+      padding: 1em 0;
+      border-bottom: 2px solid rgb(205, 92, 155);
+      margin-bottom: 1em;
+    }
+
+    #pals-beacon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.2em;
+      text-decoration: none;
+    }
+
+    #pals-beacon .pals-logo-container {
+      position: relative;
+      display: inline-block;
+    }
+
+    #pals-beacon .pals-logo,
+    #pals-beacon .pals-logo-pink {
+      width: 80px;
+      height: auto;
+    }
+
+    #pals-beacon .pals-logo {
+      filter: grayscale(100%) opacity(0.3);
+      transition: filter 0.3s, opacity 0.3s;
+    }
+
+    #pals-beacon .pals-logo-pink {
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0.7;
+      filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8));
+      animation: pals-idle 2s ease-in-out infinite;
+    }
+
+    @keyframes pals-idle {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.01); opacity: 1; }
+    }
+
+    h1 {
+      font-size: 1.5em;
+      font-weight: normal;
+      margin: 0 0 0.3em 0;
+      color: rgb(205, 92, 155);
+    }
+
+    .subtitle {
+      font-size: 0.85em;
+      opacity: 0.7;
+      margin: 0.3em 0;
+    }
+
+    .mission {
+      margin: 1em auto;
+      max-width: 640px;
+      padding: 1em;
+      background: rgba(205, 92, 155, 0.06);
+      border-radius: 6px;
+      font-size: 0.85em;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .mission p { margin: 0 0 0.6em 0; }
+    .mission p:last-child { margin: 0; }
+
+    .lexicons {
+      display: flex;
+      gap: 0.4em;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.8em 0;
+    }
+
+    .lex-tag {
+      font-size: 0.7em;
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .stats {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.8em 0;
+      font-size: 0.75em;
+    }
+
+    .stat {
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+    }
+
+    .stat strong { color: rgb(205, 92, 155); }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+      margin: 1em 0 0.5em 0;
+    }
+
+    .tab {
+      padding: 0.6em 1.2em;
+      background: none;
+      border: none;
+      font-family: monospace;
+      font-size: 0.9em;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .tab:hover { color: rgb(205, 92, 155); }
+    .tab.active {
+      color: rgb(205, 92, 155);
+      border-bottom-color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .search-box { margin: 0.5em 0 1em 0; }
+
+    .search-box input {
+      font-family: monospace;
+      font-size: 0.9em;
+      padding: 0.6em 0.8em;
+      width: 100%;
+      border: 1px solid rgba(205, 92, 155, 0.3);
+      border-radius: 3px;
+      outline: none;
+      background: white;
+    }
+
+    .search-box input:focus { border-color: rgb(205, 92, 155); }
+
+    /* User list */
+    .user-list { display: flex; flex-direction: column; }
+
+    .user-row {
+      background: white;
+      padding: 0.75em;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.1);
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1em;
+    }
+
+    .user-row:first-child { border-radius: 4px 4px 0 0; }
+    .user-row:last-child { border-radius: 0 0 4px 4px; border-bottom: none; }
+    .user-row:hover { background: rgba(205, 92, 155, 0.05); padding-left: 1em; }
+
+    .user-left { display: flex; align-items: center; gap: 0.75em; flex: 1; min-width: 0; }
+    .user-rank { font-size: 0.75em; color: rgba(205, 92, 155, 0.5); font-weight: bold; min-width: 2.5em; text-align: right; }
+    .user-handle { font-weight: bold; color: rgb(205, 92, 155); word-break: break-all; }
+    .user-mood { font-size: 0.75em; color: rgba(0,0,0,0.6); margin-left: 0.5em; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-right { display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .user-badge { font-size: 0.7em; padding: 0.3em 0.5em; background: rgba(205, 92, 155, 0.1); border-radius: 3px; white-space: nowrap; }
+    .user-total { font-size: 0.75em; color: rgba(0,0,0,0.5); font-weight: bold; min-width: 3em; text-align: right; }
+
+    .user-kidlisp-preview {
+      width: 36px; height: 36px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(205, 92, 155, 0.2);
+    }
+    .user-kidlisp-preview img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+
+    /* Media feed */
+    .feed { display: flex; flex-direction: column; gap: 0.4em; }
+
+    .feed-item {
+      background: white;
+      padding: 0.75em;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+    }
+
+    .feed-type {
+      font-size: 1.2em;
+      width: 2em;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .feed-body { flex: 1; min-width: 0; }
+
+    .feed-title {
+      font-weight: bold;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .feed-meta {
+      font-size: 0.75em;
+      color: rgba(0,0,0,0.5);
+      margin-top: 0.2em;
+    }
+
+    .feed-meta a { color: rgb(205, 92, 155); }
+
+    .feed-thumb {
+      width: 48px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(205, 92, 155, 0.15);
+    }
+    .feed-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+
+    .loading { text-align: center; padding: 3em 2em; opacity: 0.6; }
+    .error { text-align: center; padding: 3em 2em; color: #d32f2f; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(205, 92, 155, 0.3); border-radius: 50%; border-top-color: rgb(205, 92, 155); animation: spin 1s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .load-more {
+      display: block;
+      margin: 1em auto;
+      padding: 0.6em 1.5em;
+      font-family: monospace;
+      font-size: 0.85em;
+      background: rgba(205, 92, 155, 0.1);
+      border: 1px solid rgba(205, 92, 155, 0.3);
+      border-radius: 4px;
+      cursor: pointer;
+      color: rgb(205, 92, 155);
+    }
+    .load-more:hover { background: rgba(205, 92, 155, 0.2); }
+
+    footer { text-align: center; padding: 2em 1em 1em; opacity: 0.5; font-size: 0.75em; }
+
+    @media (max-width: 560px) {
+      .user-mood { display: none; }
+      .user-kidlisp-preview { width: 28px; height: 28px; }
+      .user-badge { font-size: 0.6em; }
+      .mission { font-size: 0.8em; padding: 0.8em; }
+    }
+
+    @media (max-width: 400px) {
+      .user-right { display: none; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: rgb(64, 56, 74); color: rgba(255, 255, 255, 0.85); }
+      .user-row, .feed-item { background: rgba(255, 255, 255, 0.05); }
+      .user-row:hover, .feed-item:hover { background: rgba(205, 92, 155, 0.1); }
+      .search-box input { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.85); }
+      .user-total, .feed-meta { color: rgba(255, 255, 255, 0.5); }
+      .user-mood { color: rgba(255, 255, 255, 0.6); }
+      .mission { background: rgba(205, 92, 155, 0.1); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <a id="pals-beacon" href="https://aesthetic.computer" target="_blank" aria-label="Aesthetic Computer">
+        <div class="pals-logo-container">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
+          <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo-pink">
+        </div>
+      </a>
+      <h1>at.aesthetic.computer</h1>
+      <div class="subtitle">Self-Hosted ATProto Personal Data Server</div>
+
+      <div class="mission">
+        <p>This is the federated data layer for <a href="https://aesthetic.computer">Aesthetic Computer</a> &mdash; a mobile-first runtime and social network for creative computing.</p>
+        <p>Every painting, mood, tape, piece of code, and paper created on AC is stored here as an open ATProto record, addressable by anyone on the network. Your data lives on infrastructure we operate, not on a platform you don't control.</p>
+      </div>
+
+      <div class="lexicons">
+        <span class="lex-tag">painting</span>
+        <span class="lex-tag">mood</span>
+        <span class="lex-tag">kidlisp</span>
+        <span class="lex-tag">piece</span>
+        <span class="lex-tag">tape</span>
+        <span class="lex-tag">news</span>
+        <span class="lex-tag">paper</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><strong id="total-users">...</strong> users</div>
+        <div class="stat"><strong id="total-records">...</strong> records</div>
+        <div class="stat"><strong id="active-users">...</strong> active</div>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="users">Top Users</button>
+      <button class="tab" data-tab="feed">All Media</button>
+    </div>
+
+    <!-- Top Users -->
+    <div class="tab-panel active" id="panel-users">
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search by handle..." autocomplete="off">
+      </div>
+      <div id="users-container">
+        <div class="loading"><div class="spinner"></div><p>Loading users...</p></div>
+      </div>
+    </div>
+
+    <!-- All Media Feed -->
+    <div class="tab-panel" id="panel-feed">
+      <div id="feed-container">
+        <div class="loading"><div class="spinner"></div><p>Loading media...</p></div>
+      </div>
+    </div>
+
+    <footer>
+      <p>
+        Powered by <a href="https://atproto.com" target="_blank">AT Protocol</a> ·
+        <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a> ·
+        <a href="https://art.at.aesthetic.computer" target="_blank">Guest Art</a> ·
+        <a href="https://papers.aesthetic.computer" target="_blank">Papers</a>
+      </p>
+      <p>mail@aesthetic.computer</p>
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = 'https://aesthetic.computer';
+    const PDS_URL = 'https://at.aesthetic.computer';
+    const COLLECTIONS = [
+      { id: 'computer.aesthetic.painting', icon: '🎨', label: 'painting' },
+      { id: 'computer.aesthetic.mood', icon: '💬', label: 'mood' },
+      { id: 'computer.aesthetic.kidlisp', icon: '📝', label: 'kidlisp' },
+      { id: 'computer.aesthetic.piece', icon: '🧩', label: 'piece' },
+      { id: 'computer.aesthetic.tape', icon: '📼', label: 'tape' },
+      { id: 'computer.aesthetic.news', icon: '📰', label: 'news' },
+      { id: 'computer.aesthetic.paper', icon: '📄', label: 'paper' },
+    ];
+
+    let allUsers = [];
+    let feedLoaded = false;
+
+    // --- Tabs ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'feed' && !feedLoaded) loadFeed();
+      });
+    });
+
+    // --- Users Tab ---
+    async function fetchUsers() {
+      try {
+        const response = await fetch(`${API_URL}/.netlify/functions/atproto-user-stats?limit=100`);
+        const data = await response.json();
+        if (!data.users) throw new Error('Invalid response');
+        allUsers = data.users;
+
+        if (data.stats) {
+          document.getElementById('total-users').textContent = data.stats.totalUsers.toLocaleString();
+          document.getElementById('total-records').textContent = data.stats.totalRecords.toLocaleString();
+          document.getElementById('active-users').textContent = data.stats.activeUsers.toLocaleString();
+        }
+        renderUsers(allUsers);
+      } catch (error) {
+        document.getElementById('users-container').innerHTML = '<div class="error">Failed to load users.</div>';
+      }
+    }
+
+    function renderUsers(users) {
+      const container = document.getElementById('users-container');
+      if (!users.length) { container.innerHTML = '<div class="loading">No users found</div>'; return; }
+
+      const list = document.createElement('div');
+      list.className = 'user-list';
+
+      users.forEach((user, index) => {
+        const row = document.createElement('a');
+        row.className = 'user-row';
+        const identifier = user.handle || user.code;
+        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
+        row.href = `https://${shortHandle}.at.aesthetic.computer`;
+        row.target = '_blank';
+
+        const badges = [];
+        const badgeMap = {
+          'computer.aesthetic.painting': '🎨',
+          'computer.aesthetic.mood': '💬',
+          'computer.aesthetic.piece': '🧩',
+          'computer.aesthetic.kidlisp': '📝',
+          'computer.aesthetic.tape': '📼',
+        };
+        for (const [col, emoji] of Object.entries(badgeMap)) {
+          if (user.collections.includes(col)) {
+            badges.push(`<span class="user-badge">${emoji} ${user.recordCounts[col] || 0}</span>`);
+          }
+        }
+
+        const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
+        const mood = user.latestMood ? `"${user.latestMood.replace(/\s+/g, ' ').trim()}"` : '';
+        const klCode = user.latestKidlispCode || '';
+        const klPreview = klCode
+          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${klCode}?duration=2000&fps=8&quality=70&density=1&nowait=true" alt="" loading="lazy"></div>`
+          : '';
+
+        row.innerHTML = `
+          <div class="user-left">
+            <div class="user-rank">#${index + 1}</div>
+            ${klPreview}
+            <div class="user-handle">${displayHandle}</div>
+            ${mood ? `<div class="user-mood">${mood}</div>` : ''}
+          </div>
+          <div class="user-right">
+            ${badges.join('')}
+            <div class="user-total">${user.totalRecords}</div>
+          </div>`;
+        list.appendChild(row);
+      });
+
+      container.innerHTML = '';
+      container.appendChild(list);
+    }
+
+    document.getElementById('search').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      renderUsers(q ? allUsers.filter(u => (u.handle || u.code).toLowerCase().includes(q)) : allUsers);
+    });
+
+    // --- All Media Feed ---
+    async function loadFeed() {
+      feedLoaded = true;
+      const container = document.getElementById('feed-container');
+
+      try {
+        // Fetch repos, then latest records from each collection across top repos
+        const reposRes = await fetch(`${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=50`);
+        const reposData = await reposRes.json();
+        const repos = (reposData.repos || []).map(r => r.did);
+
+        const allItems = [];
+
+        // For each collection, fetch recent records from all repos (limit per repo for speed)
+        for (const col of COLLECTIONS) {
+          for (const did of repos.slice(0, 20)) {
+            try {
+              const res = await fetch(`${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(col.id)}&limit=5`);
+              if (!res.ok) continue;
+              const data = await res.json();
+              for (const rec of (data.records || [])) {
+                allItems.push({ ...rec.value, uri: rec.uri, _col: col, _did: did });
+              }
+            } catch { /* skip */ }
+          }
+        }
+
+        // Sort by when (reverse chrono)
+        allItems.sort((a, b) => {
+          const da = new Date(a.when || a.createdAt || 0);
+          const db = new Date(b.when || b.createdAt || 0);
+          return db - da;
+        });
+
+        renderFeed(allItems.slice(0, 100), container);
+      } catch (error) {
+        container.innerHTML = '<div class="error">Failed to load media feed.</div>';
+      }
+    }
+
+    function renderFeed(items, container) {
+      if (!items.length) { container.innerHTML = '<div class="loading">No media found</div>'; return; }
+
+      const feed = document.createElement('div');
+      feed.className = 'feed';
+
+      for (const item of items) {
+        const el = document.createElement('div');
+        el.className = 'feed-item';
+
+        const col = item._col;
+        const when = item.when || item.createdAt;
+        const dateStr = when ? new Date(when).toLocaleDateString() : '';
+        const handle = item.uri ? item.uri.split('/')[2] : item._did;
+        const shortDid = handle.length > 20 ? handle.slice(0, 16) + '...' : handle;
+
+        let title = '';
+        let thumb = '';
+        let link = '';
+
+        switch (col.label) {
+          case 'painting':
+            title = item.slug || item.code || 'Untitled';
+            link = item.imageUrl || `https://aesthetic.computer/#${item.code}`;
+            if (item.code) thumb = `<div class="feed-thumb"><img src="https://aesthetic.computer/media/paintings/${item.code}" loading="lazy" alt=""></div>`;
+            break;
+          case 'mood':
+            title = item.mood || '';
+            break;
+          case 'kidlisp':
+            title = item.source ? item.source.slice(0, 80) : (item.code || '');
+            if (item.code) {
+              link = item.acUrl || `https://aesthetic.computer/$${item.code}`;
+              thumb = `<div class="feed-thumb"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${item.code}?duration=1000&fps=4&quality=60&density=1&nowait=true" loading="lazy" alt=""></div>`;
+            }
+            break;
+          case 'piece':
+            title = item.slug || 'Untitled piece';
+            break;
+          case 'tape':
+            title = item.code || item.slug || 'Tape';
+            link = item.acUrl || `https://aesthetic.computer/!${item.code}`;
+            break;
+          case 'news':
+            title = item.headline || '';
+            link = item.link || '';
+            break;
+          case 'paper':
+            title = item.title || '';
+            link = item.pdfUrl || '';
+            break;
+        }
+
+        const titleHtml = link
+          ? `<a href="${link}" target="_blank">${title}</a>`
+          : title;
+
+        el.innerHTML = `
+          <div class="feed-type">${col.icon}</div>
+          ${thumb}
+          <div class="feed-body">
+            <div class="feed-title">${titleHtml}</div>
+            <div class="feed-meta">${col.label} · ${dateStr} · ${shortDid}</div>
+          </div>`;
+        feed.appendChild(el);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(feed);
+    }
+
+    // Init
+    fetchUsers();
+  </script>
+</body>
+</html>
