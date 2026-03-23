@@ -81,7 +81,7 @@ async function fetchCheckout(api) {
 }
 
 function paint($) {
-  const { wipe, ink, screen, dark: isDark, tri } = $;
+  const { wipe, ink, line, screen, dark: isDark, tri } = $;
   frame += 1;
   const w = screen.width;
   const h = screen.height;
@@ -250,11 +250,17 @@ function paint($) {
     addFaces(projBase, baseColor, "base");
     addFaces(projLid, lidColor, "lid");
 
-    // Hinge barrels
+    // Hinge barrels — only draw when not fully behind base+lid
     const hingeColor = isDark ? [32, 32, 35] : [45, 45, 48];
+    const baseMinZ = min(...projBase.map(v => v[2]));
+    const lidMinZ = min(...projLid.map(v => v[2]));
     for (const hv of hingeVerts) {
       const projH = hv.map(project);
-      addFaces(projH, hingeColor, "hinge", false);
+      const hingeMaxZ = max(...projH.map(v => v[2]));
+      // Only add if hinge pokes out in front of at least one body
+      if (hingeMaxZ > baseMinZ || hingeMaxZ > lidMinZ) {
+        addFaces(projH, hingeColor, "hinge");
+      }
     }
 
     // Keyboard keys (on base top face, y = -0.001 just above y=0)
@@ -344,7 +350,11 @@ function paint($) {
     };
     addEdges(projBase);
     addEdges(projLid);
-    for (const hv of hingeVerts) addEdges(hv.map(project));
+    for (const hv of hingeVerts) {
+      const projH = hv.map(project);
+      const hingeMaxZ = max(...projH.map(v => v[2]));
+      if (hingeMaxZ > baseMinZ || hingeMaxZ > lidMinZ) addEdges(projH);
+    }
 
     // Sort back-to-front (highest z = farthest = draw first)
     drawList.sort((a, b) => b.z - a.z);
@@ -376,6 +386,13 @@ function paint($) {
         ink(c[0], c[1], c[2]);
         tri(x0, y0, x1, y1, x2, y2);
         tri(x0, y0, x2, y2, x3, y3);
+        // White blinky wireframe outline
+        const blink = sin(frame * 0.08 + x0 * 0.3 + y0 * 0.7) * 0.5 + 0.5;
+        ink(255, 255, 255, floor(30 + blink * 50));
+        line(x0, y0, x1, y1);
+        line(x1, y1, x2, y2);
+        line(x2, y2, x3, y3);
+        line(x3, y3, x0, y0);
       }
     }
 
