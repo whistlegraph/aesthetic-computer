@@ -129,15 +129,17 @@ function paint($) {
     const lidThick = hh * 1.4; // lid is thinner than base (display vs motherboard)
     const gap = hh * 0.15;     // tiny gap at hinge for clearance
 
-    // Pivot point: at the back edge, at the TOP surface of the base (y=0, z=-hd)
+    // Pivot point: at the hinge seam between base and lid (y=0, z=0)
+    // When flat at 180°, base extends forward (+z) and lid extends backward (-z)
+    // symmetrically — looks level from any camera angle.
     const pivotY = 0;
-    const pivotZ = -hd;
+    const pivotZ = 0;
 
-    // Base slab: extends DOWN from pivot surface
-    // y: 0 (top/pivot) to 2*hh (bottom), z: -hd to +hd
+    // Base slab: extends forward from pivot
+    // y: 0 (top) to 2*hh (bottom), z: 0 to 2*hd
     const base = [
-      [-hw, 0, -hd], [hw, 0, -hd], [hw, 2 * hh, -hd], [-hw, 2 * hh, -hd],
-      [-hw, 0, hd], [hw, 0, hd], [hw, 2 * hh, hd], [-hw, 2 * hh, hd],
+      [-hw, 0, 0], [hw, 0, 0], [hw, 2 * hh, 0], [-hw, 2 * hh, 0],
+      [-hw, 0, 2 * hd], [hw, 0, 2 * hd], [hw, 2 * hh, 2 * hd], [-hw, 2 * hh, 2 * hd],
     ];
 
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
