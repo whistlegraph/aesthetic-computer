@@ -37,7 +37,7 @@ RUN mkdir -p /cache \
     && sbcl --non-interactive \
        --load /tmp/ql.lisp \
        --eval '(quicklisp-quickstart:install :path "/opt/quicklisp/")' \
-       --eval '(ql:quickload (list :cffi :bordeaux-threads :alexandria))' \
+       --eval '(ql:quickload (list :cffi :bordeaux-threads :alexandria :swank))' \
     && rm /tmp/ql.lisp
 
 # ── Pre-download QuickJS + Linux kernel source ──

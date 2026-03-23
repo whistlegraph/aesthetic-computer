@@ -130,6 +130,28 @@
 (defvar *esc-count* 0)
 (defvar *esc-last-frame* 0)
 
+;;; ── Network info ──
+
+(defvar *ip-address* "" "Current IP address for Swank display.")
+
+(defun refresh-ip ()
+  "Read current IP address from system."
+  (handler-case
+      (let ((output (with-output-to-string (s)
+                      (sb-ext:run-program "/sbin/ip" '("-4" "-o" "addr" "show")
+                        :output s :error nil))))
+        (dolist (line (uiop:split-string output :separator '(#\Newline)))
+          (when (and (search "inet " line)
+                     (not (search "127.0.0.1" line)))
+            ;; Extract IP from "X: wlan0  inet 192.168.1.x/24 ..."
+            (let* ((inet-pos (search "inet " line))
+                   (ip-start (+ inet-pos 5))
+                   (slash-pos (position #\/ line :start ip-start)))
+              (when slash-pos
+                (setf *ip-address* (subseq line ip-start slash-pos))
+                (return))))))
+    (error () nil)))
+
 ;;; ── Main ──
 
 (defun main ()
@@ -174,6 +196,26 @@
 
       ;; Font init
       (font-init)
+
+      ;; Start Swank server for remote REPL (port 4005)
+      (handler-case
+          (progn
+            (setf swank::*communication-style* :spawn)
+            (swank:create-server :port 4005 :dont-close t)
+            (format *error-output* "[notepat] Swank server on port 4005~%")
+            ;; Log IP address for connection
+            (handler-case
+                (let ((output (with-output-to-string (s)
+                                (sb-ext:run-program "/sbin/ip" '("-4" "addr" "show")
+                                  :output s :error nil))))
+                  (dolist (line (uiop:split-string output :separator '(#\Newline)))
+                    (when (search "inet " line)
+                      (format *error-output* "[notepat] ~A~%" (string-trim '(#\Space) line)))))
+              (error () nil))
+            (force-output *error-output*))
+        (error (e)
+          (format *error-output* "[notepat] Swank failed: ~A~%" e)
+          (force-output *error-output*)))
 
       ;; Main loop
       (setf *running* t)
@@ -370,6 +412,16 @@
                 (let ((txt (format nil "~D" vc)))
                   (graph-ink graph (make-color :r 200 :g 200 :b 200 :a 180))
                   (font-draw graph txt (- sw (* (length txt) 6) 3) 3))))
+
+            ;; IP + Swank indicator (top, centered)
+            (when (> (length *ip-address*) 0)
+              (let ((txt (format nil "~A:4005" *ip-address*)))
+                (graph-ink graph (make-color :r 60 :g 180 :b 60 :a 160))
+                (font-draw graph txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
+
+            ;; Refresh IP every ~5 seconds (300 frames)
+            (when (zerop (mod frame 300))
+              (refresh-ip))
 
             ;; ── Present ──
             (ac-native.drm:drm-present display screen scale)
