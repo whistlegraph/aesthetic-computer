@@ -325,7 +325,7 @@ function osLabel() {
 
 function updateBootBtn(ui) {
   const piece = BOOT_PIECES[bootPieceIdx];
-  bootBtn = new ui.TextButton("boot to: " + piece, { x: 6, y: 0 });
+  bootBtn = new ui.TextButton("boot: " + piece, { x: 6, y: 0 });
 }
 
 function updateWifiBtn(ui) {
