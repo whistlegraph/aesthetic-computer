@@ -174,14 +174,6 @@
         "title": "News: Open Window 📰"
       },
       {
-        "command": "aestheticComputer.setGoal",
-        "title": "Aesthetic Computer: Set Goal 🚩"
-      },
-      {
-        "command": "aestheticComputer.visitGoal",
-        "title": "Aesthetic Computer: Visit Goal 📔🚩"
-      },
-      {
         "command": "aestheticComputer.clearSlug",
         "title": "Aesthetic Computer: Clear Slug Data 🧹"
       },
