@@ -110,7 +110,10 @@ function paint($) {
     const cx = floor(w / 2);
     const laptopTop = 20;
     const cy = floor((laptopTop + contentBottom) / 2);
-    const size = min(w * 0.45, (contentBottom - laptopTop) * 0.35);
+    // Keep laptop fully within viewport (account for rotation + lid overshoot)
+    const availW = w * 0.32;
+    const availH = (contentBottom - laptopTop) * 0.25;
+    const size = min(availW, availH);
     const fov = 260;
 
     // Turntable rotation (slow steady swivel)
