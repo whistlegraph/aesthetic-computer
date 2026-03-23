@@ -486,17 +486,21 @@
 
         <!-- Alerts -->
         <div class="alerts">
-            <div class="alert alert-ok">
-                <div class="alert-dot green"></div>
-                <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>Netlify CRITICAL</strong> — billing period ends ~Mar 27. Fix payment NOW or aesthetic.computer goes down.</div>
+            </div>
+            <div class="alert">
+                <div class="alert-dot red"></div>
+                <div class="alert-text"><strong>Shopify offline</strong> — shop.aesthetic.computer is down. Product pages, /api/shop, and carousel broken.</div>
             </div>
             <div class="alert">
                 <div class="alert-dot red"></div>
                 <div class="alert-text"><strong>GitHub overdue</strong> — ~$500 unpaid. <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></div>
             </div>
-            <div class="alert alert-warn">
-                <div class="alert-dot gold"></div>
-                <div class="alert-text"><strong>Netlify past due</strong> — 25 days until aesthetic.computer is disabled.</div>
+            <div class="alert alert-ok">
+                <div class="alert-dot green"></div>
+                <div class="alert-text"><strong>DigitalOcean restored</strong> — paid and all droplets back online. Thanks Casey!</div>
             </div>
         </div>
 
@@ -606,19 +610,21 @@
         <div class="stats">
             <div class="stat-box">
                 <div class="stat-label">overdue</div>
-                <div class="stat-value" style="color: var(--red);">~$500</div>
+                <div class="stat-value" style="color: var(--red);">~$519</div>
+                <div class="stat-sub">GitHub ~$500 + Netlify $19</div>
             </div>
             <div class="stat-box">
                 <div class="stat-label">monthly</div>
                 <div class="stat-value" style="color: var(--gold);">~$151</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">can save</div>
-                <div class="stat-value" style="color: var(--green);">$107</div>
+                <div class="stat-label">offline</div>
+                <div class="stat-value" style="color: var(--red);">2</div>
+                <div class="stat-sub">Shopify + Netlify (critical)</div>
             </div>
             <div class="stat-box">
-                <div class="stat-label">minimum</div>
-                <div class="stat-value" style="color: var(--cyan);">~$44</div>
+                <div class="stat-label">can save</div>
+                <div class="stat-value" style="color: var(--green);">$107</div>
             </div>
         </div>
 
@@ -633,6 +639,7 @@
         <div class="service-map">
             <div class="svc income"><div class="svc-name">keeps</div><div class="svc-cost">tezos</div></div>
             <div class="svc income"><div class="svc-name">gives</div><div class="svc-cost">stripe</div></div>
+            <div class="svc down"><div class="svc-name">shopify</div><div class="svc-cost">offline</div></div>
             <div class="svc ok"><div class="svc-name">oven</div><div class="svc-cost">$48/mo</div></div>
             <div class="svc ok"><div class="svc-name">silo</div><div class="svc-cost">$24/mo</div></div>
             <div class="svc ok"><div class="svc-name">help</div><div class="svc-cost">$24/mo</div></div>
@@ -641,7 +648,7 @@
             <div class="svc ok"><div class="svc-name">legacy</div><div class="svc-cost">$12/mo</div></div>
             <div class="svc ok"><div class="svc-name">redis</div><div class="svc-cost">$15/mo</div></div>
             <div class="svc ok"><div class="svc-name">spaces</div><div class="svc-cost">$5/mo</div></div>
-            <div class="svc warn"><div class="svc-name">netlify</div><div class="svc-cost">$19/mo</div></div>
+            <div class="svc down"><div class="svc-name">netlify</div><div class="svc-cost">$19/mo</div></div>
             <div class="svc free"><div class="svc-name">cloudflare</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">auth0</div><div class="svc-cost">free</div></div>
             <div class="svc free"><div class="svc-name">firebase</div><div class="svc-cost">free</div></div>
@@ -655,10 +662,11 @@
         <table>
             <thead><tr><th>status</th><th>service</th><th>monthly</th><th class="hide-mobile">notes</th></tr></thead>
             <tbody>
-                <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">Paid — all droplets restored</td></tr>
-                <tr><td><span class="pill pill-gold">past due</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — 25 days until disabled</td></tr>
+                <tr><td><span class="pill pill-red">critical</span></td><td>Netlify</td><td class="money">$19</td><td class="hide-mobile">Pro plan — period ends ~Mar 27, site at risk</td></tr>
+                <tr><td><span class="pill pill-red">offline</span></td><td>Shopify</td><td class="money">$0</td><td class="hide-mobile">shop.aesthetic.computer down — store closed</td></tr>
                 <tr><td><span class="pill pill-red">overdue</span></td><td>GitHub</td><td class="money">~$500</td><td class="hide-mobile">Prior months (Codespaces/Copilot)</td></tr>
-                <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Atlas → DO silo — restored</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>DigitalOcean</td><td class="money">~$132</td><td class="hide-mobile">Paid — all droplets restored</td></tr>
+                <tr><td><span class="pill pill-green">active</span></td><td>MongoDB</td><td class="money">$0</td><td class="hide-mobile">Self-hosted on DO silo — restored</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Cloudflare</td><td class="money">$0</td><td class="hide-mobile">8 zones, 2 Workers</td></tr>
                 <tr><td><span class="pill pill-green">active</span></td><td>Firebase / GCP</td><td class="money">$0–50</td><td class="hide-mobile">Free auth + Nanos VMs (unknown)</td></tr>
                 <tr><td><span class="pill pill-cyan">free</span></td><td>Auth0</td><td class="money">$0</td><td class="hide-mobile">Free tier (7K users)</td></tr>
@@ -672,7 +680,7 @@
 
         <!-- DigitalOcean -->
         <details>
-            <summary>digitalocean — $132/mo (paid, active)</summary>
+            <summary>digitalocean — ~$132/mo (paid, active)</summary>
             <div class="detail-body">
                 <h3 style="margin-top: 0;">droplets</h3>
                 <table>
@@ -743,18 +751,54 @@
         <!-- Actions -->
         <h2>priority actions</h2>
 
-        <h3>urgent</h3>
+        <h3>urgent — before april</h3>
         <div class="card">
-            <p><strong>1.</strong> Fix Netlify payment — site dies in 25 days</p>
-            <p><strong>2.</strong> <s>Pay DigitalOcean $412.34</s> — DONE</p>
+            <p><strong>1.</strong> Fix Netlify payment NOW — period ends ~Mar 27, aesthetic.computer at risk</p>
+            <p><strong>2.</strong> Resolve Shopify — shop.aesthetic.computer offline, /api/shop broken, product carousel dead</p>
             <p><strong>3.</strong> Pay GitHub ~$500 — <a href="https://github.com/organizations/justanothersystem/billing/history">billing history</a></p>
         </div>
 
-        <h3>check soon</h3>
+        <h3>machine state — updated mar 23, 2026</h3>
+        <table>
+            <thead><tr><th>machine</th><th>type</th><th>state</th><th class="hide-mobile">notes</th></tr></thead>
+            <tbody>
+                <tr><td>jeffrey-windows</td><td>workstation</td><td><span class="pill pill-green">fine</span></td><td class="hide-mobile">Primary machine is healthy.</td></tr>
+                <tr><td>jeffrey-macbook</td><td>laptop</td><td><span class="pill pill-red">degraded</span></td><td class="hide-mobile">Screen broke; very difficult to use.</td></tr>
+                <tr><td>x1-nano-g2</td><td>laptop</td><td><span class="pill pill-red">unstable</span></td><td class="hide-mobile">Random shutdowns tied to NVMe issues.</td></tr>
+                <tr><td>jas-fedora (x1 nano gen 1?)</td><td>laptop</td><td><span class="pill pill-red">offline</span></td><td class="hide-mobile">Broken shift key + smashed power port; out of commission.</td></tr>
+                <tr><td>mac-mini</td><td>server</td><td><span class="pill pill-cyan">not mine</span></td><td class="hide-mobile">Build server; not a personal laptop.</td></tr>
+                <tr><td>legacy-2016 / session-server / silo</td><td>vps</td><td><span class="pill pill-purple">servers</span></td><td class="hide-mobile">Infrastructure hosts, not personal laptops.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>wishlist — replacement hardware</h3>
+        <div class="card">
+            <p><strong>goal:</strong> Recover reliable daily laptop workflow after MacBook + ThinkPad failures.</p>
+        </div>
+        <table>
+            <thead><tr><th>item</th><th>target spec</th><th>est. one-time</th><th class="hide-mobile">pricing notes</th></tr></thead>
+            <tbody>
+                <tr><td>macbook-neo</td><td>A18 Pro, 13-inch, 512GB SSD, Touch ID model</td><td class="money">~$799</td><td class="hide-mobile">Apple lists MacBook Neo from $599; 512GB target budgeted above base.</td></tr>
+                <tr><td>framework-12</td><td>DIY i5-1334U, 32GB DDR5, 1TB NVMe, Linux (no Windows license)</td><td class="money">~$1300</td><td class="hide-mobile">Framework config math: $699 base + $405 (32GB) + $196 (1TB).</td></tr>
+                <tr style="color: var(--pink);"><td>wishlist subtotal</td><td>before tax/accessories</td><td class="money">~$2099</td><td class="hide-mobile">Funding target for replacements.</td></tr>
+                <tr><td>wishlist target (+10%)</td><td>tax + adapters + setup margin</td><td class="money">~$2310</td><td class="hide-mobile">10% buffer on subtotal for checkout reality.</td></tr>
+            </tbody>
+        </table>
+        <div class="card">
+            <p><strong>sources:</strong> <a href="https://www.apple.com/shop/buy-mac">apple.com/shop/buy-mac</a> · <a href="https://www.apple.com/macbook-neo/specs/">apple.com/macbook-neo/specs</a> · <a href="https://frame.work/products/laptop12-diy-intel-13gen/configuration/new">frame.work laptop 12 configurator</a></p>
+        </div>
+
+        <h3>completed</h3>
+        <div class="card">
+            <p><s><strong>Pay DigitalOcean $412.34</strong></s> — DONE (Thanks Casey!)</p>
+        </div>
+
+        <h3>check in april</h3>
         <div class="card">
             <p><strong>4.</strong> GCP/Nanos billing — <a href="https://console.cloud.google.com">console.cloud.google.com</a></p>
-            <p><strong>5.</strong> Domain renewal dates — check 8 domains</p>
+            <p><strong>5.</strong> Domain renewal dates — check 8 domains for upcoming expirations</p>
             <p><strong>6.</strong> Anthropic spend — <a href="https://console.anthropic.com">console.anthropic.com</a></p>
+            <p><strong>7.</strong> Evaluate cost reduction plan — legacy-2016 + Redis + downgrades (~$107/mo savings)</p>
         </div>
 
         <div class="footer">
@@ -957,7 +1001,7 @@
                 { month: 'Dec 25', cost: 182.40 },
                 { month: 'Jan 26', cost: 110.40 },
                 { month: 'Feb 26', cost: 132.36 },
-                { month: 'Mar 26', cost: 11.14, partial: true },
+                { month: 'Mar 26', cost: 132, partial: true },
             ];
 
             const svg = document.getElementById('timeline');
