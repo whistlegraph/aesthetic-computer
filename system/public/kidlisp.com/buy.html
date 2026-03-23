@@ -443,20 +443,83 @@
       background: rgba(0, 255, 136, 0.1);
       text-shadow: 0 2px 6px rgba(0, 255, 136, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
-    .tab[data-tab="sold"] {
-      color: var(--red);
-      background: rgba(255, 107, 107, 0.1);
-      text-shadow: 0 2px 6px rgba(255, 107, 107, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+    .tab[data-tab="albums"] {
+      color: var(--blue);
+      background: rgba(112, 214, 255, 0.1);
+      text-shadow: 0 2px 6px rgba(112, 214, 255, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     }
     .tab.active[data-tab="fresh"] {
       background: rgba(0, 255, 136, 0.2);
       border-bottom-color: var(--green);
       box-shadow: inset 0 -1px 0 rgba(0, 255, 136, 0.5);
     }
-    .tab.active[data-tab="sold"] {
-      background: rgba(255, 107, 107, 0.2);
-      border-bottom-color: var(--red);
-      box-shadow: inset 0 -1px 0 rgba(255, 107, 107, 0.5);
+    .tab.active[data-tab="albums"] {
+      background: rgba(112, 214, 255, 0.2);
+      border-bottom-color: var(--blue);
+      box-shadow: inset 0 -1px 0 rgba(112, 214, 255, 0.5);
+    }
+    /* ── Albums ── */
+    .albums-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .album-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .album-row:hover {
+      background: var(--bg3);
+    }
+    .album-rank {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--text2);
+      min-width: 28px;
+      text-align: right;
+    }
+    .album-name {
+      font-family: var(--font-fun);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+    }
+    .album-count {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      color: var(--blue);
+      font-weight: 700;
+    }
+    .album-tokens {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 20px 16px 64px;
+    }
+    .album-tokens.open {
+      display: flex;
+    }
+    .album-token-chip {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 4px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .album-token-chip:hover {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--accent);
     }
 
     .card-buy-btn {
@@ -540,8 +603,8 @@
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-tab="fresh">Fresh</button>
-    <button class="tab" data-tab="sold">Sold</button>
+    <button class="tab active" data-tab="fresh">Shop</button>
+    <button class="tab" data-tab="albums">Albums</button>
   </div>
 
   <div class="grid" id="grid">
@@ -589,6 +652,7 @@
   // ── State ──
   let listings = [];
   let soldEvents = [];
+  let albums = [];
   let walletAddress = null;
   let beaconClient = null;
   let currentTab = 'fresh';
@@ -746,6 +810,20 @@
     return data?.data?.event || [];
   }
 
+  async function fetchAlbums() {
+    const res = await fetch(`https://api.tzkt.io/v1/tokens/balances?token.contract=${CONTRACT}&balance.gt=0&limit=200&select=account.address,account.alias,token.metadata.name,token.tokenId`);
+    const data = await res.json();
+    // Group by holder
+    const grouped = {};
+    for (const b of data) {
+      const addr = b['account.address'];
+      if (!grouped[addr]) grouped[addr] = { address: addr, alias: b['account.alias'], tokens: [] };
+      grouped[addr].tokens.push({ name: b['token.metadata.name'], tokenId: b['token.tokenId'] });
+    }
+    // Sort by count desc
+    return Object.values(grouped).sort((a, b) => b.tokens.length - a.tokens.length);
+  }
+
   function formatXTZ(mutez) {
     return (Number(mutez) / 1_000_000).toFixed(mutez % 1_000_000 === 0 ? 0 : 2);
   }
@@ -782,9 +860,9 @@
 
   // ── Render ──
   function renderGrid() {
-    if (currentTab === 'sold') return renderSoldGrid();
+    if (currentTab === 'albums') return renderAlbumsGrid();
 
-    grid.classList.remove('sold-grid');
+    grid.classList.remove('sold-grid', 'albums-grid');
     // Sort by price ascending by default
     const sorted = [...listings].sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz) || Number(a.token?.token_id || 0) - Number(b.token?.token_id || 0));
     if (!sorted.length) {
@@ -834,29 +912,42 @@
     });
   }
 
-  function renderSoldGrid() {
-    grid.classList.add('sold-grid');
-    if (!soldEvents.length) {
-      grid.innerHTML = '<div class="loading">No sales yet</div>';
+  function renderAlbumsGrid() {
+    grid.classList.remove('sold-grid');
+    grid.classList.add('albums-grid');
+    if (!albums.length) {
+      grid.innerHTML = '<div class="loading">Loading albums…</div>';
+      fetchAlbums().then(data => { albums = data; renderAlbumsGrid(); });
       return;
     }
 
-    grid.innerHTML = soldEvents.map((ev, i) => {
-      ev._isSold = true;
-      const name = ev.token?.name || `#${ev.token?.token_id}`;
-      const thumb = thumbUrl(ev.token?.thumbnail_uri, ev.token?.name);
-      const price = formatXTZ(ev.price_xtz);
-      return `<div class="sold-mini" data-idx="${i}">
-        ${thumb ? `<img src="${thumb}" alt="${name}" loading="lazy" />` : ''}
-        <div class="sold-mini-overlay">${name}<br>${price} XTZ</div>
+    grid.innerHTML = albums.map((album, i) => {
+      const name = album.alias || sellerName(album.address);
+      const tokens = album.tokens.sort((a, b) => Number(a.tokenId) - Number(b.tokenId));
+      return `<div class="album-entry">
+        <div class="album-row" data-idx="${i}">
+          <div class="album-rank">${i + 1}</div>
+          <div class="album-name">${name}</div>
+          <div class="album-count">${album.tokens.length}</div>
+        </div>
+        <div class="album-tokens" data-idx="${i}">
+          ${tokens.map(t => `<span class="album-token-chip" data-code="${t.name}">${t.name}</span>`).join('')}
+        </div>
       </div>`;
     }).join('');
 
-    grid.querySelectorAll('.sold-mini').forEach(card => {
-      card.addEventListener('click', () => {
-        const idx = Number(card.dataset.idx);
-        const ev = soldEvents[idx];
-        if (ev) openSoldModal(ev);
+    grid.querySelectorAll('.album-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const tokens = row.nextElementSibling;
+        tokens.classList.toggle('open');
+      });
+    });
+
+    grid.querySelectorAll('.album-token-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const code = chip.dataset.code;
+        window.open(`https://aesthetic.computer/${code}`, '_blank');
       });
     });
   }
@@ -1096,12 +1187,14 @@
   // ── Init ──
   async function loadMarket() {
     try {
-      const [freshData, soldData] = await Promise.all([fetchListings(), fetchSoldEvents()]);
+      const [freshData, soldData, albumsData] = await Promise.all([fetchListings(), fetchSoldEvents(), fetchAlbums()]);
       listings = freshData;
       soldEvents = soldData;
+      albums = albumsData;
       const allAddrs = [
         ...freshData.map(l => l.seller_address),
         ...freshData.flatMap(l => (l.token?.creators || []).map(c => c.creator_address)),
+        ...albumsData.map(a => a.address),
       ];
       await resolveSellerNames(allAddrs);
       renderGrid();
