@@ -3,10 +3,10 @@
 
 const OVEN = "https://oven-edge.aesthetic-computer.workers.dev";
 const OVEN_WS = "wss://oven.aesthetic.computer/ws";
+const OVEN_ORIGIN = "https://oven.aesthetic.computer";
 const ISO_BASE = OVEN + "/os/latest.iso";
 function OVEN_BASE() { return OVEN; }
 function RELEASES_URL() { return OVEN + "/os-releases"; }
-function OVEN_IMAGE_URL() { return OVEN + "/os-image"; }
 function OVEN_WS_URL() { return OVEN_WS; }
 function templateIsoUrl() {
   const base = ISO_BASE;
@@ -921,16 +921,51 @@ async function startDownload(needsPaint) {
   needsPaint();
 
   try {
-    const url = OVEN_IMAGE_URL() + "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0") + (variantIdx === 1 ? "&variant=cl" : "");
-    console.log("[os] Fetching:", url);
-    const res = await fetch(url, {
-      headers: { Authorization: "Bearer " + token },
-    });
+    const query = "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0") + (variantIdx === 1 ? "&variant=cl" : "");
+    const isoCandidates = [
+      OVEN_ORIGIN + "/os-image" + query,
+      OVEN + "/os-image" + query,
+    ];
+    const MIN_EXPECTED_ISO_BYTES = 100 * 1024 * 1024;
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Download failed: " + res.status);
+    let res = null;
+    let usedUrl = "";
+    let lastErr = "";
+    for (const url of isoCandidates) {
+      console.log("[os] Fetching:", url);
+      let attempt;
+      try {
+        attempt = await fetch(url, {
+          headers: { Authorization: "Bearer " + token },
+        });
+      } catch (err) {
+        lastErr = err?.message || String(err);
+        continue;
+      }
+
+      if (!attempt.ok) {
+        const err = await attempt.json().catch(() => ({}));
+        lastErr = err.error || ("Download failed: " + attempt.status);
+        continue;
+      }
+
+      const len = parseInt(attempt.headers.get("content-length") || "0");
+      if (len > 0 && len < MIN_EXPECTED_ISO_BYTES) {
+        console.warn("[os] Rejecting suspiciously small ISO response:", len, "bytes from", url);
+        try { attempt.body?.cancel(); } catch (_) {}
+        lastErr = "Received suspiciously small image (" + len + " bytes)";
+        continue;
+      }
+
+      res = attempt;
+      usedUrl = url;
+      break;
     }
+
+    if (!res) {
+      throw new Error(lastErr || "Download failed");
+    }
+    console.log("[os] Download source:", usedUrl);
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
     downloadTotalMB = contentLength / 1048576;
