@@ -249,7 +249,7 @@ function paint($) {
         const nz = e1[0] * e2[1] - e1[1] * e2[0];
         // Dot with view direction — positive = facing camera
         const dot = nx * viewDirX + ny * viewDirY + nz * viewDirZ;
-        if (dot <= 0) continue; // back-facing
+        if (dot >= 0) continue; // normal faces away from camera → back-facing
         frontFaces.add(fi);
         const z = (proj[a][2] + proj[b][2] + proj[c][2] + proj[d][2]) / 4;
         drawList.push({ z, type: "face", proj, verts: [a, b, c, d], color, tag });
