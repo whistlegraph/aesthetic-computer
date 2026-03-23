@@ -737,14 +737,7 @@ function act({ event: e, needsPaint, download }) {
     return;
   }
 
-  if (e.is("scroll")) {
-    autoScroll = false;
-    scrollY = Math.max(0, Math.min(scrollY + (e.delta || 0), Math.max(0, totalContentH - buildsViewH)));
-    needsPaint();
-    return;
-  }
-
-  // Touch drag scrolling
+  // Touch drag scrolling only (mouse doesn't interrupt auto-scroll)
   if (e.is("draw")) {
     autoScroll = false;
     scrollY = Math.max(0, Math.min(scrollY - (e.dy || 0), Math.max(0, totalContentH - buildsViewH)));
