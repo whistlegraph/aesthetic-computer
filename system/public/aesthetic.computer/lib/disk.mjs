@@ -5566,40 +5566,90 @@ const $paintApi = {
     if (!face) return $activePaintApi;
 
     const blockW = face.blockWidth || face.data?.glyphWidth || 6;
+    const fontData = face.data || {};
+    const advances = fontData.advances || {};
     let cursorX = 0;
 
     for (let ci = 0; ci < text.length; ci++) {
       const char = text[ci];
       const glyph = face.getGlyph?.(char) || face.glyphs?.[char];
-      const advance = face.getAdvance?.(char) ?? blockW;
+      const advance = advances[char] || face.getAdvance?.(char) || blockW;
 
-      if (glyph?.commands) {
-        for (const { name, args } of glyph.commands) {
-          if (name === "point") {
-            const px = (cursorX + args[0] * scale);
-            const py = args[1] * scale;
-            const wx = origin[0] + px * right[0] + py * down[0];
-            const wy = origin[1] + px * right[1] + py * down[1];
-            const wz = origin[2] + px * right[2] + py * down[2];
-            const [sx, sy] = project([wx, wy, wz]);
-            $activePaintApi.box(Math.floor(sx), Math.floor(sy), 1, 1);
-          } else if (name === "line") {
-            const x1 = cursorX + args[0] * scale;
-            const y1 = args[1] * scale;
-            const x2 = cursorX + args[2] * scale;
-            const y2 = args[3] * scale;
-            const w1x = origin[0] + x1 * right[0] + y1 * down[0];
-            const w1y = origin[1] + x1 * right[1] + y1 * down[1];
-            const w1z = origin[2] + x1 * right[2] + y1 * down[2];
-            const w2x = origin[0] + x2 * right[0] + y2 * down[0];
-            const w2y = origin[1] + x2 * right[1] + y2 * down[1];
-            const w2z = origin[2] + x2 * right[2] + y2 * down[2];
-            const [s1x, s1y] = project([w1x, w1y, w1z]);
-            const [s2x, s2y] = project([w2x, w2y, w2z]);
-            $activePaintApi.line(
-              Math.floor(s1x), Math.floor(s1y),
-              Math.floor(s2x), Math.floor(s2y),
-            );
+      if (glyph) {
+        // Apply glyph offset (baselineOffset preferred, then offset)
+        let offX = 0, offY = 0;
+        if (glyph.baselineOffset) {
+          offX = glyph.baselineOffset[0] * scale;
+          offY = glyph.baselineOffset[1] * scale;
+        } else if (glyph.offset) {
+          offX = glyph.offset[0] * scale;
+          offY = glyph.offset[1] * scale;
+        }
+
+        // Helper: project a glyph-local pixel at (gx, gy) to screen
+        const projectPixel = (gx, gy) => {
+          const px = cursorX + (gx * scale + offX);
+          const py = gy * scale + offY;
+          const wx = origin[0] + px * right[0] + py * down[0];
+          const wy = origin[1] + px * right[1] + py * down[1];
+          const wz = origin[2] + px * right[2] + py * down[2];
+          return project([wx, wy, wz]);
+        };
+
+        // BDF pixel-based glyphs (MatrixChunky8, etc.)
+        if (glyph.pixels) {
+          for (let row = 0; row < glyph.pixels.length; row++) {
+            const pixelRow = glyph.pixels[row];
+            if (!Array.isArray(pixelRow)) continue;
+            for (let col = 0; col < pixelRow.length; col++) {
+              if (pixelRow[col] !== 1) continue;
+              // Project all 4 corners of this pixel cell for a filled quad
+              const [s0x, s0y] = projectPixel(col, row);
+              const [s1x, s1y] = projectPixel(col + 1, row);
+              const [s2x, s2y] = projectPixel(col + 1, row + 1);
+              const [s3x, s3y] = projectPixel(col, row + 1);
+              // Fill with two triangles
+              graph.tri(
+                Math.round(s0x), Math.round(s0y),
+                Math.round(s1x), Math.round(s1y),
+                Math.round(s2x), Math.round(s2y),
+              );
+              graph.tri(
+                Math.round(s0x), Math.round(s0y),
+                Math.round(s2x), Math.round(s2y),
+                Math.round(s3x), Math.round(s3y),
+              );
+            }
+          }
+        }
+
+        // Vector command-based glyphs (font_1, etc.)
+        if (glyph.commands) {
+          for (const { name, args } of glyph.commands) {
+            if (name === "point") {
+              // Draw as a filled quad so pixels connect at scale
+              const [s0x, s0y] = projectPixel(args[0], args[1]);
+              const [s1x, s1y] = projectPixel(args[0] + 1, args[1]);
+              const [s2x, s2y] = projectPixel(args[0] + 1, args[1] + 1);
+              const [s3x, s3y] = projectPixel(args[0], args[1] + 1);
+              graph.tri(
+                Math.round(s0x), Math.round(s0y),
+                Math.round(s1x), Math.round(s1y),
+                Math.round(s2x), Math.round(s2y),
+              );
+              graph.tri(
+                Math.round(s0x), Math.round(s0y),
+                Math.round(s2x), Math.round(s2y),
+                Math.round(s3x), Math.round(s3y),
+              );
+            } else if (name === "line") {
+              const [s1x, s1y] = projectPixel(args[0], args[1]);
+              const [s2x, s2y] = projectPixel(args[2], args[3]);
+              $activePaintApi.line(
+                Math.floor(s1x), Math.floor(s1y),
+                Math.floor(s2x), Math.floor(s2y),
+              );
+            }
           }
         }
       }
