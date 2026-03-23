@@ -144,14 +144,14 @@ function paint($) {
 
     const cosH = cos(hingeAngle), sinH = sin(hingeAngle);
 
-    // Lid in local space: extends DOWN from y=0, same as base
-    // y: 0 to lidThick, z: gap to 2*hd (gap keeps hinge edges from touching)
-    // At 180°: y flips → extends UP (flush with base top), z flips → extends behind
+    // Lid in local space: extends UP from y=0 (negative y)
+    // At 180° (cos=-1): y flips sign → extends DOWN (positive y, same as base)
+    // Both halves flat and co-planar, both extending downward from y=0
     const lidLocal = [
       [-hw, 0, gap], [hw, 0, gap],
-      [hw, lidThick, gap], [-hw, lidThick, gap],
+      [hw, -lidThick, gap], [-hw, -lidThick, gap],
       [-hw, 0, 2 * hd], [hw, 0, 2 * hd],
-      [hw, lidThick, 2 * hd], [-hw, lidThick, 2 * hd],
+      [hw, -lidThick, 2 * hd], [-hw, -lidThick, 2 * hd],
     ];
 
     // Rotate lid around pivot (y=0, z=0 in local = pivot point)
