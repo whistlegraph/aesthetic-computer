@@ -25,6 +25,13 @@ const jobs = new Map();
 const jobOrder = [];
 let activeJobId = null;
 
+let progressCallback = null;
+let lastProgressBroadcast = 0;
+
+export function onNativeBuildProgress(cb) {
+  progressCallback = cb;
+}
+
 function nowISO() {
   return new Date().toISOString();
 }
@@ -40,6 +47,12 @@ function addLogLine(job, stream, line) {
   if (job.logs.length > MAX_LOG_LINES)
     job.logs.splice(0, job.logs.length - MAX_LOG_LINES);
   job.updatedAt = nowISO();
+
+  // Throttled progress broadcast (every 2s max)
+  if (progressCallback && Date.now() - lastProgressBroadcast > 2000) {
+    lastProgressBroadcast = Date.now();
+    progressCallback(makeSnapshot(job));
+  }
 
   // Parse progress hints from build-and-flash.sh + upload-release.sh output
   if (clean.includes("[build]") || clean.includes("[ac-os]")) {
@@ -289,11 +302,13 @@ async function runBuildJob(job) {
     job.stage = "done";
     job.percent = 100;
     job.finishedAt = nowISO();
+    if (progressCallback) progressCallback(makeSnapshot(job));
   } catch (err) {
     job.finishedAt = nowISO();
     job.status = job.status === "cancelled" ? "cancelled" : "failed";
     job.stage = job.status;
     job.error = err.message || String(err);
+    if (progressCallback) progressCallback(makeSnapshot(job));
   } finally {
     if (activeJobId === job.id) activeJobId = null;
   }
