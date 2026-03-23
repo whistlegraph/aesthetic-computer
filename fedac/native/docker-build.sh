@@ -348,11 +348,74 @@ cp arch/x86/boot/bzImage "$OUT/vmlinuz" 2>/dev/null || true
 VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
 
+# ══════════════════════════════════════════════
+# Step 5: Generate UEFI-bootable ISO
+# ══════════════════════════════════════════════
+log "Step 5: Building ISO..."
+ISO_DIR="$BUILD/iso-root"
+EFI_IMG="$BUILD/efi.img"
+ISO_OUT="$BUILD/ac-os.iso"
+
+rm -rf "$ISO_DIR" "$EFI_IMG"
+mkdir -p "$ISO_DIR/EFI/BOOT"
+
+# Copy kernel as UEFI boot binary
+cp "$BUILD/vmlinuz" "$ISO_DIR/EFI/BOOT/BOOTX64.EFI"
+
+# Create config.json with patchable marker (browser replaces this)
+CONFIG_MARKER='{"handle":"","piece":"notepat","sub":"","email":""}'
+CONFIG_PAD=4096
+printf "%-${CONFIG_PAD}s" "$CONFIG_MARKER" > "$ISO_DIR/config.json"
+
+# Create FAT32 EFI boot image
+EFI_SIZE_MB=$(( (VMLINUZ_SIZE + CONFIG_PAD + 1048576) / 1048576 + 4 ))
+dd if=/dev/zero of="$EFI_IMG" bs=1M count=$EFI_SIZE_MB 2>/dev/null
+mkfs.fat -F 32 "$EFI_IMG" >/dev/null 2>&1
+mmd -i "$EFI_IMG" ::EFI ::EFI/BOOT 2>/dev/null
+mcopy -i "$EFI_IMG" "$BUILD/vmlinuz" ::EFI/BOOT/BOOTX64.EFI
+mcopy -i "$EFI_IMG" "$ISO_DIR/config.json" ::config.json
+
+# Build ISO with EFI boot support
+if command -v xorriso &>/dev/null; then
+    xorriso -as mkisofs \
+        -o "$ISO_OUT" \
+        -e efi.img -no-emul-boot \
+        -isohybrid-gpt-basdat \
+        "$ISO_DIR" 2>/dev/null
+    # Embed EFI image into ISO for hybrid boot
+    cp "$EFI_IMG" "$ISO_DIR/efi.img"
+    xorriso -as mkisofs \
+        -o "$ISO_OUT" \
+        -e efi.img -no-emul-boot \
+        "$ISO_DIR" 2>/dev/null
+elif command -v genisoimage &>/dev/null; then
+    genisoimage -o "$ISO_OUT" \
+        -efi-boot efi.img \
+        -no-emul-boot \
+        "$ISO_DIR" 2>/dev/null
+else
+    # Fallback: raw disk image (dd-able)
+    log "  No ISO tools — creating raw disk image"
+    cp "$EFI_IMG" "$ISO_OUT"
+fi
+
+if [ -f "$ISO_OUT" ]; then
+    ISO_SIZE=$(stat -c%s "$ISO_OUT")
+    ISO_SHA=$(sha256sum "$ISO_OUT" | awk '{print $1}')
+    cp "$ISO_OUT" "$OUT/ac-os.iso" 2>/dev/null || true
+    log "  ISO: $((ISO_SIZE / 1048576))MB (sha256: ${ISO_SHA:0:16}...)"
+else
+    log "  ISO generation failed — vmlinuz still available"
+fi
+
 log ""
 log "═══════════════════════════════════════════"
 log "  Build complete: $BUILD_NAME"
 log "  Kernel: $((VMLINUZ_SIZE / 1048576))MB"
 log "  SHA256: $SHA"
+if [ -f "$ISO_OUT" ]; then
+    log "  ISO: $((ISO_SIZE / 1048576))MB"
+fi
 log "═══════════════════════════════════════════"
 
 # Write metadata
@@ -363,6 +426,8 @@ cat > "$OUT/build.json" << EOF
   "build_ts": "$BUILD_TS",
   "size": $VMLINUZ_SIZE,
   "sha256": "$SHA",
+  "iso_size": ${ISO_SIZE:-0},
+  "iso_sha256": "${ISO_SHA:-}",
   "handle": "$HANDLE"
 }
 EOF
