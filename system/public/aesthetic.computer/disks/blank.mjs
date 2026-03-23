@@ -87,7 +87,7 @@ function paint($) {
   const h = screen.height;
 
   // Theme colors
-  const bg = isDark ? [12, 12, 14] : [245, 243, 240];
+  const bg = isDark ? [14, 12, 20] : [232, 228, 238];
   const fg = isDark ? 255 : 20;
   const fgDim = isDark ? 120 : 100;
 
