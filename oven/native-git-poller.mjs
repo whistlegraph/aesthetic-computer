@@ -95,9 +95,10 @@ async function poll() {
       return;
     }
 
-    // Pull the changes so build-and-flash.sh works on up-to-date code
-    await git(["checkout", BRANCH, "--quiet"]);
-    await git(["merge", `origin/${BRANCH}`, "--ff-only", "--quiet"]);
+    // Hard-sync to origin so stale local edits/conflicts cannot leak into OTA builds.
+    await git(["checkout", "-f", BRANCH, "--quiet"]);
+    await git(["reset", "--hard", `origin/${BRANCH}`, "--quiet"]);
+    await git(["clean", "-fdq"]);
 
     logFn(
       "info",
