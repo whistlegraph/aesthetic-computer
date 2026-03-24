@@ -75,6 +75,13 @@ cat /etc/ac-build >> /mnt/pre-launch.log 2>&1
 ls /proc/self/maps >> /mnt/pre-launch.log 2>&1
 mount >> /mnt/pre-launch.log 2>&1
 sync
+sleep 1
+
+# Run ac-native once to capture crash output, then stop
+/ac-native /piece.mjs >> /mnt/pre-launch.log 2>&1
+echo "EXIT_CODE=$?" >> /mnt/pre-launch.log
+sync
+sleep 2
 
 CRASH_COUNT=0
 while true; do
