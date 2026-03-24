@@ -86,10 +86,28 @@
            #:config-claude-token #:config-github-pat #:config-wifi
            #:write-device-tokens))
 
+(defpackage :ac-native.quickjs
+  (:use :cl :cffi)
+  (:export #:js-new-runtime #:js-free-runtime
+           #:js-new-context #:js-free-context
+           #:qjs-eval #:qjs-eval-module
+           #:qjs-get-global-string #:qjs-set-global-int
+           #:qjs-set-global-float #:qjs-set-global-string
+           #:qjs-register-func #:qjs-call-global #:qjs-call-with-api
+           #:qjs-arg-int #:qjs-arg-float #:qjs-arg-string
+           #:qjs-check-exception #:qjs-execute-pending
+           #:qjs-has-global-func))
+
+(defpackage :ac-native.js-bridge
+  (:use :cl)
+  (:export #:js-init #:js-destroy #:js-load-piece
+           #:js-boot #:js-paint #:js-act #:js-sim))
+
 (defpackage :ac-native
   (:use :cl :ac-native.util :ac-native.color :ac-native.framebuffer
         :ac-native.drm :ac-native.graph :ac-native.font
-        :ac-native.input :ac-native.audio :ac-native.config)
+        :ac-native.input :ac-native.audio :ac-native.config
+        :ac-native.js-bridge)
   (:export #:main))
 
 (defpackage :ac-native.build
