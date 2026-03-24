@@ -52,8 +52,10 @@ const MANUAL_URL =
   "https://download.lenovo.com/pccbbs/mobiles_pdf/tp_11e-yoga_gen6_ug_en.pdf";
 const PAPER_URL =
   "https://papers.aesthetic.computer/plorking-the-planet-26-arxiv-cards.pdf";
-const DESCRIPTION =
+const DESCRIPTION_PLAIN =
   "A @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
+const DESCRIPTION =
+  "A \\255,100,255\\@jeffrey\\reset\\ approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
 const AUTH_TIMEOUT_MS = 1200;
 
 async function getOptionalToken(api) {
@@ -134,8 +136,8 @@ async function fetchHandles(screen) {
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
-  manualBtn = new ui.TextButton("MANUAL", { x: 6, bottom: 20, screen });
-  paperBtn = new ui.TextButton("PAPER", { x: 6 + manualBtn.width + 4, bottom: 20, screen });
+  paperBtn = new ui.TextButton("PAPER", { x: 6, bottom: 20, screen });
+  manualBtn = new ui.TextButton("MANUAL", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
 
 async function fetchCheckout(api) {
@@ -213,14 +215,20 @@ function paint($) {
     }
   }
 
-  // Title + product description (centered, below HUD label)
-  ink(fg).write("AC Blank", { center: "x", y: 24, size: 2, screen });
+  // Title + product description (centered, below HUD label) — with drop shadow
+  const shadowOff = 1;
+  const shadowAlpha = isDark ? 180 : 80;
+  ink(0, 0, 0, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 24 + shadowOff, size: 2, screen });
+  ink(fg).write("AC Blank Laptop", { center: "x", y: 24, size: 2, screen });
+  ink(0, 0, 0, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 48 + shadowOff, screen }, undefined, floor(w * 0.85));
   ink(fgDim).write(DESCRIPTION, { center: "x", y: 48, screen }, undefined, floor(w * 0.85));
 
   // Thanks page
   if (thanks) {
     const cy = floor(h / 2);
+    ink(0, 0, 0, shadowAlpha).write("your blank is coming.", { center: "x", y: cy - 30 + shadowOff, screen });
     ink(fg).write("your blank is coming.", { center: "x", y: cy - 30, screen });
+    ink(0, 0, 0, shadowAlpha).write("we'll be in touch.", { center: "x", y: cy + shadowOff, screen });
     ink(fgDim).write("we'll be in touch.", { center: "x", y: cy, screen });
     return;
   }
@@ -714,53 +722,91 @@ function paint($) {
     }
   }
 
-  // Buy button
+  // Buy button — custom rendered in Unifont for larger, more active CTA
   const $btn = { ink };
   if (buyBtn) {
-    buyBtn.reposition({ center: "x", bottom: 20, screen }, getBuyText());
+    const buyText = getBuyText();
+    // Size box for Unifont (8px wide chars, 16px tall) + padding
+    const unifontCharW = 8, unifontH = 16, pad = 6;
+    const boxW = buyText.length * unifontCharW + pad * 2;
+    const boxH = unifontH + pad * 2;
+    const boxX = floor((screen.width - boxW) / 2);
+    const boxY = screen.height - 20 - boxH;
+    buyBtn.btn.box.x = boxX;
+    buyBtn.btn.box.y = boxY;
+    buyBtn.btn.box.w = boxW;
+    buyBtn.btn.box.h = boxH;
+    const bx = buyBtn.btn.box;
 
-    let scheme, hover;
+    // Animated background
+    const t = performance.now() / 1000;
+    const isOver = buyBtn.btn.over;
+    const isDown = buyBtn.btn.down;
+
     if (buyPending) {
-      const pulse = sin(performance.now() / 150) * 0.5 + 0.5;
-      scheme = isDark
-        ? [[floor(30 + pulse * 30), floor(40 + pulse * 20), 30],
-           [floor(150 + pulse * 105), floor(200 + pulse * 55), 100],
-           [floor(200 + pulse * 55), floor(220 + pulse * 35), 180]]
-        : [[floor(200 + pulse * 30), floor(220 + pulse * 20), 200],
-           [floor(60 + pulse * 40), floor(120 + pulse * 40), 60],
-           [floor(30 + pulse * 20), floor(80 + pulse * 30), 30]];
-      hover = scheme;
+      const pulse = sin(t * 6) * 0.5 + 0.5;
+      const bgR = isDark ? floor(20 + pulse * 40) : floor(200 + pulse * 30);
+      const bgG = isDark ? floor(30 + pulse * 30) : floor(220 + pulse * 20);
+      const bgB = isDark ? 20 : 200;
+      ink(bgR, bgG, bgB).box(bx, "fill");
+      const oA = floor(120 + pulse * 135);
+      ink(isDark ? [100, 255, 100, oA] : [40, 140, 40, oA]).box(bx, "outline");
+      // Shadow text
+      ink(0, 0, 0, 120).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      ink(isDark ? [160 + floor(pulse * 95), 230, 160] : [30, floor(80 + pulse * 40), 30])
+        .write(buyText, { x: bx.x + pad, y: bx.y + pad }, undefined, undefined, false, "unifont");
     } else {
-      const blink = sin(performance.now() / 500) * 0.3 + 0.7;
-      scheme = isDark
-        ? [[25, 35, 25],
-           [floor(80 + blink * 70), floor(160 + blink * 95), floor(80 + blink * 70)],
-           [180, 230, 180]]
-        : [[220, 235, 220],
-           [floor(40 + blink * 40), floor(100 + blink * 55), floor(40 + blink * 40)],
-           [30, 80, 30]];
-      hover = isDark
-        ? [[40, 55, 40], [150, 255, 150], [200, 255, 200]]
-        : [[210, 230, 210], [40, 180, 40], [20, 60, 20]];
+      // Breathing glow animation
+      const breath = sin(t * 2) * 0.5 + 0.5;
+      const wave = sin(t * 3.5) * 0.3 + 0.7;
+      let bgR, bgG, bgB;
+
+      if (isDown) {
+        bgR = isDark ? 60 : 190; bgG = isDark ? 80 : 210; bgB = isDark ? 60 : 190;
+      } else if (isOver) {
+        bgR = isDark ? 40 : 205; bgG = isDark ? 65 : 230; bgB = isDark ? 40 : 205;
+      } else {
+        bgR = isDark ? floor(20 + breath * 15) : floor(215 + breath * 15);
+        bgG = isDark ? floor(30 + breath * 20) : floor(230 + breath * 15);
+        bgB = isDark ? floor(20 + breath * 10) : floor(215 + breath * 10);
+      }
+      ink(bgR, bgG, bgB).box(bx, "fill");
+
+      // Animated outline — pulses brighter
+      const oG = isDark ? floor(80 + wave * 120 + breath * 55) : floor(40 + wave * 80 + breath * 35);
+      ink(isDark ? [40, oG, 40] : [30, oG, 30]).box(bx, "outline");
+
+      // Shadow text
+      ink(0, 0, 0, isDark ? 150 : 80).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      // Main text — breathing green
+      const tG = isDark ? floor(160 + breath * 80 + wave * 15) : floor(20 + breath * 30);
+      ink(isDark ? [140 + floor(breath * 60), tG, 140 + floor(breath * 40)] : [20, tG, 20])
+        .write(buyText, { x: bx.x + pad, y: bx.y + pad }, undefined, undefined, false, "unifont");
     }
-    buyBtn.paint($btn, scheme, hover);
+    $.needsPaint();
   }
 
-  // Manual PDF link (bottom left)
-  const linkScheme = isDark
-    ? [[20, 20, 24], fgDim, [180, 180, 190]]
-    : [[228, 228, 232], fgDim, [60, 60, 70]];
-  const linkHover = isDark
-    ? [[30, 30, 38], [180, 180, 200], [220, 220, 230]]
-    : [[215, 215, 225], [60, 60, 80], [30, 30, 40]];
-  if (manualBtn) {
-    manualBtn.reposition({ x: 6, bottom: 20, screen }, "MANUAL");
-    manualBtn.paint($btn, linkScheme, linkHover);
-  }
+  // Manual + Paper links (bottom left, vertically stacked, different colors)
+  const manualScheme = isDark
+    ? [[20, 20, 30], [100, 140, 200], [160, 190, 240]]
+    : [[220, 225, 240], [50, 70, 140], [30, 50, 100]];
+  const manualHover = isDark
+    ? [[30, 30, 45], [140, 180, 240], [200, 220, 255]]
+    : [[210, 215, 235], [40, 60, 160], [20, 40, 120]];
+  const paperScheme = isDark
+    ? [[25, 20, 20], [200, 140, 80], [240, 190, 130]]
+    : [[240, 230, 220], [140, 80, 30], [100, 55, 15]];
+  const paperHover = isDark
+    ? [[35, 28, 28], [240, 180, 100], [255, 210, 150]]
+    : [[235, 222, 210], [160, 100, 40], [120, 70, 20]];
   if (paperBtn) {
-    const paperX = manualBtn ? 6 + manualBtn.width + 4 : 6;
-    paperBtn.reposition({ x: paperX, bottom: 20, screen }, "PAPER");
-    paperBtn.paint($btn, linkScheme, linkHover);
+    paperBtn.reposition({ x: 6, bottom: 20, screen }, "PAPER");
+    paperBtn.paint($btn, paperScheme, paperHover);
+  }
+  if (manualBtn) {
+    const manualY = 20 + (paperBtn ? paperBtn.height + 4 : 0);
+    manualBtn.reposition({ x: 6, bottom: manualY, screen }, "MANUAL");
+    manualBtn.paint($btn, manualScheme, manualHover);
   }
 }
 
@@ -829,7 +875,7 @@ async function waitForCheckout(jump, sound, api) {
 
 function meta() {
   return {
-    title: "AC Blank",
+    title: "AC Blank Laptop",
     desc: "AC Native Laptop — a surplus laptop running AC Native OS.",
   };
 }
