@@ -287,7 +287,7 @@ echo "root:x:0:root" > "$IROOT/etc/passwd"
 
 # ── 2n: Claude Code ──
 CLAUDE_BIN=""
-for p in /claude-bin /usr/local/bin/claude /home/me/.local/share/claude/versions/*; do
+for p in /claude-bin /usr/local/bin/claude-native /usr/local/bin/claude /root/.local/share/claude/versions/* /home/me/.local/share/claude/versions/*; do
     [ -f "$p" ] && CLAUDE_BIN="$p" && break
 done
 if [ -n "$CLAUDE_BIN" ]; then
