@@ -719,6 +719,19 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
   const retryDelay = isLocalhost ? 300 : IMPORT_RETRY_DELAY;
   let triedWs = false;
 
+  const clearLoaderCacheForPath = async (relativePath) => {
+    if (!loader || !relativePath) return;
+    try { loader.modules?.delete?.(relativePath); } catch (_) {}
+    try { loader.blobUrls?.delete?.(relativePath); } catch (_) {}
+    try { loader.bundleContents?.delete?.(relativePath); } catch (_) {}
+    if (loader.db) {
+      try {
+        const tx = loader.db.transaction("modules", "readwrite");
+        tx.objectStore("modules").delete(relativePath);
+      } catch (_) {}
+    }
+  };
+
   const waitForWsConnection = async () => {
     if (!loader?.connecting) return;
     await Promise.race([
@@ -733,6 +746,10 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
     await waitForWsConnection();
     if (!loader.connected) throw new Error('ws-not-connected');
     const relativePath = modulePath.replace(/^\.\//, '').split('?')[0];
+    // Respect cache-busted URLs by clearing cached module before WS load.
+    if (modulePath.includes('?v=')) {
+      await clearLoaderCacheForPath(relativePath);
+    }
     const blobUrl = await loader.loadWithDeps(relativePath, 5000);
     if (blobUrl && blobUrl.startsWith('blob:')) {
       return await import(blobUrl);
