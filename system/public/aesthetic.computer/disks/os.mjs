@@ -58,6 +58,9 @@ let hasGit = null;
 let setupBtn = null; // "set up tokens" button shown when missing
 let showTokenHint = false;
 
+// 💻 "Need a laptop?" ad
+let laptopBtn = null;
+
 // Build telemetry
 let activeBuild = null;    // { id, status, stage, percent, ref, error }
 let buildLogLines = [];    // last few log lines
@@ -336,6 +339,7 @@ function makeButtons(ui) {
   updateBootBtn(ui);
   updateVariantBtn(ui);
   updateWifiBtn(ui);
+  laptopBtn = new ui.TextButton("blank", { x: 6, y: 0 });
 }
 
 function updateVariantBtn(ui) {
@@ -681,6 +685,24 @@ function paint($) {
 
     y += isMobile ? 14 : 10;
 
+    // --- LAPTOP AD ---
+    sectionHeader("Need a laptop?", dark ? [18, 14, 24] : [230, 222, 238], dark ? [30, 24, 40] : [215, 208, 225], 120);
+    ink(...C.instText).write("Run AC OS on any x86 laptop.", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + 4;
+    if (laptopBtn) {
+      laptopBtn.reposition({ x: pad, y });
+      laptopBtn.paint(
+        $,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 200],
+        [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+        undefined,
+        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 230],
+      );
+      y += laptopBtn.height + btnGap;
+    }
+
+    y += isMobile ? 14 : 10;
+
     // --- BUILDS section ---
     sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238], C.secBuildBg, 2000);
   } else if (downloading) {
@@ -828,7 +850,7 @@ function paint($) {
   }
 }
 
-function act({ event: e, needsPaint, download }) {
+function act({ event: e, needsPaint, download, jump }) {
   dlFn = download;
 
   if (e.is("dark-mode") || e.is("light-mode")) {
@@ -884,6 +906,13 @@ function act({ event: e, needsPaint, download }) {
         if (uiRef) updateWifiBtn(uiRef);
         needsPaint();
       },
+    });
+  }
+
+  // Laptop ad button: jump to blank
+  if (laptopBtn) {
+    laptopBtn.btn.act(e, {
+      push: () => jump("blank"),
     });
   }
 
