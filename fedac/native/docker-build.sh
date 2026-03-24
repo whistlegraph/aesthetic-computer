@@ -325,7 +325,23 @@ log "  Initramfs: $TOTAL_FILES files, $BROKEN_FINAL broken symlinks"
 # ── Optional: Swap in Common Lisp binary ──
 if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
     log "Step 2b: Building ac-native (Common Lisp)..."
+
+    # Build libquickjs.so for CL to load via CFFI
+    QJSDIR="/cache/quickjs-2024-01-13"
+    log "  Building libquickjs.so..."
+    gcc -shared -fPIC -O2 -o "$BUILD/libquickjs.so" \
+        "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
+        "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
+        -DCONFIG_VERSION=\"0.8.0\" -lm 2>&1 || { err "libquickjs.so build failed"; }
+
+    # Build quickjs-shim.so (CL-friendly wrappers)
     CL_DIR="$NATIVE/cl"
+    log "  Building libquickjs-shim.so..."
+    gcc -shared -fPIC -O2 -o "$BUILD/libquickjs-shim.so" \
+        "$CL_DIR/quickjs-shim.c" \
+        -I"$QJSDIR" -L"$BUILD" -lquickjs -lm 2>&1 || { err "shim build failed"; }
+
+    # Build CL binary with SBCL
     sbcl --non-interactive \
         --eval '(load "/opt/quicklisp/setup.lisp")' \
         --eval '(require :asdf)' \
@@ -338,11 +354,13 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         # Swap into initramfs (keep C version in build dir)
         cp "$IROOT/ac-native" "$BUILD/ac-native-c"
         cp "$BUILD/ac-native-cl" "$IROOT/ac-native"
-        # Add libzstd (CL runtime needs it, C binary doesn't)
+        # Bundle shared libraries needed by CL
+        cp "$BUILD/libquickjs.so" "$IROOT/lib64/"
+        cp "$BUILD/libquickjs-shim.so" "$IROOT/lib64/"
         for lib in /lib64/libzstd.so*; do
             [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
         done
-        log "  Swapped CL binary into initramfs"
+        log "  Swapped CL binary into initramfs (with QuickJS)"
     else
         err "CL binary not produced — using C binary"
     fi
