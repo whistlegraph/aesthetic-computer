@@ -18,6 +18,124 @@
 (defvar *has-act* nil)
 (defvar *has-sim* nil)
 
+;;; ── CFFI callbacks (called from JS via quickjs-shim) ──
+;;; These use the QuickJS JSCFunction signature:
+;;; JSValue callback(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+
+(defvar *jump-target* nil "Piece name to jump to (set by system.jump).")
+(defvar *poweroff-requested* nil "Set to T when JS calls system.poweroff().")
+
+(cffi:defcallback cl-wipe :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this))
+  (let ((r (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (g (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (b (ac-native.quickjs:qjs-arg-int ctx argv 2)))
+    (declare (ignore argc))
+    (ac-native.graph:graph-wipe *graph* (ac-native.color:make-color :r r :g g :b b))
+    0))  ; JS_UNDEFINED
+
+(cffi:defcallback cl-ink :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this))
+  (let ((r (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (g (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (b (ac-native.quickjs:qjs-arg-int ctx argv 2))
+        (a (if (> argc 3) (ac-native.quickjs:qjs-arg-int ctx argv 3) 255)))
+    (ac-native.graph:graph-ink *graph* (ac-native.color:make-color :r r :g g :b b :a a))
+    0))
+
+(cffi:defcallback cl-line :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((x1 (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (y1 (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (x2 (ac-native.quickjs:qjs-arg-int ctx argv 2))
+        (y2 (ac-native.quickjs:qjs-arg-int ctx argv 3)))
+    (ac-native.graph:graph-line *graph* x1 y1 x2 y2)
+    0))
+
+(cffi:defcallback cl-box :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((x (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (y (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (w (ac-native.quickjs:qjs-arg-int ctx argv 2))
+        (h (ac-native.quickjs:qjs-arg-int ctx argv 3)))
+    (ac-native.graph:graph-box *graph* x y w h)
+    0))
+
+(cffi:defcallback cl-circle :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((x (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (y (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (r (ac-native.quickjs:qjs-arg-int ctx argv 2)))
+    (ac-native.graph:graph-circle *graph* x y r)
+    0))
+
+(cffi:defcallback cl-plot :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((x (ac-native.quickjs:qjs-arg-int ctx argv 0))
+        (y (ac-native.quickjs:qjs-arg-int ctx argv 1)))
+    (ac-native.graph:graph-plot *graph* x y)
+    0))
+
+(cffi:defcallback cl-write :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((text (ac-native.quickjs:qjs-arg-string ctx argv 0))
+        (x (ac-native.quickjs:qjs-arg-int ctx argv 1))
+        (y (ac-native.quickjs:qjs-arg-int ctx argv 2)))
+    (ac-native.font:font-draw *graph* text x y)
+    0))
+
+(cffi:defcallback cl-screen-w :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore ctx this argc argv))
+  ;; Return screen width as NaN-boxed int — use shim helper instead
+  0)
+
+(cffi:defcallback cl-screen-h :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore ctx this argc argv))
+  0)
+
+(cffi:defcallback cl-synth :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (when *audio*
+    (let ((type (ac-native.quickjs:qjs-arg-int ctx argv 0))
+          (freq (ac-native.quickjs:qjs-arg-float ctx argv 1))
+          (vol (ac-native.quickjs:qjs-arg-float ctx argv 2))
+          (dur (ac-native.quickjs:qjs-arg-float ctx argv 3))
+          (attack (ac-native.quickjs:qjs-arg-float ctx argv 4))
+          (decay (ac-native.quickjs:qjs-arg-float ctx argv 5))
+          (pan (ac-native.quickjs:qjs-arg-float ctx argv 6)))
+      (ac-native.audio:audio-synth *audio*
+                                   :type type :tone freq :volume vol
+                                   :duration dur :attack attack :decay decay
+                                   :pan pan)))
+  0)
+
+(cffi:defcallback cl-synth-kill :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (when *audio*
+    (let ((id (ac-native.quickjs:qjs-arg-int ctx argv 0)))
+      (ac-native.audio:audio-synth-kill *audio* id)))
+  0)
+
+(cffi:defcallback cl-log :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((msg (ac-native.quickjs:qjs-arg-string ctx argv 0)))
+    (format *error-output* "[js] ~A~%" msg)
+    (force-output *error-output*))
+  0)
+
+(cffi:defcallback cl-jump :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore this argc))
+  (let ((piece (ac-native.quickjs:qjs-arg-string ctx argv 0)))
+    (setf *jump-target* piece)
+    (format *error-output* "[js-bridge] jump → ~A~%" piece)
+    (force-output *error-output*))
+  0)
+
+(cffi:defcallback cl-poweroff :uint64 ((ctx :pointer) (this :uint64) (argc :int) (argv :pointer))
+  (declare (ignore ctx this argc argv))
+  (setf *poweroff-requested* t)
+  0)
+
 ;;; ── Initialize QuickJS and register the API ──
 
 (defun js-init (graph fb audio screen-w screen-h)
@@ -26,13 +144,33 @@
         *fb* fb
         *audio* audio
         *screen-w* screen-w
-        *screen-h* screen-h)
+        *screen-h* screen-h
+        *jump-target* nil
+        *poweroff-requested* nil)
   (setf *rt* (ac-native.quickjs:js-new-runtime))
   (setf *ctx* (ac-native.quickjs:js-new-context *rt*))
-  ;; Register the API bootstrap code
+  ;; Register native callbacks
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_wipe" (cffi:callback cl-wipe) 3)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_ink" (cffi:callback cl-ink) 4)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_line" (cffi:callback cl-line) 4)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_box" (cffi:callback cl-box) 4)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_circle" (cffi:callback cl-circle) 3)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_plot" (cffi:callback cl-plot) 2)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_write" (cffi:callback cl-write) 3)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_screen_w" (cffi:callback cl-screen-w) 0)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_screen_h" (cffi:callback cl-screen-h) 0)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_synth" (cffi:callback cl-synth) 7)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_synth_kill" (cffi:callback cl-synth-kill) 2)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_log" (cffi:callback cl-log) 1)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_jump" (cffi:callback cl-jump) 1)
+  (ac-native.quickjs:qjs-register-func *ctx* "__cl_poweroff" (cffi:callback cl-poweroff) 0)
+  ;; Set screen dimensions
+  (ac-native.quickjs:qjs-set-global-int *ctx* "__screen_w" screen-w)
+  (ac-native.quickjs:qjs-set-global-int *ctx* "__screen_h" screen-h)
+  ;; Eval the API bootstrap JS
   (let ((api-code (build-api-js)))
     (ac-native.quickjs:qjs-eval *ctx* api-code (length api-code) "<api-init>" 0))
-  (format *error-output* "[js-bridge] QuickJS initialized~%")
+  (format *error-output* "[js-bridge] QuickJS initialized (~Dx~D)~%" screen-w screen-h)
   (force-output *error-output*))
 
 (defun js-destroy ()
@@ -164,7 +302,7 @@ globalThis.__ac_api = {
     if (opts && typeof opts === 'object') { x = opts.x || 0; y = opts.y || 0; }
     __cl_write(String(text), x, y);
   },
-  screen: { get width() { return __cl_screen_w(); }, get height() { return __cl_screen_h(); } },
+  screen: { get width() { return __screen_w; }, get height() { return __screen_h; } },
   event: makeEvent(),
   paintCount: 0,
   num: {
