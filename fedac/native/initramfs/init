@@ -64,6 +64,7 @@ for p in /dev/sda1 /dev/sdb1 /dev/nvme0n1p1; do
 done
 
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
+export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 CRASH_COUNT=0
 while true; do
     /ac-native /piece.mjs
