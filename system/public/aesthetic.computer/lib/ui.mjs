@@ -854,6 +854,7 @@ class TextButton {
   #g2 = this.#gap * 2;
   #h = 12 + this.#g2; // 19; //
   #offset = { x: this.#gap, y: this.#gap };
+  #typeface = null;
 
   constructor(text = "Button", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI, gap = null) {
     // Allow custom gap/padding if provided
@@ -863,6 +864,7 @@ class TextButton {
       this.#offset = { x: this.#gap, y: this.#gap };
     }
 
+    this.#typeface = typeface;
     this.#cw = typeface.blockWidth;
     this.#h = typeface.blockHeight + this.#gap * 2;
 
@@ -906,9 +908,18 @@ class TextButton {
     this.btn.stickyScrubbing = value;
   }
 
+  #measureTextWidth(text) {
+    const visibleText = stripColorCodes(text);
+    if (this.#typeface?.getAdvance) {
+      let w = 0;
+      for (const ch of visibleText) w += this.#typeface.getAdvance(ch);
+      return w;
+    }
+    return visibleText.length * this.#cw;
+  }
+
   get width() {
-    const visibleText = stripColorCodes(this.txt);
-    return visibleText.length * this.#cw + this.#gap * 2;
+    return this.#measureTextWidth(this.txt) + this.#gap * 2;
   }
 
   get height() {
@@ -922,8 +933,7 @@ class TextButton {
   #computePosition(text, pos = { x: 0, y: 0 }) {
     pos = { ...pos }; // Make a shallow copy of pos because we will mutate it.
     let x, y;
-    const visibleText = stripColorCodes(text);
-    const w = visibleText.length * this.#cw + this.#g2;
+    const w = this.#measureTextWidth(text) + this.#g2;
     const h = this.#h;
 
     if (pos.screen) {
