@@ -378,90 +378,93 @@ async function runBuildJob(job) {
 
     job.percent = 30;
 
-    // Phase 2: Docker run → compile binary + initramfs + kernel
-    addLogLine(job, "stdout", "Phase 2: Compiling kernel in Docker...");
-    const cidFile = `/tmp/oven-cid-${job.id}`;
-    await runPhase(job, "build", "bash", ["-c", [
-      `CID=$(docker create -e AC_BUILD_NAME=${buildName} ac-os-builder)`,
-      `echo $CID > ${cidFile}`,
-      `docker start -a $CID`,
-    ].join(" && ")], repoDir);
-
-    job.percent = 75;
-
-    // Phase 3: Extract vmlinuz + ISO from container
-    addLogLine(job, "stdout", "Phase 3: Extracting kernel + ISO...");
-    const cid = (await fs.readFile(cidFile, "utf8")).trim();
-    const isoOut = `/tmp/oven-iso-${job.id}`;
-    await runPhase(job, "extract", "bash", ["-c",
-      `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null; docker rm ${cid} >/dev/null`
-    ], repoDir);
-
-    job.percent = 80;
-
-    // Phase 4: Upload vmlinuz + ISO to DO Spaces CDN
-    // Place ISO next to vmlinuz so upload-release.sh finds it as a sibling
-    // and uploads both with the same build name (no separate --iso call).
-    addLogLine(job, "stdout", "Phase 4: Uploading to CDN...");
+    // Determine variant: "c" (default), "cl", or "both"
+    const variant = job.variant || "c";
+    const buildC = variant === "c" || variant === "both";
+    const buildCL = variant === "cl" || variant === "both";
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
     const uploadEnv = {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
-      DO_SPACES_SECRET:
-        process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
-      ALLOW_DIRTY_UPLOAD: "1",  // oven builds from a managed git clone
-      AC_BUILD_NAME: buildName, // reuse compile-time name so kernel matches CDN
+      DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
+      ALLOW_DIRTY_UPLOAD: "1",
+      AC_BUILD_NAME: buildName,
     };
-    const uploadDir = `/tmp/oven-upload-${job.id}`;
-    const vmlinuzUpload = `${uploadDir}/vmlinuz`;
-    const isoUpload = `${uploadDir}/ac-os.iso`;
-    await fs.mkdir(uploadDir, { recursive: true });
-    await fs.rename(vmlinuzOut, vmlinuzUpload);
-    try { await fs.rename(isoOut, isoUpload); } catch {}
-    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 
-    // Cleanup C build
-    try { await fs.rm(uploadDir, { recursive: true }); } catch {}
-    try { await fs.unlink(cidFile); } catch {}
+    // ── C variant ──
+    if (buildC) {
+      addLogLine(job, "stdout", "Phase 2: Compiling C kernel in Docker...");
+      const cidFile = `/tmp/oven-cid-${job.id}`;
+      await runPhase(job, "build", "bash", ["-c", [
+        `CID=$(docker create -e AC_BUILD_NAME=${buildName} ac-os-builder)`,
+        `echo $CID > ${cidFile}`,
+        `docker start -a $CID`,
+      ].join(" && ")], repoDir);
 
-    job.percent = 85;
+      job.percent = 75;
 
-    // Phase 5: Build CL variant (non-blocking — failure doesn't fail the job)
-    const clChanged = (job.changedPaths || "").includes("fedac/native/cl/");
-    if (clChanged) {
-      try {
-        addLogLine(job, "stdout", "Phase 5: Building Common Lisp variant...");
-        const clCidFile = `/tmp/oven-cl-cid-${job.id}`;
-        const clVmlinuzOut = `/tmp/oven-cl-vmlinuz-${job.id}`;
-        const clBuildName = job.buildName || `cl-${job.ref.slice(0, 7)}`;
+      addLogLine(job, "stdout", "Phase 3: Extracting C kernel + ISO...");
+      const cid = (await fs.readFile(cidFile, "utf8")).trim();
+      const isoOut = `/tmp/oven-iso-${job.id}`;
+      await runPhase(job, "extract", "bash", ["-c",
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null; docker rm ${cid} >/dev/null`
+      ], repoDir);
 
-        await runPhase(job, "cl-build", "bash", ["-c", [
-          `CID=$(docker create -e AC_BUILD_NAME=${clBuildName} -e AC_BUILD_VARIANT=cl -e AC_BUILD_LISP=1 ac-os-builder)`,
-          `echo $CID > ${clCidFile}`,
-          `docker start -a $CID`,
-        ].join(" && ")], repoDir);
+      job.percent = 80;
 
-        const clCid = (await fs.readFile(clCidFile, "utf8")).trim();
-        await runPhase(job, "cl-extract", "bash", ["-c",
-          `docker cp ${clCid}:/tmp/ac-build/vmlinuz ${clVmlinuzOut} && docker rm ${clCid} >/dev/null`
-        ], repoDir);
+      addLogLine(job, "stdout", "Phase 4: Uploading C variant to CDN...");
+      const uploadDir = `/tmp/oven-upload-${job.id}`;
+      const vmlinuzUpload = `${uploadDir}/vmlinuz`;
+      const isoUpload = `${uploadDir}/ac-os.iso`;
+      await fs.mkdir(uploadDir, { recursive: true });
+      await fs.rename(vmlinuzOut, vmlinuzUpload);
+      try { await fs.rename(isoOut, isoUpload); } catch {}
+      await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 
-        // Upload CL variant to separate OTA channel
-        addLogLine(job, "stdout", "Uploading CL variant to CDN...");
-        const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
-        await runPhase(job, "cl-upload", "bash", [uploadScript, clVmlinuzOut], NATIVE_DIR, {
-          DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
-          DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
-          OTA_CHANNEL: "cl",  // uploads to os/cl-native-notepat-latest.vmlinuz
-          ALLOW_DIRTY_UPLOAD: "1",
-          AC_BUILD_NAME: clBuildName,
-        });
+      try { await fs.rm(uploadDir, { recursive: true }); } catch {}
+      try { await fs.unlink(cidFile); } catch {}
+      addLogLine(job, "stdout", "C variant uploaded successfully");
+    }
 
-        try { await fs.unlink(clVmlinuzOut); } catch {}
-        try { await fs.unlink(clCidFile); } catch {}
-        addLogLine(job, "stdout", "CL variant uploaded successfully");
-      } catch (clErr) {
-        addLogLine(job, "stderr", `CL build failed (non-fatal): ${clErr.message}`);
-      }
+    job.percent = buildCL ? 50 : 90;
+
+    // ── CL variant ──
+    if (buildCL) {
+      addLogLine(job, "stdout", `Phase ${buildC ? 5 : 2}: Compiling CL kernel in Docker...`);
+      const clCidFile = `/tmp/oven-cl-cid-${job.id}`;
+      const clVmlinuzOut = `/tmp/oven-cl-vmlinuz-${job.id}`;
+
+      await runPhase(job, "cl-build", "bash", ["-c", [
+        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_BUILD_VARIANT=cl -e AC_BUILD_LISP=1 ac-os-builder)`,
+        `echo $CID > ${clCidFile}`,
+        `docker start -a $CID`,
+      ].join(" && ")], repoDir);
+
+      job.percent = buildC ? 85 : 75;
+
+      addLogLine(job, "stdout", "Extracting CL kernel...");
+      const clCid = (await fs.readFile(clCidFile, "utf8")).trim();
+      const clIsoOut = `/tmp/oven-cl-iso-${job.id}`;
+      await runPhase(job, "cl-extract", "bash", ["-c",
+        `docker cp ${clCid}:/tmp/ac-build/vmlinuz ${clVmlinuzOut} && docker cp ${clCid}:/tmp/ac-build/ac-os.iso ${clIsoOut} 2>/dev/null; docker rm ${clCid} >/dev/null`
+      ], repoDir);
+
+      job.percent = buildC ? 90 : 80;
+
+      addLogLine(job, "stdout", "Uploading CL variant to CDN...");
+      const clUploadDir = `/tmp/oven-cl-upload-${job.id}`;
+      const clVmlinuzUpload = `${clUploadDir}/vmlinuz`;
+      const clIsoUpload = `${clUploadDir}/ac-os.iso`;
+      await fs.mkdir(clUploadDir, { recursive: true });
+      await fs.rename(clVmlinuzOut, clVmlinuzUpload);
+      try { await fs.rename(clIsoOut, clIsoUpload); } catch {}
+      await runPhase(job, "cl-upload", "bash", [uploadScript, clVmlinuzUpload], NATIVE_DIR, {
+        ...uploadEnv,
+        OTA_CHANNEL: "cl",
+      });
+
+      try { await fs.rm(clUploadDir, { recursive: true }); } catch {}
+      try { await fs.unlink(clCidFile); } catch {}
+      addLogLine(job, "stdout", "CL variant uploaded successfully");
     }
 
     job.status = "success";
@@ -508,6 +511,7 @@ export async function startNativeBuild(options = {}) {
     exitCode: null,
     error: null,
     changedPaths: options.changed_paths || "",
+    variant: options.variant || "c",
     logs: [],
   };
 
