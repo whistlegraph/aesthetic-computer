@@ -5191,7 +5191,7 @@ function paint($) {
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
 
-    const blankBtnText = "laptop";
+    const blankBtnText = "Need a laptop?";
     const blankBtnY = btnPaddingTop;
     const blankBtnX = screen.width - blankBtnText.length * 6 - 12 - btnPaddingRight;
 
