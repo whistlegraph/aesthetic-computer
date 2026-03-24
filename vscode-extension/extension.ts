@@ -1339,7 +1339,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
         vscode.StatusBarAlignment.Left,
         99,
       );
-      statusBarOTA.command = "aestheticComputer.showOTADetails";
+      statusBarOTA.command = "aestheticComputer.openOSPage";
       context.subscriptions.push(statusBarOTA);
     }
 
@@ -1355,10 +1355,15 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     if (state.active) {
       const a = state.active;
       const elapsed = Math.round(a.elapsedMs / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
+      const timeStr = mins > 0 ? `${mins}m${secs}s` : `${secs}s`;
       const name = a.buildName || a.ref?.substring(0, 7) || '';
-      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${name} ${a.stage} ${a.percent}%`;
+      const variant = a.stage?.startsWith('cl-') ? ' CL' : ' C';
+      const stageClean = a.stage?.replace('cl-', '') || '';
+      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${name}${variant} | ${stageClean} ${a.percent}% | ${timeStr}`;
       statusBarOTA.backgroundColor = getOTAColor('running');
-      let tip = `AC-OS Building: ${name}\nStage: ${a.stage} (${a.percent}%)\nElapsed: ${elapsed}s`;
+      let tip = `AC-OS Building: ${name}\nVariant:${variant}\nStage: ${stageClean} (${a.percent}%)\nElapsed: ${timeStr}`;
       if (a.commitMsg) tip += `\n${a.commitMsg}`;
       if (a.ref) tip += `\nCommit: ${a.ref.substring(0, 11)}`;
       statusBarOTA.tooltip = tip;
@@ -1366,13 +1371,17 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const r = state.recent[0];
       const name = r.buildName || r.ref?.substring(0, 7) || '';
       const elapsed = Math.round(r.elapsedMs / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const timeStr = mins > 0 ? `${mins}m${elapsed % 60}s` : `${elapsed}s`;
       const time = r.finishedAt ? new Date(r.finishedAt).toLocaleTimeString() : '';
       const icon = getOTAIcon(r.stage, r.status);
-      statusBarOTA.text = r.status === 'success' ? `${icon} ${name}` : `${icon} ${r.status}`;
+      statusBarOTA.text = r.status === 'success'
+        ? `${icon} ${name} | ${timeStr}`
+        : `${icon} ${name} ${r.status}`;
       statusBarOTA.backgroundColor = getOTAColor(r.status);
       let tip = `AC-OS: ${r.status} — ${name}`;
       if (r.commitMsg) tip += `\n${r.commitMsg}`;
-      tip += `\nBuild time: ${elapsed}s`;
+      tip += `\nBuild time: ${timeStr}`;
       if (time) tip += ` | Finished: ${time}`;
       if (r.error) tip += `\nError: ${r.error}`;
       statusBarOTA.tooltip = tip;
@@ -1459,6 +1468,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     })
   );
 
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.openOSPage", () => {
+      vscode.env.openExternal(vscode.Uri.parse('https://prompt.ac/os'));
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
