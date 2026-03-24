@@ -51,6 +51,19 @@ const SPEC_URL =
   "https://psref.lenovo.com/Product/Lenovo/Lenovo_ThinkPad_11e_Yoga_Gen_6";
 const AUTH_TIMEOUT_MS = 1200;
 
+async function getOptionalToken(api) {
+  if (!api?.authorize) return null;
+
+  try {
+    return await Promise.race([
+      api.authorize().catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
 // Animation
 let frame = 0;
 
@@ -129,10 +142,7 @@ async function fetchCheckout(api) {
 
   try {
     const headers = { "Content-Type": "application/json" };
-    const token = await Promise.race([
-      api?.authorize?.(),
-      new Promise((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
-    ]);
+    const token = await getOptionalToken(api);
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const res = await fetch("/api/blank?new=true", {
