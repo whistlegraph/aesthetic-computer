@@ -322,6 +322,10 @@ TOTAL_FILES=$(find "$IROOT" -type f | wc -l)
 log "  Initramfs: $TOTAL_FILES files, $BROKEN_FINAL broken symlinks"
 [ "$BROKEN_FINAL" -gt 0 ] && err "  WARNING: broken symlinks remain!"
 
+# Write build metadata (C variant by default, CL overrides below)
+mkdir -p "$IROOT/etc"
+printf '%s\n%s\n%s\nc\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
+
 # ── Optional: Swap in Common Lisp binary ──
 if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
     log "Step 2b: Building ac-native (Common Lisp)..."
@@ -360,6 +364,9 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         for lib in /lib64/libzstd.so*; do
             [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
         done
+        # Write build metadata for CL to read at runtime
+        mkdir -p "$IROOT/etc"
+        printf '%s\n%s\n%s\ncl\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
         log "  Swapped CL binary into initramfs (with QuickJS)"
     else
         err "CL binary not produced — using C binary"
