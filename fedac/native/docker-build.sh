@@ -230,23 +230,32 @@ for tool in wpa_supplicant wpa_cli iw dhclient rfkill; do
     fi
 done
 
-# ── 2j: Firmware ──
+# ── 2j: Firmware (trimmed to common Intel WiFi + GPU chips) ──
 log "  Copying firmware..."
-# Find firmware dir (Fedora: /usr/lib/firmware or /lib/firmware)
 FWDIR=""
 for d in /usr/lib/firmware /lib/firmware; do
     [ -d "$d/i915" ] && FWDIR="$d" && break
 done
 if [ -n "$FWDIR" ]; then
-    # WiFi
-    for fw in "$FWDIR"/iwlwifi-*.ucode "$FWDIR"/iwlwifi-*.ucode.zst "$FWDIR"/iwlwifi-*.ucode.xz; do
-        [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
+    # WiFi — only common Intel chip families (covers ThinkPad, NUC, Surface)
+    # Each family: 3160, 7260, 7265, 8000, 8265, 9000, 9260, ax200, ax201, ax210, ax211, be200
+    for chip in 3160 3168 7260 7265 8000C 8265 9000 9260 \
+                ax200 ax201 ax210 ax211 be200 gl; do
+        for fw in "$FWDIR"/iwlwifi-${chip}*.ucode "$FWDIR"/iwlwifi-${chip}*.ucode.zst "$FWDIR"/iwlwifi-${chip}*.ucode.xz; do
+            [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
+        done
     done
     # Regulatory
     cp -L "$FWDIR/regulatory.db" "$IROOT/lib/firmware/" 2>/dev/null || true
     cp -L "$FWDIR/regulatory.db.p7s" "$IROOT/lib/firmware/" 2>/dev/null || true
-    # GPU (i915)
-    for fw in "$FWDIR"/i915/*; do
+    # GPU — only KBL/SKL/CFL/ICL/TGL/ADL/RPL (covers ~95% of target hardware)
+    for pattern in kbl skl cfl icl tgl adl dg1 rkl rpl mtl; do
+        for fw in "$FWDIR"/i915/${pattern}_*; do
+            [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
+        done
+    done
+    # DMC firmware (display power management)
+    for fw in "$FWDIR"/i915/*_dmc_*.bin "$FWDIR"/i915/*_dmc_*.bin.zst; do
         [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
     done
 else
@@ -260,7 +269,8 @@ for xzf in "$IROOT/lib/firmware/"*.xz "$IROOT/lib/firmware/i915/"*.xz; do
     [ -f "$xzf" ] && xz -d "$xzf" 2>/dev/null || true
 done
 FW_COUNT=$(find "$IROOT/lib/firmware" -type f | wc -l)
-log "  Firmware: $FW_COUNT files"
+FW_SIZE=$(du -sh "$IROOT/lib/firmware" | cut -f1)
+log "  Firmware: $FW_COUNT files ($FW_SIZE)"
 
 # ── 2k: SSL certs ──
 cp /etc/pki/tls/certs/ca-bundle.crt "$IROOT/etc/pki/tls/certs/" 2>/dev/null || true
