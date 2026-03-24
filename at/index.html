@@ -444,6 +444,8 @@ Mission statement + Top Users + All Media feed
     </footer>
   </div>
 
+  <script src="/media-modal.js"></script>
+  <script src="/media-records.js"></script>
   <script>
     const API_URL = 'https://aesthetic.computer';
     const PDS_URL = 'https://at.aesthetic.computer';
@@ -643,6 +645,18 @@ Mission statement + Top Users + All Media feed
       return `${years}y ago`;
     }
 
+    const mediaRecords = window.ACMediaRecords || {};
+    const normalizeExternalLink = mediaRecords.normalizeLink || ((link) => String(link || '').trim());
+    const escapeHtml = mediaRecords.escapeHtml || ((value) => String(value ?? ''));
+    const buildFeedModalPayload = mediaRecords.buildFeedModalPayload
+      || ((item, col, repoLabel, ago, title, primaryLink) => ({
+        title: `${col.icon} ${title || col.label}`,
+        subtitle: `${col.label} · ${ago || 'recent'} · ${repoLabel || 'unknown'}`,
+        bodyHtml: `<pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre>`,
+        iframeUrl: normalizeExternalLink(primaryLink),
+        actions: [],
+      }));
+
     function buildFilters() {
       const el = document.getElementById('feed-filters');
       el.innerHTML = COLLECTIONS.map(col =>
@@ -775,17 +789,16 @@ Mission statement + Top Users + All Media feed
             break;
           case 'news':
             title = item.headline || '';
-            link = item.link || '';
+            link = normalizeExternalLink(item.link || item.url || '');
             break;
           case 'paper':
             title = item.title || '';
-            link = item.pdfUrl || '';
+            link = normalizeExternalLink(item.pdfUrl || '');
             break;
         }
 
-        const titleHtml = link
-          ? `<a href="${link}" target="_blank">${title}</a>`
-          : title;
+        const titleHtml = escapeHtml(title || '(untitled)');
+        const modalPayload = buildFeedModalPayload(item, col, repoLabel, ago, title, link);
 
         el.innerHTML = `
           <div class="feed-type">${col.icon}</div>
@@ -794,6 +807,18 @@ Mission statement + Top Users + All Media feed
             <div class="feed-title">${titleHtml}</div>
             <div class="feed-meta">${col.label} · ${ago} · ${repoLabel}</div>
           </div>`;
+        el.style.cursor = 'pointer';
+        el.setAttribute('role', 'button');
+        el.tabIndex = 0;
+        el.addEventListener('click', () => {
+          if (window.ACMediaModal?.open) window.ACMediaModal.open(modalPayload);
+        });
+        el.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (window.ACMediaModal?.open) window.ACMediaModal.open(modalPayload);
+          }
+        });
         feed.appendChild(el);
       }
 

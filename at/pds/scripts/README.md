@@ -39,9 +39,11 @@ AC_FORCE=1 at/pds/scripts/auto-sync-frontend.sh
 **Default file map:**
 - `at/index.html -> /data/www/index.html`
 - `at/user-page.html -> /data/www/user.html`
+- `at/media-modal.js -> /data/www/media-modal.js`
+- `at/media-records.js -> /data/www/media-records.js`
 
 **Configurable via env:**
-- `AC_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/landing-page.html:landing-page.html"`
+- `AC_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js;at/landing-page.html:landing-page.html"`
 
 **Typical server install (cron every minute):**
 ```bash
@@ -74,7 +76,7 @@ Manual one-shot deploy helper from local machine to PDS host.
 at/scripts/deploy-at-frontend.sh
 
 # Optional custom map
-AT_FRONTEND_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/landing-page.html:landing-page.html" \
+AT_FRONTEND_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js;at/landing-page.html:landing-page.html" \
   at/scripts/deploy-at-frontend.sh
 ```
 
