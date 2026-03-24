@@ -490,6 +490,26 @@ async function commandSyncStatus() {
   console.log();
 }
 
+async function commandSyncStandard() {
+  const { execFileSync } = await import("child_process");
+  const { fileURLToPath } = await import("url");
+
+  const scriptUrl = new URL(
+    "./scripts/atproto/backfill-standard-site-documents.mjs",
+    import.meta.url,
+  );
+  const scriptPath = fileURLToPath(scriptUrl);
+  const passthroughArgs = process.argv.slice(3);
+
+  try {
+    execFileSync("node", [scriptPath, ...passthroughArgs], {
+      stdio: "inherit",
+    });
+  } catch (error) {
+    process.exitCode = error.status || 1;
+  }
+}
+
 async function commandSSH(args) {
   const { execSync } = await import("child_process");
   const ip = process.env.PDS_SSH_HOST || "165.227.120.137";
@@ -563,6 +583,7 @@ Admin (requires PDS_ADMIN_PASSWORD):
   accounts [--limit=N]               List PDS accounts
   account:check <handle-or-did>      Inspect account & record counts
   sync:status                        Record counts across collections
+  sync:standard [options]            Mirror AC records to site.standard.document
 
 Server:
   ssh [command]                      SSH into PDS droplet (or run command)
@@ -585,6 +606,7 @@ Examples:
   ac-at invite
   ac-at account:check jeffrey.at.aesthetic.computer
   ac-at sync:status
+  ac-at sync:standard --dry-run --sources=paper,news,piece --limit=25
 `);
 }
 
@@ -604,6 +626,7 @@ const COMMANDS = {
   accounts: commandAccounts,
   "account:check": commandAccountCheck,
   "sync:status": commandSyncStatus,
+  "sync:standard": commandSyncStandard,
   ssh: commandSSH,
   "env:set": commandEnvSet,
 };

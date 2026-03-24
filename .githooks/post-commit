@@ -28,4 +28,11 @@ if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "feed/landing-page
   fish "$REPO_ROOT/feed/deploy-silo.fish" --landing 2>&1 | tail -3 &
 fi
 
+# Auto-deploy AT PDS frontend when tracked files change
+AT_FRONTEND_FILES="at/index.html|at/user-page.html|at/media-modal.js|at/media-records.js"
+if git diff-tree --no-commit-id --name-only -r HEAD | grep -qE "^($AT_FRONTEND_FILES)$"; then
+  echo "🔮 AT frontend changed — deploying to PDS..."
+  bash "$REPO_ROOT/at/scripts/deploy-at-frontend.sh" 2>&1 | tail -3 &
+fi
+
 exit 0

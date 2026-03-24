@@ -170,6 +170,11 @@ const PAPER_MAP = {
     siteName: "five-years-from-now-26-arxiv",
     title: "Five Years from Now",
   },
+  "arxiv-identity": {
+    base: "identity",
+    siteName: "handle-identity-atproto-26-arxiv",
+    title: "Handle Identity on the AT Protocol",
+  },
 };
 
 function texName(base, lang) {
