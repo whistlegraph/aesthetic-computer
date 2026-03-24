@@ -336,7 +336,7 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
     gcc -shared -fPIC -O2 -o "$BUILD/libquickjs.so" \
         "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
         "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
-        -DCONFIG_VERSION=\"0.8.0\" -lm 2>&1 || { err "libquickjs.so build failed"; }
+        '-DCONFIG_VERSION="0.8.0"' -lm 2>&1 || { err "libquickjs.so build failed"; }
 
     # Build quickjs-shim.so (CL-friendly wrappers)
     CL_DIR="$NATIVE/cl"
