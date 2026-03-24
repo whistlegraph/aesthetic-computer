@@ -5485,6 +5485,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "window:reload") {
+      window.location.reload();
+      return;
+    }
+
     if (type === "window:close") {
       const isElectron = /Electron/i.test(navigator.userAgent || "");
       if (isElectron) {
