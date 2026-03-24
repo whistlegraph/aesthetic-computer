@@ -408,6 +408,7 @@ async function runBuildJob(job) {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
       DO_SPACES_SECRET:
         process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
+      ALLOW_DIRTY_UPLOAD: "1",  // oven builds from a managed git clone
     };
     const uploadDir = `/tmp/oven-upload-${job.id}`;
     const vmlinuzUpload = `${uploadDir}/vmlinuz`;
@@ -450,6 +451,7 @@ async function runBuildJob(job) {
           DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
           DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
           OTA_CHANNEL: "cl",  // uploads to os/cl-native-notepat-latest.vmlinuz
+          ALLOW_DIRTY_UPLOAD: "1",
         });
 
         try { await fs.unlink(clVmlinuzOut); } catch {}
