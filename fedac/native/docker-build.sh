@@ -307,7 +307,7 @@ if command -v npx &>/dev/null && [ -f "$SRC/system/public/aesthetic.computer/lib
     log "  Bundling KidLisp..."
     cd "$SRC"
     npx esbuild system/public/aesthetic.computer/lib/kidlisp.mjs \
-        --bundle --format=esm --platform=neutral \
+        --bundle --format=iife --global-name=KidLispModule --platform=neutral \
         --outfile=/tmp/kidlisp-bundle.js 2>/dev/null || true
     if [ -f /tmp/kidlisp-bundle.js ]; then
         mkdir -p "$IROOT/jslib"
