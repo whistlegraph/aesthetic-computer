@@ -16,6 +16,11 @@ These should be automated via cron:
 0 2 * * * /root/backup.sh >> /var/log/pds-backup.log 2>&1
 ```
 
+### AT Frontend Sync (Every minute)
+```bash
+* * * * * /root/auto-sync-frontend.sh >> /var/log/at-frontend-sync.log 2>&1
+```
+
 ## Weekly Tasks
 
 ### Review Logs
@@ -31,6 +36,9 @@ tail -100 /var/log/pds-health.log
 
 # Check backup logs
 tail -50 /var/log/pds-backup.log
+
+# Check frontend sync logs
+tail -100 /var/log/at-frontend-sync.log
 ```
 
 ### Check Storage Usage
