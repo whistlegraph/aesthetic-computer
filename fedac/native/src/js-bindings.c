@@ -1862,7 +1862,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
         }
         JS_FreeValue(ctx, kl_result);
     } else {
-        fprintf(stderr, "[js] KidLisp bundle not found at /lib/kidlisp-bundle.js (optional)\n");
+        fprintf(stderr, "[js] KidLisp bundle not found at /jslib/kidlisp-bundle.js (optional)\n");
     }
 
     JS_FreeValue(ctx, global);
