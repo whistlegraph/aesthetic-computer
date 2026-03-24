@@ -8,6 +8,7 @@ let amount = 12800;
 let checkoutUrl = null;
 let checkoutReady = false;
 let checkoutError = null;
+let checkoutLoading = false;
 let buyPending = false;
 let thanks = false;
 
@@ -48,6 +49,7 @@ async function fetchHandleColor(handle) {
 
 const SPEC_URL =
   "https://psref.lenovo.com/Product/Lenovo/Lenovo_ThinkPad_11e_Yoga_Gen_6";
+const AUTH_TIMEOUT_MS = 1200;
 
 // Animation
 let frame = 0;
@@ -118,13 +120,19 @@ function setupButtons(ui, screen) {
 }
 
 async function fetchCheckout(api) {
+  if (checkoutLoading) return;
+
+  checkoutLoading = true;
   checkoutReady = false;
   checkoutError = null;
   checkoutUrl = null;
 
   try {
     const headers = { "Content-Type": "application/json" };
-    const token = await api?.authorize?.();
+    const token = await Promise.race([
+      api?.authorize?.(),
+      new Promise((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
+    ]);
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const res = await fetch("/api/blank?new=true", {
@@ -147,6 +155,8 @@ async function fetchCheckout(api) {
     }
   } catch (e) {
     checkoutError = e?.message || "Checkout error";
+  } finally {
+    checkoutLoading = false;
   }
 }
 
@@ -736,11 +746,11 @@ function act({ event: e, screen, jump, sound, ui, api }) {
     setupButtons(ui, screen);
   }
 
-  specBtn?.act(e, {
+  specBtn?.btn?.act(e, {
     push: () => jump(`out:${SPEC_URL}`),
   });
 
-  buyBtn?.act(e, {
+  buyBtn?.btn?.act(e, {
     down: () => {
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
     },
@@ -754,18 +764,25 @@ function act({ event: e, screen, jump, sound, ui, api }) {
         checkoutError = null;
         fetchCheckout(api);
         sound?.synth({ type: "sine", tone: 550, duration: 0.06, volume: 0.3 });
+        buyPending = true;
+        waitForCheckout(jump, sound, api);
       } else {
         buyPending = true;
+        if (!checkoutLoading) fetchCheckout(api);
         sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.3 });
-        waitForCheckout(jump, sound);
+        waitForCheckout(jump, sound, api);
       }
     },
   });
 }
 
-async function waitForCheckout(jump, sound) {
+async function waitForCheckout(jump, sound, api) {
   const maxWait = 10000;
   const startTime = Date.now();
+
+  if (!checkoutReady && !checkoutError && !checkoutLoading) {
+    fetchCheckout(api);
+  }
 
   while (!checkoutReady && !checkoutError && Date.now() - startTime < maxWait) {
     await new Promise((r) => setTimeout(r, 100));
