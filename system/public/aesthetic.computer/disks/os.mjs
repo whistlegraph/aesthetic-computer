@@ -926,10 +926,9 @@ async function startDownload(needsPaint) {
       "&wifi=" + (wifiEnabled ? "1" : "0") +
       "&layout=efi&strict=1&cb=" + Date.now() +
       (variantIdx === 1 ? "&variant=cl" : "");
-    const isoCandidates = [
-      OVEN_ORIGIN + "/os-image" + query,
-      OVEN + "/os-image" + query,
-    ];
+    // Strict EFI downloads must come from oven origin.
+    // The edge worker can return stale/truncated artifacts without layout headers.
+    const isoCandidates = [OVEN_ORIGIN + "/os-image" + query];
     const MIN_EXPECTED_EFI_BYTES = 300 * 1024 * 1024;
     const MIN_EXPECTED_ISO_BYTES = 200 * 1024 * 1024;
 
@@ -955,6 +954,12 @@ async function startDownload(needsPaint) {
       }
 
       const servedLayout = (attempt.headers.get("x-ac-os-layout") || "").toLowerCase();
+      if (!servedLayout) {
+        console.warn("[os] Missing x-ac-os-layout header from", url);
+        try { attempt.body?.cancel(); } catch (_) {}
+        lastErr = "Server did not report image layout (x-ac-os-layout missing)";
+        continue;
+      }
       if (servedLayout && servedLayout !== "efi") {
         console.warn("[os] Rejecting non-EFI response:", servedLayout, "from", url);
         try { attempt.body?.cancel(); } catch (_) {}
