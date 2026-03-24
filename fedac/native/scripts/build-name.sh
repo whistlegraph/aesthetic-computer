@@ -1,9 +1,8 @@
 #!/bin/bash
-# build-name.sh — Generate a unique build name from git commit hash.
-# Deterministic: same commit always produces the same name.
-# Globally unique: different commits produce different names (73,000 combos).
-# Usage: ./build-name.sh          → prints name (e.g., "swift-otter")
-#        ./build-name.sh --bump   → (legacy compat, ignored — names come from git hash now)
+# build-name.sh — Generate a unique build name for each build.
+# Uses git hash for adj+animal, plus epoch seconds for uniqueness.
+# Every invocation produces a different name, even for the same commit.
+# Usage: ./build-name.sh          → prints name (e.g., "swift-otter-7a3")
 set -e
 
 # 365 animals
@@ -83,19 +82,14 @@ ADJECTIVES=(
 NUM_ANIMALS=${#ANIMALS[@]}
 NUM_ADJ=${#ADJECTIVES[@]}
 
-# Derive name from git commit hash — deterministic and globally unique
+# Mix git hash + epoch for a unique name every build
 GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")
+EPOCH=$(date +%s)
 
-# Use first 8 hex chars for adjective index, next 8 for animal index
-# This gives uniform distribution across both arrays
+# Adjective from git hash, animal from epoch (so same commit gets different animals)
 HEX_ADJ="${GIT_HASH:0:8}"
-HEX_ANIMAL="${GIT_HASH:8:8}"
-
-# Convert hex to decimal (portable: printf handles this)
 DEC_ADJ=$(printf '%d' "0x${HEX_ADJ}" 2>/dev/null || echo 0)
-DEC_ANIMAL=$(printf '%d' "0x${HEX_ANIMAL}" 2>/dev/null || echo 0)
-
 ADJ_IDX=$(( DEC_ADJ % NUM_ADJ ))
-ANIMAL_IDX=$(( DEC_ANIMAL % NUM_ANIMALS ))
+ANIMAL_IDX=$(( EPOCH % NUM_ANIMALS ))
 
 echo "${ADJECTIVES[$ADJ_IDX]}-${ANIMALS[$ANIMAL_IDX]}"
