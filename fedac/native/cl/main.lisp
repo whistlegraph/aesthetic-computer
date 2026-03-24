@@ -161,10 +161,132 @@
           ((and (>= hour 12) (< hour 17)) "good afternoon")
           (t "good evening"))))
 
+;;; ── JS Piece Runner ──
+
+(defun main-js (piece-path)
+  "Run a .mjs piece via the QuickJS bridge."
+  (format *error-output* "~%════════════════════════════════════~%")
+  (format *error-output* "  AC Native OS (Common Lisp + QuickJS)~%")
+  (format *error-output* "  SBCL ~A~%" (lisp-implementation-version))
+  (format *error-output* "  piece: ~A~%" piece-path)
+  (format *error-output* "════════════════════════════════════~%~%")
+  (force-output *error-output*)
+
+  (let ((display (handler-case (ac-native.drm:drm-init)
+                   (error (e)
+                     (format *error-output* "[js] DRM error: ~A~%" e)
+                     (force-output *error-output*) nil))))
+    (unless display
+      (format *error-output* "[js] FATAL: no display~%")
+      (force-output *error-output*) (sleep 30) (return-from main-js 1))
+
+    (let* ((dw (ac-native.drm:display-width display))
+           (dh (ac-native.drm:display-height display))
+           (scale (compute-pixel-scale dw))
+           (sw (floor dw scale))
+           (sh (floor dh scale))
+           (screen (fb-create sw sh))
+           (graph (make-graph :fb screen :screen screen))
+           (input (ac-native.input:input-init dw dh scale))
+           (audio (ac-native.audio:audio-init))
+           (frame 0))
+
+      (font-init)
+
+      ;; Initialize QuickJS bridge
+      (js-init graph screen audio sw sh)
+
+      ;; Load the piece
+      (unless (js-load-piece piece-path)
+        (format *error-output* "[js] Failed to load piece, falling back to native notepat~%")
+        (force-output *error-output*)
+        (js-destroy)
+        ;; Cleanup and fall through to native
+        (when audio (audio-destroy audio))
+        (ac-native.input:input-destroy input)
+        (fb-destroy screen)
+        (ac-native.drm:drm-destroy display)
+        (return-from main-js (main)))
+
+      ;; Call boot
+      (js-boot)
+
+      ;; Start Swank
+      (handler-case
+          (progn
+            (setf swank::*communication-style* :spawn)
+            (swank:create-server :port 4005 :dont-close t)
+            (format *error-output* "[js] Swank on :4005~%")
+            (force-output *error-output*))
+        (error (e)
+          (format *error-output* "[js] Swank failed: ~A~%" e)
+          (force-output *error-output*)))
+
+      ;; Main loop
+      (setf *running* t)
+      (unwind-protect
+          (loop while *running* do
+            (incf frame)
+
+            ;; Input → act
+            (dolist (ev (ac-native.input:input-poll input))
+              (let ((type (ac-native.input:event-type ev))
+                    (code (ac-native.input:event-code ev))
+                    (key (ac-native.input:event-key ev)))
+                ;; ESC triple-press to quit
+                (when (and (eq type :key-down) (= code ac-native.input:+key-esc+))
+                  (when (> (- frame *esc-last-frame*) 90) (setf *esc-count* 0))
+                  (incf *esc-count*)
+                  (setf *esc-last-frame* frame)
+                  (when (>= *esc-count* 3) (setf *running* nil)))
+                ;; Power button
+                (when (and (eq type :key-down) (= code ac-native.input:+key-power+))
+                  (setf *running* nil))
+                ;; Pass to JS
+                (js-act (if (eq type :key-down) 1 0)
+                        (or key "") code)))
+
+            ;; sim
+            (js-sim)
+
+            ;; paint
+            (js-paint frame)
+
+            ;; Check for jump or poweroff from JS
+            (when ac-native.js-bridge::*poweroff-requested*
+              (setf *running* nil))
+            (when ac-native.js-bridge::*jump-target*
+              ;; TODO: reload piece
+              (format *error-output* "[js] jump to ~A (not yet implemented)~%"
+                      ac-native.js-bridge::*jump-target*)
+              (force-output *error-output*)
+              (setf ac-native.js-bridge::*jump-target* nil))
+
+            ;; Present
+            (ac-native.drm:drm-present display screen scale)
+            (frame-sync-60fps))
+
+        ;; Cleanup
+        (js-destroy)
+        (when audio (audio-destroy audio))
+        (ac-native.input:input-destroy input)
+        (fb-destroy screen)
+        (ac-native.drm:drm-destroy display)
+        (format *error-output* "[js] shutdown~%")
+        (force-output *error-output*)))))
+
 ;;; ── Main ──
 
 (defun main ()
-  "AC Native OS entry point — boots directly into notepat."
+  "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat."
+  ;; Check command-line args for a .mjs piece path
+  (let ((args (uiop:command-line-arguments)))
+    (when args
+      (let ((piece-path (first args)))
+        (when (and piece-path (search ".mjs" piece-path))
+          (return-from main (main-js piece-path))))))
+
+  ;; No .mjs piece specified — fall back to native CL notepat
   (format *error-output* "~%════════════════════════════════════~%")
   (format *error-output* "  notepat (Common Lisp)~%")
   (format *error-output* "  SBCL ~A~%" (lisp-implementation-version))
