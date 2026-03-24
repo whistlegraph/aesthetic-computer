@@ -287,6 +287,66 @@ async function runBuildJob(job) {
 
     const repoDir = path.resolve(NATIVE_DIR, "../..");
 
+    // Preflight: hard-sync build repo and refuse conflicted/dirty native trees.
+    addLogLine(job, "stdout", "Preflight: syncing native git checkout...");
+    await runPhase(job, "preflight-sync", "bash", ["-lc", [
+      "set -euo pipefail",
+      "git fetch origin main --quiet || true",
+      "git checkout -f main --quiet || true",
+      "if git rev-parse --verify origin/main >/dev/null 2>&1; then",
+      "  git reset --hard origin/main --quiet",
+      "fi",
+      "git clean -fdq -- fedac/native",
+    ].join("\n")], repoDir);
+
+    const syncedRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
+    if (syncedRef) job.ref = syncedRef;
+
+    const trackedDirty = await runSync(
+      "git",
+      ["status", "--porcelain", "--untracked-files=no", "--", "fedac/native"],
+      repoDir,
+    );
+    if (trackedDirty) {
+      throw new Error(
+        `Refusing native build: fedac/native tree is dirty after sync:\n${trackedDirty}`,
+      );
+    }
+
+    const unresolved = await runSync(
+      "git",
+      ["diff", "--name-only", "--diff-filter=U", "--", "fedac/native"],
+      repoDir,
+    );
+    if (unresolved) {
+      throw new Error(
+        `Refusing native build: unresolved merge conflict(s): ${unresolved}`,
+      );
+    }
+
+    const conflictMarkers = await runSync(
+      "bash",
+      [
+        "-lc",
+        "grep -nE '^(<<<<<<<|=======|>>>>>>>)|Updated upstream|Stashed changes' fedac/native/initramfs/init 2>/dev/null || true",
+      ],
+      repoDir,
+    );
+    if (conflictMarkers) {
+      throw new Error(
+        `Refusing native build: conflict markers detected in initramfs/init:\n${conflictMarkers}`,
+      );
+    }
+
+    // Parse-check init script explicitly so syntax issues fail before kernel compile/upload.
+    await runPhase(
+      job,
+      "preflight-init",
+      "bash",
+      ["-lc", "set -euo pipefail\nsh -n fedac/native/initramfs/init"],
+      repoDir,
+    );
+
     // Resolve ref from git HEAD if manual trigger didn't provide one
     if (!job.ref || job.ref === "unknown") {
       const headRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
