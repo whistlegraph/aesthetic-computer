@@ -213,8 +213,9 @@ function paint($) {
     }
   }
 
-  // Product description (top of page)
-  ink(fgDim).write(DESCRIPTION, { x: 6, y: 6, width: w - 12, screen });
+  // Title + product description (centered, below HUD label)
+  ink(fg).write("AC Blank", { center: "x", y: 24, size: 2, screen });
+  ink(fgDim).write(DESCRIPTION, { center: "x", y: 48, width: floor(w * 0.8), screen });
 
   // Thanks page
   if (thanks) {
