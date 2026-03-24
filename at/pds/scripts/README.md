@@ -28,6 +28,56 @@ Generates PDS environment file from vault credentials.
 fish generate-pds-env.fish [output-file]
 ```
 
+#### `scripts/auto-sync-frontend.sh`
+Polls GitHub and auto-deploys configured frontend files into the PDS Caddy container.
+
+```bash
+# Local smoke test (from repo root)
+AC_FORCE=1 at/pds/scripts/auto-sync-frontend.sh
+```
+
+**Default file map:**
+- `at/index.html -> /data/www/index.html`
+- `at/user-page.html -> /data/www/user.html`
+
+**Configurable via env:**
+- `AC_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/landing-page.html:landing-page.html"`
+
+**Typical server install (cron every minute):**
+```bash
+# 1) SSH to server
+ssh -i ~/.ssh/aesthetic_pds root@<SERVER_IP>
+
+# 2) Install dependencies (jq is required for commit diff checks)
+apt update && apt install -y curl jq git
+
+# 3) Copy script to server
+scp -i ~/.ssh/aesthetic_pds /workspaces/aesthetic-computer/at/pds/scripts/auto-sync-frontend.sh root@<SERVER_IP>:/root/auto-sync-frontend.sh
+ssh -i ~/.ssh/aesthetic_pds root@<SERVER_IP> 'chmod +x /root/auto-sync-frontend.sh'
+
+# 4) Add cron job
+ssh -i ~/.ssh/aesthetic_pds root@<SERVER_IP> '(crontab -l 2>/dev/null; echo "* * * * * /root/auto-sync-frontend.sh >> /var/log/at-frontend-sync.log 2>&1") | crontab -'
+```
+
+**How it behaves:**
+- Tracks latest deployed commit in `/var/lib/at-frontend-sync/last_deployed_sha`
+- Compares changed files between last deployed SHA and latest main SHA
+- Skips deploy if none of the mapped frontend files changed
+- Uses `docker cp` into `caddy:/data/www/*`
+- Runs health check against `https://at.aesthetic.computer/xrpc/_health`
+
+#### `at/scripts/deploy-at-frontend.sh`
+Manual one-shot deploy helper from local machine to PDS host.
+
+```bash
+# From repo root (uses defaults + ~/.ssh/aesthetic_pds)
+at/scripts/deploy-at-frontend.sh
+
+# Optional custom map
+AT_FRONTEND_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/landing-page.html:landing-page.html" \
+  at/scripts/deploy-at-frontend.sh
+```
+
 ### Monitoring
 
 #### `scripts/health-check.sh`
