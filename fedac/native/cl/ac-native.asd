@@ -31,6 +31,9 @@
    (:file "audio")
    ;; Main
    (:file "config")
+   ;; QuickJS bridge (JS piece runner)
+   (:file "quickjs-ffi")
+   (:file "js-bridge")
    (:file "main")
    ;; Build
    (:file "build")))
