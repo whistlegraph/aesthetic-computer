@@ -50,6 +50,12 @@ RUN mkdir -p /cache && cd /cache \
 # ── Install esbuild for KidLisp bundling ──
 RUN npm install -g esbuild
 
+# ── Download Claude Code CLI (static binary) ──
+RUN curl -sL https://storage.googleapis.com/anthropic-sdk/claude-code/claude-code-latest-linux-x64.tar.gz \
+    | tar xz -C /usr/local/bin/ 2>/dev/null \
+    && chmod +x /usr/local/bin/claude 2>/dev/null \
+    || echo "Claude Code download skipped (non-fatal)"
+
 # ── Verify tools ──
 RUN gcc --version | head -1 && busybox --help >/dev/null 2>&1 && esbuild --version && echo "OK"
 

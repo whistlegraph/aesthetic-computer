@@ -172,14 +172,40 @@ type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
         if [ -z "${CONFIG_JSON}" ]; then
             CONFIG_JSON="{\"handle\":\"${HANDLE}\"}"
         fi
-        echo "${CONFIG_JSON}" | sudo docker run --rm -i --privileged -v /dev:/dev \
+        # Prompt for WiFi credentials (optional)
+        WIFI_SSID="${WIFI_SSID:-}"
+        WIFI_PASS="${WIFI_PASS:-}"
+        if [ -z "${WIFI_SSID}" ] && [ -t 0 ]; then
+            echo ""
+            read -p "WiFi SSID (enter to skip): " WIFI_SSID
+            if [ -n "${WIFI_SSID}" ]; then
+                read -p "WiFi password: " WIFI_PASS
+            fi
+        fi
+        WIFI_JSON=""
+        if [ -n "${WIFI_SSID}" ]; then
+            WIFI_JSON=$(node -e "process.stdout.write(JSON.stringify([{ssid:'${WIFI_SSID}',pass:'${WIFI_PASS}'}]))" 2>/dev/null || true)
+            [ -z "${WIFI_JSON}" ] && WIFI_JSON="[{\"ssid\":\"${WIFI_SSID}\",\"pass\":\"${WIFI_PASS}\"}]"
+        fi
+        # Write config.json + wifi_creds.json to USB
+        {
+            echo "CONFIG:${CONFIG_JSON}"
+            [ -n "${WIFI_JSON}" ] && echo "WIFI:${WIFI_JSON}"
+        } | sudo docker run --rm -i --privileged -v /dev:/dev \
             alpine:latest sh -c "
                 apk add --quiet dosfstools
-                cat > /tmp/config.json
+                while IFS= read -r line; do
+                    case \"\$line\" in
+                        CONFIG:*) echo \"\${line#CONFIG:}\" > /tmp/config.json ;;
+                        WIFI:*) echo \"\${line#WIFI:}\" > /tmp/wifi_creds.json ;;
+                    esac
+                done
                 mkdir -p /mnt/usb
                 mount ${USB_DEV}1 /mnt/usb
                 cp /tmp/config.json /mnt/usb/config.json
+                [ -f /tmp/wifi_creds.json ] && cp /tmp/wifi_creds.json /mnt/usb/wifi_creds.json
                 echo \"Wrote config.json (handle: ${HANDLE}, claude: $([ -n "${CLAUDE_TOKEN}" ] && echo yes || echo no), github: $([ -n "${GITHUB_PAT}" ] && echo yes || echo no))\"
+                [ -f /tmp/wifi_creds.json ] && echo \"Wrote wifi_creds.json (ssid: ${WIFI_SSID})\"
                 sync
                 umount /mnt/usb
             "
