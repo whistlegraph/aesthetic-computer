@@ -14,7 +14,8 @@ let thanks = false;
 
 // UI elements
 let buyBtn = null;
-let specBtn = null;
+let manualBtn = null;
+let paperBtn = null;
 let userHandle = null;
 
 // Handle cycling (when not logged in)
@@ -47,8 +48,12 @@ async function fetchHandleColor(handle) {
   return null;
 }
 
-const SPEC_URL =
-  "https://psref.lenovo.com/Product/Lenovo/Lenovo_ThinkPad_11e_Yoga_Gen_6";
+const MANUAL_URL =
+  "https://download.lenovo.com/pccbbs/mobiles_pdf/tp_11e-yoga_gen6_ug_en.pdf";
+const PAPER_URL =
+  "https://papers.aesthetic.computer/plorking-the-planet-26-arxiv-cards.pdf";
+const DESCRIPTION =
+  "A @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
 const AUTH_TIMEOUT_MS = 1200;
 
 async function getOptionalToken(api) {
@@ -129,7 +134,8 @@ async function fetchHandles(screen) {
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
-  specBtn = new ui.TextButton("SPECS", { x: 6, bottom: 20, screen });
+  manualBtn = new ui.TextButton("MANUAL", { x: 6, bottom: 20, screen });
+  paperBtn = new ui.TextButton("PAPER", { x: 6 + manualBtn.width + 4, bottom: 20, screen });
 }
 
 async function fetchCheckout(api) {
@@ -206,6 +212,9 @@ function paint($) {
       ink(cr, cg, cb, alpha).box(bx, by, bw, bh, "fill");
     }
   }
+
+  // Product description (top of page)
+  ink(fgDim).write(DESCRIPTION, { x: 6, y: 6, width: w - 12, screen });
 
   // Thanks page
   if (thanks) {
@@ -736,16 +745,21 @@ function paint($) {
     buyBtn.paint($btn, scheme, hover);
   }
 
-  // Spec sheet link (bottom left)
-  if (specBtn) {
-    specBtn.reposition({ x: 6, bottom: 20, screen }, "SPECS");
-    const specScheme = isDark
-      ? [[20, 20, 24], fgDim, [180, 180, 190]]
-      : [[228, 228, 232], fgDim, [60, 60, 70]];
-    const specHover = isDark
-      ? [[30, 30, 38], [180, 180, 200], [220, 220, 230]]
-      : [[215, 215, 225], [60, 60, 80], [30, 30, 40]];
-    specBtn.paint($btn, specScheme, specHover);
+  // Manual PDF link (bottom left)
+  const linkScheme = isDark
+    ? [[20, 20, 24], fgDim, [180, 180, 190]]
+    : [[228, 228, 232], fgDim, [60, 60, 70]];
+  const linkHover = isDark
+    ? [[30, 30, 38], [180, 180, 200], [220, 220, 230]]
+    : [[215, 215, 225], [60, 60, 80], [30, 30, 40]];
+  if (manualBtn) {
+    manualBtn.reposition({ x: 6, bottom: 20, screen }, "MANUAL");
+    manualBtn.paint($btn, linkScheme, linkHover);
+  }
+  if (paperBtn) {
+    const paperX = manualBtn ? 6 + manualBtn.width + 4 : 6;
+    paperBtn.reposition({ x: paperX, bottom: 20, screen }, "PAPER");
+    paperBtn.paint($btn, linkScheme, linkHover);
   }
 }
 
@@ -756,8 +770,12 @@ function act({ event: e, screen, jump, sound, ui, api }) {
     setupButtons(ui, screen);
   }
 
-  specBtn?.btn?.act(e, {
-    push: () => jump(`out:${SPEC_URL}`),
+  manualBtn?.btn?.act(e, {
+    push: () => jump(`out:${MANUAL_URL}`),
+  });
+
+  paperBtn?.btn?.act(e, {
+    push: () => jump(`out:${PAPER_URL}`),
   });
 
   buyBtn?.btn?.act(e, {
