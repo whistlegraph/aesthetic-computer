@@ -854,8 +854,10 @@ void wifi_scan(ACWifi *wifi) {
     if (!wifi || !wifi->iface[0] || !wifi->thread_running) return;
 
     pthread_mutex_lock(&wifi->lock);
-    // Don't restart scan if already scanning
-    if (wifi->state == WIFI_STATE_SCANNING) {
+    // Don't interrupt scanning, connecting, or DHCP in progress
+    if (wifi->state == WIFI_STATE_SCANNING ||
+        wifi->state == WIFI_STATE_CONNECTING ||
+        wifi->state == WIFI_STATE_CONNECTED) {
         pthread_mutex_unlock(&wifi->lock);
         return;
     }
