@@ -11,7 +11,7 @@ set -euo pipefail
 #   AC_CONTAINER_WEBROOT="/data/www"
 #   AC_STATE_DIR="/var/lib/at-frontend-sync"
 #   AC_HEALTH_URL="https://at.aesthetic.computer/xrpc/_health"
-#   AC_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html"
+#   AC_FILE_MAP="at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js"
 #   AC_FORCE="1"  # force deploy even if SHA unchanged
 #
 # AC_FILE_MAP format:
@@ -23,7 +23,7 @@ AC_CONTAINER="${AC_CONTAINER:-caddy}"
 AC_CONTAINER_WEBROOT="${AC_CONTAINER_WEBROOT:-/data/www}"
 AC_STATE_DIR="${AC_STATE_DIR:-/var/lib/at-frontend-sync}"
 AC_HEALTH_URL="${AC_HEALTH_URL:-https://at.aesthetic.computer/xrpc/_health}"
-AC_FILE_MAP="${AC_FILE_MAP:-at/index.html:index.html;at/user-page.html:user.html}"
+AC_FILE_MAP="${AC_FILE_MAP:-at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js}"
 AC_FORCE="${AC_FORCE:-0}"
 
 RAW_BASE="https://raw.githubusercontent.com/${AC_REPO}"

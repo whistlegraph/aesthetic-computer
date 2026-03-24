@@ -10,7 +10,7 @@ set -euo pipefail
 #   AT_PDS_SSH_KEY_PATH      (default: ~/.ssh/aesthetic_pds)
 #   AT_PDS_CONTAINER         (default: caddy)
 #   AT_PDS_CONTAINER_WEBROOT (default: /data/www)
-#   AT_FRONTEND_FILE_MAP     (default: at/index.html:index.html;at/user-page.html:user.html)
+#   AT_FRONTEND_FILE_MAP     (default: at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js)
 #
 # AT_FRONTEND_FILE_MAP format:
 #   "repo/source/path:container/target/path;repo/source2:path2"
@@ -20,7 +20,7 @@ AT_PDS_USER="${AT_PDS_USER:-root}"
 AT_PDS_SSH_KEY_PATH="${AT_PDS_SSH_KEY_PATH:-$HOME/.ssh/aesthetic_pds}"
 AT_PDS_CONTAINER="${AT_PDS_CONTAINER:-caddy}"
 AT_PDS_CONTAINER_WEBROOT="${AT_PDS_CONTAINER_WEBROOT:-/data/www}"
-AT_FRONTEND_FILE_MAP="${AT_FRONTEND_FILE_MAP:-at/index.html:index.html;at/user-page.html:user.html}"
+AT_FRONTEND_FILE_MAP="${AT_FRONTEND_FILE_MAP:-at/index.html:index.html;at/user-page.html:user.html;at/media-modal.js:media-modal.js;at/media-records.js:media-records.js}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
