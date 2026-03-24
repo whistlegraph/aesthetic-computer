@@ -343,7 +343,7 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
     log "  Building libquickjs-shim.so..."
     gcc -shared -fPIC -O2 -o "$BUILD/libquickjs-shim.so" \
         "$CL_DIR/quickjs-shim.c" \
-        -I"$QJSDIR" -L"$BUILD" -lquickjs -lm 2>&1 || { err "shim build failed"; }
+        -I"$QJSDIR" "$BUILD/libquickjs.so" -lm 2>&1 || { err "shim build failed"; exit 1; }
 
     # Build CL binary with SBCL
     sbcl --non-interactive \
@@ -352,7 +352,7 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
         --eval '(asdf:load-system :ac-native)' \
         --eval "(ac-native.build:build \"$BUILD/ac-native-cl\")" \
-        2>&1 || { err "CL build failed"; }
+        2>&1 || { err "CL build failed"; exit 1; }
     if [ -f "$BUILD/ac-native-cl" ]; then
         log "  CL Binary: $(stat -c%s "$BUILD/ac-native-cl") bytes"
         # Swap into initramfs (keep C version in build dir)
@@ -369,7 +369,8 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         printf '%s\n%s\n%s\ncl\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
         log "  Swapped CL binary into initramfs (with QuickJS)"
     else
-        err "CL binary not produced — using C binary"
+        err "CL binary not produced"
+        exit 1
     fi
 fi
 
