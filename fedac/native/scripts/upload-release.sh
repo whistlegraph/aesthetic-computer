@@ -59,9 +59,25 @@ DO_SPACES_REGION="${DO_SPACES_REGION:-sfo3}"
 
 BASE_URL="https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.digitaloceanspaces.com"
 
-# Build version string from git (append -dirty if uncommitted changes)
+# Build version string from git. Dirty/conflicted uploads are blocked by default.
 GIT_HASH=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+CONFLICT_FILES=$(git -C "$SCRIPT_DIR" diff --name-only --diff-filter=U 2>/dev/null || true)
+if [ -n "$CONFLICT_FILES" ]; then
+  echo "Error: refusing upload with unresolved merge conflicts:" >&2
+  echo "$CONFLICT_FILES" >&2
+  exit 1
+fi
+DIRTY_TRACKED=0
 if ! git -C "$SCRIPT_DIR" diff --quiet HEAD 2>/dev/null; then
+  DIRTY_TRACKED=1
+fi
+if [ "$DIRTY_TRACKED" -eq 1 ] && [ "${ALLOW_DIRTY_UPLOAD:-0}" != "1" ]; then
+  echo "Error: refusing dirty upload. Commit/stash/reset native changes first." >&2
+  git -C "$SCRIPT_DIR" status --porcelain --untracked-files=no -- fedac/native 2>/dev/null >&2 || true
+  echo "Override only for emergencies: ALLOW_DIRTY_UPLOAD=1 ./scripts/upload-release.sh ..." >&2
+  exit 1
+fi
+if [ "$DIRTY_TRACKED" -eq 1 ]; then
   GIT_HASH="${GIT_HASH}-dirty"
 fi
 BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
