@@ -152,6 +152,25 @@
   (clrhash *active-voices*)
   (clrhash *active-notes*))
 
+;;; ── Build metadata ──
+
+(defvar *build-name* "dev" "Build name from /etc/ac-build.")
+(defvar *build-variant* "c" "Build variant: c or cl.")
+
+(defun load-build-metadata ()
+  "Read /etc/ac-build: line 1=name, 2=hash, 3=timestamp, 4=variant."
+  (handler-case
+      (when (probe-file "/etc/ac-build")
+        (with-open-file (s "/etc/ac-build" :direction :input)
+          (let ((name (read-line s nil nil))
+                (hash (read-line s nil nil))
+                (ts (read-line s nil nil))
+                (variant (read-line s nil nil)))
+            (declare (ignore hash ts))
+            (when name (setf *build-name* name))
+            (when variant (setf *build-variant* variant)))))
+    (error () nil)))
+
 ;;; ── Boot splash ──
 
 (defun time-greeting ()
@@ -321,6 +340,7 @@
       (force-output *error-output*)
 
       (font-init)
+      (load-build-metadata)
 
       ;; ── Boot splash ──
       (let* ((cfg (ac-native.config:load-config))
@@ -366,6 +386,14 @@
                   (graph-ink graph (make-color :r 140 :g 160 :b 200 :a 180))
                   (font-draw graph "notepat"
                              (- (floor sw 2) (floor (font-measure "notepat") 2)) (+ cy 18)))))
+            ;; Build name (bottom center)
+            (graph-ink graph (make-color :r 60 :g 60 :b 80 :a 120))
+            (font-draw graph *build-name*
+                       (- (floor sw 2) (floor (font-measure *build-name*) 2)) (- sh 20))
+            ;; LISP tag (top right) when CL variant
+            (when (string= *build-variant* "cl")
+              (graph-ink graph (make-color :r 255 :g 200 :b 80 :a 200))
+              (font-draw graph "LISP" (- sw (font-measure "LISP") 6) 6)))
           (ac-native.drm:drm-present display screen scale)
           (frame-sync-60fps)))
 
