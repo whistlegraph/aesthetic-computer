@@ -1,7 +1,7 @@
 <!--
 ATProto PDS Landing Page for at.aesthetic.computer
-Top 100 Users - Simple flat list design
-Created: 2025.10.25
+Mission statement + Top Users + All Media feed
+2026.03.23
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -9,19 +9,14 @@ Created: 2025.10.25
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>at · Aesthetic Computer</title>
-  <meta name="description" content="Personal Data Server for the Aesthetic Computer community">
+  <meta name="description" content="A self-hosted ATProto Personal Data Server for the Aesthetic Computer community — paintings, moods, code, tapes, papers, and more.">
   <link rel="icon" type="image/png"
     href="https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/painting-2023.7.29.20.39.png">
-  
-  <style>
-    * {
-      box-sizing: border-box;
-    }
 
-    ::-webkit-scrollbar {
-      display: none;
-    }
-    
+  <style>
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { display: none; }
+
     body {
       margin: 0;
       font-size: 14px;
@@ -37,6 +32,9 @@ Created: 2025.10.25
       margin: 0 auto;
       padding: 1em 0.5em;
     }
+
+    a { color: rgb(205, 92, 155); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
     header {
       text-align: center;
@@ -60,7 +58,7 @@ Created: 2025.10.25
 
     #pals-beacon .pals-logo,
     #pals-beacon .pals-logo-pink {
-      width: 100px;
+      width: 80px;
       height: auto;
     }
 
@@ -73,49 +71,14 @@ Created: 2025.10.25
       position: absolute;
       top: 0;
       left: 0;
-      opacity: 1;
-      filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 16px rgba(255, 100, 200, 0.5));
+      opacity: 0.7;
+      filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 8px rgba(255, 100, 200, 0.8));
       animation: pals-idle 2s ease-in-out infinite;
     }
 
-    #pals-beacon:hover .pals-logo {
-      filter: grayscale(100%) opacity(0.1);
-    }
-
-    #pals-beacon:hover .pals-logo-pink {
-      animation: pals-energy 0.4s ease-in-out infinite;
-    }
-
     @keyframes pals-idle {
-      0%, 100% { 
-        transform: rotate(0deg) scale(1);
-        opacity: 0.7;
-        filter: hue-rotate(-30deg) saturate(1.2) brightness(1.1) drop-shadow(0 0 6px rgba(255, 100, 200, 0.5)) drop-shadow(0 0 12px rgba(255, 100, 200, 0.3));
-      }
-      50% { 
-        transform: rotate(-1deg) scale(1.01);
-        opacity: 1;
-        filter: hue-rotate(-30deg) saturate(1.5) brightness(1.2) drop-shadow(0 0 10px rgba(255, 100, 200, 0.8)) drop-shadow(0 0 20px rgba(255, 100, 200, 0.5));
-      }
-    }
-
-    @keyframes pals-energy {
-      0%, 100% { 
-        transform: rotate(0deg) scale(1);
-        filter: drop-shadow(0 0 12px rgba(255, 100, 200, 1)) drop-shadow(0 0 24px rgba(255, 100, 200, 0.7));
-      }
-      25% { 
-        transform: rotate(-4deg) scale(1.05);
-        filter: drop-shadow(0 0 16px rgba(255, 100, 200, 1)) drop-shadow(0 0 32px rgba(255, 100, 200, 0.8));
-      }
-      50% { 
-        transform: rotate(3deg) scale(1.08);
-        filter: drop-shadow(0 0 20px rgba(255, 100, 200, 1)) drop-shadow(0 0 40px rgba(255, 100, 200, 0.9));
-      }
-      75% { 
-        transform: rotate(-2deg) scale(1.04);
-        filter: drop-shadow(0 0 16px rgba(255, 100, 200, 1)) drop-shadow(0 0 32px rgba(255, 100, 200, 0.8));
-      }
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.01); opacity: 1; }
     }
 
     h1 {
@@ -131,12 +94,56 @@ Created: 2025.10.25
       margin: 0.3em 0;
     }
 
+    .mission {
+      margin: 1em auto;
+      max-width: 640px;
+      padding: 1em;
+      background: rgba(205, 92, 155, 0.06);
+      border-radius: 6px;
+      font-size: 0.85em;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .mission p { margin: 0 0 0.6em 0; }
+    .mission p:last-child { margin: 0; }
+
+    .support-links {
+      margin: 0.8em auto 0;
+      max-width: 640px;
+      padding: 0.8em 1em;
+      border: 1px solid rgba(205, 92, 155, 0.35);
+      background: rgba(205, 92, 155, 0.06);
+      border-radius: 6px;
+      font-size: 0.8em;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .support-links p { margin: 0; }
+
+    .lexicons {
+      display: flex;
+      gap: 0.4em;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0.8em 0;
+    }
+
+    .lex-tag {
+      font-size: 0.7em;
+      padding: 0.3em 0.6em;
+      background: rgba(205, 92, 155, 0.1);
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
     .stats {
       display: flex;
       gap: 1em;
       justify-content: center;
       flex-wrap: wrap;
-      margin: 0.5em 0;
+      margin: 0.8em 0;
       font-size: 0.75em;
     }
 
@@ -146,30 +153,38 @@ Created: 2025.10.25
       border-radius: 3px;
     }
 
-    .stat strong {
-      color: rgb(205, 92, 155);
-    }
+    .stat strong { color: rgb(205, 92, 155); }
 
-    .section-title {
-      font-size: 1.2em;
-      font-weight: normal;
-      margin: 1em 0 0.5em 0;
-      padding-bottom: 0.3em;
-      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+    .tabs {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid rgba(205, 92, 155, 0.3);
+      margin: 1em 0 0.5em 0;
     }
 
-    .section-count {
-      font-size: 0.7em;
+    .tab {
+      padding: 0.6em 1.2em;
+      background: none;
+      border: none;
+      font-family: monospace;
+      font-size: 0.9em;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .tab:hover { color: rgb(205, 92, 155); }
+    .tab.active {
       color: rgb(205, 92, 155);
+      border-bottom-color: rgb(205, 92, 155);
       font-weight: bold;
     }
 
-    .search-box {
-      margin: 1em 0;
-    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .search-box { margin: 0.5em 0 1em 0; }
 
     .search-box input {
       font-family: monospace;
@@ -180,18 +195,40 @@ Created: 2025.10.25
       border-radius: 3px;
       outline: none;
       background: white;
-      transition: border-color 0.2s;
     }
 
-    .search-box input:focus {
-      border-color: rgb(205, 92, 155);
-    }
+    .search-box input:focus { border-color: rgb(205, 92, 155); }
 
-    .user-list {
+    .user-filters {
       display: flex;
-      flex-direction: column;
-      gap: 0;
+      gap: 0.45em;
+      flex-wrap: wrap;
+      margin: 0.2em 0 1em 0;
     }
+
+    .user-filter {
+      border: 1px solid rgba(205, 92, 155, 0.25);
+      background: rgba(205, 92, 155, 0.08);
+      color: rgba(0, 0, 0, 0.7);
+      font-family: monospace;
+      font-size: 0.75em;
+      padding: 0.35em 0.55em;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .user-filter.active {
+      background: rgba(205, 92, 155, 0.2);
+      border-color: rgba(205, 92, 155, 0.45);
+      color: rgb(205, 92, 155);
+      font-weight: bold;
+    }
+
+    .user-filter:hover { background: rgba(205, 92, 155, 0.14); }
+
+    /* User list */
+    .user-list { display: flex; flex-direction: column; }
 
     .user-row {
       background: white;
@@ -199,245 +236,137 @@ Created: 2025.10.25
       border-bottom: 1px solid rgba(205, 92, 155, 0.1);
       text-decoration: none;
       color: inherit;
-      transition: all 0.2s;
+      transition: all 0.15s;
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 1em;
     }
 
-    .user-row:first-child {
-      border-radius: 4px 4px 0 0;
-    }
+    .user-row:first-child { border-radius: 4px 4px 0 0; }
+    .user-row:last-child { border-radius: 0 0 4px 4px; border-bottom: none; }
+    .user-row:hover { background: rgba(205, 92, 155, 0.05); padding-left: 1em; }
 
-    .user-row:last-child {
-      border-radius: 0 0 4px 4px;
-      border-bottom: none;
-    }
+    .user-left { display: flex; align-items: center; gap: 0.75em; flex: 1; min-width: 0; }
+    .user-rank { font-size: 0.75em; color: rgba(205, 92, 155, 0.5); font-weight: bold; min-width: 2.5em; text-align: right; }
+    .user-handle { font-weight: bold; color: rgb(205, 92, 155); word-break: break-all; }
+    .user-mood { font-size: 0.75em; color: rgba(0,0,0,0.6); margin-left: 0.5em; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-right { display: flex; gap: 0.5em; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .user-badge { font-size: 0.7em; padding: 0.3em 0.5em; background: rgba(205, 92, 155, 0.1); border-radius: 3px; white-space: nowrap; }
+    .user-total { font-size: 0.75em; color: rgba(0,0,0,0.5); font-weight: bold; min-width: 3em; text-align: right; }
 
-    .user-row:hover {
-      background: rgba(205, 92, 155, 0.05);
-      padding-left: 1em;
+    .user-kidlisp-preview {
+      width: 36px; height: 36px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(205, 92, 155, 0.2);
     }
+    .user-kidlisp-preview img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
 
-    .user-left {
+    /* Media feed */
+    .feed { display: flex; flex-direction: column; gap: 0.4em; }
+
+    .feed-item {
+      background: white;
+      padding: 0.75em;
+      border-radius: 4px;
       display: flex;
       align-items: center;
       gap: 0.75em;
-      flex: 1;
-      min-width: 0;
     }
 
-    .user-kidlisp-preview {
-      width: 36px;
-      height: 36px;
-      border-radius: 6px;
-      overflow: hidden;
+    .feed-type {
+      font-size: 1.2em;
+      width: 2em;
+      text-align: center;
       flex-shrink: 0;
-      border: 1px solid rgba(205, 92, 155, 0.2);
     }
 
-    .user-kidlisp-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      image-rendering: pixelated;
-    }
+    .feed-body { flex: 1; min-width: 0; }
 
-    .user-mood {
-      font-size: 0.75em;
-      color: rgba(0, 0, 0, 0.6);
-      margin-left: 0.5em;
-      max-width: 320px;
+    .feed-title {
+      font-weight: bold;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .user-rank {
+    .feed-meta {
       font-size: 0.75em;
-      color: rgba(205, 92, 155, 0.5);
-      font-weight: bold;
-      min-width: 2.5em;
-      text-align: right;
+      color: rgba(0,0,0,0.5);
+      margin-top: 0.2em;
     }
 
-    .user-handle {
-      font-weight: bold;
-      color: rgb(205, 92, 155);
-      word-break: break-all;
-    }
+    .feed-meta a { color: rgb(205, 92, 155); }
 
-    .user-right {
+    .feed-thumb {
+      width: 48px; height: 48px; border-radius: 4px; overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(205, 92, 155, 0.15);
+    }
+    .feed-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+
+    .loading { text-align: center; padding: 3em 2em; opacity: 0.6; }
+    .error { text-align: center; padding: 3em 2em; color: #d32f2f; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(205, 92, 155, 0.3); border-radius: 50%; border-top-color: rgb(205, 92, 155); animation: spin 1s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .feed-filters {
       display: flex;
       gap: 0.5em;
-      align-items: center;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      margin: 0.5em 0 1em 0;
     }
 
-    .user-badge {
-      font-size: 0.7em;
-      padding: 0.3em 0.5em;
+    .feed-filter {
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+      font-size: 0.8em;
+      cursor: pointer;
+      padding: 0.3em 0.6em;
       background: rgba(205, 92, 155, 0.1);
       border-radius: 3px;
-      white-space: nowrap;
+      user-select: none;
+      transition: opacity 0.15s;
     }
 
-    .user-total {
-      font-size: 0.75em;
-      color: rgba(0, 0, 0, 0.5);
-      font-weight: bold;
-      min-width: 3em;
-      text-align: right;
-    }
+    .feed-filter.off { opacity: 0.35; }
 
-    .loading {
-      text-align: center;
-      padding: 3em 2em;
-      opacity: 0.6;
-    }
+    .feed-filter input { display: none; }
 
-    .error {
-      text-align: center;
-      padding: 3em 2em;
-      color: #d32f2f;
-    }
-
-    .spinner {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(205, 92, 155, 0.3);
-      border-radius: 50%;
-      border-top-color: rgb(205, 92, 155);
-      animation: spin 1s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    footer {
-      text-align: center;
-      padding: 2em 1em 1em;
-      opacity: 0.5;
-      font-size: 0.75em;
-    }
-
-    footer a {
+    .load-more {
+      display: block;
+      margin: 1em auto;
+      padding: 0.6em 1.5em;
+      font-family: monospace;
+      font-size: 0.85em;
+      background: rgba(205, 92, 155, 0.1);
+      border: 1px solid rgba(205, 92, 155, 0.3);
+      border-radius: 4px;
+      cursor: pointer;
       color: rgb(205, 92, 155);
-      text-decoration: none;
     }
+    .load-more:hover { background: rgba(205, 92, 155, 0.2); }
 
-    footer a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 768px) {
-      .user-mood {
-        max-width: 150px;
-      }
-
-      .user-right {
-        gap: 0.3em;
-      }
-
-      .user-badge {
-        font-size: 0.65em;
-        padding: 0.2em 0.4em;
-      }
-    }
+    footer { text-align: center; padding: 2em 1em 1em; opacity: 0.5; font-size: 0.75em; }
 
     @media (max-width: 560px) {
-      .container {
-        padding: 0.5em 0.3em;
-      }
-
-      .user-row {
-        padding: 0.5em;
-        gap: 0.5em;
-      }
-
-      .user-left {
-        gap: 0.5em;
-      }
-
-      .user-handle {
-        font-size: 0.85em;
-      }
-
-      .user-mood {
-        display: none;
-      }
-
-      .user-kidlisp-preview {
-        width: 28px;
-        height: 28px;
-        border-radius: 4px;
-      }
-
-      .user-rank {
-        font-size: 0.65em;
-        min-width: 2em;
-      }
-
-      .user-badge {
-        font-size: 0.6em;
-      }
-
-      .user-total {
-        font-size: 0.65em;
-        min-width: 2.5em;
-      }
+      .user-mood { display: none; }
+      .user-kidlisp-preview { width: 28px; height: 28px; }
+      .user-badge { font-size: 0.6em; }
+      .mission { font-size: 0.8em; padding: 0.8em; }
     }
 
     @media (max-width: 400px) {
-      .user-right {
-        display: none;
-      }
-
-      .user-handle {
-        font-size: 0.8em;
-      }
+      .user-right { display: none; }
     }
 
     @media (prefers-color-scheme: dark) {
-      body {
-        background: rgb(64, 56, 74);
-        color: rgba(255, 255, 255, 0.85);
-      }
-
-      .user-row {
-        background: rgba(255, 255, 255, 0.05);
-        border-bottom-color: rgba(205, 92, 155, 0.2);
-      }
-
-      .user-row:hover {
-        background: rgba(205, 92, 155, 0.1);
-      }
-
-      .search-box input {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.2);
-        color: rgba(255, 255, 255, 0.85);
-      }
-
-      .search-box input:focus {
-        border-color: rgb(205, 92, 155);
-      }
-
-      .user-total {
-        color: rgba(255, 255, 255, 0.5);
-      }
-
-      .user-mood {
-        color: rgba(255, 255, 255, 0.6);
-      }
-
-      .user-kidlisp-preview {
-        border-color: rgba(255, 255, 255, 0.15);
-      }
+      body { background: rgb(64, 56, 74); color: rgba(255, 255, 255, 0.85); }
+      .user-row, .feed-item { background: rgba(255, 255, 255, 0.05); }
+      .user-row:hover, .feed-item:hover { background: rgba(205, 92, 155, 0.1); }
+      .search-box input { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.85); }
+      .user-total, .feed-meta { color: rgba(255, 255, 255, 0.5); }
+      .user-mood { color: rgba(255, 255, 255, 0.6); }
+      .mission { background: rgba(205, 92, 155, 0.1); }
     }
   </style>
 </head>
@@ -445,100 +374,198 @@ Created: 2025.10.25
 <body>
   <div class="container">
     <header>
-      <a id="pals-beacon" href="https://aesthetic.computer" target="_blank" aria-label="Aesthetic Computer">
+      <a id="pals-beacon" href="https://at.aesthetic.computer" aria-label="at.aesthetic.computer">
         <div class="pals-logo-container">
           <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo">
           <img src="https://aesthetic.computer/purple-pals.svg" alt="" class="pals-logo-pink">
         </div>
       </a>
       <h1>at.aesthetic.computer</h1>
-      <div class="subtitle">Personal Data Server · ATProto Network</div>
+      <div class="subtitle">Self-Hosted ATProto Personal Data Server</div>
+
+      <div class="mission">
+        <p>This is the federated data layer for <a href="https://aesthetic.computer">Aesthetic Computer</a> &mdash; a mobile-first runtime and social network for creative computing.</p>
+        <p>Every painting, mood, tape, piece of code, and paper created on AC is stored here as an open ATProto record, addressable by anyone on the network. Your data lives on infrastructure we operate, not on a platform you don't control.</p>
+      </div>
+
+      <div class="support-links">
+        <p>Learn about operating costs at <a href="https://bills.aesthetic.computer" target="_blank">bills.aesthetic.computer</a>. Help fund infrastructure at <a href="https://give.aesthetic.computer" target="_blank">give.aesthetic.computer</a> to keep the network free and open source.</p>
+      </div>
+
+      <div class="lexicons">
+        <span class="lex-tag">painting</span>
+        <span class="lex-tag">mood</span>
+        <span class="lex-tag">kidlisp</span>
+        <span class="lex-tag">piece</span>
+        <span class="lex-tag">tape</span>
+        <span class="lex-tag">news</span>
+        <span class="lex-tag">paper</span>
+      </div>
+
       <div class="stats">
         <div class="stat"><strong id="total-users">...</strong> users</div>
         <div class="stat"><strong id="total-records">...</strong> records</div>
-        <div class="stat"><strong id="active-today">...</strong> active today</div>
-      </div>
-      <div style="margin-top: 1em; padding: 0.75em; background: rgba(205, 92, 155, 0.1); border-radius: 4px;">
-        <a href="https://art.at.aesthetic.computer" target="_blank" style="color: rgb(205, 92, 155); text-decoration: none; font-size: 0.9em;">
-          🎨 Anonymously recorded tapes and other media at art.at.aesthetic.computer →
-        </a>
+        <div class="stat"><strong id="active-users">...</strong> active</div>
       </div>
     </header>
 
-    <div class="section-title">
-      <span>🌟 Top Users</span>
-      <span class="section-count" id="showing-count">...</span>
+    <div class="tabs">
+      <button class="tab" data-tab="users">Top Handles</button>
+      <button class="tab active" data-tab="feed">All Media</button>
     </div>
 
-    <div class="search-box">
-      <input 
-        type="text" 
-        id="search" 
-        placeholder="Search by handle..."
-        autocomplete="off"
-      >
+    <!-- Top Users -->
+    <div class="tab-panel" id="panel-users">
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Search by handle..." autocomplete="off">
+      </div>
+      <div class="user-filters" id="user-filters"></div>
+      <div id="users-container">
+        <div class="loading"><div class="spinner"></div><p>Loading users...</p></div>
+      </div>
     </div>
 
-    <div id="users-container">
-      <div class="loading">
-        <div class="spinner"></div>
-        <p>Loading users...</p>
+    <!-- All Media Feed -->
+    <div class="tab-panel active" id="panel-feed">
+      <div class="feed-filters" id="feed-filters"></div>
+      <div id="feed-container">
+        <div class="loading"><div class="spinner"></div><p>Loading media...</p></div>
       </div>
     </div>
 
     <footer>
       <p>
-        Powered by <a href="https://atproto.com" target="_blank">AT Protocol</a> · 
-        Part of the <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a> network
+        Powered by <a href="https://atproto.com" target="_blank">AT Protocol</a> ·
+        <a href="https://aesthetic.computer" target="_blank">Aesthetic Computer</a> ·
+        <a href="https://art.at.aesthetic.computer" target="_blank">Guest Art</a> ·
+        <a href="https://papers.aesthetic.computer" target="_blank">Papers</a>
       </p>
+      <p>mail@aesthetic.computer</p>
     </footer>
   </div>
 
+  <script src="/media-modal.js"></script>
+  <script src="/media-records.js"></script>
   <script>
     const API_URL = 'https://aesthetic.computer';
-    
-    let allUsers = [];
-    let displayedUsers = [];
+    const PDS_URL = 'https://at.aesthetic.computer';
+    const COLLECTIONS = [
+      { id: 'computer.aesthetic.painting', icon: '🎨', label: 'painting' },
+      { id: 'computer.aesthetic.mood', icon: '💬', label: 'mood' },
+      { id: 'computer.aesthetic.kidlisp', icon: '📝', label: 'kidlisp' },
+      { id: 'computer.aesthetic.piece', icon: '🧩', label: 'piece' },
+      { id: 'computer.aesthetic.tape', icon: '📼', label: 'tape' },
+      { id: 'computer.aesthetic.news', icon: '📰', label: 'news' },
+      { id: 'computer.aesthetic.paper', icon: '📄', label: 'paper' },
+    ];
 
-    // Fetch user stats from aesthetic.computer API (aggregated from MongoDB)
+    const COLLECTION_BY_LABEL = Object.fromEntries(COLLECTIONS.map(c => [c.label, c.id]));
+
+    let allUsers = [];
+    let feedLoaded = false;
+    let activeUserCollection = 'all';
+    let userSearchQuery = '';
+    let didToHandle = new Map();
+
+    function normalizeHandle(value) {
+      return String(value || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/\.at\.aesthetic\.computer$/i, '')
+        .toLowerCase();
+    }
+
+    function formatDid(did) {
+      if (!did) return 'unknown';
+      return did.length > 24 ? `${did.slice(0, 20)}...` : did;
+    }
+
+    function userMatchesQuery(user, query) {
+      if (!query) return true;
+      const fields = [
+        user.handle,
+        user.code,
+        normalizeHandle(user.handle),
+        normalizeHandle(user.code),
+      ];
+      return fields.some(v => String(v || '').toLowerCase().includes(query));
+    }
+
+    function getFilteredUsers() {
+      let users = allUsers;
+      if (activeUserCollection !== 'all') {
+        const colId = COLLECTION_BY_LABEL[activeUserCollection];
+        users = users.filter(user => (user.collections || []).includes(colId));
+      }
+      const q = normalizeHandle(userSearchQuery);
+      if (q) users = users.filter(user => userMatchesQuery(user, q));
+      return users;
+    }
+
+    function renderFilteredUsers() {
+      renderUsers(getFilteredUsers());
+    }
+
+    function buildUserFilters() {
+      const el = document.getElementById('user-filters');
+      if (!el) return;
+
+      const filters = [{ label: 'all', icon: '⭐' }, ...COLLECTIONS];
+      el.innerHTML = filters
+        .map(f => `<button class="user-filter ${f.label === activeUserCollection ? 'active' : ''}" data-label="${f.label}">${f.icon} ${f.label}</button>`)
+        .join('');
+
+      el.querySelectorAll('.user-filter').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeUserCollection = btn.dataset.label;
+          buildUserFilters();
+          renderFilteredUsers();
+        });
+      });
+    }
+
+    function repoLabelForItem(item) {
+      if (item._handle) return item._handle;
+      const repo = item.uri ? item.uri.split('/')[2] : item._did;
+      if (!repo) return 'unknown';
+      if (repo.startsWith('did:')) return formatDid(repo);
+      return `@${normalizeHandle(repo)}`;
+    }
+
+    // --- Tabs ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'feed' && !feedLoaded) loadFeed();
+      });
+    });
+
+    // --- Users Tab ---
     async function fetchUsers() {
       try {
         const response = await fetch(`${API_URL}/.netlify/functions/atproto-user-stats?limit=100`);
         const data = await response.json();
-        
-        if (!data.users || !Array.isArray(data.users)) {
-          throw new Error('Invalid response from API');
-        }
-
+        if (!data.users) throw new Error('Invalid response');
         allUsers = data.users;
-        displayedUsers = allUsers;
-        
-        // Update stats from API
+
         if (data.stats) {
           document.getElementById('total-users').textContent = data.stats.totalUsers.toLocaleString();
           document.getElementById('total-records').textContent = data.stats.totalRecords.toLocaleString();
-          document.getElementById('active-today').textContent = data.stats.activeUsers.toLocaleString();
+          document.getElementById('active-users').textContent = data.stats.activeUsers.toLocaleString();
         }
-        
-        renderUsers(displayedUsers);
+        buildUserFilters();
+        renderFilteredUsers();
       } catch (error) {
-        console.error('Error fetching users:', error);
-        document.getElementById('users-container').innerHTML = 
-          '<div class="error">Failed to load users. Try refreshing the page.</div>';
+        document.getElementById('users-container').innerHTML = '<div class="error">Failed to load users.</div>';
       }
     }
 
-    // Render user list (flat, top 100 style)
     function renderUsers(users) {
       const container = document.getElementById('users-container');
-      
-      if (users.length === 0) {
-        container.innerHTML = '<div class="loading">No users found</div>';
-        document.getElementById('showing-count').textContent = '0 users';
-        return;
-      }
-
-      document.getElementById('showing-count').textContent = `${users.length} user${users.length !== 1 ? 's' : ''}`;
+      if (!users.length) { container.innerHTML = '<div class="loading">No users found</div>'; return; }
 
       const list = document.createElement('div');
       list.className = 'user-list';
@@ -546,57 +573,43 @@ Created: 2025.10.25
       users.forEach((user, index) => {
         const row = document.createElement('a');
         row.className = 'user-row';
-        
-        // Use the actual handle if available, otherwise use the code
         const identifier = user.handle || user.code;
-        const shortHandle = identifier.replace('.at.aesthetic.computer', '').replace('@', '');
+        const shortHandle = normalizeHandle(identifier);
         row.href = `https://${shortHandle}.at.aesthetic.computer`;
         row.target = '_blank';
 
-        // Build badges
         const badges = [];
-        if (user.collections.includes('computer.aesthetic.painting')) {
-          const count = user.recordCounts['computer.aesthetic.painting'] || 0;
-          badges.push(`<span class="user-badge">🎨 ${count}</span>`);
-        }
-        if (user.collections.includes('computer.aesthetic.mood')) {
-          const count = user.recordCounts['computer.aesthetic.mood'] || 0;
-          badges.push(`<span class="user-badge">💬 ${count}</span>`);
-        }
-        if (user.collections.includes('computer.aesthetic.piece')) {
-          const count = user.recordCounts['computer.aesthetic.piece'] || 0;
-          badges.push(`<span class="user-badge">🎵 ${count}</span>`);
-        }
-        if (user.collections.includes('computer.aesthetic.kidlisp')) {
-          const count = user.recordCounts['computer.aesthetic.kidlisp'] || 0;
-          badges.push(`<span class="user-badge">📝 ${count}</span>`);
-        }
-        if (user.collections.includes('computer.aesthetic.tape')) {
-          const count = user.recordCounts['computer.aesthetic.tape'] || 0;
-          badges.push(`<span class="user-badge">📼 ${count}</span>`);
+        const badgeMap = {
+          'computer.aesthetic.painting': '🎨',
+          'computer.aesthetic.mood': '💬',
+          'computer.aesthetic.piece': '🧩',
+          'computer.aesthetic.kidlisp': '📝',
+          'computer.aesthetic.tape': '📼',
+        };
+        for (const [col, emoji] of Object.entries(badgeMap)) {
+          if ((user.collections || []).includes(col)) {
+            badges.push(`<span class="user-badge">${emoji} ${user.recordCounts[col] || 0}</span>`);
+          }
         }
 
         const displayHandle = user.isUserCode ? shortHandle : `@${shortHandle}`;
-        const moodText = user.latestMood ? user.latestMood.replace(/\s+/g, ' ').trim() : '';
-        const moodPreview = moodText ? `“${moodText}”` : '';
-        const kidlispCode = user.latestKidlispCode || '';
-        const kidlispPreview = kidlispCode
-          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${kidlispCode}?duration=2000&fps=8&quality=70&density=1&nowait=true" alt="${displayHandle} KidLisp preview" loading="lazy"></div>`
+        const mood = user.latestMood ? `"${user.latestMood.replace(/\s+/g, ' ').trim()}"` : '';
+        const klCode = user.latestKidlispCode || '';
+        const klPreview = klCode
+          ? `<div class="user-kidlisp-preview"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${klCode}?duration=2000&fps=8&quality=70&density=1&nowait=true" alt="" loading="lazy"></div>`
           : '';
 
         row.innerHTML = `
           <div class="user-left">
             <div class="user-rank">#${index + 1}</div>
-            ${kidlispPreview}
+            ${klPreview}
             <div class="user-handle">${displayHandle}</div>
-            ${moodPreview ? `<div class="user-mood">${moodPreview}</div>` : ''}
+            ${mood ? `<div class="user-mood">${mood}</div>` : ''}
           </div>
           <div class="user-right">
-            <div class="user-badges">${badges.join('')}</div>
+            ${badges.join('')}
             <div class="user-total">${user.totalRecords}</div>
-          </div>
-        `;
-
+          </div>`;
         list.appendChild(row);
       });
 
@@ -604,48 +617,219 @@ Created: 2025.10.25
       container.appendChild(list);
     }
 
-    // Search functionality
     document.getElementById('search').addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase();
-      
-      if (!query) {
-        displayedUsers = allUsers;
-      } else {
-        displayedUsers = allUsers.filter(user => {
-          const handle = (user.handle || user.code).toLowerCase();
-          return handle.includes(query);
-        });
-      }
-      
-      renderUsers(displayedUsers);
+      userSearchQuery = e.target.value || '';
+      renderFilteredUsers();
     });
 
-    // Auto-refresh placeholder images after they load (placeholders have no-cache header)
-    // We can detect baking placeholders because they're much smaller and have SVG text content
-    document.addEventListener('load', (e) => {
-      if (e.target.tagName === 'IMG' && e.target.src.includes('nowait=true')) {
-        // Placeholder images are very small (~2-5KB), real WebPs are larger
-        // Retry loading after a delay to get the real image
-        const img = e.target;
-        const naturalSize = img.naturalWidth * img.naturalHeight;
-        
-        // Small placeholder-like images should retry
-        if (naturalSize > 0 && !img.dataset.retried) {
-          // Schedule a retry after 10-15 seconds
-          const retryDelay = 10000 + Math.random() * 5000;
-          setTimeout(() => {
-            img.dataset.retried = 'true';
-            // Bust the cache by adding a timestamp
-            const url = new URL(img.src);
-            url.searchParams.set('t', Date.now());
-            img.src = url.toString();
-          }, retryDelay);
-        }
-      }
-    }, true);
+    // --- All Media Feed ---
+    let allFeedItems = [];
+    let activeFilters = new Set(COLLECTIONS.map(c => c.label));
 
-    // Initialize
-    fetchUsers();
+    function timeAgo(dateStr) {
+      const now = Date.now();
+      const then = new Date(dateStr).getTime();
+      const sec = Math.floor((now - then) / 1000);
+      if (sec < 60) return 'just now';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return `${min}m ago`;
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return `${hr}h ago`;
+      const days = Math.floor(hr / 24);
+      if (days < 30) return `${days}d ago`;
+      if (days < 365) {
+        const months = Math.floor(days / 30);
+        return `${months}mo ago`;
+      }
+      const years = Math.floor(days / 365);
+      return `${years}y ago`;
+    }
+
+    const mediaRecords = window.ACMediaRecords || {};
+    const normalizeExternalLink = mediaRecords.normalizeLink || ((link) => String(link || '').trim());
+    const escapeHtml = mediaRecords.escapeHtml || ((value) => String(value ?? ''));
+    const buildFeedModalPayload = mediaRecords.buildFeedModalPayload
+      || ((item, col, repoLabel, ago, title, primaryLink) => ({
+        title: `${col.icon} ${title || col.label}`,
+        subtitle: `${col.label} · ${ago || 'recent'} · ${repoLabel || 'unknown'}`,
+        bodyHtml: `<pre>${escapeHtml(JSON.stringify(item, null, 2))}</pre>`,
+        iframeUrl: normalizeExternalLink(primaryLink),
+        actions: [],
+      }));
+
+    function buildFilters() {
+      const el = document.getElementById('feed-filters');
+      el.innerHTML = COLLECTIONS.map(col =>
+        `<label class="feed-filter" data-col="${col.label}">
+          <input type="checkbox" checked> ${col.icon} ${col.label}
+        </label>`
+      ).join('');
+      el.querySelectorAll('.feed-filter').forEach(label => {
+        label.addEventListener('click', (e) => {
+          e.preventDefault();
+          const col = label.dataset.col;
+          if (activeFilters.has(col)) { activeFilters.delete(col); label.classList.add('off'); }
+          else { activeFilters.add(col); label.classList.remove('off'); }
+          renderFeed(allFeedItems, document.getElementById('feed-container'));
+        });
+      });
+    }
+
+    async function loadFeed() {
+      feedLoaded = true;
+      const container = document.getElementById('feed-container');
+      buildFilters();
+      didToHandle = new Map();
+
+      try {
+        // Use top users' DIDs from already-loaded data (avoids extra listRepos call)
+        // Fall back to listRepos if users haven't loaded yet
+        let dids = [];
+        if (allUsers.length > 0) {
+          // Get unique user IDs, resolve to DIDs via the users data
+          const seen = new Set();
+          for (const u of allUsers.slice(0, 15)) {
+            const handle = normalizeHandle(u.handle || u.code || '');
+            if (handle && !seen.has(handle)) {
+              seen.add(handle);
+            }
+          }
+          // Resolve handles to DIDs
+          const resolves = await Promise.allSettled(
+            [...seen].map(h =>
+              fetch(`${PDS_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(h + '.at.aesthetic.computer')}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                  if (d?.did) didToHandle.set(d.did, `@${h}`);
+                  return d?.did;
+                })
+            )
+          );
+          dids = resolves.map(r => r.value).filter(Boolean);
+        }
+
+        if (dids.length === 0) {
+          const reposRes = await fetch(`${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=15`);
+          const reposData = await reposRes.json();
+          const repos = reposData.repos || [];
+          dids = repos.map(r => r.did);
+          for (const repo of repos) {
+            const handle = normalizeHandle(repo.handle || '');
+            if (repo.did && handle) didToHandle.set(repo.did, `@${handle}`);
+          }
+        }
+
+        // Fire ALL requests in parallel: dids × collections
+        const fetches = [];
+        for (const did of dids.slice(0, 12)) {
+          for (const col of COLLECTIONS) {
+            fetches.push(
+              fetch(`${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(col.id)}&limit=5&reverse=true`)
+                .then(r => r.ok ? r.json() : { records: [] })
+                .then(data => (data.records || []).map(rec => ({ ...rec.value, uri: rec.uri, _col: col, _did: did, _handle: didToHandle.get(did) || '' })))
+                .catch(() => [])
+            );
+          }
+        }
+
+        const results = await Promise.all(fetches);
+        allFeedItems = results.flat();
+
+        // Sort reverse chrono
+        allFeedItems.sort((a, b) => new Date(b.when || b.createdAt || 0) - new Date(a.when || a.createdAt || 0));
+
+        renderFeed(allFeedItems, container);
+      } catch (error) {
+        container.innerHTML = '<div class="error">Failed to load media feed.</div>';
+      }
+    }
+
+    function renderFeed(items, container) {
+      const filtered = items.filter(item => activeFilters.has(item._col.label));
+      if (!filtered.length) { container.innerHTML = '<div class="loading">No media found</div>'; return; }
+
+      const feed = document.createElement('div');
+      feed.className = 'feed';
+
+      for (const item of filtered.slice(0, 150)) {
+        const el = document.createElement('div');
+        el.className = 'feed-item';
+
+        const col = item._col;
+        const when = item.when || item.createdAt;
+        const ago = when ? timeAgo(when) : '';
+        const repoLabel = repoLabelForItem(item);
+
+        let title = '';
+        let thumb = '';
+        let link = '';
+
+        switch (col.label) {
+          case 'painting':
+            title = item.slug || item.code || 'Untitled';
+            link = item.imageUrl || `https://aesthetic.computer/#${item.code}`;
+            if (item.code) thumb = `<div class="feed-thumb"><img src="https://aesthetic.computer/media/paintings/${item.code}" loading="lazy" alt=""></div>`;
+            break;
+          case 'mood':
+            title = item.mood || '';
+            break;
+          case 'kidlisp':
+            title = item.source ? item.source.slice(0, 80) : (item.code || '');
+            if (item.code) {
+              link = item.acUrl || `https://aesthetic.computer/$${item.code}`;
+              thumb = `<div class="feed-thumb"><img src="https://oven.aesthetic.computer/grab/webp/100/100/$${item.code}?duration=1000&fps=4&quality=60&density=1&nowait=true" loading="lazy" alt=""></div>`;
+            }
+            break;
+          case 'piece':
+            title = item.slug || 'Untitled piece';
+            break;
+          case 'tape':
+            title = item.code || item.slug || 'Tape';
+            link = item.acUrl || `https://aesthetic.computer/!${item.code}`;
+            break;
+          case 'news':
+            title = item.headline || '';
+            link = normalizeExternalLink(item.link || item.url || '');
+            break;
+          case 'paper':
+            title = item.title || '';
+            link = normalizeExternalLink(item.pdfUrl || '');
+            break;
+        }
+
+        const titleHtml = escapeHtml(title || '(untitled)');
+        const modalPayload = buildFeedModalPayload(item, col, repoLabel, ago, title, link);
+
+        el.innerHTML = `
+          <div class="feed-type">${col.icon}</div>
+          ${thumb}
+          <div class="feed-body">
+            <div class="feed-title">${titleHtml}</div>
+            <div class="feed-meta">${col.label} · ${ago} · ${repoLabel}</div>
+          </div>`;
+        el.style.cursor = 'pointer';
+        el.setAttribute('role', 'button');
+        el.tabIndex = 0;
+        el.addEventListener('click', () => {
+          if (window.ACMediaModal?.open) window.ACMediaModal.open(modalPayload);
+        });
+        el.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (window.ACMediaModal?.open) window.ACMediaModal.open(modalPayload);
+          }
+        });
+        feed.appendChild(el);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(feed);
+    }
+
+    // Init
+    fetchUsers().finally(() => {
+      if (!feedLoaded) loadFeed();
+    });
   </script>
 </body>
 </html>
