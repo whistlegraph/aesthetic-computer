@@ -363,8 +363,8 @@ async function runBuildJob(job) {
     // Pre-build: prune stopped containers and dangling images to avoid disk-full failures
     addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
     try {
-      await runPhase(job, "prune", "docker", [
-        "system", "prune", "-af", "--filter", "until=1h",
+      await runPhase(job, "prune", "bash", ["-c",
+        "docker container prune -f && docker builder prune -af --filter until=30m",
       ], repoDir);
     } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
 
