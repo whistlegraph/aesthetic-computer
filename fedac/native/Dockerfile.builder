@@ -51,8 +51,7 @@ RUN mkdir -p /cache && cd /cache \
 RUN npm install -g esbuild
 
 # ── Install Claude Code CLI (native binary) ──
-RUN npm install -g @anthropic-ai/claude-code 2>/dev/null \
-    && claude --version 2>/dev/null \
+RUN curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null \
     && CLAUDE_BIN=$(find /root/.local/share/claude/versions -type f 2>/dev/null | sort -V | tail -1) \
     && if [ -n "$CLAUDE_BIN" ]; then cp "$CLAUDE_BIN" /usr/local/bin/claude-native && chmod +x /usr/local/bin/claude-native; fi \
     || echo "Claude Code install skipped (non-fatal)"
