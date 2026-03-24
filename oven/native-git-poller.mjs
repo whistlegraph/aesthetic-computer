@@ -11,7 +11,7 @@ import { execFile } from "child_process";
 import { promises as fs } from "fs";
 import path from "path";
 
-const POLL_INTERVAL_MS = parseInt(process.env.NATIVE_POLL_INTERVAL_MS || "60000", 10);
+const POLL_INTERVAL_MS = parseInt(process.env.NATIVE_POLL_INTERVAL_MS || "0", 10);
 const GIT_REPO_DIR = process.env.NATIVE_GIT_DIR || "/opt/oven/native-git";
 const BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
 const HASH_FILE = path.join(GIT_REPO_DIR, ".last-built-hash");
@@ -148,6 +148,11 @@ export function startPoller({ startNativeBuild, addServerLog, nativeDir }) {
   }
 
   // Check that GIT_REPO_DIR exists before starting
+  if (POLL_INTERVAL_MS <= 0) {
+    logFn("info", "🛑", "Native git poller disabled (NATIVE_POLL_INTERVAL_MS=0). Use manual POST /native-build to trigger.");
+    return;
+  }
+
   fs.access(GIT_REPO_DIR)
     .then(() => {
       logFn(
