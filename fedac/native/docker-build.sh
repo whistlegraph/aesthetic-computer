@@ -346,6 +346,7 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         -I"$QJSDIR" "$BUILD/libquickjs.so" -lm 2>&1 || { err "shim build failed"; exit 1; }
 
     # Build CL binary with SBCL
+    export LD_LIBRARY_PATH="$BUILD:${LD_LIBRARY_PATH:-}"
     sbcl --non-interactive \
         --eval '(load "/opt/quicklisp/setup.lisp")' \
         --eval '(require :asdf)' \
