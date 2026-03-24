@@ -188,6 +188,7 @@ function makeSnapshot(job, opts = {}) {
     exitCode: job.exitCode,
     error: job.error,
     buildName: job.buildName || null,
+    variant: job.variant || "c",
     commitMsg: job.commitMsg || null,
     logCount: job.logs.length,
     elapsedMs: job.startedAt

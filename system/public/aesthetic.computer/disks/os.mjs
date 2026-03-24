@@ -468,8 +468,8 @@ function paint($) {
   // --- ACTIVE BUILD ---
   if (activeBuild) {
     const rawStage = activeBuild.stage || "starting";
-    const isCLBuild = rawStage.startsWith("cl-");
-    const buildVariant = isCLBuild ? "Common Lisp" : "C";
+    const isCLBuild = rawStage.startsWith("cl-") || activeBuild.variant === "cl";
+    const buildVariant = activeBuild.variant === "both" ? "C + CL" : isCLBuild ? "Common Lisp" : "C";
     const logH = buildLogLines.length * (matrixH + 1) + 8;
     sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120 + logH);
 
