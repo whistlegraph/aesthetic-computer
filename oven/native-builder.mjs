@@ -432,10 +432,10 @@ async function runBuildJob(job) {
         addLogLine(job, "stdout", "Phase 5: Building Common Lisp variant...");
         const clCidFile = `/tmp/oven-cl-cid-${job.id}`;
         const clVmlinuzOut = `/tmp/oven-cl-vmlinuz-${job.id}`;
-        const clBuildName = `cl-${job.ref.slice(0, 7)}`;
+        const clBuildName = job.buildName || `cl-${job.ref.slice(0, 7)}`;
 
         await runPhase(job, "cl-build", "bash", ["-c", [
-          `CID=$(docker create -e AC_BUILD_NAME=${clBuildName} -e AC_BUILD_LISP=1 ac-os-builder)`,
+          `CID=$(docker create -e AC_BUILD_NAME=${clBuildName} -e AC_BUILD_VARIANT=cl -e AC_BUILD_LISP=1 ac-os-builder)`,
           `echo $CID > ${clCidFile}`,
           `docker start -a $CID`,
         ].join(" && ")], repoDir);
