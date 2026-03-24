@@ -738,4 +738,4 @@
         (fb-destroy screen)
         (ac-native.drm:drm-destroy display)
         (format *error-output* "[notepat] shutdown~%")
-        (force-output *error-output*)))))
+        (force-output *error-output*))))
