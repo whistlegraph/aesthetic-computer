@@ -400,6 +400,8 @@ async function runBuildJob(job) {
     job.percent = 80;
 
     // Phase 4: Upload vmlinuz + ISO to DO Spaces CDN
+    // Place ISO next to vmlinuz so upload-release.sh finds it as a sibling
+    // and uploads both with the same build name (no separate --iso call).
     addLogLine(job, "stdout", "Phase 4: Uploading to CDN...");
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
     const uploadEnv = {
@@ -407,20 +409,16 @@ async function runBuildJob(job) {
       DO_SPACES_SECRET:
         process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
     };
-    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzOut], NATIVE_DIR, uploadEnv);
-
-    // Upload ISO if it was generated
-    try {
-      await fs.access(isoOut);
-      addLogLine(job, "stdout", "  Uploading ISO...");
-      await runPhase(job, "upload-iso", "bash", ["-c",
-        `${uploadScript} --iso ${isoOut}`
-      ], NATIVE_DIR, uploadEnv);
-    } catch { addLogLine(job, "stdout", "  No ISO generated — skipping"); }
+    const uploadDir = `/tmp/oven-upload-${job.id}`;
+    const vmlinuzUpload = `${uploadDir}/vmlinuz`;
+    const isoUpload = `${uploadDir}/ac-os.iso`;
+    await fs.mkdir(uploadDir, { recursive: true });
+    await fs.rename(vmlinuzOut, vmlinuzUpload);
+    try { await fs.rename(isoOut, isoUpload); } catch {}
+    await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 
     // Cleanup C build
-    try { await fs.unlink(vmlinuzOut); } catch {}
-    try { await fs.unlink(isoOut); } catch {}
+    try { await fs.rm(uploadDir, { recursive: true }); } catch {}
     try { await fs.unlink(cidFile); } catch {}
 
     job.percent = 85;
