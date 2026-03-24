@@ -515,44 +515,51 @@
       pointer-events: none;
     }
     .album-row > * { position: relative; z-index: 1; }
+    .album-row > .album-bar { z-index: 0; }
     .album-row:hover::before {
       background: linear-gradient(90deg, var(--bg3) 0%, rgba(34, 30, 48, 0.85) 40%, rgba(34, 30, 48, 0.5) 100%);
+    }
+    .album-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      border-radius: 0;
+      background: var(--blue);
+      opacity: 0.35;
+      transition: width 0.3s ease;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .album-row:first-child .album-bar {
+      background: var(--gold);
     }
     .album-rank {
       font-size: 18px;
       min-width: 28px;
       text-align: center;
+      font-weight: 900;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
     .album-name {
       font-family: var(--font-fun);
       font-size: 18px;
-      font-weight: 700;
+      font-weight: 900;
       color: var(--text);
-      flex-shrink: 0;
-    }
-    .album-bar-wrap {
       flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
       min-width: 0;
-    }
-    .album-bar {
-      height: 20px;
-      border-radius: 4px;
-      background: var(--blue);
-      transition: width 0.3s ease;
-      min-width: 4px;
-    }
-    .album-row:first-child .album-bar {
-      background: var(--gold);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
     .album-count {
       font-family: var(--font-mono);
-      font-size: 14px;
-      color: var(--text2);
-      font-weight: 700;
+      font-size: 16px;
+      color: var(--text);
+      font-weight: 900;
       flex-shrink: 0;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.7);
     }
     .album-tokens {
       display: none;
@@ -1044,11 +1051,9 @@
       const medal = i === 0 ? '\uD83E\uDD47' : i === 1 ? '\uD83E\uDD48' : i === 2 ? '\uD83E\uDD49' : `${i + 1}`;
       return `<div class="album-entry">
         <div class="album-row" data-idx="${i}" style="${rowBg}">
+          <div class="album-bar" style="width:${pct}%"></div>
           <div class="album-rank">${medal}</div>
           <div class="album-name">${name}</div>
-          <div class="album-bar-wrap">
-            <div class="album-bar" style="width:${pct}%"></div>
-          </div>
           <div class="album-count">${album.tokens.length}</div>
         </div>
         <div class="album-tokens" data-idx="${i}">

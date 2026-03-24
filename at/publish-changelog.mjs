@@ -353,7 +353,16 @@ async function main() {
 
   const items = markdownToBlocks(body);
   const path = slugify(title);
-  const now = new Date().toISOString();
+  // Use timezone offset format (+00:00) instead of Z — matches pckt.blog UI
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
+
+  const textContent = items
+    .map((b) => b.plaintext || "")
+    .filter(Boolean)
+    .join("\n\n");
+
+  // Description: first 150 chars of plain text
+  const description = textContent.slice(0, 150);
 
   console.log(`Publishing to change.pckt.blog...`);
   console.log(`  Title: ${title}`);
@@ -367,17 +376,16 @@ async function main() {
     $type: "site.standard.document",
     site: PUBLICATION_URI,
     title,
+    description,
     path,
     publishedAt: now,
+    updatedAt: now,
     content: {
       $type: "blog.pckt.content",
       items,
     },
-    textContent: items
-      .map((b) => b.plaintext || "")
-      .filter(Boolean)
-      .join("\n\n"),
-    tags: ["changelog"],
+    textContent,
+    tags: [],
   };
 
   const res = await agent.com.atproto.repo.createRecord({
@@ -389,7 +397,7 @@ async function main() {
   console.log(`\nPublished!`);
   console.log(`  URI: ${res.data.uri}`);
   console.log(`  CID: ${res.data.cid}`);
-  console.log(`  URL: https://change.pckt.blog${path}`);
+  console.log(`  URL: https://pckt.blog/b/change${path}`);
 }
 
 main().catch((err) => {
