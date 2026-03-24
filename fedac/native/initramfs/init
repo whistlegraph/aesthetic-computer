@@ -65,9 +65,24 @@ done
 
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
+
+# Debug: log binary type and environment before launch
+{
+    echo "=== PRE-LAUNCH DEBUG ==="
+    echo "binary: $(file /ac-native 2>/dev/null || echo 'file cmd missing')"
+    echo "ldd: $(ldd /ac-native 2>&1 | head -10)"
+    echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+    echo "ls /lib64/libquickjs*: $(ls /lib64/libquickjs* 2>/dev/null || echo 'none')"
+    echo "ac-build: $(cat /etc/ac-build 2>/dev/null || echo 'none')"
+    echo "proc: $(ls /proc/self/maps 2>/dev/null && echo OK || echo MISSING)"
+    echo "shm: $(mount | grep shm || echo 'no shm')"
+    echo "========================"
+} > /mnt/pre-launch.log 2>&1
+sync
+
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs
+    /ac-native /piece.mjs 2>/mnt/stderr.log
     EXIT_CODE=$?
 
     # Clean exit (0) = shutdown requested
