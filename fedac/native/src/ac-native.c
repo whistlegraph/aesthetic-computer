@@ -1313,9 +1313,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         ac_log("[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
                 log_dev, boot_blk, is_removable(boot_blk), show_install);
     } else if (getpid() == 1) {
-        // No log_dev — fallback: show if not installed
-        show_install = !is_installed_on_hd();
-        ac_log("[boot-anim] no log_dev, show_install=%d (fallback)\n", show_install);
+        // No log_dev yet — always show install option (user can update or fresh install)
+        show_install = 1;
+        ac_log("[boot-anim] no log_dev, show_install=1 (always offer)\n");
     }
 
     // Open evdev fds once for key checking (avoid per-frame open/close)
