@@ -975,8 +975,8 @@
     if (currentTab === 'albums') return renderAlbumsGrid();
 
     grid.classList.remove('sold-grid', 'albums-grid');
-    // Sort by price ascending by default
-    const sorted = [...listings].sort((a, b) => Number(a.price_xtz) - Number(b.price_xtz) || Number(a.token?.token_id || 0) - Number(b.token?.token_id || 0));
+    // Sort by most recently listed first
+    const sorted = [...listings].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     if (!sorted.length) {
       grid.innerHTML = '<div class="loading">No active listings</div>';
       return;
