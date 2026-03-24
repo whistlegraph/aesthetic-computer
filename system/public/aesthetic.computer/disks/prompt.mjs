@@ -5790,109 +5790,38 @@ function paint($) {
       color: $.hud.currentStatusColor() || [255, 0, 200],
     });
 
-    // 💻 Wireframe laptop / pizza-box (two hinged halves, centered behind login)
+    // Spinning wireframe cube
     {
       const cx = screen.width / 2;
       const cy = screen.height / 2;
-      const size = min(screen.width, screen.height) * 0.2;
+      const size = min(screen.width, screen.height) * 0.08;
       const fov = 260;
-      const ay = motdFrame * 0.008; // Y-axis spin
-      const ax = motdFrame * 0.005; // slight X tilt
+      const ay = motdFrame * 0.02; // Y-axis spin
+      const ax = motdFrame * 0.013; // X-axis tilt
 
-      // Hinge angle: smoothly open and close (0 = closed, PI = flat open)
-      const hingeAngle = (sin(motdFrame * 0.012) * 0.5 + 0.5) * Math.PI * 0.85 + Math.PI * 0.1;
-
-      // Half-box dimensions: wide, thin, moderate depth
-      const hw = 1.4; // half-width (stretched axis)
-      const hh = 0.08; // half-height (thin like a laptop)
-      const hd = 0.9; // half-depth
-
-      // Bottom half (base) — sits flat, hinge edge at z = -hd
-      const base = [
-        [-hw, -hh, -hd], [ hw, -hh, -hd], [ hw,  hh, -hd], [-hw,  hh, -hd], // back face (hinge edge)
-        [-hw, -hh,  hd], [ hw, -hh,  hd], [ hw,  hh,  hd], [-hw,  hh,  hd], // front face
+      const verts = [
+        [-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],
+        [-1,-1, 1],[1,-1, 1],[1,1, 1],[-1,1, 1],
       ];
-
-      // Top half (lid) — hinged at z = -hd, rotates around that edge
-      const lidLocal = [
-        [-hw, -hh, 0], [ hw, -hh, 0], [ hw, hh, 0], [-hw, hh, 0], // hinge edge (z=0)
-        [-hw, -hh, 2 * hd], [ hw, -hh, 2 * hd], [ hw, hh, 2 * hd], [-hw, hh, 2 * hd], // far edge
-      ];
-      // Rotate lid around X-axis at hinge point, then translate to hinge position
-      const cosH = cos(hingeAngle);
-      const sinH = sin(hingeAngle);
-      const lid = lidLocal.map(([lx, ly, lz]) => {
-        // Rotate around X-axis (hinge)
-        const ry = ly * cosH - lz * sinH;
-        const rz = ly * sinH + lz * cosH;
-        // Translate to hinge position (top of base, back edge)
-        return [lx, ry + hh, rz - hd];
-      });
-
-      // 12 edges per half
-      const halfEdges = [
+      const edges = [
         [0,1],[1,2],[2,3],[3,0],
         [4,5],[5,6],[6,7],[7,4],
         [0,4],[1,5],[2,6],[3,7],
       ];
 
-      // Project a vertex: rotate globally then perspective-project
       const project = ([x, y, z]) => {
-        // Rotate Y (global spin)
         let rx = x * cos(ay) - z * sin(ay);
         let rz = x * sin(ay) + z * cos(ay);
-        // Rotate X (global tilt)
         let ry = y * cos(ax) - rz * sin(ax);
         rz = y * sin(ax) + rz * cos(ax);
         const scale = fov / (fov + rz * size);
-        return [cx + rx * size * scale, cy + ry * size * scale, rz];
+        return [cx + rx * size * scale, cy + ry * size * scale];
       };
 
-      const projBase = base.map(project);
-      const projLid = lid.map(project);
-
-      // Draw edges with polychrome coloring
-      const waveOffset = motdFrame * 0.05;
-      const drawEdges = (proj, edgeOffset) => {
-        halfEdges.forEach(([a, b], i) => {
-          const depth = (proj[a][2] + proj[b][2]) / 2;
-          const brightness = 0.55 + depth * 0.15;
-          const hue = (((i + edgeOffset) * 0.37 + sin(motdFrame * 0.02 + i + edgeOffset) * 0.3) + waveOffset) % 1;
-          const sector = abs(hue) * 6;
-          const f = sector - floor(sector);
-          let r, g, bl;
-          const s = floor(sector) % 6;
-          if (s === 0) { r = 1; g = f; bl = 0; }
-          else if (s === 1) { r = 1 - f; g = 1; bl = 0; }
-          else if (s === 2) { r = 0; g = 1; bl = f; }
-          else if (s === 3) { r = 0; g = 1 - f; bl = 1; }
-          else if (s === 4) { r = f; g = 0; bl = 1; }
-          else { r = 1; g = 0; bl = 1 - f; }
-          const alpha = $.dark ? 120 : 180;
-          ink(
-            floor(r * 255 * brightness),
-            floor(g * 255 * brightness),
-            floor(bl * 255 * brightness),
-            alpha,
-          ).line(
-            proj[a][0], proj[a][1],
-            proj[b][0], proj[b][1],
-          );
-        });
-      };
-
-      drawEdges(projBase, 0);
-      drawEdges(projLid, 12);
-
-      // Vertex particles at all corners
-      const particleColors = [
-        [255, 80, 200], [80, 255, 220], [255, 255, 80],
-        [80, 200, 255], [255, 120, 80], [180, 80, 255],
-      ];
-      [...projBase, ...projLid].forEach(([px, py], i) => {
-        const pColor = particleColors[(i + floor(motdFrame * 0.04)) % particleColors.length];
-        const flicker = 0.6 + sin(motdFrame * 0.1 + i * 1.3) * 0.4;
-        ink(...pColor, floor(flicker * ($.dark ? 150 : 200))).box(px - 1, py - 1, 2, 2);
+      const proj = verts.map(project);
+      const alpha = $.dark ? 100 : 150;
+      edges.forEach(([a, b]) => {
+        ink(150, 150, 150, alpha).line(proj[a][0], proj[a][1], proj[b][0], proj[b][1]);
       });
     }
 
@@ -8576,7 +8505,7 @@ function act({
       push: () => {
         pushSound();
         if (updateAvailable) {
-          location.reload();
+          send({ type: "window:reload" });
         } else {
           jump("commits");
         }
