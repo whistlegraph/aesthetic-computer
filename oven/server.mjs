@@ -2929,6 +2929,8 @@ app.post('/os-cache-flush', (req, res) => {
 const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
 const TEMPLATE_ISO_URL = `${RELEASES_BASE}/native-notepat-latest.iso`;
 const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`; // legacy fallback
+const TEMPLATE_VMLINUZ_URL = `${RELEASES_BASE}/native-notepat-latest.vmlinuz`;
+const TEMPLATE_CL_VMLINUZ_URL = `${RELEASES_BASE}/cl-native-notepat-latest.vmlinuz`;
 const CONFIG_MARKER_LEGACY = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const CONFIG_PAD_SIZE_LEGACY = 4096;
 const IDENTITY_MARKER = 'AC_IDENTITY_BLOCK_V1';
@@ -2964,6 +2966,53 @@ async function getTemplate() {
   templateCacheTime = Date.now();
   console.log(`[os-image] Template cached: ${(templateCache.length / 1048576).toFixed(1)}MB`);
   return templateCache;
+}
+
+function kernelUrlForVariant(variant) {
+  return variant === 'cl' ? TEMPLATE_CL_VMLINUZ_URL : TEMPLATE_VMLINUZ_URL;
+}
+
+async function buildPersonalizedEfiImage({ kernelUrl, configJson }) {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const tmpBase = `/tmp/os-image-${id}`;
+  const kernelPath = `${tmpBase}-BOOTX64.EFI`;
+  const configPath = `${tmpBase}-config.json`;
+  const imagePath = `${tmpBase}.img`;
+  const efiOffsetSectors = 2048;
+  const efiOffsetBytes = efiOffsetSectors * 512;
+  let kernelData = null;
+
+  try {
+    const kRes = await fetch(kernelUrl);
+    if (!kRes.ok) {
+      throw new Error(`Kernel download failed (${kRes.status})`);
+    }
+    kernelData = Buffer.from(await kRes.arrayBuffer());
+    await fs.promises.writeFile(kernelPath, kernelData);
+    await fs.promises.writeFile(configPath, configJson);
+
+    // Keep headroom for FAT metadata and future kernel size growth.
+    const minBytes = kernelData.length + Buffer.byteLength(configJson) + (32 * 1024 * 1024);
+    const imageSizeMiB = Math.max(384, Math.ceil(minBytes / 1048576) + 32);
+
+    execSync(`dd if=/dev/zero of="${imagePath}" bs=1M count=${imageSizeMiB} status=none`);
+    execSync(
+      `printf 'label: gpt\nstart=${efiOffsetSectors}, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\n' | ` +
+      `sfdisk --force --no-reread "${imagePath}" >/dev/null`,
+    );
+    execSync(`mkfs.vfat -F 32 --offset=${efiOffsetSectors} "${imagePath}" >/dev/null`);
+    execSync(`mmd -i "${imagePath}@@${efiOffsetBytes}" ::EFI ::EFI/BOOT`);
+    execSync(`mcopy -o -i "${imagePath}@@${efiOffsetBytes}" "${kernelPath}" ::EFI/BOOT/BOOTX64.EFI`);
+    execSync(`mcopy -o -i "${imagePath}@@${efiOffsetBytes}" "${configPath}" ::config.json`);
+
+    return await fs.promises.readFile(imagePath);
+  } finally {
+    await Promise.allSettled([
+      fs.promises.unlink(kernelPath),
+      fs.promises.unlink(configPath),
+      fs.promises.unlink(imagePath),
+    ]);
+  }
 }
 
 // User config endpoint for edge worker ISO patching
@@ -3095,14 +3144,13 @@ app.get('/os-image', async (req, res) => {
 
   console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece}, wifi: ${wifiEnabled}, claude: ${!!claudeToken}, git: ${!!githubPat})`);
 
-  // Get template (cached in memory)
-  let imgData;
-  try {
-    const template = await getTemplate();
-    imgData = Buffer.from(template); // copy so we don't mutate cache
-  } catch (err) {
-    return res.status(503).json({ error: `Template not available: ${err.message}` });
-  }
+  const variant = String(req.query.variant || '').toLowerCase() === 'cl' ? 'cl' : 'c';
+  const layout = String(req.query.layout || '').toLowerCase();
+  const preferEfiLayout = layout === 'efi' || layout === 'img' || layout === 'raw';
+  const strictEfi =
+    preferEfiLayout &&
+    String(req.query.strict || '1').toLowerCase() !== '0' &&
+    String(req.query.strict || '1').toLowerCase() !== 'false';
 
   // Build personalized config JSON
   const configObj = {
@@ -3117,42 +3165,94 @@ app.get('/os-image', async (req, res) => {
   if (!wifiEnabled) configObj.wifi = false;
   const configJson = JSON.stringify(configObj);
 
-  // Try new identity block format first (32KB, marker-prefixed)
-  const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
-  let idx = imgData.indexOf(identityMarkerBuf);
-  let patchCount = 0;
-
-  if (idx !== -1) {
-    // New format: marker + newline + JSON + zero-padding to 32KB
-    while (idx !== -1) {
-      const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
-      const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
-      header.copy(block);
-      block.copy(imgData, idx);
-      patchCount++;
-      idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
+  // Build a direct EFI image (single ESP partition) when requested.
+  // This layout matches local ac-os flash and is more firmware-compatible
+  // than some hybrid ISO scanners on older BIOS/UEFI implementations.
+  let imgData = null;
+  let contentType = 'application/x-iso9660-image';
+  let extension = 'iso';
+  let servedLayout = 'iso';
+  let efiError = null;
+  if (preferEfiLayout) {
+    try {
+      const kernelUrl = kernelUrlForVariant(variant);
+      imgData = await buildPersonalizedEfiImage({ kernelUrl, configJson });
+      contentType = 'application/octet-stream';
+      extension = 'img';
+      servedLayout = 'efi';
+      console.log(
+        `[os-image] Built EFI image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB, variant=${variant})`,
+      );
+    } catch (err) {
+      efiError = err;
+      console.warn(`[os-image] EFI layout build failed, falling back to ISO patch path: ${err.message}`);
+      if (strictEfi) {
+        return res.status(503).json({
+          error: `EFI layout build failed: ${err.message}`,
+          requestedLayout: 'efi',
+        });
+      }
     }
-    console.log(`[os-image] Patched ${patchCount} identity block(s) for @${handle} (v1, 32KB)`);
-  } else {
-    // Legacy format: plain JSON padded to 4KB with spaces
-    const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
-    idx = imgData.indexOf(legacyMarkerBuf);
-    if (idx === -1) {
-      return res.status(500).json({ error: 'Template image missing config placeholder' });
-    }
-    const padded = configJson + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE_LEGACY - configJson.length));
-    const configBytes = Buffer.from(padded);
-    while (idx !== -1) {
-      configBytes.copy(imgData, idx);
-      patchCount++;
-      idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
-    }
-    console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle} (legacy, 4KB)`);
   }
 
-  // Stream the patched ISO (Fedora Media Writer / Balena Etcher / dd compatible)
-  addServerLog('success', '💿', `OS ISO for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
-  res.setHeader('Content-Type', 'application/x-iso9660-image');
+  // Fallback: patch the template ISO in-place
+  if (!imgData) {
+    try {
+      const template = await getTemplate();
+      imgData = Buffer.from(template); // copy so we don't mutate cache
+    } catch (err) {
+      return res.status(503).json({ error: `Template not available: ${err.message}` });
+    }
+
+    // Try new identity block format first (32KB, marker-prefixed)
+    const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
+    let idx = imgData.indexOf(identityMarkerBuf);
+    let patchCount = 0;
+
+    if (idx !== -1) {
+      // New format: marker + newline + JSON + zero-padding to 32KB
+      while (idx !== -1) {
+        const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
+        const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
+        header.copy(block);
+        block.copy(imgData, idx);
+        patchCount++;
+        idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
+      }
+      console.log(`[os-image] Patched ${patchCount} identity block(s) for @${handle} (v1, 32KB)`);
+    } else {
+      // Legacy format: plain JSON padded to 4KB with spaces
+      const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
+      idx = imgData.indexOf(legacyMarkerBuf);
+      if (idx === -1) {
+        return res.status(500).json({ error: 'Template image missing config placeholder' });
+      }
+      const padded = configJson + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE_LEGACY - configJson.length));
+      const configBytes = Buffer.from(padded);
+      while (idx !== -1) {
+        configBytes.copy(imgData, idx);
+        patchCount++;
+        idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
+      }
+      console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle} (legacy, 4KB)`);
+    }
+  }
+
+  // Stream the personalized image (ISO patch path or EFI-first image path)
+  addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
+  if (preferEfiLayout && servedLayout !== 'efi') {
+    addServerLog('warn', '⚠️', `OS image fallback for @${handle}: requested EFI but served ISO`);
+  }
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('X-AC-OS-Requested-Layout', preferEfiLayout ? 'efi' : 'iso');
+  res.setHeader('X-AC-OS-Layout', servedLayout);
+  if (efiError) {
+    res.setHeader('X-AC-OS-Fallback', '1');
+    res.setHeader('X-AC-OS-Fallback-Reason', String(efiError.message || 'unknown').slice(0, 180));
+  }
   // Get latest build name for filename
   let releaseName = 'native';
   try {
@@ -3166,7 +3266,7 @@ app.get('/os-image', async (req, res) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.iso"`);
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.${extension}"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
 });

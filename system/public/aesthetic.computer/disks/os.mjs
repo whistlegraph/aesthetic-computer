@@ -921,12 +921,16 @@ async function startDownload(needsPaint) {
   needsPaint();
 
   try {
-    const query = "?piece=" + encodeURIComponent(piece) + "&wifi=" + (wifiEnabled ? "1" : "0") + (variantIdx === 1 ? "&variant=cl" : "");
+    const query =
+      "?piece=" + encodeURIComponent(piece) +
+      "&wifi=" + (wifiEnabled ? "1" : "0") +
+      "&layout=efi&strict=1&cb=" + Date.now() +
+      (variantIdx === 1 ? "&variant=cl" : "");
     const isoCandidates = [
       OVEN_ORIGIN + "/os-image" + query,
       OVEN + "/os-image" + query,
     ];
-    const MIN_EXPECTED_ISO_BYTES = 100 * 1024 * 1024;
+    const MIN_EXPECTED_IMAGE_BYTES = 50 * 1024 * 1024;
 
     let res = null;
     let usedUrl = "";
@@ -949,9 +953,17 @@ async function startDownload(needsPaint) {
         continue;
       }
 
+      const servedLayout = (attempt.headers.get("x-ac-os-layout") || "").toLowerCase();
+      if (servedLayout && servedLayout !== "efi") {
+        console.warn("[os] Rejecting non-EFI response:", servedLayout, "from", url);
+        try { attempt.body?.cancel(); } catch (_) {}
+        lastErr = "Server returned '" + servedLayout + "' image instead of EFI";
+        continue;
+      }
+
       const len = parseInt(attempt.headers.get("content-length") || "0");
-      if (len > 0 && len < MIN_EXPECTED_ISO_BYTES) {
-        console.warn("[os] Rejecting suspiciously small ISO response:", len, "bytes from", url);
+      if (len > 0 && len < MIN_EXPECTED_IMAGE_BYTES) {
+        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", url);
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Received suspiciously small image (" + len + " bytes)";
         continue;
@@ -965,7 +977,7 @@ async function startDownload(needsPaint) {
     if (!res) {
       throw new Error(lastErr || "Download failed");
     }
-    console.log("[os] Download source:", usedUrl);
+    console.log("[os] Download source:", usedUrl, "layout:", res.headers.get("x-ac-os-layout") || "?");
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
     downloadTotalMB = contentLength / 1048576;
@@ -990,6 +1002,9 @@ async function startDownload(needsPaint) {
     needsPaint();
 
     const total = chunks.reduce((s, c) => s + c.length, 0);
+    if (total < MIN_EXPECTED_IMAGE_BYTES) {
+      throw new Error("Image too small (" + (total / 1048576).toFixed(1) + "MB), refusing to save");
+    }
     const combined = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) {
@@ -1003,7 +1018,7 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.iso`;
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
 
     console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
     dlFn(filename, combined, { type: "application/octet-stream" });

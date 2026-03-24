@@ -612,7 +612,7 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@atproto/api@0.18",
+        "npm:@atproto/api@~0.19.4",
         "npm:@aws-sdk/client-s3@^3.975.0",
         "npm:@aws-sdk/s3-request-presigner@^3.975.0",
         "npm:@ffmpeg/core@~0.12.10",

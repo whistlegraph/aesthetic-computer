@@ -271,15 +271,22 @@ static void try_mount_log(void) {
     // Wait for USB block devices to appear (up to 2s after EFI handoff)
     fprintf(stderr, "[ac-native] Waiting for USB block devices...\n");
     for (int w = 0; w < 100; w++) {
-        if (access("/dev/sda1", F_OK) == 0 || access("/dev/sdb1", F_OK) == 0) break;
+        if (access("/dev/sda1", F_OK) == 0 || access("/dev/sda2", F_OK) == 0 ||
+            access("/dev/sdb1", F_OK) == 0 || access("/dev/sdb2", F_OK) == 0) break;
         usleep(20000);
     }
-    fprintf(stderr, "[ac-native] sda1=%s sdb1=%s\n",
+    fprintf(stderr, "[ac-native] sda1=%s sda2=%s sdb1=%s sdb2=%s\n",
             access("/dev/sda1", F_OK) == 0 ? "yes" : "no",
-            access("/dev/sdb1", F_OK) == 0 ? "yes" : "no");
+            access("/dev/sda2", F_OK) == 0 ? "yes" : "no",
+            access("/dev/sdb1", F_OK) == 0 ? "yes" : "no",
+            access("/dev/sdb2", F_OK) == 0 ? "yes" : "no");
     const char *devs[] = {
-        "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1",
-        "/dev/nvme0n1p1", "/dev/nvme1n1p1",
+        "/dev/sda1", "/dev/sda2",
+        "/dev/sdb1", "/dev/sdb2",
+        "/dev/sdc1", "/dev/sdc2",
+        "/dev/sdd1", "/dev/sdd2",
+        "/dev/nvme0n1p1", "/dev/nvme0n1p2",
+        "/dev/nvme1n1p1", "/dev/nvme1n1p2",
         NULL
     };
 

@@ -44,13 +44,17 @@ case "${CMD}" in
         docker_usb "
             apk add --quiet dosfstools
             mkdir -p /mnt/usb
-            mount ${USB_DEV}1 /mnt/usb 2>/dev/null && {
-                echo '--- ${USB_DEV}1 ---'
+            mounted=''
+            for p in ${USB_DEV}1 ${USB_DEV}2; do
+                [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
+            done
+            [ -n \"\$mounted\" ] && {
+                echo \"--- \$mounted ---\"
                 find /mnt/usb -type f | head -50
                 echo ''
                 du -sh /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null
                 umount /mnt/usb
-            } || echo 'Could not mount ${USB_DEV}1'
+            } || echo 'Could not mount ${USB_DEV}1 or ${USB_DEV}2'
         "
         ;;
     sha256|hash)
@@ -58,7 +62,11 @@ case "${CMD}" in
         docker_usb "
             apk add --quiet dosfstools
             mkdir -p /mnt/usb
-            mount ${USB_DEV}1 /mnt/usb
+            mounted=''
+            for p in ${USB_DEV}1 ${USB_DEV}2; do
+                [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
+            done
+            [ -z \"\$mounted\" ] && { echo 'Could not mount USB'; exit 1; }
             sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI 2>/dev/null || echo 'No EFI file found'
             umount /mnt/usb
         "
@@ -100,7 +108,11 @@ case "${CMD}" in
         docker_usb "
             apk add --quiet dosfstools
             mkdir -p /mnt/usb
-            mount ${USB_DEV}1 /mnt/usb
+            mounted=''
+            for p in ${USB_DEV}1 ${USB_DEV}2; do
+                [ -b \"\$p\" ] && mount \"\$p\" /mnt/usb 2>/dev/null && { mounted=\"\$p\"; break; }
+            done
+            [ -z \"\$mounted\" ] && { echo 'Could not mount USB'; exit 1; }
             cat '/mnt/usb/${FILE}' 2>/dev/null || echo 'File not found: ${FILE}'
             umount /mnt/usb
         "
