@@ -930,7 +930,8 @@ async function startDownload(needsPaint) {
       OVEN_ORIGIN + "/os-image" + query,
       OVEN + "/os-image" + query,
     ];
-    const MIN_EXPECTED_IMAGE_BYTES = 50 * 1024 * 1024;
+    const MIN_EXPECTED_EFI_BYTES = 300 * 1024 * 1024;
+    const MIN_EXPECTED_ISO_BYTES = 200 * 1024 * 1024;
 
     let res = null;
     let usedUrl = "";
@@ -962,8 +963,14 @@ async function startDownload(needsPaint) {
       }
 
       const len = parseInt(attempt.headers.get("content-length") || "0");
-      if (len > 0 && len < MIN_EXPECTED_IMAGE_BYTES) {
-        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", url);
+      const minExpectedBytes =
+        servedLayout === "efi"
+          ? MIN_EXPECTED_EFI_BYTES
+          : servedLayout === "iso"
+            ? MIN_EXPECTED_ISO_BYTES
+            : MIN_EXPECTED_EFI_BYTES;
+      if (len > 0 && len < minExpectedBytes) {
+        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", url, "layout:", servedLayout || "?");
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Received suspiciously small image (" + len + " bytes)";
         continue;
@@ -1002,8 +1009,24 @@ async function startDownload(needsPaint) {
     needsPaint();
 
     const total = chunks.reduce((s, c) => s + c.length, 0);
-    if (total < MIN_EXPECTED_IMAGE_BYTES) {
+    const servedLayout = (res.headers.get("x-ac-os-layout") || "").toLowerCase();
+    const minExpectedBytes =
+      servedLayout === "efi"
+        ? MIN_EXPECTED_EFI_BYTES
+        : servedLayout === "iso"
+          ? MIN_EXPECTED_ISO_BYTES
+          : MIN_EXPECTED_EFI_BYTES;
+    if (total < minExpectedBytes) {
       throw new Error("Image too small (" + (total / 1048576).toFixed(1) + "MB), refusing to save");
+    }
+    if (contentLength > 0 && total !== contentLength) {
+      throw new Error(
+        "Download truncated (" +
+        (total / 1048576).toFixed(1) +
+        "MB of " +
+        (contentLength / 1048576).toFixed(1) +
+        "MB)"
+      );
     }
     const combined = new Uint8Array(total);
     let offset = 0;
