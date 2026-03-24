@@ -86,7 +86,6 @@ echo "Deploying AT frontend to ${SSH_TARGET}"
 echo "Uploading staging files..."
 ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "mkdir -p '$REMOTE_DIR'"
 
-REMOTE_COPY_STEPS=()
 for i in "${!SOURCE_FILES[@]}"; do
   source_path="${SOURCE_FILES[$i]}"
   target_path="${TARGET_FILES[$i]}"
@@ -96,13 +95,12 @@ for i in "${!SOURCE_FILES[@]}"; do
 
   scp "${SSH_OPTS[@]}" "$local_source" "${SSH_TARGET}:${remote_stage}"
   if [[ "$target_dir" != "." ]]; then
-    REMOTE_COPY_STEPS+=("docker exec '${AT_PDS_CONTAINER}' mkdir -p '${AT_PDS_CONTAINER_WEBROOT}/$target_dir'")
+    ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "docker exec '${AT_PDS_CONTAINER}' mkdir -p '${AT_PDS_CONTAINER_WEBROOT}/$target_dir'"
   fi
-  REMOTE_COPY_STEPS+=("docker cp '$remote_stage' '${AT_PDS_CONTAINER}:${AT_PDS_CONTAINER_WEBROOT}/$target_path'")
+  ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "docker cp '$remote_stage' '${AT_PDS_CONTAINER}:${AT_PDS_CONTAINER_WEBROOT}/$target_path'"
 done
 
-copy_command="$(IFS=' && '; echo "${REMOTE_COPY_STEPS[*]}")"
-ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "$copy_command && rm -rf '$REMOTE_DIR'"
+ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "rm -rf '$REMOTE_DIR'"
 
 echo "Deployment complete."
 echo "Landing: https://at.aesthetic.computer"
