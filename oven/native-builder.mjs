@@ -28,6 +28,7 @@ const NATIVE_BUILD_COLLECTION =
 // fedac/native/ lives in the native-git repo on oven (polled by native-git-poller).
 const NATIVE_DIR =
   process.env.NATIVE_DIR || "/opt/oven/native-git/fedac/native";
+const NATIVE_BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
 
 // Kernel build cache: symlinked from fedac/native/build so kernel object
 // files survive rsync --delete between commits (5-10x faster warm builds).
@@ -291,10 +292,10 @@ async function runBuildJob(job) {
     addLogLine(job, "stdout", "Preflight: syncing native git checkout...");
     await runPhase(job, "preflight-sync", "bash", ["-lc", [
       "set -euo pipefail",
-      "git fetch origin main --quiet || true",
-      "git checkout -f main --quiet || true",
-      "if git rev-parse --verify origin/main >/dev/null 2>&1; then",
-      "  git reset --hard origin/main --quiet",
+      `git fetch origin ${NATIVE_BRANCH} --quiet || true`,
+      `git checkout -f ${NATIVE_BRANCH} --quiet || true`,
+      `if git rev-parse --verify origin/${NATIVE_BRANCH} >/dev/null 2>&1; then`,
+      `  git reset --hard origin/${NATIVE_BRANCH} --quiet`,
       "fi",
       "git clean -fdq -- fedac/native",
     ].join("\n")], repoDir);
