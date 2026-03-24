@@ -88,10 +88,12 @@ VERSION="${GIT_HASH}-${BUILD_TS}"
 SHA256=$(sha256sum "$VMLINUZ" | awk '{print $1}')
 SIZE=$(stat -c%s "$VMLINUZ")
 
-# Generate build name from MongoDB (global counter + day-of-year animal)
-BUILD_NAME=""
+# Build name: prefer AC_BUILD_NAME (set by oven/Makefile at compile time)
+# so the uploaded name matches what the kernel displays on boot.
+# Falls back to MongoDB counter if not set (local builds).
+BUILD_NAME="${AC_BUILD_NAME:-}"
 BUILD_NUM=""
-if command -v node &>/dev/null; then
+if [ -z "$BUILD_NAME" ] && command -v node &>/dev/null; then
   NAME_JSON=$(node "$SCRIPT_DIR/track-build.mjs" next-name 2>/dev/null || echo '{}')
   BUILD_NAME=$(echo "$NAME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('name',''))" 2>/dev/null || true)
   BUILD_NUM=$(echo "$NAME_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('buildNum',''))" 2>/dev/null || true)
