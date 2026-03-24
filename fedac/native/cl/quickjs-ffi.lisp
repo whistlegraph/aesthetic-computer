@@ -6,7 +6,9 @@
 ;;; ── Library loading ──
 
 (cffi:define-foreign-library libquickjs
-  (:unix "libquickjs.so")
+  (:unix (:or "libquickjs.so"
+              "/tmp/ac-build/libquickjs.so"
+              "/lib64/libquickjs.so"))
   (t (:default "libquickjs")))
 
 (cffi:use-foreign-library libquickjs)
