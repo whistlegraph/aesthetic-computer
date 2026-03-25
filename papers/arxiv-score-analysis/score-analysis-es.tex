@@ -1,0 +1,261 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Leyendo la partitura},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% === TITLE ===
+\twocolumn[
+\begin{center}
+{\acbold\LARGE Leyendo la partitura: Un an\'alisis cr\'itico de\\SCORE.md como gobernanza, interfaz y forma creativa\par}
+\vspace{0.4em}
+{\large @jeffrey}\\
+{\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
+{\small\color{acgray} \url{https://aesthetic.computer}}
+\vspace{0.3em}
+
+\rule{0.6\textwidth}{0.5pt}
+\vspace{0.3em}
+
+\begin{minipage}{0.85\textwidth}
+\small
+\textbf{Resumen.}
+El proyecto Aesthetic Computer reemplaz\'o su README con un documento llamado SCORE.md.
+Este art\'iculo examina qu\'e hizo ese cambio de nombre --- y qu\'e dej\'o sin hacer.
+Bas\'andonos en quince art\'iculos escritos desde la bandeja de investigaci\'on del proyecto,
+leemos la partitura frente a sus propias aspiraciones: como documento de gobernanza,
+como referencia t\'ecnica, como forma creativa. Encontramos que la partitura tiene
+\'exito como met\'afora organizadora pero tiene dificultades como documento --- atrapada
+entre las demandas de agentes de IA, nuevos colaboradores, la propia historia del
+proyecto y la pr\'actica creativa del autor. Identificamos seis tensiones en la
+partitura actual y proponemos un marco de revisi\'on que toma en serio la met\'afora
+musical: una partitura debe decirte c\'omo interpretar, no solo cu\'ales son los instrumentos.
+\end{minipage}
+\vspace{1em}
+\end{center}
+]
+
+\section{?`Qu\'e es una partitura?}
+
+En m\'usica, una partitura es un conjunto de instrucciones para producir un evento temporal. No es el evento en s\'i --- es el documento que hace el evento reproducible. Una partitura lleva dentro de s\'i una teor\'ia impl\'icita de lo que importa: qu\'e par\'ametros deben especificarse y cu\'ales pueden dejarse al criterio del int\'erprete.
+
+Cuando el proyecto Aesthetic Computer renombr\'o su README.md a SCORE.md a principios de marzo de 2026, import\'o todo este marco. El gesto fue deliberado. El proyecto ya entend\'ia sus programas como ``piezas'' en lugar de aplicaciones~\citep{scudder2026pieces}, su interfaz como un instrumento~\citep{scudder2026notepat}, y su notaci\'on gr\'afica (Whistlegraph) como una partitura viral~\citep{scudder2026whistlegraph}. Renombrar el documento de gobernanza fue una manera de decir: esto tambi\'en es algo desde lo cual se interpreta.
+
+Pero una partitura implica int\'erpretes. Y la pregunta que este art\'iculo plantea es: ?`qui\'en interpreta desde SCORE.md, y el documento realmente les ayuda?
+
+\section{La bandeja y la partitura}
+
+La bandeja de investigaci\'on de Aesthetic Computer contiene actualmente diecisiete art\'iculos, organizados en un molino con compilaciones automatizadas, traducciones a cuatro idiomas y un formato de tarjetas para distribuci\'on f\'isica~\citep{scudder2026cards}. Leer a trav\'es de estos art\'iculos revela un proyecto de considerable ambici\'on y coherencia interna --- pero tambi\'en un proyecto cuya autodescripci\'on (la partitura) no ha seguido el ritmo de su autocomprensi\'on (los art\'iculos).
+
+Los art\'iculos cuentan una historia que la partitura no cuenta. Consid\'erese:
+
+\begin{itemize}
+\item El art\'iculo ``Pieces Not Programs''~\citep{scudder2026pieces} argumenta que la palabra ``pieza'' importa un marco musical donde las obras son de autor\'ia, interpretables e iterables. La partitura menciona piezas pero nunca explica este encuadre.
+\item El art\'iculo sobre notepat~\citep{scudder2026notepat} documenta cinco bucles de retroalimentaci\'on a trav\'es de los cuales una sola pieza atrajo a toda una plataforma a la existencia. La partitura lista notepat como una pieza entre 359.
+\item El art\'iculo sobre sostenibilidad~\citep{scudder2026sustainability} identifica una mediana de 8 a\~nos de brecha entre la creaci\'on de herramientas y la financiaci\'on sostenible, con estudios de caso que terminan en discapacidad y muerte. La partitura tiene insignias de patrocinadores.
+\item El art\'iculo sobre Native OS~\citep{scudder2026os} argumenta que los port\'atiles x86\_64 excedentes a \$50 cada uno son la base material para un instrumento creativo planetario. La partitura lista comandos de compilaci\'on.
+\item El art\'iculo KidLisp Cards~\citep{scudder2026cards} demuestra que la brevedad program\'atica produce un nuevo formato de publicaci\'on --- la tarjeta como partitura ejecutable. La partitura no menciona las tarjetas.
+\end{itemize}
+
+En cada caso, el art\'iculo articula una tesis que da significado a lo que la partitura simplemente cataloga. La partitura tiene los hechos pero no el argumento.
+
+\section{Seis tensiones}
+
+Leer la partitura frente a los art\'iculos revela seis tensiones que una revisi\'on deber\'ia abordar.
+
+\subsection{Confusi\'on de audiencia}
+
+La partitura abre con un mensaje para agentes de IA (``If you find something interesting\ldots leave a breadcrumb'') y luego cambia inmediatamente a la incorporaci\'on humana (``press the top left of the screen''). La secci\'on ``Front Door'' se dirige a usuarios finales. La secci\'on ``Back Door'' se dirige a desarrolladores. La secci\'on ``Ant Guidance'' se dirige a agentes automatizados. La secci\'on ``Embodiments'' intenta reconciliar los tres.
+
+Esto no est\'a mal --- una partitura puede dirigirse a m\'ultiples int\'erpretes. Pero una partitura musical hace legible la parte del int\'erprete de un vistazo. SCORE.md requiere que el lector descubra qu\'e partes son para \'el. Una partitura de director y una parte de viol\'in son documentos diferentes por buenas razones.
+
+\subsection{Cat\'alogo vs. argumento}
+
+La partitura est\'a organizada como un cat\'alogo: arquitectura, comandos, endpoints, backlogs, consultas de mercado. Este es material de referencia \'util, pero no comunica nada sobre \emph{por qu\'e} existe el proyecto o qu\'e principios gobiernan su desarrollo.
+
+Los art\'iculos articulan colectivamente al menos cinco argumentos centrales:
+\begin{enumerate}
+\item El software creativo deber\'ia dise\~narse como un instrumento, no como una herramienta~\citep{scudder2026goodiepal}.
+\item La ``pieza'' es una unidad de cognici\'on creativa, no un programa~\citep{scudder2026pieces}.
+\item La restricci\'on (en dise\~no de lenguajes, en factor de forma) es generativa, no limitante~\citep{scudder2026kidlisp, scudder2026cards}.
+\item Hardware excedente + SO personalizado = acceso a escala planetaria~\citep{scudder2026os, scudder2026plork}.
+\item Las herramientas creativas requieren modelos econ\'omicos que no maten a sus creadores~\citep{scudder2026sustainability}.
+\end{enumerate}
+
+Ninguno de estos argumentos aparece en la partitura. Un lector primerizo de SCORE.md sabr\'ia \emph{qu\'e} es Aesthetic Computer (un runtime con piezas, un prompt, algunos servidores) pero no \emph{por qu\'e} existe o en qu\'e cree.
+
+\subsection{El problema del backlog}
+
+La partitura contiene una secci\'on ``AC Native Backlog'' con siete elementos que mezclan tareas completadas (``Claude native binary'') con funciones aspiracionales (``A/B kernel slots with auto-rollback''). Esto es un artefacto de gesti\'on de proyectos, no una partitura. Comunica estado t\'actico, no direcci\'on estrat\'egica.
+
+La filosof\'ia de las hormigas (en \texttt{ants/mindset-and-rules.md}) advierte expl\'icitamente contra el trabajo especulativo: ``IDLE is valid---wandering is the job, not failure.'' Sin embargo, el backlog en la partitura es precisamente trabajo especulativo, presentado como si fuera el plan del proyecto. Las sub-partituras (fedac/native/SCORE.md, papers/SCORE.md) manejan esto mejor separando la gu\'ia de las listas de tareas.
+
+\subsection{El bloque del mercado Keeps}
+
+La partitura dedica 90 l\'ineas a consultas GraphQL de Tezos/Objkt para verificar las estad\'isticas del mercado de Keeps NFT. Esto es herramienta operativa para un solo colaborador (el autor). Es material de referencia valioso, pero domina la segunda mitad de la partitura y env\'ia una se\~nal no intencionada: que el monitoreo del mercado NFT es una preocupaci\'on central del proyecto, al mismo nivel que la arquitectura y el flujo de trabajo de desarrollo.
+
+El art\'iculo ``Dead Ends''~\citep{scudder2026deadends} categoriza expl\'icitamente Tezos/Keeps como un experimento de monetizaci\'on con futuro incierto. La partitura lo presenta como infraestructura establecida.
+
+\subsection{Voces ausentes}
+
+El art\'iculo ``Network Audit''~\citep{scudder2026audit} revela que AC tiene 2.811 handles registrados, pero solo el 2,1\% escribe KidLisp y el 0,7\% publica piezas. El art\'iculo ``Diversity''~\citep{scudder2026diversity} reconoce que el 80\% de los autores citados son hombres occidentales. El art\'iculo ``Sustainability''~\citep{scudder2026sustainability} documenta el costo humano de la creaci\'on de herramientas sin apoyo.
+
+La partitura no se involucra con nada de esto. Presenta n\'umeros de adopci\'on (``2812 registered handles, 265 user-published pieces'') como logro en lugar de como datos que requieren interpretaci\'on. Los art\'iculos son m\'as honestos que la partitura.
+
+\subsection{Sub-partituras vs. partitura principal}
+
+El proyecto ahora tiene seis archivos SCORE.md: ra\'iz, papers, fedac, fedac/native, opinion y vault. Las sub-partituras son generalmente mejores documentos que la partitura principal. La partitura de papers abre con una ``Mill Mission'' que explica \emph{por qu\'e} existe. La partitura native define ``shipped'' con cinco criterios verificables. La partitura vault mapea la postura de seguridad.
+
+La partitura principal, en cambio, intenta ser todo: README, documento de arquitectura, gu\'ia para desarrolladores, runbook operativo y panel de NFT. Las sub-partituras tuvieron \'exito siendo espec\'ificas. La partitura principal tiene dificultades por ser comprehensiva.
+
+\section{La met\'afora de la partitura, tomada en serio}
+
+Si SCORE.md es una partitura, ?`qu\'e tipo de partitura deber\'ia ser? La analog\'ia musical sugiere varias propiedades:
+
+\textbf{Una partitura te dice c\'omo empezar.} La ``Front Door'' de la partitura actual hace esto adecuadamente para usuarios finales, pero no para colaboradores o agentes. Un int\'erprete que toma una partitura necesita saber: ?`qu\'e instrumento toco? ?`D\'onde entro? ?`Cu\'al es el tempo?
+
+\textbf{Una partitura tiene partes.} Diferentes int\'erpretes leen diferentes partes. La partitura actual mezcla todas las partes en un solo documento. Las sub-partituras son, en efecto, partes individuales que han sido extra\'idas. La partitura principal deber\'ia ser la partitura del director: una visi\'on general que apunta a las partes, no una uni\'on de todas las partes.
+
+\textbf{Una partitura implica una pr\'actica de interpretaci\'on.} Existen convenciones sobre c\'omo leer y ejecutar una partitura que no est\'an escritas en la partitura misma. El documento de filosof\'ia de las hormigas cumple esta funci\'on para agentes de IA. No existe nada equivalente para colaboradores humanos.
+
+\textbf{Una partitura puede ser revisada.} Las partituras tienen ediciones. El SCORE.md actual no tiene historial de versiones ni registro de cambios dentro del documento mismo. Se lee como si siempre hubiera sido as\'i, cuando en realidad era un README hasta hace dos semanas.
+
+\textbf{Una partitura no es la interpretaci\'on.} La partitura no deber\'ia intentar contener el proyecto. Deber\'ia ser el documento m\'inimo desde el cual el proyecto pueda ser interpretado. Todo lo dem\'as --- backlogs, consultas de mercado, herramientas operativas --- pertenece a partes o ap\'endices.
+
+\section{Lo que los art\'iculos saben que la partitura no}
+
+El hallazgo m\'as sorprendente al leer los diecisiete art\'iculos frente a la partitura es cu\'anto m\'as rica es la autocomprensi\'on del proyecto en los art\'iculos que en la partitura. Los art\'iculos contienen:
+
+\begin{itemize}
+\item Una teor\'ia de la cognici\'on creativa (piezas como ciclos de percepci\'on-acci\'on)
+\item Una econom\'ia pol\'itica de la creaci\'on de herramientas (qui\'en paga, qui\'en se agota, qui\'en muere)
+\item Una filosof\'ia de dise\~no (instrumento-primero, restricci\'on-como-generativa, plano-sobre-profundo)
+\item Un argumento material sobre hardware (port\'atiles excedentes como instrumento planetario)
+\item Una auditor\'ia honesta de fracasos (16 callejones sin salida, 50\% de tasa de contribuci\'on)
+\item Un compromiso con la diversidad de citas con metas espec\'ificas
+\item Una infraestructura de publicaci\'on (el molino) con su propia declaraci\'on de misi\'on
+\end{itemize}
+
+La partitura no contiene nada de esto. Es un documento t\'ecnico que resulta llamarse partitura. La revisi\'on deber\'ia convertirlo en una partitura real: un documento que lleve los argumentos del proyecto, no solo su arquitectura.
+
+\section{Hacia una partitura revisada}
+
+Un SCORE.md revisado deber\'ia:
+
+\begin{enumerate}
+\item \textbf{Comenzar con el porqu\'e.} Declarar en qu\'e cree el proyecto y por qu\'e existe, bas\'andose en los argumentos articulados a trav\'es de los art\'iculos. La mill mission en papers/SCORE.md es un modelo para esto.
+\item \textbf{Separar partes de la partitura del director.} Mover detalles operativos (consultas de Keeps, elementos del backlog, referencias de comandos) a sub-partituras o ap\'endices. La partitura principal deber\'ia ser legible en cinco minutos.
+\item \textbf{Nombrar a sus audiencias.} Dirigirse expl\'icitamente a los tres tipos de int\'erpretes (usuarios finales, colaboradores humanos, agentes de IA) con puntos de entrada claros para cada uno.
+\item \textbf{Incluir los n\'umeros honestos.} Presentar datos de adopci\'on con interpretaci\'on, no solo como insignias. El 2,1\% de autor\'ia en KidLisp es un hecho que significa algo --- la partitura deber\'ia decir qu\'e.
+\item \textbf{Referenciar los art\'iculos.} La bandeja existe. La partitura deber\'ia se\~nalarla como la autocomprensi\'on extendida del proyecto, no ignorarla.
+\item \textbf{Reconocer su propia historia.} Notar que este documento era un README hasta marzo de 2026, y que el cambio de nombre fue en s\'i mismo un acto creativo con consecuencias.
+\item \textbf{Ser m\'as breve.} La partitura actual tiene 361 l\'ineas. Una partitura que se tome en serio deber\'ia estar m\'as cerca de la longitud de una pieza que cabe en una tarjeta.
+\end{enumerate}
+
+\section{Conclusi\'on}
+
+SCORE.md es un buen nombre para lo que el proyecto Aesthetic Computer necesita: un documento que haga el proyecto interpretable. Pero la partitura actual es un cat\'alogo, no una composici\'on. Lista lo que el proyecto contiene sin argumentar lo que significa. Los art\'iculos en la bandeja de investigaci\'on --- escritos en las mismas semanas que la partitura --- contienen los argumentos, las evaluaciones honestas y los marcos creativos que la partitura carece.
+
+La revisi\'on m\'as productiva no a\~nadir\'ia a la partitura sino que restar\'ia de ella, moviendo detalles operativos a sub-partituras y reemplaz\'andolos con las creencias reales del proyecto. Las sub-partituras (papers, native, vault) ya demuestran este enfoque. La partitura principal deber\'ia aprender de sus propias partes.
+
+Una partitura no es una descripci\'on de una orquesta. Es la notaci\'on m\'inima requerida para producir m\'usica. SCORE.md deber\'ia aspirar a la misma econom\'ia.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

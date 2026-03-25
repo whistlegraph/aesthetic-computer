@@ -1,0 +1,429 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={五年之后：Aesthetic Computer 可能会变成什么},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿 --- 请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\np}{\textsc{notepat}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 五年之后}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computer 可能会变成什么}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 剩余硬件、空间乐器与个人工具的长期博弈}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿 --- 请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+本文基于项目当前的发展轨迹、现有基础设施、明确的雄心以及作用于其上的经济、文化和物质力量，推断\ac{}未来五年（2026--2031）的发展方向。我们认为，该项目可能沿着七个汇聚的轴线演进：(1)~一条由94个项目组成的创作谱系的延续，限制了可能未来的空间；(2)~\acos{}成熟为一种可大规模部署于剩余硬件的工具；(3)~分布式笔记本电脑合奏作为音乐和教学形式的出现；(4)~3D从软件光栅化器扩展为空间创作媒介；(5)~通过持续的论文产出深化学术身份；(6)~KidLisp成长为自给自足的创作语言社区；以及(7)~对可持续性的清算---包括项目主动或被动终止的可能性---将决定它能否在自身的雄心中存活。这不是一份路线图。这是对动量的解读---试图根据一个项目已经选择做的事情，来追问它\emph{想要成为}什么。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. 引言 ============
+
+\section{引言}
+
+\ac{}是一个移动优先的运行时和创意计算社交网络，包含359个内置交互程序（"pieces"）、一个可将任何x86\_64机器启动为创意工具的裸机Linux操作系统、一种用于生成艺术的极简Lisp方言，以及一个拥有2,812名注册用户的不断壮大的社区~\citep{scudder2026ac}。该项目主要由单一开发者@jeffrey编写和维护，AI辅助维护系统（"AestheticAnts"）负责处理日常维护工作。
+
+截至2026年3月，该项目已产出19篇四种语言的研究论文、一个7.3秒启动的裸机操作系统~\citep{scudder2026os}、一个用于铸造生成艺术作品的区块链集成，以及一个7,912行的音乐乐器（\np{}），它已成为系统的入口~\citep{scudder2026notepat}。代码库的谱系可追溯到94个前身项目，跨越十多年的工具制作历程。
+
+本文不提议\ac{}\emph{应该}做什么。它试图解读它\emph{可能会}做什么，基于代码、论文、基础设施决策和塑造该项目至今的哲学承诺中已经可见的动量。
+
+% ============ 2. 九十四个项目 ============
+
+\section{九十四个项目，仍在继续}
+\label{sec:history}
+
+对\ac{}未来的任何预测都必须面对其过去的深度。该项目不是一个正在寻找产品市场契合度的初创公司。它是一个持续探究的第95次迭代：\emph{个人创意计算工具应该是什么样的？}
+
+\subsection{绘图软件谱系（2011--2020）}
+
+考古论文~\citep{scudder2026archaeology}追溯\ac{}经历的94个前身项目，涵盖两个GitHub账户（50多个仓库）、一个109\,GB的遗留服务器档案和一个Dropbox语料库。轨迹从\textbf{thePRBAT}（Polygon Replicating Bitmap Authoring Tool，2011）开始——一个基于Flash的数字图像工具，作为Ringling学院的BFA论文而构建——经过十年的绘图软件变体到达\ac{}：\textbf{JeffreyPaint}（2014，JavaScript + Unity）、\textbf{Finger Quilt}（2016，iOS/Swift）、\textbf{Dot}（2017，一个预示AC \texttt{plot}磁盘的绘图应用），以及最重要的\textbf{No Paint}（2014--2020），经历了五次化身——Rails、JavaScript填充、WebGL原型、iOS/Cordova、Vercel站点——最终被吸收进\ac{}。
+
+这不是一部废弃项目的历史。这是一部\emph{重启}的历史：同一个人，提出同一个问题，选择重新开始而不是累积功能。这种模式在\ac{}本身中可见：piece模型（单文件、生命周期函数、即时模式图形）是一种限制优先的设计，\emph{阻止}了杀死早期迭代的功能累积。
+
+\subsection{表演转向（2016--2018）}
+
+在2016年至2018年间，@jeffrey与Goodiepal \& Pals在欧洲65多个场地巡演，构建实时表演工具：观众参与界面、音乐记谱渲染器、现场讲座字幕显示。这些工具——快速构建、使用一次、随后丢弃——确立了一个在\ac{}中延续的设计原则：软件作为乐器，而非产品。这些工具是被演奏的，不是被交付的。
+
+Goodiepal的影响比合作更深。Goodiepal论文~\citep{scudder2026goodiepal}识别出延续到\ac{}的五条线索：乐器优先设计、通过亲和力而非机构组织的社区、设计为抵抗数字复制的作品，以及通过直接参与而非课程设置的激进教育学。
+
+\subsection{历史对预测为何重要}
+
+94个项目的历史以两种方式限制了我们的预测。首先，它使突然的转向变得不太可能。@jeffrey围绕同样的问题——个人工具、创意乐器、基于限制的设计——已经运转了15年。接下来的5年几乎肯定会停留在这个轨道内。其次，它使因人们通常放弃项目的原因（无聊、失去兴趣、被更闪亮的东西吸引）而放弃变得不太可能。风险不是分心，而是疲惫。我们将在\S\ref{sec:giveup}中回到这一点。
+
+% ============ 3. 剩余硬件浪潮 ============
+
+\section{剩余硬件浪潮}
+\label{sec:surplus}
+
+作用于\ac{}未来的最大单一外部力量：2025年10月，微软终止了对Windows 10的支持，按机构标准使估计2.4亿台PC过时~\citep{ewaste2024monitor}。这些机器没有坏。它们是配备8--16\,GB RAM、1080p屏幕、WiFi和6--10小时续航电池的ThinkPad、EliteBook和Latitude。它们在剩余市场上售价\$30--80。它们是后续一切的原材料。
+
+\subsection{从原型到车队（2026--2027）}
+
+\acos{}已经可以在剩余硬件上启动~\citep{scudder2026os}。从"在@jeffrey公寓的两台ThinkPad上启动"到"在教室的30台机器上启动"之间的差距主要不是技术性的。它是运营性的：WiFi凭据管理、每台设备的身份配置、在数十种笔记本型号上的硬件兼容性测试，以及一个非技术人员可以执行的刷机工作流。
+
+近期可能的工作是平凡但关键的：
+
+\begin{itemize}
+  \item \textbf{每用户WiFi存储}：将硬编码的SSID从JavaScript pieces移到持久的每设备配置文件中，使其在OTA更新后保持不变
+  \item \textbf{硬件兼容性矩阵}：系统性地测试ThinkPad X1/T/L系列、HP EliteBook 800系列、Dell Latitude 5000/7000系列
+  \item \textbf{单命令刷机}：一个USB镜像构建器，接收handle、颜色和WiFi凭据，产出一个可启动驱动器
+  \item \textbf{A/B内核槽}：双分区启动，如果新内核健康检查失败则自动回滚
+\end{itemize}
+
+这些不是令人瞩目的功能。它们是艺术项目和基础设施项目之间的区别。代码库的轨迹——OTA更新已经工作、构建名称已经生成、设备身份已经刻入启动分区——表明@jeffrey理解这一区别，正在向基础设施方向迈进。
+
+\subsection{五十美元的乐器（2027--2028）}
+
+如果运营工作落地，经济论证将变得非常有力：一个完整的创意计算工具——个性化、自更新、不需要任何IT基础设施——只需一台剩余笔记本电脑和一个USB驱动器的价格。无需Chromebook注册。无需Apple ID。无需订阅。
+
+OLPC项目~\citep{kraemer2009olpc}证明了硬件优先的计算访问方案在成本和后勤方面会失败。树莓派解决了成本问题（\$35），但需要\$150的配件。\ac{}的主张不同：硬件已经存在，已经有屏幕、键盘、电池和WiFi，而且正在被数百万台地丢弃。软件只有89\,MB。
+
+到2028年的可能结果不是大规模采用，而是\emph{验证点}：若干教室、社区中心或工作坊场景，其中10--30台剩余机器的车队运行\acos{}，结果被记录下来。这些验证点成为申请资助、机构合作伙伴关系以及\S\ref{sec:sustainability}中描述的可持续性论证的证据基础。
+
+% ============ 3. 行星合奏 ============
+
+\section{行星合奏}
+\label{sec:ensembles}
+
+PLOrk论文~\citep{scudder2026plork}提出了一个现有代码库已经支持的论点：自普林斯顿的PLOrk于2006年证明这一概念以来，笔记本电脑管弦乐队已经是音乐上合法的~\citep{trueman2006plork}，但该模式以每席位\$1,500+的价格被困在大学里。剩余硬件上的\acos{}将成本降至\$50/席位。问题是是否有人会演奏。
+
+\subsection{notepat作为合奏乐器（2026--2027）}
+
+\np{}已经是一个具有32声部合成、房间混响和波形类型选择的复音键盘乐器~\citep{scudder2026notepat}。它在裸机上以192\,kHz运行。合奏表演缺少的要素不是音频质量，而是\emph{协调}：同步的节拍、共享的和声空间和指挥界面。
+
+可能的开发路径：
+
+\begin{itemize}
+  \item \textbf{UDP合奏同步}：扩展现有的双通道网络（WebSocket + UDP），以在本地网络的设备间同步节拍时钟
+  \item \textbf{指挥piece}：一个新的piece，显示合奏状态并允许指挥设置节拍、调性和力度
+  \item \textbf{空间化}：利用剩余笔记本电脑的物理位置作为分布式扬声器——合奏本身\emph{就是}音响系统，遵循Turino的参与式音乐模型~\citep{turino2008music}
+\end{itemize}
+
+这条线索具有明显的会议吸引力。10台剩余ThinkPad演奏一首协调音乐作品的现场演示——每台显示演奏者的handle（以彩虹文字），每台为分布式声场贡献一个声部——是那种能赢得Ars Electronica提名和NIME投稿的演示。
+
+\subsection{超越音乐（2028--2031）}
+
+合奏模型可以推广到音乐之外。一个运行协调pieces的剩余机器网络可以是：
+
+\begin{itemize}
+  \item 一面\textbf{分布式绘画墙}：每块屏幕显示更大画布的一个部分，参与者在本地绘画，网络合成结果
+  \item 一个\textbf{协作KidLisp环境}：学生编写生成程序，汇入一个共享视觉空间
+  \item 一份\textbf{表演总谱}：机器执行一份图形总谱~\citep{scudder2026pieces}，每台通过不同的pieces诠释相同的记谱
+\end{itemize}
+
+所有这些的基础设施已经存在：WebSocket中继、UDP广播、每设备身份，以及支持任意图形、音频和输入组合的piece模型。缺少的是\emph{编排}——pieces本身以及围绕它们的社会形式。
+
+% ============ 第三维度 ============
+
+\section{第三维度}
+\label{sec:3d}
+
+\ac{}被广泛认为是一个2D系统。即时模式图形API——\texttt{wipe}、\texttt{ink}、\texttt{line}、\texttt{box}——以及大多数pieces的像素艺术美学强化了这种印象。但基础设施讲述了一个不同的故事。一个完整的软件3D光栅化器已经存在，一个多人FPS已经发布，裸机操作系统中的架构选择将3D定位为下一个重要的表达前沿。
+
+\subsection{已经可以工作的部分}
+
+裸机操作系统包含\texttt{graph3d.c}，一个约600行的CPU软件光栅化器，具有透视投影、视锥体裁剪（针对6个裁剪平面的Sutherland-Hodgman算法）、深度缓冲、逐顶点颜色插值和具有透视校正重心坐标的纹理映射。JavaScript API通过\texttt{Form}构造器暴露此功能：pieces创建具有顶点位置、颜色和纹理坐标的网格，然后用\texttt{ink(r,g,b).form(mesh)}渲染它们。
+
+两个生产pieces展示了该系统。\texttt{fps.mjs}提供了一个具有指针锁定、WASD移动、纹理地面和旋转立方体的第一人称摄像机。\texttt{1v1.mjs}将其扩展为一个多人FPS，具有命中扫描武器、机器人AI（巡逻/追击/逃跑状态）、击杀追踪和双通道网络模式（WebSocket用于可靠游戏事件，UDP用于低延迟位置同步）。浏览器路径使用Three.js（r0.182）进行WebGL渲染，并包含VR/XR会话支持~\citep{sutherland1968head}。
+
+因此，系统具有两条并行的3D路径：裸机上的软件光栅化器（纯CPU，无GPU）和浏览器中的硬件加速路径（WebGL/Three.js，WebGPU基础设施已就绪）。从piece作者的角度来看，API接口是相同的。
+
+\subsection{裸机上的GPU问题（2026--2028）}
+
+软件光栅化器优雅但从根本上受限。目标车队中的每台剩余ThinkPad和EliteBook都有一个支持OpenGL 4.x或Vulkan 1.x的Intel集成GPU，闲置不用。内核的DRM子系统已经通过KMS模式设置管理显示；扩展它以暴露用于GPU加速光栅化的渲染节点是一条已知的工程路径（DRM上的EGL，或通过\texttt{/dev/dri/renderD128}的Vulkan）。
+
+可能的轨迹是谨慎的。@jeffrey的设计本能倾向于软件控制而非硬件委托——整个裸机操作系统的哲学是"知道从通电到像素之间的每一条指令"。GPU驱动程序引入不透明性：固件blob、驱动程序bug、厂商特定行为。软件光栅化器的优点在于它是\emph{可读的}：从顶点到像素的流水线是600行学生可以阅读的C代码。
+
+可能的妥协方案：GPU加速作为需要它的pieces的可选路径，软件光栅化器保持为默认和参考实现。这反映了浏览器架构，其中WebGPU与2D canvas并存但不取代它。
+
+\subsection{3D作为创作媒介（2028--2031）}
+
+更有趣的问题不是技术性的而是表达性的。在一个围绕限制、即时性和单文件pieces设计的系统中，3D意味着什么？
+
+前身项目提供了线索。@jeffrey的工作始终围绕\emph{绘画}：No Paint、JeffreyPaint、thePRBAT、Radical Digital Painting巡回讲座。3D基础设施不是朝着游戏引擎或CAD工具构建的。它朝着\emph{空间绘画}构建——以\texttt{ink(255,0,0).line(0,0,100,100)}在二维中提供的同样即时性，在三维空间中放置标记、颜色和形式的能力。
+
+重要的pieces不会是那些看起来像Unity演示的。它们将是那些以@jeffrey使用2D的方式使用3D的：作为乐器的原材料，作为表演的原材料，作为被演奏而非被消费的东西。一个3D \np{}，其中音符具有空间位置，房间混响是字面意义上的——声音从分布在虚拟空间中的形体发出。一个3D KidLisp，其中\texttt{(box 0 0 0 50 50 50)}放置一个立方体，就像\texttt{(rect 0 0 50 50)}放置一个矩形一样。一队剩余笔记本电脑，每台渲染同一分布式3D场景的不同摄像机角度。
+
+与合奏的汇聚（\S\ref{sec:ensembles}）是3D变得真正新颖的地方。跨网络剩余机器的同步3D场景——每块屏幕是通向共享虚拟空间的窗口，每位玩家的输入影响所有参与者的场景——是一种游戏引擎和创意编程工具都未在\$50/席位的价位上探索过的形式。网络已经被验证（\texttt{1v1.mjs}）。硬件已经可用（\S\ref{sec:surplus}）。缺少的是对分布式空间乐器应该是什么感觉的艺术愿景，而这正是@jeffrey花了94个项目学习如何回答的那类问题。
+
+% ============ 5. 学术转向 ============
+
+\section{学术转向}
+\label{sec:scholarly}
+
+在2026年3月3日至20日之间，@jeffrey以四种语言产出了19篇研究论文。这对于一个独立开发者来说不是正常的行为。它标志着一个向学术合法性的刻意转向——一个试图围绕项目建立RESEARCH-DIRECTION.md文件所称的"研究护城河"的尝试。
+
+\subsection{论文工厂（2026--2027）}
+
+论文基础设施已经是工业化的：一个带有AC字体的自定义\LaTeX{}模板、通过服务器（"烤箱"）自动化PDF构建、一种用于单页打印的卡片格式，以及一条翻译管线，为每篇论文生产丹麦语、西班牙语和中文版本。40多篇阅读材料的图书馆提供引用基础。该管线被设计用于生产，而非原型开发。
+
+近期轨迹是投稿：ACM C\&C Demos（4月16日）、ICCC短论文（4月24日）、JOSS软件论文（滚动征稿）。如果其中任何一个被接受，该项目将获得大多数创意编程工具从未达到的学术立足点。Processing~\citep{reas2007processing}和Scratch~\citep{resnick2009scratch}花了数年建立其学术合法性；@jeffrey试图通过产出数量和同时瞄准多个场所来压缩这一时间线。
+
+\subsection{艺术家-学者身份（2028--2031）}
+
+CalArts论文认为，艺术学校是一个操作系统——像CalArts这样的机构所特有的邻近性、批评和学科交叉污染的结构可以被移植到软件中。如果@jeffrey继续以这种速度发表，论文本身就成为一个作品集：不是一个软件项目的文档，而是关于创意计算是什么以及它为谁服务的持续论证。
+
+可能的5年结果是两个场景之一：
+
+\begin{enumerate}
+  \item \textbf{护城河保住了}：6--10篇论文在同行评审场所发表，@jeffrey被邀请在会议上发言，\ac{}与Processing、Scratch和Sonic Pi~\citep{aaron2016sonic}一起进入经典序列，成为公认的创意计算环境。论文创造了一个反馈循环：学术关注带来用户，用户创建pieces，pieces产生新论文。
+  \item \textbf{护城河没保住}：投稿被拒绝，单一作者模式引起审稿人的疑虑，论文基础设施进入休眠。代码存活；学术身份没有。这是艺术家-程序员更常见的结果。
+\end{enumerate}
+
+诚实的预测介于两者之间：几篇发表物被接受，足以在小众场所（NIME、xCoAx、ICLC）建立信誉，但没有合作者和用户研究，主流HCI和PL会议仍然遥不可及。
+
+% ============ 5. KIDLISP的自有生命 ============
+
+\section{KidLisp的自有生命}
+\label{sec:kidlisp}
+
+KidLisp是一种具有118个函数的Lisp方言，用于生成艺术~\citep{scudder2026kidlisp}。它是沙箱化的（无文件I/O，无网络），在浏览器中运行，已经积累了16,779个存储的程序和一个通过Tezos的区块链铸造集成。该语言小到可以写在一张索引卡上。
+
+\subsection{语言社区（2026--2028）}
+
+Tezos的"keeps"系统——KidLisp程序以2.5 XTZ铸造为链上艺术品——为编写KidLisp创造了经济激励。keeps合约（v11）已上线，铸造UI存在于keeps.kidlisp.com，5个代币已被铸造和迁移。如果生成艺术市场保持活跃，这条线索可以自我维持。
+
+更有趣的可能性是教育方面的。KidLisp的限制——无状态变异、除绘图外无副作用、118个函数、在浏览器中运行——使其成为教学环境的候选者。一个围绕卡片格式（学生可以拿在手中的单页程序）构建的KidLisp课程，与Papert的建构主义~\citep{papert1980mindstorms}和项目现有的基础设施相一致。
+
+\subsection{语言演进（2028--2031）}
+
+KidLisp将面临增长的压力。用户会想要状态、动画、交互性、声音。设计问题是该语言是否吸收这些功能（成为通用创作语言）还是保持刻意的极简（一种用于静态生成艺术的"俳句语言"，JavaScript处理其余一切）。
+
+项目的历史暗示是后者。@jeffrey的设计本能，在94个前身项目中可见，倾向于锐利的限制而非功能累积。piece模型本身——单文件、生命周期函数、即时模式图形~\citep{scudder2026pieces}——是限制优先的设计。KidLisp可能会保持小规模。有趣的增长将在于人们用它做什么，而不是语言添加什么。
+
+% ============ 6. 可持续性 ============
+
+\section{可持续性问题}
+\label{sec:sustainability}
+
+上述每条线索都取决于一个人继续工作。\ac{}没有风险投资、没有机构支持、除@jeffrey外没有雇员。AestheticAnts维护系统自动处理日常任务，但架构决策、论文写作、硬件测试和社区培育需要人类的关注。
+
+\subsection{资金格局（2026--2028）}
+
+该项目已确定资金来源：Creative Capital（\$50,000项目资助）、Prix Ars Electronica（\texteuro10,000）、Gary Marsden Travel Awards和GitHub Sponsors。论文工厂在一定程度上是一种资助申请策略：一个拥有19篇论文、会议演示和文档化用户基础的项目，比只有代码的项目更有竞争力。
+
+Tezos keeps提供了一小笔收入。印刷品（截至2026年3月已订购20份）提供了另一笔。两者都不足以维持全职开发。
+
+诚实的预测：到2028年，项目要么获得资助或机构附属关系（驻留、教职、研究奖学金），要么放缓为维护模式开发。这不是失败的场景——许多重要的创意工具由其创作者兼职维护数十年。但雄心勃勃的线索（行星合奏、剩余硬件车队、学术护城河）需要全职关注。
+
+\subsection{单一作者风险（2028--2031）}
+
+Illich的"用于共生性的工具"~\citep{illich1973tools}认为，好的工具应该无需专业知识即可操作。\ac{}对其用户抱有这样的期望，但项目本身在Illich的意义上并非共生的：它需要@jeffrey的专业知识来维护。巴士因子为一。
+
+缓解措施已部分到位：代码库是开源的，架构在19篇论文中有文档记录，piece API被设计为单文件的简洁性，AestheticAnts系统自主处理日常维护。但"代码是开放的"和"其他人可以领导该项目"之间的差距是巨大的。
+
+可能的5年轨迹：@jeffrey继续担任唯一架构师。一个小型piece作者社区贡献内容（265个已发布pieces，且在增长）。一两个贡献者为特定功能提交pull request。该项目不会达到Processing或p5.js的"千人贡献者"模式，但也不需要——它的价值主张不是广度而是深度：一个单一愿景，严格维护，将创意计算带到委员会设计的工具无法到达的地方。
+
+% ============ 7. 汇聚 ============
+
+\section{汇聚}
+\label{sec:convergence}
+
+上述七条线索不是平行轨道。它们汇聚。
+
+94个项目的历史（\S\ref{sec:history}）确立了使其他线索可读的轨迹。剩余硬件（\S\ref{sec:surplus}）为行星合奏（\S\ref{sec:ensembles}）提供物质基础。3D基础设施（\S\ref{sec:3d}）将合奏模型扩展到空间表演。论文（\S\ref{sec:scholarly}）记录和合法化这一切。KidLisp（\S\ref{sec:kidlisp}）为通过这些渠道到达的新用户提供安全的入口。可持续性（\S\ref{sec:sustainability}）决定了汇聚是否会发生——而\S\ref{sec:giveup}考察了如果不发生会怎样。
+
+最可能的5年场景是：到2031年，\ac{}是一个被认可但小众的创意计算环境，拥有：
+
+\begin{itemize}
+  \item \textbf{5,000--10,000名注册用户}，从2,812增长，由notepat的病毒式传播、会议演示和课堂部署驱动
+  \item \textbf{一个裸机操作系统}部署在5--15个地点（学校、社区中心、艺术驻留、工作坊）的100--500台剩余机器上
+  \item \textbf{3--5篇已发表论文}在同行评审场所，建立最小的学术足迹
+  \item \textbf{50,000+个KidLisp程序}，有一个小而活跃的生成艺术社区在Tezos上铸造keeps
+  \item \textbf{合奏表演}在2--3个节日或会议上，使用剩余笔记本电脑车队作为分布式乐器
+  \item \textbf{一个单一维护者}仍在编写大部分代码，AI辅助维护处理越来越多的日常工作
+\end{itemize}
+
+这既不是最雄心勃勃的结果，也不是最保守的。它是与一个做出了关于其所关心之事的具体、刻意选择——深度优于广度、乐器优于IDE、维护优于颠覆——并且拥有按独立开发者可持续的节奏跟进这些选择的基础设施的项目相一致的结果。
+
+% ============ 8. 什么可能改变一切 ============
+
+\section{什么可能改变一切}
+\label{sec:wildcards}
+
+基于动量的预测之所以可靠，恰恰因为它们忽略了不连续性。四张外卡可能完全改变轨迹：
+
+\subsection{一个机构之家}
+
+如果@jeffrey在艺术学校或研究型大学获得教职，\ac{}将获得它目前缺乏的东西：学生。一个由15--30名学生组成的群体，在一个学期中使用\ac{}作为主要创意计算环境，将产出比十年独立开发更多的pieces、更多的错误报告、更多的用例和更多的学术成果。CalArts论文的论点——艺术学校是一个操作系统——反过来也成立：操作系统可以成为一所学校。
+
+\subsection{一个病毒式时刻}
+
+\np{}曾被发布到Hacker News并受到关注。第二个病毒式时刻——一个教室里满是剩余笔记本电脑一起演奏音乐的TikTok、一个关于\$50创意乐器的推文串、一个被录制和分享的会议演示——可能在一周内带来数千名用户。基础设施（可通过URL访问的pieces、即时注册、社交功能）被设计来吸收这些。@jeffrey是否\emph{想要}吸收它是另一个问题。项目的反平台立场~\citep{fisher2009capitalist}暗示了对为增长而增长的矛盾态度。
+
+\subsection{AI作为协作者}
+
+AestheticAnts系统已经使用AI进行日常维护。代理记忆系统记录交互并在对话之间保持连续性。如果AI能力继续进步，该系统的未来版本可能不仅仅是维护：它可以编写pieces、生成KidLisp程序、编排合奏总谱和起草论文。如果"独立作者"由一个理解项目历史、哲学和代码库的AI协作者增强，那么单一作者风险（\S\ref{sec:sustainability}）就会减少。
+
+这不像其他场景那样是推测性的。它已经在发生。问题是程度问题：到2031年，AI处理10\%的创作工作，还是50\%？答案取决于@jeffrey关于委托什么和坚持自己做什么的选择。项目对个人声音的强调，对那些承载作者温度的"PSYCHO"论文的强调，表明最重要的工作将保持人类的。围绕它的基础设施可能不会。
+
+\subsection{如果他停下来会怎样}
+\label{sec:giveup}
+
+上述预测假设持续的努力。但94个项目的历史（\S\ref{sec:history}）包含一个必须命名的模式：@jeffrey以前放弃过东西。No Paint有五次化身。每一次都被放弃了，不是因为想法失败了，而是因为实现固化了——因为工具\emph{是什么}和它\emph{应该是什么}之间的差距变得无法忍受。重启不是承诺的失败。它们是承诺的表达。
+
+\ac{}的风险不是@jeffrey失去兴趣。十五年围绕同样问题的运转排除了随意放弃。风险是\emph{结构性疲惫}：运营负担的累积——服务器账单、用户支持、硬件测试、论文投稿、资助申请、依赖更新——直到维护负担挤掉了使项目值得维护的创作工作。Ukeles~\citep{ukeles1969manifesto}认为维护是艺术，但即使Ukeles也承认，没有认可的维护会变成隐形劳动。
+
+三种终止场景值得考虑：
+
+\begin{enumerate}
+  \item \textbf{悄然消退}：开发减少到零星的提交，服务器保持运行但社区逐渐流失，\ac{}加入那长长的雄心勃勃的个人工具名单——它们作为档案而非活的系统而存在。这是单一作者创意计算项目最常见的结果。它并不戏剧性。它是默认。
+
+  \item \textbf{刻意停止}：@jeffrey在某个自然边界宣布项目完成——也许是当OS在一打笔记本型号上可靠启动时，或当论文数量达到一个整数时，或当第100个piece由他以外的人发布时。他回到画布上绘画（2026年5月的Venice Family Clinic展览表明这条线索已经活跃）。代码保持开放。有人可能会分叉它。最可能的是，没有人会。
+
+  \item \textbf{第95次重启}：@jeffrey离开\ac{}去构建它的继任者。这是历史最强烈预测的模式。No Paint变成了\ac{}。\ac{}可能变成别的东西——吸收OS的教训、piece模型、合奏网络和3D光栅化器，但甩掉累积的基础设施负担。新项目从零开始，在一个文件中，循环重新开始。从外部看，这像是失败。从94个项目谱系的内部看，它像是设计运作完全如预期。
+\end{enumerate}
+
+诚实的评估：场景3在5年内不太可能，因为\ac{}已经以No Paint从未达到的方式达到了逃逸速度——注册用户基础、裸机操作系统、区块链集成、19篇论文、一种拥有16,000多个程序的语言。沉没成本太高，无法进行干净的重启。但如果可持续性问题（\S\ref{sec:sustainability}）得不到回答，场景1完全可能。一个如此雄心勃勃的项目，由一个没有稳定资金的人维护，总是距离悄然消退只有一个糟糕的年份。
+
+缓解方法与迄今为止维持项目的方法相同：使工作本身足够有回报，使运营负担可以忍受。论文、表演、从零编写的3D光栅化器、7秒的裸机启动——这些不是路线图上的功能。它们是创作实践。如果实践不再有趣，项目就会停止。如果它保持有趣，项目就能经受住除了灯灭之外的一切。
+
+% ============ 10. 结论 ============
+
+\section{结论}
+
+Aesthetic Computer是一个知道自己是什么的项目。它没有在寻找产品市场契合度，没有向企业转型，没有为增长指标优化。它是一个个人创意计算工具，由一个在94个前身项目中制作了十多年版本的人公开构建。
+
+未来五年将由内部力量（@jeffrey能维持的节奏、他能获得的资金）和外部力量（2.4亿台剩余PC、生成艺术经济、学术会议周期）共同塑造。项目的基础设施——裸机操作系统、论文工厂、piece模型、社交网络、区块链铸造——被建来吸收这些力量。它是否会，取决于耐力、运气，以及世界是否愿意关注不属于某个平台的创意计算工具。
+
+Nelson在1974年写道，"你可以而且必须现在就理解计算机"~\citep{nelson1974computerlib}。Illich在1973年写道，工具应该扩展个人自主权，而不是要求机构中介~\citep{illich1973tools}。Ukeles在1969年写道，维护是艺术~\citep{ukeles1969manifesto}。\ac{}是这些的综合：一个个人的、共生的、作为创作实践来维护的工具。赌注是，这种综合，应用于剩余硬件并随时间持续，能创造出持久之物。
+
+它是否会是唯一有趣的问题。本文不提供答案，只提供对场中力量的解读。代码将决定。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{翻译自英文。原始版本可在 \url{https://papers.aesthetic.computer} 获取}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

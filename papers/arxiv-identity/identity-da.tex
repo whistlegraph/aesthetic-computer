@@ -1,0 +1,577 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Handle-identitet på AT Protocol: Fra Auth0 til decentraliseret login},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\atproto}{\textsc{AT Protocol}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Handle-identitet på AT Protocol}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Fra Auth0 til decentraliseret login på Aesthetic Computer}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} ATProto OAuth, handle-verifikation og portabel kreativ identitet}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Aesthetic Computer autentificerer i øjeblikket brugere gennem Auth0 og opretholder en parallel identitet på en selvhostet AT Protocol Personal Data Server (PDS) på \texttt{at.aesthetic.computer}. Hver verificeret bruger modtager en DID og et PDS-handle, men autentificering foregår gennem en centraliseret OAuth-udbyder. Vi foreslår at sammenlægge denne duale identitetsarkitektur ved at adoptere AT Protocol OAuth~\citep{atproto2024oauth} som primær login-metode, hvilket gør det muligt for alle med en Bluesky- eller ATProto-identitet at autentificere sig direkte og få det tilsvarende handle på Aesthetic Computer. Denne artikel gennemgår \atproto{}-identitetsstakken---DID'er, handle-verifikation, OAuth 2.1 med DPoP og PAR---undersøger, hvordan pckt.blog og andre ATProto-native applikationer implementerer decentraliseret login~\citep{pcktblog2025}, kortlægger den nuværende AC-autentificeringsarkitektur og foreslår en faseinddelt migration fra Auth0-afhængighed til \atproto{}-først-identitet. Det centrale argument: på en platform, der allerede kører sin egen PDS og udsteder sine egne DID'er, er den centraliserede identitetsudbyder det vestigiale organ. At fjerne den forenkler stakken, eliminerer en betalt afhængighed og gør AC til en førsteklasses borger i det fødererede sociale web.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUKTION ============
+
+\section{Introduktion}
+
+Identitet på webben er et udlejerproblem. Du ejer ikke dit handle på Twitter, dit brugernavn på Instagram eller dit login på nogen platform, der kan slette din konto. AT Protocol~\citep{atproto2024spec}---den decentraliserede sociale netværksprotokol bag Bluesky---foreslår en anden ordning: din identitet er et kryptografisk nøglepar, dit handle er et domænenavn, du kontrollerer, og dine data ligger på en Personal Data Server, som du kan flytte mellem udbydere.
+
+Aesthetic Computer har opereret med et hybrid identitetssystem siden 2024. Auth0~\citep{auth0spa} håndterer autentificering: OAuth 2.0 med PKCE, refresh tokens og en administreret brugerdatabase. Separat udsteder en selvhostet PDS på \texttt{at.aesthetic.computer} ATProto-identiteter for hver verificeret bruger. Resultatet er et fordoblet system: to identiteter per bruger, to credential-lagre, to handle-synkroniseringsveje og et betalt Auth0-abonnement, der bygger bro over kløften.
+
+Denne artikel spørger: hvad nu hvis PDS'en \emph{er} identitetsudbyderen?
+
+Svaret er ikke hypotetisk. pckt.blog~\citep{pcktblog2025}, en blogplatform bygget på \atproto{}, autentificerer brugere udelukkende gennem \atproto{} OAuth. Brugere logger ind med deres Bluesky-handle, deres selvhostede PDS eller enhver kompatibel identitetsudbyder. Ingen Auth0, ingen Firebase, ingen centraliseret brugerdatabase. Indholdet synkroniseres til brugerens egen PDS ved hjælp af delte lexicons fra Standard.site~\citep{standardsite2025}.
+
+Vi undersøger, hvordan denne model gælder for Aesthetic Computer---en kreativ computing-platform med 600+ interaktive pieces, multiplayer-sessioner, et KidLisp-programmeringssprog og et native bare-metal OS~\citep{scudder2026os}---og foreslår en faseinddelt migration, der bevarer bagudkompatibilitet, mens den bevæger sig mod decentraliseret identitet.
+
+% ============ 2. DEN NUVÆRENDE AC-IDENTITETSARKITEKTUR ============
+
+\section{Nuværende arkitektur}
+\label{sec:current}
+
+\subsection{Auth0 som identitetsudbyder}
+
+Autentificering foregår gennem Auth0's SPA SDK. Ved sideindlæsning tjekker \texttt{boot.mjs} localStorage for cached Auth0-tilstand. Hvis en session eksisterer (eller et OAuth-callback detekteres), initialiserer den Auth0-klienten med PKCE og refresh tokens, udveksler autorisationskoder for access tokens og henter brugerprofilen. Auth0's \texttt{sub}-felt (f.eks. \texttt{auth0|abc123} eller \texttt{google-oauth2|xyz}) fungerer som den interne brugeridentifikator.
+
+\begin{lstlisting}[style=acjsstyle]
+// boot.mjs: current Auth0 flow
+const auth0 = await createAuth0Client({
+  domain: |\textcolor{jsstr}{"hi.aesthetic.computer"}|,
+  clientId: |\textcolor{jsstr}{"LVdZaM..."}|,
+  cacheLocation: |\textcolor{jsstr}{"localstorage"}|,
+  useRefreshTokens: true,
+});
+const user = await auth0.getUser();
+// { sub, email, email_verified, ... }
+\end{lstlisting}
+
+\subsection{Handle-systemet}
+
+Handles gemmes i en MongoDB \texttt{@handles}-collection, der mapper Auth0 \texttt{sub} til en streng på 1--16 alfanumeriske tegn (med \texttt{.} og \texttt{\_} tilladt). Validering håndhæver ingen indledende/afsluttende tegnsætning, case-insensitiv unikhed og profanitetsfiltrering. Handles er den primære brugervendte identitet: URL-adresserbare (\texttt{@handle/piece-name}), synlige i chat og oplæst af AC Native OS.
+
+\subsection{ATProto-skyggeidentitet}
+
+Ved første e-mail-verifikation udløser en Auth0-webhook \texttt{createAtprotoAccount()}, som:
+
+\begin{enumerate}
+  \item Genererer en adgangskode på 32 tegn
+  \item Opretter en invitationskode på PDS'en
+  \item Opretter en konto på \texttt{handle.at.aesthetic.computer}
+  \item Gemmer DID, handle og krypteret adgangskode i MongoDB (\texttt{users.atproto})
+\end{enumerate}
+
+Når en bruger ændrer sit AC-handle, synkroniserer \texttt{updateAtprotoHandle()} ændringen til PDS'en. Indhold (malerier, stemninger, KidLisp-snippets, tapes, nyheder) spejles til PDS'en via seks brugerdefinerede lexicons (\texttt{computer.aesthetic.*}). ATProto-identiteten er reel og funktionel---men brugeren autentificerer sig aldrig gennem den. Det er en skyggeidentitet: til stede, synkroniseret, men ikke suveræn.
+
+\subsection{Duplikeringsproblemet}
+
+Denne arkitektur medfører:
+
+\begin{itemize}
+  \item To credential-lagre (Auth0 + PDS)
+  \item To handle-navnerum (AC-handles + PDS-handles)
+  \item To synkroniseringsveje (handle-ændringer propagerer Auth0 $\to$ MongoDB $\to$ PDS)
+  \item En betalt afhængighed (Auth0-abonnement)
+  \item Ingen interoperabilitet (en Bluesky-bruger kan ikke logge ind på AC med sin eksisterende identitet)
+\end{itemize}
+
+PDS'en ved allerede, hvem hver bruger er. Den gemmer allerede deres DID, deres handle, deres indhold. Auth0-laget tilføjer omkostninger og kompleksitet uden at tilføje kapabilitet, som PDS'en ikke kan levere.
+
+% ============ 3. AT PROTOCOL-IDENTITETSSTAKKEN ============
+
+\section{AT Protocol-identitetsstakken}
+\label{sec:atproto}
+
+At forstå migrationen kræver forståelse af de tre lag i \atproto{}-identitet: DID'er, handles og OAuth.
+
+\subsection{Decentraliserede identifikatorer (DID'er)}
+
+En DID~\citep{w3cdid2022, atproto2024did} er en persistent, kryptografisk verificerbar identifikator. \atproto{} bruger primært \texttt{did:plc}, en metode designet til stærk konsistens, høj tilgængelighed og nøglerotation uden tab af identitet. Hver DID opløses til et dokument, der indeholder:
+
+\begin{itemize}
+  \item En \textbf{signeringsnøgle} (P-256 eller K-256)~\citep{atproto2024crypto} til autentificering af repository-opdateringer
+  \item \textbf{Rotationsnøgler} til kontogendannelse
+  \item Et \textbf{PDS-endpoint} URL
+  \item Brugerens aktuelle \textbf{handle}
+\end{itemize}
+
+DID'en er den stabile identitet. Handles ændrer sig; nøgler roteres; PDS-udbydere kommer og går. DID'en forbliver. AC udsteder allerede DID'er for hver bruger gennem sin PDS. Infrastrukturen eksisterer.
+
+\subsection{Handle-verifikation}
+
+Et \atproto{}-handle~\citep{atproto2024handle} er et domænenavn, der opløses bidirektionelt til en DID. Verifikation bruger to metoder:
+
+\textbf{DNS TXT}: Placer en record på \texttt{\_atproto.example.com}:
+\begin{lstlisting}
+_atproto.example.com TXT "did=did:plc:abc..."
+\end{lstlisting}
+
+\textbf{HTTPS Well-Known}: Server DID'en på:
+\begin{lstlisting}
+GET /.well-known/atproto-did
+Response: did:plc:abc...
+\end{lstlisting}
+
+Begge metoder kræver, at handlet opløses til DID'en \emph{og} at DID-dokumentet hævder handlet tilbage. Denne bidirektionelle verifikation betyder: hvis du kontrollerer domænet, kontrollerer du handlet. Ingen central myndighed tildeler handles; DNS er myndigheden.
+
+For AC betyder dette, at \texttt{jeffrey.at.aesthetic.computer} er et reelt, verificerbart ATProto-handle, fordi AC kontrollerer både DNS'en og PDS'en. Men det betyder også, at en bruger, der allerede ejer \texttt{alice.bsky.social} eller \texttt{alice.dev}, har en kryptografisk verificeret identitet, som AC kan stole på uden en adgangskode.
+
+\subsection{ATProto OAuth}
+
+\atproto{} OAuth-specifikationen~\citep{atproto2024oauth} udvider OAuth 2.1 med tre obligatoriske sikkerhedsmekanismer:
+
+\textbf{PKCE} (Proof Key for Code Exchange)~\citep{rfc7636pkce}: Forhindrer aflytning af autorisationskoder. Klienten genererer en tilfældig verifier, sender dens hash med autorisationsforespørgslen og beviser besiddelse af den originale verifier under token-udveksling.
+
+\textbf{PAR} (Pushed Authorization Requests)~\citep{rfc9126par}: Klienten indsender autorisationsparametre via POST til autorisationsserveren \emph{inden} brugeren omdirigeres. Dette forhindrer parameter-manipulation i omdirigerings-URL'en.
+
+\textbf{DPoP} (Demonstrating Proof of Possession)~\citep{rfc9449dpop}: Hver forespørgsel inkluderer en signeret JWT, der beviser, at klienten besidder den private nøgle associeret med tokenet. Selv hvis et access token lækkes, kan det ikke bruges af en anden klient.
+
+\subsubsection{Klientidentifikation}
+
+I modsætning til traditionel OAuth kræver \atproto{} ikke forhåndsregistrering hos hver autorisationsserver. I stedet publicerer klienter metadata på en offentlig HTTPS-URL:
+
+\begin{lstlisting}[style=acjsstyle]
+// aesthetic.computer/oauth/client-metadata.json
+{
+  |\textcolor{jsstr}{"client\_id"}|: |\textcolor{jsstr}{"https://aesthetic.computer/..."}|,
+  |\textcolor{jsstr}{"client\_name"}|: |\textcolor{jsstr}{"Aesthetic Computer"}|,
+  |\textcolor{jsstr}{"redirect\_uris"}|: [|\textcolor{jsstr}{"https://..."}|],
+  |\textcolor{jsstr}{"grant\_types"}|: [|\textcolor{jsstr}{"authorization\_code"}|],
+  |\textcolor{jsstr}{"dpop\_bound\_access\_tokens"}|: true
+}
+\end{lstlisting}
+
+Enhver PDS kan opdage og verificere klienten ved at hente denne URL. Ingen forhåndsdelte hemmeligheder, ingen app store-registrering, ingen API-nøgle-administration.
+
+\subsubsection{Flowet}
+
+\begin{enumerate}
+  \item Brugeren indtaster sit handle (f.eks. \texttt{alice.bsky.social})
+  \item Klienten opløser handle $\to$ DID $\to$ PDS-endpoint $\to$ autorisationsserver
+  \item Klienten pusher autorisationsparametre via PAR
+  \item Brugeren omdirigeres til sin PDS's autorisations-UI
+  \item Brugeren godkender; PDS'en omdirigerer tilbage med autorisationskode
+  \item Klienten udveksler kode for DPoP-bundet access token
+  \item Klienten verificerer, at den returnerede DID matcher den forventede identitet
+\end{enumerate}
+
+Den afgørende forskel fra Auth0: brugeren autentificerer sig med \emph{sin egen server}. AC ser aldrig en adgangskode. PDS'en---hvad enten det er Bluesky's, AC's egen eller en selvhostet instans---er identitetsmyndigheden.
+
+% ============ 4. SÅDAN GØR PCKT.BLOG ============
+
+\section{Casestudie: pckt.blog}
+\label{sec:pckt}
+
+pckt.blog~\citep{pcktblog2025} er en blogplatform, der autentificerer udelukkende gennem \atproto{} OAuth. Dens implementering demonstrerer den praktiske levedygtighed af ATProto-only-autentificering for en indholdsplatform.
+
+\subsection{Autentificering}
+
+Brugere logger ind ved at indtaste deres ATProto-handle. pckt.blog opløser handlet, opdager autorisationsserveren og igangsætter OAuth-flowet. Brugeren godkender på sin PDS (Bluesky, Blacksky, en selvhostet server). pckt.blog modtager et DPoP-bundet access token og brugerens DID. Ingen adgangskoder gemmes. Ingen separat brugerdatabase vedligeholdes.
+
+\subsection{Datasuverænitet}
+
+Indhold synkroniseres til brugerens egen PDS ved hjælp af Standard.site-lexicons~\citep{standardsite2025}:
+
+\begin{itemize}
+  \item \texttt{site.standard.publication} --- blogsamlinger
+  \item \texttt{site.standard.document} --- individuelle artikler
+  \item \texttt{site.standard.graph.subscription} --- følge-relationer
+\end{itemize}
+
+Hvis pckt.blog forsvinder, forbliver brugerens indhold på deres PDS, tilgængeligt for enhver kompatibel læser. Dette er løftet fra ATProto: platformen er en visning, ikke en silo.
+
+\subsection{Implikationer for AC}
+
+pckt.blog beviser, at en indholdsorienteret platform kan operere udelukkende på ATProto-identitet. Parallellerne til AC er direkte:
+
+\begin{itemize}
+  \item pckt.blog publicerer artikler; AC publicerer pieces, malerier og stemninger
+  \item pckt.blog bruger Standard.site-lexicons; AC har seks brugerdefinerede \texttt{computer.aesthetic.*}-lexicons
+  \item pckt.blog's brugere ejer deres indhold på deres PDS; AC spejler allerede indhold til sin PDS
+  \item Begge er Node.js/JavaScript-applikationer
+\end{itemize}
+
+Kløften: pckt.blog blev bygget ATProto-nativt. AC har en eksisterende Auth0-brugerbase, der skal migreres elegant.
+
+% ============ 5. FORESLÅET MIGRATION ============
+
+\section{Foreslået migration}
+\label{sec:migration}
+
+\subsection{Fase 1: ATProto OAuth som sekundær login}
+
+Tilføj ``Log ind med Bluesky'' ved siden af Auth0, uden at fjerne Auth0.
+
+\textbf{Infrastruktur:}
+\begin{enumerate}
+  \item Publicer klientmetadata på \texttt{aesthetic.computer/oauth/client-metadata.json}
+  \item Tilføj \texttt{@atproto/oauth-client-node}~\citep{npmAtprotoOauth} til backend'en
+  \item Opret to nye Netlify-funktioner:
+    \begin{itemize}
+      \item \texttt{POST /api/atproto-auth/start} --- opløs handle, PAR, omdiriger
+      \item \texttt{GET /api/atproto-auth/callback} --- kodeudveksling med DPoP
+    \end{itemize}
+  \item Gem sessioner i Redis (DID, handle, DPoP-nøglepar, tokens)
+\end{enumerate}
+
+\textbf{Klientflow:} En ny ``Log ind med Bluesky''-knap i \texttt{boot.mjs} udløser ATProto OAuth-flowet. Ved succes udfyldes \texttt{window.acUSER} fra ATProto-sessionen (DID som \texttt{sub}, handle, ingen e-mail medmindre brugeren angiver en). Piece API-overfladen er identisk---pieces ser en bruger med et handle, uanset hvilken auth-sti der oprettede sessionen.
+
+\subsection{Fase 2: Handle-brobygning}
+
+Når en bruger logger ind via ATProto, byg bro for deres handle til AC:
+
+\begin{enumerate}
+  \item Udtræk brugernavnet fra ATProto-handlet (f.eks. \texttt{alice} fra \texttt{alice.bsky.social})
+  \item Tjek tilgængelighed mod AC \texttt{@handles}-collection'en
+  \item Hvis tilgængelig og gyldig (1--16 tegn, alfanumerisk), tilbyd ét-klik-reservation
+  \item Hvis optaget, tjek om den eksisterende ejers e-mail matcher---tilbyd kontosammenkobling
+  \item Hvis optaget af en anden, bed om et alternativ
+  \item Gem en DID $\leftrightarrow$ AC sub-mapping i MongoDB til fremtidige logins
+\end{enumerate}
+
+Brugerdefinerede domæne-handles (f.eks. \texttt{alice.dev}) kræver, at brugeren manuelt vælger et AC-handle, da domænet i sig selv muligvis ikke mapper til en gyldig handle-streng.
+
+\subsection{Fase 3: Identitetssammenkobling}
+
+Eksisterende Auth0-brugere kan koble deres ATProto-identitet:
+
+\begin{enumerate}
+  \item Fra kontoindstillinger, igangsæt ATProto OAuth
+  \item Ved succes, gem den eksterne DID sammen med Auth0 sub
+  \item Fremtidige logins accepterer begge auth-stier
+  \item Indhold kan valgfrit synkroniseres til brugerens eksterne PDS (ikke kun AC's PDS)
+\end{enumerate}
+
+Denne fase forvandler det eksisterende \texttt{users.atproto}-felt fra en skyggeidentitet til en førsteklasses identitetskobling.
+
+\subsection{Fase 4: ATProto-primær}
+
+Når migrationen er valideret:
+
+\begin{enumerate}
+  \item Nye tilmeldinger bruger som standard ATProto OAuth (opretter konti på AC's PDS)
+  \item Auth0 forbliver som en legacy-sti for eksisterende brugere
+  \item Gradvis udfasning af Auth0 efterhånden som brugere kobler deres ATProto-identiteter
+  \item Fjern Auth0-afhængighed, eliminer abonnementsomkostning
+\end{enumerate}
+
+\subsection{PDS-routing}
+
+En central arkitektonisk beslutning: hvor skal indholdet hen?
+
+\begin{itemize}
+  \item \textbf{Auth0-only-brugere}: indhold synkroniseres til AC's PDS (nuværende adfærd)
+  \item \textbf{ATProto-brugere med ekstern PDS}: indhold synkroniseres til \emph{deres} PDS
+  \item \textbf{ATProto-brugere på AC's PDS}: indhold forbliver på AC's PDS
+\end{itemize}
+
+Dette betyder, at backend-synkroniseringsfunktionerne (\texttt{media-atproto.mjs}, \texttt{painting-atproto.mjs} osv.) har brug for en betinget sti: opløs brugerens PDS-endpoint fra deres DID-dokument og skriv til det endpoint i stedet for at antage AC's PDS.
+
+% ============ 6. HANDLE-SEMANTIK ============
+
+\section{Handle-semantik}
+\label{sec:handles}
+
+Handlet er den mest menneskesynlige del af identitetsstakken, og migrationen rejser spørgsmål om, hvad et handle \emph{betyder}.
+
+\subsection{Nuværende handle-model}
+
+I dag er et AC-handle:
+\begin{itemize}
+  \item En streng på 1--16 tegn, først til mølle
+  \item Unikt inden for AC-navnerummet
+  \item Brugt til URL'er (\texttt{@alice/painting}), chat og OS-personalisering
+  \item Gemt i MongoDB, cached i Redis
+  \item Spejlet til PDS'en som \texttt{alice.at.aesthetic.computer}
+\end{itemize}
+
+\subsection{ATProto-handle-model}
+
+Et ATProto-handle er:
+\begin{itemize}
+  \item Et domænenavn (ethvert gyldigt DNS-navn)
+  \item Verificeret bidirektionelt mod en DID
+  \item Globalt unikt via DNS-autoritet
+  \item Portabelt på tværs af tjenester
+\end{itemize}
+
+\subsection{Brobygning mellem modellerne}
+
+Forslaget: et AC-handle er et \emph{alias}, der mapper til en DID. Sandhedskilden flyttes fra MongoDB til DID-laget. Flere login-metoder (Auth0, ATProto OAuth) opløses til den samme DID, som opløses til det samme AC-handle.
+
+For AC Native OS~\citep{scudder2026os}, hvor handlet er indskrevet i \texttt{config.json} på boot-partitionen, betyder dette, at enhedens identitet er understøttet af en kryptografisk identitet. ``Hej @alice'' på boot-skærmen betyder Alices DID, Alices signeringsnøgle, Alices portabel identitet---ikke blot en streng i en konfigurationsfil.
+
+% ============ 7. ÅBNE SPØRGSMÅL ============
+
+\section{Åbne spørgsmål}
+\label{sec:questions}
+
+\textbf{Handle-prioritet.} Hvis \texttt{alice} er ureserveret på AC, men \texttt{alice.bsky.social} logger ind, skal hun så automatisk få det? Først til mølle er simpelt, men tillader squatting. ATProto-verificeret prioritet er mere retfærdigt, men tilføjer kompleksitet.
+
+\textbf{E-mail-krav.} Auth0 leverer verificeret e-mail til kontogendannelse. ATProto OAuth garanterer ikke e-mail. Skal AC kræve en e-mail til fulde kontofunktioner (køb, notifikationer)?
+
+\textbf{Multi-tenant.} AC driver en anden tenant (\texttt{sotce}) med separat Auth0. Hvordan mapper ATProto-identiteter på tværs af tenants? DID'en er tenant-agnostisk, hvilket kan forenkle identitet på tværs af tenants.
+
+\textbf{Sessionsserver.} Realtidsfunktioner (chat, multiplayer) autentificerer via Auth0-tokens videresendt gennem WebSocket. Sessionsserveren skal acceptere ATProto-udstedte tokens eller et samlet sessions-token.
+
+\textbf{Enhedsparring.} AC Native OS parrer via en 6-tegns kode udvekslet gennem Auth0. ATProto-ækvivalenten: scan en QR-kode, der igangsætter et OAuth-flow på telefonen og leverer tokens til enheden.
+
+\textbf{Admin-identitet.} Admin er i øjeblikket \texttt{handle === "jeffrey" \&\& sub === ADMIN\_SUB}. Under ATProto-først-auth er admin \texttt{did === admin\_did}---renere, kryptografisk forankret.
+
+% ============ 8. RELATERET ARBEJDE ============
+
+\section{Relateret arbejde}
+\label{sec:related}
+
+\textbf{Decentraliseret identitet.} W3C DID-specifikationen~\citep{w3cdid2022} udgør den formelle ramme for decentraliserede identifikatorer. AT Protocols \texttt{did:plc}-metode~\citep{atproto2024did} udvider dette med stærke konsistensgarantier og en centraliseret-men-auditerbar mappe på \texttt{plc.directory}. Dette er et pragmatisk kompromis: fuld decentralisering af identitetsopløsning forbliver et åbent problem, og \texttt{did:plc} bytter noget decentralisering for operationel pålidelighed.
+
+\textbf{ATProto-native applikationer.} pckt.blog~\citep{pcktblog2025} demonstrerer blogging; Leaflet.pub og Offprint.app samarbejder om delte lexicons via Standard.site~\citep{standardsite2025}. Disse applikationer beviser levedygtigheden af ATProto-only-auth for indholdsplatforme.
+
+\textbf{OAuth-sikkerhed.} DPoP~\citep{rfc9449dpop} forhindrer token-tyveri; PAR~\citep{rfc9126par} forhindrer parameter-manipulation; PKCE~\citep{rfc7636pkce} forhindrer kode-aflytning. Tilsammen repræsenterer de state of the art inden for browserbaseret OAuth-sikkerhed---betydeligt stærkere end det Auth0 SPA-flow, som AC i øjeblikket bruger.
+
+\textbf{Konvivial identitet.} Illichs værktøjer til konvivialitet~\citep{illich1973tools} rammer spørgsmålet: udvider identitetssystemet personlig autonomi, eller kræver det afhængighed af en udbyder? Auth0 er en administreret tjeneste---bekvem men afhængig. ATProto-identitet er portabel, selv-verificerbar og udbyderuafhængig. Nelsons vision om personlig computing~\citep{nelson1974computerlib} udvides naturligt til personlig identitet: du bør eje dit navn på netværket.
+
+% ============ 9. KONKLUSION ============
+
+\section{Konklusion}
+
+Aesthetic Computer kører allerede en PDS, udsteder DID'er, synkroniserer indhold til ATProto-records og publicerer brugerdefinerede lexicons. Den eneste manglende brik er at lade brugere autentificere sig gennem den infrastruktur i stedet for at gå omvejen gennem Auth0. Migrationen er ikke en omskrivning---den er fjernelsen af en workaround.
+
+Den faseinddelte tilgang (ATProto som sekundær login $\to$ handle-brobygning $\to$ identitetssammenkobling $\to$ ATProto-primær) sikrer, at ingen eksisterende bruger forstyrres. Sluttilstanden: en kreativ computing-platform, hvor dit handle er en kryptografisk identitet, dit indhold lever på en server, du kontrollerer, og at logge ind betyder at bevise, at du ejer dine nøgler---ikke at stole på en tredjepart til at indestå for dig.
+
+PDS'en kører allerede. DID'erne er allerede udstedt. Lexiconerne er allerede publiceret. Det er tid til at lade brugere logge ind gennem hoveddøren.
+
+% ============ REFERENCER ============
+
+\vspace{0.5em}
+\noindent\rule{\columnwidth}{0.5pt}
+
+\subsection*{Referencelinks}
+
+\noindent\small
+
+\textbf{AT Protocol-specifikationer:}
+\begin{itemize}
+  \item \url{https://atproto.com/specs} --- Fuld protokolspecifikation
+  \item \url{https://atproto.com/specs/oauth} --- OAuth-specifikation
+  \item \url{https://atproto.com/specs/handle} --- Handle-opløsning
+  \item \url{https://atproto.com/specs/cryptography} --- Kryptografiske metoder
+  \item \url{https://web.plc.directory/spec/v0.1/did-plc} --- DID PLC-specifikation
+  \item \url{https://atproto.com/guides/lexicon} --- Lexicon-skema-system
+  \item \url{https://atproto.com/guides/oauth-patterns} --- OAuth-implementeringsmønstre
+\end{itemize}
+
+\textbf{Implementeringsguider:}
+\begin{itemize}
+  \item \url{https://docs.bsky.app/blog/oauth-atproto} --- Byg ATProto OAuth-apps
+  \item \url{https://docs.bsky.app/docs/advanced-guides/resolving-identities} --- Identitetsopløsning
+  \item \url{https://docs.bsky.app/docs/advanced-guides/oauth-client} --- OAuth-klientguide
+\end{itemize}
+
+\textbf{NPM-pakker:}
+\begin{itemize}
+  \item \texttt{@atproto/oauth-client-node} --- Node.js OAuth-klient
+  \item \texttt{@atproto/oauth-client-browser} --- Browser OAuth-klient
+  \item \texttt{@atproto/api} --- TypeScript XRPC-klient
+  \item \texttt{@atproto/identity} --- DID/handle-opløsning
+  \item \texttt{@atcute/oauth-browser-client} --- Let alternativ
+\end{itemize}
+
+\textbf{Referenceimplementeringer:}
+\begin{itemize}
+  \item \url{https://github.com/pilcrowonpaper/atproto-oauth-example} --- Astro OAuth-eksempel
+  \item \url{https://github.com/bluesky-social/atproto} --- Officielt ATProto-monorepo
+  \item \url{https://standard.site/docs/introduction/} --- Standard.site delte lexicons
+\end{itemize}
+
+\textbf{Applikationer der bruger ATProto Auth:}
+\begin{itemize}
+  \item pckt.blog --- Blogging på det åbne sociale web
+  \item Leaflet.pub --- Langt format-publicering
+  \item Offprint.app --- Kollaborativ skrivning
+\end{itemize}
+
+\textbf{IETF-standarder:}
+\begin{itemize}
+  \item RFC 9449 --- DPoP (Demonstrating Proof of Possession)
+  \item RFC 7636 --- PKCE (Proof Key for Code Exchange)
+  \item RFC 9126 --- PAR (Pushed Authorization Requests)
+\end{itemize}
+
+\vspace{0.5em}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

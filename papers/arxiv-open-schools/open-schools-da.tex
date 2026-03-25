@@ -1,0 +1,433 @@
+% !TEX program = xelatex
+\documentclass[11pt, a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{multicol}
+
+\usepackage[
+  top=2.2cm, bottom=2.5cm, left=2.0cm, right=2.0cm
+]{geometry}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-layout}
+
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\hypersetup{
+  pdftitle={Få lukket kildekode ud af skolerne: Hver Chromebook er en nægtet adgang},
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Få lukket kildekode ud af skolerne}\par
+\vspace{0.3em}
+{\fontsize{10pt}{12pt}\selectfont\color{acpink} Hver Chromebook er en nægtet adgang}\par
+\vspace{0.8em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!40}\textit{arbejdsudkast --- ikke til citation}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} Marts 2026}\par
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\begin{multicols}{2}
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+
+\begin{abstract}
+\noindent
+Der er over 50 millioner Chromebooks i amerikanske skoler. Hver eneste er en kapabel computer, der kører et låst, lukket styresystem, som kanaliserer enhver elevinteraktion gennem Googles overvågningsinfrastruktur. Eleven kan ikke se, hvordan maskinen fungerer. Eleven kan ikke ændre maskinen. Eleven kan ikke eje maskinen i nogen meningsfuld forstand. I en tid med store sprogmodeller---hvor ``alle er programmører'' ikke længere er et slogan, men en materiel virkelighed---er dette en pædagogisk forsømmelse. Denne artikel argumenterer for, at enhver elev fortjener en fri og åben styresystemstak: én hvor Chromebooken bliver en port til elevens egen vej gennem logik, kreativitet, internettet, fællesskab og det computationelle landskab som helhed. Vi præsenterer de tekniske, pædagogiske, økonomiske og politiske argumenter for at erstatte lukket skolecomputerinfrastruktur med åbne alternativer, idet vi trækker på internationale præcedenser fra Kerala, Slesvig-Holsten og Frankrig, miljødata om planlagt forældelse, føderale og statslige retssager mod elevers overvågning, samt ny forskning i AI-assisteret programmeringsundervisning. Vi præsenterer \acos{}~\citep{scudder2026acos} som én konkret implementering af denne vision.
+\end{abstract}
+
+% ============================================================
+% 1. THE CHROMEBOOK PROBLEM
+% ============================================================
+
+\section{Chromebook-problemet}
+
+I 2012 begyndte Google aggressivt at markedsføre Chromebooks til amerikanske skoledistrikter. Budskabet var enkelt: billig hardware, ingen IT-overhead, alt i skyen. I 2026 udgør Chromebooks ca.\ 60\% af enhederne leveret til amerikanske K--12-skoler med en installeret base på over 50 millioner enheder~\citep{google2024chromeos}. En hel generation af amerikanske elever bliver uddannet på maskiner, de ikke kan forstå, ikke kan ændre og ikke ejer---selv når skolen har betalt for dem.
+
+ChromeOS er proprietær software. Kildekoden er ikke tilgængelig til inspektion. Browseren er hele grænsefladen. Hvert dokument lever i Google Drev. Enhver søgning går gennem Google. Enhver interaktion logges, analyseres og bruges til at opbygge adfærdsprofiler, der følger eleven ind i voksenlivet~\citep{zuboff2019surveillance}.
+
+Dette er ikke en bekymring i periferien. Dette er \emph{arkitekturen} bag, hvordan amerikanske børn lærer at bruge computere. Mediet er budskabet~\citep{mcluhan1964understanding}: Chromebooken lærer, at en computer er en enhed til forbrug af cloudtjenester ejet af en virksomhed. Den lærer, at dit arbejde lever på en andens server. Den lærer, at maskinen ikke er din at forstå.
+
+\subsection{Hvad eleven ikke kan gøre}
+
+På en Chromebook i skolen kan en elev ikke:
+
+\begin{itemize}
+  \item Installere et programmeringssprog-runtime (Python, Node.js, GCC)
+  \item Køre en lokal webserver eller kompilere kode
+  \item Inspicere styresystemets kildekode
+  \item Ændre opstartsekvensen
+  \item Tilslutte hardwareperiferiudstyr til fysisk computing
+  \item Bruge maskinen offline til seriøst arbejde
+  \item Opbevare sine data på enheden uden cloudsynkronisering
+  \item Vælge sin egen software
+  \item Forstå, hvad maskinen gør med deres opmærksomhed
+\end{itemize}
+
+ChromeOS inkluderer en Linux-container (Crostini), der i teorien kunne levere disse muligheder, men skolernes IT-administratorer deaktiverer den næsten altid. Maskinen leveres med en terminal og låser den derefter. Hver af disse restriktioner er en lukket dør. Hver lukket dør er en vej, eleven aldrig vil opdage. Chromebooken er ikke en port---den er en \emph{låge}.
+
+\subsection{Skyen som udlejer}
+
+Når en elevs arbejde lever i Google Drev, er de lejere, ikke ejere. Google kan ændre servicevilkårene. Google kan nedlægge produkter. Google kan tilbagekalde adgangen. Eleven dimitterer og mister sin Google-skolekonto---og med den hvert dokument, hvert projekt, hvert kreativt artefakt, de producerede under deres uddannelse.
+
+Dette er ikke hypotetisk. Det sker hvert år i hvert skoledistrikt. Elever mister adgang til års arbejde, fordi den institution, der købte deres cloudkonto, afvikler den. Arkitekturen \emph{garanterer} dette resultat: eleven havde aldrig sine filer. De havde tilladelse til at tilgå filer på Googles servere, og den tilladelse blev tilbagekaldt.
+
+Freire kaldte dette ``bankmodellen'' for uddannelse~\citep{freire1970pedagogy}: viden indsat i elever af autoriteter. Chromebooken gør metaforen bogstavelig. Elevens arbejde indsættes i en bank, de ikke kontrollerer, ikke kan revidere og til sidst vil blive låst ude af.
+
+\subsection{Planlagt forældelse: AUE-problemet}
+
+Hver Chromebook leveres med en Auto Update Expiration (AUE)-dato, hvorefter Google ikke leverer sikkerhedsopdateringer, funktionsopdateringer eller browseropdateringer. Historisk sat til 6,5 år fra \emph{platformens} første udgivelse---ikke købsdatoen---kan en skole, der køber en Chromebook sent i en platformscyklus, kun modtage 3--4 års opdateringer. Google forlængede dette til 10 år for enheder lanceret i 2024, men den installerede base af kortlivede maskiner er stadig enorm.
+
+U.S. PIRG Education Fund estimerede, at AUE-politikker ville tvinge den for tidlige bortskaffelse af 21,5 millioner funktionelt fungerende Chromebooks inden 2024, hvilket ville koste skoler ca.\ \$1,8 milliarder i unødvendige udskiftninger~\citep{pirg2023chromebook}. Disse er maskiner med fungerende processorer, fungerende skærme, fungerende tastaturer---gjort forældede af en softwarepolitik, ikke af hardwarefejl.
+
+Kontrasten med Linux er absolut. En 2015 ThinkPad med Ubuntu LTS modtager fortsat sikkerhedsopdateringer på ubestemt tid. Der er ingen kunstig udløbsdato knyttet til hardwaremodellen. Maskinen forbliver nyttig, så længe hardwaren fungerer.
+
+% ============================================================
+% 2. THE SURVEILLANCE MACHINE
+% ============================================================
+
+\section{Overvågningsmaskinen}
+\label{sec:surveillance}
+
+Google leverer Chromebooks til skoler under kostpris, fordi elever er et fanget marked for adfærdsdata~\citep{zuboff2019surveillance, doctorow2020attack}. En elev, der vokser op i Googles økosystem---Gmail, Google Docs, Google Drev, Google Classroom, YouTube---er en kunde for livet. Chromebooken er ikke en velgørende donation. Det er en kundeerhvervelsesstrategi rettet mod børn.
+
+\subsection{Hvad Google indsamler}
+
+De data, der indsamles fra elevers Chromebooks, inkluderer:
+
+\begin{itemize}
+  \item Enhver søgeforespørgsel og hvert besøgt websted
+  \item Hvert dokument åbnet, redigeret og delt
+  \item Hver YouTube-video set og i hvor lang tid
+  \item Tastetryk-timing-mønstre og loginfrekvens
+  \item Placeringsdata (på cellulære modeller)
+  \item Sociale grafer (hvem samarbejder med hvem i Google Docs)
+  \item Enhedsdiagnostik og app-brugstelemetri
+\end{itemize}
+
+Google hævder, at data indsamlet under Workspace for Education ``kernetjenester'' ikke bruges til reklame. Men ``yderligere tjenester''---YouTube, Google Søgning, Google Maps når man er logget ind---opererer under andre vilkår. Elever på skole-Chromebooks bruger disse yderligere tjenester konstant, og dataen strømmer til Googles reklameinfrastruktur.
+
+\subsection{Retssager}
+
+Retssagerne tegner et dystert billede. I 2019 betalte Google \$170 millioner til FTC og New Yorks statsadvokat for YouTubes COPPA-overtrædelser---indsamling af data fra børn uden forældresamtykke~\citep{google2019coppa}. I 2020 sagsøgte New Mexicos statsadvokat Hector Balderas Google direkte for at indsamle personlige data fra børn, der bruger Chromebooks i skoler~\citep{newmexico2020google}. EFF indgav en FTC-klage i 2015, der dokumenterede, at Google dataminerede elevers browsingaktivitet gennem Chromebooks~\citep{eff2015chromebook}. I 2024 indgav en koalition af digitale rettighedsorganisationer yderligere FTC-klager vedrørende fortsat elevers overvågning~\citep{eff2024monitoring}. Gruppesøgsmål vedrørende biometrisk dataindsamling fra elever under Illinois' BIPA-lov er igangværende.
+
+Disse data indsamles fra mindreårige, i et institutionelt miljø hvor deltagelse er obligatorisk, på maskiner eleven ikke valgte og ikke kan konfigurere. Eleven kan ikke fravælge. Forælderen kan ofte ikke fravælge. Skoledistriktet underskrev en kontrakt, og børnene er bundet af den.
+
+\subsection{Overvågningssoftware}
+
+Ud over Googles egen dataindsamling lægger skoledistrikter yderligere overvågningssoftware---Gaggle, GoGuardian, Securly---oven på Chromebooks. EFF dokumenterede, at disse værktøjer overvåger privat kommunikation og uforholdsmæssigt rammer udsatte, minoritets- og LGBTQ-unge~\citep{eff2024monitoring}. Af 152 ed-tech-tjenester undersøgt af EFF havde kun 118 offentliggjort privatlivspolitikker; langt færre adresserede dataopbevaring, kryptering eller afidentificering.
+
+Winner argumenterede for, at artefakter har politik~\citep{winner1980artifacts}. Chromebookens politik er klar: den er et overvågningsinstrument indsat i en kontekst, hvor de overvågede ikke har noget valg, ingen mulighed for klage og ingen forståelse af, hvad der tages fra dem.
+
+Et frit og åbent styresystem indsamler ingen telemetri. Det ringer ikke hjem til nogen virksomhed. Det opbygger ingen adfærdsprofil. Elevens opmærksomhed, deres nysgerrighed, deres fejl, deres udforskning---alt dette forbliver privat, fordi maskinen ikke har noget økonomisk incitament til at observere dem.
+
+% ============================================================
+% 3. THE LLM INFLECTION
+% ============================================================
+
+\section{Alle er programmører nu}
+
+Store sprogmodeller har ændret programmering\-ens økonomi. En elev, der kan beskrive, hvad de vil have, i naturligt sprog, kan producere fungerende kode. Barrieren for computationel skabelse er kollapset fra ``års teknisk uddannelse'' til ``evnen til at formulere en idé.'' Karpathys observation om, at ``det hotteste nye programmeringssprog er engelsk,'' er ikke længere overdrivelse---det er en beskrivelse af materiel virkelighed.
+
+Dette er det vigtigste skift i computing siden den personlige computer. Og det gør Chromebook-problemet \emph{katastrofalt værre}.
+
+\subsection{Den nye læsefærdighed}
+
+Hvis alle kan programmere, så er programmering læsefærdighed. Og læsefærdighed kræver værktøjer, som den læsefærdige person kan eje. Man lærer ikke et barn at læse ved at give dem en låst bog, der kun kan åbnes i en bestemt bygning med en bestemt virksomhedskonto. Man giver dem bogen. De tager den med hjem. De læser den i sengen. De skriver i margenerne. De låner den til en ven.
+
+En elev med en LLM og et åbent styresystem kan:
+
+\begin{itemize}
+  \item Bygge et værktøj til at organisere deres lektier
+  \item Skrive et spil og dele det med klassekammerater
+  \item Automatisere en gentagende opgave, som deres lærer giver
+  \item Skabe en lille virksomhed, der sælger software til deres lokalsamfund
+  \item Bidrage til open source-projekter, der tjener menneskeheden
+  \item Forstå og ændre de systemer, der styrer deres digitale liv
+  \item Udforske logik, matematik og sprog gennem direkte manipulation
+  \item Bygge instrumenter til kunstnerisk udtryk
+\end{itemize}
+
+En elev med en LLM og en Chromebook kan bruge Google Docs hurtigere.
+
+Ko (University of Washington) har argumenteret for, at hvis AI kan skrive kode, må CS-uddannelse skifte mod systemtænkning, debugging og evaluering---alt sammen kræver adgang til rigtige udviklingsmiljøer, ikke sandkassebrowsere~\citep{denny2024computing}. Krishnamurthi (Brown University) har været kritisk over for tilgange, der reducerer programmering til prompting. Den fremvoksende konsensus i CS-uddannelsesforskning er, at LLM'er gør fuld stack-adgang \emph{vigtigere}, ikke mindre~\citep{prather2024robots}: elever skal kunne køre, debugge, ændre og forstå genereret kode. Chromebooks gør alle fire sværere.
+
+\subsection{Chromebooken kan ikke eksekvere}
+
+Her er det konkrete svigt: LLM'en producerer et Python-script, og Chromebooken kan ikke køre det. LLM'en genererer en webserver, og Chromebooken kan ikke hoste den. LLM'en skriver C-kode, og Chromebooken har ingen compiler. LLM'en lærer eleven, hvordan et styresystem fungerer, og Chromebooken lader dem ikke inspicere ét.
+
+På en typisk skole-Chromebook (MediaTek- eller Celeron-processor, 4\,GB RAM) kæmper selv Linux-containeren---når den er aktiveret---med at køre basale udviklingsværktøjskæder. At køre en lokal LLM er fysisk umuligt: selv en kvantiseret 1B-parametermodel kræver mere hukommelse, end de fleste skole-Chromebooks har.
+
+Alternativet er trivielt. En brugt ThinkPad med 8\,GB RAM, der kører Linux, kan eksekvere enhver LLM-genereret kode, køre en lokal 3B-parametermodel via Ollama med interaktive hastigheder, hoste en webserver, kompilere programmer og give eleven root-adgang til hele systemet. Hardwaren eksisterer. Softwaren er gratis. Chromebooken er flaskehalsen.
+
+\subsection{Den åndelige dimension}
+
+Dette handler ikke kun om økonomi eller karriereforberedelse. Der er en åndelig dimension ved computing, som Chromebook-arkitekturen udsletter.
+
+Når en elev skriver et program, der gør noget, de ikke forventede---når maskinen overrasker dem med emergent adfærd fra regler, de selv definerede---oplever de noget dybtgående. De møder grænsen mellem intention og konsekvens. De lærer, at systemer har deres egen logik. De udvikler et forhold til abstraktion selv.
+
+Papert forstod dette~\citep{papert1980mindstorms}: Logo handlede ikke om at undervise i programmering. Det handlede om at give børn et medium til at tænke over tænkning. Skildpadden var et middel til erkendelse.
+
+LLM'er forstærker dette tusinddobbelt. En elev kan nu have en \emph{samtale} med det computationelle medium. De kan spørge ``hvad nu hvis?'' og få svar på sekunder. De kan iterere på ideer med tankens hastighed. De kan udforske veje, som ingen læseplan forudså.
+
+Men kun hvis maskinen lader dem. En Chromebook lader dem ikke. En Chromebook siger: du må forbruge tjenester. Du må ikke skabe infrastruktur. Du må ikke køre din egen kode på din egen måde på din egen maskine.
+
+% ============================================================
+% 4. WHAT STUDENTS DESERVE
+% ============================================================
+
+\section{Hvad enhver elev fortjener}
+
+Enhver elev fortjener en computer, der:
+
+\begin{enumerate}
+  \item \textbf{De kan forstå.} Styresystemets kildekode bør være tilgængelig til inspektion. Ikke som et abstrakt princip, men som en praktisk realitet: eleven bør kunne læse den kode, der kører, når de trykker på en tast.
+
+  \item \textbf{De kan ændre.} Hvis eleven vil ændre, hvordan maskinen opfører sig, bør de kunne det. Ikke gennem en app-butik, ikke gennem et indstillingspanel, men ved at ændre koden.
+
+  \item \textbf{De kan eje.} Elevens arbejde bør leve på elevens maskine. Ikke på en virksomhedsserver, ikke i en cloudkonto, der bliver afviklet, når de dimitterer.
+
+  \item \textbf{De kan dele.} Eleven bør kunne give sin software til en ven. Ikke gennem en platform, ikke gennem en markedsplads, men ved at kopiere en fil.
+
+  \item \textbf{De kan ødelægge.} Eleven bør kunne ødelægge maskinen og reparere den. Sådan lærer man. Et system, der ikke kan ødelægges, kan ikke forstås.
+
+  \item \textbf{De kan tage med sig.} Når eleven forlader skolen, følger computeren---og alt på den---med dem. Deres computationelle liv er ikke lejet. Det er deres.
+
+  \item \textbf{Respekterer deres opmærksomhed.} Styresystemet bør ikke indeholde reklame, adfærdssporing eller engagementsoptimering. Elevens opmærksomhed tilhører eleven.
+
+  \item \textbf{Forbinder dem med fællesskab.} Eleven bør kunne bidrage til det computationelle landskab---skrive kode, som andre bruger, deltage i open source-projekter, bygge værktøjer, der tjener deres fællesskab og opretholder deres livsstil og velbefindende.
+\end{enumerate}
+
+Hvert eneste af disse krav overtrædes af ChromeOS. Hvert eneste af dem opfyldes af et frit og åbent styresystem.
+
+% ============================================================
+% 5. IT ALREADY WORKS
+% ============================================================
+
+\section{Det virker allerede: Internationale præcedenser}
+
+Indvendingen om, at open source-skolecomputing er uafprøvet, er falsk. Det er blevet testet i stor skala på tre kontinenter.
+
+\subsection{Kerala, Indien: 16.000 skoler}
+
+Keralas KITE-program (Kerala Infrastructure and Technology for Education) gik fuldt over til fri software i 2007 på tværs af 16.000+ offentlige skoler. KITE GNU/Linux 22.04, udgivet i august 2024, kører på over 300.000 skolecomputere~\citep{kite2024gnulinux}. Distributionen inkluderer uddannelsessoftware (Krita, GCompris, PictoBlox), grundlæggende AI/ML-undervisningsværktøjer og en Wayland-displayserver. De estimerede besparelser: 30 milliarder INR (ca.\ \$400 millioner). Over 150.000 grundskolelærere er blevet uddannet. Indiens National Law School udråbte KITE som den nationale standard for open source-transformation i uddannelse.
+
+Dette er ikke et pilotprogram. Det er en statslig udrulning, der betjener millioner af elever og har kørt kontinuerligt i næsten to årtier.
+
+\subsection{Slesvig-Holsten, Tyskland: 30.000 PC'er}
+
+Ved udgangen af sommeren 2025 afsluttede den tyske delstat Slesvig-Holsten migrering af næsten 30.000 statslige PC'er fra Microsoft til Linux, med yderligere 30.000 offentlige skolelærere forventet at følge~\citep{schleswig2025linux}. Erstatningerne inkluderer LibreOffice, Nextcloud, Open-Xchange og Mozilla Thunderbird. Estimerede besparelser: 15 millioner EUR alene i 2026. Danmark annoncerede en lignende overgang mellem juni og november 2025.
+
+\subsection{Frankrig: National open source-strategi}
+
+Frankrigs strategi for digital uddannelse 2023--2027, ledet af Alexis Kauffmann i Uddannelsesministeriet, sigter eksplicit mod digital suverænitet og reduceret afhængighed af Microsoft og Google~\citep{france2023digital}. Den nationale platform \texttt{apps.education.fr} leverer open source-værktøjer til alle franske lærere. I 2025 vedtog Frankrig et interoperabilitetsdekret, der kræver, at skoler bruger digitale værktøjer, der overholder åbne standarder---hvilket skaber en strukturel fordel for open source-løsninger.
+
+\subsection{Penn Manor, Pennsylvania: 1.725 Linux-bærbare}
+
+I USA udrullede Penn Manor School District i Lancaster, PA 1.725 Ubuntu-bærbare til elever i 9.--12.\ klasse~\citep{pennmanor2024linux}. Programmet inkluderer et elevstyret reparationsinitiativ, hvor elever lærer at reparere deres egne maskiner. Dette er ikke et specialdistrikt med specialfinansiering. Det er et offentligt skoledistrikt, der traf et andet valg.
+
+\subsection{Bevægelsen ``Offentlige penge, offentlig kode''}
+
+Free Software Foundation Europes kampagne ``Public Money? Public Code!''---der argumenterer for, at software udviklet med offentlige midler bør udgives under frie licenser---har samlet over 200 civilsamfundsorganisationer og 31.000 individuelle underskrivere~\citep{fsfe2024publiccode}. UNESCOs Dubai-erklæring om åbne uddannelsesressourcer fra 2024 forpligter formelt underskriverne til at fremme åbne ressourcer gennem AI og nye teknologier~\citep{unesco2024oer}. Global Digital Compact forpligter sig til at ``udvikle, udbrede og vedligeholde open source-software, åbne data, åbne AI-modeller og åbne standarder, der gavner samfundet.''
+
+Disse er ikke marginale bevægelser. De er retningen for international politik.
+
+% ============================================================
+% 6. THE ECONOMICS
+% ============================================================
+
+\section{Økonomien}
+
+\subsection{Omkostningsundskyldningen}
+
+Chromebooks er billige. Men det er brugte bærbare med Linux også. En brugt ThinkPad T480 eller Dell Latitude 5400 koster \$100--180 i bulk og er en overlegen maskine i enhver dimension bortset fra ``administreret af Google.'' Omkostningsargumentet for Chromebooks er et argument for Googles økosystem, ikke for hardwaren.
+
+\begin{table}[H]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Tilgang} & \textbf{Omkostning} & \textbf{Eleven ejer den} \\
+\midrule
+Chromebook (ny) & \$250--350 & Nej \\
+Chrome Edu Upgrade & +\$38/enhed & Nej \\
+Google Workspace Plus & +\$5/elev/år & Nej \\
+iPad (edu) & \$299+ & Nej \\
+\midrule
+Brugt bærbar + Linux & \$100--180 & \textbf{Ja} \\
+Brugt bærbar + AC OS & \$100--180 & \textbf{Ja} \\
+\bottomrule
+\end{tabular}
+\caption{Omkostnings- og ejerskabssammenligning. Chromebook-omkostninger ekskluderer overvågningssoftware (GoGuardian: \$5--10/enhed/år) og tvungne AUE-udskiftninger.}
+\label{tab:cost}
+\end{table}
+
+Når man medregner Googles Chrome Education Upgrade (\$38/enhed), Workspace for Education Plus (\$5/elev/år), overvågningssoftware og den tvungne udskiftningscyklus fra AUE, kan de samlede ejerskabsomkostninger for en Chromebook over 5 år nå \$450--550/enhed. En brugt ThinkPad med Linux: \$100--180, med nul løbende licensomkostninger, ingen kunstig udløbsdato, og eleven beholder den.
+
+\subsection{Udbuddet}
+
+Maskinerne eksisterer. Anslået 50--60 millioner erhvervs-PC'er pensioneres årligt i USA. Virksomhedsleasingcyklusser pensionerer millioner af funktionelle bærbare hvert 3.--5.\ år---maskiner med moderne processorer, 8--16\,GB RAM, WiFi og 6--10 timers batteri. Organisationer som PCs for People (100.000+ enheder/år), Human-I-T (50.000+/år), Kramden Institute, Free Geek og det føderale Computers for Learning-program renoverer og distribuerer allerede disse maskiner.
+
+Et klasseværelse med 30 kreative computinginstrumenter kan anskaffes for \$3.000--5.400 i hardware. Intet løbende abonnement. Ingen IT-supportkontrakt. Ingen administrerede konti.
+
+\subsection{Miljøargumentet}
+
+En typisk bærbar producerer 300--400 kg CO$_2$e i fremstilling---70--80\% af dens samlede livstids-CO$_2$-aftryk. Renovering tilføjer ca.\ 5--15 kg CO$_2$e. Circular Computings uafhængigt reviderede analyse fandt 316 kg CO$_2$e sparet per genfremstillet bærbar~\citep{circularcomputing2023carbon}. FNs Global E-waste Monitor 2024 rapporterer, at USA genererer ca.\ 7,2 Mt e-affald årligt, hvoraf kun 25\% genanvendes korrekt~\citep{un2024ewaste}.
+
+Googles AUE-politik tvinger skoler til at kassere millioner af fungerende Chromebooks. Ret-til-reparation-lovgivning begynder at adressere dette: Oregons lov (gældende fra januar 2025) kræver, at producenter leverer dele og reparationsinformation~\citep{oregon2024repair}; New Hampshires HB1701 dækker eksplicit skoleutleverede bærbare~\citep{newhampshire2024repair}. Men lovgivning kan ikke rette en softwarepolitik, der erklærer funktionel hardware forældet.
+
+Linux har ingen AUE. En bærbar, der kører et frit styresystem, forbliver nyttig, så længe hardwaren fungerer.
+
+% ============================================================
+% 7. THE OPEN STACK
+% ============================================================
+
+\section{Den åbne stak}
+
+\subsection{Enhver Chromebook er allerede en Linux-maskine}
+
+Her er det absurde: enhver Chromebook kører allerede Linux-kernen. ChromeOS er Linux med et låst brugerrum, der tvinger al interaktion gennem Googles browser. Hardwaren er fuldt i stand til at køre et frit styresystem. Google tog en fri kerne, indpakkede den i proprietære restriktioner og solgte den til skoler som en besparelsesforanstaltning.
+
+Befrielsen af disse maskiner kræver ikke ny hardware. Den kræver at flashe ny software. Mange Chromebooks kan låses op og reflashes med en standard Linux-distribution eller med \acos{}. Maskinen \emph{vil allerede gerne være fri}. Google er låsen.
+
+\subsection{IT-undskyldningen}
+
+Skolernes IT-afdelinger vælger Chromebooks, fordi de er ``nemme at administrere.'' Det er sandt. Det er nemt at administrere en maskine, der ikke gør noget. Det er nemt at administrere en flåde, når hver enhed er en tynd klient for en enkelt virksomheds tjenester. Administrationsletheden er en direkte konsekvens af maskinens magtesløshed.
+
+Spørgsmålet er: nemt for hvem? Nemt for IT-afdelingen, bestemt. Men katastrofalt for eleven. IT-afdelingens bekvemmelighed købes med elevens autonomi. Det er en dårlig handel.
+
+Open source-administrationsværktøjer eksisterer. NixOS leverer reproducerbare systemkonfigurationer. Ansible automatiserer flådedeployment. PXE-boot muliggør nul-berørings-klargøring. \acos{}~\citep{scudder2026acos} demonstrerer, at et helt styresystem kan deployes ved at flashe et USB-drev på under et minut, med OTA-opdateringer der kræver ingen IT-infrastruktur. Penn Manor driver 1.725 Linux-bærbare med et mindre IT-team end sammenlignelige Chromebook-distrikter~\citep{pennmanor2024linux}. ``Administrationsproblemet'' er løst. Hvad der er tilbage, er institutionel inerti og et kontraktforhold med Google, der tjener institutionen, ikke eleven.
+
+\subsection{LLM-infrastrukturen}
+
+Et åbent system muliggør et fundamentalt anderledes forhold til AI. En enkelt brugt server (32--64\,GB RAM, eller en brugt NVIDIA T4 GPU til \$100--200) kan køre Ollama og betjene et helt klasseværelse af elever via Open WebUI---en gratis, open source LLM-frontend. Elever forbinder fra deres bærbare via en browser rettet mod den lokale server. Modeller som Llama 3.2 3B (passer i 4\,GB), DeepSeek Coder 6.7B eller Qwen 2.5 Coder 7B leverer stærk kodegenereringskapacitet.
+
+Dette er lokal AI-infrastruktur, som skolen ejer, der ikke indsamler telemetri, der ikke sender data til nogen virksomhed, og som elever kan inspicere, ændre og lære af. Alternativet---Google Gemini integreret i Workspace for Education---tilføjer endnu et lag af virksomhedsafhængighed, endnu en datapipeline, endnu et abonnementsgebyr.
+
+% ============================================================
+% 8. THE LLM GATEWAY
+% ============================================================
+
+\section{Eleven som forfatter}
+
+På et åbent system med LLM-adgang kan eleven:
+
+\begin{itemize}
+  \item Bede LLM'en forklare styresystemets kildekode
+  \item Generere programmer, der kører lokalt, med fuld hardwareadgang
+  \item Bygge webservere, databaser, API'er---rigtig infrastruktur
+  \item Skabe værktøjer, der løser virkelige problemer i deres lokalsamfund
+  \item Lære ethvert programmeringssprog ved at bygge med det
+  \item Forstå LLM'en selv ved at undersøge dens input og output
+  \item Skabe en piece på \ac{}~\citep{scudder2026ac}, som alle i verden kan køre
+\end{itemize}
+
+LLM'en bliver en tutor med uendelig tålmodighed, tilgængelig 24 timer i døgnet, der møder eleven præcis dér, hvor de er~\citep{khan2024bravenew}. Men denne tutor kan kun være effektiv, hvis eleven har en maskine, der kan \emph{eksekvere}, hvad tutoren producerer.
+
+Chromebook-modellen siger: du er en bruger. Den åbne model siger: du er en forfatter. I LLM-alderen er forskellen mellem disse to rammer forskellen mellem digital læsefærdighed og digital livegenskab.
+
+% ============================================================
+% 9. A PATH FORWARD
+% ============================================================
+
+\section{En vej frem}
+
+\subsection{Fase 1: Bevidsthed}
+
+Forældre, lærere og skolebestyrelsesmedlemmer skal forstå, hvad en Chromebook faktisk er: en overvågningsenhed, der lærer tillært hjælpeløshed. Det første skridt er oplysning---ikke af børnene, men af de voksne, der køber maskinerne. EFFs ``Spying on Students''-dokumentation, U.S. PIRGs ``Chromebook Churn''-rapport og New Mexico-statsadvokatens retssag giver konkret bevismateriale, der kan præsenteres ved skolebestyrelsesmøder.
+
+\subsection{Fase 2: Pilotprogrammer}
+
+Skoledistrikter bør pilottest open source-alternativer efter Penn Manors model:
+
+\begin{itemize}
+  \item 30 brugte bærbare med Linux eller \acos{}, anskaffet for \$3.000--5.400
+  \item En lokal LLM-server (én brugt arbejdsstation, \$200--500) med Ollama + Open WebUI
+  \item En LLM-assisteret læseplan, hvor elever bygger rigtig software
+  \item Elevejerskab: maskinen tager med hjem med eleven
+  \item Et elevstyret reparationsprogram (Penn Manors elever reparerer deres egne maskiner)
+  \item Ingen cloudafhængighed: arbejde gemmes lokalt og sikkerhedskopieres af eleven
+  \item Åben evaluering: elevens portfolio er kode, de skrev, værktøjer, de byggede, bidrag, de gav
+\end{itemize}
+
+\subsection{Fase 3: Politik}
+
+Stater og distrikter bør vedtage politikker, der kræver, at:
+
+\begin{enumerate}
+  \item Al software implementeret på elevers enheder er open source eller source-available
+  \item Elever har root-adgang til deres egne maskiner
+  \item Ingen adfærdstelemetri indsamles fra elevers enheder
+  \item Elever bevarer ejerskab over alt arbejde produceret på skolens enheder
+  \item Dimitterende elever beholder deres enheder
+  \item Indkøb af enheder prioriterer renoveret hardware over nyfremstilling
+\end{enumerate}
+
+Over 40 stater har vedtaget love om elevdatasikkerhed. Californiens SOPIPA forbyder brug af elevdata til målrettet reklame. De nye COPPA-regler (gældende fra juni 2025) styrker børns databeskyttelse. Disse lovgivningsmæssige tendenser støtter argumentet for åben, ikke-overvågende skolecomputerinfrastruktur.
+
+\subsection{Fase 4: Befrielse}
+
+Slutmålet er ikke en politikændring. Det er et kulturskifte. Slutmålet er en generation af elever, der forstår, at en computer ikke er et produkt, de forbruger, men et instrument, de spiller---et medium for tanke, skabelse og bidrag. Elever, der kan læse kildekode, som de læser bøger. Elever, der kan ændre deres værktøjer, som en tømrer ændrer en arbejdsbænk. Elever, der ser computing ikke som en virksomhedstjeneste, men som en offentlig fælled, som de både bidrager til og tilhører.
+
+Nelson skrev i 1974~\citep{nelson1974computerlib}: ``Du kan og skal forstå computere NU.'' Halvtreds år senere har vi fejlet dette imperativ præcis som Nelson frygtede---ved at overdrage maskinerne til virksomheder og kalde det fremskridt.
+
+LLM-øjeblikket gør denne fejl synlig. Enhver elev har nu \emph{evnen} til at programmere. Hvad de mangler, er en \emph{maskine, der lader dem}. Dette er et løseligt problem. Teknologien er gratis. Hardwaren er overskud. Det eneste, der står mellem enhver elev og deres egen computationelle vej, er et virksomhedsstyresystem, der aldrig var designet til at tjene dem.
+
+% ============================================================
+% 10. CONCLUSION
+% ============================================================
+
+\section{Konklusion}
+
+Enhver Chromebook i enhver amerikansk skole er en Linux-maskine i lænker. Hardwaren kan køre et frit styresystem. Eleven kan lære at programmere med en LLM. Det brugte bærbarmarked leverer maskiner til \$100--180. Hele open source-stakken er tilgængelig til nul omkostninger. Kerala har gjort det for 300.000 computere. Slesvig-Holsten har gjort det for 30.000. Penn Manor har gjort det for 1.725. Det virker.
+
+Hvad vi mangler, er ikke teknologi. Vi mangler den politiske vilje til at prioritere elevautonomi over institutionel bekvemmelighed og virksomhedsprofit.
+
+Illich skrev, at værktøjer bør udvide personlig autonomi snarere end kræve specialiseret ekspertise~\citep{illich1973tools}. Papert skrev, at computere bør være instrumenter til at tænke over tænkning~\citep{papert1980mindstorms}. Stallman skrev, at brugere fortjener at kontrollere den software, de kører~\citep{stallman2002free}. Postman advarede om, at teknologi i skoler uden formål tjener teknologien, ikke barnet~\citep{postman1995end}. Disse er ikke marginale holdninger. De er grundprincipperne for personlig computing, og vi har forladt dem det ene sted, de betyder mest: uddannelsen af børn.
+
+Få lukket kildekode ud af skolerne. Giv enhver elev et frit og åbent styresystem. Lad Chromebooken være, hvad den altid var i stand til at være: ikke en låge, men en \emph{port}---til logik, kreativitet, fællesskab, åndelighed og enhver elevs egen vej gennem det computationelle landskab.
+
+I LLM-alderen er dette ikke idealisme. Det er den mindste levedygtige uddannelse.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\end{multicols}
+
+% ============================================================
+% REFERENCES
+% ============================================================
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
