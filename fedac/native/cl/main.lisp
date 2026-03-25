@@ -324,13 +324,20 @@
 
 (defun main ()
   "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat."
-  ;; Run .mjs pieces via QuickJS bridge
+  ;; Determine piece: config.json > command-line arg > default
   (unless *js-fallback*
-    (let ((args (uiop:command-line-arguments)))
-      (when args
-        (let ((piece-path (first args)))
-          (when (and piece-path (search ".mjs" piece-path))
-            (return-from main (main-js piece-path)))))))
+    (let* ((cfg (handler-case (ac-native.config:load-config)
+                  (error () (ac-native.config:make-config))))
+           (config-piece (ac-native.config:config-piece cfg))
+           (args (uiop:command-line-arguments))
+           (piece-name (or config-piece
+                           (when args (first args))
+                           "notepat"))
+           (piece-path (if (search "/" piece-name)
+                           piece-name  ; already a path
+                           (format nil "/pieces/~A.mjs" piece-name))))
+      (when (probe-file piece-path)
+        (return-from main (main-js piece-path)))))
   (setf *js-fallback* nil)
 
   ;; No .mjs piece specified — fall back to native CL notepat
@@ -755,6 +762,11 @@
 
             ;; Refresh IP every ~5 seconds
             (when (zerop (mod *np-frame* 300)) (refresh-ip))
+
+            ;; LISP tag (top right) — always visible in CL variant
+            (when (string= *build-variant* "cl")
+              (graph-ink *np-graph* (make-color :r 255 :g 200 :b 80 :a 160))
+              (font-draw *np-graph* "LISP" (- *np-sw* (font-measure "LISP") 4) 3))
 
             ;; ── Present ──
             (ac-native.drm:drm-present *np-display* *np-screen* *np-scale*)
