@@ -13,6 +13,14 @@
 
 (cffi:use-foreign-library libquickjs)
 
+(cffi:define-foreign-library libquickjs-shim
+  (:unix (:or "libquickjs-shim.so"
+              "/tmp/ac-build/libquickjs-shim.so"
+              "/lib64/libquickjs-shim.so"))
+  (t (:default "libquickjs-shim")))
+
+(cffi:use-foreign-library libquickjs-shim)
+
 ;;; ── Constants ──
 
 (defconstant +js-tag-int+       0)
