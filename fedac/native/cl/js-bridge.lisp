@@ -8,6 +8,12 @@
 
 (defvar *ctx* nil "Active QuickJS context")
 (defvar *rt* nil "Active QuickJS runtime")
+
+(defmacro with-fp-traps-masked (&body body)
+  "Disable SBCL floating-point exception traps around BODY.
+QuickJS does normal FP math (NaN, Inf) that triggers SBCL's traps."
+  `(sb-int:with-float-traps-masked (:invalid :overflow :divide-by-zero :underflow :inexact)
+     ,@body))
 (defvar *graph* nil "Current graph context for JS callbacks")
 (defvar *fb* nil "Current framebuffer for JS callbacks")
 (defvar *audio* nil "Audio engine for JS callbacks")
@@ -169,7 +175,8 @@
   (ac-native.quickjs:qjs-set-global-int *ctx* "__screen_h" screen-h)
   ;; Eval the API bootstrap JS
   (let ((api-code (build-api-js)))
-    (ac-native.quickjs:qjs-eval *ctx* api-code (length api-code) "<api-init>" 0))
+    (with-fp-traps-masked
+      (ac-native.quickjs:qjs-eval *ctx* api-code (length api-code) "<api-init>" 0)))
   (format *error-output* "[js-bridge] QuickJS initialized (~Dx~D)~%" screen-w screen-h)
   (force-output *error-output*))
 
@@ -223,8 +230,9 @@ if (typeof sim === 'function') globalThis.__piece_sim = sim;~%~
 if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
                              stripped))
            (bytes (sb-ext:string-to-octets wrapper :external-format :utf-8)))
-      (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length bytes)
-                                             path 0)))  ; 0 = JS_EVAL_TYPE_GLOBAL
+      (let ((rc (with-fp-traps-masked
+                  (ac-native.quickjs:qjs-eval *ctx* wrapper (length bytes)
+                                               path 0))))  ; 0 = JS_EVAL_TYPE_GLOBAL
         (when (= rc -1)
           (format *error-output* "[js-bridge] Failed to load ~A~%" path)
           (return-from js-load-piece nil))))
@@ -243,30 +251,34 @@ if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
 (defun js-boot ()
   "Call the piece's boot() with the API object."
   (when *has-boot*
-    (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_boot")
-    (ac-native.quickjs:qjs-execute-pending *ctx*)))
+    (with-fp-traps-masked
+      (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_boot")
+      (ac-native.quickjs:qjs-execute-pending *ctx*))))
 
 (defun js-paint (paint-count)
   "Call the piece's paint() with the API object."
   (when *has-paint*
-    (ac-native.quickjs:qjs-set-global-int *ctx* "__paintCount" paint-count)
-    (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_paint")
-    (ac-native.quickjs:qjs-execute-pending *ctx*)))
+    (with-fp-traps-masked
+      (ac-native.quickjs:qjs-set-global-int *ctx* "__paintCount" paint-count)
+      (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_paint")
+      (ac-native.quickjs:qjs-execute-pending *ctx*))))
 
 (defun js-act (event-type event-key event-code)
   "Call the piece's act() with an event."
   (when *has-act*
-    (ac-native.quickjs:qjs-set-global-int *ctx* "__evType" event-type)
-    (ac-native.quickjs:qjs-set-global-string *ctx* "__evKey" event-key)
-    (ac-native.quickjs:qjs-set-global-int *ctx* "__evCode" event-code)
-    (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_act")
-    (ac-native.quickjs:qjs-execute-pending *ctx*)))
+    (with-fp-traps-masked
+      (ac-native.quickjs:qjs-set-global-int *ctx* "__evType" event-type)
+      (ac-native.quickjs:qjs-set-global-string *ctx* "__evKey" event-key)
+      (ac-native.quickjs:qjs-set-global-int *ctx* "__evCode" event-code)
+      (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_act")
+      (ac-native.quickjs:qjs-execute-pending *ctx*))))
 
 (defun js-sim ()
   "Call the piece's sim()."
   (when *has-sim*
-    (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_sim")
-    (ac-native.quickjs:qjs-execute-pending *ctx*)))
+    (with-fp-traps-masked
+      (ac-native.quickjs:qjs-call-with-api *ctx* "__piece_sim")
+      (ac-native.quickjs:qjs-execute-pending *ctx*))))
 
 ;;; ── Build the JS API object ──
 ;;; This JS code creates __ac_api with all the graphics/audio/system
