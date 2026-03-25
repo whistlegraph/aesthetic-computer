@@ -304,5 +304,113 @@
       "title": "PLOrk'ing the Planet",
       "subtitle": "从笔记本电脑管弦乐团到行星乐器"
     }
+  },
+  "identity": {
+    "en": {
+      "title": "Handle Identity on the AT Protocol",
+      "subtitle": "From Auth0 to Decentralized Sign-In on Aesthetic Computer"
+    },
+    "da": {
+      "title": "Handle-identitet p\\aa{} AT-protokollen",
+      "subtitle": "Fra Auth0 til decentraliseret login p\\aa{} Aesthetic Computer"
+    },
+    "es": {
+      "title": "Identidad de Handle en el Protocolo AT",
+      "subtitle": "De Auth0 al inicio de sesi\\'on descentralizado en Aesthetic Computer"
+    },
+    "zh": {
+      "title": "AT 协议上的 Handle 身份",
+      "subtitle": "从 Auth0 到 Aesthetic Computer 上的去中心化登录"
+    }
+  },
+  "futures": {
+    "en": {
+      "title": "Five Years from Now",
+      "subtitle": "What Aesthetic Computer Probably Becomes"
+    },
+    "da": {
+      "title": "Om fem \\aa{}r",
+      "subtitle": "Hvad Aesthetic Computer sandsynligvis bliver"
+    },
+    "es": {
+      "title": "Dentro de cinco a\\~nos",
+      "subtitle": "En qu\\'e probablemente se convierte Aesthetic Computer"
+    },
+    "zh": {
+      "title": "五年之后",
+      "subtitle": "Aesthetic Computer 可能会变成什么"
+    }
+  },
+  "score-analysis": {
+    "en": {
+      "title": "Reading the Score",
+      "subtitle": "A Critical Analysis of SCORE.md as Governance, Interface, and Creative Form"
+    },
+    "da": {
+      "title": "At l\\ae{}se partituret",
+      "subtitle": "En kritisk analyse af SCORE.md som styring, gr\\ae{}nseflade og kreativ form"
+    },
+    "es": {
+      "title": "Leyendo la partitura",
+      "subtitle": "Un an\\'alisis cr\\'itico de SCORE.md como gobernanza, interfaz y forma creativa"
+    },
+    "zh": {
+      "title": "阅读乐谱",
+      "subtitle": "对 SCORE.md 作为治理、界面和创意形式的批判性分析"
+    }
+  },
+  "open-schools": {
+    "en": {
+      "title": "Get Closed Source Out of Schools",
+      "subtitle": "Every Chromebook Is a Gateway Denied"
+    },
+    "da": {
+      "title": "F\\aa{} lukket kildekode ud af skolerne",
+      "subtitle": "Hver Chromebook er en n\\ae{}gtet adgang"
+    },
+    "es": {
+      "title": "Saquen el c\\'odigo cerrado de las escuelas",
+      "subtitle": "Cada Chromebook es una puerta negada"
+    },
+    "zh": {
+      "title": "让闭源软件离开学校",
+      "subtitle": "每台 Chromebook 都是一扇被拒绝的大门"
+    }
+  },
+  "kidlisp-cards": {
+    "en": {
+      "title": "KidLisp Cards",
+      "subtitle": "Programs That Fit on a Card"
+    },
+    "da": {
+      "title": "KidLisp-kort",
+      "subtitle": "Programmer der kan v\\ae{}re p\\aa{} et kort"
+    },
+    "es": {
+      "title": "Tarjetas KidLisp",
+      "subtitle": "Programas que caben en una tarjeta"
+    },
+    "zh": {
+      "title": "KidLisp 卡片",
+      "subtitle": "能放在一张卡片上的程序"
+    }
+  },
+  "calarts": {
+    "en": {
+      "title": "CalArts, Callouts, and Papers",
+      "subtitle": "Art School as Operating System"
+    },
+    "da": {
+      "title": "CalArts, callouts og artikler",
+      "subtitle": "Kunstskole som styresystem"
+    },
+    "es": {
+      "title": "CalArts, callouts y art\\'iculos",
+      "subtitle": "La escuela de arte como sistema operativo"
+    },
+    "zh": {
+      "title": "CalArts、批评与论文",
+      "subtitle": "艺术学校作为操作系统"
+    }
   }
 }
