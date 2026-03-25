@@ -136,8 +136,8 @@ async function fetchHandles(screen) {
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
-  paperBtn = new ui.TextButton("PAPER", { x: 6, bottom: 20, screen });
-  manualBtn = new ui.TextButton("MANUAL", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
+  paperBtn = new ui.TextButton("Plorking the Planet (PDF)", { x: 6, bottom: 20, screen });
+  manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual (PDF)", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
 
 async function fetchCheckout(api) {
@@ -215,21 +215,20 @@ function paint($) {
     }
   }
 
-  // Title + product description (centered, below HUD label) — with drop shadow
+  // Cycling color shadow (computed early, used later for text + buttons)
   const shadowOff = 1;
-  const shadowAlpha = isDark ? 180 : 80;
-  const sc = isDark ? 255 : 0; // light shadow in dark mode, dark in light
-  ink(sc, sc, sc, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 24 + shadowOff, size: 2, screen });
-  ink(fg).write("AC Blank Laptop", { center: "x", y: 24, size: 2, screen });
-  ink(sc, sc, sc, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 48 + shadowOff, screen }, undefined, floor(w * 0.85));
-  ink(fgDim).write(DESCRIPTION, { center: "x", y: 48, screen }, undefined, floor(w * 0.85));
+  const shadowAlpha = isDark ? 180 : 120;
+  const st = frame * 0.02;
+  const sr = floor(180 + sin(st) * 75);
+  const sg = floor(180 + sin(st + PI * 0.66) * 75);
+  const sb = floor(180 + sin(st + PI * 1.33) * 75);
 
-  // Thanks page
+  // Thanks page (early return)
   if (thanks) {
     const cy = floor(h / 2);
-    ink(sc, sc, sc, shadowAlpha).write("your blank is coming.", { center: "x", y: cy - 30 + shadowOff, screen });
+    ink(sr, sg, sb, shadowAlpha).write("your blank is coming.", { center: "x", y: cy - 30 + shadowOff, screen });
     ink(fg).write("your blank is coming.", { center: "x", y: cy - 30, screen });
-    ink(sc, sc, sc, shadowAlpha).write("we'll be in touch.", { center: "x", y: cy + shadowOff, screen });
+    ink(sr, sg, sb, shadowAlpha).write("we'll be in touch.", { center: "x", y: cy + shadowOff, screen });
     ink(fgDim).write("we'll be in touch.", { center: "x", y: cy, screen });
     return;
   }
@@ -723,16 +722,22 @@ function paint($) {
     }
   }
 
+  // Title + product description (painted on top of laptop wireframe)
+  ink(sr, sg, sb, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 30 + shadowOff, size: 2, screen });
+  ink(fg).write("AC Blank Laptop", { center: "x", y: 30, size: 2, screen });
+  ink(sr, sg, sb, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 54 + shadowOff, screen }, undefined, floor(w * 0.85));
+  ink(fgDim).write(DESCRIPTION, { center: "x", y: 54, screen }, undefined, floor(w * 0.85));
+
   // Buy button — custom rendered in Unifont for larger, more active CTA
   const $btn = { ink };
   if (buyBtn) {
     const buyText = getBuyText();
     // Size box for Unifont (8px wide chars, 16px tall) + padding
-    const unifontCharW = 8, unifontH = 16, pad = 6;
-    const boxW = buyText.length * unifontCharW + pad * 2;
-    const boxH = unifontH + pad * 2;
+    const unifontCharW = 8, unifontH = 16, padX = 4, padY = 2;
+    const boxW = buyText.length * unifontCharW + padX * 2;
+    const boxH = unifontH + padY * 2;
     const boxX = floor((screen.width - boxW) / 2);
-    const boxY = screen.height - 20 - boxH;
+    const boxY = 90; // directly under the prose
     buyBtn.btn.box.x = boxX;
     buyBtn.btn.box.y = boxY;
     buyBtn.btn.box.w = boxW;
@@ -753,9 +758,9 @@ function paint($) {
       const oA = floor(120 + pulse * 135);
       ink(isDark ? [100, 255, 100, oA] : [40, 140, 40, oA]).box(bx, "outline");
       // Shadow text
-      ink(sc, sc, sc, 120).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      ink(sr, sg, sb, 120).write(buyText, { x: bx.x + padX + 1, y: bx.y + padY + 1 }, undefined, undefined, false, "unifont");
       ink(isDark ? [160 + floor(pulse * 95), 230, 160] : [30, floor(80 + pulse * 40), 30])
-        .write(buyText, { x: bx.x + pad, y: bx.y + pad }, undefined, undefined, false, "unifont");
+        .write(buyText, { x: bx.x + padX, y: bx.y + padY }, undefined, undefined, false, "unifont");
     } else {
       // Breathing glow animation
       const breath = sin(t * 2) * 0.5 + 0.5;
@@ -778,11 +783,11 @@ function paint($) {
       ink(isDark ? [40, oG, 40] : [30, oG, 30]).box(bx, "outline");
 
       // Shadow text
-      ink(sc, sc, sc, isDark ? 150 : 80).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      ink(sr, sg, sb, isDark ? 150 : 80).write(buyText, { x: bx.x + padX + 1, y: bx.y + padY + 1 }, undefined, undefined, false, "unifont");
       // Main text — breathing green
       const tG = isDark ? floor(160 + breath * 80 + wave * 15) : floor(20 + breath * 30);
       ink(isDark ? [140 + floor(breath * 60), tG, 140 + floor(breath * 40)] : [20, tG, 20])
-        .write(buyText, { x: bx.x + pad, y: bx.y + pad }, undefined, undefined, false, "unifont");
+        .write(buyText, { x: bx.x + padX, y: bx.y + padY }, undefined, undefined, false, "unifont");
     }
     $.needsPaint();
   }
@@ -801,12 +806,12 @@ function paint($) {
     ? [[35, 28, 28], [240, 180, 100], [255, 210, 150]]
     : [[235, 222, 210], [160, 100, 40], [120, 70, 20]];
   if (paperBtn) {
-    paperBtn.reposition({ x: 6, bottom: 20, screen }, "PAPER");
+    paperBtn.reposition({ x: 6, bottom: 20, screen }, "Plorking the Planet (PDF)");
     paperBtn.paint($btn, paperScheme, paperHover);
   }
   if (manualBtn) {
     const manualY = 20 + (paperBtn ? paperBtn.height + 4 : 0);
-    manualBtn.reposition({ x: 6, bottom: manualY, screen }, "MANUAL");
+    manualBtn.reposition({ x: 6, bottom: manualY, screen }, "ThinkPad 11e Yoga Manual (PDF)");
     manualBtn.paint($btn, manualScheme, manualHover);
   }
 }
