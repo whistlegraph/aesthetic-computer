@@ -190,16 +190,17 @@
     (unless code
       (format *error-output* "[js-bridge] Piece not found: ~A~%" path)
       (return-from js-load-piece nil))
-    ;; Wrap module exports into globals for lifecycle calling
+    ;; Eval as ES module (supports export), then detect lifecycle globals
+    ;; We inject globalThis assignments into the module source
     (let ((wrapper (format nil "~A~%~
-      if (typeof boot === 'function') globalThis.__piece_boot = boot;~%~
-      if (typeof paint === 'function') globalThis.__piece_paint = paint;~%~
-      if (typeof act === 'function') globalThis.__piece_act = act;~%~
-      if (typeof sim === 'function') globalThis.__piece_sim = sim;~%~
-      if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
+globalThis.__piece_boot = typeof boot === 'function' ? boot : undefined;~%~
+globalThis.__piece_paint = typeof paint === 'function' ? paint : undefined;~%~
+globalThis.__piece_act = typeof act === 'function' ? act : undefined;~%~
+globalThis.__piece_sim = typeof sim === 'function' ? sim : undefined;~%~
+globalThis.__piece_leave = typeof leave === 'function' ? leave : undefined;~%"
                            code)))
-      (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length wrapper)
-                                             path 0)))
+      (let ((rc (ac-native.quickjs:qjs-eval-module *ctx* wrapper (length wrapper)
+                                                    path)))
         (when (= rc -1)
           (format *error-output* "[js-bridge] Failed to load ~A~%" path)
           (return-from js-load-piece nil))))
