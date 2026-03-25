@@ -2049,14 +2049,14 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // Install kernel to internal drive (only if user held W during boot)
-        if (getpid() == 1 && want_install) {
+        // Install kernel to internal drive (only if user pressed W during boot)
+        if (want_install) {
             int install_ok = auto_install_to_hd(&graph, screen, display, pixel_scale);
             int should_reboot = 1;
             if (!headless && display)
                 should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
             if (install_ok) should_reboot = 1;
-            if (should_reboot && getpid() == 1) {
+            if (should_reboot) {
                 if (tts) { tts_speak(tts, "powering off"); tts_wait(tts); }
                 audio_shutdown_sound(audio);
                 usleep(600000);
