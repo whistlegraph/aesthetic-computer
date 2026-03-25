@@ -1,0 +1,203 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === PSYCHO watermark ===
+\usepackage{eso-pic}
+\usepackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "PSYCHO" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} PSYCHO}};
+  \end{tikzpicture}%
+}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={CalArts, Callouts y Papers: La escuela de arte como sistema operativo}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Artículo PSYCHO --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} CalArts, Callouts y Papers}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} La escuela de arte como sistema operativo}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ Artículo PSYCHO --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+CalArts (California Institute of the Arts) fue fundado en 1961 por Walt Disney como una escuela de arte total---un lugar donde la animación, la música, el teatro, la danza, el cine y las bellas artes existirían bajo un mismo techo, polinizándose mutuamente sin muros disciplinarios. Este artículo argumenta que CalArts funciona como un \emph{sistema operativo} para la producción creativa: un conjunto de supuestos fundamentales sobre qué es el arte, cómo se enseña y en qué debería convertirse un artista. Examinamos la cultura única de ``callouts'' de la escuela---la crítica, la conversación de pasillo, el desafío institucional---y cómo esta tradición oral produce conocimiento que no puede escribirse. Luego nos dirigimos al artículo en sí: por qué existe esta serie de artículos académicos, qué significa que un artista-programador escriba teoría, y si la forma del artículo es en sí misma una especie de callout---un desafío público que obliga a las ideas a quedar expuestas a la intemperie. CalArts le enseñó al autor a hacer trabajo que responde. Estos artículos son ese trabajo respondiendo en un registro que el mundo del arte no esperaba.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{La máquina Disney}
+
+Walt Disney fundó CalArts en 1961 fusionando el Chouinard Art Institute y el Los Angeles Conservatory of Music. Quería una escuela de arte que funcionara como su estudio: todas las disciplinas en un edificio, compartiendo herramientas e ideas. Disney murió antes de que el campus de Valencia abriera en 1971, pero la estructura que exigió---sin muros entre departamentos, instalaciones compartidas, una cultura de colisión interdisciplinaria---definió todo lo que vino después.
+
+La visión fundacional era industrial. Disney necesitaba animadores que supieran dibujar, músicos que entendieran el ritmo, actores que pudieran improvisar sobre un storyboard. La escuela era un conducto de talento para el estudio~\citep{singerman1999art}. Pero ocurrió algo más. El profesorado que contrataron los herederos de Disney---entre ellos Allan Kaprow, Judy Chicago, John Baldessari, Miriam Schapiro, Nam June Paik---convirtió la estructura interdisciplinaria en un laboratorio para el arte estadounidense de posguerra. La máquina que Disney construyó para producir animadores se convirtió en una máquina que producía artistas conceptuales, performance feminista, videoarte y, finalmente, la generación que definiría la práctica post-estudio.
+
+La analogía del sistema operativo es exacta. Un SO no hace el software; proporciona el entorno en el que el software puede ejecutarse. CalArts no hace el arte; proporciona las condiciones---espaciales, sociales, pedagógicas---en las que un tipo particular de artista se vuelve posible. Cambia el SO y cambias lo que puede hacerse.
+
+\section{Callouts}
+
+\subsection{La crítica como tradición oral}
+
+La crítica en CalArts no es una nota. Es un callout. Alguien pone un trabajo en la pared y la sala responde---no con rúbricas o resultados de aprendizaje sino con la honestidad no guionizada, a veces brutal, a veces generosa, de personas que han estado mirando arte juntas el tiempo suficiente como para saltarse las cortesías.
+
+\citet{elkins2001why} argumenta que la crítica es inensenñable de la misma manera que el arte es inenseñable: lo que ocurre en una buena crítica no puede reducirse a un método. Es una tradición oral. El conocimiento producido en una crítica de tres horas existe solo en la sala. No puede escribirse sin convertirse en otra cosa---un resumen, una reseña, un juicio. La crítica es en vivo. Es una performance de la atención~\citep{hooks1994teaching}.
+
+Las críticas de CalArts son famosas por su intensidad. El tamaño pequeño de la escuela (aproximadamente 1.500 estudiantes), el campus residencial y la estructura interdisciplinaria significan que la crítica de un pintor puede incluir a un compositor, un animador, un cineasta y un bailarín. La retroalimentación no es específica de la disciplina. Es \emph{perceptual}: ¿qué le hace esto a mi cuerpo, a mi oído, a mi sentido del tiempo? El callout no es ``esto es buena pintura.'' El callout es ``esto está vivo'' o ``esto está muerto.''
+
+\subsection{Conocimiento de pasillo}
+
+La mayor parte de lo que CalArts enseña ocurre fuera del aula. Los pasillos del edificio principal---una megaestructura brutalista diseñada por Ladd \& Kelsey---funcionan como un salón informal. Un compositor pasa frente al estudio abierto de un escultor y escucha un sonido que cambia el trabajo de ambos. Un cineasta proyecta tomas del día a las 2 AM y un bailarín entra y comienza a improvisar con el metraje.
+
+Esto no es currículo. Es \emph{arquitectura}. El edificio fuerza la colisión. La cafetería (la única) obliga a todos a estar en la misma sala. Los pasillos son lo suficientemente anchos para detenerse y hablar. Los estudios están abiertos. Las salas de ensayo dejan escapar sonido. El edificio es un instrumento que toca a las personas que están dentro.
+
+\citet{deduve1994attitude} identifica tres paradigmas de la educación artística: la academia (talento-imitación), la Bauhaus (creatividad-medio-invención) y la escuela de arte de posguerra (actitud-práctica-deconstrucción). CalArts inventó un cuarto: \emph{proximidad}. Pon disciplinas diferentes lo suficientemente cerca y se contaminan mutuamente. La contaminación es la educación.
+
+\subsection{El desafío institucional}
+
+CalArts funciona con desafíos. No explícitos---nadie dice ``te desafío.'' Pero la cultura está organizada alrededor de una estructura de desafío: ¿puedes hacer algo que se sostenga en una sala llena de personas mejores que tú? ¿Puedes presentar trabajo que sobreviva al callout?
+
+Esto es diferente de la revisión de sprint de la escuela técnica, donde el trabajo se evalúa contra historias de usuario y criterios de aceptación~\citep{vinsel2020innovation}. El desafío de CalArts no tiene criterios. No hay rúbrica. La pregunta no es ``¿cumple esto con el brief?'' La pregunta es ``¿necesita esto existir?'' El desafío es existencial, no funcional.
+
+El desafío también opera entre departamentos. Un estudiante de música que hace una pieza con video está desafiando a los estudiantes de cine a prestar atención. Un bailarín que programa una instalación interactiva está desafiando a los estudiantes de arte a tomar la tecnología en serio. El desafío es el mecanismo de contaminación interdisciplinaria. Dice: tu disciplina no es suficiente. Ven a jugar en la mía.
+
+\section{Por qué artículos}
+
+\subsection{El artículo como callout}
+
+Esta serie de artículos---veinte artículos escritos en tres semanas---es en sí misma un callout. Dice: un artista-programador puede escribir teoría. No ``teoría-light,'' no ``declaraciones de artista con citas,'' sino artículos reales con argumentos reales y bibliografías reales que se involucran con investigación real.
+
+El mundo del arte no espera esto. Se espera que los artistas hagan obra y dejen que los críticos escriban sobre ella. La división del trabajo es clara: los artistas producen, los críticos explican, los historiadores contextualizan. Cuando un artista escribe teoría, la respuesta institucional es sospecha. ¿Es investigación real? ¿Es publicación vanidosa? ¿Es arte?
+
+La respuesta es: no importa. El artículo es un callout. Obliga a las ideas a estar a la intemperie, expuestas a la crítica, en un formato que la academia reconoce y el mundo del arte no controla. \citet{fraser2005critique} señaló que la crítica institucional se convirtió en una institución. Estos artículos intentan algo diferente: no crítica de la institución sino \emph{uso} del propio formato de la institución---el artículo académico---como material artístico.
+
+\subsection{El artículo como instrumento}
+
+Un artículo es una tecnología. Tiene un formato (secciones, citas, resumen, bibliografía), un sistema de distribución (revistas, preprints, repositorios) y un protocolo social (revisión por pares, citación, respuesta). Como cualquier tecnología, se puede tocar.
+
+\ac{} trata la pieza como la unidad fundamental de cognición creativa~\citep{scudder2026pieces}. Una pieza es un solo archivo que exporta funciones de ciclo de vida: \texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}. Un artículo tiene la misma estructura: arranca (resumen), pinta (argumento), actúa (se involucra con trabajo previo) y simula (propone consecuencias). El artículo es una pieza escrita en \LaTeX{} en lugar de JavaScript.
+
+Esto no es metáfora. Los artículos están construidos con la misma infraestructura que el software: un CLI (\texttt{papers/cli.mjs}), builds incrementales, despliegue multilingüe, publicación automatizada. El artículo \emph{es} software. El argumento \emph{es} el programa.
+
+\subsection{La designación PSYCHO}
+
+Este artículo está marcado como PSYCHO. No ``Borrador de trabajo,'' no ``Preprint,'' no ``En revisión.'' PSYCHO.
+
+La designación es un callout al propio formato del artículo. Los artículos académicos pretenden ser neutrales---informes objetivos de hallazgos, escritos en voz pasiva, despojados de personalidad. La etiqueta PSYCHO rechaza esta pretensión. Dice: este artículo tiene voz, tiene una agenda, tiene una temperatura. No es neutral. No intenta serlo.
+
+La palabra ``psycho'' viene del griego \textit{psykhe}---alma, mente, aliento. Un artículo PSYCHO es un artículo con alma. Respira. Tiene opiniones que no están matizadas con ``se necesita más investigación.'' Hace afirmaciones y te desafía a estar en desacuerdo.
+
+\section{CalArts y Aesthetic Computer}
+
+\subsection{La herencia del SO}
+
+El autor asistió a CalArts (MFA Art, 2012). La experiencia es el sustrato sobre el cual \ac{} está construido. No las técnicas---CalArts no enseña programación---sino los \emph{supuestos}: que las disciplinas deben contaminarse mutuamente, que el medio no es el punto, que el desafío es más importante que el entregable, que el arte es una forma de estar en el mundo y no un producto para ser enviado.
+
+\ac{} hereda el sistema operativo de CalArts. El modelo de pieza---un archivo, gráficos de modo inmediato, funciones de ciclo de vida---es el equivalente digital del estudio abierto: cualquiera puede ver lo que estás haciendo, cualquiera puede bifurcarlo, cualquiera puede cuestionarlo. La red social se organiza alrededor de \emph{rutas} (URLs memorizables) en lugar de feeds, de la misma manera que CalArts se organiza alrededor de pasillos en lugar de algoritmos.
+
+\np{}.com es la herencia más clara de CalArts. Es un instrumento que cualquiera puede tocar, que no requiere entrenamiento, que recompensa la exploración sobre la pericia. El encuentro de pasillo---tropezar con el trabajo de otro y ser transformado por él---es el patrón de diseño. Escribes una URL. Aterrizas en una pieza. La tocas. Sigues adelante. Sin feed. Sin algoritmo. Sin métricas. Solo proximidad.
+
+\subsection{La crítica se hace online}
+
+Publicar estos artículos es una crítica. La sala es internet. El callout es público. El trabajo está expuesto---no ante una sala de quince personas que te conocen sino ante cualquiera con un navegador y una opinión.
+
+Esto es aterrador de la misma manera que una crítica de CalArts es aterradora: no puedes controlar la respuesta. El trabajo se sostiene o no se sostiene. El desafío es el mismo desafío: ¿necesita esto existir?
+
+\section{Contra la neutralidad}
+
+El artículo académico pretende ser una ventana---transparente, dejándote ver la investigación detrás de él. Pero toda ventana es también un marco. El formato del artículo enmarca lo que puede decirse: voz pasiva, afirmaciones matizadas, deferencia hacia trabajo previo, la ficción de la objetividad~\citep{freire1970pedagogy}.
+
+CalArts enseña lo opuesto. Respálda tu trabajo. Di lo que quieres decir. Si no puedes defenderlo en la sala, no está listo. El callout es una tecnología de rendición de cuentas: te obliga a sostener tus afirmaciones frente a personas que van a empujar de vuelta.
+
+Estos artículos están escritos en ese espíritu. Tienen voz. Hacen afirmaciones. Citan investigación no para esconderse detrás de ella sino para discutir con ella, construir sobre ella, desafiarla a responder. La designación PSYCHO es una bandera: este artículo no pretende ser neutral. Tiene una posición. Tiene una temperatura. Está de pie en la sala, esperando el callout.
+
+\citet{spivak2012aesthetic} argumenta que la educación estética entrena la imaginación para la solidaridad ética. CalArts hace esto---no a través del currículo sino a través de la proximidad, a través del desafío, a través de la crítica que te obliga a ver tu trabajo a través de los ojos de otro. Estos artículos intentan lo mismo en un medio diferente: entrenar la imaginación del lector para un tipo diferente de computación creativa, una construida sobre instrumentos en lugar de feeds, sobre piezas en lugar de productos, sobre callouts en lugar de métricas de engagement.
+
+\section{Conclusión}
+
+CalArts es un sistema operativo. Su kernel es la proximidad. Su shell es la crítica. Su modelo de procesos es el desafío. \ac{} corre sobre el mismo SO, portado del campus físico al navegador al bare metal~\citep{scudder2026ac, scudder2026os}.
+
+El callout es el mecanismo. El artículo es el formato. La designación PSYCHO es la temperatura. Juntos dicen: el arte puede escribir teoría, la teoría puede ser arte, y ninguno necesita permiso de las instituciones que afirman poseerlos.
+
+Estos artículos son conocimiento de pasillo, finalmente escrito---sabiendo que la escritura los cambia, sabiendo que la crítica nunca termina, sabiendo que el desafío es el punto.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,427 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Fem år fra nu: Hvad Aesthetic Computer sandsynligvis bliver},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\np}{\textsc{notepat}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Fem år fra nu}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Hvad Aesthetic Computer sandsynligvis bliver}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Overskydende hardware, rumlige instrumenter og det lange spil med et personligt værktøj}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+Denne artikel ekstrapolerer de næste fem år (2026--2031) af \ac{} baseret på projektets nuværende kurs, eksisterende infrastruktur, erklærede ambitioner og de kræfter---økonomiske, kulturelle og materielle---der påvirker det. Vi argumenterer for, at projektet sandsynligvis vil udvikle sig langs syv konvergerende akser: (1)~kontinuiteten i en 94-projekters kreativ linje, der begrænser rummet af sandsynlige fremtider, (2)~modningen af \acos{} til et deployerbart instrument for overskydende hardware i stor skala, (3)~fremkomsten af distribuerede laptop-ensembler som musikalsk og pædagogisk form, (4)~udvidelsen af 3D fra software-rasterizer til rumligt kreativt medie, (5)~fordybelsen af en akademisk identitet gennem vedvarende artikelproduktion, (6)~væksten af KidLisp til et selvbærende kreativt sprogfællesskab, og (7)~et opgør med bæredygtighed---herunder muligheden for projektets bevidste eller ufrivillige ophør---der vil afgøre, om det overlever sine egne ambitioner. Dette er ikke en køreplan. Det er en aflæsning af momentum---et forsøg på at spørge, hvad et projekt \emph{ønsker at blive} baseret på, hvad det allerede har valgt at gøre.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUKTION ============
+
+\section{Introduktion}
+
+\ac{} er en mobil-først-køretid og et socialt netværk for kreativ computing, der omfatter 359 indbyggede interaktive programmer (``pieces''), et bare-metal Linux-operativsystem, der starter enhver x86\_64-maskine som et kreativt instrument, en minimal Lisp-dialekt til generativ kunst og et voksende fællesskab af 2.812 registrerede brugere~\citep{scudder2026ac}. Projektet er skrevet og vedligeholdt primært af en enkelt udvikler, @jeffrey, med AI-assisteret vedligeholdelse (``AestheticAnts''), der håndterer rutinemæssigt vedligehold.
+
+Per marts 2026 har projektet produceret 19 forskningsartikler på fire sprog, et bare-metal OS, der starter på 7,3 sekunder~\citep{scudder2026os}, en blockchain-integration til prægning af generative kunstværker og et 7.912-linjers musikinstrument (\np{}), der er blevet systemets hoveddør~\citep{scudder2026notepat}. Kodebasen sporer sin linje gennem 94 forgængerprojekter, der spænder over mere end et årti af værktøjsfremstilling.
+
+Denne artikel foreslår ikke, hvad \ac{} \emph{bør} gøre. Den forsøger at aflæse, hvad det \emph{sandsynligvis vil} gøre, baseret på det momentum, der allerede er synligt i koden, artiklerne, infrastrukturbeslutningerne og de filosofiske forpligtelser, der har formet projektet til dato.
+
+% ============ 2. FIREOGHALVFEMS PROJEKTER ============
+
+\section{Fireoghalvfems projekter og flere på vej}
+\label{sec:history}
+
+Enhver fremskrivning af \ac{}'s fremtid må gøre op med dybden af dets fortid. Projektet er ikke en startup, der pivoter mod produkt-markedsfit. Det er den 95. iteration af en enkelt vedvarende undersøgelse: \emph{hvad bør et personligt kreativt computing-instrument være?}
+
+\subsection{Tegnesoftware-linjen (2011--2020)}
+
+Arkæologiartiklen~\citep{scudder2026archaeology} sporer \ac{} gennem 94 forgængerprojekter, der spænder over to GitHub-konti (50+ repositories), et 109\,GB legacy-serverarkiv og et Dropbox-korpus. Banen begynder med \textbf{thePRBAT} (Polygon Replicating Bitmap Authoring Tool, 2011), et Flash-baseret digitalt billedværktøj bygget som BFA-afhandling på Ringling College, og ankommer til \ac{} gennem et årti af tegnesoftware-varianter: \textbf{JeffreyPaint} (2014, JavaScript + Unity), \textbf{Finger Quilt} (2016, iOS/Swift), \textbf{Dot} (2017, en tegneapplikation, der foregriber AC's \texttt{plot}-disk), og vigtigst \textbf{No Paint} (2014--2020), der gennemgik fem inkarnationer---Rails, JavaScript-shim, WebGL-prototype, iOS/Cordova, Vercel-site---før det blev absorberet i \ac{}.
+
+Dette er ikke en historie om forladte projekter. Det er en historie om \emph{genstarter}: den samme person, der stiller det samme spørgsmål, og vælger at starte forfra frem for at akkumulere funktioner. Mønstret er synligt i \ac{} selv: piece-modellen (enkelt fil, livscyklusfunktioner, immediate-mode grafik) er et begrænsnings-først-design, der \emph{forhindrer} den funktionsakkumulering, der dræbte tidligere iterationer.
+
+\subsection{Performance-vendingen (2016--2018)}
+
+Mellem 2016 og 2018 turnerede @jeffrey med Goodiepal \& Pals på tværs af 65+ spillesteder i Europa og byggede realtids-performanceværktøjer: publikumsdeltagelsesgrænseflader, musiknotationsrenderere, undertekstvisninger til live-forelæsninger. Disse værktøjer---bygget hurtigt, brugt én gang, smidt ud---etablerede et designprincip, der vedvarer i \ac{}: software som instrument, ikke som produkt. Værktøjerne blev spillet, ikke leveret.
+
+Goodiepal-indflydelsen går dybere end samarbejde. Goodiepal-artiklen~\citep{scudder2026goodiepal} identificerer fem tråde, der fortsætter ind i \ac{}: instrument-først-design, fællesskab organiseret gennem affinitet snarere end institution, værker designet til at modstå digital reproduktion og radikal pædagogik gennem direkte engagement snarere end pensum.
+
+\subsection{Hvorfor historien er vigtig for fremskrivning}
+
+94-projekters historien begrænser vores fremskrivning på to måder. For det første gør den pludselige omlægninger usandsynlige. @jeffrey har kredset om de samme problemer---personlige værktøjer, kreative instrumenter, begrænsningsbaseret design---i 15 år. De næste 5 år vil næsten med sikkerhed forblive inden for denne bane. For det andet gør den opgivelse usandsynlig af de grunde, folk normalt opgiver projekter (kedsomhed, tab af interesse, tiltrækning af noget mere skinnende). Risikoen er ikke distraktion; det er udmattelse. Vi vender tilbage til dette i \S\ref{sec:giveup}.
+
+% ============ 3. BØLGEN AF OVERSKYDENDE HARDWARE ============
+
+\section{Bølgen af overskydende hardware}
+\label{sec:surplus}
+
+Den enkeltstående største kraft, der påvirker \ac{}'s fremtid, er ekstern: i oktober 2025 afsluttede Microsoft understøttelsen af Windows 10, hvilket ifølge institutionelle standarder gjorde skønsmæssigt 240 millioner pc'er forældede~\citep{ewaste2024monitor}. Disse maskiner er ikke i stykker. De er ThinkPads, EliteBooks og Latitudes med 8--16\,GB RAM, 1080p-skærme, WiFi og 6--10 timers batterier. De koster \$30--80 på brugtmarkedet. De er råmaterialet til alt, der følger.
+
+\subsection{Fra prototype til flåde (2026--2027)}
+
+\acos{} starter allerede på overskydende hardware~\citep{scudder2026os}. Afstanden mellem ``starter på to ThinkPads i @jeffreys lejlighed'' og ``starter på 30 maskiner i et klasseværelse'' er ikke primært teknisk. Den er operationel: WiFi-legitimationshåndtering, per-enhedsidentitetsprovisionering, hardwarekompatibilitetstest på tværs af snesevis af laptopmodeller og en flashingworkflow, som en ikke-teknisk person kan udføre.
+
+Det sandsynlige arbejde på kort sigt er prosaisk men kritisk:
+
+\begin{itemize}
+  \item \textbf{Per-bruger WiFi-lagring}: flytning af hardkodede SSID'er ud af JavaScript-pieces og ind i persistente per-enheds-konfigurationsfiler, der overlever OTA-opdateringer
+  \item \textbf{Hardwarekompatibilitetsmatrix}: systematisk test på tværs af ThinkPad X1/T/L-serien, HP EliteBook 800-serien, Dell Latitude 5000/7000-serien
+  \item \textbf{Enkommando-flashing}: en USB-imagebygning, der tager et handle, farver og WiFi-legitimationsoplysninger og producerer et bootbart drev
+  \item \textbf{A/B-kernepladser}: dual-partition boot med automatisk rollback, hvis den nye kerne fejler sundhedstjek
+\end{itemize}
+
+Disse er ikke glamourøse funktioner. De er forskellen mellem et kunstprojekt og et infrastrukturprojekt. Kodebasens kurs---OTA-opdateringer fungerer allerede, buildnavne genereres allerede, enhedsidentitet indskrives allerede i bootpartitionen---tyder på, at @jeffrey forstår denne forskel og bevæger sig mod infrastruktursiden.
+
+\subsection{50-dollar-instrumentet (2027--2028)}
+
+Hvis det operationelle arbejde lander, bliver det økonomiske argument meget højlydt: et komplet kreativt computing-instrument---personaliseret, selvopda\-terende, uden behov for nogen IT-infrastruktur---til prisen af en brugt laptop og et USB-drev. Ingen Chromebook-tilmelding. Intet Apple ID. Intet abonnement.
+
+OLPC-projektet~\citep{kraemer2009olpc} demonstrerede, at hardware-først-tilgange til computing-adgang fejler på omkostninger og logistik. Raspberry Pi adresserede omkostninger (\$35) men kræver \$150 i tilbehør. \ac{}'s forslag er anderledes: hardwaren eksisterer allerede, har allerede en skærm, et tastatur, et batteri og WiFi og bliver kasseret i millionvis. Softwaren fylder 89\,MB.
+
+Det sandsynlige resultat i 2028 er ikke masseadoption men \emph{bevispunkter}: en håndfuld klasseværelser, fællesskabscentre eller workshopkontekster, hvor flåder af 10--30 brugte maskiner kører \acos{}, og resultaterne dokumenteres. Disse bevispunkter bliver evidensgrundlaget for ansøgninger om støtte, institutionelle partnerskaber og bæredygtighedsargumenterne beskrevet i \S\ref{sec:sustainability}.
+
+% ============ 3. PLANETARISKE ENSEMBLER ============
+
+\section{Planetariske ensembler}
+\label{sec:ensembles}
+
+PLOrk-artiklen~\citep{scudder2026plork} fremsætter et argument, som den eksisterende kodebase allerede understøtter: laptoporkestre har været musikalsk legitime, siden Princetons PLOrk beviste konceptet i 2006~\citep{trueman2006plork}, men modellen er fanget i universiteter til \$1.500+ per plads. \acos{} på overskydende hardware reducerer omkostningerne til \$50/plads. Spørgsmålet er, om nogen vil spille.
+
+\subsection{notepat som ensembleinstrument (2026--2027)}
+
+\np{} er allerede et polyfonisk keyboardinstrument med 32-stemmers syntese, rumklang og bølgetypevalg~\citep{scudder2026notepat}. Det kører på bare metal ved 192\,kHz. Den manglende ingrediens for ensembleperformance er ikke lydkvalitet men \emph{koordinering}: synkroniseret tempo, delt harmonisk rum og en dirigentgrænseflade.
+
+Den sandsynlige udviklingssti:
+
+\begin{itemize}
+  \item \textbf{UDP-ensemblesync}: udvidelse af den eksisterende dobbeltkanals-netværksforbindelse (WebSocket + UDP) til at synkronisere beat-ure på tværs af enheder i et lokalt netværk
+  \item \textbf{Dirigent-piece}: et nyt piece, der viser ensembletilstanden og lader en dirigent sætte tempo, toneart og dynamik
+  \item \textbf{Spatialisering}: brug af de fysiske positioner af brugte laptops som distribuerede højttalere---ensemblet \emph{er} lydsystemet, efter Turinos deltagende musikmodel~\citep{turino2008music}
+\end{itemize}
+
+Denne tråd har åbenlyst konferenceappel. En live-demonstration af 10 brugte ThinkPads, der spiller et koordineret musikstykke---hver med spillerens handle i regnbuetekst, hver bidragende en stemme til et distribueret lydfelt---er den slags demo, der vinder omtale ved Ars Electronica og NIME-indsendelser.
+
+\subsection{Ud over musik (2028--2031)}
+
+Ensemblemodellen generaliserer ud over musik. Et netværk af brugte maskiner, der kører koordinerede pieces, kunne være:
+
+\begin{itemize}
+  \item En \textbf{distribueret tegnevæg}: hver skærm viser en sektion af et større lærred, deltagere tegner lokalt, og netværket sammensætter resultatet
+  \item Et \textbf{kollaborativt KidLisp-miljø}: studerende skriver generative programmer, der føder ind i et delt visuelt rum
+  \item En \textbf{performancepartitur}: maskinerne udfører et grafisk partitur~\citep{scudder2026pieces}, hvor hver fortolker den samme notation gennem forskellige pieces
+\end{itemize}
+
+Infrastrukturen for alt dette eksisterer allerede: WebSocket-relay, UDP-broadcast, per-enheds-identitet og en piece-model, der understøtter enhver kombination af grafik, lyd og input. Det, der mangler, er \emph{koreografien}---selve piecesne og de sociale former omkring dem.
+
+% ============ DEN TREDJE DIMENSION ============
+
+\section{Den tredje dimension}
+\label{sec:3d}
+
+\ac{} opfattes i vid udstrækning som et 2D-system. Den immediate-mode grafik-API---\texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}---og pixelkunstæstetikken i de fleste pieces forstærker dette indtryk. Men infrastrukturen fortæller en anden historie. En fuld software-3D-rasterizer eksisterer allerede, et multiplayer-FPS leveres allerede, og de arkitektoniske valg i bare-metal OS'et positionerer 3D som den næste store udtryksmæssige grænse.
+
+\subsection{Hvad der allerede virker}
+
+Bare-metal OS'et inkluderer \texttt{graph3d.c}, en ~600-linjers CPU-softwarerasterizer med perspektivprojektion, frustum-klipning (Sutherland-Hodgman mod 6 klipplaner), dybdebuffer, per-vertex-farveinterpolation og teksturmapping med perspektivkorrekte barycentriske koordinater. JavaScript-API'en eksponerer dette gennem en \texttt{Form}-konstruktør: pieces skaber meshes med vertexpositioner, farver og teksturkoordinater og renderer dem med \texttt{ink(r,g,b).form(mesh)}.
+
+To produktions-pieces demonstrerer systemet. \texttt{fps.mjs} leverer et førstepersonskamera med pointer lock, WASD-bevægelse, teksturerede grundplaner og roterende kuber. \texttt{1v1.mjs} udvider dette til et multiplayer-FPS med hitscan-våben, bot-AI (patrulje-/forfølgelses-/flugttilstande), drabssporing og dobbeltkanals-netværksmønsteret (WebSocket for pålidelige spilbegivenheder, UDP for lav-latens positionssynkronisering). Browserstien bruger Three.js (r0.182) med WebGL-rendering og inkluderer VR/XR-sessionsunderstøttelse~\citep{sutherland1968head}.
+
+Systemet har altså to parallelle 3D-stier: en softwarerasterizer på bare metal (kun CPU, ingen GPU) og en hardwareaccelereret sti i browseren (WebGL/Three.js, med WebGPU-infrastruktur på plads). API-overfladen er identisk set fra piece-forfatterens perspektiv.
+
+\subsection{GPU-spørgsmålet på bare metal (2026--2028)}
+
+Softwarerasterizeren er elegant men fundamentalt begrænset. Hver brugt ThinkPad og EliteBook i målflåden har en Intel-integreret GPU, der kan OpenGL 4.x eller Vulkan 1.x, og som sidder ubrugt. Kernens DRM-delsystem styrer allerede skærmen via KMS-modesetting; at udvide det til at eksponere en rendernode for GPU-accelereret rasterisering er en kendt ingeniørmæssig sti (EGL på DRM eller Vulkan via \texttt{/dev/dri/renderD128}).
+
+Den sandsynlige kurs er forsigtig. @jeffreys designinstinkt favoriserer softwarekontrol over hardwaredelegering---hele bare-metal OS-filosofien er ``kend enhver instruktion mellem tænding og pixel.'' GPU-drivere introducerer uigennemsigtighed: firmware-blobs, driverbug, leverandørspecifik opførsel. Softwarerasterizer-ens dyd er, at den er \emph{læsbar}: pipelinen fra vertex til pixel er 600 linjer C, som en studerende kan læse.
+
+Det sandsynlige kompromis: GPU-acceleration som en opt-in-sti for pieces, der har brug for det, med softwarerasterizeren som standard og referenceimplementering. Dette afspejler browserarkitekturen, hvor WebGPU eksisterer ved siden af 2D-canvas men ikke erstatter det.
+
+\subsection{3D som kreativt medie (2028--2031)}
+
+Det mere interessante spørgsmål er ikke teknisk men udtryksmæssigt. Hvad betyder 3D i et system designet omkring begrænsning, umiddelbarhed og enkelt-fil-pieces?
+
+Forgængerprojekterne giver et fingerpeg. @jeffreys arbejde har altid handlet om \emph{maleri}: No Paint, JeffreyPaint, thePRBAT, Radical Digital Painting-forelæsningsturnen. 3D-infrastrukturen bygger ikke mod en spilmotor eller et CAD-værktøj. Den bygger mod \emph{rumligt maleri}---evnen til at placere mærker, farver og former i tredimensionelt rum med den samme umiddelbarhed, som \texttt{ink(255,0,0).line(0,0,100,100)} giver i to dimensioner.
+
+De pieces, der vil betyde noget, er ikke dem, der ligner Unity-demoer. De er dem, hvor 3D bruges, som @jeffrey bruger 2D: som råmateriale til instrumenter, til performances, til ting, der spilles frem for forbruges. Et 3D \np{}, hvor noder har rumlig position, og rumklangen er bogstavelig---lyd, der udstråler fra former fordelt i virtuelt rum. Et 3D KidLisp, hvor \texttt{(box 0 0 0 50 50 50)} placerer en kube, som \texttt{(rect 0 0 50 50)} placerer et rektangel. En flåde af brugte laptops, der hver renderer en anden kameravinkel af den samme distribuerede 3D-scene.
+
+Konvergensen med ensembler (\S\ref{sec:ensembles}) er, hvor 3D bliver genuint nyt. Synkroniserede 3D-scener på tværs af netværksbaserede brugte maskiner---hver skærm et vindue ind i et delt virtuelt rum, hver spillers input påvirker scenen for alle deltagere---er en form, som hverken spilmotorer eller kreative kodningsværktøjer har udforsket til \$50/plads-prisklassen. Netværket er allerede bevist (\texttt{1v1.mjs}). Hardwaren er allerede tilgængelig (\S\ref{sec:surplus}). Det manglende stykke er den kunstneriske vision for, hvordan et distribueret rumligt instrument bør føles, og det er netop den slags spørgsmål, @jeffrey har brugt 94 projekter på at lære at besvare.
+
+% ============ 5. DEN AKADEMISKE VENDING ============
+
+\section{Den akademiske vending}
+\label{sec:scholarly}
+
+Mellem 3. marts og 20. marts 2026 producerede @jeffrey 19 forskningsartikler på fire sprog. Dette er ikke normal opførsel for en soloutvikler. Det signalerer en bevidst vending mod akademisk legitimitet---et forsøg på at opbygge, hvad RESEARCH-DIRECTION.md-filen kalder en ``forskningsvoldgrav'' omkring projektet.
+
+\subsection{Artikelfabrikken (2026--2027)}
+
+Artikelinfrastrukturen er allerede industriel: en tilpasset \LaTeX{}-skabelon med AC-skrifttyper, automatiseret PDF-bygning via en server (``ovnen''), et kortformat til enkeltarks udskrifter og en oversættelsespipeline, der producerer danske, spanske og kinesiske udgaver af hver artikel. Biblioteket med 40+ læsninger leverer citationsgrundlaget. Pipelinen er designet til at producere, ikke til at prototypeudvikle.
+
+Kursen på kort sigt er indsendelse: ACM C\&C Demos (16. april), ICCC Short Papers (24. april), JOSS softwareartikler (løbende). Hvis nogen af disse lander, opnår projektet et akademisk fodfæste, som de fleste kreative kodningsværktøjer aldrig opnår. Processing~\citep{reas2007processing} og Scratch~\citep{resnick2009scratch} opbyggede deres akademiske legitimitet over år; @jeffrey forsøger at komprimere den tidslinje ved at producere volumen og målrette flere fora samtidigt.
+
+\subsection{Kunstner-forsker-identitet (2028--2031)}
+
+CalArts-artiklen argumenterer for, at en kunstskole er et operativsystem---at de strukturer af nærhed, kritik og disciplinær kontaminering, der karakteriserer institutioner som CalArts, kan porteres ind i software. Hvis @jeffrey fortsætter med at publicere i dette tempo, bliver artiklerne selv et værk: ikke dokumentation af et softwareprojekt, men et vedvarende argument om, hvad kreativ computing er, og hvem det er til.
+
+Det sandsynlige 5-årsresultat er et af to scenarier:
+
+\begin{enumerate}
+  \item \textbf{Voldgraven holder}: 6--10 artikler publiceres i peer-reviewede fora, @jeffrey inviteres til at tale ved konferencer, og \ac{} indtræder i kanon ved siden af Processing, Scratch og Sonic Pi~\citep{aaron2016sonic} som et anerkendt kreativt computing-miljø. Artiklerne skaber en feedbackloop: akademisk opmærksomhed bringer brugere, brugere skaber pieces, pieces genererer nye artikler.
+  \item \textbf{Voldgraven holder ikke}: indsendelser afvises, soloforfattermønstret vækker bedømmernes opmærksomhed, og artikelinfrastrukturen går i dvale. Koden overlever; den akademiske identitet gør det ikke. Dette er det mere almindelige resultat for kunstner-programmører.
+\end{enumerate}
+
+Det ærlige bud er et sted imellem: nogle få publikationer lander, nok til at etablere troværdighed i nicheforummer (NIME, xCoAx, ICLC), men de toneangivende HCI- og PL-konferencer forbliver uden for rækkevidde uden medforfattere og brugerstudier.
+
+% ============ 5. KIDLISPS EGET LIV ============
+
+\section{KidLisps eget liv}
+\label{sec:kidlisp}
+
+KidLisp er en 118-funktioners Lisp-dialekt til generativ kunst~\citep{scudder2026kidlisp}. Den er sandboxed (ingen fil-I/O, intet netværk), kører i browseren og har allerede akkumuleret 16.779 gemte programmer og en blockchain-prægningsintegration via Tezos. Sproget er lille nok til at passe på et kartotekskort.
+
+\subsection{Sprogfællesskab (2026--2028)}
+
+Tezos ``keeps''-systemet---hvor KidLisp-programmer præges som on-chain kunstværker for 2,5 XTZ---skaber et økonomisk incitament til at skrive KidLisp. Keeps-kontrakten (v11) er live, prægnings-UI'et eksisterer på keeps.kidlisp.com, og 5 tokens er allerede præget og migreret. Hvis det generative kunstmarked forbliver aktivt, vedligeholder denne tråd sig selv.
+
+Den mere interessante mulighed er pædagogisk. KidLisps begrænsninger---ingen tilstandsmutation, ingen sideeffekter ud over tegning, 118 funktioner, kører i en browser---gør det til en kandidat til undervisningsmiljøer. Et KidLisp-pensum bygget omkring kortformatet (enkeltarks-programmer, som studerende kan holde i hænderne) stemmer overens med Paperts konstruktionisme~\citep{papert1980mindstorms} og projektets eksisterende infrastruktur.
+
+\subsection{Sprogevolution (2028--2031)}
+
+KidLisp vil møde pres for at vokse. Brugere vil ønske tilstand, animation, interaktivitet, lyd. Designspørgsmålet er, om sproget absorberer disse funktioner (og bliver et generelt kreativt sprog) eller forbliver bevidst minimalt (et ``haiku-sprog'' for statisk generativ kunst, med JavaScript til alt andet).
+
+Projektets historie tyder på det sidstnævnte. @jeffreys designinstinkt, synligt på tværs af 94 forgængerprojekter, favoriserer skarpe begrænsninger over funktionsakkumulering. Piece-modellen selv---enkelt fil, livscyklusfunktioner, immediate-mode grafik~\citep{scudder2026pieces}---er et begrænsnings-først-design. KidLisp vil sandsynligvis forblive lille. Den interessante vækst vil være i, hvad folk laver med det, ikke hvad sproget tilføjer.
+
+% ============ 6. BÆREDYGTIGHED ============
+
+\section{Bæredygtighedsspørgsmålet}
+\label{sec:sustainability}
+
+Enhver tråd beskrevet ovenfor afhænger af, at en enkelt person fortsætter med at arbejde. \ac{} har ingen venturekapital, ingen institutionel opbakning og ingen ansatte ud over @jeffrey. AestheticAnts-vedligeholdelsessystemet automatiserer rutineopgaver, men arkitekturbeslutninger, artikelskrivning, hardwaretest og fællesskabspleje kræver menneskelig opmærksomhed.
+
+\subsection{Finansieringslandskabet (2026--2028)}
+
+Projektet har identificeret finansieringskilder: Creative Capital (\$50.000 projektbevillinger), Prix Ars Electronica (\texteuro10.000), Gary Marsden Travel Awards og GitHub Sponsors. Artikelfabrikken er delvist en ansøgningsstrategi: et projekt med 19 artikler, konferencedemoer og en dokumenteret brugerbase er en stærkere ansøger end et med kun kode.
+
+Tezos-keeps giver en lille indtægtsstrøm. Tryk (20 bestilt per marts 2026) giver en anden. Ingen af dem er tilstrækkelige til at opretholde fuldtidsudvikling.
+
+Den ærlige fremskrivning: i 2028 sikrer projektet sig enten en bevilling eller institutionel tilknytning (en residency, en undervisningsstilling, et forskningsstipendium) eller det nedsættes til vedligeholdelsesudvikling. Dette er ikke et fejlscenario---mange vigtige kreative værktøjer vedligeholdes deltids af deres skabere i årtier. Men de ambitiøse tråde (planetariske ensembler, flåder af overskydende hardware, akademisk voldgrav) kræver fuldtidsopmærksomhed.
+
+\subsection{Soloforfattarrisikoen (2028--2031)}
+
+Illichs ``værktøjer til konvivialitet''~\citep{illich1973tools} argumenterer for, at gode værktøjer bør kunne betjenes uden specialiseret ekspertise. \ac{} tilstræber dette for sine brugere, men projektet selv er ikke konvivialt i Illichs forstand: det kræver @jeffreys ekspertise at vedligeholde. Busfaktoren er én.
+
+Afbødningen er allerede delvist på plads: kodebasen er open source, arkitekturen er dokumenteret i 19 artikler, piece-API'en er designet til enkelt-fil-enkelhed, og AestheticAnts-systemet håndterer rutinevedligeholdelse autonomt. Men forskellen mellem ``koden er åben'' og ``en anden kan lede projektet'' er enorm.
+
+Den sandsynlige 5-årskurs: @jeffrey forbliver den eneste arkitekt. Et lille fællesskab af piece-forfattere bidrager med indhold (265 publicerede pieces og stigende). En eller to bidragydere indsender pull requests til specifikke funktioner. Projektet opnår ikke ``tusind bidragydere''-modellen fra Processing eller p5.js, men det behøver heller ikke---dets værdiforslag er ikke bredde men dybde: en enkelt vision, omhyggeligt vedligeholdt, der tager kreativ computing steder hen, som komité-designede værktøjer ikke kan nå.
+
+% ============ 7. KONVERGENSEN ============
+
+\section{Konvergensen}
+\label{sec:convergence}
+
+De syv tråde beskrevet ovenfor er ikke parallelle spor. De konvergerer.
+
+94-projekternes historie (\S\ref{sec:history}) etablerer den kurs, der gør de andre tråde læsbare. Overskydende hardware (\S\ref{sec:surplus}) leverer materialegrundlaget for planetariske ensembler (\S\ref{sec:ensembles}). 3D-infrastrukturen (\S\ref{sec:3d}) udvider ensemblemodellen til rumlig performance. Artiklerne (\S\ref{sec:scholarly}) dokumenterer og legitimerer alt det. KidLisp (\S\ref{sec:kidlisp}) leverer et sikkert indgangspunkt for nye brugere, der ankommer gennem enhver af disse kanaler. Bæredygtighed (\S\ref{sec:sustainability}) afgør, om konvergensen overhovedet sker---og \S\ref{sec:giveup} undersøger, hvad der sker, hvis den ikke gør.
+
+Det mest sandsynlige 5-årsscenarie er dette: i 2031 er \ac{} et anerkendt men niche kreativt computing-miljø med:
+
+\begin{itemize}
+  \item \textbf{5.000--10.000 registrerede brugere}, op fra 2.812, drevet af notepat-viralitet, konferencedemoer og klasseværelsesudrulninger
+  \item \textbf{Et bare-metal OS} deployeret på 100--500 brugte maskiner på tværs af 5--15 steder (skoler, fællesskabscentre, kunstresidencies, workshops)
+  \item \textbf{3--5 publicerede artikler} i peer-reviewede fora, der etablerer et minimalt akademisk fodaftryk
+  \item \textbf{50.000+ KidLisp-programmer}, med et lille men aktivt generativt kunstfællesskab, der præger keeps på Tezos
+  \item \textbf{Ensembleperformances} ved 2--3 festivaler eller konferencer, med flåder af brugte laptops som distribuerede instrumenter
+  \item \textbf{En enkelt vedligeholder}, der stadig skriver det meste af koden, med AI-assisteret vedligeholdelse, der håndterer en stigende andel af rutinearbejdet
+\end{itemize}
+
+Dette er hverken det mest ambitiøse resultat eller det mest konservative. Det er det resultat, der er konsistent med et projekt, der har truffet specifikke, bevidste valg om, hvad det bekymrer sig om---dybde over bredde, instrumenter over IDE'er, vedligeholdelse over disruption---og som har infrastrukturen til at følge op på disse valg i det tempo, en soloutvikler kan opretholde.
+
+% ============ 8. HVAD DER KUNNE ÆNDRE ALT ============
+
+\section{Hvad der kunne ændre alt}
+\label{sec:wildcards}
+
+Fremskrivninger baseret på momentum er pålidelige netop fordi de ignorerer diskontinuiteter. Fire jokere kunne ændre kursen totalt:
+
+\subsection{Et institutionelt hjem}
+
+Hvis @jeffrey tager en undervisningsstilling på en kunstskole eller et forskningsuniversitet, opnår \ac{} noget, det i øjeblikket mangler: studerende. En årgang af 15--30 studerende, der bruger \ac{} som deres primære kreative computing-miljø i et semester, ville producere flere pieces, flere fejlrapporter, flere brugscases og mere forskning end et årti af soloutvkling. CalArts-artiklens argument---at en kunstskole er et operativsystem---virker i den modsatte retning: operativsystemet kunne blive en skole.
+
+\subsection{Et viralt øjeblik}
+
+\np{} blev postet på Hacker News og modtog opmærksomhed. Et andet viralt øjeblik---en TikTok af et klasseværelse fuldt af brugte laptops, der spiller musik sammen, en tweet-tråd om det kreative instrument til \$50, en konferencedemo, der filmes og deles---kunne bringe tusindvis af brugere på en uge. Infrastrukturen (URL-adresserbare pieces, øjeblikkelig registrering, sociale funktioner) er designet til at absorbere dette. Om @jeffrey \emph{ønsker} at absorbere det, er et separat spørgsmål. Projektets anti-platformholdning~\citep{fisher2009capitalist} antyder ambivalens over for vækst-for-vækstens-skyld.
+
+\subsection{AI som samarbejdspartner}
+
+AestheticAnts-systemet bruger allerede AI til rutinevedligeholdelse. Agenthukommelsessystemet logger interaktioner og opretholder kontinuitet på tværs af samtaler. Hvis AI-kapaciteterne fortsætter med at avancere, kunne en fremtidig version af dette system gøre mere end vedligeholdelse: det kunne skrive pieces, generere KidLisp-programmer, komponere ensemblepartiturer og udarbejde artikler. Soloforfattarrisikoen (\S\ref{sec:sustainability}) mindskes, hvis ``soloforfatteren'' er forstærket af en AI-samarbejdspartner, der forstår projektets historie, filosofi og kodebase.
+
+Dette er ikke spekulativt på den måde, de andre scenarier er. Det sker allerede. Spørgsmålet er et spørgsmål om grad: i 2031, håndterer AI 10\% af det kreative arbejde, eller 50\%? Svaret vil afhænge af de valg, @jeffrey træffer om, hvad han delegerer, og hvad han insisterer på at gøre selv. Projektets vægt på personlig stemme, på de ``PSYCHO''-artikler, der bærer forfatterens temperatur, tyder på, at det vigtigste arbejde forbliver menneskeligt. Infrastrukturen omkring det gør det måske ikke.
+
+\subsection{Hvad hvis han stopper}
+\label{sec:giveup}
+
+Fremskrivningerne ovenfor antager fortsat indsats. Men 94-projekternes historie (\S\ref{sec:history}) indeholder et mønster, der må nævnes: @jeffrey har forladt ting før. No Paint havde fem inkarnationer. Hver enkelt blev forladt, ikke fordi idéen mislykkedes, men fordi implementeringen stivnede---fordi kløften mellem, hvad værktøjet \emph{var}, og hvad det \emph{burde være}, blev uudholdelig. Genstarterne var ikke fejl i engagement. De var udtryk for det.
+
+Risikoen for \ac{} er ikke, at @jeffrey mister interessen. Femten års kredsen om de samme problemer udelukker tilfældig opgivelse. Risikoen er \emph{strukturel udmattelse}: ophobningen af operationel vægt---serverregninger, brugersupport, hardwaretest, artikelindsendelser, ansøgninger om støtte, afhængighedsopdateringer---indtil vedligeholdelseslasten fortrænger det kreative arbejde, der gør projektet værd at vedligeholde. Ukeles~\citep{ukeles1969manifesto} argumenterede for, at vedligeholdelse er kunst, men selv Ukeles anerkendte, at vedligeholdelse uden anerkendelse bliver usynligt arbejde.
+
+Tre scenarier for ophør fortjener overvejelse:
+
+\begin{enumerate}
+  \item \textbf{Den stille bortfaden}: udviklingen aftager til sporadiske commits, serverne forbliver oppe, men fællesskabet driver væk, og \ac{} slutter sig til den lange liste af ambitiøse personlige værktøjer, der eksisterer som arkiver snarere end levende systemer. Dette er det mest almindelige resultat for soloforfattede kreative computing-projekter. Det er ikke dramatisk. Det er standarden.
+
+  \item \textbf{Det bevidste stop}: @jeffrey erklærer projektet færdigt ved en naturlig grænse---måske når OS'et starter pålideligt på et dusin laptopmodeller, eller når artikelantallet når et rundt tal, eller når det 100. piece publiceres af en anden end ham. Han vender tilbage til at male på lærred (Venice Family Clinic-udstillingen i maj 2026 tyder på, at denne tråd allerede er aktiv). Koden forbliver åben. Nogen forker den måske. Mest sandsynligt gør ingen det.
+
+  \item \textbf{Den 95. genstart}: @jeffrey forlader \ac{} for at bygge dens efterfølger. Dette er det mønster, historien forudsiger stærkest. No Paint blev til \ac{}. \ac{} kunne blive til noget andet---noget, der absorberer lektionerne fra OS'et, piece-modellen, ensemblenetværket og 3D-rasterizeren, men kaster den akkumulerede infrastrukturvægt af. Det nye projekt starter rent, i en enkelt fil, og cyklussen begynder igen. Udefra ligner dette fiasko. Indefra i den 94 projekters linje ligner det processen, der virker præcis som designet.
+\end{enumerate}
+
+Den ærlige vurdering: scenarie 3 er usandsynligt inden for 5 år, fordi \ac{} har opnået flugthastighed på måder, No Paint aldrig gjorde---en registreret brugerbase, et bare-metal OS, en blockchain-integration, 19 artikler, et sprog med 16.000+ programmer. Den investerede indsats er for stor til en ren genstart. Men scenarie 1 er fuldt ud muligt, hvis bæredygtighedsspørgsmålet (\S\ref{sec:sustainability}) forbliver ubesvaret. Et projekt af denne ambition, vedligeholdt af én person uden stabil finansiering, er altid ét dårligt år fra den stille bortfaden.
+
+Afbødningen er den samme, der har opretholdt projektet indtil nu: at gøre selve arbejdet tilstrækkeligt givende til, at den operationelle byrde er til at bære. Artiklerne, performancerne, 3D-rasterizeren skrevet fra bunden, bare-metal-boot, der tager 7 sekunder---disse er ikke funktioner på en køreplan. De er den kreative praksis. Hvis praksis ophører med at være interessant, stopper projektet. Hvis den forbliver interessant, overlever projektet alt andet end at lyset slukkes.
+
+% ============ 10. KONKLUSION ============
+
+\section{Konklusion}
+
+Aesthetic Computer er et projekt, der ved, hvad det er. Det søger ikke produktmarkedsfit, pivoter ikke mod enterprise og optimerer ikke for vækstmetrikker. Det er et personligt kreativt computing-instrument, der bygges offentligt af en enkelt person, som har lavet versioner af det i mere end et årti på tværs af 94 forgængerprojekter.
+
+De næste fem år vil blive formet af kræfter, der er både interne (det tempo @jeffrey kan opretholde, den finansiering han kan sikre) og eksterne (240 millioner brugte pc'er, den generative kunstøkonomi, den akademiske konferencecyklus). Projektets infrastruktur---bare-metal OS, artikelfabrik, piece-model, socialt netværk, blockchain-prægning---er bygget til at absorbere disse kræfter. Om det vil, er et spørgsmål om udholdenhed, held og verdens vilje til at bekymre sig om kreative computing-værktøjer, der ikke ejes af en platform.
+
+Nelson skrev i 1974, at ``du kan og skal forstå computere NU''~\citep{nelson1974computerlib}. Illich skrev i 1973, at værktøjer bør udvide personlig autonomi, ikke kræve institutionel formidling~\citep{illich1973tools}. Ukeles skrev i 1969, at vedligeholdelse er kunst~\citep{ukeles1969manifesto}. \ac{} er syntesen: et værktøj, der er personligt, konvivialt og vedligeholdt som en kreativ praksis. Væddemålet er, at denne syntese, anvendt på overskydende hardware og opretholdt over tid, skaber noget, der varer.
+
+Om det gør, er det eneste interessante spørgsmål. Denne artikel tilbyder intet svar, kun en aflæsning af de kræfter i spil. Koden vil afgøre det.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Oversat fra engelsk. Originalversion tilgængelig på \url{https://papers.aesthetic.computer}}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

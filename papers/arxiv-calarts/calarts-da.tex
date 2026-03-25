@@ -1,0 +1,203 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === PSYCHO watermark ===
+\usepackage{eso-pic}
+\usepackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "PSYCHO" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} PSYCHO}};
+  \end{tikzpicture}%
+}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={CalArts, Callouts og Papers: Kunstskolen som operativsystem}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{PSYCHO-artikel --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} CalArts, Callouts og Papers}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Kunstskolen som operativsystem}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ PSYCHO-artikel --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+CalArts (California Institute of the Arts) blev grundlagt i 1961 af Walt Disney som en total kunstskole---et sted hvor animation, musik, teater, dans, film og billedkunst kunne eksistere under ét tag og krydsbefrugte hinanden uden disciplinære mure. Denne artikel argumenterer for, at CalArts fungerer som et \emph{operativsystem} for kreativ produktion: et sæt grundlæggende antagelser om, hvad kunst er, hvordan den undervises, og hvad en kunstner bør blive. Vi undersøger skolens unikke kultur af ``callouts''---kritikken, gangsamtalen, den institutionelle udfordring---og hvordan denne mundtlige tradition producerer viden, der ikke kan skrives ned. Vi vender os derefter mod selve artiklen: hvorfor denne serie af akademiske artikler eksisterer, hvad det betyder for en kunstner-programmør at skrive teori, og om artikelformen i sig selv er en slags callout---en offentlig udfordring der tvinger idéer til at stå blottede i det åbne. CalArts lærte forfatteren at lave arbejde der svarer igen. Disse artikler er det arbejde der svarer igen i et register, som kunstverdenen ikke forventede.
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Disney-maskinen}
+
+Walt Disney grundlagde CalArts i 1961 ved at sammenlægge Chouinard Art Institute og Los Angeles Conservatory of Music. Han ønskede en kunstskole der fungerede som hans studie: alle discipliner i én bygning, med delte værktøjer og idéer. Disney døde før Valencia-campus åbnede i 1971, men den struktur han krævede---ingen vægge mellem afdelinger, fælles faciliteter, en kultur af tværfaglig kollision---formede alt der fulgte.
+
+Den grundlæggende vision var industriel. Disney havde brug for animatorer der kunne tegne, musikere der forstod timing, skuespillere der kunne improvisere til et storyboard. Skolen var en talentpipeline for studiet~\citep{singerman1999art}. Men noget andet skete. Det fakultet som Disneys arvinger ansatte---deriblandt Allan Kaprow, Judy Chicago, John Baldessari, Miriam Schapiro, Nam June Paik---forvandlede den tværfaglige struktur til et laboratorium for efterkrigstidens amerikanske kunst. Maskinen Disney byggede til at producere animatorer blev en maskine der producerede konceptkunstnere, feministisk performance, videokunst og til sidst den generation der ville definere post-studie-praksis.
+
+Operativsystem-analogien er præcis. Et OS laver ikke softwaren; det giver det miljø hvori software kan køre. CalArts laver ikke kunsten; det giver betingelserne---rumlige, sociale, pædagogiske---under hvilke en bestemt slags kunstner bliver mulig. Skift OS og du ændrer hvad der kan skabes.
+
+\section{Callouts}
+
+\subsection{Kritikken som mundtlig tradition}
+
+Kritikken på CalArts er ikke en karakter. Det er et callout. Nogen hænger et værk op på væggen, og rummet svarer---ikke med rubrikker eller læringsmål men med den uskrevne, til tider brutale, til tider generøse ærlighed fra mennesker der har kigget på kunst sammen længe nok til at springe høflighedsfraserne over.
+
+\citet{elkins2001why} argumenterer for, at kritikken er uunderviselig på samme måde som kunst er uunderviselig: det der sker i en god kritik kan ikke reduceres til en metode. Det er en mundtlig tradition. Den viden der produceres i en tre timers kritik eksisterer kun i rummet. Den kan ikke skrives ned uden at blive til noget andet---et resumé, en anmeldelse, en dom. Kritikken er live. Den er en performance af opmærksomhed~\citep{hooks1994teaching}.
+
+CalArts-kritikker er berømte for deres intensitet. Skolens lille størrelse (ca. 1.500 studerende), campus med beboelse og tværfaglige struktur betyder, at en malers kritik kan inkludere en komponist, en animator, en filmskaber og en danser. Feedbacken er ikke disciplinspecifik. Den er \emph{perceptuel}: hvad gør dette ved min krop, mit øre, min fornemmelse af tid? Callout'et er ikke ``det er god maleri.'' Callout'et er ``det er levende'' eller ``det er dødt.''
+
+\subsection{Gangviden}
+
+Det meste af hvad CalArts underviser sker uden for klasseværelset. Gangene i hovedbygningen---en brutalistisk megastruktur tegnet af Ladd \& Kelsey---fungerer som en uformel salon. En komponist går forbi en billedhuggers åbne atelier og hører en lyd der ændrer dem begges arbejde. En filmskaber viser daglige optagelser klokken 2 om natten, og en danser vandrer ind og begynder at improvisere til optagelserne.
+
+Dette er ikke pensum. Det er \emph{arkitektur}. Bygningen tvinger kollision. Kantinen (den eneste) tvinger alle ind i det samme rum. Gangene er brede nok til at stoppe op og tale. Atelierne er åbne. Øverummene lækker lyd. Bygningen er et instrument der spiller de mennesker der er inde i den.
+
+\citet{deduve1994attitude} identificerer tre paradigmer inden for kunstuddannelse: akademiet (talent-imitation), Bauhaus (kreativitet-medie-opfindelse) og efterkrigstidens kunstskole (holdning-praksis-dekonstruktion). CalArts opfandt et fjerde: \emph{nærhed}. Anbring forskellige discipliner tæt nok på hinanden, og de kontaminerer hinanden. Kontamineringen er uddannelsen.
+
+\subsection{Den institutionelle udfordring}
+
+CalArts kører på udfordringer. Ikke eksplicitte---ingen siger ``jeg udfordrer dig.'' Men kulturen er organiseret omkring en udfordringsstruktur: kan du lave noget der holder i et rum fuldt af mennesker der er bedre end dig? Kan du præsentere arbejde der overlever callout'et?
+
+Dette er forskelligt fra tech-skolens sprint review, hvor arbejde evalueres mod user stories og acceptkriterier~\citep{vinsel2020innovation}. CalArts-udfordringen har ingen kriterier. Der er ingen rubrik. Spørgsmålet er ikke ``opfylder dette briefet?'' Spørgsmålet er ``behøver dette at eksistere?'' Udfordringen er eksistentiel, ikke funktionel.
+
+Udfordringen opererer også mellem afdelinger. En musikstuderende der laver et værk med video udfordrer filmstuderende til at være opmærksomme. En danser der koder en interaktiv installation udfordrer kunststuderende til at tage teknologi seriøst. Udfordringen er mekanismen for tværfaglig kontaminering. Den siger: din disciplin er ikke tilstrækkelig. Kom og leg i min.
+
+\section{Hvorfor artikler}
+
+\subsection{Artiklen som callout}
+
+Denne artikelserie---tyve artikler skrevet på tre uger---er i sig selv et callout. Den siger: en kunstner-programmør kan skrive teori. Ikke ``teori-light,'' ikke ``kunstnerstatements med citationer,'' men rigtige artikler med rigtige argumenter og rigtige bibliografier der engagerer sig med rigtig forskning.
+
+Kunstverdenen forventer ikke dette. Kunstnere forventes at lave værker og lade kritikere skrive om dem. Arbejdsdelingen er klar: kunstnere producerer, kritikere forklarer, historikere kontekstualiserer. Når en kunstner skriver teori, er den institutionelle respons mistænksomhed. Er det rigtig forskning? Er det forfængelighedsudgivelse? Er det kunst?
+
+Svaret er: det er ligegyldigt. Artiklen er et callout. Den tvinger idéerne til at stå i det åbne, udsat for kritik, i et format som akademiet anerkender og kunstverdenen ikke kontrollerer. \citet{fraser2005critique} bemærkede, at institutionel kritik blev en institution. Disse artikler forsøger noget andet: ikke kritik af institutionen men \emph{brug} af institutionens eget format---den akademiske artikel---som kunstnerisk materiale.
+
+\subsection{Artiklen som instrument}
+
+En artikel er en teknologi. Den har et format (sektioner, citationer, abstrakt, bibliografi), et distributionssystem (tidsskrifter, preprints, arkiver) og en social protokol (fagfællebedømmelse, citation, respons). Som enhver teknologi kan den spilles.
+
+\ac{} behandler stykket som den fundamentale enhed for kreativ erkendelse~\citep{scudder2026pieces}. Et stykke er en enkelt fil der eksporterer livscyklusfunktioner: \texttt{boot}, \texttt{paint}, \texttt{act}, \texttt{sim}. En artikel har den samme struktur: den booter (abstrakt), maler (argument), agerer (engagerer sig med tidligere arbejde) og simulerer (foreslår konsekvenser). Artiklen er et stykke skrevet i \LaTeX{} i stedet for JavaScript.
+
+Dette er ikke en metafor. Artiklerne er bygget med den samme infrastruktur som softwaren: en CLI (\texttt{papers/cli.mjs}), inkrementelle builds, flersproget udrulning, automatiseret publicering. Artiklen \emph{er} software. Argumentet \emph{er} programmet.
+
+\subsection{PSYCHO-betegnelsen}
+
+Denne artikel er mærket PSYCHO. Ikke ``Arbejdsudkast,'' ikke ``Preprint,'' ikke ``Under bedømmelse.'' PSYCHO.
+
+Betegnelsen er et callout til selve artikelformatet. Akademiske artikler lader som om de er neutrale---objektive rapporter over fund, skrevet i passiv form, stripet for personlighed. PSYCHO-mærket afviser denne prætention. Det siger: denne artikel har en stemme, den har en dagsorden, den har en temperatur. Den er ikke neutral. Den prøver ikke at være det.
+
+Ordet ``psycho'' kommer fra det græske \textit{psykhe}---sjæl, sind, ånde. En PSYCHO-artikel er en artikel med en sjæl. Den ånder. Den har holdninger der ikke er afdæmpet med ``yderligere forskning er nødvendig.'' Den fremsætter påstande og udfordrer dig til at være uenig.
+
+\section{CalArts og Aesthetic Computer}
+
+\subsection{OS-arven}
+
+Forfatteren gik på CalArts (MFA Art, 2012). Oplevelsen er det substrat hvorpå \ac{} er bygget. Ikke teknikkerne---CalArts underviser ikke i programmering---men \emph{antagelserne}: at discipliner bør kontaminere hinanden, at mediet ikke er pointen, at udfordringen er vigtigere end leverancen, at kunst er en måde at være i verden på snarere end et produkt der skal sendes.
+
+\ac{} arver CalArts' operativsystem. Stykke-modellen---én fil, immediate-mode grafik, livscyklusfunktioner---er den digitale ækvivalent til det åbne atelier: alle kan se hvad du laver, alle kan forke det, alle kan kalde det ud. Det sociale netværk er organiseret omkring \emph{stier} (huskbare URL'er) snarere end feeds, på samme måde som CalArts er organiseret omkring gange snarere end algoritmer.
+
+\np{}.com er den tydeligste CalArts-arv. Det er et instrument som alle kan spille, som ikke kræver træning, som belønner udforskning frem for ekspertise. Gangmødet---at snuble over en andens arbejde og blive forandret af det---er designmønsteret. Du skriver en URL. Du lander på et stykke. Du spiller det. Du går videre. Ingen feed. Ingen algoritme. Ingen metrikker. Bare nærhed.
+
+\subsection{Kritikken går online}
+
+At publicere disse artikler er en kritik. Rummet er internettet. Callout'et er offentligt. Arbejdet er blottet---ikke for et rum med femten mennesker der kender dig men for enhver med en browser og en holdning.
+
+Dette er skræmmende på samme måde som en CalArts-kritik er skræmmende: du kan ikke kontrollere responsen. Arbejdet holder eller det gør det ikke. Udfordringen er den samme udfordring: behøver dette at eksistere?
+
+\section{Imod neutralitet}
+
+Den akademiske artikel lader som om den er et vindue---gennemsigtigt, der lader dig se forskningen bag det. Men ethvert vindue er også en ramme. Artikelformatet rammer ind hvad der kan siges: passiv form, afdæmpede påstande, ærbødighed over for tidligere arbejde, fiktionen om objektivitet~\citep{freire1970pedagogy}.
+
+CalArts underviser det modsatte. Stå bag dit arbejde. Sig hvad du mener. Hvis du ikke kan forsvare det i rummet, er det ikke klar. Callout'et er en teknologi for ansvarlighed: det tvinger dig til at stå ved dine påstande foran mennesker der vil skubbe imod.
+
+Disse artikler er skrevet i den ånd. De har en stemme. De fremsætter påstande. De citerer forskning ikke for at skjule sig bag den men for at argumentere med den, bygge på den, udfordre den til at svare. PSYCHO-betegnelsen er et flag: denne artikel lader ikke som om den er neutral. Den har en position. Den har en temperatur. Den står i rummet og venter på callout'et.
+
+\citet{spivak2012aesthetic} argumenterer for, at æstetisk uddannelse træner fantasien for etisk solidaritet. CalArts gør dette---ikke gennem pensum men gennem nærhed, gennem udfordringen, gennem kritikken der tvinger dig til at se dit arbejde gennem en andens øjne. Disse artikler forsøger det samme i et andet medie: at træne læserens fantasi for en anden slags kreativ computing, én bygget på instrumenter snarere end feeds, på stykker snarere end produkter, på callouts snarere end engagementsmetrikker.
+
+\section{Konklusion}
+
+CalArts er et operativsystem. Dets kerne er nærhed. Dets shell er kritikken. Dets procesmodel er udfordringen. \ac{} kører på det samme OS, porteret fra det fysiske campus til browseren til bar metal~\citep{scudder2026ac, scudder2026os}.
+
+Callout'et er mekanismen. Artiklen er formatet. PSYCHO-betegnelsen er temperaturen. Tilsammen siger de: kunst kan skrive teori, teori kan være kunst, og ingen af dem har brug for tilladelse fra de institutioner der hævder at eje dem.
+
+Disse artikler er gangviden, endelig skrevet ned---velvidende at skriften ændrer dem, velvidende at kritikken aldrig ender, velvidende at udfordringen er pointen.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

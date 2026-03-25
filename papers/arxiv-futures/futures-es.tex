@@ -1,0 +1,427 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Cinco años a partir de ahora: En qué probablemente se convierte Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\np}{\textsc{notepat}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Cinco años a partir de ahora}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} En qué probablemente se convierte Aesthetic Computer}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Hardware excedente, instrumentos espaciales y el juego largo de una herramienta personal}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Este artículo extrapola los próximos cinco años (2026--2031) de \ac{} basándose en la trayectoria actual del proyecto, la infraestructura existente, las ambiciones declaradas y las fuerzas---económicas, culturales y materiales---que actúan sobre él. Argumentamos que el proyecto probablemente evolucionará a lo largo de siete ejes convergentes: (1)~la continuidad de un linaje creativo de 94 proyectos que restringe el espacio de futuros probables, (2)~la maduración de \acos{} en un instrumento desplegable para hardware excedente a escala, (3)~la emergencia de ensambles distribuidos de portátiles como forma musical y pedagógica, (4)~la expansión del 3D desde rasterizador por software a medio creativo espacial, (5)~la profundización de una identidad académica a través de la producción sostenida de artículos, (6)~el crecimiento de KidLisp en una comunidad creativa lingüística autosuficiente, y (7)~un ajuste de cuentas con la sostenibilidad---incluyendo la posibilidad del cese deliberado o involuntario del proyecto---que determinará si sobrevive a sus propias ambiciones. Esto no es una hoja de ruta. Es una lectura del impulso---un intento de preguntar en qué \emph{quiere convertirse} un proyecto basándose en lo que ya ha elegido hacer.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCCIÓN ============
+
+\section{Introducción}
+
+\ac{} es un entorno de ejecución mobile-first y una red social para la computación creativa, que comprende 359 programas interactivos integrados (``pieces''), un sistema operativo Linux bare-metal que arranca cualquier máquina x86\_64 como instrumento creativo, un dialecto Lisp mínimo para arte generativo y una comunidad creciente de 2.812 usuarios registrados~\citep{scudder2026ac}. El proyecto es escrito y mantenido principalmente por un solo desarrollador, @jeffrey, con mantenimiento asistido por IA (``AestheticAnts'') encargándose de las tareas rutinarias.
+
+A marzo de 2026, el proyecto ha producido 19 artículos de investigación en cuatro idiomas, un SO bare-metal que arranca en 7,3 segundos~\citep{scudder2026os}, una integración blockchain para acuñar obras de arte generativo, y un instrumento musical de 7.912 líneas (\np{}) que se ha convertido en la puerta de entrada del sistema~\citep{scudder2026notepat}. La base de código traza su linaje a través de 94 proyectos predecesores que abarcan más de una década de fabricación de herramientas.
+
+Este artículo no propone lo que \ac{} \emph{debería} hacer. Intenta leer lo que \emph{probablemente hará}, basándose en el impulso ya visible en el código, los artículos, las decisiones de infraestructura y los compromisos filosóficos que han dado forma al proyecto hasta la fecha.
+
+% ============ 2. NOVENTA Y CUATRO PROYECTOS ============
+
+\section{Noventa y cuatro proyectos y contando}
+\label{sec:history}
+
+Cualquier proyección del futuro de \ac{} debe confrontar la profundidad de su pasado. El proyecto no es una startup pivotando hacia el ajuste producto-mercado. Es la iteración número 95 de una única investigación sostenida: \emph{¿qué debería ser un instrumento personal de computación creativa?}
+
+\subsection{El linaje del software de dibujo (2011--2020)}
+
+El artículo de arqueología~\citep{scudder2026archaeology} traza \ac{} a través de 94 proyectos predecesores que abarcan dos cuentas de GitHub (más de 50 repositorios), un archivo de servidor legado de 109\,GB y un corpus de Dropbox. La trayectoria comienza con \textbf{thePRBAT} (Polygon Replicating Bitmap Authoring Tool, 2011), una herramienta de imagen digital basada en Flash construida como tesis de BFA en Ringling College, y llega a \ac{} a través de una década de variantes de software de dibujo: \textbf{JeffreyPaint} (2014, JavaScript + Unity), \textbf{Finger Quilt} (2016, iOS/Swift), \textbf{Dot} (2017, una aplicación de trazado que prefigura el disco \texttt{plot} de AC), y lo más importante \textbf{No Paint} (2014--2020), que pasó por cinco encarnaciones---Rails, shim JavaScript, prototipo WebGL, iOS/Cordova, sitio Vercel---antes de ser absorbido en \ac{}.
+
+Esta no es una historia de proyectos abandonados. Es una historia de \emph{reinicios}: la misma persona, haciendo la misma pregunta, eligiendo empezar de nuevo en lugar de acumular funcionalidades. El patrón es visible en \ac{} mismo: el modelo de pieces (archivo único, funciones de ciclo de vida, gráficos en modo inmediato) es un diseño que prioriza las restricciones y que \emph{previene} la acumulación de funcionalidades que mató iteraciones anteriores.
+
+\subsection{El giro performático (2016--2018)}
+
+Entre 2016 y 2018, @jeffrey realizó giras con Goodiepal \& Pals por más de 65 escenarios en Europa, construyendo herramientas de performance en tiempo real: interfaces de participación del público, renderizadores de notación musical, pantallas de subtítulos para conferencias en vivo. Estas herramientas---construidas rápido, usadas una vez, descartadas---establecieron un principio de diseño que persiste en \ac{}: software como instrumento, no como producto. Las herramientas se tocaban, no se enviaban.
+
+La influencia de Goodiepal va más allá de la colaboración. El artículo sobre Goodiepal~\citep{scudder2026goodiepal} identifica cinco hilos que se trasladan a \ac{}: diseño que prioriza el instrumento, comunidad organizada por afinidad en lugar de institución, obras diseñadas para resistir la reproducción digital y pedagogía radical a través del compromiso directo en lugar del currículo.
+
+\subsection{Por qué la historia importa para la proyección}
+
+La historia de 94 proyectos restringe nuestra proyección de dos maneras. Primero, hace improbables los giros repentinos. @jeffrey ha estado orbitando los mismos problemas---herramientas personales, instrumentos creativos, diseño basado en restricciones---durante 15 años. Los próximos 5 años casi con certeza permanecerán dentro de esta órbita. Segundo, hace improbable el abandono por las razones por las que la gente suele abandonar proyectos (aburrimiento, pérdida de interés, atracción por algo más brillante). El riesgo no es la distracción; es el agotamiento. Volvemos a esto en \S\ref{sec:giveup}.
+
+% ============ 3. LA OLA DE HARDWARE EXCEDENTE ============
+
+\section{La ola de hardware excedente}
+\label{sec:surplus}
+
+La mayor fuerza individual que actúa sobre el futuro de \ac{} es externa: en octubre de 2025, Microsoft finalizó el soporte para Windows 10, convirtiendo en obsoletos según estándares institucionales unos 240 millones de PC estimados~\citep{ewaste2024monitor}. Estas máquinas no están rotas. Son ThinkPads, EliteBooks y Latitudes con 8--16\,GB de RAM, pantallas 1080p, WiFi y baterías de 6--10 horas. Cuestan \$30--80 en el mercado de excedentes. Son la materia prima para todo lo que sigue.
+
+\subsection{De prototipo a flota (2026--2027)}
+
+\acos{} ya arranca en hardware excedente~\citep{scudder2026os}. La brecha entre ``arranca en dos ThinkPads en el apartamento de @jeffrey'' y ``arranca en 30 máquinas en un aula'' no es principalmente técnica. Es operativa: gestión de credenciales WiFi, aprovisionamiento de identidad por dispositivo, pruebas de compatibilidad de hardware en docenas de modelos de portátiles y un flujo de trabajo de flasheo que una persona no técnica pueda ejecutar.
+
+El trabajo probable a corto plazo es prosaico pero crítico:
+
+\begin{itemize}
+  \item \textbf{Almacenamiento WiFi por usuario}: mover los SSID codificados fuera de los pieces JavaScript a archivos de configuración persistentes por dispositivo que sobrevivan actualizaciones OTA
+  \item \textbf{Matriz de compatibilidad de hardware}: pruebas sistemáticas en las series ThinkPad X1/T/L, HP EliteBook 800, Dell Latitude 5000/7000
+  \item \textbf{Flasheo con un solo comando}: un constructor de imagen USB que tome un handle, colores y credenciales WiFi y produzca una unidad arrancable
+  \item \textbf{Slots de kernel A/B}: arranque de doble partición con reversión automática si el nuevo kernel falla las comprobaciones de salud
+\end{itemize}
+
+Estas no son funcionalidades glamurosas. Son la diferencia entre un proyecto artístico y un proyecto de infraestructura. La trayectoria de la base de código---las actualizaciones OTA ya funcionan, los nombres de compilación ya se generan, la identidad del dispositivo ya se inscribe en la partición de arranque---sugiere que @jeffrey comprende esta distinción y se está moviendo hacia el lado de la infraestructura.
+
+\subsection{El instrumento de 50 dólares (2027--2028)}
+
+Si el trabajo operativo se materializa, el argumento económico se vuelve muy elocuente: un instrumento de computación creativa completo---personalizado, autoactualizable, sin requerir infraestructura de TI---por el precio de un portátil excedente y una unidad USB. Sin matriculación Chromebook. Sin Apple ID. Sin suscripción.
+
+El proyecto OLPC~\citep{kraemer2009olpc} demostró que los enfoques de hardware primero para el acceso a la computación fracasan en costos y logística. La Raspberry Pi abordó el costo (\$35) pero requiere \$150 en accesorios. La propuesta de \ac{} es diferente: el hardware ya existe, ya tiene pantalla, teclado, batería y WiFi, y está siendo descartado por millones. El software ocupa 89\,MB.
+
+El resultado probable para 2028 no es la adopción masiva sino \emph{puntos de prueba}: un puñado de aulas, centros comunitarios o contextos de talleres donde flotas de 10--30 máquinas excedentes ejecutan \acos{} y los resultados se documentan. Estos puntos de prueba se convierten en la base de evidencia para solicitudes de subvenciones, alianzas institucionales y los argumentos de sostenibilidad descritos en \S\ref{sec:sustainability}.
+
+% ============ 3. ENSAMBLES PLANETARIOS ============
+
+\section{Ensambles planetarios}
+\label{sec:ensembles}
+
+El artículo sobre PLOrk~\citep{scudder2026plork} presenta un argumento que la base de código existente ya respalda: las orquestas de portátiles han sido musicalmente legítimas desde que el PLOrk de Princeton demostró el concepto en 2006~\citep{trueman2006plork}, pero el modelo está atrapado en universidades a \$1.500+ por plaza. \acos{} sobre hardware excedente reduce el costo a \$50/plaza. La pregunta es si alguien tocará.
+
+\subsection{notepat como instrumento de ensamble (2026--2027)}
+
+\np{} ya es un instrumento de teclado polifónico con síntesis de 32 voces, reverberación de sala y selección de tipo de onda~\citep{scudder2026notepat}. Corre sobre bare metal a 192\,kHz. El ingrediente que falta para la performance en ensamble no es la calidad de audio sino la \emph{coordinación}: tempo sincronizado, espacio armónico compartido y una interfaz de director.
+
+La ruta de desarrollo probable:
+
+\begin{itemize}
+  \item \textbf{Sincronización UDP de ensamble}: extender la red de doble canal existente (WebSocket + UDP) para sincronizar relojes de tempo entre dispositivos en una red local
+  \item \textbf{Piece de director}: un nuevo piece que muestre el estado del ensamble y permita al director establecer tempo, tonalidad y dinámica
+  \item \textbf{Espacialización}: usar las posiciones físicas de los portátiles excedentes como altavoces distribuidos---el ensamble \emph{es} el sistema de sonido, siguiendo el modelo de música participativa de Turino~\citep{turino2008music}
+\end{itemize}
+
+Este hilo tiene un evidente atractivo para conferencias. Una demostración en vivo de 10 ThinkPads excedentes tocando una pieza musical coordinada---cada uno mostrando el handle del intérprete en texto arcoíris, cada uno contribuyendo una voz a un campo sonoro distribuido---es el tipo de demo que gana menciones en Ars Electronica y presentaciones en NIME.
+
+\subsection{Más allá de la música (2028--2031)}
+
+El modelo de ensamble se generaliza más allá de la música. Una red de máquinas excedentes ejecutando pieces coordinados podría ser:
+
+\begin{itemize}
+  \item Un \textbf{muro de dibujo distribuido}: cada pantalla muestra una sección de un lienzo mayor, los participantes dibujan localmente y la red compone el resultado
+  \item Un \textbf{entorno colaborativo de KidLisp}: los estudiantes escriben programas generativos que alimentan un espacio visual compartido
+  \item Una \textbf{partitura de performance}: las máquinas ejecutan una partitura gráfica~\citep{scudder2026pieces}, cada una interpretando la misma notación a través de diferentes pieces
+\end{itemize}
+
+La infraestructura para todo esto ya existe: relay WebSocket, broadcast UDP, identidad por dispositivo y un modelo de pieces que soporta cualquier combinación de gráficos, audio e input. Lo que falta es la \emph{coreografía}---los propios pieces y las formas sociales a su alrededor.
+
+% ============ LA TERCERA DIMENSIÓN ============
+
+\section{La tercera dimensión}
+\label{sec:3d}
+
+\ac{} es ampliamente percibido como un sistema 2D. La API gráfica en modo inmediato---\texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}---y la estética pixel-art de la mayoría de los pieces refuerzan esta impresión. Pero la infraestructura cuenta una historia diferente. Un rasterizador 3D por software completo ya existe, un FPS multijugador ya se distribuye, y las decisiones arquitectónicas tomadas en el SO bare-metal posicionan el 3D como la próxima gran frontera expresiva.
+
+\subsection{Lo que ya funciona}
+
+El SO bare-metal incluye \texttt{graph3d.c}, un rasterizador por software CPU de ~600 líneas con proyección en perspectiva, recorte de frustum (Sutherland-Hodgman contra 6 planos de recorte), buffer de profundidad, interpolación de color por vértice y mapeo de texturas con coordenadas baricéntricas con corrección de perspectiva. La API JavaScript expone esto a través de un constructor \texttt{Form}: los pieces crean mallas con posiciones de vértices, colores y coordenadas de textura, luego las renderizan con \texttt{ink(r,g,b).form(mesh)}.
+
+Dos pieces de producción demuestran el sistema. \texttt{fps.mjs} proporciona una cámara en primera persona con bloqueo de puntero, movimiento WASD, planos de suelo texturizados y cubos giratorios. \texttt{1v1.mjs} extiende esto a un FPS multijugador con armas hitscan, IA de bots (estados de patrulla/persecución/huida), seguimiento de bajas y el patrón de red de doble canal (WebSocket para eventos de juego confiables, UDP para sincronización de posición de baja latencia). La ruta del navegador usa Three.js (r0.182) con renderizado WebGL e incluye soporte de sesión VR/XR~\citep{sutherland1968head}.
+
+El sistema tiene así dos rutas 3D paralelas: un rasterizador por software en bare metal (solo CPU, sin GPU) y una ruta acelerada por hardware en el navegador (WebGL/Three.js, con infraestructura WebGPU preparada). La superficie de API es idéntica desde la perspectiva del autor del piece.
+
+\subsection{La cuestión de la GPU en bare metal (2026--2028)}
+
+El rasterizador por software es elegante pero fundamentalmente limitado. Cada ThinkPad y EliteBook excedente en la flota objetivo tiene una GPU integrada Intel capaz de OpenGL 4.x o Vulkan 1.x, inactiva. El subsistema DRM del kernel ya gestiona la pantalla mediante modesetting KMS; extenderlo para exponer un nodo de renderizado para rasterización acelerada por GPU es un camino de ingeniería conocido (EGL sobre DRM, o Vulkan vía \texttt{/dev/dri/renderD128}).
+
+La trayectoria probable es cautelosa. El instinto de diseño de @jeffrey favorece el control por software sobre la delegación al hardware---toda la filosofía del SO bare-metal es ``conocer cada instrucción entre el encendido y el píxel.'' Los controladores de GPU introducen opacidad: blobs de firmware, errores de controladores, comportamiento específico del fabricante. La virtud del rasterizador por software es que es \emph{legible}: la cadena desde el vértice hasta el píxel son 600 líneas de C que un estudiante puede leer.
+
+El compromiso probable: aceleración GPU como ruta opcional para pieces que lo necesiten, con el rasterizador por software permaneciendo como predeterminado y la implementación de referencia. Esto refleja la arquitectura del navegador, donde WebGPU existe junto al canvas 2D pero no lo reemplaza.
+
+\subsection{3D como medio creativo (2028--2031)}
+
+La pregunta más interesante no es técnica sino expresiva. ¿Qué significa el 3D en un sistema diseñado en torno a la restricción, la inmediatez y los pieces de archivo único?
+
+Los proyectos predecesores ofrecen una pista. El trabajo de @jeffrey siempre ha tratado sobre \emph{pintura}: No Paint, JeffreyPaint, thePRBAT, la gira de conferencias Radical Digital Painting. La infraestructura 3D no se construye hacia un motor de juegos o una herramienta CAD. Se construye hacia la \emph{pintura espacial}---la capacidad de colocar marcas, colores y formas en el espacio tridimensional con la misma inmediatez que \texttt{ink(255,0,0).line(0,0,100,100)} proporciona en dos dimensiones.
+
+Los pieces que importarán no son los que parecen demos de Unity. Son aquellos donde el 3D se usa como @jeffrey usa el 2D: como materia prima para instrumentos, para performances, para cosas que se tocan en lugar de consumirse. Un \np{} 3D donde las notas tienen posición espacial y la reverberación de sala es literal---sonido emanando de formas distribuidas en el espacio virtual. Un KidLisp 3D donde \texttt{(box 0 0 0 50 50 50)} coloca un cubo como \texttt{(rect 0 0 50 50)} coloca un rectángulo. Una flota de portátiles excedentes, cada uno renderizando un ángulo de cámara diferente de la misma escena 3D distribuida.
+
+La convergencia con los ensambles (\S\ref{sec:ensembles}) es donde el 3D se vuelve genuinamente nuevo. Escenas 3D sincronizadas a través de máquinas excedentes en red---cada pantalla una ventana a un espacio virtual compartido, el input de cada jugador afectando la escena para todos los participantes---es una forma que ni los motores de juegos ni las herramientas de codificación creativa han explorado al precio de \$50/plaza. La red ya está probada (\texttt{1v1.mjs}). El hardware ya está disponible (\S\ref{sec:surplus}). La pieza que falta es la visión artística de cómo debería sentirse un instrumento espacial distribuido, y esa es precisamente el tipo de pregunta que @jeffrey ha pasado 94 proyectos aprendiendo a responder.
+
+% ============ 5. EL GIRO ACADÉMICO ============
+
+\section{El giro académico}
+\label{sec:scholarly}
+
+Entre el 3 y el 20 de marzo de 2026, @jeffrey produjo 19 artículos de investigación en cuatro idiomas. Este no es un comportamiento normal para un desarrollador en solitario. Señala un giro deliberado hacia la legitimidad académica---un intento de construir lo que el archivo RESEARCH-DIRECTION.md llama un ``foso de investigación'' alrededor del proyecto.
+
+\subsection{La fábrica de artículos (2026--2027)}
+
+La infraestructura de artículos ya es industrial: una plantilla \LaTeX{} personalizada con fuentes de AC, construcción automatizada de PDF vía un servidor (``el horno''), un formato de tarjetas para impresiones de una sola hoja, y un pipeline de traducción que produce ediciones en danés, español y chino de cada artículo. La biblioteca de más de 40 lecturas proporciona la base de citaciones. El pipeline está diseñado para producir, no para prototipar.
+
+La trayectoria a corto plazo es la presentación: ACM C\&C Demos (16 de abril), ICCC Short Papers (24 de abril), artículos de software JOSS (continuo). Si alguno de estos resulta aceptado, el proyecto gana un punto de apoyo académico que la mayoría de las herramientas de codificación creativa nunca alcanzan. Processing~\citep{reas2007processing} y Scratch~\citep{resnick2009scratch} construyeron su legitimidad académica a lo largo de años; @jeffrey intenta comprimir esa línea temporal produciendo volumen y apuntando a múltiples foros simultáneamente.
+
+\subsection{Identidad artista-académico (2028--2031)}
+
+El artículo sobre CalArts argumenta que una escuela de arte es un sistema operativo---que las estructuras de proximidad, crítica y contaminación disciplinaria que caracterizan instituciones como CalArts pueden portarse al software. Si @jeffrey continúa publicando a este ritmo, los artículos mismos se convierten en un cuerpo de obra: no documentación de un proyecto de software, sino un argumento sostenido sobre qué es la computación creativa y para quién es.
+
+El resultado probable a 5 años es uno de dos escenarios:
+
+\begin{enumerate}
+  \item \textbf{El foso se mantiene}: 6--10 artículos se publican en foros con revisión por pares, @jeffrey es invitado a hablar en conferencias, y \ac{} entra en el canon junto a Processing, Scratch y Sonic Pi~\citep{aaron2016sonic} como un entorno de computación creativa reconocido. Los artículos crean un ciclo de retroalimentación: la atención académica trae usuarios, los usuarios crean pieces, los pieces generan nuevos artículos.
+  \item \textbf{El foso no se mantiene}: las presentaciones son rechazadas, el patrón de autor único levanta sospechas entre los revisores, y la infraestructura de artículos se vuelve latente. El código sobrevive; la identidad académica no. Este es el resultado más común para artistas-programadores.
+\end{enumerate}
+
+La apuesta honesta está en algún punto intermedio: unas pocas publicaciones son aceptadas, suficientes para establecer credibilidad en foros de nicho (NIME, xCoAx, ICLC), pero las conferencias principales de HCI y PL permanecen fuera de alcance sin colaboradores y estudios de usuarios.
+
+% ============ 5. LA VIDA PROPIA DE KIDLISP ============
+
+\section{La vida propia de KidLisp}
+\label{sec:kidlisp}
+
+KidLisp es un dialecto Lisp de 118 funciones para arte generativo~\citep{scudder2026kidlisp}. Está aislado (sin I/O de archivos, sin red), corre en el navegador y ya ha acumulado 16.779 programas almacenados y una integración de acuñación blockchain vía Tezos. El lenguaje es lo suficientemente pequeño como para caber en una ficha.
+
+\subsection{Comunidad lingüística (2026--2028)}
+
+El sistema ``keeps'' de Tezos---donde los programas KidLisp se acuñan como obras de arte on-chain por 2,5 XTZ---crea un incentivo económico para escribir KidLisp. El contrato keeps (v11) está activo, la UI de acuñación existe en keeps.kidlisp.com, y 5 tokens ya han sido acuñados y migrados. Si el mercado de arte generativo permanece activo, este hilo se sostiene por sí solo.
+
+La posibilidad más interesante es pedagógica. Las restricciones de KidLisp---sin mutación de estado, sin efectos secundarios más allá del dibujo, 118 funciones, corre en un navegador---lo convierten en candidato para entornos de enseñanza. Un currículo de KidLisp construido alrededor del formato de tarjetas (programas de una sola hoja que los estudiantes pueden sostener en sus manos) se alinea con el construccionismo de Papert~\citep{papert1980mindstorms} y la infraestructura existente del proyecto.
+
+\subsection{Evolución del lenguaje (2028--2031)}
+
+KidLisp enfrentará presión para crecer. Los usuarios querrán estado, animación, interactividad, sonido. La pregunta de diseño es si el lenguaje absorbe estas funcionalidades (convirtiéndose en un lenguaje creativo de propósito general) o permanece deliberadamente mínimo (un ``lenguaje haiku'' para arte generativo estático, con JavaScript manejando todo lo demás).
+
+La historia del proyecto sugiere lo segundo. El instinto de diseño de @jeffrey, visible a través de 94 proyectos predecesores, favorece restricciones agudas sobre la acumulación de funcionalidades. El modelo de pieces en sí---archivo único, funciones de ciclo de vida, gráficos en modo inmediato~\citep{scudder2026pieces}---es un diseño que prioriza las restricciones. KidLisp probablemente permanecerá pequeño. El crecimiento interesante estará en lo que la gente haga con él, no en lo que el lenguaje añada.
+
+% ============ 6. SOSTENIBILIDAD ============
+
+\section{La cuestión de la sostenibilidad}
+\label{sec:sustainability}
+
+Cada hilo descrito arriba depende de que una sola persona continúe trabajando. \ac{} no tiene financiación de capital riesgo, ni respaldo institucional, ni empleados más allá de @jeffrey. El sistema de mantenimiento AestheticAnts automatiza tareas rutinarias, pero las decisiones arquitectónicas, la escritura de artículos, las pruebas de hardware y el cultivo de la comunidad requieren atención humana.
+
+\subsection{El panorama de financiación (2026--2028)}
+
+El proyecto ha identificado fuentes de financiación: Creative Capital (subvenciones de proyecto de \$50.000), Prix Ars Electronica (\texteuro10.000), Gary Marsden Travel Awards y GitHub Sponsors. La fábrica de artículos es en parte una estrategia de solicitud de subvenciones: un proyecto con 19 artículos, demos en conferencias y una base de usuarios documentada es un solicitante más fuerte que uno con solo código.
+
+Los keeps de Tezos proporcionan un pequeño flujo de ingresos. Las impresiones (20 pedidas a marzo de 2026) proporcionan otro. Ninguno es suficiente para sostener el desarrollo a tiempo completo.
+
+La proyección honesta: para 2028, el proyecto o asegura una subvención o afiliación institucional (una residencia, un puesto docente, una beca de investigación) o se ralentiza a desarrollo en modo mantenimiento. Este no es un escenario de fracaso---muchas herramientas creativas importantes son mantenidas a tiempo parcial por sus creadores durante décadas. Pero los hilos ambiciosos (ensambles planetarios, flotas de hardware excedente, foso académico) requieren atención a tiempo completo.
+
+\subsection{El riesgo del autor único (2028--2031)}
+
+Las ``herramientas para la convivialidad'' de Illich~\citep{illich1973tools} argumentan que las buenas herramientas deberían ser operables sin experiencia especializada. \ac{} aspira a esto para sus usuarios, pero el proyecto en sí no es convivial en el sentido de Illich: requiere la experiencia de @jeffrey para mantenerse. El factor autobús es uno.
+
+La mitigación ya está parcialmente en su lugar: la base de código es de código abierto, la arquitectura está documentada en 19 artículos, la API de pieces está diseñada para la simplicidad de archivo único, y el sistema AestheticAnts maneja el mantenimiento rutinario de forma autónoma. Pero la diferencia entre ``el código es abierto'' y ``alguien más puede liderar el proyecto'' es vasta.
+
+La trayectoria probable a 5 años: @jeffrey sigue siendo el único arquitecto. Una pequeña comunidad de autores de pieces contribuye contenido (265 pieces publicados y en aumento). Uno o dos colaboradores envían pull requests para funcionalidades específicas. El proyecto no alcanza el modelo de ``mil colaboradores'' de Processing o p5.js, pero no lo necesita---su propuesta de valor no es amplitud sino profundidad: una visión única, rigurosamente mantenida, que lleva la computación creativa a lugares donde las herramientas diseñadas por comité no pueden llegar.
+
+% ============ 7. LA CONVERGENCIA ============
+
+\section{La convergencia}
+\label{sec:convergence}
+
+Los siete hilos descritos arriba no son pistas paralelas. Convergen.
+
+La historia de 94 proyectos (\S\ref{sec:history}) establece la trayectoria que hace legibles los otros hilos. El hardware excedente (\S\ref{sec:surplus}) proporciona la base material para los ensambles planetarios (\S\ref{sec:ensembles}). La infraestructura 3D (\S\ref{sec:3d}) extiende el modelo de ensamble a la performance espacial. Los artículos (\S\ref{sec:scholarly}) documentan y legitiman todo. KidLisp (\S\ref{sec:kidlisp}) proporciona un punto de entrada seguro para nuevos usuarios que llegan a través de cualquiera de estos canales. La sostenibilidad (\S\ref{sec:sustainability}) determina si la convergencia sucede en absoluto---y \S\ref{sec:giveup} examina qué pasa si no sucede.
+
+El escenario más probable a 5 años es este: para 2031, \ac{} es un entorno de computación creativa reconocido pero de nicho con:
+
+\begin{itemize}
+  \item \textbf{5.000--10.000 usuarios registrados}, desde los 2.812 actuales, impulsado por la viralidad de notepat, demos en conferencias y despliegues en aulas
+  \item \textbf{Un SO bare-metal} desplegado en 100--500 máquinas excedentes en 5--15 sitios (escuelas, centros comunitarios, residencias artísticas, talleres)
+  \item \textbf{3--5 artículos publicados} en foros con revisión por pares, estableciendo una huella académica mínima
+  \item \textbf{Más de 50.000 programas KidLisp}, con una comunidad pequeña pero activa de arte generativo acuñando keeps en Tezos
+  \item \textbf{Performances en ensamble} en 2--3 festivales o conferencias, usando flotas de portátiles excedentes como instrumentos distribuidos
+  \item \textbf{Un único mantenedor} que sigue escribiendo la mayor parte del código, con mantenimiento asistido por IA manejando una proporción creciente del trabajo rutinario
+\end{itemize}
+
+Este no es el resultado más ambicioso, ni el más conservador. Es el resultado consistente con un proyecto que ha tomado decisiones específicas y deliberadas sobre lo que le importa---profundidad sobre amplitud, instrumentos sobre IDEs, mantenimiento sobre disrupción---y que tiene la infraestructura para cumplir con esas decisiones al ritmo que un desarrollador en solitario puede sostener.
+
+% ============ 8. QUÉ PODRÍA CAMBIARLO TODO ============
+
+\section{Qué podría cambiarlo todo}
+\label{sec:wildcards}
+
+Las proyecciones basadas en el impulso son confiables precisamente porque ignoran las discontinuidades. Cuatro comodines podrían alterar la trayectoria por completo:
+
+\subsection{Un hogar institucional}
+
+Si @jeffrey acepta un puesto docente en una escuela de arte o universidad de investigación, \ac{} gana algo que actualmente le falta: estudiantes. Una cohorte de 15--30 estudiantes usando \ac{} como su entorno principal de computación creativa durante un semestre produciría más pieces, más reportes de errores, más casos de uso y más investigación que una década de desarrollo en solitario. El argumento del artículo sobre CalArts---que una escuela de arte es un sistema operativo---funciona a la inversa: el sistema operativo podría convertirse en una escuela.
+
+\subsection{Un momento viral}
+
+\np{} fue publicado en Hacker News y recibió atención. Un segundo momento viral---un TikTok de un aula llena de portátiles excedentes tocando música juntos, un hilo de tweets sobre el instrumento creativo de \$50, una demo en conferencia que se filma y comparte---podría traer miles de usuarios en una semana. La infraestructura (pieces direccionables por URL, registro instantáneo, funciones sociales) está diseñada para absorber esto. Si @jeffrey \emph{quiere} absorberlo es una pregunta separada. La postura anti-plataforma del proyecto~\citep{fisher2009capitalist} sugiere ambivalencia respecto al crecimiento por el crecimiento mismo.
+
+\subsection{IA como colaborador}
+
+El sistema AestheticAnts ya usa IA para mantenimiento rutinario. El sistema de memoria del agente registra interacciones y mantiene continuidad entre conversaciones. Si las capacidades de IA continúan avanzando, una versión futura de este sistema podría hacer más que mantenimiento: podría escribir pieces, generar programas KidLisp, componer partituras de ensamble y redactar artículos. El riesgo de autor único (\S\ref{sec:sustainability}) disminuye si el ``autor único'' está aumentado por un colaborador de IA que comprende la historia, la filosofía y la base de código del proyecto.
+
+Esto no es especulativo de la manera en que lo son los otros escenarios. Ya está sucediendo. La pregunta es de grado: para 2031, ¿la IA maneja el 10\% del trabajo creativo, o el 50\%? La respuesta dependerá de las decisiones que @jeffrey tome sobre qué delega y qué insiste en hacer él mismo. El énfasis del proyecto en la voz personal, en los artículos ``PSYCHO'' que portan la temperatura del autor, sugiere que el trabajo más importante seguirá siendo humano. La infraestructura a su alrededor quizás no.
+
+\subsection{¿Qué pasa si se detiene?}
+\label{sec:giveup}
+
+Las proyecciones anteriores asumen esfuerzo continuado. Pero la historia de 94 proyectos (\S\ref{sec:history}) contiene un patrón que debe nombrarse: @jeffrey ha abandonado cosas antes. No Paint tuvo cinco encarnaciones. Cada una fue abandonada, no porque la idea fracasara, sino porque la implementación se calcificó---porque la brecha entre lo que la herramienta \emph{era} y lo que \emph{debería ser} se volvió intolerable. Los reinicios no fueron fracasos de compromiso. Fueron expresiones de él.
+
+El riesgo para \ac{} no es que @jeffrey pierda interés. Quince años orbitando los mismos problemas descarta el abandono casual. El riesgo es el \emph{agotamiento estructural}: la acumulación de peso operativo---facturas de servidores, soporte de usuarios, pruebas de hardware, presentaciones de artículos, solicitudes de subvenciones, actualizaciones de dependencias---hasta que la carga de mantenimiento desplaza el trabajo creativo que hace que el proyecto valga la pena mantener. Ukeles~\citep{ukeles1969manifesto} argumentó que el mantenimiento es arte, pero incluso Ukeles reconoció que el mantenimiento sin reconocimiento se convierte en trabajo invisible.
+
+Tres escenarios de cese merecen consideración:
+
+\begin{enumerate}
+  \item \textbf{El desvanecimiento silencioso}: el desarrollo se reduce a commits esporádicos, los servidores siguen activos pero la comunidad se dispersa, y \ac{} se une a la larga lista de herramientas personales ambiciosas que existen como archivos en lugar de sistemas vivos. Este es el resultado más común para proyectos de computación creativa de autor único. No es dramático. Es el caso por defecto.
+
+  \item \textbf{La parada deliberada}: @jeffrey declara el proyecto completo en algún límite natural---quizás cuando el SO arranca de manera confiable en una docena de modelos de portátiles, o cuando la cuenta de artículos alcanza un número redondo, o cuando el piece número 100 es publicado por alguien distinto a él. Regresa a pintar sobre lienzo (la exposición en Venice Family Clinic en mayo de 2026 sugiere que este hilo ya está activo). El código permanece abierto. Alguien podría bifurcarlo. Lo más probable es que nadie lo haga.
+
+  \item \textbf{El reinicio número 95}: @jeffrey abandona \ac{} para construir su sucesor. Este es el patrón que la historia predice con más fuerza. No Paint se convirtió en \ac{}. \ac{} podría convertirse en otra cosa---algo que absorba las lecciones del SO, el modelo de pieces, la red de ensamble y el rasterizador 3D, pero se deshaga del peso de infraestructura acumulado. El nuevo proyecto comienza limpio, en un solo archivo, y el ciclo empieza de nuevo. Desde fuera, esto parece un fracaso. Desde dentro del linaje de 94 proyectos, parece el proceso funcionando exactamente como fue diseñado.
+\end{enumerate}
+
+La evaluación honesta: el escenario 3 es improbable dentro de 5 años porque \ac{} ha alcanzado velocidad de escape de maneras que No Paint nunca logró---una base de usuarios registrados, un SO bare-metal, una integración blockchain, 19 artículos, un lenguaje con más de 16.000 programas. El costo hundido es demasiado alto para un reinicio limpio. Pero el escenario 1 es totalmente posible si la cuestión de sostenibilidad (\S\ref{sec:sustainability}) queda sin respuesta. Un proyecto así de ambicioso, mantenido por una persona sin financiación estable, siempre está a un mal año del desvanecimiento silencioso.
+
+La mitigación es la misma que ha sostenido el proyecto hasta ahora: hacer que el trabajo en sí sea lo suficientemente gratificante como para que la carga operativa sea tolerable. Los artículos, las performances, el rasterizador 3D escrito desde cero, el arranque bare-metal que toma 7 segundos---estos no son funcionalidades en una hoja de ruta. Son la práctica creativa. Si la práctica deja de ser interesante, el proyecto se detiene. Si sigue siendo interesante, el proyecto sobrevive a todo menos a que se apaguen las luces.
+
+% ============ 10. CONCLUSIÓN ============
+
+\section{Conclusión}
+
+Aesthetic Computer es un proyecto que sabe lo que es. No busca ajuste producto-mercado, no pivota hacia la empresa, no optimiza para métricas de crecimiento. Es un instrumento personal de computación creativa siendo construido en público por una sola persona que ha estado haciendo versiones de él durante más de una década a través de 94 proyectos predecesores.
+
+Los próximos cinco años serán moldeados por fuerzas tanto internas (el ritmo que @jeffrey puede sostener, la financiación que puede asegurar) como externas (240 millones de PC excedentes, la economía del arte generativo, el ciclo de conferencias académicas). La infraestructura del proyecto---SO bare-metal, fábrica de artículos, modelo de pieces, red social, acuñación blockchain---está construida para absorber estas fuerzas. Si lo hará es una cuestión de resistencia, suerte y la disposición del mundo a importarle las herramientas de computación creativa que no son propiedad de una plataforma.
+
+Nelson escribió en 1974 que ``puedes y debes entender las computadoras AHORA''~\citep{nelson1974computerlib}. Illich escribió en 1973 que las herramientas deberían expandir la autonomía personal, no requerir mediación institucional~\citep{illich1973tools}. Ukeles escribió en 1969 que el mantenimiento es arte~\citep{ukeles1969manifesto}. \ac{} es la síntesis: una herramienta que es personal, convivial y mantenida como práctica creativa. La apuesta es que esta síntesis, aplicada a hardware excedente y sostenida en el tiempo, crea algo que perdura.
+
+Si lo hace es la única pregunta interesante. Este artículo no ofrece respuesta, solo una lectura de las fuerzas en juego. El código decidirá.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}\noindent\textit{Traducido del inglés. Versión original disponible en \url{https://papers.aesthetic.computer}}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,592 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={AT Protocol上的Handle身份：从Auth0到去中心化登录},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{工作草稿 --- 请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\atproto}{\textsc{AT Protocol}}
+
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} AT Protocol上的Handle身份}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 从Auth0到Aesthetic Computer上的去中心化登录}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} ATProto OAuth、Handle验证与可移植创意身份}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 工作草稿 --- 请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+Aesthetic Computer目前通过Auth0对用户进行身份验证，并在自托管的AT Protocol个人数据服务器（PDS）\texttt{at.aesthetic.computer}上维护一个并行身份。每个已验证用户都会获得一个DID和一个PDS handle，但身份验证流经一个集中式OAuth提供者。我们建议通过采用AT Protocol OAuth~\citep{atproto2024oauth}作为主要登录方法来合并这种双重身份架构，使任何拥有Bluesky或ATProto身份的人都能直接进行身份验证，并在Aesthetic Computer上获取相应的handle。本文审视了\atproto{}身份栈——DID、handle验证、带有DPoP和PAR的OAuth 2.1——考察了pckt.blog及其他ATProto原生应用如何实现去中心化登录~\citep{pcktblog2025}，映射了当前AC身份验证架构，并提出了从Auth0依赖到\atproto{}-优先身份的分阶段迁移方案。核心论点是：在一个已经运行自己的PDS并铸造自己的DID的平台上，集中式身份提供者是退化器官。移除它可以简化技术栈，消除付费依赖，并使AC成为联邦社交网络的一等公民。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. 引言 ============
+
+\section{引言}
+
+网络上的身份是一个房东问题。你不拥有你在Twitter上的handle、在Instagram上的用户名，或在任何可以删除你账户的平台上的登录凭证。AT Protocol~\citep{atproto2024spec}——Bluesky背后的去中心化社交网络协议——提出了一种不同的安排：你的身份是一个密码学密钥对，你的handle是你控制的域名，你的数据存储在一个你可以在提供者之间迁移的个人数据服务器上。
+
+Aesthetic Computer自2024年以来一直运行着一个混合身份系统。Auth0~\citep{auth0spa}处理身份验证：带有PKCE的OAuth 2.0、刷新令牌和一个托管用户数据库。另外，一个自托管的PDS在\texttt{at.aesthetic.computer}上为每个已验证用户铸造ATProto身份。结果是一个重复的系统：每个用户两个身份、两个凭证存储、两条handle同步路径，以及一个付费的Auth0订阅来弥合差距。
+
+本文提出的问题是：如果PDS\emph{就是}身份提供者呢？
+
+答案不是假设性的。pckt.blog~\citep{pcktblog2025}是一个构建在\atproto{}上的博客平台，完全通过\atproto{} OAuth对用户进行身份验证。用户使用他们的Bluesky handle、自托管的PDS或任何兼容的身份提供者登录。没有Auth0，没有Firebase，没有集中式用户数据库。内容使用来自Standard.site~\citep{standardsite2025}的共享词汇表同步到用户自己的PDS。
+
+我们考察这一模型如何适用于Aesthetic Computer——一个拥有600多个交互作品、多人游戏会话、KidLisp编程语言和原生裸机操作系统~\citep{scudder2026os}的创意计算平台——并提出一个保持向后兼容性的分阶段迁移方案，同时向去中心化身份迈进。
+
+% ============ 2. 当前AC身份架构 ============
+
+\section{当前架构}
+\label{sec:current}
+
+\subsection{Auth0作为身份提供者}
+
+身份验证通过Auth0的SPA SDK进行。页面加载时，\texttt{boot.mjs}检查localStorage中缓存的Auth0状态。如果存在会话（或检测到OAuth回调），它将使用PKCE和刷新令牌初始化Auth0客户端，交换授权码获取访问令牌，并检索用户配置文件。Auth0的\texttt{sub}字段（例如\texttt{auth0|abc123}或\texttt{google-oauth2|xyz}）作为内部用户标识符。
+
+\begin{lstlisting}[style=acjsstyle]
+// boot.mjs: current Auth0 flow
+const auth0 = await createAuth0Client({
+  domain: |\textcolor{jsstr}{"hi.aesthetic.computer"}|,
+  clientId: |\textcolor{jsstr}{"LVdZaM..."}|,
+  cacheLocation: |\textcolor{jsstr}{"localstorage"}|,
+  useRefreshTokens: true,
+});
+const user = await auth0.getUser();
+// { sub, email, email_verified, ... }
+\end{lstlisting}
+
+\subsection{Handle系统}
+
+Handle存储在MongoDB的\texttt{@handles}集合中，将Auth0的\texttt{sub}映射到1--16个字母数字字符的字符串（允许\texttt{.}和\texttt{\_}）。验证强制要求不能以标点符号开头/结尾、不区分大小写的唯一性和不良内容过滤。Handle是面向用户的主要身份：可通过URL访问（\texttt{@handle/piece-name}）、在聊天中可见、由AC Native OS朗读。
+
+\subsection{ATProto影子身份}
+
+在首次电子邮件验证时，Auth0 webhook触发\texttt{createAtprotoAccount()}，该函数：
+
+\begin{enumerate}
+  \item 生成一个32字符的密码
+  \item 在PDS上创建邀请码
+  \item 在\texttt{handle.at.aesthetic.computer}上创建账户
+  \item 在MongoDB中存储DID、handle和加密密码（\texttt{users.atproto}）
+\end{enumerate}
+
+当用户更改其AC handle时，\texttt{updateAtprotoHandle()}将更改同步到PDS。内容（绘画、心情、KidLisp片段、磁带、新闻）通过六个自定义词汇表（\texttt{computer.aesthetic.*}）镜像到PDS。ATProto身份是真实且功能完备的——但用户从未通过它进行身份验证。它是一个影子身份：存在的、同步的，但不是主权的。
+
+\subsection{重复问题}
+
+这种架构意味着：
+
+\begin{itemize}
+  \item 两个凭证存储（Auth0 + PDS）
+  \item 两个handle命名空间（AC handle + PDS handle）
+  \item 两条同步路径（handle变更传播 Auth0 $\to$ MongoDB $\to$ PDS）
+  \item 一个付费依赖（Auth0订阅）
+  \item 没有互操作性（Bluesky用户无法使用其现有身份登录AC）
+\end{itemize}
+
+PDS已经知道每个用户是谁。它已经存储了他们的DID、他们的handle、他们的内容。Auth0层增加了成本和复杂性，却没有增加PDS无法提供的能力。
+
+% ============ 3. AT PROTOCOL身份栈 ============
+
+\section{AT Protocol身份栈}
+\label{sec:atproto}
+
+理解迁移需要理解\atproto{}身份的三个层次：DID、handle和OAuth。
+
+\subsection{去中心化标识符（DID）}
+
+DID~\citep{w3cdid2022, atproto2024did}是一个持久的、可加密验证的标识符。\atproto{}主要使用\texttt{did:plc}，这是一种为强一致性、高可用性和不丢失身份的密钥轮换而设计的方法。每个DID解析为一个包含以下内容的文档：
+
+\begin{itemize}
+  \item 用于验证仓库更新的\textbf{签名密钥}（P-256或K-256）~\citep{atproto2024crypto}
+  \item 用于账户恢复的\textbf{轮换密钥}
+  \item \textbf{PDS端点} URL
+  \item 用户当前的\textbf{handle}
+\end{itemize}
+
+DID是稳定的身份。Handle会变；密钥会轮换；PDS提供者来来去去。DID持续存在。AC已经通过其PDS为每个用户铸造DID。基础设施已经存在。
+
+\subsection{Handle验证}
+
+\atproto{} handle~\citep{atproto2024handle}是一个双向解析到DID的域名。验证使用两种方法：
+
+\textbf{DNS TXT}：在\texttt{\_atproto.example.com}放置一条记录：
+\begin{lstlisting}
+_atproto.example.com TXT "did=did:plc:abc..."
+\end{lstlisting}
+
+\textbf{HTTPS Well-Known}：在以下地址提供DID：
+\begin{lstlisting}
+GET /.well-known/atproto-did
+Response: did:plc:abc...
+\end{lstlisting}
+
+两种方法都要求handle解析到DID，\emph{且}DID文档声明该handle。这种双向验证意味着：如果你控制域名，你就控制了handle。没有中央机构分配handle；DNS就是权威。
+
+对于AC，这意味着\texttt{jeffrey.at.aesthetic.computer}是一个真实的、可验证的ATProto handle，因为AC同时控制DNS和PDS。但这也意味着已经拥有\texttt{alice.bsky.social}或\texttt{alice.dev}的用户拥有一个AC可以信任的密码学验证身份——无需密码。
+
+\subsection{ATProto OAuth}
+
+\atproto{} OAuth规范~\citep{atproto2024oauth}扩展了OAuth 2.1，增加了三个强制性安全机制：
+
+\textbf{PKCE}（Proof Key for Code Exchange）~\citep{rfc7636pkce}：防止授权码拦截。客户端生成一个随机验证器，随授权请求发送其哈希值，并在令牌交换时证明持有原始验证器。
+
+\textbf{PAR}（Pushed Authorization Requests）~\citep{rfc9126par}：客户端在重定向用户\emph{之前}通过POST向授权服务器提交授权参数。这防止了重定向URL中的参数篡改。
+
+\textbf{DPoP}（Demonstrating Proof of Possession）~\citep{rfc9449dpop}：每个请求包含一个签名JWT，证明客户端持有与令牌关联的私钥。即使访问令牌泄露，也不能被其他客户端使用。
+
+\subsubsection{客户端标识}
+
+与传统OAuth不同，\atproto{}不要求在每个授权服务器上预注册。相反，客户端在公共HTTPS URL上发布元数据：
+
+\begin{lstlisting}[style=acjsstyle]
+// aesthetic.computer/oauth/client-metadata.json
+{
+  |\textcolor{jsstr}{"client\_id"}|: |\textcolor{jsstr}{"https://aesthetic.computer/..."}|,
+  |\textcolor{jsstr}{"client\_name"}|: |\textcolor{jsstr}{"Aesthetic Computer"}|,
+  |\textcolor{jsstr}{"redirect\_uris"}|: [|\textcolor{jsstr}{"https://..."}|],
+  |\textcolor{jsstr}{"grant\_types"}|: [|\textcolor{jsstr}{"authorization\_code"}|],
+  |\textcolor{jsstr}{"dpop\_bound\_access\_tokens"}|: true
+}
+\end{lstlisting}
+
+任何PDS都可以通过获取此URL来发现和验证客户端。没有预共享密钥，没有应用商店注册，没有API密钥管理。
+
+\subsubsection{流程}
+
+\begin{enumerate}
+  \item 用户输入其handle（例如\texttt{alice.bsky.social}）
+  \item 客户端解析 handle $\to$ DID $\to$ PDS端点 $\to$ 授权服务器
+  \item 客户端通过PAR推送授权参数
+  \item 用户被重定向到其PDS的授权界面
+  \item 用户批准；PDS带着授权码重定向回来
+  \item 客户端交换授权码获取DPoP绑定的访问令牌
+  \item 客户端验证返回的DID与预期身份匹配
+\end{enumerate}
+
+与Auth0的关键区别：用户使用\emph{自己的服务器}进行身份验证。AC永远不会看到密码。PDS——无论是Bluesky的、AC自己的还是自托管的实例——就是身份权威。
+
+% ============ 4. PCKT.BLOG的做法 ============
+
+\section{案例研究：pckt.blog}
+\label{sec:pckt}
+
+pckt.blog~\citep{pcktblog2025}是一个完全通过\atproto{} OAuth进行身份验证的博客平台。它的实现证明了ATProto-only身份验证对内容平台的实际可行性。
+
+\subsection{身份验证}
+
+用户通过输入其ATProto handle来登录。pckt.blog解析handle，发现授权服务器，并启动OAuth流程。用户在其PDS上批准（Bluesky、Blacksky、自托管服务器）。pckt.blog接收DPoP绑定的访问令牌和用户的DID。不存储密码。不维护单独的用户数据库。
+
+\subsection{数据主权}
+
+内容使用Standard.site词汇表~\citep{standardsite2025}同步到用户自己的PDS：
+
+\begin{itemize}
+  \item \texttt{site.standard.publication} --- 博客集合
+  \item \texttt{site.standard.document} --- 单篇文章
+  \item \texttt{site.standard.graph.subscription} --- 关注关系
+\end{itemize}
+
+如果pckt.blog消失，用户的内容仍保留在其PDS上，可被任何兼容的阅读器访问。这就是ATProto的承诺：平台是一个视图，而不是一个孤岛。
+
+\subsection{对AC的启示}
+
+pckt.blog证明了面向内容的平台可以完全基于ATProto身份运行。与AC的相似之处是直接的：
+
+\begin{itemize}
+  \item pckt.blog发布文章；AC发布作品、绘画和心情
+  \item pckt.blog使用Standard.site词汇表；AC有六个自定义\texttt{computer.aesthetic.*}词汇表
+  \item pckt.blog的用户在其PDS上拥有其内容；AC已经将内容镜像到其PDS
+  \item 两者都是Node.js/JavaScript应用程序
+\end{itemize}
+
+差距在于：pckt.blog是ATProto原生构建的。AC有一个现有的Auth0用户群，需要优雅地迁移。
+
+% ============ 5. 提议的迁移方案 ============
+
+\section{提议的迁移方案}
+\label{sec:migration}
+
+\subsection{第一阶段：ATProto OAuth作为辅助登录}
+
+在Auth0旁边添加"使用Bluesky登录"，而不移除Auth0。
+
+\textbf{基础设施：}
+\begin{enumerate}
+  \item 在\texttt{aesthetic.computer/oauth/client-metadata.json}发布客户端元数据
+  \item 将\texttt{@atproto/oauth-client-node}~\citep{npmAtprotoOauth}添加到后端
+  \item 创建两个新的Netlify函数：
+    \begin{itemize}
+      \item \texttt{POST /api/atproto-auth/start} --- 解析handle、PAR、重定向
+      \item \texttt{GET /api/atproto-auth/callback} --- 带DPoP的授权码交换
+    \end{itemize}
+  \item 在Redis中存储会话（DID、handle、DPoP密钥对、令牌）
+\end{enumerate}
+
+\textbf{客户端流程：}\texttt{boot.mjs}中新的"使用Bluesky登录"按钮触发ATProto OAuth流程。成功后，\texttt{window.acUSER}从ATProto会话填充（DID作为\texttt{sub}、handle、除非用户提供否则没有电子邮件）。作品API表面是相同的——作品看到一个有handle的用户，无论哪条身份验证路径创建了会话。
+
+\subsection{第二阶段：Handle桥接}
+
+当用户通过ATProto登录时，将其handle桥接到AC：
+
+\begin{enumerate}
+  \item 从ATProto handle中提取用户名（例如从\texttt{alice.bsky.social}中提取\texttt{alice}）
+  \item 对照AC的\texttt{@handles}集合检查可用性
+  \item 如果可用且有效（1--16个字符，字母数字），提供一键认领
+  \item 如果已被占用，检查现有所有者的电子邮件是否匹配——提供账户关联
+  \item 如果被其他人占用，提示选择替代方案
+  \item 在MongoDB中存储DID $\leftrightarrow$ AC sub映射，用于未来登录
+\end{enumerate}
+
+自定义域名handle（例如\texttt{alice.dev}）要求用户手动选择AC handle，因为域名本身可能不映射到有效的handle字符串。
+
+\subsection{第三阶段：身份关联}
+
+现有Auth0用户可以关联其ATProto身份：
+
+\begin{enumerate}
+  \item 从账户设置中启动ATProto OAuth
+  \item 成功后，将外部DID与Auth0 sub一起存储
+  \item 未来的登录接受两条身份验证路径
+  \item 内容可以选择性地同步到用户的外部PDS（不仅限于AC的PDS）
+\end{enumerate}
+
+这一阶段将现有的\texttt{users.atproto}字段从影子身份转变为一等身份关联。
+
+\subsection{第四阶段：ATProto-优先}
+
+迁移验证完成后：
+
+\begin{enumerate}
+  \item 新注册默认使用ATProto OAuth（在AC的PDS上创建账户）
+  \item Auth0作为现有用户的遗留路径保留
+  \item 随着用户关联其ATProto身份，逐步淘汰Auth0
+  \item 移除Auth0依赖，消除订阅费用
+\end{enumerate}
+
+\subsection{PDS路由}
+
+一个关键的架构决策：内容去哪里？
+
+\begin{itemize}
+  \item \textbf{仅Auth0用户}：内容同步到AC的PDS（当前行为）
+  \item \textbf{拥有外部PDS的ATProto用户}：内容同步到\emph{他们的}PDS
+  \item \textbf{在AC PDS上的ATProto用户}：内容保留在AC的PDS上
+\end{itemize}
+
+这意味着后端同步函数（\texttt{media-atproto.mjs}、\texttt{painting-atproto.mjs}等）需要一个条件路径：从用户的DID文档中解析用户的PDS端点，并写入该端点而不是假定AC的PDS。
+
+% ============ 6. HANDLE语义 ============
+
+\section{Handle语义}
+\label{sec:handles}
+
+Handle是身份栈中对人类最可见的部分，迁移引发了关于handle\emph{含义}的问题。
+
+\subsection{当前Handle模型}
+
+今天，一个AC handle是：
+\begin{itemize}
+  \item 一个1--16个字符的字符串，先到先得
+  \item 在AC命名空间内唯一
+  \item 用于URL（\texttt{@alice/painting}）、聊天和OS个性化
+  \item 存储在MongoDB中，缓存在Redis中
+  \item 镜像到PDS为\texttt{alice.at.aesthetic.computer}
+\end{itemize}
+
+\subsection{ATProto Handle模型}
+
+一个ATProto handle是：
+\begin{itemize}
+  \item 一个域名（任何有效的DNS名称）
+  \item 双向验证对应一个DID
+  \item 通过DNS权威全局唯一
+  \item 跨服务可移植
+\end{itemize}
+
+\subsection{桥接两种模型}
+
+提议：AC handle是映射到DID的\emph{别名}。真相来源从MongoDB转移到DID层。多种登录方法（Auth0、ATProto OAuth）解析到同一个DID，后者解析到同一个AC handle。
+
+对于AC Native OS~\citep{scudder2026os}，handle被写入启动分区的\texttt{config.json}中，这意味着设备身份由密码学身份支撑。启动屏幕上的"你好 @alice"意味着Alice的DID、Alice的签名密钥、Alice的可移植身份——而不仅仅是配置文件中的一个字符串。
+
+% ============ 7. 开放问题 ============
+
+\section{开放问题}
+\label{sec:questions}
+
+\textbf{Handle优先级。}如果\texttt{alice}在AC上未被认领，但\texttt{alice.bsky.social}登录了，她应该自动获得它吗？先到先得很简单但允许抢注。ATProto验证优先更公平但增加了复杂性。
+
+\textbf{电子邮件要求。}Auth0提供经过验证的电子邮件用于账户恢复。ATProto OAuth不保证电子邮件。AC是否应该要求电子邮件才能使用完整的账户功能（购买、通知）？
+
+\textbf{多租户。}AC运营第二个租户（\texttt{sotce}），使用独立的Auth0。ATProto身份如何跨租户映射？DID与租户无关，这可能简化跨租户身份。
+
+\textbf{会话服务器。}实时功能（聊天、多人游戏）通过WebSocket转发Auth0令牌进行身份验证。会话服务器必须接受ATProto发行的令牌或统一的会话令牌。
+
+\textbf{设备配对。}AC Native OS通过Auth0交换6字符代码进行配对。ATProto等效方案：扫描QR码，在手机上启动OAuth流程，将令牌传送到设备。
+
+\textbf{管理员身份。}管理员目前是\texttt{handle === "jeffrey" \&\& sub === ADMIN\_SUB}。在ATProto-优先身份验证下，管理员是\texttt{did === admin\_did}——更简洁，有密码学基础。
+
+% ============ 8. 相关工作 ============
+
+\section{相关工作}
+\label{sec:related}
+
+\textbf{去中心化身份。}W3C DID规范~\citep{w3cdid2022}为去中心化标识符提供了正式框架。AT Protocol的\texttt{did:plc}方法~\citep{atproto2024did}通过强一致性保证和位于\texttt{plc.directory}的集中但可审计的目录对其进行了扩展。这是一个务实的折衷：身份解析的完全去中心化仍然是一个开放问题，\texttt{did:plc}用一些去中心化换取了运营可靠性。
+
+\textbf{ATProto原生应用。}pckt.blog~\citep{pcktblog2025}展示了博客功能；Leaflet.pub和Offprint.app通过Standard.site~\citep{standardsite2025}在共享词汇表上协作。这些应用证明了ATProto-only身份验证对内容平台的可行性。
+
+\textbf{OAuth安全性。}DPoP~\citep{rfc9449dpop}防止令牌盗窃；PAR~\citep{rfc9126par}防止参数篡改；PKCE~\citep{rfc7636pkce}防止授权码拦截。它们共同代表了基于浏览器的OAuth安全的最新技术——显著强于AC目前使用的Auth0 SPA流程。
+
+\textbf{共生身份。}伊利奇的共生工具~\citep{illich1973tools}框定了这个问题：身份系统是扩展个人自主性，还是要求依赖于提供者？Auth0是一个托管服务——方便但依赖。ATProto身份是可移植的、可自我验证的、独立于提供者的。纳尔逊的个人计算愿景~\citep{nelson1974computerlib}自然延伸到个人身份：你应该拥有你在网络上的名字。
+
+% ============ 9. 结论 ============
+
+\section{结论}
+
+Aesthetic Computer已经运行着一个PDS，铸造DID，将内容同步到ATProto记录，并发布自定义词汇表。唯一缺失的部分是让用户通过该基础设施进行身份验证，而不是绕道Auth0。迁移不是重写——而是移除一个变通方案。
+
+分阶段方法（ATProto作为辅助登录 $\to$ handle桥接 $\to$ 身份关联 $\to$ ATProto-优先）确保不会打扰任何现有用户。最终状态：一个创意计算平台，你的handle是密码学身份，你的内容存储在你控制的服务器上，登录意味着证明你拥有你的密钥——而不是信任第三方为你担保。
+
+PDS已经在运行。DID已经被铸造。词汇表已经发布。是时候让用户从正门登录了。
+
+% ============ 参考文献 ============
+
+\vspace{0.5em}
+\noindent\rule{\columnwidth}{0.5pt}
+
+\subsection*{参考链接}
+
+\noindent\small
+
+\textbf{AT Protocol规范：}
+\begin{itemize}
+  \item \url{https://atproto.com/specs} --- 完整协议规范
+  \item \url{https://atproto.com/specs/oauth} --- OAuth规范
+  \item \url{https://atproto.com/specs/handle} --- Handle解析
+  \item \url{https://atproto.com/specs/cryptography} --- 密码学方法
+  \item \url{https://web.plc.directory/spec/v0.1/did-plc} --- DID PLC规范
+  \item \url{https://atproto.com/guides/lexicon} --- Lexicon模式系统
+  \item \url{https://atproto.com/guides/oauth-patterns} --- OAuth实现模式
+\end{itemize}
+
+\textbf{实现指南：}
+\begin{itemize}
+  \item \url{https://docs.bsky.app/blog/oauth-atproto} --- 构建ATProto OAuth应用
+  \item \url{https://docs.bsky.app/docs/advanced-guides/resolving-identities} --- 身份解析
+  \item \url{https://docs.bsky.app/docs/advanced-guides/oauth-client} --- OAuth客户端指南
+\end{itemize}
+
+\textbf{NPM包：}
+\begin{itemize}
+  \item \texttt{@atproto/oauth-client-node} --- Node.js OAuth客户端
+  \item \texttt{@atproto/oauth-client-browser} --- 浏览器OAuth客户端
+  \item \texttt{@atproto/api} --- TypeScript XRPC客户端
+  \item \texttt{@atproto/identity} --- DID/handle解析
+  \item \texttt{@atcute/oauth-browser-client} --- 轻量级替代方案
+\end{itemize}
+
+\textbf{参考实现：}
+\begin{itemize}
+  \item \url{https://github.com/pilcrowonpaper/atproto-oauth-example} --- Astro OAuth示例
+  \item \url{https://github.com/bluesky-social/atproto} --- ATProto官方单体仓库
+  \item \url{https://standard.site/docs/introduction/} --- Standard.site共享词汇表
+\end{itemize}
+
+\textbf{使用ATProto Auth的应用：}
+\begin{itemize}
+  \item pckt.blog --- 开放社交网络上的博客
+  \item Leaflet.pub --- 长文发布
+  \item Offprint.app --- 协作写作
+\end{itemize}
+
+\textbf{IETF标准：}
+\begin{itemize}
+  \item RFC 9449 --- DPoP (Demonstrating Proof of Possession)
+  \item RFC 7636 --- PKCE (Proof Key for Code Exchange)
+  \item RFC 9126 --- PAR (Pushed Authorization Requests)
+\end{itemize}
+
+\vspace{0.5em}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
