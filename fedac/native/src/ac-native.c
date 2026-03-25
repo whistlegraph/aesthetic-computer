@@ -1318,23 +1318,29 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         ac_log("[boot-anim] no log_dev, show_install=1 (always offer)\n");
     }
 
-    // Open evdev fds once for key checking (avoid per-frame open/close)
+    // Open evdev fds for key checking — retry until devices appear
     int key_fds[8];
     int key_fd_count = 0;
-    DIR *dir = opendir("/dev/input");
-    if (dir) {
-        struct dirent *ent;
-        while ((ent = readdir(dir)) && key_fd_count < 8) {
-            if (strncmp(ent->d_name, "event", 5) != 0) continue;
-            char path[64];
-            snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
-            int fd = open(path, O_RDONLY | O_NONBLOCK);
-            if (fd >= 0) {
-                key_fds[key_fd_count++] = fd;
-                fprintf(stderr, "[boot-anim] opened %s (fd %d)\n", path, fd);
+    for (int retry = 0; retry < 20 && key_fd_count == 0; retry++) {
+        DIR *dir = opendir("/dev/input");
+        if (dir) {
+            struct dirent *ent;
+            while ((ent = readdir(dir)) && key_fd_count < 8) {
+                if (strncmp(ent->d_name, "event", 5) != 0) continue;
+                char path[64];
+                snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
+                int fd = open(path, O_RDONLY | O_NONBLOCK);
+                if (fd >= 0) {
+                    key_fds[key_fd_count++] = fd;
+                    fprintf(stderr, "[boot-anim] opened %s (fd %d)\n", path, fd);
+                }
             }
+            closedir(dir);
         }
-        closedir(dir);
+        if (key_fd_count == 0) {
+            fprintf(stderr, "[boot-anim] no input devices yet, waiting... (%d/20)\n", retry + 1);
+            usleep(100000); // 100ms
+        }
     }
     fprintf(stderr, "[boot-anim] %d event devices\n", key_fd_count);
 
