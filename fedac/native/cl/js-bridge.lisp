@@ -192,31 +192,39 @@
     (unless code
       (format *error-output* "[js-bridge] Piece not found: ~A~%" path)
       (return-from js-load-piece nil))
-    ;; Wrap piece code so `export { ... }` becomes a no-op.
-    ;; We eval a script that replaces `export` with a harmless function,
-    ;; then evals the piece code, then exposes lifecycle functions.
-    (let ((wrapper (format nil "~
-// Make export a no-op for module compatibility~%~
-var __orig_code = true;~%~
-~A~%~
+    ;; Strip export statement and eval as global script.
+    ;; Use byte length (not char length) for C interop.
+    (let* ((stripped (let ((pos (search "export " code)))
+                      (if pos
+                          ;; Replace all `export ` with empty to handle:
+                          ;; `export { boot, paint, act, sim };` and
+                          ;; `export function boot(...)` etc.
+                          (let ((s (copy-seq code))
+                                (p pos))
+                            (loop while p do
+                              ;; Find closing ; for `export {`
+                              (if (and (< (+ p 7) (length s))
+                                       (char= (char s (+ p 7)) #\{))
+                                  ;; export { ... };  → blank the whole thing
+                                  (let ((semi (position #\; s :start p)))
+                                    (when semi
+                                      (fill s #\Space :start p :end (1+ semi))))
+                                  ;; export function/const/let → just blank "export "
+                                  (fill s #\Space :start p :end (min (+ p 7) (length s))))
+                              (setf p (search "export " s :start2 (1+ p))))
+                            s)
+                          code)))
+           (wrapper (format nil "~A~%~
 // Expose lifecycle functions as globals~%~
 if (typeof boot === 'function') globalThis.__piece_boot = boot;~%~
 if (typeof paint === 'function') globalThis.__piece_paint = paint;~%~
 if (typeof act === 'function') globalThis.__piece_act = act;~%~
 if (typeof sim === 'function') globalThis.__piece_sim = sim;~%~
 if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
-                           ;; Remove the export line via simple string search
-                           (let ((s code)
-                                 (pos (search "export {" code)))
-                             (if pos
-                                 ;; Find the semicolon after the closing brace
-                                 (let ((end (position #\; s :start pos)))
-                                   (if end
-                                       (concatenate 'string (subseq s 0 pos) (subseq s (1+ end)))
-                                       (subseq s 0 pos)))
-                                 s)))))
-      (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length wrapper)
-                                             path 0)))
+                             stripped))
+           (bytes (sb-ext:string-to-octets wrapper :external-format :utf-8)))
+      (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length bytes)
+                                             path 0)))  ; 0 = JS_EVAL_TYPE_GLOBAL
         (when (= rc -1)
           (format *error-output* "[js-bridge] Failed to load ~A~%" path)
           (return-from js-load-piece nil))))
