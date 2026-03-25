@@ -332,23 +332,23 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
 
     # Build libquickjs.so for CL to load via CFFI
     QJSDIR="/cache/quickjs-2024-01-13"
+    # Build libquickjs.so directly into /lib64 so all paths are consistent
     log "  Building libquickjs.so..."
-    gcc -shared -fPIC -O2 -o "$BUILD/libquickjs.so" \
+    gcc -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
+        -o /lib64/libquickjs.so \
         "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
         "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
         '-DCONFIG_VERSION="0.8.0"' -lm 2>&1 || { err "libquickjs.so build failed"; }
 
-    # Build quickjs-shim.so (CL-friendly wrappers)
+    # Build quickjs-shim.so — link via -lquickjs (not full path) so the
+    # ELF NEEDED entry is "libquickjs.so" not "/tmp/ac-build/libquickjs.so"
     CL_DIR="$NATIVE/cl"
     log "  Building libquickjs-shim.so..."
-    gcc -shared -fPIC -O2 -o "$BUILD/libquickjs-shim.so" \
+    gcc -shared -fPIC -O2 -Wl,-soname,libquickjs-shim.so \
+        -o /lib64/libquickjs-shim.so \
         "$CL_DIR/quickjs-shim.c" \
-        -I"$QJSDIR" "$BUILD/libquickjs.so" -lm 2>&1 || { err "shim build failed"; exit 1; }
+        -I"$QJSDIR" -L/lib64 -lquickjs -lm 2>&1 || { err "shim build failed"; exit 1; }
 
-    # Copy .so files to /lib64 BEFORE SBCL compile so SBCL remembers
-    # the runtime path (not the build-time /tmp/ac-build path)
-    cp "$BUILD/libquickjs.so" /lib64/
-    cp "$BUILD/libquickjs-shim.so" /lib64/
     ldconfig 2>/dev/null || true
 
     # Build CL binary with SBCL (load from /lib64 so paths are baked correctly)
@@ -365,9 +365,9 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         # Swap into initramfs (keep C version in build dir)
         cp "$IROOT/ac-native" "$BUILD/ac-native-c"
         cp "$BUILD/ac-native-cl" "$IROOT/ac-native"
-        # Bundle shared libraries needed by CL
-        cp "$BUILD/libquickjs.so" "$IROOT/lib64/"
-        cp "$BUILD/libquickjs-shim.so" "$IROOT/lib64/"
+        # Bundle shared libraries needed by CL (already built into /lib64)
+        cp /lib64/libquickjs.so "$IROOT/lib64/"
+        cp /lib64/libquickjs-shim.so "$IROOT/lib64/"
         for lib in /lib64/libzstd.so*; do
             [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
         done
