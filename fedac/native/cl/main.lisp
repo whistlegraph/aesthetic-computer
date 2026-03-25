@@ -352,8 +352,8 @@
            (screen (fb-create sw sh))
            (graph (make-graph :fb screen :screen screen))
            (input (ac-native.input:input-init dw dh scale))
-           (audio (ac-native.audio:audio-init))
-           (frame 0))
+           (audio (ac-native.audio:audio-init)))
+      (setf *np-frame* 0)
 
       (format *error-output* "[notepat] ~Dx~D scale:~D → ~Dx~D~%"
               dw dh scale sw sh)
@@ -434,7 +434,7 @@
       (setf *running* t)
       (unwind-protect
           (loop while *running* do
-            (incf frame)
+            (incf *np-frame*)
 
             ;; FPS
             (let ((now (monotonic-time-ms)))
@@ -477,9 +477,9 @@
                 (when (eq type :key-down)
                   ;; ESC: triple-press to quit
                   (when (= code ac-native.input:+key-esc+)
-                    (when (> (- frame *esc-last-frame*) 90) (setf *esc-count* 0))
+                    (when (> (- *np-frame* *esc-last-frame*) 90) (setf *esc-count* 0))
                     (incf *esc-count*)
-                    (setf *esc-last-frame* frame)
+                    (setf *esc-last-frame* *np-frame*)
                     (when (and audio (< *esc-count* 3))
                       (audio-synth audio :type 3
                                    :tone (if (= *esc-count* 1) 440.0d0 660.0d0)
@@ -747,7 +747,7 @@
                 (font-draw graph txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
 
             ;; Refresh IP every ~5 seconds
-            (when (zerop (mod frame 300)) (refresh-ip))
+            (when (zerop (mod *np-frame* 300)) (refresh-ip))
 
             ;; ── Present ──
             (ac-native.drm:drm-present display screen scale)
