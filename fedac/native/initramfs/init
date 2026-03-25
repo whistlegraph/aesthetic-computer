@@ -52,15 +52,20 @@ export SSL_CERT_DIR="/etc/ssl/certs"
 export HOME="/tmp"
 
 # ── Mount USB EFI partition (for config.json, wifi_creds.json, logs) ──
-# WiFi auto-connect is handled by the C binary's wifi module, not init.
-for p in /dev/sda1 /dev/sdb1 /dev/nvme0n1p1; do
-    if [ -b "$p" ]; then
-        mkdir -p /mnt
-        mount -t vfat "$p" /mnt 2>/dev/null && {
-            if [ -f /mnt/EFI/BOOT/BOOTX64.EFI ]; then break; fi
-            umount /mnt 2>/dev/null
-        }
-    fi
+# Retry a few times — USB devices may take a moment to appear
+USB_MOUNTED=0
+for attempt in 1 2 3 4 5; do
+    for p in /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/nvme0n1p1; do
+        if [ -b "$p" ]; then
+            mkdir -p /mnt
+            mount -t vfat "$p" /mnt 2>/dev/null && {
+                if [ -f /mnt/EFI/BOOT/BOOTX64.EFI ]; then USB_MOUNTED=1; break 2; fi
+                umount /mnt 2>/dev/null
+            }
+        fi
+    done
+    [ "$USB_MOUNTED" = "1" ] && break
+    sleep 1
 done
 
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
