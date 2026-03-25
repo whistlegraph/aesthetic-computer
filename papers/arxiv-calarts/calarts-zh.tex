@@ -1,0 +1,205 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === PSYCHO watermark ===
+\usepackage{eso-pic}
+\usepackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "PSYCHO" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} PSYCHO}};
+  \end{tikzpicture}%
+}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={CalArts、Callouts与论文：作为操作系统的艺术学院}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{PSYCHO论文 --- 请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} CalArts、Callouts与论文}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 作为操作系统的艺术学院}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ PSYCHO论文 --- 请勿引用 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+CalArts（加州艺术学院）由Walt Disney于1961年创立，旨在打造一所全面的艺术学院——一个动画、音乐、戏剧、舞蹈、电影和美术在同一屋檐下共存、没有学科壁垒地相互交融的场所。本文认为CalArts作为创意生产的\emph{操作系统}运作：一套关于艺术是什么、如何教授艺术、以及艺术家应当成为什么的基本假设。我们考察了该校独特的"callout"文化——评论、走廊对话、机构挑战——以及这种口头传统如何产生无法书写的知识。随后我们转向论文本身：这一系列学术论文为何存在，艺术家兼程序员写理论意味着什么，以及论文形式本身是否就是一种callout——一种迫使想法在公开场合暴露的公共挑战。CalArts教会了作者创作能够回应的作品。这些论文就是那些作品以艺术界未曾预料的方式在回应。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{迪士尼机器}
+
+Walt Disney于1961年通过合并Chouinard Art Institute和Los Angeles Conservatory of Music创立了CalArts。他想要一所像他的工作室那样运作的艺术学院：所有学科在一栋楼里，共享工具和想法。Disney在1971年Valencia校区开放之前去世，但他所要求的结构——部门之间没有墙壁、共享设施、跨学科碰撞的文化——塑造了此后的一切。
+
+创始愿景是工业性的。Disney需要能画画的动画师、懂节奏的音乐家、能对着故事板即兴表演的演员。这所学校是工作室的人才输送管道~\citep{singerman1999art}。但另一些事情发生了。Disney的继承者所聘请的教师——其中包括Allan Kaprow、Judy Chicago、John Baldessari、Miriam Schapiro、Nam June Paik——将跨学科结构转变为战后美国艺术的实验室。Disney为培养动画师而建造的机器变成了一台生产概念艺术家、女性主义表演、录像艺术的机器，并最终催生了定义后工作室实践的一代人。
+
+操作系统的类比是精确的。操作系统不制造软件；它提供软件可以运行的环境。CalArts不制造艺术；它提供条件——空间的、社会的、教学的——使某种特定类型的艺术家成为可能。改变操作系统，你就改变了可以被创造的东西。
+
+\section{Callouts}
+
+\subsection{评论作为口头传统}
+
+CalArts的评论不是打分。它是一个callout。有人把作品挂在墙上，房间作出回应——不是用评分标准或学习成果，而是用那些一起看艺术看了足够久、可以跳过客套话的人所具有的、未经排练的、有时残酷、有时慷慨的诚实。
+
+\citet{elkins2001why}认为评论是不可教的，正如艺术是不可教的：一场好的评论中发生的事情无法被还原为一种方法。它是一种口头传统。一场三小时评论中产生的知识只存在于那个房间里。它无法被写下而不变成别的东西——一个摘要、一篇评价、一个判断。评论是现场的。它是注意力的表演~\citep{hooks1994teaching}。
+
+CalArts的评论以其强度而闻名。学校规模小（约1,500名学生）、住宿制校园和跨学科结构意味着一位画家的评论可能包括一位作曲家、一位动画师、一位电影人和一位舞者。反馈不是学科特定的。它是\emph{感知性的}：这对我的身体、我的耳朵、我的时间感做了什么？Callout不是"这是好画。"Callout是"这是活的"或"这是死的。"
+
+\subsection{走廊知识}
+
+CalArts教授的大部分内容发生在教室之外。主楼的走廊——一座由Ladd \& Kelsey设计的粗野主义巨型建筑——充当着非正式的沙龙。一位作曲家经过一位雕塑家敞开的工作室，听到一个改变了他们两人作品的声音。一位电影人在凌晨两点放映当日素材，一位舞者走进来开始随着画面即兴表演。
+
+这不是课程。这是\emph{建筑}。建筑迫使碰撞发生。食堂（唯一的一个）迫使所有人进入同一个房间。走廊足够宽，可以停下来交谈。工作室是敞开的。琴房漏出声音。建筑是一件演奏其中人们的乐器。
+
+\citet{deduve1994attitude}识别了艺术教育的三种范式：学院（才能-模仿）、包豪斯（创造力-媒介-发明）和战后艺术学院（态度-实践-解构）。CalArts发明了第四种：\emph{邻近}。把不同的学科放得足够近，它们就会相互污染。污染就是教育。
+
+\subsection{机构挑战}
+
+CalArts靠挑战运转。不是明确的挑战——没有人说"我挑战你。"但文化围绕一种挑战结构组织：你能做出在一个满是比你强的人的房间里站得住的东西吗？你能展示经得起callout的作品吗？
+
+这不同于技术学校的冲刺评审，在那里作品是按照用户故事和验收标准来评估的~\citep{vinsel2020innovation}。CalArts的挑战没有标准。没有评分表。问题不是"这是否满足了简报？"问题是"这是否需要存在？"挑战是存在性的，而非功能性的。
+
+挑战也在部门之间运作。一个做带视频的作品的音乐学生是在挑战电影学生来关注。一个编写互动装置的舞者是在挑战艺术学生认真对待技术。挑战是跨学科污染的机制。它说：你的学科是不够的。来我的领域里玩。
+
+\section{为什么写论文}
+
+\subsection{论文作为callout}
+
+这个论文系列——三周内写的二十篇论文——本身就是一个callout。它说：一个艺术家兼程序员能写理论。不是"理论简装版"，不是"带引用的艺术家自述"，而是有真正论点和真正参考文献、与真正学术研究对话的真正论文。
+
+艺术界没有预料到这一点。艺术家被期望创作作品并让批评家来写。劳动分工是清晰的：艺术家生产，批评家解释，历史学家语境化。当一个艺术家写理论时，机构的反应是怀疑。这是真正的学术研究吗？是虚荣出版吗？是艺术吗？
+
+答案是：这不重要。论文是一个callout。它迫使想法站在开放的地方，暴露于批评之下，以一种学术界认可而艺术界无法控制的格式。\citet{fraser2005critique}指出机构批评本身变成了一个机构。这些论文尝试不同的东西：不是对机构的批评，而是\emph{使用}机构自己的格式——学术论文——作为艺术材料。
+
+\subsection{论文作为乐器}
+
+论文是一种技术。它有格式（章节、引用、摘要、参考文献），有分发系统（期刊、预印本、数据库），有社会协议（同行评审、引用、回应）。像任何技术一样，它可以被演奏。
+
+\ac{}将作品视为创意认知的基本单元~\citep{scudder2026pieces}。一个作品是一个导出生命周期函数的单一文件：\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}。一篇论文具有同样的结构：它启动（摘要），绘制（论证），行动（与先前工作对话），模拟（提出后果）。论文是用\LaTeX{}而非JavaScript写的作品。
+
+这不是隐喻。论文与软件使用相同的基础设施构建：一个CLI（\texttt{papers/cli.mjs}）、增量构建、多语言部署、自动化发布。论文\emph{就是}软件。论证\emph{就是}程序。
+
+\subsection{PSYCHO标识}
+
+这篇论文被标记为PSYCHO。不是"工作草稿"，不是"预印本"，不是"审稿中"。PSYCHO。
+
+这一标识是对论文格式本身的callout。学术论文假装是中立的——客观的研究报告，用被动语态写成，剥离了个性。PSYCHO标签拒绝这种伪装。它说：这篇论文有声音，有议程，有温度。它不是中立的。它也不试图中立。
+
+"psycho"一词来自希腊语\textit{psykhe}——灵魂、心智、呼吸。一篇PSYCHO论文是一篇有灵魂的论文。它在呼吸。它有不被"需要进一步研究"所对冲的观点。它提出主张并挑战你不同意。
+
+\section{CalArts与Aesthetic Computer}
+
+\subsection{操作系统的传承}
+
+作者就读于CalArts（MFA Art，2012）。那段经历是\ac{}构建其上的基底。不是技术——CalArts不教编程——而是\emph{假设}：学科应该相互污染，媒介不是重点，挑战比交付物更重要，艺术是一种在世界中存在的方式而非一个待发布的产品。
+
+\ac{}继承了CalArts的操作系统。作品模型——一个文件、即时模式图形、生命周期函数——是开放工作室的数字等价物：任何人都能看到你在做什么，任何人都能复刻它，任何人都能质疑它。社交网络围绕\emph{路径}（可记忆的URL）而非信息流组织，就像CalArts围绕走廊而非算法组织一样。
+
+\np{}.com是最明显的CalArts传承。它是一件任何人都能演奏的乐器，不需要训练，奖励探索而非专业技能。走廊邂逅——偶然发现别人的作品并因此改变——就是设计模式。你输入一个URL。你落在一个作品上。你演奏它。你继续前行。没有信息流。没有算法。没有指标。只有邻近。
+
+\subsection{评论上线}
+
+发表这些论文就是一场评论。房间是互联网。Callout是公开的。作品暴露在外——不是面对一个认识你的十五个人的房间，而是面对任何拥有浏览器和观点的人。
+
+这令人恐惧，正如CalArts的评论令人恐惧：你无法控制回应。作品要么站得住，要么站不住。挑战还是同样的挑战：这是否需要存在？
+
+\section{反对中立}
+
+学术论文假装是一扇窗——透明的，让你看到背后的研究。但每扇窗也是一个框架。论文格式框定了什么可以被说出：被动语态、对冲的主张、对先前工作的尊重、客观性的虚构~\citep{freire1970pedagogy}。
+
+CalArts教的是相反的。站在你的作品背后。说你想说的。如果你不能在房间里为它辩护，它还没准备好。Callout是一种问责技术：它迫使你在会反驳的人面前为你的主张负责。
+
+这些论文正是以这种精神写成的。它们有声音。它们提出主张。它们引用学术研究不是为了躲在其后，而是为了与之争论、在其上建构、挑战其回应。PSYCHO标识是一面旗帜：这篇论文不假装中立。它有立场。它有温度。它站在房间里，等待callout。
+
+\citet{spivak2012aesthetic}认为美学教育训练想象力以达到伦理团结。CalArts做到了这一点——不是通过课程，而是通过邻近，通过挑战，通过迫使你透过他人的眼睛看自己作品的评论。这些论文在不同的媒介中尝试同样的事情：训练读者的想象力，去设想一种不同的创意计算——建立在乐器而非信息流之上，建立在作品而非产品之上，建立在callouts而非参与度指标之上。
+
+\section{结论}
+
+CalArts是一个操作系统。它的内核是邻近。它的shell是评论。它的进程模型是挑战。\ac{}运行在同一个操作系统上，从实体校园移植到浏览器再到裸金属~\citep{scudder2026ac, scudder2026os}。
+
+Callout是机制。论文是格式。PSYCHO标识是温度。它们共同说：艺术可以写理论，理论可以是艺术，两者都不需要自称拥有它们的机构的许可。
+
+这些论文是走廊知识，终于被写下——知道书写改变了它们，知道评论永远不会结束，知道挑战才是重点。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

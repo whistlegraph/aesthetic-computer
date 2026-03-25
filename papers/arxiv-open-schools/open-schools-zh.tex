@@ -1,0 +1,435 @@
+% !TEX program = xelatex
+\documentclass[11pt, a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{multicol}
+
+\usepackage[
+  top=2.2cm, bottom=2.5cm, left=2.0cm, right=2.0cm
+]{geometry}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-layout}
+
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\hypersetup{
+  pdftitle={让闭源软件离开学校：每一台Chromebook都是一扇被关闭的大门},
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=8em]{pals}\par\vspace{0.3em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} 让闭源软件离开学校}\par
+\vspace{0.3em}
+{\fontsize{10pt}{12pt}\selectfont\color{acpink} 每一台Chromebook都是一扇被关闭的大门}\par
+\vspace{0.8em}
+{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink!40}\textit{工作草稿 --- 请勿引用}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} 2026年3月}\par
+\end{center}
+\vspace*{\fill}
+\clearpage
+
+\begin{multicols}{2}
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+
+\begin{abstract}
+\noindent
+美国学校中有超过5000万台Chromebook。每一台都是一台性能可靠的计算机，运行着一个封闭的、闭源的操作系统，将学生的每一次交互都引导至Google的监控基础设施。学生无法看到机器是如何运作的。学生无法修改机器。学生无法在任何有意义的层面上拥有这台机器。在大语言模型时代——当"人人都是程序员"不再是口号而是物质现实——这是一种教育上的失职。本文论证每个学生都应拥有一个自由开放的操作系统栈：一个让Chromebook成为学生通向逻辑、创造力、互联网、社区以及整个计算景观的大门。我们提出了用开放替代方案取代闭源学校计算基础设施的技术、教育、经济和政治论据，借鉴了来自喀拉拉邦、石勒苏益格-荷尔斯泰因和法国的国际先例、关于计划性报废的环境数据、针对学生监控的联邦和州法律行动，以及AI辅助编程教育的新兴研究。我们展示\acos{}~\citep{scudder2026acos}作为这一愿景的一个具体实现。
+\end{abstract}
+
+% ============================================================
+% 1. THE CHROMEBOOK PROBLEM
+% ============================================================
+
+\section{Chromebook问题}
+
+2012年，Google开始积极向美国学区推销Chromebook。宣传很简单：廉价硬件、零IT开销、一切在云端。到2026年，Chromebook约占美国K--12学校设备出货量的60\%，装机量超过5000万台~\citep{google2024chromeos}。整整一代美国学生正在他们无法理解、无法修改、不拥有的机器上接受教育——即使学校为它们付了钱。
+
+ChromeOS是专有软件。其源代码不可供查阅。浏览器就是全部界面。每份文档都存在Google云端硬盘中。每次搜索都经过Google。每次交互都被记录、分析，并用于构建跟随学生进入成年的行为档案~\citep{zuboff2019surveillance}。
+
+这不是边缘性的隐私问题。这是美国儿童如何学习使用计算机的\emph{架构}。媒介即信息~\citep{mcluhan1964understanding}：Chromebook教导学生，计算机是一种消费企业所有云服务的设备。它教导你的工作存在别人的服务器上。它教导这台机器不是你能理解的。
+
+\subsection{学生不能做什么}
+
+在学校的Chromebook上，学生不能：
+
+\begin{itemize}
+  \item 安装编程语言运行时（Python、Node.js、GCC）
+  \item 运行本地Web服务器或编译代码
+  \item 查看操作系统源代码
+  \item 修改启动序列
+  \item 连接硬件外设进行物理计算
+  \item 在离线状态下进行严肃的工作
+  \item 在设备上保存数据而不同步到云端
+  \item 选择自己的软件
+  \item 了解机器在如何利用他们的注意力
+\end{itemize}
+
+ChromeOS包含一个Linux容器（Crostini），理论上可以提供这些功能，但学校IT管理员几乎普遍将其禁用。机器自带终端，然后将其锁住。这些限制中的每一个都是一扇关闭的门。每扇关闭的门都是一条学生永远不会发现的路。Chromebook不是一扇大门——它是一道\emph{栅栏}。
+
+\subsection{云作为房东}
+
+当学生的作品存在Google云端硬盘中时，他们是租户，而非业主。Google可以更改服务条款。Google可以停止产品。Google可以撤销访问权限。学生毕业后失去了学校Google账户——随之失去的是他们在受教育期间创作的每一份文档、每一个项目、每一件创意作品。
+
+这不是假设。这每年都在每个学区发生。学生失去了对多年作品的访问权限，因为购买其云账户的机构将其停用。这种架构\emph{保证}了这个结果：学生从来没有拥有过他们的文件。他们只是拥有访问Google服务器上文件的许可，而该许可被撤销了。
+
+弗莱雷将此称为教育的"银行模式"~\citep{freire1970pedagogy}：知识由权威者存入学生体内。Chromebook将这个隐喻字面化了。学生的作品被存入一家他们无法控制、无法审计、最终会被锁在门外的银行。
+
+\subsection{计划性报废：AUE问题}
+
+每台Chromebook都附带一个自动更新到期（AUE）日期，此后Google不再提供安全补丁、功能更新或浏览器更新。历史上设定为\emph{平台}首次发布后6.5年——不是购买日期——一所在平台周期后期购买Chromebook的学校可能只能获得3--4年的更新。Google将2024年发布的设备延长至10年，但生命周期较短的机器装机量仍然庞大。
+
+美国PIRG教育基金估计，AUE政策将在2024年前迫使2150万台功能正常的Chromebook提前报废，给学校造成约18亿美元的不必要更换费用~\citep{pirg2023chromebook}。这些机器的处理器正常工作、屏幕正常工作、键盘正常工作——被一项软件政策而非硬件故障宣布为过时。
+
+与Linux的对比是绝对的。一台运行Ubuntu LTS的2015年ThinkPad可以无限期地继续接收安全更新。没有与硬件型号绑定的人为过期日期。只要硬件能运行，机器就仍然有用。
+
+% ============================================================
+% 2. THE SURVEILLANCE MACHINE
+% ============================================================
+
+\section{监控机器}
+\label{sec:surveillance}
+
+Google以低于成本的价格向学校提供Chromebook，因为学生是行为数据的圈养市场~\citep{zuboff2019surveillance, doctorow2020attack}。一个在Google生态系统中长大的学生——Gmail、Google Docs、Google云端硬盘、Google Classroom、YouTube——是终身客户。Chromebook不是慈善捐赠。它是一种针对儿童部署的客户获取策略。
+
+\subsection{Google收集什么}
+
+从学生Chromebook收集的数据包括：
+
+\begin{itemize}
+  \item 每一次搜索查询和每一个访问的网站
+  \item 每一份打开、编辑和共享的文档
+  \item 每一个观看的YouTube视频及观看时长
+  \item 击键时间模式和登录频率
+  \item 位置数据（蜂窝版机型）
+  \item 社交图谱（谁在Google Docs中与谁协作）
+  \item 设备诊断和应用使用遥测数据
+\end{itemize}
+
+Google声称在Workspace for Education"核心服务"下收集的数据不用于广告。但"附加服务"——YouTube、Google搜索、登录状态下的Google地图——在不同的条款下运营。学校Chromebook上的学生不断使用这些附加服务，数据流向Google的广告基础设施。
+
+\subsection{法律行动}
+
+法律记录令人震惊。2019年，Google因YouTube违反COPPA——未经家长同意收集儿童数据——向FTC和纽约州总检察长支付了1.7亿美元~\citep{google2019coppa}。2020年，新墨西哥州总检察长Hector Balderas直接起诉Google，指控其通过学校Chromebook收集儿童个人数据~\citep{newmexico2020google}。EFF于2015年向FTC提交投诉，记录了Google通过Chromebook对学生浏览活动进行数据挖掘~\citep{eff2015chromebook}。2024年，一个数字权利组织联盟就持续的学生监控向FTC提交了额外投诉~\citep{eff2024monitoring}。指控根据伊利诺伊州BIPA法规从学生处收集生物识别数据的集体诉讼正在进行中。
+
+这些数据是从未成年人那里收集的，在一个参与是强制性的机构环境中，使用的是学生没有选择且无法配置的机器。学生无法选择退出。家长通常也无法选择退出。学区签了合同，孩子们受其约束。
+
+\subsection{监控软件}
+
+除了Google自身的数据收集之外，学区还在Chromebook上叠加了额外的监控软件——Gaggle、GoGuardian、Securly。EFF记录了这些工具监视私人通信，并不成比例地针对弱势群体、少数族裔和LGBTQ青年~\citep{eff2024monitoring}。在EFF调查的152项教育科技服务中，只有118项发布了隐私政策；更少的涉及数据保留、加密或去标识化。
+
+Winner认为技术制品具有政治性~\citep{winner1980artifacts}。Chromebook的政治性很明确：它是一种在被监控者没有选择、没有救济途径、也不了解什么被夺走的情境中部署的监控工具。
+
+一个自由开放的操作系统不收集任何遥测数据。它不向任何公司发送信息。它不建立任何行为档案。学生的注意力、好奇心、错误、探索——所有这些都保持私密，因为机器没有经济动机去观察它们。
+
+% ============================================================
+% 3. THE LLM INFLECTION
+% ============================================================
+
+\section{人人都是程序员了}
+
+大语言模型改变了编程的经济学。一个能用自然语言描述需求的学生就能产出可用的代码。计算创造的门槛已从"多年的技术训练"降至"表达想法的能力"。Karpathy的观察——"最热门的新编程语言是英语"——已不再是夸张，而是对物质现实的描述。
+
+这是自个人电脑以来计算领域最重要的变革。而它使Chromebook问题变得\emph{灾难性地更糟}。
+
+\subsection{新的素养}
+
+如果人人都能编程，那么编程就是素养。而素养需要识字者能够拥有的工具。你不会通过给孩子一本只能在特定建筑物中用特定企业账户打开的锁住的书来教他们阅读。你把书给他们。他们带回家。在床上阅读。在页边空白处写字。借给朋友。
+
+一个拥有LLM和开放操作系统的学生可以：
+
+\begin{itemize}
+  \item 构建一个工具来整理作业
+  \item 编写一个游戏并与同学分享
+  \item 自动化老师布置的重复性任务
+  \item 创建一个向社区销售软件的小企业
+  \item 为服务人类的开源项目做贡献
+  \item 理解和修改管理其数字生活的系统
+  \item 通过直接操作探索逻辑、数学和语言
+  \item 构建艺术表达的工具
+\end{itemize}
+
+一个拥有LLM和Chromebook的学生可以更快地使用Google Docs。
+
+Ko（华盛顿大学）认为，如果AI能写代码，计算机科学教育必须转向系统思维、调试和评估——所有这些都需要访问真正的开发环境，而非沙盒浏览器~\citep{denny2024computing}。Krishnamurthi（布朗大学）批评了将编程简化为提示词的方法。计算机科学教育研究中正在形成的共识是，LLM使全栈访问变得\emph{更加}重要，而非不那么重要~\citep{prather2024robots}：学生需要运行、调试、修改和理解生成的代码。Chromebook使这四点都更加困难。
+
+\subsection{Chromebook无法执行}
+
+这是具体的失败：LLM生成了一个Python脚本，而Chromebook无法运行它。LLM生成了一个Web服务器，而Chromebook无法托管它。LLM编写了C代码，而Chromebook没有编译器。LLM教学生操作系统是如何工作的，而Chromebook不让他们查看。
+
+在典型的学校Chromebook（MediaTek或Celeron处理器，4\,GB内存）上，即使Linux容器——当启用时——也难以运行基本的开发工具链。运行本地LLM在物理上是不可能的：即使是量化的1B参数模型也需要超过大多数学校Chromebook所拥有的内存。
+
+替代方案是显而易见的。一台拥有8\,GB内存、运行Linux的二手ThinkPad可以执行任何LLM生成的代码，通过Ollama以交互速度运行本地3B参数模型，托管Web服务器，编译程序，并给予学生对整个系统的root访问权限。硬件存在。软件是免费的。Chromebook是瓶颈。
+
+\subsection{精神维度}
+
+这不仅仅关乎经济或职业准备。计算有一个精神维度，而Chromebook的架构将其消灭了。
+
+当学生编写的程序做了一些他们没有预料到的事情——当机器以他们定义的规则所产生的涌现行为让他们惊讶时——他们体验到了一些深刻的东西。他们遇到了意图与结果之间的边界。他们学到系统有其自身的逻辑。他们发展出了与抽象本身的关系。
+
+Papert理解这一点~\citep{papert1980mindstorms}：Logo不是关于教编程。它是关于给孩子一个思考思维的媒介。海龟是认识论的载体。
+
+LLM将此放大了千倍。学生现在可以与计算媒介进行\emph{对话}。他们可以问"如果怎样？"并在几秒钟内得到答案。他们可以以思维的速度迭代想法。他们可以探索任何课程都未预见到的路径。
+
+但前提是机器允许他们这样做。Chromebook不允许。Chromebook说：你可以消费服务。你不能创建基础设施。你不能在自己的机器上以自己的方式运行自己的代码。
+
+% ============================================================
+% 4. WHAT STUDENTS DESERVE
+% ============================================================
+
+\section{每个学生应得的}
+
+每个学生都应拥有一台：
+
+\begin{enumerate}
+  \item \textbf{他们能理解的}计算机。操作系统的源代码应该可供查阅。不是作为抽象原则，而是作为实际现实：学生应该能够阅读当他们按下一个键时运行的代码。
+
+  \item \textbf{他们能修改的}计算机。如果学生想改变机器的行为方式，他们应该能够做到。不是通过应用商店，不是通过设置面板，而是通过修改代码。
+
+  \item \textbf{他们能拥有的}计算机。学生的作品应该存在学生的机器上。不是在企业服务器上，不是在毕业后就会被停用的云账户中。
+
+  \item \textbf{他们能分享的}计算机。学生应该能够把他们的软件给朋友。不是通过平台，不是通过市场，而是通过复制文件。
+
+  \item \textbf{他们能弄坏的}计算机。学生应该能够弄坏机器并修复它。这就是学习的方式。一个不能被弄坏的系统是不能被理解的。
+
+  \item \textbf{他们能带走的}计算机。当学生离开学校时，计算机——以及上面的一切——跟着他们走。他们的计算生活不是租来的。是他们自己的。
+
+  \item \textbf{尊重他们注意力的}计算机。操作系统不应包含广告、行为追踪或参与度优化。学生的注意力属于学生。
+
+  \item \textbf{将他们与社区连接的}计算机。学生应该能够为计算景观做贡献——编写他人使用的代码，参与开源项目，构建服务社区、维护其生活方式和福祉的工具。
+\end{enumerate}
+
+ChromeOS违反了这些要求中的每一项。自由开放的操作系统满足了每一项。
+
+% ============================================================
+% 5. IT ALREADY WORKS
+% ============================================================
+
+\section{它已经在运作了：国际先例}
+
+开源学校计算未经测试的反对意见是错误的。它已经在三大洲进行了大规模测试。
+
+\subsection{印度喀拉拉邦：16,000所学校}
+
+喀拉拉邦的KITE（Kerala Infrastructure and Technology for Education）项目于2007年在16,000多所公立学校全面转向自由软件。2024年8月发布的KITE GNU/Linux 22.04运行在超过300,000台学校计算机上~\citep{kite2024gnulinux}。该发行版包括教育软件（Krita、GCompris、PictoBlox）、基本的AI/ML教学工具和Wayland显示服务器。估计节省：300亿印度卢比（约4亿美元）。超过150,000名小学教师接受了培训。印度国家法律学院将KITE誉为教育领域开源转型的国家标杆。
+
+这不是试点项目。这是一个服务数百万学生的全邦部署，已持续运行近二十年。
+
+\subsection{德国石勒苏益格-荷尔斯泰因：30,000台PC}
+
+到2025年夏末，德国石勒苏益格-荷尔斯泰因州完成了近30,000台政府PC从Microsoft到Linux的迁移，预计另有30,000名公立学校教师将跟进~\citep{schleswig2025linux}。替代方案包括LibreOffice、Nextcloud、Open-Xchange和Mozilla Thunderbird。估计节省：仅2026年就达1500万欧元。丹麦于2025年6月至11月间宣布了类似的转型。
+
+\subsection{法国：国家开源战略}
+
+法国2023--2027年数字教育战略由教育部的Alexis Kauffmann领导，明确以数字主权和减少对Microsoft和Google的依赖为目标~\citep{france2023digital}。国家平台\texttt{apps.education.fr}向所有法国教师提供开源工具。2025年，法国颁布了互操作性法令，要求学校使用符合开放标准的数字工具——为开源解决方案创造了结构性优势。
+
+\subsection{宾夕法尼亚州Penn Manor：1,725台Linux笔记本}
+
+在美国，宾夕法尼亚州兰开斯特的Penn Manor学区向9--12年级的学生部署了1,725台Ubuntu笔记本~\citep{pennmanor2024linux}。该项目包括一个学生主导的维修计划，学生学习修理自己的机器。这不是一个拥有特殊资金的特殊学区。这是一个做出了不同选择的公立学区。
+
+\subsection{"公共资金，公共代码"运动}
+
+欧洲自由软件基金会的"Public Money? Public Code!"运动——主张用公共资金开发的软件应以自由许可证发布——已汇集了200多个民间社会组织和31,000名个人签署者~\citep{fsfe2024publiccode}。联合国教科文组织2024年迪拜开放教育资源宣言正式承诺签署国通过AI和新兴技术推进开放资源~\citep{unesco2024oer}。全球数字契约承诺"开发、传播和维护造福社会的开源软件、开放数据、开放AI模型和开放标准。"
+
+这些不是边缘运动。它们是国际政策的方向。
+
+% ============================================================
+% 6. THE ECONOMICS
+% ============================================================
+
+\section{经济学}
+
+\subsection{成本借口}
+
+Chromebook很便宜。但运行Linux的二手笔记本也一样。一台退役的ThinkPad T480或Dell Latitude 5400批量价格为\$100--180，在除"由Google管理"之外的每个维度上都是更优秀的机器。支持Chromebook的成本论据是支持Google生态系统的论据，而非支持硬件的论据。
+
+\begin{table}[H]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{方案} & \textbf{成本} & \textbf{学生拥有它} \\
+\midrule
+Chromebook（新） & \$250--350 & 否 \\
+Chrome Edu Upgrade & +\$38/台 & 否 \\
+Google Workspace Plus & +\$5/学生/年 & 否 \\
+iPad（教育版） & \$299+ & 否 \\
+\midrule
+二手笔记本 + Linux & \$100--180 & \textbf{是} \\
+二手笔记本 + AC OS & \$100--180 & \textbf{是} \\
+\bottomrule
+\end{tabular}
+\caption{成本与所有权比较。Chromebook成本不包括监控软件（GoGuardian：\$5--10/台/年）和强制AUE更换。}
+\label{tab:cost}
+\end{table}
+
+计入Google的Chrome Education Upgrade（\$38/台）、Workspace for Education Plus（\$5/学生/年）、监控软件以及AUE强制更换周期后，一台Chromebook5年的总拥有成本可达\$450--550/台。一台运行Linux的二手ThinkPad：\$100--180，零持续许可费用，无人为过期日期，学生可以保留。
+
+\subsection{供应}
+
+机器是存在的。据估计，美国每年有5000--6000万台商用PC退役。企业租赁周期每3--5年淘汰数百万台功能正常的笔记本——配备现代处理器、8--16\,GB内存、WiFi和6--10小时电池的机器。PCs for People（每年10万台以上）、Human-I-T（每年5万台以上）、Kramden Institute、Free Geek以及联邦Computers for Learning项目等组织已在翻新和分发这些机器。
+
+一间30台创意计算工具的教室可以用\$3,000--5,400的硬件来配置。无持续订阅。无IT支持合同。无托管账户。
+
+\subsection{环境论据}
+
+一台典型的笔记本在制造过程中产生300--400公斤CO$_2$e——占其总生命周期碳足迹的70--80\%。翻新增加约5--15公斤CO$_2$e。Circular Computing独立审计的分析发现每台再制造笔记本节省316公斤CO$_2$e~\citep{circularcomputing2023carbon}。联合国2024年全球电子废物监测报告称美国每年产生约720万吨电子废物，其中仅25\%得到妥善回收~\citep{un2024ewaste}。
+
+Google的AUE政策迫使学校丢弃数百万台可用的Chromebook。维修权立法正在开始解决这个问题：俄勒冈州法律（2025年1月生效）要求制造商提供零件和维修信息~\citep{oregon2024repair}；新罕布什尔州的HB1701明确涵盖学校提供的笔记本~\citep{newhampshire2024repair}。但立法无法修复一项将功能正常的硬件宣布为过时的软件政策。
+
+Linux没有AUE。运行自由操作系统的笔记本在硬件能运行的情况下就仍然有用。
+
+% ============================================================
+% 7. THE OPEN STACK
+% ============================================================
+
+\section{开放栈}
+
+\subsection{每台Chromebook已经是一台Linux机器}
+
+荒谬的是：每台Chromebook已经在运行Linux内核。ChromeOS是带有锁定用户空间的Linux，强制所有交互通过Google的浏览器进行。硬件完全有能力运行自由操作系统。Google拿了一个自由内核，用专有限制包装它，然后作为节约成本的措施卖给学校。
+
+解放这些机器不需要新硬件。只需要刷入新软件。许多Chromebook可以解锁并用标准Linux发行版或\acos{}重新刷写。这台机器\emph{本来就想要自由}。Google是那把锁。
+
+\subsection{IT借口}
+
+学校IT部门选择Chromebook是因为它们"易于管理"。这是事实。管理一台什么都不做的机器确实很容易。当每台设备都是单一公司服务的瘦客户端时，管理一个设备群确实很容易。管理的便利性是机器无能的直接后果。
+
+问题是：对谁而言容易？对IT部门当然容易。但对学生来说是灾难性的。IT部门的便利是以学生的自主权为代价购买的。这是一笔糟糕的交易。
+
+开源管理工具是存在的。NixOS提供可复现的系统配置。Ansible自动化设备群部署。PXE启动实现零接触配置。\acos{}~\citep{scudder2026acos}证明了整个操作系统可以通过在不到一分钟内刷入USB驱动器来部署，OTA更新无需任何IT基础设施。Penn Manor用比同等Chromebook学区更小的IT团队运行1,725台Linux笔记本~\citep{pennmanor2024linux}。"管理问题"已经解决。剩下的是制度惯性和与Google的合同关系——它服务于机构，而非学生。
+
+\subsection{LLM基础设施}
+
+开放系统使得与AI建立根本不同的关系成为可能。一台二手服务器（32--64\,GB内存，或一块\$100--200的二手NVIDIA T4 GPU）可以运行Ollama并通过Open WebUI——一个免费的开源LLM前端——为整个教室的学生提供服务。学生通过浏览器从笔记本连接到本地服务器。Llama 3.2 3B（4\,GB即可运行）、DeepSeek Coder 6.7B或Qwen 2.5 Coder 7B等模型提供强大的代码生成能力。
+
+这是学校拥有的本地AI基础设施，不收集遥测数据，不向任何公司发送数据，学生可以查看、修改和学习。替代方案——集成在Workspace for Education中的Google Gemini——增加了又一层企业依赖、又一条数据管道、又一笔订阅费。
+
+% ============================================================
+% 8. THE LLM GATEWAY
+% ============================================================
+
+\section{学生作为创作者}
+
+在一个拥有LLM访问权限的开放系统上，学生可以：
+
+\begin{itemize}
+  \item 让LLM解释操作系统的源代码
+  \item 生成在本地运行的、具有完全硬件访问权限的程序
+  \item 构建Web服务器、数据库、API——真正的基础设施
+  \item 创建解决社区真实问题的工具
+  \item 通过实际构建来学习任何编程语言
+  \item 通过检查LLM的输入和输出来理解LLM本身
+  \item 在\ac{}~\citep{scudder2026ac}上创建一个世界上任何人都可以运行的作品
+\end{itemize}
+
+LLM成为一个有无限耐心的导师，全天24小时可用，在学生所在的位置精确地与其对接~\citep{khan2024bravenew}。但这个导师只有在学生拥有一台能够\emph{执行}导师产出的机器时才能有效。
+
+Chromebook模式说：你是用户。开放模式说：你是创作者。在LLM时代，这两种框架之间的区别就是数字素养与数字农奴制之间的区别。
+
+% ============================================================
+% 9. A PATH FORWARD
+% ============================================================
+
+\section{前进之路}
+
+\subsection{第一阶段：认知}
+
+家长、教师和学校董事会成员必须理解Chromebook到底是什么：一种教授习得性无助的监控设备。第一步是教育——不是教育孩子，而是教育那些购买机器的成年人。EFF的"Spying on Students"文档、美国PIRG的"Chromebook Churn"报告以及新墨西哥州总检察长的诉讼提供了可以在学校董事会会议上展示的具体证据。
+
+\subsection{第二阶段：试点项目}
+
+学区应参照Penn Manor的模式试点开源替代方案：
+
+\begin{itemize}
+  \item 30台运行Linux或\acos{}的二手笔记本，采购费用\$3,000--5,400
+  \item 一台本地LLM服务器（一台二手工作站，\$200--500）运行Ollama + Open WebUI
+  \item 一套LLM辅助的课程，让学生构建真正的软件
+  \item 学生所有权：机器跟学生一起带回家
+  \item 学生主导的维修项目（Penn Manor的学生修理自己的机器）
+  \item 无云依赖：作品本地存储，由学生自行备份
+  \item 开放评估：学生的作品集是他们写的代码、构建的工具、做出的贡献
+\end{itemize}
+
+\subsection{第三阶段：政策}
+
+州和学区应采纳要求以下事项的政策：
+
+\begin{enumerate}
+  \item 部署在学生设备上的所有软件必须是开源或源代码可用的
+  \item 学生对自己的机器拥有root访问权限
+  \item 不从学生设备收集行为遥测数据
+  \item 学生保留在学校设备上产出的所有作品的所有权
+  \item 毕业学生保留其设备
+  \item 设备采购优先考虑翻新硬件而非新制造
+\end{enumerate}
+
+超过40个州已通过学生数据隐私法。加利福尼亚州的SOPIPA禁止将学生数据用于定向广告。新的COPPA规则（2025年6月生效）加强了儿童数据保护。这些立法趋势支持了开放、无监控的学校计算基础设施的论证。
+
+\subsection{第四阶段：解放}
+
+最终目标不是政策变化。而是文化转变。最终目标是一代理解计算机不是他们消费的产品而是他们演奏的乐器的学生——一种思考、创造和贡献的媒介。能像阅读书籍一样阅读源代码的学生。能像木匠改造工作台一样修改工具的学生。将计算视为公共资源而非企业服务的学生——他们既贡献于此，也归属于此。
+
+Nelson在1974年写道~\citep{nelson1974computerlib}："你现在就能够而且必须理解计算机。"五十年后，我们恰恰以Nelson所担忧的方式辜负了这一命令——将机器交给企业，然后称之为进步。
+
+LLM时刻使这种失败变得可见。每个学生现在都有编程的\emph{能力}。他们缺少的是一台\emph{允许他们这样做的机器}。这是一个可以解决的问题。技术是免费的。硬件是剩余的。每个学生与他们自己的计算道路之间唯一的障碍是一个从未被设计来服务他们的企业操作系统。
+
+% ============================================================
+% 10. CONCLUSION
+% ============================================================
+
+\section{结论}
+
+美国每所学校中的每一台Chromebook都是一台被锁链束缚的Linux机器。硬件可以运行自由操作系统。学生可以借助LLM学习编程。二手笔记本市场提供\$100--180的机器。整个开源栈可以零成本获得。喀拉拉邦已为300,000台计算机做到了。石勒苏益格-荷尔斯泰因已为30,000台做到了。Penn Manor已为1,725台做到了。它有效。
+
+我们缺的不是技术。我们缺的是将学生自主权置于制度便利和企业利润之上的政治意愿。
+
+Illich写道，工具应该扩展个人自主权而非要求专业知识~\citep{illich1973tools}。Papert写道，计算机应该是思考思维的工具~\citep{papert1980mindstorms}。Stallman写道，用户应有权控制他们运行的软件~\citep{stallman2002free}。Postman警告说，学校中没有目的的技术服务的是技术而非孩子~\citep{postman1995end}。这些不是边缘立场。它们是个人计算的基本原则，而我们在它们最重要的地方放弃了它们：儿童教育。
+
+让闭源软件离开学校。给每个学生一个自由开放的操作系统。让Chromebook成为它一直有能力成为的东西：不是一道栅栏，而是一扇\emph{大门}——通向逻辑、创造力、社区、精神性，以及每个学生在计算景观中的独特道路。
+
+在LLM时代，这不是理想主义。这是最低限度的可行教育。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\end{multicols}
+
+% ============================================================
+% REFERENCES
+% ============================================================
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

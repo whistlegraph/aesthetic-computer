@@ -1,0 +1,577 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Identidad de handle en el AT Protocol: De Auth0 al inicio de sesión descentralizado},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\atproto}{\textsc{AT Protocol}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Identidad de handle en el AT Protocol}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} De Auth0 al inicio de sesión descentralizado en Aesthetic Computer}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} ATProto OAuth, verificación de handles e identidad creativa portátil}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+Aesthetic Computer actualmente autentica a los usuarios a través de Auth0 y mantiene una identidad paralela en un Personal Data Server (PDS) autoalojado del AT Protocol en \texttt{at.aesthetic.computer}. Cada usuario verificado recibe un DID y un handle en el PDS, pero la autenticación pasa por un proveedor OAuth centralizado. Proponemos colapsar esta arquitectura de identidad dual adoptando AT Protocol OAuth~\citep{atproto2024oauth} como método principal de inicio de sesión, permitiendo que cualquier persona con una identidad de Bluesky o ATProto se autentique directamente y reclame el handle equivalente en Aesthetic Computer. Este artículo revisa la pila de identidad de \atproto{}---DIDs, verificación de handles, OAuth 2.1 con DPoP y PAR---examina cómo pckt.blog y otras aplicaciones nativas de ATProto implementan el inicio de sesión descentralizado~\citep{pcktblog2025}, mapea la arquitectura de autenticación actual de AC y propone una migración por fases desde la dependencia de Auth0 hacia una identidad \atproto{}-first. El argumento central: en una plataforma que ya ejecuta su propio PDS y acuña sus propios DIDs, el proveedor de identidad centralizado es el órgano vestigial. Eliminarlo simplifica la pila, elimina una dependencia de pago y convierte a AC en un ciudadano de primera clase de la web social federada.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCCIÓN ============
+
+\section{Introducción}
+
+La identidad en la web es un problema de arrendador. No eres dueño de tu handle en Twitter, tu nombre de usuario en Instagram ni tu inicio de sesión en ninguna plataforma que pueda eliminar tu cuenta. El AT Protocol~\citep{atproto2024spec}---el protocolo de red social descentralizada detrás de Bluesky---propone un arreglo diferente: tu identidad es un par de claves criptográficas, tu handle es un nombre de dominio que tú controlas, y tus datos viven en un Personal Data Server que puedes mover entre proveedores.
+
+Aesthetic Computer ha operado un sistema de identidad híbrido desde 2024. Auth0~\citep{auth0spa} gestiona la autenticación: OAuth 2.0 con PKCE, refresh tokens y una base de datos de usuarios administrada. Por separado, un PDS autoalojado en \texttt{at.aesthetic.computer} acuña identidades ATProto para cada usuario verificado. El resultado es un sistema duplicado: dos identidades por usuario, dos almacenes de credenciales, dos rutas de sincronización de handles y una suscripción de pago a Auth0 que cubre la brecha.
+
+Este artículo pregunta: ¿y si el PDS \emph{es} el proveedor de identidad?
+
+La respuesta no es hipotética. pckt.blog~\citep{pcktblog2025}, una plataforma de blogging construida sobre \atproto{}, autentica a los usuarios exclusivamente a través de \atproto{} OAuth. Los usuarios inician sesión con su handle de Bluesky, su PDS autoalojado o cualquier proveedor de identidad compatible. Sin Auth0, sin Firebase, sin base de datos de usuarios centralizada. El contenido se sincroniza con el PDS del propio usuario utilizando lexicons compartidos de Standard.site~\citep{standardsite2025}.
+
+Examinamos cómo este modelo se aplica a Aesthetic Computer---una plataforma de computación creativa con más de 600 piezas interactivas, sesiones multijugador, un lenguaje de programación KidLisp y un sistema operativo nativo bare-metal~\citep{scudder2026os}---y proponemos una migración por fases que preserva la compatibilidad hacia atrás mientras avanza hacia la identidad descentralizada.
+
+% ============ 2. LA ARQUITECTURA DE IDENTIDAD ACTUAL DE AC ============
+
+\section{Arquitectura actual}
+\label{sec:current}
+
+\subsection{Auth0 como proveedor de identidad}
+
+La autenticación fluye a través del SDK SPA de Auth0. Al cargar la página, \texttt{boot.mjs} verifica localStorage en busca de estado Auth0 en caché. Si existe una sesión (o se detecta un callback OAuth), inicializa el cliente Auth0 con PKCE y refresh tokens, intercambia códigos de autorización por access tokens y recupera el perfil del usuario. El campo \texttt{sub} de Auth0 (p. ej., \texttt{auth0|abc123} o \texttt{google-oauth2|xyz}) sirve como identificador interno del usuario.
+
+\begin{lstlisting}[style=acjsstyle]
+// boot.mjs: current Auth0 flow
+const auth0 = await createAuth0Client({
+  domain: |\textcolor{jsstr}{"hi.aesthetic.computer"}|,
+  clientId: |\textcolor{jsstr}{"LVdZaM..."}|,
+  cacheLocation: |\textcolor{jsstr}{"localstorage"}|,
+  useRefreshTokens: true,
+});
+const user = await auth0.getUser();
+// { sub, email, email_verified, ... }
+\end{lstlisting}
+
+\subsection{Sistema de handles}
+
+Los handles se almacenan en una colección MongoDB \texttt{@handles}, que mapea el \texttt{sub} de Auth0 a una cadena alfanumérica de 1--16 caracteres (con \texttt{.} y \texttt{\_} permitidos). La validación impone que no haya puntuación inicial/final, unicidad insensible a mayúsculas y filtrado de contenido ofensivo. Los handles son la identidad principal orientada al usuario: direccionables por URL (\texttt{@handle/piece-name}), visibles en el chat y pronunciados por AC Native OS.
+
+\subsection{Identidad sombra ATProto}
+
+En la primera verificación de correo electrónico, un webhook de Auth0 activa \texttt{createAtprotoAccount()}, que:
+
+\begin{enumerate}
+  \item Genera una contraseña de 32 caracteres
+  \item Crea un código de invitación en el PDS
+  \item Crea una cuenta en \texttt{handle.at.aesthetic.computer}
+  \item Almacena el DID, el handle y la contraseña cifrada en MongoDB (\texttt{users.atproto})
+\end{enumerate}
+
+Cuando un usuario cambia su handle de AC, \texttt{updateAtprotoHandle()} sincroniza el cambio con el PDS. El contenido (pinturas, estados de ánimo, fragmentos de KidLisp, cintas, noticias) se replica en el PDS a través de seis lexicons personalizados (\texttt{computer.aesthetic.*}). La identidad ATProto es real y funcional---pero el usuario nunca se autentica a través de ella. Es una identidad sombra: presente, sincronizada, pero no soberana.
+
+\subsection{El problema de la duplicación}
+
+Esta arquitectura significa:
+
+\begin{itemize}
+  \item Dos almacenes de credenciales (Auth0 + PDS)
+  \item Dos espacios de nombres de handles (handles de AC + handles de PDS)
+  \item Dos rutas de sincronización (los cambios de handle se propagan Auth0 $\to$ MongoDB $\to$ PDS)
+  \item Una dependencia de pago (suscripción a Auth0)
+  \item Sin interoperabilidad (un usuario de Bluesky no puede iniciar sesión en AC con su identidad existente)
+\end{itemize}
+
+El PDS ya sabe quién es cada usuario. Ya almacena su DID, su handle, su contenido. La capa de Auth0 añade coste y complejidad sin añadir capacidad que el PDS no pueda proporcionar.
+
+% ============ 3. LA PILA DE IDENTIDAD DEL AT PROTOCOL ============
+
+\section{La pila de identidad del AT Protocol}
+\label{sec:atproto}
+
+Comprender la migración requiere comprender las tres capas de identidad de \atproto{}: DIDs, handles y OAuth.
+
+\subsection{Identificadores descentralizados (DIDs)}
+
+Un DID~\citep{w3cdid2022, atproto2024did} es un identificador persistente y criptográficamente verificable. \atproto{} utiliza principalmente \texttt{did:plc}, un método diseñado para consistencia fuerte, alta disponibilidad y rotación de claves sin pérdida de identidad. Cada DID se resuelve a un documento que contiene:
+
+\begin{itemize}
+  \item Una \textbf{clave de firma} (P-256 o K-256)~\citep{atproto2024crypto} para autenticar actualizaciones del repositorio
+  \item \textbf{Claves de rotación} para recuperación de cuenta
+  \item Una URL de \textbf{endpoint PDS}
+  \item El \textbf{handle} actual del usuario
+\end{itemize}
+
+El DID es la identidad estable. Los handles cambian; las claves rotan; los proveedores de PDS van y vienen. El DID persiste. AC ya acuña DIDs para cada usuario a través de su PDS. La infraestructura existe.
+
+\subsection{Verificación de handles}
+
+Un handle de \atproto{}~\citep{atproto2024handle} es un nombre de dominio que se resuelve bidireccionalmente a un DID. La verificación utiliza dos métodos:
+
+\textbf{DNS TXT}: Colocar un registro en \texttt{\_atproto.example.com}:
+\begin{lstlisting}
+_atproto.example.com TXT "did=did:plc:abc..."
+\end{lstlisting}
+
+\textbf{HTTPS Well-Known}: Servir el DID en:
+\begin{lstlisting}
+GET /.well-known/atproto-did
+Response: did:plc:abc...
+\end{lstlisting}
+
+Ambos métodos requieren que el handle se resuelva al DID \emph{y} que el documento DID reclame el handle de vuelta. Esta verificación bidireccional significa: si controlas el dominio, controlas el handle. Ninguna autoridad central asigna handles; el DNS es la autoridad.
+
+Para AC, esto significa que \texttt{jeffrey.at.aesthetic.computer} es un handle ATProto real y verificable porque AC controla tanto el DNS como el PDS. Pero también significa que un usuario que ya posee \texttt{alice.bsky.social} o \texttt{alice.dev} tiene una identidad criptográficamente verificada en la que AC puede confiar sin una contraseña.
+
+\subsection{ATProto OAuth}
+
+La especificación OAuth de \atproto{}~\citep{atproto2024oauth} extiende OAuth 2.1 con tres mecanismos de seguridad obligatorios:
+
+\textbf{PKCE} (Proof Key for Code Exchange)~\citep{rfc7636pkce}: Previene la interceptación de códigos de autorización. El cliente genera un verificador aleatorio, envía su hash con la solicitud de autorización y demuestra posesión del verificador original durante el intercambio de tokens.
+
+\textbf{PAR} (Pushed Authorization Requests)~\citep{rfc9126par}: El cliente envía los parámetros de autorización mediante POST al servidor de autorización \emph{antes} de redirigir al usuario. Esto previene la manipulación de parámetros en la URL de redirección.
+
+\textbf{DPoP} (Demonstrating Proof of Possession)~\citep{rfc9449dpop}: Cada solicitud incluye un JWT firmado que demuestra que el cliente posee la clave privada asociada al token. Incluso si un access token se filtra, no puede ser utilizado por otro cliente.
+
+\subsubsection{Identificación del cliente}
+
+A diferencia del OAuth tradicional, \atproto{} no requiere prerregistro con cada servidor de autorización. En su lugar, los clientes publican metadatos en una URL HTTPS pública:
+
+\begin{lstlisting}[style=acjsstyle]
+// aesthetic.computer/oauth/client-metadata.json
+{
+  |\textcolor{jsstr}{"client\_id"}|: |\textcolor{jsstr}{"https://aesthetic.computer/..."}|,
+  |\textcolor{jsstr}{"client\_name"}|: |\textcolor{jsstr}{"Aesthetic Computer"}|,
+  |\textcolor{jsstr}{"redirect\_uris"}|: [|\textcolor{jsstr}{"https://..."}|],
+  |\textcolor{jsstr}{"grant\_types"}|: [|\textcolor{jsstr}{"authorization\_code"}|],
+  |\textcolor{jsstr}{"dpop\_bound\_access\_tokens"}|: true
+}
+\end{lstlisting}
+
+Cualquier PDS puede descubrir y verificar el cliente obteniendo esta URL. Sin secretos precompartidos, sin registro en tiendas de aplicaciones, sin gestión de claves API.
+
+\subsubsection{El flujo}
+
+\begin{enumerate}
+  \item El usuario introduce su handle (p. ej., \texttt{alice.bsky.social})
+  \item El cliente resuelve handle $\to$ DID $\to$ endpoint PDS $\to$ servidor de autorización
+  \item El cliente envía los parámetros de autorización mediante PAR
+  \item El usuario es redirigido a la UI de autorización de su PDS
+  \item El usuario aprueba; el PDS redirige de vuelta con el código de autorización
+  \item El cliente intercambia el código por un access token vinculado con DPoP
+  \item El cliente verifica que el DID devuelto coincide con la identidad esperada
+\end{enumerate}
+
+La diferencia crítica respecto a Auth0: el usuario se autentica con \emph{su propio servidor}. AC nunca ve una contraseña. El PDS---ya sea el de Bluesky, el propio de AC o una instancia autoalojada---es la autoridad de identidad.
+
+% ============ 4. CÓMO LO HACE PCKT.BLOG ============
+
+\section{Caso de estudio: pckt.blog}
+\label{sec:pckt}
+
+pckt.blog~\citep{pcktblog2025} es una plataforma de blogging que autentica exclusivamente a través de \atproto{} OAuth. Su implementación demuestra la viabilidad práctica de la autenticación solo-ATProto para una plataforma de contenido.
+
+\subsection{Autenticación}
+
+Los usuarios inician sesión introduciendo su handle ATProto. pckt.blog resuelve el handle, descubre el servidor de autorización e inicia el flujo OAuth. El usuario aprueba en su PDS (Bluesky, Blacksky, un servidor autoalojado). pckt.blog recibe un access token vinculado con DPoP y el DID del usuario. No se almacenan contraseñas. No se mantiene una base de datos de usuarios separada.
+
+\subsection{Soberanía de datos}
+
+El contenido se sincroniza con el PDS del propio usuario utilizando lexicons de Standard.site~\citep{standardsite2025}:
+
+\begin{itemize}
+  \item \texttt{site.standard.publication} --- colecciones de blog
+  \item \texttt{site.standard.document} --- artículos individuales
+  \item \texttt{site.standard.graph.subscription} --- relaciones de seguimiento
+\end{itemize}
+
+Si pckt.blog desaparece, el contenido del usuario permanece en su PDS, accesible para cualquier lector compatible. Esta es la promesa de ATProto: la plataforma es una vista, no un silo.
+
+\subsection{Implicaciones para AC}
+
+pckt.blog demuestra que una plataforma orientada al contenido puede operar enteramente sobre identidad ATProto. Los paralelismos con AC son directos:
+
+\begin{itemize}
+  \item pckt.blog publica artículos; AC publica piezas, pinturas y estados de ánimo
+  \item pckt.blog usa lexicons de Standard.site; AC tiene seis lexicons personalizados \texttt{computer.aesthetic.*}
+  \item Los usuarios de pckt.blog poseen su contenido en su PDS; AC ya replica contenido en su PDS
+  \item Ambas son aplicaciones Node.js/JavaScript
+\end{itemize}
+
+La brecha: pckt.blog fue construido nativo de ATProto. AC tiene una base de usuarios Auth0 existente que debe migrarse elegantemente.
+
+% ============ 5. MIGRACIÓN PROPUESTA ============
+
+\section{Migración propuesta}
+\label{sec:migration}
+
+\subsection{Fase 1: ATProto OAuth como inicio de sesión secundario}
+
+Añadir ``Iniciar sesión con Bluesky'' junto a Auth0, sin eliminar Auth0.
+
+\textbf{Infraestructura:}
+\begin{enumerate}
+  \item Publicar metadatos del cliente en \texttt{aesthetic.computer/oauth/client-metadata.json}
+  \item Añadir \texttt{@atproto/oauth-client-node}~\citep{npmAtprotoOauth} al backend
+  \item Crear dos nuevas funciones Netlify:
+    \begin{itemize}
+      \item \texttt{POST /api/atproto-auth/start} --- resolver handle, PAR, redirigir
+      \item \texttt{GET /api/atproto-auth/callback} --- intercambio de código con DPoP
+    \end{itemize}
+  \item Almacenar sesiones en Redis (DID, handle, par de claves DPoP, tokens)
+\end{enumerate}
+
+\textbf{Flujo del cliente:} Un nuevo botón ``Iniciar sesión con Bluesky'' en \texttt{boot.mjs} activa el flujo ATProto OAuth. En caso de éxito, \texttt{window.acUSER} se llena desde la sesión ATProto (DID como \texttt{sub}, handle, sin correo electrónico a menos que el usuario lo proporcione). La superficie de la API de piezas es idéntica---las piezas ven un usuario con un handle, independientemente de qué ruta de autenticación creó la sesión.
+
+\subsection{Fase 2: Puente de handles}
+
+Cuando un usuario inicia sesión mediante ATProto, crear un puente para su handle hacia AC:
+
+\begin{enumerate}
+  \item Extraer el nombre de usuario del handle ATProto (p. ej., \texttt{alice} de \texttt{alice.bsky.social})
+  \item Verificar disponibilidad contra la colección \texttt{@handles} de AC
+  \item Si está disponible y es válido (1--16 caracteres, alfanumérico), ofrecer reclamación con un clic
+  \item Si está ocupado, verificar si el correo del propietario existente coincide---ofrecer vinculación de cuentas
+  \item Si está ocupado por otra persona, solicitar una alternativa
+  \item Almacenar un mapeo DID $\leftrightarrow$ AC sub en MongoDB para futuros inicios de sesión
+\end{enumerate}
+
+Los handles de dominio personalizado (p. ej., \texttt{alice.dev}) requieren que el usuario elija manualmente un handle de AC, ya que el dominio en sí puede no corresponder a una cadena de handle válida.
+
+\subsection{Fase 3: Vinculación de identidad}
+
+Los usuarios existentes de Auth0 pueden vincular su identidad ATProto:
+
+\begin{enumerate}
+  \item Desde la configuración de la cuenta, iniciar ATProto OAuth
+  \item En caso de éxito, almacenar el DID externo junto al sub de Auth0
+  \item Los futuros inicios de sesión aceptan ambas rutas de autenticación
+  \item El contenido puede sincronizarse opcionalmente con el PDS externo del usuario (no solo con el PDS de AC)
+\end{enumerate}
+
+Esta fase transforma el campo existente \texttt{users.atproto} de una identidad sombra a un vínculo de identidad de primera clase.
+
+\subsection{Fase 4: ATProto-primario}
+
+Una vez validada la migración:
+
+\begin{enumerate}
+  \item Los nuevos registros utilizan ATProto OAuth por defecto (creando cuentas en el PDS de AC)
+  \item Auth0 permanece como ruta legacy para usuarios existentes
+  \item Descontinuación gradual de Auth0 a medida que los usuarios vinculan sus identidades ATProto
+  \item Eliminar la dependencia de Auth0, eliminar el coste de suscripción
+\end{enumerate}
+
+\subsection{Enrutamiento de PDS}
+
+Una decisión arquitectónica clave: ¿a dónde va el contenido?
+
+\begin{itemize}
+  \item \textbf{Usuarios solo-Auth0}: el contenido se sincroniza con el PDS de AC (comportamiento actual)
+  \item \textbf{Usuarios ATProto con PDS externo}: el contenido se sincroniza con \emph{su} PDS
+  \item \textbf{Usuarios ATProto en el PDS de AC}: el contenido permanece en el PDS de AC
+\end{itemize}
+
+Esto significa que las funciones de sincronización del backend (\texttt{media-atproto.mjs}, \texttt{painting-atproto.mjs}, etc.) necesitan una ruta condicional: resolver el endpoint PDS del usuario desde su documento DID y escribir en ese endpoint en lugar de asumir el PDS de AC.
+
+% ============ 6. SEMÁNTICA DE HANDLES ============
+
+\section{Semántica de handles}
+\label{sec:handles}
+
+El handle es la parte más visible para los humanos de la pila de identidad, y la migración plantea preguntas sobre lo que un handle \emph{significa}.
+
+\subsection{Modelo de handle actual}
+
+Hoy, un handle de AC es:
+\begin{itemize}
+  \item Una cadena de 1--16 caracteres, por orden de llegada
+  \item Único dentro del espacio de nombres de AC
+  \item Usado para URLs (\texttt{@alice/painting}), chat y personalización del OS
+  \item Almacenado en MongoDB, cacheado en Redis
+  \item Replicado en el PDS como \texttt{alice.at.aesthetic.computer}
+\end{itemize}
+
+\subsection{Modelo de handle ATProto}
+
+Un handle ATProto es:
+\begin{itemize}
+  \item Un nombre de dominio (cualquier nombre DNS válido)
+  \item Verificado bidireccionalmente contra un DID
+  \item Globalmente único por autoridad DNS
+  \item Portátil entre servicios
+\end{itemize}
+
+\subsection{Puente entre los modelos}
+
+La propuesta: un handle de AC es un \emph{alias} que mapea a un DID. La fuente de verdad se desplaza de MongoDB a la capa DID. Múltiples métodos de inicio de sesión (Auth0, ATProto OAuth) se resuelven al mismo DID, que se resuelve al mismo handle de AC.
+
+Para AC Native OS~\citep{scudder2026os}, donde el handle está inscrito en \texttt{config.json} en la partición de arranque, esto significa que la identidad del dispositivo está respaldada por una identidad criptográfica. ``Hola @alice'' en la pantalla de arranque significa el DID de Alice, la clave de firma de Alice, la identidad portátil de Alice---no solo una cadena en un archivo de configuración.
+
+% ============ 7. PREGUNTAS ABIERTAS ============
+
+\section{Preguntas abiertas}
+\label{sec:questions}
+
+\textbf{Prioridad de handles.} Si \texttt{alice} no está reclamado en AC pero \texttt{alice.bsky.social} inicia sesión, ¿debería obtenerlo automáticamente? El orden de llegada es simple pero permite el acaparamiento. La prioridad verificada por ATProto es más justa pero añade complejidad.
+
+\textbf{Requisito de correo electrónico.} Auth0 proporciona correo electrónico verificado para recuperación de cuentas. ATProto OAuth no garantiza correo electrónico. ¿Debería AC requerir un correo electrónico para funcionalidades completas de la cuenta (compras, notificaciones)?
+
+\textbf{Multi-tenant.} AC opera un segundo tenant (\texttt{sotce}) con Auth0 separado. ¿Cómo se mapean las identidades ATProto entre tenants? El DID es agnóstico al tenant, lo que puede simplificar la identidad entre tenants.
+
+\textbf{Servidor de sesiones.} Las funcionalidades en tiempo real (chat, multijugador) se autentican mediante tokens Auth0 reenviados a través de WebSocket. El servidor de sesiones debe aceptar tokens emitidos por ATProto o un token de sesión unificado.
+
+\textbf{Emparejamiento de dispositivos.} AC Native OS empareja mediante un código de 6 caracteres intercambiado a través de Auth0. El equivalente en ATProto: escanear un código QR que inicia un flujo OAuth en el teléfono, entregando tokens al dispositivo.
+
+\textbf{Identidad de administrador.} El administrador actualmente es \texttt{handle === "jeffrey" \&\& sub === ADMIN\_SUB}. Bajo autenticación ATProto-first, el administrador es \texttt{did === admin\_did}---más limpio, fundamentado criptográficamente.
+
+% ============ 8. TRABAJO RELACIONADO ============
+
+\section{Trabajo relacionado}
+\label{sec:related}
+
+\textbf{Identidad descentralizada.} La especificación DID del W3C~\citep{w3cdid2022} proporciona el marco formal para identificadores descentralizados. El método \texttt{did:plc} del AT Protocol~\citep{atproto2024did} lo extiende con garantías de consistencia fuerte y un directorio centralizado-pero-auditable en \texttt{plc.directory}. Este es un compromiso pragmático: la descentralización completa de la resolución de identidad sigue siendo un problema abierto, y \texttt{did:plc} intercambia algo de descentralización por fiabilidad operativa.
+
+\textbf{Aplicaciones nativas de ATProto.} pckt.blog~\citep{pcktblog2025} demuestra el blogging; Leaflet.pub y Offprint.app colaboran en lexicons compartidos a través de Standard.site~\citep{standardsite2025}. Estas aplicaciones demuestran la viabilidad de la autenticación solo-ATProto para plataformas de contenido.
+
+\textbf{Seguridad OAuth.} DPoP~\citep{rfc9449dpop} previene el robo de tokens; PAR~\citep{rfc9126par} previene la manipulación de parámetros; PKCE~\citep{rfc7636pkce} previene la interceptación de códigos. Juntos representan el estado del arte en seguridad OAuth basada en navegador---significativamente más fuerte que el flujo Auth0 SPA que AC utiliza actualmente.
+
+\textbf{Identidad convivial.} Las herramientas para la convivialidad de Illich~\citep{illich1973tools} enmarcan la pregunta: ¿el sistema de identidad expande la autonomía personal, o requiere dependencia de un proveedor? Auth0 es un servicio administrado---conveniente pero dependiente. La identidad ATProto es portátil, autoverificable e independiente del proveedor. La visión de Nelson de la computación personal~\citep{nelson1974computerlib} se extiende naturalmente a la identidad personal: deberías ser dueño de tu nombre en la red.
+
+% ============ 9. CONCLUSIÓN ============
+
+\section{Conclusión}
+
+Aesthetic Computer ya ejecuta un PDS, acuña DIDs, sincroniza contenido con registros ATProto y publica lexicons personalizados. La única pieza que falta es permitir que los usuarios se autentiquen a través de esa infraestructura en lugar de pasar por Auth0. La migración no es una reescritura---es la eliminación de un parche.
+
+El enfoque por fases (ATProto como inicio de sesión secundario $\to$ puente de handles $\to$ vinculación de identidad $\to$ ATProto-primario) asegura que ningún usuario existente sea perturbado. El estado final: una plataforma de computación creativa donde tu handle es una identidad criptográfica, tu contenido vive en un servidor que tú controlas, e iniciar sesión significa demostrar que posees tus claves---no confiar en un tercero para que responda por ti.
+
+El PDS ya está funcionando. Los DIDs ya están acuñados. Los lexicons ya están publicados. Es hora de dejar que los usuarios inicien sesión por la puerta principal.
+
+% ============ REFERENCIAS ============
+
+\vspace{0.5em}
+\noindent\rule{\columnwidth}{0.5pt}
+
+\subsection*{Enlaces de referencia}
+
+\noindent\small
+
+\textbf{Especificaciones del AT Protocol:}
+\begin{itemize}
+  \item \url{https://atproto.com/specs} --- Especificación completa del protocolo
+  \item \url{https://atproto.com/specs/oauth} --- Especificación OAuth
+  \item \url{https://atproto.com/specs/handle} --- Resolución de handles
+  \item \url{https://atproto.com/specs/cryptography} --- Métodos criptográficos
+  \item \url{https://web.plc.directory/spec/v0.1/did-plc} --- Especificación DID PLC
+  \item \url{https://atproto.com/guides/lexicon} --- Sistema de esquemas Lexicon
+  \item \url{https://atproto.com/guides/oauth-patterns} --- Patrones de implementación OAuth
+\end{itemize}
+
+\textbf{Guías de implementación:}
+\begin{itemize}
+  \item \url{https://docs.bsky.app/blog/oauth-atproto} --- Construir aplicaciones ATProto OAuth
+  \item \url{https://docs.bsky.app/docs/advanced-guides/resolving-identities} --- Resolución de identidades
+  \item \url{https://docs.bsky.app/docs/advanced-guides/oauth-client} --- Guía del cliente OAuth
+\end{itemize}
+
+\textbf{Paquetes NPM:}
+\begin{itemize}
+  \item \texttt{@atproto/oauth-client-node} --- Cliente OAuth para Node.js
+  \item \texttt{@atproto/oauth-client-browser} --- Cliente OAuth para navegador
+  \item \texttt{@atproto/api} --- Cliente TypeScript XRPC
+  \item \texttt{@atproto/identity} --- Resolución de DID/handle
+  \item \texttt{@atcute/oauth-browser-client} --- Alternativa ligera
+\end{itemize}
+
+\textbf{Implementaciones de referencia:}
+\begin{itemize}
+  \item \url{https://github.com/pilcrowonpaper/atproto-oauth-example} --- Ejemplo OAuth con Astro
+  \item \url{https://github.com/bluesky-social/atproto} --- Monorepo oficial de ATProto
+  \item \url{https://standard.site/docs/introduction/} --- Lexicons compartidos de Standard.site
+\end{itemize}
+
+\textbf{Aplicaciones que usan ATProto Auth:}
+\begin{itemize}
+  \item pckt.blog --- Blogging en la web social abierta
+  \item Leaflet.pub --- Publicación de formato largo
+  \item Offprint.app --- Escritura colaborativa
+\end{itemize}
+
+\textbf{Estándares IETF:}
+\begin{itemize}
+  \item RFC 9449 --- DPoP (Demonstrating Proof of Possession)
+  \item RFC 7636 --- PKCE (Proof Key for Code Exchange)
+  \item RFC 9126 --- PAR (Pushed Authorization Requests)
+\end{itemize}
+
+\vspace{0.5em}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

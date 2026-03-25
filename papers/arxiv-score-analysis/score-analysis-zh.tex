@@ -1,0 +1,260 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={阅读总谱},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{工作草稿 --- 请勿引用}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% === TITLE ===
+\twocolumn[
+\begin{center}
+{\acbold\LARGE 阅读总谱：对SCORE.md作为治理、界面\\与创作形式的批判性分析\par}
+\vspace{0.4em}
+{\large @jeffrey}\\
+{\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
+{\small\color{acgray} \url{https://aesthetic.computer}}
+\vspace{0.3em}
+
+\rule{0.6\textwidth}{0.5pt}
+\vspace{0.3em}
+
+\begin{minipage}{0.85\textwidth}
+\small
+\textbf{摘要。}
+Aesthetic Computer项目用一个名为SCORE.md的文档取代了其README。
+本文考察了这次更名所做的事情——以及它留下的未竟之事。
+基于从项目研究盘中撰写的十五篇论文，我们将总谱与其自身的抱负进行对照阅读：
+作为治理文档、作为技术参考、作为创作形式。我们发现总谱作为组织性隐喻是成功的，
+但作为文档却陷入困境——被AI代理、新贡献者、项目自身历史和作者创作实践的
+多重需求所裹挟。我们识别了当前总谱中的六种张力，并提出一个认真对待音乐隐喻的
+修订框架：总谱应当告诉你如何演奏，而不仅仅是告诉你乐器有哪些。
+\end{minipage}
+\vspace{1em}
+\end{center}
+]
+
+\section{什么是总谱？}
+
+在音乐中，总谱是一组用于产生时间事件的指令。它不是事件本身——它是使事件可复现的文档。总谱内含一种关于什么重要的隐性理论：哪些参数必须明确指定，哪些可以留给演奏者判断。
+
+当Aesthetic Computer项目在2026年3月初将其README.md更名为SCORE.md时，它导入了整个框架。这一举动是刻意的。项目已经将其程序理解为"作品"而非应用程序~\citep{scudder2026pieces}，将其界面理解为乐器~\citep{scudder2026notepat}，将其图形记谱法（Whistlegraph）理解为一种病毒式传播的总谱~\citep{scudder2026whistlegraph}。重命名治理文档是一种表达：这也是需要据以演奏的东西。
+
+但总谱意味着演奏者。本文提出的问题是：谁在从SCORE.md演奏，这份文档真的帮助了他们吗？
+
+\section{研究盘与总谱}
+
+Aesthetic Computer的研究盘目前包含十七篇论文，组织在一个具有自动化构建、四种语言翻译和用于实体分发的卡片格式的论文工坊中~\citep{scudder2026cards}。通读这些论文揭示了一个具有相当雄心和内部一致性的项目——但也是一个自我描述（总谱）未能跟上自我理解（论文）的项目。
+
+论文讲述了总谱未曾讲述的故事。考虑以下情况：
+
+\begin{itemize}
+\item "Pieces Not Programs"论文~\citep{scudder2026pieces}论证了"作品"一词引入了一个音乐框架，其中作品是有作者的、可演奏的、可迭代的。总谱提到了作品，但从未解释这一框架。
+\item notepat论文~\citep{scudder2026notepat}记录了五个反馈循环，通过这些循环，一个单独的作品将整个平台拉入存在。总谱将notepat列为359个作品中的一个。
+\item 可持续性论文~\citep{scudder2026sustainability}确认了工具创建与可持续资金之间存在中位数为8年的差距，案例研究以残疾和死亡告终。总谱有赞助商徽章。
+\item Native OS论文~\citep{scudder2026os}论证了每台50美元的剩余x86\_64笔记本电脑是全球性创意乐器的物质基础。总谱列出了构建命令。
+\item KidLisp Cards论文~\citep{scudder2026cards}证明了程序的简洁性产生了一种新的出版格式——卡片作为可执行的总谱。总谱没有提到卡片。
+\end{itemize}
+
+在每种情况下，论文阐述了一个赋予总谱仅仅编目之物以意义的论点。总谱有事实，但没有论证。
+
+\section{六种张力}
+
+将总谱与论文对照阅读揭示了修订应当解决的六种张力。
+
+\subsection{受众困惑}
+
+总谱以一条给AI代理的消息开头（"If you find something interesting\ldots leave a breadcrumb"），然后立即切换到人类引导（"press the top left of the screen"）。"Front Door"部分面向最终用户。"Back Door"部分面向开发者。"Ant Guidance"部分面向自动化代理。"Embodiments"部分试图调和这三者。
+
+这并没有错——总谱可以面向多个演奏者。但音乐总谱让演奏者的声部一目了然。SCORE.md要求读者自己弄清楚哪些部分是给他们的。指挥总谱和小提琴声部是不同的文档，这是有充分理由的。
+
+\subsection{编目与论证}
+
+总谱被组织为一个目录：架构、命令、端点、待办事项、市场查询。这是有用的参考材料，但它没有传达关于项目\emph{为什么}存在或什么原则支配其发展的任何信息。
+
+论文共同阐述了至少五个核心论点：
+\begin{enumerate}
+\item 创意软件应被设计为乐器，而非工具~\citep{scudder2026goodiepal}。
+\item "作品"是创意认知的单位，而非程序~\citep{scudder2026pieces}。
+\item 约束（在语言设计中、在形式因素中）是生成性的，而非限制性的~\citep{scudder2026kidlisp, scudder2026cards}。
+\item 剩余硬件 + 定制操作系统 = 全球性访问~\citep{scudder2026os, scudder2026plork}。
+\item 创意工具需要不会杀死其创造者的经济模式~\citep{scudder2026sustainability}。
+\end{enumerate}
+
+这些论点均未出现在总谱中。SCORE.md的初次读者会知道Aesthetic Computer\emph{是什么}（一个有作品、有提示符、有一些服务器的运行时），但不知道它\emph{为什么}存在或它相信什么。
+
+\subsection{待办事项问题}
+
+总谱包含一个"AC Native Backlog"部分，其中七个项目混合了已完成的任务（"Claude native binary"）和理想中的功能（"A/B kernel slots with auto-rollback"）。这是项目管理工件，不是总谱。它传达的是战术状态，而非战略方向。
+
+蚂蚁哲学（在\texttt{ants/mindset-and-rules.md}中）明确警告不要进行投机性工作："IDLE is valid---wandering is the job, not failure。"然而总谱中的待办事项恰恰是投机性工作，被呈现为仿佛是项目的计划。子总谱（fedac/native/SCORE.md、papers/SCORE.md）通过将指导与任务列表分离来更好地处理这个问题。
+
+\subsection{Keeps市场区块}
+
+总谱用90行来展示Tezos/Objkt GraphQL查询，用于检查Keeps NFT市场统计数据。这是一个贡献者（作者）的操作工具。它是有价值的参考材料，但它主导了总谱的后半部分，并发出了一个无意的信号：NFT市场监控是项目的核心关注点，与架构和开发工作流同等重要。
+
+"Dead Ends"论文~\citep{scudder2026deadends}明确将Tezos/Keeps归类为未来不确定的货币化实验。总谱将其呈现为已建立的基础设施。
+
+\subsection{缺失的声音}
+
+"Network Audit"论文~\citep{scudder2026audit}揭示AC有2,811个注册用户名，但只有2.1\%编写KidLisp，0.7\%发布作品。"Diversity"论文~\citep{scudder2026diversity}承认80\%的被引作者是西方男性。"Sustainability"论文~\citep{scudder2026sustainability}记录了无支持的工具制作的人力成本。
+
+总谱没有涉及任何这些问题。它将采用数据（"2812 registered handles, 265 user-published pieces"）呈现为成就，而非需要解读的数据。论文比总谱更诚实。
+
+\subsection{子总谱与主总谱}
+
+项目现在有六个SCORE.md文件：根目录、papers、fedac、fedac/native、opinion和vault。子总谱通常是比主总谱更好的文档。papers总谱以"Mill Mission"开头，解释它\emph{为什么}存在。native总谱用五个可验证的标准定义"shipped"。vault总谱映射了安全态势。
+
+相比之下，主总谱试图成为一切：README、架构文档、开发者指南、操作手册和NFT仪表板。子总谱因具体而成功。主总谱因全面而挣扎。
+
+\section{认真对待总谱隐喻}
+
+如果SCORE.md是一份总谱，它应该是什么样的总谱？音乐类比暗示了几个属性：
+
+\textbf{总谱告诉你如何开始。}当前总谱的"Front Door"对最终用户做到了这一点，但对贡献者或代理则没有。拿起总谱的演奏者需要知道：我演奏什么乐器？我从哪里进入？节拍是什么？
+
+\textbf{总谱有声部。}不同的演奏者阅读不同的声部。当前总谱将所有声部混合在一个文档中。子总谱实际上是已被提取的单独声部。主总谱应该是指挥总谱：指向声部的概述，而非所有声部的合集。
+
+\textbf{总谱意味着一种演奏实践。}关于如何阅读和执行总谱的惯例并未写在总谱本身中。蚂蚁思维文档为AI代理提供了这一功能。对于人类贡献者，没有等效的东西存在。
+
+\textbf{总谱可以修订。}总谱有版本。当前的SCORE.md在文档本身中没有版本历史或变更日志。它读起来好像一直如此，而实际上两周前它还是一个README。
+
+\textbf{总谱不是演奏本身。}总谱不应试图包含整个项目。它应该是项目据以演奏的最小文档。其他一切——待办事项、市场查询、操作工具——属于声部或附录。
+
+\section{论文知道而总谱不知道的}
+
+将所有十七篇论文与总谱对照阅读，最引人注目的发现是项目在论文中的自我理解比在总谱中丰富得多。论文包含：
+
+\begin{itemize}
+\item 一种创意认知理论（作品作为感知-行动循环）
+\item 一种工具制作的政治经济学（谁付费、谁耗尽、谁死去）
+\item 一种设计哲学（乐器优先、约束即生成、扁平优于纵深）
+\item 一个关于硬件的物质论证（剩余笔记本电脑作为全球性乐器）
+\item 一次对失败的诚实审计（16条死胡同、50\%贡献率）
+\item 一个具有具体目标的引用多样性承诺
+\item 一个具有自身使命宣言的出版基础设施（工坊）
+\end{itemize}
+
+总谱不包含任何这些内容。它是一份碰巧被称为总谱的技术文档。修订应使其成为真正的总谱：一份承载项目论证而非仅承载其架构的文档。
+
+\section{迈向修订后的总谱}
+
+修订后的SCORE.md应当：
+
+\begin{enumerate}
+\item \textbf{以"为什么"开头。}陈述项目相信什么以及它为什么存在，借鉴跨论文阐述的论点。papers/SCORE.md中的mill mission是这方面的范例。
+\item \textbf{将声部与指挥总谱分离。}将操作细节（Keeps查询、待办事项、命令参考）移至子总谱或附录。主总谱应能在五分钟内读完。
+\item \textbf{命名其受众。}明确面向三种演奏者类型（最终用户、人类贡献者、AI代理），为每种类型提供清晰的入口点。
+\item \textbf{包含诚实的数字。}呈现带有解读的采用数据，而不仅仅是徽章。2.1\%的KidLisp创作率是一个有意义的事实——总谱应说明其含义。
+\item \textbf{引用论文。}研究盘存在。总谱应将其指向为项目的扩展自我理解，而非忽视它。
+\item \textbf{承认自身历史。}指出这份文档直到2026年3月还是一个README，且更名本身是一个有后果的创作行为。
+\item \textbf{更简短。}当前总谱有361行。一份认真对待自己的总谱应更接近于一张卡片上一个作品的长度。
+\end{enumerate}
+
+\section{结论}
+
+SCORE.md对于Aesthetic Computer项目所需要的东西来说是一个好名字：一份使项目可被演奏的文档。但当前的总谱是一份目录，而非一部作品。它列出了项目包含什么，却没有论证它意味着什么。研究盘上的论文——与总谱在同几周内撰写——包含了总谱所缺乏的论证、诚实的评估和创作框架。
+
+最有成效的修订不是向总谱添加内容，而是从中删减，将操作细节移至子总谱，并用项目的实际信念取而代之。子总谱（papers、native、vault）已经展示了这种方法。主总谱应向自己的声部学习。
+
+总谱不是对管弦乐队的描述。它是产生音乐所需的最小记谱。SCORE.md应追求同样的简约。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

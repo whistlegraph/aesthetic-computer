@@ -1,0 +1,261 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={At l\ae se partituret},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% === TITLE ===
+\twocolumn[
+\begin{center}
+{\acbold\LARGE At l\ae se partituret: En kritisk analyse af\\SCORE.md som styring, gr\ae nseflade og kreativ form\par}
+\vspace{0.4em}
+{\large @jeffrey}\\
+{\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
+{\small\color{acgray} \url{https://aesthetic.computer}}
+\vspace{0.3em}
+
+\rule{0.6\textwidth}{0.5pt}
+\vspace{0.3em}
+
+\begin{minipage}{0.85\textwidth}
+\small
+\textbf{Abstrakt.}
+Aesthetic Computer-projektet erstattede sin README med et dokument kaldet SCORE.md.
+Denne artikel unders\o ger, hvad den omd\o bning gjorde --- og hvad den efterlod ugjort.
+Med udgangspunkt i femten artikler skrevet fra projektets forskningsplatte l\ae ser vi
+partituret op mod dets egne ambitioner: som styringsdokument, som teknisk reference,
+som kreativ form. Vi finder, at partituret lykkes som organiserende metafor, men
+k\ae mper som dokument --- fanget mellem kravene fra AI-agenter, nye bidragydere,
+projektets egen historie og forfatterens kreative praksis. Vi identificerer seks
+sp\ae ndinger i det nuv\ae rende partitur og foresl\aa r en revisionsramme, der tager
+den musikalske metafor alvorligt: et partitur b\o r fort\ae lle dig, hvordan du skal
+udf\o re, ikke blot hvad instrumenterne er.
+\end{minipage}
+\vspace{1em}
+\end{center}
+]
+
+\section{Hvad er et partitur?}
+
+I musik er et partitur et s\ae t instruktioner til at producere en tidslig begivenhed. Det er ikke selve begivenheden --- det er dokumentet, der g\o r begivenheden reproducerbar. Et partitur b\ae rer i sig en implicit teori om, hvad der er vigtigt: hvilke parametre der skal specificeres, og hvilke der kan overlades til ud\o verens sk\o n.
+
+Da Aesthetic Computer-projektet omd\o bte sin README.md til SCORE.md i begyndelsen af marts 2026, importerede det hele denne ramme. Bev\ae gelsen var bevidst. Projektet forstod allerede sine programmer som ``stykker'' snarere end applikationer~\citep{scudder2026pieces}, sin gr\ae nseflade som et instrument~\citep{scudder2026notepat}, og sin grafiske notation (Whistlegraph) som et viralt partitur~\citep{scudder2026whistlegraph}. At omd\o be styringsdokumentet var en m\aa de at sige: dette er ogs\aa\ noget, der skal udf\o res fra.
+
+Men et partitur foruds\ae tter ud\o vere. Og sp\o rgsm\aa let, denne artikel stiller, er: hvem udf\o rer fra SCORE.md, og hj\ae lper dokumentet dem faktisk?
+
+\section{Platten og partituret}
+
+Aesthetic Computers forskningsplatte rummer i \o jeblikket sytten artikler, organiseret i en papirm\o lle med automatiserede builds, overs\ae ttelser til fire sprog og et kortformat til fysisk distribution~\citep{scudder2026cards}. At l\ae se p\aa\ tv\ae rs af disse artikler afsl\o rer et projekt med betydelig ambition og intern sammenh\ae ng --- men ogs\aa\ et projekt, hvis selvbeskrivelse (partituret) ikke har fulgt med dets selvforst\aa else (artiklerne).
+
+Artiklerne fort\ae ller en historie, som partituret ikke g\o r. Overvej:
+
+\begin{itemize}
+\item Artiklen ``Pieces Not Programs''~\citep{scudder2026pieces} argumenterer for, at ordet ``stykke'' importerer en musikalsk ramme, hvor v\ae rker er forfattede, opf\o rbare og iterbare. Partituret n\ae vner stykker, men forklarer aldrig denne rammes\ae tning.
+\item Notepat-artiklen~\citep{scudder2026notepat} dokumenterer fem feedback-l\o kker, hvorigennem et enkelt stykke trak en hel platform ind i eksistens. Partituret lister notepat som \' et stykke blandt 359.
+\item B\ae redygtighedsartiklen~\citep{scudder2026sustainability} identificerer en median p\aa\ 8 \aa rs kl\o ft mellem v\ae rkt\o jsskabelse og b\ae redygtig finansiering, med casestudier der ender i handicap og d\o d. Partituret har sponsorbadges.
+\item Native OS-artiklen~\citep{scudder2026os} argumenterer for, at overskuds-x86\_64-b\ae rbare til \$50 stykket er det materielle grundlag for et planet\ae rt kreativt instrument. Partituret lister build-kommandoer.
+\item KidLisp Cards-artiklen~\citep{scudder2026cards} demonstrerer, at programkorthed producerer et nyt publiceringsformat --- kortet som eksekverbart partitur. Partituret n\ae vner ikke kort.
+\end{itemize}
+
+I hvert tilf\ae lde formulerer artiklen en tese, der giver mening til det, partituret blot katalogiserer. Partituret har fakta, men ikke argumentet.
+
+\section{Seks sp\ae ndinger}
+
+At l\ae se partituret op mod artiklerne afsl\o rer seks sp\ae ndinger, som en revision b\o r adressere.
+
+\subsection{Publikumsforvirring}
+
+Partituret \aa bner med en besked til AI-agenter (``If you find something interesting\ldots leave a breadcrumb'') og skifter derefter straks til menneskelig onboarding (``press the top left of the screen''). Afsnittet ``Front Door'' henvender sig til slutbrugere. Afsnittet ``Back Door'' henvender sig til udviklere. Afsnittet ``Ant Guidance'' henvender sig til automatiserede agenter. Afsnittet ``Embodiments'' fors\o ger at forene alle tre.
+
+Dette er ikke forkert --- et partitur kan henvende sig til flere ud\o vere. Men et musikalsk partitur g\o r ud\o verens stemme l\ae selig med et blik. SCORE.md kr\ae ver, at l\ae seren selv finder ud af, hvilke dele der er til dem. Et dirigentpartitur og en violinstemme er forskellige dokumenter af god grund.
+
+\subsection{Katalog vs. argument}
+
+Partituret er organiseret som et katalog: arkitektur, kommandoer, endpoints, backlogs, markedsforesp\o rgsler. Dette er nyttigt referencemateriale, men det kommunikerer intet om, \emph{hvorfor} projektet eksisterer, eller hvilke principper der styrer dets udvikling.
+
+Artiklerne formulerer tilsammen mindst fem kerneargumenter:
+\begin{enumerate}
+\item Kreativ software b\o r designes som et instrument, ikke et v\ae rkt\o j~\citep{scudder2026goodiepal}.
+\item ``Stykket'' er en enhed for kreativ kognition, ikke et program~\citep{scudder2026pieces}.
+\item Begr\ae nsning (i sprogdesign, i formfaktor) er generativ, ikke begr\ae nsende~\citep{scudder2026kidlisp, scudder2026cards}.
+\item Overskudshardware + tilpasset OS = planet\ae r adgang~\citep{scudder2026os, scudder2026plork}.
+\item Kreative v\ae rkt\o jer kr\ae ver \o konomiske modeller, der ikke sl\aa r deres skabere ihjel~\citep{scudder2026sustainability}.
+\end{enumerate}
+
+Ingen af disse argumenter optr\ae der i partituret. En f\o rstegangsl\ae ser af SCORE.md ville vide, \emph{hvad} Aesthetic Computer er (en runtime med stykker, en prompt, nogle servere), men ikke \emph{hvorfor} det eksisterer, eller hvad det tror p\aa .
+
+\subsection{Backlog-problemet}
+
+Partituret indeholder et ``AC Native Backlog''-afsnit med syv punkter, der blander f\ae rdige opgaver (``Claude native binary'') med ambiti\o se funktioner (``A/B kernel slots with auto-rollback''). Dette er et projektstyringsartefakt, ikke et partitur. Det kommunikerer taktisk tilstand, ikke strategisk retning.
+
+Myrefilosofien (i \texttt{ants/mindset-and-rules.md}) advarer eksplicit mod spekulativt arbejde: ``IDLE is valid---wandering is the job, not failure.'' Alligevel er backloggen i partituret netop spekulativt arbejde, pr\ae senteret som om det var projektets plan. Underpartiturer (fedac/native/SCORE.md, papers/SCORE.md) h\aa ndterer dette bedre ved at adskille vejledning fra opgavelister.
+
+\subsection{Keeps-markedsblokken}
+
+Partituret dedikerer 90 linjer til Tezos/Objkt GraphQL-foresp\o rgsler til at tjekke Keeps NFT-markedsstatistikker. Dette er operationelt v\ae rkt\o j for \' en bidragyder (forfatteren). Det er v\ae rdifuldt referencemateriale, men det dominerer partiturets sidste halvdel og sender et utilsigtet signal: at NFT-markedsoverv\aa gning er en kernebekymring for projektet, p\aa\ linje med arkitektur og udviklingsworkflow.
+
+Artiklen ``Dead Ends''~\citep{scudder2026deadends} kategoriserer eksplicit Tezos/Keeps som et monetiseringseksperiment med usikker fremtid. Partituret pr\ae senterer det som etableret infrastruktur.
+
+\subsection{Manglende stemmer}
+
+Artiklen ``Network Audit''~\citep{scudder2026audit} afsl\o rer, at AC har 2.811 registrerede handles, men kun 2,1\% skriver KidLisp, og 0,7\% publicerer stykker. Artiklen ``Diversity''~\citep{scudder2026diversity} anerkender, at 80\% af citerede forfattere er vestlige m\ae nd. Artiklen ``Sustainability''~\citep{scudder2026sustainability} dokumenterer den menneskelige omkostning ved ust\o ttet v\ae rkt\o jsskabelse.
+
+Partituret engagerer sig ikke med noget af dette. Det pr\ae senterer adoptionstal (``2812 registered handles, 265 user-published pieces'') som pr\ae station snarere end som data, der kr\ae ver fortolkning. Artiklerne er mere \ae rlige end partituret.
+
+\subsection{Underpartiturer vs. hovedpartitur}
+
+Projektet har nu seks SCORE.md-filer: rod, papers, fedac, fedac/native, opinion og vault. Underpartiturer er generelt bedre dokumenter end hovedpartituret. Papers-partituret indleder med en ``Mill Mission'', der forklarer, \emph{hvorfor} det eksisterer. Native-partituret definerer ``shipped'' med fem verificerbare kriterier. Vault-partituret kortl\ae gger sikkerhedsstillingen.
+
+Hovedpartituret fors\o ger derimod at v\ae re alt: README, arkitekturdokument, udviklerguide, operationel runbook og NFT-dashboard. Underpartiturer lykkedes ved at v\ae re specifikke. Hovedpartituret k\ae mper ved at v\ae re alt-omfattende.
+
+\section{Partiturmetaforen, taget alvorligt}
+
+Hvis SCORE.md er et partitur, hvilken slags partitur b\o r det da v\ae re? Den musikalske analogi antyder flere egenskaber:
+
+\textbf{Et partitur fort\ae ller dig, hvordan du begynder.} Det nuv\ae rende partiturs ``Front Door'' g\o r dette tilstr\ae kkeligt for slutbrugere, men ikke for bidragydere eller agenter. En ud\o ver, der tager et partitur op, beh\o ver at vide: hvilket instrument spiller jeg? Hvor kommer jeg ind? Hvad er tempoet?
+
+\textbf{Et partitur har stemmer.} Forskellige ud\o vere l\ae ser forskellige stemmer. Det nuv\ae rende partitur blander alle stemmer i \' et dokument. Underpartiturer er i realiteten individuelle stemmer, der er blevet udtrukket. Hovedpartituret b\o r v\ae re dirigentpartituret: et overblik der peger p\aa\ stemmer, ikke en sammenf\o jning af alle stemmer.
+
+\textbf{Et partitur foruds\ae tter en opf\o relsespraxis.} Der er konventioner om, hvordan man l\ae ser og udf\o rer et partitur, som ikke er skrevet i selve partituret. Myrefilosofi-dokumentet tjener denne funktion for AI-agenter. Intet tilsvarende eksisterer for menneskelige bidragydere.
+
+\textbf{Et partitur kan revideres.} Partiturer har udgaver. Det nuv\ae rende SCORE.md har ingen versionshistorik eller \ae ndringslog i selve dokumentet. Det l\ae ses, som om det altid har v\ae ret s\aa dan, n\aa r det faktisk var en README indtil for to uger siden.
+
+\textbf{Et partitur er ikke opf\o relsen.} Partituret b\o r ikke fors\o ge at indeholde projektet. Det b\o r v\ae re det minimale dokument, hvorfra projektet kan udf\o res. Alt andet --- backlogs, markedsforesp\o rgsler, operationelt v\ae rkt\o j --- h\o rer hjemme i stemmer eller appendikser.
+
+\section{Hvad artiklerne ved, som partituret ikke g\o r}
+
+Det mest sl\aa ende fund ved at l\ae se alle sytten artikler op mod partituret er, hvor meget rigere projektets selvforst\aa else er i artiklerne end i partituret. Artiklerne indeholder:
+
+\begin{itemize}
+\item En teori om kreativ kognition (stykker som perceptions-handlingscyklusser)
+\item En politisk \o konomi for v\ae rkt\o jsskabelse (hvem betaler, hvem br\ae nder ud, hvem d\o r)
+\item En designfilosofi (instrument-f\o rst, begr\ae nsning-som-generativ, flad-over-dyb)
+\item Et materielt argument om hardware (overskudsb\ae rbare som planet\ae rt instrument)
+\item En \ae rlig revision af fejl (16 blindgyder, 50\% bidragsrate)
+\item En forpligtelse til citationsdiversitet med specifikke m\aa l
+\item En publiceringsinfrastruktur (m\o llen) med sin egen missionsbeskrivelse
+\end{itemize}
+
+Partituret indeholder intet af dette. Det er et teknisk dokument, der tilf\ae ldigvis hedder et partitur. Revisionen b\o r g\o re det til et faktisk partitur: et dokument der b\ae rer projektets argumenter, ikke blot dets arkitektur.
+
+\section{Mod et revideret partitur}
+
+Et revideret SCORE.md b\o r:
+
+\begin{enumerate}
+\item \textbf{Indlede med hvorfor.} Angiv hvad projektet tror p\aa , og hvorfor det eksisterer, med udgangspunkt i argumenterne formuleret p\aa\ tv\ae rs af artiklerne. Mill mission i papers/SCORE.md er en model for dette.
+\item \textbf{Adskille stemmer fra dirigentpartituret.} Flyt operationelle detaljer (Keeps-foresp\o rgsler, backlog-punkter, kommandoreferencer) til underpartiturer eller appendikser. Hovedpartituret b\o r kunne l\ae ses p\aa\ fem minutter.
+\item \textbf{Navngive sine publikummer.} Henvend dig eksplicit til de tre ud\o vertyper (slutbrugere, menneskelige bidragydere, AI-agenter) med klare indgangspunkter for hver.
+\item \textbf{Inkludere de \ae rlige tal.} Pr\ae sent\' er adoptionsdata med fortolkning, ikke blot som badges. 2,1\% KidLisp-forfatterskab er et faktum, der betyder noget --- partituret b\o r sige hvad.
+\item \textbf{Referere til artiklerne.} Platten eksisterer. Partituret b\o r pege p\aa\ den som projektets udvidede selvforst\aa else, ikke ignorere den.
+\item \textbf{Anerkende sin egen historie.} Bem\ae rk at dette dokument var en README indtil marts 2026, og at omd\o bningen i sig selv var en kreativ handling med konsekvenser.
+\item \textbf{V\ae re kortere.} Det nuv\ae rende partitur er 361 linjer. Et partitur, der tager sig selv alvorligt, b\o r v\ae re t\ae ttere p\aa\ l\ae ngden af et stykke, der kan v\ae re p\aa\ et kort.
+\end{enumerate}
+
+\section{Konklusion}
+
+SCORE.md er et godt navn for det, Aesthetic Computer-projektet har brug for: et dokument der g\o r projektet opf\o rbart. Men det nuv\ae rende partitur er et katalog, ikke en komposition. Det lister, hvad projektet indeholder, uden at argumentere for, hvad det betyder. Artiklerne p\aa\ forskningsplatten --- skrevet i de samme uger som partituret --- indeholder argumenterne, de \ae rlige vurderinger og de kreative rammer, som partituret mangler.
+
+Den mest produktive revision ville ikke tilf\o je til partituret, men tr\ae kke fra det, flytte operationelle detaljer til underpartiturer og erstatte dem med projektets faktiske overbevisninger. Underpartiturer (papers, native, vault) demonstrerer allerede denne tilgang. Hovedpartituret b\o r l\ae re af sine egne stemmer.
+
+Et partitur er ikke en beskrivelse af et orkester. Det er den minimale notation, der kr\ae ves for at producere musik. SCORE.md b\o r str\ae be efter den samme \o konomi.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
