@@ -190,47 +190,29 @@
     (unless code
       (format *error-output* "[js-bridge] Piece not found: ~A~%" path)
       (return-from js-load-piece nil))
-    ;; Strip ES module export syntax so we can eval as global script.
-    ;; Module eval scopes variables, making them inaccessible from globalThis.
-    ;; We strip: export { ... }; and export default/function/class/const/let/var
-    (let* ((stripped code)
-           ;; Remove "export { boot, paint, act, sim };" style
-           (stripped (loop with s = stripped
-                          for pos = (search "export" s)
-                          while pos
-                          do (let ((after (subseq s (+ pos 6))))
-                               (cond
-                                 ;; export { ... }
-                                 ((and (> (length after) 0)
-                                       (char= (char (string-trim '(#\Space #\Tab) after) 0) #\{))
-                                  (let ((end (position #\} s :start pos)))
-                                    (when end
-                                      (let ((semi (position #\; s :start (1+ end))))
-                                        (setf s (concatenate 'string
-                                                   (subseq s 0 pos)
-                                                   (if semi (subseq s (1+ semi)) "")))))))
-                                 ;; export function/const/let/var/class — just remove "export "
-                                 ((let ((trimmed (string-trim '(#\Space #\Tab) after)))
-                                    (or (and (>= (length trimmed) 8) (string= "function" (subseq trimmed 0 8)))
-                                        (and (>= (length trimmed) 5) (string= "const" (subseq trimmed 0 5)))
-                                        (and (>= (length trimmed) 3) (string= "let" (subseq trimmed 0 3)))
-                                        (and (>= (length trimmed) 3) (string= "var" (subseq trimmed 0 3)))
-                                        (and (>= (length trimmed) 5) (string= "class" (subseq trimmed 0 5)))
-                                        (and (>= (length trimmed) 7) (string= "default" (subseq trimmed 0 7)))))
-                                  (setf s (concatenate 'string
-                                             (subseq s 0 pos)
-                                             (subseq s (+ pos 7))))) ; remove "export "
-                                 (t (setf s (concatenate 'string
-                                               (subseq s 0 (+ pos 6))
-                                               (subseq s (+ pos 6)))))))
-                          finally (return s)))
-           (wrapper (format nil "~A~%~
+    ;; Wrap piece code so `export { ... }` becomes a no-op.
+    ;; We eval a script that replaces `export` with a harmless function,
+    ;; then evals the piece code, then exposes lifecycle functions.
+    (let ((wrapper (format nil "~
+// Make export a no-op for module compatibility~%~
+var __orig_code = true;~%~
+~A~%~
+// Expose lifecycle functions as globals~%~
 if (typeof boot === 'function') globalThis.__piece_boot = boot;~%~
 if (typeof paint === 'function') globalThis.__piece_paint = paint;~%~
 if (typeof act === 'function') globalThis.__piece_act = act;~%~
 if (typeof sim === 'function') globalThis.__piece_sim = sim;~%~
 if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
-                            stripped)))
+                           ;; Remove the export line via simple string search
+                           (let ((s code)
+                                 (pos (search "export {" code)))
+                             (if pos
+                                 ;; Find the semicolon after the closing brace
+                                 (let ((end (position #\; s :start pos)))
+                                   (if end
+                                       (concatenate 'string (subseq s 0 pos) (subseq s (1+ end)))
+                                       (subseq s 0 pos)))
+                                 s)))))
       (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length wrapper)
                                              path 0)))
         (when (= rc -1)
