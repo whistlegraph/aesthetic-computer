@@ -82,7 +82,7 @@
 
 (defpackage :ac-native.config
   (:use :cl)
-  (:export #:load-config #:config-handle #:config-piece
+  (:export #:load-config #:make-config #:config-handle #:config-piece
            #:config-claude-token #:config-github-pat #:config-wifi
            #:write-device-tokens))
 
