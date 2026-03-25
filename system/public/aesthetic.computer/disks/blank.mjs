@@ -218,17 +218,18 @@ function paint($) {
   // Title + product description (centered, below HUD label) — with drop shadow
   const shadowOff = 1;
   const shadowAlpha = isDark ? 180 : 80;
-  ink(0, 0, 0, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 24 + shadowOff, size: 2, screen });
+  const sc = isDark ? 255 : 0; // light shadow in dark mode, dark in light
+  ink(sc, sc, sc, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 24 + shadowOff, size: 2, screen });
   ink(fg).write("AC Blank Laptop", { center: "x", y: 24, size: 2, screen });
-  ink(0, 0, 0, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 48 + shadowOff, screen }, undefined, floor(w * 0.85));
+  ink(sc, sc, sc, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 48 + shadowOff, screen }, undefined, floor(w * 0.85));
   ink(fgDim).write(DESCRIPTION, { center: "x", y: 48, screen }, undefined, floor(w * 0.85));
 
   // Thanks page
   if (thanks) {
     const cy = floor(h / 2);
-    ink(0, 0, 0, shadowAlpha).write("your blank is coming.", { center: "x", y: cy - 30 + shadowOff, screen });
+    ink(sc, sc, sc, shadowAlpha).write("your blank is coming.", { center: "x", y: cy - 30 + shadowOff, screen });
     ink(fg).write("your blank is coming.", { center: "x", y: cy - 30, screen });
-    ink(0, 0, 0, shadowAlpha).write("we'll be in touch.", { center: "x", y: cy + shadowOff, screen });
+    ink(sc, sc, sc, shadowAlpha).write("we'll be in touch.", { center: "x", y: cy + shadowOff, screen });
     ink(fgDim).write("we'll be in touch.", { center: "x", y: cy, screen });
     return;
   }
@@ -752,7 +753,7 @@ function paint($) {
       const oA = floor(120 + pulse * 135);
       ink(isDark ? [100, 255, 100, oA] : [40, 140, 40, oA]).box(bx, "outline");
       // Shadow text
-      ink(0, 0, 0, 120).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      ink(sc, sc, sc, 120).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
       ink(isDark ? [160 + floor(pulse * 95), 230, 160] : [30, floor(80 + pulse * 40), 30])
         .write(buyText, { x: bx.x + pad, y: bx.y + pad }, undefined, undefined, false, "unifont");
     } else {
@@ -777,7 +778,7 @@ function paint($) {
       ink(isDark ? [40, oG, 40] : [30, oG, 30]).box(bx, "outline");
 
       // Shadow text
-      ink(0, 0, 0, isDark ? 150 : 80).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
+      ink(sc, sc, sc, isDark ? 150 : 80).write(buyText, { x: bx.x + pad + 1, y: bx.y + pad + 1 }, undefined, undefined, false, "unifont");
       // Main text — breathing green
       const tG = isDark ? floor(160 + breath * 80 + wave * 15) : floor(20 + breath * 30);
       ink(isDark ? [140 + floor(breath * 60), tG, 140 + floor(breath * 40)] : [20, tG, 20])
