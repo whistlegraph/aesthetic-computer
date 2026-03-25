@@ -345,8 +345,14 @@ if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
         "$CL_DIR/quickjs-shim.c" \
         -I"$QJSDIR" "$BUILD/libquickjs.so" -lm 2>&1 || { err "shim build failed"; exit 1; }
 
-    # Build CL binary with SBCL
-    export LD_LIBRARY_PATH="$BUILD:${LD_LIBRARY_PATH:-}"
+    # Copy .so files to /lib64 BEFORE SBCL compile so SBCL remembers
+    # the runtime path (not the build-time /tmp/ac-build path)
+    cp "$BUILD/libquickjs.so" /lib64/
+    cp "$BUILD/libquickjs-shim.so" /lib64/
+    ldconfig 2>/dev/null || true
+
+    # Build CL binary with SBCL (load from /lib64 so paths are baked correctly)
+    export LD_LIBRARY_PATH="/lib64:${LD_LIBRARY_PATH:-}"
     sbcl --non-interactive \
         --eval '(load "/opt/quicklisp/setup.lisp")' \
         --eval '(require :asdf)' \
