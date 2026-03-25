@@ -122,6 +122,13 @@
 ;; Identity
 (defvar *boot-handle* nil "Handle from config, set during boot splash.")
 
+;; Native notepat runtime state (defvar to survive unwind-protect after save-lisp-and-die)
+(defvar *np-screen* nil)
+(defvar *np-graph* nil)
+(defvar *np-input* nil)
+(defvar *np-audio* nil)
+(defvar *np-frame* 0)
+
 ;; Network
 (defvar *ip-address* "")
 
@@ -342,11 +349,11 @@
            (scale (compute-pixel-scale dw))
            (sw (floor dw scale))
            (sh (floor dh scale))
-           (screen nil) (graph nil) (input nil) (audio nil) (frame 0))
-      (setf screen (fb-create sw sh)
-            graph (make-graph :fb screen :screen screen)
-            input (ac-native.input:input-init dw dh scale)
-            audio (ac-native.audio:audio-init))
+           (screen (fb-create sw sh))
+           (graph (make-graph :fb screen :screen screen))
+           (input (ac-native.input:input-init dw dh scale))
+           (audio (ac-native.audio:audio-init))
+           (frame 0))
 
       (format *error-output* "[notepat] ~Dx~D scale:~D → ~Dx~D~%"
               dw dh scale sw sh)
