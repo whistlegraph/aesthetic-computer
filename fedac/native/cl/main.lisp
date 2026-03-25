@@ -213,7 +213,16 @@
       (font-init)
 
       ;; Initialize QuickJS bridge
-      (js-init graph screen audio sw sh)
+      (handler-case
+          (js-init graph screen audio sw sh)
+        (error (e)
+          (format *error-output* "[js] JS-INIT ERROR: ~A~%" e)
+          (force-output *error-output*)
+          (when audio (audio-destroy audio))
+          (ac-native.input:input-destroy input)
+          (fb-destroy screen)
+          (ac-native.drm:drm-destroy display)
+          (return-from main-js (main))))
 
       ;; Load the piece
       (unless (js-load-piece piece-path)
