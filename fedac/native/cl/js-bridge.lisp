@@ -182,11 +182,13 @@
 
 (defun js-load-piece (path)
   "Load a .mjs piece file and detect lifecycle functions."
-  (let ((code (with-open-file (s path :direction :input :if-does-not-exist nil)
+  (let ((code (with-open-file (s path :direction :input :if-does-not-exist nil
+                                      :external-format :utf-8)
                 (when s
-                  (let ((buf (make-string (file-length s))))
-                    (read-sequence buf s)
-                    buf)))))
+                  (let* ((buf (make-string (file-length s)))
+                         (n (read-sequence buf s)))
+                    ;; Trim to actual bytes read (avoid trailing nulls)
+                    (subseq buf 0 n))))))
     (unless code
       (format *error-output* "[js-bridge] Piece not found: ~A~%" path)
       (return-from js-load-piece nil))
