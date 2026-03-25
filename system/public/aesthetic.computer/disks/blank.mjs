@@ -136,7 +136,7 @@ async function fetchHandles(screen) {
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
-  paperBtn = new ui.TextButton("Plorking the Planet (PDF)", { x: 6, bottom: 20, screen });
+  paperBtn = new ui.TextButton("PLORK'ing the Planet (PDF)", { x: 6, bottom: 20, screen });
   manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual (PDF)", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
 
@@ -806,7 +806,7 @@ function paint($) {
     ? [[35, 28, 28], [240, 180, 100], [255, 210, 150]]
     : [[235, 222, 210], [160, 100, 40], [120, 70, 20]];
   if (paperBtn) {
-    paperBtn.reposition({ x: 6, bottom: 20, screen }, "Plorking the Planet (PDF)");
+    paperBtn.reposition({ x: 6, bottom: 20, screen }, "PLORK'ing the Planet (PDF)");
     paperBtn.paint($btn, paperScheme, paperHover);
   }
   if (manualBtn) {
