@@ -66,26 +66,25 @@ done
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Debug: log environment before launch (simple echo only)
-echo "=== PRE-LAUNCH ===" > /mnt/pre-launch.log
-echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> /mnt/pre-launch.log
-ls -la /ac-native >> /mnt/pre-launch.log 2>&1
-ls /lib64/libquickjs* >> /mnt/pre-launch.log 2>&1
-cat /etc/ac-build >> /mnt/pre-launch.log 2>&1
-ls /proc/self/maps >> /mnt/pre-launch.log 2>&1
-mount >> /mnt/pre-launch.log 2>&1
+# Debug: write diagnostics to USB AND kernel console
+LOG=/mnt/pre-launch.log
+echo "=== PRE-LAUNCH ===" > $LOG 2>/dev/null
+echo "mnt: $(ls /mnt/ 2>&1)" | tee -a $LOG 2>/dev/null
+echo "binary: $(ls -la /ac-native 2>&1)" | tee -a $LOG 2>/dev/null
+echo "libs: $(ls /lib64/libquickjs* 2>&1)" | tee -a $LOG 2>/dev/null
+echo "build: $(cat /etc/ac-build 2>&1)" | tee -a $LOG 2>/dev/null
+echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" | tee -a $LOG 2>/dev/null
 sync
-sleep 1
-
-# Run ac-native once to capture crash output, then stop
-/ac-native /piece.mjs >> /mnt/pre-launch.log 2>&1
-echo "EXIT_CODE=$?" >> /mnt/pre-launch.log
+# Run once, capture crash, pause so user can read screen
+echo "=== LAUNCHING ===" | tee -a $LOG 2>/dev/null
+/ac-native /piece.mjs >> $LOG 2>&1
+echo "EXIT=$?" | tee -a $LOG 2>/dev/null
 sync
-sleep 2
+sleep 5
 
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs 2>>/mnt/pre-launch.log
+    /ac-native /piece.mjs
     EXIT_CODE=$?
 
     # Clean exit (0) = shutdown requested
