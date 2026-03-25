@@ -190,17 +190,49 @@
     (unless code
       (format *error-output* "[js-bridge] Piece not found: ~A~%" path)
       (return-from js-load-piece nil))
-    ;; Eval as ES module (supports export), then detect lifecycle globals
-    ;; We inject globalThis assignments into the module source
-    (let ((wrapper (format nil "~A~%~
-globalThis.__piece_boot = typeof boot === 'function' ? boot : undefined;~%~
-globalThis.__piece_paint = typeof paint === 'function' ? paint : undefined;~%~
-globalThis.__piece_act = typeof act === 'function' ? act : undefined;~%~
-globalThis.__piece_sim = typeof sim === 'function' ? sim : undefined;~%~
-globalThis.__piece_leave = typeof leave === 'function' ? leave : undefined;~%"
-                           code)))
-      (let ((rc (ac-native.quickjs:qjs-eval-module *ctx* wrapper (length wrapper)
-                                                    path)))
+    ;; Strip ES module export syntax so we can eval as global script.
+    ;; Module eval scopes variables, making them inaccessible from globalThis.
+    ;; We strip: export { ... }; and export default/function/class/const/let/var
+    (let* ((stripped code)
+           ;; Remove "export { boot, paint, act, sim };" style
+           (stripped (loop with s = stripped
+                          for pos = (search "export" s)
+                          while pos
+                          do (let ((after (subseq s (+ pos 6))))
+                               (cond
+                                 ;; export { ... }
+                                 ((and (> (length after) 0)
+                                       (char= (char (string-trim '(#\Space #\Tab) after) 0) #\{))
+                                  (let ((end (position #\} s :start pos)))
+                                    (when end
+                                      (let ((semi (position #\; s :start (1+ end))))
+                                        (setf s (concatenate 'string
+                                                   (subseq s 0 pos)
+                                                   (if semi (subseq s (1+ semi)) "")))))))
+                                 ;; export function/const/let/var/class — just remove "export "
+                                 ((let ((trimmed (string-trim '(#\Space #\Tab) after)))
+                                    (or (and (>= (length trimmed) 8) (string= "function" (subseq trimmed 0 8)))
+                                        (and (>= (length trimmed) 5) (string= "const" (subseq trimmed 0 5)))
+                                        (and (>= (length trimmed) 3) (string= "let" (subseq trimmed 0 3)))
+                                        (and (>= (length trimmed) 3) (string= "var" (subseq trimmed 0 3)))
+                                        (and (>= (length trimmed) 5) (string= "class" (subseq trimmed 0 5)))
+                                        (and (>= (length trimmed) 7) (string= "default" (subseq trimmed 0 7)))))
+                                  (setf s (concatenate 'string
+                                             (subseq s 0 pos)
+                                             (subseq s (+ pos 7))))) ; remove "export "
+                                 (t (setf s (concatenate 'string
+                                               (subseq s 0 (+ pos 6))
+                                               (subseq s (+ pos 6)))))))
+                          finally (return s)))
+           (wrapper (format nil "~A~%~
+if (typeof boot === 'function') globalThis.__piece_boot = boot;~%~
+if (typeof paint === 'function') globalThis.__piece_paint = paint;~%~
+if (typeof act === 'function') globalThis.__piece_act = act;~%~
+if (typeof sim === 'function') globalThis.__piece_sim = sim;~%~
+if (typeof leave === 'function') globalThis.__piece_leave = leave;~%"
+                            stripped)))
+      (let ((rc (ac-native.quickjs:qjs-eval *ctx* wrapper (length wrapper)
+                                             path 0)))
         (when (= rc -1)
           (format *error-output* "[js-bridge] Failed to load ~A~%" path)
           (return-from js-load-piece nil))))
