@@ -222,7 +222,8 @@
           (ac-native.input:input-destroy input)
           (fb-destroy screen)
           (ac-native.drm:drm-destroy display)
-          (return-from main-js (main))))
+          (setf *js-fallback* t)
+        (return-from main-js (main))))
 
       ;; Load the piece
       (unless (js-load-piece piece-path)
@@ -234,6 +235,7 @@
         (ac-native.input:input-destroy input)
         (fb-destroy screen)
         (ac-native.drm:drm-destroy display)
+        (setf *js-fallback* t)
         (return-from main-js (main)))
 
       ;; Call boot
@@ -305,14 +307,18 @@
 
 ;;; ── Main ──
 
+(defvar *js-fallback* nil "Set to T when falling back from JS to prevent re-entry loop.")
+
 (defun main ()
   "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat."
-  ;; Check command-line args for a .mjs piece path
-  (let ((args (uiop:command-line-arguments)))
-    (when args
-      (let ((piece-path (first args)))
-        (when (and piece-path (search ".mjs" piece-path))
-          (return-from main (main-js piece-path))))))
+  ;; Check command-line args for a .mjs piece path (unless falling back)
+  (unless *js-fallback*
+    (let ((args (uiop:command-line-arguments)))
+      (when args
+        (let ((piece-path (first args)))
+          (when (and piece-path (search ".mjs" piece-path))
+            (return-from main (main-js piece-path)))))))
+  (setf *js-fallback* nil)
 
   ;; No .mjs piece specified — fall back to native CL notepat
   (format *error-output* "~%════════════════════════════════════~%")
