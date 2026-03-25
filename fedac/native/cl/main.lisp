@@ -342,11 +342,11 @@
            (scale (compute-pixel-scale dw))
            (sw (floor dw scale))
            (sh (floor dh scale))
-           (screen (fb-create sw sh))
-           (graph (make-graph :fb screen :screen screen))
-           (input (ac-native.input:input-init dw dh scale))
-           (audio (ac-native.audio:audio-init))
-           (frame 0))
+           (screen nil) (graph nil) (input nil) (audio nil) (frame 0))
+      (setf screen (fb-create sw sh)
+            graph (make-graph :fb screen :screen screen)
+            input (ac-native.input:input-init dw dh scale)
+            audio (ac-native.audio:audio-init))
 
       (format *error-output* "[notepat] ~Dx~D scale:~D → ~Dx~D~%"
               dw dh scale sw sh)
@@ -747,10 +747,10 @@
             (frame-sync-60fps))
 
         ;; ── Cleanup ──
-        (kill-all-voices audio)
-        (when audio (audio-destroy audio))
-        (ac-native.input:input-destroy input)
-        (fb-destroy screen)
-        (ac-native.drm:drm-destroy display)
+        (when audio (ignore-errors (kill-all-voices audio)))
+        (when audio (ignore-errors (audio-destroy audio)))
+        (when input (ignore-errors (ac-native.input:input-destroy input)))
+        (when screen (ignore-errors (fb-destroy screen)))
+        (ignore-errors (ac-native.drm:drm-destroy display))
         (format *error-output* "[notepat] shutdown~%")
         (force-output *error-output*))))
