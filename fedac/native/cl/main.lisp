@@ -311,13 +311,14 @@
 
 (defun main ()
   "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat."
-  ;; Check command-line args for a .mjs piece path (unless falling back)
-  (unless *js-fallback*
-    (let ((args (uiop:command-line-arguments)))
-      (when args
-        (let ((piece-path (first args)))
-          (when (and piece-path (search ".mjs" piece-path))
-            (return-from main (main-js piece-path)))))))
+  ;; TODO: Re-enable QuickJS bridge once native CL notepat is stable
+  ;; For now, always run native CL notepat (skip JS bridge)
+  ;; (unless *js-fallback*
+  ;;   (let ((args (uiop:command-line-arguments)))
+  ;;     (when args
+  ;;       (let ((piece-path (first args)))
+  ;;         (when (and piece-path (search ".mjs" piece-path))
+  ;;           (return-from main (main-js piece-path)))))))
   (setf *js-fallback* nil)
 
   ;; No .mjs piece specified — fall back to native CL notepat
