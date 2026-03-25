@@ -348,17 +348,17 @@
            (dh (ac-native.drm:display-height display))
            (scale (compute-pixel-scale dw))
            (sw (floor dw scale))
-           (sh (floor dh scale))
-           (screen (fb-create sw sh))
-           (graph (make-graph :fb screen :screen screen))
-           (input (ac-native.input:input-init dw dh scale))
-           (audio (ac-native.audio:audio-init)))
-      (setf *np-frame* 0)
+           (sh (floor dh scale)))
+      (setf *np-screen* (fb-create sw sh)
+            *np-graph* (make-graph :fb *np-screen* :screen *np-screen*)
+            *np-input* (ac-native.input:input-init dw dh scale)
+            *np-audio* (ac-native.audio:audio-init)
+            *np-frame* 0)
 
       (format *error-output* "[notepat] ~Dx~D scale:~D → ~Dx~D~%"
               dw dh scale sw sh)
       (format *error-output* "[notepat] audio: ~A~%"
-              (if audio "OK" "FAILED"))
+              (if *np-audio* "OK" "FAILED"))
       (force-output *error-output*)
 
       (font-init)
@@ -379,44 +379,44 @@
         (setf *boot-handle* (if has-handle handle nil))
         ;; Show splash for 3 seconds or until keypress
         (loop while (< (- (monotonic-time-ms) splash-start) 3000) do
-          (let ((events (ac-native.input:input-poll input)))
+          (let ((events (ac-native.input:input-poll *np-input*)))
             (when (some (lambda (ev) (eq (ac-native.input:event-type ev) :key-down)) events)
               (return)))
           ;; Paint splash
-          (graph-wipe graph (make-color :r 10 :g 12 :b 18))
+          (graph-wipe *np-graph* (make-color :r 10 :g 12 :b 18))
           (let ((cy (floor sh 3)))
             (if has-handle
                 (progn
                   ;; Greeting
-                  (graph-ink graph (make-color :r 140 :g 160 :b 200 :a 220))
-                  (font-draw graph greeting
+                  (graph-ink *np-graph* (make-color :r 140 :g 160 :b 200 :a 220))
+                  (font-draw *np-graph* greeting
                              (- (floor sw 2) (floor (font-measure greeting) 2)) cy)
                   ;; @handle
                   (let ((htxt (format nil "@~A" handle)))
-                    (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 255))
-                    (font-draw graph htxt
+                    (graph-ink *np-graph* (make-color :r 80 :g 255 :b 140 :a 255))
+                    (font-draw *np-graph* htxt
                                (- (floor sw 2) (floor (font-measure htxt) 2)) (+ cy 14)))
                   ;; Subtitle
-                  (graph-ink graph (make-color :r 80 :g 80 :b 100 :a 160))
-                  (font-draw graph "aesthetic.computer"
+                  (graph-ink *np-graph* (make-color :r 80 :g 80 :b 100 :a 160))
+                  (font-draw *np-graph* "aesthetic.computer"
                              (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) (+ cy 32)))
                 (progn
                   ;; No handle: just show name
-                  (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 255))
-                  (font-draw graph "aesthetic.computer"
+                  (graph-ink *np-graph* (make-color :r 80 :g 255 :b 140 :a 255))
+                  (font-draw *np-graph* "aesthetic.computer"
                              (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) cy)
-                  (graph-ink graph (make-color :r 140 :g 160 :b 200 :a 180))
-                  (font-draw graph "notepat"
+                  (graph-ink *np-graph* (make-color :r 140 :g 160 :b 200 :a 180))
+                  (font-draw *np-graph* "notepat"
                              (- (floor sw 2) (floor (font-measure "notepat") 2)) (+ cy 18)))))
             ;; Build name (bottom center)
-            (graph-ink graph (make-color :r 60 :g 60 :b 80 :a 120))
-            (font-draw graph *build-name*
+            (graph-ink *np-graph* (make-color :r 60 :g 60 :b 80 :a 120))
+            (font-draw *np-graph* *build-name*
                        (- (floor sw 2) (floor (font-measure *build-name*) 2)) (- sh 20))
             ;; LISP tag (top right) when CL variant
             (when (string= *build-variant* "cl")
-              (graph-ink graph (make-color :r 255 :g 200 :b 80 :a 200))
-              (font-draw graph "LISP" (- sw (font-measure "LISP") 6) 6)))
-          (ac-native.drm:drm-present display screen scale)
+              (graph-ink *np-graph* (make-color :r 255 :g 200 :b 80 :a 200))
+              (font-draw *np-graph* "LISP" (- sw (font-measure "LISP") 6) 6)))
+          (ac-native.drm:drm-present display *np-screen* scale)
           (frame-sync-60fps)))
 
       ;; Start Swank server for remote REPL
@@ -447,7 +447,7 @@
               (setf *fps-last-time* now))
 
             ;; ── Metronome tick ──
-            (when (and *metronome-on* (> *metronome-bpm* 0) audio)
+            (when (and *metronome-on* (> *metronome-bpm* 0) *np-audio*)
               (let* ((now-ms (monotonic-time-ms))
                      (ms-per-beat (/ 60000.0d0 *metronome-bpm*))
                      (beat-number (floor now-ms ms-per-beat))
@@ -458,7 +458,7 @@
                   (setf *metronome-last-beat* beat-number)
                   (setf *metronome-flash* 1.0)
                   (let ((downbeat (zerop (mod beat-number 4))))
-                    (audio-synth audio :type 3  ; square
+                    (audio-synth *np-audio* :type 3  ; square
                                  :tone (if downbeat 1200.0d0 800.0d0)
                                  :duration 0.03d0
                                  :volume (if downbeat 0.4d0 0.25d0)
@@ -470,7 +470,7 @@
               (when (< *metronome-flash* 0.0) (setf *metronome-flash* 0.0)))
 
             ;; ── Input ──
-            (dolist (ev (ac-native.input:input-poll input))
+            (dolist (ev (ac-native.input:input-poll *np-input*))
               (let ((type (ac-native.input:event-type ev))
                     (code (ac-native.input:event-code ev)))
 
@@ -480,8 +480,8 @@
                     (when (> (- *np-frame* *esc-last-frame*) 90) (setf *esc-count* 0))
                     (incf *esc-count*)
                     (setf *esc-last-frame* *np-frame*)
-                    (when (and audio (< *esc-count* 3))
-                      (audio-synth audio :type 3
+                    (when (and *np-audio* (< *esc-count* 3))
+                      (audio-synth *np-audio* :type 3
                                    :tone (if (= *esc-count* 1) 440.0d0 660.0d0)
                                    :duration 0.08d0 :volume 0.15d0
                                    :attack 0.002d0 :decay 0.06d0))
@@ -511,43 +511,43 @@
                              (<= code ac-native.input:+key-9+))
                     (let ((new-oct (1+ (- code ac-native.input:+key-1+))))
                       (unless (= new-oct *octave*)
-                        (kill-all-voices audio)
+                        (kill-all-voices *np-audio*)
                         (setf *octave* new-oct))))
 
                   ;; Arrow up/down: octave
                   (when (= code ac-native.input:+key-up+)
                     (when (< *octave* 9)
-                      (kill-all-voices audio)
+                      (kill-all-voices *np-audio*)
                       (incf *octave*)))
                   (when (= code ac-native.input:+key-down+)
                     (when (> *octave* 1)
-                      (kill-all-voices audio)
+                      (kill-all-voices *np-audio*)
                       (decf *octave*)))
 
                   ;; Tab / Arrow left/right: cycle wave type
                   (when (or (= code ac-native.input:+key-tab+)
                             (= code ac-native.input:+key-right+))
-                    (kill-all-voices audio)
+                    (kill-all-voices *np-audio*)
                     (setf *wave-index* (mod (1+ *wave-index*) 5))
-                    (when audio
+                    (when *np-audio*
                       (let ((tones #(660.0d0 550.0d0 440.0d0 330.0d0 220.0d0)))
-                        (audio-synth audio :type *wave-index*
+                        (audio-synth *np-audio* :type *wave-index*
                                      :tone (aref tones *wave-index*)
                                      :duration 0.07d0 :volume 0.18d0
                                      :attack 0.002d0 :decay 0.06d0))))
                   (when (= code ac-native.input:+key-left+)
-                    (kill-all-voices audio)
+                    (kill-all-voices *np-audio*)
                     (setf *wave-index* (mod (+ *wave-index* 4) 5))
-                    (when audio
+                    (when *np-audio*
                       (let ((tones #(660.0d0 550.0d0 440.0d0 330.0d0 220.0d0)))
-                        (audio-synth audio :type *wave-index*
+                        (audio-synth *np-audio* :type *wave-index*
                                      :tone (aref tones *wave-index*)
                                      :duration 0.07d0 :volume 0.18d0
                                      :attack 0.002d0 :decay 0.06d0))))
 
                   ;; Note keys
                   (let ((mapping (gethash code *key-note-map*)))
-                    (when (and mapping (not (gethash code *active-voices*)) audio)
+                    (when (and mapping (not (gethash code *active-voices*)) *np-audio*)
                       (let* ((note-name (car mapping))
                              (oct-delta (cdr mapping))
                              (actual-octave (+ *octave* oct-delta))
@@ -556,7 +556,7 @@
                              (semitones (+ (* (- actual-octave 4) 12) (or idx 0)))
                              (pan (max -0.8d0 (min 0.8d0 (/ (- semitones 12) 15.0d0))))
                              (attack (if *quick-mode* 0.002d0 0.005d0))
-                             (voice-id (audio-synth audio
+                             (voice-id (audio-synth *np-audio*
                                                     :type *wave-index*
                                                     :tone freq
                                                     :volume 0.7d0
@@ -571,8 +571,8 @@
                 ;; Key up
                 (when (eq type :key-up)
                   (let ((voice-id (gethash code *active-voices*)))
-                    (when (and voice-id audio)
-                      (audio-synth-kill audio voice-id)
+                    (when (and voice-id *np-audio*)
+                      (audio-synth-kill *np-audio* voice-id)
                       (remhash code *active-voices*)
                       (let ((note-info (gethash code *active-notes*)))
                         (when note-info
@@ -619,7 +619,7 @@
                 (setf *bg-b* (min 255 (+ *bg-b* boost)))))
 
             ;; ══════════════ PAINT ══════════════
-            (graph-wipe graph (make-color :r *bg-r* :g *bg-g* :b *bg-b*))
+            (graph-wipe *np-graph* (make-color :r *bg-r* :g *bg-g* :b *bg-b*))
 
             ;; ── Trails ──
             (maphash (lambda (trail-key val)
@@ -634,11 +634,11 @@
                               (bar-w (max 1 (floor (* val sw))))
                               (bar-x (floor (- sw bar-w) 2))
                               (alpha (max 1 (min 255 (floor (* val 200))))))
-                         (graph-ink graph (make-color :r (first rgb)
+                         (graph-ink *np-graph* (make-color :r (first rgb)
                                                      :g (second rgb)
                                                      :b (third rgb)
                                                      :a alpha))
-                         (graph-box graph bar-x bar-y bar-w bar-h)))
+                         (graph-box *np-graph* bar-x bar-y bar-w bar-h)))
                      *trails*)
 
             ;; ── Active note bars ──
@@ -652,11 +652,11 @@
                               (total-semitones (* 9 12))
                               (bar-h (max 2 (floor (- sh 30) total-semitones)))
                               (bar-y (+ 14 (floor (* semi (- sh 30)) total-semitones))))
-                         (graph-ink graph (make-color :r (min 255 (+ (first rgb) 40))
+                         (graph-ink *np-graph* (make-color :r (min 255 (+ (first rgb) 40))
                                                      :g (min 255 (+ (second rgb) 40))
                                                      :b (min 255 (+ (third rgb) 40))
                                                      :a 220))
-                         (graph-box graph 0 bar-y sw bar-h)))
+                         (graph-box *np-graph* 0 bar-y sw bar-h)))
                      *active-notes*)
 
             ;; ── Metronome pendulum ──
@@ -667,13 +667,13 @@
                      (bx (+ cx (floor (* *metronome-phase* arm-len))))
                      (bright (floor (* *metronome-flash* 255))))
                 ;; Arm line
-                (graph-ink graph (make-color :r 180 :g 180 :b 180 :a 120))
-                (graph-line graph cx cy bx (- cy arm-len))
+                (graph-ink *np-graph* (make-color :r 180 :g 180 :b 180 :a 120))
+                (graph-line *np-graph* cx cy bx (- cy arm-len))
                 ;; Bob
-                (graph-ink graph (make-color :r (min 255 (+ 180 bright))
+                (graph-ink *np-graph* (make-color :r (min 255 (+ 180 bright))
                                             :g (min 255 (+ 100 bright))
                                             :b 60 :a 220))
-                (graph-circle graph bx (- cy arm-len) 3)))
+                (graph-circle *np-graph* bx (- cy arm-len) 3)))
 
             ;; ── Wave type indicators (bottom bar) ──
             (let* ((bar-y (- sh 14))
@@ -690,74 +690,74 @@
                   ;; Button background
                   (if selected
                       (progn
-                        (graph-ink graph (make-color :r 60 :g 50 :b 80 :a 200))
-                        (graph-box graph bx bar-y btn-w 12))
+                        (graph-ink *np-graph* (make-color :r 60 :g 50 :b 80 :a 200))
+                        (graph-box *np-graph* bx bar-y btn-w 12))
                       (progn
-                        (graph-ink graph (make-color :r 30 :g 28 :b 35 :a 150))
-                        (graph-box graph bx bar-y btn-w 12)))
+                        (graph-ink *np-graph* (make-color :r 30 :g 28 :b 35 :a 150))
+                        (graph-box *np-graph* bx bar-y btn-w 12)))
                   ;; Wave name (abbreviated to 3 chars)
-                  (graph-ink graph col)
+                  (graph-ink *np-graph* col)
                   (let ((abbr (subseq (aref *wave-names* i) 0 (min 3 (length (aref *wave-names* i))))))
-                    (font-draw graph abbr
+                    (font-draw *np-graph* abbr
                                (+ bx (floor (- btn-w (* (length abbr) 6)) 2))
                                (+ bar-y 2))))))
 
             ;; ── Status text ──
             ;; Top-left: piece name + mode indicators
-            (graph-ink graph (make-color :r 100 :g 100 :b 110 :a 150))
-            (font-draw graph "notepat" 3 3)
+            (graph-ink *np-graph* (make-color :r 100 :g 100 :b 110 :a 150))
+            (font-draw *np-graph* "notepat" 3 3)
 
             ;; Quick mode indicator
             (when *quick-mode*
-              (graph-ink graph (make-color :r 255 :g 200 :b 50 :a 200))
-              (font-draw graph "Q" (+ 3 (* 8 6)) 3))
+              (graph-ink *np-graph* (make-color :r 255 :g 200 :b 50 :a 200))
+              (font-draw *np-graph* "Q" (+ 3 (* 8 6)) 3))
 
             ;; Handle (top-left, after piece name)
             (when *boot-handle*
               (let ((htxt (format nil "@~A" *boot-handle*)))
-                (graph-ink graph (make-color :r 80 :g 255 :b 140 :a 140))
-                (font-draw graph htxt (+ 3 (* (if *quick-mode* 10 8) 6)) 3)))
+                (graph-ink *np-graph* (make-color :r 80 :g 255 :b 140 :a 140))
+                (font-draw *np-graph* htxt (+ 3 (* (if *quick-mode* 10 8) 6)) 3)))
 
             ;; Octave (top-left, below title)
-            (graph-ink graph (make-color :r 160 :g 160 :b 170 :a 180))
-            (font-draw graph (format nil "OCT ~D" *octave*) 3 14)
+            (graph-ink *np-graph* (make-color :r 160 :g 160 :b 170 :a 180))
+            (font-draw *np-graph* (format nil "OCT ~D" *octave*) 3 14)
 
             ;; Metronome BPM (if on)
             (when *metronome-on*
-              (graph-ink graph (make-color :r 180 :g 140 :b 60 :a 200))
-              (font-draw graph (format nil "~DBPM" *metronome-bpm*)
+              (graph-ink *np-graph* (make-color :r 180 :g 140 :b 60 :a 200))
+              (font-draw *np-graph* (format nil "~DBPM" *metronome-bpm*)
                          (+ 3 (* 7 6)) 14))
 
             ;; FPS (top-right)
             (let ((fps-txt (format nil "~D" *fps-display*)))
-              (graph-ink graph (make-color :r 80 :g 80 :b 90 :a 120))
-              (font-draw graph fps-txt (- sw (* (length fps-txt) 6) 3) 3))
+              (graph-ink *np-graph* (make-color :r 80 :g 80 :b 90 :a 120))
+              (font-draw *np-graph* fps-txt (- sw (* (length fps-txt) 6) 3) 3))
 
             ;; Voice count (top-right, below FPS)
             (let ((vc (hash-table-count *active-voices*)))
               (when (> vc 0)
                 (let ((txt (format nil "~Dv" vc)))
-                  (graph-ink graph (make-color :r 200 :g 200 :b 200 :a 180))
-                  (font-draw graph txt (- sw (* (length txt) 6) 3) 14))))
+                  (graph-ink *np-graph* (make-color :r 200 :g 200 :b 200 :a 180))
+                  (font-draw *np-graph* txt (- sw (* (length txt) 6) 3) 14))))
 
             ;; IP + Swank (top center)
             (when (> (length *ip-address*) 0)
               (let ((txt (format nil "~A:4005" *ip-address*)))
-                (graph-ink graph (make-color :r 60 :g 180 :b 60 :a 160))
-                (font-draw graph txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
+                (graph-ink *np-graph* (make-color :r 60 :g 180 :b 60 :a 160))
+                (font-draw *np-graph* txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
 
             ;; Refresh IP every ~5 seconds
             (when (zerop (mod *np-frame* 300)) (refresh-ip))
 
             ;; ── Present ──
-            (ac-native.drm:drm-present display screen scale)
+            (ac-native.drm:drm-present display *np-screen* scale)
             (frame-sync-60fps))
 
         ;; ── Cleanup ──
-        (when audio (ignore-errors (kill-all-voices audio)))
-        (when audio (ignore-errors (audio-destroy audio)))
-        (when input (ignore-errors (ac-native.input:input-destroy input)))
-        (when screen (ignore-errors (fb-destroy screen)))
+        (when *np-audio* (ignore-errors (kill-all-voices *np-audio*)))
+        (when *np-audio* (ignore-errors (audio-destroy *np-audio*)))
+        (when *np-input* (ignore-errors (ac-native.input:input-destroy *np-input*)))
+        (when *np-screen* (ignore-errors (fb-destroy *np-screen*)))
         (ignore-errors (ac-native.drm:drm-destroy display))
         (format *error-output* "[notepat] shutdown~%")
         (force-output *error-output*))))
