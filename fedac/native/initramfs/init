@@ -71,19 +71,28 @@ done
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Debug: write diagnostics to USB AND kernel console
-LOG=/mnt/pre-launch.log
-echo "=== PRE-LAUNCH ===" > $LOG 2>/dev/null
-echo "mnt: $(ls /mnt/ 2>&1)" | tee -a $LOG 2>/dev/null
-echo "binary: $(ls -la /ac-native 2>&1)" | tee -a $LOG 2>/dev/null
-echo "libs: $(ls /lib64/libquickjs* 2>&1)" | tee -a $LOG 2>/dev/null
-echo "build: $(cat /etc/ac-build 2>&1)" | tee -a $LOG 2>/dev/null
-echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" | tee -a $LOG 2>/dev/null
-sync
-# Run once, capture crash, pause so user can read screen
-echo "=== LAUNCHING ===" | tee -a $LOG 2>/dev/null
-/ac-native /piece.mjs >> $LOG 2>&1
-echo "EXIT=$?" | tee -a $LOG 2>/dev/null
+# Debug: ALWAYS write to kernel console (dmesg) + USB if mounted
+echo "[ac-init] USB_MOUNTED=$USB_MOUNTED"
+echo "[ac-init] mnt: $(ls /mnt/ 2>&1)"
+echo "[ac-init] binary: $(ls -la /ac-native 2>&1)"
+echo "[ac-init] libs: $(ls /lib64/libquickjs* 2>&1)"
+echo "[ac-init] build: $(cat /etc/ac-build 2>&1)"
+echo "[ac-init] LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
+# Also write to USB if mounted
+if [ "$USB_MOUNTED" = "1" ]; then
+    LOG=/mnt/pre-launch.log
+    echo "=== PRE-LAUNCH ===" > $LOG
+    ls /mnt/ >> $LOG 2>&1
+    ls -la /ac-native >> $LOG 2>&1
+    ls /lib64/libquickjs* >> $LOG 2>&1
+    cat /etc/ac-build >> $LOG 2>&1
+    echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $LOG
+    sync
+fi
+# Run once, capture crash
+echo "[ac-init] === LAUNCHING ==="
+/ac-native /piece.mjs > /mnt/pre-launch-out.log 2>&1
+echo "[ac-init] EXIT=$?"
 sync
 sleep 5
 
