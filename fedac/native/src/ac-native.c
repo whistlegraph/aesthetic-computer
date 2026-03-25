@@ -1306,13 +1306,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // Show install option whenever booting from USB (even if already installed —
     // user may want to update). Detect USB by checking if boot device is removable.
     int show_install = 0;
-    if (getpid() == 1 && log_dev[0]) {
+    if (log_dev[0]) {
         char boot_blk[32] = "";
         get_parent_block(log_dev + 5, boot_blk, sizeof(boot_blk));
         show_install = (boot_blk[0] && is_removable(boot_blk) == 1) ? 1 : 0;
         ac_log("[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
                 log_dev, boot_blk, is_removable(boot_blk), show_install);
-    } else if (getpid() == 1) {
+    } else {
         // No log_dev yet — always show install option (user can update or fresh install)
         show_install = 1;
         ac_log("[boot-anim] no log_dev, show_install=1 (always offer)\n");
@@ -1969,12 +1969,29 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_WAYLAND
     if (is_wayland) {
-        // ── Cage session: skip boot animation, install, wifi (parent did all that) ──
-        ac_log("[ac-native] Wayland session — skipping boot sequence\n");
+        // ── Cage session ──
+        ac_log("[ac-native] Wayland session\n");
 
         // Input (Wayland path)
         if (!headless)
             input = input_init_wayland(wayland_display, display->width, display->height, pixel_scale);
+
+        // Boot animation with install prompt (same as DRM path)
+        audio_boot_beep(audio);
+        tts = tts_init(audio);
+        int want_install = 0;
+        if (!headless) {
+            want_install = draw_startup_fade(&graph, screen, display, tts, audio, pixel_scale);
+            if (!want_install)
+                draw_boot_status(&graph, screen, display, "starting...", pixel_scale);
+        }
+        if (want_install) {
+            int install_ok = auto_install_to_hd(&graph, screen, display, pixel_scale);
+            if (display) {
+                int should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
+                if (should_reboot) { system("reboot -f"); _exit(0); }
+            }
+        }
 
         // WiFi is already running from parent — just connect to it
         if (!wifi_disabled)
