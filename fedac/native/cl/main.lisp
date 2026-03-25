@@ -122,12 +122,18 @@
 ;; Identity
 (defvar *boot-handle* nil "Handle from config, set during boot splash.")
 
-;; Native notepat runtime state (defvar to survive unwind-protect after save-lisp-and-die)
+;; Native notepat runtime state (defvar — SBCL standalone loses let* locals)
+(defvar *np-dw* 0)
+(defvar *np-dh* 0)
+(defvar *np-scale* 1)
+(defvar *np-sw* 0)
+(defvar *np-sh* 0)
 (defvar *np-screen* nil)
 (defvar *np-graph* nil)
 (defvar *np-input* nil)
 (defvar *np-audio* nil)
 (defvar *np-frame* 0)
+(defvar *np-display* nil)
 
 ;; Network
 (defvar *ip-address* "")
@@ -336,27 +342,28 @@
 
   (init-key-note-map)
 
-  (let ((display (handler-case (ac-native.drm:drm-init)
-                   (error (e)
-                     (format *error-output* "[notepat] DRM error: ~A~%" e)
-                     (force-output *error-output*) nil))))
-    (unless display
-      (format *error-output* "[notepat] FATAL: no display~%")
-      (force-output *error-output*) (sleep 30) (return-from main 1))
+  (setf *np-display* (handler-case (ac-native.drm:drm-init)
+                       (error (e)
+                         (format *error-output* "[notepat] DRM error: ~A~%" e)
+                         (force-output *error-output*) nil)))
+  (unless *np-display*
+    (format *error-output* "[notepat] FATAL: no display~%")
+    (force-output *error-output*) (sleep 30) (return-from main 1))
 
-    (let* ((dw (ac-native.drm:display-width display))
-           (dh (ac-native.drm:display-height display))
-           (scale (compute-pixel-scale dw))
-           (sw (floor dw scale))
-           (sh (floor dh scale)))
-      (setf *np-screen* (fb-create sw sh)
-            *np-graph* (make-graph :fb *np-screen* :screen *np-screen*)
-            *np-input* (ac-native.input:input-init dw dh scale)
-            *np-audio* (ac-native.audio:audio-init)
-            *np-frame* 0)
+  (setf *np-dw* (ac-native.drm:display-width *np-display*)
+        *np-dh* (ac-native.drm:display-height *np-display*)
+        *np-scale* (compute-pixel-scale *np-dw*)
+        *np-sw* (floor *np-dw* *np-scale*)
+        *np-sh* (floor *np-dh* *np-scale*)
+        *np-screen* (fb-create *np-sw* *np-sh*)
+        *np-graph* (make-graph :fb *np-screen* :screen *np-screen*)
+        *np-input* (ac-native.input:input-init *np-dw* *np-dh* *np-scale*)
+        *np-audio* (ac-native.audio:audio-init)
+        *np-frame* 0)
+  (progn
 
       (format *error-output* "[notepat] ~Dx~D scale:~D → ~Dx~D~%"
-              dw dh scale sw sh)
+              *np-dw* *np-dh* *np-scale* *np-sw* *np-sh*)
       (format *error-output* "[notepat] audio: ~A~%"
               (if *np-audio* "OK" "FAILED"))
       (force-output *error-output*)
@@ -384,39 +391,39 @@
               (return)))
           ;; Paint splash
           (graph-wipe *np-graph* (make-color :r 10 :g 12 :b 18))
-          (let ((cy (floor sh 3)))
+          (let ((cy (floor *np-sh* 3)))
             (if has-handle
                 (progn
                   ;; Greeting
                   (graph-ink *np-graph* (make-color :r 140 :g 160 :b 200 :a 220))
                   (font-draw *np-graph* greeting
-                             (- (floor sw 2) (floor (font-measure greeting) 2)) cy)
+                             (- (floor *np-sw* 2) (floor (font-measure greeting) 2)) cy)
                   ;; @handle
                   (let ((htxt (format nil "@~A" handle)))
                     (graph-ink *np-graph* (make-color :r 80 :g 255 :b 140 :a 255))
                     (font-draw *np-graph* htxt
-                               (- (floor sw 2) (floor (font-measure htxt) 2)) (+ cy 14)))
+                               (- (floor *np-sw* 2) (floor (font-measure htxt) 2)) (+ cy 14)))
                   ;; Subtitle
                   (graph-ink *np-graph* (make-color :r 80 :g 80 :b 100 :a 160))
                   (font-draw *np-graph* "aesthetic.computer"
-                             (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) (+ cy 32)))
+                             (- (floor *np-sw* 2) (floor (font-measure "aesthetic.computer") 2)) (+ cy 32)))
                 (progn
                   ;; No handle: just show name
                   (graph-ink *np-graph* (make-color :r 80 :g 255 :b 140 :a 255))
                   (font-draw *np-graph* "aesthetic.computer"
-                             (- (floor sw 2) (floor (font-measure "aesthetic.computer") 2)) cy)
+                             (- (floor *np-sw* 2) (floor (font-measure "aesthetic.computer") 2)) cy)
                   (graph-ink *np-graph* (make-color :r 140 :g 160 :b 200 :a 180))
                   (font-draw *np-graph* "notepat"
-                             (- (floor sw 2) (floor (font-measure "notepat") 2)) (+ cy 18)))))
+                             (- (floor *np-sw* 2) (floor (font-measure "notepat") 2)) (+ cy 18)))))
             ;; Build name (bottom center)
             (graph-ink *np-graph* (make-color :r 60 :g 60 :b 80 :a 120))
             (font-draw *np-graph* *build-name*
-                       (- (floor sw 2) (floor (font-measure *build-name*) 2)) (- sh 20))
+                       (- (floor *np-sw* 2) (floor (font-measure *build-name*) 2)) (- *np-sh* 20))
             ;; LISP tag (top right) when CL variant
             (when (string= *build-variant* "cl")
               (graph-ink *np-graph* (make-color :r 255 :g 200 :b 80 :a 200))
-              (font-draw *np-graph* "LISP" (- sw (font-measure "LISP") 6) 6)))
-          (ac-native.drm:drm-present display *np-screen* scale)
+              (font-draw *np-graph* "LISP" (- *np-sw* (font-measure "LISP") 6) 6)))
+          (ac-native.drm:drm-present *np-display* *np-screen* *np-scale*)
           (frame-sync-60fps)))
 
       ;; Start Swank server for remote REPL
@@ -629,10 +636,10 @@
                               (note-idx (or (position note-name *chromatic* :test #'string=) 0))
                               (semi (+ (* (- oct 1) 12) note-idx))
                               (total-semitones (* 9 12))
-                              (bar-h (max 2 (floor (- sh 30) total-semitones)))
-                              (bar-y (+ 14 (floor (* semi (- sh 30)) total-semitones)))
-                              (bar-w (max 1 (floor (* val sw))))
-                              (bar-x (floor (- sw bar-w) 2))
+                              (bar-h (max 2 (floor (- *np-sh* 30) total-semitones)))
+                              (bar-y (+ 14 (floor (* semi (- *np-sh* 30)) total-semitones)))
+                              (bar-w (max 1 (floor (* val *np-sw*))))
+                              (bar-x (floor (- *np-sw* bar-w) 2))
                               (alpha (max 1 (min 255 (floor (* val 200))))))
                          (graph-ink *np-graph* (make-color :r (first rgb)
                                                      :g (second rgb)
@@ -650,20 +657,20 @@
                               (note-idx (or (position note-name *chromatic* :test #'string=) 0))
                               (semi (+ (* (- oct 1) 12) note-idx))
                               (total-semitones (* 9 12))
-                              (bar-h (max 2 (floor (- sh 30) total-semitones)))
-                              (bar-y (+ 14 (floor (* semi (- sh 30)) total-semitones))))
+                              (bar-h (max 2 (floor (- *np-sh* 30) total-semitones)))
+                              (bar-y (+ 14 (floor (* semi (- *np-sh* 30)) total-semitones))))
                          (graph-ink *np-graph* (make-color :r (min 255 (+ (first rgb) 40))
                                                      :g (min 255 (+ (second rgb) 40))
                                                      :b (min 255 (+ (third rgb) 40))
                                                      :a 220))
-                         (graph-box *np-graph* 0 bar-y sw bar-h)))
+                         (graph-box *np-graph* 0 bar-y *np-sw* bar-h)))
                      *active-notes*)
 
             ;; ── Metronome pendulum ──
             (when *metronome-on*
-              (let* ((cx (floor sw 2))
-                     (cy (- sh 24))
-                     (arm-len (min 20 (floor sh 8)))
+              (let* ((cx (floor *np-sw* 2))
+                     (cy (- *np-sh* 24))
+                     (arm-len (min 20 (floor *np-sh* 8)))
                      (bx (+ cx (floor (* *metronome-phase* arm-len))))
                      (bright (floor (* *metronome-flash* 255))))
                 ;; Arm line
@@ -676,11 +683,11 @@
                 (graph-circle *np-graph* bx (- cy arm-len) 3)))
 
             ;; ── Wave type indicators (bottom bar) ──
-            (let* ((bar-y (- sh 14))
-                   (btn-w (max 12 (floor sw 6)))
+            (let* ((bar-y (- *np-sh* 14))
+                   (btn-w (max 12 (floor *np-sw* 6)))
                    (gap 2)
                    (total-w (+ (* 5 btn-w) (* 4 gap)))
-                   (start-x (floor (- sw total-w) 2)))
+                   (start-x (floor (- *np-sw* total-w) 2)))
               (dotimes (i 5)
                 (let* ((bx (+ start-x (* i (+ btn-w gap))))
                        (selected (= i *wave-index*))
@@ -731,26 +738,26 @@
             ;; FPS (top-right)
             (let ((fps-txt (format nil "~D" *fps-display*)))
               (graph-ink *np-graph* (make-color :r 80 :g 80 :b 90 :a 120))
-              (font-draw *np-graph* fps-txt (- sw (* (length fps-txt) 6) 3) 3))
+              (font-draw *np-graph* fps-txt (- *np-sw* (* (length fps-txt) 6) 3) 3))
 
             ;; Voice count (top-right, below FPS)
             (let ((vc (hash-table-count *active-voices*)))
               (when (> vc 0)
                 (let ((txt (format nil "~Dv" vc)))
                   (graph-ink *np-graph* (make-color :r 200 :g 200 :b 200 :a 180))
-                  (font-draw *np-graph* txt (- sw (* (length txt) 6) 3) 14))))
+                  (font-draw *np-graph* txt (- *np-sw* (* (length txt) 6) 3) 14))))
 
             ;; IP + Swank (top center)
             (when (> (length *ip-address*) 0)
               (let ((txt (format nil "~A:4005" *ip-address*)))
                 (graph-ink *np-graph* (make-color :r 60 :g 180 :b 60 :a 160))
-                (font-draw *np-graph* txt (- (floor sw 2) (floor (font-measure txt) 2)) 3)))
+                (font-draw *np-graph* txt (- (floor *np-sw* 2) (floor (font-measure txt) 2)) 3)))
 
             ;; Refresh IP every ~5 seconds
             (when (zerop (mod *np-frame* 300)) (refresh-ip))
 
             ;; ── Present ──
-            (ac-native.drm:drm-present display *np-screen* scale)
+            (ac-native.drm:drm-present *np-display* *np-screen* *np-scale*)
             (frame-sync-60fps))
 
         ;; ── Cleanup ──
@@ -758,6 +765,6 @@
         (when *np-audio* (ignore-errors (audio-destroy *np-audio*)))
         (when *np-input* (ignore-errors (ac-native.input:input-destroy *np-input*)))
         (when *np-screen* (ignore-errors (fb-destroy *np-screen*)))
-        (ignore-errors (ac-native.drm:drm-destroy display))
+        (ignore-errors (ac-native.drm:drm-destroy *np-display*))
         (format *error-output* "[notepat] shutdown~%")
-        (force-output *error-output*))))
+        (force-output *error-output*)))
