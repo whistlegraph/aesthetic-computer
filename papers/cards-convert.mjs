@@ -27,7 +27,7 @@ const PAPER_MAP = {
   "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv" },
   "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv" },
   "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv" },
-  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv" },
+  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv", translations: { da: "Dansk", es: "Español", zh: "Chinese", ja: "Japanese" } },
   "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv" },
   "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv" },
   "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
@@ -176,6 +176,14 @@ function generateCardsTeX(dir, info, parsed) {
   const title = info.title || parsed.pdftitle;
   const subtitle = parsed.subtitle || "";
 
+  // Translation links for title card
+  const translationLinks = info.translations
+    ? Object.entries(info.translations)
+        .map(([code, label]) =>
+          `\\href{https://papers.aesthetic.computer/${info.siteName}-${code}-cards.pdf}{${label}}`)
+        .join(" · ")
+    : "";
+
   // Extra custom commands from the base .tex preamble
   const extraCmds = parsed.extraCommands.length > 0
     ? "\n% Extra commands from base paper\n" + parsed.extraCommands.join("\n")
@@ -251,8 +259,10 @@ ${subtitle ? `{\\fontsize{10pt}{12pt}\\selectfont\\color{acpink} ${subtitle}}\\p
 \\rule{0.6\\textwidth}{1pt}\\par
 \\vspace{0.4em}
 \\colorbox{yellow!60}{\\small\\color{red!80!black}\\textbf{\\textit{working draft --- not for citation}}}\\par
+\\vspace{0.2em}
+{\\footnotesize\\color{acgray} March 2026 · Revision 2}\\par${translationLinks ? `
 \\vspace{0.3em}
-{\\footnotesize\\color{acgray} March 2026}\\par
+{\\footnotesize\\color{acgray}${translationLinks}}\\par` : ""}
 \\end{center}
 \\vspace*{\\fill}
 
