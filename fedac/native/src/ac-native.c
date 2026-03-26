@@ -41,7 +41,7 @@
 static volatile int running = 1;
 static FILE *logfile = NULL;
 int ac_log_stderr_muted = 0;  // When set, ac_log skips stderr (PTY active)
-int voice_off = 0;            // When set, keystroke TTS is disabled
+int voice_off = 1;            // Keystroke TTS disabled by default (enable with voice:on in config)
 static int is_removable(const char *blkname);
 static void get_parent_block(const char *part, char *out, int out_sz);
 

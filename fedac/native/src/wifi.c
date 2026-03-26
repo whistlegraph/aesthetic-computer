@@ -336,13 +336,22 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                     int fd = open("/tmp/dhcp.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
                     if (fd >= 0) { dup2(fd, 2); dup2(fd, 1); close(fd); }
                     // Prefer udhcpc (busybox) — fast, no script needed
-                    if (file_exists("/sbin/udhcpc"))
-                        execl("/sbin/udhcpc", "udhcpc", "-i", wifi->iface,
+                    const char *udhcpc = NULL;
+                    if (file_exists("/sbin/udhcpc")) udhcpc = "/sbin/udhcpc";
+                    else if (file_exists("/bin/udhcpc")) udhcpc = "/bin/udhcpc";
+                    else if (file_exists("/usr/bin/udhcpc")) udhcpc = "/usr/bin/udhcpc";
+                    if (udhcpc) {
+                        fprintf(stderr, "[wifi] using udhcpc: %s\n", udhcpc);
+                        execl(udhcpc, "udhcpc", "-i", wifi->iface,
                               "-n",  // exit if no lease (don't background)
                               "-q",  // quit after obtaining lease
+                              "-s", "/usr/share/udhcpc/default.script",
                               "-t", "5",  // 5 retries
                               "-T", "3",  // 3 second timeout
                               NULL);
+                        // execl failed
+                        fprintf(stderr, "[wifi] udhcpc execl failed: %s\n", strerror(errno));
+                    }
                     // Fallback to dhclient
                     const char *dhc_paths[] = {
                         "/sbin/dhclient", "/usr/sbin/dhclient", NULL
@@ -402,14 +411,14 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                 pclose(ifp);
             }
 
-            // Check if dhclient died
+            // Check if DHCP client died
             if (wifi->dhcp_pid > 0) {
                 int status;
                 pid_t r = waitpid(wifi->dhcp_pid, &status, WNOHANG);
                 if (r > 0) {
                     if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-                        wifi_log(wifi, "dhclient exit %d", WEXITSTATUS(status));
-                        FILE *dlog = fopen("/tmp/dhclient.log", "r");
+                        wifi_log(wifi, "DHCP exit %d", WEXITSTATUS(status));
+                        FILE *dlog = fopen("/tmp/dhcp.log", "r");
                         if (dlog) {
                             char dline[256];
                             while (fgets(dline, sizeof(dline), dlog))
