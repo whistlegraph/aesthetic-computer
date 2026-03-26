@@ -323,7 +323,25 @@
 (defvar *js-fallback* nil "Set to T when falling back from JS to prevent re-entry loop.")
 
 (defun main ()
-  "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat."
+  "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat.
+When called with --swank-only, starts Swank server and blocks (no graphics)."
+  ;; Swank-only mode: just start the REPL server and sleep forever
+  (when (member "--swank-only" (uiop:command-line-arguments) :test #'string=)
+    (format *error-output* "[swank] Starting Swank server on port 4005...~%")
+    (force-output *error-output*)
+    (handler-case
+        (progn
+          (setf swank::*communication-style* :spawn)
+          (swank:create-server :port 4005 :dont-close t)
+          (format *error-output* "[swank] Swank ready on port 4005~%")
+          (force-output *error-output*)
+          ;; Block forever — Swank handles connections in its own threads
+          (loop (sleep 3600)))
+      (error (e)
+        (format *error-output* "[swank] Failed: ~A~%" e)
+        (force-output *error-output*)
+        (return-from main))))
+
   ;; Determine piece: config.json > command-line arg > default
   (unless *js-fallback*
     (let* ((cfg (handler-case (ac-native.config:load-config)
