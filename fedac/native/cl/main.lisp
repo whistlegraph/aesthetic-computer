@@ -342,6 +342,15 @@ When called with --swank-only, starts Swank server and blocks (no graphics)."
         (force-output *error-output*)
         (return-from main))))
 
+  ;; --piece MODE: run a specific CL piece with graphics (launched by C binary)
+  (let ((piece-arg (second (member "--piece" (uiop:command-line-arguments) :test #'string=))))
+    (when piece-arg
+      (format *error-output* "[cl] Running CL piece: ~A~%" piece-arg)
+      (force-output *error-output*)
+      ;; Go straight to native CL notepat (the only CL piece for now)
+      ;; Future: dispatch to different CL pieces based on piece-arg
+      (setf *js-fallback* t)))
+
   ;; Determine piece: config.json > command-line arg > default
   (unless *js-fallback*
     (let* ((cfg (handler-case (ac-native.config:load-config)
