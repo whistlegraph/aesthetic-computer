@@ -69,7 +69,7 @@
   urlcolor=acpurple,
   citecolor=acpurple,
   pdfauthor={@jeffrey},
-  pdftitle={PLOrk'ing the Planet: From Laptop Orchestra to Planetary Organ},
+  pdftitle={PLOrk'ing the Planet: From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ},
 }
 
 % === SECTION FORMATTING ===
@@ -169,7 +169,7 @@
 \includegraphics[height=4em]{pals}\par\vspace{0.5em}
 {\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} PLOrk'ing the Planet}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} From Laptop Orchestra to Planetary Organ}\par
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ}\par
 \vspace{0.3em}
 {\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Surplus Hardware, Bare-Metal Synthesis, and the 240-Million-Machine Orchestra}\par
 \vspace{0.6em}
@@ -336,6 +336,21 @@ The runtime includes a 32-voice polyphonic synthesizer with per-voice ADSR envel
 This is the critical divergence from PLOrk. Trueman's hemispherical speaker solved the problem of spatial sound projection for laptop ensembles. \acos{} sidesteps the problem entirely: the built-in laptop speakers are the speakers. They are not omnidirectional, not hemispherical, not acoustically ideal. But they are \emph{there}---in every surplus laptop, already connected, requiring no fabrication, no amplifiers, no power conditioners, no racks.
 
 For a 15-person PLOrk ensemble performing in a concert hall, hemispherical speakers are the right answer. For a 1{,}000-person distributed ensemble performing in classrooms, community centers, parks, and living rooms, the laptop's own speakers are the right answer. The hemispherical speaker was a solution to a concert hall problem. The planetary laptop orchestra is not a concert hall.
+
+\subsection{Notepat: The Default Instrument}
+\label{sec:notepat}
+
+\acos{} does not boot into a desktop, a browser, or a command line. It boots into \np{}---a chromatic keyboard instrument~\citep{scudder2026notepat}. The first thing you can do with the machine is \emph{play it}. The first sound it makes is a tone you chose. This framing---instrument, not computer---changes the user's relationship to the device before any instruction begins.
+
+The keyboard layout encodes a pedagogical decision. The QWERTY keys C, D, E, F, G, A, and B play the notes they name. A person who knows the Western scale already knows the layout. Sharps sit between their naturals on the keyboard (V for C\(\sharp\), S for D\(\sharp\), W for F\(\sharp\), R for G\(\sharp\), Q for A\(\sharp\)). A second octave mirrors the pattern on the upper row (H through N for naturals, T through P for sharps). The result is a two-octave chromatic instrument playable without explanation, expandable to nine octaves via a single key press.
+
+This is not an accident of implementation. PLOrk required performers to learn Max/MSP, ChucK, or SuperCollider before they could produce a sound. L2Ork required Pd-L2Ork. Both demanded software literacy as a prerequisite for musical participation. \np{} inverts this: musical participation is the prerequisite for nothing. It is the starting point.
+
+The design draws on Orff and Kod\'{a}ly pedagogies, which constrain the instrument to match the learner's current ability~\citep{scudder2026folksongs}. \np{}'s song mode makes this explicit: a scrolling lyric track shows the current syllable, only the correct note is active, and pressing it advances the song. The player cannot make a mistake---they can only wait. Wrong notes are blocked. Right notes are highlighted. The instrument teaches the song by refusing to let you fail.
+
+Songs are encoded as NOTE:word pairs (e.g., ``C:Twin- G:kle A:lit-tle'') that are human-readable, URL-safe, and forkable---a folk process in text form~\citep{scudder2026folksongs}. Any \acos{} user can write a song as a string, share it as a URL, and another user can play it immediately. The encoding carries melody and lyrics but not duration or dynamics; those remain in the performer's hands, preserving the interpretive space that distinguishes performance from playback.
+
+For the planetary laptop orchestra, this matters concretely. A conductor distributing \acos{} devices in a classroom does not need to teach programming, music notation, or software configuration. The instrument is ready. The folk songs are loaded. The students press keys and hear notes. Everything else---waveform selection, octave shifting, recording, sharing, eventually writing code---comes later, pulled by curiosity rather than pushed by curriculum.
 
 \subsection{The Laptop Already Has Everything}
 
@@ -596,6 +611,12 @@ The deepest lesson from OLPC is that hardware-first deployments fail when they r
 This paper advances an ambitious claim. The limitations are real and should be stated plainly.
 
 \textbf{Audio quality.} Built-in laptop speakers are acoustically poor. They lack bass response, have limited dynamic range, and project sound narrowly. Trueman's hemispherical speaker solved a real problem---electronic instruments need acoustic presence to function musically in ensemble contexts. A surplus ThinkPad's speakers cannot match this. For intimate or small-group contexts, built-in speakers may suffice. For any ensemble larger than a room, external amplification is needed, partially eroding the ``no additional hardware'' claim.
+
+However, the amplification gap has a commercially available answer that did not exist when PLOrk was designed. The Minirig speaker system (Minirig 4, \$170; Minirig Mini, \$100; Minirig Subwoofer 4, \$250) is a portable, Bluetooth-and-aux speaker designed for exactly this use case: high-fidelity audio from a small, battery-powered, rugged enclosure. A single Minirig 4 produces 80\,dB at 1\,m with a frequency response of 50\,Hz--20\,kHz---adequate for a classroom or small venue. Multiple Minirigs can be daisy-chained via aux or paired wirelessly for stereo and multi-point configurations. Adding a Minirig Subwoofer extends bass response to 40\,Hz, approaching the low-end presence of a hemispherical speaker system.
+
+The cost comparison is instructive. A PLOrk hemispherical speaker required custom fabrication (\$300--500 in materials), an 8-channel amplifier (\$200+), a power conditioner, and a rack enclosure. Total per-seat amplification cost: roughly \$600--800, not counting labor. A Minirig 4 at \$170 provides comparable acoustic presence for small-ensemble contexts, ships to your door, fits in a backpack, runs on a rechargeable battery for 30+ hours, and requires no fabrication, no rack, no power conditioner.
+
+This does not eliminate the limitation---a Minirig is not a hemispherical speaker, and directional projection remains an open problem for laptop ensembles. But it reduces the amplification question from ``build custom hardware'' to ``buy an off-the-shelf speaker,'' which is a qualitatively different kind of problem. For a community laptop orchestra operating on a budget, 15 Minirig Minis (\$1{,}500 total) provide per-seat amplification at roughly one-eighth the cost of PLOrk's custom solution, with zero fabrication time.
 
 \textbf{ARM support.} \acos{} currently targets x86\_64 UEFI machines only. The majority of surplus educational Chromebooks use ARM processors (Mediatek, Qualcomm). Until ARM support ships, the single largest pool of surplus educational hardware remains inaccessible. This is the most critical engineering gap.
 

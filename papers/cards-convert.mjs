@@ -240,17 +240,17 @@ ${extraCmds}
 \\thispagestyle{empty}
 \\vspace*{\\fill}
 \\begin{center}
-\\includegraphics[height=8em]{pals}\\par\\vspace{0.3em}
+\\includegraphics[height=8em]{pals}\\par\\vspace{0.2em}
 {\\acbold\\fontsize{20pt}{24pt}\\selectfont\\color{acdark} ${title}}\\par
 \\vspace{0.3em}
 ${subtitle ? `{\\fontsize{10pt}{12pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.8em}` : "\\vspace{0.5em}"}
-{\\normalsize\\color{cyan!70!blue}\\textbf{@jeffrey}}\\par
+{\\normalsize\\color{cyan!70!blue}\\href{https://prompt.ac/@jeffrey}{\\textbf{@jeffrey}}}\\par
 {\\small\\color{acgray} Aesthetic.Computer}\\par
 {\\small\\color{acgray} ORCID: \\href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\\par
 \\vspace{0.8em}
 \\rule{0.6\\textwidth}{1pt}\\par
 \\vspace{0.4em}
-{\\small\\color{acpink!40}\\textit{working draft --- not for citation}}\\par
+\\colorbox{yellow!60}{\\small\\color{red!80!black}\\textbf{\\textit{working draft --- not for citation}}}\\par
 \\vspace{0.3em}
 {\\footnotesize\\color{acgray} March 2026}\\par
 \\end{center}

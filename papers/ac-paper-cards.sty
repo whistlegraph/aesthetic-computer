@@ -28,7 +28,7 @@
   paperwidth=4in,
   paperheight=6in,
   top=0.45in,
-  bottom=0.55in,
+  bottom=0.85in,
   left=0.4in,
   right=0.4in,
 ]{geometry}
@@ -132,28 +132,29 @@
 \RequirePackage{tikz}
 \AddToShipoutPictureBG{%
   \begin{tikzpicture}[remember picture, overlay]
-    % Hairline border on every page
-    \draw[acgray!30, line width=0.2pt]
-      ([xshift=2pt, yshift=2pt]current page.south west) rectangle
-      ([xshift=-2pt, yshift=-2pt]current page.north east);
     % Draft watermark — tiled pattern across content pages (skip cover)
     \ifnum\c@page>1\relax
-      \foreach \xoff in {-3cm, 0cm, 3cm} {
-        \foreach \yoff in {-4cm, -1cm, 2cm, 5cm} {
-          \node[opacity=0.08, rotate=35, anchor=center, font=\aclight\fontsize{0.55cm}{0.65cm}\selectfont]
+      \foreach \xoff in {-3cm, 1cm, 5cm} {
+        \foreach \yoff in {-5cm, -1.5cm, 2cm, 5.5cm} {
+          \node[opacity=0.14, rotate=35, anchor=center, font=\aclight\fontsize{0.65cm}{0.8cm}\selectfont]
             at ([xshift=\xoff, yshift=\yoff]current page.center)
             {\color{red!70!acpink}WORKING DRAFT};
         }
       }
-      \node[opacity=0.12, rotate=35, anchor=center, font=\aclight\fontsize{0.3cm}{0.35cm}\selectfont]
-        at ([yshift=-0.5cm]current page.center)
-        {\color{red!70!acpink}not for citation};
     \fi
-    % Rotated URL running up the left margin
+    % Tappable URL at bottom center of every page
     \ifx\acpdfbase\empty\else
-      \node[rotate=90, anchor=south, font=\tiny, color=acgray, opacity=0.35]
-        at ([xshift=0.15cm, yshift=0.4cm]current page.south west)
-        {papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage};
+      \ifnum\c@page=1\relax
+        \node[anchor=south, font=\acbold\fontsize{5pt}{6pt}\selectfont, opacity=0.7]
+          at ([yshift=0.15cm]current page.south)
+          {\href{https://papers.aesthetic.computer/\acpdfbase-cards.pdf}%
+            {\color{acpurple}https://papers.aesthetic.computer/\acpdfbase-cards.pdf}};
+      \else
+        \node[anchor=south, font=\acbold\fontsize{5pt}{6pt}\selectfont, opacity=0.7]
+          at ([yshift=0.15cm]current page.south)
+          {\href{https://papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}%
+            {\color{acpurple}https://papers.aesthetic.computer/\acpdfbase-cards.pdf\#page=\thepage}};
+      \fi
     \fi
   \end{tikzpicture}%
 }
@@ -188,7 +189,7 @@
 \fancyhead[R]{}
 % Footer: page number center, pals logo bottom-right
 \fancyfoot[C]{{\small\color{acgray}\thepage}}
-\fancyfoot[R]{\raisebox{-0.1em}{\includegraphics[height=0.9em]{pals}}}
+\fancyfoot[R]{\ifnum\c@page=1\raisebox{-0.1em}{\includegraphics[height=0.9em]{pals}}\fi}
 
 % === LIST SETTINGS ===
 \RequirePackage{enumitem}
@@ -225,16 +226,9 @@
   \oriendtabular%
   \end{adjustbox}%
 }
-\let\origintabularx\tabularx
-\let\oriendtabularx\endtabularx
-\renewenvironment{tabularx}[2]{%
-  \small%
-  \begin{adjustbox}{max width=\linewidth}%
-  \origintabularx{#1}{#2}%
-}{%
-  \oriendtabularx%
-  \end{adjustbox}%
-}
+% Note: tabularx is NOT wrapped in adjustbox because tabularx does
+% internal trial typesetting that breaks inside adjustbox.
+% tabularx already constrains to its specified width argument.
 
 % === HYPERREF ===
 \RequirePackage{hyperref}
@@ -243,14 +237,31 @@
   linkcolor=acpurple,
   urlcolor=acpink,
   citecolor=acpurple,
+  breaklinks=true,
+  pdfborderstyle={},
+}
+% Prevent citations from creating PDF hyperlink annotations
+% (avoids full-page clickable area bug when citations span page breaks)
+% Note: no \makeatother here — we are inside a .sty where @ is already a letter
+\AtBeginDocument{%
+  \@ifpackageloaded{natbib}{%
+    \renewcommand{\hyper@natlinkstart}[1]{}%
+    \renewcommand{\hyper@natlinkend}{}%
+    \renewcommand{\hyper@natlinkbreak}[2]{#1}%
+  }{}%
 }
 
 % === TABLE OF CONTENTS STYLING (for index card) ===
 \RequirePackage{titletoc}
-\contentsmargin{0pt}
+\contentsmargin{2.5em}
 \titlecontents{section}[0em]
   {\smallskip\small}
   {\color{acpurple}\thecontentslabel.\enspace\color{acdark}}
+  {\color{acdark}}
+  {\titlerule*[0.6em]{\tiny\color{acgray}.}\color{acpurple}\contentspage}
+\titlecontents{subsection}[1.5em]
+  {\smallskip\small}
+  {\color{acpurple}\thecontentslabel\enspace\color{acdark}}
   {\color{acdark}}
   {\titlerule*[0.6em]{\tiny\color{acgray}.}\color{acpurple}\contentspage}
 
