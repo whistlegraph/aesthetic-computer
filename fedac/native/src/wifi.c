@@ -511,10 +511,14 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     SavedCred creds[16];
     int cred_count = 0;
 
-    // Always include the AC preset as first entry
+    // Always include preset networks
     strncpy(creds[0].ssid, AC_SSID, WIFI_SSID_MAX - 1);
     strncpy(creds[0].pass, AC_PASS, WIFI_PASS_MAX - 1);
     cred_count = 1;
+    // GettyLink (open network, no password)
+    strncpy(creds[cred_count].ssid, "GettyLink", WIFI_SSID_MAX - 1);
+    creds[cred_count].pass[0] = '\0';
+    cred_count++;
 
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");
     if (fp) {
