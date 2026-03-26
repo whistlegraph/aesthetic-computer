@@ -326,60 +326,60 @@ log "  Initramfs: $TOTAL_FILES files, $BROKEN_FINAL broken symlinks"
 mkdir -p "$IROOT/etc"
 printf '%s\n%s\n%s\nc\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
 
-# ── Optional: Swap in Common Lisp binary ──
-if [ "${AC_BUILD_LISP:-0}" = "1" ]; then
-    log "Step 2b: Building ac-native (Common Lisp)..."
+# ── Embed SBCL + Swank for live CL development ──
+log "Step 2b: Embedding SBCL + Swank..."
 
-    # Build libquickjs.so for CL to load via CFFI
-    QJSDIR="/cache/quickjs-2024-01-13"
-    # Build libquickjs.so directly into /lib64 so all paths are consistent
-    log "  Building libquickjs.so..."
-    gcc -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
-        -o /lib64/libquickjs.so \
-        "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
-        "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
-        '-DCONFIG_VERSION="0.8.0"' -lm 2>&1 || { err "libquickjs.so build failed"; }
+# Build libquickjs.so for CL CFFI bindings
+QJSDIR="/cache/quickjs-2024-01-13"
+log "  Building libquickjs.so..."
+gcc -shared -fPIC -O2 -Wl,-soname,libquickjs.so \
+    -o /lib64/libquickjs.so \
+    "$QJSDIR/quickjs.c" "$QJSDIR/libunicode.c" \
+    "$QJSDIR/libregexp.c" "$QJSDIR/cutils.c" "$QJSDIR/libbf.c" \
+    '-DCONFIG_VERSION="0.8.0"' -lm 2>&1 || { err "libquickjs.so build failed"; }
 
-    # Build quickjs-shim.so — link via -lquickjs (not full path) so the
-    # ELF NEEDED entry is "libquickjs.so" not "/tmp/ac-build/libquickjs.so"
-    CL_DIR="$NATIVE/cl"
-    log "  Building libquickjs-shim.so..."
-    gcc -shared -fPIC -O2 -Wl,-soname,libquickjs-shim.so \
-        -o /lib64/libquickjs-shim.so \
-        "$CL_DIR/quickjs-shim.c" \
-        -I"$QJSDIR" -L/lib64 -lquickjs -lm 2>&1 || { err "shim build failed"; exit 1; }
+CL_DIR="$NATIVE/cl"
+log "  Building libquickjs-shim.so..."
+gcc -shared -fPIC -O2 -Wl,-soname,libquickjs-shim.so \
+    -o /lib64/libquickjs-shim.so \
+    "$CL_DIR/quickjs-shim.c" \
+    -I"$QJSDIR" -L/lib64 -lquickjs -lm 2>&1 || { err "shim build failed"; }
 
-    ldconfig 2>/dev/null || true
+ldconfig 2>/dev/null || true
 
-    # Build CL binary with SBCL (load from /lib64 so paths are baked correctly)
-    export LD_LIBRARY_PATH="/lib64:${LD_LIBRARY_PATH:-}"
-    sbcl --non-interactive \
-        --eval '(load "/opt/quicklisp/setup.lisp")' \
-        --eval '(require :asdf)' \
-        --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
-        --eval '(asdf:load-system :ac-native)' \
-        --eval "(ac-native.build:build \"$BUILD/ac-native-cl\")" \
-        2>&1 || { err "CL build failed"; exit 1; }
-    if [ -f "$BUILD/ac-native-cl" ]; then
-        log "  CL Binary: $(stat -c%s "$BUILD/ac-native-cl") bytes"
-        # Swap into initramfs (keep C version in build dir)
-        cp "$IROOT/ac-native" "$BUILD/ac-native-c"
-        cp "$BUILD/ac-native-cl" "$IROOT/ac-native"
-        # Bundle shared libraries needed by CL (already built into /lib64)
-        cp /lib64/libquickjs.so "$IROOT/lib64/"
-        cp /lib64/libquickjs-shim.so "$IROOT/lib64/"
-        for lib in /lib64/libzstd.so*; do
-            [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
-        done
-        # Write build metadata for CL to read at runtime
-        mkdir -p "$IROOT/etc"
-        printf '%s\n%s\n%s\ncl\n' "$BUILD_NAME" "$GIT_HASH" "$BUILD_TS" > "$IROOT/etc/ac-build"
-        log "  Swapped CL binary into initramfs (with QuickJS)"
-    else
-        err "CL binary not produced"
-        exit 1
-    fi
+# Copy shared libs into initramfs
+cp /lib64/libquickjs.so "$IROOT/lib64/"
+cp /lib64/libquickjs-shim.so "$IROOT/lib64/"
+for lib in /lib64/libzstd.so*; do
+    [ -f "$lib" ] && cp -L "$lib" "$IROOT/lib64/" 2>/dev/null
+done
+
+# Build SBCL Swank server image (standalone binary with Swank preloaded)
+export LD_LIBRARY_PATH="/lib64:${LD_LIBRARY_PATH:-}"
+log "  Building SBCL Swank image..."
+sbcl --non-interactive \
+    --eval '(load "/opt/quicklisp/setup.lisp")' \
+    --eval '(require :asdf)' \
+    --eval "(push #P\"$CL_DIR/\" asdf:*central-registry*)" \
+    --eval '(asdf:load-system :ac-native)' \
+    --eval "(sb-ext:save-lisp-and-die \"$BUILD/ac-swank\"
+              :toplevel #'ac-native:main
+              :executable t
+              :compression t)" \
+    2>&1 || { err "SBCL Swank build failed (non-fatal)"; }
+
+if [ -f "$BUILD/ac-swank" ]; then
+    cp "$BUILD/ac-swank" "$IROOT/ac-swank"
+    chmod +x "$IROOT/ac-swank"
+    log "  SBCL Swank: $(stat -c%s "$BUILD/ac-swank") bytes"
+else
+    log "  SBCL Swank: skipped (build failed, C-only build)"
 fi
+
+# Copy CL pieces alongside JS pieces
+cp "$NATIVE/cl/"*.lisp "$IROOT/pieces/" 2>/dev/null || true
+CL_PIECES=$(ls "$IROOT/pieces/"*.lisp 2>/dev/null | wc -l)
+log "  CL pieces: $CL_PIECES"
 
 # ══════════════════════════════════════════════
 # Step 3: Pack initramfs (cpio + lz4)
