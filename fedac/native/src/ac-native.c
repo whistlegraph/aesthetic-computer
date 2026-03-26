@@ -3166,13 +3166,13 @@ int main(int argc, char *argv[]) {
                 if (is_connected && !was_connected) {
                     if (tts) {
                         char wifi_msg[128];
-                        if (wifi->ssid[0])
-                            snprintf(wifi_msg, sizeof(wifi_msg), "connected to %s", wifi->ssid);
+                        if (wifi->connected_ssid[0])
+                            snprintf(wifi_msg, sizeof(wifi_msg), "connected to %s", wifi->connected_ssid);
                         else
                             snprintf(wifi_msg, sizeof(wifi_msg), "online");
                         tts_speak(tts, wifi_msg);
                     }
-                    ac_log("[wifi-tts] connected to %s", wifi->ssid[0] ? wifi->ssid : "(unknown)");
+                    ac_log("[wifi-tts] connected to %s", wifi->connected_ssid[0] ? wifi->connected_ssid : "(unknown)");
 
                     // Fetch device tokens (Claude + GitHub) from API (authenticated)
                     {
