@@ -34,6 +34,13 @@
    ;; QuickJS bridge (JS piece runner)
    (:file "quickjs-ffi")
    (:file "js-bridge")
+   ;; KidLisp CL-native evaluator
+   (:file "kidlisp-package")
+   (:file "kidlisp-colors")
+   (:file "kidlisp-parser")
+   (:file "kidlisp-eval")
+   (:file "kidlisp-builtins")
+   (:file "kidlisp-runner")
+   ;; Main + Build
    (:file "main")
-   ;; Build
    (:file "build")))
