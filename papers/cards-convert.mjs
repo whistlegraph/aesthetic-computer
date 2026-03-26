@@ -10,6 +10,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, basename, dirname } from "path";
+import { execSync } from "child_process";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 
@@ -176,6 +177,10 @@ function generateCardsTeX(dir, info, parsed) {
   const title = info.title || parsed.pdftitle;
   const subtitle = parsed.subtitle || "";
 
+  // Git hash for revision stamp
+  let gitHash = "unknown";
+  try { gitHash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); } catch (_) {}
+
   // Translation links for title card
   const cjkLangs = new Set(["zh", "ja", "ko"]);
   const translationLinks = info.translations
@@ -251,20 +256,20 @@ ${extraCmds}
 \\thispagestyle{empty}
 \\vspace*{\\fill}
 \\begin{center}
-\\includegraphics[height=8em]{pals}\\par\\vspace{0.2em}
-{\\acbold\\fontsize{20pt}{24pt}\\selectfont\\color{acdark} ${title}}\\par
-\\vspace{0.3em}
-${subtitle ? `{\\fontsize{10pt}{12pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.8em}` : "\\vspace{0.5em}"}
+\\includegraphics[height=9em]{pals}\\par\\vspace{0.1em}
+{\\acbold\\fontsize{18pt}{22pt}\\selectfont\\color{acdark} ${title}}\\par
+\\vspace{0.1em}
+${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.4em}` : "\\vspace{0.3em}"}
 {\\normalsize\\color{cyan!70!blue}\\href{https://prompt.ac/@jeffrey}{\\textbf{@jeffrey}}}\\par
 {\\small\\color{acgray} Aesthetic.Computer}\\par
 {\\small\\color{acgray} ORCID: \\href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\\par
-\\vspace{0.8em}
-\\rule{0.6\\textwidth}{1pt}\\par
 \\vspace{0.4em}
+\\rule{0.5\\textwidth}{0.5pt}\\par
+\\vspace{0.15em}
 \\colorbox{yellow!60}{\\small\\color{red!80!black}\\textbf{\\textit{working draft --- not for citation}}}\\par
-\\vspace{0.2em}
-{\\footnotesize\\color{acgray} March 2026 · Revision 2}\\par${translationLinks ? `
-\\vspace{0.3em}
+\\vspace{0.1em}
+{\\footnotesize\\color{acgray} March 2026 · \\href{https://github.com/whistlegraph/aesthetic-computer/commit/${gitHash}}{${gitHash}}}\\par${translationLinks ? `
+\\vspace{0.1em}
 {\\footnotesize\\color{acgray}${translationLinks}}\\par` : ""}
 \\end{center}
 \\vspace*{\\fill}
