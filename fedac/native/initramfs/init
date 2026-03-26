@@ -74,77 +74,39 @@ done
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Debug: ALWAYS write to kernel console (dmesg) + USB if mounted
-echo "[ac-init] USB_MOUNTED=$USB_MOUNTED"
-echo "[ac-init] mnt: $(ls /mnt/ 2>&1)"
-echo "[ac-init] binary: $(ls -la /ac-native 2>&1)"
-echo "[ac-init] libs: $(ls /lib64/libquickjs* 2>&1)"
-echo "[ac-init] build: $(cat /etc/ac-build 2>&1)"
-echo "[ac-init] LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
-# Also write to USB if mounted
+# Write diagnostics to USB log only (not console)
 if [ "$USB_MOUNTED" = "1" ]; then
     LOG=/mnt/pre-launch.log
     echo "=== PRE-LAUNCH ===" > $LOG
     ls /mnt/ >> $LOG 2>&1
-    ls -la /ac-native >> $LOG 2>&1
-    ls /lib64/libquickjs* >> $LOG 2>&1
-    cat /etc/ac-build >> $LOG 2>&1
-    echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $LOG
+    echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
+    echo "build: $(cat /etc/ac-build 2>&1)" >> $LOG
     sync
 fi
+
 # Start Swank server in background (if SBCL image exists)
 SWANK_PID=0
 if [ -x /ac-swank ]; then
-    echo "[ac-init] Starting Swank server (port 4005)..."
-    LD_LIBRARY_PATH="/lib64:/usr/lib64" /ac-swank --swank-only &
+    LD_LIBRARY_PATH="/lib64:/usr/lib64" /ac-swank --swank-only >/dev/null 2>&1 &
     SWANK_PID=$!
-    echo "[ac-init] Swank PID=$SWANK_PID"
 fi
 
-# Run once, capture crash
-echo "[ac-init] === LAUNCHING ==="
-/ac-native /piece.mjs > /mnt/pre-launch-out.log 2>&1
-FIRST_EXIT=$?
-echo "[ac-init] EXIT=$FIRST_EXIT"
-sync
-
-# Handle clean exit from first run
-if [ "$FIRST_EXIT" = "0" ]; then
-    echo "[ac-init] Clean exit (first run) — powering off..."
-    echo o > /proc/sysrq-trigger 2>/dev/null
-    sleep 2; poweroff -f 2>/dev/null; sleep 30; exit 0
-fi
-if [ "$FIRST_EXIT" = "2" ]; then
-    echo "[ac-init] Reboot (first run)..."
-    echo b > /proc/sysrq-trigger 2>/dev/null
-    sleep 2; reboot -f 2>/dev/null; sleep 30; exit 0
-fi
-sleep 5
-
+# Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs
+    /ac-native /piece.mjs 2>/dev/null
     EXIT_CODE=$?
 
-    # Exit code 0 = power off, exit code 2 = reboot
     if [ "$EXIT_CODE" = "0" ]; then
         sync
-        echo "[ac-init] Clean exit — powering off..."
         echo o > /proc/sysrq-trigger 2>/dev/null
-        sleep 2
-        poweroff -f 2>/dev/null
-        busybox poweroff -f 2>/dev/null
-        sleep 30
+        sleep 2; poweroff -f 2>/dev/null; sleep 30
         break
     fi
     if [ "$EXIT_CODE" = "2" ]; then
         sync
-        echo "[ac-init] Reboot requested..."
         echo b > /proc/sysrq-trigger 2>/dev/null
-        sleep 2
-        reboot -f 2>/dev/null
-        busybox reboot -f 2>/dev/null
-        sleep 30
+        sleep 2; reboot -f 2>/dev/null; sleep 30
         break
     fi
 
