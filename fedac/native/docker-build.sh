@@ -330,7 +330,8 @@ if command -v npx &>/dev/null && [ -f "$SRC/system/public/aesthetic.computer/lib
     cd "$SRC"
     npx esbuild system/public/aesthetic.computer/lib/kidlisp.mjs \
         --bundle --format=iife --global-name=KidLispModule --platform=neutral \
-        --outfile=/tmp/kidlisp-bundle.js 2>/dev/null || true
+        --external:https --external:http --external:net --external:fs --external:path \
+        --outfile=/tmp/kidlisp-bundle.js 2>&1 || true
     if [ -f /tmp/kidlisp-bundle.js ]; then
         mkdir -p "$IROOT/jslib"
         cp /tmp/kidlisp-bundle.js "$IROOT/jslib/"
@@ -398,8 +399,10 @@ else
     log "  SBCL Swank: skipped (build failed, C-only build)"
 fi
 
-# Copy CL pieces alongside JS pieces
-cp "$NATIVE/cl/"*.lisp "$IROOT/pieces/" 2>/dev/null || true
+# Copy CL pieces (only runnable .lisp pieces from pieces/ dir, not cl/ library)
+if ls "$NATIVE/pieces/"*.lisp 1>/dev/null 2>&1; then
+    cp "$NATIVE/pieces/"*.lisp "$IROOT/pieces/"
+fi
 CL_PIECES=$(ls "$IROOT/pieces/"*.lisp 2>/dev/null | wc -l)
 log "  CL pieces: $CL_PIECES"
 
