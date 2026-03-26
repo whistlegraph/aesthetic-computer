@@ -104,8 +104,21 @@ fi
 # Run once, capture crash
 echo "[ac-init] === LAUNCHING ==="
 /ac-native /piece.mjs > /mnt/pre-launch-out.log 2>&1
-echo "[ac-init] EXIT=$?"
+FIRST_EXIT=$?
+echo "[ac-init] EXIT=$FIRST_EXIT"
 sync
+
+# Handle clean exit from first run
+if [ "$FIRST_EXIT" = "0" ]; then
+    echo "[ac-init] Clean exit (first run) — powering off..."
+    echo o > /proc/sysrq-trigger 2>/dev/null
+    sleep 2; poweroff -f 2>/dev/null; sleep 30; exit 0
+fi
+if [ "$FIRST_EXIT" = "2" ]; then
+    echo "[ac-init] Reboot (first run)..."
+    echo b > /proc/sysrq-trigger 2>/dev/null
+    sleep 2; reboot -f 2>/dev/null; sleep 30; exit 0
+fi
 sleep 5
 
 CRASH_COUNT=0
