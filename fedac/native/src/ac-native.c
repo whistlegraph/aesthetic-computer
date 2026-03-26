@@ -976,9 +976,19 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
                 }
 
-                // Preserve user handle/piece config on installed disk.
+                // Preserve user config + wifi creds on installed disk
                 if (access(config_src, F_OK) == 0) {
                     copy_file(config_src, "/tmp/hd/config.json");
+                    ac_log("[install] copied config.json\n");
+                }
+                {
+                    char wifi_src[64];
+                    snprintf(wifi_src, sizeof(wifi_src), "%s/wifi_creds.json",
+                             source_mount);
+                    if (access(wifi_src, F_OK) == 0) {
+                        copy_file(wifi_src, "/tmp/hd/wifi_creds.json");
+                        ac_log("[install] copied wifi_creds.json\n");
+                    }
                 }
 
                 // Write install marker so next boot knows it's installed
@@ -1227,7 +1237,9 @@ static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
             if (ev->type != AC_EVENT_KEYBOARD_DOWN) continue;
 
             if (ev->key_code == KEY_R || ev->key_code == KEY_ENTER || ev->key_code == KEY_KPENTER) {
+                if (tts) tts_wait(tts);  // let "install complete" TTS finish
                 play_install_accept_beep(audio);
+                usleep(300000);  // let beep play
                 return 1;
             }
             if (!install_ok && (ev->key_code == KEY_ESC || ev->key_code == KEY_SPACE)) {
