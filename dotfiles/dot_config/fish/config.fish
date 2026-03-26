@@ -183,7 +183,8 @@ function acd
     sleep 3
     
     # Check if the container is being connected to by looking for VS Code server processes
-    set -l server_procs (docker exec aesthetic pgrep -c node 2>/dev/null; or echo 0)
+    set -l server_procs (docker exec aesthetic pgrep -c node 2>/dev/null)
+    test -z "$server_procs"; and set server_procs 0
     if test "$server_procs" -gt 0
         echo "✓ VS Code server running in container ($server_procs node processes)" >> $log_file
     else
