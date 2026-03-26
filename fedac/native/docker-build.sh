@@ -149,10 +149,12 @@ case "$1" in
         ip addr flush dev "$interface"
         ip addr add "$ip/${mask:-24}" dev "$interface"
         [ -n "$router" ] && ip route add default via "$router" dev "$interface"
-        [ -n "$dns" ] && {
-            : > /etc/resolv.conf
-            for d in $dns; do echo "nameserver $d" >> /etc/resolv.conf; done
-        }
+        # DNS: use DHCP-provided + fallback to Google/Cloudflare
+        {
+            for d in $dns; do echo "nameserver $d"; done
+            echo "nameserver 8.8.8.8"
+            echo "nameserver 1.1.1.1"
+        } > /etc/resolv.conf
         ;;
     deconfig)
         ip addr flush dev "$interface"

@@ -390,6 +390,47 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                         pthread_mutex_unlock(&wifi->lock);
                         wifi_log(wifi, "Connected! IP: %s", ip);
 
+                        // Captive portal detection + auto-accept
+                        {
+                            char portal_cmd[256];
+                            snprintf(portal_cmd, sizeof(portal_cmd),
+                                "curl -sL -o /dev/null -w '%%{http_code}' "
+                                "--max-time 5 --connect-timeout 3 "
+                                "http://connectivitycheck.gstatic.com/generate_204 "
+                                "2>/dev/null");
+                            FILE *pf = popen(portal_cmd, "r");
+                            if (pf) {
+                                char code[8] = "";
+                                if (fgets(code, sizeof(code), pf))
+                                    code[strcspn(code, "\n")] = 0;
+                                pclose(pf);
+                                if (strcmp(code, "204") == 0) {
+                                    wifi_log(wifi, "Internet: OK (no captive portal)");
+                                } else if (code[0]) {
+                                    wifi_log(wifi, "Captive portal detected (HTTP %s), trying auto-accept...", code);
+                                    // Follow redirect and accept — many portals just need a GET
+                                    snprintf(portal_cmd, sizeof(portal_cmd),
+                                        "curl -sL --max-time 10 --connect-timeout 5 "
+                                        "-o /dev/null -w '%%{http_code}' "
+                                        "http://connectivitycheck.gstatic.com/generate_204 "
+                                        "2>/dev/null");
+                                    FILE *af = popen(portal_cmd, "r");
+                                    if (af) {
+                                        char acode[8] = "";
+                                        if (fgets(acode, sizeof(acode), af))
+                                            acode[strcspn(acode, "\n")] = 0;
+                                        pclose(af);
+                                        if (strcmp(acode, "204") == 0)
+                                            wifi_log(wifi, "Captive portal cleared!");
+                                        else
+                                            wifi_log(wifi, "Captive portal may need manual login (HTTP %s)", acode);
+                                    }
+                                } else {
+                                    wifi_log(wifi, "Connectivity check failed (no response)");
+                                }
+                            }
+                        }
+
                         // Save credentials for auto-reconnect
                         strncpy(wifi->last_ssid, ssid, WIFI_SSID_MAX - 1);
                         strncpy(wifi->last_pass, password ? password : "", WIFI_PASS_MAX - 1);
