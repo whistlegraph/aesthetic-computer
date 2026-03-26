@@ -2893,7 +2893,8 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            if (power_pressed) {
+            if (power_pressed || poweroff_requested) {
+                poweroff_requested = 0;  // consume the flag
                 // Say bye IMMEDIATELY (TTS + shutdown chime start before animation)
                 char bye_title[80];
                 {
