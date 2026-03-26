@@ -16,6 +16,7 @@ let thanks = false;
 let buyBtn = null;
 let manualBtn = null;
 let paperBtn = null;
+let osBtn = null;
 let userHandle = null;
 
 // Handle cycling (when not logged in)
@@ -136,6 +137,7 @@ async function fetchHandles(screen) {
 
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
+  osBtn = new ui.TextButton("AC Native OS", { x: 6, bottom: 20, screen });
   paperBtn = new ui.TextButton("PLORK'ing the Planet (PDF)", { x: 6, bottom: 20, screen });
   manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual (PDF)", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
@@ -820,6 +822,17 @@ function paint($) {
     manualBtn.reposition({ x: 6, bottom: manualY, screen }, "ThinkPad 11e Yoga Manual (PDF)");
     manualBtn.paint($btn, manualScheme, manualHover);
   }
+  const osScheme = isDark
+    ? [[20, 25, 20], [80, 200, 120], [140, 240, 170]]
+    : [[225, 240, 225], [30, 120, 50], [15, 90, 30]];
+  const osHover = isDark
+    ? [[28, 35, 28], [120, 240, 150], [180, 255, 200]]
+    : [[215, 235, 215], [20, 140, 60], [10, 110, 40]];
+  if (osBtn) {
+    const osY = 20 + (paperBtn ? paperBtn.height + 4 : 0) + (manualBtn ? manualBtn.height + 4 : 0);
+    osBtn.reposition({ x: 6, bottom: osY, screen }, "AC Native OS");
+    osBtn.paint($btn, osScheme, osHover);
+  }
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
@@ -835,6 +848,10 @@ function act({ event: e, screen, jump, sound, ui, api }) {
 
   paperBtn?.btn?.act(e, {
     push: () => jump(`out:${PAPER_URL}`),
+  });
+
+  osBtn?.btn?.act(e, {
+    push: () => jump("os"),
   });
 
   buyBtn?.btn?.act(e, {
