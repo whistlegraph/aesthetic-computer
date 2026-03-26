@@ -54,9 +54,9 @@ const MANUAL_URL =
 const PAPER_URL =
   "https://papers.aesthetic.computer/plorking-the-planet-26-arxiv-cards.pdf";
 const DESCRIPTION_PLAIN =
-  "A @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
+  "Receive a @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
 const DESCRIPTION =
-  "A \\255,100,255\\@jeffrey\\reset\\ approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
+  "Receive a \\255,100,255\\@jeffrey\\reset\\ approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
 const AUTH_TIMEOUT_MS = 1200;
 
 async function getOptionalToken(api) {
@@ -83,7 +83,7 @@ function displayAmount(amt) {
 
 function getBuyText() {
   if (buyPending) return "CHECKING OUT...";
-  return `BUY ${displayAmount(amount)}`;
+  return `BUY LAPTOP ${displayAmount(amount)}`;
 }
 
 async function boot({ params, ui, screen, cursor, hud, api, handle }) {
@@ -138,8 +138,8 @@ async function fetchHandles(screen) {
 function setupButtons(ui, screen) {
   buyBtn = new ui.TextButton(getBuyText(), { center: "x", bottom: 20, screen });
   osBtn = new ui.TextButton("AC Native OS", { x: 6, bottom: 20, screen });
-  paperBtn = new ui.TextButton("PLORK'ing the Planet (PDF)", { x: 6, bottom: 20, screen });
-  manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual (PDF)", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
+  paperBtn = new ui.TextButton("PLORK'ing the Planet", { x: 6, bottom: 20, screen });
+  manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
 
 async function fetchCheckout(api) {
@@ -800,13 +800,25 @@ function paint($) {
     $.needsPaint();
   }
 
-  // Manual + Paper links (bottom left, vertically stacked, different colors)
-  const manualScheme = isDark
-    ? [[20, 20, 30], [100, 140, 200], [160, 190, 240]]
-    : [[220, 225, 240], [50, 70, 140], [30, 50, 100]];
-  const manualHover = isDark
-    ? [[30, 30, 45], [140, 180, 240], [200, 220, 255]]
-    : [[210, 215, 235], [40, 60, 160], [20, 40, 120]];
+  // Bottom-left link stack with animated question labels
+  const labelGap = 2;
+  const labelH = charH + labelGap;
+  const btnGap = 4;
+  const t = frame * 0.04;
+
+  // Animated label helper — cycling color shadow with wobble
+  const paintLabel = (label, bottomY, phase) => {
+    const lx = 6;
+    const ly = h - bottomY - charH;
+    const wobble = floor(sin(t + phase) * 1.5);
+    ink(sr, sg, sb, shadowAlpha).write(label, { x: lx + shadowOff, y: ly + shadowOff + wobble, screen });
+    ink(fg).write(label, { x: lx, y: ly + wobble, screen });
+  };
+
+  // Stack from bottom: Why!? + paper, What!? + manual, How!? + os
+  let stackY = 20;
+
+  // --- Why!? + Paper ---
   const paperScheme = isDark
     ? [[25, 20, 20], [200, 140, 80], [240, 190, 130]]
     : [[240, 230, 220], [140, 80, 30], [100, 55, 15]];
@@ -814,14 +826,29 @@ function paint($) {
     ? [[35, 28, 28], [240, 180, 100], [255, 210, 150]]
     : [[235, 222, 210], [160, 100, 40], [120, 70, 20]];
   if (paperBtn) {
-    paperBtn.reposition({ x: 6, bottom: 20, screen }, "PLORK'ing the Planet (PDF)");
+    paperBtn.reposition({ x: 6, bottom: stackY, screen }, "PLORK'ing the Planet");
     paperBtn.paint($btn, paperScheme, paperHover);
+    stackY += paperBtn.height + btnGap;
   }
+  paintLabel("Why!?", stackY, 0);
+  stackY += labelH;
+
+  // --- What!? + Manual ---
+  const manualScheme = isDark
+    ? [[20, 20, 30], [100, 140, 200], [160, 190, 240]]
+    : [[220, 225, 240], [50, 70, 140], [30, 50, 100]];
+  const manualHover = isDark
+    ? [[30, 30, 45], [140, 180, 240], [200, 220, 255]]
+    : [[210, 215, 235], [40, 60, 160], [20, 40, 120]];
   if (manualBtn) {
-    const manualY = 20 + (paperBtn ? paperBtn.height + 4 : 0);
-    manualBtn.reposition({ x: 6, bottom: manualY, screen }, "ThinkPad 11e Yoga Manual (PDF)");
+    manualBtn.reposition({ x: 6, bottom: stackY, screen }, "ThinkPad 11e Yoga Manual");
     manualBtn.paint($btn, manualScheme, manualHover);
+    stackY += manualBtn.height + btnGap;
   }
+  paintLabel("What!?", stackY, PI * 0.66);
+  stackY += labelH;
+
+  // --- How!? + OS ---
   const osScheme = isDark
     ? [[20, 25, 20], [80, 200, 120], [140, 240, 170]]
     : [[225, 240, 225], [30, 120, 50], [15, 90, 30]];
@@ -829,10 +856,10 @@ function paint($) {
     ? [[28, 35, 28], [120, 240, 150], [180, 255, 200]]
     : [[215, 235, 215], [20, 140, 60], [10, 110, 40]];
   if (osBtn) {
-    const osY = 20 + (paperBtn ? paperBtn.height + 4 : 0) + (manualBtn ? manualBtn.height + 4 : 0);
-    osBtn.reposition({ x: 6, bottom: osY, screen }, "AC Native OS");
+    osBtn.reposition({ x: 6, bottom: stackY, screen }, "AC Native OS");
     osBtn.paint($btn, osScheme, osHover);
   }
+  paintLabel("How!?", stackY + (osBtn ? osBtn.height + btnGap : 0), PI * 1.33);
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
