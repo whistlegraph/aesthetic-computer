@@ -3028,6 +3028,27 @@ int main(int argc, char *argv[]) {
                 // NOTE: "claude" and "cc" aliases removed — claude.mjs handles auth curtain
                 // before jumping to terminal:claude itself.
 
+                // Check for .lisp piece — hand off to SBCL
+                {
+                    char lisp_path[256];
+                    // Strip .lisp suffix if present
+                    char lisp_name[128];
+                    strncpy(lisp_name, rt->jump_target, sizeof(lisp_name) - 1);
+                    lisp_name[sizeof(lisp_name) - 1] = 0;
+                    char *dot = strstr(lisp_name, ".lisp");
+                    if (dot) *dot = 0;
+                    snprintf(lisp_path, sizeof(lisp_path), "/pieces/%s.lisp", lisp_name);
+                    if (access(lisp_path, F_OK) == 0 && access("/ac-swank", X_OK) == 0) {
+                        ac_log("[ac-native] Launching CL piece: %s\n", lisp_name);
+                        // Clean up before exec
+                        if (logfile) { fflush(logfile); fsync(fileno(logfile)); }
+                        sync();
+                        execl("/ac-swank", "ac-swank", "--piece", lisp_name, NULL);
+                        // execl failed — fall through to JS path
+                        ac_log("[ac-native] execl /ac-swank failed: %s\n", strerror(errno));
+                    }
+                }
+
                 // Construct piece path: /pieces/<name>.mjs
                 char jump_path[256];
                 snprintf(jump_path, sizeof(jump_path), "/pieces/%s.mjs", rt->jump_target);
