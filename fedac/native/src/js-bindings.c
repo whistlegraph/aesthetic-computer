@@ -3317,13 +3317,8 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     ac_log("[reboot] executing reboot syscall");
     ac_log_flush();
 
-    if (getpid() == 1) {
-        reboot(LINUX_REBOOT_CMD_RESTART);
-    } else {
-        // Under cage: tell PID 1 to reboot, then exit so cage closes
-        kill(1, SIGUSR2);  // SIGUSR2 = reboot request
-        _exit(0);
-    }
+    // Exit with code 2 — init script sees this as reboot request
+    _exit(2);
     return JS_UNDEFINED;
 }
 
@@ -3339,17 +3334,10 @@ static JSValue js_poweroff(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     ac_log("[poweroff] pid=%d, syncing filesystems...\n", getpid());
     ac_log_flush();
     sync(); usleep(300000); sync();
-    ac_log("[poweroff] executing power off...\n");
+    ac_log("[poweroff] exiting with code 0 (init will power off)...\n");
     ac_log_flush();
-    if (getpid() == 1) {
-        int r = reboot(LINUX_REBOOT_CMD_POWER_OFF);
-        ac_log("[poweroff] reboot() returned %d errno=%d\n", r, errno);
-    } else {
-        // Under cage: tell PID 1 to power off, then exit so cage closes
-        ac_log("[poweroff] sending SIGTERM to PID 1\n");
-        kill(1, SIGTERM);
-        _exit(0);
-    }
+    // Exit cleanly — init script sees exit code 0 and runs poweroff
+    _exit(0);
     return JS_UNDEFINED;
 }
 
