@@ -39,6 +39,7 @@ const CODES = [
 
 // Populated in boot — pieces not in MAIN or TOOLS
 let UNSTABLE = [];
+let LISP_PIECES = [];
 
 function boot({ system }) {
   var known = {};
@@ -47,12 +48,18 @@ function boot({ system }) {
   var skip = { prompt: 1, lisp: 1, cc: 1, "404": 1, error: 1 };
   var names = (system && system.listPieces ? system.listPieces() : []);
   UNSTABLE = [];
+  LISP_PIECES = [];
   for (var i = 0; i < names.length; i++) {
-    if (!known[names[i]] && !skip[names[i]]) {
-      UNSTABLE.push({ name: names[i] });
+    var n = names[i];
+    // .lisp pieces go in their own section
+    if (n.endsWith && n.endsWith(".lisp")) {
+      LISP_PIECES.push({ name: n.replace(".lisp", ""), desc: "common lisp" });
+    } else if (!known[n] && !skip[n]) {
+      UNSTABLE.push({ name: n });
     }
   }
   UNSTABLE.sort(function(a, b) { return a.name < b.name ? -1 : 1; });
+  LISP_PIECES.sort(function(a, b) { return a.name < b.name ? -1 : 1; });
 }
 
 function act({ event: e, system }) {
@@ -140,6 +147,13 @@ function paint({ wipe, ink, box, line, write, screen }) {
   section("tools", TOOLS, T.link, [T.fg - 10, T.fg, T.fg + 15], true);
   section("commands", COMMANDS, [T.fgDim, T.fgDim + 20, T.fgDim], [T.fgDim + 30, T.fgDim + 30, T.fgDim + 40], true);
   section("$codes", CODES, T.warn, T.warn, true);
+
+  if (LISP_PIECES.length > 0) {
+    section("lisp (" + LISP_PIECES.length + ")", LISP_PIECES,
+      [180, 120, 220],
+      [200, 150, 240],
+      true);
+  }
 
   if (UNSTABLE.length > 0) {
     section("unstable (" + UNSTABLE.length + ")", UNSTABLE,
