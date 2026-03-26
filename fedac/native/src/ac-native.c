@@ -1676,7 +1676,32 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             }
         }
 
-        // Bottom: shrinking time bar + W hint
+        // Animated triangles — geometric decoration
+        if (alpha > 30) {
+            int tri_alpha = (int)(alpha * 0.15);
+            int W = screen->width;
+            int H = screen->height;
+            // Drifting triangles based on frame counter
+            for (int ti = 0; ti < 6; ti++) {
+                double phase = (double)f * 0.02 + ti * 1.047; // 60° apart
+                int cx = (int)(W * 0.5 + W * 0.35 * sin(phase + 1.5708));
+                int cy = (int)(H * 0.5 + H * 0.3 * sin(phase * 0.7));
+                int sz = 8 + ti * 3 + (int)(4.0 * sin(f * 0.05 + ti));
+                ACColor tc = is_day
+                    ? (ACColor){180 - ti*15, 140 - ti*10, 120, (uint8_t)tri_alpha}
+                    : (ACColor){80 + ti*20, 60 + ti*15, 120 + ti*10, (uint8_t)tri_alpha};
+                graph_ink(graph, tc);
+                // Draw triangle as 3 lines
+                int x0 = cx, y0 = cy - sz;
+                int x1 = cx - sz, y1 = cy + sz/2;
+                int x2 = cx + sz, y2 = cy + sz/2;
+                graph_line(graph, x0, y0, x1, y1);
+                graph_line(graph, x1, y1, x2, y2);
+                graph_line(graph, x2, y2, x0, y0);
+            }
+        }
+
+        // Bottom: shrinking time bar
         int bar_full = screen->width - 40;
         int bar_remaining = (int)((1.0 - t) * bar_full);
         if (bar_remaining > 0) {
@@ -1684,14 +1709,34 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
         }
 
-        // Show W hint after initial fade
+        // Animated W install prompt
         if (alpha > 100 && show_install) {
-            graph_ink(graph, (ACColor){140, 100, 120, (uint8_t)(alpha / 3)});
+            // Pulsing box behind the text
+            double pulse = 0.5 + 0.5 * sin(f * 0.1);
+            int pa = (int)(40 + 30 * pulse);
             const char *hint = is_installed_on_hd()
-                ? "W: update disk install" : "W: install to disk";
+                ? "W: update" : "W: install to disk";
             int hw = font_measure_matrix(hint, 1);
-            font_draw_matrix(graph, hint,
-                             (screen->width - hw) / 2, screen->height - 18, 1);
+            int hx = (screen->width - hw) / 2;
+            int hy = screen->height - 20;
+            // Pulsing background pill
+            graph_ink(graph, is_day
+                ? (ACColor){200, 160, 120, (uint8_t)pa}
+                : (ACColor){60, 40, 80, (uint8_t)pa});
+            graph_box(graph, hx - 4, hy - 2, hw + 8, 12, 1);
+            // Triangle arrow pointing down at the text
+            int ax = hx - 10;
+            int ay = hy + 3;
+            graph_ink(graph, is_day
+                ? (ACColor){180, 120, 60, (uint8_t)(alpha / 2)}
+                : (ACColor){200, 150, 255, (uint8_t)(alpha / 2)});
+            graph_line(graph, ax, ay - 3, ax, ay + 3);
+            graph_line(graph, ax, ay + 3, ax - 3, ay);
+            // Text with higher contrast
+            graph_ink(graph, is_day
+                ? (ACColor){120, 60, 0, (uint8_t)(alpha * 2 / 3)}
+                : (ACColor){220, 180, 255, (uint8_t)(alpha * 2 / 3)});
+            font_draw_matrix(graph, hint, hx, hy, 1);
         }
 
         ac_display_present(display, screen, pixel_scale);
