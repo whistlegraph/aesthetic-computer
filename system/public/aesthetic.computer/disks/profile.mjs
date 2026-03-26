@@ -1,13 +1,15 @@
-// Profile, 2026.02.27.12.40.00
-// Public user scorecard page with live presence + recent activity.
+// Profile, 2026.03.26.00.00.00
+// @handle profile — activity + portfolio hybrid.
 
 const FETCHING = "Fetching";
 const REFRESH_MS = 30000;
 const RECONNECT_MS = 3000;
 const MOOD_LIMIT = 40;
 const CHAT_LIMIT = 120;
+const THUMB_MAX = 4;
+const ACTIVITY_MAX = 30;
 
-const { max, floor } = Math;
+const { max, min, floor } = Math;
 
 let debug;
 let visiting;
@@ -16,7 +18,6 @@ let noprofile = FETCHING;
 let noprofileAction;
 let noprofileBtn;
 let paintingsBtn;
-let refreshBtn;
 let ellipsisTicker;
 
 let loading = false;
@@ -26,10 +27,22 @@ let dataError = null;
 let scorecard = makeEmptyScorecard();
 let presence = makeOfflinePresence();
 
+// Painting thumbnails.
+let thumbs = []; // [{ slug, code, img, when, btn, route }]
+let thumbsLoading = false;
+let getApi = null; // stored from boot for async image loading
+
 let statusSocket = null;
 let reconnectTimer = null;
 let refreshTimer = null;
 let disposed = false;
+
+// Activity button regions (rebuilt each frame).
+let activityBtns = [];
+
+// Scroll state for activity feed.
+let scrollOffset = 0;
+let maxScroll = 0;
 
 function makeEmptyScorecard() {
   return {
@@ -69,7 +82,7 @@ function makeOfflinePresence() {
 function meta({ piece }) {
   return {
     title: `${piece} - aesthetic.computer`,
-    desc: `Live activity scorecard for ${piece}.`,
+    desc: `Profile for ${piece}.`,
   };
 }
 
@@ -80,10 +93,12 @@ async function boot({
   handle,
   hud,
   net,
+  get,
   debug: d,
 }) {
   disposed = false;
   debug = d;
+  getApi = get;
 
   const hand = normalizeHandle(handle());
   visiting = normalizeHandle(params[0] || hand);
@@ -96,6 +111,9 @@ async function boot({
   presence = makeOfflinePresence();
   profile = null;
   dataError = null;
+  thumbs = [];
+  thumbsLoading = false;
+  scrollOffset = 0;
 
   if (visiting) {
     hud.label(visiting);
@@ -123,7 +141,7 @@ async function boot({
   }
 }
 
-function paint({ api, wipe, help, ink, screen, ui, pen }) {
+function paint({ api, geo, wipe, help, ink, screen, ui, pen, paste }) {
   if (!pen?.drawing) wipe(98);
 
   if (!visiting) {
@@ -131,13 +149,11 @@ function paint({ api, wipe, help, ink, screen, ui, pen }) {
     return;
   }
 
-  // Reserve vertical space so content never overlaps the HUD corner label.
   const HUD_H = 22;
   const M = 4;
   const BTN_H = 16;
-  const isLandscape = screen.width > screen.height && screen.width >= 200;
 
-  // Loading / error states (centered, no layout needed)
+  // Loading state.
   if (!profile && noprofile === FETCHING) {
     ink(255).write(
       `${FETCHING}${ellipsisTicker.text(help.repeat)}`,
@@ -147,52 +163,46 @@ function paint({ api, wipe, help, ink, screen, ui, pen }) {
     return;
   }
 
+  // Error / no-profile state.
   if (!profile && noprofile && noprofile !== FETCHING) {
     ink(255).write(noprofile, { center: "xy" }, "black");
     return;
   }
 
-  // Thin divider below HUD area
+  // Thin divider below HUD.
   ink(50).line(0, HUD_H - 2, screen.width, HUD_H - 2);
 
   const maxY = screen.height - BTN_H - 2;
+  const isLandscape = screen.width > screen.height && screen.width >= 200;
 
   if (isLandscape) {
-    paintLandscapeLayout({ help, ink, screen, HUD_H, M, maxY });
+    paintLandscape({ geo, help, ink, screen, paste, HUD_H, M, maxY });
   } else {
-    paintPortraitLayout({ help, ink, screen, HUD_H, M, maxY });
+    paintPortrait({ geo, help, ink, screen, paste, HUD_H, M, maxY });
   }
 
-  // Bottom action buttons
+  // Bottom bar.
   paintingsBtn ||= new ui.TextButton("Paintings", {
     x: M,
     y: screen.height - BTN_H + 1,
   });
-  refreshBtn ||= new ui.TextButton("Refresh", {
-    x: screen.width - 47,
-    y: screen.height - BTN_H + 1,
-  });
   paintingsBtn.paint(api);
-  refreshBtn.paint(api);
 
-  // Refreshing indicator (below HUD, right-aligned)
+  // Refreshing indicator.
   if (refreshing) {
     ink(100).write(
       `Refreshing${ellipsisTicker.text(help.repeat)}`,
-      { x: screen.width - 84, y: HUD_H },
+      { x: screen.width - 84, y: screen.height - BTN_H + 1 },
       "black",
       80,
     );
   }
 }
 
-function act({ event: e, jump, store, user }) {
+function act({ event: e, jump, store, user, geo }) {
+  // Paintings button.
   paintingsBtn?.act(e, () => {
     if (visiting) jump(`paintings~${visiting}`);
-  });
-
-  refreshBtn?.act(e, () => {
-    refreshProfile(true);
   });
 
   if (e.is("keyboard:down:g") && visiting) {
@@ -203,6 +213,52 @@ function act({ event: e, jump, store, user }) {
     refreshProfile(true);
   }
 
+  // Thumbnail taps — use simple hit testing.
+  if (e.is("touch") || e.is("lift")) {
+    for (const t of thumbs) {
+      if (t.btn?.box && t.route && e.is("lift")) {
+        const b = t.btn.box;
+        const px = e.x ?? e.pen?.x;
+        const py = e.y ?? e.pen?.y;
+        if (
+          px >= b.x &&
+          px <= b.x + b.w &&
+          py >= b.y &&
+          py <= b.y + b.h
+        ) {
+          jump(t.route);
+          break;
+        }
+      }
+    }
+  }
+
+  // Activity item taps — simple hit testing.
+  if (e.is("lift")) {
+    const px = e.x ?? e.pen?.x;
+    const py = e.y ?? e.pen?.y;
+    for (const ab of activityBtns) {
+      if (ab.route && ab.box) {
+        const b = ab.box;
+        if (
+          px >= b.x &&
+          px <= b.x + b.w &&
+          py >= b.y &&
+          py <= b.y + b.h
+        ) {
+          jump(ab.route);
+          break;
+        }
+      }
+    }
+  }
+
+  // Scroll activity feed.
+  if (e.is("scroll")) {
+    scrollOffset = max(0, min(maxScroll, scrollOffset + (e.delta || 0)));
+  }
+
+  // No-profile button.
   noprofileBtn?.act(e, {
     push: () => {
       let slug;
@@ -221,7 +277,8 @@ function act({ event: e, jump, store, user }) {
   if (e.is("reframed")) {
     noprofileBtn = null;
     paintingsBtn = null;
-    refreshBtn = null;
+    activityBtns = [];
+    for (const t of thumbs) t.btn = null;
   }
 }
 
@@ -234,178 +291,148 @@ function leave() {
   clearTimersAndSocket();
 }
 
-function paintNoProfileState({ api, help, ink, screen, ui }) {
-  const retrieving = noprofile === FETCHING;
-  const label = noprofile || "No profile.";
+// --- Layout ---
 
-  if (!noprofileAction) {
-    const text = retrieving ? `${label}${ellipsisTicker.text(help.repeat)}` : label;
-    ink(255).write(text, { center: "xy" }, retrieving ? 64 : "black");
-    return;
-  }
-
-  noprofileBtn ||= new ui.TextButton(label, { center: "xy", screen });
-  noprofileBtn.paint(api);
-}
-
-// --- Responsive layout helpers ---
-
-function paintPortraitLayout({ help, ink, screen, HUD_H, M, maxY }) {
+function paintPortrait({ geo, help, ink, screen, paste, HUD_H, M, maxY }) {
   let y = HUD_H;
   const w = screen.width - M * 2;
-  const useCompactStats = screen.height < 250;
 
-  // Mood
-  if (profile?.mood) {
-    ink(220).write(profile.mood, { x: M, y }, "black", w);
-  } else {
-    ink(80).write("no mood", { x: M, y }, "black", w);
-  }
-  y += 12;
+  // Mood.
+  y = paintMood(ink, M, y, w);
 
-  // Presence
-  y = paintPresenceBlock(ink, y, M, w);
+  // Presence line.
+  y = paintPresenceLine(ink, M, y, w);
 
-  // Stats (skip on very small screens)
-  if (screen.height >= 180) {
-    ink(50).line(M, y, screen.width - M, y);
-    y += 4;
-    y = paintStatsBlock(ink, y, M, w, useCompactStats);
-  }
-
-  // Divider before activity
+  // Divider.
   ink(50).line(M, y, screen.width - M, y);
   y += 4;
 
-  paintActivityBlock(help, ink, y, maxY, M, w);
+  // Thumbnail strip.
+  y = paintThumbStrip(ink, paste, M, y, w);
+
+  // Divider.
+  ink(50).line(M, y, screen.width - M, y);
+  y += 4;
+
+  // Activity feed.
+  paintActivityFeed(help, ink, M, y, maxY, w);
 }
 
-function paintLandscapeLayout({ help, ink, screen, HUD_H, M, maxY }) {
+function paintLandscape({ geo, help, ink, screen, paste, HUD_H, M, maxY }) {
   const midX = floor(screen.width / 2);
   const leftW = midX - M * 2;
   const rightX = midX + M;
   const rightW = screen.width - midX - M * 2;
 
-  // Vertical divider
+  // Vertical divider.
   ink(50).line(midX - 1, HUD_H, midX - 1, maxY);
 
-  // Left column: mood + presence + stats
+  // Left column: mood + presence + thumbnails.
   let y = HUD_H;
 
-  if (profile?.mood) {
-    ink(220).write(profile.mood, { x: M, y }, "black", leftW);
-  } else {
-    ink(80).write("no mood", { x: M, y }, "black", leftW);
-  }
-  y += 12;
-
-  y = paintPresenceBlock(ink, y, M, leftW);
+  y = paintMood(ink, M, y, leftW);
+  y = paintPresenceLine(ink, M, y, leftW);
   ink(50).line(M, y, midX - M, y);
   y += 4;
-  paintStatsBlock(ink, y, M, leftW, false);
+  paintThumbStrip(ink, paste, M, y, leftW);
 
-  // Right column: activity
-  paintActivityBlock(help, ink, HUD_H, maxY, rightX, rightW);
+  // Right column: activity feed.
+  paintActivityFeed(help, ink, rightX, HUD_H, maxY, rightW);
 }
 
-function paintPresenceBlock(ink, y, x, w) {
+// --- Sections ---
+
+function paintMood(ink, x, y, w) {
+  if (profile?.mood) {
+    ink(220).write(profile.mood, { x, y }, "black", w);
+  } else {
+    ink(80).write("no mood", { x, y }, "black", w);
+  }
+  return y + 12;
+}
+
+function paintPresenceLine(ink, x, y, w) {
   const on = presence.online;
 
-  // Colored status indicator dot
+  // Status dot.
   ink(on ? 80 : 70, on ? 220 : 70, on ? 80 : 70).box(x, y + 2, 5, 5);
 
-  const status = on ? "online" : "offline";
-  const piece = formatPieceLabel(presence.currentPiece) || "-";
-  const ping = presence.ping ? ` ${presence.ping}ms` : "";
+  const parts = [];
+  parts.push(on ? "online" : "offline");
+
+  if (on && presence.currentPiece) {
+    parts.push(formatPieceLabel(presence.currentPiece));
+  }
+
+  if (presence.ping) parts.push(`${presence.ping}ms`);
+
+  if (!on && presence.lastSeenAt) {
+    parts.push(`seen ${formatTimeAgo(presence.lastSeenAt)}`);
+  }
+
   ink(on ? 255 : 120).write(
-    `${status}  ${piece}${ping}`,
+    parts.join("  "),
     { x: x + 8, y },
     "black",
     w - 8,
   );
-  y += 10;
-
-  if (presence.worldPiece || presence.showing) {
-    ink(160).write(
-      `world ${presence.worldPiece || "-"}  showing ${presence.showing || "-"}`,
-      { x: x + 8, y },
-      "black",
-      w - 8,
-    );
-    y += 10;
-  }
-
-  if (!on && presence.lastSeenAt) {
-    ink(90).write(
-      `seen ${formatTimeAgo(presence.lastSeenAt)}`,
-      { x: x + 8, y },
-      "black",
-      w - 8,
-    );
-    y += 10;
-  }
-
-  y += 2;
-  return y;
+  return y + 12;
 }
 
-function paintStatsBlock(ink, y, x, w, compact) {
-  const c = scorecard.counts;
+function paintThumbStrip(ink, paste, x, y, w) {
+  const paintings = scorecard.recentMedia.paintings;
 
-  if (compact) {
-    ink(255).write(
-      `P${c.paintings} Pc${c.pieces} K${c.kidlisp} Cl${c.clocks} T${c.tapes}`,
-      { x, y },
-      "black",
-      w,
-    );
-    y += 10;
-    ink(255).write(`M${c.moods} Ch${c.chats}`, { x, y }, "black", w);
-    y += 12;
-    return y;
+  if (paintings.length === 0 && !thumbsLoading) {
+    ink(80).write("no paintings yet", { x, y }, "black", w);
+    return y + 14;
   }
 
-  ink("yellow").write("Stats", { x, y }, "black", w);
-  y += 10;
+  if (thumbs.length === 0 && thumbsLoading) {
+    ink(120).write("loading thumbnails...", { x, y }, "black", w);
+    return y + 14;
+  }
 
-  const rows = [
-    { label: "Paint", val: c.paintings, r: 100, g: 200, b: 255 },
-    { label: "Piece", val: c.pieces, r: 255, g: 180, b: 80 },
-    { label: "Kid", val: c.kidlisp, r: 120, g: 255, b: 120 },
-    { label: "Clock", val: c.clocks, r: 255, g: 200, b: 80 },
-    { label: "Tape", val: c.tapes, r: 200, g: 140, b: 255 },
-    { label: "Mood", val: c.moods, r: 255, g: 140, b: 180 },
-    { label: "Chat", val: c.chats, r: 200, g: 200, b: 200 },
-  ];
+  // Compute thumbnail size to fit across the width.
+  const gap = 3;
+  const count = min(thumbs.length, THUMB_MAX);
+  if (count === 0) return y + 2;
 
-  const hi = max(1, ...rows.map((s) => s.val));
-  const labelEnd = x + 60;
-  const barMax = max(8, w - 64);
+  const thumbW = floor((w - gap * (count - 1)) / count);
+  const thumbH = floor(thumbW * 0.75); // 4:3 aspect
 
-  rows.forEach((s) => {
-    ink(255).write(`${s.label} ${s.val}`, { x, y }, "black", 58);
-    if (s.val > 0) {
-      const barW = max(1, floor((s.val / hi) * barMax));
-      ink(s.r, s.g, s.b).box(labelEnd, y + 2, barW, 5);
+  for (let i = 0; i < count; i++) {
+    const t = thumbs[i];
+    if (!t) continue;
+    const tx = x + i * (thumbW + gap);
+
+    // Background.
+    ink(60).box(tx, y, thumbW, thumbH);
+
+    // Paste image if loaded.
+    if (t.img && paste) {
+      const scale = min(thumbW / t.img.width, thumbH / t.img.height);
+      const ix = tx + floor((thumbW - t.img.width * scale) / 2);
+      const iy = y + floor((thumbH - t.img.height * scale) / 2);
+      paste(t.img, ix, iy, { scale });
+    } else if (!t.img) {
+      ink(90).write("...", { x: tx + 2, y: y + 2 }, "black");
     }
-    y += 9;
-  });
 
-  y += 2;
-  return y;
+    // Code label below thumbnail.
+    const label = t.code ? `#${t.code}` : shortSlug(t.slug);
+    ink(160).write(label, { x: tx, y: y + thumbH + 1 }, "black", thumbW);
+
+    // Store hit region for tap handling in act().
+    t.btn = { box: { x: tx, y, w: thumbW, h: thumbH + 10 } };
+    t.route = t.slug ? `painting~${visiting}/${t.slug}` : null;
+  }
+
+  return y + thumbH + 14;
 }
 
-const ACTIVITY_COLORS = {
-  mood: { r: 180, g: 120, b: 255 },
-  painting: { r: 100, g: 200, b: 255 },
-  kidlisp: { r: 120, g: 255, b: 120 },
-  clock: { r: 255, g: 200, b: 80 },
-  chat: { r: 200, g: 200, b: 200 },
-};
-
-function paintActivityBlock(help, ink, y, maxY, x, w) {
-  ink("yellow").write("Recent Activity", { x, y }, "black", w);
-  y += 10;
+function paintActivityFeed(help, ink, x, y, maxY, w) {
+  const startY = y;
+  activityBtns = [];
 
   if ((loading || refreshing) && scorecard.activity.length === 0) {
     ink(200).write(
@@ -418,23 +445,92 @@ function paintActivityBlock(help, ink, y, maxY, x, w) {
   }
 
   if (scorecard.activity.length === 0) {
-    ink(80).write(dataError || "No activity yet.", { x, y }, "black", w);
+    ink(80).write(dataError || "no activity yet", { x, y }, "black", w);
     return;
   }
 
-  const lineH = 10;
-  const maxRows = max(3, floor((maxY - y) / lineH));
-  const rows = scorecard.activity.slice(0, maxRows);
+  const lineH = 11;
+  const items = scorecard.activity;
+  const totalH = items.length * lineH;
+  maxScroll = max(0, totalH - (maxY - startY));
 
-  rows.forEach((item) => {
-    if (y + lineH > maxY) return;
-    const c = ACTIVITY_COLORS[item.type] || { r: 180, g: 180, b: 180 };
-    ink(c.r, c.g, c.b).box(x, y + 3, 3, 3);
-    const when = item.when ? formatTimeAgo(item.when) : "recent";
-    ink(200).write(`${when}  ${item.label}`, { x: x + 6, y }, "black", w - 6);
-    y += lineH;
-  });
+  let drawY = startY - scrollOffset;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const iy = drawY + i * lineH;
+
+    // Clip.
+    if (iy + lineH < startY) continue;
+    if (iy > maxY) break;
+
+    const c = ACTIVITY_COLORS[item.type] || ACTIVITY_COLORS.default;
+
+    // Type prefix in color.
+    const prefix = ACTIVITY_PREFIX[item.type] || item.type || "?";
+    ink(c.r, c.g, c.b).write(prefix, { x, y: iy }, "black", 36);
+
+    // Label.
+    const labelX = x + 38;
+    const labelW = w - 38 - 40;
+    ink(item.route ? 240 : 180).write(
+      item.label || "",
+      { x: labelX, y: iy },
+      "black",
+      labelW,
+    );
+
+    // Timestamp right-aligned.
+    const when = item.when ? formatTimeAgo(item.when) : "";
+    if (when) {
+      ink(100).write(when, { x: x + w - 38, y: iy }, "black", 38);
+    }
+
+    // Store hit region for tappable items.
+    if (item.route) {
+      activityBtns.push({
+        box: { x, y: iy, w, h: lineH },
+        route: item.route,
+      });
+    }
+  }
 }
+
+const ACTIVITY_COLORS = {
+  mood: { r: 180, g: 120, b: 255 },
+  painting: { r: 100, g: 200, b: 255 },
+  kidlisp: { r: 120, g: 255, b: 120 },
+  clock: { r: 255, g: 200, b: 80 },
+  chat: { r: 200, g: 200, b: 200 },
+  default: { r: 180, g: 180, b: 180 },
+};
+
+const ACTIVITY_PREFIX = {
+  mood: "mood",
+  painting: "paint",
+  kidlisp: "kid",
+  clock: "clock",
+  chat: "chat",
+  event: "event",
+};
+
+function paintNoProfileState({ api, help, ink, screen, ui }) {
+  const retrieving = noprofile === FETCHING;
+  const label = noprofile || "No profile.";
+
+  if (!noprofileAction) {
+    const text = retrieving
+      ? `${label}${ellipsisTicker.text(help.repeat)}`
+      : label;
+    ink(255).write(text, { center: "xy" }, retrieving ? 64 : "black");
+    return;
+  }
+
+  noprofileBtn ||= new ui.TextButton(label, { center: "xy", screen });
+  noprofileBtn.paint(api);
+}
+
+// --- Data loading ---
 
 async function refreshProfile(force = false) {
   if (!visiting || disposed) return;
@@ -449,6 +545,7 @@ async function refreshProfile(force = false) {
     await loadIdentity();
     if (!profile) return;
     await loadScorecard();
+    loadThumbnails(); // fire and forget
   } catch (err) {
     dataError = "Could not load activity.";
     if (debug) console.warn("Profile refresh failed:", err);
@@ -501,9 +598,15 @@ async function loadScorecard() {
     chatSystemRes,
     chatClockRes,
   ] = await Promise.all([
-    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/painting`)}`),
-    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/piece`)}`),
-    fetchJson(`/media-collection?for=${encodeURIComponent(`${handle}/tape`)}`),
+    fetchJson(
+      `/media-collection?for=${encodeURIComponent(`${handle}/painting`)}`,
+    ),
+    fetchJson(
+      `/media-collection?for=${encodeURIComponent(`${handle}/piece`)}`,
+    ),
+    fetchJson(
+      `/media-collection?for=${encodeURIComponent(`${handle}/tape`)}`,
+    ),
     fetchJson(
       `/api/store-kidlisp?recent=true&limit=30&handle=${encodeURIComponent(handle)}`,
     ),
@@ -513,12 +616,18 @@ async function loadScorecard() {
     fetchJson(`/api/chat-messages?instance=clock&limit=${CHAT_LIMIT}`),
   ]);
 
-  const paintingFiles = Array.isArray(paintingRes?.files) ? paintingRes.files : [];
+  const paintingFiles = Array.isArray(paintingRes?.files)
+    ? paintingRes.files
+    : [];
   const pieceFiles = Array.isArray(pieceRes?.files) ? pieceRes.files : [];
   const tapeFiles = Array.isArray(tapeRes?.files) ? tapeRes.files : [];
-  const kidlispRecent = Array.isArray(kidlispRes?.recent) ? kidlispRes.recent : [];
+  const kidlispRecent = Array.isArray(kidlispRes?.recent)
+    ? kidlispRes.recent
+    : [];
   const allClocks = Array.isArray(clockRes?.recent) ? clockRes.recent : [];
-  const clocksForHandle = allClocks.filter((item) => sameHandle(item?.handle, handle));
+  const clocksForHandle = allClocks.filter((item) =>
+    sameHandle(item?.handle, handle),
+  );
   const moodsRaw = Array.isArray(moodRes?.moods) ? moodRes.moods : [];
   const recentMoods = moodsRaw
     .filter((item) => sameHandle(item?.handle, handle))
@@ -533,8 +642,12 @@ async function loadScorecard() {
       when: toTimestamp(profile.moodWhen) || Date.now(),
     });
   }
-  const systemMessages = Array.isArray(chatSystemRes?.messages) ? chatSystemRes.messages : [];
-  const clockMessages = Array.isArray(chatClockRes?.messages) ? chatClockRes.messages : [];
+  const systemMessages = Array.isArray(chatSystemRes?.messages)
+    ? chatSystemRes.messages
+    : [];
+  const clockMessages = Array.isArray(chatClockRes?.messages)
+    ? chatClockRes.messages
+    : [];
   const recentChats = [...systemMessages, ...clockMessages]
     .filter((item) => sameHandle(item?.from, handle))
     .map((item) => ({
@@ -575,6 +688,7 @@ async function loadScorecard() {
     hits: item.hits || 0,
   }));
 
+  // Build unified activity list.
   const activity = [];
 
   recentMoods.slice(0, 12).forEach((item) => {
@@ -582,14 +696,12 @@ async function loadScorecard() {
     activity.push({
       type: "mood",
       when: item.when,
-      label: `Mood: ${truncate(compact(item.mood), 44)}`,
+      label: truncate(compact(item.mood), 50),
     });
   });
 
   recentPaintings.forEach((item) => {
-    const label = item.code
-      ? `Painting #${item.code}`
-      : `Painting ${shortSlug(item.slug)}`;
+    const label = item.code ? `#${item.code}` : shortSlug(item.slug);
     activity.push({
       type: "painting",
       when: item.when,
@@ -602,7 +714,7 @@ async function loadScorecard() {
     activity.push({
       type: "kidlisp",
       when: item.when,
-      label: `KidLisp $${item.code}`,
+      label: `$${item.code}`,
       route: `$${item.code}`,
     });
   });
@@ -611,7 +723,7 @@ async function loadScorecard() {
     activity.push({
       type: "clock",
       when: item.when,
-      label: `Clock *${item.code}`,
+      label: `*${item.code}`,
       route: `*${item.code}`,
     });
   });
@@ -622,7 +734,7 @@ async function loadScorecard() {
     activity.push({
       type: "chat",
       when: item.when,
-      label: `Chat: ${truncate(text, 40)}`,
+      label: truncate(text, 46),
     });
   });
 
@@ -649,10 +761,58 @@ async function loadScorecard() {
       moods: recentMoods.slice(0, 10),
       chats: recentChats.slice(0, 10),
     },
-    activity: activity.slice(0, 20),
+    activity: activity.slice(0, ACTIVITY_MAX),
     updatedAt: Date.now(),
   };
 }
+
+async function loadThumbnails() {
+  if (!getApi || thumbsLoading || disposed) return;
+
+  const paintings = scorecard.recentMedia.paintings;
+  if (paintings.length === 0) return;
+
+  thumbsLoading = true;
+
+  const toLoad = paintings.slice(0, THUMB_MAX);
+
+  // Preserve already-loaded thumbs that match.
+  const existing = new Map(thumbs.map((t) => [t.slug, t]));
+
+  const next = [];
+  for (const p of toLoad) {
+    if (existing.has(p.slug) && existing.get(p.slug).img) {
+      next.push(existing.get(p.slug));
+    } else {
+      next.push({
+        slug: p.slug,
+        code: p.code,
+        img: null,
+        when: p.when,
+        btn: null,
+        route: null,
+      });
+    }
+  }
+  thumbs = next;
+
+  // Load missing images.
+  await Promise.all(
+    thumbs.map(async (t) => {
+      if (t.img || disposed) return;
+      try {
+        const got = await getApi.painting(t.slug).by(bareHandle(visiting));
+        if (!disposed) t.img = got?.img || null;
+      } catch (err) {
+        if (debug) console.warn("Thumb load failed:", t.slug, err);
+      }
+    }),
+  );
+
+  thumbsLoading = false;
+}
+
+// --- WebSocket profile stream ---
 
 function startRefreshLoop() {
   clearInterval(refreshTimer);
@@ -698,7 +858,9 @@ function connectProfileStream() {
         return;
       }
       if (msg?.type === "status") {
-        const clients = Array.isArray(msg?.data?.clients) ? msg.data.clients : [];
+        const clients = Array.isArray(msg?.data?.clients)
+          ? msg.data.clients
+          : [];
         applyPresence(clients);
       }
     } catch (err) {
@@ -721,7 +883,9 @@ function connectProfileStream() {
 }
 
 function applyPresence(clients) {
-  const matched = clients.find((client) => sameHandle(client?.handle, visiting));
+  const matched = clients.find((client) =>
+    sameHandle(client?.handle, visiting),
+  );
 
   if (!matched) {
     if (presence.online) presence.lastSeenAt = Date.now();
@@ -779,17 +943,17 @@ function appendActivity(event) {
   if (!label) return;
 
   const when = toTimestamp(event.when) || Date.now();
-  scorecard.activity = [{ type: event.type || "event", when, label }, ...scorecard.activity]
+  scorecard.activity = [
+    { type: event.type || "event", when, label },
+    ...scorecard.activity,
+  ]
     .sort((a, b) => (b.when || 0) - (a.when || 0))
-    .slice(0, 20);
+    .slice(0, ACTIVITY_MAX);
 }
 
 function mergeCounts(nextCounts) {
   if (!nextCounts || typeof nextCounts !== "object") return;
-  scorecard.counts = {
-    ...scorecard.counts,
-    ...nextCounts,
-  };
+  scorecard.counts = { ...scorecard.counts, ...nextCounts };
 }
 
 function applyCountDelta(delta) {
@@ -807,13 +971,16 @@ function applyCountDelta(delta) {
   scorecard.counts = next;
 }
 
+// --- Timers & socket ---
+
 function formatShowing(showing) {
   if (!showing) return null;
   if (typeof showing === "string") return truncate(showing, 18);
   if (showing.slug) return truncate(showing.slug, 18);
   if (showing.code) return `#${showing.code}`;
   if (showing.piece) return truncate(showing.piece, 18);
-  if (showing.url) return truncate(`${showing.url}`.split("/").pop() || "", 18);
+  if (showing.url)
+    return truncate(`${showing.url}`.split("/").pop() || "", 18);
   return null;
 }
 
@@ -869,8 +1036,11 @@ function clearTimersAndSocket() {
 function resetUiState() {
   noprofileBtn = null;
   paintingsBtn = null;
-  refreshBtn = null;
+  activityBtns = [];
+  for (const t of thumbs) t.btn = null;
 }
+
+// --- Utilities ---
 
 async function fetchJson(url) {
   try {
@@ -949,20 +1119,20 @@ function toTimestamp(value) {
 
 function formatTimeAgo(when) {
   const timestamp = typeof when === "number" ? when : toTimestamp(when);
-  if (!timestamp) return "recent";
+  if (!timestamp) return "";
 
-  const diff = Math.max(0, Date.now() - timestamp);
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  const diff = max(0, Date.now() - timestamp);
+  const seconds = floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s`;
 
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  const minutes = floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  const hours = floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
 
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  const days = floor(hours / 24);
+  return `${days}d`;
 }
 
 function formatPieceLabel(slug) {
@@ -984,10 +1154,10 @@ function compact(value) {
   return `${value || ""}`.replace(/\s+/g, " ").trim();
 }
 
-function truncate(value, max) {
+function truncate(value, mx) {
   const text = `${value || ""}`;
-  if (text.length <= max) return text;
-  return `${text.slice(0, max - 3)}...`;
+  if (text.length <= mx) return text;
+  return `${text.slice(0, mx - 3)}...`;
 }
 
 export { boot, paint, act, sim, leave, meta };
