@@ -124,9 +124,31 @@ for cmd in sh sleep mkdir mount umount cat echo ls cp mv rm ln chmod chown \
     mktemp printf seq stat basename dirname env expr true false readlink \
     realpath rmdir uniq yes tar gzip gunzip hostname id ip modprobe \
     mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami awk \
-    sync poweroff reboot halt mknod; do
+    sync poweroff reboot halt mknod udhcpc; do
     ln -s busybox "$IROOT/bin/$cmd"
 done
+# udhcpc also expected at /sbin/ by wifi.c
+ln -sf ../bin/busybox "$IROOT/sbin/udhcpc" 2>/dev/null || true
+# Minimal udhcpc script to configure interface after getting lease
+mkdir -p "$IROOT/usr/share/udhcpc"
+cat > "$IROOT/usr/share/udhcpc/default.script" << 'UDHCPC_SCRIPT'
+#!/bin/sh
+case "$1" in
+    bound|renew)
+        ip addr flush dev "$interface"
+        ip addr add "$ip/${mask:-24}" dev "$interface"
+        [ -n "$router" ] && ip route add default via "$router" dev "$interface"
+        [ -n "$dns" ] && {
+            : > /etc/resolv.conf
+            for d in $dns; do echo "nameserver $d" >> /etc/resolv.conf; done
+        }
+        ;;
+    deconfig)
+        ip addr flush dev "$interface"
+        ;;
+esac
+UDHCPC_SCRIPT
+chmod +x "$IROOT/usr/share/udhcpc/default.script"
 
 # ── 2b: Init script ──
 cp "$NATIVE/initramfs/init" "$IROOT/init"
