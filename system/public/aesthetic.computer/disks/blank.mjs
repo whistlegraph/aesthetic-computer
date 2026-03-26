@@ -179,7 +179,7 @@ async function fetchCheckout(api) {
 }
 
 function paint($) {
-  const { wipe, ink, line, screen, dark: isDark, tri } = $;
+  const { wipe, ink, line, screen, dark: isDark, tri, text } = $;
   frame += 1;
   const w = screen.width;
   const h = screen.height;
@@ -725,8 +725,14 @@ function paint($) {
   // Title + product description (painted on top of laptop wireframe)
   ink(sr, sg, sb, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 30 + shadowOff, size: 2, screen });
   ink(fg).write("AC Blank Laptop", { center: "x", y: 30, size: 2, screen });
-  ink(sr, sg, sb, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: 54 + shadowOff, screen }, undefined, floor(w * 0.85));
-  ink(fgDim).write(DESCRIPTION, { center: "x", y: 54, screen }, undefined, floor(w * 0.85));
+  // Measure wrapped description to position buy button below it
+  const descBounds = floor(w * 0.85);
+  const descY = 54;
+  const descBox = text.box(DESCRIPTION_PLAIN, { center: "x", y: descY, screen }, descBounds);
+  const descBottom = descY + (descBox ? descBox.box.height : charH);
+
+  ink(sr, sg, sb, shadowAlpha).write(DESCRIPTION_PLAIN, { center: "x", y: descY + shadowOff, screen }, undefined, descBounds);
+  ink(fgDim).write(DESCRIPTION, { center: "x", y: descY, screen }, undefined, descBounds);
 
   // Buy button — custom rendered in Unifont for larger, more active CTA
   const $btn = { ink };
@@ -737,7 +743,7 @@ function paint($) {
     const boxW = buyText.length * unifontCharW + padX * 2;
     const boxH = unifontH + padY * 2;
     const boxX = floor((screen.width - boxW) / 2);
-    const boxY = 90; // directly under the prose
+    const boxY = descBottom + 6; // directly under the prose
     buyBtn.btn.box.x = boxX;
     buyBtn.btn.box.y = boxY;
     buyBtn.btn.box.w = boxW;
