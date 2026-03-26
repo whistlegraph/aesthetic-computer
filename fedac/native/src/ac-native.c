@@ -3164,8 +3164,15 @@ int main(int argc, char *argv[]) {
                 static int was_connected = 0;
                 int is_connected = (wifi && wifi->state == WIFI_STATE_CONNECTED);
                 if (is_connected && !was_connected) {
-                    if (tts) tts_speak(tts, "online");
-                    ac_log("[wifi-tts] connected — announcing 'online'");
+                    if (tts) {
+                        char wifi_msg[128];
+                        if (wifi->ssid[0])
+                            snprintf(wifi_msg, sizeof(wifi_msg), "connected to %s", wifi->ssid);
+                        else
+                            snprintf(wifi_msg, sizeof(wifi_msg), "online");
+                        tts_speak(tts, wifi_msg);
+                    }
+                    ac_log("[wifi-tts] connected to %s", wifi->ssid[0] ? wifi->ssid : "(unknown)");
 
                     // Fetch device tokens (Claude + GitHub) from API (authenticated)
                     {
