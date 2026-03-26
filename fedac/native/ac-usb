@@ -136,7 +136,7 @@ case "${CMD}" in
                 apk add --quiet dosfstools sfdisk
                 cat > /tmp/vmlinuz
                 echo 'label: gpt
-type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M' | sfdisk ${USB_DEV}
                 sync; sleep 1
                 mkfs.vfat -F 32 -n AC-NATIVE ${USB_DEV}1
                 mkdir -p /mnt/usb
@@ -149,19 +149,23 @@ type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=512M' | sfdisk ${USB_DEV}
                 echo 'Done!'
             "
         rm -f /workspaces/aesthetic-computer/.flash-vmlinuz 2>/dev/null
-        # Inject handle (always) + optional credentials into config.json on the USB
+        # Inject handle (always) + all available credentials into config.json
         HANDLE="${3:-jeffrey}"
         CLAUDE_TOKEN=""
         GITHUB_PAT=""
+        # Claude token: check .credentials.json first, then env
         if [ -f "${HOME}/.claude/.credentials.json" ]; then
             CLAUDE_TOKEN=$(node -e "
                 const c=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/.credentials.json','utf8'));
                 process.stdout.write(c.claudeAiOauth?.accessToken || '');
             " 2>/dev/null || true)
         fi
+        [ -z "${CLAUDE_TOKEN}" ] && CLAUDE_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN:-}"
+        # GitHub PAT: check gh config, then env vars
         if [ -f "${HOME}/.config/gh/hosts.yml" ]; then
             GITHUB_PAT=$(grep 'oauth_token:' "${HOME}/.config/gh/hosts.yml" 2>/dev/null | head -1 | awk '{print $2}' || true)
         fi
+        [ -z "${GITHUB_PAT}" ] && GITHUB_PAT="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
         # Always write config.json with at least the handle
         CONFIG_JSON=$(node -e "
             const c = {handle: '${HANDLE}'};
