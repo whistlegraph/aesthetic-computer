@@ -64,7 +64,7 @@ let laptopBtn = null;
 // Build telemetry
 let activeBuild = null;    // { id, status, stage, percent, ref, error }
 let buildLogLines = [];    // last few log lines
-const MAX_BUILD_LOGS = 10;
+const MAX_BUILD_LOGS = 20;
 let buildPollTimer = null;
 
 // Color palettes for dark/light mode (deprecated builds use red tones)
@@ -473,11 +473,13 @@ function paint($) {
     const logH = buildLogLines.length * (matrixH + 1) + 8;
     sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120 + logH);
 
-    // Status line: stage + percentage
+    // Status line: stage + percentage + elapsed
     const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
     const pct = activeBuild.percent || 0;
+    const elapsed = activeBuild.elapsedMs ? Math.floor(activeBuild.elapsedMs / 1000) : 0;
+    const elapsedStr = elapsed > 0 ? " " + Math.floor(elapsed / 60) + "m" + (elapsed % 60) + "s" : "";
     ink(...C.current);
-    $.write(stageLabel + " " + pct + "%", { x: pad, y });
+    $.write(stageLabel + " " + pct + "%" + elapsedStr, { x: pad, y });
     y += rowH + 4;
 
     // Progress bar
