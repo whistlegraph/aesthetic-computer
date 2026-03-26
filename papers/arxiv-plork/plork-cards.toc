@@ -12,33 +12,34 @@
 \contentsline {section}{\numberline {4}AC Native OS as Instrument}{16}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Architecture in Brief}{16}{subsection.4.1}%
 \contentsline {subsection}{\numberline {4.2}Built-In Synthesis}{17}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}The Laptop Already Has Everything}{18}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Network-Native Ensemble}{19}{subsection.4.4}%
-\contentsline {subsection}{\numberline {4.5}Personalization as Instrument Identity}{19}{subsection.4.5}%
-\contentsline {section}{\numberline {5}The Dedicated-Device Landscape}{21}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Nintendo Switch (\$299 new, \$150 used)}{21}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Steam Deck (\$399 new, \$250 used)}{22}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Teenage Engineering (OP-1, EP-133, TX-6)}{23}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}The Dedicated-Device Insight}{25}{subsection.5.4}%
-\contentsline {section}{\numberline {6}From Ensemble to Planet}{26}{section.6}%
-\contentsline {subsection}{\numberline {6.1}PLOrk's Scaling Limit}{26}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}AC OS's Scaling Curve}{27}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}The 240-Million-Seat Orchestra}{28}{subsection.6.3}%
-\contentsline {section}{\numberline {7}PLOrk the Planet: A Concrete Proposal}{30}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Community Flashing Events}{30}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}School Programs Without Equipment Budgets}{30}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}After-School and Community Ensembles}{31}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}The Distributed Orchestra}{32}{subsection.7.4}%
-\contentsline {section}{\numberline {8}What PLOrk Got Right (And What It Missed)}{33}{section.8}%
-\contentsline {section}{\numberline {9}Music, Access, and Political Economy}{35}{section.9}%
-\contentsline {section}{\numberline {10}Related Work}{37}{section.10}%
-\contentsline {section}{\numberline {11}Lessons from OLPC}{39}{section.11}%
-\contentsline {section}{\numberline {12}Limitations}{42}{section.12}%
-\contentsline {section}{\numberline {13}Implications and Future Work}{45}{section.13}%
-\contentsline {subsection}{\numberline {13.1}ARM Chromebook Support}{45}{subsection.13.1}%
-\contentsline {subsection}{\numberline {13.2}Built-In Composition Tools}{45}{subsection.13.2}%
-\contentsline {subsection}{\numberline {13.3}Spatialization Without Speakers}{45}{subsection.13.3}%
-\contentsline {subsection}{\numberline {13.4}Curriculum Development}{46}{subsection.13.4}%
-\contentsline {subsection}{\numberline {13.5}Mesh Networking}{46}{subsection.13.5}%
-\contentsline {section}{\numberline {14}Conclusion}{47}{section.14}%
+\contentsline {subsection}{\numberline {4.3}Notepat: The Default Instrument}{18}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}The Laptop Already Has Everything}{20}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Network-Native Ensemble}{21}{subsection.4.5}%
+\contentsline {subsection}{\numberline {4.6}Personalization as Instrument Identity}{22}{subsection.4.6}%
+\contentsline {section}{\numberline {5}The Dedicated-Device Landscape}{24}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Nintendo Switch (\$299 new, \$150 used)}{24}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Steam Deck (\$399 new, \$250 used)}{25}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Teenage Engineering (OP-1, EP-133, TX-6)}{26}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}The Dedicated-Device Insight}{28}{subsection.5.4}%
+\contentsline {section}{\numberline {6}From Ensemble to Planet}{30}{section.6}%
+\contentsline {subsection}{\numberline {6.1}PLOrk's Scaling Limit}{30}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}AC OS's Scaling Curve}{31}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}The 240-Million-Seat Orchestra}{32}{subsection.6.3}%
+\contentsline {section}{\numberline {7}PLOrk the Planet: A Concrete Proposal}{34}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Community Flashing Events}{34}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}School Programs Without Equipment Budgets}{34}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}After-School and Community Ensembles}{35}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}The Distributed Orchestra}{36}{subsection.7.4}%
+\contentsline {section}{\numberline {8}What PLOrk Got Right (And What It Missed)}{38}{section.8}%
+\contentsline {section}{\numberline {9}Music, Access, and Political Economy}{41}{section.9}%
+\contentsline {section}{\numberline {10}Related Work}{44}{section.10}%
+\contentsline {section}{\numberline {11}Lessons from OLPC}{46}{section.11}%
+\contentsline {section}{\numberline {12}Limitations}{49}{section.12}%
+\contentsline {section}{\numberline {13}Implications and Future Work}{54}{section.13}%
+\contentsline {subsection}{\numberline {13.1}ARM Chromebook Support}{54}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Built-In Composition Tools}{54}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Spatialization Without Speakers}{54}{subsection.13.3}%
+\contentsline {subsection}{\numberline {13.4}Curriculum Development}{55}{subsection.13.4}%
+\contentsline {subsection}{\numberline {13.5}Mesh Networking}{55}{subsection.13.5}%
+\contentsline {section}{\numberline {14}Conclusion}{56}{section.14}%
 \contentsfinish 
