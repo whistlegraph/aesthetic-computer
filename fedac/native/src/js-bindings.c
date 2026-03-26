@@ -3663,7 +3663,7 @@ static JSValue js_exec_node(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_TRUE;
 }
 
-// system.listPieces() — scan /pieces/*.mjs, return array of piece names
+// system.listPieces() — scan /pieces/*.mjs and /pieces/*.lisp, return array of piece names
 static JSValue js_list_pieces(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
     JSValue arr = JS_NewArray(ctx);
@@ -3672,14 +3672,22 @@ static JSValue js_list_pieces(JSContext *ctx, JSValueConst this_val, int argc, J
         struct dirent *ent;
         uint32_t idx = 0;
         while ((ent = readdir(d)) != NULL) {
+            if (ent->d_name[0] == '.') continue;
+            // Check for .mjs
             char *dot = strstr(ent->d_name, ".mjs");
-            if (dot && dot[4] == '\0' && ent->d_name[0] != '.') {
+            if (dot && dot[4] == '\0') {
                 char name[64];
                 int len = (int)(dot - ent->d_name);
                 if (len > 63) len = 63;
                 memcpy(name, ent->d_name, len);
                 name[len] = '\0';
                 JS_SetPropertyUint32(ctx, arr, idx++, JS_NewString(ctx, name));
+                continue;
+            }
+            // Check for .lisp — include extension so list.mjs can distinguish
+            dot = strstr(ent->d_name, ".lisp");
+            if (dot && dot[5] == '\0') {
+                JS_SetPropertyUint32(ctx, arr, idx++, JS_NewString(ctx, ent->d_name));
             }
         }
         closedir(d);
