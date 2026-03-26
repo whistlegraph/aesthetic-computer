@@ -333,22 +333,26 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
 
                 pid_t dpid = fork();
                 if (dpid == 0) {
-                    int fd = open("/tmp/dhclient.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
-                    if (fd >= 0) { dup2(fd, 2); close(fd); }
+                    int fd = open("/tmp/dhcp.log", O_WRONLY|O_CREAT|O_TRUNC, 0644);
+                    if (fd >= 0) { dup2(fd, 2); dup2(fd, 1); close(fd); }
+                    // Prefer udhcpc (busybox) — fast, no script needed
+                    if (file_exists("/sbin/udhcpc"))
+                        execl("/sbin/udhcpc", "udhcpc", "-i", wifi->iface,
+                              "-n",  // exit if no lease (don't background)
+                              "-q",  // quit after obtaining lease
+                              "-t", "5",  // 5 retries
+                              "-T", "3",  // 3 second timeout
+                              NULL);
+                    // Fallback to dhclient
                     const char *dhc_paths[] = {
-                        "/bin/dhclient", "/usr/bin/dhclient",
-                        "/usr/sbin/dhclient", "/sbin/dhclient", NULL
-                    };
-                    const char *dhc_script[] = {
-                        "/sbin/dhclient-script", "/bin/dhclient-script", NULL
+                        "/sbin/dhclient", "/usr/sbin/dhclient", NULL
                     };
                     const char *script = "/sbin/dhclient-script";
-                    for (int i = 0; dhc_script[i]; i++)
-                        if (file_exists(dhc_script[i])) { script = dhc_script[i]; break; }
+                    if (file_exists("/bin/dhclient-script")) script = "/bin/dhclient-script";
                     for (int i = 0; dhc_paths[i]; i++) {
                         if (file_exists(dhc_paths[i])) {
                             execl(dhc_paths[i], "dhclient",
-                                  "-v", "-sf", script,
+                                  "-v", "-1", "-sf", script,
                                   "-pf", "/tmp/dhclient.pid",
                                   "-lf", "/tmp/dhclient.leases",
                                   wifi->iface, NULL);
