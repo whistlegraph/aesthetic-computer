@@ -1313,9 +1313,24 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         ac_log("[boot-anim] boot_dev=%s parent=%s removable=%d show_install=%d\n",
                 log_dev, boot_blk, is_removable(boot_blk), show_install);
     } else {
-        // No log_dev yet — always show install option (user can update or fresh install)
-        show_install = 1;
-        ac_log("[boot-anim] no log_dev, show_install=1 (always offer)\n");
+        // No log_dev — check if any removable block device has our EFI boot file
+        // If not, we're booted from internal disk (post-install) — don't show install
+        show_install = 0;
+        DIR *blkdir = opendir("/sys/block");
+        if (blkdir) {
+            struct dirent *bent;
+            while ((bent = readdir(blkdir)) != NULL) {
+                if (bent->d_name[0] == '.') continue;
+                if (is_removable(bent->d_name) == 1) {
+                    show_install = 1;
+                    ac_log("[boot-anim] removable device %s found, show_install=1\n", bent->d_name);
+                    break;
+                }
+            }
+            closedir(blkdir);
+        }
+        if (!show_install)
+            ac_log("[boot-anim] no removable media, show_install=0\n");
     }
 
     // Open evdev fds for key checking — retry until devices appear
@@ -1995,7 +2010,16 @@ int main(int argc, char *argv[]) {
             int install_ok = auto_install_to_hd(&graph, screen, display, pixel_scale);
             if (display) {
                 int should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
-                if (should_reboot) { system("reboot -f"); _exit(0); }
+                if (should_reboot) {
+                    if (tts) tts_wait(tts);  // let TTS finish before reboot
+                    sync();
+                    usleep(500000);  // 0.5s grace
+                    // sysrq reboot (most reliable under initramfs)
+                    FILE *sr = fopen("/proc/sysrq-trigger", "w");
+                    if (sr) { fputs("b", sr); fclose(sr); }
+                    system("reboot -f");
+                    _exit(0);
+                }
             }
         }
 
@@ -2057,13 +2081,14 @@ int main(int argc, char *argv[]) {
                 should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
             if (install_ok) should_reboot = 1;
             if (should_reboot) {
-                if (tts) { tts_speak(tts, "powering off"); tts_wait(tts); }
+                if (tts) { tts_speak(tts, "rebooting"); tts_wait(tts); }
                 audio_shutdown_sound(audio);
-                usleep(600000);
+                usleep(500000);
                 sync();
-                // Cold power-off instead of warm reboot — HDA codec doesn't
-                // reinitialize properly on warm reboot, causing ALSA failure.
-                reboot(LINUX_REBOOT_CMD_POWER_OFF);
+                // sysrq reboot (reliable under initramfs)
+                FILE *sr = fopen("/proc/sysrq-trigger", "w");
+                if (sr) { fputs("b", sr); fclose(sr); }
+                reboot(LINUX_REBOOT_CMD_RESTART);
                 while (running) sleep(1);
             }
         }
