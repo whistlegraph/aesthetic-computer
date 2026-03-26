@@ -3322,22 +3322,12 @@ static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
-// system.poweroff() — clean shutdown (power off)
+// system.poweroff() — signal main loop to run shutdown animation then exit
+extern volatile int poweroff_requested;
 static JSValue js_poweroff(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)ctx; (void)this_val; (void)argc; (void)argv;
-    ac_log("[system] poweroff requested");
-    perf_flush();
-    if (current_rt && current_rt->audio) {
-        audio_shutdown_sound(current_rt->audio);
-        usleep(500000);
-    }
-    ac_log("[poweroff] pid=%d, syncing filesystems...\n", getpid());
-    ac_log_flush();
-    sync(); usleep(300000); sync();
-    ac_log("[poweroff] exiting with code 0 (init will power off)...\n");
-    ac_log_flush();
-    // Exit cleanly — init script sees exit code 0 and runs poweroff
-    _exit(0);
+    ac_log("[system] poweroff requested via JS");
+    poweroff_requested = 1;  // main loop will run bye animation + exit(0)
     return JS_UNDEFINED;
 }
 

@@ -129,6 +129,17 @@ for cmd in sh sleep mkdir mount umount cat echo ls cp mv rm ln chmod chown \
 done
 # udhcpc also expected at /sbin/ by wifi.c
 ln -sf ../bin/busybox "$IROOT/sbin/udhcpc" 2>/dev/null || true
+
+# ── 2a2: curl + wget for HTTP fetches (captive portals, OTA, API calls) ──
+CURL_BIN=$(command -v curl)
+if [ -n "$CURL_BIN" ]; then
+    cp "$CURL_BIN" "$IROOT/bin/curl"
+    for lib in $(ldd "$CURL_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        [ -f "$lib" ] && cp -nL "$lib" "$IROOT/lib64/" 2>/dev/null || true
+    done
+fi
+# busybox wget as fallback
+ln -s busybox "$IROOT/bin/wget" 2>/dev/null || true
 # Minimal udhcpc script to configure interface after getting lease
 mkdir -p "$IROOT/usr/share/udhcpc"
 cat > "$IROOT/usr/share/udhcpc/default.script" << 'UDHCPC_SCRIPT'
