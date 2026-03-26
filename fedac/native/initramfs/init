@@ -107,14 +107,14 @@ while true; do
     # Clean exit (0) = shutdown requested
     if [ "$EXIT_CODE" = "0" ]; then
         sync
-        echo "[ac-init] Clean exit — shutting down..."
-        # Try multiple shutdown methods
-        poweroff -f 2>/dev/null
-        reboot -f 2>/dev/null
-        # Fallback: write to sysrq
+        echo "[ac-init] Clean exit — powering off..."
+        # Sysrq power off (most reliable under initramfs)
         echo o > /proc/sysrq-trigger 2>/dev/null
-        # Last resort: direct syscall via busybox
+        sleep 2
+        # Busybox poweroff
+        poweroff -f 2>/dev/null
         busybox poweroff -f 2>/dev/null
+        # If nothing worked, halt (do NOT reboot)
         sleep 30
         break
     fi
