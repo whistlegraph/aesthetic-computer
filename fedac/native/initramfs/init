@@ -92,6 +92,15 @@ if [ "$USB_MOUNTED" = "1" ]; then
     echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> $LOG
     sync
 fi
+# Start Swank server in background (if SBCL image exists)
+SWANK_PID=0
+if [ -x /ac-swank ]; then
+    echo "[ac-init] Starting Swank server (port 4005)..."
+    LD_LIBRARY_PATH="/lib64:/usr/lib64" /ac-swank --swank-only &
+    SWANK_PID=$!
+    echo "[ac-init] Swank PID=$SWANK_PID"
+fi
+
 # Run once, capture crash
 echo "[ac-init] === LAUNCHING ==="
 /ac-native /piece.mjs > /mnt/pre-launch-out.log 2>&1
