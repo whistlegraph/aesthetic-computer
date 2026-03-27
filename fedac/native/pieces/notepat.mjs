@@ -13,7 +13,7 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "noise", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
@@ -617,8 +617,12 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (sounds[key]) {
-      const s = sounds[key].synth || sounds[key];
-      sound.kill(s, quickMode ? 0.02 : 0.08);
+      const fade = quickMode ? 0.02 : 0.08;
+      if (sounds[key].compositeVoices) {
+        for (const v of sounds[key].compositeVoices) sound.kill(v, fade);
+      } else {
+        sound.kill(sounds[key].synth || sounds[key], fade);
+      }
       delete sounds[key];
     }
   }
@@ -802,6 +806,19 @@ function act({ event: e, sound, wifi, system }) {
             synth = smp;
             sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
           }
+        } else if (wave === "composite") {
+          // Rich layered pad: 5 detuned oscillators
+          const detune = () => Math.floor(Math.random() * 13) - 6;
+          const a = sound.synth({ type: "sine", tone: playFreq, duration: Infinity, volume: 0.5, attack: 0.003, decay: 0.9, pan });
+          const b = sound.synth({ type: "sine", tone: playFreq + 9 + detune(), duration: Infinity, volume: 0.17, attack: 0.003, decay: 0.9, pan });
+          const c = sound.synth({ type: "sawtooth", tone: playFreq + detune(), duration: 0.15 + Math.random() * 0.05, volume: 0.01, attack: 0.005, decay: 0.1, pan });
+          const d = sound.synth({ type: "triangle", tone: playFreq + 8 + detune(), duration: Infinity, volume: 0.016, attack: 0.999, decay: 0.9, pan });
+          const e2 = sound.synth({ type: "square", tone: playFreq + detune(), duration: Infinity, volume: 0.008, attack: 0.05, decay: 0.9, pan });
+          synth = a; // primary handle for kill
+          sounds[hitNote.key] = {
+            synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
+            compositeVoices: [a, b, c, d, e2],
+          };
         } else {
           synth = sound.synth({
             type: wave, tone: playFreq, duration: Infinity,
