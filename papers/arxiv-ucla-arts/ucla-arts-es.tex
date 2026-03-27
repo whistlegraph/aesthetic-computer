@@ -1,0 +1,289 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={Dos departamentos, un edificio: Financiamiento y administración en UCLA Arts}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Borrador de trabajo --- no citar}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\dma}{\textsc{DMA}}
+\newcommand{\sofa}{\textsc{School of the Arts and Architecture}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Dos departamentos, un edificio}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Financiamiento y administración en UCLA Arts}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Desde el Departamento de Arte de 1939 hasta \acrandname{} en el Broad Art Center}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ borrador de trabajo --- no citar ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Resumen.}
+El Department of Art y el Department of Design~|~Media Arts de UCLA comparten un edificio, una escuela y un decano. No comparten un modelo de financiamiento. Arte atrae grandes donaciones filantrópicas de coleccionistas y galeristas---\$20 millones de Margo Leavin para estudios de posgrado, \$2,5 millones de los Resnick para una cátedra dotada y un laboratorio de fotografía. \dma{} funciona con becas de investigación externas (NSF, Getty, Rockefeller, Creative Capital) y asociaciones interinstitucionales. Ninguno de los dos departamentos financia directamente las herramientas de software de código abierto que su profesorado crea---Processing, p5.js, los motores del UCLA Game Lab---y sin embargo estas herramientas llegan a millones de usuarios en todo el mundo. Trazo la historia administrativa y financiera de ambos departamentos desde la fundación del programa de arte de UCLA en 1939, pasando por la apertura del Broad Art Center en 2006, la fundación de la Processing Foundation en 2012, y la operación actual de seis iniciativas de investigación con nombre propio dentro de \dma{}. El artículo plantea una pregunta relevante para \ac{}: ¿qué significa construir software creativo fuera de la estructura institucional que cobija a todos los proyectos comparables en el campo?
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introducción}
+
+Casey Reas co-creó Processing en 2001 en el MIT. Se incorporó al Department of Design~|~Media Arts de UCLA en 2004~\citep{dmahistory}. Dirigió el departamento de 2007 a 2009. Co-fundó la Processing Foundation como organización 501(c)(3) en 2012. Recibe cero dólares de la Fundación---según cada declaración IRS 990 registrada.
+
+Lauren McCarthy creó p5.js en 2013. Se incorporó a \dma{} como profesora. Pasó la siguiente década manteniéndolo durante 10--20 horas semanales no remuneradas además de su carga docente~\citep{mccarthy2023making}. Ella también recibe cero dólares de la Processing Foundation.
+
+Ambos son profesores titulares. Ambos reciben un salario de UCLA por enseñar e investigar. Las herramientas que construyeron---utilizadas por millones---están subsidiadas por esos salarios de una forma que no aparece en ninguna línea presupuestaria. Este es el modelo que describí en ``Who Pays for Creative Tools?''~\citep{scudder2026sustainability} como \emph{subsidio académico}: la universidad paga por una cosa, y el miembro del profesorado hace otra cosa además, y esa segunda cosa es la que cambia el mundo.
+
+Este artículo trata sobre la institución que proporciona ese subsidio. No UCLA como un monolito, sino dos departamentos específicos dentro de una escuela---Arte y \dma{}---que se encuentran en el mismo edificio de Richard Meier, reportan al mismo decano, extraen del mismo presupuesto operativo de \$70 millones de la escuela y operan con arquitecturas financieras fundamentalmente diferentes.
+
+Escribo esto como alguien externo. Fui invitado al laboratorio Social Software de UCLA como Author in Residence para la primavera de 2026~\citep{scudder2026ac}. Construyo \ac{}, una plataforma de computación creativa, sin el paraguas institucional que cobija a Processing, p5.js, Scratch, Sonic Pi y todas las demás herramientas comparables en el campo. Entender cómo funciona ese paraguas---y quién lo sostiene---no es curiosidad académica. Es investigación de supervivencia.
+
+\section{Dos departamentos}
+
+\subsection{Arte (1939--)}
+
+El Department of Art es el hermano mayor. Fundado en 1939 dentro del College of Applied Arts, fue la primera vez que los estudiantes podían especializarse en arte en UCLA. Pasó por el College of Fine Arts (1960) y llegó a la School of the Arts (1991, posteriormente \sofa{}). Su enfoque es el arte de estudio: pintura, dibujo, escultura, fotografía, cerámica, grabado, nuevos géneros, estudio interdisciplinario.
+
+Su lista de profesorado se lee como un catálogo de colección museística. Catherine Opie (fotografía), Andrea Fraser (estudio interdisciplinario, directora actual), Barbara Kruger (nuevos géneros, Distinguished Professor), Lari Pittman (pintura, Distinguished Professor). Son artistas cuyo trabajo se vende en subastas, cuelga en colecciones permanentes y define movimientos enteros.
+
+\subsection{Design~|~Media Arts (1988--)}
+
+\dma{} se separó de Arte en 1988 como el Department of Design. El enfoque original era cerámica, textiles, diseño industrial y diseño gráfico. Rebecca Allen asumió la dirección en 1996 y giró hacia los medios. En 2000 el departamento se renombró Design~|~Media Arts. Erkki Huhtamo y Christian Moeller se incorporaron al profesorado. Casey Reas llegó en 2004.
+
+Hoy \dma{} abarca codificación creativa, diseño gráfico, videojuegos, VR/AR, fabricación digital y teoría de medios. Su profesorado construye software que funciona en millones de máquinas. Sus egresados trabajan en Google, Apple y Pixar---pero también en estudios pequeños, organizaciones sin fines de lucro y prácticas independientes.
+
+\subsection{Mismo edificio, mundos diferentes}
+
+Ambos departamentos se mudaron al Eli and Edythe Broad Art Center en 2006---un edificio de \$52 millones (incluyendo una donación de \$23,2 millones de la Broad Foundation) diseñado por Richard Meier. Comparten pasillos, ascensores y un decano. No comparten una lógica financiera.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+& \textbf{Art} & \textbf{DMA} \\
+\midrule
+Fundado & 1939 & 1988 \\
+Enfoque & Arte de estudio & Medios, código, diseño \\
+Estudios MFA & Fuera del campus (Culver City) & En el campus (Broad) \\
+Cátedras dotadas & Sí (Resnick) & Ninguna \\
+Donaciones mayores & \$20M Leavin, \$2.5M Resnick & Edificio Broad compartido \\
+Fuentes de becas & NEA, fundaciones & NSF, Getty, Rockefeller \\
+Producción de software & Mínima & Processing, p5.js, Game Lab \\
+\bottomrule
+\end{tabularx}
+\caption{Comparación estructural de UCLA Art y \dma{}.}
+\label{tab:comparison}
+\end{table}
+
+\section{Cómo se financia Arte}
+
+\subsection{La donación Leavin}
+
+En 2016, la galerista y exalumna Margo Leavin donó \$20 millones al Department of Art de UCLA---la mayor donación individual de una exalumna a las artes en la historia de la University of California. El dinero financió los Margo Leavin Graduate Art Studios: un campus de 48.000 pies cuadrados en Culver City, diseñado por Johnston Marklee, inaugurado en 2019. Los estudiantes de MFA ahora trabajan en estudios construidos a medida con luz natural, talleres de fabricación y espacio de exhibición.
+
+Así es como se financian los departamentos de bellas artes. Una galerista que construyó su carrera vendiendo la obra de artistas que enseñan en la escuela devuelve dinero a la escuela que produce la siguiente generación de artistas cuya obra ella podría vender. El ciclo se cierra. Los incentivos están alineados. El dinero es real.
+
+\subsection{La dotación Resnick}
+
+Lynda y Stewart Resnick (Wonderful Company, FIJI Water, POM Wonderful) donaron \$2 millones para dotar la Lynda and Stewart Resnick Endowed Professorship in Art---la primera cátedra dotada del departamento. Catherine Opie fue la titular inaugural. También donaron \$500.000 para renovar el laboratorio de fotografía de pregrado.
+
+Una cátedra dotada es financiamiento perpetuo. El capital genera intereses; los intereses pagan un complemento salarial y fondos de investigación; el profesor mantiene el título de por vida o hasta que se marche. Es la forma más estable de financiamiento académico que existe.
+
+\subsection{El patrón}
+
+El financiamiento de Arte proviene de coleccionistas, galeristas y filántropos que participan en el mercado del arte. El departamento produce artistas. El mercado del arte valora a los artistas. Los participantes del mercado devuelven. Este no es un modelo universal---la mayoría de los departamentos de arte no tienen a Margo Leavin como exalumna---pero donde funciona, funciona de manera duradera.
+
+\section{Cómo se financia DMA}
+
+\subsection{Becas de investigación}
+
+El profesorado de \dma{} financia su trabajo a través de becas externas competitivas:
+
+\begin{itemize}
+  \item \textbf{NSF}: \$1,3 millones para un proyecto de innovación en cultura/creatividad/tecnología (McCarthy como colaboradora)
+  \item \textbf{Getty Foundation}: becas Pacific Standard Time (Vesna y otros)
+  \item \textbf{Rockefeller Foundation}: beca de nuevos medios (Eddo Stern)
+  \item \textbf{Creative Capital}: becas de campos emergentes (Stern, McCarthy)
+  \item \textbf{Chancellor's Arts Initiative}: becas internas de UCLA, \$5K--\$15K por proyecto; más de \$550K otorgados en cuatro ciclos desde 2021
+\end{itemize}
+
+Estas becas son por proyecto y de duración limitada. Financian investigación específica durante períodos específicos. Cuando la beca termina, el financiamiento termina. No hay dotación. No hay interés perpetuo. Hay otra solicitud.
+
+\subsection{Seis iniciativas, seis directores}
+
+\dma{} opera actualmente seis iniciativas de investigación con nombre propio, cada una con su propio director y relaciones de financiamiento distintas:
+
+\begin{enumerate}
+  \item \textbf{Social Software} (Reas + McCarthy)---software como cultura, código abierto, IA. Socios: Processing Foundation, UCLA DataX, YoungArts.
+  \item \textbf{UCLA Game Lab} (Eddo Stern)---interescuelas, co-financiado por Arts \& Architecture y Theater, Film \& Television.
+  \item \textbf{Art|Sci Center} (Victoria Vesna)---arte + nanociencia, alojado conjuntamente en \dma{} y el California NanoSystems Institute. Financiado por NSF, Burroughs Wellcome Fund, Getty.
+  \item \textbf{Conditional Studio} (Chandler McWilliams)---materialidad de la computación.
+  \item \textbf{Counterforce Lab} (Rebeca Mendez).
+  \item \textbf{MARS} (Romi Morrison).
+\end{enumerate}
+
+Cada iniciativa es una isla de financiamiento. El Game Lab funciona porque dos escuelas dividen el costo. Art|Sci funciona porque un instituto de nanociencia lo co-alberga. Social Software funciona porque Reas y McCarthy traen su propia gravedad institucional. Ninguno de estos acuerdos tiene garantía de sobrevivir un cambio de liderazgo, un recorte presupuestario o un decano que priorice de manera diferente.
+
+\subsection{La Processing Foundation}
+
+La Processing Foundation es una organización sin fines de lucro 501(c)(3) incorporada en Brooklyn, Nueva York. No es una entidad de UCLA. No recibe financiamiento de UCLA. Su junta incluye a Reas y McCarthy, pero la Fundación es institucionalmente independiente.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrrr}
+\toprule
+\textbf{Año} & \textbf{Ingresos} & \textbf{Gastos} & \textbf{Activos} \\
+\midrule
+2020 & \$273K & \$182K & \$156K \\
+2021 & \$10.9M & \$430K & \$10.6M \\
+2022 & \$751K & \$647K & \$10.7M \\
+2023 & \$513K & \$1.23M & \$10.4M \\
+2024 & \$649K & \$1.52M & \$9.5M \\
+\bottomrule
+\end{tabularx}
+\caption{Finanzas de la Processing Foundation (declaraciones IRS 990 vía ProPublica).}
+\label{tab:pf-financials}
+\end{table}
+
+El salto de 2021---de \$273K a \$10,9 millones en un año---fue casi enteramente donaciones en criptomonedas de artistas generativos durante el auge de los NFT. Los principales donantes incluyeron a Erick Calderon (fundador de Art Blocks), Tyler Hobbs, el propio Casey Reas, Monica Rizzolli y Dmitri Cherniak. Esto no fue un modelo de financiamiento. Fue un evento climático. No se repetirá.
+
+La Fundación ahora gasta aproximadamente \$1,5 millones por año contra \$650K--\$970K en ingresos, consumiendo las reservas de 2021. Al ritmo de gasto actual, la dirección estima una pista de 12--13 años. Reas, Fry y Shiffman---los tres co-fundadores---han recibido \$0 en compensación de la Fundación en cada año registrado.
+
+\subsection{El subsidio invisible}
+
+Esto es lo que realmente financia Processing y p5.js: UCLA paga salarios a Reas y McCarthy. Esos salarios les compran tiempo. Gastan parte de ese tiempo---sin remuneración, sin seguimiento, invisible para cualquier presupuesto---manteniendo software utilizado por millones. La Fundación existe para recibir donaciones y coordinar el desarrollo. UCLA existe para pagar los salarios que hacen posible el trabajo no remunerado.
+
+Este es el mismo patrón que documenté en 28 autores de herramientas en ``Who Pays''~\citep{scudder2026sustainability}. La universidad es el paraguas. La herramienta es la lluvia. El paraguas no sabe que está protegiendo de la lluvia; cree que está empleando a un profesor.
+
+\section{Qué financia el mercado del arte vs.\ qué financian las becas}
+
+La distinción entre los modelos de financiamiento de Arte y \dma{} se corresponde con una diferencia más profunda en lo que cada departamento produce y quién lo valora.
+
+Arte produce \emph{objetos}. Pinturas, esculturas, fotografías, instalaciones. Estos objetos entran en un mercado con infraestructura establecida: galerías, casas de subastas, coleccionistas, comités de adquisición de museos, ferias de arte. El mercado asigna precios. Los precios generan riqueza. La riqueza retorna como filantropía. Las fotografías de Opie se venden. Las instalaciones de Kruger son comisionadas. El prestigio del departamento atrae donantes que quieren sus nombres en edificios y cátedras.
+
+\dma{} produce \emph{herramientas y experiencias}. Processing no es un objeto que puedas colgar en una pared. p5.js no es una edición de 45. Los videojuegos experimentales del UCLA Game Lab no se venden en Art Basel. La producción es software---gratuito, de código abierto, utilizado por millones, no valorado por ningún mercado. Cuando la obra de Reas se vende (sus piezas generativas están en el V\&A, LACMA, Centre Pompidou), eso es su práctica artística, no su práctica de software. Las dos están relacionadas pero son financieramente separadas.
+
+El mercado del arte puede financiar departamentos de arte porque puede ponerle precio al arte. Ningún mercado equivalente pone precio a las herramientas creativas de código abierto. Los \$10,9 millones que llegaron a la Processing Foundation en 2021 vinieron de una burbuja especulativa temporal en el arte digital, no de un mercado sostenible para las herramientas en sí.
+
+\section{Administración}
+
+\subsection{Gobernanza a nivel de escuela}
+
+Ambos departamentos reportan al Dean de la \sofa{}. El presupuesto operativo total de la escuela es de aproximadamente \$70 millones distribuidos entre cuatro departamentos (Architecture and Urban Design, Art, \dma{}, World Arts and Cultures/Dance). Los desgloses presupuestarios departamentales específicos no están disponibles públicamente.
+
+El puesto de decano es actualmente interino (Lionel Popkin). La escuela está realizando una búsqueda de un decano permanente. Esto importa porque los decanos controlan la asignación de recursos entre departamentos, y el equilibrio entre un departamento que atrae \$20 millones en donaciones filantrópicas y uno que atrae \$1,3 millones en becas NSF es una cuestión tanto política como administrativa.
+
+\subsection{Plazas de profesorado}
+
+\dma{} cuenta actualmente con 15 miembros del profesorado (7 profesores titulares, 3 profesores asociados, 4 profesores asistentes, 1 profesor de investigación). Cada plaza de profesorado representa un compromiso universitario de \$150K--\$250K por año en salario y prestaciones. Las seis iniciativas de investigación son dirigidas por profesorado---existen porque profesores específicos las dirigen, y deberán ser reocupadas o disueltas cuando esos profesores se jubilen o se marchen.
+
+\subsection{Financiamiento de posgrado}
+
+Ambos departamentos ofrecen paquetes de financiamiento de 4--5 años para estudiantes entrantes de MFA, actualmente aproximadamente \$30.000 por año más matrícula (combinación de becas y asistencias de enseñanza). Los estudiantes de Arte trabajan en los estudios Leavin en Culver City. Los estudiantes de \dma{} trabajan en el Broad Art Center. El nivel de financiamiento es comparable; la infraestructura física no lo es---las instalaciones construidas a medida de Leavin son un producto directo de la donación de \$20 millones.
+
+\section{Implicaciones para \ac{}}
+
+Construyo \ac{} sin nada de esto. Sin salario de UCLA. Sin becas NSF. Sin reservas de la Processing Foundation. Sin que Margo Leavin escriba un cheque de \$20 millones. Sin cátedra dotada generando interés perpetuo. El artículo complementario~\citep{scudder2026sustainability} documenta la historia económica completa.
+
+El modelo de UCLA muestra cómo luce el cobijo institucional en su mejor versión: profesorado titular con tiempo para construir, laboratorios de investigación con directores designados, becas externas que financian proyectos específicos, un presupuesto a nivel de escuela que mantiene las luces encendidas. También muestra la fragilidad: las reservas de la Processing Foundation son finitas, las becas tienen duración limitada, las iniciativas dependen de personas específicas, y las herramientas de código abierto que llegan a más usuarios son la parte menos financiada de todo el sistema.
+
+La pregunta para \ac{} no es ``¿cómo consigo un salario de UCLA?''---no lo tengo, y probablemente no lo tendré. La pregunta es si el modelo que funciona para Processing y p5.js (subsidio académico invisible + una fundación sin fines de lucro + una ganancia inesperada de criptomonedas irrepetible) puede ser replicado, adaptado o reemplazado por algo que no requiera ser un profesor titular en una universidad de investigación.
+
+Hasta ahora, la respuesta es: no de manera obvia. Pero el intento es el proyecto.
+
+\section{Conclusión}
+
+La School of the Arts and Architecture de UCLA alberga dos departamentos que representan dos lógicas financieras de la práctica creativa contemporánea. Arte es financiado por el mercado del arte---por coleccionistas, galeristas y filántropos que participan en un sistema de precios para objetos. \dma{} es financiado por becas de investigación, asociaciones interinstitucionales y el subsidio invisible de salarios de profesorado aplicados a trabajo de software no remunerado.
+
+Ambos modelos funcionan, en el sentido de que ambos departamentos son funcionales y prestigiosos. Ninguno de los dos modelos financia directamente herramientas creativas de código abierto. Processing existe porque Casey Reas tiene un salario de UCLA y dona su propio dinero a la Fundación que co-fundó. p5.js existe porque Lauren McCarthy tiene un salario de UCLA y pasa sus tardes manteniendo código. La ganancia inesperada de \$10,9 millones que estabilizó temporalmente a la Fundación vino de una burbuja especulativa, no de un mercado sostenible.
+
+El edificio es hermoso. Los pasillos son compartidos. El dinero fluye por tuberías diferentes.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

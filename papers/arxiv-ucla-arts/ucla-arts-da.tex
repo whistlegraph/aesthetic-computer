@@ -1,0 +1,289 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={To afdelinger, én bygning: Finansiering og administration i UCLA Arts}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Arbejdsudkast --- ikke til citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\dma}{\textsc{DMA}}
+\newcommand{\sofa}{\textsc{School of the Arts and Architecture}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} To afdelinger, én bygning}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Finansiering og administration i UCLA Arts}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Fra kunstafdelingen i 1939 til \acrandname{} i Broad Art Center}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ arbejdsudkast --- ikke til citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstrakt.}
+UCLAs Department of Art og Department of Design~|~Media Arts deler en bygning, en skole og en dekan. De deler ikke en finansieringsmodel. Art tiltrækker store filantropiske gaver fra samlere og gallerister---\$20 millioner fra Margo Leavin til kandidatstudier, \$2,5 millioner fra Resnick-familien til et stiftet professorat og et fotolaboratorium. \dma{} drives på eksterne forskningsbevillinger (NSF, Getty, Rockefeller, Creative Capital) og tværinstitutionelle partnerskaber. Ingen af afdelingerne finansierer direkte de open source-softwareværktøjer, som deres fakultetsmedlemmer skaber---Processing, p5.js, UCLA Game Labs engines---og alligevel når disse værktøjer millioner af brugere verden over. Jeg sporer den administrative og finansielle historie for begge afdelinger fra grundlæggelsen af UCLAs kunstprogram i 1939 gennem åbningen af Broad Art Center i 2006, stiftelsen af Processing Foundation i 2012 og den nuværende drift af seks navngivne forskningsinitiativer inden for \dma{}. Artiklen stiller et spørgsmål, der er relevant for \ac{}: hvad betyder det at bygge kreativ software uden for den institutionelle struktur, der beskytter ethvert sammenligneligt projekt i feltet?
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{Introduktion}
+
+Casey Reas medskabte Processing i 2001 på MIT. Han blev ansat ved UCLAs Department of Design~|~Media Arts i 2004~\citep{dmahistory}. Han var afdelingsleder fra 2007 til 2009. Han medstiftede Processing Foundation som en 501(c)(3) i 2012. Han modtager nul dollars fra stiftelsen---ifølge enhver IRS 990-indberetning på record.
+
+Lauren McCarthy skabte p5.js i 2013. Hun blev ansat ved \dma{} som fakultetsmedlem. Hun brugte det næste årti på at vedligeholde det i 10--20 ulønnet timer om ugen oven i sin undervisningsbyrde~\citep{mccarthy2023making}. Hun modtager ligeledes nul dollars fra Processing Foundation.
+
+Begge er fastansatte professorer. Begge betales af UCLA for at undervise og forske. De værktøjer, de byggede---brugt af millioner---er subsidieret af disse lønninger på en måde, der ikke optræder i nogen budgetlinje. Det er den model, jeg beskrev i ``Who Pays for Creative Tools?''~\citep{scudder2026sustainability} som \emph{akademisk subsidiering}: universitetet betaler for én ting, og fakultetsmedlemmet gør en anden ting oven i det, og den anden ting er det, der forandrer verden.
+
+Denne artikel handler om den institution, der yder det tilskud. Ikke UCLA som en monolit, men to specifikke afdelinger inden for én skole---Art og \dma{}---der sidder i den samme Richard Meier-bygning, refererer til den samme dekan, trækker på det samme driftsbudget på \$70 millioner og opererer med fundamentalt forskellige finansielle arkitekturer.
+
+Jeg skriver dette som udenforstående. Jeg blev inviteret til UCLAs Social Software-laboratorium som Author in Residence for foråret 2026~\citep{scudder2026ac}. Jeg bygger \ac{}, en kreativ computing-platform, uden den institutionelle paraply, der beskytter Processing, p5.js, Scratch, Sonic Pi og ethvert andet sammenligneligt værktøj i feltet. At forstå, hvordan den paraply fungerer---og hvem der holder den---er ikke akademisk nysgerrighed. Det er overlevelsesresearch.
+
+\section{To afdelinger}
+
+\subsection{Art (1939--)}
+
+Department of Art er den ældre søskende. Grundlagt i 1939 inden for College of Applied Arts var det første gang, studerende kunne tage en kunstuddannelse ved UCLA. Afdelingen flyttede gennem College of Fine Arts (1960) og ind i School of the Arts (1991, senere \sofa{}). Dens fokus er billedkunst i atelieret: maleri, tegning, skulptur, fotografi, keramik, grafik, nye genrer, tværfagligt atelier.
+
+Dens fakultetsliste læser som et museumskatalog. Catherine Opie (fotografi), Andrea Fraser (tværfagligt atelier, nuværende afdelingsleder), Barbara Kruger (nye genrer, Distinguished Professor), Lari Pittman (maleri, Distinguished Professor). Det er kunstnere, hvis værker sælges på auktion, hænger i permanente samlinger og definerer hele bevægelser.
+
+\subsection{Design~|~Media Arts (1988--)}
+
+\dma{} udskilte sig fra Art i 1988 som Department of Design. Det oprindelige fokus var keramik, tekstil, industrielt design og grafisk design. Rebecca Allen blev afdelingsleder i 1996 og drejede retningen mod medier. I 2000 omdøbte afdelingen sig til Design~|~Media Arts. Erkki Huhtamo og Christian Moeller blev ansat. Casey Reas ankom i 2004.
+
+I dag dækker \dma{} kreativ kodning, grafisk design, spil, VR/AR, digital fabrikation og medieteori. Dens fakultet bygger software, der kører på millioner af maskiner. Dens kandidater arbejder hos Google, Apple og Pixar---men også i små studier, nonprofitorganisationer og selvstændige praksisser.
+
+\subsection{Samme bygning, forskellige verdener}
+
+Begge afdelinger flyttede ind i Eli and Edythe Broad Art Center i 2006---en bygning til \$52 millioner (inklusive en gave på \$23,2 millioner fra Broad Foundation) tegnet af Richard Meier. De deler gange, elevatorer og en dekan. De deler ikke en finansiel logik.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+& \textbf{Art} & \textbf{DMA} \\
+\midrule
+Grundlagt & 1939 & 1988 \\
+Fokus & Billedkunst i atelieret & Medier, kode, design \\
+MFA-atelierer & Off-campus (Culver City) & On-campus (Broad) \\
+Stiftede professorater & Ja (Resnick) & Ingen \\
+Store gaver & \$20M Leavin, \$2.5M Resnick & Delt Broad-bygning \\
+Bevillingskilder & NEA, fonde & NSF, Getty, Rockefeller \\
+Softwareoutput & Minimalt & Processing, p5.js, Game Lab \\
+\bottomrule
+\end{tabularx}
+\caption{Strukturel sammenligning af UCLA Art og \dma{}.}
+\label{tab:comparison}
+\end{table}
+
+\section{Hvordan Art bliver finansieret}
+
+\subsection{Leavin-gaven}
+
+I 2016 donerede gallerist og alumna Margo Leavin \$20 millioner til UCLAs Department of Art---den største enkeltstående gave fra en alumna til kunsten i University of Californias historie. Pengene finansierede Margo Leavin Graduate Art Studios: et campus på 48.000 kvadratfod i Culver City, tegnet af Johnston Marklee, åbnet i 2019. MFA-studerende arbejder nu i specialbyggede atelierer med naturligt lys, fabrikationsværksteder og udstillingsrum.
+
+Sådan bliver kunstafdelinger finansieret. En gallerist, der byggede sin karriere på at sælge værker af kunstnere, der underviser på skolen, giver penge tilbage til den skole, der producerer den næste generation af kunstnere, hvis værker hun måske sælger. Kredsløbet er lukket. Incitamenterne er afstemt. Pengene er reelle.
+
+\subsection{Resnick-legatet}
+
+Lynda og Stewart Resnick (Wonderful Company, FIJI Water, POM Wonderful) gav \$2 millioner til at stifte Lynda and Stewart Resnick Endowed Professorship in Art---afdelingens første stiftede professorat. Catherine Opie var den første indehaver. De gav også \$500.000 til at renovere det fotografiske laboratorium for bachelorstuderende.
+
+Et stiftet professorat er permanent finansiering. Hovedstolen genererer renter; renterne betaler et løntillæg og forskningsmidler; professoren bærer titlen for livet eller indtil vedkommende forlader stillingen. Det er den mest stabile form for akademisk finansiering, der eksisterer.
+
+\subsection{Mønstret}
+
+Arts finansiering kommer fra samlere, gallerister og filantroper, der deltager i kunstmarkedet. Afdelingen producerer kunstnere. Kunstmarkedet værdsætter kunstnerne. Markedsdeltagerne giver tilbage. Det er ikke en universel model---de fleste kunstafdelinger har ikke Margo Leavin som alumna---men hvor den virker, virker den holdbart.
+
+\section{Hvordan DMA bliver finansieret}
+
+\subsection{Forskningsbevillinger}
+
+\dma{}-fakultetet finansierer sit arbejde gennem konkurrencebaserede eksterne bevillinger:
+
+\begin{itemize}
+  \item \textbf{NSF}: \$1,3 millioner til et kultur/kreativitets/teknologi-innovationsprojekt (McCarthy som samarbejdspartner)
+  \item \textbf{Getty Foundation}: Pacific Standard Time-bevillinger (Vesna m.fl.)
+  \item \textbf{Rockefeller Foundation}: New media fellowship (Eddo Stern)
+  \item \textbf{Creative Capital}: Emerging fields-bevillinger (Stern, McCarthy)
+  \item \textbf{Chancellor's Arts Initiative}: Interne UCLA-bevillinger, \$5K--\$15K per projekt; over \$550K uddelt på tværs af fire runder siden 2021
+\end{itemize}
+
+Disse bevillinger er projektbaserede og tidsbegrænsede. De finansierer specifik forskning i specifikke perioder. Når bevillingen ophører, ophører finansieringen. Der er intet legat. Der er ingen permanente renter. Der er endnu en ansøgning.
+
+\subsection{Seks initiativer, seks direktører}
+
+\dma{} driver i øjeblikket seks navngivne forskningsinitiativer, hver med sin egen direktør og distinkte finansieringsrelationer:
+
+\begin{enumerate}
+  \item \textbf{Social Software} (Reas + McCarthy)---software som kultur, open source, AI. Partnere: Processing Foundation, UCLA DataX, YoungArts.
+  \item \textbf{UCLA Game Lab} (Eddo Stern)---tværskole, medfinansieret af Arts \& Architecture og Theater, Film \& Television.
+  \item \textbf{Art|Sci Center} (Victoria Vesna)---kunst + nanovidenskab, fælles placeret i \dma{} og California NanoSystems Institute. Finansieret af NSF, Burroughs Wellcome Fund, Getty.
+  \item \textbf{Conditional Studio} (Chandler McWilliams)---beregningens materialitet.
+  \item \textbf{Counterforce Lab} (Rebeca Mendez).
+  \item \textbf{MARS} (Romi Morrison).
+\end{enumerate}
+
+Hvert initiativ er en finansieringsø. Game Lab fungerer, fordi to skoler deler omkostningerne. Art|Sci fungerer, fordi et nanovidenskabsinstitut er medvært. Social Software fungerer, fordi Reas og McCarthy bringer deres egen institutionelle tyngde med. Ingen af disse arrangementer er garanteret at overleve et lederskifte, en budgetnedskæring eller en dekan, der prioriterer anderledes.
+
+\subsection{Processing Foundation}
+
+Processing Foundation er en 501(c)(3) nonprofitorganisation inkorporeret i Brooklyn, New York. Det er ikke en UCLA-enhed. Den modtager ingen UCLA-finansiering. Dens bestyrelse inkluderer Reas og McCarthy, men stiftelsen er institutionelt uafhængig.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrrr}
+\toprule
+\textbf{År} & \textbf{Indtægter} & \textbf{Udgifter} & \textbf{Aktiver} \\
+\midrule
+2020 & \$273K & \$182K & \$156K \\
+2021 & \$10.9M & \$430K & \$10.6M \\
+2022 & \$751K & \$647K & \$10.7M \\
+2023 & \$513K & \$1.23M & \$10.4M \\
+2024 & \$649K & \$1.52M & \$9.5M \\
+\bottomrule
+\end{tabularx}
+\caption{Processing Foundation-økonomi (IRS 990-indberetninger via ProPublica).}
+\label{tab:pf-financials}
+\end{table}
+
+Stigningen i 2021---fra \$273K til \$10,9 millioner på ét år---var næsten udelukkende kryptovalutadonationer fra generative kunstnere under NFT-boomet. Større donorer inkluderede Erick Calderon (Art Blocks-grundlægger), Tyler Hobbs, Casey Reas selv, Monica Rizzolli og Dmitri Cherniak. Dette var ikke en finansieringsmodel. Det var en vejrbegivenhed. Den gentager sig ikke.
+
+Stiftelsen bruger nu cirka \$1,5 millioner om året mod \$650K--\$970K i indtægter og trækker på reserverne fra 2021. Med den nuværende forbrændingsrate estimerer ledelsen en horisont på 12--13 år. Reas, Fry og Shiffman---de tre medstiftere---har modtaget \$0 i kompensation fra stiftelsen hvert eneste år på record.
+
+\subsection{Det usynlige tilskud}
+
+Her er, hvad der faktisk finansierer Processing og p5.js: UCLA betaler Reas og McCarthy løn. Disse lønninger køber dem tid. De bruger noget af den tid---ulønnet, usporet, usynlig for ethvert budget---på at vedligeholde software brugt af millioner. Stiftelsen eksisterer for at modtage donationer og koordinere udvikling. UCLA eksisterer for at betale de lønninger, der gør det ubetalte arbejde muligt.
+
+Det er det samme mønster, jeg dokumenterede på tværs af 28 værktøjsforfattere i ``Who Pays''~\citep{scudder2026sustainability}. Universitetet er paraplyen. Værktøjet er regnen. Paraplyen ved ikke, at den holder regnen ude; den tror, den ansætter en professor.
+
+\section{Hvad kunstmarkedet finansierer vs.\ hvad bevillinger finansierer}
+
+Forskellen mellem Art og \dma{}'s finansieringsmodeller afspejler en dybere forskel i, hvad hver afdeling producerer, og hvem der værdsætter det.
+
+Art producerer \emph{genstande}. Malerier, skulpturer, fotografier, installationer. Disse genstande indgår i et marked med etableret infrastruktur: gallerier, auktionshuse, samlere, museumsindkøbsudvalg, kunstmesser. Markedet tildeler priser. Priser genererer rigdom. Rigdom strømmer tilbage som filantropi. Opies fotografier sælger. Krugers installationer bestilles. Afdelingens prestige tiltrækker donorer, der vil have deres navne på bygninger og professorater.
+
+\dma{} producerer \emph{værktøjer og oplevelser}. Processing er ikke en genstand, man kan hænge på en væg. p5.js er ikke et oplag på 45. UCLA Game Labs eksperimentelle spil sælges ikke på Art Basel. Outputtet er software---gratis, open source, brugt af millioner, værdsættes af intet marked. Når Reas' kunstværker sælger (hans generative værker er på V\&A, LACMA, Centre Pompidou), er det hans kunstpraksis, ikke hans softwarepraksis. De to er relaterede men finansielt adskilte.
+
+Kunstmarkedet kan finansiere kunstafdelinger, fordi det kan prissætte kunst. Intet tilsvarende marked prissætter open source kreative værktøjer. De \$10,9 millioner, der ankom til Processing Foundation i 2021, kom fra en midlertidig spekulativ boble i digital kunst, ikke fra et bæredygtigt marked for selve værktøjerne.
+
+\section{Administration}
+
+\subsection{Styring på skoleniveau}
+
+Begge afdelinger refererer til dekanen for \sofa{}. Skolens samlede driftsbudget er cirka \$70 millioner fordelt på fire afdelinger (Architecture and Urban Design, Art, \dma{}, World Arts and Cultures/Dance). Specifikke afdelingsbudgetter er ikke offentligt tilgængelige.
+
+Dekanstillingen er i øjeblikket midlertidig (Lionel Popkin). Skolen er i gang med at søge en permanent dekan. Det er vigtigt, fordi dekaner kontrollerer ressourcefordelingen mellem afdelinger, og balancen mellem en afdeling, der tiltrækker \$20 millioner i filantropiske gaver, og en, der tiltrækker \$1,3 millioner i NSF-bevillinger, er et politisk spørgsmål lige så vel som et administrativt.
+
+\subsection{Fakultetsstillinger}
+
+\dma{} har i øjeblikket 15 fakultetsmedlemmer (7 professorer, 3 lektorer, 4 adjunkter, 1 forskningsprofessor). Hver fakultetsstilling repræsenterer en universitetsforpligtelse på \$150K--\$250K om året i løn og goder. De seks forskningsinitiativer er fakultetsledede---de eksisterer, fordi specifikke professorer leder dem, og de skal genbesættes eller opløses, når de pågældende professorer går på pension eller forlader stillingen.
+
+\subsection{Kandidatfinansiering}
+
+Begge afdelinger tilbyder 4--5-årige finansieringspakker til indkommende MFA-studerende, i øjeblikket cirka \$30.000 om året plus undervisningsafgift (kombination af stipendier og undervisningsassistentstillinger). Arts studerende arbejder i Leavin-ateliererne i Culver City. \dma{}'s studerende arbejder i Broad Art Center. Finansieringsniveauet er sammenligneligt; den fysiske infrastruktur er det ikke---Leavins specialbyggede faciliteter er et direkte produkt af gaven på \$20 millioner.
+
+\section{Implikationer for \ac{}}
+
+Jeg bygger \ac{} uden noget af dette. Ingen UCLA-løn. Ingen NSF-bevillinger. Ingen Processing Foundation-reserver. Ingen Margo Leavin, der udskriver en check på \$20 millioner. Intet stiftet professorat, der genererer permanente renter. Den ledsagende artikel~\citep{scudder2026sustainability} dokumenterer den fulde økonomiske historie.
+
+UCLA-modellen viser, hvordan institutionel beskyttelse ser ud på sit bedste: fastansatte fakultetsmedlemmer med tid til at bygge, forskningslaboratorier med navngivne direktører, eksterne bevillinger, der finansierer specifikke projekter, et budget på skoleniveau, der holder lyset tændt. Den viser også skrøbeligheden: Processing Foundations reserver er begrænsede, bevillingerne er tidsbegrænsede, initiativerne afhænger af specifikke personer, og de open source-værktøjer, der når flest brugere, er den mindst finansierede del af hele systemet.
+
+Spørgsmålet for \ac{} er ikke ``hvordan får jeg en UCLA-løn?''---det gør jeg ikke og vil sandsynligvis ikke. Spørgsmålet er, om den model, der fungerer for Processing og p5.js (usynlig akademisk subsidiering + en nonprofitstiftelse + en engangs kryptogevinst), kan replikeres, tilpasses eller erstattes af noget, der ikke kræver, at man er fastansat professor ved et forskningsuniversitet.
+
+Indtil videre er svaret: ikke åbenlyst. Men forsøget er projektet.
+
+\section{Konklusion}
+
+UCLAs School of the Arts and Architecture huser to afdelinger, der repræsenterer to finansielle logikker i nutidig kreativ praksis. Art finansieres af kunstmarkedet---af samlere, gallerister og filantroper, der deltager i et prissystem for genstande. \dma{} finansieres af forskningsbevillinger, tværinstitutionelle partnerskaber og det usynlige tilskud af fakultetslønninger anvendt på ulønnet softwarearbejde.
+
+Begge modeller fungerer i den forstand, at begge afdelinger er funktionelle og prestigefyldte. Ingen af modellerne finansierer open source kreative værktøjer direkte. Processing eksisterer, fordi Casey Reas har en UCLA-løn og donerer sine egne penge til den stiftelse, han medstiftede. p5.js eksisterer, fordi Lauren McCarthy har en UCLA-løn og bruger sine aftener på at vedligeholde kode. Medfaldet på \$10,9 millioner, der midlertidigt stabiliserede stiftelsen, kom fra en spekulativ boble, ikke et bæredygtigt marked.
+
+Bygningen er smuk. Gangene deles. Pengene strømmer gennem forskellige rør.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
