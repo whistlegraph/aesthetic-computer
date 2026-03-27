@@ -175,6 +175,11 @@ const PAPER_MAP = {
     siteName: "handle-identity-atproto-26-arxiv",
     title: "Handle Identity on the AT Protocol",
   },
+  "arxiv-ucla-arts": {
+    base: "ucla-arts",
+    siteName: "ucla-arts-funding-26-arxiv",
+    title: "Two Departments, One Building",
+  },
 };
 
 function texName(base, lang) {
@@ -369,6 +374,9 @@ function updateIndex(entries) {
     "citation-diversity-audit-26": 17,
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
+    "calarts-callouts-papers-26-arxiv": 20,
+    "handle-identity-atproto-26-arxiv": 21,
+    "ucla-arts-funding-26-arxiv": 22,
   };
 
   // Collect deployed English PDFs sorted by importance

@@ -34,6 +34,11 @@ const PAPER_MAP = {
   "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
   "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv" },
   "arxiv-score-analysis": { base: "score-analysis", title: "Reading the Score", siteName: "reading-the-score-26-arxiv" },
+  "arxiv-calarts": { base: "calarts", title: "CalArts, Callouts, and Papers", siteName: "calarts-callouts-papers-26-arxiv" },
+  "arxiv-open-schools": { base: "open-schools", title: "Get Closed Source Out of Schools", siteName: "open-schools-26-arxiv" },
+  "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv" },
+  "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv" },
+  "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
 };
 
 function extractFromTex(content) {
