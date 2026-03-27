@@ -136,7 +136,7 @@ extern char g_machine_id[64];
 static volatile int drm_handoff_release = 0;
 static volatile int drm_handoff_reclaim = 0;
 static volatile int reboot_requested = 0;
-static volatile int poweroff_requested = 0;
+volatile int poweroff_requested = 0;  // extern'd in js-bindings.c
 
 static void sigusr_handler(int sig) {
     if (sig == SIGUSR1) drm_handoff_release = 1;
