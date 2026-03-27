@@ -99,14 +99,21 @@ while true; do
 
     if [ "$EXIT_CODE" = "0" ]; then
         sync
+        # Suppress all kernel output before shutdown
+        echo 0 > /proc/sys/kernel/printk 2>/dev/null
+        printf '\033[?25l\033[2J' > /dev/tty0 2>/dev/null
+        poweroff -f 2>/dev/null
         echo o > /proc/sysrq-trigger 2>/dev/null
-        sleep 2; poweroff -f 2>/dev/null; sleep 30
+        sleep 30
         break
     fi
     if [ "$EXIT_CODE" = "2" ]; then
         sync
+        echo 0 > /proc/sys/kernel/printk 2>/dev/null
+        printf '\033[?25l\033[2J' > /dev/tty0 2>/dev/null
+        reboot -f 2>/dev/null
         echo b > /proc/sysrq-trigger 2>/dev/null
-        sleep 2; reboot -f 2>/dev/null; sleep 30
+        sleep 30
         break
     fi
 
