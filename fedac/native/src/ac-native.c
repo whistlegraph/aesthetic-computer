@@ -2958,9 +2958,18 @@ int main(int argc, char *argv[]) {
                     frame_sync_60fps(&anim_time);
                 }
 
-                // Final black frame
+                // Final black frame + hide console text
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
                 ac_display_present(display, screen, pixel_scale);
+                // Suppress kernel console output during shutdown
+                {
+                    // Set kernel loglevel to 0 (suppress all printk)
+                    FILE *pl = fopen("/proc/sys/kernel/printk", "w");
+                    if (pl) { fputs("0 0 0 0", pl); fclose(pl); }
+                    // Hide VT cursor
+                    FILE *vc = fopen("/dev/tty0", "w");
+                    if (vc) { fputs("\033[?25l\033[2J", vc); fclose(vc); }
+                }
 
                 running = 0;
                 break;
