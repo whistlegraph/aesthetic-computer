@@ -298,6 +298,76 @@
         .pals { position: fixed; bottom: 1.2em; right: 1.2em; width: 48px; opacity: 0.4; }
         .pals:hover { opacity: 1; }
 
+        /* Build telemetry */
+        .build-status {
+            margin-top: 1.5em;
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 11px;
+            display: none;
+        }
+        .build-status.active { display: block; }
+        .build-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--box-bg);
+            border-bottom: 1px solid var(--box-border);
+            cursor: pointer;
+            user-select: none;
+        }
+        .build-header:hover { opacity: 0.8; }
+        .build-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--cyan);
+            animation: build-pulse 1.5s ease-in-out infinite;
+        }
+        .build-dot.done { background: #4caf50; animation: none; }
+        .build-dot.fail { background: #e53935; animation: none; }
+        @keyframes build-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .build-label { color: var(--text); font-weight: 600; flex: 1; }
+        .build-stage { color: var(--pink); font-weight: 500; }
+        .build-pct { color: var(--dim); min-width: 3em; text-align: right; }
+        .build-progress {
+            height: 2px;
+            background: var(--sep);
+        }
+        .build-progress-bar {
+            height: 100%;
+            background: var(--cyan);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        .build-logs {
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 10px;
+            line-height: 1.5;
+            color: var(--dim);
+        }
+        .build-logs.collapsed { display: none; }
+        .build-log-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .build-log-line .ts {
+            color: var(--purple);
+            opacity: 0.6;
+            margin-right: 6px;
+        }
+        .build-log-line.stderr { color: #e57373; }
+        .build-log-line.ok { color: #4caf50; }
+        .build-log-line.deploy { color: var(--cyan); }
+
         /* === MOBILE (<600px) === */
         @media (max-width: 599px) {
             body { padding: 0.75em 1em; }
@@ -522,6 +592,17 @@
     </div>
 
     <!-- papers-end -->
+
+    <div class="build-status" id="buildStatus">
+        <div class="build-header" id="buildHeader">
+            <span class="build-dot" id="buildDot"></span>
+            <span class="build-label" id="buildLabel">building papers...</span>
+            <span class="build-stage" id="buildStage"></span>
+            <span class="build-pct" id="buildPct"></span>
+        </div>
+        <div class="build-progress"><div class="build-progress-bar" id="buildBar"></div></div>
+        <div class="build-logs" id="buildLogs"></div>
+    </div>
 
     <div class="footer">
         <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="/platter">platter</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
@@ -915,6 +996,107 @@
                 for (const p of papers) container.appendChild(p);
             } catch {}
         })();
+
+        // === BUILD TELEMETRY ===
+        const OVEN = 'https://oven.aesthetic.computer';
+        const buildEl = document.getElementById('buildStatus');
+        const buildDot = document.getElementById('buildDot');
+        const buildLabel = document.getElementById('buildLabel');
+        const buildStage = document.getElementById('buildStage');
+        const buildPct = document.getElementById('buildPct');
+        const buildBar = document.getElementById('buildBar');
+        const buildLogs = document.getElementById('buildLogs');
+        let logsCollapsed = false;
+
+        document.getElementById('buildHeader').addEventListener('click', () => {
+            logsCollapsed = !logsCollapsed;
+            buildLogs.classList.toggle('collapsed', logsCollapsed);
+        });
+
+        function addLogLine(line, stream) {
+            const div = document.createElement('div');
+            div.className = 'build-log-line';
+            if (stream === 'stderr') div.classList.add('stderr');
+            if (/^\s*(OK|DEPLOY)\s/.test(line)) div.classList.add(line.trim().startsWith('OK') ? 'ok' : 'deploy');
+            const ts = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            div.innerHTML = `<span class="ts">${ts}</span>${line.replace(/</g, '&lt;')}`;
+            buildLogs.appendChild(div);
+            // Keep last 200 lines
+            while (buildLogs.children.length > 200) buildLogs.removeChild(buildLogs.firstChild);
+            buildLogs.scrollTop = buildLogs.scrollHeight;
+        }
+
+        function connectBuildStream(jobId) {
+            buildEl.classList.add('active');
+            buildDot.className = 'build-dot';
+            buildLabel.textContent = 'building papers...';
+            buildLogs.innerHTML = '';
+
+            const src = new EventSource(`${OVEN}/papers-build/${jobId}/stream`);
+
+            src.addEventListener('status', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    buildStage.textContent = d.stage || '';
+                    const pct = Math.round(d.percent || 0);
+                    buildPct.textContent = pct + '%';
+                    buildBar.style.width = pct + '%';
+                } catch {}
+            });
+
+            src.addEventListener('logs', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    for (const log of (d.logs || [])) {
+                        addLogLine(log.line, log.stream);
+                    }
+                } catch {}
+            });
+
+            src.addEventListener('complete', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    const ok = d.status === 'success';
+                    buildDot.className = 'build-dot ' + (ok ? 'done' : 'fail');
+                    buildLabel.textContent = ok ? 'build complete' : 'build failed';
+                    buildStage.textContent = '';
+                    buildPct.textContent = ok ? '100%' : 'err';
+                    buildBar.style.width = ok ? '100%' : buildBar.style.width;
+                    if (ok) addLogLine('publish complete — reloading in 5s...', 'stdout');
+                    // Auto-reload after successful build to pick up new PDFs
+                    if (ok) setTimeout(() => location.reload(), 5000);
+                } catch {}
+                src.close();
+            });
+
+            src.onerror = () => {
+                // SSE disconnected — check again in 30s
+                src.close();
+                setTimeout(pollOven, 30000);
+            };
+        }
+
+        async function pollOven() {
+            try {
+                const res = await fetch(`${OVEN}/papers-build`, { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) return;
+                const data = await res.json();
+                // Find an active build
+                const active = data.active || data.current;
+                if (active && (active.status === 'running' || active.status === 'pending')) {
+                    connectBuildStream(active.id);
+                } else {
+                    // No active build — hide and poll again later
+                    buildEl.classList.remove('active');
+                    setTimeout(pollOven, 60000);
+                }
+            } catch {
+                setTimeout(pollOven, 60000);
+            }
+        }
+
+        // Start polling for active builds
+        pollOven();
 
         // Theme toggle
         function toggleTheme() {
