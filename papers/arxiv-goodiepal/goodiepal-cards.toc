@@ -2,17 +2,17 @@
 \contentsline {section}{\numberline {2}Music for Alternative Intelligence}{7}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Addressing the Machine}{8}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}The Score as Software}{9}{subsection.2.2}%
-\contentsline {section}{\numberline {3}Instrument-First Design}{10}{section.3}%
-\contentsline {subsection}{\numberline {3.1}The Prompt as Instrument}{10}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}notepat as Front Door}{11}{subsection.3.2}%
-\contentsline {section}{\numberline {4}The Pals Model}{12}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Pals as Platform Identity}{12}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}laer-klokken}{12}{subsection.4.2}%
-\contentsline {section}{\numberline {5}Unscannable Artifacts}{14}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Immediate-Mode as Resistance to Capture}{15}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}The Poor Image, Inverted}{16}{subsection.5.2}%
-\contentsline {section}{\numberline {6}Radical Pedagogy}{17}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Learning Through the Prompt}{18}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The snappidaggs Archive}{19}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Conclusion}{20}{section.7}%
+\contentsline {section}{\numberline {3}Instrument-First Design}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Prompt as Instrument}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}notepat as Front Door}{12}{subsection.3.2}%
+\contentsline {section}{\numberline {4}The Pals Model}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Pals as Platform Identity}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}laer-klokken}{14}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Unscannable Artifacts}{16}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Immediate-Mode as Resistance to Capture}{17}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}The Poor Image, Inverted}{18}{subsection.5.2}%
+\contentsline {section}{\numberline {6}Radical Pedagogy}{19}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Learning Through the Prompt}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The snappidaggs Archive}{21}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Conclusion}{22}{section.7}%
 \contentsfinish 

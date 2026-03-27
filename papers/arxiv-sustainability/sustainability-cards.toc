@@ -4,11 +4,11 @@
 \contentsline {subsection}{\numberline {2.2}Corporate Patronage}{6}{subsection.2.2}%
 \contentsline {subsection}{\numberline {2.3}Personal Sacrifice}{8}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}Community Crowdfunding}{9}{subsection.2.4}%
-\contentsline {subsection}{\numberline {2.5}Windfall}{9}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.5}Windfall}{10}{subsection.2.5}%
 \contentsline {subsection}{\numberline {2.6}No Model At All}{10}{subsection.2.6}%
-\contentsline {section}{\numberline {3}The Gap}{12}{section.3}%
-\contentsline {section}{\numberline {4}The Erasure Problem}{13}{section.4}%
-\contentsline {section}{\numberline {5}The Author's Position}{14}{section.5}%
-\contentsline {section}{\numberline {6}What Would Work}{17}{section.6}%
-\contentsline {section}{\numberline {7}Conclusion}{19}{section.7}%
+\contentsline {section}{\numberline {3}The Gap}{13}{section.3}%
+\contentsline {section}{\numberline {4}The Erasure Problem}{14}{section.4}%
+\contentsline {section}{\numberline {5}The Author's Position}{16}{section.5}%
+\contentsline {section}{\numberline {6}What Would Work}{19}{section.6}%
+\contentsline {section}{\numberline {7}Conclusion}{21}{section.7}%
 \contentsfinish 

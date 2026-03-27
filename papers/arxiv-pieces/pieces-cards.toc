@@ -8,10 +8,10 @@
 \contentsline {section}{\numberline {3}What AC Pieces Are}{10}{section.3}%
 \contentsline {subsection}{\numberline {3.1}URL addressability}{10}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}The immediate-mode rendering model}{11}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Authorship and iteration}{11}{subsection.3.3}%
-\contentsline {section}{\numberline {4}The Piece as Cognitive Extension}{13}{section.4}%
-\contentsline {subsection}{\numberline {4.1}The named path as mnemonic}{14}{subsection.4.1}%
-\contentsline {section}{\numberline {5}Pieces vs.\ Programs: A Comparison}{15}{section.5}%
-\contentsline {section}{\numberline {6}Implications for Platform Design}{16}{section.6}%
-\contentsline {section}{\numberline {7}Conclusion}{18}{section.7}%
+\contentsline {subsection}{\numberline {3.3}Authorship and iteration}{12}{subsection.3.3}%
+\contentsline {section}{\numberline {4}The Piece as Cognitive Extension}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}The named path as mnemonic}{15}{subsection.4.1}%
+\contentsline {section}{\numberline {5}Pieces vs.\ Programs: A Comparison}{16}{section.5}%
+\contentsline {section}{\numberline {6}Implications for Platform Design}{17}{section.6}%
+\contentsline {section}{\numberline {7}Conclusion}{19}{section.7}%
 \contentsfinish 

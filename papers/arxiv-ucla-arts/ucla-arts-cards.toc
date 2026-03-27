@@ -1,0 +1,22 @@
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Two Departments}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Art (1939--)}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Design\nobreakspace {}|\nobreakspace {}Media Arts (1988--)}{7}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Same Building, Different Worlds}{7}{subsection.2.3}%
+\contentsline {section}{\numberline {3}How Art Gets Funded}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Leavin Gift}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Resnick Endowment}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Pattern}{10}{subsection.3.3}%
+\contentsline {section}{\numberline {4}How DMA Gets Funded}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Research Grants}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Six Initiatives, Six Directors}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}The Processing Foundation}{14}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}The Invisible Subsidy}{15}{subsection.4.4}%
+\contentsline {section}{\numberline {5}What the Art Market Funds vs.\ What Grants Fund}{17}{section.5}%
+\contentsline {section}{\numberline {6}Administration}{19}{section.6}%
+\contentsline {subsection}{\numberline {6.1}School-Level Governance}{19}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Faculty Lines}{19}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Graduate Funding}{20}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Implications for \textsc {Aesthetic.Computer}{}}{21}{section.7}%
+\contentsline {section}{\numberline {8}Conclusion}{23}{section.8}%
+\contentsfinish 

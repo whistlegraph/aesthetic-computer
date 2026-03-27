@@ -23,12 +23,12 @@
 \contentsline {subsection}{\numberline {7.1}Phase 1: Prototype (April--June 2024)}{23}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}Phase 2: Hiatus (July 2024--May 2025)}{23}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}Phase 3: Rapid Expansion (June--August 2025)}{24}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{24}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{25}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{25}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{26}{subsection.7.5}%
 \contentsline {section}{\numberline {8}Evaluation}{27}{section.8}%
 \contentsline {subsection}{\numberline {8.1}Function Usage Analytics}{27}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}Observations}{28}{subsection.8.2}%
 \contentsline {subsection}{\numberline {8.3}Limitations}{28}{subsection.8.3}%
-\contentsline {section}{\numberline {9}Related Work}{29}{section.9}%
-\contentsline {section}{\numberline {10}Conclusion}{31}{section.10}%
+\contentsline {section}{\numberline {9}Related Work}{30}{section.9}%
+\contentsline {section}{\numberline {10}Conclusion}{32}{section.10}%
 \contentsfinish 
