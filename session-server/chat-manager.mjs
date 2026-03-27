@@ -371,10 +371,11 @@ export class ChatManager {
       authorized = instance.authorizedConnections[id].user;
       console.log("💬 Pre-authorized");
     } else {
-      console.log("💬 Authorizing...");
+      console.log("💬 Authorizing...", "handle:", msg.content.handle, "token:", msg.content.token?.slice(0, 10) + "...", "content-type:", typeof msg.content);
       authorized = await this.authorize(instance, msg.content.token);
       // Fallback: AC device token (from ac-native device-token API)
       if (!authorized && msg.content.handle && msg.content.token) {
+        console.log("💬 Trying device token auth for @" + msg.content.handle);
         authorized = await this.authorizeDeviceToken(instance, msg.content.handle, msg.content.token);
       }
       if (authorized) {
