@@ -24,7 +24,7 @@ typedef struct {
     int   error;             // 1 = last connect failed
 
     // outgoing send queue (written by main, drained by thread)
-    char  send_buf[4096];
+    char  send_buf[16384];
     int   send_pending;      // 1 = send_buf has data to send
 
     // inbound message queue (written by thread, consumed by main each frame)
