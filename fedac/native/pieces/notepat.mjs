@@ -446,6 +446,14 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (key === "space") {
+      // Kick drum — short sine burst with pitch drop
+      if (sound && sound.synth) {
+        sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
+        sound.synth({ type: "sine", tone: 60, duration: 0.2, volume: 0.7, attack: 0.001, decay: 0.19, pan: 0.0 });
+      }
+      return;
+    }
+    if (key === "f10") {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
         metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
