@@ -365,7 +365,7 @@ export class ChatManager {
       return;
     }
 
-    // Authorization
+    // Authorization (Auth0 token or AC device token)
     let authorized;
     if (instance.authorizedConnections[id]?.token === msg.content.token) {
       authorized = instance.authorizedConnections[id].user;
@@ -373,6 +373,10 @@ export class ChatManager {
     } else {
       console.log("💬 Authorizing...");
       authorized = await this.authorize(instance, msg.content.token);
+      // Fallback: AC device token (from ac-native device-token API)
+      if (!authorized && msg.content.handle && msg.content.token) {
+        authorized = await this.authorizeDeviceToken(instance, msg.content.handle, msg.content.token);
+      }
       if (authorized) {
         instance.authorizedConnections[id] = {
           token: msg.content.token,
@@ -596,6 +600,30 @@ export class ChatManager {
       this.broadcast(instance, this.pack("message:hearts", { for: forId, count }));
     } catch (err) {
       console.error("💬 Heart error:", err);
+    }
+  }
+
+  async authorizeDeviceToken(instance, handle, token) {
+    // AC device tokens are "hmac.timestamp" — validate by looking up the handle
+    if (!token || !token.includes(".") || !handle) return undefined;
+    try {
+      let host = this.dev ? "https://localhost:8888" :
+        (instance.config.name === "chat-sotce" ? "https://sotce.net" : "https://aesthetic.computer");
+      const options = {};
+      if (this.agent) options.agent = this.agent;
+      // Verify handle exists via the handle API
+      const res = await fetch(`${host}/.netlify/functions/handle?handle=${handle.replace("@", "")}`, options);
+      if (res.status === 200) {
+        const data = await res.json();
+        if (data.sub) {
+          console.log("💬 Device token authorized for @" + handle);
+          return { sub: data.sub };
+        }
+      }
+      return undefined;
+    } catch (err) {
+      console.error("💬 Device token auth error:", err);
+      return undefined;
     }
   }
 
