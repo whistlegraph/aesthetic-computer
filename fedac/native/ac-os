@@ -1248,6 +1248,7 @@ exec qemu-system-x86_64 \
         log "Smoke test passed — USB flashed!"
         ;;
     pull)
+        require_login
         pull_ota
         flash_usb
         ;;
