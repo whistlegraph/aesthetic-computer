@@ -2063,6 +2063,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       [60, 200, 80],   // triangle — green
       [255, 150, 40],  // sawtooth — orange
       [160, 80, 220],  // square — purple
+      [255, 180, 220], // composite — pink
       [220, 60, 60],   // noise — red
       [40, 200, 200],  // sample — cyan
     ];
