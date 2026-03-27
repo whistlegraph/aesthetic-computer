@@ -1,0 +1,14 @@
+\contentsline {section}{\numberline {1}What Is a Score?}{3}{section.1}%
+\contentsline {section}{\numberline {2}The Platter and the Score}{4}{section.2}%
+\contentsline {section}{\numberline {3}Six Tensions}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Audience Confusion}{6}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Catalog vs. Argument}{7}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Backlog Problem}{8}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}The Keeps Market Block}{8}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Missing Voices}{9}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Sub-Scores vs. Main Score}{10}{subsection.3.6}%
+\contentsline {section}{\numberline {4}The Score Metaphor, Taken Seriously}{11}{section.4}%
+\contentsline {section}{\numberline {5}What the Papers Know That the Score Doesn't}{13}{section.5}%
+\contentsline {section}{\numberline {6}Toward a Revised Score}{15}{section.6}%
+\contentsline {section}{\numberline {7}Conclusion}{17}{section.7}%
+\contentsfinish 
