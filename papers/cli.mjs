@@ -216,6 +216,28 @@ function findAll(langFilter) {
         sitePdfExists: existsSync(sitePdf),
       });
     }
+    // Auto-detect cards version: if {base}-cards.tex exists, add it as a build entry
+    if (!langFilter || langFilter === "en") {
+      const cardsTex = join(paperDir, `${info.base}-cards.tex`);
+      const cardsPdf = join(paperDir, `${info.base}-cards.pdf`);
+      const cardsSitePdf = join(SITE_DIR, `${info.siteName}-cards.pdf`);
+      if (existsSync(cardsTex)) {
+        results.push({
+          dir,
+          lang: "cards",
+          base: info.base,
+          title: info.title,
+          siteName: info.siteName,
+          psycho: !!info.psycho,
+          texFile: cardsTex,
+          pdfFile: cardsPdf,
+          texExists: true,
+          pdfExists: existsSync(cardsPdf),
+          sitePdf: cardsSitePdf,
+          sitePdfExists: existsSync(cardsSitePdf),
+        });
+      }
+    }
   }
   return results;
 }

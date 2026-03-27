@@ -1,0 +1,15 @@
+\contentsline {section}{\numberline {1}The Disney Machine}{3}{section.1}%
+\contentsline {section}{\numberline {2}Callouts}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The crit as oral tradition}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Hallway knowledge}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The institutional dare}{7}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Why Papers}{9}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The paper as callout}{9}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The paper as instrument}{10}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The PSYCHO designation}{11}{subsection.3.3}%
+\contentsline {section}{\numberline {4}CalArts and Aesthetic Computer}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}The OS inheritance}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}The crit goes online}{13}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Against Neutrality}{14}{section.5}%
+\contentsline {section}{\numberline {6}Conclusion}{16}{section.6}%
+\contentsfinish 
