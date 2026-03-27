@@ -519,39 +519,42 @@ function targetClients(target) {
 }
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
-const sub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
-sub.on("error", (err) => {
+const redisEnabled = !!redisConnectionString;
+const sub = redisEnabled
+  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
+  : null;
+if (sub) sub.on("error", (err) => {
   log("🔴 Redis subscriber client error!", err);
   logError('error', `Redis sub: ${err.message}`);
 });
 
-const pub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
-pub.on("error", (err) => {
+const pub = redisEnabled
+  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
+  : null;
+if (pub) pub.on("error", (err) => {
   log("🔴 Redis publisher client error!", err);
   logError('error', `Redis pub: ${err.message}`);
 });
 
 try {
-  await sub.connect();
-  await pub.connect();
+  if (sub && pub) {
+    await sub.connect();
+    await pub.connect();
 
-  // TODO: This needs to be sent only for a specific user or needs
-  //       some kind of special ID.
-  await sub.subscribe("code", (message) => {
-    const parsed = JSON.parse(message);
-    if (codeChannels[parsed.codeChannel]) {
-      const msg = pack("code", message, "development");
-      subscribers(codeChannels[parsed.codeChannel], msg);
-    }
-  });
+    await sub.subscribe("code", (message) => {
+      const parsed = JSON.parse(message);
+      if (codeChannels[parsed.codeChannel]) {
+        const msg = pack("code", message, "development");
+        subscribers(codeChannels[parsed.codeChannel], msg);
+      }
+    });
 
-  await sub.subscribe("scream", (message) => {
-    everyone(pack("scream", message, "screamer")); // Socket back to everyone.
-  });
+    await sub.subscribe("scream", (message) => {
+      everyone(pack("scream", message, "screamer")); // Socket back to everyone.
+    });
+  } else {
+    log("⚠️ Redis disabled — code/scream channels unavailable");
+  }
 } catch (err) {
   error("🔴 Could not connect to `redis` instance.");
 }
