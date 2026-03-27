@@ -228,9 +228,23 @@
   \oriendtabular%
   \end{adjustbox}%
 }
-% Note: tabularx is NOT wrapped in adjustbox because tabularx does
-% internal trial typesetting that breaks inside adjustbox.
-% tabularx already constrains to its specified width argument.
+% tabularx can't be wrapped directly in adjustbox (breaks trial typesetting).
+% Instead, wrap the table float so any overflow is caught after typesetting.
+\let\origtablefloat\table
+\let\origendtablefloat\endtable
+\renewenvironment{table}[1][h]{%
+  \origtablefloat[#1]%
+}{%
+  \origendtablefloat%
+}
+\RequirePackage{etoolbox}
+\AfterEndEnvironment{tabularx}{%
+  \end{adjustbox}%
+}
+\BeforeBeginEnvironment{tabularx}{%
+  \footnotesize%
+  \begin{adjustbox}{max width=\linewidth,center}%
+}
 
 % === HYPERREF ===
 \RequirePackage{hyperref}
