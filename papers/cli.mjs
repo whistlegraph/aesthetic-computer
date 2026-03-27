@@ -502,8 +502,9 @@ function updateIndex(entries) {
     const createdStr = p.created ? fmtDate(p.created) : "";
     const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
     const tKey = translationKey(p.dir);
+    const updatedISO = p.mtime.toISOString();
     papersHtml += `
-    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""}>
+    <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
