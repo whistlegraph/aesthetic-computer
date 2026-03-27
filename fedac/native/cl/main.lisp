@@ -322,6 +322,50 @@
 
 (defvar *js-fallback* nil "Set to T when falling back from JS to prevent re-entry loop.")
 
+(defun run-cl-piece (paint-fn piece-name)
+  "Run a CL piece with DRM graphics, audio, and input. PAINT-FN is called each frame."
+  (format *error-output* "~%════════════════════════════════════~%")
+  (format *error-output* "  ~A (Common Lisp)~%" piece-name)
+  (format *error-output* "════════════════════════════════════~%~%")
+  (force-output *error-output*)
+  (let ((display (ac-native.drm:drm-init)))
+    (unless display (return-from run-cl-piece))
+    (let* ((dw (ac-native.drm:display-width display))
+           (dh (ac-native.drm:display-height display))
+           (scale (cond ((>= (min dw dh) 1440) 6)
+                        ((>= (min dw dh) 1080) 4)
+                        ((>= (min dw dh) 720) 3)
+                        (t 2)))
+           (sw (floor dw scale))
+           (sh (floor dh scale))
+           (screen (ac-native.framebuffer:fb-create sw sh))
+           (graph (ac-native.graph:graph-create screen))
+           (input (ac-native.input:input-init dw dh scale))
+           (audio (ac-native.audio:audio-init)))
+      (unwind-protect
+          (loop
+            ;; Input
+            (ac-native.input:input-poll input)
+            (dotimes (i (ac-native.input:input-event-count input))
+              (let ((ev (ac-native.input:input-event input i)))
+                (when (and (= (ac-native.input:event-type ev) 1)
+                           (= (ac-native.input:event-code ev) 1))
+                  (return)))) ; ESC
+            ;; Paint
+            (handler-case
+                (funcall paint-fn graph sw sh audio)
+              (error (e)
+                (format *error-output* "[piece] error: ~A~%" e)
+                (force-output *error-output*)))
+            ;; Present
+            (ac-native.drm:drm-present display screen scale)
+            (sleep 1/60))
+        ;; Cleanup
+        (when audio (ac-native.audio:audio-destroy audio))
+        (ac-native.input:input-destroy input)
+        (ac-native.framebuffer:fb-destroy screen)
+        (ac-native.drm:drm-destroy display)))))
+
 (defun main ()
   "AC Native OS entry point. Runs .mjs pieces via QuickJS or native CL notepat.
 When called with --swank-only, starts Swank server and blocks (no graphics)."
@@ -347,8 +391,20 @@ When called with --swank-only, starts Swank server and blocks (no graphics)."
     (when piece-arg
       (format *error-output* "[cl] Running CL piece: ~A~%" piece-arg)
       (force-output *error-output*)
-      ;; Go straight to native CL notepat (the only CL piece for now)
-      ;; Future: dispatch to different CL pieces based on piece-arg
+      ;; Try to load the piece file and run its paint function
+      (let ((piece-path (format nil "/pieces/~A.lisp" piece-arg)))
+        (when (probe-file piece-path)
+          (handler-case
+              (progn
+                (load piece-path)
+                (let ((paint-fn (find-symbol "PAINT" (find-package
+                                  (intern (string-upcase (format nil "PIECE.~A" piece-arg)) :keyword)))))
+                  (when (and paint-fn (fboundp paint-fn))
+                    (return-from main (run-cl-piece paint-fn piece-arg)))))
+            (error (e)
+              (format *error-output* "[cl] Error loading ~A: ~A~%" piece-path e)
+              (force-output *error-output*)))))
+      ;; Fallback to native CL notepat
       (setf *js-fallback* t)))
 
   ;; Determine piece: config.json > command-line arg > default
