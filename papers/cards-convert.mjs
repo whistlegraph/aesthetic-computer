@@ -192,7 +192,7 @@ function generateCardsTeX(dir, info, parsed) {
     ? Object.entries(info.translations)
         .map(([code, label]) => {
           const displayLabel = cjkLangs.has(code) ? `{\\accjk ${label}}` : label;
-          return `\\href{https://papers.aesthetic.computer/${info.siteName}-${code}-cards.pdf}{${displayLabel}}`;
+          return `\\href{https://papers.aesthetic.computer/${info.siteName}-${code}.pdf}{${displayLabel}}`;
         })
         .join(" · ")
     : "";
