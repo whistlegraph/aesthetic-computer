@@ -157,6 +157,29 @@
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
+        /* Sort bar */
+        .sort-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 0.8em;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        .sort-btn {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 3px 10px;
+            border-radius: 12px;
+            transition: all 0.15s;
+            user-select: none;
+        }
+        .sort-btn:hover { border-color: var(--pink); color: var(--text); }
+        .sort-btn.active { background: var(--pink); color: var(--bg); border-color: var(--pink); font-weight: 600; }
+
         /* Papers grid */
         .papers-grid {
             display: grid;
@@ -427,147 +450,153 @@
 
     <div class="sub">@jeffrey &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
 
+    <div class="sort-bar" id="sortBar">
+        <button class="sort-btn active" data-sort="hits">top hits</button>
+        <button class="sort-btn" data-sort="updated">newly updated</button>
+        <button class="sort-btn" data-sort="created">recently added</button>
+    </div>
+
     <!-- papers-start -->
 
-    <div class="p" data-paper-id="ac">
+    <div class="p" data-paper-id="ac" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.646Z">
         <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
         <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp">
+    <div class="p" data-paper-id="kidlisp" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
         <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="plork">
+    <div class="p" data-paper-id="plork" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/plorking-the-planet-26-arxiv.pdf" data-base="/plorking-the-planet-26-arxiv">PLOrk'ing the Planet</a></div>
         <div class="detail">Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="os">
+    <div class="p" data-paper-id="os" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
         <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="api">
+    <div class="p" data-paper-id="api" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
         <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
         <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="who-pays">
+    <div class="p" data-paper-id="who-pays" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
         <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="pieces">
+    <div class="p" data-paper-id="pieces" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
         <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="notepat">
+    <div class="p" data-paper-id="notepat" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
         <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="goodiepal">
+    <div class="p" data-paper-id="goodiepal" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
         <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="whistlegraph">
+    <div class="p" data-paper-id="whistlegraph" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
         <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="complex">
+    <div class="p" data-paper-id="complex" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/sucking-on-the-complex-26-arxiv.pdf" data-base="/sucking-on-the-complex-26-arxiv">Sucking on the Complex</a></div>
         <div class="detail">Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="dead-ends">
+    <div class="p" data-paper-id="dead-ends" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
         <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Vestigial Features</a></div>
         <div class="detail">Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="folk-songs">
+    <div class="p" data-paper-id="folk-songs" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/folk-songs-26-arxiv.pdf" data-base="/folk-songs-26-arxiv">Playable Folk Songs</a></div>
         <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; arXiv</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="archaeology">
+    <div class="p" data-paper-id="archaeology" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
         <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
         <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="network-audit">
+    <div class="p" data-paper-id="network-audit" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
         <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-ref">
+    <div class="p" data-paper-id="kidlisp-ref" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
         <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
         <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="diversity">
+    <div class="p" data-paper-id="diversity" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
         <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
         <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="open-schools">
+    <div class="p" data-paper-id="open-schools" data-created="" data-updated="2026-03-27T15:38:44.651Z">
         <div class="title"><a href="/open-schools-26-arxiv.pdf" data-base="/open-schools-26-arxiv">Get Closed Source Out of Schools</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="futures">
+    <div class="p" data-paper-id="futures" data-created="2026-03-20" data-updated="2026-03-27T15:38:44.651Z">
         <div class="title"><a href="/five-years-from-now-26-arxiv.pdf" data-base="/five-years-from-now-26-arxiv">Five Years from Now</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/20</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="calarts" data-psycho="1">
+    <div class="p" data-paper-id="calarts" data-psycho="1" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.651Z">
         <div class="title"><a href="/calarts-callouts-papers-26-arxiv.pdf" data-base="/calarts-callouts-papers-26-arxiv">CalArts, Callouts, and Papers</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="identity">
+    <div class="p" data-paper-id="identity" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.651Z">
         <div class="title"><a href="/handle-identity-atproto-26-arxiv.pdf" data-base="/handle-identity-atproto-26-arxiv">Handle Identity on the AT Protocol</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="ucla-arts">
+    <div class="p" data-paper-id="ucla-arts" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.651Z">
         <div class="title"><a href="/ucla-arts-funding-26-arxiv.pdf" data-base="/ucla-arts-funding-26-arxiv">Two Departments, One Building</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-cards">
+    <div class="p" data-paper-id="kidlisp-cards" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
         <div class="title"><a href="/kidlisp-cards-26-arxiv.pdf" data-base="/kidlisp-cards-26-arxiv">KidLisp Cards</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
     </div>
 
-    <div class="p" data-paper-id="score-analysis">
+    <div class="p" data-paper-id="score-analysis" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.650Z">
         <div class="title"><a href="/reading-the-score-26-arxiv.pdf" data-base="/reading-the-score-26-arxiv">Reading the Score</a></div>
         <div class="detail"></div>
         <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
@@ -959,25 +988,55 @@
             });
         });
 
-        // Sort papers by hit count (most read first) and show counts
+        // === SORTING ===
+        let hitTotals = {};
+
+        function sortPapers(mode) {
+            const container = document.querySelector('.p')?.parentElement;
+            if (!container) return;
+            const papers = [...container.querySelectorAll('.p')];
+
+            papers.sort((a, b) => {
+                if (mode === 'hits') {
+                    return (hitTotals[b.dataset.paperId] || 0) - (hitTotals[a.dataset.paperId] || 0);
+                } else if (mode === 'updated') {
+                    const ta = a.dataset.updated ? new Date(a.dataset.updated).getTime() : 0;
+                    const tb = b.dataset.updated ? new Date(b.dataset.updated).getTime() : 0;
+                    return tb - ta;
+                } else if (mode === 'created') {
+                    const ca = a.dataset.created || '0';
+                    const cb = b.dataset.created || '0';
+                    return cb.localeCompare(ca);
+                }
+                return 0;
+            });
+            for (const p of papers) container.appendChild(p);
+        }
+
+        // Sort bar clicks
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sortPapers(btn.dataset.sort);
+            });
+        });
+
+        // Fetch hit counts, inject into meta rows, then apply default sort
         (async () => {
             try {
                 const res = await fetch('https://aesthetic.computer/api/paper-hit');
                 if (!res.ok) return;
                 const { stats } = await res.json();
-                // Aggregate hits per paper (combine pdf + cards formats)
-                const totals = {};
                 for (const s of stats) {
                     const id = s._id.paper;
-                    totals[id] = (totals[id] || 0) + s.count;
+                    hitTotals[id] = (hitTotals[id] || 0) + s.count;
                 }
                 const container = document.querySelector('.p')?.parentElement;
                 if (!container) return;
-                const papers = [...container.querySelectorAll('.p')];
-                // Inject hit counts into meta rows
-                for (const p of papers) {
+                for (const p of container.querySelectorAll('.p')) {
                     const id = p.dataset.paperId;
-                    const count = totals[id] || 0;
+                    const count = hitTotals[id] || 0;
                     const metaRow = p.querySelector('.meta-row');
                     if (metaRow && count > 0) {
                         const span = document.createElement('span');
@@ -987,13 +1046,8 @@
                         metaRow.prepend(span);
                     }
                 }
-                // Sort descending by hits
-                papers.sort((a, b) => {
-                    const ha = totals[a.dataset.paperId] || 0;
-                    const hb = totals[b.dataset.paperId] || 0;
-                    return hb - ha;
-                });
-                for (const p of papers) container.appendChild(p);
+                // Apply default sort (top hits)
+                sortPapers('hits');
             } catch {}
         })();
 
