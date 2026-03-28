@@ -293,7 +293,7 @@ static void process_messages(ACMachines *m) {
                 int rc = swank_eval(expr, result, sizeof(result));
                 // Send result back
                 char escaped_result[8192];
-                json_escape(result, escaped_result, sizeof(escaped_result));
+                json_escape(result, strlen(result), escaped_result, sizeof(escaped_result));
                 char msg[12288];
                 snprintf(msg, sizeof(msg),
                     "{\"type\":\"swank:result\",\"evalId\":\"%s\",\"ok\":%s,\"result\":\"%s\"}",
