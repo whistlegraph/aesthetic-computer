@@ -579,6 +579,7 @@ a:hover { text-decoration: underline; }
       <div style="display:flex;gap:4px;padding:4px 6px;border-bottom:1px solid var(--border)">
         <button class="sub-tab-btn active" onclick="lithSubTab(this,'lith-errors-panel')">errors</button>
         <button class="sub-tab-btn" onclick="lithSubTab(this,'lith-requests-panel')">recent requests</button>
+        <button class="sub-tab-btn" onclick="lithSubTab(this,'lith-traffic-panel')">traffic</button>
       </div>
 
       <div id="lith-errors-panel" class="sub-panel active" style="display:block;padding:6px;overflow-y:auto;max-height:calc(100vh - 360px)">
@@ -606,6 +607,24 @@ a:hover { text-decoration: underline; }
           <tbody id="lith-requests-body"></tbody>
         </table>
       </div>
+
+      <div id="lith-traffic-panel" class="sub-panel" style="display:none;padding:6px;overflow-y:auto;max-height:calc(100vh - 360px)">
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:250px">
+            <div style="font-size:12px;color:var(--fg2);margin-bottom:4px">by path (last 500 requests)</div>
+            <div id="lith-traffic-paths" style="font-size:11px">loading...</div>
+          </div>
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:12px;color:var(--fg2);margin-bottom:4px">by host</div>
+            <div id="lith-traffic-hosts" style="font-size:11px">loading...</div>
+          </div>
+          <div style="min-width:120px">
+            <div style="font-size:12px;color:var(--fg2);margin-bottom:4px">by status</div>
+            <div id="lith-traffic-status" style="font-size:11px">loading...</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -1937,6 +1956,7 @@ function lithSubTab(btn, panelId) {
   btn.classList.add('active');
   document.getElementById('lith-errors-panel').style.display = 'none';
   document.getElementById('lith-requests-panel').style.display = 'none';
+  document.getElementById('lith-traffic-panel').style.display = 'none';
   document.getElementById(panelId).style.display = 'block';
 }
 
@@ -1955,14 +1975,16 @@ function fmtTime(iso) {
 
 async function loadLith() {
   try {
-    const [statsRes, errorsRes, reqsRes] = await Promise.all([
+    const [statsRes, errorsRes, reqsRes, trafficRes] = await Promise.all([
       fetch(LITH_URL + '/lith/stats'),
       fetch(LITH_URL + '/lith/errors?limit=100'),
       fetch(LITH_URL + '/lith/requests?limit=100'),
+      fetch(LITH_URL + '/lith/traffic').catch(() => ({ json: () => ({ total: 0 }) })),
     ]);
     const stats = await statsRes.json();
     const errors = await errorsRes.json();
     const reqs = await reqsRes.json();
+    const traffic = await trafficRes.json();
 
     // Overview
     document.getElementById('lith-uptime').textContent = fmtUptime(stats.uptime);
@@ -2028,6 +2050,35 @@ async function loadLith() {
         '</tr>';
       }).join('');
     }
+    // Traffic panels
+    function barRow(label, count, max) {
+      var pct = Math.max(2, Math.round(count / max * 100));
+      return '<div style="display:flex;align-items:center;gap:4px;padding:1px 0">' +
+        '<span style="width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(label) + '</span>' +
+        '<div style="flex:1;height:6px;background:var(--bg);border-radius:2px;overflow:hidden">' +
+          '<div style="width:' + pct + '%;height:100%;background:var(--accent);border-radius:2px"></div>' +
+        '</div>' +
+        '<span style="width:40px;text-align:right;color:var(--fg2)">' + count + '</span></div>';
+    }
+    if (traffic.byPath && traffic.byPath.length) {
+      var maxP = traffic.byPath[0][1];
+      document.getElementById('lith-traffic-paths').innerHTML = traffic.byPath.map(function(p) { return barRow(p[0], p[1], maxP); }).join('');
+    } else {
+      document.getElementById('lith-traffic-paths').textContent = 'no data';
+    }
+    if (traffic.byHost && traffic.byHost.length) {
+      var maxH = traffic.byHost[0][1];
+      document.getElementById('lith-traffic-hosts').innerHTML = traffic.byHost.map(function(h) { return barRow(h[0], h[1], maxH); }).join('');
+    } else {
+      document.getElementById('lith-traffic-hosts').textContent = 'no data';
+    }
+    if (traffic.byStatus && traffic.byStatus.length) {
+      document.getElementById('lith-traffic-status').innerHTML = traffic.byStatus.map(function(s) {
+        var color = s[0].startsWith('5') ? 'var(--err)' : s[0].startsWith('4') ? 'var(--warn)' : 'var(--ok)';
+        return '<div style="padding:1px 0"><span style="color:' + color + ';font-weight:bold">' + s[0] + '</span> <span style="color:var(--fg2)">' + s[1] + '</span></div>';
+      }).join('');
+    }
+
   } catch (err) {
     document.getElementById('lith-uptime').textContent = 'offline';
     document.getElementById('lith-uptime').style.color = 'var(--err)';
