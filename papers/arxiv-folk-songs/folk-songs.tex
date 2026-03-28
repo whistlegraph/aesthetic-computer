@@ -94,7 +94,7 @@
 \includegraphics[height=4em]{pals}\par\vspace{0.5em}
 {\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} Playable Folk Songs}\par
 \vspace{0.2em}
-{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard}\par
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard on notepat.com}\par
 \vspace{0.6em}
 {\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
@@ -113,11 +113,11 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-Folk songs evolved to be playable without notation, memorizable without instruments, and forkable without permission. These properties---constrained pitch range, repetitive structure, oral transmissibility---make folk melodies structurally ideal for a browser-based keyboard synthesizer.
+Folk songs evolved to be playable without notation, memorizable without instruments, and forkable without permission. These properties---constrained pitch range, repetitive structure, oral transmissibility---make folk melodies structurally ideal for \np{}.com, a browser-based chromatic keyboard synthesizer built inside \ac{}~\citep{scudder2026ac}.
 
-This paper describes the integration of playable folk songs into \np{}.com, a chromatic keyboard instrument that maps QWERTY keys to musical notes. We encode folk melodies in a lightweight \texttt{NOTE:word} format that pairs each pitch with its lyric syllable, creating a guided performance mode where the instrument teaches the song one note at a time.
+I encode folk melodies in a lightweight \texttt{NOTE:word} format that pairs each pitch with its lyric syllable, creating a guided performance mode where the instrument teaches the song one note at a time. The encoding is URL-safe, human-readable, and forkable---copy it, change a note, share a new link. The ``oral tradition'' becomes a tradition of hyperlinks.
 
-We survey folk melody collections suitable for this encoding, analyze why folk songs' structural constraints align with keyboard-as-instrument interfaces, and argue that the folk process---variation, selection, oral transmission---has a natural digital analogue in URL-shareable, forkable song encodings.
+I survey folk melody collections from American, European, East Asian, and African traditions, analyze why their structural constraints align with keyboard-as-instrument interfaces~\citep{scudder2026notepat}, and describe how \np{} runs on bare metal via AC Native OS~\citep{scudder2026os}---a surplus laptop that boots directly into a folk instrument. The cards format of this paper (4$\times$6 inch, phone-sized) is itself a playable artifact: each song encoding is a tappable URL.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -166,6 +166,42 @@ The encoding has four key design properties:
 \end{itemize}
 
 The absence of rhythm information is deliberate. In oral tradition, rhythm belongs to the performer, not the score~\citep{lomax1968folk}. The encoding captures \emph{what} to play; the player decides \emph{how}.
+
+\subsection{Extended Examples}
+
+\textbf{Ode to Joy} (Beethoven, adapted from folk hymn tradition):
+\begin{lstlisting}[style=notepat]
+E:Freu- E:-de F:schö- G:-ner G:Göt- F:-ter-
+E:fun- D:-ken E:Toch- C:-ter E:aus
+D:E- C:-ly- D:si- E:-um
+\end{lstlisting}
+
+\textbf{Amazing Grace} (pentatonic, American):
+\begin{lstlisting}[style=notepat]
+D:A- G:-ma- B:-zing G:grace B:how A:sweet
+G:the B:sound D:that E:saved D:a
+B:wretch G:like B:me
+\end{lstlisting}
+
+\textbf{Arirang} (Korean, pentatonic):
+\begin{lstlisting}[style=notepat]
+E:A- G:-ri- A:rang E:a- G:-ri- A:rang
+B:a- A:-ra- G:-ri- E:-yo
+\end{lstlisting}
+
+\textbf{Sakura} (Japanese, in mode):
+\begin{lstlisting}[style=notepat]
+E:Sa- E:-ku- F:ra E:sa- E:-ku- F:ra
+A:ya- A:-yo- B:i A:no
+\end{lstlisting}
+
+Each encoding fits in a URL. The first four notes of ``Twinkle Twinkle'' are addressable as \texttt{notepat.com?song=C:Twin-\%20C:-kle\%20G:twin-\%20G:-kle}. The song is the address. The address is the score.
+
+\subsection{Songs as Cards}
+
+The cards format of this paper---4$\times$6 inches, designed for phones---means each encoded melody can appear on a single card, tappable at the bottom URL. A teacher could print a deck of folk song cards, hand one to each student, and the student taps the URL to load the song on their phone or laptop. The card is the program; the URL is the executable; the student is the performer.
+
+This connects to the whistlegraph's core property: a score that teaches you how to play it~\citep{scudder2026whistlegraph}. The whistlegraph does this visually (draw the line, sing the note). \np{} does it textually (read the syllable, press the key). Both are self-documenting performance formats that require no teacher beyond the artifact itself.
 
 \section{A Catalog of Playable Melodies}
 
@@ -253,9 +289,23 @@ A music information retrieval system connecting musicians to 13,290 traditional 
 
 \section{The Bare-Metal Folk Instrument}
 
-\np{} runs not only in browsers but on bare metal---a 987-line QuickJS port that boots as PID~1 on AC Native OS~\citep{scudder2026os}. A laptop running \np{} on bare metal is, in a literal sense, a folk instrument: a single-purpose device for playing songs, with no operating system, no desktop, no distractions.
+\np{} runs not only in browsers but on bare metal---a 987-line QuickJS port that boots as PID~1 on AC Native OS~\citep{scudder2026os}. A surplus ThinkPad running \np{} on bare metal is, in a literal sense, a folk instrument: a single-purpose device for playing songs, with no desktop environment, no app store, no distractions.
 
-The convergence is complete: folk songs, designed to be played on the simplest available instrument, running on the simplest possible computer---a Linux kernel, a framebuffer, and a keyboard.
+The boot sequence: power on, kernel loads (7.3 seconds), the screen says ``hi @alice,'' and \np{} is playing. The student's name is spoken aloud by text-to-speech. The keyboard lights up with the first note of the song. There is nothing else to do, nowhere else to go. The laptop is the instrument.
+
+\subsection{Why Bare Metal Matters for Folk Songs}
+
+The PLOrk model~\citep{scudder2026plork} required custom hardware: hemispherical speakers, audio interfaces, dedicated laptops. The cost was prohibitive for most schools. AC Native OS inverts this: it runs on surplus commodity hardware---retired corporate laptops available for \$30--80---and transforms them into single-purpose instruments.
+
+A classroom of 30 bare-metal \np{} devices, each loaded with a different folk song from a different tradition, is a folk orchestra. Each student learns their song, then the class performs together. The Korean student plays Arirang. The American student plays Amazing Grace. The Japanese student plays Sakura. The instruments are identical; the songs are culturally specific; the ensemble is global.
+
+This is the scenario described in the companion paper on laptop orchestras~\citep{scudder2026plork}---but applied specifically to folk music, where the repertoire is public domain, culturally significant, and structurally suited to the instrument.
+
+\subsection{Offline Operation}
+
+The bare-metal \np{} requires no internet connection. Songs can be pre-loaded on the boot partition in \texttt{config.json}. A teacher prepares a USB drive with a set of folk songs, flashes it onto 30 laptops, and the classroom is ready. No WiFi, no accounts, no cloud services. The song files are kilobytes. The entire OS is 89\,MB.
+
+This matters for the contexts where folk music education is most needed: schools without reliable internet, community centers without IT support, rural areas without broadband. The folk song and the folk instrument share a design constraint: they must work with what is available.
 
 \section{Future Work}
 

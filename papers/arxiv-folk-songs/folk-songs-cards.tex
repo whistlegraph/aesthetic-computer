@@ -54,7 +54,7 @@
 \href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Playable Folk Songs}\par
 \vspace{0.1em}
-{\fontsize{9pt}{11pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard}\par
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard on notepat.com}\par
 \vspace{0.4em}
 {\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
@@ -64,7 +64,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/809be4868}{809be4868}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/20720999b}{20720999b}}\par
 \vspace{0.1em}
 {\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/folk-songs-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/folk-songs-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/folk-songs-26-arxiv-zh.pdf}{{\accjk 中文}}}\par
 \end{center}
@@ -122,6 +122,42 @@ The encoding has four key design properties:
 \end{itemize}
 
 The absence of rhythm information is deliberate. In oral tradition, rhythm belongs to the performer, not the score~\citep{lomax1968folk}. The encoding captures \emph{what} to play; the player decides \emph{how}.
+
+\subsection{Extended Examples}
+
+\textbf{Ode to Joy} (Beethoven, adapted from folk hymn tradition):
+\begin{lstlisting}[style=notepat]
+E:Freu- E:-de F:schö- G:-ner G:Göt- F:-ter-
+E:fun- D:-ken E:Toch- C:-ter E:aus
+D:E- C:-ly- D:si- E:-um
+\end{lstlisting}
+
+\textbf{Amazing Grace} (pentatonic, American):
+\begin{lstlisting}[style=notepat]
+D:A- G:-ma- B:-zing G:grace B:how A:sweet
+G:the B:sound D:that E:saved D:a
+B:wretch G:like B:me
+\end{lstlisting}
+
+\textbf{Arirang} (Korean, pentatonic):
+\begin{lstlisting}[style=notepat]
+E:A- G:-ri- A:rang E:a- G:-ri- A:rang
+B:a- A:-ra- G:-ri- E:-yo
+\end{lstlisting}
+
+\textbf{Sakura} (Japanese, in mode):
+\begin{lstlisting}[style=notepat]
+E:Sa- E:-ku- F:ra E:sa- E:-ku- F:ra
+A:ya- A:-yo- B:i A:no
+\end{lstlisting}
+
+Each encoding fits in a URL. The first four notes of ``Twinkle Twinkle'' are addressable as \texttt{notepat.com?song=C:Twin-\%20C:-kle\%20G:twin-\%20G:-kle}. The song is the address. The address is the score.
+
+\subsection{Songs as Cards}
+
+The cards format of this paper---4$\times$6 inches, designed for phones---means each encoded melody can appear on a single card, tappable at the bottom URL. A teacher could print a deck of folk song cards, hand one to each student, and the student taps the URL to load the song on their phone or laptop. The card is the program; the URL is the executable; the student is the performer.
+
+This connects to the whistlegraph's core property: a score that teaches you how to play it~\citep{scudder2026whistlegraph}. The whistlegraph does this visually (draw the line, sing the note). \np{} does it textually (read the syllable, press the key). Both are self-documenting performance formats that require no teacher beyond the artifact itself.
 
 \section{A Catalog of Playable Melodies}
 
@@ -209,9 +245,23 @@ A music information retrieval system connecting musicians to 13,290 traditional 
 
 \section{The Bare-Metal Folk Instrument}
 
-\np{} runs not only in browsers but on bare metal---a 987-line QuickJS port that boots as PID~1 on AC Native OS~\citep{scudder2026os}. A laptop running \np{} on bare metal is, in a literal sense, a folk instrument: a single-purpose device for playing songs, with no operating system, no desktop, no distractions.
+\np{} runs not only in browsers but on bare metal---a 987-line QuickJS port that boots as PID~1 on AC Native OS~\citep{scudder2026os}. A surplus ThinkPad running \np{} on bare metal is, in a literal sense, a folk instrument: a single-purpose device for playing songs, with no desktop environment, no app store, no distractions.
 
-The convergence is complete: folk songs, designed to be played on the simplest available instrument, running on the simplest possible computer---a Linux kernel, a framebuffer, and a keyboard.
+The boot sequence: power on, kernel loads (7.3 seconds), the screen says ``hi @alice,'' and \np{} is playing. The student's name is spoken aloud by text-to-speech. The keyboard lights up with the first note of the song. There is nothing else to do, nowhere else to go. The laptop is the instrument.
+
+\subsection{Why Bare Metal Matters for Folk Songs}
+
+The PLOrk model~\citep{scudder2026plork} required custom hardware: hemispherical speakers, audio interfaces, dedicated laptops. The cost was prohibitive for most schools. AC Native OS inverts this: it runs on surplus commodity hardware---retired corporate laptops available for \$30--80---and transforms them into single-purpose instruments.
+
+A classroom of 30 bare-metal \np{} devices, each loaded with a different folk song from a different tradition, is a folk orchestra. Each student learns their song, then the class performs together. The Korean student plays Arirang. The American student plays Amazing Grace. The Japanese student plays Sakura. The instruments are identical; the songs are culturally specific; the ensemble is global.
+
+This is the scenario described in the companion paper on laptop orchestras~\citep{scudder2026plork}---but applied specifically to folk music, where the repertoire is public domain, culturally significant, and structurally suited to the instrument.
+
+\subsection{Offline Operation}
+
+The bare-metal \np{} requires no internet connection. Songs can be pre-loaded on the boot partition in \texttt{config.json}. A teacher prepares a USB drive with a set of folk songs, flashes it onto 30 laptops, and the classroom is ready. No WiFi, no accounts, no cloud services. The song files are kilobytes. The entire OS is 89\,MB.
+
+This matters for the contexts where folk music education is most needed: schools without reliable internet, community centers without IT support, rural areas without broadband. The folk song and the folk instrument share a design constraint: they must work with what is available.
 
 \section{Future Work}
 
