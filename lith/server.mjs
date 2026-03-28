@@ -374,6 +374,44 @@ app.get("/lith/requests", (req, res) => {
   res.json({ requests: filtered.slice(0, limit), total: filtered.length });
 });
 
+// --- Caddy access log summary (for silo dashboard) ---
+app.get("/lith/traffic", async (req, res) => {
+  try {
+    const logPath = "/var/log/caddy/access.log";
+    const lines = readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean);
+    const recent = lines.slice(-500); // last 500 entries
+    const byPath = {}, byHost = {}, byStatus = {};
+    let total = 0;
+
+    for (const line of recent) {
+      try {
+        const d = JSON.parse(line);
+        const r = d.request || {};
+        const uri = (r.uri || "/").split("?")[0];
+        const host = r.host || "unknown";
+        const status = String(d.status || 0);
+        // Aggregate by first path segment
+        const seg = "/" + (uri.split("/")[1] || "");
+        byPath[seg] = (byPath[seg] || 0) + 1;
+        byHost[host] = (byHost[host] || 0) + 1;
+        byStatus[status] = (byStatus[status] || 0) + 1;
+        total++;
+      } catch {}
+    }
+
+    const sortDesc = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+    res.json({
+      total,
+      logLines: lines.length,
+      byPath: sortDesc(byPath).slice(0, 30),
+      byHost: sortDesc(byHost).slice(0, 20),
+      byStatus: sortDesc(byStatus),
+    });
+  } catch (err) {
+    res.json({ total: 0, error: err.message });
+  }
+});
+
 // --- /media/* handler (ports Netlify edge function media.js) ---
 app.all("/media/*rest", async (req, res) => {
   const parts = req.path.split("/").filter(Boolean); // ["media", ...]
