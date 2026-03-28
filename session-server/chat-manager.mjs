@@ -605,22 +605,16 @@ export class ChatManager {
   }
 
   async authorizeDeviceToken(instance, handle, token) {
-    // AC device tokens are "hmac.timestamp" — validate by looking up the handle
+    // AC device tokens are "hmac.timestamp" — validate by looking up handle in MongoDB
     if (!token || !token.includes(".") || !handle) return undefined;
     try {
-      let host = this.dev ? "https://localhost:8888" :
-        (instance.config.name === "chat-sotce" ? "https://sotce.net" : "https://aesthetic.computer");
-      const options = {};
-      if (this.agent) options.agent = this.agent;
-      // Verify handle exists via the handle API
-      const res = await fetch(`${host}/.netlify/functions/handle?handle=${handle.replace("@", "")}`, options);
-      if (res.status === 200) {
-        const data = await res.json();
-        if (data.sub) {
-          console.log("💬 Device token authorized for @" + handle);
-          return { sub: data.sub };
-        }
+      const cleanHandle = handle.replace("@", "");
+      const doc = await this.db.collection("@handles").findOne({ handle: cleanHandle });
+      if (doc && doc._id) {
+        console.log("💬 Device token authorized for @" + cleanHandle + " (sub: " + doc._id + ")");
+        return { sub: doc._id };
       }
+      console.log("💬 Device token: handle @" + cleanHandle + " not found in DB");
       return undefined;
     } catch (err) {
       console.error("💬 Device token auth error:", err);
