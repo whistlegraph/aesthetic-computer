@@ -57,6 +57,32 @@ const SSL_KEY = join(__dirname, "..", "ssl-dev", "localhost-key.pem");
 const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 
 const app = express();
+const BOOT_TIME = Date.now();
+
+// --- Function stats & error log ---
+const fnStats = {};    // { fnName: { calls, errors, totalMs, lastCall, lastError } }
+const errorLog = [];   // [{ time, fn, status, error, path, method }]
+const requestLog = []; // [{ time, fn, ms, status, path, method }]
+const MAX_ERROR_LOG = 500;
+const MAX_REQUEST_LOG = 1000;
+
+function recordCall(name, ms, status, path, method, error) {
+  if (!fnStats[name]) fnStats[name] = { calls: 0, errors: 0, totalMs: 0, lastCall: null, lastError: null };
+  const s = fnStats[name];
+  s.calls++;
+  s.totalMs += ms;
+  s.lastCall = new Date().toISOString();
+
+  requestLog.unshift({ time: s.lastCall, fn: name, ms: Math.round(ms), status, path, method });
+  if (requestLog.length > MAX_REQUEST_LOG) requestLog.length = MAX_REQUEST_LOG;
+
+  if (error || status >= 500) {
+    s.errors++;
+    s.lastError = new Date().toISOString();
+    errorLog.unshift({ time: s.lastError, fn: name, status, error: error || `HTTP ${status}`, path, method });
+    if (errorLog.length > MAX_ERROR_LOG) errorLog.length = MAX_ERROR_LOG;
+  }
+}
 
 // --- Body parsing ---
 app.use(express.json({ limit: "50mb" }));
@@ -147,14 +173,21 @@ function toEvent(req) {
 async function handleFunction(req, res) {
   const name = req.params.fn;
   const handler = functions[name];
-  if (!handler) return res.status(404).send("Function not found: " + name);
+  if (!handler) {
+    recordCall(name || "unknown", 0, 404, req.path, req.method, "Function not found");
+    return res.status(404).send("Function not found: " + name);
+  }
 
+  const t0 = Date.now();
   try {
     const event = toEvent(req);
     const context = { clientContext: {} };
     const result = await handler(event, context);
 
     const statusCode = result.statusCode || 200;
+    const ms = Date.now() - t0;
+    recordCall(name, ms, statusCode, req.path, req.method, statusCode >= 500 ? result.body : null);
+
     if (result.headers) res.set(result.headers);
     if (result.multiValueHeaders) {
       for (const [k, vals] of Object.entries(result.multiValueHeaders)) {
@@ -185,6 +218,8 @@ async function handleFunction(req, res) {
       res.status(statusCode).send(result.body);
     }
   } catch (err) {
+    const ms = Date.now() - t0;
+    recordCall(name, ms, 500, req.path, req.method, err.message);
     console.error(`fn/${name} error:`, err);
     res.status(500).send("Internal Server Error");
   }
@@ -242,6 +277,39 @@ async function handleFunctionResolved(req, res) {
 }
 
 // --- Routes ---
+
+// --- Lith stats API (consumed by silo dashboard) ---
+app.get("/lith/stats", (req, res) => {
+  const uptime = Math.floor((Date.now() - BOOT_TIME) / 1000);
+  const mem = process.memoryUsage();
+  const sorted = Object.entries(fnStats)
+    .map(([name, s]) => ({ name, ...s, avgMs: s.calls ? Math.round(s.totalMs / s.calls) : 0 }))
+    .sort((a, b) => b.calls - a.calls);
+
+  res.json({
+    uptime,
+    boot: new Date(BOOT_TIME).toISOString(),
+    functionsLoaded: Object.keys(functions).length,
+    memory: { rss: Math.round(mem.rss / 1048576), heap: Math.round(mem.heapUsed / 1048576) },
+    totals: {
+      calls: sorted.reduce((s, f) => s + f.calls, 0),
+      errors: sorted.reduce((s, f) => s + f.errors, 0),
+    },
+    functions: sorted,
+  });
+});
+
+app.get("/lith/errors", (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, MAX_ERROR_LOG);
+  res.json({ errors: errorLog.slice(0, limit), total: errorLog.length });
+});
+
+app.get("/lith/requests", (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, MAX_REQUEST_LOG);
+  const fn = req.query.fn;
+  const filtered = fn ? requestLog.filter((r) => r.fn === fn) : requestLog;
+  res.json({ requests: filtered.slice(0, limit), total: filtered.length });
+});
 
 // --- /media/* handler (ports Netlify edge function media.js) ---
 app.all("/media/*rest", async (req, res) => {
