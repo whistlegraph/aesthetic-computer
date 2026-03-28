@@ -442,6 +442,34 @@ function updateIndex(entries) {
       metaKey: "els-kidlisp",
     },
   ];
+
+  // Guest papers — external works hosted on the platter as related reading
+  const guestPdfs = [
+    {
+      file: "menkman-glitch-momentum-2011.pdf",
+      title: "The Glitch Moment(um)",
+      detail: "Glitch as critical practice &mdash; signal, noise, and the politics of failure &middot; Institute of Network Cultures &middot; 70pp",
+      author: "Rosa Menkman",
+      year: "2011",
+      metaKey: "menkman-glitch",
+    },
+    {
+      file: "menkman-vernacular-of-file-formats-2010.pdf",
+      title: "A Vernacular of File Formats",
+      detail: "Compression artifact taxonomy &mdash; databending one self-portrait through every codec &middot; 20pp",
+      author: "Rosa Menkman",
+      year: "2010",
+      metaKey: "menkman-vernacular",
+    },
+    {
+      file: "menkman-beyond-resolution-2020.pdf",
+      title: "Beyond Resolution",
+      detail: "Resolution as ideology &mdash; optics, standards, and the invisible norms of the image pipeline &middot; 2020",
+      author: "Rosa Menkman",
+      year: "2020",
+      metaKey: "menkman-resolution",
+    },
+  ];
   const extras = [];
   for (const ex of extraPdfs) {
     const fp = join(SITE_DIR, ex.file);
@@ -531,6 +559,20 @@ function updateIndex(entries) {
     </div>\n`;
   }
 
+  // Build guest papers HTML
+  let guestHtml = "";
+  for (const g of guestPdfs) {
+    const fp = join(SITE_DIR, g.file);
+    if (existsSync(fp)) {
+      guestHtml += `
+    <div class="p guest" data-paper-id="${g.metaKey}" data-no-cards="1" data-created="${g.year}-01-01" data-updated="${g.year}-01-01T00:00:00.000Z">
+        <div class="title"><a href="/${g.file}">${g.title}</a></div>
+        <div class="detail">${g.detail}</div>
+        <div class="meta-row"><span class="author">${g.author}</span><span class="created" title="Published">${g.year}</span></div>
+    </div>\n`;
+    }
+  }
+
   // Read current index, replace paper entries between markers
   let html = readFileSync(indexPath, "utf8");
 
@@ -559,8 +601,18 @@ function updateIndex(entries) {
     }
   }
 
+  // Replace guest papers between guest markers
+  const guestStart = "<!-- guest-start -->";
+  const guestEnd = "<!-- guest-end -->";
+  if (guestHtml && html.includes(guestStart)) {
+    const gBefore = html.slice(0, html.indexOf(guestStart) + guestStart.length);
+    const gAfter = html.slice(html.indexOf(guestEnd));
+    html = gBefore + "\n" + guestHtml + "\n    " + gAfter;
+  }
+
   writeFileSync(indexPath, html);
-  console.log(`  INDEX updated with ${papers.length + extras.length} papers sorted by last built.`);
+  const guestCount = guestPdfs.filter(g => existsSync(join(SITE_DIR, g.file))).length;
+  console.log(`  INDEX updated with ${papers.length + extras.length} papers + ${guestCount} guest papers.`);
 }
 
 function verify() {
