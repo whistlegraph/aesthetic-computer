@@ -243,22 +243,16 @@
   \oriendtabular%
   \end{adjustbox}%
 }
-% tabularx can't be wrapped directly in adjustbox (breaks trial typesetting).
-% Instead, wrap the table float so any overflow is caught after typesetting.
-\let\origtablefloat\table
-\let\origendtablefloat\endtable
-\renewenvironment{table}[1][h]{%
-  \origtablefloat[#1]%
+% Note: tabularx is converted to plain tabular by cards-convert.mjs at generation time.
+% tabularx resists all forms of runtime patching (\def, \renewcommand, \AtBeginDocument).
+% The adjustbox wrapper on plain tabular handles any remaining overflow.
+% For plain tabular: scriptsize + tight + adjustbox.
+\renewenvironment{tabular}[1]{%
+  \scriptsize\setlength{\tabcolsep}{3pt}%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabular{#1}%
 }{%
-  \origendtablefloat%
-}
-\RequirePackage{etoolbox}
-\AfterEndEnvironment{tabularx}{%
-  \end{adjustbox}%
-}
-\BeforeBeginEnvironment{tabularx}{%
-  \footnotesize%
-  \begin{adjustbox}{max width=\linewidth,center}%
+  \oriendtabular\end{adjustbox}%
 }
 
 % === HYPERREF ===

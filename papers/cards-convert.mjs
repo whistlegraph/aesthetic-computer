@@ -41,6 +41,21 @@ const PAPER_MAP = {
   "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
 };
 
+// Convert tabularx to plain tabular for cards (adjustbox handles the scaling).
+// tabularx resists all runtime patching, but plain tabular wrapped in adjustbox works.
+function convertTabularxToTabular(body) {
+  // Replace \begin{tabularx}{...}{colspec} with \begin{tabular}{colspec}
+  // Convert X columns to p{0.3\linewidth} for wrapping
+  return body.replace(
+    /\\begin\{tabularx\}\{[^}]*\}\{([^}]*)\}/g,
+    (match, colspec) => {
+      // Replace X with p{} columns, keep l/r/c as-is
+      const newSpec = colspec.replace(/X/g, "p{0.28\\linewidth}");
+      return `\\begin{tabular}{${newSpec}}`;
+    }
+  ).replace(/\\end\{tabularx\}/g, "\\end{tabular}");
+}
+
 function extractFromTex(content) {
   // Extract pdftitle
   const pdftitleMatch = content.match(/pdftitle\s*=\s*\{([^}]+)\}/);
@@ -287,7 +302,7 @@ ${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\pa
 ${abstractCard}% ============================================================
 % BODY
 % ============================================================
-${parsed.mainBody}
+${convertTabularxToTabular(parsed.mainBody)}
 
 \\end{document}
 `;

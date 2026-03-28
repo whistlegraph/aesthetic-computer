@@ -41,7 +41,7 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=9em]{pals}\par\vspace{0.1em}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Two Departments, One Building}\par
 \vspace{0.1em}
 {\fontsize{9pt}{11pt}\selectfont\color{acpink} Funding and Administration in UCLA Arts}\par
@@ -54,7 +54,7 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/894fbcb44}{894fbcb44}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/d0a6521c5}{d0a6521c5}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -68,29 +68,27 @@
 % ============================================================
 \section{Introduction}
 
-Casey Reas co-created Processing in 2001 at MIT. He joined UCLA's Department of Design~|~Media Arts in 2004~\citep{dmahistory}. He chaired the department from 2007 to 2009. He co-founded the Processing Foundation as a 501(c)(3) in 2012. He receives zero dollars from the Foundation---per every IRS 990 filing on record.
+The Eli and Edythe Broad Art Center at UCLA houses two departments that share hallways, elevators, and a dean but operate with fundamentally different financial architectures. The Department of Art---founded in 1939---is funded by the art market: collectors, gallerists, and philanthropists who participate in a pricing system for objects. The Department of Design~|~Media Arts (\dma{})---split from Art in 1988~\citep{dmahistory}---is funded by research grants, cross-institutional partnerships, and the invisible subsidy of faculty salaries applied to unpaid software work.
 
-Lauren McCarthy created p5.js in 2013. She joined \dma{} as faculty. She spent the next decade maintaining it for 10--20 uncompensated hours per week on top of her teaching load~\citep{mccarthy2023making}. She also receives zero dollars from the Processing Foundation.
+This paper traces that divergence. Both departments sit within UCLA's \sofa{}, which operates on an approximately \$70 million annual budget across four departments~\citep{uclaarts2025about}. Both benefit from the same \$52 million building, funded in part by a \$23.2 million gift from the Broad Foundation~\citep{broadfoundation2006}. But Art has attracted \$22.5 million in targeted philanthropic gifts for its own infrastructure, while \dma{}'s most widely used outputs---open-source creative tools used by millions---are funded by no one's budget.
 
-Both are tenured professors. Both are paid by UCLA to teach and do research. The tools they built---used by millions---are subsidized by those salaries in a way that appears nowhere in any budget line. This is the model I described in ``Who Pays for Creative Tools?''~\citep{scudder2026sustainability} as \emph{academic subsidy}: the university pays for one thing, and the faculty member does another thing on top of it, and the second thing is what changes the world.
+Newfield~\citep{newfield2009budget} documents how humanities and arts programs within public universities face a structural funding crisis that other disciplines avoid: they cannot point to patents, licensing revenue, or industry partnerships to justify their budgets. Manovich~\citep{manovich2013software} argues that software has become the universal cultural medium---that contemporary art, design, and media are inseparable from the tools that produce them. The tension between these two observations is the subject of this paper: the department that produces cultural objects has a market to fund it; the department that produces cultural \emph{tools} does not.
 
-This paper is about the institution that provides that subsidy. Not UCLA as a monolith, but two specific departments within one school---Art and \dma{}---that sit in the same Richard Meier building, report to the same dean, draw from the same \$70 million school operating budget, and operate with fundamentally different financial architectures.
-
-I am writing this as an outsider. I was invited to UCLA's Social Software lab as an Author in Residence for Spring 2026~\citep{scudder2026ac}. I build \ac{}, a creative computing platform, without the institutional umbrella that shelters Processing, p5.js, Scratch, Sonic Pi, and every other comparable tool in the field. Understanding how that umbrella works---and who holds it---is not academic curiosity. It is survival research.
+I am writing this from a particular vantage point. I was invited to UCLA's Social Software lab as an Author in Residence for Spring 2026, and I build \ac{}~\citep{scudder2026ac}, a creative computing platform developed outside the university system. The companion paper~\citep{scudder2026sustainability} surveys 28 tool authors and their funding histories. This paper looks at the institutional side: what does the shelter actually look like from inside?
 
 \section{Two Departments}
 
 \subsection{Art (1939--)}
 
-The Department of Art is the older sibling. Founded in 1939 within the College of Applied Arts, it was the first time students could major in art at UCLA. It moved through the College of Fine Arts (1960) and into the School of the Arts (1991, later \sofa{}). Its focus is studio fine art: painting, drawing, sculpture, photography, ceramics, printmaking, new genres, interdisciplinary studio.
+The Department of Art was founded in 1939 within the College of Applied Arts---the first time students could major in art at UCLA~\citep{uclaarts2025about}. It moved through the College of Fine Arts (1960) and into the School of the Arts (1991, later \sofa{}). Its focus is studio fine art: painting, drawing, sculpture, photography, ceramics, printmaking, new genres, interdisciplinary studio.
 
-Its faculty roster reads like a museum collection catalog. Catherine Opie (photography), Andrea Fraser (interdisciplinary studio, current chair), Barbara Kruger (new genres, Distinguished Professor), Lari Pittman (painting, Distinguished Professor). These are artists whose work sells at auction, hangs in permanent collections, and defines entire movements.
+Its faculty includes Catherine Opie (photography, inaugural Resnick Endowed Chair), Andrea Fraser (interdisciplinary studio, current chair), Barbara Kruger (new genres, Distinguished Professor), and Lari Pittman (painting, Distinguished Professor). These are artists whose work circulates in galleries, auction houses, and permanent museum collections.
 
 \subsection{Design~|~Media Arts (1988--)}
 
-\dma{} split from Art in 1988 as the Department of Design. The original focus was ceramics, textiles, industrial design, and graphic design. Rebecca Allen became chair in 1996 and pivoted toward media. In 2000 the department renamed itself Design~|~Media Arts. Erkki Huhtamo and Christian Moeller joined the faculty. Casey Reas arrived in 2004.
+\dma{} split from Art in 1988 as the Department of Design, initially focused on ceramics, textiles, industrial design, and graphic design~\citep{dmahistory}. Rebecca Allen became chair in 1996 and pivoted toward media and technology---her own work at the intersection of artificial life and virtual environments~\citep{allen2005emergence} set the direction. In 2000 the department renamed itself Design~|~Media Arts under Victoria Vesna, whose scholarship on database aesthetics~\citep{vesna2000database, vesna2007database} theorized the cultural implications of data-driven art. Erkki Huhtamo brought media archaeology; Peter Lunenfeld brought critical theory of digital culture~\citep{lunenfeld2011secretwar}; Eddo Stern brought game art and the critical study of play~\citep{stern2002medieval, stern2017howtoplay}. Casey Reas arrived in 2004, bringing Processing---a programming environment he had co-created with Ben Fry at MIT~\citep{reas2006processing, reas2001thesis}.
 
-Today \dma{} covers creative coding, graphic design, games, VR/AR, digital fabrication, and media theory. Its faculty builds software that runs on millions of machines. Its graduates work at Google, Apple, and Pixar---but also at small studios, nonprofits, and independent practices.
+Today \dma{} covers creative coding, graphic design, games, VR/AR, digital fabrication, and media theory. Its faculty publishes with MIT Press~\citep{reas2014processing, lunenfeld2011secretwar}, Princeton Architectural Press~\citep{reas2010formcode}, and university presses~\citep{vesna2007database}. Its outputs include open-source tools (Processing, p5.js), experimental games (UCLA Game Lab), and art-science collaborations (Art|Sci Center). These are not side projects---they are the department's primary scholarly contribution.
 
 \subsection{Same Building, Different Worlds}
 
@@ -99,7 +97,7 @@ Both departments moved into the Eli and Edythe Broad Art Center in 2006---a \$52
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{lXX}
+\begin{tabular}{lp{0.28\linewidth}p{0.28\linewidth}}
 \toprule
 & \textbf{Art} & \textbf{DMA} \\
 \midrule
@@ -111,7 +109,7 @@ Major gifts & \$20M Leavin, \$2.5M Resnick & Shared Broad building \\
 Grant sources & NEA, foundations & NSF, Getty, Rockefeller \\
 Software output & Minimal & Processing, p5.js, Game Lab \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{Structural comparison of UCLA Art and \dma{}.}
 \label{tab:comparison}
 \end{table}
@@ -120,15 +118,15 @@ Software output & Minimal & Processing, p5.js, Game Lab \\
 
 \subsection{The Leavin Gift}
 
-In 2016, gallerist and alumna Margo Leavin donated \$20 million to UCLA's Department of Art---the largest single gift by an alumna to the arts in University of California history. The money funded the Margo Leavin Graduate Art Studios: a 48,000 square foot campus in Culver City, designed by Johnston Marklee, opened in 2019. MFA students now work in purpose-built studios with natural light, fabrication shops, and exhibition space.
+In 2016, gallerist and alumna Margo Leavin donated \$20 million to UCLA's Department of Art---the largest single gift by an alumna to the arts in University of California history~\citep{leavin2016gift}. Leavin had earned her BA in psychology from UCLA in 1958, then ran one of Los Angeles's most influential galleries for over 40 years before closing in 2012~\citep{leavinmemorial}. The gift funded the Margo Leavin Graduate Art Studios: a 48,000 square foot adaptive reuse of a former wallpaper factory in Culver City, designed by Johnston Marklee, opened in 2019.
 
-This is how fine art departments get funded. A gallerist who built her career selling the work of artists who teach at the school gives money back to the school that produces the next generation of artists whose work she might sell. The loop is closed. The incentives are aligned. The money is real.
+This is a closed loop. A gallerist who built her career exhibiting and selling the work of artists who teach at the school gave back to the school that produces the next generation of artists. The incentives are aligned. The money is real. And it went to Art, not \dma{}.
 
 \subsection{The Resnick Endowment}
 
-Lynda and Stewart Resnick (Wonderful Company, FIJI Water, POM Wonderful) gave \$2 million to endow the Lynda and Stewart Resnick Endowed Professorship in Art---the department's first endowed chair. Catherine Opie was the inaugural holder. They also gave \$500,000 to renovate the undergraduate photography lab.
+Lynda and Stewart Resnick gave \$2 million to endow the Lynda and Stewart Resnick Endowed Professorship in Art, plus \$500,000 for an undergraduate photography lab renovation~\citep{resnickchair2019}. Catherine Opie was named the inaugural holder. The UCLA General Catalog lists only four endowed chairs across the entire \sofa{}---none in \dma{}~\citep{uclaendowedchairs}.
 
-An endowed chair is perpetual funding. The principal generates interest; the interest pays a salary supplement and research funds; the professor holds the title for life or until they leave. It is the most stable form of academic funding that exists.
+An endowed chair is perpetual funding. The principal generates interest; the interest pays a salary supplement and research funds; the professor holds the title for life or until they leave. It is the most durable form of academic funding that exists. That Art has one and \dma{} does not is not a judgment---it reflects the fact that the art market produces the kind of wealth that endows chairs, while the software ecosystem does not.
 
 \subsection{The Pattern}
 
@@ -167,45 +165,19 @@ Each initiative is a funding island. The Game Lab works because two schools spli
 
 \subsection{The Processing Foundation}
 
-The Processing Foundation is a 501(c)(3) nonprofit incorporated in Brooklyn, New York. It is not a UCLA entity. It receives no UCLA funding. Its board includes Reas and McCarthy, but the Foundation is institutionally independent.
+The Processing Foundation---a 501(c)(3) nonprofit in Brooklyn, institutionally independent of UCLA---coordinates development of Processing and p5.js~\citep{processingfoundation990}. Its three co-founders receive \$0 in compensation. The Foundation's financial history (a near-death operating budget through 2020, a \$10.9 million crypto-donation windfall in 2021, and a current drawdown at \$1.5M/year) is documented in detail in the companion paper~\citep{scudder2026sustainability}.
 
-\begin{table}[h]
-\small
-\centering
-\begin{tabularx}{\columnwidth}{Xrrr}
-\toprule
-\textbf{Year} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Assets} \\
-\midrule
-2020 & \$273K & \$182K & \$156K \\
-2021 & \$10.9M & \$430K & \$10.6M \\
-2022 & \$751K & \$647K & \$10.7M \\
-2023 & \$513K & \$1.23M & \$10.4M \\
-2024 & \$649K & \$1.52M & \$9.5M \\
-\bottomrule
-\end{tabularx}
-\caption{Processing Foundation financials (IRS 990 filings via ProPublica).}
-\label{tab:pf-financials}
-\end{table}
+What matters for this paper is simpler: the Foundation is not a UCLA entity, and UCLA does not fund it. The tools that DMA is best known for---the ones cited in textbooks~\citep{montfort2021exploratory, soon2020aesthetic}, taught in classrooms worldwide~\citep{greenberg2012creative}, and used by millions---exist outside the university's financial architecture. They are sustained by faculty salaries that were budgeted for teaching, not for maintaining open-source infrastructure~\citep{yin2022oss}.
 
-The 2021 spike---from \$273K to \$10.9 million in one year---was almost entirely cryptocurrency donations from generative artists during the NFT boom. Major donors included Erick Calderon (Art Blocks founder), Tyler Hobbs, Casey Reas himself, Monica Rizzolli, and Dmitri Cherniak. This was not a funding model. It was a weather event. It will not repeat.
+\section{Objects vs.\ Tools}
 
-The Foundation is now spending approximately \$1.5 million per year against \$650K--\$970K in revenue, drawing down the 2021 reserves. At current burn rate, leadership estimates a 12--13 year runway. Reas, Fry, and Shiffman---the three co-founders---have received \$0 in compensation from the Foundation in every year on record.
+The funding divergence maps onto a deeper difference in what each department produces and who values it.
 
-\subsection{The Invisible Subsidy}
+Art produces \emph{objects}. Paintings, sculptures, photographs, installations. These objects enter a market with established infrastructure: galleries, auction houses, collectors, museum acquisitions committees, art fairs. The market assigns prices. Prices generate wealth. Wealth flows back as philanthropy.
 
-Here is what actually funds Processing and p5.js: UCLA pays Reas and McCarthy salaries. Those salaries buy them time. They spend some of that time---uncompensated, untracked, invisible to any budget---maintaining software used by millions. The Foundation exists to receive donations and coordinate development. UCLA exists to pay the salaries that make the unpaid work possible.
+\dma{} produces \emph{tools and experiences}. Processing~\citep{reas2006processing} is not an object you can hang on a wall. p5.js~\citep{mccarthy2015p5js} is not an edition of 45. The UCLA Game Lab's experimental games~\citep{stern2017howtoplay} are not sold at Art Basel. Vesna's Art|Sci collaborations are funded by NSF, not by collectors. Lunenfeld's cultural theory~\citep{lunenfeld2011secretwar} is published by MIT Press at academic prices. The output is scholarship, software, and pedagogy---free, open-source, used by millions, priced by no market.
 
-This is the same pattern I documented across 28 tool authors in ``Who Pays''~\citep{scudder2026sustainability}. The university is the umbrella. The tool is the rain. The umbrella does not know it is holding off rain; it thinks it is employing a professor.
-
-\section{What the Art Market Funds vs.\ What Grants Fund}
-
-The distinction between Art and \dma{}'s funding models maps onto a deeper difference in what each department produces and who values it.
-
-Art produces \emph{objects}. Paintings, sculptures, photographs, installations. These objects enter a market with established infrastructure: galleries, auction houses, collectors, museum acquisitions committees, art fairs. The market assigns prices. Prices generate wealth. Wealth flows back as philanthropy. Opie's photographs sell. Kruger's installations are commissioned. The department's prestige attracts donors who want their names on buildings and chairs.
-
-\dma{} produces \emph{tools and experiences}. Processing is not an object you can hang on a wall. p5.js is not an edition of 45. The UCLA Game Lab's experimental games are not sold at Art Basel. The output is software---free, open-source, used by millions, valued by no market. When Reas's artwork sells (his generative pieces are in the V\&A, LACMA, Centre Pompidou), that is his art practice, not his software practice. The two are related but financially separate.
-
-The art market can fund art departments because it can price art. No equivalent market prices open-source creative tools. The \$10.9 million that arrived at the Processing Foundation in 2021 came from a temporary speculative bubble in digital art, not from a sustainable market for the tools themselves.
+Peppler and Kafai~\citep{peppler2009creative} argue that creative coding connects art to computing through constructive programming experience---that the tools themselves are pedagogically valuable. Greenberg et al.~\citep{greenberg2012creative} demonstrate this in CS1 classrooms. Soon and Cox~\citep{soon2020aesthetic} build an entire textbook around p5.js as a lens for software studies. The tools matter. But the funding structures of universities are not designed to reward tool-building. Strasser et al.~\citep{strasser2022funding} document ten rules for funding scientific open-source software and note that novelty is a poor metric---maintenance, governance, and community-building matter more, yet they are precisely what funders least want to pay for.
 
 \section{Administration}
 
@@ -223,21 +195,33 @@ The dean position is currently interim (Lionel Popkin). The school is conducting
 
 Both departments offer 4--5 year funding packages for incoming MFA students, currently approximately \$30,000 per year plus tuition (combination of fellowships and TAships). Art's students work in the Leavin studios in Culver City. \dma{}'s students work in the Broad Art Center. The funding level is comparable; the physical infrastructure is not---Leavin's purpose-built facilities are a direct product of the \$20 million gift.
 
-\section{Implications for \ac{}}
+\section{Discussion}
 
-I build \ac{} without any of this. No UCLA salary. No NSF grants. No Processing Foundation reserves. No Margo Leavin writing a \$20 million check. No endowed chair generating perpetual interest. The companion paper~\citep{scudder2026sustainability} documents the full economic history.
+The UCLA case is instructive not because it is broken but because it works. Both departments are functional, prestigious, and producing significant scholarship. The Art department's philanthropic model and \dma{}'s grant-based model each sustain a faculty, a student body, and a body of work.
 
-The UCLA model shows what institutional shelter looks like at its best: tenured faculty with time to build, research labs with named directors, external grants that fund specific projects, a school-level budget that keeps the lights on. It also shows the fragility: the Processing Foundation's reserves are finite, the grants are time-limited, the initiatives depend on specific people, and the open-source tools that reach the most users are the least funded part of the entire system.
+What neither model addresses is the gap between the tools a department produces and the funding those tools receive. \dma{} faculty have built tools that are cited in hundreds of papers~\citep{reas2006processing}, taught in thousands of classrooms~\citep{greenberg2012creative, peppler2009creative}, and used by millions of people. The tools are the department's most visible contribution to the field. They are also the contribution least reflected in any budget.
 
-The question for \ac{} is not ``how do I get a UCLA salary?''---I don't, and probably won't. The question is whether the model that works for Processing and p5.js (invisible academic subsidy + a nonprofit foundation + a one-time crypto windfall) can be replicated, adapted, or replaced by something that doesn't require being a tenured professor at a research university.
+This is not unique to UCLA. Yin et al.~\citep{yin2022oss} find that open-source software sustainability depends on institutional governance structures that most academic departments are not designed to provide. Strasser et al.~\citep{strasser2022funding} argue that funding bodies systematically undervalue maintenance relative to novelty. The result is a structural gap: universities fund faculty, faculty build tools, tools become infrastructure, and no one funds infrastructure maintenance.
 
-So far, the answer is: not obviously. But the attempt is the project.
+\subsection{The Foundation Governance Crisis}
+
+In October 2023, Ben Fry---co-creator of Processing---publicly resigned from the Processing Foundation board, stating that the Foundation had spent approximately \$800,000 the previous year with ``\$0 of that going to Processing~4'' development~\citep{fry2023resignation}. He wrote that the project ``deserves better, and needs a better home than the `Processing' Foundation.'' Casey Reas publicly disagreed, stating that Fry had been offered resources and declined them. The three co-founders all departed the board; it was reconstituted with new leadership~\citep{pfboardtransition2023}.
+
+The details of the dispute are beyond this paper's scope. What matters here is what the crisis reveals about the institutional structure: UCLA had no role in it. The Foundation is not a UCLA entity. When the governance of \dma{}'s most visible software contribution fractured publicly, the university had no mechanism to intervene, mediate, or support. The tools that appear on \dma{}'s website, that are taught in \dma{} classrooms, that define \dma{}'s reputation in the field---these tools are governed by a Brooklyn nonprofit whose internal conflicts are invisible to the school's administration.
+
+This is the cost of institutional distance. The university benefits from the prestige of Processing and p5.js without bearing responsibility for their governance. When governance works, this arrangement is efficient. When governance breaks down, the university has no fallback.
+
+The question is not whether UCLA should have intervened in the Foundation's governance. It is whether UCLA should develop institutional capacity to support the open-source tools its faculty create---through dedicated funding lines, maintenance fellowships, or governance partnerships---before the next crisis makes the question urgent.
+
+\subsection{Outside the University}
+
+For projects built outside the university system---like \ac{}~\citep{scudder2026ac, scudder2026os, scudder2026kidlisp}---the question is not how to replicate the UCLA model but whether alternatives exist. The companion paper~\citep{scudder2026sustainability} surveys 28 tool authors and finds that the median gap between a tool's creation and its first sustainable funding is 8 years. UCLA's model fills that gap with faculty salaries. Whether other models can fill it remains open.
 
 \section{Conclusion}
 
-UCLA's School of the Arts and Architecture houses two departments that represent two financial logics of contemporary creative practice. Art is funded by the art market---by collectors, gallerists, and philanthropists who participate in a pricing system for objects. \dma{} is funded by research grants, cross-institutional partnerships, and the invisible subsidy of faculty salaries applied to unpaid software work.
+UCLA's \sofa{} houses two departments that represent two financial logics of contemporary creative practice. Art is funded through the art market---collectors, gallerists, and philanthropists who participate in a pricing system for objects~\citep{leavin2016gift, resnickchair2019}. \dma{} is funded through research grants, cross-institutional partnerships~\citep{dmahistory}, and the published scholarship of its faculty~\citep{reas2006processing, vesna2007database, stern2002medieval, lunenfeld2011secretwar}.
 
-Both models work, in the sense that both departments are functional and prestigious. Neither model funds open-source creative tools directly. Processing exists because Casey Reas has a UCLA salary and donates his own money to the Foundation he co-founded. p5.js exists because Lauren McCarthy has a UCLA salary and spends her evenings maintaining code. The \$10.9 million windfall that temporarily stabilized the Foundation came from a speculative bubble, not a sustainable market.
+Both models sustain serious work. Neither model directly funds the open-source tools that may be the field's most enduring contribution. That gap---between what institutions produce and what institutions fund---is worth studying, not because it represents a failure, but because understanding it is the first step toward closing it.
 
 The building is beautiful. The hallways are shared. The money flows through different pipes.
 
