@@ -211,6 +211,21 @@
 \hyphenpenalty=50                  % encourage hyphenation (default 50, lower = more)
 \exhyphenpenalty=50                % also break at explicit hyphens in compounds
 
+% === LISTINGS OVERFLOW PREVENTION ===
+% Force line breaking in code listings on narrow cards.
+\AtBeginDocument{%
+  \lstset{
+    breaklines=true,
+    breakatwhitespace=false,
+    breakautoindent=true,
+    postbreak=\mbox{\textcolor{acgray}{$\hookrightarrow$}\space},
+    basicstyle=\ttfamily\footnotesize,
+    columns=fullflexible,
+    xleftmargin=0.3em,
+    xrightmargin=0.3em,
+  }%
+}
+
 % === TABLE OVERFLOW PREVENTION ===
 % Cards are only ~3.2in wide — tables must never exceed column width.
 \RequirePackage{tabularx}              % auto-stretching X columns
