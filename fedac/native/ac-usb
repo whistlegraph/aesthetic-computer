@@ -170,7 +170,7 @@ type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M' | sfdisk ${USB_DEV}
         AC_TOKEN=""
         if [ -n "${HANDLE}" ]; then
             echo "  Fetching credentials for @${HANDLE}..."
-            DEVICE_JSON=$(curl -s "https://aesthetic.computer/.netlify/functions/device-token?handle=${HANDLE}" 2>/dev/null || true)
+            DEVICE_JSON=$(curl -s "https://aesthetic.computer/api/device-token?handle=${HANDLE}" 2>/dev/null || true)
             AC_TOKEN=$(echo "${DEVICE_JSON}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.token||'')}catch{}})" 2>/dev/null || true)
             # Grab Claude/GitHub tokens from API if not already set locally
             if [ -z "${CLAUDE_TOKEN}" ]; then
