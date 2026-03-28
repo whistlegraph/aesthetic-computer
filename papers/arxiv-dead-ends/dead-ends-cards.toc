@@ -1,25 +1,25 @@
-\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
-\contentsline {section}{\numberline {2}Platform Fragmentation}{6}{section.2}%
-\contentsline {subsection}{\numberline {2.1}The Electron App}{7}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}The Android App}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}The Feral File Integration}{8}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}The Pattern}{9}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Infrastructure Over-Engineering}{10}{section.3}%
-\contentsline {subsection}{\numberline {3.1}The Jamsocket Session Server}{10}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The Bumper System}{11}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}The Silo Migration}{11}{subsection.3.3}%
-\contentsline {section}{\numberline {4}Monetization Experiments}{13}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Tezos NFTs (Keeps)}{13}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Sotce.net Subscriptions}{14}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Printful Merchandise}{14}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Tools Built for One Person}{16}{section.5}%
-\contentsline {subsection}{\numberline {5.1}The Tape Recorder}{16}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Windows Container Development}{16}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}The \texttt {.pjs} Compiler}{16}{subsection.5.3}%
-\contentsline {section}{\numberline {6}Premature Abstractions}{18}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Generic Kiosk Mode}{18}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The FFOS Fork}{18}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Evolutionary Morphology}{20}{section.7}%
-\contentsline {subsection}{\numberline {7.1}What Dormancy Reveals}{21}{subsection.7.1}%
-\contentsline {section}{\numberline {8}Conclusion}{23}{section.8}%
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}Platform Fragmentation}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The Electron App}{8}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Android App}{8}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The Feral File Integration}{9}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The Pattern}{10}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Infrastructure Over-Engineering}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Jamsocket Session Server}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Bumper System}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Silo Migration}{12}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Monetization Experiments}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Tezos NFTs (Keeps)}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Sotce.net Subscriptions}{15}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Printful Merchandise}{15}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Tools Built for One Person}{17}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The Tape Recorder}{17}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Windows Container Development}{17}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}The \texttt {.pjs} Compiler}{17}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Premature Abstractions}{19}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Generic Kiosk Mode}{19}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The FFOS Fork}{19}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Evolutionary Morphology}{21}{section.7}%
+\contentsline {subsection}{\numberline {7.1}What Dormancy Reveals}{22}{subsection.7.1}%
+\contentsline {section}{\numberline {8}Conclusion}{24}{section.8}%
 \contentsfinish 
