@@ -1070,8 +1070,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     bgColor[1] = bgTarget[1];
     bgColor[2] = bgTarget[2];
   } else {
-    bgTarget = [0, 0, 0];
-    // Fade to black smoothly
+    bgTarget = dark ? [0, 0, 0] : [255, 255, 255];
+    // Fade smoothly
     bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.25;
     bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.25;
     bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.25;
