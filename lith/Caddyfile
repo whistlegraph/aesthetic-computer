@@ -7,6 +7,7 @@
     handle @papers {
         @pdf path *.pdf
         header @pdf Cache-Control "public, max-age=60, must-revalidate"
+        header @pdf CDN-Cache-Control "max-age=60"
         handle /en {
             rewrite * /index.html?lang=en
             root * /opt/ac/system/public/papers.aesthetic.computer
