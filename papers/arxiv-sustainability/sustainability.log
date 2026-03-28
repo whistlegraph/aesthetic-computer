@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:29
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1446,6 +1446,16 @@ Underfull \hbox (badness 1424) in paragraph at lines 114--115
  []
 
 
+Underfull \hbox (badness 10000) in paragraph at lines 139--139
+[]|\TU/LatinModernRoman(0)/m/n/9 Lauren Mc-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 139--139
+[]|\TU/LatinModernRoman(0)/m/n/9 Hernando Bar-
+ []
+
+
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
@@ -1455,6 +1465,16 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
+Underfull \hbox (badness 10000) in paragraph at lines 164--164
+[]|\TU/LatinModernRoman(0)/m/n/9 Guido van
+ []
+
+
+Overfull \hbox (16.73401pt too wide) in paragraph at lines 164--164
+[]|\TU/LatinModernRoman(0)/m/n/9 Google/Dropbox/MS| 
+ []
+
+
 Underfull \hbox (badness 1248) in paragraph at lines 197--198
 []\TU/LatinModernRoman(0)/m/sc/10 This event was unrepeatable, unpredictable, a
 nd
@@ -1485,7 +1505,9 @@ l Camino del Hardcore \TU/LatinModernRoman(0)/m/sc/10 [[][]Goodiepal
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \hbox (badness 10000) in paragraph at lines 231--231
+[]|\TU/LatinModernRoman(0)/m/n/9 Aesthetic Com-
+ []
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 252.
@@ -1523,10 +1545,10 @@ Package rerunfilecheck Info: File `sustainability.out' has not changed.
 Here is how much of TeX's memory you used:
  19619 strings out of 478682
  364327 string characters out of 5849006
- 1876018 words of memory out of 6000000
+ 1877018 words of memory out of 6000000
  39443 multiletter control sequences out of 15000+600000
  514930 words of font info for 103 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 84i,13n,115p,1486b,644s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,12n,115p,1486b,644s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on sustainability.pdf (5 pages).

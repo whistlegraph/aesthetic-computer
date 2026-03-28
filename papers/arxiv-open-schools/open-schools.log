@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:31
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 16:03
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1897,24 +1897,132 @@ LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 .
 
 
-Package natbib Warning: Citation `scudder2026acos' on page 2 undefined on input
- line 65.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.65 ...We present \acos{}~\citep{scudder2026acos}
+                                                   as one concrete implement...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `google2024chromeos' on page 2 undefined on in
-put line 74.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.65 ...We present \acos{}~\citep{scudder2026acos}
+                                                   as one concrete implement...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `zuboff2019surveillance' on page 2 undefined o
-n input line 76.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.74 ...0 million units~\citep{google2024chromeos}
+                                                  . An entire generation of ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `mcluhan1964understanding' on page 2 undefined
- on input line 78.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.74 ...0 million units~\citep{google2024chromeos}
+                                                  . An entire generation of ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `freire1970pedagogy' on page 2 undefined on in
-put line 104.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.76 ...o adulthood~\citep{zuboff2019surveillance}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.76 ...o adulthood~\citep{zuboff2019surveillance}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.78 ...e message~\citep{mcluhan1964understanding}
+                                                  : the Chromebook teaches t...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.78 ...e message~\citep{mcluhan1964understanding}
+                                                  : the Chromebook teaches t...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.104 ...' of education~\citep{freire1970pedagogy}
+                                                  : knowledge deposited into...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.104 ...' of education~\citep{freire1970pedagogy}
+                                                  : knowledge deposited into...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -1946,40 +2054,212 @@ If that doesn't work, type  X <return>  to quit.
 
 ]
 
-Package natbib Warning: Citation `pirg2023chromebook' on page 3 undefined on in
-put line 110.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.110 ...y replacements~\citep{pirg2023chromebook}
+                                                  . These are machines with ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `zuboff2019surveillance' on page 3 undefined o
-n input line 121.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.110 ...y replacements~\citep{pirg2023chromebook}
+                                                  . These are machines with ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `doctorow2020attack' on page 3 undefined on in
-put line 121.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.121 ...boff2019surveillance, doctorow2020attack}
+                                                  . A student who grows up i...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `google2019coppa' on page 3 undefined on input
- line 141.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.121 ...boff2019surveillance, doctorow2020attack}
+                                                  . A student who grows up i...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `newmexico2020google' on page 3 undefined on i
-nput line 141.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.121 ...boff2019surveillance, doctorow2020attack}
+                                                  . A student who grows up i...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `eff2015chromebook' on page 3 undefined on inp
-ut line 141.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.121 ...boff2019surveillance, doctorow2020attack}
+                                                  . A student who grows up i...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `eff2024monitoring' on page 3 undefined on inp
-ut line 141.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ... parental consent~\citep{google2019coppa}
+                                                  . In 2020, New Mexico Atto...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `eff2024monitoring' on page 3 undefined on inp
-ut line 147.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ... parental consent~\citep{google2019coppa}
+                                                  . In 2020, New Mexico Atto...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `winner1980artifacts' on page 3 undefined on i
-nput line 149.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...ks in schools~\citep{newmexico2020google}
+                                                  . The EFF filed an FTC com...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...ks in schools~\citep{newmexico2020google}
+                                                  . The EFF filed an FTC com...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...ugh Chromebooks~\citep{eff2015chromebook}
+                                                  . In 2024, a coalition of ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...ugh Chromebooks~\citep{eff2015chromebook}
+                                                  . In 2024, a coalition of ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...nt surveillance~\citep{eff2024monitoring}
+                                                  . Class actions alleging b...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.141 ...nt surveillance~\citep{eff2024monitoring}
+                                                  . Class actions alleging b...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.147 ...and LGBTQ youth~\citep{eff2024monitoring}
+                                                  . Of 152 ed-tech services ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.147 ...and LGBTQ youth~\citep{eff2024monitoring}
+                                                  . Of 152 ed-tech services ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -1988,7 +2268,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.150 
+l.148 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2002,19 +2282,94 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.150 
+l.148 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 [3]
 
-Package natbib Warning: Citation `denny2024computing' on page 4 undefined on in
-put line 182.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.149 ...have politics~\citep{winner1980artifacts}
+                                                  . The Chromebook's politic...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `prather2024robots' on page 4 undefined on inp
-ut line 182.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.149 ...have politics~\citep{winner1980artifacts}
+                                                  . The Chromebook's politic...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Underfull \hbox (badness 5231) in paragraph at lines 149--150
+[]\TU/LatinModernRoman(0)/m/n/10.95 Winner argued that artifacts have poli-
+ []
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.182 ...boxed browsers~\citep{denny2024computing}
+                                                  . Krishnamurthi (Brown Uni...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.182 ...boxed browsers~\citep{denny2024computing}
+                                                  . Krishnamurthi (Brown Uni...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.182 ...rtant, not less~\citep{prather2024robots}
+                                                  : students need to run, de...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.182 ...rtant, not less~\citep{prather2024robots}
+                                                  : students need to run, de...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -2023,7 +2378,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.197 
+l.195 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2037,15 +2392,37 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.197 
+l.195 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 [4]
 
-Package natbib Warning: Citation `papert1980mindstorms' on page 5 undefined on 
-input line 198.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.198 ...erstood this~\citep{papert1980mindstorms}
+                                                  : Logo was not about teach...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.198 ...erstood this~\citep{papert1980mindstorms}
+                                                  : Logo was not about teach...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 Underfull \hbox (badness 10000) in paragraph at lines 208--208
@@ -2053,12 +2430,56 @@ Underfull \hbox (badness 10000) in paragraph at lines 208--208
  []
 
 
-Package natbib Warning: Citation `kite2024gnulinux' on page 5 undefined on inpu
-t line 242.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.242 ...school computers~\citep{kite2024gnulinux}
+                                                  . The distribution include...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `schleswig2025linux' on page 5 undefined on in
-put line 248.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.242 ...school computers~\citep{kite2024gnulinux}
+                                                  . The distribution include...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.248 ...cted to follow~\citep{schleswig2025linux}
+                                                  . Replacements include Lib...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.248 ...cted to follow~\citep{schleswig2025linux}
+                                                  . Replacements include Lib...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -2088,8 +2509,30 @@ If that doesn't work, type  X <return>  to quit.
 
 [5]
 
-Package natbib Warning: Citation `france2023digital' on page 6 undefined on inp
-ut line 252.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.252 ...soft and Google~\citep{france2023digital}
+                                                  . The national platform \t...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.252 ...soft and Google~\citep{france2023digital}
+                                                  . The national platform \t...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 9.63605pt on input line 252.
@@ -2098,16 +2541,82 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 
-Package natbib Warning: Citation `pennmanor2024linux' on page 6 undefined on in
-put line 256.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.256 ...n grades 9--12~\citep{pennmanor2024linux}
+                                                  . The program includes a s...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `fsfe2024publiccode' on page 6 undefined on in
-put line 260.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.256 ...n grades 9--12~\citep{pennmanor2024linux}
+                                                  . The program includes a s...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `unesco2024oer' on page 6 undefined on input l
-ine 260.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.260 ...al signatories~\citep{fsfe2024publiccode}
+                                                  . UNESCO's 2024 Dubai Decl...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.260 ...al signatories~\citep{fsfe2024publiccode}
+                                                  . UNESCO's 2024 Dubai Decl...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.260 ...erging technologies~\citep{unesco2024oer}
+                                                  . The Global Digital Compa...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.260 ...erging technologies~\citep{unesco2024oer}
+                                                  . The Global Digital Compa...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! LaTeX Error: Unknown float option `H'.
@@ -2162,20 +2671,106 @@ LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
 (Font)              scaled to size 5.47441pt on input line 304.
 
-Package natbib Warning: Citation `circularcomputing2023carbon' on page 6 undefi
-ned on input line 304.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.304 ...aptop~\citep{circularcomputing2023carbon}
+                                                  . The UN Global E-waste Mo...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `un2024ewaste' on page 6 undefined on input li
-ne 304.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.304 ...aptop~\citep{circularcomputing2023carbon}
+                                                  . The UN Global E-waste Mo...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `oregon2024repair' on page 6 undefined on inpu
-t line 306.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.304 ...\% properly recycled~\citep{un2024ewaste}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `newhampshire2024repair' on page 6 undefined o
-n input line 306.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.304 ...\% properly recycled~\citep{un2024ewaste}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.306 ...pair information~\citep{oregon2024repair}
+                                                  ; New Hampshire's HB1701 e...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.306 ...pair information~\citep{oregon2024repair}
+                                                  ; New Hampshire's HB1701 e...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.306 ...ed laptops~\citep{newhampshire2024repair}
+                                                  . But legislation cannot f...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.306 ...ed laptops~\citep{newhampshire2024repair}
+                                                  . But legislation cannot f...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -2184,7 +2779,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.309 
+l.307 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2198,27 +2793,115 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.309 
+l.307 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 [6]
 
-Package natbib Warning: Citation `scudder2026acos' on page 7 undefined on input
- line 328.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.328 ...isioning. \acos{}~\citep{scudder2026acos}
+                                                   demonstrates that an enti...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `pennmanor2024linux' on page 7 undefined on in
-put line 328.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.328 ...isioning. \acos{}~\citep{scudder2026acos}
+                                                   demonstrates that an enti...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `scudder2026ac' on page 7 undefined on input l
-ine 351.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.328 ...book districts~\citep{pennmanor2024linux}
+                                                  . The ``management problem...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `khan2024bravenew' on page 7 undefined on inpu
-t line 354.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.328 ...book districts~\citep{pennmanor2024linux}
+                                                  . The ``management problem...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.351 ...te a piece on \ac{}~\citep{scudder2026ac}
+                                                   that anyone in the world ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.351 ...te a piece on \ac{}~\citep{scudder2026ac}
+                                                   that anyone in the world ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.354 ...y where they are~\citep{khan2024bravenew}
+                                                  . But this tutor can only ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.354 ...y where they are~\citep{khan2024bravenew}
+                                                  . But this tutor can only ...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -2227,7 +2910,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.367 
+l.355 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2241,31 +2924,37 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.367 
+l.355 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 [7]
 
-Package natbib Warning: Citation `nelson1974computerlib' on page 8 undefined on
- input line 401.
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.401 ...ote in 1974~\citep{nelson1974computerlib}
+                                                  : ``You can and must under...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
-Package natbib Warning: Citation `illich1973tools' on page 8 undefined on input
- line 415.
+! Package xcolor Error: Undefined color `acpurple'.
 
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.401 ...ote in 1974~\citep{nelson1974computerlib}
+                                                  : ``You can and must under...
 
-Package natbib Warning: Citation `papert1980mindstorms' on page 8 undefined on 
-input line 415.
-
-
-Package natbib Warning: Citation `stallman2002free' on page 8 undefined on inpu
-t line 415.
-
-
-Package natbib Warning: Citation `postman1995end' on page 8 undefined on input 
-line 415.
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
 
 
 ! Package xcolor Error: Undefined color `acpink'.
@@ -2274,7 +2963,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.416 
+l.414 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2288,7 +2977,7 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
-l.416 
+l.414 
       
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
@@ -2301,15 +2990,266 @@ See the xcolor package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
+l.415 ...ialized expertise~\citep{illich1973tools}
+                                                  . Papert wrote that comput...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...ialized expertise~\citep{illich1973tools}
+                                                  . Papert wrote that comput...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...out thinking~\citep{papert1980mindstorms}
+                                                  . Stallman wrote that user...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...out thinking~\citep{papert1980mindstorms}
+                                                  . Stallman wrote that user...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...oftware they run~\citep{stallman2002free}
+                                                  . Postman warned that tech...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...oftware they run~\citep{stallman2002free}
+                                                  . Postman warned that tech...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...ogy, not the child~\citep{postman1995end}
+                                                  . These are not fringe pos...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.415 ...ogy, not the child~\citep{postman1995end}
+                                                  . These are not fringe pos...
+
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
 l.422 ...0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-No file open-schools.bbl.
+(./open-schools.bbl
 
-Package natbib Warning: There were undefined citations.
+! Package xcolor Error: Undefined color `acpurple'.
 
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.30 ...llection-student-data-through-chromebooks}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Underfull \hbox (badness 4242) in paragraph at lines 26--31
+[]\TU/LatinModernRoman(0)/m/sc/10.95 Electronic Frontier Foundation.  Eff files
+ complaint with ftc on google’s collection of
+ []
+
+
+Underfull \hbox (badness 3792) in paragraph at lines 26--31
+\TU/LatinModernRoman(0)/m/sc/10.95 student data through chromebooks, 2015.  URL
+ [][]$[][][][][] [] [] [] [][][] [] [][][] [] [][][] [] [][][][][][][][][] [] [
+][][][] [] [][] []
+ []
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.37 ...-student-privacy-unproven-promises-safety}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+Underfull \hbox (badness 6893) in paragraph at lines 33--38
+[]\TU/LatinModernRoman(0)/m/sc/10.95 Electronic Frontier Foundation.  School mo
+nitoring software sacrifices student privacy
+ []
+
+
+Underfull \hbox (badness 6961) in paragraph at lines 33--38
+\TU/LatinModernRoman(0)/m/sc/10.95 for unproven promises of safety, 2024.  URL 
+[][]$[][][][][] [] [] [] [][][] [] [][][] [] [][][] [] [][][][][][][][][] [] []
+[][][] [] [][] []
+ []
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.44 ...-alleged-violations-childrens-privacy-law}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.49 \newblock URL \url{https://publiccode.eu}
+                                              .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.66 \newblock URL \url{https://chromeos.google}
+                                                .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpink'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.93   Education)}(2024)]{kite2024gnulinux}
+                                           
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+File: ../arxiv-ac/figures//pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures//pals.pdf>
+
+! Package xcolor Error: Undefined color `acpink'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.93   Education)}(2024)]{kite2024gnulinux}
+                                           
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+[9]
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.96 ...block URL \url{https://kite.kerala.gov.in}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.176 ...lock URL \url{https://ewastemonitor.info}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+
+! Package xcolor Error: Undefined color `acpurple'.
+
+See the xcolor package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.183 ...g.org/edfund/resources/chromebook-churn/}
+                                                  .
+Try typing  <return>  to proceed.
+If that doesn't work, type  X <return>  to quit.
+
+)
 
 ! Package xcolor Error: Undefined color `acpink'.
 
@@ -2336,7 +3276,7 @@ l.433 \end{document}
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
-[9] (./open-schools.aux)
+[10] (./open-schools.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
@@ -2344,12 +3284,12 @@ Package rerunfilecheck Info: File `open-schools.out' has not changed.
 (rerunfilecheck)             Checksum: 1D7AA3B12B232941C31667B8B20733A7;6143.
  ) 
 Here is how much of TeX's memory you used:
- 29827 strings out of 478682
- 587955 string characters out of 5849006
- 1870018 words of memory out of 6000000
- 49440 multiletter control sequences out of 15000+600000
+ 29926 strings out of 478682
+ 590437 string characters out of 5849006
+ 1871018 words of memory out of 6000000
+ 49537 multiletter control sequences out of 15000+600000
  515460 words of font info for 104 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  99i,12n,115p,1333b,1020s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on open-schools.pdf (9 pages).
+Output written on open-schools.pdf (10 pages).
