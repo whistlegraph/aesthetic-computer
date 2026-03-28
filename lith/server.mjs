@@ -243,6 +243,108 @@ async function handleFunctionResolved(req, res) {
 
 // --- Routes ---
 
+// --- /media/* handler (ports Netlify edge function media.js) ---
+app.all("/media/*rest", async (req, res) => {
+  const parts = req.path.split("/").filter(Boolean); // ["media", ...]
+  parts.shift(); // remove "media"
+  const resourcePath = parts.join("/");
+
+  if (!resourcePath) return res.status(404).send("Missing media path");
+
+  // Content type from extension
+  const ext = resourcePath.split(".").pop()?.toLowerCase();
+  const ctMap = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", zip: "application/zip", mp4: "video/mp4", json: "application/json", mjs: "text/javascript", svg: "image/svg+xml" };
+
+  // Helper: build a clean event for calling functions internally
+  function mediaEvent(path, query) {
+    return {
+      httpMethod: "GET",
+      headers: req.headers,
+      body: null,
+      queryStringParameters: query,
+      path,
+      rawUrl: `${req.protocol}://${req.get("host")}${path}`,
+      isBase64Encoded: false,
+    };
+  }
+
+  // /media/tapes/CODE → get-tape function → redirect to DO Spaces
+  if (parts[0] === "tapes" && parts[1]) {
+    const code = parts[1].replace(/\.zip$/, "");
+    try {
+      const result = await functions["get-tape"](mediaEvent("/api/get-tape", { code }), {});
+      if (result.statusCode === 200) {
+        const tape = JSON.parse(result.body);
+        const bucket = tape.bucket || "art-aesthetic-computer";
+        const key = tape.user ? `${tape.user}/${tape.slug}.zip` : `${tape.slug}.zip`;
+        return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
+      }
+    } catch {}
+    return res.status(404).send("Tape not found");
+  }
+
+  // /media/paintings/CODE → get-painting function → redirect
+  if (parts[0] === "paintings" && parts[1]) {
+    const code = parts[1].replace(/\.(png|zip)$/, "");
+    try {
+      const result = await functions["get-painting"]?.(mediaEvent("/api/get-painting", { code }), {});
+      if (result?.statusCode === 200) {
+        const painting = JSON.parse(result.body);
+        const bucket = painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer";
+        const slug = painting.slug?.split(":")[0] || painting.slug;
+        const key = painting.user ? `${painting.user}/${slug}.png` : `${slug}.png`;
+        return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
+      }
+    } catch {}
+    return res.status(404).send("Painting not found");
+  }
+
+  // /media/@handle/type/slug → resolve user ID → redirect to DO Spaces
+  if (parts[0]?.startsWith("@") || parts[0]?.match(/^ac[a-z0-9]+$/i)) {
+    const userIdentifier = parts[0];
+    const subPath = parts.slice(1).join("/");
+
+    // Resolve user ID via user function directly
+    try {
+      const query = userIdentifier.match(/^ac[a-z0-9]+$/i)
+        ? { code: userIdentifier }
+        : { from: userIdentifier };
+      const event = {
+        httpMethod: "GET",
+        headers: req.headers,
+        body: null,
+        queryStringParameters: query,
+        path: "/user",
+        rawUrl: `${req.protocol}://${req.get("host")}/user`,
+        isBase64Encoded: false,
+      };
+      const result = await functions["user"](event, {});
+      if (result.statusCode === 200) {
+        const user = JSON.parse(result.body);
+        const userId = user.sub;
+        if (userId) {
+          const fullPath = `${userId}/${subPath}`;
+          const baseUrl = ext === "mjs"
+            ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
+            : "https://user.aesthetic.computer";
+          const encoded = fullPath.split("/").map(encodeURIComponent).join("/");
+          return res.redirect(302, `${baseUrl}/${encoded}`);
+        }
+      }
+    } catch (err) {
+      console.error("media user resolve error:", err.message);
+    }
+    return res.status(404).send("User media not found");
+  }
+
+  // Direct file path → proxy to DO Spaces
+  const baseUrl = ext === "mjs"
+    ? "https://user-aesthetic-computer.sfo3.digitaloceanspaces.com"
+    : "https://user.aesthetic.computer";
+  const encoded = resourcePath.split("/").map(encodeURIComponent).join("/");
+  return res.redirect(302, `${baseUrl}/${encoded}`);
+});
+
 // API functions (matches Netlify redirect rules)
 app.all("/api/:fn", handleFunctionResolved);
 app.all("/api/:fn/*rest", handleFunctionResolved);
@@ -266,6 +368,7 @@ app.all("/presigned-download-url/*rest", directFn("presigned-url"));
 app.all("/docs", directFn("docs"));
 app.all("/docs.json", directFn("docs"));
 app.all("/docs/*rest", directFn("docs"));
+app.all("/media-collection", directFn("media-collection"));
 app.all("/media-collection/*rest", directFn("media-collection"));
 app.all("/device-login", directFn("device-login"));
 app.all("/device-auth", directFn("device-auth"));
