@@ -2,7 +2,8 @@
 # Cloudflare handles TLS. Caddy serves HTTP on :80.
 
 # --- papers.aesthetic.computer ---
-:80 {
+:443 {
+    tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
     # --- Global performance headers ---
     # Cache static assets (1h fresh, serve stale for 24h while revalidating)
     @cacheable path *.mjs *.js *.css *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
@@ -342,4 +343,8 @@
     handle {
         reverse_proxy localhost:8888
     }
+}
+
+:80 {
+    redir https://{host}{uri} 301
 }
