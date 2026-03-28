@@ -1,4 +1,4 @@
-import { Configuration, OpenAIApi } from "openai";
+import OpenAI from "openai";
 import Busboy from "busboy";
 import { respond } from "../../backend/http.mjs";
 import { PassThrough } from "stream";
@@ -11,20 +11,17 @@ export async function handler(event, context) {
   form.image.data.name = "painting.png";
 
   try {
-    const configuration = new Configuration({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    const openai = new OpenAIApi(configuration);
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    const response = await openai.createImageVariation(
-      form.image.data,
-      1,
-      "256x256"
-    );
+    const response = await openai.images.createVariation({
+      image: form.image.data,
+      n: 1,
+      size: "256x256",
+    });
 
     // Fetch the returned image URL and respond with the file.
-    const { got } = await import("got"); // Import "got"
-    const imageResponse = await got.get(response.data.data[0].url, {
+    const { got } = await import("got");
+    const imageResponse = await got.get(response.data[0].url, {
       responseType: "buffer",
     });
 

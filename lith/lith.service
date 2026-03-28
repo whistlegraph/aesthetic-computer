@@ -1,0 +1,21 @@
+[Unit]
+Description=lith — AC monolith (frontend + API)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ac/lith
+EnvironmentFile=/opt/ac/system/.env
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Generous limits for Sharp/Puppeteer
+LimitNOFILE=65535
+MemoryMax=3G
+
+[Install]
+WantedBy=multi-user.target
