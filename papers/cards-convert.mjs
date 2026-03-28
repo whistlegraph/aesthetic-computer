@@ -14,31 +14,34 @@ import { execSync } from "child_process";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 
+const T3 = { da: "Dansk", es: "Español", zh: "中文" };
+const T4 = { da: "Dansk", es: "Español", zh: "中文", ja: "日本語" };
+
 const PAPER_MAP = {
-  "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv" },
-  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv" },
-  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv" },
-  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features", siteName: "dead-ends-26-arxiv" },
-  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit", siteName: "citation-diversity-audit-26" },
-  "arxiv-folk-songs": { base: "folk-songs", title: "Playable Folk Songs", siteName: "folk-songs-26-arxiv" },
-  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art", siteName: "radical-computer-art-26-arxiv" },
-  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26", siteName: "kidlisp-26-arxiv" },
-  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference", siteName: "kidlisp-reference-26-arxiv" },
-  "arxiv-network-audit": { base: "network-audit", title: "Network Audit", siteName: "network-audit-26-arxiv" },
-  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv" },
-  "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv" },
-  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv" },
-  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv", translations: { da: "Dansk", es: "Español", zh: "中文", ja: "日本語" } },
-  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv" },
-  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv" },
-  "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
-  "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv" },
-  "arxiv-score-analysis": { base: "score-analysis", title: "Reading the Score", siteName: "reading-the-score-26-arxiv" },
-  "arxiv-calarts": { base: "calarts", title: "CalArts, Callouts, and Papers", siteName: "calarts-callouts-papers-26-arxiv" },
-  "arxiv-open-schools": { base: "open-schools", title: "Get Closed Source Out of Schools", siteName: "open-schools-26-arxiv" },
-  "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv" },
-  "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv" },
-  "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
+  "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv", translations: T3 },
+  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv", translations: T3 },
+  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv", translations: T3 },
+  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features", siteName: "dead-ends-26-arxiv", translations: T3 },
+  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit", siteName: "citation-diversity-audit-26", translations: T3 },
+  "arxiv-folk-songs": { base: "folk-songs", title: "Playable Folk Songs", siteName: "folk-songs-26-arxiv", translations: T3 },
+  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art", siteName: "radical-computer-art-26-arxiv", translations: T3 },
+  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26", siteName: "kidlisp-26-arxiv", translations: T3 },
+  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference", siteName: "kidlisp-reference-26-arxiv", translations: T3 },
+  "arxiv-network-audit": { base: "network-audit", title: "Network Audit", siteName: "network-audit-26-arxiv", translations: T3 },
+  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv", translations: T3 },
+  "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv", translations: T3 },
+  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv", translations: T3 },
+  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv", translations: T4 },
+  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv", translations: T3 },
+  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv", translations: T3 },
+  "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv", translations: T3 },
+  "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv", translations: T3 },
+  "arxiv-score-analysis": { base: "score-analysis", title: "Reading the Score", siteName: "reading-the-score-26-arxiv", translations: T3 },
+  "arxiv-calarts": { base: "calarts", title: "CalArts, Callouts, and Papers", siteName: "calarts-callouts-papers-26-arxiv", translations: T3 },
+  "arxiv-open-schools": { base: "open-schools", title: "Get Closed Source Out of Schools", siteName: "open-schools-26-arxiv", translations: T3 },
+  "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv", translations: T3 },
+  "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv", translations: T3 },
+  "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv", translations: T3 },
 };
 
 // Convert tabularx to plain tabular for cards (adjustbox handles the scaling).
