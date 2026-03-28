@@ -294,6 +294,8 @@ function setWave(nextWave, sound) {
   wave = nextWave;
   waveIndex = wavetypes.indexOf(nextWave);
   if (waveIndex < 0) waveIndex = 0;
+  // Announce wave type
+  sound?.speak?.(nextWave === "composite" ? "composite" : nextWave);
 
   if (wave === "sample") {
     const mic = sound?.microphone || {};
