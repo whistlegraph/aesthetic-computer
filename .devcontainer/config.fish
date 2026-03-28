@@ -1936,6 +1936,27 @@ function ac-site
     npm run local-dev
 end
 
+function ac-lith
+    cd ~/aesthetic-computer/lith
+    echo "🪨 Starting lith (monolith server)..."
+    echo "🔍 Cleaning up any stuck processes..."
+    pkill -f "lith/server.mjs" 2>/dev/null
+    sleep 1
+    echo "🔌 Killing port 8888..."
+    timeout 5 npx kill-port 8888 2>/dev/null; or true
+    # Load env vars from system/.env if present
+    if test -f ~/aesthetic-computer/system/.env
+        for line in (cat ~/aesthetic-computer/system/.env | grep -v '^#' | grep -v '^$' | grep '=')
+            set -l parts (string split -m1 '=' $line)
+            if test (count $parts) -ge 2
+                set -gx $parts[1] $parts[2]
+            end
+        end
+    end
+    echo "🚀 Starting server on https://localhost:8888..."
+    node --watch server.mjs
+end
+
 function ac-media
     cd ~/aesthetic-computer/system
     echo "📦 Starting Caddy media server on :8111..."

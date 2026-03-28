@@ -4,7 +4,8 @@ import https from "https";
 import path from "path";
 import { promises as fs } from "fs";
 import { URLSearchParams } from "url";
-import { encode } from "he";
+import he from "he";
+const { encode } = he;
 import * as num from "../../public/aesthetic.computer/lib/num.mjs";
 import {
   parse,

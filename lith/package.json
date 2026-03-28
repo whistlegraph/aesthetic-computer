@@ -1,0 +1,13 @@
+{
+  "name": "lith",
+  "version": "0.1.0",
+  "description": "AC monolith — static frontend + API server (replaces Netlify)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

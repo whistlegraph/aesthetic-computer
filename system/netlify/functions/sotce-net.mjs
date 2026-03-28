@@ -108,6 +108,8 @@ export const handler = async (event, context) => {
   // 🚙 Router
   const method = event.httpMethod.toLowerCase();
   let path = event.path;
+  if (path.startsWith("/api/sotce-net"))
+    path = path.replace("/api/sotce-net", "/").replace("//", "/");
   if (path.startsWith("/sotce-net"))
     path = path.replace("/sotce-net", "/").replace("//", "/");
   if (path.startsWith("/sotce.net"))
