@@ -1957,6 +1957,33 @@ function ac-lith
     node --watch server.mjs
 end
 
+function ac-deploy --description 'Deploy lith: push + pull + restart on droplet'
+    cd ~/aesthetic-computer
+    set LITH_IP "209.38.133.33"
+
+    echo "🪨 Deploying to lith ($LITH_IP)..."
+
+    # Push local changes if any
+    set -l status_output (git status --porcelain)
+    if test -n "$status_output"
+        echo "⚠️  You have uncommitted changes. Commit first."
+        return 1
+    end
+
+    echo "📤 Pushing to origin..."
+    git push origin main; or begin; echo "❌ Push failed"; return 1; end
+
+    echo "🔄 Pulling on droplet..."
+    ssh -o StrictHostKeyChecking=no root@$LITH_IP "cd /opt/ac && git pull origin main && git rev-parse --short HEAD > system/public/.commit-ref && cat system/public/.commit-ref"
+
+    echo "🔁 Restarting lith..."
+    ssh root@$LITH_IP "systemctl restart lith"
+
+    sleep 3
+    set -l version (curl -s "https://aesthetic.computer/api/version" | python3 -c "import json,sys; print(json.load(sys.stdin)['deployed'])" 2>/dev/null)
+    echo "✅ Deployed: $version"
+end
+
 function ac-media
     cd ~/aesthetic-computer/system
     echo "📦 Starting Caddy media server on :8111..."
