@@ -5,9 +5,6 @@
 :80 {
     @papers host papers.aesthetic.computer papers.prompt.ac
     handle @papers {
-        @pdf path *.pdf
-        header @pdf Cache-Control "public, max-age=60, must-revalidate"
-        header @pdf CDN-Cache-Control "max-age=60"
         handle /en {
             rewrite * /index.html?lang=en
             root * /opt/ac/system/public/papers.aesthetic.computer
@@ -243,15 +240,36 @@
         reverse_proxy localhost:8888
     }
 
-    # --- prompt.ac aliases → aesthetic.computer ---
-    @promptaliases host l5.prompt.ac p5.prompt.ac processing.prompt.ac sitemap.prompt.ac
-    handle @promptaliases {
-        reverse_proxy localhost:8888
+    @l5prompt host l5.prompt.ac
+    handle @l5prompt {
+        redir https://l5.aesthetic.computer{uri} 301
+    }
+    @p5prompt host p5.prompt.ac
+    handle @p5prompt {
+        redir https://p5.aesthetic.computer{uri} 301
+    }
+    @procprompt host processing.prompt.ac
+    handle @procprompt {
+        redir https://processing.aesthetic.computer{uri} 301
+    }
+    @siteprompt host sitemap.prompt.ac
+    handle @siteprompt {
+        redir https://sitemap.aesthetic.computer{uri} 301
+    }
+    @apiprompt host api.prompt.ac
+    handle @apiprompt {
+        redir https://api.aesthetic.computer{uri} 301
     }
 
-    # --- notepat.com, kidlisp.com root, prompt.ac, www variants ---
+    # --- prompt.ac → aesthetic.computer (301 redirect) ---
+    @promptac host prompt.ac
+    handle @promptac {
+        redir https://aesthetic.computer{uri} 301
+    }
+
+    # --- notepat.com, kidlisp.com root, www variants ---
     # These all serve the main AC SPA
-    @mainspa host aesthetic.computer www.aesthetic.computer prompt.ac kidlisp.com www.kidlisp.com notepat.com www.notepat.com l5.aesthetic.computer p5.aesthetic.computer processing.aesthetic.computer sitemap.aesthetic.computer
+    @mainspa host aesthetic.computer www.aesthetic.computer kidlisp.com www.kidlisp.com notepat.com www.notepat.com l5.aesthetic.computer p5.aesthetic.computer processing.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Assets → DO Spaces CDN
         handle /assets/* {
