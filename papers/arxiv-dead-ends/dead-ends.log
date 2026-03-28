@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:27
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1507,7 +1507,7 @@ Package rerunfilecheck Info: File `dead-ends.out' has not changed.
 Here is how much of TeX's memory you used:
  19605 strings out of 478682
  363780 string characters out of 5849006
- 1873018 words of memory out of 6000000
+ 1872018 words of memory out of 6000000
  39429 multiletter control sequences out of 15000+600000
  514930 words of font info for 103 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191

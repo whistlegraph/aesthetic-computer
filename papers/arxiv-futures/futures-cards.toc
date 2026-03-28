@@ -1,32 +1,32 @@
-\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
-\contentsline {section}{\numberline {2}Ninety-Four Projects and Counting}{7}{section.2}%
-\contentsline {subsection}{\numberline {2.1}The Drawing Software Lineage (2011--2020)}{7}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}The Performance Turn (2016--2018)}{8}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Why History Matters for Projection}{9}{subsection.2.3}%
-\contentsline {section}{\numberline {3}The Surplus Hardware Wave}{10}{section.3}%
-\contentsline {subsection}{\numberline {3.1}From Prototype to Fleet (2026--2027)}{10}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The 50-Dollar Instrument (2027--2028)}{12}{subsection.3.2}%
-\contentsline {section}{\numberline {4}Planetary Ensembles}{14}{section.4}%
-\contentsline {subsection}{\numberline {4.1}notepat as Ensemble Instrument (2026--2027)}{14}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Beyond Music (2028--2031)}{15}{subsection.4.2}%
-\contentsline {section}{\numberline {5}The Third Dimension}{17}{section.5}%
-\contentsline {subsection}{\numberline {5.1}What Already Works}{17}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}The GPU Question on Bare Metal (2026--2028)}{18}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}3D as Creative Medium (2028--2031)}{20}{subsection.5.3}%
-\contentsline {section}{\numberline {6}The Scholarly Turn}{22}{section.6}%
-\contentsline {subsection}{\numberline {6.1}The Paper Mill (2026--2027)}{22}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Artist-Scholar Identity (2028--2031)}{23}{subsection.6.2}%
-\contentsline {section}{\numberline {7}KidLisp's Own Life}{25}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Language Community (2026--2028)}{25}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Language Evolution (2028--2031)}{26}{subsection.7.2}%
-\contentsline {section}{\numberline {8}The Sustainability Question}{27}{section.8}%
-\contentsline {subsection}{\numberline {8.1}The Funding Landscape (2026--2028)}{27}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}The Solo-Author Risk (2028--2031)}{28}{subsection.8.2}%
-\contentsline {section}{\numberline {9}The Convergence}{30}{section.9}%
-\contentsline {section}{\numberline {10}What Could Change Everything}{32}{section.10}%
-\contentsline {subsection}{\numberline {10.1}An Institutional Home}{32}{subsection.10.1}%
-\contentsline {subsection}{\numberline {10.2}A Viral Moment}{32}{subsection.10.2}%
-\contentsline {subsection}{\numberline {10.3}AI as Collaborator}{33}{subsection.10.3}%
-\contentsline {subsection}{\numberline {10.4}What If He Stops}{34}{subsection.10.4}%
-\contentsline {section}{\numberline {11}Conclusion}{38}{section.11}%
+\contentsline {section}{\numberline {1}Introduction}{6}{section.1}%
+\contentsline {section}{\numberline {2}Ninety-Four Projects and Counting}{8}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The Drawing Software Lineage (2011--2020)}{8}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Performance Turn (2016--2018)}{9}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Why History Matters for Projection}{10}{subsection.2.3}%
+\contentsline {section}{\numberline {3}The Surplus Hardware Wave}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}From Prototype to Fleet (2026--2027)}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The 50-Dollar Instrument (2027--2028)}{13}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Planetary Ensembles}{15}{section.4}%
+\contentsline {subsection}{\numberline {4.1}notepat as Ensemble Instrument (2026--2027)}{15}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Beyond Music (2028--2031)}{16}{subsection.4.2}%
+\contentsline {section}{\numberline {5}The Third Dimension}{18}{section.5}%
+\contentsline {subsection}{\numberline {5.1}What Already Works}{18}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}The GPU Question on Bare Metal (2026--2028)}{19}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}3D as Creative Medium (2028--2031)}{21}{subsection.5.3}%
+\contentsline {section}{\numberline {6}The Scholarly Turn}{23}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The Paper Mill (2026--2027)}{23}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Artist-Scholar Identity (2028--2031)}{24}{subsection.6.2}%
+\contentsline {section}{\numberline {7}KidLisp's Own Life}{26}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Language Community (2026--2028)}{26}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Language Evolution (2028--2031)}{27}{subsection.7.2}%
+\contentsline {section}{\numberline {8}The Sustainability Question}{28}{section.8}%
+\contentsline {subsection}{\numberline {8.1}The Funding Landscape (2026--2028)}{28}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}The Solo-Author Risk (2028--2031)}{29}{subsection.8.2}%
+\contentsline {section}{\numberline {9}The Convergence}{31}{section.9}%
+\contentsline {section}{\numberline {10}What Could Change Everything}{33}{section.10}%
+\contentsline {subsection}{\numberline {10.1}An Institutional Home}{33}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}A Viral Moment}{33}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}AI as Collaborator}{34}{subsection.10.3}%
+\contentsline {subsection}{\numberline {10.4}What If He Stops}{35}{subsection.10.4}%
+\contentsline {section}{\numberline {11}Conclusion}{39}{section.11}%
 \contentsfinish 

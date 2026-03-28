@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:29
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 16:00
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1443,46 +1443,60 @@ g
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 150.
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 72.55504pt on input line 155.
 [1
 
 
 ]
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 172.
+Overfull \hbox (22.5788pt too wide) in paragraph at lines 198--199
+\TU/LatinModernRoman(0)/m/sc/10 “Twinkle Twinkle” are addressable as \TU/LatinM
+odernMono(0)/m/n/10 notepat.com?song=C:Twin-
+ []
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 187--188
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 202.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 202.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 202.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 202.
+
+Overfull \hbox (10.0pt too wide) in paragraph at lines 223--224
 [][] 
  []
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 189.
+(hyperref)                removing `math shift' on input line 225.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 189.
+(hyperref)                removing `math shift' on input line 225.
 
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 201--202
+Overfull \hbox (10.0pt too wide) in paragraph at lines 237--238
 [][] 
  []
 
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 215--216
+Underfull \hbox (badness 10000) in paragraph at lines 251--251
+[]|\TU/LatinModernRoman(0)/m/sc/10 Scarborough
+ []
+
+
+Overfull \hbox (10.0pt too wide) in paragraph at lines 251--252
 [][] 
  []
 
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \hbox (badness 4353) in paragraph at lines 264--264
+[]|\TU/LatinModernRoman(0)/m/sc/10 merge decisions, adop-
+ []
 
 
-Overfull \hbox (10.0pt too wide) in paragraph at lines 228--230
+Overfull \hbox (10.0pt too wide) in paragraph at lines 264--266
 [][]
  []
 
@@ -1490,14 +1504,16 @@ Overfull \hbox (10.0pt too wide) in paragraph at lines 228--230
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
-Underfull \hbox (badness 1303) in paragraph at lines 264--265
-[]\TU/LatinModernRoman(0)/b/n/10 Cross-cultural collections\TU/LatinModernRoman
-(0)/m/sc/10 : Encoding melodies
- []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+ [3]
+Underfull \hbox (badness 1303) in paragraph at lines 314--315
+[]\TU/LatinModernRoman(0)/b/n/10 Cross-cultural collections\TU/LatinModernRoman
+(0)/m/sc/10 : Encoding melodies
+ []
 
 (./folk-songs.bbl
 Underfull \hbox (badness 10000) in paragraph at lines 16--22
@@ -1505,22 +1521,20 @@ Underfull \hbox (badness 10000) in paragraph at lines 16--22
 ][][][][][][][][][][][][][]$[][]\TU/LatinModernRoman(0)/m/sc/10 ,
  []
 
-[3]) [4
-
-] (./folk-songs.aux)
+) [4] (./folk-songs.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `folk-songs.out' has not changed.
-(rerunfilecheck)             Checksum: 835551DB81572771E44E572D3B7C81A7;2293.
+(rerunfilecheck)             Checksum: 657A0E503F85D5FD25C59D013239A04D;2980.
  ) 
 Here is how much of TeX's memory you used:
- 20823 strings out of 478682
- 382400 string characters out of 5849006
- 1918018 words of memory out of 6000000
- 40636 multiletter control sequences out of 15000+600000
- 514914 words of font info for 101 fonts, out of 8000000 for 9000
+ 20835 strings out of 478682
+ 382760 string characters out of 5849006
+ 2003018 words of memory out of 6000000
+ 40647 multiletter control sequences out of 15000+600000
+ 514922 words of font info for 102 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 84i,12n,115p,1007b,1015s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,13n,115p,1007b,1015s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on folk-songs.pdf (4 pages).

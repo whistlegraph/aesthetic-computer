@@ -426,12 +426,16 @@ function updateIndex(entries) {
       file: "aesthetic-computer-26-joss.pdf",
       title: "Aesthetic Computer '26",
       detail: "JOSS Summary &middot; 2pp",
+      abstract:
+        "A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.",
       metaKey: "joss-ac",
     },
     {
       file: "kidlisp-26-joss.pdf",
       title: "KidLisp '26",
       detail: "JOSS Summary &middot; 3pp",
+      abstract:
+        "A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.",
       metaKey: "joss-kidlisp",
     },
     {
@@ -439,6 +443,8 @@ function updateIndex(entries) {
       title: "KidLisp (ELS 2026)",
       detail:
         "A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp",
+      abstract:
+        "An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.",
       metaKey: "els-kidlisp",
     },
   ];
@@ -449,6 +455,8 @@ function updateIndex(entries) {
       file: "menkman-glitch-momentum-2011.pdf",
       title: "The Glitch Moment(um)",
       detail: "Glitch as critical practice &mdash; signal, noise, and the politics of failure &middot; Institute of Network Cultures &middot; 70pp",
+      abstract:
+        "Menkman's book treats glitch as a critical practice rather than an accident. It remains a useful companion for thinking about failure, image politics, and media noise.",
       author: "Rosa Menkman",
       year: "2011",
       metaKey: "menkman-glitch",
@@ -457,6 +465,8 @@ function updateIndex(entries) {
       file: "menkman-vernacular-of-file-formats-2010.pdf",
       title: "A Vernacular of File Formats",
       detail: "Compression artifact taxonomy &mdash; databending one self-portrait through every codec &middot; 20pp",
+      abstract:
+        "A tight taxonomy of compression artifacts and databending methods. It works as both a visual glossary and a reminder that file formats have aesthetics.",
       author: "Rosa Menkman",
       year: "2010",
       metaKey: "menkman-vernacular",
@@ -465,6 +475,8 @@ function updateIndex(entries) {
       file: "menkman-beyond-resolution-2020.pdf",
       title: "Beyond Resolution",
       detail: "Resolution as ideology &mdash; optics, standards, and the invisible norms of the image pipeline &middot; 2020",
+      abstract:
+        "Beyond Resolution reframes image resolution as an ideological standard, not just a technical setting. It is a strong companion for thinking about how pipelines shape what counts as clarity.",
       author: "Rosa Menkman",
       year: "2020",
       metaKey: "menkman-resolution",
@@ -481,42 +493,128 @@ function updateIndex(entries) {
   }
   extras.sort((a, b) => b.mtime - a.mtime);
 
-  // Paper detail descriptions (keyed by siteName)
-  const DETAILS = {
-    "radical-computer-art-26-arxiv":
-      "Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp",
-    "who-pays-for-creative-tools-26-arxiv":
-      "Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp",
-    "pieces-not-programs-26-arxiv":
-      "The Piece as a Unit of Creative Cognition &middot; arXiv 4pp",
-    "piece-api-26-arxiv":
-      "Processing at the Core of the Piece API &middot; arXiv 7pp",
-    "network-audit-26-arxiv":
-      "Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp",
-    "kidlisp-reference-26-arxiv":
-      "118 Built-ins in 12 Categories &middot; arXiv 4pp",
-    "whistlegraph-26-arxiv":
-      "Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp",
-    "dead-ends-26-arxiv":
-      "Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp",
-    "repo-archaeology-26-arxiv":
-      'Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a>',
-    "citation-diversity-audit-26":
-      "Diversity and Inclusion in AC Paper Citations &middot; 4pp",
-    "kidlisp-26-arxiv":
-      "A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp",
-    "notepat-26-arxiv":
-      "From Keyboard Toy to System Front Door &middot; arXiv 5pp",
-    "ac-native-os-26-arxiv":
-      "A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp",
-    "aesthetic-computer-26-arxiv":
-      "A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp",
-    "plorking-the-planet-26-arxiv":
-      "Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv",
-    "folk-songs-26-arxiv":
-      "Oral Tradition Meets the Browser Keyboard &middot; arXiv",
-    "sucking-on-the-complex-26-arxiv":
-      "Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp",
+  // Paper detail descriptions and short previews, keyed by siteName.
+  const PAPER_COPY = {
+    "aesthetic-computer-26-arxiv": {
+      detail: "A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp",
+      abstract:
+        "Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share.",
+    },
+    "kidlisp-26-arxiv": {
+      detail: "A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp",
+      abstract:
+        "KidLisp is the platform's tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.",
+    },
+    "plorking-the-planet-26-arxiv": {
+      detail: "Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv",
+      abstract:
+        "This paper connects Aesthetic Computer to laptop orchestras and the collaborative traditions of PLOrk. It treats the browser as a place for ensemble practice, not just solo desktop programming.",
+    },
+    "ac-native-os-26-arxiv": {
+      detail: "A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp",
+      abstract:
+        "AC Native OS describes a bare-metal runtime for creative computing. It focuses on boot-time simplicity and the idea that the operating system itself can be a programmable art surface.",
+    },
+    "piece-api-26-arxiv": {
+      detail: "Processing at the Core of the Piece API &middot; arXiv 7pp",
+      abstract:
+        "The Piece API rethinks creative software around composable pieces instead of monolithic apps. It uses Processing's lineage to connect setup(), boot(), and the act of publishing.",
+    },
+    "who-pays-for-creative-tools-26-arxiv": {
+      detail: "Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp",
+      abstract:
+        "A short look at who supports open-source creative tools and what that labor costs. The paper connects funding, burnout, and long-term maintenance to the life of artistic software.",
+    },
+    "pieces-not-programs-26-arxiv": {
+      detail: "The Piece as a Unit of Creative Cognition &middot; arXiv 4pp",
+      abstract:
+        "A piece is treated here as the basic unit of creative cognition in AC. The paper argues that smaller, shareable pieces encourage composition, remix, and publication.",
+    },
+    "notepat-26-arxiv": {
+      detail: "From Keyboard Toy to System Front Door &middot; arXiv 5pp",
+      abstract:
+        "notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.",
+    },
+    "radical-computer-art-26-arxiv": {
+      detail: "Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp",
+      abstract:
+        "This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.",
+    },
+    "whistlegraph-26-arxiv": {
+      detail: "Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp",
+      abstract:
+        "Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.",
+    },
+    "sucking-on-the-complex-26-arxiv": {
+      detail: "Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp",
+      abstract:
+        "Sucking on the Complex critiques platform hegemony and the way critique becomes content. It looks for anti-environments that stay messy, resistant, and alive.",
+    },
+    "dead-ends-26-arxiv": {
+      detail: "Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp",
+      abstract:
+        "The paper catalogs dormant branches, abandoned experiments, and paths that never became default. It treats dead ends as useful history rather than failure.",
+    },
+    "folk-songs-26-arxiv": {
+      detail: "Oral Tradition Meets the Browser Keyboard &middot; arXiv",
+      abstract:
+        "Playable Folk Songs brings oral tradition into the browser keyboard. The paper asks how simple interaction can carry collective memory and repetition.",
+    },
+    "repo-archaeology-26-arxiv": {
+      detail: 'Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a>',
+      abstract:
+        "Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.",
+    },
+    "network-audit-26-arxiv": {
+      detail: "Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp",
+      abstract:
+        "Network Audit asks who uses Aesthetic Computer and what they make with it. The paper turns usage patterns into a portrait of a community in motion.",
+    },
+    "kidlisp-reference-26-arxiv": {
+      detail: "118 Built-ins in 12 Categories &middot; arXiv 4pp",
+      abstract:
+        "The KidLisp reference compresses the language into a usable field guide. It groups 118 built-ins into 12 categories for quick browsing and recall.",
+    },
+    "citation-diversity-audit-26": {
+      detail: "Diversity and Inclusion in AC Paper Citations &middot; 4pp",
+      abstract:
+        "Citation Diversity Audit looks at who gets cited in the papers and where the archive is thin. The paper uses citation patterns as a proxy for inclusion and intellectual range.",
+    },
+    "open-schools-26-arxiv": {
+      detail: "",
+      abstract:
+        "Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.",
+    },
+    "five-years-from-now-26-arxiv": {
+      detail: "",
+      abstract:
+        "Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today's decisions.",
+    },
+    "calarts-callouts-papers-26-arxiv": {
+      detail: "",
+      abstract:
+        "CalArts, Callouts, and Papers turns a local institutional context into a study of friction, attention, and production. The paper leans into psycho style to show how academic labor is staged and performed.",
+    },
+    "handle-identity-atproto-26-arxiv": {
+      detail: "",
+      abstract:
+        "Handle Identity on the AT Protocol treats naming as a social and technical problem. The paper explores how handles, identity, and publishing can be tied together without losing portability.",
+    },
+    "ucla-arts-funding-26-arxiv": {
+      detail: "",
+      abstract:
+        "Two Departments, One Building examines how funding and infrastructure shape creative work in shared spaces. The paper looks at administrative boundaries as part of the artistic system.",
+    },
+    "kidlisp-cards-26-arxiv": {
+      detail: "",
+      abstract:
+        "KidLisp Cards condenses the language into a pocketable card format. It is meant to make the language easier to browse, teach, and carry.",
+    },
+    "reading-the-score-26-arxiv": {
+      detail: "",
+      abstract:
+        "Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.",
+    },
   };
 
   function fmtTime(d) {
@@ -531,10 +629,16 @@ function updateIndex(entries) {
     return `${d.slice(5, 7)}/${d.slice(8, 10)}`;
   }
 
+  function paperCopy(key) {
+    return PAPER_COPY[key] || {};
+  }
+
   // Build paper entries HTML
   let papersHtml = "";
   for (const p of papers) {
-    const detail = DETAILS[p.siteName] || "";
+    const copy = paperCopy(p.siteName);
+    const detail = copy.detail || "";
+    const abstract = copy.abstract || "";
     const hasCards = existsSync(join(SITE_DIR, `${p.siteName}-cards.pdf`));
     const createdStr = p.created ? fmtDate(p.created) : "";
     const revStr = p.revisions > 0 ? `r${p.revisions}` : "";
@@ -544,6 +648,7 @@ function updateIndex(entries) {
     <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
+        <div class="abstract">${abstract}</div>
         <div class="meta-row"><span class="author">@jeffrey</span>${createdStr ? `<span class="created" title="Created">${createdStr}</span>` : ""}<span class="revisions" title="Revision count">revision ${p.revisions || 1}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
     </div>\n`;
   }
@@ -555,6 +660,7 @@ function updateIndex(entries) {
     <div class="p" data-paper-id="${exKey}">
         <div class="title"><a href="/${ex.file}">${ex.title}</a></div>
         <div class="detail">${ex.detail}</div>
+        <div class="abstract">${ex.abstract}</div>
         <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(ex.mtime)}</span></div>
     </div>\n`;
   }
@@ -568,6 +674,7 @@ function updateIndex(entries) {
     <div class="p guest" data-paper-id="${g.metaKey}" data-no-cards="1" data-created="${g.year}-01-01" data-updated="${g.year}-01-01T00:00:00.000Z">
         <div class="title"><a href="/${g.file}">${g.title}</a></div>
         <div class="detail">${g.detail}</div>
+        <div class="abstract">${g.abstract}</div>
         <div class="meta-row"><span class="author">${g.author}</span><span class="created" title="Published">${g.year}</span></div>
     </div>\n`;
     }

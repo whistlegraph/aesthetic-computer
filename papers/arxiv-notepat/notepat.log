@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:28
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1408,16 +1408,14 @@ LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
 (Font)              scaled to size 8.50006pt on input line 148.
 
+Overfull \hbox (12.04503pt too wide) in paragraph at lines 150--151
+\TU/LatinModernRoman(0)/m/sc/10 observation that the medium shapes the message 
+[[][]McLuhan[][],
+ []
+
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 172.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 172.
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
@@ -1425,50 +1423,58 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-Underfull \hbox (badness 1968) in paragraph at lines 185--186
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 174.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 174.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 174.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 174.
+
+Underfull \hbox (badness 1968) in paragraph at lines 187--188
 []\TU/LatinModernRoman(0)/b/n/10 NuPhy Air60 HE analog keyboard\TU/LatinModernR
 oman(0)/m/sc/10 : Web-
  []
 
 
-Underfull \hbox (badness 1552) in paragraph at lines 187--188
+Underfull \hbox (badness 1552) in paragraph at lines 189--190
 []\TU/LatinModernRoman(0)/b/n/10 HDMI secondary display\TU/LatinModernRoman(0)/
 m/sc/10 : solid-color output
- []
-
-
-Overfull \hbox (113.42499pt too wide) in paragraph at lines 199--200
-[]\TU/LatinModernRoman(0)/m/sc/10 Background tint reactive to time of day (dawn
-/midday/afternoon/sunset/night), 
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \hbox (badness 2142) in paragraph at lines 212--213
-\TU/LatinModernRoman(0)/m/sc/10 ping layer converts MIDI note-on/off events to
+Overfull \hbox (113.42499pt too wide) in paragraph at lines 201--202
+[]\TU/LatinModernRoman(0)/m/sc/10 Background tint reactive to time of day (dawn
+/midday/afternoon/sunset/night), 
  []
 
 
-Underfull \hbox (badness 3333) in paragraph at lines 233--234
-\TU/LatinModernRoman(0)/m/sc/10 WiFi management via \TU/LatinModernMono(0)/m/n/
-10 wpa_supplicant\TU/LatinModernRoman(0)/m/sc/10 , DRM/KMS
+Underfull \hbox (badness 2142) in paragraph at lines 214--215
+\TU/LatinModernRoman(0)/m/sc/10 ping layer converts MIDI note-on/off events to
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
+Underfull \hbox (badness 3333) in paragraph at lines 235--236
+\TU/LatinModernRoman(0)/m/sc/10 WiFi management via \TU/LatinModernMono(0)/m/n/
+10 wpa_supplicant\TU/LatinModernRoman(0)/m/sc/10 , DRM/KMS
+ []
+
 
 LaTeX Font Warning: Font shape `TU/LatinModernMono(0)/b/n' undefined
-(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 242
+(Font)              using `TU/LatinModernMono(0)/m/n' instead on input line 244
 .
 
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/b/n' will be
-(Font)              scaled to size 8.50006pt on input line 243.
+(Font)              scaled to size 8.50006pt on input line 245.
 
-Underfull \hbox (badness 1048) in paragraph at lines 246--247
+Underfull \hbox (badness 1048) in paragraph at lines 248--249
 []\TU/LatinModernMono(0)/b/n/10 AC Notepat.amxd \TU/LatinModernRoman(0)/m/sc/10
  (Max for Live device): embeds
  []
@@ -1477,7 +1483,7 @@ Underfull \hbox (badness 1048) in paragraph at lines 246--247
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Overfull \hbox (11.03491pt too wide) in paragraph at lines 262--263
+Overfull \hbox (11.03491pt too wide) in paragraph at lines 264--265
 []\TU/LatinModernRoman(0)/b/n/10 Stability harness \TU/LatinModernRoman(0)/m/sc
 /10 (\TU/LatinModernMono(0)/b/n/10 artery/test-notepat-stability.mjs\TU/LatinMo
 dernRoman(0)/m/sc/10 ):
@@ -1487,17 +1493,24 @@ dernRoman(0)/m/sc/10 ):
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3]
-Underfull \hbox (badness 10000) in alignment at lines 309--309
+Underfull \hbox (badness 10000) in alignment at lines 311--311
 [][] 
  []
 
-(./notepat.bbl
-Underfull \hbox (badness 4084) in paragraph at lines 80--86
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+(./notepat.bbl [4]
+Underfull \hbox (badness 4084) in paragraph at lines 85--91
 []\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
 
  []
 
-[4]) [5
+) [5
 
 ] (./notepat.aux)
 
@@ -1507,10 +1520,10 @@ Package rerunfilecheck Info: File `notepat.out' has not changed.
 (rerunfilecheck)             Checksum: 66C2FBE6DBC6D4CB32826083236EB405;2791.
  ) 
 Here is how much of TeX's memory you used:
- 19615 strings out of 478682
- 364113 string characters out of 5849006
- 1876018 words of memory out of 6000000
- 39443 multiletter control sequences out of 15000+600000
+ 19618 strings out of 478682
+ 364209 string characters out of 5849006
+ 1875018 words of memory out of 6000000
+ 39446 multiletter control sequences out of 15000+600000
  514922 words of font info for 102 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  84i,12n,115p,1004b,634s stack positions out of 10000i,1000n,20000p,200000b,200000s

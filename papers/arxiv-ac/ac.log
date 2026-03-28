@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:25
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:53
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1581,7 +1581,10 @@ Overfull \hbox (33.23709pt too wide) in paragraph at lines 440--455
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
-Underfull \vbox (badness 3291) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \vbox (badness 1072) has occurred while \output is active []
 
  [4]
 Underfull \hbox (badness 2126) in paragraph at lines 521--522
@@ -1611,12 +1614,12 @@ Package rerunfilecheck Info: File `ac.out' has not changed.
 (rerunfilecheck)             Checksum: B30EA057DD4C1033B61567C65F9E0AAB;4196.
  ) 
 Here is how much of TeX's memory you used:
- 21075 strings out of 478682
- 386014 string characters out of 5849006
+ 21078 strings out of 478682
+ 386095 string characters out of 5849006
  1950018 words of memory out of 6000000
- 40884 multiletter control sequences out of 15000+600000
+ 40887 multiletter control sequences out of 15000+600000
  514930 words of font info for 103 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 84i,12n,115p,1101b,1186s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,13n,115p,1101b,1186s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on ac.pdf (5 pages).
