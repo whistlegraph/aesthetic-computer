@@ -12,30 +12,30 @@
 \contentsline {subsection}{\numberline {4.1}Five lifecycle functions}{13}{subsection.4.1}%
 \contentsline {subsection}{\numberline {4.2}API injection via destructuring}{15}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Separation of simulation and rendering}{16}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Unified event handling}{18}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.4}Unified event handling}{17}{subsection.4.4}%
 \contentsline {subsection}{\numberline {4.5}Drawing primitives: stateless by default}{19}{subsection.4.5}%
 \contentsline {subsection}{\numberline {4.6}No canvas configuration}{20}{subsection.4.6}%
-\contentsline {section}{\numberline {5}API Surface Comparison}{22}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Naming philosophy}{22}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Color model}{24}{subsection.5.2}%
-\contentsline {section}{\numberline {6}State Management}{25}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Processing: global variables}{25}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}AC: module-level closures}{25}{subsection.6.2}%
-\contentsline {section}{\numberline {7}The Genealogy}{27}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Design By Numbers (1999)}{27}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Processing (2001)}{27}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}p5.js (2014)}{28}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}openFrameworks (2005)}{28}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}The instrument turn}{29}{subsection.7.5}%
-\contentsline {section}{\numberline {8}Worked Example: A Bouncing Ball}{30}{section.8}%
-\contentsline {subsection}{\numberline {8.1}Processing}{30}{subsection.8.1}%
-\contentsline {subsection}{\numberline {8.2}p5.js}{31}{subsection.8.2}%
-\contentsline {subsection}{\numberline {8.3}AC}{31}{subsection.8.3}%
-\contentsline {section}{\numberline {9}Design Rationale}{33}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Why five functions?}{33}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}Why inject the API?}{33}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}Why 120Hz simulation?}{34}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}Why no canvas size?}{35}{subsection.9.4}%
-\contentsline {section}{\numberline {10}Extended Lifecycle}{36}{section.10}%
-\contentsline {section}{\numberline {11}Conclusion}{37}{section.11}%
+\contentsline {section}{\numberline {5}API Surface Comparison}{21}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Naming philosophy}{21}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Color model}{23}{subsection.5.2}%
+\contentsline {section}{\numberline {6}State Management}{24}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Processing: global variables}{24}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}AC: module-level closures}{24}{subsection.6.2}%
+\contentsline {section}{\numberline {7}The Genealogy}{26}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Design By Numbers (1999)}{26}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Processing (2001)}{26}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}p5.js (2014)}{27}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}openFrameworks (2005)}{27}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}The instrument turn}{28}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Worked Example: A Bouncing Ball}{29}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Processing}{29}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}p5.js}{30}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}AC}{30}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Design Rationale}{32}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Why five functions?}{32}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Why inject the API?}{32}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Why 120Hz simulation?}{33}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Why no canvas size?}{34}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Extended Lifecycle}{35}{section.10}%
+\contentsline {section}{\numberline {11}Conclusion}{36}{section.11}%
 \contentsfinish 

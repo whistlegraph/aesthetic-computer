@@ -3,7 +3,7 @@
 \contentsline {section}{\numberline {3}The Encoding}{7}{section.3}%
 \contentsline {section}{\numberline {4}A Catalog of Playable Melodies}{9}{section.4}%
 \contentsline {subsection}{\numberline {4.1}Pentatonic (5 notes)}{9}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{10}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{9}{subsection.4.2}%
 \contentsline {subsection}{\numberline {4.3}Modal \& Diatonic}{10}{subsection.4.3}%
 \contentsline {section}{\numberline {5}The Folk Process as Version Control}{11}{section.5}%
 \contentsline {section}{\numberline {6}Computational Dimensions}{13}{section.6}%
