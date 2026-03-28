@@ -107,20 +107,20 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=8em]{pals}\par\vspace{0.3em}
-{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} From \texttt{setup()} to \texttt{boot()}}\par
-\vspace{0.3em}
-{\fontsize{10pt}{12pt}\selectfont\color{acpink} Processing at the Core of the Piece API}\par
-\vspace{0.8em}
-{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} From \texttt{setup()} to \texttt{boot()}}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} Processing at the Core of the Piece API}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.8em}
-\rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
-\vspace{0.3em}
-{\footnotesize\color{acgray} March 2026}\par
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/d0a6521c5}{d0a6521c5}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -386,7 +386,7 @@ Table~\ref{tab:lifecycle} compares the lifecycle models. Table~\ref{tab:drawing}
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{lXXX}
+\begin{tabular}{lp{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
 \toprule
  & \textbf{Processing} & \textbf{p5.js} & \textbf{AC} \\
 \midrule
@@ -400,7 +400,7 @@ Render rate & 60fps & 60fps & display Hz \\
 Logic rate & 60fps & 60fps & 120fps fixed \\
 Scope & global & global/inst. & injected \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{Lifecycle comparison. \texttt{\$} denotes destructured API injection.}
 \label{tab:lifecycle}
 \end{table}
@@ -408,7 +408,7 @@ Scope & global & global/inst. & injected \\
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{lXX}
+\begin{tabular}{lp{0.28\linewidth}p{0.28\linewidth}}
 \toprule
 \textbf{Processing/p5} & \textbf{AC} & \textbf{Notes} \\
 \midrule
@@ -423,7 +423,7 @@ Scope & global & global/inst. & injected \\
 --- & \texttt{paste()} & Buffer compositing \\
 --- & \texttt{form()} & 3D rendering \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{Drawing primitive comparison.}
 \label{tab:drawing}
 \end{table}
