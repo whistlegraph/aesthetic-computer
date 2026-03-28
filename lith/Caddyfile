@@ -5,6 +5,8 @@
 :80 {
     @papers host papers.aesthetic.computer papers.prompt.ac
     handle @papers {
+        @pdf path *.pdf
+        header @pdf Cache-Control "public, max-age=60, must-revalidate"
         handle /en {
             rewrite * /index.html?lang=en
             root * /opt/ac/system/public/papers.aesthetic.computer
