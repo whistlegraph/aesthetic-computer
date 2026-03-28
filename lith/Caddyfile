@@ -283,6 +283,9 @@
     # These all serve the main AC SPA
     @mainspa host aesthetic.computer www.aesthetic.computer kidlisp.com www.kidlisp.com notepat.com www.notepat.com l5.aesthetic.computer p5.aesthetic.computer processing.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
+        # Preload critical assets (browser starts fetching before parsing HTML)
+        header Link "</aesthetic.computer/boot.mjs>; rel=preload; as=script; crossorigin, </aesthetic.computer/style.css>; rel=preload; as=style"
+
         # Assets → DO Spaces CDN
         handle /assets/* {
             redir https://assets.aesthetic.computer{uri} 302
