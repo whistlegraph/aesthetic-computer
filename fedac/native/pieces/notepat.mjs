@@ -2052,7 +2052,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveRowY = settingsY + 36;
     const waveRowH = 14;
-    const waveLabels = ["sine", "tri", "saw", "square", "noise", "sample"];
+    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
