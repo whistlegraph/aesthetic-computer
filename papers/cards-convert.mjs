@@ -261,7 +261,7 @@ ${extraCmds}
 \\thispagestyle{empty}
 \\vspace*{\\fill}
 \\begin{center}
-\\includegraphics[height=9em]{pals}\\par\\vspace{0.1em}
+\\href{https://papers.aesthetic.computer}{\\includegraphics[height=9em]{pals}}\\par\\vspace{0.1em}
 {\\acbold\\fontsize{18pt}{22pt}\\selectfont\\color{acdark} ${title}}\\par
 \\vspace{0.1em}
 ${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.4em}` : "\\vspace{0.3em}"}
