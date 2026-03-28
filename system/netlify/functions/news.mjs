@@ -407,7 +407,7 @@ function parseRoute(event) {
   // Extract route from path, stripping the function prefix
   let path = event.path || "";
   // Handle both direct calls and routed calls via /news.aesthetic.computer/ prefix
-  const prefixes = ["/.netlify/functions/news", "/news.aesthetic.computer"];
+  const prefixes = ["/.netlify/functions/news", "/news.aesthetic.computer", "/api/news"];
   for (const prefix of prefixes) {
     if (path.startsWith(prefix)) {
       path = path.slice(prefix.length);

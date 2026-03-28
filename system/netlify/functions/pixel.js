@@ -16,7 +16,8 @@
   - [x] Nearest neighbor scale a painting after opening it.
 #endregion */
 
-const { builder } = require("@netlify/functions");
+// builder from @netlify/functions was imported here but never used.
+// Removed require() to support ESM-only environments (lith).
 import sharp from "sharp";
 import QRCode from "qrcode";
 import { readFileSync, mkdirSync, copyFileSync, existsSync } from "fs";
