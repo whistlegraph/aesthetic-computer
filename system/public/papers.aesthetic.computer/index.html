@@ -57,7 +57,7 @@
             font-family: 'Berkeley Mono Variable', monospace;
             font-size: 14px; line-height: 1.6;
             padding: 1em 2.5em;
-            max-width: 700px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -203,12 +203,28 @@
         .p .detail { color: var(--dim); font-size: 0.85em; margin-top: 0.2em; line-height: 1.5; }
         .p .detail a { color: var(--purple); }
         .p .detail a:hover { text-decoration: underline; }
-        .p .meta-row { display: flex; gap: 1em; font-size: 0.85em; margin-bottom: 0.1em; align-items: center; }
+        .p .meta-row { display: flex; gap: 1em; font-size: 0.85em; margin-bottom: 0.1em; align-items: center; flex-wrap: wrap; }
         .p .meta-row .hits { color: var(--cyan); }
+        .p .meta-row .author { color: var(--pink); font-weight: 500; }
         .p .updated { color: var(--cyan); opacity: 0.85; }
         .p .created { color: var(--dim); opacity: 0.7; }
-        .p .created::before { content: "est "; }
         .p .revisions { color: var(--purple); opacity: 0.75; }
+
+        /* Colophon */
+        .colophon {
+            margin-top: 2em;
+            padding: 1.5em;
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            background: var(--box-bg);
+            color: var(--dim);
+            font-size: 0.8em;
+            line-height: 1.7;
+        }
+        .colophon p { margin-bottom: 0.6em; }
+        .colophon p:last-child { margin-bottom: 0; }
+        .colophon a { color: var(--purple); text-decoration: none; }
+        .colophon a:hover { text-decoration: underline; }
         /* .filesize replaced by .fmt-label in format icons */
 
         /* === PSYCHO papers === */
@@ -400,10 +416,10 @@
             .p .detail { font-size: 0.7em; }
         }
 
-        /* === DESKTOP (900px+) — single column, larger text === */
+        /* === DESKTOP (900px+) — wider, larger text === */
         @media (min-width: 900px) {
             body {
-                max-width: 800px;
+                max-width: 1100px;
                 padding: 2em 3em;
                 font-size: 16px;
             }
@@ -415,10 +431,10 @@
             .footer { font-size: 0.85em; }
         }
 
-        /* === XL (1400px+) — single column, even larger === */
+        /* === XL (1400px+) — even wider === */
         @media (min-width: 1400px) {
             body {
-                max-width: 960px;
+                max-width: 1300px;
                 padding: 2.5em 4em;
                 font-size: 17px;
             }
@@ -458,148 +474,148 @@
 
     <!-- papers-start -->
 
-    <div class="p" data-paper-id="ac" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.646Z">
+    <div class="p" data-paper-id="ac" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.037Z">
         <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
         <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="kidlisp" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
         <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="plork" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="plork" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/plorking-the-planet-26-arxiv.pdf" data-base="/plorking-the-planet-26-arxiv">PLOrk'ing the Planet</a></div>
         <div class="detail">Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="os" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="os" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
         <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="api" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
+    <div class="p" data-paper-id="api" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
         <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="who-pays" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="who-pays" data-created="2026-03-27" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
         <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="pieces" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="pieces" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
         <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="notepat" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="notepat" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
         <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="goodiepal" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="goodiepal" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
         <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="whistlegraph" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="whistlegraph" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
         <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="complex" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="complex" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/sucking-on-the-complex-26-arxiv.pdf" data-base="/sucking-on-the-complex-26-arxiv">Sucking on the Complex</a></div>
         <div class="detail">Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="dead-ends" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
+    <div class="p" data-paper-id="dead-ends" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Vestigial Features</a></div>
         <div class="detail">Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="folk-songs" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="folk-songs" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/folk-songs-26-arxiv.pdf" data-base="/folk-songs-26-arxiv">Playable Folk Songs</a></div>
         <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; arXiv</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="archaeology" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
+    <div class="p" data-paper-id="archaeology" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
         <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="network-audit" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="network-audit" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
         <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-ref" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.648Z">
+    <div class="p" data-paper-id="kidlisp-ref" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
         <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="diversity" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.647Z">
+    <div class="p" data-paper-id="diversity" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
         <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="open-schools" data-created="" data-updated="2026-03-27T15:38:44.651Z">
+    <div class="p" data-paper-id="open-schools" data-created="" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/open-schools-26-arxiv.pdf" data-base="/open-schools-26-arxiv">Get Closed Source Out of Schools</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="futures" data-created="2026-03-20" data-updated="2026-03-27T15:38:44.651Z">
+    <div class="p" data-paper-id="futures" data-created="2026-03-20" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/five-years-from-now-26-arxiv.pdf" data-base="/five-years-from-now-26-arxiv">Five Years from Now</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/20</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/20</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="calarts" data-psycho="1" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.651Z">
+    <div class="p" data-paper-id="calarts" data-psycho="1" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/calarts-callouts-papers-26-arxiv.pdf" data-base="/calarts-callouts-papers-26-arxiv">CalArts, Callouts, and Papers</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="identity" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.651Z">
+    <div class="p" data-paper-id="identity" data-created="2026-03-27" data-updated="2026-03-28T19:07:25.893Z">
         <div class="title"><a href="/handle-identity-atproto-26-arxiv.pdf" data-base="/handle-identity-atproto-26-arxiv">Handle Identity on the AT Protocol</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:07</span></div>
     </div>
 
-    <div class="p" data-paper-id="ucla-arts" data-created="2026-03-27" data-updated="2026-03-27T15:38:44.651Z">
+    <div class="p" data-paper-id="ucla-arts" data-created="2026-03-27" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/ucla-arts-funding-26-arxiv.pdf" data-base="/ucla-arts-funding-26-arxiv">Two Departments, One Building</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/27</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-cards" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.649Z">
+    <div class="p" data-paper-id="kidlisp-cards" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/kidlisp-cards-26-arxiv.pdf" data-base="/kidlisp-cards-26-arxiv">KidLisp Cards</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="score-analysis" data-created="2026-03-21" data-updated="2026-03-27T15:38:44.650Z">
+    <div class="p" data-paper-id="score-analysis" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/reading-the-score-26-arxiv.pdf" data-base="/reading-the-score-26-arxiv">Reading the Score</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r2</span><span class="updated" title="Last updated">Mar 27 08:38</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
     <div class="p" data-paper-id="els">
@@ -631,6 +647,12 @@
         </div>
         <div class="build-progress"><div class="build-progress-bar" id="buildBar"></div></div>
         <div class="build-logs" id="buildLogs"></div>
+    </div>
+
+    <div class="colophon">
+        <p>these papers are the research platter for <a href="https://aesthetic.computer">aesthetic computer</a> &mdash; a creative computing platform, a bare-metal operating system, a minimal lisp, and whatever else needs writing down. they are working drafts, written in first person, typeset in LaTeX with XeTeX, and compiled by an oven server that polls the git repo every 60 seconds.</p>
+        <p>the cards format is a 4&times;6 inch mobile-friendly version of each paper designed for reading on a phone. every paper is translated into danish, spanish, and chinese. the platter is not a journal submission queue &mdash; it is a live notebook that grows alongside the software.</p>
+        <p>all papers by <a href="https://prompt.ac/@jeffrey">@jeffrey</a> unless otherwise noted. source at <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers">github.com/whistlegraph/aesthetic-computer/papers</a>.</p>
     </div>
 
     <div class="footer">
