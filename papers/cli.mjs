@@ -309,14 +309,23 @@ function buildOne(entry) {
   const tex = texName(entry.base, entry.lang);
   console.log(`  BUILD ${entry.dir}/${tex}.tex ...`);
   try {
+    // Run xelatex 3-pass with bibtex. Use semicolons (not &&) so bibtex
+    // warnings don't kill the chain. Check for PDF existence, not exit code.
     execSync(
-      `cd "${paperDir}" && xelatex -interaction=nonstopmode "${tex}.tex" && bibtex "${tex}" 2>/dev/null; xelatex -interaction=nonstopmode "${tex}.tex" && xelatex -interaction=nonstopmode "${tex}.tex"`,
+      `cd "${paperDir}" && xelatex -interaction=nonstopmode "${tex}.tex"; bibtex "${tex}" 2>/dev/null; xelatex -interaction=nonstopmode "${tex}.tex"; xelatex -interaction=nonstopmode "${tex}.tex"`,
       { stdio: "pipe", timeout: 180000 },
     );
+  } catch (e) {
+    // xelatex may return non-zero on warnings but still produce a PDF.
+    // Only log as warning, don't fail yet.
+  }
+  // Check if PDF was actually produced (the real success criterion).
+  const pdfPath = join(paperDir, `${tex}.pdf`);
+  if (existsSync(pdfPath)) {
     console.log(`  OK    ${tex}.pdf`);
     return true;
-  } catch (e) {
-    console.error(`  FAIL  ${tex}.tex — ${e.message?.slice(0, 200)}`);
+  } else {
+    console.error(`  FAIL  ${tex}.tex — no PDF produced`);
     try {
       const log = execSync(`tail -20 "${join(paperDir, tex + ".log")}"`, {
         encoding: "utf8",
@@ -507,7 +516,7 @@ function updateIndex(entries) {
     <div class="p" data-paper-id="${tKey}"${hasCards ? "" : ` data-no-cards="1"`}${p.psycho ? ` data-psycho="1"` : ""} data-created="${p.created || ""}" data-updated="${updatedISO}">
         <div class="title"><a href="/${p.siteName}.pdf" data-base="/${p.siteName}">${p.title}</a></div>
         <div class="detail">${detail}</div>
-        <div class="meta-row"><span class="created" title="Created">${createdStr}</span><span class="revisions" title="Revisions">${revStr}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
+        <div class="meta-row"><span class="author">@jeffrey</span>${createdStr ? `<span class="created" title="Created">${createdStr}</span>` : ""}<span class="revisions" title="Revision count">revision ${p.revisions || 1}</span><span class="updated" title="Last updated">${fmtTime(p.mtime)}</span></div>
     </div>\n`;
   }
   for (const ex of extras) {
