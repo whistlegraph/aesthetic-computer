@@ -59,6 +59,28 @@ const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 const app = express();
 const BOOT_TIME = Date.now();
 
+// --- Response cache for hot GET endpoints ---
+const responseCache = new Map(); // key → { body, headers, statusCode, expires }
+const CACHE_TTLS = {
+  "handle-colors": 60_000,  // 1 min (colors rarely change)
+  "version": 30_000,        // 30s (git state)
+  "handles": 60_000,        // 1 min
+  "mood": 30_000,           // 30s
+  "tv": 30_000,             // 30s
+  "keeps-config": 300_000,  // 5 min (contract addresses)
+  "kidlisp-count": 60_000,  // 1 min
+  "playlist": 60_000,       // 1 min
+  "clock": 0,               // never cache (it's a clock)
+};
+
+// Clean expired entries every 30s
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of responseCache) {
+    if (v.expires < now) responseCache.delete(k);
+  }
+}, 30_000);
+
 // --- Function stats & error log ---
 const fnStats = {};    // { fnName: { calls, errors, totalMs, lastCall, lastError } }
 const errorLog = [];   // [{ time, fn, status, error, path, method }]
@@ -178,6 +200,19 @@ async function handleFunction(req, res) {
     return res.status(404).send("Function not found: " + name);
   }
 
+  // Check response cache (GET only, with matching query string)
+  const ttl = CACHE_TTLS[name];
+  if (ttl && req.method === "GET") {
+    const cacheKey = `${name}:${req.originalUrl}`;
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      recordCall(name, 0, cached.statusCode, req.path, req.method, null);
+      if (cached.headers) res.set(cached.headers);
+      res.set("X-Lith-Cache", "HIT");
+      return res.status(cached.statusCode).send(cached.body);
+    }
+  }
+
   const t0 = Date.now();
   try {
     const event = toEvent(req);
@@ -209,6 +244,17 @@ async function handleFunction(req, res) {
       return pump().catch((err) => {
         console.error(`fn/${name} stream error:`, err);
         res.end();
+      });
+    }
+
+    // Store in cache if cacheable
+    if (ttl && req.method === "GET" && statusCode < 400) {
+      const cacheKey = `${name}:${req.originalUrl}`;
+      responseCache.set(cacheKey, {
+        body: result.isBase64Encoded ? Buffer.from(result.body, "base64") : result.body,
+        headers: result.headers,
+        statusCode,
+        expires: Date.now() + ttl,
       });
     }
 
@@ -275,6 +321,23 @@ async function handleFunctionResolved(req, res) {
   req.params.fn = resolveFunction(req);
   return handleFunction(req, res);
 }
+
+// --- Deploy webhook (POST /lith/deploy?secret=...) ---
+import { execSync } from "child_process";
+const DEPLOY_SECRET = process.env.DEPLOY_SECRET || "";
+
+app.post("/lith/deploy", (req, res) => {
+  const secret = req.query.secret || req.headers["x-deploy-secret"];
+  if (!DEPLOY_SECRET || secret !== DEPLOY_SECRET) {
+    return res.status(401).send("Unauthorized");
+  }
+  try {
+    const out = execSync("/opt/ac/lith/webhook.sh", { timeout: 30000, encoding: "utf-8" });
+    res.send(out);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
 
 // --- Routes ---
 
