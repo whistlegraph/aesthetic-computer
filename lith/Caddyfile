@@ -3,6 +3,18 @@
 
 # --- papers.aesthetic.computer ---
 :80 {
+    # --- Global performance headers ---
+    # Cache static assets (1h fresh, serve stale for 24h while revalidating)
+    @cacheable path *.mjs *.js *.css *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
+    header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
+
+    # HTML: no-cache (always revalidate, but use ETag for 304)
+    @html path / *.html
+    header @html Cache-Control "no-cache"
+
+    # Encode everything (Caddy does this by default, but be explicit)
+    encode zstd gzip
+
     @papers host papers.aesthetic.computer papers.prompt.ac
     handle @papers {
         handle /en {
