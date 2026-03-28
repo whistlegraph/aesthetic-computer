@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:28
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1600,6 +1600,9 @@ Overfull \hbox (16.31711pt too wide) in paragraph at lines 362--373
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
 Underfull \hbox (badness 1117) in paragraph at lines 446--447
 \TU/LatinModernRoman(0)/m/sc/10 excluding ARM Chromebooks and older BIOS-only
  []
@@ -1613,17 +1616,15 @@ Underfull \hbox (badness 1072) in paragraph at lines 446--447
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [4]
-(./os.bbl
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
-
-Underfull \hbox (badness 4084) in paragraph at lines 80--86
+ (./os.bbl
+Underfull \hbox (badness 4084) in paragraph at lines 88--94
 []\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
 
  []
 
-) [5] (./os.aux)
+[5]) [6
+
+] (./os.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
@@ -1631,12 +1632,12 @@ Package rerunfilecheck Info: File `os.out' has not changed.
 (rerunfilecheck)             Checksum: 63282D347289C71A3C403E42E0471B8F;3639.
  ) 
 Here is how much of TeX's memory you used:
- 21054 strings out of 478682
- 385866 string characters out of 5849006
+ 21057 strings out of 478682
+ 385950 string characters out of 5849006
  1928018 words of memory out of 6000000
- 40863 multiletter control sequences out of 15000+600000
+ 40866 multiletter control sequences out of 15000+600000
  514930 words of font info for 103 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  84i,12n,115p,1277b,1532s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on os.pdf (5 pages).
+Output written on os.pdf (6 pages).

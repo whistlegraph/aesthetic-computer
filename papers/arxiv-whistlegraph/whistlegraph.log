@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:29
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1476,8 +1476,18 @@ Underfull \hbox (badness 3148) in paragraph at lines 161--162
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [2]
-Underfull \hbox (badness 4391) in paragraph at lines 184--184
-[]|\TU/LatinModernRoman(0)/m/n/9 Rhizome / New
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]|\TU/LatinModernRoman(0)/m/n/9 Commission +
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]|\TU/LatinModernRoman(0)/m/n/9 Ten Whistle-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]|\TU/LatinModernRoman(0)/m/n/9 NFT Launch
  []
 
 
@@ -1488,6 +1498,16 @@ Underfull \hbox (badness 10000) in paragraph at lines 184--184
 
 Underfull \hbox (badness 10000) in paragraph at lines 184--184
 []|\TU/LatinModernRoman(0)/m/n/9 KADIST (San
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]|\TU/LatinModernRoman(0)/m/n/9 Ten Minute
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 184--184
+[]|\TU/LatinModernRoman(0)/m/n/9 Rhizome Art-
  []
 
 

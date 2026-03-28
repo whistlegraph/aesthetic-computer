@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:27
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  28 MAR 2026 15:56
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1481,9 +1481,24 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [3]
+Underfull \hbox (badness 1158) in paragraph at lines 187--188
+\TU/LatinModernRoman(0)/m/sc/10 scannable obstructions” force a machine interpr
+eter
+ []
+
+
+Underfull \hbox (badness 2726) in paragraph at lines 191--192
+[]\TU/LatinModernRoman(0)/m/sc/10 Menkman’s \TU/LatinModernRoman(0)/m/it/10 Bey
+ond Resolution \TU/LatinModernRoman(0)/m/sc/10 [[][]Menkman[][], [][]2020[][]]
+ []
+
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [4]
 (./goodiepal.bbl
 Underfull \hbox (badness 10000) in paragraph at lines 30--37
 []\TU/LatinModernRoman(0)/m/sc/10 In Spite Magazine.  Solving the goodiepal
@@ -1500,56 +1515,54 @@ Underfull \hbox (badness 10000) in paragraph at lines 30--37
 [][][][][][][][][][][][][][][][][][][] []
  []
 
-[4]
-Underfull \hbox (badness 6173) in paragraph at lines 63--70
+
+Underfull \hbox (badness 6173) in paragraph at lines 85--92
 []\TU/LatinModernRoman(0)/m/sc/10 Mousse Magazine.  Alternative intelligence an
 d
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 63--70
+Underfull \hbox (badness 10000) in paragraph at lines 85--92
 \TU/LatinModernRoman(0)/m/sc/10 radical computer music: Goodiepal’s intri-
  []
 
 
-Underfull \hbox (badness 6461) in paragraph at lines 63--70
+Underfull \hbox (badness 6461) in paragraph at lines 85--92
 \TU/LatinModernRoman(0)/m/sc/10 cate existentialism.  \TU/LatinModernRoman(0)/m
 /it/10 Mousse Magazine\TU/LatinModernRoman(0)/m/sc/10 , 2018.
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 63--70
+Underfull \hbox (badness 10000) in paragraph at lines 85--92
 \TU/LatinModernRoman(0)/m/sc/10 URL [][]$[][][][][] [] [] [] [][][] [] [][][][]
 [][][][][][][][][][] [] [][] [] [][][][][][][][] []
  []
 
 
-Overfull \hbox (149.52193pt too wide) in paragraph at lines 63--70
+Overfull \hbox (149.52193pt too wide) in paragraph at lines 85--92
 [][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][
 ][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][][]
 [][][][][][][][][][][][]$[][]\TU/LatinModernRoman(0)/m/sc/10 .
  []
 
 
-Underfull \hbox (badness 1152) in paragraph at lines 96--101
+Underfull \hbox (badness 1152) in paragraph at lines 118--123
 []\TU/LatinModernRoman(0)/m/sc/10 Maria Kjær Themsen.  Ten questions: Goodiepal
 .
  []
 
-) [5
-
-] (./goodiepal.aux)
+) [5] (./goodiepal.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `goodiepal.out' has not changed.
-(rerunfilecheck)             Checksum: C5172F113E9A3345875B008F9D5D8E17;2821.
+(rerunfilecheck)             Checksum: 77226BEB2D2BCA4387A2E3D8A3CD029F;3056.
  ) 
 Here is how much of TeX's memory you used:
- 19502 strings out of 478682
- 362460 string characters out of 5849006
+ 19511 strings out of 478682
+ 362709 string characters out of 5849006
  1872018 words of memory out of 6000000
- 39332 multiletter control sequences out of 15000+600000
+ 39341 multiletter control sequences out of 15000+600000
  514930 words of font info for 103 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  84i,12n,115p,1405b,644s stack positions out of 10000i,1000n,20000p,200000b,200000s

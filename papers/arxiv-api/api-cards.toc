@@ -17,7 +17,7 @@
 \contentsline {subsection}{\numberline {4.6}No canvas configuration}{20}{subsection.4.6}%
 \contentsline {section}{\numberline {5}API Surface Comparison}{21}{section.5}%
 \contentsline {subsection}{\numberline {5.1}Naming philosophy}{21}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Color model}{23}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.2}Color model}{22}{subsection.5.2}%
 \contentsline {section}{\numberline {6}State Management}{24}{section.6}%
 \contentsline {subsection}{\numberline {6.1}Processing: global variables}{24}{subsection.6.1}%
 \contentsline {subsection}{\numberline {6.2}AC: module-level closures}{24}{subsection.6.2}%

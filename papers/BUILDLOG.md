@@ -1443,3 +1443,55 @@ Built:
 Failed:
 - Reading the Score [cards]
 - Get Closed Source Out of Schools [cards]
+
+## 2026-03-28 23:05
+
+Built:
+- Aesthetic Computer '26 [en] → aesthetic-computer-26-arxiv.pdf
+- Aesthetic Computer '26 [cards] → aesthetic-computer-26-arxiv-cards.pdf
+- From setup() to boot() [en] → piece-api-26-arxiv.pdf
+- From setup() to boot() [cards] → piece-api-26-arxiv-cards.pdf
+- Repository Archaeology [en] → repo-archaeology-26-arxiv.pdf
+- Repository Archaeology [cards] → repo-archaeology-26-arxiv-cards.pdf
+- Vestigial Features [en] → dead-ends-26-arxiv.pdf
+- Vestigial Features [cards] → dead-ends-26-arxiv-cards.pdf
+- Citation Diversity Audit [en] → citation-diversity-audit-26.pdf
+- Citation Diversity Audit [cards] → citation-diversity-audit-26-cards.pdf
+- Radical Computer Art [en] → radical-computer-art-26-arxiv.pdf
+- Radical Computer Art [cards] → radical-computer-art-26-arxiv-cards.pdf
+- KidLisp '26 [en] → kidlisp-26-arxiv.pdf
+- KidLisp '26 [cards] → kidlisp-26-arxiv-cards.pdf
+- KidLisp Language Reference [en] → kidlisp-reference-26-arxiv.pdf
+- KidLisp Language Reference [cards] → kidlisp-reference-26-arxiv-cards.pdf
+- Network Audit [en] → network-audit-26-arxiv.pdf
+- Network Audit [cards] → network-audit-26-arxiv-cards.pdf
+- notepat.com [en] → notepat-26-arxiv.pdf
+- notepat.com [cards] → notepat-26-arxiv-cards.pdf
+- AC Native OS [en] → ac-native-os-26-arxiv.pdf
+- AC Native OS [cards] → ac-native-os-26-arxiv-cards.pdf
+- Pieces Not Programs [en] → pieces-not-programs-26-arxiv.pdf
+- Pieces Not Programs [cards] → pieces-not-programs-26-arxiv-cards.pdf
+- Who Pays for Creative Tools? [en] → who-pays-for-creative-tools-26-arxiv.pdf
+- Who Pays for Creative Tools? [cards] → who-pays-for-creative-tools-26-arxiv-cards.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- PLOrk'ing the Planet [en] → plorking-the-planet-26-arxiv.pdf
+- PLOrk'ing the Planet [cards] → plorking-the-planet-26-arxiv-cards.pdf
+- Playable Folk Songs [en] → folk-songs-26-arxiv.pdf
+- Playable Folk Songs [cards] → folk-songs-26-arxiv-cards.pdf
+- Sucking on the Complex [en] → sucking-on-the-complex-26-arxiv.pdf
+- Sucking on the Complex [cards] → sucking-on-the-complex-26-arxiv-cards.pdf
+- KidLisp Cards [en] → kidlisp-cards-26-arxiv.pdf
+- KidLisp Cards [cards] → kidlisp-cards-26-arxiv-cards.pdf
+- Reading the Score [en] → reading-the-score-26-arxiv.pdf
+- Reading the Score [cards] → reading-the-score-26-arxiv-cards.pdf
+- CalArts, Callouts, and Papers [en] → calarts-callouts-papers-26-arxiv.pdf
+- CalArts, Callouts, and Papers [cards] → calarts-callouts-papers-26-arxiv-cards.pdf
+- Get Closed Source Out of Schools [en] → open-schools-26-arxiv.pdf
+- Get Closed Source Out of Schools [cards] → open-schools-26-arxiv-cards.pdf
+- Five Years from Now [en] → five-years-from-now-26-arxiv.pdf
+- Five Years from Now [cards] → five-years-from-now-26-arxiv-cards.pdf
+- Handle Identity on the AT Protocol [en] → handle-identity-atproto-26-arxiv.pdf
+- Handle Identity on the AT Protocol [cards] → handle-identity-atproto-26-arxiv-cards.pdf
+- Two Departments, One Building [en] → ucla-arts-funding-26-arxiv.pdf
+- Two Departments, One Building [cards] → ucla-arts-funding-26-arxiv-cards.pdf
