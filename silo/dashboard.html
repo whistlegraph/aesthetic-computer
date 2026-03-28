@@ -314,6 +314,7 @@ a:hover { text-decoration: underline; }
     <button class="tab-btn" data-tab="5">firehose</button>
     <button class="tab-btn" data-tab="6">feed</button>
     <button class="tab-btn" data-tab="7">telemetry</button>
+    <button class="tab-btn" data-tab="8">lith</button>
   </div>
 
   <div class="panels">
@@ -556,6 +557,57 @@ a:hover { text-decoration: underline; }
         <div id="tl-recent" style="font-size:11px;color:var(--fg2);max-height:400px;overflow-y:auto">loading...</div>
       </div>
     </div>
+
+    <!-- lith panel -->
+    <div class="panel" data-panel="8">
+      <div class="overview-grid" id="lith-overview">
+        <div class="card">
+          <div class="card-hd">lith status</div>
+          <div class="kv"><span class="k">uptime</span><span class="v" id="lith-uptime">-</span></div>
+          <div class="kv"><span class="k">boot</span><span class="v" id="lith-boot">-</span></div>
+          <div class="kv"><span class="k">functions loaded</span><span class="v" id="lith-fn-count">-</span></div>
+          <div class="kv"><span class="k">memory (RSS / heap)</span><span class="v" id="lith-mem">-</span></div>
+          <div class="kv"><span class="k">total calls</span><span class="v" id="lith-total-calls">-</span></div>
+          <div class="kv"><span class="k">total errors</span><span class="v" id="lith-total-errors">-</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hd">top functions (by calls)</div>
+          <div id="lith-top-fns" style="font-size:11px;max-height:300px;overflow-y:auto">loading...</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:4px;padding:4px 6px;border-bottom:1px solid var(--border)">
+        <button class="sub-tab-btn active" onclick="lithSubTab(this,'lith-errors-panel')">errors</button>
+        <button class="sub-tab-btn" onclick="lithSubTab(this,'lith-requests-panel')">recent requests</button>
+      </div>
+
+      <div id="lith-errors-panel" class="sub-panel active" style="display:block;padding:6px;overflow-y:auto;max-height:calc(100vh - 360px)">
+        <table style="width:100%;font-size:11px;border-collapse:collapse" id="lith-errors-table">
+          <thead><tr style="color:var(--fg2);text-align:left">
+            <th style="padding:2px 6px">time</th>
+            <th style="padding:2px 6px">function</th>
+            <th style="padding:2px 6px">status</th>
+            <th style="padding:2px 6px">path</th>
+            <th style="padding:2px 6px">error</th>
+          </tr></thead>
+          <tbody id="lith-errors-body"></tbody>
+        </table>
+      </div>
+
+      <div id="lith-requests-panel" class="sub-panel" style="display:none;padding:6px;overflow-y:auto;max-height:calc(100vh - 360px)">
+        <table style="width:100%;font-size:11px;border-collapse:collapse" id="lith-requests-table">
+          <thead><tr style="color:var(--fg2);text-align:left">
+            <th style="padding:2px 6px">time</th>
+            <th style="padding:2px 6px">function</th>
+            <th style="padding:2px 6px">ms</th>
+            <th style="padding:2px 6px">status</th>
+            <th style="padding:2px 6px">path</th>
+          </tr></thead>
+          <tbody id="lith-requests-body"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1875,6 +1927,121 @@ function loadAll() {
   setInterval(loadInstaStatus, 60000);
   setInterval(loadTiktokStatus, 60000);
 }
+
+// --- Lith dashboard ---
+const LITH_URL = 'https://aesthetic.computer';
+let lithTimer = null;
+
+function lithSubTab(btn, panelId) {
+  btn.parentElement.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('lith-errors-panel').style.display = 'none';
+  document.getElementById('lith-requests-panel').style.display = 'none';
+  document.getElementById(panelId).style.display = 'block';
+}
+
+function fmtUptime(s) {
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  const h = Math.floor(s/3600);
+  return h + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+function fmtTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+}
+
+async function loadLith() {
+  try {
+    const [statsRes, errorsRes, reqsRes] = await Promise.all([
+      fetch(LITH_URL + '/lith/stats'),
+      fetch(LITH_URL + '/lith/errors?limit=100'),
+      fetch(LITH_URL + '/lith/requests?limit=100'),
+    ]);
+    const stats = await statsRes.json();
+    const errors = await errorsRes.json();
+    const reqs = await reqsRes.json();
+
+    // Overview
+    document.getElementById('lith-uptime').textContent = fmtUptime(stats.uptime);
+    document.getElementById('lith-boot').textContent = fmtTime(stats.boot);
+    document.getElementById('lith-fn-count').textContent = stats.functionsLoaded;
+    document.getElementById('lith-mem').textContent = stats.memory.rss + ' MB / ' + stats.memory.heap + ' MB';
+    document.getElementById('lith-total-calls').textContent = fmt(stats.totals.calls);
+    document.getElementById('lith-total-errors').textContent = stats.totals.errors;
+    document.getElementById('lith-total-errors').style.color = stats.totals.errors > 0 ? 'var(--err)' : 'var(--ok)';
+
+    // Top functions
+    const topEl = document.getElementById('lith-top-fns');
+    if (stats.functions.length === 0) {
+      topEl.textContent = 'no calls yet';
+    } else {
+      const maxCalls = stats.functions[0]?.calls || 1;
+      topEl.innerHTML = stats.functions.slice(0, 30).map(f => {
+        const pct = Math.max(2, Math.round(f.calls / maxCalls * 100));
+        const errStyle = f.errors > 0 ? 'color:var(--err)' : 'color:var(--fg2)';
+        return '<div style="display:flex;align-items:center;gap:6px;padding:1px 0">' +
+          '<span style="width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.name) + '</span>' +
+          '<div style="flex:1;height:8px;background:var(--bg);border-radius:2px;overflow:hidden">' +
+            '<div style="width:' + pct + '%;height:100%;background:var(--accent);border-radius:2px"></div>' +
+          '</div>' +
+          '<span style="width:50px;text-align:right">' + fmt(f.calls) + '</span>' +
+          '<span style="width:40px;text-align:right;' + errStyle + '">' + f.errors + 'e</span>' +
+          '<span style="width:45px;text-align:right;color:var(--fg2)">' + f.avgMs + 'ms</span>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Errors table
+    const errBody = document.getElementById('lith-errors-body');
+    if (errors.errors.length === 0) {
+      errBody.innerHTML = '<tr><td colspan="5" style="padding:8px;color:var(--fg2)">no errors</td></tr>';
+    } else {
+      errBody.innerHTML = errors.errors.map(e => {
+        const errMsg = (e.error || '').substring(0, 120);
+        return '<tr style="border-bottom:1px solid var(--border)">' +
+          '<td style="padding:2px 6px;white-space:nowrap;color:var(--fg2)">' + fmtTime(e.time) + '</td>' +
+          '<td style="padding:2px 6px;color:var(--accent)">' + esc(e.fn) + '</td>' +
+          '<td style="padding:2px 6px;color:var(--err)">' + e.status + '</td>' +
+          '<td style="padding:2px 6px;color:var(--fg2)">' + esc(e.path || '') + '</td>' +
+          '<td style="padding:2px 6px;color:var(--fg2);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(errMsg) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    // Requests table
+    const reqBody = document.getElementById('lith-requests-body');
+    if (reqs.requests.length === 0) {
+      reqBody.innerHTML = '<tr><td colspan="5" style="padding:8px;color:var(--fg2)">no requests yet</td></tr>';
+    } else {
+      reqBody.innerHTML = reqs.requests.map(r => {
+        const statusColor = r.status >= 500 ? 'var(--err)' : r.status >= 400 ? 'var(--warn)' : 'var(--fg)';
+        const msColor = r.ms > 1000 ? 'var(--warn)' : r.ms > 3000 ? 'var(--err)' : 'var(--fg2)';
+        return '<tr style="border-bottom:1px solid var(--border)">' +
+          '<td style="padding:2px 6px;white-space:nowrap;color:var(--fg2)">' + fmtTime(r.time) + '</td>' +
+          '<td style="padding:2px 6px;color:var(--accent)">' + esc(r.fn) + '</td>' +
+          '<td style="padding:2px 6px;color:' + msColor + '">' + r.ms + '</td>' +
+          '<td style="padding:2px 6px;color:' + statusColor + '">' + r.status + '</td>' +
+          '<td style="padding:2px 6px;color:var(--fg2)">' + esc(r.path || '') + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+  } catch (err) {
+    document.getElementById('lith-uptime').textContent = 'offline';
+    document.getElementById('lith-uptime').style.color = 'var(--err)';
+    console.error('lith fetch error:', err);
+  }
+}
+
+// Start polling lith when tab is selected
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-tab="8"]')) {
+    loadLith();
+    if (!lithTimer) lithTimer = setInterval(loadLith, 10000);
+  }
+});
 
 initAuth();
 </script>
