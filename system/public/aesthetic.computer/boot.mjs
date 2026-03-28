@@ -734,9 +734,11 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
 
   const waitForWsConnection = async () => {
     if (!loader?.connecting) return;
+    // Short grace: if WS is almost connected, let it finish.
+    // Otherwise HTTP wins the race anyway.
     await Promise.race([
       loader.connecting,
-      new Promise(resolve => setTimeout(resolve, 400))
+      new Promise(resolve => setTimeout(resolve, isLocalhost ? 400 : 50))
     ]);
   };
 
@@ -771,27 +773,14 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
     }
   });
 
-  // Parallel paths on localhost or when explicitly requested
-  // Skip WS race if loader already confirmed not connected (avoids unnecessary delays)
-  if ((useWsBundle || isLocalhost) && loader?.connected !== false) {
+  // Race WS vs HTTP — fastest wins. Always include HTTP.
+  // If WS is connected (or connecting on localhost), race both paths.
+  const wsAvailable = loader?.connected || ((useWsBundle || isLocalhost) && loader?.connected !== false);
+  if (wsAvailable) {
     try {
       return await raceToSuccess([tryLoadViaWs(), tryLoadViaHttp()]);
     } catch (err) {
       // Fall through to retry loop
-    }
-  } else if (useWsBundle || isLocalhost) {
-    // Loader is confirmed disconnected — just use HTTP directly
-    try {
-      return await tryLoadViaHttp();
-    } catch (err) {
-      // Fall through to retry loop
-    }
-  } else if (loader?.connected) {
-    // Opportunistic WS load even if boot decided not to wait
-    try {
-      return await tryLoadViaWs();
-    } catch (err) {
-      // Fall through to HTTP
     }
   }
   
@@ -883,12 +872,14 @@ async function fetchAndShowSource(path, displayName) {
 
 let boot, parse, slug;
 try {
-  // 🚀 Wait for WebSocket module loader (max 2s total, already started at top of file)
-  // This ensures we USE the WebSocket when available instead of falling back to HTTP
-  // Race with a timeout so boot never stalls if module loader hangs
+  // 🚀 Module loading strategy: always race WS vs HTTP — fastest wins.
+  // Production: don't block on WS connection. If WS is already connected
+  //   (from early init), it races. Otherwise HTTP goes alone.
+  // Dev: allow a short WS wait (800ms) since hot-reload needs it.
+  const wsWaitMs = isLocalhost ? 800 : 100; // 100ms grace for already-connecting WS
   const useWsBundle = await Promise.race([
     moduleLoaderReady,
-    new Promise(resolve => setTimeout(() => resolve(false), 2000))
+    new Promise(resolve => setTimeout(() => resolve(false), wsWaitMs))
   ]);
   const loader = window.acModuleLoader;
   
