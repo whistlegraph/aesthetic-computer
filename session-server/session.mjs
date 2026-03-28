@@ -1811,6 +1811,19 @@ wss.on("connection", async (ws, req) => {
               log(`Command '${msg.cmd}' → ${msg.machineId} (${commandId})`);
             }
           }
+          // Swank eval: forward CL expression to device for evaluation
+          if (msg.type === "swank:eval" && msg.machineId && msg.expr) {
+            const device = machinesDevices.get(msg.machineId);
+            if (device && device.user === userSub && device.ws.readyState === WebSocket.OPEN) {
+              const evalId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+              device.ws.send(JSON.stringify({
+                type: "swank:eval",
+                expr: msg.expr,
+                evalId,
+              }));
+              log(`🔮 Swank eval → ${msg.machineId}: ${msg.expr.slice(0, 60)}`);
+            }
+          }
         } catch (e) {
           error('🖥️ Machines viewer message error:', e);
         }
@@ -1904,6 +1917,14 @@ wss.on("connection", async (ws, req) => {
             case "command-ack":
             case "command-response":
               if (userSub) broadcastToMachineViewers(userSub, { type: msg.type, machineId, commandId: msg.commandId, command: msg.command, data: msg.data });
+              break;
+
+            case "swank:result":
+              // Forward Swank eval result from device to viewer
+              if (userSub) broadcastToMachineViewers(userSub, {
+                type: "swank:result", machineId,
+                evalId: msg.evalId, ok: msg.ok, result: msg.result,
+              });
               break;
           }
         } catch (e) {

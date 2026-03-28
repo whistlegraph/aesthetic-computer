@@ -84,6 +84,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
         $(SRCDIR)/machines.c \
+        $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \
         $(SRCDIR)/recorder.c
 

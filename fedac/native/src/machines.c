@@ -3,6 +3,7 @@
 // heartbeats, log upload, and remote command reception.
 
 #include "machines.h"
+#include "swank-bridge.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -280,6 +281,27 @@ static void process_messages(ACMachines *m) {
     int count = ws_poll(m->ws);
     for (int i = 0; i < count; i++) {
         const char *raw = m->ws->messages[i];
+
+        // Handle swank:eval — evaluate CL via local Swank server
+        if (strstr(raw, "\"type\":\"swank:eval\"")) {
+            char expr[2048] = "", eval_id[32] = "";
+            json_get_str(raw, "expr", expr, sizeof(expr));
+            json_get_str(raw, "evalId", eval_id, sizeof(eval_id));
+            if (expr[0]) {
+                ac_log("[machines] swank:eval id=%s expr=%.80s\n", eval_id, expr);
+                char result[4096] = "";
+                int rc = swank_eval(expr, result, sizeof(result));
+                // Send result back
+                char escaped_result[8192];
+                json_escape(result, escaped_result, sizeof(escaped_result));
+                char msg[12288];
+                snprintf(msg, sizeof(msg),
+                    "{\"type\":\"swank:result\",\"evalId\":\"%s\",\"ok\":%s,\"result\":\"%s\"}",
+                    eval_id, rc == 0 ? "true" : "false", escaped_result);
+                ws_send(m->ws, msg);
+            }
+            continue;
+        }
 
         // Check if it's a command message
         if (!strstr(raw, "\"type\":\"command\"")) continue;
