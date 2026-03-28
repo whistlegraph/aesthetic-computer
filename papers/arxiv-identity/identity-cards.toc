@@ -1,30 +1,34 @@
-\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
-\contentsline {section}{\numberline {2}Current Architecture}{6}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Auth0 as Identity Provider}{6}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Handle System}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}ATProto Shadow Identity}{7}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}The Duplication Problem}{8}{subsection.2.4}%
-\contentsline {section}{\numberline {3}The AT Protocol Identity Stack}{9}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Decentralized Identifiers (DIDs)}{9}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Handle Verification}{10}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}ATProto OAuth}{11}{subsection.3.3}%
-\contentsline {subsubsection}{\numberline {3.3.1}Client Identification}{12}{subsubsection.3.3.1}%
-\contentsline {subsubsection}{\numberline {3.3.2}The Flow}{13}{subsubsection.3.3.2}%
-\contentsline {section}{\numberline {4}Case Study: pckt.blog}{14}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Authentication}{14}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Data Sovereignty}{14}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Implications for AC}{15}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Proposed Migration}{16}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Phase 1: ATProto OAuth as Secondary Sign-In}{16}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Phase 2: Handle Bridging}{17}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}Phase 3: Identity Linking}{18}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Phase 4: ATProto-Primary}{18}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}PDS Routing}{19}{subsection.5.5}%
-\contentsline {section}{\numberline {6}Handle Semantics}{20}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Current Handle Model}{20}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}ATProto Handle Model}{20}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Bridging the Models}{21}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Open Questions}{22}{section.7}%
-\contentsline {section}{\numberline {8}Related Work}{24}{section.8}%
-\contentsline {section}{\numberline {9}Conclusion}{26}{section.9}%
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}Current Architecture}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Auth0 as Identity Provider}{7}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Handle System}{8}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}ATProto Shadow Identity}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The Duplication Problem}{9}{subsection.2.4}%
+\contentsline {section}{\numberline {3}The AT Protocol Identity Stack}{10}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Decentralized Identifiers (DIDs)}{10}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Handle Verification}{11}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}ATProto OAuth}{12}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Client Identification}{13}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}The Flow}{14}{subsubsection.3.3.2}%
+\contentsline {section}{\numberline {4}Case Study: pckt.blog}{15}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Authentication}{15}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Data Sovereignty}{15}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Implications for AC}{16}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Proposed Migration}{17}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Phase 1: ATProto OAuth as Secondary Sign-In}{17}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Phase 2: Handle Bridging}{18}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Phase 3: Identity Linking}{19}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Phase 4: ATProto-Primary}{19}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}PDS Routing}{20}{subsection.5.5}%
+\contentsline {section}{\numberline {6}Handle Semantics}{21}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Current Handle Model}{21}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}ATProto Handle Model}{21}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Bridging the Models}{22}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Open Questions}{23}{section.7}%
+\contentsline {section}{\numberline {8}Related Work}{25}{section.8}%
+\contentsline {section}{\numberline {9}PDS on Bare Metal}{27}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Architecture}{27}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}What This Means}{28}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Implementation Path}{30}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Conclusion}{32}{section.10}%
 \contentsfinish 

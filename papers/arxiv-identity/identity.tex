@@ -191,7 +191,7 @@
 
 \begin{quote}
 \small\noindent\textbf{Abstract.}
-Aesthetic Computer currently authenticates users through Auth0 and maintains a parallel identity on a self-hosted AT Protocol Personal Data Server (PDS) at \texttt{at.aesthetic.computer}. Each verified user receives a DID and a PDS handle, but authentication flows through a centralized OAuth provider. We propose collapsing this dual-identity architecture by adopting AT Protocol OAuth~\citep{atproto2024oauth} as a primary sign-in method, allowing anyone with a Bluesky or ATProto identity to authenticate directly and claim the equivalent handle on Aesthetic Computer. This paper surveys the \atproto{} identity stack---DIDs, handle verification, OAuth 2.1 with DPoP and PAR---examines how pckt.blog and other ATProto-native applications implement decentralized sign-in~\citep{pcktblog2025}, maps the current AC authentication architecture, and proposes a phased migration from Auth0 dependency to \atproto{}-first identity. The central argument: on a platform that already runs its own PDS and mints its own DIDs, the centralized identity provider is the vestigial organ. Removing it simplifies the stack, eliminates a paid dependency, and makes AC a first-class citizen of the federated social web.
+Aesthetic Computer currently authenticates users through Auth0 and maintains a parallel identity on a self-hosted AT Protocol Personal Data Server (PDS) at \texttt{at.aesthetic.computer}. Each verified user receives a DID and a PDS handle, but authentication flows through a centralized OAuth provider. We propose collapsing this dual-identity architecture by adopting AT Protocol OAuth~\citep{atproto2024oauth} as a primary sign-in method, allowing anyone with a Bluesky or ATProto identity to authenticate directly and claim the equivalent handle on Aesthetic Computer. This paper surveys the \atproto{} identity stack---DIDs, handle verification, OAuth 2.1 with DPoP and PAR---examines how pckt.blog and other ATProto-native applications implement decentralized sign-in~\citep{pcktblog2025}, maps the current AC authentication architecture, and proposes a phased migration from Auth0 dependency to \atproto{}-first identity. The central argument: on a platform that already runs its own PDS and mints its own DIDs, the centralized identity provider is the vestigial organ. Removing it simplifies the stack, eliminates a paid dependency, and makes AC a first-class citizen of the federated social web. I extend this argument to AC Native OS~\citep{scudder2026os}: a bare-metal laptop that carries its own PDS is not a client---it is a sovereign node on the ATProto network, capable of offline-first content creation and device-to-device federation without cloud dependency.
 \end{quote}
 \vspace{0.5em}
 }]
@@ -516,7 +516,50 @@ For AC Native OS~\citep{scudder2026os}, where the handle is inscribed in \texttt
 
 \textbf{Convivial identity.} Illich's tools for conviviality~\citep{illich1973tools} frame the question: does the identity system expand personal autonomy, or does it require dependence on a provider? Auth0 is a managed service---convenient but dependent. ATProto identity is portable, self-verifiable, and provider-independent. Nelson's vision of personal computing~\citep{nelson1974computerlib} extends naturally to personal identity: you should own your name on the network.
 
-% ============ 9. CONCLUSION ============
+% ============ 9. PDS ON BARE METAL ============
+
+\section{PDS on Bare Metal}
+\label{sec:pds-os}
+
+AC Native OS~\citep{scudder2026os} boots any x86\_64 machine into a creative computing instrument in 7.3 seconds. The device already carries an identity: a handle inscribed in \texttt{config.json} on the boot partition, spoken aloud at startup (``hi @alice''), and used to authenticate with the session server. But this identity is a string in a file. It is not cryptographically grounded. It is not portable. It is not verifiable by anyone outside the AC ecosystem.
+
+Running a PDS on the device changes this.
+
+\subsection{Architecture}
+
+The AC OS runtime is a single C binary (PID~1) that launches a QuickJS JavaScript engine. Adding a PDS means adding a second process: a lightweight ATProto-compatible server that manages the device owner's identity, stores their content locally, and federates with the broader ATProto network when connected to the internet.
+
+The components:
+
+\begin{itemize}
+  \item \textbf{Local PDS}: A minimal ATProto server running on localhost, storing repository data in SQLite on the boot partition. The device's DID document points to this PDS when online, or to a relay when offline.
+  \item \textbf{DID}: The device owner's \texttt{did:plc} identity, with signing keys stored on the boot partition. The same DID that works on Bluesky, on AC's cloud PDS, and on any other ATProto service.
+  \item \textbf{Handle}: \texttt{alice.at.aesthetic.computer} resolves to the device's DID whether the device is online or not---DNS handles are verified against the PDS, not against the device.
+  \item \textbf{Offline-first content}: Paintings, KidLisp programs, and notepat recordings are written to the local PDS repository. When the device connects to WiFi, it syncs upstream---to AC's relay, to Bluesky's firehose, to any subscribed service.
+\end{itemize}
+
+\subsection{What This Means}
+
+A laptop that carries its own PDS is not a client. It is a node. The device does not depend on AC's servers to know who its owner is---the signing keys are on the boot partition, the DID is resolvable, and the content is stored locally. If AC's cloud infrastructure disappears tomorrow, the device still knows its owner, still stores their work, and still has a cryptographically verifiable identity on the ATProto network.
+
+This is a synthesis. Booting the laptop \emph{is} logging in. The device knows your DID because your signing keys are on the boot partition. The OS greeting (``hi @alice'') is not a decorative string---it is a cryptographic assertion of identity. There is no separate login screen, no OAuth redirect, no password prompt. The act of turning on the machine authenticates you to the ATProto network, because the machine \emph{is} your PDS.
+
+This collapses three traditionally separate concepts---device ownership, application identity, and network identity---into one. The person who flashed the USB drive owns the signing keys. The signing keys prove the DID. The DID resolves to the handle. The handle is spoken aloud at boot. Identity is not a service you log into. It is a property of the hardware you hold.
+
+\subsection{Implementation Path}
+
+The path is incremental:
+
+\begin{enumerate}
+  \item \textbf{Phase 1}: Device pairs with AC cloud PDS (current behavior). Identity lives in the cloud; device has a copy of the handle in config.json.
+  \item \textbf{Phase 2}: Device runs a local PDS that mirrors the cloud PDS. Content is written locally first, synced when online. Identity is still managed by the cloud PDS.
+  \item \textbf{Phase 3}: Device PDS becomes authoritative. The DID document points to the device's PDS as the primary endpoint. The cloud PDS is a relay, not the source of truth.
+  \item \textbf{Phase 4}: Device-to-device federation. Two AC OS laptops on the same WiFi network discover each other's PDS and exchange content directly, without routing through the cloud.
+\end{enumerate}
+
+Phase 4 is the most interesting for the PLOrk-derived classroom scenario described in the companion paper~\citep{scudder2026ac}. Thirty laptops in a room, each running its own PDS, each federating locally. The teacher's laptop aggregates student work through ATProto subscriptions. No cloud dependency. No internet required. The room is the network.
+
+% ============ 10. CONCLUSION ============
 
 \section{Conclusion}
 
