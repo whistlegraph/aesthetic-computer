@@ -51,20 +51,20 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=8em]{pals}\par\vspace{0.3em}
-{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} Playable Folk Songs}\par
-\vspace{0.3em}
-{\fontsize{10pt}{12pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard}\par
-\vspace{0.8em}
-{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Playable Folk Songs}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} Oral Tradition Meets the Browser Keyboard}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.8em}
-\rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
-\vspace{0.3em}
-{\footnotesize\color{acgray} March 2026}\par
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/d0a6521c5}{d0a6521c5}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -127,7 +127,7 @@ We surveyed folk song collections from multiple traditions and selected melodies
 
 \subsection{Pentatonic (5 notes)}
 
-\begin{tabularx}{\linewidth}{Xll}
+\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -138,11 +138,11 @@ Sakura & Japanese & m7 \\
 Mo Li Hua & Chinese & oct \\
 Swing Low & Spiritual & oct \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 
 \subsection{Narrow Range ($<$ octave)}
 
-\begin{tabularx}{\linewidth}{Xll}
+\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -152,11 +152,11 @@ Fr\`ere Jacques & French & M6 \\
 London Bridge & English & P5 \\
 Korobeiniki & Russian & oct \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 
 \subsection{Modal \& Diatonic}
 
-\begin{tabularx}{\linewidth}{Xll}
+\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}p{0.28\linewidth}}
 \toprule
 \textbf{Song} & \textbf{Origin} & \textbf{Range} \\
 \midrule
@@ -166,7 +166,7 @@ Danny Boy & Irish & 10th \\
 Shenandoah & American & 10th \\
 Hava Nagila & Israeli & oct \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 
 \section{The Folk Process as Version Control}
 
@@ -175,11 +175,11 @@ The International Folk Music Council identified three properties of the folk pro
 These map directly onto software version control:
 
 \vspace{0.3em}
-\begin{tabularx}{\linewidth}{lX}
+\begin{tabular}{p{0.28\linewidth}p{0.28\linewidth}}
 \textbf{Continuity} & \texttt{main} branch \\
 \textbf{Variation} & commits, forks \\
 \textbf{Selection} & merge decisions, adoption \\
-\end{tabularx}
+\end{tabular}
 \vspace{0.3em}
 
 A \np{} song encoding is a URL. Sharing a song is sharing a link. Modifying a song is editing a text string and sharing a new link. The ``oral tradition'' becomes a tradition of URLs---the melody transmits not through memory but through hypertext.

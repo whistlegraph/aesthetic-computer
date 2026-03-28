@@ -38,20 +38,20 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=8em]{pals}\par\vspace{0.3em}
-{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
-\vspace{0.3em}
-{\fontsize{10pt}{12pt}\selectfont\color{acpink} From Keyboard Toy to System Front Door}\par
-\vspace{0.8em}
-{\normalsize\color{cyan!70!blue}\textbf{@jeffrey}}\par
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} From Keyboard Toy to System Front Door}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
 {\small\color{acgray} Aesthetic.Computer}\par
 {\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
-\vspace{0.8em}
-\rule{0.6\textwidth}{1pt}\par
 \vspace{0.4em}
-{\small\color{acpink!40}\textit{working draft --- not for citation}}\par
-\vspace{0.3em}
-{\footnotesize\color{acgray} March 2026}\par
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/d0a6521c5}{d0a6521c5}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -65,7 +65,7 @@
 % ============================================================
 \section{Introduction}
 
-Creative coding platforms are typically evaluated at the system level: language design, editor affordances, community size~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. Even within digital musical instrument research, the unit of analysis is usually the instrument class or interaction paradigm rather than the evolution of a single artifact over years~\citep{magnusson2010designing,marquez2018dmi}. This paper takes a narrower and longer lens: one piece---\texttt{notepat}---inside \ac{}, studied across 20 months of active development.
+Creative coding platforms are typically evaluated at the system level: language design, editor affordances, community size~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}. Even within digital musical instrument research, the unit of analysis is usually the instrument class or interaction paradigm rather than the evolution of a single artifact over years~\citep{magnusson2010designing,marquez2018dmi}. I take a narrower and longer lens: one piece---\texttt{notepat}---inside \ac{}, studied across 20 months of active development.
 
 \texttt{notepat} is a melodic keyboard instrument. It is directly addressable as \texttt{aesthetic.computer/notepat} and through the branded domain \texttt{notepat.com}. As of March 2026, it is the most complex piece in the system, the default boot piece on bare-metal hardware, and the primary subject of performance testing infrastructure. None of this was planned at the outset. The instrument grew, and the platform grew around it.
 
@@ -212,7 +212,7 @@ Table~\ref{tab:scale} summarizes \texttt{notepat}'s footprint as of March 8, 202
 \begin{table}[h]
 \small
 \centering
-\begin{tabularx}{\columnwidth}{l r}
+\begin{tabular}{l r}
 \toprule
 \textbf{Metric} & \textbf{Value} \\
 \midrule
@@ -226,7 +226,7 @@ Dedicated test scripts & 14 \\
 Files mentioning ``notepat'' in repo & 159 \\
 Age (first commit) & June 27, 2024 \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{notepat scale indicators (March 8, 2026).}
 \label{tab:scale}
 \end{table}
