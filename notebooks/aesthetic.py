@@ -221,7 +221,11 @@ def _display_kidlisp_source(code):
 def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, density=None, show_source=True):
     """
     Run kidlisp code in Aesthetic Computer.
-    
+
+    Loads a blank AC iframe and sends the full source via postMessage
+    (same protocol as the kidlisp.com editor), avoiding URL-encoding issues
+    with commas, newlines, and special characters.
+
     Args:
         code (str): The kidlisp code to execute
         width: Virtual width in AC pixels (default: "100%")
@@ -232,53 +236,77 @@ def kidlisp(code, width="100%", height=500, auto_scale=False, tv_mode=False, den
         show_source (bool): If True, display syntax-highlighted source below iframe (default: True)
     """
     importlib.reload(importlib.import_module('aesthetic'))
-    
-    # Use Node.js to encode kidlisp code and get the full URL
+
     clean_code = code.strip()
-    url = encode_kidlisp_with_node(clean_code)
-    
-    # Add TV mode parameter if requested
+    base_url = _get_base_url()
+
+    # Load prompt piece as a blank canvas, then send code via postMessage
+    url = f"{base_url}/prompt?nolabel=true&nogap=true&notebook=true"
+
     if tv_mode:
-        separator = "&" if "?" in url else "?"
-        url += f"{separator}tv=true"
+        url += "&tv=true"
 
     density_value = _normalize_density(density, _get_ipython_context())
     if density_value is not None:
-        separator = "&" if "?" in url else "?"
-        url += f"{separator}density={density_value}"
-    
-    # Create a stable ID based on content hash to reduce flicker on re-runs
+        url += f"&density={density_value}"
+
     content_hash = hashlib.md5(f"{clean_code}{width}{height}{tv_mode}{density_value}".encode()).hexdigest()[:8]
     iframe_id = f"ac-iframe-{content_hash}"
 
     iframe_width, iframe_height = _compute_iframe_dimensions(width, height, density_value)
-    
-    # Always use HTML approach with no margins, positioned at top-left
+
+    # Escape the code for embedding in JavaScript
+    import json
+    escaped_code = json.dumps(clean_code)
+
+    style = "background: transparent; margin: 0; padding: 0; border: none; display: block;"
     if auto_scale:
-        iframe_html = f'''
-        <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
-            <iframe id="{iframe_id}" src="{url}" 
-                    width="{iframe_width}" 
-                    height="{iframe_height}" 
-                    frameborder="0"
-                    style="background: transparent; margin: 0; padding: 0; border: none; display: block; transform-origin: top left; max-width: 100%; height: auto; aspect-ratio: 1/1;">
-            </iframe>
-        </div>
-        '''
-    else:
-        iframe_html = f'''
-        <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
-            <iframe id="{iframe_id}" src="{url}" 
-                    width="{iframe_width}" 
-                    height="{iframe_height}" 
-                    frameborder="0"
-                    style="background: transparent; margin: 0; padding: 0; border: none; display: block;">
-            </iframe>
-        </div>
-        '''
-    
+        style += " transform-origin: top left; max-width: 100%; height: auto; aspect-ratio: 1/1;"
+
+    # Embed iframe + JS that sends code via postMessage once the iframe is ready
+    iframe_html = f'''
+    <div style="margin: -8px -8px 0 -8px; padding: 0; overflow: hidden;">
+        <iframe id="{iframe_id}" src="{url}"
+                width="{iframe_width}"
+                height="{iframe_height}"
+                frameborder="0"
+                style="{style}">
+        </iframe>
+    </div>
+    <script>
+    (function() {{
+        var iframe = document.getElementById("{iframe_id}");
+        var code = {escaped_code};
+        var origin = "{base_url}";
+        var sent = false;
+        function trySend() {{
+            if (sent) return;
+            if (iframe && iframe.contentWindow) {{
+                iframe.contentWindow.postMessage({{
+                    type: "kidlisp-reload",
+                    code: code
+                }}, origin);
+                sent = true;
+            }}
+        }}
+        // Listen for ready signal from the iframe
+        window.addEventListener("message", function handler(e) {{
+            if (e.source === iframe.contentWindow && e.data && e.data.type === "ready") {{
+                trySend();
+                window.removeEventListener("message", handler);
+            }}
+        }});
+        // Also try after a delay as fallback
+        iframe.addEventListener("load", function() {{
+            setTimeout(trySend, 500);
+            setTimeout(trySend, 1500);
+        }});
+    }})();
+    </script>
+    '''
+
     display(HTML(iframe_html))
-    
+
     # Display source code if requested
     if show_source:
         _display_kidlisp_source(clean_code)
