@@ -349,6 +349,15 @@ async function runBuildJob(job) {
       repoDir,
     );
 
+    // Auto-cleanup: prune Docker + old build artifacts to prevent disk-full failures.
+    addLogLine(job, "stdout", "Preflight: freeing disk space...");
+    await runPhase(job, "preflight-cleanup", "bash", ["-lc", [
+      "set -euo pipefail",
+      "docker system prune -f --volumes 2>/dev/null | tail -1 || true",
+      "rm -rf /tmp/oven-vmlinuz-* /tmp/ac-build-* 2>/dev/null || true",
+      "df -h / | tail -1",
+    ].join("\n")], repoDir);
+
     // Resolve ref from git HEAD if manual trigger didn't provide one
     if (!job.ref || job.ref === "unknown") {
       const headRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
