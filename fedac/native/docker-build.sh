@@ -10,9 +10,13 @@ NATIVE="$SRC/fedac/native"
 BUILD="$NATIVE/build"
 KVER="${KERNEL_VERSION:-6.19.9}"
 KMAJOR="${KVER%%.*}"
+MEDIA_LAYOUT_LIB="$NATIVE/scripts/media-layout.sh"
 
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
+
+# shellcheck source=/workspaces/aesthetic-computer/fedac/native/scripts/media-layout.sh
+source "$MEDIA_LAYOUT_LIB"
 
 # Always build in /tmp inside the container to avoid bind-mount permission issues
 BUILD="/tmp/ac-build"
@@ -571,43 +575,25 @@ log "Step 5: Building ISO..."
 ISO_DIR="$BUILD/iso-root"
 EFI_IMG="$BUILD/efi.img"
 ISO_OUT="$BUILD/ac-os.iso"
+CONFIG_TMP="$BUILD/identity-config.json"
 
-rm -rf "$ISO_DIR" "$EFI_IMG"
-mkdir -p "$ISO_DIR/EFI/BOOT"
+rm -rf "$ISO_DIR" "$EFI_IMG" "$CONFIG_TMP"
 
-# Copy kernel as UEFI boot binary
-cp "$BUILD/vmlinuz" "$ISO_DIR/EFI/BOOT/BOOTX64.EFI"
-
-# Create config.json with patchable marker (browser replaces this)
-CONFIG_MARKER='{"handle":"","piece":"notepat","sub":"","email":""}'
-CONFIG_PAD=4096
-printf "%-${CONFIG_PAD}s" "$CONFIG_MARKER" > "$ISO_DIR/config.json"
-
-# Create FAT32 EFI boot image
-EFI_SIZE_MB=$(( (VMLINUZ_SIZE + CONFIG_PAD + 1048576) / 1048576 + 4 ))
-dd if=/dev/zero of="$EFI_IMG" bs=1M count=$EFI_SIZE_MB 2>/dev/null
-mkfs.fat -F 32 "$EFI_IMG" >/dev/null 2>&1
-mmd -i "$EFI_IMG" ::EFI ::EFI/BOOT 2>/dev/null
-mcopy -i "$EFI_IMG" "$BUILD/vmlinuz" ::EFI/BOOT/BOOTX64.EFI
-mcopy -i "$EFI_IMG" "$ISO_DIR/config.json" ::config.json
+ac_media_write_identity_config "$CONFIG_TMP"
+ac_media_stage_boot_tree "$ISO_DIR" "$BUILD/vmlinuz" "$CONFIG_TMP"
+ac_media_create_fat_image "$ISO_DIR" "$EFI_IMG" "AC_NATIVE"
 
 # Build hybrid ISO with xorriso (EFI boot via El Torito + GPT for dd/USB)
-# Uses -append_partition to attach the EFI image, matching ac-os generate_template_iso().
+# Uses the same chainloader-first staged tree as ac-os generate_template_iso().
 if command -v xorriso &>/dev/null; then
-    xorriso -as mkisofs \
-        -o "$ISO_OUT" \
-        -V "AC_NATIVE" \
-        -J -joliet-long \
-        -append_partition 2 0xef "$EFI_IMG" \
-        -e --interval:appended_partition_2:all:: \
-        -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        "$ISO_DIR" 2>&1 | grep -v "^xorriso\|^Drive\|^Media" || true
+    ac_media_build_hybrid_iso "$ISO_DIR" "$EFI_IMG" "$ISO_OUT" "AC_NATIVE"
 else
     # Fallback: raw EFI disk image (dd-able)
     log "  No xorriso — creating raw disk image"
     cp "$EFI_IMG" "$ISO_OUT"
 fi
+
+rm -f "$CONFIG_TMP"
 
 if [ -f "$ISO_OUT" ]; then
     ISO_SIZE=$(stat -c%s "$ISO_OUT")
