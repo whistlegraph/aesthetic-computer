@@ -866,6 +866,7 @@
     .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
     .curr-link.active[data-curr="crypto"] { color: #a78bfa; }
     .curr-link.active[data-curr="paypal"] { color: #0070ba; }
+    .curr-link.active[data-curr="liberapay"] { color: #f6c915; }
 
     @media (max-width: 600px) {
       body {
@@ -2458,6 +2459,108 @@
     .paypal-email:hover .paypal-copy-hint {
       color: var(--green);
       opacity: 1;
+    }
+
+    /* Liberapay section */
+    .liberapay-compact .gift-visual {
+      display: none;
+    }
+
+    .liberapay-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.6em 1em;
+      background: linear-gradient(135deg, rgba(246, 201, 21, 0.25) 0%, rgba(200, 160, 0, 0.15) 100%);
+      border: 1px solid var(--box-border);
+      border-radius: 0;
+    }
+
+    .liberapay-logo-tiny {
+      width: 24px;
+      height: 24px;
+    }
+
+    .liberapay-title {
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1em;
+      color: #f6c915;
+    }
+
+    .liberapay-subtitle {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      color: var(--dim);
+      margin-left: 0.8em;
+    }
+
+    .liberapay-controls {
+      padding: 2em 4em;
+      background: linear-gradient(180deg, rgba(246, 201, 21, 0.1) 0%, rgba(200, 160, 0, 0.15) 100%);
+      border: 1px solid var(--box-border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5em;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .liberapay-compact {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .liberapay-compact .liberapay-header {
+      width: 100%;
+      border-radius: 0;
+    }
+
+    .liberapay-link-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6em;
+      padding: 0.9em 1.8em;
+      background: linear-gradient(135deg, #f6c915 0%, #d4a800 100%);
+      color: #1a1a2e;
+      text-decoration: none;
+      border-radius: 24px;
+      font-family: 'YWFTProcessing-Regular', sans-serif;
+      font-size: 1.1em;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(246, 201, 21, 0.3);
+    }
+
+    .liberapay-link-btn:hover {
+      background: linear-gradient(135deg, #ffd630 0%, #e0b500 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(246, 201, 21, 0.4);
+    }
+
+    .liberapay-link-btn:active {
+      transform: translateY(0);
+    }
+
+    .liberapay-desc {
+      font-size: 0.85em;
+      color: var(--dim);
+      text-align: center;
+      max-width: 360px;
+    }
+
+    @media (max-width: 480px) {
+      .liberapay-controls {
+        padding: 1.2em 0.8em;
+      }
+      .liberapay-subtitle {
+        display: none;
+      }
     }
 
     .crypto-slider {
@@ -6197,6 +6300,20 @@
     body.light-mode .curr-link.active[data-curr="dkk"] { color: var(--cyan); }
     body.light-mode .curr-link.active[data-curr="crypto"] { color: #7c3aed; }
     body.light-mode .curr-link.active[data-curr="paypal"] { color: #0070ba; }
+    body.light-mode .curr-link.active[data-curr="liberapay"] { color: #d4a800; }
+
+    /* Light mode: Liberapay section */
+    body.light-mode .liberapay-header {
+      background: linear-gradient(135deg, rgba(246, 201, 21, 0.12) 0%, rgba(200, 160, 0, 0.08) 100%);
+    }
+
+    body.light-mode .liberapay-controls {
+      background: linear-gradient(180deg, rgba(246, 201, 21, 0.05) 0%, rgba(200, 160, 0, 0.08) 100%);
+    }
+
+    body.light-mode .liberapay-title {
+      color: #d4a800;
+    }
 
     /* Light mode: Language dropdown */
     body.light-mode .lang-dropdown {
@@ -6800,6 +6917,7 @@
       <span class="curr-link" data-curr="dkk"><span class="curr-flag">💶</span><span class="curr-text">DKK</span></span>
       <span class="curr-link" data-curr="crypto"><span class="curr-flag">🔗</span><span class="curr-text">CRYPTO</span></span>
       <span class="curr-link" data-curr="paypal"><span class="curr-flag">🅿️</span><span class="curr-text">PAYPAL</span></span>
+      <span class="curr-link" data-curr="liberapay"><span class="curr-flag">🪙</span><span class="curr-text">LIBERAPAY</span></span>
     </div>
   </div>
 
@@ -7011,6 +7129,31 @@
                     <span class="paypal-copy-hint">→ copy</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+          <div class="currency-picker" data-for="liberapay" style="display: none;">
+            <div class="gift-widget liberapay liberapay-compact" data-currency="liberapay">
+              <div class="liberapay-header">
+                <img src="https://aesthetic.computer/purple-pals.svg" class="liberapay-logo-tiny" alt="">
+                <span class="liberapay-title">🪙 LIBERAPAY</span>
+                <span class="liberapay-subtitle">Recurring donations on Liberapay</span>
+              </div>
+              <div class="liberapay-controls">
+                <a href="https://liberapay.com/aesthetic.computer/donate" target="_blank" rel="noopener" class="liberapay-link-btn">
+                  <span data-lang="en">Give on Liberapay</span>
+                  <span data-lang="da">Giv via Liberapay</span>
+                  <span data-lang="de">Geben via Liberapay</span>
+                  <span data-lang="es">Dar via Liberapay</span>
+                  <span data-lang="zh">通过Liberapay捐赠</span>
+                </a>
+                <span class="liberapay-desc">
+                  <span data-lang="en">open source platform for recurring donations — no fees taken by Liberapay</span>
+                  <span data-lang="da">open source platform for tilbagevendende donationer — ingen gebyrer fra Liberapay</span>
+                  <span data-lang="de">Open-Source-Plattform für wiederkehrende Spenden — keine Gebühren von Liberapay</span>
+                  <span data-lang="es">plataforma de código abierto para donaciones recurrentes — sin comisiones de Liberapay</span>
+                  <span data-lang="zh">开源定期捐赠平台 — Liberapay不收取任何费用</span>
+                </span>
               </div>
             </div>
           </div>
