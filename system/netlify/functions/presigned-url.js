@@ -65,16 +65,19 @@ function getS3Clients() {
     
     s3Guest = new S3Client({
       endpoint,
+      region: "us-east-1",
       credentials: { accessKeyId, secretAccessKey },
     });
 
     s3Wand = new S3Client({
       endpoint: "https://" + (process.env.WAND_ENDPOINT || "sfo3.digitaloceanspaces.com"),
+      region: "us-east-1",
       credentials: { accessKeyId, secretAccessKey },
     });
 
     s3User = new S3Client({
       endpoint: "https://" + (process.env.USER_ENDPOINT || "sfo3.digitaloceanspaces.com"),
+      region: "us-east-1",
       credentials: { accessKeyId, secretAccessKey },
     });
     
