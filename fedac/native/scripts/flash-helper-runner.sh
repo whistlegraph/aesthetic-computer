@@ -100,12 +100,12 @@ copy_boot_tree_to_vfat() {
             fi
             # systemd-boot loader config
             mkdir -p "${mountpoint}/loader/entries"
-            printf 'default ac-native.conf\ntimeout 3\n' > "${mountpoint}/loader/loader.conf"
+            printf 'default ac-native.conf\ntimeout 0\n' > "${mountpoint}/loader/loader.conf"
             cat > "${mountpoint}/loader/entries/ac-native.conf" << 'SDBOOT_EOF'
 title AC Native OS
 linux /EFI/BOOT/KERNEL.EFI
 initrd /initramfs.cpio.lz4
-options console=tty0 loglevel=7 init=/init nomodeset efi=noruntime
+options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init efi=noruntime
 SDBOOT_EOF
             ;;
         *)
