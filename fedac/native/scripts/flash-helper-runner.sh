@@ -75,6 +75,11 @@ copy_boot_tree_to_vfat() {
             cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             rm -f "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             ;;
+        kernel-direct)
+            # Place kernel AS BOOTX64.EFI — standard UEFI fallback path.
+            # This is discoverable by all UEFI firmware including Intel Macs.
+            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            ;;
         *)
             err "Unknown VFAT boot mode: ${boot_mode}"
             return 1
@@ -95,22 +100,40 @@ populate_mac_partition() {
 
     mkdir -p "${mountpoint}/System/Library/CoreServices"
 
+    # Kernel as boot.efi — Apple's expected bootloader path
     cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/System/Library/CoreServices/boot.efi"
 
-    if [ -f /boot/efi/System/Library/CoreServices/SystemVersion.plist ]; then
-        cp /boot/efi/System/Library/CoreServices/SystemVersion.plist \
-            "${mountpoint}/System/Library/CoreServices/SystemVersion.plist"
-    fi
-    if [ -f /boot/efi/.VolumeIcon.icns ]; then
-        cp /boot/efi/.VolumeIcon.icns "${mountpoint}/.VolumeIcon.icns"
-    fi
-    if [ -f /boot/efi/mach_kernel ]; then
-        cp /boot/efi/mach_kernel "${mountpoint}/mach_kernel"
-    fi
+    # Also place as standard UEFI fallback (some Mac firmware checks both paths)
+    mkdir -p "${mountpoint}/EFI/BOOT"
+    cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
 
+    # SystemVersion.plist — required for Mac firmware to identify the volume
+    cat > "${mountpoint}/System/Library/CoreServices/SystemVersion.plist" << 'PLIST_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>ProductBuildVersion</key>
+    <string></string>
+    <key>ProductName</key>
+    <string>Linux</string>
+    <key>ProductVersion</key>
+    <string>AC Native OS</string>
+</dict>
+</plist>
+PLIST_EOF
+
+    # Dummy mach_kernel — expected by Mac firmware for volume identification
+    echo "Mach Kernel" > "${mountpoint}/mach_kernel"
+
+    # Bless the boot.efi so Mac firmware treats this as a bootable volume
     hfs-bless "${mountpoint}/System/Library/CoreServices/boot.efi"
+
     sync
     umount "${mountpoint}"
+
+    # Verify HFS+ integrity after blessing
+    fsck.hfsplus -yrdfp "${dev}" 2>/dev/null || true
 }
 
 verify_partition_layout() {
@@ -125,20 +148,25 @@ verify_written_media() {
     local efi_part="$2"
     local mac_part="$3"
 
+    # Partition 1 (ACBOOT): config + KERNEL.EFI, no BOOTX64.EFI
     mount_vfat_partition "${main_part}" /mnt/ac-main
     log "Main config: $(ac_media_summarize_config_file /mnt/ac-main/config.json || echo config=unreadable)"
     test ! -f /mnt/ac-main/EFI/BOOT/BOOTX64.EFI
     sha256sum /mnt/ac-main/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-main
 
+    # Partition 2 (ACEFI): kernel AS BOOTX64.EFI (standard UEFI fallback)
     mount_vfat_partition "${efi_part}" /mnt/ac-efi
-    test ! -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
-    sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
+    test -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
+    sha256sum /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-efi
 
+    # Partition 3 (AC-MAC): boot.efi + BOOTX64.EFI + Apple metadata
     mount_hfs_partition "${mac_part}" /mnt/ac-mac
-    test ! -f /mnt/ac-mac/EFI/BOOT/BOOTX64.EFI
-    test ! -f /mnt/ac-mac/EFI/BOOT/KERNEL.EFI
+    test -f /mnt/ac-mac/System/Library/CoreServices/boot.efi
+    test -f /mnt/ac-mac/System/Library/CoreServices/SystemVersion.plist
+    test -f /mnt/ac-mac/mach_kernel
+    test -f /mnt/ac-mac/EFI/BOOT/BOOTX64.EFI
     sha256sum /mnt/ac-mac/System/Library/CoreServices/boot.efi "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-mac
 }
@@ -193,13 +221,16 @@ mkfs.vfat -F 32 -n ACBOOT "${MAIN_PART}" >/dev/null
 mkfs.vfat -F 32 -n ACEFI "${EFI_PART}" >/dev/null
 mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
 
+# Do NOT create a hybrid MBR — old Intel Macs expect standard GPT protective
+# MBR (single 0xEE entry). Hybrid MBR confuses Mac firmware discovery.
+# Set legacy_boot attribute on main partition for BIOS fallback only.
 sgdisk --attributes=1:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
-sgdisk --attributes=2:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
-sgdisk --hybrid 3 "${USB_DEV}" >/dev/null 2>&1 || true
 partprobe "${USB_DEV}" 2>/dev/null || true
 
+# Partition 1 (ACBOOT): config + kernel as KERNEL.EFI (for AC initramfs to find)
 copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
-copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no kernel-only
+# Partition 2 (ACEFI): kernel AS BOOTX64.EFI — standard UEFI fallback path
+copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no kernel-direct
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
 sync
