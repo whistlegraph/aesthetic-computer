@@ -10,6 +10,8 @@ EnvironmentFile=/opt/ac/system/.env
 ExecStart=/usr/bin/node server.mjs
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGTERM
 StandardOutput=journal
 StandardError=journal
 
