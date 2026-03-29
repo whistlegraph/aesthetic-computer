@@ -332,6 +332,14 @@
 
     # --- notepat.com, kidlisp.com root, www variants ---
     # These all serve the main AC SPA
+    @notepatroot host notepat.com www.notepat.com
+    handle @notepatroot {
+        @notepatindex path /
+        handle @notepatindex {
+            rewrite * /notepat
+        }
+        reverse_proxy localhost:8888
+    }
     @mainspa host aesthetic.computer www.aesthetic.computer kidlisp.com www.kidlisp.com notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Preload critical assets (browser starts fetching before parsing HTML)

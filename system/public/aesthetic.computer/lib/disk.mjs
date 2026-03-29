@@ -2128,7 +2128,7 @@ function redirectIfBrandedDomain() {
   if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer/notepat", blank: false } });
     return true;
   }
   return false;

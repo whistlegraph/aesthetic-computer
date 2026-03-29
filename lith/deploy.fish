@@ -8,6 +8,7 @@ set YELLOW '\033[1;33m'
 set NC '\033[0m'
 
 set SCRIPT_DIR (dirname (status --current-filename))
+set REPO_ROOT (realpath "$SCRIPT_DIR/..")
 set VAULT_DIR "$SCRIPT_DIR/../aesthetic-computer-vault"
 set SSH_KEY "$VAULT_DIR/home/.ssh/id_rsa"
 set SERVICE_ENV "$VAULT_DIR/lith/.env"
@@ -38,6 +39,21 @@ echo -e "$GREEN-> Connected.$NC"
 # Sync repo (git pull on remote)
 echo -e "$GREEN-> Pulling latest code...$NC"
 ssh -i $SSH_KEY $LITH_USER@$LITH_HOST "cd $REMOTE_DIR && git pull origin main"
+
+# Overlay local working tree changes so deploys include uncommitted routing/frontend edits.
+echo -e "$GREEN-> Syncing local lith/ and system/ working tree...$NC"
+rsync -az --delete \
+    --exclude node_modules \
+    --exclude .env \
+    --exclude .DS_Store \
+    "$REPO_ROOT/lith/" \
+    $LITH_USER@$LITH_HOST:$REMOTE_DIR/lith/
+rsync -az --delete \
+    --exclude node_modules \
+    --exclude .env \
+    --exclude .DS_Store \
+    "$REPO_ROOT/system/" \
+    $LITH_USER@$LITH_HOST:$REMOTE_DIR/system/
 
 # Upload env
 echo -e "$GREEN-> Uploading environment...$NC"
