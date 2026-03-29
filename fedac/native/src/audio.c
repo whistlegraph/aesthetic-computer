@@ -798,24 +798,26 @@ ACAudio *audio_init(void) {
     snd_pcm_hw_params_get_rate_max(params, &rate_max, NULL);
     fprintf(stderr, "[audio] Hardware rate range: %u–%u Hz\n", rate_min, rate_max);
 
-    // Try rates from highest to lowest — pick the best the hardware supports
-    unsigned int preferred_rates[] = { 192000, 96000, 48000, 44100, 0 };
-    unsigned int rate = 0;
-    for (int i = 0; preferred_rates[i]; i++) {
-        unsigned int try_rate = preferred_rates[i];
-        if (try_rate > rate_max || try_rate < rate_min) continue;
-        // Test if this exact rate works
-        if (snd_pcm_hw_params_test_rate(pcm, params, try_rate, 0) == 0) {
-            rate = try_rate;
-            fprintf(stderr, "[audio] Selected rate: %u Hz\n", rate);
-            break;
-        }
+    // Pick sample rate: 48kHz is the safe default that all hardware can sustain.
+    // Many codecs (e.g. Cirrus Logic CS4206) claim 192kHz support but can't
+    // sustain it without constant XRUNs. Only use high rates on known-good
+    // hardware (ThinkPad HDA with Realtek codec handles 192kHz fine).
+    // Heuristic: if max rate > 48kHz AND min rate <= 32kHz, the codec is
+    // likely a laptop HDA that works better at 48kHz.
+    unsigned int rate = 48000;
+    if (rate_max >= 192000 && rate_min > 44100) {
+        // Dedicated audio interface — likely supports high rates reliably
+        rate = 192000;
+    } else if (rate_max >= 96000 && rate_min > 44100) {
+        rate = 96000;
     }
-    if (rate == 0) {
-        // Fallback: let ALSA pick the nearest to 48kHz
-        rate = 48000;
-        fprintf(stderr, "[audio] No preferred rate supported, falling back to nearest-48kHz\n");
+    // Override: environment variable AC_AUDIO_RATE forces a specific rate
+    const char *env_rate = getenv("AC_AUDIO_RATE");
+    if (env_rate) {
+        unsigned int r = (unsigned int)atoi(env_rate);
+        if (r >= rate_min && r <= rate_max) rate = r;
     }
+    fprintf(stderr, "[audio] Selected rate: %u Hz (hw range %u–%u)\n", rate, rate_min, rate_max);
     snd_pcm_hw_params_set_rate_near(pcm, params, &rate, 0);
 
     // Scale period and buffer to ~1ms latency at the negotiated rate
