@@ -335,20 +335,56 @@ async function handleFunctionResolved(req, res) {
 }
 
 // --- Deploy webhook (POST /lith/deploy?secret=...) ---
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { createHmac, timingSafeEqual } from "crypto";
 const DEPLOY_SECRET = process.env.DEPLOY_SECRET || "";
+let deployInProgress = false;
+
+function verifyDeploy(req) {
+  // GitHub HMAC signature (webhook secret)
+  const sig = req.headers["x-hub-signature-256"];
+  if (sig && DEPLOY_SECRET) {
+    const hmac = createHmac("sha256", DEPLOY_SECRET)
+      .update(JSON.stringify(req.body))
+      .digest("hex");
+    const expected = `sha256=${hmac}`;
+    if (sig.length === expected.length &&
+        timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return true;
+    }
+  }
+  // Fallback: query param or header (manual triggers)
+  const plain = req.query.secret || req.headers["x-deploy-secret"];
+  return plain === DEPLOY_SECRET;
+}
 
 app.post("/lith/deploy", (req, res) => {
-  const secret = req.query.secret || req.headers["x-deploy-secret"];
-  if (!DEPLOY_SECRET || secret !== DEPLOY_SECRET) {
+  if (!DEPLOY_SECRET || !verifyDeploy(req)) {
     return res.status(401).send("Unauthorized");
   }
-  try {
-    const out = execSync("/opt/ac/lith/webhook.sh", { timeout: 30000, encoding: "utf-8" });
-    res.send(out);
-  } catch (err) {
-    res.status(500).send(err.message);
+
+  // Only deploy main branch pushes (GitHub sends ref in payload)
+  const ref = req.body?.ref;
+  if (ref && ref !== "refs/heads/main") {
+    return res.send(`Ignored non-main push: ${ref}`);
   }
+
+  if (deployInProgress) {
+    return res.status(429).send("Deploy already in progress");
+  }
+
+  deployInProgress = true;
+  res.send("Deploy started");
+
+  // Run async — don't block the event loop or the HTTP response
+  execFile("/opt/ac/lith/webhook.sh", { timeout: 120000 }, (err, stdout, stderr) => {
+    deployInProgress = false;
+    if (err) {
+      console.error("[deploy] failed:", err.message, stderr);
+    } else {
+      console.log("[deploy]", stdout);
+    }
+  });
 });
 
 // --- Routes ---
