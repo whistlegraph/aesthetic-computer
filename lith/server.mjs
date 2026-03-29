@@ -608,16 +608,38 @@ app.use(async (req, res) => {
 });
 
 // --- Start server ---
+let server;
 if (DEV && HAS_SSL) {
   const opts = {
     cert: readFileSync(SSL_CERT),
     key: readFileSync(SSL_KEY),
   };
-  createHttpsServer(opts, app).listen(PORT, () => {
+  server = createHttpsServer(opts, app).listen(PORT, () => {
     console.log(`lith listening on https://localhost:${PORT}`);
   });
 } else {
-  createHttpServer(app).listen(PORT, () => {
+  server = createHttpServer(app).listen(PORT, () => {
     console.log(`lith listening on http://localhost:${PORT}`);
   });
 }
+
+// --- Graceful shutdown ---
+// On SIGTERM (sent by systemctl restart), stop accepting new connections
+// and wait for in-flight requests to finish before exiting.
+const DRAIN_TIMEOUT = 10_000; // 10s max wait
+
+function gracefulShutdown(signal) {
+  console.log(`[lith] ${signal} received, draining connections...`);
+  server.close(() => {
+    console.log("[lith] all connections drained, exiting");
+    process.exit(0);
+  });
+  // Force exit if connections don't drain in time
+  setTimeout(() => {
+    console.warn("[lith] drain timeout, forcing exit");
+    process.exit(1);
+  }, DRAIN_TIMEOUT).unref();
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
