@@ -2010,8 +2010,8 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[ac-native] dmesg DRM/i915:\n");
             system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display\\|error' | tail -20");
             // Write diagnostics to USB too
-            system("cat /proc/cmdline >> /mnt/usb/ac-init.log 2>/dev/null");
-            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/usb/ac-init.log 2>/dev/null");
+            system("cat /proc/cmdline >> /mnt/ac-init.log 2>/dev/null");
+            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/ac-init.log 2>/dev/null");
             if (getpid() == 1) { sleep(30); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
             return 1;
         }

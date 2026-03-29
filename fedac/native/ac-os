@@ -538,6 +538,7 @@ timeout ${TIMEOUT} qemu-system-x86_64 \
 
 build_kernel() {
     local LINUX_DIR="${BUILD_DIR}/linux-6.14.2"
+    local HOST_FW_DIR=""
     if [ ! -d "${LINUX_DIR}" ]; then
         err "Linux source not found at ${LINUX_DIR}"
         exit 1
@@ -552,10 +553,50 @@ build_kernel() {
     else
         cd "${LINUX_DIR}"
     fi
+    copy_builtin_fw_blob() {
+        local rel="$1"
+        local dst="$2/$rel"
+        mkdir -p "$(dirname "${dst}")"
+        if [ -f "${HOST_FW_DIR}/${rel}" ]; then
+            cp -L "${HOST_FW_DIR}/${rel}" "${dst}"
+            return 0
+        fi
+        if [ -f "${HOST_FW_DIR}/${rel}.zst" ]; then
+            zstd -d "${HOST_FW_DIR}/${rel}.zst" -o "${dst}" 2>/dev/null && return 0
+        fi
+        if [ -f "${HOST_FW_DIR}/${rel}.xz" ]; then
+            xz -dc "${HOST_FW_DIR}/${rel}.xz" > "${dst}" 2>/dev/null && return 0
+        fi
+        return 1
+    }
+
+    for d in /usr/lib/firmware /lib/firmware; do
+        if [ -d "${d}" ]; then
+            HOST_FW_DIR="${d}"
+            break
+        fi
+    done
+
     # Inject built-in firmware paths if firmware blobs exist locally
     local FW_DIR="${BUILD_DIR}/firmware"
-    if [ -d "${FW_DIR}" ] && ls "${FW_DIR}"/*.ucode &>/dev/null; then
-        local FW_LIST=$(cd "${FW_DIR}" && ls *.ucode 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    local FW_LIST
+    FW_LIST=$(sed -n 's/^CONFIG_EXTRA_FIRMWARE="\([^"]*\)"/\1/p' "${LINUX_DIR}/.config" | head -1)
+    if [ -n "${FW_LIST}" ]; then
+        mkdir -p "${FW_DIR}"
+        if [ -n "${HOST_FW_DIR}" ]; then
+            local missing_fw=""
+            local fw=""
+            for fw in ${FW_LIST}; do
+                if ! copy_builtin_fw_blob "${fw}" "${FW_DIR}"; then
+                    missing_fw="${missing_fw} ${fw}"
+                fi
+            done
+            if [ -n "${missing_fw}" ]; then
+                err "Missing built-in firmware blobs:${missing_fw}"
+                err "Looked under: ${HOST_FW_DIR}"
+                exit 1
+            fi
+        fi
         sed -i "s|^CONFIG_EXTRA_FIRMWARE=.*|CONFIG_EXTRA_FIRMWARE=\"${FW_LIST}\"|" "${LINUX_DIR}/.config"
         sed -i "s|^CONFIG_EXTRA_FIRMWARE_DIR=.*|CONFIG_EXTRA_FIRMWARE_DIR=\"${FW_DIR}\"|" "${LINUX_DIR}/.config"
         log "Built-in firmware: ${FW_LIST}"

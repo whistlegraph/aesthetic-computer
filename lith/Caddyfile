@@ -340,7 +340,7 @@
         }
         reverse_proxy localhost:8888
     }
-    @mainspa host aesthetic.computer www.aesthetic.computer kidlisp.com www.kidlisp.com notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer kidlisp.com www.kidlisp.com notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
         # Preload critical assets (browser starts fetching before parsing HTML)
         header Link "</aesthetic.computer/boot.mjs>; rel=preload; as=script, </aesthetic.computer/style.css>; rel=preload; as=style"

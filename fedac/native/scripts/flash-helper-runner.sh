@@ -62,11 +62,24 @@ copy_boot_tree_to_vfat() {
     local dev="$1"
     local mountpoint="$2"
     local include_config="${3:-no}"
+    local boot_mode="${4:-chainloader}"
 
     mount_vfat_partition "${dev}" "${mountpoint}"
     mkdir -p "${mountpoint}/EFI/BOOT"
-    cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
-    cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+    case "${boot_mode}" in
+        chainloader)
+            cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            ;;
+        kernel-only)
+            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            rm -f "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            ;;
+        *)
+            err "Unknown VFAT boot mode: ${boot_mode}"
+            return 1
+            ;;
+    esac
     if [ "${include_config}" = "yes" ]; then
         cp "${STAGED_ROOT}/config.json" "${mountpoint}/config.json"
     fi
@@ -80,12 +93,9 @@ populate_mac_partition() {
 
     mount_hfs_partition "${dev}" "${mountpoint}"
 
-    mkdir -p "${mountpoint}/EFI/BOOT"
     mkdir -p "${mountpoint}/System/Library/CoreServices"
 
-    cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
-    cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
-    cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/System/Library/CoreServices/boot.efi"
+    cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/System/Library/CoreServices/boot.efi"
 
     if [ -f /boot/efi/System/Library/CoreServices/SystemVersion.plist ]; then
         cp /boot/efi/System/Library/CoreServices/SystemVersion.plist \
@@ -98,7 +108,7 @@ populate_mac_partition() {
         cp /boot/efi/mach_kernel "${mountpoint}/mach_kernel"
     fi
 
-    hfs-bless "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+    hfs-bless "${mountpoint}/System/Library/CoreServices/boot.efi"
     sync
     umount "${mountpoint}"
 }
@@ -117,16 +127,19 @@ verify_written_media() {
 
     mount_vfat_partition "${main_part}" /mnt/ac-main
     log "Main config: $(ac_media_summarize_config_file /mnt/ac-main/config.json || echo config=unreadable)"
+    test ! -f /mnt/ac-main/EFI/BOOT/BOOTX64.EFI
     sha256sum /mnt/ac-main/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-main
 
     mount_vfat_partition "${efi_part}" /mnt/ac-efi
+    test ! -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
     sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-efi
 
     mount_hfs_partition "${mac_part}" /mnt/ac-mac
-    sha256sum /mnt/ac-mac/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
-    test -f /mnt/ac-mac/System/Library/CoreServices/boot.efi
+    test ! -f /mnt/ac-mac/EFI/BOOT/BOOTX64.EFI
+    test ! -f /mnt/ac-mac/EFI/BOOT/KERNEL.EFI
+    sha256sum /mnt/ac-mac/System/Library/CoreServices/boot.efi "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-mac
 }
 
@@ -180,12 +193,13 @@ mkfs.vfat -F 32 -n ACBOOT "${MAIN_PART}" >/dev/null
 mkfs.vfat -F 32 -n ACEFI "${EFI_PART}" >/dev/null
 mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
 
-sgdisk --attributes=1:set:2 "${USB_DEV}" >/dev/null 2>&1 || true
-sgdisk --hybrid 1:2:3 "${USB_DEV}" >/dev/null 2>&1 || true
+sgdisk --attributes=1:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
+sgdisk --attributes=2:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
+sgdisk --hybrid 3 "${USB_DEV}" >/dev/null 2>&1 || true
 partprobe "${USB_DEV}" 2>/dev/null || true
 
-copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes
-copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no
+copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
+copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no kernel-only
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
 sync
