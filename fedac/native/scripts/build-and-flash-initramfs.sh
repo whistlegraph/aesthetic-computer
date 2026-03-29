@@ -537,10 +537,12 @@ DHCLIENT_SCRIPT
         # Busybox applet symlinks — covers find, cp, mv, rm, ln, wc, tail, sort,
         # uniq, tr, tee, xargs, diff, stat, ps, tar, gzip, touch, env, basename,
         # dirname, expr, test, printf, date, dd, df, du, echo, true, false, etc.
-        for cmd in find cp mv rm ln wc tail sort uniq tr tee xargs diff stat ps \
-                   tar gzip gunzip touch env basename dirname expr test printf \
-                   date dd df du echo true false readlink mktemp vi hostname \
-                   id whoami chown rmdir realpath seq yes nohup md5sum sha256sum; do
+        for cmd in sh sleep mkdir mount umount cat cp mv rm ln chmod chown \
+                   date dd find grep head kill ps sed sort tail tee test touch tr wc which \
+                   mktemp printf seq stat basename dirname env expr true false readlink \
+                   realpath rmdir uniq yes tar gzip gunzip hostname id ip modprobe \
+                   mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami awk \
+                   sync poweroff reboot halt mknod udhcpc md5sum sha256sum; do
             ln -sf busybox "${INITRAMFS_DIR}/bin/${cmd}" 2>/dev/null || true
         done
         log "  busybox: $(du -sh "${INITRAMFS_DIR}/bin/busybox" | cut -f1) ($(ls "${INITRAMFS_DIR}/bin/" | wc -l) symlinks)"
