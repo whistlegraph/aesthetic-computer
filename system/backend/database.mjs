@@ -257,6 +257,7 @@ async function listAndSaveMedia(mediaType) {
 
   const s3User = new S3Client({
     endpoint: "https://" + process.env.USER_ENDPOINT,
+    region: "us-east-1",
     credentials: {
       accessKeyId: process.env.ART_KEY,
       secretAccessKey: process.env.ART_SECRET,
