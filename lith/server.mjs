@@ -122,6 +122,17 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+// --- Host-based rewrites that Netlify previously handled ---
+app.use((req, _res, next) => {
+  const host = (req.headers.host || "").split(":")[0].toLowerCase();
+
+  // Preserve branded notepat.com URLs while serving the /notepat piece.
+  if ((host === "notepat.com" || host === "www.notepat.com") && req.path === "/") {
+    req.url = "/notepat" + (req.url === "/" ? "" : req.url.slice(req.path.length));
+  }
+
+  next();
+});
 
 // --- Load Netlify functions ---
 const functions = {};
