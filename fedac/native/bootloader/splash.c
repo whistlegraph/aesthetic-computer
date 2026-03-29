@@ -9,6 +9,7 @@
 #include "font8x8.h"
 
 #define KERNEL_PATH L"\\EFI\\BOOT\\KERNEL.EFI"
+#define LOADER_PATH L"\\EFI\\BOOT\\LOADER.EFI"
 
 // --- GOP helpers ---
 
@@ -148,16 +149,14 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
         draw_string(text, x, y, scale, color);
     }
 
-    // Brief pause so splash is visible (500ms)
-    uefi_call_wrapper(BS->Stall, 1, 500000);
-
 chain:
+    // Try systemd-boot first (for Mac split-kernel boot), fall back to direct kernel
+    status = chainload(ImageHandle, LOADER_PATH);
+    // LOADER.EFI not found — try direct kernel (non-Mac boot)
     status = chainload(ImageHandle, KERNEL_PATH);
 
-    // Chainload failed — show error
-    Print(L"Failed to load ");
-    Print(KERNEL_PATH);
-    Print(L": %r\n", status);
+    // Both failed — show error
+    Print(L"Boot failed: %r\n", status);
     uefi_call_wrapper(BS->Stall, 1, 5000000);
     return status;
 }
