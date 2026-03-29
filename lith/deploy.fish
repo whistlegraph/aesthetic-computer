@@ -126,7 +126,7 @@ echo -e "$GREEN-> Connected to $TARGET_HOST.$NC"
 
 # Sync repo (git pull on remote)
 echo -e "$GREEN-> Pulling latest code...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git pull origin main"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git pull origin main && git rev-parse --short HEAD > system/public/.commit-ref"
 
 # Overlay local working tree changes so deploys include uncommitted routing/frontend edits.
 echo -e "$GREEN-> Syncing local lith/ and system/ working tree...$NC"
@@ -140,6 +140,7 @@ rsync -az --delete \
     --exclude node_modules \
     --exclude .env \
     --exclude .DS_Store \
+    --exclude .netlify \
     "$REPO_ROOT/system/" \
     $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/
 
