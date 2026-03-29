@@ -18,13 +18,18 @@ This report traces the available evidence around the Aesthetic.Computer "Pals" l
 
 ### Email and calendar artifacts
 
-- 2022-09-14: email subject `my invoice` from Niki Stebbins.
-- 2022-09-19: email subject `Niki's invoice #1`.
-- 2023-02-01: email subject `Niki's Invoice #2`.
-- 2023-07-19: calendar hit `logos w/ niki`.
-- 2023-08-01: calendar hit `niki logo update`.
-- 2023-09-09: email subject `!c3 cr34m l0go$` from Niki Stebbins with 18 JPG attachments and body text `ice cream logos 8)`.
-- 2025-05-11 to 2025-05-13: Casey Rubber Stamps thread around `Aesthetic Computer Pals Logo.pdf`.
+- 2020-07-26: email `stamp 4 u` from niki stebbins (4thearchive@gmail.com) with attachment `niki_purpstar.png` — earliest creative exchange. Jeffrey replied (2020-08-06) saying he added her stamp to the game as @niki and asked for more.
+- 2020-08-14: Figma comment notification from niki stebbins on "Untitled" — early design collaboration.
+- 2020-08-20: Niki replies to stamp thread: "Once I make more I'll send you a pfp+bio !"
+- 2022-08 to 2022-12: At least 6 calendar events for "a.c meeting" sessions with Niki (Aug 15, Aug 18, Sep 8, Oct 8, Oct 12, Oct 28, Dec 7, Dec 9).
+- 2022-09-14: email `my invoice` from Niki Stebbins (nikis_july-sept_timesheet.pdf) — paid work confirmed.
+- 2022-09-19: email `Niki's invoice #1` — "I played around with it a little bit. laurels' inspired me hehe"
+- 2023-01 to 2023-02: More meetings — "niki x jeffrey" sessions (Jan 26, Jan 28, Feb 1, Feb 13).
+- 2023-02-01: email `Niki's Invoice #2` (Sep–Dec 2022 work).
+- 2023-07-19: calendar `logos w/ niki` — dedicated logo session, 8–9pm EDT.
+- 2023-08-01: calendar `niki logo update` — follow-up, 8–8:50pm EDT.
+- 2023-09-09: email `!c3 cr34m l0go$` from Niki Stebbins with 18 JPG attachments and body text `ice cream logos 8)`.
+- 2025-05-11 to 2025-05-13: Casey Rubber Stamps thread around `Aesthetic Computer Pals Logo.pdf`. **Order never completed** — stalled after Jeffrey's follow-up.
 
 These artifacts live in the March 28 Claude session and its saved tool results:
 
@@ -100,7 +105,7 @@ This is the strongest date for "the current in-repo canonical vector exists," bu
 
 ### 2025-05-11 to 2025-05-13
 
-The logo is clearly mature enough for physical production. The Casey Rubber Stamps thread references `Aesthetic Computer Pals Logo.pdf` and requests a production-ready file.
+Jeffrey contacted Casey Rubber Stamps (322 E 11th St, East Village, NYC) to order physical rubber stamps of the Pals logo in three sizes (half, actual at 2.35" square, and double). John Casey replied requesting a high-res file (PDF/Illustrator/1200dpi JPEG). Jeffrey sent `Aesthetic Computer Pals Logo.pdf` and followed up once, but **the order never went through** — the thread stalled after the follow-up.
 
 ### 2026-02-16 onward
 
@@ -109,6 +114,12 @@ The repo and papers start explicitly centering "Pals" as platform identity:
 - `9dc1704ac` renames the score to `Score for Aesthetic.Computer & Pals`
 - `2d7d1c58e` and later paper commits bring the Pals logo into the paper stack
 - 2026-03-28: the paper wording is corrected to describe the mark as two hand-drawn figures holding hands
+
+### What the Logo Actually Depicts
+
+The Pals logo is **two outlined human figures holding hands with arms raised** — like two friends walking or dancing together. Drawn in a loose, organic, hand-drawn style. The canonical version is pink/magenta (#cd5c9b in purple-pals.svg). It is NOT "a pair of eyes."
+
+Niki used the `wgr` (whistlegraph renderer) piece — a drawing tool inside AC itself — to create logo explorations. The logo was made *with* the platform, not just *for* it (evidenced by commit `5bcefc5a9`).
 
 ## What Is Not Yet Proven
 
@@ -126,9 +137,12 @@ Niki Stebbins was materially involved in AC logo development by 2022-2023, parti
 
 If this needs to become a publication-grade provenance report, the next sources should be:
 
-- the early `stamp 4 u` mail thread
-- any original Figma comments or export history tied to the logo work
-- the unsaved inline draft in the March 28 Claude session
+- any original Figma export history tied to the logo work
 - git blame and asset diffs around `system/public/purple-pals.svg`
+- the Wacom tablet order thread (Jul 2022) with Niki — may relate to logo drawing tools
+
+## Open Items
+
+- Casey Rubber Stamps order never completed — could still be pursued if physical stamps are wanted.
 
 Until then, this report should be treated as a careful working history rather than a final attribution statement.
