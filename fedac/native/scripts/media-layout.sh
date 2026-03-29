@@ -99,6 +99,18 @@ ac_media_stage_boot_tree() {
     cp "${bootloader_path}" "${stage_root}/EFI/BOOT/BOOTX64.EFI"
     cp "${kernel_path}" "${stage_root}/EFI/BOOT/KERNEL.EFI"
     cp "${config_path}" "${stage_root}/config.json"
+
+    # Stage slim kernel + initramfs for Mac boot (systemd-boot mode)
+    local kernel_dir
+    kernel_dir="$(dirname "${kernel_path}")"
+    local slim="${kernel_dir}/vmlinuz-slim"
+    local initramfs="${kernel_dir}/initramfs.cpio.lz4"
+    if [ -f "${slim}" ]; then
+        cp "${slim}" "${stage_root}/EFI/BOOT/KERNEL-SLIM.EFI"
+    fi
+    if [ -f "${initramfs}" ]; then
+        cp "${initramfs}" "${stage_root}/initramfs.cpio.lz4"
+    fi
 }
 
 ac_stage_boot_media_tree() {
