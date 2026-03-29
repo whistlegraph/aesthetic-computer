@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -320,6 +321,8 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
     input->screen_h = screen_h;
     input->scale = scale > 0 ? scale : 1;
     input->last_poll_time = monotonic_sec();
+    input->abs_prev_x = INT_MIN;
+    input->abs_prev_y = INT_MIN;
 
     // Scan /dev/input/ for event devices
     DIR *dir = opendir("/dev/input");
@@ -364,6 +367,26 @@ ACInput *input_init(int screen_w, int screen_h, int scale) {
                 fprintf(stderr, "[input] Opened %s\n", path);
             }
             input->fd_is_analog[input->count] = is_nuphy;
+            // Detect absolute trackpads (BCM5974, etc.) — query axis ranges
+            input->fd_is_trackpad[input->count] = 0;
+            if (evbits & (1 << EV_ABS)) {
+                struct input_absinfo abs_x, abs_y;
+                if (ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &abs_x) >= 0 &&
+                    ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &abs_y) >= 0 &&
+                    (abs_x.maximum - abs_x.minimum) > 1000) {
+                    // Wide absolute range = trackpad (not a touchscreen)
+                    input->fd_is_trackpad[input->count] = 1;
+                    input->abs_x_min = abs_x.minimum;
+                    input->abs_x_max = abs_x.maximum;
+                    input->abs_y_min = abs_y.minimum;
+                    input->abs_y_max = abs_y.maximum;
+                    input->abs_x_res = abs_x.resolution > 0 ? abs_x.resolution : 92;
+                    input->abs_y_res = abs_y.resolution > 0 ? abs_y.resolution : 91;
+                    fprintf(stderr, "[input] Trackpad detected: X[%d..%d] Y[%d..%d] res=%d/%d\n",
+                            abs_x.minimum, abs_x.maximum, abs_y.minimum, abs_y.maximum,
+                            input->abs_x_res, input->abs_y_res);
+                }
+            }
             input->fds[input->count++] = fd;
         } else {
             close(fd);
@@ -476,6 +499,8 @@ poll_evdev: ;
                     } else if (ev.value == 0) {
                         ae->type = AC_EVENT_LIFT;
                         input->pointer_down = 0;
+                        input->abs_prev_x = INT_MIN; // Reset trackpad on lift
+                        input->abs_prev_y = INT_MIN;
                     }
                     ae->x = input->pointer_x / input->scale;
                     ae->y = input->pointer_y / input->scale;
@@ -522,16 +547,58 @@ poll_evdev: ;
                             input->tablet_mode ? "ON" : "OFF");
                 }
             } else if (ev.type == EV_ABS) {
-                // Absolute touch/tablet — clamp and store in display coords
-                if (ev.code == ABS_X || ev.code == ABS_MT_POSITION_X) {
-                    input->pointer_x = ev.value;
-                    if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
+                if (input->fd_is_trackpad[d]) {
+                    // Trackpad: convert absolute coords to relative deltas.
+                    // BCM5974 reports ~(-4415..5050) for X, ~(-55..6680) for Y.
+                    // Use INT_MIN as sentinel for "no previous value this touch".
+                    if (ev.code == ABS_MT_POSITION_X || ev.code == ABS_X) {
+                        if (input->abs_prev_x != INT_MIN) {
+                            int raw_dx = ev.value - input->abs_prev_x;
+                            float dx = (float)raw_dx / (float)(input->abs_x_res > 0 ? input->abs_x_res : 92) * 30.0f;
+                            input->pointer_x += (int)dx;
+                            input->delta_x += (int)dx;
+                        }
+                        input->abs_prev_x = ev.value;
+                    }
+                    if (ev.code == ABS_MT_POSITION_Y || ev.code == ABS_Y) {
+                        if (input->abs_prev_y != INT_MIN) {
+                            int raw_dy = ev.value - input->abs_prev_y;
+                            float dy = (float)raw_dy / (float)(input->abs_y_res > 0 ? input->abs_y_res : 91) * 30.0f;
+                            input->pointer_y += (int)dy;
+                            input->delta_y += (int)dy;
+                        }
+                        input->abs_prev_y = ev.value;
+                    }
+                    // Finger lift — reset per-axis tracking
+                    if ((ev.code == ABS_MT_TRACKING_ID && ev.value == -1) ||
+                        (ev.code == BTN_TOUCH && ev.value == 0)) {
+                        input->abs_prev_x = INT_MIN;
+                        input->abs_prev_y = INT_MIN;
+                    }
+                    // Clamp to display bounds
                     if (input->pointer_x < 0) input->pointer_x = 0;
-                }
-                if (ev.code == ABS_Y || ev.code == ABS_MT_POSITION_Y) {
-                    input->pointer_y = ev.value;
-                    if (input->pointer_y >= input->screen_h) input->pointer_y = input->screen_h - 1;
                     if (input->pointer_y < 0) input->pointer_y = 0;
+                    if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
+                    if (input->pointer_y >= input->screen_h) input->pointer_y = input->screen_h - 1;
+
+                    if (input->pointer_down) {
+                        ae->type = AC_EVENT_DRAW;
+                        ae->x = input->pointer_x / input->scale;
+                        ae->y = input->pointer_y / input->scale;
+                        input->event_count++;
+                    }
+                } else {
+                    // Touchscreen or tablet — map absolute coords to display
+                    if (ev.code == ABS_X || ev.code == ABS_MT_POSITION_X) {
+                        input->pointer_x = ev.value;
+                        if (input->pointer_x >= input->screen_w) input->pointer_x = input->screen_w - 1;
+                        if (input->pointer_x < 0) input->pointer_x = 0;
+                    }
+                    if (ev.code == ABS_Y || ev.code == ABS_MT_POSITION_Y) {
+                        input->pointer_y = ev.value;
+                        if (input->pointer_y >= input->screen_h) input->pointer_y = input->screen_h - 1;
+                        if (input->pointer_y < 0) input->pointer_y = 0;
+                    }
                 }
             }
         }

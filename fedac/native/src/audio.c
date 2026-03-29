@@ -1098,6 +1098,34 @@ static void *capture_thread_func(void *arg) {
         return NULL;
     }
 
+    // Enable capture mixer switches now that capture PCM is open.
+    // (Safe to do after snd_pcm_open — avoids the pre-open EIO bug on some HDA.)
+    {
+        char mixer_card[16];
+        snprintf(mixer_card, sizeof(mixer_card), "hw:%d", audio->card_index);
+        snd_mixer_t *cmix = NULL;
+        if (snd_mixer_open(&cmix, 0) >= 0) {
+            snd_mixer_attach(cmix, mixer_card);
+            snd_mixer_selem_register(cmix, NULL, NULL);
+            snd_mixer_load(cmix);
+            snd_mixer_elem_t *el;
+            for (el = snd_mixer_first_elem(cmix); el; el = snd_mixer_elem_next(el)) {
+                if (!snd_mixer_selem_is_active(el)) continue;
+                if (snd_mixer_selem_has_capture_switch(el)) {
+                    snd_mixer_selem_set_capture_switch_all(el, 1);
+                    ac_log("[mic] enabled capture switch: %s\n", snd_mixer_selem_get_name(el));
+                }
+                if (snd_mixer_selem_has_capture_volume(el)) {
+                    long cmin, cmax;
+                    snd_mixer_selem_get_capture_volume_range(el, &cmin, &cmax);
+                    snd_mixer_selem_set_capture_volume_all(el, cmax);
+                    ac_log("[mic] capture volume %s: %ld/%ld\n", snd_mixer_selem_get_name(el), cmax, cmax);
+                }
+            }
+            snd_mixer_close(cmix);
+        }
+    }
+
     snd_pcm_hw_params_t *hw;
     snd_pcm_hw_params_alloca(&hw);
     snd_pcm_hw_params_any(cap, hw);
