@@ -1135,7 +1135,6 @@ async function fun(event, context) {
           });
         </script>
         <script
-          crossorigin="anonymous"
           src="/aesthetic.computer/boot.mjs"
           type="module"
           defer
@@ -1198,7 +1197,6 @@ async function fun(event, context) {
         <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link
           rel="stylesheet"
-          crossorigin="anonymous"
           href="/aesthetic.computer/style.css"
         />
         <link rel="stylesheet" href="/type/webfonts/ywft-processing-bold.css" />
