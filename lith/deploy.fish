@@ -27,6 +27,12 @@ if not test -f $SERVICE_ENV
     exit 1
 end
 
+if not rg -q '^DEPLOY_SECRET=' $SERVICE_ENV
+    echo -e "$RED x DEPLOY_SECRET missing from $SERVICE_ENV$NC"
+    echo -e "$YELLOW   lith reads this file via /opt/ac/system/.env on the server.$NC"
+    exit 1
+end
+
 # Test SSH connection
 echo -e "$GREEN-> Testing SSH connection to $LITH_HOST...$NC"
 if not ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o ConnectTimeout=10 $LITH_USER@$LITH_HOST "echo ok" &>/dev/null
@@ -57,6 +63,9 @@ rsync -az --delete \
 
 # Upload env
 echo -e "$GREEN-> Uploading environment...$NC"
+# Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the
+# canonical vault source lives at aesthetic-computer-vault/lith/.env and is
+# uploaded into system/.env on the remote host.
 scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$LITH_HOST:$REMOTE_DIR/system/.env
 
 # Install deps
