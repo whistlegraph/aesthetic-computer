@@ -612,6 +612,19 @@ build_kernel() {
     sudo cp arch/x86/boot/bzImage "${VMLINUZ}"
     sudo chown $(whoami) "${VMLINUZ}"
     log "Kernel: $(du -sh "${VMLINUZ}" | cut -f1)"
+
+    # Also build a slim kernel WITHOUT embedded initramfs for Mac EFI boot.
+    # Mac firmware can't load a 270MB EFI application. The slim kernel (~15MB)
+    # loads via systemd-boot, which then provides the initramfs separately.
+    log "Building slim kernel (no embedded initramfs) for Mac boot..."
+    sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' "${LINUX_DIR}/.config"
+    sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
+    make -j$(nproc) bzImage 2>&1 | tail -1
+    sudo cp arch/x86/boot/bzImage "${BUILD_DIR}/vmlinuz-slim"
+    sudo chown $(whoami) "${BUILD_DIR}/vmlinuz-slim"
+    log "Slim kernel: $(du -sh "${BUILD_DIR}/vmlinuz-slim" | cut -f1)"
+    # Restore config for next build
+    sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' "${LINUX_DIR}/.config"
 }
 
 record_build() {

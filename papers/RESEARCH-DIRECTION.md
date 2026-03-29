@@ -1,6 +1,6 @@
 # Research Direction · Aesthetic Computer
 
-**Last updated**: 2026-03-18
+**Last updated**: 2026-03-28
 **Author**: @jeffrey — [ORCID 0009-0007-4460-4913](https://orcid.org/0009-0007-4460-4913)
 
 ---
@@ -24,9 +24,9 @@
 - [ ] Add figures: PLOrk vs AC OS cost scaling chart, surplus hardware photo grid, ensemble network diagram
 - [ ] Get exact PLOrk equipment cost figures from Trueman 2006/2007 papers (currently estimated)
 - [ ] Add real AC OS ensemble performance test results (latency, voice count, network throughput)
-- [ ] Cite Ge Wang's ChucK papers more specifically for SLOrk technical details
+- [x] Cite Ge Wang's ChucK papers more specifically for SLOrk technical details — prose strengthened 2026-03-28
 - [ ] Add section on software-defined spatialization (distributed speakers as emergent hemispherical speaker)
-- [ ] Research and cite post-COVID laptop orchestra status (many dissolved?)
+- [x] Research and cite post-COVID laptop orchestra status (many dissolved?) — prose added in Related Work 2026-03-28
 - [ ] Consider NIME 2027 submission (laptop orchestras + new instruments = core NIME topic)
 
 ### 0b. AC Native OS '26 (arXiv — `arxiv-os/os.tex`)
@@ -35,11 +35,11 @@
 **Core argument**: Flashing surplus commodity laptops with a bare-metal creative OS offers a post-OLPC, post-Apple model of personal computing — deeper personalization at lower cost with zero infrastructure
 **What's needed**:
 - [ ] Add figures: boot splash screenshot, architecture diagram, cost comparison chart
-- [ ] Cite Eben Moglen / FreedomBox — community-owned infrastructure lineage
-- [ ] Cite e-waste statistics (UN Global E-waste Monitor 2024) for the surplus hardware argument
+- [x] Cite Eben Moglen / FreedomBox — community-owned infrastructure lineage — BibTeX + prose added 2026-03-28
+- [x] Cite e-waste statistics (UN Global E-waste Monitor 2024) for the surplus hardware argument — BibTeX + prose added 2026-03-28
 - [ ] Add real performance benchmarks (boot time breakdown, frame timing, memory usage)
 - [ ] Reference FedAC kiosk variant as the Fedora-based predecessor
-- [ ] Consider citing ChromeOS / CloudReady as the incumbent surplus-laptop OS
+- [x] Consider citing ChromeOS / CloudReady as the incumbent surplus-laptop OS — BibTeX + prose added 2026-03-28
 - [ ] Add section on security model (no network services, no writable rootfs, EFI-only persistence)
 - [ ] Pull hardware compatibility test results from different surplus laptop models
 - [x] Cite Ted Nelson *Computer Lib / Dream Machines* — personal computing philosophy lineage (BibTeX added 2026-03-18)
@@ -52,7 +52,7 @@
 - [x] Cite McLuhan "Understanding Media" — BibTeX added 2026-03-18
 - [x] Cite Ted Nelson *Computer Lib / Dream Machines* — BibTeX added 2026-03-18
 - [x] Cite Montfort et al. *10 PRINT* — procedural generation / randomness in computation — BibTeX added 2026-03-18
-- [ ] Cite Ukeles "Manifesto for Maintenance Art" — AC's maintenance-as-practice philosophy (ants, upkeep)
+- [x] Cite Ukeles "Manifesto for Maintenance Art" — AC's maintenance-as-practice philosophy (ants, upkeep) — BibTeX + prose added 2026-03-28
 - [x] Cite Roos & McLean "Strudel" (ICLC 2023) — BibTeX + prose added 2026-03-18
 - [x] Cite Staunæs on Stiegler "Concept of Idiotext" — BibTeX + prose added 2026-03-18
 - [ ] Add adoption metrics section (user counts, piece counts, session data from MongoDB)
@@ -90,10 +90,10 @@
 **Status**: Working draft, 4 pages, WORKING DRAFT watermark ✓
 **Current citations**: ~6
 **What's missing from the platter**:
-- [ ] Cite McLuhan "Medium is the Message" — keyboard as musical interface, repurposing everyday input
+- [x] Cite McLuhan "Medium is the Message" — keyboard as musical interface, repurposing everyday input — BibTeX + prose added 2026-03-28
 - [ ] Reference `notepat.com` Netlify routing and custom domain setup
 - [ ] Add usage/adoption data if available
-- [ ] Reference predecessor tools: nopaint (6 repos!), whistlegraph performance tools
+- [x] Reference predecessor tools: nopaint (6 repos!), whistlegraph performance tools — prose added 2026-03-28
 - [ ] Consider citing Eglash on culturally situated design tools
 
 ### 5. Aesthetic Computer JOSS (`joss-ac/paper.md`)
@@ -148,6 +148,7 @@
 - **All 6 papers build clean** (xelatex + bibtex, 3 passes, no undefined citations)
 - **Tier 1 complete.** All originally identified Tier 1 priorities now have BibTeX entries and prose citations.
 - Remaining uncited readings worth considering (Tier 2): Arnheim, Klee (already in `arxiv-whistlegraph`), Manovich
+- **Batch 2026-03-28**: Ukeles (AC paper), McLuhan (notepat), Moglen/FreedomBox + e-waste stats + ChromeOS Flex (OS paper), post-COVID status + ChucK/SLOrk detail (PLORKing), Jeffrey economic specifics (Who Pays), predecessor tools (notepat)
 - **Next**: Write actual paper prose around citations (currently integrated as single sentences; some could become fuller paragraphs)
 
 ### Ars Electronica 2026

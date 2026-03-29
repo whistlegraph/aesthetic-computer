@@ -80,6 +80,34 @@ copy_boot_tree_to_vfat() {
             # This is discoverable by all UEFI firmware including Intel Macs.
             cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             ;;
+        systemd-boot)
+            # Use systemd-boot as BOOTX64.EFI with SLIM kernel + separate initramfs.
+            # Mac EFI can't load a 270MB kernel. The slim kernel (~15MB) has no
+            # embedded initramfs. systemd-boot loads both via linux + initrd.
+            local sdboot="/usr/local/lib/systemd-bootx64.efi"
+            [ ! -f "${sdboot}" ] && sdboot="/repo/fedac/native/boot/systemd-bootx64.efi"
+            [ ! -f "${sdboot}" ] && sdboot="/workspaces/aesthetic-computer/fedac/native/boot/systemd-bootx64.efi"
+            cp "${sdboot}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            # Use slim kernel if available, fall back to full kernel
+            if [ -f "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" ]; then
+                cp "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            else
+                cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            fi
+            # Separate initramfs for systemd-boot to load
+            if [ -f "${STAGED_ROOT}/initramfs.cpio.lz4" ]; then
+                cp "${STAGED_ROOT}/initramfs.cpio.lz4" "${mountpoint}/initramfs.cpio.lz4"
+            fi
+            # systemd-boot loader config
+            mkdir -p "${mountpoint}/loader/entries"
+            printf 'default ac-native.conf\ntimeout 3\n' > "${mountpoint}/loader/loader.conf"
+            cat > "${mountpoint}/loader/entries/ac-native.conf" << 'SDBOOT_EOF'
+title AC Native OS
+linux /EFI/BOOT/KERNEL.EFI
+initrd /initramfs.cpio.lz4
+options console=tty0 loglevel=7 init=/init nomodeset efi=noruntime
+SDBOOT_EOF
+            ;;
         *)
             err "Unknown VFAT boot mode: ${boot_mode}"
             return 1
@@ -158,10 +186,11 @@ verify_written_media() {
     sha256sum /mnt/ac-main/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-main
 
-    # Partition 2 (ACEFI): chainloader BOOTX64.EFI + KERNEL.EFI
+    # Partition 2 (ACEFI): systemd-boot BOOTX64.EFI + KERNEL.EFI
     mount_vfat_partition "${efi_part}" /mnt/ac-efi
     test -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
     test -f /mnt/ac-efi/EFI/BOOT/KERNEL.EFI
+    test -f /mnt/ac-efi/loader/entries/ac-native.conf
     sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-efi
 
@@ -237,10 +266,12 @@ partprobe "${USB_DEV}" 2>/dev/null || true
 
 # Partition 1 (ACBOOT): config + kernel as KERNEL.EFI (for AC initramfs to find)
 copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
-# Partition 2 (ACEFI): chainloader BOOTX64.EFI (51KB) + KERNEL.EFI (270MB)
-# Mac EFI firmware can't load a 270MB EFI application directly.
-# The small chainloader loads fine, then loads KERNEL.EFI itself.
-copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no chainloader
+# Partition 2 (ACEFI): systemd-boot (134KB) + KERNEL.EFI (270MB)
+# Mac EFI firmware can't LoadImage a 270MB PE/COFF. splash.efi also
+# uses LoadImage internally and fails the same way. systemd-boot uses
+# the EFI handover protocol to load the kernel directly into memory,
+# bypassing LoadImage entirely.
+copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no systemd-boot
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
 sync
