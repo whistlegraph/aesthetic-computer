@@ -100,16 +100,20 @@ ac_media_stage_boot_tree() {
     cp "${kernel_path}" "${stage_root}/EFI/BOOT/KERNEL.EFI"
     cp "${config_path}" "${stage_root}/config.json"
 
-    # Stage slim kernel + initramfs for Mac boot (systemd-boot mode)
+    # Stage slim kernel + initramfs for universal boot (systemd-boot mode)
     local kernel_dir
     kernel_dir="$(dirname "${kernel_path}")"
     local slim="${kernel_dir}/vmlinuz-slim"
-    local initramfs="${kernel_dir}/initramfs.cpio.lz4"
     if [ -f "${slim}" ]; then
         cp "${slim}" "${stage_root}/EFI/BOOT/KERNEL-SLIM.EFI"
     fi
-    if [ -f "${initramfs}" ]; then
-        cp "${initramfs}" "${stage_root}/initramfs.cpio.lz4"
+    # Prefer gzip initramfs (universal), fall back to lz4
+    local initramfs_gz="${kernel_dir}/initramfs.cpio.gz"
+    local initramfs_lz4="${kernel_dir}/initramfs.cpio.lz4"
+    if [ -f "${initramfs_gz}" ]; then
+        cp "${initramfs_gz}" "${stage_root}/initramfs.cpio.gz"
+    elif [ -f "${initramfs_lz4}" ]; then
+        cp "${initramfs_lz4}" "${stage_root}/initramfs.cpio.lz4"
     fi
 }
 
