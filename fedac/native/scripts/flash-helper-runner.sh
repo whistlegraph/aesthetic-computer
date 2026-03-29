@@ -158,10 +158,11 @@ verify_written_media() {
     sha256sum /mnt/ac-main/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-main
 
-    # Partition 2 (ACEFI): kernel AS BOOTX64.EFI (standard UEFI fallback)
+    # Partition 2 (ACEFI): chainloader BOOTX64.EFI + KERNEL.EFI
     mount_vfat_partition "${efi_part}" /mnt/ac-efi
     test -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
-    sha256sum /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
+    test -f /mnt/ac-efi/EFI/BOOT/KERNEL.EFI
+    sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
     umount /mnt/ac-efi
 
     # Partition 3 (AC-MAC): boot.efi + BOOTX64.EFI + Apple metadata
@@ -236,8 +237,10 @@ partprobe "${USB_DEV}" 2>/dev/null || true
 
 # Partition 1 (ACBOOT): config + kernel as KERNEL.EFI (for AC initramfs to find)
 copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
-# Partition 2 (ACEFI): kernel AS BOOTX64.EFI — standard UEFI fallback path
-copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no kernel-direct
+# Partition 2 (ACEFI): chainloader BOOTX64.EFI (51KB) + KERNEL.EFI (270MB)
+# Mac EFI firmware can't load a 270MB EFI application directly.
+# The small chainloader loads fine, then loads KERNEL.EFI itself.
+copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no chainloader
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
 sync
