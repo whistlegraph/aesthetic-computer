@@ -288,6 +288,7 @@ const ROUTE_ALIASES = {
   "pack-telemetry": "bundle-telemetry",
   "pack-telemetry-query": "bundle-telemetry-query",
   "track-tape": "track-media",
+  "logo.png": "logo",
 };
 
 // --- Nested API routes (e.g. /api/chat/messages → chat-messages) ---
