@@ -3211,11 +3211,30 @@ end
 # 🖥️ Machine Info / SSH Helpers
 # Read machine configs from vault/machines.json
 
-function ac-host --description "Show current host SSH config from machines.json"
+function __ac_machines_file --description "Resolve machines.json with local cache fallback"
     set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
-    
-    if not test -f $machines_file
-        echo "❌ machines.json not found at $machines_file"
+    set -l machines_cache "$HOME/.cache/ac/machines.json"
+
+    if test -f $machines_file
+        mkdir -p (dirname $machines_cache)
+        cp $machines_file $machines_cache 2>/dev/null
+        echo $machines_file
+        return 0
+    end
+
+    if test -f $machines_cache
+        echo $machines_cache
+        return 0
+    end
+
+    return 1
+end
+
+function ac-host --description "Show current host SSH config from machines.json"
+    set -l machines_file (__ac_machines_file)
+
+    if test $status -ne 0 -o -z "$machines_file"
+        echo "❌ machines.json not found in vault or local cache"
         return 1
     end
     
@@ -3321,7 +3340,11 @@ function ac-machines --description "List all machines from vault/machines.json"
 end
 
 function ac-host-nmap --description "Run nmap scan on local network via current host"
-    set -l machines_file "/workspaces/aesthetic-computer/aesthetic-computer-vault/machines.json"
+    set -l machines_file (__ac_machines_file)
+    if test $status -ne 0 -o -z "$machines_file"
+        echo "❌ machines.json not found in vault or local cache"
+        return 1
+    end
     set -l search_term $argv[1]
 
     set -l hosts_to_try (jq -r '
