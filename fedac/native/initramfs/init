@@ -1,6 +1,8 @@
 #!/bin/sh
 # AC Native OS init — DRM direct boot with crash recovery
 
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
@@ -40,12 +42,12 @@ while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/dri/card1 ] && [ ! -e /dev/fb0 ] &&
     i=$((i+1))
 done
 
-# Performance governor
-for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-    echo performance > "$g" 2>/dev/null
-done
-
-export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+# Performance governor (silently skip if cpufreq not available)
+if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
+    for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo performance > "$g" 2>/dev/null
+    done
+fi
 export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
@@ -79,6 +81,7 @@ mount_usb_partition() {
     return 1
 }
 
+echo "[init] mounting USB..." > /dev/tty0 2>/dev/null
 for attempt in 1 2 3 4 5 6 7 8 9 10; do
     mount_usb_partition config && break
     mount_usb_partition boot && break
@@ -89,15 +92,28 @@ done
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Write diagnostics to USB log only (not console)
+# Write diagnostics to console AND USB
+echo "[init] USB_MOUNTED=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 if [ "$USB_MOUNTED" = "1" ]; then
     LOG=/mnt/pre-launch.log
-    echo "=== PRE-LAUNCH ===" > $LOG
-    ls /mnt/ >> $LOG 2>&1
-    echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
-    echo "build: $(cat /etc/ac-build 2>&1)" >> $LOG
-    sync
+else
+    # No USB config partition — try writing logs to /tmp
+    LOG=/tmp/pre-launch.log
 fi
+echo "=== PRE-LAUNCH ===" > $LOG
+ls /dev/dri/ >> $LOG 2>&1
+echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
+echo "build: $(cat /etc/ac-build 2>&1)" >> $LOG
+echo "usb_mounted: $USB_MOUNTED" >> $LOG
+echo "gpu:" >> $LOG
+ls -la /dev/dri/ >> $LOG 2>&1
+ls -la /dev/fb* >> $LOG 2>&1
+echo "block devs:" >> $LOG
+ls /dev/sd* /dev/nvme* >> $LOG 2>&1
+sync
+echo "[init] pre-launch log written" > /dev/tty0 2>/dev/null
+echo "[init] GPU: $(ls /dev/dri/ 2>/dev/null || echo NONE)" > /dev/tty0 2>/dev/null
+echo "[init] starting ac-native..." > /dev/tty0 2>/dev/null
 
 # Start Swank server in background (if SBCL image exists)
 SWANK_PID=0
@@ -109,8 +125,15 @@ fi
 # Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs 2>/dev/null
+    /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
     EXIT_CODE=$?
+    echo "[init] ac-native exited: $EXIT_CODE (crash #$CRASH_COUNT)" > /dev/tty0 2>/dev/null
+    # Save crash info to USB if mounted
+    if [ "$USB_MOUNTED" = "1" ]; then
+        echo "exit=$EXIT_CODE crash=$CRASH_COUNT $(date 2>/dev/null)" >> /mnt/ac-crash.log
+        cp /tmp/ac-native-stderr.log /mnt/ac-native-stderr.log 2>/dev/null
+        sync
+    fi
 
     if [ "$EXIT_CODE" = "0" ]; then
         sync
