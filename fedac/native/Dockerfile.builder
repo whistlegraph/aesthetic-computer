@@ -21,7 +21,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     iwlwifi-mvm-firmware wireless-regdb \
     linux-firmware linux-firmware-whence \
     intel-gpu-firmware \
-    busybox mtools dosfstools \
+    busybox mtools dosfstools hfsplus-tools hfsutils gdisk \
     mesa-libgbm mesa-libgbm-devel \
     mesa-libEGL mesa-libEGL-devel \
     mesa-libGLES mesa-libGLES-devel \

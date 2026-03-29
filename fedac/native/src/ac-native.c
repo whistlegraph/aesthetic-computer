@@ -729,15 +729,19 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     char source_dev[32] = "";
     int source_mounted_tmp = 0;
     char kernel_src[96] = "";
+    char bootloader_src[96] = "";
+    char chain_kernel_src[96] = "";
+    char install_kernel_src[96] = "";
     char config_src[64] = "";
 
     ac_log("[install] auto_install_to_hd starting\n");
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...", pixel_scale);
 
-    // Detect source layout: monolithic (BOOTX64.EFI is kernel) or
-    // systemd-boot (BOOTX64.EFI is bootloader, kernel at EFI/Linux/*)
+    // Detect source layout: monolithic (BOOTX64.EFI is kernel), chainloader
+    // (BOOTX64.EFI boots KERNEL.EFI), or systemd-boot (kernel at EFI/Linux/*).
     int systemd_boot_layout = 0;
+    int chainloader_layout = 0;
 
     // Prefer current /mnt only when it is removable and has a bootable layout.
     if (log_dev[0]) {
@@ -745,6 +749,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         get_parent_block(log_dev + 5, blk, sizeof(blk));
         if (blk[0] && is_removable(blk) == 1 &&
             (access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+             access("/mnt/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
              access("/mnt/EFI/Linux/vmlinuz-ac-native", F_OK) == 0)) {
             strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
             source_dev[sizeof(source_dev) - 1] = '\0';
@@ -764,6 +769,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (!blk[0] || is_removable(blk) != 1) continue;
             if (mount(src_candidates[i], "/tmp/src", "vfat", 0, NULL) != 0) continue;
             if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+                access("/tmp/src/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
                 access("/tmp/src/EFI/Linux/vmlinuz-ac-native", F_OK) == 0) {
                 strncpy(source_dev, src_candidates[i], sizeof(source_dev) - 1);
                 source_dev[sizeof(source_dev) - 1] = '\0';
@@ -786,9 +792,26 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         }
     }
 
+    snprintf(bootloader_src, sizeof(bootloader_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
+    snprintf(chain_kernel_src, sizeof(chain_kernel_src), "%s/EFI/BOOT/KERNEL.EFI", source_mount);
     snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
-    if (!source_dev[0] || (access(kernel_src, F_OK) != 0 && !systemd_boot_layout)) {
+    if (!systemd_boot_layout && access(chain_kernel_src, F_OK) == 0) {
+        chainloader_layout = 1;
+        strncpy(install_kernel_src, chain_kernel_src, sizeof(install_kernel_src) - 1);
+        install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+        ac_log("[install] Detected chainloader layout\n");
+    } else if (systemd_boot_layout) {
+        snprintf(install_kernel_src, sizeof(install_kernel_src), "%s/EFI/Linux/vmlinuz-ac-native",
+                 source_mount);
+    } else {
+        strncpy(install_kernel_src, kernel_src, sizeof(install_kernel_src) - 1);
+        install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+    }
+
+    if (!source_dev[0] ||
+        ((access(kernel_src, F_OK) != 0 && access(chain_kernel_src, F_OK) != 0) &&
+         !systemd_boot_layout)) {
         ac_log("[install] No removable install source with kernel found\n");
         // Log available block devices for diagnostics
         ac_log("[install] Block devices:\n");
@@ -868,7 +891,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 struct stat ksrc_st;
                 struct statvfs hd_vfs;
                 long kernel_bytes = 0, free_mb = 0;
-                if (stat(kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
+                if (stat(install_kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
                 if (statvfs("/tmp/hd", &hd_vfs) == 0)
                     free_mb = (long)hd_vfs.f_bavail * (long)hd_vfs.f_bsize / 1048576;
                 ac_log("[install] kernel=%ldMB free=%ldMB on %s\n",
@@ -930,7 +953,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             long sz = 0;
             if (systemd_boot_layout) {
                 // systemd-boot: copy bootloader, kernel, initramfs, and loader config
-                char src[256], dst[256];
+                char src[256];
 
                 // Copy bootloader as BOOTX64.EFI
                 snprintf(src, sizeof(src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
@@ -957,6 +980,12 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 copy_file(src, "/tmp/hd/loader/entries/ac-native.conf");
 
                 sz = ksz > 0 ? ksz : sz; // use kernel size as success indicator
+            } else if (chainloader_layout) {
+                long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+                long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
+                ac_log("[install] chainloader: %ld bytes\n", bsz);
+                ac_log("[install] kernel: %ld bytes\n", ksz);
+                sz = ksz > 0 ? ksz : bsz;
             } else {
                 // Monolithic: single BOOTX64.EFI is the kernel
                 sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
@@ -973,7 +1002,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 if (!systemd_boot_layout && free_bytes > sz + 1048576) {
                     mkdir("/tmp/hd/EFI/Microsoft", 0755);
                     mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
-                    copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
+                    copy_file(chainloader_layout ? bootloader_src : kernel_src,
+                              "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
                 }
 
                 // Preserve user config + wifi creds on installed disk
@@ -997,8 +1027,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
 
                 sync();
                 installed = 1;
-                ac_log("[install] Installed from %s to %s (systemd-boot=%d)\n",
-                        source_dev, devpath, systemd_boot_layout);
+                ac_log("[install] Installed from %s to %s (systemd-boot=%d chainloader=%d)\n",
+                        source_dev, devpath, systemd_boot_layout, chainloader_layout);
             }
 
             umount("/tmp/hd");
