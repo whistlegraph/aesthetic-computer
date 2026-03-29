@@ -249,12 +249,15 @@
   // --tmpfs: In-memory /tmp for faster temp file operations
   //
   // --ulimit nofile: Raise open file limit for Vite's many watchers
+  // --add-host: Force Docker host alias inside the container
+  //             Needed when Docker Desktop doesn't inject host.docker.internal
   //
   // NOTE: Explicit -p port mappings removed - forwardPorts handles this
   //       and avoids "port already in use" errors on restart
   "runArgs": [
     "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
     "-q",
+    "--add-host=host.docker.internal:host-gateway",
     "--cap-add=SYS_PTRACE",
     "--security-opt=apparmor=unconfined",
     "--security-opt", "label:disable",
