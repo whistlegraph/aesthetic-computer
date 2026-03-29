@@ -17,6 +17,7 @@
     # Cache static assets (1h fresh, serve stale for 24h while revalidating)
     @cacheable path *.mjs *.js *.css *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
+    header @cacheable Access-Control-Allow-Origin *
 
     # HTML: no-cache (always revalidate, but use ETag for 304)
     @html path / *.html
