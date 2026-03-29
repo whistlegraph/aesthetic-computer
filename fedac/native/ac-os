@@ -14,6 +14,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 VMLINUZ="${BUILD_DIR}/vmlinuz"
 INITRAMFS_ROOT="${BUILD_DIR}/initramfs-root"
+AC_MEDIA_NATIVE_DIR="${SCRIPT_DIR}"
+MEDIA_LAYOUT_LIB="${SCRIPT_DIR}/scripts/media-layout.sh"
+MEDIA_HELPER_IMAGE="${AC_MEDIA_HELPER_IMAGE:-ac-os-media-helper:latest}"
+MEDIA_HELPER_DOCKERFILE="${SCRIPT_DIR}/Dockerfile.flash-helper"
 
 CMD="${1:-build}"
 
@@ -24,6 +28,9 @@ export AC_BUILD_NAME="${AC_BUILD_NAME:-$(cd "${SCRIPT_DIR}" && bash scripts/buil
 
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
+
+# shellcheck source=/workspaces/aesthetic-computer/fedac/native/scripts/media-layout.sh
+source "${MEDIA_LAYOUT_LIB}"
 
 # Load env vars (MongoDB, etc.) if not already set
 if [ -z "${MONGODB_CONNECTION_STRING:-}" ] && [ -f "/home/me/envs/devcontainer.env" ]; then
@@ -592,8 +599,17 @@ record_build() {
 }
 
 find_usb_dev() {
+    if [ -n "${AC_USB_DEV:-}" ]; then
+        if [ ! -b "${AC_USB_DEV}" ]; then
+            err "AC_USB_DEV is not a block device: ${AC_USB_DEV}"
+            return 1
+        fi
+        echo "${AC_USB_DEV}"
+        return 0
+    fi
+
     # Find removable USB block device via sysfs
-    for dev in sda sdb sdc; do
+    for dev in sda sdb sdc sdd sde; do
         if [ -e "/sys/block/${dev}/removable" ]; then
             local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
             if [ "${rem}" = "1" ] && [ -e "/sys/block/${dev}" ]; then
@@ -602,12 +618,21 @@ find_usb_dev() {
             fi
         fi
     done
-    # Fallback: check sysfs even if not marked removable
-    if [ -e "/sys/block/sda" ]; then
-        echo "/dev/sda"
+    return 1
+}
+
+ensure_media_helper_image() {
+    if sudo docker image inspect "${MEDIA_HELPER_IMAGE}" >/dev/null 2>&1; then
         return 0
     fi
-    return 1
+
+    log "Building media helper image (${MEDIA_HELPER_IMAGE})..."
+    local repo_root
+    repo_root="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+    sudo docker build \
+        -t "${MEDIA_HELPER_IMAGE}" \
+        -f "${MEDIA_HELPER_DOCKERFILE}" \
+        "${repo_root}" >/dev/null
 }
 
 require_login() {
@@ -639,22 +664,36 @@ require_login() {
     export AC_USER_SUB="${USER_SUB}"
     export AC_USER_HANDLE="${USER_HANDLE}"
     export AC_USER_EMAIL="${USER_EMAIL}"
-    log "Authenticated: @${USER_HANDLE} (${USER_SUB})"
+    log "Authenticated: @${USER_HANDLE}"
 }
 
 flash_usb() {
     local USB_DEV
-    USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
-
-    log "Flashing to ${USB_DEV}1..."
-
-    # Build config.json from authenticated user (or preserve existing)
     local USB_CONFIG
+    local AC_ACCESS_TOKEN
+    local CLAUDE_CREDS=""
+    local CLAUDE_STATE=""
+    local MEDIA_TMP
+    local CONFIG_FILE
+    local STAGE_ROOT
+    local CONTAINER
+
+    USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
+    log "Flashing to ${USB_DEV}..."
+
+    MEDIA_TMP="$(mktemp -d /tmp/ac-media.XXXXXX)"
+    CONFIG_FILE="${MEDIA_TMP}/config.json"
+    STAGE_ROOT="${MEDIA_TMP}/staged-root"
+    cleanup_flash_usb() {
+        if [ -n "${CONTAINER:-}" ]; then
+            sudo docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
+        fi
+        rm -rf "${MEDIA_TMP}"
+    }
+
+    # Build config.json from authenticated user.
     if [ -n "${AC_USER_HANDLE:-}" ]; then
-        local AC_ACCESS_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${HOME}/.ac-token','utf8')); console.log(t.access_token || '')" 2>/dev/null)
-        # Read Claude Code OAuth credentials + state if available
-        local CLAUDE_CREDS=""
-        local CLAUDE_STATE=""
+        AC_ACCESS_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${HOME}/.ac-token','utf8')); console.log(t.access_token || '')" 2>/dev/null)
         if [ -f "${HOME}/.claude/.credentials.json" ]; then
             CLAUDE_CREDS=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
         fi
@@ -678,63 +717,27 @@ flash_usb() {
             console.log(JSON.stringify(cfg));
         " "${CLAUDE_CREDS}" "${CLAUDE_STATE}" 2>/dev/null)
     else
-        USB_CONFIG='{"handle": "unknown"}'
+        USB_CONFIG='{"handle":"unknown"}'
     fi
-    log "USB config: ${USB_CONFIG}"
+    printf '%s' "${USB_CONFIG}" > "${CONFIG_FILE}"
+    log "USB config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
 
-    # Write config to temp file (avoids shell quoting issues with apostrophes in JSON)
-    echo "${USB_CONFIG}" > /tmp/usb-config.json
+    ac_media_stage_boot_tree "${STAGE_ROOT}" "${VMLINUZ}" "${CONFIG_FILE}"
 
-    # Use docker cp + privileged container (bind mounts fail in devcontainers)
-    local CONTAINER
-    CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev alpine:latest sh -c "
-        set -e
-        apk add --quiet dosfstools util-linux mtools
-
-        # Preserve config.json if it exists on the USB
-        CONFIG_BAK=''
-        mkdir -p /mnt/usb
-        if mount ${USB_DEV}1 /mnt/usb 2>/dev/null; then
-            if [ -f /mnt/usb/config.json ]; then
-                CONFIG_BAK=\$(cat /mnt/usb/config.json)
-                echo \"Saved config.json\"
-            fi
-            umount /mnt/usb
-        fi
-
-        # Always clean-slate: wipe partition table, create fresh GPT + EFI partition
-        echo 'Wiping and re-partitioning ${USB_DEV}...'
-        dd if=/dev/zero of=${USB_DEV} bs=1M count=10 2>/dev/null
-        sfdisk --force ${USB_DEV} <<PARTEOF
-label: gpt
-type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M
-PARTEOF
-        sleep 2
-        partprobe ${USB_DEV} 2>/dev/null || true
-        sleep 1
-
-        # Format fresh FAT32
-        mkfs.vfat -F 32 -n ACBOOT ${USB_DEV}1
-
-        # Mount and copy kernel
-        mount ${USB_DEV}1 /mnt/usb
-        mkdir -p /mnt/usb/EFI/BOOT
-        cp /tmp/vmlinuz /mnt/usb/EFI/BOOT/BOOTX64.EFI
-
-        # Write config.json with authenticated user data
-        cat /tmp/usb-config.json > /mnt/usb/config.json
-        echo \"Wrote config.json\"
-
-        sync && sleep 2 && sync
-        echo '=== Verify ==='
-        sha256sum /mnt/usb/EFI/BOOT/BOOTX64.EFI /tmp/vmlinuz
-        cat /mnt/usb/config.json
-        umount /mnt/usb
-        echo 'Flashed!'
-    ")
-    sudo docker cp "${VMLINUZ}" "${CONTAINER}:/tmp/vmlinuz"
-    sudo docker cp /tmp/usb-config.json "${CONTAINER}:/tmp/usb-config.json"
-    sudo docker start -a "${CONTAINER}" 2>&1
+    ensure_media_helper_image
+    CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev \
+        --entrypoint /bin/bash "${MEDIA_HELPER_IMAGE}" \
+        -lc "exec /usr/local/bin/ac-os-flash-helper '${USB_DEV}' /tmp/staged-root")
+    sudo docker cp "${STAGE_ROOT}" "${CONTAINER}:/tmp/"
+    if sudo docker start -a "${CONTAINER}"; then
+        :
+    else
+        local rc=$?
+        cleanup_flash_usb
+        return "${rc}"
+    fi
+    log "Verified config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
+    cleanup_flash_usb
 }
 
 load_vault_creds() {
@@ -804,57 +807,32 @@ load_vault_creds() {
 }
 
 generate_template_iso() {
-    # Create an EFI-bootable hybrid ISO with the kernel + default config.
-    # Uses xorriso with El Torito EFI boot — compatible with Fedora Media Writer,
-    # Balena Etcher, dd, and standard ISO mounting.
-    # The config.json is padded to 4096 bytes for byte-patching by oven.
+    # Create a hybrid ISO from the staged chainloader-first boot tree.
+    # The config.json uses the existing 32KB identity block so oven can patch it.
     local ISO="/tmp/ac-native.iso"
     local STAGING="/tmp/ac-iso-staging"
     local EFI_IMG="/tmp/ac-efi.img"
-
-    local KERNEL_SIZE=$(stat -c%s "${VMLINUZ}")
-    # EFI image needs to fit kernel + config + FAT overhead
-    local EFI_MB=$(( (KERNEL_SIZE / 1048576) + 4 ))
+    local CONFIG_TMP="/tmp/ac-identity-config.json"
 
     log "Generating template .iso..." >&2
 
     # Clean staging area
-    rm -rf "${STAGING}" "${EFI_IMG}" "${ISO}"
-    mkdir -p "${STAGING}"
+    rm -rf "${STAGING}" "${EFI_IMG}" "${ISO}" "${CONFIG_TMP}"
 
     # Create identity block (32KB, zero-padded) in ISO root.
     # The block starts with a marker so the edge worker can verify alignment,
     # followed by JSON config, zero-padded to exactly 32768 bytes.
-    local IDENTITY_SIZE=32768
-    local IDENTITY_MARKER="AC_IDENTITY_BLOCK_V1"
-    local CONFIG_TMP="${STAGING}/config.json"
-    # Marker (20 bytes) + newline + JSON + zero-padding to 32KB
-    printf '%s\n' "${IDENTITY_MARKER}" > "${CONFIG_TMP}"
-    printf '{"handle":"","piece":"notepat","sub":"","email":""}' >> "${CONFIG_TMP}"
-    local CURRENT_SIZE=$(stat -c%s "${CONFIG_TMP}")
-    local PAD_SIZE=$((IDENTITY_SIZE - CURRENT_SIZE))
-    dd if=/dev/zero bs=1 count=${PAD_SIZE} 2>/dev/null >> "${CONFIG_TMP}"
+    local IDENTITY_SIZE
+    local IDENTITY_MARKER
+    IDENTITY_SIZE="$(ac_media_identity_size)"
+    IDENTITY_MARKER="$(ac_media_identity_marker)"
 
-    # Create FAT32 EFI System Partition image for El Torito boot
-    dd if=/dev/zero of="${EFI_IMG}" bs=1M count=${EFI_MB} status=none
-    mkfs.vfat -F 32 -n AC-NATIVE "${EFI_IMG}" >/dev/null 2>&1
-    export MTOOLS_SKIP_CHECK=1
-    mmd -i "${EFI_IMG}" ::EFI ::EFI/BOOT 2>/dev/null
-    mcopy -o -i "${EFI_IMG}" "${VMLINUZ}" ::EFI/BOOT/BOOTX64.EFI
-    mcopy -o -i "${EFI_IMG}" "${CONFIG_TMP}" ::config.json
+    ac_media_write_identity_config "${CONFIG_TMP}"
+    ac_media_stage_boot_tree "${STAGING}" "${VMLINUZ}" "${CONFIG_TMP}"
+    ac_media_create_fat_image "${STAGING}" "${EFI_IMG}" "AC_NATIVE"
+    ac_media_build_hybrid_iso "${STAGING}" "${EFI_IMG}" "${ISO}" "AC_NATIVE"
 
-    # Build hybrid ISO with xorriso (EFI boot via El Torito + GPT for dd/USB)
-    xorriso -as mkisofs \
-        -o "${ISO}" \
-        -V "AC_NATIVE" \
-        -J -joliet-long \
-        -append_partition 2 0xef "${EFI_IMG}" \
-        -e --interval:appended_partition_2:all:: \
-        -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        "${STAGING}" 2>&1 | grep -v "^xorriso\|^Drive\|^Media" >&2 || true
-
-    rm -rf "${STAGING}" "${EFI_IMG}"
+    rm -rf "${STAGING}" "${EFI_IMG}" "${CONFIG_TMP}"
 
     local ISO_BYTES=$(stat -c%s "${ISO}")
     local ISO_MB=$(( ISO_BYTES / 1048576 ))
@@ -1128,7 +1106,7 @@ pull_ota() {
     VERSION_INFO=$(curl -sf "${VERSION_URL}") || { err "Failed to fetch version from CDN"; exit 1; }
     local BUILD_NAME=$(echo "${VERSION_INFO}" | head -1)
     local KERNEL_SIZE=$(echo "${VERSION_INFO}" | tail -1)
-    log "Latest OTA: ${AC_BUILD_NAME} (${KERNEL_SIZE} bytes)"
+    log "Latest OTA: ${BUILD_NAME} (${KERNEL_SIZE} bytes)"
 
     # Download kernel (use /tmp — build dir may be a broken symlink in devcontainers)
     local PULL_DIR="/tmp/ac-os-pull"
@@ -1155,7 +1133,7 @@ pull_ota() {
     # Override VMLINUZ and build name so flash_usb uses the downloaded kernel
     # (not the locally-generated name from scripts/build-name.sh)
     VMLINUZ="${PULLED_KERNEL}"
-    export AC_BUILD_NAME="${AC_BUILD_NAME}"
+    export AC_BUILD_NAME="${BUILD_NAME}"
     log "Ready to flash: ${AC_BUILD_NAME}"
 }
 
@@ -1248,6 +1226,7 @@ exec qemu-system-x86_64 \
         log "Smoke test passed — USB flashed!"
         ;;
     pull)
+        require_login
         pull_ota
         flash_usb
         ;;
