@@ -19,6 +19,7 @@ function getS3() {
   if (!s3) {
     s3 = new S3Client({
       endpoint: "https://" + ENDPOINT,
+      region: "us-east-1",
       credentials: {
         accessKeyId: process.env.ART_KEY || process.env.DO_SPACES_KEY,
         secretAccessKey: process.env.ART_SECRET || process.env.DO_SPACES_SECRET,
