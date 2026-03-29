@@ -569,6 +569,29 @@ VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
 
 # ══════════════════════════════════════════════
+# Step 4b: Build slim kernel (no embedded initramfs) for Mac EFI boot
+# ══════════════════════════════════════════════
+log "Step 4b: Building slim kernel for Mac..."
+sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' .config
+rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
+if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" bzImage; then
+    cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
+    cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
+    SLIM_SIZE=$(stat -c%s "$BUILD/vmlinuz-slim")
+    log "  Slim kernel: $((SLIM_SIZE / 1048576))MB"
+else
+    err "Slim kernel build failed (non-fatal)"
+fi
+# Restore config for any subsequent builds
+sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' .config
+
+# Export initramfs as gzip (for systemd-boot on Mac)
+log "  Packing initramfs.cpio.gz..."
+lz4 -d "$BUILD/initramfs.cpio.lz4" -c 2>/dev/null | gzip -c > "$BUILD/initramfs.cpio.gz"
+cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz" 2>/dev/null || true
+log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB"
+
+# ══════════════════════════════════════════════
 # Step 5: Generate UEFI-bootable ISO
 # ══════════════════════════════════════════════
 log "Step 5: Building ISO..."

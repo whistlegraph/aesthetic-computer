@@ -81,30 +81,37 @@ copy_boot_tree_to_vfat() {
             cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             ;;
         systemd-boot)
-            # Use systemd-boot as BOOTX64.EFI with SLIM kernel + separate initramfs.
-            # Mac EFI can't load a 270MB kernel. The slim kernel (~15MB) has no
-            # embedded initramfs. systemd-boot loads both via linux + initrd.
+            # Universal boot: splash.efi → systemd-boot → slim kernel + initramfs.
+            # splash.efi shows "Aesthetic.Computer" on black, chains to LOADER.EFI.
+            # Works on both Macs (can't load 270MB) and ThinkPads.
             local sdboot="/usr/local/lib/systemd-bootx64.efi"
             [ ! -f "${sdboot}" ] && sdboot="/repo/fedac/native/boot/systemd-bootx64.efi"
             [ ! -f "${sdboot}" ] && sdboot="/workspaces/aesthetic-computer/fedac/native/boot/systemd-bootx64.efi"
-            cp "${sdboot}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            # splash.efi as BOOTX64.EFI (shows splash, chains to LOADER.EFI)
+            cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            # systemd-boot as LOADER.EFI (loads slim kernel + initramfs)
+            cp "${sdboot}" "${mountpoint}/EFI/BOOT/LOADER.EFI"
             # Use slim kernel if available, fall back to full kernel
             if [ -f "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" ]; then
                 cp "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             else
                 cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             fi
-            # Separate initramfs for systemd-boot to load
-            if [ -f "${STAGED_ROOT}/initramfs.cpio.lz4" ]; then
+            # Separate initramfs for systemd-boot to load (prefer gzip, fall back to lz4)
+            if [ -f "${STAGED_ROOT}/initramfs.cpio.gz" ]; then
+                cp "${STAGED_ROOT}/initramfs.cpio.gz" "${mountpoint}/initramfs.cpio.gz"
+            elif [ -f "${STAGED_ROOT}/initramfs.cpio.lz4" ]; then
                 cp "${STAGED_ROOT}/initramfs.cpio.lz4" "${mountpoint}/initramfs.cpio.lz4"
             fi
             # systemd-boot loader config
             mkdir -p "${mountpoint}/loader/entries"
             printf 'default ac-native.conf\ntimeout 0\n' > "${mountpoint}/loader/loader.conf"
-            cat > "${mountpoint}/loader/entries/ac-native.conf" << 'SDBOOT_EOF'
+            local initrd_file="initramfs.cpio.gz"
+            [ ! -f "${mountpoint}/initramfs.cpio.gz" ] && initrd_file="initramfs.cpio.lz4"
+            cat > "${mountpoint}/loader/entries/ac-native.conf" << SDBOOT_EOF
 title AC Native OS
 linux /EFI/BOOT/KERNEL.EFI
-initrd /initramfs.cpio.lz4
+initrd /${initrd_file}
 options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init efi=noruntime
 SDBOOT_EOF
             ;;
@@ -266,12 +273,17 @@ partprobe "${USB_DEV}" 2>/dev/null || true
 
 # Partition 1 (ACBOOT): config + kernel as KERNEL.EFI (for AC initramfs to find)
 copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
-# Partition 2 (ACEFI): systemd-boot (134KB) + KERNEL.EFI (270MB)
-# Mac EFI firmware can't LoadImage a 270MB PE/COFF. splash.efi also
-# uses LoadImage internally and fails the same way. systemd-boot uses
-# the EFI handover protocol to load the kernel directly into memory,
-# bypassing LoadImage entirely.
-copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no systemd-boot
+
+# Partition 2 (ACEFI): universal boot — splash → systemd-boot → slim kernel + initramfs
+# Works on both Macs (can't load 270MB EFI app) and ThinkPads.
+# If slim kernel isn't available, falls back to chainloader mode.
+if [ -f "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" ] && [ -f "${STAGED_ROOT}/initramfs.cpio.gz" ]; then
+    log "Using universal boot: splash → systemd-boot → slim kernel + initramfs"
+    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no systemd-boot
+else
+    log "No slim kernel — using chainloader mode (ThinkPad only)"
+    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no chainloader
+fi
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
 sync
