@@ -42,6 +42,24 @@ Key settings in the JSON source:
 }
 ```
 
+### Remote Relay Playback
+
+`notepat` now understands relay subscription parameters for live note playback from `ac-native` sources:
+
+```text
+https://localhost:8888/notepat?daw=1&relayHandle=jeffrey
+https://localhost:8888/notepat?daw=1&relayHandle=jeffrey&relayMachine=ac-1234abcd
+https://localhost:8888/notepat?daw=1&relayAll=1
+```
+
+You can also retarget a running `jweb~` instance with `postMessage`:
+
+```js
+window.postMessage({ type: "notepat:midi:set-source", handle: "jeffrey" }, "*");
+window.postMessage({ type: "notepat:midi:set-source", handle: "jeffrey", machineId: "ac-1234abcd" }, "*");
+window.postMessage({ type: "notepat:midi:sources" }, "*");
+```
+
 ### Requirements
 
 - Ableton Live with Max for Live
