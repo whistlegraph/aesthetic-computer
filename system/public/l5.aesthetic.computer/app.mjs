@@ -132,11 +132,11 @@ await createTryPage({
   acOrigin: AC_ORIGIN,
   mountId: "try-page-root",
   page: {
-    title: "Try L5 on AC",
+    title: "Try L5",
     description: "L5 (Processing-style Lua) live playground and API explorer for Aesthetic Computer.",
   },
   brand: {
-    heading: "Try L5 on AC",
+    heading: "Try L5",
     logoUrl: "./l5-logo-blob.png",
     logoAlt: "L5 logo",
     heroLink: {
