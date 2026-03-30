@@ -4,7 +4,7 @@
 
 const ARENA_W = 180;
 const ARENA_H = 180;
-const BULLET_SPEED = 1.2;
+const BULLET_SPEED = 0.7;
 const BULLET_R = 2;
 const MOVE_SPEED = 1.0;
 const FIRE_INTERVAL = 100; // frames between auto-shots (~1.7s)
@@ -271,9 +271,8 @@ function sim() {
 
   if (phase !== "fight" || !me || (!isDueling() && !dummy)) return;
 
-  // Dummy AI — wander randomly in 2D
+  // Dummy AI — just wander (no shooting)
   if (dummy && opponent?.alive) {
-    opponent.fireTimer--;
     if (frameCount % 90 === 0) {
       opponent.targetX = 20 + Math.random() * (ARENA_W - 40);
       opponent.targetY = 20 + Math.random() * (ARENA_H - 40);
@@ -284,17 +283,6 @@ function sim() {
     if (dist > 1) {
       opponent.x += (odx / dist) * MOVE_SPEED * 0.7;
       opponent.y += (ody / dist) * MOVE_SPEED * 0.7;
-    }
-    const dummyMoving = Math.abs(opponent.targetX - opponent.x) > 2 || Math.abs(opponent.targetY - opponent.y) > 2;
-    const theirBulletOut = bullets.some((b) => b.owner === "them");
-    if (opponent.fireTimer <= 0 && !dummyMoving && !theirBulletOut) {
-      opponent.fireTimer = FIRE_INTERVAL;
-      const { nx, ny } = norm(me.x - opponent.x, me.y - opponent.y);
-      bullets.push({
-        x: opponent.x + nx * 6, y: opponent.y + ny * 6,
-        vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED,
-        owner: "them",
-      });
     }
   }
 
@@ -343,6 +331,13 @@ function sim() {
     const b = bullets[i];
     b.x += b.vx;
     b.y += b.vy;
+    b.age = (b.age || 0) + 1;
+
+    // Fade out after traveling a while
+    if (b.age > 200) {
+      bullets.splice(i, 1);
+      continue;
+    }
 
     // Off arena
     if (b.x < -10 || b.x > ARENA_W + 10 || b.y < -10 || b.y > ARENA_H + 10) {
@@ -404,7 +399,7 @@ function act({ event: e, screen }) {
   }
 }
 
-function paint({ wipe, ink, box, write, circle, screen }) {
+function paint({ wipe, ink, box, write, circle, line, screen }) {
   sw = screen.width;
   sh = screen.height;
   wipe(240, 238, 232);
@@ -428,8 +423,8 @@ function paint({ wipe, ink, box, write, circle, screen }) {
     });
 
     if (me && opponent) {
-      drawFigure(ink, circle, box, ox, oy, me, [50, 120, 200]);
-      drawFigure(ink, circle, box, ox, oy, opponent, [200, 70, 60]);
+      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200]);
+      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60]);
     }
 
     const d0 = roster[0]?.handle || "?";
@@ -442,10 +437,11 @@ function paint({ wipe, ink, box, write, circle, screen }) {
   }
 
   if (phase === "fight" || phase === "roundover") {
-    // Bullets
+    // Bullets (fade with age)
     for (const b of bullets) {
-      if (b.owner === "me") ink(50, 120, 200);
-      else ink(200, 70, 60);
+      const alpha = Math.max(40, 255 - (b.age || 0) * 1.2);
+      if (b.owner === "me") ink(50, 120, 200, alpha);
+      else ink(200, 70, 60, alpha);
       circle(ox + Math.floor(b.x), oy + Math.floor(b.y), BULLET_R, true);
     }
 
@@ -459,22 +455,22 @@ function paint({ wipe, ink, box, write, circle, screen }) {
     }
 
     if (me && opponent) {
-      drawFigure(ink, circle, box, ox, oy, me, [50, 120, 200]);
-      drawFigure(ink, circle, box, ox, oy, opponent, [200, 70, 60]);
+      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200]);
+      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60]);
     }
 
-    // Handle labels
+    // Handle labels (MatrixChunky8)
     if (me) {
       ink(50, 120, 200, 150).write(myHandle, {
         x: ox + Math.floor(me.x) - myHandle.length * 3,
-        y: oy + Math.floor(me.y) + BODY_R + 3,
-      });
+        y: oy + Math.floor(me.y) + BODY_R + 5,
+      }, undefined, undefined, false, "MatrixChunky8");
     }
     if (opponent) {
       ink(200, 70, 60, 150).write(opponent.handle, {
         x: ox + Math.floor(opponent.x) - opponent.handle.length * 3,
-        y: oy + Math.floor(opponent.y) + BODY_R + 3,
-      });
+        y: oy + Math.floor(opponent.y) + BODY_R + 5,
+      }, undefined, undefined, false, "MatrixChunky8");
     }
 
     if (phase === "roundover" && roundWinner) {
@@ -523,23 +519,29 @@ function paint({ wipe, ink, box, write, circle, screen }) {
   }
 }
 
-function drawFigure(ink, circle, box, ox, oy, fig, col) {
+function drawFigure(ink, circle, box, line, ox, oy, fig, col) {
   const fx = ox + Math.floor(fig.x);
   const fy = oy + Math.floor(fig.y);
 
   if (!fig.alive) {
+    // Dead — X mark
     ink(col[0], col[1], col[2], 60);
-    circle(fx, fy, BODY_R, false);
-    ink(col[0], col[1], col[2], 40);
-    box(fx - 1, fy - 1, 2, 2);
+    line(fx - 3, fy - 3, fx + 3, fy + 3);
+    line(fx + 3, fy - 3, fx - 3, fy + 3);
     return;
   }
 
-  // Body (filled circle)
   ink(...col);
-  circle(fx, fy, BODY_R, true);
-  // Inner highlight
-  ink(col[0] + 40, col[1] + 40, col[2] + 40).circle(fx, fy, BODY_R - 2, false);
+  // Legs (splayed below body)
+  line(fx, fy + 1, fx - 4, fy + 6);
+  line(fx, fy + 1, fx + 4, fy + 6);
+  // Arms
+  line(fx - 1, fy - 1, fx - 5, fy + 2);
+  line(fx + 1, fy - 1, fx + 5, fy + 2);
+  // Head (filled circle on top)
+  circle(fx, fy - 2, 3, true);
+  // Eye dot
+  ink(255, 255, 255).box(fx, fy - 3, 1, 1);
 }
 
 function meta() {
