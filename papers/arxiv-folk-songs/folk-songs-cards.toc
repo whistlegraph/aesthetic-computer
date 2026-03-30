@@ -1,17 +1,21 @@
 \contentsline {section}{\numberline {1}The Argument}{4}{section.1}%
 \contentsline {section}{\numberline {2}The Instrument}{6}{section.2}%
 \contentsline {section}{\numberline {3}The Encoding}{7}{section.3}%
-\contentsline {section}{\numberline {4}A Catalog of Playable Melodies}{9}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Pentatonic (5 notes)}{9}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{9}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Modal \& Diatonic}{10}{subsection.4.3}%
-\contentsline {section}{\numberline {5}The Folk Process as Version Control}{11}{section.5}%
-\contentsline {section}{\numberline {6}Computational Dimensions}{13}{section.6}%
-\contentsline {section}{\numberline {7}Related Instruments}{15}{section.7}%
-\contentsline {subsection}{\numberline {7.1}aQWERTYon}{15}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}ABC Notation}{15}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Tunepal}{15}{subsection.7.3}%
-\contentsline {section}{\numberline {8}The Bare-Metal Folk Instrument}{17}{section.8}%
-\contentsline {section}{\numberline {9}Future Work}{18}{section.9}%
-\contentsline {section}{\numberline {10}Conclusion}{19}{section.10}%
+\contentsline {subsection}{\numberline {3.1}Extended Examples}{8}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Songs as Cards}{9}{subsection.3.2}%
+\contentsline {section}{\numberline {4}A Catalog of Playable Melodies}{11}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Pentatonic (5 notes)}{11}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Narrow Range ($<$ octave)}{11}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Modal \& Diatonic}{12}{subsection.4.3}%
+\contentsline {section}{\numberline {5}The Folk Process as Version Control}{13}{section.5}%
+\contentsline {section}{\numberline {6}Computational Dimensions}{15}{section.6}%
+\contentsline {section}{\numberline {7}Related Instruments}{17}{section.7}%
+\contentsline {subsection}{\numberline {7.1}aQWERTYon}{17}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}ABC Notation}{17}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Tunepal}{18}{subsection.7.3}%
+\contentsline {section}{\numberline {8}The Bare-Metal Folk Instrument}{19}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Why Bare Metal Matters for Folk Songs}{19}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Offline Operation}{20}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Future Work}{22}{section.9}%
+\contentsline {section}{\numberline {10}Conclusion}{23}{section.10}%
 \contentsfinish 

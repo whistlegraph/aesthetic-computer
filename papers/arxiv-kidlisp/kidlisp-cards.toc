@@ -2,7 +2,7 @@
 \contentsline {section}{\numberline {2}Language Design}{8}{section.2}%
 \contentsline {subsection}{\numberline {2.1}Design Principles}{8}{subsection.2.1}%
 \contentsline {subsection}{\numberline {2.2}Function Categories}{9}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Timing Syntax}{9}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.3}Timing Syntax}{10}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}What KidLisp Omits}{11}{subsection.2.4}%
 \contentsline {section}{\numberline {3}Evaluator Architecture}{12}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Evaluation Model}{12}{subsection.3.1}%
@@ -23,8 +23,8 @@
 \contentsline {subsection}{\numberline {7.1}Phase 1: Prototype (April--June 2024)}{23}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}Phase 2: Hiatus (July 2024--May 2025)}{23}{subsection.7.2}%
 \contentsline {subsection}{\numberline {7.3}Phase 3: Rapid Expansion (June--August 2025)}{24}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{24}{subsection.7.4}%
-\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{25}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.4}Phase 4: Platform Integration (September--December 2025)}{25}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Phase 5: Refinement (January--March 2026)}{26}{subsection.7.5}%
 \contentsline {section}{\numberline {8}Evaluation}{27}{section.8}%
 \contentsline {subsection}{\numberline {8.1}Function Usage Analytics}{27}{subsection.8.1}%
 \contentsline {subsection}{\numberline {8.2}Observations}{28}{subsection.8.2}%

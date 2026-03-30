@@ -1262,6 +1262,30 @@ app.get("/api/services/feed/channels", async (req, res) => {
   } catch (err) { res.json({ status: "unreachable", error: err.message }); }
 });
 
+// --- Lith stats proxy ---
+const LITH_URL = process.env.LITH_URL || "https://aesthetic.computer";
+
+app.get("/api/services/lith/stats", async (req, res) => {
+  try {
+    const resp = await fetch(`${LITH_URL}/lith/stats`, { signal: AbortSignal.timeout(5000) });
+    res.json(await resp.json());
+  } catch (err) { res.json({ status: "unreachable", error: err.message }); }
+});
+
+app.get("/api/services/lith/errors", async (req, res) => {
+  try {
+    const resp = await fetch(`${LITH_URL}/lith/errors?limit=${req.query.limit || 100}`, { signal: AbortSignal.timeout(5000) });
+    res.json(await resp.json());
+  } catch (err) { res.json({ errors: [], error: err.message }); }
+});
+
+app.get("/api/services/lith/requests", async (req, res) => {
+  try {
+    const resp = await fetch(`${LITH_URL}/lith/requests?limit=${req.query.limit || 100}`, { signal: AbortSignal.timeout(5000) });
+    res.json(await resp.json());
+  } catch (err) { res.json({ requests: [], error: err.message }); }
+});
+
 app.get("/api/services/billing", async (req, res) => {
   const billingUrl = process.env.BILLING_URL || "https://aesthetic.computer/api/billing";
   try {

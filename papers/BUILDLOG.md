@@ -1312,3 +1312,186 @@ Failed:
 - Playable Folk Songs [zh]
 - Sucking on the Complex [zh]
 - Get Closed Source Out of Schools [en]
+
+## 2026-03-27 15:32
+
+Built:
+- Aesthetic Computer '26 [en] → aesthetic-computer-26-arxiv.pdf
+- Aesthetic Computer '26 [es] → aesthetic-computer-26-arxiv-es.pdf
+- Aesthetic Computer '26 [zh] → aesthetic-computer-26-arxiv-zh.pdf
+- From setup() to boot() [en] → piece-api-26-arxiv.pdf
+- From setup() to boot() [da] → piece-api-26-arxiv-da.pdf
+- From setup() to boot() [es] → piece-api-26-arxiv-es.pdf
+- From setup() to boot() [zh] → piece-api-26-arxiv-zh.pdf
+- Repository Archaeology [en] → repo-archaeology-26-arxiv.pdf
+- Repository Archaeology [da] → repo-archaeology-26-arxiv-da.pdf
+- Repository Archaeology [es] → repo-archaeology-26-arxiv-es.pdf
+- Repository Archaeology [zh] → repo-archaeology-26-arxiv-zh.pdf
+- Vestigial Features [en] → dead-ends-26-arxiv.pdf
+- Vestigial Features [da] → dead-ends-26-arxiv-da.pdf
+- Vestigial Features [es] → dead-ends-26-arxiv-es.pdf
+- Vestigial Features [zh] → dead-ends-26-arxiv-zh.pdf
+- Citation Diversity Audit [en] → citation-diversity-audit-26.pdf
+- Citation Diversity Audit [da] → citation-diversity-audit-26-da.pdf
+- Citation Diversity Audit [es] → citation-diversity-audit-26-es.pdf
+- Citation Diversity Audit [zh] → citation-diversity-audit-26-zh.pdf
+- Radical Computer Art [en] → radical-computer-art-26-arxiv.pdf
+- Radical Computer Art [da] → radical-computer-art-26-arxiv-da.pdf
+- Radical Computer Art [es] → radical-computer-art-26-arxiv-es.pdf
+- Radical Computer Art [zh] → radical-computer-art-26-arxiv-zh.pdf
+- KidLisp '26 [en] → kidlisp-26-arxiv.pdf
+- KidLisp '26 [da] → kidlisp-26-arxiv-da.pdf
+- KidLisp '26 [es] → kidlisp-26-arxiv-es.pdf
+- KidLisp '26 [zh] → kidlisp-26-arxiv-zh.pdf
+- KidLisp Language Reference [en] → kidlisp-reference-26-arxiv.pdf
+- KidLisp Language Reference [da] → kidlisp-reference-26-arxiv-da.pdf
+- KidLisp Language Reference [es] → kidlisp-reference-26-arxiv-es.pdf
+- KidLisp Language Reference [zh] → kidlisp-reference-26-arxiv-zh.pdf
+- Network Audit [en] → network-audit-26-arxiv.pdf
+- Network Audit [da] → network-audit-26-arxiv-da.pdf
+- Network Audit [es] → network-audit-26-arxiv-es.pdf
+- Network Audit [zh] → network-audit-26-arxiv-zh.pdf
+- notepat.com [en] → notepat-26-arxiv.pdf
+- notepat.com [da] → notepat-26-arxiv-da.pdf
+- notepat.com [es] → notepat-26-arxiv-es.pdf
+- notepat.com [zh] → notepat-26-arxiv-zh.pdf
+- AC Native OS [en] → ac-native-os-26-arxiv.pdf
+- AC Native OS [da] → ac-native-os-26-arxiv-da.pdf
+- AC Native OS [es] → ac-native-os-26-arxiv-es.pdf
+- AC Native OS [zh] → ac-native-os-26-arxiv-zh.pdf
+- Pieces Not Programs [en] → pieces-not-programs-26-arxiv.pdf
+- Pieces Not Programs [da] → pieces-not-programs-26-arxiv-da.pdf
+- Pieces Not Programs [es] → pieces-not-programs-26-arxiv-es.pdf
+- Pieces Not Programs [zh] → pieces-not-programs-26-arxiv-zh.pdf
+- Who Pays for Creative Tools? [en] → who-pays-for-creative-tools-26-arxiv.pdf
+- Who Pays for Creative Tools? [da] → who-pays-for-creative-tools-26-arxiv-da.pdf
+- Who Pays for Creative Tools? [es] → who-pays-for-creative-tools-26-arxiv-es.pdf
+- Who Pays for Creative Tools? [zh] → who-pays-for-creative-tools-26-arxiv-zh.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [da] → whistlegraph-26-arxiv-da.pdf
+- Whistlegraph [es] → whistlegraph-26-arxiv-es.pdf
+- Whistlegraph [zh] → whistlegraph-26-arxiv-zh.pdf
+- PLOrk'ing the Planet [da] → plorking-the-planet-26-arxiv-da.pdf
+- PLOrk'ing the Planet [es] → plorking-the-planet-26-arxiv-es.pdf
+- PLOrk'ing the Planet [zh] → plorking-the-planet-26-arxiv-zh.pdf
+- Playable Folk Songs [en] → folk-songs-26-arxiv.pdf
+- Playable Folk Songs [da] → folk-songs-26-arxiv-da.pdf
+- Playable Folk Songs [es] → folk-songs-26-arxiv-es.pdf
+- Playable Folk Songs [zh] → folk-songs-26-arxiv-zh.pdf
+- Sucking on the Complex [en] → sucking-on-the-complex-26-arxiv.pdf
+- Sucking on the Complex [da] → sucking-on-the-complex-26-arxiv-da.pdf
+- Sucking on the Complex [es] → sucking-on-the-complex-26-arxiv-es.pdf
+- Sucking on the Complex [zh] → sucking-on-the-complex-26-arxiv-zh.pdf
+- KidLisp Cards [en] → kidlisp-cards-26-arxiv.pdf
+- KidLisp Cards [da] → kidlisp-cards-26-arxiv-da.pdf
+- KidLisp Cards [es] → kidlisp-cards-26-arxiv-es.pdf
+- KidLisp Cards [zh] → kidlisp-cards-26-arxiv-zh.pdf
+- Reading the Score [en] → reading-the-score-26-arxiv.pdf
+- Reading the Score [da] → reading-the-score-26-arxiv-da.pdf
+- Reading the Score [es] → reading-the-score-26-arxiv-es.pdf
+- Reading the Score [zh] → reading-the-score-26-arxiv-zh.pdf
+- CalArts, Callouts, and Papers [en] → calarts-callouts-papers-26-arxiv.pdf
+- CalArts, Callouts, and Papers [da] → calarts-callouts-papers-26-arxiv-da.pdf
+- CalArts, Callouts, and Papers [es] → calarts-callouts-papers-26-arxiv-es.pdf
+- CalArts, Callouts, and Papers [zh] → calarts-callouts-papers-26-arxiv-zh.pdf
+- Five Years from Now [en] → five-years-from-now-26-arxiv.pdf
+- Five Years from Now [da] → five-years-from-now-26-arxiv-da.pdf
+- Five Years from Now [es] → five-years-from-now-26-arxiv-es.pdf
+- Five Years from Now [zh] → five-years-from-now-26-arxiv-zh.pdf
+- Handle Identity on the AT Protocol [en] → handle-identity-atproto-26-arxiv.pdf
+- Handle Identity on the AT Protocol [da] → handle-identity-atproto-26-arxiv-da.pdf
+- Handle Identity on the AT Protocol [es] → handle-identity-atproto-26-arxiv-es.pdf
+- Handle Identity on the AT Protocol [zh] → handle-identity-atproto-26-arxiv-zh.pdf
+- Two Departments, One Building [en] → ucla-arts-funding-26-arxiv.pdf
+- Two Departments, One Building [da] → ucla-arts-funding-26-arxiv-da.pdf
+- Two Departments, One Building [es] → ucla-arts-funding-26-arxiv-es.pdf
+- Two Departments, One Building [zh] → ucla-arts-funding-26-arxiv-zh.pdf
+
+Failed:
+- Aesthetic Computer '26 [da]
+- PLOrk'ing the Planet [en]
+- Get Closed Source Out of Schools [en]
+- Get Closed Source Out of Schools [da]
+- Get Closed Source Out of Schools [es]
+- Get Closed Source Out of Schools [zh]
+
+## 2026-03-27 15:37
+
+Built:
+- Aesthetic Computer '26 [cards] → aesthetic-computer-26-arxiv-cards.pdf
+- From setup() to boot() [cards] → piece-api-26-arxiv-cards.pdf
+- Repository Archaeology [cards] → repo-archaeology-26-arxiv-cards.pdf
+- Vestigial Features [cards] → dead-ends-26-arxiv-cards.pdf
+- Citation Diversity Audit [cards] → citation-diversity-audit-26-cards.pdf
+- Radical Computer Art [cards] → radical-computer-art-26-arxiv-cards.pdf
+- KidLisp '26 [cards] → kidlisp-26-arxiv-cards.pdf
+- KidLisp Language Reference [cards] → kidlisp-reference-26-arxiv-cards.pdf
+- Network Audit [cards] → network-audit-26-arxiv-cards.pdf
+- notepat.com [cards] → notepat-26-arxiv-cards.pdf
+- AC Native OS [cards] → ac-native-os-26-arxiv-cards.pdf
+- Pieces Not Programs [cards] → pieces-not-programs-26-arxiv-cards.pdf
+- Who Pays for Creative Tools? [cards] → who-pays-for-creative-tools-26-arxiv-cards.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- Playable Folk Songs [cards] → folk-songs-26-arxiv-cards.pdf
+- Sucking on the Complex [cards] → sucking-on-the-complex-26-arxiv-cards.pdf
+- KidLisp Cards [cards] → kidlisp-cards-26-arxiv-cards.pdf
+- CalArts, Callouts, and Papers [cards] → calarts-callouts-papers-26-arxiv-cards.pdf
+- Five Years from Now [cards] → five-years-from-now-26-arxiv-cards.pdf
+- Handle Identity on the AT Protocol [cards] → handle-identity-atproto-26-arxiv-cards.pdf
+- Two Departments, One Building [cards] → ucla-arts-funding-26-arxiv-cards.pdf
+
+Failed:
+- Reading the Score [cards]
+- Get Closed Source Out of Schools [cards]
+
+## 2026-03-28 23:05
+
+Built:
+- Aesthetic Computer '26 [en] → aesthetic-computer-26-arxiv.pdf
+- Aesthetic Computer '26 [cards] → aesthetic-computer-26-arxiv-cards.pdf
+- From setup() to boot() [en] → piece-api-26-arxiv.pdf
+- From setup() to boot() [cards] → piece-api-26-arxiv-cards.pdf
+- Repository Archaeology [en] → repo-archaeology-26-arxiv.pdf
+- Repository Archaeology [cards] → repo-archaeology-26-arxiv-cards.pdf
+- Vestigial Features [en] → dead-ends-26-arxiv.pdf
+- Vestigial Features [cards] → dead-ends-26-arxiv-cards.pdf
+- Citation Diversity Audit [en] → citation-diversity-audit-26.pdf
+- Citation Diversity Audit [cards] → citation-diversity-audit-26-cards.pdf
+- Radical Computer Art [en] → radical-computer-art-26-arxiv.pdf
+- Radical Computer Art [cards] → radical-computer-art-26-arxiv-cards.pdf
+- KidLisp '26 [en] → kidlisp-26-arxiv.pdf
+- KidLisp '26 [cards] → kidlisp-26-arxiv-cards.pdf
+- KidLisp Language Reference [en] → kidlisp-reference-26-arxiv.pdf
+- KidLisp Language Reference [cards] → kidlisp-reference-26-arxiv-cards.pdf
+- Network Audit [en] → network-audit-26-arxiv.pdf
+- Network Audit [cards] → network-audit-26-arxiv-cards.pdf
+- notepat.com [en] → notepat-26-arxiv.pdf
+- notepat.com [cards] → notepat-26-arxiv-cards.pdf
+- AC Native OS [en] → ac-native-os-26-arxiv.pdf
+- AC Native OS [cards] → ac-native-os-26-arxiv-cards.pdf
+- Pieces Not Programs [en] → pieces-not-programs-26-arxiv.pdf
+- Pieces Not Programs [cards] → pieces-not-programs-26-arxiv-cards.pdf
+- Who Pays for Creative Tools? [en] → who-pays-for-creative-tools-26-arxiv.pdf
+- Who Pays for Creative Tools? [cards] → who-pays-for-creative-tools-26-arxiv-cards.pdf
+- Whistlegraph [en] → whistlegraph-26-arxiv.pdf
+- Whistlegraph [cards] → whistlegraph-26-arxiv-cards.pdf
+- PLOrk'ing the Planet [en] → plorking-the-planet-26-arxiv.pdf
+- PLOrk'ing the Planet [cards] → plorking-the-planet-26-arxiv-cards.pdf
+- Playable Folk Songs [en] → folk-songs-26-arxiv.pdf
+- Playable Folk Songs [cards] → folk-songs-26-arxiv-cards.pdf
+- Sucking on the Complex [en] → sucking-on-the-complex-26-arxiv.pdf
+- Sucking on the Complex [cards] → sucking-on-the-complex-26-arxiv-cards.pdf
+- KidLisp Cards [en] → kidlisp-cards-26-arxiv.pdf
+- KidLisp Cards [cards] → kidlisp-cards-26-arxiv-cards.pdf
+- Reading the Score [en] → reading-the-score-26-arxiv.pdf
+- Reading the Score [cards] → reading-the-score-26-arxiv-cards.pdf
+- CalArts, Callouts, and Papers [en] → calarts-callouts-papers-26-arxiv.pdf
+- CalArts, Callouts, and Papers [cards] → calarts-callouts-papers-26-arxiv-cards.pdf
+- Get Closed Source Out of Schools [en] → open-schools-26-arxiv.pdf
+- Get Closed Source Out of Schools [cards] → open-schools-26-arxiv-cards.pdf
+- Five Years from Now [en] → five-years-from-now-26-arxiv.pdf
+- Five Years from Now [cards] → five-years-from-now-26-arxiv-cards.pdf
+- Handle Identity on the AT Protocol [en] → handle-identity-atproto-26-arxiv.pdf
+- Handle Identity on the AT Protocol [cards] → handle-identity-atproto-26-arxiv-cards.pdf
+- Two Departments, One Building [en] → ucla-arts-funding-26-arxiv.pdf
+- Two Departments, One Building [cards] → ucla-arts-funding-26-arxiv-cards.pdf

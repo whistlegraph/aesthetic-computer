@@ -3,6 +3,8 @@
 // heartbeats, log upload, and remote command reception.
 
 #include "machines.h"
+#include "drm-display.h"
+#include "swank-bridge.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -156,6 +158,25 @@ static void send_register(ACMachines *m, ACWifi *wifi) {
     char hostname[64] = "";
     read_file("/etc/hostname", hostname, sizeof(hostname));
 
+    // Display driver
+    extern void *g_display;
+    const char *drv = "unknown";
+    if (g_display) {
+        drv = drm_display_driver((ACDisplay *)g_display);
+    } else if (getenv("WAYLAND_DISPLAY")) {
+        drv = "wayland";
+    }
+
+    // GPU name from sysfs
+    char gpu_name[128] = "unknown";
+    {
+        char tmp[128] = "";
+        if (read_file("/sys/kernel/debug/dri/0/name", tmp, sizeof(tmp)) > 0 ||
+            read_file("/sys/class/drm/card0/device/label", tmp, sizeof(tmp)) > 0) {
+            snprintf(gpu_name, sizeof(gpu_name), "%s", tmp);
+        }
+    }
+
     char msg[2048];
     snprintf(msg, sizeof(msg),
         "{\"type\":\"register\","
@@ -169,7 +190,7 @@ static void send_register(ACMachines *m, ACWifi *wifi) {
         "\"battery\":%d,"
         "\"charging\":%s,"
         "\"hostname\":\"%s\","
-        "\"hw\":{\"display\":\"%s\"}}",
+        "\"hw\":{\"display\":\"%s\",\"displayDriver\":\"%s\",\"gpu\":\"%s\"}}",
         AC_BUILD_NAME, AC_GIT_HASH, AC_BUILD_TS,
         AC_BUILD_NAME, AC_GIT_HASH, AC_BUILD_TS,
         m->current_piece,
@@ -178,7 +199,7 @@ static void send_register(ACMachines *m, ACWifi *wifi) {
         bat_pct,
         bat_chg ? "true" : "false",
         hostname,
-        hw);
+        hw, drv, gpu_name);
     sq_push(m, msg);
     ac_log("[machines] registered\n");
 }
@@ -280,6 +301,27 @@ static void process_messages(ACMachines *m) {
     int count = ws_poll(m->ws);
     for (int i = 0; i < count; i++) {
         const char *raw = m->ws->messages[i];
+
+        // Handle swank:eval — evaluate CL via local Swank server
+        if (strstr(raw, "\"type\":\"swank:eval\"")) {
+            char expr[2048] = "", eval_id[32] = "";
+            json_get_str(raw, "expr", expr, sizeof(expr));
+            json_get_str(raw, "evalId", eval_id, sizeof(eval_id));
+            if (expr[0]) {
+                ac_log("[machines] swank:eval id=%s expr=%.80s\n", eval_id, expr);
+                char result[4096] = "";
+                int rc = swank_eval(expr, result, sizeof(result));
+                // Send result back
+                char escaped_result[8192];
+                json_escape(result, strlen(result), escaped_result, sizeof(escaped_result));
+                char msg[12288];
+                snprintf(msg, sizeof(msg),
+                    "{\"type\":\"swank:result\",\"evalId\":\"%s\",\"ok\":%s,\"result\":\"%s\"}",
+                    eval_id, rc == 0 ? "true" : "false", escaped_result);
+                ws_send(m->ws, msg);
+            }
+            continue;
+        }
 
         // Check if it's a command message
         if (!strstr(raw, "\"type\":\"command\"")) continue;

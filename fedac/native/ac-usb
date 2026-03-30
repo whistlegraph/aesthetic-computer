@@ -166,11 +166,27 @@ type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M' | sfdisk ${USB_DEV}
             GITHUB_PAT=$(grep 'oauth_token:' "${HOME}/.config/gh/hosts.yml" 2>/dev/null | head -1 | awk '{print $2}' || true)
         fi
         [ -z "${GITHUB_PAT}" ] && GITHUB_PAT="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+        # AC auth token + device tokens: fetch from device-token API
+        AC_TOKEN=""
+        if [ -n "${HANDLE}" ]; then
+            echo "  Fetching credentials for @${HANDLE}..."
+            DEVICE_JSON=$(curl -s "https://aesthetic.computer/api/device-token?handle=${HANDLE}" 2>/dev/null || true)
+            AC_TOKEN=$(echo "${DEVICE_JSON}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.token||'')}catch{}})" 2>/dev/null || true)
+            # Grab Claude/GitHub tokens from API if not already set locally
+            if [ -z "${CLAUDE_TOKEN}" ]; then
+                CLAUDE_TOKEN=$(echo "${DEVICE_JSON}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.claudeToken||'')}catch{}})" 2>/dev/null || true)
+            fi
+            if [ -z "${GITHUB_PAT}" ]; then
+                GITHUB_PAT=$(echo "${DEVICE_JSON}" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);process.stdout.write(j.githubPat||'')}catch{}})" 2>/dev/null || true)
+            fi
+            [ -n "${AC_TOKEN}" ] && echo "  AC auth token: yes"
+        fi
         # Always write config.json with at least the handle
         CONFIG_JSON=$(node -e "
-            const c = {handle: '${HANDLE}'};
+            const c = {handle: '${HANDLE}', piece: 'notepat'};
             if ('${CLAUDE_TOKEN}') c.claudeToken = '${CLAUDE_TOKEN}';
             if ('${GITHUB_PAT}') c.githubPat = '${GITHUB_PAT}';
+            if ('${AC_TOKEN}') c.token = '${AC_TOKEN}';
             process.stdout.write(JSON.stringify(c));
         " 2>/dev/null || true)
         if [ -z "${CONFIG_JSON}" ]; then

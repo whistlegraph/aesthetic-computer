@@ -14,33 +14,57 @@ import { execSync } from "child_process";
 
 const PAPERS_DIR = new URL(".", import.meta.url).pathname;
 
-const ALL_TRANSLATIONS = { da: "Dansk", es: "Español", zh: "中文", ja: "日本語" };
+const LANG_LABELS = { da: "Dansk", es: "Español", zh: "中文", ja: "日本語" };
 
 const PAPER_MAP = {
-  "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features", siteName: "dead-ends-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit", siteName: "citation-diversity-audit-26", translations: ALL_TRANSLATIONS },
-  "arxiv-folk-songs": { base: "folk-songs", title: "Playable Folk Songs", siteName: "folk-songs-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art", siteName: "radical-computer-art-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26", siteName: "kidlisp-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference", siteName: "kidlisp-reference-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-network-audit": { base: "network-audit", title: "Network Audit", siteName: "network-audit-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-score-analysis": { base: "score-analysis", title: "Reading the Score", siteName: "reading-the-score-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-calarts": { base: "calarts", title: "CalArts, Callouts, and Papers", siteName: "calarts-callouts-papers-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv", translations: ALL_TRANSLATIONS },
-  "arxiv-open-schools": { base: "open-schools", title: "Get Closed Source Out of Schools", siteName: "open-schools-26-arxiv", translations: ALL_TRANSLATIONS },
+  "arxiv-ac": { base: "ac", title: "\\acrandname{} '26", siteName: "aesthetic-computer-26-arxiv" },
+  "arxiv-api": { base: "api", title: "From \\texttt{setup()} to \\texttt{boot()}", siteName: "piece-api-26-arxiv" },
+  "arxiv-archaeology": { base: "archaeology", title: "Repository Archaeology", siteName: "repo-archaeology-26-arxiv" },
+  "arxiv-dead-ends": { base: "dead-ends", title: "Vestigial Features", siteName: "dead-ends-26-arxiv" },
+  "arxiv-diversity": { base: "diversity", title: "Citation Diversity Audit", siteName: "citation-diversity-audit-26" },
+  "arxiv-folk-songs": { base: "folk-songs", title: "Playable Folk Songs", siteName: "folk-songs-26-arxiv" },
+  "arxiv-goodiepal": { base: "goodiepal", title: "Radical Computer Art", siteName: "radical-computer-art-26-arxiv" },
+  "arxiv-kidlisp": { base: "kidlisp", title: "Kid{\\color{acpurple}Lisp} '26", siteName: "kidlisp-26-arxiv" },
+  "arxiv-kidlisp-reference": { base: "kidlisp-reference", title: "KidLisp Language Reference", siteName: "kidlisp-reference-26-arxiv" },
+  "arxiv-network-audit": { base: "network-audit", title: "Network Audit", siteName: "network-audit-26-arxiv" },
+  "arxiv-notepat": { base: "notepat", title: "notepat{\\color{acpurple}.}{\\color{acpink}com}", siteName: "notepat-26-arxiv" },
+  "arxiv-os": { base: "os", title: "AC Native OS '26", siteName: "ac-native-os-26-arxiv" },
+  "arxiv-pieces": { base: "pieces", title: "Pieces Not Programs", siteName: "pieces-not-programs-26-arxiv" },
+  "arxiv-plork": { base: "plork", title: "PLOrk'ing the Planet", siteName: "plorking-the-planet-26-arxiv" },
+  "arxiv-sustainability": { base: "sustainability", title: "Who Pays for Creative Tools?", siteName: "who-pays-for-creative-tools-26-arxiv" },
+  "arxiv-whistlegraph": { base: "whistlegraph", title: "Whistlegraph", siteName: "whistlegraph-26-arxiv" },
+  "arxiv-complex": { base: "complex", title: "Sucking on the Complex", siteName: "sucking-on-the-complex-26-arxiv" },
+  "arxiv-kidlisp-cards": { base: "kidlisp-cards", title: "Kid{\\color{acpurple}Lisp} Cards", siteName: "kidlisp-cards-26-arxiv" },
+  "arxiv-score-analysis": { base: "score-analysis", title: "Reading the Score", siteName: "reading-the-score-26-arxiv" },
+  "arxiv-calarts": { base: "calarts", title: "CalArts, Callouts, and Papers", siteName: "calarts-callouts-papers-26-arxiv" },
+  "arxiv-open-schools": { base: "open-schools", title: "Get Closed Source Out of Schools", siteName: "open-schools-26-arxiv" },
+  "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv" },
+  "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv" },
+  "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
 };
+
+function getAvailableTranslations(dir, info) {
+  return Object.fromEntries(
+    Object.entries(LANG_LABELS).filter(([code]) =>
+      existsSync(join(PAPERS_DIR, dir, `${info.base}-${code}.tex`))
+    )
+  );
+}
+
+// Convert tabularx to plain tabular for cards (adjustbox handles the scaling).
+// tabularx resists all runtime patching, but plain tabular wrapped in adjustbox works.
+function convertTabularxToTabular(body) {
+  // Replace \begin{tabularx}{...}{colspec} with \begin{tabular}{colspec}
+  // Convert X columns to p{0.3\linewidth} for wrapping
+  return body.replace(
+    /\\begin\{tabularx\}\{[^}]*\}\{([^}]*)\}/g,
+    (match, colspec) => {
+      // Replace X with p{} columns, keep l/r/c as-is
+      const newSpec = colspec.replace(/X/g, "p{0.28\\linewidth}");
+      return `\\begin{tabular}{${newSpec}}`;
+    }
+  ).replace(/\\end\{tabularx\}/g, "\\end{tabular}");
+}
 
 function extractFromTex(content) {
   // Extract pdftitle
@@ -189,11 +213,12 @@ function generateCardsTeX(dir, info, parsed) {
 
   // Translation links for title card
   const cjkLangs = new Set(["zh", "ja", "ko"]);
-  const translationLinks = info.translations
-    ? Object.entries(info.translations)
+  const translations = getAvailableTranslations(dir, info);
+  const translationLinks = Object.keys(translations).length > 0
+    ? Object.entries(translations)
         .map(([code, label]) => {
           const displayLabel = cjkLangs.has(code) ? `{\\accjk ${label}}` : label;
-          return `\\href{https://papers.aesthetic.computer/${info.siteName}-${code}-cards.pdf}{${displayLabel}}`;
+          return `\\href{https://papers.aesthetic.computer/${info.siteName}-${code}.pdf}{${displayLabel}}`;
         })
         .join(" · ")
     : "";
@@ -262,7 +287,7 @@ ${extraCmds}
 \\thispagestyle{empty}
 \\vspace*{\\fill}
 \\begin{center}
-\\includegraphics[height=9em]{pals}\\par\\vspace{0.1em}
+\\href{https://papers.aesthetic.computer}{\\includegraphics[height=9em]{pals}}\\par\\vspace{0.1em}
 {\\acbold\\fontsize{18pt}{22pt}\\selectfont\\color{acdark} ${title}}\\par
 \\vspace{0.1em}
 ${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\par\n\\vspace{0.4em}` : "\\vspace{0.3em}"}
@@ -288,7 +313,7 @@ ${subtitle ? `{\\fontsize{9pt}{11pt}\\selectfont\\color{acpink} ${subtitle}}\\pa
 ${abstractCard}% ============================================================
 % BODY
 % ============================================================
-${parsed.mainBody}
+${convertTabularxToTabular(parsed.mainBody)}
 
 \\end{document}
 `;

@@ -46,6 +46,9 @@ let noadvance = false;
 let btnBar = 32;
 const butBottom = 6;
 const butSide = 6;
+const menuButtonLeft = 6;
+const menuButtonTop = 24;
+const menuPanelGap = 4;
 
 let handle;
 let imageCode, recordingCode;
@@ -91,6 +94,10 @@ function boot({
   store,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
+  menuBtn = null;
+  nukeBtn = null;
+  menuOpen = false;
+  isNuking = false;
 
   lastBroadcastedCode = undefined;
   ellipsisTicker = new gizmo.EllipsisTicker();
@@ -355,7 +362,11 @@ function boot({
         const normalizedCurrentHandle = currentHandle?.startsWith("@") ? currentHandle.slice(1) : currentHandle;
         
         if (handle === normalizedCurrentHandle && !showMode) {
-          menuBtn = new ui.Button();
+          menuBtn = new ui.TextButtonSmall("Menu", {
+            left: menuButtonLeft,
+            top: menuButtonTop,
+            screen,
+          });
         }
 
         if (showMode || "icon" in query || "preview" in query) return;
@@ -573,29 +584,51 @@ function paint({
     downloadBtn?.reposition({ left: 6, bottom: 6, screen });
 
     if (menuBtn) {
-      menuBtn.box = new geo.Box(5, 18, 18, 12);
-      menuBtn.paint((btn) => {
-        if (btn.down) ink(255, 255, 0, 32).box(btn.box);
-        ink(btn.down ? "yellow" : "white").write("...", {
-          x: btn.box.x,
-          y: btn.box.y,
-        });
-      });
+      const menuLabel = menuOpen ? "Close" : "Menu";
+      const menuScheme = menuOpen
+        ? [[40, 32, 0, 224], [255, 255, 0], [255, 255, 0]]
+        : [[0, 0, 0, 192], [255, 255, 255, 96], 255];
+      const menuRolloverScheme = [[16, 16, 16, 224], [255, 255, 255], 255];
+
+      menuBtn.reposition(
+        { left: menuButtonLeft, top: menuButtonTop, screen },
+        menuLabel,
+      );
+      menuBtn.paint(
+        { ink },
+        menuScheme,
+        [[80, 60, 0, 224], [255, 255, 0], [255, 255, 0]],
+        [[32, 32, 32, 160], [96, 96, 96], 96],
+        menuRolloverScheme,
+      );
     }
 
     if (menuOpen) {
-      ink(0, 200).box(0, 32, screen.width, screen.height);
-      ink(255, 64).line(0, 32, screen.width, 32);
+      const menuPanelTop = Math.round(
+        menuBtn ? menuBtn.btn.box.y + menuBtn.height + menuPanelGap : 32,
+      );
+
+      ink(0, 200).box(0, menuPanelTop, screen.width, screen.height);
+      ink(255, 64).line(0, menuPanelTop, screen.width, menuPanelTop);
       if (!nukeBtn) nukeBtn = new ui.TextButton();
       nukeBtn.box = new geo.Box(4);
       
       // Button label based on state
-      const buttonLabel = isNuking ? "..." : (isNuked ? "Denuke" : "Nuke");
+      const buttonLabel = isNuking
+        ? isNuked
+          ? "Restoring"
+          : "Nuking"
+        : isNuked
+          ? "Denuke"
+          : "Nuke";
       const buttonColors = isNuked 
         ? ["darkgreen", "green", "green", "darkgreen"]
         : ["maroon", "red", "red", "maroon"];
       
-      nukeBtn.reposition({ left: 6, y: 40, screen }, buttonLabel);
+      nukeBtn.reposition(
+        { left: menuButtonLeft, y: menuPanelTop + 8, screen },
+        buttonLabel,
+      );
       nukeBtn.paint({ ink }, buttonColors);
     }
   }
@@ -681,7 +714,7 @@ function paint({
     );
 
     // Prev & Next Buttons
-    const prevNextMarg = 32;
+    const prevNextMarg = menuBtn ? 40 : 32;
     const prevNextWidth = 32;
 
     if (!prevBtn) {

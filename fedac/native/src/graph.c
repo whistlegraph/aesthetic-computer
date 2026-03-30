@@ -4,6 +4,10 @@
 #include <string.h>
 #include <math.h>
 
+#ifdef USE_SDL
+#include "drm-display.h"
+#endif
+
 static inline uint8_t clamp_u8(int v) {
     if (v < 0) return 0;
     if (v > 255) return 255;
@@ -15,6 +19,11 @@ void graph_init(ACGraph *g, ACFramebuffer *screen) {
     g->screen = screen;
     g->ink = (ACColor){255, 255, 255, 255};
     g->ink_packed = 0xFFFFFFFF;
+    g->gpu_display = NULL;
+}
+
+void graph_init_gpu(ACGraph *g, void *display) {
+    g->gpu_display = display;
 }
 
 void graph_wipe(ACGraph *g, ACColor color) {
@@ -158,13 +167,75 @@ void graph_blur(ACGraph *g, int strength) {
     ACFramebuffer *fb = g->fb;
     if (strength <= 0) return;
 
+#ifdef USE_SDL
+    // GPU path: downscale → upscale with bilinear filtering = fast blur
+    if (g->gpu_display) {
+        ACDisplay *d = (ACDisplay *)g->gpu_display;
+        if (d->is_sdl && d->sdl_renderer) {
+            // Divisor controls blur amount: higher = blurrier
+            int divisor = strength + 1;
+            if (divisor > 8) divisor = 8;
+            int small_w = fb->width / divisor;
+            int small_h = fb->height / divisor;
+            if (small_w < 1) small_w = 1;
+            if (small_h < 1) small_h = 1;
+
+            SDL_Texture *src = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+                fb->width, fb->height);
+            SDL_Texture *small = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET,
+                small_w, small_h);
+            SDL_Texture *result = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET,
+                fb->width, fb->height);
+
+            if (src && small && result) {
+                // Upload framebuffer → source texture
+                SDL_UpdateTexture(src, NULL, fb->pixels,
+                                  fb->stride * (int)sizeof(uint32_t));
+                // Set bilinear filtering for smooth blur
+                SDL_SetTextureScaleMode(src, SDL_SCALEMODE_LINEAR);
+                SDL_SetTextureScaleMode(small, SDL_SCALEMODE_LINEAR);
+
+                // Pass 1: downscale (src → small)
+                SDL_SetRenderTarget(d->sdl_renderer, small);
+                SDL_RenderTexture(d->sdl_renderer, src, NULL, NULL);
+
+                // Pass 2: upscale (small → result)
+                SDL_SetRenderTarget(d->sdl_renderer, result);
+                SDL_RenderTexture(d->sdl_renderer, small, NULL, NULL);
+
+                // Read back from result render target
+                SDL_Rect full = {0, 0, fb->width, fb->height};
+                SDL_Surface *rsurf = SDL_RenderReadPixels(d->sdl_renderer, &full);
+                SDL_SetRenderTarget(d->sdl_renderer, NULL);
+                if (rsurf) {
+                    const uint32_t *sp = (const uint32_t *)rsurf->pixels;
+                    int spitch = rsurf->pitch / 4;
+                    for (int y = 0; y < fb->height && y < rsurf->h; y++) {
+                        memcpy(&fb->pixels[y * fb->stride],
+                               &sp[y * spitch],
+                               (size_t)fb->width * sizeof(uint32_t));
+                    }
+                    SDL_DestroySurface(rsurf);
+                }
+            }
+            if (src) SDL_DestroyTexture(src);
+            if (small) SDL_DestroyTexture(small);
+            if (result) SDL_DestroyTexture(result);
+            return;
+        }
+    }
+#endif
+
+    // CPU fallback: box blur
     size_t buf_size = (size_t)fb->width * fb->height * sizeof(uint32_t);
     uint32_t *tmp = malloc(buf_size);
     if (!tmp) return;
     memcpy(tmp, fb->pixels, buf_size);
 
     int radius = strength;
-    // Simple box blur
     for (int y = 0; y < fb->height; y++) {
         for (int x = 0; x < fb->width; x++) {
             int r = 0, gr = 0, b = 0, count = 0;
@@ -193,6 +264,62 @@ void graph_zoom(ACGraph *g, double level) {
     ACFramebuffer *fb = g->fb;
     if (!fb || level <= 0.0 || fabs(level - 1.0) < 1e-6) return;
 
+#ifdef USE_SDL
+    // GPU path: render texture with scaled src rect for zoom
+    if (g->gpu_display) {
+        ACDisplay *d = (ACDisplay *)g->gpu_display;
+        if (d->is_sdl && d->sdl_renderer) {
+            const int w = fb->width;
+            const int h = fb->height;
+            const float inv = (float)(1.0 / level);
+
+            SDL_Texture *src = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+            SDL_Texture *dst = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+
+            if (src && dst) {
+                SDL_UpdateTexture(src, NULL, fb->pixels,
+                                  fb->stride * (int)sizeof(uint32_t));
+                SDL_SetTextureScaleMode(src, SDL_SCALEMODE_NEAREST);
+
+                // Source rect: the portion of the texture visible after zoom
+                float crop_w = w * inv;
+                float crop_h = h * inv;
+                SDL_FRect srcrect = {
+                    (w - crop_w) * 0.5f, (h - crop_h) * 0.5f,
+                    crop_w, crop_h
+                };
+                SDL_FRect dstrect = {0, 0, (float)w, (float)h};
+
+                SDL_SetRenderTarget(d->sdl_renderer, dst);
+                SDL_SetRenderDrawColor(d->sdl_renderer, 0, 0, 0, 255);
+                SDL_RenderClear(d->sdl_renderer);
+                SDL_RenderTexture(d->sdl_renderer, src, &srcrect, &dstrect);
+
+                // Read back
+                SDL_Rect full = {0, 0, w, h};
+                SDL_Surface *rsurf = SDL_RenderReadPixels(d->sdl_renderer, &full);
+                SDL_SetRenderTarget(d->sdl_renderer, NULL);
+                if (rsurf) {
+                    const uint32_t *sp = (const uint32_t *)rsurf->pixels;
+                    int spitch = rsurf->pitch / 4;
+                    for (int y = 0; y < h && y < rsurf->h; y++) {
+                        memcpy(&fb->pixels[y * fb->stride],
+                               &sp[y * spitch],
+                               (size_t)w * sizeof(uint32_t));
+                    }
+                    SDL_DestroySurface(rsurf);
+                }
+            }
+            if (src) SDL_DestroyTexture(src);
+            if (dst) SDL_DestroyTexture(dst);
+            return;
+        }
+    }
+#endif
+
+    // CPU fallback
     const int w = fb->width;
     const int h = fb->height;
     size_t buf_size = (size_t)w * h * sizeof(uint32_t);
@@ -246,6 +373,57 @@ void graph_spin(ACGraph *g, double angle_radians) {
     ACFramebuffer *fb = g->fb;
     if (!fb || fabs(angle_radians) < 1e-6) return;
 
+#ifdef USE_SDL
+    // GPU path: SDL3 texture rotation
+    if (g->gpu_display) {
+        ACDisplay *d = (ACDisplay *)g->gpu_display;
+        if (d->is_sdl && d->sdl_renderer) {
+            const int w = fb->width;
+            const int h = fb->height;
+            double angle_degrees = angle_radians * (180.0 / M_PI);
+
+            SDL_Texture *src = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
+            SDL_Texture *dst = SDL_CreateTexture(d->sdl_renderer,
+                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, w, h);
+
+            if (src && dst) {
+                SDL_UpdateTexture(src, NULL, fb->pixels,
+                                  fb->stride * (int)sizeof(uint32_t));
+                SDL_SetTextureScaleMode(src, SDL_SCALEMODE_NEAREST);
+
+                SDL_FRect dstrect = {0, 0, (float)w, (float)h};
+                SDL_FPoint center = {w * 0.5f, h * 0.5f};
+
+                SDL_SetRenderTarget(d->sdl_renderer, dst);
+                SDL_SetRenderDrawColor(d->sdl_renderer, 0, 0, 0, 255);
+                SDL_RenderClear(d->sdl_renderer);
+                SDL_RenderTextureRotated(d->sdl_renderer, src, NULL, &dstrect,
+                                         angle_degrees, &center, SDL_FLIP_NONE);
+
+                // Read back
+                SDL_Rect full = {0, 0, w, h};
+                SDL_Surface *rsurf = SDL_RenderReadPixels(d->sdl_renderer, &full);
+                SDL_SetRenderTarget(d->sdl_renderer, NULL);
+                if (rsurf) {
+                    const uint32_t *sp = (const uint32_t *)rsurf->pixels;
+                    int spitch = rsurf->pitch / 4;
+                    for (int y = 0; y < h && y < rsurf->h; y++) {
+                        memcpy(&fb->pixels[y * fb->stride],
+                               &sp[y * spitch],
+                               (size_t)w * sizeof(uint32_t));
+                    }
+                    SDL_DestroySurface(rsurf);
+                }
+            }
+            if (src) SDL_DestroyTexture(src);
+            if (dst) SDL_DestroyTexture(dst);
+            return;
+        }
+    }
+#endif
+
+    // CPU fallback
     size_t buf_size = (size_t)fb->width * fb->height * sizeof(uint32_t);
     uint32_t *tmp = malloc(buf_size);
     if (!tmp) return;
@@ -258,7 +436,6 @@ void graph_spin(ACGraph *g, double angle_radians) {
     const double c = cos(angle_radians);
     const double s = sin(angle_radians);
 
-    // Inverse mapping: destination -> source with toroidal wrapping.
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             const double dx = x - cx;

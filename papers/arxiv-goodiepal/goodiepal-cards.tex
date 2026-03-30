@@ -41,7 +41,7 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=9em]{pals}\par\vspace{0.1em}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Radical Computer Art}\par
 \vspace{0.1em}
 {\fontsize{9pt}{11pt}\selectfont\color{acpink} Goodiepalian Approaches in \acrandname{}}\par
@@ -54,9 +54,9 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/2113ef735}{2113ef735}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-da-cards.pdf}{Dansk} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-es-cards.pdf}{Español} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-zh-cards.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-ja-cards.pdf}{{\accjk 日本語}}}\par
+{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/radical-computer-art-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -72,7 +72,7 @@
 
 In 2012, \gp{} published \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino}, a 191-page score for ``Radical Computer Music''---music made ``not only to be appreciated by human beings but also to be appreciated by a possible future artificial, or as I prefer to call it, alternative intelligence.'' The work is printed in Comic Sans and Courier on gray cardboard. It includes event photography designed to be ``possibly unscannable,'' correspondence with Roc Jim\'enez de Cisneros, and a rejected advertisement for a Radical Computer Lecture submitted to the \emph{Leonardo Music Journal}. It is, by conventional standards, unpublishable.
 
-\ac{}~\citep{scudder2026ac} is a mobile-first runtime and social network for creative computing. It is, by conventional standards, a software platform. It has a session server, a KidLisp interpreter, an NFT minting pipeline, and over 350 interactive programs called ``pieces.'' Its score is written in Markdown. Its logo is a pair of eyes called ``Pals.''
+\ac{}~\citep{scudder2026ac} is a mobile-first runtime and social network for creative computing. It is, by conventional standards, a software platform. It has a session server, a KidLisp interpreter, an NFT minting pipeline, and over 350 interactive programs called ``pieces.'' Its score is written in Markdown. Its logo is two hand-drawn figures holding hands, called ``Pals.''
 
 The distance between these two projects is smaller than it appears. \ac{}'s design decisions---many of which seem like engineering choices---are better understood as Goodiepalian commitments: philosophical positions about who computing is for, what constitutes a creative instrument, how communities of practice should organize, and what it means for software to address non-human audiences.
 
@@ -120,7 +120,7 @@ This is \gp{}'s position made literal: the computer is an instrument. Not metaph
 
 \subsection{Pals as Platform Identity}
 
-\ac{}'s logo is called ``Pals.'' The project's score is titled ``Score for Aesthetic.Computer \& Pals.'' This is not branding; it is a structural claim. The platform belongs to its community of practitioners, not to its developer or its investors. The Pals logo---a pair of eyes---appears on every boot screen, every paper, every landing page. It is the first and last thing the user sees.
+\ac{}'s logo is called ``Pals.'' The project's score is titled ``Score for Aesthetic.Computer \& Pals.'' This is not branding; it is a structural claim. The platform belongs to its community of practitioners, not to its developer or its investors. The Pals logo---two hand-drawn figures holding hands---appears on every boot screen, every paper, every landing page. It is the first and last thing the user sees.
 
 \subsection{laer-klokken}
 
@@ -143,6 +143,16 @@ This is not a performance optimization. It is an aesthetic commitment to the \em
 \subsection{The Poor Image, Inverted}
 
 Steyerl's ``poor image''~\citep{steyerl2009defense} circulates freely because it has been degraded to the point of weightlessness. \ac{}'s pieces circulate poorly because they are \emph{too present}---they require execution, a runtime, a specific moment. They are rich images that refuse to become poor. This is the Goodiepalian position: the work should not accommodate the distribution infrastructure. The infrastructure should accommodate the work, or the work should remain unscannable.
+
+\subsection{Glitch as the Inverse Unscannable}
+
+Rosa Menkman's theory of glitch offers a complementary frame. Where \gp{} constructs artifacts that resist scanning \emph{into} the digital---gray cardboard, mixed typefaces, material opacity---Menkman identifies moments where the digital resists scanning \emph{out of} itself. In \emph{The Glitch Moment(um)}~\citep{menkman2011glitch}, she describes glitch as the instant when a system's failure becomes perceptible but has not yet been normalized: a ``moment(um)'' that reveals the politics encoded in the signal path. The glitch is unscannable from the other direction---not matter resisting digitization, but computation resisting its own smooth operation.
+
+This connection is not incidental. \gp{}'s ``unscannable obstructions'' force a machine interpreter to develop new capacities rather than parsing familiar notation. Menkman's \emph{A Vernacular of File Formats}~\citep{menkman2010vernacular} performs the same operation in reverse: by databending a single self-portrait through every available codec, she forces the compression algorithms to reveal their assumptions---the way each format decides what information is expendable. The result is a taxonomy of machine failure that doubles as a taxonomy of machine ideology. Both practitioners treat the gap between signal and medium as artistically productive rather than as error to be corrected.
+
+\ac{}'s immediate-mode renderer occupies a specific position in this dialogue. It refuses the retained scene graph---the DOM, the persistent state---that would allow a glitch to \emph{accumulate}. Every frame is drawn and discarded. There is no buffer to corrupt, no state to databend. If Menkman's practice depends on the persistence of encoded data (a JPEG has structure that can be broken), and \gp{}'s depends on the persistence of physical material (cardboard that resists the scanner), then \ac{} produces a third condition: artifacts that persist in neither medium. The piece exists only in the present tense of its execution. It is unscannable because there is nothing stable to scan.
+
+Menkman's \emph{Beyond Resolution}~\citep{menkman2020resolution} deepens this alignment. Her argument that resolution standards---pixel grids, color spaces, frame rates---are not neutral but ideological, enforcing invisible norms about what an image \emph{should} be, maps directly onto \ac{}'s refusal of standard display paradigms. The platform has no fixed resolution. Pieces address the screen in raw pixels. The \texttt{wipe()} call does not clear to a standard background; it clears to whatever the piece decides. Resolution, in Menkman's sense, is a consensus that \ac{} has not signed.
 
 \section{Radical Pedagogy}
 

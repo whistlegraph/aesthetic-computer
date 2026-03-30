@@ -32,6 +32,7 @@ const s3Assets = dev
   ? null
   : new S3Client({
       endpoint: "https://" + process.env.ART_ENDPOINT, // Same as 'assets'
+      region: "us-east-1",
       credentials: {
         accessKeyId: process.env.ART_KEY, // Same for 'assets'
         secretAccessKey: process.env.ART_SECRET, // Same for 'assets'

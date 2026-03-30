@@ -365,14 +365,19 @@ export class ChatManager {
       return;
     }
 
-    // Authorization
+    // Authorization (Auth0 token or AC device token)
     let authorized;
     if (instance.authorizedConnections[id]?.token === msg.content.token) {
       authorized = instance.authorizedConnections[id].user;
       console.log("💬 Pre-authorized");
     } else {
-      console.log("💬 Authorizing...");
+      console.log("💬 Authorizing...", "handle:", msg.content.handle, "token:", msg.content.token?.slice(0, 10) + "...", "content-type:", typeof msg.content);
       authorized = await this.authorize(instance, msg.content.token);
+      // Fallback: AC device token (from ac-native device-token API)
+      if (!authorized && msg.content.handle && msg.content.token) {
+        console.log("💬 Trying device token auth for @" + msg.content.handle);
+        authorized = await this.authorizeDeviceToken(instance, msg.content.handle, msg.content.token);
+      }
       if (authorized) {
         instance.authorizedConnections[id] = {
           token: msg.content.token,
@@ -596,6 +601,24 @@ export class ChatManager {
       this.broadcast(instance, this.pack("message:hearts", { for: forId, count }));
     } catch (err) {
       console.error("💬 Heart error:", err);
+    }
+  }
+
+  async authorizeDeviceToken(instance, handle, token) {
+    // AC device tokens are "hmac.timestamp" — validate by looking up handle in MongoDB
+    if (!token || !token.includes(".") || !handle) return undefined;
+    try {
+      const cleanHandle = handle.replace("@", "");
+      const doc = await this.db.collection("@handles").findOne({ handle: cleanHandle });
+      if (doc && doc._id) {
+        console.log("💬 Device token authorized for @" + cleanHandle + " (sub: " + doc._id + ")");
+        return { sub: doc._id };
+      }
+      console.log("💬 Device token: handle @" + cleanHandle + " not found in DB");
+      return undefined;
+    } catch (err) {
+      console.error("💬 Device token auth error:", err);
+      return undefined;
     }
   }
 

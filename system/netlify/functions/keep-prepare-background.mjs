@@ -367,25 +367,33 @@ function isCachedMediaValid(piece) {
     && piece?.ipfsMedia?.sourceHash === hashSource(piece.source);
 }
 
-// ─── IPFS Upload ─────────────────────────────────────────────────────────────
+// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder) ───────────────
+const IPFS_API = process.env.IPFS_API_URL || "http://localhost:5001";
+const IPFS_SEEDER_URL = process.env.IPFS_SEEDER_URL || "http://137.184.237.166:5001";
+
+// Seed content to the oven IPFS node (fire-and-forget for faster gateway propagation)
+function seedToSecondaryNode(hash) {
+  fetch(`${IPFS_SEEDER_URL}/api/v0/pin/add?arg=${hash}`, { method: "POST", signal: AbortSignal.timeout(120000) })
+    .then(r => r.ok ? console.log(`🌱 Seeded ${hash.slice(0, 12)}... to oven`) : null)
+    .catch(() => {}); // Best-effort, don't block pipeline
+}
+
 async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
-  const pinata = await getPinataCredentials();
   const formData = new FormData();
   formData.append("file", new Blob([content], { type: mimeType }), filename);
-  formData.append("pinataMetadata", JSON.stringify({ name: filename }));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(3000, timeoutMs));
   try {
-    const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+    const res = await fetch(`${IPFS_API}/api/v0/add?pin=true`, {
       method: "POST",
-      headers: { pinata_api_key: pinata.apiKey, pinata_secret_api_key: pinata.apiSecret },
       body: formData,
       signal: controller.signal,
     });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`IPFS upload failed: ${res.status}`);
     const result = await res.json();
-    return formatIpfsUri(result.IpfsHash);
+    seedToSecondaryNode(result.Hash);
+    return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === "AbortError") throw new Error(`IPFS upload timed out after ${Math.round(timeoutMs / 1000)}s`);
@@ -394,24 +402,22 @@ async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
 }
 
 async function uploadJsonToIPFS(json, name, timeoutMs = 30000) {
-  const pinata = await getPinataCredentials();
+  const content = JSON.stringify(json);
+  const formData = new FormData();
+  formData.append("file", new Blob([content], { type: "application/json" }), name);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(3000, timeoutMs));
   try {
-    const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+    const res = await fetch(`${IPFS_API}/api/v0/add?pin=true`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        pinata_api_key: pinata.apiKey,
-        pinata_secret_api_key: pinata.apiSecret,
-      },
-      body: JSON.stringify({ pinataContent: json, pinataMetadata: { name } }),
+      body: formData,
       signal: controller.signal,
     });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
     const result = await res.json();
-    return formatIpfsUri(result.IpfsHash);
+    seedToSecondaryNode(result.Hash);
+    return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === "AbortError") throw new Error(`Metadata upload timed out after ${Math.round(timeoutMs / 1000)}s`);
@@ -495,8 +501,6 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     log("cache", "Reusing cached");
   }
 
-  const pinataCredentials = await getPinataCredentials();
-
   // ── Thumbnail (async) ──────────────────────────────────────────────
   let thumbnailPromise;
   if (!useCachedMedia) {
@@ -509,25 +513,26 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), timeoutMs);
         try {
-          const res = await fetch(`${ovenUrl}/grab-ipfs`, {
+          // Use /grab to get raw image, then pin to local IPFS
+          const res = await fetch(`${ovenUrl}/grab`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               piece: `$${pieceName}`, format: "webp",
               width: 256, height: 256, density: 2,
-              duration: forceFresh ? 4000 : 5000, fps: 8, playbackFps: 16, quality: 70,
-              source: "keep",
-              author: userHandle ? `@${userHandle}` : null,
+              duration: forceFresh ? 4000 : 5000, fps: 8,
+              quality: 70,
               cacheKey: forceFresh ? `rebake-${pieceSourceHash}-${Date.now()}` : `src-${pieceSourceHash}`,
               skipCache: forceFresh,
-              pinataKey: pinataCredentials.apiKey,
-              pinataSecret: pinataCredentials.apiSecret,
             }),
             signal: controller.signal,
           });
           clearTimeout(tid);
           if (!res.ok) throw new Error(`Oven ${res.status}`);
-          return res.json();
+          const buffer = Buffer.from(await res.arrayBuffer());
+          const thumbFilename = `${pieceName}-thumbnail.webp-${pieceSourceHash.slice(0, 16)}`;
+          const ipfsUri = await uploadToIPFS(buffer, thumbFilename, "image/webp");
+          return { ipfsUri, size: buffer.length };
         } catch (err) {
           clearTimeout(tid);
           if (err.name === "AbortError") throw new Error(`Oven timed out after ${timeoutMs / 1000}s`);
@@ -536,18 +541,12 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
       };
 
       try {
-        const result = await tryOven(OVEN_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
-        if (result?.ipfsUri) return result;
-        if (result?.error) throw new Error(result.error);
-        return result;
+        return await tryOven(OVEN_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
       } catch (err) {
         log("thumbnail", `Primary oven failed: ${err.message}`);
         if (OVEN_URL !== OVEN_FALLBACK_URL) {
           try {
-            const fb = await tryOven(OVEN_FALLBACK_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
-            if (fb?.ipfsUri) return fb;
-            if (fb?.error) throw new Error(fb.error);
-            return fb;
+            return await tryOven(OVEN_FALLBACK_URL, KEEP_MINT_THUMBNAIL_TIMEOUT_MS);
           } catch (fbErr) {
             return { error: fbErr.message };
           }
@@ -621,12 +620,13 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
       log("thumbnail", `Done: ${thumbnailUri}`);
     } else {
       const preexisting = piece.ipfsMedia?.thumbnailUri;
-      if (preexisting && forceFresh) {
+      if (preexisting) {
         thumbnailUri = preexisting;
         await setJobResult(jobId, { thumbnailUri });
         log("thumbnail", `Reusing previous: ${thumbnailUri}`);
       } else {
-        throw new Error(`Thumbnail failed: ${thumbResult?.error || "unknown"}`);
+        // Fallback: use artifact as thumbnail so the mint can proceed
+        log("thumbnail", `Oven failed (${thumbResult?.error || "unknown"}), using artifact as fallback`);
       }
     }
   }
@@ -637,6 +637,13 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     await setJobResult(jobId, { artifactUri });
     await updateJobStage(jobId, "ipfs", "Pinned to IPFS");
     log("ipfs", `Artifact: ${artifactUri}`);
+
+    // If thumbnail failed, fall back to artifact URI
+    if (!thumbnailUri) {
+      thumbnailUri = artifactUri;
+      await setJobResult(jobId, { thumbnailUri });
+      log("thumbnail", `Fallback to artifact: ${thumbnailUri}`);
+    }
   }
 
   // ── Cache media in MongoDB ─────────────────────────────────────────

@@ -10,9 +10,13 @@ NATIVE="$SRC/fedac/native"
 BUILD="$NATIVE/build"
 KVER="${KERNEL_VERSION:-6.19.9}"
 KMAJOR="${KVER%%.*}"
+MEDIA_LAYOUT_LIB="$NATIVE/scripts/media-layout.sh"
 
 log()  { echo -e "\033[0;36m[ac-os]\033[0m $*"; }
 err()  { echo -e "\033[0;31m[ac-os]\033[0m $*" >&2; }
+
+# shellcheck source=/workspaces/aesthetic-computer/fedac/native/scripts/media-layout.sh
+source "$MEDIA_LAYOUT_LIB"
 
 # Always build in /tmp inside the container to avoid bind-mount permission issues
 BUILD="/tmp/ac-build"
@@ -99,11 +103,11 @@ if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
     cd "$NATIVE"
 fi
 
-make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
+make -j$(nproc) CC=gcc BUILDDIR="$BUILD" USE_SDL=1 \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
-[ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
+[ -f "$BUILD/ac-native" ] || { tail -60 "$BUILD/.make.log" >&2; err "Binary compilation failed"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 
 # CL build happens after initramfs (step 2) — see below
@@ -114,7 +118,7 @@ log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 log "Step 2/4: Building initramfs..."
 IROOT="$BUILD/initramfs-root"
 rm -rf "$IROOT"
-mkdir -p "$IROOT"/{bin,lib64,lib/firmware/i915,dev,proc,sys,tmp,run,etc,etc/pki/tls/certs}
+mkdir -p "$IROOT"/{bin,lib64,lib/firmware/i915,dev,proc,sys,tmp,run,scripts,etc,etc/pki/tls/certs}
 
 # ── 2a: Static busybox (no shared lib deps for shell) ──
 BUSYBOX=$(command -v busybox)
@@ -166,6 +170,8 @@ chmod +x "$IROOT/usr/share/udhcpc/default.script"
 # ── 2b: Init script ──
 cp "$NATIVE/initramfs/init" "$IROOT/init"
 chmod +x "$IROOT/init"
+cp "$NATIVE/initramfs-scripts/"*.sh "$IROOT/scripts/" 2>/dev/null || true
+chmod +x "$IROOT/scripts/"*.sh 2>/dev/null || true
 
 # ── 2c: ac-native binary ──
 cp "$BUILD/ac-native" "$IROOT/ac-native"
@@ -194,8 +200,9 @@ for lib in $(ldd "$BUILD/ac-native" 2>/dev/null | grep -oP '/\S+'); do
     [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$BASENAME"
 done
 
-# Mesa/GPU libs (ac-native dlopen's these)
-for lib in libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
+# SDL3 + Mesa/GPU libs
+for lib in libSDL3.so.0 \
+    libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
     libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0 \
     libdrm_intel.so.1 libdrm_amdgpu.so.1; do
     REAL=$(readlink -f "/lib64/$lib" 2>/dev/null)
@@ -565,49 +572,54 @@ VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
 
 # ══════════════════════════════════════════════
+# Step 4b: Build slim kernel (no embedded initramfs) for Mac EFI boot
+# ══════════════════════════════════════════════
+log "Step 4b: Building slim kernel for Mac..."
+sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' .config
+rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
+if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" bzImage; then
+    cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
+    cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
+    SLIM_SIZE=$(stat -c%s "$BUILD/vmlinuz-slim")
+    log "  Slim kernel: $((SLIM_SIZE / 1048576))MB"
+else
+    err "Slim kernel build failed (non-fatal)"
+fi
+# Restore config for any subsequent builds
+sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' .config
+
+# Export initramfs as gzip (for systemd-boot on Mac)
+log "  Packing initramfs.cpio.gz..."
+lz4 -d "$BUILD/initramfs.cpio.lz4" -c 2>/dev/null | gzip -c > "$BUILD/initramfs.cpio.gz"
+cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz" 2>/dev/null || true
+log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB"
+
+# ══════════════════════════════════════════════
 # Step 5: Generate UEFI-bootable ISO
 # ══════════════════════════════════════════════
 log "Step 5: Building ISO..."
 ISO_DIR="$BUILD/iso-root"
 EFI_IMG="$BUILD/efi.img"
 ISO_OUT="$BUILD/ac-os.iso"
+CONFIG_TMP="$BUILD/identity-config.json"
 
-rm -rf "$ISO_DIR" "$EFI_IMG"
-mkdir -p "$ISO_DIR/EFI/BOOT"
+rm -rf "$ISO_DIR" "$EFI_IMG" "$CONFIG_TMP"
 
-# Copy kernel as UEFI boot binary
-cp "$BUILD/vmlinuz" "$ISO_DIR/EFI/BOOT/BOOTX64.EFI"
-
-# Create config.json with patchable marker (browser replaces this)
-CONFIG_MARKER='{"handle":"","piece":"notepat","sub":"","email":""}'
-CONFIG_PAD=4096
-printf "%-${CONFIG_PAD}s" "$CONFIG_MARKER" > "$ISO_DIR/config.json"
-
-# Create FAT32 EFI boot image
-EFI_SIZE_MB=$(( (VMLINUZ_SIZE + CONFIG_PAD + 1048576) / 1048576 + 4 ))
-dd if=/dev/zero of="$EFI_IMG" bs=1M count=$EFI_SIZE_MB 2>/dev/null
-mkfs.fat -F 32 "$EFI_IMG" >/dev/null 2>&1
-mmd -i "$EFI_IMG" ::EFI ::EFI/BOOT 2>/dev/null
-mcopy -i "$EFI_IMG" "$BUILD/vmlinuz" ::EFI/BOOT/BOOTX64.EFI
-mcopy -i "$EFI_IMG" "$ISO_DIR/config.json" ::config.json
+ac_media_write_identity_config "$CONFIG_TMP"
+ac_media_stage_boot_tree "$ISO_DIR" "$BUILD/vmlinuz" "$CONFIG_TMP"
+ac_media_create_fat_image "$ISO_DIR" "$EFI_IMG" "AC_NATIVE"
 
 # Build hybrid ISO with xorriso (EFI boot via El Torito + GPT for dd/USB)
-# Uses -append_partition to attach the EFI image, matching ac-os generate_template_iso().
+# Uses the same chainloader-first staged tree as ac-os generate_template_iso().
 if command -v xorriso &>/dev/null; then
-    xorriso -as mkisofs \
-        -o "$ISO_OUT" \
-        -V "AC_NATIVE" \
-        -J -joliet-long \
-        -append_partition 2 0xef "$EFI_IMG" \
-        -e --interval:appended_partition_2:all:: \
-        -no-emul-boot \
-        -isohybrid-gpt-basdat \
-        "$ISO_DIR" 2>&1 | grep -v "^xorriso\|^Drive\|^Media" || true
+    ac_media_build_hybrid_iso "$ISO_DIR" "$EFI_IMG" "$ISO_OUT" "AC_NATIVE"
 else
     # Fallback: raw EFI disk image (dd-able)
     log "  No xorriso — creating raw disk image"
     cp "$EFI_IMG" "$ISO_OUT"
 fi
+
+rm -f "$CONFIG_TMP"
 
 if [ -f "$ISO_OUT" ]; then
     ISO_SIZE=$(stat -c%s "$ISO_OUT")

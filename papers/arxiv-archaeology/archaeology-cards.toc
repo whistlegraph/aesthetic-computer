@@ -3,15 +3,15 @@
 \contentsline {subsection}{\numberline {1.2}disks-ac (Oct--Dec 2021)}{5}{subsection.1.2}%
 \contentsline {subsection}{\numberline {1.3}2022.aesthetic.computer (Dec 2021--Dec 2022)}{6}{subsection.1.3}%
 \contentsline {subsection}{\numberline {1.4}aesthetic-computer (Dec 2022--present)}{8}{subsection.1.4}%
-\contentsline {section}{\numberline {2}The Predecessor Projects}{9}{section.2}%
-\contentsline {subsection}{\numberline {2.1}The Drawing Software Lineage}{9}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}The Performance Software Lineage}{10}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}The Infrastructure Lineage}{11}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}Languages Across Projects}{12}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Architectural Patterns}{13}{section.3}%
-\contentsline {subsection}{\numberline {3.1}The Disk/Piece Metaphor}{13}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The Prompt as Interface}{13}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Two-Repo to Monorepo}{14}{subsection.3.3}%
-\contentsline {section}{\numberline {4}Quantitative Summary}{15}{section.4}%
-\contentsline {section}{\numberline {5}Conclusion}{16}{section.5}%
+\contentsline {section}{\numberline {2}The Predecessor Projects}{10}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The Drawing Software Lineage}{10}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Performance Software Lineage}{11}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The Infrastructure Lineage}{12}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Languages Across Projects}{13}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Architectural Patterns}{14}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Disk/Piece Metaphor}{14}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Prompt as Interface}{14}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Two-Repo to Monorepo}{15}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Quantitative Summary}{16}{section.4}%
+\contentsline {section}{\numberline {5}Conclusion}{17}{section.5}%
 \contentsfinish 

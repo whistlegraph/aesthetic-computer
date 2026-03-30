@@ -57,7 +57,7 @@
             font-family: 'Berkeley Mono Variable', monospace;
             font-size: 14px; line-height: 1.6;
             padding: 1em 2.5em;
-            max-width: 700px;
+            max-width: 1100px;
             margin: 0 auto;
         }
 
@@ -157,6 +157,29 @@
         .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
         .sub a { color: var(--cyan); text-decoration: none; }
 
+        /* Sort bar */
+        .sort-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 0.8em;
+            font-size: 11px;
+            flex-wrap: wrap;
+        }
+        .sort-btn {
+            cursor: pointer;
+            background: none;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            font-family: inherit;
+            font-size: inherit;
+            padding: 3px 10px;
+            border-radius: 12px;
+            transition: all 0.15s;
+            user-select: none;
+        }
+        .sort-btn:hover { border-color: var(--pink); color: var(--text); }
+        .sort-btn.active { background: var(--pink); color: var(--bg); border-color: var(--pink); font-weight: 600; }
+
         /* Papers grid */
         .papers-grid {
             display: grid;
@@ -180,12 +203,47 @@
         .p .detail { color: var(--dim); font-size: 0.85em; margin-top: 0.2em; line-height: 1.5; }
         .p .detail a { color: var(--purple); }
         .p .detail a:hover { text-decoration: underline; }
-        .p .meta-row { display: flex; gap: 1em; font-size: 0.85em; margin-bottom: 0.1em; align-items: center; }
+        .p .abstract {
+            color: var(--text);
+            opacity: 0.68;
+            font-size: 0.8em;
+            margin-top: 0.25em;
+            line-height: 1.5;
+            max-width: 72ch;
+        }
+        .p .meta-row { display: flex; gap: 1em; font-size: 0.85em; margin-bottom: 0.1em; align-items: center; flex-wrap: wrap; }
         .p .meta-row .hits { color: var(--cyan); }
+        .p .meta-row .author { color: var(--pink); font-weight: 500; }
         .p .updated { color: var(--cyan); opacity: 0.85; }
         .p .created { color: var(--dim); opacity: 0.7; }
-        .p .created::before { content: "est "; }
         .p .revisions { color: var(--purple); opacity: 0.75; }
+
+        /* Colophon */
+        /* Guest papers section */
+        .guest-header {
+            margin-top: 2em;
+            margin-bottom: 0.6em;
+            font-size: 0.8em;
+            color: var(--dim);
+            text-transform: lowercase;
+            letter-spacing: 0.05em;
+            border-top: 1px solid var(--sep);
+            padding-top: 1em;
+        }
+        .p.guest .meta-row .author { color: var(--purple); }
+
+        .colophon {
+            margin-top: 2.5em;
+            padding-top: 1.2em;
+            border-top: 1px solid var(--sep);
+            color: var(--dim);
+            font-size: 0.85em;
+            line-height: 1.8;
+        }
+        .colophon p { margin-bottom: 0.8em; }
+        .colophon p:last-child { margin-bottom: 0; }
+        .colophon a { color: var(--purple); text-decoration: none; }
+        .colophon a:hover { text-decoration: underline; }
         /* .filesize replaced by .fmt-label in format icons */
 
         /* === PSYCHO papers === */
@@ -298,6 +356,76 @@
         .pals { position: fixed; bottom: 1.2em; right: 1.2em; width: 48px; opacity: 0.4; }
         .pals:hover { opacity: 1; }
 
+        /* Build telemetry */
+        .build-status {
+            margin-top: 1.5em;
+            border: 1px solid var(--box-border);
+            border-radius: 6px;
+            overflow: hidden;
+            font-size: 11px;
+            display: none;
+        }
+        .build-status.active { display: block; }
+        .build-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--box-bg);
+            border-bottom: 1px solid var(--box-border);
+            cursor: pointer;
+            user-select: none;
+        }
+        .build-header:hover { opacity: 0.8; }
+        .build-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--cyan);
+            animation: build-pulse 1.5s ease-in-out infinite;
+        }
+        .build-dot.done { background: #4caf50; animation: none; }
+        .build-dot.fail { background: #e53935; animation: none; }
+        @keyframes build-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .build-label { color: var(--text); font-weight: 600; flex: 1; }
+        .build-stage { color: var(--pink); font-weight: 500; }
+        .build-pct { color: var(--dim); min-width: 3em; text-align: right; }
+        .build-progress {
+            height: 2px;
+            background: var(--sep);
+        }
+        .build-progress-bar {
+            height: 100%;
+            background: var(--cyan);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        .build-logs {
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 10px;
+            line-height: 1.5;
+            color: var(--dim);
+        }
+        .build-logs.collapsed { display: none; }
+        .build-log-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .build-log-line .ts {
+            color: var(--purple);
+            opacity: 0.6;
+            margin-right: 6px;
+        }
+        .build-log-line.stderr { color: #e57373; }
+        .build-log-line.ok { color: #4caf50; }
+        .build-log-line.deploy { color: var(--cyan); }
+
         /* === MOBILE (<600px) === */
         @media (max-width: 599px) {
             body { padding: 0.75em 1em; }
@@ -307,10 +435,10 @@
             .p .detail { font-size: 0.7em; }
         }
 
-        /* === DESKTOP (900px+) — single column, larger text === */
+        /* === DESKTOP (900px+) — wider, larger text === */
         @media (min-width: 900px) {
             body {
-                max-width: 800px;
+                max-width: 1100px;
                 padding: 2em 3em;
                 font-size: 16px;
             }
@@ -322,10 +450,10 @@
             .footer { font-size: 0.85em; }
         }
 
-        /* === XL (1400px+) — single column, even larger === */
+        /* === XL (1400px+) — even wider === */
         @media (min-width: 1400px) {
             body {
-                max-width: 960px;
+                max-width: 1300px;
                 padding: 2.5em 4em;
                 font-size: 17px;
             }
@@ -357,174 +485,232 @@
 
     <div class="sub">@jeffrey &mdash; <a href="https://orcid.org/0009-0007-4460-4913">ORCID 0009-0007-4460-4913</a></div>
 
+    <div class="sort-bar" id="sortBar">
+        <button class="sort-btn active" data-sort="hits">top hits</button>
+        <button class="sort-btn" data-sort="updated">newly updated</button>
+        <button class="sort-btn" data-sort="created">recently added</button>
+    </div>
+
     <!-- papers-start -->
 
-    <div class="p" data-paper-id="ac">
+    <div class="p" data-paper-id="ac" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.037Z">
         <div class="title"><a href="/aesthetic-computer-26-arxiv.pdf" data-base="/aesthetic-computer-26-arxiv">Aesthetic Computer '26</a></div>
         <div class="detail">A Mobile-First Runtime for Creative Computing &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp">
+    <div class="p" data-paper-id="kidlisp" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/kidlisp-26-arxiv.pdf" data-base="/kidlisp-26-arxiv">KidLisp '26</a></div>
         <div class="detail">A Minimal Lisp for Generative Art on a Social Platform &middot; arXiv 6pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">KidLisp is the platform's tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="plork">
+    <div class="p" data-paper-id="plork" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/plorking-the-planet-26-arxiv.pdf" data-base="/plorking-the-planet-26-arxiv">PLOrk'ing the Planet</a></div>
         <div class="detail">Laptop Orchestras, PLOrk Heritage, and Aesthetic Computer &middot; arXiv</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">This paper connects Aesthetic Computer to laptop orchestras and the collaborative traditions of PLOrk. It treats the browser as a place for ensemble practice, not just solo desktop programming.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="os">
+    <div class="p" data-paper-id="os" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/ac-native-os-26-arxiv.pdf" data-base="/ac-native-os-26-arxiv">AC Native OS</a></div>
         <div class="detail">A Bare-Metal Creative Computing Operating System &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">AC Native OS describes a bare-metal runtime for creative computing. It focuses on boot-time simplicity and the idea that the operating system itself can be a programmable art surface.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="api">
+    <div class="p" data-paper-id="api" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/piece-api-26-arxiv.pdf" data-base="/piece-api-26-arxiv">From setup() to boot()</a></div>
         <div class="detail">Processing at the Core of the Piece API &middot; arXiv 7pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">The Piece API rethinks creative software around composable pieces instead of monolithic apps. It uses Processing's lineage to connect setup(), boot(), and the act of publishing.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="who-pays">
+    <div class="p" data-paper-id="who-pays" data-created="2026-03-27" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/who-pays-for-creative-tools-26-arxiv.pdf" data-base="/who-pays-for-creative-tools-26-arxiv">Who Pays for Creative Tools?</a></div>
         <div class="detail">Funding, Burnout, and Survival in Open-Source Creative Computing &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">A short look at who supports open-source creative tools and what that labor costs. The paper connects funding, burnout, and long-term maintenance to the life of artistic software.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="pieces">
+    <div class="p" data-paper-id="pieces" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/pieces-not-programs-26-arxiv.pdf" data-base="/pieces-not-programs-26-arxiv">Pieces Not Programs</a></div>
         <div class="detail">The Piece as a Unit of Creative Cognition &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">A piece is treated here as the basic unit of creative cognition in AC. The paper argues that smaller, shareable pieces encourage composition, remix, and publication.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="notepat">
+    <div class="p" data-paper-id="notepat" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/notepat-26-arxiv.pdf" data-base="/notepat-26-arxiv">notepat.com</a></div>
         <div class="detail">From Keyboard Toy to System Front Door &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="goodiepal">
+    <div class="p" data-paper-id="goodiepal" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/radical-computer-art-26-arxiv.pdf" data-base="/radical-computer-art-26-arxiv">Radical Computer Art</a></div>
         <div class="detail">Goodiepalian Approaches in Aesthetic Computer &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="whistlegraph">
+    <div class="p" data-paper-id="whistlegraph" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/whistlegraph-26-arxiv.pdf" data-base="/whistlegraph-26-arxiv">Whistlegraph</a></div>
         <div class="detail">Drawing, Singing, and the Graphic Score as Viral Form &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="complex">
+    <div class="p" data-paper-id="complex" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/sucking-on-the-complex-26-arxiv.pdf" data-base="/sucking-on-the-complex-26-arxiv">Sucking on the Complex</a></div>
         <div class="detail">Platform Hegemony, Critique-as-Content, and Anti-Environments &middot; arXiv 5pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Sucking on the Complex critiques platform hegemony and the way critique becomes content. It looks for anti-environments that stay messy, resistant, and alive.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="dead-ends">
+    <div class="p" data-paper-id="dead-ends" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/dead-ends-26-arxiv.pdf" data-base="/dead-ends-26-arxiv">Vestigial Features</a></div>
         <div class="detail">Dormant Paths, Evolutionary Branches, and Abandoned Approaches &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">The paper catalogs dormant branches, abandoned experiments, and paths that never became default. It treats dead ends as useful history rather than failure.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="folk-songs">
+    <div class="p" data-paper-id="folk-songs" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
         <div class="title"><a href="/folk-songs-26-arxiv.pdf" data-base="/folk-songs-26-arxiv">Playable Folk Songs</a></div>
         <div class="detail">Oral Tradition Meets the Browser Keyboard &middot; arXiv</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Playable Folk Songs brings oral tradition into the browser keyboard. The paper asks how simple interaction can carry collective memory and repetition.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="archaeology">
+    <div class="p" data-paper-id="archaeology" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/repo-archaeology-26-arxiv.pdf" data-base="/repo-archaeology-26-arxiv">Repository Archaeology</a></div>
         <div class="detail">Tracing the Evolution of AC Through Its Git History &middot; arXiv 3pp &middot; <a href="/ac-repo-archaeology">interactive timeline</a></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="network-audit">
+    <div class="p" data-paper-id="network-audit" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/network-audit-26-arxiv.pdf" data-base="/network-audit-26-arxiv">Network Audit</a></div>
         <div class="detail">Who Uses Aesthetic Computer and What Do They Make? &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Network Audit asks who uses Aesthetic Computer and what they make with it. The paper turns usage patterns into a portrait of a community in motion.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-ref">
+    <div class="p" data-paper-id="kidlisp-ref" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.039Z">
         <div class="title"><a href="/kidlisp-reference-26-arxiv.pdf" data-base="/kidlisp-reference-26-arxiv">KidLisp Language Reference</a></div>
         <div class="detail">118 Built-ins in 12 Categories &middot; arXiv 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">The KidLisp reference compresses the language into a usable field guide. It groups 118 built-ins into 12 categories for quick browsing and recall.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="diversity">
+    <div class="p" data-paper-id="diversity" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.038Z">
         <div class="title"><a href="/citation-diversity-audit-26.pdf" data-base="/citation-diversity-audit-26">Citation Diversity Audit</a></div>
         <div class="detail">Diversity and Inclusion in AC Paper Citations &middot; 4pp</div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Citation Diversity Audit looks at who gets cited in the papers and where the archive is thin. The paper uses citation patterns as a proxy for inclusion and intellectual range.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="open-schools" data-no-cards="1">
+    <div class="p" data-paper-id="open-schools" data-created="" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/open-schools-26-arxiv.pdf" data-base="/open-schools-26-arxiv">Get Closed Source Out of Schools</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="futures" data-no-cards="1">
+    <div class="p" data-paper-id="futures" data-created="2026-03-20" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/five-years-from-now-26-arxiv.pdf" data-base="/five-years-from-now-26-arxiv">Five Years from Now</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">Five Years from Now is a projection paper about where the project could go if current habits continue. It uses the near future to test the consequences of today's decisions.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/20</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
-    <div class="p" data-paper-id="kidlisp-cards">
-        <div class="title"><a href="/kidlisp-cards-26-arxiv.pdf" data-base="/kidlisp-cards-26-arxiv">KidLisp Cards</a></div>
-        <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
-    </div>
-
-    <div class="p" data-paper-id="score-analysis" data-no-cards="1">
-        <div class="title"><a href="/reading-the-score-26-arxiv.pdf" data-base="/reading-the-score-26-arxiv">Reading the Score</a></div>
-        <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
-    </div>
-
-    <div class="p" data-paper-id="identity" data-no-cards="1">
-        <div class="title"><a href="/handle-identity-atproto-26-arxiv.pdf" data-base="/handle-identity-atproto-26-arxiv">Handle Identity on the AT Protocol</a></div>
-        <div class="detail">From Auth0 to Decentralized Sign-In &middot; ATProto OAuth, DIDs, Handle Verification</div>
-        <div class="meta-row"><span class="created" title="Created">03/23</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 23</span></div>
-    </div>
-
-    <div class="p" data-paper-id="calarts" data-no-cards="1" data-psycho="1">
+    <div class="p" data-paper-id="calarts" data-psycho="1" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.041Z">
         <div class="title"><a href="/calarts-callouts-papers-26-arxiv.pdf" data-base="/calarts-callouts-papers-26-arxiv">CalArts, Callouts, and Papers</a></div>
         <div class="detail"></div>
-        <div class="meta-row"><span class="created" title="Created">03/21</span><span class="revisions" title="Revisions">r1</span><span class="updated" title="Last updated">Mar 21 06:24</span></div>
+        <div class="abstract">CalArts, Callouts, and Papers turns a local institutional context into a study of friction, attention, and production. The paper leans into psycho style to show how academic labor is staged and performed.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
+    </div>
+
+    <div class="p" data-paper-id="identity" data-created="2026-03-27" data-updated="2026-03-28T19:07:25.893Z">
+        <div class="title"><a href="/handle-identity-atproto-26-arxiv.pdf" data-base="/handle-identity-atproto-26-arxiv">Handle Identity on the AT Protocol</a></div>
+        <div class="detail"></div>
+        <div class="abstract">Handle Identity on the AT Protocol treats naming as a social and technical problem. The paper explores how handles, identity, and publishing can be tied together without losing portability.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:07</span></div>
+    </div>
+
+    <div class="p" data-paper-id="ucla-arts" data-created="2026-03-27" data-updated="2026-03-28T19:04:51.041Z">
+        <div class="title"><a href="/ucla-arts-funding-26-arxiv.pdf" data-base="/ucla-arts-funding-26-arxiv">Two Departments, One Building</a></div>
+        <div class="detail"></div>
+        <div class="abstract">Two Departments, One Building examines how funding and infrastructure shape creative work in shared spaces. The paper looks at administrative boundaries as part of the artistic system.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/27</span><span class="revisions" title="Revision count">revision 1</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
+    </div>
+
+    <div class="p" data-paper-id="kidlisp-cards" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.040Z">
+        <div class="title"><a href="/kidlisp-cards-26-arxiv.pdf" data-base="/kidlisp-cards-26-arxiv">KidLisp Cards</a></div>
+        <div class="detail"></div>
+        <div class="abstract">KidLisp Cards condenses the language into a pocketable card format. It is meant to make the language easier to browse, teach, and carry.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
+    </div>
+
+    <div class="p" data-paper-id="score-analysis" data-created="2026-03-21" data-updated="2026-03-28T19:04:51.041Z">
+        <div class="title"><a href="/reading-the-score-26-arxiv.pdf" data-base="/reading-the-score-26-arxiv">Reading the Score</a></div>
+        <div class="detail"></div>
+        <div class="abstract">Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.</div>
+        <div class="meta-row"><span class="author">@jeffrey</span><span class="created" title="Created">03/21</span><span class="revisions" title="Revision count">revision 2</span><span class="updated" title="Last updated">Mar 28 12:04</span></div>
     </div>
 
     <div class="p" data-paper-id="els">
         <div class="title"><a href="/kidlisp-els-2026.pdf">KidLisp (ELS 2026)</a></div>
         <div class="detail">A Minimal Lisp for Generative Art with Social Composition &middot; ELS ACM SIGS 4pp</div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 21 02:32</span></div>
+        <div class="abstract">An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</div>
+        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 20 19:18</span></div>
     </div>
 
     <div class="p" data-paper-id="joss-kidlisp">
         <div class="title"><a href="/kidlisp-26-joss.pdf">KidLisp '26</a></div>
         <div class="detail">JOSS Summary &middot; 3pp</div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 21 02:32</span></div>
+        <div class="abstract">A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</div>
+        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 20 19:18</span></div>
     </div>
 
     <div class="p" data-paper-id="joss-ac">
         <div class="title"><a href="/aesthetic-computer-26-joss.pdf">Aesthetic Computer '26</a></div>
         <div class="detail">JOSS Summary &middot; 2pp</div>
-        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 21 02:32</span></div>
+        <div class="abstract">A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</div>
+        <div class="meta-row"><span class="created" title="Created"></span><span class="revisions" title="Revisions"></span><span class="updated" title="Last updated">Mar 20 19:18</span></div>
     </div>
 
     <!-- papers-end -->
 
+    <!-- guest-start -->
+    <!-- guest-end -->
+
+    <div class="colophon">
+        <p>These papers are sourced from the <a href="/platter">research platter</a>, a living document that tracks the design, history, and direction of <a href="https://aesthetic.computer">Aesthetic Computer</a>. The platter is the raw material. The papers are what gets shaped from it. They are working drafts, written in first person, typeset in LaTeX with XeTeX, and compiled by an oven server that polls the repository every 60 seconds.</p>
+        <p>The cards format is a 4&times;6 inch mobile-friendly version of each paper, designed for reading on a phone. Every paper is translated into Danish, Spanish, and Chinese.</p>
+        <p>All papers by <a href="https://prompt.ac/@jeffrey">@jeffrey</a>. Related readings live on the <a href="/platter">platter</a>.</p>
+    </div>
+
+    <div class="build-status" id="buildStatus">
+        <div class="build-header" id="buildHeader">
+            <span class="build-dot" id="buildDot"></span>
+            <span class="build-label" id="buildLabel">building papers...</span>
+            <span class="build-stage" id="buildStage"></span>
+            <span class="build-pct" id="buildPct"></span>
+        </div>
+        <div class="build-progress"><div class="build-progress-bar" id="buildBar"></div></div>
+        <div class="build-logs" id="buildLogs"></div>
+    </div>
+
     <div class="footer">
-        <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="/platter">platter</a> &middot; <a href="https://github.com/digitpain/aesthetic.computer">source</a></span>
-        <button onclick="toggleTheme()">theme</button>
+        <span><a href="https://aesthetic.computer">aesthetic.computer</a> &middot; <a href="/platter">platter</a> &middot; <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers">source</a> &middot; <button onclick="toggleTheme()">theme</button></span>
     </div>
 
     <script>
         // Cache-bust version — updated by papermill deploy
-        window.__papersVersion = '20260318';
+        window.__papersVersion = '20260328';
 
         // Relative timestamps
         function relativeTime(iso) {
@@ -872,25 +1058,55 @@
             });
         });
 
-        // Sort papers by hit count (most read first) and show counts
+        // === SORTING ===
+        let hitTotals = {};
+
+        function sortPapers(mode) {
+            const container = document.querySelector('.p')?.parentElement;
+            if (!container) return;
+            const papers = [...container.querySelectorAll('.p')];
+
+            papers.sort((a, b) => {
+                if (mode === 'hits') {
+                    return (hitTotals[b.dataset.paperId] || 0) - (hitTotals[a.dataset.paperId] || 0);
+                } else if (mode === 'updated') {
+                    const ta = a.dataset.updated ? new Date(a.dataset.updated).getTime() : 0;
+                    const tb = b.dataset.updated ? new Date(b.dataset.updated).getTime() : 0;
+                    return tb - ta;
+                } else if (mode === 'created') {
+                    const ca = a.dataset.created || '0';
+                    const cb = b.dataset.created || '0';
+                    return cb.localeCompare(ca);
+                }
+                return 0;
+            });
+            for (const p of papers) container.appendChild(p);
+        }
+
+        // Sort bar clicks
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                sortPapers(btn.dataset.sort);
+            });
+        });
+
+        // Fetch hit counts, inject into meta rows, then apply default sort
         (async () => {
             try {
                 const res = await fetch('https://aesthetic.computer/api/paper-hit');
                 if (!res.ok) return;
                 const { stats } = await res.json();
-                // Aggregate hits per paper (combine pdf + cards formats)
-                const totals = {};
                 for (const s of stats) {
                     const id = s._id.paper;
-                    totals[id] = (totals[id] || 0) + s.count;
+                    hitTotals[id] = (hitTotals[id] || 0) + s.count;
                 }
                 const container = document.querySelector('.p')?.parentElement;
                 if (!container) return;
-                const papers = [...container.querySelectorAll('.p')];
-                // Inject hit counts into meta rows
-                for (const p of papers) {
+                for (const p of container.querySelectorAll('.p')) {
                     const id = p.dataset.paperId;
-                    const count = totals[id] || 0;
+                    const count = hitTotals[id] || 0;
                     const metaRow = p.querySelector('.meta-row');
                     if (metaRow && count > 0) {
                         const span = document.createElement('span');
@@ -900,15 +1116,111 @@
                         metaRow.prepend(span);
                     }
                 }
-                // Sort descending by hits
-                papers.sort((a, b) => {
-                    const ha = totals[a.dataset.paperId] || 0;
-                    const hb = totals[b.dataset.paperId] || 0;
-                    return hb - ha;
-                });
-                for (const p of papers) container.appendChild(p);
+                // Apply default sort (top hits)
+                sortPapers('hits');
             } catch {}
         })();
+
+        // === BUILD TELEMETRY ===
+        const OVEN = 'https://oven.aesthetic.computer';
+        const buildEl = document.getElementById('buildStatus');
+        const buildDot = document.getElementById('buildDot');
+        const buildLabel = document.getElementById('buildLabel');
+        const buildStage = document.getElementById('buildStage');
+        const buildPct = document.getElementById('buildPct');
+        const buildBar = document.getElementById('buildBar');
+        const buildLogs = document.getElementById('buildLogs');
+        let logsCollapsed = false;
+
+        document.getElementById('buildHeader').addEventListener('click', () => {
+            logsCollapsed = !logsCollapsed;
+            buildLogs.classList.toggle('collapsed', logsCollapsed);
+        });
+
+        function addLogLine(line, stream) {
+            const div = document.createElement('div');
+            div.className = 'build-log-line';
+            if (stream === 'stderr') div.classList.add('stderr');
+            if (/^\s*(OK|DEPLOY)\s/.test(line)) div.classList.add(line.trim().startsWith('OK') ? 'ok' : 'deploy');
+            const ts = new Date().toLocaleTimeString('en', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            div.innerHTML = `<span class="ts">${ts}</span>${line.replace(/</g, '&lt;')}`;
+            buildLogs.appendChild(div);
+            // Keep last 200 lines
+            while (buildLogs.children.length > 200) buildLogs.removeChild(buildLogs.firstChild);
+            buildLogs.scrollTop = buildLogs.scrollHeight;
+        }
+
+        function connectBuildStream(jobId) {
+            buildEl.classList.add('active');
+            buildDot.className = 'build-dot';
+            buildLabel.textContent = 'building papers...';
+            buildLogs.innerHTML = '';
+
+            const src = new EventSource(`${OVEN}/papers-build/${jobId}/stream`);
+
+            src.addEventListener('status', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    buildStage.textContent = d.stage || '';
+                    const pct = Math.round(d.percent || 0);
+                    buildPct.textContent = pct + '%';
+                    buildBar.style.width = pct + '%';
+                } catch {}
+            });
+
+            src.addEventListener('logs', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    for (const log of (d.logs || [])) {
+                        addLogLine(log.line, log.stream);
+                    }
+                } catch {}
+            });
+
+            src.addEventListener('complete', (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    const ok = d.status === 'success';
+                    buildDot.className = 'build-dot ' + (ok ? 'done' : 'fail');
+                    buildLabel.textContent = ok ? 'build complete' : 'build failed';
+                    buildStage.textContent = '';
+                    buildPct.textContent = ok ? '100%' : 'err';
+                    buildBar.style.width = ok ? '100%' : buildBar.style.width;
+                    if (ok) addLogLine('publish complete — reloading in 5s...', 'stdout');
+                    // Auto-reload after successful build to pick up new PDFs
+                    if (ok) setTimeout(() => location.reload(), 5000);
+                } catch {}
+                src.close();
+            });
+
+            src.onerror = () => {
+                // SSE disconnected — check again in 30s
+                src.close();
+                setTimeout(pollOven, 30000);
+            };
+        }
+
+        async function pollOven() {
+            try {
+                const res = await fetch(`${OVEN}/papers-build`, { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) return;
+                const data = await res.json();
+                // Find an active build
+                const active = data.active || data.current;
+                if (active && (active.status === 'running' || active.status === 'pending')) {
+                    connectBuildStream(active.id);
+                } else {
+                    // No active build — hide and poll again later
+                    buildEl.classList.remove('active');
+                    setTimeout(pollOven, 60000);
+                }
+            } catch {
+                setTimeout(pollOven, 60000);
+            }
+        }
+
+        // Start polling for active builds
+        pollOven();
 
         // Theme toggle
         function toggleTheme() {

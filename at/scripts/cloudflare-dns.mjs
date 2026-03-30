@@ -254,16 +254,16 @@ export async function verifyTXTRecord(recordName, expectedContent, rootDomain) {
 }
 
 /**
- * Create or update a CNAME record (for Netlify subdomains)
+ * Create or update a CNAME record.
  * 
  * @param {string} subdomain - Subdomain name (e.g., "bills" for bills.aesthetic.computer)
- * @param {string} target - CNAME target (default: Netlify's load balancer)
+ * @param {string} target - CNAME target (default: lith frontend host)
  * @param {string} rootDomain - Root domain (default: "aesthetic.computer")
  * @param {boolean} proxied - Whether to proxy through Cloudflare (default: true)
  * @param {boolean} dryRun - If true, only check what would be done
  * @returns {Promise<Object>} Result object with status and details
  */
-export async function createOrUpdateCNAME(subdomain, target = 'aesthetic-computer.netlify.app', rootDomain = 'aesthetic.computer', proxied = true, dryRun = false) {
+export async function createOrUpdateCNAME(subdomain, target = 'lith.aesthetic.computer', rootDomain = 'aesthetic.computer', proxied = true, dryRun = false) {
   const recordName = `${subdomain}.${rootDomain}`;
   
   try {
@@ -375,7 +375,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       case 'add-subdomain':
       case 'add-cname': {
         const subdomain = args[0];
-        const target = args[1] || 'aesthetic-computer.netlify.app';
+        const target = args[1] || 'lith.aesthetic.computer';
         if (!subdomain) {
           console.error('Usage: node cloudflare-dns.mjs add-subdomain <subdomain> [target]');
           console.error('Example: node cloudflare-dns.mjs add-subdomain bills');
@@ -401,7 +401,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.log('Cloudflare DNS Management');
         console.log('');
         console.log('Commands:');
-        console.log('  add-subdomain <name> [target]  Add a CNAME for a Netlify subdomain');
+        console.log('  add-subdomain <name> [target]  Add a proxied CNAME (defaults to lith.aesthetic.computer)');
         console.log('  list [type]                    List all DNS records (optionally filter by type)');
         console.log('');
         console.log('Examples:');

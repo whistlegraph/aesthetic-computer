@@ -10,9 +10,11 @@ typedef struct {
     ACFramebuffer *screen;      // Primary screen buffer
     ACColor ink;                // Current drawing color
     uint32_t ink_packed;        // Pre-packed ARGB32
+    void *gpu_display;          // ACDisplay* when SDL3 GPU is available (NULL = CPU only)
 } ACGraph;
 
 void graph_init(ACGraph *g, ACFramebuffer *screen);
+void graph_init_gpu(ACGraph *g, void *display); // Enable GPU-accelerated effects
 
 // Core primitives (matching AC API)
 void graph_wipe(ACGraph *g, ACColor color);

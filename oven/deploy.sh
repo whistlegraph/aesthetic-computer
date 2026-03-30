@@ -90,7 +90,7 @@ echo "✅ Kernel build tools ready"
 echo ""
 echo "📄 Installing TeX Live for papers builds..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
-  "apt-get install -y -q texlive-xetex texlive-fonts-extra texlive-latex-extra texlive-bibtex-extra fonts-droid-fallback 2>&1 | tail -5 || true"
+  "apt-get install -y -q texlive-xetex texlive-fonts-extra texlive-latex-extra texlive-bibtex-extra texlive-lang-chinese texlive-lang-cjk fonts-droid-fallback 2>&1 | tail -5 || true"
 echo "✅ TeX Live ready"
 
 # Optional vault-managed admin key for /os-base-build endpoints

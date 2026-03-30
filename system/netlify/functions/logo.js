@@ -40,12 +40,17 @@ export async function handler(event, context) {
     userAgent.includes("python-requests") ||
     userAgent.includes("node-fetch");
   const isPngEndpoint = event.path.split("/").pop() === "logo.png";
+  // Return raw PNG when embedded via <img> tags (Accept header prefers images)
+  const accept = event.headers["accept"] || "";
+  const wantsImage = accept.startsWith("image/") || (accept.includes("image/*") && !accept.includes("text/html"));
 
-  if (isServer || isPngEndpoint) {
+  if (isServer || isPngEndpoint || wantsImage) {
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "image/png",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-cache",
       },
       body: base64Logo,
       isBase64Encoded: true,

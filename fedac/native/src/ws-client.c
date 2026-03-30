@@ -297,8 +297,8 @@ static void *ws_thread(void *arg) {
         // Check for pending send
         pthread_mutex_lock(&ws->mu);
         int do_send = ws->send_pending && ws->connected;
-        char sbuf[4096];
-        if (do_send) { strncpy(sbuf, ws->send_buf, 4095); sbuf[4095]=0; ws->send_pending=0; }
+        char sbuf[16384];
+        if (do_send) { strncpy(sbuf, ws->send_buf, 16383); sbuf[16383]=0; ws->send_pending=0; }
         pthread_mutex_unlock(&ws->mu);
         if (do_send) thread_send(ws, sbuf);
 
@@ -367,8 +367,8 @@ void ws_send(ACWs *ws, const char *text) {
     if (!ws) return;
     pthread_mutex_lock(&ws->mu);
     if (ws->connected) {
-        strncpy(ws->send_buf, text, 4095);
-        ws->send_buf[4095] = 0;
+        strncpy(ws->send_buf, text, 16383);
+        ws->send_buf[16383] = 0;
         ws->send_pending = 1;
     }
     pthread_mutex_unlock(&ws->mu);

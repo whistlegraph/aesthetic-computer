@@ -421,16 +421,22 @@ function paint($) {
 
   const isMobile = w < 360;
   const isNarrow = w < 500;
-  const pad = isMobile ? 6 : isNarrow ? 8 : 12;
+  const pad = isMobile ? 4 : isNarrow ? 6 : 12;
   const charW = 6;
   const rowH = 10;
   const matrixH = 9;
   const matrixW = 4; // MatrixChunky8 char width
   const wrapW = w - pad * 2;
-  const btnGap = isMobile ? 8 : 4;
+  const btnGap = 4;
   // Always left-align buttons
   const btnX = (btn) => pad;
-  let y = isMobile ? 28 : 22;
+  const secGap = isMobile ? 6 : isNarrow ? 8 : 10;
+  let y = isMobile ? 22 : 22;
+  // Truncate helper — clips text to fit available pixel width
+  const trunc = (s, cw, availW) => {
+    const max = Math.floor((availW || wrapW) / cw);
+    return s.length > max ? s.slice(0, max - 1) + "~" : s;
+  };
 
   if (loading) {
     ink(100).write("loading...", { x: pad, y });
@@ -447,23 +453,24 @@ function paint($) {
   const builds = releases.releases || [];
 
   // Section rendering — header bar + tinted content background
-  const secBarH = matrixH + 8;
+  const secBarH = isMobile ? matrixH + 4 : matrixH + 8;
   function sectionHeader(title, barColor, bgColor, bgH) {
     // Content background (paint first, behind everything)
     if (bgColor && bgH) {
       ink(...bgColor).box(0, y, w, secBarH + bgH);
     }
     ink(...barColor).box(0, y, w, secBarH);
-    ink(...C.instHeader).write(title, { x: pad, y: y + 4 }, undefined, undefined, false, "MatrixChunky8");
-    y += secBarH + (isMobile ? 10 : 8);
+    ink(...C.instHeader).write(title, { x: pad, y: y + (isMobile ? 2 : 4) }, undefined, undefined, false, "MatrixChunky8");
+    y += secBarH + (isMobile ? 4 : 8);
   }
 
   // --- ABOUT ---
-  const descText = "A Linux kernel with an embedded initramfs — boots any x86 PC from USB.";
+  const descText = isMobile
+    ? "Linux kernel + initramfs — boots x86 from USB."
+    : "A Linux kernel with an embedded initramfs — boots any x86 PC from USB.";
   ink(...C.instText);
-  $.write(descText, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
-  const descLines = Math.ceil((descText.length * matrixW) / wrapW);
-  y += matrixH * descLines + (isMobile ? 14 : 10);
+  $.write(trunc(descText, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+  y += matrixH + secGap;
 
   // --- ACTIVE BUILD ---
   if (activeBuild) {
@@ -479,60 +486,57 @@ function paint($) {
     const elapsed = activeBuild.elapsedMs ? Math.floor(activeBuild.elapsedMs / 1000) : 0;
     const elapsedStr = elapsed > 0 ? " " + Math.floor(elapsed / 60) + "m" + (elapsed % 60) + "s" : "";
     ink(...C.current);
-    $.write(stageLabel + " " + pct + "%" + elapsedStr, { x: pad, y });
-    y += rowH + 4;
+    $.write(trunc(stageLabel + " " + pct + "%" + elapsedStr, charW), { x: pad, y });
+    y += rowH + 2;
 
     // Progress bar
     const barW = w - pad * 2;
-    const barH = 8;
+    const barH = isMobile ? 6 : 8;
     ink(...C.progressBg).box(pad, y, barW, barH);
     const fillW = Math.floor((barW - 2) * pct / 100);
     ink(...C.progress).box(pad + 1, y + 1, fillW, barH - 2);
-    y += barH + 6;
+    y += barH + 4;
 
-    // Build name (adjective-animal from build-name.sh)
-    if (activeBuild.buildName) {
+    // Build name + ref on one line (compact)
+    if (activeBuild.buildName || (activeBuild.ref && activeBuild.ref !== "unknown")) {
+      const namePart = activeBuild.buildName || "";
+      const refPart = activeBuild.ref && activeBuild.ref !== "unknown" ? " " + activeBuild.ref.slice(0, 7) : "";
       ink(...C.name);
-      $.write(activeBuild.buildName, { x: pad, y });
+      $.write(trunc(namePart, charW), { x: pad, y });
+      if (refPart) {
+        const nx = pad + (namePart.length + 1) * charW;
+        ink(...C.hash);
+        $.write(refPart.trim(), { x: nx, y });
+      }
       y += rowH + 2;
     }
 
-    // Build ref (short hash)
-    if (activeBuild.ref && activeBuild.ref !== "unknown") {
-      const refTxt = activeBuild.ref.slice(0, 11);
-      ink(...C.hash);
-      $.write(refTxt, { x: pad, y });
-      y += rowH + 2;
-    }
-
-    // Commit message
+    // Commit message (truncated, no wrap)
     if (activeBuild.commitMsg) {
       ink(...C.msg);
-      $.write(activeBuild.commitMsg, { x: pad, y, wrap: wrapW });
-      const msgLines = Math.ceil((activeBuild.commitMsg.length * charW) / wrapW);
-      y += rowH * msgLines + 2;
+      $.write(trunc(activeBuild.commitMsg, charW), { x: pad, y });
+      y += rowH + 2;
     }
 
-    // Error message if failed
+    // Error message (truncated, no wrap)
     if (activeBuild.error) {
       ink(255, 80, 80);
-      $.write(activeBuild.error, { x: pad, y, wrap: wrapW });
+      $.write(trunc(activeBuild.error, charW), { x: pad, y });
       y += rowH + 2;
     }
 
     // Live log lines
     if (buildLogLines.length > 0) {
-      y += 4;
-      for (const line of buildLogLines) {
-        const maxChars = Math.floor(wrapW / matrixW);
-        const display = line.length > maxChars ? line.slice(0, maxChars - 1) + "~" : line;
+      y += 2;
+      const visibleLogs = isMobile ? buildLogLines.slice(-10) : buildLogLines;
+      for (const line of visibleLogs) {
         ink(...C.instText);
-        $.write(display, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+        $.write(trunc(line, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
         y += matrixH + 1;
       }
     }
 
-    y += isMobile ? 10 : 6;
+    y += secGap;
   }
 
   // --- DOWNLOAD section ---
@@ -541,18 +545,16 @@ function paint($) {
 
     sectionHeader("Download", dark ? [18, 24, 40] : [215, 220, 235], C.secDlBg, 300);
 
-    // OS label
+    // OS label (truncated to fit)
     if (isPersonal) {
       const label = osLabel();
-      ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
-      const labelLines = Math.ceil((label.length * charW) / wrapW);
-      y += rowH * labelLines + 6;
+      ink(...C.handle).write(trunc(label, charW), { x: pad, y });
+      y += rowH + 4;
     } else {
       const latest = releases?.releases?.[0];
       const label = "AC Native OS" + (latest ? " — " + latest.name : "");
-      ink(...C.handle).write(label, { x: pad, y, wrap: wrapW });
-      const labelLines = Math.ceil((label.length * charW) / wrapW);
-      y += rowH * labelLines + 6;
+      ink(...C.handle).write(trunc(label, charW), { x: pad, y });
+      y += rowH + 4;
     }
 
     // Device token status (logged-in only)
@@ -577,19 +579,19 @@ function paint($) {
         y += setupBtn.height + btnGap;
         if (showTokenHint) {
           ink(...C.instText);
-          $.write("on device, type in prompt:", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+          $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
           y += matrixH + 2;
           if (!hasClaude) {
             ink(...C.instKey);
-            $.write("  claude sk-ant-XXXX", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+            $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
             y += matrixH + 2;
           }
           if (!hasGit) {
             ink(...C.instKey);
-            $.write("  git ghp_XXXX", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+            $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
             y += matrixH + 2;
           }
-          y += 4;
+          y += 2;
         }
       } else if (hasClaude && hasGit) {
         ink(...C.date);
@@ -647,7 +649,7 @@ function paint($) {
     }
 
     // Mirror selector
-    y += isMobile ? 8 : 4;
+    y += 4;
 
     // Download button
     downloadBtn.reposition({ x: btnX(downloadBtn), y });
@@ -662,16 +664,23 @@ function paint($) {
 
     // Hint for template users
     if (!isPersonal) {
-      ink(...C.loginHint).write("log in for a personalized build", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
-      y += matrixH + 4;
+      ink(...C.loginHint).write(trunc("log in for a personalized build", matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+      y += matrixH + 2;
     }
 
-    y += isMobile ? 14 : 10;
+    y += secGap;
 
     // --- INSTALL section ---
-    sectionHeader("How to Install", dark ? [14, 20, 32] : [210, 215, 230], C.secInstBg, 120);
+    sectionHeader("Install", dark ? [14, 20, 32] : [210, 215, 230], C.secInstBg, 120);
 
-    const instLines = [
+    const instLines = isMobile ? [
+      [C.instText, "1 flash .iso (Fedora Media Writer)"],
+      [C.instText, "2 plug USB into x86 PC"],
+      [C.instText, "3 BIOS boot menu:"],
+      [C.instKey, "  F12 Dell/Lenovo F9 HP"],
+      [C.instKey, "  F2 ASUS/Acer ESC others"],
+      [C.instText, "4 select USB drive"],
+    ] : [
       [C.instText, "1 flash .iso with Fedora Media Writer"],
       [C.instText, "2 plug USB into any x86 PC"],
       [C.instText, "3 enter BIOS boot menu:"],
@@ -680,16 +689,15 @@ function paint($) {
       [C.instText, "4 select USB drive to boot"],
     ];
     for (const [color, text] of instLines) {
-      ink(...color).write(text, { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
-      const lines = Math.ceil((text.length * matrixW) / wrapW);
-      y += matrixH * lines + 4;
+      ink(...color).write(trunc(text, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+      y += matrixH + (isMobile ? 2 : 4);
     }
 
-    y += isMobile ? 14 : 10;
+    y += secGap;
 
     // --- LAPTOP AD ---
     sectionHeader("Need a laptop?", dark ? [18, 14, 24] : [230, 222, 238], dark ? [30, 24, 40] : [215, 208, 225], 120);
-    ink(...C.instText).write("Run AC OS on any x86 laptop.", { x: pad, y, wrap: wrapW }, undefined, undefined, false, "MatrixChunky8");
+    ink(...C.instText).write("Run AC OS on any x86 laptop.", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
     y += matrixH + 4;
     if (laptopBtn) {
       laptopBtn.reposition({ x: pad, y });
@@ -703,7 +711,7 @@ function paint($) {
       y += laptopBtn.height + btnGap;
     }
 
-    y += isMobile ? 14 : 10;
+    y += secGap;
 
     // --- BUILDS section ---
     sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238], C.secBuildBg, 2000);
@@ -718,21 +726,22 @@ function paint($) {
     ink(255).write(mb + total + "MB " + pct + "%", { x: pad + 4, y: y + 4 });
     y += 22;
     if (downloadStatus) {
-      ink(140, 160, 180).write(downloadStatus, { x: pad, y, wrap: wrapW });
-      const statusLines = Math.ceil((downloadStatus.length * charW) / wrapW);
-      y += rowH * statusLines + 2;
+      ink(140, 160, 180).write(trunc(downloadStatus, charW), { x: pad, y });
+      y += rowH + 2;
     }
   }
 
   // Build list — masked scrollable area with alternating strips
   const buildsTopY = y;
-  const buildsH = h - buildsTopY - 16; // leave room for footer
+  const buildsH = h - buildsTopY - (isMobile ? 12 : 16); // leave room for footer
   buildsViewH = buildsH;
   mask({ x: 0, y: buildsTopY, width: w, height: buildsH });
   y -= scrollY; // apply scroll offset only to builds
 
-  const maxNameChars = isNarrow ? Math.floor(wrapW / charW / 3) : 30;
-  const entryH = isNarrow ? 42 : 34;
+  // Compute dynamic name width: reserve space for hash(7) + time(~4) + tag(~6)
+  const reservedR1 = (7 + 1 + 4 + 1 + 6) * charW; // hash + gap + ago + gap + tag
+  const nameAvail = Math.max(6, Math.floor((wrapW - reservedR1) / charW) - 2); // -2 for marker
+  const entryH = isMobile ? 24 : isNarrow ? 34 : 34;
   const stripA = dark ? [14, 17, 26] : [232, 234, 240];
   const stripB = dark ? [18, 22, 32] : [240, 242, 248];
 
@@ -744,7 +753,7 @@ function paint($) {
     const isCurrent = i === 0 && !b.deprecated;
     const isDep = !!b.deprecated;
     const rawName = b.name || "?";
-    const name = rawName.length > maxNameChars ? rawName.slice(0, maxNameChars - 1) + "~" : rawName;
+    const name = rawName.length > nameAvail ? rawName.slice(0, nameAvail - 1) + "~" : rawName;
     const hash = (b.git_hash || "?").slice(0, 7);
     const ago = timeAgo(b.build_ts);
     const msg = b.commit_msg || "";
@@ -762,11 +771,11 @@ function paint($) {
       ink(...strip).box(0, y, w, entryH);
     }
 
-    const ry = y + 4; // row start with padding
+    const ry = y + (isMobile ? 2 : 4);
     const marker = isCurrent ? "> " : "  ";
     let x = pad;
 
-    // Row 1: name + hash + time + size
+    // Row 1: name + hash + time + (wide: size + handle)
     ink(...(isCurrent ? C.current : isDep ? C.depName : C.nameOld));
     $.write(marker + name, { x, y: ry });
     x = pad + (marker.length + name.length) * charW + charW;
@@ -807,9 +816,24 @@ function paint($) {
       drawLine(pad + charW * 2, ry + 4, lineEndX, ry + 4);
     }
 
-    // Row 2: commit message (+ handle and size on narrow)
-    const r2y = ry + rowH + 2;
-    if (isNarrow) {
+    // Row 2: commit message (on mobile: inline with @handle; on narrow: handle+size then msg; on wide: msg only)
+    const r2y = ry + rowH + (isMobile ? 1 : 2);
+    if (isMobile) {
+      // Compact: @handle + truncated msg on one line
+      let nx = pad + charW * 2;
+      if (who) {
+        ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
+        $.write("@" + who, { x: nx, y: r2y });
+        nx += (who.length + 2) * charW;
+      }
+      if (msg) {
+        const msgAvail = Math.floor((w - nx - pad) / charW);
+        const display = msg.length > msgAvail ? msg.slice(0, msgAvail - 1) + "~" : msg;
+        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
+        $.write(display, { x: nx, y: r2y });
+      }
+    } else if (isNarrow) {
+      // Narrow: row 2 = @handle + size, row 3 = msg
       let nx = pad + charW * 2;
       if (who) {
         ink(...(isCurrent ? C.handle : isDep ? C.depHandle : C.handleOld));
@@ -820,19 +844,29 @@ function paint($) {
         ink(...C.date);
         $.write(sizeMB, { x: nx, y: r2y });
       }
-    }
-
-    // Row 3 (narrow) or Row 2 (wide): commit message
-    const msgY = isNarrow ? r2y + rowH + 1 : r2y;
-    if (msg) {
-      const maxChars = Math.floor((wrapW - charW * 2) / charW);
-      const display = msg.length > maxChars ? msg.slice(0, maxChars - 1) + "~" : msg;
-      ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
-      $.write("  " + display, { x: pad, y: msgY });
-      if (isDep) {
-        ink(...C.depStrike, 100);
-        const msgW = Math.min(display.length + 2, maxChars) * charW;
-        drawLine(pad, msgY + 4, pad + msgW, msgY + 4);
+      // Row 3: commit msg
+      const msgY = r2y + rowH + 1;
+      if (msg) {
+        const msgMaxChars = Math.floor((wrapW - charW * 2) / charW);
+        const display = msg.length > msgMaxChars ? msg.slice(0, msgMaxChars - 1) + "~" : msg;
+        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
+        $.write("  " + display, { x: pad, y: msgY });
+        if (isDep) {
+          ink(...C.depStrike, 100);
+          drawLine(pad, msgY + 4, pad + Math.min(display.length + 2, msgMaxChars) * charW, msgY + 4);
+        }
+      }
+    } else {
+      // Wide: row 2 = commit msg
+      if (msg) {
+        const msgMaxChars = Math.floor((wrapW - charW * 2) / charW);
+        const display = msg.length > msgMaxChars ? msg.slice(0, msgMaxChars - 1) + "~" : msg;
+        ink(...(isCurrent ? C.msg : isDep ? C.depMsg : C.msgOld));
+        $.write("  " + display, { x: pad, y: r2y });
+        if (isDep) {
+          ink(...C.depStrike, 100);
+          drawLine(pad, r2y + 4, pad + Math.min(display.length + 2, msgMaxChars) * charW, r2y + 4);
+        }
       }
     }
 
@@ -947,7 +981,7 @@ async function startDownload(needsPaint) {
   downloadMB = 0;
   downloadTotalMB = 0;
   const piece = BOOT_PIECES[bootPieceIdx];
-  downloadStatus = "building @" + (handle || "user") + " os... (boot to: " + piece + ")";
+  downloadStatus = "preparing @" + (handle || "user") + " os... (boot to: " + piece + ")";
   console.log("[os] Starting download:", osLabel(), "piece:", piece);
   needsPaint();
 
@@ -955,22 +989,32 @@ async function startDownload(needsPaint) {
     const query =
       "?piece=" + encodeURIComponent(piece) +
       "&wifi=" + (wifiEnabled ? "1" : "0") +
-      "&layout=efi&strict=1&cb=" + Date.now() +
+      "&cb=" + Date.now() +
       (variantIdx === 1 ? "&variant=cl" : "");
-    // Strict EFI downloads must come from oven origin.
-    // The edge worker can return stale/truncated artifacts without layout headers.
-    const isoCandidates = [OVEN_ORIGIN + "/os-image" + query];
+    const efiQuery = query + "&layout=efi&strict=1";
+    const downloadCandidates = [
+      {
+        url: OVEN_BASE() + "/os-image" + query,
+        allowedLayouts: ["iso"],
+        rejectOriginFallback: true,
+      },
+      {
+        url: OVEN_ORIGIN + "/os-image" + efiQuery,
+        allowedLayouts: ["efi"],
+        rejectOriginFallback: false,
+      },
+    ];
     const MIN_EXPECTED_EFI_BYTES = 300 * 1024 * 1024;
-    const MIN_EXPECTED_ISO_BYTES = 200 * 1024 * 1024;
+    const MIN_EXPECTED_ISO_BYTES = 100 * 1024 * 1024;
 
     let res = null;
     let usedUrl = "";
     let lastErr = "";
-    for (const url of isoCandidates) {
-      console.log("[os] Fetching:", url);
+    for (const candidate of downloadCandidates) {
+      console.log("[os] Fetching:", candidate.url);
       let attempt;
       try {
-        attempt = await fetch(url, {
+        attempt = await fetch(candidate.url, {
           headers: { Authorization: "Bearer " + token },
         });
       } catch (err) {
@@ -984,17 +1028,25 @@ async function startDownload(needsPaint) {
         continue;
       }
 
+      const patchMode = (attempt.headers.get("x-patch") || "").toLowerCase();
+      if (candidate.rejectOriginFallback && patchMode === "origin-fallback") {
+        console.warn("[os] Rejecting edge origin fallback from", candidate.url);
+        try { attempt.body?.cancel(); } catch (_) {}
+        lastErr = "Edge personalized download unavailable";
+        continue;
+      }
+
       const servedLayout = (attempt.headers.get("x-ac-os-layout") || "").toLowerCase();
       if (!servedLayout) {
-        console.warn("[os] Missing x-ac-os-layout header from", url);
+        console.warn("[os] Missing x-ac-os-layout header from", candidate.url);
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Server did not report image layout (x-ac-os-layout missing)";
         continue;
       }
-      if (servedLayout && servedLayout !== "efi") {
-        console.warn("[os] Rejecting non-EFI response:", servedLayout, "from", url);
+      if (!candidate.allowedLayouts.includes(servedLayout)) {
+        console.warn("[os] Rejecting unexpected layout:", servedLayout, "from", candidate.url);
         try { attempt.body?.cancel(); } catch (_) {}
-        lastErr = "Server returned '" + servedLayout + "' image instead of EFI";
+        lastErr = "Server returned '" + servedLayout + "' image";
         continue;
       }
 
@@ -1006,14 +1058,14 @@ async function startDownload(needsPaint) {
             ? MIN_EXPECTED_ISO_BYTES
             : MIN_EXPECTED_EFI_BYTES;
       if (len > 0 && len < minExpectedBytes) {
-        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", url, "layout:", servedLayout || "?");
+        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", candidate.url, "layout:", servedLayout || "?");
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Received suspiciously small image (" + len + " bytes)";
         continue;
       }
 
       res = attempt;
-      usedUrl = url;
+      usedUrl = candidate.url;
       break;
     }
 
@@ -1077,10 +1129,12 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
+    const extension = servedLayout === "iso" ? "iso" : "img";
+    const mimeType = servedLayout === "iso" ? "application/x-iso9660-image" : "application/octet-stream";
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.${extension}`;
 
     console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
-    dlFn(filename, combined, { type: "application/octet-stream" });
+    dlFn(filename, combined, { type: mimeType });
     downloadStatus = "done!";
   } catch (err) {
     console.error("[os] Download failed:", err);
