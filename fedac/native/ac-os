@@ -557,6 +557,10 @@ build_kernel() {
         local rel="$1"
         local dst="$2/$rel"
         mkdir -p "$(dirname "${dst}")"
+        # Already staged from a previous run or manual download
+        if [ -f "${dst}" ]; then
+            return 0
+        fi
         if [ -f "${HOST_FW_DIR}/${rel}" ]; then
             cp -L "${HOST_FW_DIR}/${rel}" "${dst}"
             return 0
