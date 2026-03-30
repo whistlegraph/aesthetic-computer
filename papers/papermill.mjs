@@ -26,8 +26,8 @@ const SITE_DIR = join(
   PAPERS_DIR,
   "../system/public/papers.aesthetic.computer",
 );
-const LANGS = ["da", "es", "zh"];
-const LANG_NAMES = { da: "Danish", es: "Spanish", zh: "Chinese" };
+const LANGS = ["da", "es", "zh", "ja"];
+const LANG_NAMES = { da: "Danish", es: "Spanish", zh: "Chinese", ja: "Japanese" };
 
 // Map paper dir name to output PDF base name (matching existing site naming)
 const PAPER_MAP = {
@@ -115,6 +115,36 @@ const PAPER_MAP = {
     base: "plork",
     siteName: "plorking-the-planet-26-arxiv",
     paperId: "plork",
+  },
+  "arxiv-calarts": {
+    base: "calarts",
+    siteName: "calarts-callouts-papers-26-arxiv",
+    paperId: "calarts",
+  },
+  "arxiv-futures": {
+    base: "futures",
+    siteName: "five-years-from-now-26-arxiv",
+    paperId: "futures",
+  },
+  "arxiv-identity": {
+    base: "identity",
+    siteName: "handle-identity-atproto-26-arxiv",
+    paperId: "identity",
+  },
+  "arxiv-open-schools": {
+    base: "open-schools",
+    siteName: "open-schools-26-arxiv",
+    paperId: "open-schools",
+  },
+  "arxiv-kidlisp-cards": {
+    base: "kidlisp-cards",
+    siteName: "kidlisp-cards-26-arxiv",
+    paperId: "kidlisp-cards",
+  },
+  "arxiv-score-analysis": {
+    base: "score-analysis",
+    siteName: "reading-the-score-26-arxiv",
+    paperId: "score-analysis",
   },
 };
 

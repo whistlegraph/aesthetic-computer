@@ -1,0 +1,468 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={AC Native OS '26：ベアメタルクリエイティブコンピューティングOS},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} AC Native OS '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} ベアメタルクリエイティブコンピューティングOS}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 余剰ハードウェア、深い個人化、ポストOLPC楽器}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\acos{} を紹介する。あらゆるx86\_64コンピュータを7.3秒でクリエイティブコンピューティング楽器に直接起動するベアメタルLinux OSである。システム全体——カスタムカーネル、PID~1として動作する11,943行のCランタイム、QuickJS JavaScriptエンジン——は89\,MBの単一UEFIバイナリに収まり、ユーザースペースなし、パッケージマネージャなし、デスクトップ環境なし。本OSは\emph{デバイスレベルの個人化}モデルを導入する：各マシンがオーナーのユーザー名、カスタムカラースキーム、音声挨拶とともに起動し、アイデンティティをアプリケーション層ではなくOSの属性とする。このOSを余剰の商用ノートパソコン——退役ThinkPad、リース期限切れの企業マシン、未販売在庫——にフラッシュすることで、OLPCのカスタム教育ハードウェアモデルとも、Appleの商業エコシステムを通じたアイデンティティモデルとも異なる実行可能な代替案を生み出すことを論じる。OLPCは200ドルかかる100ドルのノートパソコンを設計し、Appleは1,000ドルのデバイスを必要とする1,000ドルのアイデンティティを販売し、\acos{} は50ドルの余剰マシンを個人のクリエイティブ楽器に変える——OTAアップデート付き、ITインフラ不要、継続コストゼロ。アーキテクチャ、個人化モデル、OTAアップデートシステム、クリエイティブコンピューティング普及への含意を記述する。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{はじめに}
+
+「すべての子どもにラップトップを」（OLPC）プロジェクト~\citep{negroponte1995being, kraemer2009olpc}は、コンピューティングの普及には新しいハードウェアの設計——教育専用に作られた100ドルのノートパソコン——が必要だと提案した。XOラップトップはカスタムOS（Sugar）、カスタムハードウェア、カスタム配布モデルを備えていた。プロジェクトは重要なアイデアを生み出したが、根本的な矛盾に苦しんだ：カスタムハードウェアの設計、製造、保守は高コストであり、100ドルの目標は大規模には決して達成されなかった。
+
+一方、消費者向けコンピューティング市場は大量の完全に機能する余剰マシンを絶えず生み出している。企業のリースサイクルは3--5年ごとに数百万台のノートパソコンを退役させる。小売の過剰在庫、キャンセルされた注文、外観の損傷が倉庫在庫を生む。電子廃棄物リサイクル業者は何年もの使用寿命が残ったマシンを受け取る。これらの余剰コンピュータ——ThinkPad、EliteBook、Latitude——は30--80ドルで販売され、最新のプロセッサ、8--16\,GBのメモリ、WiFi、キーボード、ディスプレイを搭載している。
+
+\acos{} はOLPCとは逆のアプローチをとる。カスタムハードウェアを設計する代わりに、\emph{あらゆる}商用x86\_64マシンを専用のクリエイティブコンピューティング楽器に変えるカスタムOSを設計する。OS全体が1つのファイル。USBドライブへの書き込みは1分未満。マシンは7.3秒で楽器、ペイントツール、またはプログラミング環境として起動し、画面にオーナーの名前が表示され、音声が名前で挨拶する。
+
+本稿ではシステムアーキテクチャ（\S\ref{sec:architecture}）、個人化モデル（\S\ref{sec:personalization}）、余剰ハードウェアの論点（\S\ref{sec:surplus}）、OTAアップデートシステム（\S\ref{sec:ota}）、既存アプローチとの比較（\S\ref{sec:related}）、クリエイティブコンピューティング普及への含意（\S\ref{sec:implications}）を記述する。
+
+% ============ 2. ARCHITECTURE ============
+
+\section{アーキテクチャ}
+\label{sec:architecture}
+
+\acos{} は4つの層で構成される：最小化Linuxカーネル、LZ4圧縮initramfs、PID~1として動作するCランタイム、インタラクティブプログラム（「ピース」）を実行するQuickJS JavaScriptエンジン。
+
+\subsection{ブートチェーン}
+
+システムはUEFIから起動し、ブートローダー不要。Linuxカーネル（6.14.2）はEFIスタブとしてコンパイルされる——カーネル\emph{が}ブートローダー。LZ4圧縮の埋め込みinitramfsを含むため、OS全体が1つのファイル：FAT32 EFIシステムパーティション上の \texttt{BOOTX64.EFI}。
+
+\begin{enumerate}
+  \item UEFIファームウェアが \texttt{EFI/BOOT/BOOTX64.EFI}（89\,MB）をロード
+  \item カーネルがinitramfsをtmpfsに展開
+  \item \texttt{/init}（\texttt{/ac-native} へのシンボリックリンク）がPID~1として起動
+  \item \texttt{/proc}、\texttt{/sys}、\texttt{/dev}、\texttt{/tmp} をマウント
+  \item EFIパーティションを \texttt{/mnt} にマウントし、\texttt{config.json} を読み取り
+  \item DRMディスプレイを初期化、個人化されたブートスクリーンをレンダリング
+  \item ALSAオーディオを初期化、起動音を再生（E5$\rightarrow$B5）
+  \item 入力デバイスを初期化（キーボード、タッチパッド、タッチスクリーン）
+  \item WiFi自動接続（サイレント、ユーザー操作不要）
+  \item デフォルトピースをロードし、\texttt{boot()} を呼び出し、メインループに入る
+\end{enumerate}
+
+電源投入からインタラクティブピースまでの総起動時間：\textbf{7.3秒}。
+
+\subsection{ランタイム}
+
+Cランタイム（\texttt{ac-native}、14ソースファイル計11,943行）は従来のOSユーザースペース全体を置き換える。\texttt{systemd} なし、シェルなし、パッケージマネージャなし、ログインプロンプトなし。ランタイムが直接管理する：
+
+\begin{itemize}
+  \item \textbf{ディスプレイ}：DRM/KMSモード設定、ダブルバッファリングソフトウェアフレームバッファ
+  \item \textbf{オーディオ}：192\,kHz ALSA PCM、32音ポリフォニックシンセサイザー、リバーブ付き
+  \item \textbf{入力}：evdevポーリングでキーボード、タッチパッド、タッチスクリーン、アナログキー
+  \item \textbf{WiFi}：wpa\_supplicant統合、自動接続、DHCP
+  \item \textbf{カメラ}：V4L2キャプチャ、YUYV変換、QRコードスキャン
+  \item \textbf{音声}：fliteによるテキスト読み上げ（男声・女声）
+  \item \textbf{ネットワーク}：TLS付きWebSocketクライアント、UDP、curl経由のHTTP
+\end{itemize}
+
+\subsection{ピース実行}
+
+ピースはQuickJS~\citep{bellard2005quickjs}によって実行されるJavaScript ESモジュール（\texttt{.mjs}）である。ランタイムはC関数を「system」APIとしてJavaScriptに公開する——グラフィックスプリミティブ、オーディオ合成、入力イベント、ハードウェア情報、システム制御。ピースのライフサイクルはブラウザベースの \ac{} プラットフォーム~\citep{scudder2026ac}と一致する：\texttt{boot()}、\texttt{act()}、\texttt{sim()}、\texttt{paint()}、60\,fpsで実行。
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ system, screen }) {
+  system.tts(|\textcolor{jsstr}{"welcome"}|)
+}
+
+function paint({ wipe, ink, write, screen }) {
+  wipe(|\textcolor{jsnum}{20}|, |\textcolor{jsnum}{10}|, |\textcolor{jsnum}{40}|)
+  ink(|\textcolor{jsnum}{255}|)
+  write(|\textcolor{jsstr}{"hello"}|, { center: |\textcolor{jsstr}{"xy"}| })
+}
+
+export { boot, paint };
+\end{lstlisting}
+
+ピースは \texttt{system.jump("piece-name")} で再起動なしにホットスイッチできる。OSは11のピースを同梱し、半音階キーボード楽器、コマンドラインナビゲータ、システム管理パネル、Claude AIチャットクライアント、ターミナルエミュレータを含む。
+
+\subsection{サイズバジェット}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{コンポーネント} & \textbf{サイズ} \\
+\midrule
+Linuxカーネル（コンパイル済み） & $\sim$10\,MB \\
+ac-nativeバイナリ & 1.2\,MB \\
+QuickJSエンジン & 0.8\,MB \\
+共有ライブラリ（libc、libdrm、ALSA、SSL、flite） & $\sim$45\,MB \\
+WiFiファームウェア（iwlwifi） & 4.9\,MB \\
+ピース、フォント、証明書 & $\sim$28\,MB \\
+\midrule
+Initramfs（非圧縮） & $\sim$201\,MB \\
+Initramfs（LZ4圧縮） & $\sim$90\,MB \\
+\textbf{最終イメージ（vmlinuz）} & \textbf{$\sim$89\,MB} \\
+\bottomrule
+\end{tabular}
+\caption{システムサイズの内訳。}
+\label{tab:size}
+\end{table}
+
+OS全体が一般的なブラウザダウンロードより小さい。過去15年間に製造されたどんなUSBドライブにも収まる。
+
+% ============ 3. DEVICE-LEVEL PERSONALIZATION ============
+
+\section{デバイスレベルの個人化}
+\label{sec:personalization}
+
+消費者向けOSはアイデンティティをアプリケーション層のアカウントに置く：Apple ID、Googleアカウント、Microsoftログイン。ユーザーがログインするまで、デバイス自体は汎用的である。\acos{} はこれを逆転させる：アイデンティティはブートパーティションの属性である。
+
+\subsection{config.json}
+
+EFIシステムパーティション上のJSONファイルがオーナーのアイデンティティを保存する：
+
+\begin{lstlisting}[style=acjsstyle]
+{
+  |\textcolor{jsstr}{"handle"}|: |\textcolor{jsstr}{"jeffrey"}|,
+  |\textcolor{jsstr}{"colors"}|: [|\textcolor{jsnum}{180}|, |\textcolor{jsnum}{72}|, |\textcolor{jsnum}{135}|],
+  |\textcolor{jsstr}{"tokens"}|: { |\textcolor{jsstr}{"claude"}|: |\textcolor{jsstr}{"..."}| }
+}
+\end{lstlisting}
+
+このファイルはOSアップデートを超えて永続する。OTAプロセスはカーネルバイナリを置き換えるがEFIパーティションの残りは保持するためである。デバイスはソフトウェアが進化しても誰のものかを覚えている。
+
+\subsection{挨拶としてのブート}
+
+マシンの電源が入ると、ブートシーケンスがスプラッシュスクリーンにアニメーションレインボーテキストでオーナーのユーザー名をレンダリングする：「hi @jeffrey。」テキスト読み上げエンジンが挨拶を声に出す：「hi jeffrey。」シャットダウン時：「bye jeffrey。」コンピュータはソフトウェアスタックの最深層で\emph{あなたを知っている}——サービスにログインしたからではなく、あなたの名前がブートパーティションに書かれているから。
+
+これはApple（購買とアカウントによるアイデンティティ）とOLPC（制度的配布によるアイデンティティ）の両方と根本的に異なるモデルである。ここではアイデンティティはフラッシュ行為を通じてデバイスに直接刻まれる。USBドライブを準備する人——教師、親、友人、またはユーザー自身——がオーナーの名前をマシンの意識の最初の瞬間に書き込む。
+
+\subsection{ビルドアイデンティティ}
+
+各OSビルドはgitコミットハッシュから派生したユニークな名前を獲得する：形容詞と動物の組み合わせ（例：``keen-egret''、``swift-otter''、``bright-phoenix''）。この名前は起動時に金色のテキストで表示され、TTSで読み上げられ、\texttt{system.hw.buildName} を通じてピースに公開される。マシンには\emph{2つの}アイデンティティがある：誰のものか、そしてどのバージョンを動かしているか。両方とも起動時に宣言される。
+
+命名システムは73,000のユニークな組み合わせ（365種の動物 $\times$ 200の形容詞）を生成し、確定的である：同じコミットは常に同じ名前を生成する。ユーザーはビルド名に愛着を持つ。マシンはシリアル番号ではなく ``keen-egret'' である。
+
+% ============ 4. THE SURPLUS HARDWARE THESIS ============
+
+\section{余剰ハードウェアの論点}
+\label{sec:surplus}
+
+\subsection{OLPCの教訓}
+
+OLPCはハードウェア先行のコンピューティング普及アプローチが複合的な課題に直面することを実証した~\citep{kraemer2009olpc}：カスタムハードウェア開発は予想以上のコスト、スケール化された製造には設計を制約する制度的協力が必要、修理/保守インフラはゼロから構築しなければならない。XOラップトップの100ドル目標は生産時に188ドルになった。Sugar OSは設計の革新性にもかかわらず、カスタムハードウェアを中心に開発者エコシステムを維持できなかった。
+
+Raspberry Pi~\citep{raspberry2012}はコスト問題を部分的に解決した（35ドル）が、異なる摩擦を導入した：ユーザーはモニター、キーボード、マウス、SDカード、電源を用意しなければならず、アクセサリーがボードより高くつくことが多い。機能的なPiワークステーションの総コストは150--200ドルに近づく。
+
+\subsection{素材としての余剰}
+
+x86\_64ラップトップの余剰市場はまったく異なる方程式を提供する。退役したThinkPad X1 Carbon（2019--2021年モデル）は50--80ドルで販売され、以下を搭載する：
+
+\begin{itemize}
+  \item 14インチ 1080pまたは2Kディスプレイ
+  \item 4--8コアIntelプロセッサ
+  \item 8--16\,GBメモリ
+  \item WiFi 6、Bluetooth
+  \item フルキーボードとタッチパッド
+  \item 6--10時間バッテリー
+  \item USB-C充電（汎用）
+\end{itemize}
+
+これらは完全で自己完結したコンピュータであり、USBドライブ1本でクリエイティブ楽器になる。余剰は企業の更新サイクルによって存在するのであり、ハードウェアの故障によるのではない。\acos{} を動かす2020年のThinkPadは同じマシンでWindows 11を動かすより速く起動し、スムーズに動作し、集中した体験を提供する。
+
+\subsection{経済性}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{アプローチ} & \textbf{デバイスコスト} & \textbf{アクセサリー} \\
+\midrule
+OLPC XO-1 & \$188 & \$0 \\
+Raspberry Pi 5 & \$35 & \$100--150 \\
+Chromebook（新品） & \$200--300 & \$0 \\
+iPad（教育価格） & \$299 & \$0--130 \\
+余剰ThinkPad + AC OS & \$50--80 & \$0 \\
+\bottomrule
+\end{tabular}
+\caption{コンピューティング普及アプローチのコスト比較。}
+\label{tab:cost}
+\end{table}
+
+余剰アプローチは製造不要、サプライチェーン不要、最小注文数量不要。学校、コミュニティセンター、個人がローカルのリサイクル業者、オンラインマーケットプレイス、企業IT部門から1台ずつマシンを調達できる。各マシンは1分以内に個人化された \acos{} USBでフラッシュされる。
+
+\subsection{Appleモデルへの反論}
+
+Appleのパーソナルコンピューティングアプローチはデバイスアイデンティティを商業関係に結びつける。デバイスにあなたの名前が表示されるのは、Apple IDで購入したから。設定が永続するのはiCloudで同期されるから。クリエイティブツールが使えるのはサービスにサブスクリプションしたから。デバイスが個人的なのは\emph{購入された}から。
+
+\acos{} はデバイスアイデンティティが購入ではなく刻印されうると提案する。50ドルの余剰ノートパソコンが起動画面に「hi @maria」と表示し、スプラッシュスクリーンに彼女の好きな色を映し、名前を声に出す——これは誰にも挨拶しない1,000ドルのMacBookより\emph{より個人的}である。個人化はより深い——アプリケーション層の下、デスクトップの下、ブートシーケンスの最初の瞬間に存在する——しかも設定ファイルを書く以外のコストはかからない。
+
+これは高品質ハードウェアに反対する論証ではない。人とコンピュータの関係が購買、アカウント、サブスクリプションを介在させる必要はないという論証である。楽器があなたを知っているのは、誰か——おそらくあなた自身——が\emph{それに伝えた}からである。
+
+% ============ 5. OTA UPDATES ============
+
+\section{OTAアップデート}
+\label{sec:ota}
+
+分散コンピューティングプロジェクトの重要な課題はメンテナンスである。OLPCの展開は接続が限られた地域でソフトウェアアップデートに苦労した~\citep{warschauer2004technology}。Chromebookは強制的なクラウド接続で解決する。\acos{} は中間路線をとる：WiFi利用可能時に自動アップデートするが、デバイスはオフラインでも完全に使用可能。
+
+\subsection{アップデートメカニズム}
+
+\begin{enumerate}
+  \item WiFi接続後、OSが \texttt{/api/native/version} をチェック
+  \item 新しいビルドが存在すれば、新しいカーネルイメージ（約89\,MB）を進捗追跡付きでダウンロード
+  \item 新イメージがEFIパーティションに書き込まれ、\texttt{BOOTX64.EFI} を置換
+  \item バイト単位のSHA256検証で書き込みを確認
+  \item デバイスが新バージョンで再起動
+\end{enumerate}
+
+\texttt{config.json} ファイルはアップデートを超えて維持される——デバイスはオーナーのアイデンティティ、カラー、トークンを保持する。アップデートプロセスは電源断に対して堅牢化されている：コピー前にソースイメージを検証し、ファイルシステムをダブルsyncし、キャッシュアーティファクトを防ぐため新しくマウントされたパーティションに対して検証を行う。
+
+\subsection{ITインフラ不要}
+
+Google Admin Console、MDMプロファイル、組織のGoogle Workspaceアカウントを必要とするChromebook展開と異なり、\acos{} は管理インフラを一切必要としない。各デバイスは自律的。アップデートはデバイスが任意のWiFiネットワークに接続したときに伝播する。登録なし、デバイスフリート管理なし、デバイスごとのライセンスなし。運用コストはゼロ。
+
+% ============ 6. RELATED WORK ============
+
+\section{関連研究}
+\label{sec:related}
+
+\textbf{教育向けOSプロジェクト。} Sugar OS（OLPC）は単一目的の教育OSを先駆けたが、ハードウェア依存性に制約された。Endless OSは低スペックハードウェア向けにオフラインファーストのコンテンツを提供するが、従来のデスクトップメタファーを維持。PrimTuxとEdubuntuは教育向けにLinuxディストリビューションをカスタマイズするが、OS層自体を再構想していない。
+
+\textbf{キオスクと単一目的システム。} デジタルサイネージOS（Screenly、Yodeck）は単一目的のLinuxデプロイメントがOTAアップデートで大規模にメンテナンス可能であることを実証。\acos{} はこの運用モデルをコンテンツ表示ではなくクリエイティブコンピューティングに適用。
+
+\textbf{クリエイティブコンピューティングの普及。} Processing~\citep{reas2007processing} と Scratch~\citep{resnick2009scratch} はクリエイティブプログラミングの障壁を下げたが、その下に汎用OSを前提とする。Sonic Pi~\citep{aaron2016sonic} はRaspberry Pi上で動作するがRaspbianが必要。\acos{} はOS依存を完全に排除する——クリエイティブツール\emph{が}OSである。
+
+\textbf{自律的ツール。} Illichの「自律的ツール」概念~\citep{illich1973tools}——専門知識を要求するのではなく個人の自律性を拡張するツール——は \acos{} の設計と共鳴する。デバイスはシステム管理不要、ITサポート不要、USBドライブを差し込む以上の技術知識不要。Papertの構成主義~\citep{papert1980mindstorms}はデフォルト体験としてコンテンツ消費デバイスではなくクリエイティブ楽器を選択する根拠となった。
+
+\textbf{メディア理論。} ソフトウェアがコンピューティングの物質的現実を覆い隠すというKittlerの論点~\citep{kittler1995no}は \acos{} によって反転される：デスクトップ環境なし、ウィンドウマネージャなし、抽象層なし——コードとハードウェアの関係が可視になる。ブートスクリーンはDRMフレームバッファに直接レンダリングされる。オーディオ合成はALSA PCMバッファに直接書き込まれる。メディアがメッセージを形成するというMcLuhanの観察~\citep{mcluhan1964understanding}はここで文字通り適用される：OS\emph{が}楽器であり、その制約（一度に1つのピース、即時モードグラフィックス、直接オーディオ合成）がクリエイティブ出力を形成する。
+
+% ============ 7. IMPLICATIONS ============
+
+\section{含意と今後の研究}
+\label{sec:implications}
+
+\subsection{配布モデル}
+
+余剰ハードウェアの論点は配布モデルを示唆する：組織が退役ノートパソコンをまとめて調達し（1台30--80ドル）、個人化された \acos{} USBをフラッシュし、配布する。デバイスは自動アップデートするクリエイティブ楽器として起動する。デバイスあたりのコストは既存のどのアプローチの一部であり、環境負荷はマイナス——マシンが電子廃棄物の流れから転用される。
+
+30台のクリエイティブコンピューティング楽器の教室は1,500--2,400ドルのハードウェアとUSBドライブをフラッシュする人件費で整備できる。継続的サブスクリプションなし、ITサポート契約なし、ホスティングアカウントなし。
+
+\subsection{デバイスとしての楽器}
+
+デスクトップやブラウザではなく楽器（notepat、半音階キーボード）として起動する選択は意図的である。デバイスは消費者的意味での「コンピュータ」ではない——たまたまプログラム可能な楽器である。このフレーミングは \ac{} の「IDEではなく楽器」のデザイン哲学に由来し、ユーザーとマシンの関係を変える。デバイスを「使っている」のではなく、\emph{演奏している}のである。
+
+\subsection{ケアとしてのメンテナンス}
+
+Ukelesの「メンテナンスアート宣言」~\citep{ukeles1969manifesto}はメンテナンスを創造的行為として再フレーミングした。\acos{} のOTAシステムはこれを体現する：各アップデートに名前がつき（``keen-egret''が``swift-otter''に）、デバイスが新しいアイデンティティを宣言し、トランジションは目に見えないバックグラウンドプロセスではなく小さなイベントとなる。メンテナンスが可視化され、さらには祝福される。
+
+\subsection{限界}
+
+システムは現在x86\_64 UEFIマシンを対象としており、ARM ChromebookとBIOSのみの古いハードウェアは含まれない。WiFiサポートはIntel iwlwifiファームウェアに依存し、BroadcomとRealtekアダプタはまだ未対応。一度に1つのピースのモデルはマルチタスクを制限する。ソフトウェアラスタライザは60\,fpsでの2Dグラフィックスには十分だが、3Dレンダリングはアクセラレートできない。これらの制約はアーキテクチャ上の選択であり、永続的な限界ではない。
+
+\subsection{今後の方向}
+
+\begin{itemize}
+  \item \textbf{ARMサポート}：Chromebook（Mediatek/Qualcomm）対応で最大の余剰教育ハードウェアプールにアクセス
+  \item \textbf{メッシュネットワーク}：インターネットインフラ不要のピアツーピアピース共有とマルチプレイヤー
+  \item \textbf{ハードウェアGPU}：ベアメタルモデルを維持したままアクセラレートグラフィックス用のDRMレンダーノード
+  \item \textbf{マルチピース}：軽量マルチタスク用の分割画面またはタブ式ピースナビゲーション
+  \item \textbf{コミュニティフラッシュ}：参加者が一緒に余剰マシンをフラッシュし個人化するイベント
+\end{itemize}
+
+% ============ 8. CONCLUSION ============
+
+\section{結論}
+
+\acos{} は完全なクリエイティブコンピューティング体験が89\,MBに収まり、7.3秒で起動し、教科書1冊より安いハードウェアで動作することを実証する。カスタムハードウェアではなく余剰の商用ノートパソコンを対象とすることで、OLPCを制約した製造、配布、メンテナンスの課題を回避する。アイデンティティを商業アカウントではなくブートパーティションに置くことで、Appleよりも深くコストゼロの個人化モデルを提供する。
+
+本システムはプロトタイプや概念実証ではない。物理ハードウェアにデプロイされ、OTAアップデートを受け、オーディオ合成、WiFiネットワーク、カメラ入力、テキスト読み上げを備えた機能完全なクリエイティブコンピューティングランタイムを動作させている。11,943行のCコードが従来のユーザースペース全体を置き換える。
+
+\acos{} が提起する問いは技術的ではなく経済的・文化的である：毎年数百万台の機能する計算機が廃棄され、完全なクリエイティブOSが89\,MBで済む今、すべての人が個人のクリエイティブ楽器を持つことを阻んでいるのは何か？答えはハードウェアコストでも、ソフトウェアの複雑さでも、インフラの要件でもない。おそらく、まだ誰も試みていなかっただけである。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

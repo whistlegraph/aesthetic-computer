@@ -1,0 +1,441 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from open-schools.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\hypersetup{
+  pdftitle={Get Closed Source Out of Schools: Every Chromebook Is a Gateway Denied},
+}
+
+\renewcommand{\acpdfbase}{open-schools-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=9em]{pals}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Get Closed Source Out of Schools}\par
+\vspace{0.1em}
+\vspace{0.3em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/2113ef735}{2113ef735}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/open-schools-26-arxiv-da-cards.pdf}{Dansk} · \href{https://papers.aesthetic.computer/open-schools-26-arxiv-es-cards.pdf}{Español} · \href{https://papers.aesthetic.computer/open-schools-26-arxiv-zh-cards.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/open-schools-26-arxiv-ja-cards.pdf}{{\accjk 日本語}}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% ABSTRACT CARD
+% ============================================================
+\clearpage
+\begin{accentcard}
+\cardtitle{Abstract}
+
+\noindent
+There are over 50 million Chromebooks in American schools. Each one is a capable computer running a locked-down, closed-source operating system that funnels every student interaction through Google's surveillance infrastructure. The student cannot see how the machine works. The student cannot modify the machine. The student cannot own the machine in any meaningful sense. In the age of large language models---when ``everyone is a programmer'' is no longer a slogan but a material reality---this is an act of educational malpractice. This paper argues that every student deserves a free and open operating system stack: one where the Chromebook becomes a gateway to the student's own path through logic, creativity, the internet, community, and the computational landscape as a whole. We present the technical, pedagogical, economic, and political case for replacing closed-source school computing infrastructure with open alternatives, drawing on international precedents from Kerala, Schleswig-Holstein, and France, environmental data on planned obsolescence, federal and state legal actions against student surveillance, and emerging research on AI-assisted programming education. We present \acos{}~\citep{scudder2026acos} as one concrete implementation of this vision.
+\end{accentcard}
+
+% ============================================================
+% BODY
+% ============================================================
+\section{The Chromebook Problem}
+
+In 2012, Google began aggressively marketing Chromebooks to American school districts. The pitch was simple: cheap hardware, zero IT overhead, everything in the cloud. By 2026, Chromebooks account for roughly 60\% of devices shipped to U.S. K--12 schools, with an installed base exceeding 50 million units~\citep{google2024chromeos}. An entire generation of American students is being educated on machines they cannot understand, cannot modify, and do not own---even when the school paid for them.
+
+ChromeOS is proprietary software. Its source is not available for inspection. The browser is the entire interface. Every document lives in Google Drive. Every search goes through Google. Every interaction is logged, analyzed, and used to build behavioral profiles that follow the student into adulthood~\citep{zuboff2019surveillance}.
+
+This is not a privacy concern at the margins. This is the \emph{architecture} of how American children learn to use computers. The medium is the message~\citep{mcluhan1964understanding}: the Chromebook teaches that a computer is a device for consuming cloud services owned by a corporation. It teaches that your work lives on someone else's server. It teaches that the machine is not yours to understand.
+
+\subsection{What the Student Cannot Do}
+
+On a school Chromebook, a student cannot:
+
+\begin{itemize}
+  \item Install a programming language runtime (Python, Node.js, GCC)
+  \item Run a local web server or compile code
+  \item Inspect the operating system source
+  \item Modify the boot sequence
+  \item Connect to hardware peripherals for physical computing
+  \item Use the machine offline for serious work
+  \item Keep their data on the device without cloud sync
+  \item Choose their own software
+  \item Understand what the machine is doing with their attention
+\end{itemize}
+
+ChromeOS includes a Linux container (Crostini) that could theoretically provide these capabilities, but school IT administrators almost universally disable it. The machine ships with a terminal and then locks it shut. Every one of these restrictions is a door closed. Every closed door is a path the student will never discover. The Chromebook is not a gateway---it is a \emph{gate}.
+
+\subsection{The Cloud as Landlord}
+
+When a student's work lives in Google Drive, they are tenants, not owners. Google can change the terms of service. Google can discontinue products. Google can revoke access. The student graduates and loses their school Google account---and with it, every document, every project, every creative artifact they produced during their education.
+
+This is not hypothetical. It happens every year, in every school district. Students lose access to years of work because the institution that purchased their cloud account decommissions it. The architecture \emph{guarantees} this outcome: the student never had their files. They had permission to access files on Google's servers, and that permission was revoked.
+
+Freire called this the ``banking model'' of education~\citep{freire1970pedagogy}: knowledge deposited into students by authorities. The Chromebook literalizes the metaphor. The student's work is deposited into a bank they do not control, cannot audit, and will eventually be locked out of.
+
+\subsection{Planned Obsolescence: The AUE Problem}
+
+Every Chromebook ships with an Auto Update Expiration (AUE) date, after which Google provides no security patches, no feature updates, and no browser updates. Historically set at 6.5 years from the \emph{platform's} first release---not the purchase date---a school buying a Chromebook late in a platform cycle might receive only 3--4 years of updates. Google extended this to 10 years for devices launched in 2024, but the installed base of shorter-lived machines remains enormous.
+
+The U.S. PIRG Education Fund estimated that AUE policies would force the premature disposal of 21.5 million functionally working Chromebooks by 2024, costing schools approximately \$1.8 billion in unnecessary replacements~\citep{pirg2023chromebook}. These are machines with working processors, working screens, working keyboards---rendered obsolete by a software policy, not by hardware failure.
+
+The contrast with Linux is absolute. A 2015 ThinkPad running Ubuntu LTS continues to receive security updates indefinitely. There is no artificial expiration date tied to the hardware model. The machine remains useful as long as the hardware functions.
+
+% ============================================================
+% 2. THE SURVEILLANCE MACHINE
+% ============================================================
+
+\section{The Surveillance Machine}
+\label{sec:surveillance}
+
+Google provides Chromebooks to schools below cost because students are a captive market for behavioral data~\citep{zuboff2019surveillance, doctorow2020attack}. A student who grows up in the Google ecosystem---Gmail, Google Docs, Google Drive, Google Classroom, YouTube---is a customer for life. The Chromebook is not a charitable donation. It is a customer acquisition strategy deployed against children.
+
+\subsection{What Google Collects}
+
+The data collected from student Chromebooks includes:
+
+\begin{itemize}
+  \item Every search query and every website visited
+  \item Every document opened, edited, and shared
+  \item Every YouTube video watched and for how long
+  \item Keystroke timing patterns and login frequency
+  \item Location data (on cellular models)
+  \item Social graphs (who collaborates with whom in Google Docs)
+  \item Device diagnostics and app usage telemetry
+\end{itemize}
+
+Google claims that data collected under Workspace for Education ``core services'' is not used for advertising. But ``additional services''---YouTube, Google Search, Google Maps when signed in---operate under different terms. Students on school Chromebooks use these additional services constantly, and the data flows to Google's advertising infrastructure.
+
+\subsection{Legal Actions}
+
+The legal record is damning. In 2019, Google paid \$170 million to the FTC and New York Attorney General for YouTube's COPPA violations---collecting data from children without parental consent~\citep{google2019coppa}. In 2020, New Mexico Attorney General Hector Balderas sued Google directly for collecting personal data from children using Chromebooks in schools~\citep{newmexico2020google}. The EFF filed an FTC complaint in 2015 documenting that Google was data-mining student browsing activity through Chromebooks~\citep{eff2015chromebook}. In 2024, a coalition of digital rights organizations filed additional FTC complaints regarding ongoing student surveillance~\citep{eff2024monitoring}. Class actions alleging biometric data collection from students under Illinois' BIPA statute are ongoing.
+
+This data is collected from minors, in an institutional setting where participation is mandatory, on machines the student did not choose and cannot configure. The student cannot opt out. The parent often cannot opt out. The school district signed a contract, and the children are bound by it.
+
+\subsection{Monitoring Software}
+
+Beyond Google's own data collection, school districts layer additional surveillance software---Gaggle, GoGuardian, Securly---onto Chromebooks. The EFF documented that these tools surveil private communications and disproportionately target disadvantaged, minority, and LGBTQ youth~\citep{eff2024monitoring}. Of 152 ed-tech services surveyed by the EFF, only 118 had published privacy policies; far fewer addressed data retention, encryption, or de-identification.
+
+Winner argued that artifacts have politics~\citep{winner1980artifacts}. The Chromebook's politics are clear: it is an instrument of surveillance deployed in a context where the surveilled have no choice, no recourse, and no understanding of what is being taken from them.
+
+A free and open operating system collects no telemetry. It phones home to no corporation. It builds no behavioral profile. The student's attention, their curiosity, their mistakes, their explorations---all of these remain private, because the machine has no economic incentive to observe them.
+
+% ============================================================
+% 3. THE LLM INFLECTION
+% ============================================================
+
+\section{Everyone Is a Programmer Now}
+
+Large language models have changed the economics of programming. A student who can describe what they want in natural language can produce working code. The barrier to computational creation has collapsed from ``years of technical training'' to ``the ability to articulate an idea.'' Karpathy's observation that ``the hottest new programming language is English'' is no longer hyperbole---it is a description of material reality.
+
+This is the most important shift in computing since the personal computer. And it makes the Chromebook problem \emph{catastrophically worse}.
+
+\subsection{The New Literacy}
+
+If everyone can program, then programming is literacy. And literacy requires tools the literate person can own. You do not teach a child to read by giving them a locked book that can only be opened in a specific building with a specific corporate account. You give them the book. They take it home. They read it in bed. They write in the margins. They lend it to a friend.
+
+A student with an LLM and an open operating system can:
+
+\begin{itemize}
+  \item Build a tool to organize their homework
+  \item Write a game and share it with classmates
+  \item Automate a repetitive task their teacher assigns
+  \item Create a small business selling software to their community
+  \item Contribute to open-source projects that serve humanity
+  \item Understand and modify the systems that govern their digital life
+  \item Explore logic, mathematics, and language through direct manipulation
+  \item Build instruments for artistic expression
+\end{itemize}
+
+A student with an LLM and a Chromebook can use Google Docs faster.
+
+Ko (University of Washington) has argued that if AI can write code, CS education must shift toward systems thinking, debugging, and evaluation---all of which require access to real development environments, not sandboxed browsers~\citep{denny2024computing}. Krishnamurthi (Brown University) has been critical of approaches that reduce programming to prompting. The emerging consensus in CS education research is that LLMs make full-stack access \emph{more} important, not less~\citep{prather2024robots}: students need to run, debug, modify, and understand generated code. Chromebooks make all four harder.
+
+\subsection{The Chromebook Cannot Execute}
+
+Here is the concrete failure: the LLM produces a Python script, and the Chromebook cannot run it. The LLM generates a web server, and the Chromebook cannot host it. The LLM writes C code, and the Chromebook has no compiler. The LLM teaches the student how an operating system works, and the Chromebook will not let them inspect one.
+
+On a typical school Chromebook (MediaTek or Celeron processor, 4\,GB RAM), even the Linux container---when enabled---struggles to run basic development toolchains. Running a local LLM is physically impossible: even a quantized 1B parameter model requires more memory than most school Chromebooks possess.
+
+The alternative is trivial. A surplus ThinkPad with 8\,GB RAM running Linux can execute any LLM-generated code, run a local 3B parameter model via Ollama at interactive speeds, host a web server, compile programs, and give the student root access to the entire system. The hardware exists. The software is free. The Chromebook is the bottleneck.
+
+\subsection{The Spiritual Dimension}
+
+This is not only about economics or career preparation. There is a spiritual dimension to computing that the Chromebook architecture annihilates.
+
+When a student writes a program that does something they did not expect---when the machine surprises them with emergent behavior from rules they defined---they experience something profound. They encounter the boundary between intention and consequence. They learn that systems have their own logic. They develop a relationship with abstraction itself.
+
+Papert understood this~\citep{papert1980mindstorms}: Logo was not about teaching programming. It was about giving children a medium for thinking about thinking. The turtle was a vehicle for epistemology.
+
+LLMs amplify this a thousandfold. A student can now have a \emph{conversation} with the computational medium. They can ask ``what if?'' and get an answer in seconds. They can iterate on ideas at the speed of thought. They can explore paths that no curriculum anticipated.
+
+But only if the machine lets them. A Chromebook does not let them. A Chromebook says: you may consume services. You may not create infrastructure. You may not run your own code in your own way on your own machine.
+
+% ============================================================
+% 4. WHAT STUDENTS DESERVE
+% ============================================================
+
+\section{What Every Student Deserves}
+
+Every student deserves a computer that:
+
+\begin{enumerate}
+  \item \textbf{They can understand.} The source code of the operating system should be available for inspection. Not as an abstract principle, but as a practical reality: the student should be able to read the code that runs when they press a key.
+
+  \item \textbf{They can modify.} If the student wants to change how the machine behaves, they should be able to. Not through an app store, not through a settings panel, but by changing the code.
+
+  \item \textbf{They can own.} The student's work should live on the student's machine. Not on a corporate server, not in a cloud account that will be decommissioned when they graduate.
+
+  \item \textbf{They can share.} The student should be able to give their software to a friend. Not through a platform, not through a marketplace, but by copying a file.
+
+  \item \textbf{They can break.} The student should be able to break the machine and fix it. This is how you learn. A system that cannot be broken cannot be understood.
+
+  \item \textbf{They can take with them.} When the student leaves the school, the computer---and everything on it---goes with them. Their computational life is not leased. It is theirs.
+
+  \item \textbf{Respects their attention.} The operating system should not contain advertising, behavioral tracking, or engagement optimization. The student's attention belongs to the student.
+
+  \item \textbf{Connects them to community.} The student should be able to contribute to the computational landscape---to write code that others use, to participate in open-source projects, to build tools that serve their community and maintain their lifestyle and wellbeing.
+\end{enumerate}
+
+Every one of these requirements is violated by ChromeOS. Every one of them is satisfied by a free and open operating system.
+
+% ============================================================
+% 5. IT ALREADY WORKS
+% ============================================================
+
+\section{It Already Works: International Precedents}
+
+The objection that open-source school computing is untested is false. It has been tested, at scale, on three continents.
+
+\subsection{Kerala, India: 16,000 Schools}
+
+Kerala's KITE (Kerala Infrastructure and Technology for Education) program moved entirely to free software in 2007 across 16,000+ public schools. KITE GNU/Linux 22.04, released in August 2024, runs on over 300,000 school computers~\citep{kite2024gnulinux}. The distribution includes educational software (Krita, GCompris, PictoBlox), basic AI/ML teaching tools, and a Wayland display server. The estimated savings: 30 billion INR (approximately \$400 million). Over 150,000 primary teachers have been trained. India's National Law School hailed KITE as the national benchmark for open-source transformation in education.
+
+This is not a pilot program. It is a state-wide deployment serving millions of students, running continuously for nearly two decades.
+
+\subsection{Schleswig-Holstein, Germany: 30,000 PCs}
+
+By end of summer 2025, the German state of Schleswig-Holstein completed migration of nearly 30,000 government PCs from Microsoft to Linux, with an additional 30,000 public school teachers expected to follow~\citep{schleswig2025linux}. Replacements include LibreOffice, Nextcloud, Open-Xchange, and Mozilla Thunderbird. Estimated savings: 15 million EUR in 2026 alone. Denmark announced a similar transition between June and November 2025.
+
+\subsection{France: National Open-Source Strategy}
+
+France's Digital Education Strategy 2023--2027, led by Alexis Kauffmann at the Ministry of Education, explicitly targets digital sovereignty and reduced dependence on Microsoft and Google~\citep{france2023digital}. The national platform \texttt{apps.education.fr} provides open-source tools to all French teachers. In 2025, France enacted an interoperability decree requiring schools to use digital tools complying with open standards---creating a structural advantage for open-source solutions.
+
+\subsection{Penn Manor, Pennsylvania: 1,725 Linux Laptops}
+
+In the United States, Penn Manor School District in Lancaster, PA deployed 1,725 Ubuntu laptops to students in grades 9--12~\citep{pennmanor2024linux}. The program includes a student-run repair initiative where students learn to fix their own machines. This is not a special district with special funding. It is a public school district that made a different choice.
+
+\subsection{The ``Public Money, Public Code'' Movement}
+
+The Free Software Foundation Europe's ``Public Money? Public Code!'' campaign---arguing that software developed with public funds should be released under free licenses---has gathered over 200 civil society organizations and 31,000 individual signatories~\citep{fsfe2024publiccode}. UNESCO's 2024 Dubai Declaration on Open Educational Resources formally commits signatories to advancing open resources through AI and emerging technologies~\citep{unesco2024oer}. The Global Digital Compact commits to ``developing, disseminating, and maintaining open-source software, open data, open AI models, and open standards that benefit society.''
+
+These are not fringe movements. They are the direction of international policy.
+
+% ============================================================
+% 6. THE ECONOMICS
+% ============================================================
+
+\section{The Economics}
+
+\subsection{The Cost Excuse}
+
+Chromebooks are cheap. But so are surplus laptops running Linux. A retired ThinkPad T480 or Dell Latitude 5400 costs \$100--180 in bulk and is a superior machine in every dimension except ``managed by Google.'' The cost argument for Chromebooks is an argument for Google's ecosystem, not for the hardware.
+
+\begin{table}[H]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Approach} & \textbf{Cost} & \textbf{Student Owns It} \\
+\midrule
+Chromebook (new) & \$250--350 & No \\
+Chrome Edu Upgrade & +\$38/device & No \\
+Google Workspace Plus & +\$5/student/yr & No \\
+iPad (edu) & \$299+ & No \\
+\midrule
+Surplus laptop + Linux & \$100--180 & \textbf{Yes} \\
+Surplus laptop + AC OS & \$100--180 & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\caption{Cost and ownership comparison. Chromebook costs exclude monitoring software (GoGuardian: \$5--10/device/year) and forced AUE replacements.}
+\label{tab:cost}
+\end{table}
+
+When factoring in Google's Chrome Education Upgrade (\$38/device), Workspace for Education Plus (\$5/student/year), monitoring software, and the forced replacement cycle from AUE, the total cost of ownership for a Chromebook over 5 years can reach \$450--550/device. A surplus ThinkPad running Linux: \$100--180, with zero ongoing licensing costs, no artificial expiration, and the student keeps it.
+
+\subsection{The Supply}
+
+The machines exist. An estimated 50--60 million business PCs are retired annually in the United States. Corporate lease cycles retire millions of functional laptops every 3--5 years---machines with modern processors, 8--16\,GB RAM, WiFi, and 6--10 hour batteries. Organizations like PCs for People (100,000+ devices/year), Human-I-T (50,000+/year), Kramden Institute, Free Geek, and the federal Computers for Learning program already refurbish and distribute these machines.
+
+A classroom of 30 creative computing instruments can be provisioned for \$3,000--5,400 in hardware. No ongoing subscription. No IT support contract. No managed accounts.
+
+\subsection{The Environmental Case}
+
+A typical laptop produces 300--400 kg CO$_2$e in manufacturing---70--80\% of its total lifetime carbon footprint. Refurbishment adds approximately 5--15 kg CO$_2$e. Circular Computing's independently audited analysis found 316 kg CO$_2$e saved per remanufactured laptop~\citep{circularcomputing2023carbon}. The UN Global E-waste Monitor 2024 reports that the US generates approximately 7.2 Mt of e-waste annually, with only 25\% properly recycled~\citep{un2024ewaste}.
+
+Google's AUE policy forces schools to discard millions of working Chromebooks. Right-to-repair legislation is beginning to address this: Oregon's act (effective January 2025) requires manufacturers to provide parts and repair information~\citep{oregon2024repair}; New Hampshire's HB1701 explicitly covers school-provided laptops~\citep{newhampshire2024repair}. But legislation cannot fix a software policy that declares functional hardware obsolete.
+
+Linux has no AUE. A laptop running a free operating system remains useful as long as the hardware functions.
+
+% ============================================================
+% 7. THE OPEN STACK
+% ============================================================
+
+\section{The Open Stack}
+
+\subsection{Every Chromebook Is Already a Linux Machine}
+
+Here is the absurdity: every Chromebook already runs the Linux kernel. ChromeOS is Linux with a locked-down userspace that forces all interaction through Google's browser. The hardware is perfectly capable of running a free operating system. Google took a free kernel, wrapped it in proprietary restrictions, and sold it to schools as a cost-saving measure.
+
+The liberation of these machines does not require new hardware. It requires flashing new software. Many Chromebooks can be unlocked and reflashed with a standard Linux distribution or with \acos{}. The machine \emph{already wants to be free}. Google is the lock.
+
+\subsection{The IT Excuse}
+
+School IT departments choose Chromebooks because they are ``easy to manage.'' This is true. It is easy to manage a machine that does nothing. It is easy to administer a fleet when every device is a thin client for a single corporation's services. The ease of management is a direct consequence of the machine's powerlessness.
+
+The question is: easy for whom? Easy for the IT department, certainly. But catastrophic for the student. The IT department's convenience is purchased with the student's autonomy. This is a bad trade.
+
+Open-source management tools exist. NixOS provides reproducible system configurations. Ansible automates fleet deployment. PXE boot enables zero-touch provisioning. \acos{}~\citep{scudder2026acos} demonstrates that an entire OS can be deployed by flashing a USB drive in under a minute, with OTA updates requiring zero IT infrastructure. Penn Manor runs 1,725 Linux laptops with a smaller IT team than comparable Chromebook districts~\citep{pennmanor2024linux}. The ``management problem'' is solved. What remains is institutional inertia and a contractual relationship with Google that serves the institution, not the student.
+
+\subsection{The LLM Infrastructure}
+
+An open system enables a fundamentally different relationship with AI. A single surplus server (32--64\,GB RAM, or a used NVIDIA T4 GPU at \$100--200) can run Ollama and serve an entire classroom of students via Open WebUI---a free, open-source LLM frontend. Students connect from their laptops via a browser pointed at the local server. Models like Llama 3.2 3B (fits in 4\,GB), DeepSeek Coder 6.7B, or Qwen 2.5 Coder 7B provide strong code generation capability.
+
+This is local AI infrastructure that the school owns, that collects no telemetry, that sends no data to any corporation, and that students can inspect, modify, and learn from. The alternative---Google Gemini integrated into Workspace for Education---adds another layer of corporate dependency, another data pipeline, another subscription fee.
+
+% ============================================================
+% 8. THE LLM GATEWAY
+% ============================================================
+
+\section{The Student as Author}
+
+On an open system with LLM access, the student can:
+
+\begin{itemize}
+  \item Ask the LLM to explain the operating system's source code
+  \item Generate programs that run locally, with full hardware access
+  \item Build web servers, databases, APIs---real infrastructure
+  \item Create tools that solve real problems in their community
+  \item Learn any programming language by building in it
+  \item Understand the LLM itself by examining its inputs and outputs
+  \item Create a piece on \ac{}~\citep{scudder2026ac} that anyone in the world can run
+\end{itemize}
+
+The LLM becomes a tutor with infinite patience, available 24 hours a day, that meets the student exactly where they are~\citep{khan2024bravenew}. But this tutor can only be effective if the student has a machine that can \emph{execute} what the tutor produces.
+
+The Chromebook model says: you are a user. The open model says: you are an author. In the age of LLMs, the difference between these two framings is the difference between digital literacy and digital serfdom.
+
+% ============================================================
+% 9. A PATH FORWARD
+% ============================================================
+
+\section{A Path Forward}
+
+\subsection{Phase 1: Awareness}
+
+Parents, teachers, and school board members must understand what a Chromebook actually is: a surveillance device that teaches learned helplessness. The first step is education---not of the children, but of the adults who purchase the machines. The EFF's ``Spying on Students'' documentation, the U.S. PIRG's ``Chromebook Churn'' report, and the New Mexico AG's lawsuit provide concrete evidence that can be presented at school board meetings.
+
+\subsection{Phase 2: Pilot Programs}
+
+School districts should pilot open-source alternatives, following Penn Manor's model:
+
+\begin{itemize}
+  \item 30 surplus laptops running Linux or \acos{}, provisioned for \$3,000--5,400
+  \item A local LLM server (one surplus workstation, \$200--500) running Ollama + Open WebUI
+  \item An LLM-assisted curriculum where students build real software
+  \item Student ownership: the machine goes home with the student
+  \item A student-run repair program (Penn Manor's students fix their own machines)
+  \item No cloud dependency: work is stored locally and backed up by the student
+  \item Open assessment: the student's portfolio is code they wrote, tools they built, contributions they made
+\end{itemize}
+
+\subsection{Phase 3: Policy}
+
+States and districts should adopt policies requiring that:
+
+\begin{enumerate}
+  \item All software deployed on student devices be open-source or source-available
+  \item Students have root access to their own machines
+  \item No behavioral telemetry is collected from student devices
+  \item Students retain ownership of all work produced on school devices
+  \item Graduating students keep their devices
+  \item Device procurement prioritize refurbished hardware over new manufacturing
+\end{enumerate}
+
+Over 40 states have passed student data privacy laws. California's SOPIPA prohibits using student data for targeted advertising. The new COPPA rules (effective June 2025) strengthen children's data protections. These legislative trends support the case for open, non-surveilling school computing infrastructure.
+
+\subsection{Phase 4: Liberation}
+
+The endgame is not a policy change. It is a cultural shift. The endgame is a generation of students who understand that a computer is not a product they consume but an instrument they play---a medium for thought, creation, and contribution. Students who can read source code the way they read books. Students who can modify their tools the way a carpenter modifies a workbench. Students who see computation not as a corporate service but as a public commons to which they both contribute and belong.
+
+Nelson wrote in 1974~\citep{nelson1974computerlib}: ``You can and must understand computers NOW.'' Fifty years later, we have failed this imperative in precisely the way Nelson feared---by handing the machines to corporations and calling it progress.
+
+The LLM moment makes this failure visible. Every student now has the \emph{capability} to program. What they lack is a \emph{machine that lets them}. This is a solvable problem. The technology is free. The hardware is surplus. The only thing standing between every student and their own computational path is a corporate operating system that was never designed to serve them.
+
+% ============================================================
+% 10. CONCLUSION
+% ============================================================
+
+\section{Conclusion}
+
+Every Chromebook in every American school is a Linux machine in chains. The hardware can run a free operating system. The student can learn to program with an LLM. The surplus laptop market provides machines for \$100--180. The entire open-source stack is available at zero cost. Kerala has done it for 300,000 computers. Schleswig-Holstein has done it for 30,000. Penn Manor has done it for 1,725. It works.
+
+What we lack is not technology. We lack the political will to prioritize student autonomy over institutional convenience and corporate profit.
+
+Illich wrote that tools should expand personal autonomy rather than require specialized expertise~\citep{illich1973tools}. Papert wrote that computers should be instruments for thinking about thinking~\citep{papert1980mindstorms}. Stallman wrote that users deserve to control the software they run~\citep{stallman2002free}. Postman warned that technology in schools without purpose serves the technology, not the child~\citep{postman1995end}. These are not fringe positions. They are the founding principles of personal computing, and we have abandoned them in the one place they matter most: the education of children.
+
+Get closed source out of schools. Give every student a free and open operating system. Let the Chromebook be what it was always capable of being: not a gate, but a \emph{gateway}---to logic, creativity, community, spirituality, and every student's own path through the computational landscape.
+
+In the age of LLMs, this is not idealism. It is the minimum viable education.
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\end{multicols}
+
+% ============================================================
+% REFERENCES
+% ============================================================
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

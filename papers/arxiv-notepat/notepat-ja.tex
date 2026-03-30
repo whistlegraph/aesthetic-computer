@@ -1,0 +1,315 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={notepat.com：キーボード玩具からシステムの正面玄関へ},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} notepat{\color{acpurple}.}{\color{acpink}com}}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} キーボード玩具からシステムの正面玄関へ}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com} \enspace$\cdot$\enspace \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\texttt{notepat} は2024年6月、\ac{}~\citep{scudder2026ac} 内の200行の半音階キーボードスケッチとして誕生した。401回のコミットと20か月の発展を経て、ブラウザ版7,903行、ベアメタル版987行にまで成長し、5種類の波形、リバーブエフェクト、アナログ感圧入力、PID~1として起動するベアメタルLinux移植版、ブランドドメイン（\texttt{notepat.com}）、専用テストフレームワーク、アルファ版Ableton Liveデバイス、VST3プラグインスキャフォールド、6つの派生作品を獲得した。本稿はこの成長過程を追跡する：\texttt{notepat} の起源、獲得した機能、生み出したインフラストラクチャ、そして単一のピースがいかにしてより大きなクリエイティブコンピューティングシステムの戦略的正面玄関となったか。この軌跡をピースの\emph{政治経済学}——ピースの増大する能力、それが推進するプラットフォーム決定、そして時間とともに引き寄せるリソースの間のフィードバックループ——として位置付ける。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{はじめに}
+
+クリエイティブプログラミングプラットフォームは通常システムレベルで評価される：言語設計、エディタ機能、コミュニティ規模~\citep{reas2007processing,mccarthy2015p5js,resnick2009scratch}。デジタル楽器研究においても、分析の単位は通常、楽器カテゴリやインタラクションパラダイムであり、単一のアーティファクトの数年にわたる進化ではない~\citep{magnusson2010designing,marquez2018dmi}。本稿はより狭くしかしより長い視点をとる：\ac{} の1つのピース——\texttt{notepat}——の20か月の活発な開発。
+
+\texttt{notepat} はメロディックキーボード楽器である。\texttt{aesthetic.computer/notepat} およびブランドドメイン \texttt{notepat.com} から直接アクセスできる。2026年3月時点で、システム内で最も複雑なピースであり、ベアメタルハードウェアのデフォルト起動ピースであり、パフォーマンステストインフラの主要テスト対象である。これらは当初計画されたものではない。楽器が成長し、プラットフォームがその周りに成長した。
+
+\section{起源（2024年6月--7月）}
+
+最初のコミットは2024年6月27日、\texttt{notepad} として——後に ``note'' と ``pad'' の混成語と再解釈されたタイプミス。初期バージョンはミニマルなキーボードサンプラー：QWERTYキーが半音階にマッピングされ、単一の正弦波、アクティブキーの色付き矩形以外のUIなし。
+
+5日以内にピースは以下を獲得した：
+\begin{itemize}
+  \item シンセサイザーのフェードアウト（クリック防止のための25\,ms線形減衰）、
+  \item プロジェクトインデックスのドキュメント参照、
+  \item 修正後の名前 \texttt{notepat}。
+\end{itemize}
+
+この段階でピースは約200行。標準的な \ac{} ピースライフサイクル（\texttt{boot}、\texttt{paint}、\texttt{act}）とプラットフォーム内蔵の \texttt{sound.synth} APIを使用していた。設計は意図的にシンプル：覚えやすい名詞、設定不要で即座に演奏できる楽器。この初期のミニマリズムは \citet{magnusson2010designing} が記述した生産的制約と一致する——演奏者と開発者の両方に焦点を当てる有限の探索空間。
+
+\section{機能の成長}
+
+\subsection{オーディオエンジン（2024--2025年）}
+
+シンセサイザーの表面は複数の軸に沿って拡張され、演奏の必要性に直接駆動された。これはまさに \citet{mcpherson2020idiomatic} がコンピュータ音楽言語について記述したダイナミクスである：ツールは主要ユーザーの美的嗜好を反映し強化する「慣用パターン」を獲得する。
+
+\begin{itemize}
+  \item \textbf{波形}：正弦波 $\rightarrow$ 三角波、鋸歯波、方形波、ノイズ（キーボードショートカットまたはパラメータで選択）。
+  \item \textbf{リバーブ}：3タップ遅延線（120\,ms間隔）、0.55フィードバック係数、タッチパッドX軸スライダーでウェット/ドライミックスを制御。ベアメタルではサンプルごとのスムージング（$\alpha \approx 5 \times 10^{-5}$、192\,kHz）がジッパーノイズを除去。
+  \item \textbf{ピッチシフト}：タッチパッドY軸で$\pm$1オクターブの連続制御、サンプルごとの指数スムージング（$\alpha \approx 3 \times 10^{-4}$、192\,kHz）。
+  \item \textbf{オクターブ制御}：9オクターブ（1--9）、矢印キーでナビゲート。
+  \item \textbf{クイックモード}：スタッカート演奏用の高速アタック/ディケイ切替。
+  \item \textbf{メトロノーム}：リズム同期のビートインジケータ（20--300 BPM）、ダウンビートの視覚フラッシュ。
+\end{itemize}
+
+\subsection{入力とハードウェア（2024--2026年）}
+
+3つのハードウェア統合が \texttt{notepat} の表現力の必要性に駆動された。\citet{tahiroglu2020probes} はデジタル楽器を、その計算的・物理的基盤についての思考を変える「プローブ」と記述した。\texttt{notepat} はまさにそのようにプローブした：
+
+\begin{enumerate}
+  \item \textbf{NuPhy Air60 HEアナログキーボード}：USBキャプチャからWebHIDプロトコルをリバースエンジニアリング。64バイトのアクティベーションコマンド、キーごとの16ビット感圧レポート、ベロシティ加重合成。ベアメタルカーネルに \texttt{CONFIG\_HIDRAW=y} が必要。
+  \item \textbf{表情コントローラとしてのタッチパッド}：X軸がリバーブウェットミックスを制御、Y軸がピッチシフトを制御。これらのマッピングは \texttt{notepat} の演奏スタイル向けに設計されており、まだ汎用化されていない。
+  \item \textbf{HDMI補助ディスプレイ}：パフォーマンス中に混合ノートカラーで駆動される単色出力。ライブ使用に駆動されて2026年3月に \texttt{ac-native} に追加。
+\end{enumerate}
+
+\subsection{ビジュアルデザイン}
+
+インターフェースは単純な色付き矩形からレイヤードシステムへ進化した：
+
+\begin{itemize}
+  \item 24セル分割グリッド（左オクターブ4$\times$3 + 右オクターブ4$\times$3）、
+  \item ステータスバー：時計（夏時間対応のロサンゼルス時間）、波形、オクターブ、サンプルレート、音量、バッテリー、WiFiアンテナアイコン、
+  \item オクターブ色分けと黒鍵ドット付きミニピアノキーボード表示、
+  \item MatrixChunky8フォントのHUDラベル、\texttt{.com} 上付きブランディング、
+  \item 時間帯による背景色変化（夜明け/正午/午後/夕焼け/夜）、
+  \item ノートカラーシステム：各半音がひとつの色相にマッピング（C = 赤からB = 紫）、アクティブノートが背景にブレンド。
+\end{itemize}
+
+\subsection{DAW統合：Ableton Live}
+
+2025年1月、\texttt{notepat} をAbleton Liveに埋め込むためのアルファ版Max for Liveデバイス（\texttt{AC Notepat.amxd}）が作成された。デバイスはMax~9の \texttt{jweb\textasciitilde} オブジェクト——オーディオ対応の埋め込みWebブラウザ——を使用して \texttt{notepat} ピースをロードし、\texttt{plugout\textasciitilde} を通じてWeb Audio出力をAbletonのミキサーに直接ルーティングする。
+
+この統合にはブラウザやベアメタル環境にはない複数の問題への対処が必要だった：
+
+\begin{itemize}
+  \item \textbf{オフラインバンドル}：自己完結型HTMLバンドルジェネレータ（\texttt{bundle-html.js}）がすべてのESモジュール依存を再帰的に検出し、フォントグリフをインライン化し、仮想ファイルシステム（VFS）とfetchインターセプタを備えたgzip圧縮自己展開HTMLファイルを生成。
+  \item \textbf{PACKモードのAudioWorklet}：標準AudioWorkletロードパスはサーバーが必要。バンドル版はVFSからblob URLを作成してプリバンドルされたspeaker worklet（\texttt{speaker-bundled.mjs}、約50\,KB）をロード。
+  \item \textbf{MIDIからキーボードへの変換}：MIDIノートオン/オフイベントを \texttt{notepat} のキーボードイベントモデルに変換する計画中のマッピングレイヤー、CC1（モジュレーションホイール）がリバーブミックスを制御、ピッチベンドがグライドモードを制御。
+\end{itemize}
+
+並行するVST3プラグイン作業（\texttt{ac-vst/}）は、WebViewベースのUIを持つC++ Steinberg SDKベースのプラグインをスキャフォールドし、Max for Liveよりポータブルな配布パスを目指す。両作業はアルファ段階。workletロード制限のため、オフラインバンドル環境ではオーディオエンジンがまだ動作していない。
+
+DAW統合は \texttt{notepat} の政治経済学における5番目のフィードバックループを表す：\textbf{配布圧力 $\rightarrow$ バンドルインフラ}。プロの音楽制作環境で \texttt{notepat} を提供したいという欲求がプラットフォームにオフラインHTMLバンドル、VFSエミュレーション、workletプリバンドル機能の開発を強いた——他のどのピースも要求していないインフラである。
+
+\subsection{ネットワークとシステム統合}
+
+\begin{itemize}
+  \item WiFi UI：信号強度バー付きのフルスクリーンネットワークスキャナー、SSID選択、パスワード入力——OS UIのないベアメタル環境向けにピース自体に組み込み。
+  \item ダークモード：ロサンゼルス時間の夜7時/朝7時で自動切替、CとJavaScriptの両方に一致する夏時間計算。
+  \item パフォーマンスシナリオ用のプロジェクターとコンサートモード。
+\end{itemize}
+
+\section{ベアメタル移植}
+
+2024年末、\texttt{notepat} は \texttt{ac-native} に移植された：USBから起動し、PID~1として動作する、OS不要のカスタムLinuxランタイム。ベアメタル版（987行）はQuickJS上で動作し、DRM/KMSダムバッファに3$\times$ニアレストネイバーCPUアップスケールでレンダリングし、直接ALSA \texttt{hw:} アクセスで192\,kHzのオーディオを合成する。
+
+ベアメタルLinux環境にリアルタイムオーディオシンセサイザーを埋め込むのは活発な研究領域である。\citet{turchet2021elk} はElk Audio OS——Xenomaiリアルタイムカーネル拡張を使用した組み込みハードウェア上のサブミリ秒オーディオレイテンシのためのLinuxベースOS——を最先端として記述した。\texttt{ac-native} のアプローチは異なる：汎用組み込みオーディオOSではなく、RTOSレイヤーのない単一ピースランタイムであり、大きなALSA周期バッファ（192\,kHzで128サンプル）と32音ポリフォニー対応のピュアソフトウェア合成エンジンに依存する。
+
+この移植は付随的なものではなかった。\texttt{ac-native} プロジェクト全体——カスタムカーネル設定、initramfsビルドパイプライン、ALSAオーディオエンジン、evdev入力処理、\texttt{wpa\_supplicant} によるWiFi管理、DRM/KMSディスプレイ——は主に物理ハードウェア上で \texttt{notepat} を専用楽器として動作させるために構築された。ピースがプラットフォームを正当化した。
+
+起動シーケンスはこのコミットメントを反映する：カーネル初期化後、\texttt{ac-native} はレインボーアニメーションタイトルを表示し、デフォルトピースとして \texttt{notepat.mjs} をロードする。楽器は電源投入後約2秒で演奏可能となる。
+
+\section{派生作品と再利用}
+
+6つのアーティファクトが \texttt{notepat} から直接派生した：
+
+\begin{enumerate}
+  \item \textbf{\texttt{autopat.mjs}}（214行）：内蔵ジュークボックス（Twinkle、Bachの断片、スケール）を持つ自動再生ラッパー。\texttt{notepat} のコアライフサイクル関数をインポートしデリゲート。
+  \item \textbf{\texttt{notepat-tv.mjs}}（55行）：アートインスタレーション用のUDP駆動リモートビジュアライザー。ノートデータを受信し投影面上でタートルグラフィックスを駆動。
+  \item \textbf{\texttt{notepat-convert.mjs}}（103行）：記譜変換ライブラリ。単一文字のキーボードショートカットを拡張メロディ構文に変換。\texttt{clock}、\texttt{stample}、他の音楽ピースで再利用。
+  \item \textbf{ベアメタル \texttt{notepat.mjs}}（987行）：QuickJS用に独立して再実装、キーボードマッピングとUI規約を共有するが直接ハードウェアアクセスに適応。
+  \item \textbf{\texttt{AC Notepat.amxd}}（Max for Liveデバイス）：\texttt{jweb\textasciitilde} を介して \texttt{notepat} をAbleton Liveに埋め込み、Web Audio合成をDAWミキサーに直接ルーティング。アルファ版、2025年1月。
+  \item \textbf{\texttt{ac-vst} プラグイン}（C++/Steinberg SDK）：DAC非依存配布用のWebView UIを持つVST3スキャフォールド。MIDI入力処理、オーディオバスルーティング、パラメータオートメーションスタブを含む。
+\end{enumerate}
+
+\section{生み出されたインフラストラクチャ}
+
+\subsection{ルーティングとブランディング}
+
+ドメイン \texttt{notepat.com} はエッジでメインインデックス関数の \texttt{notepat} スラグに書き換えられる。これには専用のホストマッチングロジック、カスタムOpen Graphメタデータ、演奏中に表示されるブランドHUD要素が必要だった。\texttt{notepat} はシステム内で独自のドメインを持つ唯一のピースである。楽器HUDに表示される \texttt{.com} 上付き文字は、この二重のアイデンティティを演奏インターフェース自体にエンコードしている。
+
+\subsection{テストインフラストラクチャ}
+
+\texttt{notepat} は他のピースと比較して不釣り合いなテスト投資を持つ：
+
+\begin{itemize}
+  \item \textbf{レイテンシテストフレームワーク}（\texttt{artery/test-notepat-latency.mjs}）：Chrome DevTools Protocolを通じてキーボードからサウンドまでのレイテンシを測定。平均、中央値、p95、p99を報告。現在の測定値：417\,ms（目標：$<$30\,ms）。
+  \item \textbf{安定性テストフレームワーク}（\texttt{artery/test-notepat-stability.mjs}）：設定可能な強度（2--20ノート/秒）で5分間のファズテスト。ヒープ増加、サウンド辞書サイズ、レイテンシ劣化を監視。最新結果：3,229ノート、$-$14\%ヒープ、警告0。
+  \item \texttt{artery/}、\texttt{tests/}、\texttt{.vscode/tests/} にまたがる14のテストスクリプト。
+\end{itemize}
+
+レイテンシギャップ（417\,ms vs.\ 30\,ms目標）は未解決の研究課題を表す。既知のブラウザオーディオスケジューリング制約とJavaScriptからのWeb Audio APIイベントディスパッチコストと一致する。このギャップはベアメタル版では発生しない。192\,kHzのALSA \texttt{hw:} アクセスと直接evdevポーリングにより10\,ms以下のアタックレイテンシが実現される。
+
+\subsection{ピースアクセス分析}
+
+ピースアクセス追跡システム（\texttt{/api/piece-hit}）は2025年12月に構築された。サーバーサイドでページロードをMongoDBに記録し、システムピースとユーザーピースを区別する。初期テレメトリーウィンドウ（2025-12-31から2026-01-02）で、\texttt{notepat} は27アクセスを記録し、追跡対象の44の組み込みピース中4位。現在の計測限界——型付き名前空間なし、認証帰属なし、Netlify Functionsランタイム完了前に終了するfire-and-forget POST呼び出し——により、2024年以降の \texttt{notepat} 使用状況の全体像は捕捉されていない。fire-and-forgetバグは2026年3月に特定・修正された。
+
+\section{ピースの政治経済学}
+
+Kurzweilの「加速するリターンの法則」は、技術システムが加速度的に能力を蓄積する様を記述する。各進歩が次の進歩の条件を作るからである~\citep{kurzweil2005singularity}。単一のクリエイティブピースのスケールでも類似のダイナミクスが見える。\texttt{notepat} の軌跡はピースとそのホストプラットフォーム間のフィードバックループを示す。\citet{nieborg2018platformization} が文化産業レベルで記述したダイナミクスである：プラットフォーム機能が制作を形成し、制作の要求がプラットフォームを再形成する。
+
+\begin{enumerate}
+  \item \textbf{機能圧力 $\rightarrow$ プラットフォーム能力}：\texttt{notepat} がリバーブを必要とし、オーディオエンジンが遅延線を獲得。アナログ感圧が必要となり、\texttt{ac-native} がHID rawサポートを獲得。補助ディスプレイが必要となり、HDMI出力がDRMバックエンドに追加された。
+  \item \textbf{ブランド圧力 $\rightarrow$ ルーティング決定}：覚えやすいURLへの欲求が \texttt{notepat.com} につながり、エッジ関数ホスト書き換えとカスタムソーシャルプレビューが必要となった。
+  \item \textbf{品質圧力 $\rightarrow$ テスト投資}：\texttt{notepat} のレイテンシ退行が汎用ピーステストフレームワーク（artery）の構築を推進し、これが現在すべてのピースに恩恵をもたらしている。
+  \item \textbf{ハードウェア圧力 $\rightarrow$ ランタイム全体}：専用ハードウェアで \texttt{notepat} を動作させる野心が \texttt{ac-native} の構築を正当化した：カスタムカーネル、initramfs、ALSAエンジン、DRMディスプレイ、WiFiスタック——数千行のCコード。
+  \item \textbf{配布圧力 $\rightarrow$ バンドルインフラ}：Ableton Liveに \texttt{notepat} を埋め込む欲求がプラットフォームに仮想ファイルシステム、fetchインターセプタ、プリバンドルAudioWorkletsを持つオフラインHTMLバンドルの開発を強いた——他のどのピースも要求していないインフラ。
+\end{enumerate}
+
+\citet{born2015music} は音楽技術投資が決して中立でないことを観察した——構築者と資金提供者の美的優先順位、社会的地位、リソースを反映し強化する。\texttt{notepat} の軌跡はこれを個人開発者と単一のオープンソース楽器のスケールで可視化する：1つのピースへの持続的な個人投資がシステム内の他のすべてのピースにとって技術的に何が可能かを実質的に形成する。
+
+ライブコーディングコミュニティはこの実践とツールの関係について明示的な語彙を発展させている~\citep{blackwell2022livecoding}：楽器と演奏者は共進化する。\texttt{notepat} の401回のコミットはこの共進化を非ライブコーディングの文脈で記録する——事前設計ではなく使用を通じて能力を蓄積する永続的楽器。
+
+\section{現在の規模}
+
+表~\ref{tab:scale} は2026年3月8日時点の \texttt{notepat} の規模をまとめる。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l r}
+\toprule
+\textbf{指標} & \textbf{値} \\
+\midrule
+コミット数（ブラウザ版） & 401 \\
+ブラウザコード行数 & 7{,}903 \\
+ベアメタルコード行数 & 987 \\
+派生作品 & 6 \\
+エコシステム総コード行数 & 9{,}262 \\
+波形タイプ & 5 \\
+専用テストスクリプト & 14 \\
+リポジトリ中``notepat''を含むファイル & 159 \\
+年齢（初回コミット） & 2024年6月27日 \\
+\bottomrule
+\end{tabularx}
+\caption{notepatの規模指標（2026年3月8日）。}
+\label{tab:scale}
+\end{table}
+
+\section{結論}
+
+\texttt{notepat} は単一のピースがクリエイティブコンピューティングプラットフォームの戦略的重心として機能しうることを実証する。200行のキーボードスケッチから独自のドメイン、ハードウェアランタイム、DAW統合、テストインフラを持つ9,000行のエコシステムへの成長は計画されたものではなく、継続的な使用と上述のフィードバックループから創発した。
+
+方法論的貢献は分析の単位：\emph{ピース軌跡}。単一ピースの完全なコミット履歴——獲得した機能、生み出したインフラ、派生した作品——を研究することで、システムレベルでは見えないプラットフォームダイナミクスが明らかになる。デジタル楽器研究はDMIの寿命を採用問題として~\citep{marquez2018dmi}、またDMIを計算的基盤のプローブとして検討してきた~\citep{tahiroglu2020probes}。ピース軌跡はこれら2つの視点を政治経済学の視点と組み合わせる：楽器は能力を蓄積し、その蓄積はそれを支えるシステムに実質的な帰結をもたらす。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

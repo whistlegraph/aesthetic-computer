@@ -1,0 +1,285 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={誰がクリエイティブツールの代金を払うのか？}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 誰がクリエイティブツールの代金を払うのか？}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} オープンソース・クリエイティブコンピューティングにおける資金、燃え尽き、そして生存}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} PerlからTempleOSからAesthetic Computerまで——28人のツール作者の比較研究}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+クリエイティブコンピューティングのツール——Processing、p5.js、Sonic Pi、Pure Data、Hydra、TidalCycles、openFrameworks、Scratchおよび同種のもの——は数百万人に使用されている。その創造者たちは通常、誰からも報酬を受けていないか、ツールとは無関係な要因を条件とする機関によって報酬を受けている。本論文は28人のオープンソース・クリエイティブツール作者の資金履歴を調査し、6つの持続可能性パターンを特定する：\emph{アカデミック補助金}（大学の給与が無報酬のツール作業を資金的に支える）、\emph{企業スポンサーシップ}（企業が利益の一致に対して支払う）、\emph{個人の犠牲}（貯蓄、退職金、健康）、\emph{コミュニティクラウドファンディング}（Patreon、Open Collective、Ko-fi）、\emph{棚ぼた}（NFT寄付のような予測不可能な一度きりの出来事）、そして\emph{パターンなし}（障害手当金、ホームレス、死）。ツール制作から最初の持続可能な資金までの中央値は8年であること、資金水準に関係なく燃え尽きが制作者に影響を与えること、そして最も広く使用されているツールが最も十分に資金を得ているわけではないことが明らかになった。これらの知見を、著者自身の\ac{}~\citep{scudder2026ac}構築経験——2,800人以上の登録ユーザー、93,000回以上のセッション、16,000以上のコミュニティ制作プログラムを持つプラットフォームを、この分野のすべての比較可能なツールが享受してきた機関の傘なしに5年間開発してきた経験——と照合する。クリエイティブコンピューティング分野の暗黙の補助金——大学から、配偶者から、貯蓄口座から、健康から——への依存は資金モデルではなく、資金モデルの不在であると論じる。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{序論}
+
+Lauren McCarthyは2013年にp5.jsを制作し、その後10年間、UCLAの教職の傍ら週に10〜20時間を無報酬でメンテナンスに費やした~\citep{mccarthy2023making}。Rich Hickeyは誰かが対価を払う前に2.5年分の退職貯蓄をClojureの構築に費やした~\citep{hickey2020history}。Samuel Aaronは2019年にCambridgeから解雇され、「100\%財務的生存に集中」せざるを得なくなり、Sonic Piの開発は「蝸牛の速度」に低下した~\citep{aaron2016sonic}。\_why the lucky stiff——Rubyで最も愛されたコントリビューターの一人——は身元を暴かれた後、デジタル上の全存在を削除し、彼の仕事に対して一銭も受け取ることはなかった。
+
+Terry A. Davisは14.7年かけてTempleOSを構築した——カスタムプログラミング言語、コンパイラ、カーネル、エディタ、ゲームを含む完全な64ビットオペレーティングシステム——121,176行のコード、完全に一人で、社会保障障害手当金で資金を賄い、両親の家に住んでいた。2017年にその住居を失った後、彼はバンの中で暮らした。2018年8月11日、Oregon州The Dallesで列車に轢かれて死亡した。48歳だった。彼が構築したシステムはXerox AltoやPlan 9と比較された。その創造者はホームレスの状態で死んだ。
+
+これらは周辺的なケースではない。オープンソース・クリエイティブツール開発の通常の状態である。ツールは機能する。その創造者たちは、しばしば機能しない。
+
+本論文は、Larry Wallによる1987年のPerl制作から著者の進行中の\ac{}~\citep{scudder2026ac}開発まで、40年にわたる28人のクリエイティブツール作者を調査する。各作者について以下を特定する：誰が仕事に対して支払ったか、支払いは制作に対していつ開始されたか、制作者は何を犠牲にしたか、そして資金の取り決めが継続したかどうか。結果は持続可能性パターンの分類体系——およびその失敗の記録である。
+
+\section{5つのパターン}
+
+\subsection{アカデミック補助金}
+
+クリエイティブコンピューティングツールの最も一般的な資金パターンは、実際には資金パターンではない：教育と研究に対して支払われる大学の給与であり、ツール開発は「サービス」や「創作実践」に分類される無報酬労働として行われる。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{制作者} & \textbf{機関} & \textbf{年数} \\
+\midrule
+Miller Puckette & UCSD & 30+ \\
+Casey Reas & UCLA & 15+ \\
+Lauren McCarthy & UCLA & 10+ \\
+Ge Wang & Stanford & 17+ \\
+Thor Magnusson & Sussex/Iceland & 20+ \\
+Dan Shiffman & NYU ITP & 15+ \\
+Olia Lialina & Merz Akademie & 25+ \\
+Hernando Barrag\'an & U. de Los Andes & 20+ \\
+John Maeda & MIT Media Lab & 12 \\
+\bottomrule
+\end{tabularx}
+\caption{クリエイティブツール開発を資金的に支えるアカデミックポジション。}
+\label{tab:academic}
+\end{table}
+
+補助金は実在するが隠されている。McCarthyの週10〜20時間の無報酬p5.jsメンテナンスが可能なのは、UCLAが彼女のその他の仕事に給与を支払っているからである。PucketteはMax/MSPの商業ライセンスの支配権を失った後にPure Dataを制作した；UCSDの教職が再構築を資金的に支えた。WangのChucKが存在するのは、Stanford CCRMAが研究のために支払っているからである。いずれの場合も、ツールはアカデミックキャリアの副産物であり、その目的ではなかった。
+
+このパターンには重要な脆弱性がある：アカデミックポジションが終わると、ツールは飢える。Aaronの2019年のCambridgeからの解雇が最も明確なケースである——大学がサポートを撤回した後、Sonic Piの開発は崩壊した。MaedaのMIT離職は事実上Design By Numbersを殺した；Processingが生き延びたのは、彼の学生がそれを独立させたからにすぎない。
+
+\subsection{企業スポンサーシップ}
+
+ツールの存在から事業利益を得る企業が、制作者にメンテナンスの対価を支払う。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{制作者} & \textbf{スポンサー} & \textbf{期間} \\
+\midrule
+Larry Wall & O'Reilly & 7年 \\
+Guido van Rossum & Google/Dropbox/MS & 20+年 \\
+Matz & NaCl/Heroku & 28+年 \\
+Evan Czaplicki & NoRedInk & 7+年 \\
+\bottomrule
+\end{tabularx}
+\caption{企業スポンサーシップの取り決め。}
+\label{tab:corporate}
+\end{table}
+
+Van Rossumの軌跡は調査中最も手厚い企業支援を受けている：CWI、CNRI、Google（50\%のPython時間）、Dropbox、Microsoft。各雇用者がPythonの仕事に対して支払った。しかし継続的な企業支援があっても、PEP 572をめぐるコミュニティの毒性が29年後にBDFL辞任に追い込んだ：「人々がソーシャルメディアに出て、本当に個人的に傷つくことを言った。」
+
+WallのO'Reillyスポンサーシップは2002年頃に終了した。その後「公式には約5年間失業」し、胃の手術と長期の疾患の中でPerl 6の開発を続けた。スポンサーは去った；制作者は残った。
+
+Czaplickiはスポンサーシップがなぜ十分でないかを最も明確に表現している。彼のStrange Loop講演~\citep{czaplicki2018hard, czaplicki2023economics}は、寄付ベースの資金調達の構造的な持続不可能性と、メンテナーの精力を消耗させる「なぜ単に……しないのか」という要求を記述している。彼は持続不可能な拡大よりもElmの成長を意図的に制限した。
+
+\subsection{個人の犠牲}
+
+機関が支払わない場合、制作者は自らの資源で支払う：貯蓄、健康、人間関係、将来の収入力。
+
+HickeyはClojure構築に2.5年分の退職貯蓄を費やした。「抽象的なレベルで人々にアイデアを納得させることができなかったので、自分で実装を構築するしかなかった」からである。自己資金調達から持続可能なサポート（Cognitect、後にNubankが買収）までの間隔はおよそ8年だった。
+
+Processingは\textbf{11年間}（2001〜2012）専用の資金がなかった。Processing Foundationは2012年に設立された——ボランティア労働ではもはやプロジェクトを維持できなくなったからである。最初の10年間、「コードの大部分は少数の人々が時間をボランティアで提供して書いたもので、フルタイムの有給開発者はいなかった。」
+
+Bret Victorは二度の連続した資金崩壊を経験した——SAPがCDGから撤退し、続いてSam Altmanが「彼らがOaklandの改装されたビルに入居してわずか数ヶ月後に」HARCの資金を打ち切った。VictorのAppleでの貯蓄がこれらのギャップを埋めた可能性がある。Dynamiclandは最終的に501(c)(3)となったが、その軌跡は機関の裏切りによって定義されている。
+
+\subsection{コミュニティクラウドファンディング}
+
+Patreon、Open Collective、Ko-fi、およびそれに類するプラットフォームにより、ユーザーが制作者に直接資金を提供できる。金額は通常少額である。
+
+AaronのSonic PiはPatreon寄付と有料講演で維持されている。Olivia JackのHydraはOpen Collectiveの寄付と200ドルのマイクロ助成金で運営されている。Alex McLeanのTidalCyclesは個人Ko-fiからOpen Collectiveへ移行した。ShiffmanはCoding Train YouTubeの収入とPatreonでNYUの給与を補っている。
+
+パターンは明確である：クラウドファンディングは別の収入源の補完として機能する。調査したいずれのケースでも、主たる収入として制作者を維持することはできなかった。最もユーザー数の多いツール（Processing、p5.js、Scratch）がクラウドファンディングを最も多く受けているわけではない。
+
+\subsection{棚ぼた}
+
+2021年、Processing FoundationはProcessingとp5.jsを使用するジェネラティブアーティストからおよそ\textbf{1,000万ドル}のNFT/暗号通貨寄付を受けた。これはFoundationが過去9年間に受けた全資金の合計を上回った。初めてフルタイムの従業員を雇用することが可能になった。
+
+この出来事は再現不可能で、予測不可能で、計画不可能である。20年の歴史を持つプロジェクトを一夜にして変えた。調査した他のクリエイティブツールで同様の棚ぼたを経験したものはない。これはパターンではない；幸運である。
+
+\subsection{パターンなし}
+
+一部の制作者にはまったく資金パターンがない——大学給与の暗黙の補助金さえも。障害手当金、貯蓄、あるいは何もなしで構築する。
+
+Terry Davisは社会保障障害手当金（月額およそ750〜1,200ドル）でTempleOSを構築し、両親の家に住んでいた。2017年に住居を失った後、ファンたちが物資を送ったが、彼らの提供する住居は拒否した。YouTubeチャンネルは停止された；PayPalは他者にハッキングされた；少額の寄付さえ彼の手に届かなかった。死の直前まで公共図書館から投稿を続けた。プロジェクトはパブリックドメインである。彼はそれを無料で提供した。
+
+Goodiepalの\emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino}——灰色のボール紙に印刷された191ページの「ラディカル・コンピュータ・ミュージック」スコア——はこのパターンの労働条件を内部から記録している。テキストは王立デンマーク音楽院からの解雇、作品が「実現するまでに長い時間がかかった」こと、そして「自分自身の病んでいるかもしれない脳の中でのみ意味を持ちうる何かを創ることの」不安を記述している。スコアは「ひとつの可能な未来の代替知性」——まだ存在せず、決して対価を支払わないかもしれない聴衆——に向けられている。
+
+「パターンなし」のカテゴリーは終末的状態である。大学の給与や企業スポンサーが構造を提供しない場合、制作者の身体がインフラとなる。身体が疾病、ホームレス状態、または死によって機能しなくなると、プロジェクトはパブリックドメインの孤児ソフトウェアとなるか、完全に消滅する。
+
+\section{ギャップ}
+
+ツール制作から最初の持続可能な資金源までの中央値：
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{ツール} & \textbf{制作年} & \textbf{ギャップ（年）} \\
+\midrule
+Processing & 2001 & 11 \\
+Clojure & 2005 & 8 \\
+Perl & 1987 & 8 \\
+Sonic Pi & 2012 & 7 \\
+Ruby & 1993 & 4 \\
+p5.js & 2013 & 10 \\
+TidalCycles & 2009 & 12+ \\
+Hydra & 2018 & ---（なし） \\
+TempleOS & 2003 & ---（制作者2018年死去） \\
+Aesthetic Computer & 2021 & 5+（進行中） \\
+\bottomrule
+\end{tabularx}
+\caption{制作から最初の持続可能な資金までのギャップ。「---」は持続可能な資金が実現していないことを示す。}
+\label{tab:gap}
+\end{table}
+
+中央値のギャップは\textbf{8年}である。この期間中、制作者は上記のパターンでツールを補助するか——あるいは中止する。
+
+\section{抹消の問題}
+
+Hernando Barrag\'anは2003年にIDIIで修士論文としてWiringを制作した~\citep{barragan2004wiring}。指導教員のMassimo Banziと同僚がWiringの設計をより安価なハードウェア向けに改変し、Arduinoを発表した。Arduinoは5,400万ドルを調達した。Wiringは何も受け取らなかった。何年もの間、Barrag\'anに対する公的な認知はなかった。2013年のOpen Hardware Summitで、Arduinoチームのメンバーがこう認めた——Wiringの「功績を認めることに関して、あまりうまくやれていなかった。」
+
+これは最も深刻なケースだが、パターン——学生がツールを制作し、機関や指導教員が利益を得る——はクリエイティブコンピューティング全体に浸透している。MaedaのDesign By NumbersからProcessingを作ったのは彼の学生だった；MaedaはRISD学長になり、Processingの制作者たちは10年間資金のないまま過ごした。
+
+抹消は常に意図的ではない。それは構造的である：機関的な権力を持つ者（教授、指導教員、企業スポンサー）は、権力を持たない者（学生、ポスドク、独立開発者）が制作したツールから価値を抽出する有利な立場にある。
+
+\section{著者の立場}
+
+\ac{} は2021年から開発中である~\citep{scudder2026ac}。著者がこのセクションを含めるのは、クリエイティブツールに関する学術論文において資金をめぐる沈黙が、ツールが純粋な知的努力から生まれるという神話を永続させているからである。
+
+著者は2021年にテニュアトラックのアカデミックポジションを離れ、\ac{} とWhistlegraphプロジェクトのフルタイム開発に専念した。それ以降、\ac{} は機関的サポートなしに構築されてきた——大学も、企業も、財団もない。詳細な財務履歴は研究目的で要請に応じて提供可能である。
+
+2つのコミュニティ駆動型の資金メカニズムが出現した。第一に、\texttt{give.aesthetic.computer}——ユーザーがプラットフォームインフラの維持のために寄付する直接寄付ページ。第二に、\texttt{aesthetic.direct}——志を同じくする投資家にAesthetic Computer（プラットフォーム背後の会社）の株式を提供するエクイティ投資ページ。少数の個人投資家がSAFE契約を通じて参加している（「booted-by」モデル、プラットフォームの起動シーケンスにちなむ命名）。いずれのメカニズムも機関レベルの資金を生み出しておらず、市場リターンや助成金サイクルではなく、プロジェクトに対する個人の信念に依存している。
+
+本論文の他のすべてのツールは機関の傘の下で構築された。ProcessingにはMIT、後にUCLAがあった。p5.jsにはUCLAがあった。Sonic PiにはCambridgeがあった。ChucKにはStanfordがあった。Pure DataにはUCSDがあった。PerlでさえO'Reillyがあった。\ac{} にはこれらのいずれもない。比較は「資金ありのツール vs. 資金なしのツール」ではない。「機関内で構築されたツール vs. すべての機関の外で構築されたツール」である。
+
+これが重要なのは、\ac{} がプロトタイプではないからだ。登録ユーザー基盤、数万のブートセッション、数千のKidLispプログラム、数百のユーザー公開ピースがある。著者の前のプロジェクトWhistlegraphは260万のTikTokフォロワーを獲得した。人々がプラットフォームのデザインの上に構築し、インスピレーションを得ている——プロンプトは楽器というメタファー、ピースモデル、ソーシャルプラットフォーム上のジェネラティブアートのアプローチ。プロジェクトは機関的認知（KADIST、SMKデンマーク国立美術館、ZKM、Rhizome）を得ており、毎日使用するコミュニティがある。
+
+プラットフォームは実在する。ユーザーは実在する。資金は実在しない。
+
+\section{何が機能しうるか}
+
+Eghbalの\emph{Roads and Bridges}~\citep{eghbal2016roads}と\emph{Working in Public}~\citep{eghbal2020working}はオープンソースソフトウェアにおけるインフラ危機を広範に記録している。クリエイティブコンピューティングツールはこの危機の複合版に直面している：インフラであり（数百万人が使用）、アートであり（文化的には価値があるが商業的には無価値）、教育であり（教育法に不可欠だがそのような資格では資金を得られない）。
+
+Czaplickiの農業メタファーは適切である：「豊年に蓄えて凶年を凌ぐ。」しかしクリエイティブツール作者に豊年はめったにない。Processing FoundationのNFT棚ぼたは一世代に一度の豊年である。ほとんどの制作者は凶年しか経験しない。
+
+機能しうるパターン：
+\begin{itemize}
+  \item \textbf{ソブリン・テック・ファンド}：ドイツのSovereign Tech Fundはp5.jsに45万ユーロを提供した。このモデル——政府がオープンソースインフラに資金提供——はクリエイティブツールに拡張可能である。
+  \item \textbf{労働者協同組合}：Ramsey Nasserの EMMA Technology Cooperative（ニューヨークの4人の協同組合）は、孤独に向き合うことと企業に雇われることの間の代替案を提供する。
+  \item \textbf{長期企業フェローシップ}：Matzの28年間のNaClフェローシップは調査中最も永続的な取り決めである。クリエイティブツールに依存する企業は同様の取り決めを提供できる。
+  \item \textbf{メンテナンス給付金}：Ukelesはメンテナンスが創造的行為であると論じた~\citep{ukeles1969manifesto}。新しいツールの構築だけでなく、既存のツールのメンテナンスに対する給付金は、最も一般的な失敗点に対処するだろう。
+  \item \textbf{正直な会計}：クリエイティブツールに関するすべての論文は、その開発がどのように資金提供されたかを述べるセクションを含むべきである。資金をめぐる沈黙は、ツールが純粋な知的努力から生まれるという神話を永続させ、それを可能にした物質的条件を覆い隠す。
+\end{itemize}
+
+\section{結論}
+
+数百万人の学生、アーティスト、音楽家が使用するクリエイティブコンピューティングツールは、ほとんどの場合対価を受けていない人々によって構築され維持されている。その労働はそれを重視しない大学に補助され、利益が乖離しうる企業に補助され、枯渇する個人の貯蓄に補助され、悪化する健康に補助されている。この分野には資金モデルがない——対処戦略の寄せ集めがあるだけだ。
+
+本論文はこの問題を解決しない。問題に名前を付ける。ここで調査した26人の制作者——WallからMcCarthyからPucketteから著者まで——は共通の条件を共有している：彼らは他の人々が必要とするツールを作り、その必要性に見合った補償を受けなかった。制作から資金までのギャップは年単位で測られる。その代価は燃え尽き、解雇、疾病、そして消失で測られる。
+
+問題はクリエイティブツールに価値があるかどうかではない。明らかに価値がある。問題は、それを作る人々が続けられるかどうかである。一部の人々にとって、答えは否である。Davisは障害手当金で121,000行のオペレーティングシステムを構築した後、線路のそばで死んだ。\_whyは身元を暴かれた後すべてを削除し、一銭も受け取らなかった。AaronはCambridgeがサポートを撤回した後「財務的生存」に直面した。Van Rossumは29年間のコミュニティの虐待の後に辞任した。Wallは失業と手術の中でPerlの開発を続けた。Goodiepalは「間違ったタイプの友人を作った」ために王立学院から解雇された。
+
+パターンは一貫している：広く使用されるすべてのクリエイティブコンピューティングツールは機関の傘の下で構築された——大学、企業、または財団——そしてツール自体のドキュメントがそのことを認めることは稀である。傘が取り除かれると、制作者が露出する。最初から傘がない場合、制作者の身体がインフラとなり、身体は故障する。
+
+本論文の著者は5年目にあり、活発なユーザー基盤を持ち、機関的サポートはない。これは不満ではない；データポイントである。次のデータポイントは、この分野が資金モデルを発展させるか、それとも制作者の身体に依存し続けるかにかかっている。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

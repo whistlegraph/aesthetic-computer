@@ -1,0 +1,278 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={ネットワーク監査：Aesthetic Computerを誰が使い、何を作っているか？}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} ネットワーク監査}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computerを誰が使い、何を作っているか？}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} プラットフォームのアイデンティティ、地理的分布、創造的成果の自己評価}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\ac{} は人口統計データを収集しない。年齢フィールドなし、性別フィールドなし、人種フィールドなし、収入フィールドなし。ユーザーについて知っているのは3つだけ：選んだユーザー名、作ったもの、そして——起動テレメトリーを通じて——作っているときに大体どこにいるか。本稿は、システムが実際に収集するデータに基づいて \ac{} プラットフォームのネットワーク監査を行う：2,811の登録ユーザー名、93,122回の地理情報ヘッダー付き起動セッション、59人の作者による16,634の \kl{} プログラム、18,062のチャットメッセージ、4,428の絵画、265の公開作品、2,900のムードステータス。プラットフォームのユーザー分布（制作者/消費者比率、べき乗則の貢献パターン、地理的カバレッジ）、ソーシャルトポロジー（チャット参加度、ハート反応、ムードパターン）、創造的成果（\kl{} 関数の実際の使用状況、最もアクセスされた作品、\texttt{\$}-code埋め込みグラフによる合成構造の構築）を分析する。人口統計データの\emph{欠如}自体がデザインスタンスであること——解放的可能性と真の限界の両方を持つこと——、そしてユーザーが\emph{何者か}ではなく\emph{何を作ったか}でプラットフォームを監査することで、コミュニティについて異なる種類の知識が生まれることを論じる。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{はじめに}
+
+プラットフォーム監査は通常、人口統計から始まる：ユーザー数、年齢、性別、人種、所在地、収入階層。これらのカテゴリが監査のフレームワークを構成するのは、プラットフォームのフレームワークを構成しているからである。ソーシャルメディア企業は広告を売るために人口統計データを収集するため、データが存在し分析可能となる。
+
+\ac{}~\citep{scudder2026ac} は広告を販売していない。人口統計データを収集していない。ユーザーはメールアドレスで登録し、ユーザー名を選ぶ——プラットフォーム上のアイデンティティとなる一つの単語。このユーザー名と、その名のもとに作られた作品が、プラットフォームがそのユーザーについて知っているすべてである。
+
+この制限——怠慢ではなくプライバシーの原則に由来する——は、従来のプラットフォーム監査が不可能であることを意味する。\ac{} ユーザーベースの年齢分布、性別構成、人種構成を報告することはできない。なぜなら、知らないし、尋ねたこともないからである。報告できるのは、プラットフォームが実際に観察したものである：ネットワークリクエストヘッダーからの地理信号、4種類のコンテンツの創造的成果、チャットとリアクションを通じたソーシャルインタラクション、\kl{} プログラムにおける言語機能の採用状況。
+
+本稿が提示するのはそのような監査である。必然的に不完全だが——すべての監査がそうであるように——何を測定し何を測定できないかについて誠実である。
+
+\section{センサス}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xr}
+\toprule
+\textbf{指標} & \textbf{数量} \\
+\midrule
+Auth0アカウント（合計） & 18,187 \\
+Auth0アカウント（確認済み） & 5,373 \\
+登録@ユーザー名 & 2,811 \\
+起動セッション（累計） & 93,122 \\
+\midrule
+KidLispプログラム & 16,634 \\
+絵画 & 4,428 \\
+チャットメッセージ & 18,062 \\
+ムード（ステータス更新） & 2,900 \\
+公開作品 & 265 \\
+ビデオテープ（動画録画） & 102 \\
+時計 & 333 \\
+注文済み物理プリント & 20 \\
+\bottomrule
+\end{tabularx}
+\caption{2026年3月時点のプラットフォームセンサス。}
+\label{tab:census}
+\end{table}
+
+アカウント作成（18,187）からユーザー名登録（2,811）、コンテンツ制作（約1,100ユーザーが少なくとも1つの絵画、ムード、またはプログラムを持つ）、継続的貢献（約59人の \kl{} 作者）に至るファネルは、Eghbalがオープンソースコミュニティで記述したパターンに従う~\citep{eghbal2020working}：大きな観察者の外層、より小さな時折の貢献者の輪、そして極めて小さな多産な制作者のコア。
+
+\subsection{制作者/消費者比率}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrr}
+\toprule
+\textbf{活動} & \textbf{ユーザー数} & \textbf{ユーザー名の\%} \\
+\midrule
+少なくとも1回絵を描いた & 1,067 & 38.0\% \\
+ムードを投稿した & 997 & 35.5\% \\
+KidLispを書いた & 59 & 2.1\% \\
+作品を公開した & 19 & 0.7\% \\
+\bottomrule
+\end{tabularx}
+\caption{制作者の参加率。}
+\label{tab:creators}
+\end{table}
+
+登録ユーザーの38\%が絵を描いている——YouTube（推定制作者比率1--3\%）やSoundCloud（約10\%）と比較して極めて高い制作率である。絵を描くのにプログラミング知識は不要であり、プラットフォーム上で最も摩擦の少ない創作行為である。\kl{} の2.1\%と作品の0.7\%への低下は、テキストベースのクリエイティブプログラミングのより高いスキル閾値を反映している。
+
+59人の \kl{} 作者が16,634のプログラムを書いた。作者あたりの中央値は12プログラム、上位四分位は各180以上のプログラムを制作。この極端な偏りはクリエイティブコミュニティに特有のべき乗則分布に従う~\citep{barabasi1999emergence}：少数の多産な作者が大部分のコンテンツを生み出し、カジュアルな制作者の長い裾野がそれぞれ1、2個のプログラムを作る。
+
+\section{地理的分布}
+
+\ac{} の起動テレメトリーは、Netlifyエッジリクエストヘッダーから各セッションの国、地域、都市を取得する。Cookie不使用、トラッキングピクセル不使用、ユーザー同意フォーム不使用——HTTPリクエスト自体に含まれている。
+
+\subsection{ヘッダーが示すもの}
+
+\texttt{boots} コレクションは93,122レコードを含み、地理データは以下から得られる：\texttt{x-country}（ISO国コード）、\texttt{x-nf-subdivision-code}（地域/州）、\texttt{x-nf-city}（都市名）、\texttt{x-nf-client-connection-ip}（クライアントIP）。これらのデータはユーザーの\emph{ネットワーク接続元}を反映し、必ずしも居住地ではない。
+
+完全な地理分析には \texttt{boots} MongoDBコレクションの直接クエリが必要であり、付随データレポートとして公開予定。利用可能なフィールドは以下をサポートする：
+
+\begin{itemize}
+  \item 国レベルの分布（各国のセッション数）
+  \item 都市レベルのクラスタリング（利用が集中している都市）
+  \item タイムゾーン別の時間パターン（地域ごとのシステム起動時刻）
+  \item リファラー分析（\ac{} にリンクしているサイト）
+\end{itemize}
+
+\subsection{ヘッダーが示さないもの}
+
+地理ヘッダーはネットワーク位置を明かすが、アイデンティティは明かさない。VPNユーザーは異なる国に表示される。大学でアクセスするユーザーは自宅ではなく大学の所在地が表示される。モバイルデータを使用するユーザーは最寄りの基地局がある都市に表示される可能性がある。データは方向性としては有用だが、正確ではない。
+
+より重要なのは、地理位置は従来の監査が関心を持つ人口統計カテゴリの代理指標ではないということである。セッションがラゴスから来たことを知っても、ユーザーの年齢、性別、収入、教育レベルは分からない。ラゴスで誰かが \ac{} を使ったことが分かるのであり、それ自体は意味がある——しかし人口統計データが提供する知識とは異なる種類のものである。
+
+\section{創造的成果の分析}
+
+\subsection{KidLisp関数の採用}
+
+\texttt{/api/store-kidlisp?stats=functions} エンドポイントは、プログラムの人気度（アクセス数）で重み付けされた各 \kl{} 組み込み関数の使用統計を返す。これにより、ユーザーが実際にどの創作機能を採用したかが明らかになる~\citep{scudder2026kidlisp}。
+
+言語設計に基づく予想パターン：
+\begin{itemize}
+  \item \textbf{グラフィックスプリミティブ}（\texttt{wipe}、\texttt{ink}、\texttt{box}、\texttt{circle}、\texttt{line}）が支配的なはず——可視出力を生み出す最も直接的な方法
+  \item \textbf{変換}（\texttt{scroll}、\texttt{zoom}、\texttt{spin}）はアニメーション重視のプログラムに現れるはず
+  \item \textbf{制御フロー}（\texttt{repeat}、\texttt{def}、\texttt{if}）はプログラムの複雑さと相関するはず
+  \item \textbf{\$-code埋め込み}はソーシャル合成グラフを明らかにするはず——どのプログラムが他のプログラムの構成要素として機能するか
+  \item \textbf{色名}はコミュニティのカラーパレット嗜好を示すはず
+\end{itemize}
+
+完全な関数採用分析と重み付きランキングは付随データレポートとして公開予定で、\texttt{kidlisp} MongoDBコレクションの直接クエリが必要。
+
+\subsection{\$-Code合成グラフ}
+
+\kl{} の主要な抽象化メカニズム——ショートコードによるプログラム埋め込み——は暗黙の依存グラフを作成する。プログラムAが \texttt{(\$cow)} を含むとき、プログラム ``cow'' に依存する。このグラフには観察可能な特性がある：
+
+\begin{itemize}
+  \item \textbf{ハブプログラム}：多くの他のプログラムから参照されるプログラム（視覚プリミティブ、ユーティリティパターン）
+  \item \textbf{リーフプログラム}：他のプログラムを埋め込むが自身は埋め込まれないプログラム
+  \item \textbf{深さ}：観察された最大埋め込みチェーンは7層
+  \item \textbf{作者間合成}：異なる作者のプログラムが互いに埋め込まれ、対話ではなくコードを通じて起こるソーシャルコラボレーションを構成する
+\end{itemize}
+
+このグラフはユニークなデータセットである。クリエイティブなコラボレーションを明示的なソーシャルインタラクションではなく依存関係として捕捉する。一度も会話したことのない2人のユーザーが、共有のビルディングブロックプログラムを通じて密接につながっている可能性がある。
+
+\section{ソーシャルトポロジー}
+
+\subsection{チャット}
+
+18,062のメッセージが2つのチャットインスタンスに分布する（\texttt{chat-system} はメインプラットフォーム用、\texttt{chat-clock} は laer-klokken コミュニティ用）。メッセージはユーザー名に帰属でき、ユーザーごとの参加度分析が可能。ハート（リアクション）はユーザーとメッセージの二部親和グラフを作成する。
+
+\subsection{ムード}
+
+2,900のムード更新——ATProtoにクロスポストしBlueskyにミラーリングできる短いステータスメッセージ。ムードは縦断的である：タイムスタンプがあり、ユーザーエンゲージメントの時系列として分析可能。定期的にムードを投稿するユーザーは、視覚作品を生み出していなくてもコミュニティで活動している。
+
+\subsection{アイデンティティとしてのユーザー名}
+
+ユーザー名システムはデザイン上の選択として注目に値する。ユーザー名はユーザーが選ぶ1つの単語：\texttt{@jeffrey}、\texttt{@prutti}、\texttt{@cow}。設計上、人口統計的シグナルを持たない。プラットフォームはユーザー名から年齢を推論できない。性別も推論できない。人種も推論できない。これは制限であると同時に解放でもある。
+
+制限とは：プラットフォームが多様な集団に奉仕しているかを評価できないこと——それらの集団が誰かを知らないから。解放とは：ユーザーは割り当てられたカテゴリではなく自分が選んだ名前で知られること~\citep{costanzachock2020design}。ユーザー名がアイデンティティ。作品が伝記。
+
+\section{測定できないもの}
+
+このセクションは前のセクションと同じく重要である。
+
+\begin{itemize}
+  \item \textbf{年齢}：不明。登録フィールドなし。
+  \item \textbf{性別}：不明。登録フィールドなし。
+  \item \textbf{人種/民族}：不明。登録フィールドなし。
+  \item \textbf{収入}：不明。登録フィールドなし。
+  \item \textbf{障害の状況}：不明。登録フィールドなし。
+  \item \textbf{教育レベル}：不明。登録フィールドなし。
+  \item \textbf{セッション時間}：一部利用可能（起動の開始/完了タイムスタンプは存在するが完了率は不安定）
+  \item \textbf{ナビゲーションパス}：未追跡。ページビュー分析なし。
+  \item \textbf{ソーシャルグラフ}：フォロー/フレンドの仕組みなし。ソーシャル接続はチャット参加と\$-code合成から推論。
+  \item \textbf{離脱}：アカウントは削除されない（GDPR削除はリクエストに応じて手動処理）。非アクティブユーザーと離脱ユーザーを区別できない。
+\end{itemize}
+
+これらのフィールドの欠如は偶然ではない。\ac{} はクリエイティブプラットフォームはユーザーについて、創作物を通じて共有することを選んだもの以外、できるだけ少なく知るべきだという原則の上に構築されている~\citep{illich1973tools}。この原則にはコストがある。公平性を報告できない、十分にサービスを受けていない集団を特定できない、プラットフォームが既存の格差を再生産しているかを測定できない。これらはユーザー名ベースのアイデンティティシステムでは解決できない真の限界である。
+
+Benjaminの観察——「人種中立的」デザインはしばしば既存のバイアスをエンコードする~\citep{benjamin2019race}——はここに当てはまる。人口統計データを収集しないという決定は、すべての人口集団に等しくサービスするという決定とは異なる。人種を尋ねないプラットフォームが、そのデザイン選択（英語のみのインターフェース、アメリカ中心のタイムゾーン、美術大学的美学）によって人種に沿って体系的に人々を排除していても——それを知ることは決してない。
+
+\section{測定に向けて}
+
+今後の作業は、ユーザー名ベースのアイデンティティモデルを損なうことなく、いくつかのギャップに対処できる：
+
+\begin{itemize}
+  \item \textbf{地理的深層分析}：93,122の起動レコードの国、都市、時間パターン別の完全分析。利用可能な最強の多様性代理指標。
+  \item \textbf{言語分析}：チャットメッセージとムードには自然言語が含まれ、言語多様性（使用言語、コードスイッチングパターン）の分析に利用可能。
+  \item \textbf{自発的調査}：定期的な匿名調査でユーザー名と紐付けずに人口統計データを収集可能。
+  \item \textbf{ユーザー群別の関数採用}：関数使用パターンで \kl{} 作者をグループ化すると、異なる実践コミュニティに関連する独特の創作「方言」が明らかになる可能性。
+  \item \textbf{時間的エンゲージメント曲線}：起動タイムスタンプ分析でユーザーが特定のタイムゾーンに集中しているかが明らかになり、地理的クラスタリングが示唆される。
+\end{itemize}
+
+\section{結論}
+
+本監査は \ac{} がユーザーについて知っていることを報告した：2,811のユーザー名、93,122の識別可能な地理からのセッション、そしてプラットフォームの真の成果物である創造的作品群（16,634のプログラム、4,428の絵画、18,062のメッセージ、265の作品）。\ac{} が知らないことは報告しなかった：ユーザー名の向こうにいる人々の年齢、性別、人種、収入、教育レベル。
+
+このギャップに対する従来の対応は、欠けているデータを収集することである。デザイン正義の対応~\citep{costanzachock2020design}は、それらのカテゴリ自体がコミュニティに奉仕しているのか、それとも助成申請やインパクトレポートの記入に人口統計的分類を必要とする機関にとってコミュニティを可読にしているだけなのかを問うことである。\ac{} のこれまでの答えは——少なく知り、多く信頼する：ユーザー名をアイデンティティとし、作品に語らせ、画面の向こうにいる人が本当は誰なのかを知らないという認識論的コストを受け入れる。
+
+これは不完全なシステムの誠実な監査である。不完全さは記録されている。システムは生きている。ユーザーは実在する。彼らが作るものが、彼らが誰であるかの最良の証拠である。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -1,0 +1,493 @@
+% !TEX program = xelatex
+% Cards format — auto-generated from identity.tex by cards-convert.mjs
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+% Extra commands from base paper
+\newcommand{\atproto}{\textsc{AT Protocol}}
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+\hypersetup{
+  pdftitle={Handle Identity on the AT Protocol: From Auth0 to Decentralized Sign-In},
+}
+
+\renewcommand{\acpdfbase}{handle-identity-atproto-26-arxiv}
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=9em]{pals}\par\vspace{0.1em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Handle Identity on the AT Protocol}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} From Auth0 to Decentralized Sign-In on Aesthetic Computer}\par
+\vspace{0.4em}
+{\normalsize\color{cyan!70!blue}\href{https://prompt.ac/@jeffrey}{\textbf{@jeffrey}}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.4em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.15em}
+\colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/2113ef735}{2113ef735}}\par
+\vspace{0.1em}
+{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv-da-cards.pdf}{Dansk} · \href{https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv-es-cards.pdf}{Español} · \href{https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv-zh-cards.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv-ja-cards.pdf}{{\accjk 日本語}}}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% BODY
+% ============================================================
+\section{Introduction}
+
+Identity on the web is a landlord problem. You do not own your handle on Twitter, your username on Instagram, or your login on any platform that can delete your account. The AT Protocol~\citep{atproto2024spec}---the decentralized social networking protocol behind Bluesky---proposes a different arrangement: your identity is a cryptographic key pair, your handle is a domain name you control, and your data lives on a Personal Data Server that you can move between providers.
+
+Aesthetic Computer has operated a hybrid identity system since 2024. Auth0~\citep{auth0spa} handles authentication: OAuth 2.0 with PKCE, refresh tokens, and a managed user database. Separately, a self-hosted PDS at \texttt{at.aesthetic.computer} mints ATProto identities for every verified user. The result is a doubled system: two identities per user, two credential stores, two handle sync paths, and a paid Auth0 subscription bridging the gap.
+
+This paper asks: what if the PDS \emph{is} the identity provider?
+
+The answer is not hypothetical. pckt.blog~\citep{pcktblog2025}, a blogging platform built on the \atproto{}, authenticates users entirely through \atproto{} OAuth. Users sign in with their Bluesky handle, their self-hosted PDS, or any compatible identity provider. No Auth0, no Firebase, no centralized user database. The content syncs to the user's own PDS using shared lexicons from Standard.site~\citep{standardsite2025}.
+
+We examine how this model applies to Aesthetic Computer---a creative computing platform with 600+ interactive pieces, multiplayer sessions, a KidLisp programming language, and a native bare-metal OS~\citep{scudder2026os}---and propose a phased migration that preserves backward compatibility while moving toward decentralized identity.
+
+% ============ 2. THE CURRENT AC IDENTITY ARCHITECTURE ============
+
+\section{Current Architecture}
+\label{sec:current}
+
+\subsection{Auth0 as Identity Provider}
+
+Authentication flows through Auth0's SPA SDK. On page load, \texttt{boot.mjs} checks localStorage for cached Auth0 state. If a session exists (or an OAuth callback is detected), it initializes the Auth0 client with PKCE and refresh tokens, exchanges authorization codes for access tokens, and retrieves the user profile. The Auth0 \texttt{sub} field (e.g., \texttt{auth0|abc123} or \texttt{google-oauth2|xyz}) serves as the internal user identifier.
+
+\begin{lstlisting}[style=acjsstyle]
+// boot.mjs: current Auth0 flow
+const auth0 = await createAuth0Client({
+  domain: |\textcolor{jsstr}{"hi.aesthetic.computer"}|,
+  clientId: |\textcolor{jsstr}{"LVdZaM..."}|,
+  cacheLocation: |\textcolor{jsstr}{"localstorage"}|,
+  useRefreshTokens: true,
+});
+const user = await auth0.getUser();
+// { sub, email, email_verified, ... }
+\end{lstlisting}
+
+\subsection{Handle System}
+
+Handles are stored in a MongoDB \texttt{@handles} collection, mapping Auth0 \texttt{sub} to a 1--16 character alphanumeric string (with \texttt{.} and \texttt{\_} allowed). Validation enforces no leading/trailing punctuation, case-insensitive uniqueness, and profanity filtering. Handles are the primary user-facing identity: URL-addressable (\texttt{@handle/piece-name}), visible in chat, and spoken aloud by AC Native OS.
+
+\subsection{ATProto Shadow Identity}
+
+On first email verification, an Auth0 webhook triggers \texttt{createAtprotoAccount()}, which:
+
+\begin{enumerate}
+  \item Generates a 32-character password
+  \item Creates an invite code on the PDS
+  \item Creates an account at \texttt{handle.at.aesthetic.computer}
+  \item Stores the DID, handle, and encrypted password in MongoDB (\texttt{users.atproto})
+\end{enumerate}
+
+When a user changes their AC handle, \texttt{updateAtprotoHandle()} syncs the change to the PDS. Content (paintings, moods, KidLisp snippets, tapes, news) is mirrored to the PDS via six custom lexicons (\texttt{computer.aesthetic.*}). The ATProto identity is real and functional---but the user never authenticates through it. It is a shadow identity: present, synced, but not sovereign.
+
+\subsection{The Duplication Problem}
+
+This architecture means:
+
+\begin{itemize}
+  \item Two credential stores (Auth0 + PDS)
+  \item Two handle namespaces (AC handles + PDS handles)
+  \item Two sync paths (handle changes propagate Auth0 $\to$ MongoDB $\to$ PDS)
+  \item A paid dependency (Auth0 subscription)
+  \item No interoperability (a Bluesky user cannot sign into AC with their existing identity)
+\end{itemize}
+
+The PDS already knows who each user is. It already stores their DID, their handle, their content. The Auth0 layer adds cost and complexity without adding capability that the PDS cannot provide.
+
+% ============ 3. THE AT PROTOCOL IDENTITY STACK ============
+
+\section{The AT Protocol Identity Stack}
+\label{sec:atproto}
+
+Understanding the migration requires understanding the three layers of \atproto{} identity: DIDs, handles, and OAuth.
+
+\subsection{Decentralized Identifiers (DIDs)}
+
+A DID~\citep{w3cdid2022, atproto2024did} is a persistent, cryptographically verifiable identifier. The \atproto{} primarily uses \texttt{did:plc}, a method designed for strong consistency, high availability, and key rotation without losing identity. Each DID resolves to a document containing:
+
+\begin{itemize}
+  \item A \textbf{signing key} (P-256 or K-256)~\citep{atproto2024crypto} for authenticating repository updates
+  \item \textbf{Rotation keys} for account recovery
+  \item A \textbf{PDS endpoint} URL
+  \item The user's current \textbf{handle}
+\end{itemize}
+
+The DID is the stable identity. Handles change; keys rotate; PDS providers come and go. The DID persists. AC already mints DIDs for every user through its PDS. The infrastructure exists.
+
+\subsection{Handle Verification}
+
+An \atproto{} handle~\citep{atproto2024handle} is a domain name that bidirectionally resolves to a DID. Verification uses two methods:
+
+\textbf{DNS TXT}: Place a record at \texttt{\_atproto.example.com}:
+\begin{lstlisting}
+_atproto.example.com TXT "did=did:plc:abc..."
+\end{lstlisting}
+
+\textbf{HTTPS Well-Known}: Serve the DID at:
+\begin{lstlisting}
+GET /.well-known/atproto-did
+Response: did:plc:abc...
+\end{lstlisting}
+
+Both methods require the handle to resolve to the DID \emph{and} the DID document to claim the handle back. This bidirectional verification means: if you control the domain, you control the handle. No central authority assigns handles; DNS is the authority.
+
+For AC, this means \texttt{jeffrey.at.aesthetic.computer} is a real, verifiable ATProto handle because AC controls both the DNS and the PDS. But it also means a user who already owns \texttt{alice.bsky.social} or \texttt{alice.dev} has a cryptographically verified identity that AC can trust without a password.
+
+\subsection{ATProto OAuth}
+
+The \atproto{} OAuth specification~\citep{atproto2024oauth} extends OAuth 2.1 with three mandatory security mechanisms:
+
+\textbf{PKCE} (Proof Key for Code Exchange)~\citep{rfc7636pkce}: Prevents authorization code interception. The client generates a random verifier, sends its hash with the authorization request, and proves possession of the original verifier during token exchange.
+
+\textbf{PAR} (Pushed Authorization Requests)~\citep{rfc9126par}: The client submits authorization parameters via POST to the authorization server \emph{before} redirecting the user. This prevents parameter tampering in the redirect URL.
+
+\textbf{DPoP} (Demonstrating Proof of Possession)~\citep{rfc9449dpop}: Each request includes a signed JWT proving the client holds the private key associated with the token. Even if an access token leaks, it cannot be used by a different client.
+
+\subsubsection{Client Identification}
+
+Unlike traditional OAuth, \atproto{} does not require pre-registration with each authorization server. Instead, clients publish metadata at a public HTTPS URL:
+
+\begin{lstlisting}[style=acjsstyle]
+// aesthetic.computer/oauth/client-metadata.json
+{
+  |\textcolor{jsstr}{"client\_id"}|: |\textcolor{jsstr}{"https://aesthetic.computer/..."}|,
+  |\textcolor{jsstr}{"client\_name"}|: |\textcolor{jsstr}{"Aesthetic Computer"}|,
+  |\textcolor{jsstr}{"redirect\_uris"}|: [|\textcolor{jsstr}{"https://..."}|],
+  |\textcolor{jsstr}{"grant\_types"}|: [|\textcolor{jsstr}{"authorization\_code"}|],
+  |\textcolor{jsstr}{"dpop\_bound\_access\_tokens"}|: true
+}
+\end{lstlisting}
+
+Any PDS can discover and verify the client by fetching this URL. No pre-shared secrets, no app store registration, no API key management.
+
+\subsubsection{The Flow}
+
+\begin{enumerate}
+  \item User enters their handle (e.g., \texttt{alice.bsky.social})
+  \item Client resolves handle $\to$ DID $\to$ PDS endpoint $\to$ authorization server
+  \item Client pushes authorization parameters via PAR
+  \item User is redirected to their PDS's authorization UI
+  \item User approves; PDS redirects back with authorization code
+  \item Client exchanges code for DPoP-bound access token
+  \item Client verifies the returned DID matches the expected identity
+\end{enumerate}
+
+The critical difference from Auth0: the user authenticates with \emph{their own server}. AC never sees a password. The PDS---whether Bluesky's, AC's own, or a self-hosted instance---is the identity authority.
+
+% ============ 4. HOW PCKT.BLOG DOES IT ============
+
+\section{Case Study: pckt.blog}
+\label{sec:pckt}
+
+pckt.blog~\citep{pcktblog2025} is a blogging platform that authenticates exclusively through \atproto{} OAuth. Its implementation demonstrates the practical viability of ATProto-only authentication for a content platform.
+
+\subsection{Authentication}
+
+Users sign in by entering their ATProto handle. pckt.blog resolves the handle, discovers the authorization server, and initiates the OAuth flow. The user approves on their PDS (Bluesky, Blacksky, a self-hosted server). pckt.blog receives a DPoP-bound access token and the user's DID. No passwords are stored. No separate user database is maintained.
+
+\subsection{Data Sovereignty}
+
+Content syncs to the user's own PDS using Standard.site lexicons~\citep{standardsite2025}:
+
+\begin{itemize}
+  \item \texttt{site.standard.publication} --- blog collections
+  \item \texttt{site.standard.document} --- individual articles
+  \item \texttt{site.standard.graph.subscription} --- follow relationships
+\end{itemize}
+
+If pckt.blog disappears, the user's content remains on their PDS, accessible to any compatible reader. This is the promise of ATProto: the platform is a view, not a silo.
+
+\subsection{Implications for AC}
+
+pckt.blog proves that a content-oriented platform can operate entirely on ATProto identity. The parallels to AC are direct:
+
+\begin{itemize}
+  \item pckt.blog publishes articles; AC publishes pieces, paintings, and moods
+  \item pckt.blog uses Standard.site lexicons; AC has six custom \texttt{computer.aesthetic.*} lexicons
+  \item pckt.blog's users own their content on their PDS; AC already mirrors content to its PDS
+  \item Both are Node.js/JavaScript applications
+\end{itemize}
+
+The gap: pckt.blog was built ATProto-native. AC has an existing Auth0 user base that must be migrated gracefully.
+
+% ============ 5. PROPOSED MIGRATION ============
+
+\section{Proposed Migration}
+\label{sec:migration}
+
+\subsection{Phase 1: ATProto OAuth as Secondary Sign-In}
+
+Add ``Sign in with Bluesky'' alongside Auth0, without removing Auth0.
+
+\textbf{Infrastructure:}
+\begin{enumerate}
+  \item Publish client metadata at \texttt{aesthetic.computer/oauth/client-metadata.json}
+  \item Add \texttt{@atproto/oauth-client-node}~\citep{npmAtprotoOauth} to the backend
+  \item Create two new Netlify functions:
+    \begin{itemize}
+      \item \texttt{POST /api/atproto-auth/start} --- resolve handle, PAR, redirect
+      \item \texttt{GET /api/atproto-auth/callback} --- code exchange with DPoP
+    \end{itemize}
+  \item Store sessions in Redis (DID, handle, DPoP key pair, tokens)
+\end{enumerate}
+
+\textbf{Client flow:} A new ``Sign in with Bluesky'' button in \texttt{boot.mjs} triggers the ATProto OAuth flow. On success, \texttt{window.acUSER} is populated from the ATProto session (DID as \texttt{sub}, handle, no email unless the user provides one). The piece API surface is identical---pieces see a user with a handle, regardless of which auth path created the session.
+
+\subsection{Phase 2: Handle Bridging}
+
+When a user signs in via ATProto, bridge their handle to AC:
+
+\begin{enumerate}
+  \item Extract the username from the ATProto handle (e.g., \texttt{alice} from \texttt{alice.bsky.social})
+  \item Check availability against the AC \texttt{@handles} collection
+  \item If available and valid (1--16 chars, alphanumeric), offer one-click claim
+  \item If taken, check if the existing owner's email matches---offer account linking
+  \item If taken by someone else, prompt for an alternative
+  \item Store a DID $\leftrightarrow$ AC sub mapping in MongoDB for future sign-ins
+\end{enumerate}
+
+Custom domain handles (e.g., \texttt{alice.dev}) require the user to choose an AC handle manually, since the domain itself may not map to a valid handle string.
+
+\subsection{Phase 3: Identity Linking}
+
+Existing Auth0 users can link their ATProto identity:
+
+\begin{enumerate}
+  \item From account settings, initiate ATProto OAuth
+  \item On success, store the external DID alongside the Auth0 sub
+  \item Future sign-ins accept either auth path
+  \item Content can optionally sync to the user's external PDS (not just AC's PDS)
+\end{enumerate}
+
+This phase turns the existing \texttt{users.atproto} field from a shadow identity into a first-class identity link.
+
+\subsection{Phase 4: ATProto-Primary}
+
+Once the migration is validated:
+
+\begin{enumerate}
+  \item New signups default to ATProto OAuth (creating accounts on AC's PDS)
+  \item Auth0 remains as a legacy path for existing users
+  \item Gradually sunset Auth0 as users link their ATProto identities
+  \item Remove Auth0 dependency, eliminate subscription cost
+\end{enumerate}
+
+\subsection{PDS Routing}
+
+A key architectural decision: where does content go?
+
+\begin{itemize}
+  \item \textbf{Auth0-only users}: content syncs to AC's PDS (current behavior)
+  \item \textbf{ATProto users with external PDS}: content syncs to \emph{their} PDS
+  \item \textbf{ATProto users on AC's PDS}: content stays on AC's PDS
+\end{itemize}
+
+This means the backend sync functions (\texttt{media-atproto.mjs}, \texttt{painting-atproto.mjs}, etc.) need a conditional path: resolve the user's PDS endpoint from their DID document, and write to that endpoint rather than assuming AC's PDS.
+
+% ============ 6. HANDLE SEMANTICS ============
+
+\section{Handle Semantics}
+\label{sec:handles}
+
+The handle is the most human-visible piece of the identity stack, and the migration raises questions about what a handle \emph{means}.
+
+\subsection{Current Handle Model}
+
+Today, an AC handle is:
+\begin{itemize}
+  \item A 1--16 character string, first-come-first-served
+  \item Unique within the AC namespace
+  \item Used for URLs (\texttt{@alice/painting}), chat, and OS personalization
+  \item Stored in MongoDB, cached in Redis
+  \item Mirrored to the PDS as \texttt{alice.at.aesthetic.computer}
+\end{itemize}
+
+\subsection{ATProto Handle Model}
+
+An ATProto handle is:
+\begin{itemize}
+  \item A domain name (any valid DNS name)
+  \item Verified bidirectionally against a DID
+  \item Globally unique by DNS authority
+  \item Portable across services
+\end{itemize}
+
+\subsection{Bridging the Models}
+
+The proposal: an AC handle is an \emph{alias} that maps to a DID. The source of truth shifts from MongoDB to the DID layer. Multiple sign-in methods (Auth0, ATProto OAuth) resolve to the same DID, which resolves to the same AC handle.
+
+For AC Native OS~\citep{scudder2026os}, where the handle is inscribed in \texttt{config.json} on the boot partition, this means the device identity is backed by a cryptographic identity. ``Hi @alice'' on the boot screen means Alice's DID, Alice's signing key, Alice's portable identity---not just a string in a config file.
+
+% ============ 7. OPEN QUESTIONS ============
+
+\section{Open Questions}
+\label{sec:questions}
+
+\textbf{Handle priority.} If \texttt{alice} is unclaimed on AC but \texttt{alice.bsky.social} signs in, should she get it automatically? First-come-first-served is simple but allows squatting. ATProto-verified priority is fairer but adds complexity.
+
+\textbf{Email requirement.} Auth0 provides verified email for account recovery. ATProto OAuth does not guarantee email. Should AC require an email for full account features (purchasing, notifications)?
+
+\textbf{Multi-tenant.} AC operates a second tenant (\texttt{sotce}) with separate Auth0. How do ATProto identities map across tenants? The DID is tenant-agnostic, which may simplify cross-tenant identity.
+
+\textbf{Session server.} Real-time features (chat, multiplayer) authenticate via Auth0 tokens forwarded through WebSocket. The session server must accept ATProto-issued tokens or a unified session token.
+
+\textbf{Device pairing.} AC Native OS pairs via a 6-character code exchanged through Auth0. The ATProto equivalent: scan a QR code that initiates an OAuth flow on the phone, delivering tokens to the device.
+
+\textbf{Admin identity.} Admin is currently \texttt{handle === "jeffrey" \&\& sub === ADMIN\_SUB}. Under ATProto-first auth, admin is \texttt{did === admin\_did}---cleaner, cryptographically grounded.
+
+% ============ 8. RELATED WORK ============
+
+\section{Related Work}
+\label{sec:related}
+
+\textbf{Decentralized identity.} The W3C DID specification~\citep{w3cdid2022} provides the formal framework for decentralized identifiers. The AT Protocol's \texttt{did:plc} method~\citep{atproto2024did} extends this with strong consistency guarantees and a centralized-but-auditable directory at \texttt{plc.directory}. This is a pragmatic compromise: full decentralization of identity resolution remains an open problem, and \texttt{did:plc} trades some decentralization for operational reliability.
+
+\textbf{ATProto-native applications.} pckt.blog~\citep{pcktblog2025} demonstrates blogging; Leaflet.pub and Offprint.app collaborate on shared lexicons via Standard.site~\citep{standardsite2025}. These applications prove the viability of ATProto-only auth for content platforms.
+
+\textbf{OAuth security.} DPoP~\citep{rfc9449dpop} prevents token theft; PAR~\citep{rfc9126par} prevents parameter tampering; PKCE~\citep{rfc7636pkce} prevents code interception. Together they represent the state of the art in browser-based OAuth security---significantly stronger than the Auth0 SPA flow AC currently uses.
+
+\textbf{Convivial identity.} Illich's tools for conviviality~\citep{illich1973tools} frame the question: does the identity system expand personal autonomy, or does it require dependence on a provider? Auth0 is a managed service---convenient but dependent. ATProto identity is portable, self-verifiable, and provider-independent. Nelson's vision of personal computing~\citep{nelson1974computerlib} extends naturally to personal identity: you should own your name on the network.
+
+% ============ 9. CONCLUSION ============
+
+\section{Conclusion}
+
+Aesthetic Computer already runs a PDS, mints DIDs, syncs content to ATProto records, and publishes custom lexicons. The only piece missing is letting users authenticate through that infrastructure instead of routing through Auth0. The migration is not a rewrite---it is the removal of a workaround.
+
+The phased approach (ATProto as secondary sign-in $\to$ handle bridging $\to$ identity linking $\to$ ATProto-primary) ensures no existing user is disrupted. The end state: a creative computing platform where your handle is a cryptographic identity, your content lives on a server you control, and signing in means proving you own your keys---not trusting a third party to vouch for you.
+
+The PDS is already running. The DIDs are already minted. The lexicons are already published. It is time to let users sign in through the front door.
+
+% ============ REFERENCES ============
+
+\vspace{0.5em}
+\noindent\rule{\columnwidth}{0.5pt}
+
+\subsection*{Reference Links}
+
+\noindent\small
+
+\textbf{AT Protocol Specifications:}
+\begin{itemize}
+  \item \url{https://atproto.com/specs} --- Full protocol specification
+  \item \url{https://atproto.com/specs/oauth} --- OAuth specification
+  \item \url{https://atproto.com/specs/handle} --- Handle resolution
+  \item \url{https://atproto.com/specs/cryptography} --- Cryptographic methods
+  \item \url{https://web.plc.directory/spec/v0.1/did-plc} --- DID PLC specification
+  \item \url{https://atproto.com/guides/lexicon} --- Lexicon schema system
+  \item \url{https://atproto.com/guides/oauth-patterns} --- OAuth implementation patterns
+\end{itemize}
+
+\textbf{Implementation Guides:}
+\begin{itemize}
+  \item \url{https://docs.bsky.app/blog/oauth-atproto} --- Building ATProto OAuth apps
+  \item \url{https://docs.bsky.app/docs/advanced-guides/resolving-identities} --- Identity resolution
+  \item \url{https://docs.bsky.app/docs/advanced-guides/oauth-client} --- OAuth client guide
+\end{itemize}
+
+\textbf{NPM Packages:}
+\begin{itemize}
+  \item \texttt{@atproto/oauth-client-node} --- Node.js OAuth client
+  \item \texttt{@atproto/oauth-client-browser} --- Browser OAuth client
+  \item \texttt{@atproto/api} --- TypeScript XRPC client
+  \item \texttt{@atproto/identity} --- DID/handle resolution
+  \item \texttt{@atcute/oauth-browser-client} --- Lightweight alternative
+\end{itemize}
+
+\textbf{Reference Implementations:}
+\begin{itemize}
+  \item \url{https://github.com/pilcrowonpaper/atproto-oauth-example} --- Astro OAuth example
+  \item \url{https://github.com/bluesky-social/atproto} --- Official ATProto monorepo
+  \item \url{https://standard.site/docs/introduction/} --- Standard.site shared lexicons
+\end{itemize}
+
+\textbf{Applications Using ATProto Auth:}
+\begin{itemize}
+  \item pckt.blog --- Blogging on the open social web
+  \item Leaflet.pub --- Long-form publishing
+  \item Offprint.app --- Collaborative writing
+\end{itemize}
+
+\textbf{IETF Standards:}
+\begin{itemize}
+  \item RFC 9449 --- DPoP (Demonstrating Proof of Possession)
+  \item RFC 7636 --- PKCE (Proof Key for Code Exchange)
+  \item RFC 9126 --- PAR (Pushed Authorization Requests)
+\end{itemize}
+
+\vspace{0.5em}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

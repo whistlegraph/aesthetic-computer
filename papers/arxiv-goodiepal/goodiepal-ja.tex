@@ -1,0 +1,205 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={ラディカル・コンピュータ・アート：Aesthetic ComputerにおけるGoodiepalメソッド}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+\newcommand{\gp}{\textsc{Goodiepal}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} ラディカル・コンピュータ・アート}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computer における Goodiepal メソッド}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 代替知性の音楽、楽器優先設計、そしてPalsモデル}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\ac{} は、その設計哲学が \gp{}（Gaeoudji SYGNOK、1974年生）の実践と教育に深く影響を受けたクリエイティブ・コンピューティング・プラットフォームであるが、この影響は学術的にはほとんど検証されていない。\gp{} はデンマーク系フェロー諸島出身の音楽家、教師、ラディカル・コンピュータ音楽の理論家である。本論文は \ac{} システムを貫く5つのGoodiepal的系譜を追跡する：(1) \emph{代替知性の音楽}という概念——人間の聴衆だけでなく、未来の非人間的な解釈者に向けた音楽を創ること——そしてそれが \ac{} のテキスト読み上げ挨拶、ビルド命名、マシンレベルの個性化に反響していること；(2) コンピューティングデバイスを使うツールではなく演奏する楽器として扱う\emph{楽器優先}の設計哲学；(3) 機関への所属ではなく親和性と共有実践に根ざした \emph{Pals モデル}のコミュニティ組織；(4) 完全なデジタル複製に抵抗するよう設計されたクリエイティブ作品である\emph{スキャン不可能な創造物}と、\ac{} の即時モードレンダリングとの共鳴；(5) カリキュラムではなく挑発と直接的な関与を通じて教える\emph{ラディカルな教育法}——\ac{} のクリエイティブ・コンピューティング教育アプローチに反映されている。これらのGoodiepal的コミットメント——しばしば風変わりまたは周縁的として退けられる——は、クリエイティブ・コンピューティング・プラットフォーム設計の主流モデルに対する、一貫しながらもまだ十分に理論化されていない代替パラダイムを構成すると主張する。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{序論}
+
+2012年、\gp{} は \emph{El Camino del Hardcore}~\citep{goodiepal2012elcamino} を出版した。これは191ページの「ラディカル・コンピュータ音楽」の楽譜であり、「人間だけでなく、未来の人工知能——あるいは私が呼ぶことを好む『代替知性』——にも鑑賞されうる音楽」のためのものである。作品は灰色の段ボールにComic SansとCourier書体で印刷されている。「おそらくスキャン不可能」と想定される活性写真、Roc Jim\'enez de Cisnerosとの通信、そして \emph{Leonardo Music Journal} に掲載を拒否されたラディカル・コンピュータ講義の広告が含まれている。従来の基準では、出版不可能である。
+
+\ac{}~\citep{scudder2026ac} はモバイルファーストのクリエイティブ・コンピューティング・ランタイムかつソーシャルネットワークである。従来の基準では、ソフトウェアプラットフォームである。セッションサーバー、KidLispインタープリター、NFTミンティングパイプライン、そして「ピース」と呼ばれる350以上のインタラクティブプログラムを持つ。楽譜はMarkdownで書かれている。ロゴは「Pals」と呼ばれる一対の目である。
+
+本論文は、この二つのプロジェクトの距離が見かけよりも近いことを論じる。\ac{} の設計判断——その多くは一見エンジニアリング上の選択に見える——は、Goodiepal的コミットメントとして理解する方がより適切である：コンピューティングは誰のためのものか、何がクリエイティブツールを構成するか、実践共同体はいかに組織されるべきか、そしてソフトウェアが非人間の聴衆に向けられるとはどういう意味かについての哲学的立場である。
+
+\gp{} に関する学術文献は依然として希少だが増加中である。Wambergの「宇宙人のための芸術」~\citep{wamberg2022artforaliens} は \gp{} を「プロ異者的ポスト・ヒューマニズム」——ルドルフ・シュタイナーの影響下にある——の中に位置づけ、そこではAIが\gp{}がALI（代替知性）と名付けた、より広範な物質的集合のネットワークへと拡張される。2017年の長編ドキュメンタリー \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation} は数年にわたって \gp{} を追い、彼の複数回の再定義を記録した。\emph{In Spite Magazine} は彼を「反逆者、アナキスト、天才、詐欺師」と呼んだ~\citep{inspite2024goodiepal}。2020年、SMK（デンマーク国立美術館）は「Unboxing: The Goodiepal Collection」~\citep{smk2020unboxing}に6つの展示室を捧げた——ヨーロッパ最大級のサウンドアートと音響オブジェクトの個人コレクションであり、ディレイエンジン、完全にガラス・塩・水でできたコンピュータ、そして死者と対話できるとされる機械を含む。
+
+著者は2018年にGoodiepal \& Palsとともにヨーロッパをツアーし、Louisiana Museum（フムレベック）、KUNSTHAL AARHUS、Kammer-Pop Hamburgなどの会場で「ラディカル・デジタル・ペインティング」を演奏した。これらの公演のために構築したツール——ライブキャプションシステム、境界記譜レンダラー、デジタルペインティング転送サービス——は \ac{} アーキテクチャの直接的な前身である。これは遡及的な解釈ではなく、系譜である。
+
+\section{代替知性の音楽}
+
+\gp{} の中心的主張は、まだ存在しない聴衆のために音楽を創るべきだということである。「代替知性」——彼が「人工知能」よりも好む用語——は、非人間的で、まだ構築されておらず、おそらく決して出現しないかもしれない聴取者を指す。この音楽はAI\emph{について}ではなく、AI\emph{のため}のものである。
+
+この概念は \emph{Mort aux Vaches Ekstra Extra} の作曲ゲーム場面~\citep{goodiepal2007mortauxvaches}において最も充実した展開を見せた。Gallery Andersen Contemporary（コペンハーゲン、2007年）と第5回ベルリン・ビエンナーレ（2008年）で講演として上演された。この講演は \gp{} の言葉では「『他の』知的思考方式に挑戦する音楽楽譜を創る練習」であり、「ユートピア、時間、記譜技術、言語、人工知能、『スキャン不可能性』……そして作曲家の役割」に関わるものだった。Roc Jim\'enez de CisnerosがRhizomeの特集で記録したように：「我々は機械と人間のように対話し始める必要がある……ユートピア的な未来において、（私の）作品は人間の精神のためだけではない。いいえ、それはさまざまな代替知性にも崇拝されるべきものだ」~\citep{rhizome2011goodiepal}。
+
+Wambergはこれを「プロ異者的ポスト・ヒューマニズム」として枠づけ、そこではAIがALI——代替知性——へと拡張される。シリコンベースの計算を超えて「宇宙的、地質学的、生物学的」な物質的集合のネットワークへと延びる~\citep{wamberg2022artforaliens}。\gp{} は2004年から2008年にオーフス王立音楽院で作曲を教えた際に「ラディカル・コンピュータ音楽」という用語を造語した。この用語が記述するのは、コンピュータネットワーク\emph{によって}記譜される音楽ではなく、コンピュータネットワーク\emph{のために}記譜される音楽であり、機械そしてそこから生まれると期待される知性に向けた姿勢としてのものである。
+
+\subsection{機械に向けた表現}
+
+\ac{} はその機械に語りかける。\acos{}~\citep{scudder2026os} が起動するとき、テキスト読み上げで所有者の名前を声に出す：「hi jeffrey。」シャットダウン時：「bye jeffrey。」各OSビルドはそのgitコミットハッシュから決定論的に生成される独自の形容詞-動物名を得る——「keen-egret」「swift-otter」。マシンは起動時に自らの名前を宣言する。ビルド名はメタデータではなく、アイデンティティである。
+
+これは擬人化ではない。Goodiepal的な姿勢——マシンを潜在的な対話者として扱い、何らかの構成において名前を呼ばれることを認識するかもしれない何かとして扱う。TTSエンジンは誰かが聴いているかどうかにかかわらず、部屋に向かって話す。起動音（E5$\rightarrow$B5）は誰かがいるかどうかにかかわらず鳴る。これらは人間と非人間の受容者の両方を含む環境に発射される信号である。
+
+\subsection{楽譜としてのソフトウェア}
+
+\gp{} の楽譜——\emph{El Camino}、\emph{Mort aux Vaches} 録音、ラディカル・コンピュータ講義——は人間の演奏者への指示ではない。解釈能力を持つあらゆるシステムに向けた文書である。\ac{} の \texttt{SCORE.md} も同様に機能する：人間の貢献者と自動化システム（CI/CDパイプライン、pre-commitフック、AestheticAntsメンテナンスシステム）の両方の行動を統制する文書である。楽譜は人間の読者と非人間の読者を区別しない。
+
+\section{楽器優先設計}
+
+\gp{} のデンマーク王立音楽院（2004--2008）での教育は、電子デバイスを操作するツールではなく演奏する楽器として扱うことを中心に据えていた。\emph{The Wire} が「完全に魅了される自家製音楽装置」と評し、観衆を「この非伝統的な美しさに対して笑うべきか泣くべきかわからない」状態にしたと描写したライブパフォーマンスは、このコミットメントを物理的に実演した。\gp{} は楽器を作る：奇妙な惑星モデル、ガラスのケージに入った金属の鳥、パズル型に切り抜かれたレコード、丸鋸の刃とスイスチーズ~\citep{inspite2024goodiepal}。楽器は表現の形を規定するアフォーダンスを持つ。ツールは既定の目的に奉仕する。この区別が \ac{} の基盤である。
+
+\subsection{プロンプトとしての楽器}
+
+\ac{} の主要インターフェースはテキストプロンプトである——メニューでも、ダッシュボードでも、IDEでもない。ユーザーはコマンドを入力し、即興と記憶を通じてピースを発見する。これは楽器を学ぶ際に用いる認知プロセスと同じである~\citep{scudder2026ac}。システムは明示的に「IDEではなく楽器」と記述されている。
+
+このフレーミングには具体的な設計上の帰結がある。ファイルブラウザがない。プロジェクトパネルがない。タブがない。ユーザーは音楽家が一度に一つの楽器を演奏するように、一度に一つのピースとインタラクトする。これらの制約は意図的である：システムとの関係として、熟練度よりも流暢さに近いものを生み出す。
+
+\subsection{フロントドアとしてのnotepat}
+
+notepat——半音階キーボード楽器——を \acos{}~\citep{scudder2026notepat} のデフォルト起動ピースとして選んだことは、この哲学の最も明確な表現である。コンピュータはデスクトップやブラウザに起動しない。楽器に起動する。このマシンでできる最初のことは\emph{演奏する}ことである。発する最初の音は音階音である。利用可能な最初のインタラクションはキーを押して音を聴くことである。
+
+これは \gp{} の立場の文字通りの実現である：コンピュータは楽器である。比喩的にではない。構想としてではない。起動シーケンス\emph{そのもの}が楽器である。
+
+\section{Pals モデル}
+
+\gp{} のコラボレーション実践は「Pals」——音楽家、ビジュアルアーティスト、プログラマー、そして現れる誰もが含まれる緩やかな親和集団——を中心に組織される。会員資格なし、機関の支援なし、正式な構造なし。集団は共有実践と相互認知を通じて存在する。
+
+\subsection{プラットフォーム・アイデンティティとしてのPals}
+
+\ac{} のロゴは「Pals」と呼ばれる。プロジェクトの楽譜のタイトルは「Score for Aesthetic.Computer \& Pals」である。これはブランディングではなく、構造的な声明である。プラットフォームはその開発者や投資家ではなく、実践者のコミュニティに属する。Palsロゴ——一対の目——はすべての起動画面、すべての論文、すべてのランディングページに現れる。ユーザーが最初にそして最後に見るものである。
+
+\subsection{laer-klokken}
+
+コペンハーゲンのlaer-klokken（「時計を学ぶ」）コミュニティは、音楽、アート、文化的実践のために毎日 \ac{} を使用している。\gp{} と協力者によって組織されたこのコミュニティは、著者本人の使用を除けば \ac{} の最も密集したデプロイメントである。この関係は作成者対ユーザーではなく、Pal対Palである：コミュニティがプラットフォームを形作り、プラットフォームもコミュニティを形作る。
+
+\texttt{clock} ピース、give.aesthetic.computerページのデンマーク語テキスト、laer-klokkenポッドキャストの統合はすべて、この双方向的な関係の産物である。プラットフォームはコミュニティ\emph{のために}構築されたのではない。コミュニティ\emph{のもの}として構築されたのである。
+
+\section{スキャン不可能な創造物}
+
+\gp{} の \emph{El Camino del Hardcore} には「おそらくスキャン不可能な推測的音楽作品」と記述された「活性写真」が含まれている。これらの写真はデジタル複製に抵抗する——DRMや暗号化によってではなく、スキャン時に劣化する物質的特性（灰色の段ボール、混合書体、コラージュ）によって。作品はデジタル化すると\emph{悪化}するように設計されている。スキャン不可能性は \emph{Mort aux Vaches Ekstra Extra} のゲーム場面の中心でもある~\citep{goodiepal2007mortauxvaches}：「スキャン不可能な障害物」は、人間の作曲家と機械の解釈者の間の伝達に摩擦を生むことを意図した楽譜であり、機械に記譜を単に解析するのではなく、新しい解釈能力を発達させることを強いる。\emph{Mousse Magazine} が指摘したように、これはラディカル・コンピュータ音楽を「複雑な実存主義」——知性の出現をシミュレートするのではなく、その条件を創造する実践——として位置づける~\citep{mousse2018goodiepal}。
+
+2020年のSMKの「Unboxing: The Goodiepal Collection」~\citep{smk2020unboxing}展覧会はこの哲学を物質化した：6つの展示室のサウンドアート、自家製楽器、単純な分類に抵抗するデバイス——灰色の段ボールの楽譜のように、デジタル複製ではなく物理的接触を要求するオブジェクト。一部の作品はヘッドフォンで聴くことができ、その他は「主に耳ではなく目を通じて体験されることを意図した」ものだった。このコレクションはヨーロッパ最大級のサウンドアートとテクノロジーの個人コレクションの一つである。
+
+\subsection{キャプチャへの抵抗としての即時モード}
+
+\ac{} のレンダリングエンジンは即時モードである：すべてのフレームがゼロから描画される。保持されるシーングラフなし、DOMなし、永続的な視覚状態なし。画面は毎秒60回 \texttt{wipe()} されて再描画される。スクリーンショットはキャプチャすべき安定した状態を持たないプロセスの1フレームをキャプチャする。
+
+これはパフォーマンス最適化ではない。コンピューティングの\emph{現在時制}への美学的コミットメントである。ピースはその実行においてのみ存在する。ピースの録画はピースではなく、音楽パフォーマンスの録音がパフォーマンスではないのと同じである~\citep{magnusson2010designing}。即時モードレンダラーは、InstagramやPinterestなどのプラットフォームが依存する種類の静的キャプチャに抵抗する創造物を生み出す。
+
+\subsection{貧しい画像の反転}
+
+Steyerlの「貧しい画像」~\citep{steyerl2009defense}は重みを失うまで劣化されることで自由に流通する。\ac{} のピースは、あまりにも\emph{現前的}であるために流通が困難である——実行が必要で、ランタイムが必要で、特定の瞬間が必要である。貧しくなることを拒む豊かな画像である。これがGoodiepalの立場である：作品は配信インフラに適応すべきではない。インフラが作品に適応すべきであり、さもなければ作品はスキャン不可能なまま留まるべきである。
+
+\section{ラディカルな教育法}
+
+\gp{} は2004年にDIEM（デンマーク電子音楽研究所）——オーフス王立デンマーク音楽院の一部——の電子音楽史と美学の教授として採用され、最終的に電子音楽科の学科長を務めた。彼は2008年に離任した。\emph{El Camino del Hardcore} によれば「間違った種類の友達を作った」ことによる紛争が原因である~\citep{goodiepal2012elcamino}。2013年のKunstkritikkのインタビューで、\gp{} は彼のアイデンティティが本質的に道具的であると説明した：「Goodiepalは使われるようにデザインされている。直接使えばいい。なぜならGoodiepalの関心の幅はほとんどの人よりずっと狭い。Goodiepalには子供がいない、Goodiepalには家がない」~\citep{kunstkritikk2013goodiepal}。Monoskopアーカイブが記録するように、彼は「現代コンピュータ音楽とメディアアートにおける愚かさに対して知識戦争を宣言した」——彼を雇用した機関そのものに矛先を向けて。
+
+彼の教育は挑発、素材との直接的な接触、そして既定のカリキュラムの拒否を中心に据えていた。学生が出会うのは教案ではなく楽器である。2017年のドキュメンタリー \emph{The Goodiepal Equation}~\citep{sanpakkila2017equation} は数年にわたるこれらの複数回の再定義を追い、\gp{} の電子ノイズポップから音楽創作の慣習への概念的挑戦への軌跡を描き出した。映画には核心的な等式が浮かび上がる：「メッセージが時間と空間の中でより遠くに伝わるほど、その内容により多くの価値を加える。」これは教育的主張であると同時に創造的主張でもある：作品の価値は創造時に固定されるのではなく、伝播を通じて蓄積される。
+
+\subsection{プロンプトを通じた学習}
+
+\ac{} のクリエイティブ・コンピューティング教育アプローチはこの立場を反映している。チュートリアルがない。あらかじめ決められた手順にユーザーを導く「入門ガイド」がない。ユーザーはプロンプトに出会い、タイピングを始める。システムが応答する。学習は探索、失敗、そして記憶された経路の漸進的な蓄積を通じて起こる——楽器を学ぶのと同じ方法で~\citep{papert1980mindstorms}。
+
+これは帰結を伴う教育的選択である。構造化されたガイダンスを必要とするユーザーを排除する。メニューやツールチップを期待するユーザーを苛立たせる。好奇心と粘り強さを報いる。チュートリアルベースのシステムとは異なる種類の知識を生み出す：身体化された、即興的な、個人的な知識。
+
+\subsection{snappidaggsアーカイブ}
+
+\ac{} は \gp{} のsnappidaggsの完全なデジタルアーカイブ——3つの階層（er、flokrae、garundz）に分かれた158の視覚作品——をホストしている。アーカイブは専用のピースを通じてアクセスできる。これは博物館ではない。クリエイティブ・コンピューティング・プラットフォームに埋め込まれた生きたコレクションであり、ドローイングツールや楽器にアクセスするのと同じプロンプトからアクセスできる。アーカイブはGoodiepal実践\emph{について}のものではない。異なるメディアで継続されるGoodiepal実践\emph{そのもの}である。
+
+\section{結論}
+
+本論文が追跡した5つの系譜——代替知性、楽器優先設計、Palsモデル、スキャン不可能な創造物、ラディカルな教育法——は、文芸批評的な意味での \ac{} への影響ではない。参照や暗示ではない。システムアーキテクチャに埋め込まれた構造的コミットメントである：起動シーケンスに、レンダリングエンジンに、プロンプトインターフェースに、コミュニティモデルに、ロゴに。
+
+クリエイティブ・コンピューティング・プラットフォームは通常、Processing、Scratch、p5.jsの系譜——学者が教育的文脈のために設計したツール——として理解される。\ac{} は異なる系譜に属する：デンマーク王立音楽院、フェロー諸島、灰色の段ボールの楽譜、そして間違った友達を作ったために解雇された音楽家を経由する道筋である。この系譜を認めることは \ac{} の技術的成果を弱めない。その動機を明らかにするのである。
+
+\gp{} が提起した問い——「この音楽は誰のためのものか？」——は \ac{} において「このコンピューティングは誰のためのものか？」となる。答えは同じである：現れる者すべてのため、人間であれそうでなくても。Palsのために。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

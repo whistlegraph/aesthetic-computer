@@ -1,0 +1,338 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === CJK SUPPORT ===
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acgreen}{RGB}{78,203,113}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Aesthetic Computer 論文シリーズ引用多様性監査},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} 引用多様性監査}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Aesthetic Computer 論文シリーズ、2026年3月}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://papers.aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\ac{} 論文シリーズの引用実践について監査を行った。本シリーズは、クリエイティブ・コンピューティング、言語設計、オペレーティングシステム、デジタル楽器設計を扱う8本の学術論文で構成される。監査の結果、約80名の個別著者のうち、女性（約11\%）、非西洋圏の研究者（約5\%）、黒人・先住民・ラテン系の研究者（約6\%）が著しく過少代表であることが明らかになった。各論文を強化し引用基盤を多様化できる具体的な著作を特定し、各論文で女性著者30\%、非西洋圏著者20\%という統合目標を提案するとともに、ギャップ領域別に整理したオープンな読書リストを公開する。本文書は自己評価であると同時に、継続的な改善への誓約である。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. WHY THIS AUDIT ============
+
+\section{なぜこの監査を行うのか}
+
+\ac{} 論文シリーズ~\citep{scudder2026ac, scudder2026kidlisp, scudder2026acos, scudder2026pieces, scudder2026notepat}は、アクセシビリティ、包摂性、クリエイティブな表現について主張を展開している。普遍的なクリエイティブ・コンピューティングへのアクセスを提唱するプロジェクト——遊休ノートパソコンを楽器として活用し、URLでアドレス可能なプログラムを提供し、デフォルトでソーシャルな配信を行う——は、その学術的基盤が自らが提唱する多様性を反映しているかどうかを検証しなければならない。
+
+引用実践は中立ではない。引用は一種の知識経済を形成する：誰を引用するかが、誰が読まれ、誰が雇用され、誰が資金を得て、誰のアイデアが基礎的とみなされるかを決定する~\citep{benjamin2019race}。白人・男性・米英欧の著者が支配的な論文シリーズは、まさにそれが抵抗しようとする排除を再生産する。
+
+この監査は告発ではなく、診断である。現在の引用分布は著者の学術的訓練、読書履歴、そして関連分野（メディア理論、コンピュータサイエンス、HCI）の構造を反映している。これを変えるには長期にわたる意図的な努力が必要である。
+
+% ============ 2. CURRENT STATE ============
+
+\section{現状}
+
+\subsection{コーパス}
+
+監査は以下の8本の論文を対象とする：
+
+\begin{enumerate}
+  \item \emph{Aesthetic Computer '26}（arXiv、5ページ）
+  \item \emph{KidLisp '26}（arXiv、6ページ）
+  \item \emph{Pieces Not Programs '26}（arXiv、4ページ）
+  \item \emph{notepat.com '26}（arXiv、3ページ）
+  \item \emph{AC Native OS '26}（arXiv、5ページ）
+  \item \emph{Repository Archaeology '26}（arXiv、4ページ）
+  \item \emph{Aesthetic Computer '26}（JOSS、2ページ）
+  \item \emph{KidLisp '26}（JOSS、3ページ）
+\end{enumerate}
+
+これに加え、30以上の全文ソースを含む読書ライブラリが \texttt{papers.aesthetic.computer/platter} のリサーチコレクションで管理されている。
+
+\subsection{人口統計}
+
+全論文を通じて、約68の独立した著作が約80名の個別著者によって引用されている（一部の著作には複数の著者がいる）。著者を3つの軸で分類した：ジェンダー、地域、人種・民族。これらの分類は不完全であり外部から帰属されたものである。代表性の大まかな指標として用いるものであり、アイデンティティの宣言ではない。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{軸} & \textbf{人数} & \textbf{割合} \\
+\midrule
+女性著者 & $\sim$9 & 11\% \\
+非米英欧著者 & $\sim$4 & 5\% \\
+黒人 / 先住民 / ラテン系 / アジア系 & $\sim$5 & 6\% \\
+自己引用（Scudder） & 5 & 6\% \\
+\midrule
+\textbf{個別著者合計} & $\sim$80 & 100\% \\
+\bottomrule
+\end{tabular}
+\caption{全論文の著者人口統計（2026年3月）。}
+\label{tab:demographics}
+\end{table}
+
+\subsection{これが意味すること}
+
+引用コーパスは白人・男性・欧米の著者が圧倒的に支配的である。これはクリエイティブ・コンピューティングの論文では珍しくない——この分野の標準的な参考文献（Processing、Scratch、p5.js、Sonic Pi）はすべてMIT、NYU、ITP、Cambridgeに位置するチームによって作られた。しかし「珍しくない」は「許容できる」を意味しない。\ac{} プロジェクトは主流のコンピューティングパラダイムに対するオルタナティブとして明確に自らを位置づけている。その引用はオルタナティブな声を反映すべきである。
+
+% ============ 3. GAP ANALYSIS ============
+
+\section{ギャップ分析}
+
+引用コーパスが最も弱い5つの領域を特定した。
+
+\subsection{クリエイティブ・コーディングにおける女性}
+
+クリエイティブ・コーディングおよびライブコーディングのコミュニティには女性による重要な仕事が多数あるが、本論文シリーズでは引用されていない。主要な人物には以下が含まれる：
+
+\begin{itemize}
+  \item \textbf{Joana Chicau}~\citep{chicau2021choreo}：振付的コーディング、身体化されたアルゴリズム
+  \item \textbf{Shelly Knotts}~\citep{knotts2015algorithmic}：ネットワーク音楽におけるアルゴリズム的コラボレーション
+  \item \textbf{Allison Parrish}~\citep{parrish2015programming}：計算詩学、クリエイティブ・コーディング教育
+  \item \textbf{Kate Compton}~\citep{compton2015tracery}：Tracery 生成テキスト言語
+  \item \textbf{Lauren McCarthy}：既に引用済み（p5.js）だが、クリエイティブな実践者としてのアイデンティティが十分に認識されていない
+  \item \textbf{Olivia Jack}：既に引用済み（Hydra）だが、ラテンアメリカのライブコーディングにおける声としてのアイデンティティが十分に認識されていない
+\end{itemize}
+
+\subsection{黒人コンピューティング研究}
+
+コンピューティングへのアクセスを民主化すると主張するプロジェクトは、歴史的に誰がコンピューティングから排除されてきたか、そしてその理由を研究する学問と対話しなければならない：
+
+\begin{itemize}
+  \item \textbf{Ruha Benjamin}~\citep{benjamin2019race}：『Race After Technology（テクノロジー以後の人種）』は、設計上の決定がいかに人種的階層を符号化するかを考察する
+  \item \textbf{Safiya Umoja Noble}~\citep{noble2018algorithms}：『Algorithms of Oppression（抑圧のアルゴリズム）』は検索エンジンと人種的偏見を論じる
+  \item \textbf{Andr\'e Brock}~\citep{brock2020distributed}：『Distributed Blackness（分散された黒人性）』は黒人デジタル文化とプラットフォーム設計を論じる
+  \item \textbf{Charlton McIlwain}~\citep{mcilwain2019black}：『Black Software（ブラック・ソフトウェア）』は黒人コンピューティングの隠された歴史を明らかにする
+\end{itemize}
+
+\subsection{非西洋の理論}
+
+メディア理論の引用はすべてヨーロッパの伝統（Kittler、McLuhan、Adorno）に由来する。非西洋の理論家は \ac{} の設計に直接関連する枠組みを提供している：
+
+\begin{itemize}
+  \item \textbf{ユク・ホイ（Yuk Hui）}~\citep{hui2016existence, hui2019recursion}：デジタル存在論、技術的多様性——テクノロジーは単一の西洋的発展経路をたどる必要はないという議論
+  \item \textbf{Hito Steyerl}~\citep{steyerl2009poor}：「貧しい画像を擁護する」は流通、解像度、デジタルの物質性を論じる——\ac{} のピクセルアート美学およびURLとしてのメディアのアプローチに直接関連する
+  \item \textbf{Kodwo Eshun}~\citep{eshun1998brilliant}：アフロフューチャリストのソニックフィクション——notepatおよび音響合成の仕事に関連する
+\end{itemize}
+
+\subsection{先住民と脱植民地化コンピューティング}
+
+オペレーティングシステム論文の遊休ハードウェアに関する議論は、コンピューティング主権に対して深い含意を持っており、先住民の研究者がこれについて論じている：
+
+\begin{itemize}
+  \item \textbf{Lewis ら}~\citep{lewis2018kin}：「機械との親族関係の構築」はAIとコンピューティングのための先住民プロトコルを提案する
+  \item \textbf{Sasha Costanza-Chock}~\citep{costanza2020design}：『Design Justice（デザイン・ジャスティス）』はコミュニティ主導の設計実践を論じる
+  \item \textbf{Arturo Escobar}~\citep{escobar2018designs}：『Designs for the Pluriverse（多元宇宙のためのデザイン）』は脱植民地化のデザイン手法を論じる
+\end{itemize}
+
+\subsection{ラテンアメリカのクリエイティブ・コーディング}
+
+Olivia Jack（Hydra、既に引用済み）はコロンビア人である。より広いラテンアメリカのクリエイティブ・コーディングコミュニティの代表性が不足している：
+
+\begin{itemize}
+  \item \textbf{Hernando Barrag\'an}~\citep{barragan2004wiring}：コロンビア人、Wiringの創設者であり、Arduinoの直接的な前身——フィジカル・コンピューティングの基礎を築いたにもかかわらず、ほとんど引用されていない
+  \item \textbf{C\'assia Bel}：ブラジルのライブコーダーおよびフェミニスト・クリエイティブ・テクノロジスト
+  \item \textbf{Aar\'on Montoya-Moraga}：クリエイティブ・コーディング教育者、p5.jsコミュニティオーガナイザー
+\end{itemize}
+
+% ============ 4. PER-PAPER TARGETS ============
+
+\section{各論文の統合目標}
+
+シリーズの各論文について、ギャップ分析から、論証を強化し引用基盤を多様化できる具体的な著作を特定した。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{論文} & \textbf{追加推奨} \\
+\midrule
+AC '26 & ユク・ホイ（デジタルオブジェクト）、Costanza-Chock（デザイン・ジャスティス）、Parrish（クリエイティブ・コーディング教育） \\
+\addlinespace
+KidLisp '26 & Compton（Tracery）、Chicau（振付的コーディング）、Barrag\'an（Wiring） \\
+\addlinespace
+notepat '26 & Knotts（ネットワーク音楽）、Eshun（ソニックフィクション）、Plant（コンピューティングの歴史） \\
+\addlinespace
+Pieces '26 & Benjamin（設計バイアス）、Steyerl（貧しい画像）、Plant（Zeros and Ones） \\
+\addlinespace
+OS '26 & Barrag\'an（Wiring）、McIlwain（ブラック・ソフトウェア）、Lewisら（先住民AI） \\
+\addlinespace
+Archaeology '26 & Brock（分散された黒人性）、ユク・ホイ（技術的多様性） \\
+\bottomrule
+\end{tabularx}
+\caption{各論文のターゲット引用追加。目標：女性30\%、非西洋圏20\%。}
+\label{tab:targets}
+\end{table}
+
+% ============ 5. TARGETS ============
+
+\section{目標と誓約}
+
+\subsection{定量目標}
+
+\begin{itemize}
+  \item \textbf{論文シリーズ全体で女性著者30\%}（現在11\%）
+  \item \textbf{非米英欧著者20\%}（現在5\%）
+  \item \textbf{黒人・先住民・ラテン系・アジア系の研究者15\%}（現在6\%）
+  \item \textbf{各論文に女性著者の引用を少なくとも2件含める}
+\end{itemize}
+
+これらの目標は理想的な最低基準であり、上限ではない。関連する学術成果の追加によって達成すべきであり、既存の引用の削除やトークン的な参考文献の追加によってではない。
+
+\subsection{プロセスの誓約}
+
+\begin{enumerate}
+  \item \textbf{改訂ごとの多様性チェック}：論文を提出する前に、現在の引用人口統計に対して再度監査を行う
+  \item \textbf{読書リストの維持}：リサーチコレクションの引用多様性セクションは生きた文書である——新しい著作は発見され読まれた時点で継続的に追加される
+  \item \textbf{全文アクセス}：可能な限り、引用した著作のオープンアクセス版を読書ライブラリに入手・保存し、表面的な引用ではなく真の関与を実現する
+  \item \textbf{誠実な関与}：著作を引用するのは、それが論証を強化するからであり、スプレッドシートを多様化するためではない。引用する著作は、読み、理解し、論文の推論に統合されるべきである
+\end{enumerate}
+
+% ============ 6. HONEST ASSESSMENT ============
+
+\section{正直な評価}
+
+この監査は学術的自己省察においてよく見られるパターンを明らかにした：著者は問題を認識し、引用すべき研究者を列挙でき、進捗を追跡する技術的インフラを持っている——しかし、まだ読書を完了していない。Ruha Benjaminが『Race After Technology』を書いたことを知っていることは、それを読み、理解し、その洞察を自らの設計実践に統合したこととは異なる。
+
+認識と実践のギャップこそが、この作業の出発点である。リサーチコレクションの読書リストは、このギャップを埋めるための誓約である。各論文の目標はアカウンタビリティの仕組みである。監査そのもの——それが批判する論文と共に公開される——は、著者が自らに設定した基準で著者に対して説明責任を求めるよう読者を招くものである。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

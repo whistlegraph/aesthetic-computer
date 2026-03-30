@@ -1,0 +1,298 @@
+% !TEX program = xelatex
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+
+\hypersetup{
+  pdftitle={演奏可能な民謡：口承伝統とブラウザキーボードの出会い},
+}
+
+% Listing style for notepat song notation
+\lstdefinestyle{notepat}{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=flexible,
+  keepspaces=true,
+  showstringspaces=false,
+}
+
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\includegraphics[height=3em]{pals}\par\vspace{0.6em}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} 演奏可能な}\par
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} 民謡}\par
+\vspace{0.3em}
+{\aclight\fontsize{10pt}{12pt}\selectfont\color{acpink} 口承伝統とブラウザキーボードの出会い}\par
+\vspace{0.8em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://notepat.com}}\par
+\vspace{0.8em}
+\rule{0.6\textwidth}{1pt}\par
+\vspace{0.4em}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}\par
+\vspace{0.3em}
+{\footnotesize\color{acgray} 2026年3月}\par
+\end{center}
+\vspace*{\fill}
+
+% ============================================================
+% ABSTRACT CARD
+% ============================================================
+\clearpage
+\begin{accentcard}
+\cardtitle{要旨}
+
+民謡は、楽譜なしに演奏でき、楽器なしに記憶でき、許可なしに改変できるように進化してきた。これらの特性——限られた音域、反復的な構造、口承による伝達可能性——は、民謡の旋律をブラウザベースのキーボードシンセサイザーに構造的に適したものにしている。
+
+\vspace{0.3em}
+
+本論文は、演奏可能な民謡を \np{}.com に統合する過程を記述する。\np{} は半音階キーボード楽器であり、QWERTYキーを音符にマッピングする。軽量な \texttt{NOTE:word} フォーマットを用いて民謡の旋律をエンコードし、各音高を歌詞の音節とペアリングすることで、楽器が一音ずつ曲を教えるガイド付き演奏モードを実現する。
+
+\vspace{0.3em}
+
+このエンコーディング方式に適した民謡旋律のコレクションを調査し、民謡の構造的制約がキーボードとしての楽器インターフェースになぜ適合するかを分析し、民謡のプロセス——変異、選択、口承伝達——がURLで共有・フォーク可能な曲エンコーディングにおいて自然なデジタル対応物を持つことを論じる。
+\end{accentcard}
+
+% ============================================================
+% SECTION 1: THE ARGUMENT
+% ============================================================
+\section{論点}
+
+民謡は人類最古のオープンソースソフトウェアである。
+
+単一の作者を持たない。コミュニティによって維持される。口承で伝播する——つまり、記憶できるほど単純で、再現できるほど制約があり、適応できるほど柔軟でなければならない。すべての歌い手は貢献者であり、すべての演唱はフォークである。
+
+\vspace{0.3em}
+
+これらはまさに、旋律をQWERTYキーボードで演奏可能にする特性でもある。
+
+\begin{card}
+\cardtitle{なぜ民謡なのか？}
+\begin{itemize}
+  \item \textbf{狭い音域}：ほとんどの民謡旋律は1〜1.5オクターブの範囲に収まる~\citep{lomax1968folk}。\np{} の2オクターブボタングリッドはそれらを完全にカバーできる。
+  \item \textbf{ペンタトニックの傾向}：多くの伝統は5音音階を好む~\citep{kodaly1971folk}。これにより次の音を見つける認知的負担が軽減される。
+  \item \textbf{反復構造}：繰り返される8小節フレーズ、コール＆レスポンス、ヴァース＝コーラス形式——これらは記憶とガイド再生を助ける。
+  \item \textbf{間違った音がない}：ペンタトニック旋律では、隣接する音階音は協和する。オルフ・シュールヴェルク教授法は、取り外し可能な木琴バーによって同じ特性を利用している~\citep{orff1978schulwerk}。
+\end{itemize}
+\end{card}
+
+% ============================================================
+% SECTION 2: THE INSTRUMENT
+% ============================================================
+\section{楽器}
+
+\np{}.com は、\ac{} 内の「ピース」（インタラクティブプログラム）として構築されたブラウザベースの半音階シンセサイザーである~\citep{scudder2026ac, scudder2026notepat}。QWERTYキーボードを2オクターブにわたる24の半音にマッピングし、オクターブ切り替えにより完全なピアノ音域をカバーする。
+
+\begin{darkcard}
+\textbf{曲モード}は \np{} を自由演奏楽器からガイド付き演奏インターフェースに変換する。スクロールする歌詞トラックが現在の音節を表示し、正しい音だけがアクティブになり、それを押すと次の音節に進む。演奏者は間違えることができない——待つことだけができる。
+\end{darkcard}
+
+この「補助輪」方式——間違った音をブロックし、正しい音をハイライトする——は、楽器を制限して学習者の現在の能力に合わせるオルフとコダーイの教授法を反映している~\citep{kodaly1971folk, orff1978schulwerk}。
+
+% ============================================================
+% SECTION 3: THE ENCODING
+% ============================================================
+\section{エンコーディング方式}
+
+\np{} の曲は、スペースで区切られた \texttt{NOTE:word} ペアとしてエンコードされる：
+
+\notesong{C:Twin- C:-kle G:twin- G:-kle A:lit- A:-tle G:star,\\
+F:how F:I E:won- E:-der D:what D:you C:are.}
+
+各トークンは音名（\texttt{C}、\texttt{G}、\texttt{A}、\texttt{F\#} など）がコロンで歌詞音節とペアリングされている。ハイフンは音節の継続を示す：末尾ハイフン（\texttt{Twin-}）は次のトークンが同じ単語の続きであることを、先頭ハイフン（\texttt{-kle}）は継続部分であることを示す。
+
+\begin{card}
+\cardtitle{設計特性}
+\begin{itemize}
+  \item \textbf{人間可読}：音楽家がエンコーディングを直接読める。
+  \item \textbf{URL安全}：曲をURLパラメータとして \np{} に渡せる。
+  \item \textbf{フォーク可能}：コピー、編集、共有——テキスト文字列における民謡のプロセス。
+  \item \textbf{ミニマル}：音価なし、強弱なし、テンポなし。三つとも演奏者が制御する。
+\end{itemize}
+\end{card}
+
+リズム情報の欠如は意図的である。口承伝統において、リズムは演奏者に属し、楽譜には属さない~\citep{lomax1968folk}。エンコーディングは\emph{何を}演奏するかを捉え、演奏者が\emph{どう}演奏するかを決定する。
+
+% ============================================================
+% SECTION 4: A CATALOG
+% ============================================================
+\section{演奏可能な旋律カタログ}
+
+複数の伝統から民謡コレクションを調査し、\np{} の2オクターブグリッドに最適化された旋律を選択した。選択基準：音域 $\leq$\,15半音、ペンタトニックまたは単純な全音階、文化的認知度。
+
+\begin{card}
+\cardtitle{ペンタトニック（5音）}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{曲} & \textbf{起源} & \textbf{音域} \\
+\midrule
+Amazing Grace & アメリカ & P5+oct \\
+Auld Lang Syne & スコットランド & oct \\
+Arirang & 韓国 & oct \\
+Sakura & 日本 & m7 \\
+Mo Li Hua（茉莉花） & 中国 & oct \\
+Swing Low & 霊歌 & oct \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+\begin{card}
+\cardtitle{狭い音域（1オクターブ未満）}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{曲} & \textbf{起源} & \textbf{音域} \\
+\midrule
+Mary Had a Little Lamb & アメリカ & P5 \\
+Hot Cross Buns & イギリス & M3 \\
+Fr\`ere Jacques & フランス & M6 \\
+London Bridge & イギリス & P5 \\
+Korobeiniki & ロシア & oct \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+\begin{card}
+\cardtitle{旋法と全音階}
+\begin{tabularx}{\linewidth}{Xll}
+\toprule
+\textbf{曲} & \textbf{起源} & \textbf{音域} \\
+\midrule
+Greensleeves & イギリス & 10th \\
+Scarborough Fair & イギリス & oct \\
+Danny Boy & アイルランド & 10th \\
+Shenandoah & アメリカ & 10th \\
+Hava Nagila & イスラエル & oct \\
+\bottomrule
+\end{tabularx}
+\end{card}
+
+% ============================================================
+% SECTION 5: FOLK PROCESS AS VERSION CONTROL
+% ============================================================
+\section{民謡プロセスとしてのバージョン管理}
+
+国際民俗音楽評議会は、民謡プロセスの3つの特性を特定した：\emph{連続性}（現在と過去を結ぶ）、\emph{変異}（個々の演奏者の創造的衝動）、そして\emph{選択}（コミュニティがどの形態が存続するかを決定する）~\citep{karpeles1955definition}。
+
+\begin{accentcard}
+これらはソフトウェアのバージョン管理に直接対応する：
+
+\vspace{0.3em}
+\begin{tabularx}{\linewidth}{lX}
+\textbf{連続性} & \texttt{main} ブランチ \\
+\textbf{変異} & コミット、フォーク \\
+\textbf{選択} & マージ判断、採用 \\
+\end{tabularx}
+\end{accentcard}
+
+\np{} の曲エンコーディングはURLである。曲を共有することはリンクを共有すること。曲を改変することはテキスト文字列を編集して新しいリンクを共有すること。「口承伝統」はURLの伝統になる——旋律は記憶ではなくハイパーテキストを通じて伝播する。
+
+これは比喩ではない。Essen関連コード（ESAC）データベースは1982年に始まり、中国の\textit{数字譜}に着想を得たコンピュータフレンドリーな記譜法で約8,000のヨーロッパおよび中国の民謡を符号化した~\citep{schaffrath1995esac}。\np{} の \texttt{NOTE:word} フォーマットはこの伝統の直接的な子孫である：旋律をテキストとして符号化し、計算と伝達を可能にする。
+
+% ============================================================
+% SECTION 6: COMPUTATIONAL MUSICOLOGY
+% ============================================================
+\section{計算的側面}
+
+Passmoreらは民謡旋律を12音「アルファベット」からの進化的シーケンスとしてモデル化し、分子遺伝学から借用した配列アラインメント手法を10,062の日本とイギリスの旋律に適用した~\citep{passmore2023cultural}。彼らは、旋律への影響が小さい音の変化がより存続しやすいことを発見した——民謡が知られる簡潔さを好む選択圧力である。
+
+\begin{card}
+\cardtitle{これが \np{} にとって意味すること}
+
+民謡旋律が簡潔さに向かう進化的選択圧力を受けているなら、それらは制約のあるインターフェースで演奏可能にする特性に\emph{収斂}しつつある。QWERTYキーボードはピアノの劣った代替品ではない——民謡プロセスがすでに課している制約に一致する制約なのである。
+\end{card}
+
+Lomaxの歌唱計量学プロジェクトは1,026の社会からの5,776曲について37の演奏スタイルの側面を符号化し、演奏スタイル（旋律内容ではなく）が主要な文化的指標であることを発見した~\citep{lomax1968folk}。これは \np{} が音高を符号化しリズムを符号化しないという設計判断を支持する：文化的に意味のある変異は音符が\emph{いかに}演奏されるかに生じ、それはまさに演奏者が制御するものである。
+
+% ============================================================
+% SECTION 7: RELATED INSTRUMENTS
+% ============================================================
+\section{関連する楽器}
+
+\begin{card}
+\cardtitle{aQWERTYon}
+NYU Music Experience Design Labは、QWERTYキーを音階度数にマッピングするブラウザ楽器aQWERTYonを構築し、「間違った音がない」演奏を可能にした~\citep{hein2017aqwertyon}。\np{} は2つの点で異なる：\emph{半音階}マッピングを使用し（間違った音があり得、それには教育的価値がある）、音符を歌詞とペアリングする（曲が自らを教える）。
+\end{card}
+
+\begin{card}
+\cardtitle{ABC記譜法}
+ABC記譜法は民俗音楽エンコーディングのデファクトスタンダードであり、旋律をテキストで表現する~\citep{walshaw2011abc}。\texttt{abcjs}ライブラリはABCをブラウザ上のインタラクティブな楽譜にレンダリングする。\np{} のエンコーディングはより単純である——音価なし、小節線なし——なぜなら記譜システムではなく\emph{演奏スクリプト}だから：演奏者にどのキーを押すかを伝え、音楽がどう見えるかは伝えない。
+\end{card}
+
+\begin{card}
+\cardtitle{Tunepal}
+「演奏によるクエリ」方式で音楽家を13,290のアイルランド伝統曲に接続する音楽情報検索システム~\citep{duggan2009tunepal}。Tunepalは曲を見つけ、\np{} はそれを教える。両者は相補的である。
+\end{card}
+
+% ============================================================
+% SECTION 8: THE BARE-METAL FOLK INSTRUMENT
+% ============================================================
+\section{ベアメタルの民俗楽器}
+
+\np{} はブラウザだけでなく、ベアメタルでも動作する——AC Native OS上でPID~1として起動する987行のQuickJS移植版として~\citep{scudder2026os}。ベアメタルで \np{} を実行するノートパソコンは、文字通りの意味で民俗楽器である：曲を演奏するための単機能デバイスであり、オペレーティングシステムもデスクトップも邪魔もない。
+
+\begin{accentcard}
+融合は完了している：最も単純な利用可能な楽器で演奏されるよう設計された民謡が、最も単純なコンピュータ上で動作する——Linuxカーネル、フレームバッファ、そしてキーボード。
+\end{accentcard}
+
+% ============================================================
+% SECTION 9: FUTURE WORK
+% ============================================================
+\section{今後の課題}
+
+\begin{card}
+\begin{itemize}
+  \item \textbf{クラウドソース・エンコーディング}：\texttt{NOTE:word} エンコーディングの公開リポジトリ。URLとして投稿され、民謡そのもののようにバージョン管理される。
+  \item \textbf{異文化コレクション}：Essen、Roud、Lomaxアーカイブの旋律を \np{} フォーマットにエンコードする。許諾を得て帰属を明記する。
+  \item \textbf{適応的難易度}：演奏者がより簡単な曲をマスターするにつれて音域を段階的に広げる——コダーイ式の民謡レパートリー漸進法。
+  \item \textbf{マルチプレイヤー・セッション}：2人の \np{} 演奏者が同じ曲を演奏する。1人がメロディー、もう1人がハーモニー——アイルランドの伝統的な意味でのデジタル「セッション」。
+  \item \textbf{録音と共有}：演奏をオーディオとしてキャプチャし、エンコーディングURLとペアにして公開する——記録された口承伝統。
+\end{itemize}
+\end{card}
+
+% ============================================================
+% CONCLUSION CARD
+% ============================================================
+\section{結論}
+
+民謡は楽譜なし、録音なし、楽器なしで何世紀にもわたって存続してきた。存続したのは、記憶できるほど単純で、適応できるほど柔軟で、共有するに値するほど価値があったからである。
+
+これらの曲を一音ずつ教えるブラウザキーボードは、民謡の伝統からの逸脱ではない。それ\emph{は}民謡の伝統であり——手元にある楽器に再び適応したのだ。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
