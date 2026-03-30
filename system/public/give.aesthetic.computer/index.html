@@ -7467,7 +7467,7 @@
         </div>
       </div>
 
-      <div class="shop-section">
+      <div class="shop-section" id="shopSection" hidden>
         <div class="shop-header">
           <a href="https://shop.aesthetic.computer" class="shop-title" target="_blank">
             <span data-lang="en">shop</span>
@@ -9727,6 +9727,36 @@
       setCurrency('usd');
     }
 
+    const SHOP_PANEL_ENABLED = false;
+    let floatingGivesStarted = false;
+
+    // Server suspension state - set true only during real outages.
+    const SERVER_SUSPENDED = false;
+    const suspendedMessages = {
+      en: { offline: 'Servers offline - DigitalOcean suspended', help: 'Your support helps bring them back', give: 'give.aesthetic.computer' },
+      da: { offline: 'Servere offline - DigitalOcean suspenderet', help: 'Din støtte hjælper med at bringe dem tilbage', give: 'give.aesthetic.computer' },
+      de: { offline: 'Server offline - DigitalOcean gesperrt', help: 'Ihre Unterstützung hilft sie zurückzubringen', give: 'give.aesthetic.computer' },
+      es: { offline: 'Servidores sin conexión - DigitalOcean suspendido', help: 'Tu apoyo ayuda a restaurarlos', give: 'give.aesthetic.computer' },
+      zh: { offline: '服务器离线 - DigitalOcean 已暂停', help: '您的支持有助于恢复服务', give: 'give.aesthetic.computer' },
+    };
+    function renderSuspended(container, style = 'card') {
+      const msg = suspendedMessages[currentLang] || suspendedMessages.en;
+      if (style === 'card') {
+        container.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:0.6em;text-align:center;padding:1.5em;">
+            <div style="font-size:32px;line-height:1;opacity:0.6;">⚡</div>
+            <div style="color:var(--pink,#ff6b9d);font-size:13px;font-weight:bold;">${msg.offline}</div>
+            <div style="color:#888;font-size:12px;">${msg.help}</div>
+            <a href="https://give.aesthetic.computer" style="color:#ff6b9d;font-size:12px;margin-top:0.3em;">${msg.give} -></a>
+          </div>`;
+      } else if (style === 'inline') {
+        container.innerHTML = `
+          <div style="color:#888;font-size:12px;padding:0.8em;">
+            <span style="color:var(--pink,#ff6b9d);">⚡ ${msg.offline}</span> - <a href="https://give.aesthetic.computer" style="color:#ff6b9d;">${msg.give}</a>
+          </div>`;
+      }
+    }
+
     function setLanguage(lang) {
       currentLang = lang;
       // Remove all language classes and add current one
@@ -9826,6 +9856,7 @@
       const btn = widget.querySelector('.gift-btn');
       const monthlyCheck = widget.querySelector('.monthly-checkbox');
       const monthlyLabel = widget.querySelector('.gift-monthly-check');
+      if (!slider || !amountEl || !btn) return;
       // Initialize isMonthly from A/B/C test state (for USD) or checkbox state
       let isMonthly = currency === 'usd' && typeof abcTestIsMonthly !== 'undefined' ? abcTestIsMonthly : (monthlyCheck?.checked || false);
 
@@ -10603,6 +10634,11 @@
       }
     };
 
+    if (!SHOP_PANEL_ENABLED) {
+      document.getElementById('shopSection')?.setAttribute('hidden', '');
+      panelSync.markReady('shop');
+    }
+
     // Fetch shop products - rotating display with image cycling
     let shopProducts = [];
     let shopIndex = 0;
@@ -10639,6 +10675,7 @@
     }
 
     function renderShopMaintenance(container, detail = '') {
+      if (!SHOP_PANEL_ENABLED) return;
       if (SERVER_SUSPENDED) {
         renderSuspended(container, 'card');
         return;
@@ -10654,6 +10691,7 @@
     }
     
     async function loadShopProducts(isRetry = false) {
+      if (!SHOP_PANEL_ENABLED) return;
       if (shopLoaded) return; // Already loaded successfully
       
       const container = document.getElementById('shopProducts');
@@ -10700,6 +10738,7 @@
     
     // Also retry when shop section becomes visible (for mobile where it may be off-screen initially)
     function setupShopVisibilityRetry() {
+      if (!SHOP_PANEL_ENABLED) return;
       const shopSection = document.querySelector('.shop-section');
       if (!shopSection || shopLoaded) return;
       
@@ -10717,6 +10756,7 @@
     }
     
     function startShopCycle() {
+      if (!SHOP_PANEL_ENABLED) return;
       // Clear any existing intervals
       if (shopImageInterval) clearInterval(shopImageInterval);
       
@@ -10911,8 +10951,10 @@
         preloadImg.src = images[0];
       }
     }
-    setTimeout(loadShopProducts, 100);
-    setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
+    if (SHOP_PANEL_ENABLED) {
+      setTimeout(loadShopProducts, 100);
+      setTimeout(setupShopVisibilityRetry, 200); // Set up visibility observer
+    }
 
     // Load stats from metrics API
     async function loadStats() {
@@ -11211,7 +11253,6 @@
     }
     
     // Floating gives on jeffreys canvas
-    let floatingGivesStarted = false; // Global guard to prevent multiple instances
     function startFloatingGives(allGives) {
       // Only allow one instance of floating gives
       if (floatingGivesStarted) return;
@@ -11502,33 +11543,6 @@
 
     // Oven URL for webp generation (always use production oven)
     const OVEN_URL = 'https://oven.aesthetic.computer';
-
-    // Server suspension state — shown when DO services are down
-    const SERVER_SUSPENDED = true; // Set to false when DO is restored
-    const suspendedMessages = {
-      en: { offline: 'Servers offline — DigitalOcean suspended', help: 'Your support helps bring them back', give: 'give.aesthetic.computer' },
-      da: { offline: 'Servere offline — DigitalOcean suspenderet', help: 'Din støtte hjælper med at bringe dem tilbage', give: 'give.aesthetic.computer' },
-      de: { offline: 'Server offline — DigitalOcean gesperrt', help: 'Ihre Unterstützung hilft sie zurückzubringen', give: 'give.aesthetic.computer' },
-      es: { offline: 'Servidores sin conexión — DigitalOcean suspendido', help: 'Tu apoyo ayuda a restaurarlos', give: 'give.aesthetic.computer' },
-      zh: { offline: '服务器离线 — DigitalOcean 已暂停', help: '您的支持有助于恢复服务', give: 'give.aesthetic.computer' },
-    };
-    function renderSuspended(container, style = 'card') {
-      const msg = suspendedMessages[currentLang] || suspendedMessages.en;
-      if (style === 'card') {
-        container.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;gap:0.6em;text-align:center;padding:1.5em;">
-            <div style="font-size:32px;line-height:1;opacity:0.6;">⚡</div>
-            <div style="color:var(--pink,#ff6b9d);font-size:13px;font-weight:bold;">${msg.offline}</div>
-            <div style="color:#888;font-size:12px;">${msg.help}</div>
-            <a href="https://give.aesthetic.computer" style="color:#ff6b9d;font-size:12px;margin-top:0.3em;">${msg.give} →</a>
-          </div>`;
-      } else if (style === 'inline') {
-        container.innerHTML = `
-          <div style="color:#888;font-size:12px;padding:0.8em;">
-            <span style="color:var(--pink,#ff6b9d);">⚡ ${msg.offline}</span> — <a href="https://give.aesthetic.computer" style="color:#ff6b9d;">${msg.give}</a>
-          </div>`;
-      }
-    }
 
     // KidLisp count from dedicated endpoint
     async function loadKidlispCount() {
