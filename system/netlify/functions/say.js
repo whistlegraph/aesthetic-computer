@@ -94,6 +94,59 @@ async function generateOpenAI(text, gender, set, instructions) {
   };
 }
 
+// ElevenLabs voice mapping (premade voice IDs)
+const ELEVEN_VOICES = {
+  male: [
+    "SOYHLrjzK2X1ezoPC6cr", // Harry - Fierce Warrior
+    "IKne3meq5aSn9XLyUdCD", // Charlie - Deep, Confident, Energetic
+    "N2lVS1w4EtoT3dr4eOWO", // Callum - Husky Trickster
+    "TX3LPaxmHKxFdv7VOQHJ", // Liam - Energetic
+  ],
+  female: [
+    "EXAVITQu4vr4xnSDxMaL", // Sarah
+    "FGY2WhTYpPnrIDTdsKH5", // Laura
+    "cgSgspJ2msm6clMCkdW9", // Jessica
+  ],
+  neutral: [
+    "SAz9YHcvj6GT2YYXdXww", // River - Relaxed, Neutral
+    "cjVigY5qzO86Huf0OWal", // Eric
+    "bIHbv24MWmeRgasZH58o", // Will
+  ],
+};
+
+// Generate audio with ElevenLabs TTS
+async function generateElevenLabs(text, gender, set, scream) {
+  const voiceList = ELEVEN_VOICES[gender] || ELEVEN_VOICES.neutral;
+  const voiceId = voiceList[set % voiceList.length];
+
+  const voiceSettings = scream
+    ? { stability: 0.1, similarity_boost: 0.7, style: 1.0, use_speaker_boost: true }
+    : { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true };
+
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: {
+      "xi-api-key": process.env.ELEVENLABS_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: voiceSettings,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`ElevenLabs API error ${response.status}: ${err}`);
+  }
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    voiceId: `eleven-${voiceId.slice(0, 8)}`,
+  };
+}
+
 // Generate audio with Google Cloud TTS
 async function generateGoogle(text, gender, set, isSSML) {
   // Fetch GCP key from URL
@@ -163,12 +216,15 @@ exports.handler = async (event) => {
     const set = parseInt(body.voice?.split(":")[1]) || 0;
     const gender = body.voice?.split(":")[0]?.toLowerCase() || "neutral";
 
-    // Provider: "openai" (default), "google"
+    // Provider: "openai" (default), "google", "eleven"
     // Can be set via body.provider or defaults to openai
     const provider = body.provider || "openai";
 
     // Instructions for gpt-4o-mini-tts emotional/style control (OpenAI only)
     const instructions = provider === "openai" ? (body.instructions || null) : null;
+
+    // Scream mode for ElevenLabs (low stability, max style)
+    const scream = body.scream === true;
 
     // Cache bust: if true, skip cache lookup and regenerate
     const bustCache = body.bust === true;
@@ -183,7 +239,7 @@ exports.handler = async (event) => {
     }
 
     // Build voice identifier for cache key
-    const voiceSpec = `${provider}-${gender}-${set}`;
+    const voiceSpec = `${provider}-${gender}-${set}${scream ? "-scream" : ""}`;
     const cacheKey = getCacheKey(provider, voiceSpec, text, instructions);
 
     try {
@@ -213,6 +269,8 @@ exports.handler = async (event) => {
       let result;
       if (provider === "google") {
         result = await generateGoogle(text, gender, set, isSSML);
+      } else if (provider === "eleven") {
+        result = await generateElevenLabs(text, gender, set, scream);
       } else {
         result = await generateOpenAI(text, gender, set, instructions);
       }
