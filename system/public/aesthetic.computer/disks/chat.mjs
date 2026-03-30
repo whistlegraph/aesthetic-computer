@@ -213,6 +213,7 @@ let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
 let youtubeModalOpen = false; // Track if YouTube modal is open
 let youtubeModalVideoId = null; // Current video in modal
+let youtubeModalCleanup = null; // Remove modal listeners when the overlay closes
 let domApi = null; // Store dom API reference for modal
 let netPreload = null; // Store net.preload reference for YouTube loading
 let globalYoutubeThumbCache = null;
@@ -3949,26 +3950,21 @@ function openYoutubeModal(videoId) {
       ? document.getElementById("youtube-modal-overlay")
       : null;
     if (overlay) return;
-    youtubeModalOpen = false;
-    youtubeModalVideoId = null;
+    closeYoutubeModal();
   }
   
   youtubeModalOpen = true;
   youtubeModalVideoId = videoId;
   if (typeof globalThis !== "undefined") {
     globalThis.acYoutubeModalState = { open: true, videoId };
-    globalThis.acYoutubeModalClose = () => {
-      youtubeModalOpen = false;
-      youtubeModalVideoId = null;
-      if (globalThis.acYoutubeModalState) {
-        globalThis.acYoutubeModalState.open = false;
-        globalThis.acYoutubeModalState.videoId = null;
-      }
-    };
+    globalThis.acYoutubeModalClose = closeYoutubeModal;
+    globalThis.acCloseYoutubeModal = closeYoutubeModal;
   }
-  
-  domApi.html`
-    <style>
+
+  const styleTag = typeof document !== "undefined" && document.getElementById("youtube-modal-style")
+    ? ""
+    : `
+    <style id="youtube-modal-style">
       #youtube-modal-overlay {
         position: fixed;
         top: 0;
@@ -4037,10 +4033,13 @@ function openYoutubeModal(videoId) {
         margin-top: 16px;
         font-family: system-ui, sans-serif;
       }
-    </style>
-    <div id="youtube-modal-overlay" onclick="if(event.target.id === 'youtube-modal-overlay' || event.target.id === 'youtube-modal-tap-hint') { window.acCloseYoutubeModal && window.acCloseYoutubeModal(); }">
+    </style>`;
+
+  domApi.html`
+    ${styleTag}
+    <div id="youtube-modal-overlay">
       <div id="youtube-modal-content">
-        <button id="youtube-modal-close" onclick="window.acCloseYoutubeModal && window.acCloseYoutubeModal();">&times;</button>
+        <button id="youtube-modal-close" type="button" aria-label="Close YouTube video">&times;</button>
         <iframe 
           src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -4049,31 +4048,62 @@ function openYoutubeModal(videoId) {
       </div>
       <div id="youtube-modal-tap-hint">tap outside to close</div>
     </div>
-    <script>
-      window.acCloseYoutubeModal = function() {
-        const overlay = document.getElementById('youtube-modal-overlay');
-        if (overlay) overlay.remove();
-        if (window.acYoutubeModalClose) window.acYoutubeModalClose();
-        if (window.acYoutubeModalState) {
-          window.acYoutubeModalState.open = false;
-          window.acYoutubeModalState.videoId = null;
-        }
-      };
-      document.addEventListener('keydown', function ytEscHandler(e) {
-        if (e.key === 'Escape') {
-          window.acCloseYoutubeModal();
-          document.removeEventListener('keydown', ytEscHandler);
-        }
-      });
-    </script>
   `;
+
+  const overlay = typeof document !== "undefined"
+    ? document.getElementById("youtube-modal-overlay")
+    : null;
+  const closeButton = typeof document !== "undefined"
+    ? document.getElementById("youtube-modal-close")
+    : null;
+  const tapHint = typeof document !== "undefined"
+    ? document.getElementById("youtube-modal-tap-hint")
+    : null;
+
+  if (!overlay || !closeButton) {
+    closeYoutubeModal();
+    return;
+  }
+
+  youtubeModalCleanup?.();
+
+  const closeFromPointer = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeYoutubeModal();
+  };
+
+  const closeFromOverlay = (event) => {
+    if (event.target !== overlay && event.target !== tapHint) return;
+    closeFromPointer(event);
+  };
+
+  overlay.addEventListener("pointerup", closeFromOverlay);
+  closeButton.addEventListener("pointerup", closeFromPointer);
+
+  youtubeModalCleanup = () => {
+    overlay.removeEventListener("pointerup", closeFromOverlay);
+    closeButton.removeEventListener("pointerup", closeFromPointer);
+    youtubeModalCleanup = null;
+  };
 }
 
 // 📺 Close YouTube modal
 function closeYoutubeModal() {
+  youtubeModalCleanup?.();
   youtubeModalOpen = false;
   youtubeModalVideoId = null;
-  // The DOM cleanup happens via the onclick/escape handlers in the HTML
+  if (typeof document !== "undefined") {
+    document.getElementById("youtube-modal-overlay")?.remove();
+  }
+  if (typeof globalThis !== "undefined") {
+    globalThis.acYoutubeModalClose = closeYoutubeModal;
+    globalThis.acCloseYoutubeModal = closeYoutubeModal;
+    if (globalThis.acYoutubeModalState) {
+      globalThis.acYoutubeModalState.open = false;
+      globalThis.acYoutubeModalState.videoId = null;
+    }
+  }
 }
 
 function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypefaceName, defaultRowHeight) {

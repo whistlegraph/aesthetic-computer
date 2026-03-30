@@ -107,10 +107,14 @@ function recordCall(name, ms, status, path, method, error) {
   }
 }
 
+function captureRawBody(req, _res, buf) {
+  if (buf?.length) req.rawBody = Buffer.from(buf);
+}
+
 // --- Body parsing ---
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(express.raw({ type: "*/*", limit: "50mb" }));
+app.use(express.json({ limit: "50mb", verify: captureRawBody }));
+app.use(express.urlencoded({ extended: true, limit: "50mb", verify: captureRawBody }));
+app.use(express.raw({ type: "*/*", limit: "50mb", verify: captureRawBody }));
 
 // --- CORS (mirrors Netlify _headers) ---
 app.use((req, res, next) => {
@@ -206,7 +210,7 @@ function toEvent(req) {
     httpMethod: req.method,
     headers: req.headers,
     body,
-    rawBody: req.body,
+    rawBody: req.rawBody ?? req.body,
     queryStringParameters: req.query || {},
     path: req.path,
     rawUrl: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
@@ -309,14 +313,51 @@ async function handleFunctionResolved(req, res) {
 import { execFile } from "child_process";
 import { createHmac, timingSafeEqual } from "crypto";
 const DEPLOY_SECRET = process.env.DEPLOY_SECRET || "";
+const DEPLOY_BRANCHES = (process.env.DEPLOY_BRANCHES || process.env.DEPLOY_BRANCH || "main,master")
+  .split(",")
+  .map((branch) => branch.trim())
+  .filter(Boolean);
+const DEFAULT_DEPLOY_BRANCH = DEPLOY_BRANCHES[0] || "main";
 let deployInProgress = false;
+let queuedDeployBranch = null;
+
+function normalizeDeployBranch(branch) {
+  if (typeof branch !== "string") return null;
+  const trimmed = branch.trim();
+  if (!trimmed) return null;
+  if (!/^[A-Za-z0-9._/-]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function branchFromRef(ref) {
+  if (typeof ref !== "string") return null;
+  const prefix = "refs/heads/";
+  if (!ref.startsWith(prefix)) return null;
+  return normalizeDeployBranch(ref.slice(prefix.length));
+}
+
+function requestedDeployBranch(req) {
+  const fromRef = branchFromRef(req.body?.ref);
+  if (fromRef) return fromRef;
+  return (
+    normalizeDeployBranch(req.query.branch) ||
+    normalizeDeployBranch(req.headers["x-deploy-branch"]) ||
+    DEFAULT_DEPLOY_BRANCH
+  );
+}
 
 function verifyDeploy(req) {
   // GitHub HMAC signature (webhook secret)
   const sig = req.headers["x-hub-signature-256"];
   if (sig && DEPLOY_SECRET) {
+    const rawBody = Buffer.isBuffer(req.rawBody)
+      ? req.rawBody
+      : Buffer.from(
+          typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {}),
+          "utf8",
+        );
     const hmac = createHmac("sha256", DEPLOY_SECRET)
-      .update(JSON.stringify(req.body))
+      .update(rawBody)
       .digest("hex");
     const expected = `sha256=${hmac}`;
     if (sig.length === expected.length &&
@@ -329,33 +370,65 @@ function verifyDeploy(req) {
   return plain === DEPLOY_SECRET;
 }
 
+function runDeploy(branch) {
+  deployInProgress = true;
+  console.log(`[deploy] starting branch=${branch}`);
+
+  execFile(
+    "/opt/ac/lith/webhook.sh",
+    {
+      timeout: 120000,
+      env: { ...process.env, DEPLOY_BRANCH: branch },
+    },
+    (err, stdout, stderr) => {
+      deployInProgress = false;
+
+      if (stdout?.trim()) {
+        console.log(`[deploy][${branch}] ${stdout.trim()}`);
+      }
+      if (stderr?.trim()) {
+        console.error(`[deploy][${branch}] ${stderr.trim()}`);
+      }
+      if (err) {
+        console.error(`[deploy] failed for ${branch}:`, err.message);
+      }
+
+      if (queuedDeployBranch) {
+        const nextBranch = queuedDeployBranch;
+        queuedDeployBranch = null;
+        setImmediate(() => runDeploy(nextBranch));
+      }
+    },
+  );
+}
+
 app.post("/lith/deploy", (req, res) => {
   if (!DEPLOY_SECRET || !verifyDeploy(req)) {
     return res.status(401).send("Unauthorized");
   }
 
-  // Only deploy main branch pushes (GitHub sends ref in payload)
+  const githubEvent = req.headers["x-github-event"];
+  if (githubEvent === "ping") {
+    return res.send("pong");
+  }
+  if (githubEvent && githubEvent !== "push") {
+    return res.send(`Ignored GitHub event: ${githubEvent}`);
+  }
+
   const ref = req.body?.ref;
-  if (ref && ref !== "refs/heads/main") {
-    return res.send(`Ignored non-main push: ${ref}`);
+  const branch = requestedDeployBranch(req);
+  if (!DEPLOY_BRANCHES.includes(branch)) {
+    const detail = ref || branch;
+    return res.send(`Ignored non-deploy branch: ${detail}`);
   }
 
   if (deployInProgress) {
-    return res.status(429).send("Deploy already in progress");
+    queuedDeployBranch = branch;
+    return res.status(202).send(`Deploy queued for ${branch}`);
   }
 
-  deployInProgress = true;
-  res.send("Deploy started");
-
-  // Run async — don't block the event loop or the HTTP response
-  execFile("/opt/ac/lith/webhook.sh", { timeout: 120000 }, (err, stdout, stderr) => {
-    deployInProgress = false;
-    if (err) {
-      console.error("[deploy] failed:", err.message, stderr);
-    } else {
-      console.log("[deploy]", stdout);
-    }
-  });
+  runDeploy(branch);
+  res.status(202).send(`Deploy started for ${branch}`);
 });
 
 // --- Routes ---
