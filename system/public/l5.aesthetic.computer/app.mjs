@@ -1,4 +1,4 @@
-import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs";
+import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs?v=20260330-mobile-stack";
 
 const AC_ORIGIN = "https://aesthetic.computer";
 
