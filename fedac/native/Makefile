@@ -77,6 +77,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/color.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
+        $(SRCDIR)/usb-midi.c \
         $(SRCDIR)/wifi.c \
         $(SRCDIR)/tts.c \
         $(SRCDIR)/ws-client.c \

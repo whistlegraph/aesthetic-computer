@@ -22,7 +22,14 @@ for (const input of pieces) {
 
   const compiler = new Compiler();
   const wasmBytes = compiler.compile(source);
-  const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+  const mathImports = {
+    math: {
+      sin: (x) => Math.fround(Math.sin(x)),
+      cos: (x) => Math.fround(Math.cos(x)),
+      random: () => Math.fround(Math.random()),
+    },
+  };
+  const { instance } = await WebAssembly.instantiate(wasmBytes, mathImports);
   instance.exports.paint(WIDTH, HEIGHT, 0);
 
   const mem = new Uint8Array(instance.exports.memory.buffer);
