@@ -3,6 +3,7 @@
 // heartbeats, log upload, and remote command reception.
 
 #include "machines.h"
+#include "drm-display.h"
 #include "swank-bridge.h"
 
 #include <stdio.h>

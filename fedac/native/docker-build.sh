@@ -107,7 +107,7 @@ make -j$(nproc) CC=gcc BUILDDIR="$BUILD" USE_SDL=1 \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
-[ -f "$BUILD/ac-native" ] || { err "Binary compilation failed"; tail -30 "$BUILD/.make.log"; exit 1; }
+[ -f "$BUILD/ac-native" ] || { tail -60 "$BUILD/.make.log" >&2; err "Binary compilation failed"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 
 # CL build happens after initramfs (step 2) — see below
