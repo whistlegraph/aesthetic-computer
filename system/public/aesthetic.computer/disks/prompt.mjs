@@ -5186,45 +5186,100 @@ function paint($) {
     osBtn = null;
   }
 
-  // 💻 Blank laptop ad — minimal, dark, monochrome
+  // 💻 Blank laptop ad — loud, color-cycling bumper
   if (topRightBtnChoice === "blank" && showLoginCurtain) {
     const t = performance.now() / 1000;
     const btnPaddingTop = 3;
     const btnPaddingRight = 3;
-
-    const blankBtnText = "Need a laptop?";
+    const btnGap = 5;
+    const charWidth = 6;
+    const blankBtnText = "AC Laptop $128";
+    const blankBtnLabel = `  ${blankBtnText}  `;
     const blankBtnY = btnPaddingTop;
-    const blankBtnX = screen.width - blankBtnText.length * 6 - 12 - btnPaddingRight;
+    const blankBtnX = screen.width - blankBtnLabel.length * charWidth - btnGap * 2 - btnPaddingRight;
 
     if (!blankAdBtn) {
-      blankAdBtn = new $.ui.TextButton(blankBtnText, { x: blankBtnX, y: blankBtnY });
+      blankAdBtn = new $.ui.TextButton(blankBtnLabel, { x: blankBtnX, y: blankBtnY }, undefined, btnGap);
     } else {
-      blankAdBtn.reposition({ x: blankBtnX, y: blankBtnY }, blankBtnText);
+      blankAdBtn.reposition({ x: blankBtnX, y: blankBtnY }, blankBtnLabel);
     }
 
     const btnBox = blankAdBtn?.btn?.box;
     if (btnBox) {
       const isDown = blankAdBtn.btn.down;
       const isHover = blankAdBtn.btn.over && !isDown;
+      const adHslToRgb = (h, s, l) => {
+        h /= 360;
+        s /= 100;
+        l /= 100;
+        let r, g, b;
+        if (s === 0) {
+          r = g = b = l;
+        } else {
+          const hue2rgb = (p, q, tt) => {
+            if (tt < 0) tt += 1;
+            if (tt > 1) tt -= 1;
+            if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+            if (tt < 1 / 2) return q;
+            if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+            return p;
+          };
+          const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+          const p = 2 * l - q;
+          r = hue2rgb(p, q, h + 1 / 3);
+          g = hue2rgb(p, q, h);
+          b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+      };
 
-      // Subtle pulse between dark grays
-      const pulse = Math.sin(t * 1.5) * 0.5 + 0.5;
-      let bgR = Math.floor(20 + pulse * 15);
-      let bgG = bgR;
-      let bgB = bgR;
+      const hue = (t * (isHover ? 130 : 90)) % 360;
+      const pulse = sin(t * (isHover ? 8 : 5)) * 0.5 + 0.5;
+      const fillColor = isDown
+        ? [25, 20, 15]
+        : adHslToRgb(hue, 92, 42 + pulse * (isHover ? 16 : 10));
+      const stripeColor = adHslToRgb((hue + 90) % 360, 100, 55 + pulse * 12);
+      const glowColor = adHslToRgb((hue + 180) % 360, 100, 72);
+      const outlineColor = isDown
+        ? [255, 245, 130]
+        : adHslToRgb((hue + 210) % 360, 100, isHover ? 84 : 72);
 
-      if (isDown) { bgR = bgG = bgB = 60; }
-      else if (isHover) { bgR = bgG = bgB = 45; }
+      ink(...fillColor).box(btnBox, "fill");
+      ink(stripeColor[0], stripeColor[1], stripeColor[2], 180).box(btnBox.x + 1, btnBox.y + 1, btnBox.w - 2, 3, "fill");
+      ink(glowColor[0], glowColor[1], glowColor[2], 110).box(btnBox.x + 1, btnBox.y + btnBox.h - 4, btnBox.w - 2, 2, "fill");
+      ink(...outlineColor).box(btnBox, "outline");
+      ink(glowColor[0], glowColor[1], glowColor[2], isHover ? 170 : 110).box(btnBox.x + 1, btnBox.y + 1, btnBox.w - 2, btnBox.h - 2, "outline");
 
-      ink(bgR, bgG, bgB).box(btnBox, "fill");
+      const ornamentChars = "<>[]/\\\\*+=";
+      const ornamentCount = Math.max(2, Math.floor((btnBox.w - 8) / charWidth));
+      const ornamentShift = Math.floor(t * (isHover ? 18 : 10));
+      const ornamentY = btnBox.y + 6;
+      for (let i = 0; i < ornamentCount; i++) {
+        const char = ornamentChars[(i + ornamentShift) % ornamentChars.length];
+        const wobble = Math.round(sin(t * 6 + i * 0.9) * (isHover ? 2 : 1));
+        const ornamentColor = adHslToRgb((hue + i * 18) % 360, 100, 66);
+        ink(ornamentColor[0], ornamentColor[1], ornamentColor[2], isHover ? 95 : 72).write(char, {
+          x: btnBox.x + 4 + i * charWidth,
+          y: ornamentY + wobble,
+        });
+      }
 
-      // Thin outline — faint white
-      const outlineAlpha = Math.floor(60 + pulse * 40);
-      ink(255, 255, 255, outlineAlpha).box(btnBox, "outline");
+      const titleStartX = Math.round(btnBox.x + (btnBox.w - blankBtnText.length * charWidth) / 2);
+      const titleY = btnBox.y + 5;
+      const shadowY = titleY + (isDown ? 0 : 1);
 
-      // Text
-      const textBright = isDown ? 180 : (isHover ? 160 : Math.floor(100 + pulse * 40));
-      ink(textBright, textBright, textBright).write(blankBtnText, { x: btnBox.x + 4, y: btnBox.y + 4 });
+      blankBtnText.split("").forEach((char, i) => {
+        const phase = t * (isHover ? 10 : 7) + i * 0.85;
+        const shakeX = isDown ? 0 : Math.round(sin(phase) * (isHover ? 2 : 1));
+        const shakeY = isDown ? 1 : Math.round(cos(phase * 1.3) * (isHover ? 2 : 1));
+        const letterX = titleStartX + i * charWidth + shakeX;
+        const letterHue = (hue + i * 20 + pulse * 30) % 360;
+        const letterColor = isDown
+          ? [255, 240, 90]
+          : adHslToRgb(letterHue, 100, isHover ? 90 : 82);
+        ink(10, 0, 30, isHover ? 200 : 150).write(char, { x: letterX + 1, y: shadowY + shakeY });
+        ink(...letterColor).write(char, { x: letterX, y: titleY + shakeY });
+      });
     }
     $.needsPaint();
   } else {
