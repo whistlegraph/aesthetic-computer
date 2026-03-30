@@ -97,7 +97,7 @@ function startFight() {
   phase = "fight";
   if (isDueling() && !me) spawnDuelists();
   // Fight start sound — short rising tone
-  synth?.({ type: "square", tone: 440, volume: 0.15, attack: 0.01, decay: 0.15, duration: 0.2 });
+  synth?.({ type: "square", tone: 440, volume: 0.7, attack: 0.01, decay: 0.15, duration: 0.2 });
 }
 
 function endRound(winnerHandle) {
@@ -107,9 +107,9 @@ function endRound(winnerHandle) {
   // Death sound
   const won = winnerHandle === myHandle;
   if (won) {
-    synth?.({ type: "triangle", tone: 660, volume: 0.2, attack: 0.01, decay: 0.3, duration: 0.35 });
+    synth?.({ type: "triangle", tone: 660, volume: 0.8, attack: 0.01, decay: 0.3, duration: 0.35 });
   } else {
-    synth?.({ type: "sawtooth", tone: 120, volume: 0.15, attack: 0.01, decay: 0.4, duration: 0.5 });
+    synth?.({ type: "sawtooth", tone: 120, volume: 0.6, attack: 0.01, decay: 0.4, duration: 0.5 });
   }
 }
 
@@ -257,7 +257,7 @@ function sim() {
     countdownTimer--;
     // Tick each second
     if (countdownTimer > 0 && countdownTimer % 60 === 0) {
-      synth?.({ type: "sine", tone: 330, volume: 0.1, attack: 0.005, decay: 0.1, duration: 0.12 });
+      synth?.({ type: "sine", tone: 330, volume: 0.5, attack: 0.005, decay: 0.1, duration: 0.12 });
     }
     if (countdownTimer <= 0) startFight();
   }
@@ -286,7 +286,9 @@ function sim() {
       opponent.x += (odx / dist) * MOVE_SPEED * 0.7;
       opponent.y += (ody / dist) * MOVE_SPEED * 0.7;
     }
-    if (opponent.fireTimer <= 0) {
+    const dummyMoving = Math.abs(opponent.targetX - opponent.x) > 2 || Math.abs(opponent.targetY - opponent.y) > 2;
+    const theirBulletOut = bullets.some((b) => b.owner === "them");
+    if (opponent.fireTimer <= 0 && !dummyMoving && !theirBulletOut) {
       opponent.fireTimer = FIRE_INTERVAL;
       const { nx, ny } = norm(me.x - opponent.x, me.y - opponent.y);
       bullets.push({
@@ -319,16 +321,18 @@ function sim() {
     }
   }
 
-  // Auto-fire toward opponent
+  // Auto-fire toward opponent (one bullet at a time)
   if (me.alive) {
     me.fireTimer--;
-    if (me.fireTimer <= 0 && opponent) {
+    const myBulletOut = bullets.some((b) => b.owner === "me");
+    const meMoving = Math.abs(me.targetX - me.x) > 2 || Math.abs(me.targetY - me.y) > 2;
+    if (me.fireTimer <= 0 && opponent && !myBulletOut && !meMoving) {
       me.fireTimer = FIRE_INTERVAL;
       const { nx, ny } = norm(opponent.x - me.x, opponent.y - me.y);
       const bx = me.x + nx * 6;
       const by = me.y + ny * 6;
       bullets.push({ x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED, owner: "me" });
-      synth?.({ type: "square", tone: 800, volume: 0.06, attack: 0.001, decay: 0.06, duration: 0.07 });
+      synth?.({ type: "square", tone: 800, volume: 0.35, attack: 0.001, decay: 0.06, duration: 0.07 });
       server?.send("duel:fire", {
         handle: myHandle, x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED,
       });
