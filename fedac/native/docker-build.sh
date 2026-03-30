@@ -103,7 +103,7 @@ if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
     cd "$NATIVE"
 fi
 
-make -j$(nproc) CC=gcc BUILDDIR="$BUILD" \
+make -j$(nproc) CC=gcc BUILDDIR="$BUILD" USE_SDL=1 \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
@@ -198,8 +198,9 @@ for lib in $(ldd "$BUILD/ac-native" 2>/dev/null | grep -oP '/\S+'); do
     [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$BASENAME"
 done
 
-# Mesa/GPU libs (ac-native dlopen's these)
-for lib in libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
+# SDL3 + Mesa/GPU libs
+for lib in libSDL3.so.0 \
+    libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
     libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0 \
     libdrm_intel.so.1 libdrm_amdgpu.so.1; do
     REAL=$(readlink -f "/lib64/$lib" 2>/dev/null)
