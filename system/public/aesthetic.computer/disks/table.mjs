@@ -11,6 +11,11 @@ const BLK = [40, 40, 50];
 const CARD_W = 28;
 const CARD_H = 38;
 
+// Chip constants
+const CHIP_R = 6;
+const CHIP_COLOR = [210, 60, 60];
+const CHIP_EDGE = [180, 45, 45];
+
 // Table size (fixed geography, larger than screen)
 const TABLE_W = 480;
 const TABLE_H = 320;
@@ -31,29 +36,62 @@ let tableCards = [];
 let deck = []; // remaining card indices
 let deckSeed = 0;
 
+// Chips on the table: { id, x, y, dragger: handle|null }
+let tableChips = [];
+let chipIdCounter = 0;
+
 // Deck position on table (fixed)
 const DECK_X = Math.floor(TABLE_W / 2 - CARD_W / 2);
 const DECK_Y = Math.floor(TABLE_H / 2 - CARD_H / 2);
+
+// Chip pile position (to the right of deck)
+const CHIP_PILE_X = DECK_X + CARD_W + 20;
+const CHIP_PILE_Y = DECK_Y + Math.floor(CARD_H / 2);
 
 // Camera (viewport offset into table)
 let camX = 0, camY = 0;
 let sw = 0, sh = 0;
 
-// Local drag state
-let dragging = null; // index into tableCards
+// Local drag state — "card" or "chip" + index
+let dragType = null; // "card" | "chip" | null
+let dragging = null; // index into tableCards or tableChips
 let dragOffX = 0, dragOffY = 0;
 let hoverIdx = -1; // index into tableCards
+let hoverChipIdx = -1; // index into tableChips
 
 // Pan state
 let panning = false;
 let panStartX = 0, panStartY = 0;
 let panCamStartX = 0, panCamStartY = 0;
 
+// Elastic snap constants
+const SNAP_STRENGTH = 0.15;
+const SNAP_MARGIN = 10; // pixels of allowed overscroll before snap
+
 // Deck hit zone (table space, slightly larger than card for easy drop)
 const DECK_PAD = 6;
 function overDeck(tx, ty) {
   return tx >= DECK_X - DECK_PAD && tx < DECK_X + CARD_W + DECK_PAD &&
          ty >= DECK_Y - DECK_PAD && ty < DECK_Y + CARD_H + DECK_PAD;
+}
+
+// Chip pile hit zone
+const CPILE_PAD = 4;
+function overChipPile(tx, ty) {
+  const dx = tx - CHIP_PILE_X;
+  const dy = ty - CHIP_PILE_Y;
+  return dx * dx + dy * dy <= (CHIP_R + CPILE_PAD) * (CHIP_R + CPILE_PAD);
+}
+
+// Find topmost chip at position
+function chipAtPos(tx, ty) {
+  for (let i = tableChips.length - 1; i >= 0; i--) {
+    const ch = tableChips[i];
+    const dx = tx - ch.x;
+    const dy = ty - ch.y;
+    if (dx * dx + dy * dy <= CHIP_R * CHIP_R) return i;
+  }
+  return -1;
 }
 
 // Seeded shuffle
@@ -72,8 +110,11 @@ function doShuffle(seed) {
   deckSeed = seed;
   deck = seededShuffle(Array.from({ length: 52 }, (_, i) => i), seed);
   tableCards = [];
+  tableChips = [];
+  dragType = null;
   dragging = null;
   hoverIdx = -1;
+  hoverChipIdx = -1;
 }
 
 // Convert screen coords to table coords
@@ -117,16 +158,17 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
 
   // UDP for low-latency drag position sync
   udpChannel = udp((type, content) => {
+    const d = typeof content === "string" ? JSON.parse(content) : content;
+    if (d.handle === myHandle) return;
+
     if (type === "table:drag") {
-      const d = typeof content === "string" ? JSON.parse(content) : content;
-      if (d.handle === myHandle) return;
-      // Find card on table and update its position
       const tc = tableCards.find((c) => c.idx === d.cardIdx);
-      if (tc) {
-        tc.x = d.x;
-        tc.y = d.y;
-        tc.dragger = d.handle;
-      }
+      if (tc) { tc.x = d.x; tc.y = d.y; tc.dragger = d.handle; }
+    }
+
+    if (type === "table:chipdrag") {
+      const ch = tableChips.find((c) => c.id === d.chipId);
+      if (ch) { ch.x = d.x; ch.y = d.y; ch.dragger = d.handle; }
     }
   });
 
@@ -138,11 +180,11 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
     }
 
     if (type === "left") {
-      // Release any card they were dragging
-      for (const c of tableCards) {
-        if (players[id] && c.dragger === players[id].handle) {
-          c.dragger = null;
-        }
+      // Release any card/chip they were dragging
+      const h = players[id]?.handle;
+      if (h) {
+        for (const c of tableCards) { if (c.dragger === h) c.dragger = null; }
+        for (const c of tableChips) { if (c.dragger === h) c.dragger = null; }
       }
       delete players[id];
       return;
@@ -160,23 +202,26 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
         cards: tableCards.map((c) => ({
           idx: c.idx, x: c.x, y: c.y, faceUp: c.faceUp, dragger: c.dragger,
         })),
+        chips: tableChips.map((c) => ({ id: c.id, x: c.x, y: c.y, dragger: c.dragger })),
       });
     }
 
     if (type === "table:state") {
       if (!players[id]) players[id] = { handle: msg.handle };
       // Sync table state from existing player
-      if (msg.cards && msg.cards.length > 0 && tableCards.length === 0) {
-        // Only accept if we have no cards yet (fresh join)
+      if ((msg.cards?.length > 0 || msg.chips?.length > 0) && tableCards.length === 0) {
         doShuffle(msg.seed);
-        // Remove cards that are on the table from the deck
-        for (const c of msg.cards) {
+        for (const c of (msg.cards || [])) {
           const di = deck.indexOf(c.idx);
           if (di >= 0) deck.splice(di, 1);
           tableCards.push({
             idx: c.idx, x: c.x, y: c.y,
             faceUp: c.faceUp, dragger: c.dragger,
           });
+        }
+        for (const ch of (msg.chips || [])) {
+          tableChips.push({ id: ch.id, x: ch.x, y: ch.y, dragger: ch.dragger });
+          if (ch.id >= chipIdCounter) chipIdCounter = ch.id + 1;
         }
       }
     }
@@ -226,6 +271,26 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
       const tc = tableCards.find((c) => c.idx === msg.cardIdx);
       if (tc) tc.faceUp = !tc.faceUp;
     }
+
+    // Chip events
+    if (type === "table:chipspawn") {
+      tableChips.push({ id: msg.chipId, x: msg.x, y: msg.y, dragger: null });
+    }
+
+    if (type === "table:chipgrab") {
+      const ch = tableChips.find((c) => c.id === msg.chipId);
+      if (ch) ch.dragger = msg.handle;
+    }
+
+    if (type === "table:chipdrop") {
+      const ch = tableChips.find((c) => c.id === msg.chipId);
+      if (ch) { ch.x = msg.x; ch.y = msg.y; ch.dragger = null; }
+    }
+
+    if (type === "table:chipreturn") {
+      const ci = tableChips.findIndex((c) => c.id === msg.chipId);
+      if (ci >= 0) tableChips.splice(ci, 1);
+    }
   });
 
   wipe(245, 240, 230);
@@ -236,15 +301,35 @@ function sim() {
 
   // Send drag position via UDP every 2 frames
   if (dragging !== null && frameCount % 2 === 0 && udpChannel?.connected) {
-    const c = tableCards[dragging];
-    if (c) {
-      udpChannel.send("table:drag", {
-        handle: myHandle,
-        cardIdx: c.idx,
-        x: c.x,
-        y: c.y,
-      });
+    if (dragType === "card") {
+      const c = tableCards[dragging];
+      if (c) {
+        udpChannel.send("table:drag", {
+          handle: myHandle, cardIdx: c.idx, x: c.x, y: c.y,
+        });
+      }
+    } else if (dragType === "chip") {
+      const ch = tableChips[dragging];
+      if (ch) {
+        udpChannel.send("table:chipdrag", {
+          handle: myHandle, chipId: ch.id, x: ch.x, y: ch.y,
+        });
+      }
     }
+  }
+
+  // Elastic snap-back when not panning
+  if (!panning) {
+    const minX = -SNAP_MARGIN;
+    const minY = -SNAP_MARGIN;
+    const maxX = Math.max(TABLE_W - sw + SNAP_MARGIN, minX);
+    const maxY = Math.max(TABLE_H - sh + SNAP_MARGIN, minY);
+
+    if (camX < minX) camX += (minX - camX) * SNAP_STRENGTH;
+    else if (camX > maxX) camX += (maxX - camX) * SNAP_STRENGTH;
+
+    if (camY < minY) camY += (minY - camY) * SNAP_STRENGTH;
+    else if (camY > maxY) camY += (maxY - camY) * SNAP_STRENGTH;
   }
 }
 
@@ -256,20 +341,48 @@ function act({ event: e, screen }) {
   if (e.is("move")) {
     const { tx, ty } = toTable(e.x, e.y);
     hoverIdx = cardAtPos(tx, ty);
+    hoverChipIdx = chipAtPos(tx, ty);
   }
 
-  // Touch: tap deck to draw, or grab a card
+  // Touch: tap deck/chip-pile to spawn, or grab a card/chip
   if (e.is("touch")) {
     const { tx, ty } = toTable(e.x, e.y);
 
     // Tap the deck to pull a card off
     if (overDeck(tx, ty) && deck.length > 0) {
       const cardIdx = deck.pop();
-      // Place just below the deck
       const x = DECK_X + (Math.random() - 0.5) * 30;
       const y = DECK_Y + CARD_H + 8;
       tableCards.push({ idx: cardIdx, x, y, faceUp: true, dragger: null });
       server?.send("table:draw", { handle: myHandle, cardIdx, x, y });
+      return;
+    }
+
+    // Tap the chip pile to spawn a chip
+    if (overChipPile(tx, ty)) {
+      const id = chipIdCounter++;
+      const x = CHIP_PILE_X + (Math.random() - 0.5) * 16;
+      const y = CHIP_PILE_Y + CHIP_R + 10;
+      tableChips.push({ id, x, y, dragger: null });
+      server?.send("table:chipspawn", { handle: myHandle, chipId: id, x, y });
+      return;
+    }
+
+    // Try to grab a chip (chips are on top of cards visually)
+    const ci = chipAtPos(tx, ty);
+    if (ci >= 0) {
+      const ch = tableChips[ci];
+      if (!ch.dragger || ch.dragger === myHandle) {
+        // Bring chip to top
+        const chip = tableChips.splice(ci, 1)[0];
+        tableChips.push(chip);
+        dragging = tableChips.length - 1;
+        dragType = "chip";
+        chip.dragger = myHandle;
+        dragOffX = tx - chip.x;
+        dragOffY = ty - chip.y;
+        server?.send("table:chipgrab", { handle: myHandle, chipId: chip.id });
+      }
       return;
     }
 
@@ -279,13 +392,14 @@ function act({ event: e, screen }) {
       const c = tableCards[idx];
       if (!c.dragger || c.dragger === myHandle) {
         dragging = bringToTop(idx);
+        dragType = "card";
         const nc = tableCards[dragging];
         nc.dragger = myHandle;
         dragOffX = tx - nc.x;
         dragOffY = ty - nc.y;
         server?.send("table:grab", { handle: myHandle, cardIdx: nc.idx });
       }
-    } else if (!overDeck(tx, ty)) {
+    } else {
       // Start panning (dragging empty space)
       panning = true;
       panStartX = e.x;
@@ -295,14 +409,21 @@ function act({ event: e, screen }) {
     }
   }
 
-  // Drag: move a card or pan the view
+  // Drag: move a card/chip or pan the view
   if (e.is("draw")) {
-    if (dragging !== null) {
+    if (dragging !== null && dragType === "card") {
       const { tx, ty } = toTable(e.x, e.y);
       const c = tableCards[dragging];
       if (c) {
-        c.x = tx - dragOffX;
-        c.y = ty - dragOffY;
+        c.x = Math.max(0, Math.min(TABLE_W - CARD_W, tx - dragOffX));
+        c.y = Math.max(0, Math.min(TABLE_H - CARD_H, ty - dragOffY));
+      }
+    } else if (dragging !== null && dragType === "chip") {
+      const { tx, ty } = toTable(e.x, e.y);
+      const ch = tableChips[dragging];
+      if (ch) {
+        ch.x = Math.max(CHIP_R, Math.min(TABLE_W - CHIP_R, tx - dragOffX));
+        ch.y = Math.max(CHIP_R, Math.min(TABLE_H - CHIP_R, ty - dragOffY));
       }
     } else if (panning) {
       camX = panCamStartX - (e.x - panStartX);
@@ -310,17 +431,15 @@ function act({ event: e, screen }) {
     }
   }
 
-  // Lift: drop card, return to deck, or stop panning
+  // Lift: drop card/chip, return to deck/pile, or stop panning
   if (e.is("lift")) {
     panning = false;
-    if (dragging !== null) {
+    if (dragging !== null && dragType === "card") {
       const c = tableCards[dragging];
       if (c) {
-        // Check if dropped on the deck — return it
         const cx = c.x + CARD_W / 2;
         const cy = c.y + CARD_H / 2;
         if (overDeck(cx, cy)) {
-          // Return card to deck and reshuffle
           const cardIdx = c.idx;
           tableCards.splice(dragging, 1);
           const seed = Date.now();
@@ -334,9 +453,26 @@ function act({ event: e, screen }) {
           });
         }
       }
-      dragging = null;
-      hoverIdx = -1;
+    } else if (dragging !== null && dragType === "chip") {
+      const ch = tableChips[dragging];
+      if (ch) {
+        // Drop on chip pile to remove
+        if (overChipPile(ch.x, ch.y)) {
+          const chipId = ch.id;
+          tableChips.splice(dragging, 1);
+          server?.send("table:chipreturn", { handle: myHandle, chipId });
+        } else {
+          ch.dragger = null;
+          server?.send("table:chipdrop", {
+            handle: myHandle, chipId: ch.id, x: ch.x, y: ch.y,
+          });
+        }
+      }
     }
+    dragType = null;
+    dragging = null;
+    hoverIdx = -1;
+    hoverChipIdx = -1;
   }
 
   // Press f to flip hovered card
@@ -447,16 +583,55 @@ function paint({ wipe, ink, box, write, line, screen }) {
     }
   }
 
+  // -- Chip pile (table space) --
+  const cps = toScreen(CHIP_PILE_X, CHIP_PILE_Y);
+  ink(170, 50, 50).circle(cps.sx, cps.sy, CHIP_R + 1, true);
+  ink(200, 60, 60).circle(cps.sx, cps.sy, CHIP_R, true);
+  ink(230, 80, 80).circle(cps.sx, cps.sy, CHIP_R - 2, false);
+
+  // -- Chips on table --
+  for (let i = 0; i < tableChips.length; i++) {
+    const ch = tableChips[i];
+    const s = toScreen(ch.x, ch.y);
+    const isHover = i === hoverChipIdx && dragging === null;
+    const isDrag = dragType === "chip" && i === dragging;
+    const isRemote = ch.dragger && ch.dragger !== myHandle;
+
+    // Shadow when dragged
+    if (isDrag || isRemote) {
+      ink(0, 0, 0, 30).circle(s.sx + 1, s.sy + 1, CHIP_R, true);
+    }
+
+    // Chip body
+    ink(...CHIP_EDGE).circle(s.sx, s.sy, CHIP_R, true);
+    ink(...CHIP_COLOR).circle(s.sx, s.sy, CHIP_R - 1, true);
+
+    // Highlight ring
+    if (isDrag) {
+      ink(120, 160, 200).circle(s.sx, s.sy, CHIP_R, false);
+    } else if (isRemote) {
+      ink(200, 140, 100).circle(s.sx, s.sy, CHIP_R, false);
+    } else if (isHover) {
+      ink(255, 220, 200).circle(s.sx, s.sy, CHIP_R, false);
+    }
+
+    // Handle label
+    if (ch.dragger) {
+      ink(255, 255, 255, 200).write(ch.dragger, {
+        x: s.sx - ch.dragger.length * 3,
+        y: s.sy - CHIP_R - 9,
+      });
+    }
+  }
+
   // -- HUD (screen space, on top) --
 
-  // Players list (top right)
-  const pList = [myHandle];
-  for (const p of Object.values(players)) pList.push(p.handle);
+  // Players list (top right) — just handles, no duplicates
+  const handles = new Set([myHandle]);
+  for (const p of Object.values(players)) handles.add(p.handle);
   let py = 4;
-  for (let i = 0; i < pList.length; i++) {
-    const h = pList[i];
-    const label = i === 0 ? h + " (you)" : h;
-    ink(220, 230, 215).write(label, { x: sw - label.length * 6 - 4, y: py });
+  for (const h of handles) {
+    ink(220, 230, 215).write(h, { x: sw - h.length * 6 - 4, y: py });
     py += 10;
   }
 
@@ -482,6 +657,13 @@ function paint({ wipe, ink, box, write, line, screen }) {
     }
   }
 
+  // Chips on minimap
+  for (const ch of tableChips) {
+    const mx = mmX + Math.floor(ch.x * mmScale);
+    const my = mmY + Math.floor(ch.y * mmScale);
+    ink(210, 60, 60).box(mx, my, 2, 2);
+  }
+
   // Deck on minimap
   if (deck.length > 0) {
     const mdx = mmX + Math.floor(DECK_X * mmScale);
@@ -496,15 +678,6 @@ function paint({ wipe, ink, box, write, line, screen }) {
   const vh = Math.floor(sh * mmScale);
   ink(255, 255, 255, 100).box(vx, vy, vw, vh, "outline");
 
-  // Hint
-  const hint = dragging !== null
-    ? "drop on deck to return"
-    : hoverIdx >= 0
-      ? "drag to move / f to flip"
-      : deck.length > 0
-        ? "tap deck to draw"
-        : "all cards on table";
-  ink(180, 195, 175).write(hint, { x: 4, y: 4 });
 }
 
 function meta() {
