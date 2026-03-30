@@ -308,10 +308,30 @@
         redir https://api.aesthetic.computer{uri} 301
     }
 
+    # --- legacy duckweedtri hosts ---
+    @duckweedaesthetic host duckweedtri.aesthetic.computer
+    handle @duckweedaesthetic {
+        redir https://aesthetic.computer{uri} 301
+    }
+
+    @duckweedprompt host duckweedtri.prompt.ac
+    handle @duckweedprompt {
+        redir https://aesthetic.computer{uri} 301
+    }
+
     # --- prompt.ac → aesthetic.computer (301 redirect) ---
     @promptac host prompt.ac
     handle @promptac {
         redir https://aesthetic.computer{uri} 301
+    }
+
+    @tryshared {
+        host l5.aesthetic.computer processing.aesthetic.computer
+        path /aesthetic.computer/*
+    }
+    handle @tryshared {
+        root * /opt/ac/system/public
+        file_server
     }
 
     # --- l5.aesthetic.computer ---
