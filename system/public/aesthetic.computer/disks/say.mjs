@@ -14,9 +14,10 @@
 let text = "";
 let lastSpoken = "";
 let status = "idle"; // idle, speaking, error
-let provider = "openai"; // "openai" or "google"
+let provider = "openai"; // "openai", "google", or "eleven"
 let gender = "neutral";
 let instructions = null;
+let scream = false;
 
 // 🥾 Boot
 function boot({ params, colon }) {
@@ -32,11 +33,16 @@ function boot({ params, colon }) {
     for (const part of parts) {
       if (part === "google") provider = "google";
       else if (part === "openai") provider = "openai";
+      else if (part === "eleven") provider = "eleven";
       else if (part === "male") gender = "male";
       else if (part === "female") gender = "female";
       else if (part === "scream") {
-        provider = "openai";
-        instructions = "Deliver this as a blood-curdling scream. Shriek at the absolute top of your lungs with your voice cracking. Pure primal rage. Do NOT speak normally — only scream, raw and unhinged.";
+        scream = true;
+        if (provider === "openai") {
+          instructions = "Deliver this as a blood-curdling scream. Shriek at the absolute top of your lungs with your voice cracking. Pure primal rage. Do NOT speak normally — only scream, raw and unhinged.";
+        } else if (provider !== "eleven") {
+          provider = "eleven"; // Default scream to ElevenLabs
+        }
       }
     }
     console.log(`Provider: ${provider}, Gender: ${gender}`);
@@ -50,8 +56,8 @@ function paint({ wipe, ink, write, screen }) {
   // Note: Top-left corner is reserved for prompt HUD label
   
   // Provider indicator (below HUD area)
-  const providerColor = instructions ? "red" : provider === "google" ? "cyan" : "lime";
-  const providerLabel = instructions ? `[${provider} SCREAM]` : `[${provider}]`;
+  const providerColor = scream ? "red" : provider === "eleven" ? "orange" : provider === "google" ? "cyan" : "lime";
+  const providerLabel = scream ? `[${provider} SCREAM]` : `[${provider}]`;
   ink(providerColor).write(providerLabel, { x: 6, y: 18 });
   
   // Instructions
@@ -86,11 +92,12 @@ function act({ event: e, speak }) {
     
     const voice = `${gender}:0`;
     
-    console.log(`🗣️ Speaking: "${text}" with ${provider}, voice: ${voice}${instructions ? " [SCREAM]" : ""}`);
+    console.log(`🗣️ Speaking: "${text}" with ${provider}, voice: ${voice}${scream ? " [SCREAM]" : ""}`);
     speak(text, voice, "cloud", {
       volume: 1,
-      provider: provider,
+      provider,
       instructions,
+      scream,
     });
   }
   

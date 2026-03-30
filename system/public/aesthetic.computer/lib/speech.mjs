@@ -201,6 +201,7 @@ function speak(words, voice, mode = "local", opts = {}) {
     };
 
     if (opts.instructions) payload.instructions = opts.instructions;
+    if (opts.scream) payload.scream = true;
 
     // Create a promise that resolves when the fetch completes
     let fetchResolve;
