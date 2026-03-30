@@ -367,8 +367,16 @@ function isCachedMediaValid(piece) {
     && piece?.ipfsMedia?.sourceHash === hashSource(piece.source);
 }
 
-// ─── IPFS Upload (self-hosted Kubo node on lith) ─────────────────────────────
+// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder) ───────────────
 const IPFS_API = process.env.IPFS_API_URL || "http://localhost:5001";
+const IPFS_SEEDER_URL = process.env.IPFS_SEEDER_URL || "http://137.184.237.166:5001";
+
+// Seed content to the oven IPFS node (fire-and-forget for faster gateway propagation)
+function seedToSecondaryNode(hash) {
+  fetch(`${IPFS_SEEDER_URL}/api/v0/pin/add?arg=${hash}`, { method: "POST", signal: AbortSignal.timeout(120000) })
+    .then(r => r.ok ? console.log(`🌱 Seeded ${hash.slice(0, 12)}... to oven`) : null)
+    .catch(() => {}); // Best-effort, don't block pipeline
+}
 
 async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
   const formData = new FormData();
@@ -384,6 +392,7 @@ async function uploadToIPFS(content, filename, mimeType, timeoutMs = 90000) {
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`IPFS upload failed: ${res.status}`);
     const result = await res.json();
+    seedToSecondaryNode(result.Hash);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
@@ -407,6 +416,7 @@ async function uploadJsonToIPFS(json, name, timeoutMs = 30000) {
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
     const result = await res.json();
+    seedToSecondaryNode(result.Hash);
     return formatIpfsUri(result.Hash);
   } catch (err) {
     clearTimeout(timeout);
