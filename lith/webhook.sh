@@ -15,23 +15,38 @@ set -euo pipefail
 
 REMOTE_DIR="/opt/ac"
 LOG_TAG="[lith-deploy]"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 
 log() { echo "$LOG_TAG $*"; }
+
+if ! [[ "$DEPLOY_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  log "invalid DEPLOY_BRANCH: $DEPLOY_BRANCH"
+  exit 2
+fi
 
 cd "$REMOTE_DIR"
 
 # Record HEAD before pull
 OLD_HEAD=$(git rev-parse HEAD)
+OLD_BRANCH=$(git branch --show-current)
 
 # Pull latest
-log "pulling..."
-git fetch origin main --quiet
-git reset --hard origin/main --quiet
+log "pulling branch $DEPLOY_BRANCH..."
+git fetch origin "$DEPLOY_BRANCH" --quiet
+
+if git show-ref --verify --quiet "refs/heads/$DEPLOY_BRANCH"; then
+  git checkout "$DEPLOY_BRANCH" --quiet
+else
+  git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH" --quiet
+fi
+
+git reset --hard "origin/$DEPLOY_BRANCH" --quiet
 
 NEW_HEAD=$(git rev-parse HEAD)
+NEW_BRANCH=$(git branch --show-current)
 
 if [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
-  log "already up to date ($NEW_HEAD)"
+  log "already up to date on $NEW_BRANCH ($NEW_HEAD)"
   exit 0
 fi
 
@@ -40,7 +55,7 @@ echo "$NEW_HEAD" > system/public/.commit-ref
 
 # Get list of changed files
 CHANGED=$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
-log "updated $OLD_HEAD -> $NEW_HEAD"
+log "updated $OLD_BRANCH/$OLD_HEAD -> $NEW_BRANCH/$NEW_HEAD"
 log "changed files:"
 echo "$CHANGED" | sed 's/^/  /'
 

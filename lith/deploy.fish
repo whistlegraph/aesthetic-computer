@@ -18,6 +18,8 @@ set DEFAULT_LITH_HOST "lith.aesthetic.computer"
 set DEFAULT_LITH_DROPLET_NAME "ac-lith"
 set TARGET_HOST $DEFAULT_LITH_HOST
 set TARGET_DROPLET_NAME $DEFAULT_LITH_DROPLET_NAME
+set LOCAL_BRANCH (git -C $REPO_ROOT branch --show-current 2>/dev/null)
+set TARGET_BRANCH $LOCAL_BRANCH
 
 if set -q LITH_HOST
     set TARGET_HOST $LITH_HOST
@@ -25,6 +27,14 @@ end
 
 if set -q LITH_DROPLET_NAME
     set TARGET_DROPLET_NAME $LITH_DROPLET_NAME
+end
+
+if set -q DEPLOY_BRANCH
+    set TARGET_BRANCH $DEPLOY_BRANCH
+end
+
+if test -z "$TARGET_BRANCH"
+    set TARGET_BRANCH main
 end
 
 function ssh_ok --argument host
@@ -124,30 +134,31 @@ end
 
 echo -e "$GREEN-> Connected to $TARGET_HOST.$NC"
 
-# Sync repo (git pull on remote)
-echo -e "$GREEN-> Pulling latest code...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git pull origin main"
+# Deploy from pushed git state only. This avoids production drift from local rsync overlays.
+echo -e "$GREEN-> Verifying origin/$TARGET_BRANCH...$NC"
+git -C $REPO_ROOT fetch origin $TARGET_BRANCH --quiet
+set ORIGIN_HEAD (git -C $REPO_ROOT rev-parse origin/$TARGET_BRANCH)
 
-# Overlay local working tree changes so deploys include uncommitted routing/frontend edits.
-echo -e "$GREEN-> Syncing local lith/ and system/ working tree...$NC"
-rsync -az --delete \
-    --exclude node_modules \
-    --exclude .env \
-    --exclude .DS_Store \
-    "$REPO_ROOT/lith/" \
-    $LITH_USER@$TARGET_HOST:$REMOTE_DIR/lith/
-rsync -az --delete \
-    --exclude node_modules \
-    --exclude .env \
-    --exclude .DS_Store \
-    --exclude .netlify \
-    --exclude .commit-ref \
-    "$REPO_ROOT/system/" \
-    $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/
+if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
+    set LOCAL_HEAD (git -C $REPO_ROOT rev-parse HEAD)
+    if test "$LOCAL_HEAD" != "$ORIGIN_HEAD"
+        echo -e "$RED x Local $TARGET_BRANCH is ahead of origin/$TARGET_BRANCH.$NC"
+        echo -e "$YELLOW   Push first. This deploy script no longer rsyncs uncommitted or unpushed code into production.$NC"
+        exit 1
+    end
+end
 
-# Write .commit-ref AFTER rsync so it reflects the actual deployed state
-echo -e "$GREEN-> Writing commit ref...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && git rev-parse HEAD > system/public/.commit-ref"
+echo -e "$GREEN-> Deploying branch $TARGET_BRANCH at $ORIGIN_HEAD...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cd $REMOTE_DIR && \
+git fetch origin $TARGET_BRANCH --quiet && \
+if git show-ref --verify --quiet refs/heads/$TARGET_BRANCH; then \
+  git checkout $TARGET_BRANCH --quiet; \
+else \
+  git checkout -B $TARGET_BRANCH origin/$TARGET_BRANCH --quiet; \
+fi && \
+git reset --hard origin/$TARGET_BRANCH --quiet && \
+git rev-parse HEAD > system/public/.commit-ref"
 
 # Upload env
 echo -e "$GREEN-> Uploading environment...$NC"
@@ -158,12 +169,15 @@ scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
 
 # Install deps
 echo -e "$GREEN-> Installing dependencies...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install && cd $REMOTE_DIR/system && npm install"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/lith && npm install --omit=dev && cd $REMOTE_DIR/system && npm install --omit=dev"
 
-# Upload Caddyfile
-echo -e "$GREEN-> Updating Caddy config...$NC"
-scp -i $SSH_KEY $SCRIPT_DIR/Caddyfile $LITH_USER@$TARGET_HOST:/etc/caddy/Caddyfile
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl reload caddy"
+# Install service file + Caddy config from the deployed checkout
+echo -e "$GREEN-> Updating service + Caddy config...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
+cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
+cp $REMOTE_DIR/lith/Caddyfile /etc/caddy/Caddyfile && \
+systemctl daemon-reload && \
+systemctl reload caddy"
 
 # Restart lith service
 echo -e "$GREEN-> Restarting lith...$NC"
