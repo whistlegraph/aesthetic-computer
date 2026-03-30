@@ -224,19 +224,18 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
       if (roster.length >= 2 && phase === "waiting") startCountdown();
     }
 
-    if (type === "duel:fire" && phase === "fight") {
+    if (type === "duel:fire" && phase === "fight" && msg.handle !== myHandle) {
       bullets.push({ x: msg.x, y: msg.y, vx: msg.vx, vy: msg.vy, owner: "them" });
     }
 
-    if (type === "duel:hit" && phase === "fight") {
+    if (type === "duel:hit" && phase === "fight" && msg.handle !== myHandle) {
       if (msg.victim === myHandle) {
         if (me) me.alive = false;
         endRound(msg.handle);
-        server.send("duel:roundover", { winner: msg.handle });
       }
     }
 
-    if (type === "duel:roundover" && phase === "fight") {
+    if (type === "duel:roundover" && phase === "fight" && msg.handle !== myHandle) {
       endRound(msg.winner);
       if (opponent && msg.winner === myHandle) opponent.alive = false;
       else if (me && msg.winner !== myHandle) me.alive = false;
