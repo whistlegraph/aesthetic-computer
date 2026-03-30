@@ -110,6 +110,13 @@
         reverse_proxy localhost:8888
     }
 
+    # --- ipfs.aesthetic.computer (self-hosted IPFS gateway) ---
+    @ipfs host ipfs.aesthetic.computer
+    handle @ipfs {
+        header Access-Control-Allow-Origin *
+        reverse_proxy localhost:8090
+    }
+
     # --- justanothersystem.org ---
     @wwwjas2 host www.justanothersystem.org
     handle @wwwjas2 {
