@@ -20,6 +20,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createServer as createHttpsServer } from "https";
 import { createServer as createHttpServer } from "http";
+import { resolveFunctionName } from "./route-resolution.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM = join(__dirname, "..", "system");
@@ -282,50 +283,9 @@ async function handleFunction(req, res) {
   }
 }
 
-// --- Route aliases (from netlify.toml where URL path ≠ function name) ---
-const ROUTE_ALIASES = {
-  "verify-password": "verify-builds-password",
-  "pack-telemetry": "bundle-telemetry",
-  "pack-telemetry-query": "bundle-telemetry-query",
-  "track-tape": "track-media",
-  "logo.png": "logo",
-};
-
-// --- Nested API routes (e.g. /api/chat/messages → chat-messages) ---
-const NESTED_ROUTES = {
-  "chat/messages": "chat-messages",
-  "chat/heart": "chat-heart",
-  "auth/cli-callback": "auth-cli-callback",
-  "news/toll": "news-toll",
-  // /api/news/* (posts, updates, submit, etc.) → news-api function
-  "news/": "news-api",
-};
-
 // Resolve function name from URL params
 function resolveFunction(req) {
-  const fn = req.params.fn;
-  const rest = req.params.rest;
-
-  // Check nested routes first (e.g., /api/chat/messages)
-  if (rest) {
-    const nested = `${fn}/${rest}`;
-    for (const [pattern, target] of Object.entries(NESTED_ROUTES)) {
-      if (nested === pattern || nested.startsWith(pattern)) {
-        return target;
-      }
-    }
-  }
-
-  // Check aliases
-  if (ROUTE_ALIASES[fn]) return ROUTE_ALIASES[fn];
-
-  // ff1 dynamic routing: /api/ff1-proxy, /api/ff1-pair, /api/ff1-devices
-  if (fn === "ff1" && rest) {
-    const subFn = `ff1-${rest.split("/")[0]}`;
-    if (functions[subFn]) return subFn;
-  }
-
-  return fn;
+  return resolveFunctionName(req.params.fn, req.params.rest, functions);
 }
 
 // --- Function handler (updated to use resolveFunction) ---
