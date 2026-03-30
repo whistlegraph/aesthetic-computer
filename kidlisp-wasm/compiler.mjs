@@ -99,11 +99,16 @@ class E {
   fneg() { this.b.push(0x8c); return this; }
   fsqrt(){ this.b.push(0x91); return this; }
   ffloor(){this.b.push(0x8e); return this; }
+  fmin() { this.b.push(0x96); return this; }
+  fmax() { this.b.push(0x97); return this; }
+  fceil(){ this.b.push(0x8d); return this; }
   // f32 comparison
-  flt()  { this.b.push(0x5b); return this; }
-  fgt()  { this.b.push(0x5d); return this; }
+  feq()  { this.b.push(0x5b); return this; }
+  fne()  { this.b.push(0x5c); return this; }
+  flt()  { this.b.push(0x5d); return this; }
+  fgt()  { this.b.push(0x5e); return this; }
   fle()  { this.b.push(0x5f); return this; }
-  fge()  { this.b.push(0x5e); return this; }
+  fge()  { this.b.push(0x60); return this; }
   // Conversion
   i2f()  { this.b.push(0xb2); return this; } // i32 → f32
   f2i()  { this.b.push(0xa8); return this; } // f32 → i32 (trunc)
@@ -133,7 +138,9 @@ const COLORS = {
   yellow: [255, 255, 0], cyan: [0, 255, 255], magenta: [255, 0, 255],
   orange: [255, 165, 0], purple: [128, 0, 128],
   pink: [255, 192, 203], gray: [128, 128, 128], grey: [128, 128, 128],
-  lime: [0, 255, 0],
+  lime: [0, 255, 0], brown: [139, 69, 19], beige: [245, 245, 220],
+  indigo: [75, 0, 130], violet: [238, 130, 238],
+  orange2: [255, 200, 0], // alias for ink 255 200 0
 };
 
 // ─── Parser ─────────────────────────────────────────────────────────
@@ -211,29 +218,41 @@ function parse(tokens) {
 
 // ─── Globals ────────────────────────────────────────────────────────
 
-const G_W = 0, G_H = 1, G_IR = 2, G_IG = 3, G_IB = 4;
+const G_W = 0, G_H = 1, G_IR = 2, G_IG = 3, G_IB = 4, G_IA = 5;
+const G_SAX = 6, G_SAY = 7; // scroll accumulators (f32)
 const I32 = 0x7f, F32 = 0x7d;
 
-// ─── Function Indices ───────────────────────────────────────────────
-// No imports — all functions are internal.
+// ─── Constants ──────────────────────────────────────────────────────
+const FPS = 30; // frames per second for time-based calculations
 
-const F_SET_PIXEL = 0; // (i32, i32) → ()
-const F_WIPE = 1;      // (f32, f32, f32) → ()
-const F_INK = 2;       // (f32, f32, f32) → ()
-const F_PLOT = 3;      // (f32, f32) → ()
-const F_LINE = 4;      // (f32, f32, f32, f32) → ()
-const F_BOX = 5;       // (f32, f32, f32, f32) → ()
-const F_CIRCLE = 6;    // (f32, f32, f32) → ()
-const F_TRI = 7;       // (f32, f32, f32, f32, f32, f32) → ()
-const F_PAINT = 8;     // (f32, f32, f32) → ()
+// ─── Function Indices ───────────────────────────────────────────────
+// Imports come first in WASM function index space.
+const NUM_IMPORTS = 3;
+const F_SIN = 0;         // imported: (f32) → f32
+const F_COS = 1;         // imported: (f32) → f32
+const F_RANDOM = 2;      // imported: () → f32  [returns 0..1)
+// Internal functions (offset by NUM_IMPORTS)
+const F_SET_PIXEL = 3;   // (i32, i32) → ()
+const F_WIPE = 4;        // (f32, f32, f32) → ()
+const F_INK = 5;         // (f32, f32, f32) → ()
+const F_PLOT = 6;        // (f32, f32) → ()
+const F_LINE = 7;        // (f32, f32, f32, f32) → ()
+const F_BOX = 8;         // (f32, f32, f32, f32) → ()
+const F_CIRCLE = 9;      // (f32, f32, f32) → ()
+const F_TRI = 10;        // (f32, f32, f32, f32, f32, f32) → ()
+const F_SCROLL = 11;     // (f32, f32) → ()
+const F_SPIN = 12;       // (f32) → ()
+const F_ZOOM = 13;       // (f32) → ()
+const F_CONTRAST = 14;   // (f32) → ()
+const F_PAINT = 15;      // (f32, f32, f32) → ()
 
 // ─── Runtime Function Emitters ──────────────────────────────────────
 
 // $set_pixel(x: i32, y: i32)
-// Writes a pixel at (x,y) using current ink color.
+// Writes a pixel at (x,y) using current ink color, alpha-blended via G_IA.
 function emitSetPixel() {
   const e = new E();
-  // params: 0=x, 1=y | locals: 2=offset
+  // params: 0=x, 1=y | locals: 2=offset, 3=alpha, 4=invAlpha, 5=old
   // Bounds check
   e.lg(0).i32c(0).ilt().if_().ret().end();
   e.lg(0).gg(G_W).ige().if_().ret().end();
@@ -241,13 +260,36 @@ function emitSetPixel() {
   e.lg(1).gg(G_H).ige().if_().ret().end();
   // offset = (y * width + x) * 4
   e.lg(1).gg(G_W).imul().lg(0).iadd().i32c(4).imul().ls(2);
-  // store RGBA
-  e.lg(2).gg(G_IR).st8();
-  e.lg(2).i32c(1).iadd().gg(G_IG).st8();
-  e.lg(2).i32c(2).iadd().gg(G_IB).st8();
-  e.lg(2).i32c(3).iadd().i32c(255).st8();
+
+  // alpha = G_IA
+  e.gg(G_IA).ls(3);
+  // Skip if alpha == 0
+  e.lg(3).ieqz().if_().ret().end();
+
+  // Fast path: alpha == 255 → direct write
+  e.lg(3).i32c(255).ieq().if_();
+    e.lg(2).gg(G_IR).st8();
+    e.lg(2).i32c(1).iadd().gg(G_IG).st8();
+    e.lg(2).i32c(2).iadd().gg(G_IB).st8();
+    e.lg(2).i32c(3).iadd().i32c(255).st8();
+  e.else_();
+    // Alpha blend: new = (old * (255 - alpha) + ink * alpha) / 255
+    e.i32c(255).lg(3).isub().ls(4); // invAlpha = 255 - alpha
+    // R
+    e.lg(2).ld8u().ls(5);
+    e.lg(2); e.lg(5).lg(4).imul().gg(G_IR).lg(3).imul().iadd().i32c(255).idiv(); e.st8();
+    // G
+    e.lg(2).i32c(1).iadd().ld8u().ls(5);
+    e.lg(2).i32c(1).iadd(); e.lg(5).lg(4).imul().gg(G_IG).lg(3).imul().iadd().i32c(255).idiv(); e.st8();
+    // B
+    e.lg(2).i32c(2).iadd().ld8u().ls(5);
+    e.lg(2).i32c(2).iadd(); e.lg(5).lg(4).imul().gg(G_IB).lg(3).imul().iadd().i32c(255).idiv(); e.st8();
+    // A stays 255
+    e.lg(2).i32c(3).iadd().i32c(255).st8();
   e.end();
-  return { locals: [[1, I32]], code: e.bytes() }; // 1 i32 local (offset)
+
+  e.end();
+  return { locals: [[4, I32]], code: e.bytes() };
 }
 
 // $wipe(r: f32, g: f32, b: f32)
@@ -536,22 +578,320 @@ function emitTri() {
   return { locals: [[13, I32]], code: e.bytes() };
 }
 
+// $scroll(dx: f32, dy: f32) — shift pixels with wrapping + fractional accumulation
+function emitScroll() {
+  const e = new E();
+  // params: 0=dx, 1=dy
+  // locals: 2=idx, 3=idy, 4=total, 5=i, 6=src, 7=sx, 8=sy, 9=x, 10=y, 11=tmpOff
+
+  // Accumulate fractional scroll: G_SAX += dx, G_SAY += dy
+  e.gg(G_SAX).lg(0).fadd().gs(G_SAX);
+  e.gg(G_SAY).lg(1).fadd().gs(G_SAY);
+  // Extract integer parts (trunc toward zero)
+  e.gg(G_SAX).f2i().ls(2); // idx
+  e.gg(G_SAY).f2i().ls(3); // idy
+  // Keep fractional remainders
+  e.gg(G_SAX).lg(2).i2f().fsub().gs(G_SAX);
+  e.gg(G_SAY).lg(3).i2f().fsub().gs(G_SAY);
+  // Skip if no integer scroll
+  e.lg(2).ieqz().lg(3).ieqz().iand().if_().ret().end();
+  e.gg(G_W).gg(G_H).imul().ls(4); // total pixels
+  // Copy current buffer to temp area (at offset total*4)
+  e.i32c(0).ls(5); // i = 0
+  e.gg(G_W).gg(G_H).imul().i32c(4).imul().ls(11); // tmpOff = total * 4
+  e.block().loop();
+  e.lg(5).lg(11).ige().brif(1);
+  // mem[tmpOff + i] = mem[i]
+  e.lg(5).lg(11).iadd();
+  e.lg(5).ld8u();
+  e.st8();
+  e.lg(5).i32c(1).iadd().ls(5);
+  e.br(0);
+  e.end().end();
+
+  // For each pixel (x,y), read from (x-dx, y-dy) in temp buffer with wrapping
+  e.i32c(0).ls(10); // y = 0
+  e.block().loop();
+  e.lg(10).gg(G_H).ige().brif(1);
+  e.i32c(0).ls(9); // x = 0
+  e.block().loop();
+  e.lg(9).gg(G_W).ige().brif(1);
+
+  // sx = ((x - idx) % w + w) % w
+  e.lg(9).lg(2).isub().gg(G_W).irem().gg(G_W).iadd().gg(G_W).irem().ls(7);
+  // sy = ((y - idy) % h + h) % h
+  e.lg(10).lg(3).isub().gg(G_H).irem().gg(G_H).iadd().gg(G_H).irem().ls(8);
+
+  // src = tmpOff + (sy * w + sx) * 4
+  e.lg(11).lg(8).gg(G_W).imul().lg(7).iadd().i32c(4).imul().iadd().ls(6);
+  // dst = (y * w + x) * 4
+  e.lg(10).gg(G_W).imul().lg(9).iadd().i32c(4).imul().ls(5);
+  // copy 4 bytes
+  e.lg(5).lg(6).ld8u().st8();
+  e.lg(5).i32c(1).iadd().lg(6).i32c(1).iadd().ld8u().st8();
+  e.lg(5).i32c(2).iadd().lg(6).i32c(2).iadd().ld8u().st8();
+  e.lg(5).i32c(3).iadd().lg(6).i32c(3).iadd().ld8u().st8();
+
+  e.lg(9).i32c(1).iadd().ls(9);
+  e.br(0);
+  e.end().end(); // x loop
+  e.lg(10).i32c(1).iadd().ls(10);
+  e.br(0);
+  e.end().end(); // y loop
+  e.end();
+  return { locals: [[10, I32]], code: e.bytes() };
+}
+
+// ─── Rainbow Colors ─────────────────────────────────────────────────
+
+const RAINBOW = [
+  [255, 0, 0],     // red
+  [255, 165, 0],   // orange
+  [255, 255, 0],   // yellow
+  [0, 128, 0],     // green
+  [0, 0, 255],     // blue
+  [75, 0, 130],    // indigo
+  [238, 130, 238], // violet
+];
+
+// $spin(steps: f32) — vortex/swirl: angleChange = steps/distance from center
+// Pixels near center rotate more, creating a spiral effect.
+function emitSpin() {
+  const e = new E();
+  // param: 0=steps (f32)
+  // f32 locals: 1=dx, 2=dy, 3=distSq, 4=dist, 5=angleChange, 6=sinA, 7=cosA, 8=fsx, 9=fsy, 10=fcx, 11=fcy
+  // i32 locals: 12=total, 13=tmpOff, 14=x, 15=y,
+  //             16=sx, 17=sy, 18=srcOff, 19=dstOff, 20=i
+
+  // fcx = (w - 1) / 2.0, fcy = (h - 1) / 2.0
+  e.gg(G_W).i2f().f32c(1).fsub().f32c(2).fdiv().ls(10);
+  e.gg(G_H).i2f().f32c(1).fsub().f32c(2).fdiv().ls(11);
+
+  // total = w * h, tmpOff = total * 4
+  e.gg(G_W).gg(G_H).imul().ls(12);
+  e.lg(12).i32c(4).imul().ls(13);
+
+  // Copy buffer to temp
+  e.i32c(0).ls(20);
+  e.block().loop();
+  e.lg(20).lg(13).ige().brif(1);
+  e.lg(20).lg(13).iadd().lg(20).ld8u().st8();
+  e.lg(20).i32c(1).iadd().ls(20);
+  e.br(0);
+  e.end().end();
+
+  // For each (x, y)
+  e.i32c(0).ls(15); // y = 0
+  e.block().loop();
+  e.lg(15).gg(G_H).ige().brif(1);
+
+  e.i32c(0).ls(14); // x = 0
+  e.block().loop();
+  e.lg(14).gg(G_W).ige().brif(1);
+
+  // dx = x - fcx, dy = y - fcy (all f32)
+  e.lg(14).i2f().lg(10).fsub().ls(1);
+  e.lg(15).i2f().lg(11).fsub().ls(2);
+
+  // distSq = dx*dx + dy*dy
+  e.lg(1).lg(1).fmul().lg(2).lg(2).fmul().fadd().ls(3);
+
+  // dstOff = (y * w + x) * 4
+  e.lg(15).gg(G_W).imul().lg(14).iadd().i32c(4).imul().ls(19);
+
+  // if distSq < 1.0: copy directly (center pixel)
+  e.lg(3).f32c(1).flt().if_();
+    // srcOff in temp = tmpOff + dstOff
+    e.lg(19).lg(13).iadd().ls(18);
+    e.lg(19).lg(18).ld8u().st8();
+    e.lg(19).i32c(1).iadd().lg(18).i32c(1).iadd().ld8u().st8();
+    e.lg(19).i32c(2).iadd().lg(18).i32c(2).iadd().ld8u().st8();
+    e.lg(19).i32c(3).iadd().lg(18).i32c(3).iadd().ld8u().st8();
+  e.else_();
+    // Vortex: angleChange = steps / distance
+    e.lg(3).fsqrt().ls(4);
+    e.lg(0).lg(4).fdiv().ls(5);
+
+    // sinA = sin(angleChange), cosA = cos(angleChange)
+    e.lg(5).call(F_SIN).ls(6);
+    e.lg(5).call(F_COS).ls(7);
+
+    // Rotate (dx, dy) by -angleChange using rotation matrix:
+    // fsx = fcx + dx*cosA + dy*sinA
+    e.lg(10).lg(1).lg(7).fmul().fadd().lg(2).lg(6).fmul().fadd().ls(8);
+    // fsy = fcy - dx*sinA + dy*cosA
+    e.lg(11).lg(1).lg(6).fmul().fsub().lg(2).lg(7).fmul().fadd().ls(9);
+
+    // Nearest neighbor + wrap
+    // Round to nearest (floor(x + 0.5)) for symmetric sampling
+    e.lg(8).f32c(0.5).fadd().ffloor().f2i().ls(16);
+    e.lg(9).f32c(0.5).fadd().ffloor().f2i().ls(17);
+    e.lg(16).gg(G_W).irem().gg(G_W).iadd().gg(G_W).irem().ls(16);
+    e.lg(17).gg(G_H).irem().gg(G_H).iadd().gg(G_H).irem().ls(17);
+
+    // srcOff = tmpOff + (sy * w + sx) * 4
+    e.lg(13).lg(17).gg(G_W).imul().lg(16).iadd().i32c(4).imul().iadd().ls(18);
+
+    // Copy 4 bytes
+    e.lg(19).lg(18).ld8u().st8();
+    e.lg(19).i32c(1).iadd().lg(18).i32c(1).iadd().ld8u().st8();
+    e.lg(19).i32c(2).iadd().lg(18).i32c(2).iadd().ld8u().st8();
+    e.lg(19).i32c(3).iadd().lg(18).i32c(3).iadd().ld8u().st8();
+  e.end();
+
+  e.lg(14).i32c(1).iadd().ls(14);
+  e.br(0);
+  e.end().end(); // x loop
+  e.lg(15).i32c(1).iadd().ls(15);
+  e.br(0);
+  e.end().end(); // y loop
+  e.end();
+  return { locals: [[11, F32], [9, I32]], code: e.bytes() };
+}
+
+// $zoom(factor: f32) — scale pixel buffer from center (nearest-neighbor)
+function emitZoom() {
+  const e = new E();
+  // param: 0=factor (f32)
+  // f32 locals: 1=inv, 2=fcx, 3=fcy, 4=fsx, 5=fsy
+  // i32 locals: 6=total, 7=tmpOff, 8=x, 9=y, 10=sx, 11=sy,
+  //             12=srcOff, 13=dstOff, 14=i
+
+  e.f32c(1).lg(0).fdiv().ls(1);
+  e.gg(G_W).i2f().f32c(1).fsub().f32c(2).fdiv().ls(2);
+  e.gg(G_H).i2f().f32c(1).fsub().f32c(2).fdiv().ls(3);
+
+  e.gg(G_W).gg(G_H).imul().ls(6);
+  e.lg(6).i32c(4).imul().ls(7);
+
+  // Copy buffer to temp
+  e.i32c(0).ls(14);
+  e.block().loop();
+  e.lg(14).lg(7).ige().brif(1);
+  e.lg(14).lg(7).iadd().lg(14).ld8u().st8();
+  e.lg(14).i32c(1).iadd().ls(14);
+  e.br(0);
+  e.end().end();
+
+  e.i32c(0).ls(9); // y = 0
+  e.block().loop();
+  e.lg(9).gg(G_H).ige().brif(1);
+
+  e.i32c(0).ls(8); // x = 0
+  e.block().loop();
+  e.lg(8).gg(G_W).ige().brif(1);
+
+  // fsx = fcx + (x - fcx) * inv
+  e.lg(2).lg(8).i2f().lg(2).fsub().lg(1).fmul().fadd().ls(4);
+  // fsy = fcy + (y - fcy) * inv
+  e.lg(3).lg(9).i2f().lg(3).fsub().lg(1).fmul().fadd().ls(5);
+
+  // Round to nearest for symmetric centering, then wrap
+  e.lg(4).f32c(0.5).fadd().ffloor().f2i().ls(10);
+  e.lg(5).f32c(0.5).fadd().ffloor().f2i().ls(11);
+  e.lg(10).gg(G_W).irem().gg(G_W).iadd().gg(G_W).irem().ls(10);
+  e.lg(11).gg(G_H).irem().gg(G_H).iadd().gg(G_H).irem().ls(11);
+
+  // srcOff = tmpOff + (sy * w + sx) * 4
+  e.lg(7).lg(11).gg(G_W).imul().lg(10).iadd().i32c(4).imul().iadd().ls(12);
+  // dstOff = (y * w + x) * 4
+  e.lg(9).gg(G_W).imul().lg(8).iadd().i32c(4).imul().ls(13);
+
+  // Copy 4 bytes
+  e.lg(13).lg(12).ld8u().st8();
+  e.lg(13).i32c(1).iadd().lg(12).i32c(1).iadd().ld8u().st8();
+  e.lg(13).i32c(2).iadd().lg(12).i32c(2).iadd().ld8u().st8();
+  e.lg(13).i32c(3).iadd().lg(12).i32c(3).iadd().ld8u().st8();
+
+  e.lg(8).i32c(1).iadd().ls(8);
+  e.br(0);
+  e.end().end(); // x loop
+  e.lg(9).i32c(1).iadd().ls(9);
+  e.br(0);
+  e.end().end(); // y loop
+  e.end();
+  return { locals: [[5, F32], [9, I32]], code: e.bytes() };
+}
+
+// $contrast(factor: f32) — adjust pixel contrast around midpoint 128
+function emitContrast() {
+  const e = new E();
+  // param: 0=factor (f32)
+  // i32 locals: 1=total, 2=i, 3=off, 4=v
+  // f32 locals: 5=result
+
+  e.gg(G_W).gg(G_H).imul().i32c(4).imul().ls(1); // total bytes
+  e.i32c(0).ls(2); // i = 0
+
+  e.block().loop();
+  e.lg(2).lg(1).ige().brif(1);
+
+  // Process R, G, B (skip A at offset +3)
+  // For each channel c in {0,1,2}:
+  //   val = mem[i+c]
+  //   result = 128 + (val - 128) * factor
+  //   clamp to 0..255
+  //   mem[i+c] = result
+  for (let c = 0; c < 3; c++) {
+    e.lg(2).i32c(c).iadd().ls(3); // off = i + c
+    e.lg(3).ld8u().ls(4);          // v = mem[off]
+
+    // result = 128 + (v - 128) * factor
+    e.f32c(128).lg(4).i2f().f32c(128).fsub().lg(0).fmul().fadd().ls(5);
+
+    // clamp: result = max(0, min(255, result))
+    e.lg(5).f32c(0).fmax().f32c(255).fmin().ls(5);
+
+    // store
+    e.lg(3).lg(5).f2i().st8();
+  }
+
+  e.lg(2).i32c(4).iadd().ls(2); // i += 4
+  e.br(0);
+  e.end().end();
+  e.end();
+  return { locals: [[4, I32], [1, F32]], code: e.bytes() };
+}
+
 // ─── Compiler ───────────────────────────────────────────────────────
 
 export class Compiler {
   constructor() {
-    this.code = new E(); // bytecode for paint body
+    this.code = new E();
+    this.nextLocal = 3;    // params: 0=w, 1=h, 2=frame
+    this.paintLocals = []; // [[count, type], ...]
   }
 
-  // Emit piece expression
-  compileExpr(node) {
-    if (node.t === "num") {
-      this.code.f32c(node.v);
-    } else if (node.t === "sym") {
-      this.compileSym(node.v);
-    } else if (node.t === "list") {
-      this.compileCall(node);
+  // Allocate a local in the paint function, returns its index
+  allocLocal(type = F32) {
+    const idx = this.nextLocal++;
+    const last = this.paintLocals[this.paintLocals.length - 1];
+    if (last && last[1] === type) last[0]++;
+    else this.paintLocals.push([1, type]);
+    return idx;
+  }
+
+  // How many f32 values does this expression push?
+  exprArity(node) {
+    if (node.t === "num") return 1;
+    if (node.t === "sym") {
+      if (COLORS[node.v] || node.v === "rainbow") return 3;
+      return 1;
     }
+    if (node.t === "list") {
+      const head = node.items[0];
+      if (head.t === "sym") {
+        if (head.v === "?") return node.items.length > 1 ? this.exprArity(node.items[1]) : 1;
+        if (head.v.match(/^\d+\.?\d*s\.\.\.$/)) return 1;
+      }
+    }
+    return 1;
+  }
+
+  compileExpr(node) {
+    if (node.t === "num") { this.code.f32c(node.v); }
+    else if (node.t === "sym") { this.compileSym(node.v); }
+    else if (node.t === "list") { this.compileCall(node); }
   }
 
   compileSym(name) {
@@ -559,23 +899,16 @@ export class Compiler {
     if (name === "h") { this.code.lg(1); return; }
     if (name === "frame" || name === "f") { this.code.lg(2); return; }
 
+    // Rainbow → frame-dependent ROYGBIV color
+    if (name === "rainbow") { this.compileRainbow(); return; }
+
     // Division shorthand: w/2, h/3, etc.
     const dm = name.match(/^(\w+)\/(\d+(?:\.\d+)?)$/);
-    if (dm) {
-      this.compileSym(dm[1]);
-      this.code.f32c(parseFloat(dm[2]));
-      this.code.fdiv();
-      return;
-    }
+    if (dm) { this.compileSym(dm[1]); this.code.f32c(parseFloat(dm[2])).fdiv(); return; }
 
     // Multiplication shorthand: w*2, h*3, etc.
     const mm = name.match(/^(\w+)\*(\d+(?:\.\d+)?)$/);
-    if (mm) {
-      this.compileSym(mm[1]);
-      this.code.f32c(parseFloat(mm[2]));
-      this.code.fmul();
-      return;
-    }
+    if (mm) { this.compileSym(mm[1]); this.code.f32c(parseFloat(mm[2])).fmul(); return; }
 
     // Color name → 3 f32 values
     if (COLORS[name]) {
@@ -587,6 +920,207 @@ export class Compiler {
     throw new Error(`Unknown symbol: ${name}`);
   }
 
+  // rainbow → frame % 7 selects from ROYGBIV, pushes 3 f32s
+  compileRainbow() {
+    const idxL = this.allocLocal(I32);
+    const rL = this.allocLocal(F32);
+    const gL = this.allocLocal(F32);
+    const bL = this.allocLocal(F32);
+
+    this.code.lg(2).f2i().i32c(7).irem().ls(idxL);
+
+    // Default to first color
+    this.code.f32c(RAINBOW[0][0]).ls(rL);
+    this.code.f32c(RAINBOW[0][1]).ls(gL);
+    this.code.f32c(RAINBOW[0][2]).ls(bL);
+
+    for (let i = 1; i < RAINBOW.length; i++) {
+      this.code.lg(idxL).i32c(i).ieq().if_();
+      this.code.f32c(RAINBOW[i][0]).ls(rL);
+      this.code.f32c(RAINBOW[i][1]).ls(gL);
+      this.code.f32c(RAINBOW[i][2]).ls(bL);
+      this.code.end();
+    }
+
+    this.code.lg(rL).lg(gL).lg(bL);
+  }
+
+  // (? a b c) → random choice, pushes 1 or 3 f32s depending on arg type
+  compileRandom(args) {
+    const n = args.length;
+    if (n === 0) { this.code.f32c(0); return; }
+    if (n === 1) { this.compileExpr(args[0]); return; }
+
+    const arity = this.exprArity(args[0]);
+    const idxL = this.allocLocal(I32);
+
+    // idx = floor(random() * n)
+    this.code.call(F_RANDOM).f32c(n).fmul().ffloor().f2i().ls(idxL);
+
+    if (arity === 3) {
+      // Color mode
+      const rL = this.allocLocal(F32);
+      const gL = this.allocLocal(F32);
+      const bL = this.allocLocal(F32);
+
+      this.compileColorValue(args[0]);
+      this.code.ls(bL).ls(gL).ls(rL);
+
+      for (let i = 1; i < n; i++) {
+        this.code.lg(idxL).i32c(i).ieq().if_();
+        this.compileColorValue(args[i]);
+        this.code.ls(bL).ls(gL).ls(rL);
+        this.code.end();
+      }
+      this.code.lg(rL).lg(gL).lg(bL);
+    } else {
+      // Scalar mode
+      const vL = this.allocLocal(F32);
+
+      this.compileExpr(args[0]);
+      this.code.ls(vL);
+
+      for (let i = 1; i < n; i++) {
+        this.code.lg(idxL).i32c(i).ieq().if_();
+        this.compileExpr(args[i]);
+        this.code.ls(vL);
+        this.code.end();
+      }
+      this.code.lg(vL);
+    }
+  }
+
+  // Emit 3 f32s (r, g, b) for a color-producing node
+  compileColorValue(node) {
+    if (node.t === "sym") {
+      if (node.v === "rainbow") { this.compileRainbow(); return; }
+      if (COLORS[node.v]) {
+        const [r, g, b] = COLORS[node.v];
+        this.code.f32c(r).f32c(g).f32c(b);
+        return;
+      }
+    }
+    if (node.t === "num") {
+      // Treat number as grayscale
+      this.code.f32c(node.v).f32c(node.v).f32c(node.v);
+      return;
+    }
+    if (node.t === "list") {
+      this.compileCall(node);
+      return;
+    }
+  }
+
+  // (Ns... a b) → smooth cosine oscillation between a and b over N seconds
+  compileTimeInterp(periodStr, args) {
+    const period = parseFloat(periodStr);
+    const frames = Math.max(2, Math.round(period * FPS));
+
+    if (args.length >= 2) {
+      const aL = this.allocLocal(F32);
+      this.compileExpr(args[0]);
+      this.code.ls(aL);
+
+      // result = a + (b - a) * 0.5 * (1 - cos(2π * frame / frames))
+      this.compileExpr(args[1]);
+      this.code.lg(aL).fsub();      // b - a
+      this.code.f32c(0.5).fmul();   // (b-a)/2
+
+      this.code.f32c(1);            // 1.0
+      this.code.lg(2);              // frame (f32)
+      this.code.f32c(2 * Math.PI / frames).fmul(); // angle
+      this.code.call(F_COS);        // cos(angle)
+      this.code.fsub();             // 1 - cos(angle)
+
+      this.code.fmul();             // (b-a)/2 * (1 - cos)
+      this.code.lg(aL).fadd();      // a + ...
+    } else if (args.length === 1) {
+      this.compileExpr(args[0]);
+    }
+  }
+
+  // Inline fade: gradient fill (horizontal, compile-time color stops)
+  compileFadeInline(colorNames, isFirstLine) {
+    const names = colorNames.split("-");
+    const colors = names.map(n => {
+      const c = COLORS[n.trim()];
+      if (!c) throw new Error(`Unknown fade color: ${n}`);
+      return c;
+    });
+    const numStops = colors.length;
+
+    const yL = this.allocLocal(I32);
+    const xL = this.allocLocal(I32);
+    const tL = this.allocLocal(F32);
+    const segL = this.allocLocal(F32);
+    const idxL = this.allocLocal(I32);
+    const fracL = this.allocLocal(F32);
+    const rL = this.allocLocal(F32);
+    const gL = this.allocLocal(F32);
+    const bL = this.allocLocal(F32);
+    const offL = this.allocLocal(I32);
+
+    if (isFirstLine) this.code.lg(2).f32c(0).fle().if_();
+
+    // for y = 0..h
+    this.code.i32c(0).ls(yL);
+    this.code.block().loop();
+    this.code.lg(yL).gg(G_H).ige().brif(1);
+
+    // for x = 0..w
+    this.code.i32c(0).ls(xL);
+    this.code.block().loop();
+    this.code.lg(xL).gg(G_W).ige().brif(1);
+
+    // t = x / max(w - 1, 1)
+    this.code.gg(G_W).i32c(1).isub().ls(offL);
+    this.code.lg(offL).ieqz().if_();
+    this.code.f32c(0).ls(tL);
+    this.code.else_();
+    this.code.lg(xL).i2f().lg(offL).i2f().fdiv().ls(tL);
+    this.code.end();
+
+    // segment = t * (numStops - 1), idx = floor, frac = segment - idx
+    this.code.lg(tL).f32c(numStops - 1).fmul().ls(segL);
+    this.code.lg(segL).ffloor().f2i().ls(idxL);
+    this.code.lg(segL).lg(idxL).i2f().fsub().ls(fracL);
+    // Clamp idx
+    this.code.lg(idxL).i32c(numStops - 2).igt().if_();
+    this.code.i32c(numStops - 2).ls(idxL);
+    this.code.f32c(1).ls(fracL);
+    this.code.end();
+
+    // Branch on idx for color lerp
+    this.code.f32c(colors[0][0]).ls(rL);
+    this.code.f32c(colors[0][1]).ls(gL);
+    this.code.f32c(colors[0][2]).ls(bL);
+
+    for (let i = 0; i < numStops - 1; i++) {
+      const c0 = colors[i], c1 = colors[i + 1];
+      this.code.lg(idxL).i32c(i).ieq().if_();
+      this.code.f32c(c0[0]).f32c(c1[0]).f32c(c0[0]).fsub().lg(fracL).fmul().fadd().ls(rL);
+      this.code.f32c(c0[1]).f32c(c1[1]).f32c(c0[1]).fsub().lg(fracL).fmul().fadd().ls(gL);
+      this.code.f32c(c0[2]).f32c(c1[2]).f32c(c0[2]).fsub().lg(fracL).fmul().fadd().ls(bL);
+      this.code.end();
+    }
+
+    // Write pixel
+    this.code.lg(yL).gg(G_W).imul().lg(xL).iadd().i32c(4).imul().ls(offL);
+    this.code.lg(offL).lg(rL).f2i().st8();
+    this.code.lg(offL).i32c(1).iadd().lg(gL).f2i().st8();
+    this.code.lg(offL).i32c(2).iadd().lg(bL).f2i().st8();
+    this.code.lg(offL).i32c(3).iadd().i32c(255).st8();
+
+    this.code.lg(xL).i32c(1).iadd().ls(xL);
+    this.code.br(0);
+    this.code.end().end(); // x loop
+    this.code.lg(yL).i32c(1).iadd().ls(yL);
+    this.code.br(0);
+    this.code.end().end(); // y loop
+
+    if (isFirstLine) this.code.end();
+  }
+
   compileCall(node) {
     if (node.items.length === 0) return;
     const head = node.items[0];
@@ -594,6 +1128,26 @@ export class Compiler {
 
     const name = head.v;
     const args = node.items.slice(1);
+
+    // Random choice: (? a b c)
+    if (name === "?") { this.compileRandom(args); return; }
+
+    // Time interpolation: (2s... a b) → lerp
+    const interpMatch = name.match(/^(\d+\.?\d*)s\.\.\.$/);
+    if (interpMatch) { this.compileTimeInterp(interpMatch[1], args); return; }
+
+    // Periodic execution: (0.5s expr) → run every N seconds
+    const periodicMatch = name.match(/^(\d+\.?\d*)s$/);
+    if (periodicMatch) {
+      const frames = Math.max(1, Math.round(parseFloat(periodicMatch[1]) * FPS));
+      this.code.lg(2).f2i().i32c(frames).irem().ieqz().if_();
+      for (const arg of args) {
+        if (arg.t === "list") this.compileCall(arg);
+        else this.compileExpr(arg);
+      }
+      this.code.end();
+      return;
+    }
 
     // Arithmetic
     const arith = { "+": "fadd", "-": "fsub", "*": "fmul", "/": "fdiv" };
@@ -609,11 +1163,34 @@ export class Compiler {
     if (name === "abs") { this.compileExpr(args[0]); this.code.fabs(); return; }
     if (name === "neg") { this.compileExpr(args[0]); this.code.fneg(); return; }
     if (name === "floor"){ this.compileExpr(args[0]); this.code.ffloor(); return; }
+    if (name === "sin") { this.compileExpr(args[0]); this.code.call(F_SIN); return; }
+    if (name === "cos") { this.compileExpr(args[0]); this.code.call(F_COS); return; }
 
-    // Drawing functions → internal function calls
+    // ink — special: color expressions can push 3 values + optional alpha
+    if (name === "ink") {
+      let totalArity = 0;
+      for (const arg of args) {
+        const a = this.exprArity(arg);
+        this.compileExpr(arg);
+        totalArity += a;
+      }
+      if (totalArity >= 4) {
+        // Stack: [r, g, b, alpha, ...extras]. Drop extras, pop alpha → G_IA
+        while (totalArity > 4) { this.code.drop(); totalArity--; }
+        this.code.f2i().gs(G_IA);
+      } else {
+        while (totalArity > 3) { this.code.drop(); totalArity--; }
+        this.code.i32c(255).gs(G_IA); // no alpha → fully opaque
+      }
+      this.code.call(F_INK);
+      return;
+    }
+
+    // Drawing + transform functions
     const funcMap = {
-      wipe: F_WIPE, ink: F_INK, plot: F_PLOT,
+      wipe: F_WIPE, plot: F_PLOT,
       line: F_LINE, box: F_BOX, circle: F_CIRCLE, tri: F_TRI,
+      scroll: F_SCROLL, spin: F_SPIN, zoom: F_ZOOM, contrast: F_CONTRAST,
     };
     if (funcMap[name] !== undefined) {
       for (const arg of args) this.compileExpr(arg);
@@ -627,18 +1204,36 @@ export class Compiler {
   compile(source) {
     const ast = parse(tokenize(source));
 
-    // Compile piece code into paint body
-    // Paint starts by setting globals from params
-    this.code.lg(0).f2i().gs(G_W);  // width = param 0
-    this.code.lg(1).f2i().gs(G_H);  // height = param 1
+    // Paint params: 0=w, 1=h, 2=frame
+    this.code.lg(0).f2i().gs(G_W);
+    this.code.lg(1).f2i().gs(G_H);
 
-    for (const node of ast) {
+    for (let i = 0; i < ast.length; i++) {
+      const node = ast[i];
+      const isFirstLine = i === 0;
+
+      // fade: directive
+      if (node.t === "sym" && node.v.startsWith("fade:")) {
+        const parts = node.v.slice(5).split(":");
+        this.compileFadeInline(parts[0], isFirstLine);
+        continue;
+      }
+
+      // Bare color name → wipe
+      if (node.t === "sym" && COLORS[node.v]) {
+        const [r, g, b] = COLORS[node.v];
+        if (isFirstLine) {
+          this.code.lg(2).f32c(0).fle().if_();
+          this.code.f32c(r).f32c(g).f32c(b).call(F_WIPE);
+          this.code.end();
+        } else {
+          this.code.f32c(r).f32c(g).f32c(b).call(F_WIPE);
+        }
+        continue;
+      }
+
       if (node.t === "list") {
         this.compileCall(node);
-      } else if (node.t === "sym" && COLORS[node.v]) {
-        // Bare color name → wipe
-        const [r, g, b] = COLORS[node.v];
-        this.code.f32c(r).f32c(g).f32c(b).call(F_WIPE);
       }
     }
 
@@ -647,19 +1242,28 @@ export class Compiler {
 
   buildModule() {
     const out = [];
-
-    // Magic + version
     out.push(0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00);
 
     // ── Types ──
+    const T_I32_I32 = 0;       // (i32,i32)→()
+    const T_F32_F32_F32 = 1;   // (f32,f32,f32)→()
+    const T_F32_F32 = 2;       // (f32,f32)→()
+    const T_F32x4 = 3;         // (f32,f32,f32,f32)→()
+    const T_F32x6 = 4;         // (f32,f32,f32,f32,f32,f32)→()
+    const T_F32_RET = 5;       // (f32)→f32  [sin, cos]
+    const T_VOID_F32 = 6;      // ()→f32     [random]
+    const T_F32_VOID = 7;      // (f32)→()   [spin, zoom, contrast]
+
     const types = [
-      [0x60, 2, I32, I32, 0],                            // 0: (i32,i32)→()
-      [0x60, 3, F32, F32, F32, 0],                       // 1: (f32,f32,f32)→()
-      [0x60, 2, F32, F32, 0],                             // 2: (f32,f32)→()
-      [0x60, 4, F32, F32, F32, F32, 0],                   // 3: (f32,f32,f32,f32)→()
-      [0x60, 6, F32, F32, F32, F32, F32, F32, 0],         // 4: (f32,f32,f32,f32,f32,f32)→()
+      [0x60, 2, I32, I32, 0],
+      [0x60, 3, F32, F32, F32, 0],
+      [0x60, 2, F32, F32, 0],
+      [0x60, 4, F32, F32, F32, F32, 0],
+      [0x60, 6, F32, F32, F32, F32, F32, F32, 0],
+      [0x60, 1, F32, 1, F32],
+      [0x60, 0, 1, F32],
+      [0x60, 1, F32, 0],
     ];
-    // Format: 0x60 paramcount paramtypes... resultcount resulttypes...
     const typeEntries = types.map(t => {
       const tag = t[0];
       const paramCount = t[1];
@@ -670,32 +1274,45 @@ export class Compiler {
     });
     out.push(...section(1, vecOf(typeEntries)));
 
-    // ── Functions (no imports!) ──
-    // Map each function to its type index
+    // ── Imports ──
+    const importEntries = [
+      [...encodeString("math"), ...encodeString("sin"), 0x00, ...uleb128(T_F32_RET)],
+      [...encodeString("math"), ...encodeString("cos"), 0x00, ...uleb128(T_F32_RET)],
+      [...encodeString("math"), ...encodeString("random"), 0x00, ...uleb128(T_VOID_F32)],
+    ];
+    out.push(...section(2, vecOf(importEntries)));
+
+    // ── Functions ──
     const funcTypes = [
-      0, // set_pixel: (i32,i32)→()
-      1, // wipe: (f32,f32,f32)→()
-      1, // ink: (f32,f32,f32)→()
-      2, // plot: (f32,f32)→()
-      3, // line: (f32,f32,f32,f32)→()
-      3, // box: (f32,f32,f32,f32)→()
-      1, // circle: (f32,f32,f32)→()
-      4, // tri: (f32,f32,f32,f32,f32,f32)→()
-      1, // paint: (f32,f32,f32)→()
+      T_I32_I32,       // set_pixel
+      T_F32_F32_F32,   // wipe
+      T_F32_F32_F32,   // ink
+      T_F32_F32,       // plot
+      T_F32x4,         // line
+      T_F32x4,         // box
+      T_F32_F32_F32,   // circle
+      T_F32x6,         // tri
+      T_F32_F32,       // scroll
+      T_F32_VOID,      // spin
+      T_F32_VOID,      // zoom
+      T_F32_VOID,      // contrast
+      T_F32_F32_F32,   // paint
     ];
     out.push(...section(3, vecOf(funcTypes.map(t => [...uleb128(t)]))));
 
     // ── Memory ──
-    // 16 pages = 1MB, enough for 512x512 RGBA
-    out.push(...section(5, vecOf([[0x00, ...uleb128(16)]])));
+    out.push(...section(5, vecOf([[0x00, ...uleb128(32)]])));
 
     // ── Globals ──
     const globals = [
-      [I32, 0x01, 0x41, ...sleb128(0), 0x0b], // width: i32 mut = 0
-      [I32, 0x01, 0x41, ...sleb128(0), 0x0b], // height: i32 mut = 0
-      [I32, 0x01, 0x41, ...sleb128(255), 0x0b], // ink_r: i32 mut = 255
-      [I32, 0x01, 0x41, ...sleb128(255), 0x0b], // ink_g: i32 mut = 255
-      [I32, 0x01, 0x41, ...sleb128(255), 0x0b], // ink_b: i32 mut = 255
+      [I32, 0x01, 0x41, ...sleb128(0), 0x0b],     // G_W: width
+      [I32, 0x01, 0x41, ...sleb128(0), 0x0b],     // G_H: height
+      [I32, 0x01, 0x41, ...sleb128(255), 0x0b],   // G_IR: ink red
+      [I32, 0x01, 0x41, ...sleb128(255), 0x0b],   // G_IG: ink green
+      [I32, 0x01, 0x41, ...sleb128(255), 0x0b],   // G_IB: ink blue
+      [I32, 0x01, 0x41, ...sleb128(255), 0x0b],   // G_IA: ink alpha
+      [F32, 0x01, 0x43, ...f32Bytes(0), 0x0b],    // G_SAX: scroll accum X
+      [F32, 0x01, 0x43, ...f32Bytes(0), 0x0b],    // G_SAY: scroll accum Y
     ];
     out.push(...section(6, vecOf(globals)));
 
@@ -708,23 +1325,24 @@ export class Compiler {
 
     // ── Code ──
     const runtimeFuncs = [
-      emitSetPixel(),  // 0
-      emitWipe(),      // 1
-      emitInk(),       // 2
-      emitPlot(),      // 3
-      emitLine(),      // 4
-      emitBox(),       // 5
-      emitCircle(),    // 6
-      emitTri(),       // 7
+      emitSetPixel(),
+      emitWipe(),
+      emitInk(),
+      emitPlot(),
+      emitLine(),
+      emitBox(),
+      emitCircle(),
+      emitTri(),
+      emitScroll(),
+      emitSpin(),
+      emitZoom(),
+      emitContrast(),
     ];
 
-    // Paint function body
-    const paintBody = { locals: [], code: [...this.code.bytes(), 0x0b] };
-
+    const paintBody = { locals: this.paintLocals, code: [...this.code.bytes(), 0x0b] };
     const allFuncs = [...runtimeFuncs, paintBody];
 
     const codeBodies = allFuncs.map(fn => {
-      // Local declarations: groups of (count, type)
       const localDecl = fn.locals.length > 0
         ? [...uleb128(fn.locals.length), ...fn.locals.flatMap(([count, type]) => [...uleb128(count), type])]
         : [0x00];
@@ -733,7 +1351,6 @@ export class Compiler {
     });
 
     out.push(...section(10, vecOf(codeBodies)));
-
     return new Uint8Array(out);
   }
 }

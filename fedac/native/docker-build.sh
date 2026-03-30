@@ -118,7 +118,7 @@ log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
 log "Step 2/4: Building initramfs..."
 IROOT="$BUILD/initramfs-root"
 rm -rf "$IROOT"
-mkdir -p "$IROOT"/{bin,lib64,lib/firmware/i915,dev,proc,sys,tmp,run,etc,etc/pki/tls/certs}
+mkdir -p "$IROOT"/{bin,lib64,lib/firmware/i915,dev,proc,sys,tmp,run,scripts,etc,etc/pki/tls/certs}
 
 # ── 2a: Static busybox (no shared lib deps for shell) ──
 BUSYBOX=$(command -v busybox)
@@ -170,6 +170,8 @@ chmod +x "$IROOT/usr/share/udhcpc/default.script"
 # ── 2b: Init script ──
 cp "$NATIVE/initramfs/init" "$IROOT/init"
 chmod +x "$IROOT/init"
+cp "$NATIVE/initramfs-scripts/"*.sh "$IROOT/scripts/" 2>/dev/null || true
+chmod +x "$IROOT/scripts/"*.sh 2>/dev/null || true
 
 # ── 2c: ac-native binary ──
 cp "$BUILD/ac-native" "$IROOT/ac-native"

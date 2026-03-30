@@ -18,8 +18,14 @@ const compiler = new Compiler();
 const wasmBytes = compiler.compile(source);
 console.log(`WASM binary: ${wasmBytes.length} bytes (self-contained renderer)`);
 
-// Instantiate — NO imports. The module has everything.
-const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+// Instantiate — math imports only, rendering is self-contained.
+const { instance } = await WebAssembly.instantiate(wasmBytes, {
+  math: {
+    sin: (x) => Math.fround(Math.sin(x)),
+    cos: (x) => Math.fround(Math.cos(x)),
+    random: () => Math.fround(Math.random()),
+  },
+});
 
 console.log(`Running paint(${WIDTH}, ${HEIGHT}, 0)...`);
 instance.exports.paint(WIDTH, HEIGHT, 0);

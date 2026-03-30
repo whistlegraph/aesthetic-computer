@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "js-bindings.h"
+#include "usb-midi.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,9 @@ static int config_cache_dirty = 1;  // reload /mnt/config.json when set
 
 // Forward declaration (defined later in this file)
 static int resolve_color_name(const char *name, ACColor *out);
+static JSValue js_usb_midi_note_on(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_usb_midi_note_off(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_usb_midi_all_notes_off(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
 
 // ============================================================
 // QuickJS Class IDs for 3D objects
@@ -2054,6 +2058,9 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     // midi (stub)
     JSValue midi = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, midi, "connect", JS_NewCFunction(ctx, js_noop, "connect", 0));
+    JS_SetPropertyStr(ctx, midi, "noteOn", JS_NewCFunction(ctx, js_usb_midi_note_on, "noteOn", 3));
+    JS_SetPropertyStr(ctx, midi, "noteOff", JS_NewCFunction(ctx, js_usb_midi_note_off, "noteOff", 3));
+    JS_SetPropertyStr(ctx, midi, "allNotesOff", JS_NewCFunction(ctx, js_usb_midi_all_notes_off, "allNotesOff", 1));
     JS_SetPropertyStr(ctx, sound, "midi", midi);
 
     // daw (stub)
@@ -3267,6 +3274,95 @@ static JSValue js_set_power_role(JSContext *ctx, JSValueConst this_val, int argc
     return JS_NewBool(ctx, ok);
 }
 
+static JSValue build_usb_midi_state_obj(JSContext *ctx) {
+    ACUsbMidiState state;
+    int has_state = usb_midi_read_state(&state);
+    if (!has_state) {
+        memset(&state, 0, sizeof(state));
+        snprintf(state.reason, sizeof(state.reason), "uninitialized");
+    }
+
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "enabled", JS_NewBool(ctx, state.enabled));
+    JS_SetPropertyStr(ctx, obj, "active", JS_NewBool(ctx, state.active));
+    JS_SetPropertyStr(ctx, obj, "reason", JS_NewString(ctx, state.reason[0] ? state.reason : "unknown"));
+    JS_SetPropertyStr(ctx, obj, "udc", JS_NewString(ctx, state.udc));
+    JS_SetPropertyStr(ctx, obj, "port", JS_NewString(ctx, state.port));
+    JS_SetPropertyStr(ctx, obj, "powerRole", JS_NewString(ctx, state.power_role));
+    JS_SetPropertyStr(ctx, obj, "dataRole", JS_NewString(ctx, state.data_role));
+    JS_SetPropertyStr(ctx, obj, "alsaDevice", JS_NewString(ctx, state.alsa_device));
+    JS_SetPropertyStr(ctx, obj, "serial", JS_NewString(ctx, state.serial));
+    return obj;
+}
+
+static JSValue js_usb_midi_status(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return build_usb_midi_state_obj(ctx);
+}
+
+static JSValue js_usb_midi_control(JSContext *ctx, const char *action) {
+    usb_midi_close();
+    if (access("/scripts/usb-midi-gadget.sh", X_OK) == 0) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "/scripts/usb-midi-gadget.sh %s >/tmp/usb-midi-gadget.log 2>&1", action);
+        int rc = system(cmd);
+        ac_log("[usb-midi] control %s rc=%d", action, rc);
+    } else {
+        FILE *fp = fopen("/run/usb-midi.state", "w");
+        if (fp) {
+            fputs("enabled=0\nactive=0\nreason=missing-script\n", fp);
+            fclose(fp);
+        }
+        ac_log("[usb-midi] control %s failed: missing /scripts/usb-midi-gadget.sh", action);
+    }
+    usb_midi_close();
+    return build_usb_midi_state_obj(ctx);
+}
+
+static JSValue js_usb_midi_enable(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return js_usb_midi_control(ctx, "up");
+}
+
+static JSValue js_usb_midi_disable(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return js_usb_midi_control(ctx, "down");
+}
+
+static JSValue js_usb_midi_refresh(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return js_usb_midi_control(ctx, "refresh");
+}
+
+static JSValue js_usb_midi_note_on(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    int32_t note = 60;
+    int32_t velocity = 100;
+    int32_t channel = 0;
+    if (argc < 1 || JS_ToInt32(ctx, &note, argv[0])) return JS_FALSE;
+    if (argc >= 2) JS_ToInt32(ctx, &velocity, argv[1]);
+    if (argc >= 3) JS_ToInt32(ctx, &channel, argv[2]);
+    return JS_NewBool(ctx, usb_midi_note_on(note, velocity, channel));
+}
+
+static JSValue js_usb_midi_note_off(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    int32_t note = 60;
+    int32_t velocity = 0;
+    int32_t channel = 0;
+    if (argc < 1 || JS_ToInt32(ctx, &note, argv[0])) return JS_FALSE;
+    if (argc >= 2) JS_ToInt32(ctx, &velocity, argv[1]);
+    if (argc >= 3) JS_ToInt32(ctx, &channel, argv[2]);
+    return JS_NewBool(ctx, usb_midi_note_off(note, velocity, channel));
+}
+
+static JSValue js_usb_midi_all_notes_off(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    int32_t channel = 0;
+    if (argc >= 1) JS_ToInt32(ctx, &channel, argv[0]);
+    return JS_NewBool(ctx, usb_midi_all_notes_off(channel));
+}
+
 // Hardened: triple sync with delays, pre-reboot EFI file size sanity check,
 // perf flush, log flush before rebooting.
 static JSValue js_reboot(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
@@ -4442,6 +4538,19 @@ static JSValue build_system_obj(JSContext *ctx) {
     // Remote reboot / poweroff — system.reboot() / system.poweroff()
     JS_SetPropertyStr(ctx, sys, "reboot", JS_NewCFunction(ctx, js_reboot, "reboot", 0));
     JS_SetPropertyStr(ctx, sys, "poweroff", JS_NewCFunction(ctx, js_poweroff, "poweroff", 0));
+
+    // USB MIDI gadget status + control
+    {
+        JSValue usb_midi = build_usb_midi_state_obj(ctx);
+        JS_SetPropertyStr(ctx, usb_midi, "status", JS_NewCFunction(ctx, js_usb_midi_status, "status", 0));
+        JS_SetPropertyStr(ctx, usb_midi, "enable", JS_NewCFunction(ctx, js_usb_midi_enable, "enable", 0));
+        JS_SetPropertyStr(ctx, usb_midi, "disable", JS_NewCFunction(ctx, js_usb_midi_disable, "disable", 0));
+        JS_SetPropertyStr(ctx, usb_midi, "refresh", JS_NewCFunction(ctx, js_usb_midi_refresh, "refresh", 0));
+        JS_SetPropertyStr(ctx, usb_midi, "noteOn", JS_NewCFunction(ctx, js_usb_midi_note_on, "noteOn", 3));
+        JS_SetPropertyStr(ctx, usb_midi, "noteOff", JS_NewCFunction(ctx, js_usb_midi_note_off, "noteOff", 3));
+        JS_SetPropertyStr(ctx, usb_midi, "allNotesOff", JS_NewCFunction(ctx, js_usb_midi_all_notes_off, "allNotesOff", 1));
+        JS_SetPropertyStr(ctx, sys, "usbMidi", usb_midi);
+    }
 
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));

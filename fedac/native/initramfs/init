@@ -88,6 +88,15 @@ for attempt in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
 done
 
+if [ -x /scripts/usb-midi-gadget.sh ]; then
+    if [ "$USB_MOUNTED" = "1" ] && [ -f /mnt/config.json ] &&
+       grep -Eq '"usbMidi"[[:space:]]*:[[:space:]]*true' /mnt/config.json 2>/dev/null; then
+        /scripts/usb-midi-gadget.sh up >/tmp/usb-midi-gadget.log 2>&1 || true
+    else
+        /scripts/usb-midi-gadget.sh down >/tmp/usb-midi-gadget.log 2>&1 || true
+    fi
+fi
+
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
