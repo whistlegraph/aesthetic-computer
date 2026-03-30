@@ -37,6 +37,7 @@ let me = null; // { x, y, targetX, alive, fireTimer }
 let opponent = null; // { x, y, targetX, alive, fireTimer, handle }
 let bullets = []; // { x, y, vx, owner: "me"|"them" }
 let mySlot = -1; // 0 = left, 1 = right
+let dummy = false; // true when practicing solo against a dummy
 
 function isDueling() {
   return roster.length >= 2 &&
@@ -64,6 +65,27 @@ function spawnDuelists() {
     fireTimer: FIRE_INTERVAL,
     handle: roster[mySlot === 0 ? 1 : 0]?.handle || "???",
   };
+}
+
+function startPractice() {
+  dummy = true;
+  // Add dummy to roster as slot 1
+  if (!roster.find((r) => r.handle === "dummy")) {
+    roster.push({ id: "dummy", handle: "dummy" });
+  }
+  mySlot = 0;
+  phase = "countdown";
+  countdownTimer = COUNTDOWN_FRAMES;
+  spawnDuelists();
+  if (opponent) opponent.handle = "dummy";
+}
+
+function stopPractice() {
+  dummy = false;
+  roster = roster.filter((r) => r.handle !== "dummy");
+  me = null;
+  opponent = null;
+  bullets = [];
 }
 
 function startCountdown() {
@@ -105,7 +127,8 @@ function advanceStack() {
   if (roster.length >= 2) {
     startCountdown();
   } else {
-    phase = "waiting";
+    // Back to solo — restart practice
+    startPractice();
   }
 }
 
@@ -153,6 +176,8 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
     const msg = typeof content === "string" ? JSON.parse(content) : content;
 
     if (type === "duel:join" && msg.handle !== myHandle) {
+      // Stop practice if a real player joins
+      if (dummy) stopPractice();
       if (!roster.find((r) => r.handle === msg.handle)) {
         roster.push({ id, handle: msg.handle });
       }
@@ -225,10 +250,11 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
     }
   });
 
-  // Add self to roster
+  // Add self to roster and start practice
   roster.push({ id: myId, handle: myHandle });
+  startPractice();
 
-  wipe(30, 25, 40);
+  wipe(240, 238, 232);
 }
 
 function sim() {
@@ -247,7 +273,29 @@ function sim() {
     }
   }
 
-  if (phase !== "fight" || !isDueling() || !me) return;
+  if (phase !== "fight" || !me || (!isDueling() && !dummy)) return;
+
+  // Dummy AI — wander randomly
+  if (dummy && opponent?.alive) {
+    opponent.fireTimer--;
+    // Pick a new random target every ~2s
+    if (frameCount % 120 === 0) {
+      opponent.targetX = 20 + Math.random() * (ARENA_W - 40);
+    }
+    const odx = opponent.targetX - opponent.x;
+    if (Math.abs(odx) > 1) opponent.x += Math.sign(odx) * MOVE_SPEED * 0.8;
+    // Dummy fires
+    if (opponent.fireTimer <= 0) {
+      opponent.fireTimer = FIRE_INTERVAL;
+      const dir = Math.sign(me.x - opponent.x);
+      bullets.push({
+        x: opponent.x + dir * 4,
+        y: opponent.y - FIGURE_H / 2,
+        vx: dir * BULLET_SPEED,
+        owner: "them",
+      });
+    }
+  }
 
   // Move toward target
   if (me.alive) {
@@ -331,7 +379,7 @@ function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
 
-  if (e.is("touch") && phase === "fight" && isDueling() && me?.alive) {
+  if (e.is("touch") && phase === "fight" && (isDueling() || dummy) && me?.alive) {
     // Tap to set run target (screen -> arena coords)
     const ox = Math.floor(sw / 2 - ARENA_W / 2);
     const tx = e.x - ox;
@@ -342,42 +390,35 @@ function act({ event: e, screen }) {
 function paint({ wipe, ink, box, write, line, circle, screen }) {
   sw = screen.width;
   sh = screen.height;
-  wipe(30, 25, 40);
+  wipe(240, 238, 232);
 
   const ox = Math.floor(sw / 2 - ARENA_W / 2);
   const oy = Math.floor(sh / 2 - ARENA_H / 2);
 
   // Arena bg
-  ink(45, 38, 55).box(ox, oy, ARENA_W, ARENA_H);
+  ink(255, 253, 248).box(ox, oy, ARENA_W, ARENA_H);
   // Ground
-  ink(60, 52, 70).box(ox, oy + GROUND_Y, ARENA_W, ARENA_H - GROUND_Y);
+  ink(220, 215, 205).box(ox, oy + GROUND_Y, ARENA_W, ARENA_H - GROUND_Y);
   // Arena border
-  ink(70, 62, 85).box(ox, oy, ARENA_W, ARENA_H, "outline");
-
-  if (phase === "waiting") {
-    ink(110, 105, 130).write("dumduel", { x: ox + 72, y: oy + 50 });
-    ink(80, 75, 100).write("waiting...", { x: ox + 66, y: oy + 65 });
-  }
+  ink(180, 175, 165).box(ox, oy, ARENA_W, ARENA_H, "outline");
 
   if (phase === "countdown") {
     const secs = Math.ceil(countdownTimer / 60);
     const numStr = "" + secs;
-    ink(255, 220, 100).write(numStr, {
+    ink(60, 55, 45).write(numStr, {
       x: ox + Math.floor(ARENA_W / 2 - numStr.length * 3),
       y: oy + 30,
     });
 
-    // Draw duelists standing still
-    if (isDueling() && me && opponent) {
-      drawStickFigure(ink, line, circle, box, ox, oy, me, [120, 180, 255]);
-      drawStickFigure(ink, line, circle, box, ox, oy, opponent, [255, 130, 100]);
+    if (me && opponent) {
+      drawStickFigure(ink, line, circle, box, ox, oy, me, [50, 120, 200]);
+      drawStickFigure(ink, line, circle, box, ox, oy, opponent, [200, 70, 60]);
     }
 
-    // Show who vs who
     const d0 = roster[0]?.handle || "?";
     const d1 = roster[1]?.handle || "?";
     const vsStr = d0 + " vs " + d1;
-    ink(150, 145, 170).write(vsStr, {
+    ink(140, 135, 125).write(vsStr, {
       x: ox + Math.floor(ARENA_W / 2 - vsStr.length * 3),
       y: oy + 50,
     });
@@ -386,50 +427,56 @@ function paint({ wipe, ink, box, write, line, circle, screen }) {
   if (phase === "fight" || phase === "roundover") {
     // Bullets
     for (const b of bullets) {
-      if (b.owner === "me") ink(120, 180, 255);
-      else ink(255, 130, 100);
+      if (b.owner === "me") ink(50, 120, 200);
+      else ink(200, 70, 60);
       circle(ox + Math.floor(b.x), oy + Math.floor(b.y), BULLET_R, true);
     }
 
-    // Draw figures
-    if (isDueling() && me && opponent) {
-      drawStickFigure(ink, line, circle, box, ox, oy, me, [120, 180, 255]);
-      drawStickFigure(ink, line, circle, box, ox, oy, opponent, [255, 130, 100]);
+    if (me && opponent) {
+      drawStickFigure(ink, line, circle, box, ox, oy, me, [50, 120, 200]);
+      drawStickFigure(ink, line, circle, box, ox, oy, opponent, [200, 70, 60]);
     }
 
-    // Round over text
     if (phase === "roundover" && roundWinner) {
       const won = roundWinner === myHandle;
       const msg = won ? "you got em!" : "you died!";
-      if (won) ink(100, 220, 130); else ink(220, 100, 100);
+      if (won) ink(50, 160, 80); else ink(200, 70, 60);
       write(msg, {
         x: ox + Math.floor(ARENA_W / 2 - msg.length * 3),
         y: oy + 20,
       });
     }
 
-    // Show who vs who
     if (roster.length >= 2) {
       const d0 = roster[0]?.handle || "?";
       const d1 = roster[1]?.handle || "?";
-      ink(80, 75, 100).write(d0, { x: ox + 2, y: oy + ARENA_H + 4 });
-      ink(80, 75, 100).write(d1, {
+      ink(140, 135, 125).write(d0, { x: ox + 2, y: oy + ARENA_H + 4 });
+      ink(140, 135, 125).write(d1, {
         x: ox + ARENA_W - d1.length * 6 - 2, y: oy + ARENA_H + 4,
       });
     }
   }
 
+  // Practice label
+  if (dummy && (phase === "fight" || phase === "countdown")) {
+    ink(190, 185, 175).write("practice", {
+      x: ox + Math.floor(ARENA_W / 2 - 24),
+      y: oy - 10,
+    });
+  }
+
   // -- Stack (queue) display --
   const stackX = ox + ARENA_W + 8;
   const stackY = oy;
-  ink(80, 75, 100).write("stack", { x: stackX, y: stackY });
+  ink(160, 155, 145).write("stack", { x: stackX, y: stackY });
   for (let i = 0; i < roster.length; i++) {
     const r = roster[i];
+    if (r.handle === "dummy") continue; // don't show dummy in stack
     const isMe = r.handle === myHandle;
     const isDuelist = i < 2 && roster.length >= 2;
-    if (isDuelist) ink(255, 220, 100);
-    else if (isMe) ink(150, 145, 170);
-    else ink(100, 95, 120);
+    if (isDuelist) ink(60, 55, 45);
+    else if (isMe) ink(120, 115, 105);
+    else ink(170, 165, 155);
     write(r.handle, { x: stackX, y: stackY + 12 + i * 10 });
   }
 }
@@ -440,7 +487,7 @@ function drawStickFigure(ink, line, circle, box, ox, oy, fig, col) {
 
   if (!fig.alive) {
     // Dead — fallen over
-    ink(col[0], col[1], col[2], 120);
+    ink(col[0], col[1], col[2], 80);
     line(fx - 6, fy - 1, fx + 6, fy - 1);
     circle(fx + 7, fy - 2, 2, true);
     return;
