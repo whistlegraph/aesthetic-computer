@@ -610,12 +610,13 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
       log("thumbnail", `Done: ${thumbnailUri}`);
     } else {
       const preexisting = piece.ipfsMedia?.thumbnailUri;
-      if (preexisting && forceFresh) {
+      if (preexisting) {
         thumbnailUri = preexisting;
         await setJobResult(jobId, { thumbnailUri });
         log("thumbnail", `Reusing previous: ${thumbnailUri}`);
       } else {
-        throw new Error(`Thumbnail failed: ${thumbResult?.error || "unknown"}`);
+        // Fallback: use artifact as thumbnail so the mint can proceed
+        log("thumbnail", `Oven failed (${thumbResult?.error || "unknown"}), using artifact as fallback`);
       }
     }
   }
@@ -626,6 +627,13 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     await setJobResult(jobId, { artifactUri });
     await updateJobStage(jobId, "ipfs", "Pinned to IPFS");
     log("ipfs", `Artifact: ${artifactUri}`);
+
+    // If thumbnail failed, fall back to artifact URI
+    if (!thumbnailUri) {
+      thumbnailUri = artifactUri;
+      await setJobResult(jobId, { thumbnailUri });
+      log("thumbnail", `Fallback to artifact: ${thumbnailUri}`);
+    }
   }
 
   // ── Cache media in MongoDB ─────────────────────────────────────────
