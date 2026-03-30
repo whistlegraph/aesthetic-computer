@@ -12,76 +12,74 @@
 
 #ifdef USE_SDL
 // ============================================================
-// SDL2 GPU-accelerated display (uses KMSDRM backend on bare metal)
+// SDL3 GPU-accelerated display (uses KMSDRM backend on bare metal)
 // ============================================================
 
 static ACDisplay *sdl_init(void) {
     // Set KMSDRM hints for bare metal (no X11/Wayland)
     if (getpid() == 1) {
-        setenv("SDL_VIDEODRIVER", "kmsdrm", 0);
+        setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        fprintf(stderr, "[sdl] SDL_Init failed: %s\n", SDL_GetError());
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        fprintf(stderr, "[sdl3] SDL_Init failed: %s\n", SDL_GetError());
         return NULL;
     }
 
-    // Get display mode to know the resolution
-    SDL_DisplayMode dm;
-    if (SDL_GetDesktopDisplayMode(0, &dm) < 0) {
-        fprintf(stderr, "[sdl] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
+    // Get primary display and its mode
+    SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+    if (!primary) {
+        fprintf(stderr, "[sdl3] No primary display: %s\n", SDL_GetError());
+        SDL_Quit();
+        return NULL;
+    }
+    const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(primary);
+    if (!dm) {
+        fprintf(stderr, "[sdl3] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
         SDL_Quit();
         return NULL;
     }
 
-    SDL_Window *win = SDL_CreateWindow("ac-native",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        dm.w, dm.h,
-        SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_SHOWN);
+    SDL_Window *win = SDL_CreateWindow("ac-native", dm->w, dm->h,
+        SDL_WINDOW_FULLSCREEN);
     if (!win) {
-        fprintf(stderr, "[sdl] CreateWindow failed: %s\n", SDL_GetError());
+        fprintf(stderr, "[sdl3] CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
         return NULL;
     }
 
-    SDL_ShowCursor(SDL_DISABLE);
+    SDL_HideCursor();
 
-    SDL_Renderer *ren = SDL_CreateRenderer(win, -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) {
-        fprintf(stderr, "[sdl] CreateRenderer (accel) failed: %s, trying software\n", SDL_GetError());
-        ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
-    }
-    if (!ren) {
-        fprintf(stderr, "[sdl] CreateRenderer failed: %s\n", SDL_GetError());
+        fprintf(stderr, "[sdl3] CreateRenderer failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
         SDL_Quit();
         return NULL;
     }
 
-    // Log renderer info
-    SDL_RendererInfo info;
-    SDL_GetRendererInfo(ren, &info);
-    fprintf(stderr, "[sdl] Renderer: %s (flags: 0x%x)\n", info.name, info.flags);
-    if (info.flags & SDL_RENDERER_ACCELERATED)
-        fprintf(stderr, "[sdl] GPU-accelerated rendering active\n");
+    // Enable vsync
+    SDL_SetRenderVSync(ren, 1);
 
-    // Set nearest-neighbor scaling for pixel-art look
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+    // Log renderer info
+    const char *ren_name = SDL_GetRendererName(ren);
+    fprintf(stderr, "[sdl3] Renderer: %s\n", ren_name ? ren_name : "unknown");
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
     d->fd = -1;
     d->is_sdl = 1;
-    d->width = dm.w;
-    d->height = dm.h;
+    d->width = dm->w;
+    d->height = dm->h;
     d->sdl_window = win;
     d->sdl_renderer = ren;
     // Texture created lazily in display_present (needs framebuffer dimensions)
     d->sdl_texture = NULL;
     d->sdl_tex_w = 0;
     d->sdl_tex_h = 0;
+    snprintf(d->sdl_renderer_name, sizeof(d->sdl_renderer_name), "%s",
+             ren_name ? ren_name : "unknown");
 
-    fprintf(stderr, "[sdl] Ready (%dx%d)\n", d->width, d->height);
+    fprintf(stderr, "[sdl3] Ready (%dx%d)\n", d->width, d->height);
     return d;
 }
 #endif /* USE_SDL */
@@ -259,7 +257,7 @@ ACDisplay *drm_init(void) {
 #ifdef USE_SDL
     ACDisplay *sdl = sdl_init();
     if (sdl) return sdl;
-    fprintf(stderr, "[drm] SDL2 failed, falling back to DRM dumb buffers\n");
+    fprintf(stderr, "[drm] SDL3 failed, falling back to DRM dumb buffers\n");
 #endif
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
@@ -469,16 +467,19 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
             d->sdl_texture = SDL_CreateTexture(d->sdl_renderer,
                 SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                 screen->width, screen->height);
+            if (d->sdl_texture) {
+                SDL_SetTextureScaleMode(d->sdl_texture, SDL_SCALEMODE_NEAREST);
+            }
             d->sdl_tex_w = screen->width;
             d->sdl_tex_h = screen->height;
-            fprintf(stderr, "[sdl] Created texture %dx%d\n", screen->width, screen->height);
+            fprintf(stderr, "[sdl3] Created texture %dx%d\n", screen->width, screen->height);
         }
         // Upload pixels to GPU texture
         SDL_UpdateTexture(d->sdl_texture, NULL,
                           screen->pixels, screen->stride * (int)sizeof(uint32_t));
         // GPU-accelerated scale to fullscreen
         SDL_RenderClear(d->sdl_renderer);
-        SDL_RenderCopy(d->sdl_renderer, d->sdl_texture, NULL, NULL);
+        SDL_RenderTexture(d->sdl_renderer, d->sdl_texture, NULL, NULL);
         SDL_RenderPresent(d->sdl_renderer);
         return;
     }
@@ -757,6 +758,19 @@ void drm_secondary_destroy(ACSecondaryDisplay *s) {
         }
     }
     free(s);
+}
+
+const char *drm_display_driver(ACDisplay *d) {
+    if (!d) return "none";
+#ifdef USE_SDL
+    if (d->is_sdl) {
+        static char buf[48];
+        snprintf(buf, sizeof(buf), "sdl3:%s", d->sdl_renderer_name);
+        return buf;
+    }
+#endif
+    if (d->is_fbdev) return "fbdev";
+    return "drm";
 }
 
 void drm_destroy(ACDisplay *d) {
