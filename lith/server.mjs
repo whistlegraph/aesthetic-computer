@@ -183,11 +183,22 @@ function toEvent(req) {
   // Reconstruct body as string (Netlify handlers expect string or null)
   let body = null;
   if (req.body) {
+    const contentType = (req.headers["content-type"] || "").toLowerCase();
     body =
       typeof req.body === "string"
         ? req.body
         : Buffer.isBuffer(req.body)
           ? req.body.toString("utf-8")
+          // Preserve HTML form posts as urlencoded strings so legacy handlers
+          // using URLSearchParams(event.body) continue to work after lith.
+          : contentType.includes("application/x-www-form-urlencoded")
+            ? new URLSearchParams(
+                Object.entries(req.body).flatMap(([key, value]) =>
+                  Array.isArray(value)
+                    ? value.map((item) => [key, item])
+                    : [[key, value]],
+                ),
+              ).toString()
           : JSON.stringify(req.body);
   }
 
