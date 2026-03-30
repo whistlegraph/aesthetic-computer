@@ -895,6 +895,7 @@ const buttonNotes = [
 ];
 
 const buttonNoteLookup = new Set(buttonNotes);
+const MIDI_NOTE_NAMES = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
 
 const midiActiveNotes = new Map();
 
@@ -1252,6 +1253,18 @@ function parseSong(raw) {
 
 let startupSfx;
 let udpServer;
+let relaySocket = null;
+let relaySourceHandle = "";
+let relaySourceMachineId = "";
+let relaySubscribeAll = false;
+let relaySources = [];
+let relayStatusText = "relay off";
+let relayLastEventText = "";
+let relayLastEventAt = 0;
+let relayNeedsPanic = false;
+let relayMessageHandler = null;
+const relayMidiQueue = [];
+const relayActiveNotes = new Map();
 
 let stampleSampleId = null;
 let stampleSampleData = null;
@@ -1266,6 +1279,119 @@ let autopatTypeface = null;
 
 let picture;
 let matrixFont; // MatrixChunky8 font for note letters
+
+function normalizeRelayHandle(handle) {
+  return `${handle || ""}`.trim().replace(/^@+/, "").toLowerCase();
+}
+
+function relayTargetLabel() {
+  if (relaySubscribeAll) return "all";
+  if (relaySourceHandle && relaySourceMachineId) return `@${relaySourceHandle} ${relaySourceMachineId}`;
+  if (relaySourceHandle) return `@${relaySourceHandle}`;
+  if (relaySourceMachineId) return relaySourceMachineId;
+  return "off";
+}
+
+function relaySubscriptionPayload() {
+  if (relaySubscribeAll) return { all: true };
+  if (relaySourceHandle || relaySourceMachineId) {
+    return {
+      handle: relaySourceHandle || undefined,
+      machineId: relaySourceMachineId || undefined,
+    };
+  }
+  return null;
+}
+
+function updateRelayBridgeState() {
+  if (typeof window === "undefined") return;
+  window.acNotepatRelay = {
+    status: relayStatusText,
+    target: relayTargetLabel(),
+    sources: relaySources,
+    lastEvent: relayLastEventText,
+    setSource(next = {}) {
+      setRelaySource(next);
+    },
+  };
+}
+
+function requestRelaySources() {
+  relaySocket?.send?.("notepat:midi:sources");
+}
+
+function sendRelaySubscription() {
+  const payload = relaySubscriptionPayload();
+  if (!relaySocket?.send) return;
+  if (!payload) {
+    relaySocket.send("notepat:midi:unsubscribe", true);
+    relayStatusText = "relay off";
+    updateRelayBridgeState();
+    return;
+  }
+  relaySocket.send("notepat:midi:subscribe", payload);
+  relayStatusText = `relay ${relayTargetLabel()}`;
+  updateRelayBridgeState();
+}
+
+function setRelaySource(next = {}) {
+  const hasHandle = Object.prototype.hasOwnProperty.call(next, "handle");
+  const hasMachineId = Object.prototype.hasOwnProperty.call(next, "machineId");
+  const hasAll = Object.prototype.hasOwnProperty.call(next, "all");
+
+  if (hasHandle) {
+    relaySourceHandle = normalizeRelayHandle(next.handle);
+  }
+  if (hasMachineId) {
+    relaySourceMachineId = `${next.machineId || ""}`.trim();
+  } else if (hasHandle) {
+    relaySourceMachineId = "";
+  }
+  if (hasAll) {
+    relaySubscribeAll = next.all === true;
+  }
+  if (relaySubscribeAll) {
+    relaySourceHandle = "";
+    relaySourceMachineId = "";
+  }
+  relayNeedsPanic = true;
+  requestRelaySources();
+  sendRelaySubscription();
+}
+
+function handleRelaySocketMessage(id, type, content) {
+  if (type === "connected" || type === "connected:already") {
+    requestRelaySources();
+    sendRelaySubscription();
+    return;
+  }
+
+  if (type === "notepat:midi:sources") {
+    relaySources = Array.isArray(content?.sources) ? content.sources : [];
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi:subscribed") {
+    relayStatusText = `relay ${relayTargetLabel()}`;
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi:unsubscribed") {
+    relayStatusText = "relay off";
+    relayNeedsPanic = true;
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi") {
+    relayMidiQueue.push(content);
+    relayLastEventText = `${content?.handle ? "@" + content.handle + " " : ""}${content?.event || "event"} ${content?.note ?? ""}`;
+    relayLastEventAt = Date.now();
+    updateRelayBridgeState();
+  }
+}
 
 async function boot({
   params,
@@ -1286,6 +1412,11 @@ async function boot({
   autopatApi = api;
   autopatHud = hud;
   autopatTypeface = typeface;
+  setSoundContext({
+    synth: sound?.synth,
+    play: sound?.play,
+    freq: sound?.freq,
+  });
 
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
   hud.superscript(".com");
@@ -1351,6 +1482,33 @@ async function boot({
 
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
+  relaySourceHandle = normalizeRelayHandle(query?.relayHandle);
+  relaySourceMachineId = `${query?.relayMachine || ""}`.trim();
+  relaySubscribeAll = query?.relayAll === "1" || query?.relay === "all";
+  relayStatusText = relaySubscriptionPayload() ? `relay ${relayTargetLabel()}` : "relay off";
+  relaySocket = net.socket(handleRelaySocketMessage);
+  requestRelaySources();
+  sendRelaySubscription();
+  if (typeof window !== "undefined") {
+    if (relayMessageHandler) window.removeEventListener("message", relayMessageHandler);
+    relayMessageHandler = (event) => {
+      const data = event?.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "notepat:midi:set-source" || data.type === "notepat:midi:subscribe") {
+        setRelaySource({
+          handle: data.handle,
+          machineId: data.machineId,
+          all: data.all === true,
+        });
+      } else if (data.type === "notepat:midi:unsubscribe") {
+        setRelaySource({ handle: "", machineId: "", all: false });
+      } else if (data.type === "notepat:midi:sources") {
+        requestRelaySources();
+      }
+    };
+    window.addEventListener("message", relayMessageHandler);
+    updateRelayBridgeState();
+  }
 
   // Create picture buffer at quarter resolution (quarter width, quarter height)
   const pictureWidth = Math.max(1, Math.floor(screen.width / 4));
@@ -1528,6 +1686,13 @@ async function boot({
 
 function sim({ sound, simCount, num, clock, painting }) {
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
+  setSoundContext({
+    synth: sound?.synth,
+    play: sound?.play,
+    freq: sound?.freq,
+    num,
+  });
+  flushRelayMidiQueue();
 
   if (lowLatencyMode) {
     if (simTick % 3 === 0) sound.speaker?.poll();
@@ -5325,6 +5490,219 @@ let soundContext = null;
 
 function setSoundContext(ctx) {
   soundContext = ctx;
+}
+
+function lowerBaseOctave() {
+  return parseInt(octave) + lowerOctaveShift;
+}
+
+function upperBaseOctave() {
+  return parseInt(octave) + 1 + upperOctaveShift;
+}
+
+function midiNoteToRelayButton(noteNumber) {
+  if (typeof noteNumber !== "number") return null;
+
+  const normalizedNote = ((noteNumber % 12) + 12) % 12;
+  const noteName = MIDI_NOTE_NAMES[normalizedNote];
+  const noteOctave = Math.floor(noteNumber / 12) - 1;
+  const lowerOct = lowerBaseOctave();
+  const upperOct = upperBaseOctave();
+
+  if (noteOctave === lowerOct && buttonNoteLookup.has(noteName)) {
+    return noteName;
+  }
+
+  if (noteOctave === upperOct) {
+    const upperNote = `+${noteName}`;
+    if (buttonNoteLookup.has(upperNote)) return upperNote;
+  }
+
+  if (noteOctave < lowerOct) {
+    const baseNote = noteOctave < lowerOct - 1 ? noteName : `+${noteName}`;
+    if (buttonNoteLookup.has(baseNote)) return baseNote;
+  }
+
+  if (noteOctave > upperOct) {
+    const baseNote = noteOctave > upperOct + 1 ? noteName : `+${noteName}`;
+    if (buttonNoteLookup.has(baseNote)) return baseNote;
+  }
+
+  if (buttonNoteLookup.has(noteName)) return noteName;
+  if (buttonNoteLookup.has(`+${noteName}`)) return `+${noteName}`;
+  return null;
+}
+
+function startRelayButtonNote(buttonNote, velocity = 127) {
+  if (!buttonNote) return false;
+
+  const num = soundContext?.num;
+  const synth = soundContext?.synth;
+  const freq = soundContext?.freq;
+
+  if (song && buttonNote.toUpperCase() !== song?.[songIndex]?.[0]) {
+    synth?.({
+      type: "noise-white",
+      tone: 1000,
+      duration: 0.05,
+      volume: 0.3,
+      attack: 0,
+    });
+    return false;
+  }
+
+  anyDown = true;
+  noteShake[buttonNote] = 3;
+
+  let noteName = buttonNote;
+  let targetOctave = lowerBaseOctave();
+  if (buttonNote.startsWith("+")) {
+    noteName = buttonNote.slice(1);
+    targetOctave = upperBaseOctave();
+  }
+
+  const tone = `${targetOctave}${noteName.toUpperCase()}`;
+  const active = orderedByCount(sounds);
+
+  if (slide && active.length > 0) {
+    sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+    tonestack[buttonNote] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+    sounds[buttonNote] = sounds[active[0]];
+    if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
+    delete sounds[active[0]];
+    applyPitchBendToNotes([buttonNote], { immediate: true });
+  } else {
+    tonestack[buttonNote] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+
+    const pan = getPanForButtonNote(buttonNote);
+    let soundHandle = makeNoteSound(tone, velocity, pan);
+
+    if (!soundHandle || typeof soundHandle.kill !== "function") {
+      const velocityRatio = velocity === undefined ? 1 : velocity / 127;
+      const clampedRatio = num?.clamp
+        ? num.clamp(velocityRatio, 0, 1)
+        : Math.max(0, Math.min(1, velocityRatio));
+      const minVelocityVolume = 0.05;
+      const fallbackVolume =
+        toneVolume * (minVelocityVolume + (1 - minVelocityVolume) * clampedRatio);
+      soundHandle = synth?.({
+        type: "sine",
+        tone: freq?.(tone),
+        attack: quickFade ? 0.0015 : attack,
+        decay: 0.9,
+        duration: 0.4,
+        volume: fallbackVolume,
+        pan,
+      });
+    }
+
+    sounds[buttonNote] = {
+      note: buttonNote,
+      count: active.length + 1,
+      sound: soundHandle,
+    };
+
+    applyPitchBendToNotes([buttonNote], { immediate: true });
+
+    if (buttonNote.toUpperCase() === song?.[songIndex]?.[0]) {
+      songNoteDown = true;
+    }
+
+    delete trail[buttonNote];
+
+    if (autopatApi) pictureAdd(autopatApi, tone);
+  }
+
+  if (buttons[buttonNote]) {
+    buttons[buttonNote].down = true;
+    buttons[buttonNote].over = true;
+  }
+
+  return true;
+}
+
+function stopRelayButtonNote(buttonNote) {
+  if (!buttonNote) return;
+
+  const orderedTones = orderedByCount(tonestack);
+
+  if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
+    const previousKey = orderedTones[orderedTones.length - 2];
+    const previousTone = tonestack[previousKey]?.tone;
+    if (previousTone) {
+      sounds[buttonNote]?.sound?.update({ tone: previousTone, duration: 0.1 });
+      sounds[previousKey] = sounds[buttonNote];
+      if (sounds[previousKey]) sounds[previousKey].note = previousKey;
+      applyPitchBendToNotes([previousKey], { immediate: true });
+    }
+  } else if (sounds[buttonNote]?.sound) {
+    const soundEntry = sounds[buttonNote];
+    const lifespan = soundEntry.sound?.startedAt
+      ? performance.now() / 1000 - soundEntry.sound.startedAt
+      : 0.1;
+    const fade = max(0.075, min(lifespan, 0.15));
+    soundEntry.sound.kill(quickFade ? fastFade : fade);
+  }
+
+  if (buttonNote.toUpperCase() === song?.[songIndex]?.[0]) {
+    songIndex = (songIndex + 1) % song.length;
+    songNoteDown = false;
+    songShifting = true;
+  }
+
+  delete tonestack[buttonNote];
+  delete sounds[buttonNote];
+  trail[buttonNote] = 1;
+
+  if (buttons[buttonNote]) {
+    buttons[buttonNote].down = false;
+    buttons[buttonNote].over = false;
+  }
+}
+
+function flushRelayMidiQueue() {
+  if (relayNeedsPanic) {
+    for (const buttonNote of relayActiveNotes.values()) {
+      stopRelayButtonNote(buttonNote);
+    }
+    relayActiveNotes.clear();
+    relayNeedsPanic = false;
+  }
+
+  while (relayMidiQueue.length > 0) {
+    const event = relayMidiQueue.shift();
+    const noteNumber = Number(event?.note);
+    if (!Number.isFinite(noteNumber)) continue;
+
+    const key = [
+      normalizeRelayHandle(event?.handle),
+      `${event?.machineId || "unknown"}`,
+      `${event?.channel ?? 0}`,
+      `${Math.round(noteNumber)}`,
+    ].join(":");
+
+    if (event?.event === "note_off" || Number(event?.velocity) === 0) {
+      const activeButtonNote = relayActiveNotes.get(key) || midiNoteToRelayButton(Math.round(noteNumber));
+      if (activeButtonNote) stopRelayButtonNote(activeButtonNote);
+      relayActiveNotes.delete(key);
+      continue;
+    }
+
+    const buttonNote = midiNoteToRelayButton(Math.round(noteNumber));
+    if (!buttonNote) continue;
+    if (relayActiveNotes.has(key)) {
+      stopRelayButtonNote(relayActiveNotes.get(key));
+    }
+    if (startRelayButtonNote(buttonNote, Number(event?.velocity) || 127)) {
+      relayActiveNotes.set(key, buttonNote);
+    }
+  }
 }
 
 function makeNoteSound(tone, velocity = 127, pan = 0) {

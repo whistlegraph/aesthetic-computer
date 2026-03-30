@@ -29,7 +29,7 @@ const COMMANDS = [
   { name: "bye",     desc: "log out" },
   { name: "version", desc: "OS hash" },
   { name: "ssh",     desc: "SSH server" },
-  { name: "midi",    desc: "usb midi gadget" },
+  { name: "midi",    desc: "usb midi + udp relay" },
   { name: "clear",   desc: "clear history" },
   { name: "help",    desc: "quick help" },
 ];

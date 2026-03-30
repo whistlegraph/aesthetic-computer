@@ -1,5 +1,6 @@
 #include "udp-client.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <time.h>
 
 extern void ac_log(const char *fmt, ...);
 
@@ -22,6 +24,85 @@ extern void ac_log(const char *fmt, ...);
 
 #define PKT_FAIRY_SEND  0x01
 #define PKT_FAIRY_RECV  0x02
+
+static uint64_t udp_now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+}
+
+static void json_escape_copy(char *dst, size_t dst_size, const char *src) {
+    size_t out = 0;
+
+    if (!dst || dst_size == 0) return;
+    if (!src) src = "";
+
+    while (*src && out + 1 < dst_size) {
+        unsigned char c = (unsigned char)*src++;
+        if (c == '"' || c == '\\') {
+            if (out + 2 >= dst_size) break;
+            dst[out++] = '\\';
+            dst[out++] = (char)c;
+        } else if (c >= 32 && c < 127) {
+            dst[out++] = (char)c;
+        }
+    }
+
+    dst[out] = '\0';
+}
+
+static int udp_snapshot_identity(
+    ACUdp *udp,
+    int *sock_out,
+    struct sockaddr_in *addr_out,
+    char *handle_out,
+    size_t handle_out_size,
+    char *machine_out,
+    size_t machine_out_size
+) {
+    int sock = -1;
+    int connected = 0;
+
+    if (!udp) return 0;
+
+    pthread_mutex_lock(&udp->mu);
+    sock = udp->sock;
+    connected = udp->connected;
+    if (addr_out) *addr_out = udp->server_addr;
+    if (handle_out && handle_out_size > 0) {
+        strncpy(handle_out, udp->handle, handle_out_size - 1);
+        handle_out[handle_out_size - 1] = 0;
+    }
+    if (machine_out && machine_out_size > 0) {
+        strncpy(machine_out, udp->machine_id, machine_out_size - 1);
+        machine_out[machine_out_size - 1] = 0;
+    }
+    pthread_mutex_unlock(&udp->mu);
+
+    if (sock_out) *sock_out = sock;
+    return connected && sock >= 0;
+}
+
+static void udp_send_json(ACUdp *udp, const char *json) {
+    int sock = -1;
+    struct sockaddr_in server_addr;
+
+    if (!udp || !json || !json[0]) return;
+    if (!udp_snapshot_identity(udp, &sock, &server_addr, NULL, 0, NULL, 0)) return;
+
+    ssize_t sent = sendto(
+        sock,
+        json,
+        strlen(json),
+        0,
+        (struct sockaddr *)&server_addr,
+        sizeof(server_addr)
+    );
+
+    if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        ac_log("[udp] json send failed: %s\n", strerror(errno));
+    }
+}
 
 static void *udp_thread(void *arg) {
     ACUdp *udp = (ACUdp *)arg;
@@ -139,6 +220,84 @@ void udp_send_fairy(ACUdp *udp, float x, float y) {
     udp->send_y = y;
     udp->send_pending = 1;
     pthread_mutex_unlock(&udp->mu);
+}
+
+void udp_set_identity(ACUdp *udp, const char *handle, const char *machine_id) {
+    if (!udp) return;
+    pthread_mutex_lock(&udp->mu);
+    if (handle) {
+        strncpy(udp->handle, handle, sizeof(udp->handle) - 1);
+        udp->handle[sizeof(udp->handle) - 1] = 0;
+    }
+    if (machine_id) {
+        strncpy(udp->machine_id, machine_id, sizeof(udp->machine_id) - 1);
+        udp->machine_id[sizeof(udp->machine_id) - 1] = 0;
+    }
+    pthread_mutex_unlock(&udp->mu);
+}
+
+void udp_send_midi(ACUdp *udp, const char *event, int note, int velocity, int channel, const char *piece) {
+    char handle[64] = "";
+    char machine_id[64] = "";
+    char handle_json[128];
+    char machine_json[128];
+    char piece_json[64];
+    char event_json[32];
+    char json[512];
+
+    if (!udp || !event || !piece) return;
+    if (!udp_snapshot_identity(udp, NULL, NULL, handle, sizeof(handle), machine_id, sizeof(machine_id))) return;
+
+    json_escape_copy(handle_json, sizeof(handle_json), handle);
+    json_escape_copy(machine_json, sizeof(machine_json), machine_id[0] ? machine_id : "unknown");
+    json_escape_copy(piece_json, sizeof(piece_json), piece);
+    json_escape_copy(event_json, sizeof(event_json), event);
+
+    snprintf(
+        json,
+        sizeof(json),
+        "{\"type\":\"notepat:midi\",\"event\":\"%s\",\"note\":%d,\"velocity\":%d,"
+        "\"channel\":%d,\"handle\":\"%s\",\"machineId\":\"%s\",\"piece\":\"%s\",\"ts\":%llu}",
+        event_json,
+        note,
+        velocity,
+        channel,
+        handle_json,
+        machine_json,
+        piece_json,
+        (unsigned long long)udp_now_ms()
+    );
+
+    udp_send_json(udp, json);
+}
+
+void udp_send_midi_heartbeat(ACUdp *udp, const char *piece) {
+    char handle[64] = "";
+    char machine_id[64] = "";
+    char handle_json[128];
+    char machine_json[128];
+    char piece_json[64];
+    char json[512];
+
+    if (!udp || !piece) return;
+    if (!udp_snapshot_identity(udp, NULL, NULL, handle, sizeof(handle), machine_id, sizeof(machine_id))) return;
+
+    json_escape_copy(handle_json, sizeof(handle_json), handle);
+    json_escape_copy(machine_json, sizeof(machine_json), machine_id[0] ? machine_id : "unknown");
+    json_escape_copy(piece_json, sizeof(piece_json), piece);
+
+    snprintf(
+        json,
+        sizeof(json),
+        "{\"type\":\"notepat:midi:heartbeat\",\"handle\":\"%s\",\"machineId\":\"%s\","
+        "\"piece\":\"%s\",\"broadcast\":true,\"ts\":%llu}",
+        handle_json,
+        machine_json,
+        piece_json,
+        (unsigned long long)udp_now_ms()
+    );
+
+    udp_send_json(udp, json);
 }
 
 int udp_poll_fairies(ACUdp *udp, UDPFairy *out, int max) {

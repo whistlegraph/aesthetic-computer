@@ -56,7 +56,7 @@ const PIECE_DESC = {
   "theme":         "prompt theme",
   "voice":         "system voice",
   "login":         "switch identity",
-  "midi":          "usb midi gadget",
+  "midi":          "usb midi + udp relay",
   "dark":          "dark mode",
   "light":         "light mode",
   "auto":          "auto dark/light",
@@ -138,6 +138,28 @@ function formatUsbMidiStatus(status) {
     return "usb midi off (" + status.reason + ")";
   }
   return "usb midi off";
+}
+
+function readConfig(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function udpMidiRelayEnabled(system) {
+  const cfg = readConfig(system);
+  return cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+}
+
+function formatUdpMidiRelayStatus(system) {
+  const cfg = readConfig(system);
+  const enabled = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+  if (!enabled) return "udp midi relay off";
+  if (cfg.handle) return "udp midi relay on @" + cfg.handle;
+  return "udp midi relay on";
 }
 
 function boot({ system }) {
@@ -331,8 +353,31 @@ function execute(cmd, system) {
   }
   if (baseWord === "midi") {
     const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : "status";
+    if (arg === "relay" || arg.startsWith("relay ")) {
+      const relayArg = arg === "relay" ? "status" : arg.slice("relay ".length).trim();
+      if (!relayArg || relayArg === "status") {
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      if (relayArg === "on" || relayArg === "enable") {
+        system?.saveConfig?.("udpMidiBroadcast", "true");
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      if (relayArg === "off" || relayArg === "disable") {
+        system?.saveConfig?.("udpMidiBroadcast", "false");
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      message = "usage: midi relay [status|on|off]";
+      messageFrame = 0;
+      return;
+    }
     if (!arg || arg === "status") {
-      message = formatUsbMidiStatus(readUsbMidiStatus(system));
+      message = formatUsbMidiStatus(readUsbMidiStatus(system)) + " | " + formatUdpMidiRelayStatus(system);
       messageFrame = 0;
       return;
     }
@@ -356,7 +401,7 @@ function execute(cmd, system) {
       messageFrame = 0;
       return;
     }
-    message = "usage: midi [status|on|off|refresh]";
+    message = "usage: midi [status|on|off|refresh|relay]";
     messageFrame = 0;
     return;
   }

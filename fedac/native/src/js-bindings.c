@@ -2567,6 +2567,17 @@ static JSValue js_camera_blit(JSContext *ctx, JSValueConst this_val, int argc, J
 // system.udp — Raw UDP fairy point co-presence
 // ---------------------------------------------------------------------------
 
+static void sync_udp_identity(void) {
+    extern char g_machine_id[64];
+
+    if (!current_rt || !current_rt->udp) return;
+    udp_set_identity(
+        current_rt->udp,
+        current_rt->handle[0] ? current_rt->handle : "",
+        g_machine_id[0] ? g_machine_id : "unknown"
+    );
+}
+
 static JSValue js_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || !current_rt->udp) return JS_UNDEFINED;
@@ -2574,13 +2585,7 @@ static JSValue js_udp_connect(JSContext *ctx, JSValueConst this_val, int argc, J
     if (!host) host = "session-server.aesthetic.computer";
     int port = UDP_FAIRY_PORT;
     if (argc > 1) JS_ToInt32(ctx, &port, argv[1]);
-    // Set handle for identity
-    if (current_rt->handle[0]) {
-        pthread_mutex_lock(&current_rt->udp->mu);
-        strncpy(current_rt->udp->handle, current_rt->handle, 63);
-        current_rt->udp->handle[63] = 0;
-        pthread_mutex_unlock(&current_rt->udp->mu);
-    }
+    sync_udp_identity();
     udp_connect(current_rt->udp, host, port);
     if (argc > 0) JS_FreeCString(ctx, host);
     return JS_UNDEFINED;
@@ -2596,14 +2601,64 @@ static JSValue js_udp_send_fairy(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
+static JSValue js_udp_send_midi(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->udp || argc < 4) return JS_UNDEFINED;
+
+    const char *event = JS_ToCString(ctx, argv[0]);
+    int32_t note = 0;
+    int32_t velocity = 0;
+    int32_t channel = 0;
+    const char *piece = argc > 4 ? JS_ToCString(ctx, argv[4]) : NULL;
+
+    JS_ToInt32(ctx, &note, argv[1]);
+    JS_ToInt32(ctx, &velocity, argv[2]);
+    JS_ToInt32(ctx, &channel, argv[3]);
+
+    if (!event) {
+        if (piece) JS_FreeCString(ctx, piece);
+        return JS_UNDEFINED;
+    }
+
+    sync_udp_identity();
+    udp_send_midi(
+        current_rt->udp,
+        event,
+        (int)note,
+        (int)velocity,
+        (int)channel,
+        piece ? piece : "notepat"
+    );
+
+    JS_FreeCString(ctx, event);
+    if (piece) JS_FreeCString(ctx, piece);
+    return JS_UNDEFINED;
+}
+
+static JSValue js_udp_send_midi_heartbeat(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->udp) return JS_UNDEFINED;
+
+    const char *piece = argc > 0 ? JS_ToCString(ctx, argv[0]) : NULL;
+    sync_udp_identity();
+    udp_send_midi_heartbeat(current_rt->udp, piece ? piece : "notepat");
+    if (piece) JS_FreeCString(ctx, piece);
+    return JS_UNDEFINED;
+}
+
 static JSValue build_udp_obj(JSContext *ctx, const char *phase) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "connect", JS_NewCFunction(ctx, js_udp_connect, "connect", 2));
     JS_SetPropertyStr(ctx, obj, "sendFairy", JS_NewCFunction(ctx, js_udp_send_fairy, "sendFairy", 2));
+    JS_SetPropertyStr(ctx, obj, "sendMidi", JS_NewCFunction(ctx, js_udp_send_midi, "sendMidi", 5));
+    JS_SetPropertyStr(ctx, obj, "sendMidiHeartbeat", JS_NewCFunction(ctx, js_udp_send_midi_heartbeat, "sendMidiHeartbeat", 1));
 
     ACUdp *udp = current_rt ? current_rt->udp : NULL;
     if (udp) {
+        sync_udp_identity();
         JS_SetPropertyStr(ctx, obj, "connected", JS_NewBool(ctx, udp->connected));
+        JS_SetPropertyStr(ctx, obj, "handle",
+                          JS_NewString(ctx, current_rt && current_rt->handle[0] ? current_rt->handle : ""));
 
         // Only deliver fairies during paint phase
         if (strcmp(phase, "paint") == 0) {
