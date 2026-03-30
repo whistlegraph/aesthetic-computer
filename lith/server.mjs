@@ -360,6 +360,10 @@ app.post("/lith/deploy", (req, res) => {
 
 // --- Routes ---
 
+app.get(["/lith", "/lith/"], (_req, res) => {
+  res.redirect(302, "/lith/stats");
+});
+
 // --- Lith stats API (consumed by silo dashboard) ---
 app.get("/lith/stats", (req, res) => {
   const uptime = Math.floor((Date.now() - BOOT_TIME) / 1000);
