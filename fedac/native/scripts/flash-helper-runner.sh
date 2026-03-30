@@ -231,7 +231,7 @@ MAC_PART="$(part_path "${USB_DEV}" 3)"
 
 STAGE_MB=$(ac_media_stage_tree_size_mib "${STAGED_ROOT}")
 EFI_MB=$(( STAGE_MB + 96 ))
-MAC_MB=$(( STAGE_MB + 128 ))
+MAC_MB=$(( STAGE_MB * 2 + 128 ))
 DISK_MB=$(( $(blockdev --getsize64 "${USB_DEV}") / 1048576 ))
 MAIN_MB=$(( DISK_MB - EFI_MB - MAC_MB - 32 ))
 

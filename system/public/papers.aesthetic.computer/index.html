@@ -244,6 +244,8 @@
         .colophon p:last-child { margin-bottom: 0; }
         .colophon a { color: var(--purple); text-decoration: none; }
         .colophon a:hover { text-decoration: underline; }
+        .colophon a.ac-link { color: inherit; }
+        .colophon a.ac-link:hover { text-decoration: none; opacity: 0.8; }
         /* .filesize replaced by .fmt-label in format icons */
 
         /* === PSYCHO papers === */
@@ -688,9 +690,8 @@
     <!-- guest-end -->
 
     <div class="colophon">
-        <p>These papers are sourced from the <a href="/platter">research platter</a>, a living document that tracks the design, history, and direction of <a href="https://aesthetic.computer">Aesthetic Computer</a>. The platter is the raw material. The papers are what gets shaped from it. They are working drafts, written in first person, typeset in LaTeX with XeTeX, and compiled by an oven server that polls the repository every 60 seconds.</p>
-        <p>The cards format is a 4&times;6 inch mobile-friendly version of each paper, designed for reading on a phone. Every paper is translated into Danish, Spanish, and Chinese.</p>
-        <p>All papers by <a href="https://prompt.ac/@jeffrey">@jeffrey</a>. Related readings live on the <a href="/platter">platter</a>.</p>
+        <p>Papers publishes working research on the <a href="https://aesthetic.computer" class="ac-link"><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></a> project, typeset in LaTeX and compiled from the <a href="/platter">research platter</a>. Cards are 4&times;6 inch mobile versions. Translated into Danish, Spanish, Chinese, and Japanese.</p>
+        <p>By <a href="https://prompt.ac/@jeffrey">@jeffrey</a>.</p>
     </div>
 
     <div class="build-status" id="buildStatus">
