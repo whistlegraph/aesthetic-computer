@@ -4297,6 +4297,37 @@ static JSValue build_system_obj(JSContext *ctx) {
 #ifdef AC_BUILD_NAME
         JS_SetPropertyStr(ctx, hw, "buildName", JS_NewString(ctx, AC_BUILD_NAME));
 #endif
+#ifdef AC_GIT_HASH
+        JS_SetPropertyStr(ctx, hw, "gitHash", JS_NewString(ctx, AC_GIT_HASH));
+#endif
+#ifdef AC_BUILD_TS
+        JS_SetPropertyStr(ctx, hw, "buildTs", JS_NewString(ctx, AC_BUILD_TS));
+#endif
+
+        // Display driver and GPU info
+        {
+            extern void *g_display;
+            if (g_display) {
+                const char *drv = drm_display_driver((ACDisplay *)g_display);
+                JS_SetPropertyStr(ctx, hw, "displayDriver", JS_NewString(ctx, drv));
+            } else {
+                JS_SetPropertyStr(ctx, hw, "displayDriver", JS_NewString(ctx, "wayland"));
+            }
+            // Read GPU renderer from sysfs (Mesa exposes via DRI)
+            char gpu_name[128] = "unknown";
+            FILE *fp = popen("cat /sys/kernel/debug/dri/0/name 2>/dev/null || "
+                             "cat /sys/class/drm/card0/device/label 2>/dev/null || "
+                             "echo unknown", "r");
+            if (fp) {
+                if (fgets(gpu_name, sizeof(gpu_name), fp)) {
+                    // Strip trailing newline
+                    char *nl = strchr(gpu_name, '\n');
+                    if (nl) *nl = '\0';
+                }
+                pclose(fp);
+            }
+            JS_SetPropertyStr(ctx, hw, "gpu", JS_NewString(ctx, gpu_name));
+        }
 
         // Audio diagnostics
         if (current_rt->audio) {

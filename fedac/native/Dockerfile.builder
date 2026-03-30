@@ -15,7 +15,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     elfutils-libelf-devel openssl-devel \
     curl jq git tar xz findutils pkgconf-pkg-config zstd xorriso \
     ca-certificates \
-    alsa-lib-devel libdrm-devel flite-devel \
+    alsa-lib-devel libdrm-devel flite-devel SDL3-devel \
     ffmpeg-free-devel \
     wpa_supplicant dhcp-client iw \
     iwlwifi-mvm-firmware wireless-regdb \

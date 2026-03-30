@@ -47,10 +47,10 @@ ifeq ($(HAVE_AVCODEC),1)
   LDFLAGS += $(AV_LIBS)
 endif
 
-# SDL2 GPU-accelerated display (optional: make USE_SDL=1)
+# SDL3 GPU-accelerated display (optional: make USE_SDL=1)
 ifdef USE_SDL
-  SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
-  SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null || echo "-lSDL2")
+  SDL_CFLAGS := $(shell pkg-config --cflags sdl3 2>/dev/null)
+  SDL_LIBS   := $(shell pkg-config --libs sdl3 2>/dev/null || echo "-lSDL3")
   CFLAGS  += -DUSE_SDL $(SDL_CFLAGS)
   LDFLAGS += $(SDL_LIBS)
 endif

@@ -8,7 +8,7 @@
 #include "graph.h"
 
 #ifdef USE_SDL
-#include <SDL2/SDL.h>
+#include <SDL3/SDL.h>
 #endif
 
 typedef struct {
@@ -39,24 +39,28 @@ typedef struct {
     int fbdev_stride;           // fbdev line length in pixels
     int fbdev_swap_rb;          // 1 if need to swap R and B channels (BGR format)
 
-    // SDL2 GPU-accelerated display
+    // SDL3 GPU-accelerated display
 #ifdef USE_SDL
-    int is_sdl;                 // 1 if using SDL2 backend
+    int is_sdl;                 // 1 if using SDL3 backend
     SDL_Window *sdl_window;
     SDL_Renderer *sdl_renderer;
     SDL_Texture *sdl_texture;
     int sdl_tex_w, sdl_tex_h;  // texture dimensions (matches small framebuffer)
+    char sdl_renderer_name[32]; // renderer driver name (e.g. "opengl", "vulkan")
 #endif
 } ACDisplay;
 
-// Initialize display (tries SDL2 GPU first if available, then DRM, then fbdev)
+// Get display driver name ("sdl3:opengl", "drm", "fbdev", "wayland")
+const char *drm_display_driver(ACDisplay *d);
+
+// Initialize display (tries SDL3 GPU first if available, then DRM, then fbdev)
 ACDisplay *drm_init(void);
 
 // Present the small framebuffer scaled up to the display
 // This is the primary display function — handles GPU texture upload or CPU scaling
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale);
 
-// Flip to the back buffer (makes it visible) — used by non-SDL paths
+// Flip to the back buffer (makes it visible) — used by non-SDL3 paths
 void drm_flip(ACDisplay *d);
 
 // Get pointer to the back buffer (the one to draw into)
