@@ -13,7 +13,7 @@ BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-bu
 QUIRCDIR   := lib/quirc/lib
 QRGENDIR   := lib/qrcodegen
 CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
-LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil
+LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil -ldl
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
 # On Fedora/standard gcc, dynamic linking is used and .so files are bundled in initramfs
