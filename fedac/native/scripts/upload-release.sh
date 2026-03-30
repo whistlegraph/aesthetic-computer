@@ -124,13 +124,15 @@ do_upload() {
     "$md5_val" "$content_type" "$date_val" "$acl" "$DO_SPACES_BUCKET" "$dest_key" \
     | openssl dgst -sha1 -hmac "$DO_SPACES_SECRET" -binary | base64)
 
+  # Use -T (upload-file) for streaming — avoids loading entire file into memory
+  # (--data-binary loads the whole file into RAM, OOM on 1GB+ files)
   curl -sf -X PUT \
     -H "Date: $date_val" \
     -H "Content-Type: $content_type" \
     -H "Content-MD5: $md5_val" \
     -H "x-amz-acl: $acl" \
     -H "Authorization: AWS ${DO_SPACES_KEY}:${sig}" \
-    --data-binary "@$src" \
+    -T "$src" \
     "${BASE_URL}/${dest_key}" \
     && echo "  uploaded: $dest_key" \
     || { echo "  ERROR uploading $dest_key" >&2; return 1; }
@@ -220,11 +222,11 @@ if [ -f "$INITRAMFS_SIBLING" ]; then
   do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
 fi
 
-# Also upload ISO if it exists next to vmlinuz
+# Also upload ISO if it exists (non-fatal — ISO is optional)
 ISO_SIBLING="$(dirname "$VMLINUZ")/ac-os.iso"
 if [ -f "$ISO_SIBLING" ]; then
   echo "  Uploading ISO ($(du -sh "$ISO_SIBLING" | cut -f1))..."
-  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream" || echo "  ISO upload failed (non-fatal)"
 fi
 
 echo ""
