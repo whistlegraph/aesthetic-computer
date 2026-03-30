@@ -1533,48 +1533,49 @@ if (!sandboxed && !skipAuth) {
       }
 
       if (isAuthenticated && !pickedUpSession) {
-        // TODO: How long does this await actually take? 23.07.11.18.55
         window.acAuthTiming.getUserStart = performance.now();
         let userProfile = await auth0Client.getUser();
         window.acAuthTiming.getUserEnd = performance.now();
         bootLog(`auth0 getUser (${Math.round(window.acAuthTiming.getUserEnd - window.acAuthTiming.getUserStart)}ms)`);
-        window.acAuthTiming.userExistsFetchStart = performance.now();
-        // Timeout the /user fetch to prevent indefinite hangs on cold starts
-        const userFetchController = new AbortController();
-        const userFetchTimeout = setTimeout(() => userFetchController.abort(), 8000);
-        let u = {};
-        try {
-          const userExists = await fetch(
-            `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
-            { signal: userFetchController.signal },
-          );
-          u = await userExists.json();
-        } catch (err) {
-          console.warn("🔐 /user fetch failed or timed out:", err.name);
-        } finally {
-          clearTimeout(userFetchTimeout);
-        }
-        window.acAuthTiming.userExistsFetchEnd = performance.now();
-        bootLog(`userExists fetch (${Math.round(window.acAuthTiming.userExistsFetchEnd - window.acAuthTiming.userExistsFetchStart)}ms)`);
-        if (!u.sub || !userProfile.email_verified) {
-          try {
-            await window.auth0Client.getTokenSilently({ cacheMode: "off" });
-            userProfile = await auth0Client.getUser();
-          } catch (err) {
-            console.warn("🧔 Could not retrieve user from network.");
-          }
-        }
-        // Merge handle from user lookup into the profile
-        if (u.handle) {
-          userProfile.handle = u.handle;
-        }
-        window.acUSER = userProfile; // Will get passed to the first message by the piece runner.
+
+        // Send session:started IMMEDIATELY — don't block on /user fetch.
+        // The disk's own handle() function will fetch the handle separately.
+        window.acUSER = userProfile;
         window.acAuthTiming.sessionStartedSent = performance.now();
         _authSessionSent = true;
         window.acDISK_SEND({
           type: "session:started",
           content: { user: window.acUSER },
         });
+
+        // Background: fetch handle from /user and refresh token if needed.
+        // This runs after the disk already has auth — it just enriches data.
+        (async () => {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(
+              `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
+              { signal: controller.signal },
+            );
+            clearTimeout(timeout);
+            const u = await res.json();
+            bootLog(`userExists fetch (background, ${Math.round(performance.now() - window.acAuthTiming.sessionStartedSent)}ms)`);
+            if (u.handle && !window.acUSER.handle) {
+              window.acUSER.handle = u.handle;
+            }
+            // If user not in DB or email not verified, refresh token for new signups
+            if (!u.sub || !userProfile.email_verified) {
+              try {
+                await window.auth0Client.getTokenSilently({ cacheMode: "off" });
+              } catch (err) {
+                console.warn("🧔 Could not retrieve user from network.");
+              }
+            }
+          } catch (err) {
+            console.warn("🔐 /user background fetch failed:", err.name);
+          }
+        })();
       } else if (!pickedUpSession) {
         // console.log("🗝️ Not authenticated.");
         window.acAuthTiming.sessionStartedSent = performance.now();
