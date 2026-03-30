@@ -460,6 +460,55 @@ app.get("/lith/traffic", async (req, res) => {
   }
 });
 
+// --- Farcaster Frame endpoint for KidLisp pieces ---
+app.get("/frame/:piece", async (req, res) => {
+  const piece = req.params.piece.startsWith("$") ? req.params.piece : `$${req.params.piece}`;
+  const code = piece.slice(1);
+  const base = "https://aesthetic.computer";
+  const pieceUrl = `${base}/${piece}`;
+  const keepUrl = `https://keep.kidlisp.com/${code}`;
+
+  // Try to get thumbnail from oven cache
+  const thumbUrl = `https://oven.aesthetic.computer/grab/webp/600/400/${piece}`;
+  // Fallback OG image
+  const ogImage = `https://oven.aesthetic.computer/kidlisp-og.png`;
+
+  const frameEmbed = JSON.stringify({
+    version: "1",
+    imageUrl: thumbUrl,
+    button: {
+      title: `View ${piece}`,
+      action: {
+        type: "launch_frame",
+        url: pieceUrl,
+        name: `KidLisp ${piece}`,
+        splashImageUrl: "https://assets.aesthetic.computer/kidlisp-favicon.gif",
+        splashBackgroundColor: "#000000",
+      },
+    },
+  });
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta property="og:title" content="${piece} — KidLisp" />
+  <meta property="og:description" content="A KidLisp piece on Aesthetic Computer" />
+  <meta property="og:image" content="${thumbUrl}" />
+  <meta property="og:url" content="${pieceUrl}" />
+  <meta property="fc:frame" content='${frameEmbed.replace(/'/g, "&#39;")}' />
+  <meta name="fc:frame" content='${frameEmbed.replace(/'/g, "&#39;")}' />
+  <title>${piece} — KidLisp</title>
+</head>
+<body>
+  <h1>${piece}</h1>
+  <p><a href="${pieceUrl}">View on Aesthetic Computer</a></p>
+  <p><a href="${keepUrl}">Keep on KidLisp</a></p>
+</body>
+</html>`);
+});
+
 // --- /media/* handler (ports Netlify edge function media.js) ---
 app.all("/media/*rest", async (req, res) => {
   const parts = req.path.split("/").filter(Boolean); // ["media", ...]
