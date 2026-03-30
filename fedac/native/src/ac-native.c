@@ -1579,6 +1579,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             char ver[64];
             char bts[64];
             char bname[64] = "";
+            char ddrv[64] = "";
             snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
 #ifdef AC_BUILD_TS
             snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
@@ -1588,14 +1589,18 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 #ifdef AC_BUILD_NAME
             snprintf(bname, sizeof(bname), "%s", AC_BUILD_NAME);
 #endif
+            const char *driver = drm_display_driver(display);
+            snprintf(ddrv, sizeof(ddrv), "display %s", driver);
             int wv = font_measure_matrix(ver, 1);
             int wt = font_measure_matrix(bts, 1);
             int wn = bname[0] ? font_measure_matrix(bname, 1) : 0;
+            int wd = font_measure_matrix(ddrv, 1);
             int max_w = wv;
             if (wt > max_w) max_w = wt;
             if (wn > max_w) max_w = wn;
+            if (wd > max_w) max_w = wd;
             int panel_w = max_w + 8;
-            int panel_h = bname[0] ? 28 : 20;
+            int panel_h = (bname[0] ? 28 : 20) + 8;
             int panel_x = screen->width - panel_w - 3;
             int panel_y = 3;
             graph_ink(graph, is_day
@@ -1618,6 +1623,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 ? (ACColor){80, 100, 90, (uint8_t)alpha}
                 : (ACColor){210, 235, 220, (uint8_t)alpha});
             font_draw_matrix(graph, bts, panel_x + 4, line_y + 8, 1);
+            // Display driver line
+            graph_ink(graph, is_day
+                ? (ACColor){90, 60, 120, (uint8_t)alpha}
+                : (ACColor){180, 160, 255, (uint8_t)alpha});
+            font_draw_matrix(graph, ddrv, panel_x + 4, line_y + 16, 1);
             // "FRESH" badge when first boot of this version
             if (is_new_version) {
                 graph_ink(graph, is_day
@@ -2053,6 +2063,7 @@ int main(int argc, char *argv[]) {
     // Init graphics + font
     ACGraph graph;
     graph_init(&graph, screen);
+    if (display) graph_init_gpu(&graph, display);
     font_init();
 
     // Cursor overlay buffer — drawn separately so KidLisp effects don't smear it
@@ -2906,6 +2917,7 @@ int main(int argc, char *argv[]) {
                         fb_destroy(screen);
                         screen = new_screen;
                         graph_init(&graph, screen);
+                        if (display) graph_init_gpu(&graph, display);
                         input->scale = pixel_scale;
                         // Update JS runtime's graph reference (holds framebuffer)
                         if (rt) {
