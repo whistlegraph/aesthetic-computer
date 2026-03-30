@@ -981,7 +981,7 @@ async function startDownload(needsPaint) {
   downloadMB = 0;
   downloadTotalMB = 0;
   const piece = BOOT_PIECES[bootPieceIdx];
-  downloadStatus = "building @" + (handle || "user") + " os... (boot to: " + piece + ")";
+  downloadStatus = "preparing @" + (handle || "user") + " os... (boot to: " + piece + ")";
   console.log("[os] Starting download:", osLabel(), "piece:", piece);
   needsPaint();
 
@@ -989,22 +989,32 @@ async function startDownload(needsPaint) {
     const query =
       "?piece=" + encodeURIComponent(piece) +
       "&wifi=" + (wifiEnabled ? "1" : "0") +
-      "&layout=efi&strict=1&cb=" + Date.now() +
+      "&cb=" + Date.now() +
       (variantIdx === 1 ? "&variant=cl" : "");
-    // Strict EFI downloads must come from oven origin.
-    // The edge worker can return stale/truncated artifacts without layout headers.
-    const isoCandidates = [OVEN_ORIGIN + "/os-image" + query];
+    const efiQuery = query + "&layout=efi&strict=1";
+    const downloadCandidates = [
+      {
+        url: OVEN_BASE() + "/os-image" + query,
+        allowedLayouts: ["iso"],
+        rejectOriginFallback: true,
+      },
+      {
+        url: OVEN_ORIGIN + "/os-image" + efiQuery,
+        allowedLayouts: ["efi"],
+        rejectOriginFallback: false,
+      },
+    ];
     const MIN_EXPECTED_EFI_BYTES = 300 * 1024 * 1024;
-    const MIN_EXPECTED_ISO_BYTES = 200 * 1024 * 1024;
+    const MIN_EXPECTED_ISO_BYTES = 100 * 1024 * 1024;
 
     let res = null;
     let usedUrl = "";
     let lastErr = "";
-    for (const url of isoCandidates) {
-      console.log("[os] Fetching:", url);
+    for (const candidate of downloadCandidates) {
+      console.log("[os] Fetching:", candidate.url);
       let attempt;
       try {
-        attempt = await fetch(url, {
+        attempt = await fetch(candidate.url, {
           headers: { Authorization: "Bearer " + token },
         });
       } catch (err) {
@@ -1018,17 +1028,25 @@ async function startDownload(needsPaint) {
         continue;
       }
 
+      const patchMode = (attempt.headers.get("x-patch") || "").toLowerCase();
+      if (candidate.rejectOriginFallback && patchMode === "origin-fallback") {
+        console.warn("[os] Rejecting edge origin fallback from", candidate.url);
+        try { attempt.body?.cancel(); } catch (_) {}
+        lastErr = "Edge personalized download unavailable";
+        continue;
+      }
+
       const servedLayout = (attempt.headers.get("x-ac-os-layout") || "").toLowerCase();
       if (!servedLayout) {
-        console.warn("[os] Missing x-ac-os-layout header from", url);
+        console.warn("[os] Missing x-ac-os-layout header from", candidate.url);
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Server did not report image layout (x-ac-os-layout missing)";
         continue;
       }
-      if (servedLayout && servedLayout !== "efi") {
-        console.warn("[os] Rejecting non-EFI response:", servedLayout, "from", url);
+      if (!candidate.allowedLayouts.includes(servedLayout)) {
+        console.warn("[os] Rejecting unexpected layout:", servedLayout, "from", candidate.url);
         try { attempt.body?.cancel(); } catch (_) {}
-        lastErr = "Server returned '" + servedLayout + "' image instead of EFI";
+        lastErr = "Server returned '" + servedLayout + "' image";
         continue;
       }
 
@@ -1040,14 +1058,14 @@ async function startDownload(needsPaint) {
             ? MIN_EXPECTED_ISO_BYTES
             : MIN_EXPECTED_EFI_BYTES;
       if (len > 0 && len < minExpectedBytes) {
-        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", url, "layout:", servedLayout || "?");
+        console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", candidate.url, "layout:", servedLayout || "?");
         try { attempt.body?.cancel(); } catch (_) {}
         lastErr = "Received suspiciously small image (" + len + " bytes)";
         continue;
       }
 
       res = attempt;
-      usedUrl = url;
+      usedUrl = candidate.url;
       break;
     }
 
@@ -1111,10 +1129,12 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.img`;
+    const extension = servedLayout === "iso" ? "iso" : "img";
+    const mimeType = servedLayout === "iso" ? "application/x-iso9660-image" : "application/octet-stream";
+    const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.${extension}`;
 
     console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
-    dlFn(filename, combined, { type: "application/octet-stream" });
+    dlFn(filename, combined, { type: mimeType });
     downloadStatus = "done!";
   } catch (err) {
     console.error("[os] Download failed:", err);
