@@ -1,0 +1,348 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === CJK SUPPORT ===
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={リポジトリ考古学：Git履歴を通じてAesthetic Computerの進化を追跡する},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} リポジトリ考古学}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Git履歴を通じてAesthetic Computerの進化を追跡する}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{概要。}
+本稿では、\ac{}（AC）の技術的進化をgit履歴を通じて完全に追跡する。2021年8月にGlitch上でホストされたプロトタイプから、11,314件のコミットと337のインタラクティブピースを含む単一のモノリポジトリに至るまでの過程である。4つの連続するコードリポジトリ、2つのアカウントにまたがる50以上のGitHubリポジトリ、109\,GBのレガシーサーバーアーカイブ、そして10年間のクリエイティブソフトウェア実践にまたがるDropboxアーカイブを調査することで、一人のアーティスト-プログラマーのツール、プロトタイプ、クリエイティブな楽器がどのように統一プラットフォームへと収束したかを再構成する。調査により94の前身プロジェクト（2007--2020年）が明らかになり、これらがACの設計思想に直接影響を与えた：ソフトウェアは芸術制作の素材であり、アーティストが構築するすべてのツールはより完全な楽器に向けた一歩である。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. THE FOUR REPOSITORIES ============
+
+\section{4つのコードリポジトリ}
+
+\ac{}は最初からモノリポジトリだったわけではない。4つの連続するGitHubリポジトリを経て進化し、それぞれが異なるアーキテクチャ段階を表している：
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{指標} & \textbf{値} \\
+\midrule
+連続リポジトリ数 & 4 \\
+総コミット数（現在） & 11,314 \\
+開発月数 & 38 \\
+前身プロジェクト数 & 94 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{system-ac（2021年8月--12月）}
+
+\texttt{whistlegraph/system-ac} --- \emph{「ディスクをロードして実行する私の仮想コンピュータシステム。」}
+
+最初のコミットは2021年8月10日で、即座にGlitch~\citep{glitch2017}からマージされており、ACが最初はGlitch remixプロジェクトだったことを示している。リポジトリには4ヶ月間の38件のコミットが含まれ、著者名は「@jeffrey」「Jeffrey Scudder」「whistlegraph」と変遷している——コードと並行して進行したアイデンティティの統合の痕跡である。
+
+初期アーキテクチャは簡素だった：\texttt{boot.js}エントリポイント、\texttt{bios.js}ランタイム、そして\texttt{disk.js}、\texttt{geo.js}、\texttt{graph.js}、\texttt{pen.js}、\texttt{speaker.js}を含むモジュールライブラリ群と、正弦波・矩形波ジェネレータをサポートするサウンドシステム。比喩は最初から確立されていた：\emph{ディスク}をロードして実行するコンピュータ。
+
+主要なマイルストーン：基本メトロノームと矩形波楽器（8月18日）、三角形ラスタライズと3D環境（10月20日）、最初のアニメーション記譜ピース（10月30日）、penのシングルトンからクラスへのリファクタリング（11月28日）——重要なAPI設計決定。開発サーバーはポート8080で自己署名SSL証明書を使用していた；初日からHTTPSが必須であり、おそらくWebRTCとオーディオAPIのためである。
+
+\subsection{disks-ac（2021年10月--12月）}
+
+\texttt{whistlegraph/disks-ac} --- \emph{「`whistlegraph/system'リポジトリと互換性のあるディスクのバッチ。」}
+
+この付随リポジトリはクリエイティブコンテンツをランタイムから分離して保持していた。\texttt{package.json}は両者の結合を明らかにしている：\texttt{"system": "file:../system"}——ディスクはシステムをローカル依存として取り込んでいた。開発サーバーはポート8081で、システムポートより1つ上。
+
+最初の12枚のディスクはACの基礎的なクリエイティブ語彙を代表していた：\texttt{prompt.js}（コマンドラインテキスト入力——システムの正面玄関）、\texttt{doodle.js}（フリードローイング）、\texttt{plot.js}（グリッドベースのピクセル描画）、\texttt{pull.js}（タッチインタラクティブシェイプ）、\texttt{stage.js}（音楽記譜）、\texttt{starfield.js}（ジェネラティブアニメーション）、\texttt{tracker.js}（スクロール可能なシーケンサー）、\texttt{whistlegraph.js}（Whistlegraph再生）、および4つのユーティリティ/テストディスク。また\texttt{old/worker-disk.js}が保持されており、Web Workerベースのディスク実行モデルが試みられた後、早期に放棄されたことを示している。
+
+\subsection{2022.aesthetic.computer（2021年12月--2022年12月）}
+
+\texttt{whistlegraph/2022.aesthetic.computer} --- \emph{「美的コンピューティングを行う。」}
+
+2021年12月22日、システムとディスクのリポジトリが統合された：\emph{「以前のリポジトリからソースコードをインポート」}、続いて\emph{「重複ディスクを削除。」}これが最初のモノリポジトリとなった。キャッチフレーズは技術的記述からクリエイティブなマニフェストへと変わった。
+
+この1年間のリポジトリは、ACが個人的な楽器からプラットフォームへと変容した過程を記録している：
+
+\begin{itemize}
+  \item \textbf{2022年1月2日}：「iPadとApple Pencil用のスプレーペイントツールの開発を開始。」同日：「iOS / macOSネイティブアダプタレイヤーを追加。」
+  \item \textbf{1月5日}：「基本的なIPFSデモを完成」——Web3/分散ストレージの早期探索。
+  \item \textbf{1月7日}：「ディスクをシステムに統合」——2リポジトリアーキテクチャは2週間で摩擦点となった。
+  \item \textbf{1月10日}：「promptの作業を開始、キーボードを接続。」
+  \item \textbf{1月11日}：「マイクを接続、ビデオコードパスを開始。」
+  \item \textbf{2022年10月}：Hypervisor改修——ピースがページリロードなしで瞬時に切り替え可能に。
+  \item \textbf{10月24日}：「Meta Quest 2キーボード更新 / さらなるHID作業」——VRヘッドセットサポート。
+  \item \textbf{2022年11月}：VR統合：「cadwand vr hello world」、3Dブラシツール、GLTF/GLBエクスポート。
+  \item \textbf{2022年12月}：「Ethereumログイン/接続フローを完成。」Jamsocketバックエンドを使用したセッションサーバー。
+\end{itemize}
+
+年末までにプロジェクトのディレクトリツリーには以下が含まれていた：\texttt{system/}（Netlify）、\texttt{session-server/}（Jamsocket）、\texttt{socket-server/}、\texttt{piece-server/}、\texttt{thumbnail-server/}、\texttt{stream/}、\texttt{storage/}、\texttt{apple/}（iOS/macOSアダプタ）、\texttt{ethereum/}、および\texttt{digitpain.com/}。
+
+\subsection{aesthetic-computer（2022年12月--現在）}
+
+現在のリポジトリ。最初のコミット：\emph{「Initial commit。」}2番目：\emph{「以前のソースコードをすべて新しいリポジトリにコピー；TODO。」}3番目：\emph{「最初のNetlifyデプロイ。」}2022年12月23日、35分間に3件のコミット——前のリポジトリが最後のコミットを受けた同じ日にゼロから再出発した。
+
+2026年3月時点：38ヶ月にわたる\textbf{11,314件のコミット}。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{機能} & \textbf{初出} \\
+\midrule
+認証（Auth0） & 2023年1月5日 \\
+セッションサーバー & 2023年1月21日 \\
+KidLisp & 約2023年2月 \\
+マルチプレイヤー & 約2023年3月 \\
+Tezos/NFT $\rightarrow$ 「keep」 & 約2023年 \\
+notepat & 約2023年 \\
+モバイルカメラ & 2023年1月 \\
+\bottomrule
+\end{tabular}
+\caption{現在のリポジトリにおける各機能の初出。}
+\end{table}
+
+% ============ 2. THE PREDECESSOR PROJECTS ============
+
+\section{前身プロジェクト}
+
+ACは無から生まれたわけではない。2つのGitHubアカウント（50以上のリポジトリを持つ\texttt{whistlegraph}と3つのリポジトリを持つ\texttt{justanothersystem}）、Dropboxアーカイブ、109\,GBのレガシーDigitalOceanクラウドホスト、および著者の履歴書を相互参照することで、2007年から2020年にわたる\textbf{94の前身プロジェクト}を特定した。
+
+\subsection{ペイントソフトウェアの系譜}
+
+ACの核心にあるのはペイントプログラムである。その系譜は以下の通り：
+
+\begin{itemize}
+  \item \textbf{thePRBAT}（2011年）--- ポリゴン複製ビットマップ制作ツール。Flash/SWF。Ringling College学部卒業論文のツール。
+  \item \textbf{JeffreyPaint}（2014年）--- 「私のペイントプログラム。」JavaScript Webアプリ + Unity移植 + macOS .dmg。
+  \item \textbf{No Paint}（2014--2020年）--- 「画像制作の楽器。」制約条件：描くことだけ、消すことはできない。6年間で5回のイテレーション：Railsアプリ $\rightarrow$ JSアダプタ $\rightarrow$ WebGLプロトタイプ $\rightarrow$ iOS/Cordova $\rightarrow$ Vercelサイト。6つのリポジトリ。
+  \item \textbf{Mood Engine}（2015年）--- ネイティブCアプリケーション。「MaskwareのMOODエンジン。」
+  \item \textbf{Traveller}（2015年）--- Processing $\rightarrow$ 3つの独立したmacOS .appビルド。
+  \item \textbf{Finger Quilt}（2016年）--- Swiftで開発されたiOSアプリ。キルトとしてのペイント。
+  \item \textbf{Dot}（2017年）--- 「ドットグリッド描画アプリ。」ACの\texttt{plot}ディスクを直接予見。
+\end{itemize}
+
+著者はまたWebペイントツールのキュレーションディレクトリ（2017年、Glitch上の\texttt{weird-drawing-tools.glitch.me}でホスト）を維持していた——数十のペイントプログラムを記録した調査文書。このディレクトリは「メディアとしてのペイントソフトウェア」の意識的な研究を表しており、ACの設計に情報を提供した。
+
+\subsection{パフォーマンスソフトウェアの系譜}
+
+ACのリアルタイム、マルチプレイヤー、パフォーマンス機能は、「ラディカルデジタルペインティング」巡回講演とGoodiepal \& Palsコラボレーションのために構築されたツールに遡る：
+
+\begin{itemize}
+  \item \textbf{Peter}（2017年）--- 観客が期限付きの画像をアップロードし、Julia Yergerがペインティングに使用するWebアプリ。リアルタイムの観客参加。
+  \item \textbf{border-notation}（2017年）--- GP\&PLS向けに開発されたボーダーアニメーション記譜プログラム。ブラウザ内の音楽記譜。
+  \item \textbf{pmet-subs}（2017年）--- Goodiepalパフォーマンスのリアルタイム字幕表示。
+  \item \textbf{Shutter Rub}（2018年）--- Fikra Design BiennalでKnoth \& Renner向けに開発されたツール。
+  \item \textbf{pic.jeffreyheart89.com}（2017年）--- 「デジタルペインティング配達サービス。」
+\end{itemize}
+
+\subsection{インフラストラクチャの系譜}
+
+ACのインフラストラクチャにも前身がある：
+
+\begin{itemize}
+  \item \textbf{live}（2016年）--- 「ブラウザを自動リロード。」Rubyライブリロードサーバー。ACの現在のホットリロードWebSocketシステムの後継。
+  \item \textbf{cfg}（2013年）--- Yale MFA時代のVimL設定ファイル。最初期の「実践としてのコンフィグ」。
+  \item \textbf{netlify-functions-headless-chrome}（2022年）--- Netlify上のHeadless Chromeスクリーンショット。ovenスクリーンショットサービスの直接の前身。
+  \item \textbf{giphy-upload-proxy}（2017年）--- サーバーサイドメディア処理の経験。
+\end{itemize}
+
+\subsection{プロジェクト横断のプログラミング言語}
+
+前身プロジェクトは個人の実践者としては異例に広い言語範囲をカバーしている：JavaScript（主要）、Ruby（Rails時代）、Swift（iOS）、Java（Android）、C（Mood Engine）、Rust（Rect）、VimL（設定ファイル）、Processing（Traveller）、Flash/ActionScript（thePRBAT）、Lua（PICO-8）、TypeScript。ACはこの多言語の歴史をJavaScript中心のプラットフォームに統合し、KidLisp~\citep{scudder2026kidlisp}を組み込み言語としている。
+
+% ============ 3. ARCHITECTURAL PATTERNS ============
+
+\section{アーキテクチャパターン}
+
+\subsection{ディスク/ピースの比喩}
+
+\texttt{system-ac}の最初のコミットから、比喩は「bios」を通じて「system」がロードする「ディスク」だった。パーソナルコンピュータの歴史から借用されたこの比喩は4つのリポジトリすべてを貫いている。「ディスク」から「ピース」への改名は2022年中に行われ、技術用語を芸術用語に合わせた。ソフトウェアの一片（a piece of software）。音楽の一曲（a piece of music）。芸術の一作品（a piece of art）。この改名の含意は関連論文~\citep{scudder2026pieces}で探求されている。
+
+\subsection{インターフェースとしてのプロンプト}
+
+プロンプト——ユーザーがピース名を入力する点滅するテキストカーソル——は最初期の\texttt{disks-ac}リポジトリに\texttt{prompt.js}として登場した。後にnotepatのキーボードとACの主要ナビゲーションシステムへと発展した。プロンプトはコマンドラインではない；\emph{音楽的な}インターフェースであり、\texttt{notepat}のような単語を入力することは想起と呼び出しの行為であり、歌を見つけるためにメロディを口ずさむようなものである。
+
+\subsection{2リポジトリからモノリポジトリへ}
+
+システム/ディスクの分離はわずか4ヶ月で統合された。この分離は概念的区別（ランタイム対コンテンツ）を反映していたが、実際には維持不可能だった。統合はさらに2回行われた：まず\texttt{2022.aesthetic.computer}へ、次に現在のリポジトリへ。各統合はgit履歴を破棄し、クリーンな出発点を優先した——考古学的連続性よりも前進の勢いを重視する意図的な選択であり、まさにこの再構成作業を必要にした理由でもある。
+
+% ============ 4. QUANTITATIVE SUMMARY ============
+
+\section{定量的概要}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{指標} & \textbf{数量} \\
+\midrule
+前身プロジェクト（2007--2020年） & 94 \\
+GitHubリポジトリ（whistlegraph + JAS） & 50+ \\
+現在のリポジトリの\texttt{.mjs}ピース & 337 \\
+\texttt{.lisp}ピース（KidLisp） & 18 \\
+ライブラリモジュール & 76 \\
+Netlifyサーバーレス関数 & 83 \\
+バックエンドサービス & 5 \\
+レガシーアーカイブサイズ & 109\,GB \\
+\bottomrule
+\end{tabular}
+\caption{ACエコシステムの定量的概要。}
+\end{table}
+
+% ============ 5. CONCLUSION ============
+
+\section{結論}
+
+\ac{}は2021年8月10日に始まったプロジェクトではない。10年間のクリエイティブソフトウェア実践の収束である——thePRBAT（2011年）からNo Paintの5回のイテレーション（2014--2020年）を経て、Goodiepal \& Pals向けに構築されたパフォーマンスツールを経て、著者が見つけられるすべてのWebペイントツールのキュレーションディレクトリを経て、Rustの矩形ゲーム、PICO-8ペイントカートリッジ、Pebbleスマートウォッチの実験を経て、デジタルツールがペインティングの次の素材的基盤であることを論じる65回以上の講演パフォーマンスを経て。
+
+git履歴はマニフェストには見えないものを明らかにする：日々の決定の蓄積、放棄されたパス（\texttt{worker-disk.js}、2リポジトリ分離）、収束（システム + ディスク $\rightarrow$ モノリポジトリ）、そして意味を担う改名（disk $\rightarrow$ piece、notepad $\rightarrow$ notepat、NFT $\rightarrow$ keep）。すべてのコミットは@jeffreyがこれまでに描いた最も長い絵画における一筆一筆である。
+
+\begin{quote}
+\emph{「30分で作ったもの（例えばwhistlegraph！）は永遠に存在できる。」}
+
+--- @jeffrey、パーソナルステートメント：核心的信念
+\end{quote}
+
+\vspace{0.5em}
+\noindent\textbf{資料。} GitHub: \texttt{whistlegraph/system-ac}（38件のコミット）、\texttt{whistlegraph/disks-ac}（30件のコミット）、\texttt{whistlegraph/2022.aesthetic.computer}（約500件のコミット）、\texttt{whistlegraph/aesthetic-computer}（11,314件のコミット）。whistlegraphおよびjustanothersystemアカウント下の50以上の追加リポジトリ。レガシーサーバー：\texttt{bin-sc.jas.life}。Dropboxアーカイブ。履歴書およびファクトチェック報告書。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

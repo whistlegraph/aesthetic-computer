@@ -1,0 +1,530 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\kidlispfont{ComicRelief-Regular}[
+  Path=../arxiv-kidlisp/fonts/,
+  Extension=.ttf
+]
+\newfontfamily\kidlispbold{ComicRelief-Bold}[
+  Path=../arxiv-kidlisp/fonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{klbrand}{RGB}{205,92,155}    % kidlisp.com primary (--ac-purple)
+\definecolor{klcyan}{RGB}{112,214,255}     % kidlisp.com ".com" cyan (#70D6FF)
+\definecolor{kldark}{RGB}{48,43,58}        % kidlisp.com dark purple
+\definecolor{draftcolor}{RGB}{205,92,155}
+
+% KidLisp syntax colors
+\definecolor{klparen}{RGB}{140,140,160}
+\definecolor{klkw}{RGB}{119,51,170}
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klcolor}{RGB}{204,80,0}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{44,145,44}
+\definecolor{klcmt}{RGB}{140,140,140}
+\definecolor{klvar}{RGB}{50,50,50}
+\definecolor{klspecial}{RGB}{180,72,135}
+\definecolor{klbg}{RGB}{250,248,252}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={KidLisp 言語リファレンス：12カテゴリ118個の組み込み関数}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\kl}{\textsc{KidLisp}}
+
+% === KIDLISP LISTING STYLE ===
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{def,if,repeat,once,later,die,let,do,fn},
+  morekeywords=[2]{wipe,ink,line,box,circle,tri,plot,flood,shape,write,type,paste,print},
+  morekeywords=[3]{scroll,zoom,spin,blur,contrast,suck,pan,sort,resetSpin,smoothspin,unpan,fill,outline,stroke,nofill,nostroke},
+  morekeywords=[4]{random,wiggle,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max,mod},
+  morekeywords=[5]{width,height,frame,time,resolution,fps,screen,pen,hand,gamepad,mic,amplitude},
+  morekeywords=[6]{cube,form,trans,move,scale,hop,delay,jump,melody,overtone,speaker,sound},
+  morekeywords=[7]{embed,layer,fade,bake,list,get,set,tap},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  literate=
+    {(}{{{\color{klparen}(}}}1
+    {)}{{{\color{klparen})}}}1
+    {\$}{{{\color{klspecial}\$}}}1,
+}
+
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,
+  basicstyle=\ttfamily\small,
+  keywordstyle=[1]\color{klkw}\bfseries,
+  keywordstyle=[2]\color{klfn}\bfseries,
+  keywordstyle=[3]\color{acpurple},
+  keywordstyle=[4]\color{klnum},
+  keywordstyle=[5]\color{klspecial},
+  keywordstyle=[6]\color{klfn},
+  keywordstyle=[7]\color{acpink},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+  numberstyle=\tiny\color{klcmt},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{klbg},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  showstringspaces=false,
+}
+
+\lstset{style=kidlispstyle}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\kidlispbold\fontsize{26pt}{30pt}\selectfont\color{kldark} Kid{\color{klbrand}Lisp} 言語リファレンス}\par
+\vspace{0.2em}
+{\kidlispfont\fontsize{11pt}{13pt}\selectfont\color{klbrand} 12カテゴリ118個のジェネラティブアート組み込み関数}\par
+\vspace{0.3em}
+{\kidlispfont\fontsize{9pt}{11pt}\selectfont\color{acgray} 構文、意味論、タイミング、色彩、\texttt{\$}-Code合成システム}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\kl{} はジェネラティブアートのための極小Lisp方言であり、12カテゴリにわたる118個の組み込み関数を持ち、ユーザー定義関数なし、再帰なし、ファイルI/Oなし、ネットワークアクセスなしという設計である。設計上安全であり、\kl{} プログラムはサンドボックスを突破できず、ホストをクラッシュさせることもできず、キャンバス以外のリソースにアクセスすることもできない。本稿は完全な言語リファレンスとして、構文ハイライト付きの例で各組み込み関数を文書化する。タイミングシステム（コールバック不要のフレームベースおよび秒ベースのスケジューリング）、色彩モデル（名前付き色、RGB、グラデーション、パターン）、\texttt{\$}-code合成システム（主要な抽象化メカニズムとして参照によりプログラムを埋め込む）、評価モデル（確定的擬似乱数生成器を用いて毎フレームAST全体を再評価）を扱う。\kl{} は\emph{省略}を中心に設計された言語として提示する。何ができないかは何ができるかと同じく慎重に設計されており、その制約が創作空間を生み出し、59人の作者がこれまでに16,634のプログラムを書いている。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{構文}
+
+\kl{} はS式構文を使用する~\citep{mccarthy1960recursive}。各式はアトム（数値、文字列、シンボル）またはリスト（括弧で囲まれた式）である：
+
+\begin{lstlisting}
+; Atoms
+42                    ; number
+"hello"               ; string
+red                   ; symbol (color name)
+
+; Lists (function application)
+(wipe "navy")         ; clear screen navy
+(ink "red")           ; set drawing color
+(box 10 10 50 50)     ; draw rectangle
+(circle 64 64 30)     ; draw circle
+\end{lstlisting}
+
+演算子なし、中置記法なし、括弧・文字列・数値・シンボル以外の特殊構文なし。算術は前置記法を使用する：
+
+\begin{lstlisting}
+(+ 1 2)              ; => 3
+(* 3 (+ 1 2))        ; => 9
+(- 10 3)             ; => 7
+(/ 100 4)            ; => 25
+(% 17 5)             ; => 2 (modulo)
+\end{lstlisting}
+
+\section{12のカテゴリ}
+
+\subsection{グラフィックス（9関数）}
+
+描画プリミティブは即時モードで動作する——各呼び出しがフレームバッファに直接レンダリングされる。
+
+\begin{lstlisting}
+(wipe "black")        ; clear canvas
+(ink "cyan")          ; set color
+(line 0 0 128 128)    ; diagonal line
+(box 10 10 40 40)     ; rectangle
+(circle 64 64 20)     ; circle at center
+(tri 32 10 10 54 54 54) ; triangle
+(plot 64 64)          ; single pixel
+(flood 64 64)         ; flood fill
+(shape 10 10 50 10 30 50) ; polygon
+\end{lstlisting}
+
+\texttt{fill} と \texttt{outline} は図形を塗りつぶすか輪郭のみにするかを制御する（Processing互換）：
+
+\begin{lstlisting}
+(fill)                ; filled shapes
+(ink "red")
+(circle 64 64 30)     ; solid red circle
+
+(outline)             ; outlined shapes
+(ink "white")
+(circle 64 64 30)     ; white ring
+\end{lstlisting}
+
+\subsection{変換（11関数）}
+
+ピクセルレベルの変換は描画後にフレームバッファに作用する：
+
+\begin{lstlisting}
+(scroll 1 0)          ; shift pixels right
+(zoom 1.01)           ; slow zoom in
+(spin 1)              ; rotate 1 degree
+(blur 2)              ; gaussian blur
+(contrast 1.2)        ; increase contrast
+(suck 0.5)            ; radial displacement
+(sort)                ; sort pixels by brightness
+\end{lstlisting}
+
+変換はフレーム間で\emph{累積}し、明示的な状態管理なしにアニメーションを生み出す：
+
+\begin{lstlisting}
+(wipe "black")
+(ink "white")
+(circle 64 64 10)     ; draw circle
+(spin 2)              ; rotate 2 deg/frame
+(zoom 1.005)          ; grow slightly/frame
+; Result: spiraling, growing circle
+\end{lstlisting}
+
+\subsection{数学（14関数）}
+
+\begin{lstlisting}
+(sin (* frame 0.05))  ; sine wave
+(cos (* frame 0.03))  ; cosine wave
+(random)              ; 0-255
+(random 10)           ; 0-9
+(random 5 15)         ; 5-14
+(wiggle 10)           ; random +/-5
+(floor 3.7)           ; => 3
+(abs -5)              ; => 5
+(sqrt 16)             ; => 4
+(min 3 7 1)           ; => 1
+(max 3 7 1)           ; => 7
+\end{lstlisting}
+
+\texttt{random} はプログラムのショートコードで初期化されたシード擬似乱数生成器を使用し、すべての生成出力を\textbf{確定的}にする。同じプログラムは常に同じ視覚的結果を生成する。
+
+\subsection{色彩（19以上の名前付き色）}
+
+色は名前、RGB値、またはグラデーション文字列で指定できる：
+
+\begin{lstlisting}
+(ink "red")           ; named color
+(ink 255 0 0)         ; RGB
+(ink 255 0 0 128)     ; RGBA (semi-transparent)
+(ink "fade:red-blue") ; horizontal gradient
+(ink (fade "cyan" "magenta" "vertical"))
+(ink "rainbow")       ; repeating rainbow
+(ink "zebra")         ; striped pattern
+\end{lstlisting}
+
+利用可能な色名にはすべてのCSS名前付き色が含まれる：\texttt{red}、\texttt{green}、\texttt{blue}、\texttt{yellow}、\texttt{orange}、\texttt{purple}、\texttt{pink}、\texttt{cyan}、\texttt{magenta}、\texttt{black}、\texttt{white}、\texttt{gray}、\texttt{brown}、\texttt{lime}、\texttt{navy}、\texttt{teal}、\texttt{gold}、\texttt{coral}、\texttt{salmon}、\texttt{crimson}、\texttt{lavender}、\texttt{indigo}、\texttt{violet}、\texttt{turquoise}、\texttt{tomato}など。
+
+1行目に裸の色名を置くと背景色が設定される：
+
+\begin{lstlisting}
+"navy"
+(ink "gold")
+(circle 64 64 30)
+; Navy background, gold circle
+\end{lstlisting}
+
+\subsection{システムとディスプレイ（9関数）}
+
+\begin{lstlisting}
+(def w width)         ; screen width
+(def h height)        ; screen height
+frame                 ; current frame number
+time                  ; seconds elapsed
+
+(resolution "half")   ; half-resolution
+(resolution 64 64)    ; explicit 64x64
+(fps 30)              ; set frame rate
+\end{lstlisting}
+
+\subsection{制御フロー（7関数）}
+
+\begin{lstlisting}
+; Variable definition
+(def x 50)
+(def y (+ 10 (* frame 0.5)))
+
+; Conditional
+(if (> frame 60)
+  (ink "red")
+  (ink "blue"))
+
+; Loop
+(repeat 10 i
+  (circle (* i 12) 64 5))
+
+; Execute once (not every frame)
+(once (wipe "black"))
+
+; Local binding
+(let ((cx 64) (cy 64))
+  (circle cx cy 30))
+\end{lstlisting}
+
+\texttt{repeat} ループはカウンタ変数（上記の \texttt{i}）を0から$n-1$まで束縛する。ネストされたrepeatは異なる変数名を使用する：
+
+\begin{lstlisting}
+(repeat 8 i
+  (repeat 8 j
+    (box (* i 16) (* j 16) 14 14)))
+; 8x8 grid of squares
+\end{lstlisting}
+
+\subsection{タイミング}
+
+\kl{} のタイミングシステムはコールバックではなく\emph{インラインスケジューリング}を使用する。タイミング式はコードブロックをラップする：
+
+\begin{lstlisting}
+; Frame-based timing
+(0 (wipe "black"))    ; every frame
+(1 (spin 5))          ; every 2nd frame
+(30f (ink "red"))     ; after 30 frames
+
+; Second-based timing
+(1s (wipe "red"))     ; after 1 second
+(2.5s (ink "gold"))   ; after 2.5 seconds
+(1s! (write "!" 10 10)) ; fire once at 1s
+
+; Repeating intervals
+(0.5s... (spin 45))   ; every 0.5 seconds
+(1s... (scroll 1 0))  ; every second
+\end{lstlisting}
+
+これにより \texttt{setTimeout}、\texttt{setInterval}、アニメーションフレームコールバックの必要性が排除される。時間は式の\emph{属性}であり、呼び出される関数ではない。
+
+\subsection{テキスト（4関数）}
+
+\begin{lstlisting}
+(write "hello" 10 20) ; text at position
+(write "centered"     ; centered text
+  (/ width 2) (/ height 2))
+(type "typed" 10 10)  ; typewriter effect
+\end{lstlisting}
+
+\subsection{入力（3関数）}
+
+\begin{lstlisting}
+; Pen/mouse position and state
+(if pen
+  (circle pen.x pen.y 5))
+
+; Touch input
+(if hand
+  (line hand.x hand.y 64 64))
+\end{lstlisting}
+
+\subsection{オーディオ（6関数）}
+
+\begin{lstlisting}
+; Microphone input
+(def vol (mic))       ; amplitude 0-255
+(circle 64 64 vol)    ; sound-reactive
+
+; Melody playback
+(melody "C4 E4 G4 C5")
+
+; Overtone harmonics
+(overtone 440 3)      ; 3rd harmonic of A4
+\end{lstlisting}
+
+\subsection{3Dグラフィックス（8関数）}
+
+\begin{lstlisting}
+(cube "mycube")       ; create 3D cube
+(form "mycube"
+  (move 0 0 -5)       ; position
+  (scale 2)           ; size
+  (spin (* frame 0.5) 1 1 0)) ; rotate
+\end{lstlisting}
+
+\subsection{\texttt{\$}-Codeによる合成}
+
+\kl{} 最大の特徴はその合成システムである。プログラムはユーザー定義関数を使用せず、ショートコードで他のプログラムを参照する：
+
+\begin{lstlisting}
+; Embed another program as a layer
+($cow)                ; execute program "cow"
+($nece 10 20)         ; pass parameters
+
+; Multi-layer composition
+(wipe "black")
+($cow)                ; background layer
+($faim)               ; foreground layer
+
+; Chain multiple programs
+(resolution 64 64)
+($zobi)
+(spin 1)
+($grel)
+\end{lstlisting}
+
+プログラムはMongoDBから取得され、RAMとIndexedDBにキャッシュされ、SHA-256でコンテンツアドレッシングされる。\texttt{\$}-codeシステムはユーザー定義関数、モジュール、ライブラリを単一のソーシャルメカニズムに置き換える：\emph{誰かが作ったプログラムを見つけ、コードで参照し、合成する}。
+
+最も多く参照されるプログラムは単純な視覚プリミティブであり、構成要素として機能する。このシステムはソーシャル依存グラフを生成する。プログラムAがプログラムBを埋め込み、プログラムBがプログラムCを埋め込む——観察された使用では最大7層の深さに達する。
+
+\section{評価モデル}
+
+\kl{} は\textbf{毎フレームAST全体を再評価する}。明示的に定義された変数以外に保持される状態はない。\texttt{frame} と \texttt{time} 変数は自動的にインクリメントされる。\texttt{zoom}、\texttt{scroll}、\texttt{spin} などの変換はフレームバッファに累積される。
+
+このモデルはProcessing~\citep{reas2007processing}でよく見られる \texttt{setup()}/\texttt{draw()} の分離を排除する。\kl{} プログラムの各行は毎フレーム実行される。アニメーションはフレーム依存式から生まれる：
+
+\begin{lstlisting}
+(wipe "black")
+(ink "white")
+; Circle orbits center using sin/cos
+(circle
+  (+ 64 (* 30 (cos (* frame 0.03))))
+  (+ 64 (* 30 (sin (* frame 0.03))))
+  8)
+\end{lstlisting}
+
+\subsection{確定的ランダム性}
+
+\texttt{random} のシードはプログラムのショートコードに由来する。同じプログラムは、どのデバイスでも、毎回同じ出力を生成する。これにより \kl{} プログラムは\emph{再現可能なジェネラティブアート}となる。コードが作品\emph{そのもの}であり、それを生成するための命令にとどまらない。
+
+\subsection{カオスモード}
+
+無効な入力——意味不明な文字列、不一致の括弧、ランダムな文字——はエラーメッセージを生成しない。代わりに \kl{} は低認識率（既知語彙の$<30\%$）と高特殊文字率（$>50\%$）を検出し、芸術的な視覚出力をレンダリングする。ユーザーは決して「SyntaxError」を見ることがない。色彩が表示される。
+
+\section{省略による設計}
+
+\kl{} が意図的に持たないもの：
+
+\begin{itemize}
+  \item \textbf{ユーザー定義関数}：\texttt{\$}-code合成で代替
+  \item \textbf{再帰}：無限ループとスタックオーバーフローを防止
+  \item \textbf{ファイルI/O}：キャンバスが唯一の出力
+  \item \textbf{ネットワーク}：プログラムは外部データを取得できない
+  \item \textbf{文字列操作}：\texttt{concat}、\texttt{split}、\texttt{replace}なし
+  \item \textbf{エラーメッセージ}：カオスモードで代替
+  \item \textbf{Import/require}：\texttt{\$}-codeで代替
+  \item \textbf{オブジェクト/クラス}：データは数値、文字列、リストのみ
+\end{itemize}
+
+各省略は設計上の決定である。ユーザー定義関数がないことにより、ソーシャルレイヤーを通じた合成が促される。エラーメッセージがないことにより、初心者は赤いエラーテキストの画面に遭遇しない。ネットワークがないことにより、各プログラムは自己完結的で安全に実行できる。
+
+これは次の原則に従う。言語の制約はその機能と同様に創作空間を定義する~\citep{papert1980mindstorms, compton2015casual}。\kl{} はたまたまアートもできる汎用言語ではない。アート\emph{以外}のことができない芸術言語である。
+
+\section{組み込み関数の完全索引}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xlr}
+\toprule
+\textbf{カテゴリ} & \textbf{数} & \textbf{主要関数} \\
+\midrule
+グラフィックス & 9 & wipe, ink, line, box, circle \\
+変換 & 11 & scroll, zoom, spin, blur, suck \\
+数学 & 14 & +, -, *, /, random, sin, cos \\
+色彩 & 19+ & red, blue, fade, rainbow, zebra \\
+システム/ディスプレイ & 9 & width, height, frame, time \\
+制御フロー & 7 & def, if, repeat, once, let \\
+テキスト/出力 & 4 & write, type, paste, print \\
+入力 & 3 & pen, hand, gamepad \\
+オーディオ & 6 & mic, melody, overtone, sound \\
+3Dグラフィックス & 8 & cube, form, trans, move, scale \\
+合成 & 4 & \$code, layer, bake, embed \\
+データ & 4 & list, get, set, let \\
+\midrule
+\textbf{合計} & \textbf{118} & \\
+\bottomrule
+\end{tabularx}
+\caption{カテゴリ別の全118組み込み関数。}
+\label{tab:builtins}
+\end{table}
+
+\section{例：完全なプログラム}
+
+軌道運動する音響反応パーティクルフィールドを描画する完全な \kl{} プログラム：
+
+\begin{lstlisting}
+"black"
+(def vol (+ 5 (* (mic) 0.2)))
+(repeat 50 i
+  (def angle (* i 0.1256))
+  (def r (+ 20 (* vol (sin (+ (* frame 0.02) angle)))))
+  (def cx (+ 64 (* r (cos (+ angle (* frame 0.01))))))
+  (def cy (+ 64 (* r (sin (+ angle (* frame 0.01))))))
+  (ink (+ 100 (* i 3)) 50 (+ 150 (* i 2)))
+  (circle cx cy (+ 1 (random 3))))
+(blur 1)
+(zoom 1.002)
+\end{lstlisting}
+
+このプログラムは、黒い背景を設定し、マイク振幅を読み取り、音に反応して軌道運動する50個のパーティクルを描画し、計算されたグラデーションで着色し、わずかなぼかしを適用し、ゆっくりズームインする。60 FPSで動作する。わずか12行。インポート不要、セットアップ関数不要、アニメーションループ不要、イベントリスナー不要。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

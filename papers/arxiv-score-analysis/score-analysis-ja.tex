@@ -1,0 +1,261 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={スコアを読む},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% === TITLE ===
+\twocolumn[
+\begin{center}
+{\acbold\LARGE スコアを読む：SCORE.mdのガバナンス、インターフェース、\\および創作形式としての批判的分析\par}
+\vspace{0.4em}
+{\large @jeffrey}\\
+{\small\color{acgray} ORCID: 0009-0007-4460-4913}\\
+{\small\color{acgray} \url{https://aesthetic.computer}}
+\vspace{0.3em}
+
+\rule{0.6\textwidth}{0.5pt}
+\vspace{0.3em}
+
+\begin{minipage}{0.85\textwidth}
+\small
+\textbf{要旨。}
+Aesthetic Computerプロジェクトは、そのREADMEをSCORE.mdという名前の文書に置き換えた。
+本論文はこの改名が何をもたらしたか——そして何を未完のまま残したかを検証する。
+プロジェクトのリサーチディスクから執筆された15本の論文に基づき、スコアをその自らの志と照合して読む：
+ガバナンス文書として、技術リファレンスとして、創作形式として。スコアは組織的メタファーとしては成功しているが、
+ドキュメントとしては苦戦していることが明らかになった——AIエージェント、新しいコントリビューター、プロジェクト自身の歴史、
+そして著者の創作実践という複数の需要に引き裂かれて。現在のスコアにおける6つの緊張関係を特定し、
+音楽的メタファーを真剣に受け止める改訂フレームワークを提案する：スコアは楽器の一覧ではなく、
+演奏の仕方を伝えるべきである。
+\end{minipage}
+\vspace{1em}
+\end{center}
+]
+
+\section{スコアとは何か？}
+
+音楽において、スコアとは時間的事象を生成するための指示の集合である。事象そのものではなく——事象を再現可能にする文書である。スコアには何が重要かについての暗黙の理論が内包されている：どのパラメータを明示的に指定すべきか、どれを演奏者の判断に委ねるか。
+
+Aesthetic Computerプロジェクトが2026年3月初旬にREADME.mdをSCORE.mdに改名した時、それはこのフレームワーク全体を導入した。この行為は意図的だった。プロジェクトは既にそのプログラムをアプリケーションではなく「ピース」として~\citep{scudder2026pieces}、そのインターフェースを楽器として~\citep{scudder2026notepat}、そのグラフィック記譜法（Whistlegraph）をバイラルなスコアとして~\citep{scudder2026whistlegraph}理解していた。ガバナンス文書の改名は一つの表明だった：これもまた、演奏されるべきものである。
+
+しかしスコアには演奏者が必要である。本論文が提起する問いは：誰がSCORE.mdから演奏しているのか、そしてこの文書は本当に彼らの助けになっているのか？
+
+\section{リサーチディスクとスコア}
+
+Aesthetic Computerのリサーチディスクは現在17本の論文を含み、自動ビルド、4言語翻訳、実物配布用のカード形式を備えた論文工房で組織されている~\citep{scudder2026cards}。これらの論文を通読すると、相当な野心と内的一貫性を持つプロジェクトが浮かび上がる——しかし同時に、自己記述（スコア）が自己理解（論文）に追いついていないプロジェクトでもある。
+
+論文はスコアが語っていない物語を語る。以下を考えてみよう：
+
+\begin{itemize}
+\item 「Pieces Not Programs」論文~\citep{scudder2026pieces}は、「ピース」という語が、作品が著者を持ち、演奏可能で、反復的に改良されるという音楽的フレームワークを導入すると論じる。スコアはピースに言及しているが、このフレームワークを説明することはない。
+\item notepat論文~\citep{scudder2026notepat}は、一つのピースがプラットフォーム全体を存在へと引き込んだ5つのフィードバックループを記録する。スコアはnotepatを359のピースの一つとして挙げている。
+\item 持続可能性論文~\citep{scudder2026sustainability}は、ツール制作と持続可能な資金との間に中央値8年のギャップがあり、ケーススタディが障害と死に至ることを確認する。スコアにはスポンサーバッジがある。
+\item Native OS論文~\citep{scudder2026os}は、50ドルの中古x86\_64ラップトップがグローバルな創造的楽器の物質的基盤であると論じる。スコアにはビルドコマンドが列挙されている。
+\item KidLisp Cards論文~\citep{scudder2026cards}は、プログラムの簡潔さが新しい出版形式——実行可能なスコアとしてのカード——を生み出したことを実証する。スコアにはカードについての記載がない。
+\end{itemize}
+
+いずれの場合も、論文はスコアが単にカタログ化しているものに意味を与える議論を展開している。スコアには事実はあるが、論証がない。
+
+\section{6つの緊張関係}
+
+スコアを論文と照合して読むと、改訂が対処すべき6つの緊張関係が浮き彫りになる。
+
+\subsection{読者の混乱}
+
+スコアはAIエージェントへのメッセージ（「If you find something interesting\ldots leave a breadcrumb」）で始まり、すぐに人間向けのガイダンス（「press the top left of the screen」）に切り替わる。「Front Door」セクションはエンドユーザー向け。「Back Door」セクションは開発者向け。「Ant Guidance」セクションは自動化エージェント向け。「Embodiments」セクションはこの三者の調和を試みる。
+
+これは間違いではない——スコアは複数の演奏者に向けることができる。しかし音楽のスコアは演奏者のパートを一目で分かるようにしている。SCORE.mdは、どのセクションが自分向けかを読者自身に判断させる。指揮者スコアとバイオリンパートが別の文書であるのには十分な理由がある。
+
+\subsection{カタログと論証}
+
+スコアはカタログとして組織されている：アーキテクチャ、コマンド、エンドポイント、TODO、マーケットクエリ。有用なリファレンスではあるが、プロジェクトが\emph{なぜ}存在するのか、どのような原則がその発展を支配するのかについては何も伝えない。
+
+論文群は少なくとも5つのコア議論を共同で展開している：
+\begin{enumerate}
+\item クリエイティブソフトウェアはツールではなく楽器としてデザインされるべきである~\citep{scudder2026goodiepal}。
+\item 「ピース」はプログラムではなく、創造的認知の単位である~\citep{scudder2026pieces}。
+\item 制約（言語設計において、フォームファクターにおいて）は制限的ではなく、生成的である~\citep{scudder2026kidlisp, scudder2026cards}。
+\item 中古ハードウェア＋カスタムOS＝グローバルなアクセス~\citep{scudder2026os, scudder2026plork}。
+\item クリエイティブツールには、その創造者を殺さない経済モデルが必要である~\citep{scudder2026sustainability}。
+\end{enumerate}
+
+これらの議論はどれもスコアに現れていない。SCORE.mdの初めての読者は、Aesthetic Computerが\emph{何であるか}（ピースとプロンプトといくつかのサーバーを持つランタイム）を知るが、\emph{なぜ}存在するのか、何を信じているのかは知ることができない。
+
+\subsection{TODOの問題}
+
+スコアには「AC Native Backlog」セクションがあり、完了したタスク（「Claude native binary」）と理想的な機能（「A/B kernel slots with auto-rollback」）が7項目混在している。これはプロジェクト管理のアーティファクトであり、スコアではない。戦略的方向ではなく戦術的状態を伝えている。
+
+アント哲学（\texttt{ants/mindset-and-rules.md}）は投機的作業を明確に警告している：「IDLE is valid---wandering is the job, not failure。」しかしスコアのTODOはまさに投機的作業であり、プロジェクトの計画であるかのように提示されている。サブスコア（fedac/native/SCORE.md、papers/SCORE.md）はガイダンスとタスクリストを分離することで、この問題をより適切に処理している。
+
+\subsection{Keepsマーケットブロック}
+
+スコアは90行を使ってTezos/Objkt GraphQLクエリを示し、Keeps NFTマーケット統計をチェックしている。これはコントリビューター（著者）の運用ツールである。有用なリファレンスではあるが、スコアの後半を支配し、意図しないシグナルを発している：NFTマーケット監視がプロジェクトの中心的関心事であり、アーキテクチャや開発ワークフローと同等に重要であるという。
+
+「Dead Ends」論文~\citep{scudder2026deadends}は、Tezos/Keepsを将来が不確かなマネタイゼーション実験として明確に分類している。スコアはそれを確立されたインフラとして提示している。
+
+\subsection{欠けた声}
+
+「Network Audit」論文~\citep{scudder2026audit}は、ACに2,811の登録ユーザー名があるが、KidLispを書いているのは2.1\%、ピースを公開しているのは0.7\%にすぎないことを明らかにしている。「Diversity」論文~\citep{scudder2026diversity}は、被引用著者の80\%が西洋の男性であることを認めている。「Sustainability」論文~\citep{scudder2026sustainability}は、支援のないツール制作の人的コストを記録している。
+
+スコアはこれらの問題のいずれにも触れていない。採用データ（「2812 registered handles, 265 user-published pieces」）を、解釈すべきデータではなく成果として提示している。論文はスコアよりも正直である。
+
+\subsection{サブスコアとメインスコア}
+
+プロジェクトには現在6つのSCORE.mdファイルがある：ルート、papers、fedac、fedac/native、opinion、vault。サブスコアは一般的にメインスコアよりも優れた文書である。papersスコアは「Mill Mission」で始まり、\emph{なぜ}存在するかを説明する。nativeスコアは5つの検証可能な基準で「shipped」を定義する。vaultスコアはセキュリティ態勢をマッピングする。
+
+一方、メインスコアはすべてになろうとしている：README、アーキテクチャ文書、開発者ガイド、運用マニュアル、NFTダッシュボード。サブスコアは具体的であるがゆえに成功している。メインスコアは包括的であるがゆえに苦戦している。
+
+\section{スコアのメタファーを真剣に受け止める}
+
+SCORE.mdがスコアだとすれば、それはどのようなスコアであるべきか？音楽のアナロジーはいくつかの属性を示唆する：
+
+\textbf{スコアは始め方を教える。}現在のスコアの「Front Door」はエンドユーザーに対してこれを実現しているが、コントリビューターやエージェントに対しては実現していない。スコアを手に取った演奏者は知る必要がある：何の楽器を演奏するのか？どこから入るのか？テンポは何か？
+
+\textbf{スコアにはパートがある。}異なる演奏者は異なるパートを読む。現在のスコアはすべてのパートを一つの文書に混在させている。サブスコアは実質的に抽出された個別のパートである。メインスコアは指揮者スコアであるべきだ：すべてのパートの合集ではなく、パートを指し示す概要。
+
+\textbf{スコアは演奏実践を前提とする。}スコアの読み方と実行の仕方に関する慣行は、スコア自体には書かれていない。アント思考文書はAIエージェントに対してこの機能を果たしている。人間のコントリビューターに対する同等のものは存在しない。
+
+\textbf{スコアは改訂できる。}スコアにはバージョンがある。現在のSCORE.mdには文書自体にバージョン履歴や変更ログがない。まるで常にこうだったかのように読めるが、実際には2週間前まではREADMEだった。
+
+\textbf{スコアは演奏そのものではない。}スコアはプロジェクト全体を含もうとすべきではない。プロジェクトが演奏される際に必要な最小限の文書であるべきだ。それ以外のすべて——TODO、マーケットクエリ、運用ツール——はパートまたは付録に属する。
+
+\section{論文が知っていてスコアが知らないこと}
+
+17本すべての論文をスコアと照合して読んだとき、最も際立つ発見は、プロジェクトの自己理解が論文の中ではスコアの中よりもはるかに豊かであることだ。論文には以下が含まれている：
+
+\begin{itemize}
+\item 創造的認知の理論（知覚-行動循環としてのピース）
+\item ツール制作の政治経済学（誰が支払い、誰が燃え尽き、誰が死ぬか）
+\item デザイン哲学（楽器優先、制約は生成的、深さよりもフラット）
+\item ハードウェアに関する物質的議論（グローバルな楽器としての中古ラップトップ）
+\item 失敗の正直な監査（16の行き止まり、50\%の貢献率）
+\item 具体的目標を持つ引用多様性へのコミットメント
+\item 独自のミッションステートメントを持つ出版インフラ（工房）
+\end{itemize}
+
+スコアにはこれらのいずれも含まれていない。たまたまスコアと呼ばれている技術文書である。改訂は、真のスコアにすべきだ：プロジェクトのアーキテクチャだけでなく、その論証を載せた文書。
+
+\section{改訂されたスコアに向けて}
+
+改訂後のSCORE.mdは以下を行うべきである：
+
+\begin{enumerate}
+\item \textbf{「なぜ」から始める。}プロジェクトが何を信じ、なぜ存在するかを、論文群で展開された議論から引いて述べる。papers/SCORE.mdのmill missionはこの好例である。
+\item \textbf{パートと指揮者スコアを分離する。}運用の詳細（Keepsクエリ、TODO、コマンドリファレンス）をサブスコアまたは付録に移す。メインスコアは5分で読めるべきである。
+\item \textbf{読者を名指しする。}三種類の演奏者（エンドユーザー、人間のコントリビューター、AIエージェント）を明示的に対象とし、それぞれに明確なエントリーポイントを提供する。
+\item \textbf{正直な数字を含める。}解釈付きの採用データを提示し、単なるバッジではなく。KidLisp制作率2.1\%は意味のある事実であり、スコアはそれが何を意味するかを述べるべきである。
+\item \textbf{論文を参照する。}リサーチディスクは存在する。スコアはそれを無視するのではなく、プロジェクトの拡張された自己理解として指し示すべきである。
+\item \textbf{自らの歴史を認める。}この文書が2026年3月までREADMEであったこと、そして改名自体が帰結を持つ創造的行為であることを述べる。
+\item \textbf{より短くする。}現在のスコアは361行。自らを真剣に受け止めるスコアは、カード上の一つのピースの長さにより近くあるべきだ。
+\end{enumerate}
+
+\section{結論}
+
+SCORE.mdはAesthetic Computerプロジェクトが必要とするものにとって良い名前である：プロジェクトを演奏可能にする文書。しかし現在のスコアはカタログであり、作品ではない。プロジェクトが何を含んでいるかを列挙するが、何を意味するかを論じていない。リサーチディスクの論文群——スコアと同じ数週間で書かれた——には、スコアに欠けている論証、正直な評価、創作のフレームワークが含まれている。
+
+最も生産的な改訂は、スコアに内容を追加することではなく、削減することだろう——運用の詳細をサブスコアに移し、プロジェクトの実際の信念に置き換える。サブスコア（papers、native、vault）は既にこのアプローチを示している。メインスコアは自らのパートから学ぶべきである。
+
+スコアはオーケストラの記述ではない。音楽を生み出すために必要な最小限の記譜である。SCORE.mdも同じ簡潔さを目指すべきだ。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

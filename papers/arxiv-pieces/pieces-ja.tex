@@ -1,0 +1,265 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setCJKsansfont{Droid Sans Japanese}
+\setCJKmonofont{Droid Sans Japanese}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={プログラムではなくピース},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{作業草稿——引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} プログラムではなくピース}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} \ac{} における創造的認知の単位としてのピース}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 作業草稿——引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{要旨。}
+\ac{} はそのインタラクティブプログラムを\emph{ピース}（pieces）と呼ぶ——スケッチでもパッチでもスクリプトでもアプリでもない。本論文は、この用語選択が装飾的なものではないことを論じる。それは音楽と視覚芸術から、創造的作品が機械の仕様書ではなく\emph{著者を持ち、演奏可能で、反復的に改良される成果物}であるという枠組みを導入する。私たちは計算の単位としてのピースの系譜をたどり、Processingスケッチ、Max/MSPパッチ、Unixプロセス、Smalltalkイメージ、Jupyterノートブックと比較する。次にACピースの実際の形態を検討する：単一ファイルでURL指定可能なプログラムであり、具身化されたエージェントの知覚-行動循環を模倣するライフサイクル（\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}、\texttt{leave}）を持つ~\citep{varela1991embodied}。ピースという概念——プログラムという概念ではなく——を中心に命名しデザインすることで、著者・プラットフォーム・受け手の間に質的に異なる関係が生まれることを論じる：ソフトウェアが単にデプロイされるのではなく、実践されるという関係である。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{序論}
+
+Turingが1936年に計算を定義した際、彼は基本対象を「計算可能数」と呼び、「機械」によって生成されるものとした~\citep{turing1936computable}。\emph{プログラム}（program）という語——ギリシャ語の\emph{programma}（公告または書面通知）に由来する——は、この官僚的枠組みの自然な延長として計算の世界に入った。プログラムとは命令の集合であり、実行すべき計画である。プログラムは正しいか正しくないかである。コンパイルが通るか通らないかである。デプロイされるものであり、演奏されるものではない。
+
+クリエイティブ・コンピューティングの歴史は、ある程度、この枠組みの緩やかな侵食である。Processingスケッチ~\citep{reas2007processing}は、プログラムを使い捨ての探索的なものに置き換えた。Max/MSPパッチ~\citep{puckette1988patcher}は、ソースファイルを生きたデータフローグラフに置き換えた。Scratch~\citep{resnick2009scratch}は、命令列をブロックの組み合わせに置き換えた。それぞれの改名は再設計でもあった：新しい単位の機能的余裕（アフォーダンス）は、誰が作り、どのくらいの時間がかかり、何をもって完成とするかについての新しい前提を持っていた。
+
+\ac{} はそのプログラムを\emph{ピース}と呼ぶ~\citep{scudder2026ac}。本論文は、なぜそれが重要なのかを検討する。
+
+\section{創造的単位の系譜}
+
+\subsection{音楽作品}
+
+音楽において、\emph{ピース}（piece）は完結した著者を持つ創作物であり、少なくとも二つの形態で存在する：楽譜（記号的仕様）と演奏（インスタンス化）。両者は同一ではない——演奏ごとに異なり、楽譜は解釈を必要とし、作品は時間とともに変奏を蓄積する。ピースは一回の演奏で汲み尽くされることはない。また社会的に位置づけられてもいる：ピースには名前、著者、初演、そしてカノンがある。教えられ、分析され、カバーされ、忘れられる。
+
+この二重性——仕様と演奏、テクストと遂行——はプログラムという概念には欠けている。プログラムは通常そのソースコード（またはバイナリ）と同一視される。その「演奏」は付随的であり、重要なのは出力が正しいかどうかである。
+
+\subsection{Processingスケッチ}
+
+Processingスケッチ~\citep{reas2007processing}は意図的に芸術の語域を導入した。\emph{スケッチ}（sketch）という語は不完全さ、探索、反復を暗示する。スケッチはデプロイされない——共有され、その上に構築され、あるいは放棄される。Processing環境は、書く・実行する・エクスポートするを中心に組織されたIDEでこれを強化した——エンジニアリングよりも素描に近いサイクルである。
+
+スケッチモデルには限界がある：スケッチはローカルファイルであり、URLではない。プラットフォームによる社会的な配布がない。ウィンドウを閉じるとライフサイクルが終了する。
+
+\subsection{Max/MSPパッチ}
+
+Maxの\emph{パッチ}（patch）~\citep{puckette1988patcher,puckette1996pure}は制御フロー列ではなくデータフローグラフである。パッチは空間的に構築され、書くのではなく接続によって作られる。本質的にパフォーマティブである：実行されていないMaxパッチには意味がなく、その振る舞いは流れるリアルタイムデータによって定義される。これによりパッチはプログラムよりも楽器に近くなる——実行されるのではなく、演奏される。
+
+パッチは特定の意味で一時的でもある：パッチを閉じて再び開くと同じ構造が返るが、演奏状態は消失する。パッチは楽譜であり、実行中のインスタンスが演奏である。
+
+\subsection{Unixプロセス}
+
+Unix\emph{プロセス}（process）は異なる概念である：ソースコードでもバイナリでもなく、実行中のインスタンス——独自のアドレス空間、ファイルディスクリプタ、PIDを持つ実行中のプログラムである。プロセスは演奏であり、楽譜ではない。Unix哲学（一つの道具で一つのことを行い、パイプで組み合わせる）はプロセスを、著者を持つ作品ではなく、組み合わせ可能なプリミティブとして扱う。プロセスは芸術的意味での著者を持たない——管理的意味での所有者を持つだけである。
+
+Unixモデルは強力かつ永続的だが、ピースの概念とは逆の方向を指している：著者性、反復、表現ではなく、正確性、組み合わせ可能性、システム管理に向かっている。
+
+\subsection{SmalltalkイメージとJupyterノートブック}
+
+Alan KayのSmalltalk~\citep{kay1977personal}は異なる単位を提案した：\emph{イメージ}（image）——すべてのオブジェクトとその状態の永続的で生きたスナップショットである。イメージはコンパイルすべきファイルではなく、住まうべき世界である。オブジェクトはメッセージを受け取り、環境は応答する。これはプログラムの概念よりもピースの概念に近いが、現代のオペレーティングシステムのファイル単位のパラダイムに抵抗したため、主流のクリエイティブプログラミングには移行しなかった。
+
+Jupyterノートブックは興味深い中間位置を占める：ドキュメント（叙述）であると同時にプロセス（実行可能なセル）でもある。ノートブックはプログラムよりも散文に近いが、その単位はセルであり、全体ではない。
+
+\section{ACピースとは何か}
+
+\ac{} ピースは単一の\texttt{.mjs}または\texttt{.lisp}ファイルであり、ライフサイクル関数をエクスポートする：
+
+\begin{itemize}
+  \item \texttt{boot} —— 初期化、ロード時に一度実行、
+  \item \texttt{paint} —— 描画、毎フレーム実行、
+  \item \texttt{act} —— イベント処理（入力、ネットワーク、時間）、
+  \item \texttt{sim} —— シミュレーションロジック、毎フレーム実行、
+  \item \texttt{leave} —— 終了時のクリーンアップ。
+\end{itemize}
+
+このライフサイクルは恣意的ではない。具身化された認知科学が記述する知覚-行動循環~\citep{varela1991embodied}に対応している：エージェントが環境を知覚し（\texttt{act}）、内部状態を更新し（\texttt{sim}）、出力を生成する（\texttt{paint}）。ピースは計算の仕様書ではない——それは持続的な認知プロセスの記述である。
+
+\subsection{URLアドレス指定}
+
+すべてのピースはURLでアドレス指定できる：\texttt{aesthetic.computer/piece-name}。これによりピースはファイルではなく記憶可能なパスとなる。URL名前空間がピース名前空間である。ユーザーがピースを発見する方法は、音楽作品を発見する方法と同じである——名前によって、参照によって、コレクションを閲覧することによって。これがACをIDEやサンドボックスと区別するものである：ピースは技術的である前に、まず社会的である。
+
+\subsection{即時描画モデル}
+
+\ac{} は即時モード（イミディエイトモード）グラフィックスを使用する：\texttt{paint}は毎フレーム呼び出され、画面はゼロから再構築される。保持されたシーングラフも、永続的なDOMも、オブジェクトモデルもない。これは認知的に重要である：ピースは時間と状態の純粋関数であり、累積的構造ではない。プログラマーは\emph{今何を描くか}で考え、\emph{何を変更するか}ではない。これは演奏中の音楽家の思考方法と一致する——「今どの音符を押さえているか」ではなく「次に何を弾くか」である。
+
+\subsection{著者性と反復}
+
+ピースには著者がいる。名前を付けて公開され、帰属が示され、\texttt{source}コマンドでフォークできる。ユーザーが\texttt{source piece-name}を実行すると、ピースのソースコードのコピーを取得し、新たな著者となる。これは音楽におけるカバーの概念である：既存の作品を取り上げ、自分のものにする。
+
+反復のサイクル——書く、公開する、演奏する、観察する、修正する——はソフトウェアのデプロイよりも音楽制作やビジュアルアートの実践に近い。\citet{mcpherson2020idiomatic}は、コンピュータ音楽言語が特定のイディオムを容易にすることで美的結果をどう形作るかを記録した。ピースのライフサイクルは、反復的でパフォーマティブな開発を最小抵抗のパスにすることで、何が作られるかを形作る。
+
+\section{認知的拡張としてのピース}
+
+ClarkとChalmersは、外部ツールが確実に使用され、利用可能で、承認されている場合、認知プロセスはそのツールへと拡張しうると論じた~\citep{clark1998extended}。思考のために使われるノートブックは認知システムの一部であり、ノートブックの中身は記憶の中の事実と同様に「心の中」にある。
+
+日常的に演奏されるピースは、まさにこの意味で認知的拡張となる。\texttt{notepat}~\citep{scudder2026notepat}は単にJeffreyが音を出すために使うツールではない——音楽的思考のための義肢である。\texttt{notepat}への401回のコミットはユーティリティへのバグフィックスではなく、認知器官の精緻化である。ピースはその著者とともに共進化する。
+
+これは\citet{magnusson2010designing}が記述する楽器の認識論的次元である：楽器は「認識論的ツール」であり、演奏者が思考し表現できるものを形作る。デジタル楽器はアコースティック楽器と異なる——ソフトウェアであるからだ。そしてソフトウェアはそのユーザーによって変更できる。ツールがピースであり、その著者がその演奏者でもあるとき、楽器と作品の境界は消解する。
+
+\subsection{名前付きパスとしてのニーモニック}
+
+Normanのアフォーダンスの概念~\citep{norman1988design}は、オブジェクトがその可能な使用法をいかに示唆するかを記述する。URLアドレス指定可能なピースは、記憶と再訪のアフォーダンスを提供する：\texttt{notepat}という名前は単なる識別子ではなくニーモニック——実践へと戻るパスである。AC名前空間はニーモニックな風景である。\texttt{wrl}、\texttt{grid}、\texttt{clock}、\texttt{prompt}を知るユーザーは、可能な体験の地図を内面化している。これが音楽のカノンの働き方である：作品の名前は実践へのハンドルであり、単なるファイルのラベルではない。
+
+\section{ピース vs.\ プログラム：比較}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{l X X}
+\toprule
+ & \textbf{プログラム} & \textbf{ピース} \\
+\midrule
+評価の単位 & 正確性 & 表現 \\
+主要ライフサイクル & コンパイル、実行、終了 & 起動、演奏、退出 \\
+著者性 & 所有者（ユーザー/root） & アーティスト \\
+社会的単位 & 実行可能バイナリ & 名前付きURL \\
+反復モード & デバッグ、再デプロイ & 修正、再公開 \\
+時間との関係 & 終了 & 継続 \\
+フォークの比喩 & Fork（git） & カバー（音楽） \\
+完成条件 & テスト通過 & 決してない（放棄されるのみ） \\
+\bottomrule
+\end{tabularx}
+\caption{プログラム vs.\ ピース——創造的単位としての比較。}
+\label{tab:comparison}
+\end{table}
+
+\section{プラットフォーム設計への影響}
+
+ピースの概念は\ac{} に具体的なデザイン上の帰結をもたらす：
+
+\begin{enumerate}
+  \item \textbf{一ファイル、一ピース。} プロジェクト構造もビルドシステムも、プラットフォームAPI以外の依存関係もない。ピースは自己完結している——音楽作品が自己完結しているように。
+  \item \textbf{プロンプトは楽器である。} ACコマンドプロンプトは、ピースをブラウズし、演奏し、公開するためのインターフェースである。GUIのように設定可能ではなく、キーボード配列のように記憶可能であるよう設計されている。
+  \item \textbf{公開は演奏である。} \texttt{publish}を実行することはデプロイ行為ではなく、創造行為である。ピースは即座に名前空間に入り、URLを持つ誰もが演奏できる。
+  \item \textbf{ブラウザはコンサートホールである。} ウェブブラウザ~\citep{wyse2013viability}は演奏空間である。すべてのデバイスに既に存在し、既に社会的である。ピースがブラウザで動作するのは技術的に最適だからではなく、現存する最もアクセスしやすい演奏会場だからである。
+  \item \textbf{ライブコーディングはリハーサルである。} モジュールローダーは保存時にピースをホットリロードする。これは開発者の利便性ではない——拍子の中で練習することに等しい：著者はピースが変化するのと同時にそれを演奏し、後からではない。
+\end{enumerate}
+
+\section{結論}
+
+インタラクティブプログラムを\emph{ピース}と呼ぶことはデザイン宣言である：クリエイティブソフトウェアを考える正しい枠組みは、工学の枠組み（正確性、デプロイ、保守）ではなく芸術の枠組み（著者性、反復、演奏、実践）であると断言する。Processingスケッチは2001年に同様の宣言を行った。Maxのパッチは1988年に行った。ACのピースは2024年に、ブラウザの中で、URL名前空間とともに、再びそれを行う。
+
+それぞれの再枠組み付けは異なるアフォーダンスをもたらす。ACにおけるピースの概念が際立たせるのは：インストール可能なアプリよりも記憶可能なURL、保持されたシーングラフよりも即時モード描画、イベントリスナーよりもライフサイクル関数、フォークよりもカバー。これらは単なる命名の選択ではない——\citet{magnusson2010designing}が論じるように、限定することによって可能にする制約である。
+
+より深い宣言は、ピースの概念を中心にデザインされたソフトウェアが\emph{実践}をユーザーとプログラムの根本的な関係として扱うということである。インストールではなく、設定ではなく、デプロイではなく——実践。ピースとは、あなたが戻ってきて、精緻化し、演奏するものである。認知を拡張する~\citep{clark1998extended}のは、まさに学ぶのに十分なほど安定し、成長するのに十分なほど柔軟だからである。
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

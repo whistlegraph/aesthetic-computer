@@ -1,0 +1,765 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === PROCESSING SYNTAX COLORS ===
+\definecolor{pjkw}{RGB}{204,102,0}
+\definecolor{pjfn}{RGB}{0,102,153}
+\definecolor{pjcmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={setup()からboot()へ：ピースAPIの核心におけるProcessingの継承},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\titleformat{\subsubsection}
+  {\normalfont\itshape\small}
+  {\thesubsubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsubsection}{0pt}{0.6em}{0.1em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+% === LISTINGS ===
+\lstdefinelanguage{processing}{
+  morekeywords=[1]{void,int,float,boolean,color,String,class,new,if,else,for,while,return,public,private,extends,import},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,size,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,pushMatrix,popMatrix,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinelanguage{p5js}{
+  morekeywords=[1]{function,let,const,var,if,else,for,while,return,new,class,export},
+  morekeywords=[2]{setup,draw,mousePressed,mouseDragged,keyPressed,createCanvas,background,stroke,noStroke,fill,noFill,line,rect,ellipse,point,triangle,beginShape,endShape,vertex,translate,rotate,scale,push,pop,frameRate,width,height,mouseX,mouseY,pmouseX,pmouseY,key,keyCode,mouseButton,frameCount,createGraphics,random,noise,map,constrain,dist,lerp},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from,for},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,pen,event,boot,paint,act,sim,leave,paste,plot,poly,flood,form,cursor,handle,num,geo,ui},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+}
+
+\lstdefinestyle{processingstyle}{
+  language=processing,
+  keywordstyle=[1]\color{pjkw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{pjcmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{p5style}{
+  language=p5js,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{pjfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+  numbers=none,
+  tabsize=2,
+}
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} \texttt{setup()} から \texttt{boot()} へ}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} ピースAPIの核心におけるProcessingの継承}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{概要。}
+すべてのクリエイティブコーディングプラットフォームはコアAPIを定義する——プログラムが世界を感知し、その上に描画するための基本関数のセットである。Processingは2001年に\texttt{setup()}/\texttt{draw()}とグローバル描画プリミティブ（\texttt{background()}、\texttt{stroke()}、\texttt{ellipse()}）によるパターンを確立し、このパターンは20年にわたるクリエイティブコーディングツールに影響を与えた。p5.jsは2014年にこのモデルをブラウザに持ち込み、JavaScriptとDOMに適応させながらAPIサーフェスを維持した。\ac{}（AC）は2021年に開始され、その核心においてProcessingの思想を継承しつつ、複数の構造的次元で拡張している：2関数ライフサイクルを5つ（\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}、\texttt{leave}）に拡張し、グローバル状態をデストラクチャリングによるAPI注入に置き換え、シミュレーションとレンダリングを異なる周波数で分離し、各プログラムをビルドステップなしでURLアドレス可能にしている。本稿では、Processingの理念がACピースAPIにどのように存在しているかを追跡し、Design By Numbers、Processing、p5.js、ACのライフサイクルモデル、描画プリミティブ、入力処理、状態管理戦略を比較する。ACのAPI設計——Processingの即時モードグラフィックスモデルを基盤として——が\emph{スケッチブック}の比喩（書く、実行する、捨てる）を\emph{楽器}の比喩（起動する、演奏する、練習する、戻る）へと拡張することを論じる。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{はじめに}
+
+クリエイティブコーディングAPIの歴史は、プログラマーが最初に何を言うべきかを決定する歴史である。Design By Numbers~\citep{maeda2001dbn}では、最初のステートメントは座標とグレースケール値だった：\texttt{Paper 50}。Processing~\citep{reas2003processing}では、\texttt{setup()}内の\texttt{size(200, 200)}だった。p5.js~\citep{mccarthy2015p5js}では、\texttt{createCanvas(400, 400)}だった。\ac{}では、プログラマーはキャンバスを宣言する必要が一切ない——ランタイムが\texttt{screen.width}と\texttt{screen.height}を既成事実として提供し、最初の意味のあるステートメントは通常\texttt{wipe()}——描画を開始するための画面クリア——である。
+
+これらは恣意的な違いではない。それぞれがプラットフォームの前提とプログラマーが指定すべきものとの間の決定を反映しており、これらの決定が蓄積されることで、著者とマシンの間に根本的に異なる関係が形成される。本稿ではProcessingからp5.jsを経てACへのAPI系譜を追跡し、各遷移を一連の設計決定として捉える：何が保持され、何が変更され、その変更が何を意味するか。
+
+本稿の貢献は3つある：（1）Processing、p5.js、ACのライフサイクルモデル、描画API、入力システム、状態管理戦略の詳細な技術比較、（2）ACがProcessingモデルから逸脱した背景にある設計思想の分析、（3）ACピースAPIがスケッチブックの比喩から\emph{楽器の比喩}と呼ぶものへの移行を体現しているという議論——プログラマーとプログラムの関係が、探索的で使い捨てのものではなく、継続的で、パフォーマティブで、練習に基づくものであるモデル。
+
+% ============ 2. THE PROCESSING MODEL ============
+
+\section{Processingモデル（2001年）}
+\label{sec:processing}
+
+Processing~\citep{reas2007processing}はビジュアルアーティストのための「ソフトウェアスケッチブック」として設計された。そのAPIは2つのライフサイクル関数とグローバル描画プリミティブのセットを中心としている。
+
+\subsection{ライフサイクル：\texttt{setup()}と\texttt{draw()}}
+
+\begin{lstlisting}[style=processingstyle,caption={最小限のProcessingスケッチ。}]
+void setup() {
+  size(400, 400);
+  background(0);
+}
+
+void draw() {
+  stroke(255);
+  ellipse(mouseX, mouseY, 20, 20);
+}
+\end{lstlisting}
+
+\texttt{setup()}は1回実行され、\texttt{draw()}はデフォルト60fpsの頻度で毎フレーム実行される。この2関数モデルはProcessingの最も影響力のある設計決定である。アニメーションの認知的オーバーヘッドを、レンダリングループの管理から2つの空欄を埋めることに削減した：「1回だけ起こることは何か？」と「毎フレーム起こることは何か？」
+
+このモデルは意図的に最小限に保たれている。明示的な\texttt{input()}関数はなく、マウスとキーボードの状態は自動更新されるグローバル変数（\texttt{mouseX}、\texttt{mouseY}、\texttt{key}、\texttt{keyCode}）として利用可能である。イベントコールバック（\texttt{mousePressed()}、\texttt{keyPressed()}）は存在するが、必須のエントリポイントではなくオプションの補助である。
+
+\subsection{描画プリミティブ}
+
+Processingの描画APIはPostScriptとOpenGLから継承した\emph{ステートフルパイプライン}モデルを採用している：状態設定呼び出し（\texttt{stroke()}、\texttt{fill()}、\texttt{strokeWeight()}）が永続的なグラフィックスコンテキストを変更し、形状呼び出し（\texttt{ellipse()}、\texttt{rect()}、\texttt{line()}）がそのコンテキストを使用してレンダリングする。コンテキストは明示的にリセットされない限りフレーム間で持続する。
+
+\begin{lstlisting}[style=processingstyle,caption={ステートフル描画コンテキスト。}]
+void draw() {
+  fill(255, 0, 0);     // Set fill: red
+  stroke(0);            // Set stroke: black
+  strokeWeight(3);      // Set weight: 3px
+  ellipse(100, 100, 50, 50);  // Uses above
+  rect(200, 100, 50, 50);     // Also uses above
+  // State persists into next frame
+}
+\end{lstlisting}
+
+この状態の持続性は強力（統一されたスタイルに必要なコードが少ない）であると同時にエラーを招きやすい（忘れられた状態がフレーム間でリークする）。Processingは\texttt{pushStyle()}/\texttt{popStyle()}と\texttt{pushMatrix()}/\texttt{popMatrix()}で対処しているが、これらは上級者向けツールである。
+
+\subsection{グローバルスコープ}
+
+すべてのProcessingプログラムは単一のグローバル名前空間を共有する。\texttt{setup()}と\texttt{draw()}の外部で宣言された変数はどこからでもアクセス可能である。描画関数（\texttt{line()}、\texttt{ellipse()}、\texttt{background()}）はグローバルである。入力変数（\texttt{mouseX}、\texttt{mouseY}）はグローバルである。これによりスコープ、インポート、依存性注入の理解が不要になる——初心者にとって極めて重要——が、プログラムを組み合わせたり分離したりすることが不可能になる。
+
+% ============ 3. THE P5.JS TRANSITION ============
+
+\section{p5.jsへの移行（2014年）}
+\label{sec:p5js}
+
+p5.js~\citep{mccarthy2015p5js}はProcessingのJavaScript再実装である。主要な貢献はProcessingモデルをブラウザに持ち込んだことだが、移植にはいくつかの適応が必要だった。
+
+\subsection{ライフサイクルの維持}
+
+\begin{lstlisting}[style=p5style,caption={最小限のp5.jsスケッチ。}]
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(220);
+  ellipse(mouseX, mouseY, 50, 50);
+}
+\end{lstlisting}
+
+\texttt{setup()}/\texttt{draw()}モデルはそのまま維持された。認知モデルは同一：2つの関数、グローバル描画プリミティブ、自動アニメーションループ。この連続性は意図的であった——p5.jsはWeb上のProcessingであることを目指しており、新しい言語ではなかった。
+
+\subsection{キャンバス作成}
+
+最も明白な変更は\texttt{createCanvas()}が\texttt{size()}を置き換えたことである。これは表面的な変更ではない：Processingでは\texttt{size()}がアプリケーションウィンドウを構成するが、p5.jsでは\texttt{createCanvas()}がDOM内にHTML \texttt{<canvas>}要素を作成する。スケッチは表示領域全体を占有するのではなく、既存のページと折り合いを付けなければならない。
+
+\subsection{インスタンスモード}
+
+p5.jsはグローバル名前空間からの重要な脱出口を導入した：\emph{インスタンスモード}。
+
+\begin{lstlisting}[style=p5style,caption={p5.jsインスタンスモード。}]
+const sketch = (p) => {
+  p.setup = () => {
+    p.createCanvas(400, 400);
+  };
+  p.draw = () => {
+    p.background(220);
+    p.ellipse(p.mouseX, p.mouseY, 50, 50);
+  };
+};
+new p5(sketch);
+\end{lstlisting}
+
+インスタンスモードはすべてのAPI関数を名前空間（\texttt{p.}）の後ろにラップし、1つのページ上に複数のスケッチを配置でき、グローバル汚染を回避できる。しかし、ほとんどのp5.jsコードはグローバルモードで書かれ、インスタンスモードはスケッチをより大きなアプリケーションに埋め込むときにのみ使用される。プレフィックス記法（\texttt{p.ellipse}対\texttt{ellipse}）は冗長性を増し、Processingを魅力的にした「直接書く」品質を低下させる。
+
+\subsection{変わったものと変わらなかったもの}
+
+p5.jsが維持したもの：2関数ライフサイクル、グローバル描画プリミティブ、ステートフルグラフィックスコンテキスト、フレームベースアニメーション、「スケッチ」のアイデンティティ。適応したもの：DOM向けキャンバス作成、レンダラー選択（2D/WebGL）、ブラウザイベント向けイベント処理、組み合わせ用インスタンスモードの追加。解決しなかったもの：シミュレーションとレンダリングの混同、構造化された入力処理の欠如、単一ファイル分離の問題。
+
+% ============ 4. THE AC PIECE API ============
+
+\section{ACピースAPI（2021年--）}
+\label{sec:ac}
+
+\ac{}のピースAPI~\citep{scudder2026ac}はProcessingの核心的な洞察——即時モードグラフィックス、単一ファイルプログラム、ライフサイクル関数——の上に構築され、2つではなく5つの関心事を中心に拡張している。
+
+\subsection{5つのライフサイクル関数}
+
+\begin{lstlisting}[style=acjsstyle,caption={最小限のACピース。}]
+function boot({ screen, params }) {
+  // Runs once on load
+}
+
+function paint({ wipe, ink, line, screen }) {
+  wipe("navy");
+  ink("pink").circle(
+    screen.width / 2,
+    screen.height / 2,
+    50
+  );
+}
+
+function act({ event: e }) {
+  if (e.is("keyboard:down:space")) {
+    // Handle spacebar
+  }
+}
+
+function sim() {
+  // Update state at 120fps
+}
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+5つの関数は：
+
+\begin{itemize}
+  \item \texttt{boot(\$api)} --- ピースのロード時に1回実行される。Processingの\texttt{setup()}を拡張し、プログラマーが構成するのではなくランタイムが画面を提供する。
+  \item \texttt{paint(\$api)} --- レンダリングが必要なフレームごとに実行される。\texttt{draw()}の即時モードモデルを継承するが、純粋にビジュアル：慣例としてロジックを含まず、状態を変更しない。
+  \item \texttt{act(\$api)} --- 各入力イベントにつき1回呼び出される。Processingのイベントコールバック（\texttt{mousePressed()}、\texttt{keyPressed()}）を単一の統一エントリポイントに統合する。
+  \item \texttt{sim(\$api)} --- 固定120Hzで実行され、各レンダリングフレーム中に複数回実行される可能性がある。Processingに等価物はない；最も近い類似物は固定タイムステップゲームループ~\citep{nystrom2014game}である。
+  \item \texttt{leave(\$api)} --- 終了時のクリーンアップ。Processingに等価物はなく、スケッチは単純に終了する。
+\end{itemize}
+
+各関数はオプションである。\texttt{paint}のみをエクスポートするピースも有効で実行可能なプログラムである。
+
+\subsection{デストラクチャリングによるAPI注入}
+
+Processingモデルに対する最も構造的に重要な拡張は、\textbf{グローバルスコープにAPI関数が一切存在しない}ことである。ピースが使用するすべての関数はパラメータとして受け取る：
+
+\begin{lstlisting}[style=acjsstyle,caption={ACにおけるAPIデストラクチャリング。}]
+function paint({ wipe, ink, line, box,
+                 circle, screen, num }) {
+  wipe(0, 0, 30);
+  ink(255, 100, 180);
+  const cx = num.lerp(0, screen.width, 0.5);
+  circle(cx, screen.height / 2, 40);
+}
+\end{lstlisting}
+
+この設計にはいくつかの帰結がある：
+
+\begin{enumerate}
+  \item \textbf{グローバル汚染なし。}モジュールレベルの変数はピースの状態であり、API関数はパラメータである。衝突しうる環境名前空間は存在しない。
+  \item \textbf{自己文書化するインポート。}各関数の先頭にあるデストラクチャリングパターンが、その関数が使用するAPIサーフェスを正確に宣言し、インライン依存性マニフェストとして機能する。
+  \item \textbf{組み合わせ可能性。}複数のピースがAPI衝突なしに同一のJavaScriptコンテキスト内で共存でき、プラットフォームのピース切り替えと埋め込みメカニズムを実現する。
+  \item \textbf{発見可能性。}エディタの自動補完がデストラクチャリングされたパラメータオブジェクトに対して動作し、APIを探索する自然な方法を提供する。
+\end{enumerate}
+
+これはp5.jsのインスタンスモードパターンを結論まで推し進めたものである：プログラマーは各呼び出しの前に\texttt{p.}をプレフィックスする代わりに、関数シグネチャで必要な関数のみをデストラクチャリングし、1回で済ませる。
+
+\subsection{シミュレーションとレンダリングの分離}
+\label{sec:simsep}
+
+Processingの\texttt{draw()}は2つの関心事を混同している：状態の更新とピクセルのレンダリング。これは単純なスケッチでは機能するが、複雑さが増すと問題が生じる：物理シミュレーションがフレームレートに束縛される、入力遅延がレンダリングコストに結合する、「何が起こったか」と「どう見えるか」の分離が困難になる。
+
+ACはこれらを明示的に分離する：
+
+\begin{itemize}
+  \item \texttt{sim()}は表示リフレッシュレートに関係なく固定120Hzで実行される。60Hzディスプレイでは\texttt{sim()}は各\texttt{paint()}呼び出しごとに2回実行される。144Hzディスプレイでは比率が相応に調整される。
+  \item \texttt{paint()}はディスプレイのリフレッシュレート（上限約165fps）で実行され、現在の状態のレンダリングのみを担当する。
+  \item \texttt{act()}はイベント到着時に即座に実行され、各入力イベントにつき1回。
+\end{itemize}
+
+この3方向の分離は現代のゲームエンジンアーキテクチャ~\citep{nystrom2014game}を反映している：決定論的ロジックのための固定更新レート、滑らかな表示のための可変レンダリングレート、入力のためのイベントキュー。違いは、ACがこのアーキテクチャをフレームワークの背後に隠すのではなく、第一級APIとして公開していることである。
+
+\subsection{統一されたイベント処理}
+
+Processingは入力処理をグローバル変数とオプションのコールバックに分散させている：
+
+\begin{lstlisting}[style=processingstyle]
+// Processing: scattered input model
+void draw() {
+  if (mousePressed) { /* poll state */ }
+}
+void mousePressed() { /* callback */ }
+void keyPressed()   { /* callback */ }
+void mouseDragged() { /* callback */ }
+\end{lstlisting}
+
+ACは文字列ベースのイベントマッチングシステムにより、すべての入力を\texttt{act()}に統合する：
+
+\begin{lstlisting}[style=acjsstyle]
+function act({ event: e, pen }) {
+  if (e.is("touch"))              { }
+  if (e.is("draw"))               { }
+  if (e.is("lift"))               { }
+  if (e.is("keyboard:down:a"))    { }
+  if (e.is("keyboard:down:space")){ }
+  if (e.is("gamepad:a"))          { }
+  if (e.is("reframed"))           { }
+}
+\end{lstlisting}
+
+\texttt{event.is()}パターンは、入力モダリティ（タッチ、マウス、キーボード、ゲームパッド、MIDI、ハンドトラッキング）を横断する統一インターフェースを単一の関数で提供する。イベント文字列は階層的（\texttt{keyboard:down:a}）であり、任意の特異性レベルでマッチングできる。これはProcessingコールバックの組み合わせ爆発を、単一のフィルタ可能なストリームに置き換える。
+
+\subsection{描画プリミティブ：デフォルトでステートレス}
+
+Processingとp5.jsは、\texttt{fill()}、\texttt{stroke()}、変換呼び出しが明示的に変更されるまで持続するステートフルグラフィックスコンテキストを使用する。ACはこれを反転する：\texttt{ink()}関数は\emph{直後の}描画呼び出しのために色を設定し、チェーン呼び出しをサポートするAPIオブジェクトを返す：
+
+\begin{lstlisting}[style=acjsstyle]
+function paint({ wipe, ink, line, circle }) {
+  wipe("black");
+  ink("red").circle(50, 50, 20);
+  ink("blue").line(0, 0, 100, 100);
+  // No state leaks between calls
+}
+\end{lstlisting}
+
+\texttt{ink()}の戻り値チェーンパターンにより、色-形状のペアが視覚的にアトミックになる：各描画操作はコンテキスト変更のシーケンスではなく、自己完結した式である。これにより、あるカテゴリのバグが排除される：前のフレーム（または前の関数）から忘れられた\texttt{fill()}や\texttt{stroke()}呼び出しが無関係な描画操作に漏れ出すことがなくなる。
+
+\texttt{wipe()}関数はProcessingの\texttt{background()}を置き換え、より短く能動的な動詞を使用している。この命名は意図的である：「wipe」（拭く）は属性設定ではなく物理的動作（表面を拭く）を暗示する。
+
+\subsection{キャンバス構成不要}
+
+Processingでは\texttt{setup()}の最初の行は通常\texttt{size(w, h)}である。p5.jsでは\texttt{createCanvas(w, h)}である。ACでは等価の呼び出しがない。ランタイムがデバイスのネイティブ解像度でキャンバスを提供し、ピースは読み取り専用プロパティ\texttt{screen.width}と\texttt{screen.height}を通じて受け取る。
+
+これはモバイルファーストの設計思想を反映している：スマートフォンとタブレットでは「正しい」キャンバスサイズはデバイスの画面である。プログラマーにサイズを指定させると、固定キャンバスと可変ビューポートの間にミスマッチが生じる。ACはキャンバスをデフォルトでアダプティブにすることで、このミスマッチを排除する。
+
+% ============ 5. API SURFACE COMPARISON ============
+
+\section{APIサーフェス比較}
+\label{sec:comparison}
+
+表~\ref{tab:lifecycle}はライフサイクルモデルを比較する。表~\ref{tab:drawing}は描画プリミティブを比較する。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXXX}
+\toprule
+ & \textbf{Processing} & \textbf{p5.js} & \textbf{AC} \\
+\midrule
+初期化 & \texttt{setup()} & \texttt{setup()} & \texttt{boot(\$)} \\
+レンダリング & \texttt{draw()} & \texttt{draw()} & \texttt{paint(\$)} \\
+ロジック & （draw内） & （draw内） & \texttt{sim(\$)} \\
+入力 & コールバック & コールバック & \texttt{act(\$)} \\
+クリーンアップ & --- & \texttt{remove()} & \texttt{leave(\$)} \\
+\midrule
+レンダリング周波数 & 60fps & 60fps & ディスプレイHz \\
+ロジック周波数 & 60fps & 60fps & 120fps固定 \\
+スコープ & グローバル & グローバル/インスタンス & 注入 \\
+\bottomrule
+\end{tabularx}
+\caption{ライフサイクル比較。\texttt{\$}はデストラクチャリングによるAPI注入を示す。}
+\label{tab:lifecycle}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+\textbf{Processing/p5} & \textbf{AC} & \textbf{備考} \\
+\midrule
+\texttt{background()} & \texttt{wipe()} & 動詞、属性ではない \\
+\texttt{fill() + stroke()} & \texttt{ink()} & 統合、チェーン可能 \\
+\texttt{ellipse()} & \texttt{circle()} & 形状で命名 \\
+\texttt{rect()} & \texttt{box()} & より短い名前 \\
+\texttt{line()} & \texttt{line()} & 変更なし \\
+\texttt{point()} & \texttt{plot()} & グラフィックスの比喩 \\
+\texttt{text()} & \texttt{write()} & 能動的動詞 \\
+--- & \texttt{flood()} & 領域塗りつぶし \\
+--- & \texttt{paste()} & バッファ合成 \\
+--- & \texttt{form()} & 3Dレンダリング \\
+\bottomrule
+\end{tabularx}
+\caption{描画プリミティブ比較。}
+\label{tab:drawing}
+\end{table}
+
+\subsection{命名哲学}
+
+ProcessingのAPI名は記述的な名詞と形容詞である：\texttt{background}、\texttt{ellipse}、\texttt{rect}、\texttt{stroke}、\texttt{fill}。設定または描画される\emph{もの}を記述する。ACの名前は能動的な動詞である：\texttt{wipe}、\texttt{ink}、\texttt{plot}、\texttt{write}、\texttt{flood}、\texttt{paste}。\emph{プログラマーが何をしているか}——表面に対して行う物理的動作——を記述する。
+
+記述的命名から命令的命名への移行は楽器の比喩と一致する：楽器のインターフェースは動詞（押す、吹く、叩く、弾く）で理解されるのであり、名詞ではない。AC APIは一連の動作として読める：「画面を拭く、ピンクのインクを付ける、円を描く、テキストを書く。」
+
+\subsection{カラーモデル}
+
+Processingは独立した\texttt{fill()}と\texttt{stroke()}呼び出しを使用し、それぞれがRGB、HSB、16進値を受け取る。fill/strokeの区別はベクターグラフィックス（SVG、PostScript）にマッピングされ、形状が内部色と境界色を持つ。
+
+ACは単一の\texttt{ink()}呼び出しを使用し、後続のすべての操作の色を設定する。fill/strokeの区別はない：\texttt{circle()}がフィルかストロークかは環境コンテキストではなく引数に依存する。\texttt{ink()}関数は以下を受け取る：
+
+\begin{itemize}
+  \item RGB値：\texttt{ink(255, 100, 50)}
+  \item 名前付き色：\texttt{ink("pink")}、\texttt{ink("navy")}
+  \item グレースケール：\texttt{ink(128)}
+  \item アルファ：\texttt{ink(255, 0, 0, 128)}
+\end{itemize}
+
+名前付き色は初心者にとって重要なユーザビリティの選択である。Processingがピンクを得るために\texttt{fill(255, 192, 203)}を必要とするところ、ACは\texttt{ink("pink")}を受け付ける。名前付き色のボキャブラリーは意図的に小さく喚起力に富み、パレットよりも絵具箱に近い。
+
+% ============ 6. STATE MANAGEMENT ============
+
+\section{状態管理}
+\label{sec:state}
+
+\subsection{Processing：グローバル変数}
+
+\begin{lstlisting}[style=processingstyle]
+int x = 100;
+int y = 100;
+
+void draw() {
+  background(0);
+  x += 1;
+  ellipse(x, y, 20, 20);
+}
+\end{lstlisting}
+
+Processingにおける状態はグローバル変数に存在する。これはシンプルだが、よく知られた問題がある：すべての状態がどこからでも変更可能で、カプセル化がなく、プログラム状態とAPI状態が区別できない。
+
+\subsection{AC：モジュールレベルクロージャ}
+
+\begin{lstlisting}[style=acjsstyle]
+let x = 100;
+let y = 100;
+
+function sim() {
+  x += 1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255).circle(x, y, 20);
+}
+
+export { sim, paint };
+\end{lstlisting}
+
+ACピースはESモジュールである。モジュールスコープで宣言された変数はピースにプライベートであり、ランタイム、他のピース、グローバルスコープからは見えない。\texttt{export}文はライフサイクル関数のみを可視にする。これはドキュメントで強制される慣例ではなく、JavaScriptモジュールシステムによる保証である。
+
+状態の変更（\texttt{sim}）と状態のレンダリング（\texttt{paint}）の分離は、\texttt{paint}がモジュール状態の純粋関数であるという規律を促進する——変数を読み取り描画するが、変更しない。これは強制されないが、API構造がそれを自然なパターンにする。
+
+% ============ 7. THE GENEALOGY ============
+
+\section{系譜}
+\label{sec:genealogy}
+
+\subsection{Design By Numbers（1999年）}
+
+MaedaのDesign By Numbers~\citep{maeda2001dbn}は核心的な洞察を導入した：最もシンプルなAPIを持つビジュアル出力のためのプログラミング環境。DBNにはアニメーションループがなく、プログラムは上から下へ1回実行される。プリミティブセットは最小限：\texttt{Paper}（背景）、\texttt{Pen}（線の太さ）、\texttt{Line}、\texttt{Set}（ピクセル）、および制御フロー。言語全体が午後のうちに学べる。
+
+ACはDBNの命名のミニマリズム（短い能動的動詞）と、APIは網羅的に学習可能であるべきだという確信を継承している。
+
+\subsection{Processing（2001年）}
+
+Processing~\citep{reas2003processing}はDBNに欠けていたものを追加した：アニメーション（\texttt{draw()}ループ）、インタラクション（\texttt{mouseX/Y}）、より豊富なプリミティブセット。またDBNが意図的に避けたものも追加した：状態（グラフィックスコンテキスト）、標準ライブラリ（数学、タイポグラフィ、画像読み込み）、コンパイルステップ（Java）。Processingの最大のイノベーションは個々の関数ではなく、\texttt{setup()}/\texttt{draw()}のペア：インタラクティブアニメーションの最も単純な表現である。
+
+ACはライフサイクル関数モデルを継承するが、\texttt{draw()}を3つの関心事（\texttt{paint}、\texttt{sim}、\texttt{act}）に分割する。
+
+\subsection{p5.js（2014年）}
+
+p5.js~\citep{mccarthy2015p5js}はProcessingをブラウザに持ち込み、スケッチをURL経由で即座に共有可能にした。これはACの前提条件：クリエイティブプラットフォームとしてのブラウザ。p5.jsはまたインスタンスモードを導入し、ACのAPI注入パターンを先取りした。
+
+ACはブラウザネイティブの前提と共有可能性の原則（すべてのピースがURL）を継承するが、ページ内ライブラリモデルを完全なランタイムに置き換えた：ピースは\texttt{<script>}タグを含まず、プラットフォームによってロードされる。
+
+\subsection{openFrameworks（2005年）}
+
+openFrameworks~\citep{openframeworks2005}は類似のライフサイクル（\texttt{setup()}、\texttt{update()}、\texttt{draw()}）を使用するが、C++であり、更新ロジックとレンダリングを分離している。ACの\texttt{sim()}/\texttt{paint()}分離はProcessingの統合\texttt{draw()}よりもこのモデルに近い。
+
+\subsection{楽器への転回}
+
+系譜は一連の分離として要約できる：
+
+\begin{enumerate}
+  \item \textbf{DBN}：1回の実行（アニメーションループなし）。
+  \item \textbf{Processing}：初期化 + レンダリング（\texttt{setup} + \texttt{draw}）。
+  \item \textbf{openFrameworks}：初期化 + 更新 + レンダリング。
+  \item \textbf{AC}：初期化 + 入力 + 更新 + レンダリング + クリーンアップ（\texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}）。
+\end{enumerate}
+
+各ステップが以前混同されていた関心事を分離する。ACの5関数モデルはインタラクティブプログラムのライフサイクルの最も完全な分解であり、名前付きの単一責任エントリポイントに帰着する。結果は身体化認知の知覚-行動サイクル~\citep{varela1991embodied}に類似する：知覚（\texttt{act}）、思考（\texttt{sim}）、行動（\texttt{paint}）、そして誕生（\texttt{boot}）と死（\texttt{leave}）の2つの追加端点を伴う。
+
+% ============ 8. WORKED EXAMPLE ============
+
+\section{実例：バウンシングボール}
+\label{sec:example}
+
+比較を具体化するため、3つのシステムでバウンシングボールを実装する。
+
+\subsection{Processing}
+
+\begin{lstlisting}[style=processingstyle]
+float x = 200, y = 200;
+float vx = 3, vy = 2;
+
+void setup() {
+  size(400, 400);
+}
+
+void draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+ロジックとレンダリングが\texttt{draw()}内で絡み合っている。状態の変更（\texttt{x += vx}）、境界チェック、描画が1つの関数を共有している。
+
+\subsection{p5.js}
+
+\begin{lstlisting}[style=p5style]
+let x = 200, y = 200;
+let vx = 3, vy = 2;
+
+function setup() {
+  createCanvas(400, 400);
+}
+
+function draw() {
+  background(0);
+  x += vx; y += vy;
+  if (x < 0 || x > width) vx *= -1;
+  if (y < 0 || y > height) vy *= -1;
+  fill(255, 100, 180);
+  noStroke();
+  ellipse(x, y, 30, 30);
+}
+\end{lstlisting}
+
+構造はProcessingと同一。唯一の変更は構文的：\texttt{let}対\texttt{float}、\texttt{createCanvas}対\texttt{size}。
+
+\subsection{AC}
+
+\begin{lstlisting}[style=acjsstyle]
+let x, y, vx = 3, vy = 2;
+
+function boot({ screen }) {
+  x = screen.width / 2;
+  y = screen.height / 2;
+}
+
+function sim({ screen }) {
+  x += vx; y += vy;
+  if (x < 0 || x > screen.width) vx *= -1;
+  if (y < 0 || y > screen.height) vy *= -1;
+}
+
+function paint({ wipe, ink, circle }) {
+  wipe(0);
+  ink(255, 100, 180).circle(x, y, 15);
+}
+
+export { boot, sim, paint };
+\end{lstlisting}
+
+関心事が分離されている：\texttt{boot}は実際の画面に基づいて状態を初期化し、\texttt{sim}は120Hzで物理を更新し（ディスプレイリフレッシュレートに関係なく一貫した動作を保証）、\texttt{paint}は状態を変更せずにレンダリングする。\texttt{ink().circle()}チェーンが3行のコード（\texttt{fill}、\texttt{noStroke}、\texttt{ellipse}）を置き換える。
+
+% ============ 9. DESIGN RATIONALE ============
+
+\section{設計根拠}
+\label{sec:rationale}
+
+\subsection{なぜ5つの関数か？}
+
+5関数モデルはソフトウェアエンジニアリングの厳密さ（教条としての「関心事の分離」）からではなく、楽器の比喩から生まれた。楽器には異なる段階がある：手に取る（boot）、聴いて応答する（act）、次に何をするか考える（sim）、演奏する（paint）、そして最後に置く（leave）。これらは交換可能な瞬間ではない——演奏中にチューニングはしないし、楽器をしまうときに演奏はしない。ライフサイクル関数はこれらの区別を形式化する。
+
+\subsection{なぜAPI注入か？}
+
+グローバルAPIは初心者に便利だが、プラットフォームへの暗黙の依存関係を作り出す。\texttt{ellipse()}がユーザー関数ではなくProcessing関数であることを知らなければ、Processingスケッチを理解できない。ACのデストラクチャリングパターンは依存関係を明示的にする：\texttt{circle}が関数本体に現れれば、それは関数シグネチャにも現れる。これはESモジュールのインポートと同じ設計原則を関数レベルで適用したものである。
+
+実用的なメリットはホットリロードである：ピースがグローバル参照をキャプチャしないため、ランタイムはリロード間でAPIオブジェクトを置き換えても、ピースのクロージャを無効にしない。
+
+\subsection{なぜ120Hzシミュレーションか？}
+
+Processingの\texttt{draw()}はディスプレイ周波数（通常60fps）で実行される。これは物理シミュレーション、アニメーションタイミング、入力処理がすべてピクセル出力と同じ頻度で実行されることを意味する。144HzディスプレイではProcessingスケッチは2.4倍速く実行され、30Hzディスプレイでは半分の速度になる。
+
+ACは\texttt{sim()}を固定120Hzで実行することにより、シミュレーションとディスプレイを分離する。これにより決定論的な動作が保証される：バウンシングボールはディスプレイリフレッシュレートに関係なく同じ速度で動く。120Hzの頻度は一般的なディスプレイ周波数（60、120）の倍数であり、入力応答性の合理的な上限として選ばれた。
+
+\subsection{なぜキャンバスサイズがないのか？}
+
+\texttt{size()}や\texttt{createCanvas()}を要求することは、プログラマーが出力解像度を知っている（そして気にしている）ことを前提とする。デスクトップではこれは合理的である。モバイル——ACの主要ターゲット——ではこれは摩擦源となる：「正しい」サイズはデバイス、向き、ピクセル密度に依存し、これらすべてをプログラマーが管理する必要はないはずである。ACは画面を既成事実として提供する——すでに張られ下地が塗られたキャンバスのように。
+
+% ============ 10. ADDITIONAL LIFECYCLE ============
+
+\section{拡張ライフサイクル}
+\label{sec:extended}
+
+コアの5関数に加え、ACピースは追加のライフサイクルフックをエクスポートできる：
+
+\begin{itemize}
+  \item \texttt{beat(\$api)} --- メトロノームの各ティックで呼び出される。BPMは\texttt{sound.bpm}で設定。Processingに等価物はない；ACの音楽アプリケーションへの志向を反映している。
+  \item \texttt{preview(\$api)} --- ピースの静的サムネイルをレンダリングする。ピースリストとソーシャル共有に使用。
+  \item \texttt{icon(\$api)} --- ブラウザタブのfaviconをレンダリングする。
+  \item \texttt{meta()} --- Open Graphタグ用の\texttt{\{title, desc\}}メタデータを返す。
+  \item \texttt{receive(event)} --- 他のピースやシステムからのメッセージを処理し、ピース間通信を実現する。
+\end{itemize}
+
+\texttt{beat()}関数は特筆に値する。これはリズミックタイミングを、プログラマーが実装しなければならない機能（Processingでの\texttt{millis()}による）から第一級ライフサイクルイベントに昇格させる。これはAPIレベルでの、音楽とリズムが付加機能ではなくコアユースケースであるという宣言である。
+
+% ============ 11. CONCLUSION ============
+
+\section{結論}
+\label{sec:conclusion}
+
+Processingのコア洞察——クリエイティブワーク向けのプログラミング環境は単なる言語ではなくライフサイクルを提供すべきである——はすべてのACピースの核心に存在する。\texttt{setup()}/\texttt{draw()}から\texttt{boot()}/\texttt{paint()}/\texttt{act()}/\texttt{sim()}/\texttt{leave()}への道筋はProcessingからの離脱ではなく、Processingモデルがさらに拡張されたときの能力の限界についての論証である。
+
+Processingは\texttt{setup()} + \texttt{draw()}がアニメーションをアクセス可能にするのに十分であることを証明した。ACピースAPIは、同じ即時モードのライフサイクル駆動アプローチが——2つではなく5つの関数に分解されたとき——スケッチだけでなく\emph{練習}もサポートできることを論じている：同じピースに繰り返し戻り、洗練し、それで演奏し、時間をかけて流暢さを構築すること。
+
+スケッチブックの比喩（書く、実行する、捨てる）と楽器の比喩（起動する、演奏する、練習する、戻る）は対立するものではない。同じ連続体上の点である。Processingはその連続体の存在を示した。ACは想像以上に遠くまで伸びていることを論じている——\texttt{setup()} + \texttt{draw()}は、その完全な形態が\texttt{boot} + \texttt{act} + \texttt{sim} + \texttt{paint} + \texttt{leave}を必要とする理念の始まりなのである。
+
+APIとは楽器である。Processingはその核心にある。APIがプログラミング行為をどのように分解するかが、何を創造できるかを決定する。
+
+\vspace{0.5em}
+\noindent\textit{英語原版からの翻訳。原版は \url{https://papers.aesthetic.computer} を参照。}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
