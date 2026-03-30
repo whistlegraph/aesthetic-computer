@@ -15,7 +15,53 @@
 // SDL3 GPU-accelerated display (uses KMSDRM backend on bare metal)
 // ============================================================
 
+#include <dlfcn.h>
+#include <signal.h>
+#include <sys/wait.h>
+
+// Probe whether SDL3 can init without crashing (runs in a child process)
+static int sdl_probe_safe(void) {
+    pid_t pid = fork();
+    if (pid < 0) return 0; // fork failed, skip SDL
+    if (pid == 0) {
+        // Child: try SDL_Init, exit 0 on success, 1 on failure, crash = signal
+        if (getpid() != 1) // never true in child, but set env anyway
+            setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+        int ok = SDL_Init(SDL_INIT_VIDEO) ? 0 : 1;
+        if (!ok) SDL_Quit();
+        _exit(ok);
+    }
+    // Parent: wait for child
+    int status = 0;
+    waitpid(pid, &status, 0);
+    if (WIFSIGNALED(status)) {
+        fprintf(stderr, "[sdl3] Probe crashed (signal %d) — skipping SDL3\n",
+                WTERMSIG(status));
+        return 0;
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return 1;
+    }
+    fprintf(stderr, "[sdl3] Probe failed (exit %d) — skipping SDL3\n",
+            WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    return 0;
+}
+
 static ACDisplay *sdl_init(void) {
+    // Check if libSDL3 is even loadable
+    void *sdl_lib = dlopen("libSDL3.so.0", RTLD_LAZY | RTLD_NOLOAD);
+    if (!sdl_lib) {
+        sdl_lib = dlopen("libSDL3.so.0", RTLD_LAZY);
+        if (!sdl_lib) {
+            fprintf(stderr, "[sdl3] libSDL3.so.0 not found — skipping\n");
+            return NULL;
+        }
+    }
+    dlclose(sdl_lib);
+
+    // Probe in a child process to catch segfaults
+    if (!sdl_probe_safe()) return NULL;
+
     // Set KMSDRM hints for bare metal (no X11/Wayland)
     if (getpid() == 1) {
         setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
