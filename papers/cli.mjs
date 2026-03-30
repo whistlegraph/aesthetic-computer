@@ -449,39 +449,8 @@ function updateIndex(entries) {
     },
   ];
 
-  // Guest papers — external works hosted on the platter as related reading
-  const guestPdfs = [
-    {
-      file: "menkman-glitch-momentum-2011.pdf",
-      title: "The Glitch Moment(um)",
-      detail: "Glitch as critical practice &mdash; signal, noise, and the politics of failure &middot; Institute of Network Cultures &middot; 70pp",
-      abstract:
-        "Menkman's book treats glitch as a critical practice rather than an accident. It remains a useful companion for thinking about failure, image politics, and media noise.",
-      author: "Rosa Menkman",
-      year: "2011",
-      metaKey: "menkman-glitch",
-    },
-    {
-      file: "menkman-vernacular-of-file-formats-2010.pdf",
-      title: "A Vernacular of File Formats",
-      detail: "Compression artifact taxonomy &mdash; databending one self-portrait through every codec &middot; 20pp",
-      abstract:
-        "A tight taxonomy of compression artifacts and databending methods. It works as both a visual glossary and a reminder that file formats have aesthetics.",
-      author: "Rosa Menkman",
-      year: "2010",
-      metaKey: "menkman-vernacular",
-    },
-    {
-      file: "menkman-beyond-resolution-2020.pdf",
-      title: "Beyond Resolution",
-      detail: "Resolution as ideology &mdash; optics, standards, and the invisible norms of the image pipeline &middot; 2020",
-      abstract:
-        "Beyond Resolution reframes image resolution as an ideological standard, not just a technical setting. It is a strong companion for thinking about how pipelines shape what counts as clarity.",
-      author: "Rosa Menkman",
-      year: "2020",
-      metaKey: "menkman-resolution",
-    },
-  ];
+  // Guest papers — moved to platter readings (OCR'd text files)
+  const guestPdfs = [];
   const extras = [];
   for (const ex of extraPdfs) {
     const fp = join(SITE_DIR, ex.file);

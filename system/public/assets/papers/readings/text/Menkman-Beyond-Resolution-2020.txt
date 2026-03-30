@@ -1,0 +1,2748 @@
+Rosa Menkman
+
+LXIII
+
+BR
+
+eyond
+esolution
+
+LXVII
+
+Refuse to let the syntaxes of (a) history direct our futures
+
+I
+
+Colophon
+
+Beyond Resolution is compiled of texts that have been extended and reworked by
+Rosa Menkman, 2115 – 2020.
+Published by the i.R.D.
+A pdf of this publication can be freely downloaded at:
+https://beyondresolution.info/beyond-resolution
+For more information please contact me:
+rmenkman@gmail.com
+ISBN: 978-90-828273-0-9
+COPY < IT > RIGHT !
+A warm thank you for the support I have received:
+Transfer Gallery: Kelani Nichole
+Akademie Schloss Solitude: Jean-Baptiste Joly, Clara Herrmann,
+Mareen Wrobel and Bruce Sterling, Taietzel Ticalos and Jakob Weiss
+Ward Janssen and Mieke Gerritzen
+Landers: Per Platou, Amsterdam: Annette Wolfsberger.
+Tokyo: CG-Arts (Japan Media Arts Festival), the ICC and ARTnSHELTER
+Oregon Story Board, Upfor Gallery, EyeBeam: Thomas Wester and Theo Downes-Le Guin
+DiMoDA: Will Robertson and Alfredo Salazar Caro
+#Additivism: Daniel Rourke and Morehshin Allahyari
+Parallax, Brett Wallace, Lune Magazine: Nathan Jones
+Nora ní Mhurchú and Bogomir Doringer
+A4 and Matus Kobolka
+Transmediale: Kristoffer Gansing
+Kunsthochschule Kassel: Joel Baumann and my students
+CERN and Fabra i Coats
+SJSU and L’Unique Caen
+Mario de Vega
+Lotte, Ben, Caspar Menkman Crum
+Beyond Resolution is supported by Stimuleringsfonds Creatieve Industrie
+
+II
+
+BEYOND RESOLUTION
+
+Introduction
+
+0000
+0001
+0010
+0011
+0100
+
+Whiteout
+Behind White Shadows
+Night of the Unexpected
+Refuse to Let the Syntaxes of (a) History Direct Our Futures
+institutions of Resolution Disputes [i.R.D.]
+
+Conclusion
+
+I
+
+“the pandemic of mental anguish that afflicts our time cannot be properly understood, or
+healed, if viewed as a private problem suffered by damaged individuals.”
+- Mark Fisher.
+
+I
+
+I
+
+ntroduction
+
+I opened the institutions of Resolution Disputes [i.R.D.] in March 2015, hosted by Transfer Gallery in New
+York. In September 2017, its follow-up Behind White Shadows opened, also at Transfer. Finally, in 2020
+Shadow Knowledge found its way to SJSU Galleries in San José. At the heart of all three solo shows is my
+research into resolutions and together these exhibitions form a triptych framework for this publication: Beyond
+Resolution.
+This little book also represents a journey spanning over 5 years, starting on a not so fine Saturday morning in
+early January 2015, when I signed the contract for a research fellowship in Amsterdam, to write a book about
+Resolution Studies. For this opportunity I immediately moved back from London. But unfortunately, and out of
+the blue, three days before my contract was due to start, my job was put on indefinite hold. During this time in
+limbo I developed the i.R.D, as a critique on institutions. But after the i.R.D. were finally opened and nothing in
+my private life was resolved, I fell into a financial and ultimately a mental black hole ! . Finally in 2016, when
+Goldsmiths decided to kill off the department of Cultural Studies, the department where I was undertaking my
+PhD, I gave up and resigned of all.
+After some months, I finally reorganized some of my finances and relocated temporarily to the Mojave
+desert, where I took some time for myself, considering my next steps. There, from the porch of a little cabin
+looking out over a dust road, I could feel the infrasound produced by bombs dropped on Little Baghdad, a
+Twentynine Palms military training ground, just miles away on the slope of a hill. I became fascinated with this
+obscure military location where things happened beyond my understanding, yet in my direct field of perception.
+The situation made me revisit Trevor Paglen’s book: I Could Tell You But Then You Would Have to Be
+Destroyed by Me. 1 Paglen’s main field of research is mass surveillance and data collection. His work often deals
+with photography as a mode of non-resolved vision and a system for the production of invisible images. I felt as
+if I was in the proximity of such a military dark-ops space, where different forms of opaqueness were present
+day and night, and it got to me.
+During my stay in the Mojave Desert, I undertook my first pilgrimage to the 1951 USAF resolution test
+target located west of Cuddeback Lake, where documentary film maker and writer Hito Steyerl’s video essay
+How Not to be Seen. A Fucking Didactic Educational .MOV File (2013) is set. In this iconic video essay,
+Steyerl presents the viewers with an educational manual that critically considers how resolution is embedded in
+both digital and analogue surveillance technologies. She argues that whatever is not captured by resolution is
+1
+
+Paglen, Trevor. I Could Tell You But Then You Would Have to be Destroyed by Me: Emblems from the Pentagon's Black
+World. NY: Melville Publishing House, 2007.
+II
+
+invisible and thus carries political importance. During this visit I felt finally excited again to re-start my
+research into resolutions, but from this time onward, independently.2
+Soon after returning to Europe, I was incredibly lucky to receive a 5 month residency at Schloss
+Solitude (2017), which offered me a Schloss (a palace) to come ‘home’ to, and the time to develop a colloquium
+around Resolution Studies as an artistic practice. My research was further fine-tuned during a Vertretungs
+professorship in Kassel (2018 - 2020) where I shared, reworked and extended Resolution Studies with my
+students –– an opportunity for which I am very grateful.
+Resolution Studies attempts to uncover how resolutions inform both machine vision and human perception. I
+believe it is incredibly important to unpack the ways in which resolutions organize our contemporary
+(technological) processes. Considering that resolutions do not only impose how or what gets run or seen, but
+also what images, settings, ways of rendering and points of view are forgotten, obfuscated, or simply dismissed
+or unsupported. In short: resolutions are not just a determination of how something or someone is run, read and
+seen, but also of who or what options are compromised and unresolved.
+Although not written as such, this booklet on Resolution Studies, Beyond Resolution, can be seen as a sequel to
+the Glitch Moment/um (Menkman, 2011). In a way, Resolution Studies encompasses glitch and glitch art,
+offering a more zoomed out perspective. The works I present in this publication are produced exemplary of the
+artifacts that appear when experimenting with the affordances of certain resolutions. Rather than a breaking a
+flow of operation (as the genre of glitch art is known to do), these works also question the ‘normal’, standard
+modes of operation and offer alternatives. This is why if positioned within the realm of glitch art, then definitely
+these works are a form of ‘tactical glitch’.
+What finally sits in front of you, Beyond Resolution, is an independently developed and published work - a
+collection of different types of texts ranging from short stories to basic optics and a manifesto like text,
+accompanied by a collection of artworks that I developed during the time of writing, presented in an achronological order. The organisation of this publication could be considered modular; the chapters can be read
+independently. However I did choose to order them the way they are for a reason: to present a consistently
+additive flow.
+
+2
+
+In the 1950s and 1960s, the United States Air Force installed various versions of these test charts to calibrate aerial
+photography and video. For more information on resolution test charts see research by The Center for Land Use
+Interpretation, “Terrestrial Test Patterns Used for Aerial Imaging.”
+Available here: http://www.clui.org/newsletter/winter-2013/photo-calibration-targets (20.02.20)
+III
+
+Beyond Resolution starts at Whiteout, a short story about loss induced by over-saturation. Whiteout is an
+account of a visceral experience: it describes the journey of climbing a mountain in a snowstorm; of being
+engulfed by input, yet not being able to render anything.
+Whiteout is followed by Behind White Shadows, a chapter written after the recurring loss of authorship
+over my own face. During my research into this type of loss, I found it striking to learn that certain faces have
+become so ubiquitous, they are no longer considered to be a representation of someone; instead they have
+turned into “just pixels”. In the age of hyper visibility, the face is still an often overlooked battleground.
+Contiguous to this, within the field of image processing, the image of the Caucasian female face has
+systematically been used (or stolen) for the production of color test cards, resulting into biased industry norms
+for color calibration and ultimately racist technologies — a fact that became a turning point into my own
+understanding and usage of my face within resolution studies.
+The Night of the Unexpected, the following third chapter of this compendium, offers an older account of
+an evening in Russia, which initiated my first thinking through the material politics of screens and digital
+material in general and led to a need for a more substantial definition of the term ‘resolution’ — a redefinition
+that I developed in the consecutive chapter: Refuse to Let the Syntaxes of (a) History Direct Our Futures.
+Finally, the fifth chapter of Beyond Resolution, institutions of Resolution Disputes [i.R.D.], offers several
+statements on resolution studies in a manifesto-like style.
+In conclusion, I would like to state, that after releasing Beyond Resolution, the i.R.D. (institutions of Resolution
+Disputes) will remain an active research platform, which, as of now, has followed a pentagon of institutions,
+covering the effects of scaling and the habitual, material, genealogical, and institutional use (and abuse) of the
+settings, protocols, and affordances shaping our resolutions, free, open and updated at
+www.beyondresolution.info
+
+IV
+
+LXVII
+
+XII
+
+I
+
+W
+
+hiteout
+
+p
+
+oint No Point Light
+11 February | temp: -5c to -11c | Snow: at least 10-30 cm, often more.
+It is grey. Snow in the form of fine dust is coming down. The trees bow slightly under its weight and
+occasionally shed a cache, which then falls down onto the forest floor, landing with a dampened “phlouf.” This
+is not the ideal weather to hike up a mountain, but we are doing just that.
+Soon most of the trees give way, the path is now completely covered in a thick and fresh pack of snow
+–– footsteps and the occasional boulder mark its surface. We use GPS for navigation and also carry a small
+hand-held device called Limenia, that picks up particular bands of the electromagnetic frequency spectrum,
+which it translates into humanly audible sounds. 3 Limenia serves as an interface: it distills the intangible and
+typically imperceptible infrastructures that are beamed around us –– and even straight through us –– all the
+time. 4
+We are on a mission to document the top of this mountain, The Brocken, 5 which like any other mountain
+these days is marked by humans. All over the world we have elongated nature's highest terrains with antennas,
+without respect for the natural stratifications they are built upon, or consideration of the panoramas interrupted.
+These antennas usually function as repeaters: they receive, retransmit and propagate invisible electromagnetic
+waves of information through the ether, as well as the natural environment. Notably, the antenna on top of this
+particular mountain is a remnant of the Cold War. As such, it is not only anchored in our current
+telecommunication networks, but in a previous –– and quite possibly ongoing –– position as an ear that listens
+in on confidential networks of telecommunication.
+While we move along the trail, the atmosphere becomes denser and the wind picks up. As spatial
+orientation withers and our perception of the distance is curtailed to 50 meters, a visual gradient fills my
+viewing plane, oscillating between grey whites and white greys. This place is known for the Brocken spectre,
+which sometimes, when conditions are just right, appears to its visitors: an optical phenomenon in which a
+3
+
+A previous version of this text was first written for AX15, a project about invisible infrastructures initiated by Mario de
+Vega, see: http://axis.mariodevega.info/ (11.12.19).
+4 Schmidt, Paul. “Perceiving the Invisible: Speculation as Interface at Sonic Acts Academy 2018,” (Re)mistify!
+
+see: https://remystifyblog.wordpress.com/ (11.12.19).
+5
+
+Located in a region of Saxony Anhalt, the Brocken, or Blocksberg, is the highest peak of Northern Germany, though its
+elevation is below alpine dimensions: 1,141 meters.
+II
+
+Limenia is a small antenna which translates certain frequencies of the electromagnetic spectrum to the realms of audible
+sound. This little handheld device was conceived and build by Mario de Vega and Victor Mazón Gardoqui,
+see: https://web.archive.org/web/20190811005423/http://r-aw.cc/-/limen/research/ (20.02.20)
+
+person’s magnified shadow is cast upon clouds, surrounded by a haloed rainbow.6 Like Limenia, this apparition
+relies on the convergence of the intangible, but unlike radio signals, the Brocken Spectre is an embodiment of
+natural imaging phenomena.
+The weather is not right for the phenomenon and the wind in my face brings me back to our climb. A hut
+offers shelter for two walkers who seem to be taking a rest. We pass them without much of a greeting as it is
+hard to speak. A fork in the path leads us to the right. Introduced to a barrier of fog, a roaring wind in our ears
+and frictious bed of snow under our feet, we find ourselves reduced to an ever slower pace. Limenia has now
+become the only proof of life beyond this grey enclosure. It is comforting to hear its sounds in my ears as it
+pings invisible infrastructures: concretizing and assigning dimensions to a space my eyes cannot see.
+
+I
+
+mpossible Images
+
+Last month I had the opportunity to speak to several particle physicists and ask them about their favorite
+“impossible image.” One scientist expressed a wish to have antennas mounted in his eye sockets so he could
+see through walls, straight into the electromagnetic spectrum. This 20/20 electromagnetic vision would reveal
+everything from electricity to cosmic rays, and transform our grey enclosure into a universe of colors ––
+including colors far beyond our visible color wheel. It would clearly capture the environment introduced by the
+antenna: the beacon on the top of this mountain that relentlessly emits signals into the invisible-to-me realms of
+the radio frequency spectrum.
+6
+
+Atmospheric Optics, “Brocken Spectre”, see: https://www.atoptics.co.uk/droplets/globrock.htm (11.12.19).
+III
+
+As I scale the mountain, I wonder: could there be creatures out there, in the fog, that can
+perceive the noise of the antenna, blasting through the ether? How much of the landscape
+–– hidden to me through these layers of snow and fog –– exists to organisms or networks
+that have passive electronic properties, besides my Limenia? Do my human qualities
+simply render me incapable of understanding the violence of these intangible signals? In
+short, to really read this place I would need a way to capture and transcode a vertically
+thickened geography: a strategy of counter-mapping that adds layers, stacks and other
+vertical elements to my imaging of this space.
+Eyal Weizman, founder and director of Forensic Architecture, once described this
+as a “politics of verticality.” He suggests a re-visioning of existing cartographic techniques
+and an “Escher-like representation of space, a territorial hologram in which political acts
+of manipulation and multiplication of the territory transform a two-dimensional surface
+into a three-dimensional volume.”7 Weizman also advocates for the superimposition of
+discontinuous modes of mapping, to construct a “sceneography” rather than a map –– a
+form of landscape that contains a mesh of significations, which can nonetheless be read
+together, instead of simply viewed as a formal unity.
+I wish I could create a territorial hologram of this trail, by mounting different
+types of antennas or other sensing technologies onto my eye sockets. I wish I could conjure
+a thick mesh of the sceneographies I am traversing. I wish I could visually compute the
+world around me. For some time, thoughts and references like these float and sink in the
+rhythms of the beating wind.
+After some hours, we pass a signpost that signals another five kilometers awaits us. As
+we cross a barrier of snow the fog suddenly vanishes and in its place encroaches an
+enveloping white noise. Like a spacecraft going into warp drive, the wind shoots the snownoise in our faces and eyes. I think about the different forms and shapes these tiny crystals
+must have and how they owe their forms to their previous environments; all this only to
+finally end up as a drop on my cheek –– another impossible image, that makes me feel
+small.
+The path, contoured by the light, is now twisting, crossing, intersecting,
+connecting, bending and elongating. Yet, as my eyes stare into the greyish white, it seems
+as though all may be dark: white without light / white in the dark, I had never previously
+imagined the darkness of white.
+7
+
+Weizman, Eyal. "Maps of Israeli Settlements." The Politics of Verticality: Open Democracy,
+2002. see: http://www.opendemocracy.net/ecology-politicsverticality/article_631.jsp (11.12.19).
+IV
+
+M
+
+oving on a Line
+
+Some years ago, through a fluke of destiny, I found myself inhabiting a little cabin in the Mojave Desert.
+Having rented an SUV in the hopes of gaining some horsepower I found myself disappointed with what the
+machine offered, but at the same time nonetheless excited to traverse this vast desert expanse. I drove for
+days–– with gallons of water and spare batteries for my mobile device –– without a route, aimlessly following
+the heat aberrations and dust devils into the unforeseen.
+On one such drive I took a route marked with a thick line on Google Maps yet found myself on a dusty
+stretch of road that became narrower and narrower as I progressed –– suddenly I was left without space to turn
+around. I was trapped on a path that slowly changed from dust to stones and then to rocks: big rocks, sometimes
+larger than my suspension should bear. I spent hours on that path, scared to puncture a tire. The more I
+progressed, the more I feared breaking down in a location more desolate than those passed in the preceding
+hours.
+Singing to myself while probably driving slower than I would move by foot, I finally reached the end of
+that rocky road. I still remember the extreme relief of entering a clean stretch of asphalt, looking over a barren
+valley marked by the sediments of a dried lake. The valley was carved in two by the straight line of interstate
+15, which stretched into the horizon. Peering into the expanse before me, I saw something surprising: a pillar of
+light peeking over the rim of a mountain, a strange daylight lantern, shining with an intensity that puzzled me.
+Forty-five minutes later, I had crossed the distance that separated me from the daylight lantern. As I
+pulled up on the private road of a centralized solar farm, I swung my door open and hurried toward the edge of
+the field to experience its energy, half expecting to be told to move on by some security guard. Yet, it remained
+quiet. Endlessly quiet. There, in front of the whitest light I had ever seen, I was alone –– there was nothing else:
+no wind, no cars, not even a hum to signal the concentration of energy right in front of me. It was just me and
+the whitest light in the middle of the High Mojave Desert. I had never seen such white. I closed my eyes and
+suddenly I lost my references to the light. It might as well have been vantablack.
+V
+
+Menkman, Rosa. Whiteout (2020) Two Channel Video, 15 minutes
+
+M
+
+aking Space and Place
+
+I pull myself back onto the mountain where it is cold and definitely not that type of white. The weather
+escalated from a gentle snowfall into a storm. Vague reflections of trees and objects lost in swirling grey tones
+pixelate my sense of the horizon: a line that otherwise could have been a guiding beacon. Wassily Kandinsky
+once wrote: “A particular capacity of [the] line [is] its capacity to create surface.” 8 The trail presents a space
+devoid of any lines and what remains is a place of distortion: lacking surface, resolution, progress, depth or end.
+In the Dictionary of the English Language (1755), Samuel Johnson observed seventeen definitions of the line.
+He differentiated between its function as a longitudinal extension, a string, a contour, a letter and a family line.
+The line is not a singular thing...
+
+8
+
+Kandinsky, Wassily. Point and Line to Plane. US: Dover Publications, 1982: p. 576.
+VI
+
+Maybe I could seek lines – I could try to find a line to lead me back: a border, a boundary, a frontier, an
+outline, a separator, a perspective, a line of flight, a guideline, a progress bar, a ruler, a red thread, a storyline, a
+chronology, a timeline, a vector, a ray of light, a beam, a sequence, an axis, a connector… I have none of these.
+Lines can offer myriad shapes and directions: horizontal, vertical, diagonal, rastrum, grid or wave; a maze, a
+mesh, a labyrinth. The snow usurps not only one but all possible lines. In front of me could be anything, but all
+remains resolutely unresolved.
+Like any map, every map of this mountain is made out of lines. A thick black line describes the Railway,
+which swirls around the mountain’s summit like the cochlea of the inner ear; while the hikers’ trail approaches
+its top like the Eustachian tube. 9 More advanced maps feature contour lines indexing the heights of the
+mountain's surfaces; historical maps document the lines drawn during the Cold War, when it was partitioned by
+a vertical border wall and its summit was an exclusion zone (Sperrzone), dedicated to espionage by the East.
+During this time, the Brocken was no more than an imagined space to civilians. Today, the region is open and
+its lines and borders construct a visual record: one of experience and history inscribed in layers of linear
+(re)imaginings that signify mapping rather than simply a map.
+Weizman states that maps exist to make it easier to navigate the world. They inform with insights and
+overview, yet, generally, they bear no witness to their creator(s). Rather, the map appears as a pre-composed
+artifact: an object derived from a space rather than a reading that is imposed on a space, which transforms it
+into a place –– much like photographic inscriptions of experience that transform space to place. But, like
+photographs, maps are highly political objects. They define space and impose particular readings. “Twodimensional maps, fundamental to the understanding of political borders, have been drawn again and again. But
+these maps are two-dimensional. Attempting to represent reality on two-dimensional surfaces, they not only
+mirror but also shape the thing they represent. As much as describing the world, they create it.”10 In the
+domains of both politics and law the concept of space is understood only in terms of the map (or sometimes, the
+plan) and territorial claims marked on two dimensional maps assume that claims are applicable simultaneously
+above them as well as below –– underneath –– the space that is mapped. This type of one-dimensional scaling
+is violent and undermines the meshes that transform space into a specific place. The spaces represented on
+maps are those without inhabitants: no one is present, nothing moves or makes a sound. In the map of the
+Brocken, we are merely blue dots scaling a two-dimensional Eustachian tube; presented with minimal
+9 The Eustachian tube is part of the middle ear. Also known as the auditory tube, it connects the nasopharynx to the
+
+middle ear.
+10
+
+Weizman, Eyal. "Maps of Israeli Settlements." The Politics of Verticality: Open Democracy, 2002.
+see: http://www.opendemocracy.net/ecology-politicsverticality/article_631.jsp (11.12.19).
+VII
+
+references for the complexities folded into the landscape, or the histories and folklore we cross.
+
+O
+
+ver-Saturated Opaqueness
+
+At CERN (Conseil Européen pour la Recherche Nucléaire [European Organization for Nuclear Research]), I
+spoke to a scientist who told me that humans can only remember one direction of time: the direction that
+accounts for the past. He speculated about the possibility of four-dimensional matter, which could help us to
+remember the future. Having access to such matter, we could carve slices of time –– including the future ––
+which would then help us navigate the present. A more inclusive description of the Brocken might mean the
+formation of a multi-dimensional volume, layered with folkloric, historical and political strata. The Brocken as
+a mesh that exceeds the conventional outlines drawn on the “normal” map. To conjure such a form would imply
+VIII
+
+collecting all the lines of history, ecology, thought and beyond.
+But on the mountain, there are just endless snowflakes, in which I can see stories and adventures from my
+future and my past… But it feels like I can carve nothing. The twirls around me are not uniformly defined. The
+thoughts in my head are spinning as if they are dancing to the movements of the flakes. The white noise is no
+longer coming down from the sky but instead from all directions –– up, down, left and right –– without a focus,
+a line or a path. They have become the length and depth of my hike. All I see is grey.
+In this intense flattening of perspective, we have become the distance. We are forms, lines, energies; one
+upon another, the matter of an intangible –– though far from immaterial –– situation. Walking here together, the
+trail has taken us deeper inside ourselves.11 The mountain has entered us. Like Walter Benjamin once wrote, “I
+have become my snow globe.” 12 I wonder, is the sun still there, is it fighting to reach me, above my head?
+A terrible feeling of dread and loneliness comes over me. I remember this grey feeling. It is being
+together with people, yet still being alone. Completely and utterly alone, lost in ubiquity, like there is an
+invisible wall that won’t let me join the state of “togetherness.” Sometimes a space does not allow you to make
+place, to plot and situate yourself in connection to space. Sometimes a space is made of invisible rules and
+viscosities that keep you from inhabiting it. Although, these material properties of space may just be qualities I
+am not trained in. I have to learn to understand space through properties beyond my senses, my literacy and my
+habits. Blurred is this blizzard: a blizzard of snow and a blizzard of thoughts. Timothy Ingold wrote that “drawn
+threads invariably leave trailing ends that will, in their turn, be drawn into other knots with other threads.” 13
+Yet, things seem to be simply unravelling. I do not see the knots or threads. I feel less and less human. I am just
+a cold body stuck inside a sack of clothes that is trying to carry itself up a mountain.
+We have walked for a long time. I am exhausted. The twirls of white noise make space for a flurry of
+references and images that take up the space beyond my retina. Shadows and shapes appear in the corner of my
+eyes, apparitions that disappear when I try to see them. The ghosts are dancing in a fog of flakes as my hair is
+dancing with them, reaching out like tentacles in front of my eyes. I take Limenia out again: the little
+instrument gives me static and a hint of something else. For a moment it sounds like music. Maybe I mishear a
+deep EVP (electronic voice phenomenon), or the ghosts of the weather have now started to speak through the
+device.
+Then, suddenly there is a little clearing in the sky and I can see a shimmer of light. It is like the sun
+wants to tell me it is still there. I don´t know how long or how far we still have to go, but the Sun has given me
+back a sense of perspective: a vertical perspective. I have been pulled out of my grey state of being, on a
+mission to make it to the top of this track. On the side of the road I see spectacular installations: collaborations
+11
+
+Leslie, Esther. Walter Benjamin. UK: Reaktion Books, Critical lives series, 2007: p. 78.
+
+12 Benjamin, Walter. Gesammelte Schriften, vol. VII, pt.1. Frankfurt: Suhrkamp, 1991.
+13
+
+Ingold, Timothy. Lines: A Brief History. London: Routledge, 2007.
+IX
+
+between the trees, the wind, snow and ice. The final stretch of the track is suddenly there, it is not too long
+before we reach the end of the trail and arrive at the summit of the mountain.
+Cold, stiff and tired, there are only a few trees to keep us protected from the wind. The weather makes it
+impossible to see much, and our video and photographic equipment fails to document what remains of “the
+spectacle” as our lithium batteries are depleted. The full length of the Brocken’s antenna is not visible, I just
+recognize its base, its mast shrouded in grey. There, in the snow, it is sending and repeating inaudible messages,
+encrypted on different frequencies, waiting for technology to pick them up for repetition or translation to
+another medium or node. We clearly hear its overpowering strength through the Limenia and the different
+rhythms at which data is sent through the ether, as well as through us, offering me just a small insight into the
+immensity of unresolved spectral resolutions (that I am blind to/do not perceive) with my human body.
+
+It is not enough to regard the surface as a taken-for-granted backdrop for the lines that are inscribed
+upon it. The history of writing belongs within the history of notation, and the history of notation within
+the history of the line, so there can be no history of the line that is not also about the changing relations
+between lines and surfaces.
+- Timothy Ingold14
+
+P
+
+lotting Lines: Windows and Messengers
+
+Whiteout is a story about climbing a mountain during a snowstorm –– an experience that led me into a space
+without dimension: white in the dark and references without lines. The story of a time when I manoeuvred
+through slices of consciousness; traversed a virtual axis to nowhere and, finally, was pulled back into space,
+only for such space to collapse on me.
+The Brocken Spectre never appeared to us, but for a moment, the Brocken morphed into a landscape
+with multiple horizons, in which the orientation discerning top from bottom did not exist except outside the
+mind of the wanderer. And even though events seemed to happen in the same space, this state created different
+places within that space, layered upon one another.
+As I scaled that mountain in the snowstorm, the mountain sublimated itself into a space without lines.
+For a moment there were no threads, traces or cracks to fall into; lines to follow, grasp or get a hold of. The
+mountain showed me I need lines to understand space. In a perfect whiteout, I missed visual markers and, as a
+result, all lines of reference. I became my own surface. And all I had to inscribe with meaning was my own
+internalization of space: a quantum axis I got lost in. I then learned that a node by itself is nothing: it is just
+14
+
+Ingold, Timothy, ‘Transformations of the line: Traces, Threads and Surfaces’, in: Textile (no.8.1, 2010): p. 12.
+X
+
+infinitely small. A node needs lines and connections, it needs links. And although these are ubiquitous –– and
+therefore often ignored –– they actually provide an important rationale for grounding: they organize images,
+vision and context.
+The line is a beautiful and radical object in its capacity to represent both operation and representation.
+Some lines even defy classification. When dealing with materials that are non-static, opaque or invisible, we
+can shape their so-perceived immateriality or conjure them into materiality through approaching them as an
+axis. Lines can be the basis of all materiality because they invoke a surface. They form our matter. If a visitor
+temporarily commits to a line, they re-territorialize the environment. It is this kind of thinking about space and
+place that allows for seeing through time; through different spectra and frequencies to open different or new
+perspectives of visual, experiential and spatial narratives.
+Maybe, to a mountain, all that matters is verticality, quantified as height above sea-level. That is why
+mountains are generally defined by their summits and not by greatness of rock mass or the degree of muscular
+exertion the hiker has to endure when scaling. 15 To me the Brocken is also a place of many imaginary lines or
+descriptions, that can be highlighted and then collapsed onto the mountain. Every time this occurs, the
+mountain is freed again and again because the act of repositioning these membranes of perspectives create a
+forever unfolding, non-vertical abyss of lines. Our immaterial objects are shaped by the vectors we choose, the
+lines we draw around them, the norms and expectations, traditions and rules; and, finally, the lines of meaning
+we inscribe them with. It not only matters what surface a line is drawn on, but also what lines we draw upon a
+surface. Finally, the scale at which we draw lines, or the spectrum through which we radiate is of note. If we
+can open up these levels of navigation, we can open up new “windows” (ways of seeing) to other
+“messengers” (beyond for instance the humanly visible part of the electromagnetic spectrum) through which we
+radiate. And when doing that, we may even be able to jump scales.
+
+15
+
+Ingold, Timothy. The Life of Lines. London: Routeledge, 2015: p. 32.
+XI
+
+I
+
+II
+
+B
+
+ehind White Shadows
+
+Blankness is as much a state of mind as it is a material condition, and as such it can be deceptive,
+hallucinatory, unintentional, poetic or spiritual. It can be legible or illegible, present or absent, perfect
+or imperfect. But it is never empty or devoid of meaning.
+– Michael Gibbs16
+
+W
+
+hite Shadows
+In her 2012 lecture “White Shadows: what is missing from images” at the Gdansk Academy of Fine Arts in
+Poland, Hito Steyerl speaks about how new technologies force us to reformulate important questions about
+making visible, capturing and documenting information. In the first part of her talk, Steyerl focuses on the use
+of 3D scanning in forensic crime-scene investigations. Steyerl explains how the 3D scanner, or LiDAR
+technology (Light Detection And Ranging), sends laser beams that reflect the surfaces of the scanned objects. In
+this process, each point in space is measured and finally compiled into a 3D facsimile point cloud. In turn,
+Steyerl observes that this kind of capturing does not just provide a new image of reality but transforms our very
+relation to the world. Yet, Steyerl takes issue with the general belief that these emergent technologies should be
+accepted as the ultimate documentary and forensic devices: as tools that produces 100 percent reliable, true,
+evidence. 17
+Just like any other technology, Steyerl argues, VR has its affordances and with these affordances come
+blind spots. For instance, only a few scanning rigs are advanced enough to capture a moving object: they
+generally become a blur or are not picked up at all. A 2.5D scanning rig (a rig with just one 3D scanner) can
+only provide the surface data for one side of a scanned object. As a result, the final scan of an object, or space,
+includes blind spots: the backs of the objects and the shadows cast by objects in front of an object which,
+depending on the display technology, may show up as empty white shells.
+To really process an environment properly, its scans would have to be taken from every angle. The barrier
+16 Gibbs, Michael. “All or Nothing and Other Pages,” ed. by Gerrit Jan de Rook & Andrew Wilson. Uniformbooks, 2016:
+
+p. 10.
+17
+
+Steyerl, Hito. “White Shadows: what is missing from images,” Gdansk Academy of Fine Arts, Youtube, 2012.
+see: https://www.youtube.com/watch?v=PoZa707a91s
+III
+
+“What becomes visible on the back of the image is the space that is not captured. The space that is missing, missing
+data, the space where an object covers the view. A shadow. […] Documentary truth and evidence also including the
+missing of information. The missing people themselves.”
+- Steyerl, Hito. “White Shadows: what is missing from images,” Gdansk Academy of Fine Arts, Youtube, 2012.
+
+presented for such a task in the case of most 3D scanning equipment is that certain elements of the scanned
+environment will always exist in the shadow of the next object; resulting in white patches, blank spaces, or
+hollowed-out shells remaining in the dataset as unseen and unregistered content.
+An important question, then, not just for 3D, but for any technology is: who decides the point of view and
+who stands behind the perspective from which a LiDAR –– or any scanning or imaging technology –– is
+operated? In order to formulate a possible entry point for tackling this problematic, in what follows you will
+find a history of resolutions, specifically the history of the color test card.
+
+IV
+
+T
+
+he White Shadows of Image Processing:
+
+Shirley, Lena, Jennifer and the Angel of History18
+A fundamental part of the history of image processing and setting standardization –– within both analogue and
+digital compression as well as codec technologies –– is the test card, chart, or image. This standard test image is
+an image (file) used across different institutions to evaluate: image processing, compression algorithms,
+rendering and display quality. One type, the test pattern or resolution target, is typically used to test the
+rendering of a technology or to measure the resolution of an imaging system. Such a pattern often consists of
+reference line patterns with clear, well-defined thicknesses and spacings. By identifying the largest set of
+indistinguishable lines, one determines the resolving power of a given system; by using identical standard test
+images, different labs are able to compare results –– both visually, qualitatively and quantitatively.19
+A second type of standard test image, the color test card, was created to facilitate skin color balancing or
+adjustment and can be applied to test color rendering on different displays. While technologies such as
+photography, television, film and software all have their own color test images, these types of test images all
+typically involve a referencing norm that depicts a Caucasian woman wearing a colorful, high-contrast dress.
+Even though there were many different Shirleys (in analogue photography) or China Girls (in color film
+chemistry) that modeled for these test cards, they were never selected to facilitate variation. Although the
+identities of the many Shirleys who modeled for these norms have stayed unknown, they have nonetheless
+formed a collective public identity, which is often used as a standard on color test cards.20 As such, the cards
+cultivated a gendered and race biased reference, which even today continues to influence our image processing
+technologies. In his 1997 book White, British film studies professor Richard Dyer observed the following: In
+the history of photography and film, getting the right image meant finding the image that conformed to
+prevalent ideals of humanity. This included ideals of whiteness, of what color –– what range of hue –– white
+people wanted white people to be.21
+18 This chapter is based on a talk I gave during Elevate Festival 2016 (Graz, Austria), for which I was kindly invited by
+
+Nora O’Murcu. I would also like to extend my gratitude to Bogomir Doringer for inviting me to present my story and
+research as part of his Faceless panel during Resonate 2017 (Belgrade, Serbia) and publish in his book of the same title.
+And last, but not least, to Ward Jansen who has been a driving force behind the joint acquisition of a Vernacular of File
+Formats by the Stedelijk Museum Amsterdam and Moti in 2016, which initiated my thinking on topics covered in this
+paper. This text also accompanied my solo show of the same name, at Transfer Gallery, New York in 2017.
+19
+
+Thorlabs, ‘Resolution Test Targets’. Website. (11.12.19).
+see: https://www.thorlabs.com/NewGroupPage9_PF.cfm?ObjectGroup_ID=4338
+20 Gross, Benjamin. ‘Living Test Patterns: The Models Who Calibrated Color TV’, in: The Atlantic (06/28/2015).
+
+see: https://www.theatlantic.com/technology/archive/2015/06/miss-color-tv/396266/
+21
+
+Dyer, Richard. White: Essays on Race and Culture. UK: Routledge, 1997.
+V
+
+VeriColor II testcard by Kodak.
+VeriColor III, a professional portrait film developed in the early 80s by Richard Wien and his team at Kodak Park,
+became known for its more flexible accommodation of a range of skin colours. (Lorna Roth, Looking at Shirley: 2009)
+
+The de-facto ideal standard that has been in play since the early part of the twentieth century for most
+analogue photo labs has thus been positively biased toward white skin tones, which naturally have a high level
+of reflectivity. As a result it was not only difficult to capture darker and blacker skin tones, but it also proved
+impossible to capture two highly contrasting skin tones within the same shot: when trying to capture a black
+person sitting next to a white person, the African American facial image would often lose details and pose
+lighting challenges. In consequence, film material generally came to depict ashen-looking facial skin colors that
+contrasted harshly with the whites of eyes and teeth. The Caucasian test card is thus not about variation, but
+about setting a racist standard, which has been dogmatically implemented for more than 40 years.
+
+A
+
+nalogue Photographies’ Shirley Cards
+
+The failure of photographic film stock to capture dark skin tones isn’t a technical issue, but a choice. Reacting
+to these findings, scholar Lorna Roth writes in her 2009 article “Looking at Shirley, the Ultimate Norm” that
+film emulsion could have been designed with more sensitivity to the continuum of yellow, brown and reddish
+skin tones. The willful disregard by film companies, such as Kodacolor (1928) and Kodachrome (1935), is
+reasoned in terms of the markets centering of white consumers.
+It was only when “chocolate” production companies and manufacturers of wooden furniture complained
+about the impossibilities they faced when trying to reproduce different shades of brown, that Kodak’s chemists
+started changing the sensitivities of their film emulsions (the coating on the film base which reacts with
+chemicals and light to produce an image). The company gradually extended the capacities of their film stock for
+VI
+
+greater dynamic range/ratio between the maximum and minimum measurable
+light intensities (white and black, respectively). 22 While progress was made
+over the 1970s and 1980s, it was only in 1997 that Kodak’s dynamic range
+made a real leap forward, with the introduction of its popular consumer film
+Gold Max. Roth notes how Kodak executive Richard Wien described this
+development in terms of ability of the companies film to capture the details of a
+dark horse in low light.23 Still, in the real world, true white and black do not
+exist –– only varying degrees of light source intensity and subject reflectivity.
+Moreover, the concept of dynamic range is complex and depends on whether
+one is calculating a capturing device (such as a camera or scanner), a display
+device (such as a print or computer display), or the subject itself.
+This is why around the same time that these changes in sensitivity of film emulsion took place, the color
+test card was also revisited, albeit only slightly. First, in the mid-90s, Japanese photography companies
+redesigned their Shirley cards using their own stock images from their own color preference tests. Since, the
+local reference card featured Japanese women with light yellow skin.24 Finally, in 1995, Kodak designed a
+multiracial norm for their reference card. 25 From the single Caucasian woman surrounded by the necessary
+color balancing information codes, Kodak’s Shirley has now evolved into an image of three women with
+different skin colors (Caucasian, Asian, African American), all dressed in brightly colored, contrasted clothing.
+
+22 Roth, Lorna. ’Looking at Shirley, the Ultimate Norm: Colour Balance, Image Technologies, and Cognitive Equity,' in:
+
+Canadian Journal of Communication (no. 34.1. 2009): p. 111.
+23
+
+Ibid.
+
+24 Ibid.
+25
+
+Ibid.
+VII
+
+Have your highlights lost their sparkle?
+And the midtones lost their scale?
+Are your shadows going smokey?
+And the colors turning stale?
+Have you lost a little business to labs whose pictures shine?
+Because to do it right –– takes a lot of time.
+Well, here’s a brand new system. It’s simple as can be!
+Its name is LAD – an acronym for Laboratory Aim Density.
+– John P. Pytlak26
+
+M
+
+otion Picture Color Correction: China Girls vs. Maureen the LAD girl
+
+In a similar vain to analogue photography, from the 1920s to the early 1990s, the analogue motion picture
+industry had its own color test equivalent, “color-timing.” The term timing hails from the days before
+automated printers, when the photo chemical process used a timer to determine how long a particular film strip
+had to sit in the developer. During the decades of color-timing, hundreds of female faces or China Girls (which
+some have described as a reference to the porcelain mannequins used in early screen tests) appeared in the film
+leaders, typically only for one to four frames, never intended to be seen by anyone other than the projectionist.
+The color-timing practice was not completely reliable as it involved a different China Girl and slightly
+different lighting arrangement each time. Around the 1980s it was gradually superseded by the Laboratory Aim
+Density (LAD) system, developed by John Pytlak. Along with color-timing, the anonymous China Girls, whose
+occupations ranged from studio workers to models, became artifacts of an obsolete film history. Only one LAD
+Girl was to become the model for the color reference card: Maureen Darby.27 Pytlak accounts that it was
+primarily intended as “representative” footage and not as a standard. By filming two 400-foot rolls of 5247
+film, all film supplied since the introduction of LAD is made from the same original negative, either as a
+duplicate negative or now as a digital intermediate. 28
+Two decades later –– after spending a year and a half restoring lost color strip images –– Julie Buck and
+26
+
+Pytlak, John. ‘Leader Ladies Project’, Chicago Film Society.
+see: http://www.northwestchicagofilmsociety.org/projects/leaderladies/ (20.02.20)
+27 Pytlak, John. "China Girl” in: Film Tech Forums (22.02.2006)
+
+see: http://www.film-tech.com/ubb/f8/t004510.html (20.02.20)
+28
+
+Monaghan, Peter. ‘China Girls, Leading Ladies, Actual Women,’ Moving Image Archive, 2014.
+see: http://www.movingimagearchivenews.org/china-girls-leading-ladies-actual-women/ (20.02.20)
+VIII
+
+archivist Karin Segal finally found a way to bring the China Girls, or women of color-correction, to the
+spotlight. Rescuing the China Girls from the margins of cinema, they intended to “recast them as movie stars in
+their own right.”29 In their 2005 “Girls on Film” exhibition statement, Buck and Segal write: “Even though
+these women were idealized, they were only seen by a handful of men. Their images exist on the fringes of
+film. They were abused and damaged. We wanted to give them their due.” 30 Unable to find any cases of ChinaGirls-turned-film-actresses, Buck and Segal used their collection of images to create the short, Girls on Film
+(2008); 31 wherein these absent figures were recast as stars.
+
+You know what a black-and-white test pattern is?
+she told The New York Times in 1953.
+Well, I’m it for color. I’m the final check.
+– Marie McNamara32
+
+O
+
+ne Standard Does not Fit All (or: Physics is not Just Physics)
+
+With the onset of color television there came no significant shifts: producers hired Caucasian ladies as their test
+models, reinforcing longstanding gender and race biases. The only difference being that in television, the
+objectified test model, was known by her real name. The red haired model Marie McNamara, for instance,
+became known in the 1950s when she modeled to calibrate the NBC television cameras, while Carole Hersee is
+known as the face of the famous Test Card F (and later J, W, and X), which aired on BBC Television from 1967
+
+29 ‘Artists Reveal and Reinterpret Captivating Imagery,’ in: Artdaily, 2005
+
+see: http://artdaily.com/news/14311/Artists-Reveal-and-Reinterpret-Captivating-Imagery. (20.02.20)
+30
+
+Gewertz, Ken. ‘A Bevy of Unknown Beauties,’ in: Harvard News Office, 2005.
+see: http://news.harvard.edu/gazette/story/2005/07/a-bevy-of-unknown-beauties/ (20.02.20)
+31 Buck, Julie and Karin Segal, “Girls on Film.” video, 2008.
+
+see: https://www.youtube.com/watch?v=-nVBDX3P5TY (20.02.20)
+A collection of China and Lily films can be found in this article: Tom Warner, “China Girls on Film, 2017.
+see: http://accelerateddecrepitude.blogspot.com/2017/03/china-girls-on-film.html (20.02.20)
+32
+
+McNamera, Marie, in: New York Times, 1953.
+Gross, Benjamin. ‘Living Test Patterns: The Models Who Calibrated Color TV’, in: The Atlantic (06/28/2015).
+see: https://www.theatlantic.com/technology/archive/2015/06/miss-color-tv/396266/
+IX
+
+to 1998.33
+Cameramen continued to use Caucasian color girls –– either as live models
+or as photographs –– to test their color settings. If an actor with a different skin
+color entered the scene, the calibration process was supplemented with special
+lighting or makeup techniques to ensure that the non-white participants looked
+good on screen –– a task that is not always easy and deferred the development
+and implementation of adequate, non-biased technologies. Such conditions led
+Lorna Roth to conclude, in her seminal article, that the habitual racism
+embedded within color reference cards did more than just influence major
+standard settings: the tone of hue, chroma, contrast, quantization, and lightness
+(luminance) values. To her, it is also responsible for the highly deficient renderings of non-Caucasian skin
+tones, which have resulted in an ongoing need for compensatory practices.
+This one size fits all is problematic, as a technician once explained to Roth: physics is physics approach
+has become the standard, in reality, the various complexions reflect light differently. What this reveals is a
+composite interplay between the different settings involved when capturing the subject. Despite the obvious
+need to factor in these different requirements for different hues and complexions, television technically only
+implemented support for one – the Caucasian complexion. 34
+Moreover, the history of color bias did not end when old analogue standards were superseded by digital
+ones because digital image (compression) technologies too, inherited these standards. As a result, even
+contemporary standards are often rooted within these racist, habitual practices. New digital technologies still
+feature embedded racial biases. For instance, in 2009 and 2010 respectively, HP webcams and the Microsoft’s
+X-Box Kinect controller had difficulties tracking the faces of African American users. Consumer reports later
+attributed both problems to low-level lighting, again moving the conversation away from important questions
+about skin tone to the determination of a proper lighting level –– discussions continue to echo naive physics
+justifications.
+
+L
+
+ena JPEG
+
+In his retrospective article “How I Came Up with the Discrete Cosine Transform (DCT),” Nasir Ahmed
+describes his conception of the use of a cosine transform in the field of image compression. Ahmed recollects
+33 Gross, Benjamin. ‘Living Test Patterns: The Models Who Calibrated Color TV,’ in: The Atlantic (06/28/2015).
+
+see: https://www.theatlantic.com/technology/archive/2015/06/miss-color-tv/396266/
+34
+
+Roth, Lorna. ”Looking at Shirley, the ultimate norm: Colour balance, image technologies, and cognitive equity" in
+Canadian Journal of Communication (no. 34.1, 2009): p. 118.
+X
+
+how he proposed the National Science Foundation (NSF) study for the application of the cosine transform and
+how much to his disappointment, the NSF did not support the proposal, because the whole idea seemed too
+simple.35 Ahmed decided to keep working on the problem, ultimately publishing his results in the January 1974
+issue of IEEE Computer Transactions. Today, more than 40 years after Ahmed’s proposal, DCT is widely used
+in digital image compression. For instance the algorithm has become a core component of JPEG image
+compression technology, which is developed by the JPEG Experts Group. 36
+I remember dedicating the whole summer of 1973 to work on this problem. The results that we got
+appeared too good to be true, and I therefore decided to consult Harry Andrews later that year at a
+conference in New Orleans. […] When I sent the results back to Harry Andrews, he suggested that I
+publish them. As such, I sent them to the IEEE Computer Transactions, and the paper was then published
+in the January 1974 issue. […] Little did we realize at that time that the resulting ›DCT‹ would be widely
+used in the future!37
+Shortly after Ahmed’s initial proposal, the implementation of DCT for digital image compression also became a
+subject of experiments at the University of Southern California’s (USC) Signal and Image Processing Institute.
+In a 2001 newsletter, Jamie Hutchinson offers an insightful reflection on how the testing of DCT again focused
+on the implementation of a Caucasian female color test card. Hutchinson quotes Alexander Sawchuk, who
+reminisces on his efforts to implement the test card during his time as assistant professor of electrical
+engineering. Sawchuk explains that he and his colleagues were tired of the normal test images or “dull stuff.”
+They wanted something glossy to ensure good output in dynamic range and they wanted a human face. Just
+then, somebody happened to walk in with a recent issue of Playboy. 38 Sawchuk moves on to describe how they
+ripped out the centerfold of the Playboy and scanned its top third with their Muirhead scanner, which they had
+customized with analog-to-digital converters to create a three-channel, 512 x 512px, test image. After the tricky
+processing stage was finished, Sawchuk realized that they had lost a line while scanning. Moreover, the timing
+of the analogue-to-digital converters was off, making the final test image slightly more elongated than the
+original. Faced with time pressure, the engineers settled for the distorted version and simply replicated the top
+35 Ahmed, Nasir: How I Came Up with the Discrete Cosine Transform. Electrical and Computer Engineering Department,
+
+University of New Mexico, Albuquerque, New Mexico in: Digital Signal Processing 1.1 (1991): p. 4-5.
+36
+
+For an overview of the JPEG standard see: https://jpeg.org/jpeg/index.html (20.02.20)
+
+37 Ahmed, Nasir: How I Came Up with the Discrete Cosine Transform. Electrical and Computer Engineering Department,
+
+University of New Mexico, Albuquerque, New Mexico in: Digital Signal Processing 1.1 (1991): p. 4-5.
+38
+
+Hutchinson, Jamie. ‘Culture, Communication, and an Information Age Madonna,’ in IEEE Professional
+Communication Society Newsletter (v.5 no,3, 2001): p. 1–7.
+XI
+
+XII
+
+line to arrive at 512. Those three sets of 512 lines –– one set for each color, created imperfectly –– would
+become the de facto industry standard.
+The Miss November 1972 centerfold, that the USC employees used for testing the implementation of
+DCT, featured the Caucasian model Lena Sjööblom (or today Lena Forsén). Lena quickly became the single
+most used picture in image-processing research and notably one of the first pictures uploaded to ARPANET (the
+precursor of today’s internet). In A Note on Lena (1996), David Munson, University of Illinois professor and
+editor-in-chief at IEEE Transactions on Image Processing, explains why he believes the Lena image became an
+industry standard: “First of all the image contains a nice mixture of detail, flat regions, shading, and texture that
+do a good job of testing various image processing algorithms. It is a good test image! Second, the Lena image is
+a picture of an attractive woman. It is not surprising that the (mostly male) image processing research
+community gravitated toward an image that they found attractive.” 39 Munson goes on to describe why the Lena
+image has become such an issue: “Some members of our community are unhappy with the source of the Lena
+image. I am sympathetic to their argument, which states that we should not use material from any publication
+that is seen (by some) as being degrading to women.” 40
+While the use of the Lena image remained a topic of discussion –– not to mention the rights of use never
+being confirmed or even checked with Playboy –– by 1991, USCs Signal and Image Processing Institute (SIPI)
+actually started distributing the image of Lena for a fee, to researchers all over the world. While Lena was
+regularly found on the pages of image processing journals, books and conference papers, Playboy finally
+became aware of the transgressions after the Journal of Optical Engineering featured Lena on its July cover. In
+August 1991, Optical Engineering received a letter from Playboy Enterprises Inc. asking them, as fellow
+publishers, to cease any unintentional, unauthorized use of the image and to contact Playboy for permission for
+any future use of their copyrighted material. The International Society for Optical Engineering (SPIE)
+responded, arguing that, “The image is widely used in the worldwide optics and electronics community. It is
+digitized and its common use permits comparison of different image processing techniques and algorithms
+coming out of different research laboratories.” 41 They also pointed out that SPIE is a nonprofit scientific society
+and that the material published by SPIE is intended for educational and research purposes.
+SPIE eventually reached an agreement with Playboy, disclosing a warning in their January 1992 editorial
+39
+
+The Lena image was actually not the first Playboy image used as testcard for image calibration. The first Playboy
+magazine centerfold known to be utilized to illustrate image processing algorithms dates back to 1961, when Lawrence G.
+Roberts used two cropped 6-bit grayscale scanned images from Playboy's July 1960 issue (featuring Playmate Teddi
+Smith), for his MIT master's thesis on image dithering.
+40 Munson, David C., ‘A Note on Lena,’ in: IEEE Transactions on Image Processing (no. v.5 no.1, 1996): p. 3.
+41
+
+Thompson, Brian J. ‘Editorial,’ in: OPTICAL ENGINEERING (V. 31 no.1): p. 5.
+see: http://webcache.googleusercontent.com/search?q=cache:h_JsSzpi8coJ:www.lenna.org/optical.html
++&cd=2&hl=en&ct=clnk&gl=jp&lr=lang_de%7Clang_en
+XIII
+
+that it is each author's responsibility to make sure materials in their articles are either free of copyright or that
+permission from the copyright holder has been obtained. Seeing an opportunity, Eileen Kent, vice president of
+new media for Playboy, publicly commented on the issue: “We decided we should exploit this, because it is a
+phenomenon.” 42 SPIE was granted authorization for all further use of the image. According to publications
+director at SPIE Eric Pepper, it was almost as if Lena had entered the public domain by that time –– almost, but
+not quite. 43
+In May 1997, almost 25 years after being Miss November, Lena Söderberg attended the fiftieth
+anniversary of the Imaging Science and Technology (IS&T) Conference in Boston. Jeff Seideman, the president
+of the Boston IS&T, arranged for Lena to appear and after the event Seideman started working with a Playboy
+archivist on rescanning Lena's image in the hopes of recovering missing information, such as: the type of photo
+emulsion used to make the print featured in the magazine and the technical specifications of the scanner. As a
+result, Seideman hoped that the image of Lena would remain a standard reference image for compression
+technologies throughout the twenty-first century. Even today, the standard Lena test image is downloadable
+from several laboratory sites.44
+Notably, the controversy around the Lena image did not end in the 1990s. In 2001, David Munson, editor
+of the IEEE’s image processing journal, wrote:
+It was clear that some people wanted me to ban Lena from the journal […] People didn’t object to the
+image itself, but to the fact that it came from Playboy, which they feel exploits women. Rather than ban
+Lena, Munson wrote an editorial in which he encouraged authors to use other images. 45
+In 2016, Scott Acton, editor of IEEE Transactions, proposed the journal’s editorial board instate a prohibition
+on the use of Lena in any published research: “We could be fine-tuning our algorithms, our approaches to this
+one image. […] They will do great on that one image, but will they do well on anything else? […].” In 2016,
+demonstrating that something works on Lena isn’t really demonstrating that the technology works. Acton
+42 Brown, Janelle. ‘Playmate Meets Geeks Who Made Her a Net Star’ in: Wired News, (20.05.97).
+
+see: https://www.cs.cmu.edu/~chuck/lennapg/wired_backups/4000.html.
+see: http://www.lenna.org/wired_backups/4000.html (20.02.20)
+43
+
+Hutchinson, Jamie. ‘Culture, Communication, and an Information Age Madonna,’ in: IEEE Professional
+Communication Society Newsletter (v.5 no.3, 2001): p. 1–7.
+44 Asuni, Nicola and Andrea Giachetti, ‘TESTIMAGES: A Large Data Archive for Display and Algorithm Testing,’ in:
+
+Journal of Graphics Tools (no.17 v.4, 2013): p. 113–125.
+45
+
+Hutchinson, Jamie. ‘Culture, Communication, and an Information Age Madonna,’ in: IEEE Professional
+Communication Society Newsletter (v.5 no.3, 2001): p. 1–7.
+XIV
+
+believed that the Lena image doesn’t send the right message to female researchers about their inclusion in the
+field. But Acton’s strongest objections were technical in nature: Lena contains about 250,000 pixels, some 32
+times smaller than a picture snapped with an iPhone 6. And then there’s a quality problem: The most commonly
+used version of the image is a scan of a printed page. The printing process doesn’t produce a continuous image,
+but rather a series of dots that trick your eye into seeing continuous tones and colors. Those dots, Acton says,
+mean that the scanned Lena image isn’t comparable to photos produced by modern digital cameras. Short of an
+all-out ban in the journal, he says, making authors aware of the image’s technical and ethical issues might be a
+way to usher Lena gracefully into retirement.46
+While it is clear that the use of the Lena image opened a discussion about embedded bias and the
+consideration of gender in test card usage, many questions remain unanswered. How much are the performance,
+texture and materiality of digital photography actually influenced by the use of the image of Caucasian Lena?
+What would it have meant for the standardization of digital image compression if the image chosen for the test
+card would have been the first African American Playboy centerfold Jennifer Jackson (March, 1965); or if the
+512 x 512 pixel image had instead featured the image of Grace Murray Hopper, one of the first African
+American pioneers in computer programming and the person responsible for inventing some of the first
+compiler-related tools –– moreover, the woman who, coincidentally, coined the widely used computer slang
+“bug.” How much do the compression standards we use on a day to day basis reflect the complexities of the
+good 512 x 512 pixel Lena image and how well do these standard settings function when capturing another kind
+of color complexity?
+
+46
+
+Iozzio, Corinne. ‘The Playboy Centerfold that Helped Create the JPEG,’ in: The Atlantic, 2016.
+see: https://www.theatlantic.com/technology/archive/2016/02/lena-image-processing-playboy/461970/ (20.02.20)
+XV
+
+Dullaart, Constant. Jennifer in Paradise, 2013.
+
+Dear Jennifer,
+Sometime in 1987, you were sitting on a beach in Bora Bora, looking at To’opua island, enjoying a
+holiday with a very serious boyfriend. […] This photograph of a beautiful moment in your personal
+history has also become a part of my history, and that of many other people; it has even shaped our
+outlooks on the world at large. John’s image of you became the first image to be publicly altered by the
+most influential image manipulation program ever. […] In essence, it was the very first photoshop
+meme –– but now the image is nowhere to be found online.
+Did John ask you if he could use the image? Did you enjoy seeing yourself on the screen as much as he
+did? Did you think you would be the muse that would inspire so much contemporary image making?
+XVI
+
+Did you ever print out the image? Would you be willing to share it with me, and so, the other people
+for whom it took on such an unexpected significance? Shouldn’t the Smithsonian have the negative of
+that image, not to mention digital backups of its endless variations?
+All these questions have made me decide to redistribute the image ›Jennifer in Paradise‹ as well as I
+can, somewhat as an artist, somewhat as a digital archeologist, restoring what few traces of it I could
+find. It was sad to realize this blurry screen grab was the closest I could get to the image, but beautiful
+at the same time. How often do you find an important image that is not online in several different sizes
+already?47
+
+J
+
+ennifer in Paradise (Constant Dullaart, 2013)
+
+A woman is sitting with her back toward us, topless, on a beach. Silver sand, blue water, a green island in the
+distance. We can’t see her face but we know her name: Jennifer. This photo, taken in 1987 by one of the two
+creators of Photoshop, John Knoll, became the standard test image for the development and implementation of
+Photoshop and its suite of creative effects. Twirling, deleting and copying Jennifer were just some of the myriad
+processes tested on the image. At that time, the early days of digital computing, there was not a large array of
+digital images available, which is why this 24-bit scan of a holiday photo of John’s soon-to-be Jennifer Knoll
+became a standard test image for all Photoshop's developments. It is also one of the reasons why the image did
+not disappear when Photoshop moved out of its development phase. When Photoshop was finally ready for
+public use, John and his brother Thomas used the image again and again in online demos. It was a good image
+to do demos with, John Knoll recalls, as it was pleasing to look at and there were a whole bunch of things you
+could do with that image technically. 48
+As Dutch artist Constant Dullaart explains in his Chaos Computer Club presentation The Possibility of an
+Army, John Knoll confirmed an age-old motif: a man objectifying a female body.49 Besides being critical,
+Dullaart also underlined the special cultural-historical value of the artifact, which formed a key inspiration for
+his 2013 Future Gallery solo show Jennifer in Paradise. In this show, Dullaart focused on the excavation and
+47
+
+Dullaart, Constant and John Knoll. ‘Jennifer in Paradise – the correspondence,’ in: Carroll / Fletcher Onscreen: 1
+March 2016.
+see: http://carrollfletcheronscreen.com/2016/03/01/jennifer-in-paradise-the-correspondence/.
+48 Comstock, Gordon. ‘Jennifer in Paradise: the story of the first Photoshopped image,’ in: The Guardian, 2014.
+
+see: https://www.theguardian.com/artanddesign/photography-blog/2014/jun/13/photoshop-first-image-jennifer-inparadise-photography-artefact-knoll-dullaart.
+49
+
+Constant Dullaart, The Possibility of an Army, presentation at 32c3, 2015.
+see: https://media.ccc.de/v/32c3-7517-the_possibility_of_an_army.
+XVII
+
+exhibition of a reconstruction of the Jennifer image. In an open letter accompanying the show, Dullaart
+describes the image of Jennifer as an important artifact in the history of software development and as an
+anecdote in Adobe history. He asks Jennifer to share the original image file with the world. A sentiment that
+was later echoed by Gordon Comstock in a 2014 piece for The Guardian, in which he describes the image as
+central to the modern visual vernacular as Eadweard Muybridge’s shots of galloping horses or the first use of
+perspective. In a way, just like the Lena image, Jennifer has become a phenomenon.
+While Dullaart never obtained any rights or permissions for the use of the Jennifer image, he did digitally
+reconstruct the original image, creating an image series consisting of Photshopped versions, materialized as
+wallpaper, and a series of prints featuring enthusiastically filtered Jennifers (twirled, blurred, etc.). Dullaart also
+spread the digitally reconstructed version of the original image with an added payload: steganographically
+adding messages to the reconstructed JPEG image file. In doing so, he intended to treat the JPEG image not just
+as an image, but as a unique container format for content. This, he hoped, would open a debate on the value of
+the digital file (format). The reconstructed Jennifer JPEG is not just a format that carries the reconstructed
+image information. Via the steganographic technique it has become a unique container and placeholder for
+discussing the materiality of digital photography. In terms of monetization of the material, Dullaart only sells
+the password to the encrypted payload added to the reconstructed version of the original JPEG –– the access to
+his secrete message. Finally, in an effort to translate the work for the context of the gallery, Dullaart organized a
+performance in which he briefly showed his secret message written in phosphorescent paint on top of the
+wallpaper by shining a blacklight on its surface, followed by a destruction of the blacklight as a metaphor for
+encryption (and inaccessibility).
+Dullaart never received a direct response from Jennifer or John Knoll to his request to enter the original
+image into the public domain or to gift it to a (media) archeological institution such as the Smithsonian.
+Remarkably, for his article in the Guardian, Comstack did manage to get a short response from both:
+John Knoll seems unconvinced: “I don't even understand what he’s doing,” he says, bristling at the idea
+of the image being reconstructed without permission (ironically using Photoshop). Jennifer is more
+sanguine: “The beauty of the internet is that people can take things, and do what they want with them, to
+project what they want or feel,” she says. 50
+And maybe even more remarkable is the fact that the article features just one image: the original Jennifer
+in Paradise photo taken by John Knoll, embedded on the newspaper’s website (and thus finally entering the
+digital domain). Albeit indirectly, Dullaart had now fulfilled one of the main goals of his solo show.
+50
+
+Comstock, Gordon. ‘Jennifer in Paradise: the story of the first Photoshopped image,’ in: The Guardian, 2014.
+see: https://www.theguardian.com/artanddesign/photography-blog/2014/jun/13/photoshop-first-image-jennifer-inparadise-photography-artefact-knoll-dullaart.
+XVIII
+
+P
+
+ique Nique pour les Inconnues
+
+Desktop video installation 2019-2020.
+
+Pique Nique pour les Inconnues considers the ways in which the history of technology has been defined by
+standardization, in particular through the use of color test cards for image processing. The work presents les
+Inconnues - unknown women whose images are linked to the history of image processing. In this work, test
+cards, bots, virtual assistants, stock photos and others find a voice, but fail to recover their personhood.
+Engineers used these female objects to evaluate the quality of image processing, rendering and
+composition of architecture and to make these latent spaces more amicable. While these women seem to be able
+to prolong their existence for as long as the (digital) realms will copy and reuse them, most of them have lost
+their name and identity. In this work, the viewer is haunted by the familiarity of these digital ghosts, while at
+the same time, privy to an uncanny experience when the historically mute images speak for the first time.
+XIX
+
+P
+
+ique Nique pour les Inconnues (2019-2020)
+
+Telegram sticker set
+A fundamental part of the history of image-processing, webdesign, and the standardization of settings within
+both analogue and digital media are test cards, placeholder images, bots, digital actroids or virtual assitants.
+Engineers use these images to evaluate the quality of image processing, the rendering and composition of the
+architecture of a (digital) space, but also simply to make latent spaces more amicable.
+However, just like the canned laughter tracks of televisions shows, that are made by real people who were
+immortalized when they lend their laughs in the 30s or 40s, these women too seem to have prolonged their
+exitence for as long as the (digital) realms will copy and reuse them. They have become a "shell without a
+ghost".
+XIII
+
+1:00 l’Inconnue de la Seine (after 1900)
+The Unknown Woman of the Seine is a death mask of an unidentified young woman that became a popular
+fixture on the walls of artists’ homes after 1900. She featured in various artists works ranging from books to
+theatre and film. But while many artists felt inspired by her borrowed visage, little but her moniker is known
+about her and she remains forever an asset with missing values.
+2:00 Audrey Munson Bust (1913-1915)
+The bust “The Spirit of Life”, by Daniel Chester French (1913-1915), inspired by ‘America’s First Supermodel’
+Audrey Munson. Munson was the inspiration for more than 12 other statures in New York City, and many,
+many others elsewhere. Chances are that when you cross a statue, it might be modelled after her.
+3:00 Color-timing control strips
+Officially known as color-timing control strips, these anonymous female film studio workers were
+affectionately dubbed "china girls" by the industry, but are also known as leader ladies or lilys. The images in
+this show were meant only for use by the processing lab to match color tones in the associated film. They were
+often film lab workers themselves.
+4:00 Miss NBC (1953)
+The onset of color television brought no big surprise; in this medium too, producers hired Caucasian ladies as
+their test models, reinforcing longstanding biases in gender and race—the only difference being that in
+television, the objectified test model was known by her real name. The red-haired model Marie McNamara, for
+instance, became known in the 1950s when she modelled to calibrate the NBC television cameras, while CBS
+used a girl named Patty Painter.
+5:00 Two Bit Teddi Smith (1961)
+Lawrence G. Roberts used two different, cropped 6-bit grayscale scanned images from Playboy's July 1960
+issue, featuring Playmate Teddi Smith, in his MIT master's thesis on image dithering.
+6:00 Carole Hersee (1967)
+Hersee is known as the face of the famous Test Card F (and latter J, W, and X), which aired on BBC Television
+from 1967 to 1998.
+More: https://beyondresolution.info/Les-Inconnues
+
+XIV
+
+Menkman, Rosa. A Vernacular of File Formats, 2010.
+see: https://beyondresolution.info/A-Vernacular-of-File-Formats (20.02.20).
+
+I
+
+n Front of the Angel of History
+
+Covered in a heavy layer of white make-up, she shot her face on a DV tape. She wished to mask her flaws, to
+be perfect. But only a short time into the shoot, the illusion shattered and she found herself forced to visit the
+emergency room. An allergic reaction to the makeup hurt her eyes violently and left her sight affected for days.
+
+B
+
+ehind the Angel of History
+Seven years after shooting the source footage for A Vernacular of File Formats: An Edit Guide for Compression
+Design (2010), it has become strange to think and refer to the image that I shot that day as a self-portrait: that
+image being my image. When I shot it, it was a symbol of my own imperfect being. I tried to be perfect like
+porcelain, at least from the outside, but my body broke out and reminded me that there is no such thing as
+perfection. Not even in make believe video.
+As I aged, it wasn’t just the cliche of time –– which healed the wounds of bloodshot eyes, and slowly
+but naturally grayed my hair –– that changed my relation to this particular shot. As time passed, the relationship
+between me and that image fundamentally changed because of other more complex and unexpected reasons.
+
+A
+
+Vernacular of File Formats
+
+A file format is an encoding system that organizes data according to a particular syntax or compression
+algorithm. The choice of a particular image compression algorithm is based on its foreseen mode and place of
+usage; therefore prompting questions such as: how much accuracy is necessary for a particular task? What hard
+or software will process the image? What data is important and what can be discarded?
+An image file format answers to certain affordances. Affordances or –– as described by James Gibson in
+1977 –– preferred object action possibilities, are created by considering settings such as speed, size and quantity
+XX
+
+as relative to each other. 51 The bigger the file, the more time it will take to read and write it from memory and
+the slower the camera will respond. As Adrian Mackenzie wrote in 2008:
+Software such as codecs possess several analytical problems. Firstly, they are monstrously complicated.
+Methodologically speaking, coming to grips with them as technical processes may entail long
+excursions into labyrinths of mathematical formalism and machine architecture, and then finding ways
+of backing out of them bringing the most relevant features. […] Second, at a phenomenological level,
+they deeply influence the very texture, flow, and materiality of sounds and images.”52
+Reverse engineering as a standardization process is thus complex, if not generally impossible. Although
+standards are often set in a way that avoids or hides all traces of testing and standardization regimes, traces can
+(re)surface in the form of flaws, inherited dogmas, or (obsolete) artifacts. Every compression algorithm comes
+with its own set of rules and compromises, which, even though often invisible, influence our media on a
+fundamental, meaningful, and often compromising level. In A Vernacular of File Formats, I explore and
+uncover these otherwise hidden protocols and standards. Through a series of corrupted self-portraits, I illustrate
+the language of compression algorithms. A Vernacular of File Formats consists of one source image, the
+original portrait, and an arrangement of recompressed and disturbed iterations. By compressing the source
+image using different compression languages and subsequently implementing the same (or similar) error into
+each file, the normally invisible compression language presents itself on the surface of the image. Besides every
+iteration of the image I also try to give an explanation of how I disrupted the image and the basic affordances of
+the compression responsible for its aesthetic outcome. In doing so, A Vernacular of File Formats was not only a
+start for my ongoing research into the politics of file formats and their inherent resolutions, but is also a
+51 Gibson, James J. The ecological approach to visual perception: classic edition. Psychology Press, 2014.
+52
+
+Mackenzie, Adrian: Codecs, in: Fuller, Matthew, ed. Software studies: A lexicon. Mit Press, 2008: p. 48-54.
+XXI
+
+thesaurus, or handbook, for glitch aesthetics –– the aesthetics of digitally disturbed imagery.
+After releasing A Vernacular of File Formats, these images initially circulated quite naturally, following
+the random flow of the Internet. Some of them were republished with consent or attribution, others were badly
+copied without attribution. Once in a while, I found my face as a profile picture on someone else’s social media
+account. It became clear that particular iterations of the self-portrait had quite a bit more traction than others;
+these got frequent requests and pulls and were featured on the covers of books, magazines and online music
+releases. One of the images became a mascot for a festival in Valencia, included in a poster campaign
+throughout the city.
+It was only some years after the release of A Vernacular of File Formats that the displacement of the
+portrait made me rethink my relation to the image. The first time this happened was when I read a description
+of the work in a piece by Kevin Benisvy, at the time a student at the University of Massachusetts. Benisvy
+writes that the protagonist is presented in the act of brushing her hair, with an almost “come hither” expression,
+as if caught by surprise, having an intimate moment in a Playboy erotic fiction. 53 I never considered the image
+erotic, to me, the image contains painful memories –– being, after all, a documentation of me losing my vision
+for a certain amount of time. Reading this gave me insight into the various readings the image could evoke.
+Soon after, a sequence of nonconsensual, non-attributed instances of exploitation appeared: the face
+became an embellishment for cheap internet trinkets such as mugs and sweaters; was featured on the cover of a
+vinyl record by Phon.o released by the Berlin label BPitch Control; an application button for two proprietary
+glitch software apps for iPhone and Android; as an outline for the face of Yung Joey (a rapper who
+photoshopped his face onto mine), and was also used in a sponsorship campaign for a Hollywood movie about
+a woman being stalked; to name just a few surprising appearances. 54 The image, exploited by artists and
+creators alike, started to lose its connection to the source –– to me –– becoming the portrait of no one in
+particular, a specter, similar to a Shirley test image, though in this case, a Shirley for de-calibration.
+During the winter of 2016 –– six years after the creation of A Vernacular of File Formats –– the
+Vernacular was invited to be part of a large-scale, joint acquisition of Stedelijk Museum Amsterdam and
+MOTI.55 After thorough consideration, the institutions agreed that the best format for the purchase would be the
+full archive of digital files, which consists of over 16GB of data (661 files), including the original and glitched,
+53
+
+Benisvy, Kevin. ‘The Queer Identity and Glitch: Deconstructing Transparency,’ 2012.
+http://www.kevinbenisvy.com/sites/default/files/2012%20-%20The%20Queer%20Identity%20and%20Glitch.pdf
+(site discontinued)
+54 I have been in touch with both Phon.o and the creators of the sponsorship campaign after their respective releases, and
+
+now have my consent for using the image.
+55
+
+Press Release: AANKOOP 17 TOPWERKEN DOOR STEDELIJK EN MOTI Nieuws — 15 dec 2016. Stedelijk
+Museum Amsterdam. see: https://www.stedelijk.nl/nl/nieuws/aankopen-stedelijk-en-MOTI (20.02.20).
+XXII
+
+or broken image files, the PDF, videos, documentation and a collection of (unsolicited) appropriations. While
+the whole collection now remains in the archive of the Stedelijk, A Vernacular of File Formats will also remain
+freely available online, inviting artists and designers to use the files as source footage for their own work and
+research, following the spirit of COPY < IT > RIGHT !:
+First, it’s okay to copy! Believe in the process of copying as much as you can; with all your heart is a
+good place to start – get into it as straight and honestly as possible. Copying is as good (I think better
+from this vector-view) as any other way of getting‚ “there.”56
+
+S
+
+pecters Controlling Our Imaging Technologies
+
+By now it should be clear that while taking an image of the face and saving it to memory seems like a simple,
+straightforward act, in fact a large set of protocols and standards intervene in the processes of saving the image
+to memory –– including, but not limited to: scaling, reordering, decomposing, and reconstituting image data.
+All of which is directed toward certain affordances, which cater to techno-conventional, political and
+historically biased settings often geared primarily to efficiency. Some of these biases can be traced back to the
+history of the color test card; a history which can offer an insightful perspective on how image compression
+standards have come to exist.
+The first color test cards were developed almost a century ago. They would feature a Caucasian,
+anonymous, brightly-dressed girl, smiling in a friendly way at the camera. Throughout the many legacies and
+histories of image processing –– including, but not limited to analogue photography, film, television, the JPEG
+algorithm and even Photoshop effects –– this trope grew into a habitual racial bias, violently lodged under the
+fold of efficient image processing. The habitual use of Caucasian test cards –– such as the Lena photo –– led to
+the development of certain affordances in the compression algorithm scaling; sometimes even cutting away
+image data. It is important to be aware that a bias does not just influence the final rendering of the image; the
+bias also exists in what a technology does not show: what it obscures or obfuscates and what image data simply
+deletes. The Shirleys, but more importantly the technicians that implemented the use of these Shirleys or color
+reference cards, cast white shadows: patches of unregistered information during image processing. And while
+artists such as Hito Steyerl or Constant Dullaart make an effort to spread awareness around the biases and
+habits that are embedded in the histories of resolutions, even today, a history of these specters influences our
+images –– albeit often invisibly from the perspective of the unaware observer.
+Six years after releasing A Vernacular of File Formats, and after close study of some of the histories of
+56
+
+Morton, Phil. ‘Distribution Religion,’ 1973, republished in: Re:Copying-IT-RIGHT-AGAIN. Relive: Media Art
+Histories, ed. Jon Cates. MIT Press, 2013: p. 337.
+see: http://criticalartware.net/DistributionReligion/DistributionReligion.pdf
+XXIII
+
+Menkman, Rosa: A Color Test Card for Image De-calibration, BLINX 1.
+From: A Vernacular of File Formats, 2011. published in Vogue 2018.
+
+standardization and resolution setting, I realize that by using my own face as a Shirley card for de-calibration, I
+unintentionally aligned myself with the historical trope of the Caucasian test card. Just as Jeff Seidemann once
+said about Lena: when you use a picture often, it becomes merely pixels 57–– my face had become just pixels, or
+even, I had simply lost my face: it no longer belonged to me, but had become an anonymous image, ready for
+co-optation.
+Today I believe that one way to make the habitual whiteness of color test cards more apparent, is by
+insisting that these standard images that often are trapped in the histories of our technologies, become part of
+the public domain. These images need to lose their elusive power. The stories of standardization belong in high
+school textbooks, and the possible violence of standardization should be studied in any curriculum. By
+illuminating the histories of standardization, we will also see its white shadows.
+57
+
+Iozzo, Corinne. ‘The Playboy Centerfold That Helped Create the JPEG. The story of a 1970s computer-science lab, a
+spare magazine, and one model’s unlikely technological legacy,’ in: The Atlantic, 2016.
+XXIV
+
+3
+
+65 Perfect Decalibration (2020)
+
+Archival prints (5)
+In 365 Perfect, Menkman turns to mobile imaging softwares. 365 Perfect is “the best FREE virtual makeup app,
+period. It’s like having a glam squad in your pocket” - or so states the software. In this humorous, yet
+discomforting work, Menkman layers the standard features of beautifying software on her own image,
+enlarging her eyes, deleting blemishes and enhancing features, until the original face is nearly unrecognizable.
+Over and over, Menkman alters her likeness, seemingly to make herself appear more conventionally beautiful
+and more “perfect”. Saving her image at every new iteration, she arrives at a re-compressed pixelated JPEG,
+and a grotesque, if not almost inhuman self-portrait.
+365 Perfect is not only a commentary on the relationship between mobile technology and the beauty industry,
+but a careful exploration of resolution loss, and the visual artifacts that are created as a result.
+
+IX
+
+U
+
+nresolved (2020)
+
+64 meters, 32x32x2 pixel file mounted on hardware
+Inspired by the 2011 work Beyond Yes and No, by new
+media artist Beflix, Unresolved explores an alternative
+method of visualising data.
+Reproducing two 32x32 pixel bitmap images,
+Menkman painted a 64 meter long tape, and then
+mounted the double sided work on hardware (a
+wooden frame).
+Unresolved presents an image on one side and a jpeg
+compression on the other. The work illustrates that
+bitmap images are merely string of data that can be
+copied, pasted and otherwise altered. Through this
+work, Menkman explores the ways in which a bitmap
+file, when opened in different formats, can create
+alternate modes of reading.
+
+X
+
+LXVII
+
+Not requested on rider:
+Setup during the night of the unexpected.
+1. Sound from Knalpot into circuit bent video mixer
+A. Analogue to HDMI converter
+2. Video mixer to subtitler
+B. Russian video police
+3. Canopus 110 (RCA to DV for computer)
+C. A black screen, ‘cleaned’ for better reflection
+4. Midi controller
+5. VGA to RCA converter
+[in: computer VGA. 2x out: to projector and to video mixer, to generate a feedback loop]
+6. Feedback loop into circuit bent video mixer, mixed with sound from Knalpot
+I
+
+T
+
+he Night of the Unexpected
+
+In February 2013, I was invited to play a concert with the Dutch band Knalpot during The Night of the
+Unexpected, which was to take place October, of the same year, in Moscow. The invitation came from the
+Russian government as part of a celebration of 100 years of trade with the Netherlands. Coincidentally, the
+event was timed just after the implementation of a federal law passed on June 29, 2013, banning all
+“propaganda” about non-traditional sexual relationships. Given the circumstances, and with international
+stipulations about boycotting the country, the question of artistic participation was starkly raised. Needing the
+money and not feeling comfortable cancelling an event that me and Knalpot had been working on for quite
+some months, I did not cancel –– although in hindsight maybe I should have.
+A mediator working for the Dutch embassy in Moscow helped us through the process of obtaining our
+visa. Besides the normal requests, he demanded a map of my setup, a rider (the list of technological needs – I
+requested an RCA (analog) connection and a list of gear. He also spoke about permitted AV behavior,
+referencing the new ban on propaganda. I had to explain my intentions, describing the generation of synced live
+video, by using the sound of Knalpot.
+The Night of the Unexpected arrived. The venue was large and we set up in the middle on an island built
+of scaffolding. A big projector graced the prow of our island, pointing at a professionally suspended black
+screen. A technician handed me HDMI (digital, not the requested analogue RCA), and an analog-to-digital
+converter. Surprised by a seemingly rapid accumulation of problems, I turned to the event’s producer:
+< Where will I project?
+> This is the screen (pointing at the black screen)
+< Ah I see…
+I need to project on a white screen, will there be a white screen?
+> In your rider it did not specify a white screen.
+< A black screen will not reflect the light; it will absorb light, which means the projection will not show.
+I think we really need a white screen.
+> I ordered the best technology in Moscow. It is the most expensive.
+(silence)
+< Can I show you what I mean? We can test it by projecting onto it.
+… Could I please have the RCA I requested in my rider?
+> (producer points at HDMI cable and analog-to-digital converter)
+We have this for you. It’s better, it’s digital.
+< Oh…
+II
+
+I requested analogue out. It is better for me.
+> HDMI is better resolution.
+< I need to send my analogue output unconverted, from my synthesizer to the projector, to keep it
+untransformed and synced with the music the band is playing.
+> Analogue is not possible. We have HDMI.
+With none of my initial issues resolved I entered the rehearsal only to encounter an even bigger problem: in the
+corner of the island, next to a video server, a Russian video engineer (member of what I would dub the
+“Russian video police”) was screening my live video for offensive content, taking the liberty to overlay or even
+cut my stream at any time. The digital video server of the Russian video police digitized my analog and synced
+the video stream, not only corrupting its intrinsic analogue qualities by replacing analogue scanning (line)
+artifacts with digital macroblocks –– introducing an aspect ratio conflict (the video got stretched) –– but also its
+timing, by adding a two-second delay. By the end of this process, my performance became a barely visible, unsynced and wrangled disaster.
+
+R
+
+esolving the Image Off-Screen
+
+I then realized that even though a screen often illuminates a situation, what happens beyond the screen is
+obscured by that same screen. The screen acts as a veil, covering one part of the technology as a Japanese Shoji
+screen divides a room, concealing (most of) the technological processes involved in resolving the image. 58
+Further, it demonstrated shortcomings in my use and understanding of the term resolution. During the
+performance the differences between the resolved image on the black screen visible to the audience, and the
+image resolved on my check monitor differed not just in terms of brightness or aspect ratio, but also in terms of
+aesthetics, timing, and most importantly, in terms of power.
+Thus, the term resolution needs to be expanded to encompass more than just the dimensions of the screen
+or display –– a final resolution is, after all, not just a matter of width and height. A critical reflection of a
+screens’ resolution considers the technological procedures and trade-offs a programmer or artist has to deal with
+58
+
+Shoji screens are made of a traditional paper called washi, consisting of fibers from the kozo tree. Washi paper has a
+specific thinness that allows just the right amount of light to go through: “By changing the fiber direction and thickness,
+washi can control two opposing optical factors such as reflection rate and transparency. Shoji’s paper surface scatters
+sunlight evenly, making it soft to the eye and allowing light to distribute evenly. […] Even at night, Shoji screens help
+light a room as their white surface reflects indoor light and brightens the room. Shoji paper is thus quite remarkable: it has
+no glare problem, maintains privacy, and allows the light to enter in a pleasant way.”
+Sukiya Living Magazine, “Shoji Screens,” 2004.
+see: http://www.rothteien.com/superbait/shojiscreens.htm
+III
+
+beyond (or behind) the screen, i.e., the power relations and standardizations involved in creating or resolving a
+final image on the screen. In his thesis Movie/ Cinema: Rearrangements of the Apparatus in Contemporary
+Movie Circulation, Gabriel Menotti Miglio Pinto Gonring writes:
+Screens are normally treated as mere flat surfaces, composed of only height and width. One talks about
+their area, aspect ratio and resolution, as if these characteristics were all that mattered to the screen.
+Nevertheless, to be able to hold an image, the screen must have some density and in order to be dense,
+the screen has to be thick. Given this implies solidity and opacity, the thickness accounts for the most
+material aspect of the screen. It means that, if it is in the wrong position, the screen can actually hide the
+image from the gaze. 59
+The question is, what is this depth of the screen and what does it obfuscate and show –– what, in other words,
+are the qualities and compromises of the process of resolving the image on and off-screen?
+
+59
+
+Gonring, Gabriel Menotti Miglio Pinto, Movie / Cinema: Rearrangements of the Apparatus in Contemporary Movie
+Circulation. Doctoral thesis, Goldsmiths, University of London, 2011: p. 227.
+see: http://research.gold.ac.uk/6604/ (20.02.20)
+IV
+
+R
+
+efuse to Let the Syntaxes of (a) History Direct Our Futures
+
+M
+
+oving Beyond Resolution
+I wish I could open Google image search, query “rainbow,” and simply listen to any image of a rainbow Google
+has to offer me. I wish I could add textures to my fonts and that I could embed within such text videos that
+would play at particular moments. I wish I could render and present my videos as circles, pentagons and other
+more organic manifolds. If I could do these things I believe my use of the computer would be different: I would
+create modular relationships between my text files and my videos would have uneven corners, multiple time
+
+Screenshot of QTzrk (2011) by Jon Satrom
+I
+
+In 2011, Chicago glitch artist Jon Satrom released the video installation QTzrk. Technically, QTzrk consists
+primarily of two video elements. The first element, a 16:9 video, captured from a desktop perspective features
+a movie.mov file. The movie.mov is shown on top of the desktop, an environment deconstructed by QTzrk.
+The second type of video elements are Qtlets: smaller, looped videos, which are not quadrilateral. QTlets are
+constructed and opened via a now obsolete option in Quicktime 7 software. Using this option, Satrom
+employed a mask to change the shape of the otherwise four-cornered videos, transforming them into “video
+shards.” QTlet elements are featured in Qtzrk, but are also released as stand-alone downloadables, available
+on Satrom’s website. Unfortunately, they no longer play properly on recent versions of Mac OS X as the
+masking option is now obsolete, which makes playing these files a challenge.
+Story-wise, QTzrk begins when the movie.mov file is clicked. It opens inside a Quicktime 7 player, on
+top of what will later become visible as a clean desktop without a menu bar. Movie.mov shows a slow motion
+nature video of a great white shark jumping out of the ocean. Suddenly, a pointer clicks the pause button on
+the interface, and the Great White Shark turns into a fluid video, leaking out of the Quicktime 7 movie.mov
+interface. The shark folds up in a kludgy pile of video, resting on the bottom of the desktop, still playing, but
+now in a messily folded way. The Quicktime 7 movie.mov window changes into what looks like a terminal
+and is then commanded to save itself as a QTlet named “shark_pile.” The shark_pile is picked up by a mouse
+pointer, which kind of performs like an invisible hand, hovering the pile over the desktop, finally dropping it
+back into the Quicktime window, which now shows line after line of mojibake data. This action –– dropping
+the shark_pile inside the Quicktime window –– seems to be the trigger for the desktop environment to
+collapse.
+The Quicktime player breaks apart, no longer adhering to its quadrilateral shape, it now assumes the
+form of a second, downloadable, QTlet. On the desktop, 35 screenshots of the shark frame appear. A final
+new QTlet is introduced, this one consists of groups of screenshots, which when opened show glitched png
+files. These clusters themselves transform into new video sequences (a third downloadable QTlet), adding
+more layers to the collage. By now the original movie.mov seems to slowly disappear in the desktop
+background –– itself featuring a data-moshed shark video (data-moshing is the colloquial term for the
+purposeful deconstruction of an .mpeg, or any other video compression using intraframe/keyframe standards).
+After a minute of noisy droning of the QTlets on top of a data-moshed shark, the desktop suddenly starts to
+zoom out, revealing one Quicktime 7 window inside the next. Finally, the cursor clicks the close button in the
+Quicktime 7 interface, ending the presentation and revealing a clean white desktop with just the one
+movie. mov file icon in the middle. Just when the pointer is about to reopen the movie.mov file, and start the
+loop all over again, QTzrk ends.
+TITLE: QTzrk — DIMENSIONS: expandable/variable — MATERIALS: QuickTime 7
+YEAR: 2011 — PRICE: FREE
+II
+
+lines and changing soundtracks. In short, I think my computational experience could be much more like an
+integrated collage if my operating system would allow me to make it so.
+The installation, consisting of four different video loops, introduced me to both the genre of desktop
+film and to non-quadrilateral video technology. As such, it left me both shocked and inspired. So much so that,
+in 2012, inspired by Satrom’s work, I set out to build Compress Process, an application that would make it
+possible to navigate video inside a 3D environment. I too wanted to stretch the limits of video, especially
+beyond its quadrilateral frame. However, upon release of Compress Process, Wired magazine reviewed my
+video experiment, calling it a “flopped video game.” 60 Ironically, the Wired reporter could not imagine video
+existing outside the confines of its traditional two-dimensional, flat, and standardized interface. From his point
+of view, this other resolution, 3D, signified a specific categorization of the work as a game rather than a video
+application and as such, it was reviewed (and burned) as ‘a flop’.
+This type of imposition on the interface is extensively described by NYU new media professor
+Alexander Galloway in his book The Interface Effect. Galloway writes that “an interface is not a thing, an
+interface is always an effect. It is always a process or a translation.”61 The interface thus always becomes part of
+the process of reading, translating and understanding of our mediated experiences. When considered in this
+light, one can make sense of the reviewer's reaction to Compress Process. Such a situation prompts the question
+of whether it is at all possible to escape the normative or habitual interpretation of the interface?
+As Wendy Hui Kyong Chun writes, “New media exist at the bleeding edge of obsolescence. […] We are
+forever trying to catch up, updating to remain (close to) the same.” 62 Today, the speed of the upgrade has
+become incommensurable: new upgrades arrive too fast and even seem to exploit this speed as a way to obscure
+their new options, interfaces, and (im)possibilities. Because of the speed of the upgrade, remaining the same, or
+using technology in a continuous manner, has become a mere aspiration. Chun’s argument seems to echo what
+Deleuze had already described in his 'Postscript on the Societies of Control’:
+Capitalism is no longer involved in production […] Thus it is essentially dispersive, and the
+factory has given way to the corporation. The family, the school, the army, the factory are no
+longer the distinct analogical spaces that converge toward an owner –– state or private power
+–– but coded figures –– deformable and transformable –– of a single corporation that now has
+only stockholders. […] The conquests of the market are made by grabbing control and no
+
+60
+
+Klatt, Oliver. ‘Compress Process’ in: Wired Germany edition, January 2013: p. 106–107.
+
+61 Galloway, Alexander R. The Interface Effect. Cambridge: Polity Press, 2012: p. 33.
+62
+
+Chun, Wendy Hui Kyong. Updating to Remain the Same: Habitual New Media. Cambridge: MIT Press, 2016: p. 1.
+III
+
+longer by disciplinary training, by fixing the exchange rate much more than by lowering
+costs, by transformation of the product more than by specialization of production.63
+In other words, the continuous imposition of the upgrade demands a form of control over the user, leaving them
+with a sense of freedom, while they effectively become more and more restricted in their practices. Today, the
+field of image processing forces almost all formats to follow quadrilateral, ecology dependent, standard
+(re)solutions, which result in trade-offs (compromises) between settings that manage speed and functionality
+(bandwidth, control, power, efficiency, fidelity), while at the same time considering claims in the realms of
+value vs. storage, processing, and transmission. At a time when image-processing technologies function as
+black boxes, we desperately need to research, reflect, and re-evaluate our technologies of obfuscation. Yet,
+institutions –– schools and publications alike – appear to consider the same old settings over and over, without
+critically analyzing or deconstructing the programs, problems, and possibilities that come with newer media. As
+a result, there exists no support for the study of (the setting of) alternative resolutions. Users just learn to copy
+the use of the interface, to paste data and replicate information, but they no longer question, or learn to
+question, their standard formats.
+Mike Judge made some alarming forecasts in his 2006 science fiction comedy film Idiocracy, which,
+albeit indirectly, echos science fiction writer Philip K. Dick’s dystopian short story ‘Pay for the Printer’ (1956).
+In an era in which printers print printers, everything slowly resolves into useless mush and kipple. In a way, we
+have to realize that if we do not approach our resolutions analytically, the next generation of our species will
+likely be discombobulated by digital generation loss –– a loss of fidelity in resolutions between subsequent
+copies and trans-copies of a source. As a result, daily life will turn into obeying the rules of institutionalized
+programs, while the user will end up only producing monotonous output.
+In order to find new, alternative resolutions and to stay open to refreshing, stimulating content, I need to
+ask myself: do I, as a user, consumer, and producer of data and information, depend only on my conditioning
+and the resolutions that are imposed on me, or is it possible for me to create new resolutions? Can I escape the
+interface, or does every decontextualized materiality immediately get re-contextualized inside another, already
+existing, paradigm or interface? How can these kinds of connections block or obscure intelligible reading, or
+actually offer me a new context to resolve information? Together these questions set up a pressing research
+agenda but also a possible future beyond monotonous data. In order to try to find an answer to any of these
+questions, I will need to start at the beginning with a genealogy of the term resolution.
+
+63
+
+Deleuze, Gilles, ‘Postscript on the Societies of Control,’ in: October, (no.59, Winter 1992): p. 3–7.
+IV
+
+O
+
+ptical Resolution
+
+To really get an insight into the complexity of resolution, I would like to use this section to describe some
+fundamental principles at the core of the basic formula for angular resolution, which hail from physics.
+Although they simply concern what the minimum angle necessary is to discern two points from each other, a
+much greater complexity is faced when such a formula is transposed into the realms of technology.
+In 1877, the English physicist John William Strutt succeeded his father to become the third Baron
+Rayleigh. While Rayleigh’s most notable accomplishment was the discovery of the inert (not chemically
+reactive) gas argon in 1895, for which he earned a Nobel Prize in 1904, Rayleigh also worked in the field of
+optics. Here he wrote a criterion that is still used today for quantifying angular resolution: the minimum angle
+at which a point of view still resolves two points, or the minimum angle at which two points become visible
+independently from each other. In an 1879 paragraph titled ‘Resolving, or Separating, Power of Optical
+Instruments,’ Lord Rayleigh writes: “According to the principles of common optics, there is no limit to
+resolving-power [of an instrument].” 64 But in a paper written between 1881 and 1887, Rayleigh asks: ‘How is it
+[…] that the power of the microscope is subject to an absolute limit […]? The answer requires us to go behind
+the approximate doctrine of rays, on which common optics is built, and to take into consideration the finite
+character of the wave-length of light.” 65
+When it comes to straightforward optical systems that consider light rays only from a limited spectrum,
+Rayleigh was right: in order to quantify the resolution of these optical systems, the contrast –– i.e. the amount
+of difference between the maximum and minimum intensity of light visible within the space between two
+objects –– is indispensable. Just like a white line on a white sheet of paper needs contrast to be visible (to be
+resolved), it will not be possible to distinguish between two objects when there is no contrast between these two
+objects. Contrast between details defines the degree of visibility, and thus resolution: no contrast will result in
+no resolution.
+But the contrast between two points, and thus the minimum resolution, is contingent on the wavelength
+of the light and any possible diffraction patterns between those two points in the image. The ring-shaped
+diffraction pattern of a point light (a light source), known as an Airy Pattern (named after George Biddell Airy),
+is the result of diffraction and is characterized by the wavelength of light illuminating a circular aperture. When
+two light points are moved into close proximity –– so close that the first Airy disk’s zero crossing falls inside
+the second Airy disk’s zero crossing –– the oscillation within the Airy Patterns will cancel most contrast of light
+
+64 Rayleigh, Lord, ‘XXXI. Investigations in Optics, with Special Reference to the Spectroscope,’ in: The London,
+
+Edinburgh, and Dublin Philosophical Magazine and Journal of Science, (no. 8, 1879): p. 261–74.
+65
+
+John William Strutt, Baron Rayleigh, ‘On the electromagnetic theory of light,’ in: Scientific Papers, Vol II, 1881–1887.
+Cambridge University Press, 1900: p. 410.
+V
+
+(a) Two monochromatic light sources pass through a small circular aperture and produces a diffraction pattern. (b) Two point light
+sources that are close to one another produce overlapping images because of diffraction. (c) Two light sources move so close together,
+that they cannot be resolved or distinguished.
+
+between them. As a result, the two points will optically be blurred together, no matter the lens’ resolving power.
+Thus: even the biggest imaginable telescope has limited resolving power.
+Rayleigh described this effect in his Rayleigh criterion, which states that two points can be resolved
+when the center of the diffraction pattern of one point falls just outside the first minimum diffraction pattern of
+the other. When considered through circular aperture, Rayleigh states that it is possible to calculate the
+minimum angular resolution (the minimum distance between two points or light sources) as:
+θ = 1.22 λ / D
+
+In this formula, θ stands for angular resolution (which is measured in radians), λ stands for the wavelength of
+the light used in the system (blue light has a shorter wavelength, which will result in a better resolution), and D
+stands for the diameter of the lens’ aperture (the hole with a diameter through which the light travels). Aperture
+is a measure of a lens’ ability to gather light and resolve fine specimen detail at a fixed object distance.
+VI
+
+A smaller resolution thus means there is a smaller resolution angle (and thus less space) necessary
+between the resolved dots. However, real optical systems are complex and suffer from aberrations, flaws in the
+optical system and practical difficulties such as specimen quality. Besides this, in reality, most often, two dots
+radiate or reflect light at different levels of intensity. This means that in practice the resolution of an optical
+system is always higher (worse) than its calculable minimum.
+All technologies have a limited optical resolution, which depends on, for instance, aperture, wavelength,
+contrast and angular resolution. When the optical technology is more complex, the actors that are involved in
+determining the minimal resolution of the technology become more diverse and the setting of resolution
+changes into a more elaborate process. In microscopy, just like in any other optical technology, angular and
+lateral resolution refer to the minimum amount of distance needed (measured in rads or in meters) between two
+objects, such as dots, that still make it possible to tell them apart. However, a rewritten mathematical formula
+defines the theoretical resolving power in microscopy as:
+dmin = 1.22 x λ / NA
+
+In this formula, dmin stands for the minimal distance two dots need from each other to be resolved, i.e. their
+minimal resolution. λ stands again for the wavelength of light. In the formula for microscopy, however, the
+diameter of the lens’ aperture (D) is swapped with NA, or numerical aperture, which consists of a mathematical
+calculation of the light-gathering capabilities of a lens. In microscopy, this is the sum of the aperture of an
+objective and the diaphragm of the condenser, which have set values per microscope. Resolution in microscopy
+is thus determined by certain physical parameters that not only include the wavelength of light, but also the
+light-gathering power of the objective and the lenses.
+The definition of resolution in this second formula is expanded to also include the attributed settings of
+strength, accuracy, or power of the material agents that are involved in resolving the image: the objective,
+condenser and lenses. At first sight, this might seem like a minimal expansion and lead to the dismissal of a
+simple rephrasing or rewriting of the earlier formula for angular resolution. However, the expansion of the
+formula with just one specific material agent, the diaphragm, and the attribution of certain values of this
+material agent (which are often determined in increments rather than a fluid spectrum of values) is actually an
+important step that illustrates how technology gains complexity. Every time a new agent is added to the
+equation, the agent introduces complexity by adding their own rules or possible settings; involving or
+influencing the behavior of all other material agents. Moreover, the affordances of these technologies, or the
+clues inherent to how the technology is built to tell a user how it can or should be used, also play a role that
+intensifies the complexity of the resolution of the final output. As James J. Gibson writes, “affordances are
+
+VII
+
+properties of things taken with reference to an observer but not properties of the experiences of the observer.”66
+In 1975, Estes and Simonett describe resolution in their paper 'Fundamentals of Image Interpretation' as
+the ability of an imaging system […] to record fine detail in a distinguishable manner. 67 While
+resolution is often understood in terms of spatial resolution –– the fineness of the details visible in an
+image –– but there are many different types of resolution: temporal resolution (the speed of the
+sequence in which images are recorded) or radiometric resolution –– the recording of different levels of
+brightness. Users can decide on the trade-offs between different types of resolution, for instance - a high
+temporal resolution might result in a lower range in brightness, while high contrast favours recording of
+fine spatial detail. “In very broad terms, resolution refers to the ability of a […] sensing system to record
+and display fine spatial, spectral, and radiometric detail.” A working knowledge of resolution is essential
+for understanding both practical and conceptual aspects of […] sensing. 68
+Our understanding, or lack of understanding, of resolution may be the limiting factor in our efforts to use data
+and understand its underlying value systems. In photography, for instance, the higher the aperture, the shallower
+the depth of field, the closer the lens needs to come to the object. This also introduces new possibilities for
+failure: if the diaphragm does not afford an appropriate setting for a particular equation, it might not be possible
+to resolve the image at all –– the imaging technology might simply refuse or even state an ‘unsupported setting’
+error message; in which case the technological assemblage will refuse to resolve an image entirely –– the
+foreclosure of an abnormal option rather than an impossibility. Thus, the properties of the technological
+assemblage that the user handles, the affordances, add complexity to the setting of a resolution.
+
+A
+
+spect Ratio, Resolution, and Resolving Power
+
+In optical systems, the quality of the rendered image depends on the resolving power and acutance of the
+technological assemblage that renders the image; the (reflected) light of the source or subject that is captured;
+and the context and conditions in which the image is recorded. Consider, for instance, how different objects
+(lens, film, image sensor, compression algorithm) have to weigh (or dispute) between standard settings (frame
+rate, aperture, ISO, number of pixels and pixel aspect ratio, color encoding scheme, or weight in mbps), while
+66
+
+Gibson, James J. The Ecological Approach to Visual Perception. Hillsdale, NJ: Lawrence Erlbaum, 1986.
+see: http://smithiesdesign.com/wp-content/uploads/2016/09/05-Gibson-Theory-of-affordances.pdf.
+67 Estes, John E., and David S. Simonett. 'Fundamentals of image interpretation - Manual of remote sensing,’ in:
+
+American Society of Photogrammetry (1975): p. 879.
+68
+
+Campbell, James B. and Randolph H. Wynne. Introduction to Remote Sensing. New York: Guilford Press, 2011: p. 285.
+VIII
+
+Supercritical (2019) by UCNV: Video displayed on a monitor with high resolving power. Due to the down scaling of the source
+material, heavy interpolation artifacts and as a result, moire appeared. What is finally resolved is a HD, high acutance video with low
+fidelity.
+
+also having to evaluate the technologies’ possible affordances: the possible settings the mediating technological
+architecture offers when connecting or composing these objects and settings. Finally, the resolving power is an
+objective measure of resolution, which can, for instance, be measured in horizontal lines (horizontal resolution)
+and vertical lines (vertical resolution), line pairs or cycles per millimeter. The image acutance refers to a
+measure of sharpness of the edge contrast of the image and is measured following a gradient. A high acutance
+means a cleaner edge between two details while a low acutance means a soft or blurry edge.
+Following this definition of optical resolution, digital resolution should –– in theory –– also refer to the
+pixel density of the image on display, written as the number of pixels per area (in ppi or ppcm) and maybe
+extended to consider the apparatus, its affordances, and settings (such as pixel aspect ratio or color encoding
+
+IX
+
+schemes).69 However, in an everyday use of the term, the meaning of digital resolution is constantly confused
+or conflated to simply refer to a display’s standardized output or graphics display resolution: the number of
+distinct pixels the display features in each dimension (width and height). As a result, resolution has become an
+ambiguous term that no longer reflects the quality of the content that is on display. The use of the word
+‘resolution’ in this context is a misnomer, since the number of pixels in each dimension of the display (e.g. 1920
+× 1080) says absolutely nothing about the actual pixel density: the pixels per unit or the quality of the content
+on display, which may in fact be zoomed, stretched, letter-boxed or incorrectly color encoded, to fit the standard
+display resolution.
+Moreover, by following a genealogy of the screen, one will find that this quantitative measurement of the
+quadrilateral screen has lost all references to its origins: early cathode ray tubes (CRTs) were circular. This was
+because the electron guns that shoot electron beams at the screen are stronger when made in a round shape. As
+to fit the picture better to the rectangular grid of the raster scan, television tubes gradually became rectangular. 70
+While projection mapping hardware and software can be used to turn irregularly shaped objects into a display
+or controlled surface for video projection –– regardless of the size or shape of their content –– 99% of all digital
+screens are still quadrilateral and follow a standard shape and aspect ratio.
+Besides the historical lineage of the cathode ray tube screen, another reason for the now consistent
+quadrilateral shape is that most screens are produced in China where Plasma, LCD, LED and OLED screens are
+cut from large sheets in a line and en masse. Only recently exceptions to the quadrilateral frame have slowly
+been invading the market. For instance, the flexible LED screen, the holographic led fan display, or the LED
+screens that are constructed out of multiple panels or strips, which can be clicked and connected together
+irregularly.
+But we are not entirely stuck in the box: with the release of the iPhone X in late 2017, a new future for the
+(non-quadrilateral) screen came to the market: the iPhone “Super Retina display” features not just rounded
+corners, but a “notch”: a cut-out for the housing of its sensors. Funny enough, in Apple's Human Interface
+Guidelines, the brand advises its developers to establish the notch trademark as follows: “Don’t mask or call
+special attention to key display features. Don't attempt to hide the device's rounded corners, sensor housing, or
+indicator for accessing the Home screen by placing black bars at the top and bottom of the screen. Don't use
+69 The importance of the resolution of color encoding has been described in detail by Carolyn Kane in her book:
+
+Kane, Carolyn. Chromatic Algorithms: Synthetic Color, Computer Art, and Aesthetics after Code. Chicago: University of
+Chicago Press, 2014.
+70
+
+On a side-note, a recent wave of children's Sci-Fi movies re-introduced circular and elliptical (or non quadrilateral)
+screens; a resolution that could be read as a reference to the now often forgotten electronic history of the (round) screen,
+such as in spy and radar technologies.
+Examples of this can be found in my Lexicon of Glitch Affect (2019)
+see: https://beyondresolution.info/A-Lexicon-of-Glitch-Affect (20.02.20)
+X
+
+visual adornments like brackets, bezels, shapes, or instructional text to call special attention to these areas,
+either.”71 A story of how compromise became a feature...
+Even so, the shape and proportions of the digital screen or the frame in which the screen rests, are still
+most often quadrilateral. Although there are many possible different aspect ratios and resolutions, there are only
+a few standard aspect ratios and resolutions. The aspect ratio of a standard home screen in 2018 was16:9, while
+its predecessor (before 2010) was 4:3. Despite experimentation within the fields of cinema and video, generally,
+screens are confined to these two aspect ratios. When content does not fit the aspect ratio of the screen, a
+technique called letterboxing or "stylized pillarboxing" may be used, adding black or blurred bars on both sides,
+to center and make the content fit or fill the screen. Only in 2018, did the YouTube Player window give up its
+rigid –– and quite artificial –– default aspect ratio. From then on videos would no longer be scaled into a 16:9
+playback mask, instead adapting to the dimensions of a clip. A video in 4:3 is no longer played with black bars
+on the side, but rather uses the full available width or height. This might have been to give way for the growing
+popularity of vertical video, or the come back of the nostalgic 4:3 format.
+We can see from this example of Youtube pillar-boxing, how often historical settings either ossify as
+requirements or de facto norms, or are notated as de jure, legally binding, standards by organizations such as
+the International Organization for Standardization (ISO). While this makes the process of resolving an image
+less complex –– systematizing parts of the process –– ultimately it also makes the process less transparent and
+more black-boxed. And it is not only institutions such as ISO that program, encode, and regulate (standardize)
+the flows of data in and between our technologies, or that arrange the data in our machines following systems
+that underline efficiency or functionality. In fact, data is organized following either protocol or proprietary
+standards developed by technological oligarchs to include all kinds of inefficiencies that the user is not
+conditioned or even supposed to see, think, or question. These proprietary standards function as a form of
+control. By re-encapsulating our information inside various wrappers that (re-)encode, edit, and even deform
+our data we are subjected to a type of corporate nepotism, and (sometimes) covert cartel operations who impose
+insidious data collection policies and even lock users into their proprietary software.
+Just as in the realm of optics, a resolution does not just mean a final rendition of the data on the screen,
+but also involves the processes and affordances involved during its rendition –– the trade-offs inside the
+technological assemblage which record, produce, and display the image (or other media, such as video, sound,
+or 3D data). The current conflation of the meaning of resolution within the digital –– as a result of which
+resolution only refers to the final dimensions the image is displayed at or in –– obscures the complexities and
+politics at stake in the process of resolving. In consequence, limits are imposed on our understanding of the use,
+compilation and reading of (imaging) data. In short, further theoretical refinements that elaborate on the usage
+and development of the term resolution have been missing from debates on resolution from the moment of its
+71
+
+‘Human Interface Guidelines,’ Apple Developer website.
+See: https://developer.apple.com/ios/human-interface-guidelines/overview/iphone-x/ (20.02.20)
+XI
+
+importation from the field of optics, where it has been in use for two centuries. As such, to garner a better
+understanding of our imaging technologies, the word resolution itself needs to be resolved; or rather, it needs to
+be disentangled to refer not just to a final output, but to a more procedural construct.
+
+U
+
+ntie&&Dis/Solve: Digital Resolutions
+
+Resolutions are man-made. Constrained by the procedural trade-offs between the affordances of hardware and
+software settings; the more complex an image-processing technology is, the more actors its rendering entails ––
+each following their own rules or standards to resolve an image. However, these actors and their inherent
+complexities are increasingly positioned beyond the fold of everyday settings, outside the options represented
+inside the interface. As such, resolutions are not just an interface effect but also a hyperopic lens, obfuscating
+possible alternative forms to resolve data –– whether it be an image, a video or a sound.
+Unknowingly, the user and audience suffer from technological hyperopia: a state of farsightedness that
+prevents the user from seeing the processes taking place directly under their nose. Hyperopia is the result of
+one's exclusive focus on the final end product. This is a consequence of the shift from user created resolutions,
+to the setting of resolutions and, finally, to the imposition of resolutions as standard settings. Every time we
+press print, run, record, publish, render, we also press “compromise.” Unfortunately, however, what we
+compromise –– settings between or beyond our standards, and which deliver other, maybe unwanted, but
+maybe also desirable outcomes –– is often obfuscated. We hence need to shift our understanding of resolutions,
+seeing them as disputable norms, habitual compromises and expandable limits. By challenging the actors
+involved in establishing resolution settings, the user can scale actively between increments of hyperopia and
+myopia. The question is: has the user become unable to construct their own settings, or has the user simply
+become oblivious to resolutions and their inherent compromises? It is also to ask how the user became this
+blind?
+One answer to this question can be found in a redefinition of the screen. Today, the term “screen” may
+still refer to its old configuration: a two-dimensional material surface or threshold that partitions one space from
+the next, or functions as a shield. As curator and theorist Christiane Paul writes, the screen acts as a mediator of
+(digital) light.72 However, over the past decades, technological innovations have transformed the notion of the
+screen into a wide variety of complex amalgamations.
+In The Language of New Media (2002), Lev Manovich offers a short genealogy of the screen,
+distinguishing three different types. The first screen he describes as the “classical screen”: a static, pictorial
+screen or painting. The second type of screen Manovich calls the “dynamic screen”: television, moving images,
+video. A third and more complex screen that Manovich recognizes is the interactive “screen of real time.” This
+72
+
+Paul, Christiane. ‘Mediations of Light: Screens as Information Surfaces,’ in: Digital Light, ed. Sean Cubitt, Daniel
+Palmer, and Nathaniel Tkacz. London: Open Humanities Press, 2015: p. 179–92.
+XII
+
+type of screen is still in development and includes radar, computer, telephone and VR screen technologies.73 In
+“Elements of Screenology,” Erkki Huhtamo writes:
+in spite of their ubiquitous presence screens are strangely evasive, hard to grasp. They are constantly
+metamorphosing, appearing in new places and new forms. There are “Big Screens” and “Small
+Screens.” Some are flat, some fat, attached to a box. Some are like the sun –– active, radiating “life” of
+their own –– while others are like the moon, passive, reflecting light projected at them. There are
+screens observed from a distance, and others touched and interacted with, held in one's hand. How to
+formulate a definition that would embrace them all? Does it even make sense to ask such a question?”
+he moves on writing: “Screens should not be studied in isolation of the apparatus they are part of. The
+notion of apparatus comes from cinema studies: it comprises not only the technical system, but also the
+elements of the viewing situation, including the relationship between the screen and the viewer, which is
+both physical and imaginary.”74
+While some screens are still volatile and “should not be touched” or at least “handled with care,” modern
+screens generally consist of a layer that can be touched, and are thus considered “touch screen.” These now
+pervasive interactive screens, with two-finger-touch or multi-touch sensitivity, allow the user to zoom in and
+out on information. Yet this is not the only way the smartphone's touch screen has changed screen technology.
+Today, almost the entire mobile phone is covered by the screen, transforming the experience of the phone into
+an entirely screen based, “mobile device.” These direct, responsive qualities –– further advanced by built-in
+accelerometers –– have ignited qualitative shifts. In the iPhone, the accelerometer is responsible for lighting up
+the screen when the phone is picked up, or rotating it toward the users point of view. As a result, the screen no
+longer has a standard orientation –– requirements for content scale automatically and are “responsive.” The
+mobile device is now a black mirror when inactive, and a space of representation when active.
+Further, the screen has transformed into a navigational plane, rendering it similar to an interface or GUI.
+Huhtamo dabbles with the possibility of describing the contemporary screen as a framed surface or container
+for displaying visual information that is controlled by the user and therefore not permanently part of the frame.
+He finally argues that the screen exists as a constantly changing, temporally constructed interface between the
+user and information.75 The screen of the mobile device consists of different elements –– such as widgets, apps
+73
+
+Manovich, Lev. The Language of New Media. MIT press, 2001: p. 95–103.
+
+74 Huhtamo, Erkki. ‘Elements of Screenology,’ in: ICONICS: International Studies of the Modern Image, (Vol.7, 2004): p.
+
+31–82.
+75
+
+Huhtamo, Erkki. ‘The Pleasures of the Peephole: An Archaeological Exploration of Peep Media,’ in: Book of Imaginary
+Media: Excavating the Dream of the Ultimate Communication Medium. NAi Publishers, 2007: p. 74–155.
+XIII
+
+and shortcuts –– and also spatial and temporal units. As Galloway explains in The Interface Effect,76 the
+interface is part of the processes of understanding, reading and translating our mediated experiences: it operates
+as an effect. In his book The Interface Envelope, James Ash writes:
+within digital interfaces, the specific mode of resolution of an object is carefully designed and
+tested in order to be as optimal as possible […]. In a digital interface, resolution is the outcome
+of transductions between a variety of objects including screened images, software, hardware, and
+physical input devices, all of which are centrally involved in the design of particular objects
+within an interface.77
+Not only has the screen morphed from a flat surface to an interactive plane of navigation, the technologies that
+shape its content have developed into extremely complex systems. As Manovich wrote back in 1995, “Rather
+than being a neutral medium of presenting information, the screen is aggressive. It functions to filter, to screen
+out, to take over, rendering nonexistent whatever is outside its frame.”78 The screen is thus not simply a
+boundary plane. It has become an autonomous object that affects what is being displayed; a threshold mediating
+different systems or a process oscillating between states. The mobile screen itself is located in-between different
+applications and uses.
+In the computer, most of the interactions with our interfaces are mediated by software applications that act
+like platforms. These platforms do not take up the full screen, but instead exist within a window. While they all
+exist in the same screen, these windows follow their own sets of rules and standards; they exist next to and on
+top of each other like walled gardens. In a sense, these platforms are a modern version a framework: offering a
+simulacrum of freedom and possibility. In the case of the platform Instagram, for example, content is
+reformatted and deformed. Instagram recompresses and reformats any posted data, text, sound, or images, while
+it has rules for the number of characters, as well as what characters and compressions can be used or uploaded.
+On the Instagram platform, one can only post a URL in the profile section of the platform. Moreover, it saves
+content on its own server, making it accessible only via the platform. In short, Instagram enforces its own
+resolutions that range from formatting to accessibility. It is important to realize that the screen is in a constant
+state of assemblage: delimiting and demarcating our ways of seeing, while expanding the axial and lateral
+resolution to layers that are usually obfuscated or uncharted.
+It is hence imperative to rethink the definition of resolution and expand it from a simple measure of
+acutance. What is resolved on the screen and what is not depends not just on the material qualities of the screen
+76
+
+Galloway, Alexander R. The Interface Effect. Cambridge: Polity Press, 2012.
+
+77 Ash, James. The Interface Envelope: Gaming, Technology, Power. Bloomsbury USA, 2015: p. 35.
+78
+
+Manovich, Lev. ‘An Archeology of a Computer Screen,’ in: Kunstforum International (v.3, 1995): p. 124–135.
+XIV
+
+or display –– or the signal it receives –– but also on the processes, platforms, standards, and interfaces involved
+in setting these measures; behind or in the depths beyond the screen or display.
+So while in the digital realm, the term resolution is often simplified to just mean a number – signifying
+the ability of a system to record and display fine spatial, spectral and radiometric detail or the width and height
+of a screen –– the critical understanding of the term resolution I propose also considers depth. By depth I
+understand factors beyond the screen, which concern: audible technologies, protocols, and other (proprietary)
+standards, together with the technological interfaces and the objects’ materialities and affordances, which
+together form a final resolution.
+Depth thus conveys the position that resolution is never a neutral settlement, but an outcome that carries
+historical, economic and political ideologies, which were once implemented by choice. While resolutions
+compromise, obfuscate and obscure particular visual outcomes, the processes of standardization and upgrade
+culture as a whole also compromise particular technological affordances –– creating new ways of seeing or
+perceiving –– altogether. These alternative technologies of sight also need to be considered as part of
+Resolution Studies.
+
+A
+
+Rheology of Data
+
+In 1941, the Argentinian writer Jorge Luis Borges published El Jardín de senderos que se bifurcan (The Garden
+of Forking Paths), which contains the short story ‘The Library of Babel.’ In this story, Borges describes a
+universe in the form of a vast library that contains all possible books which are generated following a few
+simple rules: every book consists of 410 pages, each page displays 40 lines and each line contains
+approximately 80 letters. Each book features any combination possible of the 25 orthographic symbols: 22
+letters, a period (full stop), a comma, and a space. While the exact number of books in the Library of Babel can
+be calculated, Borges says the library is “indefinite and perhaps infinite.”
+The fascinating part of the story is Borges' description of the behavior of the library visitors. In
+particular, the “Purifiers,” who arbitrarily destroy books that do not follow their rules of language and decoding.
+The word “arbitrarily” is important here, because it references the fluidity of the library: its openness to
+different languages and other systems of interpretation. One book may, for instance, offer an index to the next
+book, or a system of decoding: a “bridge” to read the next. This provokes the question: how do the Purifiers
+know they did not just read the books in the wrong order? How can they be certain that they were not just
+lacking an index or a codex that would help them access the books to be purified (burned)?
+When I learned about NASA’s use of sonification: the process of displaying any type of data or
+measurement as sound; I realized that with the right listening device, anything can be heard –– even a rainbow.
+This does not always mean it makes sense to the listener, but rather, it is significant for the willingness of
+XV
+
+contemporary space scientists to build bridges between different domains. I would later conceive of such
+bridges through the concept of a rheology of data.
+Rheology is a term from the realm of physics, or, to be more precise, from mechanics used to describe
+the flow of matter –– primarily in a liquid state, but also soft solids, or solids that respond in a plastic way;
+rather than deforming elastically in response to an applied force. By rheology of data I thus mean a study of
+how data can be read and displayed in completely different forms, depending on the context, software or
+interface. A rheology of data facilitates a deformation and flow of the matter of data; it demonstrates the
+possibility of pushing data into different applications and the presentation of data in different forms. In a sense,
+Limenia, the little antenna we used on the Brocken, is a hardware for rheology, because it transcodes one part of
+the electromagnetic spectrum (e.g. bluetooth or GPS) to the audible spectrum.
+Thinking about the rheology of data became meaningful to me when I first ran the open source Mac OS
+X plugin technology Syphon (first released in 2010 as open video tap, but later developed by Anton Marini in
+collaboration with Tom Butterworth as Syphon). With the help of Syphon, I could suddenly make certain
+applications (Adobe After Effects, Modul8, Processing, or Open Frameworks) share information –– such as full
+frame rate video or stills –– with one another, in real time. Syphon allowed me to project my slides and video as
+XVI
+
+textures on top of 3D objects (from Modul8 to Unity). The plugin taught me that my thinking in software
+environments ( as walled gardens) was flawed, or at least limiting. Software is much more interesting when it
+allows me to leak and push my content through its walls, which otherwise operate as closed architectures.
+Syphon hence showed me that data is more fluid than how we are conditioned to perceive and use it.
+In the realm of computation, though, there is still very little fluidity. The ‘Library of Babel’ remains an
+asynchronous metaphor for our contemporary reality of computation. Computer programs only function when
+definite forms of formatted data are inserted: data for which the machine has codecs installed. (The value of)
+RAW, non-formatted or unprocessed data is easily dismissed because it is often hard to open or read. There
+seems to be hardly any freedom in transgressing this. The insights I gained from reading about NASA opened a
+new approach in my computational thinking: I started teaching my students not just about the electromagnetic
+spectrum, but also about how NASA, through sonification and other transcoding techniques, could listen to the
+weather. With such information I hoped they would understand the freedom they can take in the processes of
+perceiving and interpreting data.
+Only the contemporary Purifiers –– software, its users, and computer systems in general –– enforce the
+rule that illegible data is invalid data. Take, for instance, Satrom’s QTlets, which have, after a lifespan of a little
+over five years –– at least in my OS –– become completely obsolete and unplayable. In reality, it simply means
+that I do not have the right decoder, which is no longer available and supported. In general, it means that the
+string of data is not run through the right program or read in the right language, which would translate its data
+into a legible form of information. Data is not solid: it can flow from one context or environment to the next,
+changing both its resolution and its meaning. Such a capacity can be both a danger and a blessing in disguise.
+
+R
+
+esolution Studies
+
+Resolution theory is a study of literacy: literacy of the machines, the people, the people (engineers) creating the
+machines as well as the people being created by the machines. Resolution Studies is distinct in that it does not
+only involve the study of the effects of technological progress or the consequences of scaling –– e.g., the habits
+and violences the come with particular settings of resolution –– which have already been theorized in books by
+Alex Galloway79 or Wendy Hui Kyong Chun80. Resolution studies also involves research on alternative settings
+that could have been in place, but that are not; as the affordances of technology have positioned certain settings
+outside of the domain of compatibility, these settings have been compromised.
+Key to the study of resolutions is the realization that the condition of data is fluid. Every string of data is
+ambiguously promiscuous and has the potential to be manipulated into anything. This is how a rheology of data
+79 Galloway, Alexander R. The Interface Effect. Cambridge: Polity Press, 2012.
+80
+
+Chun, Wendy Hui Kyong. Updating to Remain the Same: Habitual New Media. Cambridge: MIT Press, 2016.
+XVII
+
+can support fluidity in data transactions: every piece of information functions within an environment that
+encodes and decodes, contextualizes and embeds data. In doing so, data gains meaning and becomes
+information. Different forms of ossification slither into every crevice of private life, while unresolved,
+ungoverned free space seems to be slipping away. Here we find the double edged sword of standardization: the
+power and dangers of standardization. The question then becomes how we move more easily beside or beyond
+these generally imposed flows of data? How, in other words, do we break away from these imposed, even
+imperialist, standards of resolution?
+First of all, we need to realize that a resolution is more than a formal solution. Resolutions involve a
+technological (dis)entanglement and also an inherent compromise: if something is resolved one way, it is not
+resolved or rendered in another way. Determinations, like standard resolutions, are as dangerous as any other
+presumption: they preclude alternatives and perpetuate harmful or merely kludged and kippled procedures.
+A resolution is the lens through which constituted materialities become signifiers in their own right.
+They resonate through the hive mind, constantly transforming our technologies into informed material
+vernaculars. As technology is evolving faster than we as a culture can come to terms with, determinations ––
+such as standards –– become threats in precluding choices we didn't even know existed. The radical digital
+materialist thus believes in “informed materials.”81 A term developed by B. Bensaude-Vincent and Isabelle
+Stengers and adopted and reworked by Susan Schuppli in her lectures on the “Material Witness.” Matter is not
+just reshaped mechanically through chemical research and development, but is transformed into informed
+material: “Instead of imposing a shape on the mass of material, one develops an 'informed material' in the sense
+that the material structure becomes richer and richer in information. Accomplishing this requires a detailed
+comprehension of the microscopic structure of materials, because it is playing with these molecular, atomic,
+and even subatomic structures that one can invent materials adapted to industrial demands.”
+Schuppli uses the term informed material in congruence with the “material witness.” According to
+Schuppli, material witness is a legal term that refers to someone who has knowledge pertinent to a criminal act
+or event that could be significant to the outcome of a trial. Schuppli goes on, “In my work, I poach the term
+‘material witness’ to express the ways in which matter carries trace evidence of external events. But the
+material witness also performs a twofold operation; it is a double agent. The material witness does not only
+refer to the evidence of the event but also the event of evidence.” 82 Schuppli goes on:
+It is insufficient to say that this specific type of material records or registers external events, because all
+material does that: with the right kind of analysis one can determine that my hand had been on the table,
+81 Bensaude-Vincent, B. and I. Stengers, A History of Chemistry. Harvard University Press, 1996: p. 206.
+82
+
+Menkman, Rosa and Lucas van der Velden, ‘Dark Matters interview with Susan Schuppli,’ in: SONIC ACTS
+RESEARCH SERIES #21: Nov 24, 2015. See: http://sonicacts.com/portal/dark-matters-an-interview-with-susan-schuppli
+XVIII
+
+but this does not make a material witness of the table. A material witness has to disclose the kinds of
+institutional frameworks and practices that are able to render the material witness significant. So in
+considering the material witness as both the evidence of the event and the event of evidence, it allows
+me to understand why certain events are deemed to be worthy of our attention, and other things are
+disregarded.83
+Along similar lines then, it is important to understand what events have resolved, but also the event of resolve;
+it is not enough to understand what standards are used in a final resolution, but also how the standards have
+come into being and been resolved previously. The compression, software, platform, interface, and finally
+hardware such as the screen or the projector, all inform how a string of data is resolved; its presence, legibility
+and its meaning. They enforce and deform data into formatted or informed materials. The infrastructures
+through which we activate or access our data always engender distortions of our perception. Yet at the same
+time, because there is some freedom for the trickster using data's fluidity, the rightful meaning or “factuality” of
+data should always be open for debate.
+Resolution Studies is not only about the effects of technological progress or the consequences of scaling.
+Resolution Studies is the study of how resolution as a material witness embeds tonalities into culture in more
+than just its technological facets. Moreover, from this point Resolution Studies can pivot on researching the
+standards that could have been in place, but are not. As a form of vernacular resistance, based on the concept of
+providing ambiguous resolutions, resolution studies can employ the liminal resolution of the screen as a looking
+glass. Here, “technological hyperopia” –– i.e. the condition of a user being unable to see clearly understand the
+processes that take place during the production of an image –– is fractured and gives space to myopia and vice
+versa.
+
+83
+
+Menkman, Rosa and Lucas van der Velden, ‘Dark Matters interview with Susan Schuppli,’ in: SONIC ACTS
+RESEARCH SERIES #21: Nov 24, 2015. See: http://sonicacts.com/portal/dark-matters-an-interview-with-susan-schuppli
+XIX
+
+THE GUY BEHIND THE GUY BEHIND THE GUY84
+
+A Discrete Cosine Transform or 64 basis functions of the
+JPEG compression (Joint Photographic Experts Group)
+consisting of 8 x 8 pixel macroblocks.
+
+84
+
+Arcangel, Cory. On Compression, 2007.
+see: http://www.coryarcangel.com/things-i-made/2007-007-on-c/
+I
+
+R
+
+evealing the surface and structure of the image85
+
+A side effect of the JPEG compression is that the limits of the images’ resolution – which involve not just the images’
+number of pixels in length and width, but also the luma and chroma values, stored in the form of 8 x 8 pixel
+macroblocks – are visible as artifacts when zooming in beyond the resolution of the JPEG.
+Because the RGB color values of JPEG images are transcoded into Y’CbCr macroblocks, accidental or random data
+replacements can result into dramatic discoloration or image displacement. Several types of artifacts can appear; for
+instance ringing, ghosting, blocking, and staircase artifacts. The relative size of these artifacts demonstrates the
+limitations of the JPEGs informed data: a highly compressed JPEG will show relatively larger, block-sized artifacts.
+85 Ted Davis: ffd8, 2012.
+
+II
+
+J
+
+PEG compression consists of six steps:
+
+1. Color space transformation. Initially, the image has to be transformed from the RGB colorspace to Y′CbCr.
+This color space consists of three components that are handled separately; the Y’ (luma or brightness) and the
+Cb and Cr values; the blue-difference and red-difference chroma components.
+2. Downsampling. Because the human eye doesn’t perceive small differences within the Cb and Cr space very
+well, these elements are down-sampled, a process that reduces data dramatically.
+3. Block splitting. After the color space transformation and down-sampling steps, the image is split into 8 x 8
+pixel tiles or macroblocks, which are transformed and encoded separately.
+4. Discrete Cosine Transform. Every Y’CbCr macroblock is compared to all 64 basis functions (base cosines)
+of a Discreet Cosine Transform. A value of resemblance per macroblock per base function is saved in a matrix,
+which goes through a process of reordering.
+5. Quantization. The JPEG compression employs quantization, a process that discards coefficients with values
+that are deemed irrelevant (or too detailed) visual information. The process of quantization is optimized for the
+human eye, tried and tested on the Caucasian Lena color test card.
+III
+
+Effectively, during the quantization step, the JPEG compression discards most of the information within areas of
+high frequency changes in color (chrominance) and light (luminance), also known as high contrast areas, while
+it flattens areas with low frequency (low contrasts) to average values, by re-encoding and deleting these parts of
+the image data. This is how the rendered image stays visually similar to the original and least similar to human
+perception. But while the resulting image may look similar to the original, the JPEG image compression is
+lossy, which means that the original image can never be reconstructed.
+6. Entropy coding. Finally, a special form of lossless compression arranges the macroblocks in a zigzag order.
+A Run-Length Encoding (RLE) algorithm groups similar frequencies together while Huffman coding organizes
+what is left.
+
+E
+
+rrors depend on resolution. They are visible only at a certain scale or scope.
+
+Mesmerized by the screen, focusing on the moves of the next superhero, I was conditioned to ignore the dust
+imprinted on the celluloid or floating around in the theatre, touching the light of the projection and mingling
+itself with the movie.
+The dust –– a micro-universe of plant, human and animal fibres; particles of burnt meteorites, volcanic
+ashes, and soil from the desert –– could have told me stories that reached beyond my imagination; stories
+deeper and more complex than what was resolved in front of me, reflected on the movie screen.
+… But I never paid attention. I focused my attention to where I was conditioned to look: to the movie,
+reflecting off the screen. All I saw were the images. I did not see the physical qualities of the light nor the
+materials making up its resolution; before, behind, and beyond the screen.
+Decennia of conditioning the user to ignore these visual artifacts and to pay attention only to the overall image
+has changed these artifacts into the ultimate camouflage for secret messaging. Keeping this in mind, I
+developed DCT (2015).
+
+IV
+
+H
+
+ow Not to Be Read86 :: DCT
+
+DCT is a font that can be used on any .TTF (TrueType Font) supporting device and uses methods of
+cryptography and steganography; secretly hidden, the message is transcoded and embedded on the surface of
+the image where it looks like a JPEG artifact (glitch).
+The premise of DCT began with the realization that the legibility of an encrypted message does not just depend
+on the complexity of the encryption algorithm, but also on the placement of the message. This encrypted
+message, hidden on the surface of the image, is only legible by the ones in the know, anyone else will ignore it.
+Like dust on celluloid, DCT mimics JPEG errors. It appropriates the algorithmic aesthetics of JPEG
+macroblocks to stenographically mask a secret message, mimicking the error. The encrypted message, hidden
+on the surface of the image, is only recognizable to the ones who know where to look for it.
+During the most important step of the JPEG algorithm, the compression technology employs a mathematical
+technique known as Discreet Cosine Transform (DCT), to compress the amount of image data needed to
+transport, store, and present the image. DCT consists of a set of 64 patterns, called macroblocks or basis
+functions. If an image is compressed correctly, these macroblocks are invisible. The incidental trace of the
+macroblocks is generally ignored as an artifact, an impurity, or error.
+DCT is titled after Discrete Cosine Transform, the algorithm at the core of JPEG compression. The
+encryption uses the 64 macroblocks that form the ‘visual alphabet’ for all JPEG compressed images. These 64
+macroblocks of the JPEG DCT are directly translated to a set of characters; a set of 64 glyphs starting from
+binary conversion number 010 0000 to 101 1111 or in decimal 32 to 95, arranged in a zigzag order (reminiscent
+of Entropy coding step in the JPEG compression). The emerging glyph set can then stenographically be used to
+articulate a message on top of the JPEG image. DCT thus uses the macroblocks to form their own alphabet, in
+the form of a simple font, existing on the edges of what the reader recognizes as noise (or error) and the
+computer as compressed data.
+
+86
+
+Steyerl, Hito. How Not to Be Seen. Art Forum, 2013.
+see: http://artforum.com/video/id=51651&mode=large&page_id=0
+V
+
+P
+
+atch with key to the institutions (2015)
+
+Embroidered black on black patch, 5 corners, features the logo of the i.R.D.
+The i.R.D. patch is inspired by one of the Symbology (2007) patches uncovered by Trevor Paglen.
+It consists of the logo of the i.R.D., embroidered in black on a black patch, providing a key to decipher anything
+written in DCT: 010 0000 – 101 1111; the binary conversion numbers or decimal 32 to 95 of the 64 most used
+glyphs.
+VI
+
+VII
+
+- Choose a lofi JPEG base image on which macroblocking
+artifacts are slightly apparent.
+- If necessary, you can scale the image up via nearest
+neighbour interpolation, to preserve hard macroblock edges
+of the base image.
+- Download and install the DCT font.
+- Position your secret message on the surface of the JPEG.
+- Make sure the font has the same size as the macroblock
+artifacts in the image.
+- Flatten the layers (image and font) back to a JPEG. This will
+make the text no longer selectable and readable as copy-andpaste data.
+
+DCT
+
+Recipe
+
+“A recipe using DCT” was first released in the #Additivism cookbook. 87
+
+- To prepare the JPEG that you want to write your secret message on:
+- Choose a lo-fi JPEG image that has slightly apparent macroblocking artifacts. If necessary, you can scale the
+image up via the nearest neighbor interpolation, to preserve hard macroblock edges of the base image.
+- Download and install the DCT font.
+- Position your secret message on the surface of the JPEG. Make sure the font has the same size as the
+macroblock artifacts in the image.
+- Flatten the layers (image and font) back to a JPEG. This will make the text no longer selectable and readable
+as copy-and-paste data. Et voila!
+87
+
+Allahyari, Morehshin and Daniel Rourke. The 3D Additivist Cookbook. 2015. see: www.additivism.org
+VIII
+
+IX
+
+DCT
+
+:SYPHONING. The 1000000th (64th) interval (2015-2017)
+
+by A. Macroblock (partitioned matrix)
+DCT:SYPHONING was first commissioned by the Photographers Gallery in London, for the show “Power
+Point Polemics,” where it was shown as .ppt (Jan–Apr, 2016).
+A 3 channel video installation was conceived for the 2016 Transfer Gallery's show "Transfer Download", first
+installed at Minnesota Street Project in San Francisco (July–September, 2016).
+The final form of DCT:SYPHONING was released as VR, as part of DiMoDA’s “Morphe Presence” (2017).
+DCT:SYPHONING is downloadable as a stand alone here
+In this contemporary translation of the 1884 Edwin Abbott Abbott Flatland, A. Macroblock, an
+anthropomorphized DCT, observes some of the complexities at work in digital image compression. A.
+Macroblock (Senior) narrates its first syphon (data transfer) together with DCT Junior.
+As the two DCTs translate data from one compression to the next (aka the “realms of complexity”).
+Senior introduces Junior to the different levels of image plane complexity. Senior and Junior start their journey
+in the realm of the blocks (the realm in which they normally resonate) and move to dither, lines, to then traverse
+into the more complex realms of wavelets and vectors. Junior does not only react to the old compression
+technologies (they are nostalgic and boring), but also the newer, more complex ones –– they scare Junior,
+because of their “illegibility.”
+X
+
+With the coming of VR and Augmented reality goggles, the concept of looking at an interface is slowly
+disappearing. The viewer is no longer looking through a window or a platform, but instead their experience is
+moved into the screen: the screen has become part of the display, presenting the user with a Z-access, a new
+navigational complexity. From this perspective, and as a DCT, we cannot approach compression as passive.
+This is why in DCT:SYPHONING the digital “image” is not just the outcome of the process, it is the
+process. The elements in a composition represent process. Technically, the VR version exploits 3D (and 2D)
+image processing artifacts, such as Z-fighting, Gimbal lock, View frustum, clipping planes, no flag, collision,
+boundary walls, aliasing and ringing, jitter, chewing, posterization and quantization. In DCT:SYPHONING,
+geometry is not just passive points and planes.
+XI
+
+XII
+
+XIII
+
+XIV
+
+XV
+
+XVI
+
+XVII
+
+XVIII
+
+E
+
+cology of Compression Complexities (2017)
+
+Archival print, black and white, 2x1,5 meters.
+The more heavily encoded our world becomes, the more opaque its subliminal messages.
+A map of the different complexities of compression artifacts featuring the realms of:
+⦁
+—
+
+〜
+
+Dots (pixels, dither, coordinates);
+Lines (interlacing, interleaving, scan line, border, beam);
+Blocks (macroblocks, cluster);
+Wavelets (JPEG2000)
+
+⟗
+
+Vectors (3D obj, time encoding in MPEG4)
+
+As technology becomes more ubiquitous and our relationships with digital devices ever more seamless, our
+technical infrastructures are rendered more intangible. An Ecology of Compression Complexities displays the
+topological qualities of compressed data (its constant deforming) on a mesh. It offers a chart or prism to enable
+us to see what we normally cannot see.
+The i.R.D. host classic resolutions and their inherent (often invisible) artifacts, such as dots, lines, blocks, and
+wavelets, inside an Ecology of Compression Complexities (2015-2017). The Ecology of Compression
+Complexities is an illustration of a transmission ecology in which different signals connect to each other, while
+in reality these different compression technologies are not always compatible to compress or transcode to other
+complexities.
+In an Ecology of Compression Complexities, compressions can visit each other and have an exchange.
+The map is a study of compression artifacts and their qualities and ways of diversion and dispersion.
+
+XIX
+
+XX
+
+S
+
+pomenik (2017)
+
+A Monument for Resolutions that will Never Be
+4x3 Meter, non-quadrilateral, extruding and video-mapped sculpture
+A four by three-meter Spomenik for resolutions that will never be is a non-quadrilateral, extruding and videomapped sculpture, that reflects videos shot from within DCT:SYPHONING.
+Historically, a Spomenik is a piece of abstract, brutalist, and monumental anti-fascist architecture from former
+Yugoslavia, commemorating or meaning “many different things to many people.”88
+The Spomenik for resolutions that will never be is dedicated to resolutions that will never exist and screen
+objects (shards) that were never implemented, such as the non-quadrilateral screen. Technically, the Spomenik
+functions as an oddly shaped screen with mapped video, consisting of 3D vectors extruding in space.
+The installed shard is three meters high and obscures a compartment in the back of the Spomenik: a small
+room hiding a VR installation that runs DCT:SYPHONING, while the projection on the Spomenik features video
+footage from within the VR. In doing so, the Spomenik reflects literal light on the issues surrounding image
+processing technologies and addresses some of the hegemonic conventions that continuously obscure our view.
+Recently a movement called Post Digital described the experience of the display as “post screen,” which means
+that anything born digital –– which includes screen based interfaces and aesthetics –– influences our everyday
+(visual) language so much, that they have become part of the ‘real’ world and its offline, off screen, vernaculars.
+Screen based language, aesthetics and resolutions –– and thus its inherent politics and ethics –– are no longer
+reserved or resolved for the LEDs, but are now adopted on all planes, digitally and non-digitally. The Spomenik
+reflects on this by bringing the digital material to the front of its monumental façade.
+
+88
+
+‘Introduction: What are Spomeniks*?,’ in: Spomenik Database.
+See: https://www.spomenikdatabase.org/what-are-spomeniks (20.02.20)
+XXI
+
+I
+
+Everywhere we imagined ourselves standing turned into a cliche beneath our feet.
+– Naomi Klein, No Logo: 1999.
+
+II
+
+.
+
+III
+
+i
+
+nstitutions of Resolution Disputes (i.R.D.)
+
+20’’ Acrylics; 5 institutions of the i.R.D., encrypted in DCT (2015)
+
+i
+
+nstitutions of Resolution Disputes [i.R.D.] 89
+What an institution is or is not today, is hard to define. Some describe institutions as “stable, valued, recurring
+patterns of behavior.” 90 Others conjure up the image of bricks and mortar; physically present buildings that
+harbor formally organized organs that facilitate certain events or produce certain materials. An institution can
+be an organization founded for religious, educational, professional, or social purposes. Think for instance about
+a church, a library or an art collection.
+Institutionalization is the process by which organizations and procedures acquire value and stability. But it is
+89 Solo show at Transfer Gallery, NYC, March 28-April 15, 2015.
+90
+
+Huntington, Samuel P.. Political Order in Changing Societies. Yale University Press: 2006: p. 12.
+IV
+
+important to understand institutions not as a single entity but as an interconnected object in an networked field.
+Institutions are not isolated –– their task is to mediate between employees, assets and audience or users. This is
+why there are at least two sides to any institution: the infrastructural and “content” part. The outwards facing
+part that produces knowledge, exhibitions or facilitates a sense of cohesiveness within the (sub)cultures it caters
+to and the framework or backend that keeps the institution running.
+The back end of the institution determines the conditions of the front end –– it develops conditions for
+creation and leverages the ways in which the institution interacts with other institutions, audiences and
+solicitors. This is why institutions need, at least to some degree, to be able to facilitate institutional
+recalibration: the capacity to rethink and remould the output and the logistical forms of the field. But some
+institutions are so encumbered with their status, that they cannot change, reform or recalibrate (quickly). They
+have to answer to rules that provoke a particular content, action or behavior rather than serve the cause they
+were actually erected for in the first place.
+Between March 28th and April 15th 2015 I opened the i.R.D., in the form of a solo show at Transfer Gallery
+New York. The i.R.D. were created during a time in my life when I felt especially let down by institutions. I felt
+taken advantage of, and realized that institutions often work to keep their institute alive rather than to serve the
+purpose they have been erected for in the first place, ie. to serve and help the people that need them. During this
+time in limbo I developed the i.R.D, that consist of five institutions, through which I voice my critique on
+institutions: institutions should not consist of a group of people hiding themselves behind the title of
+“institution.”
+Though the i.R.D. mimic an institution, in reality they are not classic, institutional organs. Instead, the
+i.R.D. multiplex the term institution by revisiting its usage in the late 1970s. In this context, formulated by
+Joseph Goguen and Rod Burstall, institutions refer to a more compound framework that deals with growing
+complexities, connecting different logical systems (such as databases and programming languages) within the
+computer sciences. 91 The main result of these non-logical institutions is that different logical systems can be
+glued together at a substrata level, forming illogical frameworks through which computation can also take
+place: this type of institutions work for functionality, not for bureaucracy.
+Inspired by the idea of hyperfunctional, yet illogical frameworks, the i.R.D. are dedicated to researching
+the interests of anti-utopic, obfuscated, lost and unseen, or simply too good to be implemented resolutions.
+They ask: what do the hegemonic conventions of sight obscure? Is there any space for ‘fiat standards,’
+standards that are not backed by a reasonable intrinsic value, or standards that are maybe illogical? In doing so,
+the i.R.D. intend to shed a light on the processes behind cultural production: the systems of affordances, the
+politics of integration and imposition of templates.
+91
+
+Goguen, Joseph A., and Rod M. Burstall. ‘Institutions: Abstract model theory for specification and programming,’ in:
+Journal of the ACM (JACM) 39.1 (1992): p. 95-146.
+V
+
+But while the i.R.D. call attention to resolutions, they do not just wish to aestheticize their formal
+qualities and put them on display: the i.R.D refuse to take the format of a Wunderkammer. This was already
+done by YoHa in their Evil Media Distribution Centre. 92 Institutions that intend to host disputes cannot get
+away with simply displaying objects of contention. Disputes involve discussions and debate. In other words: the
+objects need to be unmuted –– or be given –– a voice. A dilemma that informs some key questions: how can
+objects be displayed in an active way? How can the i.R.D. exhibit the (normally) invisible?
+
+T
+
+he institutions
+
+T
+
+he institutions of Resolution Disputes (i.R.D.) call attention
+to media resolutions. While a ’resolution’ generally simply
+refers to a standard (measurement) embedded in the
+technological domain, the iRD reflect on the fact that a
+resolution is indeed a settlement (solution), but at the same time
+a space of compromise between different actors (objects,
+materialities and protocols) who dispute their stakes
+(framerate, number of pixels etc.) within the growing digital
+territories.
+Common settings can ossify as generally accepted requirements or
+de facto standards, while other standards are notated as norms by
+standardizing organizations such as the International Organization
+for Standardization. We call this progress.
+Moreover, resolutions are non-neutral standard settings that involve political, economical, technological and
+cultural values and ideologies; embedded in the genealogies and ecologies of our media. In an uncompromising
+fashion, quality (fidelity) speed (governed by efficiency) volume (generally encapsulated in tiny-ness for
+hardware and big when it comes to data) and profit (economic or ownership) have been responsible for plotting
+the vector of progress. This dogmatic configuration of belief x action has made upgrade culture one of the great
+legitimizers of scaled violence, putting ‘insufficient’ technological resolutions to rest. While a resolution can be
+understood as a manifold assemblage of common, but contestable standards, they should also be considered in
+terms of other options: those that are unknown and unseen, obsolete and unsupported.
+92
+
+Yoha. Evil Media Distribution Centre (2013)
+see: http://yoha.co.uk/evilmedia (20.02.20)
+VI
+
+R
+
+esolutions inform both machine vision and human modes of
+
+perception. They ubiquitously shape the material of everyday life.
+They shape the material of everyday life ubiquitously. They do this not
+just as an “interface effect” but as hyperopic lens, obfuscating any
+other possible alternative resolution from the users media literacy.
+As the media landscape becomes more and more compound: a
+heterogenous assemblage in which one technology never functions on its
+own; its complexities have moved beyond the fold of everyday settings.
+Technological standards have compiled into resolution clusters: media
+platforms that form resolutions like tablelands, flanked by steep cliffs and
+precipices looking out over obscure, incremental abysses that seem to
+harbor a mist of unsupported, obsolete norms. The platforms of resolution now organize perspective; they are
+the legitimizers of both inclusion and exclusion; of what cannot be seen or what should be done; while the fog,
+the other possibilities, become more and more obscure.
+Yet, it is important to understand that resolution platforms are not inherently evil.93 They can be impartial.
+It is important that we unpack these resolutions and note how they are conditioning our perception. A culture
+that adheres to only one or few platforms of resolutions supports nepotism amongst standards. These clusters
+actively impose notions of simplicity, masking the issues at stake and in turn savouring stupidity, which is
+bound to escalate into a glutinous techno-fascism.
+
+T
+
+he question is, have we become unable to construct our own
+resolutions, or have we become oblivious to them? Either way we
+are in need for another re-“(Re-)Distribution of the Sensible”.
+Resolutions work not just as interface effects but as a hyperopic lens,
+which obfuscates any other possible alternative resolutions from the
+users’ screens and media literacy. When we speak about video, we
+only ever refer to a four-cornered moving image. Why do we not
+consider video with more or fewer corners, timelines, or soundtracks.
+Fonts are monochrome: they do not come with their own textures,
+gradients, or chrominance and luminance mapping. Text editors still
+follow the layout of paper: there is hardly any modularity within
+93
+
+Andrew Goffey and Matthew Fuller, Evil Media (2012)
+VII
+
+written-word technologies. Even ghosts, the figments of our imagination, have been conditioned to
+communicate exclusively through analogue forms of noise (the uncanny by default), while aliens communicate
+through blocks and lines (the more intelligent forms of noise).
+We comfortably navigate resolution platforms; unknowingly suffering from technological hyperopia, we
+have lost track of the compromises that are at stake inside our resolutions and stare at screens, which show us
+mirage after mirage.
+
+i
+
+RD intend to impose methods of “creative problem
+
+creation” to bring authorship back to the layer of setting a
+'resolution'. The radical digital materialist believes in an
+“informed materiality”; while every string of data is
+ambiguously fluid and has the potential to be manipulated into
+anything, every piece of infor-mation functions within /
+adhesive*/ encoding, contextualization and embedding (etc).
+A resolution is the lens through which constituted materialities
+become signifiers in their own right. resolutions resonate the
+tonality zeitgeist and constantly transform our technologies into
+informed material vernaculars. Technology is evolving faster than
+we as a culture can come to terms with. This is why determinations
+such as standards are dangerous; they can preclude the alternative.
+
+T
+
+hrough iRDs tactics beyond resolution, the otherwise grey mundane
+objects of everyday-life show their colors. iRD are not a wunderkabinet of
+dead media, but a foggy bootleg trails for vernacular resistance.
+Progress has fathered many dead technologies. A Wunderkammer, or curiosity
+cabinet of media resolutions, would celebrate these dead objects by trapping
+them inside a glass bell, relieving them indefinitely of their action radius.
+While the i.R.D. adhere to the settlements of governing media resolutions, it
+also welcomes ventures along the bootleg trails of the tactical undead. These
+undead move beyond resolution, through the literacies of the governing
+techno-cultures, into liminal spaces. They follow the wild and uncanny desire paths that cut through sensitive
+forms and off-limit areas into speculative materialities. They threaten the status quo of secure media forms and
+provide the ambiguity that is so necessary for inspiration, action and curiosity.
+VIII
+
+W
+
+e are in need of a re-(Re-)Distribution of the Sensible.94
+
+The i.R.D. offers a liminal space for Resolution Studies. Resolution studies is not only about the effects of
+technological progress or about the the consequences of scaling. Resolution Studies analyzes how resolution
+embeds the tonalities of culture in more than just its technological facets. Resolution Studies researches the
+standards that could have been in place, but are not. As a form of vernacular resistance based on the concept of
+providing ambiguous resolutions, the i.R.D. employ the liminal resolution of the screen as a looking-glass.
+Here, hyperopia is fractured and gives space to myopia and visa versa. This is how i.R.D. expose the colors
+hidden inside the grey mundane objects of everyday life. 95
+
+T
+
+he i.R.D. believe that methods of creative problem creation can bring authorship back to the layer of
+resolution setting.96
+Resolution theory moves against what sometimes seems like an unsolvable compulsion to flatten reality. The
+i.R.D. might seem like a one way trail into the sea of fog and toward the abyss of techno-norms. It could also be
+a modular framework that opens and expands standards through inspection and reflection. As any good theory
+of media, resolution theory is a theory of literacy. Literacy of the machines, the people, the people creating the
+machines and the people being created by the machines. Through challenging the platforms of resolution, it can
+help the wanderer to scale actively between these states of hyperopia and myopia. It can uncover crystal cities
+of fog as well as shine a light on soon-to-be-distributed futures.
+Here we can mine for the timonds. 97
+
+94 Ranciere, Jacques. The Politics of Aesthetics. London: Continuum International Publishing, 2004.
+95
+
+Certeau, Michel de. The Practice of Everyday Life. Berkley: University of California Press, 1984.
+
+96 jon.satrom, Creative Problem Creation, 2013.
+97
+
+Menkman, Rosa. Glitch Timond, 2014.
+see: https://beyondresolution.info/Glitch-Timond
+IX
+
+No objects, spaces, or bodies are sacred in themselves; any component can be interfaced with any other if the
+proper standard, the proper code, can be constructed for processing signals in a common language.
+- Donna Haraway, A Cyborg Manifesto, 1985
+
+X
+
+B
+
+eyond Resolution. In which pattern recognition lost its resolution (2015)
+
+15:30 min Live AV performance registration from Syndrom 3.X @ Static Gallery, Liverpool, January, 2015.
+Featuring remixed video images by Alexandra Gorczynski and my remixed sounds from the track Professional
+Grin by Knalpot. Sound mastering by Sandor Caron.
+Features Ryan Maguires algorithm for MP3 compression, “Ghost in the MP3.”
+Beyond Resolution is about the ghostly presence of absence, or the traces of a past captured in the present. The
+soundtrack Beyond Resolution features the Professional Grin and an inverted riff of Alvin Luciers’ “Sitting in a
+Room” experiment; one that only shows the “generation loss” instead of the generation left over, which is what
+we usually get to see or hear in art projects. In doing so it shows what sounds the MP3 compression normally
+cuts out as irrelevant –– in a sense inverting the compression by putting “irrelevant” or deleted data on display.
+
+XI
+
+M
+
+yopia (2015)
+
+12x4 meter wall vinyl installation with extruding vectors.
+Resolutions are the determination of what is run, read, and seen, and what is not. In a way, resolutions form a
+lens of (p)reprogrammed truths. Every time a new way of seeing; a new resolution is developed; a new prehistory of the history of the image is made; this new resolution forms a new lens of truth –– a force that is
+revealed only retrospectively. But these actions and qualities take place beyond the fold of our perception,
+which is why we have gradually become blind to the politics of these congealed and hardened compromises.
+We are collectively suffering from technological hyperopia.
+Myopia is a giant vinyl wall installation (12 x 4 meters), plus extruding vectors that present a zoomed-in
+perspective of JPEG2000 wavelet compression artifacts. These artifacts were the aesthetic result of a glitch,
+made when I added a line of another language into the data of a high res JPEG2000 image –– a compression
+standard used and developed for medical imaging, supporting zoom without block distortion. This action
+revealed both the surface and structure of the image.
+The title Myopia hints at a proposal for healing our collective suffering from technological hyperopia: a
+broad condition of farsightedness. With Myopia I build a place that disintegrates the architecture of zooming
+and endows the public with qualities of short-sightedness. The scope exists in the depth of the image or even
+behind the image. This was echoed in the conclusion of the installation the day before the i.R.D. show closed,
+when visitors were invited to bring an exacto blade and to cut their own resolution of Myopia to mount on any
+institution of choice: a book, computer or other rigid surface.
+
+XII
+
+LIII
+
+T
+
+acit:Blue (2015)
+
+2 min. single channel video
+A discussion between a Masonic pigpen and DCT
+hardware used: NovaDrone by Casper Electronics w/ custom patching.
+Cipher:
+#
+X
+#
+・ X
+・
+Tacit:Blue is a reference to the old Northrop Tacit Blue stealth surveillance aircraft, which was developed
+against passive radar detection. The Tacit Blue aircraft is now decommissioned, as is the masonic pigpen
+encryption, in which the video carries an encrypted message. Every flash shows the next line of my “secret
+message.” As Daniel Rourke comments, “These technologies were designed to exist beneath, or parallel to,
+optic thresholds, but now these thresholds are not optic as much as they are about digital standards and
+II
+
+resolution densities.” 98
+In Tacit:Blue small interruptions appear in an otherwise smooth, blue, video document of a conversation
+between two cryptography technologies: a Masonic Pigpen or Freemasons cipher (a basic, archaic, and
+geometric simple substitution cipher) and the Discrete Cosine Transform encryption DCT (Menkman, 2015).
+The sound and light that make up the blue surface are generated by transcoding the same electric signals using
+different components; what you see is what you hear.
+The technology responsible for the audiovisual piece is the NovaDrone (Pete Edwards/Casper Electronics,
+2012), a small AV synthesizer designed by Casper Electronics. In essence, the NovaDrone is a noise machine
+with a flickering military RGB LED on top. The synthesizer is easy to play with; it offers three channels of
+sound and light (RGB) and the board has twelve potentiometers and ten switches to control the six oscillators
+routed through a 1/4-inch sound output, with which you can create densely textured drones, or in the case of
+Tacit:Blue, a rather monotonous, single AV color/frequency distortion.
+The video images have been created using the more exciting functions of the NovaDrone. Placing the
+active camera of an iPhone against the LED on top of the NovaDrone, which turns the screen of the phone into
+a wildly moving suprematist collage of color bars, revealing the NovaDrone’s second practical usage as a light
+synthesizer.
+In this process the NovaDrone exploits the iPhone's CMOS (Complimentary Metal-OxideSemiconductor) image sensor, a technology that is part of most commercial cameras, and is responsible for the
+transcoding of captured light into image data. When the camera function on the phone is activated, the CMOS
+moves down the sensor capturing pixel values one row at a time. However, because the flicker frequency of the
+military RGB LED is changed by the user and higher than the writing speed of the phone's CMOS, the iPhone
+camera is unable to synch up with the LED. What appears on the screen of the iPhone is an interpretation of its
+input, riddled with aliasing known as rolling shutter artifact; a resolution dispute between the CMOS and the
+RGB LED. Technology and its inherent resolutions are never neutral; every time a new way of seeing is
+created, a new pre-history is written.
+
+98
+
+Rourke, Daniel. ‘Resolution Disputes: A Conversation Between Rosa Menkman and Daniel Rourke.’ in: Furtherfield,
+2015. see: https://www.furtherfield.org/resolution-disputes-a-conversation-between-rosa-menkman-and-daniel-rourke/
+III
+
+LXVII
+
+We shape our tools and, thereafter our tools shape us.
+— John Culkin99
+
+C
+
+onclusion: a need for Shadow Knowledge
+
+Our (digital) cultures are in a state of hypertrophy: faster, better, shinier, deadlier; more awful and overexposed.
+It is hard to stay on top of the dialogue and keep an eye out for the newest problem, or even to find the
+contemporary discourse. What is really happening now? How does the flow and functioning of contemporary
+culture –– the culture of now –– construct itself?
+
+Just like maps, images have the power to not just describe the world; they are partially responsible for creating
+it. They conjure a lens through which we look and perceive. And guide us in our understanding, our thoughts
+and actions. But in a far more obscure and violent way, the technologies (its protocols, interfaces and
+infrastructures) through which we access and create our images (e.g. image processing technologies or image
+data capture devices) also engender distortions of our perception. As Anil Dash states: “technology isn’t an
+industry, it’s a method of transforming the culture and economics of existing systems and institutions.”100 This
+is why technology should always be the subject of scrutiny and debate.
+However, in comparison to other fields such as law or medicine, ethics has never been (a big) part of
+technological education. Given that the fields of software engineering are devoid of such tradition, it has long
+been a free for all. And this has shown time and time again in the choices developers (hardware, software and
+UIX designers) have made. While every choice they make is engrained with consequences, we are still far away
+from fully understanding or pro-actively challenging for instance the profound privacy, security and racial
+biases that are embedded within the products they deliver us. 101
+Technology has been biased for decades, if not centuries and quite possibly there is no such thing as
+unbiased technology. When I write technology I mean not just our digital imaging technologies: these histories
+99
+
+Culkin, J.. ‘A schoolman’s guide to Marshall McLuhan,’ in: Saturday Review, 1967: p. 70.
+
+100 Dash, Anil. ‘There is no 'technology industry,’ in: Medium, Aug 19, 2016.
+
+see: https://medium.com/humane-tech/there-is-no-technology-industry-44774dfb3ed7
+101
+
+Dash, Anil. ‘There is no 'technology industry,’ in: Medium, Aug 19, 2016.
+see: https://medium.com/humane-tech/there-is-no-technology-industry-44774dfb3ed7
+IV
+
+go as deep as the electricity grid, the sewer or our system for public transportation. Researchers such as Ingrid
+Burrington102 have shown how different forms of infrastructure can be recognized, mapped and uncovered,
+even in the space of our day to day neighbourhoods. There is a huge value to this kind of infrastructural
+research and its consequential tourism: it is a way to train ourselves at recognizing and unpacking the
+increments of obfuscation and the different scales at which these infrastructures function and exist. It can help
+us with expanding and questioning our resolutions, in the fight to regain our agency.
+At the very basis of such fight lies the understanding that any software, hardware or interface has
+(habitual) values engrained inside of it. As Safiya Umoja Noble states: “Infrastructure is created by people and
+therefore embeds and reflects the values of the people who create it.”103 To be able to ignore or unsee these
+(infrastructural) resolutions that govern our digital technologies, and thus our daily realities, or to presume these
+infrastructures are “hidden” or “magic,” is an act reserved only to the digitally illiterate. To formulate questions
+around how our technologies work, is a prerequisite for actively taking part and harnessing agency in our
+contemporary society.
+Still, compromises and biases are often waved away as ‘accidents;’ they are the result of an uninformed
+engineer or an unfortunate byproduct of a financial calculation. A main point of Beyond Resolution is that we
+can no longer ignore these unfortunate ‘accidents’. To develop technology in an uninformed matter and
+consequently perpetuate biased engagement is not ok: we are at a point when we can choose what biases to
+implement; good, bad or neutral. We can choose our compromises. But of course before we can challenge these
+imposed biases and compromises - we need the tools not just to recognise and understand them, but to speculate
+on other possibilities.
+And this is what Beyond Resolution has tried to insist on: an extended formulation of resolution. A
+resolution is not just a trade-off between settings that manage speed and functionality (bandwidth, control,
+power, efficiency, fidelity), while at the same time considering claims in the realms of value vs. storage,
+processing or transmission. A resolution also always involves an inherent compromise of other ways of
+rendering, and it is in these other ways that we need to train to see, run and formulate our alternatives.
+With the example of the genealogy of the color test cards I offered one way to make such latent and biased
+power structures more apparent: we need to insist that these standard images, trapped in the histories of our
+technologies, become part of the public domain. In order to illuminate the white shadows that govern the
+outcomes of our image processing technologies, we must document the genealogies of standardization. These
+genealogies belong in high school textbooks: the latent violence coded within such norms should be studied as
+102 Burrington, Ingrid. Networks of New York: An illustrated field guide to urban internet infrastructure. Melville House,
+
+2016.
+103
+
+Noble, Safiya Umoja. Algorithms of oppression: How search engines reinforce racism. NYU Press, 2018.
+V
+
+part of standard curricula to inform a future generation of engineers of compromises made in the past.
+It is often said that all we have is the past to train with. I believe there is truth to that. But some
+importance also lies in our contemporary state. Art schools, academies, universities and other institutions that
+study and teach new media or engineering play an important role here. They need to keep training their students
+but also the institution itself to not only critically engage with newly developed materialities, protocols and
+languages, but also –– and I believe that this is where the ‘new’ in new media comes in –– to develop a certain
+fluid literacy around these constantly developing and mutating materialities. Because they impose constraints
+and qualities on their content, or often even form the content themselves.
+But how can we study new media, its materialities, resolutions and compromises, when they are not fixed but
+rather constructed as a constant “interplay between a text’s physical characteristics and its signifying
+strategies”?104 To engage with digital culture means to be able to formulate a critical point of view, which
+involves analysis and active change through critical thought processes, such as speculation. Uncovering and
+studying these spaces of speculation is of vital importance and it is here where we find a growing need for
+players such as artists, theorists, designers and many others, who continue to engage critically with
+contemporary cultures. We need a fundamental acceptance of Shadow Knowledge: in the shadows, things lack
+definition. It is where we can find objects of unsupported dimension and scale, ambiguous and fluid. The
+shadows are blurry and liminal, but ultimately potent spaces that can exist between what is enlightened and
+opaque (or black boxed). Shadows offer shady outlines, that can function either as a vector of progress or a
+paint by numbers. In the shadows we can rest, heal and recalibrate. Now is not the time to hope or fear. It is the
+time to look for new weapons. The future lies in the shadows of our present.
+
+104
+
+Hayles, Katherine. ‘Print is flat, code is deep: The importance of media-specific analysis,’ in: Poetics Today (25, no. 1
+2004): p. 67–90.
+VI
+
+On October 18th,
+AKA international
+standards day, the
+i.R.D. laid flowers
+to commemorate all
+unaccepted and
+depreciated
+standards at the ISO
+offices in Geneva.
+
+X
+
+XV
+
+
