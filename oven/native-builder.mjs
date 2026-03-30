@@ -412,12 +412,18 @@ async function runBuildJob(job) {
 
       job.percent = 75;
 
-      addLogLine(job, "stdout", "Phase 3: Extracting C kernel + ISO...");
+      addLogLine(job, "stdout", "Phase 3: Extracting C kernel + ISO + slim kernel + initramfs...");
       const cid = (await fs.readFile(cidFile, "utf8")).trim();
       const isoOut = `/tmp/oven-iso-${job.id}`;
-      await runPhase(job, "extract", "bash", ["-c",
-        `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null; docker rm ${cid} >/dev/null`
-      ], repoDir);
+      const slimOut = `/tmp/oven-vmlinuz-slim-${job.id}`;
+      const initramfsOut = `/tmp/oven-initramfs-${job.id}`;
+      await runPhase(job, "extract", "bash", ["-c", [
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut}`,
+        `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || true`,
+        `docker rm ${cid} >/dev/null`,
+      ].join("; ")], repoDir);
 
       job.percent = 80;
 
@@ -425,9 +431,14 @@ async function runBuildJob(job) {
       const uploadDir = `/tmp/oven-upload-${job.id}`;
       const vmlinuzUpload = `${uploadDir}/vmlinuz`;
       const isoUpload = `${uploadDir}/ac-os.iso`;
+      const slimUpload = `${uploadDir}/vmlinuz-slim`;
+      const initramfsUpload = `${uploadDir}/initramfs.cpio.gz`;
       await fs.mkdir(uploadDir, { recursive: true });
       await fs.rename(vmlinuzOut, vmlinuzUpload);
       try { await fs.rename(isoOut, isoUpload); } catch {}
+      try { await fs.rename(slimOut, slimUpload); } catch {}
+      try { await fs.rename(initramfsOut, initramfsUpload); } catch {}
+      // upload-release.sh auto-detects sibling files (vmlinuz-slim, initramfs.cpio.gz, ac-os.iso)
       await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 
       try { await fs.rm(uploadDir, { recursive: true }); } catch {}

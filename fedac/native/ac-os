@@ -1184,6 +1184,21 @@ pull_ota() {
     fi
     log "SHA256 verified: ${ACTUAL_HASH:0:16}..."
 
+    # Download slim kernel + initramfs for universal Mac/ThinkPad boot
+    local SLIM_URL="${CDN_BASE}/native-notepat-latest.vmlinuz-slim"
+    local INITRAMFS_URL="${CDN_BASE}/native-notepat-latest.initramfs.cpio.gz"
+    local PULLED_SLIM="${PULL_DIR}/vmlinuz-slim"
+    local PULLED_INITRAMFS="${PULL_DIR}/initramfs.cpio.gz"
+    if curl -sf --head "${SLIM_URL}" >/dev/null 2>&1; then
+        log "Downloading slim kernel..."
+        curl -f --progress-bar -o "${PULLED_SLIM}" "${SLIM_URL}" || true
+        log "Downloading initramfs..."
+        curl -f --progress-bar -o "${PULLED_INITRAMFS}" "${INITRAMFS_URL}" || true
+        if [ -f "${PULLED_SLIM}" ] && [ -f "${PULLED_INITRAMFS}" ]; then
+            log "Universal boot files ready (slim $(du -sh "${PULLED_SLIM}" | cut -f1) + initramfs $(du -sh "${PULLED_INITRAMFS}" | cut -f1))"
+        fi
+    fi
+
     # Override VMLINUZ and build name so flash_usb uses the downloaded kernel
     # (not the locally-generated name from scripts/build-name.sh)
     VMLINUZ="${PULLED_KERNEL}"
