@@ -2,16 +2,15 @@
 // Top-down stick figure shootout. Tap to run, dodge bullets, instant death.
 // Two duelists at a time — everyone else waits in the stack.
 
-const ARENA_W = 180;
-const ARENA_H = 180;
+const ARENA_W = 220;
+const ARENA_H = 220;
 const BULLET_SPEED = 0.7;
 const BULLET_R = 2;
 const MOVE_SPEED = 1.0;
-const FIRE_INTERVAL = 100; // frames between auto-shots (~1.7s)
-const COUNTDOWN_FRAMES = 180; // 3 seconds
-const ROUND_OVER_FRAMES = 120; // 2 seconds pause after kill
-const HIT_R = 5;
-const BODY_R = 4; // figure body radius (top-down circle)
+const COUNTDOWN_FRAMES = 180;
+const ROUND_OVER_FRAMES = 120;
+const HIT_R = 7;
+const BODY_R = 4;
 
 // -- State --
 let server, udpChannel;
@@ -29,8 +28,8 @@ let countdownTimer = 0;
 let roundOverTimer = 0;
 let roundWinner = null;
 
-let me = null; // { x, y, targetX, targetY, alive, fireTimer }
-let opponent = null; // { x, y, targetX, targetY, alive, fireTimer, handle }
+let me = null; // { x, y, targetX, targetY, alive, wasMoving }
+let opponent = null; // { x, y, targetX, targetY, alive, handle }
 let bullets = []; // { x, y, vx, vy, owner: "me"|"them" }
 let mySlot = -1;
 let dummy = false;
@@ -55,12 +54,12 @@ function spawnDuelists() {
   me = {
     x: myPos.x, y: myPos.y,
     targetX: myPos.x, targetY: myPos.y,
-    alive: true, fireTimer: FIRE_INTERVAL,
+    alive: true, wasMoving: false,
   };
   opponent = {
     x: opPos.x, y: opPos.y,
     targetX: opPos.x, targetY: opPos.y,
-    alive: true, fireTimer: FIRE_INTERVAL,
+    alive: true,
     handle: roster[mySlot === 0 ? 1 : 0]?.handle || "???",
   };
 }
@@ -153,7 +152,8 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
           if (!r.ok) break;
           const data = await r.json();
           if (data.changed !== false) {
-            updateAvailable = true;
+            // Auto-reload on new deploy
+            sendFn?.({ type: "window:reload" });
             break;
           }
         } catch { break; }
@@ -291,10 +291,25 @@ function sim() {
     const dx = me.targetX - me.x;
     const dy = me.targetY - me.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 1) {
+    const isMoving = dist > 2;
+    if (isMoving) {
       me.x += (dx / dist) * MOVE_SPEED;
       me.y += (dy / dist) * MOVE_SPEED;
     }
+
+    // Fire on stop (was moving, now stopped, no bullet in flight)
+    const myBulletOut = bullets.some((b) => b.owner === "me");
+    if (me.wasMoving && !isMoving && !myBulletOut && opponent) {
+      const { nx, ny } = norm(opponent.x - me.x, opponent.y - me.y);
+      const bx = me.x + nx * 6;
+      const by = me.y + ny * 6;
+      bullets.push({ x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED, owner: "me" });
+      synth?.({ type: "square", tone: 800, volume: 0.35, attack: 0.001, decay: 0.06, duration: 0.07 });
+      server?.send("duel:fire", {
+        handle: myHandle, x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED,
+      });
+    }
+    me.wasMoving = isMoving;
   }
 
   // Interpolate opponent (non-dummy)
@@ -305,24 +320,6 @@ function sim() {
     if (dist > 1) {
       opponent.x += (dx / dist) * MOVE_SPEED;
       opponent.y += (dy / dist) * MOVE_SPEED;
-    }
-  }
-
-  // Auto-fire toward opponent (one bullet at a time)
-  if (me.alive) {
-    me.fireTimer--;
-    const myBulletOut = bullets.some((b) => b.owner === "me");
-    const meMoving = Math.abs(me.targetX - me.x) > 2 || Math.abs(me.targetY - me.y) > 2;
-    if (me.fireTimer <= 0 && opponent && !myBulletOut && !meMoving) {
-      me.fireTimer = FIRE_INTERVAL;
-      const { nx, ny } = norm(opponent.x - me.x, opponent.y - me.y);
-      const bx = me.x + nx * 6;
-      const by = me.y + ny * 6;
-      bullets.push({ x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED, owner: "me" });
-      synth?.({ type: "square", tone: 800, volume: 0.35, attack: 0.001, decay: 0.06, duration: 0.07 });
-      server?.send("duel:fire", {
-        handle: myHandle, x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED,
-      });
     }
   }
 
@@ -385,12 +382,6 @@ function act({ event: e, screen }) {
     const ox = Math.floor(sw / 2 - ARENA_W / 2);
     const oy = Math.floor(sh / 2 - ARENA_H / 2);
 
-    // Tap update banner to reload
-    if (updateAvailable && e.y >= oy + ARENA_H + 14 && e.y < oy + ARENA_H + 38 && e.x >= ox && e.x < ox + ARENA_W) {
-      sendFn?.({ type: "window:reload" });
-      return;
-    }
-
     // Tap arena to move
     if (phase === "fight" && (isDueling() || dummy) && me?.alive) {
       me.targetX = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
@@ -423,8 +414,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     });
 
     if (me && opponent) {
-      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200]);
-      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60]);
+      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200], frameCount);
+      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60], frameCount);
     }
 
     const d0 = roster[0]?.handle || "?";
@@ -455,21 +446,21 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     }
 
     if (me && opponent) {
-      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200]);
-      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60]);
+      drawFigure(ink, circle, box, line, ox, oy, me, [50, 120, 200], frameCount);
+      drawFigure(ink, circle, box, line, ox, oy, opponent, [200, 70, 60], frameCount);
     }
 
-    // Handle labels (MatrixChunky8)
+    // Handle labels (MatrixChunky8, centered)
     if (me) {
       ink(50, 120, 200, 150).write(myHandle, {
-        x: ox + Math.floor(me.x) - myHandle.length * 3,
-        y: oy + Math.floor(me.y) + BODY_R + 5,
+        x: ox + Math.floor(me.x) - Math.floor(myHandle.length * 2),
+        y: oy + Math.floor(me.y) + 9,
       }, undefined, undefined, false, "MatrixChunky8");
     }
     if (opponent) {
       ink(200, 70, 60, 150).write(opponent.handle, {
-        x: ox + Math.floor(opponent.x) - opponent.handle.length * 3,
-        y: oy + Math.floor(opponent.y) + BODY_R + 5,
+        x: ox + Math.floor(opponent.x) - Math.floor(opponent.handle.length * 2),
+        y: oy + Math.floor(opponent.y) + 9,
       }, undefined, undefined, false, "MatrixChunky8");
     }
 
@@ -492,16 +483,6 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     });
   }
 
-  // Update available banner
-  if (updateAvailable) {
-    ink(50, 160, 80).write("update ready", {
-      x: ox, y: oy + ARENA_H + 16,
-    });
-    ink(140, 135, 125).write("tap here to reload", {
-      x: ox, y: oy + ARENA_H + 26,
-    });
-  }
-
   // Stack
   const stackX = ox + ARENA_W + 8;
   const stackY = oy;
@@ -519,26 +500,31 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
   }
 }
 
-function drawFigure(ink, circle, box, line, ox, oy, fig, col) {
+function drawFigure(ink, circle, box, line, ox, oy, fig, col, fc) {
   const fx = ox + Math.floor(fig.x);
   const fy = oy + Math.floor(fig.y);
 
   if (!fig.alive) {
-    // Dead — X mark
     ink(col[0], col[1], col[2], 60);
     line(fx - 3, fy - 3, fx + 3, fy + 3);
     line(fx + 3, fy - 3, fx - 3, fy + 3);
     return;
   }
 
+  // Leg animation based on movement
+  const dx = (fig.targetX || fig.x) - fig.x;
+  const dy = (fig.targetY || fig.y) - fig.y;
+  const moving = dx * dx + dy * dy > 4;
+  const legSwing = moving ? Math.sin(fc * 0.3) * 3 : 0;
+
   ink(...col);
-  // Legs (splayed below body)
-  line(fx, fy + 1, fx - 4, fy + 6);
-  line(fx, fy + 1, fx + 4, fy + 6);
+  // Legs
+  line(fx, fy + 1, fx - 4 + legSwing, fy + 6);
+  line(fx, fy + 1, fx + 4 - legSwing, fy + 6);
   // Arms
-  line(fx - 1, fy - 1, fx - 5, fy + 2);
-  line(fx + 1, fy - 1, fx + 5, fy + 2);
-  // Head (filled circle on top)
+  line(fx - 1, fy - 1, fx - 5 - legSwing * 0.5, fy + 2);
+  line(fx + 1, fy - 1, fx + 5 + legSwing * 0.5, fy + 2);
+  // Head
   circle(fx, fy - 2, 3, true);
   // Eye dot
   ink(255, 255, 255).box(fx, fy - 3, 1, 1);
