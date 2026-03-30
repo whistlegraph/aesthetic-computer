@@ -73,7 +73,7 @@
 \thispagestyle{empty}
 \vspace*{\fill}
 \begin{center}
-\includegraphics[height=9em]{pals}\par\vspace{0.1em}
+\href{https://papers.aesthetic.computer}{\includegraphics[height=9em]{pals}}\par\vspace{0.1em}
 {\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} AC Native OS '26}\par
 \vspace{0.1em}
 {\fontsize{9pt}{11pt}\selectfont\color{acpink} A Bare-Metal Creative Computing Operating System}\par
@@ -86,9 +86,9 @@
 \vspace{0.15em}
 \colorbox{yellow!60}{\small\color{red!80!black}\textbf{\textit{working draft --- not for citation}}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/2113ef735}{2113ef735}}\par
+{\footnotesize\color{acgray} March 2026 · \href{https://github.com/whistlegraph/aesthetic-computer/commit/8f14b5989}{8f14b5989}}\par
 \vspace{0.1em}
-{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-da-cards.pdf}{Dansk} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-es-cards.pdf}{Español} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-zh-cards.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-ja-cards.pdf}{{\accjk 日本語}}}\par
+{\footnotesize\color{acgray}\href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-da.pdf}{Dansk} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-es.pdf}{Español} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-zh.pdf}{{\accjk 中文}} · \href{https://papers.aesthetic.computer/ac-native-os-26-arxiv-ja.pdf}{{\accjk 日本語}}}\par
 \end{center}
 \vspace*{\fill}
 
@@ -104,7 +104,7 @@
 
 The One Laptop Per Child (OLPC) project~\citep{negroponte1995being, kraemer2009olpc} proposed that universal computing access required designing new hardware---a \$100 laptop purpose-built for education. The XO laptop shipped with a custom OS (Sugar), custom hardware, and a custom distribution model. The project produced important ideas but struggled with a fundamental tension: custom hardware is expensive to design, manufacture, and maintain, and the \$100 target was never achieved at scale.
 
-Meanwhile, the consumer computing market produces a constant surplus of functional machines. Corporate lease cycles retire millions of laptops every 3--5 years. Retail overstocks, cancelled orders, and cosmetic defects generate warehouse inventories. E-waste recyclers receive machines with years of useful life remaining. These surplus computers---ThinkPads, EliteBooks, Latitudes---are available for \$30--80 with modern processors, 8--16\,GB RAM, WiFi, keyboards, and screens.
+Meanwhile, the consumer computing market produces a constant surplus of functional machines. The UN Global E-waste Monitor reports 62 million tonnes of electronic waste generated annually, growing at 2.6 million tonnes per year, with only 22.3\% documented as properly collected and recycled~\citep{forti2024ewaste}. Corporate lease cycles retire millions of laptops every 3--5 years. Retail overstocks, cancelled orders, and cosmetic defects generate warehouse inventories. E-waste recyclers receive machines with years of useful life remaining. These surplus computers---ThinkPads, EliteBooks, Latitudes---are available for \$30--80 with modern processors, 8--16\,GB RAM, WiFi, keyboards, and screens.
 
 \acos{} takes the opposite approach from OLPC: instead of designing custom hardware, I design a custom operating system that transforms \emph{any} commodity x86\_64 machine into a dedicated creative computing instrument. The entire OS is a single file. Flashing it onto a USB drive takes under a minute. The machine boots in 7.3 seconds into a musical instrument, a drawing tool, or a programming environment---with the owner's name on the screen and their voice greeting them by name.
 
@@ -315,13 +315,13 @@ Unlike Chromebook deployments that require Google Admin Console, MDM profiles, a
 \section{Related Work}
 \label{sec:related}
 
-\textbf{Educational OS projects.} Sugar OS (OLPC) pioneered the single-purpose educational operating system but was constrained by its hardware dependency. Endless OS targets low-spec hardware with offline-first content but retains a traditional desktop metaphor. PrimTux and Edubuntu customize Linux distributions for education but do not reimagine the OS layer itself.
+\textbf{Educational OS projects.} Sugar OS (OLPC) pioneered the single-purpose educational operating system but was constrained by its hardware dependency. Endless OS targets low-spec hardware with offline-first content but retains a traditional desktop metaphor. PrimTux and Edubuntu customize Linux distributions for education but do not reimagine the OS layer itself. ChromeOS Flex~\citep{google2022chromeosflex} (formerly Neverware CloudReady) is the most direct comparison: a free OS that repurposes old PCs and Macs as managed Chromebooks. It proves the surplus-hardware thesis at scale---Google certifies hundreds of older models---but turns machines into cloud-dependent thin clients rather than autonomous creative instruments. ChromeOS Flex requires Google Admin Console, fleet management, and internet connectivity; \acos{} requires none of these.
 
 \textbf{Kiosk and single-purpose systems.} Digital signage OSes (Screenly, Yodeck) demonstrate that single-purpose Linux deployments can be maintained at scale via OTA updates. \acos{} applies this operational model to creative computing rather than content display.
 
 \textbf{Creative computing access.} Processing~\citep{reas2007processing} and Scratch~\citep{resnick2009scratch} lowered the barrier to creative coding but assume a general-purpose OS underneath. Sonic Pi~\citep{aaron2016sonic} runs on Raspberry Pi but requires Raspbian. \acos{} eliminates the OS dependency entirely---the creative tool \emph{is} the OS.
 
-\textbf{Convivial tools.} Nelson's \emph{Computer Lib / Dream Machines}~\citep{nelson1974computerlib} declared in 1974 that everyone should understand computers---and that personal computing should be a medium for creative liberation, not corporate productivity. Illich's concept of ``tools for conviviality''~\citep{illich1973tools}---tools that expand personal autonomy rather than requiring specialized expertise---resonates with \acos{}'s design. The device requires no system administration, no IT support, no technical knowledge beyond plugging in a USB drive. Papert's constructionism~\citep{papert1980mindstorms} informs the choice of a creative instrument (not a content consumption device) as the default experience.
+\textbf{Convivial tools.} Nelson's \emph{Computer Lib / Dream Machines}~\citep{nelson1974computerlib} declared in 1974 that everyone should understand computers---and that personal computing should be a medium for creative liberation, not corporate productivity. Illich's concept of ``tools for conviviality''~\citep{illich1973tools}---tools that expand personal autonomy rather than requiring specialized expertise---resonates with \acos{}'s design. Moglen's FreedomBox proposal~\citep{moglen2010freedombox}---personal servers that communities own and control rather than renting from cloud providers---extends this lineage to infrastructure itself; \acos{} applies the same logic to the device layer, producing a computing instrument that depends on no service provider and reports to no administrator. The device requires no system administration, no IT support, no technical knowledge beyond plugging in a USB drive. Papert's constructionism~\citep{papert1980mindstorms} informs the choice of a creative instrument (not a content consumption device) as the default experience.
 
 \textbf{Media theory.} Kittler's argument that software obscures the material reality of computation~\citep{kittler1995no} is inverted by \acos{}: with no desktop environment, no window manager, and no abstraction layers, the relationship between code and hardware is made visible. The boot splash renders directly to the DRM framebuffer. Audio synthesis writes directly to ALSA PCM buffers. McLuhan's observation that the medium shapes the message~\citep{mcluhan1964understanding} applies literally: the operating system \emph{is} the instrument, and its constraints (single piece at a time, immediate-mode graphics, direct audio synthesis) shape the creative output.
 

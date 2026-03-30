@@ -22,7 +22,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "login",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "login", "midi",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -56,6 +56,7 @@ const PIECE_DESC = {
   "theme":         "prompt theme",
   "voice":         "system voice",
   "login":         "switch identity",
+  "midi":          "usb midi + udp relay",
   "dark":          "dark mode",
   "light":         "light mode",
   "auto":          "auto dark/light",
@@ -110,6 +111,56 @@ line w/2 0 w/2 h
 ink (? cyan yellow magenta) 8
 circle w/2 h/2 (? 2 4 8)`,
 };
+
+function readUsbMidiStatus(system) {
+  try {
+    return system?.usbMidi?.status?.() || system?.usbMidi || null;
+  } catch (_) {
+    return system?.usbMidi || null;
+  }
+}
+
+function formatUsbMidiStatus(status) {
+  if (!status) return "usb midi unavailable";
+  if (status.active) {
+    let msg = "usb midi active";
+    if (status.alsaDevice) msg += " " + status.alsaDevice;
+    else if (status.udc) msg += " " + status.udc;
+    if (status.port) msg += " via " + status.port;
+    return msg;
+  }
+  if (status.enabled) {
+    return status.reason && status.reason !== "ok"
+      ? "usb midi enabled (" + status.reason + ")"
+      : "usb midi enabled";
+  }
+  if (status.reason && status.reason !== "disabled" && status.reason !== "uninitialized") {
+    return "usb midi off (" + status.reason + ")";
+  }
+  return "usb midi off";
+}
+
+function readConfig(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function udpMidiRelayEnabled(system) {
+  const cfg = readConfig(system);
+  return cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+}
+
+function formatUdpMidiRelayStatus(system) {
+  const cfg = readConfig(system);
+  const enabled = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+  if (!enabled) return "udp midi relay off";
+  if (cfg.handle) return "udp midi relay on @" + cfg.handle;
+  return "udp midi relay on";
+}
 
 function boot({ system }) {
   message = "";
@@ -297,6 +348,60 @@ function execute(cmd, system) {
       system?.startSSH?.();
       message = "starting ssh...";
     }
+    messageFrame = 0;
+    return;
+  }
+  if (baseWord === "midi") {
+    const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : "status";
+    if (arg === "relay" || arg.startsWith("relay ")) {
+      const relayArg = arg === "relay" ? "status" : arg.slice("relay ".length).trim();
+      if (!relayArg || relayArg === "status") {
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      if (relayArg === "on" || relayArg === "enable") {
+        system?.saveConfig?.("udpMidiBroadcast", "true");
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      if (relayArg === "off" || relayArg === "disable") {
+        system?.saveConfig?.("udpMidiBroadcast", "false");
+        message = formatUdpMidiRelayStatus(system);
+        messageFrame = 0;
+        return;
+      }
+      message = "usage: midi relay [status|on|off]";
+      messageFrame = 0;
+      return;
+    }
+    if (!arg || arg === "status") {
+      message = formatUsbMidiStatus(readUsbMidiStatus(system)) + " | " + formatUdpMidiRelayStatus(system);
+      messageFrame = 0;
+      return;
+    }
+    if (arg === "on" || arg === "enable") {
+      system?.saveConfig?.("usbMidi", "true");
+      const status = system?.usbMidi?.enable?.() || readUsbMidiStatus(system);
+      message = formatUsbMidiStatus(status);
+      messageFrame = 0;
+      return;
+    }
+    if (arg === "off" || arg === "disable") {
+      system?.saveConfig?.("usbMidi", "false");
+      const status = system?.usbMidi?.disable?.() || readUsbMidiStatus(system);
+      message = formatUsbMidiStatus(status);
+      messageFrame = 0;
+      return;
+    }
+    if (arg === "refresh" || arg === "retry") {
+      const status = system?.usbMidi?.refresh?.() || readUsbMidiStatus(system);
+      message = formatUsbMidiStatus(status);
+      messageFrame = 0;
+      return;
+    }
+    message = "usage: midi [status|on|off|refresh|relay]";
     messageFrame = 0;
     return;
   }

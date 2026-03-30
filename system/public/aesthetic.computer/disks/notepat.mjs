@@ -520,6 +520,12 @@ const QWERTY_MINIMAP_KEY_SPACING = 1;
 const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
 const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
+
+// OS bar — thin strip below the secondary bar for the "x86 os" button
+const OS_BAR_TOP = SECONDARY_BAR_BOTTOM;
+const OS_BAR_HEIGHT = 12;
+const OS_BAR_BOTTOM = OS_BAR_TOP + OS_BAR_HEIGHT;
+
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
 const TOGGLE_BTN_GAP = 3; // At least 1px visible gap between buttons
@@ -889,6 +895,7 @@ const buttonNotes = [
 ];
 
 const buttonNoteLookup = new Set(buttonNotes);
+const MIDI_NOTE_NAMES = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
 
 const midiActiveNotes = new Map();
 
@@ -1082,7 +1089,7 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn;
+let waveBtn, octBtn, osBtn;
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
@@ -1246,6 +1253,18 @@ function parseSong(raw) {
 
 let startupSfx;
 let udpServer;
+let relaySocket = null;
+let relaySourceHandle = "";
+let relaySourceMachineId = "";
+let relaySubscribeAll = false;
+let relaySources = [];
+let relayStatusText = "relay off";
+let relayLastEventText = "";
+let relayLastEventAt = 0;
+let relayNeedsPanic = false;
+let relayMessageHandler = null;
+const relayMidiQueue = [];
+const relayActiveNotes = new Map();
 
 let stampleSampleId = null;
 let stampleSampleData = null;
@@ -1260,6 +1279,119 @@ let autopatTypeface = null;
 
 let picture;
 let matrixFont; // MatrixChunky8 font for note letters
+
+function normalizeRelayHandle(handle) {
+  return `${handle || ""}`.trim().replace(/^@+/, "").toLowerCase();
+}
+
+function relayTargetLabel() {
+  if (relaySubscribeAll) return "all";
+  if (relaySourceHandle && relaySourceMachineId) return `@${relaySourceHandle} ${relaySourceMachineId}`;
+  if (relaySourceHandle) return `@${relaySourceHandle}`;
+  if (relaySourceMachineId) return relaySourceMachineId;
+  return "off";
+}
+
+function relaySubscriptionPayload() {
+  if (relaySubscribeAll) return { all: true };
+  if (relaySourceHandle || relaySourceMachineId) {
+    return {
+      handle: relaySourceHandle || undefined,
+      machineId: relaySourceMachineId || undefined,
+    };
+  }
+  return null;
+}
+
+function updateRelayBridgeState() {
+  if (typeof window === "undefined") return;
+  window.acNotepatRelay = {
+    status: relayStatusText,
+    target: relayTargetLabel(),
+    sources: relaySources,
+    lastEvent: relayLastEventText,
+    setSource(next = {}) {
+      setRelaySource(next);
+    },
+  };
+}
+
+function requestRelaySources() {
+  relaySocket?.send?.("notepat:midi:sources");
+}
+
+function sendRelaySubscription() {
+  const payload = relaySubscriptionPayload();
+  if (!relaySocket?.send) return;
+  if (!payload) {
+    relaySocket.send("notepat:midi:unsubscribe", true);
+    relayStatusText = "relay off";
+    updateRelayBridgeState();
+    return;
+  }
+  relaySocket.send("notepat:midi:subscribe", payload);
+  relayStatusText = `relay ${relayTargetLabel()}`;
+  updateRelayBridgeState();
+}
+
+function setRelaySource(next = {}) {
+  const hasHandle = Object.prototype.hasOwnProperty.call(next, "handle");
+  const hasMachineId = Object.prototype.hasOwnProperty.call(next, "machineId");
+  const hasAll = Object.prototype.hasOwnProperty.call(next, "all");
+
+  if (hasHandle) {
+    relaySourceHandle = normalizeRelayHandle(next.handle);
+  }
+  if (hasMachineId) {
+    relaySourceMachineId = `${next.machineId || ""}`.trim();
+  } else if (hasHandle) {
+    relaySourceMachineId = "";
+  }
+  if (hasAll) {
+    relaySubscribeAll = next.all === true;
+  }
+  if (relaySubscribeAll) {
+    relaySourceHandle = "";
+    relaySourceMachineId = "";
+  }
+  relayNeedsPanic = true;
+  requestRelaySources();
+  sendRelaySubscription();
+}
+
+function handleRelaySocketMessage(id, type, content) {
+  if (type === "connected" || type === "connected:already") {
+    requestRelaySources();
+    sendRelaySubscription();
+    return;
+  }
+
+  if (type === "notepat:midi:sources") {
+    relaySources = Array.isArray(content?.sources) ? content.sources : [];
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi:subscribed") {
+    relayStatusText = `relay ${relayTargetLabel()}`;
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi:unsubscribed") {
+    relayStatusText = "relay off";
+    relayNeedsPanic = true;
+    updateRelayBridgeState();
+    return;
+  }
+
+  if (type === "notepat:midi") {
+    relayMidiQueue.push(content);
+    relayLastEventText = `${content?.handle ? "@" + content.handle + " " : ""}${content?.event || "event"} ${content?.note ?? ""}`;
+    relayLastEventAt = Date.now();
+    updateRelayBridgeState();
+  }
+}
 
 async function boot({
   params,
@@ -1280,6 +1412,11 @@ async function boot({
   autopatApi = api;
   autopatHud = hud;
   autopatTypeface = typeface;
+  setSoundContext({
+    synth: sound?.synth,
+    play: sound?.play,
+    freq: sound?.freq,
+  });
 
   // ✨ Show ".com" superscript in the HUD corner label (notepat.com branding)
   hud.superscript(".com");
@@ -1345,6 +1482,33 @@ async function boot({
 
   // fps(4);
   udpServer = net.udp(); // For sending messages to `tv`.
+  relaySourceHandle = normalizeRelayHandle(query?.relayHandle);
+  relaySourceMachineId = `${query?.relayMachine || ""}`.trim();
+  relaySubscribeAll = query?.relayAll === "1" || query?.relay === "all";
+  relayStatusText = relaySubscriptionPayload() ? `relay ${relayTargetLabel()}` : "relay off";
+  relaySocket = net.socket(handleRelaySocketMessage);
+  requestRelaySources();
+  sendRelaySubscription();
+  if (typeof window !== "undefined") {
+    if (relayMessageHandler) window.removeEventListener("message", relayMessageHandler);
+    relayMessageHandler = (event) => {
+      const data = event?.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type === "notepat:midi:set-source" || data.type === "notepat:midi:subscribe") {
+        setRelaySource({
+          handle: data.handle,
+          machineId: data.machineId,
+          all: data.all === true,
+        });
+      } else if (data.type === "notepat:midi:unsubscribe") {
+        setRelaySource({ handle: "", machineId: "", all: false });
+      } else if (data.type === "notepat:midi:sources") {
+        requestRelaySources();
+      }
+    };
+    window.addEventListener("message", relayMessageHandler);
+    updateRelayBridgeState();
+  }
 
   // Create picture buffer at quarter resolution (quarter width, quarter height)
   const pictureWidth = Math.max(1, Math.floor(screen.width / 4));
@@ -1505,6 +1669,7 @@ async function boot({
 
   buildWaveButton(api);
   buildOctButton(api);
+  buildOsButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
 
@@ -1521,6 +1686,13 @@ async function boot({
 
 function sim({ sound, simCount, num, clock, painting }) {
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
+  setSoundContext({
+    synth: sound?.synth,
+    play: sound?.play,
+    freq: sound?.freq,
+    num,
+  });
+  flushRelayMidiQueue();
 
   if (lowLatencyMode) {
     if (simTick % 3 === 0) sound.speaker?.poll();
@@ -1932,7 +2104,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     (qKeyWidth + qKeySpacing);
   const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
 
-  let pianoY = SECONDARY_BAR_BOTTOM;
+  let pianoY = OS_BAR_BOTTOM;
   let pianoStartX = 58;
   const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
   const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
@@ -1949,7 +2121,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
     const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
     pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
-    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
     
     // Check if rotated piano fits horizontally (x + width within screen)
     const pianoRight = pianoStartX + rotatedPianoWidth;
@@ -1993,7 +2165,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
-    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
     
     // Check if piano fits horizontally
     const pianoRight = pianoStartX + pianoWidth;
@@ -2031,7 +2203,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   }
 
   if (isCompact) {
-    pianoY = SECONDARY_BAR_BOTTOM + 2;
+    pianoY = OS_BAR_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
       // Piano doesn't fit - hide it but still compute QWERTY position for center
@@ -2058,7 +2230,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const maxX = Math.max(minX, centerRight - pianoWidth);
     pianoStartX = clamp(idealX, minX, maxX);
   } else if (song) {
-    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? OS_BAR_BOTTOM;
     pianoY = effectiveTrackY + (trackHeight || 0) + 2;
     pianoStartX = effectiveWidth - pianoWidth - 2;
   } else {
@@ -2312,7 +2484,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = SECONDARY_BAR_BOTTOM;
+    const hudReserved = OS_BAR_BOTTOM;
     
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
@@ -2452,7 +2624,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = SECONDARY_BAR_BOTTOM;
+  const hudReserved = OS_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const baseReservedTop = hudReserved + trackHeight + trackSpacing;
@@ -2473,7 +2645,7 @@ function getButtonLayoutMetrics(
   // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
   const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
   const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
-  const availableHeightForRotated = screen.height - SECONDARY_BAR_BOTTOM - 4; // Leave some margin
+  const availableHeightForRotated = screen.height - OS_BAR_BOTTOM - 4; // Leave some margin
   // Only show rotated piano if ALL keys fit vertically
   const narrowVerticalSpace = !horizontalSpaceForMini && 
     usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
@@ -2910,7 +3082,7 @@ function paint({
   // 🎨 KidLisp visualization — bounded to available space above/between buttons
   if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
-    const klY = SECONDARY_BAR_BOTTOM;
+    const klY = OS_BAR_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
     const klH = klBottom - klY;
     if (klH > 10) {
@@ -3188,7 +3360,7 @@ function paint({
     // 🎚️ Room parameter bar - appears when room mode is enabled
     if (roomMode && roomBtn?.box) {
       const barHeight = 6;
-      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barY = OS_BAR_BOTTOM + 2;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
       const fillWidth = Math.floor(barWidth * roomAmount);
@@ -3495,7 +3667,7 @@ function paint({
   // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
   const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
   const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showHorizontalTrack ? SECONDARY_BAR_BOTTOM : null;
+  const trackY = showHorizontalTrack ? OS_BAR_BOTTOM : null;
 
 
   if (showHorizontalTrack) {
@@ -4416,6 +4588,45 @@ function paint({
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else if (!paintPictureOverlay) {
+    // OS bar background
+    ink(8, 30, 30).box(0, OS_BAR_TOP, screen.width, OS_BAR_HEIGHT);
+    ink(5, 20, 20).line(0, OS_BAR_TOP, screen.width, OS_BAR_TOP);
+
+    osBtn?.paint((btn) => {
+      ink(btn.down ? [20, 70, 70] : [12, 40, 40]).box(
+        btn.box.x,
+        btn.box.y,
+        btn.box.w,
+        btn.box.h,
+      );
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(
+          btn.box.x,
+          btn.box.y,
+          btn.box.w,
+          btn.box.h,
+        );
+        ink(100, 255, 255, 140).box(
+          btn.box.x,
+          btn.box.y,
+          btn.box.w,
+          btn.box.h,
+          "outline",
+        );
+      }
+      ink(70, 160, 160).line(
+        btn.box.x + btn.box.w,
+        btn.box.y + 1,
+        btn.box.x + btn.box.w,
+        btn.box.y + btn.box.h - 1,
+      );
+      ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
+        btn.label || "x86 os",
+        { x: btn.box.x + 3, y: btn.box.y + 3 },
+        undefined, undefined, false, "MatrixChunky8"
+      );
+    });
+
     waveBtn?.paint((btn) => {
       ink(btn.down ? [40, 40, 100] : "darkblue").box(
         btn.box.x,
@@ -4927,7 +5138,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(SECONDARY_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(OS_BAR_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -5281,6 +5492,219 @@ function setSoundContext(ctx) {
   soundContext = ctx;
 }
 
+function lowerBaseOctave() {
+  return parseInt(octave) + lowerOctaveShift;
+}
+
+function upperBaseOctave() {
+  return parseInt(octave) + 1 + upperOctaveShift;
+}
+
+function midiNoteToRelayButton(noteNumber) {
+  if (typeof noteNumber !== "number") return null;
+
+  const normalizedNote = ((noteNumber % 12) + 12) % 12;
+  const noteName = MIDI_NOTE_NAMES[normalizedNote];
+  const noteOctave = Math.floor(noteNumber / 12) - 1;
+  const lowerOct = lowerBaseOctave();
+  const upperOct = upperBaseOctave();
+
+  if (noteOctave === lowerOct && buttonNoteLookup.has(noteName)) {
+    return noteName;
+  }
+
+  if (noteOctave === upperOct) {
+    const upperNote = `+${noteName}`;
+    if (buttonNoteLookup.has(upperNote)) return upperNote;
+  }
+
+  if (noteOctave < lowerOct) {
+    const baseNote = noteOctave < lowerOct - 1 ? noteName : `+${noteName}`;
+    if (buttonNoteLookup.has(baseNote)) return baseNote;
+  }
+
+  if (noteOctave > upperOct) {
+    const baseNote = noteOctave > upperOct + 1 ? noteName : `+${noteName}`;
+    if (buttonNoteLookup.has(baseNote)) return baseNote;
+  }
+
+  if (buttonNoteLookup.has(noteName)) return noteName;
+  if (buttonNoteLookup.has(`+${noteName}`)) return `+${noteName}`;
+  return null;
+}
+
+function startRelayButtonNote(buttonNote, velocity = 127) {
+  if (!buttonNote) return false;
+
+  const num = soundContext?.num;
+  const synth = soundContext?.synth;
+  const freq = soundContext?.freq;
+
+  if (song && buttonNote.toUpperCase() !== song?.[songIndex]?.[0]) {
+    synth?.({
+      type: "noise-white",
+      tone: 1000,
+      duration: 0.05,
+      volume: 0.3,
+      attack: 0,
+    });
+    return false;
+  }
+
+  anyDown = true;
+  noteShake[buttonNote] = 3;
+
+  let noteName = buttonNote;
+  let targetOctave = lowerBaseOctave();
+  if (buttonNote.startsWith("+")) {
+    noteName = buttonNote.slice(1);
+    targetOctave = upperBaseOctave();
+  }
+
+  const tone = `${targetOctave}${noteName.toUpperCase()}`;
+  const active = orderedByCount(sounds);
+
+  if (slide && active.length > 0) {
+    sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
+    tonestack[buttonNote] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+    sounds[buttonNote] = sounds[active[0]];
+    if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
+    delete sounds[active[0]];
+    applyPitchBendToNotes([buttonNote], { immediate: true });
+  } else {
+    tonestack[buttonNote] = {
+      count: Object.keys(tonestack).length,
+      tone,
+    };
+
+    const pan = getPanForButtonNote(buttonNote);
+    let soundHandle = makeNoteSound(tone, velocity, pan);
+
+    if (!soundHandle || typeof soundHandle.kill !== "function") {
+      const velocityRatio = velocity === undefined ? 1 : velocity / 127;
+      const clampedRatio = num?.clamp
+        ? num.clamp(velocityRatio, 0, 1)
+        : Math.max(0, Math.min(1, velocityRatio));
+      const minVelocityVolume = 0.05;
+      const fallbackVolume =
+        toneVolume * (minVelocityVolume + (1 - minVelocityVolume) * clampedRatio);
+      soundHandle = synth?.({
+        type: "sine",
+        tone: freq?.(tone),
+        attack: quickFade ? 0.0015 : attack,
+        decay: 0.9,
+        duration: 0.4,
+        volume: fallbackVolume,
+        pan,
+      });
+    }
+
+    sounds[buttonNote] = {
+      note: buttonNote,
+      count: active.length + 1,
+      sound: soundHandle,
+    };
+
+    applyPitchBendToNotes([buttonNote], { immediate: true });
+
+    if (buttonNote.toUpperCase() === song?.[songIndex]?.[0]) {
+      songNoteDown = true;
+    }
+
+    delete trail[buttonNote];
+
+    if (autopatApi) pictureAdd(autopatApi, tone);
+  }
+
+  if (buttons[buttonNote]) {
+    buttons[buttonNote].down = true;
+    buttons[buttonNote].over = true;
+  }
+
+  return true;
+}
+
+function stopRelayButtonNote(buttonNote) {
+  if (!buttonNote) return;
+
+  const orderedTones = orderedByCount(tonestack);
+
+  if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
+    const previousKey = orderedTones[orderedTones.length - 2];
+    const previousTone = tonestack[previousKey]?.tone;
+    if (previousTone) {
+      sounds[buttonNote]?.sound?.update({ tone: previousTone, duration: 0.1 });
+      sounds[previousKey] = sounds[buttonNote];
+      if (sounds[previousKey]) sounds[previousKey].note = previousKey;
+      applyPitchBendToNotes([previousKey], { immediate: true });
+    }
+  } else if (sounds[buttonNote]?.sound) {
+    const soundEntry = sounds[buttonNote];
+    const lifespan = soundEntry.sound?.startedAt
+      ? performance.now() / 1000 - soundEntry.sound.startedAt
+      : 0.1;
+    const fade = max(0.075, min(lifespan, 0.15));
+    soundEntry.sound.kill(quickFade ? fastFade : fade);
+  }
+
+  if (buttonNote.toUpperCase() === song?.[songIndex]?.[0]) {
+    songIndex = (songIndex + 1) % song.length;
+    songNoteDown = false;
+    songShifting = true;
+  }
+
+  delete tonestack[buttonNote];
+  delete sounds[buttonNote];
+  trail[buttonNote] = 1;
+
+  if (buttons[buttonNote]) {
+    buttons[buttonNote].down = false;
+    buttons[buttonNote].over = false;
+  }
+}
+
+function flushRelayMidiQueue() {
+  if (relayNeedsPanic) {
+    for (const buttonNote of relayActiveNotes.values()) {
+      stopRelayButtonNote(buttonNote);
+    }
+    relayActiveNotes.clear();
+    relayNeedsPanic = false;
+  }
+
+  while (relayMidiQueue.length > 0) {
+    const event = relayMidiQueue.shift();
+    const noteNumber = Number(event?.note);
+    if (!Number.isFinite(noteNumber)) continue;
+
+    const key = [
+      normalizeRelayHandle(event?.handle),
+      `${event?.machineId || "unknown"}`,
+      `${event?.channel ?? 0}`,
+      `${Math.round(noteNumber)}`,
+    ].join(":");
+
+    if (event?.event === "note_off" || Number(event?.velocity) === 0) {
+      const activeButtonNote = relayActiveNotes.get(key) || midiNoteToRelayButton(Math.round(noteNumber));
+      if (activeButtonNote) stopRelayButtonNote(activeButtonNote);
+      relayActiveNotes.delete(key);
+      continue;
+    }
+
+    const buttonNote = midiNoteToRelayButton(Math.round(noteNumber));
+    if (!buttonNote) continue;
+    if (relayActiveNotes.has(key)) {
+      stopRelayButtonNote(relayActiveNotes.get(key));
+    }
+    if (startRelayButtonNote(buttonNote, Number(event?.velocity) || 127)) {
+      relayActiveNotes.set(key, buttonNote);
+    }
+  }
+}
+
 function makeNoteSound(tone, velocity = 127, pan = 0) {
   const synth = soundContext?.synth;
   const play = soundContext?.play;
@@ -5610,6 +6034,7 @@ function act({
     setupButtons(api);
     buildWaveButton(api);
     buildOctButton(api);
+    buildOsButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
@@ -5710,7 +6135,7 @@ function act({
     const topPianoWidth = Math.min(140, Math.floor((screen.width - topBarBase) * 0.5));
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
-    const vizRight = waveBtn?.box?.x || screen.width;
+    const vizRight = (waveBtn?.box?.x ?? screen.width) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
       recitalMode = true;
       recitalBlinkPhase = 0;
@@ -5734,7 +6159,7 @@ function act({
     if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-      const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
+      const trackY = showTrack ? OS_BAR_BOTTOM : null;
       const pianoGeometry = getMiniPianoGeometry({
         screen,
         layout,
@@ -6626,6 +7051,14 @@ function act({
       },
     });
 
+    osBtn?.act(e, {
+      down: () => api.beep(400),
+      push: () => {
+        api.beep();
+        jump("os");
+      },
+    });
+
     // 🎛️ Toggle button interactions
     slideBtn?.act(e, {
       push: () => {
@@ -6659,7 +7092,7 @@ function act({
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
     if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
-      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barY = OS_BAR_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
@@ -7755,6 +8188,22 @@ function buildOctButton({ screen, ui, typeface }) {
   );
   octBtn.id = "oct-button";
   octBtn.isNarrow = isNarrow;
+}
+
+function buildOsButton({ ui, screen }) {
+  const label = "x86 os";
+  const margin = 3;
+  const labelWidth = label.length * 6;
+  const buttonWidth = labelWidth + margin * 2;
+  const buttonHeight = OS_BAR_HEIGHT;
+  osBtn = new ui.Button(
+    0,
+    OS_BAR_TOP,
+    buttonWidth,
+    buttonHeight,
+  );
+  osBtn.id = "os-button";
+  osBtn.label = label;
 }
 
 // Build metronome controls and toggle buttons with responsive layout

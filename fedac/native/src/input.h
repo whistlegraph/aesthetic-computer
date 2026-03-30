@@ -53,6 +53,13 @@ typedef struct {
     int pointer_down;
     int delta_x, delta_y;  // Per-frame pointer delta
 
+    // Trackpad absolute→relative conversion (BCM5974 etc.)
+    int abs_prev_x, abs_prev_y;  // Previous absolute position (INT_MIN = not set)
+    int abs_x_min, abs_x_max;    // Axis ranges from EVIOCGABS
+    int abs_y_min, abs_y_max;
+    int abs_x_res, abs_y_res;    // Resolution (units/mm), 0 = unknown
+    int fd_is_trackpad[MAX_INPUT_DEVICES]; // This evdev is an abs trackpad
+
     // HID raw devices (for analog keyboards like NuPhy HE)
     int hidraw_fds[MAX_HIDRAW_DEVICES];
     int hidraw_count;

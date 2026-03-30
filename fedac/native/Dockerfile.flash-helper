@@ -1,0 +1,15 @@
+FROM fedora:43
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+    dosfstools util-linux mtools hfsplus-tools mactel-boot \
+    xorriso gdisk jq \
+    && dnf clean all && rm -rf /var/cache/dnf
+
+COPY fedac/native/scripts/media-layout.sh /usr/local/lib/ac-media-layout.sh
+COPY fedac/native/scripts/flash-helper-runner.sh /usr/local/bin/ac-os-flash-helper
+COPY fedac/native/boot/systemd-bootx64.efi /usr/local/lib/systemd-bootx64.efi
+COPY fedac/native/bootloader/splash.efi /usr/local/lib/splash.efi
+
+RUN chmod +x /usr/local/bin/ac-os-flash-helper
+
+ENTRYPOINT ["/usr/local/bin/ac-os-flash-helper"]

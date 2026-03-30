@@ -1,0 +1,472 @@
+# lith production Caddyfile — full subdomain routing
+# Cloudflare handles TLS. Caddy serves HTTP on :80.
+
+# --- papers.aesthetic.computer ---
+:443 {
+    tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 50MiB
+            roll_keep 3
+            roll_keep_for 72h
+        }
+        format json
+        level INFO
+    }
+    # --- Global performance headers ---
+    # Cache static assets (1h fresh, serve stale for 24h while revalidating)
+    @cacheable path *.mjs *.js *.css *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
+    header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
+    header @cacheable Access-Control-Allow-Origin *
+
+    # HTML: no-cache (always revalidate, but use ETag for 304)
+    @html path / *.html
+    header @html Cache-Control "no-cache"
+
+    # Encode everything (Caddy does this by default, but be explicit)
+    encode zstd gzip
+
+    @papers host papers.aesthetic.computer papers.prompt.ac
+    handle @papers {
+        handle /en {
+            rewrite * /index.html?lang=en
+            root * /opt/ac/system/public/papers.aesthetic.computer
+            file_server
+        }
+        handle /da {
+            rewrite * /index.html?lang=da
+            root * /opt/ac/system/public/papers.aesthetic.computer
+            file_server
+        }
+        handle /es {
+            rewrite * /index.html?lang=es
+            root * /opt/ac/system/public/papers.aesthetic.computer
+            file_server
+        }
+        handle /cn {
+            rewrite * /index.html?lang=zh
+            root * /opt/ac/system/public/papers.aesthetic.computer
+            file_server
+        }
+        root * /opt/ac/system/public/papers.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- bills.aesthetic.computer ---
+    @bills host bills.aesthetic.computer
+    handle @bills {
+        root * /opt/ac/system/public/bills.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- give.aesthetic.computer ---
+    @give host give.aesthetic.computer
+    handle @give {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /da {
+            rewrite * /index.html?lang=da&currency=dkk
+            root * /opt/ac/system/public/give.aesthetic.computer
+            file_server
+        }
+        handle /es {
+            rewrite * /index.html?lang=es&currency=usd
+            root * /opt/ac/system/public/give.aesthetic.computer
+            file_server
+        }
+        handle /de {
+            rewrite * /index.html?lang=de&currency=eur
+            root * /opt/ac/system/public/give.aesthetic.computer
+            file_server
+        }
+        handle /cn {
+            rewrite * /index.html?lang=zh&currency=usd
+            root * /opt/ac/system/public/give.aesthetic.computer
+            file_server
+        }
+        root * /opt/ac/system/public/give.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- news.aesthetic.computer ---
+    @news host news.aesthetic.computer
+    handle @news {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle {
+            rewrite * /api/news{uri}
+            reverse_proxy localhost:8888
+        }
+    }
+
+    # --- api.aesthetic.computer ---
+    @apidomain host api.aesthetic.computer api.prompt.ac
+    handle @apidomain {
+        reverse_proxy localhost:8888
+    }
+
+    # --- ipfs.aesthetic.computer (self-hosted IPFS gateway) ---
+    @ipfs host ipfs.aesthetic.computer
+    handle @ipfs {
+        header Access-Control-Allow-Origin *
+        reverse_proxy localhost:8090
+    }
+
+    # --- justanothersystem.org ---
+    @wwwjas2 host www.justanothersystem.org
+    handle @wwwjas2 {
+        redir https://justanothersystem.org{uri} 301
+    }
+
+    @jas host justanothersystem.org
+    handle @jas {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        root * /opt/ac/system/public/justanothersystem.org
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- builds.false.work ---
+    @builds host builds.false.work
+    handle @builds {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        root * /opt/ac/system/public/builds.false.work
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- sotce.net ---
+    @sotce host sotce.net www.sotce.net
+    handle @sotce {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /user {
+            reverse_proxy localhost:8888
+        }
+        handle /handle {
+            reverse_proxy localhost:8888
+        }
+        handle /authorized {
+            reverse_proxy localhost:8888
+        }
+        handle /aesthetic.computer/* {
+            uri strip_prefix /aesthetic.computer
+            root * /opt/ac/system/public/aesthetic.computer
+            file_server
+        }
+        # Everything else → sotce-net function
+        handle {
+            rewrite * /api/sotce-net{uri}
+            reverse_proxy localhost:8888
+        }
+    }
+
+    # --- kidlisp.com subdomains ---
+    @keep host keep.kidlisp.com
+    handle @keep {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /technology {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /keeps-tech.html
+            file_server
+        }
+        handle /wallet {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /wallet/index.html
+            file_server
+        }
+        handle {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /keeps.html
+            file_server
+        }
+    }
+
+    @buy host buy.kidlisp.com
+    handle @buy {
+        root * /opt/ac/system/public/kidlisp.com
+        rewrite * /buy.html
+        file_server
+    }
+
+    @pj host pj.kidlisp.com
+    handle @pj {
+        root * /opt/ac/system/public/kidlisp.com
+        rewrite * /pj.html
+        file_server
+    }
+
+    @device host device.kidlisp.com
+    handle @device {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /js/* {
+            root * /opt/ac/system/public/kidlisp.com
+            file_server
+        }
+        handle /qr/* {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /qr.html
+            file_server
+        }
+        handle {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /device.html
+            file_server
+        }
+    }
+
+    @topcalm host top.kidlisp.com calm.kidlisp.com
+    handle @topcalm {
+        handle /js/* {
+            root * /opt/ac/system/public/kidlisp.com
+            file_server
+        }
+        reverse_proxy localhost:8888
+    }
+
+    @learn host learn.kidlisp.com
+    handle @learn {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /decree* {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /decree.html
+            file_server
+        }
+        handle {
+            root * /opt/ac/system/public/kidlisp.com
+            rewrite * /learn.html
+            file_server
+        }
+    }
+
+    @keepsredirect host keeps.kidlisp.com
+    handle @keepsredirect {
+        redir https://keep.kidlisp.com{uri} 301
+    }
+
+    @keepsac host keeps.aesthetic.computer
+    handle @keepsac {
+        reverse_proxy localhost:8888
+    }
+
+    # --- jas.life ---
+    @jaslife host jas.life
+    handle @jaslife {
+        root * /opt/ac/system/public/jas.life
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- www.jas.life redirect ---
+    @wwwjas host www.jas.life
+    handle @wwwjas {
+        redir https://jas.life{uri} 301
+    }
+
+    # --- pals.aesthetic.computer ---
+    # pals.aesthetic.computer → /api/logo (dynamic logo generation)
+    @pals host pals.aesthetic.computer
+    handle @pals {
+        rewrite * /api/logo{uri}
+        reverse_proxy localhost:8888
+    }
+
+    @l5prompt host l5.prompt.ac
+    handle @l5prompt {
+        redir https://l5.aesthetic.computer{uri} 301
+    }
+    @p5prompt host p5.prompt.ac
+    handle @p5prompt {
+        redir https://p5.aesthetic.computer{uri} 301
+    }
+    @procprompt host processing.prompt.ac
+    handle @procprompt {
+        redir https://processing.aesthetic.computer{uri} 301
+    }
+    @siteprompt host sitemap.prompt.ac
+    handle @siteprompt {
+        redir https://sitemap.aesthetic.computer{uri} 301
+    }
+    @apiprompt host api.prompt.ac
+    handle @apiprompt {
+        redir https://api.aesthetic.computer{uri} 301
+    }
+
+    # --- legacy duckweedtri hosts ---
+    @duckweedaesthetic host duckweedtri.aesthetic.computer
+    handle @duckweedaesthetic {
+        redir https://aesthetic.computer{uri} 301
+    }
+
+    @duckweedprompt host duckweedtri.prompt.ac
+    handle @duckweedprompt {
+        redir https://aesthetic.computer{uri} 301
+    }
+
+    # --- prompt.ac → aesthetic.computer (301 redirect) ---
+    @promptac host prompt.ac
+    handle @promptac {
+        redir https://aesthetic.computer{uri} 301
+    }
+
+    @tryshared {
+        host l5.aesthetic.computer processing.aesthetic.computer
+        path /aesthetic.computer/*
+    }
+    handle @tryshared {
+        root * /opt/ac/system/public
+        file_server
+    }
+
+    # --- l5.aesthetic.computer ---
+    @l5 host l5.aesthetic.computer
+    handle @l5 {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /docs* {
+            reverse_proxy localhost:8888
+        }
+        root * /opt/ac/system/public/l5.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- processing.aesthetic.computer ---
+    @processing host processing.aesthetic.computer
+    handle @processing {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /docs* {
+            reverse_proxy localhost:8888
+        }
+        root * /opt/ac/system/public/processing.aesthetic.computer
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- rdp.jas.life ---
+    @rdp host rdp.jas.life
+    handle @rdp {
+        root * /opt/ac/system/public/rdp.jas.life
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    # --- kidlisp.com root domain ---
+    @kidlisproot host kidlisp.com www.kidlisp.com
+    handle @kidlisproot {
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /.netlify/functions/* {
+            reverse_proxy localhost:8888
+        }
+        handle /keeps {
+            redir https://keep.kidlisp.com/ 301
+        }
+        # Serve AC runtime assets for iframe embedding
+        handle /aesthetic.computer/* {
+            root * /opt/ac/system/public
+            file_server
+        }
+        # kidlisp.com SPA
+        handle {
+            root * /opt/ac/system/public/kidlisp.com
+            try_files {path} {path}.html /index.html
+            file_server
+        }
+    }
+
+    # --- notepat.com ---
+    @notepatroot host notepat.com www.notepat.com
+    handle @notepatroot {
+        @notepatindex path /
+        handle @notepatindex {
+            rewrite * /notepat
+        }
+        reverse_proxy localhost:8888
+    }
+    @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com p5.aesthetic.computer sitemap.aesthetic.computer
+    handle @mainspa {
+        # Preload critical assets (browser starts fetching before parsing HTML)
+        header Link "</aesthetic.computer/boot.mjs>; rel=preload; as=script, </aesthetic.computer/style.css>; rel=preload; as=style"
+
+        # Assets → DO Spaces CDN
+        handle /assets/* {
+            redir https://assets.aesthetic.computer{uri} 302
+        }
+        # API → lith
+        handle /api/* {
+            reverse_proxy localhost:8888
+        }
+        handle /.netlify/functions/* {
+            reverse_proxy localhost:8888
+        }
+        # Media → lith
+        handle /media/* {
+            reverse_proxy localhost:8888
+        }
+        # Static rewrite shortcuts
+        handle /disks/* {
+            uri strip_prefix /disks
+            root * /opt/ac/system/public/aesthetic.computer/disks
+            file_server
+        }
+        handle /lib/* {
+            uri strip_prefix /lib
+            root * /opt/ac/system/public/aesthetic.computer/lib
+            file_server
+        }
+        # Static files, then SPA fallback
+        handle {
+            root * /opt/ac/system/public
+            @static file
+            handle @static {
+                file_server
+            }
+            handle {
+                reverse_proxy localhost:8888
+            }
+        }
+    }
+
+    # --- false.work ---
+    @falseroot host false.work
+    handle @falseroot {
+        root * /opt/ac/system/public/false.work
+        try_files {path} {path}.html /index.html
+        file_server
+    }
+
+    @wwwfalse host www.false.work
+    handle @wwwfalse {
+        redir https://false.work{uri} 301
+    }
+
+    # --- Fallback for any unmatched host ---
+    handle {
+        reverse_proxy localhost:8888
+    }
+}
+
+:80 {
+    redir https://{host}{uri} 301
+}

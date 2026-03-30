@@ -1,17 +1,17 @@
-\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
-\contentsline {section}{\numberline {2}Genealogy of Creative Units}{6}{section.2}%
-\contentsline {subsection}{\numberline {2.1}The musical piece}{6}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}The Processing sketch}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}The Max/MSP patch}{7}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}The Unix process}{8}{subsection.2.4}%
-\contentsline {subsection}{\numberline {2.5}The Smalltalk image and Jupyter notebook}{9}{subsection.2.5}%
-\contentsline {section}{\numberline {3}What AC Pieces Are}{10}{section.3}%
-\contentsline {subsection}{\numberline {3.1}URL addressability}{10}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The immediate-mode rendering model}{11}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Authorship and iteration}{11}{subsection.3.3}%
-\contentsline {section}{\numberline {4}The Piece as Cognitive Extension}{13}{section.4}%
-\contentsline {subsection}{\numberline {4.1}The named path as mnemonic}{14}{subsection.4.1}%
-\contentsline {section}{\numberline {5}Pieces vs.\ Programs: A Comparison}{15}{section.5}%
-\contentsline {section}{\numberline {6}Implications for Platform Design}{16}{section.6}%
-\contentsline {section}{\numberline {7}Conclusion}{18}{section.7}%
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {section}{\numberline {2}Genealogy of Creative Units}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The musical piece}{7}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}The Processing sketch}{8}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}The Max/MSP patch}{8}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The Unix process}{9}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}The Smalltalk image and Jupyter notebook}{10}{subsection.2.5}%
+\contentsline {section}{\numberline {3}What AC Pieces Are}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}URL addressability}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The immediate-mode rendering model}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Authorship and iteration}{13}{subsection.3.3}%
+\contentsline {section}{\numberline {4}The Piece as Cognitive Extension}{15}{section.4}%
+\contentsline {subsection}{\numberline {4.1}The named path as mnemonic}{16}{subsection.4.1}%
+\contentsline {section}{\numberline {5}Pieces vs.\ Programs: A Comparison}{17}{section.5}%
+\contentsline {section}{\numberline {6}Implications for Platform Design}{18}{section.6}%
+\contentsline {section}{\numberline {7}Conclusion}{20}{section.7}%
 \contentsfinish 

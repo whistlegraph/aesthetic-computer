@@ -428,6 +428,8 @@ function paintDetail({ ink, line, screen, help }) {
 
   if (m.hw) {
     if (m.hw.display) info.push(["Display", m.hw.display]);
+    if (m.hw.displayDriver) info.push(["Driver", m.hw.displayDriver]);
+    if (m.hw.gpu && m.hw.gpu !== "unknown") info.push(["GPU", m.hw.gpu]);
     if (m.hw.sampleRate) info.push(["Audio", `${m.hw.sampleRate / 1000}kHz`]);
     if (m.hw.keyboard) info.push(["Keyboard", m.hw.keyboard]);
   }

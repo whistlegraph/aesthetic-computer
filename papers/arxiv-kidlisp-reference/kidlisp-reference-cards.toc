@@ -5,8 +5,8 @@
 \contentsline {subsection}{\numberline {2.3}Math (14 functions)}{6}{subsection.2.3}%
 \contentsline {subsection}{\numberline {2.4}Color (19+ named colors)}{7}{subsection.2.4}%
 \contentsline {subsection}{\numberline {2.5}System \& Display (9 functions)}{8}{subsection.2.5}%
-\contentsline {subsection}{\numberline {2.6}Control Flow (7 functions)}{9}{subsection.2.6}%
-\contentsline {subsection}{\numberline {2.7}Timing}{10}{subsection.2.7}%
+\contentsline {subsection}{\numberline {2.6}Control Flow (7 functions)}{8}{subsection.2.6}%
+\contentsline {subsection}{\numberline {2.7}Timing}{9}{subsection.2.7}%
 \contentsline {subsection}{\numberline {2.8}Text (4 functions)}{10}{subsection.2.8}%
 \contentsline {subsection}{\numberline {2.9}Input (3 functions)}{11}{subsection.2.9}%
 \contentsline {subsection}{\numberline {2.10}Audio (6 functions)}{11}{subsection.2.10}%

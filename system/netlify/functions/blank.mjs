@@ -104,7 +104,7 @@ export async function handler(event) {
                 description:
                   "A @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.",
                 images: [
-                  "https://p3-ofp.static.pub/fes/cms/2022/03/28/4wfdaky6aue1z6x5xmxkl9ms8gdpmz225363.png",
+                  "https://assets.aesthetic.computer/images/yoga-modes/product-ac-blank-1.png",
                 ],
               },
               unit_amount: AMOUNT,

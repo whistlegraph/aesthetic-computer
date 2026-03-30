@@ -1,3 +1,6 @@
+# KidLisp WASM render output
+kidlisp-wasm/output/
+
 # Wrangler local cache
 .wrangler/
 

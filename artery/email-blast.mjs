@@ -22,7 +22,7 @@ import { dirname, join } from 'path';
 import { createTransport } from 'nodemailer';
 import { createInterface } from 'readline';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, unlinkSync } from 'fs';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -30,14 +30,36 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: join(__dirname, '../at/.env') });
 config({ path: join(__dirname, '../at/deploy.env') });
 
+let unsubscribeSecret = process.env.UNSUBSCRIBE_SECRET || null;
+
+async function ensureUnsubscribeSecret() {
+  if (unsubscribeSecret) return unsubscribeSecret;
+
+  const { connect } = await import('../system/backend/database.mjs');
+  const database = await connect();
+
+  try {
+    const secrets = await database.db
+      .collection('secrets')
+      .findOne({ _id: 'email-blast' });
+
+    if (!secrets?.unsubscribeSecret) {
+      throw new Error('email-blast unsubscribe secret not found');
+    }
+
+    unsubscribeSecret = secrets.unsubscribeSecret;
+    return unsubscribeSecret;
+  } finally {
+    await database.disconnect();
+  }
+}
+
 // HMAC token generation for unsubscribe links
 function generateUnsubscribeToken(email) {
-  const secret = process.env.UNSUBSCRIBE_SECRET;
-  if (!secret) {
-    console.warn('WARNING: UNSUBSCRIBE_SECRET not set — unsubscribe links will not work');
-    return 'no-secret';
+  if (!unsubscribeSecret) {
+    throw new Error('unsubscribe secret not loaded');
   }
-  return createHmac('sha256', secret)
+  return createHmac('sha256', unsubscribeSecret)
     .update(email.toLowerCase().trim())
     .digest('hex');
 }
@@ -219,18 +241,25 @@ if (!SMTP_CONFIG.auth.pass) {
   process.exit(1);
 }
 
-const EMAIL_SUBJECT = '💾 Save us...';
+const EMAIL_SUBJECT = 'a little note from aesthetic computer';
 
 function getEmailText(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `Aesthetic.Computer's servers were suspended. We need ~$400 to come back online.
+  return `Hi,
 
-  give.aesthetic.computer
-  github.com/sponsors/whistlegraph
+Aesthetic Computer has had a sweet year so far.
 
-Even though chat communities, assets and user media archive, and database are offline — you can still use notepat.com, kidlisp.com, and explore pieces that don't require backend connectivity, thanks to our distributed hosting design.
+The tiny weird internet computer keeps filling up with life: thousands of paintings, more than 17,000 KidLisp programs, nearly 19,000 chat messages, and hundreds of published pages. The little orbit around it has been growing too: prompt.ac, news.aesthetic.computer, papers.aesthetic.computer, ATProto pages, and the ongoing Blank / AC Native work.
 
-Even $5 helps. Thank you.
+If you want to help keep it alive and growing, the simplest way is:
+
+https://give.aesthetic.computer
+
+If you want to see what support goes toward:
+
+https://bills.aesthetic.computer
+
+You can also help by replying to this email or sharing a favorite AC thing with a friend.
 
 — @jeffrey
 
@@ -240,16 +269,29 @@ Unsubscribe: ${unsubUrl}`;
 
 function getEmailHtml(recipientEmail) {
   const unsubUrl = getUnsubscribeUrl(recipientEmail);
-  return `<p>Aesthetic.Computer's servers were suspended. We need ~$400 to come back online.</p>
+  return `<p>Hi,</p>
 
 <p>
-<a href="https://give.aesthetic.computer">give.aesthetic.computer</a><br>
-<a href="https://github.com/sponsors/whistlegraph">github.com/sponsors/whistlegraph</a>
+  Aesthetic Computer has had a sweet year so far.
 </p>
 
-<p>Even though chat communities, assets and user media archive, and database are offline — you can still use <a href="https://notepat.com">notepat.com</a>, <a href="https://kidlisp.com">kidlisp.com</a>, and explore pieces that don't require backend connectivity, thanks to our distributed hosting design.</p>
+<p>
+  The tiny weird internet computer keeps filling up with life: thousands of paintings, more than 17,000 KidLisp programs, nearly 19,000 chat messages, and hundreds of published pages. The little orbit around it has been growing too: <a href="https://prompt.ac">prompt.ac</a>, <a href="https://news.aesthetic.computer">news.aesthetic.computer</a>, <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a>, ATProto pages, and the ongoing Blank / AC Native work.
+</p>
 
-<p>Even $5 helps. Thank you.</p>
+<p>
+  If you want to help keep it alive and growing, the simplest way is:
+</p>
+
+<p><a href="https://give.aesthetic.computer">give.aesthetic.computer</a></p>
+
+<p>
+  If you want to see what support goes toward:
+</p>
+
+<p><a href="https://bills.aesthetic.computer">bills.aesthetic.computer</a></p>
+
+<p>You can also help by replying to this email or sharing a favorite AC thing with a friend.</p>
 
 <p>— @jeffrey</p>
 
@@ -518,7 +560,8 @@ async function exportUsers() {
 }
 
 // Preview email content
-function previewEmail() {
+async function previewEmail() {
+  await ensureUnsubscribeSecret();
   console.log('\n📧 EMAIL PREVIEW\n');
   console.log('─'.repeat(60));
   console.log(`From: mail@aesthetic.computer`);
@@ -530,6 +573,7 @@ function previewEmail() {
 
 // Send a single email
 async function sendEmail(transporter, to) {
+  await ensureUnsubscribeSecret();
   const unsubUrl = getUnsubscribeUrl(to);
   const result = await transporter.sendMail({
     from: '"Aesthetic Computer" <mail@aesthetic.computer>',
