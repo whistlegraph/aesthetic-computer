@@ -10,8 +10,6 @@ const BLK = [40, 40, 50];
 
 const CARD_W = 28;
 const CARD_H = 38;
-const BTN_W = 36;
-const BTN_H = 13;
 
 // Table size (fixed geography, larger than screen)
 const TABLE_W = 480;
@@ -46,8 +44,17 @@ let dragging = null; // index into tableCards
 let dragOffX = 0, dragOffY = 0;
 let hoverIdx = -1; // index into tableCards
 
-// Button rects (screen space)
-let shuffleBtn = null, drawBtn = null;
+// Pan state
+let panning = false;
+let panStartX = 0, panStartY = 0;
+let panCamStartX = 0, panCamStartY = 0;
+
+// Deck hit zone (table space, slightly larger than card for easy drop)
+const DECK_PAD = 6;
+function overDeck(tx, ty) {
+  return tx >= DECK_X - DECK_PAD && tx < DECK_X + CARD_W + DECK_PAD &&
+         ty >= DECK_Y - DECK_PAD && ty < DECK_Y + CARD_H + DECK_PAD;
+}
 
 // Seeded shuffle
 function seededShuffle(arr, seed) {
@@ -77,10 +84,6 @@ function toTable(sx, sy) {
 // Convert table coords to screen coords
 function toScreen(tx, ty) {
   return { sx: tx - camX, sy: ty - camY };
-}
-
-function btnHit(btn, x, y) {
-  return btn && x >= btn.x && x < btn.x + btn.w && y >= btn.y && y < btn.y + btn.h;
 }
 
 // Find topmost card at table position (last in array = top)
@@ -211,6 +214,14 @@ function boot({ wipe, screen, net: { socket, udp }, handle }) {
       }
     }
 
+    if (type === "table:return") {
+      // Another player dragged a card back to the deck
+      const ti = tableCards.findIndex((c) => c.idx === msg.cardIdx);
+      if (ti >= 0) tableCards.splice(ti, 1);
+      if (!deck.includes(msg.cardIdx)) deck.push(msg.cardIdx);
+      deck = seededShuffle(deck, msg.seed);
+    }
+
     if (type === "table:flip") {
       const tc = tableCards.find((c) => c.idx === msg.cardIdx);
       if (tc) tc.faceUp = !tc.faceUp;
@@ -241,84 +252,94 @@ function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
 
-  // Button positions (screen space, near bottom-left)
-  shuffleBtn = { x: 4, y: sh - BTN_H - 4, w: BTN_W, h: BTN_H };
-  drawBtn = { x: 4 + BTN_W + 4, y: sh - BTN_H - 4, w: BTN_W, h: BTN_H };
-
   // Hover detection
   if (e.is("move")) {
     const { tx, ty } = toTable(e.x, e.y);
     hoverIdx = cardAtPos(tx, ty);
   }
 
-  // Touch: start dragging a card or tap buttons
+  // Touch: tap deck to draw, or grab a card
   if (e.is("touch")) {
-    // Check buttons first (screen space)
-    if (btnHit(shuffleBtn, e.x, e.y)) {
-      const seed = Date.now();
-      doShuffle(seed);
-      server?.send("table:shuffle", { seed, handle: myHandle });
-      return;
-    }
-
-    if (btnHit(drawBtn, e.x, e.y) && deck.length > 0) {
-      const cardIdx = deck.pop();
-      // Place near deck position with slight random offset
-      const ox = (Math.random() - 0.5) * 40;
-      const oy = (Math.random() - 0.5) * 20 + CARD_H + 8;
-      const x = DECK_X + ox;
-      const y = DECK_Y + oy;
-      tableCards.push({ idx: cardIdx, x, y, faceUp: true, dragger: null });
-      server?.send("table:draw", {
-        handle: myHandle, cardIdx, x, y,
-      });
-      return;
-    }
-
-    // Try to grab a card
     const { tx, ty } = toTable(e.x, e.y);
+
+    // Tap the deck to pull a card off
+    if (overDeck(tx, ty) && deck.length > 0) {
+      const cardIdx = deck.pop();
+      // Place just below the deck
+      const x = DECK_X + (Math.random() - 0.5) * 30;
+      const y = DECK_Y + CARD_H + 8;
+      tableCards.push({ idx: cardIdx, x, y, faceUp: true, dragger: null });
+      server?.send("table:draw", { handle: myHandle, cardIdx, x, y });
+      return;
+    }
+
+    // Try to grab a card on the table
     const idx = cardAtPos(tx, ty);
     if (idx >= 0) {
       const c = tableCards[idx];
-      // Can only grab if no one else is dragging it
       if (!c.dragger || c.dragger === myHandle) {
         dragging = bringToTop(idx);
         const nc = tableCards[dragging];
         nc.dragger = myHandle;
         dragOffX = tx - nc.x;
         dragOffY = ty - nc.y;
-        server?.send("table:grab", {
-          handle: myHandle, cardIdx: nc.idx,
-        });
+        server?.send("table:grab", { handle: myHandle, cardIdx: nc.idx });
       }
+    } else if (!overDeck(tx, ty)) {
+      // Start panning (dragging empty space)
+      panning = true;
+      panStartX = e.x;
+      panStartY = e.y;
+      panCamStartX = camX;
+      panCamStartY = camY;
     }
   }
 
-  // Drag: move the card
-  if (e.is("draw") && dragging !== null) {
-    const { tx, ty } = toTable(e.x, e.y);
-    const c = tableCards[dragging];
-    if (c) {
-      c.x = tx - dragOffX;
-      c.y = ty - dragOffY;
+  // Drag: move a card or pan the view
+  if (e.is("draw")) {
+    if (dragging !== null) {
+      const { tx, ty } = toTable(e.x, e.y);
+      const c = tableCards[dragging];
+      if (c) {
+        c.x = tx - dragOffX;
+        c.y = ty - dragOffY;
+      }
+    } else if (panning) {
+      camX = panCamStartX - (e.x - panStartX);
+      camY = panCamStartY - (e.y - panStartY);
     }
   }
 
-  // Lift: drop the card
+  // Lift: drop card, return to deck, or stop panning
   if (e.is("lift")) {
+    panning = false;
     if (dragging !== null) {
       const c = tableCards[dragging];
       if (c) {
-        c.dragger = null;
-        server?.send("table:drop", {
-          handle: myHandle, cardIdx: c.idx, x: c.x, y: c.y,
-        });
+        // Check if dropped on the deck — return it
+        const cx = c.x + CARD_W / 2;
+        const cy = c.y + CARD_H / 2;
+        if (overDeck(cx, cy)) {
+          // Return card to deck and reshuffle
+          const cardIdx = c.idx;
+          tableCards.splice(dragging, 1);
+          const seed = Date.now();
+          deck.push(cardIdx);
+          deck = seededShuffle(deck, seed);
+          server?.send("table:return", { handle: myHandle, cardIdx, seed });
+        } else {
+          c.dragger = null;
+          server?.send("table:drop", {
+            handle: myHandle, cardIdx: c.idx, x: c.x, y: c.y,
+          });
+        }
       }
       dragging = null;
+      hoverIdx = -1;
     }
   }
 
-  // Double-tap to flip (keyboard shortcut: f)
+  // Press f to flip hovered card
   if (e.is("keyboard:down:f")) {
     if (hoverIdx >= 0 && hoverIdx < tableCards.length) {
       const c = tableCards[hoverIdx];
@@ -439,39 +460,51 @@ function paint({ wipe, ink, box, write, line, screen }) {
     py += 10;
   }
 
-  // Buttons (bottom left)
-  paintBtn(ink, box, write, shuffleBtn, "shuf", true);
-  paintBtn(ink, box, write, drawBtn, "draw", deck.length > 0);
+  // -- Minimap (bottom-right) --
+  const mmScale = 0.15;
+  const mmW = Math.floor(TABLE_W * mmScale);
+  const mmH = Math.floor(TABLE_H * mmScale);
+  const mmX = sw - mmW - 4;
+  const mmY = sh - mmH - 4;
 
-  // Deck count near draw button
-  if (deck.length > 0) {
-    const dl = "" + deck.length;
-    ink(200, 210, 195).write(dl, {
-      x: drawBtn.x + BTN_W + 4,
-      y: drawBtn.y + 3,
-    });
+  // Minimap background
+  ink(50, 70, 45, 180).box(mmX, mmY, mmW, mmH);
+  ink(80, 110, 72).box(mmX, mmY, mmW, mmH, "outline");
+
+  // Cards on minimap (tiny dots)
+  for (const c of tableCards) {
+    const mx = mmX + Math.floor(c.x * mmScale);
+    const my = mmY + Math.floor(c.y * mmScale);
+    if (c.dragger) {
+      ink(255, 200, 100).box(mx, my, 2, 2);
+    } else {
+      ink(220, 215, 200).box(mx, my, 2, 2);
+    }
   }
+
+  // Deck on minimap
+  if (deck.length > 0) {
+    const mdx = mmX + Math.floor(DECK_X * mmScale);
+    const mdy = mmY + Math.floor(DECK_Y * mmScale);
+    ink(150, 130, 170).box(mdx, mdy, 3, 3);
+  }
+
+  // Viewport rectangle on minimap
+  const vx = mmX + Math.floor(camX * mmScale);
+  const vy = mmY + Math.floor(camY * mmScale);
+  const vw = Math.floor(sw * mmScale);
+  const vh = Math.floor(sh * mmScale);
+  ink(255, 255, 255, 100).box(vx, vy, vw, vh, "outline");
 
   // Hint
   const hint = dragging !== null
-    ? "dragging..."
+    ? "drop on deck to return"
     : hoverIdx >= 0
       ? "drag to move / f to flip"
-      : "tap deck or draw";
+      : deck.length > 0
+        ? "tap deck to draw"
+        : "all cards on table";
   ink(180, 195, 175).write(hint, { x: 4, y: 4 });
-}
-
-function paintBtn(ink, box, write, btn, label, active) {
-  if (!btn) return;
-  if (active) {
-    ink(55, 75, 50).box(btn.x, btn.y, btn.w, btn.h);
-    ink(80, 110, 72).box(btn.x, btn.y, btn.w, btn.h, "outline");
-    ink(200, 210, 195).write(label, { x: btn.x + 6, y: btn.y + 3 });
-  } else {
-    ink(50, 65, 45).box(btn.x, btn.y, btn.w, btn.h);
-    ink(65, 80, 58).box(btn.x, btn.y, btn.w, btn.h, "outline");
-    ink(100, 115, 95).write(label, { x: btn.x + 6, y: btn.y + 3 });
-  }
 }
 
 function meta() {
