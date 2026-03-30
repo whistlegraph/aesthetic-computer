@@ -925,7 +925,7 @@ status = 301
 force = true
 [[redirects]]
 from = "https://wand.ac"
-to = "https://aesthetic-computer.netlify.app/wand"
+to = "https://aesthetic.computer/wand"
 status = 301
 force = true
 [[redirects]]

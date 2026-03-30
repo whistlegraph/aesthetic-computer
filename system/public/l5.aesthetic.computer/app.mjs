@@ -137,7 +137,7 @@ await createTryPage({
   },
   brand: {
     heading: "Try L5 on AC",
-    logoUrl: "https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png",
+    logoUrl: "./l5-logo-blob.png",
     logoAlt: "L5 logo",
     heroLink: {
       href: "https://l5lua.org/",
@@ -230,6 +230,6 @@ await createTryPage({
   examples: EXAMPLES,
   docs: L5_DOCS,
   onLogoError: (img) => {
-    img.src = "https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png";
+    img.src = "./l5-logo-blob.png";
   },
 });

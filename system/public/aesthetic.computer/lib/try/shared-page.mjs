@@ -626,13 +626,14 @@ export async function createTryPage(config) {
       updateSource(picked);
       setEditorValue(picked.code);
       queueDraftSave(picked.code);
+      queueOrRun(picked.code);
     });
 
     resetBtn.addEventListener("click", () => {
       const picked = getExampleById(state.selectedExampleId);
       setEditorValue(picked.code);
       queueDraftSave(picked.code);
-      setRuntimeStatus(`Reset to ${picked.title}.`, "");
+      queueOrRun(picked.code);
     });
 
     copyBtn.addEventListener("click", async () => {
