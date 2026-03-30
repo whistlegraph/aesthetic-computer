@@ -6,11 +6,12 @@ const tts = require("@google-cloud/text-to-speech");
 const crypto = require("crypto");
 const { S3Client, HeadObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
 
-// OpenAI voice mapping: alloy, echo, fable, onyx, nova, shimmer
+// OpenAI voice mapping
+// gpt-4o-mini-tts voices: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse
 const OPENAI_VOICES = {
-  male: ["onyx", "echo", "alloy"],
-  female: ["nova", "shimmer", "fable"],
-  neutral: ["alloy", "fable", "echo"],
+  male: ["onyx", "echo", "ash", "alloy"],
+  female: ["nova", "shimmer", "fable", "coral"],
+  neutral: ["alloy", "fable", "echo", "sage", "verse", "ballad"],
 };
 
 // Initialize S3 client for Digital Ocean Spaces
@@ -27,9 +28,10 @@ const BUCKET = process.env.ART_SPACE_NAME;
 const CDN_URL = "https://art.aesthetic.computer";
 const CACHE_PREFIX = "tts-cache/";
 
-// Generate cache key from provider + voice + text
-function getCacheKey(provider, voiceId, text) {
-  const hash = crypto.createHash("sha256").update(`${provider}:${voiceId}:${text}`).digest("hex");
+// Generate cache key from provider + voice + text + instructions
+function getCacheKey(provider, voiceId, text, instructions) {
+  const parts = `${provider}:${voiceId}:${text}${instructions ? `:${instructions}` : ""}`;
+  const hash = crypto.createHash("sha256").update(parts).digest("hex");
   return `${CACHE_PREFIX}${hash}.mp3`;
 }
 
@@ -67,18 +69,24 @@ async function saveToCache(key, audioBuffer) {
 }
 
 // Generate audio with OpenAI TTS
-async function generateOpenAI(text, gender, set) {
+// Uses gpt-4o-mini-tts when instructions are provided (supports emotional/style control),
+// falls back to tts-1 otherwise.
+async function generateOpenAI(text, gender, set, instructions) {
   const voiceList = OPENAI_VOICES[gender] || OPENAI_VOICES.neutral;
   const voice = voiceList[set % voiceList.length];
-  
+
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  
-  const mp3Response = await openai.audio.speech.create({
-    model: "tts-1",
+
+  const params = {
+    model: instructions ? "gpt-4o-mini-tts" : "tts-1",
     voice: voice,
     input: text,
     response_format: "mp3",
-  });
+  };
+
+  if (instructions) params.instructions = instructions;
+
+  const mp3Response = await openai.audio.speech.create(params);
 
   return {
     buffer: Buffer.from(await mp3Response.arrayBuffer()),
@@ -154,17 +162,20 @@ exports.handler = async (event) => {
     const utterance = body.from || "aesthetic.computer";
     const set = parseInt(body.voice?.split(":")[1]) || 0;
     const gender = body.voice?.split(":")[0]?.toLowerCase() || "neutral";
-    
+
     // Provider: "openai" (default), "google"
     // Can be set via body.provider or defaults to openai
     const provider = body.provider || "openai";
-    
+
+    // Instructions for gpt-4o-mini-tts emotional/style control (OpenAI only)
+    const instructions = provider === "openai" ? (body.instructions || null) : null;
+
     // Cache bust: if true, skip cache lookup and regenerate
     const bustCache = body.bust === true;
 
     // Check for SSML (only Google supports it)
     const isSSML = utterance.indexOf("<speak>") !== -1;
-    
+
     // Strip SSML tags for OpenAI (it doesn't support them)
     let text = utterance;
     if (isSSML && provider === "openai") {
@@ -173,13 +184,13 @@ exports.handler = async (event) => {
 
     // Build voice identifier for cache key
     const voiceSpec = `${provider}-${gender}-${set}`;
-    const cacheKey = getCacheKey(provider, voiceSpec, text);
+    const cacheKey = getCacheKey(provider, voiceSpec, text, instructions);
 
     try {
       // Check cache first - return redirect to CDN if cached (unless bust=true)
       if (!bustCache) {
         const cachedUrl = await checkCache(cacheKey);
-        
+
         if (cachedUrl) {
           console.log(`🎯 TTS cache hit: ${cachedUrl}`);
           return {
@@ -197,13 +208,13 @@ exports.handler = async (event) => {
       }
 
       // Cache miss (or bust) - generate with selected provider
-      console.log(`🔄 TTS ${bustCache ? 'regenerating' : 'cache miss'} (${provider}): ${text.substring(0, 50)}...`);
-      
+      console.log(`🔄 TTS ${bustCache ? "regenerating" : "cache miss"} (${provider}): ${text.substring(0, 50)}...`);
+
       let result;
       if (provider === "google") {
         result = await generateGoogle(text, gender, set, isSSML);
       } else {
-        result = await generateOpenAI(text, gender, set);
+        result = await generateOpenAI(text, gender, set, instructions);
       }
 
       const { buffer: audioBuffer, voiceId } = result;
@@ -220,7 +231,7 @@ exports.handler = async (event) => {
 
       // Cache for next time
       const cdnUrl = await saveToCache(cacheKey, audioBuffer);
-      
+
       if (cdnUrl) {
         return {
           statusCode: 302,

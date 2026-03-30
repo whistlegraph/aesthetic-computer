@@ -16,6 +16,7 @@ let lastSpoken = "";
 let status = "idle"; // idle, speaking, error
 let provider = "openai"; // "openai" or "google"
 let gender = "neutral";
+let instructions = null;
 
 // 🥾 Boot
 function boot({ params, colon }) {
@@ -33,6 +34,10 @@ function boot({ params, colon }) {
       else if (part === "openai") provider = "openai";
       else if (part === "male") gender = "male";
       else if (part === "female") gender = "female";
+      else if (part === "scream") {
+        provider = "openai";
+        instructions = "Deliver this as a blood-curdling scream. Shriek at the absolute top of your lungs with your voice cracking. Pure primal rage. Do NOT speak normally — only scream, raw and unhinged.";
+      }
     }
     console.log(`Provider: ${provider}, Gender: ${gender}`);
   }
@@ -45,8 +50,9 @@ function paint({ wipe, ink, write, screen }) {
   // Note: Top-left corner is reserved for prompt HUD label
   
   // Provider indicator (below HUD area)
-  const providerColor = provider === "google" ? "cyan" : "lime";
-  ink(providerColor).write(`[${provider}]`, { x: 6, y: 18 });
+  const providerColor = instructions ? "red" : provider === "google" ? "cyan" : "lime";
+  const providerLabel = instructions ? `[${provider} SCREAM]` : `[${provider}]`;
+  ink(providerColor).write(providerLabel, { x: 6, y: 18 });
   
   // Instructions
   ink("gray").write("say <words>", { x: 6, y: 32 });
@@ -80,10 +86,11 @@ function act({ event: e, speak }) {
     
     const voice = `${gender}:0`;
     
-    console.log(`🗣️ Speaking: "${text}" with ${provider}, voice: ${voice}`);
+    console.log(`🗣️ Speaking: "${text}" with ${provider}, voice: ${voice}${instructions ? " [SCREAM]" : ""}`);
     speak(text, voice, "cloud", {
       volume: 1,
       provider: provider,
+      instructions,
     });
   }
   
