@@ -19,6 +19,9 @@ let myHandle = "guest";
 let myId = null;
 let sw = 0, sh = 0;
 let frameCount = 0;
+let synth = null; // sound.synth reference
+let sendFn = null; // send() for window:reload
+let updateAvailable = false;
 
 let roster = []; // [{ id, handle }] — first two duel, rest wait
 let phase = "waiting"; // waiting | countdown | fight | roundover
@@ -93,12 +96,21 @@ function startCountdown() {
 function startFight() {
   phase = "fight";
   if (isDueling() && !me) spawnDuelists();
+  // Fight start sound — short rising tone
+  synth?.({ type: "square", tone: 440, volume: 0.15, attack: 0.01, decay: 0.15, duration: 0.2 });
 }
 
 function endRound(winnerHandle) {
   roundWinner = winnerHandle;
   phase = "roundover";
   roundOverTimer = ROUND_OVER_FRAMES;
+  // Death sound
+  const won = winnerHandle === myHandle;
+  if (won) {
+    synth?.({ type: "triangle", tone: 660, volume: 0.2, attack: 0.01, decay: 0.3, duration: 0.35 });
+  } else {
+    synth?.({ type: "sawtooth", tone: 120, volume: 0.15, attack: 0.01, decay: 0.4, duration: 0.5 });
+  }
 }
 
 function advanceStack() {
@@ -120,10 +132,35 @@ function norm(dx, dy) {
   return { nx: dx / len, ny: dy / len };
 }
 
-function boot({ wipe, screen, net: { socket, udp }, handle }) {
+function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) {
   sw = screen.width;
   sh = screen.height;
   myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
+  synth = sound.synth;
+  sendFn = send;
+
+  // Version polling — auto-reload on new deploy
+  const pollVersion = async () => {
+    try {
+      const res = await fetch("/api/version");
+      if (!res.ok) return;
+      const info = await res.json();
+      const current = info.deployed;
+      // Long-poll for changes
+      while (true) {
+        try {
+          const r = await fetch(`/api/version?current=${current}`);
+          if (!r.ok) break;
+          const data = await r.json();
+          if (data.changed !== false) {
+            updateAvailable = true;
+            break;
+          }
+        } catch { break; }
+      }
+    } catch {}
+  };
+  pollVersion();
 
   udpChannel = udp((type, content) => {
     const d = typeof content === "string" ? JSON.parse(content) : content;
@@ -218,6 +255,10 @@ function sim() {
 
   if (phase === "countdown") {
     countdownTimer--;
+    // Tick each second
+    if (countdownTimer > 0 && countdownTimer % 60 === 0) {
+      synth?.({ type: "sine", tone: 330, volume: 0.1, attack: 0.005, decay: 0.1, duration: 0.12 });
+    }
     if (countdownTimer <= 0) startFight();
   }
 
@@ -287,6 +328,7 @@ function sim() {
       const bx = me.x + nx * 6;
       const by = me.y + ny * 6;
       bullets.push({ x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED, owner: "me" });
+      synth?.({ type: "square", tone: 800, volume: 0.06, attack: 0.001, decay: 0.06, duration: 0.07 });
       server?.send("duel:fire", {
         handle: myHandle, x: bx, y: by, vx: nx * BULLET_SPEED, vy: ny * BULLET_SPEED,
       });
@@ -341,11 +383,21 @@ function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
 
-  if (e.is("touch") && phase === "fight" && (isDueling() || dummy) && me?.alive) {
+  if (e.is("touch")) {
     const ox = Math.floor(sw / 2 - ARENA_W / 2);
     const oy = Math.floor(sh / 2 - ARENA_H / 2);
-    me.targetX = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
-    me.targetY = Math.max(6, Math.min(ARENA_H - 6, e.y - oy));
+
+    // Tap update banner to reload
+    if (updateAvailable && e.y >= oy + ARENA_H + 14 && e.y < oy + ARENA_H + 38 && e.x >= ox && e.x < ox + ARENA_W) {
+      sendFn?.({ type: "window:reload" });
+      return;
+    }
+
+    // Tap arena to move
+    if (phase === "fight" && (isDueling() || dummy) && me?.alive) {
+      me.targetX = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
+      me.targetY = Math.max(6, Math.min(ARENA_H - 6, e.y - oy));
+    }
   }
 }
 
@@ -438,6 +490,16 @@ function paint({ wipe, ink, box, write, circle, screen }) {
     ink(200, 195, 185).write("practice", {
       x: ox + Math.floor(ARENA_W / 2 - 24),
       y: oy - 12,
+    });
+  }
+
+  // Update available banner
+  if (updateAvailable) {
+    ink(50, 160, 80).write("update ready", {
+      x: ox, y: oy + ARENA_H + 16,
+    });
+    ink(140, 135, 125).write("tap here to reload", {
+      x: ox, y: oy + ARENA_H + 26,
     });
   }
 
