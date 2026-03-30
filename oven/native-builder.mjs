@@ -419,9 +419,10 @@ async function runBuildJob(job) {
       const initramfsOut = `/tmp/oven-initramfs-${job.id}`;
       await runPhase(job, "extract", "bash", ["-c", [
         `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut}`,
-        `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || true`,
-        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || true`,
-        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || docker cp ${cid}:/out/ac-os.iso ${isoOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz-slim ${slimOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || docker cp ${cid}:/out/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || true`,
+        `ls -lh ${slimOut} ${initramfsOut} 2>/dev/null || echo "WARNING: slim/initramfs not extracted"`,
         `docker rm ${cid} >/dev/null`,
       ].join("; ")], repoDir);
 
