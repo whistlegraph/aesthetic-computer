@@ -651,19 +651,21 @@ const DEFAULT_USE_GIFENC = true;
 window.acDISABLE_HUD_LABEL_CACHE = true; // Disable HUD label caching for dynamic coloring
 window.acDISABLE_QR_OVERLAY_CACHE = true; // Disable QR overlay caching for dynamic updates
 
-const diskSends = [];
-let diskSendsConsumed = false;
+// Guard: When WS + HTTP module imports race (importWithRetry), both module
+// instances execute top-level code. Use a window-scoped queue so ALL instances
+// share the same sends array and consumed flag — prevents session:started from
+// being pushed to one instance's array but consumed from another (empty) one.
+if (!window._acDiskSendQ) {
+  window._acDiskSendQ = { sends: [], consumed: false };
+}
+const _diskQ = window._acDiskSendQ;
 
 // Store original URL parameters for refresh functionality
 let preservedParams = {};
 
-// Guard: When WS + HTTP module imports race (importWithRetry), both module
-// instances execute top-level code.  The second overwrites window.acDISK_SEND
-// with its own diskSends array while boot() uses the first module's
-// consumeDiskSends — splitting the queue so session:started never arrives.
 if (!window.acDISK_SEND) {
   window.acDISK_SEND = function (message) {
-    !diskSendsConsumed ? diskSends.push(message) : window.acSEND(message);
+    !_diskQ.consumed ? _diskQ.sends.push(message) : window.acSEND(message);
   };
 }
 
@@ -727,10 +729,10 @@ window.acGetState = () => ({
 });
 
 function consumeDiskSends(send) {
-  if (diskSendsConsumed) return;
-  diskSends.forEach((message) => send(message));
-  diskSends.length = 0;
-  diskSendsConsumed = true;
+  if (_diskQ.consumed) return;
+  _diskQ.sends.forEach((message) => send(message));
+  _diskQ.sends.length = 0;
+  _diskQ.consumed = true;
 }
 
 // 🔌 USB
