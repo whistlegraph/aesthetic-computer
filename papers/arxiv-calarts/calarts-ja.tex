@@ -1,0 +1,205 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+
+% === PSYCHO watermark ===
+\usepackage{eso-pic}
+\usepackage{tikz}
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture, overlay]
+    % --- Pals logo: large, top-left, rotated, semi-opaque ---
+    \node[opacity=0.06, anchor=north west, rotate=-15]
+      at ([xshift=-1.2cm, yshift=1.2cm]current page.north west)
+      {\includegraphics[width=10cm]{pals}};
+    % --- "PSYCHO" text in Processing Light font ---
+    \node[opacity=0.12, rotate=45, anchor=center]
+      at (current page.center)
+      {{\aclight\fontsize{2.5cm}{3cm}\selectfont\color{acpink} PSYCHO}};
+  \end{tikzpicture}%
+}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={CalArts、コールアウトと論文：オペレーティングシステムとしての芸術大学}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{PSYCHO論文 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} CalArts、コールアウトと論文}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} オペレーティングシステムとしての芸術大学}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ PSYCHO論文 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{概要。}
+CalArts（カリフォルニア芸術大学）は1961年にWalt Disneyによって設立された総合的な芸術大学である——アニメーション、音楽、演劇、ダンス、映画、美術が同じ屋根の下で、学問分野の壁なく互いに交わる場所。本稿では、CalArtsがクリエイティブ生産の\emph{オペレーティングシステム}として機能していると論じる：芸術とは何か、芸術をどう教えるか、アーティストはどうあるべきかについての基本的な前提のセット。学校独特の「コールアウト」文化——批評、廊下での会話、制度的挑戦——を考察し、この口承的伝統がいかに文字にできない知識を生み出しているかを探る。次に論文そのものに目を向ける：なぜこの一連の学術論文が存在するのか、アーティスト兼プログラマーが理論を書くことの意味は何か、そして論文の形式自体がコールアウト——アイデアを公の場に露呈させる公開の挑戦——ではないのか。CalArtsは著者に応答できる作品を作ることを教えた。これらの論文は、それらの作品がアートワールドの予期しない方法で応答しているのである。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{ディズニーマシン}
+
+Walt Disneyは1961年にChouinard Art InstituteとLos Angeles Conservatory of Musicを統合してCalArtsを創設した。彼が望んだのは、自分のスタジオのように機能する芸術大学だった：すべての分野が一つの建物に集まり、ツールとアイデアを共有する。Disneyは1971年にValenciaキャンパスが開設される前に亡くなったが、彼が要求した構造——部門間の壁がないこと、共有施設、学際的衝突の文化——がその後のすべてを形作った。
+
+創設のビジョンは産業的だった。Disneyには描けるアニメーター、リズムを理解する音楽家、ストーリーボードに向かって即興できる俳優が必要だった。この学校はスタジオへの人材供給パイプラインだった~\citep{singerman1999art}。しかし別のことが起こった。Disneyの後継者が雇った教員——Allan Kaprow、Judy Chicago、John Baldessari、Miriam Schapiro、Nam June Paikを含む——が、学際的構造を戦後アメリカ美術の実験室に変えた。Disneyがアニメーター育成のために建てた機械は、コンセプチュアルアーティスト、フェミニストパフォーマンス、ビデオアートを生産する機械となり、最終的にはポストスタジオ実践を定義する世代を輩出した。
+
+オペレーティングシステムの比喩は正確である。オペレーティングシステムはソフトウェアを作らない；ソフトウェアが動く環境を提供する。CalArtsは芸術を作らない；ある特定のタイプのアーティストを可能にする条件——空間的、社会的、教育的な——を提供する。オペレーティングシステムを変えれば、創造できるものが変わる。
+
+\section{コールアウト}
+
+\subsection{口承的伝統としての批評}
+
+CalArtsの批評は採点ではない。それはコールアウトである。誰かが作品を壁に掛け、部屋が応答する——評価基準や学習成果ではなく、長い間一緒に芸術を見てきたからこそ社交辞令を飛ばせる人々による、リハーサルのない、時に残酷で時に寛大な正直さをもって。
+
+\citet{elkins2001why}は、芸術が教えられないのと同様に批評も教えられないと論じる：良い批評で起こることはメソッドに還元できない。それは口承的伝統である。3時間の批評で生成される知識はその部屋にしか存在しない。書き留めると別のものに変わる——要約、評価、判断に。批評はライブである。それは注意のパフォーマンスである~\citep{hooks1994teaching}。
+
+CalArtsの批評はその強度で知られている。小規模な学校（約1,500人）、寮制キャンパス、学際的構造は、画家の批評に作曲家、アニメーター、映画人、ダンサーが含まれうることを意味する。フィードバックは学科特有ではない。それは\emph{知覚的}である：これは私の身体に、耳に、時間感覚に何をしたか？コールアウトは「これは良い絵だ」ではない。コールアウトは「これは生きている」または「これは死んでいる」である。
+
+\subsection{廊下の知識}
+
+CalArtsが教えることの大部分は教室の外で起こる。本館の廊下——Ladd \& Kelseyによるブルータリスト建築の巨大構造体——が非公式のサロンとして機能する。作曲家が彫刻家の開いたスタジオの前を通り過ぎ、二人の作品を変える音を聞く。映画人が午前2時にその日の素材を上映し、ダンサーが入ってきて映像に合わせて即興を始める。
+
+これはカリキュラムではない。これは\emph{建築}である。建築が衝突を強制する。食堂（唯一の）がすべての人を同じ部屋に押し込む。廊下は立ち止まって話せるほど広い。スタジオは開放されている。練習室から音が漏れる。建築はその中にいる人々を演奏する楽器である。
+
+\citet{deduve1994attitude}は芸術教育の3つのパラダイムを識別した：アカデミー（才能-模倣）、バウハウス（創造性-メディウム-発明）、戦後芸術学校（態度-実践-脱構築）。CalArtsは第4のパラダイムを発明した：\emph{近接性}。異なる分野を十分に近くに置けば、互いに汚染し合う。汚染が教育である。
+
+\subsection{制度的挑戦}
+
+CalArtsは挑戦によって動く。明示的な挑戦ではない——誰も「挑戦する」とは言わない。しかし文化は挑戦構造の周りに組織されている：自分より優れた人々で満ちた部屋で持ちこたえるものを作れるか？コールアウトに耐える作品を見せられるか？
+
+これは技術学校のスプリントレビューとは異なり、そこでは作品がユーザーストーリーと受入基準に対して評価される~\citep{vinsel2020innovation}。CalArtsの挑戦には基準がない。ルーブリックがない。問題は「これはブリーフを満たしているか？」ではない。問題は「これは存在する必要があるか？」挑戦は存在論的であり、機能的ではない。
+
+挑戦は部門間でも機能する。ビデオ付きの作品を作る音楽学生は映画学生に注目させる挑戦をしている。インタラクティブインスタレーションをコーディングするダンサーは美術学生にテクノロジーを真剣に受け止めさせる挑戦をしている。挑戦は学際的汚染のメカニズムである。それは言う：あなたの分野だけでは足りない。私の領域で遊ぼう。
+
+\section{なぜ論文を書くのか}
+
+\subsection{コールアウトとしての論文}
+
+この論文シリーズ——3週間で書かれた20本の論文——それ自体がコールアウトである。それはこう言っている：アーティスト兼プログラマーは理論を書ける。「理論ライト」ではなく、「引用付きアーティストステートメント」でもなく、真の論点と真の参考文献を持ち、真の学術研究と対話する真の論文。
+
+アートワールドはこれを予期していなかった。アーティストは作品を制作し、批評家に書かせることが期待されている。分業は明確だ：アーティストが生産し、批評家が解釈し、歴史家がコンテキスト化する。アーティストが理論を書くと、制度的反応は懐疑である。これは本当の学術研究か？虚栄出版か？芸術か？
+
+答えは：それは問題ではない。論文はコールアウトである。それはアイデアを公の場に立たせ、批評にさらし、学術界が認め、アートワールドがコントロールできないフォーマットで。\citet{fraser2005critique}は制度批評自体が制度になったと指摘した。これらの論文は異なることを試みる：制度への批評ではなく、制度自身のフォーマット——学術論文——を芸術の素材として\emph{使用する}こと。
+
+\subsection{楽器としての論文}
+
+論文はテクノロジーである。フォーマット（セクション、引用、要約、参考文献）、配信システム（ジャーナル、プレプリント、データベース）、社会的プロトコル（査読、引用、応答）がある。あらゆるテクノロジーと同様に、演奏可能である。
+
+\ac{}はピースをクリエイティブ認知の基本単位と見なしている~\citep{scudder2026pieces}。ピースはライフサイクル関数をエクスポートする単一ファイル：\texttt{boot}、\texttt{paint}、\texttt{act}、\texttt{sim}。論文も同じ構造を持つ：起動（要約）、描画（論証）、行動（先行研究との対話）、シミュレーション（帰結の提示）。論文はJavaScriptではなく\LaTeX{}で書かれたピースである。
+
+これは比喩ではない。論文はソフトウェアと同じインフラストラクチャで構築されている：CLI（\texttt{papers/cli.mjs}）、インクリメンタルビルド、多言語デプロイメント、自動化された公開。論文\emph{は}ソフトウェアである。論証\emph{は}プログラムである。
+
+\subsection{PSYCHOマーク}
+
+この論文はPSYCHOと表示されている。「ワーキングドラフト」でも「プレプリント」でも「査読中」でもない。PSYCHO。
+
+このマークは論文フォーマット自体へのコールアウトである。学術論文は中立性を装う——受動態で書かれ、個性が剥ぎ取られた客観的な研究報告。PSYCHOラベルはこの偽装を拒否する。それはこう言う：この論文には声がある、アジェンダがある、温度がある。中立ではない。中立であろうともしない。
+
+「psycho」という語はギリシャ語の\textit{psykhe}——魂、精神、息——に由来する。PSYCHO論文は魂を持つ論文である。呼吸している。「さらなる研究が必要」でヘッジされない見解を持っている。主張を行い、あなたに異議を唱える。
+
+\section{CalArtsとAesthetic Computer}
+
+\subsection{オペレーティングシステムの継承}
+
+著者はCalArtsに通った（MFA Art、2012年）。その経験は\ac{}が構築された基盤である。技術ではない——CalArtsはプログラミングを教えない——\emph{前提}である：分野は互いを汚染すべきであること、メディウムは要点ではないこと、挑戦は成果物より重要であること、芸術は出荷される製品ではなく世界における在り方であること。
+
+\ac{}はCalArtsのオペレーティングシステムを継承している。ピースモデル——1ファイル、即時モードグラフィックス、ライフサイクル関数——はオープンスタジオのデジタル等価物である：誰もがあなたの制作を見られ、誰もがフォークでき、誰もが問いを投げかけられる。ソーシャルネットワークはアルゴリズムではなく\emph{パス}（記憶可能なURL）の周りに組織されており、CalArtsがアルゴリズムではなく廊下の周りに組織されているのと同じである。
+
+\np{}.comが最も明白なCalArtsの継承である。誰でも演奏できる楽器であり、トレーニング不要で、専門技能よりも探索を報いる。廊下での偶然の出会い——他人の作品を偶然見つけて、それによって変わること——がデザインパターンである。URLを入力する。ピースに着地する。演奏する。先へ進む。フィードなし。アルゴリズムなし。メトリクスなし。ただ近接性。
+
+\subsection{批評がオンラインに}
+
+これらの論文を公開することは批評である。部屋はインターネット。コールアウトは公開。作品はさらされている——あなたを知る15人の部屋に対してではなく、ブラウザと意見を持つすべての人に対して。
+
+CalArtsの批評が恐ろしいように、これも恐ろしい：応答をコントロールできない。作品は持ちこたえるか、持ちこたえないか。挑戦は変わらない：これは存在する必要があるか？
+
+\section{中立性に反対する}
+
+学術論文は窓を装う——透明で、その背後にある研究を見通せる。しかしすべての窓はフレームでもある。論文のフォーマットが何を言えるかをフレームする：受動態、ヘッジされた主張、先行研究への敬意、客観性のフィクション~\citep{freire1970pedagogy}。
+
+CalArtsが教えたのはその逆である。自分の作品の後ろに立て。言いたいことを言え。部屋で弁護できないなら、まだ準備ができていない。コールアウトは説明責任のテクノロジーである：反論する人々の前で自分の主張に責任を持つことを強制する。
+
+これらの論文はまさにその精神で書かれている。声がある。主張がある。学術研究を引用するのは、その背後に隠れるためではなく、それと議論し、その上に構築し、応答を挑むためである。PSYCHOマークは旗である：この論文は中立を装わない。立場がある。温度がある。部屋に立ち、コールアウトを待っている。
+
+\citet{spivak2012aesthetic}は美的教育が想像力を倫理的連帯のために訓練すると論じた。CalArtsはそれを実現した——カリキュラムによってではなく、近接性によって、挑戦によって、他者の目を通して自分の作品を見ることを強制する批評によって。これらの論文は異なるメディウムで同じことを試みている：読者の想像力を訓練し、異なるクリエイティブコンピューティングを構想させる——フィードではなく楽器の上に、プロダクトではなくピースの上に、エンゲージメントメトリクスではなくコールアウトの上に構築されたもの。
+
+\section{結論}
+
+CalArtsはオペレーティングシステムである。そのカーネルは近接性。シェルは批評。プロセスモデルは挑戦。\ac{}は同じオペレーティングシステム上で動いており、物理的なキャンパスからブラウザへ、さらにベアメタルへと移植されている~\citep{scudder2026ac, scudder2026os}。
+
+コールアウトがメカニズム。論文がフォーマット。PSYCHOマークが温度。これらが共に言う：芸術は理論を書ける、理論は芸術たりうる、そのどちらも、自らの所有を主張する制度の許可を必要としない。
+
+これらの論文は、ついに書き留められた廊下の知識である——書くことがそれを変えることを知りながら、批評が決して終わらないことを知りながら、挑戦こそが要点であることを知りながら。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

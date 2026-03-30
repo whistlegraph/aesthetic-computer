@@ -1,0 +1,276 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={痕跡的機能：Aesthetic Computerにおける休眠パス、進化的分岐、廃止メソッド}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\acos}{\textsc{AC Native OS}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} 痕跡的機能}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} 休眠パス、進化的分岐、廃止メソッド}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} Aesthetic Computerの進化形態学（2021--2026年）}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{概要。}
+ソフトウェアシステムに関する学術論文は、ほぼ例外なく成功した部分のみを記述する。本稿では休眠した部分を記述する。5年間の開発を通じて、\ac{}は16の痕跡的機能を蓄積した——積極的に開発され、一定期間機能し、その後沈黙に至ったコードパスである。生物学における退化器官と同様に、これらの機能は死んだ組織ではない：条件が変化すれば再活性化しうるもの、存続した機能に遺伝物質を提供したもの、有機体がそれを超えて進化したために萎縮したものがある。これらの機能を5つのカテゴリに分類する：\emph{プラットフォーム分岐}（7つのプラットフォームで同時に開発し、5つが休眠）、\emph{インフラストラクチャ実験}（分散アーキテクチャがより単純な形態に統合）、\emph{マネタイゼーション試行}（技術的に完成しているが市場条件を待つシステム）、\emph{単一ユーザーツール}（開発目的に役立った後に放棄された機能）、\emph{過早な抽象化}（特定の解決策に取って代わられた汎用的アプローチ）。それぞれについて、休眠の理由、開発分岐の日付、分岐時のユーザーアクティビティ、再活性化の可能性を記録する。プロジェクトの痕跡的機能——その失敗ではなく——が進化の軌道を明らかにし、休眠は死ではないことを論じる。
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{はじめに}
+
+\ac{}のgit履歴には、4つのコードリポジトリにまたがる11,000件以上のコミットが含まれている~\citep{scudder2026archaeology}。公開された論文はどこかに至ったコミットを記述している：ランタイム、KidLispインタプリタ、ピースシステム、ベアメタルオペレーティングシステム~\citep{scudder2026ac, scudder2026os}。本稿では沈黙に至ったコミットを記述する。
+
+ソフトウェアの進化は、生物の進化と同様に、分岐によって進行する。ほとんどの分岐は幹にならない。しかし木の枯れ枝とは異なり、ソフトウェアプロジェクトにおける休眠コードパスは再活性化できる：Androidアプリは明日にもストアに出すことができ、Electronアプリはユースケースを見つけるかもしれず、NFTインフラストラクチャはすでに当初のマネタイゼーション目的を超えてpiece-codeアドレッシングシステムとなっている。\ac{}の特異な点は、\texttt{GRAVEYARD.txt}ファイルを維持して廃止された機能を明示的にカタログ化していることである——しかし「墓地」は誤った比喩である。より適切な比喩は虫垂である：元の機能が変化し、縮小した形で存在し、異なる条件下でなお有用かもしれない構造。
+
+このリストは5つのカテゴリに分けられ、それぞれが異なる\emph{タイプ}の休眠を表す。カテゴリは相互排他的ではない；一部の機能は複数のカテゴリに属する。
+
+\section{プラットフォーム断片化}
+\label{sec:fragmentation}
+
+\ac{}の歴史で最もコストのかかった行き止まりのカテゴリは、すべてのプラットフォームに同時にネイティブアプリを構築しようとした試みである。2023年から2025年の間に、以下のプラットフォームで動作するプロトタイプが構築された：
+
+\begin{itemize}
+  \item \textbf{Web}（主要プラットフォーム、常にアクティブ）
+  \item \textbf{Electronデスクトップアプリ}（macOS、Windows、Linux）
+  \item \textbf{Androidアプリ}（Kotlin + WebView、2つのビルドバリアント）
+  \item \textbf{Apple TVアプリ}（計画のみ、未着手）
+  \item \textbf{Feral File FF1ハードウェア}（FFOS統合）
+  \item \textbf{FedACキオスク}（Fedora + Electronキオスクモード）
+  \item \textbf{AC Native OS}（ベアメタルLinux）
+\end{itemize}
+
+7つのターゲットのうち、現在アクティブなのは2つだけ：Webプラットフォームとベアメタルオペレーティングシステム。残りの5つは多大なエンジニアリング投資を表しているが、出荷された製品はゼロである。
+
+\subsection{Electronアプリ}
+
+完全なElectronアプリが構築された。macOSとWindowsのコード署名証明書、カスタムターミナル統合、ピースとデバッグコンソールを切り替える「フリップビュー」、3つのOS用のビルドインフラストラクチャを含む。開発チーム以外のユーザーには一切配布されなかった。総投資——署名証明書、ビルドスクリプト、CIパイプライン、カスタムJSブリッジ——の成果は開発者のマシンでのみローカルに動作するアプリだった。
+
+\textbf{保持された価値：}Electronのキオスクモード経験がFedACキオスク設計を着想させ、それがさらにベアメタルOSアプローチを着想させた。Electronアプリは「ウィンドウの中のブラウザ」では不十分であることを証明した——ユーザー体験がブラウザタブを開くこととの十分な差別化がなく、独立したアプリを正当化できなかった。
+
+\subsection{Androidアプリ}
+
+完全なAndroidアプリがKotlinとJetpack Composeで構築された。2つのビルドバリアント（コンシューマー版とキオスク版）、自動化されたGitHub Actionsビルド、リリースAPKを含む。Google Play Consoleアカウントは作成されなかった。アプリはPlay Storeに提出されなかった。
+
+\textbf{保持された価値：}キオスクバリアントのデバイス管理とロックタスク機能が単一目的ACデバイスのコンセプトを検証し、これが\acos{}の設計目標となった。
+
+\subsection{Feral File統合}
+
+DP-1 feedプロトコルクライアント、プレイリストリレープロキシ、KidLisp-to-FF1プロジェクションメカニズムがFeral FileのFF1ハードウェア上で\ac{}ピースを実行するために構築された（約25台出荷）。FFOSカーネルパッチが準備されたがマージされなかった。「Aesthetic Computerチャンネル」ランチャーはどのFF1デバイスにもインストールされなかった。
+
+\textbf{保持された価値：}他者のオペレーティングシステムにパッチを当てることは結果の不確実な「重いエンジニアリング」であるという認識。これが直接的に、既存OSをforkするのではなくカスタムOSをゼロから構築する決定を推進した。
+
+\subsection{パターン}
+
+すべてのプラットフォーム試行が同じアークをたどった：動作するプロトタイプを構築し、配信インフラストラクチャを準備し、実際にユーザーに届ける「ラストマイル」で停滞する。失敗は技術的ではなかった——すべてのプロトタイプは動作した。失敗は\emph{注意力}の問題だった：一人の開発者が7つのプラットフォームターゲットを同時に維持することは、どのターゲットも本番品質に達するために必要な持続的注意を得られないことを意味した。
+
+Lehmanの継続的変化の法則~\citep{lehman1980programs}がこの結果を予測していた：システムは満足を維持するために継続的に適応しなければならない。7つのプラットフォームは7つの継続的適応のストリームを必要とし、個人開発者には維持不可能だった。
+
+\section{インフラストラクチャの過剰設計}
+
+\subsection{Jamsocketセッションサーバー}
+
+\ac{}のセッションサーバーは当初Jamsocket上にデプロイされていた——一時的なバックエンドコンテナのためのプラットフォーム。各ユーザーセッションが専用コンテナを生成し、独自のWebSocketエンドポイント、Redis接続、ライフサイクル管理を持っていた。アーキテクチャはエレガントだった：セッションが独立にスケールし、クラッシュが他のユーザーに影響せず、異なるリージョンにデプロイ可能だった。
+
+これは単一のモノリシックサーバーに置き換えられた。Jamsocket統合コードは1つのコミットで削除された。古いEventSourceポーリング、API呼び出し、スケーリングロジックはデッドコードとなった。
+
+\textbf{失敗の理由：}一時的コンテナの管理オーバーヘッド——コールドスタート遅延、接続切り替えの複雑さ、セッション単位のコスト——が、数十の同時ユーザー（数千ではなく）のプラットフォームには収益を上回った。モノリシックサーバーがより低い複雑さで実際の負荷を処理した。
+
+\textbf{保持された価値：}セッションサーバーの内部アーキテクチャ（チャット管理、マルチプレイヤー状態同期）は移行後も存続した。破棄されたのはデプロイメントラッパーのみだった。
+
+\subsection{Bumperシステム}
+
+セッション/ユーザー状態の複雑な管理のための「bumperシステム」がHUD要素とnotepat統合を含めて構築された。その正確な目的は今や開発者自身にも不明である。「fix: completely remove all bumper system code」というタイトルのコミットで削除された。
+
+\textbf{保持された価値：}なし。Bumperシステムはプロジェクトで最も純粋な行き止まりである——構築され、デプロイされ、削除され、現在のコードベースに一切の痕跡を残さなかった。
+
+\subsection{Siloマイグレーション}
+
+MongoDB Atlas比でコスト削減のため、DigitalOcean上に自己ホスト型MongoDBインスタンス（「Silo」）が構成された。インストールドキュメントが書かれ、ダッシュボードが構築され、ベンチマークが作成された。マイグレーションは実行されなかった。Siloドロップレットは月12ドルで空のまま稼働し続け、決して来ないかもしれないマイグレーションを待っている。
+
+\textbf{コスト：}月12ドル $\times$ 6ヶ月 = 72ドル（そしてまだ増加中）、未使用サーバーのために。
+
+\section{マネタイゼーション実験}
+
+\subsection{Tezos NFT（Keeps）}
+
+\ac{}のKidLispピースはTezosブロックチェーン上でFA2 NFTとしてミントできる。技術インフラストラクチャは動作する：SmartPyコントラクトがメインネットとテストネットにデプロイされ、IPFSメディアストレージ、Objktマーケットプレイス統合、ウォレット接続フローが整い、9人のオーナーが34アイテムをミントした。
+
+市場は到来しなかった。KidLispはTezosの取引量上位25コレクション（24時間で約72 XTZ、閾値は100+ XTZ）に入ることはなかった。フロア価格はアイテムあたり4.42ドルで安定した。より広いTezos NFT市場は2025年を通じて縮小を続け、すべてのコレクションで「大量の供給過剰」がバイヤーの注意を抑制した。
+
+\textbf{保持された価値：}KidLispピースコードシステム（\texttt{\$cow}のような短い英数字識別子）はNFTミンティングのために設計されたが、汎用的なピースアドレッシング方式となった。コード識別されるプログラムの生成、保存、共有のインフラストラクチャは、当初のマネタイゼーション目的を超えた。
+
+\subsection{Sotce.netサブスクリプション}
+
+サブスクリプションプラットフォーム（sotce.net）がStripe統合、Auth0認証、ページエディタ、\ac{}とのクロステナントアカウント同期で構築された。月額5ドルのサブスクリプション。技術実装は完全かつ運用可能だった。
+
+サブスクリプションの成長は低調のまま。プラットフォームが生み出す収益はインフラストラクチャの複雑さを正当化するに足りなかった。運営は継続している。
+
+\subsection{Printfulマーチャンダイズ}
+
+Printfulマーチャントアカウントがステッカーとマグカップ用に設定された。「shop」ピースが構築された。商品カタログは限定的なまま。収益はごくわずかだった。
+
+\textbf{パターン：}3つのマネタイゼーション実験すべてが同じ構造を共有する：技術的に完成しているが商業的に不活性。エンジニアリングはボトルネックではなかった；配信、マーケティング、マーケットフィットがボトルネックだった。
+
+\section{一人のために作られたツール}
+
+\subsection{ビデオレコーダー}
+
+InstagramおよびTwitter品質プリセット付きのスクリーン録画・エクスポートツールが構築され、開発者が一時期使用した後、「oven」ベーキングシステムがそれを置き換えた時点で廃止された。現在は文字通り\texttt{deprecated/}という名前のディレクトリに格納されている。
+
+\subsection{Windowsコンテナ開発}
+
+notepatの同期のためにWindowsコンテナを使用したローカルUDP開発が試みられた。「時々単に動かなかった。」Windows開発パス全体が放棄され、Fedoraのみでの開発に移行した。
+
+\subsection{\texttt{.pjs}コンパイラ}
+
+「プロンプト式JavaScript」ファイルフォーマットが構想された：\texttt{.pjs}ファイルが実行時にLLMに送信され、LLMが実行可能なJavaScriptを生成する。TODOが書かれた。コードは続かなかった。フォーマットは\texttt{GRAVEYARD.txt}の注記として残っている。
+
+\textbf{パターン：}これらの機能はいずれも、開発者自身だけが直面する問題を解決するために構築された。開発者のワークフローが変わると機能は陳腐化した。これは個人開発の職業的リスクである：ユーザーベースは$n=1$であり、$n=1$が移行すると機能のユーザーはゼロになる。
+
+\section{過早な抽象化}
+
+\subsection{汎用キオスクモード}
+
+Android（デバイス管理+ロックタスク）、Electron（全画面+メニュー無効化）、Fedora（Waylandコンポジタロックダウン）で動作する統一「キオスクモード」抽象化の構築が試みられた。各プラットフォームのキオスク要件の違いが大きすぎて、抽象化は何のメリットも提供しなかった。統一アプローチは放棄され、プラットフォーム固有の実装に移行した。
+
+\textbf{保持された価値：}キオスクコンピューティングには汎用抽象化ではなくハードウェア固有のソリューションが必要であるという洞察。この洞察が直接的にベアメタルOSアプローチにつながり、ハードウェア間での抽象化を試みない。
+
+\subsection{FFOS Fork}
+
+Feral FileのOSをforkして汎用x86\_64キオスクを作成する案が評価され、「重いエンジニアリング」として却下された。FFOSアーキテクチャはFF1ハードウェアに過度に特化しており（ARM、固有のディスプレイパイプライン、カスタムブートローダー）、コモディティラップトップに一般化できなかった。
+
+\textbf{保持された価値：}FFOSをfork\emph{しない}という決定が\acos{}のゼロからの作成を強制し、結果としてforkよりもシンプルで保守しやすいシステムが生まれた。
+
+\section{進化形態学}
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrrr}
+\toprule
+\textbf{カテゴリ} & \textbf{数} & \textbf{貢献率} & \textbf{復活可能} \\
+\midrule
+プラットフォーム分岐 & 5 & 80\% & 3 \\
+インフラ実験 & 3 & 33\% & 1 \\
+マネタイゼーション & 3 & 33\% & 3 \\
+単一ユーザーツール & 3 & 0\% & 0 \\
+過早な抽象化 & 2 & 100\% & 0 \\
+\midrule
+\textbf{合計} & \textbf{16} & \textbf{50\%} & \textbf{7} \\
+\bottomrule
+\end{tabularx}
+\caption{カテゴリ別の痕跡的機能。「貢献率」=存続した機能にコードまたは洞察を提供した割合。「復活可能」=条件変化時に再活性化しうる数。}
+\label{tab:vestigial}
+\end{table}
+
+貢献率はカテゴリによって大きく異なる。過早な抽象化の貢献率は100\%であるが、それはその休眠が\emph{情報}を生み出したからである——具体的には、汎用的なソリューションが不適切であるという知識。プラットフォーム分岐の貢献率は80\%であるが、各休眠プラットフォームが存続プラットフォームに何が必要かを教えたからである。
+
+16の機能のうち7つは復活可能である：Androidアプリ（Play Store提出はまだ可能）、Electronアプリ（デスクトップ配布は特定のユースケースに対応可能）、Feral File統合（FF1ハードウェアがスケールすれば）、および3つのマネタイゼーション実験すべて（Tezos Keeps、Sotce.net、マーチャンダイズ——各々技術的に完成しており、エンジニアリング作業ではなく市場条件を待っている）。SiloマイグレーションはMongoDB Atlasのコストが持続不可能になれば1日で実行できる。
+
+単一ユーザーツールは貢献率も復活率もともに0\%である。それらは開発の足場——建設中は有用で、完了後に撤去され、痕跡を残さなかった。
+
+\subsection{休眠が明かすもの}
+
+プロジェクトの痕跡的機能は、それが現在の姿になる前に\emph{何になろうとしていたか}——そして条件が変われば\emph{まだ何になりうるか}を明かす。\ac{}の休眠パスが明かすこと：
+
+\begin{itemize}
+  \item \emph{ユビキタス}への欲望（7つのプラットフォーム）が、\emph{特定の場所}（Web + ベアメタル）に規律されたこと——しかしAndroidとElectronのコードはまだコンパイルできる
+  \item \emph{技術的完成度}（動作するプロトタイプ）が\emph{製品準備完了}（ユーザーへの出荷）と等しいという信念——反証されたが否定はされていない、プロトタイプはまだ動作するので
+  \item \emph{マネタイゼーションインフラストラクチャを構築}すれば市場が来るという仮定——市場はまだ来ていないが、来ればインフラストラクチャは準備できている
+  \item 既存システムの適応よりも\emph{ゼロから構築する}ことへの選好が、FFOS forkが却下されカスタムOSが構築されたときに正当化されたこと
+\end{itemize}
+
+\section{結論}
+
+5年間で16の痕跡的機能。半数が存続した機能にコードまたは洞察を提供し、7つはまだ復活可能である。生物学の比喩は「失敗」よりも誠実である：これらは死んだ組織ではなく、生きたシステムの中の休眠構造である。Androidアプリは失敗したのではない——眠っている。NFTインフラストラクチャは失敗したのではない——マネタイゼーション機能を脱落させ、アドレッシングスキームを保持した。Jamsocketアーキテクチャは失敗したのではない——それに取って代わったモノリシックサーバーに内部構造を提供した。
+
+\ac{}の歴史で最も重要な休眠パスは、最も価値ある結果を生んだものである：汎用キオスク抽象化の構築の試みが休眠に入り、ベアメタルオペレーティングシステムのゼロからの作成を強制した——これは現在、プロジェクトの技術的に最も特徴的な貢献である。最良の痕跡的機能とは、その休眠が有機体に正しい肢を構築させたものである。
+
+Brooksは「捨てることを計画せよ；いずれにせよ捨てることになる」と述べた~\citep{brooks1975mythical}。\ac{}は16個を棚上げした。7つは明日にも目覚めるかもしれない。17番目の試み——7.3秒で起動する単一ファイルオペレーティングシステム——はまだ動いている。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\vspace{0.5em}
+\noindent\textit{英語原版からの翻訳。原版は \url{https://papers.aesthetic.computer} を参照。}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

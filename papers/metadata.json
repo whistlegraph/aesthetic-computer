@@ -76,11 +76,15 @@
     "revisions": 1
   },
   "arxiv-futures": {
+    "created": "2026-03-20",
+    "revisions": 1
+  },
+  "arxiv-identity": {
     "created": "2026-03-21",
     "revisions": 1
   },
-  "arxiv-futures": {
-    "created": "2026-03-20",
+  "arxiv-open-schools": {
+    "created": "2026-03-21",
     "revisions": 1
   }
 }

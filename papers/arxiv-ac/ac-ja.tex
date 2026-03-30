@@ -1,0 +1,522 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Japanese}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{ragged2e}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === KIDLISP SYNTAX COLORS ===
+\definecolor{klfn}{RGB}{0,136,170}
+\definecolor{klform}{RGB}{119,51,170}
+\definecolor{klrepeat}{RGB}{170,0,170}
+\definecolor{klnum}{RGB}{204,0,102}
+\definecolor{klstr}{RGB}{170,120,0}
+\definecolor{klcmt}{RGB}{102,102,102}
+\definecolor{klmath}{RGB}{0,136,0}
+\definecolor{klvar}{RGB}{204,102,0}
+\definecolor{klembed}{RGB}{0,136,0}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% Inline color macros
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Aesthetic Computer '26：クリエイティブコンピューティングのためのモバイルファーストランタイム},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{作業草稿 --- 引用不可}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+
+% === LISTINGS ===
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{wipe,ink,line,box,circle,write,wiggle,shape,scroll,spin,zoom,blur,contrast,embed,layer,width,height,frame,time,form,trans,cube,move,scale,hop,overtone,melody,mic,resolution,sort,fade,stamp,paste,flood,poly,noise,flip},
+  morekeywords=[2]{def,let,if,cond,once,later,lambda,do},
+  morekeywords=[3]{repeat},
+  morekeywords=[4]{random,sin,cos,tan,floor,ceil,round,abs,sqrt,min,max},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  escapeinside={|}{|},
+}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstdefinestyle{kidlispstyle}{
+  language=kidlisp,
+  keywordstyle=[1]\color{klfn}\bfseries,
+  keywordstyle=[2]\color{klform}\bfseries,
+  keywordstyle=[3]\color{klrepeat}\bfseries,
+  keywordstyle=[4]\color{klmath},
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} Aesthetic\acdot Computer '26}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} クリエイティブコンピューティングのためのモバイルファーストランタイム}\par
+\vspace{0.6em}
+{\normalsize @jeffrey}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ 作業草稿 --- 引用不可 ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{概要。}
+\ac{}（AC）は、ブラウザ上で完全に動作するクリエイティブコンピューティングのためのモバイルファーストランタイム兼ソーシャルネットワークである。主要なインターフェースはGUIではなくテキストプロンプトであり、ユーザーはこれを通じて354の組み込みインタラクティブプログラム（「ピース」）と265のユーザー公開ピースからなる名前空間をナビゲートする。各ピースは単一のJavaScriptまたはKidLispファイルであり、即時モードグラフィックスAPIを受け取るライフサイクル関数（boot、paint、act、sim、leave）をエクスポートする。本プラットフォームは、ソーシャルインフラストラクチャ——ユーザーID、リアルタイムチャット、ムードフィード、プロフィール——をアドオンレイヤーとしてではなく、ランタイムに直接統合している。パッケージングシステムはピースをオフライン配布用のスタンドアロンHTMLファイルにバンドルする。本稿では、アーキテクチャ（コアランタイムコード63,000行）、ピースモデル、多言語対応、公開・配布インフラストラクチャについて記述し、登録ユーザー2,801名の採用指標を報告する。プログラミングインターフェースを\emph{楽器}として扱うこと——ユーザーが即興的な探索を通じて記憶可能なパスを発見すること——が、クリエイティブソフトウェアとの質的に異なる関係を生み出すことを論じる。
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+
+\section{はじめに}
+
+クリエイティブコーディングプラットフォームは、計算による表現の敷居を段階的に下げてきた。Processing~\citep{reas2007processing}はスケッチブックの比喩を導入し、p5.js~\citep{mccarthy2015p5js}はそれをブラウザに持ち込み、Scratch~\citep{resnick2009scratch}はブロックベースのビジュアルプログラミングによって子供たちにもプログラミングを可能にした。しかし、これらのツールは共通の前提を共有している——ユーザーは\emph{エディタ}と対話するということだ。コードエディタ、ブロックキャンバス、統合開発環境である。
+
+\ac{}は異なる前提から出発する。その主要なインターフェースは\textbf{テキストプロンプト}——短く記憶しやすい名前を入力してインタラクティブプログラムを起動するコマンドラインである。ファイルブラウザもプロジェクトパネルもメニューバーもない。この体験は開発環境よりも楽器に近い。ユーザーは探索を通じてコマンドを発見し、反復によって筋肉記憶を構築し、最終的にはピースを流暢に再構成することで即興演奏する。
+
+本プラットフォームは、ピクセルペイントツールであるNo Paint（2020年）の開発中の観察から生まれた。技術的な背景を持たないユーザーコミュニティがカスタムブラシやスタンプを寄稿し始めたのである。手動の統合プロセス——各寄稿に数時間から数日を要した——が、誰でもインタラクティブプログラムを即座に公開できるシステムの構築を推進した。開発は2021年に始まり、現在のリポジトリには2022年12月から2026年3月までの11,045件のコミットが含まれている。
+
+本稿では、設計原則（\S\ref{sec:principles}）、システムアーキテクチャ（\S\ref{sec:architecture}）、ピースモデル（\S\ref{sec:pieces}）、多言語ランタイム（\S\ref{sec:languages}）、プロンプトインターフェース（\S\ref{sec:prompt}）、ソーシャルインフラストラクチャ（\S\ref{sec:social}）、公開と配布（\S\ref{sec:publishing}）、開発の歴史（\S\ref{sec:history}）、および採用状況（\S\ref{sec:evaluation}）について記述する。関連論文~\citep{scudder2026kidlisp}ではKidLisp言語について詳述している。
+
+% ============ 2. DESIGN PRINCIPLES ============
+
+\section{設計原則}
+\label{sec:principles}
+
+\begin{enumerate}
+  \item \textbf{IDEではなく楽器。}インターフェースは楽器のように機能するよう設計されており、ユーザーはコマンドと公開ピースのネットワークの中で自分だけの記憶可能なパスを発見する。遊びを通じてリテラシーが向上するにつれ、ユーザーは即興し、再構成し、レパートリーを拡張する。
+  \item \textbf{モバイルファースト。}すべてのインタラクションはスマートフォンとタブレットでのタッチ入力を対象としている。デスクトップ対応は自然に付随する——その逆は成り立たない。
+  \item \textbf{URLアドレス可能。}すべてのピース、すべてのパラメータの組み合わせ、すべてのユーザーのピースがURLである。共有がナビゲーションであり、ナビゲーションが共有である。
+  \item \textbf{単一ファイルプログラム。}Processingのスケッチブックモデルと、Unixの小さく組み合わせ可能なプログラムの哲学に従い、各ピースは1つのファイルである——プロジェクト構造もビルドステップも依存関係もない。
+  \item \textbf{デフォルトでソーシャル。}ユーザーID、チャット、ムードフィード、プロフィールはランタイムの一部であり、追加サービスではない。
+\end{enumerate}
+
+% ============ 3. ARCHITECTURE ============
+
+\section{アーキテクチャ}
+\label{sec:architecture}
+
+本システムは4つの主要コンポーネントで構成される：ブートローダー、BIOSランタイム、Disk API、モジュールローダー。
+
+\subsection{ブートローダー}
+
+ブートローダー（\texttt{boot.mjs}、1,948行）は3つのサブシステムを並列に初期化する：セッションサーバーへのWebSocket接続（800ミリ秒のタイムアウトとHTTPへのフォールバック付き）、永続的なモジュールキャッシュのためのService Worker、オフラインモジュールストレージのためのIndexedDBストレージ。ブートテレメトリはブラウザ、デバイスタイプ、画面解像度、パフォーマンスタイミングデータを\texttt{/api/boot-log}に記録する。
+
+\subsection{BIOS}
+
+BIOS（\texttt{bios.mjs}、20,935行）はランタイムコーディネーターである。60fpsのレンダリングループを管理し、入力イベント（キーボード、タッチ、マウス、ゲームパッド、MIDI）をルーティングし、ピースのライフサイクル遷移を調整し、ポストプロセッシングエフェクト用のWebGL合成レイヤー（「glaze」）を維持する。BIOSはまた、同期オーディオ付きフレームシーケンスとしてピースの演奏をキャプチャする録画システムも管理する。
+
+\subsection{Disk API}
+
+Disk（\texttt{disk.mjs}、15,879行）はピースが使用する完全なAPIサーフェスを提供する。ピースのロード、ライフサイクルのディスパッチを管理し、描画プリミティブ、オーディオ、入力、ネットワーク、UIコンポーネントを公開する。すべてのグラフィックス操作は即時モードであり、保持されるシーングラフはない。
+
+\subsection{モジュールローダー}
+
+モジュールローダーはセッションサーバーからWebSocket経由でJavaScriptモジュールをストリーミングし、HTTPプロキシチェーンをバイパスしてロードを高速化する。最初のロード時にモジュールはIndexedDBにキャッシュされる。以降のアクセスではキャッシュからロードし、セッションサーバーが利用できない場合はHTTPにフォールバックする。これにより、リピート訪問時のピースロードがほぼ瞬時になる。
+
+% ============ 4. THE PIECE MODEL ============
+
+\section{ピースモデル}
+\label{sec:pieces}
+
+ピースは単一の\texttt{.mjs}（JavaScript）または\texttt{.lisp}（KidLisp）ファイルであり、最大5つのライフサイクル関数をエクスポートする：
+
+\begin{lstlisting}[style=acjsstyle]
+function boot({ wipe, screen, params }) {
+  // Runs once when piece loads
+}
+
+function paint({ wipe, ink, line, circle }) {
+  wipe(|\textcolor{jsstr}{"navy"}|)
+  ink(|\textcolor{jsstr}{"pink"}|)
+  circle(screen.width / |\textcolor{jsnum}{2}|,
+         screen.height / |\textcolor{jsnum}{2}|, |\textcolor{jsnum}{50}|)
+}
+
+function act({ event: e }) {
+  if (e.is(|\textcolor{jsstr}{"keyboard:down:space"}|)) { }
+}
+
+function sim() { }  // Per-frame logic
+
+export { boot, paint, act, sim };
+\end{lstlisting}
+
+各関数に渡されるAPIオブジェクトは以下を提供する：
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lX}
+\toprule
+\textbf{カテゴリ} & \textbf{関数} \\
+\midrule
+グラフィックス & \texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}, \texttt{circle}, \texttt{poly}, \texttt{paste}, \texttt{plot}, \texttt{flood} \\
+テキスト & \texttt{write}, \texttt{form}, \texttt{TextInput} \\
+入力 & \texttt{event}, \texttt{pen}, \texttt{hand}, \texttt{gamepad} \\
+オーディオ & \texttt{sound}, \texttt{speaker}, \texttt{microphone}, \texttt{melody} \\
+UI & \texttt{ui.Button}, \texttt{ui.TextInput}, \texttt{cursor} \\
+システム & \texttt{screen}, \texttt{jump}, \texttt{store}, \texttt{net}, \texttt{send} \\
+\bottomrule
+\end{tabularx}
+\caption{ピースAPIのカテゴリ分類。}
+\label{tab:api}
+\end{table}
+
+ピースはProcessingのスケッチブックモデル——探索したい各アイデアに1つのソースファイル——を、小さく単一目的のプログラム間のユーザーレベルの組み合わせ可能性というUnixの哲学と組み合わせている。
+
+% ============ 5. MULTI-LANGUAGE RUNTIME ============
+
+\section{多言語ランタイム}
+\label{sec:languages}
+
+ACは2つのプログラミング言語をサポートする：JavaScript（ESモジュール、\texttt{.mjs}）とKidLisp（最小限のLisp方言、\texttt{.lisp}）。システムには現在336のJavaScriptピースと18のKidLispピースが含まれている。
+
+JavaScriptピースはWeb APIとDisk APIサーフェスに完全にアクセスできる。KidLispピースは15,161行のツリーウォーキング評価器~\citep{scudder2026kidlisp}を使用し、描画、色、変換、数学、アニメーション、オーディオ用の118の組み込み関数を提供する——ファイルI/O、ネットワーク、文字列操作はなく、任意のユーザー投稿コードの安全な実行を可能にしている。
+
+KidLispプログラムはURL上で直接入力することもできる。式\texttt{(wipe blue)}はURLエンコードされ、\texttt{aesthetic.computer/(\%28wipe\%20blue\%29)}で実行できる。ショートコード（\texttt{\$cow}、\texttt{\$27z}）はMongoDBルックアップを通じて保存されたプログラムに解決される。
+
+このアーキテクチャは追加の言語バックエンドをサポートする。ピースのライフサイクル（boot/paint/act/sim/leave）をターゲットにしてDisk APIを呼び出せる言語であれば、新しい評価器として統合できる。
+
+% ============ 6. THE PROMPT ============
+
+\section{プロンプト}
+\label{sec:prompt}
+
+プロンプト（\texttt{prompt.mjs}、9,386行）はそれ自体がピースであり、システム内で最も複雑なものである。主要なナビゲーションインターフェースとして機能し、60以上のコマンドを実装している。
+
+\subsection{URLルーティング}
+
+すべてのピースはパーサー（\texttt{parse.mjs}）を通じてURLアドレス可能であり、複数のパラメータ規約をサポートする：
+
+\begin{itemize}
+  \item \textbf{シンプル}：\texttt{aesthetic.computer/notepat}
+  \item \textbf{コロンパラメータ}：\texttt{tone:440:sine}
+  \item \textbf{スペースパラメータ}：\texttt{notepat 180 major}（URL内ではチルダにエンコード）
+  \item \textbf{ユーザーピース}：\texttt{@bash/hub}
+  \item \textbf{KidLispコード}：\texttt{\$cow}
+  \item \textbf{ショートコード}：\texttt{!abc}（動画）、\texttt{*bako}（時計メロディ）
+\end{itemize}
+
+\subsection{コマンドカテゴリ}
+
+プロンプトはナビゲーション（\texttt{list}、\texttt{back}）、制作（\texttt{publish}、\texttt{source}、\texttt{pack}）、ソーシャルインタラクション（\texttt{chat}、\texttt{mood}、\texttt{profile}）、アイデンティティ（\texttt{handle}、\texttt{login}）、録画（\texttt{tape}、\texttt{share}）、およびピースのオーケストレーション（\texttt{merry}：ピースを時系列で連鎖させる）のためのコマンドを実装している。
+
+% ============ 7. SOCIAL INFRASTRUCTURE ============
+
+\section{ソーシャルインフラストラクチャ}
+\label{sec:social}
+
+ソーシャル機能が外部サービス（GitHub、Discord）として提供されるプラットフォームとは異なり、ACはソーシャルインフラストラクチャをランタイムに直接統合している。
+
+\subsection{アイデンティティ}
+
+ユーザーはプロンプトで\texttt{@handles}（識別子）を登録する。ハンドルはMongoDBのユーザーレコードに解決され、公開ピースの名前空間として機能する（\texttt{@handle/piece-name}）。2026年3月時点で2,801のハンドルが登録されている。
+
+\subsection{リアルタイム通信}
+
+セッションサーバーはWebSocketベースのリアルタイム機能を提供する：パブリックチャット（18,020件のメッセージ）、プレゼンストラッキング（各ユーザーが現在閲覧中のピース）、および協働ピースのマルチプレイヤー状態同期。
+
+\subsection{ムードフィード}
+
+ユーザーはプロフィールに表示される短いテキスト更新（「ムード」）を投稿する。ムードフィードはMongoDBとATProto（Blueskyの基盤プロトコル）の両方に書き込まれ、より広いソーシャルネットワークとの連合を実現している。
+
+\subsection{ライブプロフィール}
+
+プロフィールピースはリアルタイムのスコアカードを表示する：オンライン/オフライン状態、現在のピース、WebSocketレイテンシ、そして描画作品、公開ピース、KidLispプログラム、チャットメッセージ、ムードフィードの数——すべてWebSocketストリームを通じてリアルタイムで更新される。
+
+% ============ 8. PUBLISHING & DISTRIBUTION ============
+
+\section{公開と配布}
+\label{sec:publishing}
+
+\subsection{公開とソース}
+
+\texttt{publish}コマンドはピースをDigitalOcean Spacesにアップロードし、MongoDBにユーザーのハンドルで登録する。\texttt{source}コマンドは任意のピースのソースコードをフォークテンプレートとしてダウンロードする。
+
+\subsection{パッケージングシステム}
+
+\texttt{pack}コマンドはovenサービスを通じてピースを自己完結型のHTMLファイルにバンドルする。出力にはピースコード、すべてのランタイム依存関係、埋め込みフォントが含まれ、サーバーなしでオフラインで動作する単一ファイルとなる。これにより、メール、USBドライブ、ブロックチェーンミンティング（Tezos/Teia）、アーカイブを通じた配布が可能になる。
+
+\subsection{カスタムドメイン}
+
+ピースはカスタムドメイン上でスタンドアロンアプリケーションとして提供できる。\texttt{notepat.com}は\texttt{notepat}音楽シーケンサーピースにルーティングされ、\texttt{kidlisp.com}はKidLisp IDEを提供する。Netlifyエッジ関数がホスト名を検出し、ソーシャル共有用のカスタムOpen Graphメタタグを含めて適切にルートを書き換える。
+
+\subsection{メディアエクスポート}
+
+ovenサービス（\texttt{oven.aesthetic.computer}）はFFmpegを使用して録画セッションをMP4動画に変換し、ソーシャル共有用のOpen Graphプレビュー画像を生成し、ピースURLのQRコードを提供する。録画はフレーム単位のタイミングデータとオプションのオーディオを含むフレームシーケンスをキャプチャする。
+
+% ============ 9. DEVELOPMENT HISTORY ============
+
+\section{開発の歴史}
+\label{sec:history}
+
+以下のタイムラインは、Aesthetic Computerリポジトリのgit履歴（2022年12月から2026年3月までの11,045件のコミット）から再構成したものである。プロジェクトの概念的起源は2020年のNo Paintに遡る。
+
+\subsection{起源：No Paint（2020--2021年）}
+
+No Paintは2020年にリリースされたピクセルペイントツールで、カスタムブラシやスタンプを寄稿する非技術的なユーザーコミュニティを構築した。手動統合のボトルネック——各寄稿に開発者の介入が必要だった——が、誰でもインタラクティブプログラムを即座に公開できるプラットフォームの構築を推進した。
+
+\subsection{基盤期（2022--2023年）}
+
+現在のリポジトリは2022年12月に始まった。2023年を通じて（3,766件のコミット）、コアランタイムが形成された：BIOSレンダリングループ、Disk API、プロンプトインターフェース、ピースライフサイクル、および初期の組み込みピースセット。2023年9月に初期の活動ピーク（542件のコミット）を迎え、マルチプレイヤーセッションサーバーとリアルタイムチャットが統合された。
+
+\subsection{拡張期（2024年）}
+
+2024年（2,698件のコミット）にKidLisp（4月）、ペイントシステム、ハンドル登録、ムードフィード、録画インフラストラクチャが追加された。活動は4月（379件のコミット）と10月（336件のコミット）にピークを迎えた。
+
+\subsection{プラットフォーム統合（2025--2026年）}
+
+開発は2025年後半に急激に加速した：10月に700件のコミット、11月に663件、12月に525件。KidLisp IDEが\texttt{kidlisp.com}で公開され（2025年11月）、ATProto/Bluesky連合が追加され、パッケージングシステムが成熟し、ovenサービスがソーシャルプレビュー画像の生成を開始した。2026年1月は月間最多（1,095件のコミット）であり、KidLispの改善、カオスモード、3Dプリミティブ、ライブパフォーマンス用のステージモードが推進力となった。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lrl}
+\toprule
+\textbf{期間} & \textbf{コミット数} & \textbf{マイルストーン} \\
+\midrule
+2020--2021年 & --- & No Paint；AC構想 \\
+2022年12月 & 47 & リポジトリ作成 \\
+2023年 & 3{,}766 & コアランタイム、プロンプト、マルチプレイヤー \\
+2024年 & 2{,}698 & KidLisp、ペイント、ハンドル、ムード \\
+2025年1--5月 & 318 & メンテナンス期間 \\
+2025年6--12月 & 2{,}962 & IDE、パッケージング、oven、連合 \\
+2026年1--3月 & 2{,}149 & カオスモード、3D、ステージモード \\
+\midrule
+\textbf{合計} & \textbf{11{,}045} & \\
+\bottomrule
+\end{tabular}
+\caption{各期間の開発活動。}
+\label{tab:history}
+\end{table}
+
+本プロジェクトは主に単一の著者によるものである：@jeffreyがコミットの約98\%を占め、他に14名の協力者が参加している。
+
+% ============ 10. EVALUATION ============
+
+\section{評価}
+\label{sec:evaluation}
+
+2026年3月時点の採用指標を表~\ref{tab:adoption}に示す。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{指標} & \textbf{値} \\
+\midrule
+組み込みピース & 354（336 JS + 18 KidLisp） \\
+ユーザー公開ピース & 265 \\
+APIエンドポイント & 78 \\
+登録ハンドル & 2,801 \\
+作成された描画 & 4,404 \\
+KidLispプログラム & 16,244 \\
+チャットメッセージ & 18,020 \\
+コアランタイム（行数） & $\sim$63,300 \\
+\bottomrule
+\end{tabular}
+\caption{プラットフォーム指標（2026年3月）。}
+\label{tab:adoption}
+\end{table}
+
+\subsection{観察}
+
+\textbf{発見メカニズムとしてのプロンプト。}ユーザーはプロンプトに推測を入力することでピースを発見したと報告している——\texttt{piano}、\texttt{draw}、\texttt{chat}といった単語を試し、既存のコンテンツを見つける。このセレンディピティはフラットな名前空間の意図的な設計成果である。
+
+\textbf{モバイルでのエンゲージメント。}モバイルファーストの設計は、ユーザーが通勤中、待合室、教室でスマートフォンからACと対話することを意味する——デスクトップのクリエイティブコーディングツールでは到達できないコンテキストである。
+
+\textbf{ソーシャル構造がリテンションを促進。}チャット、ムードフィード、プロフィールの統合がソーシャルコンテキストを創出し、ユーザーを継続的に呼び戻している。ユーザーはムードを確認し、チャットで返信し、検索ではなくソーシャルアクティビティを通じて新しいピースを発見する。
+
+\subsection{限界}
+
+単一ファイルのピースモデルはプログラムの複雑性を制限する。ピースは共有ライブラリをインポートしたり、複数のモジュールに分割したりできない（ただし\texttt{\$code}参照を通じてKidLispプログラムを埋め込むことは可能である）。プロンプトインターフェースは経験豊富なユーザーにとって強力であるが、視覚的なガイダンスを期待する新規ユーザーにとっては急な発見曲線がある。
+
+% ============ 11. RELATED WORK ============
+
+\section{関連研究}
+
+\textbf{クリエイティブコーディング。}Processing~\citep{reas2007processing}とp5.js~\citep{mccarthy2015p5js}がスケッチブックパラダイムを確立した。ACは単一ファイルモデルを継承しつつ、エディタをプロンプトに置き換え、ソーシャルインフラストラクチャを追加した。
+
+\textbf{ソーシャルプログラミング。}Scratch~\citep{resnick2009scratch}は、ソーシャルな共有が教育プログラミングへのエンゲージメントを促進することを実証した。OpenProcessing~\citep{openprocessing2009}とGlitch~\citep{glitch2017}はクリエイティブコードのためのWebベースの共有プラットフォームを提供している。ACの違いは、ソーシャル機能を周辺のウェブサイトの機能としてではなく、ランタイム自体の一部にしている点にある。
+
+\textbf{ライブコーディング。}Hydra~\citep{hydra2019}はブラウザベースのライブビジュアルコーディングを提供する。Sonic Pi~\citep{aaron2016sonic}はライブコーディングREPLを備えた音楽教育向けツールである。ACのステージモード（全画面キャンバス上の透過エディタオーバーレイ）は同様のライブパフォーマンスシナリオをサポートする。
+
+\textbf{モバイルクリエイティブツール。}ほとんどのクリエイティブコーディングツールはデスクトップ利用を前提としている。ACのモバイルファースト設計——タッチ入力、プロンプトナビゲーション、スマートフォンサイズのキャンバス——は、デスクトップツールでは到達できないコンテキストを対象としている。
+
+% ============ 12. CONCLUSION ============
+
+\section{結論}
+
+\ac{}は、クリエイティブコンピューティングプラットフォームがグラフィカルIDEではなくテキストプロンプトを中心に構成できること、ソーシャルインフラストラクチャをランタイムに直接統合することで外部ソーシャルレイヤーとは異なるエンゲージメントパターンを生み出すこと、そしてモバイルファーストでブラウザネイティブなアプローチによりデスクトップツールでは到達できないコンテキストでクリエイティブコーディングをアクセス可能にすることを実証している。
+
+本プラットフォームの354の組み込みピース、265のユーザー公開ピース、16,244のKidLispプログラムは、成長を続けるクリエイティブコンピューティング作品のコーパスを構成している。プロンプトが楽器であるという比喩——ユーザーがメニューナビゲーションではなく記憶と即興を通じて流暢さを構築すること——は、人々とクリエイティブソフトウェアとの関係のオルタナティブモデルを提供する。
+
+ACはISCライセンスの下でオープンソースであり、\url{https://github.com/digitpain/aesthetic.computer}で公開されている。
+
+\vspace{0.5em}
+\noindent\textit{英語原版からの翻訳。原版は \url{https://papers.aesthetic.computer} を参照。}
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+% ============ REFERENCES ============
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
