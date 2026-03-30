@@ -521,17 +521,20 @@ function extractLegitimateParams(fullUrl) {
 // Remove Auth0 parameters from URL
 function cleanAuth0Params(url) {
   const urlObj = new URL(url);
-  
+
+  // Check for Auth0 callback BEFORE removing parameters
+  const isAuth0Callback = urlObj.searchParams.has('state');
+
   // Always remove these Auth0 parameters
   AUTH0_PARAMS.forEach(param => {
     urlObj.searchParams.delete(param);
   });
-  
-  // Only remove 'code' if 'state' is also present (indicating Auth0 callback)
-  if (urlObj.searchParams.has('state')) {
+
+  // Remove 'code' if this was an Auth0 callback
+  if (isAuth0Callback) {
     urlObj.searchParams.delete('code');
   }
-  
+
   return urlObj.pathname + (urlObj.searchParams.toString() ? '?' + urlObj.searchParams.toString() : '');
 }
 
@@ -1444,9 +1447,10 @@ if (!sandboxed && !skipAuth) {
           params.delete("session-sotce");
           
           // Also ensure any remaining Auth0 parameters are cleaned
+          const hadState = params.has('state');
           AUTH0_PARAMS.forEach(param => params.delete(param));
-          // Only remove 'code' if this appears to be an Auth0 callback
-          if (params.has('state')) {
+          // Only remove 'code' if this was an Auth0 callback
+          if (hadState) {
             params.delete('code');
           }
           
@@ -1535,10 +1539,21 @@ if (!sandboxed && !skipAuth) {
         window.acAuthTiming.getUserEnd = performance.now();
         bootLog(`auth0 getUser (${Math.round(window.acAuthTiming.getUserEnd - window.acAuthTiming.getUserStart)}ms)`);
         window.acAuthTiming.userExistsFetchStart = performance.now();
-        const userExists = await fetch(
-          `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
-        );
-        const u = await userExists.json();
+        // Timeout the /user fetch to prevent indefinite hangs on cold starts
+        const userFetchController = new AbortController();
+        const userFetchTimeout = setTimeout(() => userFetchController.abort(), 8000);
+        let u = {};
+        try {
+          const userExists = await fetch(
+            `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
+            { signal: userFetchController.signal },
+          );
+          u = await userExists.json();
+        } catch (err) {
+          console.warn("🔐 /user fetch failed or timed out:", err.name);
+        } finally {
+          clearTimeout(userFetchTimeout);
+        }
         window.acAuthTiming.userExistsFetchEnd = performance.now();
         bootLog(`userExists fetch (${Math.round(window.acAuthTiming.userExistsFetchEnd - window.acAuthTiming.userExistsFetchStart)}ms)`);
         if (!u.sub || !userProfile.email_verified) {
