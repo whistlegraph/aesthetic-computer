@@ -68,7 +68,8 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     synth.speak(utterance);
   } else if (mode === "cloud") {
-    const label = `speech:${voice}:${opts.provider || "openai"} - ${words}`;
+    const instTag = opts.instructions ? `:${opts.instructions.slice(0, 32)}` : "";
+    const label = `speech:${voice}:${opts.provider || "openai"}${instTag} - ${words}`;
 
     // For preload-only mode, return a promise that resolves when cached
     let preloadResolve = null;
@@ -198,6 +199,8 @@ function speak(words, voice, mode = "local", opts = {}) {
       provider: opts.provider || "openai", // "openai" (default) or "google"
       bust: needsBust, // Force regenerate on server if marked
     };
+
+    if (opts.instructions) payload.instructions = opts.instructions;
 
     // Create a promise that resolves when the fetch completes
     let fetchResolve;
