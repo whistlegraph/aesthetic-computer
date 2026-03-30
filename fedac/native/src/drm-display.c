@@ -19,6 +19,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+extern void ac_log(const char *fmt, ...);
+
 // Probe whether SDL3 can init without crashing (runs in a child process)
 static int sdl_probe_safe(void) {
     pid_t pid = fork();
@@ -35,15 +37,15 @@ static int sdl_probe_safe(void) {
     int status = 0;
     waitpid(pid, &status, 0);
     if (WIFSIGNALED(status)) {
-        fprintf(stderr, "[sdl3] Probe crashed (signal %d) — skipping SDL3\n",
-                WTERMSIG(status));
+        ac_log("[sdl3] Probe crashed (signal %d) — skipping SDL3\n",
+               WTERMSIG(status));
         return 0;
     }
     if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
         return 1;
     }
-    fprintf(stderr, "[sdl3] Probe failed (exit %d) — skipping SDL3\n",
-            WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    ac_log("[sdl3] Probe failed (exit %d) — skipping SDL3\n",
+           WIFEXITED(status) ? WEXITSTATUS(status) : -1);
     return 0;
 }
 
@@ -53,7 +55,7 @@ static ACDisplay *sdl_init(void) {
     if (!sdl_lib) {
         sdl_lib = dlopen("libSDL3.so.0", RTLD_LAZY);
         if (!sdl_lib) {
-            fprintf(stderr, "[sdl3] libSDL3.so.0 not found — skipping\n");
+            ac_log("[sdl3] libSDL3.so.0 not found — skipping\n");
             return NULL;
         }
     }
@@ -68,20 +70,20 @@ static ACDisplay *sdl_init(void) {
     }
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        fprintf(stderr, "[sdl3] SDL_Init failed: %s\n", SDL_GetError());
+        ac_log("[sdl3] SDL_Init failed: %s\n", SDL_GetError());
         return NULL;
     }
 
     // Get primary display and its mode
     SDL_DisplayID primary = SDL_GetPrimaryDisplay();
     if (!primary) {
-        fprintf(stderr, "[sdl3] No primary display: %s\n", SDL_GetError());
+        ac_log("[sdl3] No primary display: %s\n", SDL_GetError());
         SDL_Quit();
         return NULL;
     }
     const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(primary);
     if (!dm) {
-        fprintf(stderr, "[sdl3] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
+        ac_log("[sdl3] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
         SDL_Quit();
         return NULL;
     }
@@ -89,7 +91,7 @@ static ACDisplay *sdl_init(void) {
     SDL_Window *win = SDL_CreateWindow("ac-native", dm->w, dm->h,
         SDL_WINDOW_FULLSCREEN);
     if (!win) {
-        fprintf(stderr, "[sdl3] CreateWindow failed: %s\n", SDL_GetError());
+        ac_log("[sdl3] CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
         return NULL;
     }
@@ -98,7 +100,7 @@ static ACDisplay *sdl_init(void) {
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) {
-        fprintf(stderr, "[sdl3] CreateRenderer failed: %s\n", SDL_GetError());
+        ac_log("[sdl3] CreateRenderer failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(win);
         SDL_Quit();
         return NULL;
@@ -109,7 +111,7 @@ static ACDisplay *sdl_init(void) {
 
     // Log renderer info
     const char *ren_name = SDL_GetRendererName(ren);
-    fprintf(stderr, "[sdl3] Renderer: %s\n", ren_name ? ren_name : "unknown");
+    ac_log("[sdl3] Renderer: %s\n", ren_name ? ren_name : "unknown");
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
     d->fd = -1;
@@ -125,7 +127,7 @@ static ACDisplay *sdl_init(void) {
     snprintf(d->sdl_renderer_name, sizeof(d->sdl_renderer_name), "%s",
              ren_name ? ren_name : "unknown");
 
-    fprintf(stderr, "[sdl3] Ready (%dx%d)\n", d->width, d->height);
+    ac_log("[sdl3] Ready (%dx%d)\n", d->width, d->height);
     return d;
 }
 #endif /* USE_SDL */
@@ -303,7 +305,7 @@ ACDisplay *drm_init(void) {
 #ifdef USE_SDL
     ACDisplay *sdl = sdl_init();
     if (sdl) return sdl;
-    fprintf(stderr, "[drm] SDL3 failed, falling back to DRM dumb buffers\n");
+    ac_log("[drm] SDL3 failed, falling back to DRM dumb buffers\n");
 #endif
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
