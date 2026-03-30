@@ -370,12 +370,23 @@ async function runBuildJob(job) {
     job.commitMsg = commitMsg;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
-    // Pre-build: prune stopped containers and dangling images to avoid disk-full failures
+    // Pre-build: aggressive prune to avoid disk-full failures (60GB droplet fills fast)
     addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
     try {
       await runPhase(job, "prune", "bash", ["-c",
-        "docker container prune -f && docker builder prune -af --filter until=30m",
+        "docker container prune -f && docker image prune -af --filter until=2h && docker builder prune -af --filter until=30m && docker volume prune -f",
       ], repoDir);
+      // Check free space — abort early if less than 10GB free
+      const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
+      const availKB = parseInt(dfOut, 10) || 0;
+      const availGB = availKB / 1048576;
+      addLogLine(job, "stdout", `  Disk: ${availGB.toFixed(1)}GB free`);
+      if (availGB < 10) {
+        addLogLine(job, "stderr", `  WARNING: Only ${availGB.toFixed(1)}GB free — running full prune...`);
+        await runPhase(job, "emergency-prune", "bash", ["-c",
+          "docker system prune -af --volumes",
+        ], repoDir);
+      }
     } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
 
     // Phase 1: Docker image build (cached layers = fast)
