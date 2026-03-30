@@ -520,6 +520,12 @@ const QWERTY_MINIMAP_KEY_SPACING = 1;
 const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
 const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
+
+// OS bar — thin strip below the secondary bar for the "x86 os" button
+const OS_BAR_TOP = SECONDARY_BAR_BOTTOM;
+const OS_BAR_HEIGHT = 12;
+const OS_BAR_BOTTOM = OS_BAR_TOP + OS_BAR_HEIGHT;
+
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
 const TOGGLE_BTN_GAP = 3; // At least 1px visible gap between buttons
@@ -1933,7 +1939,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     (qKeyWidth + qKeySpacing);
   const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
 
-  let pianoY = SECONDARY_BAR_BOTTOM;
+  let pianoY = OS_BAR_BOTTOM;
   let pianoStartX = 58;
   const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
   const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
@@ -1950,7 +1956,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
     const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
     pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
-    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
     
     // Check if rotated piano fits horizontally (x + width within screen)
     const pianoRight = pianoStartX + rotatedPianoWidth;
@@ -1994,7 +2000,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
-    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
     
     // Check if piano fits horizontally
     const pianoRight = pianoStartX + pianoWidth;
@@ -2032,7 +2038,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   }
 
   if (isCompact) {
-    pianoY = SECONDARY_BAR_BOTTOM + 2;
+    pianoY = OS_BAR_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
       // Piano doesn't fit - hide it but still compute QWERTY position for center
@@ -2059,7 +2065,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const maxX = Math.max(minX, centerRight - pianoWidth);
     pianoStartX = clamp(idealX, minX, maxX);
   } else if (song) {
-    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? OS_BAR_BOTTOM;
     pianoY = effectiveTrackY + (trackHeight || 0) + 2;
     pianoStartX = effectiveWidth - pianoWidth - 2;
   } else {
@@ -2313,7 +2319,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = SECONDARY_BAR_BOTTOM;
+    const hudReserved = OS_BAR_BOTTOM;
     
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
@@ -2453,7 +2459,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = SECONDARY_BAR_BOTTOM;
+  const hudReserved = OS_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const baseReservedTop = hudReserved + trackHeight + trackSpacing;
@@ -2474,7 +2480,7 @@ function getButtonLayoutMetrics(
   // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
   const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
   const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
-  const availableHeightForRotated = screen.height - SECONDARY_BAR_BOTTOM - 4; // Leave some margin
+  const availableHeightForRotated = screen.height - OS_BAR_BOTTOM - 4; // Leave some margin
   // Only show rotated piano if ALL keys fit vertically
   const narrowVerticalSpace = !horizontalSpaceForMini && 
     usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
@@ -2911,7 +2917,7 @@ function paint({
   // 🎨 KidLisp visualization — bounded to available space above/between buttons
   if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
-    const klY = SECONDARY_BAR_BOTTOM;
+    const klY = OS_BAR_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
     const klH = klBottom - klY;
     if (klH > 10) {
@@ -3189,7 +3195,7 @@ function paint({
     // 🎚️ Room parameter bar - appears when room mode is enabled
     if (roomMode && roomBtn?.box) {
       const barHeight = 6;
-      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barY = OS_BAR_BOTTOM + 2;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
       const fillWidth = Math.floor(barWidth * roomAmount);
@@ -3496,7 +3502,7 @@ function paint({
   // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
   const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
   const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showHorizontalTrack ? SECONDARY_BAR_BOTTOM : null;
+  const trackY = showHorizontalTrack ? OS_BAR_BOTTOM : null;
 
 
   if (showHorizontalTrack) {
@@ -4417,37 +4423,41 @@ function paint({
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else if (!paintPictureOverlay) {
+    // OS bar background
+    ink(8, 30, 30).box(0, OS_BAR_TOP, screen.width, OS_BAR_HEIGHT);
+    ink(5, 20, 20).line(0, OS_BAR_TOP, screen.width, OS_BAR_TOP);
+
     osBtn?.paint((btn) => {
-      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(
+      ink(btn.down ? [20, 70, 70] : [12, 40, 40]).box(
         btn.box.x,
-        btn.box.y + 3,
+        btn.box.y,
         btn.box.w,
-        btn.box.h - 3,
+        btn.box.h,
       );
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(
           btn.box.x,
-          btn.box.y + 3,
+          btn.box.y,
           btn.box.w,
-          btn.box.h - 3,
+          btn.box.h,
         );
         ink(100, 255, 255, 140).box(
           btn.box.x,
-          btn.box.y + 3,
+          btn.box.y,
           btn.box.w,
-          btn.box.h - 3,
+          btn.box.h,
           "outline",
         );
       }
       ink(70, 160, 160).line(
         btn.box.x + btn.box.w,
-        btn.box.y + 3,
+        btn.box.y + 1,
         btn.box.x + btn.box.w,
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
-        "os",
-        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        btn.label || "x86 os",
+        { x: btn.box.x + 3, y: btn.box.y + 3 },
         undefined, undefined, false, "MatrixChunky8"
       );
     });
@@ -4963,7 +4973,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(SECONDARY_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(OS_BAR_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -5747,7 +5757,7 @@ function act({
     const topPianoWidth = Math.min(140, Math.floor((screen.width - topBarBase) * 0.5));
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
-    const vizRight = (osBtn?.box?.x ?? waveBtn?.box?.x ?? screen.width) - 1;
+    const vizRight = (waveBtn?.box?.x ?? screen.width) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
       recitalMode = true;
       recitalBlinkPhase = 0;
@@ -5771,7 +5781,7 @@ function act({
     if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-      const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
+      const trackY = showTrack ? OS_BAR_BOTTOM : null;
       const pianoGeometry = getMiniPianoGeometry({
         screen,
         layout,
@@ -6704,7 +6714,7 @@ function act({
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
     if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
-      const barY = SECONDARY_BAR_BOTTOM + 2;
+      const barY = OS_BAR_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
@@ -7802,19 +7812,20 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-function buildOsButton({ ui }) {
-  const margin = 4;
-  const labelWidth = 2 * 6;
+function buildOsButton({ ui, screen }) {
+  const label = "x86 os";
+  const margin = 3;
+  const labelWidth = label.length * 6;
   const buttonWidth = labelWidth + margin * 2;
-  const buttonHeight = 10 + margin * 2 - 1 + 2;
-  const waveX = waveBtn?.box?.x ?? 9999;
+  const buttonHeight = OS_BAR_HEIGHT;
   osBtn = new ui.Button(
-    waveX - buttonWidth - 3,
     0,
+    OS_BAR_TOP,
     buttonWidth,
     buttonHeight,
   );
   osBtn.id = "os-button";
+  osBtn.label = label;
 }
 
 // Build metronome controls and toggle buttons with responsive layout
