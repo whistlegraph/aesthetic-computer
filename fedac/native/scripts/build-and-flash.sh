@@ -31,7 +31,7 @@ KERNEL_DIR="${NATIVE_DIR}/kernel"
 FLASH_DEV=""
 SKIP_KERNEL=0
 SKIP_BINARY=0
-USE_SDL=0
+USE_SDL=1
 PIECE_PATH="${NATIVE_DIR}/pieces/prompt.mjs"
 KERNEL_VERSION="${KERNEL_VERSION:-6.14.2}"
 HANDLE="${AC_HANDLE:-jeffrey}"
@@ -83,6 +83,8 @@ if command -v dnf &>/dev/null; then
     command -v iw &>/dev/null             || PKGS_NEEDED="${PKGS_NEEDED} iw"
     [ -d /lib/firmware ] && ls /lib/firmware/iwlwifi-cc-a0-* &>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} iwlwifi-mvm-firmware"
     [ -f /lib/firmware/regulatory.db ]    || PKGS_NEEDED="${PKGS_NEEDED} wireless-regdb"
+    # SDL3 for GPU-accelerated display
+    pkg-config --exists sdl3 2>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} SDL3-devel"
     # ffmpeg libs for video recording
     pkg-config --exists libavcodec 2>/dev/null || PKGS_NEEDED="${PKGS_NEEDED} ffmpeg-free-devel"
     # Flash tools
@@ -257,13 +259,13 @@ if file "${BUILD_DIR}/ac-native" | grep -q "dynamically linked"; then
     ln -sf lib64 "${INITRAMFS_DIR}/lib"
 fi
 
-# Copy SDL2 + Mesa GPU libraries (if --sdl)
+# Copy SDL3 + Mesa GPU libraries (if --sdl)
 if [ "${USE_SDL}" -eq 1 ]; then
-    log "Bundling SDL2 + Mesa GPU stack..."
+    log "Bundling SDL3 + Mesa GPU stack..."
     mkdir -p "${INITRAMFS_DIR}/lib64/dri"
 
-    # SDL2-compat + SDL3 (Fedora uses sdl2-compat over SDL3)
-    for lib in libSDL2-2.0.so.0 libSDL3.so.0; do
+    # SDL3 (direct, no sdl2-compat shim)
+    for lib in libSDL3.so.0; do
         src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
         [ -f "$src" ] && cp -L "$src" "${INITRAMFS_DIR}/lib64/${lib}"
     done
@@ -282,7 +284,6 @@ if [ "${USE_SDL}" -eq 1 ]; then
     for drv in iris_dri.so i915_dri.so kms_swrast_dri.so swrast_dri.so libdril_dri.so; do
         src="/usr/lib64/dri/${drv}"
         if [ -L "$src" ]; then
-            # Copy as symlink
             tgt=$(readlink "$src")
             ln -sf "$tgt" "${INITRAMFS_DIR}/lib64/dri/${drv}"
         elif [ -f "$src" ]; then
@@ -297,7 +298,7 @@ if [ "${USE_SDL}" -eq 1 ]; then
     done
 
     GPU_SIZE=$(du -sh "${INITRAMFS_DIR}/lib64/libgallium"* "${INITRAMFS_DIR}/lib64/libSDL"* "${INITRAMFS_DIR}/lib64/libEGL"* "${INITRAMFS_DIR}/lib64/dri/" 2>/dev/null | tail -1 | cut -f1)
-    log "SDL2 + Mesa GPU stack bundled (gallium: $(du -sh "${GALLIUM}" 2>/dev/null | cut -f1))"
+    log "SDL3 + Mesa GPU stack bundled (gallium: $(du -sh "${GALLIUM}" 2>/dev/null | cut -f1))"
 fi
 
 # Copy ALSA config files (required for snd_pcm_open to resolve device names)

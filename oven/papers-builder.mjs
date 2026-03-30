@@ -172,6 +172,12 @@ async function runPapersJob(job) {
     job.percent = 0;
     buildCount = 0;
 
+    // Ensure deploy directory is writable (PDFs committed by others may have restrictive perms)
+    const deployDir = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
+    try {
+      await new Promise((res) => execFile("chmod", ["-R", "u+w", deployDir], () => res()));
+    } catch {}
+
     // Single phase: node papers/cli.mjs publish
     const cliPath = path.join(GIT_REPO_DIR, "papers", "cli.mjs");
     job.stage = "build";

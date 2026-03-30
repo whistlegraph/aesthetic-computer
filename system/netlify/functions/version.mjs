@@ -4,17 +4,22 @@
 import fs from "fs";
 import path from "path";
 
-// Get deployed commit from file written during build (COMMIT_REF is not available at runtime)
+// Get deployed commit from file written during build/deploy
 function getDeployedCommit() {
-  try {
-    // Try reading from the .commit-ref file created during build
-    const commitRefPath = path.join(process.cwd(), "public", ".commit-ref");
-    const commit = fs.readFileSync(commitRefPath, "utf8").trim();
-    if (commit && commit.length >= 7) {
-      return commit;
+  // Check multiple locations: Netlify writes to cwd/public/, lith deploy writes to system/public/
+  const candidates = [
+    path.join(process.cwd(), "public", ".commit-ref"),
+    path.join(process.cwd(), "..", "system", "public", ".commit-ref"),
+  ];
+  for (const commitRefPath of candidates) {
+    try {
+      const commit = fs.readFileSync(commitRefPath, "utf8").trim();
+      if (commit && commit.length >= 7) {
+        return commit;
+      }
+    } catch (e) {
+      // File doesn't exist or can't be read — try next
     }
-  } catch (e) {
-    // File doesn't exist or can't be read
   }
   return "unknown";
 }

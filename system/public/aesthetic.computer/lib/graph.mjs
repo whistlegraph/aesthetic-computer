@@ -1067,7 +1067,7 @@ function findColor() {
           args = hexToRgb(cleanedHex);
         } else if (args[0].startsWith("fade:")) {
           // Fade operations should have been handled above - this is a fallback
-          args = [255, 0, 255]; // Fallback to magenta to indicate error
+          args = [0, 0, 0]; // Fallback to black (stale fade string)
           args.push(255);
         } else {
           // Try CSS color table lookup
@@ -1653,8 +1653,8 @@ function plot(x, y) {
       const resolvedColor = getLocalFadeColor(null, x, y, fadeInfo);
       plotColor = [...resolvedColor, c[1] || 255]; // Use fade alpha
     } else {
-      // Fallback to solid color if fade parsing fails
-      plotColor = [255, 0, 255, alpha]; // Magenta to indicate error
+      // Fallback to transparent if fade parsing fails (stale fade string)
+      plotColor = [0, 0, 0, 0];
     }
   }
 
@@ -2768,7 +2768,11 @@ function erase(pixels, i, normalizedAlpha) {
 // Used when no fade, no gradient, no skip list - just pure pixel writing
 function lineFast(x0, y0, x1, y1) {
   if (!pixels) return;
-  
+  // Guard: resolve stale non-numeric color to prevent artifacts
+  if (typeof c[0] === 'string' && !c[0].startsWith('fade:')) {
+    setColor(0, 0, 0, c[3] || 255);
+  }
+
   // Floor coordinates
   x0 = floor(x0) || 0;
   y0 = floor(y0) || 0;
@@ -2844,6 +2848,10 @@ function lineh(x0, x1, y) {
   x1 = floor(x1);
   y = floor(y);
   if (!pixels) return;
+  // Guard: resolve stale non-numeric color to prevent artifacts
+  if (typeof c[0] === 'string' && !c[0].startsWith('fade:')) {
+    setColor(0, 0, 0, c[3] || 255);
+  }
   if (y < 0 || y >= height || x0 >= width || x1 < 0) return; // Check if the entire line is outside the mask
   if (activeMask) {
     // Don't apply pan translation to mask bounds - mask is already set at current pan position
@@ -3675,8 +3683,14 @@ function box() {
   } else if (mode === "fill" || mode === "") {
     // TODO: The boxes could be cropped to always fit inside the screen here.
     w -= 1;
+
+    // Guard: resolve stale fade strings in c to prevent rendering artifacts
+    if (typeof c[0] === 'string' && !c[0].startsWith('fade:')) {
+      setColor(0, 0, 0, c[3] || 255);
+    }
+
     const cachedInk = c.slice(0);
-    
+
     // 🎨 NEW LOCAL FADE HANDLING: Check if current color is a fade
     const fadeInfo = parseFadeColor(c);
     const isLocalFade = fadeInfo !== null;

@@ -124,13 +124,15 @@ do_upload() {
     "$md5_val" "$content_type" "$date_val" "$acl" "$DO_SPACES_BUCKET" "$dest_key" \
     | openssl dgst -sha1 -hmac "$DO_SPACES_SECRET" -binary | base64)
 
+  # Use -T (upload-file) for streaming — avoids loading entire file into memory
+  # (--data-binary loads the whole file into RAM, OOM on 1GB+ files)
   curl -sf -X PUT \
     -H "Date: $date_val" \
     -H "Content-Type: $content_type" \
     -H "Content-MD5: $md5_val" \
     -H "x-amz-acl: $acl" \
     -H "Authorization: AWS ${DO_SPACES_KEY}:${sig}" \
-    --data-binary "@$src" \
+    -T "$src" \
     "${BASE_URL}/${dest_key}" \
     && echo "  uploaded: $dest_key" \
     || { echo "  ERROR uploading $dest_key" >&2; return 1; }
@@ -208,16 +210,32 @@ if command -v node &>/dev/null; then
     | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
 fi
 
-# Also upload ISO if it exists next to vmlinuz
+# Upload slim kernel + initramfs for universal Mac/ThinkPad boot
+SLIM_SIBLING="$(dirname "$VMLINUZ")/vmlinuz-slim"
+INITRAMFS_SIBLING="$(dirname "$VMLINUZ")/initramfs.cpio.gz"
+if [ -f "$SLIM_SIBLING" ]; then
+  echo "  Uploading slim kernel ($(du -sh "$SLIM_SIBLING" | cut -f1))..."
+  do_upload "$SLIM_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz-slim" "application/octet-stream"
+fi
+if [ -f "$INITRAMFS_SIBLING" ]; then
+  echo "  Uploading initramfs ($(du -sh "$INITRAMFS_SIBLING" | cut -f1))..."
+  do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
+fi
+
+# Also upload ISO if it exists (non-fatal — ISO is optional)
 ISO_SIBLING="$(dirname "$VMLINUZ")/ac-os.iso"
 if [ -f "$ISO_SIBLING" ]; then
   echo "  Uploading ISO ($(du -sh "$ISO_SIBLING" | cut -f1))..."
-  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream" || echo "  ISO upload failed (non-fatal)"
 fi
 
 echo ""
 echo "Release published: $BUILD_NAME ($FULL_VERSION)"
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz"
+if [ -f "$SLIM_SIBLING" ]; then
+  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.vmlinuz-slim"
+  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz"
+fi
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}releases.json"
 if [ -f "$ISO_SIBLING" ]; then
   echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"

@@ -34,6 +34,7 @@ typedef struct {
 
     // Identity
     char           handle[64];
+    char           machine_id[64];
 
     pthread_mutex_t mu;
 } ACUdp;
@@ -46,6 +47,13 @@ void   udp_connect(ACUdp *udp, const char *host, int port);
 
 // Queue a fairy point to send (non-blocking, main thread)
 void   udp_send_fairy(ACUdp *udp, float x, float y);
+
+// Update identifying metadata used by outgoing packets.
+void   udp_set_identity(ACUdp *udp, const char *handle, const char *machine_id);
+
+// Send note relay events to the session server over UDP.
+void   udp_send_midi(ACUdp *udp, const char *event, int note, int velocity, int channel, const char *piece);
+void   udp_send_midi_heartbeat(ACUdp *udp, const char *piece);
 
 // Poll received fairies (returns count, fills out[] up to max)
 // Clears the buffer after reading.

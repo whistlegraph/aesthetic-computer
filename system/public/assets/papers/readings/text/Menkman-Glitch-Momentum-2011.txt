@@ -1,0 +1,2200 @@
+m) The
+Glitch
+nt Moment
+h
+e Glitch
+nt(um)
+The
+Glitch
+Moment(um)
+
+Rosa Menkman
+
+04
+
+The
+Glitch
+Moment(um)
+
+04
+
+Contents
+Acknowledgements 
+
+5
+
+Introduction 
+
+7
+
+Glitch Studies Manifesto 
+
+11
+
+a Technological Approach To Noise 
+
+12
+12
+15
+15
+17
+26
+26
+
+Linear Progression and the Myth of Perfect Transmission 
+Noise Artifacts 
+Encoding And Decoding: Compression Artifacts 
+A Vernacular Of File Formats 
+Orderly Chaos: Feedback Artifacts 
+The Other Noise Artifact: Glitch 
+The Perception Of Glitch 
+
+The Meaning Of Noise 
+The Glitch Moment(um): A Void In Techno-Culture 
+Technorealism And the Accident Of Art 
+
+28
+28
+29
+31
+
+A Phenomenology Of Glitch Art 
+
+33
+The Predicaments Of Defining Glitch Art 
+33
+Categorical Precursors: A Binary Approach To Glitch Art?
+35
+From Passive Appropriation Or ‘Pure Glitch Art’ To Active, ‘Post-Procedural Glitch Art’  36
+Post-procedural Glitch Art Or the Intentional Faux Pas 
+37
+The Concept And Technique Of Ruin 
+40
+Creating the ‘Perfect Glitch’ Using Critical Media Aesthetics 
+43
+The Tipping Point of Cool: Critical Media Aesthetics' Becoming Commodities 
+44
+
+From Artifact To Commodity 
+
+From Circuitbending to Simulation 
+From Databending to Transcoding 
+From Enchanting Affect To Filtered Effect 
+The Glitch Art Genre: Between the Void And Commoditized Form 
+The Genre Paradox 
+Organizing Glitch Spheres 
+
+46
+46
+49
+53
+55
+57
+
+Glitch Art Networked 
+Glitch Sphere Relations 
+Some Final Reflections On The Glitch Spheres 
+
+59
+62
+63
+64
+
+The Emancipation of Dissonance Glitch 
+
+65
+
+Bibliography 
+
+67
+
+Colophon
+Network Notebooks editors: Geert Lovink and Sabine Niederer
+Producer of this publication: Margreet Riphagen
+Copy editing: Rachel O'Reilly
+Design: Studio Léon&Loes, Rotterdam http://www.leon-loes.nl
+Printer: Printvisie Rotterdam
+Publisher: Institute of Network Cultures, Amsterdam
+Supported by: School for Communication and Design at the Amsterdam University of Applied Sciences
+(Hogeschool van Amsterdam, Domein Media, Creatie en Informatie) and Stichting Democratie en Media.
+The glitch moment(um) is composed of texts that have been extended and reworked by Rosa Menkman, 2006–2011.
+If you want to order copies please contact:
+Institute of Network Cultures
+Kenniscentrum Create-IT
+Singelgrachtgebouw
+Rhijnspoorplein 1
+1091 GC Amsterdam
+The Netherlands
+http://www.networkcultures.org
+books@networkcultures.org
+t:+31 (0)20 59 51 866 – f: +31 (0)20 59 51 840
+A pdf of this publication can be freely downloaded at:
+http://www.networkcultures.org/networknotebooks
+This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License.
+Amsterdam, October 2011.
+ISBN/EAN 978-90-816021-6-7
+
+Network Notebook Series
+The Network Notebooks series presents new media research commissioned by the INC.
+PREVIOUSLY PUBLISHED NETWORK NOTEBOOKS
+Network Notebooks 03:
+Dymtri Kleiner, The Telekommunist, 2010.
+ISBN: 978-90-816021-2-9.
+Network Notebooks 02:
+Rob van Kranenburg, The Internet of Things: A critique of ambient technology and the all- seeing network of RFID, 2008.
+ISBN: 978-90-78146-06-3.
+Network Notebooks 01:
+Rosalind Gill, Technobohemians of the new Cybertariat? New media work in Amsterdam a decade after the Web, 2007.
+ISBN: 978-90-78146-02-5.
+
+4
+
+Acknowledgements
+I am very thankful to the Institute of Network Cultures for supporting me and my love for
+glitch, and for devoting one of their publications to this subject. I am especially grateful
+to Geert Lovink, not just for his endless insights into and support towards all fringes of
+digital culture, but specifically for pushing me into unexpected territories. I have to thank
+Jodi for opening my eyelids and Goto80 for opening my earlids, and for the journey we
+shared. Besides this, I have Karl Klomp to thank for his technical support.
+Annet Dekker and Josephine Bosma wrote the first texts that showed me a way into theorizing glitch art – I have to thank them for writing those texts and also Matthew Fuller for
+the conversation that we had the day he welcomed me into his office, which I consider the
+starting point for this text. Special thanks to my editor, Rachel, who worked long hours
+reviewing my glitches.
+Finally, I would like to make a shout out to The gli.tc/h/bots and all broken executables
+everywhere, for bringing me late night Unicode barf, all the organizers of festivals I have
+attended and all the people who have supported me in the last years, artistically, theoretically and technically. Finally, my family and close friends – may good spam be with you.
+
+5
+
+Introduction
+Glitch first came into my life in 2005, when I visited the world wide wrong exhibition
+by the Dutch/Belgium artist collective Jodi (Joan Heemskerk and Dirk Paesmans) at MonteVideo/Time Based Arts in Amsterdam (now known as the NIMK, Netherlands Media Art
+Institute). An introductory text on the work of the artists by Annet Dekker went a long
+way in articulating the artists’ deconstructive methods. However, the work that made the
+biggest impression on me, untitled game (1996-2001), which was a modification of the
+videogame quake 1, seemed the most incomprehensible. I could only understand it as
+irrational and void of meaning, and so I walked away from it, confused and titillated. In
+hindsight, I learned about myself in that moment – about my expectations and conceptions of how a videogame should work. The strange game seemed only to return me to my
+own perspectives and expectations around the medium that it was failing to be. A second
+text by Josephine Bosma usefully outlined Jodi’s active deprogramming of computers,
+and the paradoxes and tensions inherent to their working method. Even still, untitled
+game in particular remained for me under-articulated in theory, which increased my
+curiosity about this kind of art practice. I did not realize it then, but my taste for glitch,
+and for its potential to interrogate conventions through crashes, bugs, errors and viruses,
+was spawned by that initial and persistent critical evasion of untitled game from my
+theoretical grasp.
+At the end of my master thesis in 2006, which focused on Jodi’s work untitled game,
+I had still not yet referred to Jodi’s art work as ‘glitch art’ – I only mentioned the words
+‘glitch’ and ‘buggy’. This is probably because the notion of glitch art was just crossing over
+from sound culture, and leaking into visual art cultures only sporadically.01 Glitch more
+fully entered my vocabulary for visuals and networks when I began an artistic collaboration with the musician Goto80 (Anders Carlsson) in 2007. He explained to me how he exploited the Commodore 64 sound chip (the SID chip) for the creation of music. The bugs
+Goto80 used gave a very specific texture to the sound (the result of noise artifacts) and I
+began to develop and recognize visual equivalents to this process. I found more and more
+artifact-based correspondences between audio and visual technologies, such as compressions, feedback and glitches, in my at that time mostly online art practice. Then in early
+2008, Geert Lovink invited me to the Video Vortex conference for a visual live performance
+(which was quite a challenge since I had never stood onstage before) and in 2009 put
+me in touch with Matthew Fuller, an artist, author and lecturer in London, which later
+turned out to be two key turning points, artistically and theoretically. I began performing and more strongly theorizing what I was then calling my acousmatic videoscapes.02
+I explained to Fuller my observations of compressions, feedback and glitches in sound
+
+01| Around this time, there were only a few people using the term ‘glitch art’ in the context of the visual arts: Ant Scott had been working on his
+‘glitch art’ since July 2001 and was also one of the key performers at a Glitch festival that took place in Norway in 2002. Besides this, Iman
+Moradi just finished his Glitch Aesthetics - dissertation (2004) in which he used the terms ‘glitch art’ and ‘glitch design’ interchangeably. The
+term ‘glitch art’ first entered Wikipedia in 2007, where it was explained as manipulated B-movies and erotic art, also known as a subset of
+Rape Art. This description changed only in 2009. In conversation with Moradi, we agreed that the term only permeated visual art theory and a
+general vocabulary after 2005, if not a couple of years later.
+
+02 | In reference to Pierre Schaeffer, I called these videos ‘videoscapes’. These videos followed the logic of acousmatics; I refused the audience
+knowledge over the instrument and thus denied them their inherent cultural conditioning that would otherwise help them in their process of
+making meaning. In doing so, I put in front of them the ‘unseen visual artifacts’, from behind Pythagoras’ curtain - the shrouded, black veil of
+technology, http://videoscapes.blogspot.com/
+
+7
+
+and their correspondences to the visual sphere, who pointed me to the early information
+theory of Claude Elwood Shannon and Warren Weaver. Their work proved most useful
+to my project of developing a technology-driven framework for theorizing these usually
+unwelcome, increasingly exploited noise artifacts in which my practice was so invested.
+In the beginning of 2010, I developed and distributed the glitch studies manifesto
+(2010) in which I argued in favor of more critical attention to glitch’s increasing ossification in standardized design.03 I also wrote a vernacular of file formats (2010), a
+work in the genre of a handbook, intended to more rigorously communicate the technical specifications of all (or most-used) digital compression artifacts that could be created
+through random data insertion at that historical moment.04 This comprehensive PDF
+guide to compression artifacts was positively received by the glitch community and also
+spawned my next project, the co-development of a piece of generative glitch design software together with Johan Larsby, called monglot (2011). monglot made it possible for
+anybody, without extensive data corruption skills, to technically interrogate and learn
+about the development of specific glitch formations.05
+More recently I have merged my technical, narrative and historical comprehension of digital glitch culture into an audiovisual performance called the collapse of pal (2010), in
+which the (Paul Klee’s) Angel of History, as narrated by Walter Benjamin, reflects specifically on the ending of PAL, the analog Phase Alternate Line television signal. By introducing a critical and melodramatic narrative to a work of glitch art, I tried to underline that
+there is more to glitch art, and more at stake, than just design and aesthetics. The work
+addresses themes such as planned obsolescence, built-in nostalgia, critical media aesthetics and the gentrification and continuing development of a glitch art genre. Finally, I
+have been participating in critical community building around glitch, in my work as co-organizer and co-curator of the GLI.TC/H festival alongside Jon Satrom, Nick Briz and Evan
+Meaney. The first installment of GLI.TC/H took place in Chicago in 2010 and was hugely
+successful. In 2011 the GLI.TC/H festival will spread to Amsterdam and Birmingham.
+Every form of glitch, whether breaking a flow or designed to look like it breaks a flow, will
+eventually become a new fashion. That is fate. This is because of glitch’s inherently critical moment(um) – a concept I use throughout my work to indicate the potential any glitch
+has to modulate or productively damage the norms of techno-culture, in the moment at
+which this potential is first grasped. In this publication for the Institute of Network Cultures, I have consolidated my efforts at writing into the silences, under-articulated theories and assumed madness of digital glitch art. The book makes sense of recent glitch art,
+technically, culturally, critically, aesthetically and finally as a genre. I bring in the early information theorists not usually studied as theoretical foundations for digital art practice
+(Shannon and Weaver) to consider and refine a signal and informational framework appropriate to glitch’s technological origins and orientations. I go on in later parts to build
+03 | Rosa Menkman, ‘Glitch Studies Manifesto’ in Geert Lovink and Rachel Somers Miles (eds) Video Vortex Reader II: moving images beyond
+YouTube, Amsterdam: Institute of Network Cultures, 2011, pp. 336-347, http://dl.dropbox.com/u/17713740/Glitch%20Studies%20Manifesto%20rewrite%20for%20Video%20Vortex%202%20reader.pdf.
+04 | Rosa Menkman, a vernacular of file formats, August 2010. http://dl.dropbox.com/u/9054743/lofi%20Rosa%20Menkman%20-%20A%20
+Vernacular%20of%20File%20Formats.pdf.
+05 | Johan Larsby and Rosa Menkman, monglot, 2011. < http://rosa-menkman.blogspot.com/search/label/Monglot.
+
+8
+
+the term glitch more broadly than this technological beginning. I describe the ‘glitch’ as a
+(actual and/or simulated) break from an expected or conventional flow of information or
+meaning within (digital) communication systems that results in a perceived accident or
+error. A glitch occurs on the occasion where there is an absence of (expected) functionality, whether understood in a technical or social sense. Therefore, a glitch, as I see it, is not
+always strictly a result of a technical malfunction.
+At the same time, theorists need to be more clear about the relationship between technical
+and metaphorical or cultural dimensions of glitch culture. Focusing on the glitch within
+this broader perspective makes it possible to think through some of the more interesting
+political and social uses of the glitch within the field of digital art. Glitch makes sense
+differently in terms of noise, failure and accident. Moreover, glitch transitions between
+artifact and filter, or, in other words, between radical breakages and commodification
+processes. Finally, glitch could be said to exist, in all of its tensions and through all kinds
+of cultural feedback, as a recognizable genre of art. Finally, I finish up with a relational
+visualization of the glitch cultural communities and scenes that this book attempts to
+make sense of.
+
+9
+
+10
+
+Glitch Studies Manifesto
+1. T
+ he dominant, continuing search for a noiseless channel has been – and will always
+be – no more than a regrettable, ill-fated dogma.
+Acknowledge that although the constant search for complete transparency brings newer,
+‘better’ media, every one of these improved techniques will always possess their own inherent fingerprints of imperfection.
+2. D
+ ispute the operating templates of creative practice. Fight genres, interfaces and
+expectations!
+Refuse to stay locked into one medium or between contradictions like real vs. virtual, obsolete vs. up-to-date, open vs. proprietary or digital vs. analog. Surf the vortex of technology, the in-between, the art of artifacts!
+3. G
+ et away from the established action scripts and join the avant-garde of the unknown.
+Become a nomad of noise artifacts!
+The static, linear notion of information-transmission can be interrupted on three occasions: during encoding-decoding (compression), feedback or when a glitch (an unexpected break within the flow of technology) occurs. Noise artists must exploit these noise
+artifacts and explore the new opportunities they provide.
+4. Employ bends and breaks as metaphors for différance. Use the glitch as an exoskeleton for progress.
+Find catharsis in disintegration, ruptures and cracks; manipulate, bend and break any
+medium towards the point where it becomes something new; create glitch art.
+5. Realize that the gospel of glitch art also tells about new standards implemented by
+corruption.
+Not all glitch art is progressive or something new. The popularization and cultivation of
+the avant-garde of mishaps has become predestined and unavoidable. Be aware of easily
+reproducible glitch effects automated by softwares and plug-ins. What is now a glitch will
+become a fashion.
+6. Force the audience to voyage through the acousmatic videoscape.
+Create conceptually synaesthetic artworks that exploit both visual and aural glitch (or
+other noise) artifacts at the same time. Employ these noise artifacts as a nebula to shroud
+the technology and its inner workings and to compel an audience to listen and watch
+more exhaustively.
+7. R
+ ejoice in the critical trans-media aesthetics of glitch artifacts.
+Utilize glitches to bring any medium into a critical state of hypertrophy, to (subsequently)
+criticize its inherent politics.
+8. E
+ mploy Glitchspeak (as opposed to Newspeak) and study what is outside of knowledge. Glitch theory is what you can just get away with!
+Flow cannot be understood without interruption, nor function without glitching. This is
+why glitch studies is necessary.
+
+11
+
+A Technological Approach To Noise
+Since, ordinarily, channels have a certain amount of noise, and therefore a finite
+capacity, exact transmission is impossible.01
+- Shannon Weaver
+
+Linear Progression and the Myth of Perfect Transmission
+In 1948, Claude Shannon, today known as the founder of information theory, developed a
+basic mathematical theory of communication while working in the Bell Telephone laboratories in the US during the Second World War. Shannon’s main concern was to work out
+a way in which the channels of communication could be used most efficiently.02 In the
+model, Shannon reduced communication to a process of ‘transmitting information’, and
+distinguished information from the category of a message. He wrote:
+The fundamental problem of communication is that of reproducing at one point
+either exactly or approximately a message selected at another point. Frequently
+the messages have meaning; that is they refer to or are correlated according to
+some system with certain physical or conceptual entities. These semantic aspects
+of communication are irrelevant to the engineering problem. The significant aspect is that the actual message is one selected from a set of possible messages. The
+system must be designed to operate for each possible selection, not just the one
+that will actually be chosen.03
+Shannon based his mathematical theory of communication on the fundament that information does not change when its context changes. He also suggested that communication systems could roughly be divided into three main categories – discrete, continuous
+and mixed – all following a basic model for communication. In these systems, information can be understood as a quantity, ‘a yes or no decision’, a bit.04 The model thus ‘has
+applications not only in communication theory, but also in the theory of computing
+machines, the design of telephone exchanges and other fields’.05 Building on the prior
+work of, among others, Harry Nyquist and Ralph Hartley, Shannon developed this linear
+model to calculate and optimise the signal to noise ratio (a measure that compares the
+level of a desired signal to the level of background noise). Because Shannon focused on
+the transmission of information between machines and not on the transmission of meaning between human beings, the model makes it possible to consider noise from a purely
+mathematical level, while bracketing to one side the influence of culture, linguistics or
+other contextual factors that bring communication into the realm of interpretation and
+
+01 | Claude Elwood Shannon, ‘A Mathematical Theory of Communication’, Reprinted with corrections from The Bell System Technical Journal,
+Vol. 27 (July, October, 1948): p. 48.
+02 | Susan Ballard, ‘Information, Noise and et al’, M/C Journal, 10.5 (October, 2007), http://journal.media-culture.org.au/0710/02-ballard.php.
+03 | Claude Elwood Shannon, ‘A Mathematical Theory of Communication’, Reprinted with corrections from The Bell System Technical Journal 27
+(July, October, 1948): p. 1.
+04 | Susan Ballard, ‘Information, Noise and et al’, M/C Journal, 10.5 (October, 2007), http://journal.media-culture.org.au/0710/02-ballard.php.
+05 | Claude Elwood Shannon, ‘A Mathematical Theory of Communication’, reprinted with corrections from The Bell System Technical Journal,
+Vol. 27 (July, October, 1948): p. 3.
+
+12
+
+meaning. This makes his work considerably abstract, while opening up possibilities for
+considering non-human, machinic communication more cogently, as the starting point
+for theorizing noise.
+
+Visualization of the communication model as outlined by Shannon and Weaver.
+
+Shannon’s modelling of communication, in terms of signal and noise, consists of five
+basic steps. The transmission of information begins at the information source, which
+produces the message. A transmitter encodes the messages in signals made suitable for
+transmission, which it then sends through a channel. A receiver decodes the message from
+the signal, to finally deliver the message in its proper form to the destination, the machine
+for which the message is intended or where the message arrives.06 The model ‘information source-> encoder-> channel-> decoder-> destination’ that Shannon constructed also
+includes an additional arrow inserting noise into the channel, which is a sixth, disruptive,
+external factor.07 In signal processing theory (which has existed in different forms since
+the 17th century), noise is generally considered in terms of the mechanical imprecision of
+instrumentation.08 Shannon’s adaptation of signal processing to communication theory
+accounts for external noise being introduced to the signal while it is in transmission, to
+obscure the purity of the signal. This kind of external noise has a particular materiality
+and enters into the equation as unexplained variation and random error.09
+In addition to this first kind of noise, Shannon also described a second kind of noise
+called entropy, which is encoded within the message itself. Entropy, taken from the field
+and theories of thermodynamics, is the measure of disorder of a system at a given time.
+According to thermodynamics, it is inherent to any system of information, natural or technological, to tend towards disorder or to fall apart completely. This entropic orientation
+is essential and in some ways, positive, because it can tell something about the relationships between the material bodies, representations and spaces connected together for
+
+06 | Claude Elwood Shannon, ‘A Mathematical Theory of Communication’, Reprinted with corrections from The Bell System Technical Journal,
+Vol. 27 (July, October, 1948): p. 2.
+07 | Claude Elwood Shannon, ‘A Mathematical Theory of Communication’, Reprinted with corrections from The Bell System Technical Journal,
+Vol. 27 (July, October, 1948): p. 2.
+08 | Paolo Prandoni and Martin Vetterli, Signal Processing for Communications, Lausanne: EPFL Press, 2008, http://www.sp4comm.org/webversion.html.
+09 | Susan Ballard, ‘Information, Noise and et al’, M/C Journal, 10.5 (October, 2007), http://journal.media-culture.org.au/0710/02-ballard.php.
+
+13
+
+the purposes of transmission. Following this, it is important to realise that in Shannon’s
+communication model, information is not only obfuscated by noise, it is also dependent
+upon it for correct transmission. Without noise, either encoded within the original message, or present from sources outside the channel, there cannot be a functioning channel.
+Noise serves to contextualize information; information needs noise to be transmitted successfully. Consequently, without noise there is no information.10 Shannon eventually with
+Weaver adapted this mathematical model into ‘The Shannon and Weaver model of communication’, bringing machine communication theory to the consideration of human
+communication, by incorporating Norbert Wiener’s cybernetic concept of feedback.11
+In optimising signal to noise ratios, Shannon was working very much in line with what
+has become the dominant, modernist and even twentieth century ideal for technology:
+the notion of the optimally transparent channel. (I use 'transparent' throughout the book
+to describe the assumption that  technology can be "see-through", or does not intervene
+into the process of sending or perceiving information.) Within media design and development cultures, the pursuit of ultimate, noise-free and hi-fi channels and supposed highest
+levels of ‘reality’ has tended to be the Holy Grail (epitomized for example as media dreams
+in the Holodeck of Star Trek, or the direct brain cinema of Bigelow’s Strange Days, and so
+on).12 While the ideal is always unreachable, innovation is nevertheless still assumed to
+lie in finding an interface that is as non-interfering as possible, enabling the audience to
+forget about the presence of the medium and believe in the presence and directness of
+immediate transmission. As Bolter and Grusin note in Remediation (2001), ‘our culture
+wants to multiply its media and to erase all traces of mediation: ideally, it wants to erase
+its media in the very act of multiplying them’. It is the very ‘logic of immediacy’, according to Bolter and Grusin, which ‘dictates that the medium itself should disappear’.13 An
+example of this is the computers’ Graphical User Interface, which was developed to let users interact with multiple electronic devices using graphics rather than complicated text
+commands. This development made these technologies more accessible and widespread,
+yet more obfuscated in their functionalities. Indeed, what makes any medium specific is
+how it fails to disappear – as techné. To study media-specific artifacts is to take interest in
+the failure of media to disappear, or in other words, in noise artifacts.
+
+10 | Susan Ballard, ‘Information, Noise and et al’, M/C Journal, 10.5 (October, 2007), http://journal.media-culture.org.au/0710/02-ballard.php.
+11 | The fact that Shannon and Weaver approached human communication with a model developed for the transmission of information and
+thus did not consider the difference of the human process of making meaning resulted in heavy criticism from other human communication
+theorists, who eventually developed modified and alternative models. These models often emphasised the fact that communication doesn’t
+mean the transmission of information, but rather that meaning is actively constructed by both the initiators and interpreters. In 1954, Wilber
+Schramm adjusted Shannon and Weaver’s model, putting greater emphasis on the process of encoding and decoding. This alteration was later
+adopted by Stuart Hall, who wrote about encoding and decoding from the perspective of mass communication (principally in television).
+The only other mediated communication model that has gained a wide usage since Shannon and Weaver is the communication model by
+McLuhan. McLuhan essentially argues that mediation and communication is what we all live inside of, therefore cannot be caught in one
+transparent model. McLuhan drops the source and the sender that enclose Shannon’s communication model. He also rejects the notion
+of mathematics and mostly focuses on the influence of the medium over the content of the message. According to McLuhan, the medium
+shapes the content of the message: the medium for instance changes the scale, pace or pattern of the message. Although I am aware that
+aspects of both McLuhan’s and Shannon and Weaver’s work can be applied to glitch in different ways, I believe that for the purposes of my
+research the model of Shannon and Weaver is most clearly useful as a basic, informational approach to noise.
+12 | Michael Heim, The Metaphysics of Virtual Reality, New York: Oxford University Press, 1993. p. 122.
+13 | Jay David Bolter and Richard Grusin, Remediation: Understanding New Media, Massachusetts: MIT Press, 1999. pp. 5-6.
+
+14
+
+Noise Artifacts
+While the linear communication process described by Shannon is reasonably deterministic, its predictability is undermined by the overall addition of noise, which reveals itself
+on the surface of the information and is categorizable as ‘noise artifacts’. Types of noise
+artifacts depend on the form of the information, including how it is shaped by encoding/
+decoding (in the digital realm this process materializes de/compression artifacts) or misshaped by signal corruption, whilst in transmission. Feedback is another differentiation
+of a signal from the linear transmission model that can also lead to particular, mediumspecific artifacts. Once their cause is known, different forms of noise artifacts can be
+named according to these three categories. Each category of interruption involves its own
+technical aesthetics, shaped through media specificity.
+
+Encoding And Decoding: Compression Artifacts
+Today’s communication strives to become exponentially faster and (partly as a consequence) to become more transparent. In the present pursuit of immediacy, signal speed
+has been increasingly prioritized. In contrast, earlier developments in audio and video
+technologies focussed on the reduction of noise in order to improve media experiential
+‘quality’. Today quality seems to be of secondary importance; recent technological developments appear to reverse or downplay the focus on signal quality as a genuine digitalcultural concern.
+With the help of more powerful (transfer) protocols such as en/decoding or compression
+algorithms, information can travel faster and further. A compression reorganises information, the time and space through which the elements of sound and images are communicated, by scaling, reordering and decomposing.14 Compression can be quite complex.
+Consider a single file. First there is a file format, which can be a ‘container’ of, for example, sound and image (examples include MPEG, AVI or MOV). This container possesses
+the meta-information about what type(s) of compression-decompression protocol(s) or
+‘codecs’ are needed to store and transfer the information or to view the data object. The
+container thus does not carry the compression algorithm itself. Instead these are installed
+on the computer in the form of codecs. Besides this, there are two different kinds of compression protocols: lossless and lossy.
+Lossless and especially lossy compressions have become almost ubiquitous, whereas
+original RAW (uncompressed) information is considered now rare and relatively unwieldy, especially in the realms of digital music, photography and cinema. Lossless compressed files can be rebuilt exactly the way they were before being compressed, and retain
+all information during the process. Contrarily, a good example of new lossy data compression technologies is the mp3 data format, which has made it possible to distribute
+music easily, but in lower quality than the CD (which uses an uncompressed linear PCM
+organisation). Lossy data compression takes a pragmatic, versioned distance from the
+original file. This compression focuses only on the data that is important for the eye and/
+
+14 | Adrian Mackenzie, ‘Codecs’, in Matthew Fuller (ed.) Software Studies, Massachusetts: MIT Press, 2008, pp. 48-55. p. 36.
+
+15
+
+or the ear to perceive and discards the information that is believed to be of lesser importance. For video images for instance, perception depends on the thresholds of luminance
+(brightness) and chrominance (colouring) in space and time. Therefore, video codecs are
+designed around the transmission of these two values as efficiently as possible. The rise
+of lossy files has resulted in contemporary media consumption practices in which noise is
+increased rather than decreased.
+Most compressions are relatively concealed. They rarely come to the surface to explicitly reveal their language, or system of rules. They have been built, debugged and tested
+many times in order for them to seem negligible, or indeed, to recede into transparency.
+However, every de/encoding (or compression) technology has its visible and less visible
+artifacts, that will be able to come to the surface when either an error corrupts the image
+information, or the encoding/decoding process malfunctions.
+
+16
+
+A Vernacular Of File Formats15
+The only resolution to the problem of non-communication was to incorporate it
+within the system.16
+- Friedrich Kittler
+
+A Photoshop RAW image (.RAW). | This is the original, uncompressed (RAW) source image, which I will glitch
+throughout this chapter, in order to outline a condensed version of my Vernacular Of File Formats. The image is a
+video still, which is why it involves (nearly invisible) scan lines. These lines are from the original video.
+
+Raw image files contain minimally processed data (pixels) from the image sensor of, for
+instance, a digital camera or image scanner. The file header of a RAW image typically contains information concerning the byte-ordering of the file; the camera sensor information
+and other image metadata like exposure settings; the camera, scanner or lens model; the
+date (and, optionally, place) of shooting or scanning; the format, size and number of colors; as well as other information needed to display the image.
+
+15 | This section is in fact a condensed adaptation of my 2010 artwork, Vernacular of File Formats.
+16 | Friedrich Kittler, Draculas Vermächtnis: Technische Schriften, Leipzig: Reclam Verlag Leipzig, 1993. p. 242.
+
+17
+
+A databent Photoshop RAW (h=0) image (.RAW). | This image was constructed by opening the original three channel
+interleaved RAW image as a single channel (single color/greyscale) interleaved document. The image generated is
+a reversible databend. This image is uncompressed.
+
+It is possible to save a RAW image file without a header (when you open the image in
+Photoshop, for example, you can choose header=0 in a pop-up box). When the RAW image is saved without a header the computer doesn’t know the dimensions or any other
+crucial information that is needed to reconstruct the image out of the image data. This
+opens up creative possibilities. It is for instance possible to input new dimensions for the
+image, change the amount of color channels or choose whether or not the image will be
+displayed as ‘interleaved’ or ‘non-interleaved’. In the case of a RAW image file, interleaving and non-interleaving refer to the order in which the RGB (Red, Green and Blue) color
+values of every pixel are stored. In an interleaved RAW image, the data is stored in a RGBRGBRGB sequence. When the image is saved in non-interleaved order, the RGB values
+are not ordered sequentially but have their own ‘layers’. By deviating from the values of the
+originally recorded image, the image can be displayed in a distorted way and the structure
+of the file becomes visible.
+
+18
+
+A Databent Bitmap image (.BMP). | This BMP image was databent by copy-pasting a selection of random image data
+over and over into the original file. The image generated is an irreversible databend. This image is uncompressed.
+
+The BMP file format is uncompressed. Every bit that indexes a bitmap pixel value is
+packed within a linear row and processed in a reversed order to the normal image raster
+scan order, starting in the lower right corner, advancing row by row from the bottom to the
+top. This is why, when you copy-paste just some parts of the image data, the lower part of
+the image data and the image itself will remain intact, while the upper part of the image
+shifts horizontally.
+In BMP files, and many other bitmap file formats, the color palette consists of a block of
+bytes (a table or palette) listing the colors available for use in a particular indexed-color
+image. Each pixel in the image is described by a number of bits (1-32 bit color depth) that
+index a single color from the color palette, which is described right after the header. The
+BMP color palette uses the interleaved RGB color model. In this model, a color depends on
+different intensities (from 0 to 255) of the primary RGB colors. A color is thus defined by
+the final intensities of R+G+B. When you copy-paste the image data, certain shifts within
+the RGB values may take place; the intensity of the data from B can (for instance) shift to
+R, creating sudden discolored blocks.
+
+19
+
+
+Graphics Interchange Format images (.GIF). | Left: A GIF image featuring truncation (involving quantization
+error). Right: A GIF image in which quantization error is minimized through the use of dither artifacts. The GIF
+compression is lossless.
+
+The Graphics Interchange Format is a bitmap image format that supports 8 bits per pixel.
+This compression can therefore consist of no more then 256 colors. The format supports
+animation and employs dither (a grain or block artifact), which can be intentionally applied as a form of noise to ‘randomize quantization error(s)’. Quantization refers to the
+procedure of constraining information from a relatively large or continuous set of values
+(such as real numbers) to a relatively small discrete set difference between the actual analog value and quantized digital value of color. ‘Quantization error’ is thus an error often
+impacting upon color, caused by truncation (the discarding of less significant color information).’
+Dither helps to prevent images from displaying or transforming into large-scale patterns
+such as ‘banding’ (a stepped process of rendering smooth gradations in brightness or
+hue). Moreover, because the human eye perceives the diffusion caused by dither as a
+mixture of the colors, unavailable (cut out or uncodable) colors are approximated. This
+creates the illusion of color depth.
+
+20
+
+Graphics Interchange Format images (.GIF).
+This interlaced GIF image was databent by the introduction of a random error to the information data. The image
+generated is an irreversible databend.
+
+The gif format uses a four pass dimensional interlacing strategy. This basically means
+that the image, consisting of different rows of pixels, decodes some rows of pixels before
+other rows. The example image shows the displacement of the different rows during weaving (the putting together of the two layers), resulting in ‘combing artifacts’ with ‘jagged
+edges’.
+
+21
+
+A databent progressive Joint Photographic Experts Group image (.JPEG). This baseline JPEG image was databent by
+the introduction of a random error to the information data. The image generated is an irreversible databend. The
+JPEG compression is lossy.
+
+A JPEG compression consists of 6 subsequent steps:
+1. C
+ olor space transformation. Initially, images have to be transformed from the RGB color space to another color space (called Y´CbCr), that consists of three components that
+are handled separately: the Y (luma or brightness) and the Cb and Cr values (chroma or
+color values, which are divided into hue and saturation).
+2. D
+ ownsampling. Because the human eye doesn’t perceive small differences within the
+Cb and Cr space very well, these elements are ‘downsampled’ (their information is reduced).
+3. Blocksplitting. After the color space transformation, the image is split into tiles or
+‘macroblocks’, which are rectangular regions of the image that are transformed and
+encoded separately.
+
+22
+
+An 8 × 8 DCT basis function of a JPEG with differentiated macroblocks (.JPEG).
+
+4. Discrete Cosine Transform. Next, a discrete cosine transform (which works similar
+to the Fourier Transform function exploited in ‘datamoshing’ and ‘macroblock’ experiments to which I will later refer) is used to create a frequency spectrum, to transform the
+8×8 blocks to a combination of 64 two-dimensional DCT basis functions or patterns (as
+mapped out by the lines).
+5. Quantization. During the quantization step, the highest brightness-frequency variations become a base line (or 0-value), while small positive and negative frequency differentiations are given a value that starts from this baseline, which takes many fewer bits to
+represent.
+6. Entropy coding. Finally, entropy coding is applied. Entropy coding is a special form
+of lossless data compression that involves arranging the image components in a ‘zigzag’
+order. This allows the quantized coefficient table to be rewritten in a zigzag order to a sequence of frequencies. A ‘run-length encoding’ (RLE) algorithm groups similar frequencies together and after that, via ‘Huffman coding’ organizes what is left.
+23
+
+A databent baseline Joint Photographic Experts Group image (.JPEG).
+This baseline JPEG image was databent by the introduction of a random error to the information data. The image
+generated is an irreversible databend. The JPEG compression is lossy.
+
+Because the RGB color values of JPEG images are described in such a complex algorithm,
+random data replacements can also result into dramatic discoloration and displacement.
+The very high compression ratio of a JPEG affects the quality of the image and the size of
+the artifacts. When using quantization with block-based coding, as I have done in these
+JPEG-compressed images, several types of artifacts can appear, for instance ‘ringing’ or
+‘ghosting’, ‘blocking’ and ‘jaggies’. The image shows ‘blocking’ or ‘staircase’ artifacts appearing most clearly along the curving edges as a result of the 8×8 JPEG blocks. Blockiness
+in ‘busy’ regions is sometimes also referred to as ‘quilting’ or ‘checkerboarding’. ‘Jaggies’
+is the informal name for artifacts in raster images. They are often the result of poor aliasing, which happens when a JPEG signal reconstruction after downsampling has produced
+only high frequency outcomes.
+
+24
+
+A databent Joint Photographic Experts Group Committee 2000 image (.JPF). | This JPEG 2000 image was databent by
+the introduction of a random error to the information data. The image generated is an irreversible databend. The
+JPEG 2000 compression is lossy.
+
+The JPEG 2000 standard is a compression standard developed especially for the medical
+imaging industry because of the many edge and blocking artifacts possible for the JPEG
+format, which can cause catastrophic misreadings in medical pictures. JPEG 2000 has improved scalability and edit-ability. In JPEG 2000, after the color transformation step, the
+image is split into so-called tiles, rectangular regions of the image that are transformed
+and encoded separately. Tiles can be any size and it is also possible to consider the whole
+image as one single tile. This tiling process turns the image into a collection of ‘sub-bands’,
+which represent several approximation scales. A sub-band is a set of coefficients that represent aspects of the image associated with a certain frequency range as well as a spatial
+area of the image. The quantized sub-bands are split further into ‘precincts’; rectangular
+regions in the wavelet domain. A ‘wavelet’ is a wave-like oscillation with amplitude that
+starts out at zero, increases, and then decreases back to zero. It can typically be visualized
+as a ‘brief oscillation’ like one might see recorded by a seismograph or heart monitor. Precincts are split further into code blocks, which are located in a single sub-band and have
+equal sizes. The chrominance components (of JPEG 2000) can be (but do not necessarily
+need to be) downscaled in resolution; in fact, since the wavelet transformation already
+separates images into scales, downscaling or downsampling is more effectively handled
+by dropping the finest wavelet scale.
+25
+
+Orderly Chaos: Feedback Artifacts
+Feedback, a category of noise, is a circular process in which a part of the process’s output
+is returned (fed back) to the input, influencing the future behaviour of the process. The
+addition of feedback changes the communication model considerably, from a linear to a
+non-linear model of transmission, which also opens the model up to new forms of noise.
+Feedback then is both an artifact within digital technologies and a generative quality
+available in many communication media.
+Norbert Wiener established the foundations of cybernetics (in 1948) by describing the
+principle of cybernetic feedback. He wrote that in a feedback-oriented system, the factual
+outcome has to be compared with the intended outcome. If the intended condition is not
+reached, it is pursued through feedback, either by increasing or decreasing the difference.
+An example of such a system is for instance a thermostat, but more complex examples
+include signal (for instance audio) equalizers or the stock market.17
+
+The Other Noise Artifact: Glitch
+Malfunction and failure are not signs of improper production. On the contrary,
+they indicate the active production of the "accidental potential" in any product.
+The invention of the ship implies its wreckage, the steam engine and the locomotive discover the derailment.18
+- Paul Virilio
+
+When the cause of a noise artifact is known, the artifact is often not referred to as noise, but
+instead is named after its technical cause, for instance as a compression artifact (jaggies,
+macroblocking, checkerboarding) or feedback artifact. The difference between compression and feedback artifacts is thus not always strict. When the source of the noise artifact
+is not (yet) known, the noise becomes puzzling. In the digital realm, this kind of noise is
+often referred to as ‘glitch’. Glitch, an unexpected occurrence, unintended result, or break
+or disruption in a system, cannot be singularly codified, which is precisely its conceptual
+strength and dynamical contribution to media theory. From an informational (or technological) perspective, the glitch is best considered as a break from (one of) the protocolized
+data flows within a technological system. According to The American Heritage® Dictionary
+of the English Language, the word glitch was first recorded in English in 1962 in the writings
+of astronaut John Glenn, who describes glitch as a term adopted by his team ‘to describe
+some of our problems’. Glenn gives the technical sense of the word that the astronauts had
+adopted, as ‘literally… a spike or change in voltage in an electrical current’ only to note how
+that more specific technical definition was soon applied to a range of ‘other, not-yet-specified’ problems. Close to the moment of its inception then, ‘glitch’ already passes beyond
+specific technical use to describe a wide variety of malfunctions and mishaps.19
+
+17 | Norbert Wiener, Cybernetics: Or Control and Communication in the Animal and the Machine, Paris: Hermann & Cie & Camb, 1948.
+18 | Sylvere Lotringer and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005. p. 2.
+19 | The American Heritage® Dictionary of the English Language, Fourth Edition, Houghton Mifflin Company, 2004. http://dictionary.reference.
+com/browse/glitch.
+
+26
+
+The result of a glitch can range significantly, from a catastrophe to just a minor hiccup
+or slip. In the case of minor glitches, the informational inputs, encoding or decoding or
+other technological protocols are revealed to be at some point ‘erroneous’, while the rest
+of the system or the parts processing the data flows within that system (the hardware, software or for instance the monitor interface) continue to function, and display the errorridden output unscrutinized. When the glitch is more disastrous, the system might not
+function properly at all, or ever return to its normal mode of operation.
+From a media culture perspective then, the term glitch refers to a not yet defined break
+from a procedural flow, fostering a critical potential. Here I use ‘procedural’ as a moniker
+from ‘procedural programming’ (or ‘imperative programming’), to reference series' of
+computational steps that must be carried out in order for a program to reach a desired
+state. Once a procedural flow is broken, there are two possible ways in which the glitch
+tends to move. If the cause of the machine’s erratic behavior becomes known, the glitch
+tips and becomes a simple bug report of a failure, in which it will be described under its
+technological name (which at that point is often a compression artifact). However, if the
+cause of the glitch remains unknown, the glitch can either be ignored and forgotten, or
+transformed into an interpretation or reflection on a phenomenon (or the memory thereof) defined by a social or cultural context (conventions, histories, perspectives) and the
+technology that is malfunctioning. In short, failure is a phenomenon to overcome, while a
+glitch is incorporated further into technological or interpretive processes. Accordingly, when
+the glitch opens up to the realm of symbolic or metaphorical connotations, the interruption shifts from being a strictly informational or technological actuality, into a more complex post-procedural phenomenon to be reckoned with.
+
+27
+
+The Perception Of Glitch
+Our taverns and our metropolitan streets, our offices and furnished rooms, our
+railroad stations and our factories appeared to have us locked up hopelessly.
+Then came the film and burst this prison-world asunder by the dynamite of the
+tenth of the second, so that now, in the midst of its far-flung ruins and debris, we
+calmly and adventurously go traveling.01
+- Walter Benjamin
+
+The Meaning Of Noise
+To develop a categorization of noise for contemporary audio-visual media theory, I have
+used Claude Shannon’s mathematical theory of communication. In his definition of informational noise, Shannon conveniently focused on the transfer of information between
+machines, leaving human elements and context out of the equation. Drawing on Shannon’s model, I was able to divide digital noise into three basic categories of noise artifacts:
+encoding/decoding artifacts (which are most often referred to as compression artifacts),
+feedback artifacts and the ‘other’ corruptions known as glitch artifacts – artifacts for which
+the causes are not (yet) known. It is important to realize that the difference between each
+of these artifacts is not rigid, as the description of a glitch artifact can be understood as
+a de/compression or feedback artifact (and visa versa), depending on the viewer’s knowledge of the technology. In the context of human-computer communication, I also deviate
+from Shannon and Weaver and believe that the concept of noise becomes more complex
+as it connotes meaning and translation. Consequently, human-computer definitions of
+noise must also include social parameters and become more complex, inevitably negotiating questions of context, perception and aesthetics.
+The etymological definition of noise refers to states of aggression, alarm and powerful
+sound phenomena in nature (‘rauschen’)02. When the concept of noise is approached
+within a social context, noise does not exist independently, but only in relation to what
+it is not. However complex or inclusive noise appears as a signifier, it is always a kind
+of negativity: it stands for unaccepted sound, not music, invalid information or the absence of a message. Noise is unwanted, other and unordered. Accordingly, there is also
+no unequivocal cultural definition of noise, because in the end, what noise is and what
+noise is not, is a social matter. As James Brady Cranfield-Rose writes, ‘noise is a “cipher”,
+a question mark, forever eluding fixed definitions’.03 Furthermore, whichever way noise
+is defined, its negative orientation also has positive, critical dimensions. Noise tends to
+reflexively stage a reconsideration or re-view its opposite – the world of meaning, norms
+and regulations, goodness, or beauty.04
+
+01 | Walter Benjamin, ‘The Work of Art in the Age of Mechanical Reproduction’, in Hannah Arendt (ed.) Illuminations, New York: Schocken, 1968,
+pp. 219-254. p. 236.
+02 |Torben Sangild, The Aesthetics of Noise, Copenhagen: Datanom, 2002. www.ubu.com/papers/noise. p. 5-8.
+03 | James Brady Cranfield-Rose, Tick-tick-tick-tick-tick… Oval, the glitch and the utopian politics of noise, unpublished master thesis, Burnaby,
+Canada: Simon Fraser University, 2004. p. 13, http://lib-ir.lib.sfu.ca/handle/1892/8961.
+04 | Paul Hegarty, Noise/Music: A History, London and New York: Continuum, 2007. p. 5.
+
+28
+
+The Glitch Moment(um): A Void In Techno-Culture
+Noise aesthetics pose both a technological and perceptual challenge to habitual or ideological conventions. While media developers design their technologies in order that the user will
+forget about the presence of the medium, following the ideal logic of transparent immediacy,
+in reality, the complexity of the user’s inherently aesthetic and perceptual responses to the
+human computer interface requires a more nuanced approach. As Ernst Gombrich declared:
+‘However we analyse the difference between the regular and the irregular, we must ultimately
+be able to account for the most basic fact of aesthetic experience, the fact that delight lies
+somewhere between boredom and confusion’.05 Situations of either extreme immediacy or
+extreme reliability do not contribute as might be expected to the actual richness of a media
+experience. Most people need some kind of interplay between surprise and uniformity to
+keep them actively involved.06 Expanding on this important, indeed integral role of irregularity and surprise in human perception, Gombrich quotes Adelbert Ames, Jr, who explains:
+the organism is continually comparing the prognosis of the continually changing
+new external events with his determined frame of significance. If they conform, i.e.
+‘work’, he is no longer interested; but in so far as they do not, he has to take stock of
+the situation. There are three possibilities – either his frame of significances may
+be wrong, or his immediate sense response may be wrong, or both. In any case, he
+has a problem to solve.07
+The first encounter with a glitch comes hand in hand with a feeling of shock, with being lost and in awe. The glitch is a powerful interruption that shifts an object away from
+its flow and ordinary discourse, towards the ruins of destructed meaning. This concept
+of flow I emphasize as both a trait within the machine as well as a feature of society as
+a whole. DeLanda distinguishes between chaotic disconnected flows and stable flows of
+matter that move in continuous variations, conveying singularities.08 DeLanda draws here
+on Deleuze and Guattari, who describe flow in terms of the beliefs and desires that both
+stimulate and maintain society. They write that a flow is something that comes into existence over long periods of time. Within these periods, conventions are established, while
+deviations tend to become rare occurrences and are often (mis)understood as accidents
+(or glitches). Although meaningful aspects of every day life might in fact be disclosed
+within these rare fluctuations, their impact or relevance is often likely to be ruled out,
+because of social tendencies to put emphasis on the norm.09
+A glitch is the most puzzling, difficult to define and enchanting noise artifact; it reveals itself
+to perception as accident, chaos or laceration and gives a glimpse into normally obfuscated
+
+05 | Ernst Hans Josef Gombrich, The Sense of Order: A Study in the Psychology of Decorative Art, London: Phaidon Press, 1984. p. 9.
+06 | Robert Pepperell, ‘Computer aided creativity: practical experience and theoretical concerns’, in Proceedings of the 4th conference on Creativity & cognition, Loughborough, UK: ACM, 2002. pp. 50-56, http://portal.acm.org/citation.cfm?id=581710.581720&type=series.
+07 | Ames, Jr. Adelbert, ‘The morning Notes’, in Ernst Hans Josef Gombrich, The Sense of Order: A Study in the Psychology of Decorative Art,
+London: Phaidon Press, 1984. p. 117.
+08 | Manuel DeLanda, War in the Age of Intelligent Machines, New York: Zone Books, 1991. p. 20.
+09 | Gilles Deleuze and Pierre-Félix Guattari, A Thousand Plateaus: Capitalism and Schizophrenia, Trans. B. Massumi, Londen: The Athlone
+Press, 1988. p. 219.
+
+29
+
+machine language. Rather than creating the illusion of a transparent, well-working interface to information, the glitch captures the machine revealing itself. Television is arguably
+one of the more flow-centric, ideologically ‘transparent’ media forms. In Television: Technology and Cultural Form (1974), Williams describes a viewer frequently caught up in a flow of
+technology and its contents. He emphasizes that the process of this flow seems natural, but
+is in fact strictly guided by larger corporations and powers. When a (televisual) flow breaks,
+the user comes to witness only shreds of the flow through which the message is normally
+transmitted, while the machinic functions that are conventionally relied upon – as obfuscated – are revealed.10 When a supposedly transparent interface is damaged in this way, the
+viewer is momentarily relocated to a void of meaning. Interruptions like these are often
+perceived as disastrous, threatening and uncanny. Sometimes they create a moment where
+seemingly any sense that could be made of a situation is eliminated from thought or possibility. On other occasions, the metaphorical impact of the unspeakable mediatic disaster
+also brings with it the tendency to reflect (on for instance what the differentiation from the
+flow means). Eric Kluitenberg describes how this was the case on September 11, 2001, when
+the CNN website temporarily went down and a black screen repeatedly interrupted the flow
+of the television broadcast. He refers to these moments in time as
+the rupture of professional media codes, which signaled complete panic and disarray […], the infinity of possible alternative discourses, of other possible modes of
+explanation and interpretation.11
+What is challenged or brought forward in the case of the void is the idea of authorship
+itself, which, prior to this supposedly voiding moment, was in fact neutralized from
+media-cultural experience. It is possible to realize at this point – and only belatedly – that
+the conventions of ‘the seamless surface of the networked media spectacle itself, and its
+illusion of stability’12 tend to foreclose any sense of authorship whatsoever. In media accidents like these, the void involves the unknown – that which cannot be described or
+planned for. These empty spaces of non-understanding trigger a horror vacui: a fear of
+voids to which nothing else can be compared and that is beyond all possibilities of calculation, measurement or imitation.13 However, these terrifying voids also create a form of
+counter-experience, a negative pleasure that is not so different from the proto-modern,
+aesthetic conception of the sublime (described as early as 1693 in John Dennis’s writings
+on the Alps), as contradictory and immense ‘delight that is consistent with reason’ but yet,
+‘mingled with Horrors, and sometimes almost with despair’.14
+Like in this ‘nature’-generated sublime, the glitch is an uncanny or overwhelming experience of unforeseen incomprehension. Experiencing a glitch is often like perceiving a stun-
+
+10 | Raymond Williams, Television: Technology and Cultural Form, Hanover: University Press of New England, 1974.
+11 | Eric Kluitenberg, Delusive Spaces. Essays on Culture, Media and Technology, Rotterdam: NAi Publishers and Amsterdam: Institute of
+Network Cultures, 2008. p. 357.
+12 | Eric Kluitenberg, Transfiguration of the Avant-Garde/The Negative Dialectics of the Net, posting to nettime mailing list, 23 January, 2002,
+http://www.nettime.org/Lists-Archives/nettime-l-0201/msg00104.html.
+13 | Eric Kluitenberg, Delusive Spaces. Essays on Culture, Media and Technology, Rotterdam: NAi Publishers and Amsterdam: Institute of
+Network Cultures, 2008. p. 333.
+14 | Jeffrey Barnouw, ‘The Morality of the Sublime: To John Dennis’, Comparative Literature, Vol. 35, No. 1 (Winter, 1983): p. 21-42.
+
+30
+
+ningly beautiful, brightly colored complex landscape of unexplainable, unfathomable and
+otherworldly images and data structures. A glitch represents a loss of control. The ‘world’ or
+the interface does the unexpected. It goes beyond the borders of its known and programmed
+territories, changing viewers' assumptions about technology and its assumed functions
+(as was for instance the case during the September 11 broadcast), and comes to seem profoundly irrational in its ‘behavior’. The glitch makes the computer itself suddenly appear
+unconventionally deep, in contrast to the more banal, predictable surface-level behaviors of
+‘normal’ machines and systems. In this way, glitches announce a crazy and dangerous kind
+of moment(um) instantiated and dictated by the machine itself.
+The concept of moment(um) is twofold: first of all there is the moment, which is experienced as the uncanny, threatening loss of control, throwing the spectator into the void (of
+meaning). This moment then itself becomes a catalyst, with a certain momentum. Noise
+turns to glitch when it passes a momentary tipping point, at which it could tip away into
+a failure, or instead force new knowledge about the glitch’s techné, and actual and presumed media flows, onto the viewer.
+Through the distorted images and behaviors of machinic outputs, the viewer is thrown
+into a more risky realm of image and non-image, meaning and non-meaning, truth and
+interpretation. The machine no longer behaves in the way the technology was supposed
+to. Its glitching interface, strange sounds and broken behavioral patterns introduce tension into user intentions; an astonishing image (or sound) must be somehow negotiated
+amidst a normally much more boring masquerade of human computer relations. Though
+at first the viewer reacts with shock and perceives the experience as a loss, the glitch cannot be subdued as a solid state of perception. Just as the understanding of a glitch changes
+once it is named, so does the notion of transparency or systemic equilibrium supposedly
+damaged by the glitch itself. The ‘original’ experience of rupture is moved beyond its sublime moment(um) and vanishes into a realm of new conditions. The glitch has become
+a new mode; and its previous uncanny encounter has come to register as an ephemeral,
+personal experience of a machine.
+
+Technorealism And the Accident Of Art
+I can no longer use the figure without destroying it, so I’d rather be abstract.15
+- Mark Rothko
+
+Notions of disaster, aesthetics of failure and accidental events have been integral to modern
+and contemporary art, Avant-Garde progressions and turnings. With the growing importance of technology, especially so in the modern century, it is the accident that becomes
+immanent to culture, as Virilio has emphasized most strongly among media theorists:
+To invent the sailing ship or steamer is to invent the shipwreck. To invent the train
+is to invent the rail accident of derailment. To invent the family automobile is to
+produce the pile-up on the highway. To get what is heavier than air to take off in the
+
+15 | Sylvere Lotringer and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005. p. 22.
+
+31
+
+form of an aeroplane or dirigible is to invent the crash, the air disaster. As for the
+space shuttle, Challenger, its blowing up in flight in the same year that the tragedy
+of Chernobyl occurred is the original accident of a new motor, the equivalent of the
+first ship-wreck of the very first ship.16
+In correlation with Gombrich, Virilio argues that although many people encounter accidents as negative experiences, an accident can also have positive consequences. The
+accident doesn’t only equal failure, but can also ‘reveal something absolutely necessary
+to knowledge’.17 To Virillio, the accident resides beyond the classical opposition of functional versus dysfunctional. In the introduction to the Deaf ’98 festival Reader, which was
+largely dedicated to Virilio’s theories on the accident, the accident is even described as
+hyper-functional. The accident (and thus the glitch) shows a system in a state of entropy
+and so aids towards an understanding of the ultimate functioning of a system. This opens
+up space for research and practice, and the arts are a special domain for this.18
+In The Accident of Art (2005), Virilio argued that art itself has been terrorized by the last
+century; it has been devastated consecutively by the two World Wars, the Holocaust and
+nuclear power. Dadaists and Surrealists cannot be understood without World War 1; they
+are its casualties, the ‘broken faces’ or war victims that used automatic writing as their
+machine-gun.19 Virilio explains how WW1 blew reality into pieces and how the cubist
+painter Georges Braque collected those pieces and put them back together, not just as a
+formalist experiment or as a destruction of perspective but as an artistic realism appropriate to the techno-cultural present. For Virilio, while figurative work retreats, this category
+of Abstract art is ‘not really abstract’.20 Because the war disfigured, destroyed and mutilated reality, as much as it did human bodies and outdoor spaces, realist conventions (formerly/formally understood) were no longer reproducible. Thus, many artists could only
+use some (destroyed or mutilated) form of figuration. This understanding leads Virilio to
+conclude that in the art of the accident, there should be a differentiation between nonfigurative and disfigured art.21 Such a ‘formal’ comprehension of technological realisms
+makes for all kinds of disaster or accident related art. In the digital realm, what has come
+to be known as glitch art deals with the digital dimension of error, accident and disaster
+from different angles, within a larger context of cultural meaning.
+
+16 | Paul Virilio and Julie Rose, The Original Accident, Cambridge: Polity Press, 2007. p. 10.
+17 | Sylvere Lotringer and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005. p. 63.
+18 | Andreas Broeckmann, Joke Brouwer, Bart Lootsma, Arjen Mulder and Lars Spuybroek, The Art of the Accident, NAI Publishers/V2_Organisatie: Rotterdam, 1998. p. 3.
+19 | Andreas Broeckmann, Joke Brouwer, Bart Lootsma, Arjen Mulder and Lars Spuybroek, The Art of the Accident, NAI Publishers/V2_Organisatie: Rotterdam, 1998. p. 3.
+20 | Sylvere Lotringer and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005. p. 19-21.
+21 | Sylvere Lotringer and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005. p. 19-21.
+
+32
+
+A Phenomenology Of Glitch Art
+“Failure” has become a prominent aesthetic in many of the arts in the late 20th century, reminding us that our control of technology is an illusion, and revealing digital tools to be only as perfect, precise, and efficient as the humans who build them.01
+- Kim Cascone
+
+The Predicaments Of Defining Glitch Art
+Artists often find themselves on a frontline, reflecting on the cultures, politics and technologies of their time. Over the last decades, audiovisual media and computers have
+gradually gained more and more importance in an art field that is still fundamentally
+ruled by classical media forms and genres. Noise itself is of course not new; similarly,
+contemporary glitch art relates to a long history of noise art and artists battling in different ways against media forms and their flows and conventions, including especially what
+I have outlined as the convention of transparent immediacy.
+While not being new, noise art arises unpredictably in new forms across different technologies and cultural scenes. Over time, noise artists have migrated from exploring the
+grain, the scratching and burning of celluloid (for example, a colour box by Len Lye,
+1937) to the magnetic distortion and scanning lines of the cathode ray tube (a significant
+work being Nam June Paik in magnetTV in 1965). Subsequently, glitch artists wandered
+the planes of phosphor burn-in, as Cory Arcangel did in panasonic TH-42PWD8UK plasma screen burn, in 2007. With the arrival of LCD (liquid crystal display) technologies,
+dead pixels were rubbed, bugs were trapped between liquid crystals or plastic displays
+and violent screen cracking LCD performances took place (of which my favorite is %SCR2,
+by Jodi, under the Pseudonym webcrash2800 in 2009).
+To some artists, myself included, it has become a personal matter to break the assured
+informatic flows of media. While normally, transparent media screens generate conventional impressions of immediacy, there is a desire to force the viewer to think beyond
+his comfort zones. Glitch artists make use of the accident to ‘disfigure’ flow, image and
+information, or they exploit the void – a lack of information that creates space for deciphering or interpreting the process of creating (new kinds of) meaning. Through these
+tactics, glitch artists reveal the machine’s techné and enable critical sensory experience
+to take place around materials, ideologies and (aesthetic) structures. Their destructive or
+disfiguring processes have no technological name, definition or explanation (yet). For this
+reason, it is necessary to not only define and categorize glitch at technological levels, but
+also to look closely at how specific media are exploited on a more complex techno-cultural
+level. The artists I discuss here include Ant Scott, 5VOLTCORE Gijs Gieskes and Jodi. Of
+course many other artists whose practices are invested in the moment(um) or culture of
+glitch could have been included here. An actual historiography would for instance also
+include signal processing artists like Karl Klomp, Lovid, Morgan Higby-Flowers and Max
+Capacity, aesthetic glitch-tricksters like Jon Satrom, jonCates, fabric artist Melissa Baron,
+and databend generative artists such as stAllio!, glitch-irion Pixelnoizz and Hellocatfood.
+This historiography is still unwritten (partly because it is still in progress).
+01 | Kim Cascone, ‘The Aesthetics of Failure: Post-Digital Tendencies in Contemporary Computer Music’, Computer Music Journal 24.4 (Winter
+2000): p. 13.
+
+33
+
+As is clear by now, the inherent openness of glitch as a concept makes glitch art difficult,
+if not impossible, to define. Although a glitch can take place strictly within the computational system, the majority of artifacts that are called or referred to as glitches within
+glitch art are not purely informational, but make sense only through a synthesis of agents
+and contexts involved. Glitch is post-procedural (a break from a procedural flow) and so,
+dialectically connects to, while departing from, a linear and informational model of media communication (‘information source-> encoder-> channel-> decoder-> destination’),
+while also incorporating contextual and social processes of interpretation and making
+meaning. Furthermore, it is necessary to recall that the word ‘glitch’ in ‘glitch art’ is often
+used as a metaphorical concept, even by glitch artists, and therefore varies from the standalone technical or informational term ‘glitch’.
+
+Ant Scott. SUQQE. Digital screenshot. 2002.
+
+The complexities that must be faced by a theorist or researcher when trying to define or
+demarcate some kind of ‘essence of glitch art’ (if this is even possible) come to the foreground upon close engagement with Ant Scott’s (Beflix) work. For years, Ant Scott has been
+a leading figure in the realm of glitch art. From 2001 until 2005 he published hundreds of
+glitch images – static and animated – on his blog, appearing here as the first glitch artist
+actually using the term ‘glitch art’ for his work. These images don’t have a common source;
+further, some of them are ‘found’ glitch artifacts turned into or framed as art, while others are intentionally made from scratch by the artist. Ant Scott describes his series glitch
+(2007), a collection of 25 ‘works’ (small digital renders of lo-fi captured glitches) accessible
+via his home page, as the best of his ‘pure glitch’ phase. The images, which at first might
+appear bewildering, are actually created from computer crashes, software errors, hacked
+games, and megabytes of raw data turned into colored pixels.02 They originate or are con-
+
+02 | Ant Scott, GLITCH #12, GLITCH ART, 2007, http://www.Ant Scott.com/works/glitch.php?id=12.
+
+34
+
+structed from thorough trial and error processes, to which Scott carefully reassigns colours,
+and crops select areas of interest. The result is the works that make up the glitch series.
+Ant Scott’s working process presents all kinds of dilemmas in the quest for a definition
+and categorisation of glitch art. What kind of ‘glitch’ is this ‘glitch art’ exploring? How
+can the glitch be explained as an unexpected, abnormal mode of operation, when the artist’s working process and what he aims for are these abnormalities to begin with? Can the
+intended error be really described as erroneous? On the other hand, Scott’s wide-ranging
+interrogation of glitch aligns with other aspects of glitch that I have outlined. A glitch can
+indeed exist within and across different systems, for instance the system of production
+and the system of reception. Similarly, a glitch can depend on different actors within
+these systems; not just the technological elements that Shannon described, but also the
+ideological and cultural contexts of the technology, which brings aspects of time, place
+and structure (aesthetics) into the art work, all of which differ between different publics,
+involved in the process of making meaning. Despite glitch art having no solid, or single
+definition through time and place, just as Virilio argued that it is helpful to describe a difference between non-figurative and disfigured art, I believe it is useful to make a similar
+distinction between different dimensions of ‘glitch’ in ‘glitch art’. Glitch art then potentially incorporates a range of works that are post-procedural, deconstructive, accidental
+and so on, alongside works more focussed on a final end-product, aesthetic or design.
+
+Categorical Precursors:
+A Binary Approach To Glitch Art?
+The post-procedural essence of glitch art is opposed to conservation; the shocking perception and understanding of what a glitch is at one point in time cannot be preserved
+for a future time. The artist tries to somehow demonstrably grasp something that is by
+nature unstable and ungraspable. Their commitments are to an unconventional utopia
+of randomness, chance and idyllic disintegrations that are potentially critical. The core
+of a work of glitch art is therefore best understood as the momentary culmination of a
+history of technological and cultural movements, and as the articulation of an attitude
+of destructive generativity. In short, glitch art practices are invested in processes of nonconforming, ambiguous re-formations.
+At the same time, however, many works of glitch art have developed into archetypes and
+even stereotypical models, and some artists do not focus on the post-procedural dialectics
+and complexity of glitch at all. They skip the process of creation through destruction of
+a flow and focus only, directly, on the creation of new formal designs for glitch, either
+by creating the final imagistic (or sonic) product, or by developing shortcuts to recreate
+the latest-circulated glitch re-formation. Purposive, design-driven efforts at glitch can be
+created in plug-ins, filters or ‘glitching software’ that automatically emulate, simulate or
+mimic a particular glitching method. These tools tend to surrender ‘affect’ (the shocking
+moment(um) of glitch) in favor of ‘effect’.
+Design-driven glitch art has tended to be referred to as artificial or ‘glitch-alike’. Iman
+Moradi has gone so far as to develop a true-false binary to deal with these matters of glitch
+imitation, which he explains with the following statement and schema:
+35
+
+Because of the intrinsic nature of this imagery and its relation to pure glitches,
+both in terms of process and viewer perception, I felt the need to form a word that
+adequately describes this artifact’s similarity with actual glitches and present it
+as an obviously separate entity. Thus the term “Glitch-alike” came about to fulfil
+this role. […] Glitch-alikes are a collection of digital artefacts that resemble visual
+aspects of real glitches found in their original habitat.03
+Pure GlitchGlitch-alike
+AccidentalDeliberate
+Coincidental
+Planned
+Appropriated Created
+FoundDesigned
+RealArtificial
+While Moradi’s scheme can be a useful starting point for consideration, I also see a lot of issues with it. The creation of a binary opposition within glitch art seems not only too simple,
+but also in conflict with a genre that so often scrutinizes and aims to violate binary oppositions. The glitch genre is primarily about breaking categories open, uncovering what is
+in-between and beyond. The ‘glitch’ in ‘glitch art’ does not only depend on technology, but
+also involves ideologies and visual structures (aesthetics) including the artist’s individual
+perspective, and the context of viewing. Instead of denouncing a non-informational glitch
+(or glitch practice) as artificial or false, I think it is more interesting to research why and how
+a particular investment in glitch is actually understood as glitch art within a larger media
+culture. This can be done by describing existing cultural instantiations of, and relations
+between, a range of differently spawned glitch art practices in context.
+
+From Passive Appropriation Or ‘Pure Glitch Art’
+To Active, ‘Post-procedural Glitch Art’
+When all is said, what remains to be said is the disaster. Ruin of words, demise
+of writing, faintness faintly murmuring: what remains without remains (the
+fragmentary).04
+- Maurice Blanchot
+
+At a most basic level, glitch artists can challenge the standard mode of operation of a system
+by appropriating glitches that are spawned (partially or completely) by production processes.
+Typically, these glitches are encountered accidentally and often unstable (both in their
+process and in terms of results), which means that the artist has to somehow capture the
+glitch, in order to appropriate and present it to his audience. An example of this first kind of
+glitch art is an image by Greg J. Smith. The image shows a Mac interface going haywire for no
+understandable reason. Although the image can be described as compelling or titillating in
+terms of aesthetics, the work does not signify more than what was captured in the first place:
+a broken computer interface. It is a passive capture of failure, sent off to an audience.
+
+03 | Iman Moradi, Glitch Aesthetics, unpublished bachelor thesis, Huddersfield, UK: University of Huddersfield, 2004. http://www.oculasm.org/
+glitch/download/Glitch_dissertation_print_with_pics.pdf, p. 10.
+04 | Maurice Blanchot, The writing of the disaster, Nebraska: University of Nebraska Press, 1995. p. 33.
+
+36
+
+Another form of glitch art relies on errors within the production system that the artist actively
+triggers. These purposively triggered breaks from the flow are at least partially understood
+and can often be debugged. In this case the artist chooses to exploit a production system (the
+protocols built into the machine's hard- and software), or the input that makes a system’s
+protocols behave in a particular way, or both. An example of this second category of glitch art
+is 5VOLTCORE. During their live performances, the men of 5VOLTCORE attack the computer
+with power interruptions from an audio signal, which produces short circuits that generate
+unexpected signals.05 This process tortures the machine and makes it scream out shreds of
+powerfully colored images, until the computer eventually dies, which ends the performance.
+In their performances, 5VOLTCORE take issue with the governing charge of the computer.
+Working in direct opposition to the computer’s procedural flow, actively overturning it, their
+aggressive glitches lead always to one fatal endpoint, rather than breaking open the future;
+they are not so invested in the generative qualities of post-procedural glitch.
+
+Post-procedural Glitch Art Or the Intentional Faux Pas
+
+Gijs Gieskes. Circuitbend Sega Megadrive2.2. Modified Sega. 2007.
+
+A less aggressive and more ‘positive’ example of an intervention in machinic flow can be
+found in Gijs Gieskes’ work. Gieskes takes machines apart and changes their circuitry.
+Through circuitbending, he redefines the technology and its contents, penetrating and
+exploring the machine from the inside. First, he dismantles the system and then he deconstructs and re-appropriates it. One of his circuitbent machines, the circuitbend
+sega megadrive2.2 (2007), consists of a Sega console with a modified circuit, actively
+transforming the videogame console into an autonomous video synthesising machine.
+
+05 | 5VOLTCORE, 5VOLTCORE ||| SHOW, 2006, http://5voltcore.com/typolight/typolight257/index.php/show.html.
+
+37
+
+Gieskes did not add any code to the chips or the videogame; he only changed the circuitry of
+the console. This means that the glitches that appear on the television screen were already
+part of the videogame’s software (the ROM); the generated visuals are readymade, manipulated appropriations of mass-produced objects. The look and feel of these videographic
+utterances is dependent on the technology inside the original machine. This introduces
+questions around the built-in aesthetics and conventional usage of the circuitbend sega
+megadrive2.2.06 Gieskes’ work perverts a classical sense of aura, which according to Walter Benjamin, would be built upon unicity and authenticity. Contrarily, the circuitbend
+sega megadrive2.2 doesn’t possess one particular ‘here and now’.07 Instead, the artwork is
+generated every time the machine is activated. Therefore, the aura is situated within the interpretations and context of the user or viewer and the changed technology of the machine.
+Another example of the intentional faux-pas, or glitch art that is in violation of accepted
+social norms and rules, is untitled game (1996-2001), a combined series of 11 modifications of the first person shooter game (FPS) quake 1 by the Dutch/Belgium art duo Jodi. Jodi
+makes subversive glitch art that battles against the hegemonic flows of proprietary media
+systems. They work to reframe users’ or consumers’ perception of these systems. The duo’s
+work is often simultaneously politically provocative and confusing. This is partly because
+Jodi originally never prioritized attaching explanations to their work, but also because of
+the way in which their practice itself overturns generic expectations. They challenge the
+ideological aspects of proprietary design by misrepresenting existing relationships between
+specific media functionalities and the aesthetic experiences normally associated with them.
+
+
+Jodi. Untitled Game. 11 Quake modifications for PC Mac. 1999. MODS: E1M1AP and Ctrl-F6.
+
+06 | Gijs Gieskes, circuitbend sega megadrive2.2, 2007, http://gieskes.nl/circuitbending/?file=segamegadrive2.
+07 | Walter Benjamin, ‘The Work of Art in the Age of Mechanical Reproduction’, in Hannah Arendt (ed.), Illuminations, New York: Schocken,
+1968, pp. 219-254. p. II.
+
+38
+
+In an online interview in 2006 I encouraged Dirk (di from Jodi) to break the duo’s silence
+around the description of their art. About the work untitled game, Dirk said:
+Our point was to erase and make this other version of Quake and then deny [the
+Quake game] the name. […] to call it untitled game (meant) that it was just a prototype of any of these games that (consists of) these kind of standard construction
+elements and things you can do as a user.08
+In untitled game, Jodi critically exploited errors in the source code of the original game.
+The glitches created by these modifications destabilize and alter the normal laws of physics, so that steering and shooting becomes unpredictable and illogically geared, while
+the sounds and designs of the game itself are also modified to surprise. By changing the
+algorithms that define the videogame’s playability, the game becomes seemingly ‘unplayable’, at least, according to what is expected as normal game-play. The game itself is not
+totally ruined; it actually functions quite well, albeit in a wholly non-Newtonian, visually
+nonsensical way that the FPS-player is not trained to be aware of, or competent with. In
+E1M1AP for instance, one of the 11 mods making up untitled game, Jodi used the gravity algorithm to create unsettling vortex effects, while in Ctrl-F6 the collective exploited
+anti-aliasing to create cubes filled with beautifully evolving moiré patterns.09
+untitled game is an intentionally ruined videogame that questions conventional and
+normative videogame goals, for example ‘self-improvement’, ‘competition’, and ‘winning’, all of which are naturally embedded in the software design codes of the games that
+dominate the videogame battlefield. The modified algorithms, visuals and sounds of untitled game generate a new ensemble of conventions, aims and feelings, in which visual
+and dimensional experimentation takes hold over competitive logic, and the outcome of
+the game is no longer a score but a colorful, disconcerting experience.
+In this way, untitled game rebels against the techno-social determinism of (game)
+technology and consumption, and frames this particular medium of ‘play’ as a taken for
+granted technique of enculturation. When read through McLuhan – who as early as the
+1960s identified media technological developments as the most important (and at that
+time, under-acknowledged) sites of social cultivation – Jodi seem to indicate that not only
+media content and socially determining genres (game conventions), but also specific material forms (interfaces) and techné (the game's operational elements) are important to
+interrogate as objects of study. Recall McLuhan’s own words here:
+“the medium is the message” because it is the medium that shapes and controls
+the scale and form of human association and action. The content or uses of such
+media are as diverse as they are ineffectual in shaping the form of human association. Indeed, it is only too typical that the “content” of any medium blinds us to the
+character of the medium.10
+
+08 | Rosa Menkman, Beauty in the Age of Digital Art; aesthetic, poetic or rhetoric, June 2006. http://rosa-menkman.blogspot.com/2006/05/beautyin-age-of-digital-art.html.
+09 | Rosa Menkman, Jodi op de Pijnbank, unpublished master thesis, Amsterdam: University of Amsterdam, 2006, http://home.student.uva.nl/
+rosa.menkman/Jodi%20op%20de%20pijnbank.pdf.
+10 | Marshall Mcluhan, Understanding Media: The Extensions of Man, New York: McGraw Hill, 1964.
+
+39
+
+In digital glitch art like untitled game, the medium is redefined as a platform that
+doesn’t follow its genre, form or technique. This triggers the user to reflect upon her conventional frames of reference for the particular game and perhaps even the commercial
+game in general. The work criticizes the flow of a specific medium, its interface and its
+inherent conventions, but does not necessarily break it (as opposed to 5VOLTCORE’s performance). The fact that the game still ‘works’ while being programmed to glitch, makes
+it all the more critically challenging as media experience. Jodi shows that software is more
+than just a preprogrammed tool: it is a materialization of social modalities, which can
+furthermore be endlessly re-modified to different interpretive or social conclusions.
+The irrational and conceptual glitches within untitled game, its voiding of original and
+received meanings, forces the viewer to make active sense of the work. The structures of original meaning are intentionally ruined. But in this case, ‘ruin’ is both a conceptual orientation
+and a technique that underlines the constructedness of media (art), forcing the viewer to consider the computer as no longer just a device of standardization but instead as a technology
+that functions within a social reality. Only after reflecting on this new form of the work, can
+the user see that what the glitch does is not just destroy the old videogame, but in fact modify
+its existing denotations and exchanges, entangling it within new lines or architectures of
+meaning. The ‘techniques of the void’ – the systematic distortion of communication – helps
+to open media up for discussions of their internal politics. This is how, through the tactics
+used within these glitched games, users can re-territorialize these techniques.
+
+The Concept And Technique Of Ruin
+You cannot prohibit the catastrophe, you must surf it!11
+- Paul Virilio
+
+Today news and current affairs is generated and spread not only through rich and powerful press monopolies and infrastructures, but at the same time through smaller, more independent and autonomous agents that do not require a great capital outlay to contribute
+to debate online. This is why social blogging softwares like Blogger are often described
+as democracy-enhancing tools; they are celebrated as an ideal medium supporting the
+political mythology of ‘freedom of speech’.12
+During 2006 and 2007, Jodi made the work <$blogtitle$>, based on the social publishing
+tool Blogger, from Google.13 <$blogtitle$> looks like a Blogger page in a broken state. The
+pages generated by Jodi’s (mis)usage of the tool are either filled with gibberish or in ruins.
+It’s hard to say: perhaps you are looking at back-end code, broken on to the surface of the
+site, or perhaps it is just nonsense that was never part of any codified language system?
+
+11 | Andreas Broeckmann, Joke Brouwer, Bart Lootsma, Arjen Mulder and Lars Spuybroek, The Art of the Accident, NAI Publishers/V2_Organisatie: Rotterdam, 1998. p. 30-32.
+12 | Donald Matheson, ‘Weblogs and the Epistemology of the news: some Trends in Online Journalism’, Sage Journals, London: SAGE Publications, Thousand Oaks CA and New Delhi Vol 6.4 (2004): pp. 443-468. p. 445.
+13 | Jodi, <$blogtitle$>, 2006-2007, http://blogspot.jodi.org/.
+
+40
+
+In these works, Jodi indeed plays with different language systems, for instance the visual
+and the non-visual source (code) of the Blogger software. Template formats such as the
+title of the blog, the post headers and certain blog addresses in the link list appear all in
+ruins, while Blogger-specific images like comment-icons, dates and additional otherwise
+functional visual elements are now reduced to theatrical objects. What is normally invisible as the infrastructure of the blog – snippets of code and interface commands like “S
+= Publish, D = Draft»” or “Allow New Comments on This PostYes No”14 – are moved to the
+front of the site, where normally only a ‘human discourse’ would be visible.
+Jodi’s <$blogtitle$> partially exposed the mythical notion of 'democracy enhancing' social blogging tools, when Blogger blocked 7 of its 22 blog pages. In this case, the process
+of ‘free online publishing’ resulted in censorious destruction. This unforeseen eventuality made it clear that Blogger-users (any blog users) answer to a built-in (political) system
+and don’t operate completely under their own authority. Moreover, the system is governed
+by the belief (shared by both the creators of the technology, the conventional users, and
+the audience) that the software will be used to distribute only conventionally formatted
+knowledge. Bloggers that do not subscribe to the conventions risk the possibility of being
+blocked or having their blogs completely deleted.
+
+Jodi. My Blog is blocked. blogspot.jodi.org. 2007.
+
+14 | Jodi, <$blogtitle$>, 2006-2007. http://blogspot.jodi.org/.
+
+41
+
+<$blogtitle$> stands apart as a purposeful artifact that captures what Deleuze and
+Guattari have described as a ‘line of flight’: an elusive, divergent, inherently political
+moment(um) through which axioms are questioned, genres are broken open and categories are created.15 Jodi uses the glitch to emphasize a rejection of what can be referred to
+as ‘software-determinism’ or in the case of blogger, ‘platform-determinism’. In an interview with Tilman Baumgartel, Jodi states: ‘It is obvious that our work fights against high
+tech. We also battle with the computer on a graphical level. […] We explore the computer
+from inside, and mirror this on the net’.16 <$blogtitle$>, as an example of this working
+method, enacts this battle at the border between system and entropy, standardization and
+corruption, expression and code, meaning and non-meaning, thwarting the user and the
+viewer’s expectations and understandings.
+<$blogtitle$> is generated within the system of Blogger, but does not follow the rules,
+the language or the syntax of that blogging system. On the one hand, the work can be
+understood as a social criticism towards Blogger and other celebrated ‘direct’ read/write
+web 2.0 platforms or as a blog that entails a (re-shuffled) sign system through which the
+viewer can navigate and glean her own select fragments of meaning.
+In <$blogtitle$>, artistic negation has become a generative and creative force. In a
+seeming void of meaning, the spectator is forced to use his imagination while reflecting
+on the work. The glitch’s formal fragmentation signifies that the work is ‘open’ to interpretation and meaningful engagement. This new text is no longer a work that displays or
+retells conventions, but a writerly software where meaning can be actively (re)constructed.
+By ruining the Blogger medium, Jodi’s use of formal fragmentation opens the platform
+itself up to deconstruction, interpretation and further active engagement. As a result, the
+meaning of the ruined work is never finished, whole or complete. Instead of being static
+it differs from reading to reading, or with each fragmented element of the syntax. In this
+sense, the work has become a virtual space where the audience can actualize an infinite
+amount of potential meanings. However, for the reader to actually give meaning to the
+ruins, they must take the initiative of imposing (their own select) new constraints, new
+frameworks of analysis and limitations on other possibilities. The viewer becomes aware
+that every act of creating meaning is also just as strongly an act of destruction (of more
+infinite possibilities).17
+Moreover, in the case of <$blogtitle$>, this openness also had a negative consequence:
+Blogger interpreted the blog as a malicious spamblog and consequently blocked it. This
+act could be described as a rather rigorous ‘death of the author’, in which the meaning
+of the work is not negotiated, but instead dismissed and deleted. In fact this could be
+understood as a second death. The author ‘dies’ in a Barthesian sense at the moment of
+(web) ‘publication’ when the viewer’s interpretation takes over from authorial intention,
+but also in a second and more violent way when the corrupted, ‘writerly’ text is totally
+eliminated from the blogosphere altogether.
+
+15 | Gilles Deleuze and Pierre-Félix Guattari, A Thousand Plateaus: Capitalism and Schizophrenia, Trans. B. Massumi, Londen: The Athlone
+Press, 1988. p. 213.
+16 | Tilman Baumgärtel, ‘TP: Interview with Jodi. We love your computer’, Telepolis. May 2006, http://www.heise.de/tp/r4/artikel/6/6187/1.html.
+17 | Gilles Deleuze and Claire Parnet, Dialogues II, London and New York: Continuum, 2006. p. 112.
+
+42
+
+<$blogtitle$> opens up and intervenes into the normally inter-locked relations between conventional information, a possible message, and the back-end coding of Blogger,
+and treats these relation as a system that can be modified or expanded towards new possibilities through ‘glitching’. Here glitches articulate an alternative language that blends
+systems into a form that nobody can read (yet). The ‘voided’ <$blogtitle$> shows the
+conventions by which the user/reader navigates online, and the norms that help him to
+operate these daily technologies transparently. The constructedness of such discourse, in
+terms of locked down proprietary software is not necessarily negative in itself, but sometimes (as <$blogtitle$> suggests) leads to generalized assumptions and the under- or
+non-acknowledgement of invisible political forces in the form of underlying conventions.
+The glitch can help us uncover these obfuscated political dimensions as well as create
+strategies to see through them. In <$blogtitle$>, Jodi shows that a glitch can be completely constructed (by the artist), but also that such constructs can in turn reveal the constructedness of software-generated knowledge and expression. Jodi’s investment in glitch
+shows that Blogger can, like quake 1, be used in many more ways than users pacified by
+convention might assume.18
+
+Creating the ‘Perfect Glitch’ Using Critical Media
+Aesthetics
+[The] absence of meaning is in this case the presence of all meanings, absolute
+ambiguity, a construction outside meaning.19
+- Jacques Attali
+
+Within the constructed ruins of glitch, new possibilities and new meanings arise. There
+is something more than just destruction: new understandings lie just beyond the tipping
+point. The glitch generates new understandings of techno-culture through the gestations
+of Glitchspeak, glitch’s constantly growing vocabulary of new expressions.
+I use the term ‘Glitchspeak’ in opposition to George Orwell’s ‘Newspeak’. For Orwell,
+Newspeak is a language whose political goal it is to shrink its vocabulary and grammatical nuance over time, so as to render any alternative thinking – which he referred to as
+‘thoughtcrime’, or ‘crimethink’ – impossible. The final goal of Newspeak is to construct
+a society in which only politically approved (dominant and conventional) statements can
+be articulated, at the expense of the possibility of free expression, rebellion, and so on.20
+Fighting Newspeak, Glitchspeak contests the obfuscated limitations of language created
+by proprietary technology, to capture the constant transformation and growing wealth of
+glitch artifacts and their meanings.
+Most glitch artists are always, directly or indirectly, trying to answer one question: How
+much agency should I provide to my systems of destruction? Their post-utopian strategies aim
+to identify where the ‘tipping point’ is: When and how can a glitch be found and transition
+18 | Michael Truscello, Behind the Blip: Essays on the Culture of Software (review), Cultural Critique, no. 63, (2006): pp. 182-187.
+19 | Jacques Attali and Brian Massumi, Noise: The Political Economy of Music, Manchester: Manchester University Press, 1985. p. 33.
+20 | George Orwell, Nineteen Eighty-Four, London: Secker and Warburg, 1949. p. 372.
+
+43
+
+into something new? The perfect glitch exists, momentarily, at the shocking tipping point
+between (potential) failure and a movement towards the creation of a new understanding.
+The glitch’s inherent moment(um), the power it needs or has to pass through an existing
+membrane or semblance of understanding, helps the utterance to become an unstable articulation of counter-aesthetics, a destructive generativity. As an exoskeleton for such (postutopian) progress however, the glitch does not just take place on a critically ruined surface.
+The choice to accept the glitch, to welcome it as an aesthetic form, means to accept a new
+critical dialectic that makes room for error within the histories of ‘progress’.
+Following this dialectic of critical media aesthetics, the glitch can obtain a place within
+larger media cultural scenarios of political productivity and evolution. The role of glitch
+artifacts as (instances of) critical media aesthetics is, again, twofold. On the one hand,
+these aesthetics show a medium in a critical state: a ruined, unwanted, unrecognized, accidental and horrendous moment. This transforms the way the consumer perceives its
+normal operation (every accident transforms the normal) and registers the passing of a
+tipping point after which it is possible for the medium to be critically revealed at greater
+depth. On the other hand, these aesthetics critique the medium itself, as a genre, interface and expectation. They radically challenge the technological, social or ideological
+constructedness of all media cultural formations while producing a theory of reflection.
+
+The Tipping Point of Cool:
+Critical Media Aesthetics' Becoming Commodities
+In The Laws of Cool, Alan Liu asks himself: ‘What is “Cool”?’ He describes that cool is
+the ellipsis of ‘knowing what is cool and of withholding that idea’. ‘Cool is information
+designed to resist its status as information, a paradoxical “gesture” through which the
+unknown struggles to arise (or resists arising) in the midst of the economies of knowledge
+work’.21 Liu concludes that those who insist on asking what is cool are definitely uncool.
+Keeping Liu’s statement in mind and thus paradoxically over-theorizing cool glitches, I
+suggest that the cool glitch can be found at the moment of its preliminary non-definition;
+when it is still denied its existence – before its tipping point – where errors are deleted, or
+remain ignored, blocked or unaccepted, unwilled.
+Liu-cool glitches only exist during the moment(um) of glitch – before the glitch is overcome as failure or has become a new established form. To think a glitch is ‘cool’ is to acknowledge that the glitch is still actively reflected upon and has not yet been established.
+Indeed the coolest work of glitch art is denied existence at the same time as it incorporates this very dismissal into its momen(tum), so as to implicitly say something about this
+action: the deletion of <$blogtitle$> gave Jodi the opportunity to exploit this Liu-cool
+logic and incorporate it into the informational lure of their work.
+Cool is in a constant state of flux, as is ‘cool glitch art’. The latter exists as an assemblage
+relying on, on the one hand, the construction, operation and content of the technology
+(the medium) and on the other hand the work, the writer/artist, the interpretation by the
+21 | Liu, Alan. ‘What’s cool?’, in The Laws of Cool: Knowledge Work and the Culture of Information, Chicago: University of Chicago Press, 2004,
+pp. 176-179.
+
+44
+
+viewer and/or user (the social meaning) and the work’s aesthetics. The tipping point,
+the application of (aesthetic) meaning or value, can move the glitch from the realm of
+cool glitch art to hot, established or even commodified. It is however important to realize
+that not all glitch art is ‘cool’, or progressive or something new. The popularization and
+cultivation of an avant-garde of mishaps and breakages has indeed become predestined
+and unavoidable. What is now (or next) a glitch will become a hot fashion soon enough reproducible, standardized, automated by softwares and plug-ins. This movement is an
+integral part of a movement that should be theorized as the genre of glitch art.
+
+45
+
+From Artifact To Commodity
+I woke up one morning in March to a flood of emails telling me to look at some
+video on YouTube. Seconds later I saw Kanye West strutting around in a field of
+digital glitches that looked exactly like my work. It fucked my show up… the very
+language I was using to critique pop content from the outside was now itself a
+mainstream cultural reference.01
+- Paul B. Davis
+
+From CircuitBending to Simulation
+The ‘debuggers’ of the digital realm, the technicians and engineers, are tasked with controlling the erratic reactions and behaviors of files, hardwares and softwares. Complex
+compression algorithms developed for mobile phones, dvds and mp3s for example,
+are designed to minimize the amount of artifacts a device will show at the surface of its
+interface, to make the medium seem as transparent as possible. In the culture of glitch
+art, technicians and engineers are more like ‘re-buggers’; they engage themselves with an
+almost opposite practice, prompting and amplifying glitch artifacts on purpose and even
+writing softwares or building blatantly non-standard machines with the intent to spawn
+more new artifacts for the user/viewer’s development of a rich Glitchspeak vocabulary.
+
+Jeff Donaldson. noteNdo. miniDV capture from Circuit bent NES. 2007.
+
+01 | Paul B. Davis, Define Your Terms (Or Kanye West Fucked Up My Solo Show), 28th May 2009, http://www.seventeengallery.com/index.
+php?p=3&id=42.
+
+46
+
+Don Miller/NO CARRIER. glitchNES 0.2 screenshot. 6502 ASM. August 2010.
+
+For more than 20 years now, glitch sounds have been consumed and standardized in
+contemporary music culture. Only recently a similar trend is crystalizing itself around
+visual glitch-generation tools. An example of this tendency towards generative glitch design and its consumption can be found within the 8bit scene. noteNdo (Jeff Donaldson
+from New York) has been performing his live visuals generated with a circuitbent Nintendo Entertainment System (nes) since 2001. He has played at many festivals, while his
+broken sprites – the two-dimensional images generated in his console and triggered by
+his custom-made bends – have inspired other people to start circuitbending their own
+nes devices.
+Because circuitbending involves a certain threshold of knowledge and expertise (a basic
+understanding of electronics and its tools), programmers have apprehended opportunities in emulating, rather than manually repeating, the physical process of circuitbending. The artist no carrier (Don Miller, also from New York) for example, whose work
+arose slightly later in the visual glitch scene, has written glitchnes, a software that
+47
+
+emulates some parts of the technological process of circuitbending an nes console.02
+no carrier describes his work in this way:
+glitchnes is an open source software project for nes. This software causes
+graphical glitches similar to hardware circuitbending. The images produced are
+caused by deliberate ram corruption due to overloading the ppu, or Picture Processing Unit, of the nes. The result is random flashes of colour and patterns that
+change with each button press. The open source nature of this project allows
+users to create their own glitchnes roms and cartridges with unique tile sets
+and effects by altering the source code to their liking.03
+The difference between noteNdo’s hardware glitching and no carrier’s emulated,
+software glitching are many. But as one example, noteNdo never open-sourced his
+knowledge and strategies for circuitbending the hardware of a nes, while no carrier
+aims to keep his glitchnes and all the research it involves open and accessible. This
+means that while noteNdo kept his research closed and in so doing, retained some form
+of authorship of his work, no carrier open sourced his work, giving users the opportunities to change parameters (and in doing so, the looks of the generated glitches) or
+even build a similar work from scratch.
+
+Vade. What a Horrible Night To Have A Curse - Casltevania. Glitched System Emulation via OpenEmu. 2009.
+
+02 | Don Miller, nocarrier glitchnes, no carrier.com, 2009, http://www.no carrier.com/glitchnes.html.
+03 | Don Miller, biography for the Playlist exhibition, 2010, http://www.imal.org/playlist/artworks/17.
+
+48
+
+The idea that a glitch can be designed or distributed by knowledge alone, or glitch
+software, seems at first maybe a-typical, but throughout the development of the glitch
+genre, this has become a more and more common tendency or even a tradition. In this
+tradition, no carrier’s glitchnes was followed by the open emu project for Quartz
+Composer. open emu is an open source game emulation tool, a program that allows the
+computer to virtually run a certain console’s operating systems on another machine for
+which it was not designed. open emu also makes it possible for users to modify game
+engines and make use of ‘existing’ game architectures and scripts for all kinds of creative purposes. It even ‘includes a separate plugin just for the Nestopia engine (the nes
+emulation program), which supports extended features, such as ROM glitching, cheat
+codes and game rewinding’.04 This particular form of glitching does not effect the game
+itself; instead it randomly shuffles the sprites by a process referred to as ‘name table
+ram disordering’.
+The open emu extended plugins made it extremely easy for ‘anyone (to) software ‘bend’ a
+virtual nes, in real-time’.05 But whereas the original noteNdo console and no carrier’s
+glitchnes were technically invested projects, the difference of the open emu rom lies
+in the fact that it puts an emphasis on aesthetics. The simulation of medium-specific or
+maybe even medium-branded game artifacts generates images that imitate or mimic the
+process of glitching. Finally, a difference between emulation and simulation lies within
+the space offered to users to learn about the technology and its exploited protocols.
+Today more and more ‘new’ glitch art is being modeled after original glitches within older
+media, perpetuating a shift in glitch culture from destabilizing breaks within technology
+or information-based processes towards generic and associative displays of more and
+less ‘retro’ effects. With the help of these slowly standardized, commodified, institutionalizing effects, any user can handle a broad range of data types and technologies in
+predetermined, often retro-nostalgic ways, and create what can best be described as an
+approximation of what originally would have been the materialization of a destabilizing
+break of machine technology.
+
+From DataBending to Transcoding
+Another striking example of the evolution of glitch can be found in the realm of databending. In 2005, Beflix (Ant Scott), Organised (Iman Moradi) and Dmtr (Dimitre Lima) developed the glitchbrowser (2005, taken offline in 2008). Whereas normally browsers are
+designed to make websites accessible, standardizing their outputs into easily understandable, uniformly structured content that appears the same across different computers, the
+glitchbrowser was designed to ‘read’ a web-source and replace all its inherent images
+with glitched or disfigured versions.
+Today, if you go to the url where the glitchbrowser was once available, the browser is
+commemorated by a text that explains the concept as
+04 | Today, open emu has a designed plug-in emulation tool for many different game engines like Nintendo, Sega and Game Boy.
+05 | Dan Winkler and Anton Marini, open emu, 14 Jan 2009. http://openemu.sourceforge.net/.
+
+49
+
+a deliberate attempt to subvert the usual course of conformity and signal perfection. Information packets that are communicated with integrity are intentionally lost in transit or otherwise misplaced and rearranged. The consequences of
+such subversion are seen in the surprisingly beautiful readymade visual glitches
+provoked by the glitchbrowser and displayed through our forgiving and unsuspecting web browsers.06
+The glitchbrowser specifically re-encoded embedded jpegs and gifs and returned
+them to the user as ‘damaged’ pictures, imitating transmission errors.
+glitchbrowser as a browser was an autonomous work of art, but the browser also
+made it possible to download the generated glitch images, and to present them as independent, stand alone ‘works’. This is how the browser took on a dual role as both a
+conceptual art piece and as a glitch-image generation tool. The glitchbrowser was an
+early version of a still growing number of glitch image generation softwares and plugins
+that include projects like corrupt™ (Recyclism, 2006), glitchmonkey (Youpy, 2007)
+and bytemolester (Károly Kiripolszky, 2008). These scripts, plugins and softwares all
+generate results similar to the glitchbrowser, while breaking and disfiguring jpegs
+and / or gifs (the most commonly used image compressions) in different ways and different environments (for instance within a browser, or as an app for the pc).
+A couple of years later, in 2010, reflecting on these trends and their resulting outputs,
+I wrote a vernacular of file formats: an edit guide for databend compression
+design. The Vernacular was an attempt to voice my concerns regarding the growing
+popularity of designed glitching in favor of informational or process-oriented glitch research. It was a performative, playfully meant intervention that criticized the simplicity
+that glitch had become, while at the same time aimed to demystify the last remaining
+‘cool’ elements of file format-based glitching. In the introduction I wrote:
+Glitches are hot. It is clear from what we can see on mtv, Flickr, in the club or
+the bookstore. While the “Glitch: designing imperfection” coffee table book introduces the glitch design aesthetic to the world of latte drinking designers, and
+Kanye West uses glitches to sing about his imperfect love life, the awkward, shy
+and physically ugly celebrate under the header “Glitched: Nerdcore for life”.07
+The logic of these developments seemed to reduce the glitch to an imagistic slogan: ‘No
+Content – Just Imperfection’. I wanted to move glitch artists beyond these burgeoning
+conservative impulses into rethinking and expanding out from the standardizing and
+only aesthetically engaging forms of glitch. In the Vernacular, I showed a selection of
+the most commonly used file formats in their corresponding (glitched) states, in order
+to categorize and compare prominent examples of what has come to be heralded as the
+results of hot glitch design.
+
+06 | Dimitre Lima, Iman Moradi and Ant Scott, glitchbrowser 02.12.2005 – 18.03.2009, 2009. http://glitchbrowser.com/.
+07 | Rosa Menkman, a vernacular of file formats, August 2010. http://dl.dropbox.com/u/9054743/lofi%20Rosa%20Menkman%20-%20A%20
+Vernacular%20of%20Fil%20Formats.pdf.
+
+50
+
+Larsby, Johan and Rosa Menkman. MONGLOT. Glitch Software Interface. 2011.
+
+Building from the Vernacular I went on to create monglot, a piece of glitch software,
+together with Johan Larsby, in 2011. monglot allows the user to easily transcode completely identical informational disturbances in different file formats (for instance from
+jpeg to PNG), in order to uncover and understand the inherent structures of an encoding
+(or the file format). It is ironically in this way a software of reproduction and repetition
+(non-creativity), invested in coming into standardizing contact with the non-standardized
+moment(um) of glitch artifacts.
+
+The monglot software generates glitch images by mashing together the visual language of an image with the imagedata encoded in the language of the compression,
+the latter erupting over the surface of the former as precisely ruined artifacts. It can
+generate common glitch aesthetics like ‘fragmentation’, ‘grain’, ‘ghosting’, ‘interlacing’, ‘jitter’, ‘jaggies’, (…) ‘posterization’, ‘pixelating’, ‘quantization error’, ‘ringing’,
+‘staircase noise’ and so on. The software enables the user to increase their knowledge
+about what kinds of compressions can generate certain kinds of aesthetic outcomes.
+Moreover, monglot factored in the ambivalence and double articulation (encoding
+vs. image data; artifact vs. filter) of file format-based Glitch Art and design. The images
+generated by the software are ironically standardized (by enabling the repetition of any
+glitch) and as such exist as a compromise, in-between ‘cool’ (unknown, or under-articulated) glitch and known glitch design. Unlike monglot, most other glitch art softwares
+up until then had only accepted one or two different file formats for experimentation.
+monglot focuses on opening up glitched outcomes to experimentation, modulation
+and generative inquiries. At the same time, glitch art (as progressive and against the
+grain) becomes a virtual entity through the software (a concept that is only referenced).
+monglot imposes breaks strategically, as a norm, to reflexively think through the dialectical and forking paths that inform the makings of glitch art.
+51
+
+Finally, the research into file formats and the opportunities they provide for artistic and
+technological experimentation was taken one-step further in extrafile, an application
+written by Kim Asendorf in 2011. Asendorf describes the purpose of his software as ‘a project for developing new image file formats for artistic purposes’. The extrafile software
+presents the concept of an image file format as a work of art, bringing the filename extension into the scope of the artwork itself, as a form of image exclusivity.08
+
+Asendorf, Kim and Rosa Menkman. Extrafile vs. Monglot. BLINX. 2011.
+
+Asendorf, Kim and Rosa Menkman. Extrafile vs. Monglot. BASCII. 2011.
+
+08 | Kim Asendorf, extrafile, 2011, http://extrafile.org/.
+
+52
+
+The extrafile software allows a user to transcode any image (e.g. a jpeg) into a nonproprietary format invented by the artist, Asendorf, such as blinx or bascii. While the
+outcome or look of the file depends on the image chosen by the user, the encoding or
+compression itself is the primary work of art. Some of the compressions developed by
+Asendorf only restructure the image data and are at first sight invisible in the image; they
+only show within the encoding. Other compressions such as bascii involve the transcoding of the image into very different building blocks and color palettes, changing the look
+of the file quite dramatically. All of the different, artistically generated file formats take
+the work of art away from mainstream standards. The process and the resulting bytes, regardless of content, become the artwork itself. extrafile thus offers an escape from the
+licensed image file formats (standards) and the proprietary protocols that are under the
+rule of the International Organization for Standardization (ISO), which has authored standardization laws for information processing since 1947. extrafile is best understood as
+a critique against the governing codes of ict culture that involve an overly complex and
+entangled web of proprietary licensed protocols.
+Both monglot and extrafile are open sourced image generation tools, inviting artists to
+play with the code, the software and the concept. Whereas extrafile itself is not a glitch
+software, the functionality of the tool is best (if not only) appreciated by glitching its outputs.
+When Asendorf launched extrafile online, he did so without showcasing any images generated by himself. Instead, he relayed part of the authorship on to other glitch artists like
+Jose Irion Neto, Benjamin Gaulon, Bit Synthesis and myself. Asendorf invited us to produce
+glitched images using extrafile just prior to the launch of the software on the internet.
+While monglot both transcodes image files from one conventional standard to another
+and databends images on an informational level, extrafile transcodes image files into
+new, rogue standards. Both applications underline a critique of the standardization of file
+formats and the commodification of their corresponding glitches. At the same time, they
+contribute to the growing indifference between glitch art as informational or processbased research, and glitch design, which focuses on the aesthetics of an end product.
+
+From Enchanting Affect To Filtered Effect
+If it works, it’s obsolete.09
+- Marshall Mcluhan
+
+We already know too much for noise to exist.10
+- Douglas Kahn
+
+As the popularization and cultivation of glitch artifacts is now spreading more widely, it is
+interesting to track the development of these processes in specific case studies. One case
+study of a compression artifact, recently referred to as ‘datamoshing’, tells an especially
+interesting account of glitch cultivation. The datamosh artifact is located in a realm where
+
+09 | Meenakshi Gigi Durham and Douglas Kellner, Media and Cultural Studies, New Jersey: Wiley-Blackwell, 2006. p. 110.
+10 | Douglas Kahn, Noise, Water, Meat: A History of Sound in the Arts, Massachusetts: MIT Press, 1999. p. 21.
+
+53
+
+compression artifacts and glitch artifacts collide. The artifact caused by compression is
+stable and reproducible, as it is the effective outcome of keyframes being deleted. The
+outcome of this deletion is the visualisation of the indexed movement of macroblocks,
+smearing over the surface of an old keyframe. This makes the video morph in unexpected
+colours and forms.11
+In 2005, Sven König embarked on his exploration into the politics of file standards,
+through this particular datamoshing effect, and in relation to the free codec Xvid. Xvid
+is a primary competitor of the proprietary DivX Pro Codec (note that Xvid is DivX spelled
+backwards), which is often used for speedy online video distribution through peer-to-peer
+networks. In aPpRoPiRaTe! (Sweden: 2005) König used the codec to manipulate and appropriate ‘complete video files found in file sharing networks’.12 His work included an
+open source software script that could be used to trigger the compression-effect in realtime. Through the use of the Xvid codec and copyrighted material, König tried to pinpoint
+the tension between the usage of non-proprietary compression codecs and their uptake in
+DRM (Digital Rights Management) remix-strategies.
+In his next project, download finished! (2007), König explored how the codec could be
+used to transform and republish found footage from p2p networks and online archives. The
+result became the rough material for his online transformation software, which translated
+‘the underlying data structures of the films onto the surface of the screen’. With the help of
+the software, file sharers could become ‘authors by re-interpreting their most beloved films’.13
+A swift maturation of the datamoshing effect took place in 2009 at the same time as Paul
+B. Davis was preparing for his solo show at the Seventeen Gallery in London. Davis’ show
+was partially based on a formal and aesthetic exploration of the artifact. While the show
+was intended to critique popular culture by way of datamosh interventions, this culture
+caught up with him overnight, when the effect penetrated the mainstream just prior to the
+opening of his show. Davis’ reaction to the fate of appropriation plays out as the opening
+quote of this chapter: ‘It fucked my show up… the very language I was using to critique pop
+content from the outside was now itself a mainstream cultural reference’.14
+
+11 | The lossy compressed video image is framed fundamentally differently from analogue or RAW video footage. The frames no longer rely upon
+RAW pixels. Instead, macroblocks become one of the elementary components of the lossy compressed moving image (at least under current
+standard codecs of the Moving Pictures Experts Group ‘MPEG’ and others). Lossy compressed video often depends on luminance (brightness) and chrominance (coloring) thresholds arranged within 16x16 pixel (more or less) macroblocks within the keyframes (the I-frames)
+of an image sequence. The thresholds (or frequencies) of chrominance and luminance depend on an oscillating cosine function (following
+Fourier Transform).
+Moreover, the material of the digital film is no longer based on a linear series of discrete images (a sequence); instead the video consists of
+different kinds of frames (I-frames or reference/key frames, P-frames or forward-predicted frames and B-frames or bi- directional frames),
+of which only the keyframe possesses a complete matrix of macroblocks. The frames between the keyframes (the P- and B-frames) consist
+of motion vectors that index only the difference in position (the offset) of the macroblocks between the original and the next frame. The
+handling of space and time within the video technologies is thus significantly different between the linear analog or RAW footage and lossy
+compressed footage.
+A recently popularized wave of video artworks was based on the deletion of keyframes and the exploitation of the vector motion of P-frames.
+This is currently dubbed datamoshing, pixel bleeding or just compression art.
+12 | Sven König, aPpRoPiRaTe!, 2005, http://www.popmodernism.org/appropirate/.
+13 | Sven König, download finished, the art of filesharing - make p2p cinema, 2007, http://www.download-finished.com/.
+14 | Paul B. Davis, Define Your Terms (Or Kanye West Fucked Up My Solo Show), 28th May 2009, http://www.seventeengallery.com/index.
+php?p=3&id=42.
+
+54
+
+Prominent music videos, including Kanye West’s welcome to heartbreak (2009, directed by Nabil Elderkin) and Chairlift’s evident utensil (2009, Ray Tintori) indeed had
+popped up, bringing the datamoshing effect into the mainstream via mtv.15 The new wave
+of interest in the effect generated by these clips lead to a Youtube tutorial on datamoshing,
+followed by an explosion of datamosh videos and the creation of different datamosh plugins, developed by for instance the Japanese artist ucnv. In the 2010 gli.tc/h festival in
+Chicago, thirty percent of the entries were based on the datamoshing technique (around
+80 of a total 240). The technique that was used to critique popular culture, by artists like
+König or Davis, was now used to generate live visuals for the masses.16 Datamoshing had
+become a controlled, consumed and established effect. The aesthetic institutionalization
+of the datamoshing artifact became more evident when Murata’s video art work monster
+movie (2005), which used datamoshing as a form of animation, entered the Museum of
+Modern Art in New York in an exhibition in 2010.
+This ‘new’ form of conservative glitch art puts an emphasis on design and end products,
+rather than on the post-procedural and political breaking of flows. There is an obvious
+critique here: to design a glitch means to domesticate it. When the glitch becomes domesticated into a desired process, controlled by a tool, or technology – essentially cultivated
+– it has lost the radical basis of its enchantment and becomes predictable. It is no longer a
+break from a flow within a technology, but instead a form of craft. For many critical artists,
+it is considered no longer a glitch, but a filter that consists of a preset and/or a default:
+what was once a glitch is now a new commodity.
+
+The Glitch Art Genre:
+Between the Void and Commoditized Form
+The fatal manner of glitch, its orientation towards the destruction of what is, can present
+a problem to those who want to describe old and new culture as a continuum of different
+discrete practices. One way to deal with this problem is to repeatedly coin new terms and
+concepts to make room for splinter practices within the expanding media cultural field.
+An abundance of designations such as databending, datamoshing and circuitbending
+have come into existence to name and bracket varieties of glitch practices, but all in fact
+refer to similar practices of breaking flows within different technologies or platforms.
+While technological glitch is primarily a process of shock requiring investigation and cognition, glitch art is best described as a collection of forms and events that oscillate between
+extremes: the fragile, technologically-based moment(um) of a material break, the conceptual
+or techno-cultural investigation of breakages, and the accepted and standardized commodity
+that a glitch can become. To encapsulate a whole range of unstable processes and sometimes
+almost contradictory intentions of glitch artists, it is useful to consider glitch art as a genre.
+In thinking about a genre that encompasses both the most rebellious and the most stable or
+commoditized works of glitch, the first question that arises is whether there can even be any
+common denominator in these works. What does saying ‘glitch is a genre’ actually say?
+15 | See quote, beginning of this chapter.
+16 | Peter Kirn, ‘Live Glitching with MIA at Coachella: Glotchy-Glithcy Videos, Pictures, Live Gig Report’, Create Digital Motion, 1 May 2009, http://
+createdigitalmotion.com/2009/05/01/live-glitching-with-mia-at-coachella-glotchy-glithcy-videos-pictures-live-gig-report/#more-3750.
+
+55
+
+To consider glitch art as a genre is to emphasize that genres are social and consensusbased constructs, rather than definitive categories.17 Steve Neale has suggested that
+genres are best understood as processes:
+The process-like nature of genres manifests itself as an interaction between three
+levels: the level of expectation, the level of the generic corpus, and the level of the
+‘rules’ or ‘norms’ that govern both. […] the elements and conventions of a genre
+are always in play rather than being, simply re-played; and any generic corpus is
+always being expanded.18
+While genres are always ‘in play’, they also – by definition – have some sort of organized
+and perceived unity. This unity models both how a viewer perceives any work in the genre
+and how she comes to associate new works within it. Mary Ann Doane suggests that ‘the
+unity of a genre is generally attributed to consistent patterns in thematic content, iconography, and narrative structure’.19 In glitch art, this ‘thematic content’ can be found within
+the work’s language and design, while iconographic and narrative themes are positioned
+within glitch art’s investment in the rupture of procedures and technique, the break from
+a flow or the void of meaning in the social understanding and the esthetical references.
+To call glitch a genre also means to suggest that it is intelligible as a tendency: to exploit
+medium-reflexivity and to take on the rhetorical questioning of the perfect use and function of technologies, their conventions and expectations. Paradoxically then, out of its
+instantiation in error and breakages, Glitch art can, through its play with conventions and
+expectations, be described as a genre that fulfills certain expectations. This reflexive approach to materiality in glitch tends to, as Katherine Hayles would assert, re-conceptualize
+materiality itself as ‘the interplay between a text’s physical characteristics and its signifying strategies’. Rather than suggesting media materiality as fixed in physicality, Hayles’
+re-definition is useful because it
+opens the possibility of considering texts as embodied entities while still maintaining a central focus on interpretation. In this view of materiality, it is not merely
+an inert collection of physical properties but a dynamic quality that emerges from
+the interplay between the text as a physical artifact, its conceptual content, and the
+interpretive activities of readers and writers.20
+Glitch genres perform reflections on materiality not just on a technological level, but also
+by playing off the physical medium and its non-physical, interpretative or conceptual
+characteristics. To understand a work from the genre of glitch art completely, each level
+of this notion of (glitch) materiality should be studied: the text as a physical artifact, its
+conceptual content, and the interpretive activities of artists and audiences.
+
+17 | Rick Altman, Film/Genre, London: British Film Institute, 1999.
+18 | Steve Neale, ‘The Question Of Genre’, Screen, vol. 31.1 (1990): pp. 45-66. p. 56.
+19 | Mary Ann Doane, The Desire to Desire: The Woman’s Film of the 1940s, Bloomington and Indianapolis: Indiana University Press, 1987. p. 34.
+20 | N. Katherine Hayles, ‘Print is flat, code is deep: The importance of media-specific analysis’, Poetics Today 25, no. 1 (2004): pp. 67-90.
+
+56
+
+The Genre Paradox
+Obsolescence never meant the end of anything, it’s just the beginning.21
+- McLuhan
+
+There is another factor to consider in this pursuit of materiality around glitch art
+genres. As I have described in the opening chapters, software engineering paradigms
+are fixated upon the development of better, faster and stronger technologies, while
+the ideal transparent technology will never be achieved and remains a mythological
+holy grail. On top of this dominant cultural comprehension of media technological
+‘progression’ however, it is also the case that engineers are economically driven to
+strive for built-in obsolescence. Paradoxically, while designing for great perfection, it
+is a basic economic condition for the media engineer of our time to always save room
+for improvement. This ‘planned obsolescence’ results in the proprietary capitalist
+scheming for the limited usage of each new purchased technology, which will manipulate the consumer into future investments on (sooner) improving his technologies. I would like to argue that this economical reasoning is very much connected to
+the growing fetishization of nostalgic imperfection in (glitch) art, which over the last
+decades has become a kind of conceptual virus. Today it is completely normal to pay
+extra money for aesthetically appealing plugins like Hipstamatic or Instagram, that
+imitate (analogue) imperfections or nostalgic errors, like ‘faux vintage’ lens flare and
+lomographic discolorations.
+Built-in obsolescence and built-in nostalgia have made the gap between new and old
+technologies both smaller and more dialectical. While the obsolescence and nostalgic revival of imperfect media used to be closely connected to the factor of (linear)
+time, this factor is now more disorganized, transforming the uncanny anachronism
+or avant-garde tendencies of post-procedural glitch into a fetish: something that is
+(‘now’) understood as a sign of (any ‘cool’) time. This apparent coming together of the
+hype cycle (the arrival, adoption and social distribution of specific technologies) with
+new technologies’ designed-for obsolescence, results in glitch itself being increasingly understood as retro-nostalgic artifacts. Given that the radical moment(um) and
+conceptual utility of glitch was at least initially a way for artists to penetrate and experience economical and political drives (and their critique) within the development
+of new technologies, this nostalgic hovering around glitch sets up very strong contradictions and tensions within the glitch art genre. If I am to describe glitch art as a
+genre then (which I argue is quite a useful way to comprehend the inter-influencing
+forms, reflexive materialities and expectations generated around glitch practices),
+it is important to bare in mind Rick Altman’s warning (paraphrasing Wittgenstein)
+about categorical ‘genre’ interpretations. He suggests to the media theorist:
+Don’t say: “There must be something common…” but look and see whether
+there is anything common to all. In the past, it has simply been taken for
+granted that genres are broadly shared categories […]. When we look more
+closely at generic communication, however, it is not sharing and understand21 | Régine Debatty, ‘Playlist, it’s not (just) about nostalgia’, Make Money Not Art, 15 January, 2010, http://we-make-money-not-art.com/
+archives/2010/01/previously-playlist-playing-ga.php.
+
+57
+
+ing that appear, but competing meanings, engineered misunderstanding and
+a desire for domination rather than communication.22
+Altman implies that classification by genre is neither an objective nor a clear activity, since
+the predication of meaning always precedes the act of classification. In order to place an
+item in one category, it must first be interpreted as being such-or-such. This interpretation is always and inevitably an act of classification and thus involves the domination of
+certain iconographic structures. This occurs for example with the work 404 error by Jodi,
+which has become not just about an error or non-place, but has been erected as an iconographic work standing for a ‘desired destination’, and spawned a cult of broken link art
+works. Such works, at the same time, insist that their spectators establish new conceptual
+paradigms for approaching these particular works of glitch art.23
+The genre of glitch art draws heavily upon spectator literacy (references to media technology texts, aesthetics and machinic processes) as well as on knowledge of more ‘conventional’ canons of media-reflexive modern art. Accordingly, glitch art prompts the
+spectator to engage not only with complex themes, but also with complex subcultural and
+meta-cultural narratives or gestures, presenting considerable cognitive challenges. Users
+do not consume but instead become prosumers, active participants in a culture invested
+in constant re-definition.
+
+22 | Rick Altman, Film/Genre, London: British Film Institute, 1999. p. 99. The citation is from Wittgenstein’s Philosophical Investigations (posthumously published in 1953), section 66, where the philosopher attempts to establish common features of games – a project that is indeed
+very much related to the establishing of genre definitions.
+23 | White, Michele, ‘The Aesthetics of Failure: Confusing Spectators with Net Art Gone Wrong’, in The Body and the Screen: Theories of Internet
+Spectatorship, Cambridge, MA: MIT Press, 2006, pp. 85-113. p. 99.
+
+58
+
+59
+
+Of 313 returns only the bookmarks that list ”glitch” as top-tag were inserted into the issuecrawler
+
+The size of the nodes depends on the amount of in-links within the network.
+
+The color of the nodes depends on the amount of out-links within the network.
+
+what spheres are part
+
+of this glitch-artist
+
+bookmark network?
+
+Crawl Depth: 2
+
+Iterations: 1
+
+Co-link Analysis Mode: page
+
+Source: Delicious. Query: ”glitch” + ”blog” + ”artist” ( = 313 results).
+
+web sphere(s) and
+
+Issuecrawler.net/ settings
+Privilege starting points: off
+
+Method:
+
+form (a) networked
+
+-tagged bookmarks
+
+glitch + blog + art
+
+what extend do the
+
+cluding) of links. To
+
+including (or ex-
+
+organizing and
+
+of curating - the
+
+delicious is an act
+
+Bookmarking on
+
+the bookmarkers perspective
+
+glitch blogosphere
+
+Organizing Glitch Spheres
+
+60
+
+Of 505 returns only the bookmarks that list ”glitch” as top-tag were inserted into the issuecrawler
+
+The size of the nodes depends on the amount of in-links within the network.
+
+The color of the nodes depends on the amount of out-links within the network.
+
+what spheres are part
+
+of this glitch-artist
+
+bookmark network?
+
+Crawl Depth: 2
+
+Iterations: 2
+
+Co-link Analysis Mode: page
+
+Source: Delicious. Query: ”glitch” + ”artist” ( = 505 results).
+
+web sphere(s) and
+
+Issuecrawler.net/ settings
+Privilege starting points: off
+
+Method:
+
+form (a) networked
+
+-tagged bookmarks
+
+the glitch + artist
+
+To what extend do
+
+excluding) of links.
+
+including (or
+
+organizing and
+
+of curating - the
+
+delicious is an act
+
+Bookmarking on
+
+the bookmarkers perspective
+
+an organization of glitch artists
+
+61
+
+Copy homepages of actors that are indexed in at least 2 lists (56). Insert urls into the issuecrawler
+
+The size of the nodes depends on the amount of in-links within the network.
+
+The color of the nodes depends on the amount of out-links within the network.
+
+sphere(s) and if so,
+
+what sphere(s) can be
+
+distinguished?
+
+Crawl Depth: 2
+
+Iterations: 1
+
+Co-link Analysis Mode: page
+
+Source: query google for inurl:http://twitter.com inurl: glitch inurl:members
+
+(a) networked web
+
+Issuecrawler.net/ settings
+Privilege starting points: off
+
+Method:
+
+their websites form
+
+listed actors and
+
+But do the glitch-
+
+stream or network.
+
+within a particular
+
+ing) of contacts
+
+cluding (or exclud-
+
+entails the active in-
+
+organizing - it
+
+is an act of social
+
+Making Twitter lists
+
+the bookmarkers perspective
+
+glitch actors organized
+
+Glitch art networked
+Since the last gli.tc/h festival in Chicago, I have been noticing glitch networks growing
+more and more tight. This observation was reinforced for me after May 18, 2011, when
+JamesBWatson deleted the ‘Glitch Art’ article on Wikipedia. Some strong reactions to this
+deletion within the online glitch scene were aroused when I (re-)posted an image of this
+moment on my website. Does it say something about ‘glitch’ culture that a very obviously
+partial and incomplete definition of the field, with links to just a few select artists, would
+sit unedited in such an ‘encyclopedic’ space, and then be removed for not being representative enough? Of course. At the same time though, through this incident it became obvious that the glitch art scene does actively know itself, define itself and relate to itself as a
+tangible community of actors in certain ways. I reflected more deeply upon the implicit
+organization of glitch artists on the internet, as a complex community of specific interinfluencing actors and objects. This notion inspired me to attempt to map the difficult-torepresent online existence and associations of glitch art practices and culture.
+I invited Esther Weltevrede, a PhD candidate at the humanities department of the University of Amsterdam working on internet sphere mapping and analysis, to assist me in
+some modest experiments towards this end. There are a number of problems that immediately arise in mapping web spheres. First of all, we had to choose a bias – some starting
+points from which to ‘search’ – because there is no way to create the ‘integral map of glitch
+art’ without starting points (and also no way of representing all possible starting points).
+There is bias in the tools used to do the mapping, in the web platforms that the researcher
+chooses to focus upon (where tags are scraped from), and in the depth and level of mapping assumed to glean useful levels of detail and degrees of understanding from the larger
+data set acquired by the process.
+Esther and I chose to use the Issuecrawler, a tool that indexes the web following set instructions by crawling from particular chosen starting points. We focused on the bookmarking
+web service delicious and social micro blogging software Twitter as the focus of the data
+scrape. In delicious, we only scraped bookmarks that used glitch as a ‘top-tag’. The maps
+were then organized around three research questions. First of all: 1) ‘Bookmarking on delicious is an act of curating – the organizing and including (or excluding) of links. To what
+extend do the ‘glitch’ + ‘blog’ + ‘art’-tagged bookmarks form (a) networked web sphere(s)
+and what spheres are part of this glitch-artist bookmark network?’ 2) ‘To what extent do
+the glitch + artist -tagged bookmarks form (a) networked web sphere(s) and what spheres
+are part of this glitch-artist bookmark network?’ And: 3) ‘Making Twitter lists is an act
+of social organizing – it entails the active including (or excluding) of contacts within a
+particular stream or network. But do the ‘glitch’-listed actors and their websites form (a)
+networked web sphere(s) and if so, what spheres(s) can be distinguished?’
+Through a productive orientation around tool biases, the different maps could potentially
+give insight into glitch scene(s). The maps are generated specifically from the tags: ‘glitch’,
+‘blog’ and ‘art’ or ‘glitch’ and ‘artist’. We excluded generic social networks and media sharing platforms (YouTube, Vimeo) so as to focus on active artist and organizational websites.
+The maps reveal the actors and agents of glitch discovered through this process (in the form
+of websites), while the size and color of the nodes shows the quantitative in- and out-linking
+behavior of these actors. A node in the map only appears if there are at least two in- or out62
+
+links to the site.01 Very basically, the more in-links and out-links that show up, the greater
+the artist or group’s online activity or authority (at least) in the network. Of course, glitch
+artists and organizations that do not explicitly propagate the tag ‘glitch’ will not easily be
+included in these maps. This is an acknowledged blind spot of the maps and of course does
+not mean that those that escape the grasp of the map are not part of any glitch sphere.02
+
+Glitch Sphere Relations
+The Delicious map based on the ‘glitch’ + ‘artist’-tags and the Delicious map based on the
+‘glitch’ + ‘blog’ + ‘artist’-tags show two very similar, complex networks of inter-influencing
+actors within the glitch scene. These two maps enable a modest assessment of the location
+of the glitch art communities in relation to other web-based/digital arts communities. It
+appears that the glitch art sphere is closely connected to the spheres organized around digital tools, platforms and softwares (e.g. Processing, Openframeworks, Puredata, Arduino).
+Besides this, the glitch spheres are organized through some hubs or blog nodes. These can
+be divided into digital art blogs proximate to the New York City community of new-media art
+(such as Rhizome, 319scholes and the New Museum); blogs with a European geo-location
+(note for example Neural and Furtherfield); and nodes dedicated to festivals (note Transmediale, Bent festival and gli.tc/h). Vagueterrain, a digital arts blog, seems to function as a
+pre-eminent center-hub that is greatly responsible for bringing the different communities
+together, while being disproportionately small; notably it does not receive many in-links,
+whereas Rhizome does. This could be a matter of authority.
+Of all three maps, the ‘glitch’ + ‘artist’ map seems to offer up a most interesting map of
+glitch art nodes, with some anomalies. I had expected the Chicago school of glitch to have
+a more pronounced, heavily interlinked presence. While there is definitely a disproportionate amount of Chicago-based artists indexed in all of the maps, they do seem to be
+equally connected to nodes located geographically elsewhere and thus the rest of the
+world’s glitch artists. Besides the Chicago school of glitch, the presence of a Dutch community (Gieskes, Klomp, Menkman, Jodi, Impakt, mu, v2 and wormweb) is striking.
+It is a problem generated by the tool’s orientation around text search terms that other
+glitch actors, including for instance the Japanese visual school of glitch that includes
+ucnv, Youpy and Shusaku Hariya, are missing from the maps. For these artists, the use
+of Japanese over English means that they are less linked with other artists that are represented and this is why they just don’t ‘show up’.03
+01 | For the construction of the map, we set the Issuecrawler to crawl two iterations deep (to index the links not only from the starting point, but
+also from the first list of indexed sites) in order to partially overcome nodes created by, for instance, ‘the individual tagging himself’, and to
+be able to make more legible the differences between influential and less influential nodes.
+02 | We additionally deleted nodes like MySpace, Twitter, Flickr, Vimeo and creative commons because they tend to take a lot of space in the final
+visual outcome of a query invested otherwise in mapping independent (non-proprietary) art practices in relation. Platform nodes (of tags) would
+however be interesting for more platform-focused research. In the last map, we decided not to index the Twitter lists that were based on the computer gamed titled ‘Glitch’ since these lists are completely trivial to glitch art. As a full disclosure, I have to admit that some bugs in the mapping
+software led to the double appearance of some nodes. After some failed attempts to merge these ‘double’ nodes automatically or by hand, I deleted
+the smallest one of each. This led to a little discrepancy in the final maps, which I believe otherwise strongly calibrate an overview of the spheres.
+03 | In this sense, while the maps seem to ‘argue’ (that is, in their biases, rather than passively show) that glitch art is still a very western discourse
+and culture, responsive as it is to Euro-American techno-capitalisms and specific traditions of media/machine philosophy, more research
+would be required across language groups, and in to sub-cultural languages, and national webs, and local art scenes, to confirm that.
+
+63
+
+At the same time there is a contemporaneity to the maps that is quite informative. For
+example, in the summer of 2011 (during the time the research maps were constructed)
+IDN magazine featured numerous glitch artists and projects, including Quayola, Kim
+Asendorf and Clement Valla who are new to the glitch scene. They have already been captured in the delicious networks and are visible here. In this sense the maps created can be
+assumed to be useful snapshots of a still mutating field that is full of fresh data.
+The fact that I have published these results on my own rosa-menkman website (which
+appears quite large and colorful in the results), and that the crawler indexes both in-links
+and out-links to my blog, is a further matter for consideration. As a research authority, artistic agent, and active discursive hub within these spheres that I am researching, the rosamenkman blog could be considered to be itself shaping the mapped community. This is an
+important problem to keep in mind and an ongoing consideration for my research work.
+In contrast, personal blogs and artists pages such as Goto80, designingimperfection,
+beigerecords, Gieskes, Jonsatrom and jodi seem not to link-out into the glitch community, while receiving in-links from their peers, which tends to reveal matters or even
+vectors of status and authority.04 Notice however how Vade’s many websites are mapped.
+Because this artist has many different web-located nodes (the URLs syphon, Vade.info,
+v002, abstrakt.vade.info all refer to his sites) his appearance within the mapped community seems both hyper-present and diffused (given the many different nodes all governed
+by Vade). Both Vade and Pixelnoizz take up an interesting place within the map, forming
+active hubs between the generative or design driven side of the map (right) and the more
+post-procedural driven side of glitch art (on the left side of the glitch map).
+The third Twitter glitch-listed actor map consists of two very clearly separated spheres.
+The first sphere is centered around glitch.fm, the glitchhopforum and a couple of other
+glitch music related sites. The second is a bigger, diffused sphere that locates and maps
+the genre of glitch art. Within the latter, sites like 8bitpeoples (an chiptune/8bit/lo-fi community), gli.tc/h (the glitch art festivals website), Vagueterrain (the Digital Art/Culture/
+Technology blog), slowelectronics (where the music label slowelectronics is located) and
+personal blogs act as hubs in between the different communities. It is striking to me how
+many of the personal sites are connected with multiple hubs, indicating a larger trend of
+cross-fertilization and networking between the different digital art communities.
+
+Some Final Reflections On The Glitch Spheres
+The circuitbending ‘community’ seems under-represented. Possible reasons for their lack
+of nodes could be that this community is not as ‘social’ (in terms of in- and out-linking)
+as other glitch artists working more directly online and with code. Or perhaps they are
+not tagged as ‘glitch’ or as ‘art’, or both. The maps leave out under-tagged and anti-social
+communities in this way – what appears mapped are the parts of the (glitch) web sphere
+built most strongly on link connections and common (English) labels.
+
+04 | While this should in most cases indeed be understood as a sign of authority (or status), it could in some cases also be a problem with the
+crawler encountering a coding obstruction when fetching out-links.
+
+64
+
+Interestingly, the Glitch.fm community (glitch music) is not tagged as ‘art’ or ‘artists’ in
+delicious (they have no delicious presence), while the click and cut/microsound musicians don’t seem to be active bloggers. They are not present in the ‘glitch’ + ‘blog’ + ‘art’
+sphere, but are otherwise tagged as glitch artists in the map that does not include the
+‘blog’ tag. The 8bit/chiptune music scene, on the other hand, is notably connected to
+the glitch scene in all three maps. Key players in this inter-linkage are: Goto80, noteNdo,
+Nullsleep, NO CARRIER and the 8bitpeoples music label.
+Glitch art communities of course do not start or end at the ‘borders’ of these maps, and
+many more could be created which would enable additional insights into the varied communities and ‘techno-sociality’ of glitch agents and practices. Link relations are, complexly, ‘influence’ relations but like the glitch itself they do not initially or easily give out
+knowledge. You have to embed yourself a little and trace the moment(um).
+
+The Emancipation
+of Dissonance Glitch
+I don’t use the accident. I deny the accident.
+There is no accident, just as there is no beginning and no end.05
+- Jackson Pollock
+
+The noiseless channel doesn’t exist. What makes every medium specific is how it fails to
+reach a state of complete transparent immediacy. These failures are embodied by noise
+artifacts; categorizable as either compressions, or feedback, or the not (yet) technologically defined break of a (computational) flow, named glitch. Moving from information
+theory into the art and culture of noise and noise artifacts, glitch art proliferates in a spectrum of disturbances that traverse both the sonic and visual, technical and socio-cultural
+realm. Here the difference between failure and glitch becomes important: while failure
+is a phenomenon to overcome, the glitch is a phenomenon that will be incorporated into
+new processes and conditions of technological design or cultural meaning.
+Contemporary glitch artists exploit the inherent moment(um) of glitch in different ways.
+A threefold categorization of glitches addressed a continuum for thinking about glitch:
+from complete machine ‘spontaneity’ in the accident form, to controlled, debuggable or
+conceptual glitching; to a more conventional realm of glitch design and aesthetics. The
+perfect glitch only exists for a spectator at the tipping point between destruction and the
+creation of something new; this is more a dialectical relation than a linear trajectory of
+possibility. Glitch reveals but also bridges gaps between the functioning and the malfunctioning of systems.
+In the end, the glitch is a subjective phenomenon. There is no unequivocal cultural definition of glitch, as there is none for noise, because in the end, what glitch is and what glitch
+
+05 | Monica Bohm-Duchen, The private life of a masterpiece, California: University of California Press, 2001. p. 230.
+
+65
+
+is not is a subjective matter. Further, as a sub-genre that participates in larger media cultures of distributed authorship, this subjective experience of glitch is paradoxically shared
+by many, which makes glitch theory difficult to practice, accessible to many, contestable
+and necessary. An intended or designed error can still rightfully be called glitch art; and
+glitch art is not always just a personal experience of shock, but can be a metaphorical
+expression, dependent upon multiple agents for interpretation. Accordingly, it is less interesting for theory to police the difference between true or false glitch art, than to understand how and through which technological systems and cultural fabrics any particular
+work of glitch art comes to be understood and experienced as glitch.
+At the same time, some recent shifts within the realm of glitch art are important to keep
+track of. It seems that increasingly, glitch art practices downplay the technological dimension of glitch, and that the concept of glitch has changed. As the error itself has been
+increasingly gentrified, the glitch is already being supposedly ‘upgraded’ to more static
+and imagistic values (minus the radical moment(um) of glitch). Glitch is also becoming a
+prominent area of study, and archive of thought, for the media culture intellectual. Academics politicize their work through the solid cultural and technological understanding
+of digital society developed in and by glitch culture, while glitch risks being reduced to
+just another theory for thinking the subjective experience of media. Perhaps, since glitch
+art is full of paradoxes, describing glitch art as a genre, institutionalizing, is yet another
+paradox that could be in line with the corrupting and damaging future potentials of glitch.
+To think with glitch is to straddle a gap between non-sense and knowledge. It is to search
+for the unfamiliar while at the same time to tenaciously de-familiarize oneself from what
+might be taken for granted of software, hardware and signal realities by less critical media
+theoreticians and artists. To embrace and account for glitch is therefore to be potentially
+open to new critical modes of thought and action. When these notions of glitch’s radical
+difference become (paradoxically) standardized, the actual agents of glitch culture adapt
+and move to take on and mine other technologies, protocolized flows, and discourses
+elsewhere. Glitch work is a kind of corrupting investigative work, followed by a vision that
+destroys itself by its own purposive modes of inquiry. Like the best ideas, glitch practices
+are dangerous because they generate awareness.
+Some consider glitches as solely technological phenomena, while others perceive them
+as social constructions reactive to technological expectations or aesthetics. Glitchspeak
+explains the utterances that do not fail to be heard, yet at the same time exist outside of
+knowledge. At the same time, cultural and technological flows and functions, designed to
+be taken for granted, cannot be understood without such interruptions. This is why the
+study of glitch is necessary. Study what is outside of knowledge, start and continue with
+glitch studies. The glitch is what you can just get away with!
+
+66
+
+Bibliography
+Adelbert, Ames, Jr. ‘The Morning Notes’, in Ernst Hans Josef Gombrich, The Sense of Order: A Study in the
+Psychology of Decorative Art, London: Phaidon Press, 1984. p. 117.
+Altman, Rick. Film/Genre, London: British Film Institute, 1999.
+Attali, Jacques and Brian Massumi. Noise: The Political Economy of Music, Manchester: Manchester
+University Press, 1985. p. 33. George Orwell, Nineteen Eighty-Four, London: Secker and Warburg, 1949.
+Ballard, Susan. ‘Information, Noise and et al’, M/C Journal, 10.5 (October, 2007).
+http://journal.media-culture.org.au/0710/02-ballard.php.
+Barnouw, Jeffrey. ‘The Morality of the Sublime: To John Dennis’, Comparative Literature, Vol. 35, No. 1
+(Winter, 1983): p. 21-42.
+Baumgärtel, Tilman. ‘TP: Interview with Jodi. "We love your computer"', Telepolis. May 2006,
+http://www.heise.de/tp/r4/artikel/6/6187/1.html.
+Benjamin, Walter. ‘The Work of Art in the Age of Mechanical Reproduction’, in Hannah Arendt (ed.)
+Illuminations, New York: Schocken, 1968, pp. 219-254.
+Blanchot, Maurice. The Writing of the Disaster, Nebraska: University of Nebraska Press, 1995.
+Bolter, Jay David and Richard Grusin. Remediation: Understanding New Media, Massachusetts: MIT Press, 1999.
+
+Bohm-Duchen, Monica. The Private Life of a Masterpiece, California: University of California Press, 2001.
+Broeckmann, Andreas, Joke Brouwer, Bart Lootsma, Arjen Mulder and Lars Spuybroek. The Art of the
+Accident, NAI Publishers/V2_Organisatie: Rotterdam, 1998.
+Cascone, Kim. ‘The Aesthetics of Failure: Post-Digital Tendencies in Contemporary Computer Music’,
+Computer Music Journal 24.4 (Winter 2000).
+Cranfield-Rose, James Brady. Tick-tick-tick-tick-tick… Oval, the glitch and the utopian politics of noise,
+unpublished master thesis, Burnaby, Canada: Simon Fraser University, 2004.
+http://lib-ir.lib.sfu.ca/handle/1892/8961.
+Davis. Paul B. Define Your Terms (Or Kanye West Fucked Up My Solo Show), 28th May 2009.
+http://www.seventeengallery.com/index.php?p=3&id=42.
+Debatty, Régine. ‘Playlist, it’s not (just) about nostalgia’, Make Money Not Art, 15 January, 2010.
+http://we-make-money-not-art.com/archives/2010/01/previously-playlist-playing-ga.php.
+DeLanda, Manuel. War in the Age of Intelligent Machines, New York: Zone Books, 1991.
+Deleuze, Gilles and Claire Parnet. Dialogues II, London and New York: Continuum, 2006.
+Deleuze, Gilles and Pierre-Félix Guattari. A Thousand Plateaus: Capitalism and Schizophrenia, Trans. B.
+Massumi, Londen: The Athlone Press, 1988.
+Doane, Mary Ann. The Desire to Desire: The Woman’s Film of the 1940s, Bloomington and Indianapolis:
+Indiana University Press, 1987.
+Durham, Meenakshi Gigi and Douglas Kellner. Media and Cultural Studies, New Jersey: Wiley-Blackwell, 2006.
+
+Gombrich, Ernst Hans Josef. The Sense of Order: A Study in the Psychology of Decorative Art, London:
+Phaidon Press, 1984.
+Hayles, N. Katherine. ‘Print is flat, code is deep: The importance of media-specific analysis’, Poetics Today
+25, no. 1 (2004): pp. 67-90.
+Hegarty, Paul. Noise/Music: A History, London and New York: Continuum, 2007.
+Heim, Michael. The Metaphysics of Virtual Reality, New York: Oxford University Press, 1993.
+Kahn, Douglas. Noise, Water, Meat: A History of Sound in the Arts, Massachusetts: MIT Press, 1999.
+Kirn, Peter. ‘Live Glitching with MIA at Coachella: Glotchy-Glithcy Videos, Pictures, Live Gig Report’,
+Create Digital Motion, 1 May 2009. http://createdigitalmotion.com/2009/05/01/live-glitching-with-mia-atcoachella-glotchy-glithcy-videos-pictures-live-gig-report/#more-3750.
+Kittler, Friedrich. Draculas Vermächtnis: Technische Schriften, Leipzig: Reclam Verlag Leipzig, 1993.
+
+67
+
+Kluitenberg, Eric. Delusive Spaces. Essays on Culture, Media and Technology, Rotterdam: NAi Publishers
+and Amsterdam: Institute of Network Cultures, 2008.
+Kluitenberg, Eric. Transfiguration of the Avant-Garde/The Negative Dialectics of the Net, posting to nettime
+mailing list, 23 January, 2002. http://www.nettime.org/Lists-Archives/nettime-l-0201/msg00104.html.
+Larsby, Johan and Rosa Menkman. Monglot, 2011. http://rosa-menkman.blogspot.com/search/label/Monglot.
+Liu, Alan. ‘What’s cool?’, in The Laws of Cool: Knowledge Work and the Culture of Information, Chicago:
+University of Chicago Press, 2004, pp. 176-179.
+Lotringer, Sylvere and Paul Virilio, The Accident of Art, Semiotext(e): New York, 2005.
+Mackenzie, Adrian. ‘Codecs’, in Matthew Fuller (ed.) Software Studies, Massachusetts: MIT Press, 2008.
+Matheson, Donald. ‘Weblogs and the Epistemology of the news: some Trends in Online Journalism’, Sage
+Journals, London: SAGE Publications, Thousand Oaks CA and New Delhi Vol 6.4 (2004): pp. 443-468.
+McLuhan, Marshall. Understanding Media: The Extensions of Man, New York: McGraw Hill, 1964.
+Menkman, Rosa. Beauty in the Age of Digital Art; aesthetic, poetic or rhetoric, June 2006.
+http://rosa-menkman.blogspot.com/2006/05/beauty-in-age-of-digital-art.html.
+Menkman, Rosa. ‘Glitch Studies Manifesto’ in Geert Lovink and Rachel Somers Miles (eds) Video Vortex
+Reader II: moving images beyond YouTube, Amsterdam: Institute of Network Cultures, 2011, pp. 336-347.
+http://dl.dropbox.com/u/17713740/Glitch%20Studies%20Manifesto%20rewrite%20for%20Video%20
+Vortex%202%20reader.pdf.
+Menkman, Rosa. Jodi op de Pijnbank, unpublished master thesis, Amsterdam: University of Amsterdam, 2006.
+http://home.student.uva.nl/rosa.menkman/Jodi%20op%20de%20pijnbank.pdf.
+
+Michele, Michele. ‘The Aesthetics of Failure: Confusing Spectators with Net Art Gone Wrong’, in The Body
+and the Screen: Theories of Internet Spectatorship, Cambridge, MA: MIT Press, 2006, pp. 85-113.
+Miller, Don. Biography for the Playlist exhibition, 2010, http://www.imal.org/playlist/artworks/17.
+Moradi, Iman. Glitch Aesthetics, Unpublished Bachelor Thesis, Huddersfield, UK: University of
+Huddersfield, 2004. http://www.oculasm.org/glitch/download/Glitch_dissertation_print_with_pics.pdf.
+Neale, Steve. ‘The Question Of Genre’, Screen, vol. 31.1 (1990): pp. 45-66.
+Pepperell, Robert. ‘Computer aided creativity: practical experience and theoretical concerns’, in
+Proceedings of the 4th conference on Creativity & cognition, Loughborough, UK: ACM, 2002, pp. 50-56.
+http://portal.acm.org/citation.cfm?id=581710.581720&type=series.
+Prandoni, Paolo and Martin Vetterli. Signal Processing for Communications, Lausanne: EPFL Press, 2008.
+http://www.sp4comm.org/webversion.html.
+Shannon, Claude Elwood. ‘A Mathematical Theory of Communication’, Reprinted with corrections from
+The Bell System Technical Journal, Vol. 27 (July, October, 1948).
+The American Heritage® Dictionary of the English Language, Fourth Edition, Houghton Mifflin Company, 2004.
+http://dictionary.reference.com/browse/glitch.
+
+Truscello, Michael. Behind the Blip: Essays on the Culture of Software (review), Cultural Critique, no. 63,
+(2006): pp. 182-187.
+Virilio, Paul and Julie Rose. The Original Accident, Cambridge: Polity Press, 2007.
+Wiener, Norbert. Cybernetics: Or Control and Communication in the Animal and the Machine, Paris:
+Hermann & Cie & Camb, 1948.
+Williams, Raymond. Television: Technology and Cultural Form, Hanover: University Press of New England, 1974.
+
+Winkler, Dan and Anton Marini. Open Emu, 14 Jan 2009.
+http://openemu.sourceforge.net/.
+
+68
+
+ment(um
+Glitch
+								Momen
+(um)
+											Glitc
+Mo- The
+Momen
+Glitch culture organizes itself around the investigation
+and aestheticization of breaks in the conventional flow
+of information or meaning within (digital) communication systems.
+
+In this book, Rosa Menkman brings in early information theorists not usually encountered in glitch’s theoretical foundations to refine a signal and informational vocabulary appropriate to glitch’s technological
+moment(um) and orientations. The book makes sense
+of recent glitch art and culture: technically, culturally,
+critically, aesthetically and finally as a genre.
+The glitch takes on a different form in relation to noise,
+failure or the accident. It transitions between artifact
+and filter; between radical breakages and commodification processes. Menkman shows how we need to be
+clearer about the relationship between the technical
+and cultural dimensions of glitch culture. Honing in
+on the specificities of glitch artifacts within this broader perspective makes it possible to think through some
+of the more interesting implications of glitched media
+experience. Using a critical media aesthetic orientation, Menkman addresses the ongoing definitional tensions, paradoxes, and debates that any notion of glitch
+art as a genre must negotiate, rather than elude.
+
+Rosa Menkman is a Dutch visualist, theorist and curator, working
+with glitches, compressions, feedback and other forms of noise
+artifacts, aiming to contribute to the development of a discourse
+for glitch art and culture.
+
+Amsterdam, The Netherlands 2011.
+ISBN/EAN 978-90-816021-6-7
+
+

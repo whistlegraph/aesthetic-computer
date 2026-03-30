@@ -211,6 +211,21 @@
 \hyphenpenalty=50                  % encourage hyphenation (default 50, lower = more)
 \exhyphenpenalty=50                % also break at explicit hyphens in compounds
 
+% === LISTINGS OVERFLOW PREVENTION ===
+% Force line breaking in code listings on narrow cards.
+\AtBeginDocument{%
+  \lstset{
+    breaklines=true,
+    breakatwhitespace=false,
+    breakautoindent=true,
+    postbreak=\mbox{\textcolor{acgray}{$\hookrightarrow$}\space},
+    basicstyle=\ttfamily\footnotesize,
+    columns=fullflexible,
+    xleftmargin=0.3em,
+    xrightmargin=0.3em,
+  }%
+}
+
 % === TABLE OVERFLOW PREVENTION ===
 % Cards are only ~3.2in wide — tables must never exceed column width.
 \RequirePackage{tabularx}              % auto-stretching X columns
@@ -228,9 +243,17 @@
   \oriendtabular%
   \end{adjustbox}%
 }
-% Note: tabularx is NOT wrapped in adjustbox because tabularx does
-% internal trial typesetting that breaks inside adjustbox.
-% tabularx already constrains to its specified width argument.
+% Note: tabularx is converted to plain tabular by cards-convert.mjs at generation time.
+% tabularx resists all forms of runtime patching (\def, \renewcommand, \AtBeginDocument).
+% The adjustbox wrapper on plain tabular handles any remaining overflow.
+% For plain tabular: scriptsize + tight + adjustbox.
+\renewenvironment{tabular}[1]{%
+  \scriptsize\setlength{\tabcolsep}{3pt}%
+  \begin{adjustbox}{max width=\linewidth}%
+  \origintabular{#1}%
+}{%
+  \oriendtabular\end{adjustbox}%
+}
 
 % === HYPERREF ===
 \RequirePackage{hyperref}

@@ -76,6 +76,9 @@ const FAIRY_THROTTLE_MS = 100; // 10Hz max per connection
 // Raw UDP fairy relay (for native bare-metal clients)
 const udpRelay = dgram.createSocket("udp4");
 const udpClients = new Map(); // key "ip:port" → { address, port, handle, lastSeen }
+const UDP_MIDI_SOURCE_TTL_MS = 20000;
+const notepatMidiSources = new Map(); // key "@handle:machine" -> source metadata
+const notepatMidiSubscribers = new Map(); // connection id -> { ws, all, handle, machineId }
 
 // Error logging ring buffer (for dashboard display)
 const errorLog = [];
@@ -519,39 +522,42 @@ function targetClients(target) {
 }
 
 // *** Start up two `redis` clients. (One for subscribing, and for publishing)
-const sub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
-sub.on("error", (err) => {
+const redisEnabled = !!redisConnectionString;
+const sub = redisEnabled
+  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
+  : null;
+if (sub) sub.on("error", (err) => {
   log("🔴 Redis subscriber client error!", err);
   logError('error', `Redis sub: ${err.message}`);
 });
 
-const pub = !dev
-  ? createClient({ url: redisConnectionString })
-  : createClient();
-pub.on("error", (err) => {
+const pub = redisEnabled
+  ? (!dev ? createClient({ url: redisConnectionString }) : createClient())
+  : null;
+if (pub) pub.on("error", (err) => {
   log("🔴 Redis publisher client error!", err);
   logError('error', `Redis pub: ${err.message}`);
 });
 
 try {
-  await sub.connect();
-  await pub.connect();
+  if (sub && pub) {
+    await sub.connect();
+    await pub.connect();
 
-  // TODO: This needs to be sent only for a specific user or needs
-  //       some kind of special ID.
-  await sub.subscribe("code", (message) => {
-    const parsed = JSON.parse(message);
-    if (codeChannels[parsed.codeChannel]) {
-      const msg = pack("code", message, "development");
-      subscribers(codeChannels[parsed.codeChannel], msg);
-    }
-  });
+    await sub.subscribe("code", (message) => {
+      const parsed = JSON.parse(message);
+      if (codeChannels[parsed.codeChannel]) {
+        const msg = pack("code", message, "development");
+        subscribers(codeChannels[parsed.codeChannel], msg);
+      }
+    });
 
-  await sub.subscribe("scream", (message) => {
-    everyone(pack("scream", message, "screamer")); // Socket back to everyone.
-  });
+    await sub.subscribe("scream", (message) => {
+      everyone(pack("scream", message, "screamer")); // Socket back to everyone.
+    });
+  } else {
+    log("⚠️ Redis disabled — code/scream channels unavailable");
+  }
 } catch (err) {
   error("🔴 Could not connect to `redis` instance.");
 }
@@ -1808,6 +1814,19 @@ wss.on("connection", async (ws, req) => {
               log(`Command '${msg.cmd}' → ${msg.machineId} (${commandId})`);
             }
           }
+          // Swank eval: forward CL expression to device for evaluation
+          if (msg.type === "swank:eval" && msg.machineId && msg.expr) {
+            const device = machinesDevices.get(msg.machineId);
+            if (device && device.user === userSub && device.ws.readyState === WebSocket.OPEN) {
+              const evalId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+              device.ws.send(JSON.stringify({
+                type: "swank:eval",
+                expr: msg.expr,
+                evalId,
+              }));
+              log(`🔮 Swank eval → ${msg.machineId}: ${msg.expr.slice(0, 60)}`);
+            }
+          }
         } catch (e) {
           error('🖥️ Machines viewer message error:', e);
         }
@@ -1901,6 +1920,14 @@ wss.on("connection", async (ws, req) => {
             case "command-ack":
             case "command-response":
               if (userSub) broadcastToMachineViewers(userSub, { type: msg.type, machineId, commandId: msg.commandId, command: msg.command, data: msg.data });
+              break;
+
+            case "swank:result":
+              // Forward Swank eval result from device to viewer
+              if (userSub) broadcastToMachineViewers(userSub, {
+                type: "swank:result", machineId,
+                evalId: msg.evalId, ok: msg.ok, result: msg.result,
+              });
               break;
           }
         } catch (e) {
@@ -2317,6 +2344,25 @@ wss.on("connection", async (ws, req) => {
           deviceWs.send(codeMsg);
           log(`🎹 Sent code to device ${deviceId}`);
         }
+      }
+      return;
+    }
+
+    if (msg.type === "notepat:midi:sources") {
+      sendNotepatMidiSources(ws);
+      return;
+    }
+
+    if (msg.type === "notepat:midi:subscribe") {
+      const filter = msg.content || {};
+      addNotepatMidiSubscriber(id, ws, filter);
+      return;
+    }
+
+    if (msg.type === "notepat:midi:unsubscribe") {
+      removeNotepatMidiSubscriber(id);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(pack("notepat:midi:unsubscribed", true, "midi-relay"));
       }
       return;
     }
@@ -2800,6 +2846,7 @@ wss.on("connection", async (ws, req) => {
   ws.on("close", () => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
     const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
+    removeNotepatMidiSubscriber(id);
 
     // Remove from VSCode clients if present
     vscodeClients.delete(ws);
@@ -2982,6 +3029,135 @@ function normalizeProfileHandle(handle) {
   const raw = `${handle}`.trim();
   if (!raw) return null;
   return `@${raw.replace(/^@+/, "").toLowerCase()}`;
+}
+
+function normalizeMidiHandle(handle) {
+  const normalized = normalizeProfileHandle(handle);
+  return normalized ? normalized.slice(1) : "";
+}
+
+function notepatMidiSourceKey(handle, machineId) {
+  const handleKey = normalizeProfileHandle(handle) || "@unknown";
+  const machineKey = `${machineId || "unknown"}`.trim() || "unknown";
+  return `${handleKey}:${machineKey}`;
+}
+
+function listNotepatMidiSources() {
+  return [...notepatMidiSources.values()]
+    .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))
+    .map((source) => ({
+      handle: source.handle || null,
+      machineId: source.machineId,
+      piece: source.piece || "notepat",
+      lastSeen: source.lastSeen || 0,
+      lastEvent: source.lastEvent || null,
+    }));
+}
+
+function sendNotepatMidiSources(ws) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    ws.send(pack("notepat:midi:sources", { sources: listNotepatMidiSources() }, "midi-relay"));
+  } catch (err) {
+    error("🎹 Failed to send notepat midi sources:", err);
+  }
+}
+
+function removeNotepatMidiSubscriber(id) {
+  if (id === undefined || id === null) return;
+  notepatMidiSubscribers.delete(id);
+}
+
+function addNotepatMidiSubscriber(id, ws, filter = {}) {
+  if (id === undefined || id === null || !ws) return;
+
+  notepatMidiSubscribers.set(id, {
+    ws,
+    all: filter.all === true,
+    handle: normalizeMidiHandle(filter.handle),
+    machineId: filter.machineId ? `${filter.machineId}`.trim() : "",
+  });
+
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(pack("notepat:midi:subscribed", {
+      all: filter.all === true,
+      handle: normalizeMidiHandle(filter.handle) || null,
+      machineId: filter.machineId ? `${filter.machineId}`.trim() : null,
+    }, "midi-relay"));
+  }
+
+  sendNotepatMidiSources(ws);
+}
+
+function broadcastNotepatMidiSources() {
+  for (const [id, sub] of notepatMidiSubscribers) {
+    if (!sub?.ws || sub.ws.readyState !== WebSocket.OPEN) {
+      notepatMidiSubscribers.delete(id);
+      continue;
+    }
+    sendNotepatMidiSources(sub.ws);
+  }
+}
+
+function notepatMidiSubscriberMatches(sub, event) {
+  if (!sub) return false;
+  if (sub.all) return true;
+
+  const eventHandle = normalizeMidiHandle(event?.handle);
+  const eventMachine = event?.machineId ? `${event.machineId}`.trim() : "";
+
+  if (sub.handle && sub.handle !== eventHandle) return false;
+  if (sub.machineId && sub.machineId !== eventMachine) return false;
+
+  return !!(sub.handle || sub.machineId);
+}
+
+function broadcastNotepatMidiEvent(event) {
+  for (const [id, sub] of notepatMidiSubscribers) {
+    if (!sub?.ws || sub.ws.readyState !== WebSocket.OPEN) {
+      notepatMidiSubscribers.delete(id);
+      continue;
+    }
+    if (!notepatMidiSubscriberMatches(sub, event)) continue;
+    try {
+      sub.ws.send(pack("notepat:midi", event, "midi-relay"));
+    } catch (err) {
+      error("🎹 Failed to fan out notepat midi event:", err);
+    }
+  }
+}
+
+function upsertNotepatMidiSource({ handle, machineId, piece, lastEvent, ts, address, port }) {
+  const cleanHandle = normalizeMidiHandle(handle);
+  const cleanMachineId = `${machineId || "unknown"}`.trim() || "unknown";
+  const key = notepatMidiSourceKey(cleanHandle, cleanMachineId);
+  const previous = notepatMidiSources.get(key);
+  const next = {
+    handle: cleanHandle || null,
+    machineId: cleanMachineId,
+    piece: piece || "notepat",
+    lastSeen: ts || Date.now(),
+    lastEvent: lastEvent || previous?.lastEvent || null,
+    address: address || previous?.address || null,
+    port: port || previous?.port || null,
+  };
+
+  notepatMidiSources.set(key, next);
+
+  if (!previous) {
+    log(`🎹 Notepat MIDI source online: ${next.handle ? "@" + next.handle : "@unknown"} ${next.machineId}`);
+  }
+
+  if (
+    !previous ||
+    previous.handle !== next.handle ||
+    previous.machineId !== next.machineId ||
+    previous.piece !== next.piece
+  ) {
+    broadcastNotepatMidiSources();
+  }
+
+  return next;
 }
 
 function compactProfileText(value) {
@@ -3414,42 +3590,119 @@ io.onConnection((channel) => {
 // ---------------------------------------------------------------------------
 const UDP_FAIRY_PORT = 10010;
 
-udpRelay.on("message", (msg, rinfo) => {
-  if (msg.length < 10 || msg[0] !== 0x01) return;
+function handleNotepatMidiUdpPacket(payload, rinfo) {
+  if (!payload || (payload.type !== "notepat:midi" && payload.type !== "notepat:midi:heartbeat")) {
+    return false;
+  }
 
-  const key = `${rinfo.address}:${rinfo.port}`;
-  const x = msg.readFloatLE(1);
-  const y = msg.readFloatLE(5);
-  const hlen = msg[9];
-  const handle = msg.slice(10, 10 + hlen).toString("utf8");
+  const now = Date.now();
+  const source = upsertNotepatMidiSource({
+    handle: payload.handle,
+    machineId: payload.machineId,
+    piece: payload.piece || "notepat",
+    lastEvent: payload.type === "notepat:midi" ? payload.event : "heartbeat",
+    ts: now,
+    address: rinfo.address,
+    port: rinfo.port,
+  });
 
-  udpClients.set(key, { address: rinfo.address, port: rinfo.port, handle, lastSeen: Date.now() });
+  if (!source.handle && !source.machineId) {
+    return true;
+  }
 
-  // Build broadcast packet (type 0x02)
-  const bcast = Buffer.alloc(msg.length);
-  msg.copy(bcast);
-  bcast[0] = 0x02;
+  if (payload.type === "notepat:midi:heartbeat") {
+    return true;
+  }
 
-  // Broadcast to all other UDP clients
-  for (const [k, client] of udpClients) {
-    if (k !== key) {
-      udpRelay.send(bcast, client.port, client.address);
+  const rawNote = Number(payload.note);
+  const rawVelocity = Number(payload.velocity);
+  const rawChannel = Number(payload.channel);
+  if (!Number.isFinite(rawNote) || !Number.isFinite(rawVelocity) || !Number.isFinite(rawChannel)) {
+    log("🎹 Invalid notepat midi UDP payload:", payload);
+    return true;
+  }
+
+  let event = payload.event === "note_off" ? "note_off" : "note_on";
+  const note = Math.max(0, Math.min(127, Math.round(rawNote)));
+  const velocity = Math.max(0, Math.min(127, Math.round(rawVelocity)));
+  const channel = Math.max(0, Math.min(15, Math.round(rawChannel)));
+  if (event === "note_on" && velocity === 0) event = "note_off";
+
+  broadcastNotepatMidiEvent({
+    type: "notepat:midi",
+    event,
+    note,
+    velocity,
+    channel,
+    handle: source.handle,
+    machineId: source.machineId,
+    piece: source.piece || "notepat",
+    ts: Number.isFinite(Number(payload.ts)) ? Number(payload.ts) : now,
+  });
+
+  return true;
+}
+
+function pruneNotepatMidiSources() {
+  const now = Date.now();
+  let changed = false;
+
+  for (const [key, source] of notepatMidiSources) {
+    if (now - (source.lastSeen || 0) > UDP_MIDI_SOURCE_TTL_MS) {
+      notepatMidiSources.delete(key);
+      changed = true;
     }
   }
 
-  // Also broadcast to Geckos.io WebRTC clients as fairy:point
-  const fairyData = JSON.stringify({ x, y, handle });
-  try {
-    // Emit to all geckos channels
-    io.room().emit("fairy:point", fairyData);
-  } catch (e) { /* ignore */ }
+  if (changed) broadcastNotepatMidiSources();
+}
 
-  // Publish to Redis for silo firehose (throttled)
-  const now = Date.now();
-  const lastFairy = fairyThrottle.get(key) || 0;
-  if (now - lastFairy >= FAIRY_THROTTLE_MS) {
-    fairyThrottle.set(key, now);
-    pub.publish("fairy:point", fairyData).catch(() => {});
+udpRelay.on("message", (msg, rinfo) => {
+  if (msg.length > 0 && msg[0] === 0x01 && msg.length >= 10) {
+    const key = `${rinfo.address}:${rinfo.port}`;
+    const x = msg.readFloatLE(1);
+    const y = msg.readFloatLE(5);
+    const hlen = msg[9];
+    const handle = msg.slice(10, 10 + hlen).toString("utf8");
+
+    udpClients.set(key, { address: rinfo.address, port: rinfo.port, handle, lastSeen: Date.now() });
+
+    // Build broadcast packet (type 0x02)
+    const bcast = Buffer.alloc(msg.length);
+    msg.copy(bcast);
+    bcast[0] = 0x02;
+
+    // Broadcast to all other UDP clients
+    for (const [k, client] of udpClients) {
+      if (k !== key) {
+        udpRelay.send(bcast, client.port, client.address);
+      }
+    }
+
+    // Also broadcast to Geckos.io WebRTC clients as fairy:point
+    const fairyData = JSON.stringify({ x, y, handle });
+    try {
+      // Emit to all geckos channels
+      io.room().emit("fairy:point", fairyData);
+    } catch (e) { /* ignore */ }
+
+    // Publish to Redis for silo firehose (throttled)
+    const now = Date.now();
+    const lastFairy = fairyThrottle.get(key) || 0;
+    if (now - lastFairy >= FAIRY_THROTTLE_MS) {
+      fairyThrottle.set(key, now);
+      pub.publish("fairy:point", fairyData).catch(() => {});
+    }
+    return;
+  }
+
+  if (msg.length > 0 && msg[0] === 0x7b) {
+    try {
+      const payload = JSON.parse(msg.toString("utf8"));
+      if (handleNotepatMidiUdpPacket(payload, rinfo)) return;
+    } catch (err) {
+      log("🎹 Failed to parse UDP JSON packet:", err?.message || err);
+    }
   }
 });
 
@@ -3459,6 +3712,7 @@ setInterval(() => {
   for (const [key, client] of udpClients) {
     if (now - client.lastSeen > 30000) udpClients.delete(key);
   }
+  pruneNotepatMidiSources();
 }, 30000);
 
 udpRelay.bind(UDP_FAIRY_PORT, () => {

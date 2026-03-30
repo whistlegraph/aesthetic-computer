@@ -19504,40 +19504,35 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           cHeight = options.height;
 
         async function getDevice(facingModeChoice) {
-          // Swap width and height on iOS. (Implementation default differences.)
-          // Set a height / width aspect ratio on iOS because
-          // of implementation differences.
-
-          // console.log("Trying: Width:", cWidth, "Height:", cHeight);
+          // Use local copies so we don't mutate the outer cWidth/cHeight
+          // across repeated calls (camera swap, resize, etc.).
+          let reqWidth = cWidth,
+            reqHeight = cHeight;
 
           const constraints = {
             facingMode: facingModeChoice,
             frameRate: { ideal: 30 },
           };
 
-          // Calculate target aspect ratio for better matching
-          const targetAR = cWidth / cHeight;
-
+          // Swap width/height on mobile in portrait — camera sensors are
+          // natively landscape, so request landscape constraints.
           if (
             (iOS || Android) &&
             window.matchMedia("(orientation: portrait)").matches &&
             (facingModeChoice === "environment" || facingModeChoice === "user")
-            // &&
-            // firstVideo
           ) {
-            const temp = cWidth;
-            cWidth = cHeight;
-            cHeight = temp;
-            // firstVideo = false;
+            const temp = reqWidth;
+            reqWidth = reqHeight;
+            reqHeight = temp;
           }
 
-          // alert(cWidth + " " + cHeight);
+          // Calculate target aspect ratio AFTER the swap so it matches
+          // the width/height we actually request.
+          const targetAR = reqWidth / reqHeight;
 
-          // Request ideal dimensions with aspect ratio hint
-          constraints.width = { ideal: cWidth };
-          constraints.height = { ideal: cHeight };
-          
-          // Add aspect ratio constraint if supported (helps get better match)
+          constraints.width = { ideal: reqWidth };
+          constraints.height = { ideal: reqHeight };
+
           if (targetAR > 0 && isFinite(targetAR)) {
             constraints.aspectRatio = { ideal: targetAR };
           }
@@ -19606,9 +19601,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const sizeChange = !isNaN(width) && !isNaN(height);
 
             if (sizeChange) {
+              // Update outer dimensions from the new size.
+              cWidth = width;
+              cHeight = height;
+
               video.addEventListener(
                 "loadedmetadata",
                 () => {
+                  // Buffer should match the requested screen dimensions,
+                  // not the (possibly swapped) constraint dimensions.
                   buffer.width = cWidth;
                   buffer.height = cHeight;
                   process();

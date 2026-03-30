@@ -93,17 +93,32 @@ async function getManifest(env) {
 }
 
 // Get template ISO body as a ReadableStream
-async function getTemplateStream(env, buildName) {
+async function getTemplateStream(env, manifest) {
+  const buildName = manifest?.name;
+  if (!buildName) return null;
+
   // Try R2 first
   if (env?.OS_IMAGES) {
     const obj = await env.OS_IMAGES.get(`builds/${buildName}/template.iso`);
-    if (obj) return obj.body;
+    if (obj) {
+      const size = Number(obj.size || 0);
+      if (!manifest?.isoSize || !size || size === manifest.isoSize) {
+        return { body: obj.body, size: size || manifest?.isoSize || 0 };
+      }
+    }
   }
+
   // Fallback: fetch from DO Spaces (with edge caching)
   const res = await fetch(SPACES + "/os/native-notepat-latest.iso", {
     cf: { cacheTtl: 86400, cacheEverything: true },
   });
-  if (res.ok) return res.body;
+  if (res.ok) {
+    const size = Number(res.headers.get("content-length") || "0");
+    if (!manifest?.isoSize || !size || size === manifest.isoSize) {
+      return { body: res.body, size: size || manifest?.isoSize || 0 };
+    }
+  }
+
   return null;
 }
 
@@ -151,8 +166,8 @@ export default {
       }
 
       // 3. Get template ISO stream
-      const templateStream = await getTemplateStream(env, manifest.name);
-      if (!templateStream) {
+      const template = await getTemplateStream(env, manifest);
+      if (!template) {
         // R2 + Spaces both failed — fall through to oven
         const ovenRes = await fetch(ORIGIN + "/os-image" + url.search, {
           headers: { Authorization: auth },
@@ -162,17 +177,20 @@ export default {
 
       // 4. Build identity block and stream with patch
       const identityBlock = makeIdentityBlock(config);
-      const patched = streamPatchedISO(templateStream, identityBlock, manifest);
+      const patched = streamPatchedISO(template.body, identityBlock, manifest);
 
       const handle = config.handle || "unknown";
       const filename = `@${handle}-os-${config.piece || "notepat"}-AC-${manifest.name}.iso`;
+      const requestedLayout = (url.searchParams.get("layout") || "iso").toLowerCase();
 
       return new Response(patched, {
         headers: {
           ...edgeHeaders(request),
           "Content-Type": "application/x-iso9660-image",
           "Content-Disposition": `attachment; filename="${filename}"`,
-          "Content-Length": String(manifest.isoSize),
+          "Content-Length": String(template.size || manifest.isoSize),
+          "X-AC-OS-Requested-Layout": requestedLayout,
+          "X-AC-OS-Layout": "iso",
           "X-Build": manifest.name,
           "X-Patch": "edge",
         },

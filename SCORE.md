@@ -2,7 +2,7 @@
 
 As implemented in this monorepo through the direction of [@jeffrey](https://prompt.ac/@jeffrey) ([ORCID](https://orcid.org/0009-0007-4460-4913)).
 
-<a href="https://github.com/sponsors/whistlegraph"><img src="https://img.shields.io/github/sponsors/whistlegraph?style=for-the-badge&logo=github&label=Sponsor&color=ff6b9d" alt="Sponsor whistlegraph"></a> <a href="https://give.aesthetic.computer"><img src="https://img.shields.io/badge/give-aesthetic.computer-ff6b9d?style=for-the-badge" alt="Give"></a> <a href="https://bills.aesthetic.computer"><img src="https://img.shields.io/badge/bills-transparent%20costs-4ecdc4?style=for-the-badge" alt="Bills"></a>
+<a href="https://github.com/sponsors/whistlegraph"><img src="https://img.shields.io/github/sponsors/whistlegraph?style=for-the-badge&logo=github&label=Sponsor&color=ff6b9d" alt="Sponsor whistlegraph"></a> <a href="https://liberapay.com/aesthetic.computer/donate"><img src="https://img.shields.io/liberapay/receives/aesthetic.computer?style=for-the-badge&logo=liberapay&label=Liberapay&color=f6c915" alt="Donate on Liberapay"></a> <a href="https://give.aesthetic.computer"><img src="https://img.shields.io/badge/give-aesthetic.computer-ff6b9d?style=for-the-badge" alt="Give"></a> <a href="https://bills.aesthetic.computer"><img src="https://img.shields.io/badge/bills-transparent%20costs-4ecdc4?style=for-the-badge" alt="Bills"></a>
 
 <img width="200" src="https://assets.aesthetic.computer/aesthetic-inc/pals.png">
 

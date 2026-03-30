@@ -1,4 +1,4 @@
-import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs";
+import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs?v=20260330-mobile-stack";
 
 const AC_ORIGIN = "https://aesthetic.computer";
 
@@ -132,12 +132,12 @@ await createTryPage({
   acOrigin: AC_ORIGIN,
   mountId: "try-page-root",
   page: {
-    title: "Try L5 on AC",
+    title: "Try L5",
     description: "L5 (Processing-style Lua) live playground and API explorer for Aesthetic Computer.",
   },
   brand: {
-    heading: "Try L5 on AC",
-    logoUrl: "https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png",
+    heading: "Try L5",
+    logoUrl: "./l5-logo-blob.png",
     logoAlt: "L5 logo",
     heroLink: {
       href: "https://l5lua.org/",
@@ -230,6 +230,6 @@ await createTryPage({
   examples: EXAMPLES,
   docs: L5_DOCS,
   onLogoError: (img) => {
-    img.src = "https://aesthetic.computer/l5.aesthetic.computer/l5-logo-blob.png";
+    img.src = "./l5-logo-blob.png";
   },
 });

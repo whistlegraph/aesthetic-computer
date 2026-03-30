@@ -227,7 +227,9 @@ static unsigned long short_write_count = 0;
 
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
-    int16_t buffer[AUDIO_PERIOD_SIZE * AUDIO_CHANNELS];
+    const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
+    int16_t *buffer = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
+    if (!buffer) { fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL; }
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
@@ -245,7 +247,7 @@ static void *audio_thread_fn(void *arg) {
 
         pthread_mutex_lock(&audio->lock);
 
-        for (int i = 0; i < AUDIO_PERIOD_SIZE; i++) {
+        for (unsigned int i = 0; i < period_frames; i++) {
             double mix_l = 0.0, mix_r = 0.0;
             double voice_sum = 0.0; // Total voice weight for auto-mix
 
@@ -549,7 +551,7 @@ static void *audio_thread_fn(void *arg) {
         }
 
         // BPM metronome
-        audio->beat_elapsed += (double)AUDIO_PERIOD_SIZE * dt;
+        audio->beat_elapsed += (double)period_frames * dt;
         double beat_interval = 60.0 / audio->bpm;
         if (audio->beat_elapsed >= beat_interval) {
             audio->beat_elapsed -= beat_interval;
@@ -558,16 +560,16 @@ static void *audio_thread_fn(void *arg) {
 
         pthread_mutex_unlock(&audio->lock);
 
-        audio->total_frames += AUDIO_PERIOD_SIZE;
+        audio->total_frames += period_frames;
         audio->time = (double)audio->total_frames / rate;
 
         // Recording tap: send mixed PCM to recorder (if active)
         if (audio->rec_callback)
-            audio->rec_callback(buffer, AUDIO_PERIOD_SIZE, audio->rec_userdata);
+            audio->rec_callback(buffer, period_frames, audio->rec_userdata);
 
         // Write to ALSA (handle short writes to avoid dropped samples/clicks)
         snd_pcm_t *pcm = (snd_pcm_t *)audio->pcm;
-        int remaining = AUDIO_PERIOD_SIZE;
+        int remaining = (int)period_frames;
         int offset = 0;
         while (remaining > 0) {
             int frames = snd_pcm_writei(pcm, buffer + offset * AUDIO_CHANNELS, remaining);
@@ -599,6 +601,7 @@ static void *audio_thread_fn(void *arg) {
         }
     }
 
+    free(buffer);
     return NULL;
 }
 
@@ -676,8 +679,8 @@ ACAudio *audio_init(void) {
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
 
-    // TTS PCM ring buffer (5 seconds at output rate)
-    audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;
+    // TTS PCM ring buffer (5 seconds at max output rate)
+    audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;  // allocated at max, actual_rate adjusts usage
     audio->tts_buf = calloc(audio->tts_buf_size, sizeof(float));
     audio->tts_read_pos = 0;
     audio->tts_write_pos = 0;
@@ -779,7 +782,9 @@ ACAudio *audio_init(void) {
         return audio;
     }
 
-    // Configure ALSA
+    // Configure ALSA — negotiate rate dynamically.
+    // Try preferred rates from highest to lowest. The hardware decides what it
+    // actually supports; we adapt period/buffer sizes to match the negotiated rate.
     snd_pcm_hw_params_t *params;
     snd_pcm_hw_params_alloca(&params);
     snd_pcm_hw_params_any(pcm, params);
@@ -787,26 +792,75 @@ ACAudio *audio_init(void) {
     snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
     snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
 
-    unsigned int rate = AUDIO_SAMPLE_RATE;
+    // Query hardware rate range
+    unsigned int rate_min = 0, rate_max = 0;
+    snd_pcm_hw_params_get_rate_min(params, &rate_min, NULL);
+    snd_pcm_hw_params_get_rate_max(params, &rate_max, NULL);
+    fprintf(stderr, "[audio] Hardware rate range: %u–%u Hz\n", rate_min, rate_max);
+
+    // Pick sample rate: 48kHz is the safe default that all hardware can sustain.
+    // Many codecs (e.g. Cirrus Logic CS4206) claim 192kHz support but can't
+    // sustain it without constant XRUNs. Only use high rates on known-good
+    // hardware (ThinkPad HDA with Realtek codec handles 192kHz fine).
+    // Heuristic: if max rate > 48kHz AND min rate <= 32kHz, the codec is
+    // likely a laptop HDA that works better at 48kHz.
+    unsigned int rate = 48000;
+    if (rate_max >= 192000 && rate_min > 44100) {
+        // Dedicated audio interface — likely supports high rates reliably
+        rate = 192000;
+    } else if (rate_max >= 96000 && rate_min > 44100) {
+        rate = 96000;
+    }
+    // Override: environment variable AC_AUDIO_RATE forces a specific rate
+    const char *env_rate = getenv("AC_AUDIO_RATE");
+    if (env_rate) {
+        unsigned int r = (unsigned int)atoi(env_rate);
+        if (r >= rate_min && r <= rate_max) rate = r;
+    }
+    fprintf(stderr, "[audio] Selected rate: %u Hz (hw range %u–%u)\n", rate, rate_min, rate_max);
     snd_pcm_hw_params_set_rate_near(pcm, params, &rate, 0);
 
-    snd_pcm_uframes_t period = AUDIO_PERIOD_SIZE;
+    // Scale period and buffer to ~1ms latency at the negotiated rate
+    snd_pcm_uframes_t period = rate / 1000;  // ~1ms worth of frames
+    if (period < 64) period = 64;
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
 
-    snd_pcm_uframes_t buffer_size = AUDIO_PERIOD_SIZE * 3;  // 3 periods (~3ms total at 192kHz)
+    snd_pcm_uframes_t buffer_size = period * 4;  // 4 periods (~4ms total)
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
 
     err = snd_pcm_hw_params(pcm, params);
     if (err < 0) {
-        fprintf(stderr, "[audio] Cannot configure ALSA: %s\n", snd_strerror(err));
+        fprintf(stderr, "[audio] Cannot configure ALSA at %uHz: %s\n", rate, snd_strerror(err));
+        // Last resort: try plughw with default params
+        fprintf(stderr, "[audio] Trying plughw fallback...\n");
         snd_pcm_close(pcm);
-        audio->pcm = NULL;
-        return audio;
+        err = snd_pcm_open(&pcm, "plughw:0,0", SND_PCM_STREAM_PLAYBACK, 0);
+        if (err >= 0) {
+            snd_pcm_hw_params_any(pcm, params);
+            snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+            snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
+            snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
+            rate = 48000;
+            snd_pcm_hw_params_set_rate_near(pcm, params, &rate, 0);
+            period = 256;
+            snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
+            buffer_size = 1024;
+            snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
+            err = snd_pcm_hw_params(pcm, params);
+        }
+        if (err < 0) {
+            fprintf(stderr, "[audio] All ALSA config attempts failed: %s\n", snd_strerror(err));
+            snd_pcm_close(pcm);
+            audio->pcm = NULL;
+            return audio;
+        }
+        snprintf(audio->audio_device, sizeof(audio->audio_device), "plughw:0,0");
     }
 
     snd_pcm_prepare(pcm);
     audio->pcm = pcm;
     audio->actual_rate = rate;
+    audio->actual_period = (unsigned int)period;
 
     // Update glitch rate for actual sample rate
     audio->glitch_rate = rate / 1600;
@@ -1042,6 +1096,34 @@ static void *capture_thread_func(void *arg) {
         ac_log("[mic] no capture device found\n");
         audio->mic_hot = 0;
         return NULL;
+    }
+
+    // Enable capture mixer switches now that capture PCM is open.
+    // (Safe to do after snd_pcm_open — avoids the pre-open EIO bug on some HDA.)
+    {
+        char mixer_card[16];
+        snprintf(mixer_card, sizeof(mixer_card), "hw:%d", audio->card_index);
+        snd_mixer_t *cmix = NULL;
+        if (snd_mixer_open(&cmix, 0) >= 0) {
+            snd_mixer_attach(cmix, mixer_card);
+            snd_mixer_selem_register(cmix, NULL, NULL);
+            snd_mixer_load(cmix);
+            snd_mixer_elem_t *el;
+            for (el = snd_mixer_first_elem(cmix); el; el = snd_mixer_elem_next(el)) {
+                if (!snd_mixer_selem_is_active(el)) continue;
+                if (snd_mixer_selem_has_capture_switch(el)) {
+                    snd_mixer_selem_set_capture_switch_all(el, 1);
+                    ac_log("[mic] enabled capture switch: %s\n", snd_mixer_selem_get_name(el));
+                }
+                if (snd_mixer_selem_has_capture_volume(el)) {
+                    long cmin, cmax;
+                    snd_mixer_selem_get_capture_volume_range(el, &cmin, &cmax);
+                    snd_mixer_selem_set_capture_volume_all(el, cmax);
+                    ac_log("[mic] capture volume %s: %ld/%ld\n", snd_mixer_selem_get_name(el), cmax, cmax);
+                }
+            }
+            snd_mixer_close(cmix);
+        }
     }
 
     snd_pcm_hw_params_t *hw;

@@ -13,7 +13,7 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "noise", "sample"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "noise", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
@@ -103,9 +103,15 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
 // Cached sound API ref (for leave)
 let soundAPI = null;
+let systemAPI = null;
 
 // Tablet mode tracking
 let lastTabletMode = null;
+let usbMidiRecent = [];
+let usbMidiNextRefreshFrame = 0;
+let usbMidiTypecSignature = "";
+let udpMidiBroadcast = false;
+let udpMidiNextHeartbeatFrame = 0;
 
 
 // OS update panel state machine
@@ -233,6 +239,121 @@ function noteToFreq(note, oct) {
   return 440 * Math.pow(2, (oct - 4) + (idx - 9) / 12);
 }
 
+function noteToMidiNumber(note, oct) {
+  const idx = CHROMATIC.indexOf(note);
+  if (idx < 0) return 60;
+  return Math.max(0, Math.min(127, (oct + 1) * 12 + idx));
+}
+
+function velocityToMidi(velocity) {
+  const v = Number.isFinite(velocity) ? velocity : 1;
+  return Math.max(1, Math.min(127, Math.round(v * 127)));
+}
+
+function midiNoteLabel(note, oct) {
+  return note.toUpperCase() + oct;
+}
+
+function pushUsbMidiRecent(prefix, note, oct) {
+  usbMidiRecent.unshift({ text: prefix + midiNoteLabel(note, oct), until: frame + 180 });
+  if (usbMidiRecent.length > 6) usbMidiRecent.length = 6;
+}
+
+function readUsbMidiStatus(system) {
+  try {
+    return system?.usbMidi?.status?.() || system?.usbMidi || { enabled: false, active: false, reason: "uninitialized" };
+  } catch (_) {
+    return system?.usbMidi || { enabled: false, active: false, reason: "uninitialized" };
+  }
+}
+
+function activeUsbMidiNotes() {
+  return Object.values(sounds)
+    .filter((entry) => entry?.midiNote !== undefined)
+    .sort((a, b) => (a.midiNote || 0) - (b.midiNote || 0))
+    .map((entry) => midiNoteLabel(entry.note, entry.octave));
+}
+
+function usbMidiStatusText(status) {
+  const notes = activeUsbMidiNotes();
+  const recent = usbMidiRecent
+    .filter((entry) => entry.until > frame)
+    .map((entry) => entry.text);
+
+  if (status?.active) {
+    if (notes.length > 0) return "USB MIDI ON " + notes.slice(0, 3).join(",");
+    if (recent.length > 0) return "USB MIDI ON " + recent.slice(0, 2).join(" ");
+    return "USB MIDI ON";
+  }
+  return "USB MIDI OFF";
+}
+
+function loadUdpMidiConfig(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    if (!raw) {
+      udpMidiBroadcast = false;
+      return;
+    }
+    const cfg = JSON.parse(raw);
+    udpMidiBroadcast = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+  } catch (_) {
+    udpMidiBroadcast = false;
+  }
+}
+
+function sendUdpMidiEvent(system, event, midiNote, velocity, channel = 0) {
+  if (!udpMidiBroadcast || !system?.udp?.connected) return;
+  system?.udp?.sendMidi?.(event, midiNote, velocity, channel, "notepat");
+}
+
+function maybeSendUdpMidiHeartbeat(system) {
+  if (!udpMidiBroadcast || !system?.udp?.connected) return;
+  if (frame < udpMidiNextHeartbeatFrame) return;
+  system?.udp?.sendMidiHeartbeat?.("notepat");
+  udpMidiNextHeartbeatFrame = frame + 300;
+}
+
+function udpMidiRelayStatusText(system) {
+  if (!udpMidiBroadcast) return "";
+  const handle = system?.udp?.handle || system?.config?.handle || "";
+  if (system?.udp?.connected) return handle ? "relay @" + handle : "relay on";
+  return handle ? "relay ...@" + handle : "relay ...";
+}
+
+function rememberSound(key, entry, system, velocity = 1) {
+  if (!entry) return;
+  entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
+  entry.midiChannel = 0;
+  sounds[key] = entry;
+  system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
+  sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
+  pushUsbMidiRecent(">", entry.note, entry.octave);
+}
+
+function stopSoundKey(key, sound, system, fade = 0.08) {
+  const entry = sounds[key];
+  if (!entry) return;
+  if (entry.compositeVoices) {
+    for (const voice of entry.compositeVoices) sound?.kill?.(voice, fade);
+  } else {
+    sound?.kill?.(entry.synth || entry, fade);
+  }
+  if (entry.midiNote !== undefined) {
+    system?.usbMidi?.noteOff?.(entry.midiNote, 0, entry.midiChannel || 0);
+    sendUdpMidiEvent(system, "note_off", entry.midiNote, 0, entry.midiChannel || 0);
+    pushUsbMidiRecent("<", entry.note, entry.octave);
+  }
+  delete sounds[key];
+}
+
+function stopAllSounds(sound, system, fade = 0.08) {
+  for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
+  touchNotes = {};
+  system?.usbMidi?.allNotesOff?.(0);
+  sounds = {};
+}
+
 function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 
 // Hit-test a touch point against the note grid
@@ -294,6 +415,8 @@ function setWave(nextWave, sound) {
   wave = nextWave;
   waveIndex = wavetypes.indexOf(nextWave);
   if (waveIndex < 0) waveIndex = 0;
+  // Announce wave type
+  sound?.speak?.(nextWave === "composite" ? "composite" : nextWave);
 
   if (wave === "sample") {
     const mic = sound?.microphone || {};
@@ -353,6 +476,10 @@ function startAutoUpdateDownload(system) {
 
 function boot({ wipe, system, sound }) {
   wipe(0);
+  soundAPI = sound;
+  systemAPI = system;
+  loadUdpMidiConfig(system);
+  udpMidiNextHeartbeatFrame = 0;
   const mic = sound?.microphone || null;
   if (mic && (mic.sampleLength || 0) > 0) {
     sampleLoaded = true;
@@ -371,6 +498,7 @@ function boot({ wipe, system, sound }) {
 
 function act({ event: e, sound, wifi, system }) {
   soundAPI = sound;
+  systemAPI = system;
   // Track shift state before any other handling
   if (e.is("keyboard:down") && e.key?.toLowerCase() === "shift") shiftHeld = true;
   if (e.is("keyboard:up") && e.key?.toLowerCase() === "shift") shiftHeld = false;
@@ -431,11 +559,7 @@ function act({ event: e, sound, wifi, system }) {
       const exitBeep = sound?.synth?.("square", { frequency: 880, duration: 0.12, volume: 0.2 });
       if (exitBeep) setTimeout(() => sound?.kill?.(exitBeep, 0.02), 120);
       escCount = 0;
-      for (const k of Object.keys(sounds)) {
-        const s = sounds[k].synth || sounds[k];
-        sound?.kill(s, 0.05);
-      }
-      sounds = {};
+      stopAllSounds(sound, system, 0.05);
       system?.jump?.("prompt");
       return;
     }
@@ -446,6 +570,14 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (key === "space") {
+      // Kick drum — short sine burst with pitch drop
+      if (sound && sound.synth) {
+        sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
+        sound.synth({ type: "sine", tone: 60, duration: 0.2, volume: 0.7, attack: 0.001, decay: 0.19, pan: 0.0 });
+      }
+      return;
+    }
+    if (key === "f10") {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
         metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
@@ -550,13 +682,13 @@ function act({ event: e, sound, wifi, system }) {
           tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
         });
         if (smp) {
-          sounds[key] = { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true };
+          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true }, system, velocity);
         } else {
           const synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
             volume: vol, attack: quickMode ? 0.002 : 0.005, decay: 0.1, pan,
           });
-          sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
+          rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq }, system, velocity);
         }
       } else {
         const synth = sound.synth({
@@ -565,7 +697,7 @@ function act({ event: e, sound, wifi, system }) {
           volume: vol, attack: quickMode ? 0.002 : 0.005,
           decay: 0.1, pan: pan,
         });
-        sounds[key] = { synth, note: letter, octave: noteOctave, baseFreq: freq };
+        rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq }, system, velocity);
       }
       trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
@@ -609,9 +741,7 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (sounds[key]) {
-      const s = sounds[key].synth || sounds[key];
-      sound.kill(s, quickMode ? 0.02 : 0.08);
-      delete sounds[key];
+      stopSoundKey(key, sound, system, quickMode ? 0.02 : 0.08);
     }
   }
 
@@ -792,21 +922,34 @@ function act({ event: e, sound, wifi, system }) {
           });
           if (smp) {
             synth = smp;
-            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+            rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true }, system, 1);
           }
+        } else if (wave === "composite") {
+          // Rich layered pad: 5 detuned oscillators
+          const detune = () => Math.floor(Math.random() * 13) - 6;
+          const a = sound.synth({ type: "sine", tone: playFreq, duration: Infinity, volume: 0.5, attack: 0.003, decay: 0.9, pan });
+          const b = sound.synth({ type: "sine", tone: playFreq + 9 + detune(), duration: Infinity, volume: 0.17, attack: 0.003, decay: 0.9, pan });
+          const c = sound.synth({ type: "sawtooth", tone: playFreq + detune(), duration: 0.15 + Math.random() * 0.05, volume: 0.01, attack: 0.005, decay: 0.1, pan });
+          const d = sound.synth({ type: "triangle", tone: playFreq + 8 + detune(), duration: Infinity, volume: 0.016, attack: 0.999, decay: 0.9, pan });
+          const e2 = sound.synth({ type: "square", tone: playFreq + detune(), duration: Infinity, volume: 0.008, attack: 0.05, decay: 0.9, pan });
+          synth = a; // primary handle for kill
+          rememberSound(hitNote.key, {
+            synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
+            compositeVoices: [a, b, c, d, e2],
+          }, system, 1);
         } else {
           synth = sound.synth({
             type: wave, tone: playFreq, duration: Infinity,
             volume: 0.5, attack: 0.005, decay: 0.1, pan,
           });
-          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
         }
         if (!sounds[hitNote.key]) {
           synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
             volume: 0.5, attack: 0.005, decay: 0.1, pan,
           });
-          sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+          rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
         }
         trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
         touchNotes[pid] = { key: hitNote.key };
@@ -866,10 +1009,7 @@ function act({ event: e, sound, wifi, system }) {
       if (hitNote && hitNote.key && hitNote.key !== touchNotes[pid]?.key) {
         // Release current note
         const oldKey = touchNotes[pid].key;
-        if (sounds[oldKey]) {
-          sound.kill(sounds[oldKey].synth || sounds[oldKey], 0.02);
-          delete sounds[oldKey];
-        }
+        stopSoundKey(oldKey, sound, system, 0.02);
         // Trigger new note
         if (!sounds[hitNote.key]) {
           const freq = noteToFreq(hitNote.letter, hitNote.octave);
@@ -883,21 +1023,21 @@ function act({ event: e, sound, wifi, system }) {
             });
             if (smp) {
               synth = smp;
-              sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true };
+              rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq, isSample: true }, system, 1);
             }
           } else {
             synth = sound.synth({
               type: wave, tone: playFreq,
               duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
             });
-            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+            rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
           }
           if (!sounds[hitNote.key]) {
             synth = sound.synth({
               type: "sine", tone: playFreq,
               duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
             });
-            sounds[hitNote.key] = { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq };
+            rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
           }
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
@@ -919,11 +1059,7 @@ function act({ event: e, sound, wifi, system }) {
     // Release touch-triggered note
     if (touchNotes[pid]) {
       const key = touchNotes[pid].key;
-      if (sounds[key]) {
-        const s = sounds[key].synth || sounds[key];
-        sound.kill(s, 0.08);
-        delete sounds[key];
-      }
+      stopSoundKey(key, sound, system, 0.08);
       delete touchNotes[pid];
     }
   }
@@ -931,6 +1067,7 @@ function act({ event: e, sound, wifi, system }) {
 
 function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, pressures, wifi }) {
   frame++;
+  usbMidiRecent = usbMidiRecent.filter((entry) => entry.until > frame);
   // FPS tracking
   const now = performance.now();
   if (fpsLastTime > 0) {
@@ -948,9 +1085,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const h = screen.height;
   const CH = 6; // char width at size 1 (font_1 = 6x10)
   const mic = sound?.microphone || {};
+  let usbMidiStatus = readUsbMidiStatus(system);
   sampleLoaded = (mic.sampleLength || 0) > 0;
   globalThis.__screenW = w; // expose for act()
   globalThis.__screenH = h;
+
+  const typecSignature = (system?.typec || [])
+    .map((port) => port.port + ":" + port.powerRole + ":" + port.dataRole)
+    .join("|");
+  const typecChanged = typecSignature !== usbMidiTypecSignature;
+  if (typecChanged) {
+    usbMidiTypecSignature = typecSignature;
+  }
+
+  if (usbMidiStatus?.enabled && !usbMidiStatus?.active && frame >= usbMidiNextRefreshFrame) {
+    const typecDevice = (system?.typec || []).some((port) => port.dataRole === "device");
+    if (typecChanged && typecDevice) {
+      usbMidiStatus = system?.usbMidi?.refresh?.() || usbMidiStatus;
+      usbMidiNextRefreshFrame = frame + 180;
+    }
+  }
 
   // Trackpad FX: X = echo, Y = pitch shift (when enabled via \)
   if (trackpadFX && trackpad) {
@@ -1043,8 +1197,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     bgColor[1] = bgTarget[1];
     bgColor[2] = bgTarget[2];
   } else {
-    bgTarget = [0, 0, 0];
-    // Fade to black smoothly
+    bgTarget = dark ? [0, 0, 0] : [255, 255, 255];
+    // Fade smoothly
     bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.25;
     bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.25;
     bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.25;
@@ -1140,6 +1294,26 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite(at, ap === 3 ? 100 : 255, ap === 3 ? 200 : 160, ap === 3 ? 255 : 60, 200);
   } else if (autoUpdate.state === "ready") {
     statusWrite("reboot?", 100, 220, 100, 220);
+  }
+
+  const usbMidiText = usbMidiStatusText(usbMidiStatus);
+  if (usbMidiStatus?.active) {
+    statusWrite(usbMidiText, 100, 220, 140, 220);
+  } else if (usbMidiStatus?.enabled) {
+    statusWrite(usbMidiText, 255, 190, 80, 220);
+  } else {
+    statusWrite(usbMidiText, FG_DIM, FG_DIM, FG_DIM, 200);
+  }
+
+  const relayText = udpMidiRelayStatusText(system);
+  if (relayText) {
+    statusWrite(
+      relayText,
+      system?.udp?.connected ? 80 : 255,
+      system?.udp?.connected ? 180 : 180,
+      system?.udp?.connected ? 255 : 90,
+      210
+    );
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
@@ -1313,6 +1487,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Connect raw UDP for fairy co-presence
     system.udp?.connect("session-server.aesthetic.computer", 10010);
+    udpMidiNextHeartbeatFrame = frame + 30;
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
@@ -2027,7 +2202,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveRowY = settingsY + 36;
     const waveRowH = 14;
-    const waveLabels = ["sine", "tri", "saw", "square", "noise", "sample"];
+    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
@@ -2038,6 +2213,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       [60, 200, 80],   // triangle — green
       [255, 150, 40],  // sawtooth — orange
       [160, 80, 220],  // square — purple
+      [255, 180, 220], // composite — pink
       [220, 60, 60],   // noise — red
       [40, 200, 200],  // sample — cyan
     ];
@@ -2383,6 +2559,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // 🧚 Fairy co-presence — send cursor + paint received fireflies
   if (system.udp?.connected) {
+    maybeSendUdpMidiHeartbeat(system);
     // Send current cursor/touch position as fairy point (~60Hz, throttled by UDP thread)
     if (hoverX >= 0 && hoverY >= 0) {
       system.udp.sendFairy(hoverX / w, hoverY / h);
@@ -2462,12 +2639,7 @@ function leave() {
   trackpadFX = false;
   soundAPI?.room?.setMix?.(0);
   soundAPI?.fx?.setMix?.(1);
-  // Stop all playing sounds
-  for (const key of Object.keys(sounds)) {
-    const s = sounds[key];
-    if (s && s.synth) s.synth.stop?.();
-  }
-  sounds = {};
+  stopAllSounds(soundAPI, systemAPI, 0.02);
 }
 
 export { boot, act, paint, sim, leave };

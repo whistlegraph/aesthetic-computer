@@ -1,6 +1,7 @@
 const DEFAULT_MONACO_LOADER =
   "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js";
 const DEFAULT_MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs";
+const SHARED_TRY_ASSET_VERSION = "20260330-mobile-stack";
 
 const DEFAULT_THEME_VARS = {
   light: {
@@ -87,7 +88,9 @@ function ensureSharedCss() {
   const link = document.createElement("link");
   link.id = "ac-try-shared-css";
   link.rel = "stylesheet";
-  link.href = new URL("./shared-page.css", import.meta.url).href;
+  const cssUrl = new URL("./shared-page.css", import.meta.url);
+  cssUrl.searchParams.set("v", SHARED_TRY_ASSET_VERSION);
+  link.href = cssUrl.href;
   document.head.appendChild(link);
 }
 
@@ -626,13 +629,14 @@ export async function createTryPage(config) {
       updateSource(picked);
       setEditorValue(picked.code);
       queueDraftSave(picked.code);
+      queueOrRun(picked.code);
     });
 
     resetBtn.addEventListener("click", () => {
       const picked = getExampleById(state.selectedExampleId);
       setEditorValue(picked.code);
       queueDraftSave(picked.code);
-      setRuntimeStatus(`Reset to ${picked.title}.`, "");
+      queueOrRun(picked.code);
     });
 
     copyBtn.addEventListener("click", async () => {

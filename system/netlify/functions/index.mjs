@@ -4,7 +4,8 @@ import https from "https";
 import path from "path";
 import { promises as fs } from "fs";
 import { URLSearchParams } from "url";
-import { encode } from "he";
+import he from "he";
+const { encode } = he;
 import * as num from "../../public/aesthetic.computer/lib/num.mjs";
 import {
   parse,
@@ -1134,7 +1135,6 @@ async function fun(event, context) {
           });
         </script>
         <script
-          crossorigin="anonymous"
           src="/aesthetic.computer/boot.mjs"
           type="module"
           defer
@@ -1197,7 +1197,6 @@ async function fun(event, context) {
         <link rel="preload" href="/type/webfonts/ywft-processing-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <link
           rel="stylesheet"
-          crossorigin="anonymous"
           href="/aesthetic.computer/style.css"
         />
         <link rel="stylesheet" href="/type/webfonts/ywft-processing-bold.css" />

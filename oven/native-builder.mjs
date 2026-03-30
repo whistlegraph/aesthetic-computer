@@ -349,6 +349,15 @@ async function runBuildJob(job) {
       repoDir,
     );
 
+    // Auto-cleanup: prune Docker + old build artifacts to prevent disk-full failures.
+    addLogLine(job, "stdout", "Preflight: freeing disk space...");
+    await runPhase(job, "preflight-cleanup", "bash", ["-lc", [
+      "set -euo pipefail",
+      "docker system prune -f --volumes 2>/dev/null | tail -1 || true",
+      "rm -rf /tmp/oven-vmlinuz-* /tmp/ac-build-* 2>/dev/null || true",
+      "df -h / | tail -1",
+    ].join("\n")], repoDir);
+
     // Resolve ref from git HEAD if manual trigger didn't provide one
     if (!job.ref || job.ref === "unknown") {
       const headRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
@@ -361,12 +370,23 @@ async function runBuildJob(job) {
     job.commitMsg = commitMsg;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
-    // Pre-build: prune stopped containers and dangling images to avoid disk-full failures
+    // Pre-build: aggressive prune to avoid disk-full failures (60GB droplet fills fast)
     addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
     try {
       await runPhase(job, "prune", "bash", ["-c",
-        "docker container prune -f && docker builder prune -af --filter until=30m",
+        "docker container prune -f && docker image prune -af --filter until=2h && docker builder prune -af --filter until=30m && docker volume prune -f",
       ], repoDir);
+      // Check free space — abort early if less than 10GB free
+      const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
+      const availKB = parseInt(dfOut, 10) || 0;
+      const availGB = availKB / 1048576;
+      addLogLine(job, "stdout", `  Disk: ${availGB.toFixed(1)}GB free`);
+      if (availGB < 10) {
+        addLogLine(job, "stderr", `  WARNING: Only ${availGB.toFixed(1)}GB free — running full prune...`);
+        await runPhase(job, "emergency-prune", "bash", ["-c",
+          "docker system prune -af --volumes",
+        ], repoDir);
+      }
     } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
 
     // Phase 1: Docker image build (cached layers = fast)
@@ -403,12 +423,19 @@ async function runBuildJob(job) {
 
       job.percent = 75;
 
-      addLogLine(job, "stdout", "Phase 3: Extracting C kernel + ISO...");
+      addLogLine(job, "stdout", "Phase 3: Extracting C kernel + ISO + slim kernel + initramfs...");
       const cid = (await fs.readFile(cidFile, "utf8")).trim();
       const isoOut = `/tmp/oven-iso-${job.id}`;
-      await runPhase(job, "extract", "bash", ["-c",
-        `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut} && docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null; docker rm ${cid} >/dev/null`
-      ], repoDir);
+      const slimOut = `/tmp/oven-vmlinuz-slim-${job.id}`;
+      const initramfsOut = `/tmp/oven-initramfs-${job.id}`;
+      await runPhase(job, "extract", "bash", ["-c", [
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz ${vmlinuzOut}`,
+        `docker cp ${cid}:/tmp/ac-build/ac-os.iso ${isoOut} 2>/dev/null || docker cp ${cid}:/out/ac-os.iso ${isoOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/vmlinuz-slim ${slimOut} 2>/dev/null || docker cp ${cid}:/out/vmlinuz-slim ${slimOut} 2>/dev/null || true`,
+        `docker cp ${cid}:/tmp/ac-build/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || docker cp ${cid}:/out/initramfs.cpio.gz ${initramfsOut} 2>/dev/null || true`,
+        `ls -lh ${slimOut} ${initramfsOut} 2>/dev/null || echo "WARNING: slim/initramfs not extracted"`,
+        `docker rm ${cid} >/dev/null`,
+      ].join("; ")], repoDir);
 
       job.percent = 80;
 
@@ -416,9 +443,14 @@ async function runBuildJob(job) {
       const uploadDir = `/tmp/oven-upload-${job.id}`;
       const vmlinuzUpload = `${uploadDir}/vmlinuz`;
       const isoUpload = `${uploadDir}/ac-os.iso`;
+      const slimUpload = `${uploadDir}/vmlinuz-slim`;
+      const initramfsUpload = `${uploadDir}/initramfs.cpio.gz`;
       await fs.mkdir(uploadDir, { recursive: true });
       await fs.rename(vmlinuzOut, vmlinuzUpload);
       try { await fs.rename(isoOut, isoUpload); } catch {}
+      try { await fs.rename(slimOut, slimUpload); } catch {}
+      try { await fs.rename(initramfsOut, initramfsUpload); } catch {}
+      // upload-release.sh auto-detects sibling files (vmlinuz-slim, initramfs.cpio.gz, ac-os.iso)
       await runPhase(job, "upload", "bash", [uploadScript, vmlinuzUpload], NATIVE_DIR, uploadEnv);
 
       try { await fs.rm(uploadDir, { recursive: true }); } catch {}

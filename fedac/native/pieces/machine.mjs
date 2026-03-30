@@ -227,11 +227,25 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   write("software", { x: sx, y: ry, size: 1, font });
   ry += lineH + 2;
 
-  const ver = system?.version || "unknown";
+  const ver = system?.version ||
+    [hw?.buildName, hw?.gitHash, hw?.buildTs].filter(Boolean).join(" ") || "unknown";
   ink(...c("fg"));
   const verMaxC = Math.floor(colW / charW);
   write(ver.slice(0, verMaxC), { x: sx, y: ry, size: 1, font });
   ry += lineH;
+
+  // Display driver + GPU
+  if (hw?.displayDriver) {
+    ink(...c("dim"));
+    write("display: " + hw.displayDriver, { x: sx, y: ry, size: 1, font });
+    ry += lineH;
+  }
+  if (hw?.gpu && hw.gpu !== "unknown") {
+    ink(...c("dim"));
+    const gpuStr = hw.gpu.length > verMaxC ? hw.gpu.slice(0, verMaxC - 1) + "…" : hw.gpu;
+    write("gpu: " + gpuStr, { x: sx, y: ry, size: 1, font });
+    ry += lineH;
+  }
 
   const handle = system?.config?.handle;
   if (handle) {

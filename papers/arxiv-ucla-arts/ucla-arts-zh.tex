@@ -1,0 +1,292 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{xeCJK}
+\setCJKmainfont{Droid Sans Fallback}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\newfontfamily\aclight{ywft-processing-light}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+\DraftwatermarkOptions{text=WORKING DRAFT,fontsize=3cm,color=draftcolor!18,angle=45}
+
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,
+  pdftitle={两个系，一栋楼：UCLA 艺术学院的经费与行政}}
+
+\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\titleformat{\subsection}{\normalfont\bfseries\small}{\thesubsection}{0.5em}{}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+\newcommand{\dma}{\textsc{DMA}}
+\newcommand{\sofa}{\textsc{School of the Arts and Architecture}}
+
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlength{\columnsep}{1.8em}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{22pt}{26pt}\selectfont\color{acdark} 两个系，一栋楼}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} UCLA 艺术学院的经费与行政}\par
+\vspace{0.3em}
+{\aclight\fontsize{9pt}{11pt}\selectfont\color{acgray} 从 1939 年艺术系到 Broad Art Center 里的 \acrandname{}}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{摘要。}
+UCLA 的艺术系（Department of Art）与设计媒体艺术系（Department of Design~|~Media Arts）共用一栋楼、一个学院和一位院长，却不共享经费模式。艺术系吸引来自藏家和画廊主的大额慈善捐赠——Margo Leavin 捐赠 \$20{,}000{,}000 用于研究生工作室，Resnick 家族捐赠 \$2{,}500{,}000 用于冠名教授席位和摄影实验室。\dma{} 则依靠外部研究资助（NSF、Getty、Rockefeller、Creative Capital）以及跨机构合作运作。两个系都没有直接资助其教师创建的开源软件工具——Processing、p5.js、UCLA Game Lab 的引擎——然而这些工具在全球拥有数百万用户。我追溯了两个系的行政与财务历史，从 1939 年 UCLA 艺术项目创立，到 2006 年 Broad Art Center 启用、2012 年 Processing Foundation 成立，直至当下 \dma{} 内部六个冠名研究计划的运作。本文提出一个与 \ac{} 相关的问题：在该领域中每一个同类项目都依托院校体制庇护的情况下，在体制之外构建创意软件意味着什么？
+\end{quote}
+\vspace{0.5em}
+}]
+
+\section{引言}
+
+Casey Reas 于 2001 年在 MIT 联合创建了 Processing。2004 年，他加入 UCLA 的 Design~|~Media Arts 系~\citep{dmahistory}。2007 至 2009 年间担任系主任。2012 年，他联合创立了 Processing Foundation，注册为 501(c)(3) 非营利组织。根据所有已公开的 IRS 990 申报记录，他从该基金会获得的报酬为零。
+
+Lauren McCarthy 于 2013 年创建了 p5.js。她随后加入 \dma{} 任教。在接下来的十年里，她每周在教学工作之外额外投入 10--20 小时无偿维护该项目~\citep{mccarthy2023making}。她同样从 Processing Foundation 获得零报酬。
+
+两人均为终身教授。两人均由 UCLA 支付工资以从事教学和研究。他们所构建的工具——被数百万人使用——由这些工资隐性补贴，而这种补贴不会出现在任何预算条目中。这正是我在《谁在为创意工具买单？》~\citep{scudder2026sustainability}中所描述的\emph{学术补贴}模式：大学为一件事付费，而教师在此之上做另一件事，正是第二件事改变了世界。
+
+本文的主题是提供这种补贴的机构。不是将 UCLA 视为一个整体，而是聚焦于同一学院内的两个系——Art 和 \dma{}——它们位于同一栋 Richard Meier 设计的建筑里，向同一位院长汇报，共享约 \$70{,}000{,}000 的学院运营预算，却以根本不同的财务架构运作。
+
+我以局外人的身份写作此文。2026 年春季，我受邀作为驻地作者（Author in Residence）参与 UCLA 的 Social Software 实验室~\citep{scudder2026ac}。我构建的 \ac{} 是一个创意计算平台，没有庇护 Processing、p5.js、Scratch、Sonic Pi 及该领域所有同类工具的那种院校保护伞。理解这把伞如何运作——以及谁在撑着它——不是学术好奇心，而是生存研究。
+
+\section{两个系}
+
+\subsection{Art (1939--)}
+
+艺术系是年长的那个。1939 年创立于应用艺术学院（College of Applied Arts），这是 UCLA 学生首次可以主修艺术。此后经历了美术学院（College of Fine Arts，1960 年）并进入艺术学院（School of the Arts，1991 年，后更名为 \sofa{}）。其重心是工作室纯艺术：绘画、素描、雕塑、摄影、陶瓷、版画、新类型、跨学科工作室。
+
+其教师名单读起来像一份美术馆馆藏目录。Catherine Opie（摄影）、Andrea Fraser（跨学科工作室，现任系主任）、Barbara Kruger（新类型，杰出教授）、Lari Pittman（绘画，杰出教授）。这些艺术家的作品在拍卖行成交，悬挂于永久馆藏，并定义了整个艺术运动。
+
+\subsection{Design~|~Media Arts (1988--)}
+
+\dma{} 于 1988 年从艺术系分离，最初名为设计系（Department of Design）。初始方向为陶瓷、纺织、工业设计和平面设计。1996 年 Rebecca Allen 担任系主任，将方向转向媒体。2000 年该系更名为 Design~|~Media Arts。Erkki Huhtamo 和 Christian Moeller 加入教师团队。Casey Reas 于 2004 年到任。
+
+如今 \dma{} 涵盖创意编程、平面设计、游戏、VR/AR、数字制造和媒体理论。其教师构建的软件运行在数百万台设备上。其毕业生在 Google、Apple 和 Pixar 工作——但也在小型工作室、非营利机构和独立实践中。
+
+\subsection{同一栋楼，不同的世界}
+
+两个系于 2006 年迁入 Eli and Edythe Broad Art Center——一栋造价 \$52{,}000{,}000 的建筑（其中包括 Broad Foundation 捐赠的 \$23{,}200{,}000），由 Richard Meier 设计。它们共享走廊、电梯和一位院长，却不共享财务逻辑。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lXX}
+\toprule
+& \textbf{Art} & \textbf{DMA} \\
+\midrule
+Founded & 1939 & 1988 \\
+Focus & Studio fine art & Media, code, design \\
+MFA studios & Off-campus (Culver City) & On-campus (Broad) \\
+Endowed chairs & Yes (Resnick) & None \\
+Major gifts & \$20M Leavin, \$2.5M Resnick & Shared Broad building \\
+Grant sources & NEA, foundations & NSF, Getty, Rockefeller \\
+Software output & Minimal & Processing, p5.js, Game Lab \\
+\bottomrule
+\end{tabularx}
+\caption{UCLA Art 与 \dma{} 的结构比较。}
+\label{tab:comparison}
+\end{table}
+
+\section{Art 的经费来源}
+
+\subsection{Leavin 捐赠}
+
+2016 年，画廊主兼校友 Margo Leavin 向 UCLA 艺术系捐赠了 \$20{,}000{,}000——这是加州大学历史上校友对艺术领域的最大单笔捐赠。这笔资金用于建设 Margo Leavin Graduate Art Studios：一座位于 Culver City、占地 48,000 平方英尺的校区，由 Johnston Marklee 设计，于 2019 年启用。MFA 学生如今在专门建造的工作室中创作，拥有自然采光、制造车间和展览空间。
+
+这就是纯艺术系获得资助的方式。一位画廊主在其职业生涯中代理了在该校任教的艺术家的作品，然后将资金回馈给培养下一代艺术家的学校——而她可能会代理这些新艺术家的作品。循环闭合。激励一致。资金是实在的。
+
+\subsection{Resnick 捐赠基金}
+
+Lynda 和 Stewart Resnick（Wonderful Company、FIJI Water、POM Wonderful）捐赠 \$2{,}000{,}000 设立了 Lynda and Stewart Resnick Endowed Professorship in Art——该系首个冠名教授席位。Catherine Opie 是首任持有者。他们还捐赠了 \$500{,}000 用于翻新本科摄影实验室。
+
+冠名教授席位是永久性资助。本金产生利息；利息支付薪酬补贴和研究经费；教授终身持有该头衔，或直至离任。这是现存最稳定的学术资助形式。
+
+\subsection{规律}
+
+Art 的经费来自参与艺术市场的藏家、画廊主和慈善家。该系培养艺术家。艺术市场赋予艺术家价值。市场参与者回馈资金。这不是一个普遍模式——大多数艺术系没有 Margo Leavin 这样的校友——但在它奏效的地方，它持久有效。
+
+\section{DMA 的经费来源}
+
+\subsection{研究资助}
+
+\dma{} 的教师通过竞争性外部资助为其工作提供经费：
+
+\begin{itemize}
+  \item \textbf{NSF}：\$1{,}300{,}000 用于一个文化/创造力/技术创新项目（McCarthy 作为合作者）
+  \item \textbf{Getty Foundation}：Pacific Standard Time 资助（Vesna 等人）
+  \item \textbf{Rockefeller Foundation}：新媒体奖学金（Eddo Stern）
+  \item \textbf{Creative Capital}：新兴领域资助（Stern、McCarthy）
+  \item \textbf{Chancellor's Arts Initiative}：UCLA 内部资助，每个项目 \$5K--\$15K；自 2021 年以来四轮共计拨款超过 \$550K
+\end{itemize}
+
+这些资助以项目为基础、有时间限制。它们为特定时期的特定研究提供经费。资助结束，资金即终止。没有捐赠基金。没有永续利息。只有下一次申请。
+
+\subsection{六个计划，六位主任}
+
+\dma{} 目前运作六个冠名研究计划，各有其主任和独立的资金关系：
+
+\begin{enumerate}
+  \item \textbf{Social Software}（Reas + McCarthy）——软件即文化、开源、AI。合作方：Processing Foundation、UCLA DataX、YoungArts。
+  \item \textbf{UCLA Game Lab}（Eddo Stern）——跨学院，由 Arts \& Architecture 和 Theater, Film \& Television 共同资助。
+  \item \textbf{Art|Sci Center}（Victoria Vesna）——艺术与纳米科学，联合设立于 \dma{} 和 California NanoSystems Institute。由 NSF、Burroughs Wellcome Fund、Getty 资助。
+  \item \textbf{Conditional Studio}（Chandler McWilliams）——计算的物质性。
+  \item \textbf{Counterforce Lab}（Rebeca Mendez）。
+  \item \textbf{MARS}（Romi Morrison）。
+\end{enumerate}
+
+每个计划都是一座资金孤岛。Game Lab 之所以运作，是因为两个学院分担成本。Art|Sci 之所以运作，是因为一个纳米科学研究所联合承办。Social Software 之所以运作，是因为 Reas 和 McCarthy 自带机构影响力。这些安排中没有任何一个能保证在领导层更替、预算削减或院长优先事项调整时存续。
+
+\subsection{Processing Foundation}
+
+Processing Foundation 是一个注册于纽约布鲁克林的 501(c)(3) 非营利组织。它不是 UCLA 的附属机构。它不接受 UCLA 的资助。其董事会成员包括 Reas 和 McCarthy，但该基金会在制度上是独立的。
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{Xrrr}
+\toprule
+\textbf{Year} & \textbf{Revenue} & \textbf{Expenses} & \textbf{Assets} \\
+\midrule
+2020 & \$273K & \$182K & \$156K \\
+2021 & \$10.9M & \$430K & \$10.6M \\
+2022 & \$751K & \$647K & \$10.7M \\
+2023 & \$513K & \$1.23M & \$10.4M \\
+2024 & \$649K & \$1.52M & \$9.5M \\
+\bottomrule
+\end{tabularx}
+\caption{Processing Foundation 财务数据（IRS 990 申报，来源 ProPublica）。}
+\label{tab:pf-financials}
+\end{table}
+
+2021 年的激增——从 \$273K 到一年内 \$10{,}900{,}000——几乎全部来自 NFT 热潮期间生成艺术家的加密货币捐赠。主要捐赠者包括 Erick Calderon（Art Blocks 创始人）、Tyler Hobbs、Casey Reas 本人、Monica Rizzolli 和 Dmitri Cherniak。这不是一种资金模式，而是一次气象事件。它不会重演。
+
+该基金会目前年支出约 \$1{,}500{,}000，而年收入为 \$650K--\$970K，正在消耗 2021 年的储备。按当前消耗速度，领导层估计还有 12--13 年的运营余量。Reas、Fry 和 Shiffman——三位联合创始人——在所有有记录的年份中从基金会获得的报酬均为 \$0。
+
+\subsection{隐形补贴}
+
+以下才是 Processing 和 p5.js 的真正资金来源：UCLA 向 Reas 和 McCarthy 支付工资。这些工资为他们买来时间。他们将其中一部分时间——无偿、无记录、在任何预算中都不可见——用于维护被数百万人使用的软件。基金会的存在是为了接受捐赠和协调开发。UCLA 的存在是为了支付使无偿工作成为可能的那些薪酬。
+
+这与我在《谁在买单》~\citep{scudder2026sustainability}中调查的 28 位工具作者身上记录到的模式相同。大学是那把伞。工具是那场雨。伞不知道自己在挡雨；它以为自己雇用的是一位教授。
+
+\section{艺术市场资助什么 vs.\ 科研资助资助什么}
+
+Art 和 \dma{} 资金模式之间的差异映射到一个更深层的区别：两个系各自产出什么，以及谁在乎。
+
+Art 产出\emph{物品}。绘画、雕塑、摄影、装置。这些物品进入一个基础设施完善的市场：画廊、拍卖行、藏家、美术馆收购委员会、艺博会。市场标定价格。价格产生财富。财富以慈善形式回流。Opie 的照片可以出售。Kruger 的装置可以受委托创作。该系的声望吸引那些希望在建筑和席位上冠名的捐赠者。
+
+\dma{} 产出\emph{工具和体验}。Processing 不是一件可以挂在墙上的物品。p5.js 不是限量 45 版的版画。UCLA Game Lab 的实验游戏不在 Art Basel 出售。产出是软件——免费、开源、被数百万人使用、不被任何市场定价。当 Reas 的艺术作品出售时（他的生成艺术作品被 V\&A、LACMA、Centre Pompidou 收藏），那是他的艺术实践，而非他的软件实践。二者相关但在财务上分离。
+
+艺术市场能够资助艺术系，因为它能够为艺术定价。没有同等的市场为开源创意工具定价。2021 年到达 Processing Foundation 的 \$10{,}900{,}000 来自数字艺术的一次临时投机泡沫，而非工具本身的可持续市场。
+
+\section{行政管理}
+
+\subsection{学院层面的治理}
+
+两个系均向 \sofa{} 的院长汇报。学院总运营预算约 \$70{,}000{,}000，分布于四个系（Architecture and Urban Design、Art、\dma{}、World Arts and Cultures/Dance）。各系具体预算明细未公开。
+
+院长职位目前为临时（Lionel Popkin）。学院正在寻聘常任院长。这一点很重要，因为院长控制着各系之间的资源分配，而一个吸引 \$20{,}000{,}000 慈善捐赠的系与一个吸引 \$1{,}300{,}000 NSF 资助的系之间的平衡，既是行政问题，也是政治问题。
+
+\subsection{教师编制}
+
+\dma{} 目前拥有 15 名教师（7 名教授、3 名副教授、4 名助理教授、1 名研究教授）。每个教师编制意味着大学每年承担约 \$150K--\$250K 的薪酬和福利。六个研究计划由教师主导——它们之所以存在，是因为特定的教授在主持，当这些教授退休或离任时，这些计划将需要重新配备人员或解散。
+
+\subsection{研究生资助}
+
+两个系均为新入学的 MFA 学生提供 4--5 年的资助方案，目前约为每年 \$30{,}000 加学费（奖学金和助教职位的组合）。Art 的学生在 Culver City 的 Leavin 工作室工作。\dma{} 的学生在 Broad Art Center 工作。资助水平相当；硬件设施则不然——Leavin 的专建设施是 \$20{,}000{,}000 捐赠的直接产物。
+
+\section{对 \ac{} 的启示}
+
+我在构建 \ac{} 时不具备上述任何条件。没有 UCLA 的薪水。没有 NSF 的资助。没有 Processing Foundation 的储备。没有 Margo Leavin 开出的 \$20{,}000{,}000 支票。没有冠名教授席位产生的永续利息。配套论文~\citep{scudder2026sustainability}记录了完整的经济史。
+
+UCLA 的模式展示了院校庇护在最佳状态下的样貌：有时间构建的终身教授、有冠名主任的研究实验室、为特定项目提供经费的外部资助、维持运转的学院级预算。它同样展示了脆弱性：Processing Foundation 的储备是有限的，资助是有期限的，各计划依赖于特定的人，而触及最多用户的开源工具恰恰是整个体系中资金最匮乏的部分。
+
+\ac{} 面临的问题不是"我如何获得一份 UCLA 的薪水"——我没有，大概也不会有。问题在于：适用于 Processing 和 p5.js 的模式（隐形学术补贴 + 非营利基金会 + 一次性加密货币横财）能否被复制、改造，或被某种不需要在研究型大学担任终身教授的方案所替代。
+
+到目前为止，答案是：并不明显。但尝试本身就是项目。
+
+\section{结论}
+
+UCLA 的 \sofa{} 容纳了两个系，它们代表了当代创意实践的两种财务逻辑。Art 由艺术市场资助——由参与物品定价体系的藏家、画廊主和慈善家资助。\dma{} 由研究资助、跨机构合作以及教师薪酬被用于无偿软件工作的隐形补贴所资助。
+
+两种模式都在运作，因为两个系都是功能完善且享有声望的。两种模式都没有直接资助开源创意工具。Processing 之所以存在，是因为 Casey Reas 拥有 UCLA 的薪水并将自己的钱捐给了他联合创立的基金会。p5.js 之所以存在，是因为 Lauren McCarthy 拥有 UCLA 的薪水并在晚间维护代码。暂时稳定了基金会的 \$10{,}900{,}000 横财来自一场投机泡沫，而非一个可持续的市场。
+
+这栋楼很美。走廊是共享的。资金流经不同的管道。
+
+\vspace{0.5em}
+\noindent\textbf{ORCID:} \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -556,9 +556,17 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     strncpy(creds[0].ssid, AC_SSID, WIFI_SSID_MAX - 1);
     strncpy(creds[0].pass, AC_PASS, WIFI_PASS_MAX - 1);
     cred_count = 1;
+    // ATT home network
+    strncpy(creds[cred_count].ssid, "ATT2AWTpcr", WIFI_SSID_MAX - 1);
+    strncpy(creds[cred_count].pass, "t84q%7%g2h8u", WIFI_PASS_MAX - 1);
+    cred_count++;
     // GettyLink (open network, no password)
     strncpy(creds[cred_count].ssid, "GettyLink", WIFI_SSID_MAX - 1);
     creds[cred_count].pass[0] = '\0';
+    cred_count++;
+    // Tondo_Guest
+    strncpy(creds[cred_count].ssid, "Tondo_Guest", WIFI_SSID_MAX - 1);
+    strncpy(creds[cred_count].pass, "California", WIFI_PASS_MAX - 1);
     cred_count++;
 
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");

@@ -235,6 +235,49 @@ function getSafeUrlParts() {
   }
 }
 
+const SAME_ORIGIN_BUILT_IN_PIECE_HOSTS = new Set([
+  "aesthetic.computer",
+  "www.aesthetic.computer",
+  "kidlisp.com",
+  "www.kidlisp.com",
+  "notepat.com",
+  "www.notepat.com",
+  "p5.aesthetic.computer",
+  "sitemap.aesthetic.computer",
+]);
+
+function isLocalDevelopmentHost(hostname) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    /^192\.168\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)
+  );
+}
+
+function getBuiltInPieceBaseUrl() {
+  const { protocol, hostname } = getSafeUrlParts();
+
+  if (typeof window !== "undefined" && window.acSPIDER) {
+    return "https://aesthetic.computer";
+  }
+
+  if (
+    isLocalDevelopmentHost(hostname) &&
+    typeof location !== "undefined" &&
+    location.port
+  ) {
+    return `${protocol}//${hostname}:${location.port}`;
+  }
+
+  if (SAME_ORIGIN_BUILT_IN_PIECE_HOSTS.has(hostname)) {
+    return `${protocol}//${hostname}`;
+  }
+
+  return "https://aesthetic.computer";
+}
+
 let tf; // Active typeface global.
 
 // Cache for loaded typefaces to avoid recreating them
@@ -2128,7 +2171,7 @@ function redirectIfBrandedDomain() {
   if (!hostname) return false;
   // Match notepat.com or www.notepat.com (add more branded domains here as needed)
   if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer/prompt", blank: false } });
+    send({ type: "web", content: { url: "https://aesthetic.computer/notepat", blank: false } });
     return true;
   }
   return false;
@@ -2865,14 +2908,7 @@ const $commonApi = {
   preloadPieces: async function preloadPieces(pieceNames) {
     if (!pieceNames || pieceNames.length === 0) return;
     
-    const { protocol, hostname } = getSafeUrlParts();
-    const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
-    let baseUrl;
-    if (isDevelopment) {
-      baseUrl = `${protocol}//${hostname}:${location.port}`;
-    } else {
-      baseUrl = `https://aesthetic.computer`;
-    }
+    const baseUrl = getBuiltInPieceBaseUrl();
     
     const fetchPromises = pieceNames.map(async (piece) => {
       // Skip if already cached
@@ -7404,17 +7440,7 @@ async function load(
         baseUrl = ".";
       } else {
         // Check if we're in a development environment (localhost with port)
-        const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
-        if (isDevelopment) {
-          // Use the local development server
-          baseUrl = `${protocol}//${hostname}:${location.port}`;
-        } else if (hostname === 'aesthetic.computer') {
-          // If we're on the main aesthetic.computer domain (not subdomain), use same origin
-          baseUrl = `${protocol}//${hostname}`;
-        } else {
-          // Use the production server for sandboxed iframes, spider mode, or any subdomain
-          baseUrl = `https://aesthetic.computer`;
-        }
+        baseUrl = getBuiltInPieceBaseUrl();
       }
     } else {
       baseUrl = `${protocol}//${hostname}`;
@@ -8650,17 +8676,7 @@ async function load(
         let baseUrl;
         if (path.startsWith('aesthetic.computer/')) {
           // Check if we're in a development environment (localhost with port)
-          const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
-          if (isDevelopment) {
-            // Use the local development server
-            baseUrl = `${protocol}//${hostname}:${location.port}`;
-          } else if (hostname.includes('aesthetic.computer')) {
-            // If we're on any aesthetic.computer subdomain, use the same origin to avoid CORS
-            baseUrl = `${protocol}//${hostname}`;
-          } else {
-            // Use the production server for sandboxed iframes or production
-            baseUrl = `https://aesthetic.computer`;
-          }
+          baseUrl = getBuiltInPieceBaseUrl();
           
           // Only strip "aesthetic.computer/" if we're using the main production domain
           if (baseUrl === 'https://aesthetic.computer') {

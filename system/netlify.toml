@@ -576,7 +576,7 @@ function = "os-release-upload"
 [[edge_functions]]
 path = "/*"
 function = "keeps-social"
-excludedPath = ["/api/device-auth", "/api/device-login", "/device-login"]
+excludedPath = ["/api/device-auth", "/api/device-login", "/api/device-token", "/api/device-pair", "/device-login"]
 
 # Version/commit status API
 [functions.version]
@@ -925,7 +925,7 @@ status = 301
 force = true
 [[redirects]]
 from = "https://wand.ac"
-to = "https://aesthetic-computer.netlify.app/wand"
+to = "https://aesthetic.computer/wand"
 status = 301
 force = true
 [[redirects]]
@@ -1747,6 +1747,14 @@ status = 200
 [[redirects]]
 from = "/api/device-auth"
 to = "/.netlify/functions/device-auth"
+status = 200
+[[redirects]]
+from = "/api/device-token"
+to = "/.netlify/functions/device-token"
+status = 200
+[[redirects]]
+from = "/api/device-pair"
+to = "/.netlify/functions/device-pair"
 status = 200
 [[redirects]]
 from = "/api/device-login"

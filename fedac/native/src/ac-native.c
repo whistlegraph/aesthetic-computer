@@ -136,7 +136,7 @@ extern char g_machine_id[64];
 static volatile int drm_handoff_release = 0;
 static volatile int drm_handoff_reclaim = 0;
 static volatile int reboot_requested = 0;
-static volatile int poweroff_requested = 0;
+volatile int poweroff_requested = 0;  // extern'd in js-bindings.c
 
 static void sigusr_handler(int sig) {
     if (sig == SIGUSR1) drm_handoff_release = 1;
@@ -729,15 +729,19 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     char source_dev[32] = "";
     int source_mounted_tmp = 0;
     char kernel_src[96] = "";
+    char bootloader_src[96] = "";
+    char chain_kernel_src[96] = "";
+    char install_kernel_src[96] = "";
     char config_src[64] = "";
 
     ac_log("[install] auto_install_to_hd starting\n");
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...", pixel_scale);
 
-    // Detect source layout: monolithic (BOOTX64.EFI is kernel) or
-    // systemd-boot (BOOTX64.EFI is bootloader, kernel at EFI/Linux/*)
+    // Detect source layout: monolithic (BOOTX64.EFI is kernel), chainloader
+    // (BOOTX64.EFI boots KERNEL.EFI), or systemd-boot (kernel at EFI/Linux/*).
     int systemd_boot_layout = 0;
+    int chainloader_layout = 0;
 
     // Prefer current /mnt only when it is removable and has a bootable layout.
     if (log_dev[0]) {
@@ -745,6 +749,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         get_parent_block(log_dev + 5, blk, sizeof(blk));
         if (blk[0] && is_removable(blk) == 1 &&
             (access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+             access("/mnt/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
              access("/mnt/EFI/Linux/vmlinuz-ac-native", F_OK) == 0)) {
             strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
             source_dev[sizeof(source_dev) - 1] = '\0';
@@ -764,6 +769,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (!blk[0] || is_removable(blk) != 1) continue;
             if (mount(src_candidates[i], "/tmp/src", "vfat", 0, NULL) != 0) continue;
             if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
+                access("/tmp/src/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
                 access("/tmp/src/EFI/Linux/vmlinuz-ac-native", F_OK) == 0) {
                 strncpy(source_dev, src_candidates[i], sizeof(source_dev) - 1);
                 source_dev[sizeof(source_dev) - 1] = '\0';
@@ -786,9 +792,26 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         }
     }
 
+    snprintf(bootloader_src, sizeof(bootloader_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
+    snprintf(chain_kernel_src, sizeof(chain_kernel_src), "%s/EFI/BOOT/KERNEL.EFI", source_mount);
     snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
-    if (!source_dev[0] || (access(kernel_src, F_OK) != 0 && !systemd_boot_layout)) {
+    if (!systemd_boot_layout && access(chain_kernel_src, F_OK) == 0) {
+        chainloader_layout = 1;
+        strncpy(install_kernel_src, chain_kernel_src, sizeof(install_kernel_src) - 1);
+        install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+        ac_log("[install] Detected chainloader layout\n");
+    } else if (systemd_boot_layout) {
+        snprintf(install_kernel_src, sizeof(install_kernel_src), "%s/EFI/Linux/vmlinuz-ac-native",
+                 source_mount);
+    } else {
+        strncpy(install_kernel_src, kernel_src, sizeof(install_kernel_src) - 1);
+        install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+    }
+
+    if (!source_dev[0] ||
+        ((access(kernel_src, F_OK) != 0 && access(chain_kernel_src, F_OK) != 0) &&
+         !systemd_boot_layout)) {
         ac_log("[install] No removable install source with kernel found\n");
         // Log available block devices for diagnostics
         ac_log("[install] Block devices:\n");
@@ -868,7 +891,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 struct stat ksrc_st;
                 struct statvfs hd_vfs;
                 long kernel_bytes = 0, free_mb = 0;
-                if (stat(kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
+                if (stat(install_kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
                 if (statvfs("/tmp/hd", &hd_vfs) == 0)
                     free_mb = (long)hd_vfs.f_bavail * (long)hd_vfs.f_bsize / 1048576;
                 ac_log("[install] kernel=%ldMB free=%ldMB on %s\n",
@@ -930,7 +953,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             long sz = 0;
             if (systemd_boot_layout) {
                 // systemd-boot: copy bootloader, kernel, initramfs, and loader config
-                char src[256], dst[256];
+                char src[256];
 
                 // Copy bootloader as BOOTX64.EFI
                 snprintf(src, sizeof(src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
@@ -957,6 +980,12 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 copy_file(src, "/tmp/hd/loader/entries/ac-native.conf");
 
                 sz = ksz > 0 ? ksz : sz; // use kernel size as success indicator
+            } else if (chainloader_layout) {
+                long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+                long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
+                ac_log("[install] chainloader: %ld bytes\n", bsz);
+                ac_log("[install] kernel: %ld bytes\n", ksz);
+                sz = ksz > 0 ? ksz : bsz;
             } else {
                 // Monolithic: single BOOTX64.EFI is the kernel
                 sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
@@ -973,7 +1002,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 if (!systemd_boot_layout && free_bytes > sz + 1048576) {
                     mkdir("/tmp/hd/EFI/Microsoft", 0755);
                     mkdir("/tmp/hd/EFI/Microsoft/Boot", 0755);
-                    copy_file(kernel_src, "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
+                    copy_file(chainloader_layout ? bootloader_src : kernel_src,
+                              "/tmp/hd/EFI/Microsoft/Boot/bootmgfw.efi");
                 }
 
                 // Preserve user config + wifi creds on installed disk
@@ -997,8 +1027,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
 
                 sync();
                 installed = 1;
-                ac_log("[install] Installed from %s to %s (systemd-boot=%d)\n",
-                        source_dev, devpath, systemd_boot_layout);
+                ac_log("[install] Installed from %s to %s (systemd-boot=%d chainloader=%d)\n",
+                        source_dev, devpath, systemd_boot_layout, chainloader_layout);
             }
 
             umount("/tmp/hd");
@@ -1549,6 +1579,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             char ver[64];
             char bts[64];
             char bname[64] = "";
+            char ddrv[64] = "";
             snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
 #ifdef AC_BUILD_TS
             snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
@@ -1558,14 +1589,18 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 #ifdef AC_BUILD_NAME
             snprintf(bname, sizeof(bname), "%s", AC_BUILD_NAME);
 #endif
+            const char *driver = drm_display_driver(display);
+            snprintf(ddrv, sizeof(ddrv), "display %s", driver);
             int wv = font_measure_matrix(ver, 1);
             int wt = font_measure_matrix(bts, 1);
             int wn = bname[0] ? font_measure_matrix(bname, 1) : 0;
+            int wd = font_measure_matrix(ddrv, 1);
             int max_w = wv;
             if (wt > max_w) max_w = wt;
             if (wn > max_w) max_w = wn;
+            if (wd > max_w) max_w = wd;
             int panel_w = max_w + 8;
-            int panel_h = bname[0] ? 28 : 20;
+            int panel_h = (bname[0] ? 28 : 20) + 8;
             int panel_x = screen->width - panel_w - 3;
             int panel_y = 3;
             graph_ink(graph, is_day
@@ -1588,6 +1623,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 ? (ACColor){80, 100, 90, (uint8_t)alpha}
                 : (ACColor){210, 235, 220, (uint8_t)alpha});
             font_draw_matrix(graph, bts, panel_x + 4, line_y + 8, 1);
+            // Display driver line
+            graph_ink(graph, is_day
+                ? (ACColor){90, 60, 120, (uint8_t)alpha}
+                : (ACColor){180, 160, 255, (uint8_t)alpha});
+            font_draw_matrix(graph, ddrv, panel_x + 4, line_y + 16, 1);
             // "FRESH" badge when first boot of this version
             if (is_new_version) {
                 graph_ink(graph, is_day
@@ -1980,8 +2020,8 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[ac-native] dmesg DRM/i915:\n");
             system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display\\|error' | tail -20");
             // Write diagnostics to USB too
-            system("cat /proc/cmdline >> /mnt/usb/ac-init.log 2>/dev/null");
-            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/usb/ac-init.log 2>/dev/null");
+            system("cat /proc/cmdline >> /mnt/ac-init.log 2>/dev/null");
+            system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/ac-init.log 2>/dev/null");
             if (getpid() == 1) { sleep(30); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
             return 1;
         }
@@ -2023,6 +2063,7 @@ int main(int argc, char *argv[]) {
     // Init graphics + font
     ACGraph graph;
     graph_init(&graph, screen);
+    if (display) graph_init_gpu(&graph, display);
     font_init();
 
     // Cursor overlay buffer — drawn separately so KidLisp effects don't smear it
@@ -2876,6 +2917,7 @@ int main(int argc, char *argv[]) {
                         fb_destroy(screen);
                         screen = new_screen;
                         graph_init(&graph, screen);
+                        if (display) graph_init_gpu(&graph, display);
                         input->scale = pixel_scale;
                         // Update JS runtime's graph reference (holds framebuffer)
                         if (rt) {
@@ -2958,9 +3000,18 @@ int main(int argc, char *argv[]) {
                     frame_sync_60fps(&anim_time);
                 }
 
-                // Final black frame
+                // Final black frame + hide console text
                 graph_wipe(&graph, (ACColor){0, 0, 0, 255});
                 ac_display_present(display, screen, pixel_scale);
+                // Suppress kernel console output during shutdown
+                {
+                    // Set kernel loglevel to 0 (suppress all printk)
+                    FILE *pl = fopen("/proc/sys/kernel/printk", "w");
+                    if (pl) { fputs("0 0 0 0", pl); fclose(pl); }
+                    // Hide VT cursor
+                    FILE *vc = fopen("/dev/tty0", "w");
+                    if (vc) { fputs("\033[?25l\033[2J", vc); fclose(vc); }
+                }
 
                 running = 0;
                 break;

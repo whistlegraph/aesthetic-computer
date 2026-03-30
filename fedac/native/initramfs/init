@@ -1,6 +1,8 @@
 #!/bin/sh
 # AC Native OS init — DRM direct boot with crash recovery
 
+export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
@@ -40,49 +42,84 @@ while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/dri/card1 ] && [ ! -e /dev/fb0 ] &&
     i=$((i+1))
 done
 
-# Performance governor
-for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-    echo performance > "$g" 2>/dev/null
-done
-
-export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
+# Performance governor (silently skip if cpufreq not available)
+if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
+    for g in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo performance > "$g" 2>/dev/null
+    done
+fi
 export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
 export HOME="/tmp"
 
-# ── Mount USB EFI partition (for config.json, wifi_creds.json, logs) ──
-# Load filesystem modules and retry — USB takes time to appear
+# ── Mount USB config/log partition (for config.json, wifi creds, logs) ──
+# Prefer the writable config partition over the boot partitions.
 modprobe vfat 2>/dev/null
 modprobe nls_cp437 2>/dev/null
 modprobe nls_ascii 2>/dev/null
 USB_MOUNTED=0
-for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    for p in /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/nvme0n1p1; do
+USB_PARTS="/dev/sda1 /dev/sda2 /dev/sda3 /dev/sdb1 /dev/sdb2 /dev/sdb3 /dev/sdc1 /dev/sdc2 /dev/sdc3 /dev/sdd1 /dev/sdd2 /dev/sdd3 /dev/nvme0n1p1 /dev/nvme0n1p2 /dev/nvme0n1p3"
+
+mount_usb_partition() {
+    pass="$1"
+    for p in $USB_PARTS; do
         if [ -b "$p" ]; then
             mkdir -p /mnt
-            mount -t vfat "$p" /mnt 2>/dev/null && {
-                if [ -f /mnt/EFI/BOOT/BOOTX64.EFI ]; then USB_MOUNTED=1; break 2; fi
-                umount /mnt 2>/dev/null
-            }
+            mount -t vfat "$p" /mnt 2>/dev/null || continue
+            if [ "$pass" = "config" ] && [ -f /mnt/config.json ]; then
+                USB_MOUNTED=1
+                return 0
+            fi
+            if [ "$pass" = "boot" ] && { [ -f /mnt/EFI/BOOT/BOOTX64.EFI ] || [ -f /mnt/EFI/BOOT/KERNEL.EFI ]; }; then
+                USB_MOUNTED=1
+                return 0
+            fi
+            umount /mnt 2>/dev/null
         fi
     done
+    return 1
+}
+
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    mount_usb_partition config && break
+    mount_usb_partition boot && break
     [ "$USB_MOUNTED" = "1" ] && break
     sleep 1
 done
 
+if [ -x /scripts/usb-midi-gadget.sh ]; then
+    if [ "$USB_MOUNTED" = "1" ] && [ -f /mnt/config.json ] &&
+       grep -Eq '"usbMidi"[[:space:]]*:[[:space:]]*true' /mnt/config.json 2>/dev/null; then
+        /scripts/usb-midi-gadget.sh up >/tmp/usb-midi-gadget.log 2>&1 || true
+    else
+        /scripts/usb-midi-gadget.sh down >/tmp/usb-midi-gadget.log 2>&1 || true
+    fi
+fi
+
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Write diagnostics to USB log only (not console)
+# Write diagnostics to console AND USB
+echo "[init] USB_MOUNTED=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 if [ "$USB_MOUNTED" = "1" ]; then
     LOG=/mnt/pre-launch.log
-    echo "=== PRE-LAUNCH ===" > $LOG
-    ls /mnt/ >> $LOG 2>&1
-    echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
-    echo "build: $(cat /etc/ac-build 2>&1)" >> $LOG
-    sync
+else
+    # No USB config partition — try writing logs to /tmp
+    LOG=/tmp/pre-launch.log
 fi
+echo "=== PRE-LAUNCH ===" > $LOG
+ls /dev/dri/ >> $LOG 2>&1
+echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
+echo "build: $(cat /etc/ac-build 2>&1)" >> $LOG
+echo "usb_mounted: $USB_MOUNTED" >> $LOG
+echo "gpu:" >> $LOG
+ls -la /dev/dri/ >> $LOG 2>&1
+ls -la /dev/fb* >> $LOG 2>&1
+echo "block devs:" >> $LOG
+ls /dev/sd* /dev/nvme* >> $LOG 2>&1
+sync
+echo "[init] GPU: $(ls /dev/dri/ 2>/dev/null || echo NONE) USB=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 
 # Start Swank server in background (if SBCL image exists)
 SWANK_PID=0
@@ -94,19 +131,34 @@ fi
 # Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs 2>/dev/null
+    /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
     EXIT_CODE=$?
+    echo "[init] ac-native exited: code=$EXIT_CODE crash=$CRASH_COUNT" > /dev/tty0 2>/dev/null
+    echo "[init] stderr: $(tail -5 /tmp/ac-native-stderr.log 2>/dev/null)" > /dev/tty0 2>/dev/null
+    # Save crash info to USB if mounted
+    if [ "$USB_MOUNTED" = "1" ]; then
+        echo "exit=$EXIT_CODE crash=$CRASH_COUNT $(date 2>/dev/null)" >> /mnt/ac-crash.log
+        cp /tmp/ac-native-stderr.log /mnt/ac-native-stderr.log 2>/dev/null
+        sync
+    fi
 
     if [ "$EXIT_CODE" = "0" ]; then
         sync
+        # Suppress all kernel output before shutdown
+        echo 0 > /proc/sys/kernel/printk 2>/dev/null
+        printf '\033[?25l\033[2J' > /dev/tty0 2>/dev/null
+        poweroff -f 2>/dev/null
         echo o > /proc/sysrq-trigger 2>/dev/null
-        sleep 2; poweroff -f 2>/dev/null; sleep 30
+        sleep 30
         break
     fi
     if [ "$EXIT_CODE" = "2" ]; then
         sync
+        echo 0 > /proc/sys/kernel/printk 2>/dev/null
+        printf '\033[?25l\033[2J' > /dev/tty0 2>/dev/null
+        reboot -f 2>/dev/null
         echo b > /proc/sysrq-trigger 2>/dev/null
-        sleep 2; reboot -f 2>/dev/null; sleep 30
+        sleep 30
         break
     fi
 

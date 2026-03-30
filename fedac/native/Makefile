@@ -13,7 +13,7 @@ BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-bu
 QUIRCDIR   := lib/quirc/lib
 QRGENDIR   := lib/qrcodegen
 CFLAGS     := -O2 -Wall -Wextra -std=gnu11 -I$(QJSDIR) -I$(QUIRCDIR) -I$(QRGENDIR) -DAC_GIT_HASH=\"$(GIT_HASH)\" -DAC_BUILD_TS=\"$(BUILD_TS)\" -DAC_BUILD_NAME=\"$(BUILD_NAME)\"
-LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil
+LDFLAGS  := -Wl,--as-needed -lm -lpthread -lasound -lutil -ldl
 
 # Static build: only when musl-gcc is available (musl has bundled static libc)
 # On Fedora/standard gcc, dynamic linking is used and .so files are bundled in initramfs
@@ -47,10 +47,10 @@ ifeq ($(HAVE_AVCODEC),1)
   LDFLAGS += $(AV_LIBS)
 endif
 
-# SDL2 GPU-accelerated display (optional: make USE_SDL=1)
+# SDL3 GPU-accelerated display (optional: make USE_SDL=1)
 ifdef USE_SDL
-  SDL_CFLAGS := $(shell pkg-config --cflags sdl2 2>/dev/null)
-  SDL_LIBS   := $(shell pkg-config --libs sdl2 2>/dev/null || echo "-lSDL2")
+  SDL_CFLAGS := $(shell pkg-config --cflags sdl3 2>/dev/null)
+  SDL_LIBS   := $(shell pkg-config --libs sdl3 2>/dev/null || echo "-lSDL3")
   CFLAGS  += -DUSE_SDL $(SDL_CFLAGS)
   LDFLAGS += $(SDL_LIBS)
 endif
@@ -77,6 +77,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/color.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
+        $(SRCDIR)/usb-midi.c \
         $(SRCDIR)/wifi.c \
         $(SRCDIR)/tts.c \
         $(SRCDIR)/ws-client.c \
@@ -84,6 +85,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/camera.c \
         $(SRCDIR)/pty.c \
         $(SRCDIR)/machines.c \
+        $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \
         $(SRCDIR)/recorder.c
 
