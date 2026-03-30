@@ -110,6 +110,8 @@ let lastTabletMode = null;
 let usbMidiRecent = [];
 let usbMidiNextRefreshFrame = 0;
 let usbMidiTypecSignature = "";
+let udpMidiBroadcast = false;
+let udpMidiNextHeartbeatFrame = 0;
 
 
 // OS update panel state machine
@@ -286,12 +288,46 @@ function usbMidiStatusText(status) {
   return "USB MIDI OFF";
 }
 
+function loadUdpMidiConfig(system) {
+  try {
+    const raw = system?.readFile?.("/mnt/config.json");
+    if (!raw) {
+      udpMidiBroadcast = false;
+      return;
+    }
+    const cfg = JSON.parse(raw);
+    udpMidiBroadcast = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+  } catch (_) {
+    udpMidiBroadcast = false;
+  }
+}
+
+function sendUdpMidiEvent(system, event, midiNote, velocity, channel = 0) {
+  if (!udpMidiBroadcast || !system?.udp?.connected) return;
+  system?.udp?.sendMidi?.(event, midiNote, velocity, channel, "notepat");
+}
+
+function maybeSendUdpMidiHeartbeat(system) {
+  if (!udpMidiBroadcast || !system?.udp?.connected) return;
+  if (frame < udpMidiNextHeartbeatFrame) return;
+  system?.udp?.sendMidiHeartbeat?.("notepat");
+  udpMidiNextHeartbeatFrame = frame + 300;
+}
+
+function udpMidiRelayStatusText(system) {
+  if (!udpMidiBroadcast) return "";
+  const handle = system?.udp?.handle || system?.config?.handle || "";
+  if (system?.udp?.connected) return handle ? "relay @" + handle : "relay on";
+  return handle ? "relay ...@" + handle : "relay ...";
+}
+
 function rememberSound(key, entry, system, velocity = 1) {
   if (!entry) return;
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   sounds[key] = entry;
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
+  sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
 }
 
@@ -305,6 +341,7 @@ function stopSoundKey(key, sound, system, fade = 0.08) {
   }
   if (entry.midiNote !== undefined) {
     system?.usbMidi?.noteOff?.(entry.midiNote, 0, entry.midiChannel || 0);
+    sendUdpMidiEvent(system, "note_off", entry.midiNote, 0, entry.midiChannel || 0);
     pushUsbMidiRecent("<", entry.note, entry.octave);
   }
   delete sounds[key];
@@ -441,6 +478,8 @@ function boot({ wipe, system, sound }) {
   wipe(0);
   soundAPI = sound;
   systemAPI = system;
+  loadUdpMidiConfig(system);
+  udpMidiNextHeartbeatFrame = 0;
   const mic = sound?.microphone || null;
   if (mic && (mic.sampleLength || 0) > 0) {
     sampleLoaded = true;
@@ -1266,6 +1305,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite(usbMidiText, FG_DIM, FG_DIM, FG_DIM, 200);
   }
 
+  const relayText = udpMidiRelayStatusText(system);
+  if (relayText) {
+    statusWrite(
+      relayText,
+      system?.udp?.connected ? 80 : 255,
+      system?.udp?.connected ? 180 : 180,
+      system?.udp?.connected ? 255 : 90,
+      210
+    );
+  }
+
   // Metronome indicator (pendulum) in status bar — shown when enabled
   if (metronomeEnabled) {
     const bpmLabel = metronomeBPM + "b";
@@ -1437,6 +1487,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     system.ws?.connect("wss://chat-system.aesthetic.computer/");
     // Connect raw UDP for fairy co-presence
     system.udp?.connect("session-server.aesthetic.computer", 10010);
+    udpMidiNextHeartbeatFrame = frame + 30;
     if (system?.writeFile && savedCreds.length > 0) {
       system.writeFile(CREDS_PATH, JSON.stringify(savedCreds));
     }
@@ -2508,6 +2559,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // 🧚 Fairy co-presence — send cursor + paint received fireflies
   if (system.udp?.connected) {
+    maybeSendUdpMidiHeartbeat(system);
     // Send current cursor/touch position as fairy point (~60Hz, throttled by UDP thread)
     if (hoverX >= 0 && hoverY >= 0) {
       system.udp.sendFairy(hoverX / w, hoverY / h);
