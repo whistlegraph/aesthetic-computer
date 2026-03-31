@@ -11,6 +11,8 @@
  *   ac-news commits                        # show recent commits for reference
  *   ac-news commits --since "1 week ago"
  *   ac-news list                           # list recent posts
+ *   ac-news edit <code> --replace "old" --with "new"  # find & replace in body
+ *   ac-news edit <code> --editor           # edit body in $EDITOR
  *   ac-news delete <code>                  # delete a post (admin)
  */
 
@@ -299,6 +301,110 @@ async function commandList(args) {
   });
 }
 
+async function commandEdit(args) {
+  const code = args._[1];
+  if (!code) {
+    console.error(
+      'Usage: ac-news edit <code> [options]\n' +
+        '       ac-news edit ncd2 --title "New Title"\n' +
+        '       ac-news edit ncd2 --body "New body text"\n' +
+        '       ac-news edit ncd2 --editor            # open $EDITOR with current body\n' +
+        '       ac-news edit ncd2 --url "https://..."\n' +
+        '       ac-news edit ncd2 --replace "old text" --with "new text"',
+    );
+    process.exit(1);
+  }
+
+  if (!ADMIN_SUB) {
+    console.error("ADMIN_SUB not set.");
+    process.exit(1);
+  }
+
+  const dryRun = !!args["dry-run"];
+
+  await withDb(async (db) => {
+    const posts = db.collection("news-posts");
+    const post = await posts.findOne({ code });
+
+    if (!post) {
+      console.error(`Post not found: ${code}`);
+      process.exit(1);
+    }
+
+    console.log(`\nEditing: "${post.title}" (${code})`);
+
+    const updates = {};
+
+    // --title "New title"
+    if (args.title) {
+      updates.title = args.title;
+      console.log(`  title → "${args.title}"`);
+    }
+
+    // --url "https://..."
+    if (args.url !== undefined) {
+      updates.url = args.url;
+      console.log(`  url → "${args.url}"`);
+    }
+
+    // --replace "old" --with "new" (find-and-replace in body text)
+    if (args.replace && args.with !== undefined) {
+      const oldText = post.text || "";
+      const count = oldText.split(args.replace).length - 1;
+      if (count === 0) {
+        console.error(`  Replace string not found in body: "${args.replace}"`);
+        process.exit(1);
+      }
+      updates.text = oldText.replaceAll(args.replace, args.with);
+      console.log(`  body: replaced ${count} occurrence(s) of "${args.replace}" → "${args.with}"`);
+    }
+
+    // --body "Full new body"
+    if (args.body) {
+      updates.text = args.body;
+      console.log(`  body → ${args.body.length} chars`);
+    }
+
+    // --editor: open current body in $EDITOR
+    if (args.editor) {
+      const editor = process.env.EDITOR || "vi";
+      const tmpFile = join(tmpdir(), `ac-news-edit-${Date.now()}.md`);
+      writeFileSync(tmpFile, post.text || "");
+      try {
+        execSync(`${editor} ${tmpFile}`, { stdio: "inherit" });
+        const newBody = readFileSync(tmpFile, "utf8").trim();
+        if (newBody === (post.text || "").trim()) {
+          console.log("  No changes made.");
+          return;
+        }
+        updates.text = newBody;
+        console.log(`  body → ${newBody.length} chars (via editor)`);
+      } finally {
+        try { unlinkSync(tmpFile); } catch {}
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      console.log("  Nothing to update. Use --title, --body, --url, --replace, or --editor.");
+      return;
+    }
+
+    updates.updated = new Date();
+
+    if (dryRun) {
+      console.log("\n--dry-run: not saving.");
+      if (updates.text) {
+        console.log("\nNew body preview:\n");
+        console.log(updates.text);
+      }
+      return;
+    }
+
+    await posts.updateOne({ code }, { $set: updates });
+    console.log(`\nSaved: https://news.aesthetic.computer/${code}`);
+  });
+}
+
 async function commandDelete(args) {
   const code = args._[1];
   if (!code) {
@@ -345,6 +451,12 @@ Compose:
 
 Manage:
   list [--limit N]                       List recent posts
+  edit <code> --title "New Title"        Edit post title
+  edit <code> --body "New body"          Replace post body
+  edit <code> --editor                   Edit body in $EDITOR
+  edit <code> --url "https://..."        Change post URL
+  edit <code> --replace "old" --with "new"  Find & replace in body
+  edit ... --dry-run                     Preview without saving
   delete <code>                          Delete a post (admin)
 
 Examples:
@@ -352,6 +464,7 @@ Examples:
   ac-news post "Dev Update" "The native OS build system got a major overhaul..."
   ac-news post "Weekly Update" --file updates/2026-03-24.md
   ac-news post "What's New" --editor
+  ac-news edit ncd2 --replace "https://aesthetic.computer)" --with "https://aesthetic.computer/chat)"
   ac-news list
 `);
 }
@@ -364,6 +477,7 @@ const COMMANDS = {
   commits: commandCommits,
   post: commandPost,
   list: commandList,
+  edit: commandEdit,
   delete: commandDelete,
 };
 
