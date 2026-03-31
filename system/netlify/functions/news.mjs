@@ -399,7 +399,7 @@ function renderHandle(handle) {
   // Extract username without @ for the URL
   const username = safeHandle.startsWith("@") ? safeHandle.slice(1) : safeHandle;
   if (username === "anon") return safeHandle;
-  const profileUrl = `https://aesthetic.computer/${username}`;
+  const profileUrl = `https://aesthetic.computer/@${username}`;
   return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">${safeHandle}</a>`;
 }
 
@@ -411,7 +411,7 @@ function autoLinkHandles(html) {
   return html.replace(/(<[^>]*>)|(@([a-zA-Z0-9_-]+))/g, (match, tag, mention, username) => {
     if (tag) return tag; // Pass through HTML tags unchanged.
     if (username === "anon") return match;
-    const profileUrl = `https://aesthetic.computer/${username}`;
+    const profileUrl = `https://aesthetic.computer/@${username}`;
     return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">@${username}</a>`;
   });
 }
