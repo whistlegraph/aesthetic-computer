@@ -1,1 +1,1 @@
-SCORE.md
+See [SCORE.md](SCORE.md).
