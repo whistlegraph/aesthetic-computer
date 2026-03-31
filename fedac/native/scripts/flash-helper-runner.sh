@@ -271,8 +271,9 @@ mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
 sgdisk --attributes=1:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
 partprobe "${USB_DEV}" 2>/dev/null || true
 
-# Partition 1 (ACBOOT): config + kernel as KERNEL.EFI (for AC initramfs to find)
-copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-only
+# Partition 1 (ACBOOT): full kernel as BOOTX64.EFI (standard UEFI fallback path)
+# This works on all PC firmware (ThinkPads, Yoga, etc.) without splash or systemd-boot.
+copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-direct
 
 # Partition 2 (ACEFI): universal boot — splash → systemd-boot → slim kernel + initramfs
 # Works on both Macs (can't load 270MB EFI app) and ThinkPads.
