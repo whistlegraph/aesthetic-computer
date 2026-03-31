@@ -1,0 +1,13 @@
+# Tangled Knot Server — knot.aesthetic.computer
+# Only used if Caddy is not already running for PDS.
+# If Caddy is already active, the deploy script appends to the existing Caddyfile.
+
+knot.aesthetic.computer {
+    reverse_proxy localhost:5555
+
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websocket localhost:5555
+}

@@ -1,0 +1,23 @@
+[Unit]
+Description=Tangled Knot Server (aesthetic computer)
+After=network.target
+
+[Service]
+Type=simple
+User=git
+Group=git
+WorkingDirectory=/home/git
+EnvironmentFile=/home/git/.knot.env
+ExecStart=/usr/local/bin/knot server
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/git/log/knot.log
+StandardError=append:/home/git/log/knot.log
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/git
+
+[Install]
+WantedBy=multi-user.target
