@@ -1089,7 +1089,7 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn;
+let waveBtn, octBtn, osBtn, abletonBtn;
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
@@ -1667,8 +1667,9 @@ async function boot({
     }
   }
 
-  buildWaveButton(api);
   buildOctButton(api);
+  buildWaveButton(api);
+  buildAbletonButton(api);
   buildOsButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
@@ -4588,41 +4589,96 @@ function paint({
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else if (!paintPictureOverlay) {
-    // OS bar background
-    ink(8, 30, 30).box(0, OS_BAR_TOP, screen.width, OS_BAR_HEIGHT);
-    ink(5, 20, 20).line(0, OS_BAR_TOP, screen.width, OS_BAR_TOP);
+    const downloadRailLeft = Math.min(
+      osBtn?.box?.x ?? Infinity,
+      abletonBtn?.box?.x ?? Infinity,
+    );
+    const downloadRailRight = Math.max(
+      (osBtn?.box?.x ?? 0) + (osBtn?.box?.w ?? 0),
+      (abletonBtn?.box?.x ?? 0) + (abletonBtn?.box?.w ?? 0),
+    );
+    if (Number.isFinite(downloadRailLeft) && downloadRailRight > downloadRailLeft) {
+      ink(10, 28, 34, 210).box(
+        downloadRailLeft - 3,
+        0,
+        downloadRailRight - downloadRailLeft + 6,
+        TOP_BAR_BOTTOM - 1,
+      );
+      ink(55, 120, 135, 170).box(
+        downloadRailLeft - 3,
+        0,
+        downloadRailRight - downloadRailLeft + 6,
+        TOP_BAR_BOTTOM - 1,
+        "outline",
+      );
+    }
 
-    osBtn?.paint((btn) => {
-      ink(btn.down ? [20, 70, 70] : [12, 40, 40]).box(
+    abletonBtn?.paint((btn) => {
+      ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(
         btn.box.x,
-        btn.box.y,
+        btn.box.y + 3,
         btn.box.w,
-        btn.box.h,
+        btn.box.h - 3,
       );
       if (btn.over && !btn.down) {
         ink(255, 255, 255, 24).box(
           btn.box.x,
-          btn.box.y,
+          btn.box.y + 3,
           btn.box.w,
-          btn.box.h,
+          btn.box.h - 3,
+        );
+        ink(150, 175, 255, 160).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w,
+          btn.box.h - 3,
+          "outline",
+        );
+      }
+      ink(90, 120, 210).line(
+        btn.box.x + btn.box.w,
+        btn.box.y + 3,
+        btn.box.x + btn.box.w,
+        btn.box.y + btn.box.h - 1,
+      );
+      ink(btn.down ? [235, 240, 255] : [175, 205, 255]).write(
+        "m4l",
+        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        undefined, undefined, false, "MatrixChunky8"
+      );
+    });
+
+    osBtn?.paint((btn) => {
+      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(
+        btn.box.x,
+        btn.box.y + 3,
+        btn.box.w,
+        btn.box.h - 3,
+      );
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w,
+          btn.box.h - 3,
         );
         ink(100, 255, 255, 140).box(
           btn.box.x,
-          btn.box.y,
+          btn.box.y + 3,
           btn.box.w,
-          btn.box.h,
+          btn.box.h - 3,
           "outline",
         );
       }
       ink(70, 160, 160).line(
         btn.box.x + btn.box.w,
-        btn.box.y + 1,
+        btn.box.y + 3,
         btn.box.x + btn.box.w,
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
-        btn.label || "x86 os",
-        { x: btn.box.x + 3, y: btn.box.y + 3 },
+        "os",
+        { x: btn.box.x + 3, y: btn.box.y + 5 },
         undefined, undefined, false, "MatrixChunky8"
       );
     });
@@ -6032,8 +6088,9 @@ function act({
   }
   if (e.is("reframed")) {
     setupButtons(api);
-    buildWaveButton(api);
     buildOctButton(api);
+    buildWaveButton(api);
+    buildAbletonButton(api);
     buildOsButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
@@ -6135,7 +6192,11 @@ function act({
     const topPianoWidth = Math.min(140, Math.floor((screen.width - topBarBase) * 0.5));
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
-    const vizRight = (waveBtn?.box?.x ?? screen.width) - 1;
+    const vizRight = Math.min(
+      osBtn?.box?.x ?? Infinity,
+      abletonBtn?.box?.x ?? Infinity,
+      waveBtn?.box?.x ?? screen.width,
+    ) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
       recitalMode = true;
       recitalBlinkPhase = 0;
@@ -6286,6 +6347,8 @@ function act({
     waveIndex = (waveIndex + 1) % wavetypes.length;
     wave = wavetypes[waveIndex];
     buildWaveButton(api);
+    buildAbletonButton(api);
+    buildOsButton(api);
   }
 
   // if (e.is("keyboard:down:shift") && !e.repeat) {
@@ -7038,6 +7101,9 @@ function act({
         const octNum = parseInt(octave);
         octave = max(1, (octNum + 1) % 10).toString();
         buildOctButton(api);
+        buildWaveButton(api);
+        buildAbletonButton(api);
+        buildOsButton(api);
       },
     });
 
@@ -7048,6 +7114,16 @@ function act({
         waveIndex = (waveIndex + 1) % wavetypes.length;
         wave = wavetypes[waveIndex];
         buildWaveButton(api);
+        buildAbletonButton(api);
+        buildOsButton(api);
+      },
+    });
+
+    abletonBtn?.act(e, {
+      down: () => api.beep(400),
+      push: () => {
+        api.beep();
+        jump("ableton");
       },
     });
 
@@ -8190,20 +8266,34 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-function buildOsButton({ ui, screen }) {
-  const label = "x86 os";
-  const margin = 3;
-  const labelWidth = label.length * 6;
+function buildAbletonButton({ ui }) {
+  const margin = 4;
+  const labelWidth = 3 * 6;
   const buttonWidth = labelWidth + margin * 2;
-  const buttonHeight = OS_BAR_HEIGHT;
-  osBtn = new ui.Button(
+  const buttonHeight = 10 + margin * 2 - 1 + 2;
+  const waveX = waveBtn?.box?.x ?? 9999;
+  abletonBtn = new ui.Button(
+    waveX - buttonWidth - 3,
     0,
-    OS_BAR_TOP,
+    buttonWidth,
+    buttonHeight,
+  );
+  abletonBtn.id = "ableton-button";
+}
+
+function buildOsButton({ ui }) {
+  const margin = 4;
+  const labelWidth = 2 * 6;
+  const buttonWidth = labelWidth + margin * 2;
+  const buttonHeight = 10 + margin * 2 - 1 + 2;
+  const abletonX = abletonBtn?.box?.x ?? waveBtn?.box?.x ?? 9999;
+  osBtn = new ui.Button(
+    abletonX - buttonWidth - 3,
+    0,
     buttonWidth,
     buttonHeight,
   );
   osBtn.id = "os-button";
-  osBtn.label = label;
 }
 
 // Build metronome controls and toggle buttons with responsive layout

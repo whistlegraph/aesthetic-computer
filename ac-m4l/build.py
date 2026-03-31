@@ -752,7 +752,8 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
             return
     
     # Build output directory
-    output_dir = Path(__file__).parent
+    output_dir = Path(__file__).parent / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # Print build mode
     mode = "PROD → https://aesthetic.computer" if production else f"DEV → {defaults.get('baseUrl', 'https://localhost:8888')}"
@@ -789,7 +790,7 @@ def build_all(production: bool = False, device_filter: str = None, install: bool
             f.write(data)
         
         print(f"\n🔧 {filename} [{type_label}]")
-        print(f"   ✅ Built: {filename} ({len(data)} bytes)")
+        print(f"   ✅ Built: {output_path} ({len(data)} bytes)")
         built.append((filename, output_path))
         
         # Install if requested
