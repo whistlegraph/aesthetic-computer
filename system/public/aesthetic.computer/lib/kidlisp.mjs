@@ -15144,11 +15144,12 @@ async function fetchCachedCode(nanoidCode, api = null) {
               }
             });
           } else {
-            console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText} from ${url}`);
+            if (response.status !== 404) {
+              console.error(`❌ Failed to load cached code: ${nanoidCode} - HTTP ${response.status}: ${response.statusText} from ${url}`);
+            }
             resolve(null);
           }
         }).catch(error => {
-          console.error(`❌ Network error loading cached code: ${nanoidCode} from ${url}`, error);
           resolve(null);
         });
       }
@@ -15174,7 +15175,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
 
   // Fallback to production aesthetic.computer domain
   const productionUrl = `https://aesthetic.computer/api/store-kidlisp?code=${nanoidCode}`;
-  console.log(`🔄 Local dev server failed, trying production fallback: ${productionUrl}`);
+  // Silent fallback — 404 on local just means it's not a kidlisp piece
   const productionSource = await tryFetch(productionUrl, true);
   
   return productionSource;

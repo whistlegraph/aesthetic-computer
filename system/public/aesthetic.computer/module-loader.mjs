@@ -302,7 +302,7 @@ class ModuleLoader {
         // If any HTTP fallbacks were needed, the blob approach won't work reliably
         // Clean up the broken blob URLs we created - they have un-rewritten imports
         if (hasHttpFallback) {
-          console.warn(`📦 Bundle ${msg.entry} has circular deps, cleaning up ${newBlobUrls.length} blob URLs`);
+          // Circular deps — clean up blob URLs silently and fall back to HTTP
           for (const modPath of newBlobUrls) {
             const url = this.blobUrls.get(modPath);
             if (url) URL.revokeObjectURL(url);
@@ -396,7 +396,7 @@ class ModuleLoader {
         return null;
       }
       // Static import missing - this is a problem (missing dep in bundle)
-      console.warn(`📦 Missing blob URL: ${modulePath} imports "${importPath}" -> resolved: "${resolved}"`);
+      // Silent — missing blob URLs fall back to HTTP import
       hadFallback = true;
       return null; // Don't rewrite - leave original path
     };
