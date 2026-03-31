@@ -135,6 +135,24 @@
       },
       {
         "box": {
+          "id": "obj-jweb-ready-bang",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            700.0,
+            298.0,
+            40.0,
+            22.0
+          ],
+          "text": "bang"
+        }
+      },
+      {
+        "box": {
           "id": "obj-jweb-print",
           "maxclass": "newobj",
           "numinlets": 1,
@@ -333,9 +351,11 @@
           "id": "obj-thisdevice",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 1,
+          "numoutlets": 3,
           "outlettype": [
-            "bang"
+            "bang",
+            "int",
+            "int"
           ],
           "patching_rect": [
             30.0,
@@ -2534,30 +2554,6 @@
       {
         "patchline": {
           "destination": [
-            "obj-midi-low",
-            0
-          ],
-          "source": [
-            "obj-jweb-route",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-midi-high",
-            0
-          ],
-          "source": [
-            "obj-jweb-route",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
             "obj-ui-range-pack",
             0
           ],
@@ -2648,54 +2644,6 @@
           "source": [
             "obj-midi-high",
             0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-device-path",
-            0
-          ],
-          "source": [
-            "obj-thisdevice",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-device-prop-active",
-            0
-          ],
-          "source": [
-            "obj-device-path",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-device-observer",
-            0
-          ],
-          "source": [
-            "obj-device-prop-active",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-ui-active-msg",
-            0
-          ],
-          "source": [
-            "obj-device-observer",
-            1
           ]
         }
       },
@@ -4010,23 +3958,59 @@
       {
         "patchline": {
           "source": [
-            "obj-device-path",
+            "obj-jweb-route",
             0
           ],
           "destination": [
-            "obj-device-observer",
-            1
+            "obj-jweb-ready-bang",
+            0
           ]
         }
       },
       {
         "patchline": {
           "source": [
-            "obj-jweb-route",
+            "obj-jweb-ready-bang",
             0
           ],
           "destination": [
-            "obj-device-path",
+            "obj-midi-low",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb-ready-bang",
+            0
+          ],
+          "destination": [
+            "obj-midi-high",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb-ready-bang",
+            0
+          ],
+          "destination": [
+            "obj-thisdevice",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-thisdevice",
+            1
+          ],
+          "destination": [
+            "obj-ui-active-msg",
             0
           ]
         }
