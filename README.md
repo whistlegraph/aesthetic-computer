@@ -10,18 +10,22 @@ Try: [`notepat`](https://aesthetic.computer/notepat), [`boyfriend`](https://aest
 
 This is the monorepo. Everything lives here — the web client, session server, KidLisp language, native OS, desktop app, deployment scripts, and 359 built-in pieces.
 
-Read [SCORE.md](SCORE.md) for the full architecture, development commands, and project direction.
+## Score
+
+Each major subsystem has a `SCORE.md` — the process knowledge for authors and LLMs working in that area. Scores document architecture, commands, conventions, and project direction.
+
+- [SCORE.md](SCORE.md) — root (the whole platform)
+- [fedac/SCORE.md](fedac/SCORE.md) — fedac (bare-metal OS)
+- [fedac/native/SCORE.md](fedac/native/SCORE.md) — ac-native (C runtime)
+- [papers/SCORE.md](papers/SCORE.md) — papers and research
+- [system/public/opinion/SCORE.md](system/public/opinion/SCORE.md) — opinion
 
 ## Home
 
-Our canonical home is [aesthetic.computer/core on Tangled](https://tangled.org/aesthetic.computer/core), self-hosted on `knot.aesthetic.computer`. GitHub is maintained as a mirror.
+- **Tangled** (canonical): https://tangled.org/aesthetic.computer/core
+- **GitHub** (mirror): https://github.com/whistlegraph/aesthetic-computer
 
-## Run
-
-```bash
-npm run ac
-# Visit http://localhost:8888
-```
+Self-hosted on `knot.aesthetic.computer`.
 
 ## Identity
 
