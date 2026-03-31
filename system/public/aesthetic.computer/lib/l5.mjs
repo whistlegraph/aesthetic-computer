@@ -140,6 +140,7 @@ export async function module(source) {
     strokeWeight: 1,
     textSize: 1,
     sizeWasCalled: false,
+    pendingResizePaints: 0,
     looping: true,
     redrawRequested: false,
     hasDrawnOnce: false,
@@ -236,7 +237,11 @@ export async function module(source) {
 
   engine.global.set("size", withApi(($, w, h) => {
     state.sizeWasCalled = true;
+    // Keep a couple of paints alive after a resize so noLoop() sketches
+    // still repaint once the AC iframe finishes its reframe/expansion pass.
+    state.pendingResizePaints = Math.max(state.pendingResizePaints, 3);
     $.resolution(asNumber(w, 128), asNumber(h, asNumber(w, 128)));
+    $.needsPaint?.();
   }));
 
   engine.global.set("fill", (...args) => {
@@ -464,7 +469,11 @@ export async function module(source) {
 
     updateInputGlobals(engine, $, state);
 
-    const shouldDraw = state.looping || !state.hasDrawnOnce || state.redrawRequested;
+    const shouldDraw =
+      state.looping ||
+      !state.hasDrawnOnce ||
+      state.redrawRequested ||
+      state.pendingResizePaints > 0;
     if (!shouldDraw) {
       maybePaintRuntimeError($);
       return false;
@@ -476,6 +485,13 @@ export async function module(source) {
 
     safeCall("draw", draw);
     state.hasDrawnOnce = true;
+
+    if (state.pendingResizePaints > 0) {
+      state.pendingResizePaints -= 1;
+      if (state.pendingResizePaints > 0) {
+        $.needsPaint?.();
+      }
+    }
 
     maybePaintRuntimeError($);
     return true;

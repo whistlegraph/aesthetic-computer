@@ -1,4 +1,4 @@
-import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs?v=20260330-mobile-stack";
+import { createTryPage } from "../aesthetic.computer/lib/try/shared-page.mjs?v=20260330-runtime-support";
 import { compileProcessingSourceForRuntime } from "../aesthetic.computer/lib/try/processing-transpile.mjs";
 
 const AC_ORIGIN = "https://aesthetic.computer";
