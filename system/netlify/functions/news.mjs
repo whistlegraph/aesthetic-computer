@@ -369,7 +369,7 @@ function renderMarkdown(text) {
       .join("\n");
     return s;
   });
-  return rendered.join("\n");
+  return autoLinkHandles(rendered.join("\n"));
 }
 
 function formatDate(date) {
@@ -401,6 +401,19 @@ function renderHandle(handle) {
   if (username === "anon") return safeHandle;
   const profileUrl = `https://aesthetic.computer/${username}`;
   return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">${safeHandle}</a>`;
+}
+
+// Auto-link @handles in already-escaped HTML text.
+// Matches @word patterns that aren't already inside an href or tag attribute.
+function autoLinkHandles(html) {
+  if (!html) return html;
+  // Split on existing HTML tags to avoid linking inside attributes.
+  return html.replace(/(<[^>]*>)|(@([a-zA-Z0-9_-]+))/g, (match, tag, mention, username) => {
+    if (tag) return tag; // Pass through HTML tags unchanged.
+    if (username === "anon") return match;
+    const profileUrl = `https://aesthetic.computer/${username}`;
+    return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">@${username}</a>`;
+  });
 }
 
 function parseRoute(event) {
@@ -500,7 +513,7 @@ function footer() {
 }
 
 function renderPostRow(post, idx, basePath) {
-  const title = escapeHtml(post.title || "(untitled)");
+  const title = autoLinkHandles(escapeHtml(post.title || "(untitled)"));
   const url = post.url ? escapeHtml(post.url) : "";
   // Show URL with reasonable truncation for homepage list
   const displayUrl = post.url ? (() => {
@@ -543,7 +556,7 @@ function renderComment(comment) {
         <button type="submit" class="news-delete-btn" title="Delete comment">delete</button>
       </form>
     </div>
-    <div class="news-comment-body">${escapeHtml(comment.text || "")}</div>
+    <div class="news-comment-body">${autoLinkHandles(escapeHtml(comment.text || ""))}</div>
   </div>`;
 }
 
@@ -624,7 +637,7 @@ async function renderItemPage(database, basePath, code) {
   const hydratedComments = await hydrateHandles(database, commentDocs);
   const commentsHtml = hydratedComments.map((c) => renderComment(c)).join("\n");
 
-  const postTitle = escapeHtml(hydratedPost.title || "(untitled)");
+  const postTitle = autoLinkHandles(escapeHtml(hydratedPost.title || "(untitled)"));
   const pageTitle = `${hydratedPost.title || "(untitled)"} | Aesthetic News`;
   const url = hydratedPost.url ? escapeHtml(hydratedPost.url) : "";
   // Show full URL
