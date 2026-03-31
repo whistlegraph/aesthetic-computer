@@ -154,7 +154,7 @@ export class DuelManager {
     const player = this.players.get(handle);
     if (!player || !player.alive) return;
     if (!this.isDuelist(handle)) return;
-    if (this.phase !== "fight") return;
+    if (this.phase !== "fight" && this.phase !== "countdown") return;
 
     player.targetX = Math.max(6, Math.min(ARENA_W - 6, input.targetX));
     player.targetY = Math.max(6, Math.min(ARENA_H - 6, input.targetY));
@@ -188,11 +188,19 @@ export class DuelManager {
 
     if (realPlayers.length === 0) {
       this.resetToWaiting();
+      this.stopTick();
       return;
     }
 
-    if (realPlayers.length === 1 && this.phase === "waiting") {
-      // Solo — start practice with dummy
+    if (realPlayers.length === 1) {
+      // Solo — start practice with dummy (regardless of current phase)
+      // Remove dummy first if stale
+      if (this.roster.includes(DUMMY_HANDLE)) {
+        this.roster = this.roster.filter((h) => h !== DUMMY_HANDLE);
+        this.players.delete(DUMMY_HANDLE);
+      }
+      this.bullets = [];
+      this.phase = "waiting"; // reset phase so startPractice works
       this.startPractice(realPlayers[0]);
       return;
     }
@@ -204,7 +212,7 @@ export class DuelManager {
       this.bullets = [];
     }
 
-    if (this.roster.length >= 2 && this.phase === "waiting") {
+    if (this.roster.length >= 2 && (this.phase === "waiting" || this.phase === "roundover")) {
       this.startCountdown();
     }
   }
@@ -262,6 +270,7 @@ export class DuelManager {
       timer: this.countdownTimer,
     });
 
+    console.log(`🎯 Duel countdown: ${duelists.join(" vs ")} (phase: ${this.phase})`);
     this.ensureTick();
   }
 
@@ -348,6 +357,8 @@ export class DuelManager {
 
     if (this.phase === "countdown") {
       this.countdownTimer--;
+      this.tickDummy();
+      this.tickMovement();
       if (this.countdownTimer <= 0) this.startFight();
     }
 

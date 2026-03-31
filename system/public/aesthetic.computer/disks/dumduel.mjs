@@ -31,6 +31,33 @@ let countdownTimer = 0;
 let roundWinner = null;
 let ping = 0;
 
+function applySnapshot(s) {
+  snap = s;
+  phase = s.phase;
+  countdownTimer = s.countdownTimer;
+  roundWinner = s.roundWinner;
+  roster = (s.roster || []).map((h) => ({ handle: h }));
+
+  // Reconcile prediction
+  const myAck = s.lastInputSeq?.[myHandle] || 0;
+  pendingInputs = pendingInputs.filter((inp) => inp.seq > myAck);
+
+  const meServer = s.players?.find((p) => p.handle === myHandle);
+  if (meServer) {
+    localX = meServer.x;
+    localY = meServer.y;
+    localTargetX = meServer.targetX;
+    localTargetY = meServer.targetY;
+
+    for (const inp of pendingInputs) {
+      localTargetX = inp.targetX;
+      localTargetY = inp.targetY;
+    }
+
+    ping = meServer.ping || 0;
+  }
+}
+
 function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
   sw = screen.width;
   sh = screen.height;
@@ -65,32 +92,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
   udpChannel = udp((type, content) => {
     if (type === "duel:snapshot") {
       const s = typeof content === "string" ? JSON.parse(content) : content;
-      snap = s;
-      phase = s.phase;
-      countdownTimer = s.countdownTimer;
-      roundWinner = s.roundWinner;
-      roster = (s.roster || []).map((h) => ({ handle: h }));
-
-      // Reconcile prediction
-      const myAck = s.lastInputSeq?.[myHandle] || 0;
-      pendingInputs = pendingInputs.filter((inp) => inp.seq > myAck);
-
-      const meServer = s.players?.find((p) => p.handle === myHandle);
-      if (meServer) {
-        // Start from server position
-        localX = meServer.x;
-        localY = meServer.y;
-        localTargetX = meServer.targetX;
-        localTargetY = meServer.targetY;
-
-        // Re-apply unacknowledged inputs
-        for (const inp of pendingInputs) {
-          localTargetX = inp.targetX;
-          localTargetY = inp.targetY;
-        }
-
-        ping = meServer.ping || 0;
-      }
+      applySnapshot(s);
     }
   });
 
@@ -102,6 +104,12 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
     }
 
     const msg = typeof content === "string" ? JSON.parse(content) : content;
+
+    // Snapshot fallback via WS (when UDP not available)
+    if (type === "duel:snapshot") {
+      applySnapshot(msg);
+      return;
+    }
 
     if (type === "duel:joined" || type === "duel:roster") {
       roster = (msg.roster || []).map((h) => ({ handle: h }));
@@ -149,7 +157,7 @@ function sim() {
   frameCount++;
 
   // Predict local movement
-  if (phase === "fight") {
+  if (phase === "fight" || phase === "countdown") {
     const dx = localTargetX - localX;
     const dy = localTargetY - localY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -174,7 +182,7 @@ function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
 
-  if (e.is("touch") && phase === "fight") {
+  if (e.is("touch") && (phase === "fight" || phase === "countdown")) {
     const ox = Math.floor(sw / 2 - ARENA_W / 2);
     const oy = Math.floor(sh / 2 - ARENA_H / 2);
     const tx = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
