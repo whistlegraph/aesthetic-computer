@@ -5708,16 +5708,20 @@ class KidLisp {
                 // Try to evaluate as KidLisp expression/variable
                 let evalResult;
 
-                // Special handling for function names like "frame"
-                const globalEnv = this.getGlobalEnv();
-                if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
-                  // It's a function, call it with the API
-                  evalResult = globalEnv[direction](api, []);
-                  // console.log(`🎬 COAT DEBUG: Evaluated ${direction} as function = ${evalResult}`);
+                // Try expanding as fast math (e.g., "frame*80") before fallback
+                const expanded = this.expandFastMathMacros(direction);
+                if (Array.isArray(expanded)) {
+                  evalResult = this.fastEval(expanded, api, env);
                 } else {
-                  // Try to evaluate as expression or variable
-                  evalResult = this.evaluate(direction, api, env);
-                  // console.log(`🎬 COAT DEBUG: Evaluated ${direction} as expression = ${evalResult}`);
+                  // Special handling for function names like "frame"
+                  const globalEnv = this.getGlobalEnv();
+                  if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                    // It's a function, call it with the API
+                    evalResult = globalEnv[direction](api, []);
+                  } else {
+                    // Try to evaluate as expression or variable
+                    evalResult = this.evaluate(direction, api, env);
+                  }
                 }
 
                 // Convert result to string for the fade string
@@ -9678,8 +9682,9 @@ class KidLisp {
     if (VERBOSE) console.log("🏃 Body:", body);
     // console.log("🎯 BODY DEBUG - length:", body.length, "items:", JSON.stringify(body));
 
-    // 🎨 First-line color shorthand: If the first item is just a color name, 
-    // treat it as (once (wipe <color>)) for easy backdrop setting
+    // 🎨 First-line color shorthand: If the first item is just a color name,
+    // consume it so it doesn't get evaluated as a function call.
+    // The actual wipe is handled by the paint setup via this.firstLineColor.
     if (body.length > 0 && !parsed.body) {
       const firstItem = body[0];
       let colorName = null;
@@ -9699,29 +9704,10 @@ class KidLisp {
         
         // Validate RGB(A) range (0-255)
         if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255 && a >= 0 && a <= 255) {
-          const colorValues = hasAlpha ? [r, g, b, a] : [r, g, b];
-          
-          // Apply backdrop only once per call location
-          const position = api.kidlispCallPosition || "";
-          const backdropKey = `first_line_backdrop_rgb_${r}_${g}_${b}_${a}_${position}`;
-          if (!this.onceExecuted.has(backdropKey)) {
-            this.onceExecuted.add(backdropKey);
-
-            // Set the background fill color for reframe operations
-            if (api.backgroundFill) {
-              api.backgroundFill(colorValues);
-            }
-
-            // Apply wipe once for first-line RGB/RGBA shorthand
-            if (api.wipe) {
-              api.wipe(...colorValues); // Spread RGB or RGBA values as separate arguments
-            }
-          } else {
-            // Don't remove the items - let them be processed normally in subsequent frames
-          }
-          // Remove the processed items so they don't get evaluated again
+          // First-line color is handled by the paint setup ($.wipe(this.firstLineColor))
+          // Just consume the tokens so they don't get evaluated as function calls
           body = body.slice(hasAlpha ? 4 : 3);
-          
+
           // Skip the rest of the color detection since we handled RGB/RGBA
           if (body.length === 0) {
             return undefined; // Nothing left to evaluate
@@ -9747,26 +9733,8 @@ class KidLisp {
           const rgbValues = parseRGBString(colorName);
           if (rgbValues) {
             isValidFirstLineColor = true;
-
-            // Apply backdrop only once per call location
-            const position = api.kidlispCallPosition || "";
-            const backdropKey = `first_line_backdrop_${colorName}_${position}`;
-            if (!this.onceExecuted.has(backdropKey)) {
-              this.onceExecuted.add(backdropKey);
-
-              // Set the background fill color for reframe operations
-              if (api.backgroundFill) {
-                api.backgroundFill(rgbValues);
-              }
-
-              // Apply wipe once for first-line RGB shorthand
-              if (api.wipe) {
-                api.wipe(...rgbValues); // Spread RGB values as separate arguments
-              }
-            } else {
-              // Don't remove the first item - let it be processed normally in subsequent frames
-            }
-            // Remove the first item so it doesn't get evaluated again
+            // First-line color is handled by the paint setup ($.wipe(this.firstLineColor))
+            // Just consume the token
             body = body.slice(1);
           }
         }
@@ -9799,39 +9767,9 @@ class KidLisp {
         }
 
         if (isValidFirstLineColor) {
-          try {
-            // Test if this is a color function by calling it (only for non-fade strings)
-            if (!colorName.startsWith("fade:") && globalEnv[colorName] && typeof globalEnv[colorName] === "function") {
-              globalEnv[colorName]();
-            }
-            // If we get here without error, it's a color function
-            // For color shortcuts, apply backdrop only once per call location
-            const position = api.kidlispCallPosition || "";
-            const backdropKey = `first_line_backdrop_${colorName}_${position}`;
-            if (!this.onceExecuted.has(backdropKey)) {
-              this.onceExecuted.add(backdropKey);
-              
-              // if (kidlispInkLoggingEnabled()) {
-                // console.log('🎨 FIRST-LINE COLOR: Applying backdrop', colorName);
-              // }
-
-              // Set the background fill color for reframe operations
-              if (api.backgroundFill) {
-                api.backgroundFill(colorName);
-              }
-
-              // Apply wipe once for first-line color shorthand
-              if (api.wipe) {
-                api.wipe(colorName);
-              }
-            } else {
-              // Don't remove the first item - let it be processed normally in subsequent frames
-            }
-            // Remove the first item so it doesn't get evaluated again
-            body = body.slice(1);
-          } catch (e) {
-            // Not a color function, proceed normally
-          }
+          // First-line color is handled by the paint setup ($.wipe(this.firstLineColor))
+          // Just consume the token so it doesn't get evaluated as a function call
+          body = body.slice(1);
         }
       }
     }
@@ -9944,14 +9882,20 @@ class KidLisp {
                   if (direction === "frame") {
                     evalResult = this.frameCount;
                   } else {
-                    // Special handling for function names
-                    const globalEnv = this.getGlobalEnv();
-                    if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
-                      // It's a function, call it with the API
-                      evalResult = globalEnv[direction](api, []);
+                    // Try expanding as fast math (e.g., "frame*80") before fallback
+                    const expanded = this.expandFastMathMacros(direction);
+                    if (Array.isArray(expanded)) {
+                      evalResult = this.fastEval(expanded, api, env);
                     } else {
-                      // Try to evaluate as expression or variable
-                      evalResult = this.evaluate(direction, api, env);
+                      // Special handling for function names
+                      const globalEnv = this.getGlobalEnv();
+                      if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                        // It's a function, call it with the API
+                        evalResult = globalEnv[direction](api, []);
+                      } else {
+                        // Try to evaluate as expression or variable
+                        evalResult = this.evaluate(direction, api, env);
+                      }
                     }
                   }
 
@@ -10259,14 +10203,20 @@ class KidLisp {
                       // Try to evaluate as KidLisp expression/variable
                       let evalResult;
 
-                      // Special handling for function names like "frame"
-                      const globalEnv = this.getGlobalEnv();
-                      if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
-                        // It's a function, call it with the API
-                        evalResult = globalEnv[direction](api, []);
+                      // Try expanding as fast math (e.g., "frame*80") before fallback
+                      const expanded = this.expandFastMathMacros(direction);
+                      if (Array.isArray(expanded)) {
+                        evalResult = this.fastEval(expanded, api, env);
                       } else {
-                        // Try to evaluate as expression or variable
-                        evalResult = this.evaluate(direction, api, env);
+                        // Special handling for function names like "frame"
+                        const globalEnv = this.getGlobalEnv();
+                        if (globalEnv[direction] && typeof globalEnv[direction] === "function") {
+                          // It's a function, call it with the API
+                          evalResult = globalEnv[direction](api, []);
+                        } else {
+                          // Try to evaluate as expression or variable
+                          evalResult = this.evaluate(direction, api, env);
+                        }
                       }
 
                       // Convert result to string for the fade string
