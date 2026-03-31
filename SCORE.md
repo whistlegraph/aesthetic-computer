@@ -55,7 +55,7 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 
 **Backend**
 - `session-server/` — Real-time multiplayer (Socket.io)
-- Netlify deployment for static assets
+- `lith/` — Monolith deploy (Express wrapping Netlify function handlers + static files, served via Caddy on a DigitalOcean VPS)
 - Authentication and data storage
 
 **Languages**

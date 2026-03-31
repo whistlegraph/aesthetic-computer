@@ -43,7 +43,7 @@ npm run aesthetic
 npm run ac
 
 # Run individual servers:
-npm run site              # Main Netlify dev server (port 8888)
+npm run site              # Main dev server (port 8888)
 npm run server:session    # Session backend (port 8889)
 npm run stripe            # Stripe webhook listener
 ```
@@ -201,10 +201,10 @@ The API is provided through function parameters. Common APIs:
 
 ### Servers and Services
 
-1. **System Server** (`system/`)
-   - Netlify dev server serving the main application
-   - Edge functions in `netlify/edge-functions/`
-   - Serverless functions in `netlify/functions/`
+1. **System Server** (`system/` + `lith/`)
+   - Production: lith monolith (Express + Caddy on DigitalOcean VPS)
+   - Dev: `npm run site` (port 8888)
+   - Backend functions in `system/netlify/functions/`
    - Handles piece serving, authentication, storage APIs
 
 2. **Session Server** (`session-server/`)
