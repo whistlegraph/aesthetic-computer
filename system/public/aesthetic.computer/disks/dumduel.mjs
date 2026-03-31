@@ -56,11 +56,15 @@ function spawnDuelists() {
     targetX: myPos.x, targetY: myPos.y,
     alive: true, wasMoving: false,
   };
+  // Find opponent handle from roster (whoever isn't me among first two)
+  const opHandle = roster.length >= 2
+    ? (roster[0].handle === myHandle ? roster[1].handle : roster[0].handle)
+    : "???";
   opponent = {
     x: opPos.x, y: opPos.y,
     targetX: opPos.x, targetY: opPos.y,
     alive: true,
-    handle: roster[mySlot === 0 ? 1 : 0]?.handle || "???",
+    handle: opHandle,
   };
 }
 
@@ -85,10 +89,18 @@ function stopPractice() {
 function startCountdown() {
   phase = "countdown";
   countdownTimer = COUNTDOWN_FRAMES;
-  const idx = myRosterIdx();
-  if (idx === 0) mySlot = 0;
-  else if (idx === 1) mySlot = 1;
-  else mySlot = -1;
+
+  // Deterministic slot: lower handle alphabetically = slot 0
+  if (roster.length >= 2) {
+    const h0 = roster[0].handle;
+    const h1 = roster[1].handle;
+    if (myHandle === h0) mySlot = h0 < h1 ? 0 : 1;
+    else if (myHandle === h1) mySlot = h1 < h0 ? 0 : 1;
+    else mySlot = -1; // spectating
+  } else {
+    mySlot = -1;
+  }
+
   if (isDueling()) spawnDuelists();
 }
 
@@ -195,7 +207,11 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
 
     if (type === "duel:join" && msg.handle !== myHandle) {
       if (dummy) stopPractice();
-      if (!roster.find((r) => r.handle === msg.handle)) {
+      // Update ID if handle already exists (reconnect), otherwise add
+      const existing = roster.find((r) => r.handle === msg.handle);
+      if (existing) {
+        existing.id = id;
+      } else {
         roster.push({ id, handle: msg.handle });
       }
       server.send("duel:roster", {
@@ -209,7 +225,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
       }
     }
 
-    if (type === "duel:roster") {
+    if (type === "duel:roster" && msg.handle !== myHandle) {
       if (roster.length <= 1) {
         for (const r of msg.roster) {
           if (!roster.find((x) => x.handle === r.handle)) {
@@ -220,7 +236,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
       }
     }
 
-    if (type === "duel:countdown") {
+    if (type === "duel:countdown" && msg.handle !== myHandle) {
       if (roster.length >= 2 && phase === "waiting") startCountdown();
     }
 
@@ -241,7 +257,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send, net }) 
       else if (me && msg.winner !== myHandle) me.alive = false;
     }
 
-    if (type === "duel:advance") advanceStack();
+    if (type === "duel:advance" && msg.handle !== myHandle) advanceStack();
   });
 
   roster.push({ id: myId, handle: myHandle });
@@ -349,7 +365,7 @@ function sim() {
         me.alive = false;
         bullets.splice(i, 1);
         endRound(opponent?.handle || "???");
-        server?.send("duel:roundover", { winner: opponent?.handle || "???" });
+        server?.send("duel:roundover", { handle: myHandle, winner: opponent?.handle || "???" });
         break;
       }
     }
@@ -360,7 +376,7 @@ function sim() {
         bullets.splice(i, 1);
         endRound(myHandle);
         server?.send("duel:hit", { handle: myHandle, victim: opponent.handle });
-        server?.send("duel:roundover", { winner: myHandle });
+        server?.send("duel:roundover", { handle: myHandle, winner: myHandle });
         break;
       }
     }
