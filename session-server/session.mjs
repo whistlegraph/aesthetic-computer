@@ -165,8 +165,12 @@ function getHandlesOnPiece(pieceName) {
 // Expose the function to chatManager
 chatManager.setPresenceResolver(getHandlesOnPiece);
 
+// 🎯 Duel Manager — server-authoritative game for dumduel piece
+const duelManager = new DuelManager();
+
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
+import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
 
 // *** AC Machines — remote device monitoring ***
 // Devices connect via /machines?role=device&machineId=X&token=Y
@@ -2838,6 +2842,23 @@ wss.on("connection", async (ws, req) => {
         log(`🎮 ${msg.type}: ${msg.content?.handle || id} -> all ${wss.clients.size} clients`);
       }
 
+      // 🎯 Duel messages — routed to DuelManager (server-authoritative)
+      if (msg.type === "duel:join") {
+        const handle = typeof msg.content === "string" ? JSON.parse(msg.content).handle : msg.content?.handle;
+        if (handle) duelManager.playerJoin(handle, id);
+        return;
+      }
+      if (msg.type === "duel:leave") {
+        const handle = typeof msg.content === "string" ? JSON.parse(msg.content).handle : msg.content?.handle;
+        if (handle) duelManager.playerLeave(handle);
+        return;
+      }
+      if (msg.type === "duel:ping") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) duelManager.handlePing(parsed.handle, parsed.ts, id);
+        return;
+      }
+
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
   });
@@ -2846,6 +2867,7 @@ wss.on("connection", async (ws, req) => {
   ws.on("close", () => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
     const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
+    if (departingHandle) duelManager.playerLeave(departingHandle);
     removeNotepatMidiSubscriber(id);
 
     // Remove from VSCode clients if present
@@ -3011,6 +3033,28 @@ function subscribers(subs, msg) {
     connections[connectionId]?.send(msg);
   });
 }
+
+// 🎯 Wire DuelManager send functions
+duelManager.setSendFunctions({
+  sendUDP: (channelId, event, data) => {
+    const entry = udpChannels[channelId];
+    if (entry?.channel?.webrtcConnection?.state === "open") {
+      try { entry.channel.emit(event, data); } catch {}
+    }
+  },
+  sendWS: (wsId, type, content) => {
+    connections[wsId]?.send(pack(type, JSON.stringify(content), "duel"));
+  },
+  broadcastWS: (type, content) => {
+    everyone(pack(type, JSON.stringify(content), "duel"));
+  },
+  resolveUdpForHandle: (handle) => {
+    for (const [id, client] of Object.entries(clients)) {
+      if (client.handle === handle && udpChannels[id]) return id;
+    }
+    return null;
+  },
+});
 // #endregion
 
 // *** Status WebSocket Stream ***
@@ -3393,7 +3437,8 @@ io.onConnection((channel) => {
     connectedAt: Date.now(),
     state: channel.webrtcConnection.state,
     user: null,
-    handle: null
+    handle: null,
+    channel: channel, // Store reference for targeted sends
   };
   
   // Get IP address from channel
@@ -3447,6 +3492,8 @@ io.onConnection((channel) => {
       if (identity.handle) {
         clients[channel.id].handle = identity.handle;
         log(`✅ UDP ${channel.id} handle: "${identity.handle}"`);
+        // Resolve UDP channel for duel if this handle is in a duel
+        duelManager.resolveUdpChannel(identity.handle, channel.id);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
@@ -3552,6 +3599,19 @@ io.onConnection((channel) => {
         channel.broadcast.emit("squash:move", data);
       } catch (err) {
         console.warn("squash:move broadcast error:", err);
+      }
+    }
+  });
+
+  // 🎯 Duel input over UDP (server-authoritative — NOT relayed, fed to DuelManager)
+  channel.on("duel:input", (data) => {
+    if (channel.webrtcConnection.state === "open") {
+      try {
+        const parsed = typeof data === "string" ? JSON.parse(data) : data;
+        const handle = clients[channel.id]?.handle;
+        if (handle) duelManager.receiveInput(handle, parsed);
+      } catch (err) {
+        console.warn("duel:input error:", err);
       }
     }
   });
