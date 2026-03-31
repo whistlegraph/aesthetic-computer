@@ -1,7 +1,7 @@
 const DEFAULT_MONACO_LOADER =
   "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js";
 const DEFAULT_MONACO_BASE = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs";
-const SHARED_TRY_ASSET_VERSION = "20260330-mobile-stack";
+const SHARED_TRY_ASSET_VERSION = "20260330-runtime-support";
 
 const DEFAULT_THEME_VARS = {
   light: {
@@ -924,6 +924,7 @@ export async function createTryPage(config) {
   }
   initIframeRunner();
   await initMonacoEditor();
+  queueOrRun(state.initialCode);
   initLiveReload();
 
   return {
