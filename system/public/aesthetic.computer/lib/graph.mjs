@@ -5565,9 +5565,9 @@ function gpuLogTick() {
   const failed = [...gpuFrameLog.failed];
   const dis = Object.keys(gpuDisabled).filter(k => gpuDisabled[k]);
 
-  // Always log on frames 8, 16, 24 then every 64 frames after
-  if (gpuFrameLog.frameCount <= 24 || gpuFrameLog.frameCount % 64 === 0) {
-    console.log(`🎮 GPU [f${gpuFrameLog.frameCount}] renderer=${gpuFrameLog.rendererCached} ok=[${ok}] fail=[${failed}] disabled=[${dis}]`);
+  // Log once on frame 8 (first status), then only on failures
+  if (gpuFrameLog.frameCount === 8) {
+    console.log(`🎮 GPU renderer=${gpuFrameLog.rendererCached} ok=[${ok}] fail=[${failed}] disabled=[${dis}]`);
   }
 
   // Report to telemetry on frame 8 (first status report) and when failures occur
