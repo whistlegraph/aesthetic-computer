@@ -150,13 +150,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE ImageHandle,
     }
 
 chain:
-    // Try systemd-boot first (for Mac split-kernel boot). Only fall back to
-    // direct kernel boot when LOADER.EFI is absent. In universal mode KERNEL.EFI
-    // is the slim kernel and requires the separate initramfs, so falling
-    // through after a loader error boots the wrong path.
+    // Try systemd-boot first (for Mac split-kernel boot), fall back to direct kernel
     status = chainload(ImageHandle, LOADER_PATH);
-    if (status == EFI_NOT_FOUND)
-        status = chainload(ImageHandle, KERNEL_PATH);
+    // LOADER.EFI not found or failed — try direct kernel (non-Mac boot)
+    status = chainload(ImageHandle, KERNEL_PATH);
 
     // Both failed — show error
     Print(L"Boot failed: %r\n", status);
