@@ -622,6 +622,8 @@ build_kernel() {
     # loads via systemd-boot, which then provides the initramfs separately.
     log "Building slim kernel (no embedded initramfs) for Mac boot..."
     sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' "${LINUX_DIR}/.config"
+    make olddefconfig 2>&1 | tail -5
+    make clean 2>/dev/null || true
     sudo rm -f "${LINUX_DIR}/usr/initramfs_data.o" "${LINUX_DIR}/usr/.initramfs_data.o.cmd"
     make -j$(nproc) bzImage 2>&1 | tail -1
     sudo cp arch/x86/boot/bzImage "${BUILD_DIR}/vmlinuz-slim"
@@ -629,6 +631,7 @@ build_kernel() {
     log "Slim kernel: $(du -sh "${BUILD_DIR}/vmlinuz-slim" | cut -f1)"
     # Restore config for next build
     sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' "${LINUX_DIR}/.config"
+    make olddefconfig 2>&1 | tail -5
 }
 
 record_build() {
