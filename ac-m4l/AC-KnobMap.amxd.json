@@ -965,7 +965,7 @@
             230.0,
             22.0
           ],
-          "text": "script if(window.acSpreadnobSetRange)window.acSpreadnobSetRange($1,$2)"
+          "text": "executejavascript if(window.acSpreadnobSetRange)window.acSpreadnobSetRange($1,$2)"
         }
       },
       {
@@ -983,7 +983,7 @@
             205.0,
             22.0
           ],
-          "text": "script if(window.acSpreadnobNote)window.acSpreadnobNote($1)"
+          "text": "executejavascript if(window.acSpreadnobNote){window.acSpreadnobNote($1)}else{console.log(\"[SPREADNOB-UI/MISS NOTE]\",$1)}"
         }
       },
       {
@@ -1001,7 +1001,7 @@
             215.0,
             22.0
           ],
-          "text": "script if(window.acSpreadnobSetValue)window.acSpreadnobSetValue($1)"
+          "text": "executejavascript if(window.acSpreadnobSetValue)window.acSpreadnobSetValue($1)"
         }
       },
       {
@@ -1019,7 +1019,7 @@
             220.0,
             22.0
           ],
-          "text": "script if(window.acSpreadnobSetActive)window.acSpreadnobSetActive($1)"
+          "text": "executejavascript if(window.acSpreadnobSetActive){window.acSpreadnobSetActive($1)}else{console.log(\"[SPREADNOB-UI/MISS ACTIVE]\",$1)}"
         }
       },
       {
@@ -1055,7 +1055,7 @@
             255.0,
             22.0
           ],
-          "text": "script if(window.acSpreadnobSetTarget)window.acSpreadnobSetTarget(\"$1\")"
+          "text": "executejavascript if(window.acSpreadnobSetTarget)window.acSpreadnobSetTarget(\"$1\")"
         }
       },
       {
