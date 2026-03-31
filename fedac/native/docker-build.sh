@@ -272,6 +272,18 @@ for tool in wpa_supplicant wpa_cli iw dhclient rfkill; do
     fi
 done
 
+# ── 2i2: Disk/EFI tools (for HD install + OTA flash) ──
+for tool in sfdisk mkfs.vfat efibootmgr; do
+    SRC_BIN=$(command -v "$tool" 2>/dev/null)
+    if [ -n "$SRC_BIN" ]; then
+        cp -L "$SRC_BIN" "$IROOT/bin/"
+        for dep in $(ldd "$SRC_BIN" 2>/dev/null | grep -oP '/\S+'); do
+            BASENAME=$(basename "$dep")
+            [ ! -f "$IROOT/lib64/$BASENAME" ] && cp -L "$(readlink -f "$dep")" "$IROOT/lib64/$BASENAME" 2>/dev/null || true
+        done
+    fi
+done
+
 # ── 2j: Firmware (trimmed to common Intel WiFi + GPU chips) ──
 log "  Copying firmware..."
 FWDIR=""
