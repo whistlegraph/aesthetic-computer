@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
 import archiver from 'archiver';
 import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
@@ -1108,6 +1108,7 @@ app.get('/tools', (req, res) => {
     <div><a href="/kidlisp-og/preview">/kidlisp-og/preview</a><span class="desc">OG preview</span></div>
     <div><a href="/og-preview">/og-preview</a><span class="desc">OG preview (alt)</span></div>
     <div><a href="/notepat-og.png">/notepat-og.png</a><span class="desc">Notepat OG image</span></div>
+    <div><a href="/news-og/ncd2.png">/news-og/:code.png</a><span class="desc">News article OG image</span></div>
     <div><a href="/kidlisp-backdrop.webp">/kidlisp-backdrop.webp</a><span class="desc">KidLisp backdrop animation</span></div>
     <div><a href="/kidlisp-backdrop">/kidlisp-backdrop</a><span class="desc">KidLisp backdrop page</span></div>
   </div>
@@ -1886,6 +1887,75 @@ app.get('/notepat-og.png', async (req, res) => {
       error: 'Failed to generate Notepat OG image',
       message: error.message 
     });
+  }
+});
+
+// =============================================================================
+// News OG Image - Dynamic social cards for news.aesthetic.computer articles
+// =============================================================================
+
+app.get('/news-og/:code.png', async (req, res) => {
+  try {
+    const code = req.params.code;
+    const force = req.query.force === 'true';
+
+    addServerLog('info', '📰', `News OG request: ${code}${force ? ' (force)' : ''}`);
+
+    // Fetch post from MongoDB.
+    const mongoUri = process.env.MONGODB_CONNECTION_STRING;
+    const dbName = process.env.MONGODB_NAME;
+    if (!mongoUri || !dbName) {
+      return res.status(500).json({ error: 'MongoDB not configured' });
+    }
+
+    const client = new MongoClient(mongoUri);
+    await client.connect();
+    const db = client.db(dbName);
+    const post = await db.collection('news-posts').findOne({ code, status: { $ne: 'dead' } });
+
+    if (!post) {
+      await client.close();
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Hydrate handle.
+    if (post.user) {
+      const handleDoc = await db.collection('@handles').findOne({ _id: post.user });
+      post.handle = handleDoc ? `@${handleDoc.handle}` : '@anon';
+    } else {
+      post.handle = '@anon';
+    }
+    await client.close();
+
+    const result = await generateNewsOGImage(post, force);
+
+    if (result.cached && result.url) {
+      addServerLog('success', '📦', `News OG cache hit: ${code} → proxying`);
+      try {
+        const cdnResponse = await fetch(result.url);
+        if (!cdnResponse.ok) throw new Error(`CDN fetch failed: ${cdnResponse.status}`);
+        const buffer = Buffer.from(await cdnResponse.arrayBuffer());
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'public, max-age=604800');
+        res.setHeader('X-Cache', 'HIT');
+        return res.send(buffer);
+      } catch (fetchErr) {
+        addServerLog('warn', '⚠️', `News OG proxy failed: ${fetchErr.message}`);
+        return res.redirect(301, result.url);
+      }
+    }
+
+    addServerLog('success', '🎨', `News OG generated: ${code}`);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', result.buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    res.setHeader('X-Cache', 'MISS');
+    res.send(result.buffer);
+  } catch (error) {
+    console.error('News OG error:', error);
+    addServerLog('error', '❌', `News OG error: ${error.message}`);
+    res.status(500).json({ error: 'Failed to generate News OG image', message: error.message });
   }
 });
 
