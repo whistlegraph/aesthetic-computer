@@ -1252,6 +1252,30 @@ static JSValue js_sample_get_data(JSContext *ctx, JSValueConst this_val, int arg
     return f32;
 }
 
+// sound.sample.saveTo(path) — save current sample to a file, returns sample count or -1
+static JSValue js_sample_save_to(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->audio || argc < 1) return JS_NewInt32(ctx, -1);
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NewInt32(ctx, -1);
+    int result = audio_sample_save(current_rt->audio, path);
+    ac_log("[sample] saveTo(%s) -> %d samples\n", path, result);
+    JS_FreeCString(ctx, path);
+    return JS_NewInt32(ctx, result);
+}
+
+// sound.sample.loadFrom(path) — load sample from a file, returns sample count or -1
+static JSValue js_sample_load_from(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->audio || argc < 1) return JS_NewInt32(ctx, -1);
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NewInt32(ctx, -1);
+    int result = audio_sample_load(current_rt->audio, path);
+    ac_log("[sample] loadFrom(%s) -> %d samples\n", path, result);
+    JS_FreeCString(ctx, path);
+    return JS_NewInt32(ctx, result);
+}
+
 // sound.sample.loadData(float32array, rate) — load sample data from JS array
 static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2042,6 +2066,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, samp, "kill", JS_NewCFunction(ctx, js_sample_kill, "kill", 2));
     JS_SetPropertyStr(ctx, samp, "getData", JS_NewCFunction(ctx, js_sample_get_data, "getData", 0));
     JS_SetPropertyStr(ctx, samp, "loadData", JS_NewCFunction(ctx, js_sample_load_data, "loadData", 2));
+    JS_SetPropertyStr(ctx, samp, "saveTo", JS_NewCFunction(ctx, js_sample_save_to, "saveTo", 1));
+    JS_SetPropertyStr(ctx, samp, "loadFrom", JS_NewCFunction(ctx, js_sample_load_from, "loadFrom", 1));
     JS_SetPropertyStr(ctx, sound, "sample", samp);
 
     // TTS
