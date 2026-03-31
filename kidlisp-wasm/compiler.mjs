@@ -115,6 +115,8 @@ class E {
   // Memory
   st8(off = 0) { this.b.push(0x3a, 0x00, ...uleb128(off)); return this; }
   ld8u(off = 0){ this.b.push(0x2d, 0x00, ...uleb128(off)); return this; }
+  stf32(off = 0){ this.b.push(0x38, 0x02, ...uleb128(off)); return this; } // f32.store
+  ldf32(off = 0){ this.b.push(0x2a, 0x02, ...uleb128(off)); return this; } // f32.load
   // Control
   if_()  { this.b.push(0x04, 0x40); return this; }
   else_(){ this.b.push(0x05); return this; }
@@ -244,7 +246,8 @@ const F_SCROLL = 11;     // (f32, f32) → ()
 const F_SPIN = 12;       // (f32) → ()
 const F_ZOOM = 13;       // (f32) → ()
 const F_CONTRAST = 14;   // (f32) → ()
-const F_PAINT = 15;      // (f32, f32, f32) → ()
+const F_SOUND = 15;      // (f32, f32, f32) → ()  [sampleRate, fps, frame]
+const F_PAINT = 16;      // (f32, f32, f32) → ()
 
 // ─── Runtime Function Emitters ──────────────────────────────────────
 
@@ -853,6 +856,60 @@ function emitContrast() {
   return { locals: [[4, I32], [1, F32]], code: e.bytes() };
 }
 
+// $sound(sampleRate: f32, fps: f32, frame: f32) — generate audio from pixel buffer
+// Scans the middle row horizontally as a waveform: pixel RGB → sample amplitude.
+// The visual state directly becomes the sound — vortex patterns create timbral evolution.
+function emitSound() {
+  const e = new E();
+  // params: 0=sampleRate, 1=fps, 2=frame
+  // f32 locals: 3=sample
+  // i32 locals: 4=spf, 5=i, 6=row, 7=col, 8=pixOff, 9=audioOff, 10=globalSample, 11=chanSum
+
+  // spf = floor(sampleRate / fps)
+  e.lg(0).lg(1).fdiv().ffloor().f2i().ls(4);
+  // row = h / 2 (middle row)
+  e.gg(G_H).i32c(2).idiv().ls(6);
+  // audioOff = w * h * 8 (after pixel + temp buffers)
+  e.gg(G_W).gg(G_H).imul().i32c(8).imul().ls(9);
+
+  // for i = 0; i < spf; i++
+  e.i32c(0).ls(5);
+  e.block().loop();
+  e.lg(5).lg(4).ige().brif(1);
+
+  // globalSample = frame * spf + i
+  e.lg(2).f2i().lg(4).imul().lg(5).iadd().ls(10);
+
+  // col = globalSample % w (scan horizontally across the row)
+  e.lg(10).gg(G_W).irem().ls(7);
+  e.lg(7).i32c(0).ilt().if_();
+  e.lg(7).gg(G_W).iadd().ls(7);
+  e.end();
+
+  // Interleave R, G, B: each channel is a separate sub-sample
+  // pixelIdx = (globalSample / 3) % w, channel = globalSample % 3
+  e.lg(10).i32c(3).idiv().gg(G_W).irem().ls(7); // col = pixelIdx
+  e.lg(7).i32c(0).ilt().if_(); e.lg(7).gg(G_W).iadd().ls(7); e.end();
+  e.lg(10).i32c(3).irem().ls(11); // channel index (0=R, 1=G, 2=B)
+
+  // pixOff = (row * w + col) * 4 + channel
+  e.lg(6).gg(G_W).imul().lg(7).iadd().i32c(4).imul().lg(11).iadd().ls(8);
+
+  // sample = (pixelValue - 128) / 128.0 * 0.8
+  e.lg(8).ld8u().i2f().f32c(128).fsub().f32c(128).fdiv().f32c(0.8).fmul().ls(3);
+
+  // f32.store at audioOff + i * 4
+  e.lg(9).lg(5).i32c(4).imul().iadd();
+  e.lg(3);
+  e.stf32();
+
+  e.lg(5).i32c(1).iadd().ls(5);
+  e.br(0);
+  e.end().end();
+  e.end();
+  return { locals: [[1, F32], [8, I32]], code: e.bytes() };
+}
+
 // ─── Compiler ───────────────────────────────────────────────────────
 
 export class Compiler {
@@ -1296,6 +1353,7 @@ export class Compiler {
       T_F32_VOID,      // spin
       T_F32_VOID,      // zoom
       T_F32_VOID,      // contrast
+      T_F32_F32_F32,   // sound
       T_F32_F32_F32,   // paint
     ];
     out.push(...section(3, vecOf(funcTypes.map(t => [...uleb128(t)]))));
@@ -1319,6 +1377,7 @@ export class Compiler {
     // ── Exports ──
     const exports = [
       [...encodeString("paint"), 0x00, ...uleb128(F_PAINT)],
+      [...encodeString("sound"), 0x00, ...uleb128(F_SOUND)],
       [...encodeString("memory"), 0x02, ...uleb128(0)],
     ];
     out.push(...section(7, vecOf(exports)));
@@ -1337,6 +1396,7 @@ export class Compiler {
       emitSpin(),
       emitZoom(),
       emitContrast(),
+      emitSound(),
     ];
 
     const paintBody = { locals: this.paintLocals, code: [...this.code.bytes(), 0x0b] };
