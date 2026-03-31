@@ -576,6 +576,8 @@ SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
 # ══════════════════════════════════════════════
 log "Step 4b: Building slim kernel for Mac..."
 sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' .config
+make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed before slim build"; tail -120 "$KCFG_LOG" >&2; exit 1; }
+make clean 2>/dev/null || true
 rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
 if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" bzImage; then
     cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
@@ -587,6 +589,7 @@ else
 fi
 # Restore config for any subsequent builds
 sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' .config
+make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed while restoring initramfs config"; tail -120 "$KCFG_LOG" >&2; exit 1; }
 
 # Export initramfs as gzip (for systemd-boot on Mac)
 log "  Packing initramfs.cpio.gz..."

@@ -14,8 +14,12 @@ mount -t tmpfs tmpfs /run 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
 
 # zram swap
-modprobe zram 2>/dev/null
-echo 1G > /sys/block/zram0/disksize 2>/dev/null && mkswap /dev/zram0 >/dev/null 2>&1 && swapon /dev/zram0 2>/dev/null
+modprobe zram 2>/dev/null || true
+if [ -e /sys/block/zram0/disksize ] && [ -b /dev/zram0 ]; then
+    echo 1G > /sys/block/zram0/disksize &&
+        mkswap /dev/zram0 >/dev/null 2>&1 &&
+        swapon /dev/zram0 2>/dev/null
+fi
 
 # Loopback
 ip link set lo up 2>/dev/null
