@@ -9,6 +9,7 @@ let remoteSize = 0; // parsed from version file (line 2)
 
 // States: idle | checking | up-to-date | available | downloading | flashing
 //         | confirm-reboot | shutting-down | error
+//         | devices | clone-confirm | cloning
 let state = "idle";
 let currentVersion = "";
 let remoteVersion = "";
@@ -24,6 +25,11 @@ let flashedMB = 0;     // verified MB for display during confirm/shutdown
 // Telemetry lines that scroll by during flash
 const telemetry = [];
 let telemetryScroll = 0;
+
+// Device manager state
+let deviceIdx = 0;
+let lastTargetCount = -1; // track hot-plug changes
+let cloneTarget = null;
 
 function addTelemetry(msg) {
   telemetry.push({ text: msg, frame, y: 0 });
@@ -96,6 +102,81 @@ function act({ event: e, sound, system }) {
       sound?.synth({ type: "sine", tone: 440, duration: 0.04, volume: 0.12, attack: 0.002, decay: 0.03 });
       return;
     }
+  }
+
+  // 'd' to enter device manager from idle/up-to-date/available/error
+  if (state === "idle" || state === "up-to-date" || state === "available" || state === "error") {
+    if (e.is("keyboard:down:d")) {
+      state = "devices";
+      deviceIdx = 0;
+      sound?.synth({ type: "sine", tone: 523, duration: 0.05, volume: 0.1, attack: 0.002, decay: 0.04 });
+      return;
+    }
+  }
+
+  // Device manager controls
+  if (state === "devices") {
+    const targets = system?.flashTargets || [];
+    if (e.is("keyboard:down:tab") || e.is("keyboard:down:arrowdown")) {
+      deviceIdx = (deviceIdx + 1) % Math.max(1, targets.length);
+      sound?.synth({ type: "sine", tone: 440, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
+      return;
+    }
+    if (e.is("keyboard:down:arrowup")) {
+      deviceIdx = (deviceIdx - 1 + targets.length) % Math.max(1, targets.length);
+      sound?.synth({ type: "sine", tone: 440, duration: 0.04, volume: 0.1, attack: 0.002, decay: 0.03 });
+      return;
+    }
+    // 'c' to clone current OS to selected device
+    if (e.is("keyboard:down:c")) {
+      const tgt = targets[deviceIdx];
+      if (tgt && tgt.device !== system?.bootDevice) {
+        cloneTarget = tgt;
+        state = "clone-confirm";
+        sound?.synth({ type: "triangle", tone: 660, duration: 0.08, volume: 0.12, attack: 0.003, decay: 0.06 });
+      } else {
+        sound?.synth({ type: "square", tone: 220, duration: 0.1, volume: 0.08, attack: 0.005, decay: 0.08 });
+      }
+      return;
+    }
+    // 'u' to update selected device from CDN
+    if (e.is("keyboard:down:u")) {
+      const tgt = targets[deviceIdx];
+      if (tgt) {
+        flashTargetIdx = deviceIdx;
+        state = "checking";
+        fetchPending = true;
+        checkFrame = frame;
+        system?.fetch?.(OS_VERSION_URL);
+      }
+      return;
+    }
+    if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
+      state = "idle";
+      return;
+    }
+    return;
+  }
+
+  // Clone confirmation
+  if (state === "clone-confirm") {
+    if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+      state = "cloning";
+      telemetry.length = 0;
+      addTelemetry("cloning to " + cloneTarget.device);
+      // Clone = flash the currently running kernel to the target device
+      // The running kernel is at /mnt/EFI/BOOT/BOOTX64.EFI or KERNEL.EFI
+      const bootKernel = "/mnt/EFI/BOOT/BOOTX64.EFI";
+      globalThis.__osFlashDevice = cloneTarget.device;
+      system?.flashUpdate?.(bootKernel, cloneTarget.device);
+      sound?.synth({ type: "triangle", tone: 784, duration: 0.1, volume: 0.12, attack: 0.003, decay: 0.08 });
+      return;
+    }
+    if (e.is("keyboard:down:n") || e.is("keyboard:down:escape")) {
+      state = "devices";
+      return;
+    }
+    return;
   }
 
   // Tap to retry on error or re-check when up-to-date/idle
@@ -382,16 +463,114 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(T.fgMute);
     write("enter: retry  esc: back", { x: pad, y: stateY + 14, size: 1, font });
 
+  } else if (state === "devices") {
+    // === Device manager ===
+    const targets = system?.flashTargets || [];
+    const bootDev = system?.bootDevice;
+
+    // Hot-plug detection: play sound on change
+    if (targets.length !== lastTargetCount && lastTargetCount >= 0) {
+      // Would play sound here but we don't have sound ref in paint
+    }
+    lastTargetCount = targets.length;
+
+    ink(T.fg, T.fg + 10, T.fg);
+    write("devices", { x: pad, y: stateY, size: 2, font: "matrix" });
+
+    if (targets.length === 0) {
+      ink(T.fgMute);
+      write("no devices found", { x: pad, y: stateY + 24, size: 1, font });
+    } else {
+      if (deviceIdx >= targets.length) deviceIdx = 0;
+      const rowH = 20;
+      for (let i = 0; i < targets.length; i++) {
+        const tgt = targets[i];
+        const ry = stateY + 24 + i * rowH;
+        const isBoot = tgt.device === bootDev;
+        const selected = i === deviceIdx;
+
+        // Selection indicator
+        if (selected) {
+          ink(40, 60, 80);
+          box(pad - 2, ry - 2, w - pad * 2 + 4, rowH - 2, true);
+        }
+
+        // Device label + path
+        ink(selected ? 255 : T.fgMute, selected ? 255 : T.fgMute, selected ? 255 : T.fgMute);
+        write((selected ? "> " : "  ") + (tgt.label || "?"), { x: pad, y: ry, size: 1, font });
+        ink(80, 80, 100);
+        write(tgt.device, { x: pad + 100, y: ry, size: 1, font });
+
+        // Boot indicator
+        if (isBoot) {
+          ink(60, 200, 120);
+          write("boot", { x: w - pad - 30, y: ry, size: 1, font });
+        } else if (tgt.removable) {
+          ink(100, 140, 200);
+          write("usb", { x: w - pad - 24, y: ry, size: 1, font });
+        }
+      }
+
+      // Actions for selected device
+      const actY = stateY + 24 + targets.length * rowH + 8;
+      const sel = targets[deviceIdx];
+      const isBootDev = sel?.device === bootDev;
+
+      ink(80, 80, 100);
+      write("tab/arrows: select", { x: pad, y: actY, size: 1, font });
+
+      if (!isBootDev) {
+        ink(100, 200, 140);
+        write("c: clone current os", { x: pad, y: actY + 14, size: 1, font });
+      }
+      ink(100, 160, 220);
+      write("u: update from cloud", { x: pad, y: actY + 28, size: 1, font });
+    }
+
+  } else if (state === "clone-confirm") {
+    ink(T.warn[0], T.warn[1], T.warn[2]);
+    write("clone os?", { x: pad, y: stateY, size: 2, font: "matrix" });
+
+    ink(T.fgMute + 20, T.fgMute + 20, T.fgMute);
+    write("from: " + (system?.bootDevice || "?"), { x: pad, y: stateY + 24, size: 1, font });
+    write("  to: " + (cloneTarget?.label || "?") + " (" + (cloneTarget?.device || "?") + ")", { x: pad, y: stateY + 38, size: 1, font });
+
+    ink(T.fg);
+    write(currentVersion, { x: pad, y: stateY + 56, size: 1, font });
+
+    ink(255, 180, 60);
+    write("this will overwrite the target!", { x: pad, y: stateY + 74, size: 1, font });
+
+    const pulse = Math.floor(200 + 55 * Math.sin(frame * 0.1));
+    ink(pulse, 255, pulse);
+    write("y: clone  n: cancel", { x: pad, y: stateY + 92, size: 1, font });
+
+  } else if (state === "cloning") {
+    // Reuse flashing UI
+    const phase = system?.flashPhase ?? 0;
+    const phaseNames = ["preparing", "writing EFI", "syncing", "verifying", "complete"];
+    const dots = ".".repeat((Math.floor(frame / 10) % 3) + 1);
+    ink(255, 160, 60);
+    write("cloning" + (phase < 4 ? dots : "!"), { x: pad, y: stateY, size: 1, font });
+    ink(120);
+    write(phaseNames[phase] || "...", { x: pad, y: stateY + 14, size: 1, font });
+    ink(80);
+    write("-> " + (cloneTarget?.device || "?"), { x: pad, y: stateY + 28, size: 1, font });
+    ink(140);
+    write("do not power off", { x: pad, y: stateY + 44, size: 1, font });
+
   } else {
     // idle
     ink(T.fgMute);
     write("enter: check for updates", { x: pad, y: stateY, size: 1, font });
+    ink(T.fgMute - 20, T.fgMute, T.fgMute + 10);
+    write("d: devices", { x: pad, y: stateY + 14, size: 1, font });
   }
 
   // Bottom hint (not during shutdown)
   if (state !== "shutting-down") {
     ink(T.fgMute, T.fgMute + 10, T.fgMute);
-    write("esc: back", { x: pad, y: h - 12, size: 1, font });
+    write(state === "devices" ? "esc: back to os" : "esc: back", { x: pad, y: h - 12, size: 1, font });
   }
 
   // === State machine: poll fetch/flash results ===
@@ -442,6 +621,19 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       } else {
         state = "error";
         errorMsg = "download failed";
+      }
+    }
+  }
+
+  // Clone progress
+  if (state === "cloning") {
+    if (system?.flashDone) {
+      if (system?.flashOk) {
+        flashedMB = ((system?.flashVerifiedBytes ?? 0) / 1048576).toFixed(1);
+        state = "confirm-reboot";
+      } else {
+        state = "error";
+        errorMsg = "clone verify failed";
       }
     }
   }
