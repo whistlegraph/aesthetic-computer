@@ -4715,4 +4715,130 @@ export async function getLatestNotepatOGUrl() {
   }
 }
 
+// =============================================================================
+// NEWS OG IMAGE GENERATION
+// =============================================================================
+
+// News OG image cache (memory, keyed by post code)
+const newsOGCache = new Map();
+
+/**
+ * Generate a branded OG image for a news.aesthetic.computer article (1200x630 PNG).
+ * Shows title, author handle, and "Aesthetic News" branding.
+ */
+export async function generateNewsOGImage(post, forceRegenerate = false) {
+  const code = post.code;
+  console.log(`\n📰 News OG Image Request: ${code} (force: ${forceRegenerate})`);
+
+  // Check memory cache.
+  if (!forceRegenerate) {
+    const cached = newsOGCache.get(code);
+    if (cached && Date.now() < cached.expires) {
+      return { url: cached.url, cached: true };
+    }
+  }
+
+  // Check Spaces cache.
+  const key = `og/news/${code}.png`;
+  if (!forceRegenerate) {
+    try {
+      await spacesClient.send(new HeadObjectCommand({ Bucket: SPACES_BUCKET, Key: key }));
+      const url = `${SPACES_CDN_BASE}/${key}`;
+      newsOGCache.set(code, { url, expires: Date.now() + 60 * 60 * 1000 });
+      return { url, cached: true };
+    } catch {
+      // Not cached, generate below.
+    }
+  }
+
+  const W = 1200;
+  const H = 630;
+
+  // Escape XML entities for SVG.
+  const esc = (s) =>
+    (s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const title = esc(post.title || "(untitled)");
+  const handle = esc(post.handle || "@anon");
+  const date = post.when ? new Date(post.when).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+
+  // Word-wrap title into lines that fit within the card.
+  const maxCharsPerLine = 32;
+  const words = title.split(/\s+/);
+  const lines = [];
+  let currentLine = "";
+  for (const word of words) {
+    if (currentLine && (currentLine + " " + word).length > maxCharsPerLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = currentLine ? currentLine + " " + word : word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  // Limit to 5 lines max.
+  if (lines.length > 5) {
+    lines.length = 5;
+    lines[4] = lines[4].slice(0, maxCharsPerLine - 3) + "...";
+  }
+
+  const titleFontSize = lines.length <= 2 ? 52 : lines.length <= 3 ? 44 : 36;
+  const titleLineHeight = titleFontSize * 1.3;
+  const titleBlockHeight = lines.length * titleLineHeight;
+  const titleStartY = (H - titleBlockHeight) / 2 + titleFontSize * 0.8;
+
+  const titleLines = lines
+    .map((line, i) => `<text x="${W / 2}" y="${titleStartY + i * titleLineHeight}" font-family="monospace" font-size="${titleFontSize}" font-weight="bold" fill="#e8e4de" text-anchor="middle">${line}</text>`)
+    .join("\n  ");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+
+  <!-- Subtle border -->
+  <rect x="24" y="24" width="${W - 48}" height="${H - 48}" rx="8" fill="none" stroke="rgba(200,200,220,0.1)" stroke-width="1"/>
+
+  <!-- Aesthetic News branding -->
+  <text x="60" y="72" font-family="monospace" font-size="18" font-weight="bold" fill="rgba(200,200,220,0.5)" letter-spacing="2">AESTHETIC NEWS</text>
+
+  <!-- Title -->
+  ${titleLines}
+
+  <!-- Author + date footer -->
+  <text x="60" y="${H - 45}" font-family="monospace" font-size="18" fill="rgba(180,180,200,0.6)">${handle}${date ? ` · ${esc(date)}` : ""}</text>
+  <text x="${W - 60}" y="${H - 45}" font-family="monospace" font-size="16" fill="rgba(180,180,200,0.35)" text-anchor="end">news.aesthetic.computer</text>
+</svg>`;
+
+  const buffer = await sharp(Buffer.from(svg)).png().toBuffer();
+
+  // Upload to Spaces.
+  await spacesClient.send(
+    new PutObjectCommand({
+      Bucket: SPACES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: "image/png",
+      ACL: "public-read",
+      CacheControl: "public, max-age=604800",
+    }),
+  );
+
+  const url = `${SPACES_CDN_BASE}/${key}`;
+  newsOGCache.set(code, { url, expires: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+
+  console.log(`📤 News OG image uploaded: ${url} (${(buffer.length / 1024).toFixed(1)} KB)`);
+  return { url, cached: false, buffer };
+}
+
 export { IPFS_GATEWAY };

@@ -440,14 +440,26 @@ function isSubdomainRequest(event) {
   return host.startsWith("news.aesthetic.computer");
 }
 
-function layout({ title, body, assetBase, assetOrigin }) {
+function layout({ title, body, assetBase, assetOrigin, og }) {
   const origin = assetOrigin || "";
+  const ogTags = og ? `
+    <meta property="og:title" content="${escapeHtml(og.title || title)}" />
+    <meta property="og:description" content="${escapeHtml(og.description || '')}" />
+    <meta property="og:image" content="${escapeHtml(og.image || '')}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="${escapeHtml(og.url || '')}" />
+    <meta property="og:type" content="article" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(og.title || title)}" />
+    <meta name="twitter:description" content="${escapeHtml(og.description || '')}" />
+    <meta name="twitter:image" content="${escapeHtml(og.image || '')}" />` : '';
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)}</title>
+    <title>${escapeHtml(title)}</title>${ogTags}
     <link rel="icon" href="${origin}${assetBase}/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.0.0/css/flag-icons.min.css">
@@ -840,7 +852,20 @@ async function renderItemPage(database, basePath, code) {
   </main>
   ${footer()}`;
   
-  return { title: pageTitle, body };
+  // Build og metadata for social cards.
+  const ogDescription = hydratedPost.text
+    ? hydratedPost.text.slice(0, 200).replace(/\n/g, " ") + (hydratedPost.text.length > 200 ? "..." : "")
+    : "";
+  const ogImage = `https://oven.aesthetic.computer/news-og/${encodeURIComponent(code)}.png`;
+  const ogUrl = `https://news.aesthetic.computer/${code}`;
+  const og = {
+    title: hydratedPost.title || "(untitled)",
+    description: ogDescription,
+    image: ogImage,
+    url: ogUrl,
+  };
+
+  return { title: pageTitle, body, og };
 }
 
 async function renderReportPage(basePath) {
@@ -911,6 +936,7 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
     try {
       database = await connectFn();
       let body;
+      let og;
 
       if (!route || route === "") {
         title = "Aesthetic News";
@@ -935,9 +961,10 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
         const result = await renderItemPage(database, basePath, route);
         body = result.body || result;
         title = result.title || "Aesthetic News";
+        og = result.og;
       }
 
-      const html = layout({ title, body, assetBase, assetOrigin });
+      const html = layout({ title, body, assetBase, assetOrigin, og });
       await database.disconnect();
       return respondFn(200, html, { "Content-Type": "text/html" });
     } catch (error) {
