@@ -19,6 +19,23 @@ ac_media_default_identity_json() {
 
 ac_media_bootloader_path() {
     local splash="${AC_SPLASH_EFI:-${MEDIA_LAYOUT_ROOT}/bootloader/splash.efi}"
+    local splash_dir
+    splash_dir="$(dirname "${splash}")"
+    local splash_src="${splash_dir}/splash.c"
+    local splash_font="${splash_dir}/font8x8.h"
+    local splash_make="${splash_dir}/Makefile"
+
+    if [ -f "${splash_make}" ] && [ -f "${splash_src}" ]; then
+        if [ ! -f "${splash}" ] ||
+           [ "${splash_src}" -nt "${splash}" ] ||
+           { [ -f "${splash_font}" ] && [ "${splash_font}" -nt "${splash}" ]; } ||
+           [ "${splash_make}" -nt "${splash}" ]; then
+            (cd "${splash_dir}" && make all >/dev/null) || {
+                echo "Failed to rebuild splash bootloader in ${splash_dir}" >&2
+                return 1
+            }
+        fi
+    fi
     if [ ! -f "${splash}" ]; then
         echo "Missing splash bootloader: ${splash}" >&2
         return 1

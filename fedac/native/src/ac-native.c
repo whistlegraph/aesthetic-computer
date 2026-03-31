@@ -236,8 +236,9 @@ static void mount_minimal_fs(void) {
 
     // Enable zram swap (compressed RAM — effectively doubles available memory)
     // Firefox + GTK needs significant memory beyond the initramfs tmpfs
-    system("modprobe zram 2>/dev/null; "
-           "echo 1G > /sys/block/zram0/disksize 2>/dev/null && "
+    system("(modprobe zram 2>/dev/null || true); "
+           "[ -e /sys/block/zram0/disksize ] && [ -b /dev/zram0 ] && "
+           "echo 1G > /sys/block/zram0/disksize && "
            "mkswap /dev/zram0 >/dev/null 2>&1 && "
            "swapon /dev/zram0 2>/dev/null");
 
