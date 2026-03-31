@@ -1279,16 +1279,22 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }>;
   }
 
+  const OTA_STAGES: Record<string, { icon: string; label: string; step: number }> = {
+    'preflight-sync': { icon: '$(repo-sync~spin)', label: 'sync', step: 1 },
+    'prune':          { icon: '$(trash~spin)',     label: 'prune', step: 1 },
+    'docker-build':   { icon: '$(container~spin)', label: 'docker', step: 2 },
+    'binary':         { icon: '$(gear~spin)',      label: 'binary', step: 3 },
+    'initramfs':      { icon: '$(package~spin)',   label: 'initramfs', step: 4 },
+    'kernel':         { icon: '$(cpu~spin)',       label: 'kernel', step: 5 },
+    'smoke-test':     { icon: '$(beaker~spin)',    label: 'test', step: 6 },
+    'upload':         { icon: '$(cloud-upload~spin)', label: 'upload', step: 7 },
+    'done':           { icon: '$(check)',          label: 'done', step: 8 },
+  };
+  const OTA_TOTAL_STEPS = 7;
+
   function getOTAIcon(stage: string, status: string): string {
     if (status === 'running') {
-      switch (stage) {
-        case 'binary': return '$(gear~spin)';
-        case 'initramfs': return '$(package~spin)';
-        case 'kernel': return '$(cpu~spin)';
-        case 'smoke-test': return '$(beaker~spin)';
-        case 'upload': return '$(cloud-upload~spin)';
-        default: return '$(sync~spin)';
-      }
+      return OTA_STAGES[stage]?.icon || '$(sync~spin)';
     }
     switch (status) {
       case 'success': return '$(check)';
@@ -1360,10 +1366,15 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
       const timeStr = mins > 0 ? `${mins}m${secs}s` : `${secs}s`;
       const name = a.buildName || a.ref?.substring(0, 7) || '';
       const variant = a.stage?.startsWith('cl-') ? ' CL' : ' C';
-      const stageClean = a.stage?.replace('cl-', '') || '';
-      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${name}${variant} | ${stageClean} ${a.percent}% | ${timeStr}`;
+      const rawStage = a.stage?.replace('cl-', '') || '';
+      const stageInfo = OTA_STAGES[rawStage];
+      const stageLabel = stageInfo?.label || rawStage;
+      const stepNum = stageInfo?.step || 0;
+      const progress = a.percent > 0 ? ` ${a.percent}%` : '';
+      const stepStr = stepNum > 0 ? ` [${stepNum}/${OTA_TOTAL_STEPS}]` : '';
+      statusBarOTA.text = `${getOTAIcon(a.stage, 'running')} ${name}${variant} | ${stageLabel}${progress}${stepStr} | ${timeStr}`;
       statusBarOTA.backgroundColor = getOTAColor('running');
-      let tip = `AC-OS Building: ${name}\nVariant:${variant}\nStage: ${stageClean} (${a.percent}%)\nElapsed: ${timeStr}`;
+      let tip = `AC-OS Building: ${name}\nVariant:${variant}\nStage: ${stageLabel}${progress}${stepStr}\nElapsed: ${timeStr}`;
       if (a.commitMsg) tip += `\n${a.commitMsg}`;
       if (a.ref) tip += `\nCommit: ${a.ref.substring(0, 11)}`;
       statusBarOTA.tooltip = tip;
