@@ -115,6 +115,9 @@ ac_media_stage_boot_tree() {
 
     cp "${bootloader_path}" "${stage_root}/EFI/BOOT/BOOTX64.EFI"
     cp "${kernel_path}" "${stage_root}/EFI/BOOT/KERNEL.EFI"
+    # 32-bit UEFI fallback: kernel's EFI stub with EFI_MIXED=y can boot
+    # directly from 32-bit firmware (handles 32→64 mode switch internally).
+    cp "${kernel_path}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI"
     cp "${config_path}" "${stage_root}/config.json"
 
     # Stage slim kernel + initramfs for universal boot (systemd-boot mode)
@@ -158,6 +161,10 @@ ac_media_create_fat_image() {
     fi
     mcopy -o -i "${image_path}" "${stage_root}/EFI/BOOT/BOOTX64.EFI" ::EFI/BOOT/BOOTX64.EFI
     mcopy -o -i "${image_path}" "${stage_root}/EFI/BOOT/KERNEL.EFI" ::EFI/BOOT/KERNEL.EFI
+    # 32-bit UEFI fallback (kernel with EFI_MIXED=y)
+    if [ -f "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ]; then
+        mcopy -o -i "${image_path}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ::EFI/BOOT/BOOTIA32.EFI
+    fi
 }
 
 ac_create_fat_boot_image() {

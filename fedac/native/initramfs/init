@@ -122,6 +122,12 @@ ls -la /dev/dri/ >> $LOG 2>&1
 ls -la /dev/fb* >> $LOG 2>&1
 echo "block devs:" >> $LOG
 ls /dev/sd* /dev/nvme* >> $LOG 2>&1
+echo "=== DMESG ===" >> $LOG
+dmesg >> $LOG 2>&1
+echo "=== CPUINFO ===" >> $LOG
+head -30 /proc/cpuinfo >> $LOG 2>&1
+echo "=== CMDLINE ===" >> $LOG
+cat /proc/cmdline >> $LOG 2>&1
 sync
 echo "[init] GPU: $(ls /dev/dri/ 2>/dev/null || echo NONE) USB=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 
