@@ -112,7 +112,7 @@ copy_boot_tree_to_vfat() {
 title AC Native OS
 linux /EFI/BOOT/KERNEL.EFI
 initrd /${initrd_file}
-options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init efi=noruntime
+options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomodeset efi=noruntime
 SDBOOT_EOF
             ;;
         *)
