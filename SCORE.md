@@ -35,9 +35,12 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 **Recipes:** See [USER-GUIDE.md](USER-GUIDE.md) for making paintings, playing melodies, and joining the community.
 
 **Links:**
-- **GitHub**: https://github.com/whistlegraph/aesthetic-computer
+- **Tangled** (new home): https://tangled.org/aesthetic.computer/core
+- **GitHub** (deprecating): https://github.com/whistlegraph/aesthetic-computer
 - **No Paint (predecessor)**: https://nopaint.art ([HN 2020](https://news.ycombinator.com/item?id=23546706))
 - **Notepat on HN**: https://news.ycombinator.com/item?id=41526754
+
+> We are migrating from GitHub to [Tangled](https://tangled.org), a decentralized code hosting platform built on AT Protocol. Our repo now lives on a self-hosted knot at `knot.aesthetic.computer` under the same ATProto identity (`did:plc:k3k3wknzkcnekbnyde4dbatz`) that powers our PDS, user handles, and federated content. GitHub will be maintained as a read-only mirror during the transition.
 
 ---
 
