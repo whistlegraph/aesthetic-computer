@@ -12,6 +12,7 @@ const MAIN = [
 
 const TOOLS = [
   { name: "os",       desc: "system updates (OTA)" },
+  { name: "samples",  desc: "sample library" },
   { name: "wifi",     desc: "network picker" },
   { name: "code",     desc: "AI assistant (Claude)" },
   { name: "terminal", desc: "shell (PTY)" },
