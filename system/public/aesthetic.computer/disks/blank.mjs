@@ -185,6 +185,7 @@ function paint($) {
   frame += 1;
   const w = screen.width;
   const h = screen.height;
+  const wide = w / h > 1.5;
 
   // Theme colors
   const bg = isDark ? [14, 12, 20] : [232, 228, 238];
@@ -237,13 +238,13 @@ function paint($) {
 
   // Compute button zone height
   const btnH = buyBtn ? buyBtn.height + 6 : 26;
-  const uiZoneH = btnH * 2 + 20;
+  const uiZoneH = wide ? btnH + 16 : btnH * 2 + 20;
   const contentBottom = h - uiZoneH - 20;
 
   // 💻 Wireframe laptop (turntable swivel)
   {
     const cx = floor(w / 2);
-    const cy = floor(h * 0.54); // slightly below center for optical balance
+    const cy = floor(h * (wide ? 0.68 : 0.54)); // push lower in widescreen to avoid overlap
     // Keep laptop fully within viewport (account for rotation + lid overshoot)
     const availW = w * 0.42;
     const availH = (contentBottom - 20) * 0.32;
@@ -725,11 +726,13 @@ function paint($) {
   }
 
   // Title + product description (painted on top of laptop wireframe)
-  ink(sr, sg, sb, shadowAlpha).write("AC Blank Laptop", { center: "x", y: 30 + shadowOff, size: 2, screen });
-  ink(fg).write("AC Blank Laptop", { center: "x", y: 30, size: 2, screen });
+  const titleY = wide ? 10 : 30;
+  const titleSize = wide ? 1 : 2;
+  ink(sr, sg, sb, shadowAlpha).write("AC Blank Laptop", { center: "x", y: titleY + shadowOff, size: titleSize, screen });
+  ink(fg).write("AC Blank Laptop", { center: "x", y: titleY, size: titleSize, screen });
   // Measure wrapped description to position buy button below it
-  const descBounds = floor(w * 0.85);
-  const descY = 54;
+  const descBounds = floor(w * (wide ? 0.95 : 0.85));
+  const descY = wide ? titleY + 12 : 54;
   const descBox = text.box(DESCRIPTION_PLAIN, { center: "x", y: descY, screen }, descBounds);
   const descBottom = descY + (descBox ? descBox.box.height : charH);
 
@@ -800,66 +803,94 @@ function paint($) {
     $.needsPaint();
   }
 
-  // Bottom-left link stack with animated question labels
-  const labelGap = 2;
-  const labelH = charH + labelGap;
-  const btnGap = 4;
-  const t = frame * 0.04;
-
-  // Animated label helper — cycling color shadow with wobble
-  const paintLabel = (label, bottomY, phase) => {
-    const lx = 6;
-    const ly = h - bottomY - charH;
-    const wobble = floor(sin(t + phase) * 1.5);
-    ink(sr, sg, sb, shadowAlpha).write(label, { x: lx + shadowOff, y: ly + shadowOff + wobble, screen });
-    ink(fg).write(label, { x: lx, y: ly + wobble, screen });
-  };
-
-  // Stack from bottom: Why!? + paper, What!? + manual, How!? + os
-  let stackY = 20;
-
-  // --- Why!? + Paper ---
+  // Color schemes for bottom link buttons
   const paperScheme = isDark
     ? [[25, 20, 20], [200, 140, 80], [240, 190, 130]]
     : [[240, 230, 220], [140, 80, 30], [100, 55, 15]];
   const paperHover = isDark
     ? [[35, 28, 28], [240, 180, 100], [255, 210, 150]]
     : [[235, 222, 210], [160, 100, 40], [120, 70, 20]];
-  if (paperBtn) {
-    paperBtn.reposition({ x: 6, bottom: stackY, screen }, "PLORK'ing the Planet");
-    paperBtn.paint($btn, paperScheme, paperHover);
-    stackY += paperBtn.height + btnGap;
-  }
-  paintLabel("Why!?", stackY, 0);
-  stackY += labelH;
-
-  // --- What!? + Manual ---
   const manualScheme = isDark
     ? [[20, 20, 30], [100, 140, 200], [160, 190, 240]]
     : [[220, 225, 240], [50, 70, 140], [30, 50, 100]];
   const manualHover = isDark
     ? [[30, 30, 45], [140, 180, 240], [200, 220, 255]]
     : [[210, 215, 235], [40, 60, 160], [20, 40, 120]];
-  if (manualBtn) {
-    manualBtn.reposition({ x: 6, bottom: stackY, screen }, "ThinkPad 11e Yoga Manual");
-    manualBtn.paint($btn, manualScheme, manualHover);
-    stackY += manualBtn.height + btnGap;
-  }
-  paintLabel("What!?", stackY, PI * 0.66);
-  stackY += labelH;
-
-  // --- How!? + OS ---
   const osScheme = isDark
     ? [[20, 25, 20], [80, 200, 120], [140, 240, 170]]
     : [[225, 240, 225], [30, 120, 50], [15, 90, 30]];
   const osHover = isDark
     ? [[28, 35, 28], [120, 240, 150], [180, 255, 200]]
     : [[215, 235, 215], [20, 140, 60], [10, 110, 40]];
-  if (osBtn) {
-    osBtn.reposition({ x: 6, bottom: stackY, screen }, "AC Native OS");
-    osBtn.paint($btn, osScheme, osHover);
+
+  const btnGap = 4;
+  const t = frame * 0.04;
+
+  if (wide) {
+    // Horizontal bottom layout for widescreen — no labels, just buttons in a row
+    const colW = floor(w / 3);
+    const btnBottom = 4;
+    const charW = 6, btnPad = 8;
+    const estW = (label) => label.length * charW + btnPad;
+
+    if (paperBtn) {
+      const label = "PLORK'ing the Planet";
+      const bw = estW(label);
+      paperBtn.reposition({ x: floor(colW * 0.5 - bw / 2), bottom: btnBottom, screen }, label);
+      paperBtn.paint($btn, paperScheme, paperHover);
+    }
+    if (manualBtn) {
+      const label = "ThinkPad 11e Yoga Manual";
+      const bw = estW(label);
+      manualBtn.reposition({ x: floor(colW * 1.5 - bw / 2), bottom: btnBottom, screen }, label);
+      manualBtn.paint($btn, manualScheme, manualHover);
+    }
+    if (osBtn) {
+      const label = "AC Native OS";
+      const bw = estW(label);
+      osBtn.reposition({ x: floor(colW * 2.5 - bw / 2), bottom: btnBottom, screen }, label);
+      osBtn.paint($btn, osScheme, osHover);
+    }
+  } else {
+    // Vertical stack layout for portrait/square
+    const labelGap = 2;
+    const labelH = charH + labelGap;
+
+    const paintLabel = (label, bottomY, phase) => {
+      const lx = 6;
+      const ly = h - bottomY - charH;
+      const wobble = floor(sin(t + phase) * 1.5);
+      ink(sr, sg, sb, shadowAlpha).write(label, { x: lx + shadowOff, y: ly + shadowOff + wobble, screen });
+      ink(fg).write(label, { x: lx, y: ly + wobble, screen });
+    };
+
+    let stackY = 20;
+
+    // --- Why!? + Paper ---
+    if (paperBtn) {
+      paperBtn.reposition({ x: 6, bottom: stackY, screen }, "PLORK'ing the Planet");
+      paperBtn.paint($btn, paperScheme, paperHover);
+      stackY += paperBtn.height + btnGap;
+    }
+    paintLabel("Why!?", stackY, 0);
+    stackY += labelH;
+
+    // --- What!? + Manual ---
+    if (manualBtn) {
+      manualBtn.reposition({ x: 6, bottom: stackY, screen }, "ThinkPad 11e Yoga Manual");
+      manualBtn.paint($btn, manualScheme, manualHover);
+      stackY += manualBtn.height + btnGap;
+    }
+    paintLabel("What!?", stackY, PI * 0.66);
+    stackY += labelH;
+
+    // --- How!? + OS ---
+    if (osBtn) {
+      osBtn.reposition({ x: 6, bottom: stackY, screen }, "AC Native OS");
+      osBtn.paint($btn, osScheme, osHover);
+    }
+    paintLabel("How!?", stackY + (osBtn ? osBtn.height + btnGap : 0), PI * 1.33);
   }
-  paintLabel("How!?", stackY + (osBtn ? osBtn.height + btnGap : 0), PI * 1.33);
 }
 
 function act({ event: e, screen, jump, sound, ui, api }) {
