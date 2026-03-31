@@ -61,6 +61,66 @@ function rangeCount() {
   return clamp(high - low + 1, 1, KEY_LABELS.length);
 }
 
+function noteRangeState(note = currentNote) {
+  if (!Number.isFinite(note)) return "none";
+  if (note < low) return "below";
+  if (note > high) return "above";
+  return "inside";
+}
+
+function getLayout(screen) {
+  const compact = screen.height <= 194;
+  return compact
+    ? {
+        compact,
+        inset: 4,
+        headerH: 22,
+        titleX: 9,
+        titleY: 8,
+        pillW: 40,
+        pillH: 12,
+        targetY: 31,
+        subY: 45,
+        statY: 54,
+        statH: 15,
+        modeY: 73,
+        keyboardY: 83,
+        keyboardH: 34,
+        statusBaseY: 124,
+        warningY: 124,
+        footerLabelY: screen.height - 28,
+        footerY: screen.height - 16,
+        btnY: screen.height - 14,
+        btnW: 14,
+        btnH: 11,
+        resetW: 50,
+      }
+    : {
+        compact,
+        inset: 6,
+        headerH: 28,
+        titleX: 13,
+        titleY: 10,
+        pillW: 50,
+        pillH: 14,
+        targetY: 42,
+        subY: 58,
+        statY: 67,
+        statH: 17,
+        modeY: 92,
+        keyboardY: 97,
+        keyboardH: 46,
+        statusBaseY: 152,
+        warningY: 152,
+        footerLabelY: screen.height - 28,
+        footerY: screen.height - 18,
+        btnY: screen.height - 16,
+        btnW: 16,
+        btnH: 13,
+        resetW: 56,
+      };
+}
+
 function setRange(nextLow, nextHigh, { emit = false } = {}) {
   let resolvedLow = clamp(Math.round(nextLow), 0, 127);
   let resolvedHigh = clamp(Math.round(nextHigh), 0, 127);
@@ -90,12 +150,14 @@ function setRange(nextLow, nextHigh, { emit = false } = {}) {
 function updateFromMessage(data = {}) {
   if (data.type === "spreadnob:active") {
     active = !!Number(data.active);
+    console.log("[SPREADNOB-UI/ACTIVE]", active ? 1 : 0);
     requestPaint();
     return;
   }
 
   if (data.type === "spreadnob:target") {
     target = String(data.name || "").trim();
+    console.log("[SPREADNOB-UI/TARGET]", target || "(none)");
     requestPaint();
     return;
   }
@@ -117,6 +179,7 @@ function updateFromMessage(data = {}) {
     currentNote = Number.isFinite(num) ? num : null;
     noteHits++;
     flash = active ? 1 : 0.45;
+    console.log("[SPREADNOB-UI/NOTE]", currentNote, "range", `${low}..${high}`);
     requestPaint();
   }
 }
@@ -128,14 +191,15 @@ function buildUi(screen) {
   if (layoutKey === key) return;
   layoutKey = key;
 
-  const footerY = screen.height - 18;
-  const btnY = footerY + 2;
+  const layout = getLayout(screen);
+  const footerY = layout.footerY;
+  const btnY = layout.btnY;
   const sideX = 8;
-  const btnW = 16;
-  const btnH = 13;
+  const btnW = layout.btnW;
+  const btnH = layout.btnH;
   const chipW = 48;
   const rightX = screen.width - sideX - btnW;
-  const resetW = 56;
+  const resetW = layout.resetW;
   const resetX = Math.round((screen.width - resetW) / 2);
 
   lowDownBtn = new uiKit.Button(sideX, btnY, btnW, btnH);
@@ -192,16 +256,18 @@ function paint({ wipe, ink, screen, line }) {
 
   const w = screen.width;
   const h = screen.height;
+  const layout = getLayout(screen);
   const targetName = target || "CLICK ABLETON KNOB";
   const activeFill = active ? [110, 255, 120] : [255, 90, 95];
   const shell = active ? [19, 33, 20] : [36, 17, 24];
   const border = active ? [60, 180, 90] : [170, 50, 85];
   const flashAlpha = Math.round(110 * flash);
-  const keyboardY = 97;
+  const keyboardY = layout.keyboardY;
   const keyboardX = 10;
   const keyboardW = w - 20;
-  const keyboardH = 46;
+  const keyboardH = layout.keyboardH;
   const count = rangeCount();
+  const noteState = noteRangeState();
   const gap = 2;
   const keyW = Math.max(8, Math.floor((keyboardW - gap * (KEY_LABELS.length - 1)) / KEY_LABELS.length));
   const totalKeyW = keyW * KEY_LABELS.length + gap * (KEY_LABELS.length - 1);
@@ -209,34 +275,41 @@ function paint({ wipe, ink, screen, line }) {
 
   wipe(8, 10, 12);
   ink(...shell).box(0, 0, w, h);
-  ink(255, 80, 150, 28).box(0, 0, w, 28);
-  ink(40, 120, 80, active ? 44 : 18).box(0, 24, w, h - 24);
+  ink(255, 80, 150, 28).box(0, 0, w, layout.headerH);
+  ink(40, 120, 80, active ? 44 : 18).box(0, layout.headerH - 4, w, h - (layout.headerH - 4));
 
   if (flashAlpha > 0) {
     ink(active ? 110 : 255, active ? 255 : 105, active ? 150 : 145, flashAlpha).box(0, 0, w, h);
   }
 
-  ink(...border).box(6, 6, w - 12, h - 12);
-  ink(255, 115, 180, 120).line(10, 34, w - 10, 34);
-  ink(255, 115, 180, 60).line(10, 88, w - 10, 88);
-  ink(255, 115, 180, 60).line(10, 149, w - 10, 149);
+  ink(...border).box(layout.inset, layout.inset, w - layout.inset * 2, h - layout.inset * 2);
+  ink(255, 115, 180, 120).line(8, layout.headerH + 6, w - 8, layout.headerH + 6);
+  ink(255, 115, 180, 60).line(8, layout.modeY + 8, w - 8, layout.modeY + 8);
+  ink(255, 115, 180, 60).line(8, layout.statusBaseY - 3, w - 8, layout.statusBaseY - 3);
 
-  ink(255, 120, 185).write("spreadnob", { x: 13, y: 10 }, undefined, undefined, false, FONT);
+  ink(255, 120, 185).write("spreadnob", { x: layout.titleX, y: layout.titleY }, undefined, undefined, false, FONT);
 
-  ink(...activeFill).box(w - 64, 10, 50, 14);
-  ink(10, 18, 12).write(active ? "ON" : "OFF", { x: w - 49, y: 11 }, undefined, undefined, false, FONT);
+  ink(...activeFill).box(w - layout.pillW - 10, layout.titleY, layout.pillW, layout.pillH);
+  ink(10, 18, 12).write(
+    active ? "ON" : "OFF",
+    { x: w - layout.pillW + 2 - 10, y: layout.titleY + 1 },
+    undefined,
+    undefined,
+    false,
+    FONT,
+  );
 
-  ink(255, 190, 220).write(targetName, { x: 13, y: 42 }, undefined, w - 26, true, FONT);
+  ink(255, 190, 220).write(targetName, { x: 10, y: layout.targetY }, undefined, w - 20, true, FONT);
   ink(170, 145, 170).write(
     active ? "follows selected knob" : "device bypassed by ableton",
-    { x: 13, y: 58 },
+    { x: 10, y: layout.subY },
     undefined,
     undefined,
     false,
     MINI_FONT,
   );
 
-  const statY = 67;
+  const statY = layout.statY;
   const statW = Math.floor((w - 34) / 3);
   const statXs = [13, 13 + statW + 4, 13 + (statW + 4) * 2];
   const valueText = value === null ? "--" : value.toFixed(3);
@@ -244,7 +317,7 @@ function paint({ wipe, ink, screen, line }) {
   const rangeText = `${low}..${high}`;
 
   for (const x of statXs) {
-    ink(24, 18, 28).box(x, statY, statW, 17);
+    ink(24, 18, 28).box(x, statY, statW, layout.statH);
     ink(255, 255, 255, 24).box(x, statY, statW, 1);
   }
 
@@ -259,7 +332,7 @@ function paint({ wipe, ink, screen, line }) {
 
   ink(255, 135, 200).write(
     isDefaultRange() ? "ableton qwerty spread" : "custom key spread",
-    { x: 13, y: 92 },
+    { x: 10, y: layout.modeY },
     undefined,
     undefined,
     false,
@@ -273,39 +346,63 @@ function paint({ wipe, ink, screen, line }) {
     const inRange = i < count;
     const midi = low + i;
     const current = currentNote === midi;
+    const edgeCurrent =
+      (noteState === "below" && i === 0) ||
+      (noteState === "above" && i === count - 1);
     const black = inRange && isBlack(midi);
     const baseY = keyboardY + (black ? 4 : 0);
     const keyH = black ? keyboardH - 14 : keyboardH;
     const rgb = inRange ? noteColor(midi) : [42, 42, 46];
-    const fill = current
+    const fill = current || edgeCurrent
       ? [255, 105, 182]
       : black
         ? [rgb[0] * 0.45, rgb[1] * 0.45, rgb[2] * 0.45]
         : [rgb[0] * 0.7, rgb[1] * 0.7, rgb[2] * 0.7];
 
     ink(...fill).box(x, baseY, keyW, keyH);
-    ink(current ? 255 : 255, current ? 240 : 255, current ? 245 : 255, current ? 150 : 24).box(x, baseY, keyW, 1);
+    ink(
+      255,
+      current || edgeCurrent ? 240 : 255,
+      current || edgeCurrent ? 245 : 255,
+      current || edgeCurrent ? 150 : 24,
+    ).box(x, baseY, keyW, 1);
 
     if (inRange) {
       ink(250, 248, 252).write(KEY_LABELS[i], { x: x + 2, y: keyboardY + keyboardH - 11 }, undefined, undefined, false, MINI_FONT);
       ink(black ? 255 : 25, black ? 190 : 34, black ? 220 : 42).write(String(midi), { x: x + 1, y: baseY + 1 }, undefined, undefined, false, MINI_FONT);
-      if (current) {
+      if (current || edgeCurrent) {
         ink(255, 245, 250).line(x, baseY + keyH, x + keyW, baseY + keyH);
       }
     }
   }
 
+  const statusY = noteState !== "inside" && currentNote !== null
+    ? layout.statusBaseY + 14
+    : layout.statusBaseY;
+
+  if (noteState !== "inside" && currentNote !== null) {
+    const warning = noteState === "below"
+      ? `${currentNote} below visible range`
+      : `${currentNote} above visible range`;
+    ink(255, 105, 182).box(12, layout.warningY, w - 24, 12);
+    ink(20, 10, 18).write(warning, { x: 15, y: layout.warningY + 2 }, undefined, w - 30, true, MINI_FONT);
+  }
+
   ink(160, 145, 165).write(
-    currentNote === null ? "press a note to see the map move" : `${noteLabel(currentNote)} hit ${noteHits}`,
-    { x: 12, y: 152 },
+    currentNote === null
+      ? "press a note to see the map move"
+      : noteState === "inside"
+        ? `${noteLabel(currentNote)} hit ${noteHits}`
+        : `${noteLabel(currentNote)} hit ${noteHits} · shift range if needed`,
+    { x: 12, y: statusY },
     undefined,
     w - 24,
     true,
     MINI_FONT,
   );
 
-  ink(110, 230, 170).write(`${low} ${noteLabel(low)}`, { x: 8, y: h - 28 }, undefined, undefined, false, MINI_FONT);
-  ink(110, 230, 170).write(`${high} ${noteLabel(high)}`, { right: 8, y: h - 28 }, undefined, undefined, false, MINI_FONT);
+  ink(110, 230, 170).write(`${low} ${noteLabel(low)}`, { x: 8, y: layout.footerLabelY }, undefined, undefined, false, MINI_FONT);
+  ink(110, 230, 170).write(`${high} ${noteLabel(high)}`, { right: 8, y: layout.footerLabelY }, undefined, undefined, false, MINI_FONT);
 
   paintButton({ button: lowDownBtn, label: "-", ink });
   paintButton({ button: lowUpBtn, label: "+", ink });
