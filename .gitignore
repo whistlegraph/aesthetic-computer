@@ -71,9 +71,6 @@ system/public/index.html
 
 # any instance of the aesthetic-computer-vault repository
 aesthetic-computer-vault/
-# any instance of the aesthetic-computer-code repository
-aesthetic-computer-code/
-
 # Local clones of external repos
 feral-file/
 modes/

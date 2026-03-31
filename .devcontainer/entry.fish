@@ -727,12 +727,8 @@ printf "allow-loopback-pinentry\npinentry-program /usr/sbin/pinentry-curses\ndef
 gpgconf --reload gpg-agent 2>/dev/null
 log_ok "GPG agent configured (passphrase cached for container lifetime)"
 
-if not test -d /home/me/aesthetic-computer/aesthetic-computer-code
-    gh repo clone whistlegraph/aesthetic-computer-code /home/me/aesthetic-computer/aesthetic-computer-code
-else
-    cd /home/me/aesthetic-computer/aesthetic-computer-vault
-    git pull
-end
+cd /home/me/aesthetic-computer/aesthetic-computer-vault
+git pull
 
 # Function to check and install npm dependencies in a directory
 set -g NODE_DEPS_CHECK_SCRIPT /workspaces/aesthetic-computer/.devcontainer/scripts/check-node-deps.mjs
