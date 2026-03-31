@@ -3,13 +3,45 @@
 
 // Shim awslambda before anything imports @netlify/functions.
 // Netlify's stream() calls awslambda.streamifyResponse() at wrap time,
-// which doesn't exist outside AWS Lambda. This shim makes the wrapped
-// handler just call the original function and return its result.
+// which doesn't exist outside AWS Lambda. This shim adapts the 3-arg
+// streaming function (event, responseStream, context) back to a normal
+// 2-arg handler (event, context) that returns {statusCode, headers, body}.
+import { PassThrough } from "stream";
+import { Readable } from "stream";
+
 if (typeof globalThis.awslambda === "undefined") {
   globalThis.awslambda = {
-    streamifyResponse: (fn) => fn,
+    streamifyResponse: (wrappedFn) => {
+      // wrappedFn expects (event, responseStream, context).
+      // It calls the real handler(event, context) internally, then pipes
+      // the body to responseStream via pipeline(). We provide a PassThrough
+      // as the responseStream and return it as the response body.
+      return async (event, context) => {
+        const pt = new PassThrough();
+
+        // Promise that resolves when HttpResponseStream.from() is called
+        // inside wrappedFn, giving us the response metadata (statusCode, headers).
+        let resolveMetadata;
+        const metadataPromise = new Promise((r) => { resolveMetadata = r; });
+        pt._resolveMetadata = resolveMetadata;
+
+        // Start the pipeline (don't await — data streams to pt asynchronously)
+        wrappedFn(event, pt, context).catch((err) => {
+          if (!pt.destroyed) pt.destroy(err);
+        });
+
+        const metadata = await metadataPromise;
+        const webStream = Readable.toWeb(pt);
+
+        return { ...metadata, body: webStream };
+      };
+    },
     HttpResponseStream: {
-      from: (stream, _metadata) => stream,
+      from: (stream, metadata) => {
+        // Signal metadata to the adapter above
+        if (stream._resolveMetadata) stream._resolveMetadata(metadata || {});
+        return stream;
+      },
     },
   };
 }
