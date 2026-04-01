@@ -407,7 +407,6 @@ async function runBuildJob(job) {
     const uploadEnv = {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
       DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
-      ALLOW_DIRTY_UPLOAD: "1",
       AC_BUILD_NAME: buildName,
     };
 
