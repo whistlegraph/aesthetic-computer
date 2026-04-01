@@ -345,8 +345,19 @@ export class DuelManager {
 
   // -- Server Tick --
 
+  // Purge stale guest handles from roster
+  purgeGuests() {
+    const guests = this.roster.filter((h) => h.startsWith("guest_"));
+    for (const g of guests) {
+      this.roster = this.roster.filter((h) => h !== g);
+      this.players.delete(g);
+      console.log(`🎯 Purged stale guest: ${g}`);
+    }
+  }
+
   ensureTick() {
     if (!this.tickInterval) {
+      this.purgeGuests(); // Clean up any stale guests before starting
       this.tickInterval = setInterval(() => this.serverTick(), 1000 / TICK_RATE);
       console.log(`🎯 Duel tick loop started (${TICK_RATE}Hz, snapshot every ${SNAPSHOT_INTERVAL} ticks)`);
     }
