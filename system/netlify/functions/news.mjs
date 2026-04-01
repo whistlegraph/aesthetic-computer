@@ -923,11 +923,14 @@ export function createHandler({ connect: connectFn = connect, respond: respondFn
       return respondFn(405, { error: "Method not allowed" });
     }
 
-    const basePath = isSubdomainRequest(event) ? "" : "/news.aesthetic.computer";
+    const isSub = isSubdomainRequest(event);
+    const basePath = isSub ? "" : "/news.aesthetic.computer";
     const assetBase = "/news.aesthetic.computer";
     const host = event.headers?.host || "";
     const isLocalHost = host.includes("localhost") || host.startsWith("127.0.0.1") || host.startsWith("0.0.0.0");
-    const assetOrigin = dev || isLocalHost ? "" : "https://aesthetic.computer";
+    // Only skip origin on localhost; subdomain requests always need the
+    // full origin since news.aesthetic.computer doesn't serve static files.
+    const assetOrigin = isLocalHost ? "" : "https://aesthetic.computer";
     const route = parseRoute(event);
     console.log("[news] Route debug:", { path: event.path, queryStringParameters: event.queryStringParameters, parsedRoute: route });
     let title = "Aesthetic News";
