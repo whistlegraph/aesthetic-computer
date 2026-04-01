@@ -367,3 +367,4 @@ fedac/babypat/*.efi
 fedac/babypat/*.elf
 fedac/babypat/*.bin
 fedac/babypat/*.img
+fedac/native/upload.env.gpg
