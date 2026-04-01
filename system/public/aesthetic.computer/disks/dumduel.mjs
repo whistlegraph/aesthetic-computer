@@ -67,20 +67,18 @@ function applySnapshot(s) {
 
   const meServer = s.players?.find((p) => p.handle === myHandle);
   if (meServer) {
-    // Only correct position if delta is large (>5px) — otherwise let prediction run
-    const dx = meServer.x - localX;
-    const dy = meServer.y - localY;
-    if (dx * dx + dy * dy > 25) {
+    // On first snapshot or respawn, snap to server position
+    if (snapCount === 1 || !meServer.alive) {
       localX = meServer.x;
       localY = meServer.y;
+      localTargetX = meServer.targetX;
+      localTargetY = meServer.targetY;
     }
-
-    // Always update target from server, then re-apply unacked inputs
-    localTargetX = meServer.targetX;
-    localTargetY = meServer.targetY;
-    for (const inp of pendingInputs) {
-      localTargetX = inp.targetX;
-      localTargetY = inp.targetY;
+    // Otherwise: never touch localX/Y — prediction is the display.
+    // Only re-apply unacked inputs to target.
+    if (pendingInputs.length === 0) {
+      localTargetX = meServer.targetX;
+      localTargetY = meServer.targetY;
     }
 
     ping = meServer.ping || 0;
@@ -277,7 +275,13 @@ function act({ event: e, screen }) {
       localTargetX = tx;
       localTargetY = ty;
       pendingInputs.push({ seq: inputSeq, targetX: tx, targetY: ty });
-      udpChannel?.send("duel:input", { seq: inputSeq, targetX: tx, targetY: ty });
+      const input = { seq: inputSeq, targetX: tx, targetY: ty, handle: myHandle };
+      // Send via UDP, fallback to WS
+      if (udpChannel?.connected) {
+        udpChannel.send("duel:input", input);
+      } else {
+        server?.send("duel:input", input);
+      }
     }
   }
 }

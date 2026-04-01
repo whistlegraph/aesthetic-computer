@@ -2858,6 +2858,11 @@ wss.on("connection", async (ws, req) => {
         if (parsed?.handle) duelManager.handlePing(parsed.handle, parsed.ts, id);
         return;
       }
+      if (msg.type === "duel:input") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) duelManager.receiveInput(parsed.handle, parsed);
+        return;
+      }
 
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
@@ -3608,8 +3613,15 @@ io.onConnection((channel) => {
     if (channel.webrtcConnection.state === "open") {
       try {
         const parsed = typeof data === "string" ? JSON.parse(data) : data;
-        const handle = clients[channel.id]?.handle;
-        if (handle) duelManager.receiveInput(handle, parsed);
+        // Resolve handle from channel identity OR from message payload
+        const handle = clients[channel.id]?.handle || parsed.handle;
+        if (handle) {
+          duelManager.receiveInput(handle, parsed);
+          // Also resolve UDP channel if not yet linked
+          if (!clients[channel.id]?.handle && parsed.handle) {
+            duelManager.resolveUdpChannel(parsed.handle, channel.id);
+          }
+        }
       } catch (err) {
         console.warn("duel:input error:", err);
       }
