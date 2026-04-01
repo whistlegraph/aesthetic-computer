@@ -66,19 +66,23 @@ copy_boot_tree_to_vfat() {
 
     mount_vfat_partition "${dev}" "${mountpoint}"
     mkdir -p "${mountpoint}/EFI/BOOT"
+    # Staged tree uses BOOTX64.EFI as the canonical full kernel path
+    # (set by ac_media_stage_boot_tree in media-layout.sh).
+    local STAGED_KERNEL="${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI"
+
     case "${boot_mode}" in
         chainloader)
-            cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
-            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             ;;
         kernel-only)
-            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             rm -f "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             ;;
         kernel-direct)
             # Place kernel AS BOOTX64.EFI — standard UEFI fallback path.
             # This is discoverable by all UEFI firmware including Intel Macs.
-            cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             ;;
         systemd-boot)
             # Universal boot: splash.efi → systemd-boot → slim kernel + initramfs.
@@ -88,14 +92,14 @@ copy_boot_tree_to_vfat() {
             [ ! -f "${sdboot}" ] && sdboot="/repo/fedac/native/boot/systemd-bootx64.efi"
             [ ! -f "${sdboot}" ] && sdboot="/workspaces/aesthetic-computer/fedac/native/boot/systemd-bootx64.efi"
             # splash.efi as BOOTX64.EFI (shows splash, chains to LOADER.EFI)
-            cp "${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             # systemd-boot as LOADER.EFI (loads slim kernel + initramfs)
             cp "${sdboot}" "${mountpoint}/EFI/BOOT/LOADER.EFI"
             # Use slim kernel if available, fall back to full kernel
             if [ -f "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" ]; then
                 cp "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             else
-                cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+                cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             fi
             # Separate initramfs for systemd-boot to load (prefer gzip, fall back to lz4)
             if [ -f "${STAGED_ROOT}/initramfs.cpio.gz" ]; then
@@ -131,12 +135,14 @@ populate_mac_partition() {
     local dev="$1"
     local mountpoint="$2"
 
+    local STAGED_KERNEL="${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI"
+
     if mount_hfs_partition "${dev}" "${mountpoint}" 2>/dev/null; then
         # Native mount succeeded — populate directly
         mkdir -p "${mountpoint}/System/Library/CoreServices"
-        cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/System/Library/CoreServices/boot.efi"
+        cp "${STAGED_KERNEL}" "${mountpoint}/System/Library/CoreServices/boot.efi"
         mkdir -p "${mountpoint}/EFI/BOOT"
-        cp "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+        cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
         cat > "${mountpoint}/System/Library/CoreServices/SystemVersion.plist" << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -185,12 +191,13 @@ verify_written_media() {
     local main_part="$1"
     local efi_part="$2"
     local mac_part="$3"
+    local STAGED_KERNEL="${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI"
 
-    # Partition 1 (ACBOOT): config + KERNEL.EFI, no BOOTX64.EFI
+    # Partition 1 (ACBOOT): config + kernel as BOOTX64.EFI (kernel-direct mode)
     mount_vfat_partition "${main_part}" /mnt/ac-main
     log "Main config: $(ac_media_summarize_config_file /mnt/ac-main/config.json || echo config=unreadable)"
-    test ! -f /mnt/ac-main/EFI/BOOT/BOOTX64.EFI
-    sha256sum /mnt/ac-main/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
+    test -f /mnt/ac-main/EFI/BOOT/BOOTX64.EFI
+    sha256sum /mnt/ac-main/EFI/BOOT/BOOTX64.EFI "${STAGED_KERNEL}"
     umount /mnt/ac-main
 
     # Partition 2 (ACEFI): systemd-boot BOOTX64.EFI + KERNEL.EFI
@@ -198,7 +205,7 @@ verify_written_media() {
     test -f /mnt/ac-efi/EFI/BOOT/BOOTX64.EFI
     test -f /mnt/ac-efi/EFI/BOOT/KERNEL.EFI
     test -f /mnt/ac-efi/loader/entries/ac-native.conf
-    sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
+    sha256sum /mnt/ac-efi/EFI/BOOT/KERNEL.EFI "${STAGED_KERNEL}"
     umount /mnt/ac-efi
 
     # Partition 3 (AC-MAC): boot.efi + BOOTX64.EFI + Apple metadata
@@ -207,7 +214,7 @@ verify_written_media() {
         test -f /mnt/ac-mac/System/Library/CoreServices/SystemVersion.plist
         test -f /mnt/ac-mac/mach_kernel
         test -f /mnt/ac-mac/EFI/BOOT/BOOTX64.EFI
-        sha256sum /mnt/ac-mac/System/Library/CoreServices/boot.efi "${STAGED_ROOT}/EFI/BOOT/KERNEL.EFI"
+        sha256sum /mnt/ac-mac/System/Library/CoreServices/boot.efi "${STAGED_KERNEL}"
         umount /mnt/ac-mac
     else
         log "HFS+ mount unavailable for verification — checking via fsck"
