@@ -1,0 +1,390 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+\lstdefinelanguage{acjs}{
+  keywords={function, let, const, return, if, for, export, import, new, true, false},
+  keywordstyle=\color{jskw}\bfseries,
+  ndkeywords={encodeSampleToBitmap, decodeBitmapToSample, loadPaintingAsAudio, saveTo, loadFrom},
+  ndkeywordstyle=\color{jsfn},
+  stringstyle=\color{jsstr},
+  commentstyle=\color{jscmt}\itshape,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  sensitive=true,
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  frame=none,
+  columns=fullflexible,
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Every Sound is a Painting: Sampling as Visual-Auditory Practice in Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textit{Every Sound is a Painting}}
+\fancyhead[R]{\small\textit{@jeffrey}}
+\fancyfoot[C]{\small\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\ac}{Aesthetic Computer}
+\newcommand{\acos}{AC~Native~OS}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\begin{document}
+
+% === TITLE ===
+{\centering
+  {\acbold\large Every Sound is a Painting\par}
+  \vspace{0.15em}
+  {\aclight\normalsize Sampling as Visual-Auditory Practice in Aesthetic Computer\par}
+  \vspace{0.8em}
+  {\small @jeffrey\par}
+  \vspace{0.3em}
+  {\small\color{acgray} Working Draft --- \today\par}
+  \vspace{1em}
+}
+
+% === ABSTRACT ===
+\begin{abstract}
+\noindent
+\ac{} encodes audio samples as RGB pixel data in shareable ``paintings''---the platform's native visual media format. A recorded sound becomes an image with a short code (e.g., \code{\#k3d}) that anyone can see, share, and play back on any AC device, from bare-metal laptops to web browsers. This paper traces the evolution of sampling in AC: from microphone capture in \code{notepat.mjs} through the pixel-sample encoding of \code{stample.mjs} to a cross-platform architecture where samples flow through the same infrastructure as visual art. We argue that collapsing the boundary between auditory and visual media is not merely a technical convenience but an aesthetic position: the encoding reveals the structure of sound as color, and the platform's social features (handles, short codes, galleries) make every user's recorded sound a first-class creative object. Following Attali's trajectory from repetition to composition~\citep{attali1985noise}, we propose that treating samples as paintings advances a mode of music-making where the distinction between recording, sharing, and performing dissolves.
+\end{abstract}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Introduction: The Sample Problem}
+
+Digital audio workstations treat samples as opaque binary files. A WAV or AIFF file contains numbers---amplitude values at regular time intervals---stored in a format that no human can read, no browser can natively display, and no social platform can natively share. To move a sample from one context to another requires file transfer, format negotiation, and specialized software. The sample is infrastructure, not art.
+
+This opacity is a design choice, not a necessity. A sample is a sequence of numbers. Numbers can be colors. Colors can be pixels. Pixels can be images. Images can be paintings. And paintings, on \ac{}, are first-class creative objects: uploadable, downloadable, addressable by short codes, owned by user handles, browsable in galleries, and renderable on any device.
+
+The question this paper addresses is simple: \emph{what happens when you treat every sound as a painting?}
+
+The answer, as implemented in \ac{}'s \code{stample.mjs} and related infrastructure, is that sampling ceases to be a technical operation (``record audio to file'') and becomes a creative act with visual, social, and cross-platform dimensions. A three-second vocal sample becomes a 256$\times$156 pixel image. That image has colors---smooth gradients for sine tones, sharp boundaries for percussion, rhythmic patterns for speech. The image gets a short code. The code can be typed into any AC device---a browser, a bare-metal laptop running \acos{}, a phone---and the sound plays.
+
+This is not steganography (hiding data in images) or sonification (mapping data to sound for analysis). It is a deliberate collapse of two media types into one, motivated by the observation that \ac{} already has a complete infrastructure for visual media and no infrastructure for audio media. Rather than build a parallel audio storage system, we encode audio into the visual system and let the existing painting pipeline handle storage, sharing, identity, and distribution.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Background}
+
+\subsection{The Political Economy of Sampling}
+
+Attali's \emph{Noise}~\citep{attali1985noise} traces music through four political-economic modes: sacrifice (ritual), representation (concert hall), repetition (recording industry), and composition (a prophesied mode where everyone creates). The recording industry's mode of repetition depends on the sample as commodity---a captured sound that can be duplicated, distributed, and sold. The sample is owned, licensed, and legally contested.
+
+Navas~\citep{navas2012remix} extends this analysis to remix culture, arguing that sampling is the foundational act of contemporary music production. The sampler is the instrument of repetition. But Attali's composition mode requires something different: not the consumption of pre-made samples, but the creation and sharing of new ones by everyone.
+
+\ac{} is designed for composition in Attali's sense. Every user can record. Every recording becomes a painting. Every painting is shareable. There is no sample marketplace, no licensing, no distinction between producer and consumer. The infrastructure treats a child's first microphone recording identically to a professional producer's sound design: both become paintings with short codes.
+
+\subsection{Visual-Auditory Crossings}
+
+The idea that sound has visual form is old. Xenakis~\citep{xenakis1992formalized} composed orchestral works by drawing curves on graph paper and translating them to musical parameters. Levin~\citep{levin2000painterly} built ``painterly interfaces'' where visual gestures generated sound in real time. The spectrogram---a standard tool since the 1940s---represents frequency content as a color image.
+
+What these approaches share is a \emph{representational} relationship: the visual form represents the auditory content, but the two remain separate media. You cannot play a spectrogram. You cannot share a Xenakis sketch as an audio file.
+
+AC's pixel-sample encoding is different: the image \emph{is} the audio. The RGB values are the sample amplitudes. Playing the painting and viewing the painting are two interpretations of the same data. There is no representation gap.
+
+\subsection{The Painting Infrastructure}
+
+Before describing how samples become paintings, it is worth noting what ``painting'' means in \ac{}. A painting is:
+
+\begin{itemize}[nosep]
+  \item A bitmap image (PNG) stored on a CDN (Digital Ocean Spaces)
+  \item Owned by a user handle (\code{@jeffrey/painting/slug})
+  \item Addressable by a short code (\code{\#k3d})
+  \item Viewable at a URL (\code{aesthetic.computer/painting/\#k3d})
+  \item Tracked in MongoDB with metadata (creator, timestamp, dimensions)
+  \item Uploadable from any AC client (web, native) via presigned S3 URLs
+  \item Renderable on any AC device (browser, bare-metal OS)
+  \item Publishable to the AT Protocol network as a federated social object~\citep{scudder2026identity}
+\end{itemize}
+
+This infrastructure was built for visual art. But because it operates on bitmaps---arrays of pixel values---it is agnostic to what those pixel values mean. A painting of a sunset and a painting that encodes a three-second drum loop are handled identically by every layer of the stack.
+
+% ═══════════════════════════════════════════════════════════════
+\section{The Encoding}
+
+\subsection{From Float to Pixel}
+
+The pixel-sample encoding maps audio amplitude values to RGB color channels:
+
+\begin{lstlisting}[language=acjs]
+function encodeSampleToBitmap(data, width = 256) {
+  const totalPixels = Math.ceil(data.length / 3);
+  const height = Math.ceil(totalPixels / width);
+  const pixels = new Uint8ClampedArray(
+    width * height * 4
+  );
+  for (let i = 0; i < data.length; i++) {
+    const v = Math.max(-1, Math.min(1, data[i]));
+    const byte = Math.round((v + 1) * 127.5);
+    const pixelIndex = Math.floor(i / 3);
+    const channel = i % 3;  // R, G, or B
+    pixels[pixelIndex * 4 + channel] = byte;
+    if (channel === 0)
+      pixels[pixelIndex * 4 + 3] = 255; // alpha
+  }
+  return { width, height, pixels, sampleLength };
+}
+\end{lstlisting}
+
+Three consecutive audio samples map to one pixel's red, green, and blue channels. Each sample value (a 32-bit float in the range $[-1, 1]$) is quantized to an 8-bit unsigned integer ($[0, 255]$) via the affine mapping:
+
+\[
+  b = \text{round}\left(\frac{v + 1}{2} \times 255\right)
+\]
+
+The alpha channel is set to 255 (fully opaque) for every pixel. The image width is fixed at 256 pixels; the height varies with sample duration.
+
+\subsection{Encoding Properties}
+
+\textbf{Compression ratio.} The encoding maps 3 float32 samples (12 bytes) to 4 bytes (RGBA pixel), a 3:1 compression before PNG. After PNG compression, a typical 5-second 48\,kHz sample (240,000 samples, 80,000 pixels, 256$\times$313 image) produces a file of approximately 100\,KB.
+
+\textbf{Quantization.} Reducing 32-bit float precision to 8-bit integer introduces quantization noise. The theoretical signal-to-noise ratio of 8-bit quantization is approximately 48\,dB---comparable to early consumer digital audio (Sony PCM-1600, 1979) and substantially above the noise floor of typical microphone recordings in untreated rooms. For the use cases \ac{} targets (voice memos, instrument recordings, sound effects captured on laptop microphones), 8-bit resolution is transparent.
+
+\textbf{Visual structure.} The encoding is not arbitrary; it produces images whose visual appearance reflects the auditory content:
+
+\begin{itemize}[nosep]
+  \item \textbf{Sine waves} produce smooth horizontal color gradients, cycling through the RGB color space at the wave's frequency.
+  \item \textbf{Percussion} creates sharp vertical boundaries where amplitude changes rapidly.
+  \item \textbf{Noise} produces visual static---uniformly random pixel colors.
+  \item \textbf{Speech} shows rhythmic patterns of color intensity, with silent gaps appearing as bands of neutral gray (the zero-crossing color, $\approx$128 in each channel).
+  \item \textbf{Silence} is a field of uniform gray: $(128, 128, 128)$.
+\end{itemize}
+
+A user browsing a gallery of sample-paintings develops visual intuition for how sounds look. This is not a spectrogram---it encodes amplitude, not frequency---but it is a legible visual language for temporal audio structure.
+
+\subsection{The Encoding as Aesthetic Choice}
+
+The quantization from 32-bit to 8-bit is lossy. This is a feature. Like vinyl's surface noise, cassette tape's harmonic distortion, or the bit-crushed textures of early samplers (Fairlight CMI, E-mu SP-1200), the encoding imposes a sonic character. Samples that have passed through the pixel-sample encoding have a subtle graininess that is consistent, predictable, and---for many users---pleasant.
+
+This is not accidental. The E-mu SP-1200's 12-bit converters, widely regarded as producing a characteristic ``warmth,'' operate at a similar bit depth to our 8-bit encoding. The difference is that our encoding also produces a \emph{visible} artifact: the painting itself. The medium is not merely the message~\citep{mcluhan1964understanding}; the medium is simultaneously the audio and the image.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Architecture}
+
+\subsection{Recording: notepat.mjs}
+
+\code{notepat.mjs}~\citep{scudder2026notepat} is AC's primary synthesizer instrument. Among its seven waveform types is ``sample'' mode, which enables microphone recording:
+
+\begin{itemize}[nosep]
+  \item \textbf{Home key}: hold to record a global sample from the microphone
+  \item \textbf{End key}: arm per-key recording (record a different sample for each piano key)
+  \item \textbf{Any tone key}: while End is held, pressing a tone key records to that key's sample bank
+\end{itemize}
+
+On \acos{} (bare metal), the audio engine captures at 48\,kHz via ALSA direct hardware access. Recorded samples are stored as raw float32 arrays in memory and persisted to \code{/mnt/ac-sample.raw} on the boot media. On next boot, the sample auto-loads---the instrument remembers its voice across power cycles.
+
+The bare-metal audio pipeline is described in detail in~\citep{scudder2026notepat}: 128-sample ALSA periods, 32-voice polyphony with voice stealing, room reverb (3-tap delay, 0.55 feedback), and per-sample exponential smoothing for pitch and volume control.
+
+\subsection{Encoding and Sharing: stample.mjs}
+
+\code{stample.mjs} (``stamp'' + ``sample'') is a web piece that spreads a sample across touchable pads. Its key contribution is the pixel-sample bridge: audio recorded in \code{notepat} or captured live through the microphone is encoded as a painting and stored in the user's painting library.
+
+The encoding path:
+
+\begin{enumerate}[nosep]
+  \item User records audio or loads an existing sample
+  \item \code{encodeSampleToBitmap()} converts float32 array to RGBA pixels
+  \item The bitmap is uploaded as a painting via \code{track-media.mjs}
+  \item The painting receives a short code (e.g., \code{\#k3d})
+  \item The painting is now addressable, shareable, and playable
+\end{enumerate}
+
+The decoding path:
+
+\begin{enumerate}[nosep]
+  \item User enters a painting code (e.g., \code{stample \#k3d})
+  \item \code{loadPaintingAsAudio()} resolves the code via the painting API
+  \item The PNG is fetched from the CDN
+  \item \code{decodeBitmapToSample()} extracts audio from RGB channels
+  \item The audio is registered as a playable sample in the audio engine
+\end{enumerate}
+
+Remarkably, \code{loadPaintingAsAudio()} also accepts KidLisp~\citep{scudder2026kidlisp} source codes (\code{\$roz}), rendering the generative art program to a bitmap and then decoding that bitmap as audio. Any visual program becomes a sound.
+
+\subsection{Local Library: samples.mjs}
+
+\code{samples.mjs} is a sample library manager for \acos{}. It maintains a timestamped collection of recorded samples on the boot media at \code{/mnt/samples/}:
+
+\begin{itemize}[nosep]
+  \item \textbf{s}: save current sample with timestamp
+  \item \textbf{enter}: load selected sample into the audio engine
+  \item \textbf{space}: preview (play at original pitch)
+  \item \textbf{x}: remove from library
+  \item \textbf{arrows/tab}: navigate
+\end{itemize}
+
+The library stores samples in the native raw format for instant loading (no decode step) and maintains a \code{manifest.json} index. Future work extends this with painting upload and download, unifying the local library with the cloud painting infrastructure.
+
+\subsection{Cross-Platform Bridge}
+
+The central architectural challenge is that \acos{} runs on QuickJS with C audio bindings and no DOM, while the web runtime runs in a browser with Web Audio API and Canvas. The pixel-sample encoding is pure arithmetic---no platform-specific APIs---and can be implemented identically in both environments.
+
+The bridge operates as follows:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Operation} & \textbf{Web} & \textbf{Native} \\
+\midrule
+Record & Web Audio API & ALSA via C \\
+Encode & \code{pixel-sample.mjs} & Same algorithm \\
+Upload & \code{fetch()} + S3 & \code{system.fetchPost} \\
+Download & \code{fetch()} & \code{system.fetchBinary} \\
+Decode & \code{pixel-sample.mjs} & Same algorithm \\
+Play & Web Audio & ALSA via C \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The encoding and decoding layers are platform-independent. Only the I/O boundaries (recording, network, playback) differ. A sample recorded on a bare-metal laptop at a street fair, encoded as a painting, and uploaded over WiFi is indistinguishable from a sample recorded in a web browser at a desktop---both produce the same PNG, the same short code, and the same playback on any AC device.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Design Philosophy}
+
+\subsection{Infrastructure Reuse Over Parallel Systems}
+
+The conventional approach to adding audio sharing to a platform is to build audio-specific infrastructure: audio upload endpoints, audio format negotiation, audio CDN configuration, audio metadata schemas, audio player widgets. This produces a system where visual media and audio media are handled by parallel but separate stacks.
+
+\ac{}'s approach is to encode audio \emph{into} the existing visual stack. The cost is the 8-bit quantization described above. The benefit is zero new infrastructure: no new API endpoints, no new storage buckets, no new database collections, no new authentication flows, no new client-side players. Every feature that paintings have---short codes, handles, galleries, AT Protocol syndication, CDN caching---samples get for free.
+
+This is not laziness; it is a design principle. Manovich~\citep{manovich2001language} argues that the logic of new media is the logic of the database: media objects are stored, indexed, and recombined. By encoding audio as visual data, \ac{} ensures that audio objects enter the same database as visual objects, subject to the same operations (search, browse, share, remix).
+
+\subsection{The Social Sample}
+
+On most platforms, a recorded sample is a file on a hard drive. It has no identity, no address, no social context. To share it, you attach it to a message, upload it to a file host, or embed it in a track.
+
+On \ac{}, a recorded sample is a painting with a short code. It has an owner (\code{@jeffrey}), an address (\code{aesthetic.computer/painting/\#k3d}), a creation date, and a position in the owner's gallery alongside their visual art, their KidLisp generative pieces, and their chat messages. The sample is not a file; it is a social object.
+
+This has consequences for creative practice. When a student in a laptop orchestra~\citep{scudder2026plork, trueman2006plork} records a sample, that sample immediately exists in the same space as the student's drawings, code, and conversations. The creative identity is unified: ``my paintings'' includes my sounds.
+
+\subsection{Every User Creates}
+
+Attali's composition mode requires that everyone can create, not just consume. The pixel-sample system supports this by making the creation-to-sharing path trivially short:
+
+\begin{enumerate}[nosep]
+  \item Hold Home key in notepat (1 second)
+  \item Release (sample saved)
+  \item Open samples, press s (saved with timestamp)
+  \item Press u (uploaded as painting, short code returned)
+  \item Share the code
+\end{enumerate}
+
+Five actions, no file management, no format selection, no account creation beyond the AC handle the user already has. The barrier between ``I made a sound'' and ``anyone can play my sound'' is approximately ten seconds.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Future Work}
+
+\textbf{Collaborative sampling.} Multiple devices recording simultaneously, with samples merged into composite paintings. A laptop orchestra where every player's contribution is visible as a colored stripe in a shared image.
+
+\textbf{Generative samples.} KidLisp programs that produce sample-paintings algorithmically. The command \code{stample \$roz} already works---it renders a KidLisp program as a bitmap and plays the pixels as audio. Extending this to purpose-built audio-generative programs is straightforward.
+
+\textbf{Sample lineage.} Tracking the provenance of samples as they are re-recorded, modified, and re-shared. A sample-painting could carry metadata about its ancestors, creating a version history analogous to git for sound.
+
+\textbf{Physical prints.} Printing sample-paintings on paper and scanning them back as audio. The encoding survives JPEG compression and moderate print/scan degradation because the 8-bit quantization is already lossy; additional noise from the physical process adds character without destroying intelligibility. A concert poster that contains the concert's audio is technically feasible.
+
+\textbf{Federated samples.} Via AT Protocol integration~\citep{scudder2026identity}, sample-paintings syndicated across the federated social web. A sample recorded on a bare-metal AC device, uploaded to the user's Personal Data Server, and playable on any ATProto client that understands the \code{computer.aesthetic.painting} lexicon.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Conclusion}
+
+The premise of this paper is that the boundary between visual and auditory media is artificial---maintained by file format conventions, not by any fundamental property of the underlying data. By encoding audio samples as RGB pixels and routing them through a painting infrastructure, \ac{} eliminates this boundary for its users. A sound has a color. A painting has a voice. The creative act is unified.
+
+The technical contribution is modest: a 15-line encoding function, a 15-line decoding function, and the observation that an existing painting pipeline can carry audio without modification. The conceptual contribution is larger: in a system where every sound is a painting, sampling becomes a visual practice, sharing becomes social, and the distinction between hearing and seeing---between the ear and the eye---becomes a matter of interpretation rather than infrastructure.
+
+Wishart~\citep{wishart1996sonic} argued for treating sound as a plastic material, shaped by the composer's hands like clay. In \ac{}, the material is literally visible: the sample-painting shows its texture, its rhythm, its dynamic range as colored pixels. The composer's hands shape both the sound and the image, because they are the same thing.
+
+\vspace{1em}
+\noindent\rule{\columnwidth}{0.4pt}
+{\small
+\textbf{Acknowledgments.} This work builds on infrastructure developed across the Aesthetic Computer project. The pixel-sample encoding was first implemented in \code{stample.mjs} in January 2025. The cross-platform bridge described here was developed in March 2026 during the \acos{} boot media campaign.
+}
+
+% === REFERENCES ===
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
