@@ -42,11 +42,11 @@
       "name": "AC 🎹 spreadnob (aesthetic.computer)",
       "piece": "spreadnob",
       "description": "Spread any knob across your MIDI keys",
-      "width": 250,
+      "width": 400,
       "height": 170,
       "type": "midi",
       "source": "AC-KnobMap.amxd.json",
-      "version": "1.0.4"
+      "version": "1.0.5"
     }
   ],
   "defaults": {

@@ -936,6 +936,14 @@ async function fun(event, context) {
               console.log("🎹 Max for Live detected - DAW sync connected");
             };
             
+            // 🎛️ Spreadnob bridge — catches postMessage from M4L script commands
+            window.addEventListener("message", function(event) {
+              var d = event.data;
+              if (d && d.type && typeof d.type === "string" && d.type.indexOf("spreadnob:") === 0) {
+                send({ type: d.type, content: d });
+              }
+            });
+
             // Signal to M4L that we're ready
             if (window.max) {
               console.log("🎹 Sent ready signal to Max");
