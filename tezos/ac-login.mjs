@@ -261,7 +261,7 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge) {
       
       console.log('🌐 Opening browser for authentication...\n');
       console.log('   If your browser doesn\'t open, visit:');
-      console.log(`   ${authUrl.toString().slice(0, 80)}...\n`);
+      console.log(`   ${authUrl.toString()}\n`);
       
       openBrowser(authUrl.toString());
       console.log('⏳ Waiting for authentication...\n');
