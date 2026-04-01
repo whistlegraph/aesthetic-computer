@@ -2713,6 +2713,16 @@ const persistentDawState = {
   sampleRate: null,
 };
 
+// 🎛️ Persistent spreadnob state
+const persistentSpreadnobState = {
+  note: null,
+  target: null,
+  value: null,
+  active: null,
+  min: null,
+  max: null,
+};
+
 const $commonApi = {
   lisp, //  A global reference to the `kidlisp` evalurator.
   undef: undefined, // A global api shorthand for undefined.
@@ -10065,6 +10075,32 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🎛️ Spreadnob messages (from M4L via bios) — stored on persistentDawState
+  if (type === "spreadnob:note") {
+    persistentDawState.snNote = content.note;
+    return;
+  }
+  if (type === "spreadnob:target") {
+    persistentDawState.snTarget = content.name;
+    return;
+  }
+  if (type === "spreadnob:value") {
+    persistentDawState.snValue = content.value;
+    return;
+  }
+  if (type === "spreadnob:active") {
+    persistentDawState.snActive = content.active;
+    return;
+  }
+  if (type === "spreadnob:min") {
+    persistentDawState.snMin = content.min;
+    return;
+  }
+  if (type === "spreadnob:max") {
+    persistentDawState.snMax = content.max;
+    return;
+  }
+
   // 🎸 Pedal messages (for audio effect visualization)
   if (type === "pedal:peak") {
     // Forward to the piece's receive function if it exists
@@ -11853,6 +11889,10 @@ async function makeFrame({ data: { type, content } }) {
       // Uses persistentDawState which survives frame updates (unlike $commonApi.sound which is recreated)
       get daw() {
         return persistentDawState;
+      },
+      // 🎛️ Spreadnob state (populated via spreadnob:* messages from M4L)
+      get spreadnob() {
+        return persistentSpreadnobState;
       },
       // Get the bpm with bpm() or set the bpm with bpm(newBPM).
       bpm: function (newBPM) {
