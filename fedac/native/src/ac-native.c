@@ -944,6 +944,11 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     int rrc = system(rcmd);
                     ac_log("[install] sfdisk rc=%d\n", rrc);
                     usleep(500000);
+                    // Force kernel to re-read partition table after repartitioning
+                    snprintf(rcmd, sizeof(rcmd), "partprobe /dev/%s 2>&1 || blockdev --rereadpt /dev/%s 2>&1",
+                             parent_blk, parent_blk);
+                    system(rcmd);
+                    usleep(500000);
                     // Reformat
                     snprintf(rcmd, sizeof(rcmd), "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
                     rrc = system(rcmd);
