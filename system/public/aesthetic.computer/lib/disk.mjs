@@ -9798,8 +9798,8 @@ let pendingExportEvents = [];
 
 async function makeFrame({ data: { type, content } }) {
   // DEBUG: Log ALL messages starting with "pedal:" or "daw:"
-  if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:")) {
-    console.log("🎹🎹🎹 makeFrame received:", type, content);
+  if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:") || type?.startsWith?.("spreadnob:")) {
+    console.log("🎹🎹🎹 makeFrame received:", type, JSON.stringify(content));
   }
   
   // Handle permission responses from bios.mjs

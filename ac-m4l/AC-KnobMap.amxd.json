@@ -166,7 +166,7 @@
             200.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:ready'},'*')"
+          "text": "script window.acSnReady&&window.acSnReady()"
         }
       },
       {
@@ -983,7 +983,7 @@
             230.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:range',low:$1,high:$2},'*')"
+          "text": "script window.acSnNote&&window.acSnNote($1)"
         }
       },
       {
@@ -1001,7 +1001,7 @@
             205.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:note',note:$1},'*')"
+          "text": "script window.acSnNote&&window.acSnNote($1)"
         }
       },
       {
@@ -1019,7 +1019,7 @@
             215.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:value',value:$1},'*')"
+          "text": "script window.acSnValue&&window.acSnValue($1)"
         }
       },
       {
@@ -1037,7 +1037,7 @@
             220.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:active',active:$1},'*')"
+          "text": "script window.acSnActive&&window.acSnActive($1)"
         }
       },
       {
@@ -1073,7 +1073,7 @@
             255.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:target',name:'$1'},'*')"
+          "text": "script window.acSnTarget&&window.acSnTarget('$1')"
         }
       },
       {
@@ -1205,7 +1205,7 @@
             215.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:min',min:$1},'*')"
+          "text": "script window.acSnMin&&window.acSnMin($1)"
         }
       },
       {
@@ -1223,7 +1223,7 @@
             215.0,
             22.0
           ],
-          "text": "script window.postMessage({type:'spreadnob:max',max:$1},'*')"
+          "text": "script window.acSnMax&&window.acSnMax($1)"
         }
       },
       {

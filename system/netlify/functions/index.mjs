@@ -936,13 +936,14 @@ async function fun(event, context) {
               console.log("🎹 Max for Live detected - DAW sync connected");
             };
             
-            // 🎛️ Spreadnob bridge — catches postMessage from M4L script commands
-            window.addEventListener("message", function(event) {
-              var d = event.data;
-              if (d && d.type && typeof d.type === "string" && d.type.indexOf("spreadnob:") === 0) {
-                send({ type: d.type, content: d });
-              }
-            });
+            // 🎛️ Spreadnob bridge — called directly by M4L script commands
+            window.acSnNote = function(n) { send({ type: "spreadnob:note", content: { note: n } }); };
+            window.acSnTarget = function(name) { send({ type: "spreadnob:target", content: { name: name } }); };
+            window.acSnValue = function(v) { send({ type: "spreadnob:value", content: { value: v } }); };
+            window.acSnActive = function(v) { send({ type: "spreadnob:active", content: { active: v } }); };
+            window.acSnMin = function(v) { send({ type: "spreadnob:min", content: { min: v } }); };
+            window.acSnMax = function(v) { send({ type: "spreadnob:max", content: { max: v } }); };
+            window.acSnReady = function() { send({ type: "spreadnob:ready", content: {} }); };
 
             // Signal to M4L that we're ready
             if (window.max) {
