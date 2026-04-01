@@ -25,11 +25,17 @@ let localWasMoving = false;
 
 // Server state (from snapshots)
 let snap = null; // latest snapshot
+let snapCount = 0; // total snapshots received
 let roster = [];
 let phase = "waiting";
 let countdownTimer = 0;
 let roundWinner = null;
 let ping = 0;
+
+// Opponent interpolation
+let opServerX = 0, opServerY = 0; // latest server position
+let opDisplayX = 0, opDisplayY = 0; // smoothed display position
+const LERP_SPEED = 0.25; // how fast to catch up to server pos
 
 // Camera pan
 let camX = 0, camY = 0;
@@ -44,28 +50,52 @@ const SNAP_MARGIN = 10;
 
 function applySnapshot(s) {
   snap = s;
+  snapCount++;
   phase = s.phase;
   countdownTimer = s.countdownTimer;
   roundWinner = s.roundWinner;
   roster = (s.roster || []).map((h) => ({ handle: h }));
 
-  // Reconcile prediction
+  // Log first few snapshots + periodic
+  if (snapCount <= 3 || snapCount % 100 === 0) {
+    console.log(`📸 snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`);
+  }
+
+  // Reconcile own prediction
   const myAck = s.lastInputSeq?.[myHandle] || 0;
   pendingInputs = pendingInputs.filter((inp) => inp.seq > myAck);
 
   const meServer = s.players?.find((p) => p.handle === myHandle);
   if (meServer) {
-    localX = meServer.x;
-    localY = meServer.y;
+    // Only correct position if delta is large (>5px) — otherwise let prediction run
+    const dx = meServer.x - localX;
+    const dy = meServer.y - localY;
+    if (dx * dx + dy * dy > 25) {
+      localX = meServer.x;
+      localY = meServer.y;
+    }
+
+    // Always update target from server, then re-apply unacked inputs
     localTargetX = meServer.targetX;
     localTargetY = meServer.targetY;
-
     for (const inp of pendingInputs) {
       localTargetX = inp.targetX;
       localTargetY = inp.targetY;
     }
 
     ping = meServer.ping || 0;
+  }
+
+  // Update opponent server position (for lerp in sim)
+  const opServer = s.players?.find((p) => p.handle !== myHandle);
+  if (opServer) {
+    opServerX = opServer.x;
+    opServerY = opServer.y;
+    // On first snapshot, snap display to server pos
+    if (snapCount === 1) {
+      opDisplayX = opServerX;
+      opDisplayY = opServerY;
+    }
   }
 }
 
@@ -110,6 +140,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
   // WebSocket — reliable game events
   server = socket((id, type, content) => {
     if (type.startsWith("connected")) {
+      console.log(`🎯 Connected as ${myHandle}, sending duel:join`);
       server.send("duel:join", { handle: myHandle });
       return;
     }
@@ -125,15 +156,18 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
     if (type === "duel:joined" || type === "duel:roster") {
       roster = (msg.roster || []).map((h) => ({ handle: h }));
       if (msg.phase) phase = msg.phase;
+      console.log(`🎯 ${type}: roster=[${msg.roster?.join(", ")}] phase=${msg.phase}`);
     }
 
     if (type === "duel:countdown") {
       phase = "countdown";
       countdownTimer = msg.timer || 180;
+      console.log(`🎯 Countdown! duelists=${msg.duelists?.join(" vs ")}`);
     }
 
     if (type === "duel:fight") {
       phase = "fight";
+      console.log(`🎯 Fight!`);
       synth?.({ type: "square", tone: 440, volume: 0.7, attack: 0.01, decay: 0.15, duration: 0.2 });
     }
 
@@ -187,6 +221,10 @@ function sim() {
     }
     localWasMoving = isMoving;
   }
+
+  // Lerp opponent display position toward server position
+  opDisplayX += (opServerX - opDisplayX) * LERP_SPEED;
+  opDisplayY += (opServerY - opDisplayY) * LERP_SPEED;
 
   // Elastic camera snap-back
   if (!panning) {
@@ -322,15 +360,15 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       const col = isMe(p.handle) ? [50, 120, 200] : [200, 70, 60];
       const drawP = isMe(p.handle)
         ? { ...p, x: localX, y: localY, targetX: localTargetX, targetY: localTargetY }
-        : p;
+        : { ...p, x: opDisplayX, y: opDisplayY };
       drawFigure(ink, circle, box, line, ox, oy, drawP, col, frameCount);
 
       // Handle label (MatrixChunky8, centered) + ping
       const label = p.handle;
       const pingStr = p.ping > 0 ? ` ${p.ping}` : "";
       const fullLabel = label + pingStr;
-      const lx = (isMe(p.handle) ? localX : p.x);
-      const ly = (isMe(p.handle) ? localY : p.y);
+      const lx = isMe(p.handle) ? localX : opDisplayX;
+      const ly = isMe(p.handle) ? localY : opDisplayY;
       ink(...col, 150).write(fullLabel, {
         x: ox + Math.round(lx) - Math.round(fullLabel.length * 2),
         y: oy + Math.round(ly) + 9,
