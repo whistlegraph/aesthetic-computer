@@ -722,14 +722,20 @@ static long copy_file(const char *src, const char *dst) {
     return total;
 }
 
+// Install failure reason — set by auto_install_to_hd, displayed on failure screen
+static char install_fail_reason[256] = "";
+static char install_fail_detail[256] = "";
+
 // Auto-install kernel to internal drive's EFI System Partition
-// Returns 1 on success, 0 on failure.
+// Returns 1 on success, 0 on failure (sets install_fail_reason/detail).
 static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                               ACDisplay *display, int pixel_scale) {
     char source_mount[32] = "/mnt";
     char source_dev[32] = "";
     int source_mounted_tmp = 0;
     char kernel_src[96] = "";
+    install_fail_reason[0] = '\0';
+    install_fail_detail[0] = '\0';
     char bootloader_src[96] = "";
     char chain_kernel_src[96] = "";
     char install_kernel_src[96] = "";
@@ -814,14 +820,20 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         ((access(kernel_src, F_OK) != 0 && access(chain_kernel_src, F_OK) != 0) &&
          !systemd_boot_layout)) {
         ac_log("[install] No removable install source with kernel found\n");
+        snprintf(install_fail_reason, sizeof(install_fail_reason),
+                 "no USB boot source found");
         // Log available block devices for diagnostics
         ac_log("[install] Block devices:\n");
+        int dpos = 0;
         const char *scan[] = {"sda","sdb","sdc","sdd","nvme0n1","nvme1n1","mmcblk0",NULL};
         for (int i = 0; scan[i]; i++) {
             char dp[32]; snprintf(dp, sizeof(dp), "/sys/block/%s", scan[i]);
             if (access(dp, F_OK) == 0) {
                 int rem = is_removable(scan[i]);
                 ac_log("[install]   /dev/%s removable=%d\n", scan[i], rem);
+                dpos += snprintf(install_fail_detail + dpos,
+                    sizeof(install_fail_detail) - dpos,
+                    "/dev/%s %s  ", scan[i], rem == 1 ? "(USB)" : rem == 0 ? "(int)" : "(?)");
             }
         }
         if (source_mounted_tmp) umount("/tmp/src");
@@ -940,6 +952,10 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     // Remount and retry
                     if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
                         ac_log("[install] remount failed after repartition\n");
+                        snprintf(install_fail_reason, sizeof(install_fail_reason),
+                                 "repartition failed on %s", devpath);
+                        snprintf(install_fail_detail, sizeof(install_fail_detail),
+                                 "sfdisk=%d mkfs then mount failed", rrc);
                         if (display)
                             draw_boot_status(graph, screen, display, "repartition failed!", pixel_scale);
                         usleep(2000000);
@@ -993,7 +1009,17 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 ac_log("[install] copy result: %ld bytes\n", sz);
             }
 
-            if (sz > 0) {
+            if (sz <= 0) {
+                ac_log("[install] copy failed on %s (sz=%ld)\n", devpath, sz);
+                snprintf(install_fail_reason, sizeof(install_fail_reason),
+                         "copy failed on %s", devpath);
+                snprintf(install_fail_detail, sizeof(install_fail_detail),
+                         "kernel copy returned %ld bytes", sz);
+                umount("/tmp/hd");
+                continue;
+            }
+
+            {
                 // Also overwrite Windows Boot Manager path (ThinkPad BIOS often
                 // boots this first regardless of boot order) — but only if space permits
                 struct statvfs vfs;
@@ -1041,6 +1067,27 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         usleep(800000);
     } else if (!installed) {
         ac_log("[install] No suitable HD partition found for install\n");
+        if (!install_fail_reason[0]) {
+            snprintf(install_fail_reason, sizeof(install_fail_reason),
+                     "no internal FAT32/ESP partition found");
+            // Build detail: list what we tried
+            int dpos = 0;
+            dpos += snprintf(install_fail_detail + dpos,
+                sizeof(install_fail_detail) - dpos, "usb=%s  ", usb_blk[0] ? usb_blk : "?");
+            for (int i = 0; part_candidates[i]; i++) {
+                const char *blk = part_candidates[i];
+                char dp[32]; snprintf(dp, sizeof(dp), "/sys/block/%s", blk);
+                if (access(dp, F_OK) != 0) continue;
+                int rem = (blk[0] == 's' && blk[1] == 'd') ? is_removable(blk) : 0;
+                const char *skip = "";
+                if (usb_blk[0] && strcmp(blk, usb_blk) == 0) skip = "=boot";
+                else if (rem == 1) skip = "=USB";
+                else skip = "=tried";
+                dpos += snprintf(install_fail_detail + dpos,
+                    sizeof(install_fail_detail) - dpos,
+                    "%s%s ", blk, skip);
+            }
+        }
     }
     if (source_mounted_tmp) umount("/tmp/src");
     return installed;
@@ -1235,23 +1282,39 @@ static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
         int l1w = font_measure_matrix(line1, 1);
         font_draw_matrix(graph, line1, (screen->width - l1w) / 2, screen->height / 2 + 0, 1);
 
+        // Show failure diagnostics
+        if (!install_ok && install_fail_reason[0]) {
+            graph_ink(graph, (ACColor){200, 160, 100, 255});
+            int rw = font_measure_matrix(install_fail_reason, 1);
+            font_draw_matrix(graph, install_fail_reason,
+                             (screen->width - rw) / 2, screen->height / 2 + 16, 1);
+
+            if (install_fail_detail[0]) {
+                graph_ink(graph, (ACColor){140, 140, 160, 255});
+                int dw = font_measure_matrix(install_fail_detail, 1);
+                font_draw_matrix(graph, install_fail_detail,
+                                 (screen->width - dw) / 2, screen->height / 2 + 28, 1);
+            }
+        }
+
+        int yoff = (!install_ok && install_fail_reason[0]) ? 16 : 0;
         graph_ink(graph, (ACColor){180, 180, 210, 255});
         const char *line2 = "R/Enter = reboot";
         int l2w = font_measure_matrix(line2, 1);
-        font_draw_matrix(graph, line2, (screen->width - l2w) / 2, screen->height / 2 + 16, 1);
+        font_draw_matrix(graph, line2, (screen->width - l2w) / 2, screen->height / 2 + 32 + yoff, 1);
 
         if (!install_ok) {
             graph_ink(graph, (ACColor){150, 150, 170, 255});
             const char *line3 = "Esc = continue USB boot";
             int l3w = font_measure_matrix(line3, 1);
-            font_draw_matrix(graph, line3, (screen->width - l3w) / 2, screen->height / 2 + 30, 1);
+            font_draw_matrix(graph, line3, (screen->width - l3w) / 2, screen->height / 2 + 46 + yoff, 1);
         }
 
         if ((blink % 60) < 36) {
             graph_ink(graph, (ACColor){120, 120, 140, 255});
             const char *line4 = install_ok ? "waiting for reboot..." : "waiting for key...";
             int l4w = font_measure_matrix(line4, 1);
-            font_draw_matrix(graph, line4, (screen->width - l4w) / 2, screen->height / 2 + 48, 1);
+            font_draw_matrix(graph, line4, (screen->width - l4w) / 2, screen->height / 2 + 62 + yoff, 1);
         }
 
         ac_display_present(display, screen, pixel_scale);
