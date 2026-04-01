@@ -161,6 +161,10 @@ export class DuelManager {
     if (input.seq > player.lastInputSeq) {
       player.lastInputSeq = input.seq;
     }
+    // Log first few inputs
+    if (input.seq <= 3) {
+      console.log(`🎯 Input from ${handle}: seq=${input.seq} target=(${input.targetX.toFixed(1)}, ${input.targetY.toFixed(1)})`);
+    }
   }
 
   handlePing(handle, ts, wsId) {
@@ -277,6 +281,7 @@ export class DuelManager {
   startFight() {
     this.phase = "fight";
     this.broadcastWS?.("duel:fight", {});
+    console.log(`🎯 Duel fight started! Tick loop active.`);
   }
 
   endRound(winnerHandle) {
@@ -341,6 +346,7 @@ export class DuelManager {
   ensureTick() {
     if (!this.tickInterval) {
       this.tickInterval = setInterval(() => this.serverTick(), 1000 / TICK_RATE);
+      console.log(`🎯 Duel tick loop started (${TICK_RATE}Hz, snapshot every ${SNAPSHOT_INTERVAL} ticks)`);
     }
   }
 
@@ -348,6 +354,7 @@ export class DuelManager {
     if (this.tickInterval) {
       clearInterval(this.tickInterval);
       this.tickInterval = null;
+      console.log(`🎯 Duel tick loop stopped`);
     }
     this.resetToWaiting();
   }
@@ -535,6 +542,16 @@ export class DuelManager {
     };
 
     const data = JSON.stringify(snapshot);
+
+    // Log periodic snapshot info
+    if (this.tick % 300 === 0) {
+      const channels = [];
+      for (const [h, p] of this.players) {
+        if (h === DUMMY_HANDLE) continue;
+        channels.push(`${h}:${p.udpChannelId ? "UDP" : p.wsId != null ? "WS" : "NONE"}`);
+      }
+      console.log(`🎯 Duel snapshot #${this.tick} phase=${this.phase} via [${channels.join(", ")}]`);
+    }
 
     // Send to each player with UDP channel, fallback to WS
     for (const [handle, player] of this.players) {
