@@ -180,11 +180,11 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge) {
         
         const user = await userResponse.json();
         
-        // Fetch AC handle
+        // Fetch AC handle via /handle?for=sub
         let acHandle = null;
         try {
           const handleRes = await fetch(
-            `https://aesthetic.computer/user?from=${encodeURIComponent(user.email)}&withHandle=true`
+            `https://aesthetic.computer/handle?for=${encodeURIComponent(user.sub)}`
           );
           const handleData = await handleRes.json();
           if (handleData.handle) acHandle = handleData.handle;
