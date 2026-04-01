@@ -103,18 +103,20 @@ let _dawSampleRate = null; // 🎹 Store DAW sample rate for AudioContext creati
 let frozenUrlPath = null;
 
 // Called from boot() to connect the send function
+// NOTE: sendFunc is captured by VALUE at call time, but `send` may be reassigned
+// later (e.g. noWorker fallback). Use window.acSEND as the live reference.
 function _dawConnectSend(sendFunc, updateMetronome) {
   if (window.acDawConnect) {
-    // Wrap sendFunc to also update metronome and capture sample rate
     const wrappedSend = (msg) => {
       if (msg.type === "daw:tempo" && updateMetronome) {
         updateMetronome(msg.content.bpm);
       }
-      // 🎹 Capture DAW sample rate for AudioContext creation
       if (msg.type === "daw:samplerate" && msg.content?.samplerate) {
         _dawSampleRate = msg.content.samplerate;
       }
-      sendFunc(msg);
+      // Use window.acSEND (always current) with sendFunc as fallback
+      const currentSend = window.acSEND || sendFunc;
+      currentSend(msg);
     };
     window.acDawConnect(wrappedSend);
   }

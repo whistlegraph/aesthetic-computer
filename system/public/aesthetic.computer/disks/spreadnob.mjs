@@ -68,42 +68,49 @@ function arcXY(cx, cy, r, deg) {
   return [cx + r * Math.cos(rad), cy - r * Math.sin(rad)];
 }
 
-function boot() {}
+let simCount = 0;
+let dawExists = false;
+let dawKeys = "";
+
+function boot({ needsPaint }) { needsPaint(); }
 
 function sim({ sound, needsPaint }) {
+  simCount++;
   let dirty = false;
-  const sn = sound?.spreadnob;
-  if (sn) {
-    if (sn.active !== null && sn.active !== undefined) {
-      active = !!Number(sn.active);
-      sn.active = null;
+  // Read spreadnob data from sound.daw (stored as sn* props on persistentDawState)
+  const daw = sound?.daw;
+  dawExists = !!daw;
+  if (daw) {
+    if (daw.snActive !== undefined && daw.snActive !== null) {
+      active = !!Number(daw.snActive);
+      daw.snActive = null;
       dirty = true;
     }
-    if (sn.target !== null && sn.target !== undefined) {
-      target = String(sn.target).trim();
-      sn.target = null;
+    if (daw.snTarget !== undefined && daw.snTarget !== null) {
+      target = String(daw.snTarget).trim();
+      daw.snTarget = null;
       dirty = true;
     }
-    if (sn.min !== null && sn.min !== undefined) {
-      const n = Number(sn.min);
+    if (daw.snMin !== undefined && daw.snMin !== null) {
+      const n = Number(daw.snMin);
       if (Number.isFinite(n)) paramMin = n;
-      sn.min = null;
+      daw.snMin = null;
       dirty = true;
     }
-    if (sn.max !== null && sn.max !== undefined) {
-      const n = Number(sn.max);
+    if (daw.snMax !== undefined && daw.snMax !== null) {
+      const n = Number(daw.snMax);
       if (Number.isFinite(n)) paramMax = n;
-      sn.max = null;
+      daw.snMax = null;
       dirty = true;
     }
-    if (sn.value !== null && sn.value !== undefined) {
-      const n = Number(sn.value);
+    if (daw.snValue !== undefined && daw.snValue !== null) {
+      const n = Number(daw.snValue);
       value = Number.isFinite(n) ? n : null;
-      sn.value = null;
+      daw.snValue = null;
       dirty = true;
     }
-    if (sn.note !== null && sn.note !== undefined) {
-      const n = Number(sn.note);
+    if (daw.snNote !== undefined && daw.snNote !== null) {
+      const n = Number(daw.snNote);
       if (n !== lastSnNote) {
         currentNote = Number.isFinite(n) ? n : null;
         lastSnNote = n;
@@ -116,6 +123,9 @@ function sim({ sound, needsPaint }) {
         dirty = true;
       }
     }
+    if (simCount % 60 === 0) {
+      dawKeys = Object.keys(daw).filter(k => k.startsWith("sn") && daw[k] !== null).join(",");
+    }
   }
 
   if (flash > 0) {
@@ -123,7 +133,7 @@ function sim({ sound, needsPaint }) {
     if (flash < 0.025) flash = 0;
     dirty = true;
   }
-  if (dirty) needsPaint();
+  needsPaint(); // Always repaint for debug
 }
 
 function paint({ wipe, ink, screen }) {
@@ -221,6 +231,9 @@ function paint({ wipe, ink, screen }) {
 
   // Title
   ink(200, 120, 170).write("spreadnob", { x: 6, y: 4 }, undefined, undefined, false, MINI_FONT);
+
+  // Debug info
+  ink(255, 255, 0).write(`sim:${simCount} daw:${dawExists} keys:${dawKeys || "none"}`, { x: 6, y: h - 8 }, undefined, undefined, false, MINI_FONT);
 }
 
 function act({ event, screen, needsPaint }) {
