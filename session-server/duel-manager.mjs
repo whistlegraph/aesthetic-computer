@@ -51,6 +51,8 @@ export class DuelManager {
 
   playerJoin(handle, wsId) {
     if (!handle) return;
+    // Only allow handled users (not guest_XXXX)
+    if (handle.startsWith("guest_")) return;
 
     // Update existing or create new
     let player = this.players.get(handle);
@@ -408,16 +410,12 @@ export class DuelManager {
       const dx = p.targetX - p.x;
       const dy = p.targetY - p.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const isMoving = dist > 2;
 
-      if (isMoving) {
+      if (dist > 2) {
         const speed = h === DUMMY_HANDLE ? MOVE_SPEED * 0.7 : MOVE_SPEED;
         p.x += (dx / dist) * speed;
         p.y += (dy / dist) * speed;
       }
-
-      // Track moving state for fire-on-stop
-      p.wasMoving = isMoving;
     }
   }
 
@@ -450,9 +448,13 @@ export class DuelManager {
               ownerHandle: h,
               age: 0,
             });
+            console.log(`🎯 ${h} fired! bullets=${this.bullets.length}`);
           }
         }
       }
+
+      // Update wasMoving AFTER the fire check
+      p.wasMoving = isMoving;
     }
   }
 
