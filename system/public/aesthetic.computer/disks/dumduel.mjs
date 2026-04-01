@@ -31,6 +31,17 @@ let countdownTimer = 0;
 let roundWinner = null;
 let ping = 0;
 
+// Camera pan
+let camX = 0, camY = 0;
+let panning = false;
+let panStartX = 0, panStartY = 0;
+let panCamStartX = 0, panCamStartY = 0;
+let touchStartX = 0, touchStartY = 0;
+let wasDrag = false;
+const DRAG_THRESHOLD = 5;
+const SNAP_STRENGTH = 0.15;
+const SNAP_MARGIN = 10;
+
 function applySnapshot(s) {
   snap = s;
   phase = s.phase;
@@ -176,25 +187,60 @@ function sim() {
     }
     localWasMoving = isMoving;
   }
+
+  // Elastic camera snap-back
+  if (!panning) {
+    const minX = -SNAP_MARGIN;
+    const minY = -SNAP_MARGIN;
+    const maxX = Math.max(ARENA_W - sw + SNAP_MARGIN, minX);
+    const maxY = Math.max(ARENA_H - sh + SNAP_MARGIN, minY);
+    if (camX < minX) camX += (minX - camX) * SNAP_STRENGTH;
+    else if (camX > maxX) camX += (maxX - camX) * SNAP_STRENGTH;
+    if (camY < minY) camY += (minY - camY) * SNAP_STRENGTH;
+    else if (camY > maxY) camY += (maxY - camY) * SNAP_STRENGTH;
+  }
 }
 
 function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
 
-  if (e.is("touch") && (phase === "fight" || phase === "countdown")) {
-    const ox = Math.floor(sw / 2 - ARENA_W / 2);
-    const oy = Math.floor(sh / 2 - ARENA_H / 2);
-    const tx = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
-    const ty = Math.max(6, Math.min(ARENA_H - 6, e.y - oy));
+  if (e.is("touch")) {
+    touchStartX = e.x;
+    touchStartY = e.y;
+    wasDrag = false;
+    panning = true;
+    panStartX = e.x;
+    panStartY = e.y;
+    panCamStartX = camX;
+    panCamStartY = camY;
+  }
 
-    inputSeq++;
-    localTargetX = tx;
-    localTargetY = ty;
-    pendingInputs.push({ seq: inputSeq, targetX: tx, targetY: ty });
+  if (e.is("draw") && panning) {
+    const dx = e.x - touchStartX;
+    const dy = e.y - touchStartY;
+    if (dx * dx + dy * dy > DRAG_THRESHOLD * DRAG_THRESHOLD) {
+      wasDrag = true;
+    }
+    camX = panCamStartX - (e.x - panStartX);
+    camY = panCamStartY - (e.y - panStartY);
+  }
 
-    // Send to server via UDP
-    udpChannel?.send("duel:input", { seq: inputSeq, targetX: tx, targetY: ty });
+  if (e.is("lift")) {
+    panning = false;
+    // If it was a short tap (not a drag), send move input
+    if (!wasDrag && (phase === "fight" || phase === "countdown")) {
+      const ox = Math.floor(sw / 2 - ARENA_W / 2) - camX;
+      const oy = Math.floor(sh / 2 - ARENA_H / 2) - camY;
+      const tx = Math.max(6, Math.min(ARENA_W - 6, e.x - ox));
+      const ty = Math.max(6, Math.min(ARENA_H - 6, e.y - oy));
+
+      inputSeq++;
+      localTargetX = tx;
+      localTargetY = ty;
+      pendingInputs.push({ seq: inputSeq, targetX: tx, targetY: ty });
+      udpChannel?.send("duel:input", { seq: inputSeq, targetX: tx, targetY: ty });
+    }
   }
 }
 
@@ -203,8 +249,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
   sh = screen.height;
   wipe(240, 238, 232);
 
-  const ox = Math.floor(sw / 2 - ARENA_W / 2);
-  const oy = Math.floor(sh / 2 - ARENA_H / 2);
+  const ox = Math.round(sw / 2 - ARENA_W / 2 - camX);
+  const oy = Math.round(sh / 2 - ARENA_H / 2 - camY);
 
   // Arena
   ink(252, 250, 245).box(ox, oy, ARENA_W, ARENA_H);
@@ -256,7 +302,7 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       const alpha = Math.max(40, 255 - (b.age || 0) * 1.2);
       if (b.owner === myHandle) ink(50, 120, 200, alpha);
       else ink(200, 70, 60, alpha);
-      circle(ox + Math.floor(b.x), oy + Math.floor(b.y), BULLET_R, true);
+      circle(ox + Math.round(b.x), oy + Math.round(b.y), BULLET_R, true);
     }
 
     // Target indicator
@@ -264,8 +310,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       const meAlive = players.find((p) => p.handle === myHandle)?.alive;
       if (meAlive) {
         ink(50, 120, 200, 60).circle(
-          ox + Math.floor(localTargetX),
-          oy + Math.floor(localTargetY),
+          ox + Math.round(localTargetX),
+          oy + Math.round(localTargetY),
           3, false,
         );
       }
@@ -286,8 +332,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       const lx = (isMe(p.handle) ? localX : p.x);
       const ly = (isMe(p.handle) ? localY : p.y);
       ink(...col, 150).write(fullLabel, {
-        x: ox + Math.floor(lx) - Math.floor(fullLabel.length * 2),
-        y: oy + Math.floor(ly) + 9,
+        x: ox + Math.round(lx) - Math.round(fullLabel.length * 2),
+        y: oy + Math.round(ly) + 9,
       }, undefined, undefined, false, "MatrixChunky8");
     }
 
@@ -333,8 +379,8 @@ function isMe(handle) {
 }
 
 function drawFigure(ink, circle, box, line, ox, oy, fig, col, fc) {
-  const fx = ox + Math.floor(fig.x);
-  const fy = oy + Math.floor(fig.y);
+  const fx = ox + Math.round(fig.x);
+  const fy = oy + Math.round(fig.y);
 
   if (!fig.alive) {
     ink(col[0], col[1], col[2], 60);
@@ -346,14 +392,18 @@ function drawFigure(ink, circle, box, line, ox, oy, fig, col, fc) {
   const dx = (fig.targetX || fig.x) - fig.x;
   const dy = (fig.targetY || fig.y) - fig.y;
   const moving = dx * dx + dy * dy > 4;
-  const legSwing = moving ? Math.sin(fc * 0.3) * 3 : 0;
+  const swing = moving ? Math.round(Math.sin(fc * 0.3) * 3) : 0;
 
   ink(...col);
-  line(fx, fy + 1, fx - 4 + legSwing, fy + 6);
-  line(fx, fy + 1, fx + 4 - legSwing, fy + 6);
-  line(fx - 1, fy - 1, fx - 5 - legSwing * 0.5, fy + 2);
-  line(fx + 1, fy - 1, fx + 5 + legSwing * 0.5, fy + 2);
+  // Legs
+  line(fx, fy + 1, fx - 4 + swing, fy + 6);
+  line(fx, fy + 1, fx + 4 - swing, fy + 6);
+  // Arms
+  line(fx - 1, fy - 1, fx - 5 - Math.round(swing * 0.5), fy + 2);
+  line(fx + 1, fy - 1, fx + 5 + Math.round(swing * 0.5), fy + 2);
+  // Head
   circle(fx, fy - 2, 3, true);
+  // Eye
   ink(255, 255, 255).box(fx, fy - 3, 1, 1);
 }
 
