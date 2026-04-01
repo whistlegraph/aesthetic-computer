@@ -18,8 +18,8 @@
     "openrect": [
       0.0,
       0.0,
-      250.0,
-      194.0
+      400.0,
+      170.0
     ],
     "openinpresentation": 1,
     "gridsize": [
@@ -28,7 +28,7 @@
     ],
     "enablehscroll": 0,
     "enablevscroll": 0,
-    "devicewidth": 250.0,
+    "devicewidth": 400.0,
     "description": "Spreadnob \u2014 spread any knob across your MIDI keys",
     "boxes": [
       {
@@ -47,8 +47,8 @@
           "presentation_rect": [
             0.0,
             0.0,
-            250.0,
-            194.0
+            401.0,
+            171.0
           ],
           "background": 1,
           "ignoreclick": 1,
@@ -85,11 +85,11 @@
           "presentation_rect": [
             0.0,
             0.0,
-            250.0,
-            194.0
+            401.0,
+            171.0
           ],
           "rendermode": 1,
-          "url": "https://localhost:8888/spreadnob?daw=1&nogap=true&width=250&height=194"
+          "url": "https://localhost:8888/spreadnob?daw=1&density=1&nogap&width=400&height=170"
         }
       },
       {
@@ -149,6 +149,24 @@
             22.0
           ],
           "text": "bang"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-test-script",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            700.0,
+            326.0,
+            200.0,
+            22.0
+          ],
+          "text": "script window.postMessage({type:'spreadnob:ready'},'*')"
         }
       },
       {
@@ -235,7 +253,7 @@
             56.0,
             18.0
           ],
-          "text": "v1.0.4",
+          "text": "v1.0.5",
           "fontname": "YWFTProcessing-Regular",
           "fontsize": 10.0,
           "textcolor": [
@@ -911,7 +929,7 @@
             65.0,
             22.0
           ],
-          "text": "loadmess 60"
+          "text": "loadmess 48"
         }
       },
       {
@@ -929,7 +947,7 @@
             65.0,
             22.0
           ],
-          "text": "loadmess 76"
+          "text": "loadmess 62"
         }
       },
       {
@@ -947,7 +965,7 @@
             70.0,
             22.0
           ],
-          "text": "pak 60 76"
+          "text": "pak 48 62"
         }
       },
       {
@@ -965,7 +983,7 @@
             230.0,
             22.0
           ],
-          "text": "executejavascript if(window.acSpreadnobSetRange)window.acSpreadnobSetRange($1,$2)"
+          "text": "script window.postMessage({type:'spreadnob:range',low:$1,high:$2},'*')"
         }
       },
       {
@@ -983,7 +1001,7 @@
             205.0,
             22.0
           ],
-          "text": "executejavascript if(window.acSpreadnobNote){window.acSpreadnobNote($1)}else{console.log(\"[SPREADNOB-UI/MISS NOTE]\",$1)}"
+          "text": "script window.postMessage({type:'spreadnob:note',note:$1},'*')"
         }
       },
       {
@@ -1001,7 +1019,7 @@
             215.0,
             22.0
           ],
-          "text": "executejavascript if(window.acSpreadnobSetValue)window.acSpreadnobSetValue($1)"
+          "text": "script window.postMessage({type:'spreadnob:value',value:$1},'*')"
         }
       },
       {
@@ -1019,7 +1037,7 @@
             220.0,
             22.0
           ],
-          "text": "executejavascript if(window.acSpreadnobSetActive){window.acSpreadnobSetActive($1)}else{console.log(\"[SPREADNOB-UI/MISS ACTIVE]\",$1)}"
+          "text": "script window.postMessage({type:'spreadnob:active',active:$1},'*')"
         }
       },
       {
@@ -1055,7 +1073,7 @@
             255.0,
             22.0
           ],
-          "text": "executejavascript if(window.acSpreadnobSetTarget)window.acSpreadnobSetTarget(\"$1\")"
+          "text": "script window.postMessage({type:'spreadnob:target',name:'$1'},'*')"
         }
       },
       {
@@ -1114,6 +1132,98 @@
             22.0
           ],
           "text": "property is_active"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-route-active",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 2,
+          "outlettype": [
+            "",
+            ""
+          ],
+          "patching_rect": [
+            30.0,
+            530.0,
+            95.0,
+            22.0
+          ],
+          "text": "route is_active"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-jweb-write-route",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": [
+            "",
+            ""
+          ],
+          "patching_rect": [
+            30.0,
+            560.0,
+            85.0,
+            22.0
+          ],
+          "text": "route write"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-jweb-write-setval",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            30.0,
+            590.0,
+            85.0,
+            22.0
+          ],
+          "text": "set value $1"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ui-min-msg",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            760.0,
+            482.0,
+            215.0,
+            22.0
+          ],
+          "text": "script window.postMessage({type:'spreadnob:min',min:$1},'*')"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ui-max-msg",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            760.0,
+            510.0,
+            215.0,
+            22.0
+          ],
+          "text": "script window.postMessage({type:'spreadnob:max',max:$1},'*')"
         }
       },
       {
@@ -1663,7 +1773,7 @@
             90.0,
             22.0
           ],
-          "text": "clip 60. 76."
+          "text": "clip 48. 62."
         }
       },
       {
@@ -2494,42 +2604,6 @@
       {
         "patchline": {
           "destination": [
-            "obj-jweb-range",
-            0
-          ],
-          "source": [
-            "obj-jweb-route",
-            1
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-midi-low",
-            0
-          ],
-          "source": [
-            "obj-jweb-range",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-midi-high",
-            0
-          ],
-          "source": [
-            "obj-jweb-range",
-            1
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
             "obj-midi-low",
             0
           ],
@@ -3228,30 +3302,6 @@
           "destination": [
             "obj-expr",
             1
-          ],
-          "source": [
-            "obj-store-max",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-clip",
-            1
-          ],
-          "source": [
-            "obj-store-min",
-            0
-          ]
-        }
-      },
-      {
-        "patchline": {
-          "destination": [
-            "obj-clip",
-            2
           ],
           "source": [
             "obj-store-max",
@@ -4007,10 +4057,166 @@
         "patchline": {
           "source": [
             "obj-thisdevice",
+            0
+          ],
+          "destination": [
+            "obj-device-prop-active",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-device-path",
+            0
+          ],
+          "destination": [
+            "obj-device-observer",
             1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-device-prop-active",
+            0
+          ],
+          "destination": [
+            "obj-device-observer",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-device-observer",
+            0
+          ],
+          "destination": [
+            "obj-route-active",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-route-active",
+            0
           ],
           "destination": [
             "obj-ui-active-msg",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb",
+            2
+          ],
+          "destination": [
+            "obj-jweb-write-route",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb-write-route",
+            0
+          ],
+          "destination": [
+            "obj-jweb-write-setval",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb-write-setval",
+            0
+          ],
+          "destination": [
+            "obj-writer",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-store-min",
+            0
+          ],
+          "destination": [
+            "obj-ui-min-msg",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ui-min-msg",
+            0
+          ],
+          "destination": [
+            "obj-jweb",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-store-max",
+            0
+          ],
+          "destination": [
+            "obj-ui-max-msg",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-ui-max-msg",
+            0
+          ],
+          "destination": [
+            "obj-jweb",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-jweb-ready-bang",
+            0
+          ],
+          "destination": [
+            "obj-test-script",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "obj-test-script",
+            0
+          ],
+          "destination": [
+            "obj-jweb",
             0
           ]
         }
