@@ -15,9 +15,11 @@ import {
 } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { respond } from "../../backend/http.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
+import { connect } from "../../backend/database.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
+const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
 // Fire-and-forget piece hit tracking (don't await, don't block page load)
 async function trackPieceHit(piece, type) {
@@ -35,6 +37,38 @@ async function trackPieceHit(piece, type) {
     // Silent fail - don't let tracking break page loads
     if (dev) console.log("📊 Hit tracking failed:", e.message);
   }
+}
+
+async function findBareKidlispCode(slug) {
+  if (!BARE_KIDLISP_CODE.test(slug)) return false;
+
+  try {
+    const database = await connect();
+    const record = await database.db.collection("kidlisp").findOne(
+      { code: slug },
+      { projection: { _id: 1 } },
+    );
+    await database.disconnect();
+    return !!record;
+  } catch (err) {
+    console.log(`[kidlisp] Bare /${slug} lookup failed:`, err?.message || err);
+    return false;
+  }
+}
+
+function redirectToKidlispCode(event, code) {
+  const query = new URLSearchParams(event.queryStringParameters || {});
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const location = `/$${code}${suffix}`;
+
+  return respond(
+    302,
+    `<a href="${location}">Redirecting to ${location}</a>`,
+    {
+      "Content-Type": "text/html",
+      Location: location,
+    },
+  );
 }
 
 async function fun(event, context) {
@@ -746,6 +780,11 @@ async function fun(event, context) {
           meta = { ...meta, title, standaloneTitle: true };
         }
       }
+    }
+
+    if (statusCode === 404 && !sourceCode && !fromHandle && await findBareKidlispCode(slug)) {
+      console.log(`[kidlisp] Converting bare /${slug} to /$${slug} and redirecting`);
+      return redirectToKidlispCode(event, slug);
     }
   } catch (err) {
     // If either module doesn't load, then we can fallback to the main route.
