@@ -95,6 +95,26 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" bash -s <<'NIX_E
   else
     curl -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm 2>&1 | tail -10
   fi
+  NIX_BIN=""
+  for candidate in \
+    /nix/var/nix/profiles/default/bin/nix \
+    /root/.nix-profile/bin/nix \
+    /home/oven/.nix-profile/bin/nix; do
+    if [ -x "$candidate" ]; then
+      NIX_BIN="$candidate"
+      break
+    fi
+  done
+  if [ -n "$NIX_BIN" ]; then
+    ln -sf "$NIX_BIN" /usr/local/bin/nix
+    NIX_GC_BIN="$(dirname "$NIX_BIN")/nix-collect-garbage"
+    if [ -x "$NIX_GC_BIN" ]; then
+      ln -sf "$NIX_GC_BIN" /usr/local/bin/nix-collect-garbage
+    fi
+    echo "Nix binary: $NIX_BIN"
+  else
+    echo "WARNING: nix binary not found after install"
+  fi
   # Enable flakes
   mkdir -p /etc/nix
   grep -q 'experimental-features' /etc/nix/nix.conf 2>/dev/null || \
@@ -253,11 +273,13 @@ if grep -q '^OVEN_VERSION=' .env 2>/dev/null; then
 else
   echo 'OVEN_VERSION=$GIT_VERSION' >> .env
 fi
+install -m 0644 $REMOTE_DIR/infra/oven.service /etc/systemd/system/oven.service
 # Rewrite systemd override from scratch so stale directives do not survive deploys.
 mkdir -p /etc/systemd/system/oven.service.d
 cat > /etc/systemd/system/oven.service.d/override.conf <<EOF
 [Service]
 Environment=OVEN_VERSION=$GIT_VERSION
+Environment=PATH=/usr/local/bin:/nix/var/nix/profiles/default/bin:/home/oven/.nix-profile/bin:/root/.nix-profile/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 LimitNOFILE=65536
 EOF
 systemctl daemon-reload
