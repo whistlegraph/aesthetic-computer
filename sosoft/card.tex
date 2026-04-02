@@ -31,6 +31,12 @@
   Path=../system/public/type/webfonts/,
   Extension=.ttf
 ]
+\newfontfamily\cardcodefont[
+  UprightFont={TeX Gyre Cursor:style=Regular},
+  ItalicFont={TeX Gyre Cursor:style=Italic},
+  BoldFont={TeX Gyre Cursor:style=Bold},
+  BoldItalicFont={TeX Gyre Cursor:style=Bold Italic},
+]{TeX Gyre Cursor}
 \setmonofont[
   UprightFont={Nimbus Mono PS:style=Regular},
   ItalicFont={Nimbus Mono PS:style=Italic},
@@ -57,14 +63,6 @@
 
 \begin{document}
 
-% === Safety margin guide ===
-\begin{tikzpicture}[remember picture, overlay]
-  \draw[red, line width=0.3pt, opacity=0.4]
-    ([xshift=\safetyinset, yshift=-\safetyinset]current page.north west)
-    rectangle
-    ([xshift=-\safetyinset, yshift=\safetyinset]current page.south east);
-\end{tikzpicture}
-
 \vspace*{-0.26in}
 
 % === $berz screenshot with rounded corners ===
@@ -80,7 +78,7 @@
 
 % === Source code ===
 \begingroup\offinterlineskip
-\ttfamily\bfseries\fontsize{8pt}{8pt}\selectfont
+\cardcodefont\bfseries\fontsize{8pt}{8pt}\selectfont
 \noindent\hspace*{-0.08in}\begin{tabular}{@{}l@{}}
 \rule{0pt}{8.75pt}black\\
 \rule{0pt}{8.75pt}ink (? white black)\\
