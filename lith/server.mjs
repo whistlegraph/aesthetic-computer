@@ -589,6 +589,181 @@ app.get("/frame/:piece", async (req, res) => {
 </html>`);
 });
 
+// --- /api/os-release-upload (ports Netlify edge function os-release-upload.js) ---
+app.post("/api/os-release-upload", async (req, res) => {
+  const { createHmac } = await import("crypto");
+
+  // Auth: verify AC token
+  const authHeader = req.headers["authorization"] || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  if (!token) return res.status(401).json({ error: "Missing Authorization: Bearer <ac_token>" });
+
+  let user;
+  try {
+    const uiRes = await fetch("https://hi.aesthetic.computer/userinfo", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!uiRes.ok) throw new Error(`Auth0 ${uiRes.status}`);
+    user = await uiRes.json();
+  } catch (err) {
+    return res.status(401).json({ error: `Auth failed: ${err.message}` });
+  }
+
+  const userSub = user.sub || "unknown";
+  const userName = user.name || user.nickname || userSub;
+
+  const accessKey = process.env.DO_SPACES_KEY || process.env.ART_KEY;
+  const secretKey = process.env.DO_SPACES_SECRET || process.env.ART_SECRET;
+  if (!accessKey || !secretKey) return res.status(503).json({ error: "Spaces creds not configured" });
+
+  const bucket = "releases-aesthetic-computer";
+  const host = `${bucket}.sfo3.digitaloceanspaces.com`;
+
+  const buildName = req.headers["x-build-name"] || `upload-${Date.now()}`;
+  const gitHash = req.headers["x-git-hash"] || "unknown";
+  const buildTs = req.headers["x-build-ts"] || new Date().toISOString().slice(0, 16);
+  const commitMsg = req.headers["x-commit-msg"] || "";
+  const version = `${buildName} ${gitHash}-${buildTs}`;
+
+  function presignUrl(key, contentType, expiresSec = 900) {
+    const expires = Math.floor(Date.now() / 1000) + expiresSec;
+    const stringToSign = `PUT\n\n${contentType}\n${expires}\nx-amz-acl:public-read\n/${bucket}/${key}`;
+    const sig = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
+    return `https://${host}/${key}?AWSAccessKeyId=${encodeURIComponent(accessKey)}&Expires=${expires}&Signature=${encodeURIComponent(sig)}&x-amz-acl=public-read`;
+  }
+
+  async function s3Put(key, body, contentType) {
+    const dateStr = new Date().toUTCString();
+    const stringToSign = `PUT\n\n${contentType}\n${dateStr}\nx-amz-acl:public-read\n/${bucket}/${key}`;
+    const sig = createHmac("sha1", secretKey).update(stringToSign).digest("base64");
+    const putRes = await fetch(`https://${host}/${key}`, {
+      method: "PUT",
+      headers: { Date: dateStr, "Content-Type": contentType, "x-amz-acl": "public-read", Authorization: `AWS ${accessKey}:${sig}` },
+      body: typeof body === "string" ? body : body,
+    });
+    if (!putRes.ok) {
+      const text = await putRes.text();
+      throw new Error(`S3 PUT ${key}: ${putRes.status} ${text.slice(0, 200)}`);
+    }
+  }
+
+  async function loadMachineTokenSecret() {
+    try {
+      const connStr = process.env.MONGODB_CONNECTION_STRING;
+      if (!connStr) return null;
+      const { MongoClient } = await import("mongodb");
+      const client = new MongoClient(connStr);
+      await client.connect();
+      const dbName = process.env.MONGODB_NAME || "aesthetic";
+      const doc = await client.db(dbName).collection("secrets").findOne({ _id: "machine-token" });
+      await client.close();
+      return doc?.secret || null;
+    } catch (e) {
+      console.error("[os-release-upload] Failed to load machine-token secret:", e.message);
+      return null;
+    }
+  }
+
+  async function generateDeviceToken(sub, handle) {
+    const secret = await loadMachineTokenSecret();
+    if (!secret) return null;
+    const payload = { sub, handle, iat: Math.floor(Date.now() / 1000) };
+    const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const sigB64 = createHmac("sha256", secret).update(payloadB64).digest("base64url");
+    return `${payloadB64}.${sigB64}`;
+  }
+
+  const isFinalize = req.headers["x-finalize"] === "true";
+
+  if (isFinalize) {
+    const sha256 = req.headers["x-sha256"] || "unknown";
+    const size = parseInt(req.headers["x-size"] || "0", 10);
+    try {
+      const versionWithSize = `${version}\n${size}`;
+      await Promise.all([
+        s3Put("os/native-notepat-latest.version", versionWithSize, "text/plain"),
+        s3Put("os/native-notepat-latest.sha256", sha256, "text/plain"),
+      ]);
+      let releases = { releases: [] };
+      try {
+        const existing = await fetch(`https://${host}/os/releases.json`);
+        if (existing.ok) releases = await existing.json();
+      } catch { /* first release */ }
+      const userHandle = req.headers["x-handle"] || user.nickname || user.name || userName;
+      releases.releases = releases.releases || [];
+      for (const r of releases.releases) r.deprecated = true;
+      releases.releases.unshift({
+        version, name: buildName, sha256, size, git_hash: gitHash, build_ts: buildTs,
+        commit_msg: commitMsg, user: userSub, handle: userHandle,
+        url: `https://${host}/os/native-notepat-latest.vmlinuz`,
+        archive_url: `https://${host}/os/builds/${buildName}.vmlinuz`,
+      });
+      releases.releases = releases.releases.slice(0, 50);
+      releases.latest = version;
+      releases.latest_name = buildName;
+      const deviceToken = await generateDeviceToken(userSub, userHandle);
+      if (deviceToken) releases.device_token = deviceToken;
+      await s3Put("os/releases.json", JSON.stringify(releases, null, 2), "application/json");
+      return res.json({ ok: true, name: buildName, version, sha256, size, url: `https://${host}/os/native-notepat-latest.vmlinuz`, user: userSub, userName, deviceToken: !!deviceToken });
+    } catch (err) {
+      return res.status(500).json({ error: `Finalize failed: ${err.message}` });
+    }
+  }
+
+  if (req.headers["x-versioned-upload"] === "true") {
+    try {
+      const versionedKey = req.headers["x-versioned-key"] || `os/builds/${buildName}.vmlinuz`;
+      return res.json({ step: "versioned-upload", versioned_put_url: presignUrl(versionedKey, "application/octet-stream", 1800), key: versionedKey, user: userSub });
+    } catch (err) {
+      return res.status(500).json({ error: `Versioned presign failed: ${err.message}` });
+    }
+  }
+
+  if (req.headers["x-manifest-upload"] === "true") {
+    try {
+      return res.json({ step: "manifest-upload", manifest_put_url: presignUrl("os/latest-manifest.json", "application/json"), user: userSub });
+    } catch (err) {
+      return res.status(500).json({ error: `Manifest presign failed: ${err.message}` });
+    }
+  }
+
+  if (req.headers["x-template-upload"] === "true") {
+    try {
+      return res.json({ step: "template-upload", iso_put_url: presignUrl("os/native-notepat-latest.iso", "application/x-iso9660-image"), user: userSub });
+    } catch (err) {
+      return res.status(500).json({ error: `Template presign failed: ${err.message}` });
+    }
+  }
+
+  // Step 1: Return presigned URL for vmlinuz upload
+  try {
+    return res.json({ step: "upload", vmlinuz_put_url: presignUrl("os/native-notepat-latest.vmlinuz", "application/octet-stream"), version, user: userSub, userName });
+  } catch (err) {
+    return res.status(500).json({ error: `Presign failed: ${err.message}` });
+  }
+});
+
+// --- /api/os-image (ports Netlify edge function os-image.js) ---
+app.get("/api/os-image", async (req, res) => {
+  const authHeader = req.headers["authorization"] || "";
+  if (!authHeader) return res.status(401).json({ error: "Authorization required. Log in at aesthetic.computer first." });
+
+  try {
+    const ovenRes = await fetch("https://oven.aesthetic.computer/os-image", {
+      headers: { Authorization: authHeader },
+    });
+    res.status(ovenRes.status);
+    res.set("Content-Type", ovenRes.headers.get("content-type") || "application/octet-stream");
+    if (ovenRes.headers.get("content-disposition")) res.set("Content-Disposition", ovenRes.headers.get("content-disposition"));
+    if (ovenRes.headers.get("content-length")) res.set("Content-Length", ovenRes.headers.get("content-length"));
+    res.set("Access-Control-Allow-Origin", "*");
+    const { Readable } = await import("stream");
+    Readable.fromWeb(ovenRes.body).pipe(res);
+  } catch (err) {
+    return res.status(502).json({ error: `Oven unavailable: ${err.message}` });
+  }
+});
+
 // --- /media/* handler (ports Netlify edge function media.js) ---
 app.all("/media/*rest", async (req, res) => {
   const parts = req.path.split("/").filter(Boolean); // ["media", ...]
@@ -726,6 +901,94 @@ app.all("/profile/*rest", directFn("profile"));
 
 // Static files
 app.use(express.static(PUBLIC, { extensions: ["html"], dotfiles: "allow" }));
+
+// --- keeps-social: SSR meta tags for social crawlers on keep/buy.kidlisp.com ---
+const CRAWLER_RE = /twitterbot|facebookexternalhit|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|applebot/i;
+const OBJKT_GRAPHQL = "https://data.objkt.com/v3/graphql";
+
+async function keepsSocialMiddleware(req, res, next) {
+  const host = (req.headers.host || "").split(":")[0].toLowerCase();
+  const isBuy = host.includes("buy.kidlisp.com");
+  const isKeep = host.includes("keep.kidlisp.com");
+  if (!isBuy && !isKeep) return next();
+
+  const seg = req.path.replace(/^\/+/, "").split("/")[0];
+  if (!seg.startsWith("$") || seg.length < 2) return next();
+
+  const ua = req.headers["user-agent"] || "";
+  if (!CRAWLER_RE.test(ua)) return next();
+
+  const code = seg.slice(1);
+  try {
+    const [tokenData, ogImage] = await Promise.all([
+      fetchKeepsTokenData(code),
+      resolveKeepsImageUrl(`https://oven.aesthetic.computer/preview/1200x630/$${code}.png`),
+    ]);
+
+    // Get the HTML from the index function
+    if (!functions["index"]) return next();
+    const event = toEvent(req);
+    const result = await functions["index"](event, { clientContext: {} });
+    let html = result.body || "";
+
+    const title = `$${code}`;
+    const subdomain = isBuy ? "buy" : "keep";
+    const description = buildKeepsDescription(tokenData, isBuy);
+    const permalink = `https://${subdomain}.kidlisp.com/$${code}`;
+
+    html = html.replace(/<meta property="og:url"[^>]*\/>/, `<meta property="og:url" content="${permalink}" />`);
+    html = html.replace(/<meta property="og:title"[^>]*\/>/, `<meta property="og:title" content="${escapeAttr(title)}" />`);
+    html = html.replace(/<meta property="og:description"[^>]*\/>/, `<meta property="og:description" content="${escapeAttr(description)}" />`);
+    html = html.replace(/<meta property="og:image" content="[^"]*"[^>]*\/>/, `<meta property="og:image" content="${ogImage}" />`);
+    html = html.replace(/<meta name="twitter:title"[^>]*\/>/, `<meta name="twitter:title" content="${escapeAttr(title)}" />`);
+    html = html.replace(/<meta name="twitter:description"[^>]*\/>/, `<meta name="twitter:description" content="${escapeAttr(description)}" />`);
+    html = html.replace(/<meta name="twitter:image" content="[^"]*"[^>]*\/>/, `<meta name="twitter:image" content="${ogImage}" />`);
+
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=3600");
+    return res.status(200).send(html);
+  } catch (err) {
+    console.error("[keeps-social] error:", err);
+    return next();
+  }
+}
+
+async function fetchKeepsTokenData(code) {
+  const contract = "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB";
+  const query = `query { token(where: { fa_contract: { _eq: "${contract}" } name: { _eq: "$${code}" } }) { token_id name thumbnail_uri } listing_active(where: { fa_contract: { _eq: "${contract}" } token: { name: { _eq: "$${code}" } } } order_by: { price_xtz: asc } limit: 1) { price_xtz seller_address } }`;
+  const r = await fetch(OBJKT_GRAPHQL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
+  if (!r.ok) return null;
+  const json = await r.json();
+  const tokens = json?.data?.token || [];
+  if (tokens.length === 0) return null;
+  return { token: tokens[0], listing: (json?.data?.listing_active || [])[0] || null };
+}
+
+function buildKeepsDescription(tokenData, isBuy) {
+  if (!tokenData) return isBuy ? "Buy KidLisp generative art on Tezos." : "KidLisp generative art preserved on Tezos.";
+  const { listing } = tokenData;
+  if (listing) {
+    const xtz = (Number(listing.price_xtz) / 1_000_000).toFixed(2);
+    return isBuy ? `Buy now — ${xtz} XTZ | KidLisp generative art on Tezos` : `For Sale — ${xtz} XTZ | KidLisp generative art on Tezos`;
+  }
+  return isBuy ? "Buy KidLisp generative art on Tezos." : "KidLisp generative art preserved on Tezos.";
+}
+
+function escapeAttr(str) {
+  return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function resolveKeepsImageUrl(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD", redirect: "follow" });
+    if (r.ok && r.url) return r.url;
+  } catch (e) {
+    console.error("[keeps-social] image resolve error:", e);
+  }
+  return url;
+}
+
+app.use(keepsSocialMiddleware);
 
 // SPA fallback → index function
 app.use(async (req, res) => {

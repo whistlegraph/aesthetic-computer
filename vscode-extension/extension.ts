@@ -861,9 +861,8 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     ),
   );
 
-  // ✦ Git Status Welcome Panel
-  // Runs `git status --porcelain` directly via child_process for maximum speed.
-  // Shows changes for both aesthetic-computer and aesthetic-computer-vault.
+  // ✦ Dashboard — Git Status + AT Protocol Firehose + Tangled Knot Activity
+  // Multi-section live dashboard for all Aesthetic Computer platform activity.
 
   interface GitRepoStatus {
     name: string;
@@ -871,6 +870,28 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     branch: string;
     files: { status: string; file: string }[];
     error?: string;
+  }
+
+  interface FirehoseEvent {
+    id: string;
+    type: string;       // tape, mood, painting, news, handle, piece, kidlisp
+    action: string;     // create, update, delete
+    handle?: string;
+    did?: string;
+    summary: string;
+    timestamp: string;
+    url?: string;
+  }
+
+  interface TangledEvent {
+    id: string;
+    type: string;       // push, issue, star, fork
+    repo: string;
+    author?: string;
+    summary: string;
+    timestamp: string;
+    commitHash?: string;
+    url?: string;
   }
 
   // Detect current VS Code theme kind
@@ -896,14 +917,22 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     });
   }
 
-  // Get git status for a repo directory
+  // Get git status for a repo directory (with graceful rev-parse fallback)
   async function getGitStatus(repoPath: string, name: string): Promise<GitRepoStatus> {
     try {
-      const [statusOut, branchOut] = await Promise.all([
-        gitExec('status --porcelain', repoPath),
-        gitExec('rev-parse --abbrev-ref HEAD', repoPath),
-      ]);
-      const branch = branchOut.trim();
+      const statusOut = await gitExec('status --porcelain', repoPath);
+      let branch = '(init)';
+      try {
+        branch = (await gitExec('rev-parse --abbrev-ref HEAD', repoPath)).trim();
+      } catch {
+        // No commits yet — rev-parse fails on fresh repos, use symbolic-ref
+        try {
+          const ref = (await gitExec('symbolic-ref --short HEAD', repoPath)).trim();
+          branch = ref || '(init)';
+        } catch {
+          branch = '(no commits)';
+        }
+      }
       const files = statusOut.split('\n').filter(Boolean).map(line => ({
         status: line.substring(0, 2).trim(),
         file: line.substring(3),
@@ -914,86 +943,301 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     }
   }
 
+  // Get recent git log for a repo
+  async function getGitLog(repoPath: string, count: number = 8): Promise<{ hash: string; subject: string; author: string; date: string }[]> {
+    try {
+      const logOut = await gitExec(`log --oneline --format="%h|%s|%an|%cr" -${count}`, repoPath);
+      return logOut.split('\n').filter(Boolean).map(line => {
+        const [hash, subject, author, date] = line.split('|');
+        return { hash, subject, author, date };
+      });
+    } catch {
+      return [];
+    }
+  }
+
   // Gather status for all repos
-  async function getAllGitStatus(): Promise<GitRepoStatus[]> {
+  async function getAllGitStatus(): Promise<{ repos: GitRepoStatus[]; logs: { name: string; commits: { hash: string; subject: string; author: string; date: string }[] }[] }> {
     await _modulesReady;
     const repos: { name: string; root: string }[] = [];
 
-    // Find aesthetic-computer workspace root
     const wsFolder = vscode.workspace.workspaceFolders?.[0];
     if (wsFolder && fs && path) {
       const acRoot = wsFolder.uri.fsPath;
-
-      // Verify main repo is a git repo
       try {
-        const mainGitDir = path.join(acRoot, '.git');
-        if (fs.existsSync(mainGitDir)) {
+        if (fs.existsSync(path.join(acRoot, '.git'))) {
           repos.push({ name: 'aesthetic-computer', root: acRoot });
         }
       } catch {}
-
-      // Check for vault as a subdirectory
       try {
         const vaultPath = path.join(acRoot, 'aesthetic-computer-vault');
-        const stat = fs.statSync(vaultPath);
-        if (stat.isDirectory()) {
-          const gitDir = path.join(vaultPath, '.git');
-          if (fs.existsSync(gitDir)) {
-            repos.push({ name: 'vault', root: vaultPath });
-          }
+        if (fs.statSync(vaultPath).isDirectory() && fs.existsSync(path.join(vaultPath, '.git'))) {
+          repos.push({ name: 'vault', root: vaultPath });
         }
       } catch {}
     }
 
-    return Promise.all(repos.map(r => getGitStatus(r.root, r.name)));
+    const [statuses, logs] = await Promise.all([
+      Promise.all(repos.map(r => getGitStatus(r.root, r.name))),
+      Promise.all(repos.map(async r => ({ name: r.name, commits: await getGitLog(r.root) }))),
+    ]);
+    return { repos: statuses, logs };
   }
 
-  // Send git status update to the welcome panel
-  let gitStatusPending = false;
-  async function sendGitStatusToPanel() {
-    if (!welcomePanel || gitStatusPending) return;
-    gitStatusPending = true;
+  // AT Protocol firehose — poll PDS for recent records across all collections
+  const AT_COLLECTIONS = [
+    { collection: 'computer.aesthetic.tape', label: 'Tape', icon: '\u{1F3AC}' },
+    { collection: 'computer.aesthetic.mood', label: 'Mood', icon: '\u{1F30A}' },
+    { collection: 'computer.aesthetic.painting', label: 'Painting', icon: '\u{1F3A8}' },
+    { collection: 'computer.aesthetic.news', label: 'News', icon: '\u{1F4F0}' },
+    { collection: 'computer.aesthetic.piece', label: 'Piece', icon: '\u{1F9E9}' },
+    { collection: 'computer.aesthetic.kidlisp', label: 'KidLisp', icon: '\u{1F308}' },
+  ];
+  const PDS_URL = 'https://at.aesthetic.computer';
+  const TANGLED_KNOT_URL = 'https://knot.aesthetic.computer';
+
+  let firehoseEvents: FirehoseEvent[] = [];
+  let tangledEvents: TangledEvent[] = [];
+  let firehoseSeenIds = new Set<string>();
+  let tangledSeenIds = new Set<string>();
+
+  async function fetchFirehoseEvents(): Promise<FirehoseEvent[]> {
+    await _modulesReady;
+    if (!http) return [];
+    const events: FirehoseEvent[] = [];
+
+    // Fetch recent records from each collection on the PDS
+    // We list records from the guest/system DID to show platform-wide activity
+    for (const col of AT_COLLECTIONS) {
+      try {
+        const url = `${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=5`;
+        // Instead, list records for known DIDs — use repo.listRecords with a broader approach
+        // For now, use listRepos to discover DIDs, then sample records
+        const reposJson = await httpGetJson(`${PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=20`);
+        if (!reposJson?.repos) continue;
+
+        for (const repo of reposJson.repos.slice(0, 5)) {
+          try {
+            const recordsJson = await httpGetJson(
+              `${PDS_URL}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(repo.did)}&collection=${encodeURIComponent(col.collection)}&limit=3&reverse=true`
+            );
+            if (!recordsJson?.records) continue;
+            for (const rec of recordsJson.records) {
+              const id = rec.uri || `${repo.did}:${col.collection}:${rec.cid}`;
+              if (firehoseSeenIds.has(id)) continue;
+              firehoseSeenIds.add(id);
+
+              const val = rec.value || {};
+              let summary = val.title || val.text || val.name || val.code || val.headline || col.label;
+              if (summary.length > 80) summary = summary.substring(0, 77) + '...';
+
+              events.push({
+                id,
+                type: col.label.toLowerCase(),
+                action: 'create',
+                did: repo.did,
+                handle: val.handle || repo.did.substring(0, 20),
+                summary: `${col.icon} ${summary}`,
+                timestamp: val.createdAt || val.when || new Date().toISOString(),
+                url: val.uri || undefined,
+              });
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    // Sort by timestamp descending
+    events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return events.slice(0, 50);
+  }
+
+  // Simple HTTPS GET → JSON helper using Node http/https
+  function httpGetJson(url: string): Promise<any> {
+    return new Promise((resolve) => {
+      try {
+        const https = require('https');
+        const req = https.get(url, { timeout: 8000 }, (res: any) => {
+          let data = '';
+          res.on('data', (chunk: string) => { data += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch { resolve(null); }
+          });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+      } catch { resolve(null); }
+    });
+  }
+
+  async function fetchTangledEvents(): Promise<TangledEvent[]> {
+    await _modulesReady;
+    const events: TangledEvent[] = [];
+
+    // Query the Tangled knot server for recent repo activity
     try {
-      const statuses = await getAllGitStatus();
+      // Try the knot's repo endpoint for recent activity
+      const repoInfo = await httpGetJson(`${TANGLED_KNOT_URL}/aesthetic-computer.git/info/refs?service=git-upload-pack`);
+      // The knot exposes a REST-ish API — try listing recent commits via the appview
+      const tangledCommits = await httpGetJson(`https://tangled.org/api/repos/aesthetic.computer/core/commits?limit=10`);
+      if (tangledCommits && Array.isArray(tangledCommits)) {
+        for (const commit of tangledCommits) {
+          const id = commit.sha || commit.hash || commit.id;
+          if (!id || tangledSeenIds.has(id)) continue;
+          tangledSeenIds.add(id);
+          events.push({
+            id,
+            type: 'push',
+            repo: 'aesthetic.computer/core',
+            author: commit.author?.name || commit.author || 'unknown',
+            summary: commit.message || commit.subject || '(no message)',
+            timestamp: commit.date || commit.timestamp || new Date().toISOString(),
+            commitHash: id.substring(0, 7),
+            url: `https://tangled.org/aesthetic.computer/core/commit/${id}`,
+          });
+        }
+      }
+    } catch {}
+
+    // Also try the git log locally if the tangled remote is configured
+    try {
+      const wsFolder = vscode.workspace.workspaceFolders?.[0];
+      if (wsFolder && path) {
+        const acRoot = wsFolder.uri.fsPath;
+        // Check if tangled remote exists
+        const remotes = await gitExec('remote -v', acRoot);
+        if (remotes.includes('tangled') || remotes.includes('knot')) {
+          const remoteName = remotes.includes('tangled') ? 'tangled' : 'knot';
+          try {
+            await gitExec(`fetch ${remoteName} --no-tags`, acRoot);
+          } catch {}
+          const logOut = await gitExec(`log ${remoteName}/main --oneline --format="%h|%s|%an|%cr" -10`, acRoot);
+          for (const line of logOut.split('\n').filter(Boolean)) {
+            const [hash, subject, author, date] = line.split('|');
+            const id = `tangled:${hash}`;
+            if (tangledSeenIds.has(id)) continue;
+            tangledSeenIds.add(id);
+            events.push({
+              id,
+              type: 'push',
+              repo: 'aesthetic.computer/core',
+              author,
+              summary: subject,
+              timestamp: date,
+              commitHash: hash,
+              url: `https://tangled.org/aesthetic.computer/core`,
+            });
+          }
+        }
+      }
+    } catch {}
+
+    return events;
+  }
+
+  // Send all dashboard data to the welcome panel
+  let dashboardPending = false;
+  async function sendDashboardData() {
+    if (!welcomePanel || dashboardPending) return;
+    dashboardPending = true;
+    try {
+      const gitData = await getAllGitStatus();
       if (welcomePanel) {
-        welcomePanel.webview.postMessage({ command: 'gitStatus', repos: statuses });
+        welcomePanel.webview.postMessage({ command: 'gitStatus', repos: gitData.repos, logs: gitData.logs });
       }
     } finally {
-      gitStatusPending = false;
+      dashboardPending = false;
     }
   }
 
-  function getWelcomePanelHtml(): string {
+  // Fetch and send firehose data (separate from git for independent refresh)
+  let firehosePending = false;
+  async function sendFirehoseData() {
+    if (!welcomePanel || firehosePending) return;
+    firehosePending = true;
+    try {
+      const events = await fetchFirehoseEvents();
+      if (events.length > 0) {
+        firehoseEvents = events;
+      }
+      if (welcomePanel) {
+        welcomePanel.webview.postMessage({ command: 'firehose', events: firehoseEvents });
+      }
+    } finally {
+      firehosePending = false;
+    }
+  }
+
+  // Fetch and send Tangled data
+  let tangledPending = false;
+  async function sendTangledData() {
+    if (!welcomePanel || tangledPending) return;
+    tangledPending = true;
+    try {
+      const events = await fetchTangledEvents();
+      if (events.length > 0) {
+        tangledEvents = events;
+      }
+      if (welcomePanel) {
+        welcomePanel.webview.postMessage({ command: 'tangled', events: tangledEvents });
+      }
+    } finally {
+      tangledPending = false;
+    }
+  }
+
+  function getDashboardHtml(): string {
     const theme = getVSCodeThemeKind();
     const c = theme === 'light'
       ? { bg: '#fcf7c5', fg: '#281e5a', fgMuted: '#907070', fgDim: '#b0a080', accent: '#387adf',
           added: '#1a7f37', modified: '#9a6700', deleted: '#cf222e', untracked: '#6e7781',
-          fileBg: '#f6f0d0', fileBorder: '#e8e0b0', hoverBg: '#efe8c0', repoBg: '#f0e8b8', headerBg: '#e8dfa0' }
+          fileBg: '#f6f0d0', fileBorder: '#e8e0b0', hoverBg: '#efe8c0', repoBg: '#f0e8b8', headerBg: '#e8dfa0',
+          sectionBg: '#f2ecc0', badgeBg: '#e0d8a0', tapeBg: '#e8f0d8', moodBg: '#d8e8f0', paintBg: '#f0d8e8',
+          newsBg: '#e8e0d8', commitBg: '#e0e8d8', liveDot: '#1a7f37', onlineBg: '#d8f0d8' }
       : { bg: '#181318', fg: '#e0d0e0', fgMuted: '#807080', fgDim: '#504050', accent: '#a87090',
           added: '#3fb950', modified: '#d29922', deleted: '#f85149', untracked: '#606870',
-          fileBg: '#1e1820', fileBorder: '#2a2030', hoverBg: '#28202e', repoBg: '#201828', headerBg: '#1a1220' };
+          fileBg: '#1e1820', fileBorder: '#2a2030', hoverBg: '#28202e', repoBg: '#201828', headerBg: '#1a1220',
+          sectionBg: '#1a1520', badgeBg: '#2a2030', tapeBg: '#1a2818', moodBg: '#182028', paintBg: '#281828',
+          newsBg: '#282018', commitBg: '#182818', liveDot: '#3fb950', onlineBg: '#1a2818' };
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://at.aesthetic.computer https://knot.aesthetic.computer https://tangled.org;">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${c.bg}; color: ${c.fg}; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 12px; height: 100vh; overflow: auto; padding: 0; }
-    .header { padding: 16px 20px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid ${c.fileBorder}; background: ${c.headerBg}; position: sticky; top: 0; z-index: 1; }
-    .header-star { font-size: 18px; color: ${c.accent}; }
-    .header-title { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; }
-    .header-branch { color: ${c.fgMuted}; font-size: 11px; margin-left: auto; }
+    body { background: ${c.bg}; color: ${c.fg}; font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 11px; height: 100vh; overflow: auto; padding: 0; }
+
+    /* Header */
+    .dash-header { padding: 12px 16px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid ${c.fileBorder}; background: ${c.headerBg}; position: sticky; top: 0; z-index: 10; }
+    .dash-header .star { font-size: 16px; color: ${c.accent}; }
+    .dash-header .title { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
+    .dash-header .live { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${c.fgMuted}; }
+    .dash-header .live-dot { width: 6px; height: 6px; border-radius: 50%; background: ${c.liveDot}; animation: livePulse 2s ease-in-out infinite; }
+    @keyframes livePulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    /* Section nav tabs */
+    .section-tabs { display: flex; gap: 0; border-bottom: 1px solid ${c.fileBorder}; background: ${c.sectionBg}; position: sticky; top: 39px; z-index: 9; overflow-x: auto; }
+    .section-tab { padding: 6px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: ${c.fgMuted}; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+    .section-tab:hover { color: ${c.fg}; background: ${c.hoverBg}; }
+    .section-tab.active { color: ${c.accent}; border-bottom-color: ${c.accent}; }
+    .section-tab .badge { background: ${c.badgeBg}; color: ${c.fgMuted}; padding: 1px 5px; border-radius: 8px; font-size: 9px; font-weight: 400; min-width: 16px; text-align: center; }
+
+    /* Sections */
+    .section { display: none; }
+    .section.visible { display: block; }
+
+    /* Source Changes section */
     .repo { margin: 0; }
-    .repo-header { padding: 10px 20px 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: ${c.fgMuted}; background: ${c.repoBg}; border-bottom: 1px solid ${c.fileBorder}; display: flex; align-items: center; gap: 8px; }
+    .repo-header { padding: 8px 16px 5px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: ${c.fgMuted}; background: ${c.repoBg}; border-bottom: 1px solid ${c.fileBorder}; display: flex; align-items: center; gap: 6px; }
     .repo-header .branch { font-weight: 400; text-transform: none; letter-spacing: 0; color: ${c.accent}; }
     .repo-header .count { font-weight: 400; text-transform: none; letter-spacing: 0; color: ${c.fgDim}; margin-left: auto; }
     .file-list { list-style: none; }
-    .file-item { display: flex; align-items: center; gap: 8px; padding: 4px 20px; cursor: pointer; border-bottom: 1px solid ${c.fileBorder}; transition: background 0.1s; }
+    .file-item { display: flex; align-items: center; gap: 6px; padding: 3px 16px; cursor: pointer; border-bottom: 1px solid ${c.fileBorder}; transition: background 0.1s; }
     .file-item:hover { background: ${c.hoverBg}; }
-    .status { font-weight: 700; width: 18px; text-align: center; flex-shrink: 0; font-size: 11px; }
+    .status { font-weight: 700; width: 16px; text-align: center; flex-shrink: 0; font-size: 10px; }
     .status.M { color: ${c.modified}; }
     .status.A { color: ${c.added}; }
     .status.D { color: ${c.deleted}; }
@@ -1003,56 +1247,185 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     .file-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .file-dir { color: ${c.fgMuted}; }
     .file-name { color: ${c.fg}; }
-    .empty { padding: 20px; text-align: center; color: ${c.fgMuted}; font-style: italic; }
-    .error { padding: 12px 20px; color: ${c.deleted}; font-size: 11px; }
-    .loading { padding: 20px; text-align: center; color: ${c.fgMuted}; }
-    .loading .dot { display: inline-block; animation: pulse 1.5s ease-in-out infinite; color: ${c.accent}; }
-    @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    .empty { padding: 16px; text-align: center; color: ${c.fgMuted}; font-style: italic; font-size: 11px; }
+    .error { padding: 10px 16px; color: ${c.deleted}; font-size: 10px; }
+
+    /* Git log */
+    .git-log { border-top: 1px solid ${c.fileBorder}; }
+    .log-item { display: flex; align-items: center; gap: 6px; padding: 3px 16px; border-bottom: 1px solid ${c.fileBorder}; font-size: 10px; }
+    .log-hash { color: ${c.accent}; font-weight: 600; flex-shrink: 0; }
+    .log-subject { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${c.fg}; }
+    .log-date { color: ${c.fgDim}; flex-shrink: 0; font-size: 9px; }
+
+    /* Firehose section */
+    .firehose-feed { max-height: none; }
+    .feed-item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 16px; border-bottom: 1px solid ${c.fileBorder}; transition: background 0.1s; animation: fadeIn 0.3s ease; }
+    .feed-item:hover { background: ${c.hoverBg}; }
+    .feed-item.new { background: ${c.onlineBg}; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .feed-icon { font-size: 14px; flex-shrink: 0; line-height: 1.4; }
+    .feed-body { flex: 1; min-width: 0; }
+    .feed-handle { color: ${c.accent}; font-weight: 600; font-size: 10px; }
+    .feed-summary { color: ${c.fg}; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-time { color: ${c.fgDim}; font-size: 9px; flex-shrink: 0; align-self: center; }
+    .feed-type-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+    .feed-type-badge.tape { background: ${c.tapeBg}; color: ${c.added}; }
+    .feed-type-badge.mood { background: ${c.moodBg}; color: ${c.accent}; }
+    .feed-type-badge.painting { background: ${c.paintBg}; color: ${c.modified}; }
+    .feed-type-badge.news { background: ${c.newsBg}; color: ${c.fg}; }
+    .feed-type-badge.piece { background: ${c.sectionBg}; color: ${c.fgMuted}; }
+    .feed-type-badge.kidlisp { background: ${c.tapeBg}; color: ${c.modified}; }
+
+    /* Tangled section */
+    .tangled-item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 16px; border-bottom: 1px solid ${c.fileBorder}; transition: background 0.1s; }
+    .tangled-item:hover { background: ${c.hoverBg}; }
+    .tangled-hash { color: ${c.accent}; font-weight: 600; font-size: 10px; flex-shrink: 0; font-family: inherit; }
+    .tangled-body { flex: 1; min-width: 0; }
+    .tangled-msg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${c.fg}; }
+    .tangled-meta { color: ${c.fgDim}; font-size: 9px; margin-top: 1px; }
+
+    /* Filter bar */
+    .filter-bar { display: flex; gap: 4px; padding: 6px 16px; border-bottom: 1px solid ${c.fileBorder}; background: ${c.sectionBg}; flex-wrap: wrap; }
+    .filter-pill { padding: 2px 8px; border-radius: 10px; font-size: 9px; cursor: pointer; border: 1px solid ${c.fileBorder}; color: ${c.fgMuted}; transition: all 0.15s; }
+    .filter-pill:hover { border-color: ${c.accent}; color: ${c.fg}; }
+    .filter-pill.active { background: ${c.accent}; color: ${c.bg}; border-color: ${c.accent}; }
+
+    /* Loading & status */
+    .loading { padding: 16px; text-align: center; color: ${c.fgMuted}; }
+    .loading .dot { display: inline-block; animation: livePulse 1.5s ease-in-out infinite; color: ${c.accent}; }
+    .status-line { padding: 4px 16px; font-size: 9px; color: ${c.fgDim}; text-align: right; border-bottom: 1px solid ${c.fileBorder}; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <span class="header-star">✦</span>
-    <span class="header-title">Source Changes</span>
+  <div class="dash-header">
+    <span class="star">✦</span>
+    <span class="title">Dashboard</span>
+    <span class="live"><span class="live-dot"></span>live</span>
   </div>
-  <div id="content">
-    <div class="loading"><span class="dot">✦</span> scanning...</div>
+
+  <div class="section-tabs">
+    <div class="section-tab active" data-section="source">Source <span class="badge" id="source-badge">0</span></div>
+    <div class="section-tab" data-section="firehose">AT Firehose <span class="badge" id="firehose-badge">0</span></div>
+    <div class="section-tab" data-section="tangled">Tangled <span class="badge" id="tangled-badge">0</span></div>
   </div>
+
+  <div id="section-source" class="section visible">
+    <div id="source-content">
+      <div class="loading"><span class="dot">✦</span> scanning repos...</div>
+    </div>
+  </div>
+
+  <div id="section-firehose" class="section">
+    <div class="filter-bar" id="firehose-filters">
+      <span class="filter-pill active" data-filter="all">All</span>
+      <span class="filter-pill" data-filter="tape">Tape</span>
+      <span class="filter-pill" data-filter="mood">Mood</span>
+      <span class="filter-pill" data-filter="painting">Painting</span>
+      <span class="filter-pill" data-filter="news">News</span>
+      <span class="filter-pill" data-filter="piece">Piece</span>
+      <span class="filter-pill" data-filter="kidlisp">KidLisp</span>
+    </div>
+    <div id="firehose-content" class="firehose-feed">
+      <div class="loading"><span class="dot">✦</span> connecting to PDS...</div>
+    </div>
+  </div>
+
+  <div id="section-tangled" class="section">
+    <div id="tangled-content">
+      <div class="loading"><span class="dot">✦</span> fetching knot activity...</div>
+    </div>
+  </div>
+
   <script>
     (function() {
       const vscode = acquireVsCodeApi();
-      const content = document.getElementById('content');
+
+      // State
+      let activeSection = 'source';
+      let activeFilter = 'all';
+      let firehoseEvents = [];
+      let tangledEvents = [];
+      let autoscroll = true;
+
+      // Tab switching
+      document.querySelectorAll('.section-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+          tab.classList.add('active');
+          const section = tab.getAttribute('data-section');
+          activeSection = section;
+          document.getElementById('section-' + section).classList.add('visible');
+        });
+      });
+
+      // Filter pills
+      document.getElementById('firehose-filters').addEventListener('click', (e) => {
+        const pill = e.target.closest('.filter-pill');
+        if (!pill) return;
+        document.querySelectorAll('#firehose-filters .filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeFilter = pill.getAttribute('data-filter');
+        renderFirehose();
+      });
+
+      // Auto-scroll detection
+      document.addEventListener('scroll', () => {
+        const el = document.scrollingElement || document.documentElement;
+        autoscroll = (el.scrollHeight - el.scrollTop - el.clientHeight) < 50;
+      });
+
+      function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function timeAgo(ts) {
+        if (!ts) return '';
+        // If it's already relative (like "2 hours ago"), return as-is
+        if (typeof ts === 'string' && ts.includes('ago')) return ts;
+        const diff = Date.now() - new Date(ts).getTime();
+        if (isNaN(diff)) return ts;
+        const s = Math.floor(diff / 1000);
+        if (s < 60) return s + 's ago';
+        const m = Math.floor(s / 60);
+        if (m < 60) return m + 'm ago';
+        const h = Math.floor(m / 60);
+        if (h < 24) return h + 'h ago';
+        const d = Math.floor(h / 24);
+        return d + 'd ago';
+      }
 
       function statusLabel(s) {
         if (s === '??' || s === '?') return { letter: '?', cls: 'q', title: 'Untracked' };
-        const c = s.charAt(0) === ' ' ? s.charAt(1) : s.charAt(0);
+        const ch = s.charAt(0) === ' ' ? s.charAt(1) : s.charAt(0);
         const map = { M: 'Modified', A: 'Added', D: 'Deleted', R: 'Renamed', C: 'Copied', U: 'Unmerged' };
-        return { letter: c, cls: c, title: map[c] || c };
+        return { letter: ch, cls: ch, title: map[ch] || ch };
       }
 
-      function esc(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      }
-
-      function renderRepos(repos) {
+      // Render source changes + git log
+      function renderSource(repos, logs) {
+        const el = document.getElementById('source-content');
         if (!repos || repos.length === 0) {
-          content.innerHTML = '<div class="empty">No git repositories detected in workspace.</div>';
+          el.innerHTML = '<div class="empty">No git repositories detected.</div>';
+          document.getElementById('source-badge').textContent = '0';
           return;
         }
 
+        let totalChanges = 0;
         let html = '';
         for (const repo of repos) {
+          totalChanges += repo.files.length;
           html += '<div class="repo">';
           html += '<div class="repo-header">';
           html += '<span>' + esc(repo.name) + '</span>';
           html += '<span class="branch">' + esc(repo.branch) + '</span>';
-          html += '<span class="count">' + repo.files.length + ' change' + (repo.files.length !== 1 ? 's' : '') + '</span>';
+          html += '<span class="count">' + repo.files.length + '</span>';
           html += '</div>';
 
           if (repo.error) {
-            html += '<div class="error">git error: ' + esc(repo.error) + '</div>';
+            html += '<div class="error">' + esc(repo.error) + '</div>';
           } else if (repo.files.length === 0) {
-            html += '<div class="empty">Working tree clean</div>';
+            html += '<div class="empty">Clean</div>';
           } else {
             html += '<ul class="file-list">';
             for (const f of repo.files) {
@@ -1067,39 +1440,131 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
             }
             html += '</ul>';
           }
+
+          // Recent commits
+          const repoLog = logs && logs.find(l => l.name === repo.name);
+          if (repoLog && repoLog.commits.length > 0) {
+            html += '<div class="git-log">';
+            for (const c of repoLog.commits) {
+              html += '<div class="log-item">';
+              html += '<span class="log-hash">' + esc(c.hash) + '</span>';
+              html += '<span class="log-subject">' + esc(c.subject) + '</span>';
+              html += '<span class="log-date">' + esc(c.date) + '</span>';
+              html += '</div>';
+            }
+            html += '</div>';
+          }
+
           html += '</div>';
         }
-        content.innerHTML = html;
+        el.innerHTML = html;
+        document.getElementById('source-badge').textContent = String(totalChanges);
       }
 
-      // Handle clicks on file items — open in editor
-      content.addEventListener('click', (e) => {
+      // Render firehose events
+      function renderFirehose() {
+        const el = document.getElementById('firehose-content');
+        const filtered = activeFilter === 'all' ? firehoseEvents : firehoseEvents.filter(e => e.type === activeFilter);
+
+        if (filtered.length === 0) {
+          el.innerHTML = '<div class="empty">No events yet. Waiting for AT Protocol activity...</div>';
+          return;
+        }
+
+        let html = '';
+        for (const evt of filtered) {
+          html += '<div class="feed-item" data-url="' + esc(evt.url || '') + '">';
+          html += '<div class="feed-body">';
+          html += '<span class="feed-type-badge ' + esc(evt.type) + '">' + esc(evt.type) + '</span>';
+          if (evt.handle) html += '<span class="feed-handle">@' + esc(evt.handle) + '</span>';
+          html += '<div class="feed-summary">' + esc(evt.summary) + '</div>';
+          html += '</div>';
+          html += '<span class="feed-time">' + timeAgo(evt.timestamp) + '</span>';
+          html += '</div>';
+        }
+        el.innerHTML = html;
+        document.getElementById('firehose-badge').textContent = String(firehoseEvents.length);
+      }
+
+      // Render Tangled events
+      function renderTangled() {
+        const el = document.getElementById('tangled-content');
+        if (tangledEvents.length === 0) {
+          el.innerHTML = '<div class="empty">No Tangled knot activity detected.</div>';
+          document.getElementById('tangled-badge').textContent = '0';
+          return;
+        }
+
+        let html = '';
+        for (const evt of tangledEvents) {
+          html += '<div class="tangled-item" data-url="' + esc(evt.url || '') + '">';
+          if (evt.commitHash) html += '<span class="tangled-hash">' + esc(evt.commitHash) + '</span>';
+          html += '<div class="tangled-body">';
+          html += '<div class="tangled-msg">' + esc(evt.summary) + '</div>';
+          html += '<div class="tangled-meta">';
+          if (evt.author) html += esc(evt.author) + ' ';
+          html += timeAgo(evt.timestamp);
+          html += '</div>';
+          html += '</div>';
+          html += '</div>';
+        }
+        el.innerHTML = html;
+        document.getElementById('tangled-badge').textContent = String(tangledEvents.length);
+      }
+
+      // Click handlers
+      document.getElementById('source-content').addEventListener('click', (e) => {
         const item = e.target.closest('.file-item');
         if (!item) return;
         const root = item.getAttribute('data-root');
         const file = item.getAttribute('data-file');
-        if (root && file) {
-          vscode.postMessage({ command: 'openFile', root, file });
-        }
+        if (root && file) vscode.postMessage({ command: 'openFile', root, file });
       });
 
-      // Receive git status updates from extension
+      document.getElementById('firehose-content').addEventListener('click', (e) => {
+        const item = e.target.closest('.feed-item');
+        if (!item) return;
+        const url = item.getAttribute('data-url');
+        if (url) vscode.postMessage({ command: 'openExternal', url });
+      });
+
+      document.getElementById('tangled-content').addEventListener('click', (e) => {
+        const item = e.target.closest('.tangled-item');
+        if (!item) return;
+        const url = item.getAttribute('data-url');
+        if (url) vscode.postMessage({ command: 'openExternal', url });
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '1') { document.querySelector('[data-section="source"]').click(); }
+        if (e.key === '2') { document.querySelector('[data-section="firehose"]').click(); }
+        if (e.key === '3') { document.querySelector('[data-section="tangled"]').click(); }
+      });
+
+      // Message handling from extension
       window.addEventListener('message', (event) => {
         const msg = event.data;
         if (msg.command === 'gitStatus') {
-          renderRepos(msg.repos);
+          renderSource(msg.repos, msg.logs);
+        } else if (msg.command === 'firehose') {
+          firehoseEvents = msg.events || [];
+          renderFirehose();
+        } else if (msg.command === 'tangled') {
+          tangledEvents = msg.events || [];
+          renderTangled();
         }
       });
 
       // Request initial data
-      vscode.postMessage({ command: 'requestGitStatus' });
+      vscode.postMessage({ command: 'requestDashboard' });
     })();
   </script>
 </body>
 </html>`;
   }
 
-  // ✨ Welcome Panel — shows git status for aesthetic-computer + vault
+  // ✦ Dashboard Panel — git status + AT firehose + Tangled knot
   function showWelcomePanel() {
     if (welcomePanel) {
       welcomePanel.reveal(vscode.ViewColumn.One);
@@ -1108,7 +1573,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     welcomePanel = vscode.window.createWebviewPanel(
       "aestheticWelcome",
-      "✦ Source Changes",
+      "✦ Dashboard",
       vscode.ViewColumn.One,
       { enableScripts: true }
     );
@@ -1116,8 +1581,13 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     welcomePanel.webview.onDidReceiveMessage(
       message => {
         switch (message.command) {
+          case 'requestDashboard':
+            sendDashboardData();
+            sendFirehoseData();
+            sendTangledData();
+            return;
           case 'requestGitStatus':
-            sendGitStatusToPanel();
+            sendDashboardData();
             return;
           case 'openFile':
             if (message.root && message.file) {
@@ -1126,9 +1596,14 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
                 const openPath = vscode.Uri.file(filePath);
                 vscode.workspace.openTextDocument(openPath).then(
                   doc => vscode.window.showTextDocument(doc),
-                  () => {} // file might be deleted
+                  () => {}
                 );
               }
+            }
+            return;
+          case 'openExternal':
+            if (message.url) {
+              vscode.env.openExternal(vscode.Uri.parse(message.url));
             }
             return;
         }
@@ -1139,19 +1614,36 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
 
     welcomePanel.onDidDispose(() => {
       welcomePanel = null;
+      if (firehoseInterval) { clearInterval(firehoseInterval); firehoseInterval = undefined; }
+      if (tangledInterval) { clearInterval(tangledInterval); tangledInterval = undefined; }
     });
 
-    welcomePanel.webview.html = getWelcomePanelHtml();
+    welcomePanel.webview.html = getDashboardHtml();
 
-    // Send initial git status after a brief delay for webview to initialize
-    setTimeout(() => sendGitStatusToPanel(), 100);
+    // Send initial data
+    setTimeout(() => {
+      sendDashboardData();
+      sendFirehoseData();
+      sendTangledData();
+    }, 100);
+
+    // Poll firehose every 30 seconds, Tangled every 60 seconds
+    firehoseInterval = setInterval(() => sendFirehoseData(), 30000);
+    tangledInterval = setInterval(() => sendTangledData(), 60000);
   }
+
+  let firehoseInterval: NodeJS.Timeout | undefined;
+  let tangledInterval: NodeJS.Timeout | undefined;
 
   // Refresh welcome panel on theme change
   function refreshWelcomePanel() {
     if (welcomePanel) {
-      welcomePanel.webview.html = getWelcomePanelHtml();
-      setTimeout(() => sendGitStatusToPanel(), 100);
+      welcomePanel.webview.html = getDashboardHtml();
+      setTimeout(() => {
+        sendDashboardData();
+        sendFirehoseData();
+        sendTangledData();
+      }, 100);
     }
   }
 
@@ -1160,14 +1652,12 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     const wsFolder = vscode.workspace.workspaceFolders?.[0];
     if (!wsFolder) return;
 
-    // Debounce: coalesce rapid file changes into one git status refresh
     let refreshTimer: NodeJS.Timeout | undefined;
     function debouncedRefresh() {
       if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => sendGitStatusToPanel(), 300);
+      refreshTimer = setTimeout(() => sendDashboardData(), 300);
     }
 
-    // Watch for all file changes in the workspace (covers both repos)
     const watcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(wsFolder, '**/*')
     );
@@ -1176,7 +1666,6 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     watcher.onDidDelete(debouncedRefresh);
     context.subscriptions.push(watcher);
 
-    // Also refresh when documents are saved (catches staging operations)
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(() => debouncedRefresh())
     );

@@ -1922,18 +1922,8 @@ function restart-daemon
 end
 
 function ac-site
-    cd ~/aesthetic-computer/system
-    echo "🐱 Starting site..."
-    echo "🔍 Cleaning up any stuck processes..."
-    pkill -f "netlify dev" 2>/dev/null
-    pkill -f "esbuild" 2>/dev/null
-    sleep 1
-    echo "🔌 Killing ports..."
-    timeout 5 npx kill-port 8880 8888 8889 8080 8000 8111 3333 3000 3001 2>/dev/null; or true
-    echo "🔗 Linking netlify..."
-    timeout 10 netlify link --id $NETLIFY_SITE_ID 2>/dev/null; or true
-    echo "🚀 Starting server..."
-    npm run local-dev
+    # ac-site now runs lith (monolith) instead of netlify dev
+    ac-lith
 end
 
 function ac-lith
