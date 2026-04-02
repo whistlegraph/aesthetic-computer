@@ -100,6 +100,11 @@
 % ============================================================
 
 \begin{tikzpicture}[remember picture, overlay]
+  % $roz screenshot as full-bleed background (faded)
+  \node[anchor=center, inner sep=0pt, opacity=0.15]
+    at (current page.center)
+    {\includegraphics[width=2.75in, height=4.75in]{roz-screenshot.png}};
+  % Border frame
   \draw[ink, line width=0.4pt]
     ([xshift=0.15in, yshift=-0.15in]current page.north west)
     rectangle
