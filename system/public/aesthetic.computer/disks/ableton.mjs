@@ -19,9 +19,11 @@ const FEATURED_DOWNLOADS = [
   {
     id: "featured-spreadnob-clean",
     label: "spreadnob clean",
+    badge: "FOR TOM",
     piece: "spreadnob-clean",
     fileName: "AC 🎹 spreadnob-clean (aesthetic.computer).amxd",
-    blurb: "main version - compact and octave-aware",
+    downloadLabel: "FOR TOM",
+    blurb: "main version - compact, octave-aware, and the one to grab",
   },
   {
     id: "featured-spreadnob",
@@ -264,6 +266,38 @@ function registerRegion(id, x, y, w, h, action) {
   regions.push({ id, x, y, w, h, action });
 }
 
+function trimLabel(str = "", maxChars = 24) {
+  if (str.length <= maxChars) return str;
+  return `${str.slice(0, max(1, maxChars - 1))}…`;
+}
+
+function layoutButtons(startX, startY, maxWidth, specs, gap = 6, rowGap = 5) {
+  let x = startX;
+  let y = startY;
+  let rowHeight = 0;
+  const limitX = startX + maxWidth;
+  const buttons = [];
+
+  for (const spec of specs) {
+    if (x !== startX && x + spec.w > limitX) {
+      x = startX;
+      y += rowHeight + rowGap;
+      rowHeight = 0;
+    }
+
+    buttons.push({ ...spec, x, y });
+    x += spec.w + gap;
+    rowHeight = max(rowHeight, spec.h);
+  }
+
+  return buttons;
+}
+
+function buttonsBottom(buttons, fallbackY = 0) {
+  if (!buttons.length) return fallbackY;
+  return buttons.reduce((bottom, button) => max(bottom, button.y + button.h), fallbackY);
+}
+
 function hitRegion(pen) {
   if (!pen) return null;
   for (const region of regions) {
@@ -345,6 +379,7 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   const margin = 12;
   const contentWidth = width - margin * 2;
   const cardWidth = max(120, contentWidth);
+  const maxTextChars = max(18, floor(contentWidth / 6));
   let y = 20;
 
   drawWave(ink, line, width, y + 4, dark, frame);
@@ -361,68 +396,94 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   ink(...accent).plot(floor(dotX) + 1, y);
   y += 12;
 
-  ink(...(dark ? [22, 24, 34] : [228, 232, 242])).box(0, y - 4, width, 74);
+  const builderCardY = y - 4;
+  const currentPieceLabel = `piece ${trimLabel(customPiece, max(10, maxTextChars - 8))}`;
+  const builderButtons = layoutButtons(margin, y + 25, contentWidth, [
+    { id: "builder-piece", w: max(92, currentPieceLabel.length * 6 + 10), h: 14, label: currentPieceLabel, colors: btn.warm, action: { type: "cycle-piece" } },
+    { id: "builder-offline", w: 84, h: 14, label: "offline", colors: btn.primary, action: { type: "build-offline", piece: customPiece } },
+    { id: "builder-online", w: 76, h: 14, label: "online", colors: btn.alt, action: { type: "build-online", piece: customPiece } },
+    { id: "builder-open", w: 58, h: 14, label: "open", colors: btn.warm, action: { type: "open-piece", piece: customPiece } },
+  ]);
+  const builderButtonsBottom = buttonsBottom(builderButtons, y + 25);
+  const builderStatus = customBusy || customMessage;
+  const builderStatusY = builderButtonsBottom + 8;
+  const builderCardHeight = (builderStatus ? builderStatusY + 10 : builderButtonsBottom + 4) - builderCardY;
+
+  ink(...(dark ? [22, 24, 34] : [228, 232, 242])).box(0, builderCardY, width, builderCardHeight);
   ink(...accent).write("Custom Instrument Builder", { x: margin, y });
-  y += 12;
+  ink(dim).write("Cycle pieces or open ableton <piece> for any target.", { x: margin, y: y + 12 });
 
-  const currentPieceLabel = `piece ${customPiece}`;
-  ink(dim).write("Cycle pieces or open ableton <piece> for any target.", { x: margin, y });
-  y += 13;
+  for (const button of builderButtons) {
+    registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
+    drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
+  }
 
-  const pieceBtn = { id: "builder-piece", x: margin, y, w: max(92, currentPieceLabel.length * 6 + 10), h: 14 };
-  const offlineBtn = { id: "builder-offline", x: pieceBtn.x + pieceBtn.w + 6, y, w: 84, h: 14 };
-  const onlineBtn = { id: "builder-online", x: offlineBtn.x + offlineBtn.w + 6, y, w: 76, h: 14 };
-  const openBtn = { id: "builder-open", x: onlineBtn.x + onlineBtn.w + 6, y, w: 58, h: 14 };
-
-  registerRegion(pieceBtn.id, pieceBtn.x, pieceBtn.y, pieceBtn.w, pieceBtn.h, { type: "cycle-piece" });
-  registerRegion(offlineBtn.id, offlineBtn.x, offlineBtn.y, offlineBtn.w, offlineBtn.h, { type: "build-offline", piece: customPiece });
-  registerRegion(onlineBtn.id, onlineBtn.x, onlineBtn.y, onlineBtn.w, onlineBtn.h, { type: "build-online", piece: customPiece });
-  registerRegion(openBtn.id, openBtn.x, openBtn.y, openBtn.w, openBtn.h, { type: "open-piece", piece: customPiece });
-
-  drawButton({ ink, box }, pieceBtn, currentPieceLabel, btn.warm, hoverId === pieceBtn.id);
-  drawButton({ ink, box }, offlineBtn, "offline", btn.primary, hoverId === offlineBtn.id);
-  drawButton({ ink, box }, onlineBtn, "online", btn.alt, hoverId === onlineBtn.id);
-  drawButton({ ink, box }, openBtn, "open", btn.warm, hoverId === openBtn.id);
-
-  y += 20;
   if (customBusy) {
-    ink(...accent).write(customBusy, { x: margin, y });
-    y += 11;
+    ink(...accent).write(trimLabel(customBusy, maxTextChars), { x: margin, y: builderStatusY });
   } else if (customMessage) {
-    ink(dim).write(customMessage, { x: margin, y });
-    y += 11;
-  } else {
-    y += 2;
+    ink(dim).write(trimLabel(customMessage, maxTextChars), { x: margin, y: builderStatusY });
   }
 
-  y += 8;
+  y = builderCardY + builderCardHeight + 12;
 
-  ink(...(dark ? [24, 19, 33] : [247, 236, 244])).box(0, y - 4, width, 50);
+  const featuredCardStartY = y - 4;
+  let featuredY = y + 12;
+  const featuredLayouts = FEATURED_DOWNLOADS.map((featured) => {
+    const innerX = margin + 6;
+    let labelY = featuredY + 6;
+    if (featured.badge) labelY += 10;
+    const buttonSpecs = layoutButtons(innerX, labelY + 18, contentWidth - 12, [
+      {
+        id: `${featured.id}-download`,
+        w: featured.badge ? 92 : 84,
+        h: 14,
+        label: featured.downloadLabel || "download",
+        colors: featured.badge ? btn.warm : btn.primary,
+        action: { type: "download-featured", featured },
+      },
+      {
+        id: `${featured.id}-open`,
+        w: 58,
+        h: 14,
+        label: "piece",
+        colors: btn.alt,
+        action: { type: "open-piece", piece: featured.piece },
+      },
+    ]);
+    const cardHeight = buttonsBottom(buttonSpecs, labelY + 18) - featuredY + 8;
+    const layout = { featured, y: featuredY, labelY, buttons: buttonSpecs, cardHeight };
+    featuredY += cardHeight + 6;
+    return layout;
+  });
+  const featuredSectionHeight = featuredY - featuredCardStartY;
+
+  ink(...(dark ? [24, 19, 33] : [247, 236, 244])).box(0, featuredCardStartY, width, featuredSectionHeight);
   ink(255, 118, 184).write("Featured Downloads", { x: margin, y });
-  y += 12;
+  for (const layout of featuredLayouts) {
+    const { featured, labelY, buttons, cardHeight } = layout;
+    const cardBg = featured.badge
+      ? (dark ? [48, 26, 40] : [255, 235, 244])
+      : (dark ? [30, 24, 38] : [252, 243, 248]);
+    const cardBorder = featured.badge ? [255, 118, 184] : [212, 135, 180];
 
-  for (let i = 0; i < FEATURED_DOWNLOADS.length; i++) {
-    const featured = FEATURED_DOWNLOADS[i];
-    const rowY = y + i * 16;
-    const openFeaturedBtn = { id: `${featured.id}-open`, x: margin, y: rowY, w: 58, h: 14 };
-    const downloadFeaturedBtn = { id: `${featured.id}-download`, x: margin + 64, y: rowY, w: 84, h: 14 };
+    ink(...cardBg).box(margin - 6, layout.y, cardWidth + 12, cardHeight);
+    ink(...cardBorder, featured.badge ? 170 : 110).box(margin - 6, layout.y, cardWidth + 12, cardHeight, "outline");
 
-    registerRegion(openFeaturedBtn.id, openFeaturedBtn.x, openFeaturedBtn.y, openFeaturedBtn.w, openFeaturedBtn.h, {
-      type: "open-piece",
-      piece: featured.piece,
-    });
-    registerRegion(downloadFeaturedBtn.id, downloadFeaturedBtn.x, downloadFeaturedBtn.y, downloadFeaturedBtn.w, downloadFeaturedBtn.h, {
-      type: "download-featured",
-      featured,
-    });
+    if (featured.badge) {
+      ink(255, 118, 184).box(margin, layout.y + 4, 48, 10);
+      ink(35, 12, 22).write(featured.badge, { x: margin + 4, y: layout.y + 6 });
+    }
 
-    drawButton({ ink, box }, openFeaturedBtn, "piece", btn.alt, hoverId === openFeaturedBtn.id);
-    drawButton({ ink, box }, downloadFeaturedBtn, "download", btn.primary, hoverId === downloadFeaturedBtn.id);
-    ink(fg).write(featured.label, { x: margin + 154, y: rowY + 1 });
-    ink(dim).write(featured.blurb, { x: margin + 154, y: rowY + 8 });
+    ink(fg).write(trimLabel(featured.label, maxTextChars - 2), { x: margin, y: labelY });
+    ink(dim).write(trimLabel(featured.blurb, maxTextChars), { x: margin, y: labelY + 9 });
+
+    for (const button of buttons) {
+      registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
+      drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
+    }
   }
 
-  y += FEATURED_DOWNLOADS.length * 16 + 8;
+  y = featuredCardStartY + featuredSectionHeight + 12;
 
   if (loading) {
     const dots = ".".repeat((floor(frame / 15) % 3) + 1);
@@ -445,20 +506,29 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
 
   for (let i = 0; i < plugins.length; i++) {
     const plugin = plugins[i];
-    const name = stripEmoji(plugin.device?.displayName || plugin.device?.name || plugin.code);
+    const name = trimLabel(stripEmoji(plugin.device?.displayName || plugin.device?.name || plugin.code), maxTextChars - 3);
     const category = plugin.device?.category || "instrument";
     const piece = plugin.metadata?.piece || plugin.device?.name || "notepat";
-    const desc = stripEmoji(plugin.metadata?.description || "");
+    const desc = trimLabel(stripEmoji(plugin.metadata?.description || ""), maxTextChars);
     const version = plugin.version?.string || "0.0.0";
+    const metaLabel = trimLabel(`v${version}  ${category}  ${piece}`, maxTextChars);
     const borderColor = category === "midi"
       ? [120, 150, 255]
       : category === "effect"
         ? [255, 170, 90]
         : [90, 210, 255];
     const cardBg = dark ? [22, 22, 28] : [248, 248, 244];
+    const cardY = y - 4;
+    const btnY = y + 25;
+    const cardButtons = layoutButtons(margin, btnY, contentWidth, [
+      { id: `download-${plugin.code}`, w: 84, h: 14, label: downloading === plugin.code ? "loading" : "download", colors: downloading === plugin.code ? btn.alt : btn.primary, action: { type: "download-plugin", plugin } },
+      { id: `use-${plugin.code}`, w: 68, h: 14, label: "builder", colors: btn.warm, action: { type: "use-piece", piece } },
+      { id: `open-${plugin.code}`, w: 58, h: 14, label: "piece", colors: btn.alt, action: { type: "open-piece", piece } },
+    ]);
+    const cardHeight = buttonsBottom(cardButtons, btnY) - cardY + 6;
 
-    ink(...cardBg).box(margin - 6, y - 4, cardWidth + 12, 58);
-    ink(...borderColor, 120).box(margin - 6, y - 4, cardWidth + 12, 58, "outline");
+    ink(...cardBg).box(margin - 6, cardY, cardWidth + 12, cardHeight);
+    ink(...borderColor, 120).box(margin - 6, cardY, cardWidth + 12, cardHeight, "outline");
 
     if (category === "midi") iconMidi(ink, margin, y, frame + i * 40);
     else if (category === "effect") iconEffect(ink, circle, line, margin, y, frame + i * 40);
@@ -467,39 +537,17 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
     ink(fg).write(name, { x: margin + 14, y });
     y += 12;
 
-    ink(...accent).write(`v${version}  ${category}  ${piece}`, { x: margin, y });
+    ink(...accent).write(metaLabel, { x: margin, y });
     y += 12;
 
     ink(dim).write(desc, { x: margin, y });
 
-    const btnY = y + 13;
-    const downloadBtn = { id: `download-${plugin.code}`, x: margin, y: btnY, w: 84, h: 14 };
-    const builderBtn = { id: `use-${plugin.code}`, x: margin + 90, y: btnY, w: 68, h: 14 };
-    const pieceBtnCard = { id: `open-${plugin.code}`, x: margin + 164, y: btnY, w: 58, h: 14 };
-
-    registerRegion(downloadBtn.id, downloadBtn.x, downloadBtn.y, downloadBtn.w, downloadBtn.h, {
-      type: "download-plugin",
-      plugin,
-    });
-    registerRegion(builderBtn.id, builderBtn.x, builderBtn.y, builderBtn.w, builderBtn.h, {
-      type: "use-piece",
-      piece,
-    });
-    registerRegion(pieceBtnCard.id, pieceBtnCard.x, pieceBtnCard.y, pieceBtnCard.w, pieceBtnCard.h, {
-      type: "open-piece",
-      piece,
-    });
-
-    const isDownloading = downloading === plugin.code;
-    if (isDownloading) {
-      drawButton({ ink, box }, downloadBtn, "loading", btn.alt, hoverId === downloadBtn.id);
-    } else {
-      drawButton({ ink, box }, downloadBtn, "download", btn.primary, hoverId === downloadBtn.id);
+    for (const button of cardButtons) {
+      registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
+      drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
     }
-    drawButton({ ink, box }, builderBtn, "builder", btn.warm, hoverId === builderBtn.id);
-    drawButton({ ink, box }, pieceBtnCard, "piece", btn.alt, hoverId === pieceBtnCard.id);
 
-    y += 35;
+    y = cardY + cardHeight + 8;
     ink(sep).line(margin, y, width - margin, y);
     y += 12;
   }
