@@ -39,9 +39,19 @@
       "type": "effect"
     },
     {
+      "name": "AC 🎹 spreadnob-clean (aesthetic.computer)",
+      "piece": "spreadnob-clean",
+      "description": "Spread any knob across your MIDI keys - compact clean build",
+      "width": 220,
+      "height": 110,
+      "type": "midi",
+      "source": "AC-SpreadnobClean.amxd.json",
+      "version": "2.0.0"
+    },
+    {
       "name": "AC 🎹 spreadnob (aesthetic.computer)",
       "piece": "spreadnob",
-      "description": "Spread any knob across your MIDI keys",
+      "description": "Spread any knob across your MIDI keys - expanded rack module",
       "width": 400,
       "height": 170,
       "type": "midi",

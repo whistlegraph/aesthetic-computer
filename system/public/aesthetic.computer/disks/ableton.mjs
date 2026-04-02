@@ -15,6 +15,23 @@ let customPieceIndex = 0;
 let customBusy = null;
 let customMessage = "";
 
+const FEATURED_DOWNLOADS = [
+  {
+    id: "featured-spreadnob-clean",
+    label: "spreadnob clean",
+    piece: "spreadnob-clean",
+    fileName: "AC 🎹 spreadnob-clean (aesthetic.computer).amxd",
+    blurb: "main version - compact and octave-aware",
+  },
+  {
+    id: "featured-spreadnob",
+    label: "spreadnob rack",
+    piece: "spreadnob",
+    fileName: "AC 🎹 spreadnob (aesthetic.computer).amxd",
+    blurb: "expanded rack view with the full module layout",
+  },
+];
+
 const { sin, cos, floor, abs, max } = Math;
 
 function stripEmoji(str = "") {
@@ -273,6 +290,14 @@ function drawButton({ ink, box }, region, label, colors, hovered) {
   ink(...text).write(label, { x: x + 4, y: y + 3 });
 }
 
+async function downloadFeaturedDevice(featured, download) {
+  const assetUrl = `https://assets.aesthetic.computer/m4l/${encodeURIComponent(featured.fileName)}`;
+  const res = await fetch(assetUrl);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  download(featured.fileName, new Uint8Array(buf), { sharing: true });
+}
+
 export function boot({ params, needsPaint }) {
   needsPaintRef = needsPaint;
   if (params?.[0]) setCustomPiece(params[0]);
@@ -371,6 +396,33 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   }
 
   y += 8;
+
+  ink(...(dark ? [24, 19, 33] : [247, 236, 244])).box(0, y - 4, width, 50);
+  ink(255, 118, 184).write("Featured Downloads", { x: margin, y });
+  y += 12;
+
+  for (let i = 0; i < FEATURED_DOWNLOADS.length; i++) {
+    const featured = FEATURED_DOWNLOADS[i];
+    const rowY = y + i * 16;
+    const openFeaturedBtn = { id: `${featured.id}-open`, x: margin, y: rowY, w: 58, h: 14 };
+    const downloadFeaturedBtn = { id: `${featured.id}-download`, x: margin + 64, y: rowY, w: 84, h: 14 };
+
+    registerRegion(openFeaturedBtn.id, openFeaturedBtn.x, openFeaturedBtn.y, openFeaturedBtn.w, openFeaturedBtn.h, {
+      type: "open-piece",
+      piece: featured.piece,
+    });
+    registerRegion(downloadFeaturedBtn.id, downloadFeaturedBtn.x, downloadFeaturedBtn.y, downloadFeaturedBtn.w, downloadFeaturedBtn.h, {
+      type: "download-featured",
+      featured,
+    });
+
+    drawButton({ ink, box }, openFeaturedBtn, "piece", btn.alt, hoverId === openFeaturedBtn.id);
+    drawButton({ ink, box }, downloadFeaturedBtn, "download", btn.primary, hoverId === downloadFeaturedBtn.id);
+    ink(fg).write(featured.label, { x: margin + 154, y: rowY + 1 });
+    ink(dim).write(featured.blurb, { x: margin + 154, y: rowY + 8 });
+  }
+
+  y += FEATURED_DOWNLOADS.length * 16 + 8;
 
   if (loading) {
     const dots = ".".repeat((floor(frame / 15) % 3) + 1);
@@ -516,6 +568,27 @@ export async function act({ event: e, pen, sound, download, jump, needsPaint }) 
       customMessage = `Download failed: ${err.message}`;
     } finally {
       downloading = null;
+      needsPaint?.();
+    }
+    return;
+  }
+
+  if (action.type === "download-featured") {
+    const featured = action.featured;
+    playClick(sound);
+    customBusy = `Downloading ${featured.label}...`;
+    customMessage = "";
+    needsPaint?.();
+
+    try {
+      await downloadFeaturedDevice(featured, download);
+      customMessage = `Downloaded ${featured.fileName}`;
+    } catch (err) {
+      console.error("Featured download failed:", err);
+      playError(sound);
+      customMessage = `Download failed: ${err.message}`;
+    } finally {
+      customBusy = null;
       needsPaint?.();
     }
     return;
