@@ -209,7 +209,7 @@ ac_media_summarize_config_file() {
     if command -v jq >/dev/null 2>&1; then
         jq -r '
             def yesno($v): if $v then "yes" else "no" end;
-            "handle=@\(.handle // "unknown") ac_token=\(yesno((((.token // "") | tostring) | length) > 0)) claude_creds=\(yesno(.claudeCreds? != null)) claude_state=\(yesno(.claudeState? != null))"
+            "handle=@\(.handle // "unknown") ac_token=\(yesno((((.token // "") | tostring) | length) > 0)) claude_token=\(yesno((((.claudeToken // "") | tostring) | length) > 0)) github_pat=\(yesno((((.githubPat // "") | tostring) | length) > 0)) claude_creds=\(yesno(.claudeCreds? != null)) claude_state=\(yesno(.claudeState? != null))"
         ' "${config_path}" 2>/dev/null && return 0
     fi
 
@@ -220,6 +220,8 @@ ac_media_summarize_config_file() {
             const parts = [
               'handle=@' + (cfg.handle || 'unknown'),
               'ac_token=' + ((cfg.token || '').length > 0 ? 'yes' : 'no'),
+              'claude_token=' + ((cfg.claudeToken || '').length > 0 ? 'yes' : 'no'),
+              'github_pat=' + ((cfg.githubPat || '').length > 0 ? 'yes' : 'no'),
               'claude_creds=' + (cfg.claudeCreds ? 'yes' : 'no'),
               'claude_state=' + (cfg.claudeState ? 'yes' : 'no'),
             ];
