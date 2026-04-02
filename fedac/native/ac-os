@@ -674,8 +674,22 @@ find_usb_dev() {
         if [ -e "/sys/block/${dev}/removable" ]; then
             local rem=$(cat "/sys/block/${dev}/removable" 2>/dev/null)
             if [ "${rem}" = "1" ] && [ -e "/sys/block/${dev}" ]; then
-                echo "/dev/${dev}"
-                return 0
+                local dev_node="/dev/${dev}"
+                if [ ! -b "${dev_node}" ]; then
+                    local majmin
+                    majmin=$(cat "/sys/block/${dev}/dev" 2>/dev/null || true)
+                    if [ -z "${majmin}" ]; then
+                        err "USB sysfs node exists but major:minor is missing for ${dev}"
+                        return 1
+                    fi
+                    log "Repairing ${dev_node} as block device ${majmin}"
+                    sudo rm -f "${dev_node}"
+                    sudo mknod "${dev_node}" b "${majmin%%:*}" "${majmin##*:}"
+                fi
+                if [ -b "${dev_node}" ]; then
+                    echo "${dev_node}"
+                    return 0
+                fi
             fi
         fi
     done
