@@ -116,6 +116,10 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" bash -s <<'NIX_E
   else
     echo "WARNING: nix binary not found after install"
   fi
+  if id -u oven >/dev/null 2>&1; then
+    mkdir -p /home/oven/.cache/nix
+    chown -R oven:oven /home/oven/.cache
+  fi
   # Enable flakes
   mkdir -p /etc/nix
   grep -q 'experimental-features' /etc/nix/nix.conf 2>/dev/null || \
