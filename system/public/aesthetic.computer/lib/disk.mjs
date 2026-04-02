@@ -10100,6 +10100,19 @@ async function makeFrame({ data: { type, content } }) {
     persistentDawState.snMax = content.max;
     return;
   }
+  if (type === "spreadnob:state") {
+    persistentDawState.snRawNote = content.raw;
+    persistentDawState.snNormalizedNote = content.note;
+    persistentDawState.snShift = content.shift;
+    persistentDawState.snLocked = content.locked;
+    persistentDawState.snAmbiguous = content.ambiguous;
+    return;
+  }
+  if (type === "spreadnob:qwerty-range") {
+    persistentDawState.snQwertyLow = content.low;
+    persistentDawState.snQwertyHigh = content.high;
+    return;
+  }
 
   // 🎸 Pedal messages (for audio effect visualization)
   if (type === "pedal:peak") {
