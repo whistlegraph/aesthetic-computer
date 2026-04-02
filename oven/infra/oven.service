@@ -7,6 +7,7 @@ Type=simple
 User=oven
 WorkingDirectory=/opt/oven
 Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/nix/var/nix/profiles/default/bin:/home/oven/.nix-profile/bin:/root/.nix-profile/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/node /opt/oven/server.mjs
 Restart=always
 RestartSec=10

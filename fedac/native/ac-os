@@ -1458,14 +1458,14 @@ exec qemu-system-x86_64 \
             build)
                 log "Building NixOS image..."
                 cd "${NIXOS_DIR}"
-                nix build .#usb-image --print-out-paths
+                AC_NIX_NATIVE_SRC="${SCRIPT_DIR}" nix build .#usb-image --impure --print-out-paths
                 log "NixOS image built"
                 ;;
             flash)
                 require_login
                 log "Building + flashing NixOS image to USB..."
                 cd "${NIXOS_DIR}"
-                IMAGE_PATH=$(nix build .#usb-image --print-out-paths --no-link)
+                IMAGE_PATH=$(AC_NIX_NATIVE_SRC="${SCRIPT_DIR}" nix build .#usb-image --impure --print-out-paths --no-link)
                 ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
                 if [ -z "${ISO}" ]; then
                     err "No ISO found in nix build output"
@@ -1482,7 +1482,7 @@ exec qemu-system-x86_64 \
                 require_clean
                 log "Building + uploading NixOS image..."
                 cd "${NIXOS_DIR}"
-                IMAGE_PATH=$(nix build .#usb-image --print-out-paths --no-link)
+                IMAGE_PATH=$(AC_NIX_NATIVE_SRC="${SCRIPT_DIR}" nix build .#usb-image --impure --print-out-paths --no-link)
                 ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
                 if [ -z "${ISO}" ]; then
                     err "No ISO found in nix build output"

@@ -2,6 +2,7 @@
 , libdrm, alsa-lib, flite, openssl, curl
 , wayland, wayland-protocols, wayland-scanner
 , ffmpeg
+, nativeSrc
 , gitHash ? "unknown", version ? "dev"
 }:
 
@@ -15,7 +16,7 @@ stdenv.mkDerivation {
   pname = "ac-native";
   inherit version;
 
-  src = ../../../native;
+  src = nativeSrc;
 
   nativeBuildInputs = [
     pkg-config

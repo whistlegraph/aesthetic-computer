@@ -1,7 +1,7 @@
-{ config, pkgs, lib, self ? null, gitHash ? "unknown", version ? "dev", ... }:
+{ config, pkgs, lib, self ? null, gitHash ? "unknown", version ? "dev", nativeSrc, ... }:
 
 let
-  ac-native = pkgs.callPackage ./packages/ac-native { inherit gitHash version; };
+  ac-native = pkgs.callPackage ./packages/ac-native { inherit gitHash version nativeSrc; };
 in
 {
   imports = [
