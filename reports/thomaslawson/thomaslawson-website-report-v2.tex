@@ -76,18 +76,17 @@
 \node[anchor=north west] at (0, 0.15) {\includegraphics[width=2in]{thomas-lawson-logo.png}};
 \node[anchor=north west, font=\Large, text=graytext] at (2.1, 0.35) {$\times$ f\'{i}a benitez};
 \node[anchor=north west, font=\LARGE\bfseries] at (0, 0.95) {2026 Web Archive Project Grant};
-\node[anchor=north west, font=\normalsize, text=graytext] at (0, 1.3) {December 23, 2025};
+\node[anchor=north west, font=\normalsize, text=graytext] at (0, 1.3) {April 2, 2026};
 
 % === STORY (left column - yellow coded) ===
 \node[anchor=north west, font=\large\bfseries, text=orangewait] at (0, 1.75) {Story};
-\draw[orangewait, fill=lightorange] (0, 2.05) rectangle (4.4, 4.45);
-\node[anchor=north west, text width=4.1in, font=\small] at (0.1, 2.15) {%
+\draw[orangewait, fill=lightorange] (0, 2.05) rectangle (4.4, 4.58);
+\node[anchor=north west, text width=4.1in, font=\footnotesize] at (0.1, 2.15) {%
 Tom reached out to F\'{i}a about his website \underline{\href{https://thomaslawson.com}{thomaslawson.com}} which he has wanted to upgrade for a long time.\\[5pt]
 Over a series of calls and a meeting at Dinosaur Coffee, they reviewed the site together and made notes for 2026. Now Tom has a budget from CalArts!\\[5pt]
-F\'{i}a gained wp-admin access, created an admin account (ffiabenitez), and completed a security analysis.\\[5pt]
-The site runs WordPress 6.0.11 on GoDaddy with Astra theme and Elementor.
-PHP 5.6.40 is end-of-life (Dec 2018)---critical risk. SSL certificate invalid.\\[5pt]
-\textcolor{redcrit}{\textbf{!}} F\'{i}a now needs GoDaddy account credentials to proceed.
+F\'{i}a gained wp-admin access, created an admin account (ffiabenitez), and completed a security + technical audit.\\[5pt]
+Since then, the SSL certificate was renewed, the site was brought onto a safer PHP/WordPress footing, and the project moved into content implementation, timeline/CV organization, and the new artwork index.\\[5pt]
+The site still runs on GoDaddy with Astra and Elementor, while migration away from Elementor-driven page structure is underway.
 };
 
 % === GOAL (middle column - black text, no box) ===
@@ -120,17 +119,17 @@ $\bullet$ At the end of this project, the site will be \textbf{secure}, \textbf{
 \draw[greencheck, fill=lightgreen, rounded corners=3pt] (0.0, 5.2) rectangle (0.7, 5.55);
 \draw[phase1, fill=phase1bg, rounded corners=3pt] (0.8, 5.2) rectangle (1.6, 5.55);
 \draw[phase2, fill=phase2bg, rounded corners=3pt] (1.7, 5.2) rectangle (2.4, 5.55);
-\draw[phase3, fill=phase3bg, rounded corners=3pt] (2.6, 5.2) rectangle (5.0, 5.55);
-\draw[phase4, fill=phase4bg, rounded corners=3pt] (5.1, 5.2) rectangle (7.7, 5.55);
-\draw[phase5, fill=phase5bg, rounded corners=3pt] (7.8, 5.2) rectangle (9.5, 5.55);
+\draw[phase3, fill=phase3bg, rounded corners=3pt] (2.6, 5.2) rectangle (6.9, 5.55);
+\draw[phase4, fill=phase4bg, rounded corners=3pt] (7.0, 5.2) rectangle (8.15, 5.55);
+\draw[phase5, fill=phase5bg, rounded corners=3pt] (8.25, 5.2) rectangle (9.5, 5.55);
 
 % Phase labels (names spelled out)
 \node[font=\tiny\bfseries, text=greencheck] at (0.35, 5.375) {Setup};
 \node[font=\tiny\bfseries, text=phase1] at (1.2, 5.375) {Phase 1};
 \node[font=\tiny\bfseries, text=phase2] at (2.05, 5.375) {Phase 2};
-\node[font=\scriptsize\bfseries, text=phase3] at (3.8, 5.375) {Phase 3};
-\node[font=\scriptsize\bfseries, text=phase4] at (6.4, 5.375) {Phase 4};
-\node[font=\scriptsize\bfseries, text=phase5] at (8.65, 5.375) {Phase 5};
+\node[font=\scriptsize\bfseries, text=phase3] at (4.75, 5.375) {Phase 3};
+\node[font=\scriptsize\bfseries, text=phase4] at (7.575, 5.375) {Phase 4};
+\node[font=\scriptsize\bfseries, text=phase5] at (8.875, 5.375) {Phase 5};
 
 % Secondary continuous date timeline below
 \draw[graytext, line width=1.5pt] (0, 5.85) -- (9.5, 5.85);
@@ -142,59 +141,53 @@ $\bullet$ At the end of this project, the site will be \textbf{secure}, \textbf{
 \draw[graytext, line width=1pt] (2.5, 5.75) -- (2.5, 5.95);
 \node[font=\scriptsize, anchor=north] at (2.5, 5.98) {Jan 7};
 
-\draw[graytext, line width=1pt] (5.1, 5.75) -- (5.1, 5.95);
-\node[font=\scriptsize, anchor=north] at (5.1, 5.98) {Jan 21};
+\draw[graytext, line width=1pt] (6.9, 5.75) -- (6.9, 5.95);
+\node[font=\scriptsize, anchor=north] at (6.9, 5.98) {Apr 30};
 
-\draw[graytext, line width=1pt] (7.8, 5.75) -- (7.8, 5.95);
-\node[font=\scriptsize, anchor=north] at (7.8, 5.98) {Feb 28};
+\draw[graytext, line width=1pt] (8.15, 5.75) -- (8.15, 5.95);
+\node[font=\scriptsize, anchor=north] at (8.15, 5.98) {May 31};
 
 \draw[graytext, line width=1pt] (9.5, 5.75) -- (9.5, 5.95);
-\node[font=\scriptsize, anchor=north] at (9.5, 5.98) {Mar 15};
+\node[font=\scriptsize, anchor=north] at (9.5, 5.98) {Jun 30};
 
-% === SETUP (y=6.35, left column - green coded) ===
-\node[anchor=north west, font=\large\bfseries, text=greencheck] at (0, 6.35) {Setup};
-\node[anchor=north west, font=\small, text=graytext] at (0, 6.57) {$\sim$5 hours completed};
+% === COMPLETED (y=6.35, left column - green coded) ===
+\node[anchor=north west, font=\large\bfseries, text=greencheck] at (0, 6.35) {Completed So Far};
+\node[anchor=north west, font=\small, text=graytext] at (0, 6.57) {Setup + first implementation pass};
 \draw[greencheck, fill=lightgreen] (0, 6.8) rectangle (3.4, 8.85);
 \node[anchor=north west, text width=3.2in, font=\small] at (0.1, 6.9) {%
-\textcolor{greencheck}{$\checkmark$} wp-admin access gained\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Admin account: ffiabenitez\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Security analysis complete\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Technical audit done\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Meeting at Dinosaur Coffee\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Meeting notes for 2026\\[2pt]
-\textcolor{greencheck}{$\checkmark$} Project grant document\\[6pt]
-\textcolor{orangewait}{\textbf{!}} Waiting on GoDaddy access\\[2pt]
-\textcolor{orangewait}{\textbf{!}} Waiting on materials \& feedback
+\textcolor{greencheck}{$\checkmark$} wp-admin + admin account\\[1pt]
+\textcolor{greencheck}{$\checkmark$} Security + technical audit\\[1pt]
+\textcolor{greencheck}{$\checkmark$} SSL certificate renewed\\[1pt]
+\textcolor{greencheck}{$\checkmark$} PHP, WordPress, Astra stabilized\\[1pt]
+\textcolor{greencheck}{$\checkmark$} Elementor Pro removal / migration started\\[1pt]
+\textcolor{greencheck}{$\checkmark$} First pass on Tom's edits + notes\\[1pt]
+\textcolor{greencheck}{$\checkmark$} Comprehensive timeline/CV drafted\\[1pt]
+\textcolor{greencheck}{$\checkmark$} ``Artwork'' index created
 };
 
 % === TOM'S NEXT STEPS (y=6.35, right column) ===
 \node[anchor=north west, font=\large\bfseries] at (3.65, 6.35) {Tom's Next Steps};
-\node[anchor=north west, font=\small, text=graytext] at (3.65, 6.57) {Now until Jan. 7};
+\node[anchor=north west, font=\small, text=graytext] at (3.65, 6.57) {Current priorities for April cowork};
 \draw[redcrit, fill=lightred] (3.65, 6.8) rectangle (9.5, 8.85);
 
 % Left column of TODO - ASAP at top
 \node[anchor=north west, font=\large\bfseries, text=redcrit] at (3.75, 6.9) {ASAP};
 \node[anchor=north west, text width=2.8in, font=\small] at (3.75, 7.15) {%
-\textcolor{redcrit}{\textbf{!}} \textbf{GoDaddy Access}\\[2pt]
-Search email for ``GoDaddy''\\
-(receipts, resets)\\[3pt]
-\textbf{Recovery:}\\
-\href{https://godaddy.com/help}{godaddy.com/help}\\[2pt]
-\textbf{Phone:} (480) 505-8877\\[3pt]
-\textbf{Gandhar:} \href{mailto:gandhar.vamburkar@gmail.com}{gandhar.vamburkar@gmail.com}
+\textcolor{redcrit}{\textbf{!}} \textbf{Valise credentials}\\[2pt]
+Share current login details so we can verify whether Valise can connect to Tom's site and media backend.\\[8pt]
+\textcolor{redcrit}{\textbf{!}} \textbf{In-person cowork session}\\[2pt]
+Meet in person to unblock access, review notes, and prioritize the next upload/edit pass.
 };
 
-% Right column of TODO - Complete By January 7 at top
-\node[anchor=north west, font=\large\bfseries] at (6.9, 6.9) {Complete By January 7};
+% Right column of TODO - cowork agenda
+\node[anchor=north west, font=\large\bfseries] at (6.9, 6.9) {Cowork Agenda};
 \node[anchor=north west, text width=2.5in, font=\small] at (6.9, 7.15) {%
-$\circ$ Use site 30 min (phone + desktop)\\[1pt]
-$\circ$ Note edits to make\\[1pt]
-$\circ$ Gather images to upload\\[1pt]
-$\circ$ Upload to Google Drive/Dropbox\\[1pt]
-\textcolor{greencheck}{$\checkmark$} \textcolor{graytext}{Get login for F\'{i}a}\\[1pt]
-$\circ$ Look up \href{https://fredsandbackarchive.org}{fredsandbackarchive.org}\\
-\quad and other artist websites\\[1pt]
-$\circ$ What needs scanning/photo?
+$\circ$ Confirm access path and recovery options\\[1pt]
+$\circ$ Review artwork index + timeline/CV\\[1pt]
+$\circ$ Prioritize remaining Dropbox edits\\[1pt]
+$\circ$ Choose next images/text to upload\\[1pt]
+$\circ$ Identify scans/photos still needed\\[1pt]
+$\circ$ Align on Phase 4/5 review cadence
 };
 
 % === PHASE 1 (y=9.3, left top) ===
@@ -226,7 +219,7 @@ $\circ$ Make editable for Tom
 
 % === PHASE 3 (y=11.95, left bottom) ===
 \node[anchor=north west, font=\large\bfseries, text=phase3] at (0, 11.35) {Phase 3: Structure \& Taxonomy};
-\node[anchor=north west, font=\small, text=graytext] at (0, 11.57) {Est. 25 hours};
+\node[anchor=north west, font=\small, text=graytext] at (0, 11.57) {Jan 7--Apr 30 \textbullet\ Est. 25 hours};
 \draw[phase3, fill=phase3bg] (0, 11.8) rectangle (4.6, 14.8);
 \node[anchor=north west, text width=4.6in, font=\small] at (0.1, 11.9) {%
 $\circ$ Move up landing categories\\[1pt]
@@ -245,48 +238,47 @@ $\circ$ Unhide Beyond Studio
 \node[anchor=north west, font=\footnotesize, text=graytext] at (0.2, 13.95) {\pencil\ Tom's entries:};
 
 % === PHASE 4 (y=11.95, right bottom) ===
-\node[anchor=north west, font=\large\bfseries, text=phase4] at (4.9, 11.35) {Phase 4: Text \& Media Entry};
-\node[anchor=north west, font=\small, text=graytext] at (4.9, 11.57) {Est. 30 hours};
+\node[anchor=north west, font=\large\bfseries, text=phase4] at (4.9, 11.35) {Phase 4: Data \& Media Entry};
+\node[anchor=north west, font=\small, text=graytext] at (4.9, 11.57) {May \textbullet\ Est. 30 hours};
 \draw[phase4, fill=phase4bg] (4.9, 11.8) rectangle (9.5, 14.8);
 \node[anchor=north west, text width=4.4in, font=\small] at (5.0, 11.9) {%
-$\circ$ Add new work\\[1pt]
-$\circ$ Add stuff not previously added\\[1pt]
-$\circ$ Include writing prize\\[1pt]
-$\circ$ Add missing interview to \textit{Art in a Broader Context}\\[1pt]
-$\circ$ Add missing exhibition to \textit{Art in a Broader Context}\\[1pt]
-$\circ$ Make \textit{Art in a Broader Context} clearly a timeline\\[1pt]
-$\circ$ Add teaching: classes/institutions/pedagogy?\\[1pt]
+$\circ$ Enter remaining artwork, exhibition, and writing data\\[1pt]
+$\circ$ Upload missing media and replace duplicate/incorrect images\\[1pt]
+$\circ$ Add new work, recent paintings, and drawing class materials\\[1pt]
+$\circ$ Fold confirmed Dropbox notes into final pages\\[1pt]
 $\circ$ Correct captions; add dimensions/materials\\[1pt]
-$\circ$ Revise styling for titles
+$\circ$ Add interviews, prize, and teaching/institution entries\\[1pt]
+$\circ$ Continue Elementor-to-custom migration where useful
 };
 % Tom's entries whitespace area
 \draw[graytext, fill=white, rounded corners=2pt] (5.0, 13.85) rectangle (9.4, 14.7);
 \node[anchor=north west, font=\footnotesize, text=graytext] at (5.1, 13.95) {\pencil\ Tom's entries:};
 
 % === PHASE 5 (left column, same width as others) ===
-\node[anchor=north west, font=\large\bfseries, text=phase5] at (0, 15.05) {Phase 5: Review \& Refinement};
-\node[anchor=north west, font=\small, text=graytext] at (0, 15.27) {Est. 15 hours};
+\node[anchor=north west, font=\large\bfseries, text=phase5] at (0, 15.05) {Phase 5: Polish \& Accessibility};
+\node[anchor=north west, font=\small, text=graytext] at (0, 15.27) {June \textbullet\ Est. 15 hours};
 \draw[phase5, fill=phase5bg] (0, 15.5) rectangle (4.6, 17.2);
 \node[anchor=north west, text width=4.4in, font=\small] at (0.1, 15.6) {%
-$\circ$ Final review with Tom\\[1pt]
-$\circ$ Address remaining bugs/issues\\[1pt]
-$\circ$ Polish styling and layout\\[1pt]
-$\circ$ Documentation and handoff\\[1pt]
-$\circ$ Training Tom on editing content\\[1pt]
-$\circ$ Create ongoing maintenance plan including F\'{i}a's role\\[0pt]
-\quad{\scriptsize (prevent another 4 years of neglect)}
+$\circ$ Polish layout, typography, and mobile behavior\\[1pt]
+$\circ$ Accessibility pass: alt text, focus states, contrast\\[1pt]
+$\circ$ Optimize image loading and page performance\\[1pt]
+$\circ$ Final review with Tom; resolve remaining bugs\\[1pt]
+$\circ$ Documentation, handoff, and editor training\\[1pt]
+$\circ$ Ongoing maintenance plan including F\'{i}a's role
 };
 
 % === BILLING (bottom, left of Pay Fia - baby blue bubbly) ===
 \node[anchor=north west, font=\large\bfseries, text=babyblue] at (4.9, 15.05) {Billing};
 \draw[babyblue, fill=babybluebg, rounded corners=6pt] (4.9, 15.5) rectangle (7.0, 17.2);
-\node[anchor=north west, text width=2in, font=\normalsize] at (5.0, 15.6) {%
-\textcolor{babyblue}{\textbf{Due Now:}} \$1,225\\[2pt]
-{\small Setup + Phase 1+2}\\[6pt]
-\textcolor{babyblue}{\textbf{End of Jan:}} \$1,775\\[2pt]
-{\small Phase 3+4}\\[6pt]
-\textcolor{babyblue}{\textbf{March:}} \$500\\[2pt]
-{\small Phase 5}
+\node[anchor=north west, text width=2in, font=\small] at (5.0, 15.6) {%
+\textcolor{greencheck}{\textbf{Paid:}} \$1,225\\[-1pt]
+{\footnotesize Setup + Phases 1--2}\\[4pt]
+\textcolor{babyblue}{\textbf{Due Next:}} \$875\\[-1pt]
+{\footnotesize Phase 3}\\[4pt]
+\textcolor{babyblue}{\textbf{Later:}} \$900\\[-1pt]
+{\footnotesize Phase 4}\\[4pt]
+\textcolor{babyblue}{\textbf{Later:}} \$500\\[-1pt]
+{\footnotesize Phase 5}
 };
 
 % === PAY FIA (bottom right, next to Payment - pink kawaii) ===
