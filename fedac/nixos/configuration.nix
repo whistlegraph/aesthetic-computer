@@ -31,7 +31,9 @@ in
   # Networking (WiFi managed by ac-native, not NetworkManager)
   networking = {
     hostName = "ac-native";
-    useDHCP = lib.mkDefault true;
+    # ac-native invokes dhcpcd itself after selecting a WiFi network.
+    # Leave the system-level DHCP service disabled so boot does not block the kiosk.
+    useDHCP = false;
     networkmanager.enable = false;
   };
 
