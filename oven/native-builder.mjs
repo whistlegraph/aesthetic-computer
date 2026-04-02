@@ -331,7 +331,14 @@ async function runBuildJob(job) {
 
     const repoDir = path.resolve(NATIVE_DIR, "../..");
 
-    // Preflight: hard-sync build repo and refuse conflicted/dirty native trees.
+    // Determine variant: "c" (default), "cl", "nix", "both", or "all"
+    const variant = job.variant || "c";
+    const buildC = variant === "c" || variant === "both" || variant === "all";
+    const buildCL = variant === "cl" || variant === "both" || variant === "all";
+    const buildNix = variant === "nix" || variant === "all";
+    const needsDockerBuild = buildC || buildCL;
+
+    // Preflight: hard-sync build repo and refuse conflicted/dirty native/Nix trees.
     addLogLine(job, "stdout", "Preflight: syncing native git checkout...");
     await runPhase(job, "preflight-sync", "bash", ["-lc", [
       "set -euo pipefail",
@@ -340,7 +347,7 @@ async function runBuildJob(job) {
       `if git rev-parse --verify origin/${NATIVE_BRANCH} >/dev/null 2>&1; then`,
       `  git reset --hard origin/${NATIVE_BRANCH} --quiet`,
       "fi",
-      "git clean -fdq -- fedac/native",
+      "git clean -fdq -- fedac/native fedac/nixos",
     ].join("\n")], repoDir);
 
     const syncedRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
@@ -348,18 +355,18 @@ async function runBuildJob(job) {
 
     const trackedDirty = await runSync(
       "git",
-      ["status", "--porcelain", "--untracked-files=no", "--", "fedac/native"],
+      ["status", "--porcelain", "--untracked-files=no", "--", "fedac/native", "fedac/nixos"],
       repoDir,
     );
     if (trackedDirty) {
       throw new Error(
-        `Refusing native build: fedac/native tree is dirty after sync:\n${trackedDirty}`,
+        `Refusing native build: fedac/native or fedac/nixos tree is dirty after sync:\n${trackedDirty}`,
       );
     }
 
     const unresolved = await runSync(
       "git",
-      ["diff", "--name-only", "--diff-filter=U", "--", "fedac/native"],
+      ["diff", "--name-only", "--diff-filter=U", "--", "fedac/native", "fedac/nixos"],
       repoDir,
     );
     if (unresolved) {
@@ -412,40 +419,36 @@ async function runBuildJob(job) {
     job.commitMsg = commitMsg;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
-    // Pre-build: aggressive prune to avoid disk-full failures (60GB droplet fills fast)
-    addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
-    try {
-      await runPhase(job, "prune", "bash", ["-c",
-        "docker container prune -f && docker image prune -af --filter until=2h && docker builder prune -af --filter until=30m && docker volume prune -f",
-      ], repoDir);
-      // Check free space — abort early if less than 10GB free
-      const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
-      const availKB = parseInt(dfOut, 10) || 0;
-      const availGB = availKB / 1048576;
-      addLogLine(job, "stdout", `  Disk: ${availGB.toFixed(1)}GB free`);
-      if (availGB < 10) {
-        addLogLine(job, "stderr", `  WARNING: Only ${availGB.toFixed(1)}GB free — running full prune...`);
-        await runPhase(job, "emergency-prune", "bash", ["-c",
-          "docker system prune -af --volumes",
+    // Pre-build: prune Docker only when a Docker-backed variant is needed.
+    if (needsDockerBuild) {
+      addLogLine(job, "stdout", "Pre-build: Pruning Docker artifacts...");
+      try {
+        await runPhase(job, "prune", "bash", ["-c",
+          "docker container prune -f && docker image prune -af --filter until=2h && docker builder prune -af --filter until=30m && docker volume prune -f",
         ], repoDir);
-      }
-    } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
+        const dfOut = await runSync("bash", ["-c", "df --output=avail / | tail -1"], repoDir);
+        const availKB = parseInt(dfOut, 10) || 0;
+        const availGB = availKB / 1048576;
+        addLogLine(job, "stdout", `  Disk: ${availGB.toFixed(1)}GB free`);
+        if (availGB < 10) {
+          addLogLine(job, "stderr", `  WARNING: Only ${availGB.toFixed(1)}GB free — running full prune...`);
+          await runPhase(job, "emergency-prune", "bash", ["-c",
+            "docker system prune -af --volumes",
+          ], repoDir);
+        }
+      } catch { addLogLine(job, "stdout", "  Prune skipped (non-fatal)"); }
 
-    // Phase 1: Docker image build (cached layers = fast)
-    addLogLine(job, "stdout", "Phase 1: Building Docker image...");
-    await runPhase(job, "docker-build", "docker", [
-      "build", "-t", "ac-os-builder",
-      "-f", path.join(repoDir, "fedac/native/Dockerfile.builder"),
-      repoDir,
-    ], repoDir);
+      // Phase 1: Docker image build (cached layers = fast)
+      addLogLine(job, "stdout", "Phase 1: Building Docker image...");
+      await runPhase(job, "docker-build", "docker", [
+        "build", "-t", "ac-os-builder",
+        "-f", path.join(repoDir, "fedac/native/Dockerfile.builder"),
+        repoDir,
+      ], repoDir);
 
-    job.percent = 30;
+      job.percent = 30;
+    }
 
-    // Determine variant: "c" (default), "cl", "nix", "both", or "all"
-    const variant = job.variant || "c";
-    const buildC = variant === "c" || variant === "both" || variant === "all";
-    const buildCL = variant === "cl" || variant === "both" || variant === "all";
-    const buildNix = variant === "nix" || variant === "all";
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
     const uploadEnv = {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
@@ -545,6 +548,7 @@ async function runBuildJob(job) {
     // ── NixOS variant: build directly on host with nix (no Docker) ──
     if (buildNix) {
       const nixosDir = path.resolve(NATIVE_DIR, "../nixos");
+      const nixHomeDir = `/tmp/oven-nix-home-${job.id}`;
       const nixUploadDir = `/tmp/oven-nix-upload-${job.id}`;
       const nixBin = await resolveBinary("nix", NIX_BIN_CANDIDATES, nixosDir);
       if (!nixBin) {
@@ -561,8 +565,11 @@ async function runBuildJob(job) {
         ],
         nixosDir,
       );
+      await fs.mkdir(path.join(nixHomeDir, ".cache", "nix"), { recursive: true });
       const nixEnv = {
-        NIX_CONFIG: "experimental-features = nix-command flakes",
+        HOME: nixHomeDir,
+        XDG_CACHE_HOME: path.join(nixHomeDir, ".cache"),
+        NIX_CONFIG: "experimental-features = nix-command flakes\nwarn-dirty = false",
         AC_NIX_NATIVE_SRC: NATIVE_DIR,
         PATH: uniqueNonEmpty([
           path.dirname(nixBin),
@@ -572,80 +579,84 @@ async function runBuildJob(job) {
       };
       addLogLine(job, "stdout", `Phase N: using nix at ${nixBin}`);
 
-      // Preflight: garbage collect old nix store entries
-      addLogLine(job, "stdout", "Phase N: NixOS — cleaning Nix store...");
-      if (nixGcBin) {
-        try {
-          await runPhase(
-            job,
-            "nix-gc",
-            nixGcBin,
-            ["--delete-older-than", "3d"],
-            nixosDir,
-            nixEnv,
-          );
-        } catch {}
-      } else {
-        addLogLine(job, "stdout", "Phase N: skipping Nix GC — nix-collect-garbage not found");
+      try {
+        // Preflight: garbage collect old nix store entries
+        addLogLine(job, "stdout", "Phase N: NixOS — cleaning Nix store...");
+        if (nixGcBin) {
+          try {
+            await runPhase(
+              job,
+              "nix-gc",
+              nixGcBin,
+              ["--delete-older-than", "3d"],
+              nixosDir,
+              nixEnv,
+            );
+          } catch {}
+        } else {
+          addLogLine(job, "stdout", "Phase N: skipping Nix GC — nix-collect-garbage not found");
+        }
+
+        addLogLine(job, "stdout", "Phase N: NixOS — building image with Nix...");
+        job.stage = "nix-build";
+        job.percent = Math.max(job.percent, 60);
+        if (progressCallback) progressCallback(makeSnapshot(job));
+
+        // fedac/nixos reads AC_NIX_NATIVE_SRC from the host env to import fedac/native.
+        // Build the NixOS ISO image
+        await runPhase(job, "nix-build", nixBin, [
+          "build", ".#usb-image",
+          "--impure",
+          "--no-link", "--print-out-paths",
+        ], nixosDir, nixEnv);
+
+        job.percent = Math.max(job.percent, 85);
+
+        // Extract ISO path from nix build output
+        const nixOutResult = await runSync(
+          nixBin,
+          ["build", ".#usb-image", "--impure", "--no-link", "--print-out-paths"],
+          nixosDir,
+          nixEnv,
+        );
+        if (!nixOutResult) {
+          throw new Error("NixOS build finished without returning an output path");
+        }
+
+        // Find the ISO in the output directory
+        const isoPath = await runSync(
+          "bash",
+          ["-lc", "find \"$1\" -name '*.iso' -type f | head -1", "_", nixOutResult],
+          nixosDir,
+        );
+
+        if (!isoPath) {
+          throw new Error("NixOS build produced no ISO file");
+        }
+
+        addLogLine(job, "stdout", `NixOS image: ${isoPath}`);
+
+        // Copy to upload directory
+        await fs.mkdir(nixUploadDir, { recursive: true });
+        const nixIsoUpload = path.join(nixUploadDir, "ac-os-nixos.iso");
+        await fs.copyFile(isoPath, nixIsoUpload);
+
+        job.stage = "nix-upload";
+        job.percent = Math.max(job.percent, 90);
+
+        // Upload with nix- channel prefix
+        await runPhase(job, "nix-upload", "bash", [
+          uploadScript, "--iso", nixIsoUpload,
+        ], NATIVE_DIR, {
+          ...uploadEnv,
+          OTA_CHANNEL: "nix",
+        });
+
+        addLogLine(job, "stdout", "NixOS variant uploaded successfully");
+      } finally {
+        try { await fs.rm(nixUploadDir, { recursive: true }); } catch {}
+        try { await fs.rm(nixHomeDir, { recursive: true }); } catch {}
       }
-
-      addLogLine(job, "stdout", "Phase N: NixOS — building image with Nix...");
-      job.stage = "nix-build";
-      job.percent = Math.max(job.percent, 60);
-      if (progressCallback) progressCallback(makeSnapshot(job));
-
-      // fedac/nixos reads AC_NIX_NATIVE_SRC from the host env to import fedac/native.
-      // Build the NixOS ISO image
-      await runPhase(job, "nix-build", nixBin, [
-        "build", ".#usb-image",
-        "--impure",
-        "--no-link", "--print-out-paths",
-      ], nixosDir, nixEnv);
-
-      job.percent = Math.max(job.percent, 85);
-
-      // Extract ISO path from nix build output
-      const nixOutResult = await runSync(
-        nixBin,
-        ["build", ".#usb-image", "--impure", "--no-link", "--print-out-paths"],
-        nixosDir,
-        nixEnv,
-      );
-      if (!nixOutResult) {
-        throw new Error("NixOS build finished without returning an output path");
-      }
-
-      // Find the ISO in the output directory
-      const isoPath = await runSync(
-        "bash",
-        ["-lc", "find \"$1\" -name '*.iso' -type f | head -1", "_", nixOutResult],
-        nixosDir,
-      );
-
-      if (!isoPath) {
-        throw new Error("NixOS build produced no ISO file");
-      }
-
-      addLogLine(job, "stdout", `NixOS image: ${isoPath}`);
-
-      // Copy to upload directory
-      await fs.mkdir(nixUploadDir, { recursive: true });
-      const nixIsoUpload = path.join(nixUploadDir, "ac-os-nixos.iso");
-      await fs.copyFile(isoPath, nixIsoUpload);
-
-      job.stage = "nix-upload";
-      job.percent = Math.max(job.percent, 90);
-
-      // Upload with nix- channel prefix
-      await runPhase(job, "nix-upload", "bash", [
-        uploadScript, "--iso", nixIsoUpload,
-      ], NATIVE_DIR, {
-        ...uploadEnv,
-        OTA_CHANNEL: "nix",
-      });
-
-      try { await fs.rm(nixUploadDir, { recursive: true }); } catch {}
-      addLogLine(job, "stdout", "NixOS variant uploaded successfully");
     }
 
     job.status = "success";

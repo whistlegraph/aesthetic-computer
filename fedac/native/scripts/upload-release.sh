@@ -60,20 +60,27 @@ DO_SPACES_REGION="${DO_SPACES_REGION:-sfo3}"
 BASE_URL="https://${DO_SPACES_BUCKET}.${DO_SPACES_REGION}.digitaloceanspaces.com"
 
 # Build version string from git. Dirty/conflicted uploads are blocked by default.
-GIT_HASH=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
-CONFLICT_FILES=$(git -C "$SCRIPT_DIR" diff --name-only --diff-filter=U 2>/dev/null || true)
+GIT_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)
+GIT_CWD="$SCRIPT_DIR"
+GIT_NATIVE_PATHS=()
+if [ -n "$GIT_ROOT" ]; then
+  GIT_CWD="$GIT_ROOT"
+  GIT_NATIVE_PATHS=(fedac/native fedac/nixos)
+fi
+GIT_HASH=$(git -C "$GIT_CWD" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+CONFLICT_FILES=$(git -C "$GIT_CWD" diff --name-only --diff-filter=U -- "${GIT_NATIVE_PATHS[@]}" 2>/dev/null || true)
 if [ -n "$CONFLICT_FILES" ]; then
   echo "Error: refusing upload with unresolved merge conflicts:" >&2
   echo "$CONFLICT_FILES" >&2
   exit 1
 fi
 DIRTY_TRACKED=0
-if ! git -C "$SCRIPT_DIR" diff --quiet HEAD 2>/dev/null; then
+if ! git -C "$GIT_CWD" diff --quiet HEAD -- "${GIT_NATIVE_PATHS[@]}" 2>/dev/null; then
   DIRTY_TRACKED=1
 fi
 if [ "$DIRTY_TRACKED" -eq 1 ] && [ "${ALLOW_DIRTY_UPLOAD:-0}" != "1" ]; then
-  echo "Error: refusing dirty upload. Commit/stash/reset native changes first." >&2
-  git -C "$SCRIPT_DIR" status --porcelain --untracked-files=no -- fedac/native 2>/dev/null >&2 || true
+  echo "Error: refusing dirty upload. Commit/stash/reset fedac/native or fedac/nixos changes first." >&2
+  git -C "$GIT_CWD" status --porcelain --untracked-files=no -- "${GIT_NATIVE_PATHS[@]}" 2>/dev/null >&2 || true
   echo "Override only for emergencies: ALLOW_DIRTY_UPLOAD=1 ./scripts/upload-release.sh ..." >&2
   exit 1
 fi
@@ -180,7 +187,7 @@ curl -sf "${BASE_URL}/os/${CHANNEL_PREFIX}releases.json" -o "$RELEASES_JSON" 2>/
   || echo '{"releases":[]}' > "$RELEASES_JSON"
 
 # Append new entry (keep last 50)
-COMMIT_MSG=$(git -C "$SCRIPT_DIR" log -1 --format="%s" 2>/dev/null || echo "")
+COMMIT_MSG=$(git -C "$GIT_CWD" log -1 --format="%s" 2>/dev/null || echo "")
 BUILD_HANDLE="${AC_HANDLE:-}"
 
 python3 - "$RELEASES_JSON" "$FULL_VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" "$BUILD_NAME" "$CHANNEL_PREFIX" "$COMMIT_MSG" "$BUILD_HANDLE" <<'PYEOF'
