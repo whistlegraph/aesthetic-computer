@@ -79,6 +79,7 @@ const forgetful = true;
 
 const TYPO_REPLY = `
 Use Aesthetic Computer by entering a correct word.\n\nEnter "list" for some available words.\n\nEnter "chat" for help.\n\nText 1-508-728-4043 for tips.\n\n - @jeffrey`.trim();
+const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 
 import { Android, MetaBrowser, iOS } from "../lib/platform.mjs";
 import { validateHandle } from "../lib/text.mjs";
@@ -4140,6 +4141,11 @@ async function halt($, text) {
     } else {
       body = parse(trimmed);
       loaded = await load(body); // Execute the current command.
+
+      // Bare code fallback: let `duv` resolve to `$duv` when no disk named `duv` exists.
+      if (!loaded && BARE_KIDLISP_CODE.test(trimmed) && !trimmed.startsWith("$")) {
+        loaded = await load(parse(`$${trimmed}`));
+      }
     }
 
     // console.log("Loaded:", loaded);
