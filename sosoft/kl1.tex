@@ -1,10 +1,4 @@
-% sosoft-card.tex — Score for Social Software deck card
-% Jeffrey Alan Scudder — "$berz" (KidLisp program as score)
-% Card size: 2.75in × 4.75in (70mm × 120mm)
-% One-color printing — monochrome design
-%
-% Build: cd sosoft && xelatex card.tex
-
+% Generated KidLisp score card for $kl1
 \documentclass[12pt]{article}
 \usepackage[
   paperwidth=2.75in,
@@ -17,20 +11,10 @@
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usepackage{listings}
 \usepackage{graphicx}
 
 \pagestyle{empty}
 
-% === FONTS ===
-\newfontfamily\acbold{ywft-processing-bold}[
-  Path=../system/public/type/webfonts/,
-  Extension=.ttf
-]
-\newfontfamily\aclight{ywft-processing-light}[
-  Path=../system/public/type/webfonts/,
-  Extension=.ttf
-]
 \newfontfamily\cardcodefont[
   Path=fonts/,
   Extension=.ttf,
@@ -44,74 +28,53 @@
   BoldFont=ComicRelief-Bold,
   FakeBold=1.8,
 ]{ComicRelief-Bold}
-\setmonofont[
-  UprightFont={Nimbus Mono PS:style=Regular},
-  ItalicFont={Nimbus Mono PS:style=Italic},
-  BoldFont={Nimbus Mono PS:style=Bold},
-  BoldItalicFont={Nimbus Mono PS:style=Bold Italic},
-]{Nimbus Mono PS}
 
 \definecolor{ink}{RGB}{0,0,0}
-\definecolor{faint}{RGB}{120,120,120}
 \newcommand{\safetyinset}{0.22in}
 \newcommand{\safewidth}{2.31in}
-
-\lstdefinestyle{kidlisp-card}{
-  basicstyle=\ttfamily\fontsize{7.5pt}{12pt}\selectfont\color{ink},
-  breaklines=false,
-  frame=none,
-  xleftmargin=0pt,
-  aboveskip=0pt,
-  belowskip=0pt,
-  columns=fullflexible,
-  keepspaces=true,
-  showstringspaces=false,
-}
 
 \begin{document}
 
 \vspace*{-0.26in}
 
-% === $berz screenshot ===
 \noindent\hspace*{-0.08in}%
 \begin{tikzpicture}
   \clip (0,0) rectangle (\safewidth,\safewidth);
   \node[anchor=south west, inner sep=0pt] at (0,0)
-    {\includegraphics[width=\safewidth, height=\safewidth]{berz-screenshot.png}};
+    {\includegraphics[width=\safewidth, height=\safewidth]{kl1-screenshot.png}};
   \draw[black, line width=2.4pt] (0,0) rectangle (\safewidth,\safewidth);
 \end{tikzpicture}\par
 
 \vspace{0.03in}
 
-% === Source code ===
 \begingroup\offinterlineskip
 \cardcodefont\bfseries\fontsize{9.5pt}{10.5pt}\selectfont\color{ink}
 \noindent\hspace*{-0.08in}\begin{tabular}{@{}l@{}}
 \rule{0pt}{11pt}black\\
-\rule{0pt}{11pt}ink (? white black)\\
-\rule{0pt}{11pt}repeat 100 line\\
-\rule{0pt}{11pt}spin 1\\
-\rule{0pt}{11pt}(zoom 1.05)\\
-\rule{0pt}{11pt}(blur 1)\\
+\rule{0pt}{11pt}mask w/2 0 w/2 h, ink zebra\\
+\rule{0pt}{11pt}box ? ? ?\\
+\rule{0pt}{11pt}unmask\\
+\rule{0pt}{11pt}scroll (? 0 -1 1) 10\\
+\rule{0pt}{11pt}ink zebra, line, spin 3, burn\\
+\rule{0pt}{11pt}zoom 0.1, scroll frame/10\\
 \end{tabular}
 \endgroup
 
 \vspace*{\fill}
 
-% === QR code + label in bottom-right corner ===
 \begin{tikzpicture}[remember picture, overlay]
   \node[anchor=south east, inner sep=0pt]
     at ([xshift=-0.23in, yshift=0.75in]current page.south east)
     {\colorbox{black}{%
       \rule[-1pt]{0pt}{6.5pt}%
-      \kern-1pt{\cardlabelfont\bfseries\fontsize{8pt}{8pt}\selectfont\color{white}\$berz}\kern-0.5pt%
+      \kern-1pt{\cardlabelfont\bfseries\fontsize{8pt}{8pt}\selectfont\color{white}\$kl1}\kern-0.5pt%
     }};
   \node[anchor=south east, inner sep=1pt, fill=black]
     at ([xshift=-\safetyinset, yshift=\safetyinset]current page.south east)
     {\rule{0.48in}{0.48in}};
   \node[anchor=south east, inner sep=1pt, fill=white]
     at ([xshift=-0.24in, yshift=0.24in]current page.south east)
-    {\includegraphics[width=0.48in]{qr-berz.eps}};
+    {\includegraphics[width=0.48in]{qr-kl1.png}};
 \end{tikzpicture}
 
 \end{document}
