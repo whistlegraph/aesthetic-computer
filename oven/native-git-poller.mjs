@@ -1,7 +1,7 @@
 // native-git-poller.mjs — polls git for fedac/native/ changes, auto-triggers OTA builds
 //
 // Runs inside the oven server. Every POLL_INTERVAL_MS (default 60s), fetches
-// origin/main and checks if any fedac/native/ paths changed since the last
+// origin/main from the configured native checkout remote and checks if any fedac/native/ paths changed since the last
 // successful build. If so, pulls and triggers startNativeBuild().
 //
 // Requires a git clone at GIT_REPO_DIR (default /opt/oven/native-git/).
@@ -175,7 +175,7 @@ export function startPoller({ startNativeBuild, addServerLog, nativeDir }) {
       logFn(
         "error",
         "⚠️",
-        `Native git poller disabled — repo dir not found: ${GIT_REPO_DIR}. Run: git clone --branch main https://github.com/whistlegraph/aesthetic-computer.git ${GIT_REPO_DIR}`
+        `Native git poller disabled — repo dir not found: ${GIT_REPO_DIR}. Run: git clone --branch main https://tangled.org/aesthetic.computer/core.git ${GIT_REPO_DIR}`
       );
     });
 }

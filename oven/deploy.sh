@@ -7,6 +7,7 @@ set -e
 OVEN_HOST="137.184.237.166"
 SSH_KEY="${SSH_KEY:-$(dirname "$0")/../aesthetic-computer-vault/oven/ssh/oven-deploy-key}"
 REMOTE_DIR="/opt/oven"
+NATIVE_GIT_FETCH_URL="${NATIVE_GIT_FETCH_URL:-https://tangled.org/aesthetic.computer/core.git}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AC_SOURCE="$SCRIPT_DIR/../system/public/aesthetic.computer"
 FEDAC_SOURCE="$SCRIPT_DIR/../fedac"
@@ -222,14 +223,25 @@ echo "✅ OS cache path ready: $REMOTE_DIR/cache"
 # Set up native git repo for auto-polling OTA builds
 echo ""
 echo "📦 Setting up native git repo for OTA auto-builds..."
+echo "   Fetch remote: $NATIVE_GIT_FETCH_URL"
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" "
+set -euo pipefail
 NATIVE_GIT_DIR=/opt/oven/native-git
+NATIVE_GIT_FETCH_URL='$NATIVE_GIT_FETCH_URL'
 if [ ! -d \$NATIVE_GIT_DIR/.git ]; then
   echo '  Cloning repo (first time)...'
-  git clone --branch main --single-branch https://github.com/whistlegraph/aesthetic-computer.git \$NATIVE_GIT_DIR
+  git clone --branch main --single-branch \$NATIVE_GIT_FETCH_URL \$NATIVE_GIT_DIR
 else
   echo '  Git repo exists, fetching latest...'
-  cd \$NATIVE_GIT_DIR && git fetch origin main --quiet && git merge origin/main --ff-only --quiet || true
+  cd \$NATIVE_GIT_DIR
+  git remote set-url origin \$NATIVE_GIT_FETCH_URL
+  git fetch origin main --quiet || true
+  git branch --set-upstream-to=origin/main main >/dev/null 2>&1 || true
+  if git rev-parse --verify origin/main >/dev/null 2>&1 && git merge-base --is-ancestor HEAD origin/main; then
+    git merge origin/main --ff-only --quiet || true
+  else
+    echo '  Repo has local commits or divergence; leaving checkout as-is (native build preflight will hard-sync to origin/main).'
+  fi
 fi
 if id -u oven >/dev/null 2>&1; then
   chown -R oven:oven \$NATIVE_GIT_DIR
@@ -248,7 +260,7 @@ NATIVE_GIT_DIR=/opt/oven/native-git
 OVEN_GH_TOKEN=\$(grep '^OVEN_GH_TOKEN=' $REMOTE_DIR/.env 2>/dev/null | cut -d= -f2-)
 if [ -n \"\$OVEN_GH_TOKEN\" ]; then
   cd \$NATIVE_GIT_DIR
-  # Set push URL with token authentication (fetch stays anonymous HTTPS)
+  # Keep fetch on Tangled, but push papers auto-build commits to the GitHub mirror.
   git remote set-url --push origin https://x-access-token:\${OVEN_GH_TOKEN}@github.com/whistlegraph/aesthetic-computer.git
   echo '  Push URL configured with token auth'
 else
