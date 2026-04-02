@@ -747,37 +747,16 @@ async function boot({
   // Fetch git commit/version status with long-poll for deploy detection
   const fetchVersion = async () => {
     try {
-      // On localhost, fetch GitHub directly to show latest remote commit
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-        const ghRes = await fetch(
-          "https://api.github.com/repos/whistlegraph/aesthetic-computer/commits?per_page=10",
-          { headers: { Accept: "application/vnd.github.v3+json" } }
-        );
-        if (ghRes.ok) {
-          const commits = await ghRes.json();
-          const currentHash = commits[0]?.sha?.slice(0, 7);
-          versionInfo = {
-            deployed: currentHash || "dev",
-            latest: currentHash,
-            status: "local",
-          };
-          // Extract commits for uniticker (local dev mode)
-          recentCommits = commits.map(c => ({
-            hash: c.sha.slice(0, 7),
-            message: c.commit?.message?.split("\n")[0]?.slice(0, 60) || "no message",
-            author: c.commit?.author?.name || c.author?.login || "unknown",
-            date: c.commit?.author?.date,
-          }));
-        } else {
-          versionInfo = { deployed: "dev", status: "local" };
-          recentCommits = [];
-        }
-        needsPaint();
-        return;
-      }
       const res = await fetch("/api/version");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       versionInfo = await res.json();
+      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        versionInfo = {
+          ...versionInfo,
+          deployed: versionInfo.deployed === "unknown" ? "dev" : versionInfo.deployed,
+          status: "local",
+        };
+      }
       // Store recent commits from the version API
       recentCommits = versionInfo.recentCommits || [];
       needsPaint();
@@ -3863,12 +3842,12 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "github" || text === "gh") {
-    const githubUrl = "https://github.com/digitpain/aesthetic.computer";
-    if (!openExternalFromIframe(githubUrl)) jump(githubUrl);
+    const repoUrl = "https://tangled.org/aesthetic.computer/core";
+    if (!openExternalFromIframe(repoUrl)) jump(repoUrl);
     makeFlash($);
     return true;
   } else if (text.toLowerCase() === "score") {
-    const scoreUrl = "https://github.com/whistlegraph/aesthetic-computer/blob/main/SCORE.md";
+    const scoreUrl = "https://tangled.org/aesthetic.computer/core/tree/main/SCORE.md";
     if (!openExternalFromIframe(scoreUrl)) jump(scoreUrl);
     makeFlash($);
     return true;

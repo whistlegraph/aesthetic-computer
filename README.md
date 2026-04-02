@@ -27,7 +27,7 @@ Each major subsystem has a `SCORE.md` — the process knowledge for authors and 
 ## Home
 
 - **Tangled** (canonical): https://tangled.org/aesthetic.computer/core
-- **GitHub** (mirror): https://github.com/whistlegraph/aesthetic-computer
+- **GitHub** (deprecated read-only mirror): https://github.com/whistlegraph/aesthetic-computer
 
 Self-hosted on `knot.aesthetic.computer`.
 

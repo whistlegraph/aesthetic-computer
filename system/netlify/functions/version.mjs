@@ -9,6 +9,9 @@ import { promisify } from "util";
 const execFileAsync = promisify(execFile);
 const GIT_REMOTE_OVERRIDE = process.env.VERSION_GIT_REMOTE || "";
 const GIT_BRANCH = process.env.VERSION_GIT_BRANCH || "main";
+const TANGLED_REPO_URL =
+  process.env.VERSION_TANGLED_REPO_URL ||
+  "https://knot.aesthetic.computer/aesthetic.computer/core";
 const RECENT_COMMIT_COUNT = 10;
 const HISTORY_SCAN_LIMIT = 50;
 
@@ -112,41 +115,30 @@ async function getLatestFromTangled(repoRoot, deployedCommit) {
   };
 }
 
-async function getLatestFromGitHub(deployedCommit) {
-  const res = await fetch(
-    "https://api.github.com/repos/whistlegraph/aesthetic-computer/commits?per_page=50",
-    {
-      headers: {
-        "User-Agent": "aesthetic-computer",
-        Accept: "application/vnd.github.v3+json",
-      },
-    }
+async function getLatestFromTangledMirror(deployedCommit) {
+  const output = await git(
+    ["ls-remote", TANGLED_REPO_URL, `refs/heads/${GIT_BRANCH}`],
+    process.cwd(),
   );
-
-  if (!res.ok) {
-    throw new Error(`GitHub API returned ${res.status}`);
-  }
-
-  const commits = await res.json();
-  const latestCommit = commits[0]?.sha;
-
-  let behindBy = 0;
-  if (deployedCommit !== "unknown" && latestCommit) {
-    const idx = commits.findIndex((c) =>
-      c.sha.startsWith(deployedCommit.slice(0, 7))
-    );
-    behindBy = idx === -1 ? HISTORY_SCAN_LIMIT : idx;
-  }
+  const latestCommit = output.split(/\s+/)[0] || "";
+  const behindBy =
+    deployedCommit !== "unknown" &&
+    latestCommit &&
+    latestCommit.startsWith(deployedCommit.slice(0, 7))
+      ? 0
+      : HISTORY_SCAN_LIMIT;
 
   return {
     latestCommit,
     behindBy,
-    recentCommits: commits.slice(0, RECENT_COMMIT_COUNT).map((c) => ({
-      hash: c.sha.slice(0, 7),
-      message: c.commit?.message?.split("\n")[0]?.slice(0, 60) || "no message",
-      author: c.commit?.author?.name || c.author?.login || "unknown",
-      date: c.commit?.author?.date,
-    })),
+    recentCommits: latestCommit
+      ? [{
+          hash: latestCommit.slice(0, 7),
+          message: "latest on Tangled",
+          author: "tangled.org/aesthetic.computer/core",
+          date: null,
+        }]
+      : [],
   };
 }
 
@@ -180,7 +172,7 @@ export default async (request) => {
       recentCommits,
     } = repoRoot
       ? await getLatestFromTangled(repoRoot, deployedCommit)
-      : await getLatestFromGitHub(deployedCommit);
+      : await getLatestFromTangledMirror(deployedCommit);
 
     const status = behindBy === 0 ? "current" : "behind";
 

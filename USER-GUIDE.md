@@ -89,6 +89,6 @@ Aesthetic Computer includes KidLisp, a minimal Lisp dialect for creating generat
 
 [1] Recent HN discussion on `notepat` here: https://news.ycombinator.com/item?id=41526754
 
-[2] The AC Story: https://github.com/whistlegraph/aesthetic-computer/blob/main/STORY.md
+[2] The AC Story: STORY.md
 
-[3] Write a Piece: https://github.com/whistlegraph/aesthetic-computer/blob/main/WRITE-A-PIECE.md
+[3] Write a Piece: WRITE-A-PIECE.md
