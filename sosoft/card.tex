@@ -31,10 +31,17 @@
   Path=../system/public/type/webfonts/,
   Extension=.ttf
 ]
-\setmonofont{Nimbus Mono PS}
+\setmonofont[
+  UprightFont={Nimbus Mono PS:style=Regular},
+  ItalicFont={Nimbus Mono PS:style=Italic},
+  BoldFont={Nimbus Mono PS:style=Bold},
+  BoldItalicFont={Nimbus Mono PS:style=Bold Italic},
+]{Nimbus Mono PS}
 
 \definecolor{ink}{RGB}{0,0,0}
 \definecolor{faint}{RGB}{120,120,120}
+\newcommand{\safetyinset}{0.22in}
+\newcommand{\safewidth}{2.31in}
 
 \lstdefinestyle{kidlisp-card}{
   basicstyle=\ttfamily\fontsize{7.5pt}{12pt}\selectfont\color{ink},
@@ -53,35 +60,34 @@
 % === Safety margin guide ===
 \begin{tikzpicture}[remember picture, overlay]
   \draw[red, line width=0.3pt, opacity=0.4]
-    ([xshift=0.22in, yshift=-0.22in]current page.north west)
+    ([xshift=\safetyinset, yshift=-\safetyinset]current page.north west)
     rectangle
-    ([xshift=-0.22in, yshift=0.22in]current page.south east);
+    ([xshift=-\safetyinset, yshift=\safetyinset]current page.south east);
 \end{tikzpicture}
 
-\vspace*{-0.3in}
+\vspace*{-0.26in}
 
 % === $berz screenshot with rounded corners ===
-\begin{center}
-  \begin{tikzpicture}
-    \clip[rounded corners=5pt] (0,0) rectangle (2.15in,2.15in);
-    \node[anchor=south west, inner sep=0pt] at (0,0)
-      {\includegraphics[width=2.15in, height=2.15in]{berz-screenshot.png}};
-    \draw[black, line width=1.2pt, rounded corners=5pt] (0,0) rectangle (2.15in,2.15in);
-  \end{tikzpicture}
-\end{center}
+\noindent\hspace*{-0.08in}%
+\begin{tikzpicture}
+  \clip[rounded corners=5pt] (0,0) rectangle (\safewidth,\safewidth);
+  \node[anchor=south west, inner sep=0pt] at (0,0)
+    {\includegraphics[width=\safewidth, height=\safewidth]{berz-screenshot.png}};
+  \draw[black, line width=1.2pt, rounded corners=5pt] (0,0) rectangle (\safewidth,\safewidth);
+\end{tikzpicture}\par
 
-\vspace{-0.05in}
+\vspace{0.03in}
 
 % === Source code ===
 \begingroup\offinterlineskip
-\ttfamily\fontsize{7.5pt}{7.5pt}\selectfont
-\noindent\begin{tabular}{@{}l@{}}
-\rule{0pt}{9pt}black\\
-\rule{0pt}{9pt}ink (? white black)\\
-\rule{0pt}{9pt}repeat 100 line\\
-\rule{0pt}{9pt}spin 1\\
-\rule{0pt}{9pt}(zoom 1.05)\\
-\rule{0pt}{9pt}(blur 1)\\
+\ttfamily\bfseries\fontsize{8pt}{8pt}\selectfont
+\noindent\hspace*{-0.08in}\begin{tabular}{@{}l@{}}
+\rule{0pt}{8.75pt}black\\
+\rule{0pt}{8.75pt}ink (? white black)\\
+\rule{0pt}{8.75pt}repeat 100 line\\
+\rule{0pt}{8.75pt}spin 1\\
+\rule{0pt}{8.75pt}(zoom 1.05)\\
+\rule{0pt}{8.75pt}(blur 1)\\
 \end{tabular}
 \endgroup
 
@@ -90,16 +96,16 @@
 % === QR code + label in bottom-right corner ===
 \begin{tikzpicture}[remember picture, overlay]
   \node[anchor=south east, inner sep=0pt]
-    at ([xshift=-0.3in, yshift=0.8in]current page.south east)
+    at ([xshift=-0.23in, yshift=0.75in]current page.south east)
     {\colorbox{black}{%
       \rule[-1pt]{0pt}{6.5pt}%
       \kern-1pt{\ttfamily\fontsize{7.5pt}{7.5pt}\selectfont\color{white}\$berz}\kern-0.5pt%
     }};
-  \node[anchor=south east, inner sep=1pt, fill=black!60]
-    at ([xshift=-0.28in, yshift=0.28in]current page.south east)
+  \node[anchor=south east, inner sep=1pt, fill=black]
+    at ([xshift=-\safetyinset, yshift=\safetyinset]current page.south east)
     {\rule{0.48in}{0.48in}};
   \node[anchor=south east, inner sep=1pt, fill=white]
-    at ([xshift=-0.3in, yshift=0.3in]current page.south east)
+    at ([xshift=-0.24in, yshift=0.24in]current page.south east)
     {\includegraphics[width=0.48in]{qr-berz.eps}};
 \end{tikzpicture}
 
