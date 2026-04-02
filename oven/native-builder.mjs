@@ -158,6 +158,13 @@ function addLogLine(job, stream, line) {
       job.percent = Math.max(job.percent, 10);
     }
   }
+  // Nix build progress hints
+  if (clean.match(/copying path|building.*\.drv|fetching.*narinfo/i)) {
+    if (job.stage !== "nix-upload") {
+      job.stage = "nix-build";
+      job.percent = Math.max(job.percent, 65);
+    }
+  }
   if (clean.match(/SMOKE TEST|smoke_test|qemu/i)) {
     job.stage = "smoke-test";
     job.percent = Math.max(job.percent, 80);
@@ -399,10 +406,11 @@ async function runBuildJob(job) {
 
     job.percent = 30;
 
-    // Determine variant: "c" (default), "cl", or "both"
+    // Determine variant: "c" (default), "cl", "nix", "both", or "all"
     const variant = job.variant || "c";
-    const buildC = variant === "c" || variant === "both";
-    const buildCL = variant === "cl" || variant === "both";
+    const buildC = variant === "c" || variant === "both" || variant === "all";
+    const buildCL = variant === "cl" || variant === "both" || variant === "all";
+    const buildNix = variant === "nix" || variant === "all";
     const uploadScript = path.join(NATIVE_DIR, "scripts/upload-release.sh");
     const uploadEnv = {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
@@ -497,6 +505,74 @@ async function runBuildJob(job) {
       try { await fs.rm(clUploadDir, { recursive: true }); } catch {}
       try { await fs.unlink(clCidFile); } catch {}
       addLogLine(job, "stdout", "CL variant uploaded successfully");
+    }
+
+    // ── NixOS variant: build directly on host with nix (no Docker) ──
+    if (buildNix) {
+      const nixosDir = path.resolve(NATIVE_DIR, "../nixos");
+      const nixUploadDir = `/tmp/oven-nix-upload-${job.id}`;
+
+      // Preflight: garbage collect old nix store entries
+      addLogLine(job, "stdout", "Phase N: NixOS — cleaning Nix store...");
+      try {
+        await runPhase(job, "nix-gc", "bash", ["-c",
+          "nix-collect-garbage --delete-older-than 3d 2>&1 | tail -3 || true"
+        ], nixosDir, { NIX_CONFIG: "experimental-features = nix-command flakes" });
+      } catch {}
+
+      addLogLine(job, "stdout", "Phase N: NixOS — building image with Nix...");
+      job.stage = "nix-build";
+      job.percent = Math.max(job.percent, 60);
+      if (progressCallback) progressCallback(makeSnapshot(job));
+
+      // Build the NixOS ISO image
+      await runPhase(job, "nix-build", "nix", [
+        "build", ".#usb-image",
+        "--no-link", "--print-out-paths",
+      ], nixosDir, { NIX_CONFIG: "experimental-features = nix-command flakes" });
+
+      job.percent = Math.max(job.percent, 85);
+
+      // Extract ISO path from nix build output
+      const nixOutResult = await new Promise((resolve, reject) => {
+        const { execSync } = require("child_process");
+        try {
+          const out = execSync(
+            "nix build .#usb-image --no-link --print-out-paths",
+            { cwd: nixosDir, env: { ...process.env, NIX_CONFIG: "experimental-features = nix-command flakes" }, encoding: "utf-8" }
+          ).trim();
+          resolve(out);
+        } catch (e) { reject(e); }
+      });
+
+      // Find the ISO in the output directory
+      const { execSync } = require("child_process");
+      const isoPath = execSync(`find ${nixOutResult} -name '*.iso' -type f | head -1`, { encoding: "utf-8" }).trim();
+
+      if (!isoPath) {
+        throw new Error("NixOS build produced no ISO file");
+      }
+
+      addLogLine(job, "stdout", `NixOS image: ${isoPath}`);
+
+      // Copy to upload directory
+      await fs.mkdir(nixUploadDir, { recursive: true });
+      const nixIsoUpload = path.join(nixUploadDir, "ac-os-nixos.iso");
+      await fs.copyFile(isoPath, nixIsoUpload);
+
+      job.stage = "nix-upload";
+      job.percent = Math.max(job.percent, 90);
+
+      // Upload with nix- channel prefix
+      await runPhase(job, "nix-upload", "bash", [
+        uploadScript, "--iso", nixIsoUpload,
+      ], NATIVE_DIR, {
+        ...uploadEnv,
+        OTA_CHANNEL: "nix",
+      });
+
+      try { await fs.rm(nixUploadDir, { recursive: true }); } catch {}
+      addLogLine(job, "stdout", "NixOS variant uploaded successfully");
     }
 
     job.status = "success";

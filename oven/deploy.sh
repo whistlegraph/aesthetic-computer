@@ -86,6 +86,43 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
   "apt-get install -y -q gcc make flex bison libelf-dev libssl-dev bc cpio lz4 musl-tools python3 pahole libdrm-dev libasound2-dev flite1-dev pkg-config dosfstools mtools util-linux 2>&1 | tail -5 || true"
 echo "✅ Kernel build tools ready"
 
+# Install Nix package manager for NixOS-based native builds (idempotent)
+echo ""
+echo "❄️  Installing Nix package manager..."
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" bash -s <<'NIX_EOF'
+  if command -v nix >/dev/null 2>&1; then
+    echo "Nix already installed: $(nix --version)"
+  else
+    curl -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm 2>&1 | tail -10
+  fi
+  # Enable flakes
+  mkdir -p /etc/nix
+  grep -q 'experimental-features' /etc/nix/nix.conf 2>/dev/null || \
+    echo 'experimental-features = nix-command flakes' >> /etc/nix/nix.conf
+  # Garbage collection timer (weekly, keep 7 days)
+  if ! systemctl is-enabled nix-gc.timer >/dev/null 2>&1; then
+    cat > /etc/systemd/system/nix-gc.service <<'SVC'
+[Unit]
+Description=Nix store garbage collection
+[Service]
+Type=oneshot
+ExecStart=/nix/var/nix/profiles/default/bin/nix-collect-garbage --delete-older-than 7d
+SVC
+    cat > /etc/systemd/system/nix-gc.timer <<'TMR'
+[Unit]
+Description=Weekly Nix garbage collection
+[Timer]
+OnCalendar=weekly
+Persistent=true
+[Install]
+WantedBy=timers.target
+TMR
+    systemctl daemon-reload
+    systemctl enable --now nix-gc.timer
+  fi
+NIX_EOF
+echo "✅ Nix ready"
+
 # Install TeX Live for papers PDF builds (idempotent)
 echo ""
 echo "📄 Installing TeX Live for papers builds..."
