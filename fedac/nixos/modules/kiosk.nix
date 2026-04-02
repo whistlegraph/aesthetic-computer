@@ -10,7 +10,7 @@ in
   # Kiosk service: cage compositor running ac-native
   systemd.services.ac-native-kiosk = {
     description = "AC Native OS kiosk";
-    after = [ "multi-user.target" "mount-usb-config.service" "seatd.service" ];
+    after = [ "mount-usb-config.service" "seatd.service" ];
     wants = [ "mount-usb-config.service" "seatd.service" ];
     wantedBy = [ "multi-user.target" ];
 
