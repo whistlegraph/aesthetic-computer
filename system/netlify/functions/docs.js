@@ -3785,12 +3785,12 @@ void draw() {
       // 🔗 External Links
       github: {
         sig: "github",
-        desc: "Open the AC GitHub repo.",
+        desc: "Open the AC Tangled repo (legacy alias).",
         done: true,
       },
       gh: {
         sig: "gh",
-        desc: "Open the AC GitHub repo.",
+        desc: "Open the AC Tangled repo (legacy alias).",
         done: true,
       },
       gmail: {

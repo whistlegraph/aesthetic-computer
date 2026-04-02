@@ -1266,8 +1266,8 @@ async function fun(event, context) {
           "url": "https://aesthetic.computer/" + slug,
           "applicationCategory": "Creative Coding",
           "operatingSystem": "Web Browser",
-          "codeRepository": "https://github.com/whistlegraph/aesthetic-computer",
-          "sourceOrganization": { "@type": "Organization", "name": "Whistlegraph", "url": "https://github.com/whistlegraph" }
+          "codeRepository": "https://tangled.org/aesthetic.computer/core",
+          "sourceOrganization": { "@type": "Organization", "name": "Aesthetic Computer", "url": "https://tangled.org/aesthetic.computer/core" }
         })}
         </script>
       </head>
@@ -1276,7 +1276,7 @@ async function fun(event, context) {
           <h1>${encode(title)}</h1>
           <p>${encode(desc)}</p>
           <p>Aesthetic Computer is an open creative computing platform for making art, games, and tools in the browser using JavaScript and KidLisp. Navigate by typing a piece name (e.g. &quot;painting&quot;, &quot;line&quot;, &quot;wand&quot;, &quot;prompt&quot;) into the command prompt and pressing Enter. See llms.txt for full documentation: https://aesthetic.computer/llms.txt</p>
-          <p>Source code: https://github.com/whistlegraph/aesthetic-computer | Pieces (programs): https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks | Runtime: https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/lib</p>
+          <p>Source code: https://tangled.org/aesthetic.computer/core | Pieces (programs): https://tangled.org/aesthetic.computer/core/tree/main/system/public/aesthetic.computer/disks | Runtime: https://tangled.org/aesthetic.computer/core/tree/main/system/public/aesthetic.computer/lib</p>
         </article>
         <!-- Boot Canvas - VHS style with floating code pages -->
         <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
