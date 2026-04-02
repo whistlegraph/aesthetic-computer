@@ -9,10 +9,10 @@
 \usepackage[
   paperwidth=2.75in,
   paperheight=4.75in,
-  top=0.375in,
-  bottom=0.375in,
-  left=0.35in,
-  right=0.35in,
+  top=0.3in,
+  bottom=0.3in,
+  left=0.3in,
+  right=0.3in,
 ]{geometry}
 \usepackage{fontspec}
 \usepackage{xcolor}
@@ -34,43 +34,33 @@
 ]
 \setmonofont{Nimbus Mono PS}
 
-% === KidLisp light-mode palette (from LIGHT_MODE_COLOR_MAP) ===
+% === KidLisp light-mode palette ===
 \definecolor{ink}{RGB}{0,0,0}
 \definecolor{faint}{RGB}{140,140,140}
-\definecolor{klfn}{HTML}{0099cc}       % functions: cyan (light mode)
-\definecolor{klform}{HTML}{cc00cc}     % special forms: magenta (light mode)
-\definecolor{klnum}{HTML}{cc0066}      % numbers: pink (light mode)
-\definecolor{klident}{HTML}{cc6600}    % identifiers: orange (light mode)
-\definecolor{klgreen}{HTML}{2e8b57}    % fade/mediumseagreen (light mode)
-\definecolor{klmath}{HTML}{00aa00}     % math ops: lime (light mode)
-\definecolor{klcmt}{HTML}{666666}      % comments: gray (light mode)
-% Paren rainbow (depth 0-7)
-\definecolor{p0}{RGB}{255,100,100}     % red-ish
-\definecolor{p1}{RGB}{255,180,100}     % orange-ish
-\definecolor{p2}{RGB}{255,255,100}     % yellow-ish
-\definecolor{p3}{RGB}{100,255,100}     % green-ish
-\definecolor{p4}{RGB}{100,200,255}     % cyan-ish
-\definecolor{p5}{RGB}{150,150,255}     % blue-ish
-\definecolor{p6}{RGB}{200,100,255}     % purple-ish
-% CSS color names used in $roz (their actual values)
+\definecolor{klfn}{HTML}{0099cc}
+\definecolor{klform}{HTML}{cc00cc}
+\definecolor{klnum}{HTML}{cc0066}
+\definecolor{klident}{HTML}{cc6600}
+\definecolor{klgreen}{HTML}{2e8b57}
+\definecolor{klmath}{HTML}{00aa00}
+\definecolor{klcmt}{HTML}{666666}
+\definecolor{p0}{RGB}{255,100,100}
+\definecolor{p1}{RGB}{255,180,100}
+\definecolor{p4}{RGB}{100,200,255}
 \definecolor{klred}{RGB}{255,0,0}
 \definecolor{klblue}{RGB}{0,0,255}
 \definecolor{klblack}{RGB}{0,0,0}
-\definecolor{klcyan}{RGB}{0,200,200}   % darkened for white bg
-\definecolor{klyellow}{HTML}{cc9900}   % darkened for white bg
+\definecolor{klcyan}{RGB}{0,200,200}
+\definecolor{klyellow}{HTML}{cc9900}
 \definecolor{klmagenta}{RGB}{200,0,200}
-\definecolor{klwhite}{RGB}{180,180,180} % visible on white bg
-% Rainbow per-character colors (from RAINBOW_COLORS)
-\definecolor{rb0}{HTML}{ff0000}  % r - red
-\definecolor{rb1}{HTML}{ff7f00}  % a - orange
-\definecolor{rb2}{HTML}{ffff00}  % i - yellow
-\definecolor{rb3}{HTML}{00ff00}  % n - green
-\definecolor{rb4}{HTML}{0000ff}  % b - blue
-\definecolor{rb5}{HTML}{4b0082}  % o - indigo
-\definecolor{rb6}{HTML}{9400d3}  % w - violet
-
-% === Manual highlighting (listings can't do KidLisp's semantic coloring) ===
-% We'll use lstlisting with escapechar to manually color tokens
+\definecolor{klwhite}{RGB}{180,180,180}
+\definecolor{rb0}{HTML}{ff0000}
+\definecolor{rb1}{HTML}{ff7f00}
+\definecolor{rb2}{HTML}{ffff00}
+\definecolor{rb3}{HTML}{00ff00}
+\definecolor{rb4}{HTML}{0000ff}
+\definecolor{rb5}{HTML}{4b0082}
+\definecolor{rb6}{HTML}{9400d3}
 
 \lstdefinestyle{kidlisp-card}{
   basicstyle=\ttfamily\fontsize{6.5pt}{11.5pt}\selectfont\color{ink},
@@ -85,7 +75,7 @@
   escapechar=|,
 }
 
-% Shorthand macros for coloring
+% Shorthand macros
 \newcommand{\fn}[1]{{\color{klfn}\textbf{#1}}}
 \newcommand{\xf}[1]{{\color{klfn}#1}}
 \newcommand{\nm}[1]{{\color{klnum}#1}}
@@ -93,34 +83,13 @@
 \newcommand{\cn}[2]{{\color{#1}#2}}
 \newcommand{\pr}[2]{{\color{#1}#2}}
 
-\begin{document}
-
-% ============================================================
-% FRONT — The Score
-% ============================================================
-
-\begin{tikzpicture}[remember picture, overlay]
-  % $roz screenshot as full-bleed background (faded)
-  \node[anchor=center, inner sep=0pt, opacity=0.15]
-    at (current page.center)
-    {\includegraphics[width=2.75in, height=4.75in]{roz-screenshot.png}};
-  % Border frame
-  \draw[ink, line width=0.4pt]
-    ([xshift=0.15in, yshift=-0.15in]current page.north west)
-    rectangle
-    ([xshift=-0.15in, yshift=0.15in]current page.south east);
-\end{tikzpicture}
-
-\vspace*{\fill}
-
-% Shadow macro with inverse color: #1=shadow color, #2=content
-% Shadow is offset 0.35pt down-right in the specified shadow color at 30% opacity
+% Shadow macro with inverse color
 \newcommand{\sh}[2]{%
   \setbox0=\hbox{#2}%
   \rlap{\raisebox{-0.35pt}{\hspace{0.35pt}{\color{#1!30}\copy0}}}%
   \box0%
 }
-% Per-character rainbow word macro
+% Per-character rainbow
 \newcommand{\rbow}{%
   \sh{rb4}{\color{rb0}r}%
   \sh{rb5}{\color{rb1}a}%
@@ -131,6 +100,30 @@
   \sh{rb3}{\color{rb6}w}%
 }
 
+\begin{document}
+
+% === Full-bleed faded background ===
+\begin{tikzpicture}[remember picture, overlay]
+  \node[anchor=center, inner sep=0pt, opacity=0.25]
+    at (current page.center)
+    {\includegraphics[width=2.8in, height=4.8in]{roz-bg.png}};
+  % Safety margin guide (144px from edge at 652 DPI = 0.22in)
+  \draw[red, line width=0.3pt, opacity=0.4]
+    ([xshift=0.22in, yshift=-0.22in]current page.north west)
+    rectangle
+    ([xshift=-0.22in, yshift=0.22in]current page.south east);
+\end{tikzpicture}
+
+\vspace*{0.1in}
+
+% === Small square $roz screenshot above the code ===
+\begin{center}
+  \includegraphics[width=1.2in, height=1.2in]{roz-screenshot.png}
+\end{center}
+
+\vspace{0.15in}
+
+% === Source code ===
 \begin{lstlisting}[style=kidlisp-card]
 |\sh{klred}{\cn{klgreen}{fade}}|:|\sh{klcyan}{\cn{klred}{red}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klwhite}{\cn{klblack}{black}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klcyan}{\cn{klred}{red}}|
 |\sh{klnum}{\fn{ink}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\rbow| |\sh{ink}{\cn{klwhite}{white}}| |\sh{klfn}{\nm{0}}||\sh{p4}{\pr{p0}{)}}| |\sh{p4}{\pr{p0}{(}}||\sh{klfn}{\nm{1s}}|... |\sh{klfn}{\nm{24}}| |\sh{klfn}{\nm{64}}||\sh{p4}{\pr{p0}{)}}|
@@ -144,22 +137,19 @@
 
 \vspace*{\fill}
 
-% QR code + label in bottom-right corner (KidLisp style)
+% === QR code + label in bottom-right corner ===
 \begin{tikzpicture}[remember picture, overlay]
-  % $roz label (white on black, minimal padding, just above QR)
   \node[anchor=south east, inner sep=0pt]
-    at ([xshift=-0.2in, yshift=0.7in]current page.south east)
+    at ([xshift=-0.3in, yshift=0.8in]current page.south east)
     {\colorbox{black}{%
       \rule[-1pt]{0pt}{6.5pt}%
       \kern-1pt{\ttfamily\fontsize{7.5pt}{7.5pt}\selectfont\color{white}\$roz}\kern-0.5pt%
     }};
-  % Gray offset hard shadow (2pt down-right only)
   \node[anchor=south east, inner sep=1pt, fill=black!60]
-    at ([xshift=-0.18in, yshift=0.18in]current page.south east)
+    at ([xshift=-0.28in, yshift=0.28in]current page.south east)
     {\rule{0.48in}{0.48in}};
-  % White QR container flush with bottom-right corner
   \node[anchor=south east, inner sep=1pt, fill=white]
-    at ([xshift=-0.2in, yshift=0.2in]current page.south east)
+    at ([xshift=-0.3in, yshift=0.3in]current page.south east)
     {\includegraphics[width=0.48in]{qr-roz.eps}};
 \end{tikzpicture}
 
