@@ -131,6 +131,14 @@ async function logout({ browser = true } = {}) {
 // Start local callback server
 async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { forcePrompt = false } = {}) {
   return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (fn, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timeout);
+      server.close(() => fn(value));
+    };
+
     const server = http.createServer(async (req, res) => {
       const url = new URL(req.url, `http://localhost:${CALLBACK_PORT}`);
       
@@ -183,8 +191,7 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { fo
   </div>
 </body>
 </html>`);
-        server.close();
-        reject(new Error(error));
+        finish(reject, new Error(error));
         return;
       }
       
@@ -279,13 +286,11 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { fo
 </body>
 </html>`);
         
-        server.close();
-        resolve({ tokens, user: { ...user, handle: acHandle } });
+        finish(resolve, { tokens, user: { ...user, handle: acHandle } });
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(`Error: ${err.message}`);
-        server.close();
-        reject(err);
+        finish(reject, err);
       }
     });
     
@@ -302,13 +307,17 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { fo
     
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
-        reject(new Error(`Port ${CALLBACK_PORT} is already in use.`));
+        finish(reject, new Error(`Port ${CALLBACK_PORT} is already in use.`));
       } else {
-        reject(err);
+        finish(reject, err);
       }
     });
-    
-    setTimeout(() => { server.close(); reject(new Error('Login timeout')); }, 5 * 60 * 1000);
+
+    const timeout = setTimeout(
+      () => finish(reject, new Error('Login timeout')),
+      5 * 60 * 1000,
+    );
+    timeout.unref?.();
   });
 }
 
