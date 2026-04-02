@@ -61,6 +61,20 @@
 \definecolor{rb4}{HTML}{0000ff}
 \definecolor{rb5}{HTML}{4b0082}
 \definecolor{rb6}{HTML}{9400d3}
+% Inverse colors for shadows (255-r, 255-g, 255-b)
+\definecolor{invfn}{RGB}{255,102,51}      % inverse of cyan 0099cc
+\definecolor{invnum}{RGB}{51,255,153}     % inverse of pink cc0066
+\definecolor{invident}{RGB}{51,153,255}   % inverse of orange cc6600
+\definecolor{invgreen}{RGB}{209,116,168}  % inverse of 2e8b57
+\definecolor{invred}{RGB}{0,255,255}      % inverse of red
+\definecolor{invblue}{RGB}{255,255,0}     % inverse of blue
+\definecolor{invblack}{RGB}{255,255,255}  % inverse of black
+\definecolor{invcyan}{RGB}{255,55,55}     % inverse of 0,200,200
+\definecolor{invyellow}{RGB}{51,102,255}  % inverse of cc9900
+\definecolor{invmagenta}{RGB}{55,255,55}  % inverse of 200,0,200
+\definecolor{invwhite}{RGB}{75,75,75}     % inverse of 180,180,180
+\definecolor{invp0}{RGB}{0,155,155}       % inverse of paren red
+\definecolor{invp1}{RGB}{0,75,155}        % inverse of paren orange
 
 \lstdefinestyle{kidlisp-card}{
   basicstyle=\ttfamily\fontsize{6.5pt}{11.5pt}\selectfont\color{ink},
@@ -83,28 +97,37 @@
 \newcommand{\cn}[2]{{\color{#1}#2}}
 \newcommand{\pr}[2]{{\color{#1}#2}}
 
-% Shadow macro with inverse color
+% Shadow macro — #1 is the inverse/opposite color, rendered at 50% behind text
 \newcommand{\sh}[2]{%
   \setbox0=\hbox{#2}%
-  \rlap{\raisebox{-0.35pt}{\hspace{0.35pt}{\color{#1!30}\copy0}}}%
+  \rlap{\raisebox{-0.4pt}{\hspace{0.4pt}{\color{#1!50}\copy0}}}%
   \box0%
 }
-% Per-character rainbow
+% Per-character rainbow (inverse shadow: 255-r, 255-g, 255-b per char)
+% rb0=ff0000→inv 00ffff, rb1=ff7f00→inv 0080ff, rb2=ffff00→inv 0000ff
+% rb3=00ff00→inv ff00ff, rb4=0000ff→inv ffff00, rb5=4b0082→inv b4ff7d, rb6=9400d3→inv 6bff2c
+\definecolor{irb0}{RGB}{0,255,255}
+\definecolor{irb1}{RGB}{0,128,255}
+\definecolor{irb2}{RGB}{0,0,255}
+\definecolor{irb3}{RGB}{255,0,255}
+\definecolor{irb4}{RGB}{255,255,0}
+\definecolor{irb5}{RGB}{180,255,125}
+\definecolor{irb6}{RGB}{107,255,44}
 \newcommand{\rbow}{%
-  \sh{rb4}{\color{rb0}r}%
-  \sh{rb5}{\color{rb1}a}%
-  \sh{rb6}{\color{rb2}i}%
-  \sh{rb0}{\color{rb3}n}%
-  \sh{rb1}{\color{rb4}b}%
-  \sh{rb2}{\color{rb5}o}%
-  \sh{rb3}{\color{rb6}w}%
+  \sh{irb0}{\color{rb0}r}%
+  \sh{irb1}{\color{rb1}a}%
+  \sh{irb2}{\color{rb2}i}%
+  \sh{irb3}{\color{rb3}n}%
+  \sh{irb4}{\color{rb4}b}%
+  \sh{irb5}{\color{rb5}o}%
+  \sh{irb6}{\color{rb6}w}%
 }
 
 \begin{document}
 
 % === Full-bleed faded background ===
 \begin{tikzpicture}[remember picture, overlay]
-  \node[anchor=center, inner sep=0pt, opacity=0.25]
+  \node[anchor=center, inner sep=0pt, opacity=0.35]
     at (current page.center)
     {\includegraphics[width=2.8in, height=4.8in]{roz-bg.png}};
   % Safety margin guide (144px from edge at 652 DPI = 0.22in)
@@ -118,21 +141,27 @@
 
 % === Small square $roz screenshot above the code ===
 \begin{center}
-  \includegraphics[width=1.2in, height=1.2in]{roz-screenshot.png}
+  \includegraphics[width=1.9in, height=1.9in]{roz-screenshot.png}
 \end{center}
 
-\vspace{0.15in}
+\vspace{0.1in}
 
-% === Source code ===
+% === Source code with white backing (only behind code area) ===
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[white, opacity=0.7, rounded corners=3pt]
+    ([xshift=0.15in, yshift=-2.95in]current page.north west)
+    rectangle
+    ([xshift=-0.15in, yshift=0.1in]current page.south east);
+\end{tikzpicture}
 \begin{lstlisting}[style=kidlisp-card]
-|\sh{klred}{\cn{klgreen}{fade}}|:|\sh{klcyan}{\cn{klred}{red}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klwhite}{\cn{klblack}{black}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klcyan}{\cn{klred}{red}}|
-|\sh{klnum}{\fn{ink}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\rbow| |\sh{ink}{\cn{klwhite}{white}}| |\sh{klfn}{\nm{0}}||\sh{p4}{\pr{p0}{)}}| |\sh{p4}{\pr{p0}{(}}||\sh{klfn}{\nm{1s}}|... |\sh{klfn}{\nm{24}}| |\sh{klfn}{\nm{64}}||\sh{p4}{\pr{p0}{)}}|
-|\sh{klnum}{\fn{line}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klfn}{\nm{0}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klnum}{\id{h}}|
-|\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{spin}}| |\sh{p4}{\pr{p1}{(}}||\sh{klfn}{\nm{2s}}|... |\sh{klfn}{\nm{-1.125}}| |\sh{klfn}{\nm{1.125}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{zoom}}| |\sh{klfn}{\nm{1.1}}||\sh{p4}{\pr{p0}{)}}|
-|\sh{p4}{\pr{p0}{(}}||\sh{klfn}{\nm{0.5s}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\xf{contrast}}| |\sh{klfn}{\nm{1.05}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}|
-|\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{scroll}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{-0.1}}| |\sh{klfn}{\nm{0}}| |\sh{klfn}{\nm{0.1}}||\sh{p4}{\pr{p1}{)}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{-0.1}}| |\sh{klfn}{\nm{0}}| |\sh{klfn}{\nm{0.1}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}|
-|\sh{klnum}{\fn{ink}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\sh{klred}{\cn{klcyan}{cyan}}| |\sh{klblue}{\cn{klyellow}{yellow}}| |\sh{klgreen}{\cn{klmagenta}{magenta}}||\sh{p4}{\pr{p0}{)}}| |\sh{klfn}{\nm{8}}|
-|\sh{klnum}{\fn{circle}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klnum}{\id{h}}|/|\sh{klfn}{\nm{2}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{2}}| |\sh{klfn}{\nm{4}}| |\sh{klfn}{\nm{8}}||\sh{p4}{\pr{p0}{)}}|
+|\sh{invgreen}{\cn{klgreen}{fade}}|:|\sh{invred}{\cn{klred}{red}}|-|\sh{invblue}{\cn{klblue}{blue}}|-|\sh{invblack}{\cn{klblack}{black}}|-|\sh{invblue}{\cn{klblue}{blue}}|-|\sh{invred}{\cn{klred}{red}}|
+|\sh{invfn}{\fn{ink}}| |\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\fn{?}}| |\rbow| |\sh{invwhite}{\cn{klwhite}{white}}| |\sh{invnum}{\nm{0}}||\sh{invp0}{\pr{p0}{)}}| |\sh{invp0}{\pr{p0}{(}}||\sh{invnum}{\nm{1s}}|... |\sh{invnum}{\nm{24}}| |\sh{invnum}{\nm{64}}||\sh{invp0}{\pr{p0}{)}}|
+|\sh{invfn}{\fn{line}}| |\sh{invident}{\id{w}}|/|\sh{invnum}{\nm{2}}| |\sh{invnum}{\nm{0}}| |\sh{invident}{\id{w}}|/|\sh{invnum}{\nm{2}}| |\sh{invident}{\id{h}}|
+|\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\xf{spin}}| |\sh{invp1}{\pr{p1}{(}}||\sh{invnum}{\nm{2s}}|... |\sh{invnum}{\nm{-1.125}}| |\sh{invnum}{\nm{1.125}}||\sh{invp1}{\pr{p1}{)}}||\sh{invp0}{\pr{p0}{)}}| |\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\xf{zoom}}| |\sh{invnum}{\nm{1.1}}||\sh{invp0}{\pr{p0}{)}}|
+|\sh{invp0}{\pr{p0}{(}}||\sh{invnum}{\nm{0.5s}}| |\sh{invp1}{\pr{p1}{(}}||\sh{invfn}{\xf{contrast}}| |\sh{invnum}{\nm{1.05}}||\sh{invp1}{\pr{p1}{)}}||\sh{invp0}{\pr{p0}{)}}|
+|\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\xf{scroll}}| |\sh{invp1}{\pr{p1}{(}}||\sh{invfn}{\fn{?}}| |\sh{invnum}{\nm{-0.1}}| |\sh{invnum}{\nm{0}}| |\sh{invnum}{\nm{0.1}}||\sh{invp1}{\pr{p1}{)}}| |\sh{invp1}{\pr{p1}{(}}||\sh{invfn}{\fn{?}}| |\sh{invnum}{\nm{-0.1}}| |\sh{invnum}{\nm{0}}| |\sh{invnum}{\nm{0.1}}||\sh{invp1}{\pr{p1}{)}}||\sh{invp0}{\pr{p0}{)}}|
+|\sh{invfn}{\fn{ink}}| |\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\fn{?}}| |\sh{invcyan}{\cn{klcyan}{cyan}}| |\sh{invyellow}{\cn{klyellow}{yellow}}| |\sh{invmagenta}{\cn{klmagenta}{magenta}}||\sh{invp0}{\pr{p0}{)}}| |\sh{invnum}{\nm{8}}|
+|\sh{invfn}{\fn{circle}}| |\sh{invident}{\id{w}}|/|\sh{invnum}{\nm{2}}| |\sh{invident}{\id{h}}|/|\sh{invnum}{\nm{2}}| |\sh{invp0}{\pr{p0}{(}}||\sh{invfn}{\fn{?}}| |\sh{invnum}{\nm{2}}| |\sh{invnum}{\nm{4}}| |\sh{invnum}{\nm{8}}||\sh{invp0}{\pr{p0}{)}}|
 \end{lstlisting}
 
 \vspace*{\fill}
