@@ -1,18 +1,18 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  26 MAR 2026 12:00
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.29)  1 APR 2026 21:14
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**plork-cards.tex
+**card.tex
 
 ! Emergency stop.
-<*> plork-cards.tex
-                   
+<*> card.tex
+            
 *** (job aborted, file error in nonstop mode)
 
  
 Here is how much of TeX's memory you used:
  2 strings out of 478682
- 21 string characters out of 5849006
+ 14 string characters out of 5849006
  1842018 words of memory out of 6000000
  20219 multiletter control sequences out of 15000+600000
  512287 words of font info for 32 fonts, out of 8000000 for 9000

@@ -4,7 +4,7 @@
   "displayName": "Aesthetic Computer",
   "icon": "resources/icon.png",
   "author": "Jeffrey Alan Scudder",
-  "version": "1.271.2",
+  "version": "1.272.0",
   "description": "Code, run, and publish your pieces. Includes Aesthetic Computer themes and KidLisp syntax highlighting.",
   "engines": {
     "vscode": "^1.105.0"
@@ -183,7 +183,7 @@
       },
       {
         "command": "aestheticComputer.welcome",
-        "title": "Aesthetic Computer: Welcome ✨"
+        "title": "Aesthetic Computer: Dashboard ✦"
       },
       {
         "command": "aestheticComputer.showOTADetails",
