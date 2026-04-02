@@ -10,9 +10,13 @@ import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { MongoClient } from "mongodb";
 
-function runSync(cmd, args, cwd) {
+function runSync(cmd, args, cwd, env = null) {
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] });
+    const proc = spawn(cmd, args, {
+      cwd,
+      env: env ? { ...process.env, ...env } : process.env,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     let out = '';
     proc.stdout.on('data', d => out += d);
     proc.on('close', () => resolve(out.trim()));
@@ -29,6 +33,20 @@ const NATIVE_BUILD_COLLECTION =
 const NATIVE_DIR =
   process.env.NATIVE_DIR || "/opt/oven/native-git/fedac/native";
 const NATIVE_BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
+const NIX_BIN_CANDIDATES = [
+  process.env.NIX_BIN || "",
+  "/usr/local/bin/nix",
+  "/nix/var/nix/profiles/default/bin/nix",
+  "/home/oven/.nix-profile/bin/nix",
+  "/root/.nix-profile/bin/nix",
+];
+const NIX_GC_CANDIDATES = [
+  process.env.NIX_GC_BIN || "",
+  "/usr/local/bin/nix-collect-garbage",
+  "/nix/var/nix/profiles/default/bin/nix-collect-garbage",
+  "/home/oven/.nix-profile/bin/nix-collect-garbage",
+  "/root/.nix-profile/bin/nix-collect-garbage",
+];
 
 // Kernel build cache: symlinked from fedac/native/build so kernel object
 // files survive rsync --delete between commits (5-10x faster warm builds).
@@ -50,6 +68,10 @@ export function onNativeBuildProgress(cb) {
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+function uniqueNonEmpty(items) {
+  return [...new Set((items || []).filter(Boolean))];
 }
 
 function toDateOrNull(v) {
@@ -101,6 +123,7 @@ async function persistNativeBuildRecord(job) {
       commitMsg: job.commitMsg || null,
       flags: Array.isArray(job.flags) ? job.flags : [],
       changedPaths: job.changedPaths || "",
+      variant: job.variant || "c",
       createdAt: toDateOrNull(job.createdAt),
       startedAt,
       updatedAt: toDateOrNull(job.updatedAt),
@@ -121,6 +144,18 @@ async function persistNativeBuildRecord(job) {
 
 function stripAnsi(s) {
   return String(s || "").replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+async function resolveBinary(cmd, candidates = [], cwd = NATIVE_DIR) {
+  const fromPath = await runSync("bash", ["-lc", `command -v ${cmd} || true`], cwd);
+  if (fromPath) return fromPath.split("\n").pop().trim();
+  for (const candidate of uniqueNonEmpty(candidates)) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {}
+  }
+  return "";
 }
 
 function addLogLine(job, stream, line) {
@@ -511,43 +546,81 @@ async function runBuildJob(job) {
     if (buildNix) {
       const nixosDir = path.resolve(NATIVE_DIR, "../nixos");
       const nixUploadDir = `/tmp/oven-nix-upload-${job.id}`;
+      const nixBin = await resolveBinary("nix", NIX_BIN_CANDIDATES, nixosDir);
+      if (!nixBin) {
+        throw new Error(
+          "Nix binary not found on oven host. Checked PATH and: " +
+          uniqueNonEmpty(NIX_BIN_CANDIDATES).join(", "),
+        );
+      }
+      const nixGcBin = await resolveBinary(
+        "nix-collect-garbage",
+        [
+          path.join(path.dirname(nixBin), "nix-collect-garbage"),
+          ...NIX_GC_CANDIDATES,
+        ],
+        nixosDir,
+      );
+      const nixEnv = {
+        NIX_CONFIG: "experimental-features = nix-command flakes",
+        AC_NIX_NATIVE_SRC: NATIVE_DIR,
+        PATH: uniqueNonEmpty([
+          path.dirname(nixBin),
+          nixGcBin ? path.dirname(nixGcBin) : "",
+          process.env.PATH || "",
+        ]).join(":"),
+      };
+      addLogLine(job, "stdout", `Phase N: using nix at ${nixBin}`);
 
       // Preflight: garbage collect old nix store entries
       addLogLine(job, "stdout", "Phase N: NixOS — cleaning Nix store...");
-      try {
-        await runPhase(job, "nix-gc", "bash", ["-c",
-          "nix-collect-garbage --delete-older-than 3d 2>&1 | tail -3 || true"
-        ], nixosDir, { NIX_CONFIG: "experimental-features = nix-command flakes" });
-      } catch {}
+      if (nixGcBin) {
+        try {
+          await runPhase(
+            job,
+            "nix-gc",
+            nixGcBin,
+            ["--delete-older-than", "3d"],
+            nixosDir,
+            nixEnv,
+          );
+        } catch {}
+      } else {
+        addLogLine(job, "stdout", "Phase N: skipping Nix GC — nix-collect-garbage not found");
+      }
 
       addLogLine(job, "stdout", "Phase N: NixOS — building image with Nix...");
       job.stage = "nix-build";
       job.percent = Math.max(job.percent, 60);
       if (progressCallback) progressCallback(makeSnapshot(job));
 
+      // fedac/nixos reads AC_NIX_NATIVE_SRC from the host env to import fedac/native.
       // Build the NixOS ISO image
-      await runPhase(job, "nix-build", "nix", [
+      await runPhase(job, "nix-build", nixBin, [
         "build", ".#usb-image",
+        "--impure",
         "--no-link", "--print-out-paths",
-      ], nixosDir, { NIX_CONFIG: "experimental-features = nix-command flakes" });
+      ], nixosDir, nixEnv);
 
       job.percent = Math.max(job.percent, 85);
 
       // Extract ISO path from nix build output
-      const nixOutResult = await new Promise((resolve, reject) => {
-        const { execSync } = require("child_process");
-        try {
-          const out = execSync(
-            "nix build .#usb-image --no-link --print-out-paths",
-            { cwd: nixosDir, env: { ...process.env, NIX_CONFIG: "experimental-features = nix-command flakes" }, encoding: "utf-8" }
-          ).trim();
-          resolve(out);
-        } catch (e) { reject(e); }
-      });
+      const nixOutResult = await runSync(
+        nixBin,
+        ["build", ".#usb-image", "--impure", "--no-link", "--print-out-paths"],
+        nixosDir,
+        nixEnv,
+      );
+      if (!nixOutResult) {
+        throw new Error("NixOS build finished without returning an output path");
+      }
 
       // Find the ISO in the output directory
-      const { execSync } = require("child_process");
-      const isoPath = execSync(`find ${nixOutResult} -name '*.iso' -type f | head -1`, { encoding: "utf-8" }).trim();
+      const isoPath = await runSync(
+        "bash",
+        ["-lc", "find \"$1\" -name '*.iso' -type f | head -1", "_", nixOutResult],
+        nixosDir,
+      );
 
       if (!isoPath) {
         throw new Error("NixOS build produced no ISO file");
