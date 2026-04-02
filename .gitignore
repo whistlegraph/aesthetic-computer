@@ -60,6 +60,13 @@ objkt/output
 # assets (ignore all - synced via CDN)
 system/public/assets/*
 !system/public/assets/.gitkeep
+!system/public/assets/papers/
+system/public/assets/papers/*
+!system/public/assets/papers/readings/
+system/public/assets/papers/readings/*
+!system/public/assets/papers/readings/text/
+system/public/assets/papers/readings/text/*
+!system/public/assets/papers/readings/text/Gallope-Harren-Hicks-The-Scores-Project-2025.txt
 
 # AestheticAnts runtime (logs, runs, test output - not part of the score)
 ants/*.log
