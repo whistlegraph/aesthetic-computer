@@ -728,10 +728,57 @@ require_login() {
     log "Authenticated: @${USER_HANDLE}"
 }
 
+read_ac_access_token() {
+    local TOKEN_FILE="${HOME}/.ac-token"
+    [ -f "${TOKEN_FILE}" ] || return 1
+    node -e "
+        const t = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+        process.stdout.write(t.access_token || '');
+    " "${TOKEN_FILE}" 2>/dev/null
+}
+
+fetch_authenticated_handle_tokens() {
+    local AC_ACCESS_TOKEN="${1:-}"
+    [ -n "${AC_ACCESS_TOKEN}" ] || return 1
+    curl -fsSL \
+        -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
+        "https://aesthetic.computer/.netlify/functions/claude-token" \
+        --max-time 20 2>/dev/null
+}
+
+should_bake_local_claude_session() {
+    local MODE="${AC_FLASH_INCLUDE_LOCAL_CLAUDE:-auto}"
+    case "${MODE}" in
+        1|true|TRUE|yes|YES)
+            return 0
+            ;;
+        0|false|FALSE|no|NO)
+            return 1
+            ;;
+    esac
+
+    [ -n "${AC_USER_EMAIL:-}" ] || return 1
+    [ -f "${HOME}/.claude.json" ] || return 1
+
+    local LOCAL_EMAIL
+    LOCAL_EMAIL=$(node -e "
+        const d = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+        const email = d.oauthAccount?.emailAddress || '';
+        process.stdout.write(String(email).trim().toLowerCase());
+    " "${HOME}/.claude.json" 2>/dev/null)
+
+    [ -n "${LOCAL_EMAIL}" ] || return 1
+    [ "${LOCAL_EMAIL}" = "$(printf '%s' "${AC_USER_EMAIL}" | tr '[:upper:]' '[:lower:]')" ]
+}
+
 flash_usb() {
     local USB_DEV
     local USB_CONFIG
     local AC_ACCESS_TOKEN
+    local HANDLE_TOKEN_JSON=""
+    local HANDLE_TOKEN_HANDLE=""
+    local CLAUDE_TOKEN=""
+    local GITHUB_PAT=""
     local CLAUDE_CREDS=""
     local CLAUDE_STATE=""
     local MEDIA_TMP
@@ -754,29 +801,59 @@ flash_usb() {
 
     # Build config.json from authenticated user.
     if [ -n "${AC_USER_HANDLE:-}" ]; then
-        AC_ACCESS_TOKEN=$(node -e "const t=JSON.parse(require('fs').readFileSync('${HOME}/.ac-token','utf8')); console.log(t.access_token || '')" 2>/dev/null)
-        if [ -f "${HOME}/.claude/.credentials.json" ]; then
-            CLAUDE_CREDS=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
+        AC_ACCESS_TOKEN=$(read_ac_access_token)
+        HANDLE_TOKEN_JSON=$(fetch_authenticated_handle_tokens "${AC_ACCESS_TOKEN}" || true)
+        if [ -n "${HANDLE_TOKEN_JSON}" ]; then
+            HANDLE_TOKEN_HANDLE=$(node -e "
+                const d = JSON.parse(process.argv[1] || '{}');
+                process.stdout.write(d.handle || '');
+            " "${HANDLE_TOKEN_JSON}" 2>/dev/null)
+            CLAUDE_TOKEN=$(node -e "
+                const d = JSON.parse(process.argv[1] || '{}');
+                process.stdout.write(d.token || '');
+            " "${HANDLE_TOKEN_JSON}" 2>/dev/null)
+            GITHUB_PAT=$(node -e "
+                const d = JSON.parse(process.argv[1] || '{}');
+                process.stdout.write(d.githubPat || '');
+            " "${HANDLE_TOKEN_JSON}" 2>/dev/null)
+            if [ -n "${HANDLE_TOKEN_HANDLE}" ] && [ "${HANDLE_TOKEN_HANDLE}" != "${AC_USER_HANDLE}" ]; then
+                err "Authenticated handle mismatch: token API returned @${HANDLE_TOKEN_HANDLE}, CLI login is @${AC_USER_HANDLE}"
+            fi
+            log "Handle tokens: claude=$([ -n "${CLAUDE_TOKEN}" ] && echo yes || echo no) github=$([ -n "${GITHUB_PAT}" ] && echo yes || echo no)"
+        else
+            log "Handle tokens: unavailable"
         fi
-        if [ -f "${HOME}/.claude.json" ]; then
-            CLAUDE_STATE=$(node -e "
-                const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude.json','utf8'));
-                console.log(JSON.stringify({
-                    oauthAccount:d.oauthAccount,
-                    hasCompletedOnboarding:true,
-                    installMethod:'manual',
-                    numStartups:1,
-                    autoUpdates:false,
-                    autoUpdatesProtectedForNative:true
-                }));
-            " 2>/dev/null)
+
+        if should_bake_local_claude_session; then
+            if [ -f "${HOME}/.claude/.credentials.json" ]; then
+                CLAUDE_CREDS=$(cat "${HOME}/.claude/.credentials.json" 2>/dev/null)
+            fi
+            if [ -f "${HOME}/.claude.json" ]; then
+                CLAUDE_STATE=$(node -e "
+                    const d=JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude.json','utf8'));
+                    console.log(JSON.stringify({
+                        oauthAccount:d.oauthAccount,
+                        hasCompletedOnboarding:true,
+                        installMethod:'manual',
+                        numStartups:1,
+                        autoUpdates:false,
+                        autoUpdatesProtectedForNative:true
+                    }));
+                " 2>/dev/null)
+            fi
+            log "Local Claude session: baked for ${AC_USER_EMAIL}"
+        elif [ -f "${HOME}/.claude.json" ] || [ -f "${HOME}/.claude/.credentials.json" ]; then
+            log "Local Claude session: skipped (email mismatch or disabled)"
         fi
         USB_CONFIG=$(node -e "
-            const cfg = {handle:'${AC_USER_HANDLE}',sub:'${AC_USER_SUB}',email:'${AC_USER_EMAIL}',token:'${AC_ACCESS_TOKEN}'};
-            try { cfg.claudeCreds = JSON.parse(process.argv[1]); } catch(e) {}
-            try { cfg.claudeState = JSON.parse(process.argv[2]); } catch(e) {}
+            const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState] = process.argv.slice(1);
+            const cfg = { handle, sub, email, token };
+            if (claudeToken) cfg.claudeToken = claudeToken;
+            if (githubPat) cfg.githubPat = githubPat;
+            try { if (claudeCreds) cfg.claudeCreds = JSON.parse(claudeCreds); } catch (e) {}
+            try { if (claudeState) cfg.claudeState = JSON.parse(claudeState); } catch (e) {}
             console.log(JSON.stringify(cfg));
-        " "${CLAUDE_CREDS}" "${CLAUDE_STATE}" 2>/dev/null)
+        " "${AC_USER_HANDLE}" "${AC_USER_SUB}" "${AC_USER_EMAIL}" "${AC_ACCESS_TOKEN}" "${CLAUDE_TOKEN}" "${GITHUB_PAT}" "${CLAUDE_CREDS}" "${CLAUDE_STATE}" 2>/dev/null)
     else
         USB_CONFIG='{"handle":"unknown"}'
     fi
