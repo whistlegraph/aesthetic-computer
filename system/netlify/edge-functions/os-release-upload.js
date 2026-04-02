@@ -138,7 +138,7 @@ export default async (request) => {
     try {
       const connStr = Deno.env.get("MONGODB_CONNECTION_STRING");
       if (!connStr) return null;
-      const { MongoClient } = await import("npm:mongodb@6");
+      const { MongoClient } = await import("npm:mongodb@7");
       const client = new MongoClient(connStr);
       await client.connect();
       const dbName = Deno.env.get("MONGODB_NAME") || "aesthetic";
