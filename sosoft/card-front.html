@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @font-face {
+    font-family: 'YWFTProcessing-Regular';
+    src: url('../system/public/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal; font-style: normal;
+  }
+  @font-face {
+    font-family: 'YWFTProcessing-Bold';
+    src: url('../system/public/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: normal; font-style: normal;
+  }
+  @font-face {
+    font-family: 'YWFTProcessing-Light';
+    src: url('../system/public/type/webfonts/ywft-processing-light.woff2') format('woff2');
+    font-weight: normal; font-style: normal;
+  }
+  @font-face {
+    font-family: 'Berkeley Mono Variable';
+    src: url('../system/public/type/webfonts/BerkeleyMonoVariable-Regular.woff2') format('woff2');
+    font-weight: normal; font-style: normal;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1794px;
+    height: 2994px;
+    overflow: hidden;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card {
+    width: 1794px;
+    height: 2994px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 144px;
+    position: relative;
+  }
+
+  .score-text {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 72px;
+    line-height: 1.8;
+    color: #000000;
+    text-align: left;
+    letter-spacing: -0.01em;
+    max-width: 1200px;
+  }
+
+  .score-line {
+    margin-bottom: 0.4em;
+  }
+
+  .score-line:last-child {
+    margin-bottom: 0;
+  }
+
+  .prompt-cursor {
+    display: inline-block;
+    width: 36px;
+    height: 72px;
+    background: #000000;
+    vertical-align: middle;
+    margin-left: 8px;
+    animation: blink 1s step-end infinite;
+  }
+
+  .title {
+    font-family: 'YWFTProcessing-Light', monospace;
+    font-size: 48px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #000000;
+    position: absolute;
+    bottom: 200px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="score-text">
+    <div class="score-line">Type a word into a computer.</div>
+    <div class="score-line">Press enter.</div>
+    <div class="score-line">Show someone what appears.</div>
+  </div>
+</div>
+</body>
+</html>
