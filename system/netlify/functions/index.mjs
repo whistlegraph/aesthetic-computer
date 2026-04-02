@@ -943,6 +943,15 @@ async function fun(event, context) {
             window.acSnActive = function(v) { send({ type: "spreadnob:active", content: { active: v } }); };
             window.acSnMin = function(v) { send({ type: "spreadnob:min", content: { min: v } }); };
             window.acSnMax = function(v) { send({ type: "spreadnob:max", content: { max: v } }); };
+            window.acSnState = function(raw, note, shift, locked, ambiguous) {
+              send({
+                type: "spreadnob:state",
+                content: { raw: raw, note: note, shift: shift, locked: locked, ambiguous: ambiguous }
+              });
+            };
+            window.acSnQwertyRange = function(low, high) {
+              send({ type: "spreadnob:qwerty-range", content: { low: low, high: high } });
+            };
             window.acSnReady = function() { send({ type: "spreadnob:ready", content: {} }); };
 
             // Signal to M4L that we're ready

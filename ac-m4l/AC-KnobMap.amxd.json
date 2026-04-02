@@ -983,7 +983,7 @@
             230.0,
             22.0
           ],
-          "text": "script window.acSnNote&&window.acSnNote($1)"
+          "text": "script window.acSnQwertyRange&&window.acSnQwertyRange($1,$2)"
         }
       },
       {
@@ -1002,6 +1002,24 @@
             22.0
           ],
           "text": "script window.acSnNote&&window.acSnNote($1)"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-ui-state-msg",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            760.0,
+            356.0,
+            255.0,
+            22.0
+          ],
+          "text": "script window.acSnState&&window.acSnState($1,$2,$3,$4,$5)"
         }
       },
       {
@@ -1760,20 +1778,21 @@
       },
       {
         "box": {
-          "id": "obj-note-range-clip",
+          "id": "obj-note-normalize",
           "maxclass": "newobj",
           "numinlets": 3,
-          "numoutlets": 1,
+          "numoutlets": 2,
           "outlettype": [
+            "",
             ""
           ],
           "patching_rect": [
             500.0,
             130.0,
-            90.0,
+            170.0,
             22.0
           ],
-          "text": "clip 48. 62."
+          "text": "js spreadnob-note-normalizer.js"
         }
       },
       {
@@ -2700,7 +2719,7 @@
       {
         "patchline": {
           "destination": [
-            "obj-note-range-clip",
+            "obj-note-normalize",
             1
           ],
           "source": [
@@ -2712,7 +2731,7 @@
       {
         "patchline": {
           "destination": [
-            "obj-note-range-clip",
+            "obj-note-normalize",
             2
           ],
           "source": [
@@ -3516,7 +3535,7 @@
       {
         "patchline": {
           "destination": [
-            "obj-note-range-clip",
+            "obj-note-normalize",
             0
           ],
           "source": [
@@ -3532,7 +3551,7 @@
             0
           ],
           "source": [
-            "obj-note-range-clip",
+            "obj-note-normalize",
             0
           ]
         }
@@ -3556,8 +3575,20 @@
             0
           ],
           "source": [
-            "obj-stripnote",
+            "obj-note-normalize",
             0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "destination": [
+            "obj-ui-state-msg",
+            0
+          ],
+          "source": [
+            "obj-note-normalize",
+            1
           ]
         }
       },
@@ -3569,6 +3600,18 @@
           ],
           "source": [
             "obj-ui-note-msg",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "destination": [
+            "obj-jweb",
+            0
+          ],
+          "source": [
+            "obj-ui-state-msg",
             0
           ]
         }
