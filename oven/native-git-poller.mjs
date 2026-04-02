@@ -82,34 +82,41 @@ async function poll() {
       changedPaths = "fedac/native/src/force-rebuild";
     }
 
-    // Filter to fedac/native/ paths only
-    const nativePaths = changedPaths
-      .split("\n")
-      .filter((p) => p.startsWith("fedac/native/"));
+    // Filter to fedac/native/ and fedac/nixos/ paths
+    const allPaths = changedPaths.split("\n");
+    const nativePaths = allPaths.filter((p) => p.startsWith("fedac/native/"));
+    const nixosPaths = allPaths.filter((p) => p.startsWith("fedac/nixos/"));
 
-    if (nativePaths.length === 0) {
-      // Changes exist but not in fedac/native/ — update hash, skip build
-      logFn("info", "⏭️", `New commits (${remoteHead.slice(0, 8)}) but no fedac/native/ changes — skipping build`);
+    if (nativePaths.length === 0 && nixosPaths.length === 0) {
+      // Changes exist but not in fedac/native/ or fedac/nixos/ — update hash, skip build
+      logFn("info", "⏭️", `New commits (${remoteHead.slice(0, 8)}) but no fedac/ build changes — skipping build`);
       await writeLastBuiltHash(remoteHead);
       polling = false;
       return;
     }
+
+    // Determine variant based on which directories changed
+    let variant = "c";
+    if (nixosPaths.length > 0 && nativePaths.length === 0) variant = "nix";
+    else if (nixosPaths.length > 0 && nativePaths.length > 0) variant = "all";
 
     // Hard-sync to origin so stale local edits/conflicts cannot leak into OTA builds.
     await git(["checkout", "-f", BRANCH, "--quiet"]);
     await git(["reset", "--hard", `origin/${BRANCH}`, "--quiet"]);
     await git(["clean", "-fdq"]);
 
+    const relevantPaths = [...nativePaths, ...nixosPaths];
     logFn(
       "info",
       "🔨",
-      `Native changes detected (${remoteHead.slice(0, 8)}): ${nativePaths.length} file(s) — triggering OTA build`
+      `Build changes detected (${remoteHead.slice(0, 8)}): ${relevantPaths.length} file(s), variant=${variant} — triggering OTA build`
     );
 
     // Trigger build
     const job = await startBuildFn({
       ref: remoteHead,
-      changed_paths: nativePaths.join(","),
+      changed_paths: relevantPaths.join(","),
+      variant,
     });
 
     logFn(

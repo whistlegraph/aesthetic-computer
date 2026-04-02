@@ -1370,8 +1370,93 @@ exec qemu-system-x86_64 \
             exec nc "${SWANK_IP}" "${SWANK_PORT}"
         fi
         ;;
+    nixos)
+        NIXOS_CMD="${2:-build}"
+        NIXOS_DIR="${SCRIPT_DIR}/../nixos"
+        if [ ! -f "${NIXOS_DIR}/flake.nix" ]; then
+            err "NixOS flake not found at ${NIXOS_DIR}/flake.nix"
+            exit 1
+        fi
+        case "${NIXOS_CMD}" in
+            build)
+                log "Building NixOS image..."
+                cd "${NIXOS_DIR}"
+                nix build .#usb-image --print-out-paths
+                log "NixOS image built"
+                ;;
+            flash)
+                require_login
+                log "Building + flashing NixOS image to USB..."
+                cd "${NIXOS_DIR}"
+                IMAGE_PATH=$(nix build .#usb-image --print-out-paths --no-link)
+                ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
+                if [ -z "${ISO}" ]; then
+                    err "No ISO found in nix build output"
+                    exit 1
+                fi
+                USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
+                log "Flashing ${ISO} to ${USB_DEV}..."
+                sudo dd if="${ISO}" of="${USB_DEV}" bs=4M status=progress oflag=sync
+                sync
+                log "NixOS USB ready!"
+                ;;
+            upload)
+                require_login
+                require_clean
+                log "Building + uploading NixOS image..."
+                cd "${NIXOS_DIR}"
+                IMAGE_PATH=$(nix build .#usb-image --print-out-paths --no-link)
+                ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
+                if [ -z "${ISO}" ]; then
+                    err "No ISO found in nix build output"
+                    exit 1
+                fi
+                load_vault_creds
+                OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --iso "${ISO}"
+                ;;
+            pull)
+                require_login
+                NIX_VERSION_URL="${CDN_BASE}/nix-native-notepat-latest.version"
+                NIX_ISO_URL="${CDN_BASE}/nix-native-notepat-latest.iso"
+                NIX_HASH_URL="${CDN_BASE}/nix-native-notepat-latest.sha256"
+
+                log "Fetching latest NixOS OTA version..."
+                VERSION_INFO=$(curl -sf "${NIX_VERSION_URL}") || { err "No NixOS release found on CDN"; exit 1; }
+                BUILD_NAME=$(echo "${VERSION_INFO}" | head -1)
+                IMAGE_SIZE=$(echo "${VERSION_INFO}" | tail -1)
+                log "Latest NixOS: ${BUILD_NAME} (${IMAGE_SIZE} bytes)"
+
+                PULL_DIR="/tmp/ac-os-nix-pull"
+                mkdir -p "${PULL_DIR}"
+                PULLED_ISO="${PULL_DIR}/ac-os-nixos.iso"
+
+                log "Downloading NixOS image (~$(( IMAGE_SIZE / 1048576 ))MB)..."
+                curl -f --progress-bar -o "${PULLED_ISO}" "${NIX_ISO_URL}" || { err "Download failed"; exit 1; }
+
+                log "Verifying SHA256..."
+                EXPECTED_HASH=$(curl -sf "${NIX_HASH_URL}") || { err "Failed to fetch hash"; exit 1; }
+                ACTUAL_HASH=$(sha256sum "${PULLED_ISO}" | cut -d' ' -f1)
+                if [ "${ACTUAL_HASH}" != "${EXPECTED_HASH}" ]; then
+                    err "SHA256 mismatch!"
+                    exit 1
+                fi
+                log "SHA256 verified"
+
+                USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
+                log "Flashing NixOS image to ${USB_DEV}..."
+                sudo dd if="${PULLED_ISO}" of="${USB_DEV}" bs=4M status=progress oflag=sync
+                sync
+                log "NixOS USB ready!"
+                rm -rf "${PULL_DIR}"
+                ;;
+            *)
+                echo "Usage: ac-os nixos {build|flash|upload|pull}"
+                exit 1
+                ;;
+        esac
+        ;;
     *)
-        echo "Usage: ac-os {build|flash|upload|flash+upload|bfu|pull|scan|repl|simuflash|test|qemu}"
+        echo "Usage: ac-os {build|flash|upload|flash+upload|bfu|pull|scan|repl|simuflash|test|qemu|nixos}"
         exit 1
         ;;
 esac

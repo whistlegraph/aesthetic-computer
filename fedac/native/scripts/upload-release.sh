@@ -155,10 +155,16 @@ if [ -n "${OTA_CHANNEL:-}" ]; then
   echo "  channel: ${OTA_CHANNEL}"
 fi
 
-# ISO-only mode: skip vmlinuz uploads entirely, just push the ISO and exit
+# ISO-only mode: upload ISO + version + sha256, then exit
 if [ "$ISO_ONLY" = "1" ]; then
-  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1)"
-  do_upload "$ISO_PATH" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream"
+  ISO_SHA256=$(sha256sum "$ISO_PATH" | awk '{print $1}')
+  ISO_SIZE=$(stat -c%s "$ISO_PATH" 2>/dev/null || stat -f%z "$ISO_PATH")
+  printf '%s\n%s' "${FULL_VERSION}" "$ISO_SIZE" > "$TMP/version.txt"
+  printf '%s' "$ISO_SHA256" > "$TMP/sha256.txt"
+  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1) sha256=${ISO_SHA256:0:16}..."
+  do_upload "$TMP/version.txt" "os/${CHANNEL_PREFIX}native-notepat-latest.version" "text/plain"
+  do_upload "$TMP/sha256.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"  "text/plain"
+  do_upload "$ISO_PATH"        "os/${CHANNEL_PREFIX}native-notepat-latest.iso"     "application/octet-stream"
   echo "ISO published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
   exit 0
 fi

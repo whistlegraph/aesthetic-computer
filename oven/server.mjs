@@ -3550,7 +3550,7 @@ app.post('/native-build', requireOSBuildAdmin, async (req, res) => {
     const job = await startNativeBuild({
       ref: req.body?.ref || 'unknown',
       changed_paths: req.body?.changed_paths || '',
-      variant: req.body?.variant || 'c',  // "c", "cl", or "both"
+      variant: req.body?.variant || 'c',  // "c", "cl", "nix", "both", or "all"
     });
     addServerLog('info', '🔨', `Native OTA build started: ${job.id} (ref=${job.ref}, flags=${job.flags.join(' ') || 'none'})`);
     return res.status(202).json(job);
