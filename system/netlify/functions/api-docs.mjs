@@ -15,7 +15,7 @@ export async function handler(event, context) {
       description: "Model Context Protocol server for AI assistants (Claude, GPT-4, etc.) to interact with aesthetic.computer APIs",
       package: "@aesthetic.computer/mcp",
       install: "npx @aesthetic.computer/mcp",
-      repository: "https://github.com/whistlegraph/aesthetic-computer/tree/main/mcp-server",
+      repository: "https://tangled.org/aesthetic.computer/core/tree/main/mcp-server",
 
       tools: [
         {
@@ -942,7 +942,7 @@ function generateHTML(docs) {
     <div class="quick-links">
       <a href="?format=json" class="btn btn-secondary">[ view json ]</a>
       <a href="https://aesthetic.computer" class="btn">[ home ]</a>
-      <a href="https://github.com/whistlegraph/aesthetic-computer" class="btn">[ github ]</a>
+      <a href="https://tangled.org/aesthetic.computer/core" class="btn">[ tangled ]</a>
     </div>
   </div>
 
@@ -952,7 +952,7 @@ function generateHTML(docs) {
     <p>${docs.mcp.description}</p>
     <p><strong>package:</strong> <code>${docs.mcp.package}</code></p>
     <p><strong>install:</strong> <code>${docs.mcp.install}</code></p>
-    <p><a href="${docs.mcp.repository}">view on github &rarr;</a></p>
+    <p><a href="${docs.mcp.repository}">view on tangled &rarr;</a></p>
 
     <h3>tools</h3>
     ${docs.mcp.tools.map(tool => `
