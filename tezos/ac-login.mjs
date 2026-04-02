@@ -28,6 +28,7 @@ const AUTH0_CLIENT_ID = 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt';
 const CALLBACK_PORT = 44233;  // Matches Auth0 allowed callback URL
 const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/callback`;
 const TOKEN_FILE = join(process.env.HOME, '.ac-token');
+const LOGOUT_RETURN_TO = process.env.AC_LOGOUT_RETURN_TO || 'https://aesthetic.computer';
 
 // PKCE helpers
 function base64URLEncode(buffer) {
@@ -62,8 +63,28 @@ function openBrowser(url) {
   }
 }
 
+function buildAuthUrl(state, codeChallenge, forcePrompt = false) {
+  const authUrl = new URL(`https://${AUTH0_DOMAIN}/authorize`);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('client_id', AUTH0_CLIENT_ID);
+  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+  authUrl.searchParams.set('scope', 'openid profile email offline_access');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('code_challenge', codeChallenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  if (forcePrompt) authUrl.searchParams.set('prompt', 'login');
+  return authUrl;
+}
+
+function buildLogoutUrl() {
+  const logoutUrl = new URL(`https://${AUTH0_DOMAIN}/v2/logout`);
+  logoutUrl.searchParams.set('client_id', AUTH0_CLIENT_ID);
+  logoutUrl.searchParams.set('returnTo', LOGOUT_RETURN_TO);
+  return logoutUrl;
+}
+
 // Main login flow
-async function login() {
+async function login({ forcePrompt = false } = {}) {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║  🔐 Aesthetic Computer CLI Login                             ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
@@ -73,7 +94,7 @@ async function login() {
   const state = crypto.randomBytes(16).toString('hex');
   
   try {
-    const { tokens, user } = await startLocalCallbackServer(state, codeVerifier, codeChallenge);
+    const { tokens, user } = await startLocalCallbackServer(state, codeVerifier, codeChallenge, { forcePrompt });
     
     const displayName = user.handle ? `@${user.handle}` : user.email || user.name;
     console.log('\n✅ Authentication successful!\n');
@@ -88,8 +109,27 @@ async function login() {
   }
 }
 
+async function logout({ browser = true } = {}) {
+  let removed = false;
+  try {
+    await fs.unlink(TOKEN_FILE);
+    removed = true;
+  } catch {}
+
+  if (removed) console.log('✅ Logged out locally\n');
+  else console.log('ℹ️  Already logged out locally\n');
+
+  if (!browser) return;
+
+  const logoutUrl = buildLogoutUrl();
+  console.log('🌐 Opening browser to clear Auth0 session...\n');
+  console.log('   If your browser doesn\'t open, visit:');
+  console.log(`   ${logoutUrl.toString()}\n`);
+  openBrowser(logoutUrl.toString());
+}
+
 // Start local callback server
-async function startLocalCallbackServer(state, codeVerifier, codeChallenge) {
+async function startLocalCallbackServer(state, codeVerifier, codeChallenge, { forcePrompt = false } = {}) {
   return new Promise((resolve, reject) => {
     const server = http.createServer(async (req, res) => {
       const url = new URL(req.url, `http://localhost:${CALLBACK_PORT}`);
@@ -250,14 +290,7 @@ async function startLocalCallbackServer(state, codeVerifier, codeChallenge) {
     });
     
     server.listen(CALLBACK_PORT, () => {
-      const authUrl = new URL(`https://${AUTH0_DOMAIN}/authorize`);
-      authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('client_id', AUTH0_CLIENT_ID);
-      authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-      authUrl.searchParams.set('scope', 'openid profile email offline_access');
-      authUrl.searchParams.set('state', state);
-      authUrl.searchParams.set('code_challenge', codeChallenge);
-      authUrl.searchParams.set('code_challenge_method', 'S256');
+      const authUrl = buildAuthUrl(state, codeChallenge, forcePrompt);
       
       console.log('🌐 Opening browser for authentication...\n');
       console.log('   If your browser doesn\'t open, visit:');
@@ -324,10 +357,11 @@ export async function getToken() {
 
 (async () => {
   const command = process.argv[2];
+  const localOnly = process.argv.includes('--local-only');
+  const forcePrompt = command === 'fresh' || command === 'switch' || process.argv.includes('--fresh');
   
   if (command === 'logout') {
-    try { await fs.unlink(TOKEN_FILE); console.log('✅ Logged out\n'); }
-    catch { console.log('ℹ️  Already logged out\n'); }
+    await logout({ browser: !localOnly });
     return;
   }
   
@@ -351,13 +385,15 @@ export async function getToken() {
 
 Usage:
   ac-login          Login (opens browser)
+  ac-login fresh    Login with forced account prompt
   ac-login status   Check login status  
-  ac-login logout   Clear stored token
+  ac-login logout   Clear local token + browser Auth0 session
+  ac-login logout --local-only  Clear local token only
   ac-login token    Print access token (for scripts)
   ac-login help     Show this help
 `);
     return;
   }
   
-  await login();
+  await login({ forcePrompt });
 })();
