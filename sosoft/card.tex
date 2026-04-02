@@ -1,0 +1,161 @@
+% sosoft-card.tex — Score for Social Software deck card
+% Jeffrey Alan Scudder — "$roz" (KidLisp program as score)
+% Card size: 2.75in × 4.75in (70mm × 120mm)
+% Full-color KidLisp syntax highlighting (light mode palette)
+%
+% Build: cd sosoft && xelatex card.tex
+
+\documentclass[12pt]{article}
+\usepackage[
+  paperwidth=2.75in,
+  paperheight=4.75in,
+  top=0.375in,
+  bottom=0.375in,
+  left=0.35in,
+  right=0.35in,
+]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{graphicx}
+
+\pagestyle{empty}
+
+% === FONTS ===
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Nimbus Mono PS}
+
+% === KidLisp light-mode palette (from LIGHT_MODE_COLOR_MAP) ===
+\definecolor{ink}{RGB}{0,0,0}
+\definecolor{faint}{RGB}{140,140,140}
+\definecolor{klfn}{HTML}{0099cc}       % functions: cyan (light mode)
+\definecolor{klform}{HTML}{cc00cc}     % special forms: magenta (light mode)
+\definecolor{klnum}{HTML}{cc0066}      % numbers: pink (light mode)
+\definecolor{klident}{HTML}{cc6600}    % identifiers: orange (light mode)
+\definecolor{klgreen}{HTML}{2e8b57}    % fade/mediumseagreen (light mode)
+\definecolor{klmath}{HTML}{00aa00}     % math ops: lime (light mode)
+\definecolor{klcmt}{HTML}{666666}      % comments: gray (light mode)
+% Paren rainbow (depth 0-7)
+\definecolor{p0}{RGB}{255,100,100}     % red-ish
+\definecolor{p1}{RGB}{255,180,100}     % orange-ish
+\definecolor{p2}{RGB}{255,255,100}     % yellow-ish
+\definecolor{p3}{RGB}{100,255,100}     % green-ish
+\definecolor{p4}{RGB}{100,200,255}     % cyan-ish
+\definecolor{p5}{RGB}{150,150,255}     % blue-ish
+\definecolor{p6}{RGB}{200,100,255}     % purple-ish
+% CSS color names used in $roz (their actual values)
+\definecolor{klred}{RGB}{255,0,0}
+\definecolor{klblue}{RGB}{0,0,255}
+\definecolor{klblack}{RGB}{0,0,0}
+\definecolor{klcyan}{RGB}{0,200,200}   % darkened for white bg
+\definecolor{klyellow}{HTML}{cc9900}   % darkened for white bg
+\definecolor{klmagenta}{RGB}{200,0,200}
+\definecolor{klwhite}{RGB}{180,180,180} % visible on white bg
+% Rainbow per-character colors (from RAINBOW_COLORS)
+\definecolor{rb0}{HTML}{ff0000}  % r - red
+\definecolor{rb1}{HTML}{ff7f00}  % a - orange
+\definecolor{rb2}{HTML}{ffff00}  % i - yellow
+\definecolor{rb3}{HTML}{00ff00}  % n - green
+\definecolor{rb4}{HTML}{0000ff}  % b - blue
+\definecolor{rb5}{HTML}{4b0082}  % o - indigo
+\definecolor{rb6}{HTML}{9400d3}  % w - violet
+
+% === Manual highlighting (listings can't do KidLisp's semantic coloring) ===
+% We'll use lstlisting with escapechar to manually color tokens
+
+\lstdefinestyle{kidlisp-card}{
+  basicstyle=\ttfamily\fontsize{6.5pt}{11.5pt}\selectfont\color{ink},
+  breaklines=false,
+  frame=none,
+  xleftmargin=0pt,
+  aboveskip=0pt,
+  belowskip=0pt,
+  columns=fixed,
+  keepspaces=true,
+  showstringspaces=false,
+  escapechar=|,
+}
+
+% Shorthand macros for coloring
+\newcommand{\fn}[1]{{\color{klfn}\textbf{#1}}}
+\newcommand{\xf}[1]{{\color{klfn}#1}}
+\newcommand{\nm}[1]{{\color{klnum}#1}}
+\newcommand{\id}[1]{{\color{klident}#1}}
+\newcommand{\cn}[2]{{\color{#1}#2}}
+\newcommand{\pr}[2]{{\color{#1}#2}}
+
+\begin{document}
+
+% ============================================================
+% FRONT — The Score
+% ============================================================
+
+\begin{tikzpicture}[remember picture, overlay]
+  \draw[ink, line width=0.4pt]
+    ([xshift=0.15in, yshift=-0.15in]current page.north west)
+    rectangle
+    ([xshift=-0.15in, yshift=0.15in]current page.south east);
+\end{tikzpicture}
+
+\vspace*{\fill}
+
+% Shadow macro with inverse color: #1=shadow color, #2=content
+% Shadow is offset 0.35pt down-right in the specified shadow color at 30% opacity
+\newcommand{\sh}[2]{%
+  \setbox0=\hbox{#2}%
+  \rlap{\raisebox{-0.35pt}{\hspace{0.35pt}{\color{#1!30}\copy0}}}%
+  \box0%
+}
+% Per-character rainbow word macro
+\newcommand{\rbow}{%
+  \sh{rb4}{\color{rb0}r}%
+  \sh{rb5}{\color{rb1}a}%
+  \sh{rb6}{\color{rb2}i}%
+  \sh{rb0}{\color{rb3}n}%
+  \sh{rb1}{\color{rb4}b}%
+  \sh{rb2}{\color{rb5}o}%
+  \sh{rb3}{\color{rb6}w}%
+}
+
+\begin{lstlisting}[style=kidlisp-card]
+|\sh{klred}{\cn{klgreen}{fade}}|:|\sh{klcyan}{\cn{klred}{red}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klwhite}{\cn{klblack}{black}}|-|\sh{klyellow}{\cn{klblue}{blue}}|-|\sh{klcyan}{\cn{klred}{red}}|
+|\sh{klnum}{\fn{ink}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\rbow| |\sh{ink}{\cn{klwhite}{white}}| |\sh{klfn}{\nm{0}}||\sh{p4}{\pr{p0}{)}}| |\sh{p4}{\pr{p0}{(}}||\sh{klfn}{\nm{1s}}|... |\sh{klfn}{\nm{24}}| |\sh{klfn}{\nm{64}}||\sh{p4}{\pr{p0}{)}}|
+|\sh{klnum}{\fn{line}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klfn}{\nm{0}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klnum}{\id{h}}|
+|\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{spin}}| |\sh{p4}{\pr{p1}{(}}||\sh{klfn}{\nm{2s}}|... |\sh{klfn}{\nm{-1.125}}| |\sh{klfn}{\nm{1.125}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{zoom}}| |\sh{klfn}{\nm{1.1}}||\sh{p4}{\pr{p0}{)}}|
+|\sh{p4}{\pr{p0}{(}}||\sh{klfn}{\nm{0.5s}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\xf{contrast}}| |\sh{klfn}{\nm{1.05}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}|
+|\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\xf{scroll}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{-0.1}}| |\sh{klfn}{\nm{0}}| |\sh{klfn}{\nm{0.1}}||\sh{p4}{\pr{p1}{)}}| |\sh{p4}{\pr{p1}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{-0.1}}| |\sh{klfn}{\nm{0}}| |\sh{klfn}{\nm{0.1}}||\sh{p4}{\pr{p1}{)}}||\sh{p4}{\pr{p0}{)}}|
+|\sh{klnum}{\fn{ink}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\sh{klred}{\cn{klcyan}{cyan}}| |\sh{klblue}{\cn{klyellow}{yellow}}| |\sh{klgreen}{\cn{klmagenta}{magenta}}||\sh{p4}{\pr{p0}{)}}| |\sh{klfn}{\nm{8}}|
+|\sh{klnum}{\fn{circle}}| |\sh{klnum}{\id{w}}|/|\sh{klfn}{\nm{2}}| |\sh{klnum}{\id{h}}|/|\sh{klfn}{\nm{2}}| |\sh{p4}{\pr{p0}{(}}||\sh{klnum}{\fn{?}}| |\sh{klfn}{\nm{2}}| |\sh{klfn}{\nm{4}}| |\sh{klfn}{\nm{8}}||\sh{p4}{\pr{p0}{)}}|
+\end{lstlisting}
+
+\vspace*{\fill}
+
+% QR code + label in bottom-right corner (KidLisp style)
+\begin{tikzpicture}[remember picture, overlay]
+  % $roz label (white on black, minimal padding, just above QR)
+  \node[anchor=south east, inner sep=0pt]
+    at ([xshift=-0.2in, yshift=0.7in]current page.south east)
+    {\colorbox{black}{%
+      \rule[-1pt]{0pt}{6.5pt}%
+      \kern-1pt{\ttfamily\fontsize{7.5pt}{7.5pt}\selectfont\color{white}\$roz}\kern-0.5pt%
+    }};
+  % Gray offset hard shadow (2pt down-right only)
+  \node[anchor=south east, inner sep=1pt, fill=black!60]
+    at ([xshift=-0.18in, yshift=0.18in]current page.south east)
+    {\rule{0.48in}{0.48in}};
+  % White QR container flush with bottom-right corner
+  \node[anchor=south east, inner sep=1pt, fill=white]
+    at ([xshift=-0.2in, yshift=0.2in]current page.south east)
+    {\includegraphics[width=0.48in]{qr-roz.eps}};
+\end{tikzpicture}
+
+\end{document}
