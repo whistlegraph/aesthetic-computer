@@ -60,6 +60,7 @@ in
 
   # Ensure XDG_RUNTIME_DIR exists for the ac user
   systemd.tmpfiles.rules = [
+    "d /mnt 0755 root root -"
     "d /run/user/1000 0700 ac users -"
     "d /tmp/ac-home 0700 ac users -"
   ];
