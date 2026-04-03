@@ -83,6 +83,8 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = pkgs.writeShellScript "mount-usb-config" ''
+        mkdir -p /mnt
+
         # Scan for FAT32 partition with config.json
         for dev in /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1; do
           [ -b "$dev" ] || continue
