@@ -20,12 +20,13 @@ in
   boot.loader.grub.timeoutStyle = "hidden";
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [
-    "quiet"
-    "loglevel=3"
-    "vt.global_cursor_default=0"
+    "loglevel=7"
+    "systemd.show_status=1"
+    "rd.systemd.show_status=1"
+    "udev.log_priority=info"
     "consoleblank=0"
   ];
-  boot.consoleLogLevel = 0;
+  boot.consoleLogLevel = 7;
 
   # Minimal system — no desktop, no SSH, no docs
   documentation.enable = false;
@@ -87,10 +88,13 @@ in
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      StandardOutput = "journal+console";
+      StandardError = "journal+console";
       ExecStart = pkgs.writeShellScript "mount-usb-config" ''
         set -u
 
         mkdir -p /mnt
+        ${pkgs.systemd}/bin/udevadm settle --timeout=10 || true
 
         for _ in $(seq 1 40); do
           dev="$(${pkgs.util-linux}/bin/blkid -L ACDATA 2>/dev/null || true)"
@@ -109,6 +113,8 @@ in
         chmod 0700 /mnt 2>/dev/null || true
         mkdir -p /mnt/logs
         echo "No ACDATA partition found; /mnt is temporary"
+        ${pkgs.util-linux}/bin/lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS || true
+        ${pkgs.util-linux}/bin/blkid || true
       '';
     };
   };
