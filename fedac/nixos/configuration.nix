@@ -16,8 +16,8 @@ in
   # Boot
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = false;
-  boot.loader.timeout = lib.mkForce 0;
-  boot.loader.grub.timeoutStyle = "hidden";
+  boot.loader.timeout = lib.mkForce 3;
+  boot.loader.grub.timeoutStyle = lib.mkForce "menu";
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [
     "loglevel=7"
@@ -25,6 +25,7 @@ in
     "rd.systemd.show_status=1"
     "udev.log_priority=info"
     "consoleblank=0"
+    "nomodeset"
   ];
   boot.consoleLogLevel = 7;
 
