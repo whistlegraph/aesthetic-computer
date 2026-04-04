@@ -53,7 +53,7 @@ let
     if mountpoint -q /mnt; then
       mkdir -p /mnt/logs
       stamp="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-      journal="/mnt/logs/ac-native-kiosk-${RESULT}-${STATUS:-na}-${stamp}.journal.log"
+      journal="/mnt/logs/ac-native-kiosk-''${RESULT}-''${STATUS:-na}-${stamp}.journal.log"
 
       journalctl -b --no-pager \
         -u mount-usb-config.service \
