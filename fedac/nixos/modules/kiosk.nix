@@ -61,10 +61,10 @@ let
         >"$journal" 2>&1 || true
 
       if [ -f /tmp/ac-native-cage.log ]; then
-        cp /tmp/ac-native-cage.log "/mnt/logs/ac-native-cage-${stamp}.log" || true
+        cp /tmp/ac-native-cage.log "/mnt/logs/ac-native-cage-''${stamp}.log" || true
       fi
       if [ -f /tmp/cage-stderr.log ]; then
-        cp /tmp/cage-stderr.log "/mnt/logs/cage-stderr-${stamp}.log" || true
+        cp /tmp/cage-stderr.log "/mnt/logs/cage-stderr-''${stamp}.log" || true
       fi
       sync || true
     fi
