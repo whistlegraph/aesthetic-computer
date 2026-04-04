@@ -613,18 +613,18 @@ async function runBuildJob(job) {
 
         job.percent = Math.max(job.percent, 85);
 
-        // Extract ISO path from nix build output
-        const nixOutResult = await runSync(
-          nixBin,
-          ["build", ".#usb-image", "--impure", "--no-link", "--print-out-paths"],
-          nixosDir,
-          nixEnv,
-        );
+        // Reuse the stdout path from the build phase instead of invoking nix twice.
+        const nixOutResult = [...job.logs]
+          .reverse()
+          .find((entry) =>
+            entry.stream === "stdout" &&
+            /^\/nix\/store\/.+\.iso$/.test(entry.line || "")
+          )?.line || "";
         if (!nixOutResult) {
           throw new Error("NixOS build finished without returning an output path");
         }
 
-        // Find the ISO in the output directory
+        // Find the ISO in the output directory.
         const isoPath = await runSync(
           "bash",
           ["-lc", "find \"$1\" -name '*.iso' -type f | head -1", "_", nixOutResult],
