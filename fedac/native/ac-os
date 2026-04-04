@@ -785,8 +785,8 @@ should_bake_local_claude_session() {
     [ "${LOCAL_EMAIL}" = "$(printf '%s' "${AC_USER_EMAIL}" | tr '[:upper:]' '[:lower:]')" ]
 }
 
-flash_usb() {
-    local USB_DEV
+write_usb_config_file() {
+    local CONFIG_FILE="$1"
     local USB_CONFIG
     local AC_ACCESS_TOKEN
     local HANDLE_TOKEN_JSON=""
@@ -795,25 +795,7 @@ flash_usb() {
     local GITHUB_PAT=""
     local CLAUDE_CREDS=""
     local CLAUDE_STATE=""
-    local MEDIA_TMP
-    local CONFIG_FILE
-    local STAGE_ROOT
-    local CONTAINER
 
-    USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
-    log "Flashing to ${USB_DEV}..."
-
-    MEDIA_TMP="$(mktemp -d /tmp/ac-media.XXXXXX)"
-    CONFIG_FILE="${MEDIA_TMP}/config.json"
-    STAGE_ROOT="${MEDIA_TMP}/staged-root"
-    cleanup_flash_usb() {
-        if [ -n "${CONTAINER:-}" ]; then
-            sudo docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
-        fi
-        rm -rf "${MEDIA_TMP}"
-    }
-
-    # Build config.json from authenticated user.
     if [ -n "${AC_USER_HANDLE:-}" ]; then
         AC_ACCESS_TOKEN=$(read_ac_access_token)
         HANDLE_TOKEN_JSON=$(fetch_authenticated_handle_tokens "${AC_ACCESS_TOKEN}" || true)
@@ -871,8 +853,109 @@ flash_usb() {
     else
         USB_CONFIG='{"handle":"unknown"}'
     fi
+
     printf '%s' "${USB_CONFIG}" > "${CONFIG_FILE}"
     log "USB config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
+}
+
+nixos_data_partition_for() {
+    local USB_DEV="$1"
+    local DATA_LABEL
+    local PART
+
+    DATA_LABEL="$(ac_media_nixos_data_label)"
+    for PART in "${USB_DEV}3" "${USB_DEV}p3"; do
+        [ -b "${PART}" ] || continue
+        if [ "$(sudo blkid -o value -s LABEL "${PART}" 2>/dev/null || true)" = "${DATA_LABEL}" ]; then
+            printf '%s\n' "${PART}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+write_nixos_usb_config() {
+    local USB_DEV="$1"
+    local CONFIG_FILE="$2"
+    local DATA_PART=""
+    local DATA_MOUNT
+    local attempts
+
+    sudo partprobe "${USB_DEV}" 2>/dev/null || true
+    sudo udevadm settle 2>/dev/null || true
+
+    for attempts in $(seq 1 40); do
+        DATA_PART="$(nixos_data_partition_for "${USB_DEV}" || true)"
+        [ -n "${DATA_PART}" ] && break
+        sleep 0.25
+    done
+    if [ -z "${DATA_PART}" ]; then
+        err "No $(ac_media_nixos_data_label) partition found on ${USB_DEV}"
+        return 1
+    fi
+
+    DATA_MOUNT="$(mktemp -d /tmp/ac-nixos-data.XXXXXX)"
+    if ! sudo mount -t vfat \
+        -o "rw,uid=1000,gid=100,umask=0077,shortname=mixed,utf8=1" \
+        "${DATA_PART}" "${DATA_MOUNT}"; then
+        rmdir "${DATA_MOUNT}" 2>/dev/null || true
+        err "Failed to mount ${DATA_PART}"
+        return 1
+    fi
+
+    if ! sudo mkdir -p "${DATA_MOUNT}/logs" ||
+       ! sudo cp "${CONFIG_FILE}" "${DATA_MOUNT}/config.json"; then
+        sudo umount "${DATA_MOUNT}" >/dev/null 2>&1 || true
+        rmdir "${DATA_MOUNT}" 2>/dev/null || true
+        err "Failed to write NixOS config to ${DATA_PART}"
+        return 1
+    fi
+
+    sync
+    sudo umount "${DATA_MOUNT}"
+    rmdir "${DATA_MOUNT}"
+    log "Wrote NixOS config to ${DATA_PART}"
+}
+
+flash_nixos_image_to_usb() {
+    local IMAGE_PATH="$1"
+    local CONFIG_FILE="$2"
+    local USB_DEV
+
+    ac_media_ensure_nixos_data_partition \
+        "${IMAGE_PATH}" \
+        "${CONFIG_FILE}" \
+        "$(ac_media_nixos_data_size_mib)"
+
+    USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
+    log "Flashing ${IMAGE_PATH} to ${USB_DEV}..."
+    sudo dd if="${IMAGE_PATH}" of="${USB_DEV}" bs=4M status=progress oflag=sync
+    sync
+    write_nixos_usb_config "${USB_DEV}" "${CONFIG_FILE}"
+    log "NixOS USB ready!"
+}
+
+flash_usb() {
+    local USB_DEV
+    local MEDIA_TMP
+    local CONFIG_FILE
+    local STAGE_ROOT
+    local CONTAINER
+
+    USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
+    log "Flashing to ${USB_DEV}..."
+
+    MEDIA_TMP="$(mktemp -d /tmp/ac-media.XXXXXX)"
+    CONFIG_FILE="${MEDIA_TMP}/config.json"
+    STAGE_ROOT="${MEDIA_TMP}/staged-root"
+    cleanup_flash_usb() {
+        if [ -n "${CONTAINER:-}" ]; then
+            sudo docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
+        fi
+        rm -rf "${MEDIA_TMP}"
+    }
+
+    write_usb_config_file "${CONFIG_FILE}"
 
     ac_media_stage_boot_tree "${STAGE_ROOT}" "${VMLINUZ}" "${CONFIG_FILE}"
 
@@ -1485,11 +1568,13 @@ exec qemu-system-x86_64 \
                     err "No ISO found in nix build output"
                     exit 1
                 fi
-                USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
-                log "Flashing ${ISO} to ${USB_DEV}..."
-                sudo dd if="${ISO}" of="${USB_DEV}" bs=4M status=progress oflag=sync
-                sync
-                log "NixOS USB ready!"
+                NIX_FLASH_DIR="$(mktemp -d /tmp/ac-nixos-flash.XXXXXX)"
+                NIX_FLASH_IMAGE="${NIX_FLASH_DIR}/ac-os-nixos.iso"
+                NIX_FLASH_CONFIG="${NIX_FLASH_DIR}/config.json"
+                cp "${ISO}" "${NIX_FLASH_IMAGE}"
+                write_usb_config_file "${NIX_FLASH_CONFIG}"
+                flash_nixos_image_to_usb "${NIX_FLASH_IMAGE}" "${NIX_FLASH_CONFIG}"
+                rm -rf "${NIX_FLASH_DIR}"
                 ;;
             upload)
                 require_login
@@ -1503,7 +1588,17 @@ exec qemu-system-x86_64 \
                     exit 1
                 fi
                 load_vault_creds
-                OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --iso "${ISO}"
+                NIX_UPLOAD_DIR="$(mktemp -d /tmp/ac-nixos-upload.XXXXXX)"
+                NIX_UPLOAD_IMAGE="${NIX_UPLOAD_DIR}/ac-os-nixos.iso"
+                NIX_UPLOAD_CONFIG="${NIX_UPLOAD_DIR}/config.json"
+                cp "${ISO}" "${NIX_UPLOAD_IMAGE}"
+                ac_media_default_identity_json > "${NIX_UPLOAD_CONFIG}"
+                ac_media_ensure_nixos_data_partition \
+                    "${NIX_UPLOAD_IMAGE}" \
+                    "${NIX_UPLOAD_CONFIG}" \
+                    "$(ac_media_nixos_data_size_mib)"
+                OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --iso "${NIX_UPLOAD_IMAGE}"
+                rm -rf "${NIX_UPLOAD_DIR}"
                 ;;
             pull)
                 require_login
@@ -1533,11 +1628,9 @@ exec qemu-system-x86_64 \
                 fi
                 log "SHA256 verified"
 
-                USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
-                log "Flashing NixOS image to ${USB_DEV}..."
-                sudo dd if="${PULLED_ISO}" of="${USB_DEV}" bs=4M status=progress oflag=sync
-                sync
-                log "NixOS USB ready!"
+                PULL_CONFIG="${PULL_DIR}/config.json"
+                write_usb_config_file "${PULL_CONFIG}"
+                flash_nixos_image_to_usb "${PULLED_ISO}" "${PULL_CONFIG}"
                 rm -rf "${PULL_DIR}"
                 ;;
             *)

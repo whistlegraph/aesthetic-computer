@@ -44,6 +44,37 @@ let
 
     exit "$status"
   '';
+  ac-native-stop = pkgs.writeShellScript "ac-native-stop" ''
+    set -u
+
+    STATUS=''${EXIT_STATUS:-}
+    RESULT=''${SERVICE_RESULT:-unknown}
+
+    if mountpoint -q /mnt; then
+      mkdir -p /mnt/logs
+      stamp="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+      journal="/mnt/logs/ac-native-kiosk-${RESULT}-${STATUS:-na}-${stamp}.journal.log"
+
+      journalctl -b --no-pager \
+        -u mount-usb-config.service \
+        -u ac-native-kiosk.service \
+        >"$journal" 2>&1 || true
+
+      if [ -f /tmp/ac-native-cage.log ]; then
+        cp /tmp/ac-native-cage.log "/mnt/logs/ac-native-cage-${stamp}.log" || true
+      fi
+      if [ -f /tmp/cage-stderr.log ]; then
+        cp /tmp/cage-stderr.log "/mnt/logs/cage-stderr-${stamp}.log" || true
+      fi
+      sync || true
+    fi
+
+    if [ "$STATUS" = "0" ]; then
+      systemctl poweroff
+    elif [ "$STATUS" = "2" ]; then
+      systemctl reboot
+    fi
+  '';
 in
 {
   # seatd for unprivileged GPU/input access
@@ -58,7 +89,7 @@ in
     wantedBy = [ "multi-user.target" ];
 
     path = with pkgs; [
-      coreutils util-linux
+      coreutils systemd util-linux
       wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
       ac-native
@@ -92,14 +123,7 @@ in
       # Exit code handling:
       #   0 = shutdown, 2 = reboot (matching current ac-native convention)
       SuccessExitStatus = "0 2";
-      ExecStopPost = pkgs.writeShellScript "ac-native-stop" ''
-        STATUS=$EXIT_STATUS
-        if [ "$STATUS" = "0" ]; then
-          systemctl poweroff
-        elif [ "$STATUS" = "2" ]; then
-          systemctl reboot
-        fi
-      '';
+      ExecStopPost = "+${ac-native-stop}";
 
       # Security
       ProtectSystem = "strict";
