@@ -33,6 +33,7 @@ const NATIVE_BUILD_COLLECTION =
 const NATIVE_DIR =
   process.env.NATIVE_DIR || "/opt/oven/native-git/fedac/native";
 const NATIVE_BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
+const NIX_DATA_PARTITION_MIB = process.env.NIX_DATA_PARTITION_MIB || "512";
 const NIX_BIN_CANDIDATES = [
   process.env.NIX_BIN || "",
   "/usr/local/bin/nix",
@@ -639,7 +640,26 @@ async function runBuildJob(job) {
         // Copy to upload directory
         await fs.mkdir(nixUploadDir, { recursive: true });
         const nixIsoUpload = path.join(nixUploadDir, "ac-os-nixos.iso");
+        const nixConfigUpload = path.join(nixUploadDir, "config.json");
         await fs.copyFile(isoPath, nixIsoUpload);
+        await fs.writeFile(
+          nixConfigUpload,
+          `${JSON.stringify({ handle: "", piece: "notepat", sub: "", email: "" })}\n`,
+        );
+
+        addLogLine(job, "stdout", "Phase N: appending writable ACDATA partition...");
+        await runPhase(job, "nix-package", "bash", [
+          "-lc",
+          [
+            "set -euo pipefail",
+            `. "${path.join(NATIVE_DIR, "scripts/media-layout.sh")}"`,
+            `ac_media_ensure_nixos_data_partition "$1" "$2" "${NIX_DATA_PARTITION_MIB}"`,
+            'sfdisk -d "$1"',
+          ].join("\n"),
+          "_",
+          nixIsoUpload,
+          nixConfigUpload,
+        ], nixUploadDir, nixEnv);
 
         job.stage = "nix-upload";
         job.percent = Math.max(job.percent, 90);

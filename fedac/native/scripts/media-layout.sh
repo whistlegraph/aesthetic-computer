@@ -13,6 +13,14 @@ ac_media_identity_size() {
     printf '%s\n' "32768"
 }
 
+ac_media_nixos_data_label() {
+    printf '%s\n' "${AC_NIXOS_DATA_LABEL:-ACDATA}"
+}
+
+ac_media_nixos_data_size_mib() {
+    printf '%s\n' "${AC_NIXOS_DATA_PARTITION_MIB:-512}"
+}
+
 ac_media_default_identity_json() {
     printf '%s' '{"handle":"","piece":"notepat","sub":"","email":""}'
 }
@@ -169,6 +177,78 @@ ac_media_create_fat_image() {
 
 ac_create_fat_boot_image() {
     ac_media_create_fat_image "$@"
+}
+
+ac_media_nixos_data_partition_start_sector() {
+    local image_path="$1"
+    local partition_name="${image_path}3"
+
+    sfdisk -d "${image_path}" 2>/dev/null |
+        awk -v partition_name="${partition_name}" '
+            BEGIN { found = 0 }
+            $1 == partition_name {
+                for (i = 1; i <= NF; i++) {
+                    if ($i ~ /^start=/) {
+                        value = $i
+                        sub(/^start=/, "", value)
+                        gsub(/,/, "", value)
+                        if (value == "" && i < NF) {
+                            value = $(i + 1)
+                            gsub(/,/, "", value)
+                        }
+                        if (value ~ /^[0-9]+$/) {
+                            print value
+                            found = 1
+                            exit
+                        }
+                    }
+                }
+            }
+            END { exit found ? 0 : 1 }
+        '
+}
+
+ac_media_ensure_nixos_data_partition() {
+    local image_path="$1"
+    local config_path="$2"
+    local data_size_mib="${3:-$(ac_media_nixos_data_size_mib)}"
+    local sector_size=512
+    local data_start
+    local data_offset
+    local label
+
+    if [ ! -f "${image_path}" ]; then
+        echo "Missing NixOS image: ${image_path}" >&2
+        return 1
+    fi
+    if [ ! -f "${config_path}" ]; then
+        echo "Missing NixOS data config: ${config_path}" >&2
+        return 1
+    fi
+
+    label="$(ac_media_nixos_data_label)"
+
+    if ! data_start="$(ac_media_nixos_data_partition_start_sector "${image_path}")"; then
+        local image_bytes
+        local image_sectors
+        local data_sectors
+
+        image_bytes=$(stat -c%s "${image_path}")
+        image_sectors=$(( (image_bytes + sector_size - 1) / sector_size ))
+        data_start=$(( ((image_sectors + 2047) / 2048) * 2048 ))
+        data_sectors=$(( data_size_mib * 1024 * 1024 / sector_size ))
+
+        truncate -s $(((data_start + data_sectors) * sector_size)) "${image_path}"
+        printf 'start=%s, size=%s, type=c\n' "${data_start}" "${data_sectors}" |
+            sfdisk --no-reread -N 3 "${image_path}" >/dev/null
+        mkfs.vfat -F 32 -n "${label}" --offset="${data_start}" "${image_path}" >/dev/null
+    fi
+
+    data_offset=$(( data_start * sector_size ))
+
+    export MTOOLS_SKIP_CHECK=1
+    mmd -i "${image_path}@@${data_offset}" ::logs 2>/dev/null || true
+    mcopy -o -i "${image_path}@@${data_offset}" "${config_path}" ::config.json
 }
 
 ac_media_build_hybrid_iso() {

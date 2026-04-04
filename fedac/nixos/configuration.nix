@@ -81,26 +81,34 @@ in
   # Mount USB config partition at /mnt
   # ac-native reads /mnt/config.json and /mnt/wifi_creds.json
   systemd.services.mount-usb-config = {
-    description = "Mount USB config partition at /mnt";
+    description = "Mount AC Native USB data partition at /mnt";
     wantedBy = [ "multi-user.target" ];
     before = [ "ac-native-kiosk.service" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = pkgs.writeShellScript "mount-usb-config" ''
+        set -u
+
         mkdir -p /mnt
 
-        # Scan for FAT32 partition with config.json
-        for dev in /dev/sda1 /dev/sdb1 /dev/sdc1 /dev/sdd1; do
-          [ -b "$dev" ] || continue
-          mount -t vfat -o ro "$dev" /mnt 2>/dev/null || continue
-          if [ -f /mnt/config.json ] || [ -f /mnt/EFI/BOOT/BOOTX64.EFI ]; then
-            echo "Mounted config from $dev"
+        for _ in $(seq 1 40); do
+          dev="$(${pkgs.util-linux}/bin/blkid -L ACDATA 2>/dev/null || true)"
+          if [ -b "$dev" ] &&
+             mount -t vfat \
+               -o rw,uid=1000,gid=100,umask=0077,shortname=mixed,utf8=1 \
+               "$dev" /mnt 2>/dev/null; then
+            mkdir -p /mnt/logs
+            echo "Mounted AC Native data from $dev"
             exit 0
           fi
-          umount /mnt
+          sleep 0.25
         done
-        echo "No USB config partition found"
+
+        chown ac:users /mnt 2>/dev/null || true
+        chmod 0700 /mnt 2>/dev/null || true
+        mkdir -p /mnt/logs
+        echo "No ACDATA partition found; /mnt is temporary"
       '';
     };
   };
