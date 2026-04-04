@@ -216,9 +216,15 @@ console.log(`Loaded ${Object.keys(functions).length} functions`);
 
 // --- Netlify event adapter ---
 function toEvent(req) {
-  // Reconstruct body as string (Netlify handlers expect string or null)
+  // Reconstruct body as string (Netlify handlers expect string or null).
+  // Prefer rawBody when available — it preserves the exact bytes the client
+  // sent, which is critical for webhook signature verification (Stripe, etc.).
   let body = null;
-  if (req.body) {
+  if (req.rawBody) {
+    body = Buffer.isBuffer(req.rawBody)
+      ? req.rawBody.toString("utf-8")
+      : String(req.rawBody);
+  } else if (req.body) {
     const contentType = (req.headers["content-type"] || "").toLowerCase();
     body =
       typeof req.body === "string"
