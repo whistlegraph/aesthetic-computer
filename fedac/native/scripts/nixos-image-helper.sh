@@ -65,17 +65,21 @@ append_partition() {
     local type_guid="$4"
     local part_name="$5"
     local sector_size=512
+    local gpt_tail_sectors=34
     local image_bytes
     local image_sectors
     local start_sector
     local size_sectors
+    local total_sectors
 
     image_bytes=$(stat -c%s "${image_path}")
     image_sectors=$(( (image_bytes + sector_size - 1) / sector_size ))
     start_sector=$(( ((image_sectors + 2047) / 2048) * 2048 ))
     size_sectors=$(( size_mib * 1024 * 1024 / sector_size ))
+    total_sectors=$(( start_sector + size_sectors + gpt_tail_sectors ))
 
-    truncate -s $(((start_sector + size_sectors) * sector_size)) "${image_path}"
+    truncate -s $(( total_sectors * sector_size )) "${image_path}"
+    sgdisk -e "${image_path}" >/dev/null
     printf 'start=%s, size=%s, type=%s, name="%s"\n' \
         "${start_sector}" "${size_sectors}" "${type_guid}" "${part_name}" |
         sfdisk --no-reread -N "${part_number}" "${image_path}" >/dev/null
