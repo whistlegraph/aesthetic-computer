@@ -21,7 +21,15 @@
           }
         else
           throw "AC_NIX_NATIVE_SRC is required for fedac/nixos builds; run nix with --impure and point it at fedac/native.";
-      specialArgs = { inherit self gitHash version nativeSrc; };
+      # KidLisp evaluator source — bundled into jslib/kidlisp-bundle.js for QuickJS.
+      # kidlisp.mjs imports siblings (num.mjs, …) and ../dep/@akamfoad/qr,
+      # so we need the aesthetic.computer tree for esbuild resolution.
+      acWebPath = nativeSrcPath + "/../../system/public/aesthetic.computer";
+      kidlispSrc =
+        if nativeSrcPath != "" && builtins.pathExists (acWebPath + "/lib/kidlisp.mjs") then
+          builtins.path { path = acWebPath; name = "ac-web-source"; }
+        else null;
+      specialArgs = { inherit self gitHash version nativeSrc kidlispSrc; };
       runtimeModules = [ ./configuration.nix ];
       imageModules = runtimeModules ++ [ ./modules/image.nix ];
       evalConfig = import "${nixpkgs}/nixos/lib/eval-config.nix";
@@ -41,7 +49,7 @@
       # The ac-native binary as a standalone package
       packages.${system} = {
         ac-native = pkgs.callPackage ./packages/ac-native {
-          inherit gitHash version nativeSrc;
+          inherit gitHash version nativeSrc kidlispSrc;
         };
 
         # Bootable raw disk image with BIOS + UEFI bootloader install.
