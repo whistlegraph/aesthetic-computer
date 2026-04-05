@@ -9,14 +9,39 @@ CONFIG_JSON_PATH="${2:?usage: nixos-image-helper.sh <image-path> <config-json>}"
 log() { echo "[nixos-image-helper] $*"; }
 err() { echo "[nixos-image-helper] $*" >&2; }
 
-part_path() {
-    local dev="$1"
-    local idx="$2"
-    if [[ "${dev}" =~ [0-9]$ ]]; then
-        printf '%sp%s\n' "${dev}" "${idx}"
-    else
-        printf '%s%s\n' "${dev}" "${idx}"
-    fi
+partition_sector_field() {
+    local image_path="$1"
+    local part_number="$2"
+    local field_name="$3"
+    python3 - "$image_path" "$part_number" "$field_name" <<'PYEOF'
+import re
+import subprocess
+import sys
+
+image_path, part_number, field_name = sys.argv[1:]
+part_number = int(part_number)
+dump = subprocess.check_output(["sfdisk", "-d", image_path], text=True, stderr=subprocess.DEVNULL)
+pattern = re.compile(rf"{re.escape(image_path)}(\d+)\s*:(.*)")
+
+for line in dump.splitlines():
+    match = pattern.match(line.strip())
+    if not match or int(match.group(1)) != part_number:
+        continue
+    fields = {}
+    for field in match.group(2).split(","):
+        field = field.strip()
+        if "=" not in field:
+            continue
+        key, value = field.split("=", 1)
+        fields[key.strip()] = value.strip().strip('"')
+    value = fields.get(field_name)
+    if value and re.fullmatch(r"\d+", value):
+        print(value)
+        raise SystemExit(0)
+    raise SystemExit(1)
+
+raise SystemExit(1)
+PYEOF
 }
 
 partition_number_for_type() {
@@ -85,7 +110,7 @@ append_partition() {
         sfdisk --no-reread -N "${part_number}" "${image_path}" >/dev/null
 }
 
-wait_for_partition() {
+wait_for_block_device() {
     local part="$1"
     for _ in $(seq 1 40); do
         [ -b "${part}" ] && return 0
@@ -95,7 +120,27 @@ wait_for_partition() {
     return 1
 }
 
-LOOP_DEV=""
+bind_partition_loop() {
+    local image_path="$1"
+    local part_number="$2"
+    local sector_size=512
+    local start_sector
+    local size_sectors
+    local offset_bytes
+    local size_bytes
+    local loop_dev
+
+    start_sector="$(partition_sector_field "${image_path}" "${part_number}" "start")"
+    size_sectors="$(partition_sector_field "${image_path}" "${part_number}" "size")"
+    offset_bytes=$(( start_sector * sector_size ))
+    size_bytes=$(( size_sectors * sector_size ))
+
+    loop_dev="$(losetup --find --show --offset "${offset_bytes}" --sizelimit "${size_bytes}" "${image_path}")"
+    LOOP_DEVS+=("${loop_dev}")
+    printf '%s\n' "${loop_dev}"
+}
+
+declare -a LOOP_DEVS=()
 TMP_DIR=""
 EFI_MOUNT=""
 MAC_MOUNT=""
@@ -105,8 +150,11 @@ cleanup() {
     umount "${EFI_MOUNT:-}" 2>/dev/null || true
     umount "${MAC_MOUNT:-}" 2>/dev/null || true
     umount "${DATA_MOUNT:-}" 2>/dev/null || true
-    if [ -n "${LOOP_DEV}" ]; then
-        losetup -d "${LOOP_DEV}" 2>/dev/null || true
+    if [ "${#LOOP_DEVS[@]}" -gt 0 ]; then
+        local idx
+        for (( idx=${#LOOP_DEVS[@]}-1; idx>=0; idx-- )); do
+            losetup -d "${LOOP_DEVS[$idx]}" 2>/dev/null || true
+        done
     fi
     rm -rf "${TMP_DIR:-}"
 }
@@ -152,14 +200,13 @@ if [ -z "${DATA_PART_NUM}" ]; then
         "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7" "$(ac_media_nixos_data_label)"
 fi
 
-LOOP_DEV="$(losetup --find --show --partscan "${IMAGE_PATH}")"
-EFI_PART="$(part_path "${LOOP_DEV}" "${EFI_PART_NUM}")"
-MAC_PART="$(part_path "${LOOP_DEV}" "${MAC_PART_NUM}")"
-DATA_PART="$(part_path "${LOOP_DEV}" "${DATA_PART_NUM}")"
+EFI_PART="$(bind_partition_loop "${IMAGE_PATH}" "${EFI_PART_NUM}")"
+MAC_PART="$(bind_partition_loop "${IMAGE_PATH}" "${MAC_PART_NUM}")"
+DATA_PART="$(bind_partition_loop "${IMAGE_PATH}" "${DATA_PART_NUM}")"
 
-wait_for_partition "${EFI_PART}"
-wait_for_partition "${MAC_PART}"
-wait_for_partition "${DATA_PART}"
+wait_for_block_device "${EFI_PART}"
+wait_for_block_device "${MAC_PART}"
+wait_for_block_device "${DATA_PART}"
 
 if ! blkid -o value -s LABEL "${MAC_PART}" >/dev/null 2>&1; then
     mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
