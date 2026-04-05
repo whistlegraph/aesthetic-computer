@@ -16,7 +16,7 @@ VMLINUZ="${BUILD_DIR}/vmlinuz"
 INITRAMFS_ROOT="${BUILD_DIR}/initramfs-root"
 AC_MEDIA_NATIVE_DIR="${SCRIPT_DIR}"
 MEDIA_LAYOUT_LIB="${SCRIPT_DIR}/scripts/media-layout.sh"
-MEDIA_HELPER_IMAGE="${AC_MEDIA_HELPER_IMAGE:-ac-os-media-helper:latest}"
+MEDIA_HELPER_IMAGE="${AC_MEDIA_HELPER_IMAGE:-ac-os-media-helper:img-v1}"
 MEDIA_HELPER_DOCKERFILE="${SCRIPT_DIR}/Dockerfile.flash-helper"
 
 CMD="${1:-build}"
@@ -854,7 +854,7 @@ write_usb_config_file() {
         USB_CONFIG='{"handle":"unknown"}'
     fi
 
-    printf '%s' "${USB_CONFIG}" > "${CONFIG_FILE}"
+    ac_media_write_legacy_config "${CONFIG_FILE}" "${USB_CONFIG}"
     log "USB config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
 }
 
@@ -864,7 +864,7 @@ nixos_data_partition_for() {
     local PART
 
     DATA_LABEL="$(ac_media_nixos_data_label)"
-    for PART in "${USB_DEV}3" "${USB_DEV}p3"; do
+    for PART in "${USB_DEV}"? "${USB_DEV}"p? "${USB_DEV}"?? "${USB_DEV}"p??; do
         [ -b "${PART}" ] || continue
         if [ "$(sudo blkid -o value -s LABEL "${PART}" 2>/dev/null || true)" = "${DATA_LABEL}" ]; then
             printf '%s\n' "${PART}"
@@ -917,16 +917,25 @@ write_nixos_usb_config() {
     log "Wrote NixOS config to ${DATA_PART}"
 }
 
+prepare_nixos_image() {
+    local IMAGE_PATH="$1"
+    local CONFIG_FILE="$2"
+    local WORK_DIR
+
+    ensure_media_helper_image
+    WORK_DIR="$(dirname "${IMAGE_PATH}")"
+    sudo docker run --rm --privileged \
+        -v "${WORK_DIR}:/work" \
+        --entrypoint /bin/bash "${MEDIA_HELPER_IMAGE}" \
+        -lc "exec /usr/local/bin/ac-os-nixos-image-helper '/work/$(basename "${IMAGE_PATH}")' '/work/$(basename "${CONFIG_FILE}")'"
+}
+
 flash_nixos_image_to_usb() {
     local IMAGE_PATH="$1"
     local CONFIG_FILE="$2"
     local USB_DEV
 
-    ac_media_ensure_nixos_data_partition \
-        "${IMAGE_PATH}" \
-        "${CONFIG_FILE}" \
-        "$(ac_media_nixos_data_size_mib)"
-    ac_media_customize_nixos_efi_boot "${IMAGE_PATH}"
+    prepare_nixos_image "${IMAGE_PATH}" "${CONFIG_FILE}"
 
     USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
     log "Flashing ${IMAGE_PATH} to ${USB_DEV}..."
@@ -1042,71 +1051,33 @@ load_vault_creds() {
     log "Credentials decrypted and cached for session"
 }
 
-generate_template_iso() {
-    # Create a hybrid ISO from the staged chainloader-first boot tree.
-    # The config.json uses the existing 32KB identity block so oven can patch it.
-    local ISO="/tmp/ac-native.iso"
-    local STAGING="/tmp/ac-iso-staging"
-    local EFI_IMG="/tmp/ac-efi.img"
-    local CONFIG_TMP="/tmp/ac-identity-config.json"
-
-    log "Generating template .iso..." >&2
-
-    # Clean staging area
-    rm -rf "${STAGING}" "${EFI_IMG}" "${ISO}" "${CONFIG_TMP}"
-
-    # Create identity block (32KB, zero-padded) in ISO root.
-    # The block starts with a marker so the edge worker can verify alignment,
-    # followed by JSON config, zero-padded to exactly 32768 bytes.
-    local IDENTITY_SIZE
-    local IDENTITY_MARKER
-    IDENTITY_SIZE="$(ac_media_identity_size)"
-    IDENTITY_MARKER="$(ac_media_identity_marker)"
-
-    ac_media_write_identity_config "${CONFIG_TMP}"
-    ac_media_stage_boot_tree "${STAGING}" "${VMLINUZ}" "${CONFIG_TMP}"
-    ac_media_create_fat_image "${STAGING}" "${EFI_IMG}" "AC_NATIVE"
-    ac_media_build_hybrid_iso "${STAGING}" "${EFI_IMG}" "${ISO}" "AC_NATIVE"
-
-    rm -rf "${STAGING}" "${EFI_IMG}" "${CONFIG_TMP}"
-
-    local ISO_BYTES=$(stat -c%s "${ISO}")
-    local ISO_MB=$(( ISO_BYTES / 1048576 ))
-    log "Template ISO: ${ISO} (${ISO_MB}MB)" >&2
-
-    # Find the identity block offset by searching for the marker in the ISO.
-    # Record it in a manifest so the edge worker can patch without scanning.
-    local OFFSET=$(python3 -c "
-import sys
-marker = b'${IDENTITY_MARKER}\n'
-with open('${ISO}', 'rb') as f:
-    data = f.read()
-    idx = data.find(marker)
-    print(idx if idx >= 0 else -1)
-" 2>/dev/null)
-
-    if [ "${OFFSET}" = "-1" ] || [ -z "${OFFSET}" ]; then
-        log "WARNING: Identity block marker not found in ISO!" >&2
-    else
-        log "Identity block at offset ${OFFSET} (${IDENTITY_SIZE} bytes)" >&2
-    fi
-
-    # Write manifest alongside the ISO
+generate_template_image() {
+    local IMAGE="/tmp/ac-native.img"
+    local STAGING="/tmp/ac-img-staging"
+    local LEGACY_CONFIG="/tmp/ac-legacy-config.json"
+    local IDENTITY_FILE="/tmp/$(ac_media_identity_filename)"
     local MANIFEST="/tmp/ac-manifest.json"
-    cat > "${MANIFEST}" << MANIFEST_EOF
-{
-  "name": "${AC_BUILD_NAME:-unknown}",
-  "hash": "$(git rev-parse --short HEAD 2>/dev/null || echo unknown)",
-  "timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
-  "identityBlockOffset": ${OFFSET:--1},
-  "identityBlockSize": ${IDENTITY_SIZE},
-  "identityMarker": "${IDENTITY_MARKER}",
-  "isoSize": ${ISO_BYTES}
-}
-MANIFEST_EOF
+
+    log "Generating template .img..." >&2
+    rm -rf "${STAGING}" "${IMAGE}" "${LEGACY_CONFIG}" "${IDENTITY_FILE}" "${MANIFEST}"
+
+    ac_media_write_legacy_config "${LEGACY_CONFIG}"
+    ac_media_write_identity_config "${IDENTITY_FILE}"
+    ac_media_stage_boot_tree "${STAGING}" "${VMLINUZ}" "${LEGACY_CONFIG}"
+    cp "${IDENTITY_FILE}" "${STAGING}/$(ac_media_identity_filename)"
+    ac_media_create_efi_disk_image "${STAGING}" "${IMAGE}" "AC_NATIVE"
+    ac_media_generate_manifest "${IMAGE}" "${AC_BUILD_NAME:-unknown}" "${MANIFEST}"
+
+    rm -rf "${STAGING}" "${LEGACY_CONFIG}" "${IDENTITY_FILE}"
+
+    local IMAGE_BYTES
+    local IMAGE_MB
+    IMAGE_BYTES=$(stat -c%s "${IMAGE}")
+    IMAGE_MB=$(( IMAGE_BYTES / 1048576 ))
+    log "Template image: ${IMAGE} (${IMAGE_MB}MB)" >&2
     log "Manifest: ${MANIFEST}" >&2
 
-    echo "${ISO}"
+    echo "${IMAGE}"
 }
 
 upload_ota() {
@@ -1217,29 +1188,28 @@ upload_ota() {
         fi
     fi
 
-    # Step 4: Generate and upload template .iso for personalized downloads
-    local TEMPLATE_ISO
-    TEMPLATE_ISO=$(generate_template_iso) && {
-        log "Uploading template .iso..."
-        # Get presigned URL for the .iso
-        local ISO_STEP
-        ISO_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
+    # Step 4: Generate and upload template .img for personalized downloads
+    local TEMPLATE_IMG
+    TEMPLATE_IMG=$(generate_template_image) && {
+        log "Uploading template .img..."
+        local IMAGE_STEP
+        IMAGE_STEP=$(curl -sf -X POST "${UPLOAD_URL}" \
             -H "Authorization: Bearer ${AC_TOKEN}" \
             -H "X-Build-Name: ${AC_BUILD_NAME}" \
             -H "X-Template-Upload: true" \
             --max-time 30) || { log "Template presign failed (non-fatal)"; }
 
-        if [ -n "${ISO_STEP}" ]; then
-            local ISO_PUT_URL=$(echo "$ISO_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).iso_put_url||''))" 2>/dev/null)
-            if [ -n "${ISO_PUT_URL}" ] && [ -f "${TEMPLATE_ISO}" ]; then
-                log "Uploading template $(stat -c%s "${TEMPLATE_ISO}" | numfmt --to=iec) to S3..."
-                curl -sf -X PUT "${ISO_PUT_URL}" \
-                    -H "Content-Type: application/x-iso9660-image" \
+        if [ -n "${IMAGE_STEP}" ]; then
+            local IMAGE_PUT_URL=$(echo "$IMAGE_STEP" | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).image_put_url||''))" 2>/dev/null)
+            if [ -n "${IMAGE_PUT_URL}" ] && [ -f "${TEMPLATE_IMG}" ]; then
+                log "Uploading template $(stat -c%s "${TEMPLATE_IMG}" | numfmt --to=iec) to S3..."
+                curl -sf -X PUT "${IMAGE_PUT_URL}" \
+                    -H "Content-Type: application/octet-stream" \
                     -H "x-amz-acl: public-read" \
-                    -T "${TEMPLATE_ISO}" \
+                    -T "${TEMPLATE_IMG}" \
                     --max-time 300 && {
-                    log "Template .iso uploaded"
-                    # Upload manifest for edge worker ISO patching
+                    log "Template .img uploaded"
+                    # Upload manifest for edge worker image patching
                     local MANIFEST="/tmp/ac-manifest.json"
                     if [ -f "${MANIFEST}" ]; then
                         local MANIFEST_STEP
@@ -1264,10 +1234,10 @@ upload_ota() {
                     curl -sf -X POST "https://oven.aesthetic.computer/os-cache-flush" \
                         --max-time 10 && log "Oven template cache flushed" \
                         || log "Cache flush failed (non-fatal)"
-                } || log "Template upload failed (non-fatal)"
+                    } || log "Template upload failed (non-fatal)"
             fi
         fi
-        rm -f "${TEMPLATE_ISO}"
+        rm -f "${TEMPLATE_IMG}"
     } || log "Template generation failed (non-fatal)"
 
     # Record in MongoDB
@@ -1564,15 +1534,15 @@ exec qemu-system-x86_64 \
                 log "Building + flashing NixOS image to USB..."
                 cd "${NIXOS_DIR}"
                 IMAGE_PATH=$(AC_NIX_NATIVE_SRC="${SCRIPT_DIR}" nix build .#usb-image --impure --print-out-paths --no-link)
-                ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
-                if [ -z "${ISO}" ]; then
-                    err "No ISO found in nix build output"
+                IMG=$(find "${IMAGE_PATH}" -name '*.img' -type f | head -1)
+                if [ -z "${IMG}" ]; then
+                    err "No image found in nix build output"
                     exit 1
                 fi
                 NIX_FLASH_DIR="$(mktemp -d /tmp/ac-nixos-flash.XXXXXX)"
-                NIX_FLASH_IMAGE="${NIX_FLASH_DIR}/ac-os-nixos.iso"
+                NIX_FLASH_IMAGE="${NIX_FLASH_DIR}/ac-os-nixos.img"
                 NIX_FLASH_CONFIG="${NIX_FLASH_DIR}/config.json"
-                cp "${ISO}" "${NIX_FLASH_IMAGE}"
+                cp "${IMG}" "${NIX_FLASH_IMAGE}"
                 write_usb_config_file "${NIX_FLASH_CONFIG}"
                 flash_nixos_image_to_usb "${NIX_FLASH_IMAGE}" "${NIX_FLASH_CONFIG}"
                 rm -rf "${NIX_FLASH_DIR}"
@@ -1583,29 +1553,25 @@ exec qemu-system-x86_64 \
                 log "Building + uploading NixOS image..."
                 cd "${NIXOS_DIR}"
                 IMAGE_PATH=$(AC_NIX_NATIVE_SRC="${SCRIPT_DIR}" nix build .#usb-image --impure --print-out-paths --no-link)
-                ISO=$(find "${IMAGE_PATH}" -name '*.iso' -type f | head -1)
-                if [ -z "${ISO}" ]; then
-                    err "No ISO found in nix build output"
+                IMG=$(find "${IMAGE_PATH}" -name '*.img' -type f | head -1)
+                if [ -z "${IMG}" ]; then
+                    err "No image found in nix build output"
                     exit 1
                 fi
                 load_vault_creds
                 NIX_UPLOAD_DIR="$(mktemp -d /tmp/ac-nixos-upload.XXXXXX)"
-                NIX_UPLOAD_IMAGE="${NIX_UPLOAD_DIR}/ac-os-nixos.iso"
+                NIX_UPLOAD_IMAGE="${NIX_UPLOAD_DIR}/ac-os-nixos.img"
                 NIX_UPLOAD_CONFIG="${NIX_UPLOAD_DIR}/config.json"
-                cp "${ISO}" "${NIX_UPLOAD_IMAGE}"
-                ac_media_default_identity_json > "${NIX_UPLOAD_CONFIG}"
-                ac_media_ensure_nixos_data_partition \
-                    "${NIX_UPLOAD_IMAGE}" \
-                    "${NIX_UPLOAD_CONFIG}" \
-                    "$(ac_media_nixos_data_size_mib)"
-                ac_media_customize_nixos_efi_boot "${NIX_UPLOAD_IMAGE}"
-                OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --iso "${NIX_UPLOAD_IMAGE}"
+                cp "${IMG}" "${NIX_UPLOAD_IMAGE}"
+                ac_media_write_legacy_config "${NIX_UPLOAD_CONFIG}" "$(ac_media_default_identity_json)"
+                prepare_nixos_image "${NIX_UPLOAD_IMAGE}" "${NIX_UPLOAD_CONFIG}"
+                OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --image "${NIX_UPLOAD_IMAGE}"
                 rm -rf "${NIX_UPLOAD_DIR}"
                 ;;
             pull)
                 require_login
                 NIX_VERSION_URL="${CDN_BASE}/nix-native-notepat-latest.version"
-                NIX_ISO_URL="${CDN_BASE}/nix-native-notepat-latest.iso"
+                NIX_IMG_URL="${CDN_BASE}/nix-native-notepat-latest.img"
                 NIX_HASH_URL="${CDN_BASE}/nix-native-notepat-latest.sha256"
 
                 log "Fetching latest NixOS OTA version..."
@@ -1616,14 +1582,14 @@ exec qemu-system-x86_64 \
 
                 PULL_DIR="/tmp/ac-os-nix-pull"
                 mkdir -p "${PULL_DIR}"
-                PULLED_ISO="${PULL_DIR}/ac-os-nixos.iso"
+                PULLED_IMG="${PULL_DIR}/ac-os-nixos.img"
 
                 log "Downloading NixOS image (~$(( IMAGE_SIZE / 1048576 ))MB)..."
-                curl -f --progress-bar -o "${PULLED_ISO}" "${NIX_ISO_URL}" || { err "Download failed"; exit 1; }
+                curl -f --progress-bar -o "${PULLED_IMG}" "${NIX_IMG_URL}" || { err "Download failed"; exit 1; }
 
                 log "Verifying SHA256..."
                 EXPECTED_HASH=$(curl -sf "${NIX_HASH_URL}") || { err "Failed to fetch hash"; exit 1; }
-                ACTUAL_HASH=$(sha256sum "${PULLED_ISO}" | cut -d' ' -f1)
+                ACTUAL_HASH=$(sha256sum "${PULLED_IMG}" | cut -d' ' -f1)
                 if [ "${ACTUAL_HASH}" != "${EXPECTED_HASH}" ]; then
                     err "SHA256 mismatch!"
                     exit 1
@@ -1632,7 +1598,7 @@ exec qemu-system-x86_64 \
 
                 PULL_CONFIG="${PULL_DIR}/config.json"
                 write_usb_config_file "${PULL_CONFIG}"
-                flash_nixos_image_to_usb "${PULLED_ISO}" "${PULL_CONFIG}"
+                flash_nixos_image_to_usb "${PULLED_IMG}" "${PULL_CONFIG}"
                 rm -rf "${PULL_DIR}"
                 ;;
             *)

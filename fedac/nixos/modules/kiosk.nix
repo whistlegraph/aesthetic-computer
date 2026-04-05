@@ -2,10 +2,31 @@
 
 let
   ac-native = pkgs.callPackage ../packages/ac-native { inherit gitHash version nativeSrc; };
+  write-breadcrumb = pkgs.writeShellScript "ac-native-write-breadcrumb" ''
+    set -u
+
+    [ $# -ge 1 ] || exit 0
+    [ -d /mnt/logs ] || exit 0
+
+    tag="$1"
+    shift || true
+    stamp="$(${pkgs.coreutils}/bin/date -u +%Y%m%dT%H%M%SZ)"
+    out="/mnt/logs/${tag}-${stamp}.txt"
+    {
+      echo "tag=${tag}"
+      echo "stamp=${stamp}"
+      echo "version=${gitHash}-${version}"
+      for entry in "$@"; do
+        echo "$entry"
+      done
+    } > "$out" 2>/dev/null || true
+    sync || true
+  '';
   ac-native-client = pkgs.writeShellScript "ac-native-cage-client" ''
     set -u
 
     rm -f /tmp/ac-native-cage.log
+    ${write-breadcrumb} ac-native-starting "binary=${ac-native}/bin/ac-native" "piece=${ac-native}/share/ac-native/piece.mjs"
     printf '[ac-native-cage-client] starting %s %s\n' \
       "${ac-native}/bin/ac-native" \
       "${ac-native}/share/ac-native/piece.mjs" >&2
@@ -29,6 +50,7 @@ let
     set -u
 
     rm -f /tmp/cage-stderr.log
+    ${write-breadcrumb} kiosk-launching "tty=/dev/tty1" "display=cage"
     printf '[ac-native-kiosk] launching cage on tty1\n' >&2
 
     status=0

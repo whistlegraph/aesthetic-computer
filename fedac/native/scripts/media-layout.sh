@@ -21,8 +21,16 @@ ac_media_nixos_data_size_mib() {
     printf '%s\n' "${AC_NIXOS_DATA_PARTITION_MIB:-512}"
 }
 
+ac_media_legacy_config_size() {
+    printf '%s\n' "${AC_LEGACY_CONFIG_BYTES:-4096}"
+}
+
 ac_media_default_identity_json() {
     printf '%s' '{"handle":"","piece":"notepat","sub":"","email":""}'
+}
+
+ac_media_identity_filename() {
+    printf '%s\n' "${AC_IDENTITY_FILENAME:-identity.bin}"
 }
 
 ac_media_bootloader_path() {
@@ -101,6 +109,29 @@ ac_media_write_identity_config() {
         "${json_payload}"
 }
 
+ac_media_write_legacy_config() {
+    local out_path="$1"
+    local json_payload="${2:-$(ac_media_default_identity_json)}"
+    local total_bytes
+    local current_size
+    local pad_size
+
+    total_bytes="$(ac_media_legacy_config_size)"
+    mkdir -p "$(dirname "${out_path}")"
+    printf '%s' "${json_payload}" > "${out_path}"
+
+    current_size=$(stat -c%s "${out_path}")
+    if [ "${current_size}" -gt "${total_bytes}" ]; then
+        echo "Legacy config payload exceeds ${total_bytes} bytes" >&2
+        return 1
+    fi
+
+    pad_size=$(( total_bytes - current_size ))
+    if [ "${pad_size}" -gt 0 ]; then
+        head -c "${pad_size}" < /dev/zero | tr '\000' ' ' >> "${out_path}"
+    fi
+}
+
 ac_media_stage_boot_tree() {
     local stage_root="$1"
     local kernel_path="$2"
@@ -175,6 +206,39 @@ ac_media_create_fat_image() {
     fi
 }
 
+ac_media_create_efi_disk_image() {
+    local stage_root="$1"
+    local image_path="$2"
+    local label="${3:-AC_ESP}"
+    local size_mb="${4:-}"
+    local esp_start=2048
+    local esp_offset
+
+    if [ -z "${size_mb}" ]; then
+        size_mb=$(( $(ac_media_stage_tree_size_mib "${stage_root}") + 96 ))
+    fi
+
+    dd if=/dev/zero of="${image_path}" bs=1M count="${size_mb}" status=none
+    printf 'label: gpt\nstart=%s, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="%s"\n' \
+        "${esp_start}" "${label}" |
+        sfdisk --force --no-reread "${image_path}" >/dev/null
+    mkfs.vfat -F 32 --offset="${esp_start}" -n "${label}" "${image_path}" >/dev/null
+
+    esp_offset=$(( esp_start * 512 ))
+    export MTOOLS_SKIP_CHECK=1
+    mmd -i "${image_path}@@${esp_offset}" ::EFI ::EFI/BOOT 2>/dev/null || true
+    if [ -f "${stage_root}/config.json" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/config.json" ::config.json
+    fi
+    if [ -f "${stage_root}/$(ac_media_identity_filename)" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/$(ac_media_identity_filename)" "::$(ac_media_identity_filename)"
+    fi
+    mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/EFI/BOOT/BOOTX64.EFI" ::EFI/BOOT/BOOTX64.EFI
+    if [ -f "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ::EFI/BOOT/BOOTIA32.EFI
+    fi
+}
+
 ac_create_fat_boot_image() {
     ac_media_create_fat_image "$@"
 }
@@ -211,6 +275,61 @@ ac_media_partition_start_sector() {
 
 ac_media_nixos_data_partition_start_sector() {
     ac_media_partition_start_sector "$1" 3
+}
+
+ac_media_generate_manifest() {
+    local image_path="$1"
+    local build_name="$2"
+    local out_path="$3"
+    local identity_size
+    local config_size
+    local identity_marker
+
+    identity_size="$(ac_media_identity_size)"
+    config_size="$(ac_media_legacy_config_size)"
+    identity_marker="$(ac_media_identity_marker)"
+
+    python3 - "$image_path" "$build_name" "$out_path" "$identity_size" "$config_size" "$identity_marker" <<'PYEOF'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+image_path, build_name, out_path, identity_size, config_size, identity_marker = sys.argv[1:]
+identity_size = int(identity_size)
+config_size = int(config_size)
+needle = b'{"handle":"","piece":"notepat","sub":"","email":""}'
+identity_header = (identity_marker + "\n").encode()
+
+with open(image_path, "rb") as fh:
+    data = fh.read()
+
+identity_offset = data.find(identity_header)
+config_offsets = []
+start = 0
+while True:
+    idx = data.find(needle, start)
+    if idx < 0:
+        break
+    if idx < len(identity_header) or data[idx - len(identity_header):idx] != identity_header:
+        config_offsets.append(idx)
+    start = idx + len(needle)
+
+manifest = {
+    "name": build_name,
+    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "artifactType": "img",
+    "identityBlockOffset": identity_offset,
+    "identityBlockSize": identity_size,
+    "identityMarker": identity_marker,
+    "configOffsets": config_offsets,
+    "configPatchSize": config_size,
+    "imageSize": os.path.getsize(image_path),
+}
+
+with open(out_path, "w", encoding="utf-8") as fh:
+    json.dump(manifest, fh, indent=2)
+PYEOF
 }
 
 ac_media_customize_nixos_efi_boot() {
