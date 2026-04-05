@@ -2,7 +2,7 @@ FROM fedora:43
 
 RUN dnf install -y --setopt=install_weak_deps=False \
     dosfstools util-linux mtools hfsplus-tools mactel-boot \
-    xorriso gdisk jq \
+    xorriso gdisk jq python3 \
     && dnf clean all && rm -rf /var/cache/dnf
 
 COPY fedac/native/scripts/media-layout.sh /usr/local/lib/ac-media-layout.sh
