@@ -1,7 +1,7 @@
-{ config, pkgs, lib, gitHash ? "unknown", version ? "dev", nativeSrc, ... }:
+{ config, pkgs, lib, gitHash ? "unknown", version ? "dev", nativeSrc, kidlispSrc ? null, ... }:
 
 let
-  ac-native = pkgs.callPackage ../packages/ac-native { inherit gitHash version nativeSrc; };
+  ac-native = pkgs.callPackage ../packages/ac-native { inherit gitHash version nativeSrc kidlispSrc; };
   write-breadcrumb = pkgs.writeShellScript "ac-native-write-breadcrumb" ''
     set -u
 
@@ -111,23 +111,26 @@ in
     wantedBy = [ "multi-user.target" ];
 
     path = with pkgs; [
-      coreutils systemd util-linux
+      coreutils gnugrep gnused gawk findutils
+      which psmisc       # killall (psmisc), which
+      systemd util-linux
       wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
       ac-native
     ];
 
     environment = {
-      XDG_RUNTIME_DIR = "/run/user/1000";
+      XDG_RUNTIME_DIR = "/run/user/0";
       HOME = "/tmp/ac-home";
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
       ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
+      ALSA_CONFIG_PATH = "${pkgs.alsa-lib}/share/alsa/alsa.conf";
     };
 
     serviceConfig = {
-      User = "ac";
-      Group = "users";
-      SupplementaryGroups = [ "video" "audio" "input" "seat" ];
+      # Run as root — ac-native needs full hardware access (WiFi, ALSA,
+      # DRM) matching the old bare-metal build where it ran as PID 1.
+      # Security hardening can be layered on once all features work.
       Type = "simple";
       Restart = "on-failure";
       RestartSec = 2;
@@ -146,20 +149,16 @@ in
       #   0 = shutdown, 2 = reboot (matching current ac-native convention)
       SuccessExitStatus = "0 2";
       ExecStopPost = "+${ac-native-stop}";
-
-      # Security
-      ProtectSystem = "strict";
-      ReadWritePaths = [ "/tmp" "/mnt" "/run" ];
-      PrivateTmp = false;  # ac-native uses /tmp for scratch
     };
   };
 
   # Ensure XDG_RUNTIME_DIR exists for the ac user
   systemd.tmpfiles.rules = [
     "d /mnt 0755 root root -"
-    "d /run/user/1000 0700 ac users -"
-    "d /tmp/ac-home 0700 ac users -"
+    "d /run/user/0 0700 root root -"
+    "d /tmp/ac-home 0700 root root -"
     "L+ /piece.mjs - - - - ${ac-native}/share/ac-native/piece.mjs"
     "L+ /pieces - - - - ${ac-native}/share/ac-native/pieces"
+    "L+ /jslib - - - - ${ac-native}/share/ac-native/jslib"
   ];
 }

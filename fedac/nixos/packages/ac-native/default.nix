@@ -1,8 +1,9 @@
 { lib, stdenv, fetchurl, pkg-config
 , libdrm, alsa-lib, flite, openssl, curl
 , wayland, wayland-protocols, wayland-scanner
-, ffmpeg
+, ffmpeg, esbuild
 , nativeSrc
+, kidlispSrc ? null
 , gitHash ? "unknown", version ? "dev"
 }:
 
@@ -21,6 +22,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     pkg-config
     wayland-scanner
+    esbuild
   ];
 
   buildInputs = [
@@ -72,7 +74,7 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/bin $out/share/ac-native/pieces
+    mkdir -p $out/bin $out/share/ac-native/pieces $out/share/ac-native/jslib
 
     # Binary
     cp build/ac-native $out/bin/
@@ -83,6 +85,14 @@ stdenv.mkDerivation {
     # All pieces
     cp pieces/*.mjs $out/share/ac-native/pieces/ 2>/dev/null || true
     cp pieces/*.lisp $out/share/ac-native/pieces/ 2>/dev/null || true
+
+    # KidLisp bundle — ac-native loads /jslib/kidlisp-bundle.js at init.
+    # kidlispSrc is the aesthetic.computer web tree; entry point is lib/kidlisp.mjs.
+    if [ -n "${toString kidlispSrc}" ] && [ -f "${toString kidlispSrc}/lib/kidlisp.mjs" ]; then
+      esbuild "${toString kidlispSrc}/lib/kidlisp.mjs" --bundle --format=iife \
+        --global-name=KidLispModule --platform=node \
+        --outfile=$out/share/ac-native/jslib/kidlisp-bundle.js
+    fi
 
     runHook postInstall
   '';
