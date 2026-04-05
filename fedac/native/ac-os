@@ -704,7 +704,7 @@ ensure_media_helper_image() {
     log "Building media helper image (${MEDIA_HELPER_IMAGE})..."
     local repo_root
     repo_root="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-    sudo docker build \
+    sudo env DOCKER_BUILDKIT=0 docker build \
         -t "${MEDIA_HELPER_IMAGE}" \
         -f "${MEDIA_HELPER_DOCKERFILE}" \
         "${repo_root}" >/dev/null
