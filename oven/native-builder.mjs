@@ -654,7 +654,10 @@ async function runBuildJob(job) {
           "build", "-t", MEDIA_HELPER_IMAGE,
           "-f", path.join(repoDir, "fedac/native/Dockerfile.flash-helper"),
           repoDir,
-        ], repoDir);
+        ], repoDir, {
+          ...nixEnv,
+          DOCKER_BUILDKIT: "0",
+        });
 
         addLogLine(job, "stdout", "Phase N: appending AC-MAC + ACDATA partitions...");
         await runPhase(job, "nix-package", "docker", [

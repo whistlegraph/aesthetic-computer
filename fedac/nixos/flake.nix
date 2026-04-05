@@ -56,6 +56,9 @@
           installBootLoader = true;
           touchEFIVars = false;
           copyChannel = false;
+          # The generic "boots anywhere" initrd is large, so give the ESP
+          # enough room for the kernel, initrd, and GRUB assets.
+          bootSize = "2048M";
           diskSize = "auto";
           additionalSpace = "2G";
           memSize = 4096;
