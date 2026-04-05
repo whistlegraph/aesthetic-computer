@@ -10,7 +10,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IMAGE_ONLY=0
-if [ "${1:-}" = "--image" ] || [ "${1:-}" = "--iso" ]; then
+if [ "${1:-}" = "--image" ]; then
   IMAGE_ONLY=1
   IMAGE_PATH="${2:-${SCRIPT_DIR}/../build/ac-os.img}"
   if [ ! -f "$IMAGE_PATH" ]; then

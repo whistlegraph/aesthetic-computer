@@ -24,7 +24,6 @@ in
     "rd.systemd.show_status=1"
     "udev.log_priority=info"
     "consoleblank=0"
-    "nomodeset"
   ];
   boot.consoleLogLevel = 7;
 

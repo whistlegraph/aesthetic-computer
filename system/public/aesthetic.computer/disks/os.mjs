@@ -37,7 +37,7 @@ let bootPieceIdx = 0; // index into BOOT_PIECES
 let bootBtn = null;   // "boot to: X" button
 let variantIdx = 0;   // index into VARIANTS (0=C, 1=Common Lisp)
 let variantBtn = null; // "build: C" selector
-let clAvailable = false; // true once we confirm CL ISO exists on CDN
+let clAvailable = false; // true once we confirm the CL image exists on CDN
 let wifiEnabled = true;
 let wifiBtn = null;   // "internet: ON/OFF" toggle
 let scrollY = 0;
