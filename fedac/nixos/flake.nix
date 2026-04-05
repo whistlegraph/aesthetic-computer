@@ -3,16 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixos-generators = {
-      url = "github:nix-community/nixos-generators";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, nixos-generators, ... }:
+  outputs = { self, nixpkgs, ... }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
+      lib = nixpkgs.lib;
       version = builtins.substring 0 8 (self.lastModifiedDate or "unknown");
       gitHash = self.shortRev or "dirty";
       nativeSrcPath = builtins.getEnv "AC_NIX_NATIVE_SRC";
@@ -24,6 +21,21 @@
           }
         else
           throw "AC_NIX_NATIVE_SRC is required for fedac/nixos builds; run nix with --impure and point it at fedac/native.";
+      specialArgs = { inherit self gitHash version nativeSrc; };
+      runtimeModules = [ ./configuration.nix ];
+      imageModules = runtimeModules ++ [ ./modules/image.nix ];
+      evalConfig = import "${nixpkgs}/nixos/lib/eval-config.nix";
+      makeDiskImage = import "${nixpkgs}/nixos/lib/make-disk-image.nix";
+      runtimeSystem = lib.nixosSystem {
+        inherit system;
+        modules = runtimeModules;
+        inherit specialArgs;
+      };
+      imageSystem = evalConfig {
+        inherit system;
+        modules = imageModules;
+        inherit specialArgs;
+      };
     in
     {
       # The ac-native binary as a standalone package
@@ -32,22 +44,28 @@
           inherit gitHash version nativeSrc;
         };
 
-        # Bootable ISO image (no KVM needed to build)
-        usb-image = nixos-generators.nixosGenerate {
-          inherit system;
-          modules = [ ./configuration.nix ];
-          format = "iso";
-          specialArgs = { inherit self gitHash version nativeSrc; };
+        # Bootable raw disk image with BIOS + UEFI bootloader install.
+        # In nixpkgs make-disk-image, "hybrid" is GPT with an ESP plus
+        # a bios_grub partition, not a hybrid MBR.
+        usb-image = makeDiskImage {
+          inherit pkgs lib;
+          config = imageSystem.config;
+          format = "raw";
+          onlyNixStore = false;
+          partitionTableType = "hybrid";
+          installBootLoader = true;
+          touchEFIVars = false;
+          copyChannel = false;
+          diskSize = "auto";
+          additionalSpace = "2G";
+          memSize = 4096;
         };
 
         default = self.packages.${system}.usb-image;
       };
 
       # Full NixOS system configuration
-      nixosConfigurations.ac-native-os = nixpkgs.lib.nixosSystem {
-        inherit system;
-        modules = [ ./configuration.nix ];
-        specialArgs = { inherit self gitHash version nativeSrc; };
-      };
+      nixosConfigurations.ac-native-os = runtimeSystem;
+      nixosConfigurations.ac-native-image = imageSystem;
     };
 }

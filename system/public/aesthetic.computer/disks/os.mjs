@@ -4,12 +4,12 @@
 const OVEN = "https://oven-edge.aesthetic-computer.workers.dev";
 const OVEN_WS = "wss://oven.aesthetic.computer/ws";
 const OVEN_ORIGIN = "https://oven.aesthetic.computer";
-const ISO_BASE = OVEN + "/os/latest.iso";
+const IMAGE_BASE = OVEN + "/os/latest.img";
 function OVEN_BASE() { return OVEN; }
 function RELEASES_URL() { return OVEN + "/os-releases"; }
 function OVEN_WS_URL() { return OVEN_WS; }
-function templateIsoUrl() {
-  const base = ISO_BASE;
+function templateImageUrl() {
+  const base = IMAGE_BASE;
   if (variantIdx === 0) return base;
   // CL variant: replace 'native-notepat' with 'cl-native-notepat'
   return base.replace("native-notepat", "cl-native-notepat");
@@ -288,7 +288,7 @@ function boot({ user, handle: getHandle, api, ui, needsPaint }) {
   buildPollTimer = setInterval(() => fetchBuildStatus(needsPaint), 30000);
 
   // Probe CL variant availability (HEAD request)
-  fetch(ISO_BASE.replace("native-notepat", "cl-native-notepat"), { method: "HEAD" })
+  fetch(IMAGE_BASE.replace("native-notepat", "cl-native-notepat"), { method: "HEAD" })
     .then(r => { clAvailable = r.ok; console.log("[os] CL variant:", clAvailable ? "available" : "not yet"); needsPaint(); })
     .catch(() => { clAvailable = false; });
 
@@ -674,14 +674,14 @@ function paint($) {
     sectionHeader("Install", dark ? [14, 20, 32] : [210, 215, 230], C.secInstBg, 120);
 
     const instLines = isMobile ? [
-      [C.instText, "1 flash .iso (Fedora Media Writer)"],
+      [C.instText, "1 flash .img (Fedora Media Writer)"],
       [C.instText, "2 plug USB into x86 PC"],
       [C.instText, "3 BIOS boot menu:"],
       [C.instKey, "  F12 Dell/Lenovo F9 HP"],
       [C.instKey, "  F2 ASUS/Acer ESC others"],
       [C.instText, "4 select USB drive"],
     ] : [
-      [C.instText, "1 flash .iso with Fedora Media Writer"],
+      [C.instText, "1 flash .img with Fedora Media Writer"],
       [C.instText, "2 plug USB into any x86 PC"],
       [C.instText, "3 enter BIOS boot menu:"],
       [C.instKey, "  F12 Dell/Lenovo  F9 HP"],
@@ -991,21 +991,20 @@ async function startDownload(needsPaint) {
       "&wifi=" + (wifiEnabled ? "1" : "0") +
       "&cb=" + Date.now() +
       (variantIdx === 1 ? "&variant=cl" : "");
-    const efiQuery = query + "&layout=efi&strict=1";
+    const imageQuery = query + "&layout=img&strict=1";
     const downloadCandidates = [
       {
-        url: OVEN_BASE() + "/os-image" + query,
-        allowedLayouts: ["iso"],
+        url: OVEN_BASE() + "/os-image" + imageQuery,
+        allowedLayouts: ["img"],
         rejectOriginFallback: true,
       },
       {
-        url: OVEN_ORIGIN + "/os-image" + efiQuery,
-        allowedLayouts: ["efi"],
+        url: OVEN_ORIGIN + "/os-image" + imageQuery,
+        allowedLayouts: ["img"],
         rejectOriginFallback: false,
       },
     ];
-    const MIN_EXPECTED_EFI_BYTES = 300 * 1024 * 1024;
-    const MIN_EXPECTED_ISO_BYTES = 100 * 1024 * 1024;
+    const MIN_EXPECTED_IMAGE_BYTES = 300 * 1024 * 1024;
 
     let res = null;
     let usedUrl = "";
@@ -1051,12 +1050,7 @@ async function startDownload(needsPaint) {
       }
 
       const len = parseInt(attempt.headers.get("content-length") || "0");
-      const minExpectedBytes =
-        servedLayout === "efi"
-          ? MIN_EXPECTED_EFI_BYTES
-          : servedLayout === "iso"
-            ? MIN_EXPECTED_ISO_BYTES
-            : MIN_EXPECTED_EFI_BYTES;
+      const minExpectedBytes = MIN_EXPECTED_IMAGE_BYTES;
       if (len > 0 && len < minExpectedBytes) {
         console.warn("[os] Rejecting suspiciously small image response:", len, "bytes from", candidate.url, "layout:", servedLayout || "?");
         try { attempt.body?.cancel(); } catch (_) {}
@@ -1098,12 +1092,7 @@ async function startDownload(needsPaint) {
 
     const total = chunks.reduce((s, c) => s + c.length, 0);
     const servedLayout = (res.headers.get("x-ac-os-layout") || "").toLowerCase();
-    const minExpectedBytes =
-      servedLayout === "efi"
-        ? MIN_EXPECTED_EFI_BYTES
-        : servedLayout === "iso"
-          ? MIN_EXPECTED_ISO_BYTES
-          : MIN_EXPECTED_EFI_BYTES;
+    const minExpectedBytes = MIN_EXPECTED_IMAGE_BYTES;
     if (total < minExpectedBytes) {
       throw new Error("Image too small (" + (total / 1048576).toFixed(1) + "MB), refusing to save");
     }
@@ -1129,8 +1118,8 @@ async function startDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const extension = servedLayout === "iso" ? "iso" : "img";
-    const mimeType = servedLayout === "iso" ? "application/x-iso9660-image" : "application/octet-stream";
+    const extension = "img";
+    const mimeType = "application/octet-stream";
     const filename = `@${handle || "user"}-os-${piece}-${coreName}-${ts}.${extension}`;
 
     console.log("[os] Download complete:", filename, (total / 1048576).toFixed(1) + "MB");
@@ -1157,7 +1146,7 @@ async function startTemplateDownload(needsPaint) {
   needsPaint();
 
   try {
-    const res = await fetch(templateIsoUrl());
+    const res = await fetch(templateImageUrl());
     if (!res.ok) throw new Error("Download failed: " + res.status);
 
     const contentLength = parseInt(res.headers.get("content-length") || "0");
@@ -1225,7 +1214,7 @@ async function startTemplateDownload(needsPaint) {
     const d = new Date();
     const p = (n) => String(n).padStart(2, "0");
     const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-    const filename = `ac-os-${piece}-${coreName}-${ts}.iso`;
+    const filename = `ac-os-${piece}-${coreName}-${ts}.img`;
 
     console.log("[os] Template download complete:", filename, (total / 1048576).toFixed(1) + "MB");
     dlFn(filename, combined, { type: "application/octet-stream" });

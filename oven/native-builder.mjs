@@ -34,6 +34,8 @@ const NATIVE_DIR =
   process.env.NATIVE_DIR || "/opt/oven/native-git/fedac/native";
 const NATIVE_BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
 const NIX_DATA_PARTITION_MIB = process.env.NIX_DATA_PARTITION_MIB || "512";
+const MEDIA_HELPER_IMAGE =
+  process.env.AC_MEDIA_HELPER_IMAGE || "ac-os-media-helper:img-v1";
 const NIX_BIN_CANDIDATES = [
   process.env.NIX_BIN || "",
   "/usr/local/bin/nix",
@@ -604,7 +606,7 @@ async function runBuildJob(job) {
         if (progressCallback) progressCallback(makeSnapshot(job));
 
         // fedac/nixos reads AC_NIX_NATIVE_SRC from the host env to import fedac/native.
-        // Build the NixOS ISO image
+        // Build the raw NixOS disk image.
         await runPhase(job, "nix-build", nixBin, [
           "build", ".#usb-image",
           "--impure",
@@ -618,48 +620,50 @@ async function runBuildJob(job) {
           .reverse()
           .find((entry) =>
             entry.stream === "stdout" &&
-            /^\/nix\/store\/.+\.iso$/.test(entry.line || "")
+            /^\/nix\/store\/.+$/.test(entry.line || "")
           )?.line || "";
         if (!nixOutResult) {
           throw new Error("NixOS build finished without returning an output path");
         }
 
-        // Find the ISO in the output directory.
-        const isoPath = await runSync(
+        // Find the raw disk image in the output directory.
+        const imgPath = await runSync(
           "bash",
-          ["-lc", "find \"$1\" -name '*.iso' -type f | head -1", "_", nixOutResult],
+          ["-lc", "find \"$1\" -name '*.img' -type f | head -1", "_", nixOutResult],
           nixosDir,
         );
 
-        if (!isoPath) {
-          throw new Error("NixOS build produced no ISO file");
+        if (!imgPath) {
+          throw new Error("NixOS build produced no image file");
         }
 
-        addLogLine(job, "stdout", `NixOS image: ${isoPath}`);
+        addLogLine(job, "stdout", `NixOS image: ${imgPath}`);
 
         // Copy to upload directory
         await fs.mkdir(nixUploadDir, { recursive: true });
-        const nixIsoUpload = path.join(nixUploadDir, "ac-os-nixos.iso");
+        const nixImgUpload = path.join(nixUploadDir, "ac-os-nixos.img");
         const nixConfigUpload = path.join(nixUploadDir, "config.json");
-        await fs.copyFile(isoPath, nixIsoUpload);
+        await fs.copyFile(imgPath, nixImgUpload);
         await fs.writeFile(
           nixConfigUpload,
           `${JSON.stringify({ handle: "", piece: "notepat", sub: "", email: "" })}\n`,
         );
 
-        addLogLine(job, "stdout", "Phase N: appending writable ACDATA partition...");
-        await runPhase(job, "nix-package", "bash", [
+        addLogLine(job, "stdout", "Phase N: building media helper image...");
+        await runPhase(job, "nix-helper-build", "docker", [
+          "build", "-t", MEDIA_HELPER_IMAGE,
+          "-f", path.join(repoDir, "fedac/native/Dockerfile.flash-helper"),
+          repoDir,
+        ], repoDir);
+
+        addLogLine(job, "stdout", "Phase N: appending AC-MAC + ACDATA partitions...");
+        await runPhase(job, "nix-package", "docker", [
+          "run", "--rm", "--privileged",
+          "-v", `${nixUploadDir}:/work`,
+          "--entrypoint", "/bin/bash",
+          MEDIA_HELPER_IMAGE,
           "-lc",
-          [
-            "set -euo pipefail",
-            `. "${path.join(NATIVE_DIR, "scripts/media-layout.sh")}"`,
-            `ac_media_ensure_nixos_data_partition "$1" "$2" "${NIX_DATA_PARTITION_MIB}"`,
-            'ac_media_customize_nixos_efi_boot "$1"',
-            'sfdisk -d "$1"',
-          ].join("\n"),
-          "_",
-          nixIsoUpload,
-          nixConfigUpload,
+          "exec /usr/local/bin/ac-os-nixos-image-helper /work/ac-os-nixos.img /work/config.json",
         ], nixUploadDir, nixEnv);
 
         job.stage = "nix-upload";
@@ -667,7 +671,7 @@ async function runBuildJob(job) {
 
         // Upload with nix- channel prefix
         await runPhase(job, "nix-upload", "bash", [
-          uploadScript, "--iso", nixIsoUpload,
+          uploadScript, "--image", nixImgUpload,
         ], NATIVE_DIR, {
           ...uploadEnv,
           OTA_CHANNEL: "nix",

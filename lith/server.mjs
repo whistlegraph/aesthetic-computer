@@ -735,7 +735,7 @@ app.post("/api/os-release-upload", async (req, res) => {
 
   if (req.headers["x-template-upload"] === "true") {
     try {
-      return res.json({ step: "template-upload", iso_put_url: presignUrl("os/native-notepat-latest.iso", "application/x-iso9660-image"), user: userSub });
+      return res.json({ step: "template-upload", image_put_url: presignUrl("os/native-notepat-latest.img", "application/octet-stream"), user: userSub });
     } catch (err) {
       return res.status(500).json({ error: `Template presign failed: ${err.message}` });
     }
@@ -755,13 +755,19 @@ app.get("/api/os-image", async (req, res) => {
   if (!authHeader) return res.status(401).json({ error: "Authorization required. Log in at aesthetic.computer first." });
 
   try {
-    const ovenRes = await fetch("https://oven.aesthetic.computer/os-image", {
+    const search = new URLSearchParams(req.query || {}).toString();
+    const ovenUrl = "https://oven.aesthetic.computer/os-image" + (search ? `?${search}` : "");
+    const ovenRes = await fetch(ovenUrl, {
       headers: { Authorization: authHeader },
     });
     res.status(ovenRes.status);
     res.set("Content-Type", ovenRes.headers.get("content-type") || "application/octet-stream");
     if (ovenRes.headers.get("content-disposition")) res.set("Content-Disposition", ovenRes.headers.get("content-disposition"));
     if (ovenRes.headers.get("content-length")) res.set("Content-Length", ovenRes.headers.get("content-length"));
+    if (ovenRes.headers.get("x-ac-os-requested-layout")) res.set("X-AC-OS-Requested-Layout", ovenRes.headers.get("x-ac-os-requested-layout"));
+    if (ovenRes.headers.get("x-ac-os-layout")) res.set("X-AC-OS-Layout", ovenRes.headers.get("x-ac-os-layout"));
+    if (ovenRes.headers.get("x-ac-os-fallback")) res.set("X-AC-OS-Fallback", ovenRes.headers.get("x-ac-os-fallback"));
+    if (ovenRes.headers.get("x-ac-os-fallback-reason")) res.set("X-AC-OS-Fallback-Reason", ovenRes.headers.get("x-ac-os-fallback-reason"));
     res.set("Access-Control-Allow-Origin", "*");
     const { Readable } = await import("stream");
     Readable.fromWeb(ovenRes.body).pipe(res);

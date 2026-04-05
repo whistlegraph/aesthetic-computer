@@ -2997,11 +2997,11 @@ app.post('/os-cache-flush', (req, res) => {
   res.json({ flushed: true });
 });
 
-// Personalized FedAC OS .iso download for authenticated AC users.
-// Downloads the template .iso from DO Spaces, patches config.json in-place,
+// Personalized FedAC OS .img download for authenticated AC users.
+// Downloads the template .img from DO Spaces, patches config.json in-place,
 // and streams back. Compatible with Fedora Media Writer, Balena Etcher, dd.
 const RELEASES_BASE = 'https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os';
-const TEMPLATE_ISO_URL = `${RELEASES_BASE}/native-notepat-latest.iso`;
+const TEMPLATE_IMG_URL = `${RELEASES_BASE}/native-notepat-latest.img`;
 const TEMPLATE_GZ_URL = `${RELEASES_BASE}/native-notepat-latest.img.gz`; // legacy fallback
 const TEMPLATE_VMLINUZ_URL = `${RELEASES_BASE}/native-notepat-latest.vmlinuz`;
 const TEMPLATE_CL_VMLINUZ_URL = `${RELEASES_BASE}/cl-native-notepat-latest.vmlinuz`;
@@ -3019,21 +3019,21 @@ async function getTemplate() {
   if (templateCache && Date.now() - templateCacheTime < TEMPLATE_CACHE_TTL) {
     return templateCache;
   }
-  // Try .iso first, fall back to legacy .img.gz
+  // Try the raw .img first, fall back to the older compressed image if needed.
   let raw;
-  const isoRes = await fetch(TEMPLATE_ISO_URL);
-  if (isoRes.ok) {
-    console.log('[os-image] Downloading template .iso...');
-    raw = Buffer.from(await isoRes.arrayBuffer());
+  const imgRes = await fetch(TEMPLATE_IMG_URL);
+  if (imgRes.ok) {
+    console.log('[os-image] Downloading template .img...');
+    raw = Buffer.from(await imgRes.arrayBuffer());
   } else {
-    console.log('[os-image] No .iso found, trying legacy .img.gz fallback...');
+    console.log('[os-image] No .img found, trying legacy .img.gz fallback...');
     const gzRes = await fetch(TEMPLATE_GZ_URL);
     if (gzRes.ok) {
       const compressed = Buffer.from(await gzRes.arrayBuffer());
       console.log(`[os-image] Decompressing ${(compressed.length / 1048576).toFixed(1)}MB...`);
       raw = gunzipSync(compressed);
     } else {
-      throw new Error(`Template download failed (no .iso or .img.gz available)`);
+      throw new Error(`Template download failed (no .img or .img.gz available)`);
     }
   }
   templateCache = raw;
@@ -3089,7 +3089,7 @@ async function buildPersonalizedEfiImage({ kernelUrl, configJson }) {
   }
 }
 
-// User config endpoint for edge worker ISO patching
+// User config endpoint for edge worker image patching
 app.get('/api/user-config', async (req, res) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -3152,7 +3152,6 @@ app.get('/api/user-config', async (req, res) => {
 });
 
 app.get('/os-image', async (req, res) => {
-  // Auth: verify AC token
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   if (!token) {
@@ -3170,7 +3169,6 @@ app.get('/os-image', async (req, res) => {
     return res.status(401).json({ error: `Authentication failed: ${err.message}` });
   }
 
-  // Look up handle by sub (avoids stale /user cache for new handles)
   let handle = '';
   const sub = userInfo.sub || '';
   try {
@@ -3187,16 +3185,14 @@ app.get('/os-image', async (req, res) => {
     return res.status(403).json({ error: 'You need a handle first. Visit aesthetic.computer/handle to claim one.' });
   }
 
-  // Boot-to piece preference (default: notepat)
   const ALLOWED_PIECES = ['notepat', 'prompt', 'chat', 'laer-klokken'];
   const reqPiece = req.query.piece || 'notepat';
   const bootPiece = ALLOWED_PIECES.includes(reqPiece) ? reqPiece : 'notepat';
-
-  // WiFi/internet toggle (default: enabled)
   const wifiParam = req.query.wifi;
   const wifiEnabled = wifiParam !== '0' && wifiParam !== 'false';
+  const requestedLayout = String(req.query.layout || 'img').toLowerCase();
+  const variant = String(req.query.variant || '').toLowerCase() === 'cl' ? 'cl' : 'c';
 
-  // Fetch device tokens (Claude + GitHub) from DB
   let claudeToken = '', githubPat = '';
   try {
     const mongoUri = process.env.MONGODB_CONNECTION_STRING;
@@ -3216,17 +3212,8 @@ app.get('/os-image', async (req, res) => {
     console.warn(`[os-image] Token lookup failed: ${err.message}`);
   }
 
-  console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece}, wifi: ${wifiEnabled}, claude: ${!!claudeToken}, git: ${!!githubPat})`);
+  console.log(`[os-image] Building personalized image for @${handle} (boot: ${bootPiece}, wifi: ${wifiEnabled}, variant: ${variant}, claude: ${!!claudeToken}, git: ${!!githubPat})`);
 
-  const variant = String(req.query.variant || '').toLowerCase() === 'cl' ? 'cl' : 'c';
-  const layout = String(req.query.layout || '').toLowerCase();
-  const preferEfiLayout = layout === 'efi' || layout === 'img' || layout === 'raw';
-  const strictEfi =
-    preferEfiLayout &&
-    String(req.query.strict || '1').toLowerCase() !== '0' &&
-    String(req.query.strict || '1').toLowerCase() !== 'false';
-
-  // Build personalized config JSON
   const configObj = {
     handle,
     piece: bootPiece,
@@ -3239,95 +3226,54 @@ app.get('/os-image', async (req, res) => {
   if (!wifiEnabled) configObj.wifi = false;
   const configJson = JSON.stringify(configObj);
 
-  // Build a direct EFI image (single ESP partition) when requested.
-  // This layout matches local ac-os flash and is more firmware-compatible
-  // than some hybrid ISO scanners on older BIOS/UEFI implementations.
-  let imgData = null;
-  let contentType = 'application/x-iso9660-image';
-  let extension = 'iso';
-  let servedLayout = 'iso';
-  let efiError = null;
-  if (preferEfiLayout) {
-    try {
-      const kernelUrl = kernelUrlForVariant(variant);
-      imgData = await buildPersonalizedEfiImage({ kernelUrl, configJson });
-      contentType = 'application/octet-stream';
-      extension = 'img';
-      servedLayout = 'efi';
-      console.log(
-        `[os-image] Built EFI image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB, variant=${variant})`,
-      );
-    } catch (err) {
-      efiError = err;
-      console.warn(`[os-image] EFI layout build failed, falling back to ISO patch path: ${err.message}`);
-      if (strictEfi) {
-        return res.status(503).json({
-          error: `EFI layout build failed: ${err.message}`,
-          requestedLayout: 'efi',
-        });
-      }
-    }
+  let imgData;
+  try {
+    const template = await getTemplate();
+    imgData = Buffer.from(template);
+  } catch (err) {
+    return res.status(503).json({ error: `Template not available: ${err.message}` });
   }
 
-  // Fallback: patch the template ISO in-place
-  if (!imgData) {
-    try {
-      const template = await getTemplate();
-      imgData = Buffer.from(template); // copy so we don't mutate cache
-    } catch (err) {
-      return res.status(503).json({ error: `Template not available: ${err.message}` });
-    }
-
-    // Try new identity block format first (32KB, marker-prefixed)
-    const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
-    let idx = imgData.indexOf(identityMarkerBuf);
-    let patchCount = 0;
-
-    if (idx !== -1) {
-      // New format: marker + newline + JSON + zero-padding to 32KB
-      while (idx !== -1) {
-        const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
-        const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
-        header.copy(block);
-        block.copy(imgData, idx);
-        patchCount++;
-        idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
-      }
-      console.log(`[os-image] Patched ${patchCount} identity block(s) for @${handle} (v1, 32KB)`);
-    } else {
-      // Legacy format: plain JSON padded to 4KB with spaces
-      const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
-      idx = imgData.indexOf(legacyMarkerBuf);
-      if (idx === -1) {
-        return res.status(500).json({ error: 'Template image missing config placeholder' });
-      }
-      const padded = configJson + ' '.repeat(Math.max(0, CONFIG_PAD_SIZE_LEGACY - configJson.length));
-      const configBytes = Buffer.from(padded);
-      while (idx !== -1) {
-        configBytes.copy(imgData, idx);
-        patchCount++;
-        idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
-      }
-      console.log(`[os-image] Patched ${patchCount} config location(s) for @${handle} (legacy, 4KB)`);
-    }
+  const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
+  let idx = imgData.indexOf(identityMarkerBuf);
+  let identityPatchCount = 0;
+  while (idx !== -1) {
+    const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
+    const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
+    header.copy(block);
+    block.copy(imgData, idx);
+    identityPatchCount++;
+    idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
   }
 
-  // Stream the personalized image (ISO patch path or EFI-first image path)
+  const padded = configJson.length >= CONFIG_PAD_SIZE_LEGACY
+    ? configJson.slice(0, CONFIG_PAD_SIZE_LEGACY)
+    : configJson + ' '.repeat(CONFIG_PAD_SIZE_LEGACY - configJson.length);
+  const configBytes = Buffer.from(padded);
+  const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
+  let configPatchCount = 0;
+  idx = imgData.indexOf(legacyMarkerBuf);
+  while (idx !== -1) {
+    configBytes.copy(imgData, idx);
+    configPatchCount++;
+    idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
+  }
+
+  if (identityPatchCount === 0 && configPatchCount === 0) {
+    return res.status(500).json({ error: 'Template image missing config placeholder' });
+  }
+  console.log(
+    `[os-image] Patched ${identityPatchCount} identity block(s) and ${configPatchCount} config location(s) for @${handle}`,
+  );
+
   addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
-  if (preferEfiLayout && servedLayout !== 'efi') {
-    addServerLog('warn', '⚠️', `OS image fallback for @${handle}: requested EFI but served ISO`);
-  }
-  res.setHeader('Content-Type', contentType);
+  res.setHeader('Content-Type', 'application/octet-stream');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.setHeader('X-AC-OS-Requested-Layout', preferEfiLayout ? 'efi' : 'iso');
-  res.setHeader('X-AC-OS-Layout', servedLayout);
-  if (efiError) {
-    res.setHeader('X-AC-OS-Fallback', '1');
-    res.setHeader('X-AC-OS-Fallback-Reason', String(efiError.message || 'unknown').slice(0, 180));
-  }
-  // Get latest build name for filename
+  res.setHeader('X-AC-OS-Requested-Layout', requestedLayout || 'img');
+  res.setHeader('X-AC-OS-Layout', 'img');
+
   let releaseName = 'native';
   try {
     const relRes = await fetch(`${RELEASES_BASE}/releases.json`);
@@ -3340,7 +3286,7 @@ app.get('/os-image', async (req, res) => {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   const ts = `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}.${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
-  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.${extension}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="@${handle}-os-${bootPiece}-${coreName}-${ts}.img"`);
   res.setHeader('Content-Length', imgData.length);
   res.end(imgData);
 });
