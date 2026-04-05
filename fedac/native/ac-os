@@ -926,6 +926,7 @@ flash_nixos_image_to_usb() {
         "${IMAGE_PATH}" \
         "${CONFIG_FILE}" \
         "$(ac_media_nixos_data_size_mib)"
+    ac_media_customize_nixos_efi_boot "${IMAGE_PATH}"
 
     USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
     log "Flashing ${IMAGE_PATH} to ${USB_DEV}..."
@@ -1597,6 +1598,7 @@ exec qemu-system-x86_64 \
                     "${NIX_UPLOAD_IMAGE}" \
                     "${NIX_UPLOAD_CONFIG}" \
                     "$(ac_media_nixos_data_size_mib)"
+                ac_media_customize_nixos_efi_boot "${NIX_UPLOAD_IMAGE}"
                 OTA_CHANNEL=nix bash "${SCRIPT_DIR}/scripts/upload-release.sh" --iso "${NIX_UPLOAD_IMAGE}"
                 rm -rf "${NIX_UPLOAD_DIR}"
                 ;;
