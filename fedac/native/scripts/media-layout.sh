@@ -273,8 +273,33 @@ ac_media_partition_start_sector() {
         '
 }
 
+ac_media_partition_number_for_type_guid() {
+    local image_path="$1"
+    local type_guid="$2"
+
+    python3 - "$image_path" "$type_guid" <<'PYEOF'
+import re
+import subprocess
+import sys
+
+image_path, type_guid = sys.argv[1:]
+dump = subprocess.check_output(["sfdisk", "-d", image_path], text=True, stderr=subprocess.DEVNULL)
+pattern = re.compile(rf"{re.escape(image_path)}(\d+)\s*:.*type=([0-9A-Fa-f\-]+)")
+for line in dump.splitlines():
+    match = pattern.match(line.strip())
+    if match and match.group(2).lower() == type_guid.lower():
+        print(match.group(1))
+        raise SystemExit(0)
+raise SystemExit(1)
+PYEOF
+}
+
 ac_media_nixos_data_partition_start_sector() {
-    ac_media_partition_start_sector "$1" 3
+    local image_path="$1"
+    local data_part
+
+    data_part="$(ac_media_partition_number_for_type_guid "${image_path}" "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7")" || return 1
+    ac_media_partition_start_sector "${image_path}" "${data_part}"
 }
 
 ac_media_generate_manifest() {
@@ -348,7 +373,13 @@ ac_media_customize_nixos_efi_boot() {
         return 1
     fi
 
-    if ! efi_start="$(ac_media_partition_start_sector "${image_path}" 2)"; then
+    local efi_part
+    if ! efi_part="$(ac_media_partition_number_for_type_guid "${image_path}" "C12A7328-F81F-11D2-BA4B-00A0C93EC93B")"; then
+        echo "No EFI boot partition found in ${image_path}" >&2
+        return 1
+    fi
+
+    if ! efi_start="$(ac_media_partition_start_sector "${image_path}" "${efi_part}")"; then
         echo "No EFI boot partition found in ${image_path}" >&2
         return 1
     fi

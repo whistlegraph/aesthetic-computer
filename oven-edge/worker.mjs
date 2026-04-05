@@ -184,7 +184,7 @@ export default {
         return applyHeaders(ovenRes, request, { "X-Patch": "origin-fallback" });
       }
 
-      // 3. Get template ISO stream
+      // 3. Get template image stream
       const template = await getTemplateStream(env, manifest);
       if (!template) {
         // R2 + Spaces both failed — fall through to oven
