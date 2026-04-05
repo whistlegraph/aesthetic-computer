@@ -654,6 +654,7 @@ async function runBuildJob(job) {
             "set -euo pipefail",
             `. "${path.join(NATIVE_DIR, "scripts/media-layout.sh")}"`,
             `ac_media_ensure_nixos_data_partition "$1" "$2" "${NIX_DATA_PARTITION_MIB}"`,
+            'ac_media_customize_nixos_efi_boot "$1"',
             'sfdisk -d "$1"',
           ].join("\n"),
           "_",

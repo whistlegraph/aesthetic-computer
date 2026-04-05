@@ -179,9 +179,10 @@ ac_create_fat_boot_image() {
     ac_media_create_fat_image "$@"
 }
 
-ac_media_nixos_data_partition_start_sector() {
+ac_media_partition_start_sector() {
     local image_path="$1"
-    local partition_name="${image_path}3"
+    local partition_number="$2"
+    local partition_name="${image_path}${partition_number}"
 
     sfdisk -d "${image_path}" 2>/dev/null |
         awk -v partition_name="${partition_name}" '
@@ -206,6 +207,88 @@ ac_media_nixos_data_partition_start_sector() {
             }
             END { exit found ? 0 : 1 }
         '
+}
+
+ac_media_nixos_data_partition_start_sector() {
+    ac_media_partition_start_sector "$1" 3
+}
+
+ac_media_customize_nixos_efi_boot() {
+    local image_path="$1"
+    local efi_start
+    local efi_offset
+    local tmpdir
+    local orig_cfg
+    local menu_cfg
+    local direct_cfg
+    local linux_line
+    local initrd_line
+
+    if [ ! -f "${image_path}" ]; then
+        echo "Missing NixOS image: ${image_path}" >&2
+        return 1
+    fi
+
+    if ! efi_start="$(ac_media_partition_start_sector "${image_path}" 2)"; then
+        echo "No EFI boot partition found in ${image_path}" >&2
+        return 1
+    fi
+
+    efi_offset=$(( efi_start * 512 ))
+    tmpdir="$(mktemp -d /tmp/ac-nixos-efi.XXXXXX)"
+    orig_cfg="${tmpdir}/grub.cfg.orig"
+    menu_cfg="${tmpdir}/grub-menu.cfg"
+    direct_cfg="${tmpdir}/grub.cfg"
+
+    export MTOOLS_SKIP_CHECK=1
+    if ! mcopy -o -i "${image_path}@@${efi_offset}" ::EFI/BOOT/grub.cfg "${orig_cfg}" >/dev/null 2>&1; then
+        rm -rf "${tmpdir}"
+        echo "Failed to read EFI grub.cfg from ${image_path}" >&2
+        return 1
+    fi
+
+    linux_line="$(grep -m1 '^[[:space:]]*linux ' "${orig_cfg}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\$\{isoboot\}([[:space:]]|$)/ /g; s/[[:space:]]+$//')"
+    initrd_line="$(grep -m1 '^[[:space:]]*initrd ' "${orig_cfg}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+
+    if [ -z "${linux_line}" ] || [ -z "${initrd_line}" ]; then
+        rm -rf "${tmpdir}"
+        echo "Failed to extract kernel/initrd lines from EFI grub.cfg" >&2
+        return 1
+    fi
+
+    cp "${orig_cfg}" "${menu_cfg}"
+    cat > "${direct_cfg}" <<EOF
+set timeout=0
+set default=0
+set efi_root=\$root
+terminal_output console
+terminal_input console
+insmod part_msdos
+insmod fat
+insmod iso9660
+insmod search_fs_file
+
+search --no-floppy --set=root --file /EFI/nixos-installer-image
+
+echo "Booting AC Native..."
+${linux_line}
+${initrd_line}
+boot
+
+echo "AC Native boot failed."
+if [ -f (\$efi_root)/EFI/BOOT/grub-menu.cfg ]; then
+  configfile (\$efi_root)/EFI/BOOT/grub-menu.cfg
+fi
+EOF
+
+    if ! mcopy -o -i "${image_path}@@${efi_offset}" "${menu_cfg}" ::EFI/BOOT/grub-menu.cfg >/dev/null 2>&1 ||
+       ! mcopy -o -i "${image_path}@@${efi_offset}" "${direct_cfg}" ::EFI/BOOT/grub.cfg >/dev/null 2>&1; then
+        rm -rf "${tmpdir}"
+        echo "Failed to update EFI grub.cfg in ${image_path}" >&2
+        return 1
+    fi
+
+    rm -rf "${tmpdir}"
 }
 
 ac_media_ensure_nixos_data_partition() {
