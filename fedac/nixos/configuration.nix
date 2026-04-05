@@ -15,8 +15,8 @@ in
   # Boot
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = false;
-  boot.loader.timeout = lib.mkForce 3;
-  boot.loader.grub.timeoutStyle = lib.mkForce "menu";
+  boot.loader.timeout = lib.mkDefault 3;
+  boot.loader.grub.timeoutStyle = lib.mkDefault "menu";
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [
     "loglevel=7"
