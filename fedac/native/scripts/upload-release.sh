@@ -3,18 +3,18 @@
 # Publishes: native-notepat-latest.vmlinuz, .sha256, .version, and updates releases.json
 #
 # Usage: ./upload-release.sh [vmlinuz_path]
-#        ./upload-release.sh --iso [iso_path]    # Upload ISO only
+#        ./upload-release.sh --image [image_path]  # Upload template disk image only
 # Credentials auto-loaded from aesthetic-computer-vault/fedac/native/upload.env
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ISO_ONLY=0
-if [ "${1:-}" = "--iso" ]; then
-  ISO_ONLY=1
-  ISO_PATH="${2:-${SCRIPT_DIR}/../build/ac-os.iso}"
-  if [ ! -f "$ISO_PATH" ]; then
-    echo "Error: ISO not found at $ISO_PATH" >&2
+IMAGE_ONLY=0
+if [ "${1:-}" = "--image" ] || [ "${1:-}" = "--iso" ]; then
+  IMAGE_ONLY=1
+  IMAGE_PATH="${2:-${SCRIPT_DIR}/../build/ac-os.img}"
+  if [ ! -f "$IMAGE_PATH" ]; then
+    echo "Error: image not found at $IMAGE_PATH" >&2
     exit 1
   fi
   VMLINUZ="/dev/null"  # not used but needed for cred loading below
@@ -162,17 +162,17 @@ if [ -n "${OTA_CHANNEL:-}" ]; then
   echo "  channel: ${OTA_CHANNEL}"
 fi
 
-# ISO-only mode: upload ISO + version + sha256, then exit
-if [ "$ISO_ONLY" = "1" ]; then
-  ISO_SHA256=$(sha256sum "$ISO_PATH" | awk '{print $1}')
-  ISO_SIZE=$(stat -c%s "$ISO_PATH" 2>/dev/null || stat -f%z "$ISO_PATH")
-  printf '%s\n%s' "${FULL_VERSION}" "$ISO_SIZE" > "$TMP/version.txt"
-  printf '%s' "$ISO_SHA256" > "$TMP/sha256.txt"
-  echo "Uploading ISO: $(du -sh "$ISO_PATH" | cut -f1) sha256=${ISO_SHA256:0:16}..."
+# Image-only mode: upload disk image + version + sha256, then exit
+if [ "$IMAGE_ONLY" = "1" ]; then
+  IMAGE_SHA256=$(sha256sum "$IMAGE_PATH" | awk '{print $1}')
+  IMAGE_SIZE=$(stat -c%s "$IMAGE_PATH" 2>/dev/null || stat -f%z "$IMAGE_PATH")
+  printf '%s\n%s' "${FULL_VERSION}" "$IMAGE_SIZE" > "$TMP/version.txt"
+  printf '%s' "$IMAGE_SHA256" > "$TMP/sha256.txt"
+  echo "Uploading image: $(du -sh "$IMAGE_PATH" | cut -f1) sha256=${IMAGE_SHA256:0:16}..."
   do_upload "$TMP/version.txt" "os/${CHANNEL_PREFIX}native-notepat-latest.version" "text/plain"
   do_upload "$TMP/sha256.txt"  "os/${CHANNEL_PREFIX}native-notepat-latest.sha256"  "text/plain"
-  do_upload "$ISO_PATH"        "os/${CHANNEL_PREFIX}native-notepat-latest.iso"     "application/octet-stream"
-  echo "ISO published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+  do_upload "$IMAGE_PATH"      "os/${CHANNEL_PREFIX}native-notepat-latest.img"     "application/octet-stream"
+  echo "Image published: ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.img"
   exit 0
 fi
 
@@ -235,11 +235,11 @@ if [ -f "$INITRAMFS_SIBLING" ]; then
   do_upload "$INITRAMFS_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz" "application/octet-stream"
 fi
 
-# Also upload ISO if it exists (non-fatal — ISO is optional)
-ISO_SIBLING="$(dirname "$VMLINUZ")/ac-os.iso"
-if [ -f "$ISO_SIBLING" ]; then
-  echo "  Uploading ISO ($(du -sh "$ISO_SIBLING" | cut -f1))..."
-  do_upload "$ISO_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.iso" "application/octet-stream" || echo "  ISO upload failed (non-fatal)"
+# Also upload a template disk image if it exists (non-fatal)
+IMAGE_SIBLING="$(dirname "$VMLINUZ")/ac-os.img"
+if [ -f "$IMAGE_SIBLING" ]; then
+  echo "  Uploading image ($(du -sh "$IMAGE_SIBLING" | cut -f1))..."
+  do_upload "$IMAGE_SIBLING" "os/${CHANNEL_PREFIX}native-notepat-latest.img" "application/octet-stream" || echo "  Image upload failed (non-fatal)"
 fi
 
 echo ""
@@ -250,6 +250,6 @@ if [ -f "$SLIM_SIBLING" ]; then
   echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.initramfs.cpio.gz"
 fi
 echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}releases.json"
-if [ -f "$ISO_SIBLING" ]; then
-  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.iso"
+if [ -f "$IMAGE_SIBLING" ]; then
+  echo "  ${BASE_URL}/os/${CHANNEL_PREFIX}native-notepat-latest.img"
 fi

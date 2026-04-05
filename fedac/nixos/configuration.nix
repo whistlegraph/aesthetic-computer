@@ -94,6 +94,18 @@ in
       ExecStart = pkgs.writeShellScript "mount-usb-config" ''
         set -u
 
+        write_breadcrumb() {
+          local tag="$1"
+          local stamp
+          stamp="$(${pkgs.coreutils}/bin/date -u +%Y%m%dT%H%M%SZ)"
+          {
+            echo "tag=${tag}"
+            echo "stamp=${stamp}"
+            echo "host=ac-native"
+            echo "version=${gitHash}-${version}"
+          } > "/mnt/logs/${tag}-${stamp}.txt"
+        }
+
         mkdir -p /mnt
         ${pkgs.systemd}/bin/udevadm settle --timeout=10 || true
 
@@ -104,6 +116,7 @@ in
                -o rw,uid=1000,gid=100,umask=0077,shortname=mixed,utf8=1 \
                "$dev" /mnt 2>/dev/null; then
             mkdir -p /mnt/logs
+            write_breadcrumb "boot-mounted"
             echo "Mounted AC Native data from $dev"
             exit 0
           fi
@@ -113,6 +126,7 @@ in
         chown ac:users /mnt 2>/dev/null || true
         chmod 0700 /mnt 2>/dev/null || true
         mkdir -p /mnt/logs
+        write_breadcrumb "boot-mounted-temporary"
         echo "No ACDATA partition found; /mnt is temporary"
         ${pkgs.util-linux}/bin/lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS || true
         ${pkgs.util-linux}/bin/blkid || true

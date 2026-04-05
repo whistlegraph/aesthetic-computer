@@ -7,9 +7,10 @@ RUN dnf install -y --setopt=install_weak_deps=False \
 
 COPY fedac/native/scripts/media-layout.sh /usr/local/lib/ac-media-layout.sh
 COPY fedac/native/scripts/flash-helper-runner.sh /usr/local/bin/ac-os-flash-helper
+COPY fedac/native/scripts/nixos-image-helper.sh /usr/local/bin/ac-os-nixos-image-helper
 COPY fedac/native/boot/systemd-bootx64.efi /usr/local/lib/systemd-bootx64.efi
 COPY fedac/native/bootloader/splash.efi /usr/local/lib/splash.efi
 
-RUN chmod +x /usr/local/bin/ac-os-flash-helper
+RUN chmod +x /usr/local/bin/ac-os-flash-helper /usr/local/bin/ac-os-nixos-image-helper
 
 ENTRYPOINT ["/usr/local/bin/ac-os-flash-helper"]
