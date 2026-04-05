@@ -11,10 +11,10 @@ let
     tag="$1"
     shift || true
     stamp="$(${pkgs.coreutils}/bin/date -u +%Y%m%dT%H%M%SZ)"
-    out="/mnt/logs/${tag}-${stamp}.txt"
+    out="/mnt/logs/''${tag}-''${stamp}.txt"
     {
-      echo "tag=${tag}"
-      echo "stamp=${stamp}"
+      echo "tag=''${tag}"
+      echo "stamp=''${stamp}"
       echo "version=${gitHash}-${version}"
       for entry in "$@"; do
         echo "$entry"
