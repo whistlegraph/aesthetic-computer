@@ -99,11 +99,11 @@ in
           local stamp
           stamp="$(${pkgs.coreutils}/bin/date -u +%Y%m%dT%H%M%SZ)"
           {
-            echo "tag=${tag}"
-            echo "stamp=${stamp}"
+            echo "tag=''${tag}"
+            echo "stamp=''${stamp}"
             echo "host=ac-native"
             echo "version=${gitHash}-${version}"
-          } > "/mnt/logs/${tag}-${stamp}.txt"
+          } > "/mnt/logs/''${tag}-''${stamp}.txt"
         }
 
         mkdir -p /mnt
