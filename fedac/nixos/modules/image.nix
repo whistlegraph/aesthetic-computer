@@ -6,22 +6,27 @@
   boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
   boot.loader.grub = {
     enable = true;
-    device = "/dev/vda";
+    devices = [ "/dev/vda" ];
     efiSupport = true;
     efiInstallAsRemovable = true;
     configurationLimit = 1;
   };
   boot.loader.timeout = lib.mkForce 0;
   boot.loader.grub.timeoutStyle = lib.mkForce "hidden";
+  boot.growPartition = lib.mkDefault true;
 
   # Make early boot text visible on the real display for debug + fallback boot paths.
   boot.kernelParams = lib.mkAfter [ "console=tty0" ];
 
-  # Let make-disk-image perform a full NixOS install onto a raw disk image.
+  # Match nixpkgs raw-disk expectations so the installed image can boot on
+  # real hardware and expand cleanly after flashing.
   fileSystems."/" = lib.mkForce {
-    device = "/dev/vda";
+    device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
-    autoFormat = true;
+    autoResize = true;
   };
-  virtualisation.useBootLoader = lib.mkForce true;
+  fileSystems."/boot" = lib.mkForce {
+    device = "/dev/disk/by-label/ESP";
+    fsType = "vfat";
+  };
 }
