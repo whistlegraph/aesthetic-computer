@@ -11,7 +11,6 @@ in
   ];
 
   system.nixos.distroName = "AC Native";
-  isoImage.appendToMenuLabel = lib.mkForce "";
 
   # Boot
   boot.loader.systemd-boot.enable = true;
