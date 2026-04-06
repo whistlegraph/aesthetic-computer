@@ -1,16 +1,17 @@
 # Research Direction · Aesthetic Computer
 
-**Last updated**: 2026-03-28
+**Last updated**: 2026-04-06
 **Author**: @jeffrey — [ORCID 0009-0007-4460-4913](https://orcid.org/0009-0007-4460-4913)
 
 ---
 
 ## Current Goals
 
-1. **Get all 6 papers to submission quality** — integrate platter corpus citations, polish arguments, tighten prose
+1. **Get all 27 papers to submission quality** — integrate platter corpus citations, polish arguments, tighten prose
 2. **Submit to open deadlines**: ACM C&C Demos (Apr 16), ICCC Short Papers (Apr 24)
-3. **Build the research moat** — use the 40+ readings library and 94-project software history as scholarly foundation
+3. **Build the research moat** — use the 87+ readings library and 94-project software history as scholarly foundation
 4. **Establish AC's place in computing history** — repo archaeology paper traces the lineage; software history catalogs 94 predecessor projects
+5. **Complete SoSoft readings acquisition** — ~55 remaining texts from Casey Reas' Software Art References list (see TODO below)
 
 ---
 
@@ -140,8 +141,8 @@
 - Three lineage threads: drawing tools → AC pieces, performance tools → multiplayer, dev infrastructure → hot-reload
 
 ### Citation Integration (The Moat)
-- 58 readings in `system/public/assets/papers/readings/text/`
-- **32 of 58 now cited** across paper bibliographies (up from 0 as of 2026-03-10)
+- 87 readings in `system/public/assets/papers/readings/text/` (up from 58 as of 2026-04-06)
+- **32+ now cited** across paper bibliographies (up from 0 as of 2026-03-10)
 - **Batch added 2026-03-18**: Little Schemer, van Engelen, Joy of Clojure, McCarthy 1960, Ted Nelson, 10 PRINT, Kittler, McLuhan, Shklovsky, Adorno, Langer, Fisher across 8 bib files
 - **Prose citations added 2026-03-18**: `\cite{}` calls integrated into 6 paper .tex files (ac, kidlisp, pieces, sustainability, os, complex)
 - **Final Tier 1 batch 2026-03-18**: Ingold, Strudel (Roos & McLean), Staunæs/Stiegler added to bib files AND cited in prose
@@ -166,10 +167,10 @@
 ## Platter Corpus Summary
 
 The research platter (`papers.aesthetic.computer/platter`) contains:
-- **6 papers** (4 arXiv LaTeX + 2 JOSS Markdown)
-- **40+ readings** (PDFs with text extractions)
-- **85 reports** (internal markdown)
-- **144 plans** (internal markdown)
+- **27 papers** (26 arXiv LaTeX + 2 JOSS Markdown) — up from 20 as of 2026-03-28
+- **87 readings** (PDFs with text extractions) — up from 58 as of 2026-04-06
+- **109 reports** (internal markdown)
+- **162 plans** (internal markdown)
 - **8 studies** (internal markdown)
 - **70+ reference items**
 - **94-project software history**
@@ -177,3 +178,84 @@ The research platter (`papers.aesthetic.computer/platter`) contains:
 - **API & data source documentation**
 
 This corpus is the scholarly foundation. Every paper revision should draw from it.
+
+---
+
+## TODO: SoSoft Readings Acquisition
+
+Casey Reas' "Software Art References (2000+)" on `sosoft.arts.ucla.edu/docs` lists 77 texts.
+As of 2026-04-06, we have acquired 18 (14 full-text + 4 SoSoft doc digests). ~55 remain.
+
+### Acquired (14 full-text conversions from open-access PDFs)
+
+| # | Author | Title | Lines | Source |
+|---|--------|-------|-------|--------|
+| 1 | Galloway | *Protocol* (2004) | 10,498 | asounder.org |
+| 2 | Manovich | *Software Takes Command* (2013) | 13,804 | Monoskop |
+| 3 | Fuller | *Behind the Blip* (2003) | 384 | Monoskop (rough OCR) |
+| 4 | Flusser | *Into the Universe of Technical Images* (2011) | 6,910 | readings.teaching-documents.org |
+| 5 | Wark | *A Hacker Manifesto* (2004) | 6,402 | Monoskop |
+| 6 | Kelty | *Two Bits* (2008) | 15,808 | twobits.net (CC BY-NC-SA) |
+| 7 | Chun | "On Software" essay (2005) | 1,133 | Monoskop |
+| 8 | McHugh | *Post Internet* (2019) | 11,839 | Link Editions (CC) |
+| 9 | Quaranta | *Beyond New Media Art* (2013) | 11,337 | Link Editions (CC) |
+| 10 | Quaranta | *In Your Computer* (2011) | 8,511 | Link Editions (CC) |
+| 11 | Galanter | "What Is Generative Art?" (2003) | 894 | philipgalanter.com |
+| 12 | Raymond | *Cathedral and the Bazaar* (rev. ed.) | 11,446 | Monoskop (OPL) |
+| 13 | Goriunova | *Readme 100* (2006) | 5,366 | Monoskop |
+| 14 | Wagenknecht | *Deep Lab* (2014) | 5,482 | Frank-Ratchye STUDIO |
+
+### Pending (known open-access, need different extraction)
+
+- [ ] Manovich — *The Language of New Media* (2001) — scanned PDF on Monoskop, needs OCR (`tesseract` or similar)
+- [ ] Chun — *Programmed Visions* (2011) — MIT Press OA at `direct.mit.edu`, 403'd on direct fetch; try browser download
+- [ ] Fuller (ed.) — *Software Studies: A Lexicon* (2008) — Monoskop blocked; try alternate mirror or manual download
+- [ ] Mansoux & de Valk — *FLOSS+Art* (2008) — Monoskop blocked; try alternate mirror or manual download
+- [ ] Paglen — "Invisible Images" (2016) — full text at `thenewinquiry.com`, needs manual copy (WebFetch refused copyright)
+
+### Not yet searched (remaining ~55 from Casey's 77)
+
+Many are commercially published books without known open-access editions. Priority tiers:
+
+**Tier 1 — most likely findable (exhibition catalogs, institutional publications)**
+- [ ] *010101: Art in Technological Times* (SFMOMA, 2001)
+- [ ] *Abstraction Now* (Künstlerhaus, 2003)
+- [ ] Respini — *Art in the Age of the Internet* (Yale UP, 2018)
+- [ ] Archey & Peckham — *Art Post-Internet* (UCCA, 2014)
+- [ ] Stocker & Schöpf — *Ars Electronica 2003: Code* (Hatje Cantz)
+- [ ] *Coder le monde* (Centre Pompidou, 2018)
+- [ ] Paul & Rellie — *Feedback* (LABoral, 2007)
+- [ ] Bernard & Quaranta — *Holy Fire: Art of the Digital Age* (iMAL, 2008)
+- [ ] Sonic Acts volumes (multiple, 2001–2008)
+- [ ] Schmalstieg — *Manifestos for the Internet Age* (Greyscale Press) — GitHub repo exists
+
+**Tier 2 — commercially published, check Archive.org lending library**
+- [ ] Bourriaud — *Relational Aesthetics* (Les presses du réel, 2002) — Monoskop may have
+- [ ] Bratton — *The Stack* (MIT Press, 2015)
+- [ ] Cubitt — *Practice of Light* (MIT Press, 2014)
+- [ ] Cornell & Halter — *Mass Effect* (MIT Press, 2015)
+- [ ] Harrell — *Phantasmal Media* (MIT Press, 2013)
+- [ ] Hoy — *From Point to Pixel* (Dartmouth, 2017)
+- [ ] Shanken — *Art and Electronic Media* (Phaidon, 2009)
+- [ ] Wilson — *Information Arts* (MIT Press, 2002)
+- [ ] Vesna — *Database Aesthetics* (U Minnesota Press, 2002)
+- [ ] Rinehart & Ippolito — *Re-Collections* (MIT Press, 2014)
+- [ ] Raley — *Tactical Media* (U Minnesota Press, 2009)
+- [ ] Whitelaw — *Metacreation* (MIT Press, 2004)
+- [ ] Anderson — *Technologies of Vision* (MIT Press, 2017)
+
+**Tier 3 — artist monographs, harder to find digitally**
+- [ ] Arcangel — *The Source Digest* (2017)
+- [ ] Cheng — *Emissaries Guide to Worlding* (2018)
+- [ ] Hershman Leeson — *Civic Radar* (2016)
+- [ ] Lozano-Hemmer — *Pseudomatisms* (2016)
+- [ ] Maeda — *Maeda@Media* (2000) and *Creative Code* (2004)
+- [ ] Simon Jr. — *Outside In* (2009)
+- [ ] Sollfrank — *net.art generator* (2004)
+
+### Strategy for remaining texts
+1. **Manual Monoskop download** — several blocked texts exist on Monoskop but need browser-based download
+2. **Archive.org lending library** — many MIT Press titles available via controlled digital lending
+3. **Institutional access** — UCLA library access may cover many MIT Press, Phaidon, Verso titles
+4. **OCR pipeline** — install `tesseract-ocr` for scanned PDFs (Manovich *Language of New Media*)
+5. **Exhibition catalog PDFs** — many institutions post catalog PDFs; search museum websites directly
