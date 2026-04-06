@@ -1,0 +1,342 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The Potter and the Prompt: John Holden's Proto-Cognitive Music Theory and Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{draftcolor}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\np}{\textsc{notepat}}
+
+\begin{document}
+
+\twocolumn[{%
+\begin{center}
+{\acbold\fontsize{20pt}{24pt}\selectfont\color{acdark} The Potter and the Prompt}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} John Holden's Proto-Cognitive Music Theory\\ and Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{draftcolor}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent
+In 1770, a Glasgow potter named John Holden published an \emph{Essay towards a Rational System of Music} that anticipated cognitive science by two centuries. Working from psalm tunes and folk melodies---``our nurses' tunes''---he proposed that music perception depends on unconscious mental acts of grouping, attention, and comparison against an internalized temporal standard he called the \emph{module}. This paper argues that Aesthetic Computer, a contemporary creative computing platform designed as a musical instrument, independently converges on Holden's core principles: that cognition emerges through active engagement with constrained interfaces, that humble materials are epistemologically generative, and that the outsider-practitioner occupies a privileged position for theoretical innovation. We identify specific structural correspondences between Holden's \emph{module} and AC's piece lifecycle, between his theory of attention and AC's immediate-mode rendering, and between his pedagogical use of psalmody and AC's instrument-first learning model. We then propose that AC can serve as a computational laboratory for advancing Holden's unfinished program---testing his claims about subjective rhythmicization, hierarchical grouping, and the tension between universal cognitive mechanisms and culturally specific musical outcomes that Carmel Raz identifies as the central open problem of his legacy.
+\end{quote}
+\vspace{0.8em}
+}]
+
+% ================================================================
+\section{Introduction: Two Instrument Makers}
+% ================================================================
+
+John Holden (1729--1772) was a merchant potter in Glasgow who began his career manufacturing musical instruments, signed himself ``philharmonikos,'' and never held an academic post. Charles Burney dismissed him for producing music that lacked ``graceful elegant melody''~\citep{raz2025}. His theoretical treatise---the \emph{Essay towards a Rational System of Music} (1770)---was largely forgotten for two and a half centuries until Carmel Raz recovered it as a landmark in the history of cognitive science: the earliest detailed account of how the human mind perceives music through unconscious acts of grouping, attention, and temporal comparison~\citep{raz2025}.
+
+\ac{} is a mobile-first runtime for creative computing, built by a single developer across 94 predecessor projects spanning more than a decade. It has no venture funding, no product-market fit, and no tutorial. It boots into a prompt. The first thing you can do is play it. Critics of mainstream software might note that it lacks menus, tooltips, and onboarding flows. Its primary instrument, \np{}, turns a QWERTY keyboard into a synthesizer and uses folk songs as its pedagogical material.
+
+This paper argues that the convergence between Holden's 18th-century theory and AC's 21st-century practice is not accidental. Both emerge from the same structural position: a practitioner who builds instruments, works with humble materials, refuses inherited frameworks, and discovers general principles through sustained engagement with a constrained domain. Both produce theories that professionals in their respective fields have overlooked---precisely because the professional's training obscures what the outsider's practice reveals.
+
+The argument proceeds in three stages. First, we summarize Holden's theory as recovered by Raz (\S\ref{sec:holden}). Second, we identify point-by-point convergences with AC's design philosophy (\S\ref{sec:convergences}). Third, we propose concrete ways AC can advance the problems Holden left unfinished (\S\ref{sec:advancing}).
+
+% ================================================================
+\section{Holden's Theory: A Summary}
+\label{sec:holden}
+% ================================================================
+
+Raz's \emph{Hearing with the Mind: Proto-Cognitive Music Theory in the Scottish Enlightenment}~\citep{raz2025} reconstructs Holden's system across five interrelated claims. We summarize each briefly.
+
+\subsection{The Module}
+
+The heart of Holden's system is the \emph{module}: an internalized temporal unit derived from the key note, against which the mind measures all other pitches. Like the monochord, it is divided and subdivided to produce scale intervals---but unlike the monochord, it is a \emph{mental construct}, ``an introjection of the monochord's quantitative model within the mind''~\citep{raz2025}. The module is not a physical object. It is an abstraction maintained by the listener's cognition, a standard against which incoming sounds are compared, grouped, and hierarchically organized.
+
+Holden uses \emph{relative} rather than absolute values: the module ``grounds a cognitive framework against which other pitches are hierarchically organized and perceived.'' This makes his system fundamentally perceptual rather than acoustical. The question is not what frequencies are present in the air, but how the mind organizes them.
+
+\subsection{Isochronous Grouping}
+
+Holden proposes that ``among the isochronous single vibrations of musical sounds the mind naturally seeks to constitute isochronous compound parcels''---groups of equally spaced units organized hierarchically by the small primes 2 and 3. These nested groupings are cumulative: groups of groups, recursively structured.
+
+This principle explains both pitch (scale degrees as subdivisions of the module by prime factors) and rhythm (metric organization as involuntary accentuation of regular beats). Raz notes that Holden's account of \emph{subjective rhythmicization}---the involuntary accentuation of every $n$th beat in an undifferentiated series---predates Kirnberger's by six years~\citep{raz2025}.
+
+\subsection{Attention as Primary Faculty}
+
+Attention in Holden's system is not a passive spotlight but an active, dual-function faculty. When a listener ``fixes his attention on one sound as a key note,'' other sounds are ``necessarily referred to'' it. Attention also explains consonance and dissonance: when notes ``do not unite, but separately distract the attention of the hearer,'' this constitutes discord.
+
+Holden speaks of attention as ``partly divided'' at all times---selectively focusing on competing tonal centers. Upper and lower voices ``attract most of our attention'' due to perceptual salience. This anticipates modern work on auditory stream segregation and selective attention in music perception.
+
+\subsection{Bottom-Up and Top-Down Processing}
+
+Raz maps Holden's account onto a tripartite processing model:
+
+\begin{itemize}
+\item \textbf{Low-level:} The ear judges regularity, discarding non-isochronous sounds.
+\item \textbf{Mid-level:} The mind decomposes into prime factors, derives the module, and compares incoming intervals to previously established divisions.
+\item \textbf{High-level:} Voicing, register, and harmonic function are determined through the interaction of attention, memory, and expectation.
+\end{itemize}
+
+Crucially, this is not a one-way pipeline. ``Previously held modules, factorings, and fundamentals in implicit memory directly affect perception of new sounds''---top-down processing shapes what the listener hears, not just how they interpret it.
+
+\subsection{The Fundamental Bass as Cognitive Artifact}
+
+Holden reinterprets Rameau's \emph{basse fondamentale} as a mental phenomenon rather than an acoustical one. When the mind encounters a chord, it ``automatically and unconsciously supplies an appropriate accompanying fundamental bass note'' through its grouping of sounds into nested hierarchies of small primes. Where Rameau's mechanism remains ``occult,'' Holden provides a cognitive explanation: the fundamental bass is what happens when the mind tries to make sense of simultaneous sounds using the same prime-factor decomposition it applies everywhere else.
+
+% ================================================================
+\section{The Scottish Enlightenment Context}
+\label{sec:context}
+% ================================================================
+
+Holden did not work in isolation. Raz traces his philosophical foundations to Thomas Reid's common-sense realism, particularly Reid's model of the mind as \emph{active}---directing attention voluntarily, organizing experience through judgment, rather than passively receiving sense impressions in the manner of Hume's associationism~\citep{reid1764, hume1739}.
+
+Reid's innovation was to insist that the mind has agency in deciding what to attend to. Memory preserves identity across time; consciousness operates ``like perception, except that it takes as objects the mind's own operations.'' Reid himself used music as a central example---``the situation of attending to a specific part of a musical texture''---suggesting that the selective, active character of musical listening was part of what led him to his broader theory of mind.
+
+Holden took Reid's active mind and asked: what specifically does it \emph{do} when it hears music? The answer---grouping, subdividing, comparing, attending---constitutes the first detailed cognitive model of music perception. It bridges the gap between traditional music theory (which describes \emph{what} we hear) and cognitive science (which explains \emph{how} we hear it).
+
+This genealogy matters because AC inherits from a parallel tradition. Where Holden draws on Reid, AC draws on Papert's constructionism~\citep{papert1980}, Illich's convivial tools~\citep{illich1973}, and Nelson's vision of personal computing as creative liberation~\citep{nelson1974}. In both cases, the philosophical commitment is the same: the mind is not a passive consumer of inputs but an active constructor of meaning, and the instrument's job is to make that construction visible, audible, and manipulable.
+
+% ================================================================
+\section{Convergences}
+\label{sec:convergences}
+% ================================================================
+
+\subsection{The Module and the Piece Lifecycle}
+
+Holden's module is a mental construct that the listener maintains to parse incoming auditory input. It is derived from the first sounds heard (typically the tonic), and all subsequent perception is organized relative to it. The module is not the music itself---it is the \emph{framework} the mind builds to hear the music.
+
+AC's piece lifecycle operates analogously. Every piece exports functions---\texttt{boot}, \texttt{act}, \texttt{sim}, \texttt{paint}---that together constitute a perceptual loop: initialize a framework (\texttt{boot}), receive input (\texttt{act}), update internal state (\texttt{sim}), produce output (\texttt{paint}). The piece is not a static program; it is a cognitive scaffold that processes time-varying input against an established context, just as the module processes incoming pitches against the key.
+
+The structural correspondence is precise. Holden's module is \emph{derived from} the first sounds and then \emph{maintained by} the mind as a reference. AC's \texttt{boot} function establishes the piece's initial state, and then \texttt{sim} and \texttt{paint} maintain and express it frame by frame. In both systems, the framework is:
+
+\begin{enumerate}
+\item Established from initial input
+\item Maintained through time as a reference standard
+\item Used to organize and interpret subsequent events
+\item Relative, not absolute (Holden's module uses ratios; AC's screen coordinates scale to any display)
+\end{enumerate}
+
+This mapping was described in AC's own theoretical writing before any encounter with Holden: ``The piece lifecycle maps onto the perception-action cycle described by enactive cognitive science: an agent perceives its environment (\texttt{act}), updates its internal state (\texttt{sim}), and produces an output (\texttt{paint})''~\citep{acpieces2026}.
+
+\subsection{Attention and Immediate-Mode Rendering}
+
+Holden insists that attention is always active, always ``partly divided,'' always selecting among competing stimuli. Music exists only in the listener's sustained act of attending to it. Without attention, there is no module, no key, no fundamental bass---only undifferentiated sound.
+
+AC's immediate-mode rendering engine embodies the same principle computationally. Every frame is drawn from scratch. There is no retained scene graph, no persistent visual state, no DOM. ``This is an aesthetic commitment to the present tense of computation. The piece exists only in its execution. A screenshot captures one frame of a process that has no stable state to capture''~\citep{acgoodiepal2026}.
+
+In Holden's system, the moment the listener stops attending, the music stops being music. In AC, the moment the renderer stops drawing, the screen goes blank. Both systems refuse to cache, store, or persist the act of perception. Both insist that the thing perceived is constituted \emph{in the act of perceiving it}---a position that aligns with Reid's active-mind philosophy and, independently, with Varela's enactivism~\citep{varela1991}.
+
+Friedrich Kittler argued that software obscures the material reality of computation~\citep{kittler1999}. AC's immediate-mode model resists this by ``making the relationship between code and screen explicit---every pixel is drawn every frame, with nothing hidden behind abstraction layers''~\citep{acmain2026}. Holden's module resists a parallel obscuring: where Rameau's fundamental bass is ``occult,'' the module makes the cognitive act of hearing \emph{explicit}---it names the mental operation and describes its mechanism.
+
+\subsection{Constraint as Epistemological Advantage}
+
+Raz makes a remarkable observation about Holden's limited musical training: ``his rather weak musical background may paradoxically have been an advantage---if not a prerequisite---in his creation of an innovative theory of music''~\citep{raz2025}. Holden worked from psalm tunes and folk melodies because that was what he knew. This constraint forced him to theorize from the simplest possible materials, which turned out to be exactly the right starting point for a theory of universal cognitive principles.
+
+AC's relationship to constraint is identical. The system is built by one person. It runs on minimal hardware. Its primary instrument maps notes to a typing keyboard. Its song library draws from folk traditions. These are not compromises---they are design decisions that produce theoretical insights unavailable to well-resourced, feature-complete platforms.
+
+The folk-songs paper makes this explicit: ``Folk songs evolved to be playable without notation, memorizable without instruments, and forkable without permission. These properties---constrained pitch range, repetitive structure, oral transmissibility---make folk melodies structurally ideal for \np{}''~\citep{acfolk2026}. Passmore et al.'s finding that ``note changes with smaller melodic impact are more likely to survive'' describes an evolutionary selection pressure toward simplicity~\citep{passmore2023}---the same simplicity that gave Holden his ``nurses' tunes'' and gave AC its song mode.
+
+The parallel extends to the practitioners themselves. Holden signed himself ``philharmonikos''---not a professional musician but an amateur lover of music, closer to the mathematical ``philomath'' than to the concert virtuoso. AC's author is not a computer scientist by training. In both cases, the outsider position is generative. The professional's expertise comes with inherited frameworks that constrain what questions can be asked. The outsider, working from practice rather than curriculum, asks questions the field has not formulated.
+
+\subsection{Our Nurses' Tunes: Folk Materials as Foundation}
+
+Holden explicitly chose to illustrate his theory with ``common Psalm tunes of the church, [which] are more universally known than any other pieces of music\ldots as we should first learn to spell and read our mother-tongue, so we should first learn to apply the scale\ldots to our nurses' tunes''~\citep{raz2025}. By asking readers to reflect on melodies familiar since childhood, he ensured his insights were ``available to all, regardless of their background and training.''
+
+AC's \np{} makes the same pedagogical move. Song mode transforms the instrument into a guided interface where ``only the correct note is active, and pressing it advances the song. The player cannot make a mistake---they can only wait\ldots The instrument teaches the song by refusing to let you fail''~\citep{acplork2026}. This mirrors Orff and Kod\'{a}ly pedagogies, which constrain the instrument to match the learner's ability---but it also mirrors Holden's insistence that theory should begin with the melodies everyone already knows.
+
+The URL-as-oral-tradition model deepens this connection. ``A notepat song encoding is a URL. Sharing a song is sharing a link. Modifying a song is editing a text string and sharing a new link. The `oral tradition' becomes a tradition of URLs''~\citep{acfolk2026}. The International Folk Music Council identified continuity, variation, and community selection as the three properties of the folk process. AC's URL-based sharing satisfies all three: the link persists (continuity), anyone can edit it (variation), and social sharing determines which encodings survive (selection).
+
+\subsection{Embodied Learning without Curriculum}
+
+Holden's theory describes learning as a process the mind performs \emph{involuntarily}: ``this accent\ldots arises from involuntary acts of attention.'' The listener does not decide to group beats into fours---the mind does it automatically, and the conscious experience of meter is a consequence, not a cause. Learning to hear music is not a matter of being taught rules but of having the mind's innate grouping operations activated by appropriate input.
+
+AC's pedagogical philosophy makes the same claim about learning to compute: ``There is no tutorial. There is no `getting started' guide\ldots The user encounters the prompt and begins typing. The system responds. Learning happens through exploration, failure, and the gradual accumulation of memorized paths---the same way one learns an instrument''~\citep{acgoodiepal2026}. This ``produces a different kind of knowledge than tutorial-based systems: embodied, improvisational, personal.''
+
+Both reject the assumption that competence requires explicit instruction. Both treat the learner's existing cognitive capacities as sufficient---given the right interface. Holden trusts the mind's grouping faculty; AC trusts the user's capacity to explore. Papert's constructionism provides the modern theoretical frame: ``Logo was not about teaching programming. It was about giving children a medium for thinking about thinking''~\citep{papert1980}. The prompt, like the psalm tune, is a medium for thinking---not a lesson plan.
+
+\subsection{Notation as Performative Interface}
+
+Holden's \emph{Essay} is itself a kind of score: it asks the reader to perform cognitive experiments on familiar melodies, to introspect on what happens when they attend to different parts of the musical texture. The theoretical text is not a passive description of facts but an invitation to reproduce specific perceptual experiences.
+
+AC's whistlegraph---a graphic score in which drawing, singing, and lyrics are performed simultaneously---operates on the same principle: ``The finished drawing serves as a graphic score\ldots Anyone who can see the drawing and recall the melody can perform the whistlegraph. The score teaches you how to play it''~\citep{acwhistlegraph2026}. When AC renamed its README.md to SCORE.md, it imported this framework explicitly: the project document is ``a set of instructions for producing a temporal event,'' addressed to both human contributors and automated systems~\citep{acscore2026}.
+
+In both cases, the notation is not a representation of music or software but an \emph{interface} for producing it. The score is performative, not descriptive. Goodiepal's position, which AC adopts, extends this further: ``Goodiepal's scores are not instructions for human performers. They are documents addressed to any system capable of interpretation''~\citep{acgoodiepal2026}. Holden's \emph{Essay} addresses any mind capable of hearing psalm tunes. The document and the reader co-produce the theory.
+
+% ================================================================
+\section{Advancing Holden's Program}
+\label{sec:advancing}
+% ================================================================
+
+Raz identifies several problems that Holden's system raises but does not resolve. AC is positioned to advance each of them---not as a historical exercise but as a living computational laboratory.
+
+\subsection{The Module as Testable Computational Construct}
+
+Holden proposes the module as a mental construct but has no way to observe it directly. It remains a theoretical posit. AC can make it computational.
+
+A piece could implement the module explicitly: derive a temporal reference from the first pitch played, subdivide it by prime factors to generate a scale, and render the resulting tonal framework visually in real time. The user would see their own module---the cognitive scaffolding Holden describes---drawn on screen as they play. Changing the key note would restructure the visual framework. Playing ambiguous intervals would show the module in tension, divided between competing interpretations.
+
+This is not a simulation of Holden's theory but an \emph{instantiation} of it. The piece lifecycle already mirrors the module's operation: establish a reference (\texttt{boot}), maintain it against incoming input (\texttt{act}/\texttt{sim}), express it as perceptual output (\texttt{paint}). Building a Holden module piece would make the implicit correspondence explicit and testable.
+
+\subsection{Subjective Rhythmicization in Interactive Systems}
+
+Holden's claim that the mind involuntarily accents every $n$th beat in an undifferentiated series is one of his most testable predictions. In a conventional listening experiment, the stimulus is fixed. But in an interactive system like \np{}, the user \emph{produces} the beats themselves, at their own tempo, with their own variations.
+
+An AC piece could present an isochronous click track and let the user tap along, then visualize where the user's involuntary accents fall. Alternatively, it could present no accents at all and ask the user to indicate when they \emph{hear} an accent in a perfectly uniform sequence---replicating Holden's thought experiment as a real-time interactive task.
+
+The bare-metal AC Native OS, which runs at 192kHz audio with 128-sample periods, provides the temporal precision needed for such experiments. The input system already captures analog key pressure via the NuPhy HE protocol. Combining pressure-sensitive input with high-resolution audio output creates an instrument capable of measuring the fine-grained timing variations that subjective rhythmicization produces.
+
+\subsection{The Universalism Problem}
+
+Raz identifies the central unresolved tension in Holden's system: he claims to describe universal cognitive mechanisms (grouping by small primes, attention, the module), but his evidence comes entirely from Scottish psalm tunes and the Western diatonic scale. He writes that ``the major scale has always been, and will always be the same in all ages and countries: it seems to have been one of those laws which the great Author of Nature prescribed to himself.'' This is a strong universalist claim. It is also empirically wrong.
+
+AC is positioned to address this because its folk-song infrastructure is not culturally bounded. The URL-encoding system that represents melodies as shareable strings can encode any scale system---pentatonic, hexatonic, microtonal, or otherwise. Song mode can constrain the keyboard to any set of intervals, not just the Western diatonic. The folk-process model (continuity, variation, selection) applies to any oral tradition.
+
+A research program could use AC to test the \emph{separability} of Holden's claims: which cognitive principles (grouping, prime-factor decomposition, modular comparison) hold across different scale systems, and which are artifacts of the diatonic context he assumed? If the module is truly a universal cognitive mechanism, it should organize pentatonic and chromatic materials with the same facility. If grouping by 2 and 3 is innate, it should shape rhythmic perception in traditions that emphasize 5, 7, or irregular meters. AC provides the platform to test these predictions interactively, with users from any musical background.
+
+\subsection{Attention Tracking in Real-Time Creative Computing}
+
+Holden theorized about attention but could only observe its effects indirectly, through the music-theoretical consequences of different attentional states. AC can observe attention directly.
+
+The platform already tracks input events at millisecond resolution: keystrokes, touch coordinates, mouse position, analog key pressure. In \np{}, these events correspond to musical decisions---which note to play, when to play it, how hard to press. The pattern of a user's input over time is a trace of their attention: which register they favor, whether they track the melody or the harmony, how long they sustain a note before moving on.
+
+An AC piece could visualize this attentional trace in real time, showing the user where their attention is directed within the tonal framework---essentially making Holden's ``divided attention'' visible. This would not just illustrate the theory; it would generate data about how attention actually behaves in interactive musical contexts, where the listener and performer are the same person.
+
+\subsection{Anne Young's Games and Ludic Pedagogy}
+
+Raz's concluding chapter describes Anne Young's ``music-theoretical game set''---a synthesis of music theory, antagonistic gameplay, and juvenile pedagogy from the late 18th century. This is arguably the first ludic music-theory interface: learning through play, within formal constraints, with an opponent.
+
+AC already operates in this space. Song mode is a game: play the right note to advance, fail to play it and wait. The whistlegraph is a game: draw, sing, and speak simultaneously, maintaining coordination across three modalities. The prompt itself is a game: guess the right command, discover new paths, build a repertoire.
+
+A direct implementation of Young's game set as an AC piece would complete a remarkable circuit: an 18th-century Scottish pedagogical game, recovered by a 21st-century musicologist, instantiated in a 21st-century computing instrument whose design philosophy independently recapitulates the theory that motivated the game in the first place.
+
+% ================================================================
+\section{The Outsider's Advantage}
+\label{sec:outsider}
+% ================================================================
+
+The deepest convergence between Holden and AC is not any specific technical claim but a shared epistemological position: \emph{the outsider-practitioner sees what the specialist cannot}.
+
+Holden was not a professional musician, and this was his advantage. Raz writes: ``his rather weak musical background may paradoxically have been an advantage---if not a prerequisite.'' Professional musicians in 1770 inherited Rameau's framework, which provided answers to questions about harmony and tonality that Holden did not know to take for granted. Because he lacked the professional's inherited framework, he was forced to ask: what does the mind \emph{actually do} when it hears a chord? The answer he produced anticipated cognitive science by two hundred years.
+
+AC occupies the same position relative to mainstream software. It does not inherit the assumptions of product-market fit, user onboarding, feature parity, or platform economics. It asks: what does a computer \emph{actually do} when someone plays it? The answers it produces---immediate-mode as aesthetic commitment, the prompt as instrument, the URL as oral tradition, the piece as cognitive extension---are invisible from inside the software industry's inherited frameworks.
+
+Illich named this position. A ``convivial tool'' is one that ``expands personal autonomy'' rather than ``requiring institutional mediation''~\citep{illich1973}. Holden's \emph{Essay} is a convivial tool for thinking about music: it requires only a mind and some psalm tunes. AC is a convivial tool for creative computing: it requires only a keyboard and a URL. Both resist the professionalization that would make their insights inaccessible to the people who most need them.
+
+Nelson wrote in 1974: ``you can and must understand computers NOW''~\citep{nelson1974}. Holden might have written, in 1770: you can and must understand music NOW---not through treatises on counterpoint and figured bass, but through the tunes you already know, the attention you already possess, the grouping your mind already performs. Both are radical democratic claims about who is qualified to understand the systems that shape their lives.
+
+% ================================================================
+\section{Conclusion: A Living Laboratory}
+% ================================================================
+
+Holden's \emph{Essay towards a Rational System of Music} was forgotten for 250 years. It took Raz's recovery to show that an 18th-century potter had anticipated the cognitive science of music with extraordinary precision and detail. The theory was ahead of its time---but it was also ahead of its \emph{tools}. Holden had no way to instantiate the module, to visualize attention, to test grouping interactively, to compare his predictions across musical traditions. He had only the psalm tunes, the printed page, and the reader's willingness to introspect.
+
+\ac{} provides the tools Holden lacked. Not because it was designed for this purpose, but because it was designed from the same position---an instrument maker working with humble materials, building a system that makes cognition audible and visible. The piece lifecycle is the module. Immediate-mode rendering is sustained attention. Song mode is ``our nurses' tunes.'' The prompt is the \emph{Essay}'s invitation to begin.
+
+The proposal is not to build a Holden simulator. It is to recognize that AC already \emph{is} a Holden-like system---a platform where the mind's musical cognition is made explicit, manipulable, and shareable---and to pursue the research program this recognition enables. The module can be made computational. Subjective rhythmicization can be measured interactively. The universalism question can be tested across scale systems. Attention can be tracked in real time.
+
+Holden asked what the mind does when it hears music. AC asks what the mind does when it plays a computer. The answer, this paper argues, is the same: it groups, it attends, it compares against an internalized standard, and it constructs meaning from the simplest available materials. The potter and the prompt are working on the same problem. It is time they worked together.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

@@ -180,6 +180,11 @@ const PAPER_MAP = {
     siteName: "ucla-arts-funding-26-arxiv",
     title: "Two Departments, One Building",
   },
+  "arxiv-holden": {
+    base: "holden",
+    siteName: "potter-and-prompt-26-arxiv",
+    title: "The Potter and the Prompt",
+  },
 };
 
 function texName(base, lang) {
@@ -583,6 +588,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.",
+    },
+    "potter-and-prompt-26-arxiv": {
+      detail: "John Holden's Proto-Cognitive Music Theory and Aesthetic Computer &middot; arXiv 7pp",
+      abstract:
+        "The Potter and the Prompt argues that AC independently converges on the core principles of John Holden's 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden's unfinished program on grouping, attention, and the module.",
     },
   };
 
