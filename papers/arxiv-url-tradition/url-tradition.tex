@@ -205,6 +205,8 @@ The World Wide Web~\citep{berners-lee1994www} introduced the URL: a universal, h
 
 Creative computing environments that embrace the URL inherit this contract. Those that don't---that hide work behind login walls, project IDs, or native app containers---break it. This paper argues that URL-addressability constitutes a tradition in creative computing, one that Aesthetic Computer consciously extends.
 
+Between creative coding tools and the art web lies an underexamined form: the \emph{single-serving site}---a URL that does exactly one thing. These sites, named by Jason Kottke in 2008~\citep{kottke2008singleserving}, represent the URL tradition at its purest: the domain name \emph{is} the content. \code{IsItChristmas.com}, \code{zombo.com}, \code{DoNothing.com}---each is a creative computing artifact whose address is inseparable from its function. AC's pieces inherit this sensibility: \code{aesthetic.computer/wand} does one thing. The URL tells you what.
+
 % ============ 2. THE STACK WITHOUT A URL ============
 \section{The Stack Without a URL}
 
@@ -231,7 +233,41 @@ Scratch~\citep{resnick2009scratch} solved the sharing problem within its own eco
 
 The web itself was the first URL-native creative computing environment. A hand-written HTML page at \code{geocities.com/\textasciitilde{}user/art.html} was simultaneously a creative artifact and a shareable address. The early web understood something that later platforms forgot: \emph{making} and \emph{addressing} should be the same act~\citep{nelson1974computer}.
 
-Net.art practitioners of the 1990s---JODI, Olia Lialina, Vuk \'{C}osi\'{c}---exploited this identity. The URL was material. Lialina's \emph{My Boyfriend Came Back from the War} (1996) was inseparable from its address. The work \emph{was} the URL. The Art Happens Here anthology documents this moment when the address became the medium~\citep{connor2019artanthology}.
+Net.art practitioners of the 1990s exploited this identity with surgical precision. The URL was not infrastructure supporting the work. The URL \emph{was} the work.
+
+JODI's \code{wwwwwwwww.jodi.org} (1995) used the domain name itself as an art object~\citep{jodi1995wwwwwwwww}. The extra w's were the piece. The browser rendered incomprehensible green text on a black background; the real content was hidden in the HTML source. The URL was the title, the gallery wall, and the doorway simultaneously.
+
+Olia Lialina's \emph{My Boyfriend Came Back from the War} (1996) existed at a specific address: \code{teleportacia.org/war/}~\citep{lialina1996boyfriend}. The work was a series of nested frames that fragmented a post-war narrative into clickable shards. You could not separate the piece from its URL. Every copy, every mirror, every screenshot was a degradation. The URL was the original. Later, Lialina documented the personal home page as a form of folk art~\citep{lialina2005vernacular}---the ``under construction'' GIF, the guest book, the hit counter---all artifacts of people learning to occupy an address.
+
+The Art Happens Here anthology documents this moment when the address became the medium~\citep{connor2019artanthology}. What net.art understood, and what creative computing environments repeatedly forget, is that the URL is not a pointer to the work. The URL is a \emph{material} of the work, the way canvas is a material of painting. An environment that generates opaque URLs---\code{/projects/abc123}---is like handing a painter a canvas with no surface texture. Technically functional. Aesthetically dead.
+
+\subsection{Single-Serving Sites (2000s)}
+
+In 2008, Jason Kottke named a form that had been accumulating for years: the \emph{single-serving site}~\citep{kottke2008singleserving}. A single-serving site is a website with one page, one purpose, and---crucially---a domain name that \emph{is} the interface. You don't navigate to it. You read the URL and you already know.
+
+The canonical examples: \code{IsItChristmas.com} (says ``NO'' 364 days a year, ``YES'' on December 25th). \code{HasTheLargeHadronCollider\-DestroyedTheWorldYet.com} (says ``NO''). \code{zombo.com} (tells you, in an infinite loop, that you can do anything at Zombo.com)~\citep{zombocom1999}.
+
+What makes single-serving sites relevant to creative computing is their purity of address. There is no app to open, no account to create, no content to scroll through. The URL is the entire user experience. The domain name is the title, the interface, and the punchline. Many are jokes. Some are art. A few are both.
+
+The form peaked in the late 2000s and early 2010s, when domain registration was cheap and the smartphone browser was becoming universal. But the sensibility never died. It migrated into microtools: \code{WhatTheCommit.com} (random commit messages), \code{cat-bounce.com} (bouncing cats), \code{pointerpointer.com} (a photo pointing at your cursor). Each is a piece of creative computing that exists entirely as an address.
+
+\subsection{The Tilde and the Personal URL}
+
+Before platforms, the web had tildes. A university account gave you \code{cs.university.edu/\textasciitilde{}username/}, and what you put there was your own. The tilde was a marker of personhood---a human being lives at this address~\citep{dirksen2014tilde}.
+
+\code{tilde.club}~\citep{ford2014tildeclub}, launched by Paul Ford in 2014, revived this tradition as a deliberate act of refusal. In a web of platforms, feeds, and algorithmic timelines, tilde.club gave each member a home page at \code{tilde.club/\textasciitilde{}username}---nothing more. No likes, no followers, no analytics. Just a URL and a text editor.
+
+Neocities (2013) extended the revival further, explicitly positioning itself as a successor to GeoCities~\citep{neocities2013}. Every Neocities site gets a URL at \code{username.neocities.org}. The platform's entire philosophy is that the web is a creative medium and the URL is how you claim your piece of it.
+
+AC's handle system (\code{aesthetic.computer/@user/piece}) inherits from the tilde tradition: the \code{@} is the new \code{\textasciitilde{}}, marking the boundary where platform namespace ends and personal namespace begins.
+
+\subsection{The Bio Link and URL-as-Identity}
+
+The rise of Instagram and TikTok---platforms that deliberately suppress outbound links---created a new genre: the \emph{bio link}. Linktree (2016) and its imitators (\code{linktr.ee/username}) turned the URL into an identity document: a single page listing everything you are and everything you make~\citep{zaccaria2016linktree}.
+
+The bio link is a degraded form of the personal URL. Where a tilde page or a Neocities site \emph{is} the creative work, a Linktree is a \emph{menu of exits}---a way to escape the platform that suppressed your URL in the first place. But it confirms the thesis: even inside walled gardens, people fight to have an address.
+
+AC sidesteps the bio-link problem entirely. Every piece is already a URL. A user's published work is already a list of addresses. There is no need for a landing page because every piece \emph{is} a landing page.
 
 \subsection{Glitch (2017)}
 
@@ -290,6 +326,12 @@ The \code{@} prefix signals authorship. The handle is an address within an addre
 
 We argue that URL-addressability is not a feature added to a creative computing environment but a \emph{medium property} that reshapes every aspect of how the environment is used.
 
+Galloway's \emph{Protocol}~\citep{galloway2004protocol} demonstrates that technical addressing schemes are not neutral. DNS, TCP/IP, HTTP---each is a political structure disguised as plumbing. The URL is the human-facing layer of this structure: it is where protocol becomes visible, where addressing becomes an act of \emph{naming}. To name a piece \code{notepat} and give it the address \code{aesthetic.computer/notepat} is to make a political claim: this thing exists, it has a place in the world, and anyone who knows its name can reach it.
+
+Kittler wrote that ``there is no software''~\citep{kittler1995nosoftware}---that all software is an abstraction over voltage differentials in silicon. The URL is perhaps the most audacious abstraction of all: it claims that a sequence of characters typed into a browser can reliably summon a specific computational experience from a specific machine across the planet. Most of the time, it works. This is not a minor miracle. It is the infrastructure that makes creative computing \emph{social}---that allows a piece to travel from the mind of its maker to the screen of a stranger.
+
+Steyerl's ``poor image''~\citep{steyerl2009poorimage} circulates precisely because it has an address. A JPEG shared on social media is degraded---compressed, rescaled, watermarked. But it \emph{moves}. The URL enables this movement. A Processing sketch locked in a \code{.pde} file is a high-resolution artifact that nobody sees. An AC piece at a memorable URL is a poor image in the best sense: it travels light and lands everywhere.
+
 \subsection{Pedagogy}
 
 A teacher says: ``Go to aesthetic.computer/notepat.'' Every student is instantly in the same piece. No login required. No app to install. No instructions to follow beyond typing a URL. The URL \emph{is} the lesson plan's entry point.
@@ -312,9 +354,21 @@ The QR code resolves to the piece URL. The piece runs in any browser. No app sto
 
 When every piece is a URL, conversation becomes navigation. In AC's chat system, typing a piece name in backticks creates a clickable link. Saying ``try \code{wand}'' in chat is the same as sharing a URL. The social layer and the addressing layer collapse into one.
 
+Bourriaud's \emph{relational aesthetics}~\citep{bourriaud2002relational} proposed that art's raw material is human encounter. The URL is the infrastructure of encounter on the web. Every shared link is a micro-invitation: come see this, come be in this space, come make something here. AC's multiplayer pieces extend this---when two people visit the same URL simultaneously, they are in the same computational space. The URL is not just a pointer; it is a \emph{meeting point}.
+
+Quaranta~\citep{quaranta2013beyond} argues that the distinction between ``new media art'' and ``contemporary art'' collapses when the internet becomes context rather than medium. The URL is what collapses it. A painting in a gallery has a location. A piece at \code{aesthetic.computer/wand} has an \emph{address}. The difference is that anyone in the world can visit the address. The gallery requires a plane ticket. The URL requires a browser.
+
 \subsection{Authorship}
 
 Publishing a piece on AC means claiming a word. \code{@niki/flower} is Niki's flower. The URL is the signature. Unlike a gallery wall label or a credits screen, the URL is present in every context where the work appears---in the browser bar, in the share link, in the QR code. Authorship is encoded in the address, not metadata.
+
+McHugh's \emph{Post Internet}~\citep{mchugh2019postinternet} documents the moment when artists stopped treating the internet as a separate domain and began treating it as the default context for all cultural production. In this frame, a URL is not a ``digital'' object---it is simply an object. The question is not whether creative work should have a URL, but why anyone would make creative work that \emph{doesn't} have one.
+
+\subsection{Freedom}
+
+Wark's \emph{A Hacker Manifesto}~\citep{wark2004hacker} insists that information must be free---not as in ``free beer'' but as in free to move, to be addressed, to be found. The URL is the minimum unit of this freedom. A piece of creative computing that has no URL is a piece that can only be experienced by the person who made it. It is private by default. The URL makes it public by default. This is not a technical distinction. It is a political one.
+
+The app store reverses this polarity. An iOS app is private by default and public only through the grace of a corporation that takes 30\% of every transaction. The URL tradition says: put it on the web, give it an address, and let anyone who knows the address walk in. No toll booth. No gatekeeper. No cut.
 
 % ============ 6. THE TRADITION ============
 \section{The Tradition}
@@ -324,33 +378,67 @@ The URL tradition in creative computing runs:
 \begin{enumerate}
 \item \textbf{HyperCard} (1987): cards and stacks, no address, bound to disk.
 \item \textbf{The Web} (1991): every document is a URL. The address \emph{is} the work.
+\item \textbf{GeoCities} (1994): the personal URL. \code{\textasciitilde{}user/page.html} as creative identity.
 \item \textbf{Net.art} (1995--): artists exploit the URL as material and medium.
+\item \textbf{zombo.com} (1999): the single-serving site. Domain name = content = interface.
 \item \textbf{Processing} (2001): creative coding, but no native URL. Export required.
+\item \textbf{Single-serving sites} (2008): Kottke names the form. The URL \emph{is} the joke, the tool, the artwork.
 \item \textbf{Scratch} (2007): project URLs, but opaque and runtime-dependent.
+\item \textbf{Neocities} (2013): GeoCities revival. The personal URL fights back.
+\item \textbf{tilde.club} (2014): the tilde as radical simplicity. One page, one person, one address.
 \item \textbf{Glitch} (2017): instant URLs, forkable, live from first keystroke.
 \item \textbf{p5.js Editor} (2018): sketch URLs, but editor-dependent and opaque.
-\item \textbf{Aesthetic Computer} (2022): the prompt \emph{is} the address bar. Every piece is a memorizable top-level path. No intermediary.
+\item \textbf{Aesthetic Computer} (2022): the prompt \emph{is} the address bar. Every piece is a memorizable top-level path. No intermediary. Single-serving sensibility at platform scale.
 \end{enumerate}
 
-Each step makes the URL more central. AC's contribution is making the URL \emph{the only interface}. There is no other way in. You type a word. You are there.
+Each step makes the URL more central. The single-serving site proved that one URL could be an entire creative work. AC's contribution is making \emph{every} piece a single-serving site---each a word, each a world, each a URL that is its own complete interface. There is no other way in. You type a word. You are there.
 
 % ============ 7. BERNERS-LEE'S COOL URIS ============
 \section{Cool URIs and the Forgetting Web}
 
 Berners-Lee wrote in 1998: ``Cool URIs don't change''~\citep{berners-lee1998cool}. The web was designed for permanence. Every URL was supposed to be a promise.
 
-The modern web breaks this promise constantly. Social media posts get deleted. SaaS tools sunset. Startups fold. The creative computing platforms of the 2010s---many built on venture funding---are particularly fragile. When a platform dies, every URL it ever issued dies with it.
+The modern web breaks this promise at industrial scale. A 2024 Pew Research study found that 38\% of web pages that existed in 2013 are no longer accessible~\citep{pew2024linkrot}. Government pages, news articles, academic citations---all vanishing. The problem is worse for creative work: Flash sites are gone. GeoCities is gone. Vine URLs resolve to nothing. Each dead link is a piece of culture that lost its address.
 
-AC confronts this by being open-source, self-hostable, and URL-first. If \code{aesthetic.computer} disappears, the pieces still run on any instance. The URL is portable because the runtime is portable. The cool URI survives because it is not bound to a single server---it is bound to a word.
+Social media accelerated the crisis by making URLs \emph{disposable}. A tweet, a story, a post---each gets a URL, but the platform treats it as ephemeral. The URL is not a promise; it is a receipt. The platform reserves the right to revoke it at any time, for any reason, or for no reason at all~\citep{hrw2020videounavailable}.
 
-% ============ 8. CONCLUSION ============
+Single-serving sites, paradoxically, are among the most durable artifacts on the web. \code{zombo.com} has been online since 1999---over 25 years of uninterrupted service~\citep{zombocom1999}. \code{IsItChristmas.com} endures. These sites survive because they have no dependencies, no backend, no business model. The simplicity that makes them single-serving also makes them permanent.
+
+AC confronts link rot by being open-source, self-hostable, and URL-first. If \code{aesthetic.computer} disappears, the pieces still run on any instance. The URL is portable because the runtime is portable. The cool URI survives because it is not bound to a single server---it is bound to a word. And like the best single-serving sites, an AC piece that loads in a browser today should load in a browser in 2050---the dependency is the web itself.
+
+% ============ 8. THE URL AGAINST THE APP ============
+\section{The URL Against the App}
+
+The app store model represents the anti-URL tradition. An iOS app has no address. It has a listing in a catalog controlled by a single corporation. You cannot link to a running state inside the app. You cannot share what you see without screenshotting it. The app is a return to the HyperCard problem: powerful software trapped on the device, with no address in the world.
+
+The ``app-ification'' of the web---single-page applications that break the back button, require JavaScript to render a single paragraph, and generate URLs that encode nothing human-readable---is a subtler version of the same regression. The URL still exists, but it has been hollowed out. It points to a shell that must be inflated by a JavaScript runtime before anything is visible.
+
+AC pieces run in the browser but they behave like documents, not apps. The URL loads. The piece runs. There is no loading screen, no splash page, no onboarding flow. The URL tradition demands that the address deliver its content directly, without intermediaries or prerequisites. A piece should feel like clicking a link felt in 1995: instant, complete, there.
+
+% ============ 9. THE DEATH OF THE ADDRESS BAR ============
+\section{The Death of the Address Bar}
+
+Mobile browsers hide the address bar. Safari on iOS collapses it to a domain name. Chrome on Android tucks it behind a gesture. The full URL---the thing Berners-Lee said was the most important interface on the web---is treated as a technical detail that users shouldn't have to see.
+
+This is not a usability improvement. It is an ideological choice. Platforms benefit when users don't know where they are. A user who can see and modify the address bar is a user who can leave. A user who can't is a user who is \emph{contained}---inside the app, inside the feed, inside the walled garden.
+
+AC pushes back by making the URL the \emph{only} interface. There is no app. There is no feed. The prompt is a text field that accepts a word and turns it into a URL. If the mobile browser hides the address bar, the AC prompt replaces it. The first thing you see is a cursor. The first thing you do is type a word. The word is the address. The address is the world.
+
+% ============ 10. CONCLUSION ============
 \section{Conclusion}
 
-The URL is the most important interface in computing. It is the only universal addressing scheme that works across every device, every platform, every medium. Creative computing environments that embrace the URL---that make every artifact addressable, shareable, memorizable---participate in a tradition that runs from the web itself through net.art, Glitch, and now Aesthetic Computer.
+The URL is the most important interface in computing. It is the only universal addressing scheme that works across every device, every platform, every medium. It is the infrastructure of encounter, the minimum unit of information freedom, the material of net.art, the punchline of single-serving sites, and the identity layer of the personal web.
 
-AC's design makes the URL not just present but \emph{primary}. The prompt is the address bar. The piece name is the URL. The URL is the identity, the distribution channel, the pedagogical entry point, and the social object. There is nothing else.
+Every force in contemporary computing conspires to kill the URL. Apps hide it. Platforms suppress it. Shorteners mangle it. SPAs hollow it out. Mobile browsers tuck it away. The URL tradition is not a historical curiosity---it is an active resistance.
 
-This is not minimalism for its own sake. It is the recognition that in a networked world, the most powerful thing a creative tool can give you is a \emph{good address}.
+Creative computing environments that embrace the URL---that make every artifact addressable, shareable, memorizable---participate in a tradition that runs from Berners-Lee's cool URIs through net.art's material URLs, single-serving sites' domain-name-as-content, the tilde's radical personhood, and Glitch's instant forkability.
+
+AC's design makes the URL not just present but \emph{primary}. The prompt is the address bar. The piece name is the URL. The URL is the identity, the distribution channel, the pedagogical entry point, the social object, the authorship claim, and the political stance. There is nothing else.
+
+Every AC piece is a single-serving site. Every AC user has a tilde. Every AC path is a cool URI that, by design, will never change. The URL tradition does not end. It gets typed into a prompt and pressed Enter.
+
+\vspace{0.3em}
+\noindent\emph{The most powerful thing a creative tool can give you is a good address.}
 
 \vspace{1em}
 \noindent\rule{\columnwidth}{0.5pt}
