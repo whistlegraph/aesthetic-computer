@@ -213,17 +213,20 @@
 
 % === LISTINGS OVERFLOW PREVENTION ===
 % Force line breaking in code listings on narrow cards.
+% Only applies when the paper actually loads the listings package.
 \AtBeginDocument{%
-  \lstset{
-    breaklines=true,
-    breakatwhitespace=false,
-    breakautoindent=true,
-    postbreak=\mbox{\textcolor{acgray}{$\hookrightarrow$}\space},
-    basicstyle=\ttfamily\footnotesize,
-    columns=fullflexible,
-    xleftmargin=0.3em,
-    xrightmargin=0.3em,
-  }%
+  \@ifpackageloaded{listings}{%
+    \lstset{
+      breaklines=true,
+      breakatwhitespace=false,
+      breakautoindent=true,
+      postbreak=\mbox{\textcolor{acgray}{$\hookrightarrow$}\space},
+      basicstyle=\ttfamily\footnotesize,
+      columns=fullflexible,
+      xleftmargin=0.3em,
+      xrightmargin=0.3em,
+    }%
+  }{}%
 }
 
 % === TABLE OVERFLOW PREVENTION ===
