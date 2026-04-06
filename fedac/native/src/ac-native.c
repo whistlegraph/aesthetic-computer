@@ -3389,11 +3389,6 @@ int main(int argc, char *argv[]) {
             ac_display_present(display, screen, pixel_scale);
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
-            // Late input poll: grab any pointer events that arrived during
-            // rendering. Under Wayland, the compositor flushes motion events
-            // after our surface commit — polling here halves input latency.
-            input_poll(input);
-
             // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow
             if (hdmi && audio && main_frame % 8 == 0) {
                 drm_secondary_present_waveform(hdmi, &graph,
