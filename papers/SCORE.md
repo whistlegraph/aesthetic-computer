@@ -40,6 +40,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| The URL Tradition | arXiv (LaTeX) | `arxiv-url-tradition/url-tradition.pdf` | `arxiv-url-tradition/url-tradition.tex` |
 | The Potter and the Prompt | arXiv (LaTeX) | `arxiv-holden/holden.pdf` | `arxiv-holden/holden.tex` |
 | Two Departments, One Building | arXiv (LaTeX) | `arxiv-ucla-arts/ucla-arts.pdf` | `arxiv-ucla-arts/ucla-arts.tex` |
 | Handle Identity on the AT Protocol | arXiv (LaTeX) | `arxiv-identity/identity.pdf` | `arxiv-identity/identity.tex` |
