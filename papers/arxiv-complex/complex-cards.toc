@@ -1,25 +1,25 @@
-\contentsline {section}{\numberline {1}The Totalized Environment}{5}{section.1}%
-\contentsline {section}{\numberline {2}The Complex}{7}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Hegemony}{7}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Behavioral nudging}{7}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Flattening}{8}{subsection.2.3}%
-\contentsline {subsection}{\numberline {2.4}The orchestra as organizational power}{9}{subsection.2.4}%
-\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{12}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Photographing power}{12}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Analyzing circulation}{13}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Masking the face}{14}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Archiving resistance}{14}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}The pipeline}{15}{subsection.3.5}%
-\contentsline {section}{\numberline {4}The Structural Trap}{17}{section.4}%
-\contentsline {section}{\numberline {5}Free Spaces of Play}{19}{section.5}%
-\contentsline {section}{\numberline {6}Two Pedagogies}{21}{section.6}%
-\contentsline {subsection}{\numberline {6.1}The art school}{21}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The tech school}{23}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Anti-Environments}{25}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Radical distribution}{26}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{26}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{27}{subsection.7.3}%
-\contentsline {subsection}{\numberline {7.4}The key distinction}{28}{subsection.7.4}%
-\contentsline {section}{\numberline {8}The Art Fair Paradox}{29}{section.8}%
-\contentsline {section}{\numberline {9}Conclusion}{31}{section.9}%
+\contentsline {section}{\numberline {1}The Totalized Environment}{4}{section.1}%
+\contentsline {section}{\numberline {2}The Complex}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Hegemony}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Behavioral nudging}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Flattening}{7}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The orchestra as organizational power}{8}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Critique-as-Art: Pointing at Power}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Photographing power}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Analyzing circulation}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Masking the face}{13}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Archiving resistance}{13}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}The pipeline}{14}{subsection.3.5}%
+\contentsline {section}{\numberline {4}The Structural Trap}{16}{section.4}%
+\contentsline {section}{\numberline {5}Free Spaces of Play}{18}{section.5}%
+\contentsline {section}{\numberline {6}Two Pedagogies}{20}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The art school}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The tech school}{22}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Anti-Environments}{24}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Radical distribution}{25}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Aesthetic Computer}{25}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Indigenous and decolonial computing}{26}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}The key distinction}{27}{subsection.7.4}%
+\contentsline {section}{\numberline {8}The Art Fair Paradox}{28}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{30}{section.9}%
 \contentsfinish 
