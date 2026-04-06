@@ -33,13 +33,13 @@
 \contentsline {section}{\numberline {8}What PLOrk Got Right (And What It Missed)}{38}{section.8}%
 \contentsline {section}{\numberline {9}Music, Access, and Political Economy}{41}{section.9}%
 \contentsline {section}{\numberline {10}Related Work}{44}{section.10}%
-\contentsline {section}{\numberline {11}Lessons from OLPC}{46}{section.11}%
-\contentsline {section}{\numberline {12}Limitations}{49}{section.12}%
-\contentsline {section}{\numberline {13}Implications and Future Work}{54}{section.13}%
-\contentsline {subsection}{\numberline {13.1}ARM Chromebook Support}{54}{subsection.13.1}%
-\contentsline {subsection}{\numberline {13.2}Built-In Composition Tools}{54}{subsection.13.2}%
-\contentsline {subsection}{\numberline {13.3}Spatialization Without Speakers}{54}{subsection.13.3}%
-\contentsline {subsection}{\numberline {13.4}Curriculum Development}{55}{subsection.13.4}%
-\contentsline {subsection}{\numberline {13.5}Mesh Networking}{55}{subsection.13.5}%
-\contentsline {section}{\numberline {14}Conclusion}{56}{section.14}%
+\contentsline {section}{\numberline {11}Lessons from OLPC}{47}{section.11}%
+\contentsline {section}{\numberline {12}Limitations}{50}{section.12}%
+\contentsline {section}{\numberline {13}Implications and Future Work}{55}{section.13}%
+\contentsline {subsection}{\numberline {13.1}ARM Chromebook Support}{55}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Built-In Composition Tools}{55}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Spatialization Without Speakers}{55}{subsection.13.3}%
+\contentsline {subsection}{\numberline {13.4}Curriculum Development}{56}{subsection.13.4}%
+\contentsline {subsection}{\numberline {13.5}Mesh Networking}{56}{subsection.13.5}%
+\contentsline {section}{\numberline {14}Conclusion}{57}{section.14}%
 \contentsfinish 

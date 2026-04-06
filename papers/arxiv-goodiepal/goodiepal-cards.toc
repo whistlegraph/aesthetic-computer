@@ -11,8 +11,9 @@
 \contentsline {section}{\numberline {5}Unscannable Artifacts}{17}{section.5}%
 \contentsline {subsection}{\numberline {5.1}Immediate-Mode as Resistance to Capture}{18}{subsection.5.1}%
 \contentsline {subsection}{\numberline {5.2}The Poor Image, Inverted}{19}{subsection.5.2}%
-\contentsline {section}{\numberline {6}Radical Pedagogy}{20}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Learning Through the Prompt}{21}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The snappidaggs Archive}{22}{subsection.6.2}%
-\contentsline {section}{\numberline {7}Conclusion}{23}{section.7}%
+\contentsline {subsection}{\numberline {5.3}Glitch as the Inverse Unscannable}{19}{subsection.5.3}%
+\contentsline {section}{\numberline {6}Radical Pedagogy}{23}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Learning Through the Prompt}{24}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The snappidaggs Archive}{25}{subsection.6.2}%
+\contentsline {section}{\numberline {7}Conclusion}{26}{section.7}%
 \contentsfinish 

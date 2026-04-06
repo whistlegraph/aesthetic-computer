@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:28
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  5 APR 2026 18:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1701,7 +1701,7 @@ Package rerunfilecheck Info: File `notepat-zh.out' has not changed.
 Here is how much of TeX's memory you used:
  21690 strings out of 478682
  442029 string characters out of 5849006
- 1912018 words of memory out of 6000000
+ 1911018 words of memory out of 6000000
  41489 multiletter control sequences out of 15000+600000
  515552 words of font info for 113 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
