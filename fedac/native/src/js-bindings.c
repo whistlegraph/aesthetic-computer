@@ -1957,6 +1957,87 @@ static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return JS_NewFloat64(ctx, audio->bpm);
 }
 
+// --- DJ deck bindings ---
+
+// sound.deck.load(deck, path) -> true/false
+static JSValue js_deck_load(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2 || !current_rt || !current_rt->audio) return JS_FALSE;
+    int deck;
+    JS_ToInt32(ctx, &deck, argv[0]);
+    const char *path = JS_ToCString(ctx, argv[1]);
+    if (!path) return JS_FALSE;
+    int ret = audio_deck_load(current_rt->audio, deck, path);
+    JS_FreeCString(ctx, path);
+    return JS_NewBool(ctx, ret == 0);
+}
+
+// sound.deck.play(deck)
+static JSValue js_deck_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    audio_deck_play(current_rt->audio, deck);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.pause(deck)
+static JSValue js_deck_pause(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    audio_deck_pause(current_rt->audio, deck);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.seek(deck, seconds)
+static JSValue js_deck_seek(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    double sec; JS_ToFloat64(ctx, &sec, argv[1]);
+    audio_deck_seek(current_rt->audio, deck, sec);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.setSpeed(deck, speed)
+static JSValue js_deck_set_speed(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    double spd; JS_ToFloat64(ctx, &spd, argv[1]);
+    audio_deck_set_speed(current_rt->audio, deck, spd);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.setVolume(deck, vol)
+static JSValue js_deck_set_volume(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 2 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    double vol; JS_ToFloat64(ctx, &vol, argv[1]);
+    audio_deck_set_volume(current_rt->audio, deck, (float)vol);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.setCrossfader(value)
+static JSValue js_deck_set_crossfader(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    double val; JS_ToFloat64(ctx, &val, argv[0]);
+    audio_deck_set_crossfader(current_rt->audio, (float)val);
+    return JS_UNDEFINED;
+}
+
+// sound.deck.setMasterVolume(value)
+static JSValue js_deck_set_master_vol(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    double val; JS_ToFloat64(ctx, &val, argv[0]);
+    audio_deck_set_master_volume(current_rt->audio, (float)val);
+    return JS_UNDEFINED;
+}
+
 // Build the sound object for the API
 static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JSValue sound = JS_NewObject(ctx);
@@ -2069,6 +2150,54 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, samp, "saveTo", JS_NewCFunction(ctx, js_sample_save_to, "saveTo", 1));
     JS_SetPropertyStr(ctx, samp, "loadFrom", JS_NewCFunction(ctx, js_sample_load_from, "loadFrom", 1));
     JS_SetPropertyStr(ctx, sound, "sample", samp);
+
+    // DJ deck
+    JSValue deck_obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, deck_obj, "load", JS_NewCFunction(ctx, js_deck_load, "load", 2));
+    JS_SetPropertyStr(ctx, deck_obj, "play", JS_NewCFunction(ctx, js_deck_play, "play", 1));
+    JS_SetPropertyStr(ctx, deck_obj, "pause", JS_NewCFunction(ctx, js_deck_pause, "pause", 1));
+    JS_SetPropertyStr(ctx, deck_obj, "seek", JS_NewCFunction(ctx, js_deck_seek, "seek", 2));
+    JS_SetPropertyStr(ctx, deck_obj, "setSpeed", JS_NewCFunction(ctx, js_deck_set_speed, "setSpeed", 2));
+    JS_SetPropertyStr(ctx, deck_obj, "setVolume", JS_NewCFunction(ctx, js_deck_set_volume, "setVolume", 2));
+    JS_SetPropertyStr(ctx, deck_obj, "setCrossfader", JS_NewCFunction(ctx, js_deck_set_crossfader, "setCrossfader", 1));
+    JS_SetPropertyStr(ctx, deck_obj, "setMasterVolume", JS_NewCFunction(ctx, js_deck_set_master_vol, "setMasterVolume", 1));
+
+    // Deck state (read-only, rebuilt each frame)
+    JSValue decks_arr = JS_NewArray(ctx);
+    ACAudio *aud = rt->audio;
+    for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
+        JSValue di = JS_NewObject(ctx);
+        if (aud) {
+            ACDeck *dk = &aud->decks[d];
+            JS_SetPropertyStr(ctx, di, "loaded", JS_NewBool(ctx, dk->active));
+            JS_SetPropertyStr(ctx, di, "playing", JS_NewBool(ctx, dk->playing));
+            JS_SetPropertyStr(ctx, di, "volume", JS_NewFloat64(ctx, dk->volume));
+            if (dk->decoder) {
+                JS_SetPropertyStr(ctx, di, "position", JS_NewFloat64(ctx, dk->decoder->position));
+                JS_SetPropertyStr(ctx, di, "duration", JS_NewFloat64(ctx, dk->decoder->duration));
+                JS_SetPropertyStr(ctx, di, "speed", JS_NewFloat64(ctx, dk->decoder->speed));
+                JS_SetPropertyStr(ctx, di, "title", JS_NewString(ctx, dk->decoder->title));
+                JS_SetPropertyStr(ctx, di, "artist", JS_NewString(ctx, dk->decoder->artist));
+                JS_SetPropertyStr(ctx, di, "finished", JS_NewBool(ctx, dk->decoder->finished));
+                JS_SetPropertyStr(ctx, di, "error", JS_NewString(ctx, dk->decoder->error ? dk->decoder->error_msg : ""));
+            } else {
+                JS_SetPropertyStr(ctx, di, "position", JS_NewFloat64(ctx, 0));
+                JS_SetPropertyStr(ctx, di, "duration", JS_NewFloat64(ctx, 0));
+                JS_SetPropertyStr(ctx, di, "speed", JS_NewFloat64(ctx, 1.0));
+                JS_SetPropertyStr(ctx, di, "title", JS_NewString(ctx, ""));
+                JS_SetPropertyStr(ctx, di, "artist", JS_NewString(ctx, ""));
+                JS_SetPropertyStr(ctx, di, "finished", JS_FALSE);
+                JS_SetPropertyStr(ctx, di, "error", JS_NewString(ctx, ""));
+            }
+        }
+        JS_SetPropertyUint32(ctx, decks_arr, d, di);
+    }
+    JS_SetPropertyStr(ctx, deck_obj, "decks", decks_arr);
+    JS_SetPropertyStr(ctx, deck_obj, "crossfaderValue",
+        JS_NewFloat64(ctx, aud ? aud->crossfader : 0.5));
+    JS_SetPropertyStr(ctx, deck_obj, "masterVolume",
+        JS_NewFloat64(ctx, aud ? aud->deck_master_volume : 0.8));
+    JS_SetPropertyStr(ctx, sound, "deck", deck_obj);
 
     // TTS
     JS_SetPropertyStr(ctx, sound, "speak", JS_NewCFunction(ctx, js_speak, "speak", 1));
@@ -2265,6 +2394,116 @@ static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JS
     JS_FreeCString(ctx, path);
     JS_FreeCString(ctx, data);
     return JS_NewBool(ctx, ok);
+}
+
+// system.listDir(path) — returns [{name, isDir, size}, ...] or null
+static JSValue js_list_dir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NULL;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NULL;
+
+    DIR *dir = opendir(path);
+    if (!dir) {
+        JS_FreeCString(ctx, path);
+        return JS_NULL;
+    }
+
+    JSValue arr = JS_NewArray(ctx);
+    struct dirent *ent;
+    int idx = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        // Skip . and ..
+        if (ent->d_name[0] == '.' && (ent->d_name[1] == '\0' ||
+            (ent->d_name[1] == '.' && ent->d_name[2] == '\0'))) continue;
+
+        JSValue obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, obj, "name", JS_NewString(ctx, ent->d_name));
+
+        // stat for size and type
+        char full[1024];
+        snprintf(full, sizeof(full), "%s/%s", path, ent->d_name);
+        struct stat st;
+        int is_dir = 0;
+        int64_t size = 0;
+        if (stat(full, &st) == 0) {
+            is_dir = S_ISDIR(st.st_mode);
+            size = st.st_size;
+        }
+        JS_SetPropertyStr(ctx, obj, "isDir", JS_NewBool(ctx, is_dir));
+        JS_SetPropertyStr(ctx, obj, "size", JS_NewInt64(ctx, size));
+
+        JS_SetPropertyUint32(ctx, arr, idx++, obj);
+    }
+    closedir(dir);
+    JS_FreeCString(ctx, path);
+    return arr;
+}
+
+// system.mountMusic() — mount secondary USB at /media (read-only), returns true/false
+static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+
+    // Create mount point
+    mkdir("/media", 0755);
+
+    // Check if already mounted
+    struct stat st_media;
+    if (stat("/media/.", &st_media) == 0) {
+        struct stat st_root;
+        if (stat("/.", &st_root) == 0 && st_media.st_dev != st_root.st_dev) {
+            return JS_TRUE; // already mounted
+        }
+    }
+
+    // Find the boot device to skip it
+    char boot_dev[64] = "";
+    FILE *fp = fopen("/proc/mounts", "r");
+    if (fp) {
+        char line[256];
+        while (fgets(line, sizeof(line), fp)) {
+            if (strstr(line, " /mnt ")) {
+                sscanf(line, "%63s", boot_dev);
+                // Strip partition number to get base device (e.g. /dev/sda1 -> /dev/sda)
+                break;
+            }
+        }
+        fclose(fp);
+    }
+    char boot_base[64] = "";
+    if (boot_dev[0]) {
+        snprintf(boot_base, sizeof(boot_base), "%s", boot_dev);
+        // Remove trailing digits
+        int len = strlen(boot_base);
+        while (len > 0 && boot_base[len-1] >= '0' && boot_base[len-1] <= '9') {
+            boot_base[--len] = '\0';
+        }
+    }
+
+    // Try mounting secondary USB partitions
+    const char *bases[] = { "/dev/sda", "/dev/sdb", "/dev/sdc", "/dev/sdd", NULL };
+    for (int b = 0; bases[b]; b++) {
+        // Skip boot device base
+        if (boot_base[0] && strcmp(bases[b], boot_base) == 0) continue;
+
+        for (int p = 1; p <= 4; p++) {
+            char dev[64];
+            snprintf(dev, sizeof(dev), "%s%d", bases[b], p);
+            struct stat ds;
+            if (stat(dev, &ds) != 0) continue;
+
+            // Try VFAT first, then exFAT
+            if (mount(dev, "/media", "vfat", MS_RDONLY, "iocharset=utf8") == 0) {
+                ac_log("[dj] mounted %s at /media (vfat)\n", dev);
+                return JS_TRUE;
+            }
+            if (mount(dev, "/media", "exfat", MS_RDONLY, NULL) == 0) {
+                ac_log("[dj] mounted %s at /media (exfat)\n", dev);
+                return JS_TRUE;
+            }
+        }
+    }
+    return JS_FALSE;
 }
 
 // ---------------------------------------------------------------------------
@@ -4636,6 +4875,8 @@ static JSValue build_system_obj(JSContext *ctx) {
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
+    JS_SetPropertyStr(ctx, sys, "listDir",   JS_NewCFunction(ctx, js_list_dir,   "listDir",   1));
+    JS_SetPropertyStr(ctx, sys, "mountMusic", JS_NewCFunction(ctx, js_mount_music, "mountMusic", 0));
 
     // Async HTTP fetch — system.fetch(url) / system.fetchCancel() / system.fetchResult / system.fetchPending
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));
