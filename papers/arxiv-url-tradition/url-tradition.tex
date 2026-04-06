@@ -1,0 +1,362 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.75in, right=0.75in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}
+\setsansfont{Latin Modern Sans}
+
+% Custom AC fonts
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\newfontfamily\aclight{ywft-processing-light}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multicol}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\graphicspath{{figures/}{../../papers/arxiv-ac/figures/}}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{natbib}
+\usepackage[colorspec=0.92]{draftwatermark}
+
+% === COLORS (AC palette) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{draftcolor}{RGB}{180,72,135}
+
+% === DRAFT WATERMARK ===
+\DraftwatermarkOptions{
+  text=WORKING DRAFT,
+  fontsize=3cm,
+  color=draftcolor!18,
+  angle=45,
+  pos={0.5\paperwidth, 0.5\paperheight}
+}
+
+% === JS SYNTAX COLORS ===
+\definecolor{jskw}{RGB}{119,51,170}
+\definecolor{jsfn}{RGB}{0,136,170}
+\definecolor{jsstr}{RGB}{170,120,0}
+\definecolor{jsnum}{RGB}{204,0,102}
+\definecolor{jscmt}{RGB}{102,102,102}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={The URL Tradition: Addressable Creative Computing from HyperCard to Aesthetic Computer},
+}
+
+% === SECTION FORMATTING ===
+\titleformat{\section}
+  {\normalfont\bfseries\normalsize\uppercase}
+  {\thesection.}
+  {0.5em}
+  {}
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\small}
+  {\thesubsection}
+  {0.5em}
+  {}
+\titlespacing{\subsection}{0pt}{0.8em}{0.2em}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acpink}\textit{Working Draft --- not for citation}}
+\fancyfoot[C]{\footnotesize\thepage}
+
+% === CUSTOM COMMANDS ===
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{\textsc{Aesthetic.Computer}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% Random caps for Aesthetic.Computer branding
+\newcount\acrandtmp
+\newcommand{\acrandletter}[2]{%
+  \acrandtmp=\uniformdeviate 2\relax
+  \ifnum\acrandtmp=0\relax#1\else#2\fi%
+}
+\newcommand{\acrandname}{%
+  \acrandletter{a}{A}\acrandletter{e}{E}\acrandletter{s}{S}\acrandletter{t}{T}%
+  \acrandletter{h}{H}\acrandletter{e}{E}\acrandletter{t}{T}\acrandletter{i}{I}%
+  \acrandletter{c}{C}{\color{acpink}.}\acrandletter{c}{C}\acrandletter{o}{O}%
+  \acrandletter{m}{M}\acrandletter{p}{P}\acrandletter{u}{U}\acrandletter{t}{T}%
+  \acrandletter{e}{E}\acrandletter{r}{R}%
+}
+
+% === LISTINGS ===
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,var,return,if,else,new,async,await,import,from},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,params,colon,jump,send,store,net,sound,speaker,system},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]`,
+  escapeinside={|}{|},
+}
+
+\lstdefinestyle{acjsstyle}{
+  language=acjs,
+  keywordstyle=[1]\color{jskw}\bfseries,
+  keywordstyle=[2]\color{jsfn}\bfseries,
+  commentstyle=\color{jscmt}\itshape,
+  stringstyle=\color{jsstr},
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{acgray!30},
+  backgroundcolor=\color{acgray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+% === LIST SETTINGS ===
+\setlist[itemize]{nosep, leftmargin=1.2em, itemsep=0.1em}
+\setlist[enumerate]{nosep, leftmargin=1.2em}
+
+% === COLUMN SEPARATION ===
+\setlength{\columnsep}{1.8em}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0.3em}
+
+% Hyphenation for narrow two-column layout
+\tolerance=800
+\emergencystretch=1em
+\hyphenpenalty=50
+
+\begin{document}
+
+% ============ TITLE BLOCK ============
+
+\twocolumn[{%
+\begin{center}
+\includegraphics[height=4em]{pals}\par\vspace{0.5em}
+{\acbold\fontsize{24pt}{28pt}\selectfont\color{acdark} The URL Tradition}\par
+\vspace{0.2em}
+{\aclight\fontsize{11pt}{13pt}\selectfont\color{acpink} Addressable Creative Computing from HyperCard to Aesthetic Computer}\par
+\vspace{0.6em}
+{\normalsize\href{https://prompt.ac/@jeffrey}{@jeffrey}}\par
+{\small\color{acgray} Aesthetic.Computer}\par
+{\small\color{acgray} ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913}}\par
+\vspace{0.3em}
+{\small\color{acpurple} \url{https://aesthetic.computer}}\par
+\vspace{0.6em}
+\rule{\textwidth}{1.5pt}
+\vspace{0.5em}
+\end{center}
+
+\begin{center}
+{\small\color{acpink}\textbf{[ working draft --- not for citation ]}}
+\end{center}
+\vspace{0.3em}
+
+\begin{quote}
+\small\noindent\textbf{Abstract.}
+Creative computing environments have historically been \emph{opaque}: the state of the machine is accessible only to the person sitting in front of it. HyperCard stacks lived on a single disk. Processing sketches compiled to local executables. Scratch projects required a portal to find. The URL changes this. When every creative artifact is a URL---typeable, shareable, memorizable---the artifact escapes the machine and enters culture as an address. This paper traces a ``URL tradition'' in creative computing: the line from HyperCard's card/stack metaphor through the web's addressable document model, Glitch's instant remix URLs, p5.js's Web Editor links, and Aesthetic Computer's core design decision that every piece is a top-level path. We argue that URL-addressability is not a feature but a \emph{medium property}---one that reshapes authorship, distribution, pedagogy, and social interaction around creative code. AC extends the tradition by making the URL the primary interface: there is no menu, no file picker, no project list. You type a word and you are in the piece. The prompt \emph{is} the address bar.
+\end{quote}
+\vspace{0.5em}
+}]
+
+% ============ 1. INTRODUCTION ============
+\section{Introduction}
+
+Every creative computing environment makes a choice about addressing. How does a user find, share, and return to a piece of work? The answer to this question shapes the entire character of the system.
+
+HyperCard~\citep{atkinson1987hypercard} addressed content by \emph{card} and \emph{stack}---spatial metaphors bound to a single machine. A stack was a file. To share it, you copied a floppy disk. The brilliant interface metaphor was undermined by a distribution model that assumed physical proximity.
+
+The World Wide Web~\citep{berners-lee1994www} introduced the URL: a universal, human-readable address for any document on any networked machine. Tim Berners-Lee's design insisted that addresses be \emph{cool}---short, stable, and guessable~\citep{berners-lee1998cool}. This was not an implementation detail. It was a social contract: if you give someone a URL, it should still work when they try it.
+
+Creative computing environments that embrace the URL inherit this contract. Those that don't---that hide work behind login walls, project IDs, or native app containers---break it. This paper argues that URL-addressability constitutes a tradition in creative computing, one that Aesthetic Computer consciously extends.
+
+% ============ 2. THE STACK WITHOUT A URL ============
+\section{The Stack Without a URL}
+
+\subsection{HyperCard (1987)}
+
+HyperCard gave non-programmers the power to build interactive software through a card-and-stack metaphor. Each card was a screen; each stack was a program. The system was profoundly democratic: it shipped free with every Macintosh, and its scripting language (HyperTalk) was designed to read like English~\citep{atkinson1987hypercard}.
+
+But a HyperCard stack had no address. It was a file on a disk. Sharing meant copying. Discovery meant someone physically handing you a floppy or, later, downloading from a BBS. The stack was powerful but \emph{landlocked}---trapped on the machine that made it.
+
+\subsection{Processing (2001)}
+
+Processing~\citep{reas2007processing} brought creative coding to a generation of artists and designers. A sketch was a \code{.pde} file that compiled to a Java applet or, later, a standalone application. Sharing meant exporting and uploading. The Processing community website provided a gallery, but each project was behind a portal: click, wait, load.
+
+Processing's contribution was making code \emph{writable} for artists. But it did not make the resulting work \emph{addressable} in the web's sense. A Processing sketch was a destination, not a link.
+
+\subsection{Scratch (2007)}
+
+Scratch~\citep{resnick2009scratch} solved the sharing problem within its own ecosystem: every project gets a numbered URL on \code{scratch.mit.edu}. But these URLs are opaque---\code{scratch.mit.edu/projects/12345678}---and require the Scratch runtime to view. The address exists but it is not \emph{cool}: it encodes nothing about the content, and it cannot be guessed or remembered.
+
+% ============ 3. THE URL ENTERS CREATIVE COMPUTING ============
+\section{The URL Enters Creative Computing}
+
+\subsection{The Web as Creative Medium}
+
+The web itself was the first URL-native creative computing environment. A hand-written HTML page at \code{geocities.com/\textasciitilde{}user/art.html} was simultaneously a creative artifact and a shareable address. The early web understood something that later platforms forgot: \emph{making} and \emph{addressing} should be the same act~\citep{nelson1974computer}.
+
+Net.art practitioners of the 1990s---JODI, Olia Lialina, Vuk \'{C}osi\'{c}---exploited this identity. The URL was material. Lialina's \emph{My Boyfriend Came Back from the War} (1996) was inseparable from its address. The work \emph{was} the URL. The Art Happens Here anthology documents this moment when the address became the medium~\citep{connor2019artanthology}.
+
+\subsection{Glitch (2017)}
+
+Glitch~\citep{dash2017glitch} made the URL instant. Every project is live at \code{project-name.glitch.me} from the moment it is created. There is no deploy step, no build process, no publish button. The URL is not a reward for finishing---it is present from the first keystroke.
+
+Glitch also made the URL \emph{forkable}: the ``Remix'' button creates a new project with a new URL, preserving the lineage. This turns the URL into a social object. Sharing a Glitch URL is an invitation to modify, not just to view.
+
+\subsection{p5.js Web Editor (2018)}
+
+The p5.js Web Editor~\citep{mccarthy2015p5js} brought Processing's creative coding model into the browser. Each sketch gets a URL. But like Scratch, the URLs are opaque (\code{editor.p5js.org/user/sketches/abc123}). The editor must be loaded to run the sketch. The URL points to a \emph{tool}, not directly to the \emph{work}.
+
+% ============ 4. AC: THE PROMPT IS THE ADDRESS BAR ============
+\section{AC: The Prompt Is the Address Bar}
+
+Aesthetic Computer~\citep{scudder2026ac} takes the URL tradition to its logical conclusion. Every piece is a top-level path:
+
+\begin{center}
+\code{aesthetic.computer/notepat}\\
+\code{aesthetic.computer/wand}\\
+\code{aesthetic.computer/song}
+\end{center}
+
+There is no file browser, no project list, no dashboard. The interface is a prompt---a blinking cursor that accepts a word. That word becomes the URL. The prompt is the address bar.
+
+\subsection{Memorizable Paths}
+
+AC paths are designed to be \emph{memorizable}. Like phone numbers before contacts lists, like radio frequencies before presets, the path is something you carry in your head. You don't bookmark \code{aesthetic.computer/notepat}; you remember the word ``notepat.'' You can tell someone at a party, write it on a napkin, or shout it across a room.
+
+This is a deliberate inversion of the trend toward opaque identifiers. Scratch uses numbers. Glitch uses generated names. p5.js uses hashes. AC uses \emph{words}---human words, chosen by the author, occupying the top-level namespace.
+
+\subsection{Parameters as Colons}
+
+AC extends the URL with colon-separated parameters:
+
+\begin{center}
+\code{aesthetic.computer/line:red}\\
+\code{aesthetic.computer/prompt:monocles}\\
+\code{aesthetic.computer/share:notepat}
+\end{center}
+
+Colons were chosen over slashes or query strings because they read as \emph{modifiers}, not \emph{hierarchy}. ``line red'' not ``line / red.'' The colon is conversational. It preserves the single-word-at-top-level constraint while allowing infinite parameterization.
+
+\subsection{User Pieces}
+
+Published pieces live under handles:
+
+\begin{center}
+\code{aesthetic.computer/@niki/flower}\\
+\code{aesthetic.computer/@sage/drum}
+\end{center}
+
+The \code{@} prefix signals authorship. The handle is an address within an address---a person's namespace inside the platform's namespace. This mirrors the AT Protocol's handle system~\citep{atproto2024oauth} and the fediverse's \code{@user@domain} convention, extending the URL tradition into identity.
+
+% ============ 5. URL AS MEDIUM PROPERTY ============
+\section{URL as Medium Property}
+
+We argue that URL-addressability is not a feature added to a creative computing environment but a \emph{medium property} that reshapes every aspect of how the environment is used.
+
+\subsection{Pedagogy}
+
+A teacher says: ``Go to aesthetic.computer/notepat.'' Every student is instantly in the same piece. No login required. No app to install. No instructions to follow beyond typing a URL. The URL \emph{is} the lesson plan's entry point.
+
+Compare: ``Open Scratch, search for project 12345678, click Run.'' Or: ``Download Processing, open the .pde file I emailed you, click Play.'' Each additional step is a student lost.
+
+\subsection{Distribution}
+
+A URL is a distribution channel. It works in a text message, a QR code, a tweet, an email signature, a physical poster. It crosses every medium boundary because it \emph{is} the lowest common denominator of the networked world.
+
+AC's \code{share} piece generates a QR code for any other piece:
+
+\begin{center}
+\code{aesthetic.computer/share:notepat}
+\end{center}
+
+The QR code resolves to the piece URL. The piece runs in any browser. No app store, no install, no account required.
+
+\subsection{Social Interaction}
+
+When every piece is a URL, conversation becomes navigation. In AC's chat system, typing a piece name in backticks creates a clickable link. Saying ``try \code{wand}'' in chat is the same as sharing a URL. The social layer and the addressing layer collapse into one.
+
+\subsection{Authorship}
+
+Publishing a piece on AC means claiming a word. \code{@niki/flower} is Niki's flower. The URL is the signature. Unlike a gallery wall label or a credits screen, the URL is present in every context where the work appears---in the browser bar, in the share link, in the QR code. Authorship is encoded in the address, not metadata.
+
+% ============ 6. THE TRADITION ============
+\section{The Tradition}
+
+The URL tradition in creative computing runs:
+
+\begin{enumerate}
+\item \textbf{HyperCard} (1987): cards and stacks, no address, bound to disk.
+\item \textbf{The Web} (1991): every document is a URL. The address \emph{is} the work.
+\item \textbf{Net.art} (1995--): artists exploit the URL as material and medium.
+\item \textbf{Processing} (2001): creative coding, but no native URL. Export required.
+\item \textbf{Scratch} (2007): project URLs, but opaque and runtime-dependent.
+\item \textbf{Glitch} (2017): instant URLs, forkable, live from first keystroke.
+\item \textbf{p5.js Editor} (2018): sketch URLs, but editor-dependent and opaque.
+\item \textbf{Aesthetic Computer} (2022): the prompt \emph{is} the address bar. Every piece is a memorizable top-level path. No intermediary.
+\end{enumerate}
+
+Each step makes the URL more central. AC's contribution is making the URL \emph{the only interface}. There is no other way in. You type a word. You are there.
+
+% ============ 7. BERNERS-LEE'S COOL URIS ============
+\section{Cool URIs and the Forgetting Web}
+
+Berners-Lee wrote in 1998: ``Cool URIs don't change''~\citep{berners-lee1998cool}. The web was designed for permanence. Every URL was supposed to be a promise.
+
+The modern web breaks this promise constantly. Social media posts get deleted. SaaS tools sunset. Startups fold. The creative computing platforms of the 2010s---many built on venture funding---are particularly fragile. When a platform dies, every URL it ever issued dies with it.
+
+AC confronts this by being open-source, self-hostable, and URL-first. If \code{aesthetic.computer} disappears, the pieces still run on any instance. The URL is portable because the runtime is portable. The cool URI survives because it is not bound to a single server---it is bound to a word.
+
+% ============ 8. CONCLUSION ============
+\section{Conclusion}
+
+The URL is the most important interface in computing. It is the only universal addressing scheme that works across every device, every platform, every medium. Creative computing environments that embrace the URL---that make every artifact addressable, shareable, memorizable---participate in a tradition that runs from the web itself through net.art, Glitch, and now Aesthetic Computer.
+
+AC's design makes the URL not just present but \emph{primary}. The prompt is the address bar. The piece name is the URL. The URL is the identity, the distribution channel, the pedagogical entry point, and the social object. There is nothing else.
+
+This is not minimalism for its own sake. It is the recognition that in a networked world, the most powerful thing a creative tool can give you is a \emph{good address}.
+
+\vspace{1em}
+\noindent\rule{\columnwidth}{0.5pt}
+
+% ============ REFERENCES ============
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
