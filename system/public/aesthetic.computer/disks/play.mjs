@@ -1,5 +1,5 @@
 // Play, 2025.4.05
-// Simple audio player. Usage: play [track-name|url]
+// Simple audio player with track selector. Usage: play [track-name|url]
 
 import { createScrubber } from "./common/scrub.mjs";
 
@@ -13,39 +13,96 @@ const KNOWN_TRACKS = {
   },
 };
 
+const trackKeys = Object.keys(KNOWN_TRACKS);
+
+// State
+let mode = "select"; // "select" or "player"
+let selectedIndex = 0;
 let trackTitle, audioUrl;
 let isPlaying = false, isLoading = false, hasStarted = false;
 let currentTime = 0, duration = 0, bufferedTime = 0;
 let scrubber = createScrubber();
 let bars = new Array(32).fill(0);
 let frequencyData = [];
-let playBtn, scrubBox;
+let playBtn, backBtn, scrubBox;
+let trackBtns = [];
 
-function boot({ params, send, ui, screen, hud }) {
-  hud.label("play");
-  const param = params[0] || "sopra-reversed";
-
-  const track = KNOWN_TRACKS[param];
+function loadTrack(key, send, ui, screen) {
+  const track = KNOWN_TRACKS[key];
   if (track) {
     audioUrl = track.audio;
     trackTitle = track.title;
-  } else if (param.startsWith("http")) {
-    audioUrl = param;
-    trackTitle = param.split("/").pop().replace(/\.[^.]+$/, "");
+  } else if (key.startsWith("http")) {
+    audioUrl = key;
+    trackTitle = key.split("/").pop().replace(/\.[^.]+$/, "");
   } else {
-    audioUrl = `${CDN}/audio/${param}.mp3`;
-    trackTitle = param;
+    audioUrl = `${CDN}/audio/${key}.mp3`;
+    trackTitle = key;
   }
-
+  // Stop any current playback
+  if (hasStarted) send({ type: "stream:stop", content: { id: STREAM_ID } });
+  isPlaying = false; isLoading = false; hasStarted = false;
+  currentTime = 0; duration = 0; bufferedTime = 0;
+  scrubber.reset();
+  bars.fill(0);
+  frequencyData = [];
   playBtn = new ui.TextButton("PLAY", { center: "x", screen, y: 0 });
+  backBtn = new ui.TextButton("TRACKS", { x: 6, y: 0, screen });
+  mode = "player";
 }
 
-function paint({ wipe, ink, screen, line }) {
+function boot({ params, send, ui, screen, hud, jump }) {
+  hud.label("play");
+
+  if (params[0]) {
+    loadTrack(params[0], send, ui, screen);
+  } else {
+    // Build track selector buttons
+    trackBtns = trackKeys.map(
+      (key, i) => new ui.TextButton(KNOWN_TRACKS[key].title, { x: 6, y: 0, screen }),
+    );
+    mode = "select";
+  }
+}
+
+function paint($) {
+  if (mode === "select") return paintSelect($);
+  return paintPlayer($);
+}
+
+function paintSelect({ wipe, ink, screen }) {
+  wipe(20, 15, 30);
+  const m = 6;
+  let y = 20;
+
+  ink(200, 180, 220).write("TRACKS", { x: m, y });
+  y += 18;
+
+  for (let i = 0; i < trackKeys.length; i++) {
+    const btn = trackBtns[i];
+    btn.reposition({ x: m, y });
+    const selected = i === selectedIndex;
+    btn.paint({ ink }, selected
+      ? [[0, 80, 70], [0, 200, 180], 255]
+      : [[40, 30, 55], [120, 100, 160], [200, 180, 220]]);
+    y += btn.height + 4;
+  }
+
+  y += 12;
+  ink(100, 90, 120).write("or: play:https://url.mp3", { x: m, y });
+}
+
+function paintPlayer({ wipe, ink, screen, line }) {
   const floor = Math.floor;
   wipe(20, 15, 30);
 
   const m = 6;
-  let y = 20;
+  let y = 6;
+
+  // Back button
+  backBtn.reposition({ x: m, y });
+  backBtn.paint({ ink }, [[40, 30, 55], [80, 70, 100], [150, 130, 170]]);
+  y += backBtn.height + 6;
 
   // Title
   ink(200, 180, 220).write(trackTitle, { x: m, y });
@@ -107,7 +164,38 @@ function togglePlay(send) {
   }
 }
 
-function act({ event: e, screen, send }) {
+function act({ event: e, screen, send, ui, jump }) {
+  if (mode === "select") {
+    // Track buttons
+    for (let i = 0; i < trackBtns.length; i++) {
+      trackBtns[i].act(e, {
+        push: () => {
+          selectedIndex = i;
+          loadTrack(trackKeys[i], send, ui, screen);
+        },
+      });
+    }
+    // Keyboard nav
+    if (e.is("keyboard:down:arrowdown")) selectedIndex = Math.min(selectedIndex + 1, trackKeys.length - 1);
+    if (e.is("keyboard:down:arrowup")) selectedIndex = Math.max(selectedIndex - 1, 0);
+    if (e.is("keyboard:down:enter")) loadTrack(trackKeys[selectedIndex], send, ui, screen);
+    return;
+  }
+
+  // Player mode
+  backBtn?.act(e, {
+    push: () => {
+      if (hasStarted) send({ type: "stream:stop", content: { id: STREAM_ID } });
+      isPlaying = false; hasStarted = false; currentTime = 0; duration = 0;
+      scrubber.reset(); bars.fill(0);
+      mode = "select";
+      // Rebuild track buttons
+      trackBtns = trackKeys.map(
+        (key) => new ui.TextButton(KNOWN_TRACKS[key].title, { x: 6, y: 0, screen }),
+      );
+    },
+  });
+
   playBtn?.act(e, { push: () => togglePlay(send) });
 
   if (scrubBox && e.is("touch") && duration > 0) {
@@ -135,6 +223,7 @@ function act({ event: e, screen, send }) {
 }
 
 function sim({ send }) {
+  if (mode !== "player") return;
   send({ type: "stream:time", content: { id: STREAM_ID } });
   if (isPlaying) send({ type: "stream:frequencies", content: { id: STREAM_ID } });
 
