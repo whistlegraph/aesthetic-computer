@@ -370,6 +370,31 @@ static void *audio_thread_fn(void *arg) {
             }
             // (lock released at end of buffer loop)
 
+            // Mix DJ deck audio (lock-free: single consumer = audio thread)
+            for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
+                ACDeck *dk = &audio->decks[d];
+                if (!dk->active || !dk->playing || !dk->decoder) continue;
+                ACDeckDecoder *dec = dk->decoder;
+                if (dec->ring_read >= dec->ring_write) continue;
+                int ri = (dec->ring_read % dec->ring_size) * 2;
+                float sl = dec->ring[ri];
+                float sr = dec->ring[ri + 1];
+                dec->ring_read++;
+                // Crossfader: 0.0 = full deck A, 1.0 = full deck B
+                float cf = (d == 0)
+                    ? (1.0f - audio->crossfader)
+                    : audio->crossfader;
+                float vol = dk->volume * cf * audio->deck_master_volume;
+                mix_l += sl * vol;
+                mix_r += sr * vol;
+                // Wake decoder thread if ring drained below 50%
+                if ((dec->ring_write - dec->ring_read) < dec->ring_size / 2) {
+                    pthread_mutex_lock(&dec->mutex);
+                    pthread_cond_signal(&dec->cond);
+                    pthread_mutex_unlock(&dec->mutex);
+                }
+            }
+
             // Smooth room_mix toward target (~10ms at 192kHz)
             if (audio->room_mix != audio->target_room_mix) {
                 audio->room_mix += (audio->target_room_mix - audio->room_mix) * 0.00005f;
@@ -678,6 +703,16 @@ ACAudio *audio_init(void) {
     snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
+
+    // DJ decks: initialize with default volumes
+    audio->crossfader = 0.5f;         // centered
+    audio->deck_master_volume = 0.8f; // default master
+    for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
+        audio->decks[d].active = 0;
+        audio->decks[d].playing = 0;
+        audio->decks[d].volume = 1.0f;
+        audio->decks[d].decoder = NULL;
+    }
 
     // TTS PCM ring buffer (5 seconds at max output rate)
     audio->tts_buf_size = AUDIO_SAMPLE_RATE * 5;  // allocated at max, actual_rate adjusts usage
@@ -1662,10 +1697,89 @@ int audio_sample_load(ACAudio *audio, const char *path) {
     return (int)len;
 }
 
+// --- DJ deck API ---
+
+int audio_deck_load(ACAudio *audio, int deck, const char *path) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return -1;
+    ACDeck *dk = &audio->decks[deck];
+
+    // Create decoder if needed
+    if (!dk->decoder) {
+        dk->decoder = deck_decoder_create(audio->actual_rate);
+        if (!dk->decoder) return -1;
+    }
+
+    dk->playing = 0;
+    dk->active = 0;
+    int ret = deck_decoder_load(dk->decoder, path);
+    if (ret == 0) {
+        dk->active = 1;
+    }
+    return ret;
+}
+
+void audio_deck_play(ACAudio *audio, int deck) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return;
+    ACDeck *dk = &audio->decks[deck];
+    if (!dk->active || !dk->decoder) return;
+    dk->playing = 1;
+    deck_decoder_play(dk->decoder);
+}
+
+void audio_deck_pause(ACAudio *audio, int deck) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return;
+    ACDeck *dk = &audio->decks[deck];
+    if (!dk->decoder) return;
+    dk->playing = 0;
+    deck_decoder_pause(dk->decoder);
+}
+
+void audio_deck_seek(ACAudio *audio, int deck, double seconds) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return;
+    ACDeck *dk = &audio->decks[deck];
+    if (!dk->active || !dk->decoder) return;
+    deck_decoder_seek(dk->decoder, seconds);
+}
+
+void audio_deck_set_speed(ACAudio *audio, int deck, double speed) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return;
+    ACDeck *dk = &audio->decks[deck];
+    if (!dk->decoder) return;
+    deck_decoder_set_speed(dk->decoder, speed);
+}
+
+void audio_deck_set_volume(ACAudio *audio, int deck, float vol) {
+    if (!audio || deck < 0 || deck >= AUDIO_MAX_DECKS) return;
+    if (vol < 0.0f) vol = 0.0f;
+    if (vol > 1.0f) vol = 1.0f;
+    audio->decks[deck].volume = vol;
+}
+
+void audio_deck_set_crossfader(ACAudio *audio, float value) {
+    if (!audio) return;
+    if (value < 0.0f) value = 0.0f;
+    if (value > 1.0f) value = 1.0f;
+    audio->crossfader = value;
+}
+
+void audio_deck_set_master_volume(ACAudio *audio, float value) {
+    if (!audio) return;
+    if (value < 0.0f) value = 0.0f;
+    if (value > 1.0f) value = 1.0f;
+    audio->deck_master_volume = value;
+}
+
 void audio_destroy(ACAudio *audio) {
     if (!audio) return;
     audio->running = 0;
     audio_mic_close(audio);
+    // Destroy DJ decks
+    for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
+        if (audio->decks[d].decoder) {
+            deck_decoder_destroy(audio->decks[d].decoder);
+            audio->decks[d].decoder = NULL;
+        }
+    }
     if (audio->pcm) {
         pthread_join(audio->thread, NULL);
         snd_pcm_close((snd_pcm_t *)audio->pcm);
