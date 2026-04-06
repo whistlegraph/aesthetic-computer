@@ -142,8 +142,8 @@ in
       TTYVHangup = true;
       TTYVTDisallocate = true;
       StandardInput = "tty";
-      StandardOutput = "journal+console";
-      StandardError = "journal+console";
+      StandardOutput = "journal";
+      StandardError = "journal";
 
       # cage -s for single-app mode, wrapped so child logs land in journal.
       ExecStart = "${ac-native-kiosk}";
