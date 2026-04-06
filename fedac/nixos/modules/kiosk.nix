@@ -125,6 +125,9 @@ in
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
       ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
       ALSA_CONFIG_PATH = "${pkgs.alsa-lib}/share/alsa/alsa.conf";
+      # Hide the Wayland compositor cursor — ac-native renders its own.
+      WLR_NO_HARDWARE_CURSORS = "1";
+      XCURSOR_SIZE = "1";
     };
 
     serviceConfig = {

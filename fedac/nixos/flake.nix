@@ -18,6 +18,9 @@
           builtins.path {
             path = nativeSrcPath;
             name = "ac-native-source";
+            # Exclude build artifacts (device nodes in initramfs-root/dev/ crash nix)
+            filter = path: type:
+              !(lib.hasInfix "/build/" (toString path));
           }
         else
           throw "AC_NIX_NATIVE_SRC is required for fedac/nixos builds; run nix with --impure and point it at fedac/native.";
@@ -60,7 +63,7 @@
           config = imageSystem.config;
           format = "raw";
           onlyNixStore = false;
-          partitionTableType = "hybrid";
+          partitionTableType = "efi";
           installBootLoader = true;
           touchEFIVars = false;
           copyChannel = false;

@@ -19,13 +19,9 @@ in
   boot.loader.grub.timeoutStyle = lib.mkDefault "menu";
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [
-    "loglevel=7"
-    "systemd.show_status=1"
-    "rd.systemd.show_status=1"
-    "udev.log_priority=info"
     "consoleblank=0"
   ];
-  boot.consoleLogLevel = 7;
+  boot.consoleLogLevel = 0;
 
   # Minimal system — no desktop, no SSH, no docs
   documentation.enable = false;
