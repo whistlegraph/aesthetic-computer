@@ -189,6 +189,7 @@ const PAPER_MAP = {
     base: "url-tradition",
     siteName: "url-tradition-26-arxiv",
     title: "The URL Tradition",
+    psycho: true,
   },
 };
 
