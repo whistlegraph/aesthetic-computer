@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:25
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  5 APR 2026 18:23
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1815,7 +1815,7 @@ LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/it' will be
 (Font)              scaled to size 8.50006pt on input line 513.
 (./ac-da.bbl
-Underfull \hbox (badness 4084) in paragraph at lines 46--52
+Underfull \hbox (badness 4084) in paragraph at lines 51--57
 []\TU/LatinModernRoman(0)/m/sc/10 Mitchel Resnick, John Maloney, Andrés Monroy-
 
  []
