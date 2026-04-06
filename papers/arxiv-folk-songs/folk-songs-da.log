@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  5 APR 2026 18:36
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  6 APR 2026 15:44
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1116,8 +1116,8 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 )
 \Hy@SectionHShift=\skip83
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 267.
-Package hyperref Info: Option `breaklinks' set `true' on input line 267.
+Package hyperref Info: Option `colorlinks' set `true' on input line 270.
+Package hyperref Info: Option `breaklinks' set `true' on input line 270.
 
 (/usr/share/texlive/texmf-dist/tex/latex/titlesec/titletoc.sty
 Package: titletoc 2021/07/05 v2.14 TOC entries

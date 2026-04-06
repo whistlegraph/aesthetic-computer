@@ -1,23 +1,23 @@
-\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
-\contentsline {section}{\numberline {2}Two Departments}{8}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Art (1939--)}{8}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Design\nobreakspace {}|\nobreakspace {}Media Arts (1988--)}{9}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Same Building, Different Worlds}{10}{subsection.2.3}%
-\contentsline {section}{\numberline {3}How Art Gets Funded}{12}{section.3}%
-\contentsline {subsection}{\numberline {3.1}The Leavin Gift}{12}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The Resnick Endowment}{13}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}The Pattern}{13}{subsection.3.3}%
-\contentsline {section}{\numberline {4}How DMA Gets Funded}{15}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Research Grants}{15}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Six Initiatives, Six Directors}{16}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}The Processing Foundation}{17}{subsection.4.3}%
-\contentsline {section}{\numberline {5}Objects vs.\ Tools}{19}{section.5}%
-\contentsline {section}{\numberline {6}Administration}{21}{section.6}%
-\contentsline {subsection}{\numberline {6.1}School-Level Governance}{21}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Faculty Lines}{21}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Graduate Funding}{22}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Discussion}{23}{section.7}%
-\contentsline {subsection}{\numberline {7.1}The Foundation Governance Crisis}{24}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}Outside the University}{26}{subsection.7.2}%
-\contentsline {section}{\numberline {8}Conclusion}{27}{section.8}%
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Two Departments}{7}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Art (1939--)}{7}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Design\nobreakspace {}|\nobreakspace {}Media Arts (1988--)}{8}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Same Building, Different Worlds}{9}{subsection.2.3}%
+\contentsline {section}{\numberline {3}How Art Gets Funded}{11}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Leavin Gift}{11}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Resnick Endowment}{12}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Pattern}{12}{subsection.3.3}%
+\contentsline {section}{\numberline {4}How DMA Gets Funded}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Research Grants}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Six Initiatives, Six Directors}{15}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}The Processing Foundation}{16}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Objects vs.\ Tools}{18}{section.5}%
+\contentsline {section}{\numberline {6}Administration}{20}{section.6}%
+\contentsline {subsection}{\numberline {6.1}School-Level Governance}{20}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Faculty Lines}{20}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Graduate Funding}{21}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Discussion}{22}{section.7}%
+\contentsline {subsection}{\numberline {7.1}The Foundation Governance Crisis}{23}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Outside the University}{25}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Conclusion}{26}{section.8}%
 \contentsfinish 

@@ -1,18 +1,18 @@
-\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
-\contentsline {section}{\numberline {2}Origins (June--July 2024)}{7}{section.2}%
-\contentsline {section}{\numberline {3}Feature Growth}{9}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Audio engine (2024--2025)}{9}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Input and hardware (2024--2026)}{10}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Visual design}{11}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}DAW integration: Ableton Live}{12}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Network and system integration}{13}{subsection.3.5}%
-\contentsline {section}{\numberline {4}The Bare-Metal Port}{15}{section.4}%
-\contentsline {section}{\numberline {5}Derivatives and Reuse}{17}{section.5}%
-\contentsline {section}{\numberline {6}Infrastructure Pulled into Existence}{19}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Routing and branding}{19}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Testing infrastructure}{19}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}Piece-hit analytics}{20}{subsection.6.3}%
-\contentsline {section}{\numberline {7}Political Economy of a Piece}{22}{section.7}%
-\contentsline {section}{\numberline {8}Current Scale}{25}{section.8}%
-\contentsline {section}{\numberline {9}Conclusion}{26}{section.9}%
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Origins (June--July 2024)}{6}{section.2}%
+\contentsline {section}{\numberline {3}Feature Growth}{8}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Audio engine (2024--2025)}{8}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Input and hardware (2024--2026)}{9}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Visual design}{10}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}DAW integration: Ableton Live}{11}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Network and system integration}{12}{subsection.3.5}%
+\contentsline {section}{\numberline {4}The Bare-Metal Port}{14}{section.4}%
+\contentsline {section}{\numberline {5}Derivatives and Reuse}{16}{section.5}%
+\contentsline {section}{\numberline {6}Infrastructure Pulled into Existence}{18}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Routing and branding}{18}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Testing infrastructure}{18}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Piece-hit analytics}{19}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Political Economy of a Piece}{21}{section.7}%
+\contentsline {section}{\numberline {8}Current Scale}{24}{section.8}%
+\contentsline {section}{\numberline {9}Conclusion}{25}{section.9}%
 \contentsfinish 

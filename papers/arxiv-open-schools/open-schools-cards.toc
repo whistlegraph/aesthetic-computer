@@ -1,35 +1,35 @@
-\contentsline {section}{\numberline {1}The Chromebook Problem}{8}{section.1}%
-\contentsline {subsection}{\numberline {1.1}What the Student Cannot Do}{9}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}The Cloud as Landlord}{10}{subsection.1.2}%
-\contentsline {subsection}{\numberline {1.3}Planned Obsolescence: The AUE Problem}{11}{subsection.1.3}%
-\contentsline {section}{\numberline {2}The Surveillance Machine}{13}{section.2}%
-\contentsline {subsection}{\numberline {2.1}What Google Collects}{13}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Legal Actions}{14}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Monitoring Software}{15}{subsection.2.3}%
-\contentsline {section}{\numberline {3}Everyone Is a Programmer Now}{17}{section.3}%
-\contentsline {subsection}{\numberline {3.1}The New Literacy}{17}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}The Chromebook Cannot Execute}{19}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}The Spiritual Dimension}{20}{subsection.3.3}%
-\contentsline {section}{\numberline {4}What Every Student Deserves}{22}{section.4}%
-\contentsline {section}{\numberline {5}It Already Works: International Precedents}{24}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Kerala, India: 16,000 Schools}{24}{subsection.5.1}%
-\contentsline {subsection}{\numberline {5.2}Schleswig-Holstein, Germany: 30,000 PCs}{25}{subsection.5.2}%
-\contentsline {subsection}{\numberline {5.3}France: National Open-Source Strategy}{25}{subsection.5.3}%
-\contentsline {subsection}{\numberline {5.4}Penn Manor, Pennsylvania: 1,725 Linux Laptops}{26}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}The ``Public Money, Public Code'' Movement}{26}{subsection.5.5}%
-\contentsline {section}{\numberline {6}The Economics}{28}{section.6}%
-\contentsline {subsection}{\numberline {6.1}The Cost Excuse}{28}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}The Supply}{28}{subsection.6.2}%
-\contentsline {subsection}{\numberline {6.3}The Environmental Case}{29}{subsection.6.3}%
-\contentsline {section}{\numberline {7}The Open Stack}{32}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Every Chromebook Is Already a Linux Machine}{32}{subsection.7.1}%
-\contentsline {subsection}{\numberline {7.2}The IT Excuse}{32}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}The LLM Infrastructure}{34}{subsection.7.3}%
-\contentsline {section}{\numberline {8}The Student as Author}{35}{section.8}%
-\contentsline {section}{\numberline {9}A Path Forward}{37}{section.9}%
-\contentsline {subsection}{\numberline {9.1}Phase 1: Awareness}{37}{subsection.9.1}%
-\contentsline {subsection}{\numberline {9.2}Phase 2: Pilot Programs}{37}{subsection.9.2}%
-\contentsline {subsection}{\numberline {9.3}Phase 3: Policy}{38}{subsection.9.3}%
-\contentsline {subsection}{\numberline {9.4}Phase 4: Liberation}{39}{subsection.9.4}%
-\contentsline {section}{\numberline {10}Conclusion}{41}{section.10}%
+\contentsline {section}{\numberline {1}The Chromebook Problem}{7}{section.1}%
+\contentsline {subsection}{\numberline {1.1}What the Student Cannot Do}{8}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}The Cloud as Landlord}{9}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Planned Obsolescence: The AUE Problem}{10}{subsection.1.3}%
+\contentsline {section}{\numberline {2}The Surveillance Machine}{12}{section.2}%
+\contentsline {subsection}{\numberline {2.1}What Google Collects}{12}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Legal Actions}{13}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Monitoring Software}{14}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Everyone Is a Programmer Now}{16}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The New Literacy}{16}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The Chromebook Cannot Execute}{18}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The Spiritual Dimension}{19}{subsection.3.3}%
+\contentsline {section}{\numberline {4}What Every Student Deserves}{21}{section.4}%
+\contentsline {section}{\numberline {5}It Already Works: International Precedents}{23}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Kerala, India: 16,000 Schools}{23}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Schleswig-Holstein, Germany: 30,000 PCs}{24}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}France: National Open-Source Strategy}{24}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Penn Manor, Pennsylvania: 1,725 Linux Laptops}{25}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}The ``Public Money, Public Code'' Movement}{25}{subsection.5.5}%
+\contentsline {section}{\numberline {6}The Economics}{27}{section.6}%
+\contentsline {subsection}{\numberline {6.1}The Cost Excuse}{27}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}The Supply}{27}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}The Environmental Case}{28}{subsection.6.3}%
+\contentsline {section}{\numberline {7}The Open Stack}{31}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Every Chromebook Is Already a Linux Machine}{31}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}The IT Excuse}{31}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}The LLM Infrastructure}{33}{subsection.7.3}%
+\contentsline {section}{\numberline {8}The Student as Author}{34}{section.8}%
+\contentsline {section}{\numberline {9}A Path Forward}{36}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Phase 1: Awareness}{36}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Phase 2: Pilot Programs}{36}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Phase 3: Policy}{37}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}Phase 4: Liberation}{38}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Conclusion}{40}{section.10}%
 \contentsfinish 
