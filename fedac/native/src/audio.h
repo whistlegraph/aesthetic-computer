@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include "audio-decode.h"
 
 #define AUDIO_SAMPLE_RATE 192000
 #define AUDIO_CHANNELS 2
@@ -11,6 +12,7 @@
 #define AUDIO_WAVEFORM_SIZE 512
 #define AUDIO_MAX_SAMPLE_VOICES 12
 #define AUDIO_MAX_SAMPLE_SECS 10
+#define AUDIO_MAX_DECKS 2
 
 typedef enum {
     VOICE_INACTIVE = 0,
@@ -59,6 +61,13 @@ typedef struct {
     double fade_target;     // 0 = killing, 1 = playing
     uint64_t id;
 } SampleVoice;
+
+typedef struct {
+    volatile int     active;        // deck loaded and ready
+    volatile int     playing;       // currently producing audio
+    float            volume;        // 0.0–1.0
+    ACDeckDecoder   *decoder;       // streaming decoder instance
+} ACDeck;
 
 typedef struct {
     void *pcm;              // snd_pcm_t* (void to avoid header dep)
@@ -144,6 +153,11 @@ typedef struct {
     SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
     uint64_t sample_next_id;
 
+    // DJ deck audio (persistent across piece switches)
+    ACDeck decks[AUDIO_MAX_DECKS];
+    float crossfader;           // 0.0 = deck A, 1.0 = deck B
+    float deck_master_volume;   // overall deck volume (default 0.8)
+
     // HDMI audio output (secondary, low-pass filtered clone)
     void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)
     unsigned int hdmi_rate;     // negotiated HDMI sample rate
@@ -224,6 +238,16 @@ void audio_shutdown_sound(ACAudio *audio);
 // Sample persistence (save/load to disk)
 int audio_sample_save(ACAudio *audio, const char *path);
 int audio_sample_load(ACAudio *audio, const char *path);
+
+// DJ deck control
+int audio_deck_load(ACAudio *audio, int deck, const char *path);
+void audio_deck_play(ACAudio *audio, int deck);
+void audio_deck_pause(ACAudio *audio, int deck);
+void audio_deck_seek(ACAudio *audio, int deck, double seconds);
+void audio_deck_set_speed(ACAudio *audio, int deck, double speed);
+void audio_deck_set_volume(ACAudio *audio, int deck, float vol);
+void audio_deck_set_crossfader(ACAudio *audio, float value);
+void audio_deck_set_master_volume(ACAudio *audio, float value);
 
 // Cleanup
 void audio_destroy(ACAudio *audio);

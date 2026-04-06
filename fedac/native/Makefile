@@ -87,6 +87,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/machines.c \
         $(SRCDIR)/swank-bridge.c \
         $(SRCDIR)/js-bindings.c \
+        $(SRCDIR)/audio-decode.c \
         $(SRCDIR)/recorder.c
 
 # Wayland display backend (conditional)
