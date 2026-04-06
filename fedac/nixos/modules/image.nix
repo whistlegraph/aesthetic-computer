@@ -1,22 +1,29 @@
 { lib, ... }:
 
 {
-  # Raw disk image builds need a full installed bootloader, not the live ISO path.
-  boot.loader.systemd-boot.enable = lib.mkForce false;
+  # Use systemd-boot for fast EFI boot (GRUB adds ~2min on USB drives).
+  boot.loader.systemd-boot.enable = lib.mkForce true;
+  boot.loader.grub.enable = lib.mkForce false;
   boot.loader.efi.canTouchEfiVariables = lib.mkForce false;
-  boot.loader.grub = {
-    enable = true;
-    devices = [ "/dev/vda" ];
-    efiSupport = true;
-    efiInstallAsRemovable = true;
-    configurationLimit = 1;
-  };
   boot.loader.timeout = lib.mkForce 0;
-  boot.loader.grub.timeoutStyle = lib.mkForce "hidden";
   boot.growPartition = lib.mkDefault true;
 
-  # Make early boot text visible on the real display for debug + fallback boot paths.
-  boot.kernelParams = lib.mkAfter [ "console=tty0" ];
+  # Quiet boot — suppress kernel/systemd text, go straight to ac-native.
+  # Suppress NixOS initrd "stage 1" / "stage 2" banners
+  boot.initrd.verbose = false;
+
+  # Silent boot: send all kernel/initrd/systemd output to tty2 (invisible).
+  # tty1 stays black until cage takes over with ac-native.
+  boot.kernelParams = lib.mkAfter [
+    "console=tty2"
+    "quiet"
+    "loglevel=0"
+    "rd.systemd.show_status=false"
+    "systemd.show_status=false"
+    "vt.global_cursor_default=0"
+    "splash"
+  ];
+  boot.consoleLogLevel = lib.mkForce 0;
 
   # Match nixpkgs raw-disk expectations so the installed image can boot on
   # real hardware and expand cleanly after flashing.

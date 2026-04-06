@@ -148,6 +148,31 @@ static void sigterm_handler(int sig) {
     poweroff_requested = 1;
 }
 
+// Shutdown/reboot that works both as PID 1 (bare metal) and under systemd (NixOS).
+static void ac_poweroff(void) {
+    sync();
+    usleep(500000);
+    sync();
+    if (getpid() == 1) {
+        reboot(LINUX_REBOOT_CMD_POWER_OFF);
+    } else {
+        system("systemctl poweroff");
+        _exit(0);
+    }
+}
+
+static void ac_reboot(void) {
+    sync();
+    usleep(500000);
+    sync();
+    if (getpid() == 1) {
+        reboot(LINUX_REBOOT_CMD_RESTART);
+    } else {
+        system("systemctl reboot");
+        _exit(2);
+    }
+}
+
 static void signal_handler(int sig) {
     running = 0;
 
@@ -2091,7 +2116,7 @@ int main(int argc, char *argv[]) {
             // Write diagnostics to USB too
             system("cat /proc/cmdline >> /mnt/ac-init.log 2>/dev/null");
             system("dmesg 2>/dev/null | grep -i 'drm\\|i915\\|display' >> /mnt/ac-init.log 2>/dev/null");
-            if (getpid() == 1) { sleep(30); reboot(LINUX_REBOOT_CMD_POWER_OFF); }
+            sleep(30); ac_poweroff();
             return 1;
         }
 
@@ -2252,10 +2277,7 @@ int main(int argc, char *argv[]) {
                 audio_shutdown_sound(audio);
                 usleep(500000);
                 sync();
-                // sysrq reboot (reliable under initramfs)
-                FILE *sr = fopen("/proc/sysrq-trigger", "w");
-                if (sr) { fputs("b", sr); fclose(sr); }
-                reboot(LINUX_REBOOT_CMD_RESTART);
+                ac_reboot();
                 while (running) sleep(1);
             }
         }
@@ -2395,7 +2417,7 @@ int main(int argc, char *argv[]) {
         if (display) drm_destroy(display);
         if (logfile) { fclose(logfile); logfile = NULL; }
         sync();
-        if (getpid() == 1) reboot(LINUX_REBOOT_CMD_POWER_OFF);
+        ac_poweroff();
         return 1;
     }
 
@@ -2603,14 +2625,12 @@ int main(int argc, char *argv[]) {
         if (reboot_requested) {
             ac_log("[cage-transition] Reboot requested by cage child\n");
             ac_log_flush();
-            sync(); usleep(500000); sync();
-            reboot(LINUX_REBOOT_CMD_RESTART);
+            ac_reboot();
         }
         if (poweroff_requested) {
             ac_log("[cage-transition] Poweroff requested by cage child\n");
             ac_log_flush();
-            sync(); usleep(500000); sync();
-            reboot(LINUX_REBOOT_CMD_POWER_OFF);
+            ac_poweroff();
         }
 
         // Reclaim DRM and continue in DRM mode (fallback)
@@ -3494,10 +3514,7 @@ int main(int argc, char *argv[]) {
     fb_destroy(screen);
     if (display) drm_destroy(display);
 
-    if (getpid() == 1) {
-        sync();
-        reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    }
+    ac_poweroff();
 
     return 0;
 }

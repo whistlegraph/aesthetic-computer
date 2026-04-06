@@ -906,10 +906,12 @@ static const struct wl_keyboard_listener keyboard_listener = {
 // Wayland pointer listener
 static void wl_pointer_enter(void *data, struct wl_pointer *ptr, uint32_t serial,
                                struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
-    (void)ptr; (void)serial; (void)surface;
+    (void)surface;
     ACInput *input = data;
     input->pointer_x = wl_fixed_to_int(sx);
     input->pointer_y = wl_fixed_to_int(sy);
+    // Hide the Wayland compositor cursor — ac-native renders its own.
+    wl_pointer_set_cursor(ptr, serial, NULL, 0, 0);
 }
 
 static void wl_pointer_leave(void *data, struct wl_pointer *ptr, uint32_t serial,

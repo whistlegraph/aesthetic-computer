@@ -1211,13 +1211,15 @@ static void *capture_thread_func(void *arg) {
         }
 
         float peak = 0.0f;
-        // Simple compressor: track envelope, apply gain reduction
+        // Aggressive compressor + hard limiter to prevent clipping.
+        // Matches the note compression style in the synth output.
         static float env = 0.0f;         // envelope follower
         static float comp_gain = 1.0f;   // current gain
-        const float threshold = 0.5f;    // compress above this
-        const float ratio = 4.0f;        // 4:1 compression
-        const float attack = 0.002f;     // fast attack
-        const float release = 0.0001f;   // slow release
+        const float threshold = 0.15f;   // compress early (mic input is often hot)
+        const float ratio = 12.0f;       // aggressive compression
+        const float attack = 0.005f;     // fast attack
+        const float release = 0.00005f;  // slow release (smooth)
+        const float limiter = 0.9f;      // hard limiter ceiling
 
         for (int s = 0; s < n; s++) {
             float sample;
@@ -1240,11 +1242,15 @@ static void *capture_thread_func(void *arg) {
                 float reduced = threshold + over / ratio;
                 comp_gain = reduced / env;
             } else {
-                // Slowly return to unity
-                comp_gain += 0.0001f * (1.0f - comp_gain);
+                comp_gain += 0.0002f * (1.0f - comp_gain);
             }
 
             sample *= comp_gain;
+
+            // Hard limiter — prevent any clipping
+            if (sample > limiter) sample = limiter;
+            else if (sample < -limiter) sample = -limiter;
+
             if (abs_s > peak) peak = abs_s;
 
             // Always write to ring buffer
