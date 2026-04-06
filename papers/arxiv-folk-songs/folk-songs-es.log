@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  27 MAR 2026 08:30
+This is XeTeX, Version 3.141592653-2.6-0.999995 (TeX Live 2023) (preloaded format=xelatex 2026.3.17)  5 APR 2026 18:36
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1116,8 +1116,8 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 )
 \Hy@SectionHShift=\skip83
 )
-Package hyperref Info: Option `colorlinks' set `true' on input line 244.
-Package hyperref Info: Option `breaklinks' set `true' on input line 244.
+Package hyperref Info: Option `colorlinks' set `true' on input line 267.
+Package hyperref Info: Option `breaklinks' set `true' on input line 267.
 
 (/usr/share/texlive/texmf-dist/tex/latex/titlesec/titletoc.sty
 Package: titletoc 2021/07/05 v2.14 TOC entries
@@ -2017,16 +2017,8 @@ Overfull \hbox (123.78616pt too wide) in alignment at lines 163--163
 
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
 (Font)              scaled to size 12.00128pt on input line 167.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 8.00085pt on input line 167.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 167.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
 (Font)              scaled to size 11.99872pt on input line 167.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 7.99915pt on input line 167.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 167.
 
 Overfull \hbox (122.59262pt too wide) in alignment at lines 178--178
 [][][] 
@@ -2126,11 +2118,11 @@ Package rerunfilecheck Info: File `folk-songs-es.out' has not changed.
 (rerunfilecheck)             Checksum: 4967E59C53B1C20F4878BF3406640F4E;1652.
  ) 
 Here is how much of TeX's memory you used:
- 35784 strings out of 478682
- 727131 string characters out of 5849006
+ 35793 strings out of 478682
+ 727528 string characters out of 5849006
  1856018 words of memory out of 6000000
- 55291 multiletter control sequences out of 15000+600000
- 517163 words of font info for 122 fonts, out of 8000000 for 9000
+ 55297 multiletter control sequences out of 15000+600000
+ 517187 words of font info for 125 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  98i,11n,115p,1010b,1048s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
