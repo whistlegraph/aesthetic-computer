@@ -18,11 +18,9 @@
   security.rtkit.enable = true;
   services.pipewire.enable = false;
 
-  # Slim initrd — only modules needed for Intel laptops + USB boot.
-  # Default NixOS initrd is 1.4GB (every driver); this cuts to ~50-80MB.
-  boot.initrd.includeDefaultModules = false;
+  # Kernel modules for common hardware
   boot.initrd.availableKernelModules = [
-    # Storage (USB boot + internal NVMe)
+    # Storage
     "ahci" "nvme" "sd_mod" "usb_storage" "uas"
     "xhci_pci" "ehci_pci" "ohci_pci"
     # Input
@@ -30,7 +28,7 @@
     # GPU (loaded early for KMS)
     "i915" "amdgpu" "nouveau"
     # Filesystems
-    "ext4" "vfat" "nls_cp437" "nls_iso8859_1"
+    "vfat" "nls_cp437" "nls_iso8859_1"
   ];
 
   boot.kernelModules = [
