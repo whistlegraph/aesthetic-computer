@@ -54,7 +54,6 @@ in
   # System packages — only what ac-native needs at runtime
   environment.systemPackages = with pkgs; [
     ac-native
-    cage
     wpa_supplicant
     iw
     dhcpcd

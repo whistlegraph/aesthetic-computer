@@ -1,6 +1,5 @@
 { lib, stdenv, fetchurl, pkg-config
 , libdrm, alsa-lib, flite, openssl, curl
-, wayland, wayland-protocols, wayland-scanner
 , ffmpeg, esbuild
 , nativeSrc
 , kidlispSrc ? null
@@ -21,7 +20,6 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [
     pkg-config
-    wayland-scanner
     esbuild
   ];
 
@@ -31,8 +29,6 @@ stdenv.mkDerivation {
     flite
     openssl
     curl
-    wayland
-    wayland-protocols
     ffmpeg
   ];
 
@@ -45,15 +41,8 @@ stdenv.mkDerivation {
        $sourceRoot/build/quickjs/
   '';
 
-  # Fix hardcoded wayland protocol path
-  postPatch = ''
-    substituteInPlace Makefile \
-      --replace '/usr/share/wayland-protocols' \
-                '${wayland-protocols}/share/wayland-protocols'
-  '';
-
+  # DRM-direct mode — no Wayland compositor, no cage overhead.
   makeFlags = [
-    "USE_WAYLAND=1"
     "CC=cc"
   ];
 

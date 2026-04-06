@@ -22,49 +22,20 @@ let
     } > "$out" 2>/dev/null || true
     sync || true
   '';
-  ac-native-client = pkgs.writeShellScript "ac-native-cage-client" ''
+  ac-native-start = pkgs.writeShellScript "ac-native-start" ''
     set -u
 
-    rm -f /tmp/ac-native-cage.log
-    ${write-breadcrumb} ac-native-starting "binary=${ac-native}/bin/ac-native" "piece=${ac-native}/share/ac-native/piece.mjs"
-    printf '[ac-native-cage-client] starting %s %s\n' \
-      "${ac-native}/bin/ac-native" \
-      "${ac-native}/share/ac-native/piece.mjs" >&2
+    ${write-breadcrumb} ac-native-starting \
+      "binary=${ac-native}/bin/ac-native" \
+      "piece=${ac-native}/share/ac-native/piece.mjs" \
+      "mode=drm-direct"
 
-    status=0
-    "${ac-native}/bin/ac-native" \
-      "${ac-native}/share/ac-native/piece.mjs" \
-      >/tmp/ac-native-cage.log 2>&1 || status=$?
+    # Switch to tty1 and run ac-native in DRM-direct mode.
+    # No cage, no Wayland — ac-native owns DRM master and reads evdev directly.
+    chvt 1
 
-    printf '[ac-native-cage-client] ac-native exited status=%s\n' "$status" >&2
-    if [ -s /tmp/ac-native-cage.log ]; then
-      ${pkgs.gnused}/bin/sed 's/^/[ac-native-cage-log] /' \
-        /tmp/ac-native-cage.log >&2 || true
-    else
-      printf '[ac-native-cage-client] no /tmp/ac-native-cage.log output\n' >&2
-    fi
-
-    exit "$status"
-  '';
-  ac-native-kiosk = pkgs.writeShellScript "ac-native-kiosk" ''
-    set -u
-
-    rm -f /tmp/cage-stderr.log
-    ${write-breadcrumb} kiosk-launching "tty=/dev/tty1" "display=cage"
-    printf '[ac-native-kiosk] launching cage on tty1\n' >&2
-
-    status=0
-    ${pkgs.cage}/bin/cage -s -- ${ac-native-client} \
-      2>/tmp/cage-stderr.log || status=$?
-
-    printf '[ac-native-kiosk] cage exited status=%s\n' "$status" >&2
-    if [ -s /tmp/cage-stderr.log ]; then
-      ${pkgs.gnused}/bin/sed 's/^/[cage-stderr] /' /tmp/cage-stderr.log >&2 || true
-    else
-      printf '[ac-native-kiosk] no /tmp/cage-stderr.log output\n' >&2
-    fi
-
-    exit "$status"
+    exec "${ac-native}/bin/ac-native" \
+      "${ac-native}/share/ac-native/piece.mjs"
   '';
   ac-native-stop = pkgs.writeShellScript "ac-native-stop" ''
     set -u
@@ -81,13 +52,6 @@ let
         -u mount-usb-config.service \
         -u ac-native-kiosk.service \
         >"$journal" 2>&1 || true
-
-      if [ -f /tmp/ac-native-cage.log ]; then
-        cp /tmp/ac-native-cage.log "/mnt/logs/ac-native-cage-''${stamp}.log" || true
-      fi
-      if [ -f /tmp/cage-stderr.log ]; then
-        cp /tmp/cage-stderr.log "/mnt/logs/cage-stderr-''${stamp}.log" || true
-      fi
       sync || true
     fi
 
@@ -99,20 +63,18 @@ let
   '';
 in
 {
-  # seatd for unprivileged GPU/input access
-  services.seatd.enable = true;
-
-  # Kiosk service: cage compositor running ac-native
+  # DRM-direct kiosk: ac-native owns the display and input hardware.
+  # No cage compositor, no seatd, no Wayland — matching the bare-metal build.
   systemd.services.ac-native-kiosk = {
-    description = "AC Native OS kiosk";
+    description = "AC Native OS kiosk (DRM direct)";
     conflicts = [ "getty@tty1.service" ];
-    after = [ "getty@tty1.service" "mount-usb-config.service" "seatd.service" ];
-    wants = [ "mount-usb-config.service" "seatd.service" ];
+    after = [ "getty@tty1.service" "mount-usb-config.service" ];
+    wants = [ "mount-usb-config.service" ];
     wantedBy = [ "multi-user.target" ];
 
     path = with pkgs; [
       coreutils gnugrep gnused gawk findutils
-      which psmisc       # killall (psmisc), which
+      which psmisc
       systemd util-linux
       wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
@@ -120,20 +82,14 @@ in
     ];
 
     environment = {
-      XDG_RUNTIME_DIR = "/run/user/0";
       HOME = "/tmp/ac-home";
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
       ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
       ALSA_CONFIG_PATH = "${pkgs.alsa-lib}/share/alsa/alsa.conf";
-      # Hide the Wayland compositor cursor — ac-native renders its own.
-      WLR_NO_HARDWARE_CURSORS = "1";
-      XCURSOR_SIZE = "1";
     };
 
     serviceConfig = {
-      # Run as root — ac-native needs full hardware access (WiFi, ALSA,
-      # DRM) matching the old bare-metal build where it ran as PID 1.
-      # Security hardening can be layered on once all features work.
+      # Run as root for DRM master + evdev + WiFi + ALSA access.
       Type = "simple";
       Restart = "on-failure";
       RestartSec = 2;
@@ -145,17 +101,14 @@ in
       StandardOutput = "journal";
       StandardError = "journal";
 
-      # cage -s for single-app mode, wrapped so child logs land in journal.
-      ExecStart = "${ac-native-kiosk}";
+      ExecStart = "${ac-native-start}";
 
-      # Exit code handling:
-      #   0 = shutdown, 2 = reboot (matching current ac-native convention)
+      # Exit code: 0 = shutdown, 2 = reboot
       SuccessExitStatus = "0 2";
       ExecStopPost = "+${ac-native-stop}";
     };
   };
 
-  # Ensure XDG_RUNTIME_DIR exists for the ac user
   systemd.tmpfiles.rules = [
     "d /mnt 0755 root root -"
     "d /run/user/0 0700 root root -"
