@@ -25,15 +25,31 @@ let
   ac-native-start = pkgs.writeShellScript "ac-native-start" ''
     set -u
 
+    echo "[ac-native-start] waiting for DRM device..."
+
+    # Wait for /dev/dri/card0 (i915 needs a moment after kernel init)
+    for i in $(seq 1 30); do
+      [ -e /dev/dri/card0 ] && break
+      sleep 0.2
+    done
+
+    if [ ! -e /dev/dri/card0 ]; then
+      echo "[ac-native-start] ERROR: /dev/dri/card0 not found after 6s"
+      ls -la /dev/dri/ 2>/dev/null || echo "  /dev/dri/ does not exist"
+      exit 1
+    fi
+
+    echo "[ac-native-start] DRM ready: $(ls /dev/dri/)"
+
     ${write-breadcrumb} ac-native-starting \
       "binary=${ac-native}/bin/ac-native" \
       "piece=${ac-native}/share/ac-native/piece.mjs" \
       "mode=drm-direct"
 
     # Switch to tty1 and run ac-native in DRM-direct mode.
-    # No cage, no Wayland — ac-native owns DRM master and reads evdev directly.
     chvt 1
 
+    echo "[ac-native-start] launching ac-native DRM-direct"
     exec "${ac-native}/bin/ac-native" \
       "${ac-native}/share/ac-native/piece.mjs"
   '';
@@ -98,8 +114,8 @@ in
       TTYVHangup = true;
       TTYVTDisallocate = true;
       StandardInput = "tty";
-      StandardOutput = "journal";
-      StandardError = "journal";
+      StandardOutput = "journal+console";
+      StandardError = "journal+console";
 
       ExecStart = "${ac-native-start}";
 
