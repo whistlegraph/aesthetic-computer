@@ -471,11 +471,10 @@ void input_poll(ACInput *input) {
             }
         }
 
-        // If we have evdev devices (no udev fallback), poll them too
-        if (input->count > 0)
-            goto poll_evdev;
-
-        // Otherwise just poll NuPhy hidraw
+        // Under Wayland, cage grabs keyboard/mouse/touchpad via libinput.
+        // Do NOT also read those devices via evdev — double input causes
+        // progressive cursor drift (Wayland sets absolute pos, evdev adds
+        // relative deltas on top). Only poll NuPhy hidraw for analog keys.
         goto poll_hidraw;
     }
 #endif
