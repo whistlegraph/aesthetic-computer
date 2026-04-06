@@ -41,6 +41,7 @@ const PAPER_MAP = {
   "arxiv-futures": { base: "futures", title: "Five Years from Now", siteName: "five-years-from-now-26-arxiv" },
   "arxiv-identity": { base: "identity", title: "Handle Identity on the AT Protocol", siteName: "handle-identity-atproto-26-arxiv" },
   "arxiv-ucla-arts": { base: "ucla-arts", title: "Two Departments, One Building", siteName: "ucla-arts-funding-26-arxiv" },
+  "arxiv-holden": { base: "holden", title: "The Potter and the Prompt", siteName: "potter-and-prompt-26-arxiv" },
 };
 
 function getAvailableTranslations(dir, info) {
