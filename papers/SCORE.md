@@ -40,9 +40,17 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| The Potter and the Prompt | arXiv (LaTeX) | `arxiv-holden/holden.pdf` | `arxiv-holden/holden.tex` |
+| Two Departments, One Building | arXiv (LaTeX) | `arxiv-ucla-arts/ucla-arts.pdf` | `arxiv-ucla-arts/ucla-arts.tex` |
+| Handle Identity on the AT Protocol | arXiv (LaTeX) | `arxiv-identity/identity.pdf` | `arxiv-identity/identity.tex` |
 | Five Years from Now: What Aesthetic Computer Probably Becomes | arXiv (LaTeX) | `arxiv-futures/futures.pdf` | `arxiv-futures/futures.tex` |
+| Get Closed Source Out of Schools | arXiv (LaTeX) | `arxiv-open-schools/open-schools.pdf` | `arxiv-open-schools/open-schools.tex` |
+| CalArts, Callouts, and Papers | arXiv (LaTeX) | `arxiv-calarts/calarts.pdf` | `arxiv-calarts/calarts.tex` |
 | Reading the Score: A Critical Analysis of SCORE.md | arXiv (LaTeX) | `arxiv-score-analysis/score-analysis.pdf` | `arxiv-score-analysis/score-analysis.tex` |
 | KidLisp Cards: Programs That Fit on a Card | arXiv (LaTeX) | `arxiv-kidlisp-cards/kidlisp-cards.pdf` | `arxiv-kidlisp-cards/kidlisp-cards.tex` |
+| Sucking on the Complex | arXiv (LaTeX) | `arxiv-complex/complex.pdf` | `arxiv-complex/complex.tex` |
+| Playable Folk Songs | arXiv (LaTeX) | `arxiv-folk-songs/folk-songs.pdf` | `arxiv-folk-songs/folk-songs.tex` |
+| Every Sound is a Painting: Sampling as Visual-Auditory Practice | arXiv (LaTeX) | `arxiv-sampling/sampling.pdf` | `arxiv-sampling/sampling.tex` |
 | PLORKing the Planet: From Laptop Orchestra to Planetary Organ | arXiv (LaTeX, 8pp) | `arxiv-plork/plork.pdf` | `arxiv-plork/plork.tex` |
 | From setup() to boot(): Processing at the Core of the Piece API | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |
 | Network Audit: Who Uses Aesthetic Computer and What Do They Make? | arXiv (LaTeX, 4pp) | `arxiv-network-audit/network-audit.pdf` | `arxiv-network-audit/network-audit.tex` |
