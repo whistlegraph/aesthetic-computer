@@ -413,6 +413,7 @@ function updateIndex(entries) {
     "calarts-callouts-papers-26-arxiv": 20,
     "handle-identity-atproto-26-arxiv": 21,
     "ucla-arts-funding-26-arxiv": 22,
+    "potter-and-prompt-26-arxiv": 23,
   };
 
   // Collect deployed English PDFs sorted by importance
@@ -421,7 +422,9 @@ function updateIndex(entries) {
     const stat = statSync(e.sitePdf);
     const m = meta[e.dir] || {};
     const rank = IMPORTANCE[e.siteName] || 99;
-    papers.push({ ...e, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0, rank });
+    // Prefer stored updated timestamp over file mtime (deploy copies all PDFs, clobbering mtime)
+    const updated = m.updated ? new Date(m.updated) : stat.mtime;
+    papers.push({ ...e, mtime: updated, created: m.created || null, revisions: m.revisions || 0, rank });
   }
   papers.sort((a, b) => a.rank - b.rank);
 
@@ -462,7 +465,8 @@ function updateIndex(entries) {
     if (existsSync(fp)) {
       const stat = statSync(fp);
       const m = meta[ex.metaKey] || {};
-      extras.push({ ...ex, mtime: stat.mtime, created: m.created || null, revisions: m.revisions || 0 });
+      const updated = m.updated ? new Date(m.updated) : stat.mtime;
+      extras.push({ ...ex, mtime: updated, created: m.created || null, revisions: m.revisions || 0 });
     }
   }
   extras.sort((a, b) => b.mtime - a.mtime);
@@ -829,10 +833,12 @@ if (cmd === "status" || !cmd) {
 
   // Increment revisions in metadata for all built papers (English only to avoid double-counting)
   const meta = loadMetadata();
-  const builtDirs = new Set(built.map((e) => e.dir));
+  const now = new Date().toISOString();
+  const builtDirs = new Set(built.filter((e) => e.lang === "en").map((e) => e.dir));
   for (const dir of builtDirs) {
-    if (!meta[dir]) meta[dir] = { created: new Date().toISOString().slice(0, 10), revisions: 0 };
+    if (!meta[dir]) meta[dir] = { created: now.slice(0, 10), revisions: 0 };
     meta[dir].revisions = (meta[dir].revisions || 0) + 1;
+    meta[dir].updated = now;
   }
   saveMetadata(meta);
   console.log(`  METADATA updated (${builtDirs.size} papers incremented).\n`);

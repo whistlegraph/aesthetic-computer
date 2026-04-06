@@ -1,94 +1,127 @@
 {
   "arxiv-ac": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-28T23:55:47.000Z"
   },
   "arxiv-api": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-archaeology": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-dead-ends": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-diversity": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-goodiepal": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-28T22:37:14.000Z"
   },
   "arxiv-kidlisp": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-kidlisp-reference": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-network-audit": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-notepat": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-28T23:55:47.000Z"
   },
   "arxiv-os": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-29T05:41:52.000Z"
   },
   "arxiv-pieces": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-30T07:16:52.000Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-29T05:41:52.000Z"
   },
   "arxiv-folk-songs": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-28T22:11:03.000Z"
   },
   "arxiv-complex": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-kidlisp-cards": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-score-analysis": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-21T02:30:26.000Z"
   },
   "arxiv-calarts": {
     "created": "2026-03-21",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-futures": {
     "created": "2026-03-20",
-    "revisions": 2
+    "revisions": 2,
+    "updated": "2026-03-27T15:49:57.000Z"
   },
   "arxiv-sustainability": {
     "created": "2026-03-27",
-    "revisions": 1
+    "revisions": 1,
+    "updated": "2026-03-28T19:47:31.000Z"
   },
   "arxiv-identity": {
     "created": "2026-03-27",
-    "revisions": 1
+    "revisions": 1,
+    "updated": "2026-03-28T19:05:12.000Z"
   },
   "arxiv-ucla-arts": {
     "created": "2026-03-27",
-    "revisions": 1
+    "revisions": 1,
+    "updated": "2026-03-27T21:36:37.000Z"
+  },
+  "arxiv-open-schools": {
+    "created": "2026-03-20",
+    "revisions": 2,
+    "updated": "2026-03-21T01:23:50.000Z"
+  },
+  "arxiv-holden": {
+    "created": "2026-04-05",
+    "revisions": 1,
+    "updated": "2026-04-06T01:47:22.000Z"
   }
 }
