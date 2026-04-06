@@ -119,12 +119,16 @@ function main() {
     ? (readFileSync(INDEX_PATH, "utf8").match(/class="p"\s+data-paper-id=/g) || [])
         .length
     : 0;
+  const readingsCount = countFiles(
+    join(REPO_ROOT, "system/public/assets/papers/readings/text"),
+    ".txt",
+  );
 
   html = replaceOrThrow(
     html,
     /<div class="stats">[\s\S]*?<\/div>/,
     `<div class="stats">
-            <span>${piecesTotal}</span> pieces · <span>${libModules}</span> lib modules · <span>${functionCount}</span> functions · <span>${plans.count}</span> plans · <span>${reports.count}</span> reports · <span>${studies.count}</span> studies · <span>30+</span> readings · <span>${papersCount}</span> papers
+            <span>${piecesTotal}</span> pieces · <span>${libModules}</span> lib modules · <span>${functionCount}</span> functions · <span>${plans.count}</span> plans · <span>${reports.count}</span> reports · <span>${studies.count}</span> studies · <span>${readingsCount}+</span> readings · <span>${papersCount}</span> papers
         </div>`,
     "stats block",
   );
