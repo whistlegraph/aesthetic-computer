@@ -1,8 +1,8 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Broad hardware support — load ALL firmware
-  hardware.firmware = [ pkgs.linux-firmware ];
+  # Broad hardware support — load ALL firmware + WiFi regulatory DB
+  hardware.firmware = [ pkgs.linux-firmware pkgs.wireless-regdb ];
 
   # GPU: Intel + AMD + Nvidia (nouveau)
   hardware.graphics = {

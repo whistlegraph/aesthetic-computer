@@ -48,8 +48,8 @@ in
     home = "/tmp/ac-home";
   };
 
-  # Autologin — no greeter, no display manager
-  services.getty.autologinUser = "ac";
+  # No getty — kiosk service takes over tty1 directly
+  services.getty.autologinUser = lib.mkForce null;
 
   # System packages — only what ac-native needs at runtime
   environment.systemPackages = with pkgs; [
@@ -83,8 +83,8 @@ in
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      StandardOutput = "journal+console";
-      StandardError = "journal+console";
+      StandardOutput = "journal";
+      StandardError = "journal";
       ExecStart = pkgs.writeShellScript "mount-usb-config" ''
         set -u
 

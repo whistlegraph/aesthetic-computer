@@ -10,16 +10,18 @@
 
   # Quiet boot — suppress kernel/systemd text, go straight to ac-native.
   # Suppress NixOS initrd "stage 1" / "stage 2" banners
-  boot.initrd.verbose = false;
+  boot.initrd.verbose = lib.mkForce false;
 
-  # Silent boot: send all kernel/initrd/systemd output to tty2 (invisible).
+  # Silent boot: redirect ALL output to tty2 (invisible).
   # tty1 stays black until cage takes over with ac-native.
-  boot.kernelParams = lib.mkAfter [
+  boot.kernelParams = lib.mkForce [
+    "consoleblank=0"
     "console=tty2"
     "quiet"
     "loglevel=0"
     "rd.systemd.show_status=false"
     "systemd.show_status=false"
+    "systemd.log_level=crit"
     "vt.global_cursor_default=0"
     "splash"
   ];
