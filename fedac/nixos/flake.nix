@@ -71,7 +71,7 @@
           # enough room for the kernel, initrd, and GRUB assets.
           bootSize = "2048M";
           diskSize = "auto";
-          additionalSpace = "2G";
+          additionalSpace = "256M";
           memSize = 4096;
         };
 
