@@ -366,6 +366,7 @@ papers/**/*.bbl
 papers/**/*.blg
 papers/**/*.log
 papers/**/*.out
+papers/**/*.toc
 
 # babypat build artifacts
 fedac/babypat/*.o

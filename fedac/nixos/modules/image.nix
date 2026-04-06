@@ -21,7 +21,7 @@
     "loglevel=0"
     "rd.systemd.show_status=false"
     "systemd.show_status=false"
-    "systemd.log_level=crit"
+    "systemd.log_level=warning"
     "vt.global_cursor_default=0"
     "splash"
   ];

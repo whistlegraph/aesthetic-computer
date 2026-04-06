@@ -1,0 +1,301 @@
+% !TEX program = xelatex
+\documentclass[12pt,letterpaper]{article}
+
+% === GEOMETRY (generous margins, roomy) ===
+\usepackage[top=1in, bottom=1in, left=1.1in, right=1.1in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\setmainfont{Latin Modern Sans}
+\setmonofont{Latin Modern Mono}[Scale=0.85]
+
+\newfontfamily\acbold{ywft-processing-bold}[
+  Path=../../system/public/type/webfonts/,
+  Extension=.ttf
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{tabularx}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{ragged2e}
+\usepackage{microtype}
+\usepackage{eso-pic}
+\usepackage{tikz}
+\usepackage{hyperref}
+
+\graphicspath{{figures/}}
+
+% === COLORS ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{ruleclr}{RGB}{200,200,200}
+
+% === PALS LOGO (title page only, upright) ===
+% Applied via \AddToShipoutPicture* (one-shot, next page only)
+% Called just before \begin{document}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={LACMA Art + Technology Lab 2026: Aesthetic Computer},
+}
+
+% === HEADER/FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\small\color{acgray}\thepage}
+
+% === LISTS ===
+\setlist[enumerate]{leftmargin=1.6em, itemsep=0.5em, parsep=0.1em}
+\setlist[itemize]{leftmargin=1.4em, itemsep=0.3em}
+
+% === PARAGRAPH ===
+\setlength{\parindent}{0em}
+\setlength{\parskip}{0.6em}
+\RaggedRight
+
+% === HELPERS ===
+\newcommand{\ac}{Aesthetic{\color{acpink}.}Computer}
+\newcommand{\achead}[1]{%
+  \vspace{1.2em}%
+  {\color{acpink}\noindent\rule{\textwidth}{1.5pt}}\\[-0.5em]
+  {\large\bfseries #1}%
+  \vspace{0.3em}%
+}
+\newcommand{\acsubhead}[1]{%
+  \vspace{0.8em}%
+  {\bfseries #1}%
+  \vspace{0.2em}%
+}
+\newcommand{\cvline}[2]{\noindent\makebox[3.2em][l]{\color{acgray}#1}#2\\[0.15em]}
+
+% ===================================================================
+\AddToShipoutPicture*{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \node[opacity=0.018, anchor=north west]
+      at ([xshift=-0.5cm, yshift=0.5cm]current page.north west)
+      {\includegraphics[width=8cm]{pals}};
+  \end{tikzpicture}%
+}
+\begin{document}
+\thispagestyle{fancy}
+
+% === TITLE ===
+\begin{center}
+  {\acbold\fontsize{28pt}{32pt}\selectfont Aesthetic{\color{acpink}.}Computer}\\[6pt]
+  {\Large Bare Metal Instruments}\\[12pt]
+  {\color{acgray}
+    Jeffrey Alan Scudder\\[2pt]
+    \href{https://justanothersystem.org}{justanothersystem.org}\enspace·\enspace
+    \href{https://aesthetic.computer}{aesthetic.computer}\enspace·\enspace
+    \href{mailto:me@jas.life}{me@jas.life}\\[2pt]
+    ORCID: 0009-0007-4460-4913
+  }
+\end{center}
+
+\vspace{0.4em}
+{\color{acgray}\hrule height 0.5pt}
+\vspace{0.4em}
+
+\begin{center}
+  {\itshape instrument\enspace·\enspace language\enspace·\enspace network}
+\end{center}
+
+\vspace{0.2em}
+{\large\bfseries \ac{} is a bare-metal creative computing system---custom hardware, a handmade programming language, and a social network---that reimagines the personal computer as a live musical instrument for art.}
+
+\begin{flushright}
+  \small\color{acgray} LACMA Art + Technology Lab · 2026 Grant Application · Deadline: April 22, 2026
+\end{flushright}
+
+% =======================================================================
+\achead{Project Description}
+
+\ac{} (AC) is a creative computing platform built from first principles. It consists of three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called KidLisp for generative art, and a social network where anyone can publish and share interactive programs called ``pieces.''
+
+The core provocation is simple: what happens when you strip away the consumer operating system---the notifications, the app stores, the surveillance---and build a computer that does nothing but help you make things?
+
+\textbf{AC Native} is our answer in hardware. It is a Linux kernel that boots from a USB stick on any x86 laptop in under two seconds, running a custom C runtime as PID\,1---no desktop, no window manager, no browser. The system renders directly to the framebuffer, reads input from raw device events, and synthesizes audio sample-by-sample through ALSA at 192\,kHz. The result is a zero-latency creative instrument: a 7,800-line musical composition tool called \textit{notepat} currently ships as the default piece, turning any laptop into a polyphonic synthesizer with room reverb, waveform selection, and time-of-day-responsive visuals.
+
+\textbf{KidLisp} is a minimal Lisp dialect designed specifically for generative art. With 118 built-in functions across 12 categories, it provides an accessible entry point for non-programmers while remaining expressive enough for complex compositions. Over 16,000 KidLisp programs have been written on the platform. KidLisp programs can be minted as on-chain ``keeps'' on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.
+
+\textbf{The Network} ties it together. \ac{} hosts 359 built-in pieces and 265 user-published pieces across 2,800+ registered handles. Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels---people can draw, compose, and play together.
+
+During the grant period, we propose to develop AC Native from a working prototype into a distributable creative instrument and public installation:
+
+\begin{enumerate}
+  \item \textbf{Portable Instruments}---Produce USB-bootable AC Native drives preloaded with curated pieces that visitors and workshop participants can take home and boot on their own laptops.
+  \item \textbf{KidLisp Workshops}---Hands-on sessions where participants write KidLisp programs that run on AC Native hardware in real time, experiencing the full loop from code to sound and image with no intermediary.
+  \item \textbf{Public Installation}---Multiple AC Native stations at LACMA where visitors encounter creative computing as a direct, embodied experience---more like sitting down at a piano than opening an app.
+  \item \textbf{Open Documentation}---Publish the complete build pipeline, hardware compatibility guide, and workshop curriculum so other artists and institutions can replicate the system.
+\end{enumerate}
+
+This project is not about building a product. It is about demonstrating that the personal computer can still be a site of artistic invention---that the instrument is not yet finished being designed.
+
+% =======================================================================
+\achead{Statements}
+
+\acsubhead{Artistic Merit}
+
+\ac{} treats the computer itself as an unfinished instrument---a site for ongoing artistic invention rather than a fixed consumer product. By building from bare metal (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and AC Native transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.
+
+\acsubhead{Technology and Culture}
+
+Consumer operating systems have become attention-extraction machines---optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots in two seconds, runs one piece of art software, and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself---demonstrating that a language can be designed for artistic expression rather than industrial production. The 16,000+ programs written in KidLisp suggest this resonates beyond our own practice.
+
+\acsubhead{Public Engagement}
+
+We propose three forms of public engagement. First, hands-on KidLisp workshops at LACMA where participants write generative art programs that run on AC Native hardware---no prior coding experience required. Second, an installation of multiple AC Native stations where visitors experience creative computing as a direct, instrument-like interaction. Third, open ``build days'' where we assemble USB drives and document the process publicly, inviting visitors into the making of the system itself. All curricula, documentation, and software will be published openly for other artists and institutions to adopt.
+
+% =======================================================================
+\achead{Timeline}
+
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+  \textbf{Fall 2026} & \textbf{Hardware Refinement}---Expand compatibility; multi-piece boot menu; target 5+ laptop models \\
+  \textbf{Winter 26--27} & \textbf{Workshop Dev}---KidLisp curriculum (3 levels); pilot testing; printed reference cards \\
+  \textbf{Spring 2027} & \textbf{Installation Design}---Multi-station layout; 20+ bootable USB drives; kiosk-mode security \\
+  \textbf{Summer--Fall 27} & \textbf{Public Programs}---4--6 workshops at LACMA; public AC Native stations; feedback \\
+  \textbf{Winter 27--28} & \textbf{Documentation}---Open-source build guide, curriculum, compatibility list; LACMA Symposium \\
+\end{tabularx}
+\renewcommand{\arraystretch}{1.0}
+
+% =======================================================================
+\achead{Budget}
+
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}Xr@{}}
+  Artist fee (24 months) & \$20,000 \\
+  Hardware---laptops for installation (5 × \$400 refurb.) & \$2,000 \\
+  Hardware---USB drives, cables, peripherals & \$500 \\
+  Workshop materials (printed guides, reference cards) & \$1,000 \\
+  Travel to Los Angeles (4 trips × \$1,200) & \$4,800 \\
+  Accommodation during LA visits (30 nights × \$150) & \$4,500 \\
+  NuPhy analog keyboards for installation (5 × \$120) & \$600 \\
+  Fabrication---installation furniture/mounts & \$2,500 \\
+  Software infrastructure (hosting, CDN, domain) & \$1,200 \\
+  Documentation production (video, photography) & \$2,000 \\
+  Contingency (10\%) & \$3,900 \\
+  {\color{acgray}\hrulefill} & {\color{acgray}\hrulefill} \\[-0.3em]
+  \textbf{Total Requested} & \textbf{\$43,000} \\
+\end{tabularx}
+\renewcommand{\arraystretch}{1.0}
+
+\vspace{0.2em}
+{\color{acgray} Other funding: open-source sponsorship via GitHub Sponsors and Liberapay (covers ongoing server costs).}
+
+% =======================================================================
+% CV
+% =======================================================================
+
+\achead{Curriculum Vitae}
+
+\begin{center}
+  {\color{acgray} Jeffrey Alan Scudder · \href{https://justanothersystem.org}{justanothersystem.org} · Los Angeles, CA}
+\end{center}
+
+Jeffrey Alan Scudder (b.\,1989, Assonet, MA) is a painter based in Los Angeles. His work moves between stretched canvas, custom software, and live performance. He is the creator of \ac{}, Whistlegraph, and No Paint. Collections include KADIST (San Francisco) and SMK (National Gallery of Denmark).
+
+\acsubhead{Education}
+
+\cvline{2013}{Yale School of Art---MFA (Sculpture)}
+\cvline{2011}{Ringling College of Art + Design---BFA (Fine Art)}
+\cvline{2010}{AICAD New York Studio Program Residency}
+
+\vspace{0.3em}
+\begin{minipage}[t]{0.47\textwidth}
+\acsubhead{Residencies}
+\cvline{2026}{Author in Residence, UCLA (Casey Reas)}
+\cvline{2019}{Internet Archive Artist in Residence}
+\cvline{2018}{Gazell.io Art House Web Residency}
+\cvline{2017}{Schloss-Post Web Residencies (ZKM)}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.47\textwidth}
+\acsubhead{Teaching}
+\cvline{2026}{Author in Residence, UCLA (Casey Reas)}
+\cvline{2024}{UCLA DMA Summer: Interactivity}
+\cvline{2019}{Asst.\ Professor, Southern Oregon U.}
+\cvline{2016}{Visiting Professor, UCLA DMA}
+\cvline{13--16}{Adjunct Professor, Parsons}
+\end{minipage}
+
+\acsubhead{Selected Solo Exhibitions}
+
+\cvline{2022}{Ten Whistlegraphs, Feral File (w/ Whistlegraph)}
+\cvline{2018}{Radical Digital Painting: LA, The Newsstand Project \& CAP}
+\cvline{2017}{Tumpin, left.gallery (Online)}
+\cvline{2017}{Imaginary Screenshots, Whitcher Projects, Los Angeles}
+\cvline{2016}{No Paint: Release One, Essex Flowers (Digital Commission)}
+
+\acsubhead{Selected Group Exhibitions}
+
+\cvline{2026}{47th Venice Family Clinic Art Exhibition + Auction, Venice, CA}
+\cvline{2025}{Turbo Cheap (inaugural exhibition), Los Angeles}
+\cvline{2019}{Internet Archive Artist in Residency Exhibition}
+\cvline{2018}{OPEN CODES (Schloss Solitude Web Residencies), ZKM, Karlsruhe}
+\cvline{2018}{Radical Digital Painting w/ Julia Yerger, Johannes Vogt Gallery, NYC}
+\cvline{2018}{Make Pictures (curated), bitforms gallery, NYC}
+\cvline{2015}{P.S.1 Commencement, ALLGOLD @ MoMA PS1 Printshop, LIC, NY}
+\cvline{2013}{Apartment Show (hosted by Nouriel Roubini), NYC}
+\cvline{2009}{The New Easy, Artnews Projects, Berlin}
+
+\acsubhead{Selected Lectures \& Performances {\normalfont\color{acgray}(65+ total)}}
+
+\cvline{2026}{NELA Computer Club demos (biweekly), Plot.Place, Chinatown, LA}
+\cvline{2022}{The Longest Whistlegraph Ever (so far), New Museum, NYC}
+\cvline{2020}{New Dynamic Graphics: Whistlegraph Recital, Korea HCI (keynote)}
+\cvline{2019}{New Dynamic Graphics, India HCI 19 (keynote), Hyderabad}
+\cvline{2019}{RDP @ RAFLOST Festival, Iceland}
+\cvline{2018}{RDP, 35c3: Chaos Communication Congress, Leipzig}
+\cvline{2018}{Casey Reas \& JAS in Conversation, bitforms gallery, NYC}
+\cvline{2018}{RDP @ 1st Annual HASH Award, ZKM, Karlsruhe}
+\cvline{2018}{RDP @ Pioneer Works, Brooklyn, NY}
+\cvline{2018}{European tour (15+ venues) w/ Goodiepal \& Pals}
+\cvline{2017}{Northeast US Lecture Tour (Parsons, Harvard, Yale, RISD, Temple, Rutgers)}
+\cvline{2017}{RDP @ Cafe OTO, London \& Neumeister Bar-Am, Berlin}
+
+\acsubhead{Collections}
+
+KADIST Foundation, San Francisco\\
+SMK---National Gallery of Denmark, Copenhagen
+
+\acsubhead{Selected Press \& Writing}
+
+\cvline{2024}{\textit{notepat}, Hacker News (front page)}
+\cvline{2023}{Whistlegraph---A new audience for generative art, \textit{Dirt}}
+\cvline{2023}{Sex: The Whistlegraph Zine, \textit{Sex Magazine}}
+\cvline{2020}{No Paint, Hacker News (front page)}
+\cvline{2019}{Drawing is the best videogame, \textit{The Creative Independent}}
+\cvline{2018}{Radical Digital Painting \& Political Rock, \textit{Are.na Blog}}
+\cvline{2018}{\textit{Harvard Advocate}, Winter 2018 (Noise)}
+\cvline{2017}{Artist Profile: Jeffrey Alan Scudder, \textit{Rhizome}}
+\cvline{2017}{A Manifesto for Radical Digital Painting, \textit{Schlosspost}}
+\cvline{2017}{Microsoft Paint's Influence on Artists Is Bigger Than You Might Think, \textit{Artsy}}
+
+\acsubhead{Software \& Platforms}
+
+\cvline{2021--}{\ac{}---creative computing platform (\href{https://aesthetic.computer}{aesthetic.computer})}
+\cvline{2025--}{AC Native---bare-metal creative computing OS (USB-bootable Linux)}
+\cvline{2024--}{KidLisp---programming language for generative art (16,000+ programs)}
+\cvline{2024--}{\textit{notepat}---polyphonic synthesizer instrument (7,800 lines)}
+\cvline{2016--}{No Paint---radical paint program (\href{https://nopaint.art}{nopaint.art})}
+\cvline{2016--}{Whistlegraph---collaborative performance software (w/ Camille Klein \& Alex Freundlich)}
+
+\vfill
+\begin{center}
+  \color{acgray}
+  \href{https://justanothersystem.org}{justanothersystem.org}\enspace·\enspace
+  \href{https://aesthetic.computer}{aesthetic.computer}\enspace·\enspace
+  LACMA Art + Technology Lab 2026
+\end{center}
+
+\end{document}
