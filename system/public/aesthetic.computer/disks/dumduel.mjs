@@ -56,9 +56,9 @@ function applySnapshot(s) {
   roundWinner = s.roundWinner;
   roster = (s.roster || []).map((h) => ({ handle: h }));
 
-  // Log first few snapshots + periodic
-  if (snapCount <= 3 || snapCount % 100 === 0) {
-    console.log(`📸 snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`);
+  // Log first few snapshots + periodic + any with bullets
+  if (snapCount <= 3 || snapCount % 100 === 0 || s.bullets?.length > 0) {
+    console.log(`📸 snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`, s.bullets);
   }
 
   // Reconcile own prediction
@@ -338,6 +338,9 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     }
   }
 
+  // DEBUG: show bullet count
+  ink(255, 0, 0).write(`B:${bullets.length}`, { x: 4, y: 4 });
+
   if (phase === "fight" || phase === "roundover") {
     // Bullets (extrapolated client-side for smoothness)
     for (const b of bullets) {
@@ -345,6 +348,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       if (b.owner === myHandle) ink(50, 120, 200, alpha);
       else ink(200, 70, 60, alpha);
       circle(ox + Math.round(b.x), oy + Math.round(b.y), BULLET_R, true);
+      // DEBUG: draw bigger marker so bullet is unmissable
+      ink(255, 0, 0, 120).box(ox + Math.round(b.x) - 4, oy + Math.round(b.y) - 4, 8, 8);
     }
 
     // Target indicator
