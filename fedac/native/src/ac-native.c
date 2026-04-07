@@ -3447,6 +3447,30 @@ int main(int argc, char *argv[]) {
                 };
                 perf_record(&pr);
 
+                // Log perf summary every 5 seconds (300 frames @ 60fps)
+                {
+                    static uint32_t perf_log_max = 0, perf_log_sum = 0;
+                    static uint16_t perf_log_paint_max = 0, perf_log_pres_max = 0;
+                    static int perf_log_slow = 0; // frames > 20ms
+                    if (pr.total_us > perf_log_max) perf_log_max = pr.total_us;
+                    if (pr.paint_us > perf_log_paint_max) perf_log_paint_max = pr.paint_us;
+                    if (pr.present_us > perf_log_pres_max) perf_log_pres_max = pr.present_us;
+                    perf_log_sum += pr.total_us;
+                    if (pr.total_us > 20000) perf_log_slow++;
+                    if (main_frame % 300 == 299) {
+                        ac_log("[perf] f=%d avg=%.1fms max=%.1fms paint_max=%.1fms pres_max=%.1fms slow=%d voices=%d\n",
+                            (int)main_frame,
+                            perf_log_sum / 300.0f / 1000.0f,
+                            perf_log_max / 1000.0f,
+                            perf_log_paint_max / 1000.0f,
+                            perf_log_pres_max / 1000.0f,
+                            perf_log_slow, pr.voices);
+                        perf_log_max = 0; perf_log_sum = 0;
+                        perf_log_paint_max = 0; perf_log_pres_max = 0;
+                        perf_log_slow = 0;
+                    }
+                }
+
                 // Write frame marker to ftrace ring buffer for BPF correlation.
                 // Only active when /tmp/.trace-active exists (zero cost otherwise).
                 {
