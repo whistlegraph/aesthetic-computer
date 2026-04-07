@@ -92,7 +92,7 @@ in
       coreutils gnugrep gnused gawk findutils
       which psmisc
       systemd util-linux
-      wpa_supplicant iw dhcpcd curl
+      iproute2 wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
       ac-native
     ];
@@ -113,7 +113,9 @@ in
       TTYReset = true;
       TTYVHangup = true;
       TTYVTDisallocate = true;
-      StandardInput = "tty";
+      # ac-native reads evdev directly, not stdin. Using "tty" here
+      # causes systemd to grab tty1 input, blocking keyboard events.
+      StandardInput = "null";
       StandardOutput = "journal+console";
       StandardError = "journal+console";
 
