@@ -2286,11 +2286,11 @@ int main(int argc, char *argv[]) {
         if (!wifi_disabled) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
-            wifi = wifi_init();
-            // Auto-connect only if saved credentials exist (skip scan loop on fresh boot)
-            if (wifi && access("/mnt/wifi_creds.json", F_OK) == 0) {
-                wifi_autoconnect(wifi);
-            }
+            // WiFi disabled for now — iw scan causes system-wide stalls
+            // that drop FPS from 60 to ~27. Re-enable once scan is
+            // moved to a non-blocking path or user explicitly requests it.
+            // wifi = wifi_init();
+            wifi = NULL;
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
