@@ -6,7 +6,7 @@
 #include <wayland-client.h>
 #endif
 
-#define MAX_INPUT_DEVICES 8
+#define MAX_INPUT_DEVICES 24
 #define MAX_HIDRAW_DEVICES 4
 #define MAX_EVENTS_PER_FRAME 64
 
