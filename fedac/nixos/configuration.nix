@@ -29,13 +29,10 @@ in
   services.openssh.enable = false;
   security.polkit.enable = true;
 
-  # Disable logind input grabbing — ac-native reads evdev directly.
-  # Without this, logind grabs keyboard and power button events.
-  services.logind.lidSwitch = "ignore";
-  services.logind.powerKey = "ignore";
-  services.logind.suspendKey = "ignore";
-  services.logind.hibernateKey = "ignore";
-  services.logind.settings.Login.NAutoVTs = 0;
+  # Disable logind entirely — it grabs keyboard/power evdev events
+  # that ac-native needs to read directly. No session management needed
+  # on a single-purpose kiosk.
+  services.logind.enable = false;
 
   # Networking (WiFi managed by ac-native, not NetworkManager)
   networking = {
