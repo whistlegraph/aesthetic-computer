@@ -15,6 +15,7 @@ let sendFn = null;
 let synth = null;
 let sw = 0, sh = 0;
 let frameCount = 0;
+let spectator = false;
 
 // Input prediction
 let inputSeq = 0;
@@ -56,11 +57,9 @@ function applySnapshot(s) {
   roundWinner = s.roundWinner;
   roster = (s.roster || []).map((h) => ({ handle: h }));
 
-  // Log first few snapshots + periodic + any with bullets → relay to server
-  if (snapCount <= 3 || snapCount % 100 === 0 || s.bullets?.length > 0) {
-    const msg = `snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`;
-    console.log(`📸 ${msg}`, s.bullets);
-    server?.send("duel:clientlog", { handle: myHandle, msg, bullets: s.bullets || [] });
+  // Log first few snapshots + periodic
+  if (snapCount <= 3 || snapCount % 100 === 0) {
+    console.log(`📸 snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`);
   }
 
   // Reconcile own prediction
@@ -103,6 +102,7 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
   sw = screen.width;
   sh = screen.height;
   myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
+  spectator = myHandle.startsWith("guest_");
   synth = sound.synth;
   sendFn = send;
 
@@ -156,7 +156,8 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
     if (type === "duel:joined" || type === "duel:roster") {
       roster = (msg.roster || []).map((h) => ({ handle: h }));
       if (msg.phase) phase = msg.phase;
-      console.log(`🎯 ${type}: roster=[${msg.roster?.join(", ")}] phase=${msg.phase}`);
+      if (msg.spectator) spectator = true;
+      console.log(`🎯 ${type}: roster=[${msg.roster?.join(", ")}] phase=${msg.phase}${spectator ? " (spectator)" : ""}`);
     }
 
     if (type === "duel:countdown") {
@@ -201,8 +202,8 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
 function sim() {
   frameCount++;
 
-  // Predict local movement
-  if (phase === "fight" || phase === "countdown") {
+  // Spectators skip local prediction — just use server positions
+  if (!spectator && (phase === "fight" || phase === "countdown")) {
     const dx = localTargetX - localX;
     const dy = localTargetY - localY;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -239,6 +240,14 @@ function sim() {
 function act({ event: e, screen }) {
   sw = screen.width;
   sh = screen.height;
+
+  // Spectators can pan but not send inputs
+  if (spectator) {
+    if (e.is("touch")) { panning = true; panStartX = e.x; panStartY = e.y; panCamStartX = camX; panCamStartY = camY; }
+    if (e.is("draw") && panning) { camX = panCamStartX - (e.x - panStartX); camY = panCamStartY - (e.y - panStartY); }
+    if (e.is("lift")) panning = false;
+    return;
+  }
 
   if (e.is("touch")) {
     touchStartX = e.x;
@@ -346,8 +355,8 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       circle(ox + Math.round(b.x), oy + Math.round(b.y), BULLET_R, true);
     }
 
-    // Target indicator
-    if (phase === "fight") {
+    // Target indicator (not for spectators)
+    if (phase === "fight" && !spectator) {
       const meAlive = players.find((p) => p.handle === myHandle)?.alive;
       if (meAlive) {
         ink(50, 120, 200, 60).circle(
@@ -358,20 +367,32 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       }
     }
 
-    // Draw figures — use predicted position for self
+    // Draw figures — spectators use server positions for everyone
     for (const p of players) {
       const col = isMe(p.handle) ? [50, 120, 200] : [200, 70, 60];
-      const drawP = isMe(p.handle)
-        ? { ...p, x: localX, y: localY, targetX: localTargetX, targetY: localTargetY }
-        : { ...p, x: opDisplayX, y: opDisplayY };
+      let drawP;
+      if (spectator) {
+        drawP = p; // All server positions
+      } else if (isMe(p.handle)) {
+        drawP = { ...p, x: localX, y: localY, targetX: localTargetX, targetY: localTargetY };
+      } else {
+        drawP = { ...p, x: opDisplayX, y: opDisplayY };
+      }
       drawFigure(ink, circle, box, line, ox, oy, drawP, col, frameCount);
+
+      // Hitbox ring (server HIT_R = 7)
+      const hx = ox + Math.round(drawP.x);
+      const hy = oy + Math.round(drawP.y);
+      if (drawP.alive) {
+        ink(col[0], col[1], col[2], 35).circle(hx, hy, 7, false);
+      }
 
       // Handle label (MatrixChunky8, centered) + ping
       const label = p.handle;
       const pingStr = p.ping > 0 ? ` ${p.ping}` : "";
       const fullLabel = label + pingStr;
-      const lx = isMe(p.handle) ? localX : opDisplayX;
-      const ly = isMe(p.handle) ? localY : opDisplayY;
+      const lx = spectator ? drawP.x : (isMe(p.handle) ? localX : opDisplayX);
+      const ly = spectator ? drawP.y : (isMe(p.handle) ? localY : opDisplayY);
       ink(...col, 150).write(fullLabel, {
         x: ox + Math.round(lx) - Math.round(fullLabel.length * 2),
         y: oy + Math.round(ly) + 9,
@@ -413,6 +434,26 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     write(r.handle, { x: stackX, y: stackY + 12 + si * 10 });
     si++;
   }
+
+  // Spectator label
+  if (spectator) {
+    ink(180, 100, 200, 200).write("spectator", {
+      x: Math.floor(sw / 2 - 18),
+      y: sh - 10,
+    }, undefined, undefined, false, "MatrixChunky8");
+  }
+
+  // Network stats panel (top-right, MatrixChunky8)
+  const netX = sw - 4;
+  const netY = 3;
+  const udpOk = !!udpChannel?.connected;
+  const wsOk = !!server;
+  ink(udpOk ? 80 : 200, udpOk ? 180 : 80, udpOk ? 80 : 80, 180)
+    .write(udpOk ? "udp ok" : "udp --", { x: netX - 24, y: netY }, undefined, undefined, false, "MatrixChunky8");
+  ink(wsOk ? 80 : 200, wsOk ? 180 : 80, wsOk ? 80 : 80, 180)
+    .write(wsOk ? "ws ok" : "ws --", { x: netX - 20, y: netY + 8 }, undefined, undefined, false, "MatrixChunky8");
+  ink(160, 155, 145, 180)
+    .write(ping > 0 ? ping + "ms" : "--ms", { x: netX - 20, y: netY + 16 }, undefined, undefined, false, "MatrixChunky8");
 }
 
 function isMe(handle) {
