@@ -2655,6 +2655,79 @@ app.get('/app-screenshots/:preset/:piece.png', async (req, res) => {
   }
 });
 
+// ─── News screenshot endpoint ──────────────────────────────────────────────
+// Captures a piece at 16:9 (1200×675) for embedding in news.aesthetic.computer
+// posts. Returns JSON with the CDN URL so the CLI can emit markdown.
+// Usage: GET /news-screenshot/notepat.png
+//        GET /news-screenshot/notepat.png?force=true
+app.get('/news-screenshot/:piece.png', async (req, res) => {
+  const { piece } = req.params;
+  const force = req.query.force === 'true';
+  const width = 1200, height = 675; // 16:9
+
+  try {
+    addServerLog('capture', '📰', `News screenshot: ${piece} (${width}×${height}${force ? ' FORCE' : ''})`);
+
+    const { cdnUrl, fromCache, buffer } = await getCachedOrGenerate(
+      'news-screenshots',
+      piece,
+      width,
+      height,
+      async () => {
+        const result = await grabPiece(piece, {
+          format: 'png',
+          width,
+          height,
+          density: 2,
+          viewportScale: 1,
+          skipCache: force,
+          source: 'news',
+        });
+
+        if (!result.success) throw new Error(result.error);
+
+        if (result.cached && result.cdnUrl && !result.buffer) {
+          const response = await fetch(result.cdnUrl);
+          if (!response.ok) throw new Error(`Failed to fetch cached screenshot: ${response.status}`);
+          return Buffer.from(await response.arrayBuffer());
+        }
+
+        return result.buffer;
+      },
+      'png',
+      force,
+    );
+
+    // Return JSON only when explicitly requested; default to serving the image.
+    if (req.query.json === 'true') {
+      return res.json({
+        piece,
+        url: cdnUrl || `https://oven.aesthetic.computer/news-screenshot/${piece}.png`,
+        cached: fromCache,
+        width,
+        height,
+      });
+    }
+
+    if (fromCache && cdnUrl && !force) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.redirect(302, cdnUrl);
+    }
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', force ? 'no-store' : 'public, max-age=86400');
+    res.setHeader('X-Cache', force ? 'REGENERATED' : 'MISS');
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('News screenshot error:', error);
+    addServerLog('error', '❌', `News screenshot failed: ${piece} - ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Bulk ZIP download endpoint
 app.get('/app-screenshots/download/:piece', async (req, res) => {
   const { piece } = req.params;

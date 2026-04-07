@@ -624,6 +624,14 @@ body {
   padding: 0;
 }
 
+.news-op-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.6em 0;
+  display: block;
+}
+
 .news-op-body a {
   color: var(--ac-pink, #cd5c9b);
 }

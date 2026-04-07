@@ -1302,6 +1302,8 @@ async function fun(event, context) {
           var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
           // Notebook: Python/Jupyter notebook with scientific aesthetic
           var isNotebook=qs.indexOf('notebook=true')>=0;
+          // Boot animation mode: 'serious' (clean/refined, default) or 'aesthetic' (VHS/glitch)
+          var bootTheme=params.get('boot')||'serious';var isSerious=bootTheme==='serious';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           var isLightMode=window.matchMedia&&window.matchMedia('(prefers-color-scheme:light)').matches;
@@ -1520,8 +1522,31 @@ async function fun(event, context) {
               var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
               x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):16*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):7*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:10*S*dS;var textX=densityParam===1&&isDeviceMode?30:(logX+3*S*dS);var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):6*S*dS;var pillR=densityParam===1&&isDeviceMode?6:3*S*dS;var pillW=tw+(textX-logX)*2;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.65,pillW,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
-            // GIVE variant: HIGH ALERT SIREN MODE - keep logo/logs, add alarm effects
-            if(giveVariant){
+            // Serious mode — clean, refined boot animation (default)
+            if(isSerious){var sbg=isLightMode?'#ffffff':'#000000';x.fillStyle=sbg;x.fillRect(0,0,W,H);
+              // Logo with pink bg + chromatic aberration
+              var lS=21*S,lX=5*S,lY=5*S;var logoImg=imgFullLoaded?imgFull:img;
+              var pnkR=isLightMode?(180+Math.sin(t*1.5)*15|0):(80+Math.sin(t*1.5)*20|0),pnkG=isLightMode?(100+Math.sin(t*2.1)*10|0):(30+Math.sin(t*2.1)*10|0),pnkB=isLightMode?(160+Math.sin(t*1.8)*20|0):(100+Math.sin(t*1.8)*25|0);
+              x.globalAlpha=0.6;x.fillStyle='rgb('+pnkR+','+pnkG+','+pnkB+')';x.fillRect(lX-2*S,lY-2*S,lS+4*S,lS+4*S);x.globalAlpha=1;
+              x.imageSmoothingEnabled=imgFullLoaded;
+              x.globalAlpha=0.2;x.filter='hue-rotate(-40deg) saturate(1.5)';x.drawImage(logoImg,lX-2*S,lY-1*S,lS,lS);x.filter='hue-rotate(40deg) saturate(1.5)';x.drawImage(logoImg,lX+2*S,lY+1*S,lS,lS);
+              x.filter='none';x.globalAlpha=1;x.drawImage(logoImg,lX,lY,lS,lS);
+              // Title + status — consistent 6*S line spacing
+              var tX=lX+lS+4*S,tYbase=lY+2*S,rowH=6*S,row=0;
+              x.font='bold '+(4*S)+'px monospace';x.fillStyle=isLightMode?'#000':'#fff';x.fillText('Aesthetic',tX,tYbase);var dotX=tX+x.measureText('Aesthetic').width+1*S;var dotPulse=0.5+Math.sin(t*2)*0.5;x.globalAlpha=dotPulse;x.fillStyle=isLightMode?'#444':'#ccc';x.fillText('.',dotX,tYbase);x.globalAlpha=1;var compX=dotX+x.measureText('.').width+1*S;x.fillStyle=isLightMode?'#000':'#fff';x.fillText('Computer',compX,tYbase);
+              var wsX=compX+x.measureText('Computer').width+4*S;var wsDotR=1.5*S;x.beginPath();x.arc(wsX+wsDotR,tYbase-2*S,wsDotR,0,Math.PI*2);if(sessionConnected){x.fillStyle=isLightMode?'#006400':'#80ffa0';}else{x.globalAlpha=0.4+Math.sin(t*4)*0.3;x.fillStyle=isLightMode?'#c8960a':'#ffb050';}x.fill();x.globalAlpha=1;
+              row++;var sec=(performance.now()-bootStart)/1000;var secT=sec.toFixed(2)+'s';x.font='bold '+(4*S)+'px monospace';x.globalAlpha=0.75;x.fillStyle=isLightMode?'#333':'#ddd';x.fillText(secT,tX,tYbase+row*rowH);
+              row++;var d=new Date(),utcT=d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0')+':'+d.getUTCSeconds().toString().padStart(2,'0')+' UTC';x.font=(3*S)+'px monospace';x.globalAlpha=0.6;x.fillStyle=isLightMode?'#555':'#bbb';x.fillText(utcT,tX,tYbase+row*rowH);x.globalAlpha=1;
+              if(uH){row++;var hAge=(performance.now()-hST)/1000,hFade=Math.min(1,hAge*2);x.font='bold '+(5*S)+'px monospace';x.globalAlpha=hFade*0.9;x.fillStyle=isLightMode?'#222':'#eee';x.fillText(uH,tX,tYbase+row*rowH);x.globalAlpha=1;}
+              // Boot log messages
+              row++;var tSY=tYbase+row*rowH;x.font=(4*S)+'px monospace';for(var i=0;i<lines.length;i++){var y=tSY+i*5*S;if(y>H-3*S)break;var al=Math.max(0.35,1-i*0.08);var dt=lines[i].text;var isActive=i===0&&dt.indexOf('_')>-1;if(isActive){var blink=Math.sin(t*6)>0;dt=blink?dt:dt.replace(/_$/,' ');}else if(i===0&&f%30<15)dt=dt.replace(/_$/,' ');x.globalAlpha=al;var gv=isLightMode?(30+i*8):(245-i*8);x.fillStyle='rgb('+gv+','+gv+','+gv+')';x.fillText(dt,tX,y);}x.globalAlpha=1;
+              // MOTD — inline after boot logs
+              if(motd){var mAge=(performance.now()-motdStart)/1000;var mFade=Math.min(1,mAge*0.8);var motdY=tSY+Math.min(lines.length,8)*5*S+4*S;x.font='bold '+(4*S)+'px YWFTProcessing-Bold, monospace';x.globalAlpha=mFade*0.85;x.fillStyle=isLightMode?'#222':'#eee';var maxMotdW=W-tX-8*S;var roughChars=Math.max(6,Math.floor(maxMotdW/(2.5*S)));var linesMotd=wrapMotdText(motd,roughChars);for(var li=0;li<linesMotd.length;li++){var my=motdY+li*5*S;if(my>H-8*S)break;x.fillText(linesMotd[li],tX,my);}if(motdHandle){var lastMotdY=motdY+Math.min(linesMotd.length,6)*5*S;x.font=(3*S)+'px monospace';x.globalAlpha=mFade*0.5;x.fillStyle=isLightMode?'#555':'#bbb';x.fillText('— '+motdHandle,tX,lastMotdY);}x.globalAlpha=1;}
+              if(connFlash>0.01){x.globalAlpha=connFlash*0.2;x.fillStyle=isLightMode?'#006400':'#80ffa0';x.fillRect(0,0,W,H);x.globalAlpha=1;}
+              if(errorMode||errorFlash>0.01){var errElapsed=errorStartTime?(performance.now()-errorStartTime)/1000:0;if(errorMode&&errElapsed>1.0){x.globalCompositeOperation='source-over';x.globalAlpha=1;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);}else if(errorMode&&errElapsed>0.5){var blackFade=(errElapsed-0.5)/0.5;x.globalCompositeOperation='source-over';x.globalAlpha=blackFade*0.9;x.fillStyle='rgb(0,0,0)';x.fillRect(0,0,W,H);x.globalAlpha=1-blackFade*0.7;var xSize=Math.min(W,H)*0.7,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;x.strokeStyle='rgb(255,0,0)';x.lineWidth=xThick;x.lineCap='round';x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();}else{x.globalCompositeOperation='screen';var errA=errorMode?0.4+Math.sin(t*8)*0.2:errorFlash*0.5;x.globalAlpha=errA;x.fillStyle='rgb(255,40,60)';x.fillRect(0,0,W,H);x.globalCompositeOperation='source-over';if(errorMode){var xGrow=Math.min(1,errElapsed/0.3);var xSize=Math.min(W,H)*0.7*xGrow,xThick=Math.max(8*S,xSize*0.12),cx=W/2,cy=H/2;x.globalAlpha=0.9;x.strokeStyle='rgb(255,20,0)';x.lineWidth=xThick;x.lineCap='round';x.beginPath();x.moveTo(cx-xSize/2,cy-xSize/2);x.lineTo(cx+xSize/2,cy+xSize/2);x.stroke();x.beginPath();x.moveTo(cx+xSize/2,cy-xSize/2);x.lineTo(cx-xSize/2,cy+xSize/2);x.stroke();}}x.globalCompositeOperation='source-over';x.globalAlpha=1;}
+              x.globalAlpha=1;requestAnimationFrame(anim);return;}
+            // (GIVE variant removed — promo ended)
+            if(false){
               var now=performance.now();
               // CRISP NEAREST-NEIGHBOR MODE
               x.imageSmoothingEnabled=false;
@@ -1970,7 +1995,7 @@ async function fun(event, context) {
               }catch(e){}
               x.globalAlpha=1;requestAnimationFrame(anim);return;
             }
-            // Normal boot rendering (non-GIVE mode)
+            // Aesthetic mode — VHS-style boot animation with scrolling source code (?boot=aesthetic)
             // Light mode: warm sandy/tan/cream tones (matching kidlisp.com & AC light theme); Dark mode: deep moody colors
             var BGCOLS=isLightMode?['#fcf7c5','#f5f0c0','#fffacd','#f5ebe0','#e8e3b0','#f0ebd0','#fcf5c8','#f5ecd0']:['#2d2020','#202d24','#20202d','#2d2820','#28202d','#202d2d','#2d2028','#242d20'];
             var sHH=HH*S;
