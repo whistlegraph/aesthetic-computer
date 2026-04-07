@@ -559,14 +559,14 @@ export class DuelManager {
 
     const data = JSON.stringify(snapshot);
 
-    // Log periodic snapshot info
-    if (this.tick % 300 === 0) {
+    // Log periodic snapshot info + always log when bullets present
+    if (this.tick % 300 === 0 || bulletsData.length > 0) {
       const channels = [];
       for (const [h, p] of this.players) {
         if (h === DUMMY_HANDLE) continue;
         channels.push(`${h}:${p.udpChannelId ? "UDP" : p.wsId != null ? "WS" : "NONE"}`);
       }
-      console.log(`🎯 Duel snapshot #${this.tick} phase=${this.phase} via [${channels.join(", ")}]`);
+      console.log(`🎯 Duel snapshot #${this.tick} phase=${this.phase} bullets=${bulletsData.length} via [${channels.join(", ")}]`);
     }
 
     // Send to each player with UDP channel, fallback to WS

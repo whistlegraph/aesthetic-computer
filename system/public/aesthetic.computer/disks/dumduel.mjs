@@ -56,9 +56,11 @@ function applySnapshot(s) {
   roundWinner = s.roundWinner;
   roster = (s.roster || []).map((h) => ({ handle: h }));
 
-  // Log first few snapshots + periodic + any with bullets
+  // Log first few snapshots + periodic + any with bullets → relay to server
   if (snapCount <= 3 || snapCount % 100 === 0 || s.bullets?.length > 0) {
-    console.log(`📸 snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`, s.bullets);
+    const msg = `snap #${snapCount} phase=${s.phase} players=${s.players?.length} bullets=${s.bullets?.length} tick=${s.tick}`;
+    console.log(`📸 ${msg}`, s.bullets);
+    server?.send("duel:clientlog", { handle: myHandle, msg, bullets: s.bullets || [] });
   }
 
   // Reconcile own prediction
