@@ -3044,8 +3044,9 @@ duelManager.setSendFunctions({
   sendUDP: (channelId, event, data) => {
     const entry = udpChannels[channelId];
     if (entry?.channel?.webrtcConnection?.state === "open") {
-      try { entry.channel.emit(event, data); } catch {}
+      try { entry.channel.emit(event, data); return true; } catch {}
     }
+    return false; // Signal failure so caller can fall back to WS
   },
   sendWS: (wsId, type, content) => {
     connections[wsId]?.send(pack(type, JSON.stringify(content), "duel"));
