@@ -81,23 +81,22 @@ function boot({ system, sound }) {
 
 function act({ event: e, sound, system }) {
   if (!e.is("keyboard:down")) return;
-  const key = e.key;
 
   // Exit (audio persists!)
-  if (key === "Escape") {
+  if (e.is("keyboard:down:escape")) {
     system?.jump?.("prompt");
     return;
   }
 
   // Deck selection
-  if (key === "Tab") {
+  if (e.is("keyboard:down:tab")) {
     activeDeck = activeDeck === 0 ? 1 : 0;
-    sound?.synth({ type: "sine", tone: activeDeck ? 880 : 660, duration: 0.04, volume: 0.06 });
+    sound?.synth?.({ type: "sine", tone: activeDeck ? 880 : 660, duration: 0.04, volume: 0.06 });
     return;
   }
 
   // Play/pause
-  if (key === " ") {
+  if (e.is("keyboard:down:space")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d?.loaded) {
       if (d.playing) {
@@ -112,104 +111,104 @@ function act({ event: e, sound, system }) {
   }
 
   // Load file into active deck
-  if (key === "Enter") {
+  if (e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
     if (files.length === 0) return;
     const sel = files[selectedIdx];
     if (!sel) return;
     const fullPath = currentPath + "/" + sel.name;
     if (sel.isDir) {
       browseDir(system, fullPath);
-      sound?.synth({ type: "sine", tone: 550, duration: 0.03, volume: 0.06 });
+      sound?.synth?.({ type: "sine", tone: 550, duration: 0.03, volume: 0.06 });
     } else {
       const ok = sound?.deck?.load(activeDeck, fullPath);
       if (ok) {
-        showMsg(`Loaded → Deck ${activeDeck ? "B" : "A"}: ${sel.name}`);
-        sound?.synth({ type: "sine", tone: 880, duration: 0.06, volume: 0.08 });
+        showMsg(`Loaded -> Deck ${activeDeck ? "B" : "A"}: ${sel.name}`);
+        sound?.synth?.({ type: "sine", tone: 880, duration: 0.06, volume: 0.08 });
       } else {
         showMsg(`Failed to load: ${sel.name}`);
-        sound?.synth({ type: "noise", tone: 200, duration: 0.1, volume: 0.08 });
+        sound?.synth?.({ type: "square", tone: 200, duration: 0.1, volume: 0.08 });
       }
     }
     return;
   }
 
   // Navigate file browser
-  if (key === "ArrowDown") {
+  if (e.is("keyboard:down:arrowdown")) {
     if (files.length > 0) selectedIdx = Math.min(selectedIdx + 1, files.length - 1);
-    sound?.synth({ type: "sine", tone: 440, duration: 0.02, volume: 0.04 });
+    sound?.synth?.({ type: "sine", tone: 440, duration: 0.02, volume: 0.04 });
     return;
   }
-  if (key === "ArrowUp") {
+  if (e.is("keyboard:down:arrowup")) {
     if (files.length > 0) selectedIdx = Math.max(selectedIdx - 1, 0);
-    sound?.synth({ type: "sine", tone: 480, duration: 0.02, volume: 0.04 });
+    sound?.synth?.({ type: "sine", tone: 480, duration: 0.02, volume: 0.04 });
     return;
   }
 
   // Go up directory
-  if (key === "Backspace") {
+  if (e.is("keyboard:down:backspace")) {
     const parent = currentPath.replace(/\/[^/]*$/, "") || "/";
     if (parent !== currentPath) {
       browseDir(system, parent);
-      sound?.synth({ type: "sine", tone: 330, duration: 0.04, volume: 0.06 });
+      sound?.synth?.({ type: "sine", tone: 330, duration: 0.04, volume: 0.06 });
     }
     return;
   }
 
   // Seek
-  if (key === "ArrowLeft") {
+  if (e.is("keyboard:down:arrowleft")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d?.loaded) sound.deck.seek(activeDeck, Math.max(0, d.position - 5));
     return;
   }
-  if (key === "ArrowRight") {
+  if (e.is("keyboard:down:arrowright")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d?.loaded) sound.deck.seek(activeDeck, Math.min(d.duration, d.position + 5));
     return;
   }
 
   // Crossfader
-  if (key === "[") {
+  if (e.is("keyboard:down:[")) {
     const cf = Math.max(0, (sound?.deck?.crossfaderValue || 0.5) - 0.05);
     sound?.deck?.setCrossfader(cf);
     return;
   }
-  if (key === "]") {
+  if (e.is("keyboard:down:]")) {
     const cf = Math.min(1, (sound?.deck?.crossfaderValue || 0.5) + 0.05);
     sound?.deck?.setCrossfader(cf);
     return;
   }
 
   // Volume
-  if (key === "-") {
+  if (e.is("keyboard:down:-")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d) sound.deck.setVolume(activeDeck, Math.max(0, d.volume - 0.05));
     return;
   }
-  if (key === "=") {
+  if (e.is("keyboard:down:=")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d) sound.deck.setVolume(activeDeck, Math.min(1, d.volume + 0.05));
     return;
   }
 
   // Speed
-  if (key === "z") {
+  if (e.is("keyboard:down:z")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d?.loaded) sound.deck.setSpeed(activeDeck, Math.max(0.5, d.speed - 0.05));
     return;
   }
-  if (key === "x") {
+  if (e.is("keyboard:down:x")) {
     const d = sound?.deck?.decks?.[activeDeck];
     if (d?.loaded) sound.deck.setSpeed(activeDeck, Math.min(2.0, d.speed + 0.05));
     return;
   }
 
   // Quick play: Q = deck A, W = deck B
-  if (key === "q") {
+  if (e.is("keyboard:down:q")) {
     const d = sound?.deck?.decks?.[0];
     if (d?.loaded) { if (d.playing) sound.deck.pause(0); else sound.deck.play(0); }
     return;
   }
-  if (key === "w") {
+  if (e.is("keyboard:down:w")) {
     const d = sound?.deck?.decks?.[1];
     if (d?.loaded) { if (d.playing) sound.deck.pause(1); else sound.deck.play(1); }
     return;
@@ -218,137 +217,146 @@ function act({ event: e, sound, system }) {
 
 function paint({ wipe, ink, box, line, write, screen, sound }) {
   frame++;
-  const W = screen.width, H = screen.height;
-  wipe(10, 10, 14); // dark background
+  const w = screen.width, h = screen.height;
+  const pad = 4;
+  const F = "font_1";
+  const CW = 6; // font_1 char width
+  wipe(8, 8, 12);
 
   const decks = sound?.deck?.decks || [{}, {}];
   const cf = sound?.deck?.crossfaderValue ?? 0.5;
-  const halfW = Math.floor(W / 2) - 2;
+  const deckW = Math.floor((w - pad * 3) / 2);
 
-  // --- Draw two decks ---
-  for (let d = 0; d < 2; d++) {
-    const dk = decks[d];
-    const x0 = d === 0 ? 0 : halfW + 4;
+  // --- Deck A (top-left) ---
+  const drawDeck = (dk, d, x0) => {
     const isActive = d === activeDeck;
-    const headerY = 2;
+    const label = d === 0 ? "A" : "B";
+    const maxChars = Math.floor((deckW - 4) / CW);
 
-    // Deck header
-    ink(isActive ? 255 : 100, isActive ? 255 : 100, isActive ? 100 : 80);
-    write(`DECK ${d === 0 ? "A" : "B"}`, [x0 + 2, headerY], 1);
+    // Header: label + status
+    ink(isActive ? 255 : 100, isActive ? 255 : 80, isActive ? 80 : 60);
+    write(label, { x: x0, y: pad, size: 1, font: "matrix" });
 
-    if (dk.loaded) {
-      // Artist / Title
-      ink(180, 180, 200);
-      if (dk.artist) write(dk.artist.slice(0, 20), [x0 + 2, headerY + 12], 1);
-      ink(255, 255, 255);
-      write((dk.title || "???").slice(0, 22), [x0 + 2, headerY + 22], 1);
-
-      // Progress bar
-      const barY = headerY + 34;
-      const barW = halfW - 8;
-      const progress = dk.duration > 0 ? dk.position / dk.duration : 0;
-      ink(40, 40, 50);
-      box(x0 + 4, barY, barW, 6);
-      ink(dk.playing ? 80 : 50, dk.playing ? 200 : 120, dk.playing ? 80 : 50);
-      box(x0 + 4, barY, Math.floor(barW * progress), 6);
-
-      // Time
-      ink(160, 160, 180);
-      write(`${formatTime(dk.position)} / ${formatTime(dk.duration)}`, [x0 + 2, barY + 10], 1);
-
-      // Speed + Volume
-      ink(120, 120, 150);
-      write(`SPD ${dk.speed?.toFixed(2) || "1.00"}x`, [x0 + 2, barY + 22], 1);
-      write(`VOL ${Math.round((dk.volume || 0) * 100)}%`, [x0 + halfW / 2, barY + 22], 1);
-
-      // Playing indicator
-      if (dk.playing) {
-        ink(80, 255, 80);
-        write(">>", [x0 + halfW - 16, headerY], 1);
-      } else if (dk.finished) {
-        ink(200, 100, 100);
-        write("END", [x0 + halfW - 22, headerY], 1);
-      } else {
-        ink(200, 200, 100);
-        write("||", [x0 + halfW - 16, headerY], 1);
-      }
-    } else {
-      ink(80, 80, 100);
-      write("No track", [x0 + 2, headerY + 22], 1);
+    if (!dk.loaded) {
+      ink(60, 60, 80);
+      write("--", { x: x0 + 12, y: pad, size: 1, font: F });
+      return;
     }
-  }
 
-  // --- Crossfader ---
-  const cfX = halfW;
-  const cfY = 2;
-  ink(80, 80, 100);
-  write("CF", [cfX - 4, cfY], 1);
-  // Visual crossfader bar
-  const cfBarY = cfY + 12;
-  const cfBarH = 50;
-  ink(40, 40, 50);
-  box(cfX, cfBarY, 3, cfBarH);
-  const cfPos = Math.floor(cfBarH * cf);
-  ink(255, 200, 80);
-  box(cfX - 1, cfBarY + cfPos - 1, 5, 3);
+    // Playing indicator
+    if (dk.playing) {
+      ink(60, 220, 60);
+      write(">", { x: x0 + 12, y: pad, size: 1, font: F });
+    } else {
+      ink(180, 180, 60);
+      write("=", { x: x0 + 12, y: pad, size: 1, font: F });
+    }
+
+    // Title (truncated)
+    ink(220, 220, 240);
+    write((dk.title || "?").slice(0, maxChars - 3), { x: x0 + 20, y: pad, size: 1, font: F });
+
+    // Progress bar
+    const barY = pad + 12;
+    const barW = deckW - 4;
+    const progress = dk.duration > 0 ? dk.position / dk.duration : 0;
+    ink(30, 30, 45);
+    box(x0, barY, barW, 4);
+    ink(dk.playing ? 60 : 40, dk.playing ? 180 : 100, dk.playing ? 60 : 40);
+    box(x0, barY, Math.max(1, Math.floor(barW * progress)), 4);
+
+    // Time + speed
+    ink(140, 140, 160);
+    const timeTxt = `${formatTime(dk.position)}/${formatTime(dk.duration)}`;
+    write(timeTxt, { x: x0, y: barY + 6, size: 1, font: F });
+    ink(100, 100, 120);
+    const spdTxt = `${dk.speed?.toFixed(2) || "1.00"}x`;
+    write(spdTxt, { x: x0 + deckW - spdTxt.length * CW - 4, y: barY + 6, size: 1, font: F });
+  };
+
+  drawDeck(decks[0], 0, pad);
+  drawDeck(decks[1], 1, pad * 2 + deckW);
+
+  // --- Crossfader (horizontal bar below decks) ---
+  const cfY = pad + 28;
+  const cfW = w - pad * 2;
+  ink(25, 25, 40);
+  box(pad, cfY, cfW, 3);
+  const cfPos = Math.floor(cfW * cf);
+  ink(255, 200, 60);
+  box(pad + cfPos - 2, cfY - 1, 5, 5);
+  ink(50, 50, 70);
+  write("A", { x: pad, y: cfY + 5, size: 1, font: F });
+  write("B", { x: w - pad - CW, y: cfY + 5, size: 1, font: F });
 
   // --- Divider ---
-  ink(40, 40, 60);
-  const divY = 72;
-  line(0, divY, W, divY);
+  const divY = cfY + 14;
+  ink(30, 30, 50);
+  line(0, divY, w, divY);
 
   // --- File browser ---
-  const browserY = divY + 2;
-  const lineH = 11;
-  const maxVisible = Math.floor((H - browserY - 20) / lineH);
+  const rowH = 12;
+  const headerY = divY + 2;
+  ink(100, 100, 140);
+  const pathMax = Math.floor(w / CW) - 2;
+  const pathStr = currentPath.length > pathMax
+    ? "..." + currentPath.slice(-pathMax + 3) : currentPath;
+  write(pathStr, { x: pad, y: headerY, size: 1, font: F });
 
-  // Ensure selected item is visible
+  // Scroll count
+  if (files.length > 0) {
+    ink(60, 60, 80);
+    const si = `${selectedIdx + 1}/${files.length}`;
+    write(si, { x: w - si.length * CW - pad, y: headerY, size: 1, font: F });
+  }
+
+  const listY = headerY + 12;
+  const maxVisible = Math.floor((h - listY - 14) / rowH);
+
   if (selectedIdx < scrollOffset) scrollOffset = selectedIdx;
   if (selectedIdx >= scrollOffset + maxVisible) scrollOffset = selectedIdx - maxVisible + 1;
 
-  ink(120, 120, 160);
-  write(`${currentPath}/`, [2, browserY], 1);
-
   if (files.length === 0) {
-    ink(100, 100, 120);
-    write("(empty)", [4, browserY + lineH], 1);
+    ink(80, 80, 100);
+    write("(empty)", { x: pad, y: listY, size: 1, font: F });
   }
 
   for (let i = 0; i < maxVisible && i + scrollOffset < files.length; i++) {
     const fi = files[i + scrollOffset];
-    const y = browserY + lineH + i * lineH;
+    const y = listY + i * rowH;
     const isSel = (i + scrollOffset) === selectedIdx;
 
     if (isSel) {
-      ink(30, 30, 50);
-      box(0, y - 1, W, lineH);
+      ink(25, 30, 45);
+      box(0, y - 1, w, rowH);
     }
 
+    const nameMax = Math.floor(w / CW) - 6;
     if (fi.isDir) {
-      ink(isSel ? 255 : 140, isSel ? 220 : 140, isSel ? 100 : 100);
-      write(`> ${fi.name}/`, [4, y], 1);
+      ink(isSel ? 255 : 120, isSel ? 200 : 120, isSel ? 80 : 80);
+      write(`> ${fi.name.slice(0, nameMax)}/`, { x: pad, y: y, size: 1, font: F });
     } else {
-      ink(isSel ? 255 : 180, isSel ? 255 : 180, isSel ? 255 : 200);
-      const sizeStr = formatSize(fi.size);
-      write(`  ${fi.name}`, [4, y], 1);
-      ink(100, 100, 120);
-      write(sizeStr, [W - sizeStr.length * 6 - 4, y], 1);
+      ink(isSel ? 255 : 160, isSel ? 255 : 160, isSel ? 255 : 180);
+      write(fi.name.slice(0, nameMax), { x: pad + CW, y: y, size: 1, font: F });
+      ink(80, 80, 100);
+      const sz = formatSize(fi.size);
+      write(sz, { x: w - sz.length * CW - pad, y: y, size: 1, font: F });
     }
   }
 
   // --- Status bar ---
-  const statusY = H - 10;
-  ink(20, 20, 30);
-  box(0, statusY - 1, W, 12);
-  ink(160, 160, 180);
-  const deckLabel = activeDeck === 0 ? "A" : "B";
-  write(`Deck:${deckLabel}  Q/W:play  Tab:switch  []:xfade  -/=:vol  z/x:spd  Esc:exit`, [2, statusY], 1);
+  const sY = h - 11;
+  ink(15, 15, 25);
+  box(0, sY - 1, w, 12);
+  ink(120, 120, 140);
+  const dl = activeDeck === 0 ? "A" : "B";
+  write(`${dl} Spc:play Tab:deck Esc:exit`, { x: pad, y: sY, size: 1, font: F });
 
-  // --- Message overlay ---
+  // --- Message ---
   if (message && frame - messageFrame < 120) {
-    const alpha = Math.max(0, 1 - (frame - messageFrame) / 120);
-    ink(Math.floor(255 * alpha), Math.floor(220 * alpha), Math.floor(80 * alpha));
-    write(message, [W / 2 - message.length * 3, divY - 10], 1);
+    const fade = Math.max(0, 255 - Math.floor((frame - messageFrame) * 2.5));
+    ink(255, 220, 60, fade);
+    write(message, { x: pad, y: divY - 10, size: 1, font: F });
   }
 }
 
