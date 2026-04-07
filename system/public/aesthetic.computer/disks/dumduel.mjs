@@ -213,11 +213,8 @@ function sim() {
     }
 
     // Optimistic fire sound (predict when we stop)
-    if (localWasMoving && !isMoving && snap) {
-      const myBulletOut = snap.bullets?.some((b) => b.owner === myHandle);
-      if (!myBulletOut) {
-        synth?.({ type: "square", tone: 800, volume: 0.35, attack: 0.001, decay: 0.06, duration: 0.07 });
-      }
+    if (localWasMoving && !isMoving) {
+      synth?.({ type: "square", tone: 800, volume: 0.35, attack: 0.001, decay: 0.06, duration: 0.07 });
     }
     localWasMoving = isMoving;
   }
@@ -340,18 +337,13 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     }
   }
 
-  // DEBUG: show bullet count
-  ink(255, 0, 0).write(`B:${bullets.length}`, { x: 4, y: 4 });
-
   if (phase === "fight" || phase === "roundover") {
-    // Bullets (extrapolated client-side for smoothness)
+    // Bullets
     for (const b of bullets) {
       const alpha = Math.max(40, 255 - (b.age || 0) * 1.2);
       if (b.owner === myHandle) ink(50, 120, 200, alpha);
       else ink(200, 70, 60, alpha);
       circle(ox + Math.round(b.x), oy + Math.round(b.y), BULLET_R, true);
-      // DEBUG: draw bigger marker so bullet is unmissable
-      ink(255, 0, 0, 120).box(ox + Math.round(b.x) - 4, oy + Math.round(b.y) - 4, 8, 8);
     }
 
     // Target indicator
