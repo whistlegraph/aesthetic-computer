@@ -65,56 +65,44 @@
 % === HELPERS ===
 \newcommand{\ac}{Aesthetic{\color{acpink}.}Computer}
 \newcommand{\achead}[1]{%
-  \vspace{1.2em}%
-  {\color{acpink}\noindent\rule{\textwidth}{1.5pt}}\\[-0.5em]
+  \vspace{1.6em}%
+  {\color{acpink}\noindent\rule{\textwidth}{1.5pt}}\\[0.4em]
   {\large\bfseries #1}%
-  \vspace{0.3em}%
+  \vspace{0.4em}%
 }
 \newcommand{\acsubhead}[1]{%
-  \vspace{0.8em}%
+  \vspace{1em}%
+  {\color{acgray}\noindent\rule{4cm}{0.5pt}}\\[0.3em]
   {\bfseries #1}%
-  \vspace{0.2em}%
+  \vspace{0.3em}%
 }
 \newcommand{\cvline}[2]{\noindent\makebox[3.2em][l]{\color{acgray}#1}#2\\[0.15em]}
 
 % ===================================================================
 \AddToShipoutPicture*{%
   \begin{tikzpicture}[remember picture, overlay]
-    \node[opacity=0.018, anchor=north west]
-      at ([xshift=-0.5cm, yshift=0.5cm]current page.north west)
-      {\includegraphics[width=8cm]{pals}};
+    \node[opacity=0.06, anchor=north east]
+      at ([xshift=-1.2cm, yshift=-0.8cm]current page.north east)
+      {\includegraphics[width=1.5cm]{pals}};
   \end{tikzpicture}%
 }
 \begin{document}
 \thispagestyle{fancy}
 
-% === TITLE ===
+% === TITLE BLOCK ===
+\vspace*{0.8em}
 \begin{center}
-  {\acbold\fontsize{28pt}{32pt}\selectfont Aesthetic{\color{acpink}.}Computer}\\[6pt]
-  {\Large Bare Metal Instruments}\\[12pt]
-  {\color{acgray}
-    Jeffrey Alan Scudder\\[2pt]
-    \href{https://justanothersystem.org}{justanothersystem.org}\enspace·\enspace
-    \href{https://aesthetic.computer}{aesthetic.computer}\enspace·\enspace
-    \href{mailto:me@jas.life}{me@jas.life}\\[2pt]
-    ORCID: 0009-0007-4460-4913
-  }
+  {\acbold\fontsize{30pt}{34pt}\selectfont Aesthetic{\color{acpink}.}Computer}\\[14pt]
+  {\large The Unfinished Instrument}\\[24pt]
+  {\color{acgray}\small Jeffrey Alan Scudder}\\[3pt]
+  {\color{acgray}\small LACMA Art + Technology Lab · 2026}
 \end{center}
 
-\vspace{0.4em}
-{\color{acgray}\hrule height 0.5pt}
-\vspace{0.4em}
+\vspace{1.2em}
+{\color{acpink}\hrule height 1pt}
+\vspace{1em}
 
-\begin{center}
-  {\itshape instrument\enspace·\enspace language\enspace·\enspace network}
-\end{center}
-
-\vspace{0.2em}
 {\large\bfseries \ac{} is a bare-metal creative computing system---custom hardware, a handmade programming language, and a social network---that reimagines the personal computer as a live musical instrument for art.}
-
-\begin{flushright}
-  \small\color{acgray} LACMA Art + Technology Lab · 2026 Grant Application · Deadline: April 22, 2026
-\end{flushright}
 
 % =======================================================================
 \achead{Project Description}
@@ -174,14 +162,14 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 \renewcommand{\arraystretch}{1.3}
 \begin{tabularx}{\textwidth}{@{}Xr@{}}
   Artist fee (24 months) & \$20,000 \\
-  Hardware---laptops for installation (5 × \$400 refurb.) & \$2,000 \\
-  Hardware---USB drives, cables, peripherals & \$500 \\
-  Workshop materials (printed guides, reference cards) & \$1,000 \\
-  Travel to Los Angeles (4 trips × \$1,200) & \$4,800 \\
-  Accommodation during LA visits (30 nights × \$150) & \$4,500 \\
+  Installation laptops (5 × \$400 refurb.) & \$2,000 \\
+  USB drives, cables, peripherals & \$500 \\
+  Studio hardware (dev machines, displays) & \$4,000 \\
   NuPhy analog keyboards for installation (5 × \$120) & \$600 \\
-  Fabrication---installation furniture/mounts & \$2,500 \\
-  Software infrastructure (hosting, CDN, domain) & \$1,200 \\
+  Workshop materials (printed guides, reference cards) & \$1,000 \\
+  Installation fabrication (furniture, mounts) & \$2,500 \\
+  Server + compute infrastructure (hosting, CDN, CI/CD) & \$3,500 \\
+  Platform development (contract engineering) & \$3,000 \\
   Documentation production (video, photography) & \$2,000 \\
   Contingency (10\%) & \$3,900 \\
   {\color{acgray}\hrulefill} & {\color{acgray}\hrulefill} \\[-0.3em]
@@ -190,7 +178,7 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 \renewcommand{\arraystretch}{1.0}
 
 \vspace{0.2em}
-{\color{acgray} Other funding: open-source sponsorship via GitHub Sponsors and Liberapay (covers ongoing server costs).}
+{\color{acgray} Other funding: open-source sponsorship via GitHub Sponsors and Liberapay supplements ongoing infrastructure costs.}
 
 % =======================================================================
 % CV
@@ -199,7 +187,7 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 \achead{Curriculum Vitae}
 
 \begin{center}
-  {\color{acgray} Jeffrey Alan Scudder · \href{https://justanothersystem.org}{justanothersystem.org} · Los Angeles, CA}
+  {\color{acgray} Jeffrey Alan Scudder · \href{https://aesthetic.computer}{aesthetic.computer} · Los Angeles, CA}
 \end{center}
 
 Jeffrey Alan Scudder (b.\,1989, Assonet, MA) is a painter based in Los Angeles. His work moves between stretched canvas, custom software, and live performance. He is the creator of \ac{}, Whistlegraph, and No Paint. Collections include KADIST (San Francisco) and SMK (National Gallery of Denmark).
@@ -293,9 +281,74 @@ SMK---National Gallery of Denmark, Copenhagen
 \vfill
 \begin{center}
   \color{acgray}
-  \href{https://justanothersystem.org}{justanothersystem.org}\enspace·\enspace
   \href{https://aesthetic.computer}{aesthetic.computer}\enspace·\enspace
+  \href{mailto:mail@aesthetic.computer}{mail@aesthetic.computer}\enspace·\enspace
   LACMA Art + Technology Lab 2026
+\end{center}
+
+% =======================================================================
+% APPENDIX: Original Call for Proposals
+% =======================================================================
+\newpage
+\achead{Appendix: LACMA 2026 Call for Proposals}
+
+\begin{center}
+  {\color{acgray}\small Source: \href{https://www.lacma.org/art/lab/grants}{lacma.org/art/lab/grants} · Retrieved April 2026}
+\end{center}
+
+\vspace{0.5em}
+
+The Los Angeles County Museum of Art invites artists worldwide to apply for Art + Technology Lab grants. The initiative supports a ``safe-to-fail rapid prototyping environment'' where creators explore intersections of art, science, and emerging technology. The program emphasizes experimentation over finished products.
+
+\acsubhead{Key Details}
+
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+  \textbf{Deadline} & April 22, 2026, 11:59\,PM PST \\
+  \textbf{Notification} & July 2026 \\
+  \textbf{Project Start} & As early as fall 2026 \\
+  \textbf{Grant Amount} & Up to \$50,000 per project \\
+  \textbf{Duration} & Typically two years \\
+  \textbf{Selected} & 3--5 via open call, plus up to 2 invitational \\
+\end{tabularx}
+
+\acsubhead{Eligibility}
+
+Artists and collectives worldwide may apply. Prior technological experience is not required. Applicants need not be Los Angeles--based.
+
+\acsubhead{Support Provided}
+
+Financial grants cover artist fees and direct costs including materials. Recipients also receive in-kind support: mentorship, coaching, and access to partner technologies from Hyundai Motor, Snap Inc., Anthropic, and academic institutions including MIT Media Lab Space Exploration Initiative and NASA Jet Propulsion Laboratory.
+
+\acsubhead{Evaluation Criteria}
+
+Projects must demonstrate:
+\begin{itemize}
+  \item Artistic merit and artist-led vision
+  \item Exploration of emerging technology
+  \item Models or methods valuable to broader communities
+  \item Public engagement opportunities during development
+\end{itemize}
+
+\acsubhead{Application Requirements}
+
+\begin{itemize}
+  \item Project name and three descriptive words
+  \item One-sentence description
+  \item Full project description (500-word maximum)
+  \item Artist biography / CV
+  \item Artistic merit statement (100 words max)
+  \item Discussion of technology--culture dialogue (100 words max)
+  \item Public engagement plan (100 words max)
+  \item Funding sources and conditions
+  \item Detailed budget with milestones
+  \item Up to 5 images / renderings (JPEG format)
+  \item Video links (under 5 minutes)
+\end{itemize}
+
+\vfill
+\begin{center}
+  \color{acgray}
+  Apply: \href{https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants}{lacma.submittable.com}
 \end{center}
 
 \end{document}
