@@ -2287,8 +2287,10 @@ int main(int argc, char *argv[]) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
             wifi = wifi_init();
-            // Auto-connect to saved/preset network on boot
-            if (wifi) wifi_autoconnect(wifi);
+            // Auto-connect only if saved credentials exist (skip scan loop on fresh boot)
+            if (wifi && access("/mnt/wifi_creds.json", F_OK) == 0) {
+                wifi_autoconnect(wifi);
+            }
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
