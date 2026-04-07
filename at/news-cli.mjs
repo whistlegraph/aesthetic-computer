@@ -433,6 +433,45 @@ async function commandDelete(args) {
 }
 
 // ---------------------------------------------------------------------------
+// Screenshot (via oven)
+// ---------------------------------------------------------------------------
+
+const OVEN_URL = process.env.OVEN_URL || "https://oven.aesthetic.computer";
+
+async function commandScreenshot(args) {
+  const piece = args._[1];
+  if (!piece) {
+    console.error(
+      "Usage: ac-news screenshot <piece>\n" +
+        "       ac-news screenshot notepat\n" +
+        "       ac-news screenshot notepat --force\n" +
+        "       ac-news screenshot @jeffrey/my-piece",
+    );
+    process.exit(1);
+  }
+
+  const force = !!args.force;
+  const url = `${OVEN_URL}/news-screenshot/${encodeURIComponent(piece)}.png?json=true${force ? "&force=true" : ""}`;
+
+  console.log(`\n  Capturing ${piece}...`);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    console.error(`  Oven error (${res.status}): ${body.error || res.statusText}`);
+    process.exit(1);
+  }
+
+  const data = await res.json();
+  const mdImage = `![${piece}](${data.url})`;
+
+  console.log(`  ${data.cached ? "Cached" : "Captured"}: ${data.width}×${data.height}`);
+  console.log(`  URL: ${data.url}`);
+  console.log(`\n  Markdown (paste into post body):\n`);
+  console.log(`  ${mdImage}\n`);
+}
+
+// ---------------------------------------------------------------------------
 // Help
 // ---------------------------------------------------------------------------
 
@@ -448,6 +487,10 @@ Compose:
   post "Title" --editor                  Open $EDITOR to write the body
   post "Title" --stdin                   Read body from stdin
   post ... --dry-run                     Preview without posting
+
+Media:
+  screenshot <piece>                     Capture a piece via oven (1200×675 PNG)
+  screenshot <piece> --force             Force-regenerate (skip cache)
 
 Manage:
   list [--limit N]                       List recent posts
@@ -465,6 +508,7 @@ Examples:
   ac-news post "Weekly Update" --file updates/2026-03-24.md
   ac-news post "What's New" --editor
   ac-news edit ncd2 --replace "https://aesthetic.computer)" --with "https://aesthetic.computer/chat)"
+  ac-news screenshot notepat
   ac-news list
 `);
 }
@@ -479,6 +523,7 @@ const COMMANDS = {
   list: commandList,
   edit: commandEdit,
   delete: commandDelete,
+  screenshot: commandScreenshot,
 };
 
 async function main() {

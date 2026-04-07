@@ -351,6 +351,11 @@ function renderMarkdown(text) {
     s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     // Italic (single *).
     s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    // Markdown images ![alt](url) — must come before links.
+    s = s.replace(
+      /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
+      '<img src="$2" alt="$1" loading="lazy" />',
+    );
     // Markdown links [text](url).
     s = s.replace(
       /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
