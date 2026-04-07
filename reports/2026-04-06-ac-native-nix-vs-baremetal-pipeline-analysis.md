@@ -90,11 +90,22 @@ Return to the proven `ac-os` pipeline. NixOS adds complexity without proportiona
 **Pros:** Simplest path. Proven. Fast.
 **Cons:** Loses reproducibility narrative. Build depends on host state.
 
-## Verdict
+## Verdict (Updated 2026-04-07)
 
-**Option B is likely the sweet spot.** The Wayland compositor is the single biggest source of bugs and performance loss. Removing cage while keeping NixOS for the system layer would eliminate 80% of the issues encountered in this session while retaining reproducibility.
+**Option D confirmed after extensive testing.** We implemented Option B (DRM-direct, no cage) across ~20 build iterations. Results:
 
-However, **for @oskie's USB today, Option A is correct** — ship the bare-metal build that works, and iterate on NixOS in parallel.
+- Cage/Wayland bugs were fixed (cursor, double input, shutdown)
+- DRM-direct mode works but runs at **27fps** (vs 60fps bare-metal)
+- `present_us` consistently 24-28ms despite: removing frame_sync, disabling mitigations, disabling WiFi, disabling logind
+- The NixOS generic kernel's DRM/i915 stack simply performs worse than the custom kernel
+- Input required MAX_INPUT_DEVICES bump from 8→24 (ThinkPad has 18 evdev nodes)
+
+**For @oskie and production: use `ac-os build` (bare-metal).** NixOS path is preserved in git for future work but not suitable for shipping today.
+
+### What would fix NixOS performance
+1. Custom kernel config matching the bare-metal build's `.config`
+2. Or identify why the NixOS i915 DRM page flip takes 27ms vs 16ms (kernel config diff)
+3. Or render directly into DRM buffer instead of fb_copy_scaled
 
 ## Open Questions
 
