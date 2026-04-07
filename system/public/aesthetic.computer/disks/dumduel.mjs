@@ -435,12 +435,23 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     si++;
   }
 
-  // Spectator label
+  // Spectator HUD
   if (spectator) {
-    ink(180, 100, 200, 200).write("spectator", {
-      x: Math.floor(sw / 2 - 18),
-      y: sh - 10,
-    }, undefined, undefined, false, "MatrixChunky8");
+    // Who vs who (top center)
+    const duelists = (snap?.players || []).map((p) => p.handle).filter((h) => h !== "dummy" ? h : "dummy");
+    if (duelists.length >= 2) {
+      const vs = duelists[0] + " vs " + duelists[1];
+      ink(60, 55, 45).write(vs, {
+        x: Math.floor(sw / 2 - vs.length * 3),
+        y: 4,
+      });
+    }
+    // "spectator" label (yellow on red, normal font, bottom center)
+    ink(180, 40, 40).box(Math.floor(sw / 2 - 30), sh - 14, 60, 12);
+    ink(255, 220, 60).write("spectator", {
+      x: Math.floor(sw / 2 - 27),
+      y: sh - 12,
+    });
   }
 
   // Network stats panel (top-right, MatrixChunky8)
