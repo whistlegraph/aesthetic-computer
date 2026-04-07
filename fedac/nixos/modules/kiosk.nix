@@ -92,7 +92,7 @@ in
       coreutils gnugrep gnused gawk findutils
       which psmisc
       systemd util-linux
-      iproute2 wpa_supplicant iw dhcpcd curl
+      iproute2 kbd wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
       ac-native
     ];
