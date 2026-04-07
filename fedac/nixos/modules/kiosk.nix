@@ -41,6 +41,54 @@ let
 
     echo "[ac-native-start] DRM ready: $(ls /dev/dri/)"
 
+    # Hardware fingerprint — dump to /mnt/logs for initrd optimization
+    if [ -d /mnt/logs ]; then
+      HW="/mnt/logs/hardware-fingerprint.txt"
+      {
+        echo "=== AC Native Hardware Fingerprint ==="
+        echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo ""
+        echo "=== CPU ==="
+        grep -m1 "model name" /proc/cpuinfo 2>/dev/null
+        echo "cores=$(nproc 2>/dev/null)"
+        echo ""
+        echo "=== Memory ==="
+        head -1 /proc/meminfo 2>/dev/null
+        echo ""
+        echo "=== PCI Devices ==="
+        ${pkgs.pciutils}/bin/lspci -nn 2>/dev/null
+        echo ""
+        echo "=== Loaded Kernel Modules ==="
+        lsmod 2>/dev/null | sort
+        echo ""
+        echo "=== Block Devices ==="
+        lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MODEL 2>/dev/null
+        echo ""
+        echo "=== GPU ==="
+        ls -la /dev/dri/ 2>/dev/null
+        cat /sys/class/drm/card*/device/vendor /sys/class/drm/card*/device/device 2>/dev/null
+        echo ""
+        echo "=== Input Devices ==="
+        cat /proc/bus/input/devices 2>/dev/null
+        echo ""
+        echo "=== Network Interfaces ==="
+        ip link show 2>/dev/null
+        echo ""
+        echo "=== Sound Cards ==="
+        cat /proc/asound/cards 2>/dev/null
+        echo ""
+        echo "=== USB Devices ==="
+        ${pkgs.usbutils}/bin/lsusb 2>/dev/null
+        echo ""
+        echo "=== Firmware Files Loaded ==="
+        dmesg 2>/dev/null | grep -i "firmware\|ucode\|microcode" | head -20
+        echo ""
+        echo "=== Initrd Modules (loaded at boot) ==="
+        dmesg 2>/dev/null | grep -i "module\|driver" | head -30
+      } > "$HW" 2>/dev/null || true
+      echo "[ac-native-start] hardware fingerprint saved to $HW"
+    fi
+
     ${write-breadcrumb} ac-native-starting \
       "binary=${ac-native}/bin/ac-native" \
       "piece=${ac-native}/share/ac-native/piece.mjs" \
@@ -92,7 +140,8 @@ in
       coreutils gnugrep gnused gawk findutils
       which psmisc
       systemd util-linux
-      iproute2 kbd wpa_supplicant iw dhcpcd curl
+      iproute2 kbd pciutils usbutils
+      wpa_supplicant iw dhcpcd curl
       dosfstools efibootmgr parted
       ac-native
     ];
