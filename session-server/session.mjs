@@ -2858,6 +2858,11 @@ wss.on("connection", async (ws, req) => {
         if (parsed?.handle) duelManager.handlePing(parsed.handle, parsed.ts, id);
         return;
       }
+      if (msg.type === "duel:clientlog") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        console.log(`🎯 [CLIENT ${parsed?.handle}] ${parsed?.msg}`, parsed?.bullets?.length > 0 ? JSON.stringify(parsed.bullets) : "");
+        return;
+      }
       if (msg.type === "duel:input") {
         const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
         if (parsed?.handle) duelManager.receiveInput(parsed.handle, parsed);
