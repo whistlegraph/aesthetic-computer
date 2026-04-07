@@ -569,15 +569,10 @@ export class DuelManager {
       console.log(`🎯 Duel snapshot #${this.tick} phase=${this.phase} bullets=${bulletsData.length} via [${channels.join(", ")}]`);
     }
 
-    // Send to each player with UDP channel, fallback to WS
+    // Always send via WS for reliability (UDP was silently dropping packets)
     for (const [handle, player] of this.players) {
       if (handle === DUMMY_HANDLE) continue;
-      // Try UDP first, fall back to WS if channel is dead
-      let sent = false;
-      if (player.udpChannelId && this.sendUDP) {
-        sent = this.sendUDP(player.udpChannelId, "duel:snapshot", data);
-      }
-      if (!sent && player.wsId != null && this.sendWS) {
+      if (player.wsId != null && this.sendWS) {
         this.sendWS(player.wsId, "duel:snapshot", snapshot);
       }
     }
