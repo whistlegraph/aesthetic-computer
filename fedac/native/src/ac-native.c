@@ -2287,7 +2287,8 @@ int main(int argc, char *argv[]) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
             wifi = wifi_init();
-            if (wifi) wifi_autoconnect(wifi);
+            // Don't autoconnect — iw scan blocks DRM page flip for 65ms+.
+            // WiFi scans only when user explicitly requests from prompt.
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
