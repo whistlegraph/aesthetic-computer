@@ -23,6 +23,7 @@ function norm(dx, dy) {
 export class DuelManager {
   constructor() {
     this.players = new Map(); // handle -> PlayerRecord
+    this.spectators = new Map(); // handle -> { wsId }
     this.roster = []; // handles in queue order
     this.phase = "waiting";
     this.tick = 0;
@@ -51,8 +52,18 @@ export class DuelManager {
 
   playerJoin(handle, wsId) {
     if (!handle) return;
-    // Only allow handled users (not guest_XXXX)
-    if (handle.startsWith("guest_")) return;
+    // Guests spectate — track their wsId so they receive snapshots
+    if (handle.startsWith("guest_")) {
+      this.spectators.set(handle, { wsId });
+      // Send current state so they see the game immediately
+      this.sendWS?.(wsId, "duel:joined", {
+        roster: this.roster,
+        phase: this.phase,
+        spectator: true,
+      });
+      console.log(`🎯 Duel: ${handle} joined as spectator (${this.spectators.size} spectators)`);
+      return;
+    }
 
     // Update existing or create new
     let player = this.players.get(handle);
@@ -99,6 +110,11 @@ export class DuelManager {
 
   playerLeave(handle) {
     if (!handle) return;
+    if (this.spectators.has(handle)) {
+      this.spectators.delete(handle);
+      console.log(`🎯 Duel: spectator ${handle} left (${this.spectators.size} spectators)`);
+      return;
+    }
     const wasInRoster = this.roster.includes(handle);
     const wasDueling = this.isDuelist(handle);
 
@@ -567,6 +583,12 @@ export class DuelManager {
       if (handle === DUMMY_HANDLE) continue;
       if (player.wsId != null && this.sendWS) {
         this.sendWS(player.wsId, "duel:snapshot", snapshot);
+      }
+    }
+    // Send to spectators too
+    for (const [, spec] of this.spectators) {
+      if (spec.wsId != null && this.sendWS) {
+        this.sendWS(spec.wsId, "duel:snapshot", snapshot);
       }
     }
   }
