@@ -1470,13 +1470,13 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     }
 
     // Open evdev fds for key checking — retry until devices appear
-    int key_fds[8];
+    int key_fds[24];
     int key_fd_count = 0;
     for (int retry = 0; retry < 20 && key_fd_count == 0; retry++) {
         DIR *dir = opendir("/dev/input");
         if (dir) {
             struct dirent *ent;
-            while ((ent = readdir(dir)) && key_fd_count < 8) {
+            while ((ent = readdir(dir)) && key_fd_count < 24) {
                 if (strncmp(ent->d_name, "event", 5) != 0) continue;
                 char path[64];
                 snprintf(path, sizeof(path), "/dev/input/%s", ent->d_name);
