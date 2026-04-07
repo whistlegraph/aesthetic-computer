@@ -32,13 +32,10 @@ in
   # Disable logind input grabbing — ac-native reads evdev directly.
   # Without this, logind grabs keyboard and power button events.
   services.logind.lidSwitch = "ignore";
-  services.logind.extraConfig = ''
-    HandlePowerKey=ignore
-    HandleSuspendKey=ignore
-    HandleHibernateKey=ignore
-    HandleLidSwitch=ignore
-    NAutoVTs=0
-  '';
+  services.logind.powerKey = "ignore";
+  services.logind.suspendKey = "ignore";
+  services.logind.hibernateKey = "ignore";
+  services.logind.settings.Login.NAutoVTs = 0;
 
   # Networking (WiFi managed by ac-native, not NetworkManager)
   networking = {
