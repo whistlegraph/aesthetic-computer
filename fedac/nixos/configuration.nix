@@ -29,10 +29,19 @@ in
   services.openssh.enable = false;
   security.polkit.enable = true;
 
-  # Disable logind entirely — it grabs keyboard/power evdev events
-  # that ac-native needs to read directly. No session management needed
+  # Mask logind — it grabs keyboard/power evdev events that ac-native
+  # needs to read directly via EVIOCGRAB. No session management needed
   # on a single-purpose kiosk.
-  services.logind.enable = false;
+  systemd.services.systemd-logind.enable = false;
+  systemd.services.systemd-logind.wantedBy = lib.mkForce [];
+  environment.etc."systemd/logind.conf".text = lib.mkForce ''
+    [Login]
+    NAutoVTs=0
+    HandlePowerKey=ignore
+    HandleSuspendKey=ignore
+    HandleHibernateKey=ignore
+    HandleLidSwitch=ignore
+  '';
 
   # Networking (WiFi managed by ac-native, not NetworkManager)
   networking = {
