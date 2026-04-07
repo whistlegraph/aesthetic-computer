@@ -443,27 +443,20 @@ export class DuelManager {
 
       // Fire when transitioning from moving to stopped
       if (p.wasMoving && !isMoving) {
-        // Check no bullet already in flight
-        const hasBullet = this.bullets.some((b) => b.ownerHandle === h);
-        if (!hasBullet) {
-          // Find opponent
-          const opHandle = duelists.find((d) => d !== h);
-          const op = opHandle ? this.players.get(opHandle) : null;
-          if (op && op.alive) {
-            const { nx, ny } = norm(op.x - p.x, op.y - p.y);
-            this.bullets.push({
-              x: p.x + nx * 6,
-              y: p.y + ny * 6,
-              vx: nx * BULLET_SPEED,
-              vy: ny * BULLET_SPEED,
-              ownerHandle: h,
-              age: 0,
-            });
-            console.log(`🎯 ${h} fired! bullets=${this.bullets.length}`);
-            // Immediately broadcast so client sees the bullet ASAP
-            // (don't wait for next SNAPSHOT_INTERVAL tick)
-            this.broadcastSnapshot();
-          }
+        const opHandle = duelists.find((d) => d !== h);
+        const op = opHandle ? this.players.get(opHandle) : null;
+        if (op && op.alive) {
+          const { nx, ny } = norm(op.x - p.x, op.y - p.y);
+          this.bullets.push({
+            x: p.x + nx * 6,
+            y: p.y + ny * 6,
+            vx: nx * BULLET_SPEED,
+            vy: ny * BULLET_SPEED,
+            ownerHandle: h,
+            age: 0,
+          });
+          console.log(`🎯 ${h} fired! bullets=${this.bullets.length}`);
+          this.broadcastSnapshot();
         }
       }
 
