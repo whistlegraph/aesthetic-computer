@@ -16,14 +16,9 @@
   # tty1 stays black until cage takes over with ac-native.
   boot.kernelParams = lib.mkForce [
     "consoleblank=0"
-    "console=tty2"
-    "quiet"
-    "loglevel=0"
-    "rd.systemd.show_status=false"
-    "systemd.show_status=false"
-    "systemd.log_level=warning"
-    "vt.global_cursor_default=0"
-    "splash"
+    "console=tty0"
+    "loglevel=4"
+    "systemd.show_status=1"
   ];
   boot.consoleLogLevel = lib.mkForce 0;
 

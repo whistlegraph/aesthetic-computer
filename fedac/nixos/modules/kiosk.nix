@@ -27,14 +27,14 @@ let
 
     echo "[ac-native-start] waiting for DRM device..."
 
-    # Wait for /dev/dri/card0 (i915 needs a moment after kernel init)
-    for i in $(seq 1 30); do
-      [ -e /dev/dri/card0 ] && break
+    # Wait for any /dev/dri/card* (may be card0 or card1 depending on hardware)
+    for i in $(seq 1 60); do
+      ls /dev/dri/card* >/dev/null 2>&1 && break
       sleep 0.2
     done
 
-    if [ ! -e /dev/dri/card0 ]; then
-      echo "[ac-native-start] ERROR: /dev/dri/card0 not found after 6s"
+    if ! ls /dev/dri/card* >/dev/null 2>&1; then
+      echo "[ac-native-start] ERROR: no DRM card found after 12s"
       ls -la /dev/dri/ 2>/dev/null || echo "  /dev/dri/ does not exist"
       exit 1
     fi
