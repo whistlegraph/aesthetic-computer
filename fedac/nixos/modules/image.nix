@@ -19,6 +19,7 @@
     "console=tty0"
     "loglevel=4"
     "systemd.show_status=1"
+    "mitigations=off"
   ];
   boot.consoleLogLevel = lib.mkForce 0;
 
