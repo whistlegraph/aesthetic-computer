@@ -460,6 +460,9 @@ export class DuelManager {
               age: 0,
             });
             console.log(`🎯 ${h} fired! bullets=${this.bullets.length}`);
+            // Immediately broadcast so client sees the bullet ASAP
+            // (don't wait for next SNAPSHOT_INTERVAL tick)
+            this.broadcastSnapshot();
           }
         }
       }
@@ -569,11 +572,12 @@ export class DuelManager {
     // Send to each player with UDP channel, fallback to WS
     for (const [handle, player] of this.players) {
       if (handle === DUMMY_HANDLE) continue;
-      // Try UDP first
+      // Try UDP first, fall back to WS if channel is dead
+      let sent = false;
       if (player.udpChannelId && this.sendUDP) {
-        this.sendUDP(player.udpChannelId, "duel:snapshot", data);
-      } else if (player.wsId != null && this.sendWS) {
-        // Fallback to WS
+        sent = this.sendUDP(player.udpChannelId, "duel:snapshot", data);
+      }
+      if (!sent && player.wsId != null && this.sendWS) {
         this.sendWS(player.wsId, "duel:snapshot", snapshot);
       }
     }
