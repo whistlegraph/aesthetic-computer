@@ -3500,7 +3500,10 @@ int main(int argc, char *argv[]) {
                 #undef TS_US
             }
 
-            frame_sync_60fps(&frame_time);
+            // DRM page flip already syncs to vblank (~16ms). Only use
+            // frame_sync for fbdev/non-vsync paths to avoid double-wait.
+            if (display && display->is_fbdev)
+                frame_sync_60fps(&frame_time);
         }
     }
 
