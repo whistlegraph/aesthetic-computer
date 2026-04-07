@@ -20,6 +20,7 @@ let messageFrame = 0;
 let frame = 0;
 let lastUsbCheck = 0;
 let usbConnected = false;
+let T = __theme.update();
 let view = "decks";       // "decks" | "browser" | "queue"
 let browserPath = "";
 let browserFiles = [];
@@ -312,11 +313,12 @@ function browseCurrent(system) {
 
 function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   frame++;
+  T = __theme.update();
   const w = screen.width, h = screen.height;
   const P = 4; // padding
   const F = "font_1";
   const CW = 6;
-  wipe(8, 8, 14);
+  wipe(T.bg[0], T.bg[1], T.bg[2]);
 
   const dk = sound?.deck;
   const decks = dk?.decks || [{}, {}];
@@ -331,17 +333,19 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
     const label = idx === 0 ? "A" : "B";
 
     // Border
-    ink(isActive ? 40 : 20, isActive ? 45 : 22, isActive ? 60 : 30);
+    const dim = T.fgMute || 60;
+    ink(isActive ? dim : dim - 30, isActive ? dim + 5 : dim - 28, isActive ? dim + 20 : dim - 20);
     box(x0 - 1, P - 1, deckW + 2, deckH + 2);
-    ink(12, 12, 20);
+    ink(T.bg[0] + 4, T.bg[1] + 4, T.bg[2] + 8);
     box(x0, P, deckW, deckH);
 
     // Label
-    ink(isActive ? 255 : 80, isActive ? 255 : 60, isActive ? 100 : 50);
+    const fg = T.fg || 220;
+    ink(isActive ? fg : dim, isActive ? fg : dim - 20, isActive ? fg - 120 : dim - 10);
     write(label, { x: x0 + 2, y: P + 2, size: 1, font: "matrix" });
 
     if (!d.loaded) {
-      ink(50, 50, 70);
+      ink(dim, dim, dim + 10);
       write("empty", { x: x0 + 14, y: P + 3, size: 1, font: F });
       write("N=load next", { x: x0 + 4, y: P + deckH - 12, size: 1, font: F });
       return;
@@ -371,7 +375,7 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
 
     // Title
     const maxChars = Math.floor((deckW - 65) / CW);
-    ink(220, 220, 240);
+    ink(fg, fg, fg + 20);
     const title = (d.title || "?").replace(/\.[^.]+$/, "");
     write(title.slice(0, maxChars), { x: x0 + 2, y: P + 14, size: 1, font: F });
 
