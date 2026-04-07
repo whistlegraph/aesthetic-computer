@@ -327,7 +327,7 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
 
     // Draw figures at spawn
     for (const p of players) {
-      const col = isMe(p.handle) ? [50, 120, 200] : [200, 70, 60];
+      const col = playerColor(p.handle);
       drawFigure(ink, circle, box, line, ox, oy, p, col, frameCount);
     }
 
@@ -350,16 +350,17 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     // Bullets
     for (const b of bullets) {
       const alpha = Math.max(40, 255 - (b.age || 0) * 1.2);
-      if (b.owner === myHandle) ink(50, 120, 200, alpha);
-      else ink(200, 70, 60, alpha);
+      const bc = playerColor(b.owner);
+      ink(bc[0], bc[1], bc[2], alpha);
       circle(ox + Math.round(b.x), oy + Math.round(b.y), BULLET_R, true);
     }
 
     // Target indicator (not for spectators)
     if (phase === "fight" && !spectator) {
       const meAlive = players.find((p) => p.handle === myHandle)?.alive;
+      const mc = playerColor(myHandle);
       if (meAlive) {
-        ink(50, 120, 200, 60).circle(
+        ink(mc[0], mc[1], mc[2], 60).circle(
           ox + Math.round(localTargetX),
           oy + Math.round(localTargetY),
           3, false,
@@ -369,7 +370,7 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
 
     // Draw figures — spectators use server positions for everyone
     for (const p of players) {
-      const col = isMe(p.handle) ? [50, 120, 200] : [200, 70, 60];
+      const col = playerColor(p.handle);
       let drawP;
       if (spectator) {
         drawP = p; // All server positions
@@ -437,14 +438,16 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
 
   // Spectator HUD
   if (spectator) {
-    // Who vs who (top center)
-    const duelists = (snap?.players || []).map((p) => p.handle).filter((h) => h !== "dummy" ? h : "dummy");
-    if (duelists.length >= 2) {
-      const vs = duelists[0] + " vs " + duelists[1];
-      ink(60, 55, 45).write(vs, {
-        x: Math.floor(sw / 2 - vs.length * 3),
-        y: 4,
-      });
+    // Who vs who (top center, colored handles)
+    const duelHandles = (snap?.players || []).map((p) => p.handle);
+    if (duelHandles.length >= 2) {
+      const h0 = duelHandles[0], h1 = duelHandles[1];
+      const c0 = playerColor(h0), c1 = playerColor(h1);
+      const full = h0 + " vs " + h1;
+      const startX = Math.floor(sw / 2 - full.length * 3);
+      ink(c0[0], c0[1], c0[2]).write(h0, { x: startX, y: 4 });
+      ink(120, 115, 105).write(" vs ", { x: startX + h0.length * 6, y: 4 });
+      ink(c1[0], c1[1], c1[2]).write(h1, { x: startX + (h0.length + 4) * 6, y: 4 });
     }
     // "spectator" label (yellow on red, normal font, bottom center)
     ink(180, 40, 40).box(Math.floor(sw / 2 - 30), sh - 14, 60, 12);
@@ -469,6 +472,14 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
 
 function isMe(handle) {
   return handle === myHandle;
+}
+
+// Consistent color by roster position: first duelist = blue, second = red
+const COLORS = [[50, 120, 200], [200, 70, 60]];
+function playerColor(handle) {
+  const players = snap?.players || [];
+  const idx = players.findIndex((p) => p.handle === handle);
+  return COLORS[idx] || COLORS[1];
 }
 
 function drawFigure(ink, circle, box, line, ox, oy, fig, col, fc) {
