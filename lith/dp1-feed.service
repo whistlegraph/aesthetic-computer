@@ -1,0 +1,24 @@
+[Unit]
+Description=dp1-feed-v2 — DP-1 Feed API (Go + Postgres)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=dp1feed
+Group=dp1feed
+WorkingDirectory=/opt/dp1-feed
+ExecStart=/opt/dp1-feed/dp1-feed -config /opt/dp1-feed/config.yaml -migrations /opt/dp1-feed/db/migrations
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=/opt/dp1-feed/.env
+
+LimitNOFILE=65535
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

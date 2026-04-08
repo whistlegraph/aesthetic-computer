@@ -1,0 +1,30 @@
+server:
+  host: "127.0.0.1"
+  port: 8787
+  read_timeout: 30s
+  write_timeout: 30s
+  idle_timeout: 120s
+
+database:
+  # Set via DP1_FEED_DATABASE_URL env var
+  url: ""
+  max_conns: 16
+  min_conns: 2
+  max_conn_lifetime: 1h
+
+auth:
+  # Overridden by DP1_FEED_API_KEY env var
+  api_key: ""
+
+logging:
+  debug: false
+
+extensions:
+  enabled: true
+
+playlist:
+  fetch_timeout: 30s
+  fetch_max_body_bytes: 4194304
+  # Overridden by DP1_FEED_SIGNING_KEY_HEX env var
+  signing_key_hex: ""
+  public_base_url: "https://feed.aesthetic.computer"

@@ -179,7 +179,7 @@ function parse(text, location = self?.location) {
   // Also check for kidlisp AFTER converting underscores to spaces (for URL-encoded RGB)
   const textWithSpaces = text.replace(/_/g, " ");
   const isKidlispAfterDecode = isKidlispSource(textWithSpaces);
-  
+
   if ((kidlispCheck && hasSpecialChars) || isKidlispAfterDecode) {
     const decodedSource = decodeKidlispFromUrl(text);
     return {

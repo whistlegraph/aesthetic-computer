@@ -50,13 +50,11 @@ const KIDLISP_FUNCTIONS = new Set([
   "rainbow", "zebra", "gradient"
 ]);
 
-// Common CSS color names that are valid in KidLisp
+// All color names valid in KidLisp: CSS colors + index shortnames (c0-c150) + patterns
 const KIDLISP_COLORS = new Set([
-  "red", "green", "blue", "yellow", "orange", "purple", "pink", "cyan", "magenta",
-  "black", "white", "gray", "grey", "brown", "lime", "navy", "teal", "olive",
-  "maroon", "aqua", "fuchsia", "silver", "gold", "coral", "salmon", "khaki",
-  "indigo", "violet", "turquoise", "tomato", "crimson", "lavender", "beige",
-  "plum", "orchid", "tan", "chocolate", "sienna", "peru", "wheat"
+  ...Object.keys(cssColors),
+  ...Array.from({ length: 151 }, (_, i) => `c${i}`),
+  "rainbow", "zebra", "gradient",
 ]);
 
 // All known KidLisp words (for recognition testing)

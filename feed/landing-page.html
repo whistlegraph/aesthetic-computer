@@ -1,7 +1,7 @@
 <!--
 DP-1 Feed Landing Page for feed.aesthetic.computer
-Live channel/playlist explorer backed by SQLite
-Created: 2026.02.20
+Live channel/playlist explorer backed by Go + Postgres (V2)
+Created: 2026.02.20, migrated to V2: 2026.04.08
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -361,8 +361,11 @@ Created: 2026.02.20
       color: var(--cyan);
       font-weight: normal;
       flex-shrink: 0;
-      min-width: 2.5em;
+      min-width: 3em;
     }
+
+    .ep .method-post { color: var(--green); }
+    .ep .method-put { color: var(--gold); }
 
     .ep .path { color: var(--dim); }
 
@@ -433,6 +436,7 @@ Created: 2026.02.20
       height: 100%;
       border: none;
       display: block;
+      transition: opacity 0.3s ease;
     }
 
     .tv-controls {
@@ -617,23 +621,55 @@ Created: 2026.02.20
     </div>
 
     <div class="section" id="api-section" style="animation-delay:0.3s">
-      <div class="section-hd">API</div>
+      <div class="section-hd">
+        <span>API</span>
+        <span class="section-count" id="api-version"></span>
+      </div>
       <div class="endpoint-grid">
+        <div class="ep"><span class="method">GET</span><span class="path">/health</span></div>
         <div class="ep"><span class="method">GET</span><span class="path">/api/v1</span></div>
-        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/health</span></div>
-        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
-        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels/:id</span></div>
         <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists</span></div>
+        <div class="ep"><span class="method method-post">POST</span><span class="path">/api/v1/playlists</span></div>
         <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlists/:id</span></div>
+        <div class="ep"><span class="method method-put">PUT</span><span class="path">/api/v1/playlists/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-groups</span></div>
+        <div class="ep"><span class="method method-post">POST</span><span class="path">/api/v1/playlist-groups</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/channels</span></div>
+        <div class="ep"><span class="method method-post">POST</span><span class="path">/api/v1/channels</span></div>
         <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items</span></div>
-        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/playlist-items/:id</span></div>
+        <div class="ep"><span class="method">GET</span><span class="path">/api/v1/registry/channels</span></div>
+      </div>
+    </div>
+
+    <div class="section" id="protocol-section" style="animation-delay:0.4s">
+      <div class="section-hd">
+        <span>PROTOCOL</span>
+      </div>
+      <div class="channel-card" style="padding:1em">
+        <div style="font-size:0.9em;margin-bottom:0.6em">
+          <b style="color:var(--cyan)">DP-1</b> <span style="color:var(--dim)">v1.1.0</span>
+        </div>
+        <div style="font-size:0.8em;color:var(--dim);line-height:1.6">
+          an open, vendor-neutral protocol for signed digital art playlists.
+          cryptographically signed with Ed25519, supporting multi-signature verification.
+        </div>
+        <div style="display:flex;gap:0.8em;margin-top:0.8em;flex-wrap:wrap;font-size:0.8em">
+          <a href="https://github.com/display-protocol/dp1">spec</a>
+          <a href="https://github.com/display-protocol/dp1-feed-v2">feed server</a>
+          <a href="https://github.com/display-protocol/dp1-validator">validator</a>
+          <a href="https://feralfile.com" style="color:var(--cyan)">feral file</a>
+        </div>
+        <div style="margin-top:0.6em;font-size:0.7em;color:var(--dim)">
+          CC BY 4.0 &middot; display protocol &middot; feral file
+        </div>
       </div>
     </div>
 
     <footer>
-      <a href="https://github.com/whistlegraph/dp1-feed">dp1-feed</a>
+      <a href="https://github.com/display-protocol/dp1-feed-v2">dp1-feed-v2</a>
       &middot; <a href="https://aesthetic.computer" onclick="event.preventDefault(); openModal(this.href)">aesthetic.computer</a>
       &middot; <a href="https://kidlisp.com" onclick="event.preventDefault(); openModal(this.href)">kidlisp</a>
+      &middot; <a href="https://feralfile.com" style="color:var(--cyan)">feral file</a>
       <br>
       <span class="heart">~</span>
     </footer>
@@ -695,14 +731,17 @@ Created: 2026.02.20
           fetch(`${API}`).then(r => r.json()),
         ]);
         const el = document.getElementById('stats');
-        const dot = health.status === 'ok'
+        const dot = (health.status === 'ok' || health.status === 'healthy')
           ? '<span class="status-dot"></span>'
           : '<span class="status-dot offline"></span>';
         const parts = [dot + '<span class="stat"><strong>online</strong></span>'];
         if (info.version) parts.push(`<span class="stat">v<strong>${esc(info.version)}</strong></span>`);
         if (info.runtime) parts.push(`<span class="stat">${esc(info.runtime)}</span>`);
-        parts.push('<span class="stat">sqlite</span>');
+        if (info.extensionsEnabled) parts.push('<span class="stat">extensions</span>');
         el.innerHTML = parts.join('');
+        // Show spec version in API section header
+        const apiVer = document.getElementById('api-version');
+        if (apiVer && info.specification) apiVer.textContent = info.specification;
       } catch (e) {
         document.getElementById('stats').innerHTML =
           '<span class="status-dot offline"></span><span class="stat" style="color:#ef4444"><strong>offline</strong></span>';
@@ -818,7 +857,7 @@ Created: 2026.02.20
         if (p?.items?.length) {
           inner.innerHTML = p.items.map((item, j) => {
             const code = item.title || item.id || '-';
-            const url = item.url || '#';
+            const url = tvSourceUrl(item);
             return `<div class="piece"><a class="piece-code" href="${esc(url)}" onclick="event.preventDefault(); openModal(this.href)">${esc(code)}</a></div>`;
           }).join('');
         } else {
@@ -870,7 +909,29 @@ Created: 2026.02.20
       tick: null,
       playlistId: null,
       allPlaylists: [],  // filled after load
+      pieceReady: false,
     };
+
+    // Listen for boot-log 'ready:' from aesthetic.computer iframe
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'boot-log' && e.data.message?.startsWith?.('ready:')) {
+        if (!tv.pieceReady) {
+          tv.pieceReady = true;
+          const iframe = document.getElementById('tv-iframe');
+          iframe.style.opacity = '1';
+          if (tv.playing) tvStartTimer();
+        }
+      }
+    });
+
+    // Route all pieces through aesthetic.computer
+    // device.kidlisp.com/CODE → aesthetic.computer/CODE
+    function tvSourceUrl(item) {
+      const src = item.source || item.url || '';
+      const m = src.match(/device\.kidlisp\.com\/([^?/]+)/);
+      if (m) return `https://aesthetic.computer/${m[1]}`;
+      return src;
+    }
 
     function tvLoad(playlist) {
       tv.items = (playlist.items || []).slice();
@@ -889,13 +950,25 @@ Created: 2026.02.20
       if (!tv.items.length) return;
       const item = tv.items[tv.index];
       const iframe = document.getElementById('tv-iframe');
-      iframe.src = item.source || item.url || '';
+      tvStopTimer();
+      tv.elapsed = 0;
+      tv.pieceReady = false;
+      tvUpdateProgress();
       document.getElementById('tv-now-playing').textContent = item.title || '';
       document.getElementById('tv-index').textContent =
         `${tv.index + 1} / ${tv.items.length}`;
-      tv.elapsed = 0;
-      tvUpdateProgress();
-      tvStartTimer();
+      // Dim iframe until piece is ready (boot-log 'ready:' via postMessage)
+      iframe.style.opacity = '0.15';
+      // Fallback: if no ready signal in 8s, start anyway
+      if (tv.readyFallback) clearTimeout(tv.readyFallback);
+      tv.readyFallback = setTimeout(() => {
+        if (!tv.pieceReady) {
+          tv.pieceReady = true;
+          iframe.style.opacity = '1';
+          if (tv.playing) tvStartTimer();
+        }
+      }, 8000);
+      iframe.src = tvSourceUrl(item);
     }
 
     function tvStartTimer() {

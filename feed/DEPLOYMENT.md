@@ -1,109 +1,48 @@
-# Feed Worker Deployment
+# Feed Server Deployment
 
-The Cloudflare Worker code for the DP-1 Feed API is located in:
+## Current: dp1-feed-v2 (Go + Postgres)
 
-```
-/workspaces/aesthetic-computer/feed/dp1-feed/
-```
+As of April 2026, `feed.aesthetic.computer` runs **dp1-feed-v2** — a Go binary
+backed by PostgreSQL 16, hosted on the lith VPS (`209.38.133.33`).
 
-This is the cloned repository from https://github.com/feral-file/dp1-feed
+- **Source**: https://github.com/display-protocol/dp1-feed-v2
+- **Binary**: `/opt/dp1-feed/dp1-feed`
+- **Config**: `/opt/dp1-feed/config.yaml` (source of truth: `lith/dp1-feed-config.yaml`)
+- **Env**: `/opt/dp1-feed/.env` (API key, signing key, database URL)
+- **Service**: `systemctl {start,stop,restart,status} dp1-feed`
+- **Logs**: `journalctl -u dp1-feed -f`
+- **Port**: 8787 (reverse proxied via Caddy)
+- **Database**: PostgreSQL `dp1_feed` on localhost, user `dp1feed`
 
-## Deployment
-
-Deploy the worker to Cloudflare:
-
-```bash
-cd /workspaces/aesthetic-computer/feed/dp1-feed
-wrangler deploy
-```
-
-This will deploy to: `feed.aesthetic.computer`
-
-## Configuration
-
-Worker configuration is in `wrangler.toml`:
-- Account ID
-- Route: `feed.aesthetic.computer/*`
-- KV Namespace bindings
-- Queue bindings
-- Environment variables
-
-## Secrets
-
-Worker secrets must be set via wrangler CLI:
+## Rebuilding
 
 ```bash
-cd /workspaces/aesthetic-computer/feed/dp1-feed
-
-# API Secret for authentication
-wrangler secret put API_SECRET
-# Enter: YOUR_FEED_API_SECRET_HERE
-
-# ED25519 Private Key (if using signed playlists)
-wrangler secret put ED25519_PRIVATE_KEY
+ssh root@lith.aesthetic.computer
+cd /opt/dp1-feed-build/dp1-feed-v2
+git pull
+CGO_ENABLED=0 go build -o dp1-feed ./cmd/server
+cp dp1-feed /opt/dp1-feed/dp1-feed
+systemctl restart dp1-feed
 ```
 
-## Worker Resources
+## Initial Setup
 
-The worker uses these Cloudflare resources:
+Run `lith/scripts/setup-dp1-feed.sh` on the VPS. It installs Go, PostgreSQL,
+clones the repos, builds the binary, and creates the systemd service.
 
-### KV Namespaces
-- `DP1_PLAYLISTS` - Stores playlist data
-- `DP1_CHANNELS` - Stores channel metadata
-- `DP1_PLAYLIST_ITEMS` - Stores individual items
+## API Endpoints
 
-### Queue
-- `dp1-write-operations-prod` - Async write operations
+- `GET /health` — liveness
+- `GET /api/v1` — API info
+- `GET /api/v1/playlists` — list playlists
+- `GET /api/v1/channels` — list channels (requires extensions enabled)
+- `GET /api/v1/playlist-groups` — list playlist groups
+- `GET /api/v1/playlist-items` — list playlist items
+- `PUT /api/v1/registry/channels` — update curated channel registry
 
-### Environment Variables
-Set in wrangler.toml or as secrets.
+Auth: `Authorization: Bearer <API_KEY>` for all write operations.
 
-## Local Development
+## Legacy (archived)
 
-Run worker locally:
-
-```bash
-cd /workspaces/aesthetic-computer/feed/dp1-feed
-wrangler dev
-```
-
-This starts a local server at http://localhost:8787
-
-## Updating the Worker
-
-1. Make changes to TypeScript source in `feed/dp1-feed/src/`
-2. Test locally with `wrangler dev`
-3. Deploy with `wrangler deploy`
-4. Monitor logs: `wrangler tail`
-
-## Architecture
-
-The worker is built with:
-- **TypeScript** - Type-safe JavaScript
-- **Hono** - Fast web framework for Cloudflare Workers
-- **Zod** - Schema validation
-- **DP-1 Spec** - Distributed Playlist specification
-
-## API Routes
-
-- `GET /api/v1/channels` - List channels
-- `GET /api/v1/channels/:id` - Get channel
-- `POST /api/v1/channels` - Create channel
-- `PATCH /api/v1/channels/:id` - Update channel
-- `PUT /api/v1/channels/:id` - Replace channel
-- `GET /api/v1/playlists` - List playlists
-- `GET /api/v1/playlists/:id` - Get playlist
-- `POST /api/v1/playlists` - Create playlist
-- `DELETE /api/v1/playlists/:id` - Delete playlist
-
-## Monitoring
-
-View worker logs:
-
-```bash
-cd /workspaces/aesthetic-computer/feed/dp1-feed
-wrangler tail
-```
-
-Or check Cloudflare Dashboard:
-https://dash.cloudflare.com → Workers & Pages → feed.aesthetic.computer
+The previous V1 deployment used Cloudflare Workers (TypeScript/Hono) with KV
+storage. That code lives in `feed/dp1-feed/` and is no longer deployed.
