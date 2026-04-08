@@ -15662,8 +15662,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const initialTheme = isDarkMode ? 'kidlisp-dark' : 'kidlisp-light';
 
-      // Set max lines to 16 (fixed)
-      const maxLines = 16;
+      // Set max lines for editor
+      const maxLines = 64;
       
       // Track if user has manually edited the editor (vs programmatic setValue)
       let editorUserModified = false;
