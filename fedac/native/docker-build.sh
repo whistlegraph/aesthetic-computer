@@ -286,7 +286,7 @@ for tool in wpa_supplicant wpa_cli iw dhclient rfkill; do
 done
 
 # ── 2i2: Disk/EFI tools (for HD install + OTA flash) ──
-for tool in sfdisk mkfs.vfat efibootmgr; do
+for tool in sfdisk mkfs.vfat efibootmgr partprobe; do
     SRC_BIN=$(command -v "$tool" 2>/dev/null)
     if [ -n "$SRC_BIN" ]; then
         cp -L "$SRC_BIN" "$IROOT/bin/"

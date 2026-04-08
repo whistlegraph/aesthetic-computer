@@ -973,6 +973,14 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     snprintf(rcmd, sizeof(rcmd), "partprobe /dev/%s 2>&1 || blockdev --rereadpt /dev/%s 2>&1",
                              parent_blk, parent_blk);
                     system(rcmd);
+                    // Force kernel to re-read partition table (multiple methods)
+                    snprintf(rcmd, sizeof(rcmd),
+                        "partprobe /dev/%s 2>/dev/null; "
+                        "blockdev --rereadpt /dev/%s 2>/dev/null; "
+                        "busybox blockdev --rereadpt /dev/%s 2>/dev/null; "
+                        "sfdisk --verify /dev/%s 2>/dev/null",
+                        parent_blk, parent_blk, parent_blk, parent_blk);
+                    system(rcmd);
                     // Wait for partition device node to appear (up to 5s)
                     for (int wait = 0; wait < 10; wait++) {
                         usleep(500000);
@@ -982,9 +990,6 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                             break;
                         }
                         ac_log("[install] waiting for %s... (%d)\n", devpath, wait);
-                        // Re-probe each iteration
-                        snprintf(rcmd, sizeof(rcmd), "partprobe /dev/%s 2>/dev/null", parent_blk);
-                        system(rcmd);
                     }
                     // Reformat
                     snprintf(rcmd, sizeof(rcmd), "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
