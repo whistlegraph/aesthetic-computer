@@ -32,7 +32,8 @@ typedef struct ACDeckDecoder {
     volatile double  seek_target;    // seconds
 
     // Speed control (pitch-coupled, like vinyl)
-    volatile double  speed;          // 1.0 = normal, 0.5-2.0 range
+    volatile double  speed;          // 1.0 = normal, negative = reverse
+    double           ring_frac;      // fractional read position for interpolated speed
 
     // Track metadata
     double           duration;       // total duration in seconds

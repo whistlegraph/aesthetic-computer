@@ -72,6 +72,7 @@ static void *decoder_thread_fn(void *arg) {
             // Reset ring buffer
             d->ring_write = 0;
             d->ring_read = 0;
+            d->ring_frac = 0.0;
             d->position = d->seek_target;
             d->finished = 0;
             d->seek_requested = 0;
@@ -124,17 +125,10 @@ static void *decoder_thread_fn(void *arg) {
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
             if (ret < 0) { d->error = 1; break; }
 
-            // Calculate output samples accounting for speed
-            double effective_speed = d->speed;
-            if (effective_speed < 0.25) effective_speed = 0.25;
-            if (effective_speed > 4.0) effective_speed = 4.0;
-
-            // Resample: source rate -> output rate / speed
-            // Playing at 2x speed means we produce half as many output samples
-            // per source frame, which the audio thread plays at normal rate = 2x speed
+            // Resample: source rate -> output rate (always 1x, speed applied at playback)
             int out_samples = av_rescale_rnd(
                 swr_get_delay(swr, d->src_sample_rate) + frame->nb_samples,
-                (int64_t)(d->out_rate / effective_speed),
+                d->out_rate,
                 d->src_sample_rate,
                 AV_ROUND_UP
             );
@@ -189,6 +183,7 @@ ACDeckDecoder *deck_decoder_create(unsigned int output_rate) {
 
     d->out_rate = output_rate;
     d->speed = 1.0;
+    d->ring_frac = 0.0;
     d->ring_size = output_rate * DECK_RING_SECONDS;
     d->ring = calloc(d->ring_size * 2, sizeof(float)); // stereo interleaved
     if (!d->ring) {
@@ -366,7 +361,7 @@ void deck_decoder_seek(ACDeckDecoder *d, double seconds) {
 
 void deck_decoder_set_speed(ACDeckDecoder *d, double speed) {
     if (!d) return;
-    if (speed < 0.25) speed = 0.25;
+    if (speed < -4.0) speed = -4.0;
     if (speed > 4.0) speed = 4.0;
     d->speed = speed;
 }

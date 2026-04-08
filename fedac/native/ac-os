@@ -736,7 +736,7 @@ require_login() {
         exit 1
     fi
     # Read handle and email too
-    local USER_HANDLE=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.user?.handle || t.user?.name || '')" 2>/dev/null)
+    local USER_HANDLE=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); let h=t.user?.handle || t.user?.name || ''; if(h.startsWith('@'))h=h.slice(1); console.log(h)" 2>/dev/null)
     local USER_EMAIL=$(node -e "const t=JSON.parse(require('fs').readFileSync('${TOKEN_FILE}','utf8')); console.log(t.user?.email || '')" 2>/dev/null)
     export AC_USER_SUB="${USER_SUB}"
     export AC_USER_HANDLE="${USER_HANDLE}"
