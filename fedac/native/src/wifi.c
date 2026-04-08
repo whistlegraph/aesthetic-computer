@@ -410,9 +410,9 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                 } else if (code[0]) {
                                     wifi_log(wifi, "Captive portal detected (HTTP %s), trying auto-accept...", code);
 
-                                    // Step 2: Get the portal redirect URL
+                                    // Step 2: Get the portal redirect URL + save HTML for debugging
                                     snprintf(portal_cmd, sizeof(portal_cmd),
-                                        "curl -s --max-time 8 --connect-timeout 5 "
+                                        "curl -sk --max-time 8 --connect-timeout 5 "
                                         "-o /tmp/portal_page.html -w '%%{url_effective}' "
                                         "-L http://connectivitycheck.gstatic.com/generate_204 "
                                         "2>/dev/null");
@@ -424,6 +424,8 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                         pclose(uf);
                                     }
                                     wifi_log(wifi, "Portal URL: %s", portal_url);
+                                    // Save portal HTML to USB for inspection
+                                    run_cmd("cp /tmp/portal_page.html /mnt/portal_page.html 2>/dev/null || true");
 
                                     // Step 3: Try multiple accept strategies
                                     // Strategy A: ClearPass/Aruba — change cmd=login to cmd=authenticate
