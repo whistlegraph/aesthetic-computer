@@ -2444,55 +2444,57 @@ static JSValue js_list_dir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
 static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
 
-    // Create mount point
     mkdir("/media", 0755);
 
     // Check if already mounted
-    struct stat st_media;
-    if (stat("/media/.", &st_media) == 0) {
-        struct stat st_root;
-        if (stat("/.", &st_root) == 0 && st_media.st_dev != st_root.st_dev) {
-            return JS_TRUE; // already mounted
-        }
+    struct stat st_media, st_root;
+    if (stat("/media/.", &st_media) == 0 && stat("/.", &st_root) == 0 &&
+        st_media.st_dev != st_root.st_dev) {
+        return JS_TRUE;
     }
 
-    // Find the boot device to skip it
-    char boot_dev[64] = "";
+    // Find ALL mounted devices to skip (boot USB may have multiple partitions)
+    char skip_bases[8][64];
+    int skip_count = 0;
     FILE *fp = fopen("/proc/mounts", "r");
     if (fp) {
         char line[256];
-        while (fgets(line, sizeof(line), fp)) {
-            if (strstr(line, " /mnt ")) {
-                sscanf(line, "%63s", boot_dev);
-                // Strip partition number to get base device (e.g. /dev/sda1 -> /dev/sda)
-                break;
+        while (fgets(line, sizeof(line), fp) && skip_count < 8) {
+            char mdev[64];
+            if (sscanf(line, "%63s", mdev) == 1 && strncmp(mdev, "/dev/sd", 7) == 0) {
+                // Strip partition number to get base
+                char base[64];
+                snprintf(base, sizeof(base), "%s", mdev);
+                int len = strlen(base);
+                while (len > 0 && base[len-1] >= '0' && base[len-1] <= '9') base[--len] = '\0';
+                // Add if not already in skip list
+                int found = 0;
+                for (int i = 0; i < skip_count; i++)
+                    if (strcmp(skip_bases[i], base) == 0) { found = 1; break; }
+                if (!found) {
+                    strncpy(skip_bases[skip_count++], base, 63);
+                    ac_log("[dj] skip boot device: %s\n", base);
+                }
             }
         }
         fclose(fp);
     }
-    char boot_base[64] = "";
-    if (boot_dev[0]) {
-        snprintf(boot_base, sizeof(boot_base), "%s", boot_dev);
-        // Remove trailing digits
-        int len = strlen(boot_base);
-        while (len > 0 && boot_base[len-1] >= '0' && boot_base[len-1] <= '9') {
-            boot_base[--len] = '\0';
-        }
-    }
 
-    // Try mounting secondary USB partitions
+    // Try mounting partitions on non-boot USB devices
     const char *bases[] = { "/dev/sda", "/dev/sdb", "/dev/sdc", "/dev/sdd", NULL };
     for (int b = 0; bases[b]; b++) {
-        // Skip boot device base
-        if (boot_base[0] && strcmp(bases[b], boot_base) == 0) continue;
+        int skip = 0;
+        for (int i = 0; i < skip_count; i++)
+            if (strcmp(bases[b], skip_bases[i]) == 0) { skip = 1; break; }
+        if (skip) continue;
 
-        for (int p = 1; p <= 4; p++) {
+        for (int p = 1; p <= 8; p++) {
             char dev[64];
             snprintf(dev, sizeof(dev), "%s%d", bases[b], p);
             struct stat ds;
             if (stat(dev, &ds) != 0) continue;
 
-            // Try VFAT first, then exFAT
+            ac_log("[dj] trying %s...\n", dev);
             if (mount(dev, "/media", "vfat", MS_RDONLY, "iocharset=utf8") == 0) {
                 ac_log("[dj] mounted %s at /media (vfat)\n", dev);
                 return JS_TRUE;
@@ -2501,8 +2503,17 @@ static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, J
                 ac_log("[dj] mounted %s at /media (exfat)\n", dev);
                 return JS_TRUE;
             }
+            if (mount(dev, "/media", "ext4", MS_RDONLY, NULL) == 0) {
+                ac_log("[dj] mounted %s at /media (ext4)\n", dev);
+                return JS_TRUE;
+            }
+            if (mount(dev, "/media", "ntfs3", MS_RDONLY, NULL) == 0) {
+                ac_log("[dj] mounted %s at /media (ntfs)\n", dev);
+                return JS_TRUE;
+            }
         }
     }
+    ac_log("[dj] no music USB found\n");
     return JS_FALSE;
 }
 
