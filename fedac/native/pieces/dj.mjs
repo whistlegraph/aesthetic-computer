@@ -22,6 +22,9 @@ let spinSpeed = 0;      // record spin rate (0=stopped, 1=playing)
 let scratchSpeed = 0;   // current scratch velocity (-2 to 2)
 let wasPlaying = false;  // was playing before scratch started
 
+// Button layout (computed in paint, used in act)
+let buttons = [];       // [{x, y, w, h, id, label}]
+
 function isAudio(name) {
   if (name.startsWith(".")) return false; // skip metadata (._xxx.m4a etc)
   const dot = name.lastIndexOf(".");
@@ -89,13 +92,34 @@ function act({ event: e, sound, system, tts, screen }) {
   const w = screen?.width || 320;
   const h = screen?.height || 240;
 
+  // --- Button tap check (before scratch) ---
+  if (e.is("touch")) {
+    for (const b of buttons) {
+      if (e.x >= b.x && e.x <= b.x + b.w && e.y >= b.y && e.y <= b.y + b.h) {
+        if (b.id === "play") {
+          if (d?.loaded) {
+            if (d.playing) { dk.pause(0); spinSpeed = 0; msg("paused"); }
+            else { dk.play(0); spinSpeed = 1; msg("playing"); }
+          }
+        } else if (b.id === "next") { trackIdx++; loadTrack(sound, tts); }
+        else if (b.id === "prev") { trackIdx = Math.max(0, trackIdx - 1); loadTrack(sound, tts); }
+        else if (b.id === "reset") { if (d?.loaded) { dk.setSpeed(0, 1); msg("1.00x"); } }
+        else if (b.id === "scan") {
+          mounted = system?.mountMusic?.() || false;
+          scan(system, tts);
+          if (files.length > 0) { trackIdx = 0; loadTrack(sound, tts); }
+        }
+        return;
+      }
+    }
+  }
+
   // --- Mouse/touchpad scratch (radial around platter center) ---
   if (e.is("touch")) {
     dragging = true;
     dragLastX = e.x;
     dragLastY = e.y;
     wasPlaying = d?.playing || false;
-    // Keep playing but we'll modulate speed
     scratchSpeed = 0;
     return;
   }
@@ -266,8 +290,23 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   ink(fg, fg, fg + 10);
   write(title.slice(0, maxC), { x: 4, y: 3, size: 1, font: F });
 
+  // Track counter + USB (top right)
+  if (files.length > 0) {
+    ink(dim, dim, dim + 10);
+    const tc = `${trackIdx + 1}/${files.length}`;
+    write(tc, { x: w - tc.length * CW - 4, y: 3, size: 1, font: F });
+  }
+  ink(usbConnected ? 60 : dim, usbConnected ? 180 : dim, usbConnected ? 60 : dim);
+  write(usbConnected ? "USB" : "---", { x: w - 22, y: 14, size: 1, font: F });
+
+  // --- Bottom panel (no overlaps) ---
+  // Layout from bottom up:
+  //   h-12: buttons row
+  //   h-24: time / speed
+  //   h-32: progress bar
+
   // Progress bar
-  const barY = h - 22;
+  const barY = h - 34;
   const barW = w - 8;
   const progress = d.duration > 0 ? d.position / d.duration : 0;
   ink(T.bg[0] + 15, T.bg[1] + 15, T.bg[2] + 20);
@@ -283,17 +322,36 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
     write(spd, { x: w - spd.length * CW - 4, y: barY + 7, size: 1, font: F });
   }
 
-  // Track counter
-  if (files.length > 0) {
-    ink(dim, dim, dim + 10);
-    const tc = `${trackIdx + 1}/${files.length}`;
-    write(tc, { x: w - tc.length * CW - 4, y: 3, size: 1, font: F });
+  // --- Button row ---
+  buttons = [];
+  const btnY = h - 14;
+  const btnH = 12;
+  const btnDefs = [
+    { id: "prev", label: "< Prev" },
+    { id: "play", label: d.playing ? "Pause" : "Play" },
+    { id: "next", label: "Next >" },
+    { id: "reset", label: "1x" },
+    { id: "scan", label: "Scan" },
+  ];
+  const gap = 3;
+  const totalGap = gap * (btnDefs.length - 1);
+  const btnW = Math.floor((w - 8 - totalGap) / btnDefs.length);
+  for (let i = 0; i < btnDefs.length; i++) {
+    const bx = 4 + i * (btnW + gap);
+    const bd = btnDefs[i];
+    buttons.push({ x: bx, y: btnY, w: btnW, h: btnH, id: bd.id, label: bd.label });
+    // Button background
+    ink(T.bg[0] + 18, T.bg[1] + 18, T.bg[2] + 24);
+    box(bx, btnY, btnW, btnH);
+    // Button border
+    ink(dim + 10, dim + 10, dim + 20);
+    box(bx, btnY, btnW, btnH, "outline");
+    // Button label (centered)
+    const lx = bx + Math.floor((btnW - bd.label.length * CW) / 2);
+    const ly = btnY + 2;
+    ink(fg, fg, fg + 10);
+    write(bd.label, { x: lx, y: ly, size: 1, font: F });
   }
-
-  // Status bar
-  const sY = h - 10;
-  ink(dim, dim, dim + 10);
-  write("Spc:play N/P:trk </>:spd Z:1x R:scan", { x: 4, y: sY, size: 1, font: F });
 
   // Drag state
   if (dragging) {
@@ -305,12 +363,8 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   if (message && frame - messageFrame < 120) {
     const fade = Math.max(0, 255 - Math.floor((frame - messageFrame) * 2.5));
     ink(255, 220, 60, fade);
-    write(message.slice(0, maxC), { x: 4, y: 14, size: 1, font: F });
+    write(message.slice(0, maxC), { x: 4, y: 16, size: 1, font: F });
   }
-
-  // USB indicator
-  ink(usbConnected ? 60 : dim, usbConnected ? 180 : dim, usbConnected ? 60 : dim);
-  write(usbConnected ? "USB" : "---", { x: w - 22, y: sY, size: 1, font: F });
 }
 
 function sim({ system, tts, sound }) {
