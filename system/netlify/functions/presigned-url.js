@@ -45,14 +45,8 @@ function getS3Clients() {
     
     // Validate credentials are available
     if (!accessKeyId || !secretAccessKey) {
-      console.error("❌ S3 Credentials missing:", {
-        hasArtKey: !!process.env.ART_KEY,
-        hasDoSpacesKey: !!process.env.DO_SPACES_KEY,
-        hasArtSecret: !!process.env.ART_SECRET,
-        hasDoSpacesSecret: !!process.env.DO_SPACES_SECRET,
-        endpoint,
-      });
-      throw new Error(`Missing S3 credentials: ART_KEY=${!!process.env.ART_KEY}, DO_SPACES_KEY=${!!process.env.DO_SPACES_KEY}, ART_SECRET=${!!process.env.ART_SECRET}, DO_SPACES_SECRET=${!!process.env.DO_SPACES_SECRET}`);
+      // In local dev mode, skip S3 client init — handled by local fallback.
+      return null;
     }
     
     console.log("🔑 Using credentials:", {
@@ -99,12 +93,29 @@ export async function handler(event, context) {
       artSecretLength: process.env.ART_SECRET?.length,
     });
     
-    // Initialize S3 clients (lazy load to allow env vars to be set)
-    const { s3Guest, s3Wand, s3User } = getS3Clients();
-    
     // Only allow GET requests.
     if (event.httpMethod !== "GET")
       return respond(405, { error: "Wrong request type!" });
+
+    // Initialize S3 clients (lazy load to allow env vars to be set)
+    const s3Clients = getS3Clients();
+
+    // Local dev fallback when S3 credentials are missing.
+    if (!s3Clients) {
+      const { customAlphabet } = await import("nanoid");
+      const nanoid = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 8);
+      const ext = event.path.slice(1).split("/")[1];
+      const code = nanoid();
+      const slug = code + "." + ext;
+      console.log("📁 Local dev upload fallback:", slug);
+      return respond(200, {
+        uploadURL: `/local-upload/${slug}`,
+        slug,
+        code,
+      });
+    }
+
+    const { s3Guest, s3Wand, s3User } = s3Clients;
 
   if (event.path === "/presigned-download-url") {
     const queryParams = new URLSearchParams(event.queryStringParameters);

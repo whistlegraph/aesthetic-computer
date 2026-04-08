@@ -53,7 +53,7 @@ import { clearPermissions, resolvePermissionRequest } from "./piece-permissions.
 const { pow, abs, round, sin, random, min, max, floor, cos } = Math;
 const { keys } = Object;
 
-import { nopaint_boot, nopaint_act, nopaint_is, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
+import { nopaint_boot, nopaint_act, nopaint_is, nopaint_cancelStroke, nopaint_renderPerfHUD, nopaint_triggerBakeFlash } from "../systems/nopaint.mjs";
 import { getPreserveFadeAlpha, setPreserveFadeAlpha } from "./fade-state.mjs";
 import * as prompt from "../systems/prompt-system.mjs";
 import * as world from "../systems/world.mjs";
@@ -3536,6 +3536,7 @@ const $commonApi = {
         // console.log("🖌️🟠 Recorded a step:", record.label);
       },
       is: nopaint_is,
+      cancelStroke: nopaint_cancelStroke,
       undo: { paintings: undoPaintings },
       needsBake: false,
       needsPresent: false,
@@ -9272,13 +9273,16 @@ async function load(
           
           $.page($.system.painting);
           bake($);
-          
+
           // 🧹 CLEAR BUFFER: Prevent flickering by clearing buffer BEFORE presentation
           $.page($.system.nopaint.buffer).wipe(255, 255, 255, 0);
-          
+
           $.page($.screen);
           np.present($);
           np.needsBake = false;
+
+          // 📸 Snapshot for undo after every stroke bake.
+          addUndoPainting($.system.painting, "stroke");
           
           // 🚀 Broadcast bake completion
           $commonApi.broadcastPaintingUpdateImmediate("baked", {
@@ -12826,12 +12830,12 @@ async function makeFrame({ data: { type, content } }) {
 
                 if (currentHUDScrub >= shareWidth) {
                   currentHUDScrub = shareWidth;
-                  currentHUDTextColor = [255, 255, 0];
+                  currentHUDTextColor = [0, 255, 255];
                 } else if (currentHUDScrub <= -editWidth) {
                   currentHUDScrub = -editWidth;
                   currentHUDTextColor = [255, 255, 0];
                 } else if (currentHUDScrub > 0) {
-                  currentHUDTextColor = [255, 0, 0];
+                  currentHUDTextColor = [0, 200, 200];
                 } else if (currentHUDScrub < 0) {
                   currentHUDTextColor = [255, 120, 180];
                 } else if (currentHUDScrub === 0) {
@@ -14267,7 +14271,7 @@ async function makeFrame({ data: { type, content } }) {
                 x: shareTextX,
                 y: shareTextY,
                 typefaceName: undefined, // Use default font, not MatrixChunky8
-                textColor: [255, 255, 255],
+                textColor: [0, 255, 255],
                 shadowColor: "black",
                 preserveColors: false,
               });
@@ -14292,11 +14296,17 @@ async function makeFrame({ data: { type, content } }) {
               );
               const unclampedCaretY = Math.max(0, hudTextY + wrappedLastLineY);
               const caretY = Math.min(unclampedCaretY, Math.max(bufferH - caretHeight - 1, 0));
-              const fillWidth = Math.max(1, Math.round(caretWidth * editProgress));
+              const filledCols = Math.max(1, Math.round(caretWidth * editProgress));
               const editColor = editProgress >= 1 ? [255, 170, 210] : [255, 107, 157];
 
-              $.ink(0, 0, 0, 180).box(caretX + 1, caretY + 1, caretWidth, caretHeight);
-              $.ink(...editColor).box(caretX, caretY, fillWidth, caretHeight);
+              // Draw per-column with shadows and a fly-in offset from the right.
+              for (let col = 0; col < filledCols; col++) {
+                const t = filledCols > 1 ? col / (filledCols - 1) : 1;
+                const flyIn = Math.round((1 - t) * (caretWidth - filledCols));
+                const cx = caretX + col + flyIn;
+                $.ink(0, 0, 0, 180).box(cx + 1, caretY + 1, 1, caretHeight);
+                $.ink(...editColor).box(cx, caretY, 1, caretHeight);
+              }
             }
           } else {
             $.ink(0).line(1, 1, 1, h - 1);

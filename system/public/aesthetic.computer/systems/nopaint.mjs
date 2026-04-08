@@ -130,6 +130,10 @@ function nopaint_is(stateQuery) {
   return state === stateQuery;
 }
 
+function nopaint_cancelStroke() {
+  state = "idle";
+}
+
 // 📊 Trigger bake flash effect
 function nopaint_triggerBakeFlash() {
   bakeFlashTime = performance.now();
@@ -397,8 +401,9 @@ function nopaint_act({
 
   // Start
   if (
-    e.is("keyboard:down:shift") ||
-    ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2)
+    !nopaint_is("panning") &&
+    (e.is("keyboard:down:shift") ||
+    ((e.is("touch:2") || e.is("touch:1")) && pens().length === 2))
   ) {
     // if (debug) console.log("🧭 Panning!");
     previousState = state; // Preserve current state
@@ -818,4 +823,4 @@ function nopaint_parseBrushParams({ params, num, colon }) {
   };
 }
 
-export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_adjust, nopaint_generateColoredLabel, nopaint_handleColor, nopaint_cleanupColor, nopaint_parseBrushParams, nopaint_renderPerfHUD, nopaint_triggerBakeFlash };
+export { nopaint_boot, nopaint_act, nopaint_paint, nopaint_is, nopaint_cancelStroke, nopaint_adjust, nopaint_generateColoredLabel, nopaint_handleColor, nopaint_cleanupColor, nopaint_parseBrushParams, nopaint_renderPerfHUD, nopaint_triggerBakeFlash };

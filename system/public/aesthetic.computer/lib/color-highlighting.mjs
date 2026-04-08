@@ -614,7 +614,17 @@ export function generateNopaintHUDLabel(brushName, colorParams, rawParams, modif
   let label = `\\${brushColorCode}\\${brushName}`;
 
   if (modifiers) {
-    label += ` \\gray\\${modifiers}`;
+    // Color colons as gray and values as yellow, no leading space.
+    const parts = modifiers.split(":");
+    let coloredMods = "";
+    for (const part of parts) {
+      if (part === "") {
+        coloredMods += "\\gray\\:";
+      } else {
+        coloredMods += `\\yellow\\${part}`;
+      }
+    }
+    label += coloredMods;
   }
 
   if (colorSection) {

@@ -2029,6 +2029,11 @@ from = "/redirect-proxy"
 to = "/.netlify/functions/redirect-proxy"
 status = 200
 [[redirects]]
+from = "/local-upload/*"
+to = "/.netlify/functions/local-upload"
+status = 200
+force = true
+[[redirects]]
 from = "/presigned-upload-url/*"
 to = "/.netlify/functions/presigned-url"
 status = 200

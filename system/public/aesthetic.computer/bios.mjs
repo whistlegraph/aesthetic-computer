@@ -11909,6 +11909,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         performHistoryRewrite(newPath, historical);
       }
 
+      // Notify the VSCode extension (or any parent frame) of the slug change.
+      const slug = newPath.startsWith("/") ? newPath.slice(1) : newPath;
+      window.parent?.postMessage({ type: "url:updated", slug }, "*");
+
       return;
     }
 
@@ -18303,9 +18307,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         // Probably the download code... maybe something else if a custom
         // name is used.
-        const url = new URL(presignedUrl);
+        const url = new URL(presignedUrl, location.origin);
         const filename = url.pathname.split("/").pop();
-        const slug = filename.substring(0, filename.lastIndexOf("."));
+        const slug = resData.slug ? resData.slug.replace(/\.[^.]+$/, "") : filename.substring(0, filename.lastIndexOf("."));
         const path = url.pathname.slice(1); // Remove prepending "/";
         
         // Log clean URL without query params
