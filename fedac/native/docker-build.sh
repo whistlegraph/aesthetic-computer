@@ -80,6 +80,19 @@ run_make_with_heartbeat() {
     return $?
 }
 
+# ── ccache setup (persisted via Docker volume at /ccache) ──
+export CCACHE_DIR="${CCACHE_DIR:-/ccache}"
+mkdir -p "$CCACHE_DIR"
+export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
+export CCACHE_COMPRESS=1
+if command -v ccache &>/dev/null; then
+    CC_USE="ccache gcc"
+    log "ccache: enabled (dir=$CCACHE_DIR, max=$CCACHE_MAXSIZE)"
+    ccache -s 2>/dev/null | grep -E "cache size|hit rate" || true
+else
+    CC_USE="gcc"
+fi
+
 log "Building $BUILD_NAME ($GIT_HASH)"
 
 # ══════════════════════════════════════════════
@@ -103,7 +116,7 @@ if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
     cd "$NATIVE"
 fi
 
-make -j$(nproc) CC=gcc BUILDDIR="$BUILD" USE_SDL=1 \
+make -j$(nproc) CC="${CC_USE}" BUILDDIR="$BUILD" USE_SDL=1 \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
@@ -545,20 +558,24 @@ scripts/config --enable DRM_SIMPLEDRM
 make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig (post-config) failed"; tail -120 "$KCFG_LOG" >&2; exit 1; }
 tail -1 "$KCFG_LOG" || true
 
-# Clean stale objects to avoid config mismatch errors
-make clean 2>/dev/null || true
+# With ccache, skip make clean — stale objects get cache misses anyway,
+# and clean destroys the build tree that ccache relies on for hits.
+# Without ccache, clean to avoid config mismatch errors.
+if ! command -v ccache &>/dev/null; then
+    make clean 2>/dev/null || true
+fi
 
 # Build
 log "  Compiling (${KERNEL_JOBS} cores)..."
 KERNEL_LOG="$BUILD/kernel-build.log"
-if ! run_make_with_heartbeat "$KERNEL_LOG" make -j"${KERNEL_JOBS}" KALLSYMS_EXTRA_PASS=1 bzImage; then
+if ! run_make_with_heartbeat "$KERNEL_LOG" make -j"${KERNEL_JOBS}" CC="${CC_USE}" KALLSYMS_EXTRA_PASS=1 bzImage; then
     err "Kernel compile failed while building bzImage (parallel pass)."
     show_kernel_error_context "$KERNEL_LOG"
     if [ "${KERNEL_JOBS}" -gt 1 ]; then
         err "Retrying kernel build in serial mode (-j1, V=1) for deterministic diagnostics..."
         make clean 2>/dev/null || true
         KERNEL_LOG_RETRY="$BUILD/kernel-build-retry.log"
-        if ! run_make_with_heartbeat "$KERNEL_LOG_RETRY" make -j1 V=1 KALLSYMS_EXTRA_PASS=1 bzImage; then
+        if ! run_make_with_heartbeat "$KERNEL_LOG_RETRY" make -j1 V=1 CC="${CC_USE}" KALLSYMS_EXTRA_PASS=1 bzImage; then
             err "Kernel compile failed again in serial retry."
             show_kernel_error_context "$KERNEL_LOG_RETRY"
             exit 1
@@ -589,9 +606,9 @@ SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
 log "Step 4b: Building slim kernel for Mac..."
 sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' .config
 make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed before slim build"; tail -120 "$KCFG_LOG" >&2; exit 1; }
-make clean 2>/dev/null || true
+if ! command -v ccache &>/dev/null; then make clean 2>/dev/null || true; fi
 rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
-if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" bzImage; then
+if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" CC="${CC_USE}" bzImage; then
     cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
     cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
     SLIM_SIZE=$(stat -c%s "$BUILD/vmlinuz-slim")
@@ -652,6 +669,11 @@ log "  Kernel: $((VMLINUZ_SIZE / 1048576))MB"
 log "  SHA256: $SHA"
 if [ -f "$ISO_OUT" ]; then
     log "  ISO: $((ISO_SIZE / 1048576))MB"
+fi
+if command -v ccache &>/dev/null; then
+    CCACHE_HIT=$(ccache -s 2>/dev/null | grep "cache hit rate" | head -1 || true)
+    CCACHE_SIZE=$(ccache -s 2>/dev/null | grep "cache size" | head -1 || true)
+    log "  ccache: ${CCACHE_HIT:-n/a} | ${CCACHE_SIZE:-n/a}"
 fi
 log "═══════════════════════════════════════════"
 
