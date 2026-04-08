@@ -110,6 +110,23 @@
         reverse_proxy localhost:8888
     }
 
+    # --- feed.aesthetic.computer (DP-1 Feed V2 — Go + Postgres) ---
+    @feed host feed.aesthetic.computer
+    handle @feed {
+        header Access-Control-Allow-Origin *
+        handle /api/* {
+            reverse_proxy localhost:8787
+        }
+        handle /health {
+            reverse_proxy localhost:8787
+        }
+        handle {
+            root * /opt/dp1-feed
+            rewrite * /landing-page.html
+            file_server
+        }
+    }
+
     # --- ipfs.aesthetic.computer (self-hosted IPFS gateway) ---
     @ipfs host ipfs.aesthetic.computer
     handle @ipfs {
