@@ -309,9 +309,6 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
   ink(252, 250, 245).box(ox, oy, ARENA_W, ARENA_H);
   ink(180, 175, 165).box(ox, oy, ARENA_W, ARENA_H, "outline");
 
-  // Center cross
-  ink(230, 225, 218).box(ox + ARENA_W / 2 - 1, oy + ARENA_H / 2 - 6, 2, 12);
-  ink(230, 225, 218).box(ox + ARENA_W / 2 - 6, oy + ARENA_H / 2 - 1, 12, 2);
 
   const players = snap?.players || [];
   const bullets = snap?.bullets || [];
@@ -416,14 +413,6 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     }
   }
 
-  // Practice label
-  const isDummy = roster.some((r) => r.handle === "dummy");
-  if (isDummy && (phase === "fight" || phase === "countdown")) {
-    ink(200, 195, 185).write("practice", {
-      x: ox + Math.floor(ARENA_W / 2 - 24),
-      y: oy - 12,
-    });
-  }
 
   // Stack (top-left, under prompt HUD corner label)
   const stackX = 4;
