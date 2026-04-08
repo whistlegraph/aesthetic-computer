@@ -1778,8 +1778,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   if (autoConnectEnabled && isIdle) {
-    // Trigger scan every ~2s (120 frames), immediate on first frame
-    if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) {
+    // Trigger scan every ~30s (1800 frames) — iw scan causes 65ms+ frame
+    // drops so keep it infrequent. Immediate on first frame only.
+    if (autoConnectFrame <= 1 || autoConnectFrame % 1800 === 0) {
       wifi.scan?.();
     }
     // 60 frames (~1s) after scan: pick strongest known network from scan results
