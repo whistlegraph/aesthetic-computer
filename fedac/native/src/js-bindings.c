@@ -4465,6 +4465,26 @@ static JSValue js_qr_encode(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return result;
 }
 
+// nopaint.is(stateStr) — returns true if current nopaint state matches
+static JSValue js_nopaint_is(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt) return JS_FALSE;
+    const char *query = JS_ToCString(ctx, argv[0]);
+    if (!query) return JS_FALSE;
+    int match = 0;
+    if (strcmp(query, "painting") == 0) match = (current_rt->nopaint_state == 1);
+    else if (strcmp(query, "idle") == 0) match = (current_rt->nopaint_state == 0);
+    JS_FreeCString(ctx, query);
+    return JS_NewBool(ctx, match);
+}
+
+// nopaint.cancelStroke() — abort current stroke
+static JSValue js_nopaint_cancel(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    if (current_rt) { current_rt->nopaint_state = 0; current_rt->nopaint_needs_bake = 0; }
+    return JS_UNDEFINED;
+}
+
 static JSValue build_system_obj(JSContext *ctx) {
     JSValue sys = JS_NewObject(ctx);
 
@@ -5425,6 +5445,60 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "openBrowser",
                       JS_NewCFunction(ctx, js_open_browser, "openBrowser", 1));
 
+    // Nopaint system — persistent painting canvas
+    if (current_rt && strcmp(current_rt->system_mode, "nopaint") == 0) {
+        // Create painting + buffer on first use
+        if (!current_rt->nopaint_painting) {
+            int w = current_rt->graph->screen->width;
+            int h = current_rt->graph->screen->height;
+            current_rt->nopaint_painting = fb_create(w, h);
+            current_rt->nopaint_buffer = fb_create(w, h);
+            // Fill painting with theme background
+            fb_clear(current_rt->nopaint_painting, 0xFFF0EEE8); // light bg default
+            fb_clear(current_rt->nopaint_buffer, 0x00000000);    // transparent
+            current_rt->nopaint_active = 1;
+            ac_log("[nopaint] Created painting %dx%d\n", w, h);
+        }
+
+        JSValue np = JS_NewObject(ctx);
+
+        // nopaint.is(state) — check nopaint state
+        JS_SetPropertyStr(ctx, np, "is", JS_NewCFunction(ctx, js_nopaint_is, "is", 1));
+        JS_SetPropertyStr(ctx, np, "cancelStroke", JS_NewCFunction(ctx, js_nopaint_cancel, "cancelStroke", 0));
+
+        // nopaint.brush — current brush position
+        JSValue brush = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, brush, "x", JS_NewInt32(ctx, current_rt->nopaint_brush_x));
+        JS_SetPropertyStr(ctx, brush, "y", JS_NewInt32(ctx, current_rt->nopaint_brush_y));
+        JS_SetPropertyStr(ctx, np, "brush", brush);
+
+        // nopaint.buffer — temporary stroke overlay (as Painting object)
+        JSValue buf_obj = JS_NewObjectClass(ctx, painting_class_id);
+        JS_SetOpaque(buf_obj, current_rt->nopaint_buffer);
+        JS_SetPropertyStr(ctx, buf_obj, "width", JS_NewInt32(ctx, current_rt->nopaint_buffer->width));
+        JS_SetPropertyStr(ctx, buf_obj, "height", JS_NewInt32(ctx, current_rt->nopaint_buffer->height));
+        JS_SetPropertyStr(ctx, np, "buffer", buf_obj);
+
+        // nopaint.needsBake
+        JS_SetPropertyStr(ctx, np, "needsBake", JS_NewBool(ctx, current_rt->nopaint_needs_bake));
+
+        JS_SetPropertyStr(ctx, sys, "nopaint", np);
+
+        // system.painting — the persistent canvas (as Painting object)
+        JSValue ptg_obj = JS_NewObjectClass(ctx, painting_class_id);
+        JS_SetOpaque(ptg_obj, current_rt->nopaint_painting);
+        JS_SetPropertyStr(ctx, ptg_obj, "width", JS_NewInt32(ctx, current_rt->nopaint_painting->width));
+        JS_SetPropertyStr(ctx, ptg_obj, "height", JS_NewInt32(ctx, current_rt->nopaint_painting->height));
+        JS_SetPropertyStr(ctx, sys, "painting", ptg_obj);
+    } else if (current_rt && current_rt->nopaint_painting) {
+        // Even non-nopaint pieces (like prompt) can access system.painting to show it
+        JSValue ptg_obj = JS_NewObjectClass(ctx, painting_class_id);
+        JS_SetOpaque(ptg_obj, current_rt->nopaint_painting);
+        JS_SetPropertyStr(ctx, ptg_obj, "width", JS_NewInt32(ctx, current_rt->nopaint_painting->width));
+        JS_SetPropertyStr(ctx, ptg_obj, "height", JS_NewInt32(ctx, current_rt->nopaint_painting->height));
+        JS_SetPropertyStr(ctx, sys, "painting", ptg_obj);
+    }
+
     return sys;
 }
 
@@ -5888,6 +5962,12 @@ void js_call_paint(ACRuntime *rt) {
     if (!JS_IsFunction(rt->ctx, rt->paint_fn)) return;
     current_rt = rt;
     rt->paint_count++;
+
+    // Nopaint: paste the persistent painting as background before piece paints
+    if (rt->nopaint_active && rt->nopaint_painting) {
+        graph_paste(rt->graph, rt->nopaint_painting, 0, 0);
+    }
+
     JSValue api = build_api(rt->ctx, rt, "paint");
     JSValue result = JS_Call(rt->ctx, rt->paint_fn, JS_UNDEFINED, 1, &api);
     if (JS_IsException(result)) {
@@ -5904,6 +5984,21 @@ void js_call_paint(ACRuntime *rt) {
     }
     JS_FreeValue(rt->ctx, result);
     JS_FreeValue(rt->ctx, api);
+
+    // Nopaint: if bake was requested, composite buffer → painting and clear buffer
+    if (rt->nopaint_active && rt->nopaint_needs_bake) {
+        if (rt->nopaint_buffer && rt->nopaint_painting) {
+            graph_paste(rt->graph, rt->nopaint_buffer, 0, 0); // show final stroke on screen
+            // Bake: composite buffer onto persistent painting
+            ACFramebuffer *saved = rt->graph->fb;
+            graph_page(rt->graph, rt->nopaint_painting);
+            graph_paste(rt->graph, rt->nopaint_buffer, 0, 0);
+            graph_page(rt->graph, saved);
+            // Clear buffer
+            fb_clear(rt->nopaint_buffer, 0x00000000);
+        }
+        rt->nopaint_needs_bake = 0;
+    }
 }
 
 void js_call_act(ACRuntime *rt) {
@@ -5937,6 +6032,29 @@ void js_call_act(ACRuntime *rt) {
                 rt->jump_param_count = 0;
                 ac_log("[system] Escape → prompt\n");
                 return; // Skip passing events to piece
+            }
+        }
+    }
+
+    // Nopaint: update brush position and state from touch/mouse events
+    if (rt->nopaint_active && strcmp(rt->system_mode, "nopaint") == 0) {
+        for (int i = 0; i < input->event_count; i++) {
+            ACEvent *ev = &input->events[i];
+            if (ev->type == AC_EVENT_TOUCH) {
+                rt->nopaint_state = 1; // painting
+                rt->nopaint_brush_x = ev->x;
+                rt->nopaint_brush_y = ev->y;
+                rt->nopaint_needs_bake = 0;
+            } else if (ev->type == AC_EVENT_DRAW) {
+                if (rt->nopaint_state == 1) {
+                    rt->nopaint_brush_x = ev->x;
+                    rt->nopaint_brush_y = ev->y;
+                }
+            } else if (ev->type == AC_EVENT_LIFT) {
+                if (rt->nopaint_state == 1) {
+                    rt->nopaint_state = 0; // idle
+                    rt->nopaint_needs_bake = 1;
+                }
             }
         }
     }
