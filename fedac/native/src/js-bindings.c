@@ -1474,6 +1474,22 @@ static JSModuleDef *js_module_loader(JSContext *ctx, const char *module_name, vo
     } else if (strstr(module_name, "pixel-sample")) {
         stub_src = "export function decodeBitmapToSample() { return null; }\n"
                    "export function loadPaintingAsAudio() { return null; }";
+    } else if (strstr(module_name, "nopaint")) {
+        stub_src = "export function nopaint_generateColoredLabel() {}\n"
+                   "export function nopaint_boot() {}\n"
+                   "export function nopaint_act() {}\n"
+                   "export function nopaint_paint() {}\n"
+                   "export function nopaint_is(s) { return false; }\n"
+                   "export function nopaint_cancelStroke() {}\n"
+                   "export function nopaint_adjust() {}\n"
+                   "export function nopaint_handleColor(c, ink) { return ink(c); }\n"
+                   "export function nopaint_cleanupColor() {}\n"
+                   "export function nopaint_parseBrushParams(o) { return {color:[], mode:'fill', thickness:1}; }\n"
+                   "export function nopaint_renderPerfHUD() {}\n"
+                   "export function nopaint_triggerBakeFlash() {}";
+    } else if (strstr(module_name, "color-highlighting")) {
+        stub_src = "export function generateNopaintHUDLabel() { return ''; }\n"
+                   "export function colorizeColorName() { return ''; }";
     }
 
     // Try to load the module from the filesystem
@@ -1611,6 +1627,31 @@ static const char *js_init_code =
     "};\n"
     // num.lerp
     "globalThis.__lerp = function(a, b, t) { return a + (b - a) * t; };\n"
+    // num.parseColor — parse color from params array (e.g. ["purple"], ["255","0","0"], ["128"])
+    "globalThis.__parseColor = function(params) {\n"
+    "  if (!params || params.length === 0) return [];\n"
+    "  var names = {red:[255,0,0],orange:[255,165,0],yellow:[255,255,0],green:[0,128,0],\n"
+    "    cyan:[0,255,255],blue:[0,0,255],purple:[128,0,128],magenta:[255,0,255],\n"
+    "    pink:[255,192,203],white:[255,255,255],gray:[128,128,128],grey:[128,128,128],\n"
+    "    black:[0,0,0],brown:[139,69,19]};\n"
+    "  var first = params[0];\n"
+    "  if (typeof first === 'string' && names[first.toLowerCase()]) {\n"
+    "    var c = names[first.toLowerCase()].slice();\n"
+    "    if (params.length >= 2) c.push(parseInt(params[1]) || 255);\n"
+    "    return c;\n"
+    "  }\n"
+    "  var nums = params.map(function(p){return parseInt(p)}).filter(function(n){return !isNaN(n)});\n"
+    "  return nums;\n"
+    "};\n"
+    // num.randIntArr — array of N random ints in [0, max]
+    "globalThis.__randIntArr = function(max, len) {\n"
+    "  var a = []; for (var i = 0; i < len; i++) a.push(Math.floor(Math.random() * (max + 1)));\n"
+    "  return a;\n"
+    "};\n"
+    // num.timestamp — returns a timestamp string
+    "globalThis.__timestamp = function() { return Date.now().toString(36); };\n"
+    // nopaint_generateColoredLabel stub (native doesn't have HUD color highlighting)
+    "globalThis.__nopaint_generateColoredLabel = function() {};\n"
     // Typeface constructor stub
     "globalThis.__Typeface = function Typeface(name) {\n"
     "  this.name = name;\n"
@@ -1798,6 +1839,17 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     // 3D chain methods
     JS_SetPropertyStr(ctx, paint_api, "form", JS_NewCFunction(ctx, js_chain_form, "form", 1));
     JS_SetPropertyStr(ctx, paint_api, "ink", JS_NewCFunction(ctx, js_chain_ink, "ink", 4));
+    // pppline — polyline through array of {x,y} points (used by line.mjs for 1px strokes)
+    {
+        const char *pppline_src =
+            "(function(pts) {\n"
+            "  if (!pts || pts.length < 2) return;\n"
+            "  for (var i = 0; i < pts.length - 1; i++)\n"
+            "    line(pts[i].x, pts[i].y, pts[i+1].x, pts[i+1].y);\n"
+            "})";
+        JSValue pppline_fn = JS_Eval(ctx, pppline_src, strlen(pppline_src), "<pppline>", JS_EVAL_TYPE_GLOBAL);
+        JS_SetPropertyStr(ctx, paint_api, "pppline", pppline_fn);
+    }
     JS_SetPropertyStr(ctx, global, "__paintApi", JS_DupValue(ctx, paint_api));
     JS_FreeValue(ctx, paint_api);
 
@@ -5663,7 +5715,18 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, net, "udp", JS_NewCFunction(ctx, js_net_udp, "udp", 0));
         JS_SetPropertyStr(ctx, net, "preload", JS_NewCFunction(ctx, js_promise_null, "preload", 1));
         JS_SetPropertyStr(ctx, net, "pieces", JS_NewCFunction(ctx, js_promise_null, "pieces", 1));
+        JS_SetPropertyStr(ctx, net, "rewrite", JS_NewCFunction(ctx, js_noop, "rewrite", 1));
+        JS_SetPropertyStr(ctx, net, "log", JS_NewCFunction(ctx, js_noop, "log", 2));
         JS_SetPropertyStr(ctx, api, "net", net);
+    }
+
+    // pen — current pointer position
+    if (rt->input) {
+        JSValue pen = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, pen, "x", JS_NewInt32(ctx, rt->input->pointer_x));
+        JS_SetPropertyStr(ctx, pen, "y", JS_NewInt32(ctx, rt->input->pointer_y));
+        JS_SetPropertyStr(ctx, pen, "down", JS_NewBool(ctx, rt->input->pointer_down));
+        JS_SetPropertyStr(ctx, api, "pen", pen);
     }
 
     // store
@@ -5716,6 +5779,9 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
         JS_SetPropertyStr(ctx, num, "dist", JS_GetPropertyStr(ctx, global, "__dist"));
         JS_SetPropertyStr(ctx, num, "map", JS_GetPropertyStr(ctx, global, "__map"));
         JS_SetPropertyStr(ctx, num, "lerp", JS_GetPropertyStr(ctx, global, "__lerp"));
+        JS_SetPropertyStr(ctx, num, "parseColor", JS_GetPropertyStr(ctx, global, "__parseColor"));
+        JS_SetPropertyStr(ctx, num, "randIntArr", JS_GetPropertyStr(ctx, global, "__randIntArr"));
+        JS_SetPropertyStr(ctx, num, "timestamp", JS_GetPropertyStr(ctx, global, "__timestamp"));
         JS_SetPropertyStr(ctx, api, "num", num);
     }
 
