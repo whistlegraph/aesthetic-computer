@@ -21,6 +21,7 @@ void graph_wipe(ACGraph *g, ACColor color);
 void graph_ink(ACGraph *g, ACColor color);
 void graph_plot(ACGraph *g, int x, int y);
 void graph_line(ACGraph *g, int x0, int y0, int x1, int y1);
+void graph_line_thick(ACGraph *g, int x0, int y0, int x1, int y1, int thickness);
 void graph_box(ACGraph *g, int x, int y, int w, int h, int filled);
 void graph_circle(ACGraph *g, int cx, int cy, int r, int filled);
 

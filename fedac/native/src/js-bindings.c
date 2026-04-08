@@ -536,7 +536,13 @@ static JSValue js_line(JSContext *ctx, JSValueConst this_val, int argc, JSValueC
     JS_ToInt32(ctx, &y0, argv[1]);
     JS_ToInt32(ctx, &x1, argv[2]);
     JS_ToInt32(ctx, &y1, argv[3]);
-    graph_line(current_rt->graph, x0, y0, x1, y1);
+    if (argc >= 5) {
+        int thickness;
+        JS_ToInt32(ctx, &thickness, argv[4]);
+        graph_line_thick(current_rt->graph, x0, y0, x1, y1, thickness);
+    } else {
+        graph_line(current_rt->graph, x0, y0, x1, y1);
+    }
     return JS_UNDEFINED;
 }
 
@@ -1798,7 +1804,7 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
     // Register top-level graphics functions
     JS_SetPropertyStr(ctx, global, "wipe", JS_NewCFunction(ctx, js_wipe, "wipe", 3));
     JS_SetPropertyStr(ctx, global, "ink", JS_NewCFunction(ctx, js_ink, "ink", 4));
-    JS_SetPropertyStr(ctx, global, "line", JS_NewCFunction(ctx, js_line, "line", 4));
+    JS_SetPropertyStr(ctx, global, "line", JS_NewCFunction(ctx, js_line, "line", 5));
     JS_SetPropertyStr(ctx, global, "box", JS_NewCFunction(ctx, js_box, "box", 5));
     JS_SetPropertyStr(ctx, global, "circle", JS_NewCFunction(ctx, js_circle, "circle", 4));
     JS_SetPropertyStr(ctx, global, "qr", JS_NewCFunction(ctx, js_qr, "qr", 4));
@@ -1915,6 +1921,23 @@ static JSValue js_painting(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     JS_SetPropertyStr(ctx, painting, "width", JS_NewInt32(ctx, w));
     JS_SetPropertyStr(ctx, painting, "height", JS_NewInt32(ctx, h));
 
+    // Expose pixels as a Uint8Array view into the framebuffer memory.
+    // Nopaint uses buffer.pixels[i] to adjust alpha during bake.
+    // Note: pixel format is ARGB32 (native byte order).
+    {
+        int byte_len = tex_fb->stride * h * 4;
+        JSValue ab = JS_NewArrayBuffer(ctx, (uint8_t *)tex_fb->pixels, byte_len,
+            NULL, NULL, 0); // No free — painting finalizer handles the framebuffer
+        // Construct Uint8Array from the ArrayBuffer via JS eval
+        JSValue global = JS_GetGlobalObject(ctx);
+        JSValue uint8_ctor = JS_GetPropertyStr(ctx, global, "Uint8Array");
+        JSValue pixels = JS_CallConstructor(ctx, uint8_ctor, 1, &ab);
+        JS_SetPropertyStr(ctx, painting, "pixels", pixels);
+        JS_FreeValue(ctx, uint8_ctor);
+        JS_FreeValue(ctx, global);
+        JS_FreeValue(ctx, ab);
+    }
+
     // If callback provided, render into the off-screen buffer
     if (argc >= 3 && JS_IsFunction(ctx, argv[2])) {
         // Save current render target and switch to off-screen
@@ -1942,6 +1965,53 @@ static JSValue js_painting(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     }
 
     return painting;
+}
+
+// page(painting) — switch render target to a painting buffer (or back to screen)
+// page(painting) returns an object with wipe/ink/box/line/etc that draw into that buffer.
+// In AC web, page() returns a chainable proxy. Here we just switch the graph target.
+static JSValue js_page(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->graph) return JS_UNDEFINED;
+
+    if (argc < 1 || JS_IsUndefined(argv[0]) || JS_IsNull(argv[0])) {
+        // page() with no args or page(screen) — restore screen target
+        graph_page(current_rt->graph, current_rt->graph->screen);
+    } else {
+        // page(painting) — switch to painting buffer
+        ACFramebuffer *fb = JS_GetOpaque(argv[0], painting_class_id);
+        if (fb) graph_page(current_rt->graph, fb);
+    }
+
+    // Return a page proxy object with wipe() so callers can do page(buf).wipe(...)
+    JSValue proxy = JS_NewObject(ctx);
+    JSValue global = JS_GetGlobalObject(ctx);
+    JS_SetPropertyStr(ctx, proxy, "wipe", JS_GetPropertyStr(ctx, global, "wipe"));
+    JS_SetPropertyStr(ctx, proxy, "ink", JS_GetPropertyStr(ctx, global, "ink"));
+    JS_SetPropertyStr(ctx, proxy, "box", JS_GetPropertyStr(ctx, global, "box"));
+    JS_SetPropertyStr(ctx, proxy, "line", JS_GetPropertyStr(ctx, global, "line"));
+    JS_SetPropertyStr(ctx, proxy, "circle", JS_GetPropertyStr(ctx, global, "circle"));
+    JS_SetPropertyStr(ctx, proxy, "plot", JS_GetPropertyStr(ctx, global, "plot"));
+    JS_SetPropertyStr(ctx, proxy, "write", JS_GetPropertyStr(ctx, global, "write"));
+    JS_FreeValue(ctx, global);
+    return proxy;
+}
+
+// paste(painting, dx?, dy?) — alpha-composite a painting onto the current render target
+static JSValue js_paste(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || !current_rt->graph) return JS_UNDEFINED;
+    if (argc < 1) return JS_UNDEFINED;
+
+    ACFramebuffer *src = JS_GetOpaque(argv[0], painting_class_id);
+    if (!src) return JS_UNDEFINED;
+
+    int dx = 0, dy = 0;
+    if (argc >= 2) JS_ToInt32(ctx, &dx, argv[1]);
+    if (argc >= 3) JS_ToInt32(ctx, &dy, argv[2]);
+
+    graph_paste(current_rt->graph, src, dx, dy);
+    return JS_UNDEFINED;
 }
 
 // sound.bpm(val?) — get or set BPM, returns current value
@@ -5545,9 +5615,9 @@ static JSValue build_api(JSContext *ctx, ACRuntime *rt, const char *phase) {
     // painting(w, h, callback) — creates a stub painting object with width/height
     JS_SetPropertyStr(ctx, api, "painting", JS_NewCFunction(ctx, js_painting, "painting", 3));
 
-    // paste, page, layer, sharpen (stubs)
-    JS_SetPropertyStr(ctx, api, "paste", JS_NewCFunction(ctx, js_noop, "paste", 4));
-    JS_SetPropertyStr(ctx, api, "page", JS_NewCFunction(ctx, js_noop, "page", 1));
+    // paste, page (real implementations), layer, sharpen (stubs)
+    JS_SetPropertyStr(ctx, api, "paste", JS_NewCFunction(ctx, js_paste, "paste", 3));
+    JS_SetPropertyStr(ctx, api, "page", JS_NewCFunction(ctx, js_page, "page", 1));
     JS_SetPropertyStr(ctx, api, "layer", JS_NewCFunction(ctx, js_noop, "layer", 1));
     JS_SetPropertyStr(ctx, api, "sharpen", JS_NewCFunction(ctx, js_noop, "sharpen", 1));
 
