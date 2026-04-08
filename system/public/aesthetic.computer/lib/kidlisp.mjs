@@ -15150,6 +15150,7 @@ async function fetchCachedCode(nanoidCode, api = null) {
             resolve(null);
           }
         }).catch(error => {
+          console.warn(`⚠️ Network error loading embedded piece $${nanoidCode}:`, error.message || error);
           resolve(null);
         });
       }
