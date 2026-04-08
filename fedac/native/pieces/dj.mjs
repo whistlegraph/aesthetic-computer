@@ -244,42 +244,48 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
     angle += (d.speed || 1) * 0.05;
   }
 
-  // Platter
+  // Theme-derived helpers
   const fg = T.fg || 200;
   const dim = T.fgMute || 60;
-  ink(T.bg[0] + 8, T.bg[1] + 8, T.bg[2] + 12);
+  const s = T.dark ? 1 : -1; // sign: +brightness for dark, -brightness for light
+
+  // Platter
+  ink(T.bg[0] + 8 * s, T.bg[1] + 8 * s, T.bg[2] + 12 * s);
   circle(cx, cy, r, true);
 
   // Grooves
   for (let g = Math.floor(r * 0.3); g < r; g += 2) {
-    const brightness = dragging ? 10 : 6;
-    ink(T.bg[0] + brightness, T.bg[1] + brightness, T.bg[2] + brightness + 4);
+    const b = dragging ? 10 : 6;
+    ink(T.bg[0] + b * s, T.bg[1] + b * s, T.bg[2] + (b + 4) * s);
     circle(cx, cy, g, false);
   }
 
   // Rim
-  ink(dragging ? 120 : dim, dragging ? 120 : dim, dragging ? 140 : dim + 15);
+  ink(T.border[0], T.border[1], T.border[2]);
   circle(cx, cy, r, false);
 
   // Label (center area)
   const labelR = Math.floor(r * 0.25);
-  ink(dragging ? 60 : 30, dragging ? 40 : 25, dragging ? 30 : 20);
+  const lf = T.dark ? 1 : -1;
+  ink(T.bg[0] + 20 * lf, T.bg[1] + 15 * lf, T.bg[2] + 10 * lf);
   circle(cx, cy, labelR, true);
-  ink(dragging ? 100 : 50, dragging ? 80 : 40, dragging ? 60 : 35);
+  ink(T.bg[0] + 40 * lf, T.bg[1] + 30 * lf, T.bg[2] + 25 * lf);
   circle(cx, cy, labelR, false);
 
   // Center dot
-  ink(fg, fg - 30, fg - 60);
+  ink(T.accent[0], T.accent[1], T.accent[2]);
   circle(cx, cy, 3, true);
 
   // Spinning needle line
   const needleLen = r - 6;
   const nx = cx + Math.cos(angle) * needleLen;
   const ny = cy + Math.sin(angle) * needleLen;
-  ink(d.playing ? 80 : 40, d.playing ? 200 : 80, d.playing ? 80 : 40);
+  const nOn = T.ok, nOff = [dim, dim, dim];
+  const nc = d.playing ? nOn : nOff;
+  ink(nc[0], nc[1], nc[2]);
   line(cx, cy, Math.floor(nx), Math.floor(ny));
   // Needle tip
-  ink(d.playing ? 120 : 60, d.playing ? 255 : 120, d.playing ? 120 : 60);
+  ink(d.playing ? nOn[0] + 40 : dim + 20, d.playing ? nOn[1] + 40 : dim + 20, d.playing ? nOn[2] + 40 : dim + 20);
   circle(Math.floor(nx), Math.floor(ny), Math.max(2, Math.floor(r * 0.04)), true);
 
   // --- Track info ---
@@ -287,16 +293,17 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   const maxC = Math.floor(w / CW) - 2;
 
   // Title at top
-  ink(fg, fg, fg + 10);
+  ink(fg, fg, fg);
   write(title.slice(0, maxC), { x: 4, y: 3, size: 1, font: F });
 
   // Track counter + USB (top right)
   if (files.length > 0) {
-    ink(dim, dim, dim + 10);
+    ink(dim, dim, dim);
     const tc = `${trackIdx + 1}/${files.length}`;
     write(tc, { x: w - tc.length * CW - 4, y: 3, size: 1, font: F });
   }
-  ink(usbConnected ? 60 : dim, usbConnected ? 180 : dim, usbConnected ? 60 : dim);
+  const uc = usbConnected ? T.ok : [dim, dim, dim];
+  ink(uc[0], uc[1], uc[2]);
   write(usbConnected ? "USB" : "---", { x: w - 22, y: 14, size: 1, font: F });
 
   // --- Bottom panel (no overlaps) ---
@@ -309,13 +316,14 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   const barY = h - 34;
   const barW = w - 8;
   const progress = d.duration > 0 ? d.position / d.duration : 0;
-  ink(T.bg[0] + 15, T.bg[1] + 15, T.bg[2] + 20);
+  ink(T.bar[0], T.bar[1], T.bar[2]);
   box(4, barY, barW, 4);
-  ink(d.playing ? 60 : 40, d.playing ? 180 : 100, d.playing ? 60 : 40);
+  const pb = d.playing ? T.ok : [dim, dim + 20, dim];
+  ink(pb[0], pb[1], pb[2]);
   box(4, barY, Math.max(1, Math.floor(barW * progress)), 4);
 
   // Time + speed
-  ink(dim + 20, dim + 20, dim + 30);
+  ink(T.fgDim, T.fgDim, T.fgDim);
   write(`${fmt(d.position)} / ${fmt(d.duration)}`, { x: 4, y: barY + 7, size: 1, font: F });
   if (d.loaded) {
     const spd = `${(d.speed || 1).toFixed(2)}x`;
@@ -341,28 +349,28 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
     const bd = btnDefs[i];
     buttons.push({ x: bx, y: btnY, w: btnW, h: btnH, id: bd.id, label: bd.label });
     // Button background
-    ink(T.bg[0] + 18, T.bg[1] + 18, T.bg[2] + 24);
+    ink(T.bar[0], T.bar[1], T.bar[2]);
     box(bx, btnY, btnW, btnH);
     // Button border
-    ink(dim + 10, dim + 10, dim + 20);
+    ink(T.border[0], T.border[1], T.border[2]);
     box(bx, btnY, btnW, btnH, "outline");
     // Button label (centered)
     const lx = bx + Math.floor((btnW - bd.label.length * CW) / 2);
     const ly = btnY + 2;
-    ink(fg, fg, fg + 10);
+    ink(fg, fg, fg);
     write(bd.label, { x: lx, y: ly, size: 1, font: F });
   }
 
   // Drag state
   if (dragging) {
-    ink(255, 100, 60);
+    ink(T.accent[0], T.accent[1], T.accent[2]);
     write("SCRATCH", { x: cx - 21, y: cy - 5, size: 1, font: F });
   }
 
   // Message toast
   if (message && frame - messageFrame < 120) {
     const fade = Math.max(0, 255 - Math.floor((frame - messageFrame) * 2.5));
-    ink(255, 220, 60, fade);
+    ink(T.warn[0], T.warn[1], T.warn[2], fade);
     write(message.slice(0, maxC), { x: 4, y: 16, size: 1, font: F });
   }
 }
@@ -374,12 +382,16 @@ function sim({ system, tts, sound }) {
     const nowMounted = system?.mountMusic?.() || false;
     if (nowMounted && !usbConnected) {
       usbConnected = true; mounted = true;
-      if (tts) tts.speak("USB connected");
-      scan(system, tts);
+      if (tts) tts.speak("USB DJ on");
+      scan(system, null);
       if (files.length > 0) { trackIdx = 0; loadTrack(sound, tts); }
     } else if (!nowMounted && usbConnected) {
       usbConnected = false;
-      if (tts) tts.speak("USB removed");
+      const dk = sound?.deck;
+      const d = dk?.decks?.[0];
+      if (d?.playing) { dk.pause(0); spinSpeed = 0; }
+      files = [];
+      if (tts) tts.speak("USB DJ off");
       msg("USB removed");
     }
   }
