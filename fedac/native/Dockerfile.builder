@@ -11,7 +11,7 @@ FROM fedora:43
 
 # ── All packages needed for ac-native + kernel build ──
 RUN dnf install -y --setopt=install_weak_deps=False \
-    gcc make cpio lz4 bc perl flex bison diffutils \
+    gcc ccache make cpio lz4 bc perl flex bison diffutils \
     elfutils-libelf-devel openssl-devel \
     gnu-efi-devel \
     curl jq git tar xz findutils pkgconf-pkg-config zstd xorriso \
