@@ -425,18 +425,17 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     });
   }
 
-  // Stack (right side)
-  const stackX = ox + ARENA_W + 8;
-  const stackY = oy;
-  ink(160, 155, 145).write("stack", { x: stackX, y: stackY });
+  // Stack (top-right, floating, below network stats)
+  const stackX = sw - 4;
+  const stackY = 28;
+  ink(160, 155, 145, 180).write("stack", { x: stackX - 20, y: stackY }, undefined, undefined, false, "MatrixChunky8");
   let si = 0;
   for (const r of roster) {
     if (r.handle === "dummy") continue;
     const isDuelist = si < 2 && roster.length >= 2;
-    if (isDuelist) ink(60, 55, 45);
-    else if (r.handle === myHandle) ink(120, 115, 105);
-    else ink(170, 165, 155);
-    write(r.handle, { x: stackX, y: stackY + 12 + si * 10 });
+    const col = isDuelist ? playerColor(r.handle) : [170, 165, 155];
+    ink(col[0], col[1], col[2], isDuelist ? 200 : 140)
+      .write(r.handle, { x: stackX - 20, y: stackY + 8 + si * 7 }, undefined, undefined, false, "MatrixChunky8");
     si++;
   }
 
