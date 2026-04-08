@@ -371,15 +371,42 @@ static void *audio_thread_fn(void *arg) {
             // (lock released at end of buffer loop)
 
             // Mix DJ deck audio (lock-free: single consumer = audio thread)
+            // Speed control: advance ring read by `speed` samples per output sample
+            // with linear interpolation for smooth pitch shifting / scratching.
             for (int d = 0; d < AUDIO_MAX_DECKS; d++) {
                 ACDeck *dk = &audio->decks[d];
                 if (!dk->active || !dk->playing || !dk->decoder) continue;
                 ACDeckDecoder *dec = dk->decoder;
-                if (dec->ring_read >= dec->ring_write) continue;
-                int ri = (dec->ring_read % dec->ring_size) * 2;
-                float sl = dec->ring[ri];
-                float sr = dec->ring[ri + 1];
-                dec->ring_read++;
+                double spd = dec->speed;
+                if (spd < -4.0) spd = -4.0;
+                if (spd > 4.0) spd = 4.0;
+                int64_t avail = dec->ring_write - dec->ring_read;
+                if (avail <= 1) continue;
+                // Fractional ring position for interpolation
+                double frac_pos = dec->ring_frac;
+                int64_t base = dec->ring_read;
+                int64_t idx0 = base + (int64_t)frac_pos;
+                if (idx0 < base || idx0 + 1 >= dec->ring_write) {
+                    // Not enough data — skip
+                    continue;
+                }
+                double t = frac_pos - (int64_t)frac_pos;
+                int ri0 = (idx0 % dec->ring_size) * 2;
+                int ri1 = ((idx0 + 1) % dec->ring_size) * 2;
+                float sl = dec->ring[ri0]     * (1.0f - (float)t) + dec->ring[ri1]     * (float)t;
+                float sr = dec->ring[ri0 + 1] * (1.0f - (float)t) + dec->ring[ri1 + 1] * (float)t;
+                // Advance fractional position by speed
+                dec->ring_frac += spd;
+                // Consume whole samples from ring
+                int consumed = (int)dec->ring_frac;
+                if (consumed > 0) {
+                    dec->ring_read += consumed;
+                    dec->ring_frac -= consumed;
+                } else if (consumed < 0) {
+                    // Reverse: clamp to not go before ring_read
+                    // (reverse scratching won't replay old audio, just stops)
+                    dec->ring_frac = 0;
+                }
                 // Crossfader: 0.0 = full deck A, 1.0 = full deck B
                 float cf = (d == 0)
                     ? (1.0f - audio->crossfader)

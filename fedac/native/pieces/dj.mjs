@@ -42,12 +42,14 @@ function scanDir(system, path, results, depth) {
   }
 }
 
-function scan(system, tts) {
+function say(sound, text) { sound?.speak?.(text); }
+
+function scan(system, sound) {
   files = [];
   const dirs = ["/media", "/mnt/samples", "/mnt"];
   for (const d of dirs) scanDir(system, d, files, 0);
   files.sort((a, b) => a.name.localeCompare(b.name));
-  if (tts) tts.speak(files.length > 0 ? `${files.length} tracks` : "no tracks");
+  say(sound, files.length > 0 ? `${files.length} tracks` : "no tracks");
   msg(files.length > 0 ? `${files.length} tracks` : "no tracks found");
 }
 
@@ -58,14 +60,14 @@ function fmt(s) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 }
 
-function loadTrack(sound, tts) {
+function loadTrack(sound) {
   if (files.length === 0) return;
   if (trackIdx >= files.length) trackIdx = 0;
   const f = files[trackIdx];
   const ok = sound?.deck?.load(0, f.path);
   if (ok) {
     msg(f.name.replace(/\.[^.]+$/, ""));
-    if (tts) tts.speak(f.name.replace(/\.[^.]+$/, ""));
+    say(sound, f.name.replace(/\.[^.]+$/, ""));
     sound.deck.play(0);
     spinSpeed = 1;
   } else {
@@ -73,20 +75,20 @@ function loadTrack(sound, tts) {
   }
 }
 
-function boot({ system, sound, tts }) {
+function boot({ system, sound }) {
   mounted = system?.mountMusic?.() || false;
   usbConnected = mounted;
-  scan(system, null);
+  scan(system, sound);
   const d = sound?.deck?.decks?.[0];
   if (d?.loaded) {
     msg("resumed");
     if (d.playing) spinSpeed = 1;
   } else if (files.length > 0) {
-    loadTrack(sound, tts);
+    loadTrack(sound);
   }
 }
 
-function act({ event: e, sound, system, tts, screen }) {
+function act({ event: e, sound, system, screen }) {
   const dk = sound?.deck;
   const d = dk?.decks?.[0];
   const w = screen?.width || 320;
@@ -101,13 +103,13 @@ function act({ event: e, sound, system, tts, screen }) {
             if (d.playing) { dk.pause(0); spinSpeed = 0; msg("paused"); }
             else { dk.play(0); spinSpeed = 1; msg("playing"); }
           }
-        } else if (b.id === "next") { trackIdx++; loadTrack(sound, tts); }
-        else if (b.id === "prev") { trackIdx = Math.max(0, trackIdx - 1); loadTrack(sound, tts); }
+        } else if (b.id === "next") { trackIdx++; loadTrack(sound); }
+        else if (b.id === "prev") { trackIdx = Math.max(0, trackIdx - 1); loadTrack(sound); }
         else if (b.id === "reset") { if (d?.loaded) { dk.setSpeed(0, 1); msg("1.00x"); } }
         else if (b.id === "scan") {
           mounted = system?.mountMusic?.() || false;
-          scan(system, tts);
-          if (files.length > 0) { trackIdx = 0; loadTrack(sound, tts); }
+          scan(system, sound);
+          if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
         }
         return;
       }
@@ -179,21 +181,21 @@ function act({ event: e, sound, system, tts, screen }) {
   // N: next track
   if (e.is("keyboard:down:n")) {
     trackIdx++;
-    loadTrack(sound, tts);
+    loadTrack(sound);
     return;
   }
   // P: prev track
   if (e.is("keyboard:down:p")) {
     trackIdx = Math.max(0, trackIdx - 1);
-    loadTrack(sound, tts);
+    loadTrack(sound);
     return;
   }
 
   // R: rescan
   if (e.is("keyboard:down:r")) {
     mounted = system?.mountMusic?.() || false;
-    scan(system, tts);
-    if (files.length > 0) { trackIdx = 0; loadTrack(sound, tts); }
+    scan(system, sound);
+    if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
     return;
   }
 
@@ -375,23 +377,23 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   }
 }
 
-function sim({ system, tts, sound }) {
+function sim({ system, sound }) {
   // USB hot-plug check every 3 seconds
   if (frame - lastUsbCheck > 180) {
     lastUsbCheck = frame;
     const nowMounted = system?.mountMusic?.() || false;
     if (nowMounted && !usbConnected) {
       usbConnected = true; mounted = true;
-      if (tts) tts.speak("USB DJ on");
+      say(sound, "USB DJ on");
       scan(system, null);
-      if (files.length > 0) { trackIdx = 0; loadTrack(sound, tts); }
+      if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
     } else if (!nowMounted && usbConnected) {
       usbConnected = false;
       const dk = sound?.deck;
       const d = dk?.decks?.[0];
       if (d?.playing) { dk.pause(0); spinSpeed = 0; }
       files = [];
-      if (tts) tts.speak("USB DJ off");
+      say(sound, "USB DJ off");
       msg("USB removed");
     }
   }
@@ -399,7 +401,7 @@ function sim({ system, tts, sound }) {
   const d = sound?.deck?.decks?.[0];
   if (d?.loaded && !d.playing && d.position >= d.duration - 0.1 && d.duration > 0 && !dragging) {
     trackIdx++;
-    loadTrack(sound, tts);
+    loadTrack(sound);
   }
 }
 

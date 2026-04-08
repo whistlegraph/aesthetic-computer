@@ -425,9 +425,29 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                     }
                                     wifi_log(wifi, "Portal URL: %s", portal_url);
 
-                                    // Step 3: Extract form action and submit it
-                                    // Many portals (GettyLink, hotel WiFi) have a form
-                                    // with action URL — POST to it to accept terms
+                                    // Step 3: Try multiple accept strategies
+                                    // Strategy A: ClearPass/Aruba — change cmd=login to cmd=authenticate
+                                    {
+                                        char auth_url[512] = "";
+                                        const char *cmd_pos = strstr(portal_url, "cmd=login");
+                                        if (cmd_pos) {
+                                            int prefix_len = (int)(cmd_pos - portal_url);
+                                            snprintf(auth_url, sizeof(auth_url), "%.*scmd=authenticate%s",
+                                                prefix_len, portal_url, cmd_pos + 9);
+                                            wifi_log(wifi, "ClearPass: trying %s", auth_url);
+                                            snprintf(portal_cmd, sizeof(portal_cmd),
+                                                "curl -skL -o /dev/null -w '%%{http_code}' "
+                                                "--max-time 10 '%s' 2>/dev/null", auth_url);
+                                            FILE *cf2 = popen(portal_cmd, "r");
+                                            if (cf2) {
+                                                char cc[8] = "";
+                                                if (fgets(cc, sizeof(cc), cf2)) cc[strcspn(cc, "\n")] = 0;
+                                                pclose(cf2);
+                                                wifi_log(wifi, "ClearPass auth response: HTTP %s", cc);
+                                            }
+                                        }
+                                    }
+                                    // Strategy B: Extract HTML form action and POST
                                     snprintf(portal_cmd, sizeof(portal_cmd),
                                         "sh -c '"
                                         "ACTION=$(grep -oi \"action=\\\"[^\\\"]*\\\"\" /tmp/portal_page.html 2>/dev/null "
@@ -437,10 +457,10 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                         "    HOST=$(echo \"%s\" | sed \"s|^\\(https\\?://[^/]*\\).*|\\1|\"); "
                                         "    URL=\"${HOST}${ACTION}\" ;; "
                                         "  *) URL=\"%s\" ;; esac; "
-                                        "  curl -sL -o /dev/null -w \"%%{http_code}\" "
+                                        "  curl -skL -o /dev/null -w \"%%{http_code}\" "
                                         "  --max-time 10 -X POST \"$URL\" 2>/dev/null; "
                                         "else "
-                                        "  curl -sL -o /dev/null -w \"%%{http_code}\" "
+                                        "  curl -skL -o /dev/null -w \"%%{http_code}\" "
                                         "  --max-time 10 \"%s\" 2>/dev/null; "
                                         "fi'",
                                         portal_url, portal_url, portal_url);
@@ -450,7 +470,20 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                         if (fgets(acode, sizeof(acode), af))
                                             acode[strcspn(acode, "\n")] = 0;
                                         pclose(af);
-                                        wifi_log(wifi, "Portal submit response: HTTP %s", acode);
+                                        wifi_log(wifi, "Portal form submit: HTTP %s", acode);
+                                    }
+                                    // Strategy C: POST to portal URL with common accept params
+                                    snprintf(portal_cmd, sizeof(portal_cmd),
+                                        "curl -skL -o /dev/null -w '%%{http_code}' "
+                                        "--max-time 10 -X POST "
+                                        "-d 'accept=true&cmd=authenticate&Login=Login' "
+                                        "'%s' 2>/dev/null", portal_url);
+                                    FILE *pf2 = popen(portal_cmd, "r");
+                                    if (pf2) {
+                                        char pc[8] = "";
+                                        if (fgets(pc, sizeof(pc), pf2)) pc[strcspn(pc, "\n")] = 0;
+                                        pclose(pf2);
+                                        wifi_log(wifi, "Portal POST accept: HTTP %s", pc);
                                     }
 
                                     // Step 4: Re-check connectivity
