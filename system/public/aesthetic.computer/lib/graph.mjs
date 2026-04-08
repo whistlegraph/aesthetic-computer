@@ -2927,8 +2927,105 @@ function lineh(x0, x1, y) {
 // (2) p1, p2: pairs of {x, y} or [x, y]
 // (4) x0, y0, x1, y1
 // TODO: Automatically use lineh if possible. 22.10.05.18.27
+// Fast thick line with rounded endcaps via scanline capsule fill.
+// For each row, finds the x-range where distance to the line segment <= r,
+// then fills with a single lineh call. No per-pixel overhead.
+function lineThick(x0, y0, x1, y1, r) {
+  x0 += panTranslation.x;
+  y0 += panTranslation.y;
+  x1 += panTranslation.x;
+  y1 += panTranslation.y;
+
+  const r2 = r * r + r; // +r for pixel-grid rounding to match circle stamp look.
+  const ldx = x1 - x0, ldy = y1 - y0;
+  const len2 = ldx * ldx + ldy * ldy;
+
+  // Degenerate: single point → filled circle scanlines.
+  if (len2 === 0) {
+    for (let dy = -r; dy <= r; dy++) {
+      const h = floor(sqrt(max(0, r2 - dy * dy)));
+      lineh(x0 - h, x0 + h, y0 + dy);
+    }
+    return;
+  }
+
+  const invLen2 = 1 / len2;
+  const minY = floor(min(y0, y1) - r);
+  const maxY = floor(max(y0, y1) + r);
+
+  for (let y = minY; y <= maxY; y++) {
+    // Find x-range where capsule distance ≤ r at this row.
+    // Sample a few x candidates and bracket the span:
+    //   1. Endcap circles at A and B.
+    //   2. Body: closest point on segment projected to this row.
+
+    let lo = Infinity, hi = -Infinity;
+
+    // Endcap circles.
+    const da = y - y0, db = y - y1;
+    const da2 = da * da, db2 = db * db;
+    if (da2 <= r2) {
+      const h = sqrt(r2 - da2);
+      lo = x0 - h; hi = x0 + h;
+    }
+    if (db2 <= r2) {
+      const h = sqrt(r2 - db2);
+      if (x1 - h < lo) lo = x1 - h;
+      if (x1 + h > hi) hi = x1 + h;
+    }
+
+    // Body: project (x, y) onto segment. The closest point on the segment
+    // for a given y lies at t = ((x-x0)*ldx + (y-y0)*ldy) / len2.
+    // For the body, the perpendicular distance from (x,y) to the line is
+    // |cross| / len where cross = (y-y0)*ldx - (x-x0)*ldy.
+    // Solving cross^2 / len2 <= r2 for x:
+    //   (C - x*ldy)^2 <= r2*len2   where C = (y-y0)*ldx + x0*ldy
+    //   x*ldy ∈ [C - D, C + D]     where D = sqrt(r2*len2)
+    // Then clamp resulting x to the segment's t ∈ [0,1] range.
+    const C = (y - y0) * ldx + x0 * ldy;
+    const D = sqrt(r2 * len2);
+
+    if (abs(ldy) > 0.0001) {
+      // Solve for x from the perpendicular constraint.
+      let bxLo = (C - D) / ldy, bxHi = (C + D) / ldy;
+      if (bxLo > bxHi) { const tmp = bxLo; bxLo = bxHi; bxHi = tmp; }
+
+      // Clamp to segment t ∈ [0,1]: x = x0 + t*ldx, so t = (x-x0)/ldx if ldx≠0.
+      // Instead, clamp by checking t at each body-x bound.
+      const tLo = ((bxLo - x0) * ldx + (y - y0) * ldy) * invLen2;
+      const tHi = ((bxHi - x0) * ldx + (y - y0) * ldy) * invLen2;
+      const tMin = max(0, min(tLo, tHi));
+      const tMax = min(1, max(tLo, tHi));
+
+      if (tMin <= tMax) {
+        // At the clamped t range, compute x and offset by the
+        // perpendicular half-width at this row.
+        const xA = x0 + tMin * ldx, yA = y0 + tMin * ldy;
+        const xB = x0 + tMax * ldx, yB = y0 + tMax * ldy;
+        // Half-width from circle at each point.
+        const ha2 = r2 - (y - yA) * (y - yA);
+        const hb2 = r2 - (y - yB) * (y - yB);
+        if (ha2 >= 0) {
+          const h = sqrt(ha2);
+          if (xA - h < lo) lo = xA - h;
+          if (xA + h > hi) hi = xA + h;
+        }
+        if (hb2 >= 0) {
+          const h = sqrt(hb2);
+          if (xB - h < lo) lo = xB - h;
+          if (xB + h > hi) hi = xB + h;
+        }
+      }
+    }
+
+    if (lo <= hi) {
+      lineh(floor(lo), floor(hi), y);
+    }
+  }
+}
+
 function line() {
-  let x0, y0, x1, y1;
+  let x0, y0, x1, y1, thickness;
   if (arguments.length === 1) {
     // Safely access properties on the first argument
     const arg0 = arguments[0];
@@ -2937,12 +3034,14 @@ function line() {
       y0 = arg0.y0;
       x1 = arg0.x1;
       y1 = arg0.y1;
+      thickness = arg0.thickness;
     }
-  } else if (arguments.length === 4) {
+  } else if (arguments.length >= 4) {
     x0 = arguments[0]; // Set all `undefined` or `null` values to 0.
     y0 = arguments[1];
     x1 = arguments[2];
     y1 = arguments[3];
+    thickness = arguments[4];
   } else if (arguments.length === 2) {
     const arg0 = arguments[0];
     const arg1 = arguments[1];
@@ -2984,6 +3083,15 @@ function line() {
   if (isNaN(y0)) y0 = randIntRange(0, height);
   if (isNaN(x1)) x1 = randIntRange(0, width);
   if (isNaN(y1)) y1 = randIntRange(0, height);
+
+  // Thick line with rounded endcaps.
+  if (thickness > 1) {
+    const radius = floor((thickness - 1) / 2);
+    lineThick(floor(x0), floor(y0), floor(x1), floor(y1), radius);
+    const out = [floor(x0), floor(y0), floor(x1), floor(y1)];
+    twoDCommands?.push(["line", ...out]);
+    return out;
+  }
 
   // console.log("Line in:", x0, y0, x1, y1);
 
@@ -4072,18 +4180,19 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3,
   const u2w = uv2[0] * invW2, v2w = uv2[1] * invW2;
   const u3w = uv3[0] * invW3, v3w = uv3[1] * invW3;
   
-  // Interpolate W values
-  const mw12 = (w1 + w2) / 2, mw23 = (w2 + w3) / 2, mw31 = (w3 + w1) / 2;
-  
-  // Interpolate u/w and v/w
+  // Interpolate 1/w linearly in screen space (1/w is linear after perspective divide)
+  const mInvW12 = (invW1 + invW2) / 2, mInvW23 = (invW2 + invW3) / 2, mInvW31 = (invW3 + invW1) / 2;
+  const mw12 = 1 / mInvW12, mw23 = 1 / mInvW23, mw31 = 1 / mInvW31;
+
+  // Interpolate u/w and v/w linearly in screen space
   const mu12w = (u1w + u2w) / 2, mv12w = (v1w + v2w) / 2;
   const mu23w = (u2w + u3w) / 2, mv23w = (v2w + v3w) / 2;
   const mu31w = (u3w + u1w) / 2, mv31w = (v3w + v1w) / 2;
-  
-  // Recover UV coordinates: u = (u/w) * w
-  const muv12 = [mu12w * mw12, mv12w * mw12];
-  const muv23 = [mu23w * mw23, mv23w * mw23];
-  const muv31 = [mu31w * mw31, mv31w * mw31];
+
+  // Recover UV coordinates: u = (u/w) / (1/w)
+  const muv12 = [mu12w / mInvW12, mv12w / mInvW12];
+  const muv23 = [mu23w / mInvW23, mv23w / mInvW23];
+  const muv31 = [mu31w / mInvW31, mv31w / mInvW31];
   
   // Recursively subdivide the 4 sub-triangles
   const result = [];
@@ -9158,27 +9267,58 @@ function clipToScreen(vertices) {
   return polygon;
 }
 
-// Linear interpolation between two vertices
+// Interpolation between two vertices in screen space
+// After perspective divide, 1/w and attribute/w vary linearly — not w or attributes directly
 function lerpVertex(v1, v2, t) {
+  const w1 = v1.pos[3];
+  const w2 = v2.pos[3];
+
+  // Fall back to simple linear interpolation if W values are degenerate
+  const safeW = w1 > 0.001 && w2 > 0.001 && Number.isFinite(w1) && Number.isFinite(w2);
+
+  let newW;
+  if (safeW) {
+    // Perspective-correct: interpolate 1/w linearly in screen space
+    const invW1 = 1 / w1;
+    const invW2 = 1 / w2;
+    const newInvW = invW1 + (invW2 - invW1) * t;
+    newW = newInvW > 0.0001 ? 1 / newInvW : w1 + (w2 - w1) * t;
+  } else {
+    newW = w1 + (w2 - w1) * t;
+  }
+
   const vert = new Vertex([
     v1.pos[0] + (v2.pos[0] - v1.pos[0]) * t,
     v1.pos[1] + (v2.pos[1] - v1.pos[1]) * t,
     v1.pos[2] + (v2.pos[2] - v1.pos[2]) * t,
-    v1.pos[3] + (v2.pos[3] - v1.pos[3]) * t
+    newW
   ]);
-  
+
   vert.color = [
     v1.color[0] + (v2.color[0] - v1.color[0]) * t,
     v1.color[1] + (v2.color[1] - v1.color[1]) * t,
     v1.color[2] + (v2.color[2] - v1.color[2]) * t,
     v1.color[3] + (v2.color[3] - v1.color[3]) * t
   ];
-  
-  vert.texCoords = [
-    v1.texCoords[0] + (v2.texCoords[0] - v1.texCoords[0]) * t,
-    v1.texCoords[1] + (v2.texCoords[1] - v1.texCoords[1]) * t
-  ];
-  
+
+  // Perspective-correct texCoord interpolation
+  if (safeW) {
+    const invW1 = 1 / w1, invW2 = 1 / w2;
+    const newInvW = invW1 + (invW2 - invW1) * t;
+    const tc1OverW = [v1.texCoords[0] * invW1, v1.texCoords[1] * invW1];
+    const tc2OverW = [v2.texCoords[0] * invW2, v2.texCoords[1] * invW2];
+    const safeDiv = newInvW > 0.0001 ? newInvW : 1;
+    vert.texCoords = [
+      (tc1OverW[0] + (tc2OverW[0] - tc1OverW[0]) * t) / safeDiv,
+      (tc1OverW[1] + (tc2OverW[1] - tc1OverW[1]) * t) / safeDiv
+    ];
+  } else {
+    vert.texCoords = [
+      v1.texCoords[0] + (v2.texCoords[0] - v1.texCoords[0]) * t,
+      v1.texCoords[1] + (v2.texCoords[1] - v1.texCoords[1]) * t
+    ];
+  }
+
   return vert;
 }
 

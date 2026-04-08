@@ -112,6 +112,9 @@ scratch/
 
 # Dev logs from remote debugging
 dev-logs.txt
+
+# Local dev uploads (fallback when S3 credentials are missing)
+local-uploads/
 .#*
 
 # NPM

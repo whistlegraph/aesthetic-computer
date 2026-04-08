@@ -47,7 +47,7 @@ if (typeof globalThis.awslambda === "undefined") {
 }
 
 import express from "express";
-import { readdirSync, readFileSync, existsSync } from "fs";
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createServer as createHttpsServer } from "https";
@@ -896,6 +896,22 @@ app.all("/authorized", directFn("authorized"));
 app.all("/handles", directFn("handles"));
 app.all("/redirect-proxy", directFn("redirect-proxy"));
 app.all("/redirect-proxy-sotce", directFn("redirect-proxy"));
+// Local dev upload fallback (used when S3 credentials are missing).
+app.all("/local-upload/:filename", (req, res) => {
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  const body = req.rawBody || req.body;
+  if (!body || body.length === 0) {
+    console.error("❌ Local upload: empty body for", req.params.filename);
+    return res.status(400).send("Empty body");
+  }
+  const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "local-uploads");
+  mkdirSync(dir, { recursive: true });
+  const filepath = join(dir, req.params.filename);
+  writeFileSync(filepath, body);
+  console.log("📁 Local upload saved:", filepath, `(${body.length} bytes)`);
+  res.status(200).send("OK");
+});
+app.use("/local-uploads", express.static(join(dirname(fileURLToPath(import.meta.url)), "..", "local-uploads")));
 app.all("/presigned-upload-url/*rest", directFn("presigned-url"));
 app.all("/presigned-download-url/*rest", directFn("presigned-url"));
 app.all("/docs", directFn("docs"));
