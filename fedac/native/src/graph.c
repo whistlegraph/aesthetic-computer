@@ -59,6 +59,24 @@ void graph_line(ACGraph *g, int x0, int y0, int x1, int y1) {
     }
 }
 
+// Thick line: draw filled circles along the Bresenham path
+void graph_line_thick(ACGraph *g, int x0, int y0, int x1, int y1, int thickness) {
+    if (thickness <= 1) { graph_line(g, x0, y0, x1, y1); return; }
+    int r = (thickness - 1) / 2;
+    int dx = abs(x1 - x0);
+    int dy = -abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    for (;;) {
+        graph_circle(g, x0, y0, r, 1);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
 void graph_box(ACGraph *g, int x, int y, int w, int h, int filled) {
     if (filled) {
         // Clip to framebuffer bounds once
