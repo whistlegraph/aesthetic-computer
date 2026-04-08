@@ -392,7 +392,8 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
 
                         // Captive portal detection + auto-accept
                         {
-                            char portal_cmd[256];
+                            char portal_cmd[512];
+                            // Step 1: Check connectivity (expect 204 = no portal)
                             snprintf(portal_cmd, sizeof(portal_cmd),
                                 "curl -sL -o /dev/null -w '%%{http_code}' "
                                 "--max-time 5 --connect-timeout 3 "
@@ -408,22 +409,67 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
                                     wifi_log(wifi, "Internet: OK (no captive portal)");
                                 } else if (code[0]) {
                                     wifi_log(wifi, "Captive portal detected (HTTP %s), trying auto-accept...", code);
-                                    // Follow redirect and accept — many portals just need a GET
+
+                                    // Step 2: Get the portal redirect URL
                                     snprintf(portal_cmd, sizeof(portal_cmd),
-                                        "curl -sL --max-time 10 --connect-timeout 5 "
-                                        "-o /dev/null -w '%%{http_code}' "
-                                        "http://connectivitycheck.gstatic.com/generate_204 "
+                                        "curl -s --max-time 8 --connect-timeout 5 "
+                                        "-o /tmp/portal_page.html -w '%%{url_effective}' "
+                                        "-L http://connectivitycheck.gstatic.com/generate_204 "
                                         "2>/dev/null");
+                                    FILE *uf = popen(portal_cmd, "r");
+                                    char portal_url[256] = "";
+                                    if (uf) {
+                                        if (fgets(portal_url, sizeof(portal_url), uf))
+                                            portal_url[strcspn(portal_url, "\n")] = 0;
+                                        pclose(uf);
+                                    }
+                                    wifi_log(wifi, "Portal URL: %s", portal_url);
+
+                                    // Step 3: Extract form action and submit it
+                                    // Many portals (GettyLink, hotel WiFi) have a form
+                                    // with action URL — POST to it to accept terms
+                                    snprintf(portal_cmd, sizeof(portal_cmd),
+                                        "sh -c '"
+                                        "ACTION=$(grep -oi \"action=\\\"[^\\\"]*\\\"\" /tmp/portal_page.html 2>/dev/null "
+                                        "| head -1 | sed \"s/action=\\\"//;s/\\\"//\"); "
+                                        "if [ -n \"$ACTION\" ]; then "
+                                        "  case \"$ACTION\" in http*) URL=\"$ACTION\" ;; /*) "
+                                        "    HOST=$(echo \"%s\" | sed \"s|^\\(https\\?://[^/]*\\).*|\\1|\"); "
+                                        "    URL=\"${HOST}${ACTION}\" ;; "
+                                        "  *) URL=\"%s\" ;; esac; "
+                                        "  curl -sL -o /dev/null -w \"%%{http_code}\" "
+                                        "  --max-time 10 -X POST \"$URL\" 2>/dev/null; "
+                                        "else "
+                                        "  curl -sL -o /dev/null -w \"%%{http_code}\" "
+                                        "  --max-time 10 \"%s\" 2>/dev/null; "
+                                        "fi'",
+                                        portal_url, portal_url, portal_url);
                                     FILE *af = popen(portal_cmd, "r");
                                     if (af) {
                                         char acode[8] = "";
                                         if (fgets(acode, sizeof(acode), af))
                                             acode[strcspn(acode, "\n")] = 0;
                                         pclose(af);
-                                        if (strcmp(acode, "204") == 0)
+                                        wifi_log(wifi, "Portal submit response: HTTP %s", acode);
+                                    }
+
+                                    // Step 4: Re-check connectivity
+                                    usleep(1000000); // 1s for portal to propagate
+                                    snprintf(portal_cmd, sizeof(portal_cmd),
+                                        "curl -sL -o /dev/null -w '%%{http_code}' "
+                                        "--max-time 5 --connect-timeout 3 "
+                                        "http://connectivitycheck.gstatic.com/generate_204 "
+                                        "2>/dev/null");
+                                    FILE *cf = popen(portal_cmd, "r");
+                                    if (cf) {
+                                        char ccode[8] = "";
+                                        if (fgets(ccode, sizeof(ccode), cf))
+                                            ccode[strcspn(ccode, "\n")] = 0;
+                                        pclose(cf);
+                                        if (strcmp(ccode, "204") == 0)
                                             wifi_log(wifi, "Captive portal cleared!");
                                         else
-                                            wifi_log(wifi, "Captive portal may need manual login (HTTP %s)", acode);
+                                            wifi_log(wifi, "Portal still active (HTTP %s) — may need manual login", ccode);
                                     }
                                 } else {
                                     wifi_log(wifi, "Connectivity check failed (no response)");
