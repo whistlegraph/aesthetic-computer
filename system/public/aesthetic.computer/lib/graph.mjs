@@ -7030,12 +7030,17 @@ function cleanupBlurBuffers() {
 // Creates smooth blur effect by applying horizontal then vertical Gaussian convolution
 function blur(strength = 1, quality = "medium") {
   if (strength <= 0.1) return; // No blur needed - neutral blur
-  
+
   // Start timing for performance monitoring
   const blurStartTime = performance.now();
-  
+
+  // Scale strength to match legacy single-pass blur behavior.
+  // The two-pass separable Gaussian is ~3x stronger than the old
+  // single-pass weighted blur at the same radius value.
+  const scaledStrength = strength / 3;
+
   // Accumulate the blur strength for progressive blurring
-  blurAccumulator += strength;
+  blurAccumulator += scaledStrength;
   
   // Apply blur when accumulator reaches threshold
   const threshold = 0.5;
