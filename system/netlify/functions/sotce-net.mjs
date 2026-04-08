@@ -6517,10 +6517,11 @@ export const handler = async (event, context) => {
                 let lastDragY = 0;
                 let lastDragTime = 0;
                 
-                // Pending wheel pages — accumulates scroll intent during animations
-                // so continuous scrolling chains smoothly across pages
-                let pendingWheelPages = 0; // accumulates: +N forward, -N backward
-                let fastScrolling = false; // true when chaining transitions rapidly
+                // Wheel scroll state — continuous positional scrolling with snap-to-nearest
+                let wheelOffset = 0;        // accumulated scroll position in pixels
+                let isWheelScrolling = false;
+                let wheelSnapTimer = null;  // debounce timer for snap animation
+                let wheelSnapping = false;  // true when easing to nearest page
 
                 // Minimap/position indicator — shows during scrolling
                 let minimapOpacity = 0; // 0-1, fades in/out
@@ -7602,7 +7603,7 @@ export const handler = async (event, context) => {
                   if (transitionDirection !== 0 && transitionTarget !== null) {
                     // Ease-out timing: fast departure, gentle arrival
                     const elapsed = performance.now() - transitionStartTime;
-                    const duration = fastScrolling ? 160 : (transitionSlow ? 420 : 260); // ms
+                    const duration = transitionSlow ? 420 : 260; // ms
                     const t = Math.min(1, elapsed / duration);
                     const eased = easeOutCubic(t);
                     transitionProgress = transitionStartProgress + (1 - transitionStartProgress) * eased;
@@ -7628,86 +7629,57 @@ export const handler = async (event, context) => {
                       }
                       prefetchPages(currentPageIndex);
 
-                      // If user kept scrolling during the animation, chain
-                      // to the next page immediately for fluid continuous browsing.
-                      if (pendingWheelPages !== 0) {
-                        const dir = Math.sign(pendingWheelPages);
-                        const nextIdx = currentPageIndex + dir;
-                        pendingWheelPages -= dir; // Consume one page from queue
-                        if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
-                          goToPage(nextIdx);
-                        } else {
-                          pendingWheelPages = 0; // Hit boundary, clear queue
-                          fastScrolling = false;
-                        }
-                      } else {
-                        fastScrolling = false;
-                      }
+                      // Wheel events accumulate in wheelOffset and snap when
+                      // idle, so transition chaining is no longer needed here.
                     }
                   }
 
-                  // Apply wheel momentum with smooth inertia
+                  // Wheel scroll: snap-to-nearest when user stops scrolling
                   if (isWheelScrolling && transitionDirection === 0) {
-                    // Apply velocity to position immediately - no lag
-                    wheelDelta += wheelVelocity;
-                    dragDelta = wheelDelta;
+                    if (wheelSnapping) {
+                      const slideDistance = cardHeight + 40;
+                      const threshold = slideDistance * 0.4; // 40% → snap to next page
 
-                    // Very gentle friction for long momentum carry (additive scrolling)
-                    const friction = 0.96; // Higher = momentum builds up from rapid flicks
-                    wheelVelocity *= friction;
-
-                    // Stop when velocity is negligible
-                    if (Math.abs(wheelVelocity) < 0.2) {
-                      wheelVelocity = 0;
-                    }
-
-                    // Check if we should transition to next/prev page(s)
-                    const slideDistance = cardHeight + 40;
-                    const threshold = slideDistance * 0.25; // Lower threshold for fluid page changes
-
-                    if (Math.abs(wheelDelta) > threshold) {
-                      // Calculate how many pages to skip based on accumulated delta
-                      const direction = Math.sign(wheelDelta);
-                      const pagesToSkip = Math.floor(Math.abs(wheelDelta) / slideDistance);
-                      const pagesJump = Math.max(1, pagesToSkip); // At least 1 page
-
-                      const targetIdx = displayedPageIndex + (direction * pagesJump);
-                      const clampedTarget = Math.max(1, Math.min(loadedFeedCount, targetIdx));
-
-                      console.log("🎡 Wheel scroll:", {
-                        wheelDelta: wheelDelta.toFixed(1),
-                        wheelVelocity: wheelVelocity.toFixed(2),
-                        pagesToSkip: pagesJump,
-                        from: displayedPageIndex,
-                        to: clampedTarget
-                      });
-
-                      if (clampedTarget !== displayedPageIndex) {
-                        // Jump to target page (can skip multiple pages!)
-                        goToPage(clampedTarget, 0);
-
-                        // STOP wheel scrolling completely to prevent bouncing
-                        isWheelScrolling = false;
-                        wheelDelta = 0;
-                        wheelVelocity = 0;
-                        console.log("✅ Page changed, STOPPED all momentum");
+                      if (Math.abs(wheelOffset) > threshold) {
+                        // Past threshold — animate to next page
+                        const direction = Math.sign(wheelOffset);
+                        const nextIdx = displayedPageIndex + direction;
+                        if (nextIdx >= 1 && nextIdx <= loadedFeedCount) {
+                          const startProgress = Math.min(0.95, Math.abs(wheelOffset) / slideDistance);
+                          isWheelScrolling = false;
+                          wheelOffset = 0;
+                          wheelSnapping = false;
+                          dragDelta = 0;
+                          goToPage(nextIdx, startProgress);
+                        } else {
+                          // At boundary — rubber-band back
+                          wheelOffset *= 0.82;
+                          dragDelta = wheelOffset;
+                          if (Math.abs(wheelOffset) < 0.5) {
+                            wheelOffset = 0;
+                            dragDelta = 0;
+                            isWheelScrolling = false;
+                            wheelSnapping = false;
+                          }
+                        }
                       } else {
-                        // Hit boundary - stop completely
-                        console.log("🛑 Hit boundary, stopping");
-                        wheelVelocity = 0;
-                        wheelDelta = 0;
-                        isWheelScrolling = false;
+                        // Within threshold — ease back to current page
+                        wheelOffset *= 0.82;
+                        dragDelta = wheelOffset;
+                        if (Math.abs(wheelOffset) < 0.5) {
+                          wheelOffset = 0;
+                          dragDelta = 0;
+                          isWheelScrolling = false;
+                          wheelSnapping = false;
+                        }
                       }
-                    }
-
-                    // Stop scrolling if velocity died out and we're close to center
-                    if (wheelVelocity === 0 && Math.abs(wheelDelta) < threshold * 0.5) {
-                      isWheelScrolling = false;
-                      // Let snap-back animation take over
+                    } else {
+                      // Still actively scrolling — keep dragDelta in sync
+                      dragDelta = wheelOffset;
                     }
 
                     // Prefetch adjacent pages
-                    const nextIdx = wheelDelta > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
+                    const nextIdx = wheelOffset > 0 ? displayedPageIndex + 1 : displayedPageIndex - 1;
                     if (nextIdx >= 1 && nextIdx <= loadedFeedCount && !pageCache.has(nextIdx)) {
                       fetchPage(nextIdx);
                     }
@@ -7822,10 +7794,9 @@ export const handler = async (event, context) => {
 
                   // Cancel any pending wheel scroll
                   isWheelScrolling = false;
-                  wheelDelta = 0;
-                  pendingWheelPages = 0;
-                  fastScrolling = false;
-                  clearTimeout(wheelIdleTimer);
+                  wheelOffset = 0;
+                  wheelSnapping = false;
+                  clearTimeout(wheelSnapTimer);
 
                   canvas.setPointerCapture(e.pointerId);
                   canvas.style.cursor = "grabbing";
@@ -7913,40 +7884,59 @@ export const handler = async (event, context) => {
                   }
                 });
                 
-                // Scroll wheel navigation with smooth inertia
-                let wheelVelocity = 0; // pixels per frame
-                let wheelDelta = 0;
-                let wheelIdleTimer = null;
-                let isWheelScrolling = false;
-                let lastWheelTime = 0;
-
+                // Scroll wheel navigation — continuous positional scrolling
+                // Wheel events directly drive position; snap-to-nearest on idle.
                 canvas.addEventListener("wheel", (e) => {
                   if (!document.body.contains(canvas)) return;
                   if (isFlipping || showingBack) return;
-                  // Don't allow new wheel scrolls during page transitions
-                  if (transitionDirection !== 0 && transitionProgress > 0 && transitionProgress < 1) return;
+                  if (transitionDirection !== 0) return;
                   e.preventDefault();
                   showMinimap();
 
-                  // Immediate, responsive velocity - no delay
-                  const sensitivity = 2.0; // Higher = more responsive to wheel input
-                  wheelVelocity += e.deltaY * sensitivity;
+                  // Cancel any in-progress snap animation
+                  wheelSnapping = false;
 
-                  // Clamp at boundaries to prevent jank/jutter
-                  const atStart = displayedPageIndex <= 1 && wheelVelocity < 0;
-                  const atEnd = displayedPageIndex >= loadedFeedCount && wheelVelocity > 0;
-                  if (atStart || atEnd) {
-                    wheelVelocity = 0;
-                    wheelDelta = 0;
-                    return;
+                  // Direct positional scrolling
+                  const sensitivity = 1.5;
+                  wheelOffset += e.deltaY * sensitivity;
+
+                  // Cross page boundaries for continuous multi-page scrolling
+                  const slideDistance = cardHeight + 40;
+                  while (wheelOffset > slideDistance && displayedPageIndex < loadedFeedCount) {
+                    wheelOffset -= slideDistance;
+                    displayedPageIndex++;
+                    currentPageIndex = displayedPageIndex;
+                    const item = pageCache.get(currentPageIndex);
+                    if (item?.type === "question") {
+                      updatePath("/q" + (item.questionNumber || currentPageIndex));
+                    } else {
+                      updatePath("/" + (item?.pageNumber || currentPageIndex));
+                    }
+                    prefetchPages(currentPageIndex);
+                  }
+                  while (wheelOffset < -slideDistance && displayedPageIndex > 1) {
+                    wheelOffset += slideDistance;
+                    displayedPageIndex--;
+                    currentPageIndex = displayedPageIndex;
+                    const item = pageCache.get(currentPageIndex);
+                    if (item?.type === "question") {
+                      updatePath("/q" + (item.questionNumber || currentPageIndex));
+                    } else {
+                      updatePath("/" + (item?.pageNumber || currentPageIndex));
+                    }
+                    prefetchPages(currentPageIndex);
                   }
 
-                  // Higher cap for faster scrolling
-                  const maxVelocity = 120;
-                  wheelVelocity = Math.max(-maxVelocity, Math.min(maxVelocity, wheelVelocity));
+                  // Rubber-band at boundaries
+                  if (displayedPageIndex <= 1 && wheelOffset < 0) wheelOffset = Math.max(wheelOffset, -40);
+                  if (displayedPageIndex >= loadedFeedCount && wheelOffset > 0) wheelOffset = Math.min(wheelOffset, 40);
 
+                  dragDelta = wheelOffset;
                   isWheelScrolling = true;
-                  lastWheelTime = performance.now();
+
+                  // Debounce: start snap animation after user stops scrolling
+                  clearTimeout(wheelSnapTimer);
+                  wheelSnapTimer = setTimeout(() => { wheelSnapping = true; }, 120);
                 }, { passive: false });
 
                 // Mousedown handler for button press state
