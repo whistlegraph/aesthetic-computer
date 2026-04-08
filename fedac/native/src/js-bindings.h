@@ -101,6 +101,15 @@ typedef struct {
     char handle[64];                     // e.g. "jeffrey" (without @)
     char piece[64];                      // default piece name, e.g. "notepat"
 
+    // Nopaint painting system — persistent across piece swaps
+    ACFramebuffer *nopaint_painting;     // persistent canvas (survives piece changes)
+    ACFramebuffer *nopaint_buffer;       // temporary stroke overlay
+    int nopaint_active;                  // 1 = current piece uses nopaint system
+    int nopaint_state;                   // 0=idle, 1=painting
+    int nopaint_needs_bake;              // 1 = stroke ended, needs bake
+    int nopaint_brush_x, nopaint_brush_y; // current brush position
+    int nopaint_touch_x, nopaint_touch_y; // touch start position
+
     // JS crash overlay — set when paint/act/sim throws an unhandled exception
     int  crash_active;                   // 1 = crash bar visible
     int  crash_count;                    // total JS exceptions since piece load
