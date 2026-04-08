@@ -62,6 +62,7 @@ echo "$CHANGED" | sed 's/^/  /'
 NEED_RESTART=false
 NEED_CADDY_RELOAD=false
 NEED_NPM_INSTALL=false
+NEED_DP1_FEED_RESTART=false
 
 while IFS= read -r file; do
   case "$file" in
@@ -85,6 +86,9 @@ while IFS= read -r file; do
     shared/*)
       NEED_RESTART=true
       ;;
+    lith/dp1-feed-config.yaml|lith/dp1-feed.service)
+      NEED_DP1_FEED_RESTART=true
+      ;;
     system/public/*)
       # Static files — Caddy serves directly from disk, no action needed
       ;;
@@ -103,6 +107,16 @@ fi
 if $NEED_CADDY_RELOAD; then
   log "reloading caddy..."
   systemctl reload caddy
+fi
+
+if $NEED_DP1_FEED_RESTART; then
+  if systemctl is-active dp1-feed &>/dev/null; then
+    log "updating dp1-feed config..."
+    cp "$REMOTE_DIR/lith/dp1-feed-config.yaml" /opt/dp1-feed/config.yaml
+    cp "$REMOTE_DIR/lith/dp1-feed.service" /etc/systemd/system/dp1-feed.service
+    systemctl daemon-reload
+    systemctl restart dp1-feed
+  fi
 fi
 
 if $NEED_RESTART; then
