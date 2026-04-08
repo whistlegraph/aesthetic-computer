@@ -18,6 +18,7 @@ let messageFrame = 0;
 let frame = 0;
 let lastUsbCheck = 0;
 let usbConnected = false;
+let spinSpeed = 0;      // record spin rate (0=stopped, 1=playing)
 let scratchSpeed = 0;   // current scratch velocity (-2 to 2)
 let wasPlaying = false;  // was playing before scratch started
 
