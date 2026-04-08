@@ -232,8 +232,21 @@
         }
         .p.guest .meta-row .author { color: var(--purple); }
 
+        /* Platter illustration */
+        .platter-wrap {
+            display: flex;
+            justify-content: center;
+            margin: 2.5em 0 0.5em;
+            opacity: 0.7;
+            transition: opacity 0.4s;
+        }
+        .platter-wrap:hover { opacity: 1; }
+        .platter-wrap svg { width: 180px; }
+        @media (min-width: 900px) { .platter-wrap svg { width: 220px; } }
+        @media (min-width: 1400px) { .platter-wrap svg { width: 260px; } }
+
         .colophon {
-            margin-top: 2.5em;
+            margin-top: 1em;
             padding-top: 1.2em;
             border-top: 1px solid var(--sep);
             color: var(--dim);
@@ -702,6 +715,111 @@
 
     <!-- guest-start -->
     <!-- guest-end -->
+
+    <!-- Platter SVG — decorative serving platter with papers -->
+    <a href="/platter" style="text-decoration:none">
+    <div class="platter-wrap">
+      <svg viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Subtle shine gradient for the cloche -->
+          <linearGradient id="cloche-shine" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="var(--text)" stop-opacity="0.08"/>
+            <stop offset="40%" stop-color="var(--text)" stop-opacity="0.18"/>
+            <stop offset="60%" stop-color="var(--text)" stop-opacity="0.06"/>
+            <stop offset="100%" stop-color="var(--text)" stop-opacity="0.02"/>
+          </linearGradient>
+          <!-- Platter metallic gradient -->
+          <linearGradient id="platter-metal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--text)" stop-opacity="0.15"/>
+            <stop offset="50%" stop-color="var(--text)" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="var(--text)" stop-opacity="0.12"/>
+          </linearGradient>
+          <!-- Steam glow -->
+          <filter id="steam-blur">
+            <feGaussianBlur stdDeviation="2"/>
+          </filter>
+        </defs>
+
+        <!-- === STEAM WISPS (hot off the press) === -->
+        <path d="M120 52 Q115 40 120 28 Q125 16 118 6" stroke="var(--cyan)" stroke-width="1.2" fill="none" opacity="0.2" stroke-linecap="round">
+          <animate attributeName="opacity" values="0.1;0.3;0.1" dur="2.5s" repeatCount="indefinite"/>
+          <animate attributeName="d" values="M120 52 Q115 40 120 28 Q125 16 118 6;M120 52 Q126 38 119 26 Q113 14 120 4;M120 52 Q115 40 120 28 Q125 16 118 6" dur="3s" repeatCount="indefinite"/>
+        </path>
+        <path d="M150 48 Q145 34 150 22 Q155 10 148 0" stroke="var(--pink)" stroke-width="1" fill="none" opacity="0.15" stroke-linecap="round">
+          <animate attributeName="opacity" values="0.08;0.25;0.08" dur="3s" repeatCount="indefinite" begin="0.5s"/>
+          <animate attributeName="d" values="M150 48 Q145 34 150 22 Q155 10 148 0;M150 48 Q156 32 149 20 Q143 8 150 -2;M150 48 Q145 34 150 22 Q155 10 148 0" dur="3.5s" repeatCount="indefinite" begin="0.5s"/>
+        </path>
+        <path d="M180 52 Q175 38 180 26 Q185 14 178 4" stroke="var(--purple)" stroke-width="1.1" fill="none" opacity="0.18" stroke-linecap="round">
+          <animate attributeName="opacity" values="0.1;0.28;0.1" dur="2.8s" repeatCount="indefinite" begin="1s"/>
+          <animate attributeName="d" values="M180 52 Q175 38 180 26 Q185 14 178 4;M180 52 Q186 36 179 24 Q173 12 180 2;M180 52 Q175 38 180 26 Q185 14 178 4" dur="3.2s" repeatCount="indefinite" begin="1s"/>
+        </path>
+
+        <!-- === CLOCHE (dome lid) — lifted and tilted === -->
+        <g transform="translate(-8, -6) rotate(-8, 150, 100)">
+          <!-- Dome shape -->
+          <path d="M80 130 Q80 55 150 50 Q220 55 220 130" fill="url(#cloche-shine)" stroke="var(--purple)" stroke-width="1.5"/>
+          <!-- Rim of the cloche -->
+          <ellipse cx="150" cy="130" rx="70" ry="8" fill="var(--text)" fill-opacity="0.06" stroke="var(--purple)" stroke-width="1"/>
+          <!-- Highlight arc on dome -->
+          <path d="M105 100 Q110 70 145 62" stroke="var(--text)" stroke-width="1.5" fill="none" opacity="0.12" stroke-linecap="round"/>
+          <!-- Handle/knob on top -->
+          <ellipse cx="150" cy="48" rx="10" ry="5" fill="var(--purple)" opacity="0.3"/>
+          <ellipse cx="150" cy="46" rx="7" ry="3.5" fill="var(--pink)" opacity="0.2"/>
+          <circle cx="150" cy="45" r="2" fill="var(--cyan)" opacity="0.3"/>
+        </g>
+
+        <!-- === PAPERS peeking out from under the cloche === -->
+        <g opacity="0.7">
+          <!-- Paper 1 (angled left) -->
+          <g transform="rotate(-12, 130, 140)">
+            <rect x="100" y="120" width="50" height="36" rx="1" fill="var(--text)" fill-opacity="0.1" stroke="var(--purple)" stroke-width="0.6"/>
+            <line x1="107" y1="128" x2="143" y2="128" stroke="var(--pink)" stroke-width="0.8" opacity="0.35"/>
+            <line x1="107" y1="133" x2="140" y2="133" stroke="var(--dim)" stroke-width="0.5" opacity="0.25"/>
+            <line x1="107" y1="137" x2="138" y2="137" stroke="var(--dim)" stroke-width="0.5" opacity="0.2"/>
+            <line x1="107" y1="141" x2="135" y2="141" stroke="var(--dim)" stroke-width="0.5" opacity="0.15"/>
+            <line x1="107" y1="145" x2="130" y2="145" stroke="var(--dim)" stroke-width="0.5" opacity="0.12"/>
+          </g>
+          <!-- Paper 2 (angled right) -->
+          <g transform="rotate(8, 175, 138)">
+            <rect x="148" y="118" width="50" height="36" rx="1" fill="var(--text)" fill-opacity="0.08" stroke="var(--cyan)" stroke-width="0.6"/>
+            <line x1="155" y1="126" x2="191" y2="126" stroke="var(--cyan)" stroke-width="0.8" opacity="0.3"/>
+            <line x1="155" y1="131" x2="188" y2="131" stroke="var(--dim)" stroke-width="0.5" opacity="0.2"/>
+            <line x1="155" y1="135" x2="186" y2="135" stroke="var(--dim)" stroke-width="0.5" opacity="0.15"/>
+            <line x1="155" y1="139" x2="183" y2="139" stroke="var(--dim)" stroke-width="0.5" opacity="0.12"/>
+          </g>
+          <!-- Paper 3 (center, slightly tilted) -->
+          <g transform="rotate(-3, 150, 135)">
+            <rect x="122" y="115" width="55" height="40" rx="1" fill="var(--text)" fill-opacity="0.06" stroke="var(--purple)" stroke-width="0.5" opacity="0.6"/>
+            <line x1="130" y1="124" x2="170" y2="124" stroke="var(--purple)" stroke-width="0.7" opacity="0.25"/>
+            <line x1="130" y1="129" x2="168" y2="129" stroke="var(--dim)" stroke-width="0.5" opacity="0.18"/>
+            <line x1="130" y1="133" x2="165" y2="133" stroke="var(--dim)" stroke-width="0.5" opacity="0.14"/>
+            <line x1="130" y1="137" x2="160" y2="137" stroke="var(--dim)" stroke-width="0.5" opacity="0.1"/>
+          </g>
+        </g>
+
+        <!-- === PLATTER BASE (oval serving tray) === -->
+        <!-- Shadow underneath -->
+        <ellipse cx="152" cy="172" rx="100" ry="14" fill="var(--text)" opacity="0.04"/>
+        <!-- Main platter surface -->
+        <ellipse cx="150" cy="162" rx="105" ry="16" fill="url(#platter-metal)" stroke="var(--purple)" stroke-width="1.5"/>
+        <!-- Inner rim -->
+        <ellipse cx="150" cy="161" rx="88" ry="12" fill="none" stroke="var(--purple)" stroke-width="0.6" opacity="0.3"/>
+        <!-- Highlight on rim -->
+        <path d="M65 158 Q100 150 150 149 Q200 150 235 158" stroke="var(--text)" stroke-width="0.8" fill="none" opacity="0.1" stroke-linecap="round"/>
+        <!-- Platter lip/edge (bottom rim thickness) -->
+        <path d="M45 162 Q45 170 150 178 Q255 170 255 162" fill="var(--text)" fill-opacity="0.04" stroke="var(--purple)" stroke-width="0.8" opacity="0.4"/>
+        <!-- Decorative dots on rim -->
+        <circle cx="70" cy="163" r="1.2" fill="var(--pink)" opacity="0.2"/>
+        <circle cx="90" cy="159" r="1" fill="var(--cyan)" opacity="0.2"/>
+        <circle cx="210" cy="159" r="1" fill="var(--cyan)" opacity="0.2"/>
+        <circle cx="230" cy="163" r="1.2" fill="var(--pink)" opacity="0.2"/>
+        <circle cx="150" cy="157" r="1" fill="var(--purple)" opacity="0.25"/>
+
+        <!-- === LABEL === -->
+        <text x="150" y="192" text-anchor="middle" font-family="'Berkeley Mono Variable', monospace" font-size="9" fill="var(--dim)" opacity="0.5">research platter</text>
+      </svg>
+    </div>
+    </a>
 
     <div class="colophon">
         <p>Papers publishes working research on the <a href="https://aesthetic.computer" class="ac-link"><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></a> project, typeset in LaTeX and compiled from the <a href="/platter">research platter</a>. Cards are 4&times;6 inch mobile versions. Translated into Danish, Spanish, Chinese, and Japanese.</p>
