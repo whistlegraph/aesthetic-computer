@@ -934,6 +934,150 @@ async function getContractStatus(network = 'mainnet') {
 }
 
 // ============================================================================
+// Multi-Chain Wallet Balances
+// ============================================================================
+
+async function getAllWalletBalances() {
+  const walletsPath = path.join(CONFIG.paths.vault, 'wallets/wallets.json');
+  if (!fs.existsSync(walletsPath)) {
+    console.error('❌ wallets.json not found in vault');
+    process.exit(1);
+  }
+  const { wallets } = JSON.parse(fs.readFileSync(walletsPath, 'utf8'));
+
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║  🌐 All Wallet Balances                                      ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
+
+  // Group wallets by chain
+  const chains = {};
+  for (const [key, w] of Object.entries(wallets)) {
+    (chains[w.chain] ||= []).push({ key, ...w });
+  }
+
+  // --- Tezos ---
+  if (chains.tezos) {
+    console.log('── Tezos ──────────────────────────────────────────────────────');
+    const tezos = new TezosToolkit(CONFIG.mainnet.rpc);
+    for (const w of chains.tezos) {
+      try {
+        const bal = await tezos.tz.getBalance(w.address);
+        const xtz = (bal.toNumber() / 1_000_000).toFixed(6);
+        const label = w.domain || w.name;
+        console.log(`  ${label.padEnd(22)} ${xtz.padStart(14)} XTZ   ${w.address}`);
+      } catch (e) {
+        console.log(`  ${(w.domain || w.name).padEnd(22)} ${'error'.padStart(14)}       ${w.address}  (${e.message})`);
+      }
+    }
+    // Also show keeps contract balance
+    try {
+      const contractAddr = fs.readFileSync(
+        CONFIG.paths.contractAddresses.mainnet, 'utf8'
+      ).trim();
+      const bal = await tezos.tz.getBalance(contractAddr);
+      const xtz = (bal.toNumber() / 1_000_000).toFixed(6);
+      console.log(`  ${'keeps contract'.padEnd(22)} ${xtz.padStart(14)} XTZ   ${contractAddr}`);
+    } catch (e) { /* skip */ }
+    console.log();
+  }
+
+  // --- Ethereum ---
+  if (chains.ethereum) {
+    console.log('── Ethereum ───────────────────────────────────────────────────');
+    for (const w of chains.ethereum) {
+      try {
+        const resp = await fetch('https://ethereum-rpc.publicnode.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_getBalance', params: [w.address, 'latest'], id: 1 }),
+        });
+        const data = await resp.json();
+        const eth = (Number(BigInt(data.result)) / 1e18).toFixed(6);
+        const label = w.domain || w.name;
+        console.log(`  ${label.padEnd(22)} ${eth.padStart(14)} ETH   ${w.address}`);
+      } catch (e) {
+        console.log(`  ${(w.domain || w.name).padEnd(22)} ${'error'.padStart(14)}       ${w.address}`);
+      }
+    }
+    console.log();
+  }
+
+  // --- Solana ---
+  if (chains.solana) {
+    console.log('── Solana ─────────────────────────────────────────────────────');
+    for (const w of chains.solana) {
+      try {
+        const resp = await fetch('https://solana-rpc.publicnode.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [w.address] }),
+        });
+        const data = await resp.json();
+        const sol = (data.result.value / 1e9).toFixed(6);
+        const label = w.name;
+        console.log(`  ${label.padEnd(22)} ${sol.padStart(14)} SOL   ${w.address}`);
+      } catch (e) {
+        console.log(`  ${(w.domain || w.name).padEnd(22)} ${'error'.padStart(14)}       ${w.address}`);
+      }
+    }
+    console.log();
+  }
+
+  // --- Bitcoin ---
+  if (chains.bitcoin) {
+    console.log('── Bitcoin ────────────────────────────────────────────────────');
+    for (const w of chains.bitcoin) {
+      // Check both taproot and segwit addresses
+      const addr = w.address_taproot || w.address_segwit || w.address;
+      if (!addr) {
+        console.log(`  ${w.name.padEnd(22)} ${'no address'.padStart(14)}       (needs derivation)`);
+        continue;
+      }
+      try {
+        const resp = await fetch(`https://blockstream.info/api/address/${addr}`);
+        const data = await resp.json();
+        // funded = total received, spent = total sent; chain_stats for confirmed
+        const confirmed = data.chain_stats || {};
+        const satoshis = (confirmed.funded_txo_sum || 0) - (confirmed.spent_txo_sum || 0);
+        const btc = (satoshis / 1e8).toFixed(8);
+        const label = w.name;
+        console.log(`  ${label.padEnd(22)} ${btc.padStart(14)} BTC   ${addr}`);
+      } catch (e) {
+        console.log(`  ${w.name.padEnd(22)} ${'error'.padStart(14)}       ${addr}`);
+      }
+    }
+    console.log();
+  }
+
+  // --- Cardano ---
+  if (chains.cardano) {
+    console.log('── Cardano ────────────────────────────────────────────────────');
+    for (const w of chains.cardano) {
+      if (!w.address) {
+        console.log(`  ${w.name.padEnd(22)} ${'no address'.padStart(14)}       (derive from mnemonic with cardano-serialization-lib)`);
+        continue;
+      }
+      try {
+        const resp = await fetch('https://api.koios.rest/api/v1/address_info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ _addresses: [w.address] }),
+        });
+        const data = await resp.json();
+        const lovelace = data[0]?.balance || '0';
+        const ada = (Number(lovelace) / 1e6).toFixed(6);
+        console.log(`  ${w.name.padEnd(22)} ${ada.padStart(14)} ADA   ${w.address}`);
+      } catch (e) {
+        console.log(`  ${w.name.padEnd(22)} ${'error'.padStart(14)}       ${w.address}`);
+      }
+    }
+    console.log();
+  }
+
+  console.log('🔗 Explorers: tzkt.io | etherscan.io | solscan.io | blockstream.info | cardanoscan.io\n');
+}
+
+// ============================================================================
 // Wallet Balance
 // ============================================================================
 
@@ -4078,6 +4222,10 @@ async function main() {
         await getBalance(getNetwork(1));
         break;
 
+      case 'wallets':
+        await getAllWalletBalances();
+        break;
+
       case 'tokens': {
         const limitFlag = flags.find(f => f.startsWith('--limit='));
         const limit = limitFlag ? Number.parseInt(limitFlag.split('=')[1], 10) : undefined;
@@ -4509,6 +4657,7 @@ Commands:
   sync-secrets [network]        Sync active contract/profile to Mongo secrets
   status [network]              Show contract status
   balance [network]             Check wallet balance
+  wallets                       Show all wallet balances (XTZ, ETH, SOL, BTC, ADA)
   tokens [network]              List tokens held by current wallet
   market [network]              Show Objkt listings/offers/sales snapshot
   upload <piece>                Upload bundle to IPFS
@@ -4635,6 +4784,7 @@ export {
   syncCurrentContractToSecrets,
   getContractStatus,
   getBalance,
+  getAllWalletBalances,
   listOwnedTokens,
   showMarketSnapshot,
   listTokenForSale,
