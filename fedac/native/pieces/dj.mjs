@@ -13,6 +13,9 @@ let queueIdx = 0;
 let activeDeck = 0;       // 0 = A, 1 = B
 let scratching = [false, false]; // per-deck scratch mode
 let scratchPos = [0, 0];  // scratch position (virtual "angle")
+let dragging = -1;         // which deck is being mouse-dragged (-1=none)
+let dragStartY = 0;        // mouse Y at drag start
+let dragStartPos = 0;      // deck position at drag start
 let crossfader = 0.5;
 let mounted = false;
 let message = "";
@@ -132,10 +135,56 @@ function boot({ system, sound, tts }) {
   }
 }
 
-function act({ event: e, sound, system, tts }) {
-  if (!e.is("keyboard:down")) return;
+// Platter geometry (computed in paint, used in act)
+let platterA = { cx: 0, cy: 0, r: 0 };
+let platterB = { cx: 0, cy: 0, r: 0 };
+
+function act({ event: e, sound, system, tts, screen }) {
   const dk = sound?.deck;
   const decks = dk?.decks || [{}, {}];
+  const w = screen?.width || 320;
+  const h = screen?.height || 240;
+  const P = 4;
+  const deckW = Math.floor((w - P * 3) / 2);
+
+  // --- Mouse scratch interaction ---
+  if (e.is("touch")) {
+    const mx = e.x, my = e.y;
+    // Check if touching a platter
+    for (let i = 0; i < 2; i++) {
+      const pl = i === 0 ? platterA : platterB;
+      const dx = mx - pl.cx, dy = my - pl.cy;
+      if (dx * dx + dy * dy <= pl.r * pl.r) {
+        dragging = i;
+        dragStartY = my;
+        dragStartPos = decks[i]?.position || 0;
+        if (decks[i]?.playing) dk?.pause(i);
+        return;
+      }
+    }
+    return;
+  }
+
+  if (e.is("draw") && dragging >= 0) {
+    const d = decks[dragging];
+    if (d?.loaded) {
+      const dy = e.y - dragStartY;
+      // Drag down = forward, drag up = rewind. 100px = 2 seconds
+      const seekTo = Math.max(0, Math.min(d.duration, dragStartPos + dy * 0.02));
+      dk?.seek(dragging, seekTo);
+      scratchPos[dragging] += (e.y - dragStartY) * 0.5;
+      dragStartY = e.y;
+      dragStartPos = seekTo;
+    }
+    return;
+  }
+
+  if (e.is("lift") && dragging >= 0) {
+    dragging = -1;
+    return;
+  }
+
+  if (!e.is("keyboard:down")) return;
 
   // --- Global ---
   if (e.is("keyboard:down:escape")) { system?.jump?.("prompt"); return; }
@@ -351,26 +400,47 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
       return;
     }
 
-    // Turntable platter (circle)
-    const cx = x0 + deckW - 30;
-    const cy = P + 30;
-    const r = 20;
-    ink(25, 25, 40);
+    // Turntable platter (large interactive circle)
+    const r = Math.min(Math.floor(deckW * 0.3), Math.floor(deckH * 0.35));
+    const cx = x0 + deckW - r - 6;
+    const cy = P + r + 6;
+    // Store for mouse hit testing
+    if (idx === 0) { platterA.cx = cx; platterA.cy = cy; platterA.r = r; }
+    else { platterB.cx = cx; platterB.cy = cy; platterB.r = r; }
+    const isDragging = dragging === idx;
+    // Platter background
+    ink(isDragging ? 35 : 20, isDragging ? 35 : 20, isDragging ? 50 : 35);
     circle(cx, cy, r, true);
-    ink(isActive ? 60 : 35, isActive ? 60 : 35, isActive ? 80 : 50);
+    // Groove rings
+    for (let gr = Math.floor(r * 0.4); gr < r; gr += 3) {
+      ink(isDragging ? 45 : 28, isDragging ? 45 : 28, isDragging ? 60 : 42);
+      circle(cx, cy, gr, false);
+    }
+    // Rim
+    ink(isActive ? 80 : 45, isActive ? 80 : 45, isActive ? 100 : 60);
     circle(cx, cy, r, false);
+    // Label dot (center)
+    ink(isDragging ? 255 : 60, isDragging ? 100 : 60, isDragging ? 60 : 80);
+    circle(cx, cy, Math.max(3, Math.floor(r * 0.15)), true);
 
-    // Spinning indicator (rotates with position)
-    const angle = (d.position || 0) * 3;
+    // Spinning needle (rotates with position + scratch)
+    const angle = ((d.position || 0) + scratchPos[idx] * 0.01) * 3;
     const nx = cx + Math.cos(angle) * (r - 4);
     const ny = cy + Math.sin(angle) * (r - 4);
     ink(d.playing ? 100 : 60, d.playing ? 255 : 120, d.playing ? 100 : 60);
-    circle(Math.floor(nx), Math.floor(ny), 2, true);
+    circle(Math.floor(nx), Math.floor(ny), Math.max(2, Math.floor(r * 0.08)), true);
+    // Line from center to needle
+    ink(50, 50, 70);
+    line(cx, cy, Math.floor(nx), Math.floor(ny));
 
-    // Scratch indicator
-    if (scratching[idx]) {
-      ink(255, 80, 80);
-      write("SCR", { x: cx - 9, y: cy + r + 3, size: 1, font: F });
+    // Drag hint
+    if (isActive && !isDragging) {
+      ink(dim, dim, dim + 10);
+      write("drag", { x: cx - 12, y: cy + r + 3, size: 1, font: F });
+    }
+    if (isDragging) {
+      ink(255, 100, 60);
+      write("SCRATCH", { x: cx - 20, y: cy + r + 3, size: 1, font: F });
     }
 
     // Title

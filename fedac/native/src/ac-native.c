@@ -2286,9 +2286,9 @@ int main(int argc, char *argv[]) {
         if (!wifi_disabled) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
-            wifi = wifi_init();
-            // Don't autoconnect — iw scan blocks DRM page flip for 65ms+.
-            // WiFi scans only when user explicitly requests from prompt.
+            // WiFi disabled — notepat.mjs scans every 2s which causes 65ms+
+            // frame drops from iw scan. Re-enable once scan is non-blocking.
+            wifi = NULL;
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
