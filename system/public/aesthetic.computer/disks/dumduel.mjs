@@ -31,6 +31,7 @@ let roster = [];
 let phase = "waiting";
 let countdownTimer = 0;
 let roundWinner = null;
+let roundLoser = null;
 let ping = 0;
 
 // Opponent interpolation
@@ -184,11 +185,13 @@ function boot({ wipe, screen, net: { socket, udp }, handle, sound, send }) {
     if (type === "duel:roundover") {
       phase = "roundover";
       roundWinner = msg.winner;
+      roundLoser = msg.loser;
     }
 
     if (type === "duel:advance") {
       roster = (msg.roster || []).map((h) => ({ handle: h }));
       roundWinner = null;
+      roundLoser = null;
     }
 
     if (type === "duel:pong") {
@@ -400,15 +403,16 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
       }, undefined, undefined, false, "MatrixChunky8");
     }
 
-    // Round over text
-    if (phase === "roundover" && roundWinner) {
-      const won = roundWinner === myHandle;
-      const msg = won ? "you got em!" : "you died!";
-      if (won) ink(50, 160, 80); else ink(200, 70, 60);
-      write(msg, {
-        x: ox + Math.floor(ARENA_W / 2 - msg.length * 3),
-        y: oy - 12,
-      });
+    // Round over text — third person kill message
+    if (phase === "roundover" && roundWinner && roundLoser) {
+      const wc = playerColor(roundWinner);
+      const lc = playerColor(roundLoser);
+      const killMsg = roundWinner + " shot " + roundLoser;
+      const startX = ox + Math.floor(ARENA_W / 2 - killMsg.length * 3);
+      const y = oy - 12;
+      ink(wc[0], wc[1], wc[2]).write(roundWinner, { x: startX, y });
+      ink(120, 115, 105).write(" shot ", { x: startX + roundWinner.length * 6, y });
+      ink(lc[0], lc[1], lc[2]).write(roundLoser, { x: startX + (roundWinner.length + 6) * 6, y });
     }
   }
 
