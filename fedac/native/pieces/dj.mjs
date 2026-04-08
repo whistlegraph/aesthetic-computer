@@ -10,6 +10,7 @@ let files = [];         // discovered audio [{path, name}]
 let trackIdx = 0;       // current track index
 let mounted = false;
 let dragging = false;
+let dragLastX = 0;
 let dragLastY = 0;
 let angle = 0;          // visual rotation angle
 let message = "";
@@ -17,9 +18,11 @@ let messageFrame = 0;
 let frame = 0;
 let lastUsbCheck = 0;
 let usbConnected = false;
-let spinSpeed = 0;      // current spin velocity (auto-decays)
+let scratchSpeed = 0;   // current scratch velocity (-2 to 2)
+let wasPlaying = false;  // was playing before scratch started
 
 function isAudio(name) {
+  if (name.startsWith(".")) return false; // skip metadata (._xxx.m4a etc)
   const dot = name.lastIndexOf(".");
   return dot >= 0 && AUDIO_EXTS.has(name.slice(dot + 1).toLowerCase());
 }
@@ -85,26 +88,52 @@ function act({ event: e, sound, system, tts, screen }) {
   const w = screen?.width || 320;
   const h = screen?.height || 240;
 
-  // --- Mouse/touchpad scratch ---
+  // --- Mouse/touchpad scratch (radial around platter center) ---
   if (e.is("touch")) {
     dragging = true;
+    dragLastX = e.x;
     dragLastY = e.y;
-    spinSpeed = 0;
-    if (d?.playing) dk.pause(0);
+    wasPlaying = d?.playing || false;
+    // Keep playing but we'll modulate speed
+    scratchSpeed = 0;
     return;
   }
   if (e.is("draw") && dragging) {
     if (d?.loaded) {
-      const dy = e.y - dragLastY;
-      const seekAmt = dy * 0.03; // drag sensitivity
-      const pos = Math.max(0, Math.min(d.duration, d.position + seekAmt));
-      dk.seek(0, pos);
-      angle += dy * 0.02;
+      const cx = (screen?.width || 320) / 2;
+      const cy = (screen?.height || 240) / 2 - 10;
+      // Compute angular change around platter center
+      const prevAngle = Math.atan2(dragLastY - cy, dragLastX - cx);
+      const curAngle = Math.atan2(e.y - cy, e.x - cx);
+      let delta = curAngle - prevAngle;
+      // Normalize to [-PI, PI]
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+      // Convert angular delta to speed: positive = forward, negative = reverse
+      scratchSpeed = delta * 8; // sensitivity multiplier
+      // Clamp
+      if (scratchSpeed > 3) scratchSpeed = 3;
+      if (scratchSpeed < -3) scratchSpeed = -3;
+      dk.setSpeed(0, scratchSpeed);
+      if (!d.playing) dk.play(0);
+      angle += delta;
+      dragLastX = e.x;
       dragLastY = e.y;
     }
     return;
   }
   if (e.is("lift")) {
+    if (dragging && d?.loaded) {
+      // Release: resume normal speed or stop
+      if (wasPlaying) {
+        dk.setSpeed(0, 1);
+        dk.play(0);
+      } else {
+        dk.setSpeed(0, 1);
+        dk.pause(0);
+      }
+      scratchSpeed = 0;
+    }
     dragging = false;
     return;
   }
@@ -143,13 +172,22 @@ function act({ event: e, sound, system, tts, screen }) {
     return;
   }
 
-  // Arrow keys: seek
+  // Arrow keys: speed/stretch (like a pitch fader)
   if (e.is("keyboard:down:arrowleft")) {
-    if (d?.loaded) dk.seek(0, Math.max(0, d.position - 5));
+    if (d?.loaded) dk.setSpeed(0, Math.max(-2, (d.speed || 1) - 0.1));
     return;
   }
   if (e.is("keyboard:down:arrowright")) {
-    if (d?.loaded) dk.seek(0, Math.min(d.duration, d.position + 5));
+    if (d?.loaded) dk.setSpeed(0, Math.min(3, (d.speed || 1) + 0.1));
+    return;
+  }
+  // Arrow up/down: seek
+  if (e.is("keyboard:down:arrowup")) {
+    if (d?.loaded) dk.seek(0, Math.min(d.duration, d.position + 10));
+    return;
+  }
+  if (e.is("keyboard:down:arrowdown")) {
+    if (d?.loaded) dk.seek(0, Math.max(0, d.position - 10));
     return;
   }
 
@@ -157,9 +195,8 @@ function act({ event: e, sound, system, tts, screen }) {
   if (e.is("keyboard:down:-")) { if (d) dk.setVolume(0, Math.max(0, d.volume - 0.05)); return; }
   if (e.is("keyboard:down:=")) { if (d) dk.setVolume(0, Math.min(1, d.volume + 0.05)); return; }
 
-  // Speed
-  if (e.is("keyboard:down:z")) { if (d?.loaded) dk.setSpeed(0, Math.max(0.5, d.speed - 0.05)); return; }
-  if (e.is("keyboard:down:x")) { if (d?.loaded) dk.setSpeed(0, Math.min(2.0, d.speed + 0.05)); return; }
+  // Z: reset speed to 1x
+  if (e.is("keyboard:down:z")) { if (d?.loaded) dk.setSpeed(0, 1); msg("1.00x"); return; }
 }
 
 function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
@@ -177,10 +214,9 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   const cy = Math.floor(h / 2) - 10;
   const r = Math.min(cx - 8, cy - 16);
 
-  // Rotate angle
+  // Rotate angle — follows playback speed (including negative for reverse scratch)
   if (d.playing && !dragging) {
     angle += (d.speed || 1) * 0.05;
-    spinSpeed = d.speed || 1;
   }
 
   // Platter
@@ -256,7 +292,7 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
   // Status bar
   const sY = h - 10;
   ink(dim, dim, dim + 10);
-  write("Spc:play N/P:track R:scan Esc:exit", { x: 4, y: sY, size: 1, font: F });
+  write("Spc:play N/P:trk </>:spd Z:1x R:scan", { x: 4, y: sY, size: 1, font: F });
 
   // Drag state
   if (dragging) {
