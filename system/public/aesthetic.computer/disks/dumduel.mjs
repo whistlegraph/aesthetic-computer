@@ -440,20 +440,20 @@ function paint({ wipe, ink, box, write, circle, line, screen }) {
     si++;
   }
 
-  // Spectator HUD
+  // Who vs who (top center, colored handles — visible to all)
+  const duelHandles = (snap?.players || []).map((p) => p.handle);
+  if (duelHandles.length >= 2) {
+    const h0 = duelHandles[0], h1 = duelHandles[1];
+    const c0 = playerColor(h0), c1 = playerColor(h1);
+    const full = h0 + " vs " + h1;
+    const startX = Math.floor(sw / 2 - full.length * 3);
+    ink(c0[0], c0[1], c0[2]).write(h0, { x: startX, y: 4 });
+    ink(120, 115, 105).write(" vs ", { x: startX + h0.length * 6, y: 4 });
+    ink(c1[0], c1[1], c1[2]).write(h1, { x: startX + (h0.length + 4) * 6, y: 4 });
+  }
+
+  // Spectator label
   if (spectator) {
-    // Who vs who (top center, colored handles)
-    const duelHandles = (snap?.players || []).map((p) => p.handle);
-    if (duelHandles.length >= 2) {
-      const h0 = duelHandles[0], h1 = duelHandles[1];
-      const c0 = playerColor(h0), c1 = playerColor(h1);
-      const full = h0 + " vs " + h1;
-      const startX = Math.floor(sw / 2 - full.length * 3);
-      ink(c0[0], c0[1], c0[2]).write(h0, { x: startX, y: 4 });
-      ink(120, 115, 105).write(" vs ", { x: startX + h0.length * 6, y: 4 });
-      ink(c1[0], c1[1], c1[2]).write(h1, { x: startX + (h0.length + 4) * 6, y: 4 });
-    }
-    // "spectator" label (yellow on red, normal font, bottom center)
     ink(180, 40, 40).box(Math.floor(sw / 2 - 30), sh - 14, 60, 12);
     ink(255, 220, 60).write("spectator", {
       x: Math.floor(sw / 2 - 27),
