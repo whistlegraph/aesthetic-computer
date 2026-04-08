@@ -2286,9 +2286,9 @@ int main(int argc, char *argv[]) {
         if (!wifi_disabled) {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "starting wifi...", pixel_scale);
-            // WiFi disabled — notepat.mjs scans every 2s which causes 65ms+
-            // frame drops from iw scan. Re-enable once scan is non-blocking.
-            wifi = NULL;
+            wifi = wifi_init();
+            // Don't autoconnect from C — notepat.mjs handles scanning
+            // at 30s intervals (reduced from 2s to avoid 65ms frame drops).
         } else {
             if (!headless && display)
                 draw_boot_status(&graph, screen, display, "wifi disabled", pixel_scale);
