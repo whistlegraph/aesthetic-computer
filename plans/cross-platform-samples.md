@@ -7,121 +7,160 @@ in painting bitmaps. `stample.mjs` uses this today. Paintings have full
 infrastructure: upload, CDN, short codes (`#k3d`), @handle ownership, track-media
 API, and cross-platform rendering.
 
-**We don't need a new storage system. Samples should be stored as paintings.**
-
-Record audio → encode as bitmap → save as painting → get a short code → share.
-Anyone loads the painting back as audio on web or native.
+**Samples use the same `#` sigil and PNG storage format as paintings, but live in
+a separate `samples` MongoDB collection with audio-specific metadata.**
 
 ---
 
-## Current State
+## Architecture Decision: Shared Sigil, Separate Collection
 
-### Web (stample.mjs + pixel-sample.mjs)
-- `encodeSampleToBitmap(data, width)` — float32[] → RGB pixels (3 samples/pixel)
-- `decodeBitmapToSample(bitmap, meta)` — RGB pixels → float32[]
-- `loadPaintingAsAudio(source, opts)` — load a painting code/object as playable audio
-- Paintings upload via `track-media.mjs` → DO Spaces + MongoDB + short code
-- Download via `/media/@handle/painting/slug.png` or `/media/paintings/CODE.png`
+### Why `#` (not a new sigil like `^`)
+- Samples and paintings share the same PNG storage format
+- A painting can BE a sample (load any image as audio via stample)
+- A sample IS a painting (the pixel-encoded waveform is visible art)
+- `%` and `&` are URL-unfriendly (`%` is URL escape, `&` is query separator)
+- Keeps the sigil set small: `@` people, `$` code, `#` media, `*` time
 
-### Native (ac-native)
-- Samples stored as raw float32 PCM (rate + length + data) at `/mnt/ac-sample.raw`
-- `audio_sample_save()` / `audio_sample_load()` in C
-- `sound.sample.saveTo(path)` / `sound.sample.loadFrom(path)` JS bindings
-- `sound.sample.getData()` → Float32Array, `sound.sample.loadData(f32, rate)` → load
-- `/mnt/samples/` directory with `manifest.json` for local sample library
-- No pixel-sample encoding yet, no painting upload capability
+### Why separate collection (not a flag on paintings)
+- Clean querying: "list my samples" vs "list my paintings" without filters
+- Separate indexes optimized for audio metadata (duration, sampleRate, etc.)
+- Separate counts/quotas per media type
+- Future-proof: audio-specific features (waveform preview, BPM detection)
+
+### Shared code namespace
+- `#` codes must be unique across BOTH `paintings` AND `samples` collections
+- `generateUniqueCode()` checks both collections before assigning
+- Other sigils (`$` KidLisp, `*` clock, tapes) have independent namespaces
+- The code resolver checks both collections to find which type a `#code` refers to
 
 ---
 
-## Plan
+## MongoDB Schema
 
-### Phase 1: Native Pixel-Sample Bridge
+### Collection: `samples`
+```js
+{
+  _id: ObjectId,
+  user: "auth0|63effeeb...",      // owner (null for guest)
+  slug: "kick-drum",              // user-friendly name
+  code: "k3d",                    // unique short code (shared with paintings)
+  when: ISODate,                  // upload timestamp
+  
+  // Sample-specific metadata
+  v: 1,                           // pixel-sample encoding version
+  sampleRate: 48000,
+  sampleLength: 240000,           // exact sample count
+  duration: 5.0,                  // seconds
+  channels: 1,
+  source: "native",               // or "web"
+  
+  // Standard media fields
+  ext: "png",                     // storage format
+  width: 256,                     // image dimensions
+  height: 313,
+}
+```
 
-**Add pixel-sample encoding/decoding to native JS pieces.**
+### Indexes
+```js
+// Unique code (shared namespace with paintings — enforced at generation time)
+await samples.createIndex({ code: 1 }, { unique: true, sparse: true });
 
-Since native pieces run in QuickJS (no DOM, no Canvas), implement a pure-JS
-version of the encode/decode that works without browser APIs:
+// User queries: "list my samples"
+await samples.createIndex({ user: 1 });
 
-**File: `fedac/native/pieces/lib/pixel-sample-native.mjs`**
-- `encodeSampleToBitmap(float32Array, width)` — same algorithm as web version
-  (float32 → 8-bit RGB, 3 samples per pixel)
-- `decodeBitmapToSample(rgbaArray, width, height, sampleLength)` — reverse
-- These are pure math — no DOM needed
+// Audio-specific queries
+await samples.createIndex({ duration: 1 });          // sort by length
+await samples.createIndex({ "source": 1 });           // native vs web
+await samples.createIndex({ v: 1 });                  // encoding version (for migration)
+await samples.createIndex({ when: -1 });              // recent first
+await samples.createIndex({ user: 1, slug: 1 }, { unique: true }); // per-user slugs
+```
 
-**Modify: `fedac/native/pieces/samples.mjs`**
-- When saving, also encode sample as bitmap PNG
-- Store both `.raw` (for instant native reload) and `.png` (for upload/sharing)
+### Encoding Version Contract
+```
+v1 (current — pixel-sample.mjs):
+  - 3 audio samples per pixel (R, G, B channels)
+  - Float range -1.0..+1.0 mapped to 0..255
+  - A channel: 255 (opaque)
+  - Width: 256px (configurable)
+  - Height: ceil(sampleLength / 3 / width)
+  - Mono only
+  - The `v` field MUST be stored on every record so decoders know which algorithm to use
+```
 
-**Requires:** A way to write PNG from native. Options:
-1. Use the existing `graph.c` framebuffer snapshot capability
-2. Add a minimal PNG writer in C (stb_image_write.h is ~1KB)
-3. Encode as BMP (simpler header, no compression) — paintings can be any image format
+---
 
-### Phase 2: Native Painting Upload
+## Implementation Plan
 
-**Let native devices upload paintings to the AC cloud.**
+### Phase 1: Backend — track-media + code generation
+**Files to modify:**
 
-**Add C binding: `system.uploadPainting(localPath, handle, token)`**
-- POST to `/api/track-media` with painting metadata
-- GET presigned upload URL
-- PUT the image file to DO Spaces
-- Returns short code on success
+1. **`system/netlify/functions/track-media.mjs`**
+   - Add `mediaType: "sample"` branch for PNG uploads with sample metadata
+   - Route to `samples` collection instead of `paintings`
+   - Store `v`, `sampleRate`, `sampleLength`, `duration`, `channels`, `source`
 
-**Or simpler: POST the bitmap directly.**
-- Encode sample as pixel data in JS
-- Use `system.fetchPost()` to send base64-encoded bitmap to a new
-  `/api/sample-painting` endpoint that:
-  1. Decodes the base64 bitmap
-  2. Renders it as PNG via sharp/canvas
-  3. Uploads to DO Spaces via existing painting pipeline
-  4. Returns a short code
+2. **`system/backend/generate-short-code.mjs`**
+   - `generateUniqueCode()` accepts optional `siblingCollections` array
+   - For `#` codes: checks both `paintings` AND `samples` before assigning
+   - Other types unchanged (single collection check)
 
-**Update samples.mjs:** Add `u` (upload) key that encodes the current sample
-as a painting bitmap and uploads it. Shows the short code on success.
+3. **`system/netlify/functions/painting-code.mjs`** (or equivalent resolver)
+   - When resolving `#code`, check `paintings` first, then `samples`
+   - Return `{ type: "painting" | "sample", ...record }` so the client knows
 
-### Phase 3: Native Painting Download (Load Remote Samples)
+4. **New: `system/netlify/functions/list-samples.mjs`** (or extend existing)
+   - `GET /api/samples/@handle` → list user's samples
+   - `GET /api/samples/@handle/:slug` → get specific sample
+   - Returns CDN URLs + metadata
 
-**Let native devices load samples from painting codes.**
+### Phase 2: Native pixel-sample bridge
+**Files to create/modify:**
 
+1. **`fedac/native/pieces/lib/pixel-sample-native.mjs`**
+   - Pure-JS encode/decode (no DOM, no Canvas — works in QuickJS)
+   - Same algorithm as web `pixel-sample.mjs`
+   - `encodeSampleToBitmap(float32Array, width)` → RGBA pixel array
+   - `decodeBitmapToSample(rgbaArray, width, height, sampleLength)` → float32[]
+
+2. **PNG write from native**
+   - Option A: Add `stb_image_write.h` (single-header, ~1KB) for PNG encoding in C
+   - Option B: Minimal PNG writer in JS (deflate + PNG header — ~100 lines)
+   - Option C: BMP format (simpler, no compression, server converts to PNG on upload)
+
+### Phase 3: Upload from native
 **Flow:**
-1. User types a painting code (e.g., `#k3d`) in samples.mjs
-2. `system.fetch("/api/painting-code?code=k3d")` → get slug + handle
-3. `system.fetchBinary("https://aesthetic.computer/media/paintings/k3d.png", "/tmp/sample.png")`
-4. Decode PNG → extract RGB pixels → `decodeBitmapToSample()` → load into audio
+```
+Record audio → float32[] → encodeSampleToBitmap → PNG bytes
+  → POST /api/track-media { ext:"png", mediaType:"sample", sampleMeta:{v:1,...} }
+  → GET presigned URL → PUT PNG to Spaces → #code returned
+```
 
-**Requires:** PNG decoding in native. Options:
-1. Add `stb_image.h` to the C build (single-header PNG decoder, tiny)
-2. Decode in JS using a pure-JS PNG decoder
-3. Use the existing `graph.c` image loading if it supports PNG
+**Files:**
+- `fedac/native/pieces/samples.mjs` — add upload key (`u`)
+- `fedac/native/src/js-bindings.c` — `system.uploadMedia()` binding if needed
+- Or use existing `system.fetch()` + `system.fetchPost()` for the API calls
 
-### Phase 4: Unified samples.mjs (Web + Native)
+### Phase 4: Download to native
+**Flow:**
+```
+Type #code → resolve via /api/painting-code → get CDN URL
+  → fetchBinary(url, /tmp/sample.png) → decode PNG → decodeBitmapToSample
+  → sound.sample.loadData(float32, rate) → play
+```
 
-**Create a web `samples.mjs` piece that mirrors the native one.**
+**Requires:** PNG decoding in native
+- Option A: `stb_image.h` (single-header PNG decoder)
+- Option B: Decode in JS (pure-JS PNG inflate)
+- Option C: Server endpoint that returns raw PCM (avoid client-side PNG decode)
 
-**File: `system/public/aesthetic.computer/disks/samples.mjs`**
-
-Uses the existing painting infrastructure:
-- List user's paintings that are tagged as samples (metadata flag)
-- Record new sample via `Microphone` API
-- Encode → upload as painting via `track-media`
-- Browse + play back via `loadPaintingAsAudio()`
-- Share via short code
-- Compatible with native — same painting, same code, playable on both
-
-### Phase 5: notepat Cross-Platform Samples
-
-**Both web and native notepat can load sample paintings.**
-
-**Native notepat.mjs:**
-- Add `stample CODE` command or sample bank that loads from painting codes
-- After recording, offer to save as painting (upload to cloud)
-- Saved samples show their short code in the status bar
-
-**Web notepat.mjs:**
-- Already has `stample.mjs` as a sibling piece
-- Add sample mode that uses `loadPaintingAsAudio()` to load from codes
-- Shared sample format means a sample recorded on bare metal can be
-  played in the browser and vice versa
+### Phase 5: Unified experience
+- **notepat.mjs**: type `#code` to load a sample from cloud into sample bank
+- **samples.mjs**: browse/record/upload/download on web and native
+- **stample.mjs**: already works, becomes the web sample player
+- **Gallery**: shows speaker icon on `#` codes that are samples
+- **Profile**: separate "samples" tab alongside "paintings"
 
 ---
 
@@ -134,13 +173,14 @@ Native Record             Web Record
      |                         |
   encodeSampleToBitmap    encodeSampleToBitmap
      |                         |
-  RGB pixels              RGB pixels
+  PNG bytes               PNG bytes (via Canvas)
      |                         |
-  upload as painting      upload as painting
+  POST /api/track-media   POST /api/track-media
+  { mediaType:"sample" }  { mediaType:"sample" }
      |                         |
      +----→  DO Spaces  ←------+
-             + MongoDB
-             + short code (#k3d)
+             + MongoDB "samples"
+             + short code (#abc)
                   |
      +------------+------------+
      |                         |
@@ -153,47 +193,29 @@ Native Record             Web Record
   audio playback          audio playback
 ```
 
-## Why Paintings, Not WAV
+## Storage Math
 
-1. **Infrastructure exists** — upload, CDN, short codes, @handle, MongoDB, all done
-2. **Visual** — you can SEE the sample as an image, share it as art
-3. **Compact** — 8-bit RGB is ~4x smaller than float32 WAV for the same data
-4. **Cross-platform** — PNG/image works everywhere, WAV needs special handling
-5. **Social** — paintings are already the shareable unit in AC, samples become paintings
-6. **stample.mjs already does this** — proven format, just extend it
-
-## Storage Format
-
-```
-Painting PNG (256px wide, height varies):
-  R channel: sample[i*3+0] → 8-bit (mapped from -1..1 to 0..255)
-  G channel: sample[i*3+1]
-  B channel: sample[i*3+2]
-  A channel: 255 (opaque)
-
-Metadata (in MongoDB painting record):
-  type: "sample"
-  sampleLength: number (exact sample count)
-  sampleRate: 48000
-  durationSecs: number
-  source: "native" | "web"
-```
-
-A 5-second 48kHz sample = 240,000 samples = 80,000 pixels = 256×313 PNG ≈ 100KB.
+| Duration | Samples @48kHz | Pixels (3/px) | Image (256w) | PNG size |
+|----------|---------------|---------------|--------------|----------|
+| 1 sec    | 48,000        | 16,000        | 256×63       | ~20 KB   |
+| 5 sec    | 240,000       | 80,000        | 256×313      | ~100 KB  |
+| 10 sec   | 480,000       | 160,000       | 256×625      | ~200 KB  |
 
 ## Key Files
 
 | Existing | Purpose |
 |----------|---------|
-| `system/public/aesthetic.computer/lib/pixel-sample.mjs` | Encode/decode samples↔paintings |
+| `system/public/aesthetic.computer/lib/pixel-sample.mjs` | Encode/decode samples↔bitmaps |
 | `system/public/aesthetic.computer/disks/stample.mjs` | Web sample-painting player |
-| `system/netlify/functions/track-media.mjs` | Painting upload API |
+| `system/netlify/functions/track-media.mjs` | Media upload API |
 | `system/netlify/functions/painting-code.mjs` | Short code → slug resolver |
+| `system/backend/generate-short-code.mjs` | Unique code generation |
 | `system/netlify/functions/presigned-url.js` | CDN upload/download URLs |
 
 | New/Modified | Purpose |
 |-------------|---------|
-| `fedac/native/pieces/lib/pixel-sample-native.mjs` | Pure-JS encode/decode for native |
-| `fedac/native/pieces/samples.mjs` | Add upload/download/code support |
+| `fedac/native/pieces/lib/pixel-sample-native.mjs` | Pure-JS encode/decode for QuickJS |
+| `fedac/native/pieces/samples.mjs` | Native sample browser + upload/download |
 | `system/public/aesthetic.computer/disks/samples.mjs` | Web sample browser piece |
-| `fedac/native/src/js-bindings.c` | PNG read/write bindings if needed |
+| `system/netlify/functions/track-media.mjs` | Add sample branch |
+| `system/backend/generate-short-code.mjs` | Cross-collection check for # codes |
