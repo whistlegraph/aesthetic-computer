@@ -592,21 +592,21 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // F8: Hold/latch — capture currently-playing notes and keep them sounding
+    // F8: Hold/latch toggle
+    // ON: snapshot current keys + auto-latch new keys while held
+    // OFF: stop all held notes and clear
     if (key === "f8") {
       if (holdActive) {
-        // Release hold: stop all held notes
+        // Clear hold: stop all held notes
         for (const k of heldKeys) stopSoundKey(k, sound, system, 0.08);
         heldKeys.clear();
         holdActive = false;
         sound?.synth?.({ type: "sine", tone: 330, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
       } else {
-        // Engage hold: snapshot all currently-sounding keys
+        // Engage hold: snapshot current keys (may be empty — new keys auto-latch)
         heldKeys = new Set(Object.keys(sounds));
-        holdActive = heldKeys.size > 0;
-        if (holdActive) {
-          sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
-        }
+        holdActive = true;
+        sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
       }
       return;
     }
