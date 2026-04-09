@@ -291,39 +291,10 @@
       padding: 0 !important;
     }
 
-    /* Body-level container for Monaco overflow widgets (context menu).
-       Appended to <body> via JS so it escapes all ancestor stacking contexts. */
-    #monaco-overflow-widgets {
-      position: relative;
-      z-index: 200000;
-    }
-    #monaco-overflow-widgets .monaco-menu-container,
-    #monaco-overflow-widgets .shadow-root-host,
-    #monaco-overflow-widgets .context-view,
-    #monaco-overflow-widgets .action-bar,
-    #monaco-overflow-widgets .editor-widget {
-      z-index: 200000 !important;
-    }
-    /* Context menu needs explicit background since it's outside .monaco-editor */
-    #monaco-overflow-widgets .monaco-menu {
-      background: #ffffff;
-      border: 1px solid #c8c8c8;
-      border-radius: 4px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
-    @media (prefers-color-scheme: dark) {
-      #monaco-overflow-widgets .monaco-menu {
-        background: #252526;
-        border-color: #454545;
-      }
-    }
-    [data-theme="dark"] #monaco-overflow-widgets .monaco-menu {
-      background: #252526;
-      border-color: #454545;
-    }
-    [data-theme="light"] #monaco-overflow-widgets .monaco-menu {
-      background: #ffffff;
-      border-color: #c8c8c8;
+    /* Editor panel gets high z-index so Monaco's context menu (rendered inside
+       with full theme styling) appears above sibling elements (gutters, etc.) */
+    .editor-panel {
+      z-index: 100;
     }
 
     /* Flush Monaco text to top-left edge in stage mode */
@@ -15663,15 +15634,8 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // LOCAL indicator removed - no longer needed
       
-      // Create a body-level container for Monaco overflow widgets (context menu)
-      // so they escape all ancestor stacking contexts (gutters, headers, etc.)
-      const overflowContainer = document.createElement('div');
-      overflowContainer.id = 'monaco-overflow-widgets';
-      document.body.appendChild(overflowContainer);
-
       // Create the editor
       editor = monaco.editor.create(editorContainer, {
-        overflowWidgetsDomNode: overflowContainer,
         value: localStorage.getItem('kidlisp-code') || '',
         language: 'kidlisp',
         theme: initialTheme,
