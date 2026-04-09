@@ -116,9 +116,7 @@ if [ ! -f "$BUILD/quickjs/quickjs.h" ]; then
     cd "$NATIVE"
 fi
 
-SDL_FLAG=""
-if [ "${AC_BUILD_SDL:-1}" = "1" ]; then SDL_FLAG="USE_SDL=1"; fi
-make -j$(nproc) CC="${CC_USE}" BUILDDIR="$BUILD" ${SDL_FLAG} \
+make -j$(nproc) CC="${CC_USE}" BUILDDIR="$BUILD" \
     BUILD_TS="$BUILD_TS" GIT_HASH="$GIT_HASH" BUILD_NAME="$BUILD_NAME" \
     > "$BUILD/.make.log" 2>&1 || true
 
