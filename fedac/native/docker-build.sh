@@ -8,7 +8,7 @@ SRC="${AC_SRC:-/repo}"
 OUT="${AC_OUT:-/out}"
 NATIVE="$SRC/fedac/native"
 BUILD="$NATIVE/build"
-KVER="${KERNEL_VERSION:-6.14.2}"
+KVER="${KERNEL_VERSION:-6.19.9}"
 KMAJOR="${KVER%%.*}"
 MEDIA_LAYOUT_LIB="$NATIVE/scripts/media-layout.sh"
 
