@@ -47,12 +47,13 @@ ifeq ($(HAVE_AVCODEC),1)
   LDFLAGS += $(AV_LIBS)
 endif
 
-# SDL3 GPU-accelerated display (optional: make USE_SDL=1)
+# SDL3 GPU-accelerated display (runtime dlopen — no link-time dep)
+# USE_SDL=1 enables compile-time support; SDL3 is loaded via dlopen at runtime.
+# Binary runs and falls back to DRM even without SDL3 libs installed.
 ifdef USE_SDL
   SDL_CFLAGS := $(shell pkg-config --cflags sdl3 2>/dev/null)
-  SDL_LIBS   := $(shell pkg-config --libs sdl3 2>/dev/null || echo "-lSDL3")
   CFLAGS  += -DUSE_SDL $(SDL_CFLAGS)
-  LDFLAGS += $(SDL_LIBS)
+  # No -lSDL3 — all symbols resolved via dlsym at runtime
 endif
 
 # Wayland display backend (for running under cage compositor: make USE_WAYLAND=1)
