@@ -7,9 +7,7 @@
 #include "framebuffer.h"
 #include "graph.h"
 
-#ifdef USE_SDL
-#include <SDL3/SDL.h>
-#endif
+// SDL3 loaded via dlopen at runtime — no header dependency
 
 typedef struct {
     int fd;                     // DRM or fbdev device fd
@@ -39,15 +37,13 @@ typedef struct {
     int fbdev_stride;           // fbdev line length in pixels
     int fbdev_swap_rb;          // 1 if need to swap R and B channels (BGR format)
 
-    // SDL3 GPU-accelerated display
-#ifdef USE_SDL
+    // SDL3 GPU-accelerated display (loaded via dlopen — void* to avoid header dep)
     int is_sdl;                 // 1 if using SDL3 backend
-    SDL_Window *sdl_window;
-    SDL_Renderer *sdl_renderer;
-    SDL_Texture *sdl_texture;
+    void *sdl_window;
+    void *sdl_renderer;
+    void *sdl_texture;
     int sdl_tex_w, sdl_tex_h;  // texture dimensions (matches small framebuffer)
     char sdl_renderer_name[32]; // renderer driver name (e.g. "opengl", "vulkan")
-#endif
 } ACDisplay;
 
 // Get display driver name ("sdl3:opengl", "drm", "fbdev", "wayland")
