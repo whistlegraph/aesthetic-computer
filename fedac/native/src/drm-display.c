@@ -21,14 +21,20 @@
 
 extern void ac_log(const char *fmt, ...);
 
-// Probe whether SDL3 can init without crashing (runs in a child process)
+// Probe whether SDL3 can load + init without crashing (runs in a child process).
+// This catches missing DRI drivers, GBM failures, and segfaults in Mesa.
 static int sdl_probe_safe(void) {
     pid_t pid = fork();
     if (pid < 0) return 0; // fork failed, skip SDL
     if (pid == 0) {
-        // Child: try SDL_Init, exit 0 on success, 1 on failure, crash = signal
-        if (getpid() != 1) // never true in child, but set env anyway
-            setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+        // Child: try dlopen + SDL_Init. If anything crashes, parent sees the signal.
+        void *lib = dlopen("libSDL3.so.0", RTLD_LAZY);
+        if (!lib) _exit(2); // SDL not available
+        dlclose(lib);
+        setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+        setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
+        setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
+        setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
         int ok = SDL_Init(SDL_INIT_VIDEO) ? 0 : 1;
         if (!ok) SDL_Quit();
         _exit(ok);
@@ -37,31 +43,20 @@ static int sdl_probe_safe(void) {
     int status = 0;
     waitpid(pid, &status, 0);
     if (WIFSIGNALED(status)) {
-        ac_log("[sdl3] Probe crashed (signal %d) — skipping SDL3\n",
+        ac_log("[sdl3] Probe crashed (signal %d) — falling back to DRM\n",
                WTERMSIG(status));
         return 0;
     }
     if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
         return 1;
     }
-    ac_log("[sdl3] Probe failed (exit %d) — skipping SDL3\n",
-           WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+    ac_log("[sdl3] Probe failed (exit %d) — falling back to DRM\n", code);
     return 0;
 }
 
 static ACDisplay *sdl_init(void) {
-    // Check if libSDL3 is even loadable
-    void *sdl_lib = dlopen("libSDL3.so.0", RTLD_LAZY | RTLD_NOLOAD);
-    if (!sdl_lib) {
-        sdl_lib = dlopen("libSDL3.so.0", RTLD_LAZY);
-        if (!sdl_lib) {
-            ac_log("[sdl3] libSDL3.so.0 not found — skipping\n");
-            return NULL;
-        }
-    }
-    dlclose(sdl_lib);
-
-    // Probe in a child process to catch segfaults
+    // Probe in a child process first — catches segfaults from broken DRI/GBM
     if (!sdl_probe_safe()) return NULL;
 
     // Set KMSDRM hints for bare metal (no X11/Wayland)
