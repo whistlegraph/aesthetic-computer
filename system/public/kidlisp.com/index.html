@@ -7642,8 +7642,6 @@
     /* Split.js Gutter Styles - smaller since headers handle reordering */
     .gutter {
       transition: all 0.2s;
-      position: relative;
-      z-index: 1;
       background-color: var(--border-color) !important;
     }
     
@@ -7660,13 +7658,11 @@
     /* Main vertical gutter (between top and bottom rows) */
     #top-row + .gutter.gutter-vertical {
       background: linear-gradient(to right, rgba(255, 140, 0, 0.3) 0%, rgba(255, 140, 0, 0.3) 50%, rgba(100, 149, 237, 0.3) 50%, rgba(100, 149, 237, 0.3) 100%) !important; /* Orange left, Blue right */
-      z-index: 2;
     }
 
     /* Top row horizontal gutter (between editor and preview) */
     #editor-panel + .gutter.gutter-horizontal {
       background-color: rgb(240, 235, 250) !important; /* Light muted purple to match aesthetic.computer tab */
-      z-index: 1;
     }
     
     @media (prefers-color-scheme: dark) {
@@ -7686,7 +7682,6 @@
     /* Bottom row horizontal gutter (between reference and console) */
     #reference-panel + .gutter.gutter-horizontal {
       background-color: rgba(100, 149, 237, 0.3) !important; /* Blue */
-      z-index: 1;
     }
 
     @media (hover: hover) {
