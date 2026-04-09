@@ -28,6 +28,10 @@ let globalSample = null;   // { data: Float32Array, len: number, rate: number } 
 let endArmed = false;      // true while End key is held (arm per-key recording)
 let perKeyRecording = null; // key currently recording in per-key mode
 
+// Hold/latch: F8 captures currently-held notes and keeps them sounding
+let holdActive = false;      // true when hold is engaged
+let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
+
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
   return pitchShift * fxMix;
@@ -348,6 +352,8 @@ function stopSoundKey(key, sound, system, fade = 0.08) {
 }
 
 function stopAllSounds(sound, system, fade = 0.08) {
+  heldKeys.clear();
+  holdActive = false;
   for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
   touchNotes = {};
   system?.usbMidi?.allNotesOff?.(0);
@@ -584,6 +590,24 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
+    // F8: Hold/latch — capture currently-playing notes and keep them sounding
+    if (key === "f8") {
+      if (holdActive) {
+        // Release hold: stop all held notes
+        for (const k of heldKeys) stopSoundKey(k, sound, system, 0.08);
+        heldKeys.clear();
+        holdActive = false;
+        sound?.synth?.({ type: "sine", tone: 330, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+      } else {
+        // Engage hold: snapshot all currently-sounding keys
+        heldKeys = new Set(Object.keys(sounds));
+        holdActive = heldKeys.size > 0;
+        if (holdActive) {
+          sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+        }
+      }
+      return;
+    }
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
     if (key === "arrowup") { octave = Math.min(9, octave + 1); return; }
     if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
@@ -741,6 +765,8 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (sounds[key]) {
+      // Don't stop held/latched notes on key release
+      if (heldKeys.has(key)) return;
       stopSoundKey(key, sound, system, quickMode ? 0.02 : 0.08);
     }
   }
@@ -2298,6 +2324,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       box(obx, waveRowY, 1, waveRowH, true);
       ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
+      // HOLD indicator
+      if (holdActive) {
+        obx += octBtnW + 2;
+        const holdW = 30;
+        ink(dark ? 80 : 180, dark ? 40 : 100, dark ? 40 : 100);
+        box(obx, waveRowY, holdW, waveRowH, true);
+        ink(255, dark ? 180 : 60, dark ? 120 : 40);
+        write("HOLD", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+      }
     }
 
     // Mic level meter in sample mode — compact multi-segment bar next to REC.
