@@ -216,14 +216,27 @@ for lib in $(ldd "$BUILD/ac-native" 2>/dev/null | grep -oP '/\S+'); do
     [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$BASENAME"
 done
 
-# SDL3 + Mesa/GPU libs — NOT included in initramfs.
-# Mesa DRI drivers segfault on ThinkPad 11e during dlopen and no signal
-# handler can recover (process state is corrupted). SDL3 GPU acceleration
-# will be enabled when we move to a multi-process architecture where
-# ac-native runs as a child of init (not PID 1), so DRI crashes are
-# recoverable via process restart.
-# For now: DRM dumb buffers work fine for all target hardware.
-log "  SDL3/Mesa libs: skipped (DRM dumb buffer mode)"
+# SDL3 + Mesa/GPU libs — included for GPU acceleration via dlopen.
+# ac-native runs as a child of init (not PID 1), so if Mesa DRI crashes,
+# init catches the signal and restarts without SDL (AC_NO_SDL=1).
+for lib in libSDL3.so.0 \
+    libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
+    libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0 \
+    libdrm_intel.so.1 libdrm_amdgpu.so.1; do
+    REAL=$(readlink -f "/lib64/$lib" 2>/dev/null)
+    [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$lib"
+done
+
+# Mesa DRI drivers
+if [ -d /lib64/dri ]; then
+    mkdir -p "$IROOT/lib64/dri"
+    for drv in /lib64/dri/i915_dri.so /lib64/dri/iris_dri.so /lib64/dri/kms_swrast_dri.so /lib64/dri/swrast_dri.so; do
+        [ -f "$drv" ] && cp -L "$drv" "$IROOT/lib64/dri/"
+    done
+fi
+# Gallium megadriver
+GALLIUM=$(readlink -f /lib64/libgallium-*.so 2>/dev/null || true)
+[ -f "$GALLIUM" ] && cp -L "$GALLIUM" "$IROOT/lib64/"
 
 # Transitive deps — resolve everything in lib64
 log "  Resolving transitive dependencies..."

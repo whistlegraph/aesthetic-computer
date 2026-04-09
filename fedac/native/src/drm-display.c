@@ -105,11 +105,18 @@ static void sdl_crash_handler(int sig) {
 }
 
 static ACDisplay *sdl_init(void) {
+    // Check if SDL was disabled by init after a previous crash
+    const char *no_sdl = getenv("AC_NO_SDL");
+    if (no_sdl && no_sdl[0] == '1') {
+        ac_log("[sdl3] Disabled via AC_NO_SDL (previous crash) — using DRM\n");
+        return NULL;
+    }
+
     // Set Mesa env vars before any dlopen
     setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
     setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
     setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
-    if (getpid() == 1) setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+    setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
 
     // Install crash handler — catches SIGSEGV/SIGBUS from Mesa DRI loading
     struct sigaction sa = {0}, old_segv = {0}, old_bus = {0}, old_abrt = {0};
