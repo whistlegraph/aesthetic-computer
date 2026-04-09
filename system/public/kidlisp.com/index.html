@@ -321,10 +321,19 @@
       background: transparent !important;
     }
 
-    /* Thin white outline on editor text for readability over animation */
+    /* Cycling color drop shadow on editor text for readability over animation */
     body.stage-mode:not(.device-mode) .monaco-editor .view-lines span {
-      -webkit-text-stroke: 0.5px rgba(255, 255, 255, 0.6);
-      paint-order: stroke fill;
+      text-shadow: 1px 1px 2px var(--stage-shadow-color, rgba(0,0,0,0.8));
+      animation: stage-shadow-cycle 6s linear infinite;
+    }
+    @keyframes stage-shadow-cycle {
+      0%   { --stage-shadow-color: rgba(0, 0, 0, 0.8); }
+      16%  { --stage-shadow-color: rgba(255, 255, 255, 0.9); }
+      33%  { --stage-shadow-color: rgba(0, 200, 255, 0.8); }
+      50%  { --stage-shadow-color: rgba(255, 0, 180, 0.8); }
+      66%  { --stage-shadow-color: rgba(255, 220, 0, 0.8); }
+      83%  { --stage-shadow-color: rgba(0, 255, 120, 0.8); }
+      100% { --stage-shadow-color: rgba(0, 0, 0, 0.8); }
     }
 
     /* Hide line numbers in stage mode */
