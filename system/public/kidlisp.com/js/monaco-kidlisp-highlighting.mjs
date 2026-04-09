@@ -313,7 +313,13 @@ export class MonacoKidLispHighlighter {
       const shadow = this._getShadowForColor(cssColor);
       const shadowStyle = shadow ? ` text-shadow: ${shadow};` : '';
 
-      style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold;${shadowStyle} }`;
+      // Stage mode always gets a dynamic contrast shadow for readability over animation
+      const stageShadow = this._getStageShadowForColor(cssColor);
+      const stageRule = stageShadow
+        ? ` body.stage-mode:not(.device-mode) .monaco-editor .view-line > span > span.${cssClass} { text-shadow: ${stageShadow}; }`
+        : '';
+
+      style.textContent = `.monaco-editor .view-line > span > span.${cssClass} { color: ${cssColor}; font-weight: bold;${shadowStyle} }${stageRule}`;
       document.head.appendChild(style);
     }
 
@@ -361,6 +367,98 @@ export class MonacoKidLispHighlighter {
       return '1px 1px 0px rgba(220, 220, 220, 0.8)';
     } else if (luminance < 100) {
       return '1px 1px 0px rgba(200, 200, 200, 0.6)';
+    }
+
+    return null;
+  }
+
+  /**
+   * Get dynamic contrast shadow for stage mode (algorithm from disk.mjs)
+   * Always returns a shadow — ensures readability over any background animation.
+   * @private
+   */
+  _getStageShadowForColor(colorStr) {
+    let rgb = this._parseColorToRGB(colorStr);
+    if (!rgb) return '1px 1px 2px rgba(0,0,0,0.8)'; // fallback dark shadow
+
+    const [r, g, b] = rgb;
+
+    // Very dark colors (near black) get bright shadow
+    if (r <= 24 && g <= 24 && b <= 24) {
+      return '1px 1px 2px rgba(220,220,220,0.9)';
+    }
+
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+
+    // Bright colors get dark shadow
+    if (luminance > 140) {
+      return '1px 1px 2px rgba(30,20,50,0.9)';
+    }
+
+    // Red channel special case
+    if (r >= 0 && g === 0 && b === 0) {
+      const sr = Math.max(32, Math.round(r * 0.4));
+      return `1px 1px 2px rgb(${sr},0,0)`;
+    }
+
+    // Green channel special case
+    if (r === 0 && g >= 0 && b === 0) {
+      const sg = Math.max(32, Math.round(g * 0.4));
+      return `1px 1px 2px rgb(0,${sg},0)`;
+    }
+
+    // Blue/cyan channel special case
+    if (r === 0 && b >= 0 && g >= 0) {
+      const expectedG = Math.round(b * 0.75);
+      if (Math.abs(g - expectedG) <= 1) {
+        const sg = Math.max(24, Math.round(g * 0.4));
+        const sb = Math.max(32, Math.round(b * 0.4));
+        return `1px 1px 2px rgb(0,${sg},${sb})`;
+      }
+    }
+
+    // Dark colors — lighten shadow (mix 85% with white)
+    if (luminance < 128) {
+      const factor = 0.85;
+      const sr = Math.round(r + (255 - r) * factor);
+      const sg = Math.round(g + (255 - g) * factor);
+      const sb = Math.round(b + (255 - b) * factor);
+      return `1px 1px 2px rgb(${sr},${sg},${sb})`;
+    }
+
+    // Light colors — darken shadow (60% darker)
+    const factor = 0.6;
+    const sr = Math.round(r * (1 - factor));
+    const sg = Math.round(g * (1 - factor));
+    const sb = Math.round(b * (1 - factor));
+    return `1px 1px 2px rgb(${sr},${sg},${sb})`;
+  }
+
+  /**
+   * Parse a CSS color string to [r, g, b]
+   * @private
+   */
+  _parseColorToRGB(colorStr) {
+    if (!colorStr) return null;
+
+    // rgb(...) format
+    if (colorStr.startsWith('rgb')) {
+      const parts = colorStr.replace(/rgb\(|\)/g, '').split(',').map(v => parseInt(v.trim()));
+      return parts.length >= 3 ? parts : null;
+    }
+
+    // Named color — look up in cssColorMap
+    const lower = colorStr.toLowerCase();
+    if (this.cssColorMap[lower]) return this.cssColorMap[lower];
+
+    // Hex format
+    if (colorStr.startsWith('#')) {
+      const hex = colorStr.slice(1);
+      if (hex.length === 3) {
+        return [parseInt(hex[0]+hex[0],16), parseInt(hex[1]+hex[1],16), parseInt(hex[2]+hex[2],16)];
+      } else if (hex.length >= 6) {
+        return [parseInt(hex.slice(0,2),16), parseInt(hex.slice(2,4),16), parseInt(hex.slice(4,6),16)];
+      }
     }
 
     return null;
