@@ -294,8 +294,9 @@ if [ -f "$IROOT/lib64/dri/iris_dri.so" ]; then
     else
         log "  iris_dri.so: all deps OK"
     fi
-    # Final ldd check — log to build output
-    LD_LIBRARY_PATH="$IROOT/lib64" ldd "$IROOT/lib64/dri/iris_dri.so" 2>&1 | grep -c "not found" | xargs -I{} log "  iris_dri.so final check: {} missing deps"
+    # Final ldd check
+    FINAL_MISSING=$(LD_LIBRARY_PATH="$IROOT/lib64" ldd "$IROOT/lib64/dri/iris_dri.so" 2>&1 | grep -c "not found" || true)
+    log "  iris_dri.so final check: ${FINAL_MISSING:-0} missing deps"
 fi
 
 # ── 2h: Verify NO broken symlinks ──
