@@ -127,12 +127,20 @@ static int sdl_probe_safe(void) {
 }
 
 static ACDisplay *sdl_init(void) {
+    // Skip SDL when running as PID 1 (bare metal init) — the DRI/Mesa
+    // probe can corrupt GPU state even in a child process, and fork()
+    // from PID 1 has kernel implications. Use DRM dumb buffers instead.
+    // SDL works fine when running under a proper init system (systemd, etc.)
+    if (getpid() == 1) {
+        ac_log("[sdl3] Skipping SDL3 (PID 1 — using DRM dumb buffers)\n");
+        return NULL;
+    }
     // Probe in child process first (catches DRI segfaults)
     if (!sdl_probe_safe()) return NULL;
     // Load SDL3 via dlopen
     if (!sdl_load()) return NULL;
 
-    if (getpid() == 1) setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+    setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
 
     if (!sdl.Init(0x20)) { // SDL_INIT_VIDEO
         ac_log("[sdl3] SDL_Init failed: %s\n", sdl.GetError ? sdl.GetError() : "?");
