@@ -147,14 +147,21 @@ fi
 # Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    # Debug: log lib deps + capture ALL output including linker errors
+    # Pre-launch: dump lib check to both tty0 and USB
+    echo "[init] checking libs..." > /dev/tty0 2>/dev/null
     LD_LIBRARY_PATH="/lib64" /lib64/ld-linux-x86-64.so.2 --list /ac-native > /tmp/ldd.log 2>&1 || true
-    ls /lib64/libgbm* /lib64/libSDL* /lib64/libEGL* /lib64/dri/ >> /tmp/ldd.log 2>&1 || true
+    # Show missing libs on screen
+    grep "not found" /tmp/ldd.log > /dev/tty0 2>/dev/null || echo "[init] all libs OK" > /dev/tty0 2>/dev/null
     [ "$USB_MOUNTED" = "1" ] && cp /tmp/ldd.log /mnt/ldd.log 2>/dev/null && sync
-    # Run via ld-linux to capture linker errors to file
-    LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris /ac-native /piece.mjs > /tmp/ac-native-stdout.log 2>/tmp/ac-native-stderr.log
-    # Save immediately after crash
-    [ "$USB_MOUNTED" = "1" ] && cp /tmp/ac-native-stderr.log /mnt/ac-native-stderr.log 2>/dev/null && cp /tmp/ac-native-stdout.log /mnt/ac-native-stdout.log 2>/dev/null && sync
+    # Launch ac-native
+    echo "[init] launching ac-native..." > /dev/tty0 2>/dev/null
+    LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
+    # After crash: dump stderr to tty0 so user can see it
+    echo "[init] ac-native exited ($?)" > /dev/tty0 2>/dev/null
+    head -10 /tmp/ac-native-stderr.log > /dev/tty0 2>/dev/null
+    [ "$USB_MOUNTED" = "1" ] && cp /tmp/ac-native-stderr.log /mnt/ac-native-stderr.log 2>/dev/null && sync
+    # Pause so user can read the error
+    sleep 5
     EXIT_CODE=$?
     echo "[init] ac-native exited: code=$EXIT_CODE crash=$CRASH_COUNT" > /dev/tty0 2>/dev/null
     echo "[init] stderr: $(tail -5 /tmp/ac-native-stderr.log 2>/dev/null)" > /dev/tty0 2>/dev/null
