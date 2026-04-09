@@ -534,6 +534,7 @@
       /* border-right: 2px solid var(--border-color); Removed for Split.js */
       background: #fffacd; /* Legal pad yellow */
       position: relative; /* For live-running/live-paused ::before pseudo-element */
+      z-index: 0; /* Create stacking context so ::before at z-index:-1 sits above bg but below content (context menu) */
     }
 
     @media (prefers-color-scheme: dark) {
@@ -1522,9 +1523,9 @@
       border: 2px solid rgba(144, 238, 144, 0.4);
       border-radius: 4px;
       pointer-events: none; /* Allow clicks through to Monaco */
-      z-index: 10; /* Low z-index - must be BELOW modals (100000) */
+      z-index: -1; /* Below all content (including context menu) but above panel background */
     }
-    
+
     /* Paused state - yellow outline matching pause button (#ffd93d) */
     .editor-panel.live-paused::before,
     #kidlisp-editor.live-paused::before {
@@ -1537,7 +1538,7 @@
       border: 2px solid rgba(255, 217, 61, 0.4);
       border-radius: 4px;
       pointer-events: none;
-      z-index: 10; /* Low z-index - must be BELOW modals (100000) */
+      z-index: -1; /* Below all content (including context menu) but above panel background */
     }
     
     /* Dark mode: slightly brighter for visibility */
@@ -1574,7 +1575,7 @@
       border: 2px solid rgba(147, 112, 219, 0.5);
       border-radius: 4px;
       pointer-events: none;
-      z-index: 10;
+      z-index: -1; /* Below all content (including context menu) but above panel background */
       animation: stop-pulse 2s ease-in-out infinite;
     }
 
