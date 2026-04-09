@@ -291,10 +291,10 @@
       padding: 0 !important;
     }
 
-    /* Editor panel gets high z-index so Monaco's context menu (rendered inside
-       with full theme styling) appears above sibling elements (gutters, center-square, etc.) */
-    .editor-panel {
-      z-index: 1000;
+    /* Only boost editor panel z-index when context menu is open,
+       so it doesn't permanently cover the center-square or other elements. */
+    .editor-panel:has(.context-view) {
+      z-index: 100000;
     }
 
     /* Flush Monaco text to top-left edge in stage mode */
