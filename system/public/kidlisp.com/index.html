@@ -304,6 +304,27 @@
     #monaco-overflow-widgets .editor-widget {
       z-index: 200000 !important;
     }
+    /* Context menu needs explicit background since it's outside .monaco-editor */
+    #monaco-overflow-widgets .monaco-menu {
+      background: #ffffff;
+      border: 1px solid #c8c8c8;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    @media (prefers-color-scheme: dark) {
+      #monaco-overflow-widgets .monaco-menu {
+        background: #252526;
+        border-color: #454545;
+      }
+    }
+    [data-theme="dark"] #monaco-overflow-widgets .monaco-menu {
+      background: #252526;
+      border-color: #454545;
+    }
+    [data-theme="light"] #monaco-overflow-widgets .monaco-menu {
+      background: #ffffff;
+      border-color: #c8c8c8;
+    }
 
     /* Flush Monaco text to top-left edge in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .lines-content {
