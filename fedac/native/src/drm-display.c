@@ -94,58 +94,62 @@ static int sdl_load(void) {
     return 1;
 }
 
-// Probe SDL3 in a child process — catches segfaults from broken DRI/GBM/Mesa
-static int sdl_probe_safe(void) {
-    pid_t pid = fork();
-    if (pid < 0) return 0;
-    if (pid == 0) {
-        // Child: try full init. Crash = signal caught by parent.
-        setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
-        setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
-        setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
-        setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
-        void *lib = dlopen("libSDL3.so.0", RTLD_LAZY);
-        if (!lib) _exit(2);
-        pfn_SDL_Init fn_init = (pfn_SDL_Init)dlsym(lib, "SDL_Init");
-        pfn_SDL_Quit fn_quit = (pfn_SDL_Quit)dlsym(lib, "SDL_Quit");
-        if (!fn_init) _exit(3);
-        int ok = fn_init(0x20) ? 0 : 1; // SDL_INIT_VIDEO = 0x20
-        if (!ok && fn_quit) fn_quit();
-        dlclose(lib);
-        _exit(ok);
-    }
-    int status = 0;
-    waitpid(pid, &status, 0);
-    if (WIFSIGNALED(status)) {
-        ac_log("[sdl3] Probe crashed (signal %d) — falling back to DRM\n", WTERMSIG(status));
-        return 0;
-    }
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) return 1;
-    ac_log("[sdl3] Probe failed (exit %d) — falling back to DRM\n",
-           WIFEXITED(status) ? WEXITSTATUS(status) : -1);
-    return 0;
+// Signal-based crash recovery for SDL3 init (no fork needed)
+#include <setjmp.h>
+static sigjmp_buf sdl_crash_jmp;
+static volatile int sdl_crash_sig = 0;
+
+static void sdl_crash_handler(int sig) {
+    sdl_crash_sig = sig;
+    siglongjmp(sdl_crash_jmp, 1);
 }
 
 static ACDisplay *sdl_init(void) {
-    // Skip SDL when running as PID 1 (bare metal init) — the DRI/Mesa
-    // probe can corrupt GPU state even in a child process, and fork()
-    // from PID 1 has kernel implications. Use DRM dumb buffers instead.
-    // SDL works fine when running under a proper init system (systemd, etc.)
-    if (getpid() == 1) {
-        ac_log("[sdl3] Skipping SDL3 (PID 1 — using DRM dumb buffers)\n");
+    // Set Mesa env vars before any dlopen
+    setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
+    setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
+    setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
+    if (getpid() == 1) setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+
+    // Install crash handler — catches SIGSEGV/SIGBUS from Mesa DRI loading
+    struct sigaction sa = {0}, old_segv = {0}, old_bus = {0}, old_abrt = {0};
+    sa.sa_handler = sdl_crash_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, &old_segv);
+    sigaction(SIGBUS, &sa, &old_bus);
+    sigaction(SIGABRT, &sa, &old_abrt);
+
+    if (sigsetjmp(sdl_crash_jmp, 1) != 0) {
+        // Crashed during SDL init — restore handlers and fall back
+        sigaction(SIGSEGV, &old_segv, NULL);
+        sigaction(SIGBUS, &old_bus, NULL);
+        sigaction(SIGABRT, &old_abrt, NULL);
+        ac_log("[sdl3] Crashed (signal %d) during init — falling back to DRM\n", sdl_crash_sig);
+        if (sdl_lib_handle) { dlclose(sdl_lib_handle); sdl_lib_handle = NULL; }
+        memset(&sdl, 0, sizeof(sdl));
         return NULL;
     }
-    // Probe in child process first (catches DRI segfaults)
-    if (!sdl_probe_safe()) return NULL;
-    // Load SDL3 via dlopen
-    if (!sdl_load()) return NULL;
 
-    setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
+    // Try loading SDL3 (dlopen may trigger Mesa DRI load → potential crash)
+    if (!sdl_load()) {
+        sigaction(SIGSEGV, &old_segv, NULL);
+        sigaction(SIGBUS, &old_bus, NULL);
+        sigaction(SIGABRT, &old_abrt, NULL);
+        return NULL;
+    }
 
     if (!sdl.Init(0x20)) { // SDL_INIT_VIDEO
         ac_log("[sdl3] SDL_Init failed: %s\n", sdl.GetError ? sdl.GetError() : "?");
+        sigaction(SIGSEGV, &old_segv, NULL);
+        sigaction(SIGBUS, &old_bus, NULL);
+        sigaction(SIGABRT, &old_abrt, NULL);
         return NULL;
     }
+    // Past the danger zone — restore handlers now
+    sigaction(SIGSEGV, &old_segv, NULL);
+    sigaction(SIGBUS, &old_bus, NULL);
+    sigaction(SIGABRT, &old_abrt, NULL);
 
     unsigned int primary = sdl.GetPrimaryDisplay();
     if (!primary) {
@@ -196,6 +200,11 @@ static ACDisplay *sdl_init(void) {
     d->sdl_tex_h = 0;
     snprintf(d->sdl_renderer_name, sizeof(d->sdl_renderer_name), "%s",
              ren_name ? ren_name : "unknown");
+
+    // Restore signal handlers — SDL init survived
+    sigaction(SIGSEGV, &old_segv, NULL);
+    sigaction(SIGBUS, &old_bus, NULL);
+    sigaction(SIGABRT, &old_abrt, NULL);
 
     ac_log("[sdl3] Ready (%dx%d)\n", d->width, d->height);
     return d;
