@@ -291,9 +291,12 @@
       padding: 0 !important;
     }
 
-    /* Only boost editor panel z-index when context menu is open,
-       so it doesn't permanently cover the center-square or other elements. */
+    /* Boost z-index of editor containers only when context menu is open,
+       so it renders above play buttons, header, center-square, etc. */
     .editor-panel:has(.context-view) {
+      z-index: 100000;
+    }
+    .viz-container:has(.context-view) {
       z-index: 100000;
     }
 
