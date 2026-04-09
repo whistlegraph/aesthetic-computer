@@ -10,9 +10,9 @@
 #include <sys/select.h>
 #include <linux/fb.h>
 
-#ifdef USE_SDL
 // ============================================================
-// SDL3 GPU-accelerated display (uses KMSDRM backend on bare metal)
+// SDL3 GPU-accelerated display — loaded via dlopen (no link-time dep)
+// Falls back to DRM/fbdev if SDL3 libs are missing or broken.
 // ============================================================
 
 #include <dlfcn.h>
@@ -21,91 +21,159 @@
 
 extern void ac_log(const char *fmt, ...);
 
-// Probe whether SDL3 can load + init without crashing (runs in a child process).
-// This catches missing DRI drivers, GBM failures, and segfaults in Mesa.
+// SDL3 function pointers (resolved via dlsym at runtime)
+static void *sdl_lib_handle = NULL;
+typedef int   (*pfn_SDL_Init)(unsigned int);
+typedef void  (*pfn_SDL_Quit)(void);
+typedef const char *(*pfn_SDL_GetError)(void);
+typedef unsigned int (*pfn_SDL_GetPrimaryDisplay)(void);
+typedef const void *(*pfn_SDL_GetDesktopDisplayMode)(unsigned int);
+typedef void *(*pfn_SDL_CreateWindow)(const char *, int, int, unsigned int);
+typedef void  (*pfn_SDL_DestroyWindow)(void *);
+typedef void *(*pfn_SDL_CreateRenderer)(void *, const char *);
+typedef void  (*pfn_SDL_DestroyRenderer)(void *);
+typedef int   (*pfn_SDL_RenderClear)(void *);
+typedef int   (*pfn_SDL_RenderPresent)(void *);
+typedef int   (*pfn_SDL_RenderTexture)(void *, void *, const void *, const void *);
+typedef void *(*pfn_SDL_CreateTexture)(void *, unsigned int, int, int, int);
+typedef void  (*pfn_SDL_DestroyTexture)(void *);
+typedef int   (*pfn_SDL_UpdateTexture)(void *, const void *, const void *, int);
+typedef int   (*pfn_SDL_SetRenderVSync)(void *, int);
+typedef int   (*pfn_SDL_SetTextureScaleMode)(void *, int);
+typedef void  (*pfn_SDL_HideCursor)(void);
+typedef const char *(*pfn_SDL_GetRendererName)(void *);
+
+static struct {
+    pfn_SDL_Init Init;
+    pfn_SDL_Quit Quit;
+    pfn_SDL_GetError GetError;
+    pfn_SDL_GetPrimaryDisplay GetPrimaryDisplay;
+    pfn_SDL_GetDesktopDisplayMode GetDesktopDisplayMode;
+    pfn_SDL_CreateWindow CreateWindow;
+    pfn_SDL_DestroyWindow DestroyWindow;
+    pfn_SDL_CreateRenderer CreateRenderer;
+    pfn_SDL_DestroyRenderer DestroyRenderer;
+    pfn_SDL_RenderClear RenderClear;
+    pfn_SDL_RenderPresent RenderPresent;
+    pfn_SDL_RenderTexture RenderTexture;
+    pfn_SDL_CreateTexture CreateTexture;
+    pfn_SDL_DestroyTexture DestroyTexture;
+    pfn_SDL_UpdateTexture UpdateTexture;
+    pfn_SDL_SetRenderVSync SetRenderVSync;
+    pfn_SDL_SetTextureScaleMode SetTextureScaleMode;
+    pfn_SDL_HideCursor HideCursor;
+    pfn_SDL_GetRendererName GetRendererName;
+} sdl = {0};
+
+static int sdl_load(void) {
+    if (sdl_lib_handle) return 1;
+    setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
+    setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
+    setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
+    sdl_lib_handle = dlopen("libSDL3.so.0", RTLD_LAZY);
+    if (!sdl_lib_handle) {
+        ac_log("[sdl3] dlopen failed: %s\n", dlerror());
+        return 0;
+    }
+    #define LOAD(name) sdl.name = (pfn_SDL_##name)dlsym(sdl_lib_handle, "SDL_" #name)
+    LOAD(Init); LOAD(Quit); LOAD(GetError);
+    LOAD(GetPrimaryDisplay); LOAD(GetDesktopDisplayMode);
+    LOAD(CreateWindow); LOAD(DestroyWindow);
+    LOAD(CreateRenderer); LOAD(DestroyRenderer);
+    LOAD(RenderClear); LOAD(RenderPresent); LOAD(RenderTexture);
+    LOAD(CreateTexture); LOAD(DestroyTexture); LOAD(UpdateTexture);
+    LOAD(SetRenderVSync); LOAD(SetTextureScaleMode);
+    LOAD(HideCursor); LOAD(GetRendererName);
+    #undef LOAD
+    if (!sdl.Init || !sdl.CreateWindow || !sdl.CreateRenderer) {
+        ac_log("[sdl3] Missing required symbols\n");
+        dlclose(sdl_lib_handle);
+        sdl_lib_handle = NULL;
+        return 0;
+    }
+    return 1;
+}
+
+// Probe SDL3 in a child process — catches segfaults from broken DRI/GBM/Mesa
 static int sdl_probe_safe(void) {
     pid_t pid = fork();
-    if (pid < 0) return 0; // fork failed, skip SDL
+    if (pid < 0) return 0;
     if (pid == 0) {
-        // Child: try dlopen + SDL_Init. If anything crashes, parent sees the signal.
-        void *lib = dlopen("libSDL3.so.0", RTLD_LAZY);
-        if (!lib) _exit(2); // SDL not available
-        dlclose(lib);
+        // Child: try full init. Crash = signal caught by parent.
         setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
         setenv("LIBGL_DRIVERS_PATH", "/lib64/dri", 0);
         setenv("GBM_DRIVERS_PATH", "/lib64/dri", 0);
         setenv("MESA_LOADER_DRIVER_OVERRIDE", "iris", 0);
-        int ok = SDL_Init(SDL_INIT_VIDEO) ? 0 : 1;
-        if (!ok) SDL_Quit();
+        void *lib = dlopen("libSDL3.so.0", RTLD_LAZY);
+        if (!lib) _exit(2);
+        pfn_SDL_Init fn_init = (pfn_SDL_Init)dlsym(lib, "SDL_Init");
+        pfn_SDL_Quit fn_quit = (pfn_SDL_Quit)dlsym(lib, "SDL_Quit");
+        if (!fn_init) _exit(3);
+        int ok = fn_init(0x20) ? 0 : 1; // SDL_INIT_VIDEO = 0x20
+        if (!ok && fn_quit) fn_quit();
+        dlclose(lib);
         _exit(ok);
     }
-    // Parent: wait for child
     int status = 0;
     waitpid(pid, &status, 0);
     if (WIFSIGNALED(status)) {
-        ac_log("[sdl3] Probe crashed (signal %d) — falling back to DRM\n",
-               WTERMSIG(status));
+        ac_log("[sdl3] Probe crashed (signal %d) — falling back to DRM\n", WTERMSIG(status));
         return 0;
     }
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        return 1;
-    }
-    int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-    ac_log("[sdl3] Probe failed (exit %d) — falling back to DRM\n", code);
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) return 1;
+    ac_log("[sdl3] Probe failed (exit %d) — falling back to DRM\n",
+           WIFEXITED(status) ? WEXITSTATUS(status) : -1);
     return 0;
 }
 
 static ACDisplay *sdl_init(void) {
-    // Probe in a child process first — catches segfaults from broken DRI/GBM
+    // Probe in child process first (catches DRI segfaults)
     if (!sdl_probe_safe()) return NULL;
+    // Load SDL3 via dlopen
+    if (!sdl_load()) return NULL;
 
-    // Set KMSDRM hints for bare metal (no X11/Wayland)
-    if (getpid() == 1) {
-        setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
-    }
+    if (getpid() == 1) setenv("SDL_VIDEO_DRIVER", "kmsdrm", 0);
 
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        ac_log("[sdl3] SDL_Init failed: %s\n", SDL_GetError());
+    if (!sdl.Init(0x20)) { // SDL_INIT_VIDEO
+        ac_log("[sdl3] SDL_Init failed: %s\n", sdl.GetError ? sdl.GetError() : "?");
         return NULL;
     }
 
-    // Get primary display and its mode
-    SDL_DisplayID primary = SDL_GetPrimaryDisplay();
+    unsigned int primary = sdl.GetPrimaryDisplay();
     if (!primary) {
-        ac_log("[sdl3] No primary display: %s\n", SDL_GetError());
-        SDL_Quit();
+        ac_log("[sdl3] No primary display: %s\n", sdl.GetError());
+        sdl.Quit();
         return NULL;
     }
-    const SDL_DisplayMode *dm = SDL_GetDesktopDisplayMode(primary);
+    // SDL_DisplayMode: { int displayID, int format, int w, int h, float refresh, ... }
+    typedef struct { unsigned int id; unsigned int fmt; int w, h; float refresh; int pad; void *d; } SDLMode;
+    const SDLMode *dm = (const SDLMode *)sdl.GetDesktopDisplayMode(primary);
     if (!dm) {
-        ac_log("[sdl3] GetDesktopDisplayMode failed: %s\n", SDL_GetError());
-        SDL_Quit();
+        ac_log("[sdl3] GetDesktopDisplayMode failed: %s\n", sdl.GetError());
+        sdl.Quit();
         return NULL;
     }
 
-    SDL_Window *win = SDL_CreateWindow("ac-native", dm->w, dm->h,
-        SDL_WINDOW_FULLSCREEN);
+    void *win = sdl.CreateWindow("ac-native", dm->w, dm->h, 0x1); // SDL_WINDOW_FULLSCREEN
     if (!win) {
-        ac_log("[sdl3] CreateWindow failed: %s\n", SDL_GetError());
-        SDL_Quit();
+        ac_log("[sdl3] CreateWindow failed: %s\n", sdl.GetError());
+        sdl.Quit();
         return NULL;
     }
 
-    SDL_HideCursor();
+    if (sdl.HideCursor) sdl.HideCursor();
 
-    SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
+    void *ren = sdl.CreateRenderer(win, NULL);
     if (!ren) {
-        ac_log("[sdl3] CreateRenderer failed: %s\n", SDL_GetError());
-        SDL_DestroyWindow(win);
-        SDL_Quit();
+        ac_log("[sdl3] CreateRenderer failed: %s\n", sdl.GetError());
+        sdl.DestroyWindow(win);
+        sdl.Quit();
         return NULL;
     }
 
-    // Enable vsync
-    SDL_SetRenderVSync(ren, 1);
+    if (sdl.SetRenderVSync) sdl.SetRenderVSync(ren, 1);
 
-    // Log renderer info
-    const char *ren_name = SDL_GetRendererName(ren);
+    const char *ren_name = sdl.GetRendererName ? sdl.GetRendererName(ren) : "unknown";
     ac_log("[sdl3] Renderer: %s\n", ren_name ? ren_name : "unknown");
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
@@ -115,7 +183,6 @@ static ACDisplay *sdl_init(void) {
     d->height = dm->h;
     d->sdl_window = win;
     d->sdl_renderer = ren;
-    // Texture created lazily in display_present (needs framebuffer dimensions)
     d->sdl_texture = NULL;
     d->sdl_tex_w = 0;
     d->sdl_tex_h = 0;
@@ -125,7 +192,6 @@ static ACDisplay *sdl_init(void) {
     ac_log("[sdl3] Ready (%dx%d)\n", d->width, d->height);
     return d;
 }
-#endif /* USE_SDL */
 
 // ============================================================
 // fbdev fallback — uses /dev/fb0 (EFI framebuffer via efifb)
@@ -503,27 +569,26 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     if (!d || !screen) return;
 
 #ifdef USE_SDL
-    if (d->is_sdl) {
+    if (d->is_sdl && sdl.CreateTexture) {
         // Create/recreate texture if framebuffer size changed
         if (!d->sdl_texture || d->sdl_tex_w != screen->width || d->sdl_tex_h != screen->height) {
-            if (d->sdl_texture) SDL_DestroyTexture(d->sdl_texture);
-            d->sdl_texture = SDL_CreateTexture(d->sdl_renderer,
-                SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+            if (d->sdl_texture && sdl.DestroyTexture) sdl.DestroyTexture(d->sdl_texture);
+            d->sdl_texture = sdl.CreateTexture(d->sdl_renderer,
+                0x16362004, 1, // SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING
                 screen->width, screen->height);
-            if (d->sdl_texture) {
-                SDL_SetTextureScaleMode(d->sdl_texture, SDL_SCALEMODE_NEAREST);
+            if (d->sdl_texture && sdl.SetTextureScaleMode) {
+                sdl.SetTextureScaleMode(d->sdl_texture, 0); // SDL_SCALEMODE_NEAREST
             }
             d->sdl_tex_w = screen->width;
             d->sdl_tex_h = screen->height;
             fprintf(stderr, "[sdl3] Created texture %dx%d\n", screen->width, screen->height);
         }
-        // Upload pixels to GPU texture
-        SDL_UpdateTexture(d->sdl_texture, NULL,
-                          screen->pixels, screen->stride * (int)sizeof(uint32_t));
-        // GPU-accelerated scale to fullscreen
-        SDL_RenderClear(d->sdl_renderer);
-        SDL_RenderTexture(d->sdl_renderer, d->sdl_texture, NULL, NULL);
-        SDL_RenderPresent(d->sdl_renderer);
+        if (sdl.UpdateTexture)
+            sdl.UpdateTexture(d->sdl_texture, NULL,
+                              screen->pixels, screen->stride * (int)sizeof(uint32_t));
+        if (sdl.RenderClear) sdl.RenderClear(d->sdl_renderer);
+        if (sdl.RenderTexture) sdl.RenderTexture(d->sdl_renderer, d->sdl_texture, NULL, NULL);
+        if (sdl.RenderPresent) sdl.RenderPresent(d->sdl_renderer);
         return;
     }
 #endif
@@ -821,10 +886,10 @@ void drm_destroy(ACDisplay *d) {
 
 #ifdef USE_SDL
     if (d->is_sdl) {
-        if (d->sdl_texture) SDL_DestroyTexture(d->sdl_texture);
-        if (d->sdl_renderer) SDL_DestroyRenderer(d->sdl_renderer);
-        if (d->sdl_window) SDL_DestroyWindow(d->sdl_window);
-        SDL_Quit();
+        if (d->sdl_texture && sdl.DestroyTexture) sdl.DestroyTexture(d->sdl_texture);
+        if (d->sdl_renderer && sdl.DestroyRenderer) sdl.DestroyRenderer(d->sdl_renderer);
+        if (d->sdl_window && sdl.DestroyWindow) sdl.DestroyWindow(d->sdl_window);
+        if (sdl.Quit) sdl.Quit();
         free(d);
         return;
     }
