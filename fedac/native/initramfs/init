@@ -147,10 +147,8 @@ fi
 # Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    # Log shared lib deps before launch
-    echo "[init] ldd ac-native:" > /dev/tty0 2>/dev/null
-    LD_LIBRARY_PATH="/lib64" ldd /ac-native > /tmp/ldd.log 2>&1 || true
-    cat /tmp/ldd.log > /dev/tty0 2>/dev/null
+    # Log shared lib deps before launch (no ldd in busybox, use ld-linux directly)
+    LD_LIBRARY_PATH="/lib64" /lib64/ld-linux-x86-64.so.2 --list /ac-native > /tmp/ldd.log 2>&1 || true
     [ "$USB_MOUNTED" = "1" ] && cp /tmp/ldd.log /mnt/ldd.log 2>/dev/null && sync
     LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
     EXIT_CODE=$?
