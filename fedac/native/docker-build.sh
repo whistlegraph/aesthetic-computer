@@ -274,8 +274,8 @@ log "  Libraries: $LIB_COUNT"
 
 # ── 2i: WiFi tools ──
 for tool in wpa_supplicant wpa_cli iw dhclient rfkill; do
-    SRC_BIN=$(command -v "$tool" 2>/dev/null)
-    [ -n "$SRC_BIN" ] && cp -L "$SRC_BIN" "$IROOT/bin/"
+    SRC_BIN=$(command -v "$tool" 2>/dev/null || true)
+    if [ -n "$SRC_BIN" ]; then cp -L "$SRC_BIN" "$IROOT/bin/"; fi
     # Copy their deps too
     if [ -n "$SRC_BIN" ]; then
         for dep in $(ldd "$SRC_BIN" 2>/dev/null | grep -oP '/\S+'); do
@@ -287,7 +287,7 @@ done
 
 # ── 2i2: Disk/EFI tools (for HD install + OTA flash) ──
 for tool in sfdisk mkfs.vfat efibootmgr partprobe; do
-    SRC_BIN=$(command -v "$tool" 2>/dev/null)
+    SRC_BIN=$(command -v "$tool" 2>/dev/null || true)
     if [ -n "$SRC_BIN" ]; then
         cp -L "$SRC_BIN" "$IROOT/bin/"
         for dep in $(ldd "$SRC_BIN" 2>/dev/null | grep -oP '/\S+'); do
