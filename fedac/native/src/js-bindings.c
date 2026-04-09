@@ -64,7 +64,11 @@ static JSClassDef form_class_def = {
 static void js_painting_finalizer(JSRuntime *rt, JSValue val) {
     (void)rt;
     ACFramebuffer *fb = JS_GetOpaque(val, painting_class_id);
-    if (fb) fb_destroy(fb);
+    if (!fb) return;
+    // Don't destroy runtime-owned nopaint buffers
+    if (current_rt && (fb == current_rt->nopaint_painting || fb == current_rt->nopaint_buffer))
+        return;
+    fb_destroy(fb);
 }
 
 static JSClassDef painting_class_def = {
