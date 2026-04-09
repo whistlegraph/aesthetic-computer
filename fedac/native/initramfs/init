@@ -147,7 +147,7 @@ fi
 # Main loop — restart on crash, poweroff on exit 0, reboot on exit 2
 CRASH_COUNT=0
 while true; do
-    /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
+    LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log
     EXIT_CODE=$?
     echo "[init] ac-native exited: code=$EXIT_CODE crash=$CRASH_COUNT" > /dev/tty0 2>/dev/null
     echo "[init] stderr: $(tail -5 /tmp/ac-native-stderr.log 2>/dev/null)" > /dev/tty0 2>/dev/null
