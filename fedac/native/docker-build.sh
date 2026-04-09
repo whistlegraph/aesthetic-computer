@@ -122,6 +122,9 @@ make -j$(nproc) CC="${CC_USE}" BUILDDIR="$BUILD" \
 
 [ -f "$BUILD/ac-native" ] || { tail -60 "$BUILD/.make.log" >&2; err "Binary compilation failed"; exit 1; }
 log "  Binary: $(stat -c%s "$BUILD/ac-native") bytes"
+log "  NEEDED libs:"
+readelf -d "$BUILD/ac-native" 2>/dev/null | grep NEEDED | sed 's/.*\[/    /' | sed 's/\]//'
+ldd "$BUILD/ac-native" 2>&1 | grep -i "not found" && err "  MISSING LIBS DETECTED" || log "  All libs resolved"
 
 # CL build happens after initramfs (step 2) — see below
 
