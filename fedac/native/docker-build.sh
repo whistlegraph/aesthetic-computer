@@ -216,25 +216,17 @@ for lib in $(ldd "$BUILD/ac-native" 2>/dev/null | grep -oP '/\S+'); do
     [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$BASENAME"
 done
 
-# SDL3 + Mesa/GPU libs
-for lib in libSDL3.so.0 \
-    libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 libGLESv2.so.2 \
-    libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 libglapi.so.0 \
-    libdrm_intel.so.1 libdrm_amdgpu.so.1; do
-    REAL=$(readlink -f "/lib64/$lib" 2>/dev/null)
-    [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$lib"
-done
-
-# Mesa DRI drivers
-if [ -d /lib64/dri ]; then
-    mkdir -p "$IROOT/lib64/dri"
-    for drv in /lib64/dri/i915_dri.so /lib64/dri/iris_dri.so /lib64/dri/kms_swrast_dri.so /lib64/dri/swrast_dri.so; do
-        [ -f "$drv" ] && cp -L "$drv" "$IROOT/lib64/dri/"
-    done
-fi
-# Gallium megadriver
-GALLIUM=$(readlink -f /lib64/libgallium-*.so 2>/dev/null || true)
-[ -f "$GALLIUM" ] && cp -L "$GALLIUM" "$IROOT/lib64/"
+# SDL3 + Mesa/GPU libs — only include if SDL dlopen will be attempted.
+# These libs and their transitive deps (LLVM, etc.) can crash on hardware
+# without working DRI drivers. Since ac-native uses dlopen (not link-time),
+# the binary runs fine without them and falls back to DRM dumb buffers.
+# TODO: Re-enable when SDL3 dlopen fallback is proven stable on all targets.
+# for lib in libSDL3.so.0 libgbm.so.1 libEGL.so.1 libEGL_mesa.so.0 \
+#     libGLESv2.so.2 libGL.so.1 libGLX_mesa.so.0 libGLdispatch.so.0 \
+#     libglapi.so.0 libdrm_intel.so.1 libdrm_amdgpu.so.1; do
+#     REAL=$(readlink -f "/lib64/$lib" 2>/dev/null)
+#     [ -f "$REAL" ] && cp -L "$REAL" "$IROOT/lib64/$lib"
+# done
 
 # Transitive deps — resolve everything in lib64
 log "  Resolving transitive dependencies..."
