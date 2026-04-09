@@ -240,7 +240,7 @@ log "  Resolving transitive dependencies..."
 ADDED=1
 while [ "$ADDED" -gt 0 ]; do
     ADDED=0
-    for elf in "$IROOT/lib64/"*.so* "$IROOT/ac-native"; do
+    for elf in "$IROOT/lib64/"*.so* "$IROOT/lib64/dri/"*.so* "$IROOT/ac-native"; do
         [ -f "$elf" ] || continue
         for needed in $(readelf -d "$elf" 2>/dev/null | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/'); do
             if [ ! -f "$IROOT/lib64/$needed" ]; then
