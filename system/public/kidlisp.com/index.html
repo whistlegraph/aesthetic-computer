@@ -345,13 +345,13 @@
     }
 
     /* Hide live-running/paused/stopped green/yellow/purple outlines in stage mode */
-    body.stage-mode:not(.device-mode) .editor-panel.live-running::before,
-    body.stage-mode:not(.device-mode) .editor-panel.live-paused::before,
-    body.stage-mode:not(.device-mode) .editor-panel.live-stopped::before,
-    body.stage-mode:not(.device-mode) #kidlisp-editor.live-running::before,
-    body.stage-mode:not(.device-mode) #kidlisp-editor.live-paused::before,
-    body.stage-mode:not(.device-mode) #kidlisp-editor.live-stopped::before {
-      display: none !important;
+    body.stage-mode:not(.device-mode) .editor-panel.live-running,
+    body.stage-mode:not(.device-mode) .editor-panel.live-paused,
+    body.stage-mode:not(.device-mode) .editor-panel.live-stopped,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-running,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-paused,
+    body.stage-mode:not(.device-mode) #kidlisp-editor.live-stopped {
+      box-shadow: none !important;
     }
 
     /* Hide playback controls in stage mode */
@@ -533,8 +533,7 @@
       flex-direction: column;
       /* border-right: 2px solid var(--border-color); Removed for Split.js */
       background: #fffacd; /* Legal pad yellow */
-      position: relative; /* For live-running/live-paused ::before pseudo-element */
-      z-index: 0; /* Create stacking context so ::before at z-index:-1 sits above bg but below content (context menu) */
+      position: relative;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -1511,91 +1510,64 @@
     }
     
     /* Live running state - green outline matching play button (#90EE90) */
-    /* Applied to editor-panel to show across all viz views */
-    .editor-panel.live-running::before,
-    #kidlisp-editor.live-running::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border: 2px solid rgba(144, 238, 144, 0.4);
-      border-radius: 4px;
-      pointer-events: none; /* Allow clicks through to Monaco */
-      z-index: -1; /* Below all content (including context menu) but above panel background */
+    /* Uses box-shadow inset so it renders below content (won't cover context menu) */
+    .editor-panel.live-running,
+    #kidlisp-editor.live-running {
+      box-shadow: inset 0 0 0 2px rgba(144, 238, 144, 0.4);
     }
 
     /* Paused state - yellow outline matching pause button (#ffd93d) */
-    .editor-panel.live-paused::before,
-    #kidlisp-editor.live-paused::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border: 2px solid rgba(255, 217, 61, 0.4);
-      border-radius: 4px;
-      pointer-events: none;
-      z-index: -1; /* Below all content (including context menu) but above panel background */
+    .editor-panel.live-paused,
+    #kidlisp-editor.live-paused {
+      box-shadow: inset 0 0 0 2px rgba(255, 217, 61, 0.4);
     }
-    
+
     /* Dark mode: slightly brighter for visibility */
     @media (prefers-color-scheme: dark) {
-      .editor-panel.live-running::before,
-      #kidlisp-editor.live-running::before {
-        border-color: rgba(144, 238, 144, 0.5);
+      .editor-panel.live-running,
+      #kidlisp-editor.live-running {
+        box-shadow: inset 0 0 0 2px rgba(144, 238, 144, 0.5);
       }
-      .editor-panel.live-paused::before,
-      #kidlisp-editor.live-paused::before {
-        border-color: rgba(255, 217, 61, 0.5);
+      .editor-panel.live-paused,
+      #kidlisp-editor.live-paused {
+        box-shadow: inset 0 0 0 2px rgba(255, 217, 61, 0.5);
       }
     }
-    
-    [data-theme="dark"] .editor-panel.live-running::before,
-    [data-theme="dark"] #kidlisp-editor.live-running::before {
-      border-color: rgba(144, 238, 144, 0.5);
+
+    [data-theme="dark"] .editor-panel.live-running,
+    [data-theme="dark"] #kidlisp-editor.live-running {
+      box-shadow: inset 0 0 0 2px rgba(144, 238, 144, 0.5);
     }
-    
-    [data-theme="dark"] .editor-panel.live-paused::before,
-    [data-theme="dark"] #kidlisp-editor.live-paused::before {
-      border-color: rgba(255, 217, 61, 0.5);
+
+    [data-theme="dark"] .editor-panel.live-paused,
+    [data-theme="dark"] #kidlisp-editor.live-paused {
+      box-shadow: inset 0 0 0 2px rgba(255, 217, 61, 0.5);
     }
 
     /* Stopped state - purple outline (matches stop button) */
-    .editor-panel.live-stopped::before,
-    #kidlisp-editor.live-stopped::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border: 2px solid rgba(147, 112, 219, 0.5);
-      border-radius: 4px;
-      pointer-events: none;
-      z-index: -1; /* Below all content (including context menu) but above panel background */
+    .editor-panel.live-stopped,
+    #kidlisp-editor.live-stopped {
+      box-shadow: inset 0 0 0 2px rgba(147, 112, 219, 0.5);
       animation: stop-pulse 2s ease-in-out infinite;
     }
 
     /* Dark mode: slightly brighter for stopped state */
     @media (prefers-color-scheme: dark) {
-      .editor-panel.live-stopped::before,
-      #kidlisp-editor.live-stopped::before {
-        border-color: rgba(147, 112, 219, 0.6);
+      .editor-panel.live-stopped,
+      #kidlisp-editor.live-stopped {
+        box-shadow: inset 0 0 0 2px rgba(147, 112, 219, 0.6);
       }
     }
 
-    [data-theme="dark"] .editor-panel.live-stopped::before,
-    [data-theme="dark"] #kidlisp-editor.live-stopped::before {
-      border-color: rgba(147, 112, 219, 0.6);
+    [data-theme="dark"] .editor-panel.live-stopped,
+    [data-theme="dark"] #kidlisp-editor.live-stopped {
+      box-shadow: inset 0 0 0 2px rgba(147, 112, 219, 0.6);
     }
 
     /* Pulse animation for stopped state - purple */
     @keyframes stop-pulse {
-      0%, 100% { border-color: rgba(147, 112, 219, 0.5); }
-      50% { border-color: rgba(147, 112, 219, 0.25); }
+      0%, 100% { box-shadow: inset 0 0 0 2px rgba(147, 112, 219, 0.5); }
+      50% { box-shadow: inset 0 0 0 2px rgba(147, 112, 219, 0.25); }
     }
 
     /* Visualization Tabs */
