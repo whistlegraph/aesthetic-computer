@@ -296,6 +296,11 @@
     .context-menu-open .viz-container {
       z-index: 100000 !important;
     }
+    /* Hide play/stop buttons while context menu is open so they don't overlay it */
+    .context-menu-open #playback-controls,
+    .context-menu-open #mini-playback-controls {
+      visibility: hidden;
+    }
 
     /* Flush Monaco text to top-left edge in stage mode */
     body.stage-mode:not(.device-mode) .monaco-editor .lines-content {
