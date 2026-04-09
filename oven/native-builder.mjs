@@ -464,7 +464,7 @@ async function runBuildJob(job) {
       addLogLine(job, "stdout", "Phase 2: Compiling C kernel in Docker...");
       const cidFile = `/tmp/oven-cid-${job.id}`;
       await runPhase(job, "build", "bash", ["-c", [
-        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_BUILD_SDL=0 -v ac-os-ccache:/ccache ac-os-builder)`,
+        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_BUILD_SDL=1 -v ac-os-ccache:/ccache ac-os-builder)`,
         `echo $CID > ${cidFile}`,
         `docker start -a $CID`,
       ].join(" && ")], repoDir);
