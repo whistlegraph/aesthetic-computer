@@ -45,8 +45,8 @@ RUN mkdir -p /cache \
 RUN mkdir -p /cache && cd /cache \
     && curl -sL https://bellard.org/quickjs/quickjs-2024-01-13.tar.xz | tar xJ \
     && ln -sf quickjs-2024-01-13 quickjs \
-    && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
-    && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
+    && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.14.2.tar.xz | tar xJ \
+    && echo "=== Cached: QuickJS + Linux 6.14.2 ==="
 
 # ── Install esbuild for KidLisp bundling ──
 RUN npm install -g esbuild
