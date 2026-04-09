@@ -363,11 +363,9 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 ACDisplay *drm_init(void) {
     extern void ac_log(const char *fmt, ...);
     ac_log("[drm] drm_init() start\n");
-#ifdef USE_SDL
     ACDisplay *sdl = sdl_init();
     if (sdl) return sdl;
     ac_log("[drm] SDL3 failed, falling back to DRM dumb buffers\n");
-#endif
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
     if (!d) { ac_log("[drm] calloc failed\n"); return NULL; }
@@ -568,7 +566,6 @@ int drm_front_stride(ACDisplay *d) {
 void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
     if (!d || !screen) return;
 
-#ifdef USE_SDL
     if (d->is_sdl && sdl.CreateTexture) {
         // Create/recreate texture if framebuffer size changed
         if (!d->sdl_texture || d->sdl_tex_w != screen->width || d->sdl_tex_h != screen->height) {
@@ -591,7 +588,6 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
         if (sdl.RenderPresent) sdl.RenderPresent(d->sdl_renderer);
         return;
     }
-#endif
     (void)scale;
     // CPU fallback: scale to back buffer and flip
     fb_copy_scaled(screen, drm_back_buffer(d),
@@ -605,9 +601,7 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
 
 ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     if (!primary || primary->is_fbdev || primary->fd < 0) return NULL;
-#ifdef USE_SDL
     if (primary->is_sdl) return NULL;
-#endif
 
     drmModeRes *res = drmModeGetResources(primary->fd);
     if (!res) return NULL;
@@ -870,13 +864,11 @@ void drm_secondary_destroy(ACSecondaryDisplay *s) {
 
 const char *drm_display_driver(ACDisplay *d) {
     if (!d) return "none";
-#ifdef USE_SDL
     if (d->is_sdl) {
         static char buf[48];
         snprintf(buf, sizeof(buf), "sdl3:%s", d->sdl_renderer_name);
         return buf;
     }
-#endif
     if (d->is_fbdev) return "fbdev";
     return "drm";
 }
@@ -884,7 +876,6 @@ const char *drm_display_driver(ACDisplay *d) {
 void drm_destroy(ACDisplay *d) {
     if (!d) return;
 
-#ifdef USE_SDL
     if (d->is_sdl) {
         if (d->sdl_texture && sdl.DestroyTexture) sdl.DestroyTexture(d->sdl_texture);
         if (d->sdl_renderer && sdl.DestroyRenderer) sdl.DestroyRenderer(d->sdl_renderer);
@@ -893,7 +884,6 @@ void drm_destroy(ACDisplay *d) {
         free(d);
         return;
     }
-#endif
 
     if (d->is_fbdev) {
         // Restore console text mode

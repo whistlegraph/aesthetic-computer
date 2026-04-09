@@ -49,9 +49,7 @@ build_binary() {
     # Run make and capture exit code — version strings frozen at top of script
     mkdir -p "${BUILD_DIR}"
     local MAKE_LOG="${BUILD_DIR}/.make.log"
-    local SDL_FLAG=""
-    if [ "${USE_SDL:-}" = "1" ]; then SDL_FLAG="USE_SDL=1"; fi
-    make -j$(nproc) CC="${CC_USE}" ${SDL_FLAG} BUILD_TS="${AC_BUILD_TS}" GIT_HASH="${AC_GIT_HASH}" BUILD_NAME="${AC_BUILD_NAME}" > "${MAKE_LOG}" 2>&1
+    make -j$(nproc) CC="${CC_USE}" BUILD_TS="${AC_BUILD_TS}" GIT_HASH="${AC_GIT_HASH}" BUILD_NAME="${AC_BUILD_NAME}" > "${MAKE_LOG}" 2>&1
     local MAKE_RC=$?
     grep -E "Built:|error:" "${MAKE_LOG}" || true
     if [ ${MAKE_RC} -ne 0 ]; then
