@@ -291,13 +291,10 @@
       padding: 0 !important;
     }
 
-    /* Boost z-index of editor containers only when context menu is open,
-       so it renders above play buttons, header, center-square, etc. */
-    .editor-panel:has(.context-view) {
-      z-index: 100000;
-    }
-    .viz-container:has(.context-view) {
-      z-index: 100000;
+    /* Added by JS when context menu is open — boosts above all siblings */
+    .editor-panel.context-menu-open,
+    .context-menu-open .viz-container {
+      z-index: 100000 !important;
     }
 
     /* Flush Monaco text to top-left edge in stage mode */
@@ -7710,7 +7707,7 @@
       border: 2px solid rgba(180, 100, 150, 0.6);
       border-radius: 50%;
       cursor: move;
-      z-index: 999; /* Below rulers (1001) */
+      z-index: 1001;
       pointer-events: auto;
       box-shadow: 
         0 1px 3px rgba(0, 0, 0, 0.2),
@@ -15682,6 +15679,17 @@ s("ape_breaks_3").loopAt(2)</textarea>
       
       // Make editor globally accessible for other parts of the page
       window.editor = editor;
+
+      // Boost editor panel z-index while context menu is open so it renders
+      // above play buttons, header, center-square, etc.
+      const editorPanel = document.getElementById('editor-panel');
+      editor.onContextMenu(() => {
+        editorPanel?.classList.add('context-menu-open');
+      });
+      // Remove when clicking anywhere (context menu closes)
+      document.addEventListener('mousedown', () => {
+        editorPanel?.classList.remove('context-menu-open');
+      });
 
       // --- YIELD TO BROWSER ---
       // Editor DOM is now in the page. Yield so the browser can paint it and
