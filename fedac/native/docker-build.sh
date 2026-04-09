@@ -257,6 +257,47 @@ while [ "$ADDED" -gt 0 ]; do
     done
 done
 
+# ── 2g2: Verify DRI driver deps ──
+if [ -f "$IROOT/lib64/dri/iris_dri.so" ]; then
+    log "  Checking iris_dri.so dependencies..."
+    MISSING_DRI=""
+    for needed in $(LD_LIBRARY_PATH="$IROOT/lib64" ldd "$IROOT/lib64/dri/iris_dri.so" 2>/dev/null | grep "not found" | awk '{print $1}'); do
+        MISSING_DRI="$MISSING_DRI $needed"
+        # Try to find and copy the missing lib
+        REAL=$(readlink -f "/lib64/$needed" 2>/dev/null || readlink -f "/usr/lib64/$needed" 2>/dev/null)
+        if [ -f "$REAL" ]; then
+            cp -L "$REAL" "$IROOT/lib64/$needed"
+            log "    Fixed: $needed"
+        else
+            log "    MISSING: $needed (not found on build system)"
+        fi
+    done
+    if [ -n "$MISSING_DRI" ]; then
+        log "  iris_dri.so had missing deps:$MISSING_DRI"
+        # Re-run transitive dep resolution after fixing
+        ADDED=1
+        while [ "$ADDED" -gt 0 ]; do
+            ADDED=0
+            for elf in "$IROOT/lib64/"*.so* "$IROOT/lib64/dri/"*.so*; do
+                [ -f "$elf" ] || continue
+                for needed in $(readelf -d "$elf" 2>/dev/null | grep NEEDED | sed 's/.*\[\(.*\)\]/\1/'); do
+                    if [ ! -f "$IROOT/lib64/$needed" ]; then
+                        REAL=$(readlink -f "/lib64/$needed" 2>/dev/null || readlink -f "/usr/lib64/$needed" 2>/dev/null)
+                        if [ -f "$REAL" ]; then
+                            cp -L "$REAL" "$IROOT/lib64/$needed"
+                            ADDED=$((ADDED + 1))
+                        fi
+                    fi
+                done
+            done
+        done
+    else
+        log "  iris_dri.so: all deps OK"
+    fi
+    # Final ldd check — log to build output
+    LD_LIBRARY_PATH="$IROOT/lib64" ldd "$IROOT/lib64/dri/iris_dri.so" 2>&1 | grep -c "not found" | xargs -I{} log "  iris_dri.so final check: {} missing deps"
+fi
+
 # ── 2h: Verify NO broken symlinks ──
 BROKEN=$(find "$IROOT/lib64/" -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l)
 if [ "$BROKEN" -gt 0 ]; then
