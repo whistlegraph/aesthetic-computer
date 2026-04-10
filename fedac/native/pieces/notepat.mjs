@@ -212,6 +212,108 @@ let connectStartFrame = 0;   // frame when current connect began (for timeout)
 const CREDS_PATH = "/mnt/wifi_creds.json";
 let savedCreds = [];         // [{ssid, pass}, ...] loaded at boot
 
+// === DJ DECK (ported from dj.mjs) ===
+// Integrated turntable playback so notepat can layer melody/percussion
+// over a backing track, sync tempo, and scratch — all in one piece.
+const DJ_AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "aac", "m4a", "opus", "wma"]);
+let djFiles = [];            // [{path, name}] discovered on USB
+let djTrackIdx = 0;
+let djMounted = false;
+let djUsbConnected = false;
+let djLastUsbCheckFrame = 0;
+let djMessage = "";
+let djMessageFrame = 0;
+let djAngle = 0;             // visual spin angle (not drawn big, just for strip)
+let djDragging = false;      // true while user is scratching the deck strip
+let djDragWasPlaying = false;
+let djDragLastX = 0;
+let djScratchSpeed = 0;
+// Tap-tempo state for syncing notepat metronome to the current track
+let djTapTimes = [];         // last few tap timestamps (ms)
+let djDerivedBPM = 0;        // 0 = not yet tapped, otherwise tapped BPM
+// Cached deck strip geometry from paint() for hit-testing in act()
+let djStrip = null;          // { x, y, w, h, btnPlay, btnPrev, btnNext, btnScan, btnTap }
+
+function djIsAudio(name) {
+  if (name.startsWith(".")) return false;
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 && DJ_AUDIO_EXTS.has(name.slice(dot + 1).toLowerCase());
+}
+
+function djScanDir(system, path, results, depth) {
+  if (depth > 4) return;
+  const listing = system?.listDir?.(path);
+  if (!listing) return;
+  for (const f of listing) {
+    const full = path + "/" + f.name;
+    if (f.isDir && !f.name.startsWith(".")) djScanDir(system, full, results, depth + 1);
+    else if (djIsAudio(f.name)) results.push({ path: full, name: f.name });
+  }
+}
+
+function djScan(system, sound) {
+  djFiles = [];
+  for (const d of ["/media", "/mnt/samples", "/mnt"]) djScanDir(system, d, djFiles, 0);
+  djFiles.sort((a, b) => a.name.localeCompare(b.name));
+  djMsg(djFiles.length > 0 ? `${djFiles.length} tracks` : "no tracks found");
+  sound?.speak?.(djFiles.length > 0 ? `${djFiles.length} tracks` : "no tracks");
+}
+
+function djLoadTrack(sound) {
+  if (djFiles.length === 0) return;
+  if (djTrackIdx >= djFiles.length) djTrackIdx = 0;
+  if (djTrackIdx < 0) djTrackIdx = djFiles.length - 1;
+  const f = djFiles[djTrackIdx];
+  const ok = sound?.deck?.load?.(0, f.path);
+  if (ok) {
+    const name = f.name.replace(/\.[^.]+$/, "");
+    djMsg(name);
+    sound?.speak?.(name);
+    sound.deck.play(0);
+  } else {
+    djMsg("failed: " + f.name);
+  }
+}
+
+function djMsg(t) { djMessage = t; djMessageFrame = frame; }
+
+function djFmt(s) {
+  if (!s || s < 0) return "0:00";
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+}
+
+function djTogglePlay(sound) {
+  const dk = sound?.deck;
+  const d = dk?.decks?.[0];
+  if (!d?.loaded) return;
+  if (d.playing) { dk.pause(0); djMsg("paused"); }
+  else { dk.play(0); djMsg("playing"); }
+}
+
+// Tap-tempo: each call records a timestamp; BPM = 60000 / avg interval across
+// the last 4 intervals. Tapping in time with the deck track sets djDerivedBPM
+// and also updates notepat's metronomeBPM so the click track lines up.
+function djTapTempo() {
+  const now = Date.now();
+  // Reset if the tap gap is too big (>2s means a fresh tap sequence)
+  if (djTapTimes.length > 0 && now - djTapTimes[djTapTimes.length - 1] > 2000) {
+    djTapTimes = [];
+  }
+  djTapTimes.push(now);
+  if (djTapTimes.length > 5) djTapTimes.shift();
+  if (djTapTimes.length >= 2) {
+    let sum = 0;
+    for (let i = 1; i < djTapTimes.length; i++) sum += djTapTimes[i] - djTapTimes[i - 1];
+    const avg = sum / (djTapTimes.length - 1);
+    if (avg > 150 && avg < 2000) {
+      djDerivedBPM = Math.round(60000 / avg);
+      metronomeBPM = Math.max(20, Math.min(300, djDerivedBPM));
+      metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
+      djMsg(`${djDerivedBPM} bpm`);
+    }
+  }
+}
+
 // US-QWERTY shift map for bare-metal text input (no OS layout handling)
 const SHIFT_MAP = {
   "1":"!","2":"@","3":"#","4":"$","5":"%","6":"^","7":"&","8":"*","9":"(","0":")",
@@ -655,6 +757,19 @@ function boot({ wipe, system, sound }) {
   }
   // Capture current version for OS panel
   osCurrentVersion = system?.version || "unknown";
+
+  // Mount music USB + scan for deck tracks. If a track is already loaded
+  // in the global deck (e.g. resumed from dj.mjs), leave it be; otherwise
+  // auto-load the first discovered track so users can jam immediately.
+  djMounted = system?.mountMusic?.() || false;
+  djUsbConnected = djMounted;
+  djScan(system, sound);
+  const dk0 = sound?.deck?.decks?.[0];
+  if (dk0?.loaded) {
+    djMsg("resumed");
+  } else if (djFiles.length > 0) {
+    djLoadTrack(sound);
+  }
 }
 
 function act({ event: e, sound, wifi, system }) {
@@ -702,11 +817,48 @@ function act({ event: e, sound, wifi, system }) {
     let key = e.key?.toLowerCase();
     if (!key) return;
     // Alias laptop Fn-locked media keys to their F-key equivalents so the user
-    // doesn't have to hold Fn to access F9/F10/F11/F12 in notepat. These are
-    // the scancodes produced by input.c when the Fn modifier is NOT held.
+    // doesn't have to hold Fn to access F1-F12 in notepat. These are the
+    // scancodes produced by input.c when the Fn modifier is NOT held.
     if (key === "audiomute") key = "f10";
     else if (key === "audiovolumedown") key = "f11";
     else if (key === "audiovolumeup") key = "f12";
+    // F1-F4 are bound to the integrated DJ deck. On most laptops these
+    // physical keys produce brightness/keyboard-light scancodes without Fn.
+    else if (key === "brightnessdown") key = "f1";
+    else if (key === "brightnessup") key = "f2";
+    else if (key === "kbdlight") key = "f3";
+    else if (key === "micmute") key = "f4";
+
+    // === DJ DECK KEYS ===
+    // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. Also [ = speed−,
+    // ` = reset speed. Tap tempo on `,` (unused elsewhere in notepat).
+    if (key === "f1") { djTogglePlay(sound); return; }
+    if (key === "f2") { djTrackIdx++; djLoadTrack(sound); return; }
+    if (key === "f3") { djTrackIdx = (djTrackIdx - 1 + Math.max(1, djFiles.length)) % Math.max(1, djFiles.length); djLoadTrack(sound); return; }
+    if (key === "f4") {
+      djMounted = system?.mountMusic?.() || false;
+      djUsbConnected = djMounted;
+      djScan(system, sound);
+      if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
+      return;
+    }
+    if (key === "[") {
+      const d = sound?.deck?.decks?.[0];
+      if (d?.loaded) {
+        const s = Math.max(-2, (d.speed || 1) - 0.05);
+        sound.deck.setSpeed(0, s);
+        djMsg(`${s.toFixed(2)}x`);
+      }
+      return;
+    }
+    if (key === "`") {
+      if (sound?.deck?.decks?.[0]?.loaded) {
+        sound.deck.setSpeed(0, 1);
+        djMsg("1.00x");
+      }
+      return;
+    }
+    if (key === ",") { djTapTempo(); return; }
 
     if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
     if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
@@ -1200,6 +1352,27 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
+    // DJ deck strip: play/pause icon + scratch pad
+    const ds = globalThis.__djStrip;
+    if (ds && y >= ds.y && y < ds.y + ds.h) {
+      if (x < ds.iconW) {
+        // Tap play/pause icon
+        djTogglePlay(sound);
+      } else {
+        // Begin scratch drag
+        const dk = sound?.deck;
+        const d = dk?.decks?.[0];
+        if (d?.loaded) {
+          djDragging = true;
+          djDragWasPlaying = d.playing;
+          djDragLastX = x;
+          djScratchSpeed = 0;
+          if (!d.playing) dk.play(0);
+        }
+      }
+      return;
+    }
+
     // Wave type buttons (y 51-64)
     const wb = globalThis.__waveButtons;
     if (wb && y >= wb.y && y < wb.y + wb.h) {
@@ -1301,6 +1474,18 @@ function act({ event: e, sound, wifi, system }) {
     const w = globalThis.__screenW || 320;
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
+    // Deck scratch: horizontal drag velocity → deck speed.
+    // Positive dx forwards, negative dx backwards. Clamped to a reasonable range.
+    if (djDragging) {
+      const dk = sound?.deck;
+      if (dk?.decks?.[0]?.loaded) {
+        const dx = x - djDragLastX;
+        // 1 px ≈ 0.08 speed units; clamp to [-3, 3]
+        djScratchSpeed = Math.max(-3, Math.min(3, dx * 0.08));
+        dk.setSpeed(0, djScratchSpeed);
+      }
+      djDragLastX = x;
+    }
     if (fxDragging) {
       fxMix = Math.max(0, Math.min(1, x / w));
       sound?.fx?.setMix?.(fxMix);
@@ -1408,6 +1593,17 @@ function act({ event: e, sound, wifi, system }) {
     // Stop REC only when the REC-holding pointer is released.
     if (recording && (recPointerId === null || recPointerId === pid)) {
       stopSampleRecording(sound, "touch-lift");
+    }
+    // Deck scratch release — restore normal speed and resume or pause.
+    if (djDragging) {
+      const dk = sound?.deck;
+      if (dk?.decks?.[0]?.loaded) {
+        dk.setSpeed(0, 1);
+        if (djDragWasPlaying) dk.play(0);
+        else dk.pause(0);
+      }
+      djDragging = false;
+      djScratchSpeed = 0;
     }
     if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
@@ -2734,6 +2930,82 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   }
 
+  // === DJ DECK STRIP ===
+  // One compact line below the wave buttons. Shows play state, track name,
+  // position/duration, speed, BPM. Left icon = play/pause button. Right
+  // portion is a scratch pad (drag to setSpeed(0, v), release to resume).
+  {
+    const dk0 = soundAPI?.deck?.decks?.[0] || {};
+    const stripY = settingsY + 50; // directly below waveRow (36) + waveRowH (14)
+    const stripH = 16;
+    const bgR = dark ? 22 : 232, bgG = dark ? 22 : 232, bgB = dark ? 30 : 236;
+    ink(bgR, bgG, bgB); box(0, stripY, w, stripH, true);
+    ink(dark ? 60 : 180, dark ? 60 : 180, dark ? 70 : 190);
+    line(0, stripY + stripH - 1, w, stripY + stripH - 1);
+
+    // Play / pause icon (leftmost square)
+    const iconW = 16;
+    const playHov = hoverX >= 0 && hoverX < iconW && hoverY >= stripY && hoverY < stripY + stripH;
+    if (dk0.playing) ink(80, 200, 120, playHov ? 255 : 200);
+    else ink(dark ? 120 : 100, dark ? 120 : 100, dark ? 130 : 110, playHov ? 255 : 180);
+    box(1, stripY + 1, iconW - 2, stripH - 2, true);
+    ink(dark ? 20 : 240, dark ? 20 : 240, dark ? 25 : 245);
+    if (dk0.playing) {
+      // pause icon: two vertical bars
+      box(5, stripY + 4, 2, stripH - 8, true);
+      box(9, stripY + 4, 2, stripH - 8, true);
+    } else {
+      // play icon: triangle approximated with 3 rows
+      for (let yo = 0; yo < 8; yo++) {
+        const rowW = 8 - Math.abs(yo - 3) * 2;
+        if (rowW > 0) box(5, stripY + 4 + yo, rowW, 1, true);
+      }
+    }
+
+    // Right side: scratch pad zone (dragged to scratch) — subtle hatch pattern
+    const scratchX = iconW + 2;
+    const scratchW = w - scratchX;
+    const scratchHov = !playHov && hoverY >= stripY && hoverY < stripY + stripH;
+    if (djDragging) {
+      ink(200, 120, 60, 150);
+      box(scratchX, stripY + 1, scratchW, stripH - 2, true);
+    } else if (scratchHov) {
+      ink(dark ? 35 : 220, dark ? 35 : 220, dark ? 45 : 228);
+      box(scratchX, stripY + 1, scratchW, stripH - 2, true);
+    }
+
+    // Text: title / pos / dur / speed / BPM
+    const title = dk0.loaded ? (dk0.title || "?").replace(/\.[^.]+$/, "") : (djFiles.length > 0 ? "tap scan" : "no usb");
+    const pos = djFmt(dk0.position || 0);
+    const dur = djFmt(dk0.duration || 0);
+    const spd = `${(dk0.speed || 1).toFixed(2)}x`;
+    const bpmStr = djDerivedBPM > 0 ? `${djDerivedBPM}bpm` : "--bpm";
+    // Left text: title (truncated)
+    const maxTitleChars = Math.max(4, Math.floor((scratchW - 100) / 6));
+    const shortTitle = title.length > maxTitleChars ? title.slice(0, maxTitleChars - 1) + "…" : title;
+    ink(dark ? 220 : 40, dark ? 220 : 40, dark ? 230 : 60);
+    write(shortTitle, { x: scratchX + 4, y: stripY + 4, size: 1, font: "font_1" });
+    // Right-side meta: pos/dur spd bpm
+    const right = `${pos}/${dur} ${spd} ${bpmStr}`;
+    const rightX = w - right.length * 6 - 4;
+    ink(dark ? 140 : 90, dark ? 150 : 90, dark ? 170 : 110);
+    write(right, { x: rightX, y: stripY + 4, size: 1, font: "font_1" });
+    // Progress bar (thin) at bottom of strip
+    const prog = dk0.duration > 0 ? (dk0.position / dk0.duration) : 0;
+    ink(dark ? 60 : 190, dark ? 80 : 200, dark ? 120 : 210, 200);
+    box(scratchX, stripY + stripH - 2, Math.max(1, Math.floor(scratchW * prog)), 1, true);
+
+    // Transient deck message (fades out)
+    if (djMessage && frame - djMessageFrame < 120) {
+      const a = Math.max(0, 255 - Math.floor((frame - djMessageFrame) * 2.5));
+      ink(220, 180, 80, a);
+      write(djMessage.slice(0, 28), { x: scratchX + 4, y: stripY - 10, size: 1, font: "font_1" });
+    }
+
+    // Expose strip layout for act() hit-testing
+    globalThis.__djStrip = { x: 0, y: stripY, w, h: stripH, iconW, scratchX, scratchW };
+  }
+
   } // end activeScreen === "notepat"
 
   // WiFi fullscreen password entry
@@ -3008,9 +3280,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ["space",          "kick drum"],
       ["tab",            "cycle wave type"],
       ["shift",          "quick mode"],
+      ["F1 play/pause", "deck (also ☀↓)"],
+      ["F2 next",       "deck next (☀↑)"],
+      ["F3 prev",       "deck prev (kbdlight)"],
+      ["F4 scan",       "deck usb rescan"],
+      ["[ / `",         "deck speed − / reset"],
+      [", tap tempo",   "sync metronome to deck"],
+      ["drag deck",     "scratch the platter"],
       ["F9",             "metronome"],
       ["F10 (📞)",       "clear hold"],
-      ["F11 (📞)",       "engage hold/latch"],
+      ["F11 (📞)",       "engage / flourish hold"],
       ["F12 (★)",        "recital mode (hide UI)"],
       ["meta (⊞)",       "toggle this help"],
       ["esc esc esc",    "exit to prompt"],
@@ -3063,6 +3342,34 @@ function sim({ pressures, sound }) {
     dark = __theme.dark;
     if (dark !== wasDark) bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
   }
+
+  // === DJ DECK MAINTENANCE ===
+  // Hot-plug check every ~3 seconds, auto-advance when tracks end.
+  if (frame - djLastUsbCheckFrame > 180) {
+    djLastUsbCheckFrame = frame;
+    const nowMounted = systemAPI?.mountMusic?.() || false;
+    if (nowMounted && !djUsbConnected) {
+      djUsbConnected = true; djMounted = true;
+      sound?.speak?.("USB dj on");
+      djScan(systemAPI, null);
+      if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
+    } else if (!nowMounted && djUsbConnected) {
+      djUsbConnected = false;
+      const dk = sound?.deck;
+      if (dk?.decks?.[0]?.playing) dk.pause(0);
+      djFiles = [];
+      sound?.speak?.("USB dj off");
+      djMsg("USB removed");
+    }
+  }
+  // Auto-advance when the current track finishes
+  const __dkD = sound?.deck?.decks?.[0];
+  if (__dkD?.loaded && !__dkD.playing && __dkD.duration > 0 && __dkD.position >= __dkD.duration - 0.1 && !djDragging) {
+    djTrackIdx++;
+    djLoadTrack(sound);
+  }
+  // Spin the little deck indicator even when nothing else is happening
+  if (__dkD?.playing && !djDragging) djAngle += (__dkD.speed || 1) * 0.05;
 
   // Continuously update synth volumes from analog key pressure
   if (!pressures) return;
