@@ -56,6 +56,11 @@ typedef struct ACDeckDecoder {
     void            *codec_ctx;      // AVCodecContext*
     void            *swr;            // SwrContext*
     int              stream_idx;     // audio stream index
+
+    // Waveform peaks (decimated max-amplitude samples for visualization)
+    // Generated once on load by scanning the entire file via separate pass.
+    float           *peaks;          // [0..1] amplitude peaks
+    int              peak_count;     // number of peaks (typically 1024)
 } ACDeckDecoder;
 
 // Create a decoder instance for the given output sample rate
@@ -72,6 +77,11 @@ void deck_decoder_set_speed(ACDeckDecoder *d, double speed); // 0.5–2.0
 
 // Unload current file and stop thread (decoder can be reused with another load)
 void deck_decoder_unload(ACDeckDecoder *d);
+
+// Generate peaks for the loaded file (call after deck_decoder_load).
+// Decodes the entire file once and writes max-amplitude peaks per chunk.
+// Safe to call from main thread; takes a few hundred ms for typical tracks.
+int deck_decoder_generate_peaks(ACDeckDecoder *d, int target_count);
 
 // Destroy decoder and free all resources
 void deck_decoder_destroy(ACDeckDecoder *d);

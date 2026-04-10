@@ -1,0 +1,67 @@
+% !TEX program = xelatex
+\documentclass[manuscript,anonymous,review]{acmart}
+
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\begin{document}
+
+\title{Technical Demonstration Requirements}
+\subtitle{Aesthetic Computer --- ACM C\&C 2026 Demo}
+
+\author{Anonymous}
+\affiliation{\institution{Anonymous Institution}}
+
+\maketitle
+
+\section{Space and Setup}
+
+\begin{itemize}
+  \item \textbf{Table space:} Standard demo table (approximately 180cm $\times$ 75cm).
+  \item \textbf{Display:} One external monitor (24" or larger), provided by the authors if not available. HDMI input preferred.
+  \item \textbf{Laptop:} Authors will bring a laptop running Chrome to drive the main display.
+  \item \textbf{Audio:} Small powered speaker or headphones for the demo station. Musical pieces (notepat, tone) produce audio that is part of the demonstration.
+  \item \textbf{Power:} Two power outlets (laptop + monitor or speaker).
+\end{itemize}
+
+\section{Network Requirements}
+
+\begin{itemize}
+  \item \textbf{Internet connection:} Required. The system loads from a public URL. Wi-Fi is sufficient.
+  \item \textbf{Bandwidth:} Minimal after initial load ($<$1 MB cached). Real-time features (chat, multiplayer) use WebSocket connections with low bandwidth overhead.
+  \item \textbf{Ports:} Standard HTTPS (443) and WSS (443). No special firewall rules needed.
+  \item \textbf{Fallback:} If internet is unreliable, the demo can run from a local development server on the presenter's laptop. Attendees would connect via a local Wi-Fi hotspot.
+\end{itemize}
+
+\section{Attendee Participation}
+
+\begin{itemize}
+  \item Attendees use \textbf{their own phones, tablets, or laptops}---no dedicated hardware required.
+  \item The system works in any modern browser (Chrome, Safari, Firefox, Edge). No app installation or account creation is needed.
+  \item A printed reference card will list starting commands and a QR code for the URL.
+  \item Participation is drop-in: attendees can join or leave at any time during the demo session.
+\end{itemize}
+
+\section{Accessibility}
+
+\begin{itemize}
+  \item The system accepts keyboard, touch, mouse, and gamepad input.
+  \item Text rendering uses high-contrast colors on solid backgrounds.
+  \item The prompt interface is compatible with screen readers (standard HTML input element).
+  \item Audio is not required for the visual/drawing portions of the demo.
+\end{itemize}
+
+\section{Setup and Teardown}
+
+\begin{itemize}
+  \item \textbf{Setup time:} 10 minutes (open laptop, connect display, verify internet).
+  \item \textbf{Teardown time:} 5 minutes.
+  \item \textbf{No special installation:} The entire system runs in a web browser. No software needs to be installed on venue machines.
+\end{itemize}
+
+\section{Presenter Attendance}
+
+One author will be present throughout the demo session to guide attendees, explain the system, and facilitate collaborative moments (multi-user drawing and music sessions).
+
+\end{document}

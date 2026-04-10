@@ -40,6 +40,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| Aesthetic Computer Demo (C&C 2026) | ACM Demo (LaTeX) | `cc-demo-2026/demo.pdf` | `cc-demo-2026/demo.tex` |
 | The URL Tradition | arXiv (LaTeX) | `arxiv-url-tradition/url-tradition.pdf` | `arxiv-url-tradition/url-tradition.tex` |
 | The Potter and the Prompt | arXiv (LaTeX) | `arxiv-holden/holden.pdf` | `arxiv-holden/holden.tex` |
 | Two Departments, One Building | arXiv (LaTeX) | `arxiv-ucla-arts/ucla-arts.pdf` | `arxiv-ucla-arts/ucla-arts.tex` |
@@ -114,14 +115,17 @@ Upcoming conferences and journals to submit to.
 
 | Venue | Type | Deadline | Conference Date | Status |
 |-------|------|----------|-----------------|--------|
-| [ACM C&C 2026](https://cc.acm.org/2026/) | Demos | Apr 16, 2026 | Jul 13–16, London | GO |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Short Papers | Apr 24, 2026 | Jun 29–Jul 3, Coimbra | GO |
+| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | DRAFTING (`cc-demo-2026/`) |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Short Papers | May 15, 2026 | Jun 29–Jul 3, Coimbra | GO |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/posters/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/real-time-live/) | Real-Time Live! | Aug 7, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [ArtsIT 2026](https://artsit.eai-conferences.org/2026/) | Full Papers | Jun 1, 2026 | Dec 2–4, Bratislava | NEW |
 | [JOSS](https://joss.theoj.org/) | Software Paper | Rolling | Rolling | Anytime |
-| [Scores for Social Software](https://socialsoftware.art/) | Card Deck | Mar 31, 2026 | Apr 2, UCLA | GO |
 
 ### Deadlines Passed (Track for Next Year)
 
-NIME, xCoAx, ACM CHI, SIGGRAPH, Prix Ars Electronica, S+T+ARTS — all missed for 2026. Track 2027 calls.
+NIME (Feb 12), xCoAx (Feb 15), ACM CHI, SIGGRAPH main, Prix Ars Electronica (Mar 9), S+T+ARTS, ISEA (Nov 2025), Creative Capital (Apr 2), Scores for Social Software (Mar 31) — all missed for 2026. Track 2027 calls.
 
 ## Funding Sources
 

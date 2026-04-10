@@ -2136,6 +2136,23 @@ static JSValue js_deck_set_speed(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
+// sound.deck.getPeaks(deck) — returns Float32Array of normalized peak amplitudes
+static JSValue js_deck_get_peaks(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_NULL;
+    int deck; JS_ToInt32(ctx, &deck, argv[0]);
+    if (deck < 0 || deck >= AUDIO_MAX_DECKS) return JS_NULL;
+    ACDeck *dk = &current_rt->audio->decks[deck];
+    if (!dk->decoder || !dk->decoder->peaks || dk->decoder->peak_count <= 0) return JS_NULL;
+
+    // Build a JS array from the peak data
+    JSValue arr = JS_NewArray(ctx);
+    for (int i = 0; i < dk->decoder->peak_count; i++) {
+        JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, dk->decoder->peaks[i]));
+    }
+    return arr;
+}
+
 // sound.deck.setVolume(deck, vol)
 static JSValue js_deck_set_volume(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2287,6 +2304,7 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, deck_obj, "setVolume", JS_NewCFunction(ctx, js_deck_set_volume, "setVolume", 2));
     JS_SetPropertyStr(ctx, deck_obj, "setCrossfader", JS_NewCFunction(ctx, js_deck_set_crossfader, "setCrossfader", 1));
     JS_SetPropertyStr(ctx, deck_obj, "setMasterVolume", JS_NewCFunction(ctx, js_deck_set_master_vol, "setMasterVolume", 1));
+    JS_SetPropertyStr(ctx, deck_obj, "getPeaks", JS_NewCFunction(ctx, js_deck_get_peaks, "getPeaks", 1));
 
     // Deck state (read-only, rebuilt each frame)
     JSValue decks_arr = JS_NewArray(ctx);
