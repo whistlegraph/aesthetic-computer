@@ -59,6 +59,10 @@ let recitalMode = false; // F12: hide all UI, show only colored backdrops
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let holdActive = false;      // true when hold is engaged
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
+// Flourish mode: while F11 is physically held (after the initial engage),
+// new notes are NOT added to heldKeys so you can play melodic riffs over
+// the latched chord without sticking every new note.
+let f11Held = false;
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
@@ -477,8 +481,10 @@ function rememberSound(key, entry, system, velocity = 1) {
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   sounds[key] = entry;
-  // Auto-add to hold if F11 latch is active
-  if (holdActive) heldKeys.add(key);
+  // Auto-add to hold if F11 latch is active, UNLESS the F11 key is currently
+  // physically held down — in that "flourish" mode we want to play melodic
+  // riffs over the already-latched chord without sticking the new notes.
+  if (holdActive && !f11Held) heldKeys.add(key);
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
@@ -693,8 +699,14 @@ function act({ event: e, sound, wifi, system }) {
   }
 
   if (e.is("keyboard:down")) {
-    const key = e.key?.toLowerCase();
+    let key = e.key?.toLowerCase();
     if (!key) return;
+    // Alias laptop Fn-locked media keys to their F-key equivalents so the user
+    // doesn't have to hold Fn to access F9/F10/F11/F12 in notepat. These are
+    // the scancodes produced by input.c when the Fn modifier is NOT held.
+    if (key === "audiomute") key = "f10";
+    else if (key === "audiovolumedown") key = "f11";
+    else if (key === "audiovolumeup") key = "f12";
 
     if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
     if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
@@ -753,11 +765,17 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     // F11 (green phone pickup): Engage hold/latch
-    // Snapshot current keys + auto-latch new keys while hold is on
+    // - Press snapshots currently-playing keys into heldKeys + enables hold
+    // - While physically held, f11Held suppresses auto-latch so new notes
+    //   become flourishes over the held chord instead of sticking
     if (key === "f11") {
-      heldKeys = new Set(Object.keys(sounds));
-      holdActive = true;
-      sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+      // Only re-snapshot on the first press (ignore autorepeat while held)
+      if (!f11Held) {
+        heldKeys = new Set(Object.keys(sounds));
+        holdActive = true;
+        sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+      }
+      f11Held = true;
       return;
     }
     // F10 (red phone hangup): Clear hold — stop all held notes
@@ -984,8 +1002,15 @@ function act({ event: e, sound, wifi, system }) {
   }
 
   if (e.is("keyboard:up")) {
-    const key = e.key?.toLowerCase();
+    let key = e.key?.toLowerCase();
     if (!key) return;
+    // Mirror the media-key aliasing from keyboard:down so up-events track the
+    // same logical F-key (needed for f11Held flourish release).
+    if (key === "audiomute") key = "f10";
+    else if (key === "audiovolumedown") key = "f11";
+    else if (key === "audiovolumeup") key = "f12";
+    // F11 release — exit flourish mode (new notes will auto-latch again)
+    if (key === "f11") { f11Held = false; return; }
     // Home key release: stop global recording + save to global sample
     if (key === "home" && recording && recPointerId === null) {
       stopSampleRecording(sound, "home-lift");
