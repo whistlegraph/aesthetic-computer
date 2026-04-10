@@ -221,7 +221,7 @@ async function boot({ params, store, net, ui, screen, cursor, system, hud, api, 
       
       if (data?.code) {
         apiCode = data.code;
-        sourceCode = `#${data.code}`;
+        sourceCode = data.code;
         console.log("☕ Uploaded painting as:", sourceCode);
       } else {
         // If no code returned, the upload tracking failed
