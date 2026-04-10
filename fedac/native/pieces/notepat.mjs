@@ -814,20 +814,15 @@ function act({ event: e, sound, wifi, system }) {
   }
 
   if (e.is("keyboard:down")) {
-    let key = e.key?.toLowerCase();
+    const key = e.key?.toLowerCase();
     if (!key) return;
-    // Alias laptop Fn-locked media keys to their F-key equivalents so the user
-    // doesn't have to hold Fn to access F1-F12 in notepat. These are the
-    // scancodes produced by input.c when the Fn modifier is NOT held.
-    if (key === "audiomute") key = "f10";
-    else if (key === "audiovolumedown") key = "f11";
-    else if (key === "audiovolumeup") key = "f12";
-    // F1-F4 are bound to the integrated DJ deck. On most laptops these
-    // physical keys produce brightness/keyboard-light scancodes without Fn.
-    else if (key === "brightnessdown") key = "f1";
-    else if (key === "brightnessup") key = "f2";
-    else if (key === "kbdlight") key = "f3";
-    else if (key === "micmute") key = "f4";
+    // Note: we do NOT alias media-key scancodes (audiomute, audiovolumedown,
+    // brightnessdown, etc.) to F-keys anymore. Different laptops place those
+    // media functions on different top-row positions (e.g. X1 Nano puts mute
+    // on F1 and volume-down on F2), so aliasing them to f10/f11/f12 caused
+    // F1/F2 to incorrectly trigger hold/latch. Users can still reach
+    // F1-F12 by holding Fn. If a specific machine needs bare-key access we'll
+    // remap in input.c, not here.
 
     // === DJ DECK KEYS ===
     // F1 play/pause, F2 next, F3 prev, F4 scan+mount USB. Also [ = speed−,
@@ -1154,13 +1149,8 @@ function act({ event: e, sound, wifi, system }) {
   }
 
   if (e.is("keyboard:up")) {
-    let key = e.key?.toLowerCase();
+    const key = e.key?.toLowerCase();
     if (!key) return;
-    // Mirror the media-key aliasing from keyboard:down so up-events track the
-    // same logical F-key (needed for f11Held flourish release).
-    if (key === "audiomute") key = "f10";
-    else if (key === "audiovolumedown") key = "f11";
-    else if (key === "audiovolumeup") key = "f12";
     // F11 release — exit flourish mode (new notes will auto-latch again)
     if (key === "f11") { f11Held = false; return; }
     // Home key release: stop global recording + save to global sample
@@ -3280,10 +3270,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ["space",          "kick drum"],
       ["tab",            "cycle wave type"],
       ["shift",          "quick mode"],
-      ["F1 play/pause", "deck (also ☀↓)"],
-      ["F2 next",       "deck next (☀↑)"],
-      ["F3 prev",       "deck prev (kbdlight)"],
-      ["F4 scan",       "deck usb rescan"],
+      ["Fn+F1",         "deck play/pause"],
+      ["Fn+F2",         "deck next track"],
+      ["Fn+F3",         "deck prev track"],
+      ["Fn+F4",         "deck usb rescan"],
       ["[ / `",         "deck speed − / reset"],
       [", tap tempo",   "sync metronome to deck"],
       ["drag deck",     "scratch the platter"],
