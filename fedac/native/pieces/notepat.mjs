@@ -31,6 +31,7 @@ let perKeyRecording = null; // key currently recording in per-key mode
 // Hold/latch: F11 (green pickup) engages, F10 (red hangup) clears
 // While engaged, any new notes auto-latch (sustain on key release)
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
+let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let holdActive = false;      // true when hold is engaged
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 
@@ -640,6 +641,16 @@ function act({ event: e, sound, wifi, system }) {
         type: "sine",
         tone: recitalMode ? 880 : 440,
         duration: 0.12, volume: 0.18, attack: 0.005, decay: 0.11
+      });
+      return;
+    }
+    // Meta/Win key: toggle keyboard shortcut help panel
+    if (key === "meta") {
+      helpPanel = !helpPanel;
+      sound?.synth?.({
+        type: "sine",
+        tone: helpPanel ? 660 : 440,
+        duration: 0.08, volume: 0.15, attack: 0.005, decay: 0.07
       });
       return;
     }
@@ -2671,6 +2682,57 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     } else {
       system.hdmi(0, 0, 0);
     }
+  }
+
+  // Help panel overlay (Meta/Win key) — drawn last so it sits on top of everything
+  if (helpPanel) {
+    const dark = isDark();
+    const padX = 8, padY = 8;
+    const lineH = 11;
+    const shortcuts = [
+      ["a–l, ; '",      "play notes (with sharps)"],
+      ["1–9 / ↑↓",      "octave"],
+      ["space",          "kick drum"],
+      ["tab",            "cycle wave type"],
+      ["shift",          "quick mode"],
+      ["F9",             "metronome (now help panel)"],
+      ["F10 (📞)",       "clear hold"],
+      ["F11 (📞)",       "engage hold/latch"],
+      ["F12 (★)",        "recital mode (hide UI)"],
+      ["meta (⊞)",       "toggle this help"],
+      ["esc esc esc",    "exit to prompt"],
+      ["[ / ]",          "metronome BPM"],
+      ["- / =",          "volume"],
+      ["home (sample)",  "record sample"],
+      ["\\",             "trackpad FX (X echo, Y pitch)"],
+    ];
+    // Compute panel size
+    const titleH = 14;
+    const panelW = Math.min(w - 20, 280);
+    const panelH = titleH + lineH * shortcuts.length + padY * 2;
+    const px = Math.floor((w - panelW) / 2);
+    const py = Math.floor((h - panelH) / 2);
+    // Background with shadow
+    ink(0, 0, 0, 140); box(px + 3, py + 3, panelW, panelH, true);
+    ink(dark ? 22 : 240, dark ? 22 : 240, dark ? 28 : 245); box(px, py, panelW, panelH, true);
+    ink(dark ? 80 : 100, dark ? 80 : 100, dark ? 100 : 130); box(px, py, panelW, panelH, "outline");
+    // Title
+    ink(dark ? 220 : 40, dark ? 220 : 40, dark ? 230 : 60);
+    write("notepat shortcuts", { x: px + padX, y: py + padY, size: 1, font: "font_1" });
+    ink(dark ? 80 : 160, dark ? 80 : 160, dark ? 100 : 180);
+    line(px + padX, py + padY + 11, px + panelW - padX, py + padY + 11);
+    // Shortcuts list
+    let lineY = py + padY + titleH;
+    for (const [k, desc] of shortcuts) {
+      ink(dark ? 180 : 60, dark ? 200 : 80, dark ? 220 : 100);
+      write(k, { x: px + padX, y: lineY, size: 1, font: "font_1" });
+      ink(dark ? 130 : 80, dark ? 130 : 80, dark ? 145 : 100);
+      write(desc, { x: px + padX + 90, y: lineY, size: 1, font: "font_1" });
+      lineY += lineH;
+    }
+    // Hint at bottom
+    ink(dark ? 90 : 130, dark ? 90 : 130, dark ? 110 : 150);
+    write("press meta (⊞) again to close", { x: px + padX, y: py + panelH - padY - 5, size: 1, font: "font_1" });
   }
 }
 
