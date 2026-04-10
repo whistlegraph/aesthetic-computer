@@ -1,5 +1,30 @@
 // notepat-native.mjs — Traditional notepat for ac-native bare metal
 
+// setTimeout polyfill — QuickJS on ac-native does not provide setTimeout.
+// Pending callbacks are queued here and flushed each tick from sim() via
+// __tickPendingTimeouts(). Delays are in milliseconds and match browser
+// semantics closely enough for the short audio/UI schedules this piece uses.
+const __pendingTimeouts = [];
+function setTimeout(fn, delayMs) {
+  if (typeof fn !== "function") return 0;
+  const at = Date.now() + (Number(delayMs) || 0);
+  __pendingTimeouts.push({ fn, at });
+  return __pendingTimeouts.length;
+}
+function __tickPendingTimeouts() {
+  if (__pendingTimeouts.length === 0) return;
+  const now = Date.now();
+  for (let i = 0; i < __pendingTimeouts.length; ) {
+    const entry = __pendingTimeouts[i];
+    if (now >= entry.at) {
+      __pendingTimeouts.splice(i, 1);
+      try { entry.fn(); } catch (e) { console.error("setTimeout cb error:", e); }
+    } else {
+      i++;
+    }
+  }
+}
+
 let sounds = {};
 let trail = {};
 let frame = 0;
@@ -240,6 +265,125 @@ const NOTE_COLORS = {
   b: [200, 50, 255],
 };
 
+// === PERCUSSION LAYOUT ===
+// Pgup toggles drum kit for the left octave grid, Pgdn for the right.
+// When active, the 12 notes in that grid become drum hits with their own
+// synth recipes and optional per-drum recorded samples.
+let percussionLeft = false;
+let percussionRight = false;
+let percussionNotice = null;      // { text, until } — transient visual flash
+let percussionSampleBank = {};    // drumName -> { data: Float32Array, len, rate }
+
+// Natural notes = 7 basic drums; sharps = 5 accent percussion.
+const PERCUSSION_NAMES = {
+  c: "kick", d: "snare", e: "clap", f: "snap",
+  g: "hat-c", a: "hat-o", b: "ride",
+  "c#": "crash", "d#": "splash",
+  "f#": "cowbell", "g#": "block", "a#": "tambo",
+};
+
+// 3-char display labels shown on the drum pads in place of note names.
+const PERCUSSION_LABELS = {
+  c: "BAS", d: "SNR", e: "CLP", f: "SNP",
+  g: "HHC", a: "HHO", b: "RDE",
+  "c#": "CRS", "d#": "SPL",
+  "f#": "CBL", "g#": "BLK", "a#": "TMB",
+};
+
+// Metallic / earthy colors to visually distinguish drum pads from melodic keys.
+const PERCUSSION_COLORS = {
+  c: [220, 90, 40],      // kick — deep orange
+  d: [220, 180, 110],    // snare — tan
+  e: [240, 220, 130],    // clap — pale yellow
+  f: [220, 240, 140],    // snap — yellow-green
+  g: [120, 220, 180],    // closed hat — mint
+  a: [120, 200, 240],    // open hat — cyan
+  b: [180, 180, 230],    // ride — silver-blue
+  "c#": [220, 150, 240], // crash — lavender
+  "d#": [240, 160, 220], // splash — pink
+  "f#": [200, 150, 80],  // cowbell — brass
+  "g#": [190, 120, 70],  // block — wood brown
+  "a#": [230, 210, 170], // tambourine — sandy
+};
+
+// Return drum name if the given (letter, grid offset) is a live drum pad, else null.
+// offset 0 = left grid, 1 = right grid. Low/high extras (z, x, ;, ', ]) stay melodic.
+function percussionDrumFor(letter, offset) {
+  if (!PERCUSSION_NAMES[letter]) return null;
+  if (offset === 0 && percussionLeft) return PERCUSSION_NAMES[letter];
+  if (offset === 1 && percussionRight) return PERCUSSION_NAMES[letter];
+  return null;
+}
+
+// Fire a drum hit from short auto-stopping synth voices. No cleanup
+// needed on key-up because every voice uses a finite duration.
+function playPercussion(sound, letter, volume = 1.0, pan = 0) {
+  if (!sound?.synth) return;
+  const v = Math.max(0.1, Math.min(1.2, volume));
+  switch (letter) {
+    case "c": // kick
+      sound.synth({ type: "sine", tone: 150, duration: 0.08, volume: 0.9 * v, attack: 0.001, decay: 0.07, pan });
+      sound.synth({ type: "sine", tone: 60, duration: 0.22, volume: 0.7 * v, attack: 0.001, decay: 0.21, pan });
+      sound.synth({ type: "triangle", tone: 90, duration: 0.08, volume: 0.35 * v, attack: 0.001, decay: 0.07, pan });
+      break;
+    case "d": // snare
+      sound.synth({ type: "noise", tone: 2200, duration: 0.12, volume: 0.55 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "triangle", tone: 220, duration: 0.1, volume: 0.4 * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square", tone: 180, duration: 0.05, volume: 0.2 * v, attack: 0.001, decay: 0.045, pan });
+      break;
+    case "e": // clap — staggered noise bursts for classic handclap texture
+      sound.synth({ type: "noise", tone: 1400, duration: 0.02, volume: 0.45 * v, attack: 0.0005, decay: 0.018, pan });
+      setTimeout(() => sound.synth({ type: "noise", tone: 1450, duration: 0.02, volume: 0.4 * v, attack: 0.0005, decay: 0.018, pan }), 10);
+      setTimeout(() => sound.synth({ type: "noise", tone: 1550, duration: 0.02, volume: 0.35 * v, attack: 0.0005, decay: 0.018, pan }), 22);
+      setTimeout(() => sound.synth({ type: "noise", tone: 1600, duration: 0.1, volume: 0.3 * v, attack: 0.001, decay: 0.09, pan }), 34);
+      break;
+    case "f": // snap — finger snap click + short body
+      sound.synth({ type: "noise", tone: 3200, duration: 0.015, volume: 0.45 * v, attack: 0.0003, decay: 0.014, pan });
+      sound.synth({ type: "square", tone: 1800, duration: 0.02, volume: 0.22 * v, attack: 0.0005, decay: 0.018, pan });
+      sound.synth({ type: "triangle", tone: 2400, duration: 0.025, volume: 0.18 * v, attack: 0.0005, decay: 0.022, pan });
+      break;
+    case "g": // closed hi-hat
+      sound.synth({ type: "noise", tone: 7000, duration: 0.04, volume: 0.35 * v, attack: 0.0005, decay: 0.035, pan });
+      sound.synth({ type: "noise", tone: 5000, duration: 0.04, volume: 0.2 * v, attack: 0.0005, decay: 0.035, pan });
+      break;
+    case "a": // open hi-hat
+      sound.synth({ type: "noise", tone: 6500, duration: 0.28, volume: 0.3 * v, attack: 0.001, decay: 0.27, pan });
+      sound.synth({ type: "noise", tone: 4800, duration: 0.2, volume: 0.18 * v, attack: 0.001, decay: 0.19, pan });
+      break;
+    case "b": // ride
+      sound.synth({ type: "noise", tone: 4200, duration: 0.4, volume: 0.28 * v, attack: 0.001, decay: 0.38, pan });
+      sound.synth({ type: "square", tone: 3100, duration: 0.12, volume: 0.1 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: 4600, duration: 0.1, volume: 0.08 * v, attack: 0.001, decay: 0.09, pan });
+      break;
+    case "c#": // crash
+      sound.synth({ type: "noise", tone: 3500, duration: 0.55, volume: 0.42 * v, attack: 0.001, decay: 0.53, pan });
+      sound.synth({ type: "noise", tone: 6500, duration: 0.45, volume: 0.28 * v, attack: 0.002, decay: 0.43, pan });
+      sound.synth({ type: "square", tone: 4200, duration: 0.2, volume: 0.08 * v, attack: 0.001, decay: 0.19, pan });
+      break;
+    case "d#": // splash
+      sound.synth({ type: "noise", tone: 5500, duration: 0.3, volume: 0.38 * v, attack: 0.001, decay: 0.29, pan });
+      sound.synth({ type: "noise", tone: 8500, duration: 0.22, volume: 0.25 * v, attack: 0.001, decay: 0.21, pan });
+      break;
+    case "f#": // cowbell — detuned square pair
+      sound.synth({ type: "square", tone: 810, duration: 0.12, volume: 0.22 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: 540, duration: 0.15, volume: 0.18 * v, attack: 0.001, decay: 0.14, pan });
+      break;
+    case "g#": // wood block
+      sound.synth({ type: "triangle", tone: 900, duration: 0.06, volume: 0.35 * v, attack: 0.001, decay: 0.05, pan });
+      sound.synth({ type: "square", tone: 1800, duration: 0.03, volume: 0.14 * v, attack: 0.0005, decay: 0.025, pan });
+      break;
+    case "a#": // tambourine
+      sound.synth({ type: "noise", tone: 7000, duration: 0.15, volume: 0.3 * v, attack: 0.001, decay: 0.14, pan });
+      sound.synth({ type: "noise", tone: 4500, duration: 0.1, volume: 0.18 * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square", tone: 6500, duration: 0.05, volume: 0.1 * v, attack: 0.001, decay: 0.045, pan });
+      break;
+  }
+}
+
+function flashPercussionNotice(text) {
+  percussionNotice = { text, until: frame + 120 }; // ~2 seconds at 60fps
+}
+
 function noteToFreq(note, oct) {
   const idx = CHROMATIC.indexOf(note);
   if (idx < 0) return 440;
@@ -382,7 +526,7 @@ function hitTestGrid(x, y, gi) {
           const noteName = grid[r][c];
           const key = NOTE_TO_KEY[noteName];
           const [letter, off] = parseNote(noteName);
-          return { key, letter, octave: octave + off + octOffset };
+          return { key, letter, octave: octave + off + octOffset, gridOffset: off };
         }
       }
     }
@@ -634,6 +778,35 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
+    // PgUp: toggle percussion layout on the LEFT octave grid
+    if (key === "pageup") {
+      percussionLeft = !percussionLeft;
+      const label = percussionLeft ? "percussion left on" : "percussion left off";
+      flashPercussionNotice(percussionLeft ? "◀ DRUMS ON" : "◀ drums off");
+      sound?.speak?.(label);
+      // Rising / falling two-tone feedback
+      sound?.synth?.({ type: "triangle", tone: percussionLeft ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: -0.6 });
+      setTimeout(() => sound?.synth?.({
+        type: "triangle", tone: percussionLeft ? 660 : 440,
+        duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: -0.6,
+      }), 70);
+      if (percussionLeft) playPercussion(sound, "c", 0.9, -0.4);
+      return;
+    }
+    // PgDn: toggle percussion layout on the RIGHT octave grid
+    if (key === "pagedown") {
+      percussionRight = !percussionRight;
+      const label = percussionRight ? "percussion right on" : "percussion right off";
+      flashPercussionNotice(percussionRight ? "DRUMS ON ▶" : "drums off ▶");
+      sound?.speak?.(label);
+      sound?.synth?.({ type: "triangle", tone: percussionRight ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: 0.6 });
+      setTimeout(() => sound?.synth?.({
+        type: "triangle", tone: percussionRight ? 660 : 440,
+        duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: 0.6,
+      }), 70);
+      if (percussionRight) playPercussion(sound, "c", 0.9, 0.4);
+      return;
+    }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
     if (key === "f12") {
       recitalMode = !recitalMode;
@@ -741,6 +914,43 @@ function act({ event: e, sound, wifi, system }) {
       const vol = 0.15 + velocity * 0.55;
       const playFreq = freq * Math.pow(2, effectivePitchShift());
 
+      // === PERCUSSION MODE ===
+      // If this grid side has percussion enabled, play a drum hit instead
+      // of a melodic tone. Drums are one-shots so we don't register them
+      // in `sounds[key]`; the visual flash is driven purely by `trail`.
+      const drumName = percussionDrumFor(letter, offset);
+      if (drumName) {
+        // Per-drum sampling: End armed + drum key = record to this drum slot.
+        if (wave === "sample" && endArmed && !perKeyRecording && !recording) {
+          const ok = !!sound?.microphone?.rec?.();
+          if (ok) {
+            perKeyRecording = key;
+            recStartTime = Date.now();
+            console.log(`[perc-bank] recording to drum '${drumName}' (key '${key}')`);
+          }
+          return;
+        }
+        if (perKeyRecording === key) return;
+
+        // Slightly hotter drum mix than melodic notes.
+        const drumVol = 0.5 + velocity * 0.6;
+        const bankSample = percussionSampleBank[drumName];
+        if (wave === "sample" && bankSample) {
+          if (bankSample !== lastLoadedSample) {
+            sound.sample.loadData(bankSample.data, bankSample.rate);
+            lastLoadedSample = bankSample;
+          }
+          sound.sample.play({
+            tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+            volume: drumVol, pan, loop: false,
+          });
+        } else {
+          playPercussion(sound, letter, drumVol, pan);
+        }
+        trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
+        return;
+      }
+
       if (wave === "sample" && (sampleLoaded || sampleBank[key])) {
         // Only reload sample data if switching to a different sample
         const targetSample = sampleBank[key] || globalSample;
@@ -800,8 +1010,19 @@ function act({ event: e, sound, wifi, system }) {
       if (len > 0) {
         const data = sound.sample.getData?.();
         if (data && data.length > 0) {
-          sampleBank[key] = { data: new Float32Array(data), len: data.length, rate: sound.microphone?.sampleRate || 48000 };
-          console.log(`[sample-bank] saved ${data.length} samples to key '${key}'`);
+          const rate = sound.microphone?.sampleRate || 48000;
+          // If this key was recorded while its grid side had percussion on,
+          // save into the drum bank instead of the melodic sample bank.
+          const recNoteName = KEY_TO_NOTE[key];
+          const [recLetter, recOffset] = recNoteName ? parseNote(recNoteName) : ["", 0];
+          const recDrum = recLetter ? percussionDrumFor(recLetter, recOffset) : null;
+          if (recDrum) {
+            percussionSampleBank[recDrum] = { data: new Float32Array(data), len: data.length, rate };
+            console.log(`[perc-bank] saved ${data.length} samples to drum '${recDrum}'`);
+          } else {
+            sampleBank[key] = { data: new Float32Array(data), len: data.length, rate };
+            console.log(`[sample-bank] saved ${data.length} samples to key '${key}'`);
+          }
           sampleLoaded = true;
           // Confirmation beep
           sound.synth({ type: "sine", tone: 660, duration: 0.05, volume: 0.15, attack: 0.002, decay: 0.04 });
@@ -987,6 +1208,26 @@ function act({ event: e, sound, wifi, system }) {
         const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
         const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
         const playFreq = freq * Math.pow(2, effectivePitchShift());
+        // Percussion pad tap: fire drum (or drum sample) and flash trail.
+        const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
+        if (touchDrum) {
+          const bankSample = percussionSampleBank[touchDrum];
+          if (wave === "sample" && bankSample) {
+            if (bankSample !== lastLoadedSample) {
+              sound.sample.loadData(bankSample.data, bankSample.rate);
+              lastLoadedSample = bankSample;
+            }
+            sound.sample.play({
+              tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+              volume: 0.8, pan, loop: false,
+            });
+          } else {
+            playPercussion(sound, hitNote.letter, 1.0, pan);
+          }
+          trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
+          touchNotes[pid] = { key: hitNote.key };
+          return;
+        }
         let synth;
         if (wave === "sample" && sampleLoaded) {
           const smp = sound.sample.play({
@@ -1088,6 +1329,26 @@ function act({ event: e, sound, wifi, system }) {
           const semitones = (hitNote.octave - 4) * 12 + CHROMATIC.indexOf(hitNote.letter);
           const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
           const playFreq = freq * Math.pow(2, effectivePitchShift());
+          // Drag-to-drum: drum pads fire as one-shots on rollover too.
+          const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
+          if (rollDrum) {
+            const bankSample = percussionSampleBank[rollDrum];
+            if (wave === "sample" && bankSample) {
+              if (bankSample !== lastLoadedSample) {
+                sound.sample.loadData(bankSample.data, bankSample.rate);
+                lastLoadedSample = bankSample;
+              }
+              sound.sample.play({
+                tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+                volume: 0.8, pan, loop: false,
+              });
+            } else {
+              playPercussion(sound, hitNote.letter, 1.0, pan);
+            }
+            trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
+            touchNotes[pid] = { key: hitNote.key };
+            return;
+          }
           let synth;
           if (wave === "sample" && sampleLoaded) {
             const smp = sound.sample.play({
@@ -2096,7 +2357,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Expose grid layout for touch hit-testing in act()
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
 
-  function drawGrid(grid, startX, octOffset) {
+  function drawGrid(grid, startX, octOffset, side) {
+    const isPerc = (side === "left" && percussionLeft) || (side === "right" && percussionRight);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const noteName = grid[r][c];
@@ -2106,7 +2368,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const isActive = key && sounds[key] !== undefined;
         const trailInfo = key && trail[key];
         const sharp = letter.includes("#");
-        const nc = noteColor(letter);
+        const drumActive = isPerc && !!PERCUSSION_NAMES[letter];
+        const nc = drumActive ? (PERCUSSION_COLORS[letter] || noteColor(letter)) : noteColor(letter);
 
         const x = startX + c * (btnW + gap);
         const y = gridTop + r * (btnH + gap);
@@ -2168,7 +2431,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         if (btnH > 12) {
           if (isActive) ink(255, 255, 255, 180);
           else { const sl = dark ? (sharp ? 80 : 120) : (sharp ? 160 : 110); ink(sl, sl, sl); }
-          write(letter + noteOctave, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
+          const bottomLabel = drumActive
+            ? (PERCUSSION_LABELS[letter] || (letter + noteOctave))
+            : (letter + noteOctave);
+          write(bottomLabel, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
         // Pressure bar — fills from bottom of pad proportional to analog pressure
@@ -2184,8 +2450,29 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  drawGrid(LEFT_GRID, leftX, 0);
-  drawGrid(RIGHT_GRID, rightX, 0);
+  drawGrid(LEFT_GRID, leftX, 0, "left");
+  drawGrid(RIGHT_GRID, rightX, 0, "right");
+
+  // Transient percussion toggle notice (shown near top of grid)
+  if (percussionNotice && frame < percussionNotice.until) {
+    const dark2 = isDark();
+    const remaining = percussionNotice.until - frame;
+    const alpha = Math.min(255, Math.round(remaining * 3));
+    const txt = percussionNotice.text;
+    const tw = Math.max(1, txt.length) * 6 + 8;
+    const tx = Math.floor((w - tw) / 2);
+    const ty = gridTop + 2;
+    ink(0, 0, 0, Math.floor(alpha * 0.6));
+    box(tx - 1, ty - 1, tw + 2, 12, true);
+    ink(dark2 ? 40 : 255, dark2 ? 40 : 255, dark2 ? 55 : 255, Math.floor(alpha * 0.9));
+    box(tx, ty, tw, 10, true);
+    ink(dark2 ? 240 : 20, dark2 ? 220 : 20, dark2 ? 180 : 60, alpha);
+    box(tx, ty, tw, 10, "outline");
+    ink(dark2 ? 240 : 30, dark2 ? 230 : 30, dark2 ? 200 : 60, alpha);
+    write(txt, { x: tx + 4, y: ty + 1, size: 1, font: "font_1" });
+  } else if (percussionNotice) {
+    percussionNotice = null;
+  }
 
   // === SLIDERS: fx mix, echo, and pitch (directly under status bar) ===
   const settingsY = topBarH;
@@ -2692,18 +2979,19 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const shortcuts = [
       ["a–l, ; '",      "play notes (with sharps)"],
       ["1–9 / ↑↓",      "octave"],
+      ["pgup / pgdn",   "drum kit L / R octave"],
       ["space",          "kick drum"],
       ["tab",            "cycle wave type"],
       ["shift",          "quick mode"],
-      ["F9",             "metronome (now help panel)"],
+      ["F9",             "metronome"],
       ["F10 (📞)",       "clear hold"],
       ["F11 (📞)",       "engage hold/latch"],
       ["F12 (★)",        "recital mode (hide UI)"],
       ["meta (⊞)",       "toggle this help"],
       ["esc esc esc",    "exit to prompt"],
-      ["[ / ]",          "metronome BPM"],
-      ["- / =",          "volume"],
-      ["home (sample)",  "record sample"],
+      ["- / =",          "metronome BPM"],
+      ["home (sample)",  "record global sample"],
+      ["end (sample)",   "arm per-key / per-drum rec"],
       ["\\",             "trackpad FX (X echo, Y pitch)"],
     ];
     // Compute panel size
@@ -2737,6 +3025,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 }
 
 function sim({ pressures, sound }) {
+  // Flush any due setTimeout callbacks (polyfill for missing QuickJS timer)
+  __tickPendingTimeouts();
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
