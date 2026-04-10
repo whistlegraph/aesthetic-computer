@@ -732,15 +732,34 @@ static int is_removable(const char *blkname) {
 // Copy a file from src to dst path, returns bytes copied or -1 on error
 static long copy_file(const char *src, const char *dst) {
     FILE *in = fopen(src, "rb");
-    if (!in) return -1;
+    if (!in) {
+        ac_log("[copy_file] cannot open src %s: errno=%d\n", src, errno);
+        return -1;
+    }
     FILE *out = fopen(dst, "wb");
-    if (!out) { fclose(in); return -1; }
+    if (!out) {
+        ac_log("[copy_file] cannot open dst %s: errno=%d\n", dst, errno);
+        fclose(in);
+        return -1;
+    }
     char buf[65536];
     long total = 0;
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), in)) > 0) {
-        if (fwrite(buf, 1, n, out) != n) { total = -1; break; }
+        size_t written = fwrite(buf, 1, n, out);
+        if (written != n) {
+            ac_log("[copy_file] write failed at offset %ld: wanted %zu got %zu errno=%d\n",
+                   total, n, written, errno);
+            total += written; // count partial write
+            break;
+        }
         total += n;
+    }
+    if (fflush(out) != 0) {
+        ac_log("[copy_file] fflush failed: errno=%d\n", errno);
+    }
+    if (fsync(fileno(out)) != 0) {
+        ac_log("[copy_file] fsync failed: errno=%d\n", errno);
     }
     fclose(out);
     fclose(in);
