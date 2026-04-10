@@ -30,6 +30,7 @@ let perKeyRecording = null; // key currently recording in per-key mode
 
 // Hold/latch: F11 (green pickup) engages, F10 (red hangup) clears
 // While engaged, any new notes auto-latch (sustain on key release)
+let recitalMode = false; // F12: hide all UI, show only colored backdrops
 let holdActive = false;      // true when hold is engaged
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 
@@ -630,6 +631,16 @@ function act({ event: e, sound, wifi, system }) {
       if (metronomeEnabled) {
         metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
       }
+      return;
+    }
+    // F12 (star key): recital mode — hide UI, show only colored backdrops
+    if (key === "f12") {
+      recitalMode = !recitalMode;
+      sound?.synth?.({
+        type: "sine",
+        tone: recitalMode ? 880 : 440,
+        duration: 0.12, volume: 0.18, attack: 0.005, decay: 0.11
+      });
       return;
     }
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
@@ -1270,8 +1281,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
   lastTabletMode = system.tabletMode;
 
-  // Tablet mode: solid color only, no UI
-  if (system.tabletMode) return;
+  // Tablet mode or Recital mode (F12): solid color only, no UI
+  if (system.tabletMode || recitalMode) return;
 
   // Metronome flash border
   if (metronomeFlash > 0 && metronomeEnabled) {
