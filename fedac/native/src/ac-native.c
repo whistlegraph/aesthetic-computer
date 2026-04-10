@@ -20,6 +20,7 @@
 #include <sys/reboot.h>
 #include <linux/reboot.h>
 #include <linux/input.h>
+#include <linux/fs.h>   // BLKRRPART for forced partition re-read (install)
 #include <sys/ioctl.h>
 #include <pthread.h>
 
@@ -992,18 +993,45 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         snprintf(msg, sizeof(msg), "expanding to 1024MB...");
                         draw_boot_status(graph, screen, display, msg, pixel_scale);
                     }
+                    // Release every handle on the target disk BEFORE sfdisk.
+                    // The previous version did a single umount("/tmp/hd"), but
+                    // that left the partition busy enough that sfdisk couldn't
+                    // re-read the partition table ("Device or resource busy"),
+                    // which made mkfs fail targeting a stale device node.
+                    // We need to: (a) lazy-unmount anything mounted from this
+                    // disk, (b) kill any process holding a partition open, and
+                    // (c) log what was mounted so a post-mortem can debug.
                     umount("/tmp/hd");
-                    // Every subshell below captures stdout+stderr into
-                    // /mnt/install-debug.log so post-mortem on a failed install
-                    // can inspect the *actual* sfdisk/mkfs error messages next
-                    // boot. Previous behavior merged 2>&1 into /dev/null since
-                    // system() can't return output, making diagnosis impossible.
+                    umount2("/tmp/hd", MNT_DETACH);
                     const char *DLOG = "/mnt/install-debug.log";
                     // Fresh log per attempt
                     FILE *__dl = fopen(DLOG, "w");
                     if (__dl) { fprintf(__dl, "=== install-debug starting ===\n"); fclose(__dl); }
-                    // Repartition: create 1024MB EFI System Partition
                     char rcmd[512];
+                    // Log what's mounted from this disk so we know what's holding it
+                    snprintf(rcmd, sizeof(rcmd),
+                        "echo '--- findmnt /dev/%s* ---' >> %s; "
+                        "( findmnt -no TARGET,SOURCE /dev/%s* 2>/dev/null; "
+                        "  cat /proc/mounts | grep /dev/%s 2>/dev/null ) >> %s 2>&1; "
+                        "echo '--- fuser /dev/%s* ---' >> %s; "
+                        "fuser -v /dev/%s* >> %s 2>&1 || true",
+                        parent_blk, DLOG, parent_blk, parent_blk, DLOG,
+                        parent_blk, DLOG, parent_blk, DLOG);
+                    system(rcmd);
+                    // Lazy-unmount any partition on this disk (MNT_DETACH style
+                    // via `umount -l`, or raw umount2 on known mountpoints) and
+                    // kill any process with an open handle.
+                    snprintf(rcmd, sizeof(rcmd),
+                        "for p in /dev/%s*; do "
+                        "  umount -l $p >> %s 2>&1 || true; "
+                        "done; "
+                        "fuser -km /dev/%s* >> %s 2>&1 || true; "
+                        "sync",
+                        parent_blk, DLOG, parent_blk, DLOG);
+                    system(rcmd);
+                    sync();
+                    usleep(500000);
+                    // Repartition: create 1024MB EFI System Partition
                     snprintf(rcmd, sizeof(rcmd),
                         "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force /dev/%s >> %s 2>&1",
                         parent_blk, DLOG);
@@ -1012,13 +1040,38 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     // Give the kernel time to process the new GPT
                     sync();
                     usleep(1500000);
-                    // Force kernel to re-read partition table (multiple methods)
+                    // Force the kernel to re-read the partition table.
+                    // We try three methods in order: BLKRRPART ioctl (always
+                    // available, equivalent to `blockdev --rereadpt`), then
+                    // partprobe/sfdisk --verify (best-effort, only log output).
+                    // blockdev is NOT bundled in the initramfs so we can't rely
+                    // on the shell path alone — the ioctl is the real fix.
+                    {
+                        char diskpath[64];
+                        snprintf(diskpath, sizeof(diskpath), "/dev/%s", parent_blk);
+                        int dfd = open(diskpath, O_RDONLY | O_CLOEXEC);
+                        if (dfd >= 0) {
+                            int ri = ioctl(dfd, BLKRRPART);
+                            ac_log("[install] BLKRRPART on %s: rc=%d errno=%d\n",
+                                   diskpath, ri, ri < 0 ? errno : 0);
+                            FILE *__dl2 = fopen(DLOG, "a");
+                            if (__dl2) {
+                                fprintf(__dl2, "--- BLKRRPART %s rc=%d errno=%d (%s) ---\n",
+                                        diskpath, ri, ri < 0 ? errno : 0,
+                                        ri < 0 ? strerror(errno) : "ok");
+                                fclose(__dl2);
+                            }
+                            close(dfd);
+                        } else {
+                            ac_log("[install] cannot open %s for BLKRRPART: errno=%d\n",
+                                   diskpath, errno);
+                        }
+                    }
                     snprintf(rcmd, sizeof(rcmd),
                         "partprobe /dev/%s >> %s 2>&1; "
-                        "blockdev --rereadpt /dev/%s >> %s 2>&1; "
                         "sfdisk --verify /dev/%s >> %s 2>&1; "
                         "ls -l /dev/%s* >> %s 2>&1",
-                        parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG);
+                        parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG);
                     system(rcmd);
                     // Wait for partition device node to appear (up to 10s)
                     int devpath_ready = 0;
@@ -2979,6 +3032,23 @@ int main(int argc, char *argv[]) {
             static int ctrl_held = 0;
             int power_pressed = 0;
             int scale_change = 0;  // -1 = decrease density (bigger pixels), +1 = increase
+            // Global escape → prompt fallback. If the current piece doesn't
+            // jump() or otherwise consume an escape key-down this frame, we
+            // transparently route the user back to the prompt after act()
+            // returns. Notepat has its own triple-escape-to-exit behavior and
+            // the prompt itself uses escape to clear input, so both are
+            // exempt from the fallback.
+            int escape_pressed_this_frame = 0;
+            for (int i = 0; i < input->event_count; i++) {
+                if (input->events[i].type == AC_EVENT_KEYBOARD_DOWN &&
+                    input->events[i].key_code == KEY_ESC) {
+                    if (strcmp(rt->piece, "notepat") != 0 &&
+                        strcmp(rt->piece, "prompt") != 0) {
+                        escape_pressed_this_frame = 1;
+                    }
+                    break;
+                }
+            }
             for (int i = 0; i < input->event_count; i++) {
                 // Track ctrl modifier
                 if (input->events[i].key_code == KEY_LEFTCTRL || input->events[i].key_code == KEY_RIGHTCTRL) {
@@ -3205,6 +3275,16 @@ int main(int argc, char *argv[]) {
             clock_gettime(CLOCK_MONOTONIC, &_pf_act0);
             js_call_act(rt);
             clock_gettime(CLOCK_MONOTONIC, &_pf_act1);
+
+            // Global escape fallback: if the piece didn't consume the escape
+            // key-down (i.e. didn't call system.jump() or otherwise stop the
+            // event), send the user back to the prompt automatically.
+            if (escape_pressed_this_frame && !rt->jump_requested) {
+                ac_log("[ac-native] escape fallback: %s → prompt\n", rt->piece);
+                strncpy(rt->jump_target, "prompt", sizeof(rt->jump_target) - 1);
+                rt->jump_target[sizeof(rt->jump_target) - 1] = 0;
+                rt->jump_requested = 1;
+            }
 
             // Handle piece jump requests from system.jump()
             if (rt->jump_requested) {
