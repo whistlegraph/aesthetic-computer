@@ -28,7 +28,8 @@ let globalSample = null;   // { data: Float32Array, len: number, rate: number } 
 let endArmed = false;      // true while End key is held (arm per-key recording)
 let perKeyRecording = null; // key currently recording in per-key mode
 
-// Hold/latch: F8 captures currently-held notes and keeps them sounding
+// Hold/latch: F11 (green pickup) engages, F10 (red hangup) clears
+// While engaged, any new notes auto-latch (sustain on key release)
 let holdActive = false;      // true when hold is engaged
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 
@@ -330,7 +331,7 @@ function rememberSound(key, entry, system, velocity = 1) {
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   sounds[key] = entry;
-  // Auto-add to hold if F8 latch is active
+  // Auto-add to hold if F11 latch is active
   if (holdActive) heldKeys.add(key);
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
