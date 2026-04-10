@@ -993,45 +993,75 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         draw_boot_status(graph, screen, display, msg, pixel_scale);
                     }
                     umount("/tmp/hd");
+                    // Every subshell below captures stdout+stderr into
+                    // /mnt/install-debug.log so post-mortem on a failed install
+                    // can inspect the *actual* sfdisk/mkfs error messages next
+                    // boot. Previous behavior merged 2>&1 into /dev/null since
+                    // system() can't return output, making diagnosis impossible.
+                    const char *DLOG = "/mnt/install-debug.log";
+                    // Fresh log per attempt
+                    FILE *__dl = fopen(DLOG, "w");
+                    if (__dl) { fprintf(__dl, "=== install-debug starting ===\n"); fclose(__dl); }
                     // Repartition: create 1024MB EFI System Partition
-                    char rcmd[256];
+                    char rcmd[512];
                     snprintf(rcmd, sizeof(rcmd),
-                        "echo 'label: gpt\ntype=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M' | sfdisk --force /dev/%s 2>&1",
-                        parent_blk);
+                        "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force /dev/%s >> %s 2>&1",
+                        parent_blk, DLOG);
                     int rrc = system(rcmd);
-                    ac_log("[install] sfdisk rc=%d\n", rrc);
-                    usleep(500000);
-                    // Force kernel to re-read partition table after repartitioning
-                    snprintf(rcmd, sizeof(rcmd), "partprobe /dev/%s 2>&1 || blockdev --rereadpt /dev/%s 2>&1",
-                             parent_blk, parent_blk);
-                    system(rcmd);
+                    ac_log("[install] sfdisk rc=%d (log: %s)\n", rrc, DLOG);
+                    // Give the kernel time to process the new GPT
+                    sync();
+                    usleep(1500000);
                     // Force kernel to re-read partition table (multiple methods)
                     snprintf(rcmd, sizeof(rcmd),
-                        "partprobe /dev/%s 2>/dev/null; "
-                        "blockdev --rereadpt /dev/%s 2>/dev/null; "
-                        "busybox blockdev --rereadpt /dev/%s 2>/dev/null; "
-                        "sfdisk --verify /dev/%s 2>/dev/null",
-                        parent_blk, parent_blk, parent_blk, parent_blk);
+                        "partprobe /dev/%s >> %s 2>&1; "
+                        "blockdev --rereadpt /dev/%s >> %s 2>&1; "
+                        "sfdisk --verify /dev/%s >> %s 2>&1; "
+                        "ls -l /dev/%s* >> %s 2>&1",
+                        parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG);
                     system(rcmd);
-                    // Wait for partition device node to appear (up to 5s)
-                    for (int wait = 0; wait < 10; wait++) {
+                    // Wait for partition device node to appear (up to 10s)
+                    int devpath_ready = 0;
+                    for (int wait = 0; wait < 20; wait++) {
                         usleep(500000);
                         struct stat st;
                         if (stat(devpath, &st) == 0 && S_ISBLK(st.st_mode)) {
                             ac_log("[install] device %s ready after %dms\n", devpath, (wait+1)*500);
+                            devpath_ready = 1;
                             break;
                         }
-                        ac_log("[install] waiting for %s... (%d)\n", devpath, wait);
+                        if (wait % 4 == 0) ac_log("[install] waiting for %s... (%d)\n", devpath, wait);
                     }
-                    // Reformat
-                    snprintf(rcmd, sizeof(rcmd), "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
+                    if (!devpath_ready) {
+                        ac_log("[install] device %s never appeared after sfdisk — see %s\n", devpath, DLOG);
+                    }
+                    // Extra settle time before mkfs
+                    usleep(500000);
+                    // Reformat. Retry once if mkfs fails — the kernel sometimes
+                    // needs a second pass after a fresh GPT to release exclusive
+                    // holds on the block device.
+                    snprintf(rcmd, sizeof(rcmd),
+                        "echo '--- mkfs attempt 1 ---' >> %s; mkfs.vfat -F 32 -n AC-NATIVE %s >> %s 2>&1",
+                        DLOG, devpath, DLOG);
                     rrc = system(rcmd);
-                    ac_log("[install] mkfs rc=%d\n", rrc);
+                    ac_log("[install] mkfs rc=%d attempt=1\n", rrc);
+                    if (rrc != 0) {
+                        // Retry after giving the block layer a moment to settle
+                        sync();
+                        usleep(1500000);
+                        snprintf(rcmd, sizeof(rcmd),
+                            "echo '--- mkfs attempt 2 ---' >> %s; "
+                            "fuser -k %s >> %s 2>&1 || true; "
+                            "mkfs.vfat -F 32 -n AC-NATIVE %s >> %s 2>&1",
+                            DLOG, devpath, DLOG, devpath, DLOG);
+                        rrc = system(rcmd);
+                        ac_log("[install] mkfs rc=%d attempt=2\n", rrc);
+                    }
                     if (rrc != 0) {
                         snprintf(install_fail_reason, sizeof(install_fail_reason),
                                  "format failed on %s", devpath);
                         snprintf(install_fail_detail, sizeof(install_fail_detail),
-                                 "mkfs.vfat rc=%d after repartition", rrc);
+                                 "mkfs.vfat rc=%d after repartition (see %s)", rrc, DLOG);
                         if (display)
                             draw_boot_status(graph, screen, display, "format failed!", pixel_scale);
                         usleep(2000000);
