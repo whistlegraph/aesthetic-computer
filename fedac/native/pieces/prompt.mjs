@@ -594,7 +594,16 @@ function execute(cmd, system) {
     const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;
     message = "~> " + pieceName;
     messageFrame = 0;
-    system?.jump?.(cmd); // pass full cmd so colon/space params work
+    // Native ac-native jump() only parses colon-separated params (see
+    // jump_target/jump_params split in ac-native.c). Convert any space-
+    // separated form "clock ceg dfa" into "clock:ceg:dfa" so the piece
+    // receives params=["ceg","dfa"] instead of loading "/pieces/clock ceg dfa.mjs".
+    // Commands that already use colons (e.g. "mo:1:c:e:g") pass through unchanged.
+    let jumpArg = cmd;
+    if (cmd.indexOf(":") < 0 && cmd.indexOf(" ") >= 0) {
+      jumpArg = cmd.replace(/\s+/g, ":");
+    }
+    system?.jump?.(jumpArg);
     return;
   }
 
