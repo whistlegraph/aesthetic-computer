@@ -517,6 +517,7 @@ function paintTooltip($, inputText) {
 
   const cursorX = cursorPos.x ?? 6;
   const cursorY = cursorPos.y ?? 10;
+  const charW = 4; // MatrixChunky8 char width
 
   // Parse what's already typed to show remaining hint
   const typed = inputText.trim();
@@ -526,57 +527,63 @@ function paintTooltip($, inputText) {
   const numColonParams = colonParts.length - 1; // -1 for command itself
   const numSpaceParams = typedParts.length - 1; // -1 for first token
 
-  let ghostText = "";
-  let descText = doc.desc || "";
+  const descText = doc.desc || "";
 
-  // Build ghost text from remaining colon params first
+  // Color palette for tooltip segments
+  const colonColor = $.dark ? [80, 220, 240, 100] : [0, 140, 160, 100]; // Cyan for colon params
+  const requiredColor = $.dark ? [255, 180, 80, 100] : [200, 100, 0, 100]; // Orange for required
+  const optionalColor = $.dark ? [140, 160, 255, 100] : [60, 80, 200, 90]; // Blue for optional
+  const valuesColor = $.dark ? [180, 140, 255, 100] : [120, 60, 180, 100]; // Purple for value lists
+  const descColor = $.dark ? [120, 120, 140, 120] : [80, 80, 100, 120]; // Gray for description
+  const suggestColor = $.dark ? [100, 255, 150, 150] : [0, 150, 50, 150]; // Green for suggestions
+
+  // Draw ghost text segments with individual colors
+  let offsetX = cursorX + 2;
+
+  // Remaining colon params
   if (doc.colon && doc.colon.length > 0) {
     const remainingColon = doc.colon.slice(numColonParams);
-    if (remainingColon.length > 0) {
-      ghostText = remainingColon.map(p => {
-        const name = p.name || "?";
-        return `:${name}`;
-      }).join("");
+    for (const p of remainingColon) {
+      const seg = `:${p.name || "?"}`;
+      ink(...colonColor).write(seg, { x: offsetX, y: cursorY },
+        undefined, undefined, false, "MatrixChunky8");
+      offsetX += seg.length * charW;
     }
   }
 
-  // Then add remaining space params
+  // Remaining space params
   if (doc.params && doc.params.length > 0) {
     const remainingParams = doc.params.slice(numSpaceParams);
-    if (remainingParams.length > 0) {
-      const spaceHints = remainingParams.map(p => {
-        if (p.values) {
-          return p.values.slice(0, 3).join("|");
-        }
-        return p.required ? `<${p.name}>` : `[${p.name}]`;
-      }).join(" ");
-      ghostText += (ghostText ? " " : "") + spaceHints;
+    for (const p of remainingParams) {
+      if (offsetX > cursorX + 2) offsetX += charW; // space separator
+      let seg, color;
+      if (p.values) {
+        seg = p.values.slice(0, 3).join("|");
+        color = valuesColor;
+      } else if (p.required) {
+        seg = `<${p.name}>`;
+        color = requiredColor;
+      } else {
+        seg = `[${p.name}]`;
+        color = optionalColor;
+      }
+      ink(...color).write(seg, { x: offsetX, y: cursorY },
+        undefined, undefined, false, "MatrixChunky8");
+      offsetX += seg.length * charW;
     }
   }
 
-  // Draw ghost text inline after cursor (faded)
-  if (ghostText) {
-    ink($.dark ? [100, 180, 255, 80] : [0, 100, 200, 80]).write(ghostText, {
-      x: cursorX + 2,
-      y: cursorY,
-    }, undefined, undefined, false, "MatrixChunky8");
-  }
-
-  // Draw description as subtle underline text below
+  // Draw description below
   if (descText) {
-    ink($.dark ? [120, 120, 140, 120] : [80, 80, 100, 120]).write(descText, {
-      x: 6,
-      y: cursorY + 10,
-    }, undefined, undefined, false, "MatrixChunky8");
+    ink(...descColor).write(descText, { x: 6, y: cursorY + 10 },
+      undefined, undefined, false, "MatrixChunky8");
   }
 
   // Show current param suggestions inline (highlighted options)
   if (tooltipState.suggestions.length > 0 && tooltipState.currentIndex >= 0) {
     const suggestionsText = tooltipState.suggestions.slice(0, 6).join(" · ");
-    ink($.dark ? [100, 255, 150, 150] : [0, 150, 50, 150]).write(suggestionsText, {
-      x: cursorX + 2,
-      y: cursorY + 10,
-    }, undefined, undefined, false, "MatrixChunky8");
+    ink(...suggestColor).write(suggestionsText, { x: cursorX + 2, y: cursorY + 10 },
+      undefined, undefined, false, "MatrixChunky8");
   }
 }
 
@@ -4573,46 +4580,47 @@ function paint($) {
         });
       }
 
-      // Autocompetions
-      if (activeCompletions.length > 0) {
-        activeCompletions.forEach((completion, i) => {
-          $.system.prompt.input.text;
-          const diff =
-            completion.length -
-            (completion.length - $.system.prompt.input.text.length);
-          let text = completion;
-          if (i === 0) {
-            text = completion.replace(
-              $.system.prompt.input.text,
-              " ".repeat(diff),
-            );
-          }
-          ink($.dark ? "white" : "red", 32).write(text, {
-            x: 6,
-            y: 6 + i * $.system.prompt.input.typeface.blockHeight,
-          });
-        });
-      }
-
-      if (activeCompletions.length === 1) {
-        // console.log("has completions!");
-        ink(
-          $.dark ? "white" : "red",
-          $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255,
-        ).write(
-          autocompletions[activeCompletions[0]].desc,
-          { center: "xy" },
-          null,
-          screen.width - 8,
-        );
-      }
-
       // 💡 Paint tooltip when we have a recognized command
-      // Show tooltip even with activeCompletions if we're typing params (have a space)
-      // or if the command is fully typed (exact match in activeCompletions)
       const hasSpace = currentInputText.includes(" ") || currentInputText.includes(":");
       const isExactMatch = activeCompletions.length === 1 && activeCompletions[0] === currentInputText.split(/[: ]/)[0];
-      if (tooltipState.visible && tooltipState.command && (activeCompletions.length === 0 || hasSpace || isExactMatch)) {
+      const showTooltip = tooltipState.visible && tooltipState.command && (activeCompletions.length === 0 || hasSpace || isExactMatch);
+
+      // Autocompletions (hidden when tooltip is showing)
+      if (!showTooltip) {
+        if (activeCompletions.length > 0) {
+          activeCompletions.forEach((completion, i) => {
+            $.system.prompt.input.text;
+            const diff =
+              completion.length -
+              (completion.length - $.system.prompt.input.text.length);
+            let text = completion;
+            if (i === 0) {
+              text = completion.replace(
+                $.system.prompt.input.text,
+                " ".repeat(diff),
+              );
+            }
+            ink($.dark ? "white" : "red", 32).write(text, {
+              x: 6,
+              y: 6 + i * $.system.prompt.input.typeface.blockHeight,
+            });
+          });
+        }
+
+        if (activeCompletions.length === 1) {
+          ink(
+            $.dark ? "white" : "red",
+            $.system.prompt.input.text !== activeCompletions[0] ? 64 : 255,
+          ).write(
+            autocompletions[activeCompletions[0]].desc,
+            { center: "xy" },
+            null,
+            screen.width - 8,
+          );
+        }
+      }
+
+      if (showTooltip) {
         paintTooltip($, currentInputText);
       }
     }
