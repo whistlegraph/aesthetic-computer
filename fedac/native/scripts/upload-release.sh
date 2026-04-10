@@ -67,7 +67,7 @@ if [ -n "$GIT_ROOT" ]; then
   GIT_CWD="$GIT_ROOT"
   GIT_NATIVE_PATHS=(fedac/native fedac/nixos)
 fi
-GIT_HASH=$(git -C "$GIT_CWD" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_HASH="${AC_GIT_HASH:-$(git -C "$GIT_CWD" rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
 CONFLICT_FILES=$(git -C "$GIT_CWD" diff --name-only --diff-filter=U -- "${GIT_NATIVE_PATHS[@]}" 2>/dev/null || true)
 if [ -n "$CONFLICT_FILES" ]; then
   echo "Error: refusing upload with unresolved merge conflicts:" >&2
@@ -87,7 +87,7 @@ fi
 if [ "$DIRTY_TRACKED" -eq 1 ]; then
   GIT_HASH="${GIT_HASH}-dirty"
 fi
-BUILD_TS=$(date -u '+%Y-%m-%dT%H:%M')
+BUILD_TS="${AC_BUILD_TS:-$(date -u '+%Y-%m-%dT%H:%M')}"
 # Format must match AC_GIT_HASH "-" AC_BUILD_TS in js-bindings.c / Makefile
 VERSION="${GIT_HASH}-${BUILD_TS}"
 
@@ -187,7 +187,7 @@ curl -sf "${BASE_URL}/os/${CHANNEL_PREFIX}releases.json" -o "$RELEASES_JSON" 2>/
   || echo '{"releases":[]}' > "$RELEASES_JSON"
 
 # Append new entry (keep last 50)
-COMMIT_MSG=$(git -C "$GIT_CWD" log -1 --format="%s" 2>/dev/null || echo "")
+COMMIT_MSG="${AC_COMMIT_MSG:-$(git -C "$GIT_CWD" log -1 --format="%s" 2>/dev/null || echo "")}"
 BUILD_HANDLE="${AC_HANDLE:-}"
 
 python3 - "$RELEASES_JSON" "$FULL_VERSION" "$SHA256" "$SIZE" "$GIT_HASH" "$BUILD_TS" "$BUILD_NAME" "$CHANNEL_PREFIX" "$COMMIT_MSG" "$BUILD_HANDLE" <<'PYEOF'
@@ -219,7 +219,8 @@ do_upload "$RELEASES_JSON" "os/${CHANNEL_PREFIX}releases.json" "application/json
 
 # Record build in MongoDB
 if command -v node &>/dev/null; then
-  echo "{\"name\":\"$BUILD_NAME\",\"buildNum\":$BUILD_NUM,\"version\":\"$FULL_VERSION\",\"sha256\":\"$SHA256\",\"size\":$SIZE,\"git_hash\":\"$GIT_HASH\",\"build_ts\":\"$BUILD_TS\",\"url\":\"${BASE_URL}/os/native-notepat-latest.vmlinuz\"}" \
+  BUILD_NUM_JSON="${BUILD_NUM:-null}"
+  echo "{\"name\":\"$BUILD_NAME\",\"buildNum\":$BUILD_NUM_JSON,\"version\":\"$FULL_VERSION\",\"sha256\":\"$SHA256\",\"size\":$SIZE,\"git_hash\":\"$GIT_HASH\",\"build_ts\":\"$BUILD_TS\",\"url\":\"${BASE_URL}/os/native-notepat-latest.vmlinuz\"}" \
     | node "$SCRIPT_DIR/track-build.mjs" record 2>&1 || true
 fi
 
