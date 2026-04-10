@@ -557,16 +557,36 @@ function act({ event: e, sound, wifi, system }) {
       if (frame - escLastFrame > 90) escCount = 0;
       escCount++;
       escLastFrame = frame;
-      if (escCount < 3) {
-        // Beep feedback
-        const beepFreq = escCount === 1 ? 440 : 660;
-        const beep = sound?.synth?.("square", { frequency: beepFreq, duration: 0.08, volume: 0.15 });
-        if (beep) setTimeout(() => sound?.kill?.(beep, 0.02), 80);
+      if (escCount === 1) {
+        // First escape: low warning tone + spoken count
+        const beep = sound?.synth?.("sine", { tone: 220, duration: 0.15, volume: 0.18, attack: 0.005, decay: 0.14 });
+        if (beep) setTimeout(() => sound?.kill?.(beep, 0.02), 150);
+        sound?.speak?.("one");
         return;
       }
-      // Third escape — exit beep + jump
-      const exitBeep = sound?.synth?.("square", { frequency: 880, duration: 0.12, volume: 0.2 });
-      if (exitBeep) setTimeout(() => sound?.kill?.(exitBeep, 0.02), 120);
+      if (escCount === 2) {
+        // Second escape: rising warning, two notes
+        const a = sound?.synth?.("sine", { tone: 330, duration: 0.1, volume: 0.2, attack: 0.005, decay: 0.09 });
+        if (a) setTimeout(() => sound?.kill?.(a, 0.02), 100);
+        setTimeout(() => {
+          const b = sound?.synth?.("sine", { tone: 440, duration: 0.1, volume: 0.2, attack: 0.005, decay: 0.09 });
+          if (b) setTimeout(() => sound?.kill?.(b, 0.02), 100);
+        }, 80);
+        sound?.speak?.("two");
+        return;
+      }
+      // Third escape — descending exit chord + spoken "exit"
+      const c1 = sound?.synth?.("sine", { tone: 660, duration: 0.12, volume: 0.22, attack: 0.005, decay: 0.11 });
+      if (c1) setTimeout(() => sound?.kill?.(c1, 0.02), 120);
+      setTimeout(() => {
+        const c2 = sound?.synth?.("sine", { tone: 523, duration: 0.12, volume: 0.22, attack: 0.005, decay: 0.11 });
+        if (c2) setTimeout(() => sound?.kill?.(c2, 0.02), 120);
+      }, 80);
+      setTimeout(() => {
+        const c3 = sound?.synth?.("sine", { tone: 392, duration: 0.18, volume: 0.25, attack: 0.005, decay: 0.17 });
+        if (c3) setTimeout(() => sound?.kill?.(c3, 0.02), 180);
+      }, 160);
+      sound?.speak?.("exit");
       escCount = 0;
       stopAllSounds(sound, system, 0.05);
       system?.jump?.("prompt");
@@ -604,8 +624,8 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // F12: metronome toggle (moved from F10)
-    if (key === "f12") {
+    // F9: metronome toggle (no Fn key required)
+    if (key === "f9") {
       metronomeEnabled = !metronomeEnabled;
       if (metronomeEnabled) {
         metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
