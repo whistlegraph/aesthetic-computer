@@ -750,16 +750,29 @@ static long copy_file(const char *src, const char *dst) {
         if (written != n) {
             ac_log("[copy_file] write failed at offset %ld: wanted %zu got %zu errno=%d\n",
                    total, n, written, errno);
-            total += written; // count partial write
-            break;
+            fclose(out);
+            fclose(in);
+            return -1;
         }
         total += n;
     }
+    if (ferror(in)) {
+        ac_log("[copy_file] read failed from %s: errno=%d\n", src, errno);
+        fclose(out);
+        fclose(in);
+        return -1;
+    }
     if (fflush(out) != 0) {
         ac_log("[copy_file] fflush failed: errno=%d\n", errno);
+        fclose(out);
+        fclose(in);
+        return -1;
     }
     if (fsync(fileno(out)) != 0) {
         ac_log("[copy_file] fsync failed: errno=%d\n", errno);
+        fclose(out);
+        fclose(in);
+        return -1;
     }
     fclose(out);
     fclose(in);
@@ -1014,6 +1027,16 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     snprintf(rcmd, sizeof(rcmd), "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
                     rrc = system(rcmd);
                     ac_log("[install] mkfs rc=%d\n", rrc);
+                    if (rrc != 0) {
+                        snprintf(install_fail_reason, sizeof(install_fail_reason),
+                                 "format failed on %s", devpath);
+                        snprintf(install_fail_detail, sizeof(install_fail_detail),
+                                 "mkfs.vfat rc=%d after repartition", rrc);
+                        if (display)
+                            draw_boot_status(graph, screen, display, "format failed!", pixel_scale);
+                        usleep(2000000);
+                        continue;
+                    }
                     usleep(500000);
                     // Remount and retry
                     if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
