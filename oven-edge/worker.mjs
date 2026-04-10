@@ -18,12 +18,23 @@ const IDENTITY_MARKER = "AC_IDENTITY_BLOCK_V1\n";
 const IDENTITY_BLOCK_SIZE = 32768;
 const CONFIG_MARKER = '{"handle":"","piece":"notepat","sub":"","email":""}';
 const DEFAULT_CONFIG_PATCH_SIZE = 4096;
+const EXPOSED_HEADERS = [
+  "Content-Length",
+  "Content-Disposition",
+  "X-AC-OS-Requested-Layout",
+  "X-AC-OS-Layout",
+  "X-AC-OS-Fallback",
+  "X-AC-OS-Fallback-Reason",
+  "X-Build",
+  "X-Patch",
+].join(", ");
 
 function edgeHeaders(request, extra = {}) {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Expose-Headers": EXPOSED_HEADERS,
     "X-Edge-Pop": request.cf?.colo || "unknown",
     ...extra,
   };
@@ -174,9 +185,13 @@ export default {
 
       // 2. Get manifest (has patch offsets)
       const manifest = await getManifest(env);
+      const hasImgManifest =
+        manifest?.artifactType === "img" &&
+        Number.isFinite(manifest?.imageSize) &&
+        manifest.imageSize > 0;
       const hasIdentity = Number.isFinite(manifest?.identityBlockOffset) && manifest.identityBlockOffset >= 0;
       const configOffsets = Array.isArray(manifest?.configOffsets) ? manifest.configOffsets : [];
-      if (!manifest || (!hasIdentity && configOffsets.length === 0)) {
+      if (!manifest || !hasImgManifest || (!hasIdentity && configOffsets.length === 0)) {
         // No manifest or no offsets — fall through to oven origin for legacy patching
         const ovenRes = await fetch(ORIGIN + "/os-image" + url.search, {
           headers: { Authorization: auth },

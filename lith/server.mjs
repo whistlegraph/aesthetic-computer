@@ -155,6 +155,10 @@ app.use((req, res, next) => {
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, X-Requested-With",
   );
+  res.set(
+    "Access-Control-Expose-Headers",
+    "Content-Length, Content-Disposition, X-AC-OS-Requested-Layout, X-AC-OS-Layout, X-AC-OS-Fallback, X-AC-OS-Fallback-Reason, X-Build, X-Patch",
+  );
   res.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -768,6 +772,8 @@ app.get("/api/os-image", async (req, res) => {
     if (ovenRes.headers.get("x-ac-os-layout")) res.set("X-AC-OS-Layout", ovenRes.headers.get("x-ac-os-layout"));
     if (ovenRes.headers.get("x-ac-os-fallback")) res.set("X-AC-OS-Fallback", ovenRes.headers.get("x-ac-os-fallback"));
     if (ovenRes.headers.get("x-ac-os-fallback-reason")) res.set("X-AC-OS-Fallback-Reason", ovenRes.headers.get("x-ac-os-fallback-reason"));
+    if (ovenRes.headers.get("x-build")) res.set("X-Build", ovenRes.headers.get("x-build"));
+    if (ovenRes.headers.get("x-patch")) res.set("X-Patch", ovenRes.headers.get("x-patch"));
     res.set("Access-Control-Allow-Origin", "*");
     const { Readable } = await import("stream");
     Readable.fromWeb(ovenRes.body).pipe(res);

@@ -361,7 +361,7 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader(
     'Access-Control-Expose-Headers',
-    'Content-Length, Content-Disposition, X-AC-OS-Requested-Layout, X-AC-OS-Layout, X-AC-OS-Fallback, X-AC-OS-Fallback-Reason',
+    'Content-Length, Content-Disposition, X-AC-OS-Requested-Layout, X-AC-OS-Layout, X-AC-OS-Fallback, X-AC-OS-Fallback-Reason, X-Build, X-Patch',
   );
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -3300,44 +3300,75 @@ app.get('/os-image', async (req, res) => {
   const configJson = JSON.stringify(configObj);
 
   let imgData;
+  let fallbackImage = false;
+  let fallbackReason = '';
+  const buildKernelFallback = async (reason) => {
+    fallbackReason = reason;
+    console.warn(
+      `[os-image] ${reason}; generating ${variant} EFI image for @${handle}`,
+    );
+    imgData = await buildPersonalizedEfiImage({
+      kernelUrl: kernelUrlForVariant(variant),
+      configJson,
+    });
+    fallbackImage = true;
+  };
   try {
     const template = await getTemplate();
     imgData = Buffer.from(template);
   } catch (err) {
-    return res.status(503).json({ error: `Template not available: ${err.message}` });
+    try {
+      await buildKernelFallback('template-unavailable');
+    } catch (fallbackErr) {
+      return res.status(503).json({
+        error: `Template not available (${err.message}) and fallback image build failed: ${fallbackErr.message}`,
+      });
+    }
   }
 
-  const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
-  let idx = imgData.indexOf(identityMarkerBuf);
   let identityPatchCount = 0;
-  while (idx !== -1) {
-    const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
-    const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
-    header.copy(block);
-    block.copy(imgData, idx);
-    identityPatchCount++;
-    idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
-  }
-
-  const padded = configJson.length >= CONFIG_PAD_SIZE_LEGACY
-    ? configJson.slice(0, CONFIG_PAD_SIZE_LEGACY)
-    : configJson + ' '.repeat(CONFIG_PAD_SIZE_LEGACY - configJson.length);
-  const configBytes = Buffer.from(padded);
-  const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
   let configPatchCount = 0;
-  idx = imgData.indexOf(legacyMarkerBuf);
-  while (idx !== -1) {
-    configBytes.copy(imgData, idx);
-    configPatchCount++;
-    idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
+
+  if (!fallbackImage) {
+    const identityMarkerBuf = Buffer.from(IDENTITY_MARKER + '\n');
+    let idx = imgData.indexOf(identityMarkerBuf);
+    while (idx !== -1) {
+      const block = Buffer.alloc(IDENTITY_BLOCK_SIZE, 0);
+      const header = Buffer.from(IDENTITY_MARKER + '\n' + configJson);
+      header.copy(block);
+      block.copy(imgData, idx);
+      identityPatchCount++;
+      idx = imgData.indexOf(identityMarkerBuf, idx + IDENTITY_BLOCK_SIZE);
+    }
+
+    const padded = configJson.length >= CONFIG_PAD_SIZE_LEGACY
+      ? configJson.slice(0, CONFIG_PAD_SIZE_LEGACY)
+      : configJson + ' '.repeat(CONFIG_PAD_SIZE_LEGACY - configJson.length);
+    const configBytes = Buffer.from(padded);
+    const legacyMarkerBuf = Buffer.from(CONFIG_MARKER_LEGACY);
+    idx = imgData.indexOf(legacyMarkerBuf);
+    while (idx !== -1) {
+      configBytes.copy(imgData, idx);
+      configPatchCount++;
+      idx = imgData.indexOf(legacyMarkerBuf, idx + CONFIG_PAD_SIZE_LEGACY);
+    }
+
+    if (identityPatchCount === 0 && configPatchCount === 0) {
+      try {
+        await buildKernelFallback('template-missing-config-placeholder');
+      } catch (err) {
+        return res.status(500).json({
+          error: `Template image missing config placeholder and fallback image build failed: ${err.message}`,
+        });
+      }
+    }
   }
 
-  if (identityPatchCount === 0 && configPatchCount === 0) {
-    return res.status(500).json({ error: 'Template image missing config placeholder' });
+  if (!fallbackImage) {
+    console.log(
+      `[os-image] Patched ${identityPatchCount} identity block(s) and ${configPatchCount} config location(s) for @${handle}`,
+    );
   }
-  console.log(
-    `[os-image] Patched ${identityPatchCount} identity block(s) and ${configPatchCount} config location(s) for @${handle}`,
-  );
 
   addServerLog('success', '💿', `OS image for @${handle} (${(imgData.length / 1048576).toFixed(1)}MB)`);
   res.setHeader('Content-Type', 'application/octet-stream');
@@ -3346,6 +3377,10 @@ app.get('/os-image', async (req, res) => {
   res.setHeader('Expires', '0');
   res.setHeader('X-AC-OS-Requested-Layout', requestedLayout || 'img');
   res.setHeader('X-AC-OS-Layout', 'img');
+  if (fallbackImage) {
+    res.setHeader('X-AC-OS-Fallback', 'kernel-efi-image');
+    res.setHeader('X-AC-OS-Fallback-Reason', fallbackReason);
+  }
 
   let releaseName = 'native';
   try {
