@@ -431,6 +431,27 @@ if command -v npx &>/dev/null && [ -f "$SRC/system/public/aesthetic.computer/lib
     cd "$NATIVE"
 fi
 
+# ── 2p: ES module lib files for pieces (clock.mjs needs these) ──
+# These are pure JS with no DOM/browser deps — work in QuickJS as-is.
+# The module loader resolves "../lib/X.mjs" → "/lib/X.mjs" in the initramfs.
+mkdir -p "$IROOT/lib"
+for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs; do
+    SRC_LIB="$SRC/system/public/aesthetic.computer/lib/$libmjs"
+    if [ -f "$SRC_LIB" ]; then
+        cp "$SRC_LIB" "$IROOT/lib/$libmjs"
+        log "  Bundled lib: $libmjs ($(stat -c%s "$SRC_LIB") bytes)"
+    fi
+done
+
+# ── 2q: Web pieces that work natively (clock.mjs unmodified) ──
+for webpiece in clock.mjs; do
+    SRC_PIECE="$SRC/system/public/aesthetic.computer/disks/$webpiece"
+    if [ -f "$SRC_PIECE" ]; then
+        cp "$SRC_PIECE" "$IROOT/pieces/$webpiece"
+        log "  Bundled web piece: $webpiece ($(stat -c%s "$SRC_PIECE") bytes)"
+    fi
+done
+
 # ── Final verification ──
 BROKEN_FINAL=$(find "$IROOT" -type l ! -exec test -e {} \; -print 2>/dev/null | wc -l)
 TOTAL_FILES=$(find "$IROOT" -type f | wc -l)
