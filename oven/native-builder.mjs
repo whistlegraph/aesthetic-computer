@@ -417,8 +417,12 @@ async function runBuildJob(job) {
     }
 
     const buildName = await runSync("bash", ["scripts/build-name.sh"], NATIVE_DIR) || `oven-${job.ref.slice(0, 7)}`;
+    const buildGitHash = await runSync("git", ["rev-parse", "--short", "HEAD"], repoDir) || job.ref.slice(0, 9);
+    const buildTs = new Date().toISOString().slice(0, 16);
     const commitMsg = await runSync("git", ["log", "-1", "--format=%s", job.ref], repoDir) || "";
     job.buildName = buildName;
+    job.buildGitHash = buildGitHash;
+    job.buildTs = buildTs;
     job.commitMsg = commitMsg;
     const vmlinuzOut = `/tmp/oven-vmlinuz-${job.id}`;
 
@@ -457,6 +461,9 @@ async function runBuildJob(job) {
       DO_SPACES_KEY: process.env.DO_SPACES_KEY || process.env.ART_SPACES_KEY || "",
       DO_SPACES_SECRET: process.env.DO_SPACES_SECRET || process.env.ART_SPACES_SECRET || "",
       AC_BUILD_NAME: buildName,
+      AC_GIT_HASH: buildGitHash,
+      AC_BUILD_TS: buildTs,
+      AC_COMMIT_MSG: commitMsg,
     };
 
     // ── C variant ──
@@ -464,7 +471,7 @@ async function runBuildJob(job) {
       addLogLine(job, "stdout", "Phase 2: Compiling C kernel in Docker...");
       const cidFile = `/tmp/oven-cid-${job.id}`;
       await runPhase(job, "build", "bash", ["-c", [
-        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -v ac-os-ccache:/ccache ac-os-builder)`,
+        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_GIT_HASH=${buildGitHash} -e AC_BUILD_TS=${buildTs} -v ac-os-ccache:/ccache ac-os-builder)`,
         `echo $CID > ${cidFile}`,
         `docker start -a $CID`,
       ].join(" && ")], repoDir);
@@ -515,7 +522,7 @@ async function runBuildJob(job) {
       const clVmlinuzOut = `/tmp/oven-cl-vmlinuz-${job.id}`;
 
       await runPhase(job, "cl-build", "bash", ["-c", [
-        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_BUILD_VARIANT=cl -e AC_BUILD_LISP=1 ac-os-builder)`,
+        `CID=$(docker create -e AC_BUILD_NAME=${buildName} -e AC_GIT_HASH=${buildGitHash} -e AC_BUILD_TS=${buildTs} -e AC_BUILD_VARIANT=cl -e AC_BUILD_LISP=1 ac-os-builder)`,
         `echo $CID > ${clCidFile}`,
         `docker start -a $CID`,
       ].join(" && ")], repoDir);
