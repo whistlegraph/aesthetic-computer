@@ -1741,6 +1741,8 @@ int audio_deck_load(ACAudio *audio, int deck, const char *path) {
     int ret = deck_decoder_load(dk->decoder, path);
     if (ret == 0) {
         dk->active = 1;
+        // Generate waveform peaks for visualization (decoded in background thread)
+        deck_decoder_generate_peaks(dk->decoder, 1024);
     }
     return ret;
 }

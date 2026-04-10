@@ -1,0 +1,219 @@
+% !TEX program = xelatex
+\documentclass[manuscript,anonymous,review]{acmart}
+
+% Remove ACM-specific metadata for submission
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\usepackage{booktabs}
+\usepackage{listings}
+
+% === Code listing styles ===
+\definecolor{kw}{RGB}{119,51,170}
+\definecolor{fn}{RGB}{0,136,170}
+\definecolor{str}{RGB}{170,120,0}
+\definecolor{num}{RGB}{204,0,102}
+\definecolor{cmt}{RGB}{102,102,102}
+
+\lstdefinelanguage{acjs}{
+  morekeywords=[1]{function,export,const,let,return,if,else},
+  morekeywords=[2]{wipe,ink,line,box,circle,write,screen,event},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]",
+  morestring=[b]',
+}
+
+\lstset{
+  language=acjs,
+  basicstyle=\ttfamily\small,
+  keywordstyle=[1]\color{kw}\bfseries,
+  keywordstyle=[2]\color{fn}\bfseries,
+  commentstyle=\color{cmt}\itshape,
+  stringstyle=\color{str},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!30},
+  backgroundcolor=\color{gray!5},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.5em,
+  belowskip=0.5em,
+}
+
+\begin{document}
+
+\title{Aesthetic Computer: A Prompt-Based Runtime for Creative Computing}
+\subtitle{Demo at ACM Creativity \& Cognition 2026}
+
+\author{Anonymous}
+\authornote{Submission anonymized for review.}
+\affiliation{\institution{Anonymous Institution}}
+
+\begin{abstract}
+We demonstrate Aesthetic Computer, a mobile-first runtime and social network for creative computing that replaces the conventional editor interface with a text prompt. Users type short, memorizable commands to launch interactive programs called \emph{pieces}---drawing tools, sound instruments, games, generative artworks, and social spaces---running entirely in the browser on any device. The demo invites attendees to interact with the system on their own phones: play a musical keyboard, draw collaboratively, write generative art in a minimal Lisp dialect, and experience how prompt-based navigation produces fluency through memorization rather than menu traversal. The system comprises 63,000 lines of open-source runtime code, 354 built-in pieces, 265 user-published works, and 2,800+ registered users.
+\end{abstract}
+
+\keywords{creative computing, creative coding, prompt interface, mobile-first, social computing, live coding, generative art}
+
+\maketitle
+
+% ============================================================
+\section{Introduction}
+
+Creative coding platforms---Processing, p5.js, Scratch, OpenProcessing---share a common assumption: the user interacts with an \emph{editor}. Aesthetic Computer (AC) starts from a different premise. The primary interface is a text prompt into which users type short names to launch interactive programs. There is no file browser, no project panel, no menu bar. The experience is closer to a musical instrument than a development environment: users discover commands through exploration, build muscle memory through repetition, and improvise by recombining pieces fluently.
+
+This demo lets conference attendees experience that interaction model directly. Visitors will navigate the prompt on their own devices, discover pieces by typing guesses, play instruments, draw, write code, and share their work---all within minutes, with no installation and no prior knowledge.
+
+% ============================================================
+\section{System Overview}
+
+AC is a browser-native platform comprising four subsystems:
+
+\begin{enumerate}
+  \item \textbf{Boot loader} --- initializes WebSocket connections, service workers, and offline storage in parallel. Subsequent visits load from cache for near-instant startup.
+  \item \textbf{BIOS} --- the runtime orchestrator (20,935 lines). Manages the 60fps rendering loop, routes input events (keyboard, touch, mouse, gamepad, MIDI), and coordinates piece lifecycle transitions.
+  \item \textbf{Disk API} --- provides the complete API surface for pieces (15,879 lines). All graphics are immediate-mode: every pixel is drawn every frame, with no retained scene graph.
+  \item \textbf{Module loader} --- streams JavaScript modules over WebSocket for fast loading, with IndexedDB caching and HTTP fallback.
+\end{enumerate}
+
+The system runs entirely client-side with no installation. Backend services handle authentication, storage, and real-time communication, but the creative runtime is the browser itself.
+
+% ============================================================
+\section{The Piece Model}
+
+A piece is a single \texttt{.mjs} (JavaScript) or \texttt{.lisp} (KidLisp) file that exports lifecycle functions:
+
+\begin{lstlisting}
+function boot({ wipe, screen }) {
+  // Runs once when piece loads
+}
+
+function paint({ wipe, ink, circle, screen }) {
+  wipe("navy")
+  ink("pink")
+  circle(screen.width / 2,
+         screen.height / 2, 50)
+}
+
+function act({ event: e }) {
+  if (e.is("touch")) { /* respond */ }
+}
+
+export { boot, paint, act };
+\end{lstlisting}
+
+The API provides graphics primitives (\texttt{wipe}, \texttt{ink}, \texttt{line}, \texttt{box}, \texttt{circle}, \texttt{poly}), text rendering, audio synthesis, input handling, networking, and UI components---all passed as destructured parameters to each lifecycle function. This follows Processing's sketchbook model---one file per explorable idea---combined with URL-addressability: every piece, parameter combination, and user's work is a shareable URL.
+
+The system includes 354 built-in pieces and 265 user-published works spanning drawing tools, musical instruments, generative artworks, multiplayer games, and social utilities.
+
+% ============================================================
+\section{The Prompt as Instrument}
+
+The prompt is AC's primary navigation interface, implementing over 60 commands. Instead of browsing menus, users type:
+
+\begin{itemize}
+  \item \texttt{notepat} --- a musical keyboard with synthesis and sequencing
+  \item \texttt{wand} --- a freehand drawing tool
+  \item \texttt{line} --- geometric drawing
+  \item \texttt{chat} --- live text chat
+  \item \texttt{mood} --- post a short status update
+  \item \texttt{@user/piece} --- load someone else's published work
+\end{itemize}
+
+Returning to the prompt is always one gesture away. Users report discovering pieces by typing guesses---\texttt{piano}, \texttt{draw}, \texttt{rain}---and finding what exists. This accidental discovery is a deliberate design outcome of a flat namespace. Over time, users build a personal repertoire of memorized commands, and their navigation becomes improvisational---rapid, fluent transitions between creative contexts without loading screens or navigation hierarchies.
+
+The metaphor is literal: like learning an instrument, the initial experience is exploration and discovery; the mature experience is fluency and flow.
+
+% ============================================================
+\section{KidLisp: A Language for Beginners and AI}
+
+KidLisp is a minimal Lisp dialect designed for generative art, with 118 built-in functions across 12 categories (drawing, color, transformation, math, animation, audio). A complete KidLisp program that draws concentric circles:
+
+\begin{lstlisting}
+(repeat i 12
+  (ink (color (* i 20) 100 200))
+  (circle:filled (/ width 2)
+                 (/ height 2)
+                 (* i 20)))
+\end{lstlisting}
+
+The language has no file I/O, networking, or string manipulation, which makes user-submitted code safe to execute. Over 16,000 KidLisp programs have been written---many by children and beginners collaborating with language models. The constrained vocabulary means AI-generated code is readable and editable by novices: a human can change a number, see the result, and build intuition for what the code does.
+
+KidLisp programs are URL-addressable: short codes like \texttt{\$cow} resolve to stored programs and execute immediately.
+
+% ============================================================
+\section{Social Infrastructure}
+
+Unlike platforms where social features are external services, AC integrates social infrastructure directly into the runtime:
+
+\begin{itemize}
+  \item \textbf{Handles} --- users register names through the prompt (\texttt{@handle}), which serve as namespaces for published work.
+  \item \textbf{Real-time chat} --- WebSocket-based messaging, with 18,000+ messages exchanged.
+  \item \textbf{Moods} --- short text posts visible on profiles, dual-written to ATProto for federation with the broader social web.
+  \item \textbf{Live profiles} --- real-time scorecards showing online status, current piece, and creative activity.
+  \item \textbf{Multiplayer} --- collaborative drawing, music-making, and shared sessions via WebSocket + UDP channels.
+\end{itemize}
+
+2,800+ users are registered. The social layer drives retention: users check moods, respond in chat, and discover pieces through social activity rather than search.
+
+% ============================================================
+\section{Distribution: The Pack System}
+
+The \texttt{pack} command bundles any piece into a single, self-contained HTML file. The output includes the piece code, all runtime dependencies, and embedded fonts---a file that works offline with no server. This enables distribution via email, USB drives, QR codes, or blockchain minting. A packed piece is a permanent artifact that survives platform shutdown.
+
+% ============================================================
+\section{Demo Experience}
+
+The demo station provides:
+
+\begin{enumerate}
+  \item \textbf{A large display} running AC at full screen, showing a rotating selection of pieces via the merry sequencing system.
+  \item \textbf{Attendees' own devices.} Visitors navigate to the URL on their phones and interact immediately---no app install, no account required. A printed card lists starting commands.
+  \item \textbf{Guided activities:}
+    \begin{itemize}
+      \item \emph{Play:} Type \texttt{notepat} and perform a melody on the touchscreen keyboard.
+      \item \emph{Draw:} Type \texttt{wand} or \texttt{line} and create a drawing.
+      \item \emph{Code:} Enter a KidLisp short code (\texttt{\$cow}) and modify a generative artwork live.
+      \item \emph{Share:} Type \texttt{chat} and send a message visible to all demo participants.
+      \item \emph{Pack:} Bundle a piece into an offline HTML file and take it home.
+    \end{itemize}
+  \item \textbf{Collaborative moment.} Multiple attendees on the same piece simultaneously, drawing or making music together in real time.
+\end{enumerate}
+
+The demo requires only a browser and an internet connection. No accounts, downloads, or plugins are needed to participate.
+
+% ============================================================
+\section{Relevance to Creativity for Change}
+
+AC's design proposes that creative software can be organized around memorization and improvisation rather than navigation and configuration. This produces a qualitatively different relationship between people and computation---one where the barriers to entry are curiosity and a URL, not software literacy and a desktop computer.
+
+The system is open source (ISC license), runs on any device with a browser, and packs creative work into permanent, self-contained files. KidLisp's role as a bridge between human beginners and AI collaborators demonstrates one model for how creative coding might evolve: not by making tools more complex, but by making languages simple enough that both humans and machines can read them.
+
+% ============================================================
+
+\bibliographystyle{ACM-Reference-Format}
+\begin{thebibliography}{9}
+
+\bibitem{reas2007}
+Casey Reas and Ben Fry. 2007. \textit{Processing: A Programming Handbook for Visual Designers and Artists}. MIT Press.
+
+\bibitem{mccarthy2015}
+Lauren McCarthy. 2015. p5.js. \url{https://p5js.org}
+
+\bibitem{resnick2009}
+Mitchel Resnick et al. 2009. Scratch: Programming for All. \textit{Communications of the ACM} 52, 11 (2009), 60--67.
+
+\bibitem{hydra2019}
+Olivia Jack. 2019. Hydra: Live Coding Networked Visuals. In \textit{Proceedings of the International Conference on Live Coding (ICLC)}.
+
+\bibitem{roos2023}
+Felix Roos and Alex McLean. 2023. Strudel: Live Coding Patterns on the Web. In \textit{Proceedings of the International Conference on New Interfaces for Musical Expression (NIME)}.
+
+\bibitem{nelson1974}
+Theodor H. Nelson. 1974. \textit{Computer Lib / Dream Machines}. Self-published.
+
+\end{thebibliography}
+
+\end{document}

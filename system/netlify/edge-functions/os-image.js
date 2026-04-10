@@ -3,6 +3,16 @@
 // This edge function just forwards the auth header and streams the response.
 
 const OVEN_BASE = "https://oven.aesthetic.computer/os-image";
+const EXPOSED_HEADERS = [
+  "Content-Length",
+  "Content-Disposition",
+  "X-AC-OS-Requested-Layout",
+  "X-AC-OS-Layout",
+  "X-AC-OS-Fallback",
+  "X-AC-OS-Fallback-Reason",
+  "X-Build",
+  "X-Patch",
+].join(", ");
 
 export default async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,6 +21,7 @@ export default async (req) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Authorization",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Expose-Headers": EXPOSED_HEADERS,
       },
     });
   }
@@ -47,7 +58,10 @@ export default async (req) => {
         "X-AC-OS-Fallback": ovenRes.headers.get("x-ac-os-fallback") || "",
         "X-AC-OS-Fallback-Reason":
           ovenRes.headers.get("x-ac-os-fallback-reason") || "",
+        "X-Build": ovenRes.headers.get("x-build") || "",
+        "X-Patch": ovenRes.headers.get("x-patch") || "",
         "Access-Control-Allow-Origin": "*",
+        "Access-Control-Expose-Headers": EXPOSED_HEADERS,
       },
     });
   } catch (err) {

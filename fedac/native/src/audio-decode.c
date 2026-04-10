@@ -396,11 +396,123 @@ void deck_decoder_unload(ACDeckDecoder *d) {
         d->fmt_ctx = NULL;
     }
 
+    // Free peaks
+    if (d->peaks) {
+        free(d->peaks);
+        d->peaks = NULL;
+        d->peak_count = 0;
+    }
+
     d->loaded = 0;
     d->finished = 0;
     d->decoding = 0;
     d->ring_write = 0;
     d->ring_read = 0;
+}
+
+// Generate decimated max-amplitude peaks for the loaded file.
+// Opens a SECOND independent FFmpeg context (so it doesn't disturb playback)
+// and decodes the entire file once, recording max abs value per chunk.
+int deck_decoder_generate_peaks(ACDeckDecoder *d, int target_count) {
+    if (!d || !d->loaded || !d->path[0]) return -1;
+    if (d->peaks) { free(d->peaks); d->peaks = NULL; d->peak_count = 0; }
+    if (target_count <= 0) target_count = 1024;
+
+    AVFormatContext *fmt = NULL;
+    if (avformat_open_input(&fmt, d->path, NULL, NULL) < 0) return -1;
+    if (avformat_find_stream_info(fmt, NULL) < 0) {
+        avformat_close_input(&fmt);
+        return -1;
+    }
+    int sidx = av_find_best_stream(fmt, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
+    if (sidx < 0) { avformat_close_input(&fmt); return -1; }
+    AVStream *st = fmt->streams[sidx];
+    const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
+    if (!codec) { avformat_close_input(&fmt); return -1; }
+    AVCodecContext *cctx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(cctx, st->codecpar);
+    if (avcodec_open2(cctx, codec, NULL) < 0) {
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    // Estimate total samples for chunking
+    double duration = d->duration;
+    if (duration <= 0) duration = 60.0; // fallback
+    int sample_rate = cctx->sample_rate;
+    long total_samples = (long)(duration * sample_rate);
+    if (total_samples < target_count) total_samples = target_count;
+    long samples_per_chunk = total_samples / target_count;
+    if (samples_per_chunk < 1) samples_per_chunk = 1;
+
+    d->peaks = (float *)calloc(target_count, sizeof(float));
+    if (!d->peaks) {
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+    d->peak_count = target_count;
+
+    // Setup converter to mono float
+    SwrContext *swr = NULL;
+    AVChannelLayout out_layout = AV_CHANNEL_LAYOUT_MONO;
+    swr_alloc_set_opts2(&swr, &out_layout, AV_SAMPLE_FMT_FLT, sample_rate,
+                        &cctx->ch_layout, cctx->sample_fmt, cctx->sample_rate,
+                        0, NULL);
+    swr_init(swr);
+
+    AVPacket *pkt = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+    float chunk_max = 0.0f;
+    long sample_idx = 0;
+    int peak_idx = 0;
+    float *outbuf = (float *)malloc(sample_rate * sizeof(float));
+    int outbuf_size = sample_rate;
+
+    while (av_read_frame(fmt, pkt) >= 0 && peak_idx < target_count) {
+        if (pkt->stream_index != sidx) { av_packet_unref(pkt); continue; }
+        if (avcodec_send_packet(cctx, pkt) < 0) { av_packet_unref(pkt); continue; }
+        while (avcodec_receive_frame(cctx, frame) >= 0) {
+            int max_out = frame->nb_samples + 256;
+            if (max_out > outbuf_size) {
+                outbuf = (float *)realloc(outbuf, max_out * sizeof(float));
+                outbuf_size = max_out;
+            }
+            uint8_t *out_ptr[1] = { (uint8_t *)outbuf };
+            int out_n = swr_convert(swr, out_ptr, max_out,
+                                    (const uint8_t **)frame->data, frame->nb_samples);
+            for (int i = 0; i < out_n; i++) {
+                float v = outbuf[i];
+                if (v < 0) v = -v;
+                if (v > chunk_max) chunk_max = v;
+                sample_idx++;
+                if (sample_idx >= samples_per_chunk) {
+                    if (peak_idx < target_count) {
+                        d->peaks[peak_idx++] = chunk_max;
+                    }
+                    chunk_max = 0.0f;
+                    sample_idx = 0;
+                }
+            }
+        }
+        av_packet_unref(pkt);
+    }
+    // Final chunk
+    if (peak_idx < target_count && chunk_max > 0) {
+        d->peaks[peak_idx++] = chunk_max;
+    }
+    // Fill remaining
+    while (peak_idx < target_count) d->peaks[peak_idx++] = 0;
+
+    free(outbuf);
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+    swr_free(&swr);
+    avcodec_free_context(&cctx);
+    avformat_close_input(&fmt);
+
+    return target_count;
 }
 
 void deck_decoder_destroy(ACDeckDecoder *d) {
