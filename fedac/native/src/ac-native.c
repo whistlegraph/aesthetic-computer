@@ -2103,6 +2103,11 @@ int main(int argc, char *argv[]) {
     signal(SIGBUS, signal_handler);
     signal(SIGABRT, signal_handler);
     signal(SIGFPE, signal_handler);
+    // Ignore SIGPIPE so writes to a closed socket (WebSocket, UDP peer,
+    // session-server log uploads) return EPIPE instead of killing the
+    // process. Without this, any server-side close during an in-flight
+    // SSL_write kills ac-native with exit=141 (observed in crash logs).
+    signal(SIGPIPE, SIG_IGN);
 #ifdef USE_WAYLAND
     // Under Wayland: no DRM handoff signals needed (browser is sibling client)
     if (!getenv("WAYLAND_DISPLAY"))
