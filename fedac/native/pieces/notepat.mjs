@@ -585,28 +585,29 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    if (key === "f10") {
-      metronomeEnabled = !metronomeEnabled;
-      if (metronomeEnabled) {
-        metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
-      }
+    // F11 (green phone pickup): Engage hold/latch
+    // Snapshot current keys + auto-latch new keys while hold is on
+    if (key === "f11") {
+      heldKeys = new Set(Object.keys(sounds));
+      holdActive = true;
+      sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
       return;
     }
-    // F8: Hold/latch toggle
-    // ON: snapshot current keys + auto-latch new keys while held
-    // OFF: stop all held notes and clear
-    if (key === "f8") {
+    // F10 (red phone hangup): Clear hold — stop all held notes
+    if (key === "f10") {
       if (holdActive) {
-        // Clear hold: stop all held notes
         for (const k of heldKeys) stopSoundKey(k, sound, system, 0.08);
         heldKeys.clear();
         holdActive = false;
         sound?.synth?.({ type: "sine", tone: 330, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
-      } else {
-        // Engage hold: snapshot current keys (may be empty — new keys auto-latch)
-        heldKeys = new Set(Object.keys(sounds));
-        holdActive = true;
-        sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+      }
+      return;
+    }
+    // F12: metronome toggle (moved from F10)
+    if (key === "f12") {
+      metronomeEnabled = !metronomeEnabled;
+      if (metronomeEnabled) {
+        metronomeBeatCount = Math.floor(syncedNow() / (60000 / metronomeBPM));
       }
       return;
     }
@@ -2326,14 +2327,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       box(obx, waveRowY, 1, waveRowH, true);
       ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
-      // HOLD indicator
+      // HOLD indicator (drawn to the LEFT of the octave button)
       if (holdActive) {
-        obx += octBtnW + 2;
         const holdW = 30;
+        const hbx = obx - holdW - 2;
         ink(dark ? 80 : 180, dark ? 40 : 100, dark ? 40 : 100);
-        box(obx, waveRowY, holdW, waveRowH, true);
+        box(hbx, waveRowY, holdW, waveRowH, true);
         ink(255, dark ? 180 : 60, dark ? 120 : 40);
-        write("HOLD", { x: obx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+        write("HOLD", { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
       }
     }
 
