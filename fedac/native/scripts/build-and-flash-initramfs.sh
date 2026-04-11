@@ -219,9 +219,14 @@ if [ -d "${PIECES_SRC}" ]; then
     log "Bundled pieces: $(ls "${INITRAMFS_DIR}/pieces/" | tr '\n' ' ')"
 fi
 
-# Copy web pieces that run unmodified on native (Wave 1 + clock)
+# Copy web pieces that run unmodified on native (Wave 1).
+# NOTE: clock.mjs is NOT in this list — the web clock.mjs uses browser-only
+# APIs (hud, typeface, store.persist, net.pieces) that native doesn't expose,
+# so it renders as a black screen on the device. A minimal native-compatible
+# clock.mjs lives in fedac/native/pieces/ and is copied in the pass above.
+# If you need the full web clock with all its features, use it in a browser.
 AC_DISKS_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/disks"
-for web_piece in clock.mjs 3x3.mjs 404.mjs beat.mjs brick-breaker.mjs \
+for web_piece in 3x3.mjs 404.mjs beat.mjs brick-breaker.mjs \
     dync.mjs error.mjs gostop.mjs hop.mjs shh.mjs chart.mjs \
     f3ral3xp.mjs hw.mjs ptt.mjs; do
     [ -f "${AC_DISKS_DIR}/${web_piece}" ] && cp "${AC_DISKS_DIR}/${web_piece}" "${INITRAMFS_DIR}/pieces/"
