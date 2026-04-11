@@ -389,6 +389,99 @@ let rightMasterVol = 1.0;
 let leftVolDragging = false;
 let rightVolDragging = false;
 
+// === REVERSE PLAYBACK / INSTANT REPLAY LOOP ===
+// Hold space to instantly play the CURRENT phase of history in reverse.
+// Release space to stop mid-reverse — the duration you held space defines
+// the length of the next loop. Pressing space starts a NEW phase: previous
+// history is snapshotted as the source, history resets to empty, and every
+// reverse event that fires during the press gets RECORDED BACK into the new
+// history. That means pressing space twice in a row bounces the sequence
+// forward → reverse → forward → reverse, creating a natural loop pedal.
+//
+// User-played notes during a reverse phase also go into the new history, so
+// you can layer over the reverse and the layers get captured into the next
+// pass. "The length of holding space is a bit like setting the out point on
+// the loop" (your words).
+const PLAYBACK_MAX_EVENTS = 256;
+const PLAYBACK_MAX_AGE_MS = 12000;
+let playbackHistory = []; // [{ts, kind:'note'|'drum', letter, octave, freq, vel, pan, wave, pitch}]
+let spaceHeld = false;
+// Queue of pending reverse events, sorted by playAtMs (monotonic clock).
+let reverseQueue = []; // [{playAtMs, ev}]
+
+function recordPlayback(entry) {
+  const now = Date.now();
+  playbackHistory.push({ ...entry, ts: now });
+  if (playbackHistory.length > PLAYBACK_MAX_EVENTS) {
+    playbackHistory.splice(0, playbackHistory.length - PLAYBACK_MAX_EVENTS);
+  }
+  const cutoff = now - PLAYBACK_MAX_AGE_MS;
+  while (playbackHistory.length && playbackHistory[0].ts < cutoff) {
+    playbackHistory.shift();
+  }
+}
+
+function startReversePlayback() {
+  // Snapshot the CURRENT phase as the source, then RESET the phase history
+  // so reverse events and any new user notes populate a fresh buffer.
+  const snapshot = playbackHistory.slice();
+  playbackHistory = [];
+  if (snapshot.length === 0) return;
+  const now = Date.now();
+  const latestTs = snapshot[snapshot.length - 1].ts;
+  reverseQueue = [];
+  // Walk events from most-recent to earliest. Most recent plays at delay 0;
+  // each older event plays at (latest - itsTs) ms later, so the original
+  // intervals are preserved but the sequence is reversed.
+  for (let i = snapshot.length - 1; i >= 0; i--) {
+    const e = snapshot[i];
+    const delay = latestTs - e.ts;
+    reverseQueue.push({ playAtMs: now + delay, ev: e });
+  }
+}
+
+function stopReversePlayback() {
+  // Clear pending reverse events — anything not yet fired is dropped.
+  // playbackHistory keeps whatever got recorded during this phase (reverse
+  // events that DID fire + user-played notes), and that becomes the source
+  // for the next space press.
+  reverseQueue = [];
+}
+
+// Fire one reverse-playback event via the sound API AND record it back into
+// history so the next space press reverses THIS phase.
+function playReverseEvent(ev, sound) {
+  if (!sound) return;
+  if (ev.kind === "drum") {
+    playPercussion(sound, ev.letter, (ev.vel || 1) * 1.5, ev.pan || 0, ev.pitch || 1);
+  } else {
+    const playFreq = (ev.freq || 440) * (ev.pitch || 1);
+    sound?.synth?.({
+      type: ev.wave || "sine",
+      tone: playFreq,
+      duration: 0.12,
+      volume: (ev.vel || 0.7) * 0.7,
+      attack: 0.003,
+      decay: 0.09,
+      pan: ev.pan || 0,
+    });
+  }
+  // Record the fired event back into the new phase's history (with the
+  // CURRENT timestamp, not the original one — this is what makes the
+  // bounce loop work: the new phase captures events in the order they
+  // played, then the next reverse unwinds them back to the original order).
+  recordPlayback({
+    kind: ev.kind,
+    letter: ev.letter,
+    octave: ev.octave,
+    freq: ev.freq,
+    vel: ev.vel,
+    pan: ev.pan,
+    wave: ev.wave,
+    pitch: ev.pitch,
+  });
+}
+
 // Returns the master volume for the grid that produced a note, based on the
 // gridOffset we pass through from parseNote / hitTestGrid (0 = left, 1 = right).
 function masterForSide(gridOffset) {
@@ -1004,10 +1097,21 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (key === "space") {
-      // Kick drum — short sine burst with pitch drop
-      if (sound && sound.synth) {
-        sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
-        sound.synth({ type: "sine", tone: 60, duration: 0.2, volume: 0.7, attack: 0.001, decay: 0.19, pan: 0.0 });
+      // Space = INSTANT REPLAY IN REVERSE (loop pedal semantics).
+      // Press: snapshot current history, reset the phase, start firing events
+      //   backwards. The fallback kick drum only plays if there's nothing to
+      //   reverse (empty history — first-press behavior).
+      // Release: stop the reverse queue. What got recorded during the press
+      //   becomes the next phase's source.
+      if (!spaceHeld) {
+        spaceHeld = true;
+        if (playbackHistory.length > 0) {
+          startReversePlayback();
+        } else if (sound && sound.synth) {
+          // Fallback kick drum when there's no history to reverse.
+          sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
+          sound.synth({ type: "sine", tone: 60, duration: 0.2, volume: 0.7, attack: 0.001, decay: 0.19, pan: 0.0 });
+        }
       }
       return;
     }
@@ -1207,6 +1311,7 @@ function act({ event: e, sound, wifi, system }) {
         // each melody at ~0.17 — roughly 3× prominence. Then scale the
         // whole thing by the per-side master so the user can balance L/R.
         const drumVol = (1.0 + velocity * 0.8) * master;
+        const drumPitch = Math.pow(2, effectivePitchShift());
         const bankSample = percussionSampleBank[drumName];
         if (wave === "sample" && bankSample) {
           if (bankSample !== lastLoadedSample) {
@@ -1214,13 +1319,14 @@ function act({ event: e, sound, wifi, system }) {
             lastLoadedSample = bankSample;
           }
           sound.sample.play({
-            tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+            tone: SAMPLE_BASE_FREQ * drumPitch,
             base: SAMPLE_BASE_FREQ,
             volume: drumVol, pan, loop: false,
           });
         } else {
-          playPercussion(sound, letter, drumVol, pan, Math.pow(2, effectivePitchShift()));
+          playPercussion(sound, letter, drumVol, pan, drumPitch);
         }
+        recordPlayback({ kind: "drum", letter, octave: noteOctave, vel: drumVol, pan, pitch: drumPitch });
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -1253,6 +1359,12 @@ function act({ event: e, sound, wifi, system }) {
         });
         rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
       }
+      // Record for the reverse-playback loop. Captures the parameters of
+      // the user's hit so the next space press can replay it backwards.
+      recordPlayback({
+        kind: "note", letter, octave: noteOctave, freq, vel: velocity, pan,
+        wave, pitch: Math.pow(2, effectivePitchShift()),
+      });
       trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
   }
@@ -1260,6 +1372,13 @@ function act({ event: e, sound, wifi, system }) {
   if (e.is("keyboard:up")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
+    // Space release: stop the reverse playback queue. The duration of the
+    // press ends up defining the next loop's length.
+    if (key === "space") {
+      spaceHeld = false;
+      stopReversePlayback();
+      return;
+    }
     // F11 release — exit flourish mode (new notes will auto-latch again)
     if (key === "f11") { f11Held = false; return; }
     // Home key release: stop global recording + save to global sample
@@ -1523,6 +1642,7 @@ function act({ event: e, sound, wifi, system }) {
         // Percussion pad tap: fire drum (or drum sample) and flash trail.
         const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
         if (touchDrum) {
+          const touchDrumPitch = Math.pow(2, effectivePitchShift());
           const bankSample = percussionSampleBank[touchDrum];
           if (wave === "sample" && bankSample) {
             if (bankSample !== lastLoadedSample) {
@@ -1530,13 +1650,14 @@ function act({ event: e, sound, wifi, system }) {
               lastLoadedSample = bankSample;
             }
             sound.sample.play({
-              tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+              tone: SAMPLE_BASE_FREQ * touchDrumPitch,
               base: SAMPLE_BASE_FREQ,
               volume: 1.6, pan, loop: false,
             });
           } else {
-            playPercussion(sound, hitNote.letter, 1.8, pan, Math.pow(2, effectivePitchShift()));
+            playPercussion(sound, hitNote.letter, 1.8, pan, touchDrumPitch);
           }
+          recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan, pitch: touchDrumPitch });
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
           return;
@@ -1670,6 +1791,7 @@ function act({ event: e, sound, wifi, system }) {
           // Drag-to-drum: drum pads fire as one-shots on rollover too.
           const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
           if (rollDrum) {
+            const rollDrumPitch = Math.pow(2, effectivePitchShift());
             const bankSample = percussionSampleBank[rollDrum];
             if (wave === "sample" && bankSample) {
               if (bankSample !== lastLoadedSample) {
@@ -1677,13 +1799,14 @@ function act({ event: e, sound, wifi, system }) {
                 lastLoadedSample = bankSample;
               }
               sound.sample.play({
-                tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+                tone: SAMPLE_BASE_FREQ * rollDrumPitch,
                 base: SAMPLE_BASE_FREQ,
                 volume: 1.6, pan, loop: false,
               });
             } else {
-              playPercussion(sound, hitNote.letter, 1.8, pan, Math.pow(2, effectivePitchShift()));
+              playPercussion(sound, hitNote.letter, 1.8, pan, rollDrumPitch);
             }
+            recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan, pitch: rollDrumPitch });
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key };
             return;
@@ -3565,6 +3688,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 function sim({ pressures, sound }) {
   // Flush any due setTimeout callbacks (polyfill for missing QuickJS timer)
   __tickPendingTimeouts();
+  // Fire any reverse-playback events whose scheduled time has arrived. This
+  // runs every frame so the timing resolution is ~16 ms (fine for percussive
+  // replay). We drain in a while loop so multiple due events in the same
+  // frame all fire.
+  if (reverseQueue.length > 0) {
+    const nowMs = Date.now();
+    while (reverseQueue.length > 0 && reverseQueue[0].playAtMs <= nowMs) {
+      const { ev } = reverseQueue.shift();
+      playReverseEvent(ev, sound);
+    }
+  }
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
