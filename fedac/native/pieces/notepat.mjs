@@ -616,16 +616,24 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.2, 0.10)  * v, attack: 0.001, decay: 0.045, pan });
       break;
 
-    case "e": // clap — jittered click + BPM-locked flam body
-      // 1. Click — tone jitter ±10%, brightness ±8%
-      sound.synth({ type: "square", tone: rj(2500, 0.10) * pf, duration: 0.004, volume: rj(0.9, 0.08) * v, attack: 0.0003, decay: 0.0035, pan: pan * rn(0.6, 0.9) });
-      sound.synth({ type: "noise",  tone: rj(6000, 0.12) * pf, duration: 0.003, volume: rj(0.6, 0.10) * v, attack: 0.0003, decay: 0.0025, pan: pan * rn(0.6, 0.9) });
-      // 2. Body: 3 flam bursts. Timings scale with BPM AND jitter ±30% per hit.
-      sound.synth({ type: "noise", tone: rj(1600, 0.08) * pf, duration: 0.008, volume: rj(0.75, 0.08) * v, attack: 0.0003, decay: 0.007, pan });
-      setTimeout(() => sound.synth({ type: "noise", tone: rj(1700, 0.09) * pf, duration: 0.008, volume: rj(0.6, 0.10) * v, attack: 0.0003, decay: 0.007, pan }), Math.round(flam * rn(0.4, 0.6)));
-      setTimeout(() => sound.synth({ type: "noise", tone: rj(1500, 0.10) * pf, duration: 0.008, volume: rj(0.5, 0.12) * v, attack: 0.0003, decay: 0.007, pan }), Math.round(flam * rn(1.0, 1.3)));
-      // 3. Tail
-      setTimeout(() => sound.synth({ type: "noise", tone: rj(1800, 0.08) * pf, duration: 0.025, volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.024, pan }), Math.round(flam * rn(1.7, 2.0)));
+    case "e": // clap — two-step: DOWN (dark palm strike) then UP (bright release)
+      // STEP 1 — DOWN: palms meet. Darker body thump + low-mid noise burst.
+      // Lower-pitched, meatier, slightly left of center for stereo interest.
+      {
+        const downPan = pan + rn(-0.08, 0.02);
+        sound.synth({ type: "noise",  tone: rj(900, 0.10) * pf, duration: 0.010, volume: rj(0.85, 0.08) * v, attack: 0.0003, decay: 0.009, pan: downPan });
+        sound.synth({ type: "square", tone: rj(260, 0.06) * pf, duration: 0.012, volume: rj(0.55, 0.10) * v, attack: 0.0004, decay: 0.011, pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(1400, 0.10) * pf, duration: 0.006, volume: rj(0.50, 0.12) * v, attack: 0.0003, decay: 0.0055, pan: downPan });
+      }
+      // STEP 2 — UP: hands separate, bright transient + airy tail.
+      // Delayed by ~1.5 flam units (scales with BPM) with jitter so hits vary.
+      // Panned slightly opposite for L/R call-response feel.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.02, 0.10);
+        sound.synth({ type: "square", tone: rj(3200, 0.10) * pf, duration: 0.004, volume: rj(0.80, 0.08) * v, attack: 0.0002, decay: 0.0035, pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(5200, 0.12) * pf, duration: 0.008, volume: rj(0.70, 0.10) * v, attack: 0.0003, decay: 0.007, pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(2400, 0.08) * pf, duration: 0.018, volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.017, pan: upPan });
+      }, Math.round(flam * rn(1.3, 1.7)));
       break;
 
     case "f": // snap — finger snap, tone jitter for variation
@@ -639,9 +647,20 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       sound.synth({ type: "noise", tone: rj(5000, 0.08) * pf, duration: 0.04, volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.035, pan });
       break;
 
-    case "a": // open hi-hat — decay + brightness vary
-      sound.synth({ type: "noise", tone: rj(6500, 0.07) * pf, duration: rj(0.28, 0.10), volume: rj(0.30, 0.08) * v, attack: 0.001, decay: 0.27, pan });
-      sound.synth({ type: "noise", tone: rj(4800, 0.07) * pf, duration: rj(0.20, 0.10), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.19, pan });
+    case "a": // open hi-hat — two-step: DOWN (chip strike) then UP (airy shimmer)
+      // STEP 1 — DOWN: short metallic chip — initial cymbal contact.
+      {
+        const downPan = pan + rn(-0.06, 0.04);
+        sound.synth({ type: "noise",  tone: rj(8200, 0.08) * pf, duration: 0.012, volume: rj(0.45, 0.08) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+        sound.synth({ type: "square", tone: rj(5400, 0.08) * pf, duration: 0.008, volume: rj(0.18, 0.10) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+      }
+      // STEP 2 — UP: sustained airy shimmer that blooms after the chip. Decay
+      // + brightness vary per hit, panned slightly opposite for call/response.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.02, 0.08);
+        sound.synth({ type: "noise", tone: rj(6500, 0.07) * pf, duration: rj(0.26, 0.10), volume: rj(0.28, 0.08) * v, attack: 0.003, decay: 0.25, pan: upPan });
+        sound.synth({ type: "noise", tone: rj(4800, 0.07) * pf, duration: rj(0.19, 0.10), volume: rj(0.17, 0.10) * v, attack: 0.003, decay: 0.18, pan: upPan });
+      }, Math.round(flam * rn(0.8, 1.2)));
       break;
 
     case "b": // ride — metallic shimmer with per-hit harmonic variation
