@@ -562,6 +562,43 @@ function percussionDrumFor(letter, offset) {
   return null;
 }
 
+// === DRUM PAN GEOMETRY ===
+// Tone pan is pitch-based (low notes left, high notes right) which kind of
+// coincidentally matches the QWERTY position because notepat's key mapping
+// puts low naturals on the left. For DRUMS that model is wrong — a kick
+// shouldn't pan hard left just because it's on the C key. Instead drums pan
+// by physical kit geometry (from drummer's perspective / standard mix):
+//   - kicks + snares near center
+//   - hats slightly right (drummer's right hand)
+//   - ride right, crash + splash left
+//   - perc accents spread for color
+// Then the grid side biases the whole hit — left grid → left-of-center,
+// right grid → right-of-center — so the two grids occupy distinct stereo
+// spaces when both have percussion on.
+const DRUM_PAN_OFFSET = {
+  c: 0.00,     // kick — center
+  d: -0.05,    // snare — barely off center
+  e: 0.10,     // clap — slightly right
+  f: -0.10,    // snap — slightly left
+  g: 0.25,     // closed hi-hat — drummer's right
+  a: 0.32,     // open hi-hat — drummer's right
+  b: 0.45,     // ride — far right (drummer's right side)
+  "c#": -0.45, // crash — drummer's left
+  "d#": -0.55, // splash — far left
+  "f#": 0.22,  // cowbell — right
+  "g#": -0.18, // wood block — left
+  "a#": 0.30,  // tambourine — right
+};
+
+function drumPanFor(letter, gridOffset) {
+  // gridBias: left grid skews left, right grid skews right. Keeps both grids
+  // audible simultaneously without collapsing into a single phantom center.
+  const gridBias = gridOffset === 1 ? 0.32 : -0.32;
+  const drumOffset = DRUM_PAN_OFFSET[letter] ?? 0;
+  // Drum offset at 0.7 strength so kit geometry shows but grid side dominates.
+  return Math.max(-0.9, Math.min(0.9, gridBias + drumOffset * 0.7));
+}
+
 // Fire a drum hit from short auto-stopping synth voices. No cleanup
 // needed on key-up because every voice uses a finite duration.
 //
@@ -1430,6 +1467,9 @@ function act({ event: e, sound, wifi, system }) {
         // whole thing by the per-side master so the user can balance L/R.
         const drumVol = (1.0 + velocity * 0.8) * master;
         const drumPitch = Math.pow(2, effectivePitchShift());
+        // Drums get their own pan (kit geometry + grid bias), not the
+        // pitch-based tone pan calculated above.
+        const drumPan = drumPanFor(letter, offset);
         const bankSample = percussionSampleBank[drumName];
         if (wave === "sample" && bankSample) {
           if (bankSample !== lastLoadedSample) {
@@ -1439,12 +1479,12 @@ function act({ event: e, sound, wifi, system }) {
           sound.sample.play({
             tone: SAMPLE_BASE_FREQ * drumPitch,
             base: SAMPLE_BASE_FREQ,
-            volume: drumVol, pan, loop: false,
+            volume: drumVol, pan: drumPan, loop: false,
           });
         } else {
-          playPercussion(sound, letter, drumVol, pan, drumPitch);
+          playPercussion(sound, letter, drumVol, drumPan, drumPitch);
         }
-        recordPlayback({ kind: "drum", letter, octave: noteOctave, vel: drumVol, pan, pitch: drumPitch });
+        recordPlayback({ kind: "drum", letter, octave: noteOctave, vel: drumVol, pan: drumPan, pitch: drumPitch });
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -1761,6 +1801,8 @@ function act({ event: e, sound, wifi, system }) {
         const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
         if (touchDrum) {
           const touchDrumPitch = Math.pow(2, effectivePitchShift());
+          // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
+          const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
           const bankSample = percussionSampleBank[touchDrum];
           if (wave === "sample" && bankSample) {
             if (bankSample !== lastLoadedSample) {
@@ -1770,12 +1812,12 @@ function act({ event: e, sound, wifi, system }) {
             sound.sample.play({
               tone: SAMPLE_BASE_FREQ * touchDrumPitch,
               base: SAMPLE_BASE_FREQ,
-              volume: 1.6, pan, loop: false,
+              volume: 1.6, pan: touchDrumPan, loop: false,
             });
           } else {
-            playPercussion(sound, hitNote.letter, 1.8, pan, touchDrumPitch);
+            playPercussion(sound, hitNote.letter, 1.8, touchDrumPan, touchDrumPitch);
           }
-          recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan, pitch: touchDrumPitch });
+          recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: touchDrumPan, pitch: touchDrumPitch });
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
           return;
@@ -1910,6 +1952,8 @@ function act({ event: e, sound, wifi, system }) {
           const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
           if (rollDrum) {
             const rollDrumPitch = Math.pow(2, effectivePitchShift());
+            // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
+            const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
             const bankSample = percussionSampleBank[rollDrum];
             if (wave === "sample" && bankSample) {
               if (bankSample !== lastLoadedSample) {
@@ -1919,12 +1963,12 @@ function act({ event: e, sound, wifi, system }) {
               sound.sample.play({
                 tone: SAMPLE_BASE_FREQ * rollDrumPitch,
                 base: SAMPLE_BASE_FREQ,
-                volume: 1.6, pan, loop: false,
+                volume: 1.6, pan: rollDrumPan, loop: false,
               });
             } else {
-              playPercussion(sound, hitNote.letter, 1.8, pan, rollDrumPitch);
+              playPercussion(sound, hitNote.letter, 1.8, rollDrumPan, rollDrumPitch);
             }
-            recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan, pitch: rollDrumPitch });
+            recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: rollDrumPan, pitch: rollDrumPitch });
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key };
             return;
