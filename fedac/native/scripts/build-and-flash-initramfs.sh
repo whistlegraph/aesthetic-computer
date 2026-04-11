@@ -70,6 +70,7 @@ if command -v dnf &>/dev/null; then
     command -v make &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} make"
     command -v curl &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} curl"
     command -v jq &>/dev/null       || PKGS_NEEDED="${PKGS_NEEDED} jq"
+    command -v bash &>/dev/null     || PKGS_NEEDED="${PKGS_NEEDED} bash"
     # Kernel build headers
     [ -f /usr/include/libelf.h ]    || PKGS_NEEDED="${PKGS_NEEDED} elfutils-libelf-devel"
     [ -f /etc/pki/tls/certs/ca-bundle.crt ] || PKGS_NEEDED="${PKGS_NEEDED} ca-certificates"
@@ -559,8 +560,24 @@ DHCLIENT_SCRIPT
         done
     fi
 
-    # Claude Code needs /bin/bash — symlink to sh (busybox ash is close enough)
-    [ -f "${INITRAMFS_DIR}/bin/sh" ] && ln -sf sh "${INITRAMFS_DIR}/bin/bash"
+    # Claude Code NEEDS real bash — busybox ash is NOT close enough for
+    # Claude's Bash tool (no arrays, no process substitution, no local -n,
+    # no ${var//pattern/repl} in ash, etc.). Always ship real /bin/bash
+    # alongside busybox so Claude's shell-outs actually work. /bin/sh stays
+    # as busybox for small scripts that don't need bash features.
+    if [ -f /bin/bash ] || [ -f /usr/bin/bash ]; then
+        BASH_SRC="$(command -v bash 2>/dev/null || echo /bin/bash)"
+        cp "${BASH_SRC}" "${INITRAMFS_DIR}/bin/bash"
+        chmod +x "${INITRAMFS_DIR}/bin/bash"
+        for lib in $(ldd "${BASH_SRC}" 2>/dev/null | grep -oP '/\S+'); do
+            [ -f "$lib" ] && cp -n "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
+        done
+        log "  bash: $(du -sh "${INITRAMFS_DIR}/bin/bash" | cut -f1) (real GNU bash)"
+    else
+        # Fallback: symlink to busybox if real bash isn't available at build time
+        [ -f "${INITRAMFS_DIR}/bin/sh" ] && ln -sf sh "${INITRAMFS_DIR}/bin/bash"
+        warn "No /bin/bash found at build time — falling back to busybox ash (Claude Code will have issues)"
+    fi
 
     # BPF trace tool (if built)
     BPF_TRACE="${NATIVE_DIR}/bpf/ac-trace"

@@ -3958,6 +3958,34 @@ int main(int argc, char *argv[]) {
                             }
                         }
                     }
+                    // Clone (or pull) the aesthetic-computer repo to
+                    // /mnt/ac-repo so Claude Code has a real project to
+                    // work in. Runs in the background so boot isn't
+                    // delayed. If /github-pat is present, git picks it up
+                    // via the git-credential-ac helper. We use a shallow
+                    // clone (--depth=50) to keep the size manageable
+                    // (~200 MB) while still giving Claude enough history
+                    // for basic blame/log work.
+                    //
+                    // Idempotent: if /mnt/ac-repo/.git already exists,
+                    // `git pull` runs instead (bounded by 30s timeout).
+                    // Logs go to /tmp/ac-repo-clone.log.
+                    {
+                        char clone_cmd[1024];
+                        snprintf(clone_cmd, sizeof(clone_cmd),
+                            "( if [ -d /mnt/ac-repo/.git ]; then "
+                            "    echo '[ac-repo] pulling latest' && "
+                            "    cd /mnt/ac-repo && timeout 30 git pull --ff-only 2>&1; "
+                            "  else "
+                            "    echo '[ac-repo] cloning (shallow)' && "
+                            "    timeout 300 git clone --depth=50 --branch=main "
+                            "      https://github.com/whistlegraph/aesthetic-computer.git "
+                            "      /mnt/ac-repo 2>&1; "
+                            "  fi "
+                            ") >> /tmp/ac-repo-clone.log 2>&1 &");
+                        system(clone_cmd);
+                        ac_log("[ac-repo] background clone/pull started\n");
+                    }
                     ac_log_flush();
                 }
                 was_connected = is_connected;
