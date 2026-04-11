@@ -116,6 +116,11 @@ typedef struct {
     char crash_msg[256];                 // last error message
     char crash_piece[64];               // piece that crashed
     int  crash_frame;                    // frame counter for animation
+
+    // Tape recorder handle (owned by ac-native.c, set at startup when
+    // HAVE_AVCODEC is compiled in; NULL if ffmpeg isn't available).
+    // JS bindings expose read-only state via sound.tape.*.
+    void *recorder;                      // ACRecorder* (void to keep recorder.h conditional)
 } ACRuntime;
 
 // Initialize QuickJS and register all AC API bindings
