@@ -326,6 +326,80 @@ static double comp_env = 0.0;  // envelope follower level
 static unsigned long xrun_count = 0;
 static unsigned long short_write_count = 0;
 
+static void mix_sample_voice(SampleVoice *sv, const float *buf, int slen, int smax,
+                             double rate, double *mix_l, double *mix_r) {
+    if (!sv || !sv->active || !buf || slen <= 0 || smax <= 0) {
+        if (sv) sv->active = 0;
+        return;
+    }
+
+    if (slen > smax) slen = smax;
+
+    // Fade envelope (5ms attack/release at output rate)
+    double fade_speed = 1.0 / (0.005 * rate);
+    if (sv->fade < sv->fade_target) {
+        sv->fade += fade_speed;
+        if (sv->fade > sv->fade_target) sv->fade = sv->fade_target;
+    } else if (sv->fade > sv->fade_target) {
+        sv->fade -= fade_speed;
+        if (sv->fade <= 0.0) { sv->fade = 0.0; sv->active = 0; return; }
+    }
+
+    // Pan controls both amplitude and a small Haas-style stereo offset.
+    double delay_samps = sv->pan * 0.0004 * rate;
+    double pos_l = sv->position - (delay_samps > 0 ? delay_samps : 0);
+    double pos_r = sv->position + (delay_samps > 0 ? 0 : delay_samps);
+    if (pos_l < 0) pos_l = 0;
+    if (pos_r < 0) pos_r = 0;
+
+    int p0l = (int)pos_l;
+    if (sv->loop) {
+        p0l = ((p0l % slen) + slen) % slen;
+    } else if (p0l >= slen) {
+        sv->active = 0;
+        return;
+    }
+    int p1l = p0l + 1;
+    if (p1l >= slen) p1l = sv->loop ? 0 : p0l;
+    if (p0l >= smax || p1l >= smax) { sv->active = 0; return; }
+    double fl = pos_l - p0l;
+    double samp_l = buf[p0l] * (1.0 - fl) + buf[p1l] * fl;
+
+    int p0r = (int)pos_r;
+    if (sv->loop) {
+        p0r = ((p0r % slen) + slen) % slen;
+    } else if (p0r >= slen) {
+        p0r = slen - 1;
+    }
+    if (p0r < 0) p0r = 0;
+    int p1r = p0r + 1;
+    if (p1r >= slen) p1r = sv->loop ? 0 : p0r;
+    if (p0r >= smax || p1r >= smax) { sv->active = 0; return; }
+    double fr = pos_r - p0r;
+    double samp_r = buf[p0r] * (1.0 - fr) + buf[p1r] * fr;
+
+    double vol = sv->volume * sv->fade;
+    double l_gain = sv->pan <= 0 ? 1.0 : 1.0 - sv->pan * 0.6;
+    double r_gain = sv->pan >= 0 ? 1.0 : 1.0 + sv->pan * 0.6;
+    *mix_l += samp_l * vol * l_gain;
+    *mix_r += samp_r * vol * r_gain;
+
+    sv->position += sv->speed;
+    if (sv->position >= slen) {
+        if (sv->loop) {
+            while (sv->position >= slen) sv->position -= slen;
+        } else {
+            sv->active = 0;
+        }
+    } else if (sv->position < 0.0) {
+        if (sv->loop) {
+            while (sv->position < 0.0) sv->position += slen;
+        } else {
+            sv->active = 0;
+        }
+    }
+}
+
 static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
@@ -398,77 +472,15 @@ static void *audio_thread_fn(void *arg) {
             // Lock already held from line 246 — safe to read sample_buf
             for (int v = 0; v < AUDIO_MAX_SAMPLE_VOICES; v++) {
                 SampleVoice *sv = &audio->sample_voices[v];
-                if (!sv->active) continue;
-
-                // Fade envelope (5ms attack/release at output rate)
-                double fade_speed = 1.0 / (0.005 * rate);
-                if (sv->fade < sv->fade_target) {
-                    sv->fade += fade_speed;
-                    if (sv->fade > sv->fade_target) sv->fade = sv->fade_target;
-                } else if (sv->fade > sv->fade_target) {
-                    sv->fade -= fade_speed;
-                    if (sv->fade <= 0.0) { sv->fade = 0.0; sv->active = 0; continue; }
-                }
-
-                // Stereo spread: micro-delay between L/R (Haas effect)
-                // Pan controls both amplitude and a small time offset
-                // giving mono samples a wide stereo image.
-                double delay_samps = sv->pan * 0.0004 * rate; // ~0.4ms max at pan=1
-                double pos_l = sv->position - (delay_samps > 0 ? delay_samps : 0);
-                double pos_r = sv->position + (delay_samps > 0 ? 0 : delay_samps);
-                if (pos_l < 0) pos_l = 0;
-                if (pos_r < 0) pos_r = 0;
-
-                // Interpolated read for L channel
-                int slen = audio->sample_len;
-                int smax = audio->sample_max_len;
-                if (slen <= 0 || smax <= 0) { sv->active = 0; continue; }
-                // Clamp slen to buffer bounds (sample_len may change mid-read)
-                if (slen > smax) slen = smax;
-                int p0l = (int)pos_l;
-                if (sv->loop) {
-                    p0l = ((p0l % slen) + slen) % slen;
-                } else if (p0l >= slen) {
-                    sv->active = 0; continue;
-                }
-                int p1l = p0l + 1; if (p1l >= slen) p1l = sv->loop ? 0 : p0l;
-                // Final bounds check against actual buffer size
-                if (p0l >= smax || p1l >= smax) { sv->active = 0; continue; }
-                double fl = pos_l - p0l;
-                double samp_l = audio->sample_buf[p0l] * (1.0 - fl)
-                              + audio->sample_buf[p1l] * fl;
-
-                // Interpolated read for R channel
-                int p0r = (int)pos_r;
-                if (sv->loop) {
-                    p0r = ((p0r % slen) + slen) % slen;
-                } else if (p0r >= slen) {
-                    p0r = slen - 1;
-                }
-                if (p0r < 0) p0r = 0;
-                int p1r = p0r + 1; if (p1r >= slen) p1r = sv->loop ? 0 : p0r;
-                if (p0r >= smax || p1r >= smax) { sv->active = 0; continue; }
-                double fr = pos_r - p0r;
-                double samp_r = audio->sample_buf[p0r] * (1.0 - fr)
-                              + audio->sample_buf[p1r] * fr;
-
-                double vol = sv->volume * sv->fade;
-                double l_gain = sv->pan <= 0 ? 1.0 : 1.0 - sv->pan * 0.6;
-                double r_gain = sv->pan >= 0 ? 1.0 : 1.0 + sv->pan * 0.6;
-                mix_l += samp_l * vol * l_gain;
-                mix_r += samp_r * vol * r_gain;
-
-                sv->position += sv->speed;
-                if (sv->position >= audio->sample_len) {
-                    if (sv->loop && audio->sample_len > 0) {
-                        // Wrap for seamless looping
-                        while (sv->position >= audio->sample_len)
-                            sv->position -= audio->sample_len;
-                    } else {
-                        sv->active = 0; // one-shot
-                    }
-                }
+                mix_sample_voice(sv, audio->sample_buf, audio->sample_len, audio->sample_max_len,
+                                 rate, &mix_l, &mix_r);
             }
+
+            // Dedicated global replay voice. Uses its own buffer so reverse
+            // playback can overlap normal sample-bank activity.
+            mix_sample_voice(&audio->replay_voice, audio->replay_buf,
+                             audio->replay_len, audio->replay_max_len,
+                             rate, &mix_l, &mix_r);
             // (lock released at end of buffer loop)
 
             // Mix DJ deck audio (lock-free: single consumer = audio thread)
@@ -535,6 +547,22 @@ static void *audio_thread_fn(void *arg) {
 
             // Save dry signal before FX chain
             double dry_l = mix_l, dry_r = mix_r;
+
+            // Capture recent dry output for true reverse replay. This stores
+            // the actual mixed audio (not note events) before room/glitch/TTS
+            // so the reverse replay can run back through the live FX chain.
+            if (audio->output_history_buf && audio->output_history_size > 0) {
+                unsigned int stride = audio->output_history_downsample_n;
+                if (stride == 0) stride = 1;
+                audio->output_history_downsample_pos++;
+                if (audio->output_history_downsample_pos >= stride) {
+                    audio->output_history_downsample_pos = 0;
+                    uint64_t wp = audio->output_history_write_pos;
+                    audio->output_history_buf[wp % (uint64_t)audio->output_history_size] =
+                        (float)((dry_l + dry_r) * 0.5);
+                    audio->output_history_write_pos = wp + 1;
+                }
+            }
 
             // Room (reverb) effect — tap delays based on actual sample rate
             if (audio->room_enabled && audio->room_buf_l) {
@@ -818,6 +846,12 @@ ACAudio *audio_init(void) {
     audio->sample_len = 0;
     audio->sample_rate = 48000; // default, overwritten by actual capture rate
     audio->sample_next_id = 1;
+    audio->replay_max_len = AUDIO_OUTPUT_HISTORY_RATE * AUDIO_OUTPUT_HISTORY_SECS;
+    audio->replay_buf = calloc(audio->replay_max_len, sizeof(float));
+    audio->replay_buf_back = calloc(audio->replay_max_len, sizeof(float));
+    audio->replay_len = 0;
+    audio->replay_rate = AUDIO_OUTPUT_HISTORY_RATE;
+    memset(&audio->replay_voice, 0, sizeof(audio->replay_voice));
     audio->mic_connected = 0;
     audio->mic_hot = 0;
     audio->mic_level = 0.0f;
@@ -828,6 +862,12 @@ ACAudio *audio_init(void) {
     audio->mic_ring = calloc(audio->sample_max_len, sizeof(float));
     audio->mic_ring_pos = 0;
     audio->rec_start_ring_pos = 0;
+    audio->output_history_buf = calloc(AUDIO_OUTPUT_HISTORY_RATE * AUDIO_OUTPUT_HISTORY_SECS, sizeof(float));
+    audio->output_history_size = AUDIO_OUTPUT_HISTORY_RATE * AUDIO_OUTPUT_HISTORY_SECS;
+    audio->output_history_rate = AUDIO_OUTPUT_HISTORY_RATE;
+    audio->output_history_downsample_n = 1;
+    audio->output_history_downsample_pos = 0;
+    audio->output_history_write_pos = 0;
     snprintf(audio->mic_device, sizeof(audio->mic_device), "none");
     audio->mic_last_error[0] = 0;
     seed_default_sample(audio);
@@ -1027,6 +1067,21 @@ ACAudio *audio_init(void) {
 
     // Update glitch rate for actual sample rate
     audio->glitch_rate = rate / 1600;
+
+    // Recent output history targets ~48k mono regardless of playback rate.
+    unsigned int hist_target = rate > AUDIO_OUTPUT_HISTORY_RATE ? AUDIO_OUTPUT_HISTORY_RATE : rate;
+    unsigned int hist_stride = rate > hist_target ? (rate + hist_target / 2) / hist_target : 1;
+    if (hist_stride == 0) hist_stride = 1;
+    audio->output_history_rate = rate / hist_stride;
+    if (audio->output_history_rate == 0) audio->output_history_rate = rate;
+    audio->output_history_downsample_n = hist_stride;
+    audio->output_history_downsample_pos = 0;
+    audio->output_history_size = (int)(audio->output_history_rate * AUDIO_OUTPUT_HISTORY_SECS);
+    if (audio->output_history_size <= 0) {
+        audio->output_history_size = AUDIO_OUTPUT_HISTORY_RATE * AUDIO_OUTPUT_HISTORY_SECS;
+        audio->output_history_rate = AUDIO_OUTPUT_HISTORY_RATE;
+        audio->output_history_downsample_n = 1;
+    }
 
     // Reallocate room buffers for actual rate
     int actual_room_size = (int)(0.12 * rate) * 3;
@@ -1550,6 +1605,29 @@ int audio_sample_get_data(ACAudio *audio, float *out, int max_len) {
     return len;
 }
 
+int audio_output_get_recent(ACAudio *audio, float *out, int max_len, unsigned int *out_rate) {
+    if (!audio || !out || max_len <= 0 || !audio->output_history_buf || audio->output_history_size <= 0) {
+        if (out_rate) *out_rate = 0;
+        return 0;
+    }
+
+    pthread_mutex_lock(&audio->lock);
+    if (out_rate) *out_rate = audio->output_history_rate;
+
+    uint64_t write_pos = audio->output_history_write_pos;
+    int available = write_pos < (uint64_t)audio->output_history_size
+        ? (int)write_pos
+        : audio->output_history_size;
+    int len = available < max_len ? available : max_len;
+    uint64_t start = write_pos - (uint64_t)len;
+    for (int i = 0; i < len; i++) {
+        out[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)audio->output_history_size];
+    }
+
+    pthread_mutex_unlock(&audio->lock);
+    return len;
+}
+
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
     if (!audio || !data || len <= 0 || !audio->sample_buf_back) return;
     if (len > audio->sample_max_len) len = audio->sample_max_len;
@@ -1578,6 +1656,25 @@ void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned
            len > 1 ? audio->sample_buf[1] : 0,
            len > 2 ? audio->sample_buf[2] : 0,
            len > 3 ? audio->sample_buf[3] : 0);
+}
+
+void audio_replay_load_data(ACAudio *audio, const float *data, int len, unsigned int rate) {
+    if (!audio || !data || len <= 0 || !audio->replay_buf_back) return;
+    if (len > audio->replay_max_len) len = audio->replay_max_len;
+
+    memcpy(audio->replay_buf_back, data, len * sizeof(float));
+    if (len < audio->replay_max_len)
+        memset(audio->replay_buf_back + len, 0, (audio->replay_max_len - len) * sizeof(float));
+
+    pthread_mutex_lock(&audio->lock);
+    audio->replay_voice.active = 0;
+    float *tmp = audio->replay_buf;
+    audio->replay_buf = audio->replay_buf_back;
+    audio->replay_buf_back = tmp;
+    audio->replay_len = len;
+    if (rate > 0) audio->replay_rate = rate;
+    __sync_synchronize();
+    pthread_mutex_unlock(&audio->lock);
 }
 
 // --- Sample playback ---
@@ -1612,6 +1709,26 @@ uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
     return sv->id;
 }
 
+uint64_t audio_replay_play(ACAudio *audio, double freq, double base_freq,
+                           double volume, double pan, int loop) {
+    if (!audio || audio->replay_len == 0) return 0;
+    pthread_mutex_lock(&audio->lock);
+
+    SampleVoice *sv = &audio->replay_voice;
+    sv->active = 1;
+    sv->loop = loop;
+    sv->position = 0.0;
+    sv->speed = (freq / base_freq) * ((double)audio->replay_rate / (double)audio->actual_rate);
+    sv->volume = volume;
+    sv->pan = pan;
+    sv->fade = 0.0;
+    sv->fade_target = 1.0;
+    sv->id = audio->sample_next_id++;
+
+    pthread_mutex_unlock(&audio->lock);
+    return sv->id;
+}
+
 void audio_sample_kill(ACAudio *audio, uint64_t id, double fade) {
     if (!audio) return;
     pthread_mutex_lock(&audio->lock);
@@ -1624,6 +1741,17 @@ void audio_sample_kill(ACAudio *audio, uint64_t id, double fade) {
             }
             break;
         }
+    }
+    pthread_mutex_unlock(&audio->lock);
+}
+
+void audio_replay_kill(ACAudio *audio, uint64_t id, double fade) {
+    if (!audio) return;
+    pthread_mutex_lock(&audio->lock);
+    SampleVoice *sv = &audio->replay_voice;
+    if (sv->active && sv->id == id) {
+        if (fade <= 0.001) sv->active = 0;
+        else sv->fade_target = 0.0;
     }
     pthread_mutex_unlock(&audio->lock);
 }
@@ -1641,6 +1769,20 @@ void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
             if (pan > -2) sv->pan = pan;
             break;
         }
+    }
+    pthread_mutex_unlock(&audio->lock);
+}
+
+void audio_replay_update(ACAudio *audio, uint64_t id, double freq,
+                         double base_freq, double volume, double pan) {
+    if (!audio) return;
+    pthread_mutex_lock(&audio->lock);
+    SampleVoice *sv = &audio->replay_voice;
+    if (sv->active && sv->id == id) {
+        if (freq > 0 && base_freq > 0)
+            sv->speed = (freq / base_freq) * ((double)audio->replay_rate / (double)audio->actual_rate);
+        if (volume >= 0) sv->volume = volume;
+        if (pan > -2) sv->pan = pan;
     }
     pthread_mutex_unlock(&audio->lock);
 }
@@ -1923,6 +2065,11 @@ void audio_destroy(ACAudio *audio) {
     free(audio->room_buf_l);
     free(audio->room_buf_r);
     free(audio->sample_buf);
+    free(audio->sample_buf_back);
+    free(audio->mic_ring);
+    free(audio->replay_buf);
+    free(audio->replay_buf_back);
+    free(audio->output_history_buf);
     free(audio->tts_buf);
     pthread_mutex_destroy(&audio->lock);
     free(audio);
