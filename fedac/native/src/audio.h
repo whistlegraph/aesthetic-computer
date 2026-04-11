@@ -12,6 +12,8 @@
 #define AUDIO_WAVEFORM_SIZE 512
 #define AUDIO_MAX_SAMPLE_VOICES 12
 #define AUDIO_MAX_SAMPLE_SECS 10
+#define AUDIO_OUTPUT_HISTORY_SECS 12
+#define AUDIO_OUTPUT_HISTORY_RATE 48000
 #define AUDIO_MAX_DECKS 2
 
 typedef enum {
@@ -163,6 +165,23 @@ typedef struct {
     SampleVoice sample_voices[AUDIO_MAX_SAMPLE_VOICES];
     uint64_t sample_next_id;
 
+    // Dedicated global replay voice/buffer so reverse playback does not
+    // steal or overwrite the regular sample bank.
+    float *replay_buf;
+    float *replay_buf_back;
+    volatile int replay_len;
+    int replay_max_len;
+    unsigned int replay_rate;
+    SampleVoice replay_voice;
+
+    // Recent rendered-output history for true reverse replay.
+    float *output_history_buf;         // mono output ring tapped before room/glitch/TTS
+    int output_history_size;           // ring capacity in samples
+    unsigned int output_history_rate;  // capture rate exposed to JS
+    unsigned int output_history_downsample_n;   // output-rate -> history-rate stride
+    unsigned int output_history_downsample_pos; // current stride counter
+    uint64_t output_history_write_pos;          // monotonic write position
+
     // DJ deck audio (persistent across piece switches)
     ACDeck decks[AUDIO_MAX_DECKS];
     float crossfader;           // 0.0 = deck A, 1.0 = deck B
@@ -227,10 +246,17 @@ uint64_t audio_sample_play(ACAudio *audio, double freq, double base_freq,
 void audio_sample_kill(ACAudio *audio, uint64_t id, double fade);
 void audio_sample_update(ACAudio *audio, uint64_t id, double freq,
                          double base_freq, double volume, double pan);
+void audio_replay_load_data(ACAudio *audio, const float *data, int len, unsigned int rate);
+uint64_t audio_replay_play(ACAudio *audio, double freq, double base_freq,
+                           double volume, double pan, int loop);
+void audio_replay_kill(ACAudio *audio, uint64_t id, double fade);
+void audio_replay_update(ACAudio *audio, uint64_t id, double freq,
+                         double base_freq, double volume, double pan);
 
 // Sample bank: get/load data for per-key sample storage
 int audio_sample_get_data(ACAudio *audio, float *out, int max_len);
 void audio_sample_load_data(ACAudio *audio, const float *data, int len, unsigned int rate);
+int audio_output_get_recent(ACAudio *audio, float *out, int max_len, unsigned int *out_rate);
 
 // Adjust system volume: delta is -5 to +5 (percentage points), 0 = toggle mute
 void audio_volume_adjust(ACAudio *audio, int delta);

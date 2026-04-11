@@ -27,6 +27,7 @@ function __tickPendingTimeouts() {
 
 let sounds = {};
 let trail = {};
+let activeDrumKeys = {};   // keyboard key -> { letter, volume, pan, pitchFactor, needsRelease }
 let frame = 0;
 let escCount = 0;
 let escLastFrame = 0;
@@ -331,7 +332,7 @@ const SHIFT_MAP = {
 };
 let wifiCursorBlink = 0;       // cursor blink counter
 // Touch-note state (for clickable grid buttons)
-let touchNotes = {};  // pointer id -> { key, note, octave }
+let touchNotes = {};  // pointer id -> { key, drumHold? }
 // Hover / cursor position (updated from touch + draw events)
 let hoverX = -1, hoverY = -1;
 
@@ -400,97 +401,74 @@ let leftVolDragging = false;
 let rightVolDragging = false;
 
 // === REVERSE PLAYBACK / INSTANT REPLAY LOOP ===
-// Hold space to instantly play the CURRENT phase of history in reverse.
-// Release space to stop mid-reverse — the duration you held space defines
-// the length of the next loop. Pressing space starts a NEW phase: previous
-// history is snapshotted as the source, history resets to empty, and every
-// reverse event that fires during the press gets RECORDED BACK into the new
-// history. That means pressing space twice in a row bounces the sequence
-// forward → reverse → forward → reverse, creating a natural loop pedal.
+// Hold space to reverse-play the ACTUAL recent audio, not just re-trigger
+// note events. The native mixer keeps a recent mono output buffer; pressing
+// space snapshots the current phase, reverses it, loads it into a dedicated
+// global replay buffer, and starts playback immediately. Releasing space
+// stops that replay voice without touching the normal sample bank.
 //
-// User-played notes during a reverse phase also go into the new history, so
-// you can layer over the reverse and the layers get captured into the next
-// pass. "The length of holding space is a bit like setting the out point on
-// the loop" (your words).
-const PLAYBACK_MAX_EVENTS = 256;
-const PLAYBACK_MAX_AGE_MS = 12000;
-let playbackHistory = []; // [{ts, kind:'note'|'drum', letter, octave, freq, vel, pan, wave, pitch}]
+// Phase semantics stay loop-pedal-like: each press snapshots audio since the
+// previous press, then resets the phase start. So what happened during the
+// previous phase becomes the new reverse source.
+const REVERSE_MAX_AGE_MS = 12000;
+const REVERSE_MIN_BUFFER_SAMPLES = 256;
 let spaceHeld = false;
-// Queue of pending reverse events, sorted by playAtMs (monotonic clock).
-let reverseQueue = []; // [{playAtMs, ev}]
+let reversePhaseStartMs = Date.now();
+let reversePlaybackSound = null;
 
-function recordPlayback(entry) {
-  const now = Date.now();
-  playbackHistory.push({ ...entry, ts: now });
-  if (playbackHistory.length > PLAYBACK_MAX_EVENTS) {
-    playbackHistory.splice(0, playbackHistory.length - PLAYBACK_MAX_EVENTS);
-  }
-  const cutoff = now - PLAYBACK_MAX_AGE_MS;
-  while (playbackHistory.length && playbackHistory[0].ts < cutoff) {
-    playbackHistory.shift();
-  }
+function recordPlayback(_entry) {}
+
+function reversePlaybackTone() {
+  return SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift());
 }
 
-function startReversePlayback() {
-  // Snapshot the CURRENT phase as the source, then RESET the phase history
-  // so reverse events and any new user notes populate a fresh buffer.
-  const snapshot = playbackHistory.slice();
-  playbackHistory = [];
-  if (snapshot.length === 0) return;
-  const now = Date.now();
-  const latestTs = snapshot[snapshot.length - 1].ts;
-  reverseQueue = [];
-  // Walk events from most-recent to earliest. Most recent plays at delay 0;
-  // each older event plays at (latest - itsTs) ms later, so the original
-  // intervals are preserved but the sequence is reversed.
-  for (let i = snapshot.length - 1; i >= 0; i--) {
-    const e = snapshot[i];
-    const delay = latestTs - e.ts;
-    reverseQueue.push({ playAtMs: now + delay, ev: e });
-  }
-}
-
-function stopReversePlayback() {
-  // Clear pending reverse events — anything not yet fired is dropped.
-  // playbackHistory keeps whatever got recorded during this phase (reverse
-  // events that DID fire + user-played notes), and that becomes the source
-  // for the next space press.
-  reverseQueue = [];
-}
-
-// Fire one reverse-playback event via the sound API AND record it back into
-// history so the next space press reverses THIS phase.
-function playReverseEvent(ev, sound) {
-  if (!sound) return;
-  if (ev.kind === "drum") {
-    playPercussion(sound, ev.letter, (ev.vel || 1) * 1.5, ev.pan || 0, ev.pitch || 1);
-    flashDrum(ev.letter);
-  } else {
-    const playFreq = (ev.freq || 440) * (ev.pitch || 1);
-    sound?.synth?.({
-      type: ev.wave || "sine",
-      tone: playFreq,
-      duration: 0.12,
-      volume: (ev.vel || 0.7) * 0.7,
-      attack: 0.003,
-      decay: 0.09,
-      pan: ev.pan || 0,
+function updateReversePlaybackPitch() {
+  if (reversePlaybackSound?.update) {
+    reversePlaybackSound.update({
+      tone: reversePlaybackTone(),
+      base: SAMPLE_BASE_FREQ,
     });
   }
-  // Record the fired event back into the new phase's history (with the
-  // CURRENT timestamp, not the original one — this is what makes the
-  // bounce loop work: the new phase captures events in the order they
-  // played, then the next reverse unwinds them back to the original order).
-  recordPlayback({
-    kind: ev.kind,
-    letter: ev.letter,
-    octave: ev.octave,
-    freq: ev.freq,
-    vel: ev.vel,
-    pan: ev.pan,
-    wave: ev.wave,
-    pitch: ev.pitch,
+}
+
+function stopReversePlayback(sound) {
+  if (!reversePlaybackSound) return;
+  if (sound?.replay?.kill) sound.replay.kill(reversePlaybackSound, 0.03);
+  else sound?.kill?.(reversePlaybackSound, 0.03);
+  reversePlaybackSound = null;
+}
+
+function startReversePlayback(sound) {
+  if (!sound?.speaker?.getRecentBuffer || !sound?.replay?.loadData || !sound?.replay?.play) {
+    reversePhaseStartMs = Date.now();
+    return false;
+  }
+
+  const now = Date.now();
+  const captureMs = Math.min(REVERSE_MAX_AGE_MS, Math.max(0, now - reversePhaseStartMs));
+  reversePhaseStartMs = now;
+  stopReversePlayback(sound);
+  if (captureMs < 40) return false;
+
+  const snapshot = sound.speaker.getRecentBuffer(captureMs / 1000);
+  const src = snapshot?.data;
+  const rate = snapshot?.rate || 0;
+  if (!src || src.length < REVERSE_MIN_BUFFER_SAMPLES || rate <= 0) return false;
+
+  const reversed = new Float32Array(src.length);
+  for (let i = 0, j = src.length - 1; i < src.length; i++, j--) {
+    reversed[i] = src[j];
+  }
+
+  sound.replay.loadData(reversed, rate);
+  reversePlaybackSound = sound.replay.play({
+    tone: reversePlaybackTone(),
+    base: SAMPLE_BASE_FREQ,
+    volume: 1.0,
+    pan: 0.0,
+    loop: false,
   });
+  return !!reversePlaybackSound;
 }
 
 // Returns the master volume for the grid that produced a note, based on the
@@ -619,14 +597,49 @@ function flashDrum(letter) {
   if (drumFlashes.length > 8) drumFlashes.shift();
 }
 
-// Fire a drum hit from short auto-stopping synth voices. No cleanup
-// needed on key-up because every voice uses a finite duration.
+function makePercussionHold(letter, volume, pan, pitchFactor, needsRelease = true) {
+  return { letter, volume, pan, pitchFactor, needsRelease };
+}
+
+function releasePercussionHold(sound, hold) {
+  if (!hold?.needsRelease) return;
+  playPercussion(sound, hold.letter, hold.volume, hold.pan, hold.pitchFactor, "up");
+}
+
+function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFactor, key, drumName) {
+  const bankSample = wave === "sample" ? percussionSampleBank[drumName] : null;
+  let hold;
+
+  if (wave === "sample" && bankSample) {
+    if (bankSample !== lastLoadedSample) {
+      sound.sample.loadData(bankSample.data, bankSample.rate);
+      lastLoadedSample = bankSample;
+    }
+    sound.sample.play({
+      tone: SAMPLE_BASE_FREQ * pitchFactor,
+      base: SAMPLE_BASE_FREQ,
+      volume, pan, loop: false,
+    });
+    hold = makePercussionHold(letter, volume, pan, pitchFactor, false);
+  } else {
+    playPercussion(sound, letter, volume, pan, pitchFactor, "down");
+    hold = makePercussionHold(letter, volume, pan, pitchFactor, true);
+  }
+
+  flashDrum(letter);
+  recordPlayback({ kind: "drum", letter, octave: octaveValue, vel: volume, pan, pitch: pitchFactor });
+  if (key) trail[key] = { note: letter, octave: octaveValue, brightness: 1.0 };
+  return hold;
+}
+
+// Fire a drum hit from short auto-stopping synth voices. `phase` controls
+// whether we emit only the strike (`down`), only the release/tail (`up`),
+// or the legacy combined hit (`both`, still used by reverse playback).
 //
 // EVERY drum in the kit is a TWO-STEP hit — DOWN (impact/strike) then
-// UP (release/resonance/tail). The gap between the two steps is locked
-// to `flam` (BPM-derived) with per-hit jitter, so hits feel unified but
-// stretch/shrink with tempo. This gives every pad a natural percussive
-// arc instead of a single simultaneous layer stack.
+// UP (release/resonance/tail). Live keyboard/touch play now splits those
+// phases across press and release. Reverse playback keeps the older
+// combined hit behavior so the bounce loop still plays complete drums.
 //
 // Every drum also gets STOCHASTIC variation on each press so repeated
 // hits don't sound machine-stamped:
@@ -634,14 +647,16 @@ function flashDrum(letter) {
 //   - volume jitter: ±5-12% of the nominal volume
 //   - duration jitter: ±5-14% on longer tails
 //   - pan offset jitter on each step for subtle stereo movement
-//   - the DOWN→UP gap itself jitters via rn(...)
+//   - reverse-playback DOWN→UP gap jitters via rn(...)
 //
 // Multi-burst flam timing scales with metronomeBPM so drum rolls lock
 // to the current tempo: at 120 BPM each sub-beat is ~12.5 ms.
-function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0) {
+function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both") {
   if (!sound?.synth) return;
   const v = Math.max(0.1, Math.min(2.2, volume));
   const pf = Math.max(0.25, Math.min(4, pitchFactor));
+  const fireDown = phase !== "up";
+  const fireUp = phase !== "down";
 
   // Per-hit random helpers (inline, stateless). `rj` jitters around a center
   // by a ± fraction; `rn` returns a uniform range.
@@ -652,12 +667,17 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
   // so this is ~12.5 ms at default. Scales inversely: 60 bpm → 25 ms,
   // 180 bpm → ~8 ms. Used for clap / future multi-burst drums.
   const flam = (60000 / Math.max(40, Math.min(240, metronomeBPM || 120))) * 0.025;
+  const playUp = (delayMs, fn) => {
+    if (!fireUp) return;
+    if (phase === "both") setTimeout(fn, delayMs);
+    else fn();
+  };
 
   switch (letter) {
     case "c": // kick — two-step: DOWN (beater punch) + UP (sub wobble bloom)
       // STEP 1 — DOWN: beater click + body thump + sawtooth grit. The sharp
       // impact that gives the kick its attack. All front-loaded.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "triangle", tone: rj(1800, 0.08) * pf, duration: 0.005, volume: rj(1.0, 0.08) * v, attack: 0.0003, decay: 0.004, pan: downPan });
         sound.synth({ type: "noise",    tone: rj(4000, 0.12) * pf, duration: 0.004, volume: rj(0.55, 0.10) * v, attack: 0.0003, decay: 0.003, pan: downPan });
@@ -668,36 +688,36 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       // expands outward. Two sines ~10 Hz apart for per-hit beat-freq jitter,
       // plus a mid-low square fill. Very tight gap (~0.4 flam) so the punch
       // and bloom still feel like one unified kick hit.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.3, 0.6)), () => {
         const upPan = pan + rn(-0.02, 0.02);
         const subLo = rj(44, 0.05);         // ~41.8 → 46.2 Hz
         const subHi = subLo + rn(8, 12);    // ~50 → 58 Hz → beat freq 8-12 Hz
         sound.synth({ type: "sine",   tone: subLo * pf, duration: rj(0.18, 0.05), volume: rj(1.9, 0.05) * v, attack: 0.001, decay: 0.17, pan: upPan });
         sound.synth({ type: "sine",   tone: subHi * pf, duration: rj(0.18, 0.05), volume: rj(1.3, 0.06) * v, attack: 0.001, decay: 0.17, pan: upPan });
         sound.synth({ type: "square", tone: rj(120, 0.05) * pf, duration: rj(0.07, 0.08), volume: rj(0.85, 0.07) * v, attack: 0.002, decay: 0.065, pan: upPan });
-      }, Math.round(flam * rn(0.3, 0.6)));
+      });
       break;
 
     case "d": // snare — two-step: DOWN (stick hit) + UP (wire rattle)
       // STEP 1 — DOWN: sharp stick-on-head impact.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "square", tone: rj(800, 0.08) * pf,  duration: 0.008,          volume: rj(0.70, 0.08) * v, attack: 0.0003, decay: 0.007, pan: downPan });
         sound.synth({ type: "noise",  tone: rj(3500, 0.10) * pf, duration: 0.006,          volume: rj(0.60, 0.10) * v, attack: 0.0003, decay: 0.0055, pan: downPan });
       }
       // STEP 2 — UP: wire rattle sustain + shell body ring.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.3, 0.6)), () => {
         const upPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "noise",    tone: rj(2200, 0.08) * pf, duration: rj(0.12, 0.08), volume: rj(0.50, 0.08) * v, attack: 0.001, decay: 0.11, pan: upPan });
         sound.synth({ type: "triangle", tone: rj(220, 0.04) * pf,  duration: rj(0.1, 0.08),  volume: rj(0.38, 0.08) * v, attack: 0.001, decay: 0.09, pan: upPan });
         sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.001, decay: 0.045, pan: upPan });
-      }, Math.round(flam * rn(0.3, 0.6)));
+      });
       break;
 
     case "e": // clap — two-step: DOWN (dark palm strike) then UP (bright release)
       // STEP 1 — DOWN: palms meet. Darker body thump + low-mid noise burst.
       // Lower-pitched, meatier, slightly left of center for stereo interest.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.08, 0.02);
         sound.synth({ type: "noise",  tone: rj(900, 0.10) * pf, duration: 0.010, volume: rj(0.85, 0.08) * v, attack: 0.0003, decay: 0.009, pan: downPan });
         sound.synth({ type: "square", tone: rj(260, 0.06) * pf, duration: 0.012, volume: rj(0.55, 0.10) * v, attack: 0.0004, decay: 0.011, pan: downPan });
@@ -706,150 +726,150 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       // STEP 2 — UP: hands separate, bright transient + airy tail.
       // Delayed by ~1.5 flam units (scales with BPM) with jitter so hits vary.
       // Panned slightly opposite for L/R call-response feel.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(1.3, 1.7)), () => {
         const upPan = pan + rn(-0.02, 0.10);
         sound.synth({ type: "square", tone: rj(3200, 0.10) * pf, duration: 0.004, volume: rj(0.80, 0.08) * v, attack: 0.0002, decay: 0.0035, pan: upPan });
         sound.synth({ type: "noise",  tone: rj(5200, 0.12) * pf, duration: 0.008, volume: rj(0.70, 0.10) * v, attack: 0.0003, decay: 0.007, pan: upPan });
         sound.synth({ type: "noise",  tone: rj(2400, 0.08) * pf, duration: 0.018, volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.017, pan: upPan });
-      }, Math.round(flam * rn(1.3, 1.7)));
+      });
       break;
 
     case "f": // snap — two-step: DOWN (finger click) + UP (skin slap tail)
       // STEP 1 — DOWN: sharp high-frequency click from compressed fingertip
       // release. This is the "snap" itself — very brief.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.05, 0.05);
         sound.synth({ type: "noise",  tone: rj(3200, 0.12) * pf, duration: 0.012, volume: rj(0.50, 0.10) * v, attack: 0.0003, decay: 0.011, pan: downPan });
         sound.synth({ type: "square", tone: rj(1800, 0.10) * pf, duration: 0.008, volume: rj(0.22, 0.10) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // STEP 2 — UP: finger slaps palm — brief hollow body ring.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.4, 0.7)), () => {
         const upPan = pan + rn(-0.03, 0.05);
         sound.synth({ type: "triangle", tone: rj(2400, 0.10) * pf, duration: 0.022, volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.020, pan: upPan });
         sound.synth({ type: "square",   tone: rj(1400, 0.10) * pf, duration: 0.015, volume: rj(0.12, 0.12) * v, attack: 0.0005, decay: 0.014, pan: upPan });
-      }, Math.round(flam * rn(0.4, 0.7)));
+      });
       break;
 
     case "g": // closed hi-hat — two-step: DOWN (stick tick) + UP (tight sizzle)
       // STEP 1 — DOWN: stick contact tick, bright transient metal spike.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "noise", tone: rj(9000, 0.08) * pf, duration: 0.008, volume: rj(0.40, 0.10) * v, attack: 0.0003, decay: 0.0075, pan: downPan });
       }
       // STEP 2 — UP: brief metallic sizzle release. Much shorter than open
       // hat since the cymbal is clamped shut.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.3, 0.5)), () => {
         const upPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "noise", tone: rj(7000, 0.08) * pf, duration: rj(0.03, 0.15), volume: rj(0.32, 0.10) * v, attack: 0.001, decay: 0.028, pan: upPan });
         sound.synth({ type: "noise", tone: rj(5000, 0.08) * pf, duration: rj(0.03, 0.15), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.028, pan: upPan });
-      }, Math.round(flam * rn(0.3, 0.5)));
+      });
       break;
 
     case "a": // open hi-hat — two-step: DOWN (chip strike) then UP (airy shimmer)
       // STEP 1 — DOWN: short metallic chip — initial cymbal contact.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.06, 0.04);
         sound.synth({ type: "noise",  tone: rj(8200, 0.08) * pf, duration: 0.012, volume: rj(0.45, 0.08) * v, attack: 0.0003, decay: 0.011, pan: downPan });
         sound.synth({ type: "square", tone: rj(5400, 0.08) * pf, duration: 0.008, volume: rj(0.18, 0.10) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // STEP 2 — UP: sustained airy shimmer that blooms after the chip. Decay
       // + brightness vary per hit, panned slightly opposite for call/response.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.8, 1.2)), () => {
         const upPan = pan + rn(-0.02, 0.08);
         sound.synth({ type: "noise", tone: rj(6500, 0.07) * pf, duration: rj(0.26, 0.10), volume: rj(0.28, 0.08) * v, attack: 0.003, decay: 0.25, pan: upPan });
         sound.synth({ type: "noise", tone: rj(4800, 0.07) * pf, duration: rj(0.19, 0.10), volume: rj(0.17, 0.10) * v, attack: 0.003, decay: 0.18, pan: upPan });
-      }, Math.round(flam * rn(0.8, 1.2)));
+      });
       break;
 
     case "b": // ride — two-step: DOWN (bell ping) + UP (shimmer wash)
       // STEP 1 — DOWN: bell-like ping strike — the initial mallet contact.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.05, 0.05);
         sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.06, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.055, pan: downPan });
         sound.synth({ type: "square", tone: rj(4600, 0.06) * pf, duration: rj(0.05, 0.10), volume: rj(0.14, 0.10) * v, attack: 0.0005, decay: 0.045, pan: downPan });
       }
       // STEP 2 — UP: sustained metallic shimmer wash — the cymbal body
       // resonating after the strike. Longest tail of the kit.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.5, 0.8)), () => {
         const upPan = pan + rn(-0.03, 0.03);
         sound.synth({ type: "noise",  tone: rj(4200, 0.06) * pf, duration: rj(0.38, 0.08), volume: rj(0.26, 0.08) * v, attack: 0.003, decay: 0.37, pan: upPan });
         sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.10, 0.10), volume: rj(0.08, 0.10) * v, attack: 0.002, decay: 0.095, pan: upPan });
-      }, Math.round(flam * rn(0.5, 0.8)));
+      });
       break;
 
     case "c#": // crash — two-step: DOWN (metal impact) + UP (long wash)
       // STEP 1 — DOWN: explosive high-brightness metal strike.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.06, 0.06);
         sound.synth({ type: "noise",  tone: rj(7500, 0.08) * pf, duration: 0.015,          volume: rj(0.55, 0.08) * v, attack: 0.0005, decay: 0.014, pan: downPan });
         sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: 0.012,          volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
       }
       // STEP 2 — UP: long sustained wash. Where the energy actually lives.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.4, 0.7)), () => {
         const upPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "noise",  tone: rj(3500, 0.06) * pf, duration: rj(0.55, 0.08), volume: rj(0.40, 0.08) * v, attack: 0.005, decay: 0.54, pan: upPan });
         sound.synth({ type: "noise",  tone: rj(6500, 0.07) * pf, duration: rj(0.45, 0.08), volume: rj(0.28, 0.08) * v, attack: 0.005, decay: 0.44, pan: upPan });
         sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: rj(0.2, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.002, decay: 0.19, pan: upPan });
-      }, Math.round(flam * rn(0.4, 0.7)));
+      });
       break;
 
     case "d#": // splash — two-step: DOWN (thin metal tick) + UP (short wash)
       // STEP 1 — DOWN: thin high metal contact — the splash's sharp front.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.05, 0.05);
         sound.synth({ type: "noise", tone: rj(9500, 0.10) * pf, duration: 0.010, volume: rj(0.45, 0.08) * v, attack: 0.0004, decay: 0.009, pan: downPan });
       }
       // STEP 2 — UP: short bright wash — splash is all quick burst, no sustain.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.4, 0.6)), () => {
         const upPan = pan + rn(-0.03, 0.03);
         sound.synth({ type: "noise", tone: rj(5500, 0.08) * pf, duration: rj(0.28, 0.10), volume: rj(0.36, 0.08) * v, attack: 0.003, decay: 0.27, pan: upPan });
         sound.synth({ type: "noise", tone: rj(8500, 0.08) * pf, duration: rj(0.20, 0.10), volume: rj(0.23, 0.10) * v, attack: 0.003, decay: 0.19, pan: upPan });
-      }, Math.round(flam * rn(0.4, 0.6)));
+      });
       break;
 
     case "f#": // cowbell — two-step: DOWN (stick strike) + UP (resonant ring)
       // STEP 1 — DOWN: stick-on-metal strike — the "tink" attack.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "square", tone: rj(1800, 0.06) * pf, duration: 0.008, volume: rj(0.30, 0.08) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // STEP 2 — UP: the signature cowbell ring — two detuned squares beat.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.3, 0.5)), () => {
         const upPan = pan + rn(-0.03, 0.03);
         sound.synth({ type: "square", tone: rj(810, 0.04) * pf, duration: rj(0.12, 0.08), volume: rj(0.22, 0.08) * v, attack: 0.002, decay: 0.115, pan: upPan });
         sound.synth({ type: "square", tone: rj(540, 0.04) * pf, duration: rj(0.15, 0.08), volume: rj(0.18, 0.08) * v, attack: 0.002, decay: 0.145, pan: upPan });
-      }, Math.round(flam * rn(0.3, 0.5)));
+      });
       break;
 
     case "g#": // wood block — two-step: DOWN (stick tick) + UP (hollow body)
       // STEP 1 — DOWN: stick contact tick — the initial bright transient.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
         sound.synth({ type: "square", tone: rj(2400, 0.08) * pf, duration: 0.004, volume: rj(0.22, 0.10) * v, attack: 0.0003, decay: 0.0035, pan: downPan });
       }
       // STEP 2 — UP: hollow body ring — the wood resonance.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.3, 0.5)), () => {
         const upPan = pan + rn(-0.03, 0.03);
         sound.synth({ type: "triangle", tone: rj(900, 0.06) * pf,  duration: rj(0.06, 0.10), volume: rj(0.35, 0.08) * v, attack: 0.001, decay: 0.055, pan: upPan });
         sound.synth({ type: "square",   tone: rj(1800, 0.08) * pf, duration: rj(0.03, 0.10), volume: rj(0.12, 0.10) * v, attack: 0.0005, decay: 0.025, pan: upPan });
-      }, Math.round(flam * rn(0.3, 0.5)));
+      });
       break;
 
     case "a#": // tambourine — two-step: DOWN (frame strike) + UP (jingle rattle)
       // STEP 1 — DOWN: hand/stick on frame — the dry initial hit.
-      {
+      if (fireDown) {
         const downPan = pan + rn(-0.05, 0.05);
         sound.synth({ type: "noise",  tone: rj(2200, 0.10) * pf, duration: 0.010, volume: rj(0.30, 0.10) * v, attack: 0.0003, decay: 0.009, pan: downPan });
         sound.synth({ type: "square", tone: rj(1500, 0.08) * pf, duration: 0.008, volume: rj(0.15, 0.12) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // STEP 2 — UP: the jingle rattle — where the tambourine character lives.
       // Max per-hit jitter since real tambourines never sound the same twice.
-      setTimeout(() => {
+      playUp(Math.round(flam * rn(0.4, 0.7)), () => {
         const upPan = pan + rn(-0.05, 0.05);
         sound.synth({ type: "noise",  tone: rj(7000, 0.12) * pf, duration: rj(0.14, 0.14), volume: rj(0.30, 0.12) * v, attack: 0.002, decay: 0.13, pan: upPan });
         sound.synth({ type: "noise",  tone: rj(4500, 0.12) * pf, duration: rj(0.09, 0.14), volume: rj(0.18, 0.12) * v, attack: 0.002, decay: 0.085, pan: upPan });
         sound.synth({ type: "square", tone: rj(6500, 0.10) * pf, duration: 0.05,           volume: rj(0.10, 0.14) * v, attack: 0.001, decay: 0.045, pan: upPan });
-      }, Math.round(flam * rn(0.4, 0.7)));
+      });
       break;
   }
 }
@@ -976,10 +996,23 @@ function stopSoundKey(key, sound, system, fade = 0.08) {
   delete sounds[key];
 }
 
+function releaseTouchNote(pid, sound, system, fade = 0.08) {
+  const entry = touchNotes[pid];
+  if (!entry) return;
+  if (entry.drumHold) {
+    releasePercussionHold(sound, entry.drumHold);
+  } else if (entry.key) {
+    stopSoundKey(entry.key, sound, system, fade);
+  }
+  delete touchNotes[pid];
+}
+
 function stopAllSounds(sound, system, fade = 0.08) {
   heldKeys.clear();
   holdActive = false;
+  stopReversePlayback(sound);
   for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
+  activeDrumKeys = {};
   touchNotes = {};
   system?.usbMidi?.allNotesOff?.(0);
   sounds = {};
@@ -1272,18 +1305,11 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (key === "space") {
-      // Space = INSTANT REPLAY IN REVERSE (loop pedal semantics).
-      // Press: snapshot current history, reset the phase, start firing events
-      //   backwards. The fallback kick drum only plays if there's nothing to
-      //   reverse (empty history — first-press behavior).
-      // Release: stop the reverse queue. What got recorded during the press
-      //   becomes the next phase's source.
+      // Space = true reverse replay from the recent audio buffer.
       if (!spaceHeld) {
         spaceHeld = true;
-        if (playbackHistory.length > 0) {
-          startReversePlayback();
-        } else if (sound && sound.synth) {
-          // Fallback kick drum when there's no history to reverse.
+        if (!startReversePlayback(sound) && sound && sound.synth) {
+          // Fallback kick drum when there's no recent audio to reverse.
           sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
           sound.synth({ type: "sine", tone: 60, duration: 0.2, volume: 0.7, attack: 0.001, decay: 0.19, pan: 0.0 });
         }
@@ -1467,6 +1493,7 @@ function act({ event: e, sound, wifi, system }) {
       // in `sounds[key]`; the visual flash is driven purely by `trail`.
       const drumName = percussionDrumFor(letter, offset);
       if (drumName) {
+        if (activeDrumKeys[key]) return;
         // Per-drum sampling: End armed + drum key = record to this drum slot.
         if (wave === "sample" && endArmed && !perKeyRecording && !recording) {
           const ok = !!sound?.microphone?.rec?.();
@@ -1490,22 +1517,9 @@ function act({ event: e, sound, wifi, system }) {
         // Drums get their own pan (kit geometry + grid bias), not the
         // pitch-based tone pan calculated above.
         const drumPan = drumPanFor(letter, offset);
-        const bankSample = percussionSampleBank[drumName];
-        if (wave === "sample" && bankSample) {
-          if (bankSample !== lastLoadedSample) {
-            sound.sample.loadData(bankSample.data, bankSample.rate);
-            lastLoadedSample = bankSample;
-          }
-          sound.sample.play({
-            tone: SAMPLE_BASE_FREQ * drumPitch,
-            base: SAMPLE_BASE_FREQ,
-            volume: drumVol, pan: drumPan, loop: false,
-          });
-        } else {
-          playPercussion(sound, letter, drumVol, drumPan, drumPitch);
-        }
-        flashDrum(letter);
-        recordPlayback({ kind: "drum", letter, octave: noteOctave, vel: drumVol, pan: drumPan, pitch: drumPitch });
+        activeDrumKeys[key] = triggerPercussionDown(
+          sound, letter, noteOctave, drumVol, drumPan, drumPitch, key, drumName
+        );
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
       }
@@ -1538,8 +1552,7 @@ function act({ event: e, sound, wifi, system }) {
         });
         rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
       }
-      // Record for the reverse-playback loop. Captures the parameters of
-      // the user's hit so the next space press can replay it backwards.
+      // Legacy no-op hook from the older event-trigger reverse loop path.
       recordPlayback({
         kind: "note", letter, octave: noteOctave, freq, vel: velocity, pan,
         wave, pitch: Math.pow(2, effectivePitchShift()),
@@ -1555,7 +1568,7 @@ function act({ event: e, sound, wifi, system }) {
     // press ends up defining the next loop's length.
     if (key === "space") {
       spaceHeld = false;
-      stopReversePlayback();
+      stopReversePlayback(sound);
       return;
     }
     // F11 release — exit flourish mode (new notes will auto-latch again)
@@ -1603,6 +1616,11 @@ function act({ event: e, sound, wifi, system }) {
         }
       }
       perKeyRecording = null;
+      return;
+    }
+    if (activeDrumKeys[key]) {
+      releasePercussionHold(sound, activeDrumKeys[key]);
+      delete activeDrumKeys[key];
       return;
     }
     if (sounds[key]) {
@@ -1747,6 +1765,7 @@ function act({ event: e, sound, wifi, system }) {
           else s.synth.update({ tone: s.baseFreq * factor });
         }
       }
+      updateReversePlaybackPitch();
       return;
     }
     // Per-side master volume sliders (vertical bars flanking the grids)
@@ -1824,24 +1843,11 @@ function act({ event: e, sound, wifi, system }) {
           const touchDrumPitch = Math.pow(2, effectivePitchShift());
           // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
           const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
-          const bankSample = percussionSampleBank[touchDrum];
-          if (wave === "sample" && bankSample) {
-            if (bankSample !== lastLoadedSample) {
-              sound.sample.loadData(bankSample.data, bankSample.rate);
-              lastLoadedSample = bankSample;
-            }
-            sound.sample.play({
-              tone: SAMPLE_BASE_FREQ * touchDrumPitch,
-              base: SAMPLE_BASE_FREQ,
-              volume: 1.6, pan: touchDrumPan, loop: false,
-            });
-          } else {
-            playPercussion(sound, hitNote.letter, 1.8, touchDrumPan, touchDrumPitch);
-          }
-          flashDrum(hitNote.letter);
-          recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: touchDrumPan, pitch: touchDrumPitch });
+          const drumHold = triggerPercussionDown(
+            sound, hitNote.letter, hitNote.octave, 1.8, touchDrumPan, touchDrumPitch, hitNote.key, touchDrum
+          );
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
-          touchNotes[pid] = { key: hitNote.key };
+          touchNotes[pid] = { key: hitNote.key, drumHold };
           return;
         }
         let synth;
@@ -1935,6 +1941,7 @@ function act({ event: e, sound, wifi, system }) {
           else s.synth.update({ tone: s.baseFreq * factor });
         }
       }
+      updateReversePlaybackPitch();
     }
     if (volDragging) {
       const vb = globalThis.__volBar;
@@ -1962,8 +1969,7 @@ function act({ event: e, sound, wifi, system }) {
       const hitNote = hitTestGrid(x, y, gridInfo);
       if (hitNote && hitNote.key && hitNote.key !== touchNotes[pid]?.key) {
         // Release current note
-        const oldKey = touchNotes[pid].key;
-        stopSoundKey(oldKey, sound, system, 0.02);
+        releaseTouchNote(pid, sound, system, 0.02);
         // Trigger new note
         if (!sounds[hitNote.key]) {
           const freq = noteToFreq(hitNote.letter, hitNote.octave);
@@ -1976,24 +1982,11 @@ function act({ event: e, sound, wifi, system }) {
             const rollDrumPitch = Math.pow(2, effectivePitchShift());
             // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
             const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
-            const bankSample = percussionSampleBank[rollDrum];
-            if (wave === "sample" && bankSample) {
-              if (bankSample !== lastLoadedSample) {
-                sound.sample.loadData(bankSample.data, bankSample.rate);
-                lastLoadedSample = bankSample;
-              }
-              sound.sample.play({
-                tone: SAMPLE_BASE_FREQ * rollDrumPitch,
-                base: SAMPLE_BASE_FREQ,
-                volume: 1.6, pan: rollDrumPan, loop: false,
-              });
-            } else {
-              playPercussion(sound, hitNote.letter, 1.8, rollDrumPan, rollDrumPitch);
-            }
-            flashDrum(hitNote.letter);
-            recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: rollDrumPan, pitch: rollDrumPitch });
+            const drumHold = triggerPercussionDown(
+              sound, hitNote.letter, hitNote.octave, 1.8, rollDrumPan, rollDrumPitch, hitNote.key, rollDrum
+            );
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
-            touchNotes[pid] = { key: hitNote.key };
+            touchNotes[pid] = { key: hitNote.key, drumHold };
             return;
           }
           let synth;
@@ -2051,9 +2044,7 @@ function act({ event: e, sound, wifi, system }) {
     if (brtDragging) brtDragging = false;
     // Release touch-triggered note
     if (touchNotes[pid]) {
-      const key = touchNotes[pid].key;
-      stopSoundKey(key, sound, system, 0.08);
-      delete touchNotes[pid];
+      releaseTouchNote(pid, sound, system, 0.08);
     }
   }
 }
@@ -2124,6 +2115,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           }
         }
       }
+      updateReversePlaybackPitch();
     }
   }
 
@@ -3997,17 +3989,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 function sim({ pressures, sound }) {
   // Flush any due setTimeout callbacks (polyfill for missing QuickJS timer)
   __tickPendingTimeouts();
-  // Fire any reverse-playback events whose scheduled time has arrived. This
-  // runs every frame so the timing resolution is ~16 ms (fine for percussive
-  // replay). We drain in a while loop so multiple due events in the same
-  // frame all fire.
-  if (reverseQueue.length > 0) {
-    const nowMs = Date.now();
-    while (reverseQueue.length > 0 && reverseQueue[0].playAtMs <= nowMs) {
-      const { ev } = reverseQueue.shift();
-      playReverseEvent(ev, sound);
-    }
-  }
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
