@@ -710,6 +710,49 @@ ensure_media_helper_image() {
         "${repo_root}" >/dev/null
 }
 
+usb_part_path() {
+    local dev="$1"
+    local idx="$2"
+    if [[ "${dev}" =~ [0-9]$ ]]; then
+        printf '%sp%s\n' "${dev}" "${idx}"
+    else
+        printf '%s%s\n' "${dev}" "${idx}"
+    fi
+}
+
+preserve_existing_usb_wifi_creds() {
+    local USB_DEV="$1"
+    local OUTPUT_FILE="$2"
+    local MOUNT_DIR
+
+    MOUNT_DIR="$(mktemp -d /tmp/ac-usb-preserve.XXXXXX)"
+
+    for idx in 1 2 3 4; do
+        local PART
+        PART="$(usb_part_path "${USB_DEV}" "${idx}")"
+        [ -b "${PART}" ] || continue
+
+        if ! sudo mount -t vfat -o ro "${PART}" "${MOUNT_DIR}" 2>/dev/null; then
+            continue
+        fi
+
+        if [ -f "${MOUNT_DIR}/wifi_creds.json" ]; then
+            if sudo cp "${MOUNT_DIR}/wifi_creds.json" "${OUTPUT_FILE}"; then
+                sudo chown "$(id -u):$(id -g)" "${OUTPUT_FILE}" 2>/dev/null || true
+                sudo umount "${MOUNT_DIR}" >/dev/null 2>&1 || true
+                rmdir "${MOUNT_DIR}" 2>/dev/null || true
+                log "Preserved wifi_creds.json from ${PART}"
+                return 0
+            fi
+        fi
+
+        sudo umount "${MOUNT_DIR}" >/dev/null 2>&1 || true
+    done
+
+    rmdir "${MOUNT_DIR}" 2>/dev/null || true
+    return 1
+}
+
 require_login() {
     # Require ac-login before flashing — ensures builds are tied to an authenticated user
     local TOKEN_FILE="${HOME}/.ac-token"
@@ -951,6 +994,7 @@ flash_usb() {
     local CONFIG_FILE
     local STAGE_ROOT
     local CONTAINER
+    local WIFI_CREDS_FILE
 
     USB_DEV="$(find_usb_dev)" || { err "No USB device found"; exit 1; }
     log "Flashing to ${USB_DEV}..."
@@ -958,6 +1002,7 @@ flash_usb() {
     MEDIA_TMP="$(mktemp -d /tmp/ac-media.XXXXXX)"
     CONFIG_FILE="${MEDIA_TMP}/config.json"
     STAGE_ROOT="${MEDIA_TMP}/staged-root"
+    WIFI_CREDS_FILE="${MEDIA_TMP}/wifi_creds.json"
     cleanup_flash_usb() {
         if [ -n "${CONTAINER:-}" ]; then
             sudo docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
@@ -966,8 +1011,12 @@ flash_usb() {
     }
 
     write_usb_config_file "${CONFIG_FILE}"
+    preserve_existing_usb_wifi_creds "${USB_DEV}" "${WIFI_CREDS_FILE}" || true
 
     ac_media_stage_boot_tree "${STAGE_ROOT}" "${VMLINUZ}" "${CONFIG_FILE}"
+    if [ -f "${WIFI_CREDS_FILE}" ]; then
+        cp "${WIFI_CREDS_FILE}" "${STAGE_ROOT}/wifi_creds.json"
+    fi
 
     ensure_media_helper_image
     CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev \
