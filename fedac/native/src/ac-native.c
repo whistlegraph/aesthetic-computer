@@ -1249,8 +1249,26 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                            parent_blk, n_unmounted);
                     sync();
                     usleep(500000);
-                    // Repartition: create 1024MB EFI System Partition
+
+                    // Nuke the old filesystem signatures BEFORE sfdisk. This
+                    // is critical: the old Fedora ESP's FAT boot sector and
+                    // GPT partition UUID are still on disk, and mkfs.vfat
+                    // later hits EBUSY trying to get O_EXCL because the
+                    // kernel's block device cache still maps to the old FS.
+                    // dd'ing zeros over the first 64KB removes the old FAT
+                    // signature + GPT primary header. The backup GPT at the
+                    // end of the disk also needs clearing but sfdisk --force
+                    // will overwrite it. busybox dd is in initramfs.
                     char rcmd[512];
+                    snprintf(rcmd, sizeof(rcmd),
+                        "echo '--- wiping old FS signatures ---' >> %s; "
+                        "dd if=/dev/zero of=/dev/%s bs=512 count=128 conv=fsync 2>&1 | tee -a %s; "
+                        "sync",
+                        DLOG, parent_blk, DLOG);
+                    system(rcmd);
+                    usleep(500000);
+
+                    // Repartition: create 1024MB EFI System Partition
                     snprintf(rcmd, sizeof(rcmd),
                         "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force /dev/%s >> %s 2>&1",
                         parent_blk, DLOG);
@@ -1292,26 +1310,43 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (!devpath_ready) {
                         ac_log("[install] device %s never appeared after sfdisk — see %s\n", devpath, DLOG);
                     }
-                    // Extra settle time before mkfs
-                    usleep(500000);
-                    // Reformat. Retry once if mkfs fails — the kernel sometimes
-                    // needs a second pass after a fresh GPT to release exclusive
-                    // holds on the block device.
+                    // Drop the kernel page cache so any lingering references
+                    // to the old filesystem's cached pages are released.
+                    // This is the key mitigation for mkfs.vfat EBUSY: the
+                    // kernel holds the block device busy while its page cache
+                    // still references the old FS pages, even after the
+                    // filesystem was unmounted.
+                    system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                    sync();
+                    // Long settle — let the kernel + nvme driver fully release
+                    // the device. Previous 500ms was too short; 3 seconds gives
+                    // enough margin for the block layer to quiesce.
+                    usleep(3000000);
+
+                    // Reformat. Retry up to 3 times if mkfs fails — the
+                    // kernel sometimes needs multiple passes after a fresh
+                    // GPT to release exclusive holds on the block device.
                     //
-                    // Capture mkfs stderr to a dedicated small file so we can
-                    // read it back and ac_log the error inline. The main DLOG
-                    // accumulates everything but may not survive to the USB;
-                    // this per-attempt capture ensures the failing error
-                    // message always makes it into ac-native.log.
+                    // CRITICAL: run mkfs in a subshell that PRESERVES its
+                    // exit code. The previous implementation used
+                    //   mkfs ... > err 2>&1; cat err >> dlog
+                    // which made system() always return cat's exit code (0),
+                    // silently masking every mkfs failure and causing the
+                    // install to proceed onto an unformatted partition.
+                    //
+                    // The subshell pattern below captures mkfs's rc, tees
+                    // the output, and `exit $rc` propagates it back through
+                    // system().
                     const char *MKFS_ERR = "/tmp/mkfs-err.log";
                     snprintf(rcmd, sizeof(rcmd),
                         "echo '--- mkfs attempt 1 ---' >> %s; "
-                        "mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; "
-                        "cat %s >> %s",
+                        "(mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; rc=$?; "
+                        "cat %s >> %s; exit $rc)",
                         DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
                     rrc = system(rcmd);
+                    int mkfs_exit = WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1;
                     ac_log("[install] mkfs rc=%d attempt=1 (WIFEXITED=%d status=%d)\n",
-                           rrc, WIFEXITED(rrc), WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1);
+                           rrc, WIFEXITED(rrc), mkfs_exit);
                     // Inline dump mkfs output so we see the exact error
                     {
                         FILE *mf = fopen(MKFS_ERR, "r");
@@ -1325,33 +1360,32 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                             fclose(mf);
                         }
                     }
-                    if (rrc != 0) {
-                        // Retry after giving the block layer a moment to settle
+                    // Attempt 2 + 3 if needed
+                    for (int mkfs_try = 2; mkfs_try <= 3 && mkfs_exit != 0; mkfs_try++) {
                         sync();
-                        usleep(1500000);
+                        system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                        usleep(2000000);  // 2s settle between retries
                         snprintf(rcmd, sizeof(rcmd),
-                            "echo '--- mkfs attempt 2 ---' >> %s; "
-                            "fuser -k %s >> %s 2>&1 || true; "
-                            "mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; "
-                            "cat %s >> %s",
-                            DLOG, devpath, DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
+                            "echo '--- mkfs attempt %d ---' >> %s; "
+                            "(mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; rc=$?; "
+                            "cat %s >> %s; exit $rc)",
+                            mkfs_try, DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
                         rrc = system(rcmd);
-                        ac_log("[install] mkfs rc=%d attempt=2 (WIFEXITED=%d status=%d)\n",
-                               rrc, WIFEXITED(rrc), WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1);
-                        // Inline dump retry output
-                        {
-                            FILE *mf = fopen(MKFS_ERR, "r");
-                            if (mf) {
-                                char line[512];
-                                while (fgets(line, sizeof(line), mf)) {
-                                    size_t len = strlen(line);
-                                    if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
-                                    ac_log("[mkfs/2] %s\n", line);
-                                }
-                                fclose(mf);
+                        mkfs_exit = WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1;
+                        ac_log("[install] mkfs rc=%d attempt=%d (WIFEXITED=%d status=%d)\n",
+                               rrc, mkfs_try, WIFEXITED(rrc), mkfs_exit);
+                        FILE *mf = fopen(MKFS_ERR, "r");
+                        if (mf) {
+                            char line[512];
+                            while (fgets(line, sizeof(line), mf)) {
+                                size_t len = strlen(line);
+                                if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+                                ac_log("[mkfs/%d] %s\n", mkfs_try, line);
                             }
+                            fclose(mf);
                         }
                     }
+                    rrc = (mkfs_exit == 0) ? 0 : -1;
                     if (rrc != 0) {
                         snprintf(install_fail_reason, sizeof(install_fail_reason),
                                  "format failed on %s", devpath);
