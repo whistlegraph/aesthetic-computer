@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AC Native Prompt WASM Prototype</title>
+  <style>
+    :root {
+      --bg: #111013;
+      --panel: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.14);
+      --text: #f3e9ef;
+      --muted: #baa9b5;
+      --accent: #ff6b9d;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top, rgba(255, 107, 157, 0.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(93, 209, 196, 0.16), transparent 28%),
+        linear-gradient(180deg, #17131a 0%, #0e0c10 100%);
+      color: var(--text);
+      font-family: "Iosevka Aile", "IBM Plex Sans", ui-sans-serif, sans-serif;
+    }
+    .shell {
+      width: min(96vw, 1120px);
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: rgba(10, 8, 12, 0.82);
+      box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(18px);
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .title {
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .hint strong { color: var(--text); font-weight: 600; }
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 2;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #0e0d11;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .status {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .status strong { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="bar">
+      <div class="title">AC Native Prompt • WASM Offline Prototype</div>
+      <div class="hint"><strong>Type</strong> in the canvas. <strong>Esc</strong> clears. <strong>Tab</strong> completes. <strong>Backspace</strong> returns from stub pieces.</div>
+    </div>
+    <div class="stage">
+      <canvas id="screen" width="960" height="640" tabindex="0" aria-label="AC Native Prompt WASM Prototype"></canvas>
+    </div>
+    <div class="status">
+      <div id="status-left">booting...</div>
+      <div id="status-right">single-file offline html</div>
+    </div>
+  </div>
+  <script type="module">
+    const WASM_BASE64 = "AGFzbQEAAAABGARgAn9/AX9gBH9/f38AYAN/f38Bf2AAAAMHBgABAAIDAQUDAQBQBiMGfwFBAAt/AUEAC38BQf8BC38BQf8BC38BQf8BC38BQf8BCwcvBQZtZW1vcnkCAARpbml0AAAHc2V0X2luawABBWNsZWFyAAQJZmlsbF9yZWN0AAUK5wIGDAAgACQAIAEkAUEACxIAIAAkAiABJAMgAiQEIAMkBQsNACABIwBsIABqQQRsCxkAIAEgAmwgAEH/ASACa2xqQf8AakH/AW4LTgEDfyMAIwFsIQECQANAIAAgAU8NASAAQQRsIQIgAiMCOgAAIAJBAWojAzoAACACQQJqIwQ6AAAgAkEDakH/AToAACAAQQFqIQAMAAsLC80BAQh/AkADQCAEIANPDQFBACEFAkADQCAFIAJPDQEgACAFaiEGIAEgBGohByAGIAcQAiEIIwVB/wFGBEAgCCMCOgAAIAhBAWojAzoAACAIQQJqIwQ6AAAgCEEDakH/AToAAAUgCC0AACEJIAhBAWotAAAhCiAIQQJqLQAAIQsgCCAJIwIjBRADOgAAIAhBAWogCiMDIwUQAzoAACAIQQJqIAsjBCMFEAM6AAAgCEEDakH/AToAAAsgBUEBaiEFDAALCyAEQQFqIQQMAAsLCwC9AQRuYW1lARYCAgxwaXhlbF9vZmZzZXQDBWJsZW5kAnAGAAIAAXcBAWgBBAABcgEBZwIBYgMBYQICAAF4AQF5AwMAA2RzdAEDc3JjAgFhBAMAAWkBBXRvdGFsAgRhZGRyBQwAAXgBAXkCAXcDAWgEAnl5BQJ4eAYCcHgHAnB5CARhZGRyCQJkcgoCZGcLAmRiBywGAAV3aWR0aAEGaGVpZ2h0AgVpbmtfcgMFaW5rX2cEBWlua19iBQVpbmtfYQ==";
+    const PROMPT_SOURCE = "// prompt.mjs — Native command-line piece for fedac\n// Text input at top-left, pink block cursor, no prompt prefix.\n// Anything typed (except \"notepat\") is evaluated as KidLisp source.\n\nlet input = \"\";\nlet cursor = 0; // cursor position within input\nlet cursorVisible = true;\nlet cursorFrame = 0;\nlet history = [];\nlet historyIndex = -1;\nlet message = \"\";\nlet messageFrame = 0;\nlet shiftHeld = false;\nlet frame = 0;\nlet voiceOff = false; // true when user sets voice to \"off\"\nlet T = __theme.update(); // global theme (auto dark/light)\nlet tabMatches = []; // current tab completion candidates\nlet tabIndex = -1;   // cycling index for tab\nlet tabPrefix = \"\";   // what was typed before tab\n\n// Discovered piece names (populated in boot via system.listPieces)\nlet PIECE_NAMES = [];\n// Built-in non-piece commands\nconst BUILTIN_COMMANDS = [\n  \"version\", \"reboot\", \"off\", \"clear\", \"help\", \"ssh\", \"hi\", \"bye\", \"ls\", \"papers\", \"login\", \"midi\",\n];\n// All completable commands (built in boot)\nlet COMMANDS = [];\n// $code aliases\nconst CODE_NAMES = [\"$roz\"];\n// Piece descriptions (for tab completion display)\nconst PIECE_DESC = {\n  \"notepat\":       \"synthesizer instrument\",\n  \"os\":            \"system update (OTA)\",\n  \"wifi\":          \"network picker\",\n  \"claude\":        \"AI assistant\",\n  \"terminal\":      \"PTY terminal\",\n  \"geo\":           \"geolocation\",\n  \"chat\":          \"real-time chat\",\n  \"laer-klokken\":  \"clock room chat\",\n  \"machine\":       \"hardware info\",\n  \"roz\":           \"generative art\",\n  \"list\":          \"all commands\",\n  \"ls\":            \"→ list\",\n  \"papers\":        \"papers site\",\n  \"clock\":         \"melody clock\",\n  \"brick-breaker\": \"paddle + ball game\",\n  \"gostop\":        \"go/stop rhythm\",\n  \"beat\":          \"percussion\",\n  \"shh\":           \"noise drone\",\n  \"dync\":          \"percussive pad\",\n  \"chart\":         \"diagram sketch\",\n  \"f3ral3xp\":      \"feral expression\",\n  \"3x3\":           \"ortholinear pad\",\n  \"print\":         \"printer / thermal\",\n  \"theme\":         \"prompt theme\",\n  \"voice\":         \"system voice\",\n  \"login\":         \"switch identity\",\n  \"midi\":          \"usb midi + udp relay\",\n  \"dark\":          \"dark mode\",\n  \"light\":         \"light mode\",\n  \"auto\":          \"auto dark/light\",\n  \"error\":         \"error screen\",\n  \"404\":           \"not found\",\n};\n\n// WiFi auto-connect state\nconst AC_SSID = \"aesthetic.computer\";\nconst AC_PASS = \"aesthetic.computer\";\nconst CREDS_PATH = \"/mnt/wifi_creds.json\";\nlet savedCreds = [];\nlet autoConnectFrame = 0;\nlet connectStartFrame = -9999;\n\nconst SHIFT_MAP = {\n  \"1\":\"!\", \"2\":\"@\", \"3\":\"#\", \"4\":\"$\", \"5\":\"%\",\n  \"6\":\"^\", \"7\":\"&\", \"8\":\"*\", \"9\":\"(\", \"0\":\")\",\n  \"-\":\"_\", \"=\":\"+\", \"[\":\"{\", \"]\":\"}\", \"\\\\\":\"|\",\n  \";\":\":\", \"'\":'\"', \",\":\"<\", \".\":\">\", \"/\":\"?\", \"`\":\"~\",\n};\n\n// KidLisp syntax highlighting colors\nconst KL_KEYWORDS = new Set([\n  \"ink\",\"line\",\"circle\",\"box\",\"wipe\",\"fade\",\"write\",\"grid\",\"plot\",\n  \"spin\",\"zoom\",\"scroll\",\"contrast\",\"noise\",\"blend\",\"mirror\",\n  \"w\",\"h\",\"w/2\",\"h/2\",\"t\",\"frame\",\"pi\",\"tau\",\n  \"sin\",\"cos\",\"tan\",\"abs\",\"sqrt\",\"floor\",\"ceil\",\"round\",\"min\",\"max\",\"pow\",\"mod\",\n  \"?\",\"...\",\n]);\nconst KL_COLORS = new Set([\n  \"red\",\"green\",\"blue\",\"cyan\",\"magenta\",\"yellow\",\"white\",\"black\",\n  \"orange\",\"pink\",\"purple\",\"gray\",\"grey\",\"rainbow\",\n]);\n\nfunction klTokenColor(token) {\n  if (KL_COLORS.has(token)) return [255, 140, 100]; // warm orange for color names\n  if (KL_KEYWORDS.has(token)) return [120, 180, 255]; // blue for keywords\n  if (/^-?\\d+(\\.\\d+)?$/.test(token)) return [180, 220, 140]; // green for numbers\n  if (/^[a-z]/.test(token) && token.includes(\"/\")) return [180, 220, 140]; // w/2 etc\n  return null; // default\n}\n\n// Built-in $code aliases\nconst CODES = {\n  \"$roz\": `fade:red-blue-black-blue-red\nink (? rainbow white 0) (1s... 24 64)\nline w/2 0 w/2 h\n(spin (2s... -1.125 1.125)) (zoom 1.1)\n(0.5s (contrast 1.05))\n(scroll (? -0.1 0 0.1) (? -0.1 0 0.1))\nink (? cyan yellow magenta) 8\ncircle w/2 h/2 (? 2 4 8)`,\n};\n\nfunction readUsbMidiStatus(system) {\n  try {\n    return system?.usbMidi?.status?.() || system?.usbMidi || null;\n  } catch (_) {\n    return system?.usbMidi || null;\n  }\n}\n\nfunction formatUsbMidiStatus(status) {\n  if (!status) return \"usb midi unavailable\";\n  if (status.active) {\n    let msg = \"usb midi active\";\n    if (status.alsaDevice) msg += \" \" + status.alsaDevice;\n    else if (status.udc) msg += \" \" + status.udc;\n    if (status.port) msg += \" via \" + status.port;\n    return msg;\n  }\n  if (status.enabled) {\n    return status.reason && status.reason !== \"ok\"\n      ? \"usb midi enabled (\" + status.reason + \")\"\n      : \"usb midi enabled\";\n  }\n  if (status.reason && status.reason !== \"disabled\" && status.reason !== \"uninitialized\") {\n    return \"usb midi off (\" + status.reason + \")\";\n  }\n  return \"usb midi off\";\n}\n\nfunction readConfig(system) {\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    return raw ? JSON.parse(raw) : {};\n  } catch (_) {\n    return {};\n  }\n}\n\nfunction udpMidiRelayEnabled(system) {\n  const cfg = readConfig(system);\n  return cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n}\n\nfunction formatUdpMidiRelayStatus(system) {\n  const cfg = readConfig(system);\n  const enabled = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === \"true\";\n  if (!enabled) return \"udp midi relay off\";\n  if (cfg.handle) return \"udp midi relay on @\" + cfg.handle;\n  return \"udp midi relay on\";\n}\n\nfunction boot({ system }) {\n  message = \"\";\n  // Load saved theme from config (persists across reboots)\n  try {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      const cfg = JSON.parse(raw);\n      if (cfg.theme) __theme.apply(cfg.theme);\n      if (cfg.darkMode === \"dark\") __theme._forceDark = true;\n      else if (cfg.darkMode === \"light\") __theme._forceDark = false;\n      if (cfg.darkMode) { __theme._lastCheck = 0; __theme.update(); }\n      voiceOff = cfg.voice === \"off\";\n    }\n  } catch (_) {}\n  // Discover all available pieces dynamically\n  PIECE_NAMES = (system?.listPieces?.() || []).filter(n => n !== \"prompt\" && n !== \"lisp\" && n !== \"cc\");\n  PIECE_NAMES.sort();\n  COMMANDS = [...PIECE_NAMES, ...BUILTIN_COMMANDS, ...CODE_NAMES];\n  // Restore input from KidLisp return (backspace/escape preserves source)\n  if (globalThis.__promptRestore) {\n    input = globalThis.__promptRestore;\n    cursor = input.length;\n    globalThis.__promptRestore = undefined;\n  }\n  // Load saved WiFi credentials\n  try {\n    const raw = system?.readFile?.(CREDS_PATH);\n    if (raw) savedCreds = JSON.parse(raw);\n  } catch (_) {}\n}\n\nfunction act({ event: e, system, sound }) {\n  if (e.is(\"keyboard:down:shift\")) { shiftHeld = true; return; }\n  if (e.is(\"keyboard:up:shift\")) { shiftHeld = false; return; }\n\n  if (e.is(\"keyboard:down\")) {\n    const key = e.key;\n    cursorFrame = 0;\n    cursorVisible = true;\n\n    // Keystroke voicing (JS fallback — C input loop also fires for zero-latency)\n    if (!voiceOff) {\n      if (key.length === 1) {\n        sound?.speakCached?.(shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key);\n      } else if (key === \"space\") {\n        sound?.speakCached?.(\"space\");\n      } else if (key === \"backspace\") {\n        sound?.speakCached?.(\"back\");\n      } else if (key === \"enter\" || key === \"return\") {\n        sound?.speakCached?.(\"enter\");\n      } else if (key === \"escape\") {\n        sound?.speakCached?.(\"clear\");\n      } else if (key === \"tab\") {\n        sound?.speakCached?.(\"tab\");\n      }\n    }\n\n    if (key === \"tab\") {\n      // Tab completion\n      const prefix = input.slice(0, cursor).toLowerCase();\n      if (prefix.length > 0) {\n        if (tabPrefix !== prefix) {\n          // New prefix — build match list\n          tabPrefix = prefix;\n          tabMatches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n          tabIndex = -1;\n        }\n        if (tabMatches.length > 0) {\n          tabIndex = (tabIndex + 1) % tabMatches.length;\n          const match = tabMatches[tabIndex];\n          input = match + input.slice(cursor);\n          cursor = match.length;\n        }\n      }\n      return;\n    }\n    // Any non-tab key resets tab state\n    tabPrefix = \"\";\n    tabMatches = [];\n    tabIndex = -1;\n\n    if (key === \"enter\" || key === \"return\") {\n      const cmd = input.trim();\n      if (cmd.length > 0) {\n        history.unshift(cmd);\n        historyIndex = -1;\n        execute(cmd, system);\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"backspace\") {\n      if (cursor > 0) {\n        input = input.slice(0, cursor - 1) + input.slice(cursor);\n        cursor--;\n      }\n    } else if (key === \"delete\") {\n      if (cursor < input.length) {\n        input = input.slice(0, cursor) + input.slice(cursor + 1);\n      }\n    } else if (key === \"escape\") {\n      input = \"\";\n      cursor = 0;\n    } else if (key === \"arrowleft\") {\n      if (cursor > 0) cursor--;\n    } else if (key === \"arrowright\") {\n      if (cursor < input.length) cursor++;\n    } else if (key === \"home\") {\n      cursor = 0;\n    } else if (key === \"end\") {\n      cursor = input.length;\n    } else if (key === \"arrowup\") {\n      if (history.length > 0 && historyIndex < history.length - 1) {\n        historyIndex++;\n        input = history[historyIndex];\n        cursor = input.length;\n      }\n    } else if (key === \"arrowdown\") {\n      if (historyIndex > 0) {\n        historyIndex--;\n        input = history[historyIndex];\n        cursor = input.length;\n      } else if (historyIndex === 0) {\n        historyIndex = -1;\n        input = \"\";\n        cursor = 0;\n      }\n    } else if (key === \"space\") {\n      input = input.slice(0, cursor) + \" \" + input.slice(cursor);\n      cursor++;\n    } else if (key.length === 1) {\n      const ch = shiftHeld ? (SHIFT_MAP[key] ?? key.toUpperCase()) : key;\n      input = input.slice(0, cursor) + ch + input.slice(cursor);\n      cursor++;\n    }\n  }\n}\n\nfunction execute(cmd, system) {\n  const lower = cmd.toLowerCase();\n  // Handle colon params: \"clock:cdefg\" → piece=\"clock\", rest passed via jump\n  const colonIdx = lower.indexOf(\":\");\n  const baseName = colonIdx >= 0 ? lower.slice(0, colonIdx) : lower;\n  // Also handle space params: \"clock cdefg\" → piece=\"clock\"\n  const spaceIdx = lower.indexOf(\" \");\n  const baseWord = spaceIdx >= 0 ? lower.slice(0, spaceIdx) : lower;\n\n  // Built-in commands (non-piece)\n  if (lower === \"version\") {\n    message = system?.version || \"unknown\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"reboot\") {\n    system?.reboot?.();\n    return;\n  }\n  if (lower === \"off\" || lower === \"shutdown\" || lower === \"poweroff\") {\n    message = \"shutting down...\";\n    messageFrame = 0;\n    system?.poweroff?.();\n    return;\n  }\n  if (baseWord === \"login\") {\n    const code = cmd.slice(spaceIdx > 0 ? spaceIdx + 1 : cmd.length).trim();\n    message = \"~> login\";\n    messageFrame = 0;\n    system?.jump?.(code ? \"login:\" + code : \"login\");\n    return;\n  }\n  if (lower === \"clear\") {\n    history = [];\n    message = \"\";\n    return;\n  }\n  if (lower === \"help\") {\n    message = \"type a piece name or kidlisp — tab to complete\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"ssh\") {\n    if (system?.sshStarted) {\n      message = \"ssh running on port 22\";\n    } else {\n      system?.startSSH?.();\n      message = \"starting ssh...\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (baseWord === \"midi\") {\n    const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : \"status\";\n    if (arg === \"relay\" || arg.startsWith(\"relay \")) {\n      const relayArg = arg === \"relay\" ? \"status\" : arg.slice(\"relay \".length).trim();\n      if (!relayArg || relayArg === \"status\") {\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"on\" || relayArg === \"enable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"true\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      if (relayArg === \"off\" || relayArg === \"disable\") {\n        system?.saveConfig?.(\"udpMidiBroadcast\", \"false\");\n        message = formatUdpMidiRelayStatus(system);\n        messageFrame = 0;\n        return;\n      }\n      message = \"usage: midi relay [status|on|off]\";\n      messageFrame = 0;\n      return;\n    }\n    if (!arg || arg === \"status\") {\n      message = formatUsbMidiStatus(readUsbMidiStatus(system)) + \" | \" + formatUdpMidiRelayStatus(system);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"on\" || arg === \"enable\") {\n      system?.saveConfig?.(\"usbMidi\", \"true\");\n      const status = system?.usbMidi?.enable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"off\" || arg === \"disable\") {\n      system?.saveConfig?.(\"usbMidi\", \"false\");\n      const status = system?.usbMidi?.disable?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    if (arg === \"refresh\" || arg === \"retry\") {\n      const status = system?.usbMidi?.refresh?.() || readUsbMidiStatus(system);\n      message = formatUsbMidiStatus(status);\n      messageFrame = 0;\n      return;\n    }\n    message = \"usage: midi [status|on|off|refresh|relay]\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"hi\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    if (raw) {\n      try {\n        const cfg = JSON.parse(raw);\n        if (cfg.handle) {\n          message = \"logged in as @\" + cfg.handle;\n        } else if (cfg.email) {\n          message = \"logged in as \" + cfg.email;\n        } else {\n          message = \"config exists but no user\";\n        }\n      } catch (_) { message = \"config parse error\"; }\n    } else {\n      message = \"not logged in — flash from an authenticated CLI\";\n    }\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"bye\") {\n    const raw = system?.readFile?.(\"/mnt/config.json\");\n    let cfg = {};\n    if (raw) try { cfg = JSON.parse(raw); } catch (_) {}\n    const had = cfg.handle || cfg.email;\n    delete cfg.handle;\n    delete cfg.email;\n    delete cfg.sub;\n    system?.writeFile?.(\"/mnt/config.json\", JSON.stringify(cfg, null, 2));\n    message = had ? \"logged out (was @\" + had + \")\" : \"already logged out\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Set default boot piece\n  if (baseWord === \"boot\") {\n    if (spaceIdx > 0) {\n      const pieceName = cmd.slice(spaceIdx + 1).trim();\n      if (pieceName) {\n        system?.saveConfig?.(\"piece\", pieceName);\n        message = \"boot → \" + pieceName;\n      } else {\n        message = \"usage: boot <piece-name>\";\n      }\n    } else {\n      // Show current boot piece\n      const raw = system?.readFile?.(\"/mnt/config.json\");\n      let cur = \"notepat\";\n      if (raw) try { cur = JSON.parse(raw).piece || cur; } catch (_) {}\n      message = \"boot piece: \" + cur;\n    }\n    messageFrame = 0;\n    return;\n  }\n\n  // Dark/light mode override\n  if (lower === \"dark\") {\n    __theme._forceDark = true;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"dark\");\n    message = \"dark mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"light\") {\n    __theme._forceDark = false;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"light\");\n    message = \"light mode\";\n    messageFrame = 0;\n    return;\n  }\n  if (lower === \"auto\") {\n    __theme._forceDark = undefined;\n    __theme._lastCheck = 0;\n    __theme.update();\n    system?.saveConfig?.(\"darkMode\", \"auto\");\n    message = \"auto dark/light (LA time)\";\n    messageFrame = 0;\n    return;\n  }\n\n  // Check for built-in $code aliases\n  if (CODES[lower]) {\n    message = \"~> \" + lower;\n    messageFrame = 0;\n    globalThis.__kidlispSource = CODES[lower];\n    globalThis.__kidlispLabel = lower;\n    system?.jump?.(\"lisp\");\n    return;\n  }\n\n  // \"claude TOKEN\" — associate Claude Code OAuth token with your handle\n  if (baseWord === \"claude\" && spaceIdx > 0) {\n    const token = cmd.slice(spaceIdx + 1).trim();\n    if (token.startsWith(\"sk-ant-\")) {\n      message = \"saving token...\";\n      messageFrame = 0;\n      // Read handle from config\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      // POST to API\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ token });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      // Also save locally for immediate use\n      system?.writeFile?.(\"/claude-token\", token);\n      message = \"token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"git TOKEN\" — associate GitHub PAT with your handle\n  if (baseWord === \"git\" && spaceIdx > 0) {\n    const pat = cmd.slice(spaceIdx + 1).trim();\n    if (pat.startsWith(\"ghp_\")) {\n      message = \"saving github token...\";\n      messageFrame = 0;\n      let handle = \"\";\n      let acToken = \"\";\n      try {\n        const raw = system?.readFile?.(\"/mnt/config.json\");\n        if (raw) {\n          const cfg = JSON.parse(raw);\n          handle = cfg.handle || \"\";\n          acToken = cfg.token || \"\";\n        }\n      } catch (_) {}\n      if (!handle) {\n        message = \"not logged in — flash from authenticated CLI first\";\n        messageFrame = 0;\n        return;\n      }\n      const url = \"https://aesthetic.computer/.netlify/functions/claude-token\";\n      const body = JSON.stringify({ githubPat: pat });\n      const headers = JSON.stringify({ \"Content-Type\": \"application/json\", \"Authorization\": \"Bearer \" + acToken });\n      system?.fetchPost?.(url, body, headers);\n      system?.writeFile?.(\"/github-pat\", pat);\n      message = \"github token saved for @\" + handle;\n      messageFrame = 0;\n      return;\n    }\n  }\n\n  // \"papers\" opens papers.aesthetic.computer\n  if (lower === \"papers\") {\n    message = \"~> papers.aesthetic.computer\";\n    messageFrame = 0;\n    // Native can't open a browser — show the URL as a message\n    return;\n  }\n\n  // \"ls\" is an alias for \"list\"\n  if (baseName === \"ls\" || baseWord === \"ls\") {\n    message = \"~> list\";\n    messageFrame = 0;\n    system?.jump?.(\"list\");\n    return;\n  }\n\n  // \"code\" is an alias for \"claude\" piece\n  if (baseName === \"code\" || baseWord === \"code\") {\n    message = \"~> code\";\n    messageFrame = 0;\n    system?.jump?.(\"claude\");\n    return;\n  }\n\n  // Dynamic piece jump — check if the command matches any discovered piece\n  if (PIECE_NAMES.includes(baseName) || PIECE_NAMES.includes(baseWord)) {\n    const pieceName = PIECE_NAMES.includes(baseName) ? baseName : baseWord;\n    message = \"~> \" + pieceName;\n    messageFrame = 0;\n    // Native ac-native jump() only parses colon-separated params (see\n    // jump_target/jump_params split in ac-native.c). Convert any space-\n    // separated form \"clock ceg dfa\" into \"clock:ceg:dfa\" so the piece\n    // receives params=[\"ceg\",\"dfa\"] instead of loading \"/pieces/clock ceg dfa.mjs\".\n    // Commands that already use colons (e.g. \"mo:1:c:e:g\") pass through unchanged.\n    let jumpArg = cmd;\n    if (cmd.indexOf(\":\") < 0 && cmd.indexOf(\" \") >= 0) {\n      jumpArg = cmd.replace(/\\s+/g, \":\");\n    }\n    system?.jump?.(jumpArg);\n    return;\n  }\n\n  // Everything else → KidLisp evaluator\n  message = \"~> lisp\";\n  messageFrame = 0;\n  globalThis.__kidlispSource = cmd;\n  globalThis.__kidlispLabel = cmd;\n  system?.jump?.(\"lisp\");\n}\n\n// Draw syntax-highlighted KidLisp text\nfunction drawHighlighted(text, x0, y0, charW, ink, write, font) {\n  // Tokenize by spaces and parens, preserving positions\n  let cx = x0;\n  let i = 0;\n  while (i < text.length) {\n    // Skip whitespace\n    if (text[i] === \" \") {\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Parens get special color\n    if (text[i] === \"(\" || text[i] === \")\") {\n      ink(180, 120, 200); // purple parens\n      write(text[i], { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Colon (fade separator)\n    if (text[i] === \":\") {\n      ink(140, 140, 160);\n      write(\":\", { x: cx, y: y0, size: 1, font });\n      cx += charW;\n      i++;\n      continue;\n    }\n    // Collect token\n    let token = \"\";\n    const start = i;\n    while (i < text.length && text[i] !== \" \" && text[i] !== \"(\" && text[i] !== \")\") {\n      token += text[i];\n      i++;\n    }\n    const color = klTokenColor(token.toLowerCase());\n    if (color) {\n      ink(color[0], color[1], color[2]);\n    } else {\n      ink(T.fg, T.fg, T.fg + 10); // default text\n    }\n    write(token, { x: cx, y: y0, size: 1, font });\n    cx += token.length * charW;\n  }\n}\n\nfunction paint({ wipe, ink, box, write, screen, paintCount, wifi, system }) {\n  frame++;\n  const T = __theme.update();\n  wipe(T.bg[0], T.bg[1], T.bg[2]);\n\n  const W = screen.width;\n  const H = screen.height;\n\n  // WiFi auto-connect (runs every frame, same logic as notepat)\n  if (wifi && !wifi.connected) {\n    autoConnectFrame++;\n    const knownCreds = [\n      { ssid: AC_SSID, pass: AC_PASS },\n      ...savedCreds.filter(c => c.ssid !== AC_SSID),\n    ];\n    const knownSSIDs = new Set(knownCreds.map(c => c.ssid));\n    const isConnecting = wifi.state === 3 || wifi.state === 4;\n    const isIdle = !isConnecting;\n\n    // Timeout connecting after 3s\n    if (isConnecting && frame - connectStartFrame > 180) {\n      wifi.disconnect?.();\n      autoConnectFrame = -30;\n    }\n\n    if (isIdle) {\n      if (autoConnectFrame <= 1 || autoConnectFrame % 120 === 0) wifi.scan?.();\n      if (autoConnectFrame % 120 === 60) {\n        const nets = wifi.networks || [];\n        const matches = nets\n          .filter(n => n.ssid && knownSSIDs.has(n.ssid))\n          .sort((a, b) => b.signal - a.signal);\n        if (matches.length > 0) {\n          const best = matches[0];\n          const cred = knownCreds.find(c => c.ssid === best.ssid);\n          wifi.connect(cred.ssid, cred.pass);\n          connectStartFrame = frame;\n        }\n      }\n    }\n  }\n\n  const charW = 6; // 6x10 font\n  const charH = 10;\n  const lineH = 12;\n  const x0 = 4;\n  const y0 = 4;\n  const font = \"6x10\";\n\n  // Cursor blink\n  cursorFrame++;\n  if (cursorFrame % 30 === 0) cursorVisible = !cursorVisible;\n\n  // Input text with syntax highlighting\n  drawHighlighted(input, x0, y0, charW, ink, write, font);\n\n  // Pure block cursor\n  if (cursorVisible) {\n    const cx = x0 + cursor * charW;\n    ink(T.cursor[0], T.cursor[1], T.cursor[2]);\n    box(cx, y0, charW, charH, true);\n    // Draw character under cursor if not at end\n    if (cursor < input.length) {\n      ink(T.dark ? 255 : 255, T.dark ? 255 : 255, T.dark ? 255 : 255);\n      write(input[cursor], { x: cx, y: y0, size: 1, font });\n    }\n  }\n\n  // Ghosted tab completion suggestions below input (with descriptions)\n  let completionH = 0;\n  {\n    const prefix = input.slice(0, cursor).toLowerCase();\n    if (prefix.length > 0) {\n      const matches = COMMANDS.filter(c => c.startsWith(prefix) && c !== prefix);\n      if (matches.length > 0) {\n        const sugY = y0 + lineH + 1;\n        for (let mi = 0; mi < Math.min(matches.length, 8); mi++) {\n          const m = matches[mi];\n          const sy = sugY + mi * (charH + 1);\n          // Ghosted: dim text, highlight the matching prefix portion\n          ink(T.fgDim, T.fgDim - 20, T.fgDim + 20);\n          write(m.slice(0, prefix.length), { x: x0, y: sy, size: 1, font });\n          ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n          write(m.slice(prefix.length), { x: x0 + prefix.length * charW, y: sy, size: 1, font });\n          // Show description after the name\n          const desc = PIECE_DESC[m];\n          if (desc) {\n            ink(T.fgMute - 20, T.fgMute - 20, T.fgMute - 10);\n            write(\" \" + desc, { x: x0 + m.length * charW, y: sy, size: 1, font });\n          }\n          // Highlight current tab selection\n          if (tabMatches.length > 0 && tabIndex >= 0 && matches[mi] === tabMatches[tabIndex]) {\n            const fullLen = desc ? m.length + 1 + desc.length : m.length;\n            ink(T.accent[0], T.accent[1], T.accent[2], 40);\n            box(x0 - 1, sy - 1, fullLen * charW + 2, charH + 2, true);\n          }\n        }\n        completionH = Math.min(matches.length, 8) * (charH + 1) + 4;\n      }\n    }\n  }\n\n  // History below input (also syntax highlighted)\n  let hy = y0 + lineH + 4 + completionH;\n  for (let i = 0; i < history.length && hy < H - 20; i++) {\n    // Dim the history entries\n    const entry = history[i];\n    const lower = entry.toLowerCase();\n    // Navigation commands in dim purple, KidLisp source highlighted but dimmed\n    if (COMMANDS.includes(lower) || BUILTIN_COMMANDS.includes(lower)) {\n      ink(T.fgMute, T.fgMute - 10, T.fgMute + 10);\n      write(entry, { x: x0, y: hy, size: 1, font });\n    } else {\n      // KidLisp history — dim highlight\n      drawHighlighted(entry, x0, hy, charW,\n        (r, g, b) => ink(Math.floor(r * 0.4), Math.floor(g * 0.4), Math.floor(b * 0.4)),\n        write, font);\n    }\n    hy += lineH;\n  }\n\n  // Message (bottom)\n  if (message.length > 0) {\n    ink(T.fgDim, T.fgDim - 10, T.fgDim + 20);\n    write(message, { x: x0, y: H - 14, size: 1, font });\n  }\n}\n\nfunction sim() {}\n\nconst system = \"prompt\";\nexport { boot, paint, act, sim, system };\n";
+    const screen = document.getElementById("screen");
+    const ctx = screen.getContext("2d", { alpha: false });
+    ctx.imageSmoothingEnabled = false;
+
+    const statusLeft = document.getElementById("status-left");
+    const statusRight = document.getElementById("status-right");
+
+    function bytesFromBase64(base64) {
+      const text = atob(base64);
+      const bytes = new Uint8Array(text.length);
+      for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+      return bytes;
+    }
+
+    function clone(value) {
+      return value == null ? value : JSON.parse(JSON.stringify(value));
+    }
+
+    const wasmBytes = bytesFromBase64(WASM_BASE64);
+    const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+    const wasm = instance.exports;
+
+    const WIDTH = screen.width;
+    const HEIGHT = screen.height;
+    const bufferPtr = wasm.init(WIDTH, HEIGHT);
+    const pixelView = new Uint8ClampedArray(wasm.memory.buffer, bufferPtr, WIDTH * HEIGHT * 4);
+    const imageData = new ImageData(pixelView, WIDTH, HEIGHT);
+
+    globalThis.__theme = (function() {
+      function getLAOffset() {
+        const d = new Date();
+        const m = d.getUTCMonth();
+        const y = d.getUTCFullYear();
+        if (m > 2 && m < 10) return 7;
+        if (m < 2 || m > 10) return 8;
+        if (m === 2) {
+          const mar1 = new Date(y, 2, 1);
+          const ss = 8 + (7 - mar1.getDay()) % 7;
+          return d.getUTCDate() > ss || (d.getUTCDate() === ss && d.getUTCHours() >= 10) ? 7 : 8;
+        }
+        const nov1 = new Date(y, 10, 1);
+        const fs = 1 + (7 - nov1.getDay()) % 7;
+        return d.getUTCDate() < fs || (d.getUTCDate() === fs && d.getUTCHours() < 9) ? 7 : 8;
+      }
+      function getLAHour() {
+        return (new Date().getUTCHours() - getLAOffset() + 24) % 24;
+      }
+      const t = { dark: true, _lastCheck: 0, _overrideId: null, _override: null };
+      t.presets = {
+        serious: {
+          label: "serious", desc: "black & white",
+          dark: { bg:[0,0,0], bgAlt:[10,10,10], bgDim:[0,0,0], fg:255, fgDim:160, fgMute:90, bar:[15,15,15], border:[60,60,60], accent:[128,128,128], ok:[200,200,200], err:[255,100,100], warn:[200,200,100], link:[180,180,255], pad:[10,10,10], padSharp:[5,5,5], padLine:[40,40,40], cursor:[255,255,255] },
+          light: { bg:[255,255,255], bgAlt:[245,245,245], bgDim:[235,235,235], fg:0, fgDim:80, fgMute:160, bar:[240,240,240], border:[180,180,180], accent:[100,100,100], ok:[40,40,40], err:[180,40,40], warn:[120,100,20], link:[40,40,180], pad:[245,245,245], padSharp:[230,230,230], padLine:[200,200,200], cursor:[0,0,0] }
+        },
+        neo: {
+          label: "neo", desc: "lime & black",
+          dark: { bg:[0,0,0], bgAlt:[5,10,5], bgDim:[0,0,0], fg:200, fgDim:120, fgMute:60, bar:[5,15,5], border:[0,80,0], accent:[0,200,80], ok:[0,255,0], err:[255,50,50], warn:[200,255,0], link:[0,180,255], pad:[5,10,5], padSharp:[0,5,0], padLine:[0,50,0], cursor:[0,255,80] },
+          light: { bg:[220,255,220], bgAlt:[230,255,230], bgDim:[200,240,200], fg:10, fgDim:60, fgMute:120, bar:[200,240,200], border:[100,180,100], accent:[0,140,60], ok:[0,120,40], err:[180,30,30], warn:[120,140,0], link:[0,80,180], pad:[210,245,210], padSharp:[190,230,190], padLine:[140,200,140], cursor:[0,120,40] }
+        },
+        ember: {
+          label: "ember", desc: "warm amber",
+          dark: { bg:[20,12,8], bgAlt:[28,18,12], bgDim:[14,8,5], fg:220, fgDim:150, fgMute:90, bar:[35,20,12], border:[60,35,20], accent:[255,140,40], ok:[120,220,80], err:[255,70,50], warn:[255,200,60], link:[255,180,100], pad:[28,18,12], padSharp:[18,10,6], padLine:[55,35,22], cursor:[255,120,30] },
+          light: { bg:[255,245,230], bgAlt:[255,250,240], bgDim:[245,235,218], fg:40, fgDim:90, fgMute:140, bar:[245,232,215], border:[210,190,160], accent:[200,100,20], ok:[40,140,50], err:[190,40,30], warn:[180,120,20], link:[180,90,20], pad:[250,240,225], padSharp:[238,225,208], padLine:[220,200,175], cursor:[200,90,15] }
+        }
+      };
+      t.apply = function(id) {
+        if (!id || id === "default") {
+          t._overrideId = null;
+          t._override = null;
+        } else if (t.presets[id]) {
+          t._overrideId = id;
+          t._override = t.presets[id];
+        }
+        t._lastCheck = 0;
+        return t.update();
+      };
+      t.update = function() {
+        const now = Date.now();
+        if (now - t._lastCheck < 5000) return t;
+        t._lastCheck = now;
+        const h = getLAHour();
+        t.dark = (t._forceDark !== undefined) ? !!t._forceDark : (h >= 20 || h < 7);
+        t.hour = h;
+        t.bg = t.dark ? [20, 20, 25] : [240, 238, 232];
+        t.bgAlt = t.dark ? [28, 28, 30] : [250, 248, 244];
+        t.bgDim = t.dark ? [15, 15, 18] : [230, 228, 222];
+        t.fg = t.dark ? 220 : 40;
+        t.fgDim = t.dark ? 140 : 100;
+        t.fgMute = t.dark ? 80 : 150;
+        t.bar = t.dark ? [35, 20, 30] : [225, 220, 215];
+        t.border = t.dark ? [55, 35, 45] : [200, 195, 190];
+        t.accent = t.dark ? [200, 100, 140] : [180, 60, 120];
+        t.ok = t.dark ? [80, 255, 120] : [30, 160, 60];
+        t.err = t.dark ? [255, 85, 85] : [200, 40, 40];
+        t.warn = t.dark ? [255, 200, 60] : [180, 120, 20];
+        t.link = t.dark ? [120, 200, 255] : [40, 100, 200];
+        t.pad = t.dark ? [28, 28, 30] : [250, 248, 244];
+        t.padSharp = t.dark ? [18, 18, 20] : [235, 232, 228];
+        t.padLine = t.dark ? [50, 50, 55] : [210, 205, 200];
+        t.cursor = t.dark ? [220, 80, 140] : [180, 50, 110];
+        if (t._override) {
+          const mode = t.dark ? t._override.dark : t._override.light;
+          if (mode) {
+            for (const key of Object.keys(mode)) t[key] = mode[key];
+          }
+        }
+        return t;
+      };
+      t.update();
+      return t;
+    })();
+
+    function makeStorage() {
+      const fallback = new Map();
+      return {
+        get(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (_) {
+            return fallback.has(key) ? fallback.get(key) : null;
+          }
+        },
+        set(key, value) {
+          try {
+            localStorage.setItem(key, value);
+          } catch (_) {
+            fallback.set(key, value);
+          }
+        }
+      };
+    }
+
+    const storage = makeStorage();
+    const storageKey = "ac-native-wasm:files";
+
+    function loadFiles() {
+      const raw = storage.get(storageKey);
+      if (!raw) {
+        return {
+          "/mnt/config.json": JSON.stringify({ piece: "prompt", darkMode: "auto" }, null, 2),
+          "/mnt/wifi_creds.json": "[]"
+        };
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return {
+          "/mnt/config.json": JSON.stringify({ piece: "prompt", darkMode: "auto" }, null, 2),
+          "/mnt/wifi_creds.json": "[]"
+        };
+      }
+    }
+
+    const files = loadFiles();
+    function persistFiles() {
+      storage.set(storageKey, JSON.stringify(files));
+    }
+
+    const state = {
+      currentPieceName: "prompt",
+      currentPiece: null,
+      currentPieceSpec: "prompt",
+      currentParams: [],
+      currentColon: [],
+      paintCount: 0,
+      jumpMessage: "",
+      lastPost: "",
+      statusText: "booting native prompt",
+      events: [],
+      focused: false
+    };
+
+    const wifi = {
+      connected: false,
+      state: 0,
+      networks: [],
+      _connectTimer: null,
+      scan() {
+        wifi.state = 3;
+        setTimeout(() => {
+          wifi.networks = [
+            { ssid: "aesthetic.computer", signal: 92, encrypted: true },
+            { ssid: "offline.lab", signal: 44, encrypted: false }
+          ];
+          wifi.state = 0;
+        }, 120);
+      },
+      connect(ssid, pass) {
+        wifi.state = 4;
+        clearTimeout(wifi._connectTimer);
+        wifi._connectTimer = setTimeout(() => {
+          wifi.connected = true;
+          wifi.state = 0;
+          wifi.networks = [{ ssid, signal: 96, encrypted: !!pass }];
+        }, 280);
+      },
+      disconnect() {
+        clearTimeout(wifi._connectTimer);
+        wifi.connected = false;
+        wifi.state = 0;
+      }
+    };
+
+    function normalizeKey(event) {
+      const key = event.key;
+      if (key === " ") return "space";
+      if (key === "Enter") return "enter";
+      if (key === "Backspace") return "backspace";
+      if (key === "Delete") return "delete";
+      if (key === "Escape") return "escape";
+      if (key === "Tab") return "tab";
+      if (key === "Shift") return "shift";
+      if (key === "ArrowLeft") return "arrowleft";
+      if (key === "ArrowRight") return "arrowright";
+      if (key === "ArrowUp") return "arrowup";
+      if (key === "ArrowDown") return "arrowdown";
+      if (key === "Home") return "home";
+      if (key === "End") return "end";
+      return typeof key === "string" ? key.toLowerCase() : "";
+    }
+
+    function makeEvent(type, key) {
+      return {
+        key,
+        type,
+        is(match) {
+          return type === match;
+        }
+      };
+    }
+
+    const blockedKeys = new Set([
+      "space", "enter", "backspace", "delete", "escape", "tab",
+      "arrowleft", "arrowright", "arrowup", "arrowdown", "home", "end"
+    ]);
+
+    screen.addEventListener("click", () => screen.focus());
+    screen.addEventListener("focus", () => { state.focused = true; });
+    screen.addEventListener("blur", () => { state.focused = false; });
+    window.addEventListener("keydown", (event) => {
+      const key = normalizeKey(event);
+      if (!key) return;
+      if (blockedKeys.has(key) || key.length === 1 || key === "shift") event.preventDefault();
+      state.events.push(makeEvent(key === "shift" ? "keyboard:down:shift" : "keyboard:down", key));
+    });
+    window.addEventListener("keyup", (event) => {
+      const key = normalizeKey(event);
+      if (key === "shift") {
+        event.preventDefault();
+        state.events.push(makeEvent("keyboard:up:shift", key));
+      }
+    });
+
+    const rasterApi = (() => {
+      let ink = [255, 255, 255, 255];
+      function setInk(r = 255, g = 255, b = 255, a = 255) {
+        ink = [r | 0, g | 0, b | 0, a == null ? 255 : a | 0];
+        wasm.set_ink(ink[0], ink[1], ink[2], ink[3]);
+      }
+      function clampRect(x, y, w, h) {
+        let rx = Math.trunc(x);
+        let ry = Math.trunc(y);
+        let rw = Math.trunc(w);
+        let rh = Math.trunc(h);
+        if (rw < 0) { rx += rw; rw = -rw; }
+        if (rh < 0) { ry += rh; rh = -rh; }
+        if (rx < 0) { rw += rx; rx = 0; }
+        if (ry < 0) { rh += ry; ry = 0; }
+        if (rx + rw > WIDTH) rw = WIDTH - rx;
+        if (ry + rh > HEIGHT) rh = HEIGHT - ry;
+        return rw > 0 && rh > 0 ? [rx, ry, rw, rh] : null;
+      }
+      return {
+        wipe(r, g, b, a = 255) {
+          setInk(r, g, b, a);
+          wasm.clear();
+        },
+        ink(r, g, b, a = 255) {
+          setInk(r, g, b, a);
+        },
+        box(x, y, w, h, filled = true) {
+          const rect = clampRect(x, y, w, h);
+          if (!rect) return;
+          if (filled) {
+            wasm.fill_rect(rect[0], rect[1], rect[2], rect[3]);
+            return;
+          }
+          wasm.fill_rect(rect[0], rect[1], rect[2], 1);
+          wasm.fill_rect(rect[0], rect[1] + rect[3] - 1, rect[2], 1);
+          wasm.fill_rect(rect[0], rect[1], 1, rect[3]);
+          wasm.fill_rect(rect[0] + rect[2] - 1, rect[1], 1, rect[3]);
+        }
+      };
+    })();
+
+    const textQueue = [];
+    function drawText(text, options = {}) {
+      textQueue.push({
+        text: String(text),
+        x: Math.trunc(options.x ?? 0),
+        y: Math.trunc(options.y ?? 0),
+        size: options.size ?? 1,
+        font: options.font ?? "6x10",
+        color: clone(currentInk)
+      });
+    }
+
+    let currentInk = [255, 255, 255, 255];
+    const hostApi = {
+      wipe(r, g, b, a = 255) {
+        currentInk = [r | 0, g | 0, b | 0, a | 0];
+        rasterApi.wipe(r, g, b, a);
+      },
+      ink(r, g, b, a = 255) {
+        currentInk = [r | 0, g | 0, b | 0, a | 0];
+        rasterApi.ink(r, g, b, a);
+      },
+      box: rasterApi.box,
+      write: drawText,
+      screen: { width: WIDTH, height: HEIGHT },
+      paintCount: 0,
+      wifi,
+      sound: {
+        speakCached() {},
+        speak() {}
+      }
+    };
+
+    function readConfig() {
+      const raw = files["/mnt/config.json"];
+      if (!raw) return {};
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return {};
+      }
+    }
+
+    const pieces = {};
+    function makeStubPiece(title, describe) {
+      let lines = [];
+      return {
+        boot({ system, params, colon }) {
+          lines = [
+            title,
+            describe({ params, colon, system }),
+            "This prototype is running the real native prompt piece,",
+            "but other native pieces are still browser stubs.",
+            "Press Backspace or Escape to return."
+          ];
+        },
+        act({ event, system }) {
+          if (event.is("keyboard:down") && (event.key === "backspace" || event.key === "escape")) {
+            system.jump("prompt");
+          }
+        },
+        sim() {},
+        paint({ wipe, ink, box, write, screen }) {
+          const T = globalThis.__theme.update();
+          wipe(T.bg[0], T.bg[1], T.bg[2]);
+          ink(T.accent[0], T.accent[1], T.accent[2]);
+          box(36, 36, screen.width - 72, screen.height - 72, true);
+          ink(T.bg[0], T.bg[1], T.bg[2]);
+          box(40, 40, screen.width - 80, screen.height - 80, true);
+          ink(T.fg, T.fg, T.fg + 10);
+          lines.forEach((line, index) => {
+            write(line, { x: 56, y: 64 + index * 16, size: 1, font: "6x10" });
+          });
+        }
+      };
+    }
+
+    pieces.lisp = makeStubPiece("lisp", () => "KidLisp eval is not wired into the browser host yet.");
+    pieces.list = makeStubPiece("list", ({ system }) => "Available offline pieces: " + system.listPieces().join(", "));
+    pieces.claude = makeStubPiece("claude", () => "Claude integration is native-only for now.");
+    pieces.login = makeStubPiece("login", ({ params }) => params[0] ? "Login code: " + params[0] : "No login code provided.");
+
+    const promptUrl = URL.createObjectURL(new Blob([PROMPT_SOURCE], { type: "text/javascript" }));
+    const promptPiece = await import(promptUrl);
+    pieces.prompt = promptPiece;
+
+    function normalizeJumpTarget(spec) {
+      const raw = String(spec || "prompt").trim() || "prompt";
+      const colonIndex = raw.indexOf(":");
+      const baseSpec = colonIndex >= 0 ? raw.slice(0, colonIndex) : raw;
+      const colon = colonIndex >= 0 ? raw.slice(colonIndex + 1).split(":").filter(Boolean) : [];
+      const spaceIndex = baseSpec.indexOf(" ");
+      const pieceName = (spaceIndex >= 0 ? baseSpec.slice(0, spaceIndex) : baseSpec).toLowerCase();
+      const params = spaceIndex >= 0 ? baseSpec.slice(spaceIndex + 1).split(" ").filter(Boolean) : [];
+      return { pieceName, params, colon, raw };
+    }
+
+    const systemApi = {
+      version: "ac-native wasm prompt prototype",
+      get sshStarted() {
+        return false;
+      },
+      listPieces() {
+        return Object.keys(pieces).sort();
+      },
+      readFile(filePath) {
+        return Object.prototype.hasOwnProperty.call(files, filePath) ? files[filePath] : "";
+      },
+      writeFile(filePath, value) {
+        files[filePath] = String(value);
+        persistFiles();
+        return true;
+      },
+      saveConfig(key, value) {
+        const config = readConfig();
+        config[key] = value;
+        files["/mnt/config.json"] = JSON.stringify(config, null, 2);
+        persistFiles();
+      },
+      reboot() {
+        state.statusText = "reboot requested (stubbed in browser)";
+      },
+      poweroff() {
+        state.statusText = "poweroff requested (stubbed in browser)";
+      },
+      startSSH() {
+        state.statusText = "ssh requested (stubbed in browser)";
+      },
+      fetchPost(url, body, headers) {
+        state.lastPost = "POST " + url;
+        console.log("[ac-native-wasm] fetchPost", { url, body, headers });
+      },
+      usbMidi: {
+        status() {
+          return { enabled: false, active: false, reason: "browser-stub" };
+        },
+        enable() {
+          return { enabled: false, active: false, reason: "browser-stub" };
+        },
+        disable() {
+          return { enabled: false, active: false, reason: "browser-stub" };
+        },
+        refresh() {
+          return { enabled: false, active: false, reason: "browser-stub" };
+        }
+      },
+      jump(spec) {
+        loadPiece(spec);
+      }
+    };
+
+    async function loadPiece(spec) {
+      const target = normalizeJumpTarget(spec);
+      state.currentPieceSpec = target.raw;
+      state.currentPieceName = pieces[target.pieceName] ? target.pieceName : "lisp";
+      state.currentParams = target.params;
+      state.currentColon = target.colon;
+      state.currentPiece = pieces[state.currentPieceName];
+      state.paintCount = 0;
+      state.jumpMessage = target.raw;
+      state.statusText = "piece -> " + state.currentPieceName;
+      if (typeof state.currentPiece.boot === "function") {
+        state.currentPiece.boot({
+          ...hostApi,
+          system: systemApi,
+          params: clone(state.currentParams),
+          colon: clone(state.currentColon)
+        });
+      }
+    }
+
+    function flushFrame() {
+      ctx.putImageData(imageData, 0, 0);
+      ctx.textBaseline = "top";
+      ctx.font = "10px 'Iosevka Term', 'IBM Plex Mono', monospace";
+      textQueue.forEach((entry) => {
+        const [r, g, b, a] = entry.color;
+        ctx.fillStyle = "rgba(" + r + ", " + g + ", " + b + ", " + (a / 255) + ")";
+        ctx.fillText(entry.text, entry.x, entry.y);
+      });
+      textQueue.length = 0;
+    }
+
+    function tick() {
+      hostApi.paintCount = state.paintCount;
+      if (typeof state.currentPiece?.sim === "function") {
+        state.currentPiece.sim({
+          ...hostApi,
+          system: systemApi,
+          params: clone(state.currentParams),
+          colon: clone(state.currentColon)
+        });
+      }
+
+      while (state.events.length > 0) {
+        const event = state.events.shift();
+        if (typeof state.currentPiece?.act === "function") {
+          state.currentPiece.act({
+            ...hostApi,
+            event,
+            system: systemApi,
+            params: clone(state.currentParams),
+            colon: clone(state.currentColon)
+          });
+        }
+      }
+
+      if (typeof state.currentPiece?.paint === "function") {
+        state.currentPiece.paint({
+          ...hostApi,
+          system: systemApi,
+          params: clone(state.currentParams),
+          colon: clone(state.currentColon)
+        });
+      }
+
+      flushFrame();
+      state.paintCount += 1;
+      const config = readConfig();
+      statusLeft.textContent = state.statusText;
+      statusRight.textContent = [
+        wifi.connected ? "wifi: connected" : "wifi: offline",
+        config.darkMode ? "mode: " + config.darkMode : "mode: auto",
+        state.focused ? "kbd: focused" : "kbd: click to focus"
+      ].join(" • ");
+      requestAnimationFrame(tick);
+    }
+
+    await loadPiece("prompt");
+    statusLeft.textContent = "running prompt.mjs";
+    statusRight.textContent = "click canvas to focus keyboard";
+    screen.focus();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
