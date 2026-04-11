@@ -27,7 +27,8 @@ function __tickPendingTimeouts() {
 
 let sounds = {};
 let trail = {};
-let activeDrumKeys = {};   // keyboard key -> { letter, volume, pan, pitchFactor, needsRelease }
+let activeDrumKeys = {};   // keyboard key -> active percussion hold state
+let ringingPercussionHolds = []; // percussion holds that should keep updating through their tail
 let frame = 0;
 let escCount = 0;
 let escLastFrame = 0;
@@ -85,23 +86,159 @@ let clockSynced = false;   // true once we have a server time sync
 let clockSyncFrame = 0;    // frame counter for periodic resync
 function syncedNow() { return Date.now() + clockOffset; }
 
-// Echo (room) mix — controlled by trackpad X / slider
+// FX rows: dry/wet, echo, pitch, bitcrush.
 let echoMix = 0;
+let bitcrushMix = 0;
 let echoDragging = false;
 let pitchDragging = false;
 let fxDragging = false;
+let bitcrushDragging = false;
 
 // FX chain dry/wet mix (0=dry, 1=fully wet)
 let fxMix = 1;
 let volDragging = false;
 let brtDragging = false;
 
-// Pitch shift — controlled by trackpad Y / slider
+// Pitch shift — assignable to either trackpad axis
 let pitchShift = 0; // -1 to +1, 0 = no shift
 let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
+let trackpadEffectBindings = {
+  echo: { x: true, y: false },
+  pitch: { x: false, y: true },
+  crush: { x: false, y: false },
+};
+
+function clampRange(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clamp01(value) {
+  return clampRange(value, 0, 1);
+}
+
+function pointInRect(x, y, rect) {
+  return !!rect &&
+    x >= rect.x && x < rect.x + rect.w &&
+    y >= rect.y && y < rect.y + rect.h;
+}
+
+function setEchoMixValue(value, sound, commit = true) {
+  const next = clamp01(value);
+  const changed = Math.abs(next - echoMix) > 0.0005;
+  echoMix = next;
+  if (commit) sound?.room?.setMix?.(echoMix);
+  return changed;
+}
+
+function setBitcrushMixValue(value, sound, commit = true) {
+  const next = clamp01(value);
+  const changed = Math.abs(next - bitcrushMix) > 0.0005;
+  bitcrushMix = next;
+  if (commit) sound?.glitch?.setMix?.(bitcrushMix);
+  return changed;
+}
+
+function applyPitchShiftToActiveSounds(force = false) {
+  const ep = effectivePitchShift();
+  if (!force && Math.abs(ep - lastAppliedPitch) <= 0.001) return false;
+  lastAppliedPitch = ep;
+  const factor = Math.pow(2, ep);
+  for (const k of Object.keys(sounds)) {
+    const s = sounds[k];
+    if (s && s.synth && s.baseFreq) {
+      if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
+      else s.synth.update({ tone: s.baseFreq * factor });
+    }
+  }
+  updateReversePlaybackPitch();
+  updateActivePercussionVoices(force);
+  return true;
+}
+
+function setPitchShiftValue(value, force = true) {
+  const next = clampRange(value, -1, 1);
+  const changed = Math.abs(next - pitchShift) > 0.0005;
+  pitchShift = next;
+  if (force) applyPitchShiftToActiveSounds(true);
+  return changed;
+}
+
+function toggleTrackpadBinding(effect, axis) {
+  if (!trackpadEffectBindings[effect]) return;
+  trackpadEffectBindings[effect][axis] = !trackpadEffectBindings[effect][axis];
+}
+
+function setEffectRowFromPointer(rowId, x, row, sound, commit = true) {
+  if (!row) return false;
+  const norm = clamp01((x - row.sliderX) / Math.max(1, row.sliderW));
+  if (rowId === "fx") {
+    fxMix = norm;
+    if (commit) sound?.fx?.setMix?.(fxMix);
+    return true;
+  }
+  if (rowId === "echo") return setEchoMixValue(norm, sound, commit);
+  if (rowId === "crush") return setBitcrushMixValue(norm, sound, commit);
+  if (rowId === "pitch") return setPitchShiftValue(norm * 2 - 1, commit);
+  return false;
+}
+
+function forEachActivePercussionHold(fn) {
+  const seen = new Set();
+  const now = Date.now();
+  ringingPercussionHolds = ringingPercussionHolds.filter((hold) => hold && (hold.ringUntil ?? 0) > now);
+  for (const hold of Object.values(activeDrumKeys)) {
+    if (!hold || seen.has(hold)) continue;
+    seen.add(hold);
+    fn(hold);
+  }
+  for (const entry of Object.values(touchNotes)) {
+    const hold = entry?.drumHold;
+    if (!hold || seen.has(hold)) continue;
+    seen.add(hold);
+    fn(hold);
+  }
+  for (const hold of ringingPercussionHolds) {
+    if (!hold || seen.has(hold)) continue;
+    seen.add(hold);
+    fn(hold);
+  }
+}
+
+function updateActivePercussionVoices(force = false) {
+  const nextPitchFactor = Math.pow(2, effectivePitchShift());
+  forEachActivePercussionHold((hold) => {
+    const master = masterForSide(hold.gridOffset ?? 0);
+    const nextVolume = (hold.baseVolume ?? hold.volume) * master;
+    if (!force &&
+        Math.abs(nextPitchFactor - (hold.lastAppliedPitchFactor ?? hold.pitchFactor ?? nextPitchFactor)) <= 0.001 &&
+        Math.abs(nextVolume - (hold.lastAppliedVolume ?? hold.volume ?? nextVolume)) <= 0.001) {
+      return;
+    }
+    hold.pitchFactor = nextPitchFactor;
+    hold.volume = nextVolume;
+    hold.lastAppliedPitchFactor = nextPitchFactor;
+    hold.lastAppliedVolume = nextVolume;
+    for (const entry of hold.voices || []) {
+      if (!entry?.handle?.update) continue;
+      const patch = {};
+      if (entry.baseTone !== undefined) patch.tone = entry.baseTone * nextPitchFactor;
+      if (entry.sampleBase !== undefined) patch.base = entry.sampleBase;
+      if (entry.baseVolumeUnit !== undefined) patch.volume = entry.baseVolumeUnit * nextVolume;
+      if (Object.keys(patch).length > 0) {
+        try { entry.handle.update(patch); } catch {}
+      }
+      if (entry.releaseBaseTone !== undefined) {
+        entry.releaseUpdate = { ...(entry.releaseUpdate || {}), tone: entry.releaseBaseTone * nextPitchFactor };
+      }
+      if (entry.releaseBaseVolumeUnit !== undefined) {
+        entry.releaseUpdate = { ...(entry.releaseUpdate || {}), volume: entry.releaseBaseVolumeUnit * nextVolume };
+      }
+    }
+  });
+}
 
 // Dark mode: auto based on LA time (7pm-7am)
 // UEFI clock is UTC; LA is UTC-7 (PDT) or UTC-8 (PST)
@@ -603,8 +740,40 @@ function flashDrum(letter) {
   if (drumFlashes.length > 8) drumFlashes.shift();
 }
 
-function makePercussionHold(letter, volume, pan, pitchFactor, voices = []) {
-  return { letter, volume, pan, pitchFactor, voices };
+function makePercussionHold(letter, volume, pan, pitchFactor, voices = [], gridOffset = 0, baseVolume = volume) {
+  return {
+    letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume,
+    lastAppliedPitchFactor: pitchFactor,
+    lastAppliedVolume: volume,
+    ringUntil: 0,
+  };
+}
+
+function rememberRingingPercussionHold(hold, seconds) {
+  if (!hold || !(seconds > 0)) return;
+  const until = Date.now() + (seconds * 1000) + 80;
+  hold.ringUntil = Math.max(hold.ringUntil || 0, until);
+  if (!ringingPercussionHolds.includes(hold)) ringingPercussionHolds.push(hold);
+}
+
+function rememberPercussionHoldFromVoices(hold) {
+  if (!hold?.voices?.length) return;
+  let maxSeconds = 0;
+  for (const entry of hold.voices) {
+    maxSeconds = Math.max(maxSeconds, entry?.tailSeconds || 0);
+  }
+  rememberRingingPercussionHold(hold, maxSeconds);
+}
+
+function rememberPercussionReleaseTail(hold) {
+  if (!hold?.voices?.length) return;
+  let maxSeconds = 0;
+  for (const entry of hold.voices) {
+    if (entry?.handle && !entry?.ignoreRelease) {
+      maxSeconds = Math.max(maxSeconds, entry.releaseFade ?? 0.08);
+    }
+  }
+  rememberRingingPercussionHold(hold, maxSeconds);
 }
 
 // Release any held drum voices with their per-voice release fade. Each
@@ -616,10 +785,12 @@ function makePercussionHold(letter, volume, pan, pitchFactor, voices = []) {
 // - sound.kill() with the voice's fade time does the final ramp-out.
 function releasePercussionHold(sound, hold) {
   if (!hold?.voices?.length) return;
+  rememberPercussionReleaseTail(hold);
   for (const entry of hold.voices) {
     if (entry?.onRelease) {
       try { entry.onRelease(); } catch {}
     }
+    if (entry?.ignoreRelease) continue;
     if (!entry?.handle) continue;
     if (entry.releaseUpdate) {
       try { entry.handle.update?.(entry.releaseUpdate); } catch {}
@@ -628,7 +799,7 @@ function releasePercussionHold(sound, hold) {
   }
 }
 
-function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFactor, key, drumName) {
+function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFactor, key, drumName, gridOffset = 0, baseVolume = volume) {
   const bankSample = wave === "sample" ? percussionSampleBank[drumName] : null;
   let hold;
 
@@ -637,21 +808,36 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
       sound.sample.loadData(bankSample.data, bankSample.rate);
       lastLoadedSample = bankSample;
     }
-    sound.sample.play({
+    const handle = sound.sample.play({
       tone: SAMPLE_BASE_FREQ * pitchFactor,
       base: SAMPLE_BASE_FREQ,
       volume, pan, loop: false,
     });
-    hold = makePercussionHold(letter, volume, pan, pitchFactor, []);
+    const voices = [];
+    if (handle) {
+      voices.push({
+        handle,
+        ignoreRelease: true,
+        releaseFade: 0,
+        baseTone: SAMPLE_BASE_FREQ,
+        baseVolumeUnit: 1.0,
+        sampleBase: SAMPLE_BASE_FREQ,
+        // Pitch can move down to 0.5x while the sample is already ringing,
+        // so keep the live-update window conservative enough for stretched tails.
+        tailSeconds: Math.max(0.05, ((bankSample?.len || 0) / Math.max(1, bankSample?.rate || 48000)) * 2.05),
+      });
+    }
+    hold = makePercussionHold(letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume);
   } else {
     // Live-play: pass a holdVoices array that playPercussion populates with
     // infinite-duration sustain voices. These keep ringing until key-up
     // calls releasePercussionHold, which fades them out per-voice.
     const voices = [];
     playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
-    hold = makePercussionHold(letter, volume, pan, pitchFactor, voices);
+    hold = makePercussionHold(letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume);
   }
 
+  rememberPercussionHoldFromVoices(hold);
   flashDrum(letter);
   recordPlayback({ kind: "drum", letter, octave: octaveValue, vel: volume, pan, pitch: pitchFactor });
   if (key) trail[key] = { note: letter, octave: octaveValue, brightness: 1.0 };
@@ -709,11 +895,40 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
   const addSustain = (params, bothDuration, releaseFade, releaseUpdate, onRelease) => {
     if (isLive) {
       const handle = sound.synth({ ...params, duration: Infinity });
-      if (handle) holdVoices.push({ handle, releaseFade, releaseUpdate, onRelease });
+      if (handle) {
+        const liveEntry = { handle, releaseFade, releaseUpdate, onRelease };
+        if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
+        if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
+        if (params?.base !== undefined) liveEntry.sampleBase = params.base;
+        if (releaseUpdate?.tone !== undefined) liveEntry.releaseBaseTone = releaseUpdate.tone / pf;
+        if (releaseUpdate?.volume !== undefined) liveEntry.releaseBaseVolumeUnit = releaseUpdate.volume / v;
+        holdVoices.push(liveEntry);
+      }
       return handle;
     } else {
       return sound.synth({ ...params, duration: bothDuration });
     }
+  };
+  // One-shot hit voices still need to be tracked during live play so pitch
+  // and per-side level changes continue through the audible decay after key-up.
+  const addHit = (params) => {
+    const handle = sound.synth(params);
+    if (isLive && handle) {
+      const liveEntry = {
+        handle,
+        ignoreRelease: true,
+        releaseFade: 0,
+        tailSeconds: Math.max(
+          Number(params?.duration) || 0,
+          (Number(params?.attack) || 0) + (Number(params?.decay) || 0),
+        ),
+      };
+      if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
+      if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
+      if (params?.base !== undefined) liveEntry.sampleBase = params.base;
+      holdVoices.push(liveEntry);
+    }
+    return handle;
   };
   // Register a release-only burst (no sustain voice needed). Useful for
   // drums like closed hat that should be one-shot during hold but play
@@ -750,20 +965,20 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
 
       // 1. Stick click — very short noise transient at 2.5kHz for the
       //    beater attack. This is the CUT that makes the kick audible.
-      sound.synth({ type: "noise", tone: 2500, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
+      addHit({ type: "noise", tone: 2500, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
       // 2. Pitch snap — 200Hz→150Hz perceived sweep via overlapping sines
       //    Both very short so they read as a single downward "thump"
-      sound.synth({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+      addHit({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
       // 3. Body — 150Hz sine, SHORT decay (40ms). Single tone, not a drone.
       //    This is the laptop-audible "punch" frequency.
-      sound.synth({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
+      addHit({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
       // 4. Mid-low body — 90Hz sine, medium-short decay. Adds weight
       //    without muddying.
-      sound.synth({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
+      addHit({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
       // 5. Sub tail — 55Hz sine, long decay. Inaudible on laptops, adds
       //    body on headphones/subwoofers. Volume REDUCED from 1.9 to 1.0
       //    so it doesn't dominate the transient.
-      sound.synth({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
+      addHit({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
       break;
     }
 
@@ -776,41 +991,41 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       // character but only lasts ~30ms before the noise takes over.
 
       // 1. Sharp stick crack — higher freq, shorter, LOUDER than before
-      sound.synth({ type: "noise", tone: 3500, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
+      addHit({ type: "noise", tone: 3500, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
       // 2. 808 tonal pair — SHORT decay (30ms was 120ms), QUIETER so noise dominates
-      sound.synth({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
-      sound.synth({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      addHit({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      addHit({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
       // 3. Primary wire noise — DOMINANT layer, bright, medium-short decay
-      sound.synth({ type: "noise", tone: 3500, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 3500, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
       // 4. Mid wire noise — adds weight without muddiness
-      sound.synth({ type: "noise", tone: 1800, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 1800, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
       // 5. Triangle body fundamental — adds warmth, very short
-      sound.synth({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
+      addHit({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
       break;
     }
 
     case "e": { // clap — TR-808 4-burst pattern via staggered attacks (one-shot)
       const downPan = pan + rn(-0.06, 0.02);
       // Three rapid bursts — attacks 5/15/25 ms create ~10 ms spacing
-      sound.synth({ type: "noise", tone: 1000, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
-      sound.synth({ type: "noise", tone: 1100, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
-      sound.synth({ type: "noise", tone: 900,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 1000, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 1100, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 900,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
       // Bright edge on the first burst
-      sound.synth({ type: "noise", tone: 3000, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
+      addHit({ type: "noise", tone: 3000, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
       // The 4th burst — "room tail" with long decay (120ms)
-      sound.synth({ type: "noise", tone: 1000, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
-      sound.synth({ type: "noise", tone: 2200, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
+      addHit({ type: "noise", tone: 1000, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
+      addHit({ type: "noise", tone: 2200, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
       break;
     }
 
     case "f": { // snap — finger snap physics (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // Sharp broadband click (thumb-middle friction release)
-      sound.synth({ type: "noise", tone: 6000, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
+      addHit({ type: "noise", tone: 6000, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
       // Palm cavity resonance at ~2100 Hz — the "pop" tone
-      sound.synth({ type: "sine", tone: 2100 * pf, duration: rj(0.045, 0.20), volume: rj(0.55, 0.12) * v, attack: 0.0005, decay: 0.044, pan: downPan });
+      addHit({ type: "sine", tone: 2100 * pf, duration: rj(0.045, 0.20), volume: rj(0.55, 0.12) * v, attack: 0.0005, decay: 0.044, pan: downPan });
       // Upper bite at 3500 Hz
-      sound.synth({ type: "sine", tone: 3500 * pf, duration: rj(0.020, 0.25), volume: rj(0.28, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      addHit({ type: "sine", tone: 3500 * pf, duration: rj(0.020, 0.25), volume: rj(0.28, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
       break;
     }
 
@@ -818,10 +1033,10 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       const downPan = pan + rn(-0.03, 0.03);
       // Full cluster — the short decay is the "closed" character
       for (const f of HAT_FREQS) {
-        sound.synth({ type: "square", tone: f * pf, duration: rj(0.008, 0.20), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+        addHit({ type: "square", tone: f * pf, duration: rj(0.008, 0.20), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // Bright noise top for the "tss"
-      sound.synth({ type: "noise", tone: 8000, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
+      addHit({ type: "noise", tone: 8000, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
       // Lift click: on key-up, fire a tiny high-noise transient to
       // represent the stick leaving the hat. Subtle — real closed-hat
       // "opens" don't ring, they just have a mechanical release click.
@@ -836,10 +1051,10 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       const downPan = pan + rn(-0.04, 0.04);
       // Transient: the 4-square attack cluster
       for (const f of HAT_FREQS) {
-        sound.synth({ type: "square", tone: f * pf, duration: 0.012, volume: rj(0.16, 0.18) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+        addHit({ type: "square", tone: f * pf, duration: 0.012, volume: rj(0.16, 0.18) * v, attack: 0.0005, decay: 0.011, pan: downPan });
       }
       // Transient: bright noise chip
-      sound.synth({ type: "noise", tone: 8200, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addHit({ type: "noise", tone: 8200, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
       // SUSTAIN: the signature open-hat shimmer. Rings until key release.
       // Release = hi-hat foot pedal closing — dampens the top end fast.
       // releaseUpdate drops the tone first (simulates bandpass closing),
@@ -868,8 +1083,8 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "b": { // ride — bell ping + long shimmer sustain
       const downPan = pan + rn(-0.03, 0.03);
       // Transient: stick tip on the cluster (sharp attack)
-      sound.synth({ type: "square", tone: 800 * pf, duration: 0.020, volume: rj(0.10, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
-      sound.synth({ type: "square", tone: 540 * pf, duration: 0.020, volume: rj(0.08, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      addHit({ type: "square", tone: 800 * pf, duration: 0.020, volume: rj(0.10, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
+      addHit({ type: "square", tone: 540 * pf, duration: 0.020, volume: rj(0.08, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
       // SUSTAIN: bell ping pair (perfect-5th) — THE ride signature
       addSustain(
         { type: "sine", tone: 440 * pf, volume: rj(0.24, 0.12) * v, attack: 0.0008, decay: 0, pan: downPan },
@@ -893,10 +1108,10 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "c#": { // crash — explosive noise attack + LONG shimmer wash
       const downPan = pan + rn(-0.05, 0.05);
       // Transient: loud noise splash
-      sound.synth({ type: "noise", tone: 8000, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
+      addHit({ type: "noise", tone: 8000, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
       // Transient: hat cluster for metallic attack
       for (const f of HAT_FREQS) {
-        sound.synth({ type: "square", tone: f * pf, duration: 0.030, volume: rj(0.12, 0.20) * v, attack: 0.0005, decay: 0.029, pan: downPan });
+        addHit({ type: "square", tone: f * pf, duration: 0.030, volume: rj(0.12, 0.20) * v, attack: 0.0005, decay: 0.029, pan: downPan });
       }
       // SUSTAIN: the long wash — crash's whole character
       addSustain(
@@ -921,46 +1136,46 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "d#": { // splash — short bright cymbal burst (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // Bright attack
-      sound.synth({ type: "noise", tone: 9000, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
-      sound.synth({ type: "square", tone: 800 * pf, duration: 0.015, volume: rj(0.14, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
-      sound.synth({ type: "square", tone: 540 * pf, duration: 0.015, volume: rj(0.10, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
+      addHit({ type: "noise", tone: 9000, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addHit({ type: "square", tone: 800 * pf, duration: 0.015, volume: rj(0.14, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
+      addHit({ type: "square", tone: 540 * pf, duration: 0.015, volume: rj(0.10, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
       // Short wash — splash is all quick burst, no sustain
-      sound.synth({ type: "noise", tone: 6000, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
-      sound.synth({ type: "noise", tone: 8500, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
+      addHit({ type: "noise", tone: 6000, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
+      addHit({ type: "noise", tone: 8500, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
       break;
     }
 
     case "f#": { // cowbell — TR-808: two triangles 800/540 Hz (one-shot)
       const downPan = pan + rn(-0.03, 0.03);
       // Stick click
-      sound.synth({ type: "square", tone: 1800 * pf, duration: 0.004, volume: rj(0.35, 0.15) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
+      addHit({ type: "square", tone: 1800 * pf, duration: 0.004, volume: rj(0.35, 0.15) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
       // The two bell triangles — natural decay
-      sound.synth({ type: "triangle", tone: 800 * pf, duration: rj(0.28, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
-      sound.synth({ type: "triangle", tone: 540 * pf, duration: rj(0.28, 0.20), volume: rj(0.36, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
+      addHit({ type: "triangle", tone: 800 * pf, duration: rj(0.28, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
+      addHit({ type: "triangle", tone: 540 * pf, duration: rj(0.28, 0.20), volume: rj(0.36, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
       break;
     }
 
     case "g#": { // wood block — single triangle @ 2500 Hz (one-shot)
       const downPan = pan + rn(-0.03, 0.03);
       // Stick click
-      sound.synth({ type: "noise", tone: 5000, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
+      addHit({ type: "noise", tone: 5000, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
       // Block tones
-      sound.synth({ type: "triangle", tone: 2500 * pf, duration: rj(0.050, 0.25), volume: rj(0.52, 0.12) * v, attack: 0.0003, decay: 0.048, pan: downPan });
-      sound.synth({ type: "triangle", tone: 1250 * pf, duration: rj(0.050, 0.25), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.048, pan: downPan });
+      addHit({ type: "triangle", tone: 2500 * pf, duration: rj(0.050, 0.25), volume: rj(0.52, 0.12) * v, attack: 0.0003, decay: 0.048, pan: downPan });
+      addHit({ type: "triangle", tone: 1250 * pf, duration: rj(0.050, 0.25), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.048, pan: downPan });
       break;
     }
 
     case "a#": { // tambourine — staggered jingle bursts (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // 3 staggered noise bursts via attack offsets (jingle rattle)
-      sound.synth({ type: "noise", tone: 7000, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
-      sound.synth({ type: "noise", tone: 7500, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
-      sound.synth({ type: "noise", tone: 6500, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
+      addHit({ type: "noise", tone: 7000, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 7500, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 6500, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
       // High square ting
-      sound.synth({ type: "square", tone: 6000 * pf, duration: 0.030, volume: rj(0.14, 0.20) * v, attack: 0.001, decay: 0.028, pan: downPan });
+      addHit({ type: "square", tone: 6000 * pf, duration: 0.030, volume: rj(0.14, 0.20) * v, attack: 0.001, decay: 0.028, pan: downPan });
       // Long jingle tail
-      sound.synth({ type: "noise", tone: 7000, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
-      sound.synth({ type: "noise", tone: 4500, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 7000, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 4500, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
       break;
     }
   }
@@ -1105,6 +1320,7 @@ function stopAllSounds(sound, system, fade = 0.08) {
   stopReversePlayback(sound);
   for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
   activeDrumKeys = {};
+  ringingPercussionHolds = [];
   touchNotes = {};
   system?.usbMidi?.allNotesOff?.(0);
   sounds = {};
@@ -1234,6 +1450,9 @@ function boot({ wipe, system, sound }) {
   wipe(0);
   soundAPI = sound;
   systemAPI = system;
+  sound?.room?.setMix?.(echoMix);
+  sound?.glitch?.setMix?.(bitcrushMix);
+  sound?.fx?.setMix?.(fxMix);
   loadUdpMidiConfig(system);
   udpMidiNextHeartbeatFrame = 0;
   const mic = sound?.microphone || null;
@@ -1619,13 +1838,14 @@ function act({ event: e, sound, wifi, system }) {
         // aggressive accent than notes since the compressor will rein
         // them in anyway.
         const accent = shiftHeld ? 1.5 : 1.0;
-        const drumVol = (1.0 + velocity * 0.8) * master * accent;
+        const baseDrumVol = (1.0 + velocity * 0.8) * accent;
+        const drumVol = baseDrumVol * master;
         const drumPitch = Math.pow(2, effectivePitchShift());
         // Drums get their own pan (kit geometry + grid bias), not the
         // QWERTY physical key position → pan. Left keys pan left, right pan right.
         const drumPan = drumPanFor(letter, offset, key);
         activeDrumKeys[key] = triggerPercussionDown(
-          sound, letter, noteOctave, drumVol, drumPan, drumPitch, key, drumName
+          sound, letter, noteOctave, drumVol, drumPan, drumPitch, key, drumName, offset, baseDrumVol
         );
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
@@ -1846,34 +2066,29 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // FX mix slider zone (y 15-26)
-    if (y >= 15 && y < 27) {
-      fxDragging = true;
-      fxMix = Math.max(0, Math.min(1, x / w));
-      sound?.fx?.setMix?.(fxMix);
-      return;
-    }
-    // Echo slider zone (y 27-38)
-    if (y >= 27 && y < 39) {
-      echoDragging = true;
-      echoMix = Math.max(0, Math.min(1, x / w));
-      sound?.room?.setMix?.(echoMix);
-      return;
-    }
-    // Pitch slider zone (y 39-50)
-    if (y >= 39 && y < 51) {
-      pitchDragging = true;
-      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
-      const factor = Math.pow(2, effectivePitchShift());
-      for (const k of Object.keys(sounds)) {
-        const s = sounds[k];
-        if (s && s.synth && s.baseFreq) {
-          if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
-          else s.synth.update({ tone: s.baseFreq * factor });
+    // FX rows: sliders + per-effect X/Y trackpad assignment toggles
+    {
+      const fxRows = globalThis.__fxRows || {};
+      for (const rowId of ["fx", "echo", "pitch", "crush"]) {
+        const row = fxRows[rowId];
+        if (!row) continue;
+        if (pointInRect(x, y, row.xBox)) {
+          toggleTrackpadBinding(rowId, "x");
+          return;
+        }
+        if (pointInRect(x, y, row.yBox)) {
+          toggleTrackpadBinding(rowId, "y");
+          return;
+        }
+        if (pointInRect(x, y, { x: row.sliderX, y: row.y, w: row.sliderW, h: row.h })) {
+          if (rowId === "fx") fxDragging = true;
+          else if (rowId === "echo") echoDragging = true;
+          else if (rowId === "pitch") pitchDragging = true;
+          else if (rowId === "crush") bitcrushDragging = true;
+          setEffectRowFromPointer(rowId, x, row, sound, true);
+          return;
         }
       }
-      updateReversePlaybackPitch();
-      return;
     }
     // Per-side master volume sliders (vertical bars flanking the grids)
     {
@@ -1911,7 +2126,7 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
 
-    // Wave type buttons (y 51-64)
+    // Wave type / REC / octave row
     const wb = globalThis.__waveButtons;
     if (wb && y >= wb.y && y < wb.y + wb.h) {
       if (x >= wb.octX) {
@@ -1950,8 +2165,11 @@ function act({ event: e, sound, wifi, system }) {
           const touchDrumPitch = Math.pow(2, effectivePitchShift());
           // QWERTY physical key position → pan (matches where finger lands).
           const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
+          const touchBaseVol = 1.8;
+          const touchVol = touchBaseVol * masterForSide(hitNote.gridOffset);
           const drumHold = triggerPercussionDown(
-            sound, hitNote.letter, hitNote.octave, 1.8, touchDrumPan, touchDrumPitch, hitNote.key, touchDrum
+            sound, hitNote.letter, hitNote.octave, touchVol, touchDrumPan, touchDrumPitch,
+            hitNote.key, touchDrum, hitNote.gridOffset, touchBaseVol
           );
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key, drumHold };
@@ -2030,26 +2248,11 @@ function act({ event: e, sound, wifi, system }) {
       }
       djDragLastX = x;
     }
-    if (fxDragging) {
-      fxMix = Math.max(0, Math.min(1, x / w));
-      sound?.fx?.setMix?.(fxMix);
-    }
-    if (echoDragging) {
-      echoMix = Math.max(0, Math.min(1, x / w));
-      sound?.room?.setMix?.(echoMix);
-    }
-    if (pitchDragging) {
-      pitchShift = Math.max(-1, Math.min(1, (x / w) * 2 - 1));
-      const factor = Math.pow(2, effectivePitchShift());
-      for (const k of Object.keys(sounds)) {
-        const s = sounds[k];
-        if (s && s.synth && s.baseFreq) {
-          if (s.isSample) s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
-          else s.synth.update({ tone: s.baseFreq * factor });
-        }
-      }
-      updateReversePlaybackPitch();
-    }
+    const fxRows = globalThis.__fxRows || {};
+    if (fxDragging) setEffectRowFromPointer("fx", x, fxRows.fx, sound, true);
+    if (echoDragging) setEffectRowFromPointer("echo", x, fxRows.echo, sound, true);
+    if (pitchDragging) setEffectRowFromPointer("pitch", x, fxRows.pitch, sound, true);
+    if (bitcrushDragging) setEffectRowFromPointer("crush", x, fxRows.crush, sound, true);
     if (volDragging) {
       const vb = globalThis.__volBar;
       if (vb) {
@@ -2089,8 +2292,11 @@ function act({ event: e, sound, wifi, system }) {
             const rollDrumPitch = Math.pow(2, effectivePitchShift());
             // QWERTY physical key position → pan (matches where finger lands).
             const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
+            const rollBaseVol = 1.8;
+            const rollVol = rollBaseVol * masterForSide(hitNote.gridOffset);
             const drumHold = triggerPercussionDown(
-              sound, hitNote.letter, hitNote.octave, 1.8, rollDrumPan, rollDrumPitch, hitNote.key, rollDrum
+              sound, hitNote.letter, hitNote.octave, rollVol, rollDrumPan, rollDrumPitch,
+              hitNote.key, rollDrum, hitNote.gridOffset, rollBaseVol
             );
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key, drumHold };
@@ -2147,6 +2353,7 @@ function act({ event: e, sound, wifi, system }) {
     if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
+    if (bitcrushDragging) bitcrushDragging = false;
     if (volDragging) volDragging = false;
     if (brtDragging) brtDragging = false;
     // Release touch-triggered note
@@ -2197,33 +2404,39 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Trackpad FX: X = echo, Y = pitch shift (when enabled via \)
+  // Trackpad FX: per-effect X/Y routing with stacking.
   if (trackpadFX && trackpad) {
+    let echoDirty = false;
+    let crushDirty = false;
     if (trackpad.dx !== 0) {
-      echoMix = Math.max(0, Math.min(1, echoMix + (trackpad.dx * 3) / w));
-      if (frame % 3 === 0) sound?.room?.setMix?.(echoMix);
+      const dxNorm = trackpad.dx / Math.max(1, w);
+      if (trackpadEffectBindings.echo.x) {
+        echoDirty = setEchoMixValue(echoMix + dxNorm * 3, sound, false) || echoDirty;
+      }
+      if (trackpadEffectBindings.crush.x) {
+        crushDirty = setBitcrushMixValue(bitcrushMix + dxNorm * 3, sound, false) || crushDirty;
+      }
+      if (trackpadEffectBindings.pitch.x) {
+        setPitchShiftValue(pitchShift + dxNorm, false);
+      }
     }
     if (trackpad.dy !== 0) {
-      pitchShift = Math.max(-1, Math.min(1, pitchShift - trackpad.dy / h));
+      const dyNorm = -trackpad.dy / Math.max(1, h);
+      if (trackpadEffectBindings.echo.y) {
+        echoDirty = setEchoMixValue(echoMix + dyNorm * 3, sound, false) || echoDirty;
+      }
+      if (trackpadEffectBindings.crush.y) {
+        crushDirty = setBitcrushMixValue(bitcrushMix + dyNorm * 3, sound, false) || crushDirty;
+      }
+      if (trackpadEffectBindings.pitch.y) {
+        setPitchShiftValue(pitchShift + dyNorm, false);
+      }
     }
+    if (echoDirty && frame % 3 === 0) sound?.room?.setMix?.(echoMix);
+    if (crushDirty && frame % 3 === 0) sound?.glitch?.setMix?.(bitcrushMix);
     // Apply pitch shift to active voices — throttled to every 4th frame
     // and only when pitch actually changed
-    const ep = effectivePitchShift();
-    if (frame % 4 === 0 && Math.abs(ep - lastAppliedPitch) > 0.001) {
-      lastAppliedPitch = ep;
-      const factor = Math.pow(2, ep); // ±1 octave
-      for (const key of Object.keys(sounds)) {
-        const s = sounds[key];
-        if (s && s.synth && s.baseFreq) {
-          if (s.isSample) {
-            s.synth.update({ tone: s.baseFreq * factor, base: SAMPLE_BASE_FREQ });
-          } else {
-            s.synth.update({ tone: s.baseFreq * factor });
-          }
-        }
-      }
-      updateReversePlaybackPitch();
-    }
+    if (frame % 4 === 0) applyPitchShiftToActiveSounds(false);
   }
 
   // Metronome tick (clock-synced)
@@ -3374,13 +3587,30 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     percussionNotice = null;
   }
 
-  // === SLIDERS: fx mix, echo, and pitch (directly under status bar) ===
+  // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing ===
   const settingsY = topBarH;
+  const sliderH = 12;
+  const axisBoxSize = 10;
+  const axisGap = 2;
+  const axisAreaW = axisBoxSize * 2 + axisGap;
+  const fxRows = {};
+  const drawAxisToggle = (rect, label, active, accent) => {
+    ink(dark ? 20 : 236, dark ? 20 : 236, dark ? 25 : 242);
+    box(rect.x, rect.y, rect.w, rect.h, true);
+    if (active) {
+      ink(accent[0], accent[1], accent[2], trackpadFX ? 240 : 150);
+      box(rect.x, rect.y, rect.w, rect.h, true);
+    }
+    ink(dark ? 70 : 150, dark ? 70 : 150, dark ? 85 : 165, active ? 230 : 170);
+    box(rect.x, rect.y, rect.w, rect.h, "outline");
+    if (active) ink(dark ? 10 : 250, dark ? 10 : 250, dark ? 10 : 250);
+    else ink(dark ? 120 : 105, dark ? 120 : 105, dark ? 135 : 120);
+    write(label, { x: rect.x + 2, y: rect.y + 1, size: 1, font: "font_1" });
+  };
 
-  // FX mix slider (dry/wet for entire FX chain)
+  // FX mix slider (dry/wet for the entire chain)
   {
     const sliderY = settingsY;
-    const sliderH = 12;
     const fxHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
         dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
@@ -3397,51 +3627,55 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       box(knobX - 1, sliderY, 3, sliderH, true);
     }
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
-    const fxStr = "fx " + Math.round(fxMix * 100) + "%";
-    write(fxStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    write("fx " + Math.round(fxMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    if (trackpadFX) {
+      ink(120, 220, 120);
+      write("\\", { x: w - 8, y: sliderY + 2, size: 1, font: "font_1" });
+    }
+    fxRows.fx = { y: sliderY, h: sliderH, sliderX: 0, sliderW: w };
   }
 
-  // Echo slider
+  // Echo slider + X/Y assignment boxes
   {
-    const sliderY = settingsY + 12;
-    const sliderH = 12;
+    const sliderY = settingsY + sliderH;
+    const sliderW = w - axisAreaW;
     const echoHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
         dark ? (echoHovered ? 40 : 25) : (echoHovered ? 220 : 235),
         dark ? (echoHovered ? 45 : 28) : (echoHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
-    const fillW = Math.floor(echoMix * w);
+    const fillW = Math.floor(echoMix * sliderW);
     if (fillW > 0) {
       ink(80, 120, 220, trackpadFX ? 240 : 180);
       box(0, sliderY, fillW, sliderH, true);
     }
     if (echoMix > 0.005) {
-      const knobX = Math.max(1, Math.min(w - 3, Math.floor(echoMix * w)));
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(echoMix * sliderW)));
       ink(140, 180, 255, 220);
       box(knobX - 1, sliderY, 3, sliderH, true);
     }
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
-    const echoStr = "echo " + Math.round(echoMix * 100) + "%";
-    write(echoStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
-    if (trackpadFX) {
-      ink(120, 220, 120);
-      write("\\", { x: w - 8, y: sliderY + 2, size: 1, font: "font_1" });
-    }
+    write("echo " + Math.round(echoMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.echo.x, [80, 120, 220]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.echo.y, [80, 120, 220]);
+    fxRows.echo = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
   }
 
-  // Pitch shift slider
+  // Pitch slider + X/Y assignment boxes
   {
-    const sliderY = settingsY + 24;
-    const sliderH = 12;
+    const sliderY = settingsY + sliderH * 2;
+    const sliderW = w - axisAreaW;
     const pitchHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
         dark ? (pitchHovered ? 40 : 25) : (pitchHovered ? 220 : 235),
         dark ? (pitchHovered ? 45 : 28) : (pitchHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
-    const centerX = Math.floor(w / 2);
+    const centerX = Math.floor(sliderW / 2);
     ink(dark ? 40 : 220, dark ? 40 : 220, dark ? 45 : 225);
     box(centerX, sliderY, 1, sliderH, true);
-    const pitchX = Math.floor((pitchShift + 1) / 2 * w);
+    const pitchX = Math.floor((pitchShift + 1) / 2 * sliderW);
     if (Math.abs(pitchShift) > 0.005) {
       ink(200, 100, 160, trackpadFX ? 240 : 180);
       const fx = Math.min(centerX, pitchX);
@@ -3450,18 +3684,53 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
     if (Math.abs(pitchShift) > 0.005) {
       ink(255, 140, 180, 220);
-      box(Math.max(1, Math.min(w - 3, pitchX)) - 1, sliderY, 3, sliderH, true);
+      box(Math.max(1, Math.min(sliderW - 3, pitchX)) - 1, sliderY, 3, sliderH, true);
     }
     ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
     const cents = Math.round(pitchShift * 1200);
-    const pitchStr = "pitch " + (cents >= 0 ? "+" : "") + cents + "c";
-    write(pitchStr, { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    write("pitch " + (cents >= 0 ? "+" : "") + cents + "c",
+      { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.pitch.x, [200, 100, 160]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.pitch.y, [200, 100, 160]);
+    fxRows.pitch = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
   }
+
+  // Bitcrush slider + X/Y assignment boxes
+  {
+    const sliderY = settingsY + sliderH * 3;
+    const sliderW = w - axisAreaW;
+    const crushHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (crushHovered ? 40 : 25) : (crushHovered ? 220 : 235),
+        dark ? (crushHovered ? 40 : 25) : (crushHovered ? 220 : 235),
+        dark ? (crushHovered ? 45 : 28) : (crushHovered ? 225 : 238));
+    box(0, sliderY, w, sliderH, true);
+    const fillW = Math.floor(bitcrushMix * sliderW);
+    if (fillW > 0) {
+      ink(240, 150, 70, trackpadFX ? 245 : 190);
+      box(0, sliderY, fillW, sliderH, true);
+    }
+    if (bitcrushMix > 0.005) {
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(bitcrushMix * sliderW)));
+      ink(255, 220, 130, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    write("crush " + Math.round(bitcrushMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.crush.x, [240, 150, 70]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.crush.y, [240, 150, 70]);
+    fxRows.crush = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+  }
+
+  globalThis.__fxRows = fxRows;
+  const waveRowY = settingsY + sliderH * 4;
+  const waveRowH = 14;
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
   {
-    const waveRowY = settingsY + 36;
-    const waveRowH = 14;
     const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "whist", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
@@ -3616,7 +3885,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // portion is a scratch pad (drag to setSpeed(0, v), release to resume).
   {
     const dk0 = soundAPI?.deck?.decks?.[0] || {};
-    const stripY = settingsY + 50; // directly below waveRow (36) + waveRowH (14)
+    const stripY = waveRowY + waveRowH;
     const stripH = 16;
     const bgR = dark ? 22 : 232, bgG = dark ? 22 : 232, bgB = dark ? 30 : 236;
     ink(bgR, bgG, bgB); box(0, stripY, w, stripH, true);
@@ -4167,16 +4436,20 @@ function sim({ pressures, sound }) {
       }
     }
   }
+  updateActivePercussionVoices(false);
 }
 
 function leave() {
   stopSampleRecording(soundAPI, "leave");
   // Reset all FX before shutdown
   echoMix = 0;
+  bitcrushMix = 0;
   pitchShift = 0;
+  lastAppliedPitch = 0;
   fxMix = 1;
   trackpadFX = false;
   soundAPI?.room?.setMix?.(0);
+  soundAPI?.glitch?.setMix?.(0);
   soundAPI?.fx?.setMix?.(1);
   stopAllSounds(soundAPI, systemAPI, 0.02);
 }

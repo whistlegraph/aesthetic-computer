@@ -125,6 +125,8 @@ typedef struct {
     float glitch_hold_l, glitch_hold_r;
     int glitch_counter;
     int glitch_rate;        // samples between holds
+    float glitch_mix;       // 0.0 = clean, 1.0 = full sample-hold + bitcrush
+    float target_glitch_mix;// target mix from JS, smoothed per sample
 
     // FX mix: dry/wet blend for entire FX chain (reverb + glitch)
     float fx_mix;           // 0.0 = fully dry, 1.0 = fully wet (smoothed)
@@ -240,6 +242,7 @@ void audio_set_bpm(ACAudio *audio, double bpm);
 void audio_room_toggle(ACAudio *audio);
 void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
+void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)
