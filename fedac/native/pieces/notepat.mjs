@@ -565,12 +565,19 @@ function percussionDrumFor(letter, offset) {
 // Fire a drum hit from short auto-stopping synth voices. No cleanup
 // needed on key-up because every voice uses a finite duration.
 //
-// Every drum gets STOCHASTIC variation on each press so repeated hits
-// don't sound machine-stamped:
-//   - tone jitter:   ±3-8% of the nominal frequency
-//   - volume jitter: ±5-10% of the nominal volume
-//   - duration jitter: ±5% on longer tails
-//   - for multi-burst drums (clap), the flam timing also jitters
+// EVERY drum in the kit is a TWO-STEP hit — DOWN (impact/strike) then
+// UP (release/resonance/tail). The gap between the two steps is locked
+// to `flam` (BPM-derived) with per-hit jitter, so hits feel unified but
+// stretch/shrink with tempo. This gives every pad a natural percussive
+// arc instead of a single simultaneous layer stack.
+//
+// Every drum also gets STOCHASTIC variation on each press so repeated
+// hits don't sound machine-stamped:
+//   - tone jitter:   ±3-12% of the nominal frequency
+//   - volume jitter: ±5-12% of the nominal volume
+//   - duration jitter: ±5-14% on longer tails
+//   - pan offset jitter on each step for subtle stereo movement
+//   - the DOWN→UP gap itself jitters via rn(...)
 //
 // Multi-burst flam timing scales with metronomeBPM so drum rolls lock
 // to the current tempo: at 120 BPM each sub-beat is ~12.5 ms.
@@ -590,30 +597,44 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
   const flam = (60000 / Math.max(40, Math.min(240, metronomeBPM || 120))) * 0.025;
 
   switch (letter) {
-    case "c": // kick — wub/wobble bass with per-hit timbre variation
-      // 1. Beater click — short high transient
-      sound.synth({ type: "triangle", tone: rj(1800, 0.08) * pf, duration: 0.005, volume: rj(1.0, 0.08) * v, attack: 0.0003, decay: 0.004, pan });
-      sound.synth({ type: "noise", tone: rj(4000, 0.12) * pf, duration: 0.004, volume: rj(0.55, 0.10) * v, attack: 0.0003, decay: 0.003, pan });
-      // 2. Body thump — SQUARE for mid harmonics
-      sound.synth({ type: "square", tone: rj(180, 0.05) * pf, duration: rj(0.02, 0.10), volume: rj(1.2, 0.06) * v, attack: 0.0005, decay: 0.018, pan });
-      // 3. Grit layer — sawtooth for dubstep rasp
-      sound.synth({ type: "sawtooth", tone: rj(90, 0.04) * pf, duration: rj(0.1, 0.08), volume: rj(1.0, 0.06) * v, attack: 0.001, decay: 0.095, pan });
-      // 4. Sub wobble — two sines ~10 Hz apart, each with per-hit pitch jitter
-      //    so the beat frequency varies slightly (sometimes 8 Hz, sometimes 12 Hz)
+    case "c": // kick — two-step: DOWN (beater punch) + UP (sub wobble bloom)
+      // STEP 1 — DOWN: beater click + body thump + sawtooth grit. The sharp
+      // impact that gives the kick its attack. All front-loaded.
       {
+        const downPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "triangle", tone: rj(1800, 0.08) * pf, duration: 0.005, volume: rj(1.0, 0.08) * v, attack: 0.0003, decay: 0.004, pan: downPan });
+        sound.synth({ type: "noise",    tone: rj(4000, 0.12) * pf, duration: 0.004, volume: rj(0.55, 0.10) * v, attack: 0.0003, decay: 0.003, pan: downPan });
+        sound.synth({ type: "square",   tone: rj(180, 0.05) * pf, duration: rj(0.02, 0.10), volume: rj(1.2, 0.06) * v, attack: 0.0005, decay: 0.018, pan: downPan });
+        sound.synth({ type: "sawtooth", tone: rj(90, 0.04) * pf, duration: rj(0.1, 0.08),  volume: rj(1.0, 0.06) * v, attack: 0.001, decay: 0.095, pan: downPan });
+      }
+      // STEP 2 — UP: sub-bass wobble bloom — the release where the kick
+      // expands outward. Two sines ~10 Hz apart for per-hit beat-freq jitter,
+      // plus a mid-low square fill. Very tight gap (~0.4 flam) so the punch
+      // and bloom still feel like one unified kick hit.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.02, 0.02);
         const subLo = rj(44, 0.05);         // ~41.8 → 46.2 Hz
         const subHi = subLo + rn(8, 12);    // ~50 → 58 Hz → beat freq 8-12 Hz
-        sound.synth({ type: "sine", tone: subLo * pf, duration: rj(0.18, 0.05), volume: rj(1.9, 0.05) * v, attack: 0.001, decay: 0.17, pan });
-        sound.synth({ type: "sine", tone: subHi * pf, duration: rj(0.18, 0.05), volume: rj(1.3, 0.06) * v, attack: 0.001, decay: 0.17, pan });
-      }
-      // 5. Mid-low square fill
-      sound.synth({ type: "square", tone: rj(120, 0.05) * pf, duration: rj(0.07, 0.08), volume: rj(0.85, 0.07) * v, attack: 0.002, decay: 0.065, pan });
+        sound.synth({ type: "sine",   tone: subLo * pf, duration: rj(0.18, 0.05), volume: rj(1.9, 0.05) * v, attack: 0.001, decay: 0.17, pan: upPan });
+        sound.synth({ type: "sine",   tone: subHi * pf, duration: rj(0.18, 0.05), volume: rj(1.3, 0.06) * v, attack: 0.001, decay: 0.17, pan: upPan });
+        sound.synth({ type: "square", tone: rj(120, 0.05) * pf, duration: rj(0.07, 0.08), volume: rj(0.85, 0.07) * v, attack: 0.002, decay: 0.065, pan: upPan });
+      }, Math.round(flam * rn(0.3, 0.6)));
       break;
 
-    case "d": // snare — noise + triangle body + square ring, all jittered
-      sound.synth({ type: "noise",    tone: rj(2200, 0.08) * pf, duration: rj(0.12, 0.08), volume: rj(0.55, 0.08) * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "triangle", tone: rj(220, 0.04) * pf,  duration: rj(0.1, 0.08),  volume: rj(0.4, 0.08)  * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.2, 0.10)  * v, attack: 0.001, decay: 0.045, pan });
+    case "d": // snare — two-step: DOWN (stick hit) + UP (wire rattle)
+      // STEP 1 — DOWN: sharp stick-on-head impact.
+      {
+        const downPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "square", tone: rj(800, 0.08) * pf,  duration: 0.008,          volume: rj(0.70, 0.08) * v, attack: 0.0003, decay: 0.007, pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(3500, 0.10) * pf, duration: 0.006,          volume: rj(0.60, 0.10) * v, attack: 0.0003, decay: 0.0055, pan: downPan });
+      }
+      // STEP 2 — UP: wire rattle sustain + shell body ring.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "noise",    tone: rj(2200, 0.08) * pf, duration: rj(0.12, 0.08), volume: rj(0.50, 0.08) * v, attack: 0.001, decay: 0.11, pan: upPan });
+        sound.synth({ type: "triangle", tone: rj(220, 0.04) * pf,  duration: rj(0.1, 0.08),  volume: rj(0.38, 0.08) * v, attack: 0.001, decay: 0.09, pan: upPan });
+        sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.001, decay: 0.045, pan: upPan });
+      }, Math.round(flam * rn(0.3, 0.6)));
       break;
 
     case "e": // clap — two-step: DOWN (dark palm strike) then UP (bright release)
@@ -636,15 +657,35 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       }, Math.round(flam * rn(1.3, 1.7)));
       break;
 
-    case "f": // snap — finger snap, tone jitter for variation
-      sound.synth({ type: "noise",    tone: rj(3200, 0.12) * pf, duration: 0.015, volume: rj(0.45, 0.10) * v, attack: 0.0003, decay: 0.014, pan });
-      sound.synth({ type: "square",   tone: rj(1800, 0.10) * pf, duration: 0.02,  volume: rj(0.22, 0.10) * v, attack: 0.0005, decay: 0.018, pan });
-      sound.synth({ type: "triangle", tone: rj(2400, 0.10) * pf, duration: 0.025, volume: rj(0.18, 0.10) * v, attack: 0.0005, decay: 0.022, pan });
+    case "f": // snap — two-step: DOWN (finger click) + UP (skin slap tail)
+      // STEP 1 — DOWN: sharp high-frequency click from compressed fingertip
+      // release. This is the "snap" itself — very brief.
+      {
+        const downPan = pan + rn(-0.05, 0.05);
+        sound.synth({ type: "noise",  tone: rj(3200, 0.12) * pf, duration: 0.012, volume: rj(0.50, 0.10) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+        sound.synth({ type: "square", tone: rj(1800, 0.10) * pf, duration: 0.008, volume: rj(0.22, 0.10) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+      }
+      // STEP 2 — UP: finger slaps palm — brief hollow body ring.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.03, 0.05);
+        sound.synth({ type: "triangle", tone: rj(2400, 0.10) * pf, duration: 0.022, volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.020, pan: upPan });
+        sound.synth({ type: "square",   tone: rj(1400, 0.10) * pf, duration: 0.015, volume: rj(0.12, 0.12) * v, attack: 0.0005, decay: 0.014, pan: upPan });
+      }, Math.round(flam * rn(0.4, 0.7)));
       break;
 
-    case "g": // closed hi-hat — brightness varies each hit
-      sound.synth({ type: "noise", tone: rj(7000, 0.08) * pf, duration: 0.04, volume: rj(0.35, 0.10) * v, attack: 0.0005, decay: 0.035, pan });
-      sound.synth({ type: "noise", tone: rj(5000, 0.08) * pf, duration: 0.04, volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.035, pan });
+    case "g": // closed hi-hat — two-step: DOWN (stick tick) + UP (tight sizzle)
+      // STEP 1 — DOWN: stick contact tick, bright transient metal spike.
+      {
+        const downPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "noise", tone: rj(9000, 0.08) * pf, duration: 0.008, volume: rj(0.40, 0.10) * v, attack: 0.0003, decay: 0.0075, pan: downPan });
+      }
+      // STEP 2 — UP: brief metallic sizzle release. Much shorter than open
+      // hat since the cymbal is clamped shut.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "noise", tone: rj(7000, 0.08) * pf, duration: rj(0.03, 0.15), volume: rj(0.32, 0.10) * v, attack: 0.001, decay: 0.028, pan: upPan });
+        sound.synth({ type: "noise", tone: rj(5000, 0.08) * pf, duration: rj(0.03, 0.15), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.028, pan: upPan });
+      }, Math.round(flam * rn(0.3, 0.5)));
       break;
 
     case "a": // open hi-hat — two-step: DOWN (chip strike) then UP (airy shimmer)
@@ -663,37 +704,95 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
       }, Math.round(flam * rn(0.8, 1.2)));
       break;
 
-    case "b": // ride — metallic shimmer with per-hit harmonic variation
-      sound.synth({ type: "noise",  tone: rj(4200, 0.06) * pf, duration: rj(0.4, 0.08),  volume: rj(0.28, 0.08) * v, attack: 0.001, decay: 0.38, pan });
-      sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.12, 0.10), volume: rj(0.10, 0.10) * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: rj(4600, 0.06) * pf, duration: rj(0.1, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.001, decay: 0.09, pan });
+    case "b": // ride — two-step: DOWN (bell ping) + UP (shimmer wash)
+      // STEP 1 — DOWN: bell-like ping strike — the initial mallet contact.
+      {
+        const downPan = pan + rn(-0.05, 0.05);
+        sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.06, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.055, pan: downPan });
+        sound.synth({ type: "square", tone: rj(4600, 0.06) * pf, duration: rj(0.05, 0.10), volume: rj(0.14, 0.10) * v, attack: 0.0005, decay: 0.045, pan: downPan });
+      }
+      // STEP 2 — UP: sustained metallic shimmer wash — the cymbal body
+      // resonating after the strike. Longest tail of the kit.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.03, 0.03);
+        sound.synth({ type: "noise",  tone: rj(4200, 0.06) * pf, duration: rj(0.38, 0.08), volume: rj(0.26, 0.08) * v, attack: 0.003, decay: 0.37, pan: upPan });
+        sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.10, 0.10), volume: rj(0.08, 0.10) * v, attack: 0.002, decay: 0.095, pan: upPan });
+      }, Math.round(flam * rn(0.5, 0.8)));
       break;
 
-    case "c#": // crash
-      sound.synth({ type: "noise",  tone: rj(3500, 0.06) * pf, duration: rj(0.55, 0.08), volume: rj(0.42, 0.08) * v, attack: 0.001, decay: 0.53, pan });
-      sound.synth({ type: "noise",  tone: rj(6500, 0.07) * pf, duration: rj(0.45, 0.08), volume: rj(0.28, 0.08) * v, attack: 0.002, decay: 0.43, pan });
-      sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: rj(0.2, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.001, decay: 0.19, pan });
+    case "c#": // crash — two-step: DOWN (metal impact) + UP (long wash)
+      // STEP 1 — DOWN: explosive high-brightness metal strike.
+      {
+        const downPan = pan + rn(-0.06, 0.06);
+        sound.synth({ type: "noise",  tone: rj(7500, 0.08) * pf, duration: 0.015,          volume: rj(0.55, 0.08) * v, attack: 0.0005, decay: 0.014, pan: downPan });
+        sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: 0.012,          volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+      }
+      // STEP 2 — UP: long sustained wash. Where the energy actually lives.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "noise",  tone: rj(3500, 0.06) * pf, duration: rj(0.55, 0.08), volume: rj(0.40, 0.08) * v, attack: 0.005, decay: 0.54, pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(6500, 0.07) * pf, duration: rj(0.45, 0.08), volume: rj(0.28, 0.08) * v, attack: 0.005, decay: 0.44, pan: upPan });
+        sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: rj(0.2, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.002, decay: 0.19, pan: upPan });
+      }, Math.round(flam * rn(0.4, 0.7)));
       break;
 
-    case "d#": // splash
-      sound.synth({ type: "noise", tone: rj(5500, 0.08) * pf, duration: rj(0.3, 0.10),  volume: rj(0.38, 0.08) * v, attack: 0.001, decay: 0.29, pan });
-      sound.synth({ type: "noise", tone: rj(8500, 0.08) * pf, duration: rj(0.22, 0.10), volume: rj(0.25, 0.10) * v, attack: 0.001, decay: 0.21, pan });
+    case "d#": // splash — two-step: DOWN (thin metal tick) + UP (short wash)
+      // STEP 1 — DOWN: thin high metal contact — the splash's sharp front.
+      {
+        const downPan = pan + rn(-0.05, 0.05);
+        sound.synth({ type: "noise", tone: rj(9500, 0.10) * pf, duration: 0.010, volume: rj(0.45, 0.08) * v, attack: 0.0004, decay: 0.009, pan: downPan });
+      }
+      // STEP 2 — UP: short bright wash — splash is all quick burst, no sustain.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.03, 0.03);
+        sound.synth({ type: "noise", tone: rj(5500, 0.08) * pf, duration: rj(0.28, 0.10), volume: rj(0.36, 0.08) * v, attack: 0.003, decay: 0.27, pan: upPan });
+        sound.synth({ type: "noise", tone: rj(8500, 0.08) * pf, duration: rj(0.20, 0.10), volume: rj(0.23, 0.10) * v, attack: 0.003, decay: 0.19, pan: upPan });
+      }, Math.round(flam * rn(0.4, 0.6)));
       break;
 
-    case "f#": // cowbell — detuning jitters so hits sound organic
-      sound.synth({ type: "square", tone: rj(810, 0.04) * pf, duration: rj(0.12, 0.08), volume: rj(0.22, 0.08) * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: rj(540, 0.04) * pf, duration: rj(0.15, 0.08), volume: rj(0.18, 0.08) * v, attack: 0.001, decay: 0.14, pan });
+    case "f#": // cowbell — two-step: DOWN (stick strike) + UP (resonant ring)
+      // STEP 1 — DOWN: stick-on-metal strike — the "tink" attack.
+      {
+        const downPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "square", tone: rj(1800, 0.06) * pf, duration: 0.008, volume: rj(0.30, 0.08) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+      }
+      // STEP 2 — UP: the signature cowbell ring — two detuned squares beat.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.03, 0.03);
+        sound.synth({ type: "square", tone: rj(810, 0.04) * pf, duration: rj(0.12, 0.08), volume: rj(0.22, 0.08) * v, attack: 0.002, decay: 0.115, pan: upPan });
+        sound.synth({ type: "square", tone: rj(540, 0.04) * pf, duration: rj(0.15, 0.08), volume: rj(0.18, 0.08) * v, attack: 0.002, decay: 0.145, pan: upPan });
+      }, Math.round(flam * rn(0.3, 0.5)));
       break;
 
-    case "g#": // wood block
-      sound.synth({ type: "triangle", tone: rj(900, 0.06) * pf,  duration: rj(0.06, 0.10), volume: rj(0.35, 0.08) * v, attack: 0.001, decay: 0.05, pan });
-      sound.synth({ type: "square",   tone: rj(1800, 0.08) * pf, duration: rj(0.03, 0.10), volume: rj(0.14, 0.10) * v, attack: 0.0005, decay: 0.025, pan });
+    case "g#": // wood block — two-step: DOWN (stick tick) + UP (hollow body)
+      // STEP 1 — DOWN: stick contact tick — the initial bright transient.
+      {
+        const downPan = pan + rn(-0.04, 0.04);
+        sound.synth({ type: "square", tone: rj(2400, 0.08) * pf, duration: 0.004, volume: rj(0.22, 0.10) * v, attack: 0.0003, decay: 0.0035, pan: downPan });
+      }
+      // STEP 2 — UP: hollow body ring — the wood resonance.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.03, 0.03);
+        sound.synth({ type: "triangle", tone: rj(900, 0.06) * pf,  duration: rj(0.06, 0.10), volume: rj(0.35, 0.08) * v, attack: 0.001, decay: 0.055, pan: upPan });
+        sound.synth({ type: "square",   tone: rj(1800, 0.08) * pf, duration: rj(0.03, 0.10), volume: rj(0.12, 0.10) * v, attack: 0.0005, decay: 0.025, pan: upPan });
+      }, Math.round(flam * rn(0.3, 0.5)));
       break;
 
-    case "a#": // tambourine — jingle varies most per-hit (it's the whole point)
-      sound.synth({ type: "noise",  tone: rj(7000, 0.10) * pf, duration: rj(0.15, 0.12), volume: rj(0.30, 0.10) * v, attack: 0.001, decay: 0.14, pan });
-      sound.synth({ type: "noise",  tone: rj(4500, 0.10) * pf, duration: rj(0.10, 0.12), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square", tone: rj(6500, 0.08) * pf, duration: 0.05,           volume: rj(0.10, 0.12) * v, attack: 0.001, decay: 0.045, pan });
+    case "a#": // tambourine — two-step: DOWN (frame strike) + UP (jingle rattle)
+      // STEP 1 — DOWN: hand/stick on frame — the dry initial hit.
+      {
+        const downPan = pan + rn(-0.05, 0.05);
+        sound.synth({ type: "noise",  tone: rj(2200, 0.10) * pf, duration: 0.010, volume: rj(0.30, 0.10) * v, attack: 0.0003, decay: 0.009, pan: downPan });
+        sound.synth({ type: "square", tone: rj(1500, 0.08) * pf, duration: 0.008, volume: rj(0.15, 0.12) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
+      }
+      // STEP 2 — UP: the jingle rattle — where the tambourine character lives.
+      // Max per-hit jitter since real tambourines never sound the same twice.
+      setTimeout(() => {
+        const upPan = pan + rn(-0.05, 0.05);
+        sound.synth({ type: "noise",  tone: rj(7000, 0.12) * pf, duration: rj(0.14, 0.14), volume: rj(0.30, 0.12) * v, attack: 0.002, decay: 0.13, pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(4500, 0.12) * pf, duration: rj(0.09, 0.14), volume: rj(0.18, 0.12) * v, attack: 0.002, decay: 0.085, pan: upPan });
+        sound.synth({ type: "square", tone: rj(6500, 0.10) * pf, duration: 0.05,           volume: rj(0.10, 0.14) * v, attack: 0.001, decay: 0.045, pan: upPan });
+      }, Math.round(flam * rn(0.4, 0.7)));
       break;
   }
 }
