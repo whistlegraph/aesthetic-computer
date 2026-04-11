@@ -455,18 +455,26 @@ function startReversePlayback(sound) {
   const rate = snapshot?.rate || 0;
   if (!src || src.length < REVERSE_MIN_BUFFER_SAMPLES || rate <= 0) return false;
 
-  const reversed = new Float32Array(src.length);
-  for (let i = 0, j = src.length - 1; i < src.length; i++, j--) {
-    reversed[i] = src[j];
+  // Build a full reverse+forward loop buffer. When the reverse reaches
+  // "the present" (= the press point, which is the end of the reversed
+  // section), it flips forward through the original audio back to the
+  // press point, then the loop restarts from the reverse. This creates
+  // a ping-pong effect so holding space makes a rhythmic loop of the
+  // held section. Loop length = 2 × captured duration.
+  const len = src.length;
+  const loopBuf = new Float32Array(len * 2);
+  for (let i = 0, j = len - 1; i < len; i++, j--) {
+    loopBuf[i] = src[j];       // reversed half (backward audio)
+    loopBuf[len + i] = src[i]; // forward half (original audio)
   }
 
-  sound.replay.loadData(reversed, rate);
+  sound.replay.loadData(loopBuf, rate);
   reversePlaybackSound = sound.replay.play({
     tone: reversePlaybackTone(),
     base: SAMPLE_BASE_FREQ,
     volume: 1.0,
     pan: 0.0,
-    loop: false,
+    loop: true,
   });
   return !!reversePlaybackSound;
 }
@@ -600,12 +608,18 @@ function makePercussionHold(letter, volume, pan, pitchFactor, voices = []) {
 }
 
 // Release any held drum voices with their per-voice release fade. Each
-// entry is { handle, releaseFade, releaseUpdate? }. releaseUpdate runs
-// first (to dampen tone/volume before the final fade — the "hi-hat pedal
-// closing" effect), then we call sound.kill() with the voice's fade time.
+// entry is { handle, releaseFade, releaseUpdate?, onRelease? }.
+// - onRelease fires a standalone "release burst" synth call (e.g. the
+//   subtle closed-hat lift click) before any update/kill runs.
+// - releaseUpdate shifts the voice's tone/volume before the final fade
+//   (the "hi-hat pedal closing" brightness dampening effect).
+// - sound.kill() with the voice's fade time does the final ramp-out.
 function releasePercussionHold(sound, hold) {
   if (!hold?.voices?.length) return;
   for (const entry of hold.voices) {
+    if (entry?.onRelease) {
+      try { entry.onRelease(); } catch {}
+    }
     if (!entry?.handle) continue;
     if (entry.releaseUpdate) {
       try { entry.handle.update?.(entry.releaseUpdate); } catch {}
@@ -686,18 +700,28 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
   const flam = (60000 / Math.max(40, Math.min(240, metronomeBPM || 120))) * 0.025;
 
   // Push a sustain voice onto holdVoices if live, otherwise fire it as
-  // a finite-duration one-shot (for reverse replay / "both" mode). The
-  // `releaseFade` is how quickly this voice damps when the key lifts —
-  // short for closed/muted sounds, long for open cymbals and sub-basses.
-  // Optional `releaseUpdate` applies a tone/volume change RIGHT BEFORE
-  // the kill fade — e.g. open hat → closed hat dampens brightness.
-  const addSustain = (params, bothDuration, releaseFade, releaseUpdate) => {
+  // a finite-duration one-shot (for reverse replay / "both" mode).
+  // - releaseFade: how quickly this voice damps when the key lifts
+  // - releaseUpdate: optional tone/volume shift before the kill fade
+  //   (e.g. open hat → closed: lower tone first, then fade)
+  // - onRelease: optional callback that fires a standalone release
+  //   burst (e.g. closed hat's subtle "lift click")
+  const addSustain = (params, bothDuration, releaseFade, releaseUpdate, onRelease) => {
     if (isLive) {
       const handle = sound.synth({ ...params, duration: Infinity });
-      if (handle) holdVoices.push({ handle, releaseFade, releaseUpdate });
+      if (handle) holdVoices.push({ handle, releaseFade, releaseUpdate, onRelease });
       return handle;
     } else {
       return sound.synth({ ...params, duration: bothDuration });
+    }
+  };
+  // Register a release-only burst (no sustain voice needed). Useful for
+  // drums like closed hat that should be one-shot during hold but play
+  // a tiny release click on key-up. The "handle" is a dummy so the
+  // release loop picks up the onRelease callback.
+  const addReleaseBurst = (onRelease) => {
+    if (isLive && onRelease) {
+      holdVoices.push({ handle: null, releaseFade: 0, onRelease });
     }
   };
 
@@ -713,18 +737,35 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     // not a held note. No sustain voices, no release transition. Hold duration
     // doesn't affect them. Applies to: kick, snare, clap, snap, closed hat.
 
-    case "c": { // kick — TR-808: beater click + pitch snap + body (one-shot)
+    case "c": { // kick — TR-808 mastered for laptop speakers + sub for headphones
       const downPan = pan + rn(-0.02, 0.02);
-      // Beater click
-      sound.synth({ type: "noise", tone: 4000, duration: 0.002, volume: rj(0.55, 0.12) * v, attack: 0.0001, decay: 0.002, pan: downPan });
-      // Pitch snap (short 130Hz sine)
-      sound.synth({ type: "sine", tone: 130 * pf, duration: 0.010, volume: rj(1.1, 0.10) * v, attack: 0.0002, decay: 0.009, pan: downPan });
-      // Mid body attack
-      sound.synth({ type: "sine", tone: 80 * pf, duration: 0.08, volume: rj(1.6, 0.08) * v, attack: 0.001, decay: 0.075, pan: downPan });
-      // The 808 kick's signature long 50Hz sub — natural decay 400-600ms
+      // Mastering note: laptop speakers typically roll off below ~150 Hz,
+      // so the 50 Hz sub is inaudible on them. Push the 150-250 Hz range
+      // hard so the kick reads as PUNCH on both laptops and headphones.
+      // The 50 Hz sub adds "boom" on real speakers but laptops hear the
+      // mids as the "kick" character.
+      //
+      // REMOVED: 4kHz noise beater click that sounded like a digital
+      // pop on laptop speakers. Replaced with a softer 2.5kHz noise
+      // attack that blends into the body instead of cracking.
+
+      // Soft stick-like attack (not a "click")
+      sound.synth({ type: "noise", tone: 2500, duration: 0.003, volume: rj(0.35, 0.12) * v, attack: 0.0005, decay: 0.0025, pan: downPan });
+      // Pitch-snap envelope: 180 Hz → decays in ~12ms. This is where
+      // the perceived "thump" starts for laptop speakers.
+      sound.synth({ type: "sine", tone: 180 * pf, duration: 0.018, volume: rj(1.4, 0.08) * v, attack: 0.001, decay: 0.017, pan: downPan });
+      // Main body — 150 Hz sine, the PRIMARY laptop-audible frequency.
+      // Boosted to 2.0 (was 1.6 @ 80Hz) so it actually pushes the speaker.
+      sound.synth({ type: "sine", tone: 150 * pf, duration: 0.10, volume: rj(2.0, 0.08) * v, attack: 0.002, decay: 0.095, pan: downPan });
+      // Mid-low fill at 100 Hz — bridge between body and sub
+      sound.synth({ type: "sine", tone: 100 * pf, duration: 0.16, volume: rj(1.4, 0.10) * v, attack: 0.003, decay: 0.155, pan: downPan });
+      // Triangle "beef" layer at 80 Hz — adds harmonics the speaker CAN
+      // reproduce (fundamental is out of range but 2nd/3rd harmonics land
+      // at 160/240 Hz which laptop speakers handle fine)
+      sound.synth({ type: "triangle", tone: 80 * pf, duration: 0.22, volume: rj(1.4, 0.10) * v, attack: 0.003, decay: 0.215, pan: downPan });
+      // The classic 808 sub — 50 Hz sine, long decay. Inaudible on
+      // laptops but adds the "body" on headphones/subwoofers.
       sound.synth({ type: "sine", tone: 50 * pf, duration: rj(0.55, 0.20), volume: rj(1.9, 0.10) * v, attack: 0.003, decay: 0.54, pan: downPan });
-      // Mid fill for presence
-      sound.synth({ type: "sine", tone: 100 * pf, duration: rj(0.12, 0.20), volume: rj(0.55, 0.15) * v, attack: 0.004, decay: 0.115, pan: downPan });
       break;
     }
 
@@ -767,7 +808,7 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       break;
     }
 
-    case "g": { // closed hi-hat — 4-square cluster, tight short decay (one-shot)
+    case "g": { // closed hi-hat — 4-square cluster + subtle lift click on release
       const downPan = pan + rn(-0.03, 0.03);
       // Full cluster — the short decay is the "closed" character
       for (const f of HAT_FREQS) {
@@ -775,6 +816,13 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       }
       // Bright noise top for the "tss"
       sound.synth({ type: "noise", tone: 8000, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
+      // Lift click: on key-up, fire a tiny high-noise transient to
+      // represent the stick leaving the hat. Subtle — real closed-hat
+      // "opens" don't ring, they just have a mechanical release click.
+      addReleaseBurst(() => {
+        sound.synth({ type: "noise", tone: 9000, duration: 0.004, volume: rj(0.22, 0.20) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
+        sound.synth({ type: "square", tone: 6000 * pf, duration: 0.003, volume: rj(0.08, 0.25) * v, attack: 0.0003, decay: 0.0027, pan: downPan });
+      });
       break;
     }
 
