@@ -1857,7 +1857,13 @@ function act({ event: e, sound, wifi, system }) {
         const accent = shiftHeld ? 1.5 : 1.0;
         const baseDrumVol = (1.0 + velocity * 0.8) * accent;
         const drumVol = baseDrumVol * master;
-        const drumPitch = Math.pow(2, effectivePitchShift());
+        // Subtle note-based pitch harmonization: each semitone nudges the
+        // drum's fundamental by 1/36 of an octave (one full keyboard
+        // octave = a minor third of pitch shift). A kick on C3 sounds
+        // noticeably lower than a kick on C5, and a snare on D harmonizes
+        // just a hair above a kick on C. Combined with the trackpad
+        // pitch shift via effectivePitchShift().
+        const drumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
         // Drums get their own pan (kit geometry + grid bias), not the
         // QWERTY physical key position → pan. Left keys pan left, right pan right.
         const drumPan = drumPanFor(letter, offset, key);
@@ -2179,7 +2185,9 @@ function act({ event: e, sound, wifi, system }) {
         // Percussion pad tap: fire drum (or drum sample) and flash trail.
         const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
         if (touchDrum) {
-          const touchDrumPitch = Math.pow(2, effectivePitchShift());
+          // Subtle note-based pitch harmonization — see keyboard drum
+          // path for rationale. Each semitone = 1/36 octave of drum tuning.
+          const touchDrumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
           // QWERTY physical key position → pan (matches where finger lands).
           const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
           const touchBaseVol = 1.8;
@@ -2306,7 +2314,8 @@ function act({ event: e, sound, wifi, system }) {
           // Drag-to-drum: drum pads fire as one-shots on rollover too.
           const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
           if (rollDrum) {
-            const rollDrumPitch = Math.pow(2, effectivePitchShift());
+            // Subtle note-based pitch harmonization (see keyboard path).
+            const rollDrumPitch = Math.pow(2, effectivePitchShift() + semitones / 36);
             // QWERTY physical key position → pan (matches where finger lands).
             const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
             const rollBaseVol = 1.8;
@@ -3479,13 +3488,24 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
               const plotH = pyMax - pyMin;
               const logLo = Math.log(30);
               const logHi = Math.log(10000);
-              // Use a key-stable random seed so the jitter across pads
-              // differs without being globally synchronized.
-              const seed = (frame * 9301 + (key ? key.charCodeAt(0) : 0) * 49297) % 233280;
+              // Per-pad PRNG — produces a visibly different scatter each
+              // frame. Previous impl used `seed + n * 1103515245`, but
+              // seed was only 0..233279 while the n term dominated by a
+              // factor of ~10k, so frame changes only moved the output
+              // by a few parts per million — looked static.
+              //
+              // New impl: xorshift32 with seed XORed into the state on
+              // every call. `seed` now uses the raw frame + key char so
+              // adjacent frames land in completely different LCG
+              // orbits. Pads offset by key char so they don't flicker
+              // in sync.
+              const seed = ((frame * 2654435769) ^ ((key ? key.charCodeAt(0) : 0) * 374761393)) >>> 0;
               const prng = (n) => {
-                // Tiny LCG derived from seed + n
-                const s = (seed + n * 1103515245 + 12345) & 0x7fffffff;
-                return (s / 2147483648);
+                let s = (seed ^ (n * 2246822519)) >>> 0;
+                s ^= s << 13; s >>>= 0;
+                s ^= s >>> 17;
+                s ^= s << 5;  s >>>= 0;
+                return (s >>> 0) / 4294967296;
               };
               for (let i = 0; i < sig.length; i++) {
                 const [t, f, vol] = sig[i];
