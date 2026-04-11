@@ -137,6 +137,16 @@ let dark = isDark(); // auto: dark after 7pm LA time, light before
 let bgColor = [0, 0, 0];
 let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
+// === DRUM BACKGROUND FLASH ===
+// Tones paint the full-screen background from their note colors while held
+// (see the activeKeys loop in paint()). Drums are one-shots and don't live
+// in `sounds[key]`, so they need their own transient flash state. Each drum
+// hit pushes an entry here; paint() sums+decays them into the bg color so
+// a kick pulses orange, a ride pulses silver-blue, a crash pulses lavender,
+// etc. Rolls overlap because we keep up to 8 concurrent fading entries.
+const DRUM_FLASH_LIFE = 14;  // ~230 ms at 60 fps
+let drumFlashes = [];        // [{ color: [r,g,b], frame, life }]
+
 // Cached sound API ref (for leave)
 let soundAPI = null;
 let systemAPI = null;
@@ -454,6 +464,7 @@ function playReverseEvent(ev, sound) {
   if (!sound) return;
   if (ev.kind === "drum") {
     playPercussion(sound, ev.letter, (ev.vel || 1) * 1.5, ev.pan || 0, ev.pitch || 1);
+    flashDrum(ev.letter);
   } else {
     const playFreq = (ev.freq || 440) * (ev.pitch || 1);
     sound?.synth?.({
@@ -597,6 +608,15 @@ function drumPanFor(letter, gridOffset) {
   const drumOffset = DRUM_PAN_OFFSET[letter] ?? 0;
   // Drum offset at 0.7 strength so kit geometry shows but grid side dominates.
   return Math.max(-0.9, Math.min(0.9, gridBias + drumOffset * 0.7));
+}
+
+// Push a drum flash entry so paint() will pulse the background in that
+// drum's characteristic color. Called from every drum trigger site
+// (keyboard act(), touch-tap, drag-rollover, reverse-playback replay).
+function flashDrum(letter) {
+  const color = PERCUSSION_COLORS[letter] || [200, 200, 200];
+  drumFlashes.push({ color, frame, life: DRUM_FLASH_LIFE });
+  if (drumFlashes.length > 8) drumFlashes.shift();
 }
 
 // Fire a drum hit from short auto-stopping synth voices. No cleanup
@@ -1484,6 +1504,7 @@ function act({ event: e, sound, wifi, system }) {
         } else {
           playPercussion(sound, letter, drumVol, drumPan, drumPitch);
         }
+        flashDrum(letter);
         recordPlayback({ kind: "drum", letter, octave: noteOctave, vel: drumVol, pan: drumPan, pitch: drumPitch });
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
@@ -1817,6 +1838,7 @@ function act({ event: e, sound, wifi, system }) {
           } else {
             playPercussion(sound, hitNote.letter, 1.8, touchDrumPan, touchDrumPitch);
           }
+          flashDrum(hitNote.letter);
           recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: touchDrumPan, pitch: touchDrumPitch });
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
@@ -1968,6 +1990,7 @@ function act({ event: e, sound, wifi, system }) {
             } else {
               playPercussion(sound, hitNote.letter, 1.8, rollDrumPan, rollDrumPitch);
             }
+            flashDrum(hitNote.letter);
             recordPlayback({ kind: "drum", letter: hitNote.letter, octave: hitNote.octave, vel: 1.8, pan: rollDrumPan, pitch: rollDrumPitch });
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key };
@@ -2140,32 +2163,64 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const PAD_SHARP = dark ? [18, 18, 20] : [235, 232, 228];
   const PAD_OUTLINE = dark ? [50, 50, 55] : [210, 205, 200];
 
-  // Compute background color from active notes — full color flash
+  // Compute background color from active notes (held) + drum flashes (decaying)
+  // — full-screen color response so drums have the same visual presence as tones.
   const activeKeys = Object.keys(sounds);
-  if (activeKeys.length > 0) {
-    let r = 0, g = 0, b = 0;
-    for (const key of activeKeys) {
-      const noteName = KEY_TO_NOTE[key];
-      if (noteName) {
-        const [letter] = parseNote(noteName);
-        const nc = noteColor(letter);
-        r += nc[0]; g += nc[1]; b += nc[2];
-      }
+
+  // Tone layer: sum of colors for every held note
+  let toneR = 0, toneG = 0, toneB = 0, toneWeight = 0;
+  for (const key of activeKeys) {
+    const noteName = KEY_TO_NOTE[key];
+    if (noteName) {
+      const [letter] = parseNote(noteName);
+      const nc = noteColor(letter);
+      toneR += nc[0]; toneG += nc[1]; toneB += nc[2]; toneWeight++;
     }
-    const n = activeKeys.length;
-    // Saturate: boost toward max channel, clamp to 255
-    const avg = [r / n, g / n, b / n];
-    const mx = Math.max(avg[0], avg[1], avg[2], 1);
-    const sat = 255 / mx; // scale so brightest channel hits 255
+  }
+
+  // Drum layer: prune expired entries, then sum with per-entry alpha decay.
+  // First 2 frames hold full intensity for a punchy hit, then linear fade.
+  if (drumFlashes.length > 0) {
+    drumFlashes = drumFlashes.filter(f => (frame - f.frame) < f.life);
+  }
+  let drumR = 0, drumG = 0, drumB = 0, drumWeight = 0;
+  for (const f of drumFlashes) {
+    const age = frame - f.frame;
+    let alpha;
+    if (age < 2) alpha = 1.0;
+    else alpha = Math.max(0, 1 - (age - 2) / (f.life - 2));
+    drumR += f.color[0] * alpha;
+    drumG += f.color[1] * alpha;
+    drumB += f.color[2] * alpha;
+    drumWeight += alpha;
+  }
+
+  if (toneWeight > 0 || drumWeight > 0) {
+    // Tones count as full weight each; drums' contribution is their summed alpha.
+    // Drums get a 1.2× weight multiplier so a single hit still reads on screen
+    // even if multiple tones are held simultaneously.
+    const totalWeight = toneWeight + drumWeight * 1.2;
+    const r = (toneR + drumR * 1.2) / totalWeight;
+    const g = (toneG + drumG * 1.2) / totalWeight;
+    const b = (toneB + drumB * 1.2) / totalWeight;
+    const mx = Math.max(r, g, b, 1);
+    const sat = 255 / mx;
     bgTarget = [
-      Math.min(255, Math.floor(avg[0] * sat)),
-      Math.min(255, Math.floor(avg[1] * sat)),
-      Math.min(255, Math.floor(avg[2] * sat)),
+      Math.min(255, Math.floor(r * sat)),
+      Math.min(255, Math.floor(g * sat)),
+      Math.min(255, Math.floor(b * sat)),
     ];
-    // Snap on instantly (blink)
-    bgColor[0] = bgTarget[0];
-    bgColor[1] = bgTarget[1];
-    bgColor[2] = bgTarget[2];
+    if (toneWeight > 0) {
+      // Held tone(s) — snap instantly so the blink reads
+      bgColor[0] = bgTarget[0];
+      bgColor[1] = bgTarget[1];
+      bgColor[2] = bgTarget[2];
+    } else {
+      // Drum-only — fast blend so rapid hits still read but single hits fade
+      bgColor[0] += (bgTarget[0] - bgColor[0]) * 0.55;
+      bgColor[1] += (bgTarget[1] - bgColor[1]) * 0.55;
+      bgColor[2] += (bgTarget[2] - bgColor[2]) * 0.55;
+    }
   } else {
     bgTarget = dark ? [0, 0, 0] : [255, 255, 255];
     // Fade smoothly
