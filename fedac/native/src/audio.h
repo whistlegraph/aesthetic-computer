@@ -51,15 +51,23 @@ typedef struct {
     double noise_b0, noise_b1, noise_b2, noise_a1, noise_a2;
     double noise_x1, noise_x2, noise_y1, noise_y2;
     uint32_t noise_seed;
-    // Breath-excited whistle / ocarina resonator state
-    double whistle_breath;
-    double whistle_jet;
-    double whistle_vibrato_phase;
-    double whistle_coeff_freq;
-    double whistle_main_y1, whistle_main_y2;
-    double whistle_formant_y1, whistle_formant_y2;
-    double whistle_main_c1, whistle_main_c2, whistle_main_gain;
-    double whistle_formant_c1, whistle_formant_c2, whistle_formant_gain;
+    // Digital waveguide flute/whistle state (Perry Cook STK Flute model)
+    // See audio.c:generate_whistle_sample for algorithm notes. The bore
+    // delay line is the primary resonator — its length sets pitch and
+    // its feedback loop generates all the harmonics. The jet delay +
+    // cubic nonlinearity drives the loop into sustained oscillation.
+    double whistle_breath;            // envelope-smoothed breath pressure
+    double whistle_vibrato_phase;     // 0..1 vibrato LFO phase
+    double whistle_lp1;               // 1-pole loop LPF state
+    double whistle_hp_x1, whistle_hp_y1; // 1-pole DC blocker state
+    // Bore delay line — up to ~2048 samples at 192kHz covers down to ~94 Hz.
+    // Write cursor advances by 1 each tick; reads use fractional delay
+    // indexing for smooth pitch.
+    float whistle_bore_buf[2048];
+    int whistle_bore_w;
+    // Jet delay line — shorter, models embouchure travel time (~0.32×bore).
+    float whistle_jet_buf[512];
+    int whistle_jet_w;
 } ACVoice;
 
 typedef struct {
