@@ -3743,63 +3743,155 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  // Help panel overlay (Meta/Win key) — drawn last so it sits on top of everything
+  // Help panel overlay (Meta/Win key) — drawn last so it sits on top of everything.
+  //
+  // Design goals:
+  //   - Color-coded by category (notes, drums, wave, deck, hold, tempo, sample, fx, system)
+  //   - Multi-column layout that adapts to screen width (1, 2, or 3 columns)
+  //   - Panel height auto-fits content AND hard-clamps to screen height so it
+  //     never bleeds off the bottom
+  //   - Uses available width rather than being capped at 280
+  //   - Bindings reflect current code (space = reverse loop pedal, F1–F4 direct
+  //     deck control, F9 metronome, F10/F11 hold, F12 recital)
   if (helpPanel) {
     const dark = isDark();
+    const margin = 10;
     const padX = 8, padY = 8;
-    const lineH = 11;
-    const shortcuts = [
-      ["a–l, ; '",      "play notes (with sharps)"],
-      ["1–9 / ↑↓",      "octave"],
-      ["pgup / pgdn",   "drum kit L / R octave"],
-      ["space",          "kick drum"],
-      ["tab",            "cycle wave type"],
-      ["shift",          "quick mode"],
-      ["Fn+F1",         "deck play/pause"],
-      ["Fn+F2",         "deck next track"],
-      ["Fn+F3",         "deck prev track"],
-      ["Fn+F4",         "deck usb rescan"],
-      ["[ / `",         "deck speed − / reset"],
-      [", tap tempo",   "sync metronome to deck"],
-      ["drag deck",     "scratch the platter"],
-      ["F9",             "metronome"],
-      ["F10 (📞)",       "clear hold"],
-      ["F11 (📞)",       "engage / flourish hold"],
-      ["F12 (★)",        "recital mode (hide UI)"],
-      ["meta (⊞)",       "toggle this help"],
-      ["esc esc esc",    "exit to prompt"],
-      ["- / =",          "metronome BPM"],
-      ["home (sample)",  "record global sample"],
-      ["end (sample)",   "arm per-key / per-drum rec"],
-      ["\\",             "trackpad FX (X echo, Y pitch)"],
-    ];
-    // Compute panel size
+    const lineH = 10;
     const titleH = 14;
-    const panelW = Math.min(w - 20, 280);
-    const panelH = titleH + lineH * shortcuts.length + padY * 2;
+    const footerH = 11;
+
+    // Category [name, color (RGB), entries[[key, desc], ...]]
+    // Color = text tint for the key column on that row. Category header is
+    // rendered in the same color at full saturation.
+    const categories = [
+      ["NOTES", [120, 200, 255], [
+        ["a–l ; '",    "play notes"],
+        ["1–9 ↑↓",     "octave"],
+        ["shift",      "quick mode"],
+      ]],
+      ["DRUMS", [255, 140, 90], [
+        ["pgup/pgdn",  "drum kit L / R"],
+        ["space",      "reverse loop pedal"],
+      ]],
+      ["WAVE", [220, 140, 255], [
+        ["tab",        "cycle wave type"],
+        ["F12 ★",      "recital mode"],
+      ]],
+      ["DECK", [120, 230, 150], [
+        ["F1",         "play / pause"],
+        ["F2",         "next track"],
+        ["F3",         "prev track"],
+        ["F4",         "usb rescan"],
+        ["[ / `",      "speed − / reset"],
+        [",",          "tap-sync bpm"],
+        ["drag",       "scratch platter"],
+      ]],
+      ["HOLD", [255, 220, 120], [
+        ["F11 📞",     "engage / flourish"],
+        ["F10 📞",     "clear hold"],
+      ]],
+      ["TEMPO", [255, 180, 100], [
+        ["F9",         "metronome"],
+        ["- / =",      "bpm − / +"],
+      ]],
+      ["SAMPLE", [255, 150, 210], [
+        ["home",       "record global"],
+        ["end",        "arm per-key/drum"],
+        ["delete",     "clear sample bank"],
+      ]],
+      ["FX", [130, 230, 220], [
+        ["\\",         "trackpad (X echo, Y pitch)"],
+      ]],
+      ["SYSTEM", [190, 190, 205], [
+        ["meta ⊞",     "toggle this help"],
+        ["esc esc esc", "exit to prompt"],
+      ]],
+    ];
+
+    // Build flat row list: each category contributes 1 header row + N item rows.
+    // Rows are { type: "header"|"item", ... } so the layout pass can handle both.
+    const rows = [];
+    for (const [cat, color, items] of categories) {
+      rows.push({ type: "header", cat, color });
+      for (const [k, desc] of items) {
+        rows.push({ type: "item", k, desc, color });
+      }
+    }
+
+    // Column width: key col ~54px + gap + desc col ~110px = ~172px per column.
+    const COL_W = 172;
+    const availW = Math.max(160, w - margin * 2);
+    // Auto-pick 1/2/3 columns based on available width.
+    const numCols = Math.max(1, Math.min(3, Math.floor(availW / COL_W)));
+    const rowsPerCol = Math.ceil(rows.length / numCols);
+
+    // Desired panel dimensions.
+    const desiredW = Math.min(availW, COL_W * numCols + padX * 2);
+    const desiredH = titleH + padY * 2 + rowsPerCol * lineH + footerH + 4;
+    // Hard clamp to screen so the panel NEVER bleeds off the bottom.
+    const maxH = h - margin * 2;
+    const panelW = desiredW;
+    const panelH = Math.min(desiredH, maxH);
+    // If clamped, we may need to shrink rowsPerCol to what actually fits.
+    const gridH = panelH - titleH - padY * 2 - footerH - 4;
+    const fitRowsPerCol = Math.max(1, Math.floor(gridH / lineH));
+    const actualRowsPerCol = Math.min(rowsPerCol, fitRowsPerCol);
+
     const px = Math.floor((w - panelW) / 2);
     const py = Math.floor((h - panelH) / 2);
-    // Background with shadow
-    ink(0, 0, 0, 140); box(px + 3, py + 3, panelW, panelH, true);
-    ink(dark ? 22 : 240, dark ? 22 : 240, dark ? 28 : 245); box(px, py, panelW, panelH, true);
-    ink(dark ? 80 : 100, dark ? 80 : 100, dark ? 100 : 130); box(px, py, panelW, panelH, "outline");
-    // Title
-    ink(dark ? 220 : 40, dark ? 220 : 40, dark ? 230 : 60);
+
+    // Background: soft drop shadow + panel fill + subtle outline.
+    ink(0, 0, 0, 160); box(px + 3, py + 3, panelW, panelH, true);
+    ink(dark ? 14 : 248, dark ? 14 : 248, dark ? 22 : 252); box(px, py, panelW, panelH, true);
+    ink(dark ? 90 : 120, dark ? 90 : 120, dark ? 115 : 150); box(px, py, panelW, panelH, "outline");
+
+    // Title bar
+    ink(dark ? 235 : 30, dark ? 235 : 30, dark ? 245 : 50);
     write("notepat shortcuts", { x: px + padX, y: py + padY, size: 1, font: "font_1" });
-    ink(dark ? 80 : 160, dark ? 80 : 160, dark ? 100 : 180);
-    line(px + padX, py + padY + 11, px + panelW - padX, py + padY + 11);
-    // Shortcuts list
-    let lineY = py + padY + titleH;
-    for (const [k, desc] of shortcuts) {
-      ink(dark ? 180 : 60, dark ? 200 : 80, dark ? 220 : 100);
-      write(k, { x: px + padX, y: lineY, size: 1, font: "font_1" });
-      ink(dark ? 130 : 80, dark ? 130 : 80, dark ? 145 : 100);
-      write(desc, { x: px + padX + 90, y: lineY, size: 1, font: "font_1" });
-      lineY += lineH;
+    ink(dark ? 80 : 170, dark ? 80 : 170, dark ? 105 : 190);
+    line(px + padX, py + padY + 10, px + panelW - padX, py + padY + 10);
+
+    // Grid layout: rows flow top→bottom within a column, then wrap to next column.
+    const gridY = py + padY + titleH;
+    const colGap = Math.floor((panelW - padX * 2) / numCols);
+    const descOffset = 54;  // x offset within column for description text
+
+    for (let i = 0; i < rows.length; i++) {
+      const col = Math.floor(i / actualRowsPerCol);
+      if (col >= numCols) break;  // overflow — rare, only if clamped
+      const rowInCol = i % actualRowsPerCol;
+      const rx = px + padX + col * colGap;
+      const ry = gridY + rowInCol * lineH;
+      const r = rows[i];
+
+      if (r.type === "header") {
+        // Full-saturation category label
+        const [cr, cg, cb] = r.color;
+        ink(cr, cg, cb);
+        write(r.cat, { x: rx, y: ry, size: 1, font: "font_1" });
+        // Thin underline in the same color, muted
+        ink(Math.floor(cr * 0.55), Math.floor(cg * 0.55), Math.floor(cb * 0.55));
+        line(rx, ry + 8, rx + colGap - 8, ry + 8);
+      } else {
+        // Key: category color, slightly brighter in dark mode for legibility
+        const [cr, cg, cb] = r.color;
+        if (dark) {
+          ink(Math.min(255, cr + 15), Math.min(255, cg + 15), Math.min(255, cb + 15));
+        } else {
+          // Darken for light mode contrast
+          ink(Math.floor(cr * 0.55), Math.floor(cg * 0.55), Math.floor(cb * 0.55));
+        }
+        write(r.k, { x: rx + 6, y: ry, size: 1, font: "font_1" });
+        // Description: muted gray that reads well on both themes
+        ink(dark ? 160 : 85, dark ? 165 : 85, dark ? 180 : 100);
+        write(r.desc, { x: rx + 6 + descOffset, y: ry, size: 1, font: "font_1" });
+      }
     }
-    // Hint at bottom
-    ink(dark ? 90 : 130, dark ? 90 : 130, dark ? 110 : 150);
-    write("press meta (⊞) again to close", { x: px + padX, y: py + panelH - padY - 5, size: 1, font: "font_1" });
+
+    // Footer hint — always visible, always inside the panel
+    ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 125 : 160);
+    write("meta ⊞ to close", { x: px + padX, y: py + panelH - padY - 2, size: 1, font: "font_1" });
   }
 }
 
