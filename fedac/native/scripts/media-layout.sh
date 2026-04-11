@@ -132,6 +132,112 @@ ac_media_write_legacy_config() {
     fi
 }
 
+ac_media_write_global_wifi_creds() {
+    local out_path="$1"
+
+    mkdir -p "$(dirname "${out_path}")"
+    # Keep this preset list in sync with the hardcoded fallbacks in src/wifi.c.
+    cat > "${out_path}" <<'EOF'
+[
+  {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
+  {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
+  {"ssid":"GettyLink","pass":""},
+  {"ssid":"Tondo_Guest","pass":"California"}
+]
+EOF
+}
+
+ac_media_merge_wifi_creds() {
+    local out_path="$1"
+    local base_path="$2"
+    local extra_path="${3:-}"
+
+    if [ ! -f "${base_path}" ]; then
+        echo "Missing base wifi creds: ${base_path}" >&2
+        return 1
+    fi
+
+    if [ -z "${extra_path}" ] || [ ! -f "${extra_path}" ]; then
+        cp "${base_path}" "${out_path}"
+        return 0
+    fi
+
+    python3 - "${base_path}" "${extra_path}" "${out_path}" <<'PYEOF'
+import json
+import pathlib
+import sys
+
+base_path, extra_path, out_path = sys.argv[1:]
+
+def read_creds(path):
+    try:
+        data = json.loads(pathlib.Path(path).read_text())
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+
+    creds = []
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        ssid = entry.get("ssid")
+        password = entry.get("pass", "")
+        if not isinstance(ssid, str) or not ssid:
+            continue
+        if not isinstance(password, str):
+            password = ""
+        creds.append({"ssid": ssid, "pass": password})
+    return creds
+
+merged = {}
+order = []
+for path in (base_path, extra_path):
+    for entry in read_creds(path):
+        ssid = entry["ssid"]
+        if ssid not in merged:
+            order.append(ssid)
+        merged[ssid] = entry
+
+pathlib.Path(out_path).write_text(
+    json.dumps([merged[ssid] for ssid in order], indent=2) + "\n"
+)
+PYEOF
+}
+
+ac_media_summarize_wifi_creds_file() {
+    local wifi_path="$1"
+
+    if [ ! -f "${wifi_path}" ]; then
+        echo "wifi=missing"
+        return 1
+    fi
+
+    python3 - "${wifi_path}" <<'PYEOF'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    print("wifi=invalid")
+    raise SystemExit(1)
+
+if not isinstance(data, list):
+    print("wifi=invalid")
+    raise SystemExit(1)
+
+count = sum(
+    1
+    for entry in data
+    if isinstance(entry, dict) and isinstance(entry.get("ssid"), str) and entry.get("ssid")
+)
+print(f"wifi={count}")
+PYEOF
+}
+
 ac_media_stage_boot_tree() {
     local stage_root="$1"
     local kernel_path="$2"
@@ -199,6 +305,9 @@ ac_media_create_fat_image() {
     if [ -f "${stage_root}/config.json" ]; then
         mcopy -o -i "${image_path}" "${stage_root}/config.json" ::config.json
     fi
+    if [ -f "${stage_root}/wifi_creds.json" ]; then
+        mcopy -o -i "${image_path}" "${stage_root}/wifi_creds.json" ::wifi_creds.json
+    fi
     mcopy -o -i "${image_path}" "${stage_root}/EFI/BOOT/BOOTX64.EFI" ::EFI/BOOT/BOOTX64.EFI
     # 32-bit UEFI fallback (kernel with EFI_MIXED=y)
     if [ -f "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ]; then
@@ -229,6 +338,9 @@ ac_media_create_efi_disk_image() {
     mmd -i "${image_path}@@${esp_offset}" ::EFI ::EFI/BOOT 2>/dev/null || true
     if [ -f "${stage_root}/config.json" ]; then
         mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/config.json" ::config.json
+    fi
+    if [ -f "${stage_root}/wifi_creds.json" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/wifi_creds.json" ::wifi_creds.json
     fi
     if [ -f "${stage_root}/$(ac_media_identity_filename)" ]; then
         mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/$(ac_media_identity_filename)" "::$(ac_media_identity_filename)"
@@ -445,6 +557,7 @@ ac_media_ensure_nixos_data_partition() {
     local image_path="$1"
     local config_path="$2"
     local data_size_mib="${3:-$(ac_media_nixos_data_size_mib)}"
+    local wifi_creds_path="${4:-}"
     local sector_size=512
     local data_start
     local data_offset
@@ -482,6 +595,9 @@ ac_media_ensure_nixos_data_partition() {
     export MTOOLS_SKIP_CHECK=1
     mmd -i "${image_path}@@${data_offset}" ::logs 2>/dev/null || true
     mcopy -o -i "${image_path}@@${data_offset}" "${config_path}" ::config.json
+    if [ -n "${wifi_creds_path}" ] && [ -f "${wifi_creds_path}" ]; then
+        mcopy -o -i "${image_path}@@${data_offset}" "${wifi_creds_path}" ::wifi_creds.json
+    fi
 }
 
 ac_media_build_hybrid_iso() {
