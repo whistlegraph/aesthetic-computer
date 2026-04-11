@@ -245,8 +245,10 @@ export async function handler(event, context) {
           const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
 
           // MP4 tapes from ac-native are already baked — no oven step needed.
-          // Patch the record with mp4Url + complete status and skip to the
-          // normal success response below.
+          // Patch the record with mp4Url + complete status, fire an ATProto
+          // sync in the background (non-blocking — if it fails we still
+          // return success so the device knows the tape is in Mongo + S3),
+          // and return immediately.
           if (tapeExt === "mp4") {
             try {
               await collection.updateOne(
@@ -257,6 +259,40 @@ export async function handler(event, context) {
             } catch (updateErr) {
               console.error(`⚠️  Failed to patch mp4Url for ${code}:`, updateErr.message);
             }
+
+            // Fire-and-forget ATProto sync. Imports are dynamic so the
+            // zip-tape code path never pays the cost. We download our
+            // own MP4 from DO Spaces (it's publicly accessible thanks
+            // to the ACL set above) and pass the buffer to the shared
+            // createTapeOnAtproto helper. Guest uploads without an
+            // atproto account are handled internally by that helper.
+            (async () => {
+              try {
+                const { createTapeOnAtproto } = await import(
+                  "../../backend/tape-atproto.mjs"
+                );
+                const resp = await fetch(zipUrl);
+                if (!resp.ok) {
+                  console.warn(`[atproto-mp4] fetch ${zipUrl} failed: ${resp.status}`);
+                  return;
+                }
+                const mp4Buffer = Buffer.from(await resp.arrayBuffer());
+                const result = await createTapeOnAtproto(
+                  database,
+                  mediaId.toString(),
+                  mp4Buffer,
+                  null // no thumbnail for ac-native tapes (yet)
+                );
+                if (result?.rkey) {
+                  console.log(`✅ ac-native tape ${code} synced to ATProto: ${result.rkey}`);
+                } else if (result?.error) {
+                  console.log(`ℹ️  ac-native tape ${code} ATProto: ${result.error}`);
+                }
+              } catch (atErr) {
+                console.warn(`[atproto-mp4] ${code} sync failed:`, atErr?.message || atErr);
+              }
+            })();
+
             return respond(200, { code, slug, mp4Url: zipUrl, mp4Status: "complete" });
           }
           
