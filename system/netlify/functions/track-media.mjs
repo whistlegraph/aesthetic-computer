@@ -76,12 +76,29 @@ export async function handler(event, context) {
     } else if (body.ext === "zip") {
       type = "tapes";
       metadata = body.metadata || {};
-      
+
       // Validate tape duration
       const duration = metadata.totalDuration || 0;
       console.log(`⏱️  Tape duration: ${duration}s, Max: ${MAX_TAPE_DURATION}s`);
       if (duration > MAX_TAPE_DURATION) {
-        return respond(400, { 
+        return respond(400, {
+          error: "TAPE_TOO_LONG",
+          message: `Tape duration ${duration}s exceeds maximum ${MAX_TAPE_DURATION}s`,
+          maxDuration: MAX_TAPE_DURATION
+        });
+      }
+    } else if (body.ext === "mp4") {
+      // ac-native tape upload path: ac-native already produces a finished
+      // MP4 via libavcodec on-device (see fedac/native/src/recorder.c), so
+      // we bypass the oven bake step entirely and mark the tape as complete
+      // with the direct MP4 URL. Still uses the same MongoDB `tapes`
+      // collection as web AC zips — clients reading the collection don't
+      // need to know which origin produced the tape.
+      type = "tapes";
+      metadata = body.metadata || {};
+      const duration = metadata.totalDuration || 0;
+      if (duration > MAX_TAPE_DURATION) {
+        return respond(400, {
           error: "TAPE_TOO_LONG",
           message: `Tape duration ${duration}s exceeds maximum ${MAX_TAPE_DURATION}s`,
           maxDuration: MAX_TAPE_DURATION
@@ -136,7 +153,16 @@ export async function handler(event, context) {
         // Tape-specific fields
         if (type === 'tapes') {
           record.nuked = false;
-          record.mp4Status = "pending"; // Track conversion status
+          record.kind = body.ext === "mp4" ? "mp4" : "zip";
+          if (body.ext === "mp4") {
+            // ac-native produced an already-baked MP4. Skip the oven step
+            // and mark as complete. mp4Url is computed below after the
+            // S3 key is known, since user vs guest path differs.
+            record.mp4Status = "complete";
+            record.source = "ac-native";
+          } else {
+            record.mp4Status = "pending"; // Oven will convert the zip
+          }
         }
         
         // Only add user field if authenticated (keep undefined for guests)
@@ -173,7 +199,8 @@ export async function handler(event, context) {
         
         // Handle tapes differently - send to oven for async processing
         if (type === 'tapes') {
-          // Make the uploaded ZIP publicly readable
+          const tapeExt = body.ext; // "zip" or "mp4"
+          // Make the uploaded tape publicly readable
           try {
             const s3Client = new S3Client({
               endpoint: `https://sfo3.digitaloceanspaces.com`,
@@ -183,11 +210,11 @@ export async function handler(event, context) {
                 secretAccessKey: process.env.ART_SECRET || process.env.DO_SPACES_SECRET,
               },
             });
-            
+
             // Use the actual upload key (NO /video/ subdirectory for tapes)
-            // The presigned-url endpoint converts "video-slug" to "video/slug" via name.replace("-", "/")
-            // But we upload as just "{sub}/{slug}.zip" without video subdirectory
-            const aclKey = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
+            // ZIP tapes from web AC: "{sub}/{slug}.zip"
+            // MP4 tapes from ac-native: "{sub}/{slug}.mp4"
+            const aclKey = user ? `${user.sub}/${slug}.${tapeExt}` : `${slug}.${tapeExt}`;
             
             const aclCommand = new PutObjectAclCommand({
               Bucket: record.bucket,
@@ -212,13 +239,26 @@ export async function handler(event, context) {
           // Send to oven for async MP4 conversion
           const isDev = process.env.CONTEXT === 'dev' || process.env.NODE_ENV === 'development';
           const baseUrl = isDev ? 'https://localhost:8888' : (process.env.URL || 'https://aesthetic.computer');
-          
+
           // Generate direct S3 URL instead of going through /media redirect
-          // Since we set public-read ACL, the file should be directly accessible
-          // Note: Files are uploaded as {sub}/{slug}.zip (NO /video/ subdirectory)
-          const key = user ? `${user.sub}/${slug}.zip` : `${slug}.zip`;
-          // Don't encodeURIComponent - S3 keys with | chars are valid and Spaces rejects %7C encoding
+          const key = user ? `${user.sub}/${slug}.${tapeExt}` : `${slug}.${tapeExt}`;
           const zipUrl = `https://${record.bucket}.sfo3.digitaloceanspaces.com/${key}`;
+
+          // MP4 tapes from ac-native are already baked — no oven step needed.
+          // Patch the record with mp4Url + complete status and skip to the
+          // normal success response below.
+          if (tapeExt === "mp4") {
+            try {
+              await collection.updateOne(
+                { _id: mediaId },
+                { $set: { mp4Url: zipUrl, mp4CompletedAt: new Date() } }
+              );
+              console.log(`✅ ac-native MP4 tape ${code} marked complete: ${zipUrl}`);
+            } catch (updateErr) {
+              console.error(`⚠️  Failed to patch mp4Url for ${code}:`, updateErr.message);
+            }
+            return respond(200, { code, slug, mp4Url: zipUrl, mp4Status: "complete" });
+          }
           
           // Verify the ZIP is publicly accessible before sending to oven
           try {
