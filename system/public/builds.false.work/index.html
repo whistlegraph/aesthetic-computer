@@ -190,6 +190,7 @@
     .platform-windows { color: var(--platform-windows); border-color: var(--platform-windows); }
     .platform-mac { color: var(--platform-mac); border-color: var(--platform-mac); }
     .platform-ios { color: var(--platform-ios); border-color: var(--platform-ios); }
+    .platform-plugin { color: var(--accent-secondary); border-color: var(--accent-secondary); }
     .project-name {
       color: var(--accent);
       font-weight: bold;
@@ -236,6 +237,83 @@
     .build-card.ios {
       background: var(--card-ios-bg);
       border-left: 4px solid var(--platform-ios);
+    }
+    .plugin-card {
+      padding: 1.25rem 1.5rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+      border-left: 4px solid var(--accent-secondary);
+    }
+    .plugin-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+    .plugin-name {
+      color: var(--accent-secondary);
+      font-weight: bold;
+      font-size: 1.05rem;
+    }
+    .plugin-version {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+    .plugin-engine-tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      background: var(--tag-bg);
+      color: var(--text-secondary);
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+    .plugin-description {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin: 0.5rem 0 0.75rem 0;
+      line-height: 1.4;
+    }
+    .plugin-artifacts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .plugin-artifact-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 0.75rem;
+      background: var(--bg-button);
+      color: var(--text-primary) !important;
+      border: 1px solid var(--border-primary);
+      border-radius: 3px;
+      font-size: 0.85rem;
+      font-weight: 500 !important;
+      text-decoration: none !important;
+      transition: all 0.15s;
+    }
+    .plugin-artifact-btn:hover {
+      background: var(--bg-button-hover);
+      border-color: var(--accent-secondary);
+    }
+    .plugin-artifact-btn .size {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+    .plugin-upstream {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+    .plugin-upstream a {
+      color: var(--text-secondary);
+      font-weight: normal;
     }
     .build-header {
       display: flex;
@@ -1017,7 +1095,7 @@
       h1 { font-size: 1.25rem; }
       h2 { font-size: 1.1rem; }
       .container { padding: 0; }
-      
+
       /* Platform filter tabs - wrap on mobile */
       .platform-filters {
         gap: 0.4rem;
@@ -1028,7 +1106,7 @@
         padding: 0.4rem 0.6rem;
         font-size: 0.8rem;
       }
-      
+
       /* Build cards */
       .build-card {
         padding: 1rem;
@@ -1052,7 +1130,7 @@
       .meta {
         font-size: 0.8rem;
       }
-      
+
       /* Story cards */
       .story-feed-card {
         padding: 0.875rem 1rem;
@@ -1076,13 +1154,13 @@
       .story-time {
         font-size: 0.75rem;
       }
-      
+
       /* Nested stories container */
       .build-stories-container {
         margin-left: 1rem;
         padding-left: 0.75rem;
       }
-      
+
       /* Modals */
       .modal-content {
         padding: 1.25rem;
@@ -1108,7 +1186,7 @@
       .modal-actions button {
         width: 100%;
       }
-      
+
       /* Story detail view */
       .story-meta {
         flex-direction: column;
@@ -1127,19 +1205,19 @@
       .item-desc {
         font-size: 0.8rem;
       }
-      
+
       /* Date headers */
       .date-header {
         font-size: 0.9rem;
         padding: 0.5rem 0;
       }
-      
+
       /* Footer */
       .footer {
         font-size: 0.75rem;
         padding: 1rem 0;
       }
-      
+
       /* iOS install button - larger touch target */
       .ios-install-btn {
         padding: 0.5rem 0.75rem;
@@ -1205,7 +1283,7 @@
       <div style="display: flex; justify-content: center; align-items: center; padding-top: 2rem; margin-bottom: 2rem;">
         <img class="logo" src="https://assets.aesthetic.computer/false.work/fw-logo-2.svg" alt="false.work" style="width: 400px;">
       </div>
-      
+
       <!-- Single content view with platform filters including Stories -->
       <div id="main-content">
         <div class="platform-filters">
@@ -1214,24 +1292,32 @@
           <button data-platform="windows" onclick="filterPlatform('windows')">🪟 Windows</button>
           <button data-platform="mac" onclick="filterPlatform('mac')">🍎 Mac</button>
           <button data-platform="ios" onclick="filterPlatform('ios')">📱 iOS</button>
+          <button data-platform="plugins" onclick="filterPlatform('plugins')">🔌 Plugins</button>
           <button class="disabled" title="Coming soon">🎮 Gameboy</button>
           <button class="disabled" title="Coming soon">🟡 Playdate</button>
           <button class="disabled" title="Coming soon">🕹️ N64</button>
         </div>
-        
+
         <!-- Builds list (shown for all/windows/mac/ios) -->
         <div id="builds-list">
           <div class="loading">Loading builds</div>
         </div>
-        
+
         <!-- Stories list (shown for stories filter) -->
         <div id="stories-list" style="display: none;">
           <div id="stories-content">
             <div class="loading">Loading stories</div>
           </div>
         </div>
+
+        <!-- Plugins list (shown for plugins filter) -->
+        <div id="plugins-list" style="display: none;">
+          <div id="plugins-content">
+            <div class="loading">Loading plugins</div>
+          </div>
+        </div>
       </div>
-      
+
       <!-- STORY DETAIL VIEW -->
       <div id="story-view" style="display: none;">
         <div class="story-view">
@@ -1260,7 +1346,7 @@
         <h2>📝 Write a Story</h2>
         <button class="close-btn" onclick="closeStoryModal()">✕</button>
       </div>
-      
+
       <form id="story-form" onsubmit="submitStory(event)">
         <div class="form-row">
           <label>Build</label>
@@ -1268,38 +1354,38 @@
             <option value="">Select a build...</option>
           </select>
         </div>
-        
+
         <div class="form-row">
           <label>Your Name</label>
           <input type="text" id="form-tester" placeholder="Who played this build?" required>
         </div>
-        
+
         <div class="form-row">
           <label>Summary</label>
           <textarea id="form-summary" rows="2" placeholder="What was your experience like?" required></textarea>
         </div>
-        
+
         <div class="form-section">
           <h3 style="color: var(--fruit-color);">🍎 Low Hanging Fruit</h3>
           <p class="form-hint">Quick fixes, obvious bugs, easy wins</p>
           <div id="fruit-items" class="item-list"></div>
           <button type="button" class="add-item-btn" onclick="addItem('fruit-items')">+ Add item</button>
         </div>
-        
+
         <div class="form-section">
           <h3 style="color: var(--side-color);">🍟 A Little on the Side</h3>
           <p class="form-hint">Nice-to-haves, polish suggestions, extra ideas</p>
           <div id="side-items" class="item-list"></div>
           <button type="button" class="add-item-btn" onclick="addItem('side-items')">+ Add item</button>
         </div>
-        
+
         <div class="form-section">
           <h3 style="color: var(--big-color);">💡 Bigger Ideas</h3>
           <p class="form-hint">Deeper considerations, design thoughts, major issues</p>
           <div id="big-items" class="item-list"></div>
           <button type="button" class="add-item-btn" onclick="addItem('big-items')">+ Add item</button>
         </div>
-        
+
         <div class="form-actions">
           <button type="button" class="cancel-btn" onclick="closeStoryModal()">Cancel</button>
           <button type="submit" class="submit-btn">Submit Story</button>
@@ -1326,9 +1412,10 @@
     let sessionPassword = localStorage.getItem('builds-session') || null;
     let allBuilds = [];
     let allStories = [];
+    let allPlugins = [];
     let currentFilter = 'all';
     let currentTab = 'builds';
-    
+
     // Auto-login on page load if session exists
     (async function init() {
       if (sessionPassword) {
@@ -1341,7 +1428,7 @@
           const data = await res.json();
           if (data.success) {
             showAuthenticatedUI();
-            await Promise.all([loadBuilds(), loadStories()]);
+            await Promise.all([loadBuilds(), loadStories(), loadPlugins()]);
             handleRoute();
             return;
           }
@@ -1351,7 +1438,7 @@
         sessionPassword = null;
       }
     })();
-    
+
     function showAuthenticatedUI() {
       document.getElementById('auth-container').style.display = 'none';
       document.body.classList.add('authenticated');
@@ -1361,7 +1448,7 @@
 
     async function checkPassword() {
       const password = document.getElementById('password').value;
-      
+
       try {
         const res = await fetch('/.netlify/functions/verify-builds-password', {
           method: 'POST',
@@ -1369,12 +1456,12 @@
           body: JSON.stringify({ password })
         });
         const data = await res.json();
-        
+
         if (data.success) {
           sessionPassword = password;
           localStorage.setItem('builds-session', password);
           showAuthenticatedUI();
-          await Promise.all([loadBuilds(), loadStories()]);
+          await Promise.all([loadBuilds(), loadStories(), loadPlugins()]);
           handleRoute();
         } else {
           document.getElementById('error').textContent = 'Incorrect password';
@@ -1393,17 +1480,17 @@
         history.pushState(null, '', `#story/${currentViewingStoryId}`);
       }
     }
-    
+
     function hideStoryDetail() {
       document.getElementById('story-view').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
       filterPlatform('stories');
     }
-    
+
     // Handle URL routing
     function handleRoute() {
       const hash = window.location.hash.slice(1); // remove #
-      
+
       // Handle story detail view
       if (hash.startsWith('story/')) {
         const storyId = hash.slice(6);
@@ -1413,34 +1500,35 @@
           return;
         }
       }
-      
+
       // Handle platform filters
       const platformMap = {
         '': 'all',
         'stories': 'stories',
         'windows': 'windows',
         'mac': 'mac',
-        'ios': 'ios'
+        'ios': 'ios',
+        'plugins': 'plugins'
       };
-      
+
       const platform = platformMap[hash] || 'all';
       filterPlatform(platform, false);
     }
-    
+
     window.addEventListener('popstate', handleRoute);
 
     // === BUILDS ===
     async function loadBuilds() {
       const container = document.getElementById('builds-list');
       container.innerHTML = '<div class="loading">Loading builds</div>';
-      
+
       try {
         const res = await fetch('/.netlify/functions/get-builds', {
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
         });
-        
+
         if (!res.ok) throw new Error('Failed to load builds');
-        
+
         const data = await res.json();
         allBuilds = data.builds || [];
         renderBuilds();
@@ -1451,38 +1539,132 @@
       }
     }
 
+    // === PLUGINS ===
+    async function loadPlugins() {
+      const container = document.getElementById('plugins-content');
+      if (!container) return;
+
+      try {
+        const res = await fetch('/.netlify/functions/get-plugins', {
+          headers: { 'Authorization': `Bearer ${sessionPassword}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to load plugins');
+
+        const data = await res.json();
+        allPlugins = data.plugins || [];
+      } catch (err) {
+        console.error('loadPlugins:', err);
+        allPlugins = [];
+      }
+    }
+
+    function renderPlugins() {
+      const container = document.getElementById('plugins-content');
+      if (!container) return;
+
+      if (allPlugins.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-style: italic;">No plugins registered yet. Run <code>fish false.work/unreal-builder/scripts/register-serialcom-plugin.fish</code> after deploying to seed the first entry.</p>';
+        return;
+      }
+
+      const artifactEmoji = {
+        'source': '📄',
+        'packaged-win64': '🪟',
+        'packaged-mac': '🍎',
+        'packaged-linux': '🐧',
+        'test-project': '📦',
+        'patch': '🩹'
+      };
+
+      let html = '';
+      allPlugins.forEach(plugin => {
+        html += '<div class="plugin-card">';
+        html += '<div class="plugin-header">';
+        html += `<span class="platform-tag platform-plugin">🔌 ${plugin.displayName || plugin.name}</span>`;
+        html += `<span class="plugin-version">v${plugin.version}</span>`;
+        if (plugin.engineVersion) {
+          html += `<span class="plugin-engine-tag">UE ${plugin.engineVersion}</span>`;
+        }
+        if (plugin.platforms && plugin.platforms.length) {
+          html += `<span class="plugin-engine-tag">${plugin.platforms.join(', ')}</span>`;
+        }
+        html += '</div>';
+
+        if (plugin.description) {
+          html += `<div class="plugin-description">${escapeHtml(plugin.description)}</div>`;
+        }
+
+        if (plugin.artifacts && plugin.artifacts.length) {
+          html += '<div class="plugin-artifacts">';
+          plugin.artifacts.forEach(a => {
+            const emoji = artifactEmoji[a.kind] || '📦';
+            const size = typeof a.sizeMB === 'number' ? `<span class="size">${a.sizeMB} MB</span>` : '';
+            html += `<a href="${a.downloadUrl}" class="plugin-artifact-btn" title="${escapeHtml(a.kind)}">${emoji} ${escapeHtml(a.label)} ${size}</a>`;
+          });
+          html += '</div>';
+        }
+
+        if (plugin.upstream) {
+          html += `<div class="plugin-upstream">Upstream: <a href="${plugin.upstream}" target="_blank" rel="noopener">${escapeHtml(plugin.upstream)}</a></div>`;
+        }
+
+        html += '</div>';
+      });
+
+      container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      if (str === undefined || str === null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function filterPlatform(platform, updateHash = true) {
       currentFilter = platform;
       document.querySelectorAll('.platform-filters button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.platform === platform);
       });
-      
-      // Show/hide builds vs stories
+
+      // Show/hide builds vs stories vs plugins
       const buildsList = document.getElementById('builds-list');
       const storiesList = document.getElementById('stories-list');
-      
+      const pluginsList = document.getElementById('plugins-list');
+
       if (platform === 'stories') {
         buildsList.style.display = 'none';
         storiesList.style.display = 'block';
+        if (pluginsList) pluginsList.style.display = 'none';
         renderStories();
+      } else if (platform === 'plugins') {
+        buildsList.style.display = 'none';
+        storiesList.style.display = 'none';
+        if (pluginsList) pluginsList.style.display = 'block';
+        renderPlugins();
       } else {
         buildsList.style.display = 'block';
         storiesList.style.display = 'none';
+        if (pluginsList) pluginsList.style.display = 'none';
         renderBuilds();
       }
-      
+
       if (updateHash) {
-        const hashMap = { all: '', stories: 'stories', windows: 'windows', mac: 'mac', ios: 'ios' };
+        const hashMap = { all: '', stories: 'stories', windows: 'windows', mac: 'mac', ios: 'ios', plugins: 'plugins' };
         history.pushState(null, '', platform === 'all' ? '#' : `#${hashMap[platform]}`);
       }
     }
 
     function renderBuilds() {
       const container = document.getElementById('builds-list');
-      const filtered = currentFilter === 'all' 
-        ? allBuilds 
+      const filtered = currentFilter === 'all'
+        ? allBuilds
         : allBuilds.filter(b => b.platform === currentFilter);
-      
+
       if (filtered.length === 0 && (currentFilter !== 'all' || allStories.length === 0)) {
         container.innerHTML = '<p style="color: #666; font-style: italic;">No builds available.</p>';
         return;
@@ -1491,7 +1673,7 @@
       const grouped = {};
       const today = new Date().toDateString();
       const yesterday = new Date(Date.now() - 86400000).toDateString();
-      
+
       function getDateLabel(date) {
         const dateStr = date.toDateString();
         if (dateStr === today) return 'Today';
@@ -1504,12 +1686,12 @@
         const label = getDateLabel(new Date(build.timestamp));
         if (!grouped[label]) grouped[label] = [];
         // Find stories for this build
-        const buildStories = currentFilter === 'all' 
+        const buildStories = currentFilter === 'all'
           ? allStories.filter(s => s.buildPlatform === build.platform && s.buildVersion === build.version)
           : [];
         grouped[label].push({ type: 'build', data: build, stories: buildStories, timestamp: new Date(build.timestamp) });
       });
-      
+
       // Add orphan stories (stories without a matching build in view) if showing "all"
       if (currentFilter === 'all') {
         const buildKeys = new Set(filtered.map(b => `${b.platform}:${b.version}`));
@@ -1523,7 +1705,7 @@
           }
         });
       }
-      
+
       // Sort groups by date (most recent first)
       const sortedLabels = Object.keys(grouped).sort((a, b) => {
         if (a === 'Today') return -1;
@@ -1537,10 +1719,10 @@
       sortedLabels.forEach(dateLabel => {
         const isToday = dateLabel === 'Today';
         html += `<h3 class="date-header ${isToday ? 'today' : 'previous'}">${dateLabel}</h3>`;
-        
+
         // Sort items within each day by timestamp descending
         grouped[dateLabel].sort((a, b) => b.timestamp - a.timestamp);
-        
+
         grouped[dateLabel].forEach(item => {
           if (item.type === 'build') {
             const build = item.data;
@@ -1570,7 +1752,7 @@
       container.innerHTML = html;
       updateBuildTimes();
     }
-    
+
     function renderStoryCardInFeed(story) {
       // Delegate to shared renderStoryCard function
       return renderStoryCard(story);
@@ -1581,7 +1763,7 @@
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const fileExt = build.platform === 'ios' ? 'ipa' : 'zip';
       const isFailed = build.status === 'failed' || build.status === 'stale';
-      
+
       let html = `
         <div class="build-card ${build.platform}${isFailed ? ' failed' : ''}">
           <div class="build-header">
@@ -1589,65 +1771,65 @@
             <span class="project-name">SpiderLily</span>
             <a href="${build.downloadUrl}">${build.version}.${fileExt}</a>
       `;
-      
+
       if (build.status && build.status !== 'ok') {
         html += `<span class="status-badge ${build.status}">${build.status}</span>`;
       }
-      
+
       if (build.logUrl) {
         html += `<a href="${build.logUrl}" class="log-link" onclick="event.preventDefault(); openLogModal('${build.logUrl}')" title="Right-click to download">(log)</a>`;
       }
-      
+
       // Small inline + button when no stories exist yet
       if (!isFailed && !hasStories) {
         html += `<button class="story-btn add-story-inline" onclick="openStoryModalForBuild('${build.platform}', '${build.version}')" title="Write a story">+</button>`;
       }
-      
+
       if (build.platform === 'ios' && !isFailed) {
         html += `<a href="itms-services://?action=download-manifest&url=https://builds.false.work/ios/manifest.plist" class="ios-install-btn">📲 Install</a>`;
       }
-      
+
       html += `</div>`;
-      
+
       const parts = [];
       parts.push(`${build.sizeMB} MB`);
       if (build.changelist) parts.push(build.changelist);
       else if (build.level) parts.push(build.level);
       if (build.ueVersion) parts.push(build.ueVersion);
-      
+
       html += `<div class="meta">${parts.join(' | ')} | <span class="build-time" data-date="${build.timestamp}">...</span></div>`;
-      
+
       if (build.statusReason) {
         html += `<div class="status-reason">⚠️ ${build.statusReason}</div>`;
       }
-      
+
       if (build.platform === 'ios' && !isFailed) {
         html += `<div class="ios-note">💡 Open in Safari on your iOS device and tap "Install" for wireless installation.</div>`;
       }
-      
+
       html += `</div>`;
       return html;
     }
 
     function updateBuildTimes() {
       const dayColors = ['#f66', '#fa0', '#ff0', '#0f0', '#0ff', '#09f', '#f0f'];
-      
+
       document.querySelectorAll('.build-time').forEach(el => {
         const buildDate = new Date(el.dataset.date);
         const now = new Date();
         const diffMs = now - buildDate;
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffHours / 24);
-        
+
         el.style.color = dayColors[buildDate.getDay()];
-        
+
         const ptTime = buildDate.toLocaleTimeString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
           hour12: true,
           timeZone: 'America/Los_Angeles'
         }) + ' PT';
-        
+
         let timeAgo;
         if (diffHours < 1) {
           const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -1659,7 +1841,7 @@
         } else {
           timeAgo = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
-        
+
         el.textContent = `${timeAgo} (${ptTime})`;
       });
     }
@@ -1670,13 +1852,13 @@
         const res = await fetch('/.netlify/functions/stories', {
           headers: { 'Authorization': `Bearer ${sessionPassword}` }
         });
-        
+
         if (!res.ok) {
           // Stories endpoint may not exist yet
           allStories = [];
           return;
         }
-        
+
         const data = await res.json();
         allStories = (data.stories || []).filter(r => !r.deleted);
         // Only render if stories view is currently active
@@ -1697,14 +1879,14 @@
         console.error('stories-content element not found');
         return;
       }
-      
+
       if (allStories.length === 0) {
         container.innerHTML = '<div class="no-stories">No stories yet. Play a build and write about your experience!</div>';
         return;
       }
 
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
-      
+
       // Group stories by build (platform + version)
       const grouped = {};
       allStories.forEach(story => {
@@ -1731,7 +1913,7 @@
         const emoji = platformEmoji[build.platform] || '📦';
         const storyCount = build.stories.length;
         html += `<h3 class="date-header">${emoji} SpiderLily ${build.version} <span style="font-weight: normal; color: var(--text-muted);">(${storyCount} stor${storyCount !== 1 ? 'ies' : 'y'})</span></h3>`;
-        
+
         // Sort stories within build by date descending
         build.stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         build.stories.forEach(story => {
@@ -1747,13 +1929,13 @@
       const fruitItems = story.lowHangingFruit || [];
       const sideItems = story.onTheSide || [];
       const bigItems = story.biggerThoughts || [];
-      
+
       const time = new Date(story.createdAt).toLocaleTimeString('en-US', {
         hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Los_Angeles'
       }) + ' PT';
-      
+
       const tester = story.tester || 'Anonymous';
-      
+
       return `
         <div class="build-card story-feed-card" data-story-id="${story._id}">
           <div class="build-header">
@@ -1778,12 +1960,12 @@
     function viewStory(storyId) {
       const story = allStories.find(r => r._id === storyId);
       if (!story) return;
-      
+
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
         month: 'long', day: 'numeric', year: 'numeric'
       });
-      
+
       let html = `
         <div class="story-meta">
           <span>${platformEmoji[story.buildPlatform] || '📦'} <strong>${story.buildPlatform}</strong> ${story.buildVersion}</span>
@@ -1792,7 +1974,7 @@
         </div>
         <div class="story-summary"><strong>Summary:</strong> ${story.summary || 'No summary provided.'}</div>
       `;
-      
+
       if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
         html += `<div class="story-section section-fruit"><h3>🍎 Low Hanging Fruit</h3><ul class="story-items">`;
         story.lowHangingFruit.forEach(item => {
@@ -1800,7 +1982,7 @@
         });
         html += `</ul></div>`;
       }
-      
+
       if (story.onTheSide && story.onTheSide.length > 0) {
         html += `<div class="story-section section-side"><h3>🍟 A Little on the Side</h3><ul class="story-items">`;
         story.onTheSide.forEach(item => {
@@ -1808,7 +1990,7 @@
         });
         html += `</ul></div>`;
       }
-      
+
       if (story.biggerThoughts && story.biggerThoughts.length > 0) {
         html += `<div class="story-section section-big"><h3>💡 Bigger Ideas</h3><ul class="story-items">`;
         story.biggerThoughts.forEach(item => {
@@ -1816,7 +1998,7 @@
         });
         html += `</ul></div>`;
       }
-      
+
       document.getElementById('story-detail-content').innerHTML = html;
       currentViewingStoryId = storyId;
       showStoryDetail();
@@ -1827,19 +2009,19 @@
     function copyStoryForLLM() {
       const story = allStories.find(r => r._id === currentViewingStoryId);
       if (!story) return;
-      
+
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
-      
+
       let text = `# SpiderLily Story\n\n`;
       text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
       text += `**Build:** ${story.buildVersion}\n`;
       text += `**Player:** ${story.tester || 'Anonymous'}\n`;
       text += `**Date:** ${dateStr}\n\n`;
       text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
-      
+
       if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
         text += `## Low Hanging Fruit (Quick Fixes)\n`;
         story.lowHangingFruit.forEach((item, i) => {
@@ -1849,7 +2031,7 @@
         });
         text += `\n`;
       }
-      
+
       if (story.onTheSide && story.onTheSide.length > 0) {
         text += `## On the Side (Nice-to-Haves)\n`;
         story.onTheSide.forEach((item, i) => {
@@ -1859,7 +2041,7 @@
         });
         text += `\n`;
       }
-      
+
       if (story.biggerThoughts && story.biggerThoughts.length > 0) {
         text += `## Bigger Thoughts (Design/Architecture)\n`;
         story.biggerThoughts.forEach((item, i) => {
@@ -1868,7 +2050,7 @@
           text += `\n`;
         });
       }
-      
+
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector('.copy-llm-btn');
         btn.textContent = '✓ Copied!';
@@ -1883,19 +2065,19 @@
     function copyStoryForLLMById(storyId) {
       const story = allStories.find(r => r._id === storyId);
       if (!story) return;
-      
+
       const platformLabel = { windows: 'Windows', mac: 'Mac', ios: 'iOS' };
       const dateStr = new Date(story.createdAt).toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
-      
+
       let text = `# SpiderLily Story\n\n`;
       text += `**Platform:** ${platformLabel[story.buildPlatform] || story.buildPlatform}\n`;
       text += `**Build:** ${story.buildVersion}\n`;
       text += `**Player:** ${story.tester || 'Anonymous'}\n`;
       text += `**Date:** ${dateStr}\n\n`;
       text += `## Summary\n${story.summary || 'No summary provided.'}\n\n`;
-      
+
       if (story.lowHangingFruit && story.lowHangingFruit.length > 0) {
         text += `## Low Hanging Fruit (Quick Fixes)\n`;
         story.lowHangingFruit.forEach((item, i) => {
@@ -1905,7 +2087,7 @@
         });
         text += `\n`;
       }
-      
+
       if (story.onTheSide && story.onTheSide.length > 0) {
         text += `## On the Side (Nice-to-Haves)\n`;
         story.onTheSide.forEach((item, i) => {
@@ -1915,7 +2097,7 @@
         });
         text += `\n`;
       }
-      
+
       if (story.biggerThoughts && story.biggerThoughts.length > 0) {
         text += `## Bigger Thoughts (Design/Architecture)\n`;
         story.biggerThoughts.forEach((item, i) => {
@@ -1924,7 +2106,7 @@
           text += `\n`;
         });
       }
-      
+
       navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector(`[data-story-id="${storyId}"] .copy-llm-feed`);
         if (btn) {
@@ -1947,24 +2129,24 @@
     function populateBuildSelector() {
       const select = document.getElementById('form-build');
       select.innerHTML = '<option value="">Select a build...</option>';
-      
+
       const platformEmoji = { windows: '🪟', mac: '🍎', ios: '📱' };
       const platformLabel = { windows: 'Win', mac: 'Mac', ios: 'iOS' };
-      
+
       // Group builds by date
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today.getTime() - 86400000);
-      
+
       // Sort by timestamp descending (newest first)
-      const sortedBuilds = [...allBuilds].sort((a, b) => 
+      const sortedBuilds = [...allBuilds].sort((a, b) =>
         new Date(b.timestamp) - new Date(a.timestamp)
       );
-      
+
       sortedBuilds.forEach(build => {
         const buildDate = new Date(build.timestamp);
         const buildDay = new Date(buildDate.getFullYear(), buildDate.getMonth(), buildDate.getDate());
-        
+
         let recency = '';
         if (buildDay.getTime() === today.getTime()) {
           recency = 'Today';
@@ -1973,15 +2155,15 @@
         } else {
           recency = buildDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
-        
+
         const time = buildDate.toLocaleTimeString('en-US', {
           hour: 'numeric', minute: '2-digit', hour12: true
         });
-        
-        const tags = build.tags && build.tags.length > 0 
+
+        const tags = build.tags && build.tags.length > 0
           ? ` [${build.tags.map(t => t === 'auto-detect' ? 'Auto' : t).join(', ')}]`
           : '';
-        
+
         const opt = document.createElement('option');
         opt.value = `${build.platform}|${build.version}`;
         opt.textContent = `${platformEmoji[build.platform]} ${platformLabel[build.platform]} ${build.version} — ${recency} ${time}${tags}`;
@@ -2012,7 +2194,7 @@
       document.getElementById('log-modal').style.display = 'flex';
       document.getElementById('log-download-link').href = logUrl;
       document.getElementById('log-content').textContent = 'Loading...';
-      
+
       try {
         const res = await fetch(logUrl);
         const text = await res.text();
@@ -2051,15 +2233,15 @@
 
     async function submitStory(e) {
       e.preventDefault();
-      
+
       const buildValue = document.getElementById('form-build').value;
       if (!buildValue) {
         alert('Please select a build');
         return;
       }
-      
+
       const [buildPlatform, buildVersion] = buildValue.split('|');
-      
+
       const story = {
         buildPlatform,
         buildVersion,
@@ -2069,7 +2251,7 @@
         onTheSide: collectItems('side-items'),
         biggerThoughts: collectItems('big-items')
       };
-      
+
       try {
         const res = await fetch('/.netlify/functions/stories', {
           method: 'POST',
@@ -2079,9 +2261,9 @@
           },
           body: JSON.stringify(story)
         });
-        
+
         if (!res.ok) throw new Error('Failed to save story');
-        
+
         closeStoryModal();
         await loadStories();
         filterPlatform('stories');

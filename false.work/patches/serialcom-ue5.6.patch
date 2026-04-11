@@ -1,0 +1,73 @@
+Subject: Port videofeedback/Unreal_Engine_SerialCOM_Plugin to UE 5.6.1
+Upstream: https://github.com/videofeedback/Unreal_Engine_SerialCOM_Plugin
+Upstream commit: main @ 2024-06-21 (last push)
+Target engine: Unreal Engine 5.6.1 (++UE5+Release-5.6, CL 44394996)
+Verified: BuildPlugin + full project build (Editor/Game/Dev/Shipping), VS 2022 BuildTools 14.38, Win10 SDK 10.0.22621, 2026-04-10
+
+Fixes applied:
+
+  1. SERIALCOM.uplugin — "EngineVersion": "5.1.0" -> "5.6.0"
+     UE 5.6 refuses to load the plugin citing version mismatch unless this is bumped.
+     Source is API-compatible with 5.6, so no code change is needed just to load it;
+     the bump is purely to satisfy the editor's plugin version check.
+
+  2. SerialCom.cpp line 276 — Chars.Pop(false) -> Chars.Pop(EAllowShrinking::No)
+     TArray::Pop(bool bAllowShrinking) was deprecated in UE 5.5 and the bool overload
+     was removed in UE 5.6. The replacement enum is defined in Containers/ContainersFwd.h
+     and has been available since 5.5 for forward compatibility.
+
+  3. SerialCom.cpp line 423 — if (!m_hIDComDev) false;  ->  if (!m_hIDComDev) return false;
+     Pre-existing bug in upstream: the `return` keyword was missing so the early-exit
+     guard was a no-op (the boolean literal was just discarded). Not a build break under
+     UE 5.6, but a clear bug that was worth fixing while we were in the file.
+
+Apply from inside a clean clone of the upstream repo:
+
+  git clone https://github.com/videofeedback/Unreal_Engine_SerialCOM_Plugin.git
+  cd Unreal_Engine_SerialCOM_Plugin/SerialCOM
+  patch -p1 < /path/to/this/file
+
+Or as a Claude shortcut from the aesthetic-computer devcontainer:
+
+  cd /tmp && rm -rf serialcom && \
+  git clone --depth=1 https://github.com/videofeedback/Unreal_Engine_SerialCOM_Plugin.git serialcom && \
+  cd serialcom/SerialCOM && \
+  patch -p1 < /workspaces/aesthetic-computer/false.work/patches/serialcom-ue5.6.patch
+
+After applying, either drop SerialCOM/ into <Project>/Plugins/, or package standalone:
+
+  "C:\Program Files\Epic Games\UE_5.6\Engine\Build\BatchFiles\RunUAT.bat" BuildPlugin \
+    -Plugin="<abs>/SerialCOM/SERIALCOM.uplugin" \
+    -Package="<out>" -Rocket -TargetPlatforms=Win64
+
+--- SerialCOM-src/SerialCOM/SERIALCOM.uplugin
++++ SerialCOM/SERIALCOM.uplugin
+@@ -10,7 +10,7 @@
+ 	"DocsURL": "https://github.com/videofeedback/Unreal_Engine_SerialCOM_Plugin",
+ 	"MarketplaceURL": "",
+ 	"SupportURL": "https://discord.ramiroslab.com/",
+-	"EngineVersion": "5.1.0",
++	"EngineVersion": "5.6.0",
+ 	"CanContainContent": true,
+ 	"IsBetaVersion": true,
+ 	"Installed": true,
+--- SerialCOM-src/SerialCOM/Source/SERIALCOM/Private/SerialCom.cpp
++++ SerialCOM/Source/SERIALCOM/Private/SerialCom.cpp
+@@ -273,7 +273,7 @@
+ 			// when Terminator is \n, we know we're expecting lines from Arduino. But those
+ 			// are ended in \r\n. That means that if we found the line Terminator (\n), our previous
+ 			// character could be \r. If it is, we remove that from the array.
+-			if (Chars.Num() > 0 && Terminator == '\n' && Chars.Top() == '\r') Chars.Pop(false);
++			if (Chars.Num() > 0 && Terminator == '\n' && Chars.Top() == '\r') Chars.Pop(EAllowShrinking::No);
+
+ 			Chars.Add(0x0);
+ 			break;
+@@ -420,7 +420,7 @@
+
+ bool USerialCom::WriteBytes(TArray<uint8> Buffer)
+ {
+-	if (!m_hIDComDev) false;
++	if (!m_hIDComDev) return false;
+
+ 	bool bWriteStat;
+ 	unsigned long dwBytesWritten;

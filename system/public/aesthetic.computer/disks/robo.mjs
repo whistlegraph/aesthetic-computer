@@ -27,7 +27,10 @@ const robotState = {
   grid: { cols: 3, rows: 3 },
   targetQueueSize: 1,
   autoContinue: true,
-  roboParams: null
+  roboParams: null,
+  // Synthetic screen-space pen position, independent of hardware pen.
+  // Used for cursor display and for distinguishing robot-driven paths.
+  syntheticPen: { x: 0, y: 0 }
 };
 
 function getNopaintTransform(nopaint) {
@@ -659,7 +662,7 @@ class RoboPathGenerator {
       const rgb = this.hslToRgb(hue / 360, 0.7, 0.5);
       colors.push({
         r: Math.round(rgb[0] * 255),
-        g: Math.round(rgb[1] * 255), 
+        g: Math.round(rgb[1] * 255),
         b: Math.round(rgb[2] * 255)
       });
     }
@@ -850,7 +853,6 @@ class RoboPathGenerator {
   }
 
   generateLinePaths(positions, width, height, count) {
-    console.log("🤖 Preparing robo line paths", { count, positions: positions.length });
     const paths = [];
     const limit = Math.min(Math.max(count, 1), positions.length);
 
@@ -860,8 +862,11 @@ class RoboPathGenerator {
       const points = this.createLinePoints(pos, width, height);
       const metrics = computePathMetrics(points, { closed: false });
       const baseSize = Math.max(2, Math.min(pos.w, pos.h));
-      const maxThickness = Math.max(1, Math.round(baseSize / 4));
+      // Broader thickness range — sometimes thick, sometimes hairline.
+      const maxThickness = Math.max(2, Math.round(baseSize / 3));
       const thickness = this.randomInt(1, Math.max(1, maxThickness));
+      // Per-stroke alpha — bias toward visible (96..255).
+      const alpha = this.randomInt(96, 255);
       const duration = Math.max(30, Math.round(Math.max(metrics.totalLength, baseSize) * 1.2));
 
       paths.push({
@@ -869,6 +874,8 @@ class RoboPathGenerator {
         color: colorInfo.color,
         colorTokens: colorInfo.colorTokens,
         colorParams: colorInfo.colorParams,
+        thickness,
+        alpha,
         duration,
         paintingMark: {
           points: points.map(({ x, y }) => ({ x, y })),
@@ -881,7 +888,6 @@ class RoboPathGenerator {
       });
     }
 
-    console.log(`🤖 Generated ${paths.length} total line paths`);
     return paths;
   }
 
@@ -919,35 +925,108 @@ class RoboPathGenerator {
     return paths;
   }
 
+  // 🐢 Turtle-graphics line walker. Walks a virtual turtle inside the cell
+  // emitting a stream of (x, y) points. The turtle has an evolving heading
+  // that's perturbed each step by a chosen "program" — sine wiggle, random
+  // walk with damping, spiral, or zig-zag — producing organic curved lines.
   createLinePoints(base, width, height) {
-    const pointCount = Math.random() < 0.4 ? 3 : 2;
-    const points = [];
     const limitX = Math.max(width - 1, 0);
     const limitY = Math.max(height - 1, 0);
+    const cellBounds = {
+      left: base.x,
+      right: Math.min(limitX, base.x + base.w),
+      top: base.y,
+      bottom: Math.min(limitY, base.y + base.h),
+    };
 
-    const randomPoint = () => ({
-      x: clamp(Math.round(base.x + Math.random() * base.w), 0, limitX),
-      y: clamp(Math.round(base.y + Math.random() * base.h), 0, limitY)
-    });
+    // Start somewhere inside the cell, with a random heading.
+    const startX = clamp(
+      cellBounds.left + Math.random() * Math.max(1, cellBounds.right - cellBounds.left),
+      0,
+      limitX,
+    );
+    const startY = clamp(
+      cellBounds.top + Math.random() * Math.max(1, cellBounds.bottom - cellBounds.top),
+      0,
+      limitY,
+    );
 
-    for (let i = 0; i < pointCount; i++) {
-      points.push(randomPoint());
+    const cellDiag = Math.hypot(base.w, base.h) || 1;
+    const stepSize = clamp(cellDiag / 18, 2, 8);
+    const totalDistance = clamp(cellDiag * (0.8 + Math.random() * 1.2), stepSize * 4, cellDiag * 2.5);
+    const stepCount = Math.max(6, Math.round(totalDistance / stepSize));
+
+    // Pick a turtle program — each gives a distinct line character.
+    const programs = ["sine", "randomWalk", "spiral", "zigzag"];
+    const program = programs[Math.floor(Math.random() * programs.length)];
+
+    // Program parameters (regenerated per line for variety).
+    const sineAmplitude = (Math.random() * 0.6 + 0.2) * (Math.PI / 4); // ±45° swing at most
+    const sineFrequency = Math.random() * 0.35 + 0.1; // how fast the wiggle cycles
+    const randomTurnMax = (Math.random() * 0.4 + 0.1); // radians per step for random walk
+    const spiralTurn = (Math.random() * 0.08 + 0.02) * (Math.random() < 0.5 ? -1 : 1);
+    const zigzagPeriod = Math.max(3, Math.round(Math.random() * 6 + 3));
+    const zigzagSwing = Math.random() * 0.8 + 0.3;
+
+    const turtle = {
+      x: startX,
+      y: startY,
+      heading: Math.random() * Math.PI * 2,
+    };
+
+    const points = [{ x: Math.round(turtle.x), y: Math.round(turtle.y) }];
+
+    for (let step = 1; step <= stepCount; step++) {
+      // Evolve heading according to the selected program.
+      switch (program) {
+        case "sine":
+          turtle.heading += Math.sin(step * sineFrequency) * sineAmplitude;
+          break;
+        case "randomWalk":
+          turtle.heading += (Math.random() * 2 - 1) * randomTurnMax;
+          break;
+        case "spiral":
+          turtle.heading += spiralTurn;
+          break;
+        case "zigzag":
+          turtle.heading += (step % zigzagPeriod < zigzagPeriod / 2 ? zigzagSwing : -zigzagSwing) * 0.25;
+          break;
+      }
+
+      // Move forward.
+      turtle.x += Math.cos(turtle.heading) * stepSize;
+      turtle.y += Math.sin(turtle.heading) * stepSize;
+
+      // Soft-bounce off the cell bounds so the line stays roughly inside.
+      if (turtle.x < cellBounds.left) {
+        turtle.x = cellBounds.left + (cellBounds.left - turtle.x);
+        turtle.heading = Math.PI - turtle.heading;
+      } else if (turtle.x > cellBounds.right) {
+        turtle.x = cellBounds.right - (turtle.x - cellBounds.right);
+        turtle.heading = Math.PI - turtle.heading;
+      }
+      if (turtle.y < cellBounds.top) {
+        turtle.y = cellBounds.top + (cellBounds.top - turtle.y);
+        turtle.heading = -turtle.heading;
+      } else if (turtle.y > cellBounds.bottom) {
+        turtle.y = cellBounds.bottom - (turtle.y - cellBounds.bottom);
+        turtle.heading = -turtle.heading;
+      }
+
+      const px = clamp(Math.round(turtle.x), 0, limitX);
+      const py = clamp(Math.round(turtle.y), 0, limitY);
+      const last = points[points.length - 1];
+      if (last.x !== px || last.y !== py) {
+        points.push({ x: px, y: py });
+      }
     }
 
-    // Ensure distinct endpoints to avoid zero-length strokes
-    if (distanceBetweenPoints(points[0], points[points.length - 1]) < 2) {
-      points[points.length - 1] = {
-        x: clamp(
-          points[0].x + this.randomInt(-Math.round(base.w / 2), Math.round(base.w / 2)),
-          0,
-          limitX
-        ),
-        y: clamp(
-          points[0].y + this.randomInt(-Math.round(base.h / 2), Math.round(base.h / 2)),
-          0,
-          limitY
-        )
-      };
+    // Guarantee at least two distinct points.
+    if (points.length < 2) {
+      points.push({
+        x: clamp(points[0].x + this.randomInt(-10, 10), 0, limitX),
+        y: clamp(points[0].y + this.randomInt(-10, 10), 0, limitY),
+      });
     }
 
     return points;
@@ -1021,13 +1100,13 @@ class RoboPathGenerator {
 function parseRoboParams(params) {
   const defaults = {
     speed: 1.0,
-    grid: "3x3", 
+    grid: "3x3",
     pattern: "random",
     count: 5
   };
-  
+
   const parsed = { ...defaults };
-  
+
   for (const param of params) {
     if (param.includes(":")) {
       const [key, value] = param.split(":");
@@ -1047,7 +1126,7 @@ function parseRoboParams(params) {
       }
     }
   }
-  
+
   return parsed;
 }
 
@@ -1055,16 +1134,16 @@ function parseRoboParams(params) {
 function parseGrid(gridStr) {
   const parts = gridStr.split('x');
   if (parts.length !== 2) return { cols: 3, rows: 3 };
-  
+
   const cols = parseInt(parts[0]) || 3;
   const rows = parseInt(parts[1]) || 3;
   return { cols, rows };
 }
 
-// Boot function - Initialize robot with brush and parameters  
+// Boot function - Initialize robot with brush and parameters
 async function boot($api) {
   const { params, screen, net } = $api;
-  
+
   if (params.length === 0) {
     console.log("🤖 Usage: robo <brush> [options]");
     console.log("🤖 Options: speed:1.5, grid:3x3, pattern:random, count:5");
@@ -1091,19 +1170,19 @@ async function boot($api) {
     const fullUrl = `${url}/${brushName}.mjs?v=${cacheBuster}`;
     console.log(`🤖 Loading brush from URL: ${fullUrl}`);
     const brush = await import(fullUrl);
-    
+
     // Create a painting buffer for the robot (like test.mjs does)
     const painting = $api.painting(screen.width, screen.height, (p) => {
       p.wipe(255, 255, 255, 0); // Transparent background
     });
-    
+
   // Set up system for the brush (preserve existing system data like nopaint)
   $api.system = { ...($api.system || {}), painting };
-    
+
     // Initialize the brush with the API (copy params so brush gets clean params)
     const brushApi = { ...$api, params: [...params.slice(1)] };
     brush?.boot?.(brushApi);
-    
+
     console.log(`🤖 Screen dimensions: ${screen.width}x${screen.height}`);
 
     // Parse grid dimensions
@@ -1171,8 +1250,14 @@ async function boot($api) {
   robotState.previousDrawPoint = null;
     robotState.allowMultipleLift = false;
 
+    // 🤖 Lock nopaint input to robot events only — hardware mouse/touch
+    // will be ignored for pen events until robo leave() runs.
+    if ($api.system?.nopaint) {
+      $api.system.nopaint.robotActive = true;
+    }
+
     console.log("🤖 Robot initialized and ready for execution");
-    
+
   } catch (error) {
     console.error(`🤖 Failed to load brush ${brushName}:`, error);
   }
@@ -1181,56 +1266,92 @@ async function boot($api) {
 // Paint function - execute the loaded brush with robot-generated pen data
 function paint($api) {
   if (!robotState.active || !robotState.loadedBrush) return;
-  
+
   // Don't override the existing system - just ensure painting is set
   if (!$api.system.painting) {
     $api.system.painting = robotState.painting;
   }
-  
-  // The robot doesn't directly call brush paint - it sends events through the robo API
-  // which then get processed by the nopaint system
-  console.log(`🤖 Paint called - robot state: ${robotState.state}`);
-  
-  // Monitor nopaint state processing
-  if ($api.system?.nopaint) {
-    const np = $api.system.nopaint;
-    console.log("🤖 Paint: nopaint state check:", {
-      needsPresent: np.needsPresent,
-      needsBake: np.needsBake,
-      bufferExists: !!np.buffer,
-      robotActive: robotState.active,
-      robotState: robotState.state
-    });
-    
-    // If needsPresent is true, log that we're expecting a present call
-    if (np.needsPresent) {
-      console.log("🔍 NOPAINT PRESENT FLAG IS TRUE - expecting present() to be called soon");
-    }
-    
-    // Return true to force continuous rendering when nopaint has pending updates
-    if (np.needsPresent || np.needsBake) {
-      return true;
+
+  // 🎨 Paint/bake brush support: if the loaded brush uses the paint/bake pattern
+  // (like line.mjs), call its paint() each frame so it can accumulate points
+  // and draw the stroke to the nopaint buffer. This is the alternative to the
+  // overlay/lift delegation pattern used by box/oldline/etc.
+  const brush = robotState.loadedBrush;
+  const brushUsesPaintBake = !brush.overlay && !brush.lift && typeof brush.paint === "function";
+  if (brushUsesPaintBake) {
+    try {
+      brush.paint($api);
+    } catch (error) {
+      console.error("🤖 Robo: Error calling loaded brush paint:", error);
     }
   }
-  
-  // Note: Display is handled by nopaint system, not by manual paste
-  // The nopaint system will handle presenting the final result after baking
+
+  // 👆 Draw a fake cursor where the simulated pen is, so viewers can see
+  // where the robot is "clicking" and dragging.
+  drawRobotCursor($api);
+
+  // Return true to force continuous rendering when nopaint has pending updates
+  if ($api.system?.nopaint) {
+    const np = $api.system.nopaint;
+    if (np.needsPresent || np.needsBake) return true;
+  }
+  return true; // Always repaint so the cursor animates.
+}
+
+// Draw a small crosshair + dot at the robot's current synthetic pen position.
+// Uses robotState.syntheticPen so the hardware mouse cursor has no effect.
+function drawRobotCursor($api) {
+  const { ink } = $api;
+  if (typeof ink !== "function") return;
+  const x = Math.round(robotState.syntheticPen?.x || 0);
+  const y = Math.round(robotState.syntheticPen?.y || 0);
+  const isPainting = robotState.state === "painting";
+  const isLifting = robotState.state === "lift";
+  // Pulse the cursor when painting for a little feedback.
+  const pulse = isPainting ? (Math.sin(performance.now() / 120) * 0.5 + 0.5) : 0;
+  const ringR = 6 + Math.round(pulse * 2);
+  const dotColor = isLifting
+    ? [255, 200, 0]
+    : isPainting
+      ? [0, 255, 180]
+      : [255, 255, 255];
+  try {
+    // Outer ring (dark drop shadow for contrast)
+    ink(0, 0, 0, 160).circle(x + 1, y + 1, ringR, false);
+    ink(...dotColor, 220).circle(x, y, ringR, false);
+    // Crosshair arms
+    ink(0, 0, 0, 140)
+      .line(x - ringR - 3, y + 1, x - 2, y + 1)
+      .line(x + 2, y + 1, x + ringR + 3, y + 1)
+      .line(x + 1, y - ringR - 3, x + 1, y - 2)
+      .line(x + 1, y + 2, x + 1, y + ringR + 3);
+    ink(...dotColor, 220)
+      .line(x - ringR - 3, y, x - 2, y)
+      .line(x + 2, y, x + ringR + 3, y)
+      .line(x, y - ringR - 3, x, y - 2)
+      .line(x, y + 2, x, y + ringR + 3);
+    // Center dot
+    ink(...dotColor).box(x - 1, y - 1, 3, 3);
+    ink(0, 0, 0).plot(x, y);
+  } catch (error) {
+    // Silently ignore rendering errors for the cursor overlay.
+  }
 }
 
 // Sim function - 120fps locked timing for robot execution
 function sim($api) {
   if (!robotState.active || !robotState.loadedBrush) return;
-  
+
   const { simCount, needsPaint, system } = $api;
-  
+
   // Force continuous rendering if nopaint has pending display updates
   if (system?.nopaint && (system.nopaint.needsPresent || system.nopaint.needsBake)) {
     needsPaint();
   }
-  
+
   // Speed control: advance robot logic every N sim frames
   const speedFrames = Math.max(1, Math.round(120 / (60 * robotState.speed)));
-  
+
   if (simCount % BigInt(speedFrames) === 0n) {
     advanceRobotLogic($api);
     needsPaint(); // Request paint update when robot state changes
@@ -1245,6 +1366,50 @@ function advanceRobotLogic($api) {
     const nextPath = robotState.pathQueue.shift();
     ensurePathColorMetadata(nextPath);
     applyPathColorToNopaint($api.system?.nopaint, nextPath);
+
+    // 🎨 For paint/bake brushes (like line.mjs), re-boot the brush with the
+    // new path's color/thickness/alpha so it picks up the new settings. The
+    // overlay/lift pattern (box) reads color from api.color each lift so it
+    // doesn't need this — but paint/bake brushes hold their state in module
+    // variables set during boot.
+    const brush = robotState.loadedBrush;
+    const brushUsesPaintBake = brush && !brush.overlay && !brush.lift && typeof brush.paint === "function";
+    if (brushUsesPaintBake && typeof brush.boot === "function") {
+      try {
+        const tokens = Array.isArray(nextPath.colorTokens) && nextPath.colorTokens.length
+          ? [...nextPath.colorTokens]
+          : ["white"];
+        // Append alpha as the second param. parseColor uses params[1] as
+        // alpha for both named colors and fade strings, and as the trailing
+        // RGBA alpha for raw ints.
+        const alpha = Math.max(1, Math.min(255, Number(nextPath.alpha ?? 255)));
+        const firstToken = tokens[0] || "";
+        const isFadeToken = typeof firstToken === "string" && firstToken.startsWith("fade:");
+        const isNumericFirst = !isNaN(parseInt(firstToken));
+        let paramsWithAlpha;
+        if (isFadeToken) {
+          // Fade: ["fade:red-blue", alpha]
+          paramsWithAlpha = [firstToken, String(alpha)];
+        } else if (isNumericFirst) {
+          // Raw rgb ints: append alpha if we have 3 tokens, replace if 4.
+          paramsWithAlpha = tokens.length >= 3
+            ? [...tokens.slice(0, 3), String(alpha)]
+            : [...tokens, String(alpha)];
+        } else {
+          // Named color: ["red", alpha]
+          paramsWithAlpha = [firstToken, String(alpha)];
+        }
+        const thicknessStr = String(Math.max(1, Math.min(50, Number(nextPath.thickness ?? 1))));
+        brush.boot({
+          ...$api,
+          params: paramsWithAlpha,
+          colon: [thicknessStr],
+        });
+      } catch (error) {
+        console.error("🤖 Robo: Error re-booting brush for new path:", error);
+      }
+    }
+
     robotState.currentPath = nextPath;
     robotState.currentStrategy = getBrushStrategy(nextPath.type || robotState.brushType);
     robotState.frameCounter = 0;
@@ -1261,9 +1426,7 @@ function advanceRobotLogic($api) {
     const touchPoint = robotState.previousDrawPoint;
     if (touchPoint) {
       const startScreen = paintingPointToScreen(touchPoint, transform);
-      console.log(
-        `🤖 Starting path ${currentIndex + 1} (${nextPath.type}) at screen (${startScreen.x}, ${startScreen.y})`
-      );
+      robotState.syntheticPen = { x: startScreen.x, y: startScreen.y };
       $api.robo.touch(startScreen.x, startScreen.y);
     }
   }
@@ -1285,6 +1448,7 @@ function advanceRobotLogic($api) {
   if (drawPoint && previousPoint) {
     const currentScreen = paintingPointToScreen(drawPoint, transform);
     const prevScreen = paintingPointToScreen(previousPoint, transform);
+    robotState.syntheticPen = { x: currentScreen.x, y: currentScreen.y };
     $api.robo.draw(currentScreen.x, currentScreen.y, prevScreen.x, prevScreen.y);
     robotState.previousDrawPoint = drawPoint;
   }
@@ -1334,6 +1498,7 @@ function advanceRobotLogic($api) {
     replenishPathQueue($api);
 
     if (liftScreen) {
+      robotState.syntheticPen = { x: liftScreen.x, y: liftScreen.y };
       $api.robo.lift(liftScreen.x, liftScreen.y);
     } else {
       $api.robo.lift(0, 0);
@@ -1348,11 +1513,11 @@ function advanceRobotLogic($api) {
 // Act function - handle user interactions (required by disk system)
 function act($api) {
   const { event: e } = $api;
-  
+
   // Monitor ALL events to debug synthetic robo events
   if (e) {
     console.log(`🔍 ACT EVENT: type="${e.type}" device="${e.device}" x=${e.x} y=${e.y} pressure=${e.pressure}`);
-    
+
     // Special logging for robot events
     if (e.device === "robot") {
       console.log("🤖 ROBOT EVENT DETECTED:", {
@@ -1366,7 +1531,7 @@ function act($api) {
       });
     }
   }
-  
+
   // Pass through to loaded brush if needed
   if (robotState.loadedBrush?.act) {
     try {
@@ -1379,6 +1544,12 @@ function act($api) {
 
 // Brush delegation functions - called by nopaint system
 function overlay(api) {
+  // Paint/bake brushes (like line.mjs) don't use overlay — their paint()
+  // function handles the live preview on the nopaint buffer directly.
+  const brush = robotState.loadedBrush;
+  const brushUsesPaintBake = brush && !brush.overlay && !brush.lift && typeof brush.paint === "function";
+  if (brushUsesPaintBake) return null;
+
   if (robotState.state === "lift") {
     console.log("🤖 ROBO overlay: currently lifting, delegating to lift");
     return lift(api);
@@ -1438,14 +1609,25 @@ function overlay(api) {
 
 function lift(api) {
   console.log("🤖🤖🤖 ROBO LIFT FUNCTION CALLED! 🤖🤖🤖");
+
+  // Paint/bake brushes handle their own lift in bake(). Skip the overlay/lift
+  // delegation path entirely — robo's bake() will call the brush's bake().
+  const brush = robotState.loadedBrush;
+  const brushUsesPaintBake = brush && !brush.overlay && !brush.lift && typeof brush.paint === "function";
+  if (brushUsesPaintBake) {
+    robotState.state = "idle";
+    robotState.allowMultipleLift = false;
+    return null;
+  }
+
   console.log(`🤖 ROBO LIFT CALLED - current state: ${robotState.state} - this should trigger box drawing!`);
-  
+
   // Prevent multiple lift calls when already in idle state (fix for duplicate calls)
   if (robotState.state === "idle" && !robotState.allowMultipleLift) {
     console.log("🤖 ROBO LIFT: Already in idle state, ignoring duplicate lift call");
     return;
   }
-  
+
   console.log("🤖 Lift API context:", {
     hasInk: !!api.ink,
     inkType: typeof api.ink,
@@ -1460,16 +1642,16 @@ function lift(api) {
     hasLoadedBrush: !!robotState.loadedBrush,
     hasLoadedBrushLift: !!robotState.loadedBrush?.lift
   });
-  
+
   if (robotState.loadedBrush?.lift) {
     console.log("📦 ROBO: About to call box brush lift function");
-    
+
     // Use lastCompletedPath data if available, otherwise use API data
     const lastCompleted = robotState.lastCompletedPath;
   ensurePathColorMetadata(lastCompleted);
   applyPathColorToNopaint(api.system?.nopaint, lastCompleted);
     let finalBox, finalColor;
-    
+
     if (lastCompleted && lastCompleted.boxDimensions) {
       finalBox = lastCompleted.boxDimensions;
       finalColor = normalizeColorSpec(lastCompleted.color);
@@ -1483,14 +1665,14 @@ function lift(api) {
       finalColor = normalizeColorSpec(api.color) || [255, 255, 255];
       console.log("📦 ROBO: Using API data (no completed path):", { box: finalBox, color: finalColor });
     }
-    
+
     if (!finalBox || finalBox.w <= 0 || finalBox.h <= 0) {
       console.warn("📦 ROBO: No valid final box to paint during lift", { finalBox });
       robotState.state = "idle";
       robotState.allowMultipleLift = false;
       return;
     }
-    
+
     // Create proper context for the brush lift function
     const brushApi = {
       ...api,
@@ -1499,20 +1681,20 @@ function lift(api) {
       mark: finalBox,
       system: api.system // Make sure to pass the system context to lift
     };
-    
+
     console.log("📦 ROBO: Calling box brush lift with:", {
       hasInk: !!brushApi.ink,
       color: brushApi.color,
       mark: brushApi.mark,
       markIsValid: !!(brushApi.mark && brushApi.mark.x !== undefined && brushApi.mark.y !== undefined && brushApi.mark.w > 0 && brushApi.mark.h > 0)
     });
-    
+
     console.log("📦 ROBO: About to call lift function:", {
       liftExists: !!robotState.loadedBrush.lift,
       liftType: typeof robotState.loadedBrush.lift,
       liftString: robotState.loadedBrush.lift?.toString()?.substring(0, 200)
     });
-    
+
     try {
       // Call the box brush lift function - this should draw the final box
       const result = robotState.loadedBrush.lift(brushApi);
@@ -1522,14 +1704,14 @@ function lift(api) {
       robotState.state = "idle";
       robotState.allowMultipleLift = false; // Reset flag to prevent duplicate calls
       console.log("🤖 Lift completed - state set to idle");
-      
+
       // If there are more paths in the queue, they will be started on the next sim cycle
       if (robotState.pathQueue.length > 0) {
         console.log(`🤖 Lift completed, ${robotState.pathQueue.length} paths remaining - will start next path`);
       } else {
         console.log("🤖 Lift completed, all paths finished");
       }
-      
+
       return result;
     } catch (error) {
       console.error("📦 ROBO: Error calling box brush lift:", error);
@@ -1548,36 +1730,33 @@ function lift(api) {
 }
 
 // 🍪 Bake - Transfer drawn content to the final painting
-function bake({ paste, system, page, needsPaint }) {
+function bake($api) {
+  const { paste, system, page, needsPaint } = $api;
   console.log("🤖🍪 ROBO BAKE CALLED! 🍪🤖");
-  console.log("🤖 Robo bake: Current nopaint state:", {
-    hasBuffer: !!system.nopaint.buffer,
-    needsPresent: system.nopaint.needsPresent,
-    needsBake: system.nopaint.needsBake,
-    bufferSize: system.nopaint.buffer ? `${system.nopaint.buffer.width}x${system.nopaint.buffer.height}` : "none"
-  });
-  
+
+  // 🎨 If the loaded brush uses paint/bake pattern, delegate to its bake.
+  // It will handle the paste onto the painting itself (and any alpha
+  // compositing, e.g. line.mjs per-gesture alpha).
+  const brush = robotState.loadedBrush;
+  const brushUsesPaintBake = brush && !brush.overlay && !brush.lift && typeof brush.bake === "function";
+  if (brushUsesPaintBake) {
+    try {
+      brush.bake($api);
+      system.nopaint.needsBake = false;
+      system.nopaint.needsPresent = false;
+      needsPaint();
+      return true;
+    } catch (error) {
+      console.error("🤖 Robo: Error calling loaded brush bake:", error);
+    }
+  }
+
   if (system.nopaint.buffer) {
-    console.log("🤖 BAKING: About to paste nopaint buffer to final painting");
-    
-    // Try direct paste to main painting buffer
-    const result = paste(system.nopaint.buffer);
-    console.log("🤖 BAKING: Paste result:", result);
-    
-    console.log("🤖 BAKING: Pasted buffer, now wiping nopaint buffer");
+    paste(system.nopaint.buffer);
     page(system.nopaint.buffer).wipe(255, 255, 255, 0);
-    console.log("🤖🍪 ROBO BAKE COMPLETED - Successfully transferred to final painting! 🍪🤖");
-    
-    // Reset nopaint flags to indicate baking is done
     system.nopaint.needsBake = false;
     system.nopaint.needsPresent = false;
-    console.log("🤖 BAKING: Reset nopaint flags after baking");
-    
-    // Force immediate display update of the main painting
     needsPaint();
-    console.log("🤖 BAKING: Called needsPaint() to display final result");
-    
-    // Signal that baking is complete and changes were made
     return true;
   } else {
     console.warn("🤖 Robo bake: No nopaint buffer to paste - nothing to bake");
@@ -1585,7 +1764,17 @@ function bake({ paste, system, page, needsPaint }) {
   }
 }
 
-export { boot, paint, sim, act, overlay, lift, bake };
+// 🚪 Leave - release the robot lock on nopaint input so the hardware pen
+// regains control when switching to another piece.
+function leave($api) {
+  if ($api?.system?.nopaint) {
+    $api.system.nopaint.robotActive = false;
+  }
+  robotState.active = false;
+  robotState.loadedBrush = null;
+}
+
+export { boot, paint, sim, act, overlay, lift, bake, leave };
 
 // Export system type so disk.mjs recognizes this as a nopaint piece
 export const system = "nopaint";

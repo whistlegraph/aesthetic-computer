@@ -7,8 +7,10 @@
 //   line:3 blue 128      → freehand 3px blue at 50% alpha
 
 import { nopaint_generateColoredLabel } from "../systems/nopaint.mjs";
+import { isFadeColor } from "../lib/num.mjs";
 
 let colorParams, opaqueParams, strokeAlpha, thickness, randomColor, wasPainting;
+let fadeColor = null; // Fade color object when using fade: syntax.
 let savedParams, savedHud, savedApi; // Saved for dynamic HUD/URL updates.
 let colorIndex = -1; // -1 = user-specified or random, 0+ = palette index.
 const points = [];
@@ -32,13 +34,19 @@ const system = "nopaint";
 
 function boot({ params, num, colon, hud, ...api }) {
   colorParams = num.parseColor(params);
-  randomColor = colorParams.length === 0;
+  randomColor = !colorParams || (Array.isArray(colorParams) && colorParams.length === 0);
   savedParams = params;
   savedHud = hud;
   savedApi = api;
+  fadeColor = null;
 
-  // Extract alpha and create an opaque version for buffer rendering.
-  if (!randomColor && (colorParams.length === 2 || colorParams.length === 4)) {
+  // 🌈 Fade color support — parseColor returns a fade object for "fade:..." params.
+  if (isFadeColor(colorParams)) {
+    fadeColor = colorParams;
+    strokeAlpha = (fadeColor.alpha ?? 255) / 255;
+    opaqueParams = fadeColor.fadeString;
+  } else if (!randomColor && (colorParams.length === 2 || colorParams.length === 4)) {
+    // Extract alpha and create an opaque version for buffer rendering.
     strokeAlpha = colorParams[colorParams.length - 1] / 255;
     opaqueParams = colorParams.slice(0, -1);
     if (opaqueParams.length === 1) opaqueParams.push(255);
@@ -57,6 +65,27 @@ function boot({ params, num, colon, hud, ...api }) {
   updateLabel();
 }
 
+// 🔔 Pleasant sine-wave chirp with value-based pitch and brightness.
+// Maps a normalized value [0..1] to a musical pitch within a pentatonic scale
+// so sequential tweaks feel tonal rather than atonal.
+function chirp(sound, normalizedValue, { bright = 1 } = {}) {
+  if (!sound?.synth) return;
+  // Major pentatonic scale (C D E G A), two octaves.
+  const scale = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+  const idx = Math.max(0, Math.min(scale.length - 1, Math.round(normalizedValue * (scale.length - 1))));
+  const semitone = scale[idx];
+  // Base ~C4 (261.63) then scale up with value.
+  const tone = 261.63 * Math.pow(2, semitone / 12);
+  sound.synth({
+    type: "sine",
+    tone,
+    beats: 0.12,
+    attack: 0.008,
+    decay: 0.92,
+    volume: 0.09 * bright,
+  });
+}
+
 function act({ event: e, net, needsPaint, sound, system: { nopaint } }) {
   if (e.is("scroll")) {
     const delta = e.y > 0 ? -1 : e.y < 0 ? 1 : 0;
@@ -66,13 +95,8 @@ function act({ event: e, net, needsPaint, sound, system: { nopaint } }) {
     if (thickness !== prev) {
       updateLabel();
       rewriteURL(net);
-      sound.synth({
-        tone: 200 + thickness * 40,
-        beats: 0.04,
-        attack: 0.01,
-        decay: 0.1,
-        volume: 0.1,
-      });
+      // Pitch = thickness (thicker → higher). Brightness falls off at extremes.
+      chirp(sound, (thickness - 1) / 49, { bright: 1 });
       needsPaint();
     }
   }
@@ -83,13 +107,8 @@ function act({ event: e, net, needsPaint, sound, system: { nopaint } }) {
     colorIndex = (colorIndex + 1) % palette.length;
     applyPaletteColor();
     rewriteURL(net);
-    sound.synth({
-      tone: 300 + colorIndex * 80,
-      beats: 0.05,
-      attack: 0.01,
-      decay: 0.15,
-      volume: 0.12,
-    });
+    // Pitch by palette index (follows the scale).
+    chirp(sound, colorIndex / (palette.length - 1), { bright: 1.1 });
     needsPaint();
   }
 
@@ -99,22 +118,19 @@ function act({ event: e, net, needsPaint, sound, system: { nopaint } }) {
     if (e.is("keyboard:down:]")) strokeAlpha = Math.min(1, strokeAlpha + step);
     if (e.is("keyboard:down:[")) strokeAlpha = Math.max(step, strokeAlpha - step);
     strokeAlpha = Math.round(strokeAlpha * 10) / 10;
-    opaqueParams = randomColor ? [] : colorParams.slice(0, 3);
-    if (!randomColor && opaqueParams.length > 0) opaqueParams.push(255);
-    if (!randomColor) {
-      const colorName = savedParams[0] || "";
-      const alphaVal = Math.round(strokeAlpha * 255);
-      savedParams = alphaVal < 255 ? [colorName, String(alphaVal)] : [colorName];
+    if (!isFadeColor(colorParams)) {
+      opaqueParams = randomColor ? [] : colorParams.slice(0, 3);
+      if (!randomColor && opaqueParams.length > 0) opaqueParams.push(255);
+      if (!randomColor) {
+        const colorName = savedParams[0] || "";
+        const alphaVal = Math.round(strokeAlpha * 255);
+        savedParams = alphaVal < 255 ? [colorName, String(alphaVal)] : [colorName];
+      }
     }
     updateLabel();
     rewriteURL(net);
-    sound.synth({
-      tone: 400 + strokeAlpha * 600,
-      beats: 0.04,
-      attack: 0.01,
-      decay: 0.1,
-      volume: 0.1,
-    });
+    // Pitch = alpha; brightness = alpha (so quieter lines sound softer).
+    chirp(sound, strokeAlpha, { bright: 0.5 + strokeAlpha * 0.7 });
     needsPaint();
   }
 }
