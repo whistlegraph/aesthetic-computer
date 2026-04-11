@@ -179,14 +179,14 @@ log_step "PHASE 2: Checking for fast reload path"
 # Fast path for VS Code "Reload Window" - if .waiter exists and key processes running, skip setup
 if test -f /home/me/.waiter
     log_info "Detected reload (found .waiter file)"
-    
+
     # Check if key processes are already running
     set -l dockerd_running (pgrep -x dockerd 2>/dev/null)
     set -l emacs_running (pgrep -f "emacs.*daemon" 2>/dev/null)
-    
+
     if test -n "$dockerd_running"
         echo "✅ Docker daemon already running (PID: $dockerd_running)"
-        
+
         # Check if emacs daemon is running AND responsive
         set -l emacs_config /home/me/aesthetic-computer/dotfiles/dot_config/emacs.el
         if test -n "$emacs_running"
@@ -210,7 +210,7 @@ if test -f /home/me/.waiter
             emacs -q --daemon -l $emacs_config 2>&1
             sleep 1
         end
-        
+
         # Ensure CDP tunnel is up (for artery-tui to control VS Code on host)
         set -l cdp_tunnel (pgrep -f "ssh.*9333.*host.docker.internal" 2>/dev/null)
         if test -n "$cdp_tunnel"
@@ -224,7 +224,7 @@ if test -f /home/me/.waiter
                 echo "⚠️  CDP tunnel failed (artery may not control VS Code)"
             end
         end
-        
+
         echo "⚡ Skipping full setup - container already configured"
         echo "✅ Ready! (fast reload path)"
         exit 0
@@ -243,16 +243,16 @@ end
 function ensure_fish_config_permissions
     set -l fish_config_dir /home/me/.config/fish
     set -l fish_data_dir /home/me/.local/share/fish
-    
+
     echo "🔧 Fixing permissions for fish directories..."
-    
+
     # Fix the parent .config directory first (most important)
     if test -d /home/me/.config
         sudo chown -R me:me /home/me/.config 2>/dev/null
         sudo chmod -R 755 /home/me/.config 2>/dev/null
         echo "✅ Fixed permissions for /home/me/.config"
     end
-    
+
     if test -d $fish_config_dir
         # Fix ownership and permissions for fish config directory - be VERY aggressive
         sudo chown -R me:me $fish_config_dir 2>/dev/null
@@ -264,25 +264,25 @@ function ensure_fish_config_permissions
         sudo chown -R me:me $fish_config_dir/completions 2>/dev/null
         echo "✅ Fixed permissions for $fish_config_dir"
     end
-    
+
     if test -d $fish_data_dir
         # Fix ownership and permissions for fish data directory
         sudo chown -R me:me $fish_data_dir 2>/dev/null
         sudo chmod -R 755 $fish_data_dir 2>/dev/null
         echo "✅ Fixed permissions for $fish_data_dir"
     end
-    
+
     # Fix /home/me/.local directory too
     if test -d /home/me/.local
         sudo chown -R me:me /home/me/.local 2>/dev/null
         sudo chmod -R 755 /home/me/.local 2>/dev/null
         echo "✅ Fixed permissions for /home/me/.local"
     end
-    
+
     # Disable fish's universal variable file daemon (fishd) which causes permission issues
     # We'll use fish_variables instead which is simpler and doesn't create temp files
     set -U fish_greeting ""  # Suppress greeting while we're at it
-    
+
     echo "✨ All permissions fixed!"
 end
 
@@ -583,7 +583,7 @@ if test -d /home/me/aesthetic-computer
         cd /home/me/aesthetic-computer/aesthetic-computer-vault
         log_info "Running devault.fish..."
         sudo fish devault.fish
-        
+
         # Load environment variables after initial vault setup
         if test -d /home/me/envs
             source /home/me/envs/load_envs.fish
@@ -597,14 +597,14 @@ if test -d /home/me/aesthetic-computer
         sudo fish devault.fish
         log_ok "Vault mounted."
     end
-    
+
     # Reload environment variables after vault is mounted
     if test -d /home/me/envs
         source /home/me/envs/load_envs.fish
         load_envs # Reload envs after vault mount
         log_ok "Environment variables reloaded after vault mount"
     end
-    
+
     # Setup SSH keys from vault (only if not already set up)
     set -l vault_ssh /home/me/aesthetic-computer/aesthetic-computer-vault/home/.ssh
     if test -d $vault_ssh
@@ -626,8 +626,44 @@ if test -d /home/me/aesthetic-computer
         else
             log_info "SSH keys already exist, skipping vault copy"
         end
+
+        # Always restore ~/.ssh/config from vault (even if keys already exist)
+        # so that 'Host aesthetic' / 'Host windows-host' / etc. edits to the
+        # tracked config propagate to running containers on subsequent starts.
+        if test -f $vault_ssh/config
+            cp -f $vault_ssh/config /home/me/.ssh/config 2>/dev/null
+            chmod 600 /home/me/.ssh/config 2>/dev/null
+        end
     end
-    
+
+    # Ensure SSH bridge to Windows host (ac-ssh-bridge) is running on the
+    # Fedora host's Docker daemon. The bridge is a --network=host alpine/socat
+    # container that listens on :2222 on the Fedora side and forwards to
+    # 172.19.64.1:22 (WSL2 NAT gateway to Windows sshd). This lets the
+    # devcontainer reach Windows via 'ssh aesthetic' (see ~/.ssh/config).
+    # See memory/ssh_bridge_to_windows.md for the full topology writeup.
+    if test -S /var/run/docker.sock
+        if sudo -n docker inspect -f '{{.State.Running}}' ac-ssh-bridge 2>/dev/null | string match -q true
+            log_info "SSH bridge to Windows (ac-ssh-bridge) already running"
+        else
+            # Probe for the Windows host via the default gateway of a host-networked
+            # helper container (that's Fedora's default route, which is the WSL2 gateway
+            # = the Windows host from Fedora's namespace). Skip bridge setup if we
+            # can't figure it out or if docker is unavailable.
+            set -l win_ip (sudo -n docker run --rm --network=host alpine sh -c 'ip route | awk "/default/ {print \$3}"' 2>/dev/null)
+            if test -n "$win_ip"
+                sudo -n docker rm -f ac-ssh-bridge 2>/dev/null
+                if sudo -n docker run -d --name ac-ssh-bridge --restart unless-stopped --network=host alpine/socat "TCP-LISTEN:2222,fork,reuseaddr" "TCP:$win_ip:22" >/dev/null 2>&1
+                    log_ok "SSH bridge to Windows started (ac-ssh-bridge -> $win_ip:22)"
+                else
+                    log_info "SSH bridge to Windows not started (docker run failed — Windows not reachable or non-standard topology)"
+                end
+            else
+                log_info "SSH bridge to Windows not started (could not detect Windows host IP)"
+            end
+        end
+    end
+
     # Setup Copilot CLI config from vault (if volume is empty but vault has backup)
     set -l vault_copilot /home/me/aesthetic-computer/aesthetic-computer-vault/home/.copilot
     if test -d $vault_copilot
@@ -914,7 +950,7 @@ log_info "Emacs daemon start deferred - will be started by 'aesthetic' function"
 if test -n "$HOST_IP"; or test (uname -s) != "Linux"
     # Kill any existing CDP tunnels
     pkill -f "ssh.*9333.*host.docker.internal" 2>/dev/null
-    
+
     # Create tunnel in background (port 9333 to avoid conflicts with svchost.exe on 9222)
     start_cdp_tunnel
     if test $status -eq 0

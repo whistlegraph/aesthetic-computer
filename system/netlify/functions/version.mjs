@@ -15,8 +15,18 @@ const TANGLED_REPO_URL =
 const RECENT_COMMIT_COUNT = 10;
 const HISTORY_SCAN_LIMIT = 50;
 
-// Get deployed commit from file written during build/deploy
-function getDeployedCommit() {
+// Get deployed commit from file written during build/deploy.
+// In Netlify Dev (local), the .commit-ref on disk is usually a stale leftover
+// from a previous deploy, so fall back to `git rev-parse HEAD` instead — the
+// running code *is* the current checkout, there's no real "deployment".
+async function getDeployedCommit(repoRoot) {
+  if (process.env.NETLIFY_DEV === "true" && repoRoot) {
+    try {
+      return await git(["rev-parse", "HEAD"], repoRoot);
+    } catch (e) {
+      // Fall through to the file-based lookup
+    }
+  }
   // Check multiple locations: Netlify writes to cwd/public/, lith deploy writes to system/public/
   const candidates = [
     path.join(process.cwd(), "public", ".commit-ref"),
@@ -143,7 +153,8 @@ async function getLatestFromTangledMirror(deployedCommit) {
 }
 
 export default async (request) => {
-  const deployedCommit = getDeployedCommit();
+  const repoRoot = getRepoRoot();
+  const deployedCommit = await getDeployedCommit(repoRoot);
   const url = new URL(request.url);
   const clientHash = url.searchParams.get("current");
 
@@ -165,7 +176,6 @@ export default async (request) => {
   }
 
   try {
-    const repoRoot = getRepoRoot();
     const {
       latestCommit,
       behindBy,

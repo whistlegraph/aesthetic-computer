@@ -71,7 +71,7 @@ import * as l5 from "./l5.mjs?v=20260330-runtime-support";
 
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 import { microtype, MatrixChunky8 } from "../disks/common/fonts.mjs";
-import { 
+import {
   calculateVHSEffects,
   getLeaderPixelColor,
   blendColorWithVHS
@@ -132,7 +132,7 @@ if (typeof globalThis !== "undefined") {
   if (typeof window !== "undefined" && window.acMatrixDebug === undefined) {
     window.acMatrixDebug = globalThis.acMatrixDebug;
   }
-  
+
   // 🖼️ Expose image cache utilities for debugging
   if (typeof window !== "undefined") {
     window.acClearImageCache = () => {
@@ -196,7 +196,7 @@ function isSandboxed() {
 function getSafeUrlParts() {
   try {
     const sandboxed = isSandboxed();
-    
+
     if (sandboxed) {
       return {
         protocol: "https:",
@@ -212,7 +212,7 @@ function getSafeUrlParts() {
       } else if (typeof window !== "undefined" && window.location) {
         loc = window.location;
       }
-      
+
       if (loc) {
         return {
           protocol: loc.protocol,
@@ -287,7 +287,7 @@ const typefaceCache = new Map();
 // This clears typeface instances, advance caches, and forces fonts.mjs to reload
 async function clearFontCaches() {
   console.log("🔤 Clearing font caches...");
-  
+
   // 1. Clear typeface instance cache
   const clearedTypefaces = typefaceCache.size;
   for (const [name, typeface] of typefaceCache) {
@@ -297,7 +297,7 @@ async function clearFontCaches() {
     }
   }
   typefaceCache.clear();
-  
+
   // 2. Clear IndexedDB glyph cache
   try {
     const { clearGlyphCache } = await import("./type.mjs");
@@ -308,7 +308,7 @@ async function clearFontCaches() {
   } catch (e) {
     console.log("🔤 IndexedDB cache clear skipped:", e.message);
   }
-  
+
   // 3. Force reimport of fonts.mjs by cache-busting
   try {
     const timestamp = Date.now();
@@ -317,7 +317,7 @@ async function clearFontCaches() {
   } catch (e) {
     console.log("🔤 fonts.mjs reload skipped:", e.message);
   }
-  
+
   console.log(`🔤 Cleared ${clearedTypefaces} typeface(s). Refresh page or load a piece to see changes.`);
   return true;
 }
@@ -325,9 +325,9 @@ async function clearFontCaches() {
 // Expose to window for dev console access
 if (typeof window !== "undefined") {
   window.clearFontCaches = clearFontCaches;
-  
+
   // 🔤 Auto-clear font caches in dev mode on page load
-  const isDevMode = location.host === "localhost:8888" || 
+  const isDevMode = location.host === "localhost:8888" ||
                     location.host === "aesthetic.local:8888" ||
                     location.host === "local.aesthetic.computer";
   if (isDevMode) {
@@ -399,7 +399,7 @@ function getTypefaceForMeasurement(typefaceName) {
 let _isRenderingShadow = false;
 
 function writeHudLabelText(
-  $, 
+  $,
   text,
   {
     x = 0,
@@ -415,7 +415,7 @@ function writeHudLabelText(
   const content = preserveColors ? text : stripColorCodes(text);
   const effectiveBounds = typeof bounds === "number" && bounds > 0 ? bounds : undefined;
   const shouldWrap = wordWrap === undefined ? effectiveBounds !== undefined : wordWrap;
-  
+
   $.write(
     content,
     { x, y },
@@ -430,14 +430,14 @@ function writeHudLabelText(
 
 // Helper function to determine if a color is dark (needs light shadow) or light (needs dark shadow)
 function isColorDark(colorStr) {
-  
+
   let rgb;
-  
+
   // Handle RGB comma-separated format like "0,0,0" or "255,0,0"
   if (typeof colorStr === 'string' && colorStr.includes(',')) {
     const parts = colorStr.split(',').map(n => parseInt(n.trim(), 10));
     rgb = parts;
-  } 
+  }
   // Handle named colors
   else if (typeof colorStr === 'string') {
     const lower = colorStr.toLowerCase();
@@ -453,14 +453,14 @@ function isColorDark(colorStr) {
   else if (Array.isArray(colorStr)) {
     rgb = colorStr;
   }
-  
+
   if (!rgb || rgb.length < 3) return false;
-  
+
   // Calculate relative luminance using the formula from WCAG
   // https://www.w3.org/TR/WCAG20/#relativeluminancedef
   const [r, g, b] = rgb;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
+
   // If luminance is less than 0.5, it's a dark color
   return luminance < 0.5;
 }
@@ -471,10 +471,10 @@ const DARK_SHADOW_RGB = "30,20,50"; // Dark purple-blue shadow for light mode
 
 function getShadowColorForText(colorStr) {
   if (!colorStr) return "64,64,64"; // Default to dark gray shadow
-  
+
   // Check if we're in light mode (need darker shadows for bright colors)
   const isLightMode = $commonApi && !$commonApi.dark;
-  
+
   let rgb;
   let normalizedCommand = null;
   if (typeof colorStr === "string") {
@@ -484,12 +484,12 @@ function getShadowColorForText(colorStr) {
       return isLightMode ? DARK_SHADOW_RGB : BRIGHT_SHADOW_RGB;
     }
   }
-  
+
   // Parse the color string to get RGB values
   if (typeof colorStr === 'string' && colorStr.includes(',')) {
     const parts = colorStr.split(',').map(n => parseInt(n.trim(), 10));
     rgb = parts;
-  } 
+  }
   else if (typeof colorStr === 'string') {
     const lower = colorStr.toLowerCase();
     const resolved = graph.findColor(lower);
@@ -503,25 +503,25 @@ function getShadowColorForText(colorStr) {
   else if (Array.isArray(colorStr)) {
     rgb = colorStr;
   }
-  
+
   if (!rgb || rgb.length < 3) return "64,64,64";
-  
+
   const [r, g, b] = rgb;
 
   // Handle very dark colors (near black) before channel-specific logic
   if (r <= 24 && g <= 24 && b <= 24) {
     return BRIGHT_SHADOW_RGB;
   }
-  
+
   // Calculate luminance to check if color is bright
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
-  
+
   // 🌞 LIGHT MODE: For bright colors on light background, use strong dark shadows
   if (isLightMode && luminance > 140) {
     // Use a consistent dark shadow for all bright colors in light mode
     return DARK_SHADOW_RGB;
   }
-  
+
   // 🎨 Special case: Detect RGB channel colors and return channel-tinted shadows
   // Red channel: R value, zero G and B
   if (r >= 0 && g === 0 && b === 0) {
@@ -529,14 +529,14 @@ function getShadowColorForText(colorStr) {
     const shadowR = Math.max(32, Math.round(r * 0.4)); // Keep at least 40% intensity
     return `${shadowR},0,0`; // Pure red shadow
   }
-  
+
   // Green channel: zero R, G value, zero B
   if (r === 0 && g >= 0 && b === 0) {
     // Green channel shadow - darker green
     const shadowG = Math.max(32, Math.round(g * 0.4));
     return `0,${shadowG},0`; // Pure green shadow
   }
-  
+
   // Blue channel: zero R, G value (75% of B), B value (deepskyblue pattern: 0, 191, 255)
   // Detects pattern where g = b * 0.75 (within rounding tolerance)
   if (r === 0 && b >= 0 && g >= 0) {
@@ -549,7 +549,7 @@ function getShadowColorForText(colorStr) {
       return `0,${shadowG},${shadowB}`; // Cyan-blue shadow
     }
   }
-  
+
   // Check if the color is dark - if so, lighten it for shadow
   if (isColorDark(colorStr)) {
     // Render near-white shadows under very dark text for readability
@@ -564,7 +564,7 @@ function getShadowColorForText(colorStr) {
     const shadowB = Math.round(b + (255 - b) * factor);
     return `${shadowR},${shadowG},${shadowB}`;
   }
-  
+
   // For light colors, darken by mixing with dark gray
   const factor = 0.6; // Mix 60% darker for shadow
   const shadowR = Math.round(r * (1 - factor));
@@ -576,32 +576,32 @@ function getShadowColorForText(colorStr) {
 // Helper function to replace color codes in text with shadow colors
 function replaceColorCodesWithShadows(text, defaultTextColor = "white") {
   if (!text || !textContainsColorCodes(text)) return text;
-  
+
   let currentTextColor = defaultTextColor;
-  
+
   COLOR_CODE_MATCH_REGEX.lastIndex = 0;
   return text.replace(COLOR_CODE_MATCH_REGEX, (match, colorStr) => {
     if (!colorStr) return match;
-    
+
     const normalized = colorStr.trim();
     const lower = normalized.toLowerCase();
-    
+
     if (lower === "reset" || lower === "default" || lower === "base") {
       currentTextColor = defaultTextColor;
     } else {
       currentTextColor = normalized;
     }
-    
+
     // Get the appropriate shadow color for this text color
     const shadowColor = getShadowColorForText(currentTextColor);
-    
+
     // Return the shadow color code
     return `\\${shadowColor}\\`;
   });
 }
 
 function drawHudLabelText(
-  $, 
+  $,
   text,
   {
     x = 0,
@@ -645,7 +645,7 @@ function drawHudLabelText(
     if (shouldPreserveColors && containsColorCodes) {
       // Replace color codes with appropriate shadow colors
       const shadowText = replaceColorCodesWithShadows(text, textColor);
-      
+
       writeHudLabelText($, shadowText, {
         x: x + shadowOffsetX,
         y: y + shadowOffsetY,
@@ -743,20 +743,20 @@ function getPersistentFirstLineColor() {
 // 🎮 Create gamepad helper API for easy access to per-gamepad events
 function createGamepadAPI(gamepadEvents) {
   if (!gamepadEvents) return [];
-  
+
   return gamepadEvents.map((events, index) => {
     if (!events || events.length === 0) return null;
-    
+
     return {
       index,
       events,
-      
+
       // Helper to check if button was pushed/released
       button(buttonIndex) {
-        const pushEvent = events.find(e => 
+        const pushEvent = events.find(e =>
           e.button === buttonIndex && e.action === 'push'
         );
-        const releaseEvent = events.find(e => 
+        const releaseEvent = events.find(e =>
           e.button === buttonIndex && e.action === 'release'
         );
         return {
@@ -765,18 +765,18 @@ function createGamepadAPI(gamepadEvents) {
           event: pushEvent || releaseEvent
         };
       },
-      
+
       // Helper to get axis value (returns most recent value in frame)
       axis(axisIndex) {
         const axisEvent = events.findLast(e => e.axis === axisIndex);
         return axisEvent ? axisEvent.value : 0;
       },
-      
+
       // Check if this gamepad is connected (has events)
       connected() {
         return events && events.length > 0;
       },
-      
+
       // Get the gamepad device ID/name
       get id() {
         return events[0]?.gamepadId || null;
@@ -1201,21 +1201,21 @@ function scaleOverlayPixels(srcPixels, srcWidth, srcHeight, dstWidth, dstHeight)
   const dstPixels = new Uint8ClampedArray(dstWidth * dstHeight * 4);
   const xRatio = srcWidth / dstWidth;
   const yRatio = srcHeight / dstHeight;
-  
+
   for (let y = 0; y < dstHeight; y++) {
     for (let x = 0; x < dstWidth; x++) {
       const srcX = Math.floor(x * xRatio);
       const srcY = Math.floor(y * yRatio);
       const srcIdx = (srcY * srcWidth + srcX) * 4;
       const dstIdx = (y * dstWidth + x) * 4;
-      
+
       dstPixels[dstIdx] = srcPixels[srcIdx];
       dstPixels[dstIdx + 1] = srcPixels[srcIdx + 1];
       dstPixels[dstIdx + 2] = srcPixels[srcIdx + 2];
       dstPixels[dstIdx + 3] = srcPixels[srcIdx + 3];
     }
   }
-  
+
   return dstPixels;
 }
 
@@ -1231,7 +1231,7 @@ function initDripTransition(width, height) {
   pieceTransition.maxGenerations = 30; // Faster!
   pieceTransition.phase = "loading";
   pieceTransition.targetOffset = Math.floor(height * 0.35); // ~35% during loading (less wait)
-  
+
   // Initialize per-column state - alternating directions like blinds
   for (let x = 0; x < width; x++) {
     pieceTransition.dripOffsets[x] = 0; // Start at 0 (overlay fully in place)
@@ -1258,12 +1258,12 @@ function transitionPieceLoaded() {
 function dripStep() {
   pieceTransition.generation++;
   const { dripOffsets, dripSpeeds, dripDirections, height, phase, targetOffset } = pieceTransition;
-  
+
   let allDone = true;
-  
+
   for (let x = 0; x < dripOffsets.length; x++) {
     const currentOffset = dripOffsets[x];
-    
+
     if (phase === "loading") {
       // Loading phase: slowly move toward target (~45%)
       if (currentOffset < targetOffset) {
@@ -1284,12 +1284,12 @@ function dripStep() {
       }
     }
   }
-  
+
   // During loading phase, never report "done" - wait for reveal
   if (phase === "loading") {
     return true; // Keep running
   }
-  
+
   return !allDone && pieceTransition.generation < pieceTransition.maxGenerations;
 }
 
@@ -1297,15 +1297,15 @@ function dripStep() {
 function applyDripOverlay(screenPixels) {
   const { overlayPixels, dripOffsets, dripDirections, width, height } = pieceTransition;
   if (!overlayPixels || !screenPixels || !dripOffsets || !dripDirections) return;
-  
+
   for (let x = 0; x < width; x++) {
     const offset = Math.max(0, dripOffsets[x] | 0);
     const direction = dripDirections[x];
-    
+
     if (offset >= height) continue; // Column fully slid off
-    
+
     const visibleRows = height - offset;
-    
+
     if (direction > 0) {
       // SLIDE DOWN - overlay moves down, reveals new frame from TOP
       for (let y = 0; y < visibleRows; y++) {
@@ -1313,7 +1313,7 @@ function applyDripOverlay(screenPixels) {
         const dstY = y + offset;     // Write shifted down
         const srcIdx = (srcY * width + x) * 4;
         const dstIdx = (dstY * width + x) * 4;
-        
+
         screenPixels[dstIdx] = overlayPixels[srcIdx];
         screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
         screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
@@ -1326,7 +1326,7 @@ function applyDripOverlay(screenPixels) {
         const dstY = y;              // Write shifted up
         const srcIdx = (srcY * width + x) * 4;
         const dstIdx = (dstY * width + x) * 4;
-        
+
         screenPixels[dstIdx] = overlayPixels[srcIdx];
         screenPixels[dstIdx + 1] = overlayPixels[srcIdx + 1];
         screenPixels[dstIdx + 2] = overlayPixels[srcIdx + 2];
@@ -1359,64 +1359,64 @@ function bubbleWrapStep(screenPixels) {
 function applyBubbleWrapOverlay(screenPixels) {
   const { overlayPixels, width, height, generation, maxGenerations } = pieceTransition;
   if (!overlayPixels || !screenPixels) return;
-  
+
   // Progress 0-1
   const progress = generation / maxGenerations;
   // Eased for smooth start/end
-  const eased = progress < 0.5 
-    ? 2 * progress * progress 
+  const eased = progress < 0.5
+    ? 2 * progress * progress
     : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-  
+
   // Time offset for animated noise
   const t = generation * 0.1;
-  
+
   // Displacement peaks mid-transition - CHUNKY
   const dispPeak = Math.sin(progress * Math.PI);
   const maxDisp = dispPeak * 16;
-  
+
   // Block size for chunky feel
   const bs = 4;
-  
+
   for (let y = 0; y < height; y++) {
     const rowOff = y * width;
     // Quantize y for chunky blocks
     const qy = (y / bs | 0) * bs;
-    
+
     for (let x = 0; x < width; x++) {
       const i = (rowOff + x) * 4;
       // Quantize x for chunky blocks
       const qx = (x / bs | 0) * bs;
-      
+
       // Organic noise at block resolution for chunky dissolve
       const n1 = Math.sin(qx * 0.05 + t) * Math.cos(qy * 0.04 + t * 0.7);
       const n2 = Math.sin(qx * 0.09 + qy * 0.07 - t * 0.6) * 0.5;
       const n3 = Math.cos(qx * 0.02 - qy * 0.03 + t * 0.4) * 0.4;
       const noise = (n1 + n2 + n3) * 0.5 + 0.5;
-      
+
       // Per-block blend with organic variation
       const threshold = eased * 1.5 - 0.25;
       const edge = 0.3;
       let blend = (threshold - noise * 0.85) / edge;
       blend = blend < 0 ? 0 : blend > 1 ? 1 : blend;
-      
+
       // SMOOTHIE: chaotic displacement that samples from BOTH frames
       const swirl = Math.sin(qx * 0.06 + qy * 0.04 + t * 1.5) * maxDisp;
       const churn = Math.cos(qx * 0.05 - qy * 0.07 + t * 1.2) * maxDisp;
-      
+
       // Sample old frame with swirling displacement
       let ox = (x + swirl) | 0;
       let oy = (y + churn) | 0;
       ox = ox < 0 ? 0 : ox >= width ? width - 1 : ox;
       oy = oy < 0 ? 0 : oy >= height ? height - 1 : oy;
       const oi = (oy * width + ox) * 4;
-      
+
       // Sample new frame with OPPOSITE swirl - mixing!
       let nx = (x - churn * 0.7) | 0;
       let ny = (y + swirl * 0.6) | 0;
       nx = nx < 0 ? 0 : nx >= width ? width - 1 : nx;
       ny = ny < 0 ? 0 : ny >= height ? height - 1 : ny;
       const ni = (ny * width + nx) * 4;
-      
+
       // Get swirled colors from both
       const oldR = overlayPixels[oi];
       const oldG = overlayPixels[oi + 1];
@@ -1424,13 +1424,13 @@ function applyBubbleWrapOverlay(screenPixels) {
       const newR = screenPixels[ni];
       const newG = screenPixels[ni + 1];
       const newB = screenPixels[ni + 2];
-      
+
       // Chunky biological blend - smoothie mix!
       const inv = 1 - blend;
       let r = oldR * inv + newR * blend;
       let g = oldG * inv + newG * blend;
       let b = oldB * inv + newB * blend;
-      
+
       // Extra chaos: sometimes swap channels mid-transition
       if (dispPeak > 0.5 && ((qx + qy + generation) & 7) === 0) {
         const tmp = r;
@@ -1438,7 +1438,7 @@ function applyBubbleWrapOverlay(screenPixels) {
         g = b;
         b = tmp;
       }
-      
+
       screenPixels[i] = r;
       screenPixels[i + 1] = g;
       screenPixels[i + 2] = b;
@@ -1506,25 +1506,25 @@ let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
 function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
   const currentTime = performance.now();
-  
+
   if (hudAnimationState.animating) {
     // Animation in progress: reverse direction and continue from current position
     const elapsed = currentTime - hudAnimationState.startTime;
     const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
-    
+
     // Flip the target state
     hudAnimationState.visible = !hudAnimationState.visible;
-    
+
     // Update the remembered state for when QR fullscreen is turned off
     if (hudAnimationState.qrFullscreen) {
       hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
     }
-    
+
     // Restart animation from current position by adjusting the start time
     // If we were 30% through a hide animation, start the show animation at 70% progress
     const remainingProgress = 1.0 - progress;
     hudAnimationState.startTime = currentTime - (remainingProgress * hudAnimationState.duration);
-    
+
     // Special double-tap: immediately show HUD if hiding
     if (isDoubleTap && !hudAnimationState.visible) {
       hudAnimationState.animating = false;
@@ -1532,13 +1532,13 @@ function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
       hudAnimationState.opacity = 1.0;
       hudAnimationState.slideOffset = { x: 0, y: 0 };
       hudAnimationState.qrSlideOffset = { x: 0, y: 0 };
-      
+
       // Update remembered state
       if (hudAnimationState.qrFullscreen) {
         hudAnimationState.cornersVisibleBeforeFullscreen = true;
       }
     }
-    
+
     if (!skipSound) {
       $commonApi.sound.synth({
         type: "sine",
@@ -1554,12 +1554,12 @@ function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
     hudAnimationState.animating = true;
     hudAnimationState.startTime = currentTime;
     hudAnimationState.visible = !hudAnimationState.visible;
-    
+
     // Update the remembered state for when QR fullscreen is turned off
     if (hudAnimationState.qrFullscreen) {
       hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
     }
-    
+
     if (!skipSound) {
       $commonApi.sound.synth({
         type: "sine",
@@ -1579,28 +1579,28 @@ function toggleQRFullscreen() {
     // Only allow QR fullscreen for KidLisp pieces that have QR codes
     const sourceCode = currentText || currentHUDTxt;
     console.log("🔍 [QR Toggle] sourceCode:", sourceCode, "currentPath:", currentPath);
-    
+
     // Use the centralized KidLisp detection from kidlisp.mjs
     const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
                           currentPath === "(...)" ||
                           (sourceCode && sourceCode.startsWith("$")) ||
                           (currentPath && currentPath.includes("/disks/$")) ||
                           (sourceCode && lisp.isKidlispSource(sourceCode));
-    
+
     console.log("🔍 [QR Toggle] isInlineKidlispPiece:", isInlineKidlispPiece);
-    
+
     if (!isInlineKidlispPiece) {
       console.log("⚠️ [QR Toggle] Not a KidLisp piece, skipping QR fullscreen toggle");
       return;
     }
-    
+
     if (!hudAnimationState.qrFullscreen) {
       // Turning ON fullscreen QR
       console.log("✅ [QR Toggle] Enabling fullscreen mode");
-      
+
       // Remember current corner visibility state
       hudAnimationState.cornersVisibleBeforeFullscreen = hudAnimationState.visible;
-      
+
       // If corners are currently visible, animate them out for fullscreen QR
       if (hudAnimationState.visible) {
         // Check if animation is already in progress
@@ -1617,20 +1617,20 @@ function toggleQRFullscreen() {
         }
         hudAnimationState.visible = false;
       }
-      
+
       hudAnimationState.qrFullscreen = true;
-      
+
       // Remove corner QR hitbox when going fullscreen
       send({ type: "button:hitbox:remove", content: "qr-corner" });
-      
+
     } else {
       // Turning OFF fullscreen QR
       console.log("✅ [QR Toggle] Disabling fullscreen mode");
       hudAnimationState.qrFullscreen = false;
-      
+
       // Remove fullscreen QR hitbox
       send({ type: "button:hitbox:remove", content: "qr-fullscreen" });
-      
+
       // Restore corner visibility to what it was before fullscreen QR was activated
       if (hudAnimationState.cornersVisibleBeforeFullscreen && !hudAnimationState.visible) {
         // Check if animation is already in progress
@@ -1648,7 +1648,7 @@ function toggleQRFullscreen() {
         hudAnimationState.visible = true;
       }
     }
-    
+
     // Play sound feedback
     if ($commonApi?.sound?.synth) {
       $commonApi.sound.synth({
@@ -1699,9 +1699,9 @@ let frameBasedMonitoring = false;
 function enableFrameBasedMonitoring() {
   if (frameBasedMonitoring) return;
   frameBasedMonitoring = true;
-  
+
   let lastDimensions = null;
-  
+
   function checkPaintingChanges() {
     if ($commonApi.system?.painting && !$commonApi._processingBroadcast) {
       const currentHash = generatePaintingHash($commonApi.system.painting);
@@ -1709,17 +1709,17 @@ function enableFrameBasedMonitoring() {
         width: $commonApi.system.painting.width,
         height: $commonApi.system.painting.height
       };
-      
+
       // Add detailed logging for nopaint interference detection
       const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
       const nopaintBuffer = $commonApi.system?.nopaint?.buffer;
-      
+
       if (lastPaintingHash !== null && currentHash !== lastPaintingHash) {
         // Check if this is a dimension change (resize operation)
-        const isDimensionChange = lastDimensions && 
-          (lastDimensions.width !== currentDimensions.width || 
+        const isDimensionChange = lastDimensions &&
+          (lastDimensions.width !== currentDimensions.width ||
            lastDimensions.height !== currentDimensions.height);
-        
+
         // Skip broadcasting during active nopaint operations to prevent interference
         if (isNopaintActive) {
           console.log(`🚫 SKIPPING broadcast during nopaint operation to prevent live preview interference`);
@@ -1731,16 +1731,16 @@ function enableFrameBasedMonitoring() {
           });
         }
       }
-      
+
       lastPaintingHash = currentHash;
       lastDimensions = currentDimensions;
     }
-    
+
     if (frameBasedMonitoring) {
       requestAnimationFrame(checkPaintingChanges);
     }
   }
-  
+
   requestAnimationFrame(checkPaintingChanges);
 }
 
@@ -1800,7 +1800,7 @@ function setupRemoteLogging() {
     warn: console.warn.bind(console),
     error: console.error.bind(console),
   };
-  
+
   function sendRemoteLog(level, args) {
     if (!devIdentity || !remoteLogSocket?.connected) {
       // Queue logs until connected
@@ -1809,7 +1809,7 @@ function setupRemoteLogging() {
       }
       return;
     }
-    
+
     try {
       const logData = {
         level,
@@ -1823,7 +1823,7 @@ function setupRemoteLogging() {
       // Silently fail to avoid infinite loop
     }
   }
-  
+
   function serializeArgs(args) {
     return args.map(arg => {
       if (arg === null) return 'null';
@@ -1838,29 +1838,29 @@ function setupRemoteLogging() {
       }
     });
   }
-  
+
   // Intercept console methods
   console.log = (...args) => {
     originalConsole.log(...args);
     sendRemoteLog('log', args);
   };
-  
+
   console.warn = (...args) => {
     originalConsole.warn(...args);
     sendRemoteLog('warn', args);
   };
-  
+
   console.error = (...args) => {
     originalConsole.error(...args);
     sendRemoteLog('error', args);
   };
-  
+
   // Capture unhandled errors (only in main thread with window)
   if (typeof window !== 'undefined') {
     window.addEventListener('error', (event) => {
       sendRemoteLog('error', [`Uncaught: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`]);
     });
-    
+
     window.addEventListener('unhandledrejection', (event) => {
       sendRemoteLog('error', [`Unhandled Promise: ${event.reason}`]);
     });
@@ -1869,7 +1869,7 @@ function setupRemoteLogging() {
 
 function flushRemoteLogQueue() {
   if (!devIdentity || !remoteLogSocket?.connected) return;
-  
+
   while (remoteLogQueue.length > 0) {
     const log = remoteLogQueue.shift();
     try {
@@ -1913,13 +1913,13 @@ function isHUDLabelCacheDisabled() {
 // Make cache globally accessible for character loading system
 if (typeof window !== 'undefined') {
   window.qrOverlayCache = qrOverlayCache;
-  
+
   // Clear caches if they are disabled from BIOS
   if (isQROverlayCacheDisabled()) {
     qrOverlayCache.clear();
     // console.log("🚫 QR overlay cache disabled and cleared from BIOS");
   }
-  
+
   // if (isHUDLabelCacheDisabled()) {
   //   console.log("🚫 HUD label cache disabled from BIOS");
   // }
@@ -2043,30 +2043,30 @@ if (typeof window !== "undefined") {
 const imageCache = {
   // In-memory cache for fast access (RAM)
   memory: new Map(), // url -> ImageBitmap
-  
+
   // IndexedDB persistence reference (set during boot)
   store: null,
-  
+
   // Initialize with store reference for persistent caching
   init(storeRef) {
     this.store = storeRef;
   },
-  
+
   // Get from memory cache
   get(url) {
     return this.memory.get(url);
   },
-  
+
   // Check if image is cached in memory
   has(url) {
     return this.memory.has(url);
   },
-  
+
   // Save to both memory and persistent storage
   async set(url, imageBitmap) {
     // Save to memory
     this.memory.set(url, imageBitmap);
-    
+
     // Save to IndexedDB for persistence across refreshes
     if (this.store && imageBitmap) {
       try {
@@ -2106,11 +2106,11 @@ const imageCache = {
       }
     }
   },
-  
+
   // Load from persistent storage (IndexedDB)
   async loadFromPersistent(url) {
     if (!this.store) return null;
-    
+
     try {
       const data = await this.store.retrieve(`image-cache:${url}`, "local:db");
       if (data && data.data && data.width && data.height) {
@@ -2120,13 +2120,13 @@ const imageCache = {
           data.width,
           data.height
         );
-        
+
         // Convert ImageData back to ImageBitmap
         const imageBitmap = await createImageBitmap(imageData);
-        
+
         // Cache in memory for future access
         this.memory.set(url, imageBitmap);
-        
+
         return imageBitmap;
       }
     } catch (error) {
@@ -2134,12 +2134,12 @@ const imageCache = {
     }
     return null;
   },
-  
+
   // Clear all caches
   clear() {
     this.memory.clear();
   },
-  
+
   // Check if URL is from aesthetic.computer media backend (safe to cache)
   isCacheable(url) {
     if (!url) return false;
@@ -2383,21 +2383,21 @@ class Recorder {
       this.tapeFrameTarget = durationOrFrames;
       this.tapeTimerStart = null;
       this.tapeTimerDuration = null;
-      
+
       log.tape.log(`Starting frame-based recording: ${durationOrFrames} frames`);
-      
+
       // Set a longer failsafe for frame-based recording (frames could take a while)
       if (this.failsafeTimeout) {
         clearTimeout(this.failsafeTimeout);
       }
-      
+
       this.failsafeTimeout = setTimeout(() => {
         log.tape.warn("Frame-based failsafe triggered! Recording may have stalled.");
         this.tapeProgress = 0;
         this.tapeFrameMode = false;
         this.tapeFrameStart = 0;
         this.tapeFrameTarget = 0;
-        
+
         if (typeof this.cut === 'function') {
           this.cut(() => {
             $commonApi.jump("video");
@@ -2413,12 +2413,12 @@ class Recorder {
       this.tapeFrameMode = false;
       this.tapeTimerStart = time;
       this.tapeTimerDuration = durationOrFrames;
-      
+
       // Add a failsafe timer as backup in case tapeTimerStep stops being called
       if (this.failsafeTimeout) {
         clearTimeout(this.failsafeTimeout);
       }
-      
+
       // Set a failsafe that will trigger cut if the normal timer fails
       this.failsafeTimeout = setTimeout(() => {
         log.tape.warn("Failsafe timer triggered! Normal timer may have failed.");
@@ -2426,7 +2426,7 @@ class Recorder {
           this.tapeProgress = 0;
           this.tapeTimerStart = null;
           this.tapeTimerDuration = null;
-          
+
           if (typeof this.cut === 'function') {
             this.cut(() => {
               $commonApi.jump("video");
@@ -2445,13 +2445,13 @@ class Recorder {
     if (this.tapeFrameMode) {
       // Frame-based recording
       if (!this.tapeFrameTarget) return;
-      
+
       const currentFrame = Number($commonApi.paintCount || 0n);
       const framesPassed = currentFrame - this.tapeFrameStart;
-      
+
       this.tapeProgress = framesPassed / this.tapeFrameTarget;
       needsPaint();
-      
+
       // Check if we've reached or exceeded the target frame count
       if (framesPassed >= this.tapeFrameTarget) {
         // Clear failsafe since normal timer completed
@@ -2459,14 +2459,14 @@ class Recorder {
           clearTimeout(this.failsafeTimeout);
           this.failsafeTimeout = null;
         }
-        
+
         this.tapeProgress = 0;
         this.tapeFrameMode = false;
         this.tapeFrameStart = 0;
         this.tapeFrameTarget = 0;
-        
+
         log.tape.success(`Frame-based recording complete: ${framesPassed} frames`);
-        
+
         // Add safety check for callback existence
         if (typeof this.cut === 'function') {
           this.cut(() => {
@@ -2480,14 +2480,14 @@ class Recorder {
     } else {
       // Time-based recording (existing behavior)
       if (!this.tapeTimerDuration) return;
-      
+
       // Enhanced timing with race condition protection
       this.tapeProgress = (time - this.tapeTimerStart) / this.tapeTimerDuration;
       needsPaint();
-      
+
       const secondsOver =
         this.tapeProgress * this.tapeTimerDuration - this.tapeTimerDuration;
-      
+
       // Run for an extra 150 milliseconds.
       if (this.tapeProgress >= 1 && secondsOver > 0.15) {
         // Clear failsafe since normal timer completed
@@ -2495,11 +2495,11 @@ class Recorder {
           clearTimeout(this.failsafeTimeout);
           this.failsafeTimeout = null;
         }
-        
+
         this.tapeProgress = 0;
         this.tapeTimerStart = null;
         this.tapeTimerDuration = null;
-        
+
         // Add safety check for callback existence
         if (typeof this.cut === 'function') {
           this.cut(() => {
@@ -2620,50 +2620,45 @@ let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
 
 // 🤖 Robo Class - For sending synthetic events through the act system
+// 🤖 Robo: synthetic pen/event dispatcher decoupled from the hardware pen.
+// Maintains its own virtual pen state so the real mouse/touch doesn't
+// interfere with robot-driven gestures.
 class Robo {
   constructor() {
     this.currentAPI = null;
+    // Virtual pen state — independent of $api.pen (which tracks the real mouse/touch).
+    this.pen = { x: 0, y: 0, px: 0, py: 0, pressure: 0.5, delta: { x: 0, y: 0 }, device: "robot" };
   }
 
-  // Set the current API context (called from makeFrame)
   setAPI(api) {
     this.currentAPI = api;
   }
 
-  // Send synthetic events directly to the nopaint system
+  // Send a synthetic event. The event payload carries its own coordinates —
+  // downstream handlers (nopaint updateBrush etc.) should prefer these over
+  // $api.pen for events with device === "robot".
   sendEvent(eventType, coordinates = {}) {
     if (!this.currentAPI) {
       console.warn("🤖 Robo: No API context available");
       return;
     }
 
-    // Ensure pen object exists and initialize if needed
-    if (!this.currentAPI.pen) {
-      this.currentAPI.pen = { x: 0, y: 0, px: 0, py: 0, pressure: 0.5, device: "robot", delta: { x: 0, y: 0 } };
-      console.log("🤖 Robo: Initialized pen object for robot events");
-    }
-
-    // Update the pen object with robot event data including pressure
     const x = coordinates.x ?? 0;
     const y = coordinates.y ?? 0;
-    const px = coordinates.px ?? coordinates.x ?? 0;
-    const py = coordinates.py ?? coordinates.y ?? 0;
+    const px = coordinates.px ?? this.pen.x ?? 0;
+    const py = coordinates.py ?? this.pen.y ?? 0;
     const pressure = coordinates.pressure ?? 0.5;
 
-    this.currentAPI.pen.x = x;
-    this.currentAPI.pen.y = y;
-    this.currentAPI.pen.px = px;
-    this.currentAPI.pen.py = py;
-    this.currentAPI.pen.pressure = pressure;
-    this.currentAPI.pen.device = "robot";
-    
-    // Update delta if it exists
-    if (this.currentAPI.pen.delta) {
-      this.currentAPI.pen.delta.x = x - px;
-      this.currentAPI.pen.delta.y = y - py;
-    }
+    // Update the robo's own virtual pen (NOT $api.pen).
+    this.pen.px = this.pen.x;
+    this.pen.py = this.pen.y;
+    this.pen.x = x;
+    this.pen.y = y;
+    this.pen.pressure = pressure;
+    this.pen.delta.x = x - px;
+    this.pen.delta.y = y - py;
+    this.pen.device = "robot";
 
-    // Create event payload that mirrors real input events
     const eventPayload = {
       device: "robot",
       type: eventType,
@@ -2672,37 +2667,20 @@ class Robo {
       px,
       py,
       pressure,
-      delta: {
-        x: x - px,
-        y: y - py,
-      },
+      delta: { x: x - px, y: y - py },
     };
 
     try {
       this.currentAPI.act(eventType, eventPayload);
-      console.log(`🤖 Robo: Dispatched ${eventType} via act() at (${x}, ${y})`);
     } catch (error) {
       console.error("🤖 Robo: Error dispatching event:", error);
     }
   }
 
-  // Convenience methods for common events
-  touch(x, y) {
-    this.sendEvent("touch:1", { x, y, pressure: 0.5 });
-  }
-
-  draw(x, y, px, py) {
-    this.sendEvent("draw:1", { x, y, px, py, pressure: 0.5 });
-  }
-
-  lift(x, y) {
-    this.sendEvent("lift:1", { x, y, pressure: 0.5 });
-  }
-
-  // Generic method for any event type
-  act(eventType, coordinates) {
-    this.sendEvent(eventType, coordinates);
-  }
+  touch(x, y) { this.sendEvent("touch:1", { x, y, pressure: 0.5 }); }
+  draw(x, y, px, py) { this.sendEvent("draw:1", { x, y, px, py, pressure: 0.5 }); }
+  lift(x, y) { this.sendEvent("lift:1", { x, y, pressure: 0.5 }); }
+  act(eventType, coordinates) { this.sendEvent(eventType, coordinates); }
 }
 
 // 🎹 Persistent DAW state - survives frame updates since $commonApi.sound gets recreated each frame
@@ -2819,7 +2797,7 @@ const $commonApi = {
       glazeAfterReframe = { type: "glaze", content };
     }
   },
-  
+
   // Toggle HUD visibility (same as Tab key functionality)
   // skipSound: true for KidLisp pieces to avoid beep/bop sounds on tap
   toggleHUD: function (isDoubleTap = false, skipSound = false) {
@@ -2913,69 +2891,69 @@ const $commonApi = {
     };
     return (cb) => (callback = cb);
   },
-  
+
   // 🎄 Preload piece modules for merry pipelines (prevents network latency during fast cycling)
   preloadPieces: async function preloadPieces(pieceNames) {
     if (!pieceNames || pieceNames.length === 0) return;
-    
+
     const baseUrl = getBuiltInPieceBaseUrl();
-    
+
     const fetchPromises = pieceNames.map(async (piece) => {
       // Skip if already cached
       if (pieceCodeCache.has(piece)) {
         console.log(`🎄 Piece already cached: ${piece}`);
         return;
       }
-      
+
       try {
         // Try .mjs first, then .lua, then .lisp
         const mjsUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.mjs?v=${Date.now()}`;
         let response = await fetch(mjsUrl, { cache: 'no-store' });
-        
+
         if (response.ok) {
           const code = await response.text();
           pieceCodeCache.set(piece, { code, type: 'mjs' });
           console.log(`🎄 Preloaded mjs: ${piece}`);
           return;
         }
-        
+
         // Try .lua
         const luaUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.lua?v=${Date.now()}`;
         response = await fetch(luaUrl, { cache: 'no-store' });
-        
+
         if (response.ok) {
           const code = await response.text();
           pieceCodeCache.set(piece, { code, type: 'lua' });
           console.log(`🎄 Preloaded lua: ${piece}`);
           return;
         }
-        
+
         // Try .lisp
         const lispUrl = `${baseUrl}/aesthetic.computer/disks/${piece}.lisp?v=${Date.now()}`;
         response = await fetch(lispUrl, { cache: 'no-store' });
-        
+
         if (response.ok) {
           const code = await response.text();
           pieceCodeCache.set(piece, { code, type: 'lisp' });
           console.log(`🎄 Preloaded lisp: ${piece}`);
           return;
         }
-        
+
         console.warn(`🎄 Could not preload piece: ${piece}`);
       } catch (err) {
         console.warn(`🎄 Error preloading ${piece}:`, err);
       }
     });
-    
+
     await Promise.all(fetchPromises);
     console.log(`🎄 Preloaded ${pieceCodeCache.size} pieces`);
   },
-  
+
   // Get cached piece code (returns undefined if not cached)
   getCachedPieceCode: function (pieceName) {
     return pieceCodeCache.get(pieceName);
   },
-  
+
   canShare: false, // Whether navigator.share is enabled for mobile devices.
   leaving: isLeaving,
   handle: () => {
@@ -3111,7 +3089,7 @@ const $commonApi = {
   mug: async (picture, color = "white", quantity = 1, progress) => {
     console.log("☕ Mug:", picture, "Color:", color, "Quantity:", quantity);
     let pixels;
-    
+
     // Check if picture is a code string (e.g., "abc" or "#abc")
     if (typeof picture === "string") {
       const code = picture.startsWith("#") ? picture.slice(1) : picture;
@@ -3270,10 +3248,10 @@ const $commonApi = {
       return {
         by: async function (handle = "anon", byOpts) {
           const extension = opts?.record ? "zip" : "png";
-          
+
           // Use the same origin-aware URL construction logic as module loading
           const { protocol, hostname } = getSafeUrlParts();
-          
+
           let baseUrl;
           // Check if we're in a development environment (localhost with port)
           const isDevelopment = hostname === 'localhost' && typeof location !== 'undefined' && location.port;
@@ -3284,10 +3262,10 @@ const $commonApi = {
             // Use the production server for sandboxed iframes or production
             baseUrl = `https://aesthetic.computer`;
           }
-          
+
           // Detect timestamp format (YYYY.M.D.H.M.S.mmm or YYYY.MM.DD.HH.MM.SS.mmm)
           const isTimestamp = code.match(/^\d{4}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,3}$/);
-          
+
           let mediaUrl;
           if (isTimestamp && handle && handle !== "anon") {
             // Legacy user painting with timestamp - use old format
@@ -3297,7 +3275,7 @@ const $commonApi = {
             // 3-letter code or anonymous painting - use new endpoint
             mediaUrl = `${baseUrl}/media/paintings/${code}.${extension}`;
           }
-          
+
           return $commonApi.net.preload(
             mediaUrl,
             true,
@@ -3385,20 +3363,20 @@ const $commonApi = {
       currentHUDTxt = text;
       // Use plainTextOverride if provided, otherwise strip color codes from text
       currentHUDPlainTxt = plainTextOverride || stripColorCodes(text);  // Store plain text version
-      
+
       if (!color) {
         currentHUDTextColor = currentHUDTextColor || graph.findColor(color);
       } else {
         currentHUDTextColor = graph.findColor(color);
       }
       currentHUDOffset = offset;
-      
+
       // Calculate and store dimensions for animation when directly called
       // (This ensures kidlisp pieces have proper animation geometry)
       if (currentHUDTxt && currentHUDTxt.length > 0) {
         // Use plain text (without color codes) for dimension calculations
         const textForMeasurement = currentHUDPlainTxt || currentHUDTxt;
-        
+
         // Detect if this is a KidLisp piece for more generous width allowance
         const sourceCode = currentText || currentHUDTxt;
         const isKidlispPiece = (currentPath && lisp?.isKidlispSource && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
@@ -3406,10 +3384,10 @@ const $commonApi = {
                              (sourceCode && sourceCode.startsWith("$")) ||
                              (currentPath && currentPath.includes("/disks/$")) ||
                              (sourceCode && lisp?.isKidlispSource && lisp.isKidlispSource(sourceCode));
-        
+
         // Use full screen width for text wrapping
         const maxWidth = cachedAPI.screen.width;
-          
+
         const labelBounds = cachedAPI.text.box(
           textForMeasurement,
           undefined,
@@ -3420,7 +3398,7 @@ const $commonApi = {
           // For now, use default font to maintain consistency with current behavior
           undefined // Use default font - will need to be updated when useTinyHudLabel is globally accessible
         );
-        
+
         // Use the actual computed width from text.box instead of character count
         const measuredWidth = labelBounds.box.width;
   const fallbackShareWidth = (currentHUDLabelBlockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH) * "share ".length;
@@ -3453,8 +3431,8 @@ const $commonApi = {
       currentHUDSuperscript = text || null;
     },
     currentStatusColor: () => currentHUDStatusColor,
-    currentLabel: () => ({ 
-      text: currentHUDTxt, 
+    currentLabel: () => ({
+      text: currentHUDTxt,
       plainText: currentHUDPlainTxt,  // Include plain text version
       btn: currentHUDButton,
       qrSize: currentHUDQRCells?.length || hudAnimationState?.qrSize || 0,
@@ -3691,12 +3669,14 @@ const $commonApi = {
 
         return { x, y };
       },
-      updateBrush: ({ pen, system }, act) => {
+      updateBrush: ({ pen, event, system }, act) => {
+        // Prefer the event's coordinates over $api.pen for robot-driven events
+        // so the synthetic pen path doesn't get corrupted by hardware mouse moves.
+        const source = (event && event.device === "robot") ? event : pen;
         // TODO: Use `pointToPainting` above. 23.10.11.08.49
-        // let { x, y } = system.nopaint.pointToPainting({ system });
         const zoom = system.nopaint.zoomLevel;
-        const x = floor(((pen?.x || 0) - system.nopaint.translation.x) / zoom);
-        const y = floor(((pen?.y || 0) - system.nopaint.translation.y) / zoom);
+        const x = floor(((source?.x || 0) - system.nopaint.translation.x) / zoom);
+        const y = floor(((source?.y || 0) - system.nopaint.translation.y) / zoom);
 
         if (act === "touch") {
           system.nopaint.startDrag = { x, y };
@@ -3714,8 +3694,8 @@ const $commonApi = {
           y - system.nopaint.startDrag.y,
         );
 
-        system.nopaint.brush = { x, y, dragBox, pressure: pen?.pressure || 0.5 };
-        
+        system.nopaint.brush = { x, y, dragBox, pressure: source?.pressure || 0.5 };
+
         // Call needsPaint during any pen movement to ensure continuous painting and HUD updates
         $commonApi.needsPaint();
       },
@@ -3759,10 +3739,10 @@ const $commonApi = {
 
           wipe(theme[dark ? "dark" : "light"].wipeBG)
             .paste(system.painting, x, y, system.nopaint.zoomLevel);
-            
+
           // Normal alpha blending for overlay buffer
           paste(system.nopaint.buffer, x, y, system.nopaint.zoomLevel);
-          
+
           ink(128)
             .box(
               x,
@@ -3777,32 +3757,32 @@ const $commonApi = {
         /*
         if (system.nopaint.brush?.dragBox) {
           const dragBox = system.nopaint.brush.dragBox;
-          
+
           // Apply zoom and translation to the dragBox coordinates
           const overlayX = (dragBox.x * system.nopaint.zoomLevel) + x;
           const overlayY = (dragBox.y * system.nopaint.zoomLevel) + y;
           const overlayW = dragBox.w * system.nopaint.zoomLevel;
           const overlayH = dragBox.h * system.nopaint.zoomLevel;
-          
+
           // Draw the dragBox outline in bright green with some transparency
           ink(0, 255, 0, 180).box(overlayX, overlayY, overlayW, overlayH, "outline");
-          
+
           // Draw corner indicators
           const cornerSize = 4;
           ink(0, 255, 0, 220);
           // Top-left corner
           ink().box(overlayX - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
-          // Top-right corner  
+          // Top-right corner
           ink().box(overlayX + overlayW - cornerSize/2, overlayY - cornerSize/2, cornerSize, cornerSize);
           // Bottom-left corner
           ink().box(overlayX - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
           // Bottom-right corner
           ink().box(overlayX + overlayW - cornerSize/2, overlayY + overlayH - cornerSize/2, cornerSize, cornerSize);
-          
+
           // Display coordinate info
           const coordText = `${dragBox.x},${dragBox.y} ${dragBox.w}x${dragBox.h}`;
-          ink(0, 255, 0, 200).write(coordText, { 
-            x: overlayX, 
+          ink(0, 255, 0, 200).write(coordText, {
+            x: overlayX,
             y: Math.max(overlayY - 15, 5) // Position above the box, but not off screen
           }, undefined, undefined, false, "MatrixChunky8");
         }
@@ -3837,17 +3817,17 @@ const $commonApi = {
         system.painting = painting(res.w, res.h, ($) => {
           $.wipe(theme[dark ? "dark" : "light"].wipeNum);
         });
-        
+
         // Store only the pixel data, not the full painting object with functions
         store["painting"] = {
           width: system.painting.width,
           height: system.painting.height,
           pixels: system.painting.pixels,
         };
-        
+
         // Store the new painting BEFORE broadcasting
         store.persist("painting", "local:db");
-        
+
         // 🎨 Broadcast painting cleared to other tabs
         $commonApi.broadcastPaintingUpdate("cleared", {
           source: "clear",
@@ -3874,22 +3854,22 @@ const $commonApi = {
         message = "(replace)",
       ) => {
         system.painting = painting; // Update references.
-        
+
         // Store only the pixel data, not the full painting object
         store["painting"] = {
           width: system.painting.width,
           height: system.painting.height,
           pixels: system.painting.pixels,
         };
-        
+
         store.persist("painting", "local:db"); // Persist to storage.
-        
+
         // 🎨 Broadcast painting replacement to other tabs
         $commonApi.broadcastPaintingUpdate("replaced", {
           source: "replace",
           message: message
         });
-        
+
         store["painting:resolution-lock"] = true;
         store.persist("painting:resolution-lock", "local:db");
         system.nopaint.resetTransform({ system, screen }); // Reset transform.
@@ -3984,28 +3964,28 @@ const $commonApi = {
       send({ type: "webgpu-command", content: { type: "disable" } });
     },
     clear: (r = 0, g = 0, b = 0, a = 255) => {
-      send({ 
-        type: "webgpu-command", 
-        content: { 
-          type: "clear", 
-          color: [r, g, b, a] 
-        } 
+      send({
+        type: "webgpu-command",
+        content: {
+          type: "clear",
+          color: [r, g, b, a]
+        }
       });
     },
     line: (x1, y1, x2, y2, r = 255, g = 255, b = 255, a = 255) => {
-      send({ 
-        type: "webgpu-command", 
-        content: { 
-          type: "line", 
+      send({
+        type: "webgpu-command",
+        content: {
+          type: "line",
           x1, y1, x2, y2,
-          color: [r, g, b, a] 
-        } 
+          color: [r, g, b, a]
+        }
       });
     },
     render: () => {
-      send({ 
-        type: "webgpu-command", 
-        content: { type: "render" } 
+      send({
+        type: "webgpu-command",
+        content: { type: "render" }
       });
     },
     // 📊 Toggle performance overlay
@@ -4040,7 +4020,7 @@ const $commonApi = {
     // Get the pixel width of a string of characters.
     width: (text, fontName) => {
       if (Array.isArray(text)) text = text.join(" ");
-      
+
       // Use specified font or fall back to current typeface
       const useTypeface = getTypefaceForMeasurement(fontName) || tf;
       if (!useTypeface) {
@@ -4499,7 +4479,7 @@ const $commonApi = {
         // Old API: filename, content
         const filename = levelOrFilename;
         const content = args[0];
-        
+
         // Send to session server if socket is available (removed verbose console log)
         if (socket && socket.send) {
           socket.send("dev-log", {
@@ -4512,7 +4492,7 @@ const $commonApi = {
       } else {
         // New API: level, ...args
         const level = levelOrFilename;
-        
+
         // Serialize objects and create single-line message
         const serializedArgs = args.map(arg => {
           if (typeof arg === 'object' && arg !== null) {
@@ -4524,9 +4504,9 @@ const $commonApi = {
           }
           return String(arg);
         });
-        
+
         const message = serializedArgs.join(" ");
-        
+
         // Always log locally first
         if (level === "warn") {
           console.warn(...args);
@@ -4535,7 +4515,7 @@ const $commonApi = {
         } else {
           console.log(...args);
         }
-        
+
         // Send to session server if socket is available
         if (socket && socket.send) {
           socket.send("dev-log", {
@@ -4554,7 +4534,7 @@ const $commonApi = {
       $commonApi.system.nopaint.needsPresent = true;
     }
   }, // TODO: Does "paint" needs this?
-  
+
   store,
   pieceCount: -1, // Incs to 0 when the first piece (usually the prompt) loads.
   //                 Increments by 1 each time a new piece loads.
@@ -4621,7 +4601,7 @@ channel.onmessage = (event) => {
 
 async function processMessage(msg) {
   if (logs.messaging) console.log(`🗼 Processing broadcast: ${msg}`);
-  
+
   // 🎨 Handle painting updates (both new JSON format and legacy string format)
   if (msg.startsWith("painting:") || (msg.startsWith("{") && msg.includes('"type":"painting:updated"'))) {
     const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
@@ -4634,7 +4614,7 @@ async function processMessage(msg) {
     await handlePaintingUpdate(msg);
     return;
   }
-  
+
   if (msg.startsWith("handle:updated")) {
     // 👰‍♀️ Update the user handle if it changed.
     const newHandle = msg.split(":").pop();
@@ -4665,35 +4645,35 @@ async function handlePaintingUpdate(msg) {
   try {
     // Parse the JSON message
     const data = JSON.parse(msg);
-    
+
     if (data.type !== "painting:updated") return;
-    
+
     // Skip if this message is from the current tab
     if (data.tabId === $commonApi._tabId) {
       console.log(`🎨 SKIPPED: Own message (${data.action})`);
       return;
     }
-    
+
     if (!$commonApi.system) {
       console.log(`🎨 SKIPPED: No system available`);
       return;
     }
 
     // 📐 Handle resize events specifically
-    if ((data.action === "resized" && data.metadata?.source === "screen_resize") || 
+    if ((data.action === "resized" && data.metadata?.source === "screen_resize") ||
         (data.action === "updated" && (data.source === "resize" || data.source === "crop"))) {
       const width = data.width || data.metadata?.width;
       const height = data.height || data.metadata?.height;
       console.log(`📐 DIMENSION CHANGE EVENT: ${width}x${height} (source: ${data.source || data.metadata?.source})`);
-      
+
       // For dimension change events, we need to wait for a "storage_complete" event
       $commonApi._processingResize = true;
       $commonApi._awaitingResizeStorage = { width, height, timestamp: data.timestamp };
-      
+
       console.log(`📐 Waiting for storage completion for ${data.source} ${width}x${height}...`);
       return; // Don't continue with regular painting sync for dimension change events
     }
-    
+
     // 💾 Handle storage completion events
     if (data.action === "storage_complete" && (data.source === "resize" || data.source === "crop")) {
       const awaitingResize = $commonApi._awaitingResizeStorage;
@@ -4703,10 +4683,10 @@ async function handlePaintingUpdate(msg) {
         awaitingResize: awaitingResize,
         timestampMatch: awaitingResize && data.timestamp === awaitingResize.timestamp
       });
-      
+
       if (awaitingResize && data.timestamp === awaitingResize.timestamp) {
         console.log(`📐 Storage completed for ${data.source} ${awaitingResize.width}x${awaitingResize.height}, applying...`);
-        
+
         try {
           const storedPainting = await store.retrieve("painting", "local:db");
           if (storedPainting) {
@@ -4716,36 +4696,36 @@ async function handlePaintingUpdate(msg) {
               height: storedPainting.height,
               pixels: new Uint8ClampedArray(storedPainting.pixels)
             };
-            
-            // Store the painting data  
+
+            // Store the painting data
             store["painting"] = {
               width: storedPainting.width,
               height: storedPainting.height,
               pixels: storedPainting.pixels
             };
-            
+
             // Update painting hash
             lastPaintingHash = generatePaintingHash($commonApi.system.painting);
-            
+
             // Update KidLisp with new painting reference
             const kidlispInstance = getGlobalKidLisp();
             if (kidlispInstance) {
               kidlispInstance.setAPI($commonApi);
               console.log(`🎯 KidLisp API refreshed with ${data.source} painting: ${storedPainting.width}x${storedPainting.height}`);
             }
-            
+
             // Force repaint with new dimensions
             if ($commonApi.system.nopaint) {
               $commonApi.system.nopaint.needsPresent = true;
             }
             $commonApi.needsPaint();
-            
+
             console.log(`📐 Screen updated after ${data.source}: ${storedPainting.width}x${storedPainting.height}`);
           }
         } catch (error) {
           console.error(`📐 ERROR applying ${data.source} after storage completion:`, error);
         }
-        
+
         // Clean up
         delete $commonApi._awaitingResizeStorage;
         $commonApi._processingResize = false;
@@ -4755,7 +4735,7 @@ async function handlePaintingUpdate(msg) {
 
     // Set processing flag to prevent feedback loops
     $commonApi._processingBroadcast = true;
-    
+
     try {
       // Load painting from storage (lightweight messages don't contain pixel data)
       const storedPainting = await store.retrieve("painting", "local:db");
@@ -4765,39 +4745,39 @@ async function handlePaintingUpdate(msg) {
           height: storedPainting.height,
           pixels: new Uint8ClampedArray(storedPainting.pixels)
         };
-        
+
         // Store only the pixel data, not the full painting object
         store["painting"] = {
           width: storedPainting.width,
           height: storedPainting.height,
           pixels: storedPainting.pixels
         };
-        
+
         // Update painting hash to prevent false positives
         lastPaintingHash = generatePaintingHash($commonApi.system.painting);
-        
+
         // 🎯 Update KidLisp with the new painting reference
         const kidlispInstance = getGlobalKidLisp();
         if (kidlispInstance) {
           kidlispInstance.setAPI($commonApi);
           console.log(`🎯 KidLisp API refreshed with updated painting`);
         }
-        
+
         // Force repaint
         if ($commonApi.system.nopaint) {
           $commonApi.system.nopaint.needsPresent = true;
         }
         $commonApi.needsPaint();
-        
+
         // 🆕 Force nopan (reset transform) for clear/new actions or explicit flag
         if (((data.action === "cleared" || data.action === "new") || data.resetTransform) && $commonApi.system.nopaint) {
           console.log(`🎯 ${data.action?.toUpperCase() || 'TRANSFORM_RESET'}: Forcing nopan (reset transform) on receiver`);
-          $commonApi.system.nopaint.resetTransform({ 
-            system: $commonApi.system, 
-            screen: $commonApi.screen 
+          $commonApi.system.nopaint.resetTransform({
+            system: $commonApi.system,
+            screen: $commonApi.screen
           });
         }
-        
+
         console.log(`🎨 PAINTING SYNCED: ${storedPainting.width}x${storedPainting.height}`, {
           hash: generatePaintingHash($commonApi.system.painting)?.substr(0, 8),
           fromHash: data.hash || 'unknown',
@@ -4809,15 +4789,15 @@ async function handlePaintingUpdate(msg) {
     } catch (storageError) {
       console.error(`🎨 ERROR loading from storage:`, storageError);
     }
-    
+
   } catch (error) {
     console.error(`🎨 ERROR handling painting update:`, error);
-    
+
     // Fallback to old string-based format
     if (typeof msg === "string" && msg.startsWith("painting:")) {
       const action = msg.split(":")[1];
       console.log(`🎨 FALLBACK: Processing legacy format ${action}`);
-      
+
       // Legacy handling - load from storage
       try {
         const storedPainting = await store.retrieve("painting", "local:db");
@@ -4827,19 +4807,19 @@ async function handlePaintingUpdate(msg) {
             height: storedPainting.height,
             pixels: new Uint8ClampedArray(storedPainting.pixels)
           };
-          
+
           // Store only the pixel data, not the full painting object
           store["painting"] = {
             width: storedPainting.width,
             height: storedPainting.height,
             pixels: storedPainting.pixels
           };
-          
+
           const kidlispInstance = getGlobalKidLisp();
           if (kidlispInstance) {
             kidlispInstance.setAPI($commonApi);
           }
-          
+
           if ($commonApi.system.nopaint) {
             $commonApi.system.nopaint.needsPresent = true;
           }
@@ -4865,7 +4845,7 @@ $commonApi.broadcast = (msg) => {
 // 🎨 Broadcast painting updates to other tabs
 $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
   if (!$commonApi.system?.painting) return;
-  
+
   // Check if we're in a nopaint operation and log it
   const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
   if (isNopaintActive) {
@@ -4875,19 +4855,19 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
       nopaintState: 'painting'
     });
   }
-  
+
   // Throttle broadcasts to prevent excessive messages
   const now = Date.now();
   if (now - lastBroadcastTime < broadcastThrottleDelay) {
     return;
   }
   lastBroadcastTime = now;
-  
+
   // Generate unique tab ID to prevent self-processing
   if (!$commonApi._tabId) {
     $commonApi._tabId = Math.random().toString(36).substr(2, 9);
   }
-  
+
   // Create lightweight notification message (no pixel data)
   const message = {
     type: "painting:updated",
@@ -4898,7 +4878,7 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
     height: $commonApi.system.painting.height,
     ...data
   };
-  
+
   // Only send to other tabs (exclude self)
   channel.postMessage(JSON.stringify(message));
 };
@@ -4906,7 +4886,7 @@ $commonApi.broadcastPaintingUpdate = (action, data = {}) => {
 // 🚀 Immediate painting broadcast - bypasses throttling for instant sync
 $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
   if (!$commonApi.system?.painting || $commonApi._processingBroadcast) return;
-  
+
   // Check for nopaint interference
   const isNopaintActive = $commonApi.system?.nopaint?.is?.("painting");
   if (isNopaintActive) {
@@ -4916,18 +4896,18 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       nopaintState: 'painting'
     });
   }
-  
+
   // Performance: Skip if we just broadcasted very recently (debounce)
   const now = Date.now();
   if (now - (lastBroadcastTime || 0) < 16) { // ~60fps max broadcast rate
     return;
   }
-  
+
   // Generate unique tab ID if needed
   if (!$commonApi._tabId) {
     $commonApi._tabId = Math.random().toString(36).substr(2, 9);
   }
-  
+
   const paintingHash = generatePaintingHash($commonApi.system.painting);
   const message = {
     type: "painting:updated",
@@ -4940,9 +4920,9 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
     immediate: true,
     ...data
   };
-  
+
   // Immediate broadcasting silently
-  
+
   // Store painting immediately (async to not block)
   setTimeout(() => {
     store["painting"] = {
@@ -4951,7 +4931,7 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
       pixels: $commonApi.system.painting.pixels,
     };
     store.persist("painting", "local:db");
-    
+
     // 🪝 Fire storage completion hook for resize and crop events
     if (data.source === "resize" || data.source === "crop") {
       const storageCompleteMessage = {
@@ -4963,65 +4943,65 @@ $commonApi.broadcastPaintingUpdateImmediate = (action, data = {}) => {
         width: $commonApi.system.painting.width,
         height: $commonApi.system.painting.height
       };
-      
+
       channel.postMessage(JSON.stringify(storageCompleteMessage));
       console.log(`🪝 STORAGE COMPLETE hook fired for ${data.source} ${$commonApi.system.painting.width}x${$commonApi.system.painting.height}`, {
         timestamp: message.timestamp,
         tabId: message.tabId.substr(0, 4) + '...'
       });
     }
-    
+
   }, 0);
-  
+
   // Update hash to prevent duplicate detection
   lastPaintingHash = paintingHash;
   lastBroadcastTime = now;
-  
+
   channel.postMessage(JSON.stringify(message));
 };
 
 // 🎨 Painting change detection system
 function generatePaintingHash(painting) {
   if (!painting?.pixels) return null;
-  
+
   // Simple hash using width, height, and sample of pixels
   let hash = painting.width * 31 + painting.height * 37;
-  
+
   // Sample every 100th pixel to create a lightweight hash
   for (let i = 0; i < painting.pixels.length; i += 100) {
     hash = ((hash << 5) - hash + painting.pixels[i]) & 0xffffffff;
   }
-  
+
   return hash.toString(36);
 }
 
 function startPaintingChangeMonitoring() {
   if (paintingChangeCheckInterval) return; // Already monitoring
-  
+
   // Painting change monitoring initialized silently
-  
+
   // Initialize hash baseline if painting exists
   if ($commonApi.system?.painting) {
     lastPaintingHash = generatePaintingHash($commonApi.system.painting);
   }
-  
+
   // Enable frame-based monitoring for immediate detection
   enableFrameBasedMonitoring();
-  
+
   // Keep interval-based monitoring as backup (lower frequency)
   paintingChangeCheckInterval = setInterval(() => {
     if (!$commonApi.system?.painting || frameBasedMonitoring) return; // Skip if frame monitoring is active
-    
+
     const currentHash = generatePaintingHash($commonApi.system.painting);
-    
+
     // Only broadcast if hash actually changed AND we're not currently processing a broadcast
-    if (lastPaintingHash !== null && 
-        currentHash !== lastPaintingHash && 
+    if (lastPaintingHash !== null &&
+        currentHash !== lastPaintingHash &&
         !$commonApi._processingBroadcast) {
-      
+
       // Set flag to prevent feedback loops during broadcast processing
       $commonApi._processingBroadcast = true;
-      
+
       // Store updated painting
       store["painting"] = {
         width: $commonApi.system.painting.width,
@@ -5029,19 +5009,19 @@ function startPaintingChangeMonitoring() {
         pixels: $commonApi.system.painting.pixels,
       };
       store.persist("painting", "local:db");
-      
+
       // Broadcast the change
       $commonApi.broadcastPaintingUpdate("updated", {
         source: "interval_monitor",
         hash: currentHash.substr(0,8)
       });
-      
+
       // Clear the processing flag after a brief delay
       setTimeout(() => {
         $commonApi._processingBroadcast = false;
       }, 100);
     }
-    
+
     lastPaintingHash = currentHash;
   }, 1000); // Slower backup monitoring (1 second)
 }
@@ -5356,7 +5336,7 @@ const $paintApi = {
           for (let j = 0; j < segment.length; j++) {
             cleanText += segment[j];
             charColors.push(currentColor);
-            
+
 
           }
         } else {
@@ -5402,14 +5382,14 @@ const $paintApi = {
               currentColor = null;
             }
           }
-          
+
 
         }
       }
 
       COLOR_CODE_MATCH_REGEX.lastIndex = 0;
 
-      // Check if we have any actual text to display after removing color codes  
+      // Check if we have any actual text to display after removing color codes
       if (cleanText.trim().length === 0) {
         return $activePaintApi; // Exit silently if no text content remains
       }
@@ -5424,7 +5404,7 @@ const $paintApi = {
         if (!tb || !tb.lines) {
           return $activePaintApi; // Exit silently if text.box fails
         }
-        
+
         const charMap = tb.charMap || [];
 
         tb.lines.forEach((lineText, index) => {
@@ -5463,7 +5443,7 @@ const $paintApi = {
           const lines = cleanText.split("\n");
           const lineHeightGap = 2;
           let charIndex = 0;
-          
+
           lines.forEach((line, index) => {
             const lineColors = charColors?.slice(
               charIndex,
@@ -5560,7 +5540,7 @@ const $paintApi = {
         });
       } else {
         //if (text === "POW") console.log($activePaintApi.screen); 24.12.10.07.26 - Get write working with deferred rendering and page.
-        
+
         const actualFont = customTypeface || tf;
         // Add rotation to pos
         const posWithRotation = { ...pos, rotation };
@@ -5862,21 +5842,21 @@ function form(
 const codeCache = {
   memory: new Map(), // code -> @handle/slug resolution cache
   reverseMemory: new Map(), // @handle/slug -> code reverse lookup cache
-  
+
   async resolve(code) {
     // Return cached resolution if available
     if (this.memory.has(code)) {
       return this.memory.get(code);
     }
-    
+
     // Query painting-code API which returns slug and handle
     const response = await fetch(`/api/painting-code?code=${code}`);
     if (!response.ok) {
       throw new Error(`Code #${code} not found`);
     }
-    
+
     const data = await response.json();
-    
+
     // Build the path format: @handle/slug or just slug for anonymous
     let path;
     if (data.handle && data.handle !== 'anon') {
@@ -5884,24 +5864,24 @@ const codeCache = {
     } else {
       path = data.slug;
     }
-    
+
     this.memory.set(code, path);
     this.reverseMemory.set(path, code);
     return path;
   },
-  
+
   // Store a mapping from timestamp to code (called by profile.mjs and other pieces)
   storeCode(slug, handle, code) {
     if (!slug || !code) return;
-    
+
     // Normalize the key format to match what we use elsewhere
     const normalizedHandle = handle?.replace(/^@+/, '');
     const key = normalizedHandle ? `@${normalizedHandle}/${slug}` : slug;
-    
+
     this.reverseMemory.set(key, code);
     this.memory.set(code, key);
   },
-  
+
   // Get code from timestamp+handle
   getCode(slug, handle) {
     const normalizedHandle = handle?.replace(/^@+/, '');
@@ -5928,13 +5908,13 @@ if (typeof window !== "undefined") {
 // Occurs also when loading a piece's source code.
 async function prefetchPicture(code) {
   const originalCode = code;
-  
+
   // Strip # prefix if present to get the actual code
   let actualCode = code;
   if (code.startsWith('#')) {
     actualCode = code.slice(1);
   }
-  
+
   if (paintings[code] === "fetching") return;
 
   // 🖼️ Check multi-level cache first
@@ -5942,13 +5922,13 @@ async function prefetchPicture(code) {
   if (paintings[code] && paintings[code] !== "fetching") {
     return;
   }
-  
+
   // Level 2: Check in-memory image cache
   if (imageCache.has(code)) {
     paintings[code] = imageCache.get(code);
     return;
   }
-  
+
   // Level 3: Check persistent storage (IndexedDB)
   if (imageCache.isCacheable(code)) {
     const cachedImage = await imageCache.loadFromPersistent(code);
@@ -5966,7 +5946,7 @@ async function prefetchPicture(code) {
     if (typeof window !== 'undefined') return window;
     return {};
   })();
-  
+
   if (globalScope.acEMBEDDED_PAINTING_BITMAPS) {
     // Check with various key formats
     const embeddedBitmap = globalScope.acEMBEDDED_PAINTING_BITMAPS[code] ||
@@ -6022,7 +6002,7 @@ async function prefetchPicture(code) {
         throw new Error(`Painting code not found: ${actualCode}`);
       }
       const data = await response.json();
-      
+
       // Now load using handle/slug
       const handle = data.handle || 'anon';
       $commonApi.get
@@ -6150,28 +6130,28 @@ const $paintApiUnwrapped = {
   // 2D
   wipe: function () {
     const cc = graph.c.slice(0);
-    
+
     // Preserve fade alpha during wipe operations to prevent clearing it
     const preserveFadeAlpha = getPreserveFadeAlpha?.() || false;
     if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
       setPreserveFadeAlpha(true);
     }
-    
+
     // Default to white if no arguments provided
     if (arguments.length === 0) {
       ink(255, 255, 255);
     } else {
       ink(...arguments);
     }
-    
+
     // 🎨 WebGPU clear if enabled
     if ($commonApi.webgpu.enabled) {
-      send({ 
-        type: "webgpu-command", 
-        content: { 
-          type: "clear", 
-          color: graph.c.slice(0) 
-        } 
+      send({
+        type: "webgpu-command",
+        content: {
+          type: "clear",
+          color: graph.c.slice(0)
+        }
       });
       ink(...cc);
       if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
@@ -6179,20 +6159,20 @@ const $paintApiUnwrapped = {
       }
       return;
     }
-    
+
     // 🚀 Use optimized clear() which writes directly to pixels array
     // clear() already handles fade colors and uses copyWithin doubling for solid colors
     // This is much faster than box() which goes through plot/blend per pixel
     graph.clear();
-    
+
     twoDCommands.push(["wipe", ...graph.c]);
     ink(...cc);
-    
+
     // Restore previous preservation state
     if (!preserveFadeAlpha && typeof setPreserveFadeAlpha === 'function') {
       setPreserveFadeAlpha(false);
     }
-    
+
     // 🍞 LAYER 0: Also clear layer 0 if it exists (for KidLisp)
     // This ensures wipe() clears the persistent layer, not just the screen
     if (this.kidlispInstance?.layer0) {
@@ -6203,18 +6183,18 @@ const $paintApiUnwrapped = {
   backgroundFill: function (color) {
     // This function should fill transparent areas with the background color
     // without clearing existing painted content.
-    // 
+    //
     // For now, we use a simple approach: only do a full wipe during initial boot,
     // but skip it during reframe to preserve content.
-    
+
     const cc = graph.c.slice(0); // Save current ink color
-    
+
     if (arguments.length === 0) {
       ink(255, 255, 255); // Default to white
     } else {
       ink(...arguments);
     }
-    
+
     // TODO: Implement proper transparent-area-only filling
     // For now, always do a full clear
     graph.clear();
@@ -6302,13 +6282,13 @@ const $paintApiUnwrapped = {
     if ($commonApi.webgpu.enabled && arguments.length >= 4) {
       const [x1, y1, x2, y2] = arguments;
       const color = graph.c.slice(0);
-      send({ 
-        type: "webgpu-command", 
-        content: { 
-          type: "line", 
+      send({
+        type: "webgpu-command",
+        content: {
+          type: "line",
           x1, y1, x2, y2,
           color
-        } 
+        }
       });
       return;
     }
@@ -6427,42 +6407,42 @@ const $paintApiUnwrapped = {
     if (!globalKidLispInstance) {
       initializeGlobalKidLisp($activePaintApi);
     }
-    
+
     // Default dimensions to screen size if not provided
     if (!width) width = $activePaintApi.screen.width;
     if (!height) height = $activePaintApi.screen.height;
-    
+
     // console.log(`🎯 Simple kidlisp call: ${width}x${height} at (${x},${y})`);
-    
+
     // Extract options
     const { noCache = false, accumulate: forceAccumulate = false, noPaste = false } = options;
-    
+
     try {
-      // Initialize persistent paintings cache if needed  
+      // Initialize persistent paintings cache if needed
       if (!globalKidLispInstance.persistentPaintings) {
         globalKidLispInstance.persistentPaintings = new Map();
       }
-      
+
       // For dollar codes, check if we already have a resolved version cached
       let resolvedSource = source;
       if (source && source.startsWith && source.startsWith('$') && source.length > 1) {
         const cacheId = source.slice(1);
-        
+
         // Use a singleton-specific cache to avoid conflicts with normal prompt loading
         if (!globalKidLispInstance.singletonDollarCodeCache) {
           globalKidLispInstance.singletonDollarCodeCache = new Map();
         }
-        
+
         // Track loading states to prevent concurrent requests
         if (!globalKidLispInstance.loadingDollarCodes) {
           globalKidLispInstance.loadingDollarCodes = new Set();
         }
-        
+
         // First check if we have a painting with the resolved source already
         if (globalKidLispInstance.singletonDollarCodeCache.has(cacheId)) {
           resolvedSource = globalKidLispInstance.singletonDollarCodeCache.get(cacheId);
           // Note: regionKey will be set later after accumulation detection
-          
+
           // If we already have this resolved painting, we'll check after regionKey is set
           // console.log(`🎯 Using cached source: ${resolvedSource}`);
         } else if (globalKidLispInstance.loadingDollarCodes.has(cacheId)) {
@@ -6473,7 +6453,7 @@ const $paintApiUnwrapped = {
           // Start loading and mark as loading
           console.log(`🎯 Loading ${source} for first time...`);
           globalKidLispInstance.loadingDollarCodes.add(cacheId);
-          
+
           getCachedCodeMultiLevel(cacheId).then(loadedSource => {
             if (loadedSource) {
               console.log(`🎯 ✅ Loaded source for ${cacheId}: ${loadedSource.length} chars`);
@@ -6488,12 +6468,12 @@ const $paintApiUnwrapped = {
             console.log(`🎯 Finished loading attempt for ${cacheId}`);
             globalKidLispInstance.loadingDollarCodes.delete(cacheId);
           });
-          
+
           // Return early - no painting this frame, wait for cache
           return null;
         }
       }
-      
+
       // Guard: if no resolved source, bail early (e.g., disk-based piece, not raw KidLisp)
       if (!resolvedSource || typeof resolvedSource !== "string") {
         return null;
@@ -6503,11 +6483,11 @@ const $paintApiUnwrapped = {
       const colorWords = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'cyan', 'magenta', 'black', 'white', 'gray', 'grey', 'brown', 'pink'];
       const firstWord = resolvedSource.trim().split(/\s+/)[0]?.toLowerCase();
       const startsWithColor = colorWords.includes(firstWord);
-      
+
       // Auto-generate accumulation settings (can be forced via option)
       const accumulate = forceAccumulate || startsWithColor;
       const accumulateKey = accumulate ? `auto_${x}_${y}_${width}_${height}_${firstWord}` : null;
-      
+
       // Create persistent painting key with accumulation support
       let regionKey;
       // Build a dimension-independent content key for finding previous paintings after resize
@@ -6538,10 +6518,10 @@ const $paintApiUnwrapped = {
 
       // Check if the code contains frame-dependent randomization commands
       const hasFrameDependentCommands = /\(\s*ink\s*\)|\(\s*color\s*\)|\(\s*rand\s*\)/.test(resolvedSource);
-      
+
       // Check if we need to reset (resolved source contains 'wipe')
       const shouldReset = resolvedSource.includes('wipe') && !accumulate; // Don't reset in accumulation mode
-      
+
       // Check if source contains animation-related commands that need fresh execution
       const animationCommands = ['rainbow', 'zebra', 'time', 'random', 'noise', 'clock', 'scroll', 'zoom', 'flip', 'contrast', 'fade'];
       const hasTimingCommands = /\d+\.?\d*s\b/.test(resolvedSource); // Detect timing like "0.15s", "1s", etc.
@@ -6550,15 +6530,15 @@ const $paintApiUnwrapped = {
       // Don't force fresh execution for timing commands - they need to run continuously
       // In accumulate mode, prefer building on existing surface unless explicitly forced
       const needsFreshExecution = !accumulate && (noCache || (isDollarCode && !hasTimingCommands) || (hasAnimationCommands && !hasTimingCommands));
-      
+
       let painting;
-      
+
       // Create fresh painting if: reset needed, no cached version exists, or animation commands need updating
       if (shouldReset || needsFreshExecution || !globalKidLispInstance.persistentPaintings.has(regionKey)) {
         // Create fresh painting (first time, after wipe, or for animations)
         const reason = shouldReset ? 'wipe command' : needsFreshExecution ? 'animation content' : 'first time';
         // console.log(`🎨 Creating fresh painting for key: ${regionKey.slice(0, 50)}... (${reason})`);
-        
+
         // For animations, start with previous frame if available (unless wiping)
         // Also check for resized previous painting from a different dimension
         const previousPainting = !shouldReset && globalKidLispInstance.persistentPaintings.has(regionKey)
@@ -6575,9 +6555,9 @@ const $paintApiUnwrapped = {
           if (previousPainting && needsFreshExecution && !shouldReset) {
             api.paste(previousPainting);
           }
-          
+
           globalKidLispInstance.setAPI(api);
-          
+
           // Add basic timing support for KidLisp commands
           if (!api.clock) {
             api.clock = { time: () => new Date() };
@@ -6585,7 +6565,7 @@ const $paintApiUnwrapped = {
           // Override zoom and scroll functions to implement actual effects in painting context
           const originalZoom = api.zoom;
           const originalScroll = api.scroll || $activePaintApi.scroll;
-          
+
           api.zoom = (...args) => {
             // console.log(`🔍 Zoom called in painting context: args=${JSON.stringify(args)}`);
             // Just call the original zoom function - it will operate on the current buffer
@@ -6593,7 +6573,7 @@ const $paintApiUnwrapped = {
               return originalZoom(...args);
             }
           };
-          
+
           api.scroll = (dx, dy) => {
             // console.log(`📜 Scroll called in painting context: dx=${dx}, dy=${dy}`);
             // Call the real scroll function from the main paint API
@@ -6605,7 +6585,7 @@ const $paintApiUnwrapped = {
           };
           // Add randomization support for ink() and other commands
           if (!api.num) {
-            api.num = $activePaintApi.num || { 
+            api.num = $activePaintApi.num || {
               random: () => Math.random(),
               randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
               rainbow: num.rainbow, // Use the actual rainbow function from num.mjs
@@ -6617,12 +6597,12 @@ const $paintApiUnwrapped = {
             api.color = $activePaintApi.color || {
               random: () => [
                 Math.floor(Math.random() * 256),
-                Math.floor(Math.random() * 256), 
+                Math.floor(Math.random() * 256),
                 Math.floor(Math.random() * 256)
               ]
             };
           }
-          
+
           // 🎨 Add CSS color functions to make unquoted color words work
           // Import CSS colors from num.mjs and add them as functions to the API
           const cssColors = num.cssColors;
@@ -6633,7 +6613,7 @@ const $paintApiUnwrapped = {
               }
             });
           }
-          
+
           // Add rainbow and zebra as top-level functions for unquoted usage
           if (!api.rainbow) {
             api.rainbow = () => num.rainbow();
@@ -6643,25 +6623,25 @@ const $paintApiUnwrapped = {
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
-          
+
           // Save original state before configuring execution mode
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
           const originalIsEmbeddedContext = globalKidLispInstance.isEmbeddedContext;
-          
+
           // 🎯 CRITICAL: Set isEmbeddedContext=true so effects (zoom, blur, scroll, etc.)
           // execute immediately instead of being deferred to postCompositeCommands
           // This aligns embedded kidlisp() with the main KidLisp paint behavior
           globalKidLispInstance.isEmbeddedContext = true;
-          
+
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
           // Check if source contains scroll/zoom/flip that needs deferred execution
           const hasScrollZoom = /\(\s*(scroll|zoom|flip)\s/.test(resolvedSource);
-          
 
-          
+
+
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions, preserving normal execution flow`);
             // Don't force immediate execution for timing expressions
@@ -6679,15 +6659,15 @@ const $paintApiUnwrapped = {
             globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
           }
-          
+
           executeLispCode(resolvedSource, api, false); // false = not accumulating, fresh painting
-          
+
           // Restore original state to avoid interfering with other KidLisp operations
           globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
           globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
           globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
           globalKidLispInstance.isEmbeddedContext = originalIsEmbeddedContext;
-          
+
           globalKidLispInstance.setAPI($activePaintApi);
         });
         // Always cache the painting for next frame continuity (even for animations)
@@ -6696,13 +6676,13 @@ const $paintApiUnwrapped = {
         // Build on existing painting (accumulate effects)
         const existingPainting = globalKidLispInstance.persistentPaintings.get(regionKey);
         // console.log(`🎨 Accumulating on existing painting for key: ${regionKey.slice(0, 50)}...`);
-        
+
         painting = $activePaintApi.painting(width, height, (api) => {
           // Paste previous state first
           api.paste(existingPainting);
           // Then add new effects on top
           globalKidLispInstance.setAPI(api);
-          
+
           // Add basic timing support for KidLisp commands
           if (!api.clock) {
             api.clock = { time: () => new Date() };
@@ -6710,14 +6690,14 @@ const $paintApiUnwrapped = {
           // Add scroll and zoom support for animations
           const originalZoom = api.zoom;
           const originalScroll = api.scroll || $activePaintApi.scroll;
-          
+
           api.zoom = (...args) => {
             // console.log(`🔍 Zoom called in accumulation context: args=${JSON.stringify(args)}`);
             if (originalZoom && typeof originalZoom === 'function') {
               return originalZoom(...args);
             }
           };
-          
+
           api.scroll = (dx, dy) => {
             // console.log(`📜 Scroll called in accumulation context: dx=${dx}, dy=${dy}`);
             if (originalScroll && typeof originalScroll === 'function') {
@@ -6728,7 +6708,7 @@ const $paintApiUnwrapped = {
           };
           // Add randomization support for ink() and other commands
           if (!api.num) {
-            api.num = $activePaintApi.num || { 
+            api.num = $activePaintApi.num || {
               random: () => Math.random(),
               randInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
               rainbow: num.rainbow, // Use the actual rainbow function from num.mjs
@@ -6740,12 +6720,12 @@ const $paintApiUnwrapped = {
             api.color = $activePaintApi.color || {
               random: () => [
                 Math.floor(Math.random() * 256),
-                Math.floor(Math.random() * 256), 
+                Math.floor(Math.random() * 256),
                 Math.floor(Math.random() * 256)
               ]
             };
           }
-          
+
           // 🎨 Add CSS color functions to make unquoted color words work
           // Import CSS colors from num.mjs and add them as functions to the API
           const cssColors = num.cssColors;
@@ -6756,7 +6736,7 @@ const $paintApiUnwrapped = {
               }
             });
           }
-          
+
           // Add rainbow and zebra as top-level functions for unquoted usage
           if (!api.rainbow) {
             api.rainbow = () => num.rainbow();
@@ -6766,26 +6746,26 @@ const $paintApiUnwrapped = {
           }
           // Reset KidLisp color state to prevent cross-contamination between regions
           globalKidLispInstance.currentInk = null;
-          
+
           // Save original state before configuring execution mode
           const originalInEmbedPhase = globalKidLispInstance.inEmbedPhase;
           const originalIsNestedInstance = globalKidLispInstance.isNestedInstance;
           const originalEmbeddedLayers = globalKidLispInstance.embeddedLayers;
           const originalIsEmbeddedContext = globalKidLispInstance.isEmbeddedContext;
-          
+
           // 🎯 CRITICAL: Set isEmbeddedContext=true so effects (zoom, blur, scroll, etc.)
           // execute immediately instead of being deferred to postCompositeCommands
           // This aligns embedded kidlisp() with the main KidLisp paint behavior
           globalKidLispInstance.isEmbeddedContext = true;
-          
+
           // Check if source contains timing expressions that need proper scheduling
           const hasTimingExpressions = /\d+\.?\d*s(\.\.\.|!)?/.test(resolvedSource);
           // Check if source contains scroll/zoom/flip that needs deferred execution
           const hasScrollZoom = /\(\s*(scroll|zoom|flip)\s/.test(resolvedSource);
-          
+
           // Only log occasionally to reduce console spam
 
-          
+
           if (hasTimingExpressions) {
             // console.log(`🎯 Detected timing expressions in accumulation, preserving normal execution flow`);
             // Don't force immediate execution for timing expressions
@@ -6803,15 +6783,15 @@ const $paintApiUnwrapped = {
             globalKidLispInstance.isNestedInstance = true; // Enable immediate execution
             globalKidLispInstance.embeddedLayers = null; // Clear any leftover embedded layers
           }
-          
+
           executeLispCode(resolvedSource, api, true); // true = accumulating on existing painting
-          
+
           // Restore original state to avoid interfering with other KidLisp operations
           globalKidLispInstance.inEmbedPhase = originalInEmbedPhase;
           globalKidLispInstance.isNestedInstance = originalIsNestedInstance;
           globalKidLispInstance.embeddedLayers = originalEmbeddedLayers;
           globalKidLispInstance.isEmbeddedContext = originalIsEmbeddedContext;
-          
+
           globalKidLispInstance.setAPI($activePaintApi);
         });
         // Update the cache with the new accumulated state (unless noCache is true or animation content)
@@ -6819,18 +6799,18 @@ const $paintApiUnwrapped = {
           globalKidLispInstance.persistentPaintings.set(regionKey, painting);
         }
       }
-      
+
       // Paste the painting to the specified location (unless noPaste is set)
       if (!noPaste && $activePaintApi.paste && painting) {
         // console.log(`🎯 Pasting painting to (${x},${y})`);
         $activePaintApi.paste(painting, x, y);
       }
-      
+
       return painting;
-      
+
     } catch (error) {
       console.error("🚫 Simple KidLisp error:", error);
-      
+
       // Draw error directly to main screen (skip in projection/embed mode like kidlisp.com)
       if (!projectionMode) {
         const originalInk = $activePaintApi.ink();
@@ -6840,7 +6820,7 @@ const $paintApiUnwrapped = {
         }
         $activePaintApi.ink(originalInk);
       }
-      
+
       return null;
     }
   },
@@ -6866,20 +6846,20 @@ function executeLispCode(source, api, isAccumulating = false) {
     } else {
       disableKidlispTrace();
     }
-    
+
     // Parse and evaluate the source directly without going through module lifecycle
     // console.log(`🔍 Parsing KidLisp source:`, source);
-    
+
     // Clear previous first-line color state for fresh detection
 
     globalKidLispInstance.firstLineColor = null;
-    
+
     // Store source for error location lookup
     globalKidLispInstance.currentSource = source;
-    
+
     globalKidLispInstance.parse(source);
     // console.log(`🔍 Generated AST:`, globalKidLispInstance.ast);
-    
+
     if (globalKidLispInstance.ast) {
       // Detect first-line color but only apply it if not accumulating
       globalKidLispInstance.detectFirstLineColor();
@@ -6888,26 +6868,26 @@ function executeLispCode(source, api, isAccumulating = false) {
         // console.log(`🎨 Applying first-line color background: ${globalKidLispInstance.firstLineColor}`);
         api.wipe(globalKidLispInstance.firstLineColor);
       }
-      
+
       // Execute the parsed AST using the main evaluate method
       // console.log(`🔍 Executing AST using main evaluate method...`);
       // console.log(`🔍 AST contains:`, globalKidLispInstance.ast.map(expr => Array.isArray(expr) ? expr[0] : expr));
-      
+
       // Set up proper timing environment by ensuring clock and frameCount are available
       if (!api.clock) {
         api.clock = { time: () => new Date() };
       }
-      
+
       // Increment frame count for timing expressions
       if (typeof globalKidLispInstance.frameCount !== 'number') {
         globalKidLispInstance.frameCount = 0;
       }
       globalKidLispInstance.frameCount++;
-      
+
       // Normal KidLisp evaluation (dollar codes already resolved)
       const result = globalKidLispInstance.evaluate(globalKidLispInstance.ast, api, globalKidLispInstance.localEnv);
       // console.log(`🔍 Evaluation result:`, result);
-      
+
       // Post execution trace if enabled (only on first frame to avoid spam)
       if (shouldTrace && globalKidLispInstance.frameCount === 1) {
         postExecutionTrace();
@@ -7145,7 +7125,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
     painting: oldScreen,
     crop: new geo.Box(0, 0, oldScreen.width, oldScreen.height),
   });
-  
+
   // 🎨 Fill any new pixels with background color after screen expansion
   if (width > oldScreen.width || height > oldScreen.height) {
     const persistentColor = getPersistentFirstLineColor();
@@ -7304,7 +7284,7 @@ const microphone = new Microphone();
 const gameboy = {
   frame: null,         // Current frame data (Uint8ClampedArray)
   width: 160,          // Game Boy screen width
-  height: 144,         // Game Boy screen height  
+  height: 144,         // Game Boy screen height
   romName: null,       // Currently loaded ROM name
   isPlaying: false     // Whether emulator is running
 };
@@ -7341,7 +7321,7 @@ async function load(
   const loadFunctionStartTime = performance.now();
   diskTimings.loadStarted = Math.round(loadFunctionStartTime - diskTimingStart);
   // Silent: load() started
-  
+
   let fullUrl, source;
   let params,
     search,
@@ -7355,12 +7335,12 @@ async function load(
 
   // 🕷️ SPIDER MODE: Always log what piece we're loading
   if (typeof window !== 'undefined' && window.acSPIDER) {
-    console.log("🕷️ SPIDER: Starting load() with:", { 
-      parsed, 
-      fromHistory, 
-      alias, 
-      devReload, 
-      forceKidlisp 
+    console.log("🕷️ SPIDER: Starting load() with:", {
+      parsed,
+      fromHistory,
+      alias,
+      devReload,
+      forceKidlisp
     });
   }
 
@@ -7401,12 +7381,12 @@ async function load(
     hash = parsed.hash;
     host = parsed.host;
     slug = parsed.text;
-    
+
     if (typeof window !== 'undefined' && window.acSPIDER) {
-      console.log("🕷️ SPIDER: Parsed slug/path:", { 
-        slug, 
-        path, 
-        parsedText: parsed.text, 
+      console.log("🕷️ SPIDER: Parsed slug/path:", {
+        slug,
+        path,
+        parsedText: parsed.text,
         parsedPath: parsed.path,
         hash,
         params
@@ -7450,7 +7430,7 @@ async function load(
     // Handle sandboxed environments where location.protocol might be "null:"
     // For aesthetic.computer pieces, determine the correct server
     const { protocol, hostname } = getSafeUrlParts();
-    
+
     // If we're loading an aesthetic.computer piece, choose the appropriate server
     let baseUrl;
     if (path.startsWith('aesthetic.computer/')) {
@@ -7466,9 +7446,9 @@ async function load(
     } else {
       baseUrl = `${protocol}//${hostname}`;
     }
-    
+
     if (typeof window !== 'undefined' && window.acSPIDER) console.log("�️ SPIDER MODE Debug:", { protocol, hostname, baseUrl, isSandboxed: isSandboxed(), path, isDevelopment: hostname === 'localhost' && typeof location !== 'undefined' && location.port });
-    
+
     // Check if path already includes the hostname to avoid double paths
     let resolvedPath = path;
     if (getPackMode() && path.startsWith('aesthetic.computer/')) {
@@ -7478,9 +7458,9 @@ async function load(
       // Strip "aesthetic.computer/" prefix when using production domain to avoid doubling
       resolvedPath = path.substring('aesthetic.computer/'.length);
     }
-    
+
     // if (debug) console.log("🔍 Debug path resolution:", { originalPath: path, resolvedPath, hostname, baseUrl });
-    
+
     if (path.endsWith('.lisp') || path.endsWith('.lua')) {
       if (getPackMode()) {
         // In OBJKT mode, use absolute path from iframe origin
@@ -7491,7 +7471,7 @@ async function load(
     } else {
       if (getPackMode()) {
         // In OBJKT mode, navigate up from lib directory to aesthetic.computer root, then to target
-        const relativePath = resolvedPath.startsWith('aesthetic.computer/') 
+        const relativePath = resolvedPath.startsWith('aesthetic.computer/')
           ? resolvedPath.substring('aesthetic.computer/'.length)
           : resolvedPath;
         fullUrl = "../" + relativePath + ".mjs" + "?v=" + Date.now();
@@ -7540,7 +7520,7 @@ async function load(
       parsed.path = path || "aesthetic.computer/disks/clock";
       parsed.params = params;
     }
-    
+
     // 🔍 Enable tracing for kidlisp.com visualization if requested
     if (parsed.enableTrace) {
       enableKidlispTrace();
@@ -7576,15 +7556,15 @@ async function load(
     } else {
       let sourceToRun;
       let fetchStartTime = performance.now(); // Initialize timing at the start
-      
+
       // 💾 Check if this is a cached kidlisp code (starts with $ followed by a cache ID)
       if (slug && slug.startsWith("$") && slug.length > 1) {
         const cacheId = slug.slice(1).split(":")[0]; // Remove $ prefix and any :fps colon params
-        
+
         // Clear author/hits immediately to prevent stale data showing during load
         currentHUDAuthor = null;
         currentHUDHits = null;
-        
+
         // First check if we have this in objktKidlispCodes (offline bundle)
         const globalScope = (function () {
           if (typeof window !== 'undefined') return window;
@@ -7593,7 +7573,7 @@ async function load(
           if (typeof self !== 'undefined') return self;
           return {};
         })();
-        
+
         if (globalScope.objktKidlispCodes && globalScope.objktKidlispCodes[cacheId]) {
           sourceToRun = globalScope.objktKidlispCodes[cacheId];
           currentOriginalCodeId = slug;
@@ -7610,7 +7590,7 @@ async function load(
             // Track the original $code identifier for sharing
             currentOriginalCodeId = slug; // Keep the full $code format
             console.log("✅ Successfully loaded cached code:", cacheId, `(${sourceToRun.length} chars)`);
-            
+
             // 👤 Fetch author metadata in background (for logging only)
             fetchKidlispMetadata(cacheId).then(meta => {
               if (meta) {
@@ -7629,7 +7609,7 @@ async function load(
         // 🎄 Check if piece code is cached (for merry preloading)
         const pieceSlug = slug?.split("~")[0];
         const cachedPiece = pieceSlug ? pieceCodeCache.get(pieceSlug) : null;
-        
+
         if (cachedPiece) {
           console.log(`🎄 Using cached code for: ${pieceSlug}`);
           sourceToRun = cachedPiece.code;
@@ -7639,23 +7619,23 @@ async function load(
           // Extract the filename from URL, handling ./ prefix and hash fragments
           const urlWithoutHash = fullUrl.split('#')[0];
           const filename = urlWithoutHash.split('/').pop();
-          
+
           if (getPackMode() && filename.endsWith('.mjs')) {
             // In OBJKT mode, skip dynamic import and use fetch directly since files are bundled locally
             // Will proceed to fetch() below
           }
-          
+
           let response;
           if (logs.loading) console.log("📥 Loading from url:", fullUrl);
           // if (debug) console.log("🔍 Debug: Constructed fullUrl:", fullUrl);
-          
+
           // Notify boot progress
           const fetchStartTime = performance.now();
           send({
             type: "boot-log",
             content: `fetching: ${path}`
           });
-          
+
           // Use cache: 'no-store' to force fresh fetch, especially important for LAN IP access
           // Retry on network failure (bad connections drop fetches)
           {
@@ -7766,15 +7746,15 @@ async function load(
         } else {
           log.lisp.warn("send function not available for boot-log");
         }
-        
+
         // Initialize persistent cache for $codes (only needs to be done once)
         initPersistentCache(store);
-        
+
         // Initialize persistent image cache for paste/stamp (only needs to be done once)
         imageCache.init(store);
-        
+
         loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
-        
+
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
         diskTimings.compileComplete = Math.round(compileEndTime - diskTimingStart);
@@ -7782,14 +7762,14 @@ async function load(
         if (!isPackMode) {
           log.lisp.success(`KidLisp module loaded (${compileElapsed}ms)`);
         }
-        
+
         // Notify boot progress
         // console.log("📢 Disk sending boot-log: kidlisp compiled");
         send({
           type: "boot-log",
           content: `kidlisp compiled (${compileElapsed}ms)`
         });
-        
+
         // Send source file to boot canvas for display
         send({
           type: "boot-file",
@@ -7903,7 +7883,7 @@ async function load(
         });
 
         blobUrl = URL.createObjectURL(blob);
-        
+
         // Notify boot progress
         const importStartTime = performance.now();
         const importFetchElapsed = Math.round(importStartTime - fetchStartTime);
@@ -7912,7 +7892,7 @@ async function load(
           type: "boot-log",
           content: `importing module (fetch: ${importFetchElapsed}ms)`
         });
-        
+
         sourceCode = updatedCode;
         // Retry dynamic import on network failures (sub-dependency fetches can fail on bad connections)
         {
@@ -7934,7 +7914,7 @@ async function load(
             }
           }
         }
-        
+
         const importEndTime = performance.now();
         const importElapsed = Math.round(importEndTime - importStartTime);
         diskTimings.compileComplete = Math.round(importEndTime - diskTimingStart);
@@ -7944,7 +7924,7 @@ async function load(
           type: "boot-log",
           content: `module imported (${importElapsed}ms)`
         });
-        
+
         // Send source file to boot canvas for display
         send({
           type: "boot-file",
@@ -7956,7 +7936,7 @@ async function load(
     const moduleLoadErrorTime = performance.now();
     // console.log(`⏰ Module load error caught at ${moduleLoadErrorTime}ms`);
     console.log("🟡 Error loading mjs module:", err);
-    
+
     // Determine if this was a fetch failure (404/403) vs a module import/compile error.
     // Only try language fallbacks if this was a missing .mjs path.
     const isFetchError = err.message === "404" || err.message === "403";
@@ -7965,7 +7945,7 @@ async function load(
                                 err.toString().includes("Unexpected token") ||
                                 err.toString().includes("SyntaxError") ||
                                 err.toString().includes("Cannot use import");
-    
+
     // If the .mjs file was fetched but failed to import (JS error), don't try fallbacks.
     if (fullUrl && !fullUrl.includes('.lisp') && !fullUrl.includes('.lua') && isFetchError && !isModuleImportError) {
       try {
@@ -8111,7 +8091,7 @@ async function load(
   // 🧨 Fail out if no module is found.
   const moduleCheckTime = performance.now();
   // console.log(`⏰ Module check at ${moduleCheckTime}ms, module loaded: ${loadedModule !== undefined}`);
-  
+
   if (loadedModule == null) {
     loading = false;
     leaving = false;
@@ -8162,7 +8142,7 @@ async function load(
       // But only queue up to 10 times (1 second max wait), then force through
       const queueCount = (reload._queueCount || 0) + 1;
       reload._queueCount = queueCount;
-      
+
       if (queueCount > 10) {
         // Too many retries - force reset loading state and proceed
         console.warn("🔴 Reload queue timeout - forcing loading reset");
@@ -8241,12 +8221,12 @@ async function load(
         );
         return;
       }
-      
+
       // Store the $code identifier for screenshots/sharing
       if (codeId) {
         currentOriginalCodeId = `$${codeId}`;
       }
-      
+
       // Store createCode flag globally so kidlisp can access it
       if (createCode) {
         $commonApi.kidlispCreateCode = true;
@@ -8254,20 +8234,20 @@ async function load(
         // console.log('⚠️ createCode flag is false or undefined:', createCode);
         $commonApi.kidlispCreateCode = false;
       }
-      
+
       // Store auth token globally so kidlisp can use it for saving
       if (authToken) {
         $commonApi.kidlispAuthToken = authToken;
       }
-      
+
       // Store trace flag globally for kidlisp visualization
       $commonApi.kidlispEnableTrace = enableTrace || false;
-      
+
       // Reset frameCount so trace is posted on first frame of new code
       if (globalKidLispInstance) {
         globalKidLispInstance.frameCount = 0;
       }
-      
+
       $commonApi.load(
         {
           source: source,  // Pass as source so it's used directly
@@ -8339,10 +8319,10 @@ async function load(
     if (getPackMode() || (typeof window !== 'undefined' && window.acSPIDER)) {
       return;
     }
-    
+
     // 📡 Set up remote logging for LAN Dev mode
     setupRemoteLogging();
-    
+
     if (
       //parsed.search?.startsWith("preview") ||
       //parsed.search?.startsWith("icon")
@@ -8509,16 +8489,16 @@ async function load(
 
   if (alias === false) {
     // Parse any special piece metadata.
-    
+
     // Check if we're in OBJKT mode and have colophon data
     let objktContext = null;
     if (checkPackMode() && typeof window !== 'undefined' && window.acOBJKT_COLOPHON) {
       objktContext = { author: window.acOBJKT_COLOPHON.build.author };
     }
-    
+
     // Use parsed.piece for the title (just the piece name, not full slug with params)
     const titleSlug = parsed.piece || slug;
-    
+
     const { title, desc, ogImage, twitterImage, icon } = metadata(
       location.host, // "aesthetic.computer",
       titleSlug,
@@ -8635,12 +8615,12 @@ async function load(
       // Normalize path: strip leading slash and "aesthetic.computer/" prefix
       if (vfsPath.startsWith('/')) vfsPath = vfsPath.slice(1);
       if (vfsPath.startsWith('aesthetic.computer/')) vfsPath = vfsPath.slice('aesthetic.computer/'.length);
-      
+
       const vfsEntry = packVfs[vfsPath];
       if (vfsEntry) {
         const ext = typeof path === "object" ? path.extension : vfsPath.split(".").pop().split("?")[0];
         progressReport?.(1); // Report completion immediately for VFS files
-        
+
         if (ext === "json") {
           // JSON files in VFS: { content: "...", type: 'json' } or { content: "...", type: 'base64' }
           let jsonStr;
@@ -8692,13 +8672,13 @@ async function load(
         // Handle sandboxed environments for path construction
         const { protocol, hostname } = getSafeUrlParts();
         const originalPath = path;
-        
+
         // Apply the same origin-aware logic as in module loading
         let baseUrl;
         if (path.startsWith('aesthetic.computer/')) {
           // Check if we're in a development environment (localhost with port)
           baseUrl = getBuiltInPieceBaseUrl();
-          
+
           // Only strip "aesthetic.computer/" if we're using the main production domain
           if (baseUrl === 'https://aesthetic.computer') {
             path = path.substring('aesthetic.computer/'.length);
@@ -8706,9 +8686,9 @@ async function load(
         } else {
           baseUrl = `${protocol}//${hostname}`;
         }
-        
+
         path = `${baseUrl}/${path}`;
-        
+
         // Removed debug log for font glyph preload
       }
     }
@@ -8897,7 +8877,7 @@ async function load(
   // Skip expensive typeface loading - use on-demand loading for all glyphs
   const skipTypefacePreload = true; // Always skip preload, load on-demand instead
   // console.log(`⏰ Typeface skip check: skipTypefacePreload=${skipTypefacePreload}, tf exists=${!!tf}`);
-  
+
   const typefaceLoadStartTime = performance.now();
   if (!tf && !skipTypefacePreload) {
     tf = await new Typeface(/*"unifont"*/).load($commonApi.net.preload);
@@ -8935,7 +8915,7 @@ async function load(
   } else {
     // console.log(`⏰ Typeface already loaded`);
   }
-  
+
   $commonApi.typeface = tf; // Expose a preloaded typeface globally.
   if (typeof window !== "undefined") window.__acTypeface = tf; // Expose for oven diagnostics
   ui.setTypeface(tf); // Set the default `ui` typeface.
@@ -9074,7 +9054,7 @@ async function load(
     // 📤 Send ready signal to parent window (e.g., kidlisp.com editor)
     // Note: disk.mjs runs in a Web Worker, so window may not exist
     const hasWindow = typeof window !== 'undefined';
-    
+
     try {
       if (hasWindow && window.parent && window.parent !== window) {
         window.parent.postMessage({ type: "kidlisp-ready" }, "*");
@@ -9141,7 +9121,7 @@ async function load(
         graph.resetScrollState();
         // Reset mask state to prevent masks from persisting across pieces
         graph.unmask();
-        
+
         const booter = module.boot || nopaint_boot;
         booter($);
         if (chatEnabled) {
@@ -9157,7 +9137,7 @@ async function load(
       sim = module.sim || defaults.sim;
       paint = async ($) => {
         let painted = false;
-        
+
         if (module.paint) {
           painted = module.paint($);
           if ($.system?.nopaint) {
@@ -9172,7 +9152,7 @@ async function load(
           const zoom = $.system.nopaint.zoomLevel;
           const tx = $.system.nopaint.translation.x;
           const ty = $.system.nopaint.translation.y;
-          
+
           // Create screen-space dragBox
           const screenDragBox = {
             x: originalDragBox.x * zoom + tx,
@@ -9180,20 +9160,20 @@ async function load(
             w: originalDragBox.w * zoom,
             h: originalDragBox.h * zoom
           };
-          
+
           // Temporarily replace the dragBox with screen coordinates
           const originalBrush = $.system.nopaint.brush;
           $.system.nopaint.brush = { ...originalBrush, dragBox: screenDragBox };
-          
+
           // Add color word for overlay function
           $.color = $.system.nopaint.color;
-          
+
           // Add mark word for overlay function (preview dragBox)
           $.mark = $.system.nopaint.brush?.dragBox;
-          
-          // Render overlay directly to screen buffer 
+
+          // Render overlay directly to screen buffer
           module.overlay($);
-          
+
           // Restore original dragBox
           $.system.nopaint.brush = originalBrush;
         }
@@ -9225,13 +9205,13 @@ async function load(
       filter = module.filter;
       act = ($) => {
         nopaint_act($); // Inherit base functionality.
-        
+
         // 🎯 IMMEDIATE BAKING: Fix race condition by triggering bake immediately after lift
         const np = $.system?.nopaint;
         if (np?.needsBake === true && bake) {
           // 📊 Trigger bake flash effect and beep sound
           nopaint_triggerBakeFlash();
-          
+
           // 🔊 Microwave-style beep for bake completion (only for robo)
           if (currentPath?.includes('robo')) {
             $commonApi.sound.synth({
@@ -9242,20 +9222,20 @@ async function load(
               volume: 0.3,
             });
           }
-          
+
           // 🎨 ELEGANT BRUSH PATTERN: Call brush or lift function for final painting
           if (brush || lift) {
             const finalBrushApi = { ...$ };
             // Add top-level 'color' word that maps to system.nopaint.color
             finalBrushApi.color = $.system.nopaint.color;
-            
+
             // Add top-level 'mark' word that maps to finalDragBox for brush
             finalBrushApi.mark = $.system.nopaint.finalDragBox;
-            
+
             // 🎯 Use preserved coordinates since brush is null at bake time
             const preservedDragBox = $.system.nopaint.finalDragBox;
             const preservedStartDrag = $.system.nopaint.finalStartDrag;
-            
+
             if (preservedDragBox) {
               // Create a pen object with the preserved coordinates
               finalBrushApi.pen = {
@@ -9266,21 +9246,21 @@ async function load(
             } else {
               finalBrushApi.pen = $.system.nopaint.brush; // Fallback to original (likely null)
             }
-            
+
             finalBrushApi.lift = true; // 🎯 Single clean flag for final brush call
-            
+
             $.page($.system.painting); // Set context to painting surface
-            
+
             // Call lift function if it exists, otherwise fall back to brush
             if (lift) {
               lift(finalBrushApi); // Call lift for final painting
             } else if (brush) {
               brush(finalBrushApi); // Call brush for final painting (legacy)
             }
-            
+
             $.page($.screen); // Reset context
           }
-          
+
           $.page($.system.painting);
           bake($);
 
@@ -9293,14 +9273,14 @@ async function load(
 
           // 📸 Snapshot for undo after every stroke bake.
           addUndoPainting($.system.painting, "stroke");
-          
+
           // 🚀 Broadcast bake completion
           $commonApi.broadcastPaintingUpdateImmediate("baked", {
             source: "immediate_bake",
             piece: loadedModule?.meta?.()?.title || "unknown"
           });
         }
-        
+
         if (module.act) {
           return module.act($);
         } else {
@@ -9464,35 +9444,35 @@ async function load(
     } else {
       const moduleAssignStartTime = performance.now();
       // console.log(`⏰ Starting module function assignment at ${moduleAssignStartTime}ms`);
-      
+
       // 🧩 piece
       // Reset scroll state when a piece loads
       graph.resetScrollState();
       // Reset mask state to prevent masks from persisting across pieces
       graph.unmask();
-      
+
       boot = module.boot || defaults.boot;
       sim = module.sim || defaults.sim;
       paint = module.paint || defaults.paint;
       beat = module.beat || defaults.beat;
       act = module.act || defaults.act;
       leave = module.leave || defaults.leave;
-      
+
       // console.log("📨 Module exports check:", {
       //   hasReceive: !!module.receive,
       //   receiveType: typeof module.receive,
       //   receiveIsDefault: module.receive === defaults.receive
       // });
-      
+
       receive = module.receive || defaults.receive; // Handle messages from BIOS
-      
+
       // ⏱️ Background mode: pieces can export `background = true` to keep sim()
       // running when the page is hidden (e.g. clock.mjs for audio scheduling)
       pieceBackground = !!module.background;
-      
+
       // 🎨 AUTO-DETECT BRUSH FUNCTIONS: If a piece exports a brush or lift function, automatically use nopaint system
       system = module.system || (module.brush || module.lift ? "nopaint" : null);
-      
+
       // 🎨 AUTO-GENERATE BAKE: If using brush/lift but no explicit bake function, create a default one
       if ((module.brush || module.lift) && !module.bake) {
         bake = ({ paste, system, page }) => {
@@ -9522,7 +9502,7 @@ async function load(
     keys(preloadPromises).forEach((key) => preloadPromises[key].reject(key));
     preloadPromises = {};
     noPaint = false;
-    
+
     // 🎞️ Reset piece-level FPS control
     pieceFPS = null;
     lastPaintTime = 0;
@@ -9540,12 +9520,12 @@ async function load(
     if (TRANSITION_TYPE !== "none") {
       // Check if buffer is valid (not detached from transfer to main thread)
       try {
-        if (screen?.pixels && screen.width > 0 && screen.height > 0 && 
+        if (screen?.pixels && screen.width > 0 && screen.height > 0 &&
             screen.pixels.buffer && !screen.pixels.buffer.detached && screen.pixels.byteLength > 0) {
           golTransition.overlayPixels = new Uint8ClampedArray(screen.pixels);
           golTransition.width = screen.width;
           golTransition.height = screen.height;
-          
+
           // Initialize and START transition immediately (loading phase)
           initGOLCells(golTransition.width, golTransition.height);
           golTransition.generation = 0;
@@ -9558,23 +9538,23 @@ async function load(
         golTransition.overlayPixels = null;
       }
     }
-    
+
     // Note: transition state is now set above when starting
-    
+
     // 🧹 Clear screen buffer when loading a new piece to prevent stale pixels
     // This fixes the blank screen issue when backspacing from kidlisp to prompt
     graph.clear();
-    
+
     formsSent = {}; // Clear 3D list for GPU.
     currentPath = path;
     currentHost = host;
     currentSearch = search;
     // console.log("Set currentSearch to:", search);
     firstPreviewOrIcon = true;
-    
+
     // Clear clock piece cached code when leaving (will be set by clock piece if it caches)
     cachedClockCode = null;
-    
+
   // Parse search parameters properly to check for nolabel
   // Also hide label in pack mode (standalone bundles have no URL params)
   hideLabel = (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) || false;
@@ -9582,7 +9562,7 @@ async function load(
     const searchParams = new URLSearchParams(parsed.search);
     if (searchParams.has("nolabel")) hideLabel = true;
   }
-  
+
     currentColon = colon;
     currentParams = params;
     currentHash = hash;
@@ -9644,7 +9624,7 @@ async function load(
 
     if (!alias) {
       currentHUDTxt = slug; // Update hud if this is not an alias.
-      
+
       // Special HUD label formatting for specific pieces
       if (slug === "r8dio") {
         // Display as "r8Dio" with "8D" in magenta
@@ -9653,7 +9633,7 @@ async function load(
       } else {
         currentHUDPlainTxt = stripColorCodes(slug);
       }
-      
+
       // Hide HUD label for RGB-only kidlisp pieces (e.g., "255 0 0")
       // since they're just background colors and don't need to be displayed
       if (sourceCode && lisp?.isValidRGBString && lisp.isValidRGBString(sourceCode.trim())) {
@@ -9765,7 +9745,7 @@ if (_workerReadyTime - _importStart > 50) {
 if (isWorker) {
   // Signal to bios.mjs that disk.mjs has loaded successfully
   postMessage({ type: "worker-ready" });
-  
+
   onmessage = (e) => {
     // DEBUG: Log DAW messages only when debugging
     if (e.data?.type?.startsWith?.("daw:") && logs.daw) {
@@ -9815,7 +9795,7 @@ async function makeFrame({ data: { type, content } }) {
   if (type?.startsWith?.("pedal:") || type?.startsWith?.("daw:") || type?.startsWith?.("spreadnob:")) {
     console.log("🎹🎹🎹 makeFrame received:", type, JSON.stringify(content));
   }
-  
+
   // Handle permission responses from bios.mjs
   if (type === "permission-response") {
     resolvePermissionRequest(content.requestId, content.granted);
@@ -9859,7 +9839,7 @@ async function makeFrame({ data: { type, content } }) {
       console.log("🔍 HUD Hitbox Debug: ON (init-from-bios)");
       $commonApi.needsPaint();
     }
-    
+
     // Store noauth flag for iframe embedding (kidlisp.com)
     // In noauth mode, mark session as started immediately so piece loading
     // doesn't wait for the session:started message (resilience when session server is down)
@@ -9891,11 +9871,11 @@ async function makeFrame({ data: { type, content } }) {
       })();
       globalScope.objktKidlispCodes = content.objktKidlispCodes;
     }
-    
+
     TV_MODE = content.resolution?.tv === true;
     DEVICE_MODE = content.resolution?.device === true;
     SOLO_MODE = content.resolution?.solo === true;
-    
+
     // Parse highlight parameter
     const highlightParam = content.resolution?.highlight;
     if (highlightParam) {
@@ -9923,7 +9903,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // Parse perf parameter for KidLisp performance HUD
     PERF_MODE = content.resolution?.perf === true;
-    
+
     // Parse auto-scale parameter for automatic density scaling
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
     SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
@@ -10157,7 +10137,7 @@ async function makeFrame({ data: { type, content } }) {
       await handle(); // Get the user's handle.
       // console.log("Handle recived:", HANDLE);
       const displayName = HANDLE || USER.email;
-      console.log(`%c🔐 auth%c Welcome back %c${displayName}`, 
+      console.log(`%c🔐 auth%c Welcome back %c${displayName}`,
         'background: #ec4899; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold;',
         'color: inherit;',
         'color: #ec4899; font-weight: bold;'
@@ -10185,7 +10165,7 @@ async function makeFrame({ data: { type, content } }) {
   if (type === "piece-reload") {
     log.piece.log("Reloading with new code:", content.source?.substring(0, 30) + "...");
     if ($commonApi.reload) {
-      $commonApi.reload({ 
+      $commonApi.reload({
         source: content.source,
         codeId: content.codeId,       // The $code identifier (e.g., "inz")
         createCode: content.createCode,
@@ -10360,7 +10340,7 @@ async function makeFrame({ data: { type, content } }) {
   // Handle dropped ALS files - route to piece receive function if available
   if (type === "dropped:als") {
     console.log("🎵 DISK.MJS: Received dropped:als message:", content);
-    
+
     // First try to call the piece's receive function if it exists
     if (typeof receive === "function") {
       console.log("🎵 DISK.MJS: Calling piece receive function");
@@ -10374,8 +10354,8 @@ async function makeFrame({ data: { type, content } }) {
       // Fall back to act event pattern
       const $api = cachedAPI;
       if ($api) {
-        const data = { 
-          name: content.name, 
+        const data = {
+          name: content.name,
           xmlData: content.xmlData,
           type: "dropped:als"
         };
@@ -10397,7 +10377,7 @@ async function makeFrame({ data: { type, content } }) {
   // Handle dropped WAV files - route to piece receive function if available
   if (type === "dropped:wav") {
     console.log("🎵 DISK.MJS: Received dropped:wav message:", content);
-    
+
     // First try to call the piece's receive function if it exists
     if (typeof receive === "function") {
       console.log("🎵 DISK.MJS: Calling piece receive function for WAV");
@@ -10411,7 +10391,7 @@ async function makeFrame({ data: { type, content } }) {
       // Fall back to act event pattern
       const $api = cachedAPI;
       if ($api) {
-        const data = { 
+        const data = {
           name: content.name || content.originalName,
           id: content.id,
           size: content.size,
@@ -10494,7 +10474,7 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "upload:progress") {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.
-    
+
     // Also forward to current piece (especially video.mjs for tape uploads)
     if (cachedAPI?.piece?.receive) {
       console.log(`📤 Forwarding upload:progress to piece: ${content}`);
@@ -10508,7 +10488,7 @@ async function makeFrame({ data: { type, content } }) {
         console.warn("📤 Error forwarding upload:progress to piece:", error);
       }
     }
-    
+
     return;
   }
 
@@ -10566,7 +10546,7 @@ async function makeFrame({ data: { type, content } }) {
     //     console.warn("️ ✒ Act failure...", e);
     //   }
     // }
-    
+
     // Reset KidLisp timing state when becoming visible again
     // This prevents animation "catch up" after tab was hidden
     // Skip reset for pieces with background mode — they kept running while hidden.
@@ -10578,7 +10558,7 @@ async function makeFrame({ data: { type, content } }) {
         globalKidLispInstance.sequenceCounters.clear();
       }
     }
-    
+
     visible = content;
   }
 
@@ -10707,7 +10687,7 @@ async function makeFrame({ data: { type, content } }) {
     // Check if actEvents exists without causing ReferenceError
     try {
       const hasActEvents = typeof actEvents !== 'undefined' && actEvents && Array.isArray(actEvents);
-      
+
       // If actEvents is available, route to the piece as normal
       if (hasActEvents) {
         const event = {
@@ -10716,7 +10696,7 @@ async function makeFrame({ data: { type, content } }) {
           content: content,
           progress: type === "recorder:transcode-progress" ? content : undefined
         };
-        
+
         actEvents.push(event);
         if (debug) console.log("📼 ✅ Used actEvents for export event:", type);
         return; // Don't let it pass through to main thread
@@ -10724,7 +10704,7 @@ async function makeFrame({ data: { type, content } }) {
     } catch (e) {
       // actEvents doesn't exist - that's fine, we'll call receive directly
     }
-    
+
     // If actEvents isn't available, try calling the piece's receive function directly
     // But only if the piece is booted AND has a custom receive (not the default)
     if (typeof receive === "function" && booted && receive !== defaults.receive) {
@@ -10751,7 +10731,7 @@ async function makeFrame({ data: { type, content } }) {
         console.log(`📼 ⏸️ Cannot call receive for ${type}: ${reasons.join(", ")}`);
       }
     }
-    
+
     // If we can't deliver it (piece not booted or using default receive), queue it for later
     const event = {
       is: (eventType) => eventType === type,
@@ -10780,7 +10760,7 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.rec.recording = false;
     $commonApi.rec.recorded = true; // Also cleared when a recording "slates".
     // Don't reset cleanMode here - it's needed during GIF export/playback
-    
+
     if ($commonApi.rec.cutCallback) {
       try {
         $commonApi.rec.cutCallback();
@@ -10842,19 +10822,19 @@ async function makeFrame({ data: { type, content } }) {
     if ($commonApi.rec.frameChunks) {
       $commonApi.rec.frameChunks.push(content.frames);
       $commonApi.rec.receivedChunks++;
-      
+
       console.log(`📦 Received chunk ${$commonApi.rec.receivedChunks}/${$commonApi.rec.totalChunks}`);
-      
+
       // All chunks received - combine and call callback
       if ($commonApi.rec.receivedChunks === $commonApi.rec.totalChunks) {
         const allFrames = $commonApi.rec.frameChunks.flat();
         console.log(`✅ All ${$commonApi.rec.totalChunks} chunks received, total frames: ${allFrames.length}`);
-        
+
         $commonApi.rec.framesCallback?.({
           frames: allFrames,
           rawAudio: $commonApi.rec.rawAudio
         });
-        
+
         // Clean up
         delete $commonApi.rec.frameChunks;
         delete $commonApi.rec.totalChunks;
@@ -10982,10 +10962,10 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // 🎵 Streaming Audio messages - forward to piece receive function
-  if (type === "stream:playing" || 
-      type === "stream:paused" || 
-      type === "stream:stopped" || 
-      type === "stream:error" || 
+  if (type === "stream:playing" ||
+      type === "stream:paused" ||
+      type === "stream:stopped" ||
+      type === "stream:error" ||
       type === "stream:frequencies-data") {
     if (typeof receive === "function") {
       try {
@@ -11036,10 +11016,10 @@ async function makeFrame({ data: { type, content } }) {
     // Store frame data and metadata in gameboy API object
     gameboy.frame = content.pixels;
     gameboy.romName = content.romName;
-    gameboy.title = content.title; 
+    gameboy.title = content.title;
     gameboy.isGameBoyColor = content.isGameBoyColor;
     gameboy.isPlaying = true;
-    
+
     return;
   }
 
@@ -11164,7 +11144,7 @@ async function makeFrame({ data: { type, content } }) {
       // Extract extension from filename to determine media type
       const filename = content.data.filename || "";
       const ext = filename.split(".").pop();
-      
+
       // Only track paintings and pieces in database
       if (ext === "png" || ext === "mjs" || ext === "lisp" || ext === "lua") {
         try {
@@ -11173,7 +11153,7 @@ async function makeFrame({ data: { type, content } }) {
             slug: content.data.slug,
             ext: ext,
           });
-          
+
           if (trackResponse.status === 401) {
             // Session expired - trigger logout
             const errorData = await trackResponse.json();
@@ -11184,13 +11164,13 @@ async function makeFrame({ data: { type, content } }) {
             }
             return; // Stop processing this upload
           }
-          
+
           if (trackResponse.status === 200) {
             const trackData = await trackResponse.json();
             // Add the short code to the response data
             content.data.code = trackData.code;
             console.log(`✅ ${ext === "png" ? "Painting" : "Piece"} tracked: ${content.data.slug} → #${trackData.code}`);
-            
+
             // Fire off ATProto sync (don't await - let it happen in background)
             if (ext === "png") {
               $commonApi.net.userRequest("POST", "/api/sync-painting-atproto", {
@@ -11214,7 +11194,7 @@ async function makeFrame({ data: { type, content } }) {
           // Don't fail the upload if database tracking fails
         }
       }
-      
+
       serverUpload?.resolve(content.data);
     } else if (content.result === "error") {
       console.error("File failed to load:", content);
@@ -11391,13 +11371,13 @@ async function makeFrame({ data: { type, content } }) {
       const oldWidth = screen.width;
       const oldHeight = screen.height;
       const oldBufferSize = screen.pixels.length;
-      
+
       screen.width = content.width;
       screen.height = content.height;
       // Create fresh buffer - bios.mjs freeze frame provides visual continuity
       // The piece's paint() will fill correct content on next frame
       screen.pixels = new Uint8ClampedArray(content.width * content.height * 4);
-      
+
       if ($commonApi.rec.presenting && (oldWidth !== content.width || oldHeight !== content.height)) {
         console.log('📐 REFRAME: Worker dimensions updated', oldWidth, 'x', oldHeight, '→', content.width, 'x', content.height);
         console.log('   Buffer:', oldBufferSize, '→', screen.pixels.length, '| Expected:', content.width * content.height * 4);
@@ -11536,7 +11516,7 @@ async function makeFrame({ data: { type, content } }) {
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
-      
+
       // 📼 [Ctrl+R+R] Quick tape - start recording without leaving the piece
       // Handle this BEFORE the keyboard:down check since it's a special event
       if (data.name === "keyboard:quick-tape" && !getPackMode()) {
@@ -11544,7 +11524,7 @@ async function makeFrame({ data: { type, content } }) {
         console.log("📼 Quick tape: currentText =", currentText);
         console.log("📼 Quick tape: currentParams =", currentParams);
         console.log("📼 Quick tape: $commonApi.rec =", $commonApi.rec);
-        
+
         // Play a sound to indicate recording started
         $commonApi.sound.synth({
           tone: 2000,
@@ -11553,13 +11533,13 @@ async function makeFrame({ data: { type, content } }) {
           decay: 0.5,
           volume: 0.25,
         });
-        
+
         // Set up the recording with default 7 second duration
         const defaultDuration = 7;
         const kidlispFps = (typeof window !== 'undefined' && window.currentKidlispFps) || null;
-        
+
         console.log("📼 Quick tape: About to call rec.rolling()...");
-        
+
         // Set up recording options and callback
         $commonApi.rec.rolling(
           {
@@ -11582,16 +11562,16 @@ async function makeFrame({ data: { type, content } }) {
             console.log(`📼 Quick tape: Timer set complete`);
           },
         );
-        
+
         console.log("📼 Quick tape: rec.rolling() called");
-        
+
         // Mark as recording
         $commonApi.rec.recording = true;
-        
+
         console.log(`📼 Quick tape: Recording initiated! Duration=${defaultDuration}s`);
         return; // Don't process this event further
       }
-      
+
       if (data.name.indexOf("keyboard:down") === 0) {
         // [Escape] (Deprecated on 23.05.22.19.33)
         // If not on prompt, then move backwards through the history of
@@ -11649,10 +11629,10 @@ async function makeFrame({ data: { type, content } }) {
           // If recording, Escape should stop the tape instead of jumping to prompt
           if (data.key === "Escape" && $commonApi.rec.recording) {
             console.log("🎬 Escape pressed during recording - stopping tape");
-            
+
             // Cut the recording first
             $commonApi.rec.cut();
-            
+
             // Play the sound AFTER a brief delay so it doesn't get recorded
             setTimeout(() => {
               $commonApi.sound.synth({
@@ -11663,7 +11643,7 @@ async function makeFrame({ data: { type, content } }) {
                 volume: 0.2,
               });
             }, 100); // 100ms delay to ensure recording has stopped
-            
+
             return; // Don't proceed with navigation
           }
           // 🎬 Stop demoplay on Escape
@@ -11738,7 +11718,7 @@ async function makeFrame({ data: { type, content } }) {
             const currentTime = performance.now();
             const timeSinceLastTab = currentTime - (hudAnimationState.lastTabTime || 0);
             const isDoubleTap = timeSinceLastTab < 300; // 300ms double-tap window
-            
+
             hudAnimationState.lastTabTime = currentTime;
             // Skip sound only for embedded/inline KidLisp (kidlisp.com editor, PJ KidLisp)
             const isEmbedded = detectEmbeddedKidLisp({ currentPath, currentHUDTxt, currentText });
@@ -12261,14 +12241,14 @@ async function makeFrame({ data: { type, content } }) {
               if (debug && progressData?.progress !== undefined) {
                 const timeElapsed = soundTime - playingSound.startedAt;
                 // console.log(`🎵 AUDIO_PROGRESS: id=${id.substring(id.lastIndexOf('_') + 1)}, progress=${progressData.progress.toFixed(6)}, elapsed=${timeElapsed.toFixed(3)}s, started=${playingSound.startedAt.toFixed(3)}s, current=${soundTime.toFixed(3)}s`);
-                
+
                 // Detect potential timing issues - compare in consistent units
                 if (progressData.progress > 0 && timeElapsed > 0 && progressData.duration) {
                   // Convert audio progress to actual time for comparison
                   const actualAudioTime = progressData.progress * progressData.duration;
                   const timeDrift = Math.abs(actualAudioTime - timeElapsed);
                   const driftPercent = (timeDrift / progressData.duration) * 100;
-                  
+
                   if (driftPercent > 5) { // 5% drift threshold
                     console.warn(`🎵 SYNC_DRIFT: actual=${actualAudioTime.toFixed(3)}s, expected=${timeElapsed.toFixed(3)}s, drift=${timeDrift.toFixed(3)}s (${driftPercent.toFixed(1)}%)`);
                   }
@@ -12561,7 +12541,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // Reframing the piece... (resizing the window).
       if (reframed === true) {
-        
+
         $api.event = {
           device: "none",
           is: (e) => e === "reframed",
@@ -12634,7 +12614,7 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Keep track of lastPen to see if it changed.
       const startTime = performance.now();
       let penEventCount = 0;
-      
+
       content.pen?.events.forEach((data) => {
         penEventCount++;
         Object.assign(data, {
@@ -12653,7 +12633,7 @@ async function makeFrame({ data: { type, content } }) {
             }
           },
         });
-        
+
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
@@ -12719,7 +12699,7 @@ async function makeFrame({ data: { type, content } }) {
                 const fallbackShareWidth = tf.blockWidth * "share ".length;
                 const shareWidth = Math.max(currentHUDShareWidth || 0, fallbackShareWidth);
                 const editWidth = Math.max(currentHUDEditWidth || 0, getHudEditScrubThreshold());
-                
+
                 // 📦 PACK mode: no scrub-to-share, tap refreshes page
                 if (getPackMode()) {
                   currentHUDButtonActive = false;
@@ -12945,7 +12925,7 @@ async function makeFrame({ data: { type, content } }) {
           console.warn("️ ✒ Act failure...", e);
         }
       });
-      
+
       // if (penEventCount > 0) {
         // const processingTime = performance.now() - startTime;
         //if (processingTime > 5) { // Only log if processing took more than 5ms
@@ -13007,7 +12987,7 @@ async function makeFrame({ data: { type, content } }) {
           reason: content.content.reason,
           is: (e) => e === "ui:cancel-interactions",
         };
-        
+
         $api.event = cancelData;
         try {
           if (!TV_MODE) act($api); // Execute cancel for all buttons (skip in TV mode)
@@ -13041,12 +13021,12 @@ async function makeFrame({ data: { type, content } }) {
         $api.event = data;
         try {
           // In TV mode, only allow certain system events, not user input events
-          const allowInTvMode = name.startsWith('speech:') || 
-                               name.startsWith('dark-mode') || 
+          const allowInTvMode = name.startsWith('speech:') ||
+                               name.startsWith('dark-mode') ||
                                name.startsWith('light-mode') ||
                                name.startsWith('microphone-') ||
                                name.startsWith('aesthetic-parent:');
-          
+
           if (!TV_MODE || allowInTvMode) {
             act($api);
           }
@@ -13115,7 +13095,7 @@ async function makeFrame({ data: { type, content } }) {
               this.width = store[name].width;
               this.height = store[name].height;
               $commonApi.resize(this.width, this.height);
-              
+
               // 🎨 Broadcast screen resize from load operation
               if ($commonApi.broadcastPaintingUpdate) {
                 $commonApi.broadcastPaintingUpdate("resized", {
@@ -13124,7 +13104,7 @@ async function makeFrame({ data: { type, content } }) {
                   source: "screen_load"
                 });
               }
-              
+
               return true;
             } else {
               return false;
@@ -13206,10 +13186,10 @@ async function makeFrame({ data: { type, content } }) {
 
       // API Stops being modified here...
       /*if (!$activePaintApi)*/ $activePaintApi = $api;
-      
+
       // Add paintings cache to API for KidLisp ready? function
       $activePaintApi.paintings = paintings;
-      
+
       // 🎯 Initialize global KidLisp instance with the main API
       initializeGlobalKidLisp($api);
 
@@ -13282,17 +13262,17 @@ async function makeFrame({ data: { type, content } }) {
           const bootStartTime = performance.now();
           diskTimings.bootStarted = Math.round(bootStartTime - diskTimingStart);
           // Silent: boot() starting
-          
+
           // Reset zebra cache at the beginning of boot to ensure consistent state
           $api.num.resetZebraCache();
-          
+
           // Notify boot progress
           // console.log("📢 Disk sending boot-log: running boot");
           send({
             type: "boot-log",
             content: "running boot"
           });
-          
+
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
           const bootEndTime = performance.now();
@@ -13300,7 +13280,7 @@ async function makeFrame({ data: { type, content } }) {
           // Silent: boot() completed
           booted = true;
           log.boot.success("Boot completed, booted =", booted, "pending events:", pendingExportEvents.length);
-          
+
           // 📨 Flush any pending export events that arrived during boot
           if (pendingExportEvents.length > 0) {
             log.boot.debug(`Flushing ${pendingExportEvents.length} pending export events`);
@@ -13401,7 +13381,7 @@ async function makeFrame({ data: { type, content } }) {
         booted
       ) {
         let paintOut;
-        
+
         // Restore kidlisp's accumulated pan state from previous frame
         $api.loadpan();
 
@@ -13448,21 +13428,21 @@ async function makeFrame({ data: { type, content } }) {
               np.present($api); // No Paint: prepaint
             }
           } // All: Paint
-          
+
           // 🎞️ Piece-level FPS timing control
           const now = performance.now();
           let shouldPaint = true;
-          
+
           if (pieceFPS !== null && pieceFPS > 0) {
             const targetFrameTime = 1000 / pieceFPS; // milliseconds per frame
-            
+
             // If this is the first paint (lastPaintTime === 0), always allow it
             if (lastPaintTime === 0) {
               lastPaintTime = now;
               shouldPaint = true;
             } else {
               const timeSinceLastPaint = now - lastPaintTime;
-              
+
               if (timeSinceLastPaint < targetFrameTime) {
                 shouldPaint = false; // Skip this frame
               } else {
@@ -13471,18 +13451,18 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
           }
-          
+
           // Only call paint() if timing allows or no FPS limit is set
           if (shouldPaint) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
-            
+
             // Always call paint() - piece paints underneath, GOL overlays on top
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             graph.gpuLogTick(); // 📊 GPU effect logging every 8 frames
             // Increment piece frame counter only when we actually paint
             pieceFrameCount++;
-            
+
             // 🎬 Piece Transition: Also capture noise16 frame as fallback (for initial page load)
             if (paint === defaults.paint && $api.screen?.pixels) {
               // Capture the noise16 state in case no piece was running before (initial load)
@@ -13490,29 +13470,29 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.width = $api.screen.width;
               golTransition.height = $api.screen.height;
             }
-            
+
             // 🎬 Piece Transition: When first piece paint happens, switch to reveal phase
             // Skip for KidLisp pieces - they have their own rendering that conflicts
             const isKidLispPiece = currentPath && (
-              lisp.isKidlispSource(currentPath) || 
-              currentPath === "(...)" || 
+              lisp.isKidlispSource(currentPath) ||
+              currentPath === "(...)" ||
               currentPath.includes("$") ||
               currentPath.endsWith('.lisp')
             );
-            
+
             // Skip transitions entirely if TRANSITION_TYPE is "none"
             if (TRANSITION_TYPE !== "none" && pieceFrameCount === 1 && paint !== defaults.paint && golTransition.overlayPixels && $api.screen?.pixels && !isKidLispPiece) {
               const screenW = $api.screen.width;
               const screenH = $api.screen.height;
               const overlayW = golTransition.width;
               const overlayH = golTransition.height;
-              
+
               // If dimensions differ, scale the overlay to match the new screen
               if (screenW !== overlayW || screenH !== overlayH) {
                 console.log(`🎬 Transition: Scaling overlay from ${overlayW}x${overlayH} to ${screenW}x${screenH}`);
                 golTransition.overlayPixels = scaleOverlayPixels(
-                  golTransition.overlayPixels, 
-                  overlayW, overlayH, 
+                  golTransition.overlayPixels,
+                  overlayW, overlayH,
                   screenW, screenH
                 );
                 golTransition.width = screenW;
@@ -13522,7 +13502,7 @@ async function makeFrame({ data: { type, content } }) {
                   initGOLCells(screenW, screenH);
                 }
               }
-              
+
               // If transition was already started during load, switch to reveal phase
               // Otherwise start it now (fallback for cases where capture didn't happen)
               if (golTransition.active) {
@@ -13536,13 +13516,13 @@ async function makeFrame({ data: { type, content } }) {
                 console.log(`🎬 Transition: Started ${TRANSITION_TYPE} (direct reveal)`, golTransition.width, "x", golTransition.height);
               }
             }
-            
+
             // Log first piece paint
             if (pieceFrameCount === 1) {
               diskTimings.firstPaint = Math.round(performance.now() - diskTimingStart);
               // Silent: first piece paint
             }
-            
+
             // 🎨 Signal to hide boot canvas when piece's paint takes over from default noise16
             // Only signal once when piece has a custom paint function (not defaults.paint)
             // Note: pieceFrameCount may already be >1 if defaults.paint ran while the module
@@ -13562,7 +13542,7 @@ async function makeFrame({ data: { type, content } }) {
                 }
               }
             }
-            
+
             // TODO: Remove old embedded layer rendering - using simplified approach now
             // globalThis.renderKidlispProgrammaticLayers();
           } else {
@@ -13570,7 +13550,7 @@ async function makeFrame({ data: { type, content } }) {
             // This maintains the render loop while skipping the actual paint call
             paintOut = undefined;
           }
-          
+
           // Store paintOut for next frame (only when we actually painted)
           if (shouldPaint) {
             lastPaintOut = paintOut;
@@ -13587,7 +13567,7 @@ async function makeFrame({ data: { type, content } }) {
         // `DirtyBox` and `undefined` always set `noPaint` to `true`.
         noPaint =
           paintOut === false || (paintOut !== undefined && paintOut !== true);
-        
+
         // 🧬 GOL Transition: Force pixels to be sent while transition is active
         if (golTransition.active) {
           noPaint = false; // Override - GOL modified pixels, must send them
@@ -13720,10 +13700,10 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             // Step the transition
             const stillActive = golStep(screen.pixels);
-            
+
             // Apply overlay on top of piece's paint
             applyGOLOverlay(screen.pixels);
-            
+
             // End transition when complete
             if (!stillActive) {
               console.log(`🎬 Transition: ${TRANSITION_TYPE} complete!`);
@@ -13736,7 +13716,7 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
         }
-        
+
         painted = true;
         if (system === "video") console.log('🟢 DISK: painted set to TRUE, paintCount:', paintCount);
         paintCount = paintCount + 1n;
@@ -13745,24 +13725,24 @@ async function makeFrame({ data: { type, content } }) {
         if ($api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0) {
           const currentFrame = Number(paintCount);
           const framesPassed = currentFrame - $api.rec.tapeFrameStart;
-          
+
           $api.rec.tapeProgress = framesPassed / $api.rec.tapeFrameTarget;
-          
+
           if (framesPassed >= $api.rec.tapeFrameTarget) {
             console.log(`🎬 Frame-based recording complete: ${framesPassed}/${$api.rec.tapeFrameTarget} frames`);
-            
+
             // Clear failsafe since normal timer completed
             if ($api.rec.failsafeTimeout) {
               clearTimeout($api.rec.failsafeTimeout);
               $api.rec.failsafeTimeout = null;
             }
-            
+
             // Reset frame-based recording state
             $api.rec.tapeProgress = 0;
             $api.rec.tapeFrameMode = false;
             $api.rec.tapeFrameStart = 0;
             $api.rec.tapeFrameTarget = 0;
-            
+
             // Trigger cut and jump to video
             if (typeof $api.rec.cut === 'function') {
               $api.rec.cut(() => {
@@ -13800,7 +13780,7 @@ async function makeFrame({ data: { type, content } }) {
       const defo = 6; // Default offset
 
 
-      
+
       if (
         !previewMode &&
         !iconMode &&
@@ -13811,18 +13791,18 @@ async function makeFrame({ data: { type, content } }) {
 
         // Use plain text for width calculation to avoid counting color codes
         const textForWidthCalculation = currentHUDPlainTxt || currentHUDTxt;
-        
+
         // Double-check: strip color codes directly if they're still present
         // Handle multiple color code formats: \colorname\, \255,255,255\, etc.
         const colorCodeRegex = /\\[^\\]*\\/g; // Matches \anything\ format
         let cleanText = textForWidthCalculation.replace(colorCodeRegex, '');
-        
+
         // Also try removing RGB color codes like \255,255,255\ if any remain
         cleanText = cleanText.replace(/\\\d+,\d+,\d+(,\d+)?\\/g, '');
-        
+
         // Remove any remaining single backslashes that might be color code remnants
         cleanText = cleanText.replace(/\\/g, '');
-        
+
         // Analyze visible lines for accurate sizing
         const rawLines = cleanText.split('\n');
         const visibleLines = rawLines.map((line) => line.replace(/\s+$/, ''));
@@ -13981,15 +13961,15 @@ async function makeFrame({ data: { type, content } }) {
           // A real glyph will have properties like dwidth, advance, or resolution
           // The Proxy returns null for missing glyphs (typeof null === 'object')
           const dollarGlyph = matrixTypeface.glyphs && matrixTypeface.glyphs['$'];
-          const hasGlyphs = dollarGlyph && dollarGlyph !== null && 
+          const hasGlyphs = dollarGlyph && dollarGlyph !== null &&
             (dollarGlyph.dwidth || dollarGlyph.advance !== undefined || dollarGlyph.resolution);
-          
+
           if (!hasGlyphs) {
             // Trigger loading if not started
             if (!matrixTypeface.__loadPromise) {
               ensureTypefaceLoaded(matrixTypeface);
             }
-            
+
             // Wait for font to load
             if (matrixTypeface.__loadPromise) {
               matrixTypeface.__loadPromise.then(() => {
@@ -14040,22 +14020,22 @@ async function makeFrame({ data: { type, content } }) {
         if (!w || w <= 0) {
           w = textBoxWidth;
         }
-        
+
         // Add extra padding to buffer width to prevent font_1 character cutoff
         const bufferWidthPadding = 6; // Extra pixels for wider glyphs
         w += bufferWidthPadding;
-        
+
         // 📡 LAN badge superscript - add width for device letter if connected to dev session server
         // Hide in kidlisp.com embedded mode (NOAUTH_MODE)
         const showLanBadge = devIdentity && devIdentity.host && !globalThis.NOAUTH_MODE;
         const lanBadgePadding = showLanBadge ? 10 : 0; // Space for letter + margin
         w += lanBadgePadding;
-        
+
         // ✨ Custom superscript (e.g. ".com") - add width for text
         const showCustomSuperscript = !!currentHUDSuperscript;
         const customSuperscriptPadding = showCustomSuperscript ? (currentHUDSuperscript.length * 5 + 3) : 0;
         w += customSuperscriptPadding;
-        
+
         // 📱 HUD QR code - generate cells and calculate width
         let hudQRSize = 0;
         let hudQRPadding = 0;
@@ -14080,36 +14060,36 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
         const hudQRTotalWidth = hudQRSize > 0 ? hudQRSize + hudQRPadding + 2 : 0; // +2 for border
-        
+
         // Final text dimensions: KidLisp width uses visible line metrics, height from text box
   let h = measuredTextHeight;
-        
+
         if (piece === "video") w = screen.width;
-        
+
         const baseLabelWidth = w + shareWidth;
-        
+
         // Use natural text dimensions for buffer - preserve original layout
         // Add QR code width to buffer if present
         let bufferW = baseLabelWidth + scrubExtension + editExtension + hudQRTotalWidth;
         let bufferH = h;
-        
+
         // Ensure buffer height fits QR code if present
         if (hudQRSize > 0 && bufferH < hudQRSize + 4) {
           bufferH = hudQRSize + 4; // QR size + padding
         }
-        
+
         // Ensure minimum buffer size for readability
         const minTextWidth = Math.max(isKidlispPiece ? textBoxWidth : textBoxWidth, 50);
         const minimumAllowedWidth = shareWidth + Math.max(minTextWidth, 0);
         const minBufferH = Math.max(hudBlockHeight, 20); // At least one line height
-        
+
         if (bufferW < minimumAllowedWidth + scrubExtension + editExtension) {
           bufferW = minimumAllowedWidth + scrubExtension + editExtension;
         }
         if (bufferH < minBufferH) {
           bufferH = minBufferH;
         }
-        
+
         // Fix height calculation for KidLisp pieces when wordWrap=false
         if (isKidlispPiece) {
           // When wordWrap=false, text.box doesn't calculate height correctly for multi-line text
@@ -14119,7 +14099,7 @@ async function makeFrame({ data: { type, content } }) {
             bufferH = properHeight;
           }
         }
-        
+
         const hudDescenderPadding = Math.max(2, Math.round(hudBlockHeight * 0.2));
         bufferH += hudDescenderPadding;
 
@@ -14128,23 +14108,23 @@ async function makeFrame({ data: { type, content } }) {
           console.log(`HUD_BUFFER: bufferW=${bufferW} bufferH=${bufferH} textBoxW=${textBounds.box.width} textBoxH=${textBounds.box.height} longestLinePx=${longestVisibleLineWidth} lines=${visibleLineCount} fontHeight=${hudBlockHeight} expectedH=${visibleLineCount * hudBlockHeight}`);
           console.log(`HUD_TEXT: "${cleanText.replace(/\n/g, '\\n').substring(0, 150)}"`);
         }
-        
 
-        
+
+
         // Store actual dimensions for animation calculations
   currentHUDLabelMeasuredWidth = baseLabelWidth;
   hudAnimationState.labelWidth = bufferW;
         hudAnimationState.labelHeight = bufferH;
         h = bufferH;
-        
+
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
           $.unpan();
           // Ensure label renders without any active mask from the piece
           $.unmask();
-          
+
           // Clean rendering - no debug elements
-          
+
 
 
           let c;
@@ -14163,7 +14143,7 @@ async function makeFrame({ data: { type, content } }) {
               // but keep actual newlines as newlines
               text = text?.replaceAll("§", " ");
             }
-            
+
             // 📱 Render QR code to the LEFT of the text if present
             let qrOffset = 0;
             if (currentHUDQR && currentHUDQRCells) {
@@ -14174,10 +14154,10 @@ async function makeFrame({ data: { type, content } }) {
               // Move left by 4px for tighter fit (up is handled by label Y offset)
               const qrX = currentHUDLeftPad + currentHUDScrub - 4;
               const qrY = 0; // Top of buffer
-              
+
               // White background (1px border around QR)
               $.ink(255, 255, 255).box(qrX, qrY, qrSize + 2, qrSize + 2);
-              
+
               // Draw QR code cells
               for (let y = 0; y < qrSize; y++) {
                 for (let x = 0; x < qrSize; x++) {
@@ -14186,10 +14166,10 @@ async function makeFrame({ data: { type, content } }) {
                   }
                 }
               }
-              
+
               qrOffset = qrSize + 4; // QR width + border + gap
             }
-            
+
             const baseX = currentHUDLeftPad + qrOffset;
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
             const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
@@ -14223,7 +14203,7 @@ async function makeFrame({ data: { type, content } }) {
                 stripColorCodes(firstLine),
                 selectedTypeface
               );
-              
+
               const superscriptX = hudTextX + firstLineWidth + 2;
               const superscriptY = 2; // Moved down 2px
 
@@ -14250,21 +14230,21 @@ async function makeFrame({ data: { type, content } }) {
 
             // 📡 LAN Badge Superscript - draw device letter after the text (+ custom superscript offset)
             if (showLanBadge) {
-              const deviceLetter = devIdentity.letter || 
+              const deviceLetter = devIdentity.letter ||
                 (devIdentity.name ? devIdentity.name.charAt(0).toUpperCase() : null) ||
                 String.fromCharCode(65 + (devIdentity.connectionIndex || 0)); // A, B, C...
-              
+
               // Get the first line of text for positioning the superscript
               const firstLine = text?.split('\n')[0] || text;
               const firstLineWidth = cachedAPI.text.width(
                 stripColorCodes(firstLine),
                 selectedTypeface
               );
-              
+
               // Position superscript to the right of first line (after custom superscript if present)
               const superscriptX = hudTextX + firstLineWidth + 2 + customSuperscriptPadding;
               const superscriptY = 0; // Top of the line (superscript position)
-              
+
               // Draw letter in cyan using MatrixChunky8
               $.ink(0, 220, 255); // Bright cyan matching original badge
               $.write(deviceLetter, { x: superscriptX, y: superscriptY }, undefined, undefined, false, "MatrixChunky8");
@@ -14332,15 +14312,15 @@ async function makeFrame({ data: { type, content } }) {
           const currentTime = performance.now();
           const elapsed = currentTime - hudAnimationState.startTime;
           const progress = Math.min(elapsed / hudAnimationState.duration, 1.0);
-          
+
           // Easing function for smooth macOS-style animation (ease-out)
           const easeOut = 1 - Math.pow(1 - progress, 3);
-          
+
           // Use actual calculated dimensions from when HUD was last drawn
           const hudWidth = hudAnimationState.labelWidth || 120;  // fallback to default
           const hudHeight = hudAnimationState.labelHeight || 40; // fallback to default
           const qrSize = hudAnimationState.qrSize || 80;
-          
+
           // Calculate slide distances: ensure full content slides off-screen
           // Add extra padding (20px) to guarantee complete disappearance
           // For very large labels, cap the slide distance to keep animation smooth
@@ -14349,7 +14329,7 @@ async function makeFrame({ data: { type, content } }) {
           const hudSlideY = Math.max(-(hudHeight + 20), -maxSlideDistance); // Cap slide distance
           const qrSlideX = qrSize + 20;         // Slide right by full size + padding
           const qrSlideY = qrSize + 20;         // Slide down by full size + padding
-          
+
           if (hudAnimationState.visible) {
             // Animating IN: fade from 0 to 1, slide from respective corners to position
             hudAnimationState.opacity = easeOut;
@@ -14377,11 +14357,11 @@ async function makeFrame({ data: { type, content } }) {
               y: easeOut * qrSlideY   // Slide out to bottom using actual size
             };
           }
-          
+
           // End animation when progress reaches 1.0
           if (progress >= 1.0) {
             hudAnimationState.animating = false;
-            
+
             // Ensure final values are exact
             if (hudAnimationState.visible) {
               hudAnimationState.opacity = 1.0;
@@ -14425,7 +14405,7 @@ async function makeFrame({ data: { type, content } }) {
         currentHUDButton.noEdgeDetection = true;
         // Prevent HUD button from being activated by dragging from other buttons
         currentHUDButton.noRolloverActivation = true;
-        
+
         // Disable button when HUD is not visible (hidden with Tab key)
         currentHUDButton.disabled = !hudAnimationState.visible && !hudAnimationState.animating;
 
@@ -14442,7 +14422,7 @@ async function makeFrame({ data: { type, content } }) {
       // Tack on the merry progress bar at the TOP if a pipeline is running
       if ($api.system.merry && $api.system.merry.running) {
         const merry = $api.system.merry;
-        
+
         // Calculate progress based on elapsed time (use UTC-synced clock if available)
         const now = $commonApi.clock?.time?.()?.getTime?.() || Date.now();
         if (merry.startTime && merry.currentPieceStart) {
@@ -14451,14 +14431,14 @@ async function makeFrame({ data: { type, content } }) {
           merry.progress = Math.min(1, totalElapsed / merry.totalDuration);
           merry.pieceProgress = Math.min(1, pieceElapsed / merry.pipeline[merry.currentIndex].duration);
         }
-        
+
         const mainScreenWidth = screen.width;
-        
+
         // Create merry progress bar painting with SEGMENTED colored blocks per piece
         const merryProgressBarPainting = $api.painting(mainScreenWidth, 1, ($) => {
           $.unmask(); // Ensure progress bar renders without piece mask
           const animFrame = Number($api.paintCount || 0n);
-          
+
           // Check for transition flash (use UTC-synced time)
           const flashNow = $commonApi.clock?.time?.()?.getTime?.() || Date.now();
           let flashIntensity = 0;
@@ -14474,7 +14454,7 @@ async function makeFrame({ data: { type, content } }) {
               flashIntensity = 0;
             }
           }
-          
+
           // Fill with black backdrop (or white during flash)
           if (flashIntensity > 0) {
             const bgBrightness = Math.floor(255 * flashIntensity);
@@ -14482,7 +14462,7 @@ async function makeFrame({ data: { type, content } }) {
           } else {
             $.ink(0, 0, 0, 255).box(0, 0, mainScreenWidth, 1);
           }
-          
+
           // Define colors for each piece (cycle through palette)
           const pieceColors = [
             { r: 100, g: 255, b: 100 },  // Bright green
@@ -14492,25 +14472,25 @@ async function makeFrame({ data: { type, content } }) {
             { r: 200, g: 100, b: 255 },  // Purple
             { r: 255, g: 255, b: 100 },  // Yellow
           ];
-          
+
           // Calculate pixel width for each piece based on duration
           let xOffset = 0;
           merry.pipeline.forEach((piece, index) => {
             const pieceWidthRatio = piece.duration / merry.totalDuration;
             const pieceWidth = Math.floor(mainScreenWidth * pieceWidthRatio);
-            
+
             // Determine if this piece is completed, current, or upcoming
             const isCompleted = index < merry.currentIndex;
             const isCurrent = index === merry.currentIndex;
             const isUpcoming = index > merry.currentIndex;
-            
+
             // Get color for this piece
             const color = pieceColors[index % pieceColors.length];
-            
+
             // Draw this piece's segment
             for (let x = xOffset; x < xOffset + pieceWidth && x < mainScreenWidth; x++) {
               let baseR, baseG, baseB, alpha;
-              
+
               if (isCompleted) {
                 // Completed pieces: Fade out progressively (darker as we move away from them)
                 const completedAge = merry.currentIndex - index; // How many pieces ago
@@ -14524,7 +14504,7 @@ async function makeFrame({ data: { type, content } }) {
                 const pieceProgress = merry.pieceProgress || 0;
                 const localX = x - xOffset;
                 const progressPoint = Math.floor(pieceWidth * pieceProgress);
-                
+
                 if (localX <= progressPoint) {
                   // Filled part of current piece - bright with pulsing
                   const pulse = Math.sin(animFrame * 0.3) * 0.2 + 0.8;
@@ -14532,7 +14512,7 @@ async function makeFrame({ data: { type, content } }) {
                   baseG = Math.floor(color.g * pulse);
                   baseB = Math.floor(color.b * pulse);
                   alpha = 255;
-                  
+
                   // Leader pixel - extra bright white
                   if (localX === progressPoint) {
                     const leaderPulse = Math.sin(animFrame * 0.6) * 0.3 + 0.7;
@@ -14551,14 +14531,14 @@ async function makeFrame({ data: { type, content } }) {
                 // Upcoming pieces: Warm up as turn approaches
                 const stepsUntil = index - merry.currentIndex; // How many pieces away
                 const nextIsThis = stepsUntil === 1;
-                
+
                 if (nextIsThis) {
                   // Next piece warms up based on current piece progress
                   const warmup = merry.pieceProgress || 0; // 0 to 1
                   const baseBrightness = 0.15; // Starting dim
                   const targetBrightness = 0.5; // Warm up to this
                   const brightness = baseBrightness + (targetBrightness - baseBrightness) * warmup;
-                  
+
                   // Add warm orange/yellow glow as it heats up
                   const warmGlow = warmup * 0.3;
                   baseR = Math.floor(color.r * brightness + 255 * warmGlow);
@@ -14577,7 +14557,7 @@ async function makeFrame({ data: { type, content } }) {
                   alpha = 255;
                 }
               }
-              
+
               // Fade zone overlay: blend toward next piece color at end of each segment
               if (merry.fadeDuration > 0 && merry.pipeline.length > 1) {
                 const fadeZonePixels = Math.max(2, Math.floor(pieceWidth * merry.fadeDuration / piece.duration));
@@ -14604,14 +14584,14 @@ async function makeFrame({ data: { type, content } }) {
                 baseG = Math.min(255, Math.floor(baseG * boost));
                 baseB = Math.min(255, Math.floor(baseB * boost));
               }
-              
+
               $.ink(baseR, baseG, baseB, alpha).box(x, 0, 1, 1);
             }
-            
+
             xOffset += pieceWidth;
           });
         });
-        
+
         if (merryProgressBarPainting && merryProgressBarPainting.pixels && merryProgressBarPainting.pixels.length > 0) {
           sendData.merryProgressBar = {
             x: 0,
@@ -14622,7 +14602,7 @@ async function makeFrame({ data: { type, content } }) {
               pixels: merryProgressBarPainting.pixels
             }
           };
-          
+
           // 🎄⏰ Add UTC time overlay for sync debugging
           const utcDate = $commonApi.clock?.time?.() || new Date();
           const utcTimeStr = utcDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
@@ -14690,11 +14670,11 @@ async function makeFrame({ data: { type, content } }) {
       // Tack on the tape progress bar pixel buffer if necessary.
       if (!$api.rec.cleanMode && ($api.rec.tapeProgress || ($api.rec.recording && $api.rec.tapeTimerDuration))) {
         const progress = $api.rec.tapeProgress || 0;
-        
+
         // Determine if we should show progress bar at all
         const isFrameBased = $api.rec.tapeFrameMode && $api.rec.tapeFrameTarget > 0;
         const frameCount = $api.rec.tapeFrameTarget || 1;
-        
+
         // Hide progress bar for ALL frame-based recordings
         if (isFrameBased) {
           // Skip creating progress bar entirely for frame recordings
@@ -14704,9 +14684,9 @@ async function makeFrame({ data: { type, content } }) {
           const mainScreenPixels = screen.pixels; // This is the actual frame content
           const mainScreenWidth = screen.width;
           const mainScreenHeight = screen.height;
-          
+
           const isShortRecording = isFrameBased ? frameCount <= 120 : ($api.rec.tapeTimerDuration || 0) <= 1;
-          
+
           let currentProgressWidth;
           if (isFrameBased) {
             // For frame-based recording, create discrete segments
@@ -14717,13 +14697,13 @@ async function makeFrame({ data: { type, content } }) {
             // For time-based recording, use smooth progress
             currentProgressWidth = Math.floor(mainScreenWidth * progress);
           }
-          
+
           // Create tape progress bar painting with VHS-style red glow
           const tapeProgressBarPainting = $api.painting(mainScreenWidth, 2, ($) => {
             $.unmask(); // Ensure tape progress bar renders without piece mask
             // Animation frame for VHS effects - increased speed for more vibes
             const animFrame = Number($api.paintCount || 0n);
-            
+
             // Helper function to sample pixel color from above the progress bar
             const sampleColorFromAbove = (x) => {
               // Skip sampling during early frames for performance (first ~5 frames)
@@ -14731,11 +14711,11 @@ async function makeFrame({ data: { type, content } }) {
               if (frameCount < 5 || !mainScreenPixels || mainScreenPixels.length === 0) {
                 return { r: 0, g: 0, b: 0 }; // Return black during startup
               }
-              
+
               // Sample from a few pixels above the progress bar position
               const sampleY = Math.max(0, screen.height - 10); // Sample 10px above progress bar
               const pixelIndex = (sampleY * screen.width + x) * 4;
-              
+
               if (pixelIndex >= 0 && pixelIndex < mainScreenPixels.length - 3) {
                 return {
                   r: mainScreenPixels[pixelIndex],
@@ -14746,15 +14726,15 @@ async function makeFrame({ data: { type, content } }) {
               // Fallback to black if can't sample
               return { r: 0, g: 0, b: 0 };
             };
-          
+
           // Special color override for first and last frames
           const isFirstFrame = progress <= 0.01; // First 1% of progress
           const isLastFrame = progress >= 0.99;  // Last 1% of progress
-          
+
           // Calculate smooth alpha fade - progress bar fades from 25% to 75% for longer clean content viewing
           // Skip fade animation for short recordings
           let progressBarAlpha = 1.0; // Default to fully visible
-          
+
           if (!isShortRecording) {
             if (progress >= 0.20 && progress <= 0.30) {
               // Fade out from 20% to 30% (10% fade-out period)
@@ -14767,23 +14747,23 @@ async function makeFrame({ data: { type, content } }) {
               progressBarAlpha = (progress - 0.70) / 0.10;
             }
           }
-          
+
           // Fill entire bar with black backdrop using fade alpha
           $.ink(0, 0, 0, Math.floor(progressBarAlpha * 255)).box(0, 0, mainScreenWidth, 2);
-          
+
           if (isFrameBased) {
             // Draw segmented progress for frame-based recording
             const segmentWidth = Math.max(1, Math.floor(mainScreenWidth / frameCount));
             const framesPassed = Math.floor(progress * frameCount);
             const currentProgressWidth = framesPassed * segmentWidth;
-            
+
             // Draw VHS-style progress bar pixel by pixel (same as time-based but with discrete frame spacing and no leader pixel)
             for (let x = 0; x < mainScreenWidth; x++) {
               let baseR, baseG, baseB;
-              
+
               if (x < currentProgressWidth) {
                 // FILLED AREA - VHS red with analog glow and scan lines
-                
+
                 if (isFirstFrame) {
                   // FIRST FRAME - Fully green across entire bar
                   baseR = 0;
@@ -14797,38 +14777,38 @@ async function makeFrame({ data: { type, content } }) {
                 } else {
                   // NORMAL FRAMES - Enhanced color sampling from buffer above
                   const sampledColor = sampleColorFromAbove(x);
-                  
+
                   // Sample additional colors for more variety
                   const sampledColor2 = sampleColorFromAbove(Math.max(0, x - 3));
                   const sampledColor3 = sampleColorFromAbove(Math.min(mainScreenWidth - 1, x + 3));
-                  
+
                   // Mix multiple sampled colors for richer palette
                   const mixedR = Math.floor((sampledColor.r + sampledColor2.r + sampledColor3.r) / 3);
                   const mixedG = Math.floor((sampledColor.g + sampledColor2.g + sampledColor3.g) / 3);
                   const mixedB = Math.floor((sampledColor.b + sampledColor2.b + sampledColor3.b) / 3);
                   const mixedColor = { r: mixedR, g: mixedG, b: mixedB };
-                  
+
                   // Base VHS red intensity - reduced to let more color through
                   let redIntensity = 200; // Reduced from 255 for more color mixing
-                  
+
                   // Use shared VHS effects calculation
                   const effects = calculateVHSEffects(x, animFrame);
-                  
+
                   // Combine all VHS effects with brighter base
                   redIntensity = Math.floor(redIntensity * effects.scanLine * effects.analogGlow * effects.tracking * effects.secondaryGlow);
-                  
+
                   // Create VHS red color
                   const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
                   const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
                   const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
-                  
+
                   // Use shared blending function (55% sampled, 45% VHS red for more color influence)
                   const blended = blendColorWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
                   baseR = blended.r;
                   baseG = blended.g;
                   baseB = blended.b;
                 }
-                
+
                 // Use proper alpha blending for filled area (no special leader pixel treatment for frame-based)
                 $.ink(baseR, baseG, baseB, Math.floor(progressBarAlpha * 255)).box(x, 0, 1, 2);
               } else {
@@ -14840,13 +14820,13 @@ async function makeFrame({ data: { type, content } }) {
             // Draw VHS-style progress bar pixel by pixel (original time-based logic)
             for (let x = 0; x < mainScreenWidth; x++) {
               let baseR, baseG, baseB;
-              
+
               // Leading edge pixel - bright glowing leader
               const isLeaderPixel = x === currentProgressWidth - 1 && currentProgressWidth > 0;
-              
+
               if (x < currentProgressWidth) {
                 // FILLED AREA - VHS red with analog glow and scan lines
-                
+
                 if (isFirstFrame) {
                   // FIRST FRAME - Fully green across entire bar
                   baseR = 0;
@@ -14860,38 +14840,38 @@ async function makeFrame({ data: { type, content } }) {
                 } else {
                   // NORMAL FRAMES - Enhanced color sampling from buffer above
                   const sampledColor = sampleColorFromAbove(x);
-                  
+
                   // Sample additional colors for more variety
                   const sampledColor2 = sampleColorFromAbove(Math.max(0, x - 3));
                   const sampledColor3 = sampleColorFromAbove(Math.min(mainScreenWidth - 1, x + 3));
-                  
+
                   // Mix multiple sampled colors for richer palette
                   const mixedR = Math.floor((sampledColor.r + sampledColor2.r + sampledColor3.r) / 3);
                   const mixedG = Math.floor((sampledColor.g + sampledColor2.g + sampledColor3.g) / 3);
                   const mixedB = Math.floor((sampledColor.b + sampledColor2.b + sampledColor3.b) / 3);
                   const mixedColor = { r: mixedR, g: mixedG, b: mixedB };
-                  
+
                   // Base VHS red intensity - reduced to let more color through
                   let redIntensity = 200; // Reduced from 255 for more color mixing
-                  
+
                   // Use shared VHS effects calculation
                   const effects = calculateVHSEffects(x, animFrame);
-                  
+
                   // Combine all VHS effects with brighter base
                   redIntensity = Math.floor(redIntensity * effects.scanLine * effects.analogGlow * effects.tracking * effects.secondaryGlow);
-                  
+
                   // Create VHS red color
                   const vhsR = Math.max(180, Math.min(255, redIntensity)); // Reduced min from 200
                   const vhsG = Math.floor(vhsR * 0.05); // Very minimal green
                   const vhsB = Math.floor(vhsR * 0.02); // Very minimal blue
-                  
+
                   // Use shared blending function (55% sampled, 45% VHS red for more color influence)
                   const blended = blendColorWithVHS(mixedColor, vhsR, vhsG, vhsB, 0.55);
                   baseR = blended.r;
                   baseG = blended.g;
                   baseB = blended.b;
                 }
-                
+
                 // Special leader pixel treatment
                 if (isLeaderPixel) {
                   if (isFirstFrame) {
@@ -14900,18 +14880,18 @@ async function makeFrame({ data: { type, content } }) {
                     baseG = 255;
                     baseB = 0;
                   } else if (isLastFrame) {
-                    // Last frame - bright red leader  
+                    // Last frame - bright red leader
                     baseR = 255;
                     baseG = 0;
                     baseB = 0;
                   } else {
                     // Check if we're in the fade period (20%-80%) to enable special blinking
                     const isInFadePeriod = progress >= 0.20 && progress <= 0.80;
-                    
+
                     if (isInFadePeriod && !isShortRecording) {
                       // During fade period - cycle through yellow, lime, and other colors for visibility
                       const colorCycle = Math.floor(animFrame * 0.3) % 4; // Slower color cycling
-                      
+
                       switch (colorCycle) {
                         case 0:
                           baseR = 255; baseG = 255; baseB = 0; // Yellow
@@ -14929,14 +14909,14 @@ async function makeFrame({ data: { type, content } }) {
                     } else {
                       // Normal behavior outside fade period - super bright white-hot leader with pulsing
                       const leaderPulse = Math.sin(animFrame * 0.6) * 0.2 + 0.8;
-                      
+
                       baseR = 255;
                       baseG = Math.floor(255 * leaderPulse); // Bright white-hot leader
                       baseB = Math.floor(255 * leaderPulse);
                     }
                   }
                 }
-                
+
                 // Apply alpha fade to final colors, with beacon-like leader pixel
                 let finalAlpha = progressBarAlpha;
                 if (isLeaderPixel) {
@@ -14948,7 +14928,7 @@ async function makeFrame({ data: { type, content } }) {
                     finalAlpha = Math.min(progressBarAlpha, 0.9); // Strong beacon at 90% opacity
                   }
                 }
-                
+
                 // Use proper alpha blending for filled area
                 $.ink(baseR, baseG, baseB, Math.floor(finalAlpha * 255)).box(x, 0, 1, 2);
               } else {
@@ -14958,7 +14938,7 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
         });
-        
+
         // Ensure the painting was created successfully before adding to sendData
         if (tapeProgressBarPainting && tapeProgressBarPainting.pixels && tapeProgressBarPainting.pixels.length > 0) {
           // Structure the data to match what bios.mjs expects (same as label format)
@@ -14993,7 +14973,7 @@ async function makeFrame({ data: { type, content } }) {
         // Move label up by 4px when QR is present for tighter fit
         const qrYOffset = currentHUDQR ? -4 : 0;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y + qrYOffset;
-        
+
         sendData.label = {
           x: finalX,
           y: finalY,
@@ -15002,7 +14982,7 @@ async function makeFrame({ data: { type, content } }) {
             label,
           ),
         };
-        
+
         // DEBUG: Add hitbox visualization overlay
         if (globalThis.debugHudHitbox && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
@@ -15011,7 +14991,7 @@ async function makeFrame({ data: { type, content } }) {
           const blinkOn = (blinkFrame % 30) < 15;
           const outerAlpha = blinkOn ? 200 : 80;
           const innerAlpha = blinkOn ? 120 : 40;
-          
+
           const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
             $.unpan();
             $.unmask(); // Ensure hitbox overlay renders without piece mask
@@ -15021,7 +15001,7 @@ async function makeFrame({ data: { type, content } }) {
               $.ink(0, 255, 0, innerAlpha).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
             }
           });
-          
+
           sendData.hitboxDebug = {
             x: currentHUDButton.box.x,
             y: currentHUDButton.box.y,
@@ -15035,19 +15015,19 @@ async function makeFrame({ data: { type, content } }) {
 
       //  Generate QR code overlay for KidLisp pieces
       let qrOverlay;
-      
+
       // Skip QR/HUD overlay in device mode - device.kidlisp.com has its own DOM overlay
       // DEVICE_MODE is set from bios init message (can't use location.search in worker)
       const isDeviceModeQR = DEVICE_MODE;
-      
+
       // Clear QR cache if caching is disabled to prevent memory buildup
       if (isQROverlayCacheDisabled() && qrOverlayCache.size > 0) {
         qrOverlayCache.clear();
       }
-      
+
       // Detect if this is a KidLisp piece
       const sourceCode = currentText || currentHUDTxt; // Use plain currentText first, then fall back to HUD text
-      
+
       // Use centralized KidLisp detection for QR code generation
       // But exclude proper .lisp files which should not show source HUD
       const isInlineKidlispPiece = (currentPath && lisp.isKidlispSource(currentPath) && !currentPath.endsWith('.lisp')) ||
@@ -15057,10 +15037,10 @@ async function makeFrame({ data: { type, content } }) {
                              (currentPath && currentPath.includes("/disks/$")) ||
                              // Use the centralized KidLisp detection that includes comma syntax
                              (sourceCode && lisp.isKidlispSource(sourceCode));
-      
+
       // Detect if this is a clock piece with a cached code
       const isClockPieceWithCode = (currentPath === "clock" || currentPath?.endsWith("/clock") || currentPath?.includes("/disks/clock")) && cachedClockCode;
-      
+
       // Debug: log clock detection (disabled - too verbose)
       // if (cachedClockCode) {
       //   console.log("🎵 [QR Debug] Clock QR check:", { currentPath, cachedClockCode, isClockPieceWithCode, hideLabel, hudVisible: hudAnimationState.visible });
@@ -15070,7 +15050,7 @@ async function makeFrame({ data: { type, content } }) {
       // For KidLisp pieces, require HUD to be visible/animating/fullscreen
       const shouldShowQRForKidLisp = (isInlineKidlispPiece && sourceCode) && (hudAnimationState.visible || hudAnimationState.animating || hudAnimationState.qrFullscreen);
       const shouldShowQRForClock = isClockPieceWithCode; // Always show for clock pieces
-      
+
       // Skip ALL pixelated HUD overlays in device mode (device.html has DOM-based overlays)
       if (!isDeviceModeQR && (shouldShowQRForKidLisp || shouldShowQRForClock) && !hideLabel) {
         // console.log("🎵 [QR Debug] Entering QR generation for clock");
@@ -15079,7 +15059,7 @@ async function makeFrame({ data: { type, content } }) {
           // For KidLisp pieces, determine cachedCode from sourceCode
           let cachedCode;
           let sigil = "$"; // Default sigil for KidLisp
-          
+
           if (isClockPieceWithCode) {
             // Clock piece: use the cached clock code with * sigil
             cachedCode = cachedClockCode;
@@ -15092,7 +15072,7 @@ async function makeFrame({ data: { type, content } }) {
             // For regular KidLisp source, check if it has been cached
             cachedCode = getCachedCode(sourceCode);
             // console.log("🔍 [QR Debug] Checked cache, cachedCode:", cachedCode);
-            
+
             // If not cached yet but QR fullscreen is active (shift was pressed),
             // trigger caching and request a repaint when complete
             if (!cachedCode && hudAnimationState.qrFullscreen) {
@@ -15117,44 +15097,44 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
           }
-          
+
           if (cachedCode) {
             // Send the cached code to main thread for tape naming (only for KidLisp)
             if (sigil === "$") {
               send({ type: "kidlisp:cached-code", content: cachedCode });
             }
-            
+
             // Use cache key based on sigil + cached code to avoid regenerating the same QR
             const cacheKey = `qr_${sigil}${cachedCode}`;
-            
+
             // Get the font and ensure it's properly loaded before proceeding
             const font = typefaceCache.get("MatrixChunky8");
-            
+
             // Check if ALL glyphs in the label text are loaded
             // The label will be sigil + cachedCode (e.g., "$wipe", "*bako", etc.)
             // We need to verify every character's glyph is loaded to avoid pop-in
             const labelText = `${sigil}${cachedCode}`;
             let allGlyphsLoaded = false;
-            
+
             if (font && font.glyphs) {
               allGlyphsLoaded = true;
               const missingGlyphs = [];
-              
+
               for (const char of labelText) {
                 const glyph = font.glyphs[char];
                 // console.log('[MatrixChunky8] Glyph check:', { char, charCode: char.charCodeAt(0), glyph: glyph ? 'exists' : 'missing', glyphType: typeof glyph });
                 // A real glyph has properties like dwidth, advance, or resolution
                 // The Proxy returns null for missing glyphs
-                const isRealGlyph = glyph && glyph !== null && 
+                const isRealGlyph = glyph && glyph !== null &&
                   (glyph.dwidth || glyph.advance !== undefined || glyph.resolution);
-                
+
                 if (!isRealGlyph) {
                   allGlyphsLoaded = false;
                   missingGlyphs.push(char);
                   // console.log('[MatrixChunky8] Missing glyph:', char, 'charCode:', char.charCodeAt(0));
                 }
               }
-              
+
               // if (!allGlyphsLoaded) {
               //   console.log('[QR] MatrixChunky8 glyphs pending:', {
               //     labelText,
@@ -15162,23 +15142,23 @@ async function makeFrame({ data: { type, content } }) {
               //   });
               // }
             }
-            
+
             const shouldShowQR = allGlyphsLoaded;
-            
+
             // Track when glyphs first become available to delay caching by one frame
             // This ensures the painting callback has completed rendering before we cache
             if (font && shouldShowQR && font.__qrGlyphsReadyFrame === undefined) {
               // First frame where glyphs are loaded - mark the frame number
               font.__qrGlyphsReadyFrame = (typeof window !== "undefined" && window.frameCount) || 0;
             }
-            
+
             // Safe to cache if glyphs were ready at least 1 frame ago (or we don't have frameCount)
             const currentFrame = (typeof window !== "undefined" && window.frameCount) || 0;
             const safeToCache = shouldShowQR && (
-              font?.__qrGlyphsReadyFrame === undefined || 
+              font?.__qrGlyphsReadyFrame === undefined ||
               currentFrame > font.__qrGlyphsReadyFrame
             );
-            
+
             // If font exists but glyphs not loaded yet, trigger loading and request repaint
             if (font && !shouldShowQR) {
               font.__qrGlyphsReadyFrame = undefined; // Reset the ready frame tracking
@@ -15200,48 +15180,48 @@ async function makeFrame({ data: { type, content } }) {
                 });
               }
             }
-            
+
 
             // Check if this QR overlay is already cached (unless caching is disabled)
             const isQRCacheDisabled = isQROverlayCacheDisabled();
             const hasQRCache = qrOverlayCache.has(cacheKey);
-            
+
             // Declare variables for QR positioning and sizing (used in both cached and fresh QR paths)
             let overlayWidth, overlayHeight, startX, startY;
-            
+
 
             // Render QR from cache if available, or generate fresh
             // Note: We render even if glyphs aren't loaded yet - they'll pop in on repaint
             if (!isQRCacheDisabled && hasQRCache) {
 
               const cachedQrData = qrOverlayCache.get(cacheKey);
-              
+
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = Math.max(cachedQrData.width, cachedQrData.height);
-              
+
               if (hudAnimationState.qrFullscreen) {
                 // Fullscreen mode: integer scaling only for pixel-perfect QR
                 const originalWidth = cachedQrData.width;
                 const originalHeight = cachedQrData.height;
-                
+
                 // Calculate maximum integer scale that fits screen with padding
                 const padding = Math.min(screen.width, screen.height) * 0.1; // 10% padding
                 const maxWidth = screen.width - padding * 2;
                 const maxHeight = screen.height - padding * 2;
-                
+
                 const maxScaleX = Math.floor(maxWidth / originalWidth);
                 const maxScaleY = Math.floor(maxHeight / originalHeight);
                 const scale = Math.min(maxScaleX, maxScaleY, 8); // Cap at 8x scale
-                
+
                 // Use integer scaling for pixel-perfect results
                 overlayWidth = originalWidth * scale;
                 overlayHeight = originalHeight * scale;
-                
+
                 // Calculate text dimensions for canvas sizing
                 const codeText = `${sigil}${cachedCode}`;
                 const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
                 const textPadding = 8;
-                
+
                 // Calculate actual text width using font advances for proper sizing
                 const font = typefaceCache.get("MatrixChunky8");
                 const advances = font?.data?.advances || {};
@@ -15252,51 +15232,51 @@ async function makeFrame({ data: { type, content } }) {
                 }
                 // Scale up by 2x for our size: 2 scaling
                 actualTextWidth *= 2;
-                
+
                 const textWidth = actualTextWidth + textPadding * 2; // Add padding
                 const textHeight = fontSize + textPadding * 2;
-                
+
                 // Use full screen canvas to position QR code (centered) and text
                 const canvasHeight = screen.height;
                 const canvasWidth = screen.width;
-                
+
                 // Center QR on screen (ensure integer coordinates)
                 const qrX = Math.floor((screen.width - overlayWidth) / 2);
                 const qrY = Math.floor((screen.height - overlayHeight) / 2);
-                
+
                 // Position starts at top-left of screen since we're using full screen canvas
                 startX = 0;
                 startY = 0;
-                
+
                 // Create scaled QR overlay with styled code text
                 qrOverlay = $api.painting(canvasWidth, canvasHeight, async ($) => {
                   $.unmask(); // Ensure QR overlay renders without piece mask
                   // Draw scaled QR with integer scaling (centered in canvas)
-                  
+
                   for (let y = 0; y < originalHeight; y++) {
                     for (let x = 0; x < originalWidth; x++) {
                       const srcIndex = (y * originalWidth + x) * 4;
-                      
+
                       if (srcIndex < cachedQrData.basePixels.length) {
                         const r = cachedQrData.basePixels[srcIndex];
                         const g = cachedQrData.basePixels[srcIndex + 1];
                         const b = cachedQrData.basePixels[srcIndex + 2];
-                        
+
                         $.ink(r, g, b);
                         // Draw scale x scale pixel block
                         $.box(qrX + x * scale, qrY + y * scale, scale, scale);
                       }
                     }
                   }
-                  
+
                   // Add styled code text positioned at top-left corner of screen
                   const textX = 10; // Small margin from left edge of screen
                   const textY = 10; // Small margin from top edge of screen
-                  
+
                   // Draw black shadow
                   $.ink("black");
                   $.write(codeText, { x: textX + 1, y: textY + 1, size: 2 });
-                  
+
                   // Draw white text on black background - try MatrixChunky8 first, fallback to default
                   $.ink("white");
                   const matrixFont = typefaceCache.get("MatrixChunky8");
@@ -15311,16 +15291,16 @@ async function makeFrame({ data: { type, content } }) {
                     // Use default font if MatrixChunky8 not available
                     $.write(codeText, { x: textX, y: textY, size: 2 });
                   }
-                  
+
                   // Add "TAP TO CLOSE" instruction at bottom center of screen
                   const closeText = "TAP TO CLOSE";
                   const closeTextY = screen.height - 20; // 20px from bottom
                   const closeTextX = Math.floor(screen.width / 2) - 30; // Rough center
-                  
+
                   // Draw black shadow for close text
                   $.ink("black");
                   $.write(closeText, { x: closeTextX + 1, y: closeTextY + 1, size: 1 });
-                  
+
                   // Draw white close text
                   $.ink("white");
                   $.write(closeText, { x: closeTextX, y: closeTextY, size: 1 });
@@ -15332,7 +15312,7 @@ async function makeFrame({ data: { type, content } }) {
                 overlayHeight = cachedQrData.height;
                 startX = screen.width - overlayWidth - margin;
                 startY = screen.height - overlayHeight - margin;
-                
+
                 // Create fresh overlay for transfer from cached data
                 qrOverlay = {
                   width: cachedQrData.width,
@@ -15340,7 +15320,7 @@ async function makeFrame({ data: { type, content } }) {
                   pixels: new Uint8ClampedArray(cachedQrData.basePixels) // Fresh copy for transfer
                 };
               }
-              
+
               // Add QR overlay to sendData with animation effects
               sendData.qrOverlay = {
                 x: startX + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.x),
@@ -15348,7 +15328,7 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
-              
+
               // Add clickable hitbox for QR code
               if (hudAnimationState.qrFullscreen) {
                 // Fullscreen QR: make entire QR tappable to go back
@@ -15388,28 +15368,28 @@ async function makeFrame({ data: { type, content } }) {
 
               // Always use prompt.ac for QR codes (even in dev/local)
               let url = "https://prompt.ac";
-              
+
               // Use the cached nanoid code with appropriate sigil prefix for a short URL
               // $ for KidLisp, * for clock melodies
               url += `/${sigil}${cachedCode}`;
-              
+
               // Generate QR code with medium error correction for better scannability
               const cells = qr(url, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
-              
+
               // Calculate size and position for bottom-right corner with 4px margin
               const margin = 4;
               const cellSize = 1; // 1 pixel per cell for smallest 1:1 size
               const qrSize = cells.length * cellSize;
-              
+
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = qrSize;
-            
+
               // Position in bottom-right corner
               let startX = screen.width - qrSize - margin - 1; // Account for shadow width
               const textHeight = 12; // Space for MatrixChunky8 8px font with shadow (8px + 4px padding)
               const totalHeight = qrSize + textHeight;
               let startY = screen.height - totalHeight - margin; // Move 1px closer to bottom for balanced margins
-              
+
               // Create QR overlay using painting API with extra space for shadow
               const textAreaHeight = 9;
               const qrOffsetY = textAreaHeight; // QR starts right after text area (no gap)
@@ -15428,52 +15408,52 @@ async function makeFrame({ data: { type, content } }) {
                     $.box(x * cellSize, (y * cellSize) + qrOffsetY, cellSize); // Add qrOffsetY to move QR down
                   }
                 }
-                
+
                 // QR text style configuration
                 const useBackdrop = true; // Set to true for backdrop style, false for shadow style
-                
+
                 // Prepare text for rendering (using sigil variable: $ for KidLisp, * for clock)
                 const codeToRender = `${sigil}${cachedCode}`;
-                
+
                 // Calculate actual rendered width for mathematical centering
                 // Get character advances from the font definition
                 const advances = font?.data?.advances || typefaceCache.get("MatrixChunky8")?.data?.advances || {};
-                
+
                 // Calculate text dimensions and positioning
                 let actualTextWidth = 0;
                 for (const char of codeToRender) {
                   const charWidth = advances[char] || 4;
                   actualTextWidth += charWidth;
                 }
-                
+
                 // Text area configuration - be more generous with sizing
                 const textPaddingLeft = 1; // Minimal left padding
                 const textPaddingRight = 1; // Minimal right padding for safety
                 const textAreaWidth = actualTextWidth + textPaddingLeft + textPaddingRight;
                 const textAreaHeight = 10; // Increased height (was 9)
-                
+
                 // Position text area above QR code (which is now at qrOffsetY)
                 const textAreaX = qrSize - textAreaWidth; // Still flush right
                 const textAreaY = 0; // At the top of the canvas
-                
+
                 // Text position within the text area (right-aligned with left padding only)
                 const textX = textAreaX + textPaddingLeft; // Only left padding
                 const textY = textAreaY + 1; // Vertical centering within smaller text area (was 2)
-                
+
                 // Render text with appropriate style
                 if (useBackdrop) {
                   // Draw black background for text area (sized to fit text)
                   $.ink("black"); // Black background
                   $.box(textAreaX, textAreaY, textAreaWidth, textAreaHeight);
-                  
+
                   // Render white text (no rotation for now)
                   $.ink("white"); // White text on black background
-                  
+
                   if (getPackMode()) {
                     // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     let matrixFont = typefaceCache.get("MatrixChunky8");
                     if (matrixFont) {
-                      
+
                       // Check if this is a proper Typeface instance with all methods
                       if (!matrixFont.getGlyph || typeof matrixFont.getGlyph !== 'function') {
                         // Create a new proper Typeface instance
@@ -15486,13 +15466,13 @@ async function makeFrame({ data: { type, content } }) {
                         matrixFont = newMatrixFont;
                         typefaceCache.set("MatrixChunky8", matrixFont);
                       }
-                      
+
                       // Check if glyphs actually work by testing a specific character
                       const testGlyph = matrixFont.glyphs['$'];
                       // MatrixChunky8 uses BDF structure: {resolution, offset, baselineOffset, advance, commands, bbx}
-                      const glyphsWorking = testGlyph && typeof testGlyph === 'object' && 
+                      const glyphsWorking = testGlyph && typeof testGlyph === 'object' &&
                                           (testGlyph.pixels || testGlyph.commands || testGlyph.resolution);
-                      
+
                       if (!glyphsWorking) {
                         // Create simple fallback glyphs for common characters
                         const fallbackGlyph = {
@@ -15508,7 +15488,7 @@ async function makeFrame({ data: { type, content } }) {
                             [0, 0, 0, 0, 0, 0]
                           ]
                         };
-                        
+
                         // DO NOT replace glyphs object - it's a Proxy that loads on-demand
                         // Just populate common characters if they're missing
                         if (matrixFont.glyphs) {
@@ -15521,7 +15501,7 @@ async function makeFrame({ data: { type, content } }) {
                           }
                         }
                       }
-                      
+
                       // Check if font has reasonable glyph data before rendering
                       const testChar = matrixFont.glyphs && (matrixFont.glyphs['$'] || matrixFont.glyphs['A'] || matrixFont.glyphs['a']);
                       const hasValidGlyphs = testChar && (testChar.pixels || testChar.commands || testChar.resolution);
@@ -15538,7 +15518,7 @@ async function makeFrame({ data: { type, content } }) {
                   } else {
                     // Use MatrixChunky8 font in normal mode if available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
-                    
+
                     // Check if MatrixChunky8 glyphs are actually loaded and ready
                     let useMatrixFont = false;
                     if (matrixFont && matrixFont.glyphs) {
@@ -15553,7 +15533,7 @@ async function makeFrame({ data: { type, content } }) {
                         }
                       }
                     }
-                    
+
                     // Only render text if MatrixChunky8 is ready (will trigger repaint when it loads)
                     if (useMatrixFont) {
                       $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
@@ -15564,7 +15544,7 @@ async function makeFrame({ data: { type, content } }) {
                   // Shadow style: black shadow first, then white text
                   // Draw black shadow (1px offset) - no rotation for now
                   $.ink("black");
-                  
+
                   if (getPackMode()) {
                     // In OBJKT mode, try MatrixChunky8 first, fall back to default if not available
                     const matrixFont = typefaceCache.get("MatrixChunky8");
@@ -15587,13 +15567,13 @@ async function makeFrame({ data: { type, content } }) {
                       const testGlyph = matrixFont.glyphs['$'] || matrixFont.glyphs['a'];
                       useMatrixFont = !!(testGlyph && (testGlyph.pixels || testGlyph.commands || testGlyph.resolution));
                     }
-                    
+
                     // Only render if MatrixChunky8 is ready
                     if (useMatrixFont) {
                       $.write(codeToRender, { x: textX + 1, y: textY + 1 }, undefined, undefined, false, "MatrixChunky8");
                     }
                   }
-                  
+
                   // Draw white text on top - no rotation for now
                   $.ink("white");
                   if (getPackMode()) {
@@ -15618,21 +15598,21 @@ async function makeFrame({ data: { type, content } }) {
                       const testGlyph = matrixFont.glyphs['$'] || matrixFont.glyphs['a'];
                       useMatrixFont = !!(testGlyph && (testGlyph.pixels || testGlyph.commands || testGlyph.resolution));
                     }
-                    
+
                     // Only render if MatrixChunky8 is ready
                     if (useMatrixFont) {
                       $.write(codeToRender, { x: textX, y: textY }, undefined, undefined, false, "MatrixChunky8");
                     }
                   }
                 }
-                
+
                 // Draw gray shadow along the right side and bottom of the entire overlay
                 $.ink("gray", 128);
                 // Right shadow - offset 1px down from top like a drop shadow
                 $.box(qrSize, 1, 1, qrOffsetY + qrSize);
                 // Bottom shadow - offset 1px from left edge like a drop shadow
                 $.box(1, qrOffsetY + qrSize, qrSize, 1);
-                
+
                 // Add a subtle white highlight to indicate the QR is clickable (corner only)
                 // This creates a "button-like" appearance
                 $.ink("white", 64); // Semi-transparent white
@@ -15641,7 +15621,7 @@ async function makeFrame({ data: { type, content } }) {
                 // Left highlight line
                 $.line(0, qrOffsetY, 0, qrOffsetY + qrSize - 1);
               });
-              
+
               // Don't cache QR overlay if font isn't fully loaded yet (text label needs to re-render)
               // Cache the base QR data (not the transferable pixels)
               const qrData = {
@@ -15649,30 +15629,30 @@ async function makeFrame({ data: { type, content } }) {
                 height: generatedQR.height,
                 basePixels: new Uint8ClampedArray(generatedQR.pixels) // Keep a safe copy for caching
               };
-              
+
               // Store QR dimensions in animation state for proper bounding box animations
               hudAnimationState.qrSize = Math.max(qrData.width, qrData.height);
-              
+
               if (hudAnimationState.qrFullscreen) {
                 // Fullscreen mode: integer scaling only for pixel-perfect QR
                 const originalQrSize = cells.length;
-                
+
                 // Calculate maximum integer scale that fits screen with padding
                 const padding = Math.min(screen.width, screen.height) * 0.1; // 10% padding
                 const maxSize = Math.min(screen.width, screen.height) - padding * 2;
-                
+
                 const maxCellSize = Math.floor(maxSize / originalQrSize);
                 const cellSize = Math.max(2, Math.min(maxCellSize, 12)); // Integer cell size, 2-12px
                 const finalQrSize = originalQrSize * cellSize;
-                
+
                 overlayWidth = finalQrSize;
                 overlayHeight = finalQrSize;
-                
+
                 // Calculate text dimensions for canvas sizing
                 const codeText = `${sigil}${cachedCode}`;
                 const fontSize = 16; // Fixed 2x scale (8px base font * 2 = 16px)
                 const textPadding = 8;
-                
+
                 // Calculate actual text width using font advances for proper sizing
                 const font = typefaceCache.get("MatrixChunky8");
                 const advances = font?.data?.advances || {};
@@ -15683,22 +15663,22 @@ async function makeFrame({ data: { type, content } }) {
                 }
                 // Scale up by 2x for our size: 2 scaling
                 actualTextWidth *= 2;
-                
+
                 const textWidth = actualTextWidth + textPadding * 2; // Add padding
                 const textHeight = fontSize + textPadding * 2;
-                
+
                 // Use full screen canvas to position QR code (centered) and text (top-left)
                 const canvasHeight = screen.height;
                 const canvasWidth = screen.width;
-                
+
                 // Position QR code in center of screen
                 const qrX = Math.floor((screen.width - finalQrSize) / 2);
                 const qrY = Math.floor((screen.height - finalQrSize) / 2);
-                
+
                 // Position starts at top-left of screen since we're using full screen canvas
                 startX = 0;
                 startY = 0;
-                
+
                 // Generate fullscreen canvas with centered QR and top-left text
                 const fullscreenQR = $api.painting(canvasWidth, canvasHeight, ($) => {
                   $.unmask(); // Ensure fullscreen QR renders without piece mask
@@ -15714,39 +15694,39 @@ async function makeFrame({ data: { type, content } }) {
                       $.box(qrX + x * cellSize, qrY + y * cellSize, cellSize, cellSize);
                     }
                   }
-                  
+
                   // Draw text in absolute top-left corner of screen
                   const codeText = `${sigil}${cachedCode}`;
                   const textX = 10; // Small margin from left edge of screen
                   const textY = 10; // Small margin from top edge of screen
-                  
+
                   // Draw black shadow offset by 1px
                   $.ink("black");
                   $.write(codeText, { x: textX + 1, y: textY + 1, size: 2 }); // 2x scale for shadow
-                  
+
                   // Draw white text on top
                   $.ink("white");
                   $.write(codeText, { x: textX, y: textY, size: 2 }); // 2x scale for main text
-                  
+
                   // Add "TAP TO CLOSE" instruction at bottom center of screen
                   const closeText = "TAP TO CLOSE";
                   const closeTextY = screen.height - 20; // 20px from bottom
                   const closeTextX = Math.floor(screen.width / 2) - 30; // Rough center (adjust as needed)
-                  
+
                   // Draw black shadow for close text
                   $.ink("black");
                   $.write(closeText, { x: closeTextX + 1, y: closeTextY + 1, size: 1 });
-                  
+
                   // Draw white close text
                   $.ink("white");
                   $.write(closeText, { x: closeTextX, y: closeTextY, size: 1 });
                 });
-                
+
                 // Update qrData for fullscreen
                 qrData.width = fullscreenQR.width;
                 qrData.height = fullscreenQR.height;
                 qrData.basePixels = new Uint8ClampedArray(fullscreenQR.pixels);
-                
+
                 qrOverlay = {
                   width: qrData.width,
                   height: qrData.height,
@@ -15758,7 +15738,7 @@ async function makeFrame({ data: { type, content } }) {
                 overlayHeight = qrData.height;
                 startX = screen.width - overlayWidth - margin;
                 startY = screen.height - overlayHeight - margin; // Removed +1 to prevent label shadow overlap
-                
+
                 // Create fresh overlay for transfer each time
                 qrOverlay = {
                   width: qrData.width,
@@ -15766,14 +15746,14 @@ async function makeFrame({ data: { type, content } }) {
                   pixels: new Uint8ClampedArray(qrData.basePixels) // Fresh copy for transfer
                 };
               }
-              
+
               // Cache the QR data for this piece once glyphs are confirmed rendered
               // We use safeToCache to ensure the painting callback has completed
               if (!isQRCacheDisabled && safeToCache && !hudAnimationState.qrFullscreen) {
                 qrOverlayCache.set(cacheKey, qrData);
                 console.log('[QR] ✅ Cached QR with MatrixChunky8 glyphs for:', cacheKey);
               }
-              
+
               // Add QR overlay to sendData with exact position and animation effects
               sendData.qrOverlay = {
                 x: startX + (hudAnimationState.qrFullscreen ? 0 : hudAnimationState.qrSlideOffset.x),
@@ -15781,7 +15761,7 @@ async function makeFrame({ data: { type, content } }) {
                 opacity: hudAnimationState.opacity,
                 img: qrOverlay
               };
-              
+
               // Add clickable hitbox for QR code
               if (hudAnimationState.qrFullscreen) {
                 // Fullscreen QR: make entire QR tappable to go back
@@ -15837,28 +15817,28 @@ async function makeFrame({ data: { type, content } }) {
         try {
           const authorText = currentHUDAuthor; // Already formatted as @handle
           const hitsText = currentHUDHits ? `${currentHUDHits.toLocaleString()} hits` : null;
-          
+
           // Use MatrixChunky8 for compact display
           const font = typefaceCache.get("MatrixChunky8");
           const charWidth = 4; // MatrixChunky8 char width
           const charHeight = 8; // MatrixChunky8 char height
           const padding = 2;
           const lineGap = 2;
-          
+
           // Calculate dimensions
           const authorWidth = authorText.length * charWidth;
           const hitsWidth = hitsText ? hitsText.length * charWidth : 0;
           const maxWidth = Math.max(authorWidth, hitsWidth);
           const height = hitsText ? (charHeight * 2 + lineGap + padding * 2) : (charHeight + padding * 2);
           const width = maxWidth + padding * 2;
-          
+
           // Create attribution overlay painting
           const authorOverlay = $api.painting(width + 1, height + 1, ($) => {
             $.unmask();
-            
+
             // Semi-transparent black background for readability
             $.ink(0, 0, 0, 180).box(0, 0, width, height);
-            
+
             // Draw author handle in pink (matching give.aesthetic.computer style)
             $.ink(255, 107, 157); // Pink color from give page CSS --pink
             if (font && font.glyphs) {
@@ -15866,7 +15846,7 @@ async function makeFrame({ data: { type, content } }) {
             } else {
               $.write(authorText, { x: padding, y: padding });
             }
-            
+
             // Draw hits count in gold if available
             if (hitsText) {
               $.ink(255, 217, 61); // Gold color from give page CSS --gold
@@ -15877,12 +15857,12 @@ async function makeFrame({ data: { type, content } }) {
               }
             }
           });
-          
+
           // Position in bottom-left corner with same margin as QR code
           const margin = 4;
           const startX = margin;
           const startY = screen.height - height - margin;
-          
+
           // Add author overlay to sendData with animation effects
           sendData.authorOverlay = {
             x: startX - hudAnimationState.qrSlideOffset.x, // Slide opposite direction from QR
@@ -15920,7 +15900,7 @@ async function makeFrame({ data: { type, content } }) {
       // Optional messages to send.
       if (painted === true) sendData.paintChanged = true;
       if (loading === true) sendData.loading = true;
-      
+
       // WebGPU state (tell main thread whether to skip CPU rendering)
       if ($commonApi.webgpu.enabled) {
         sendData.webgpuEnabled = true;
@@ -16036,7 +16016,7 @@ async function makeFrame({ data: { type, content } }) {
         globalThis._firstRenderSent = true;
         diskTimings.firstRenderSent = Math.round(performance.now() - diskTimingStart);
         // Silent: first render sent
-        
+
         // Send timing data to main thread (only in dev mode)
         if (!getPackMode()) send({ type: "disk-timings", content: diskTimings });
       }
@@ -16061,7 +16041,7 @@ async function makeFrame({ data: { type, content } }) {
       // console.log(pixels);
       // 🛡️ Create a copy for transfer to avoid detaching the pixels buffer
       const transferPixels = pixels ? new Uint8ClampedArray(pixels) : null;
-      
+
       send(
         {
           type: "update",
@@ -16081,7 +16061,7 @@ async function makeFrame({ data: { type, content } }) {
     // Wait 8 frames of the default piece before loading the initial piece.
     // And also make sure the session has been queried.
     // console.log(sessionStarted);
-    
+
     // 🕷️ SPIDER MODE: Debug why piece isn't loading
     if (typeof window !== 'undefined' && window.acSPIDER && paintCount <= 10n) {
       console.log("🕷️ SPIDER: Frame check:", {
@@ -16092,7 +16072,7 @@ async function makeFrame({ data: { type, content } }) {
         loadAfterPreambleExists: !!loadAfterPreamble
       });
     }
-    
+
     if (
       paintCount > 8n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
@@ -16202,7 +16182,7 @@ async function handle(retryCount = 0) {
       } else {
         const errorText = await response.text();
         console.warn("🤚 Handle fetch failed:", response.status, errorText);
-        
+
         // Retry on 5xx server errors
         if (response.status >= 500 && retryCount < MAX_RETRIES && !handleRetryInProgress) {
           handleRetryInProgress = true;
@@ -16212,12 +16192,12 @@ async function handle(retryCount = 0) {
           handleRetryInProgress = false;
           return handle(retryCount + 1);
         }
-        
+
         store["handle:failed"] = true;
       }
     } catch (error) {
       console.error("🤚 Handle fetch error:", error);
-      
+
       // Retry on network errors
       if (retryCount < MAX_RETRIES && !handleRetryInProgress) {
         handleRetryInProgress = true;
@@ -16227,7 +16207,7 @@ async function handle(retryCount = 0) {
         handleRetryInProgress = false;
         return handle(retryCount + 1);
       }
-      
+
       store["handle:failed"] = true;
     }
   }
