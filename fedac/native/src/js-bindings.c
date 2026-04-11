@@ -945,7 +945,7 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     return snd;
 }
 
-// sound.kill(idOrObj, fade) — accepts raw id or synth object
+// sound.kill(idOrObj, fade) — accepts raw id or synth/sample/replay object
 static JSValue js_sound_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     ACAudio *audio = current_rt->audio;
@@ -969,13 +969,19 @@ static JSValue js_sound_kill(JSContext *ctx, JSValueConst this_val, int argc, JS
 
     // Check if it's a sample voice
     int is_sample = 0;
+    int is_replay = 0;
     if (JS_IsObject(argv[0])) {
         JSValue is_v = JS_GetPropertyStr(ctx, argv[0], "isSample");
         is_sample = JS_ToBool(ctx, is_v);
         JS_FreeValue(ctx, is_v);
+        is_v = JS_GetPropertyStr(ctx, argv[0], "isReplay");
+        is_replay = JS_ToBool(ctx, is_v);
+        JS_FreeValue(ctx, is_v);
     }
 
-    if (is_sample) {
+    if (is_replay) {
+        audio_replay_kill(audio, id, fade);
+    } else if (is_sample) {
         audio_sample_kill(audio, id, fade);
     } else {
         audio_kill(audio, id, fade);
@@ -1158,6 +1164,38 @@ static JSValue js_sample_obj_update(JSContext *ctx, JSValueConst this_val, int a
     return JS_UNDEFINED;
 }
 
+// replayObj.update({tone, base, volume, pan}) — update the dedicated replay voice
+static JSValue js_replay_obj_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    JSValue id_v = JS_GetPropertyStr(ctx, this_val, "id");
+    double id_d = 0;
+    if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+    JS_FreeValue(ctx, id_v);
+    uint64_t id = (uint64_t)id_d;
+    if (id == 0) return JS_UNDEFINED;
+
+    double freq = -1, base_freq = -1, vol = -1, pan = -3;
+    JSValue v;
+    v = JS_GetPropertyStr(ctx, argv[0], "tone");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &freq, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "base");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &base_freq, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "volume");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &vol, v);
+    JS_FreeValue(ctx, v);
+    v = JS_GetPropertyStr(ctx, argv[0], "pan");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+    JS_FreeValue(ctx, v);
+
+    if (freq > 0 && base_freq < 0) base_freq = 261.63;
+    audio_replay_update(audio, id, freq, base_freq, vol, pan);
+    return JS_UNDEFINED;
+}
+
 // sound.sample.play({tone, base, volume, pan}) — play recorded sample at pitch
 static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1204,6 +1242,47 @@ static JSValue js_sample_play(JSContext *ctx, JSValueConst this_val, int argc, J
     return snd;
 }
 
+// sound.replay.play({tone, base, volume, pan}) — play dedicated global replay buffer
+static JSValue js_replay_play(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1 || !JS_IsObject(argv[0])) return JS_UNDEFINED;
+
+    JSValue opts = argv[0];
+    double freq = 261.63, base_freq = 261.63, volume = 0.7, pan = 0.0;
+    JSValue v;
+
+    v = JS_GetPropertyStr(ctx, opts, "tone");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &freq, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "base");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &base_freq, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "volume");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &volume, v);
+    JS_FreeValue(ctx, v);
+
+    v = JS_GetPropertyStr(ctx, opts, "pan");
+    if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
+    JS_FreeValue(ctx, v);
+
+    int loop = 0;
+    v = JS_GetPropertyStr(ctx, opts, "loop");
+    if (JS_IsBool(v)) loop = JS_ToBool(ctx, v);
+    JS_FreeValue(ctx, v);
+
+    uint64_t id = audio_replay_play(audio, freq, base_freq, volume, pan, loop);
+    if (id == 0) return JS_UNDEFINED;
+
+    JSValue snd = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
+    JS_SetPropertyStr(ctx, snd, "isReplay", JS_TRUE);
+    JS_SetPropertyStr(ctx, snd, "update", JS_NewCFunction(ctx, js_replay_obj_update, "update", 1));
+    return snd;
+}
+
 // sound.sample.kill(idOrObj, fade)
 static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -1223,6 +1302,28 @@ static JSValue js_sample_kill(JSContext *ctx, JSValueConst this_val, int argc, J
     if (argc >= 2 && JS_IsNumber(argv[1])) JS_ToFloat64(ctx, &fade, argv[1]);
 
     audio_sample_kill(audio, (uint64_t)id_d, fade);
+    return JS_UNDEFINED;
+}
+
+// sound.replay.kill(idOrObj, fade)
+static JSValue js_replay_kill(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1) return JS_UNDEFINED;
+
+    double id_d = 0;
+    if (JS_IsNumber(argv[0])) {
+        JS_ToFloat64(ctx, &id_d, argv[0]);
+    } else if (JS_IsObject(argv[0])) {
+        JSValue id_v = JS_GetPropertyStr(ctx, argv[0], "id");
+        if (JS_IsNumber(id_v)) JS_ToFloat64(ctx, &id_d, id_v);
+        JS_FreeValue(ctx, id_v);
+    }
+
+    double fade = 0.02;
+    if (argc >= 2 && JS_IsNumber(argv[1])) JS_ToFloat64(ctx, &fade, argv[1]);
+
+    audio_replay_kill(audio, (uint64_t)id_d, fade);
     return JS_UNDEFINED;
 }
 
@@ -1320,6 +1421,81 @@ static JSValue js_sample_load_data(JSContext *ctx, JSValueConst this_val, int ar
     audio_sample_load_data(audio, data, len, rate);
     JS_FreeValue(ctx, ab);  // Free AFTER memcpy — ptr is into this buffer
     return JS_TRUE;
+}
+
+// sound.replay.loadData(float32array, rate) — load data into dedicated replay buffer
+static JSValue js_replay_load_data(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt) return JS_FALSE;
+    ACAudio *audio = current_rt->audio;
+    if (!audio || argc < 1) return JS_FALSE;
+
+    size_t byte_len = 0;
+    size_t byte_off = 0;
+    size_t bytes_per = 0;
+    JSValue ab = JS_GetTypedArrayBuffer(ctx, argv[0], &byte_off, &byte_len, &bytes_per);
+    if (JS_IsException(ab)) return JS_FALSE;
+
+    size_t ab_len = 0;
+    uint8_t *ptr = JS_GetArrayBuffer(ctx, &ab_len, ab);
+    if (!ptr) { JS_FreeValue(ctx, ab); return JS_FALSE; }
+
+    float *data = (float *)(ptr + byte_off);
+    int len = (int)(byte_len / sizeof(float));
+
+    unsigned int rate = 48000;
+    if (argc >= 2 && JS_IsNumber(argv[1])) {
+        double r; JS_ToFloat64(ctx, &r, argv[1]);
+        if (r > 0) rate = (unsigned int)r;
+    }
+
+    audio_replay_load_data(audio, data, len, rate);
+    JS_FreeValue(ctx, ab);
+    return JS_TRUE;
+}
+
+// sound.speaker.getRecentBuffer(seconds) -> { data: Float32Array, rate: number }
+static JSValue js_speaker_get_recent_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    ACAudio *audio = current_rt ? current_rt->audio : NULL;
+    if (!audio || !audio->output_history_buf || audio->output_history_size <= 0) return JS_NULL;
+
+    double seconds = 1.0;
+    if (argc >= 1 && JS_IsNumber(argv[0])) JS_ToFloat64(ctx, &seconds, argv[0]);
+    if (seconds <= 0.0) return JS_NULL;
+
+    unsigned int rate_guess = audio->output_history_rate ? audio->output_history_rate : AUDIO_OUTPUT_HISTORY_RATE;
+    int want_len = (int)(seconds * (double)rate_guess + 0.5);
+    if (want_len < 1) want_len = 1;
+    if (want_len > audio->output_history_size) want_len = audio->output_history_size;
+
+    float *copy = malloc((size_t)want_len * sizeof(float));
+    if (!copy) return JS_NULL;
+
+    unsigned int actual_rate = 0;
+    int len = audio_output_get_recent(audio, copy, want_len, &actual_rate);
+    if (len <= 0 || actual_rate == 0) {
+        free(copy);
+        return JS_NULL;
+    }
+
+    size_t byte_len = (size_t)len * sizeof(float);
+    JSValue ab = JS_NewArrayBuffer(ctx, (uint8_t *)copy, byte_len,
+                                   js_free_array_buffer, NULL, 0);
+    if (JS_IsException(ab)) { free(copy); return JS_NULL; }
+
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue ctor = JS_GetPropertyStr(ctx, global, "Float32Array");
+    JSValue f32 = JS_CallConstructor(ctx, ctor, 1, &ab);
+    JS_FreeValue(ctx, ctor);
+    JS_FreeValue(ctx, global);
+    JS_FreeValue(ctx, ab);
+    if (JS_IsException(f32)) return JS_NULL;
+
+    JSValue out = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, out, "data", f32);
+    JS_SetPropertyStr(ctx, out, "rate", JS_NewInt32(ctx, (int)actual_rate));
+    return out;
 }
 
 // sound.speak(text)
@@ -2201,6 +2377,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     // speaker sub-object
     JSValue speaker = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, speaker, "poll", JS_NewCFunction(ctx, js_noop, "poll", 0));
+    JS_SetPropertyStr(ctx, speaker, "getRecentBuffer",
+        JS_NewCFunction(ctx, js_speaker_get_recent_buffer, "getRecentBuffer", 1));
     JS_SetPropertyStr(ctx, speaker, "sampleRate",
         JS_NewInt32(ctx, rt->audio ? (int)rt->audio->actual_rate : AUDIO_SAMPLE_RATE));
 
@@ -2296,6 +2474,13 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, samp, "saveTo", JS_NewCFunction(ctx, js_sample_save_to, "saveTo", 1));
     JS_SetPropertyStr(ctx, samp, "loadFrom", JS_NewCFunction(ctx, js_sample_load_from, "loadFrom", 1));
     JS_SetPropertyStr(ctx, sound, "sample", samp);
+
+    // dedicated global replay voice/buffer
+    JSValue replay = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, replay, "play", JS_NewCFunction(ctx, js_replay_play, "play", 1));
+    JS_SetPropertyStr(ctx, replay, "kill", JS_NewCFunction(ctx, js_replay_kill, "kill", 2));
+    JS_SetPropertyStr(ctx, replay, "loadData", JS_NewCFunction(ctx, js_replay_load_data, "loadData", 2));
+    JS_SetPropertyStr(ctx, sound, "replay", replay);
 
     // DJ deck
     JSValue deck_obj = JS_NewObject(ctx);
