@@ -850,7 +850,8 @@ static void *audio_thread_fn(void *arg) {
         audio->total_frames += period_frames;
         audio->time = (double)audio->total_frames / rate;
 
-        // Recording tap: send mixed PCM to recorder (if active)
+        // Recording tap: send mixed PCM to recorder (if active). Used by
+        // the MP4 tape recorder (recorder.c) for the audio track.
         if (audio->rec_callback)
             audio->rec_callback(buffer, period_frames, audio->rec_userdata);
 

@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include "js-bindings.h"
 #include "usb-midi.h"
+#include "recorder.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1508,6 +1509,30 @@ static JSValue js_speaker_get_recent_buffer(JSContext *ctx, JSValueConst this_va
     return out;
 }
 
+// sound.tape.recording() -> bool
+// Returns true while the tape recorder (recorder.c) is capturing.
+// Pure read-only state getter for notepat UI.
+static JSValue js_tape_recording(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+#ifdef HAVE_AVCODEC
+    if (current_rt && current_rt->recorder) {
+        return JS_NewBool(ctx, recorder_is_recording((ACRecorder *)current_rt->recorder));
+    }
+#endif
+    return JS_NewBool(ctx, 0);
+}
+
+// sound.tape.elapsed() -> number (seconds, 0 if not recording)
+static JSValue js_tape_elapsed(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+#ifdef HAVE_AVCODEC
+    if (current_rt && current_rt->recorder) {
+        return JS_NewFloat64(ctx, recorder_elapsed((ACRecorder *)current_rt->recorder));
+    }
+#endif
+    return JS_NewFloat64(ctx, 0.0);
+}
+
 // sound.speak(text)
 static JSValue js_speak(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2391,6 +2416,17 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
         JS_NewCFunction(ctx, js_speaker_get_recent_buffer, "getRecentBuffer", 1));
     JS_SetPropertyStr(ctx, speaker, "sampleRate",
         JS_NewInt32(ctx, rt->audio ? (int)rt->audio->actual_rate : AUDIO_SAMPLE_RATE));
+
+    // sound.tape — read-only tape recorder state. The actual start/stop
+    // is driven by the PrintScreen key handler in ac-native.c (which
+    // owns the MP4 file lifecycle, TTS announce, on-screen overlay, and
+    // cloud upload). JS just observes.
+    JSValue tape = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, tape, "recording",
+        JS_NewCFunction(ctx, js_tape_recording, "recording", 0));
+    JS_SetPropertyStr(ctx, tape, "elapsed",
+        JS_NewCFunction(ctx, js_tape_elapsed, "elapsed", 0));
+    JS_SetPropertyStr(ctx, sound, "tape", tape);
 
     // waveforms (32 samples, left channel only — sufficient for visualizer)
     JSValue waveforms = JS_NewObject(ctx);

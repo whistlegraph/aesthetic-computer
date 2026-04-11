@@ -73,6 +73,7 @@ const char *input_key_name(int code) {
         case KEY_F7: return "f7"; case KEY_F8: return "f8";
         case KEY_F9: return "f9"; case KEY_F10: return "f10";
         case KEY_F11: return "f11"; case KEY_F12: return "f12";
+        case KEY_SYSRQ: return "printscreen";
         case KEY_LEFTMETA: case KEY_RIGHTMETA: return "meta";
         case KEY_MUTE: return "audiomute";
         case KEY_VOLUMEDOWN: return "audiovolumedown";

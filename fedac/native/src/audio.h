@@ -2,6 +2,7 @@
 #define AC_AUDIO_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include <pthread.h>
 #include "audio-decode.h"
 

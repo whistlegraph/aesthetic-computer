@@ -2492,6 +2492,63 @@ static void rec_audio_tap(const int16_t *pcm, int frames, void *userdata) {
     recorder_submit_audio((ACRecorder *)userdata, pcm, frames);
 }
 
+// Tape recording state — the red "rolling" overlay in the top-left and
+// the elapsed-time counter both read from these globals, which are set
+// by the PrintScreen key handler when a tape starts.
+static volatile int g_tape_recording = 0;   // 1 while actively recording
+static char g_tape_current_path[256] = {0}; // /mnt/tapes/<slug>.mp4
+static time_t g_tape_start_sec = 0;         // wall-clock start for elapsed display
+
+// Fire-and-forget tape upload: shells out a curl script that
+//   1. requests a presigned PUT URL from /api/presigned-upload-url/mp4/<slug>/user
+//   2. PUTs the MP4 directly to DO Spaces
+//   3. POSTs /api/track-media with ext=mp4 + metadata
+// Runs in a child process so the audio+render loop never blocks on network.
+// The script reads config.json for {handle, token}.
+static void tape_upload_async(const char *tape_path) {
+    if (!tape_path || !tape_path[0]) return;
+    // Sanity: only upload MP4 tapes, only if config.json has a token
+    FILE *cf = fopen("/mnt/config.json", "r");
+    if (!cf) { ac_log("[tape] upload skipped — no /mnt/config.json\n"); return; }
+    char cbuf[4096] = {0};
+    fread(cbuf, 1, sizeof(cbuf) - 1, cf);
+    fclose(cf);
+    char handle[64] = {0}, actoken[1024] = {0};
+    parse_config_string(cbuf, "\"handle\"", handle, sizeof(handle));
+    parse_config_string(cbuf, "\"token\"", actoken, sizeof(actoken));
+    if (!handle[0] || !actoken[0]) {
+        ac_log("[tape] upload skipped — no handle/token in config.json\n");
+        return;
+    }
+    // Extract slug: "/mnt/tapes/2026.04.11.12.34.56.789.mp4" → "2026.04.11.12.34.56.789"
+    const char *base = strrchr(tape_path, '/');
+    base = base ? base + 1 : tape_path;
+    char slug[128] = {0};
+    strncpy(slug, base, sizeof(slug) - 1);
+    char *dot = strrchr(slug, '.');
+    if (dot) *dot = '\0';
+    ac_log("[tape] uploading %s as slug %s for @%s\n", tape_path, slug, handle);
+    // Shell out to curl. Runs in background (&) so we don't block.
+    // Step 1: GET presigned URL. Step 2: PUT mp4. Step 3: POST track-media.
+    char cmd[4096];
+    snprintf(cmd, sizeof(cmd),
+        "( "
+        "URL=$(curl -fsSL -H 'Authorization: Bearer %s' "
+        "  'https://aesthetic.computer/api/presigned-upload-url/mp4/%s/user' "
+        "  2>/dev/null | jq -r '.uploadURL' 2>/dev/null); "
+        "[ -z \"$URL\" ] && echo '[tape] no presigned url' && exit 1; "
+        "curl -fsSL -X PUT -H 'Content-Type: video/mp4' -H 'x-amz-acl: public-read' "
+        "  --data-binary @'%s' \"$URL\" 2>/dev/null; "
+        "curl -fsSL -X POST -H 'Authorization: Bearer %s' -H 'Content-Type: application/json' "
+        "  'https://aesthetic.computer/api/track-tape' "
+        "  -d '{\"slug\":\"%s\",\"ext\":\"mp4\",\"metadata\":{\"totalDuration\":30,\"audioOnly\":false,\"device\":\"ac-native\"}}' "
+        "  >/dev/null 2>&1; "
+        "echo '[tape] upload finished %s'; "
+        ") >> /tmp/tape-upload.log 2>&1 &",
+        actoken, slug, tape_path, actoken, slug, slug);
+    system(cmd);
+}
+
 int main(int argc, char *argv[]) {
     struct timespec boot_start;
     clock_gettime(CLOCK_MONOTONIC, &boot_start);
@@ -3145,6 +3202,8 @@ int main(int argc, char *argv[]) {
                                        audio->actual_rate ? audio->actual_rate : 192000);
             if (recorder) {
                 ac_log("[ac-native] recorder ready (%dx%d)\n", screen->width, screen->height);
+                // Expose to JS via sound.tape.* bindings
+                if (rt) rt->recorder = recorder;
             }
         }
 #endif
@@ -3448,35 +3507,60 @@ int main(int argc, char *argv[]) {
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
                     }
-                    // Recording: F9 toggles MP4 recording
-                    else if (strcmp(input->events[i].key_name, "f9") == 0 && recorder) {
+                    // Tape recording: PrintScreen key toggles MP4 tape recording.
+                    // Saves to /mnt/tapes/<slug>.mp4 where slug follows the same
+                    // YYYY.MM.DD.HH.MM.SS.mmm format that web AC uses for tapes.
+                    // On stop, auto-uploads to the cloud via a background curl
+                    // shell-out (see recorder_upload_async helper below).
+                    else if (strcmp(input->events[i].key_name, "printscreen") == 0 && recorder) {
                         if (recorder_is_recording(recorder)) {
                             // Stop: remove audio tap, finalize file
                             if (audio) {
                                 audio->rec_callback = NULL;
                                 audio->rec_userdata = NULL;
                             }
+                            // Snapshot the path before stop (recorder_stop may clear it)
+                            char saved_tape_path[256] = {0};
+                            strncpy(saved_tape_path, g_tape_current_path, sizeof(saved_tape_path) - 1);
                             recorder_stop(recorder);
-                            // Descending tone = stopped
+                            // Clear the live overlay state
+                            g_tape_recording = 0;
+                            g_tape_current_path[0] = '\0';
+                            // TTS announce + audible cue (descending)
+                            if (tts) tts_speak(tts, "tape stopped");
                             audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.2, 0.001, 0.10, 0.0);
                             audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.15, 0.03, 0.09, 0.0);
+                            // Kick off background upload if we captured a path
+                            if (saved_tape_path[0]) {
+                                tape_upload_async(saved_tape_path);
+                            }
                         } else {
-                            // Start: generate timestamped filename, wire up audio tap
-                            mkdir("/mnt/rec", 0755);
+                            // Start: generate timestamped slug, wire up audio tap
+                            mkdir("/mnt/tapes", 0755);
                             time_t now = time(NULL);
                             struct tm *tm = gmtime(&now);
-                            char rec_path[128];
+                            // Milliseconds for slug uniqueness
+                            struct timespec ts;
+                            clock_gettime(CLOCK_REALTIME, &ts);
+                            int ms = (int)(ts.tv_nsec / 1000000);
+                            char rec_path[256];
                             snprintf(rec_path, sizeof(rec_path),
-                                     "/mnt/rec/%04d-%02d-%02d_%02d-%02d-%02d.mp4",
+                                     "/mnt/tapes/%04d.%02d.%02d.%02d.%02d.%02d.%03d.mp4",
                                      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-                                     tm->tm_hour, tm->tm_min, tm->tm_sec);
+                                     tm->tm_hour, tm->tm_min, tm->tm_sec, ms);
                             if (recorder_start(recorder, rec_path) == 0) {
                                 // Wire up audio tap
                                 if (audio) {
                                     audio->rec_userdata = recorder;
                                     audio->rec_callback = rec_audio_tap;
                                 }
-                                // Ascending tone = started
+                                // Latch the path + flag for the on-screen overlay
+                                strncpy(g_tape_current_path, rec_path, sizeof(g_tape_current_path) - 1);
+                                g_tape_current_path[sizeof(g_tape_current_path) - 1] = '\0';
+                                g_tape_recording = 1;
+                                g_tape_start_sec = time(NULL);
+                                // TTS announce + audible cue (ascending)
+                                if (tts) tts_speak(tts, "tape rolling");
                                 audio_synth(audio, WAVE_SINE, 660.0, 0.12, 0.2, 0.001, 0.10, 0.0);
                                 audio_synth(audio, WAVE_SINE, 880.0, 0.12, 0.15, 0.03, 0.09, 0.0);
                             }
@@ -3739,6 +3823,27 @@ int main(int argc, char *argv[]) {
             js_call_paint(rt);
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_paint1);
+
+            // Tape recording overlay — red REC dot + elapsed timer in
+            // the top-left corner. Blinks slowly so it reads as "live"
+            // without being visually distracting.
+            if (g_tape_recording) {
+                long elapsed = (long)(time(NULL) - g_tape_start_sec);
+                int blink = ((main_frame / 30) & 1); // toggle ~every 0.5s
+                // Red dot
+                if (blink) {
+                    graph_ink(&graph, (ACColor){230, 40, 40, 240});
+                    graph_box(&graph, 6, 6, 8, 8, 1);
+                }
+                // "TAPE  0:23" label
+                char rec_label[32];
+                snprintf(rec_label, sizeof(rec_label), "TAPE  %ld:%02ld",
+                         elapsed / 60, elapsed % 60);
+                graph_ink(&graph, (ACColor){0, 0, 0, 180});
+                graph_box(&graph, 16, 4, (int)strlen(rec_label) * 6 + 4, 12, 1);
+                graph_ink(&graph, (ACColor){255, 220, 220, 255});
+                font_draw_matrix(&graph, rec_label, 18, 6, 1);
+            }
 
             // Crash overlay — red bar with error message when JS throws
             if (rt->crash_active) {

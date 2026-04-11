@@ -4302,6 +4302,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ["FX", [130, 230, 220], [
         ["\\",         "trackpad (X echo, Y pitch)"],
       ]],
+      ["TAPE", [255, 120, 120], [
+        ["prtsc",      "start/stop tape (MP4 + cloud)"],
+      ]],
       ["SYSTEM", [190, 190, 205], [
         ["meta ⊞",     "toggle this help"],
         ["esc esc esc", "exit to prompt"],
