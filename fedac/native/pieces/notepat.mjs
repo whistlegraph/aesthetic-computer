@@ -425,7 +425,13 @@ function percussionDrumFor(letter, offset) {
 // needed on key-up because every voice uses a finite duration.
 function playPercussion(sound, letter, volume = 1.0, pan = 0) {
   if (!sound?.synth) return;
-  const v = Math.max(0.1, Math.min(1.2, volume));
+  // Cap at 2.2 so drums can push voice volumes above 1.0. The native audio
+  // mixer auto-divides by total voice weight (audio.c mix_divisor), which
+  // means a drum hit with vol=0.9 sharing the mix with three 0.7 sustained
+  // melody voices gets crushed to ~0.3 — basically invisible. Pushing drum
+  // voice volumes to ~1.6-2.0 puts them at ~2x the ratio of the melodies
+  // even under heavy polyphony, so they cut through like real drums.
+  const v = Math.max(0.1, Math.min(2.2, volume));
   switch (letter) {
     case "c": // kick
       sound.synth({ type: "sine", tone: 150, duration: 0.08, volume: 0.9 * v, attack: 0.001, decay: 0.07, pan });
@@ -955,7 +961,7 @@ function act({ event: e, sound, wifi, system }) {
         type: "triangle", tone: percussionLeft ? 660 : 440,
         duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: -0.6,
       }), 70);
-      if (percussionLeft) playPercussion(sound, "c", 0.9, -0.4);
+      if (percussionLeft) playPercussion(sound, "c", 1.6, -0.4);
       return;
     }
     // PgDn: toggle percussion layout on the RIGHT octave grid
@@ -969,7 +975,7 @@ function act({ event: e, sound, wifi, system }) {
         type: "triangle", tone: percussionRight ? 660 : 440,
         duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: 0.6,
       }), 70);
-      if (percussionRight) playPercussion(sound, "c", 0.9, 0.4);
+      if (percussionRight) playPercussion(sound, "c", 1.6, 0.4);
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
@@ -1097,8 +1103,12 @@ function act({ event: e, sound, wifi, system }) {
         }
         if (perKeyRecording === key) return;
 
-        // Slightly hotter drum mix than melodic notes.
-        const drumVol = 0.5 + velocity * 0.6;
+        // Push drums well above unity so they cut through the mix. The
+        // mixer divides by total voice weight, so at velocity 1.0 we want
+        // a drum-layer peak near ~1.8 so that against 3 sustained
+        // melodic voices (~2.1 weight) the kick still lands at ~0.5 vs
+        // each melody at ~0.17 — roughly 3× prominence.
+        const drumVol = 1.0 + velocity * 0.8;   // 1.0 (tap) → 1.8 (full velocity)
         const bankSample = percussionSampleBank[drumName];
         if (wave === "sample" && bankSample) {
           if (bankSample !== lastLoadedSample) {
@@ -1407,10 +1417,10 @@ function act({ event: e, sound, wifi, system }) {
             }
             sound.sample.play({
               tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
-              volume: 0.8, pan, loop: false,
+              volume: 1.6, pan, loop: false,
             });
           } else {
-            playPercussion(sound, hitNote.letter, 1.0, pan);
+            playPercussion(sound, hitNote.letter, 1.8, pan);
           }
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
@@ -1540,10 +1550,10 @@ function act({ event: e, sound, wifi, system }) {
               }
               sound.sample.play({
                 tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
-                volume: 0.8, pan, loop: false,
+                volume: 1.6, pan, loop: false,
               });
             } else {
-              playPercussion(sound, hitNote.letter, 1.0, pan);
+              playPercussion(sound, hitNote.letter, 1.8, pan);
             }
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key };
