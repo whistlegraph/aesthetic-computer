@@ -145,9 +145,12 @@ static inline void whistle_update_coeffs(ACVoice *v, double sample_rate) {
     double tuned = freq * (1.0 + vibrato);
     if (fabs(tuned - v->whistle_coeff_freq) < 0.35) return;
 
-    double main_q = 18.0 + tuned * 0.014;
+    // Sharper main resonance — narrower bandwidth = more "pressure" /
+    // tighter pitch / less breathy. Was 18.0 + tuned*0.014, now 26.0 +
+    // tuned*0.018 to cut the air bleed that made it sound too breathy.
+    double main_q = 26.0 + tuned * 0.018;
     double formant_ratio = tuned < 700.0 ? 2.05 : 2.35;
-    double formant_q = 8.0 + tuned * 0.003;
+    double formant_q = 10.0 + tuned * 0.004;
 
     whistle_set_resonator(tuned, main_q, sample_rate,
                           &v->whistle_main_c1, &v->whistle_main_c2, &v->whistle_main_gain);
@@ -168,7 +171,7 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     double env = compute_envelope(v);
     double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
     double breath_target = 0.18 + 0.82 * sqrt(env);
-    double breath_slew = env > v->whistle_breath ? 0.0045 : 0.0012;
+    double breath_slew = env > v->whistle_breath ? 0.0065 : 0.0018;
 
     v->whistle_breath += (breath_target - v->whistle_breath) * breath_slew;
     v->whistle_vibrato_phase += (4.6 + v->frequency * 0.0025) / sample_rate;
@@ -177,25 +180,36 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     whistle_update_coeffs(v, sample_rate);
 
     double onset = 1.0 - env;
-    double feedback = v->whistle_main_y1 * 1.8 - v->whistle_main_y2 * 0.85 + v->whistle_formant_y1 * 0.35;
-    double turbulence = white * (0.08 + onset * 0.34 + v->whistle_breath * 0.10);
-    double jet_drive = feedback * (0.85 + v->whistle_breath * 0.75) + turbulence;
+    // Stronger feedback gain → more energy stays in the resonator (less
+    // "air bleeding out" between cycles, fuller tone).
+    double feedback = v->whistle_main_y1 * 1.95 - v->whistle_main_y2 * 0.92 + v->whistle_formant_y1 * 0.35;
+    // Cut turbulence noise substantially. This was the main source of the
+    // "too airy" complaint — the constant 0.08 noise floor is now 0.025,
+    // the onset chiff 0.34 → 0.12 (shorter, tighter attack), and the
+    // breath-modulated noise 0.10 → 0.03. Net: ~3× less airy.
+    double turbulence = white * (0.025 + onset * 0.12 + v->whistle_breath * 0.03);
+    // Harder jet drive so more signal stays in the edge nonlinearity.
+    double jet_drive = feedback * (1.0 + v->whistle_breath * 0.6) + turbulence;
     double jet_target = tanh(jet_drive);
 
-    // The edge nonlinearity is intentionally sluggish so the note speaks
-    // with a breathy chiff before settling into the cavity resonance.
-    v->whistle_jet += (jet_target - v->whistle_jet) * (0.018 + v->whistle_breath * 0.09);
+    // Faster jet slew → note speaks sooner, chiff is shorter (less breathy
+    // transient before the resonator takes over).
+    v->whistle_jet += (jet_target - v->whistle_jet) * (0.035 + v->whistle_breath * 0.12);
 
-    double main = whistle_tick_resonator(v->whistle_jet * (1.05 + v->whistle_breath * 0.55),
+    // Hotter drive into the main resonator (was 1.05, now 1.25). The
+    // formant contribution stays modest so the main tone dominates.
+    double main = whistle_tick_resonator(v->whistle_jet * (1.25 + v->whistle_breath * 0.55),
                                          v->whistle_main_c1, v->whistle_main_c2, v->whistle_main_gain,
                                          &v->whistle_main_y1, &v->whistle_main_y2);
-    double formant = whistle_tick_resonator(v->whistle_jet * (0.28 + v->whistle_breath * 0.18),
+    double formant = whistle_tick_resonator(v->whistle_jet * (0.22 + v->whistle_breath * 0.14),
                                             v->whistle_formant_c1, v->whistle_formant_c2, v->whistle_formant_gain,
                                             &v->whistle_formant_y1, &v->whistle_formant_y2);
 
-    double air = white * (0.02 + onset * 0.05);
-    double s = main * 1.9 + formant * 0.55 + air;
-    return tanh(s * 1.4);
+    // Air layer dropped by ~4× to remove the constant hiss bed.
+    double air = white * (0.005 + onset * 0.012);
+    // Main resonator gets more of the output mix; less formant filler.
+    double s = main * 2.4 + formant * 0.45 + air;
+    return tanh(s * 1.55);
 }
 
 static inline double compute_fade(ACVoice *v) {
