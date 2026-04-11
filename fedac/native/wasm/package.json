@@ -1,0 +1,11 @@
+{
+  "name": "ac-native-wasm-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build-offline-page.mjs"
+  },
+  "dependencies": {
+    "wabt": "^1.0.37"
+  }
+}
