@@ -38,7 +38,7 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "noise", "sample"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "noise", "whistle", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
@@ -681,7 +681,7 @@ function playWaveSound(sound, waveType) {
     sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
-  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220 };
+  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220, whistle: 880 };
   sound.synth({
     type: waveType === "noise" ? "noise" : waveType,
     tone: tones[waveType] || 440,
@@ -2886,7 +2886,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   {
     const waveRowY = settingsY + 36;
     const waveRowH = 14;
-    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "sample"];
+    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "whist", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
@@ -2899,6 +2899,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       [160, 80, 220],  // square — purple
       [255, 180, 220], // composite — pink
       [220, 60, 60],   // noise — red
+      [220, 220, 150], // whistle — bone
       [40, 200, 200],  // sample — cyan
     ];
 

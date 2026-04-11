@@ -25,7 +25,8 @@ typedef enum {
     WAVE_TRIANGLE,
     WAVE_SAWTOOTH,
     WAVE_SQUARE,
-    WAVE_NOISE
+    WAVE_NOISE,
+    WAVE_WHISTLE
 } WaveType;
 
 typedef struct {
@@ -48,6 +49,15 @@ typedef struct {
     double noise_b0, noise_b1, noise_b2, noise_a1, noise_a2;
     double noise_x1, noise_x2, noise_y1, noise_y2;
     uint32_t noise_seed;
+    // Breath-excited whistle / ocarina resonator state
+    double whistle_breath;
+    double whistle_jet;
+    double whistle_vibrato_phase;
+    double whistle_coeff_freq;
+    double whistle_main_y1, whistle_main_y2;
+    double whistle_formant_y1, whistle_formant_y2;
+    double whistle_main_c1, whistle_main_c2, whistle_main_gain;
+    double whistle_formant_c1, whistle_formant_c2, whistle_formant_gain;
 } ACVoice;
 
 typedef struct {

@@ -809,6 +809,9 @@ static WaveType parse_wave_type(const char *type) {
     if (strcmp(type, "sawtooth") == 0) return WAVE_SAWTOOTH;
     if (strcmp(type, "square") == 0) return WAVE_SQUARE;
     if (strcmp(type, "noise-white") == 0 || strcmp(type, "noise") == 0) return WAVE_NOISE;
+    if (strcmp(type, "whistle") == 0 || strcmp(type, "ocarina") == 0 ||
+        strcmp(type, "flute") == 0 || strcmp(type, "skullwhistle") == 0 ||
+        strcmp(type, "skull-whistle") == 0) return WAVE_WHISTLE;
     // composite → treat as sine for now
     return WAVE_SINE;
 }

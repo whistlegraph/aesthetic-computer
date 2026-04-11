@@ -95,6 +95,117 @@ static inline uint32_t xorshift32(uint32_t *state) {
     return x;
 }
 
+static inline double clampd(double x, double lo, double hi) {
+    if (x < lo) return lo;
+    if (x > hi) return hi;
+    return x;
+}
+
+static inline double compute_envelope(ACVoice *v) {
+    double env = 1.0;
+
+    // Attack ramp
+    if (v->attack > 0.0 && v->elapsed < v->attack) {
+        env = v->elapsed / v->attack;
+    }
+
+    // Decay (near end of duration)
+    if (!isinf(v->duration) && v->decay > 0.0) {
+        double decay_start = v->duration - v->decay;
+        if (decay_start < 0.0) decay_start = 0.0;
+        if (v->elapsed > decay_start) {
+            double decay_progress = (v->elapsed - decay_start) / v->decay;
+            if (decay_progress > 1.0) decay_progress = 1.0;
+            env *= (1.0 - decay_progress);
+        }
+    }
+
+    return env;
+}
+
+static inline void whistle_set_resonator(double freq, double q, double sample_rate,
+                                         double *c1, double *c2, double *gain) {
+    freq = clampd(freq, 60.0, sample_rate * 0.45);
+    q = clampd(q, 1.0, 64.0);
+
+    double w0 = 2.0 * M_PI * freq / sample_rate;
+    double damping = M_PI * freq / (q * sample_rate);
+    double r = 1.0 - damping;
+    if (r < 0.0) r = 0.0;
+    if (r > 0.99995) r = 0.99995;
+
+    *c1 = 2.0 * r * cos(w0);
+    *c2 = -(r * r);
+    *gain = 1.0 - r;
+}
+
+static inline void whistle_update_coeffs(ACVoice *v, double sample_rate) {
+    double freq = clampd(v->frequency, 110.0, sample_rate * 0.20);
+    double vibrato = sin(2.0 * M_PI * v->whistle_vibrato_phase) * (0.0025 + 0.0015 * v->whistle_breath);
+    double tuned = freq * (1.0 + vibrato);
+    if (fabs(tuned - v->whistle_coeff_freq) < 0.35) return;
+
+    double main_q = 18.0 + tuned * 0.014;
+    double formant_ratio = tuned < 700.0 ? 2.05 : 2.35;
+    double formant_q = 8.0 + tuned * 0.003;
+
+    whistle_set_resonator(tuned, main_q, sample_rate,
+                          &v->whistle_main_c1, &v->whistle_main_c2, &v->whistle_main_gain);
+    whistle_set_resonator(tuned * formant_ratio, formant_q, sample_rate,
+                          &v->whistle_formant_c1, &v->whistle_formant_c2, &v->whistle_formant_gain);
+    v->whistle_coeff_freq = tuned;
+}
+
+static inline double whistle_tick_resonator(double input, double c1, double c2, double gain,
+                                            double *y1, double *y2) {
+    double y = input * gain + c1 * (*y1) + c2 * (*y2);
+    *y2 = *y1;
+    *y1 = y;
+    return y;
+}
+
+static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
+    double env = compute_envelope(v);
+    double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+    double breath_target = 0.18 + 0.82 * sqrt(env);
+    double breath_slew = env > v->whistle_breath ? 0.0045 : 0.0012;
+
+    v->whistle_breath += (breath_target - v->whistle_breath) * breath_slew;
+    v->whistle_vibrato_phase += (4.6 + v->frequency * 0.0025) / sample_rate;
+    if (v->whistle_vibrato_phase >= 1.0) v->whistle_vibrato_phase -= 1.0;
+
+    whistle_update_coeffs(v, sample_rate);
+
+    double onset = 1.0 - env;
+    double feedback = v->whistle_main_y1 * 1.8 - v->whistle_main_y2 * 0.85 + v->whistle_formant_y1 * 0.35;
+    double turbulence = white * (0.08 + onset * 0.34 + v->whistle_breath * 0.10);
+    double jet_drive = feedback * (0.85 + v->whistle_breath * 0.75) + turbulence;
+    double jet_target = tanh(jet_drive);
+
+    // The edge nonlinearity is intentionally sluggish so the note speaks
+    // with a breathy chiff before settling into the cavity resonance.
+    v->whistle_jet += (jet_target - v->whistle_jet) * (0.018 + v->whistle_breath * 0.09);
+
+    double main = whistle_tick_resonator(v->whistle_jet * (1.05 + v->whistle_breath * 0.55),
+                                         v->whistle_main_c1, v->whistle_main_c2, v->whistle_main_gain,
+                                         &v->whistle_main_y1, &v->whistle_main_y2);
+    double formant = whistle_tick_resonator(v->whistle_jet * (0.28 + v->whistle_breath * 0.18),
+                                            v->whistle_formant_c1, v->whistle_formant_c2, v->whistle_formant_gain,
+                                            &v->whistle_formant_y1, &v->whistle_formant_y2);
+
+    double air = white * (0.02 + onset * 0.05);
+    double s = main * 1.9 + formant * 0.55 + air;
+    return tanh(s * 1.4);
+}
+
+static inline double compute_fade(ACVoice *v) {
+    if (v->state != VOICE_KILLING) return 1.0;
+    if (v->fade_duration <= 0.0) return 0.0;
+    double progress = v->fade_elapsed / v->fade_duration;
+    if (progress >= 1.0) return 0.0;
+    return 1.0 - progress;
+}
+
 static inline double generate_sample(ACVoice *v, double sample_rate) {
     double s;
     switch (v->type) {
@@ -126,6 +237,9 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         s = y;
         break;
     }
+    case WAVE_WHISTLE:
+        s = generate_whistle_sample(v, sample_rate);
+        break;
     default:
         s = 0.0;
     }
@@ -135,41 +249,13 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
     }
 
-    // Advance phase
-    v->phase += v->frequency / sample_rate;
-    if (v->phase >= 1.0) v->phase -= 1.0;
+    // Advance phase for basic oscillators; whistle uses its own resonators.
+    if (v->type != WAVE_WHISTLE) {
+        v->phase += v->frequency / sample_rate;
+        if (v->phase >= 1.0) v->phase -= 1.0;
+    }
 
     return s;
-}
-
-static inline double compute_envelope(ACVoice *v) {
-    double env = 1.0;
-
-    // Attack ramp
-    if (v->attack > 0.0 && v->elapsed < v->attack) {
-        env = v->elapsed / v->attack;
-    }
-
-    // Decay (near end of duration)
-    if (!isinf(v->duration) && v->decay > 0.0) {
-        double decay_start = v->duration - v->decay;
-        if (decay_start < 0.0) decay_start = 0.0;
-        if (v->elapsed > decay_start) {
-            double decay_progress = (v->elapsed - decay_start) / v->decay;
-            if (decay_progress > 1.0) decay_progress = 1.0;
-            env *= (1.0 - decay_progress);
-        }
-    }
-
-    return env;
-}
-
-static inline double compute_fade(ACVoice *v) {
-    if (v->state != VOICE_KILLING) return 1.0;
-    if (v->fade_duration <= 0.0) return 0.0;
-    double progress = v->fade_elapsed / v->fade_duration;
-    if (progress >= 1.0) return 0.0;
-    return 1.0 - progress;
 }
 
 // Setup biquad LPF coefficients for noise voice
@@ -1052,9 +1138,14 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->id = ++audio->next_id;
     v->started_at = audio->time;
 
-    if (type == WAVE_NOISE) {
+    if (type == WAVE_NOISE || type == WAVE_WHISTLE) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
+    }
+    if (type == WAVE_NOISE) {
         setup_noise_filter(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
+    } else if (type == WAVE_WHISTLE) {
+        v->whistle_coeff_freq = 0.0;
+        whistle_update_coeffs(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
     }
 
     pthread_mutex_unlock(&audio->lock);
