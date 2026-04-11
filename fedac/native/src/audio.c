@@ -635,6 +635,11 @@ static void *audio_thread_fn(void *arg) {
                 audio->fx_mix += (audio->target_fx_mix - audio->fx_mix) * 0.00005f;
             }
 
+            // Smooth bitcrush mix toward target
+            if (audio->glitch_mix != audio->target_glitch_mix) {
+                audio->glitch_mix += (audio->target_glitch_mix - audio->glitch_mix) * 0.00005f;
+            }
+
             // Save dry signal before FX chain
             double dry_l = mix_l, dry_r = mix_r;
 
@@ -698,17 +703,28 @@ static void *audio_thread_fn(void *arg) {
             }
 
             // Glitch (sample-hold + bitcrush)
-            if (audio->glitch_enabled) {
-                audio->glitch_counter++;
-                if (audio->glitch_counter >= audio->glitch_rate) {
-                    audio->glitch_counter = 0;
-                    // Bitcrush to 6 bits
-                    int levels = 64;
-                    audio->glitch_hold_l = roundf((float)mix_l * levels) / levels;
-                    audio->glitch_hold_r = roundf((float)mix_r * levels) / levels;
+            // `glitch_mix` scales the intensity of the stage itself, while
+            // `fx_mix` still controls the dry/wet blend of the whole FX chain.
+            {
+                float gmix = audio->glitch_mix;
+                if (gmix > 0.001f) {
+                    float crush = gmix * gmix;
+                    int hold_interval = 1 + (int)roundf((float)(audio->glitch_rate - 1) * crush);
+                    int bits = 12 - (int)roundf(gmix * 8.0f); // 12-bit -> 4-bit
+                    if (bits < 4) bits = 4;
+                    if (bits > 12) bits = 12;
+                    int levels = 1 << bits;
+
+                    audio->glitch_counter++;
+                    if (audio->glitch_counter >= hold_interval) {
+                        audio->glitch_counter = 0;
+                        audio->glitch_hold_l = roundf((float)mix_l * levels) / levels;
+                        audio->glitch_hold_r = roundf((float)mix_r * levels) / levels;
+                    }
+
+                    mix_l = mix_l * (1.0f - gmix) + audio->glitch_hold_l * gmix;
+                    mix_r = mix_r * (1.0f - gmix) + audio->glitch_hold_r * gmix;
                 }
-                mix_l = audio->glitch_hold_l;
-                mix_r = audio->glitch_hold_r;
             }
 
             // Blend dry/wet based on FX mix
@@ -924,6 +940,8 @@ ACAudio *audio_init(void) {
     audio->room_size = ROOM_SIZE;
     audio->room_mix = 0.0f;  // Start dry, trackpad Y controls
     audio->room_enabled = 1; // Always on, mix controls wet amount
+    audio->glitch_mix = 0.0f;
+    audio->target_glitch_mix = 0.0f;
     audio->fx_mix = 1.0f;    // FX chain fully wet by default
     audio->target_fx_mix = 1.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
@@ -1373,8 +1391,16 @@ void audio_room_toggle(ACAudio *audio) {
 
 void audio_glitch_toggle(ACAudio *audio) {
     if (!audio) return;
-    audio->glitch_enabled = !audio->glitch_enabled;
-    fprintf(stderr, "[audio] Glitch: %s\n", audio->glitch_enabled ? "ON" : "OFF");
+    if (audio->glitch_enabled || audio->target_glitch_mix > 0.001f || audio->glitch_mix > 0.001f) {
+        audio->glitch_enabled = 0;
+        audio->target_glitch_mix = 0.0f;
+    } else {
+        audio->glitch_enabled = 1;
+        audio->target_glitch_mix = 1.0f;
+    }
+    fprintf(stderr, "[audio] Glitch: %s (mix %.2f)\n",
+            audio->glitch_enabled ? "ON" : "OFF",
+            audio->target_glitch_mix);
 }
 
 void audio_set_room_mix(ACAudio *audio, float mix) {
@@ -1382,6 +1408,15 @@ void audio_set_room_mix(ACAudio *audio, float mix) {
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
     audio->target_room_mix = mix;
+}
+
+void audio_set_glitch_mix(ACAudio *audio, float mix) {
+    if (!audio) return;
+    if (mix < 0.0f) mix = 0.0f;
+    if (mix > 1.0f) mix = 1.0f;
+    audio->target_glitch_mix = mix;
+    audio->glitch_enabled = mix > 0.001f;
+    if (!audio->glitch_enabled) audio->glitch_counter = 0;
 }
 
 void audio_set_fx_mix(ACAudio *audio, float mix) {

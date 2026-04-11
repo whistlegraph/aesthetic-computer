@@ -1070,6 +1070,16 @@ static JSValue js_glitch_toggle(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
+// sound.glitch.setMix(value)
+static JSValue js_set_glitch_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_glitch_mix(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
 // sound.microphone.open() — open device + start hot-mic thread
 static JSValue js_mic_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -2428,7 +2438,9 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     // glitch
     JSValue glitch = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, glitch, "toggle", JS_NewCFunction(ctx, js_glitch_toggle, "toggle", 0));
-    JS_SetPropertyStr(ctx, glitch, "set", JS_NewCFunction(ctx, js_noop, "set", 1));
+    JS_SetPropertyStr(ctx, glitch, "setMix", JS_NewCFunction(ctx, js_set_glitch_mix, "setMix", 1));
+    JS_SetPropertyStr(ctx, glitch, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->glitch_mix : 0.0));
+    JS_SetPropertyStr(ctx, glitch, "set", JS_NewCFunction(ctx, js_set_glitch_mix, "set", 1));
     JS_SetPropertyStr(ctx, glitch, "get", JS_NewCFunction(ctx, js_noop, "get", 0));
     JS_SetPropertyStr(ctx, sound, "glitch", glitch);
 
