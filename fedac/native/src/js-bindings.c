@@ -2587,17 +2587,50 @@ static JSValue js_list_dir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return arr;
 }
 
-// system.mountMusic() — mount secondary USB at /media (read-only), returns true/false
+// system.mountMusic() — mount secondary USB at /media (read-only), returns true/false.
+// Also detects STALE mounts (USB physically yanked) and force-unmounts them so a
+// subsequent plug-in can mount fresh. Without this, /media stays "mounted" forever
+// after an unplug and the JS DJ hot-plug loop never re-detects a new USB.
 static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
 
     mkdir("/media", 0755);
 
-    // Check if already mounted
-    struct stat st_media, st_root;
-    if (stat("/media/.", &st_media) == 0 && stat("/.", &st_root) == 0 &&
-        st_media.st_dev != st_root.st_dev) {
-        return JS_TRUE;
+    // Check /proc/mounts for any existing mount at /media, and capture the device.
+    char media_dev[128] = {0};
+    FILE *mf = fopen("/proc/mounts", "r");
+    if (mf) {
+        char line[512];
+        while (fgets(line, sizeof(line), mf)) {
+            char dev[128], target[128];
+            if (sscanf(line, "%127s %127s", dev, target) == 2 && strcmp(target, "/media") == 0) {
+                strncpy(media_dev, dev, sizeof(media_dev) - 1);
+                break;
+            }
+        }
+        fclose(mf);
+    }
+
+    if (media_dev[0]) {
+        // There's something mounted at /media. Verify the backing device is still
+        // physically present (USB stick didn't get yanked).
+        struct stat ds;
+        int dev_alive = (stat(media_dev, &ds) == 0 && S_ISBLK(ds.st_mode));
+        // Extra check: opendir succeeds on a live mount but may EIO on a stale one.
+        int dir_ok = 0;
+        if (dev_alive) {
+            DIR *d = opendir("/media");
+            if (d) { dir_ok = 1; closedir(d); }
+        }
+        if (dev_alive && dir_ok) {
+            return JS_TRUE;  // legitimate, live mount
+        }
+        // Stale: device is gone or dir unreadable. Lazy-unmount so we can remount.
+        ac_log("[dj] stale /media mount (dev=%s, alive=%d, dir=%d) — detaching\n",
+               media_dev, dev_alive, dir_ok);
+        if (umount2("/media", MNT_DETACH) != 0) {
+            ac_log("[dj] umount /media failed: %s\n", strerror(errno));
+        }
     }
 
     // Find ALL mounted devices to skip (boot USB may have multiple partitions)
