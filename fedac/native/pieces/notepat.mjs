@@ -429,6 +429,37 @@ const PERCUSSION_COLORS = {
   "a#": [230, 210, 170], // tambourine — sandy
 };
 
+// Graphic-notation signatures — compact descriptions of each drum's internal
+// voices so drawGrid() can render animated glyphs inside each percussion pad.
+// Each element is either a tonal "line" (horizontal bar whose Y = log(freq))
+// or "noise" (random dots scattered around the frequency band). `v` is the
+// nominal volume, used for line thickness / dot density.
+// t: "s"=sine "t"=triangle "q"=square "w"=sawtooth "n"=noise
+// Drawn with per-frame random jitter so the viewer sees the stochastic
+// mechanism in action while the pad is idle.
+const PERCUSSION_NOTATION = {
+  c:  [["t",1800,1.0],["n",4000,0.55],["q",180,1.2],["w",90,1.0],["s",44,1.9],["s",54,1.3],["q",120,0.85]],
+  d:  [["n",2200,0.55],["t",220,0.4],["q",180,0.2]],
+  e:  [["q",2500,0.9],["n",6000,0.6],["n",1600,0.75],["n",1700,0.6],["n",1500,0.5],["n",1800,0.45]],
+  f:  [["n",3200,0.45],["q",1800,0.22],["t",2400,0.18]],
+  g:  [["n",7000,0.35],["n",5000,0.2]],
+  a:  [["n",6500,0.3],["n",4800,0.18]],
+  b:  [["n",4200,0.28],["q",3100,0.1],["q",4600,0.08]],
+  "c#": [["n",3500,0.42],["n",6500,0.28],["q",4200,0.08]],
+  "d#": [["n",5500,0.38],["n",8500,0.25]],
+  "f#": [["q",810,0.22],["q",540,0.18]],
+  "g#": [["t",900,0.35],["q",1800,0.14]],
+  "a#": [["n",7000,0.3],["n",4500,0.18],["q",6500,0.1]],
+};
+// Wave type → accent color for the notation glyph
+const NOTATION_WAVE_RGB = {
+  s: [120, 200, 255],   // sine      — sky blue
+  t: [120, 255, 180],   // triangle  — mint
+  q: [255, 220, 120],   // square    — amber
+  w: [255, 140, 80],    // sawtooth  — orange
+  n: [220, 220, 230],   // noise     — pale grey
+};
+
 // Return drum name if the given (letter, grid offset) is a live drum pad, else null.
 // offset 0 = left grid, 1 = right grid. Low/high extras (z, x, ;, ', ]) stay melodic.
 function percussionDrumFor(letter, offset) {
@@ -2752,12 +2783,73 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const label = key ? key.toUpperCase() : "";
         write(label, { x: x + 2, y: y + 2, size: 1, font: "font_1" });
 
-        if (btnH > 12) {
+        // Stochastic graphic notation inside drum pads (percussion mode only).
+        // Each drum's voices are plotted as horizontal lines (tonal) or noise
+        // dots (noise-based) at log-frequency Y positions. Every frame, the
+        // positions jitter by ±1 px and noise dots are re-scattered, so the
+        // viewer sees the randomness mechanism animating even when idle.
+        if (drumActive) {
+          const sig = PERCUSSION_NOTATION[letter];
+          if (sig) {
+            // Usable plot area inside the pad (leave room for label at top
+            // and bottom-label area).
+            const pxMin = x + 3;
+            const pxMax = x + btnW - 4;
+            const pyMin = y + 11; // below top label
+            const pyMax = y + btnH - 13; // above bottom label
+            if (pxMax > pxMin && pyMax > pyMin + 4) {
+              const plotW = pxMax - pxMin;
+              const plotH = pyMax - pyMin;
+              const logLo = Math.log(30);
+              const logHi = Math.log(10000);
+              // Use a key-stable random seed so the jitter across pads
+              // differs without being globally synchronized.
+              const seed = (frame * 9301 + (key ? key.charCodeAt(0) : 0) * 49297) % 233280;
+              const prng = (n) => {
+                // Tiny LCG derived from seed + n
+                const s = (seed + n * 1103515245 + 12345) & 0x7fffffff;
+                return (s / 2147483648);
+              };
+              for (let i = 0; i < sig.length; i++) {
+                const [t, f, vol] = sig[i];
+                const logF = Math.log(Math.max(30, Math.min(10000, f)));
+                const yNorm = 1 - (logF - logLo) / (logHi - logLo);
+                const py = pyMin + Math.round(yNorm * plotH);
+                const rgb = NOTATION_WAVE_RGB[t] || [180, 180, 200];
+                const alpha = isActive ? 220 : 130;
+                if (t === "n") {
+                  // Scatter ~vol*8 random dots around py
+                  const count = Math.max(2, Math.round(vol * 8));
+                  for (let d = 0; d < count; d++) {
+                    const dx = pxMin + Math.floor(prng(i * 31 + d) * plotW);
+                    const dy = py + Math.floor((prng(i * 31 + d + 17) - 0.5) * 5);
+                    if (dx >= pxMin && dx <= pxMax && dy >= pyMin && dy <= pyMax) {
+                      ink(rgb[0], rgb[1], rgb[2], alpha);
+                      box(dx, dy, 1, 1, true);
+                    }
+                  }
+                } else {
+                  // Horizontal line (tonal voice); thickness ∝ volume
+                  const jitterY = Math.floor((prng(i) - 0.5) * 2);
+                  const lineY = Math.max(pyMin, Math.min(pyMax - 1, py + jitterY));
+                  const thickness = Math.max(1, Math.min(2, Math.round(vol * 0.9)));
+                  ink(rgb[0], rgb[1], rgb[2], alpha);
+                  box(pxMin, lineY, plotW, thickness, true);
+                }
+              }
+            }
+          }
+        } else if (btnH > 12) {
           if (isActive) ink(255, 255, 255, 180);
           else { const sl = dark ? (sharp ? 80 : 120) : (sharp ? 160 : 110); ink(sl, sl, sl); }
-          const bottomLabel = drumActive
-            ? (PERCUSSION_LABELS[letter] || (letter + noteOctave))
-            : (letter + noteOctave);
+          write(letter + noteOctave, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
+        }
+
+        // In drum mode the bottom label is the drum name, not the note.
+        if (drumActive && btnH > 12) {
+          if (isActive) ink(255, 255, 255, 210);
+          else { const sl = dark ? (sharp ? 100 : 150) : (sharp ? 120 : 80); ink(sl, sl, sl); }
+          const bottomLabel = PERCUSSION_LABELS[letter] || (letter + noteOctave);
           write(bottomLabel, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
