@@ -552,6 +552,15 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("HOME", "/tmp", 1);  // force HOME=/tmp (credentials are here)
         setenv("LANG", "en_US.UTF-8", 1);
         setenv("PATH", "/tmp/.local/bin:/bin:/sbin:/usr/bin:/usr/sbin", 1);
+        // SHELL=/bin/bash is critical for Claude Code: its Bash tool
+        // spawns the shell from $SHELL (or /bin/sh fallback). busybox ash
+        // doesn't support arrays, process substitution, `local -n`, or
+        // bash parameter expansion (${var//a/b}) which Claude relies on.
+        // We ship real GNU bash in initramfs (see build-and-flash-initramfs.sh)
+        // and point SHELL at it here.
+        setenv("SHELL", "/bin/bash", 1);
+        setenv("USER", "root", 1);
+        setenv("LOGNAME", "root", 1);
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
         // SSL certs for API connections
         setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
@@ -613,13 +622,31 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         }
         // Terminal capabilities
         setenv("COLORTERM", "truecolor", 1);
-        // Working directory: /tmp/ac (has CLAUDE.md for context)
+
+        // Working directory strategy:
+        // 1. /mnt/ac-repo (persistent shallow clone of aesthetic-computer,
+        //    cloned on first boot or manually by the user) — PREFERRED so
+        //    Claude can actually `git commit` real project files
+        // 2. /tmp/ac (tmpfs, persists per-session only) — FALLBACK for
+        //    when there's no repo yet. Claude can still edit scratch
+        //    files here. A placeholder git init makes it look like a
+        //    project to Claude Code.
+        //
+        // We pick the repo clone if it exists AND has a .git directory.
+        // Otherwise fall through to /tmp/ac.
+        const char *work_dir = "/tmp/ac";
+        if (access("/mnt/ac-repo/.git", F_OK) == 0) {
+            work_dir = "/mnt/ac-repo";
+        }
+        // Always make sure /tmp/ac exists as a fallback.
         mkdir("/tmp/ac", 0755);
-        chdir("/tmp/ac");
+        chdir(work_dir);
         // Get handle from config (parsed by parent)
         const char *handle = getenv("AC_HANDLE");
         if (!handle || !handle[0]) handle = "user";
-        // Ensure CLAUDE.md exists with full project context
+        // Ensure CLAUDE.md exists with full project context. Only write
+        // to /tmp/ac (the scratch fallback) — the real repo's CLAUDE.md
+        // lives in the source tree and shouldn't be clobbered.
         if (access("/tmp/ac/CLAUDE.md", F_OK) != 0) {
             FILE *cm = fopen("/tmp/ac/CLAUDE.md", "w");
             if (cm) {
@@ -629,30 +656,29 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
                     "This is a minimal Linux system (custom kernel, initramfs, no package manager).\n\n"
                     "## Environment\n"
                     "- **User**: @%s\n"
-                    "- **Working directory**: /tmp/ac\n"
-                    "- **Shell**: /bin/sh (busybox ash)\n"
+                    "- **Working directory**: /mnt/ac-repo (aesthetic-computer repo, if cloned)\n"
+                    "  or /tmp/ac (scratch fallback) — you can cd between them\n"
+                    "- **Shell**: /bin/bash (real GNU bash — arrays, subst, etc. all work)\n"
                     "- **Home**: /tmp\n"
-                    "- **Tools**: curl, git, busybox utilities\n"
+                    "- **Tools**: bash, sh, curl, git, rg, jq, busybox utilities\n"
                     "- **No sudo** — you are already root\n"
                     "- **No package manager** — binaries are baked into initramfs\n\n"
                     "## Filesystem\n"
                     "- `/mnt` — USB boot drive (FAT32, has config.json and logs)\n"
+                    "- `/mnt/ac-repo` — full aesthetic-computer git repo (persistent)\n"
+                    "- `/mnt/tapes` — MP4 tapes recorded via PrintScreen\n"
                     "- `/tmp` — tmpfs (lost on reboot)\n"
-                    "- `/opt/` — optional tools (if bundled)\n"
-                    "- `/lib64` — shared libraries\n"
-                    "- `/bin` — busybox + baked binaries\n\n"
+                    "- `/bin` — busybox + baked binaries (bash, git, rg, jq)\n\n"
                     "## Networking\n"
                     "- WiFi auto-connects to saved networks\n"
                     "- `curl` is available for HTTP requests\n"
-                    "- WebSocket client built into ac-native\n\n"
+                    "- GitHub PAT is pre-configured for git push/pull\n\n"
                     "## What you can do\n"
-                    "- Write and run shell scripts\n"
+                    "- Write and run shell scripts (bash, not busybox)\n"
                     "- Use curl to interact with APIs\n"
-                    "- Create files in /tmp/ac (this directory)\n"
-                    "- Use git (GitHub PAT is configured if available)\n"
-                    "- Read system logs at /mnt/ac-native.log\n\n"
-                    "## Architecture reference\n"
-                    "See SCORE.md for the AC Native OS project status and architecture.\n",
+                    "- Edit files in /mnt/ac-repo and `git commit` them\n"
+                    "- Use git (GitHub PAT is wired up for whistlegraph)\n"
+                    "- Read system logs at /mnt/ac-native.log\n",
                     handle, handle);
                 fclose(cm);
             }
@@ -661,7 +687,8 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         if (access("/device-score.md", F_OK) == 0 && access("/tmp/ac/SCORE.md", F_OK) != 0) {
             symlink("/device-score.md", "/tmp/ac/SCORE.md");
         }
-        // Ensure git repo so Claude Code recognizes a project
+        // Ensure /tmp/ac is a git repo so Claude Code recognizes it as a
+        // project (the real /mnt/ac-repo already is one).
         if (access("/tmp/ac/.git", F_OK) != 0) {
             system("git init -q /tmp/ac 2>/dev/null");
         }
