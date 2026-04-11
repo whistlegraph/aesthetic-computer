@@ -140,7 +140,7 @@ function updateLabel() {
   nopaint_generateColoredLabel("line", colorParams, savedParams, modifiers, { hud: savedHud, ...savedApi });
 }
 
-function paint({ ink, page, paste, pen, screen, num, system: { nopaint } }) {
+function paint({ ink, page, paste, pen, screen, setBufferAlpha, num, system: { nopaint } }) {
   const isPainting = nopaint.is("painting");
   if (isPainting && !wasPainting) {
     points.length = 0;
@@ -180,7 +180,7 @@ function paint({ ink, page, paste, pen, screen, num, system: { nopaint } }) {
         }
       }
     } else {
-      // Draw fully opaque — alpha is applied per-gesture below.
+      // Draw fully opaque to the buffer.
       if (thickness === 1) {
         ink(opaqueParams).pppline(stroke);
       } else {
@@ -192,14 +192,25 @@ function paint({ ink, page, paste, pen, screen, num, system: { nopaint } }) {
       }
     }
 
+    // Defer buffer alpha scaling so it runs AFTER the deferred drawing
+    // commands during the layer flush. Modifying buffer pixels directly
+    // here would happen before the wipe/draw commands actually execute.
+    if (strokeAlpha < 1) {
+      setBufferAlpha(nopaint.buffer, strokeAlpha);
+    }
+
     page(screen);
 
+    const bakeAlpha = strokeAlpha;
     strokeToBake = () => {
-      // Scale buffer alpha once at bake time for per-gesture transparency.
-      if (strokeAlpha < 1) {
+      // Sync alpha scaling on the buffer pixels — safe because this runs
+      // in the bake block AFTER the previous frame's layer was flushed,
+      // so the buffer has the drawn (opaque) stroke content.
+      if (bakeAlpha < 1) {
+        const target = Math.round(bakeAlpha * 255);
         const px = nopaint.buffer.pixels;
         for (let i = 3; i < px.length; i += 4) {
-          if (px[i] > 0) px[i] = (px[i] * strokeAlpha + 0.5) | 0;
+          if (px[i] > 0) px[i] = target;
         }
       }
       paste(nopaint.buffer);
@@ -210,8 +221,8 @@ function paint({ ink, page, paste, pen, screen, num, system: { nopaint } }) {
     };
   }
 
-  // Brush preview circle on hover (when not painting and thickness > 2).
-  if (!isPainting && thickness > 2 && pen) {
+  // Brush preview circle on hover (when not painting/panning and thickness > 2).
+  if (!isPainting && !nopaint.is("panning") && thickness > 2 && pen) {
     const r = Math.floor((thickness - 1) / 2);
     const a = Math.round(strokeAlpha * 100);
     if (randomColor) {
