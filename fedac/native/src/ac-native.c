@@ -784,6 +784,102 @@ static long copy_file(const char *src, const char *dst) {
 static char install_fail_reason[256] = "";
 static char install_fail_detail[256] = "";
 
+// Unmount every entry in /proc/mounts whose SOURCE device matches /dev/<parent>
+// or any of its partitions (/dev/<parent>p*, /dev/<parent>*). We use umount2
+// with MNT_DETACH for the initial pass (lazy, always succeeds if the path is
+// reachable) and log each action to the given log file. Returns the number of
+// successful unmounts.
+static int force_unmount_disk(const char *parent_blk, const char *dlog_path) {
+    int unmounted = 0;
+    FILE *mp = fopen("/proc/mounts", "r");
+    if (!mp) return 0;
+    // Collect targets first (don't unmount while iterating — /proc/mounts changes)
+    char targets[16][128];
+    int n_targets = 0;
+    char line[512];
+    while (n_targets < 16 && fgets(line, sizeof(line), mp)) {
+        // /proc/mounts format: source target fstype options ...
+        char src[128], tgt[128], fst[64];
+        if (sscanf(line, "%127s %127s %63s", src, tgt, fst) != 3) continue;
+        // Match /dev/<parent>, /dev/<parent>p1, /dev/<parent>1, etc.
+        if (strncmp(src, "/dev/", 5) != 0) continue;
+        const char *sbase = src + 5;
+        if (strncmp(sbase, parent_blk, strlen(parent_blk)) != 0) continue;
+        strncpy(targets[n_targets], tgt, sizeof(targets[0]) - 1);
+        targets[n_targets][sizeof(targets[0]) - 1] = 0;
+        n_targets++;
+    }
+    fclose(mp);
+    FILE *dl = dlog_path ? fopen(dlog_path, "a") : NULL;
+    if (dl) fprintf(dl, "--- force_unmount_disk(%s) found %d targets ---\n", parent_blk, n_targets);
+    for (int i = 0; i < n_targets; i++) {
+        // Try MNT_DETACH first (lazy — always works if target is valid).
+        int r = umount2(targets[i], MNT_DETACH);
+        if (dl) fprintf(dl, "umount2(%s, MNT_DETACH) = %d errno=%d\n",
+                        targets[i], r, r < 0 ? errno : 0);
+        ac_log("[install] umount2(%s, MNT_DETACH) = %d errno=%d\n",
+               targets[i], r, r < 0 ? errno : 0);
+        if (r == 0) unmounted++;
+    }
+    if (dl) fclose(dl);
+    return unmounted;
+}
+
+// Try BLKRRPART on a disk in a retry loop. Lazy unmounts take time to release
+// the device fully — the kernel keeps the block device referenced until all
+// superblock cleanups finish. We retry with backoff: 0 → 250ms → 500ms → 1s →
+// 2s. Returns 0 on success, -1 on failure (errno set by last attempt).
+// Also logs each attempt to dlog_path if provided.
+static int blkrrpart_with_retry(const char *disk_path, const char *dlog_path) {
+    int delays_ms[] = {0, 250, 500, 1000, 2000};
+    FILE *dl = dlog_path ? fopen(dlog_path, "a") : NULL;
+    int last_errno = 0;
+    for (int i = 0; i < (int)(sizeof(delays_ms) / sizeof(delays_ms[0])); i++) {
+        if (delays_ms[i] > 0) {
+            sync();
+            usleep(delays_ms[i] * 1000);
+        }
+        int dfd = open(disk_path, O_RDONLY | O_CLOEXEC);
+        if (dfd < 0) {
+            last_errno = errno;
+            if (dl) fprintf(dl, "BLKRRPART try %d: open failed errno=%d\n", i, last_errno);
+            continue;
+        }
+        int ri = ioctl(dfd, BLKRRPART);
+        last_errno = ri < 0 ? errno : 0;
+        close(dfd);
+        if (dl) fprintf(dl, "BLKRRPART try %d (delay=%dms) rc=%d errno=%d (%s)\n",
+                        i, delays_ms[i], ri, last_errno,
+                        ri < 0 ? strerror(last_errno) : "ok");
+        ac_log("[install] BLKRRPART %s try=%d delay=%dms rc=%d errno=%d\n",
+               disk_path, i, delays_ms[i], ri, last_errno);
+        if (ri == 0) {
+            if (dl) fclose(dl);
+            return 0;
+        }
+    }
+    // Last resort: sysfs rescan (NVMe has /sys/class/nvme/nvme*/rescan_controller
+    // and every block device has /sys/block/<dev>/uevent which triggers a
+    // udev change event that forces partition rescan).
+    char sys_uevent[128];
+    snprintf(sys_uevent, sizeof(sys_uevent), "/sys/block/%s/uevent",
+             disk_path + 5); // skip "/dev/"
+    FILE *ue = fopen(sys_uevent, "w");
+    if (ue) {
+        fprintf(ue, "change\n");
+        fclose(ue);
+        if (dl) fprintf(dl, "wrote 'change' to %s\n", sys_uevent);
+        ac_log("[install] triggered sysfs change on %s\n", sys_uevent);
+        // Give udev time to process
+        usleep(500000);
+    } else if (dl) {
+        fprintf(dl, "sysfs fallback open(%s) failed errno=%d\n", sys_uevent, errno);
+    }
+    if (dl) fclose(dl);
+    errno = last_errno;
+    return -1;
+}
+
 // Auto-install kernel to internal drive's EFI System Partition
 // Returns 1 on success, 0 on failure (sets install_fail_reason/detail).
 static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
@@ -994,44 +1090,26 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         draw_boot_status(graph, screen, display, msg, pixel_scale);
                     }
                     // Release every handle on the target disk BEFORE sfdisk.
-                    // The previous version did a single umount("/tmp/hd"), but
-                    // that left the partition busy enough that sfdisk couldn't
-                    // re-read the partition table ("Device or resource busy"),
-                    // which made mkfs fail targeting a stale device node.
-                    // We need to: (a) lazy-unmount anything mounted from this
-                    // disk, (b) kill any process holding a partition open, and
-                    // (c) log what was mounted so a post-mortem can debug.
+                    // The previous version relied on a shell `umount -l` loop
+                    // that (a) couldn't umount partitions by device path under
+                    // busybox, and (b) left enough lazy-mount residue that
+                    // BLKRRPART returned EBUSY every time. The new helpers
+                    // parse /proc/mounts in C and umount2 each target
+                    // explicitly, then retry BLKRRPART with backoff.
                     umount("/tmp/hd");
                     umount2("/tmp/hd", MNT_DETACH);
                     const char *DLOG = "/mnt/install-debug.log";
                     // Fresh log per attempt
                     FILE *__dl = fopen(DLOG, "w");
                     if (__dl) { fprintf(__dl, "=== install-debug starting ===\n"); fclose(__dl); }
-                    char rcmd[512];
-                    // Log what's mounted from this disk so we know what's holding it
-                    snprintf(rcmd, sizeof(rcmd),
-                        "echo '--- findmnt /dev/%s* ---' >> %s; "
-                        "( findmnt -no TARGET,SOURCE /dev/%s* 2>/dev/null; "
-                        "  cat /proc/mounts | grep /dev/%s 2>/dev/null ) >> %s 2>&1; "
-                        "echo '--- fuser /dev/%s* ---' >> %s; "
-                        "fuser -v /dev/%s* >> %s 2>&1 || true",
-                        parent_blk, DLOG, parent_blk, parent_blk, DLOG,
-                        parent_blk, DLOG, parent_blk, DLOG);
-                    system(rcmd);
-                    // Lazy-unmount any partition on this disk (MNT_DETACH style
-                    // via `umount -l`, or raw umount2 on known mountpoints) and
-                    // kill any process with an open handle.
-                    snprintf(rcmd, sizeof(rcmd),
-                        "for p in /dev/%s*; do "
-                        "  umount -l $p >> %s 2>&1 || true; "
-                        "done; "
-                        "fuser -km /dev/%s* >> %s 2>&1 || true; "
-                        "sync",
-                        parent_blk, DLOG, parent_blk, DLOG);
-                    system(rcmd);
+                    // Unmount every mount currently referencing this disk.
+                    int n_unmounted = force_unmount_disk(parent_blk, DLOG);
+                    ac_log("[install] force_unmount_disk(%s) released %d mounts\n",
+                           parent_blk, n_unmounted);
                     sync();
                     usleep(500000);
                     // Repartition: create 1024MB EFI System Partition
+                    char rcmd[512];
                     snprintf(rcmd, sizeof(rcmd),
                         "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force /dev/%s >> %s 2>&1",
                         parent_blk, DLOG);
@@ -1040,33 +1118,18 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     // Give the kernel time to process the new GPT
                     sync();
                     usleep(1500000);
-                    // Force the kernel to re-read the partition table.
-                    // We try three methods in order: BLKRRPART ioctl (always
-                    // available, equivalent to `blockdev --rereadpt`), then
-                    // partprobe/sfdisk --verify (best-effort, only log output).
-                    // blockdev is NOT bundled in the initramfs so we can't rely
-                    // on the shell path alone — the ioctl is the real fix.
+                    // Force the kernel to re-read the partition table via
+                    // BLKRRPART, with retry loop + sysfs uevent fallback.
                     {
                         char diskpath[64];
                         snprintf(diskpath, sizeof(diskpath), "/dev/%s", parent_blk);
-                        int dfd = open(diskpath, O_RDONLY | O_CLOEXEC);
-                        if (dfd >= 0) {
-                            int ri = ioctl(dfd, BLKRRPART);
-                            ac_log("[install] BLKRRPART on %s: rc=%d errno=%d\n",
-                                   diskpath, ri, ri < 0 ? errno : 0);
-                            FILE *__dl2 = fopen(DLOG, "a");
-                            if (__dl2) {
-                                fprintf(__dl2, "--- BLKRRPART %s rc=%d errno=%d (%s) ---\n",
-                                        diskpath, ri, ri < 0 ? errno : 0,
-                                        ri < 0 ? strerror(errno) : "ok");
-                                fclose(__dl2);
-                            }
-                            close(dfd);
-                        } else {
-                            ac_log("[install] cannot open %s for BLKRRPART: errno=%d\n",
-                                   diskpath, errno);
+                        int blk_rc = blkrrpart_with_retry(diskpath, DLOG);
+                        if (blk_rc != 0) {
+                            ac_log("[install] BLKRRPART retry exhausted, last errno=%d (%s)\n",
+                                   errno, strerror(errno));
                         }
                     }
+                    // Let partprobe / sfdisk --verify run for diagnostic output.
                     snprintf(rcmd, sizeof(rcmd),
                         "partprobe /dev/%s >> %s 2>&1; "
                         "sfdisk --verify /dev/%s >> %s 2>&1; "
