@@ -51,6 +51,67 @@ wait_for_partition() {
     return 1
 }
 
+ensure_partition_node() {
+    local part="$1"
+    local base
+    local majmin
+
+    [ -b "${part}" ] && return 0
+
+    base="$(basename "${part}")"
+    majmin="$(cat "/sys/class/block/${base}/dev" 2>/dev/null || true)"
+    if [ -z "${majmin}" ]; then
+        err "Missing sysfs entry for ${part}"
+        return 1
+    fi
+
+    rm -f "${part}"
+    mknod "${part}" b "${majmin%%:*}" "${majmin##*:}"
+}
+
+refresh_partition_table() {
+    blockdev --rereadpt "${USB_DEV}" >/dev/null 2>&1 || true
+    partx -u "${USB_DEV}" >/dev/null 2>&1 || true
+}
+
+wait_for_partition_ready() {
+    local part="$1"
+    local attempt
+
+    for attempt in $(seq 1 20); do
+        ensure_partition_node "${part}" || true
+        if dd if="${part}" of=/dev/null bs=512 count=1 status=none 2>/dev/null; then
+            return 0
+        fi
+        refresh_partition_table
+        sleep 0.5
+    done
+
+    err "Partition stayed busy: ${part}"
+    return 1
+}
+
+retry_partition_cmd() {
+    local desc="$1"
+    shift
+    local attempt
+    local rc=0
+
+    for attempt in $(seq 1 10); do
+        if "$@"; then
+            return 0
+        else
+            rc=$?
+        fi
+        err "${desc} failed (attempt ${attempt}/10, rc=${rc})"
+        refresh_partition_table
+        sleep 1
+    done
+
+    err "${desc} failed after retries"
+    return "${rc}"
+}
+
 cleanup() {
     umount /mnt/ac-main 2>/dev/null || true
     umount /mnt/ac-efi 2>/dev/null || true
@@ -261,22 +322,25 @@ size=${EFI_MB}M, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="ACEFI"
 size=${MAC_MB}M, type=48465300-0000-11AA-AA11-00306543ECAC, name="AC-MAC"
 PART_EOF
 
-partprobe "${USB_DEV}" 2>/dev/null || true
+refresh_partition_table
 sleep 2
 
 wait_for_partition "${MAIN_PART}"
 wait_for_partition "${EFI_PART}"
 wait_for_partition "${MAC_PART}"
+wait_for_partition_ready "${MAIN_PART}"
+wait_for_partition_ready "${EFI_PART}"
+wait_for_partition_ready "${MAC_PART}"
 
-mkfs.vfat -F 32 -n ACBOOT "${MAIN_PART}" >/dev/null
-mkfs.vfat -F 32 -n ACEFI "${EFI_PART}" >/dev/null
-mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
+retry_partition_cmd "mkfs ACBOOT" mkfs.vfat -F 32 -n ACBOOT "${MAIN_PART}" >/dev/null
+retry_partition_cmd "mkfs ACEFI" mkfs.vfat -F 32 -n ACEFI "${EFI_PART}" >/dev/null
+retry_partition_cmd "mkfs AC-MAC" mkfs.hfsplus -v AC-MAC "${MAC_PART}" >/dev/null
 
 # Do NOT create a hybrid MBR — old Intel Macs expect standard GPT protective
 # MBR (single 0xEE entry). Hybrid MBR confuses Mac firmware discovery.
 # Set legacy_boot attribute on main partition for BIOS fallback only.
 sgdisk --attributes=1:set:62 "${USB_DEV}" >/dev/null 2>&1 || true
-partprobe "${USB_DEV}" 2>/dev/null || true
+refresh_partition_table
 
 # Partition 1 (ACBOOT): full kernel as BOOTX64.EFI (standard UEFI fallback path)
 # This works on all PC firmware (ThinkPads, Yoga, etc.) without splash or systemd-boot.
