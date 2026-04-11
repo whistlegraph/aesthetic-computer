@@ -1275,32 +1275,38 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     system(rcmd);
                     usleep(500000);
 
-                    // Repartition: create 1024MB EFI System Partition
+                    // Repartition: create 1024MB EFI System Partition.
+                    // CRITICAL: --no-reread tells sfdisk NOT to call BLKRRPART
+                    // itself. The kernel was failing BLKRRPART with EBUSY
+                    // because the block device cache still holds references
+                    // from the old filesystem, and that blocked sfdisk too.
+                    // With --no-reread, sfdisk writes the partition table
+                    // and returns cleanly; we refresh partitions explicitly
+                    // via partx -u below, which is non-destructive and
+                    // works even when the device is "in use" at the kernel
+                    // level.
                     snprintf(rcmd, sizeof(rcmd),
-                        "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force /dev/%s >> %s 2>&1",
+                        "{ echo 'label: gpt'; echo 'type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, size=1024M'; } | sfdisk --force --no-reread /dev/%s >> %s 2>&1",
                         parent_blk, DLOG);
                     int rrc = system(rcmd);
-                    ac_log("[install] sfdisk rc=%d (log: %s)\n", rrc, DLOG);
+                    ac_log("[install] sfdisk --no-reread rc=%d\n", rrc);
                     // Give the kernel time to process the new GPT
                     sync();
-                    usleep(1500000);
-                    // Force the kernel to re-read the partition table via
-                    // BLKRRPART, with retry loop + sysfs uevent fallback.
-                    {
-                        char diskpath[64];
-                        snprintf(diskpath, sizeof(diskpath), "/dev/%s", parent_blk);
-                        int blk_rc = blkrrpart_with_retry(diskpath, DLOG);
-                        if (blk_rc != 0) {
-                            ac_log("[install] BLKRRPART retry exhausted, last errno=%d (%s)\n",
-                                   errno, strerror(errno));
-                        }
-                    }
-                    // Let partprobe / sfdisk --verify run for diagnostic output.
+                    usleep(500000);
+
+                    // Refresh the kernel's partition table via partx -u.
+                    // Unlike BLKRRPART this updates the kernel's view of
+                    // existing partitions in-place without needing exclusive
+                    // access. partprobe is a fallback. Then sfdisk --verify
+                    // logs the final state for diagnostics.
                     snprintf(rcmd, sizeof(rcmd),
-                        "partprobe /dev/%s >> %s 2>&1; "
-                        "sfdisk --verify /dev/%s >> %s 2>&1; "
-                        "ls -l /dev/%s* >> %s 2>&1",
-                        parent_blk, DLOG, parent_blk, DLOG, parent_blk, DLOG);
+                        "echo '--- partx refresh ---' >> %s; "
+                        "partx -u /dev/%s >> %s 2>&1 || true; "
+                        "partprobe /dev/%s >> %s 2>&1 || true; "
+                        "sfdisk --verify /dev/%s >> %s 2>&1 || true; "
+                        "ls -l /dev/%s* >> %s 2>&1 || true",
+                        DLOG, parent_blk, DLOG, parent_blk, DLOG,
+                        parent_blk, DLOG, parent_blk, DLOG);
                     system(rcmd);
                     // Wait for partition device node to appear (up to 10s)
                     int devpath_ready = 0;
@@ -1317,17 +1323,24 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (!devpath_ready) {
                         ac_log("[install] device %s never appeared after sfdisk — see %s\n", devpath, DLOG);
                     }
+                    // Wipe any remaining FS signature with wipefs. The earlier
+                    // dd zero-pass handled the GPT header but didn't touch the
+                    // data area of the actual partition (which still has the
+                    // old FAT boot sector). wipefs -a scrubs all recognized
+                    // filesystem signatures from /dev/nvme0n1p1 so mkfs.vfat
+                    // doesn't try to preserve old metadata.
+                    snprintf(rcmd, sizeof(rcmd),
+                        "echo '--- wipefs partition ---' >> %s; "
+                        "wipefs -a %s >> %s 2>&1 || true",
+                        DLOG, devpath, DLOG);
+                    system(rcmd);
                     // Drop the kernel page cache so any lingering references
                     // to the old filesystem's cached pages are released.
-                    // This is the key mitigation for mkfs.vfat EBUSY: the
-                    // kernel holds the block device busy while its page cache
-                    // still references the old FS pages, even after the
-                    // filesystem was unmounted.
                     system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
                     sync();
                     // Long settle — let the kernel + nvme driver fully release
-                    // the device. Previous 500ms was too short; 3 seconds gives
-                    // enough margin for the block layer to quiesce.
+                    // the device. 3 seconds gives enough margin for the block
+                    // layer to quiesce after partx + wipefs.
                     usleep(3000000);
 
                     // Reformat. Retry up to 3 times if mkfs fails — the

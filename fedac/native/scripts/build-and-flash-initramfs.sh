@@ -578,7 +578,13 @@ DHCLIENT_SCRIPT
 
     # Need basic utilities for shell commands (grep, awk, pgrep, killall, ls, rfkill, curl, etc.)
     # efibootmgr: sets UEFI boot order after OTA flash (prevents stale vendor boot entries)
-    for util in grep awk sed pgrep killall cat ls head cut rfkill which curl sleep mkdir chmod sfdisk mkfs.vfat efibootmgr; do
+    # partx/partprobe/wipefs: needed by install-to-HD path for partition
+    #   table refresh after sfdisk (the kernel BLKRRPART call fails with
+    #   EBUSY on nvme when we repartition it in place; partx -u is a
+    #   non-destructive alternative that updates kernel's partition
+    #   table view without requiring exclusive access). wipefs wipes
+    #   old FS signatures so mkfs.vfat can take the device.
+    for util in grep awk sed pgrep killall cat ls head cut rfkill which curl sleep mkdir chmod sfdisk mkfs.vfat efibootmgr partx partprobe wipefs; do
         UTIL_PATH="$(command -v "$util" 2>/dev/null || true)"
         if [ -n "$UTIL_PATH" ] && [ -f "$UTIL_PATH" ]; then
             cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/"
