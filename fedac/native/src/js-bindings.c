@@ -3211,17 +3211,41 @@ static long flash_copy_file(const char *src, const char *dst) {
 // Byte-for-byte verification: evict destination page cache, re-read from disk,
 // compare against source (which lives in tmpfs and must NOT be evicted).
 // Returns number of verified bytes, or -1 on mismatch/error.
+static void flash_trace(const char *fmt, ...);
+static void flash_trace_open(void);
+static void flash_trace_close_and_archive(void);
 static long flash_verify(const char *src, const char *dst) {
+    // SIZE CHECK FIRST — cheap, diagnostic, catches the common failure
+    // where the copy was short (disk full, sync incomplete, device removed
+    // mid-write, etc.) without needing to read 272 MB twice.
+    struct stat src_st, dst_st;
+    if (stat(src, &src_st) != 0) {
+        ac_log("[verify] stat src=%s failed errno=%d", src, errno);
+        flash_trace("verify: stat src FAILED errno=%d", errno);
+        return -1;
+    }
+    if (stat(dst, &dst_st) != 0) {
+        ac_log("[verify] stat dst=%s failed errno=%d", dst, errno);
+        flash_trace("verify: stat dst FAILED errno=%d", errno);
+        return -1;
+    }
+    flash_trace("verify: src=%ld dst=%ld", (long)src_st.st_size, (long)dst_st.st_size);
+    if (src_st.st_size != dst_st.st_size) {
+        ac_log("[verify] SIZE MISMATCH: src=%ld dst=%ld (diff=%ld)",
+               (long)src_st.st_size, (long)dst_st.st_size,
+               (long)(src_st.st_size - dst_st.st_size));
+        flash_trace("verify: SIZE MISMATCH src=%ld dst=%ld",
+                    (long)src_st.st_size, (long)dst_st.st_size);
+        return -1;
+    }
+
     // Evict ONLY the destination file's page cache using posix_fadvise.
     // DO NOT use drop_caches — that nukes tmpfs pages and destroys the source!
     int dst_fd = open(dst, O_RDONLY);
     if (dst_fd >= 0) {
-        // Get file size for fadvise range
-        struct stat st;
-        if (fstat(dst_fd, &st) == 0) {
-            posix_fadvise(dst_fd, 0, st.st_size, POSIX_FADV_DONTNEED);
-            ac_log("[verify] evicted dst page cache (%ld bytes)", (long)st.st_size);
-        }
+        posix_fadvise(dst_fd, 0, dst_st.st_size, POSIX_FADV_DONTNEED);
+        ac_log("[verify] evicted dst page cache (%ld bytes)", (long)dst_st.st_size);
+        flash_trace("verify: evicted page cache for dst");
         close(dst_fd);
     }
 
@@ -3229,6 +3253,7 @@ static long flash_verify(const char *src, const char *dst) {
     FILE *fb = fopen(dst, "rb");
     if (!fa || !fb) {
         ac_log("[verify] fopen failed: src=%s dst=%s", fa ? "ok" : "FAIL", fb ? "ok" : "FAIL");
+        flash_trace("verify: fopen src=%s dst=%s", fa ? "ok" : "FAIL", fb ? "ok" : "FAIL");
         if (fa) fclose(fa);
         if (fb) fclose(fb);
         return -1;
@@ -3241,6 +3266,8 @@ static long flash_verify(const char *src, const char *dst) {
         nb = fread(bufb, 1, sizeof(bufb), fb);
         if (na != nb || memcmp(bufa, bufb, na) != 0) {
             ac_log("[verify] MISMATCH at offset %ld (read %zu vs %zu)", verified, na, nb);
+            flash_trace("verify: MISMATCH at offset=%ld src_read=%zu dst_read=%zu",
+                        verified, na, nb);
             fclose(fa);
             fclose(fb);
             return -1;
@@ -3251,6 +3278,7 @@ static long flash_verify(const char *src, const char *dst) {
     nb = fread(bufb, 1, 1, fb);
     if (nb != 0) {
         ac_log("[verify] dst has extra bytes after %ld", verified);
+        flash_trace("verify: dst has extra bytes after %ld", verified);
         fclose(fa);
         fclose(fb);
         return -1;
@@ -3258,6 +3286,7 @@ static long flash_verify(const char *src, const char *dst) {
     fclose(fa);
     fclose(fb);
     ac_log("[verify] OK: %ld bytes match", verified);
+    flash_trace("verify: OK %ld bytes match", verified);
     return verified;
 }
 
@@ -3271,6 +3300,54 @@ static void flash_tlog(ACRuntime *rt, const char *fmt, ...) {
     __sync_fetch_and_add(&rt->flash_log_count, 1);
 }
 
+// Append a timestamped line to /tmp/flash-trace.log, which lives in tmpfs so
+// it can't be affected by the vfat partition we're flashing. On flash
+// completion (success OR failure) this file is copied to /mnt/flash-last.log
+// for post-mortem. This is INDEPENDENT of ac_log — the previous design
+// paused ac_log across the entire flash and lost all diagnostic output when
+// the flash thread hung or crashed. flash_trace NEVER pauses.
+static FILE *flash_trace_fp = NULL;
+static void flash_trace_open(void) {
+    if (flash_trace_fp) { fclose(flash_trace_fp); flash_trace_fp = NULL; }
+    // Truncate per-flash so we get a fresh log
+    flash_trace_fp = fopen("/tmp/flash-trace.log", "w");
+    if (flash_trace_fp) {
+        fprintf(flash_trace_fp, "=== flash-trace %ld ===\n", (long)time(NULL));
+        fflush(flash_trace_fp);
+    }
+}
+static void flash_trace(const char *fmt, ...) {
+    if (!flash_trace_fp) return;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    fprintf(flash_trace_fp, "[%ld.%03ld] ", (long)ts.tv_sec, ts.tv_nsec / 1000000);
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(flash_trace_fp, fmt, ap);
+    va_end(ap);
+    if (fmt[0] && fmt[strlen(fmt) - 1] != '\n') fputc('\n', flash_trace_fp);
+    fflush(flash_trace_fp);
+    // No fsync — tmpfs doesn't need it and we want speed
+}
+static void flash_trace_close_and_archive(void) {
+    if (flash_trace_fp) { fclose(flash_trace_fp); flash_trace_fp = NULL; }
+    // Copy to /mnt/flash-last.log for post-mortem after flash completes.
+    // If /mnt is mid-remount or busy, this might fail silently — that's OK,
+    // the tmpfs copy is still available while the process lives.
+    FILE *src = fopen("/tmp/flash-trace.log", "rb");
+    if (!src) return;
+    FILE *dst = fopen("/mnt/flash-last.log", "wb");
+    if (dst) {
+        char buf[4096];
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), src)) > 0) fwrite(buf, 1, n, dst);
+        fflush(dst);
+        fsync(fileno(dst));
+        fclose(dst);
+    }
+    fclose(src);
+}
+
 // Flash update background thread: mount EFI, copy vmlinuz, sync, umount
 // All operations use C syscalls — no shell commands (cp/mkdir/mount not in initramfs PATH)
 // NOTE: current_rt is __thread (thread-local); pass ACRuntime * via arg instead
@@ -3280,6 +3357,14 @@ static void *flash_thread_fn(void *arg) {
     rt->flash_log_count = 0;
     rt->flash_dst[0] = '\0';
     rt->flash_same_device = 0;
+
+    // Open a dedicated trace log in tmpfs. This survives even if the main
+    // log gets suspended / the vfat fs we're flashing goes read-only / the
+    // flash thread hangs. At the end of the thread (success or failure) we
+    // copy it to /mnt/flash-last.log for post-mortem on the next boot.
+    flash_trace_open();
+    flash_trace("flash_thread_fn start");
+    flash_trace("src=%s device=%s", rt->flash_src, rt->flash_device);
 
     ac_log("[flash] starting: src=%s device=%s", rt->flash_src, rt->flash_device);
     flash_tlog(rt, "src=%s", rt->flash_src);
@@ -3291,6 +3376,8 @@ static void *flash_thread_fn(void *arg) {
         if (stat(rt->flash_device, &dev_st) != 0) {
             ac_log("[flash] device %s does not exist (errno=%d %s)",
                    rt->flash_device, errno, strerror(errno));
+            flash_trace("device %s missing errno=%d", rt->flash_device, errno);
+            flash_trace_close_and_archive();
             rt->flash_phase = 4;
             rt->flash_ok = 0;
             rt->flash_pending = 0;
@@ -3298,6 +3385,7 @@ static void *flash_thread_fn(void *arg) {
             return NULL;
         }
         ac_log("[flash] device %s exists (mode=0%o)", rt->flash_device, dev_st.st_mode);
+        flash_trace("device exists mode=0%o", dev_st.st_mode);
     }
 
     // Mount the EFI partition for flashing.
@@ -3375,9 +3463,12 @@ static void *flash_thread_fn(void *arg) {
             if (access("/mnt/EFI/BOOT", F_OK) == 0) {
                 efi_mount = "/mnt";
                 ac_log("[flash] using existing /mnt mount (fresh mount failed)");
+                flash_trace("falling back to existing /mnt mount");
             } else {
                 ac_log("[flash] ABORT: mount %s failed and /mnt has no EFI/BOOT",
                        rt->flash_device);
+                flash_trace("ABORT mount %s failed and no /mnt/EFI/BOOT", rt->flash_device);
+                flash_trace_close_and_archive();
                 rt->flash_phase = 4;
                 rt->flash_ok = 0;
                 rt->flash_pending = 0;
@@ -3386,6 +3477,7 @@ static void *flash_thread_fn(void *arg) {
             }
         }
     }
+    flash_trace("efi_mount=%s did_mount=%d", efi_mount, did_mount);
     // Create EFI directory structure if it doesn't exist (fresh NVMe install)
     char efi_dir[512];
     snprintf(efi_dir, sizeof(efi_dir), "%s/EFI", efi_mount);
@@ -3394,6 +3486,8 @@ static void *flash_thread_fn(void *arg) {
     mkdir(efi_dir, 0755);
     if (access(efi_dir, F_OK) != 0) {
         ac_log("[flash] ABORT: %s could not be created", efi_dir);
+        flash_trace("ABORT could not create %s", efi_dir);
+        flash_trace_close_and_archive();
         if (did_mount) umount("/tmp/efi");
         rt->flash_phase = 4;
         rt->flash_ok = 0;
@@ -3419,12 +3513,17 @@ static void *flash_thread_fn(void *arg) {
     rt->flash_dst[sizeof(rt->flash_dst) - 1] = '\0';
     flash_tlog(rt, "dst=%s mount=%s", dst, efi_mount);
 
-    // Close the log file if writing to the same vfat partition as /mnt
+    // NOTE: we intentionally no longer ac_log_pause() the main log during
+    // the flash. The old design closed /mnt/ac-native.log while writing to
+    // the same vfat partition, which caused every flash failure to leave
+    // zero diagnostic trail — if the thread hung or the mount went
+    // read-only mid-write, ac_log_resume() never fired and the entire
+    // session's logs after the pause were silently dropped. Instead we
+    // write flash progress to flash_trace (tmpfs, can't be affected by the
+    // partition we're flashing) AND best-effort to the main log. At the
+    // end we archive the trace to /mnt/flash-last.log.
     int same_mount = same_as_mnt || !did_mount;
-    if (same_mount) {
-        ac_log("[flash] pausing log for write to /mnt");
-        ac_log_pause();
-    }
+    flash_trace("same_mount=%d same_as_mnt=%d did_mount=%d", same_mount, same_as_mnt, did_mount);
 
     // Pre-flight: validate source file exists and has reasonable size
     {
@@ -3432,7 +3531,9 @@ static void *flash_thread_fn(void *arg) {
         if (stat(rt->flash_src, &src_st) != 0 || src_st.st_size < 1048576) {
             ac_log("[flash] ABORT: source %s invalid (size=%ld, errno=%d)",
                    rt->flash_src, (long)(src_st.st_size), errno);
-            if (same_mount) { ac_log_resume(); }
+            flash_trace("ABORT source invalid size=%ld errno=%d",
+                        (long)(src_st.st_size), errno);
+            flash_trace_close_and_archive();
             if (did_mount) umount("/tmp/efi");
             rt->flash_phase = 4;
             rt->flash_ok = 0;
@@ -3441,6 +3542,7 @@ static void *flash_thread_fn(void *arg) {
             return NULL;
         }
         ac_log("[flash] source validated: %ld bytes", (long)src_st.st_size);
+        flash_trace("source validated size=%ld", (long)src_st.st_size);
     }
 
     // Phase 1: Backup previous kernel, then write new one
@@ -3528,32 +3630,50 @@ static void *flash_thread_fn(void *arg) {
         }
     }
 
+    // syncfs + multi-round sync with generous waits. USB flash controllers
+    // can take SECONDS to flush 272 MB through vfat metadata, and the old
+    // 500 ms window was frequently insufficient — we'd then try to verify
+    // against data that still existed only in the kernel's dirty page
+    // cache, so the eviction step exposed a mismatch with uncommitted
+    // backing store bytes.
     int mnt_fd = open(efi_mount, O_RDONLY);
     if (mnt_fd >= 0) {
-        if (syncfs(mnt_fd) != 0)
+        int sr = syncfs(mnt_fd);
+        if (sr != 0) {
             ac_log("[flash] syncfs failed: errno=%d (%s)", errno, strerror(errno));
+            flash_trace("syncfs FAILED errno=%d", errno);
+        } else {
+            flash_trace("syncfs ok");
+        }
         close(mnt_fd);
     } else {
         ac_log("[flash] WARNING: open(%s) for syncfs failed errno=%d", efi_mount, errno);
+        flash_trace("open(efi_mount) for syncfs FAILED errno=%d", errno);
     }
     sync();
-    // vfat write-back can be slow; give the block layer time to flush
-    usleep(500000);  // 500ms
+    flash_trace("sync #1 returned");
+    // First wait — let the block layer start flushing
+    usleep(1500000);  // 1.5 s
     sync();
+    flash_trace("sync #2 after 1.5s wait");
+    // Second wait — USB flash write can be very slow for 272 MB
+    usleep(1500000);  // another 1.5 s = 3 s total
+    sync();
+    flash_trace("sync #3 after 3s total wait");
 
-    // If same device: remount read-only then read-write to force vfat metadata flush
-    if (same_as_mnt) {
-        ac_log("[flash] remounting /mnt ro+rw to force vfat flush");
-        mount(NULL, "/mnt", NULL, MS_REMOUNT | MS_RDONLY, NULL);
-        usleep(100000);
-        mount(NULL, "/mnt", NULL, MS_REMOUNT, NULL);
-    }
-
+    // Previously we remounted /mnt ro+rw to force vfat metadata flush. That
+    // was fragile: it bypassed the VFS safely-unmount path, briefly made
+    // /mnt read-only so any concurrent log write would fail, and on systems
+    // with mount stacking (init.sh leaves nvme0n1p1 stacked under sda1)
+    // the remount hit the wrong layer. syncfs + sync + 3 s of settle time
+    // is more reliable.
     ac_log("[flash] sync complete");
+    flash_trace("sync complete (3 rounds, 3s total wait)");
 
     if (copied <= 0) {
-        if (same_mount) { ac_log_resume(); }
         ac_log("[flash] copy failed (copied=%ld)", copied);
+        flash_trace("copy FAILED copied=%ld", copied);
+        flash_trace_close_and_archive();
         rt->flash_phase = 4;
         rt->flash_ok = 0;
         rt->flash_pending = 0;
@@ -3561,25 +3681,25 @@ static void *flash_thread_fn(void *arg) {
         return NULL;
     }
 
-    // Phase 3: Verify — read back from physical disk and compare byte-for-byte
+    // Phase 3: Verify — read back from physical disk and compare byte-for-byte.
+    // flash_verify now does a size-check first (fast, diagnostic) before
+    // paying the cost of a 272 MB read+compare.
     rt->flash_phase = 3;
+    flash_trace("verify starting (expecting %ld bytes)", copied);
     long verified = flash_verify(rt->flash_src, dst);
     flash_tlog(rt, "verify=%ld (expected=%ld)", verified, copied);
-
-    // Reopen log file after flash+verify
-    if (same_mount) {
-        ac_log_resume();
-        ac_log("[flash] log resumed after write+verify");
-    }
+    flash_trace("verify returned: %ld", verified);
 
     if (did_mount) {
         umount("/tmp/efi");
         ac_log("[flash] unmounted /tmp/efi");
+        flash_trace("unmounted /tmp/efi");
     }
 
     rt->flash_verified_bytes = verified;
     if (verified != copied) {
         ac_log("[flash] VERIFY FAILED: wrote %ld, verified %ld", copied, verified);
+        flash_trace("VERIFY FAILED wrote=%ld verified=%ld", copied, verified);
         // CRITICAL: restore previous kernel so device remains bootable
         {
             char prev[512];
@@ -3588,12 +3708,17 @@ static void *flash_thread_fn(void *arg) {
                 unlink(dst);
                 if (rename(prev, dst) == 0) {
                     ac_log("[flash] RESTORED previous kernel from %s — device still bootable", prev);
+                    flash_trace("RESTORED previous kernel from %s", prev);
                     sync();
                 } else {
                     ac_log("[flash] CRITICAL: restore failed errno=%d", errno);
+                    flash_trace("CRITICAL restore FAILED errno=%d", errno);
                 }
+            } else {
+                flash_trace("no .prev backup to restore (device may be unbootable)");
             }
         }
+        flash_trace_close_and_archive();
         rt->flash_phase = 4;
         rt->flash_ok = 0;
         rt->flash_pending = 0;
@@ -3667,6 +3792,8 @@ static void *flash_thread_fn(void *arg) {
     // Remove downloaded file to free /tmp space
     unlink(rt->flash_src);
     ac_log("[flash] done: %ld bytes written, verified OK", copied);
+    flash_trace("done: %ld bytes verified OK", copied);
+    flash_trace_close_and_archive();
     rt->flash_phase = 4;
     rt->flash_ok = 1;
     rt->flash_pending = 0;
