@@ -41,6 +41,7 @@
 
 static volatile int running = 1;
 static FILE *logfile = NULL;
+static volatile int log_dirty = 0;
 int ac_log_stderr_muted = 0;  // When set, ac_log skips stderr (PTY active)
 int voice_off = 1;            // Keystroke TTS disabled by default (enable with voice:on in config)
 static int is_removable(const char *blkname);
@@ -210,7 +211,7 @@ void ac_log(const char *fmt, ...) {
     if (logfile) {
         vfprintf(logfile, fmt, args2);
         fflush(logfile);
-        fsync(fileno(logfile));
+        log_dirty = 1;
     }
     va_end(args2);
 }
@@ -219,7 +220,10 @@ void ac_log(const char *fmt, ...) {
 void ac_log_flush(void) {
     if (logfile) {
         fflush(logfile);
-        fsync(fileno(logfile));
+        if (log_dirty) {
+            fsync(fileno(logfile));
+            log_dirty = 0;
+        }
     }
 }
 
@@ -227,7 +231,10 @@ void ac_log_flush(void) {
 void ac_log_pause(void) {
     if (logfile) {
         fflush(logfile);
-        fsync(fileno(logfile));
+        if (log_dirty) {
+            fsync(fileno(logfile));
+            log_dirty = 0;
+        }
         fclose(logfile);
         logfile = NULL;
     }
@@ -3913,6 +3920,11 @@ int main(int argc, char *argv[]) {
                     hdmi = NULL;
                     rt->hdmi = NULL;
                 }
+            }
+
+            // Sync the USB log in batches instead of on every event.
+            if (logfile && log_dirty && main_frame % 300 == 0) {
+                ac_log_flush();
             }
 
             // ── Record frame perf ──
