@@ -440,97 +440,117 @@ function percussionDrumFor(letter, offset) {
 
 // Fire a drum hit from short auto-stopping synth voices. No cleanup
 // needed on key-up because every voice uses a finite duration.
+//
+// Every drum gets STOCHASTIC variation on each press so repeated hits
+// don't sound machine-stamped:
+//   - tone jitter:   ±3-8% of the nominal frequency
+//   - volume jitter: ±5-10% of the nominal volume
+//   - duration jitter: ±5% on longer tails
+//   - for multi-burst drums (clap), the flam timing also jitters
+//
+// Multi-burst flam timing scales with metronomeBPM so drum rolls lock
+// to the current tempo: at 120 BPM each sub-beat is ~12.5 ms.
 function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0) {
   if (!sound?.synth) return;
-  // Cap at 2.2 so drums can push voice volumes above 1.0. The native audio
-  // mixer auto-divides by total voice weight (audio.c mix_divisor), which
-  // means a drum hit with vol=0.9 sharing the mix with three 0.7 sustained
-  // melody voices gets crushed to ~0.3 — basically invisible. Pushing drum
-  // voice volumes to ~1.6-2.0 puts them at ~2x the ratio of the melodies
-  // even under heavy polyphony, so they cut through like real drums.
   const v = Math.max(0.1, Math.min(2.2, volume));
-  const pf = Math.max(0.25, Math.min(4, pitchFactor)); // clamp to ±2 octaves
+  const pf = Math.max(0.25, Math.min(4, pitchFactor));
+
+  // Per-hit random helpers (inline, stateless). `rj` jitters around a center
+  // by a ± fraction; `rn` returns a uniform range.
+  const rj = (center, frac) => center * (1 + (Math.random() - 0.5) * 2 * frac);
+  const rn = (min, max) => min + Math.random() * (max - min);
+
+  // BPM-locked flam unit for multi-burst drums. metronomeBPM defaults to 120
+  // so this is ~12.5 ms at default. Scales inversely: 60 bpm → 25 ms,
+  // 180 bpm → ~8 ms. Used for clap / future multi-burst drums.
+  const flam = (60000 / Math.max(40, Math.min(240, metronomeBPM || 120))) * 0.025;
+
   switch (letter) {
-    case "c": // kick — wub/wobble bass: shorter, more mid grit, 10 Hz sub wobble
-      // 1. Beater click — short high transient so the ear still parses this as a drum hit
-      sound.synth({ type: "triangle", tone: 1800 * pf, duration: 0.005, volume: 1.0 * v, attack: 0.0003, decay: 0.004, pan });
-      sound.synth({ type: "noise", tone: 4000 * pf, duration: 0.004, volume: 0.55 * v, attack: 0.0003, decay: 0.003, pan });
-      // 2. Body thump — SQUARE wave at 180 Hz for rich mid harmonics (was a pure sine
-      //    which left a hollow-feeling gap between 180 Hz and the sub). Square = odd
-      //    harmonics up to ~900 Hz, filling the mid band.
-      sound.synth({ type: "square", tone: 180 * pf, duration: 0.02, volume: 1.2 * v, attack: 0.0005, decay: 0.018, pan });
-      // 3. Grit layer — sawtooth at 90 Hz for dubstep-style edge. Adds 90/180/270/360 Hz
-      //    harmonics and the rasp that reads as "wub bass" to the ear.
-      sound.synth({ type: "sawtooth", tone: 90 * pf, duration: 0.1, volume: 1.0 * v, attack: 0.001, decay: 0.095, pan });
-      // 4. Sub wobble — TWO sines tuned 10 Hz apart beat against each other, creating
-      //    natural amplitude modulation at |f1-f2| = 10 Hz without needing a real LFO.
-      //    Shortened from 500ms → 180ms so the kick doesn't overstay its welcome.
-      sound.synth({ type: "sine", tone: 44 * pf, duration: 0.18, volume: 1.9 * v, attack: 0.001, decay: 0.17, pan });
-      sound.synth({ type: "sine", tone: 54 * pf, duration: 0.18, volume: 1.3 * v, attack: 0.001, decay: 0.17, pan });
-      // 5. Mid-low square at 120 Hz — fills the 120-360 Hz range with additional square
-      //    harmonics so the kick has body between the 44 Hz sub and the 180 Hz thump.
-      sound.synth({ type: "square", tone: 120 * pf, duration: 0.07, volume: 0.85 * v, attack: 0.002, decay: 0.065, pan });
+    case "c": // kick — wub/wobble bass with per-hit timbre variation
+      // 1. Beater click — short high transient
+      sound.synth({ type: "triangle", tone: rj(1800, 0.08) * pf, duration: 0.005, volume: rj(1.0, 0.08) * v, attack: 0.0003, decay: 0.004, pan });
+      sound.synth({ type: "noise", tone: rj(4000, 0.12) * pf, duration: 0.004, volume: rj(0.55, 0.10) * v, attack: 0.0003, decay: 0.003, pan });
+      // 2. Body thump — SQUARE for mid harmonics
+      sound.synth({ type: "square", tone: rj(180, 0.05) * pf, duration: rj(0.02, 0.10), volume: rj(1.2, 0.06) * v, attack: 0.0005, decay: 0.018, pan });
+      // 3. Grit layer — sawtooth for dubstep rasp
+      sound.synth({ type: "sawtooth", tone: rj(90, 0.04) * pf, duration: rj(0.1, 0.08), volume: rj(1.0, 0.06) * v, attack: 0.001, decay: 0.095, pan });
+      // 4. Sub wobble — two sines ~10 Hz apart, each with per-hit pitch jitter
+      //    so the beat frequency varies slightly (sometimes 8 Hz, sometimes 12 Hz)
+      {
+        const subLo = rj(44, 0.05);         // ~41.8 → 46.2 Hz
+        const subHi = subLo + rn(8, 12);    // ~50 → 58 Hz → beat freq 8-12 Hz
+        sound.synth({ type: "sine", tone: subLo * pf, duration: rj(0.18, 0.05), volume: rj(1.9, 0.05) * v, attack: 0.001, decay: 0.17, pan });
+        sound.synth({ type: "sine", tone: subHi * pf, duration: rj(0.18, 0.05), volume: rj(1.3, 0.06) * v, attack: 0.001, decay: 0.17, pan });
+      }
+      // 5. Mid-low square fill
+      sound.synth({ type: "square", tone: rj(120, 0.05) * pf, duration: rj(0.07, 0.08), volume: rj(0.85, 0.07) * v, attack: 0.002, decay: 0.065, pan });
       break;
-    case "d": // snare
-      sound.synth({ type: "noise", tone: 2200 * pf, duration: 0.12, volume: 0.55 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "triangle", tone: 220 * pf, duration: 0.1, volume: 0.4 * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square", tone: 180 * pf, duration: 0.05, volume: 0.2 * v, attack: 0.001, decay: 0.045, pan });
+
+    case "d": // snare — noise + triangle body + square ring, all jittered
+      sound.synth({ type: "noise",    tone: rj(2200, 0.08) * pf, duration: rj(0.12, 0.08), volume: rj(0.55, 0.08) * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "triangle", tone: rj(220, 0.04) * pf,  duration: rj(0.1, 0.08),  volume: rj(0.4, 0.08)  * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.2, 0.10)  * v, attack: 0.001, decay: 0.045, pan });
       break;
-    case "e": // clap — sharper "clip clap": short clicky transient + narrow band noise burst
-      // The previous version had four soft noise bursts at ~1400 Hz that blurred into
-      // a diffuse "shh". Real claps have a hard ~2-3 kHz click followed by a tight
-      // 1.5 kHz body with ~20 ms stereo-flam between the two strikes of the hands.
-      // New recipe: square-wave click (explicit high frequencies), then a compact
-      // triple-burst body with tighter timing (6/14/22 ms) and much narrower durations.
-      // 1. Sharp click — square at 2.5 kHz, 4 ms, panned slightly to opposite side
-      sound.synth({ type: "square", tone: 2500 * pf, duration: 0.004, volume: 0.9 * v, attack: 0.0003, decay: 0.0035, pan: pan * 0.8 });
-      sound.synth({ type: "noise", tone: 6000 * pf, duration: 0.003, volume: 0.6 * v, attack: 0.0003, decay: 0.0025, pan: pan * 0.8 });
-      // 2. Body burst — three very short noise bursts, tighter spacing than before
-      sound.synth({ type: "noise", tone: 1600 * pf, duration: 0.008, volume: 0.75 * v, attack: 0.0003, decay: 0.007, pan });
-      setTimeout(() => sound.synth({ type: "noise", tone: 1700 * pf, duration: 0.008, volume: 0.6 * v, attack: 0.0003, decay: 0.007, pan }), 6);
-      setTimeout(() => sound.synth({ type: "noise", tone: 1500 * pf, duration: 0.008, volume: 0.5 * v, attack: 0.0003, decay: 0.007, pan }), 14);
-      // 3. Short tail — 1.8 kHz noise for the "smack" after-ring, very brief
-      setTimeout(() => sound.synth({ type: "noise", tone: 1800 * pf, duration: 0.025, volume: 0.45 * v, attack: 0.0005, decay: 0.024, pan }), 22);
+
+    case "e": // clap — jittered click + BPM-locked flam body
+      // 1. Click — tone jitter ±10%, brightness ±8%
+      sound.synth({ type: "square", tone: rj(2500, 0.10) * pf, duration: 0.004, volume: rj(0.9, 0.08) * v, attack: 0.0003, decay: 0.0035, pan: pan * rn(0.6, 0.9) });
+      sound.synth({ type: "noise",  tone: rj(6000, 0.12) * pf, duration: 0.003, volume: rj(0.6, 0.10) * v, attack: 0.0003, decay: 0.0025, pan: pan * rn(0.6, 0.9) });
+      // 2. Body: 3 flam bursts. Timings scale with BPM AND jitter ±30% per hit.
+      sound.synth({ type: "noise", tone: rj(1600, 0.08) * pf, duration: 0.008, volume: rj(0.75, 0.08) * v, attack: 0.0003, decay: 0.007, pan });
+      setTimeout(() => sound.synth({ type: "noise", tone: rj(1700, 0.09) * pf, duration: 0.008, volume: rj(0.6, 0.10) * v, attack: 0.0003, decay: 0.007, pan }), Math.round(flam * rn(0.4, 0.6)));
+      setTimeout(() => sound.synth({ type: "noise", tone: rj(1500, 0.10) * pf, duration: 0.008, volume: rj(0.5, 0.12) * v, attack: 0.0003, decay: 0.007, pan }), Math.round(flam * rn(1.0, 1.3)));
+      // 3. Tail
+      setTimeout(() => sound.synth({ type: "noise", tone: rj(1800, 0.08) * pf, duration: 0.025, volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.024, pan }), Math.round(flam * rn(1.7, 2.0)));
       break;
-    case "f": // snap — finger snap click + short body
-      sound.synth({ type: "noise", tone: 3200 * pf, duration: 0.015, volume: 0.45 * v, attack: 0.0003, decay: 0.014, pan });
-      sound.synth({ type: "square", tone: 1800 * pf, duration: 0.02, volume: 0.22 * v, attack: 0.0005, decay: 0.018, pan });
-      sound.synth({ type: "triangle", tone: 2400 * pf, duration: 0.025, volume: 0.18 * v, attack: 0.0005, decay: 0.022, pan });
+
+    case "f": // snap — finger snap, tone jitter for variation
+      sound.synth({ type: "noise",    tone: rj(3200, 0.12) * pf, duration: 0.015, volume: rj(0.45, 0.10) * v, attack: 0.0003, decay: 0.014, pan });
+      sound.synth({ type: "square",   tone: rj(1800, 0.10) * pf, duration: 0.02,  volume: rj(0.22, 0.10) * v, attack: 0.0005, decay: 0.018, pan });
+      sound.synth({ type: "triangle", tone: rj(2400, 0.10) * pf, duration: 0.025, volume: rj(0.18, 0.10) * v, attack: 0.0005, decay: 0.022, pan });
       break;
-    case "g": // closed hi-hat
-      sound.synth({ type: "noise", tone: 7000 * pf, duration: 0.04, volume: 0.35 * v, attack: 0.0005, decay: 0.035, pan });
-      sound.synth({ type: "noise", tone: 5000 * pf, duration: 0.04, volume: 0.2 * v, attack: 0.0005, decay: 0.035, pan });
+
+    case "g": // closed hi-hat — brightness varies each hit
+      sound.synth({ type: "noise", tone: rj(7000, 0.08) * pf, duration: 0.04, volume: rj(0.35, 0.10) * v, attack: 0.0005, decay: 0.035, pan });
+      sound.synth({ type: "noise", tone: rj(5000, 0.08) * pf, duration: 0.04, volume: rj(0.20, 0.10) * v, attack: 0.0005, decay: 0.035, pan });
       break;
-    case "a": // open hi-hat
-      sound.synth({ type: "noise", tone: 6500 * pf, duration: 0.28, volume: 0.3 * v, attack: 0.001, decay: 0.27, pan });
-      sound.synth({ type: "noise", tone: 4800 * pf, duration: 0.2, volume: 0.18 * v, attack: 0.001, decay: 0.19, pan });
+
+    case "a": // open hi-hat — decay + brightness vary
+      sound.synth({ type: "noise", tone: rj(6500, 0.07) * pf, duration: rj(0.28, 0.10), volume: rj(0.30, 0.08) * v, attack: 0.001, decay: 0.27, pan });
+      sound.synth({ type: "noise", tone: rj(4800, 0.07) * pf, duration: rj(0.20, 0.10), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.19, pan });
       break;
-    case "b": // ride
-      sound.synth({ type: "noise", tone: 4200 * pf, duration: 0.4, volume: 0.28 * v, attack: 0.001, decay: 0.38, pan });
-      sound.synth({ type: "square", tone: 3100 * pf, duration: 0.12, volume: 0.1 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: 4600 * pf, duration: 0.1, volume: 0.08 * v, attack: 0.001, decay: 0.09, pan });
+
+    case "b": // ride — metallic shimmer with per-hit harmonic variation
+      sound.synth({ type: "noise",  tone: rj(4200, 0.06) * pf, duration: rj(0.4, 0.08),  volume: rj(0.28, 0.08) * v, attack: 0.001, decay: 0.38, pan });
+      sound.synth({ type: "square", tone: rj(3100, 0.06) * pf, duration: rj(0.12, 0.10), volume: rj(0.10, 0.10) * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: rj(4600, 0.06) * pf, duration: rj(0.1, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.001, decay: 0.09, pan });
       break;
+
     case "c#": // crash
-      sound.synth({ type: "noise", tone: 3500 * pf, duration: 0.55, volume: 0.42 * v, attack: 0.001, decay: 0.53, pan });
-      sound.synth({ type: "noise", tone: 6500 * pf, duration: 0.45, volume: 0.28 * v, attack: 0.002, decay: 0.43, pan });
-      sound.synth({ type: "square", tone: 4200 * pf, duration: 0.2, volume: 0.08 * v, attack: 0.001, decay: 0.19, pan });
+      sound.synth({ type: "noise",  tone: rj(3500, 0.06) * pf, duration: rj(0.55, 0.08), volume: rj(0.42, 0.08) * v, attack: 0.001, decay: 0.53, pan });
+      sound.synth({ type: "noise",  tone: rj(6500, 0.07) * pf, duration: rj(0.45, 0.08), volume: rj(0.28, 0.08) * v, attack: 0.002, decay: 0.43, pan });
+      sound.synth({ type: "square", tone: rj(4200, 0.06) * pf, duration: rj(0.2, 0.10),  volume: rj(0.08, 0.10) * v, attack: 0.001, decay: 0.19, pan });
       break;
+
     case "d#": // splash
-      sound.synth({ type: "noise", tone: 5500 * pf, duration: 0.3, volume: 0.38 * v, attack: 0.001, decay: 0.29, pan });
-      sound.synth({ type: "noise", tone: 8500 * pf, duration: 0.22, volume: 0.25 * v, attack: 0.001, decay: 0.21, pan });
+      sound.synth({ type: "noise", tone: rj(5500, 0.08) * pf, duration: rj(0.3, 0.10),  volume: rj(0.38, 0.08) * v, attack: 0.001, decay: 0.29, pan });
+      sound.synth({ type: "noise", tone: rj(8500, 0.08) * pf, duration: rj(0.22, 0.10), volume: rj(0.25, 0.10) * v, attack: 0.001, decay: 0.21, pan });
       break;
-    case "f#": // cowbell — detuned square pair
-      sound.synth({ type: "square", tone: 810 * pf, duration: 0.12, volume: 0.22 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: 540 * pf, duration: 0.15, volume: 0.18 * v, attack: 0.001, decay: 0.14, pan });
+
+    case "f#": // cowbell — detuning jitters so hits sound organic
+      sound.synth({ type: "square", tone: rj(810, 0.04) * pf, duration: rj(0.12, 0.08), volume: rj(0.22, 0.08) * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: rj(540, 0.04) * pf, duration: rj(0.15, 0.08), volume: rj(0.18, 0.08) * v, attack: 0.001, decay: 0.14, pan });
       break;
+
     case "g#": // wood block
-      sound.synth({ type: "triangle", tone: 900 * pf, duration: 0.06, volume: 0.35 * v, attack: 0.001, decay: 0.05, pan });
-      sound.synth({ type: "square", tone: 1800 * pf, duration: 0.03, volume: 0.14 * v, attack: 0.0005, decay: 0.025, pan });
+      sound.synth({ type: "triangle", tone: rj(900, 0.06) * pf,  duration: rj(0.06, 0.10), volume: rj(0.35, 0.08) * v, attack: 0.001, decay: 0.05, pan });
+      sound.synth({ type: "square",   tone: rj(1800, 0.08) * pf, duration: rj(0.03, 0.10), volume: rj(0.14, 0.10) * v, attack: 0.0005, decay: 0.025, pan });
       break;
-    case "a#": // tambourine
-      sound.synth({ type: "noise", tone: 7000 * pf, duration: 0.15, volume: 0.3 * v, attack: 0.001, decay: 0.14, pan });
-      sound.synth({ type: "noise", tone: 4500 * pf, duration: 0.1, volume: 0.18 * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square", tone: 6500 * pf, duration: 0.05, volume: 0.1 * v, attack: 0.001, decay: 0.045, pan });
+
+    case "a#": // tambourine — jingle varies most per-hit (it's the whole point)
+      sound.synth({ type: "noise",  tone: rj(7000, 0.10) * pf, duration: rj(0.15, 0.12), volume: rj(0.30, 0.10) * v, attack: 0.001, decay: 0.14, pan });
+      sound.synth({ type: "noise",  tone: rj(4500, 0.10) * pf, duration: rj(0.10, 0.12), volume: rj(0.18, 0.10) * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square", tone: rj(6500, 0.08) * pf, duration: 0.05,           volume: rj(0.10, 0.12) * v, attack: 0.001, decay: 0.045, pan });
       break;
   }
 }
