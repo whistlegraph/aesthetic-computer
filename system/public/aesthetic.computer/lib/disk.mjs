@@ -6316,6 +6316,16 @@ const $paintApiUnwrapped = {
   },
   lineAngle: graph.lineAngle,
   pline: graph.pline,
+  // Set the alpha of every non-transparent pixel in a buffer to a uniform value.
+  // Useful for per-stroke alpha — must be called after drawing on the buffer.
+  setBufferAlpha: function (buffer, alpha) {
+    if (!buffer || !buffer.pixels) return;
+    const target = Math.round(alpha * 255);
+    const px = buffer.pixels;
+    for (let i = 3; i < px.length; i += 4) {
+      if (px[i] > 0) px[i] = target;
+    }
+  },
   pppline: graph.pixelPerfectPolyline,
   oval: graph.oval,
   circle: graph.circle,
