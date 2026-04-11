@@ -784,44 +784,91 @@ static long copy_file(const char *src, const char *dst) {
 static char install_fail_reason[256] = "";
 static char install_fail_detail[256] = "";
 
-// Unmount every entry in /proc/mounts whose SOURCE device matches /dev/<parent>
-// or any of its partitions (/dev/<parent>p*, /dev/<parent>*). We use umount2
-// with MNT_DETACH for the initial pass (lazy, always succeeds if the path is
-// reachable) and log each action to the given log file. Returns the number of
-// successful unmounts.
+// Unmount every entry in /proc/mounts whose SOURCE device matches
+// /dev/<parent> or any of its partitions. Loops until /proc/mounts no longer
+// shows any matching entry — necessary for mount-stacked /mnt where the
+// topmost fs might not be the one we want to unmount. Each iteration finds
+// ONE matching target, umount2()'s it (MNT_DETACH pops the topmost mount at
+// that path, which may or may not be the one we targeted — but after enough
+// iterations the stack empties of any matching entries). Returns total
+// successful umounts.
 static int force_unmount_disk(const char *parent_blk, const char *dlog_path) {
     int unmounted = 0;
-    FILE *mp = fopen("/proc/mounts", "r");
-    if (!mp) return 0;
-    // Collect targets first (don't unmount while iterating — /proc/mounts changes)
-    char targets[16][128];
-    int n_targets = 0;
-    char line[512];
-    while (n_targets < 16 && fgets(line, sizeof(line), mp)) {
-        // /proc/mounts format: source target fstype options ...
-        char src[128], tgt[128], fst[64];
-        if (sscanf(line, "%127s %127s %63s", src, tgt, fst) != 3) continue;
-        // Match /dev/<parent>, /dev/<parent>p1, /dev/<parent>1, etc.
-        if (strncmp(src, "/dev/", 5) != 0) continue;
-        const char *sbase = src + 5;
-        if (strncmp(sbase, parent_blk, strlen(parent_blk)) != 0) continue;
-        strncpy(targets[n_targets], tgt, sizeof(targets[0]) - 1);
-        targets[n_targets][sizeof(targets[0]) - 1] = 0;
-        n_targets++;
-    }
-    fclose(mp);
     FILE *dl = dlog_path ? fopen(dlog_path, "a") : NULL;
-    if (dl) fprintf(dl, "--- force_unmount_disk(%s) found %d targets ---\n", parent_blk, n_targets);
-    for (int i = 0; i < n_targets; i++) {
-        // Try MNT_DETACH first (lazy — always works if target is valid).
-        int r = umount2(targets[i], MNT_DETACH);
-        if (dl) fprintf(dl, "umount2(%s, MNT_DETACH) = %d errno=%d\n",
-                        targets[i], r, r < 0 ? errno : 0);
-        ac_log("[install] umount2(%s, MNT_DETACH) = %d errno=%d\n",
-               targets[i], r, r < 0 ? errno : 0);
-        if (r == 0) unmounted++;
+    if (dl) fprintf(dl, "--- force_unmount_disk(%s) start ---\n", parent_blk);
+
+    // First pass: log the full /proc/mounts so we can see the initial stack
+    {
+        FILE *mp = fopen("/proc/mounts", "r");
+        if (mp && dl) {
+            fprintf(dl, "--- initial /proc/mounts ---\n");
+            char line[512];
+            while (fgets(line, sizeof(line), mp)) fputs(line, dl);
+            fprintf(dl, "--- end /proc/mounts ---\n");
+            fclose(mp);
+        } else if (mp) {
+            fclose(mp);
+        }
     }
-    if (dl) fclose(dl);
+
+    const int MAX_ITER = 16; // belt-and-suspenders against mount-stack depth
+    for (int iter = 0; iter < MAX_ITER; iter++) {
+        // Find ONE target whose source starts with /dev/<parent>
+        char target[128] = "";
+        char source[128] = "";
+        FILE *mp = fopen("/proc/mounts", "r");
+        if (!mp) break;
+        char line[512];
+        while (fgets(line, sizeof(line), mp)) {
+            char src[128], tgt[128], fst[64];
+            if (sscanf(line, "%127s %127s %63s", src, tgt, fst) != 3) continue;
+            if (strncmp(src, "/dev/", 5) != 0) continue;
+            if (strncmp(src + 5, parent_blk, strlen(parent_blk)) != 0) continue;
+            strncpy(target, tgt, sizeof(target) - 1);
+            target[sizeof(target) - 1] = 0;
+            strncpy(source, src, sizeof(source) - 1);
+            source[sizeof(source) - 1] = 0;
+            break;
+        }
+        fclose(mp);
+        if (!target[0]) {
+            if (dl) fprintf(dl, "iter=%d: no matching mounts remain — done\n", iter);
+            break;
+        }
+        // Umount by path (MNT_DETACH pops the topmost mount, which may not be
+        // the one we scanned — that's ok, we loop and re-scan).
+        int r = umount2(target, MNT_DETACH);
+        if (dl) fprintf(dl, "iter=%d: umount2(%s, MNT_DETACH) src=%s = %d errno=%d\n",
+                        iter, target, source, r, r < 0 ? errno : 0);
+        ac_log("[install] iter=%d umount2(%s) src=%s rc=%d errno=%d\n",
+               iter, target, source, r, r < 0 ? errno : 0);
+        if (r == 0) {
+            unmounted++;
+        } else {
+            // Try without MNT_DETACH as a fallback (plain umount).
+            r = umount2(target, 0);
+            if (dl) fprintf(dl, "iter=%d: umount2(%s, 0) fallback = %d errno=%d\n",
+                            iter, target, r, r < 0 ? errno : 0);
+            if (r != 0) break;
+            unmounted++;
+        }
+        // Tiny yield so the kernel can finish detaching before we re-scan.
+        usleep(50000);
+    }
+
+    if (dl) {
+        fprintf(dl, "--- force_unmount_disk(%s) total=%d ---\n", parent_blk, unmounted);
+        // Log post-unmount /proc/mounts so we can verify the stack is clean.
+        FILE *mp = fopen("/proc/mounts", "r");
+        if (mp) {
+            fprintf(dl, "--- post /proc/mounts ---\n");
+            char line[512];
+            while (fgets(line, sizeof(line), mp)) fputs(line, dl);
+            fprintf(dl, "--- end /proc/mounts ---\n");
+            fclose(mp);
+        }
+        fclose(dl);
+    }
     return unmounted;
 }
 
@@ -1098,10 +1145,18 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     // explicitly, then retry BLKRRPART with backoff.
                     umount("/tmp/hd");
                     umount2("/tmp/hd", MNT_DETACH);
-                    const char *DLOG = "/mnt/install-debug.log";
+                    // Write install-debug.log to TMPFS so it survives even
+                    // if the unmount loop pops the whole /mnt stack. We copy
+                    // it back to /mnt/install-debug.log at the end so the
+                    // USB has a post-mortem trace.
+                    const char *DLOG = "/tmp/install-debug.log";
                     // Fresh log per attempt
                     FILE *__dl = fopen(DLOG, "w");
-                    if (__dl) { fprintf(__dl, "=== install-debug starting ===\n"); fclose(__dl); }
+                    if (__dl) {
+                        fprintf(__dl, "=== install-debug starting ===\n");
+                        fprintf(__dl, "parent_blk=%s devpath=%s\n", parent_blk, devpath);
+                        fclose(__dl);
+                    }
                     // Unmount every mount currently referencing this disk.
                     int n_unmounted = force_unmount_disk(parent_blk, DLOG);
                     ac_log("[install] force_unmount_disk(%s) released %d mounts\n",
@@ -1325,6 +1380,28 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         }
     }
     if (source_mounted_tmp) umount("/tmp/src");
+
+    // Copy the tmpfs install-debug.log back to /mnt so it survives the boot
+    // session (tmpfs is wiped on reboot). Best effort — if /mnt got trashed
+    // by the repartition attempt we simply skip. The log is most useful on
+    // failure but we copy on success too so "what worked" is visible.
+    {
+        FILE *src = fopen("/tmp/install-debug.log", "rb");
+        if (src) {
+            FILE *dst = fopen("/mnt/install-debug.log", "wb");
+            if (dst) {
+                char buf[4096]; size_t n;
+                while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
+                    fwrite(buf, 1, n, dst);
+                fflush(dst);
+                fsync(fileno(dst));
+                fclose(dst);
+                ac_log("[install] copied /tmp/install-debug.log → /mnt/install-debug.log\n");
+            }
+            fclose(src);
+        }
+    }
+
     return installed;
 }
 
