@@ -702,15 +702,16 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       // STEP 1 — DOWN: sharp stick-on-head impact.
       if (fireDown) {
         const downPan = pan + rn(-0.04, 0.04);
-        sound.synth({ type: "square", tone: rj(800, 0.08) * pf,  duration: 0.008,          volume: rj(0.70, 0.08) * v, attack: 0.0003, decay: 0.007, pan: downPan });
-        sound.synth({ type: "noise",  tone: rj(3500, 0.10) * pf, duration: 0.006,          volume: rj(0.60, 0.10) * v, attack: 0.0003, decay: 0.0055, pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(5200, 0.10) * pf, duration: 0.0045,         volume: rj(0.74, 0.08) * v, attack: 0.0002, decay: 0.004,  pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(2500, 0.10) * pf, duration: 0.007,          volume: rj(0.52, 0.10) * v, attack: 0.0002, decay: 0.0063, pan: downPan });
+        sound.synth({ type: "square", tone: rj(1900, 0.18) * pf, duration: 0.0025,         volume: rj(0.12, 0.12) * v, attack: 0.0002, decay: 0.0021, pan: downPan });
       }
       // STEP 2 — UP: wire rattle sustain + shell body ring.
       playUp(Math.round(flam * rn(0.3, 0.6)), () => {
         const upPan = pan + rn(-0.04, 0.04);
-        sound.synth({ type: "noise",    tone: rj(2200, 0.08) * pf, duration: rj(0.12, 0.08), volume: rj(0.50, 0.08) * v, attack: 0.001, decay: 0.11, pan: upPan });
-        sound.synth({ type: "triangle", tone: rj(220, 0.04) * pf,  duration: rj(0.1, 0.08),  volume: rj(0.38, 0.08) * v, attack: 0.001, decay: 0.09, pan: upPan });
-        sound.synth({ type: "square",   tone: rj(180, 0.04) * pf,  duration: rj(0.05, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.001, decay: 0.045, pan: upPan });
+        sound.synth({ type: "noise",    tone: rj(2400, 0.08) * pf, duration: rj(0.14, 0.08), volume: rj(0.56, 0.08) * v, attack: 0.001,  decay: 0.13,  pan: upPan });
+        sound.synth({ type: "noise",    tone: rj(1400, 0.07) * pf, duration: rj(0.09, 0.10), volume: rj(0.18, 0.10) * v, attack: 0.0012, decay: 0.082, pan: upPan });
+        sound.synth({ type: "triangle", tone: rj(190, 0.08) * pf,  duration: rj(0.07, 0.10), volume: rj(0.20, 0.10) * v, attack: 0.0015, decay: 0.065, pan: upPan });
       });
       break;
 
@@ -719,18 +720,26 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       // Lower-pitched, meatier, slightly left of center for stereo interest.
       if (fireDown) {
         const downPan = pan + rn(-0.08, 0.02);
-        sound.synth({ type: "noise",  tone: rj(900, 0.10) * pf, duration: 0.010, volume: rj(0.85, 0.08) * v, attack: 0.0003, decay: 0.009, pan: downPan });
-        sound.synth({ type: "square", tone: rj(260, 0.06) * pf, duration: 0.012, volume: rj(0.55, 0.10) * v, attack: 0.0004, decay: 0.011, pan: downPan });
-        sound.synth({ type: "noise",  tone: rj(1400, 0.10) * pf, duration: 0.006, volume: rj(0.50, 0.12) * v, attack: 0.0003, decay: 0.0055, pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(900, 0.10) * pf, duration: 0.012, volume: rj(0.85, 0.08) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+        sound.synth({ type: "square", tone: rj(260, 0.06) * pf, duration: 0.014, volume: rj(0.50, 0.10) * v, attack: 0.0004, decay: 0.013, pan: downPan });
+        sound.synth({ type: "noise",  tone: rj(1400, 0.10) * pf, duration: 0.008, volume: rj(0.46, 0.12) * v, attack: 0.0003, decay: 0.007, pan: downPan });
       }
       // STEP 2 — UP: hands separate, bright transient + airy tail.
       // Delayed by ~1.5 flam units (scales with BPM) with jitter so hits vary.
       // Panned slightly opposite for L/R call-response feel.
+      // Add two follow-up noise bursts so the clap opens out instead of
+      // collapsing into a single tiny tick.
       playUp(Math.round(flam * rn(1.3, 1.7)), () => {
         const upPan = pan + rn(-0.02, 0.10);
-        sound.synth({ type: "square", tone: rj(3200, 0.10) * pf, duration: 0.004, volume: rj(0.80, 0.08) * v, attack: 0.0002, decay: 0.0035, pan: upPan });
-        sound.synth({ type: "noise",  tone: rj(5200, 0.12) * pf, duration: 0.008, volume: rj(0.70, 0.10) * v, attack: 0.0003, decay: 0.007, pan: upPan });
-        sound.synth({ type: "noise",  tone: rj(2400, 0.08) * pf, duration: 0.018, volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.017, pan: upPan });
+        sound.synth({ type: "square", tone: rj(3200, 0.10) * pf, duration: 0.0055, volume: rj(0.58, 0.08) * v, attack: 0.0002, decay: 0.0048, pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(5200, 0.12) * pf, duration: 0.012,  volume: rj(0.72, 0.10) * v, attack: 0.0003, decay: 0.011,  pan: upPan });
+        sound.synth({ type: "noise",  tone: rj(2400, 0.08) * pf, duration: 0.028,  volume: rj(0.52, 0.10) * v, attack: 0.0005, decay: 0.026,  pan: upPan });
+        setTimeout(() => {
+          sound.synth({ type: "noise", tone: rj(4700, 0.12) * pf, duration: 0.009, volume: rj(0.58, 0.10) * v, attack: 0.0003, decay: 0.008, pan: upPan });
+        }, Math.round(flam * rn(1.0, 1.7)));
+        setTimeout(() => {
+          sound.synth({ type: "noise", tone: rj(3600, 0.10) * pf, duration: 0.016, volume: rj(0.44, 0.10) * v, attack: 0.0004, decay: 0.014, pan: upPan });
+        }, Math.round(flam * rn(2.0, 3.0)));
       });
       break;
 
