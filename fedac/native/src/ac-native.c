@@ -927,6 +927,40 @@ static int blkrrpart_with_retry(const char *disk_path, const char *dlog_path) {
     return -1;
 }
 
+// Score removable install sources by how much of the current boot payload they
+// contain. Higher scores are preferred during W-to-install so we choose the
+// universal ACEFI partition over the simpler ACBOOT fallback when both exist.
+//   3 = universal layout (BOOTX64 + LOADER + KERNEL + initramfs + loader entry)
+//   2 = chainloader layout (BOOTX64 + KERNEL)
+//   1 = monolithic layout (BOOTX64 only)
+//   0 = not a usable install source
+static int install_source_layout_score(const char *mountpoint) {
+    char bootx64[128];
+    char loader[128];
+    char kernel[128];
+    char initramfs_gz[128];
+    char initramfs_lz4[128];
+    char loader_entry[160];
+
+    snprintf(bootx64, sizeof(bootx64), "%s/EFI/BOOT/BOOTX64.EFI", mountpoint);
+    snprintf(loader, sizeof(loader), "%s/EFI/BOOT/LOADER.EFI", mountpoint);
+    snprintf(kernel, sizeof(kernel), "%s/EFI/BOOT/KERNEL.EFI", mountpoint);
+    snprintf(initramfs_gz, sizeof(initramfs_gz), "%s/initramfs.cpio.gz", mountpoint);
+    snprintf(initramfs_lz4, sizeof(initramfs_lz4), "%s/initramfs.cpio.lz4", mountpoint);
+    snprintf(loader_entry, sizeof(loader_entry), "%s/loader/entries/ac-native.conf", mountpoint);
+
+    if (access(bootx64, F_OK) == 0 &&
+        access(loader, F_OK) == 0 &&
+        access(kernel, F_OK) == 0 &&
+        (access(initramfs_gz, F_OK) == 0 || access(initramfs_lz4, F_OK) == 0) &&
+        access(loader_entry, F_OK) == 0) {
+        return 3;
+    }
+    if (access(bootx64, F_OK) == 0 && access(kernel, F_OK) == 0) return 2;
+    if (access(bootx64, F_OK) == 0) return 1;
+    return 0;
+}
+
 // Auto-install kernel to internal drive's EFI System Partition
 // Returns 1 on success, 0 on failure (sets install_fail_reason/detail).
 static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
@@ -938,88 +972,129 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     install_fail_reason[0] = '\0';
     install_fail_detail[0] = '\0';
     char bootloader_src[96] = "";
+    char loader_src[96] = "";
     char chain_kernel_src[96] = "";
+    char initramfs_src[96] = "";
     char install_kernel_src[96] = "";
     char config_src[64] = "";
+    char loader_conf_src[96] = "";
+    char loader_entry_src[128] = "";
 
     ac_log("[install] auto_install_to_hd starting\n");
     if (display)
         draw_boot_status(graph, screen, display, "installing to disk...", pixel_scale);
 
     // Detect source layout: monolithic (BOOTX64.EFI is kernel), chainloader
-    // (BOOTX64.EFI boots KERNEL.EFI), or systemd-boot (kernel at EFI/Linux/*).
+    // (BOOTX64.EFI boots KERNEL.EFI), or universal systemd-boot
+    // (BOOTX64.EFI + LOADER.EFI + KERNEL.EFI + initramfs + loader entry).
     int systemd_boot_layout = 0;
     int chainloader_layout = 0;
+    int source_score = 0;
 
-    // Prefer current /mnt only when it is removable and has a bootable layout.
+    // Prefer current /mnt only when it is removable and actually bootable.
     if (log_dev[0]) {
         char blk[32] = "";
         get_parent_block(log_dev + 5, blk, sizeof(blk));
-        if (blk[0] && is_removable(blk) == 1 &&
-            (access("/mnt/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
-             access("/mnt/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
-             access("/mnt/EFI/Linux/vmlinuz-ac-native", F_OK) == 0)) {
-            strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
-            source_dev[sizeof(source_dev) - 1] = '\0';
+        if (blk[0] && is_removable(blk) == 1) {
+            source_score = install_source_layout_score("/mnt");
+            if (source_score > 0) {
+                ac_log("[install] current /mnt source score=%d (%s)\n", source_score, log_dev);
+                strncpy(source_dev, log_dev, sizeof(source_dev) - 1);
+                source_dev[sizeof(source_dev) - 1] = '\0';
+            }
         }
     }
 
-    // Fallback: scan removable partitions for bootable layout
-    if (!source_dev[0]) {
+    // Scan removable partitions and prefer the richest boot layout. This lets
+    // W-install source from ACEFI on the new hybrid USB instead of blindly
+    // using whichever removable partition happened to get mounted at /mnt.
+    {
         const char *src_candidates[] = {
-            "/dev/sda1", "/dev/sdb1", "/dev/sdc1", "/dev/sdd1", NULL
+            "/dev/sda1", "/dev/sda2",
+            "/dev/sdb1", "/dev/sdb2",
+            "/dev/sdc1", "/dev/sdc2",
+            "/dev/sdd1", "/dev/sdd2",
+            NULL
         };
+        char best_dev[32] = "";
+        int best_score = source_score;
         mkdir("/tmp/src", 0755);
         for (int i = 0; src_candidates[i]; i++) {
             if (access(src_candidates[i], F_OK) != 0) continue;
+            if (source_dev[0] && strcmp(src_candidates[i], source_dev) == 0) continue;
             char blk[32] = "";
             get_parent_block(src_candidates[i] + 5, blk, sizeof(blk));
             if (!blk[0] || is_removable(blk) != 1) continue;
             if (mount(src_candidates[i], "/tmp/src", "vfat", 0, NULL) != 0) continue;
-            if (access("/tmp/src/EFI/BOOT/BOOTX64.EFI", F_OK) == 0 ||
-                access("/tmp/src/EFI/BOOT/KERNEL.EFI", F_OK) == 0 ||
-                access("/tmp/src/EFI/Linux/vmlinuz-ac-native", F_OK) == 0) {
-                strncpy(source_dev, src_candidates[i], sizeof(source_dev) - 1);
+            int score = install_source_layout_score("/tmp/src");
+            umount("/tmp/src");
+            if (score > best_score) {
+                best_score = score;
+                strncpy(best_dev, src_candidates[i], sizeof(best_dev) - 1);
+                best_dev[sizeof(best_dev) - 1] = '\0';
+            }
+        }
+        if (best_dev[0]) {
+            if (mount(best_dev, "/tmp/src", "vfat", 0, NULL) == 0) {
+                strncpy(source_dev, best_dev, sizeof(source_dev) - 1);
                 source_dev[sizeof(source_dev) - 1] = '\0';
                 strncpy(source_mount, "/tmp/src", sizeof(source_mount) - 1);
                 source_mount[sizeof(source_mount) - 1] = '\0';
                 source_mounted_tmp = 1;
-                break;
+                source_score = best_score;
+                ac_log("[install] selected richer removable source %s score=%d\n",
+                       source_dev, source_score);
+            } else {
+                ac_log("[install] failed to mount preferred source %s errno=%d\n",
+                       best_dev, errno);
             }
-            umount("/tmp/src");
         }
     }
 
-    // Detect systemd-boot layout (separate kernel + initramfs + loader config)
-    {
-        char sbl_check[128];
-        snprintf(sbl_check, sizeof(sbl_check), "%s/EFI/Linux/vmlinuz-ac-native", source_mount);
-        if (access(sbl_check, F_OK) == 0) {
-            systemd_boot_layout = 1;
-            ac_log("[install] Detected systemd-boot layout\n");
-        }
-    }
+    systemd_boot_layout = (source_score >= 3);
+    chainloader_layout = (!systemd_boot_layout && source_score >= 2);
 
     snprintf(bootloader_src, sizeof(bootloader_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
+    snprintf(loader_src, sizeof(loader_src), "%s/EFI/BOOT/LOADER.EFI", source_mount);
     snprintf(chain_kernel_src, sizeof(chain_kernel_src), "%s/EFI/BOOT/KERNEL.EFI", source_mount);
     snprintf(kernel_src, sizeof(kernel_src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
-    if (!systemd_boot_layout && access(chain_kernel_src, F_OK) == 0) {
-        chainloader_layout = 1;
+    snprintf(loader_conf_src, sizeof(loader_conf_src), "%s/loader/loader.conf", source_mount);
+    snprintf(loader_entry_src, sizeof(loader_entry_src), "%s/loader/entries/ac-native.conf", source_mount);
+    if (access(source_dev, F_OK) == 0 && systemd_boot_layout) {
+        char initramfs_gz[96];
+        char initramfs_lz4[96];
+        snprintf(initramfs_gz, sizeof(initramfs_gz), "%s/initramfs.cpio.gz", source_mount);
+        snprintf(initramfs_lz4, sizeof(initramfs_lz4), "%s/initramfs.cpio.lz4", source_mount);
+        if (access(initramfs_gz, F_OK) == 0) {
+            strncpy(initramfs_src, initramfs_gz, sizeof(initramfs_src) - 1);
+            initramfs_src[sizeof(initramfs_src) - 1] = '\0';
+        } else if (access(initramfs_lz4, F_OK) == 0) {
+            strncpy(initramfs_src, initramfs_lz4, sizeof(initramfs_src) - 1);
+            initramfs_src[sizeof(initramfs_src) - 1] = '\0';
+        }
+    }
+
+    if (systemd_boot_layout) {
         strncpy(install_kernel_src, chain_kernel_src, sizeof(install_kernel_src) - 1);
         install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
-        ac_log("[install] Detected chainloader layout\n");
-    } else if (systemd_boot_layout) {
-        snprintf(install_kernel_src, sizeof(install_kernel_src), "%s/EFI/Linux/vmlinuz-ac-native",
-                 source_mount);
+        ac_log("[install] detected universal systemd-boot layout\n");
+    } else if (chainloader_layout) {
+        strncpy(install_kernel_src, chain_kernel_src, sizeof(install_kernel_src) - 1);
+        install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+        ac_log("[install] detected chainloader layout\n");
     } else {
         strncpy(install_kernel_src, kernel_src, sizeof(install_kernel_src) - 1);
         install_kernel_src[sizeof(install_kernel_src) - 1] = '\0';
+        if (source_score == 1) ac_log("[install] detected monolithic layout\n");
     }
 
-    if (!source_dev[0] ||
-        ((access(kernel_src, F_OK) != 0 && access(chain_kernel_src, F_OK) != 0) &&
-         !systemd_boot_layout)) {
+    if (!source_dev[0] || source_score == 0 ||
+        access(install_kernel_src, F_OK) != 0 ||
+        (systemd_boot_layout &&
+         (access(loader_src, F_OK) != 0 ||
+          initramfs_src[0] == '\0' ||
+          access(loader_entry_src, F_OK) != 0))) {
         ac_log("[install] No removable install source with kernel found\n");
         snprintf(install_fail_reason, sizeof(install_fail_reason),
                  "no USB boot source found");
@@ -1100,18 +1175,29 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             mkdir("/tmp/hd/EFI", 0755);
             mkdir("/tmp/hd/EFI/BOOT", 0755);
 
-            // Check free space and kernel size before copy
+            // Check free space against the full payload we plan to copy.
             {
-                struct stat ksrc_st;
+                struct stat src_st;
                 struct statvfs hd_vfs;
-                long kernel_bytes = 0, free_mb = 0;
-                if (stat(install_kernel_src, &ksrc_st) == 0) kernel_bytes = ksrc_st.st_size;
+                long long install_bytes = 0;
+                long long free_bytes = 0;
+                if (stat(install_kernel_src, &src_st) == 0) install_bytes += src_st.st_size;
+                if (chainloader_layout && stat(bootloader_src, &src_st) == 0) install_bytes += src_st.st_size;
+                if (systemd_boot_layout) {
+                    if (stat(bootloader_src, &src_st) == 0) install_bytes += src_st.st_size;
+                    if (stat(loader_src, &src_st) == 0) install_bytes += src_st.st_size;
+                    if (stat(initramfs_src, &src_st) == 0) install_bytes += src_st.st_size;
+                    if (stat(loader_conf_src, &src_st) == 0) install_bytes += src_st.st_size;
+                    if (stat(loader_entry_src, &src_st) == 0) install_bytes += src_st.st_size;
+                }
+                if (stat(config_src, &src_st) == 0) install_bytes += src_st.st_size;
                 if (statvfs("/tmp/hd", &hd_vfs) == 0)
-                    free_mb = (long)hd_vfs.f_bavail * (long)hd_vfs.f_bsize / 1048576;
-                ac_log("[install] kernel=%ldMB free=%ldMB on %s\n",
-                       kernel_bytes / 1048576, free_mb, devpath);
-                if (kernel_bytes > 0 && free_mb < kernel_bytes / 1048576 + 10) {
-                    long need_mb = kernel_bytes / 1048576 + 10;
+                    free_bytes = (long long)hd_vfs.f_bavail * (long long)hd_vfs.f_bsize;
+                long need_mb = (long)((install_bytes + (1048576 - 1)) / 1048576) + 10;
+                long free_mb = (long)(free_bytes / 1048576);
+                ac_log("[install] payload=%ldMB free=%ldMB on %s\n",
+                       (long)((install_bytes + (1048576 - 1)) / 1048576), free_mb, devpath);
+                if (install_bytes > 0 && free_bytes < install_bytes + 10LL * 1048576LL) {
                     ac_log("[install] NOT ENOUGH SPACE — need %ldMB, have %ldMB\n", need_mb, free_mb);
                     // Repartition: expand ESP to 1024MB
                     char parent_blk[32] = "";
@@ -1259,40 +1345,34 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             // Copy kernel (and initramfs/loader for systemd-boot layout)
             long sz = 0;
             if (systemd_boot_layout) {
-                // systemd-boot: copy bootloader, kernel, initramfs, and loader config
-                char src[256];
-
-                // Copy bootloader as BOOTX64.EFI
-                snprintf(src, sizeof(src), "%s/EFI/BOOT/BOOTX64.EFI", source_mount);
-                sz = copy_file(src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
-                ac_log("[install] bootloader: %ld bytes\n", sz);
-
-                // Copy kernel
-                mkdir("/tmp/hd/EFI/Linux", 0755);
-                snprintf(src, sizeof(src), "%s/EFI/Linux/vmlinuz-ac-native", source_mount);
-                long ksz = copy_file(src, "/tmp/hd/EFI/Linux/vmlinuz-ac-native");
-                ac_log("[install] kernel: %ld bytes\n", ksz);
-
-                // Copy initramfs
-                snprintf(src, sizeof(src), "%s/initramfs.cpio.lz4", source_mount);
-                long isz = copy_file(src, "/tmp/hd/initramfs.cpio.lz4");
-                ac_log("[install] initramfs: %ld bytes\n", isz);
-
-                // Copy loader config
+                // Universal layout: splash BOOTX64.EFI + LOADER.EFI +
+                // KERNEL.EFI + initramfs + loader config.
+                long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+                long lsz = copy_file(loader_src, "/tmp/hd/EFI/BOOT/LOADER.EFI");
+                long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
+                char initramfs_dst[128];
+                const char *initramfs_name = strstr(initramfs_src, ".lz4") ? "initramfs.cpio.lz4" : "initramfs.cpio.gz";
+                snprintf(initramfs_dst, sizeof(initramfs_dst), "/tmp/hd/%s", initramfs_name);
+                long isz = copy_file(initramfs_src, initramfs_dst);
                 mkdir("/tmp/hd/loader", 0755);
                 mkdir("/tmp/hd/loader/entries", 0755);
-                snprintf(src, sizeof(src), "%s/loader/loader.conf", source_mount);
-                copy_file(src, "/tmp/hd/loader/loader.conf");
-                snprintf(src, sizeof(src), "%s/loader/entries/ac-native.conf", source_mount);
-                copy_file(src, "/tmp/hd/loader/entries/ac-native.conf");
-
-                sz = ksz > 0 ? ksz : sz; // use kernel size as success indicator
+                long csz = copy_file(loader_conf_src, "/tmp/hd/loader/loader.conf");
+                long esz = copy_file(loader_entry_src, "/tmp/hd/loader/entries/ac-native.conf");
+                ac_log("[install] bootloader: %ld bytes\n", bsz);
+                ac_log("[install] loader: %ld bytes\n", lsz);
+                ac_log("[install] kernel: %ld bytes\n", ksz);
+                ac_log("[install] initramfs: %ld bytes\n", isz);
+                ac_log("[install] loader.conf: %ld bytes\n", csz);
+                ac_log("[install] loader entry: %ld bytes\n", esz);
+                sz = (bsz > 0 && lsz > 0 && ksz > 0 && isz > 0 && csz > 0 && esz > 0)
+                    ? (bsz + lsz + ksz + isz + csz + esz)
+                    : -1;
             } else if (chainloader_layout) {
                 long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
                 long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
                 ac_log("[install] chainloader: %ld bytes\n", bsz);
                 ac_log("[install] kernel: %ld bytes\n", ksz);
-                sz = ksz > 0 ? ksz : bsz;
+                sz = (bsz > 0 && ksz > 0) ? (bsz + ksz) : -1;
             } else {
                 // Monolithic: single BOOTX64.EFI is the kernel
                 sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
@@ -1304,7 +1384,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 snprintf(install_fail_reason, sizeof(install_fail_reason),
                          "copy failed on %s", devpath);
                 snprintf(install_fail_detail, sizeof(install_fail_detail),
-                         "kernel copy returned %ld bytes", sz);
+                         "install payload copy returned %ld bytes", sz);
                 umount("/tmp/hd");
                 continue;
             }
