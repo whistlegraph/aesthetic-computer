@@ -156,6 +156,9 @@
         handle /api/* {
             reverse_proxy localhost:8888
         }
+        handle /.netlify/functions/* {
+            reverse_proxy localhost:8888
+        }
         root * /opt/ac/system/public/builds.false.work
         try_files {path} {path}.html /index.html
         file_server
