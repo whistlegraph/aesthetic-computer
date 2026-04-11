@@ -377,6 +377,23 @@ const NOTE_COLORS = {
 // synth recipes and optional per-drum recorded samples.
 let percussionLeft = false;
 let percussionRight = false;
+
+// Per-octave master volume. Two vertical sliders (left of the left grid,
+// right of the right grid) scale every note / drum played on that side so
+// you can balance melody-vs-percussion or left-chord-vs-right-melody in
+// real time without touching the global fx/echo sliders. 0.0 = silent,
+// 1.0 = unity (no boost), values >1 just pass through since drums already
+// run hot.
+let leftMasterVol = 1.0;
+let rightMasterVol = 1.0;
+let leftVolDragging = false;
+let rightVolDragging = false;
+
+// Returns the master volume for the grid that produced a note, based on the
+// gridOffset we pass through from parseNote / hitTestGrid (0 = left, 1 = right).
+function masterForSide(gridOffset) {
+  return gridOffset === 1 ? rightMasterVol : leftMasterVol;
+}
 let percussionNotice = null;      // { text, until } — transient visual flash
 let percussionSampleBank = {};    // drumName -> { data: Float32Array, len, rate }
 
@@ -423,7 +440,7 @@ function percussionDrumFor(letter, offset) {
 
 // Fire a drum hit from short auto-stopping synth voices. No cleanup
 // needed on key-up because every voice uses a finite duration.
-function playPercussion(sound, letter, volume = 1.0, pan = 0) {
+function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0) {
   if (!sound?.synth) return;
   // Cap at 2.2 so drums can push voice volumes above 1.0. The native audio
   // mixer auto-divides by total voice weight (audio.c mix_divisor), which
@@ -432,62 +449,70 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0) {
   // voice volumes to ~1.6-2.0 puts them at ~2x the ratio of the melodies
   // even under heavy polyphony, so they cut through like real drums.
   const v = Math.max(0.1, Math.min(2.2, volume));
+  const pf = Math.max(0.25, Math.min(4, pitchFactor)); // clamp to ±2 octaves
   switch (letter) {
-    case "c": // kick
-      sound.synth({ type: "sine", tone: 150, duration: 0.08, volume: 0.9 * v, attack: 0.001, decay: 0.07, pan });
-      sound.synth({ type: "sine", tone: 60, duration: 0.22, volume: 0.7 * v, attack: 0.001, decay: 0.21, pan });
-      sound.synth({ type: "triangle", tone: 90, duration: 0.08, volume: 0.35 * v, attack: 0.001, decay: 0.07, pan });
+    case "c": // kick — 808/909-style with beater click, body punch, sub boom, and warm tail
+      // 1. Beater click — very brief high transient, makes the ear hear "drum" not "tone"
+      sound.synth({ type: "triangle", tone: 1800 * pf, duration: 0.007, volume: 1.1 * v, attack: 0.0003, decay: 0.006, pan });
+      sound.synth({ type: "noise", tone: 4000 * pf, duration: 0.005, volume: 0.7 * v, attack: 0.0003, decay: 0.004, pan });
+      // 2. Body punch — short mid-low sine for the "thump" (fast linear decay simulates pitch drop)
+      sound.synth({ type: "sine", tone: 140 * pf, duration: 0.03, volume: 1.4 * v, attack: 0.0005, decay: 0.028, pan });
+      // 3. Sub boom — long low fundamental at ~45 Hz, the felt bass weight. This one runs HOT so
+      //    it dominates the mix even against sustained melody voices (see auto-mixer math in audio.c).
+      sound.synth({ type: "sine", tone: 45 * pf, duration: 0.5, volume: 2.0 * v, attack: 0.001, decay: 0.49, pan });
+      // 4. Warm low-mid tail — fills the 60-80 Hz gap so the kick doesn't feel hollow
+      sound.synth({ type: "sine", tone: 72 * pf, duration: 0.18, volume: 1.0 * v, attack: 0.002, decay: 0.17, pan });
       break;
     case "d": // snare
-      sound.synth({ type: "noise", tone: 2200, duration: 0.12, volume: 0.55 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "triangle", tone: 220, duration: 0.1, volume: 0.4 * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square", tone: 180, duration: 0.05, volume: 0.2 * v, attack: 0.001, decay: 0.045, pan });
+      sound.synth({ type: "noise", tone: 2200 * pf, duration: 0.12, volume: 0.55 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "triangle", tone: 220 * pf, duration: 0.1, volume: 0.4 * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square", tone: 180 * pf, duration: 0.05, volume: 0.2 * v, attack: 0.001, decay: 0.045, pan });
       break;
     case "e": // clap — staggered noise bursts for classic handclap texture
-      sound.synth({ type: "noise", tone: 1400, duration: 0.02, volume: 0.45 * v, attack: 0.0005, decay: 0.018, pan });
-      setTimeout(() => sound.synth({ type: "noise", tone: 1450, duration: 0.02, volume: 0.4 * v, attack: 0.0005, decay: 0.018, pan }), 10);
-      setTimeout(() => sound.synth({ type: "noise", tone: 1550, duration: 0.02, volume: 0.35 * v, attack: 0.0005, decay: 0.018, pan }), 22);
-      setTimeout(() => sound.synth({ type: "noise", tone: 1600, duration: 0.1, volume: 0.3 * v, attack: 0.001, decay: 0.09, pan }), 34);
+      sound.synth({ type: "noise", tone: 1400 * pf, duration: 0.02, volume: 0.45 * v, attack: 0.0005, decay: 0.018, pan });
+      setTimeout(() => sound.synth({ type: "noise", tone: 1450 * pf, duration: 0.02, volume: 0.4 * v, attack: 0.0005, decay: 0.018, pan }), 10);
+      setTimeout(() => sound.synth({ type: "noise", tone: 1550 * pf, duration: 0.02, volume: 0.35 * v, attack: 0.0005, decay: 0.018, pan }), 22);
+      setTimeout(() => sound.synth({ type: "noise", tone: 1600 * pf, duration: 0.1, volume: 0.3 * v, attack: 0.001, decay: 0.09, pan }), 34);
       break;
     case "f": // snap — finger snap click + short body
-      sound.synth({ type: "noise", tone: 3200, duration: 0.015, volume: 0.45 * v, attack: 0.0003, decay: 0.014, pan });
-      sound.synth({ type: "square", tone: 1800, duration: 0.02, volume: 0.22 * v, attack: 0.0005, decay: 0.018, pan });
-      sound.synth({ type: "triangle", tone: 2400, duration: 0.025, volume: 0.18 * v, attack: 0.0005, decay: 0.022, pan });
+      sound.synth({ type: "noise", tone: 3200 * pf, duration: 0.015, volume: 0.45 * v, attack: 0.0003, decay: 0.014, pan });
+      sound.synth({ type: "square", tone: 1800 * pf, duration: 0.02, volume: 0.22 * v, attack: 0.0005, decay: 0.018, pan });
+      sound.synth({ type: "triangle", tone: 2400 * pf, duration: 0.025, volume: 0.18 * v, attack: 0.0005, decay: 0.022, pan });
       break;
     case "g": // closed hi-hat
-      sound.synth({ type: "noise", tone: 7000, duration: 0.04, volume: 0.35 * v, attack: 0.0005, decay: 0.035, pan });
-      sound.synth({ type: "noise", tone: 5000, duration: 0.04, volume: 0.2 * v, attack: 0.0005, decay: 0.035, pan });
+      sound.synth({ type: "noise", tone: 7000 * pf, duration: 0.04, volume: 0.35 * v, attack: 0.0005, decay: 0.035, pan });
+      sound.synth({ type: "noise", tone: 5000 * pf, duration: 0.04, volume: 0.2 * v, attack: 0.0005, decay: 0.035, pan });
       break;
     case "a": // open hi-hat
-      sound.synth({ type: "noise", tone: 6500, duration: 0.28, volume: 0.3 * v, attack: 0.001, decay: 0.27, pan });
-      sound.synth({ type: "noise", tone: 4800, duration: 0.2, volume: 0.18 * v, attack: 0.001, decay: 0.19, pan });
+      sound.synth({ type: "noise", tone: 6500 * pf, duration: 0.28, volume: 0.3 * v, attack: 0.001, decay: 0.27, pan });
+      sound.synth({ type: "noise", tone: 4800 * pf, duration: 0.2, volume: 0.18 * v, attack: 0.001, decay: 0.19, pan });
       break;
     case "b": // ride
-      sound.synth({ type: "noise", tone: 4200, duration: 0.4, volume: 0.28 * v, attack: 0.001, decay: 0.38, pan });
-      sound.synth({ type: "square", tone: 3100, duration: 0.12, volume: 0.1 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: 4600, duration: 0.1, volume: 0.08 * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "noise", tone: 4200 * pf, duration: 0.4, volume: 0.28 * v, attack: 0.001, decay: 0.38, pan });
+      sound.synth({ type: "square", tone: 3100 * pf, duration: 0.12, volume: 0.1 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: 4600 * pf, duration: 0.1, volume: 0.08 * v, attack: 0.001, decay: 0.09, pan });
       break;
     case "c#": // crash
-      sound.synth({ type: "noise", tone: 3500, duration: 0.55, volume: 0.42 * v, attack: 0.001, decay: 0.53, pan });
-      sound.synth({ type: "noise", tone: 6500, duration: 0.45, volume: 0.28 * v, attack: 0.002, decay: 0.43, pan });
-      sound.synth({ type: "square", tone: 4200, duration: 0.2, volume: 0.08 * v, attack: 0.001, decay: 0.19, pan });
+      sound.synth({ type: "noise", tone: 3500 * pf, duration: 0.55, volume: 0.42 * v, attack: 0.001, decay: 0.53, pan });
+      sound.synth({ type: "noise", tone: 6500 * pf, duration: 0.45, volume: 0.28 * v, attack: 0.002, decay: 0.43, pan });
+      sound.synth({ type: "square", tone: 4200 * pf, duration: 0.2, volume: 0.08 * v, attack: 0.001, decay: 0.19, pan });
       break;
     case "d#": // splash
-      sound.synth({ type: "noise", tone: 5500, duration: 0.3, volume: 0.38 * v, attack: 0.001, decay: 0.29, pan });
-      sound.synth({ type: "noise", tone: 8500, duration: 0.22, volume: 0.25 * v, attack: 0.001, decay: 0.21, pan });
+      sound.synth({ type: "noise", tone: 5500 * pf, duration: 0.3, volume: 0.38 * v, attack: 0.001, decay: 0.29, pan });
+      sound.synth({ type: "noise", tone: 8500 * pf, duration: 0.22, volume: 0.25 * v, attack: 0.001, decay: 0.21, pan });
       break;
     case "f#": // cowbell — detuned square pair
-      sound.synth({ type: "square", tone: 810, duration: 0.12, volume: 0.22 * v, attack: 0.001, decay: 0.11, pan });
-      sound.synth({ type: "square", tone: 540, duration: 0.15, volume: 0.18 * v, attack: 0.001, decay: 0.14, pan });
+      sound.synth({ type: "square", tone: 810 * pf, duration: 0.12, volume: 0.22 * v, attack: 0.001, decay: 0.11, pan });
+      sound.synth({ type: "square", tone: 540 * pf, duration: 0.15, volume: 0.18 * v, attack: 0.001, decay: 0.14, pan });
       break;
     case "g#": // wood block
-      sound.synth({ type: "triangle", tone: 900, duration: 0.06, volume: 0.35 * v, attack: 0.001, decay: 0.05, pan });
-      sound.synth({ type: "square", tone: 1800, duration: 0.03, volume: 0.14 * v, attack: 0.0005, decay: 0.025, pan });
+      sound.synth({ type: "triangle", tone: 900 * pf, duration: 0.06, volume: 0.35 * v, attack: 0.001, decay: 0.05, pan });
+      sound.synth({ type: "square", tone: 1800 * pf, duration: 0.03, volume: 0.14 * v, attack: 0.0005, decay: 0.025, pan });
       break;
     case "a#": // tambourine
-      sound.synth({ type: "noise", tone: 7000, duration: 0.15, volume: 0.3 * v, attack: 0.001, decay: 0.14, pan });
-      sound.synth({ type: "noise", tone: 4500, duration: 0.1, volume: 0.18 * v, attack: 0.001, decay: 0.09, pan });
-      sound.synth({ type: "square", tone: 6500, duration: 0.05, volume: 0.1 * v, attack: 0.001, decay: 0.045, pan });
+      sound.synth({ type: "noise", tone: 7000 * pf, duration: 0.15, volume: 0.3 * v, attack: 0.001, decay: 0.14, pan });
+      sound.synth({ type: "noise", tone: 4500 * pf, duration: 0.1, volume: 0.18 * v, attack: 0.001, decay: 0.09, pan });
+      sound.synth({ type: "square", tone: 6500 * pf, duration: 0.05, volume: 0.1 * v, attack: 0.001, decay: 0.045, pan });
       break;
   }
 }
@@ -1082,7 +1107,10 @@ function act({ event: e, sound, wifi, system }) {
 
       // Start at current pressure (or full for digital keys)
       const velocity = e.pressure > 0 ? e.pressure : 1.0;
-      const vol = 0.15 + velocity * 0.55;
+      // Per-side master mix — scales every note and drum on this grid.
+      const master = masterForSide(offset);
+      const baseVol = 0.15 + velocity * 0.55;  // un-mastered; sim() re-applies master live
+      const vol = baseVol * master;
       const playFreq = freq * Math.pow(2, effectivePitchShift());
 
       // === PERCUSSION MODE ===
@@ -1107,8 +1135,9 @@ function act({ event: e, sound, wifi, system }) {
         // mixer divides by total voice weight, so at velocity 1.0 we want
         // a drum-layer peak near ~1.8 so that against 3 sustained
         // melodic voices (~2.1 weight) the kick still lands at ~0.5 vs
-        // each melody at ~0.17 — roughly 3× prominence.
-        const drumVol = 1.0 + velocity * 0.8;   // 1.0 (tap) → 1.8 (full velocity)
+        // each melody at ~0.17 — roughly 3× prominence. Then scale the
+        // whole thing by the per-side master so the user can balance L/R.
+        const drumVol = (1.0 + velocity * 0.8) * master;
         const bankSample = percussionSampleBank[drumName];
         if (wave === "sample" && bankSample) {
           if (bankSample !== lastLoadedSample) {
@@ -1116,11 +1145,12 @@ function act({ event: e, sound, wifi, system }) {
             lastLoadedSample = bankSample;
           }
           sound.sample.play({
-            tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+            tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+            base: SAMPLE_BASE_FREQ,
             volume: drumVol, pan, loop: false,
           });
         } else {
-          playPercussion(sound, letter, drumVol, pan);
+          playPercussion(sound, letter, drumVol, pan, Math.pow(2, effectivePitchShift()));
         }
         trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
         return;
@@ -1137,13 +1167,13 @@ function act({ event: e, sound, wifi, system }) {
           tone: playFreq, base: SAMPLE_BASE_FREQ, volume: vol, pan, loop: true,
         });
         if (smp) {
-          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true }, system, velocity);
+          rememberSound(key, { synth: smp, note: letter, octave: noteOctave, baseFreq: freq, isSample: true, gridOffset: offset, baseVol }, system, velocity);
         } else {
           const synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
             volume: vol, attack: quickMode ? 0.002 : 0.005, decay: 0.1, pan,
           });
-          rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq }, system, velocity);
+          rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
         }
       } else {
         const synth = sound.synth({
@@ -1152,7 +1182,7 @@ function act({ event: e, sound, wifi, system }) {
           volume: vol, attack: quickMode ? 0.002 : 0.005,
           decay: 0.1, pan: pan,
         });
-        rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq }, system, velocity);
+        rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
       }
       trail[key] = { note: letter, octave: noteOctave, brightness: velocity };
     }
@@ -1352,6 +1382,21 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
+    // Per-side master volume sliders (vertical bars flanking the grids)
+    {
+      const ls = globalThis.__leftMasterSlider;
+      const rs = globalThis.__rightMasterSlider;
+      if (ls && x >= ls.x && x < ls.x + ls.w && y >= ls.y && y < ls.y + ls.h) {
+        leftVolDragging = true;
+        leftMasterVol = Math.max(0, Math.min(1, 1 - (y - ls.y) / ls.h));
+        return;
+      }
+      if (rs && x >= rs.x && x < rs.x + rs.w && y >= rs.y && y < rs.y + rs.h) {
+        rightVolDragging = true;
+        rightMasterVol = Math.max(0, Math.min(1, 1 - (y - rs.y) / rs.h));
+        return;
+      }
+    }
     // DJ deck strip: play/pause icon + scratch pad
     const ds = globalThis.__djStrip;
     if (ds && y >= ds.y && y < ds.y + ds.h) {
@@ -1416,11 +1461,12 @@ function act({ event: e, sound, wifi, system }) {
               lastLoadedSample = bankSample;
             }
             sound.sample.play({
-              tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+              tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+              base: SAMPLE_BASE_FREQ,
               volume: 1.6, pan, loop: false,
             });
           } else {
-            playPercussion(sound, hitNote.letter, 1.8, pan);
+            playPercussion(sound, hitNote.letter, 1.8, pan, Math.pow(2, effectivePitchShift()));
           }
           trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
           touchNotes[pid] = { key: hitNote.key };
@@ -1474,6 +1520,19 @@ function act({ event: e, sound, wifi, system }) {
     const w = globalThis.__screenW || 320;
     const pid = e.pointer?.id ?? 0;
     hoverX = x; hoverY = y;
+    // Per-side master volume slider drag
+    if (leftVolDragging) {
+      const ls = globalThis.__leftMasterSlider;
+      if (ls) {
+        leftMasterVol = Math.max(0, Math.min(1, 1 - (y - ls.y) / ls.h));
+      }
+    }
+    if (rightVolDragging) {
+      const rs = globalThis.__rightMasterSlider;
+      if (rs) {
+        rightMasterVol = Math.max(0, Math.min(1, 1 - (y - rs.y) / rs.h));
+      }
+    }
     // Deck scratch: horizontal drag velocity → deck speed.
     // Positive dx forwards, negative dx backwards. Clamped to a reasonable range.
     if (djDragging) {
@@ -1549,11 +1608,12 @@ function act({ event: e, sound, wifi, system }) {
                 lastLoadedSample = bankSample;
               }
               sound.sample.play({
-                tone: SAMPLE_BASE_FREQ, base: SAMPLE_BASE_FREQ,
+                tone: SAMPLE_BASE_FREQ * Math.pow(2, effectivePitchShift()),
+                base: SAMPLE_BASE_FREQ,
                 volume: 1.6, pan, loop: false,
               });
             } else {
-              playPercussion(sound, hitNote.letter, 1.8, pan);
+              playPercussion(sound, hitNote.letter, 1.8, pan, Math.pow(2, effectivePitchShift()));
             }
             trail[hitNote.key] = { note: hitNote.letter, octave: hitNote.octave, brightness: 1.0 };
             touchNotes[pid] = { key: hitNote.key };
@@ -1605,6 +1665,8 @@ function act({ event: e, sound, wifi, system }) {
       djDragging = false;
       djScratchSpeed = 0;
     }
+    if (leftVolDragging) leftVolDragging = false;
+    if (rightVolDragging) rightVolDragging = false;
     if (fxDragging) fxDragging = false;
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
@@ -2518,7 +2580,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // === SPLIT GRID: 4x3 left (bottom-left) + 4x3 right (bottom-right) ===
   const gap = 0;  // marginless — buttons touch for rollover clicking
   const cols = 4, rows = 3;
-  const margin = 2; // minimal edge margin
+  // Reserve ~8px on each edge for the per-side master volume sliders that
+  // sit to the left of the left grid and right of the right grid.
+  const masterSliderW = 7;
+  const margin = masterSliderW + 2;
 
   // Small buttons: ~30% of screen height, anchored to bottom corners
   const maxGridH = Math.floor(h * 0.30);
@@ -2673,6 +2738,44 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   drawGrid(LEFT_GRID, leftX, 0, "left");
   drawGrid(RIGHT_GRID, rightX, 0, "right");
+
+  // === PER-SIDE MASTER VOLUME SLIDERS ===
+  // Thin vertical bars flanking each grid. Drag to set the master volume
+  // for that side's notes and drums. Fill rises from the bottom so it
+  // feels like a level meter at rest.
+  const drawVSlider = (sx, sy, sw, sh, value, active, dragging, accent) => {
+    // Track background
+    ink(dark ? 24 : 226, dark ? 24 : 226, dark ? 30 : 232);
+    box(sx, sy, sw, sh, true);
+    // Fill (from bottom up)
+    const fillH = Math.max(0, Math.floor(sh * Math.max(0, Math.min(1, value))));
+    if (fillH > 0) {
+      ink(accent[0], accent[1], accent[2], dragging ? 255 : 210);
+      box(sx, sy + sh - fillH, sw, fillH, true);
+    }
+    // Outline
+    ink(dark ? 70 : 160, dark ? 70 : 160, dark ? 85 : 170, active ? 255 : 180);
+    box(sx, sy, sw, sh, "outline");
+    // Unity tick mark
+    const unityY = sy + Math.floor(sh * (1 - 1.0));
+    if (unityY >= sy && unityY < sy + sh) {
+      ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110, 160);
+      box(sx, unityY, sw, 1, true);
+    }
+  };
+  const leftSliderX = Math.max(0, leftX - masterSliderW - 1);
+  const rightSliderX = Math.min(w - masterSliderW, rightX + (cols * btnW) + 1);
+  const leftAccent = [60, 200, 180];   // teal
+  const rightAccent = [220, 140, 90];  // warm amber
+  drawVSlider(leftSliderX, gridTop, masterSliderW, gridH, leftMasterVol,
+              hoverX >= leftSliderX && hoverX < leftSliderX + masterSliderW && hoverY >= gridTop && hoverY < gridTop + gridH,
+              leftVolDragging, leftAccent);
+  drawVSlider(rightSliderX, gridTop, masterSliderW, gridH, rightMasterVol,
+              hoverX >= rightSliderX && hoverX < rightSliderX + masterSliderW && hoverY >= gridTop && hoverY < gridTop + gridH,
+              rightVolDragging, rightAccent);
+  // Expose for act() hit-testing
+  globalThis.__leftMasterSlider = { x: leftSliderX, y: gridTop, w: masterSliderW, h: gridH };
+  globalThis.__rightMasterSlider = { x: rightSliderX, y: gridTop, w: masterSliderW, h: gridH };
 
   // Transient percussion toggle notice (shown near top of grid)
   if (percussionNotice && frame < percussionNotice.until) {
@@ -3371,16 +3474,28 @@ function sim({ pressures, sound }) {
   // Spin the little deck indicator even when nothing else is happening
   if (__dkD?.playing && !djDragging) djAngle += (__dkD.speed || 1) * 0.05;
 
-  // Continuously update synth volumes from analog key pressure
-  if (!pressures) return;
+  // Continuously update synth volumes from analog key pressure AND from
+  // the current per-side master volume so dragging the L/R master sliders
+  // live-adjusts sustained notes on that side.
   for (const key of Object.keys(sounds)) {
     const entry = sounds[key];
     if (!entry?.synth) continue;
-    const p = pressures[key]; // 0.0-1.0 analog pressure, undefined if not analog
+    const master = entry.gridOffset === 1 ? rightMasterVol : leftMasterVol;
+    const p = pressures?.[key]; // 0.0-1.0 analog pressure, undefined if not analog
     if (p !== undefined) {
-      const vol = p * 0.7; // Linear: 0 pressure = silence, full press = 0.7
-      entry.synth.update({ volume: vol });
+      const vol = p * 0.7 * master; // Linear: 0 pressure = silence, full press × master
+      if (entry.__lastVol !== vol) {
+        entry.synth.update({ volume: vol });
+        entry.__lastVol = vol;
+      }
       if (trail[key]) trail[key].brightness = p;
+    } else {
+      // Digital key — only react to master volume changes, not pressure.
+      if (entry.__lastMaster !== master) {
+        const baseVol = entry.baseVol ?? 0.7;
+        entry.synth.update({ volume: baseVol * master });
+        entry.__lastMaster = master;
+      }
     }
   }
 }
