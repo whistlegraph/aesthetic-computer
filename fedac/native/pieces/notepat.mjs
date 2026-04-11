@@ -451,28 +451,46 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0)
   const v = Math.max(0.1, Math.min(2.2, volume));
   const pf = Math.max(0.25, Math.min(4, pitchFactor)); // clamp to ±2 octaves
   switch (letter) {
-    case "c": // kick — 808/909-style with beater click, body punch, sub boom, and warm tail
-      // 1. Beater click — very brief high transient, makes the ear hear "drum" not "tone"
-      sound.synth({ type: "triangle", tone: 1800 * pf, duration: 0.007, volume: 1.1 * v, attack: 0.0003, decay: 0.006, pan });
-      sound.synth({ type: "noise", tone: 4000 * pf, duration: 0.005, volume: 0.7 * v, attack: 0.0003, decay: 0.004, pan });
-      // 2. Body punch — short mid-low sine for the "thump" (fast linear decay simulates pitch drop)
-      sound.synth({ type: "sine", tone: 140 * pf, duration: 0.03, volume: 1.4 * v, attack: 0.0005, decay: 0.028, pan });
-      // 3. Sub boom — long low fundamental at ~45 Hz, the felt bass weight. This one runs HOT so
-      //    it dominates the mix even against sustained melody voices (see auto-mixer math in audio.c).
-      sound.synth({ type: "sine", tone: 45 * pf, duration: 0.5, volume: 2.0 * v, attack: 0.001, decay: 0.49, pan });
-      // 4. Warm low-mid tail — fills the 60-80 Hz gap so the kick doesn't feel hollow
-      sound.synth({ type: "sine", tone: 72 * pf, duration: 0.18, volume: 1.0 * v, attack: 0.002, decay: 0.17, pan });
+    case "c": // kick — wub/wobble bass: shorter, more mid grit, 10 Hz sub wobble
+      // 1. Beater click — short high transient so the ear still parses this as a drum hit
+      sound.synth({ type: "triangle", tone: 1800 * pf, duration: 0.005, volume: 1.0 * v, attack: 0.0003, decay: 0.004, pan });
+      sound.synth({ type: "noise", tone: 4000 * pf, duration: 0.004, volume: 0.55 * v, attack: 0.0003, decay: 0.003, pan });
+      // 2. Body thump — SQUARE wave at 180 Hz for rich mid harmonics (was a pure sine
+      //    which left a hollow-feeling gap between 180 Hz and the sub). Square = odd
+      //    harmonics up to ~900 Hz, filling the mid band.
+      sound.synth({ type: "square", tone: 180 * pf, duration: 0.02, volume: 1.2 * v, attack: 0.0005, decay: 0.018, pan });
+      // 3. Grit layer — sawtooth at 90 Hz for dubstep-style edge. Adds 90/180/270/360 Hz
+      //    harmonics and the rasp that reads as "wub bass" to the ear.
+      sound.synth({ type: "sawtooth", tone: 90 * pf, duration: 0.1, volume: 1.0 * v, attack: 0.001, decay: 0.095, pan });
+      // 4. Sub wobble — TWO sines tuned 10 Hz apart beat against each other, creating
+      //    natural amplitude modulation at |f1-f2| = 10 Hz without needing a real LFO.
+      //    Shortened from 500ms → 180ms so the kick doesn't overstay its welcome.
+      sound.synth({ type: "sine", tone: 44 * pf, duration: 0.18, volume: 1.9 * v, attack: 0.001, decay: 0.17, pan });
+      sound.synth({ type: "sine", tone: 54 * pf, duration: 0.18, volume: 1.3 * v, attack: 0.001, decay: 0.17, pan });
+      // 5. Mid-low square at 120 Hz — fills the 120-360 Hz range with additional square
+      //    harmonics so the kick has body between the 44 Hz sub and the 180 Hz thump.
+      sound.synth({ type: "square", tone: 120 * pf, duration: 0.07, volume: 0.85 * v, attack: 0.002, decay: 0.065, pan });
       break;
     case "d": // snare
       sound.synth({ type: "noise", tone: 2200 * pf, duration: 0.12, volume: 0.55 * v, attack: 0.001, decay: 0.11, pan });
       sound.synth({ type: "triangle", tone: 220 * pf, duration: 0.1, volume: 0.4 * v, attack: 0.001, decay: 0.09, pan });
       sound.synth({ type: "square", tone: 180 * pf, duration: 0.05, volume: 0.2 * v, attack: 0.001, decay: 0.045, pan });
       break;
-    case "e": // clap — staggered noise bursts for classic handclap texture
-      sound.synth({ type: "noise", tone: 1400 * pf, duration: 0.02, volume: 0.45 * v, attack: 0.0005, decay: 0.018, pan });
-      setTimeout(() => sound.synth({ type: "noise", tone: 1450 * pf, duration: 0.02, volume: 0.4 * v, attack: 0.0005, decay: 0.018, pan }), 10);
-      setTimeout(() => sound.synth({ type: "noise", tone: 1550 * pf, duration: 0.02, volume: 0.35 * v, attack: 0.0005, decay: 0.018, pan }), 22);
-      setTimeout(() => sound.synth({ type: "noise", tone: 1600 * pf, duration: 0.1, volume: 0.3 * v, attack: 0.001, decay: 0.09, pan }), 34);
+    case "e": // clap — sharper "clip clap": short clicky transient + narrow band noise burst
+      // The previous version had four soft noise bursts at ~1400 Hz that blurred into
+      // a diffuse "shh". Real claps have a hard ~2-3 kHz click followed by a tight
+      // 1.5 kHz body with ~20 ms stereo-flam between the two strikes of the hands.
+      // New recipe: square-wave click (explicit high frequencies), then a compact
+      // triple-burst body with tighter timing (6/14/22 ms) and much narrower durations.
+      // 1. Sharp click — square at 2.5 kHz, 4 ms, panned slightly to opposite side
+      sound.synth({ type: "square", tone: 2500 * pf, duration: 0.004, volume: 0.9 * v, attack: 0.0003, decay: 0.0035, pan: pan * 0.8 });
+      sound.synth({ type: "noise", tone: 6000 * pf, duration: 0.003, volume: 0.6 * v, attack: 0.0003, decay: 0.0025, pan: pan * 0.8 });
+      // 2. Body burst — three very short noise bursts, tighter spacing than before
+      sound.synth({ type: "noise", tone: 1600 * pf, duration: 0.008, volume: 0.75 * v, attack: 0.0003, decay: 0.007, pan });
+      setTimeout(() => sound.synth({ type: "noise", tone: 1700 * pf, duration: 0.008, volume: 0.6 * v, attack: 0.0003, decay: 0.007, pan }), 6);
+      setTimeout(() => sound.synth({ type: "noise", tone: 1500 * pf, duration: 0.008, volume: 0.5 * v, attack: 0.0003, decay: 0.007, pan }), 14);
+      // 3. Short tail — 1.8 kHz noise for the "smack" after-ring, very brief
+      setTimeout(() => sound.synth({ type: "noise", tone: 1800 * pf, duration: 0.025, volume: 0.45 * v, attack: 0.0005, decay: 0.024, pan }), 22);
       break;
     case "f": // snap — finger snap click + short body
       sound.synth({ type: "noise", tone: 3200 * pf, duration: 0.015, volume: 0.45 * v, attack: 0.0003, decay: 0.014, pan });
