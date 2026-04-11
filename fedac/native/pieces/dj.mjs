@@ -76,7 +76,8 @@ function loadTrack(sound) {
 }
 
 function boot({ system, sound }) {
-  mounted = system?.mountMusic?.() || false;
+  system?.mountMusic?.();
+  mounted = !!system?.mountMusicMounted;
   usbConnected = mounted;
   scan(system, sound);
   const d = sound?.deck?.decks?.[0];
@@ -107,9 +108,15 @@ function act({ event: e, sound, system, screen }) {
         else if (b.id === "prev") { trackIdx = Math.max(0, trackIdx - 1); loadTrack(sound); }
         else if (b.id === "reset") { if (d?.loaded) { dk.setSpeed(0, 1); msg("1.00x"); } }
         else if (b.id === "scan") {
-          mounted = system?.mountMusic?.() || false;
-          scan(system, sound);
-          if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
+          system?.mountMusic?.();
+          mounted = !!system?.mountMusicMounted;
+          usbConnected = mounted;
+          if (mounted) {
+            scan(system, sound);
+            if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
+          } else {
+            msg(system?.mountMusicPending ? "checking usb" : "no usb");
+          }
         }
         return;
       }
@@ -193,9 +200,15 @@ function act({ event: e, sound, system, screen }) {
 
   // R: rescan
   if (e.is("keyboard:down:r")) {
-    mounted = system?.mountMusic?.() || false;
-    scan(system, sound);
-    if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
+    system?.mountMusic?.();
+    mounted = !!system?.mountMusicMounted;
+    usbConnected = mounted;
+    if (mounted) {
+      scan(system, sound);
+      if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
+    } else {
+      msg(system?.mountMusicPending ? "checking usb" : "no usb");
+    }
     return;
   }
 
@@ -378,24 +391,27 @@ function paint({ wipe, ink, box, line, write, circle, screen, sound }) {
 }
 
 function sim({ system, sound }) {
-  // USB hot-plug check every 3 seconds
-  if (frame - lastUsbCheck > 180) {
+  // USB hot-plug check every 3 seconds while active, or 15 seconds while idle.
+  const mountPending = !!system?.mountMusicPending;
+  const nowMounted = !!system?.mountMusicMounted;
+  const usbCheckFrames = usbConnected ? 180 : 900;
+  if (!mountPending && frame - lastUsbCheck > usbCheckFrames) {
     lastUsbCheck = frame;
-    const nowMounted = system?.mountMusic?.() || false;
-    if (nowMounted && !usbConnected) {
-      usbConnected = true; mounted = true;
-      say(sound, "USB DJ on");
-      scan(system, null);
-      if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
-    } else if (!nowMounted && usbConnected) {
-      usbConnected = false;
-      const dk = sound?.deck;
-      const d = dk?.decks?.[0];
-      if (d?.playing) { dk.pause(0); spinSpeed = 0; }
-      files = [];
-      say(sound, "USB DJ off");
-      msg("USB removed");
-    }
+    system?.mountMusic?.();
+  }
+  if (nowMounted && !usbConnected) {
+    usbConnected = true; mounted = true;
+    say(sound, "USB DJ on");
+    scan(system, null);
+    if (files.length > 0) { trackIdx = 0; loadTrack(sound); }
+  } else if (!nowMounted && usbConnected && !mountPending) {
+    usbConnected = false;
+    const dk = sound?.deck;
+    const d = dk?.decks?.[0];
+    if (d?.playing) { dk.pause(0); spinSpeed = 0; }
+    files = [];
+    say(sound, "USB DJ off");
+    msg("USB removed");
   }
   // Auto-advance when track ends
   const d = sound?.deck?.decks?.[0];
