@@ -318,7 +318,7 @@ wipefs -a "${USB_DEV}" >/dev/null 2>&1 || true
 sgdisk --zap-all "${USB_DEV}" >/dev/null 2>&1 || true
 dd if=/dev/zero of="${USB_DEV}" bs=1M count=16 status=none
 
-cat <<PART_EOF | sfdisk --force "${USB_DEV}"
+cat <<PART_EOF | sfdisk --force --no-reread "${USB_DEV}"
 label: gpt
 size=${MAIN_MB}M, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name="ACBOOT"
 size=${EFI_MB}M, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="ACEFI"

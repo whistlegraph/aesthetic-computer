@@ -1011,12 +1011,24 @@ flash_usb() {
     }
 
     write_usb_config_file "${CONFIG_FILE}"
-    preserve_existing_usb_wifi_creds "${USB_DEV}" "${WIFI_CREDS_FILE}" || true
+
+    # Always seed the global preset Wi-Fi list (kept in sync with the JS
+    # auto-connect entries in notepat.mjs / wifi.mjs / prompt.mjs). If the
+    # USB still has a valid wifi_creds.json from a previous flash, merge
+    # the user's saved networks on top of the presets so personal entries
+    # never get clobbered by a re-flash.
+    local GLOBAL_WIFI_FILE="${MEDIA_TMP}/global-wifi-creds.json"
+    local PRESERVED_WIFI_FILE="${MEDIA_TMP}/preserved-wifi-creds.json"
+    ac_media_write_global_wifi_creds "${GLOBAL_WIFI_FILE}"
+    if preserve_existing_usb_wifi_creds "${USB_DEV}" "${PRESERVED_WIFI_FILE}"; then
+        ac_media_merge_wifi_creds "${WIFI_CREDS_FILE}" "${GLOBAL_WIFI_FILE}" "${PRESERVED_WIFI_FILE}" || \
+            cp "${GLOBAL_WIFI_FILE}" "${WIFI_CREDS_FILE}"
+    else
+        cp "${GLOBAL_WIFI_FILE}" "${WIFI_CREDS_FILE}"
+    fi
 
     ac_media_stage_boot_tree "${STAGE_ROOT}" "${VMLINUZ}" "${CONFIG_FILE}"
-    if [ -f "${WIFI_CREDS_FILE}" ]; then
-        cp "${WIFI_CREDS_FILE}" "${STAGE_ROOT}/wifi_creds.json"
-    fi
+    cp "${WIFI_CREDS_FILE}" "${STAGE_ROOT}/wifi_creds.json"
 
     ensure_media_helper_image
     CONTAINER=$(sudo docker create --rm --privileged -v /dev:/dev \
@@ -1031,6 +1043,7 @@ flash_usb() {
         return "${rc}"
     fi
     log "Verified config: $(ac_media_summarize_config_file "${CONFIG_FILE}")"
+    log "Verified $(ac_media_summarize_wifi_creds_file "${WIFI_CREDS_FILE}")"
     cleanup_flash_usb
 }
 
@@ -1114,6 +1127,11 @@ generate_template_image() {
     ac_media_write_identity_config "${IDENTITY_FILE}"
     ac_media_stage_boot_tree "${STAGING}" "${VMLINUZ}" "${LEGACY_CONFIG}"
     cp "${IDENTITY_FILE}" "${STAGING}/$(ac_media_identity_filename)"
+    # Embed the global Wi-Fi presets so every freshly-flashed download has
+    # the lab/home networks ready out of the box. ac_media_create_efi_disk_image
+    # will pick this up automatically (it copies stage_root/wifi_creds.json
+    # into the EFI partition when present).
+    ac_media_write_global_wifi_creds "${STAGING}/wifi_creds.json"
     ac_media_create_efi_disk_image "${STAGING}" "${IMAGE}" "AC_NATIVE"
     ac_media_generate_manifest "${IMAGE}" "${AC_BUILD_NAME:-unknown}" "${MANIFEST}"
 
