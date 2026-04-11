@@ -412,6 +412,24 @@ static void *audio_thread_fn(void *arg) {
     const double mix_att_coeff = 1.0 - exp(-1.0 / (0.004 * rate)); // ~4ms
     const double mix_rel_coeff = 1.0 - exp(-1.0 / (0.060 * rate)); // ~60ms
 
+    // Drum bus peak compressor — gives percussion proper "stacking" feel.
+    // The drum bus sums additively (no auto-mix divide) so rapid hits
+    // would otherwise saturate through soft_clip tanh, flattening peaks
+    // and making each new hit sound QUIETER. A real peak compressor
+    // with fast attack / slower release keeps the drum bus below ~0.95
+    // so transients retain impact AND the compressor recovers between
+    // hits so each kick/snare feels punchy on its own.
+    double drum_gain = 1.0;
+    const double DRUM_THRESH = 0.95;
+    // 5ms attack — slower than a 2ms beater transient so the first peak
+    // of each hit passes through at full amplitude before compression
+    // engages. This preserves the "snap" of each individual kick/snare.
+    const double drum_att_coeff = 1.0 - exp(-1.0 / (0.005 * rate));
+    // 200ms release — recovers quickly enough that successive hits at
+    // typical tempos (120-200 BPM, 300-500ms between hits) each get
+    // the benefit of full dynamic range.
+    const double drum_rel_coeff = 1.0 - exp(-1.0 / (0.200 * rate));
+
     // Set real-time priority to prevent audio glitches from background tasks
     struct sched_param sp = { .sched_priority = 50 };
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp) != 0)
@@ -488,9 +506,28 @@ static void *audio_thread_fn(void *arg) {
             tone_l /= mix_divisor;
             tone_r /= mix_divisor;
 
-            // Merge the two buses. Drums land at full amplitude (possibly
-            // pushing above 1.0 on a heavy hit); the final soft_clip tanh
-            // handles the peak without harsh clipping.
+            // Drum bus peak compressor: detect peak, attack fast if over
+            // threshold, release slow. Unlike the tone auto-mix divide,
+            // this preserves individual hit dynamics — a single drum hit
+            // passes through at full amplitude, but sustained buildup
+            // from overlapping hits gets gain-reduced gracefully so they
+            // stack linearly instead of saturating through soft_clip.
+            {
+                double peak = fabs(drum_l);
+                double peak_r = fabs(drum_r);
+                if (peak_r > peak) peak = peak_r;
+                double target = (peak > DRUM_THRESH) ? (DRUM_THRESH / peak) : 1.0;
+                if (target < drum_gain) {
+                    drum_gain += (target - drum_gain) * drum_att_coeff;
+                } else {
+                    drum_gain += (target - drum_gain) * drum_rel_coeff;
+                }
+                drum_l *= drum_gain;
+                drum_r *= drum_gain;
+            }
+
+            // Merge the two buses. Drums land compressed to ~0.95 peak
+            // so they retain impact without saturating the final output.
             double mix_l = tone_l + drum_l;
             double mix_r = tone_r + drum_r;
 
