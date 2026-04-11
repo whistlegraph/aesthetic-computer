@@ -2784,12 +2784,17 @@ static JSValue js_list_dir(JSContext *ctx, JSValueConst this_val, int argc, JSVa
     return arr;
 }
 
-// system.mountMusic() — mount secondary USB at /media (read-only), returns true/false.
-// Also detects STALE mounts (USB physically yanked) and force-unmounts them so a
-// subsequent plug-in can mount fresh. Without this, /media stays "mounted" forever
-// after an unplug and the JS DJ hot-plug loop never re-detects a new USB.
-static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
-    (void)this_val; (void)argc; (void)argv;
+// system.mountMusic() — non-blocking secondary USB probe.
+// Schedules a background mount check for /media and immediately returns the
+// last known mounted state. JS reads system.mountMusicMounted /
+// system.mountMusicPending for cached state.
+static pthread_mutex_t music_mount_mu = PTHREAD_MUTEX_INITIALIZER;
+static volatile int music_mount_pending = 0;
+static volatile int music_mount_state = 0;
+static int music_mount_last_result = -1;
+static char music_mount_last_skip_base[64] = "";
+
+static int probe_mount_music_once(void) {
 
     mkdir("/media", 0755);
 
@@ -2820,7 +2825,8 @@ static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, J
             if (d) { dir_ok = 1; closedir(d); }
         }
         if (dev_alive && dir_ok) {
-            return JS_TRUE;  // legitimate, live mount
+            music_mount_last_result = 1;
+            return 1;  // legitimate, live mount
         }
         // Stale: device is gone or dir unreadable. Lazy-unmount so we can remount.
         ac_log("[dj] stale /media mount (dev=%s, alive=%d, dir=%d) — detaching\n",
@@ -2850,7 +2856,10 @@ static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, J
                     if (strcmp(skip_bases[i], base) == 0) { found = 1; break; }
                 if (!found) {
                     strncpy(skip_bases[skip_count++], base, 63);
-                    ac_log("[dj] skip boot device: %s\n", base);
+                    if (strcmp(music_mount_last_skip_base, base) != 0) {
+                        snprintf(music_mount_last_skip_base, sizeof(music_mount_last_skip_base), "%s", base);
+                        ac_log("[dj] skip boot device: %s\n", base);
+                    }
                 }
             }
         }
@@ -2871,27 +2880,72 @@ static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, J
             struct stat ds;
             if (stat(dev, &ds) != 0) continue;
 
-            ac_log("[dj] trying %s...\n", dev);
             if (mount(dev, "/media", "vfat", MS_RDONLY, "iocharset=utf8") == 0) {
                 ac_log("[dj] mounted %s at /media (vfat)\n", dev);
-                return JS_TRUE;
+                music_mount_last_result = 1;
+                return 1;
             }
             if (mount(dev, "/media", "exfat", MS_RDONLY, NULL) == 0) {
                 ac_log("[dj] mounted %s at /media (exfat)\n", dev);
-                return JS_TRUE;
+                music_mount_last_result = 1;
+                return 1;
             }
             if (mount(dev, "/media", "ext4", MS_RDONLY, NULL) == 0) {
                 ac_log("[dj] mounted %s at /media (ext4)\n", dev);
-                return JS_TRUE;
+                music_mount_last_result = 1;
+                return 1;
             }
             if (mount(dev, "/media", "ntfs3", MS_RDONLY, NULL) == 0) {
                 ac_log("[dj] mounted %s at /media (ntfs)\n", dev);
-                return JS_TRUE;
+                music_mount_last_result = 1;
+                return 1;
             }
         }
     }
-    ac_log("[dj] no music USB found\n");
-    return JS_FALSE;
+    if (music_mount_last_result != 0) {
+        ac_log("[dj] no music USB found\n");
+        music_mount_last_result = 0;
+    }
+    return 0;
+}
+
+static void *music_mount_thread_fn(void *arg) {
+    (void)arg;
+    int mounted = probe_mount_music_once();
+    pthread_mutex_lock(&music_mount_mu);
+    music_mount_state = mounted ? 1 : 0;
+    music_mount_pending = 0;
+    pthread_mutex_unlock(&music_mount_mu);
+    return NULL;
+}
+
+static void request_music_mount_probe(void) {
+    int should_spawn = 0;
+    pthread_t tid;
+
+    pthread_mutex_lock(&music_mount_mu);
+    if (!music_mount_pending) {
+        music_mount_pending = 1;
+        should_spawn = 1;
+    }
+    pthread_mutex_unlock(&music_mount_mu);
+
+    if (!should_spawn) return;
+
+    if (pthread_create(&tid, NULL, music_mount_thread_fn, NULL) != 0) {
+        pthread_mutex_lock(&music_mount_mu);
+        music_mount_pending = 0;
+        pthread_mutex_unlock(&music_mount_mu);
+        ac_log("[dj] mountMusic thread create failed\n");
+        return;
+    }
+    pthread_detach(tid);
+}
+
+static JSValue js_mount_music(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    request_music_mount_probe();
+    return JS_NewBool(ctx, music_mount_state);
 }
 
 // ---------------------------------------------------------------------------
@@ -5412,6 +5466,8 @@ static JSValue build_system_obj(JSContext *ctx) {
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
     JS_SetPropertyStr(ctx, sys, "listDir",   JS_NewCFunction(ctx, js_list_dir,   "listDir",   1));
     JS_SetPropertyStr(ctx, sys, "mountMusic", JS_NewCFunction(ctx, js_mount_music, "mountMusic", 0));
+    JS_SetPropertyStr(ctx, sys, "mountMusicMounted", JS_NewBool(ctx, music_mount_state));
+    JS_SetPropertyStr(ctx, sys, "mountMusicPending", JS_NewBool(ctx, music_mount_pending));
 
     // Async HTTP fetch — system.fetch(url) / system.fetchCancel() / system.fetchResult / system.fetchPending
     JS_SetPropertyStr(ctx, sys, "fetch", JS_NewCFunction(ctx, js_fetch, "fetch", 1));

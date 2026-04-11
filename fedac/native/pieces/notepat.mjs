@@ -369,6 +369,8 @@ let djTrackIdx = 0;
 let djMounted = false;
 let djUsbConnected = false;
 let djLastUsbCheckFrame = 0;
+const DJ_USB_CHECK_ACTIVE_FRAMES = 180; // ~3s while a DJ USB is present
+const DJ_USB_CHECK_IDLE_FRAMES = 900;   // ~15s when idle; F4 still forces an immediate rescan
 let djMessage = "";
 let djMessageFrame = 0;
 let djAngle = 0;             // visual spin angle (not drawn big, just for strip)
@@ -1473,7 +1475,8 @@ function boot({ wipe, system, sound }) {
   // Mount music USB + scan for deck tracks. If a track is already loaded
   // in the global deck (e.g. resumed from dj.mjs), leave it be; otherwise
   // auto-load the first discovered track so users can jam immediately.
-  djMounted = system?.mountMusic?.() || false;
+  system?.mountMusic?.();
+  djMounted = !!system?.mountMusicMounted;
   djUsbConnected = djMounted;
   djScan(system, sound);
   const dk0 = sound?.deck?.decks?.[0];
@@ -1543,10 +1546,15 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "f2") { djTrackIdx++; djLoadTrack(sound); return; }
     if (key === "f3") { djTrackIdx = (djTrackIdx - 1 + Math.max(1, djFiles.length)) % Math.max(1, djFiles.length); djLoadTrack(sound); return; }
     if (key === "f4") {
-      djMounted = system?.mountMusic?.() || false;
+      system?.mountMusic?.();
+      djMounted = !!system?.mountMusicMounted;
       djUsbConnected = djMounted;
-      djScan(system, sound);
-      if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
+      if (djMounted) {
+        djScan(system, sound);
+        if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
+      } else {
+        djMsg(system?.mountMusicPending ? "checking usb" : "no usb");
+      }
       return;
     }
     if (key === "[") {
@@ -4385,23 +4393,26 @@ function sim({ pressures, sound }) {
   }
 
   // === DJ DECK MAINTENANCE ===
-  // Hot-plug check every ~3 seconds, auto-advance when tracks end.
-  if (frame - djLastUsbCheckFrame > 180) {
+  // Hot-plug check every ~3s while active, or ~15s when idle.
+  const djUsbCheckFrames = djUsbConnected ? DJ_USB_CHECK_ACTIVE_FRAMES : DJ_USB_CHECK_IDLE_FRAMES;
+  const mountPending = !!systemAPI?.mountMusicPending;
+  const nowMounted = !!systemAPI?.mountMusicMounted;
+  if (!mountPending && frame - djLastUsbCheckFrame > djUsbCheckFrames) {
     djLastUsbCheckFrame = frame;
-    const nowMounted = systemAPI?.mountMusic?.() || false;
-    if (nowMounted && !djUsbConnected) {
-      djUsbConnected = true; djMounted = true;
-      sound?.speak?.("USB dj on");
-      djScan(systemAPI, null);
-      if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
-    } else if (!nowMounted && djUsbConnected) {
-      djUsbConnected = false;
-      const dk = sound?.deck;
-      if (dk?.decks?.[0]?.playing) dk.pause(0);
-      djFiles = [];
-      sound?.speak?.("USB dj off");
-      djMsg("USB removed");
-    }
+    systemAPI?.mountMusic?.();
+  }
+  if (nowMounted && !djUsbConnected) {
+    djUsbConnected = true; djMounted = true;
+    sound?.speak?.("USB dj on");
+    djScan(systemAPI, null);
+    if (djFiles.length > 0) { djTrackIdx = 0; djLoadTrack(sound); }
+  } else if (!nowMounted && djUsbConnected && !mountPending) {
+    djUsbConnected = false;
+    const dk = sound?.deck;
+    if (dk?.decks?.[0]?.playing) dk.pause(0);
+    djFiles = [];
+    sound?.speak?.("USB dj off");
+    djMsg("USB removed");
   }
   // Auto-advance when the current track finishes
   const __dkD = sound?.deck?.decks?.[0];
