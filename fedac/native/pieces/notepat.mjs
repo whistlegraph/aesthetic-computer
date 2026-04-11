@@ -551,41 +551,39 @@ function percussionDrumFor(letter, offset) {
   return null;
 }
 
-// === DRUM PAN GEOMETRY ===
-// Tone pan is pitch-based (low notes left, high notes right) which kind of
-// coincidentally matches the QWERTY position because notepat's key mapping
-// puts low naturals on the left. For DRUMS that model is wrong — a kick
-// shouldn't pan hard left just because it's on the C key. Instead drums pan
-// by physical kit geometry (from drummer's perspective / standard mix):
-//   - kicks + snares near center
-//   - hats slightly right (drummer's right hand)
-//   - ride right, crash + splash left
-//   - perc accents spread for color
-// Then the grid side biases the whole hit — left grid → left-of-center,
-// right grid → right-of-center — so the two grids occupy distinct stereo
-// spaces when both have percussion on.
-const DRUM_PAN_OFFSET = {
-  c: 0.00,     // kick — center
-  d: -0.05,    // snare — barely off center
-  e: 0.10,     // clap — slightly right
-  f: -0.10,    // snap — slightly left
-  g: 0.25,     // closed hi-hat — drummer's right
-  a: 0.32,     // open hi-hat — drummer's right
-  b: 0.45,     // ride — far right (drummer's right side)
-  "c#": -0.45, // crash — drummer's left
-  "d#": -0.55, // splash — far left
-  "f#": 0.22,  // cowbell — right
-  "g#": -0.18, // wood block — left
-  "a#": 0.30,  // tambourine — right
+// === DRUM PAN: QWERTY physical key position ===
+// Pan each drum hit by where the key actually lives on the keyboard so
+// your fingers and the stereo field line up. Left-side keys (q/a/z/c)
+// pan hard left, right-side keys (p/;/m) pan hard right, middle keys
+// (t/g/b) stay centered. This beats kit-geometry pan (kick-center,
+// ride-right, crash-left) because it matches the physical gesture of
+// playing — you don't have to think about "which drum is this", the
+// pan just follows your hand.
+//
+// Values computed from QWERTY column (col - 4.5) / 4.5 * 0.9 across
+// three rows. Only drum keys included (c/d/e/f/g/a/b naturals + sharps
+// on both grids). Non-drum keys fall through to the fallback below.
+const KEY_QWERTY_PAN = {
+  // Row 0 (qwerty top row): q w e r t y u i o p
+  q: -0.9, w: -0.7, e: -0.5, r: -0.3, t: -0.1,
+  y:  0.1, u:  0.3, i:  0.5, o:  0.7, p:  0.9,
+  // Row 1 (asdf home row): a s d f g h j k l
+  a: -0.9, s: -0.7, d: -0.5, f: -0.3, g: -0.1,
+  h:  0.1, j:  0.3, k:  0.5, l:  0.7,
+  // Row 2 (zxcv bottom row): c v b n m
+  c: -0.5, v: -0.3, b: -0.1, n:  0.1, m:  0.3,
 };
 
-function drumPanFor(letter, gridOffset) {
-  // gridBias: left grid skews left, right grid skews right. Keeps both grids
-  // audible simultaneously without collapsing into a single phantom center.
+function drumPanFor(letter, gridOffset, key) {
+  // Primary: QWERTY physical column position. This is what the user sees
+  // and feels — the pan matches where their hand is.
+  if (key && KEY_QWERTY_PAN[key] !== undefined) {
+    return KEY_QWERTY_PAN[key];
+  }
+  // Fallback: grid-side bias (used by reverse playback where we don't
+  // have the original key, only the letter + gridOffset).
   const gridBias = gridOffset === 1 ? 0.32 : -0.32;
-  const drumOffset = DRUM_PAN_OFFSET[letter] ?? 0;
-  // Drum offset at 0.7 strength so kit geometry shows but grid side dominates.
-  return Math.max(-0.9, Math.min(0.9, gridBias + drumOffset * 0.7));
+  return Math.max(-0.9, Math.min(0.9, gridBias));
 }
 
 // Push a drum flash entry so paint() will pulse the background in that
@@ -1555,8 +1553,8 @@ function act({ event: e, sound, wifi, system }) {
         const drumVol = (1.0 + velocity * 0.8) * master;
         const drumPitch = Math.pow(2, effectivePitchShift());
         // Drums get their own pan (kit geometry + grid bias), not the
-        // pitch-based tone pan calculated above.
-        const drumPan = drumPanFor(letter, offset);
+        // QWERTY physical key position → pan. Left keys pan left, right pan right.
+        const drumPan = drumPanFor(letter, offset, key);
         activeDrumKeys[key] = triggerPercussionDown(
           sound, letter, noteOctave, drumVol, drumPan, drumPitch, key, drumName
         );
@@ -1881,8 +1879,8 @@ function act({ event: e, sound, wifi, system }) {
         const touchDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
         if (touchDrum) {
           const touchDrumPitch = Math.pow(2, effectivePitchShift());
-          // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
-          const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
+          // QWERTY physical key position → pan (matches where finger lands).
+          const touchDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
           const drumHold = triggerPercussionDown(
             sound, hitNote.letter, hitNote.octave, 1.8, touchDrumPan, touchDrumPitch, hitNote.key, touchDrum
           );
@@ -2020,8 +2018,8 @@ function act({ event: e, sound, wifi, system }) {
           const rollDrum = percussionDrumFor(hitNote.letter, hitNote.gridOffset);
           if (rollDrum) {
             const rollDrumPitch = Math.pow(2, effectivePitchShift());
-            // Drums pan by kit geometry + grid bias, not pitch-based tone pan.
-            const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset);
+            // QWERTY physical key position → pan (matches where finger lands).
+            const rollDrumPan = drumPanFor(hitNote.letter, hitNote.gridOffset, hitNote.key);
             const drumHold = triggerPercussionDown(
               sound, hitNote.letter, hitNote.octave, 1.8, rollDrumPan, rollDrumPitch, hitNote.key, rollDrum
             );
