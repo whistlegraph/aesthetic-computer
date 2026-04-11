@@ -1390,7 +1390,12 @@ function act({ event: e, sound, wifi, system }) {
       system?.jump?.("prompt");
       return;
     }
-    if (key === "shift") { quickMode = !quickMode; return; }
+    // Shift key: LIVE-HELD accent modifier (was: quick mode toggle).
+    // shiftHeld is already tracked at the top of act(); note/drum triggers
+    // check it to boost velocity so capitalized/shifted playing feels
+    // like accenting. The old quick-mode toggle is deprecated — tap
+    // shift does nothing on its own now.
+    if (key === "shift") return;
     if (key === "tab") {
       const idx = (waveIndex + 1) % wavetypes.length;
       setWave(wavetypes[idx], sound);
@@ -1572,7 +1577,12 @@ function act({ event: e, sound, wifi, system }) {
       const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
 
       // Start at current pressure (or full for digital keys)
-      const velocity = e.pressure > 0 ? e.pressure : 1.0;
+      // Velocity starts at analog pressure (or full for digital keys).
+      // Shift-as-accent: when shiftHeld, boost velocity by 1.4× (capped
+      // at 1.0 so we don't exceed the engine's expected range for notes;
+      // drums will scale their volume separately via the accent path below).
+      let velocity = e.pressure > 0 ? e.pressure : 1.0;
+      if (shiftHeld) velocity = Math.min(1.0, velocity * 1.4);
       // Per-side master mix — scales every note and drum on this grid.
       const master = masterForSide(offset);
       const baseVol = 0.15 + velocity * 0.55;  // un-mastered; sim() re-applies master live
@@ -1604,7 +1614,12 @@ function act({ event: e, sound, wifi, system }) {
         // melodic voices (~2.1 weight) the kick still lands at ~0.5 vs
         // each melody at ~0.17 — roughly 3× prominence. Then scale the
         // whole thing by the per-side master so the user can balance L/R.
-        const drumVol = (1.0 + velocity * 0.8) * master;
+        // Base drum volume from velocity, then apply shift-accent boost
+        // (shift-held = capitalized = accented hit). Drums get more
+        // aggressive accent than notes since the compressor will rein
+        // them in anyway.
+        const accent = shiftHeld ? 1.5 : 1.0;
+        const drumVol = (1.0 + velocity * 0.8) * master * accent;
         const drumPitch = Math.pow(2, effectivePitchShift());
         // Drums get their own pan (kit geometry + grid bias), not the
         // QWERTY physical key position → pan. Left keys pan left, right pan right.

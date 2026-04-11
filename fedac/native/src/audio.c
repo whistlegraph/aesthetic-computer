@@ -123,94 +123,121 @@ static inline double compute_envelope(ACVoice *v) {
     return env;
 }
 
-static inline void whistle_set_resonator(double freq, double q, double sample_rate,
-                                         double *c1, double *c2, double *gain) {
-    freq = clampd(freq, 60.0, sample_rate * 0.45);
-    q = clampd(q, 1.0, 64.0);
-
-    double w0 = 2.0 * M_PI * freq / sample_rate;
-    double damping = M_PI * freq / (q * sample_rate);
-    double r = 1.0 - damping;
-    if (r < 0.0) r = 0.0;
-    if (r > 0.99995) r = 0.99995;
-
-    *c1 = 2.0 * r * cos(w0);
-    *c2 = -(r * r);
-    *gain = 1.0 - r;
+// Fractional-delay read from a ring buffer. `delay` is in samples, allows
+// non-integer values via linear interpolation between adjacent samples.
+// Returns the sample `delay` positions behind the write cursor.
+static inline double whistle_frac_read(const float *buf, int N, int w, double delay) {
+    if (delay < 0.0) delay = 0.0;
+    if (delay > (double)(N - 2)) delay = (double)(N - 2);
+    double rd = (double)w - delay;
+    while (rd < 0.0) rd += (double)N;
+    int i0 = (int)rd;
+    int i1 = (i0 + 1) % N;
+    double f = rd - (double)i0;
+    return (double)buf[i0] * (1.0 - f) + (double)buf[i1] * f;
 }
 
-static inline void whistle_update_coeffs(ACVoice *v, double sample_rate) {
-    double freq = clampd(v->frequency, 110.0, sample_rate * 0.20);
-    double vibrato = sin(2.0 * M_PI * v->whistle_vibrato_phase) * (0.0025 + 0.0015 * v->whistle_breath);
-    double tuned = freq * (1.0 + vibrato);
-    if (fabs(tuned - v->whistle_coeff_freq) < 0.35) return;
-
-    // Very sharp main resonance — previous tunings (Q≈18, Q≈26) still let
-    // too much broadband noise bleed through. Q≈45 gives a razor-thin
-    // bandwidth around the fundamental so the whistle reads as pitched
-    // even at low amplitudes.
-    double main_q = 45.0 + tuned * 0.025;
-    double formant_ratio = tuned < 700.0 ? 2.05 : 2.35;
-    double formant_q = 14.0 + tuned * 0.005;
-
-    whistle_set_resonator(tuned, main_q, sample_rate,
-                          &v->whistle_main_c1, &v->whistle_main_c2, &v->whistle_main_gain);
-    whistle_set_resonator(tuned * formant_ratio, formant_q, sample_rate,
-                          &v->whistle_formant_c1, &v->whistle_formant_c2, &v->whistle_formant_gain);
-    v->whistle_coeff_freq = tuned;
-}
-
-static inline double whistle_tick_resonator(double input, double c1, double c2, double gain,
-                                            double *y1, double *y2) {
-    double y = input * gain + c1 * (*y1) + c2 * (*y2);
-    *y2 = *y1;
-    *y1 = y;
-    return y;
-}
-
+// Cook/STK digital waveguide flute model.
+// The signal flow (see reports/research for full derivation):
+//
+//    breath ──► (+) ──► jetDelay ──► NL(x*(x*x-1)) ──► dcBlock ──► (+) ──► boreDelay ──┬──► out
+//                ▲                                                  ▲                  │
+//                │ −jetRefl·temp                                    │ +endRefl·temp    │
+//                │                                                  │                  │
+//                └───────── 1-pole LPF ◄───────────────────────────┴──────────────────┘
+//
+// The BORE delay line (length = SR/freq) is the primary resonator. Its
+// closed-loop feedback generates ALL harmonics automatically via comb
+// filtering — the delay line is inherently a periodic waveguide that
+// sustains exactly at integer multiples of its natural pitch.
+//
+// The JET delay (length ≈ 0.32 × bore) models the air jet's travel time
+// across the embouchure hole. The cubic nonlinearity x*(x*x-1) has
+// negative-slope region at x=0 which makes it a LIMIT-CYCLE GENERATOR —
+// it converts steady DC breath pressure into sustained oscillation.
+// This is qualitatively different from tanh, which is monotonic and
+// can only saturate.
+//
+// The 1-pole LPF in the loop models bore losses (viscothermal damping)
+// so the tone darkens as harmonics decay faster than the fundamental.
+//
+// The DC blocker after the NL removes the bias the cubic would pump
+// into the bore loop, which would otherwise drive it into clipping.
 static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     double env = compute_envelope(v);
-    double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+    // Breath envelope — DC pressure component + noise modulation + vibrato.
+    // CRITICAL: the DC component is what drives the nonlinearity into
+    // self-oscillation. Without a steady DC term, noise alone cannot
+    // sustain the limit cycle.
     double breath_target = 0.18 + 0.82 * sqrt(env);
-    double breath_slew = env > v->whistle_breath ? 0.009 : 0.0025;
-
+    double breath_slew = env > v->whistle_breath ? 0.012 : 0.003;
     v->whistle_breath += (breath_target - v->whistle_breath) * breath_slew;
-    v->whistle_vibrato_phase += (4.6 + v->frequency * 0.0025) / sample_rate;
+
+    // Vibrato LFO — ~5 Hz, small depth
+    v->whistle_vibrato_phase += 5.0 / sample_rate;
     if (v->whistle_vibrato_phase >= 1.0) v->whistle_vibrato_phase -= 1.0;
+    double vibrato = sin(2.0 * M_PI * v->whistle_vibrato_phase) * 0.03;
 
-    whistle_update_coeffs(v, sample_rate);
-
+    // Breath noise — multiplicatively modulates the DC breath pressure.
+    // Low gain so the noise rides on top of the steady breath instead of
+    // replacing it. Attack phase gets slightly more chiff.
+    double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
     double onset = 1.0 - env;
-    // Tight feedback — more energy stays resonating between cycles so the
-    // tone is self-sustaining from the resonator, not re-injected from the
-    // noise source every sample.
-    double feedback = v->whistle_main_y1 * 2.0 - v->whistle_main_y2 * 0.95 + v->whistle_formant_y1 * 0.32;
-    // Turbulence cranked way down. Previous (0.025 base + 0.12 onset + 0.03
-    // breath) was still too much for the user. New values are roughly ⅓ of
-    // the previous iteration and ≈ 1/10 of the original. The onset chiff is
-    // now 0.03 (barely perceptible), breath modulation 0.008. Just enough
-    // noise to excite the resonator, not enough to bleed through it.
-    double turbulence = white * (0.008 + onset * 0.03 + v->whistle_breath * 0.008);
-    double jet_drive = feedback * (1.05 + v->whistle_breath * 0.5) + turbulence;
-    double jet_target = tanh(jet_drive);
+    double noise_gain = 0.08 + 0.05 * onset;
+    double breath = v->whistle_breath * (1.0 + noise_gain * white + vibrato);
 
-    // Faster jet slew — note speaks almost immediately, chiff is effectively
-    // gone.
-    v->whistle_jet += (jet_target - v->whistle_jet) * (0.05 + v->whistle_breath * 0.15);
+    // Bore and jet delay lengths — bore = SR/freq (one wavelength),
+    // jet = 0.32 × bore (Cook's flute ratio; 0.45 for pennywhistle,
+    // 0.5 for ocarina). Clamp to the delay buffer sizes.
+    double freq = clampd(v->frequency, 110.0, sample_rate * 0.20);
+    double bore_delay = sample_rate / freq;
+    double jet_delay = bore_delay * 0.32;
+    // Cap to buffer sizes with safety margin
+    const int BORE_N = 2048;
+    const int JET_N = 512;
+    if (bore_delay > (double)(BORE_N - 2)) bore_delay = (double)(BORE_N - 2);
+    if (jet_delay > (double)(JET_N - 2)) jet_delay = (double)(JET_N - 2);
 
-    double main = whistle_tick_resonator(v->whistle_jet * (1.35 + v->whistle_breath * 0.5),
-                                         v->whistle_main_c1, v->whistle_main_c2, v->whistle_main_gain,
-                                         &v->whistle_main_y1, &v->whistle_main_y2);
-    double formant = whistle_tick_resonator(v->whistle_jet * (0.18 + v->whistle_breath * 0.1),
-                                            v->whistle_formant_c1, v->whistle_formant_c2, v->whistle_formant_gain,
-                                            &v->whistle_formant_y1, &v->whistle_formant_y2);
+    // Read bore output and apply 1-pole loop LPF (models bore damping).
+    // 0.35/0.65 coefficients give ~0.65 DC gain — closes the loop just
+    // under unity so it sustains but doesn't blow up. The LPF rolls off
+    // high harmonics so the tone darkens naturally, unlike a biquad
+    // which would over-narrow the spectrum.
+    double bore_out = whistle_frac_read(v->whistle_bore_buf, BORE_N, v->whistle_bore_w, bore_delay);
+    v->whistle_lp1 = 0.35 * (-bore_out) + 0.65 * v->whistle_lp1;
+    double temp = v->whistle_lp1;
 
-    // The output "air" layer is GONE. Previously this added unfiltered white
-    // noise directly to the final mix, which was the main hiss you could
-    // still hear over the resonator. Now all noise must pass through the
-    // resonator filter before reaching the output.
-    double s = main * 2.8 + formant * 0.38;
-    return tanh(s * 1.6);
+    // Jet drive: breath pressure minus jet reflection from bore feedback
+    double jet_refl = 0.5;
+    double end_refl = 0.5;
+    double pd = breath - jet_refl * temp;
+
+    // Write to jet delay, read back with fractional delay
+    v->whistle_jet_buf[v->whistle_jet_w] = (float)pd;
+    v->whistle_jet_w = (v->whistle_jet_w + 1) % JET_N;
+    pd = whistle_frac_read(v->whistle_jet_buf, JET_N, v->whistle_jet_w, jet_delay);
+
+    // THE CUBIC NONLINEARITY — y = x*(x*x - 1). Negative slope at x=0
+    // creates a limit-cycle generator. This is the secret sauce that
+    // makes the tone WHISTLE instead of being filtered noise.
+    pd = pd * (pd * pd - 1.0);
+    if (pd > 1.0) pd = 1.0;
+    if (pd < -1.0) pd = -1.0;
+
+    // 1-pole DC blocker — removes the bias the cubic pumps into the loop.
+    // y[n] = x[n] - x[n-1] + 0.995*y[n-1]
+    double y = pd - v->whistle_hp_x1 + 0.995 * v->whistle_hp_y1;
+    v->whistle_hp_x1 = pd;
+    v->whistle_hp_y1 = y;
+
+    // Close the bore loop: combine the NL-filtered jet output with the
+    // end reflection from the bore delay.
+    double into_bore = y + end_refl * temp;
+    v->whistle_bore_buf[v->whistle_bore_w] = (float)into_bore;
+    v->whistle_bore_w = (v->whistle_bore_w + 1) % BORE_N;
+
+    // Output is a tap off the bore loop. 0.3 gain matches STK Flute.
+    return 0.3 * into_bore;
 }
 
 static inline double compute_fade(ACVoice *v) {
@@ -1277,8 +1304,18 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     if (type == WAVE_NOISE) {
         setup_noise_filter(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
     } else if (type == WAVE_WHISTLE) {
-        v->whistle_coeff_freq = 0.0;
-        whistle_update_coeffs(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
+        // Clear the waveguide state — bore + jet delay buffers and the
+        // loop filter / DC blocker. Without this, leftover state from a
+        // previous voice reuse would produce startup artifacts.
+        memset(v->whistle_bore_buf, 0, sizeof(v->whistle_bore_buf));
+        memset(v->whistle_jet_buf, 0, sizeof(v->whistle_jet_buf));
+        v->whistle_bore_w = 0;
+        v->whistle_jet_w = 0;
+        v->whistle_breath = 0.0;
+        v->whistle_vibrato_phase = 0.0;
+        v->whistle_lp1 = 0.0;
+        v->whistle_hp_x1 = 0.0;
+        v->whistle_hp_y1 = 0.0;
     }
 
     pthread_mutex_unlock(&audio->lock);
