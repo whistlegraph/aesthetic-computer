@@ -714,6 +714,7 @@ async function boot({
   notice,
   dark,
   store,
+  debug,
   // code,
   net: { socket },
   vscode,
@@ -757,11 +758,14 @@ async function boot({
       const res = await fetch("/api/version");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       versionInfo = await res.json();
-      if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      // Local/dev: never show "(N behind)" — the .commit-ref on a dev
+      // checkout can be stale and the user isn't deploying anything.
+      if (debug) {
         versionInfo = {
           ...versionInfo,
           deployed: versionInfo.deployed === "unknown" ? "dev" : versionInfo.deployed,
           status: "local",
+          behindBy: 0,
         };
       }
       // Store recent commits from the version API
@@ -775,7 +779,7 @@ async function boot({
 
   // Long-poll loop: detect new deployments within ~5 seconds
   const startVersionPoll = async () => {
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    if (debug) {
       // Local dev: just poll every 60 seconds
       setInterval(fetchVersion, 60 * 1000);
       return;
