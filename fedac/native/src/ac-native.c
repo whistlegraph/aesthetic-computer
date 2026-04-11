@@ -1297,11 +1297,34 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     // Reformat. Retry once if mkfs fails — the kernel sometimes
                     // needs a second pass after a fresh GPT to release exclusive
                     // holds on the block device.
+                    //
+                    // Capture mkfs stderr to a dedicated small file so we can
+                    // read it back and ac_log the error inline. The main DLOG
+                    // accumulates everything but may not survive to the USB;
+                    // this per-attempt capture ensures the failing error
+                    // message always makes it into ac-native.log.
+                    const char *MKFS_ERR = "/tmp/mkfs-err.log";
                     snprintf(rcmd, sizeof(rcmd),
-                        "echo '--- mkfs attempt 1 ---' >> %s; mkfs.vfat -F 32 -n AC-NATIVE %s >> %s 2>&1",
-                        DLOG, devpath, DLOG);
+                        "echo '--- mkfs attempt 1 ---' >> %s; "
+                        "mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; "
+                        "cat %s >> %s",
+                        DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
                     rrc = system(rcmd);
-                    ac_log("[install] mkfs rc=%d attempt=1\n", rrc);
+                    ac_log("[install] mkfs rc=%d attempt=1 (WIFEXITED=%d status=%d)\n",
+                           rrc, WIFEXITED(rrc), WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1);
+                    // Inline dump mkfs output so we see the exact error
+                    {
+                        FILE *mf = fopen(MKFS_ERR, "r");
+                        if (mf) {
+                            char line[512];
+                            while (fgets(line, sizeof(line), mf)) {
+                                size_t len = strlen(line);
+                                if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+                                ac_log("[mkfs/1] %s\n", line);
+                            }
+                            fclose(mf);
+                        }
+                    }
                     if (rrc != 0) {
                         // Retry after giving the block layer a moment to settle
                         sync();
@@ -1309,10 +1332,25 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         snprintf(rcmd, sizeof(rcmd),
                             "echo '--- mkfs attempt 2 ---' >> %s; "
                             "fuser -k %s >> %s 2>&1 || true; "
-                            "mkfs.vfat -F 32 -n AC-NATIVE %s >> %s 2>&1",
-                            DLOG, devpath, DLOG, devpath, DLOG);
+                            "mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; "
+                            "cat %s >> %s",
+                            DLOG, devpath, DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
                         rrc = system(rcmd);
-                        ac_log("[install] mkfs rc=%d attempt=2\n", rrc);
+                        ac_log("[install] mkfs rc=%d attempt=2 (WIFEXITED=%d status=%d)\n",
+                               rrc, WIFEXITED(rrc), WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1);
+                        // Inline dump retry output
+                        {
+                            FILE *mf = fopen(MKFS_ERR, "r");
+                            if (mf) {
+                                char line[512];
+                                while (fgets(line, sizeof(line), mf)) {
+                                    size_t len = strlen(line);
+                                    if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+                                    ac_log("[mkfs/2] %s\n", line);
+                                }
+                                fclose(mf);
+                            }
+                        }
                     }
                     if (rrc != 0) {
                         snprintf(install_fail_reason, sizeof(install_fail_reason),
@@ -1461,10 +1499,38 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     }
     if (source_mounted_tmp) umount("/tmp/src");
 
-    // Copy the tmpfs install-debug.log back to /mnt so it survives the boot
-    // session (tmpfs is wiped on reboot). Best effort — if /mnt got trashed
-    // by the repartition attempt we simply skip. The log is most useful on
-    // failure but we copy on success too so "what worked" is visible.
+    // Dump the full install-debug.log inline to ac_log so the trace ALWAYS
+    // lands in ac-native.log (which we know reliably survives to the USB).
+    // This is the primary diagnostic channel — the parallel copy to
+    // /mnt/install-debug.log below is a best-effort secondary that may fail
+    // silently if /mnt got trashed by the repartition attempt.
+    {
+        FILE *src = fopen("/tmp/install-debug.log", "r");
+        if (src) {
+            ac_log("[install] === /tmp/install-debug.log BEGIN ===\n");
+            char line[1024];
+            int line_count = 0;
+            while (fgets(line, sizeof(line), src)) {
+                // Strip trailing newline for consistent ac_log formatting
+                size_t len = strlen(line);
+                if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+                ac_log("[install-debug] %s\n", line);
+                line_count++;
+                if (line_count > 500) {
+                    ac_log("[install] ... (truncated at 500 lines)\n");
+                    break;
+                }
+            }
+            ac_log("[install] === /tmp/install-debug.log END (%d lines) ===\n", line_count);
+            fclose(src);
+        } else {
+            ac_log("[install] /tmp/install-debug.log not present (errno=%d)\n", errno);
+        }
+    }
+
+    // Parallel copy of the tmpfs log to /mnt (best effort). Even if the
+    // inline dump above succeeded, keep this so the file is also visible
+    // as a standalone artifact when /mnt is intact.
     {
         FILE *src = fopen("/tmp/install-debug.log", "rb");
         if (src) {
@@ -1477,6 +1543,9 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 fsync(fileno(dst));
                 fclose(dst);
                 ac_log("[install] copied /tmp/install-debug.log → /mnt/install-debug.log\n");
+            } else {
+                ac_log("[install] /mnt/install-debug.log copy failed (errno=%d: %s)\n",
+                       errno, strerror(errno));
             }
             fclose(src);
         }

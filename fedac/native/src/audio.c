@@ -423,8 +423,19 @@ static void *audio_thread_fn(void *arg) {
         pthread_mutex_lock(&audio->lock);
 
         for (unsigned int i = 0; i < period_frames; i++) {
-            double mix_l = 0.0, mix_r = 0.0;
-            double voice_sum = 0.0; // Total voice weight for auto-mix
+            // Split the voice bus in two: TONES get auto-mix normalization
+            // (divide by total voice weight so held chords stay balanced),
+            // DRUMS stack additively (so a kick+snare+hat transient sums to
+            // a louder peak instead of ducking itself). soft_clip at the end
+            // catches any drum peak excess with tanh saturation — which
+            // gives percussion a natural analog "push" character.
+            //
+            // Heuristic: a voice is percussive if it has a SHORT FINITE
+            // duration (< 0.5s). Held tones (duration = Infinity) and
+            // long one-shot tones always go through the auto-mix bus.
+            double tone_l = 0.0, tone_r = 0.0;
+            double drum_l = 0.0, drum_r = 0.0;
+            double voice_sum = 0.0; // Tone-only voice weight for auto-mix
 
             for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
                 ACVoice *voice = &audio->voices[v];
@@ -437,14 +448,22 @@ static void *audio_thread_fn(void *arg) {
 
                 double left_gain = (1.0 - voice->pan) * 0.5;
                 double right_gain = (1.0 + voice->pan) * 0.5;
-                mix_l += amp * left_gain;
-                mix_r += amp * right_gain;
 
-                // Track voice weight for smooth auto-mix
-                if (voice->state == VOICE_KILLING) {
-                    voice_sum += voice->volume * (1.0 - voice->fade_elapsed / voice->fade_duration);
+                int is_percussive = !isinf(voice->duration) && voice->duration < 0.5;
+                if (is_percussive) {
+                    // Drum bus — no auto-mix normalization. Drums stack
+                    // additively and rely on soft_clip for peak control.
+                    drum_l += amp * left_gain;
+                    drum_r += amp * right_gain;
                 } else {
-                    voice_sum += voice->volume;
+                    // Tone bus — contributes to voice_sum for auto-mix.
+                    tone_l += amp * left_gain;
+                    tone_r += amp * right_gain;
+                    if (voice->state == VOICE_KILLING) {
+                        voice_sum += voice->volume * (1.0 - voice->fade_elapsed / voice->fade_duration);
+                    } else {
+                        voice_sum += voice->volume;
+                    }
                 }
 
                 voice->elapsed += dt;
@@ -457,7 +476,8 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Smooth auto-mix divisor — fast attack, slow release
+            // Smooth auto-mix divisor — fast attack, slow release.
+            // Applied ONLY to the tone bus. Drums bypass it entirely.
             double target = voice_sum > 1.0 ? voice_sum : 1.0;
             if (mix_divisor < target)
                 mix_divisor += (target - mix_divisor) * mix_att_coeff;
@@ -465,8 +485,14 @@ static void *audio_thread_fn(void *arg) {
                 mix_divisor += (target - mix_divisor) * mix_rel_coeff;
             if (mix_divisor < 1.0) mix_divisor = 1.0;
 
-            mix_l /= mix_divisor;
-            mix_r /= mix_divisor;
+            tone_l /= mix_divisor;
+            tone_r /= mix_divisor;
+
+            // Merge the two buses. Drums land at full amplitude (possibly
+            // pushing above 1.0 on a heavy hit); the final soft_clip tanh
+            // handles the peak without harsh clipping.
+            double mix_l = tone_l + drum_l;
+            double mix_r = tone_r + drum_r;
 
             // Mix sample voices (pitch-shifted playback)
             // Lock already held from line 246 — safe to read sample_buf
