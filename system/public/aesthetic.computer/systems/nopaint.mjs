@@ -64,12 +64,12 @@ function log(api, event, data = {}) {
 
 // Used when defining a custom piece functions in a nopaint system brush to
 // inherit common behavior.
-function nopaint_boot({ 
-  system, 
-  store, 
-  nopaint, 
-  screen, 
-  wipe, 
+function nopaint_boot({
+  system,
+  store,
+  nopaint,
+  screen,
+  wipe,
   api,
   params,
   colon,
@@ -137,17 +137,17 @@ function nopaint_cancelStroke() {
 // 📊 Trigger bake flash effect
 function nopaint_triggerBakeFlash() {
   bakeFlashTime = performance.now();
-  
+
   // Cancel any existing animation
   if (animationId) {
     cancelAnimationFrame(animationId);
   }
-  
+
   // Start continuous animation using requestAnimationFrame
   const animateFlash = () => {
     const currentTime = performance.now();
     const timeSinceBake = currentTime - bakeFlashTime;
-    
+
     if (timeSinceBake < bakeFlashDuration) {
       // Still flashing, continue animation and trigger needsPaint
       if (needsPaintRef) {
@@ -159,7 +159,7 @@ function nopaint_triggerBakeFlash() {
       animationId = null;
     }
   };
-  
+
   // Start the animation
   animationId = requestAnimationFrame(animateFlash);
 }
@@ -179,6 +179,15 @@ function nopaint_act({
   jump,
   debug,
 }) {
+  // 🤖 Robot lock: when a robot is driving the nopaint system, ignore all
+  // non-robot pen events so the hardware mouse can't interfere with the
+  // synthetic gesture.
+  if (system?.nopaint?.robotActive && e?.device && e.device !== "robot") {
+    const penEventNames = ["touch", "lift", "draw", "move"];
+    const isPenEvent = penEventNames.some((name) => e.is?.(name) || e.is?.(`${name}:1`) || e.is?.(`${name}:2`));
+    if (isPenEvent) return;
+  }
+
   // Debug logging: Log ALL events with device info to see what's actually happening
   if (e.device && (e.device === "touch" || e.device === "pen" || e.device === "robot" || e.device !== "mouse")) {
     log(api, 'RAW_EVENT', {
@@ -218,9 +227,9 @@ function nopaint_act({
 
   if (e.is("touch:1")) {
     const timestamp = performance.now();
-    
+
     state = "painting";
-    
+
     system.nopaint.updateBrush(api, "touch");
 
     // Reset preserved geometry for new stroke
@@ -263,7 +272,7 @@ function nopaint_act({
 
     // Safe check for gesture record to prevent undefined access
     const lastRecord = rec.length > 0 ? rec[rec.length - 1] : null;
-    const shouldAddPoint = !lastRecord || 
+    const shouldAddPoint = !lastRecord ||
       system.nopaint.brush.x !== lastRecord[2] ||
       system.nopaint.brush.y !== lastRecord[3];
 
@@ -299,9 +308,9 @@ function nopaint_act({
     (e.device === "mouse" || e.device === "pen" || e.device === "touch" || e.device === "robot")
   ) {
     const timestamp = performance.now();
-    
+
     state = "idle";
-    
+
     if (!system.nopaint.bakeOnLeave) system.nopaint.needsBake = true;
 
     // 📊 Trigger needsPaint after lift to ensure HUD updates
@@ -330,7 +339,7 @@ function nopaint_act({
 
     // 🎯 PRESERVE coordinates for baking before clearing state
     // This fixes the geometry mismatch issue where bake() had no access to dragBox coordinates
-    
+
     if (system.nopaint.brush && system.nopaint.brush.dragBox) {
       system.nopaint.finalDragBox = {
         x: system.nopaint.brush.dragBox.x,
@@ -362,13 +371,13 @@ function nopaint_act({
   if (e.is("move")) {
     cursor.x = pen.x;
     cursor.y = pen.y;
-    
+
     // 📊 Only update brush during move if we're actively painting
     // This prevents overwriting preserved coordinates after lift
     if (nopaint_is("painting")) {
       system.nopaint.updateBrush(api, "move");
     }
-    
+
     // 🚫 ROBOT FIX: Don't call needsPaint() if everything is already complete
     // After robot completes, needsBake=false and needsPresent=false, so no need to trigger more painting
     // BUT: Also call needsPaint() if needsPresent=true to process pending display updates
@@ -432,7 +441,7 @@ function nopaint_act({
     nopaint_is("panning") &&
     (e.is("keyboard:up:shift") || e.is("lift:2") || e.is("lift:1") || (e.is("keyboard") && !e.shift))
   ) {
-    // 🚨 SAFEGUARD: If this is a lift event and previousState was "painting", 
+    // 🚨 SAFEGUARD: If this is a lift event and previousState was "painting",
     // we should go to "idle" instead to prevent stuck painting state
     if ((e.is("lift:1") || e.is("lift:2")) && previousState === "painting") {
       state = "idle";
@@ -440,7 +449,7 @@ function nopaint_act({
       // if (debug) console.log("🧭 Not panning...");
       state = previousState; // Restore previous state
     }
-    
+
     previousState = "idle"; // Reset
     system.nopaint.storeTransform(store, system); // Store the translation after completion.
   }
@@ -540,7 +549,7 @@ function nopaint_adjust(
     if (isNaN(width) || isNaN(height)) return false;
 
     // Save and reset pan translation to prevent offset during resize
-    const savedPan = api.graph?.savepan ? 
+    const savedPan = api.graph?.savepan ?
       { x: api.graph.panTranslation?.x || 0, y: api.graph.panTranslation?.y || 0 } : null;
     if (api.graph?.unpan) api.graph.unpan();
 
@@ -552,11 +561,11 @@ function nopaint_adjust(
         // Detect if we are in light or dark mode...
         // $common
         p.wipe(theme[dark ? "dark" : "light"].wipeNum);
-        
+
         // Only paste the old painting if we're resizing, not creating a new one
         // Check if slug indicates this is a "new" operation (which should start fresh)
         const isNewPainting = slug && (slug === "new" || slug.startsWith("new~"));
-        
+
         if (!isNewPainting && sys.painting) {
           p.paste(sys.painting);
         }
@@ -601,12 +610,12 @@ function nopaint_paint({
 }) {
   // Store reference to needsPaint for flash animations
   needsPaintRef = needsPaint;
-  
+
   // Ensure needsPresent is set to trigger display updates
   if (system?.nopaint) {
     system.nopaint.needsPresent = true;
   }
-  
+
   // 📊 ALWAYS return true to ensure continuous painting for performance HUD
   return true;
 }
@@ -641,12 +650,12 @@ function nopaint_renderPerfHUD({
   const hudHeight = 80;
   const x = screen.width - hudWidth - 2;
   const y = 2;
-  
+
   // 📊 Check if we should flash (bake effect)
   const currentTime = performance.now();
   const timeSinceBake = currentTime - bakeFlashTime;
   const isFlashing = timeSinceBake < bakeFlashDuration;
-  
+
   // Semi-transparent background (flash bright when baking)
   if (isFlashing) {
     // Flash bright white/yellow during bake
@@ -657,7 +666,7 @@ function nopaint_renderPerfHUD({
     ink(0, 0, 0, 200);
   }
   box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "fill");
-  
+
   // Border (flash bright during bake)
   if (isFlashing) {
     const flashIntensity = Math.max(0, 1 - (timeSinceBake / bakeFlashDuration));
@@ -667,16 +676,16 @@ function nopaint_renderPerfHUD({
     ink(100, 255, 100, 255);
   }
   box(x - 1, y - 1, hudWidth + 2, hudHeight + 2, "outline");
-  
+
   // Pen state data
   let lineY = y + 1;
   const lineHeight = 8;
-  
+
   // Title
   ink(255, 255, 255);
   write("NOPAINT PERF", { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
   lineY += lineHeight + 2;
-  
+
   if (pen) {
     // Pen coordinates
     ink(100, 200, 255);
@@ -684,31 +693,31 @@ function nopaint_renderPerfHUD({
     const penY = (typeof pen.y === 'number') ? pen.y : 0;
     write(`X:${penX.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     ink(100, 200, 255);
     write(`Y:${penY.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     // Drag box info if available
     if (pen.dragBox && typeof pen.dragBox.x === 'number' && typeof pen.dragBox.y === 'number') {
       ink(255, 100, 200);
       write(`DRG X:${pen.dragBox.x.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
       lineY += lineHeight;
-      
+
       write(`DRG Y:${pen.dragBox.y.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
       lineY += lineHeight;
-      
+
       if (typeof pen.dragBox.w === 'number') {
         write(`DRG W:${pen.dragBox.w.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
         lineY += lineHeight;
       }
-      
+
       if (typeof pen.dragBox.h === 'number') {
         write(`DRG H:${pen.dragBox.h.toFixed(1)}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
         lineY += lineHeight;
       }
     }
-    
+
     // Additional pen state
     if (pen.pressure !== undefined && typeof pen.pressure === 'number') {
       ink(150, 150, 255);
@@ -719,24 +728,24 @@ function nopaint_renderPerfHUD({
     ink(255, 0, 0);
     write("NO PEN DATA", { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
   }
-  
+
   // Nopaint system state if available
   if (system?.nopaint) {
     // Clean state display - the debugging proved the state management works correctly
     ink(255, 255, 0);
     write(`STATE:${state}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     ink(200, 200, 0);
     write(`PREV:${previousState}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     // Show current painting status with clear color coding
     const isPainting = nopaint_is("painting");
     ink(isPainting ? [0, 255, 0] : [255, 0, 0]);
     write(`PAINT:${isPainting ? "YES" : "NO"}`, { x, y: lineY }, undefined, undefined, false, "MatrixChunky8");
     lineY += lineHeight;
-    
+
     // Show timestamp for reference
     const now = performance.now();
     ink(128, 128, 128);
@@ -760,7 +769,7 @@ function nopaint_handleColor(color, ink, brushName, params, modifiers = "", api 
     const coloredLabel = generateNopaintHUDLabel(brushName, color, params, modifiers);
     api.hud.label(coloredLabel);
   }
-  
+
   if (isFadeColor(color)) {
     // Fade colors now handle alpha automatically via totalizing alpha
     return ink(color);
@@ -780,23 +789,23 @@ function nopaint_parseBrushParams({ params, num, colon }) {
   // Store original params for HUD labeling
   const originalParams = params;
   const modifiers = colon.length > 0 ? `:${colon.join(":")}` : "";
-  
+
   // Parse color using num.parseColor
   const color = num.parseColor(params);
-  
+
   // Parse mode and thickness from colon parameters
   let mode = "fill"; // default
   let thickness = 1; // default
   let centered = false;
-  
+
   if (colon.length > 0) {
     const modeParam = colon[0];
-    
+
     // Check for centered flag
     if (modeParam.includes("c")) {
       centered = true;
     }
-    
+
     // Parse mode (o=outline, i=inline, f=fill)
     if (modeParam.includes("o")) {
       mode = "outline";
@@ -812,7 +821,7 @@ function nopaint_parseBrushParams({ params, num, colon }) {
       mode = "fill";
     }
   }
-  
+
   return {
     color,
     mode,
