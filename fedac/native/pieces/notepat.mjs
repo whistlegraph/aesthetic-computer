@@ -737,49 +737,55 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     // not a held note. No sustain voices, no release transition. Hold duration
     // doesn't affect them. Applies to: kick, snare, clap, snap, closed hat.
 
-    case "c": { // kick — TR-808 mastered for laptop speakers + sub for headphones
+    case "c": { // kick — tight TR-808: transient + short body + optional sub
       const downPan = pan + rn(-0.02, 0.02);
-      // Mastering note: laptop speakers typically roll off below ~150 Hz,
-      // so the 50 Hz sub is inaudible on them. Push the 150-250 Hz range
-      // hard so the kick reads as PUNCH on both laptops and headphones.
-      // The 50 Hz sub adds "boom" on real speakers but laptops hear the
-      // mids as the "kick" character.
+      // Design: emphasize the TRANSIENT peak. Previous version stacked six
+      // loud low-freq sines with long decays which summed into a muddy
+      // "farty" blob on the drum bus (no auto-normalize). New version has
+      // ONE attack, ONE body, ONE sub — each with sharp envelopes.
       //
-      // REMOVED: 4kHz noise beater click that sounded like a digital
-      // pop on laptop speakers. Replaced with a softer 2.5kHz noise
-      // attack that blends into the body instead of cracking.
+      // Layer budget: stick click + pitch snap + body + sub = 4 voices.
+      // The body layer carries most of the perceived "kick" on laptops;
+      // the sub adds depth on real speakers without bleeding into body.
 
-      // Soft stick-like attack (not a "click")
-      sound.synth({ type: "noise", tone: 2500, duration: 0.003, volume: rj(0.35, 0.12) * v, attack: 0.0005, decay: 0.0025, pan: downPan });
-      // Pitch-snap envelope: 180 Hz → decays in ~12ms. This is where
-      // the perceived "thump" starts for laptop speakers.
-      sound.synth({ type: "sine", tone: 180 * pf, duration: 0.018, volume: rj(1.4, 0.08) * v, attack: 0.001, decay: 0.017, pan: downPan });
-      // Main body — 150 Hz sine, the PRIMARY laptop-audible frequency.
-      // Boosted to 2.0 (was 1.6 @ 80Hz) so it actually pushes the speaker.
-      sound.synth({ type: "sine", tone: 150 * pf, duration: 0.10, volume: rj(2.0, 0.08) * v, attack: 0.002, decay: 0.095, pan: downPan });
-      // Mid-low fill at 100 Hz — bridge between body and sub
-      sound.synth({ type: "sine", tone: 100 * pf, duration: 0.16, volume: rj(1.4, 0.10) * v, attack: 0.003, decay: 0.155, pan: downPan });
-      // Triangle "beef" layer at 80 Hz — adds harmonics the speaker CAN
-      // reproduce (fundamental is out of range but 2nd/3rd harmonics land
-      // at 160/240 Hz which laptop speakers handle fine)
-      sound.synth({ type: "triangle", tone: 80 * pf, duration: 0.22, volume: rj(1.4, 0.10) * v, attack: 0.003, decay: 0.215, pan: downPan });
-      // The classic 808 sub — 50 Hz sine, long decay. Inaudible on
-      // laptops but adds the "body" on headphones/subwoofers.
-      sound.synth({ type: "sine", tone: 50 * pf, duration: rj(0.55, 0.20), volume: rj(1.9, 0.10) * v, attack: 0.003, decay: 0.54, pan: downPan });
+      // 1. Stick click — very short noise transient at 2.5kHz for the
+      //    beater attack. This is the CUT that makes the kick audible.
+      sound.synth({ type: "noise", tone: 2500, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
+      // 2. Pitch snap — 200Hz→150Hz perceived sweep via overlapping sines
+      //    Both very short so they read as a single downward "thump"
+      sound.synth({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
+      // 3. Body — 150Hz sine, SHORT decay (40ms). Single tone, not a drone.
+      //    This is the laptop-audible "punch" frequency.
+      sound.synth({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
+      // 4. Mid-low body — 90Hz sine, medium-short decay. Adds weight
+      //    without muddying.
+      sound.synth({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
+      // 5. Sub tail — 55Hz sine, long decay. Inaudible on laptops, adds
+      //    body on headphones/subwoofers. Volume REDUCED from 1.9 to 1.0
+      //    so it doesn't dominate the transient.
+      sound.synth({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
       break;
     }
 
-    case "d": { // snare — TR-808: stick click + tonal pair + wire rattle (one-shot)
+    case "d": { // snare — TR-909-leaning: big transient + short tone + dominant noise
       const downPan = pan + rn(-0.02, 0.02);
-      // Sharp stick-on-head noise transient
-      sound.synth({ type: "noise", tone: 3000, duration: 0.006, volume: rj(0.80, 0.12) * v, attack: 0.0001, decay: 0.006, pan: downPan });
-      // 808 tonal pair — 238/476 Hz
-      sound.synth({ type: "sine", tone: 238 * pf, duration: rj(0.12, 0.20), volume: rj(0.55, 0.10) * v, attack: 0.0005, decay: 0.115, pan: downPan });
-      sound.synth({ type: "sine", tone: 476 * pf, duration: rj(0.12, 0.20), volume: rj(0.45, 0.10) * v, attack: 0.0005, decay: 0.115, pan: downPan });
-      // Bright wire noise
-      sound.synth({ type: "noise", tone: 3000, duration: rj(0.14, 0.20), volume: rj(0.62, 0.12) * v, attack: 0.001, decay: 0.135, pan: downPan + rn(-0.04, 0.04) });
-      // Lower noise body
-      sound.synth({ type: "noise", tone: 1500, duration: rj(0.09, 0.20), volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.085, pan: downPan + rn(-0.04, 0.04) });
+      // Design: previous snare had 808-style LONG tonal pair (120ms) which
+      // exposed the sines as a "bleh" sound — too tonal, not enough snap.
+      // New version leans 909: sharper crack, SHORT tonal pair, noise-
+      // dominant. The 238/476 Hz pair is still there for metallic beat
+      // character but only lasts ~30ms before the noise takes over.
+
+      // 1. Sharp stick crack — higher freq, shorter, LOUDER than before
+      sound.synth({ type: "noise", tone: 3500, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
+      // 2. 808 tonal pair — SHORT decay (30ms was 120ms), QUIETER so noise dominates
+      sound.synth({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      sound.synth({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
+      // 3. Primary wire noise — DOMINANT layer, bright, medium-short decay
+      sound.synth({ type: "noise", tone: 3500, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
+      // 4. Mid wire noise — adds weight without muddiness
+      sound.synth({ type: "noise", tone: 1800, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
+      // 5. Triangle body fundamental — adds warmth, very short
+      sound.synth({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
       break;
     }
 
@@ -3264,10 +3270,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         }
 
         // In drum mode the bottom label is the drum name, not the note.
+        // Prefer the full name ("kick", "snare", "splash") when the pad
+        // has space; fall back to the 3-char abbreviation when tight.
+        // font_1 is 6px per char, so "kick"=26px, "snare"=32px, "splash"=38px,
+        // "cowbell"=44px. Pick full name when btnW >= label width + padding.
         if (drumActive && btnH > 12) {
           if (isActive) ink(255, 255, 255, 210);
           else { const sl = dark ? (sharp ? 100 : 150) : (sharp ? 120 : 80); ink(sl, sl, sl); }
-          const bottomLabel = PERCUSSION_LABELS[letter] || (letter + noteOctave);
+          const fullName = PERCUSSION_NAMES[letter] || "";
+          const shortLabel = PERCUSSION_LABELS[letter] || (letter + noteOctave);
+          const fullPx = fullName.length * 6 + 4;
+          const bottomLabel = (fullName && btnW >= fullPx) ? fullName : shortLabel;
           write(bottomLabel, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
         }
 
