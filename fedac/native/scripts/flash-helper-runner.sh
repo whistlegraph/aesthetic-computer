@@ -188,6 +188,9 @@ SDBOOT_EOF
     if [ "${include_config}" = "yes" ]; then
         cp "${STAGED_ROOT}/config.json" "${mountpoint}/config.json"
     fi
+    if [ -f "${STAGED_ROOT}/wifi_creds.json" ]; then
+        cp "${STAGED_ROOT}/wifi_creds.json" "${mountpoint}/wifi_creds.json"
+    fi
     sync
     umount "${mountpoint}"
 }
@@ -351,10 +354,10 @@ copy_boot_tree_to_vfat "${MAIN_PART}" /mnt/ac-main yes kernel-direct
 # If slim kernel isn't available, falls back to chainloader mode.
 if [ -f "${STAGED_ROOT}/EFI/BOOT/KERNEL-SLIM.EFI" ] && [ -f "${STAGED_ROOT}/initramfs.cpio.gz" ]; then
     log "Using universal boot: splash → systemd-boot → slim kernel + initramfs"
-    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no systemd-boot
+    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi yes systemd-boot
 else
     log "No slim kernel — using chainloader mode (ThinkPad only)"
-    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi no chainloader
+    copy_boot_tree_to_vfat "${EFI_PART}" /mnt/ac-efi yes chainloader
 fi
 populate_mac_partition "${MAC_PART}" /mnt/ac-mac
 
