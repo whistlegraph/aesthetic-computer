@@ -552,6 +552,11 @@ let rightVolDragging = false;
 const REVERSE_MAX_AGE_MS = 12000;
 const REVERSE_MIN_BUFFER_SAMPLES = 256;
 let spaceHeld = false;
+// Last key pressed (for the top-of-screen debug/status label). Any
+// physical key that triggers act() stores its name here. Rendered by
+// the status bar when there's space.
+let lastKeyPressed = "";
+let lastKeyFrame = 0;
 let reversePhaseStartMs = Date.now();
 let reversePlaybackSound = null;
 
@@ -1531,6 +1536,10 @@ function act({ event: e, sound, wifi, system }) {
   if (e.is("keyboard:down")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
+    // Track the most recent physical key for the top status-bar label.
+    // Shown in the status bar via statusWrite() when there's space.
+    lastKeyPressed = key;
+    lastKeyFrame = frame;
     // Note: we do NOT alias media-key scancodes (audiomute, audiovolumedown,
     // brightnessdown, etc.) to F-keys anymore. Different laptops place those
     // media functions on different top-row positions (e.g. X1 Nano puts mute
@@ -2648,6 +2657,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite(usbMidiText, 255, 190, 80, 220);
   } else {
     statusWrite(usbMidiText, FG_DIM, FG_DIM, FG_DIM, 200);
+  }
+
+  // Last key pressed — fades from bright to dim over ~60 frames (1s) so
+  // rapid-fire input flashes are visible while idle state stays subtle.
+  if (lastKeyPressed) {
+    const age = frame - lastKeyFrame;
+    const fadeA = age < 60 ? Math.max(100, 255 - Math.floor(age * 2.5)) : 100;
+    statusWrite("key:" + lastKeyPressed, 180, 220, 255, fadeA);
   }
 
   const relayText = udpMidiRelayStatusText(system);
