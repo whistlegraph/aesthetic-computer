@@ -175,20 +175,24 @@ in
     }
   '';
 
-  # SRT streamer: pushes notepat framebuffer over WiFi to OBS on Windows,
-  # which then forwards to TikTok Live.
+  # SRT streamer: pushes notepat video + audio to silo.aesthetic.computer
+  # via MediaMTX relay. Viewers pull RTMP/SRT/HLS from silo.
   #
   # Opt-in: only starts if /mnt/stream.conf exists on the USB config partition.
-  # Create /mnt/stream.conf with:
-  #   HOST=192.168.1.100    # Windows host IP on LAN
-  #   PORT=9000             # SRT port (OBS Media Source listens here)
-  #   BITRATE=6M            # encode bitrate
-  #   FRAMERATE=60          # capture fps
-  #   SRT_LATENCY=40        # ms — lower = less latency, more fragile on bad WiFi
-  #   WIDTH=1280            # output width (scale from native)
-  #   HEIGHT=720            # output height
+  # Minimal stream.conf (just enable with defaults):
+  #   CHANNEL=my-device
+  #
+  # Optional overrides in stream.conf:
+  #   HOST=silo.aesthetic.computer  # relay server (default: silo)
+  #   PORT=9000                     # SRT port
+  #   BITRATE=6M                    # encode bitrate
+  #   FRAMERATE=60                  # capture fps
+  #   SRT_LATENCY=120               # ms — tuned for internet (not LAN)
+  #   WIDTH=1280                    # output width
+  #   HEIGHT=720                    # output height
+  #   AUDIO_BITRATE=128k            # audio encode bitrate
   systemd.services.ac-native-stream = {
-    description = "AC Native SRT streamer (to OBS → TikTok)";
+    description = "AC Native SRT streamer (to silo relay)";
     after = [ "ac-native-kiosk.service" "mount-usb-config.service" ];
     wants = [ "ac-native-kiosk.service" ];
     wantedBy = [ "multi-user.target" ];
@@ -206,12 +210,12 @@ in
     serviceConfig = {
       Type = "simple";
       Restart = "on-failure";
-      RestartSec = 3;
+      RestartSec = 5;
       EnvironmentFile = "/mnt/stream.conf";
 
       ExecStartPre = pkgs.writeShellScript "ac-native-stream-wait" ''
         # Give the kiosk a moment to grab DRM master and start rendering
-        sleep 2
+        sleep 3
 
         for _ in $(seq 1 40); do
           ls /dev/dri/card* >/dev/null 2>&1 && break
@@ -227,22 +231,26 @@ in
       ExecStart = pkgs.writeShellScript "ac-native-stream" ''
         set -u
 
-        HOST="''${HOST:?HOST not set in /mnt/stream.conf}"
+        # Defaults tuned for internet relay via silo
+        HOST="''${HOST:-silo.aesthetic.computer}"
         PORT="''${PORT:-9000}"
+        CHANNEL="''${CHANNEL:-$(hostname)}"
         BITRATE="''${BITRATE:-6M}"
         FRAMERATE="''${FRAMERATE:-60}"
-        SRT_LATENCY="''${SRT_LATENCY:-40}"
+        SRT_LATENCY="''${SRT_LATENCY:-120}"
         WIDTH="''${WIDTH:-1280}"
         HEIGHT="''${HEIGHT:-720}"
+        AUDIO_BITRATE="''${AUDIO_BITRATE:-128k}"
 
         CARD="$(ls /dev/dri/card* 2>/dev/null | head -n1)"
         [ -n "$CARD" ] || { echo "[stream] no DRM card"; exit 1; }
 
-        URL="srt://''${HOST}:''${PORT}?mode=caller&latency=''${SRT_LATENCY}&pkt_size=1316&tlpktdrop=1"
-        echo "[stream] capturing $CARD at ''${FRAMERATE}fps → $URL"
+        STREAMID="publish:/''${CHANNEL}"
+        URL="srt://''${HOST}:''${PORT}?mode=caller&streamid=''${STREAMID}&latency=''${SRT_LATENCY}&pkt_size=1316&tlpktdrop=1"
+        echo "[stream] channel: ''${CHANNEL}"
+        echo "[stream] capturing $CARD at ''${FRAMERATE}fps"
         echo "[stream] encode: h264_vaapi ''${WIDTH}x''${HEIGHT} @ ''${BITRATE}"
-
-        AUDIO_BITRATE="''${AUDIO_BITRATE:-128k}"
+        echo "[stream] → $URL"
 
         exec ${pkgs.ffmpeg-full}/bin/ffmpeg \
           -hide_banner -loglevel warning \
