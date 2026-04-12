@@ -1,0 +1,33 @@
+# MediaMTX relay config for AC Native live streaming.
+# Accepts SRT push from ac-native devices, serves RTMP/HLS for viewers.
+#
+# Stream paths are channel names (e.g. /jeffrey, /notepat-001).
+# Push:  srt://silo.aesthetic.computer:9000?streamid=publish:/<channel>
+# Pull:  rtmp://silo.aesthetic.computer:1935/<channel>
+#        srt://silo.aesthetic.computer:9000?streamid=read:/<channel>
+# HLS:   http://silo.aesthetic.computer:8888/<channel>
+
+logLevel: info
+logDestinations: [stdout]
+
+# Allow any path — each ac-native device picks its own channel name.
+paths:
+  all_others:
+
+# SRT: ac-native devices push here
+srt: yes
+srtAddress: :9000
+
+# RTMP: OBS / TikTok Studio pulls from here
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS: browser preview
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+
+# Disable unused protocols
+rtsp: no
+webrtc: no
+srtpEnabled: no
