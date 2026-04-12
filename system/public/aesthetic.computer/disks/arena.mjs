@@ -50,6 +50,12 @@ const walkedTiles = new Map();
 let lastHitWorld = null;   // [x, z] or null
 let lastPenScreen = null;  // [x, y] or null
 
+// Axis-sign experiment toggle. Press F to cycle. See the hover raycast for
+// what each bit flips.
+//   0 = baseline          1 = flipX
+//   2 = flipZ             3 = flip both
+let hoverFlipMode = 2; // current best guess: Z flipped per experiments
+
 // ⚡ Adaptive-quality flags driven by measured render FPS. Auto-toggle in
 // paint() based on the rolling frame-time average. Pieces can override via the
 // HUD labels (future: click to pin). "LOW" = coarser tile, static lava, skip
@@ -552,19 +558,22 @@ function sim({ system, pen, screen }) {
   lastHitWorld = null;
   lastPenScreen = penLocked ? null : [mx, my];
   if (fy < -0.001) {
-    // EXPERIMENT: Z convention flip test. If the raycast hits the wrong tile
-    // mirrored across the player, flipping Z in both ray origin AND direction
-    // is a point reflection across the XY plane through origin. If this
-    // makes the hover tile correct, we know Z-axis in engine is inverted
-    // from what my derivation assumed. (Direction-only or origin-only flips
-    // would not cause a clean mirror; we need both or neither.)
-    const camWorldX = -cam.x;
+    // Ray origin + direction. The hoverFlipMode toggle lets us A/B all four
+    // axis-sign combinations without editing source — press F to cycle.
+    //   0 = no flip              (baseline derivation)
+    //   1 = flip X (hit.x)
+    //   2 = flip Z (hit.z)
+    //   3 = flip both
+    const flipX = (hoverFlipMode & 1) !== 0;
+    const flipZ = (hoverFlipMode & 2) !== 0;
+    const camWorldX = flipX ? cam.x  : -cam.x;
     const camWorldY = -cam.y;
-    const camWorldZ = cam.z;        // was -cam.z  (flipped)
-    const fzAdj     = -fz;          // flipped direction
+    const camWorldZ = flipZ ? cam.z  : -cam.z;
+    const fxAdj     = flipX ? -fx    : fx;
+    const fzAdj     = flipZ ? -fz    : fz;
     const t = (GROUND_Y - camWorldY) / fy;
     if (t > 0 && t < 200) {
-      const hitX = camWorldX + t * fx;
+      const hitX = camWorldX + t * fxAdj;
       const hitZ = camWorldZ + t * fzAdj;
       hoverTile = tileAt(hitX, hitZ);
       lastHitWorld = [hitX, hitZ];
@@ -801,6 +810,11 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
   if (perfLowMode) rightLabel("-BODY -ANIM", margin + lineH * 7);
   else if (perfMedMode) rightLabel("-LAVA-ANIM", margin + lineH * 7);
 
+  // Hover-flip experiment — press F to cycle, label shows current mode.
+  const flipNames = ["F:NONE", "F:X", "F:Z", "F:XZ"];
+  ink(255, 200, 80);
+  rightLabel(flipNames[hoverFlipMode], margin + lineH * 8);
+
   // Speed meter (bottom-center). speedSmoothed is per-sim-tick position delta;
   // sim runs at SIM_HZ, so ups = perTickDelta * SIM_HZ.
   const ups = speedSmoothed * SIM_HZ;
@@ -856,6 +870,13 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
 function act({ event: e, penLock, system }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
+
+  // F cycles the hover axis-flip experiment (0 = no flip, 1 = X, 2 = Z, 3 = both).
+  if (e.is("keyboard:down:f")) {
+    hoverFlipMode = (hoverFlipMode + 1) & 3;
+    console.log("🔄 hoverFlipMode →", hoverFlipMode,
+      ["baseline", "flipX", "flipZ", "flipBoth"][hoverFlipMode]);
+  }
 
   // 🎥 Middle-mouse toggles third-person (press once to enter, press again
   // to exit). Only trigger on touch so the release doesn't also flip.
