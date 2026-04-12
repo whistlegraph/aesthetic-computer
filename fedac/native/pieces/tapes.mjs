@@ -144,14 +144,29 @@ function act({ event: e, system, sound }) {
       if (h) fetchCloudTapes(system, h);
       return;
     }
+    // If a tape is already playing, space/enter toggles pause.
+    if ((key === "enter" || key === " " || key === "space") &&
+        sound?.deck?.decks?.[0]?.loaded) {
+      const d0 = sound.deck.decks[0];
+      if (d0.playing) {
+        sound.deck.pause?.(0);
+        msg("paused");
+      } else {
+        sound.deck.play(0);
+        msg("resumed");
+      }
+      return;
+    }
     if (key === "enter" || key === " " || key === "space") {
       if (tapes.length > 0) {
         const t = tapes[selection];
         if (t.source === "local") {
           // Play via deck 0 — same mechanism the dj piece uses.
+          // Theatre-mode: ask for a larger video preview (480x270, 24fps)
+          // so playback fills the screen rather than being a thumbnail.
           const ok = sound?.deck?.load?.(0, t.path);
           if (ok) {
-            const videoOk = sound?.deck?.prepareVideo?.(0, 120, 68, 12);
+            const videoOk = sound?.deck?.prepareVideo?.(0, 480, 270, 24);
             sound.deck.play(0);
             nowPlaying = t.name;
             msg((videoOk ? "playing local " : "playing audio-only local ") + t.name);
@@ -165,7 +180,7 @@ function act({ event: e, system, sound }) {
           // URL loading, otherwise instruct the user.
           const ok = sound?.deck?.load?.(0, t.mp4Url);
           if (ok) {
-            const videoOk = sound?.deck?.prepareVideo?.(0, 120, 68, 12);
+            const videoOk = sound?.deck?.prepareVideo?.(0, 480, 270, 24);
             sound.deck.play(0);
             nowPlaying = t.slug + ".mp4";
             msg((videoOk ? "streaming " : "streaming audio-only ") + t.slug);
@@ -215,6 +230,16 @@ function act({ event: e, system, sound }) {
       return;
     }
     if (key === "escape") {
+      // If a tape is playing, Escape stops playback and returns to list.
+      // Press Escape again from the list to return to the prompt.
+      const d0 = sound?.deck?.decks?.[0];
+      if (d0?.loaded) {
+        sound?.deck?.stop?.(0);
+        sound?.deck?.unload?.(0);
+        nowPlaying = "";
+        msg("stopped");
+        return;
+      }
       system?.jump?.("prompt");
       return;
     }
@@ -224,56 +249,94 @@ function act({ event: e, system, sound }) {
 function paint({ wipe, ink, box, line, write, screen, sound }) {
   const w = screen.width;
   const h = screen.height;
-  wipe(16, 14, 20);
   const deck0 = sound?.deck?.decks?.[0] || null;
-  const showPreview = !!deck0?.loaded;
-  const previewW = showPreview ? Math.min(132, Math.max(92, Math.floor(w * 0.36))) : 0;
-  const listRight = showPreview ? (w - previewW - 12) : (w - 8);
+  const playing = !!deck0?.loaded;
+
+  if (playing) {
+    // === THEATRE MODE ===
+    // Big centered video fills most of the screen. Letterbox top/bottom
+    // in pure black for cinema feel. Title + progress ride at the bottom.
+    wipe(0, 0, 0);
+    // Compute largest 16:9 rectangle that fits with modest chrome
+    const chromeH = 22;           // title + progress band at bottom
+    const maxH = h - chromeH - 4;
+    const maxW = w - 8;
+    let vidW = maxW;
+    let vidH = Math.floor(vidW * 9 / 16);
+    if (vidH > maxH) { vidH = maxH; vidW = Math.floor(vidH * 16 / 9); }
+    const vx = Math.floor((w - vidW) / 2);
+    const vy = Math.floor((maxH - vidH) / 2) + 2;
+    if (deck0?.videoReady) {
+      sound?.deck?.videoBlit?.(0, vx, vy, vidW, vidH);
+    } else {
+      ink(140, 140, 160);
+      write("loading video...", { x: vx + 8, y: vy + Math.floor(vidH / 2), size: 1, font: "font_1" });
+    }
+    // Film border frame
+    ink(60, 60, 80);
+    box(vx - 1, vy - 1, vidW + 2, vidH + 2, "outline");
+    // Title
+    const title = (nowPlaying || deck0?.title || "deck 0").replace(/\.mp4$/, "");
+    ink(220, 230, 250);
+    write(title, { x: 8, y: h - chromeH + 2, size: 1, font: "font_1" });
+    // Paused indicator
+    if (!deck0?.playing) {
+      ink(255, 180, 120);
+      write("[paused]", { x: 8 + title.length * 6 + 8, y: h - chromeH + 2, size: 1, font: "font_1" });
+    }
+    // Progress bar — full width
+    if (deck0?.duration > 0) {
+      const prog = Math.max(0, Math.min(1, (deck0?.position || 0) / deck0.duration));
+      const barY = h - 8;
+      const barX = 8;
+      const barW = w - 16;
+      ink(40, 48, 60);
+      box(barX, barY, barW, 4, true);
+      ink(140, 230, 200);
+      box(barX, barY, Math.max(1, Math.floor(barW * prog)), 4, true);
+      // Time labels
+      const cur = formatTime(deck0.position || 0);
+      const tot = formatTime(deck0.duration || 0);
+      ink(150, 180, 210);
+      write(cur, { x: barX, y: barY - 10, size: 1, font: "font_1" });
+      const totStr = "/ " + tot;
+      write(totStr, { x: w - totStr.length * 6 - 8, y: barY - 10, size: 1, font: "font_1" });
+    }
+    // Hint
+    ink(90, 100, 130);
+    write("space pause · esc stop", { x: w - 150, y: h - chromeH + 2, size: 1, font: "font_1" });
+    // Message
+    if (message && frame - messageFrame < 180) {
+      const age = frame - messageFrame;
+      const a = Math.max(80, 255 - Math.floor(age * 0.8));
+      ink(255, 220, 140, a);
+      write(message, { x: Math.floor(w / 2) - message.length * 3, y: h - chromeH - 12, size: 1, font: "font_1" });
+    }
+    return;
+  }
+
+  // === BROWSER MODE ===
+  wipe(16, 14, 20);
 
   // Title
   ink(200, 220, 255);
   write("tapes", { x: 8, y: 8, size: 2, font: "matrix" });
   ink(120, 140, 170);
-  write("/mnt/tapes  —  ↑↓ nav  enter play  r rescan  del delete  esc prompt",
+  write("↑↓ nav · enter play · r rescan · del delete · esc prompt",
         { x: 80, y: 14, size: 1, font: "font_1" });
 
-  // Tape list
   const listY = 40;
   const rowH = 14;
   const visibleRows = Math.max(1, Math.floor((h - listY - 20) / rowH));
   const scrollStart = Math.max(0, selection - Math.floor(visibleRows / 2));
   const scrollEnd = Math.min(tapes.length, scrollStart + visibleRows);
-
-  if (showPreview) {
-    const px = listRight + 4;
-    const py = 40;
-    const ph = Math.min(h - 60, Math.floor(previewW * 0.62));
-    ink(36, 44, 58, 220);
-    box(px - 2, py - 2, previewW + 4, ph + 18, true);
-    if (deck0?.videoReady) {
-      sound?.deck?.videoBlit?.(0, px, py, previewW, ph);
-    } else {
-      ink(120, 140, 170);
-      write("video buffering...", { x: px + 8, y: py + Math.floor(ph / 2), size: 1, font: "font_1" });
-    }
-    ink(220, 230, 240);
-    write("now playing", { x: px, y: py + ph + 4, size: 1, font: "font_1" });
-    ink(150, 180, 210);
-    write((nowPlaying || deck0?.title || "deck 0").replace(/\.mp4$/, ""), { x: px, y: py + ph + 14, size: 1, font: "font_1" });
-    if (deck0?.duration > 0) {
-      const prog = Math.max(0, Math.min(1, (deck0?.position || 0) / deck0.duration));
-      ink(50, 60, 72);
-      box(px, py + ph + 22, previewW, 5, true);
-      ink(120, 220, 180);
-      box(px, py + ph + 22, Math.max(1, Math.floor(previewW * prog)), 5, true);
-    }
-  }
+  const listRight = w - 8;
 
   if (tapes.length === 0) {
     ink(180, 180, 200);
     write("No tapes recorded yet.", { x: 20, y: listY + 8, size: 1, font: "font_1" });
     ink(120, 140, 170);
-    write("Press PrintScreen in notepat to record a tape.",
+    write("Press PrintScreen (or Insert) in notepat to record.",
           { x: 20, y: listY + 24, size: 1, font: "font_1" });
   } else {
     for (let i = scrollStart; i < scrollEnd; i++) {
@@ -283,18 +346,14 @@ function paint({ wipe, ink, box, line, write, screen, sound }) {
         ink(40, 60, 100, 200);
         box(4, y - 2, listRight - 4, rowH, true);
       }
-      // Source badge (☁ cloud / 📁 local — shown as small ascii tag)
       const badge = t.source === "cloud" ? "C" : "L";
       const badgeColor = t.source === "cloud" ? [120, 220, 180] : [220, 200, 120];
       ink(badgeColor[0], badgeColor[1], badgeColor[2]);
       write(badge, { x: 10, y: y + 2, size: 1, font: "font_1" });
-      // Name
       if (i === selection) ink(255, 255, 255);
       else ink(200, 220, 240);
       let label = t.name.replace(/\.mp4$/, "");
-      if (showPreview && label.length > 20) label = label.slice(0, 20) + "...";
       write(label, { x: 24, y: y + 2, size: 1, font: "font_1" });
-      // Right meta: local shows size, cloud shows code
       ink(140, 160, 190);
       const meta = t.source === "local" ? fmtBytes(t.size) : ("!" + (t.code || "?"));
       const metaX = listRight - meta.length * 6 - 6;
@@ -302,13 +361,19 @@ function paint({ wipe, ink, box, line, write, screen, sound }) {
     }
   }
 
-  // Message line
   if (message && frame - messageFrame < 240) {
     const age = frame - messageFrame;
     const a = Math.max(80, 255 - Math.floor(age * 0.6));
     ink(255, 220, 140, a);
     write(message, { x: 8, y: h - 14, size: 1, font: "font_1" });
   }
+}
+
+function formatTime(s) {
+  if (!Number.isFinite(s) || s < 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ":" + (sec < 10 ? "0" : "") + sec;
 }
 
 function sim() {
