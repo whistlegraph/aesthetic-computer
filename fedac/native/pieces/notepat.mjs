@@ -518,12 +518,17 @@ const NOTE_COLORS = {
   b: [200, 50, 255],
 };
 
-// === PERCUSSION LAYOUT ===
-// Pgup toggles drum kit for the left octave grid, Pgdn for the right.
-// When active, the 12 notes in that grid become drum hits with their own
-// synth recipes and optional per-drum recorded samples.
-let percussionLeft = false;
-let percussionRight = false;
+// === KIT LAYOUT ===
+// Pgup cycles the left octave grid's kit through off → perc → war → off.
+// Pgdn does the same for the right grid. "perc" replaces the 12 notes
+// with drum hits (TR-808 / 909 analogues). "war" replaces them with
+// physically-modeled weapons fired through the WAVE_GUN DWG synth.
+// Per-side state lets a child play drums on one hand and guns on the
+// other.
+let kitLeft = "off";   // "off" | "perc" | "war"
+let kitRight = "off";
+// Backwards-compatible convenience (some code paths just want a bool).
+function percussionActive(side) { return side === "left" ? kitLeft !== "off" : kitRight !== "off"; }
 
 // Per-octave master volume. Two vertical sliders (left of the left grid,
 // right of the right grid) scale every note / drum played on that side so
@@ -706,13 +711,143 @@ const NOTATION_WAVE_RGB = {
   n: [220, 220, 230],   // noise     — pale grey
 };
 
-// Return drum name if the given (letter, grid offset) is a live drum pad, else null.
-// offset 0 = left grid, 1 = right grid. Low/high extras (z, x, ;, ', ]) stay melodic.
-function percussionDrumFor(letter, offset) {
-  if (!PERCUSSION_NAMES[letter]) return null;
-  if (offset === 0 && percussionLeft) return PERCUSSION_NAMES[letter];
-  if (offset === 1 && percussionRight) return PERCUSSION_NAMES[letter];
+// === WAR KIT ===
+// Natural notes = 7 core weapons; sharps = 5 accent items. Each name
+// matches a GunPreset in the native WAVE_GUN synth (see audio.c
+// gun_presets[]). The kit parallels the perc layout so muscle memory
+// transfers: one-shots land on perc-one-shot keys, sustained fire on
+// sustained perc keys (LMG ↔ open hat, sniper ↔ ride, grenade ↔ crash).
+const WAR_NAMES = {
+  c: "pistol", d: "rifle", e: "shotgun", f: "suppressed",
+  g: "smg", a: "lmg", b: "sniper",
+  "c#": "grenade", "d#": "rpg",
+  "f#": "reload", "g#": "cock", "a#": "ricochet",
+};
+
+// 3-char labels for tight pad rendering
+const WAR_LABELS = {
+  c: "PST", d: "RFL", e: "SHG", f: "SUP",
+  g: "SMG", a: "LMG", b: "SNP",
+  "c#": "GRN", "d#": "RPG",
+  "f#": "RLD", "g#": "CCK", "a#": "RIC",
+};
+
+// Gunmetal / field palette — earthy khakis, rusts, steels, brass.
+const WAR_COLORS = {
+  c:    [140, 140, 150], // pistol — gunmetal steel
+  d:    [ 90, 110,  70], // rifle — olive drab
+  e:    [120,  80,  60], // shotgun — brown + steel
+  f:    [ 70,  70,  80], // suppressed — matte black
+  g:    [150, 130,  90], // smg — khaki
+  a:    [100,  90,  60], // lmg — field green
+  b:    [180, 160, 110], // sniper — desert tan
+  "c#": [ 80,  90,  60], // grenade — dark olive
+  "d#": [200, 100,  60], // rpg — rust orange
+  "f#": [130, 130, 140], // reload — silver-gray
+  "g#": [160, 140, 100], // cock — brass
+  "a#": [210, 210, 230], // ricochet — metallic white
+};
+
+// Which weapons sustain while the key is held (release kills the voice).
+const WAR_SUSTAIN = {
+  a: true,   // lmg — retriggers internally via audio.c retrig_period
+  b: true,   // sniper — long reverberant tail
+  "c#": true,// grenade — slow rumbling release
+  "a#": true,// ricochet — pitch drops on release (doppler)
+};
+
+// Finite durations for one-shot weapons (seconds). These control the
+// voice's auto-kill after the internal excitation has rung out. Longer
+// durations preserve the body-mode ring.
+const WAR_DURATION = {
+  c:    0.30,  // pistol
+  d:    0.55,  // rifle
+  e:    0.80,  // shotgun
+  f:    0.20,  // suppressed
+  g:    0.18,  // smg
+  "d#": 2.50,  // rpg (motor burn + delayed boom)
+  "f#": 0.35,  // reload
+  "g#": 0.45,  // cock (rack + lock)
+};
+
+// Release fade on sustained weapons (seconds). Sniper/grenade fade
+// slowly so the tail is audible; LMG snaps off faster.
+const WAR_RELEASE = {
+  a: 0.08,   // lmg — abrupt stop (muzzle cut)
+  b: 0.80,   // sniper — long reverberant fade
+  "c#": 1.20,// grenade — slow rumble-out
+  "a#": 0.35,// ricochet — natural decay after pitch drop
+};
+
+// Stochastic pad graphics (same format as PERCUSSION_NOTATION). These
+// are just visuals — the actual synth is the DWG. Each signature hints
+// at the weapon's spectral content so the pad communicates "what fires".
+const WAR_NOTATION = {
+  c:    [["t",1500,1.0],["n",4000,0.55],["q",8500,0.4]],           // pistol
+  d:    [["n",5000,0.6],["t",800,0.9],["q",2400,0.5],["q",6000,0.4]], // rifle
+  e:    [["n",400,1.6],["n",1200,1.2],["n",3500,0.8]],             // shotgun
+  f:    [["n",700,0.6],["s",1500,0.3]],                             // suppressed
+  g:    [["n",3000,0.5],["q",1200,0.6],["q",3500,0.5]],             // smg
+  a:    [["n",1800,0.8],["t",600,1.0],["q",4500,0.4]],              // lmg
+  b:    [["s",350,1.5],["s",950,1.1],["n",2800,0.7]],               // sniper
+  "c#": [["s", 80,2.0],["n",250,1.5],["n",1200,1.0]],               // grenade
+  "d#": [["n",600,2.0],["n",2000,1.2]],                             // rpg
+  "f#": [["q",2200,0.6],["q",4500,0.5],["n",8000,0.4]],             // reload
+  "g#": [["q",1800,0.6],["q",4200,0.5]],                            // cock
+  "a#": [["s",3000,0.9],["s",5500,0.7],["s",9000,0.5]],             // ricochet
+};
+
+// === KIT HELPERS ===
+// Unified accessors: these return the active-kit metadata for a given
+// (letter, gridOffset) so render code doesn't need to branch on
+// kitLeft/kitRight everywhere.
+function activeKitForOffset(offset) {
+  return offset === 0 ? kitLeft : kitRight;
+}
+function kitNamesFor(kit) {
+  if (kit === "war") return WAR_NAMES;
+  if (kit === "perc") return PERCUSSION_NAMES;
   return null;
+}
+function kitLabelsFor(kit) {
+  if (kit === "war") return WAR_LABELS;
+  if (kit === "perc") return PERCUSSION_LABELS;
+  return null;
+}
+function kitColorsFor(kit) {
+  if (kit === "war") return WAR_COLORS;
+  if (kit === "perc") return PERCUSSION_COLORS;
+  return null;
+}
+function kitNotationFor(kit) {
+  if (kit === "war") return WAR_NOTATION;
+  if (kit === "perc") return PERCUSSION_NOTATION;
+  return null;
+}
+
+// Cycle the kit state for a side: off → perc → war → off.
+function cycleKit(side) {
+  const cur = side === "left" ? kitLeft : kitRight;
+  const next = cur === "off" ? "perc" : (cur === "perc" ? "war" : "off");
+  if (side === "left") kitLeft = next; else kitRight = next;
+  return next;
+}
+
+// Return drum/weapon name if the given (letter, grid offset) is a live
+// kit pad, else null. offset 0 = left grid, 1 = right grid. Low/high
+// extras (z, x, ;, ', ]) stay melodic.
+function percussionDrumFor(letter, offset) {
+  const info = kitDrumFor(letter, offset);
+  return info ? info.name : null;
+}
+// Richer version that also returns which kit is active, so callers can
+// route to the right synth (playPercussion vs playWar).
+function kitDrumFor(letter, offset) {
+  const kit = activeKitForOffset(offset);
+  if (kit === "off") return null;
+  const names = kitNamesFor(kit);
+  if (!names || !names[letter]) return null;
+  return { kit, name: names[letter] };
 }
 
 // === DRUM PAN: QWERTY physical key position ===
@@ -751,10 +886,11 @@ function drumPanFor(letter, gridOffset, key) {
 }
 
 // Push a drum flash entry so paint() will pulse the background in that
-// drum's characteristic color. Called from every drum trigger site
+// drum/weapon's characteristic color. Called from every kit trigger site
 // (keyboard act(), touch-tap, drag-rollover, reverse-playback replay).
-function flashDrum(letter) {
-  const color = PERCUSSION_COLORS[letter] || [200, 200, 200];
+function flashDrum(letter, kit = "perc") {
+  const table = kit === "war" ? WAR_COLORS : PERCUSSION_COLORS;
+  const color = table[letter] || [200, 200, 200];
   drumFlashes.push({ color, frame, life: DRUM_FLASH_LIFE });
   if (drumFlashes.length > 8) drumFlashes.shift();
 }
@@ -848,16 +984,23 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
     }
     hold = makePercussionHold(letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume);
   } else {
-    // Live-play: pass a holdVoices array that playPercussion populates with
-    // infinite-duration sustain voices. These keep ringing until key-up
-    // calls releasePercussionHold, which fades them out per-voice.
+    // Live-play: pass a holdVoices array that the kit synth populates
+    // with sustain voices. These keep ringing until key-up calls
+    // releasePercussionHold, which fades them out per-voice. Dispatch
+    // to the active kit on this grid side.
+    const kit = activeKitForOffset(gridOffset);
     const voices = [];
-    playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
+    if (kit === "war") {
+      playWar(sound, letter, volume, pan, pitchFactor, "down", voices);
+    } else {
+      playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
+    }
     hold = makePercussionHold(letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume);
+    hold.kit = kit;
   }
 
   rememberPercussionHoldFromVoices(hold);
-  flashDrum(letter);
+  flashDrum(letter, hold?.kit || activeKitForOffset(gridOffset));
   recordPlayback({ kind: "drum", letter, octave: octaveValue, vel: volume, pan, pitch: pitchFactor });
   if (key) trail[key] = { note: letter, octave: octaveValue, brightness: 1.0 };
   return hold;
@@ -1197,6 +1340,71 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       addHit({ type: "noise", tone: 4500, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
       break;
     }
+  }
+}
+
+// Fire a WAR-kit weapon through the native WAVE_GUN DWG synth.
+// All the physically-modeled parameters (bore length, body modes,
+// supersonic N-wave, retrigger cadence) live in audio.c's gun_presets[].
+// This function just chooses between a finite one-shot and an infinite-
+// duration sustained voice, and pushes the right release bookkeeping
+// into `holdVoices` so releasePercussionHold can tear it down.
+function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
+  if (!sound?.synth) return;
+  const preset = WAR_NAMES[letter];
+  if (!preset) return;
+  const v = Math.max(0.1, Math.min(2.2, volume));
+  // pitchFactor maps to the DWG's pressure scale rather than a pitch —
+  // harder strikes → more combustion energy. Clamp to sane range.
+  const pressure = Math.max(0.4, Math.min(1.8, pitchFactor));
+  const fireDown = phase !== "up";
+  if (!fireDown) return;
+  const isLive = phase === "down" && Array.isArray(holdVoices);
+  const sustained = !!WAR_SUSTAIN[letter];
+
+  if (sustained && isLive) {
+    // Held weapon — infinite-duration voice killed on release.
+    const handle = sound.synth({
+      type: `gun-${preset}`,
+      tone: pressure,   // encoded as pressure multiplier (see js-bindings.c)
+      duration: Infinity,
+      volume: v,
+      attack: 0,
+      decay: 0,
+      pan,
+    });
+    if (handle) {
+      holdVoices.push({
+        handle,
+        releaseFade: WAR_RELEASE[letter] ?? 0.2,
+        tailSeconds: WAR_RELEASE[letter] ?? 0.5,
+      });
+    }
+    return;
+  }
+
+  // One-shot weapon — finite-duration voice. The native DWG envelope
+  // generates the bang; `duration` just lets body-mode ring continue
+  // for the weapon's characteristic tail before auto-kill.
+  const duration = WAR_DURATION[letter] ?? 0.3;
+  const handle = sound.synth({
+    type: `gun-${preset}`,
+    tone: pressure,
+    duration,
+    volume: v,
+    attack: 0,
+    decay: Math.max(0.02, duration * 0.7),
+    pan,
+  });
+  if (isLive && handle) {
+    // Track the voice so sim() can adjust pan/volume during its tail,
+    // mirroring how addHit does for perc kit.
+    holdVoices.push({
+      handle,
+      ignoreRelease: true,
+      releaseFade: 0,
+      tailSeconds: duration,
+    });
   }
 }
 
@@ -1713,33 +1921,35 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // PgUp: toggle percussion layout on the LEFT octave grid
-    if (key === "pageup") {
-      percussionLeft = !percussionLeft;
-      const label = percussionLeft ? "percussion left on" : "percussion left off";
-      flashPercussionNotice(percussionLeft ? "◀ DRUMS ON" : "◀ drums off");
+    // PgUp: cycle LEFT grid kit (off → perc → war → off).
+    // PgDn: same for RIGHT grid. Each cycle fires a sample of the new
+    // kit ("c" = kick for perc, pistol for war) so the sound confirms
+    // which mode you just entered.
+    if (key === "pageup" || key === "pagedown") {
+      const side = key === "pageup" ? "left" : "right";
+      const arrow = side === "left" ? "◀" : "▶";
+      const pan = side === "left" ? -0.4 : 0.4;
+      const feedbackPan = side === "left" ? -0.6 : 0.6;
+      const next = cycleKit(side);
+      const label = `${side} ${next === "off" ? "notes" : next}`;
+      const banner = {
+        off:  side === "left" ? `${arrow} notes` : `notes ${arrow}`,
+        perc: side === "left" ? `${arrow} DRUMS` : `DRUMS ${arrow}`,
+        war:  side === "left" ? `${arrow} WAR`   : `WAR ${arrow}`,
+      }[next];
+      flashPercussionNotice(banner);
       sound?.speak?.(label);
-      // Rising / falling two-tone feedback
-      sound?.synth?.({ type: "triangle", tone: percussionLeft ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: -0.6 });
+      // Two-tone UI feedback — rising when enabling, falling when off.
+      const isOn = next !== "off";
+      sound?.synth?.({ type: "triangle", tone: isOn ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: feedbackPan });
       setTimeout(() => sound?.synth?.({
-        type: "triangle", tone: percussionLeft ? 660 : 440,
-        duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: -0.6,
+        type: "triangle", tone: isOn ? 660 : 440,
+        duration: 0.10, volume: 0.18, attack: 0.002, decay: 0.09, pan: feedbackPan,
       }), 70);
-      if (percussionLeft) playPercussion(sound, "c", 1.6, -0.4);
-      return;
-    }
-    // PgDn: toggle percussion layout on the RIGHT octave grid
-    if (key === "pagedown") {
-      percussionRight = !percussionRight;
-      const label = percussionRight ? "percussion right on" : "percussion right off";
-      flashPercussionNotice(percussionRight ? "DRUMS ON ▶" : "drums off ▶");
-      sound?.speak?.(label);
-      sound?.synth?.({ type: "triangle", tone: percussionRight ? 440 : 660, duration: 0.08, volume: 0.18, attack: 0.002, decay: 0.07, pan: 0.6 });
-      setTimeout(() => sound?.synth?.({
-        type: "triangle", tone: percussionRight ? 660 : 440,
-        duration: 0.1, volume: 0.18, attack: 0.002, decay: 0.09, pan: 0.6,
-      }), 70);
-      if (percussionRight) playPercussion(sound, "c", 1.6, 0.4);
+      // Preview the kit's signature sound on "c" so the user hears what
+      // they just switched to (kick for perc, pistol for war).
+      if (next === "perc") playPercussion(sound, "c", 1.6, pan);
+      else if (next === "war") playWar(sound, "c", 1.2, pan);
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
@@ -3453,7 +3663,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
 
   function drawGrid(grid, startX, octOffset, side) {
-    const isPerc = (side === "left" && percussionLeft) || (side === "right" && percussionRight);
+    // Active kit for this side: "off" = melodic notes, "perc" = drums,
+    // "war" = physically-modeled weapons. Colors, labels and notation
+    // glyphs all come from the kit tables.
+    const kit = side === "left" ? kitLeft : kitRight;
+    const isKit = kit !== "off";
+    const kitNames = kitNamesFor(kit);
+    const kitLabels = kitLabelsFor(kit);
+    const kitColors = kitColorsFor(kit);
+    const kitNotation = kitNotationFor(kit);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const noteName = grid[r][c];
@@ -3466,8 +3684,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const isActive = key && sounds[key] !== undefined;
         const trailInfo = key && trail[key];
         const sharp = letter.includes("#");
-        const drumActive = isPerc && !!PERCUSSION_NAMES[letter];
-        const nc = drumActive ? (PERCUSSION_COLORS[letter] || noteColor(letter)) : noteColor(letter);
+        const drumActive = isKit && kitNames && !!kitNames[letter];
+        const nc = drumActive ? (kitColors[letter] || noteColor(letter)) : noteColor(letter);
 
         const x = startX + c * (btnW + gap);
         const y = gridTop + r * (btnH + gap);
@@ -3532,7 +3750,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         // positions jitter by ±1 px and noise dots are re-scattered, so the
         // viewer sees the randomness mechanism animating even when idle.
         if (drumActive) {
-          const sig = PERCUSSION_NOTATION[letter];
+          const sig = kitNotation && kitNotation[letter];
           if (sig) {
             // Usable plot area inside the pad (leave room for label at top
             // and bottom-label area).
@@ -3607,8 +3825,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         if (drumActive && btnH > 12) {
           if (isActive) ink(255, 255, 255, 210);
           else { const sl = dark ? (sharp ? 100 : 150) : (sharp ? 120 : 80); ink(sl, sl, sl); }
-          const fullName = PERCUSSION_NAMES[letter] || "";
-          const shortLabel = PERCUSSION_LABELS[letter] || (letter + noteOctave);
+          const fullName = (kitNames && kitNames[letter]) || "";
+          const shortLabel = (kitLabels && kitLabels[letter]) || (letter + noteOctave);
           const fullPx = fullName.length * 6 + 4;
           const bottomLabel = (fullName && btnW >= fullPx) ? fullName : shortLabel;
           write(bottomLabel, { x: x + 2, y: y + btnH - 12, size: 1, font: "font_1" });
@@ -4399,7 +4617,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["shift",      "quick mode"],
       ]],
       ["DRUMS", [255, 140, 90], [
-        ["pgup/pgdn",  "drum kit L / R"],
+        ["pgup/pgdn",  "kit L / R: off\u2192drums\u2192war"],
         ["space",      "reverse loop pedal"],
       ]],
       ["WAVE", [220, 140, 255], [

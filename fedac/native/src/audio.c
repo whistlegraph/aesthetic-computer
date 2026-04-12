@@ -240,6 +240,322 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     return 0.3 * into_bore;
 }
 
+// ============================================================
+// Gun DWG (digital waveguide barrel model)
+// ============================================================
+//
+// Signal flow (per voice, per sample):
+//
+//    excitation ──► (+) ──► boreDelay ─┬──► muzzleHPF ──► out
+//                    ▲                 │
+//                    │ breech_reflect  │
+//                    │                 ▼
+//                    └─── boreLP ◄──── (−1 open-end refl)
+//
+//    excitation ──► 3× bodyModes ──► +out
+//                   (parallel)
+//
+// The bore delay line (length = bore_length_s × SR) is a closed-breech
+// (+), open-muzzle (−) acoustic tube — the fundamental cavity resonance
+// of the barrel. Bore length sets the "boom" frequency; bore_loss LPF
+// damps the loop so it rings briefly rather than sustains like a flute.
+//
+// The excitation is NOT continuous (unlike the whistle's DC breath); it's
+// a short-lived pressure pulse that decays exponentially with rate
+// env_decay_mult, modeling combustion gas expansion. Turbulent noise rides
+// on top (noise_gain) for the broadband hiss/crack content.
+//
+// Body modes are 3 parallel resonators (unit-gain pole pair) representing
+// the steel barrel/receiver ringing from the stress wave. These give each
+// weapon its metallic "character" — sniper rings lower & longer, SMG
+// rings brighter & shorter.
+//
+// N-wave (supersonic crack) and two-click (cock/reload) are modeled as
+// delayed secondary triggers via gun_secondary_trig / gun_secondary_amp.
+//
+// Ricochet uses the pitch-sweep machinery (gun_pitch_mult) which stretches
+// the bore delay during release — creates a doppler-style pitch drop.
+//
+// Bore buffer is SHARED with the whistle (whistle_bore_buf) since a voice
+// is only ever one wave type. 2048 samples at 192kHz covers down to ~94 Hz.
+
+typedef struct {
+    double bore_length_s;       // seconds (= 2L/c for half-wave open tube)
+    double bore_loss;           // 1-pole LPF alpha in loop (higher = brighter, lower = duller)
+    double breech_reflect;      // 0..1 (closed end, 1=perfect reflection)
+    double pressure;            // excitation peak level
+    double env_rate;            // excitation decay rate (1/sec): ~3000 = tight, ~300 = slow
+    double noise_gain;          // turbulent gas noise amount
+    double body_freq[3];        // body mode freqs (Hz)
+    double body_q[3];           // body mode Q (higher = longer ring)
+    double body_amp[3];         // body mode mix amplitudes
+    double radiation;           // muzzle HPF 1-zero coefficient (higher = brighter radiation)
+    double secondary_delay_s;   // 0 = no 2nd trigger; else seconds until N-wave/2nd click
+    double secondary_amp;       // amplitude of 2nd trigger relative to primary
+    int    sustain_fire;        // 1 = retrigger while held (LMG)
+    double retrig_period_s;     // seconds between retrigs (60/RPM)
+} GunPresetParams;
+
+// Per-weapon DWG parameters. Tuned from published barrel dimensions +
+// forensic acoustic characterizations; tweak by ear after testing.
+// c (speed of sound) ≈ 340 m/s → bore_length_s = 2·L/c for a half-wave
+// open tube. Example: pistol L=0.1m → 0.000588s.
+static const GunPresetParams gun_presets[GUN_PRESET_COUNT] = {
+    // --- GUN_PISTOL (9mm, L≈100mm) — sharp crack, little sub, quick tail
+    { .bore_length_s = 0.000588, .bore_loss = 0.55, .breech_reflect = 0.92,
+      .pressure = 1.2, .env_rate = 3000.0, .noise_gain = 0.6,
+      .body_freq = {1500, 4000, 8500}, .body_q = {30, 25, 20},
+      .body_amp = {0.30, 0.20, 0.15}, .radiation = 0.985,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_RIFLE (AR-15, L≈400mm) — crack + body ring + supersonic N-wave
+    { .bore_length_s = 0.00235, .bore_loss = 0.50, .breech_reflect = 0.95,
+      .pressure = 1.5, .env_rate = 2500.0, .noise_gain = 0.5,
+      .body_freq = {800, 2400, 6000}, .body_q = {35, 30, 22},
+      .body_amp = {0.35, 0.25, 0.15}, .radiation = 0.988,
+      .secondary_delay_s = 0.0008, .secondary_amp = 0.55,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_SHOTGUN (12ga, L≈660mm, wide bore) — low boom + scatter
+    { .bore_length_s = 0.00388, .bore_loss = 0.40, .breech_reflect = 0.88,
+      .pressure = 1.8, .env_rate = 1800.0, .noise_gain = 0.9,
+      .body_freq = {400, 1200, 3500}, .body_q = {20, 18, 15},
+      .body_amp = {0.40, 0.25, 0.15}, .radiation = 0.965,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_SMG (MP5, L≈225mm) — fast mid-crack
+    { .bore_length_s = 0.00132, .bore_loss = 0.58, .breech_reflect = 0.92,
+      .pressure = 1.0, .env_rate = 3500.0, .noise_gain = 0.5,
+      .body_freq = {1200, 3500, 7500}, .body_q = {32, 28, 20},
+      .body_amp = {0.30, 0.20, 0.13}, .radiation = 0.978,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_SUPPRESSED (pistol with can) — muffled "pfft"
+    // Heavy bore loss simulates absorptive suppressor baffles; low radiation
+    // HPF keeps the bright crack from escaping.
+    { .bore_length_s = 0.00100, .bore_loss = 0.85, .breech_reflect = 0.80,
+      .pressure = 0.5, .env_rate = 1500.0, .noise_gain = 1.0,
+      .body_freq = {600, 1500, 3000}, .body_q = {10, 8, 6},
+      .body_amp = {0.15, 0.10, 0.05}, .radiation = 0.85,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_LMG (M60, L≈560mm, auto-fire) — held = rapid fire ~600 RPM
+    { .bore_length_s = 0.00329, .bore_loss = 0.48, .breech_reflect = 0.94,
+      .pressure = 1.4, .env_rate = 2200.0, .noise_gain = 0.55,
+      .body_freq = {600, 1800, 4500}, .body_q = {30, 25, 20},
+      .body_amp = {0.35, 0.25, 0.15}, .radiation = 0.982,
+      .secondary_delay_s = 0.0006, .secondary_amp = 0.45,
+      .sustain_fire = 1, .retrig_period_s = 0.1 },  // 600 RPM
+    // --- GUN_SNIPER (.50, L≈740mm) — massive pressure, long tail, strong N-wave
+    { .bore_length_s = 0.00435, .bore_loss = 0.35, .breech_reflect = 0.97,
+      .pressure = 2.0, .env_rate = 1500.0, .noise_gain = 0.7,
+      .body_freq = {350, 950, 2800}, .body_q = {50, 40, 30},
+      .body_amp = {0.50, 0.30, 0.15}, .radiation = 0.992,
+      .secondary_delay_s = 0.0012, .secondary_amp = 0.70,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_GRENADE — not a barrel; wide cavity with slow pressure release
+    { .bore_length_s = 0.01000, .bore_loss = 0.25, .breech_reflect = 0.60,
+      .pressure = 1.6, .env_rate = 400.0, .noise_gain = 1.5,
+      .body_freq = {80, 250, 1200}, .body_q = {15, 12, 10},
+      .body_amp = {0.60, 0.35, 0.15}, .radiation = 0.70,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_RPG — long motor burn + delayed boom
+    { .bore_length_s = 0.00300, .bore_loss = 0.30, .breech_reflect = 0.50,
+      .pressure = 1.2, .env_rate = 150.0, .noise_gain = 2.5,
+      .body_freq = {200, 600, 2000}, .body_q = {8, 6, 5},
+      .body_amp = {0.40, 0.30, 0.20}, .radiation = 0.60,
+      .secondary_delay_s = 0.25, .secondary_amp = 1.5,    // delayed explosion
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_RELOAD — magazine clack (short metallic transient)
+    { .bore_length_s = 0.00010, .bore_loss = 0.70, .breech_reflect = 0.90,
+      .pressure = 0.6, .env_rate = 4000.0, .noise_gain = 0.3,
+      .body_freq = {2200, 4500, 8000}, .body_q = {25, 20, 15},
+      .body_amp = {0.40, 0.30, 0.15}, .radiation = 0.92,
+      .secondary_delay_s = 0.08, .secondary_amp = 0.65,   // insert + click
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_COCK — bolt-action click-clack (two-click)
+    { .bore_length_s = 0.00015, .bore_loss = 0.65, .breech_reflect = 0.88,
+      .pressure = 0.7, .env_rate = 3500.0, .noise_gain = 0.35,
+      .body_freq = {1800, 4200, 7500}, .body_q = {20, 18, 14},
+      .body_amp = {0.45, 0.25, 0.15}, .radiation = 0.92,
+      .secondary_delay_s = 0.055, .secondary_amp = 0.80,  // rack → lock
+      .sustain_fire = 0, .retrig_period_s = 0 },
+    // --- GUN_RICOCHET — metallic ping, pitch-drops on release (doppler)
+    { .bore_length_s = 0.00040, .bore_loss = 0.15, .breech_reflect = 0.90,
+      .pressure = 0.8, .env_rate = 600.0, .noise_gain = 0.3,
+      .body_freq = {3000, 5500, 9000}, .body_q = {60, 50, 40},
+      .body_amp = {0.40, 0.25, 0.15}, .radiation = 0.975,
+      .secondary_delay_s = 0, .secondary_amp = 0,
+      .sustain_fire = 0, .retrig_period_s = 0 },
+};
+
+// Initialize a voice's gun state from a preset. Called from audio_synth_gun.
+static void gun_init_voice(ACVoice *v, GunPreset preset, double sr) {
+    if (preset < 0 || preset >= GUN_PRESET_COUNT) preset = GUN_PISTOL;
+    const GunPresetParams *p = &gun_presets[preset];
+
+    v->gun_preset = (int)preset;
+    v->gun_bore_delay = p->bore_length_s * sr;
+    if (v->gun_bore_delay < 4.0) v->gun_bore_delay = 4.0;
+    if (v->gun_bore_delay > 2040.0) v->gun_bore_delay = 2040.0;
+    v->gun_bore_loss = p->bore_loss;
+    v->gun_bore_lp = 0.0;
+    v->gun_breech_reflect = p->breech_reflect;
+    v->gun_pressure = p->pressure;
+    v->gun_pressure_env = 1.0;  // fire the excitation on note-on
+    // Per-sample exponential decay: y *= exp(-env_rate / sr) each sample.
+    v->gun_env_decay_mult = exp(-p->env_rate / sr);
+    v->gun_noise_gain = p->noise_gain;
+    v->gun_radiation_a = p->radiation;
+    v->gun_rad_prev = 0.0;
+    v->gun_secondary_trig = p->secondary_delay_s > 0 ? p->secondary_delay_s * sr : 0.0;
+    v->gun_secondary_amp = p->secondary_amp;
+    v->gun_sustain_fire = p->sustain_fire;
+    v->gun_retrig_timer = 0.0;
+    v->gun_retrig_period = p->retrig_period_s;
+
+    // Precompute body mode biquad coefficients (pole pair resonator):
+    //   y[n] = x[n] + a1·y[n-1] − a2·y[n-2]
+    //   a1 = 2·r·cos(w), a2 = r²
+    //   r = exp(-π·f / (Q·sr)),  w = 2π·f/sr
+    // The closer r is to 1, the longer the ring (higher Q).
+    for (int i = 0; i < 3; i++) {
+        double f = p->body_freq[i];
+        double q = p->body_q[i];
+        if (q < 1.0) q = 1.0;
+        double r = exp(-M_PI * f / (q * sr));
+        double w = 2.0 * M_PI * f / sr;
+        v->gun_body_a1[i] = 2.0 * r * cos(w);
+        v->gun_body_a2[i] = r * r;
+        v->gun_body_amp[i] = p->body_amp[i];
+        v->gun_body_y1[i] = 0.0;
+        v->gun_body_y2[i] = 0.0;
+    }
+
+    // Clear the shared bore buffer (reused from whistle slot).
+    memset(v->whistle_bore_buf, 0, sizeof(v->whistle_bore_buf));
+    v->whistle_bore_w = 0;
+
+    // Pitch sweep: nominal 1.0 at trigger. Ricochet sets target=2.5 on
+    // release so bore stretches → pitch drops. Others stay at 1.0.
+    v->gun_pitch_mult = 1.0;
+    v->gun_pitch_target = 1.0;
+    // Slow slew for audible doppler glide (~300ms sweep at 192kHz).
+    v->gun_pitch_slew = 1.0 / (0.3 * sr);
+}
+
+// Called when a gun voice enters VOICE_KILLING — sets up the release-
+// time behaviors (ricochet pitch drop).
+static inline void gun_on_release(ACVoice *v) {
+    if (v->type != WAVE_GUN) return;
+    if (v->gun_preset == GUN_RICOCHET) {
+        // Stretch the bore on release → pitch drops (doppler-style).
+        v->gun_pitch_target = 2.8;
+    }
+}
+
+static inline double generate_gun_sample(ACVoice *v, double sample_rate) {
+    // === 1. Excitation source ===
+    // Primary pressure pulse: decays exponentially. LMG retriggers it
+    // on cadence while held; two-click weapons fire a secondary shot
+    // after gun_secondary_trig samples have elapsed.
+    double excite = 0.0;
+    if (v->gun_pressure_env > 0.00002) {
+        uint32_t n = xorshift32(&v->noise_seed);
+        double white = ((double)n / (double)UINT32_MAX) * 2.0 - 1.0;
+        excite = v->gun_pressure_env * v->gun_pressure
+                 * (1.0 + v->gun_noise_gain * white);
+        v->gun_pressure_env *= v->gun_env_decay_mult;
+    }
+
+    // Secondary trigger (N-wave for rifles, 2nd click for cock/reload,
+    // delayed explosion for RPG). Fires once when countdown reaches 0.
+    if (v->gun_secondary_trig > 0.0) {
+        v->gun_secondary_trig -= 1.0;
+        if (v->gun_secondary_trig <= 0.0) {
+            v->gun_pressure_env = v->gun_secondary_amp;
+            // Prevent refire: zero the countdown.
+            v->gun_secondary_trig = 0.0;
+            // If this gun has sustain fire, the secondary doesn't count
+            // against the retrig cycle — it's a one-shot accent.
+        }
+    }
+
+    // LMG sustain fire — retrigger the excitation envelope while held.
+    // Only runs for infinite-duration voices (still VOICE_ACTIVE, not
+    // killing) so releasing the key stops the loop.
+    if (v->gun_sustain_fire && v->state == VOICE_ACTIVE
+        && isinf(v->duration) && v->gun_retrig_period > 0.0) {
+        v->gun_retrig_timer += 1.0 / sample_rate;
+        if (v->gun_retrig_timer >= v->gun_retrig_period) {
+            v->gun_retrig_timer -= v->gun_retrig_period;
+            v->gun_pressure_env = 1.0;
+            // Small pressure jitter to avoid robotic sameness.
+            double j = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX);
+            v->gun_pressure_env *= 0.82 + j * 0.32;  // ±18% variation
+        }
+    }
+
+    // === 2. Pitch sweep (ricochet release doppler) ===
+    // Exp-approach toward target; coefficient tuned so full sweep
+    // (1.0 → 2.8) takes ~250ms at 192kHz.
+    if (v->gun_pitch_mult != v->gun_pitch_target) {
+        v->gun_pitch_mult += (v->gun_pitch_target - v->gun_pitch_mult) * 0.00012;
+    }
+    double bore_delay = v->gun_bore_delay * v->gun_pitch_mult;
+    if (bore_delay < 4.0) bore_delay = 4.0;
+    if (bore_delay > 2040.0) bore_delay = 2040.0;
+
+    // === 3. Bore delay loop (closed breech / open muzzle) ===
+    const int BORE_N = 2048;
+    double bore_out = whistle_frac_read(v->whistle_bore_buf, BORE_N,
+                                        v->whistle_bore_w, bore_delay);
+    // Open-end reflection: inverting + loss via 1-pole LPF (higher
+    // frequencies lose more energy per round-trip). bore_loss is the
+    // LPF mix toward the new input; (1-bore_loss) keeps the old state.
+    v->gun_bore_lp = v->gun_bore_loss * (-bore_out)
+                     + (1.0 - v->gun_bore_loss) * v->gun_bore_lp;
+    double refl = v->gun_bore_lp;
+
+    // Closed breech (+reflection) + new excitation enters the tube.
+    double into_bore = excite + refl * v->gun_breech_reflect;
+    v->whistle_bore_buf[v->whistle_bore_w] = (float)into_bore;
+    v->whistle_bore_w = (v->whistle_bore_w + 1) % BORE_N;
+
+    // === 4. Muzzle radiation ===
+    // Open end radiates highs preferentially — model as a 1-zero HPF
+    // (differentiator) on the bore input. radiation_a near 1 = bright,
+    // near 0 = dull.
+    double radiated = into_bore - v->gun_radiation_a * v->gun_rad_prev;
+    v->gun_rad_prev = into_bore;
+
+    // === 5. Body modes (parallel resonators on excitation) ===
+    // Each pole-pair biquad is excited by the same combustion pulse,
+    // giving the weapon its metallic ring without affecting the bore
+    // tone. We drive with the primary `excite` so modes respond to
+    // every retrigger too.
+    double body = 0.0;
+    for (int i = 0; i < 3; i++) {
+        double y = excite
+                   + v->gun_body_a1[i] * v->gun_body_y1[i]
+                   - v->gun_body_a2[i] * v->gun_body_y2[i];
+        v->gun_body_y2[i] = v->gun_body_y1[i];
+        v->gun_body_y1[i] = y;
+        body += y * v->gun_body_amp[i];
+    }
+
+    // === 6. Mix ===
+    // Radiated muzzle + metallic body. Scale so peaks stay near 1.0
+    // before the per-voice volume × envelope × fade multiplication.
+    double out = radiated * 0.55 + body * 0.45;
+
+    // Apply ADSR envelope (attack + decay). For guns, attack should
+    // usually be 0 so the excitation is instant; decay extends the
+    // audible tail beyond the DWG's natural ring.
+    double env = compute_envelope(v);
+    return out * env;
+}
+
 static inline double compute_fade(ACVoice *v) {
     if (v->state != VOICE_KILLING) return 1.0;
     if (v->fade_duration <= 0.0) return 0.0;
@@ -282,6 +598,9 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
     case WAVE_WHISTLE:
         s = generate_whistle_sample(v, sample_rate);
         break;
+    case WAVE_GUN:
+        s = generate_gun_sample(v, sample_rate);
+        break;
     default:
         s = 0.0;
     }
@@ -291,8 +610,8 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
     }
 
-    // Advance phase for basic oscillators; whistle uses its own resonators.
-    if (v->type != WAVE_WHISTLE) {
+    // Advance phase for basic oscillators; whistle/gun use their own DWG state.
+    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN) {
         v->phase += v->frequency / sample_rate;
         if (v->phase >= 1.0) v->phase -= 1.0;
     }
@@ -1335,11 +1654,14 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->id = ++audio->next_id;
     v->started_at = audio->time;
 
-    if (type == WAVE_NOISE || type == WAVE_WHISTLE) {
+    if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
     }
     if (type == WAVE_NOISE) {
         setup_noise_filter(v, (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE));
+    } else if (type == WAVE_GUN) {
+        // Caller (audio_synth_gun) sets the preset via gun_init_voice
+        // after this base init runs.
     } else if (type == WAVE_WHISTLE) {
         // Clear the waveguide state — bore + jet delay buffers and the
         // loop filter / DC blocker. Without this, leftover state from a
@@ -1367,10 +1689,43 @@ void audio_kill(ACAudio *audio, uint64_t id, double fade) {
             audio->voices[i].state = VOICE_KILLING;
             audio->voices[i].fade_duration = fade > 0 ? fade : 0.025;
             audio->voices[i].fade_elapsed = 0.0;
+            // Gun-specific release behaviors (e.g. ricochet pitch drop).
+            if (audio->voices[i].type == WAVE_GUN) {
+                gun_on_release(&audio->voices[i]);
+            }
             break;
         }
     }
     pthread_mutex_unlock(&audio->lock);
+}
+
+uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
+                         double volume, double attack, double decay,
+                         double pan, double pressure_scale) {
+    if (!audio) return 0;
+    // Delegate base voice setup (slot alloc, envelope fields, noise seed).
+    // Frequency is unused for guns — the DWG cavity resonance comes from
+    // the preset's bore_length, not v->frequency. We pass 110 to keep
+    // the smoothing code happy.
+    uint64_t id = audio_synth(audio, WAVE_GUN, 110.0, duration, volume,
+                              attack, decay, pan);
+    if (!id) return 0;
+
+    pthread_mutex_lock(&audio->lock);
+    ACVoice *v = NULL;
+    for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
+        if (audio->voices[i].id == id) { v = &audio->voices[i]; break; }
+    }
+    if (v) {
+        double sr = (double)(audio->actual_rate ? audio->actual_rate
+                                                : AUDIO_SAMPLE_RATE);
+        gun_init_voice(v, preset, sr);
+        if (pressure_scale > 0.0 && pressure_scale != 1.0) {
+            v->gun_pressure *= pressure_scale;
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
+    return id;
 }
 
 void audio_update(ACAudio *audio, uint64_t id, double freq,
