@@ -4055,8 +4055,10 @@ function fillShape(points) {
 // Draws a filled triangle with vertex colors using barycentric interpolation for smooth gradients
 // Now includes Z-depth testing for proper occlusion
 function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, color3, z3) {
-  // Skip triangles with any vertex having extreme coordinates (clipping failure)
-  const maxCoord = max(width, height) * 10;
+  // Skip triangles with any vertex having extreme coordinates (clipping failure).
+  // After screen-space clipping all vertices should be within [0, width]×[0, height];
+  // anything >2× screen is a clipping artifact (e.g. a near-plane shoot-off).
+  const maxCoord = max(width, height) * 2;
   if (abs(x1) > maxCoord || abs(y1) > maxCoord ||
       abs(x2) > maxCoord || abs(y2) > maxCoord ||
       abs(x3) > maxCoord || abs(y3) > maxCoord) {
@@ -4209,13 +4211,15 @@ function subdivideTriangleIfNeeded(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3,
 // Uses perspective-correct interpolation with clip-space W values (not NDC Z!)
 // Also interpolates Z values for depth buffering
 function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, uv3, z3, w3, texture, alphaMultiplier = 1.0) {
-  // Safety check: avoid division by zero or negative W values
-  if (w1 <= 0.001 || w2 <= 0.001 || w3 <= 0.001) {
+  // Safety check: avoid division by zero or near-zero W values. This is stricter
+  // than "finite math only" but much looser than the clip-space near plane so
+  // near-camera floor geometry can survive clipping without exploding.
+  if (w1 < MIN_PERSPECTIVE_W || w2 < MIN_PERSPECTIVE_W || w3 < MIN_PERSPECTIVE_W) {
     return; // Skip triangles with invalid depth
   }
-  
-  // Skip triangles with any vertex having extreme coordinates (clipping failure)
-  const maxCoord = max(width, height) * 10;
+
+  // Skip triangles with any vertex having extreme coordinates (clipping failure).
+  const maxCoord = max(width, height) * 2;
   if (abs(x1) > maxCoord || abs(y1) > maxCoord ||
       abs(x2) > maxCoord || abs(y2) > maxCoord ||
       abs(x3) > maxCoord || abs(y3) > maxCoord) {
@@ -8606,14 +8610,19 @@ class Form {
             const transformedA = a.transform(fullMatrix);
             const transformedB = b.transform(fullMatrix);
 
-            // Skip drawing if either vertex is behind the camera (negative Z)
-            if (transformedA.pos[2] <= 0 || transformedB.pos[2] <= 0) {
-              continue;
-            }
+            const clippedLine = clipLineToFrustum(transformedA, transformedB);
+            if (clippedLine.length < 2) continue;
+            const [lineA, lineB] = clippedLine;
 
             // Apply perspective divide and screen space transformation
-            const screenA = toScreenSpace(perspectiveDivide(transformedA));
-            const screenB = toScreenSpace(perspectiveDivide(transformedB));
+            const screenA = toScreenSpace(perspectiveDivide(lineA));
+            const screenB = toScreenSpace(perspectiveDivide(lineB));
+            if (
+              !Number.isFinite(screenA.pos[0]) || !Number.isFinite(screenA.pos[1]) ||
+              !Number.isFinite(screenB.pos[0]) || !Number.isFinite(screenB.pos[1])
+            ) {
+              continue;
+            }
 
             const clipped = clipLineToScreen(
               screenA.pos[0],
@@ -8673,11 +8682,21 @@ class Form {
           
           // Clip against all frustum planes in clip-space (before perspective divide)
           clippedVertices = clipInClipSpace(clippedVertices, ["near", "left", "right", "bottom", "top"]);
-          
+
           // Skip if triangle was completely clipped
           if (clippedVertices.length < 3) {
             continue;
           }
+
+          // Belt-and-suspenders: skip any polygon where a vertex has W too small
+          // for a reliable perspective divide. Clip-space clipping should already
+          // enforce this via NEAR_CLIP_Z, but numerical drift (especially with the
+          // projection's W_clip = Z_view convention) can leave a vertex just under.
+          let anyWTooSmall = false;
+          for (let vi = 0; vi < clippedVertices.length; vi++) {
+            if (clippedVertices[vi].pos[W] < MIN_PERSPECTIVE_W) { anyWTooSmall = true; break; }
+          }
+          if (anyWTooSmall) continue;
 
           // Count clipped triangle (only if it resulted in a polygon)
           if (clippedVertices.length >= 3) {
@@ -8685,7 +8704,7 @@ class Form {
           }
           
           // Calculate fade factor based on closest vertex to camera (use Z from clip space)
-          const nearPlane = 0.01;
+          const nearPlane = NEAR_CLIP_Z;
           const fadePlane = 0.5;
           const minZ = min(...clippedVertices.map(v => v.pos[2]));
           let alphaMultiplier = 1.0;
@@ -8907,6 +8926,14 @@ class Vertex {
 
 // Sutherland-Hodgman clipping algorithm for clip-space (before perspective divide)
 // This properly handles near-plane clipping by testing against w component
+// Minimum clip-space Z kept after near-plane clipping. Because the current
+// projection has W_clip = Z_view, this is effectively the minimum W we allow
+// post-clip, and must be comfortably above 0 so perspective divide stays stable.
+// Too small → near-camera triangles "shoot off" the screen.
+// Too large → noticeable geometry popping right in front of the camera.
+const NEAR_CLIP_Z = 0.02;
+const MIN_PERSPECTIVE_W = 0.001;
+
 function clipInClipSpace(vertices, clippingBoundary) {
   let clipped = [];
 
@@ -8923,7 +8950,12 @@ function clipInClipSpace(vertices, clippingBoundary) {
       case "top":
         return p[Y] <= w;
       case "near":
-        return p[Z] >= 0.01; // Near plane with small epsilon to prevent z-fighting
+        // Clip at Z_clip >= NEAR_CLIP_Z. With this projection W_clip = Z_view and
+        // Z_clip ≈ Z_view - tiny, so this also guarantees W >= NEAR_CLIP_Z post-clip,
+        // which keeps the perspective divide numerically stable. A too-small threshold
+        // lets near-camera vertices through with tiny W, producing huge post-divide
+        // screen coordinates ("shooting off" triangles).
+        return p[Z] >= NEAR_CLIP_Z;
       case "far":
         return p[Z] <= w;
     }
@@ -8933,7 +8965,7 @@ function clipInClipSpace(vertices, clippingBoundary) {
     const p1 = v1.pos;
     const p2 = v2.pos;
     let t;
-    
+
     switch (edge) {
       case "left":
         t = (-p1[W] - p1[X]) / ((p2[X] - p1[X]) + (p2[W] - p1[W]));
@@ -8948,7 +8980,7 @@ function clipInClipSpace(vertices, clippingBoundary) {
         t = (p1[W] - p1[Y]) / ((p2[Y] - p1[Y]) - (p2[W] - p1[W]));
         break;
       case "near":
-        t = (0.01 - p1[Z]) / (p2[Z] - p1[Z]);
+        t = (NEAR_CLIP_Z - p1[Z]) / (p2[Z] - p1[Z]);
         break;
       case "far":
         t = (p1[W] - p1[Z]) / ((p2[Z] - p1[Z]) - (p2[W] - p1[W]));
@@ -9109,7 +9141,7 @@ function clipLineToFrustum(v1, v2) {
       case "top":
         return p[Y] <= p[W];
       case "near":
-        return p[Z] >= 0;
+        return p[Z] >= NEAR_CLIP_Z;
       case "far":
         return p[Z] <= p[W];
     }
@@ -9131,19 +9163,17 @@ function clipLineToFrustum(v1, v2) {
         t = (p1[W] - p1[Y]) / (p2[Y] - p1[Y] - p2[W] + p1[W]);
         break;
       case "near":
-        t = (0 - p1[Z]) / (p2[Z] - p1[Z]);
+        t = (NEAR_CLIP_Z - p1[Z]) / (p2[Z] - p1[Z]);
         break;
       case "far":
         t = (p1[W] - p1[Z]) / (p2[Z] - p1[Z] - p2[W] + p1[W]);
         break;
     }
 
-    return [
-      p1[X] + t * (p2[X] - p1[X]),
-      p1[Y] + t * (p2[Y] - p1[Y]),
-      p1[Z] + t * (p2[Z] - p1[Z]),
-      p1[W] + t * (p2[W] - p1[W]),
-    ];
+    if (!Number.isFinite(t)) t = 0.5;
+    t = max(0, min(1, t));
+
+    return t;
   }
 
   let clippedVertices = [v1, v2];
@@ -9164,8 +9194,20 @@ function clipLineToFrustum(v1, v2) {
       break;
     } else {
       // One inside, one outside
-      const intersection = computeIntersection(p1.pos, p2.pos, edge);
-      const intersectionVertex = new Vertex(intersection, p1.color);
+      const t = computeIntersection(p1.pos, p2.pos, edge);
+      const intersectionVertex = new Vertex(
+        vec4.lerp(vec4.create(), p1.pos, p2.pos, t),
+        [
+          p1.color[0] + (p2.color[0] - p1.color[0]) * t,
+          p1.color[1] + (p2.color[1] - p1.color[1]) * t,
+          p1.color[2] + (p2.color[2] - p1.color[2]) * t,
+          p1.color[3] + (p2.color[3] - p1.color[3]) * t,
+        ],
+        [
+          p1.texCoords[0] + (p2.texCoords[0] - p1.texCoords[0]) * t,
+          p1.texCoords[1] + (p2.texCoords[1] - p1.texCoords[1]) * t,
+        ],
+      );
 
       if (p1Inside) {
         // p1 inside, p2 outside
@@ -9183,7 +9225,7 @@ function clipLineToFrustum(v1, v2) {
 function perspectiveDivide(vertex) {
   // Safety check: avoid division by very small W values
   const w = vertex.pos[W];
-  if (abs(w) < 0.001) {
+  if (abs(w) < MIN_PERSPECTIVE_W) {
     // Return a vertex marked as invalid (will be filtered out)
     const vert = new Vertex([NaN, NaN, NaN, w]);
     vert.color = vertex.color;
@@ -9279,7 +9321,11 @@ function lerpVertex(v1, v2, t) {
   const w2 = v2.pos[3];
 
   // Fall back to simple linear interpolation if W values are degenerate
-  const safeW = w1 > 0.001 && w2 > 0.001 && Number.isFinite(w1) && Number.isFinite(w2);
+  const safeW =
+    w1 > MIN_PERSPECTIVE_W &&
+    w2 > MIN_PERSPECTIVE_W &&
+    Number.isFinite(w1) &&
+    Number.isFinite(w2);
 
   let newW;
   if (safeW) {
