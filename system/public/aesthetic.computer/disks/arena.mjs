@@ -61,6 +61,19 @@ const PERF_MED_MS = 18;   // below ~55fps → drop to MED
 const PERF_HIGH_MS = 14;  // above ~70fps → return to HIGH
 let perfSamplesSinceSwitch = 0;
 
+// 🔎 Camera zoom — wheel scroll steps between 1P and 3P at discrete distances.
+// Level 0 = first person. Levels 1..N = third person, pulling the camera back
+// further each click. Middle-mouse still toggles between 1P and a default 3P.
+const ZOOM_DISTANCES = [0, 3, 5, 8, 12];
+let zoomLevel = 0;
+
+function applyZoom(doll) {
+  if (!doll) return;
+  const d = ZOOM_DISTANCES[zoomLevel];
+  if (zoomLevel === 0) doll.setThirdPerson(false);
+  else doll.setThirdPerson(true, d);
+}
+
 function tileKey(row, col) { return row * GRID + col; }
 function tileFromKey(k) { return { row: Math.floor(k / GRID), col: k % GRID }; }
 
@@ -763,9 +776,12 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
       margin + lineH * 4,
     );
 
-    // POV indicator — 1P or 3P (middle-mouse toggles).
+    // POV indicator — shows 1P or 3P plus the current zoom distance.
     ink(phys.thirdPerson ? "magenta" : "cyan");
-    rightLabel(phys.thirdPerson ? "3P" : "1P", margin + lineH * 5);
+    const povStr = phys.thirdPerson
+      ? `3P ×${ZOOM_DISTANCES[zoomLevel]}`
+      : "1P";
+    rightLabel(povStr, margin + lineH * 5);
   }
 
   // ⚡ Perf mode label — shows which adaptive-quality tier is active. Flashes
@@ -839,7 +855,16 @@ function act({ event: e, penLock, system }) {
   // 🎥 Middle-mouse toggles third-person (press once to enter, press again
   // to exit). Only trigger on touch so the release doesn't also flip.
   if (e.device === "mouse" && e.button === 1 && e.is("touch")) {
-    system?.fps?.doll?.toggleThirdPerson?.();
+    zoomLevel = zoomLevel === 0 ? 2 : 0; // flip between 1P and default 3P
+    applyZoom(system?.fps?.doll);
+  }
+
+  // 🔎 Scroll wheel — steps through discrete zoom levels (1P → closer 3P →
+  // further 3P). dir > 0 = zoom in (toward 1P); dir < 0 = zoom out.
+  if (e.is("wheel")) {
+    if (e.dir > 0) zoomLevel = Math.max(0, zoomLevel - 1);
+    else if (e.dir < 0) zoomLevel = Math.min(ZOOM_DISTANCES.length - 1, zoomLevel + 1);
+    applyZoom(system?.fps?.doll);
   }
 
   // While dead, any touch respawns; otherwise the first touch re-locks the pen.
