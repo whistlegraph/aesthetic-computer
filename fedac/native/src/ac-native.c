@@ -3960,9 +3960,11 @@ int main(int argc, char *argv[]) {
                     }
                     // Clone (or pull) the aesthetic-computer repo to
                     // /mnt/ac-repo so Claude Code has a real project to
-                    // work in. Runs in the background so boot isn't
-                    // delayed. If /github-pat is present, git picks it up
-                    // via the git-credential-ac helper. We use a shallow
+                    // work in. Fetch stays on the GitHub HTTPS mirror for
+                    // simple read access; if a Tangled SSH key was baked,
+                    // the repo also gets origin pushurls for knot + GitHub
+                    // and a dedicated `tangled` remote. Runs in the
+                    // background so boot isn't delayed. We use a shallow
                     // clone (--depth=50) to keep the size manageable
                     // (~200 MB) while still giving Claude enough history
                     // for basic blame/log work.
@@ -3971,16 +3973,36 @@ int main(int argc, char *argv[]) {
                     // `git pull` runs instead (bounded by 30s timeout).
                     // Logs go to /tmp/ac-repo-clone.log.
                     {
-                        char clone_cmd[1024];
+                        char clone_cmd[3072];
                         snprintf(clone_cmd, sizeof(clone_cmd),
-                            "( if [ -d /mnt/ac-repo/.git ]; then "
+                            "( REPO=/mnt/ac-repo; "
+                            "  FETCH_URL='https://github.com/whistlegraph/aesthetic-computer.git'; "
+                            "  TANGLED_URL='git@knot.aesthetic.computer:aesthetic.computer/core'; "
+                            "  if [ -d \"$REPO/.git\" ]; then "
                             "    echo '[ac-repo] pulling latest' && "
-                            "    cd /mnt/ac-repo && timeout 30 git pull --ff-only 2>&1; "
+                            "    cd \"$REPO\" && timeout 30 git pull --ff-only 2>&1; "
                             "  else "
                             "    echo '[ac-repo] cloning (shallow)' && "
-                            "    timeout 300 git clone --depth=50 --branch=main "
-                            "      https://github.com/whistlegraph/aesthetic-computer.git "
-                            "      /mnt/ac-repo 2>&1; "
+                            "    timeout 300 git clone --depth=50 --branch=main \"$FETCH_URL\" \"$REPO\" 2>&1; "
+                            "  fi; "
+                            "  if [ -d \"$REPO/.git\" ]; then "
+                            "    cd \"$REPO\"; "
+                            "    git remote set-url origin \"$FETCH_URL\"; "
+                            "    git config --unset-all remote.origin.pushurl 2>/dev/null || true; "
+                            "    if [ -f /tmp/.ssh/tangled ]; then "
+                            "      git config --add remote.origin.pushurl \"$TANGLED_URL\"; "
+                            "      git config --add remote.origin.pushurl \"$FETCH_URL\"; "
+                            "      if git remote | grep -qx tangled; then "
+                            "        git remote set-url tangled \"$TANGLED_URL\"; "
+                            "      else "
+                            "        git remote add tangled \"$TANGLED_URL\"; "
+                            "      fi; "
+                            "      echo '[ac-repo] origin pushurl: tangled + github'; "
+                            "    else "
+                            "      git config --add remote.origin.pushurl \"$FETCH_URL\"; "
+                            "      git remote remove tangled 2>/dev/null || true; "
+                            "      echo '[ac-repo] origin pushurl: github only (no tangled key)'; "
+                            "    fi; "
                             "  fi "
                             ") >> /tmp/ac-repo-clone.log 2>&1 &");
                         system(clone_cmd);

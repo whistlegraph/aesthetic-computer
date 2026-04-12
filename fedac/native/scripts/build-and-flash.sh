@@ -537,12 +537,12 @@ else
     warn "dropbear not found — SSH remote access not available"
 fi
 
-# ── Claude Code utilities (git, ripgrep, jq) ──
+# ── Claude Code utilities (git, ripgrep, jq, ssh) ──
 # These tools make Claude Code significantly more capable on the device.
-for util in git rg jq; do
+for util in git rg jq ssh; do
     UTIL_PATH="$(command -v "$util" 2>/dev/null || true)"
     if [ -n "$UTIL_PATH" ] && [ -f "$UTIL_PATH" ]; then
-        cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/"
+        cp "$UTIL_PATH" "${INITRAMFS_DIR}/bin/${util}"
         for lib in $(ldd "$UTIL_PATH" 2>/dev/null | grep -oP '/\S+'); do
             [ -f "$lib" ] && cp -nL "$lib" "${INITRAMFS_DIR}/lib64/" 2>/dev/null || true
         done

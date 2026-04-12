@@ -23,6 +23,13 @@ ac-os upload        # Upload current build as OTA release
 ac-os flash+upload  # Build + flash + upload
 ```
 
+`ac-os` is the preferred path for real devices. It layers user-local credentials
+and repo context into the initramfs on top of the base image:
+
+- Claude OAuth state, when present locally
+- GitHub PAT, when `gh auth token` succeeds
+- Tangled SSH identity, when `ssh -G knot.aesthetic.computer` resolves a local key
+
 ### Manual steps
 
 ```bash
@@ -49,6 +56,18 @@ curl -fsSL https://releases.aesthetic.computer/os/releases.json | jq '.latest'
   - Contains: `DO_SPACES_KEY`, `DO_SPACES_SECRET`
 - **GPG private key**: `.tmp-key-jeffrey-private.asc` (in repo root, gitignored)
 - **Handle colors API**: `https://aesthetic.computer/.netlify/functions/handle-colors` (public, no auth)
+
+## Device Repo Access
+
+- The on-device working tree lives at `/mnt/ac-repo`.
+- On WiFi connect, AC Native clones or pulls from the public GitHub HTTPS mirror:
+  - `https://github.com/whistlegraph/aesthetic-computer.git`
+- If a Tangled SSH key was baked at build time, the repo is also configured so:
+  - `origin` fetches from GitHub
+  - `origin` push mirrors to `git@knot.aesthetic.computer:aesthetic.computer/core`
+  - `origin` also pushes to the GitHub mirror
+  - `tangled` points directly at the knot remote
+- If no Tangled key is baked, the repo stays GitHub-only for pushes.
 
 ## Update Signal Expectations
 
