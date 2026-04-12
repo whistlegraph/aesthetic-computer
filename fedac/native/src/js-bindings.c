@@ -2299,6 +2299,35 @@ static JSValue js_sound_bpm(JSContext *ctx, JSValueConst this_val, int argc, JSV
 
 // --- DJ deck bindings ---
 
+static void blit_argb_nearest(ACFramebuffer *fb, const uint32_t *src,
+                              int sw, int sh, int dx, int dy, int dw, int dh) {
+    if (!fb || !src || sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0) return;
+
+    int x0 = dx < 0 ? 0 : dx;
+    int y0 = dy < 0 ? 0 : dy;
+    int x1 = dx + dw;
+    int y1 = dy + dh;
+    if (x1 > fb->width) x1 = fb->width;
+    if (y1 > fb->height) y1 = fb->height;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    for (int y = y0; y < y1; y++) {
+        int sy = (int)(((int64_t)(y - dy) * sh) / dh);
+        if (sy < 0) sy = 0;
+        if (sy >= sh) sy = sh - 1;
+        const uint32_t *src_row = src + sy * sw;
+        uint32_t *dst_row = fb->pixels + y * fb->stride;
+        for (int x = x0; x < x1; x++) {
+            int sx = (int)(((int64_t)(x - dx) * sw) / dw);
+            if (sx < 0) sx = 0;
+            if (sx >= sw) sx = sw - 1;
+            uint32_t px = src_row[sx];
+            if ((px >> 24) == 0) continue;
+            dst_row[x] = px;
+        }
+    }
+}
+
 // sound.deck.load(deck, path) -> true/false
 static JSValue js_deck_load(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2365,6 +2394,58 @@ static JSValue js_deck_get_peaks(JSContext *ctx, JSValueConst this_val, int argc
         JS_SetPropertyUint32(ctx, arr, i, JS_NewFloat64(ctx, dk->decoder->peaks[i]));
     }
     return arr;
+}
+
+// sound.deck.prepareVideo(deck[, width, height, fps]) — decode a low-res preview strip
+static JSValue js_deck_prepare_video(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_FALSE;
+    int deck = 0, width = 96, height = 54, fps = 12;
+    JS_ToInt32(ctx, &deck, argv[0]);
+    if (argc > 1) JS_ToInt32(ctx, &width, argv[1]);
+    if (argc > 2) JS_ToInt32(ctx, &height, argv[2]);
+    if (argc > 3) JS_ToInt32(ctx, &fps, argv[3]);
+    if (deck < 0 || deck >= AUDIO_MAX_DECKS) return JS_FALSE;
+    ACDeck *dk = &current_rt->audio->decks[deck];
+    if (!dk->decoder) return JS_FALSE;
+    int ret = deck_decoder_generate_video_preview(dk->decoder, width, height, fps);
+    return JS_NewBool(ctx, ret > 0);
+}
+
+// sound.deck.videoBlit(deck, x, y, w, h) — draw current preview frame into the framebuffer
+static JSValue js_deck_video_blit(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 5 || !current_rt || !current_rt->audio || !current_rt->graph || !current_rt->graph->fb)
+        return JS_FALSE;
+
+    int deck = 0, x = 0, y = 0, w = 0, h = 0;
+    JS_ToInt32(ctx, &deck, argv[0]);
+    JS_ToInt32(ctx, &x, argv[1]);
+    JS_ToInt32(ctx, &y, argv[2]);
+    JS_ToInt32(ctx, &w, argv[3]);
+    JS_ToInt32(ctx, &h, argv[4]);
+    if (deck < 0 || deck >= AUDIO_MAX_DECKS) return JS_FALSE;
+
+    ACDeck *dk = &current_rt->audio->decks[deck];
+    if (!dk->decoder || !dk->decoder->video_ready || !dk->decoder->video_frames ||
+        dk->decoder->video_frame_count <= 0 || dk->decoder->video_width <= 0 ||
+        dk->decoder->video_height <= 0 || dk->decoder->video_fps <= 0.0) {
+        return JS_FALSE;
+    }
+
+    if (w <= 0) w = dk->decoder->video_width;
+    if (h <= 0) h = dk->decoder->video_height;
+
+    int idx = (int)floor(dk->decoder->position * dk->decoder->video_fps + 0.0001);
+    if (idx < 0) idx = 0;
+    if (idx >= dk->decoder->video_frame_count) idx = dk->decoder->video_frame_count - 1;
+
+    size_t pixels_per_frame = (size_t)dk->decoder->video_width * (size_t)dk->decoder->video_height;
+    const uint32_t *src = dk->decoder->video_frames + ((size_t)idx * pixels_per_frame);
+    blit_argb_nearest(current_rt->graph->fb, src,
+                      dk->decoder->video_width, dk->decoder->video_height,
+                      x, y, w, h);
+    return JS_TRUE;
 }
 
 // sound.deck.setVolume(deck, vol)
@@ -2541,6 +2622,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, deck_obj, "setCrossfader", JS_NewCFunction(ctx, js_deck_set_crossfader, "setCrossfader", 1));
     JS_SetPropertyStr(ctx, deck_obj, "setMasterVolume", JS_NewCFunction(ctx, js_deck_set_master_vol, "setMasterVolume", 1));
     JS_SetPropertyStr(ctx, deck_obj, "getPeaks", JS_NewCFunction(ctx, js_deck_get_peaks, "getPeaks", 1));
+    JS_SetPropertyStr(ctx, deck_obj, "prepareVideo", JS_NewCFunction(ctx, js_deck_prepare_video, "prepareVideo", 4));
+    JS_SetPropertyStr(ctx, deck_obj, "videoBlit", JS_NewCFunction(ctx, js_deck_video_blit, "videoBlit", 5));
 
     // Deck state (read-only, rebuilt each frame)
     JSValue decks_arr = JS_NewArray(ctx);
@@ -2560,6 +2643,11 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
                 JS_SetPropertyStr(ctx, di, "artist", JS_NewString(ctx, dk->decoder->artist));
                 JS_SetPropertyStr(ctx, di, "finished", JS_NewBool(ctx, dk->decoder->finished));
                 JS_SetPropertyStr(ctx, di, "error", JS_NewString(ctx, dk->decoder->error ? dk->decoder->error_msg : ""));
+                JS_SetPropertyStr(ctx, di, "videoReady", JS_NewBool(ctx, dk->decoder->video_ready));
+                JS_SetPropertyStr(ctx, di, "videoWidth", JS_NewInt32(ctx, dk->decoder->video_width));
+                JS_SetPropertyStr(ctx, di, "videoHeight", JS_NewInt32(ctx, dk->decoder->video_height));
+                JS_SetPropertyStr(ctx, di, "videoFps", JS_NewFloat64(ctx, dk->decoder->video_fps));
+                JS_SetPropertyStr(ctx, di, "videoFrames", JS_NewInt32(ctx, dk->decoder->video_frame_count));
             } else {
                 JS_SetPropertyStr(ctx, di, "position", JS_NewFloat64(ctx, 0));
                 JS_SetPropertyStr(ctx, di, "duration", JS_NewFloat64(ctx, 0));
@@ -2568,6 +2656,11 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
                 JS_SetPropertyStr(ctx, di, "artist", JS_NewString(ctx, ""));
                 JS_SetPropertyStr(ctx, di, "finished", JS_FALSE);
                 JS_SetPropertyStr(ctx, di, "error", JS_NewString(ctx, ""));
+                JS_SetPropertyStr(ctx, di, "videoReady", JS_FALSE);
+                JS_SetPropertyStr(ctx, di, "videoWidth", JS_NewInt32(ctx, 0));
+                JS_SetPropertyStr(ctx, di, "videoHeight", JS_NewInt32(ctx, 0));
+                JS_SetPropertyStr(ctx, di, "videoFps", JS_NewFloat64(ctx, 0));
+                JS_SetPropertyStr(ctx, di, "videoFrames", JS_NewInt32(ctx, 0));
             }
         }
         JS_SetPropertyUint32(ctx, decks_arr, d, di);
