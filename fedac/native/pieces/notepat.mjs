@@ -55,13 +55,15 @@ let globalSample = null;   // { data: Float32Array, len: number, rate: number } 
 let endArmed = false;      // true while End key is held (arm per-key recording)
 let perKeyRecording = null; // key currently recording in per-key mode
 
-// Hold/latch: Enter = add currently-playing notes to held set (press again
-// to add more). Backspace = clear all holds. New notes never auto-latch —
-// you can freely riff over held notes until you explicitly press Enter to
-// snapshot them into the held set.
+// Hold/latch: Enter works as a hold modifier. While Enter is physically
+// held down, any note keys pressed get auto-latched into heldKeys so
+// they keep ringing on key-up. Release Enter and the held notes stay —
+// you can riff freely over them. Press Enter again later to add more.
+// Backspace clears all holds.
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
+let enterHeld = false;       // true while Enter key is physically held
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
@@ -1526,8 +1528,9 @@ function rememberSound(key, entry, system, velocity = 1) {
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   sounds[key] = entry;
-  // New notes never auto-latch. Use Enter to snapshot currently-playing
-  // notes into the held set.
+  // While Enter is held, auto-latch new notes into heldKeys so they
+  // sustain on key-up. Otherwise notes release normally.
+  if (enterHeld) heldKeys.add(key);
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
@@ -1901,17 +1904,18 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // Enter: "add holds" — snapshot currently-playing keys into heldKeys.
-    // Press again at any time to add newly-playing notes. New notes never
-    // auto-latch, so you can riff freely and only commit to sustain by
-    // pressing Enter while the notes are still held down.
+    // Enter: "hold modifier" — while physically held, note keys pressed
+    // auto-latch into heldKeys. Also immediately latches any currently-
+    // playing notes so the existing chord sustains as soon as Enter
+    // engages. Release Enter and the latched notes keep ringing.
     if (key === "enter") {
-      let added = 0;
-      for (const k of Object.keys(sounds)) {
-        if (!heldKeys.has(k)) { heldKeys.add(k); added++; }
-      }
-      if (added > 0) {
-        sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
+      if (!enterHeld) {
+        enterHeld = true;
+        // Snapshot anything playing right now into heldKeys
+        for (const k of Object.keys(sounds)) heldKeys.add(k);
+        // Engage cue: ascending pair
+        sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.14, attack: 0.002, decay: 0.05 });
+        sound?.synth?.({ type: "sine", tone: 990, duration: 0.08, volume: 0.10, attack: 0.005, decay: 0.07 });
       }
       return;
     }
@@ -2190,6 +2194,16 @@ function act({ event: e, sound, wifi, system }) {
   if (e.is("keyboard:up")) {
     const key = e.key?.toLowerCase();
     if (!key) return;
+    // Enter release: exit hold-modifier mode. Latched notes stay latched.
+    if (key === "enter") {
+      if (enterHeld) {
+        enterHeld = false;
+        // Disengage cue: descending pair
+        sound?.synth?.({ type: "sine", tone: 990, duration: 0.06, volume: 0.10, attack: 0.002, decay: 0.05 });
+        sound?.synth?.({ type: "sine", tone: 660, duration: 0.08, volume: 0.08, attack: 0.005, decay: 0.07 });
+      }
+      return;
+    }
     // Space release: stop the reverse playback queue. The duration of the
     // press ends up defining the next loop's length.
     if (key === "space") {
@@ -4204,17 +4218,29 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       box(obx, waveRowY, 1, waveRowH, true);
       ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
-      // Hold count indicator: show "H:n" where n = number of held notes.
-      // Drawn to the LEFT of the octave button; only visible when
-      // there's something held, so it doesn't fight for screen real estate.
-      if (heldKeys.size > 0) {
-        const label = "H:" + heldKeys.size;
+      // Hold indicator: shown when Enter is held (arming) OR when there
+      // are latched notes. While Enter is held the label is "HOLD" with
+      // a pulsing green tint; otherwise "H:n" with the current count.
+      if (enterHeld || heldKeys.size > 0) {
+        const label = enterHeld
+          ? "HOLD" + (heldKeys.size > 0 ? " " + heldKeys.size : "")
+          : "H:" + heldKeys.size;
         const holdW = label.length * 6 + 4;
         const hbx = obx - holdW - 2;
-        ink(dark ? 80 : 180, dark ? 40 : 100, dark ? 40 : 100);
-        box(hbx, waveRowY, holdW, waveRowH, true);
-        ink(255, dark ? 180 : 60, dark ? 120 : 40);
-        write(label, { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+        if (enterHeld) {
+          // Pulsing green while armed
+          const pulse = (Math.sin(frame * 0.25) + 1) * 0.5; // 0..1
+          const g = Math.round(140 + pulse * 80);
+          ink(dark ? 30 : 140, g, dark ? 40 : 160);
+          box(hbx, waveRowY, holdW, waveRowH, true);
+          ink(0, 0, 0);
+          write(label, { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+        } else {
+          ink(dark ? 80 : 180, dark ? 40 : 100, dark ? 40 : 100);
+          box(hbx, waveRowY, holdW, waveRowH, true);
+          ink(255, dark ? 180 : 60, dark ? 120 : 40);
+          write(label, { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+        }
       }
     }
 
