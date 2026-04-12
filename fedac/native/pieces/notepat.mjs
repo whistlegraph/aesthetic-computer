@@ -4732,27 +4732,27 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // rendered in the same color at full saturation.
     const categories = [
       ["NOTES", [120, 200, 255], [
-        ["a-l ; '",    "play notes"],
-        ["1-9",        "octave"],
-        ["< >",        "select L/R side"],
-        ["^ v",        "volume up/down"],
-        [", .",        "attack / decay"],
-        ["shift",      "quick mode"],
+        ["a\u2013l ; '", "play notes"],
+        ["1\u20139",     "octave"],
+        ["\u2190 \u2192", "select L/R side"],
+        ["\u2191 \u2193", "volume up/down"],
+        [", .",          "attack / decay"],
+        ["shift",        "quick mode"],
       ]],
       ["DRUMS", [255, 140, 90], [
-        ["pgup/pgdn",  "kit: off/drums/war"],
+        ["pgup/pgdn",  "kit: off\u2192drums\u2192war"],
         ["space",      "reverse loop"],
       ]],
       ["WAVE", [220, 140, 255], [
         ["tab",        "cycle wave"],
-        ["F12",        "recital mode"],
+        ["F12 \u2605", "recital mode"],
       ]],
       ["DECK", [120, 230, 150], [
         ["F1",         "play / pause"],
         ["F2",         "next track"],
         ["F3",         "prev track"],
         ["F4",         "usb rescan"],
-        ["[ / `",      "speed - / reset"],
+        ["[ / `",      "speed \u2212 / reset"],
         ["drag",       "scratch"],
       ]],
       ["HOLD", [255, 220, 120], [
@@ -4761,7 +4761,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ]],
       ["TEMPO", [255, 180, 100], [
         ["F9",         "metronome"],
-        ["- / =",      "bpm - / +"],
+        ["- / =",      "bpm \u2212 / +"],
       ]],
       ["SAMPLE", [255, 150, 210], [
         ["home",       "record global"],
@@ -4776,7 +4776,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ]],
       ["SYSTEM", [190, 190, 205], [
         ["meta",       "toggle help"],
-        ["esc x3",     "exit to prompt"],
+        ["esc\u00d73", "exit to prompt"],
       ]],
     ];
 
