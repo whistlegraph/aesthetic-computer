@@ -387,7 +387,15 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 ACDisplay *drm_init(void) {
     extern void ac_log(const char *fmt, ...);
     ac_log("[drm] drm_init() start\n");
+    // Suppress Mesa DRI loader warnings during SDL3 probe. The SDL3/GBM
+    // path triggers Mesa's loader which prints "failed to open dri" to
+    // stderr when DRI drivers are absent from the initramfs. We redirect
+    // stderr to /dev/null during the probe, then restore it.
+    int saved_stderr = dup(STDERR_FILENO);
+    int devnull = open("/dev/null", O_WRONLY);
+    if (devnull >= 0) { dup2(devnull, STDERR_FILENO); close(devnull); }
     ACDisplay *sdl = sdl_init();
+    if (saved_stderr >= 0) { dup2(saved_stderr, STDERR_FILENO); close(saved_stderr); }
     if (sdl) return sdl;
     ac_log("[drm] SDL3 failed, falling back to DRM dumb buffers\n");
 
