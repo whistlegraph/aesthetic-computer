@@ -566,8 +566,14 @@ const ATTACK_MODES = ["zero", "short", "long"];
 const DECAY_MODES  = ["zero", "short", "long"];
 let attackModeIdx = 1; // default: short
 let decayModeIdx  = 1; // default: short
-const ATTACK_VALUES = { zero: 0.001, short: 0.005, long: 0.06 };
-const DECAY_VALUES  = { zero: 0.01,  short: 0.1,   long: 0.9 };
+// Zero still has a tiny ramp (~3ms) to avoid click/pop transients at
+// note onset. The audio engine needs at least a short attack to settle
+// the biquad LPF on noise-type waveforms without a discontinuity.
+const ATTACK_VALUES = { zero: 0.003, short: 0.02, long: 0.12 };
+// Decay = the release-time fade when a key is lifted (sustained notes
+// have infinite duration, so the synth's own decay param never fires —
+// we pass this through as the `fade` arg to sound.kill()).
+const DECAY_VALUES  = { zero: 0.015, short: 0.1,  long: 0.8 };
 let envelopeNotice = null; // { text, icon, until } — transient overlay
 
 // Arrow-key octave offsets for left and right grids (added to base `octave`)
@@ -1527,9 +1533,14 @@ function rememberSound(key, entry, system, velocity = 1) {
   pushUsbMidiRecent(">", entry.note, entry.octave);
 }
 
-function stopSoundKey(key, sound, system, fade = 0.08) {
+function stopSoundKey(key, sound, system, fade) {
   const entry = sounds[key];
   if (!entry) return;
+  // Default fade to the user-selected decay mode (zero/short/long). For
+  // sustained melodic notes the synth's own `decay` param never fires
+  // because duration is infinite — the release envelope is controlled
+  // here via the kill fade duration.
+  if (fade === undefined) fade = currentDecay();
   if (entry.compositeVoices) {
     for (const voice of entry.compositeVoices) sound?.kill?.(voice, fade);
   } else {
