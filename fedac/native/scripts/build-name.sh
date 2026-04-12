@@ -82,14 +82,28 @@ ADJECTIVES=(
 NUM_ANIMALS=${#ANIMALS[@]}
 NUM_ADJ=${#ADJECTIVES[@]}
 
-# Mix git hash + epoch for a unique name every build
+# Mix git hash + epoch + nanoseconds for a unique name every build
 GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "0000000000000000000000000000000000000000")
 EPOCH=$(date +%s)
+NANO=$(date +%N 2>/dev/null || echo 0)
 
 # Adjective from git hash, animal from epoch (so same commit gets different animals)
 HEX_ADJ="${GIT_HASH:0:8}"
 DEC_ADJ=$(printf '%d' "0x${HEX_ADJ}" 2>/dev/null || echo 0)
 ADJ_IDX=$(( DEC_ADJ % NUM_ADJ ))
-ANIMAL_IDX=$(( EPOCH % NUM_ANIMALS ))
+# Mix epoch + first 4 hex of git hash into the animal index so the same
+# epoch-second but different commits still pick different animals.
+HEX_ANIMAL="${GIT_HASH:8:4}"
+DEC_ANIMAL=$(printf '%d' "0x${HEX_ANIMAL}" 2>/dev/null || echo 0)
+ANIMAL_IDX=$(( (EPOCH + DEC_ANIMAL) % NUM_ANIMALS ))
 
-echo "${ADJECTIVES[$ADJ_IDX]}-${ANIMALS[$ANIMAL_IDX]}"
+# 3-char suffix to prevent name collisions across rebuilds of the same
+# commit or near-simultaneous builds. Combine last 3 digits of nanoseconds
+# with first 3 hex chars of git hash for a 5-char base-36 stamp.
+HEX_SUFFIX="${GIT_HASH:12:3}"
+NANO_TAIL="${NANO: -3}"
+# Compose into a 3-char base-36 suffix
+SUFFIX_NUM=$(( (0x${HEX_SUFFIX} + 10#${NANO_TAIL}) % 46656 )) # 36^3
+SUFFIX=$(printf '%03x' "$SUFFIX_NUM")
+
+echo "${ADJECTIVES[$ADJ_IDX]}-${ANIMALS[$ANIMAL_IDX]}-${SUFFIX}"
