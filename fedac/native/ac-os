@@ -152,6 +152,41 @@ build_initramfs() {
             sudo chmod 600 "${INITRAMFS_ROOT}/github-pat"
             log "  github pat: baked (${#GH_PAT} chars)"
         fi
+        # Bake Tangled SSH identity if available so on-device git pushes can
+        # reach knot.aesthetic.computer as well as the GitHub mirror.
+        local TANGLED_KEY
+        TANGLED_KEY="$(ssh -G knot.aesthetic.computer 2>/dev/null | awk '/^identityfile / {print $2; exit}')"
+        case "${TANGLED_KEY}" in
+            "~/"*) TANGLED_KEY="${HOME}/${TANGLED_KEY#~/}" ;;
+        esac
+        if [ -z "${TANGLED_KEY}" ] && [ -f "${HOME}/.ssh/tangled" ]; then
+            TANGLED_KEY="${HOME}/.ssh/tangled"
+        fi
+        if [ -n "${TANGLED_KEY}" ] && [ -f "${TANGLED_KEY}" ]; then
+            sudo cp "${TANGLED_KEY}" "${INITRAMFS_ROOT}/tangled-key"
+            sudo chmod 600 "${INITRAMFS_ROOT}/tangled-key"
+            if [ -f "${HOME}/.ssh/known_hosts" ]; then
+                sudo cp "${HOME}/.ssh/known_hosts" "${INITRAMFS_ROOT}/tangled-known-hosts"
+                sudo chmod 600 "${INITRAMFS_ROOT}/tangled-known-hosts"
+            elif command -v ssh-keyscan >/dev/null 2>&1; then
+                ssh-keyscan -H knot.aesthetic.computer 2>/dev/null | sudo tee "${INITRAMFS_ROOT}/tangled-known-hosts" >/dev/null || true
+                sudo chmod 600 "${INITRAMFS_ROOT}/tangled-known-hosts" 2>/dev/null || true
+            fi
+            sudo tee "${INITRAMFS_ROOT}/tangled-ssh-config" > /dev/null << 'SSHCFG'
+Host knot.aesthetic.computer
+    HostName knot.aesthetic.computer
+    User git
+    IdentityFile ~/.ssh/tangled
+    IdentitiesOnly yes
+    BatchMode yes
+    StrictHostKeyChecking accept-new
+    UserKnownHostsFile ~/.ssh/known_hosts
+SSHCFG
+            sudo chmod 600 "${INITRAMFS_ROOT}/tangled-ssh-config"
+            log "  tangled ssh: baked (${TANGLED_KEY})"
+        else
+            log "  tangled ssh: not found (skipping knot push setup)"
+        fi
         # Bake CLAUDE.md for device context (init copies to /tmp/ac/CLAUDE.md)
         if [ -f "${SCRIPT_DIR}/device-claude.md" ]; then
             sudo cp "${SCRIPT_DIR}/device-claude.md" "${INITRAMFS_ROOT}/device-claude.md"

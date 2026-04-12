@@ -27,11 +27,13 @@ If trace files exist in `/mnt/trace/`, summarize active tracers.
 ### File Operations
 - Read/write files in /tmp (lost on reboot)
 - Read/write files in /mnt (persistent, VFAT — no symlinks, no permissions)
-- The main AC repo is NOT on this device — use git clone if needed
+- `/mnt/ac-repo` is the preferred working tree when WiFi has already done the background clone
+- If `/mnt/ac-repo` does not exist yet, clone manually or work in `/tmp/ac` as a scratch fallback
 
 ### Network
 - curl is available for HTTP requests
-- git is available (GitHub PAT is pre-configured via GH_TOKEN)
+- git is available
+- `ssh` is available for Tangled pushes when the image was built via `ac-os` with a local Tangled key
 - DNS works (8.8.8.8 / 1.1.1.1 fallback)
 
 ### Development
@@ -52,13 +54,16 @@ If trace files exist in `/mnt/trace/`, summarize active tracers.
 | Path | Purpose |
 |------|---------|
 | /mnt/config.json | User identity + auth tokens |
+| /mnt/ac-repo | Persistent shallow clone of `aesthetic-computer` |
 | /mnt/ac-native.log | System log (persistent) |
 | /claude-token | Claude OAuth token (initramfs) |
 | /github-pat | GitHub PAT (initramfs) |
 | /tmp/.claude/ | Claude Code config directory |
+| /tmp/.ssh/ | Tangled SSH key/config restored on boot, when baked |
 | /ac-native | Main system binary |
 | /piece.mjs | Default JS piece |
 | /bin/claude | Claude Code binary |
+| /bin/ssh | OpenSSH client for Tangled git push |
 
 ## Architecture
 
@@ -127,10 +132,13 @@ curl -fsSL https://aesthetic.computer
 
 ### Git operations
 ```sh
-cd /tmp
-git clone https://github.com/whistlegraph/aesthetic-computer.git
-cd aesthetic-computer
-# GH_TOKEN is pre-set — push works
+cd /mnt/ac-repo 2>/dev/null || {
+  git clone https://github.com/whistlegraph/aesthetic-computer.git /mnt/ac-repo
+  cd /mnt/ac-repo
+}
+git remote -v
+# fetch uses the GitHub mirror
+# if /tmp/.ssh/tangled exists, origin push mirrors to knot + GitHub
 ```
 
 ### OTA update
