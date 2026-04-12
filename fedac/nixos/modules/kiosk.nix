@@ -151,6 +151,9 @@ in
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
       ALSA_PLUGIN_DIR = "${pkgs.alsa-plugins}/lib/alsa-lib";
       ALSA_CONFIG_PATH = "${pkgs.alsa-lib}/share/alsa/alsa.conf";
+      # Route audio through asound.conf tee (speakers + loopback for streaming).
+      # Falls back to hw:0,0 automatically if the tee device fails.
+      AC_AUDIO_DEVICE = "default";
     };
 
     serviceConfig = {

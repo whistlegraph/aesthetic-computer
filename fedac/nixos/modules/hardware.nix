@@ -37,6 +37,7 @@
     # Audio
     "snd_hda_intel" "snd_hda_codec_realtek" "snd_hda_codec_hdmi"
     "snd_usb_audio"
+    "snd_aloop"  # ALSA loopback — lets ac-native-stream tee audio to ffmpeg
     # Bluetooth
     "btusb" "btintel"
   ];

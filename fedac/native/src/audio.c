@@ -1053,6 +1053,7 @@ ACAudio *audio_init(void) {
 
     // Open ALSA — try multiple cards and devices, with retries for race conditions.
     // On fast NVMe boots the HDA codec may not be fully probed when we first try.
+    // If AC_AUDIO_DEVICE is set, try it first (used for stream tee via asound.conf).
     snd_pcm_t *pcm = NULL;
     const char *devices[] = {
         "hw:0,0", "hw:1,0", "hw:0,1", "hw:1,1",
@@ -1062,6 +1063,23 @@ ACAudio *audio_init(void) {
     };
     int err = -1;
     int card_idx = 0;
+
+    // AC_AUDIO_DEVICE override — try the env var device before the hardcoded list.
+    const char *env_dev = getenv("AC_AUDIO_DEVICE");
+    if (env_dev && env_dev[0]) {
+        err = snd_pcm_open(&pcm, env_dev, SND_PCM_STREAM_PLAYBACK, 0);
+        if (err >= 0) {
+            fprintf(stderr, "[audio] Opened AC_AUDIO_DEVICE=%s\n", env_dev);
+            snprintf(audio->audio_device, sizeof(audio->audio_device), "%s", env_dev);
+            if (sscanf(env_dev, "hw:%d", &card_idx) != 1 &&
+                sscanf(env_dev, "plughw:%d", &card_idx) != 1)
+                card_idx = 0;
+        } else {
+            fprintf(stderr, "[audio] AC_AUDIO_DEVICE=%s failed: %s — falling back\n",
+                    env_dev, snd_strerror(err));
+        }
+    }
+
     for (int attempt = 0; attempt < 5 && err < 0; attempt++) {
         if (attempt > 0) {
             fprintf(alog, "[audio] Retry %d/4 — waiting 2s for codec probe...\n", attempt);
