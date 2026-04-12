@@ -4732,28 +4732,28 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // rendered in the same color at full saturation.
     const categories = [
       ["NOTES", [120, 200, 255], [
-        ["a–l ; '",    "play notes"],
-        ["1–9",        "octave"],
-        ["← →",        "select L/R side"],
-        ["↑ ↓",        "volume up/down"],
+        ["a-l ; '",    "play notes"],
+        ["1-9",        "octave"],
+        ["< >",        "select L/R side"],
+        ["^ v",        "volume up/down"],
         [", .",        "attack / decay"],
         ["shift",      "quick mode"],
       ]],
       ["DRUMS", [255, 140, 90], [
-        ["pgup/pgdn",  "kit L / R: off\u2192drums\u2192war"],
-        ["space",      "reverse loop pedal"],
+        ["pgup/pgdn",  "kit: off/drums/war"],
+        ["space",      "reverse loop"],
       ]],
       ["WAVE", [220, 140, 255], [
-        ["tab",        "cycle wave type"],
-        ["F12 ★",      "recital mode"],
+        ["tab",        "cycle wave"],
+        ["F12",        "recital mode"],
       ]],
       ["DECK", [120, 230, 150], [
         ["F1",         "play / pause"],
         ["F2",         "next track"],
         ["F3",         "prev track"],
         ["F4",         "usb rescan"],
-        ["[ / `",      "speed − / reset"],
-        ["drag",       "scratch platter"],
+        ["[ / `",      "speed - / reset"],
+        ["drag",       "scratch"],
       ]],
       ["HOLD", [255, 220, 120], [
         ["enter",      "add holds"],
@@ -4761,22 +4761,22 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ]],
       ["TEMPO", [255, 180, 100], [
         ["F9",         "metronome"],
-        ["- / =",      "bpm − / +"],
+        ["- / =",      "bpm - / +"],
       ]],
       ["SAMPLE", [255, 150, 210], [
         ["home",       "record global"],
-        ["end",        "arm per-key/drum"],
-        ["delete",     "clear sample bank"],
+        ["end",        "arm per-key"],
+        ["delete",     "clear samples"],
       ]],
       ["FX", [130, 230, 220], [
-        ["\\",         "trackpad (X echo, Y pitch)"],
+        ["\\",         "trackpad fx"],
       ]],
       ["TAPE", [255, 120, 120], [
-        ["prtsc/ins",  "start/stop tape (MP4 + cloud)"],
+        ["prtsc/ins",  "start/stop tape"],
       ]],
       ["SYSTEM", [190, 190, 205], [
-        ["meta ⊞",     "toggle this help"],
-        ["esc esc esc", "exit to prompt"],
+        ["meta",       "toggle help"],
+        ["esc x3",     "exit to prompt"],
       ]],
     ];
 
@@ -4854,15 +4854,23 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
           ink(Math.floor(cr * 0.55), Math.floor(cg * 0.55), Math.floor(cb * 0.55));
         }
         write(r.k, { x: rx + 6, y: ry, size: 1, font: "font_1" });
-        // Description: muted gray that reads well on both themes
+        // Description: muted gray that reads well on both themes.
+        // Clamp to the remaining column width so long descriptions don't
+        // bleed past the panel edge. font_1 = 6px/char.
         ink(dark ? 160 : 85, dark ? 165 : 85, dark ? 180 : 100);
-        write(r.desc, { x: rx + 6 + descOffset, y: ry, size: 1, font: "font_1" });
+        const descW = Math.max(0, colGap - descOffset - 10);
+        const maxChars = Math.floor(descW / 6);
+        let descText = r.desc;
+        if (descText.length > maxChars && maxChars > 2) {
+          descText = descText.slice(0, maxChars - 1) + ".";
+        }
+        write(descText, { x: rx + 6 + descOffset, y: ry, size: 1, font: "font_1" });
       }
     }
 
     // Footer hint — always visible, always inside the panel
     ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 125 : 160);
-    write("meta ⊞ to close", { x: px + padX, y: py + panelH - padY - 2, size: 1, font: "font_1" });
+    write("meta to close", { x: px + padX, y: py + panelH - padY - 2, size: 1, font: "font_1" });
   }
 }
 
