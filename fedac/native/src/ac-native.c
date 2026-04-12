@@ -1255,7 +1255,37 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     ac_log("[install] force_unmount_disk(%s) released %d mounts\n",
                            parent_blk, n_unmounted);
                     sync();
-                    usleep(500000);
+
+                    // CRITICAL: After MNT_DETACH (lazy unmount), the kernel
+                    // VFS still holds block device references from cached
+                    // dentries/inodes/superblock. We MUST flush buffer cache
+                    // on both the partition and whole disk via BLKFLSBUF,
+                    // then drop page caches, before the block layer will
+                    // release its exclusive hold. Without this, BLKRRPART
+                    // and mkfs both fail with EBUSY.
+                    {
+                        // Flush buffer cache on partition
+                        int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                        if (pfd >= 0) {
+                            ioctl(pfd, BLKFLSBUF);
+                            close(pfd);
+                            ac_log("[install] BLKFLSBUF on %s: ok\n", devpath);
+                        }
+                        // Flush buffer cache on whole disk
+                        char disk_dev[64];
+                        snprintf(disk_dev, sizeof(disk_dev), "/dev/%s", parent_blk);
+                        int dfd = open(disk_dev, O_RDONLY | O_CLOEXEC);
+                        if (dfd >= 0) {
+                            ioctl(dfd, BLKFLSBUF);
+                            close(dfd);
+                            ac_log("[install] BLKFLSBUF on %s: ok\n", disk_dev);
+                        }
+                        // Drop all page/dentry/inode caches
+                        system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                        sync();
+                        ac_log("[install] caches flushed + dropped\n");
+                    }
+                    usleep(1000000); // 1s settle after cache flush
 
                     // Nuke the old filesystem signatures BEFORE sfdisk. This
                     // is critical: the old Fedora ESP's FAT boot sector and
@@ -1344,14 +1374,22 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         "fi",
                         DLOG, devpath, DLOG, DLOG, devpath, DLOG);
                     system(rcmd);
-                    // Drop the kernel page cache so any lingering references
-                    // to the old filesystem's cached pages are released.
+                    // Aggressively flush block device buffer cache + page cache
+                    // to release the kernel's exclusive hold on the partition.
+                    {
+                        int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                        if (pfd >= 0) { ioctl(pfd, BLKFLSBUF); close(pfd); }
+                        char disk_dev2[64];
+                        snprintf(disk_dev2, sizeof(disk_dev2), "/dev/%s", parent_blk);
+                        int dfd = open(disk_dev2, O_RDONLY | O_CLOEXEC);
+                        if (dfd >= 0) { ioctl(dfd, BLKFLSBUF); close(dfd); }
+                    }
                     system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
                     sync();
+                    ac_log("[install] pre-mkfs cache flush done\n");
                     // Long settle — let the kernel + nvme driver fully release
-                    // the device. 3 seconds gives enough margin for the block
-                    // layer to quiesce after partx + wipefs.
-                    usleep(3000000);
+                    // the device. 5 seconds to be safe.
+                    usleep(5000000);
 
                     // Reformat. Retry up to 3 times if mkfs fails — the
                     // kernel sometimes needs multiple passes after a fresh
@@ -1390,11 +1428,20 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                             fclose(mf);
                         }
                     }
-                    // Attempt 2 + 3 if needed
-                    for (int mkfs_try = 2; mkfs_try <= 3 && mkfs_exit != 0; mkfs_try++) {
+                    // Attempt 2–5 if needed (more retries with aggressive flush)
+                    for (int mkfs_try = 2; mkfs_try <= 5 && mkfs_exit != 0; mkfs_try++) {
+                        // Flush block device buffer cache before each retry
+                        {
+                            int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                            if (pfd >= 0) { ioctl(pfd, BLKFLSBUF); close(pfd); }
+                            char dd2[64];
+                            snprintf(dd2, sizeof(dd2), "/dev/%s", parent_blk);
+                            int dfd = open(dd2, O_RDONLY | O_CLOEXEC);
+                            if (dfd >= 0) { ioctl(dfd, BLKFLSBUF); close(dfd); }
+                        }
                         sync();
                         system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
-                        usleep(2000000);  // 2s settle between retries
+                        usleep(3000000);  // 3s settle between retries
                         snprintf(rcmd, sizeof(rcmd),
                             "echo '--- mkfs attempt %d ---' >> %s; "
                             "(mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; rc=$?; "
