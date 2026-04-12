@@ -1772,14 +1772,14 @@ function act({ event: e, sound, wifi, system }) {
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
     if (key === "arrowleft") {
       arrowSelectedSide = 0;
-      leftOctaveOffset = leftOctaveOffset === 0 ? -1 : leftOctaveOffset === -1 ? 1 : 0;
-      flashArrowNotice(`L oct ${octave + leftOctaveOffset}`);
+      sound?.speak?.("left");
+      flashArrowNotice(`L vol ${Math.round(leftMasterVol * 100)}%`);
       return;
     }
     if (key === "arrowright") {
       arrowSelectedSide = 1;
-      rightOctaveOffset = rightOctaveOffset === 1 ? 0 : rightOctaveOffset === 0 ? 2 : 1;
-      flashArrowNotice(`R oct ${octave + rightOctaveOffset}`);
+      sound?.speak?.("right");
+      flashArrowNotice(`R vol ${Math.round(rightMasterVol * 100)}%`);
       return;
     }
     if (key === "arrowup") {
@@ -4399,8 +4399,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       ["NOTES", [120, 200, 255], [
         ["a–l ; '",    "play notes"],
         ["1–9",        "octave"],
-        ["← →",        "L/R grid octave"],
-        ["↑ ↓",        "L/R volume"],
+        ["← →",        "select L/R side"],
+        ["↑ ↓",        "volume up/down"],
         [", .",        "attack / decay"],
         ["shift",      "quick mode"],
       ]],
