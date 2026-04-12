@@ -1,7 +1,66 @@
 #include "font.h"
 #include "font-matrix-chunky8.h"
 #include "font-6x10.h"
+#include "font-unicode.h"
 #include <string.h>
+
+// UTF-8 decode: reads one codepoint from *p, advances *p past it, returns
+// the codepoint. Returns -1 on invalid sequence (skips one byte).
+static int utf8_next(const char **p) {
+    const unsigned char *s = (const unsigned char *)(*p);
+    unsigned char c = *s;
+    if (!c) return 0;
+    int cp, extra;
+    if ((c & 0x80) == 0)        { cp = c;        extra = 0; }
+    else if ((c & 0xE0) == 0xC0){ cp = c & 0x1F; extra = 1; }
+    else if ((c & 0xF0) == 0xE0){ cp = c & 0x0F; extra = 2; }
+    else if ((c & 0xF8) == 0xF0){ cp = c & 0x07; extra = 3; }
+    else { (*p)++; return -1; }
+    s++;
+    for (int i = 0; i < extra; i++) {
+        if ((*s & 0xC0) != 0x80) { (*p) = (const char *)s; return -1; }
+        cp = (cp << 6) | (*s & 0x3F);
+        s++;
+    }
+    (*p) = (const char *)s;
+    return cp;
+}
+
+// Binary search the sorted Unicode glyph table for a codepoint.
+// Returns NULL if not found.
+static const UnicodeGlyph *unicode_lookup(uint32_t cp) {
+    int lo = 0, hi = unicode_glyph_count - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) >> 1;
+        uint32_t v = unicode_glyphs[mid].codepoint;
+        if (v == cp) return &unicode_glyphs[mid];
+        if (v < cp) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    return NULL;
+}
+
+// Render a Unicode glyph (unifont, 8x16) positioned so its baseline lines
+// up with the 6x10 font's baseline at y. Returns the advance width.
+static int draw_unicode_glyph(ACGraph *g, const UnicodeGlyph *u, int x, int y, int scale) {
+    // 6x10 baseline is at y + 8 (top-aligned font). Unifont ascent is 14.
+    // Position unifont so its ascent sits just above the 6x10 cap — that
+    // places lowercase and caps at comparable heights in practice.
+    int base_y = y - 2 * scale;
+    for (int row = 0; row < u->height; row++) {
+        uint16_t bits = u->rows[row];
+        for (int col = 0; col < u->width; col++) {
+            if (bits & (0x8000 >> col)) {
+                int px = x + (col + u->xoff) * scale;
+                int py = base_y + (unicode_ascent - u->yoff - u->height + row) * scale;
+                for (int sy = 0; sy < scale; sy++)
+                    for (int sx = 0; sx < scale; sx++)
+                        graph_plot(g, px + sx, py + sy);
+            }
+        }
+    }
+    return u->dwidth * scale;
+}
 
 // Classic 8x8 bitmap font (CP437 style, ASCII 32-126)
 // Each character is 8 bytes, one byte per row, MSB = leftmost pixel
@@ -248,28 +307,55 @@ int font_draw_6x10(ACGraph *g, const char *text, int x, int y, int scale) {
     if (scale < 1) scale = 1;
 
     int start_x = x;
-    for (const char *p = text; *p; p++) {
-        unsigned char ch = (unsigned char)*p;
-        if (ch == '\n') {
+    const char *p = text;
+    while (*p) {
+        if (*p == '\n') {
             x = start_x;
             y += FONT_6X10_H * scale;
+            p++;
             continue;
         }
-        if (ch < 32 || ch > 126) ch = '?';
-        int idx = ch - 32;
-        const uint8_t *glyph = font_6x10_data[idx];
-
-        for (int row = 0; row < FONT_6X10_H; row++) {
-            uint8_t bits = glyph[row];
-            for (int col = 0; col < FONT_6X10_W; col++) {
-                if (bits & (0x80 >> col)) {
-                    for (int sy = 0; sy < scale; sy++)
-                        for (int sx = 0; sx < scale; sx++)
-                            graph_plot(g, x + col * scale + sx, y + row * scale + sy);
+        int cp = utf8_next(&p);
+        if (cp < 0) continue;
+        if (cp >= 32 && cp <= 126) {
+            // ASCII — render from the 6x10 bitmap
+            int idx = cp - 32;
+            const uint8_t *glyph = font_6x10_data[idx];
+            for (int row = 0; row < FONT_6X10_H; row++) {
+                uint8_t bits = glyph[row];
+                for (int col = 0; col < FONT_6X10_W; col++) {
+                    if (bits & (0x80 >> col)) {
+                        for (int sy = 0; sy < scale; sy++)
+                            for (int sx = 0; sx < scale; sx++)
+                                graph_plot(g, x + col * scale + sx, y + row * scale + sy);
+                    }
                 }
             }
+            x += FONT_6X10_W * scale;
+        } else if (cp > 126) {
+            // Non-ASCII — try Unicode fallback (unifont subset)
+            const UnicodeGlyph *u = unicode_lookup((uint32_t)cp);
+            if (u) {
+                draw_unicode_glyph(g, u, x, y, scale);
+                x += FONT_6X10_W * scale; // Keep monospace grid
+            } else {
+                // Missing glyph — draw ? as a placeholder
+                const uint8_t *glyph = font_6x10_data['?' - 32];
+                for (int row = 0; row < FONT_6X10_H; row++) {
+                    uint8_t bits = glyph[row];
+                    for (int col = 0; col < FONT_6X10_W; col++) {
+                        if (bits & (0x80 >> col)) {
+                            for (int sy = 0; sy < scale; sy++)
+                                for (int sx = 0; sx < scale; sx++)
+                                    graph_plot(g, x + col * scale + sx, y + row * scale + sy);
+                        }
+                    }
+                }
+                x += FONT_6X10_W * scale;
+            }
+        } else {
+            // Control chars — skip silently
         }
-        x += FONT_6X10_W * scale;
     }
     return x;
 }
@@ -278,7 +364,10 @@ int font_measure_6x10(const char *text, int scale) {
     if (!text) return 0;
     if (scale < 1) scale = 1;
     int len = 0;
-    for (const char *p = text; *p && *p != '\n'; p++)
-        len++;
+    const char *p = text;
+    while (*p && *p != '\n') {
+        int cp = utf8_next(&p);
+        if (cp > 0) len++;
+    }
     return len * FONT_6X10_W * scale;
 }
