@@ -150,29 +150,40 @@ static void sigterm_handler(int sig) {
     poweroff_requested = 1;
 }
 
-// Shutdown/reboot that works both as PID 1 (bare metal) and under systemd (NixOS).
+// Shutdown/reboot that works in all three contexts:
+//   - PID 1 (bare metal, direct DRM boot): reboot() syscall works directly.
+//   - Child of init script (bare metal): exit with special code so the init
+//     shell script can invoke `poweroff -f` and the reboot syscall itself.
+//     We ALSO try the reboot syscall directly since we're running as root
+//     with CAP_SYS_BOOT — that's faster than round-tripping through init.
+//   - Under systemd (NixOS): fall back to systemctl.
 static void ac_poweroff(void) {
     sync();
     usleep(500000);
     sync();
-    if (getpid() == 1) {
-        reboot(LINUX_REBOOT_CMD_POWER_OFF);
-    } else {
-        system("systemctl poweroff");
+    // Try the kernel syscall first — works as root with CAP_SYS_BOOT, which
+    // we always have on bare metal (PID 1 or child of init). Only non-root
+    // contexts (NixOS under systemd) need to shell out.
+    if (reboot(LINUX_REBOOT_CMD_POWER_OFF) == 0) {
+        // Shouldn't reach here — syscall succeeds → kernel halts.
         _exit(0);
     }
+    // Syscall failed (likely EPERM on systemd) — fall back.
+    system("systemctl poweroff || /sbin/poweroff -f || /bin/poweroff -f || poweroff -f");
+    // If the initramfs init script is our parent, exit(0) tells it we've
+    // finished; it will do its own `poweroff -f` + sysrq as a last resort.
+    _exit(0);
 }
 
 static void ac_reboot(void) {
     sync();
     usleep(500000);
     sync();
-    if (getpid() == 1) {
-        reboot(LINUX_REBOOT_CMD_RESTART);
-    } else {
-        system("systemctl reboot");
+    if (reboot(LINUX_REBOOT_CMD_RESTART) == 0) {
         _exit(2);
     }
+    system("systemctl reboot || /sbin/reboot -f || /bin/reboot -f || reboot -f");
+    _exit(2);
 }
 
 static void signal_handler(int sig) {
