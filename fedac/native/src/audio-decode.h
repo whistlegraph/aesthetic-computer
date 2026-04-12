@@ -61,6 +61,16 @@ typedef struct ACDeckDecoder {
     // Generated once on load by scanning the entire file via separate pass.
     float           *peaks;          // [0..1] amplitude peaks
     int              peak_count;     // number of peaks (typically 1024)
+
+    // Optional downscaled video preview frames for pieces like tapes.mjs.
+    // Frames are stored as opaque ARGB32 pixels (0xAARRGGBB) in a flat array:
+    // [frame0 pixels][frame1 pixels]...
+    uint32_t        *video_frames;
+    int              video_frame_count;
+    int              video_width;
+    int              video_height;
+    double           video_fps;
+    volatile int     video_ready;
 } ACDeckDecoder;
 
 // Create a decoder instance for the given output sample rate
@@ -82,6 +92,10 @@ void deck_decoder_unload(ACDeckDecoder *d);
 // Decodes the entire file once and writes max-amplitude peaks per chunk.
 // Safe to call from main thread; takes a few hundred ms for typical tracks.
 int deck_decoder_generate_peaks(ACDeckDecoder *d, int target_count);
+
+// Generate a lightweight downscaled video preview strip for the loaded file.
+// Safe to call from main thread; intended for UI playback rather than full-res video.
+int deck_decoder_generate_video_preview(ACDeckDecoder *d, int width, int height, int fps);
 
 // Destroy decoder and free all resources
 void deck_decoder_destroy(ACDeckDecoder *d);
@@ -105,6 +119,12 @@ typedef struct ACDeckDecoder {
     int ring_size;
     volatile int ring_write;
     volatile int ring_read;
+    uint32_t *video_frames;
+    int video_frame_count;
+    int video_width;
+    int video_height;
+    double video_fps;
+    volatile int video_ready;
 } ACDeckDecoder;
 
 static inline ACDeckDecoder *deck_decoder_create(unsigned int output_rate) {
@@ -119,6 +139,9 @@ static inline void deck_decoder_seek(ACDeckDecoder *d, double s) { (void)d; (voi
 static inline void deck_decoder_set_speed(ACDeckDecoder *d, double s) { (void)d; (void)s; }
 static inline void deck_decoder_unload(ACDeckDecoder *d) { (void)d; }
 static inline void deck_decoder_destroy(ACDeckDecoder *d) { (void)d; }
+static inline int deck_decoder_generate_video_preview(ACDeckDecoder *d, int width, int height, int fps) {
+    (void)d; (void)width; (void)height; (void)fps; return -1;
+}
 
 #endif // HAVE_AVCODEC
 #endif // AC_AUDIO_DECODE_H

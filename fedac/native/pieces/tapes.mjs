@@ -28,6 +28,7 @@ let messageFrame = 0;
 let frame = 0;
 let cloudFetching = false;
 let cloudLoadedOnce = false;
+let nowPlaying = "";
 
 function fmtBytes(n) {
   if (!Number.isFinite(n)) return "?";
@@ -150,8 +151,10 @@ function act({ event: e, system, sound }) {
           // Play via deck 0 — same mechanism the dj piece uses.
           const ok = sound?.deck?.load?.(0, t.path);
           if (ok) {
+            const videoOk = sound?.deck?.prepareVideo?.(0, 120, 68, 12);
             sound.deck.play(0);
-            msg("playing local " + t.name);
+            nowPlaying = t.name;
+            msg((videoOk ? "playing local " : "playing audio-only local ") + t.name);
             sound?.speak?.("playing tape");
           } else {
             msg("failed to play " + t.name);
@@ -162,8 +165,10 @@ function act({ event: e, system, sound }) {
           // URL loading, otherwise instruct the user.
           const ok = sound?.deck?.load?.(0, t.mp4Url);
           if (ok) {
+            const videoOk = sound?.deck?.prepareVideo?.(0, 120, 68, 12);
             sound.deck.play(0);
-            msg("streaming " + t.slug);
+            nowPlaying = t.slug + ".mp4";
+            msg((videoOk ? "streaming " : "streaming audio-only ") + t.slug);
             sound?.speak?.("streaming cloud tape");
           } else {
             msg("cloud streaming not supported yet — see " + t.mp4Url);
@@ -216,10 +221,14 @@ function act({ event: e, system, sound }) {
   }
 }
 
-function paint({ wipe, ink, box, line, write, screen }) {
+function paint({ wipe, ink, box, line, write, screen, sound }) {
   const w = screen.width;
   const h = screen.height;
   wipe(16, 14, 20);
+  const deck0 = sound?.deck?.decks?.[0] || null;
+  const showPreview = !!deck0?.loaded;
+  const previewW = showPreview ? Math.min(132, Math.max(92, Math.floor(w * 0.36))) : 0;
+  const listRight = showPreview ? (w - previewW - 12) : (w - 8);
 
   // Title
   ink(200, 220, 255);
@@ -235,6 +244,31 @@ function paint({ wipe, ink, box, line, write, screen }) {
   const scrollStart = Math.max(0, selection - Math.floor(visibleRows / 2));
   const scrollEnd = Math.min(tapes.length, scrollStart + visibleRows);
 
+  if (showPreview) {
+    const px = listRight + 4;
+    const py = 40;
+    const ph = Math.min(h - 60, Math.floor(previewW * 0.62));
+    ink(36, 44, 58, 220);
+    box(px - 2, py - 2, previewW + 4, ph + 18, true);
+    if (deck0?.videoReady) {
+      sound?.deck?.videoBlit?.(0, px, py, previewW, ph);
+    } else {
+      ink(120, 140, 170);
+      write("video buffering...", { x: px + 8, y: py + Math.floor(ph / 2), size: 1, font: "font_1" });
+    }
+    ink(220, 230, 240);
+    write("now playing", { x: px, y: py + ph + 4, size: 1, font: "font_1" });
+    ink(150, 180, 210);
+    write((nowPlaying || deck0?.title || "deck 0").replace(/\.mp4$/, ""), { x: px, y: py + ph + 14, size: 1, font: "font_1" });
+    if (deck0?.duration > 0) {
+      const prog = Math.max(0, Math.min(1, (deck0?.position || 0) / deck0.duration));
+      ink(50, 60, 72);
+      box(px, py + ph + 22, previewW, 5, true);
+      ink(120, 220, 180);
+      box(px, py + ph + 22, Math.max(1, Math.floor(previewW * prog)), 5, true);
+    }
+  }
+
   if (tapes.length === 0) {
     ink(180, 180, 200);
     write("No tapes recorded yet.", { x: 20, y: listY + 8, size: 1, font: "font_1" });
@@ -247,7 +281,7 @@ function paint({ wipe, ink, box, line, write, screen }) {
       const y = listY + (i - scrollStart) * rowH;
       if (i === selection) {
         ink(40, 60, 100, 200);
-        box(4, y - 2, w - 8, rowH, true);
+        box(4, y - 2, listRight - 4, rowH, true);
       }
       // Source badge (☁ cloud / 📁 local — shown as small ascii tag)
       const badge = t.source === "cloud" ? "C" : "L";
@@ -257,11 +291,13 @@ function paint({ wipe, ink, box, line, write, screen }) {
       // Name
       if (i === selection) ink(255, 255, 255);
       else ink(200, 220, 240);
-      write(t.name.replace(/\.mp4$/, ""), { x: 24, y: y + 2, size: 1, font: "font_1" });
+      let label = t.name.replace(/\.mp4$/, "");
+      if (showPreview && label.length > 20) label = label.slice(0, 20) + "...";
+      write(label, { x: 24, y: y + 2, size: 1, font: "font_1" });
       // Right meta: local shows size, cloud shows code
       ink(140, 160, 190);
       const meta = t.source === "local" ? fmtBytes(t.size) : ("!" + (t.code || "?"));
-      const metaX = w - meta.length * 6 - 10;
+      const metaX = listRight - meta.length * 6 - 6;
       write(meta, { x: metaX, y: y + 2, size: 1, font: "font_1" });
     }
   }

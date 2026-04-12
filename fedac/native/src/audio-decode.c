@@ -13,7 +13,9 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/channel_layout.h>
+#include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
 
 extern void ac_log(const char *fmt, ...);
@@ -34,6 +36,19 @@ static int ring_available(ACDeckDecoder *d) {
 
 static int ring_free(ACDeckDecoder *d) {
     return d->ring_size - ring_available(d);
+}
+
+static void free_video_preview(ACDeckDecoder *d) {
+    if (!d) return;
+    if (d->video_frames) {
+        free(d->video_frames);
+        d->video_frames = NULL;
+    }
+    d->video_frame_count = 0;
+    d->video_width = 0;
+    d->video_height = 0;
+    d->video_fps = 0.0;
+    d->video_ready = 0;
 }
 
 // --- Decoder thread ---
@@ -217,6 +232,7 @@ int deck_decoder_load(ACDeckDecoder *d, const char *path) {
     d->seek_requested = 0;
     d->speed = 1.0;
     snprintf(d->path, sizeof(d->path), "%s", path);
+    free_video_preview(d);
 
     // Open file
     AVFormatContext *fmt_ctx = NULL;
@@ -402,6 +418,7 @@ void deck_decoder_unload(ACDeckDecoder *d) {
         d->peaks = NULL;
         d->peak_count = 0;
     }
+    free_video_preview(d);
 
     d->loaded = 0;
     d->finished = 0;
@@ -513,6 +530,193 @@ int deck_decoder_generate_peaks(ACDeckDecoder *d, int target_count) {
     avformat_close_input(&fmt);
 
     return target_count;
+}
+
+int deck_decoder_generate_video_preview(ACDeckDecoder *d, int width, int height, int fps) {
+    if (!d || !d->loaded || !d->path[0]) return -1;
+    if (width <= 0) width = 96;
+    if (height <= 0) height = 54;
+    if (fps <= 0) fps = 12;
+    if (fps > 24) fps = 24;
+
+    // Reuse cached preview when the request matches the existing buffer.
+    if (d->video_ready &&
+        d->video_frames &&
+        d->video_width == width &&
+        d->video_height == height &&
+        fabs(d->video_fps - (double)fps) < 0.001) {
+        return d->video_frame_count;
+    }
+
+    free_video_preview(d);
+
+    AVFormatContext *fmt = NULL;
+    if (avformat_open_input(&fmt, d->path, NULL, NULL) < 0) return -1;
+    if (avformat_find_stream_info(fmt, NULL) < 0) {
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    int sidx = av_find_best_stream(fmt, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
+    if (sidx < 0) {
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    AVStream *st = fmt->streams[sidx];
+    const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
+    if (!codec) {
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    AVCodecContext *cctx = avcodec_alloc_context3(codec);
+    if (!cctx) {
+        avformat_close_input(&fmt);
+        return -1;
+    }
+    avcodec_parameters_to_context(cctx, st->codecpar);
+    if (avcodec_open2(cctx, codec, NULL) < 0) {
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    double duration = d->duration;
+    if (duration <= 0.0 && fmt->duration > 0)
+        duration = (double)fmt->duration / AV_TIME_BASE;
+    if (duration <= 0.0 && st->duration > 0)
+        duration = st->duration * av_q2d(st->time_base);
+    if (duration <= 0.0)
+        duration = 30.0;
+
+    int target_count = (int)ceil(duration * (double)fps) + 1;
+    if (target_count < 1) target_count = 1;
+    if (target_count > 900) target_count = 900;
+
+    size_t pixels_per_frame = (size_t)width * (size_t)height;
+    size_t total_pixels = pixels_per_frame * (size_t)target_count;
+    uint32_t *frames = (uint32_t *)calloc(total_pixels, sizeof(uint32_t));
+    if (!frames) {
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    struct SwsContext *sws = sws_getContext(
+        cctx->width, cctx->height, cctx->pix_fmt,
+        width, height, AV_PIX_FMT_BGRA,
+        SWS_BILINEAR, NULL, NULL, NULL);
+    if (!sws) {
+        free(frames);
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    AVPacket *pkt = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+    if (!pkt || !frame) {
+        av_packet_free(&pkt);
+        av_frame_free(&frame);
+        sws_freeContext(sws);
+        free(frames);
+        avcodec_free_context(&cctx);
+        avformat_close_input(&fmt);
+        return -1;
+    }
+
+    uint8_t *last_frame = NULL;
+    int frame_idx = 0;
+    double next_time = 0.0;
+
+    while (av_read_frame(fmt, pkt) >= 0 && frame_idx < target_count) {
+        if (pkt->stream_index != sidx) {
+            av_packet_unref(pkt);
+            continue;
+        }
+        if (avcodec_send_packet(cctx, pkt) < 0) {
+            av_packet_unref(pkt);
+            continue;
+        }
+        av_packet_unref(pkt);
+
+        while (avcodec_receive_frame(cctx, frame) >= 0 && frame_idx < target_count) {
+            double frame_time = 0.0;
+            if (frame->best_effort_timestamp != AV_NOPTS_VALUE)
+                frame_time = frame->best_effort_timestamp * av_q2d(st->time_base);
+            else if (frame->pts != AV_NOPTS_VALUE)
+                frame_time = frame->pts * av_q2d(st->time_base);
+
+            uint8_t *dst_data[4] = {0};
+            int dst_linesize[4] = {0};
+            uint32_t *dst = frames + ((size_t)frame_idx * pixels_per_frame);
+            av_image_fill_arrays(dst_data, dst_linesize, (uint8_t *)dst,
+                                 AV_PIX_FMT_BGRA, width, height, 1);
+
+            // Fill every preview sample point that this decoded frame covers.
+            while (frame_idx < target_count &&
+                   (frame_time >= next_time || frame_idx == 0)) {
+                dst = frames + ((size_t)frame_idx * pixels_per_frame);
+                av_image_fill_arrays(dst_data, dst_linesize, (uint8_t *)dst,
+                                     AV_PIX_FMT_BGRA, width, height, 1);
+                sws_scale(sws, (const uint8_t * const *)frame->data, frame->linesize,
+                          0, cctx->height, dst_data, dst_linesize);
+                last_frame = (uint8_t *)dst;
+                frame_idx++;
+                next_time = (double)frame_idx / (double)fps;
+            }
+
+            av_frame_unref(frame);
+        }
+    }
+
+    // Flush decoder for the tail of the file.
+    avcodec_send_packet(cctx, NULL);
+    while (avcodec_receive_frame(cctx, frame) >= 0 && frame_idx < target_count) {
+        uint8_t *dst_data[4] = {0};
+        int dst_linesize[4] = {0};
+        uint32_t *dst = frames + ((size_t)frame_idx * pixels_per_frame);
+        av_image_fill_arrays(dst_data, dst_linesize, (uint8_t *)dst,
+                             AV_PIX_FMT_BGRA, width, height, 1);
+        sws_scale(sws, (const uint8_t * const *)frame->data, frame->linesize,
+                  0, cctx->height, dst_data, dst_linesize);
+        last_frame = (uint8_t *)dst;
+        frame_idx++;
+        av_frame_unref(frame);
+    }
+
+    // Pad remaining preview slots with the final decoded frame so playback
+    // keeps showing a still image once audio reaches the tail.
+    if (last_frame) {
+        while (frame_idx < target_count) {
+            uint32_t *dst = frames + ((size_t)frame_idx * pixels_per_frame);
+            memcpy(dst, last_frame, pixels_per_frame * sizeof(uint32_t));
+            frame_idx++;
+        }
+    }
+
+    av_packet_free(&pkt);
+    av_frame_free(&frame);
+    sws_freeContext(sws);
+    avcodec_free_context(&cctx);
+    avformat_close_input(&fmt);
+
+    if (frame_idx <= 0) {
+        free(frames);
+        return -1;
+    }
+
+    d->video_frames = frames;
+    d->video_frame_count = frame_idx;
+    d->video_width = width;
+    d->video_height = height;
+    d->video_fps = (double)fps;
+    d->video_ready = 1;
+
+    ac_log("[deck] video preview ready: %s (%d frames @ %dx%d %.1ffps)\n",
+           d->path, d->video_frame_count, d->video_width, d->video_height, d->video_fps);
+    return d->video_frame_count;
 }
 
 void deck_decoder_destroy(ACDeckDecoder *d) {
