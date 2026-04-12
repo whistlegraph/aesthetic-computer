@@ -9413,12 +9413,11 @@ async function load(
       let doll;
 
       boot = ($) => {
-        doll = new CamDoll($.Camera, $.Dolly, {
-          fov: 80,
-          z: 0,
-          y: 0,
-          sensitivity: 0.002,
-        });
+        // Default camera opts; pieces can override via exported `fpsOpts` to
+        // enable grounded physics (gravity/jump/run/crouch) or just retune FOV.
+        const defaults = { fov: 80, z: 0, y: 0, sensitivity: 0.002 };
+        const opts = { ...defaults, ...(module.fpsOpts || {}) };
+        doll = new CamDoll($.Camera, $.Dolly, opts);
         $commonApi.system.fps = { doll, renderStats: graph.renderStats };
         module?.boot?.($);
       };
