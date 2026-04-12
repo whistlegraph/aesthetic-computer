@@ -1294,11 +1294,18 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     sync();
                     usleep(500000);
 
-                    // Refresh the kernel's partition table via partx -u.
-                    // Unlike BLKRRPART this updates the kernel's view of
-                    // existing partitions in-place without needing exclusive
-                    // access. partprobe is a fallback. Then sfdisk --verify
-                    // logs the final state for diagnostics.
+                    // Refresh the kernel's partition table. Primary method:
+                    // BLKRRPART ioctl (no external binary needed). Falls back
+                    // to partx/partprobe if available for belt-and-suspenders.
+                    {
+                        char disk_dev[64];
+                        snprintf(disk_dev, sizeof(disk_dev), "/dev/%s", parent_blk);
+                        ac_log("[install] BLKRRPART on %s...\n", disk_dev);
+                        int brr = blkrrpart_with_retry(disk_dev, DLOG);
+                        ac_log("[install] BLKRRPART result=%d\n", brr);
+                    }
+                    // Also try partx/partprobe as secondary refresh (may not
+                    // be in initramfs — that's OK, || true swallows the error).
                     snprintf(rcmd, sizeof(rcmd),
                         "echo '--- partx refresh ---' >> %s; "
                         "partx -u /dev/%s >> %s 2>&1 || true; "
@@ -1323,16 +1330,19 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (!devpath_ready) {
                         ac_log("[install] device %s never appeared after sfdisk — see %s\n", devpath, DLOG);
                     }
-                    // Wipe any remaining FS signature with wipefs. The earlier
-                    // dd zero-pass handled the GPT header but didn't touch the
-                    // data area of the actual partition (which still has the
-                    // old FAT boot sector). wipefs -a scrubs all recognized
-                    // filesystem signatures from /dev/nvme0n1p1 so mkfs.vfat
-                    // doesn't try to preserve old metadata.
+                    // Wipe any remaining FS signature. Try wipefs first; if
+                    // it's missing from initramfs, fall back to dd'ing zeros
+                    // over the first 4KB of the partition (covers FAT BPB,
+                    // ext superblock, and any other FS magic).
                     snprintf(rcmd, sizeof(rcmd),
                         "echo '--- wipefs partition ---' >> %s; "
-                        "wipefs -a %s >> %s 2>&1 || true",
-                        DLOG, devpath, DLOG);
+                        "if command -v wipefs >/dev/null 2>&1; then "
+                        "  wipefs -a %s >> %s 2>&1; "
+                        "else "
+                        "  echo 'wipefs not found, using dd fallback' >> %s; "
+                        "  dd if=/dev/zero of=%s bs=512 count=8 conv=fsync >> %s 2>&1; "
+                        "fi",
+                        DLOG, devpath, DLOG, DLOG, devpath, DLOG);
                     system(rcmd);
                     // Drop the kernel page cache so any lingering references
                     // to the old filesystem's cached pages are released.
