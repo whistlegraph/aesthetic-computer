@@ -65,6 +65,13 @@ let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
 let enterHeld = false;       // true while Enter key is physically held
 
+// Per-drum voice-parameter inspector. Populated each time a drum fires
+// with the exact params sent to sound.synth(). Rendered above the grid
+// for a short window so you can see what builds up each sound. Phase 1
+// is read-only; later phases will let you mouse-drag each param.
+let lastDrumInspect = null;  // { letter, name, voices: [{type,tone,dur,vol,atk,dcy,pan}], until }
+let drumInspectBuilder = null;
+
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
   return pitchShift * fxMix;
@@ -1063,6 +1070,11 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
   // - onRelease: optional callback that fires a standalone release
   //   burst (e.g. closed hat's subtle "lift click")
   const addSustain = (params, bothDuration, releaseFade, releaseUpdate, onRelease) => {
+    if (drumInspectBuilder) drumInspectBuilder.voices.push({
+      type: params?.type, tone: params?.tone, duration: bothDuration,
+      volume: params?.volume, attack: params?.attack, decay: params?.decay,
+      pan: params?.pan, kind: "sustain",
+    });
     if (isLive) {
       const handle = sound.synth({ ...params, duration: Infinity });
       if (handle) {
@@ -1082,6 +1094,11 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
   // One-shot hit voices still need to be tracked during live play so pitch
   // and per-side level changes continue through the audible decay after key-up.
   const addHit = (params) => {
+    if (drumInspectBuilder) drumInspectBuilder.voices.push({
+      type: params?.type, tone: params?.tone, duration: params?.duration,
+      volume: params?.volume, attack: params?.attack, decay: params?.decay,
+      pan: params?.pan, kind: "hit",
+    });
     const handle = sound.synth(params);
     if (isLive && handle) {
       const liveEntry = {
@@ -1115,6 +1132,16 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
   const HAT_FREQS = [800, 540, 522.7, 369.6];
 
   if (!fireDown) return;
+
+  // Inspector: start fresh builder on each live press so we capture exactly
+  // the voices that fire for THIS hit.
+  if (isLive || phase === "both") {
+    drumInspectBuilder = {
+      letter,
+      name: PERCUSSION_NAMES[letter] || letter,
+      voices: [],
+    };
+  }
 
   switch (letter) {
     // === ONE-SHOT DRUMS ===
@@ -1349,6 +1376,11 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       break;
     }
   }
+  // Commit inspector snapshot if we captured voices
+  if (drumInspectBuilder && drumInspectBuilder.voices.length > 0) {
+    lastDrumInspect = { ...drumInspectBuilder, until: frame + 300 };
+  }
+  drumInspectBuilder = null;
 }
 
 // Fire a WAR-kit weapon through the native WAVE_GUN DWG synth.
@@ -3872,6 +3904,60 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   drawGrid(LEFT_GRID, leftX, leftOctaveOffset, "left");
   drawGrid(RIGHT_GRID, rightX, rightOctaveOffset, "right");
+
+  // === DRUM INSPECTOR ===
+  // When a drum pad fires, its per-voice synth params are captured. We
+  // render them just above the grid so you can see exactly what builds
+  // up each sound. Fades out over ~5 seconds.
+  if (lastDrumInspect && frame < lastDrumInspect.until) {
+    const dark2 = isDark();
+    const remaining = lastDrumInspect.until - frame;
+    const alpha = Math.min(255, Math.max(40, Math.round(remaining * 1.2)));
+    const rowH = 10;
+    const rowGap = 1;
+    const totalH = rowH * 2 + rowGap + 2;
+    const insY = Math.max(0, gridTop - totalH - 2);
+    // Background panel
+    ink(0, 0, 0, Math.floor(alpha * 0.6));
+    box(0, insY, w, totalH, true);
+    // Header: drum name + voice count
+    const voices = lastDrumInspect.voices;
+    const header = `${lastDrumInspect.name.toUpperCase()} · ${voices.length} voice${voices.length === 1 ? "" : "s"}`;
+    ink(dark2 ? 255 : 20, dark2 ? 220 : 40, dark2 ? 140 : 80, alpha);
+    write(header, { x: 3, y: insY + 1, size: 1, font: "font_1" });
+    // Voice cards row
+    const cardY = insY + rowH + rowGap;
+    const cardW = Math.max(32, Math.floor((w - 6) / Math.max(1, voices.length)));
+    // Color per wave type
+    const typeColors = {
+      sine:     [120, 200, 255],
+      triangle: [120, 255, 180],
+      square:   [255, 220, 120],
+      sawtooth: [255, 140, 80],
+      noise:    [220, 220, 230],
+    };
+    for (let i = 0; i < voices.length; i++) {
+      const v = voices[i];
+      const cx = 3 + i * cardW;
+      const col = typeColors[v.type] || [180, 180, 200];
+      // Card background
+      ink(col[0], col[1], col[2], Math.floor(alpha * 0.3));
+      box(cx, cardY, cardW - 1, rowH, true);
+      // Text: abbreviated params
+      const toneLabel = (v.tone !== undefined && v.tone !== null)
+        ? (v.tone >= 1000 ? (v.tone / 1000).toFixed(1) + "k" : Math.round(v.tone).toString())
+        : "?";
+      const atkMs = Math.round((v.attack || 0) * 1000);
+      const dcyMs = Math.round((v.decay || 0) * 1000);
+      const volPct = Math.round((v.volume || 0) * 100);
+      const typeChar = (v.type || "?").slice(0, 1).toUpperCase();
+      const label = `${typeChar}${toneLabel} a${atkMs} d${dcyMs} v${volPct}`;
+      ink(col[0], col[1], col[2], alpha);
+      write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
+    }
+  } else if (lastDrumInspect) {
+    lastDrumInspect = null;
+  }
 
   // === PER-SIDE MASTER VOLUME SLIDERS ===
   // Thin vertical bars flanking each grid. Drag to set the master volume
