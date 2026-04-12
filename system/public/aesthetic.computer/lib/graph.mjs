@@ -4101,56 +4101,98 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
   // Skip if triangle is completely off-screen
   if (screenMinX >= screenMaxX || screenMinY >= screenMaxY) return;
 
-  // Calculate area of the whole triangle (for barycentric coordinates)
+  // Triangle area (signed). We use edge functions (half-plane tests) so the
+  // inside test and barycentric weights share work: u = E1/areaABC where
+  // E1(x,y) = areaPBC(x,y). Each E is linear in (x, y), so we can increment
+  // it by constant deltas per pixel instead of recomputing.
   const areaABC = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
+  if (abs(areaABC) < 0.5) return; // degenerate
 
-  // Avoid degenerate triangles
-  if (abs(areaABC) < 0.5) return;
+  const invArea = 1 / areaABC;
 
-  // Iterate over bounding box and check if each pixel is inside the triangle
+  // Partial derivatives of each edge function (constant per step).
+  const dE1dx = y2 - y3, dE1dy = x3 - x2;   // E1 = areaPBC → weight V1
+  const dE2dx = y3 - y1, dE2dy = x1 - x3;   // E2 = areaPCA → weight V2
+  const dE3dx = y1 - y2, dE3dy = x2 - x1;   // E3 = areaPAB → weight V3
+
+  // Evaluate each edge function at the top-left pixel centre (minX+0.5, minY+0.5).
+  const px0 = screenMinX + 0.5;
+  const py0 = screenMinY + 0.5;
+  let e1Row = (x2 - px0) * (y3 - py0) - (x3 - px0) * (y2 - py0);
+  let e2Row = (x3 - px0) * (y1 - py0) - (x1 - px0) * (y3 - py0);
+  let e3Row = (x1 - px0) * (y2 - py0) - (x2 - px0) * (y1 - py0);
+
+  // Pre-scale colour channels to 0-255 to remove the per-pixel *255 multiply.
+  const c1r = color1[0] * 255, c1g = color1[1] * 255, c1b = color1[2] * 255;
+  const c2r = color2[0] * 255, c2g = color2[1] * 255, c2b = color2[2] * 255;
+  const c3r = color3[0] * 255, c3g = color3[1] * 255, c3b = color3[2] * 255;
+  const c1a = color1[3] * 255, c2a = color2[3] * 255, c3a = color3[3] * 255;
+  // If every vertex is fully opaque we can skip the per-pixel alpha path.
+  const allOpaque = c1a >= 254.5 && c2a >= 254.5 && c3a >= 254.5;
+
+  const hasDepth = depthBuffer.length > 0;
+  const pix = pixels;
+  const bufW = width;
+  let pixCount = 0;
+
   for (let y = screenMinY; y < screenMaxY; y++) {
+    let e1 = e1Row, e2 = e2Row, e3 = e3Row;
+    let rowPix = (screenMinX + y * bufW) * 4;
+    let rowDep = screenMinX + y * bufW;
+    let wasInside = false;
     for (let x = screenMinX; x < screenMaxX; x++) {
-      // Calculate barycentric coordinates using signed area method
-      const areaPBC = (x2 - x) * (y3 - y) - (x3 - x) * (y2 - y);
-      const areaPCA = (x3 - x) * (y1 - y) - (x1 - x) * (y3 - y);
-      
-      const u = areaPBC / areaABC; // Weight for vertex 1
-      const v = areaPCA / areaABC; // Weight for vertex 2
-      const w = 1 - u - v;          // Weight for vertex 3
-
-      // Check if point is inside triangle
+      // Inside test via barycentric: all three weights ≥ 0. Division by
+      // invArea flips sign correctly for either winding order.
+      const u = e1 * invArea;
+      const v = e2 * invArea;
+      const w = 1 - u - v;
       if (u >= 0 && v >= 0 && w >= 0) {
-        // Interpolate NDC Z for depth testing. Convention: lower Z = nearer
-        // (post-perspective-divide Z is in [-1, +1]; near plane → -1).
+        wasInside = true;
         const depth = u * z1 + v * z2 + w * z3;
-
-        // Z-test: skip this pixel if a nearer fragment is already there.
-        const bufferIndex = x + y * width;
-        if (depthBuffer.length > 0) {
-          if (depth > depthBuffer[bufferIndex]) {
-            continue; // existing pixel is closer to the camera
+        if (!hasDepth || depth <= depthBuffer[rowDep]) {
+          const r = (u * c1r + v * c2r + w * c3r) | 0;
+          const g = (u * c1g + v * c2g + w * c3g) | 0;
+          const b = (u * c1b + v * c2b + w * c3b) | 0;
+          if (allOpaque) {
+            pix[rowPix] = r;
+            pix[rowPix + 1] = g;
+            pix[rowPix + 2] = b;
+            pix[rowPix + 3] = 255;
+          } else {
+            const a = (u * c1a + v * c2a + w * c3a) | 0;
+            if (a >= 254) {
+              pix[rowPix] = r;
+              pix[rowPix + 1] = g;
+              pix[rowPix + 2] = b;
+              pix[rowPix + 3] = 255;
+            } else if (a > 0) {
+              // Integer alpha blend: src*a/256 + dst*(256-a)/256.
+              const aa = a + 1;
+              const inv = 256 - a;
+              pix[rowPix]     = (r * aa + pix[rowPix]     * inv) >> 8;
+              pix[rowPix + 1] = (g * aa + pix[rowPix + 1] * inv) >> 8;
+              pix[rowPix + 2] = (b * aa + pix[rowPix + 2] * inv) >> 8;
+              const dstA = pix[rowPix + 3];
+              pix[rowPix + 3] = dstA > a ? dstA : a;
+            }
           }
+          if (hasDepth) depthBuffer[rowDep] = depth;
+          pixCount++;
         }
-
-        renderStats.pixelsDrawn++;
-        
-        // Interpolate colors using barycentric weights
-        const r = floor(u * color1[0] + v * color2[0] + w * color3[0]);
-        const g = floor(u * color1[1] + v * color2[1] + w * color3[1]);
-        const b = floor(u * color1[2] + v * color2[2] + w * color3[2]);
-        const a = floor(u * color1[3] + v * color2[3] + w * color3[3]);
-
-        // Update depth buffer
-        if (depthBuffer.length > 0) {
-          depthBuffer[bufferIndex] = depth;
-        }
-        
-        // Set the interpolated color and draw the pixel
-        color(r, g, b, a);
-        point(x, y);
+      } else if (wasInside) {
+        // Convex triangle — once we've entered & left on this scanline we
+        // won't re-enter. Skip to next row.
+        break;
       }
+      e1 += dE1dx; e2 += dE2dx; e3 += dE3dx;
+      rowPix += 4;
+      rowDep += 1;
     }
+    e1Row += dE1dy;
+    e2Row += dE2dy;
+    e3Row += dE3dy;
   }
+  renderStats.pixelsDrawn += pixCount;
 }
 
 // Helper: Subdivide a triangle if it's too large in screen space
