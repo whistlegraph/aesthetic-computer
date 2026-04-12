@@ -557,6 +557,21 @@ let spaceHeld = false;
 // the status bar when there's space.
 let lastKeyPressed = "";
 let lastKeyFrame = 0;
+
+// Attack / Decay envelope modes — cycled with , and . keys
+// Each has 3 states: "zero" (instant), "short", "long"
+const ATTACK_MODES = ["zero", "short", "long"];
+const DECAY_MODES  = ["zero", "short", "long"];
+let attackModeIdx = 1; // default: short
+let decayModeIdx  = 1; // default: short
+const ATTACK_VALUES = { zero: 0.001, short: 0.005, long: 0.06 };
+const DECAY_VALUES  = { zero: 0.01,  short: 0.1,   long: 0.9 };
+let envelopeNotice = null; // { text, icon, until } — transient overlay
+
+// Arrow-key octave offsets for left and right grids (added to base `octave`)
+let leftOctaveOffset = 0;   // left grid plays at octave + leftOctaveOffset
+let rightOctaveOffset = 1;  // right grid plays at octave + rightOctaveOffset (default +1)
+let arrowSelectedSide = 0;  // 0 = left, 1 = right (for up/down volume)
 let reversePhaseStartMs = Date.now();
 let reversePlaybackSound = null;
 
@@ -1192,6 +1207,21 @@ function flashPercussionNotice(text) {
   percussionNotice = { text, until: frame + 120 }; // ~2 seconds at 60fps
 }
 
+function currentAttack() { return ATTACK_VALUES[ATTACK_MODES[attackModeIdx]]; }
+function currentDecay()  { return DECAY_VALUES[DECAY_MODES[decayModeIdx]]; }
+
+function flashEnvelopeNotice(param, mode) {
+  // param: "attack" or "decay", mode: "zero"/"short"/"long"
+  const icons = { zero: "·", short: "/", long: "~" };
+  const labels = { attack: "ATK", decay: "DEC" };
+  const text = `${labels[param]} ${icons[mode]} ${mode}`;
+  envelopeNotice = { text, param, mode, until: frame + 90 }; // ~1.5s
+}
+
+function flashArrowNotice(text) {
+  envelopeNotice = { text, param: "arrow", mode: "", until: frame + 90 };
+}
+
 function noteToFreq(note, oct) {
   const idx = CHROMATIC.indexOf(note);
   if (idx < 0) return 440;
@@ -1338,10 +1368,10 @@ function noteColor(n) { return NOTE_COLORS[n] || [80, 80, 80]; }
 // Hit-test a touch point against the note grid
 function hitTestGrid(x, y, gi) {
   const grids = [
-    { grid: LEFT_GRID, startX: gi.leftX, octOffset: 0 },
-    { grid: RIGHT_GRID, startX: gi.rightX, octOffset: 0 },
+    { grid: LEFT_GRID, startX: gi.leftX, sideOffset: leftOctaveOffset },
+    { grid: RIGHT_GRID, startX: gi.rightX, sideOffset: rightOctaveOffset },
   ];
-  for (const { grid, startX, octOffset } of grids) {
+  for (const { grid, startX, sideOffset } of grids) {
     for (let r = 0; r < 3; r++) {
       for (let c = 0; c < 4; c++) {
         const bx = startX + c * (gi.btnW + gi.gap);
@@ -1350,7 +1380,7 @@ function hitTestGrid(x, y, gi) {
           const noteName = grid[r][c];
           const key = NOTE_TO_KEY[noteName];
           const [letter, off] = parseNote(noteName);
-          return { key, letter, octave: octave + off + octOffset, gridOffset: off };
+          return { key, letter, octave: octave + sideOffset, gridOffset: off };
         }
       }
     }
@@ -1582,7 +1612,16 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    if (key === ",") { djTapTempo(); return; }
+    if (key === ",") {
+      attackModeIdx = (attackModeIdx + 1) % ATTACK_MODES.length;
+      flashEnvelopeNotice("attack", ATTACK_MODES[attackModeIdx]);
+      return;
+    }
+    if (key === ".") {
+      decayModeIdx = (decayModeIdx + 1) % DECAY_MODES.length;
+      flashEnvelopeNotice("decay", DECAY_MODES[decayModeIdx]);
+      return;
+    }
 
     if (key === "escape" && activeScreen === "wifi") { activeScreen = "notepat"; return; }
     if (key === "escape" && activeScreen === "os") { activeScreen = "notepat"; osState = "idle"; return; }
@@ -1731,8 +1770,38 @@ function act({ event: e, sound, wifi, system }) {
       return;
     }
     if (key >= "1" && key <= "9") { octave = parseInt(key); return; }
-    if (key === "arrowup") { octave = Math.min(9, octave + 1); return; }
-    if (key === "arrowdown") { octave = Math.max(1, octave - 1); return; }
+    if (key === "arrowleft") {
+      arrowSelectedSide = 0;
+      leftOctaveOffset = leftOctaveOffset === 0 ? -1 : leftOctaveOffset === -1 ? 1 : 0;
+      flashArrowNotice(`L oct ${octave + leftOctaveOffset}`);
+      return;
+    }
+    if (key === "arrowright") {
+      arrowSelectedSide = 1;
+      rightOctaveOffset = rightOctaveOffset === 1 ? 0 : rightOctaveOffset === 0 ? 2 : 1;
+      flashArrowNotice(`R oct ${octave + rightOctaveOffset}`);
+      return;
+    }
+    if (key === "arrowup") {
+      if (arrowSelectedSide === 0) {
+        leftMasterVol = Math.min(1.5, leftMasterVol + 0.1);
+        flashArrowNotice(`L vol ${Math.round(leftMasterVol * 100)}%`);
+      } else {
+        rightMasterVol = Math.min(1.5, rightMasterVol + 0.1);
+        flashArrowNotice(`R vol ${Math.round(rightMasterVol * 100)}%`);
+      }
+      return;
+    }
+    if (key === "arrowdown") {
+      if (arrowSelectedSide === 0) {
+        leftMasterVol = Math.max(0, leftMasterVol - 0.1);
+        flashArrowNotice(`L vol ${Math.round(leftMasterVol * 100)}%`);
+      } else {
+        rightMasterVol = Math.max(0, rightMasterVol - 0.1);
+        flashArrowNotice(`R vol ${Math.round(rightMasterVol * 100)}%`);
+      }
+      return;
+    }
     // Home key: hold to record GLOBAL sample
     if (key === "home" && wave === "sample" && !recording && !perKeyRecording) {
       const ok = !!sound?.microphone?.rec?.();
@@ -1760,16 +1829,7 @@ function act({ event: e, sound, wifi, system }) {
       sound.synth({ type: "noise", tone: 200, duration: 0.1, volume: 0.15, attack: 0.001, decay: 0.08 });
       return;
     }
-    if (key === "arrowleft") {
-      const idx = (waveIndex - 1 + wavetypes.length) % wavetypes.length;
-      setWave(wavetypes[idx], sound);
-      return;
-    }
-    if (key === "arrowright") {
-      const idx = (waveIndex + 1) % wavetypes.length;
-      setWave(wavetypes[idx], sound);
-      return;
-    }
+    // Arrow left/right handled above (octave per side)
     if (key === "\\") {
       trackpadFX = !trackpadFX;
       sound.synth({
@@ -1807,7 +1867,9 @@ function act({ event: e, sound, wifi, system }) {
     if (perKeyRecording === key) return;
     if (noteName && !sounds[key]) {
       const [letter, offset] = parseNote(noteName);
-      const noteOctave = octave + offset;
+      // Map parseNote offset to per-side octave: offset<=0 = left grid, offset>=1 = right grid
+      const sideOctaveAdj = offset >= 1 ? rightOctaveOffset : leftOctaveOffset;
+      const noteOctave = octave + sideOctaveAdj + (offset >= 2 ? offset - 1 : offset <= -1 ? offset : 0);
       const freq = noteToFreq(letter, noteOctave);
       const semitones = (noteOctave - 4) * 12 + CHROMATIC.indexOf(letter);
       const pan = Math.max(-0.8, Math.min(0.8, (semitones - 12) / 15));
@@ -1889,7 +1951,7 @@ function act({ event: e, sound, wifi, system }) {
         } else {
           const synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
-            volume: vol, attack: quickMode ? 0.002 : 0.005, decay: 0.1, pan,
+            volume: vol, attack: quickMode ? 0.002 : currentAttack(), decay: currentDecay(), pan,
           });
           rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
         }
@@ -1897,8 +1959,8 @@ function act({ event: e, sound, wifi, system }) {
         const synth = sound.synth({
           type: wave, tone: playFreq,
           duration: Infinity,
-          volume: vol, attack: quickMode ? 0.002 : 0.005,
-          decay: 0.1, pan: pan,
+          volume: vol, attack: quickMode ? 0.002 : currentAttack(),
+          decay: currentDecay(), pan: pan,
         });
         rememberSound(key, { synth, note: letter, octave: noteOctave, baseFreq: freq, gridOffset: offset, baseVol }, system, velocity);
       }
@@ -2212,11 +2274,12 @@ function act({ event: e, sound, wifi, system }) {
         } else if (wave === "composite") {
           // Rich layered pad: 5 detuned oscillators
           const detune = () => Math.floor(Math.random() * 13) - 6;
-          const a = sound.synth({ type: "sine", tone: playFreq, duration: Infinity, volume: 0.5, attack: 0.003, decay: 0.9, pan });
-          const b = sound.synth({ type: "sine", tone: playFreq + 9 + detune(), duration: Infinity, volume: 0.17, attack: 0.003, decay: 0.9, pan });
-          const c = sound.synth({ type: "sawtooth", tone: playFreq + detune(), duration: 0.15 + Math.random() * 0.05, volume: 0.01, attack: 0.005, decay: 0.1, pan });
-          const d = sound.synth({ type: "triangle", tone: playFreq + 8 + detune(), duration: Infinity, volume: 0.016, attack: 0.999, decay: 0.9, pan });
-          const e2 = sound.synth({ type: "square", tone: playFreq + detune(), duration: Infinity, volume: 0.008, attack: 0.05, decay: 0.9, pan });
+          const atk = currentAttack(), dcy = currentDecay();
+          const a = sound.synth({ type: "sine", tone: playFreq, duration: Infinity, volume: 0.5, attack: atk, decay: dcy, pan });
+          const b = sound.synth({ type: "sine", tone: playFreq + 9 + detune(), duration: Infinity, volume: 0.17, attack: atk, decay: dcy, pan });
+          const c = sound.synth({ type: "sawtooth", tone: playFreq + detune(), duration: 0.15 + Math.random() * 0.05, volume: 0.01, attack: atk * 1.5, decay: dcy * 0.2, pan });
+          const d = sound.synth({ type: "triangle", tone: playFreq + 8 + detune(), duration: Infinity, volume: 0.016, attack: Math.min(0.999, atk * 20), decay: dcy, pan });
+          const e2 = sound.synth({ type: "square", tone: playFreq + detune(), duration: Infinity, volume: 0.008, attack: atk * 10, decay: dcy, pan });
           synth = a; // primary handle for kill
           rememberSound(hitNote.key, {
             synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
@@ -2225,14 +2288,14 @@ function act({ event: e, sound, wifi, system }) {
         } else {
           synth = sound.synth({
             type: wave, tone: playFreq, duration: Infinity,
-            volume: 0.5, attack: 0.005, decay: 0.1, pan,
+            volume: 0.5, attack: currentAttack(), decay: currentDecay(), pan,
           });
           rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
         }
         if (!sounds[hitNote.key]) {
           synth = sound.synth({
             type: "sine", tone: playFreq, duration: Infinity,
-            volume: 0.5, attack: 0.005, decay: 0.1, pan,
+            volume: 0.5, attack: currentAttack(), decay: currentDecay(), pan,
           });
           rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
         }
@@ -2340,14 +2403,14 @@ function act({ event: e, sound, wifi, system }) {
           } else {
             synth = sound.synth({
               type: wave, tone: playFreq,
-              duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
+              duration: Infinity, volume: 0.5, attack: currentAttack(), decay: currentDecay(), pan,
             });
             rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
           }
           if (!sounds[hitNote.key]) {
             synth = sound.synth({
               type: "sine", tone: playFreq,
-              duration: Infinity, volume: 0.5, attack: 0.005, decay: 0.1, pan,
+              duration: Infinity, volume: 0.5, attack: currentAttack(), decay: currentDecay(), pan,
             });
             rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
           }
@@ -3404,7 +3467,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       for (let c = 0; c < cols; c++) {
         const noteName = grid[r][c];
         const [letter, off] = parseNote(noteName);
-        const noteOctave = octave + off + octOffset;
+        // octOffset is the per-side offset (leftOctaveOffset or rightOctaveOffset)
+        // off from parseNote: 0 for left grid notes, 1 for right grid "+" notes
+        // Use octOffset directly as the side's octave shift
+        const noteOctave = octave + octOffset;
         const key = NOTE_TO_KEY[noteName];
         const isActive = key && sounds[key] !== undefined;
         const trailInfo = key && trail[key];
@@ -3570,8 +3636,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
-  drawGrid(LEFT_GRID, leftX, 0, "left");
-  drawGrid(RIGHT_GRID, rightX, 0, "right");
+  drawGrid(LEFT_GRID, leftX, leftOctaveOffset, "left");
+  drawGrid(RIGHT_GRID, rightX, rightOctaveOffset, "right");
 
   // === PER-SIDE MASTER VOLUME SLIDERS ===
   // Thin vertical bars flanking each grid. Drag to set the master volume
@@ -3630,6 +3696,52 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write(txt, { x: tx + 4, y: ty + 1, size: 1, font: "font_1" });
   } else if (percussionNotice) {
     percussionNotice = null;
+  }
+
+  // Envelope / arrow-key notice (attack, decay, octave, volume)
+  if (envelopeNotice && frame < envelopeNotice.until) {
+    const dark2 = isDark();
+    const remaining = envelopeNotice.until - frame;
+    const alpha = Math.min(255, Math.round(remaining * 3.5));
+    const txt = envelopeNotice.text;
+    const tw = Math.max(1, txt.length) * 6 + 12;
+    const tx = Math.floor((w - tw) / 2);
+    const ty = gridTop + gridH + 4;
+    // Background
+    ink(0, 0, 0, Math.floor(alpha * 0.7));
+    box(tx - 1, ty - 1, tw + 2, 14, true);
+    // Colored fill based on type
+    const isAttack = envelopeNotice.param === "attack";
+    const isDecay = envelopeNotice.param === "decay";
+    const isArrow = envelopeNotice.param === "arrow";
+    const r2 = isAttack ? 80 : isDecay ? 40 : isArrow ? 60 : 40;
+    const g2 = isAttack ? 40 : isDecay ? 80 : isArrow ? 50 : 40;
+    const b2 = isAttack ? 120 : isDecay ? 120 : isArrow ? 100 : 55;
+    ink(dark2 ? r2 : 220, dark2 ? g2 : 220, dark2 ? b2 : 240, Math.floor(alpha * 0.9));
+    box(tx, ty, tw, 12, true);
+    // Envelope shape icon (small 3-segment drawing)
+    if (isAttack || isDecay) {
+      const mode = envelopeNotice.mode;
+      const ix = tx + 2, iy = ty + 2, ih = 8, iw = 12;
+      ink(dark2 ? 255 : 30, dark2 ? 220 : 30, dark2 ? 180 : 60, alpha);
+      if (isAttack) {
+        // Attack icon: vertical rise speed varies by mode
+        const peakX = mode === "zero" ? 1 : mode === "short" ? 4 : 9;
+        line(ix, iy + ih, ix + peakX, iy);          // rise
+        line(ix + peakX, iy, ix + iw, iy);           // sustain
+      } else {
+        // Decay icon: peak then fall speed varies
+        const fallStart = mode === "zero" ? 1 : mode === "short" ? 4 : 9;
+        line(ix, iy, ix + (iw - fallStart), iy);     // sustain
+        line(ix + (iw - fallStart), iy, ix + iw, iy + ih); // fall
+      }
+    }
+    // Text
+    const textX = (isAttack || isDecay) ? tx + 16 : tx + 4;
+    ink(dark2 ? 240 : 30, dark2 ? 230 : 30, dark2 ? 200 : 60, alpha);
+    write(txt, { x: textX, y: ty + 2, size: 1, font: "font_1" });
+  } else if (envelopeNotice) {
+    envelopeNotice = null;
   }
 
   // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing ===
@@ -4286,7 +4398,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const categories = [
       ["NOTES", [120, 200, 255], [
         ["a–l ; '",    "play notes"],
-        ["1–9 ↑↓",     "octave"],
+        ["1–9",        "octave"],
+        ["← →",        "L/R grid octave"],
+        ["↑ ↓",        "L/R volume"],
+        [", .",        "attack / decay"],
         ["shift",      "quick mode"],
       ]],
       ["DRUMS", [255, 140, 90], [
@@ -4303,7 +4418,6 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["F3",         "prev track"],
         ["F4",         "usb rescan"],
         ["[ / `",      "speed − / reset"],
-        [",",          "tap-sync bpm"],
         ["drag",       "scratch platter"],
       ]],
       ["HOLD", [255, 220, 120], [
