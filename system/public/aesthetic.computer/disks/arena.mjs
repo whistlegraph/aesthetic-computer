@@ -552,15 +552,20 @@ function sim({ system, pen, screen }) {
   lastHitWorld = null;
   lastPenScreen = penLocked ? null : [mx, my];
   if (fy < -0.001) {
-    // Ray origin = render camera world position (not the logical player, so
-    // the hit point matches what the user sees through the crosshair/mouse).
+    // EXPERIMENT: Z convention flip test. If the raycast hits the wrong tile
+    // mirrored across the player, flipping Z in both ray origin AND direction
+    // is a point reflection across the XY plane through origin. If this
+    // makes the hover tile correct, we know Z-axis in engine is inverted
+    // from what my derivation assumed. (Direction-only or origin-only flips
+    // would not cause a clean mirror; we need both or neither.)
     const camWorldX = -cam.x;
     const camWorldY = -cam.y;
-    const camWorldZ = -cam.z;
+    const camWorldZ = cam.z;        // was -cam.z  (flipped)
+    const fzAdj     = -fz;          // flipped direction
     const t = (GROUND_Y - camWorldY) / fy;
     if (t > 0 && t < 200) {
       const hitX = camWorldX + t * fx;
-      const hitZ = camWorldZ + t * fz;
+      const hitZ = camWorldZ + t * fzAdj;
       hoverTile = tileAt(hitX, hitZ);
       lastHitWorld = [hitX, hitZ];
     }
