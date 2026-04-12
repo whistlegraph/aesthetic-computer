@@ -1174,8 +1174,53 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             // Try mounting as FAT (ESP is always FAT32)
             ac_log("[install] trying %s\n", devpath);
             if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
-                ac_log("[install] mount failed: %s (errno=%d)\n", devpath, errno);
-                continue;
+                int mount_errno = errno;
+                ac_log("[install] mount failed: %s (errno=%d)\n", devpath, mount_errno);
+                // If the partition exists but has no filesystem (e.g. a prior
+                // sfdisk created it but mkfs never succeeded), try to format
+                // it now. Only attempt this on the first partition (which is
+                // the ESP slot) and only if the partition is large enough.
+                if (p == 1) {
+                    long long part_bytes = 0;
+                    int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                    if (pfd >= 0) {
+                        unsigned long long sz = 0;
+                        if (ioctl(pfd, BLKGETSIZE64, &sz) == 0) part_bytes = (long long)sz;
+                        close(pfd);
+                    }
+                    long part_mb = (long)(part_bytes / 1048576LL);
+                    ac_log("[install] %s size=%ldMB — try format to rescue unmountable partition\n",
+                           devpath, part_mb);
+                    if (part_mb >= 512) {
+                        // Flush buffer cache, then mkfs
+                        int fpfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                        if (fpfd >= 0) { ioctl(fpfd, BLKFLSBUF); close(fpfd); }
+                        system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                        sync();
+                        usleep(500000);
+                        char mkfs_cmd[256];
+                        snprintf(mkfs_cmd, sizeof(mkfs_cmd),
+                                 "mkfs.vfat -F 32 -n AC-NATIVE %s 2>&1", devpath);
+                        int mkrc = system(mkfs_cmd);
+                        ac_log("[install] rescue mkfs rc=%d\n", mkrc);
+                        if (WIFEXITED(mkrc) && WEXITSTATUS(mkrc) == 0) {
+                            usleep(500000);
+                            if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) == 0) {
+                                ac_log("[install] rescue format + mount OK\n");
+                                // Fall through to normal install flow below
+                            } else {
+                                ac_log("[install] rescue mount still failed\n");
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
             }
 
             // Create EFI boot directories
