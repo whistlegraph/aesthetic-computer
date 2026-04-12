@@ -813,8 +813,32 @@ static WaveType parse_wave_type(const char *type) {
     if (strcmp(type, "whistle") == 0 || strcmp(type, "ocarina") == 0 ||
         strcmp(type, "flute") == 0 || strcmp(type, "skullwhistle") == 0 ||
         strcmp(type, "skull-whistle") == 0) return WAVE_WHISTLE;
+    if (strncmp(type, "gun", 3) == 0) return WAVE_GUN;
     // composite → treat as sine for now
     return WAVE_SINE;
+}
+
+// Parse the preset suffix for a gun-* wave type string.
+// Accepts both "gun-pistol" and "gunpistol" forms; defaults to pistol.
+static GunPreset parse_gun_preset(const char *type) {
+    if (!type) return GUN_PISTOL;
+    if (strncmp(type, "gun", 3) != 0) return GUN_PISTOL;
+    const char *p = type + 3;
+    if (*p == '-' || *p == '_') p++;
+    if (!*p) return GUN_PISTOL;
+    if (strcmp(p, "pistol") == 0) return GUN_PISTOL;
+    if (strcmp(p, "rifle") == 0) return GUN_RIFLE;
+    if (strcmp(p, "shotgun") == 0) return GUN_SHOTGUN;
+    if (strcmp(p, "smg") == 0) return GUN_SMG;
+    if (strcmp(p, "suppressed") == 0 || strcmp(p, "silenced") == 0) return GUN_SUPPRESSED;
+    if (strcmp(p, "lmg") == 0 || strcmp(p, "mg") == 0) return GUN_LMG;
+    if (strcmp(p, "sniper") == 0) return GUN_SNIPER;
+    if (strcmp(p, "grenade") == 0) return GUN_GRENADE;
+    if (strcmp(p, "rpg") == 0 || strcmp(p, "rocket") == 0) return GUN_RPG;
+    if (strcmp(p, "reload") == 0) return GUN_RELOAD;
+    if (strcmp(p, "cock") == 0 || strcmp(p, "bolt") == 0) return GUN_COCK;
+    if (strcmp(p, "ricochet") == 0 || strcmp(p, "pew") == 0) return GUN_RICOCHET;
+    return GUN_PISTOL;
 }
 
 // synthObj.kill(fade) — method on synth return object
@@ -875,12 +899,19 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
 
     JSValue opts = argv[0];
 
-    // Parse type
+    // Parse type. For "gun-*" strings we also extract the preset so the
+    // DWG synth can branch to audio_synth_gun below.
     WaveType wt = WAVE_SINE;
+    GunPreset gun_preset = GUN_PISTOL;
+    int is_gun = 0;
     JSValue type_v = JS_GetPropertyStr(ctx, opts, "type");
     if (JS_IsString(type_v)) {
         const char *ts = JS_ToCString(ctx, type_v);
         wt = parse_wave_type(ts);
+        if (wt == WAVE_GUN) {
+            gun_preset = parse_gun_preset(ts);
+            is_gun = 1;
+        }
         JS_FreeCString(ctx, ts);
     }
     JS_FreeValue(ctx, type_v);
@@ -927,12 +958,27 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     if (JS_IsNumber(v)) JS_ToFloat64(ctx, &pan, v);
     JS_FreeValue(ctx, v);
 
-    // Create voice
-    uint64_t id = audio_synth(audio, wt, freq, duration, volume, attack, decay, pan);
-    fprintf(stderr, "[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
-            wt, freq, volume, duration, (unsigned long)id);
-    ac_log("[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
-           wt, freq, volume, duration, (unsigned long)id);
+    // Create voice. Guns take a separate path so we can seed per-preset
+    // DWG parameters (bore length, body modes, etc).
+    uint64_t id;
+    if (is_gun) {
+        // Let `tone` (1.0 default) scale the combustion pressure so pads
+        // can express accent via velocity. A JS caller passing tone=1.0
+        // = unity pressure from the preset.
+        double pressure_scale = freq > 0 && freq < 5.0 ? freq : 1.0;
+        id = audio_synth_gun(audio, gun_preset, duration, volume, attack,
+                             decay, pan, pressure_scale);
+        fprintf(stderr, "[synth] gun preset=%d vol=%.2f dur=%.1f id=%lu\n",
+                gun_preset, volume, duration, (unsigned long)id);
+        ac_log("[synth] gun preset=%d vol=%.2f dur=%.1f id=%lu\n",
+               gun_preset, volume, duration, (unsigned long)id);
+    } else {
+        id = audio_synth(audio, wt, freq, duration, volume, attack, decay, pan);
+        fprintf(stderr, "[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
+                wt, freq, volume, duration, (unsigned long)id);
+        ac_log("[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",
+               wt, freq, volume, duration, (unsigned long)id);
+    }
 
     // Return sound object with kill(), update(), startedAt
     JSValue snd = JS_NewObject(ctx);
