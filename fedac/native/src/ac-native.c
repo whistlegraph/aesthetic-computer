@@ -1206,6 +1206,97 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                        (long)((install_bytes + (1048576 - 1)) / 1048576), free_mb, devpath);
                 if (install_bytes > 0 && free_bytes < install_bytes + 10LL * 1048576LL) {
                     ac_log("[install] NOT ENOUGH SPACE — need %ldMB, have %ldMB\n", need_mb, free_mb);
+                    // Check the PARTITION SIZE (not free space). If a previous
+                    // sfdisk already expanded it to 1024MB but mkfs failed, the
+                    // partition is big enough — we just need to unmount + reformat,
+                    // no repartitioning needed (which avoids the EBUSY nightmare).
+                    long long part_size_bytes = 0;
+                    {
+                        int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                        if (pfd >= 0) {
+                            unsigned long long sz = 0;
+                            if (ioctl(pfd, BLKGETSIZE64, &sz) == 0)
+                                part_size_bytes = (long long)sz;
+                            close(pfd);
+                        }
+                    }
+                    long part_mb = (long)(part_size_bytes / 1048576LL);
+                    ac_log("[install] partition %s size=%ldMB (need %ldMB)\n", devpath, part_mb, need_mb);
+
+                    if (part_mb >= need_mb) {
+                        // Partition already large enough — just unmount + reformat
+                        ac_log("[install] partition big enough, skip repartition → direct reformat\n");
+                        umount("/tmp/hd");
+                        umount2("/tmp/hd", MNT_DETACH);
+                        // Unmount all mounts on this disk
+                        char parent_blk_tmp[32] = "";
+                        {
+                            const char *d = devpath + 5;
+                            strncpy(parent_blk_tmp, d, sizeof(parent_blk_tmp) - 1);
+                            char *pp = strstr(parent_blk_tmp, "p");
+                            if (pp && pp > parent_blk_tmp && *(pp-1) >= '0' && *(pp-1) <= '9' && *(pp+1) >= '1' && *(pp+1) <= '9')
+                                *pp = 0;
+                            else {
+                                int len = strlen(parent_blk_tmp);
+                                while (len > 0 && parent_blk_tmp[len-1] >= '0' && parent_blk_tmp[len-1] <= '9') len--;
+                                parent_blk_tmp[len] = 0;
+                            }
+                        }
+                        const char *DLOG = "/tmp/install-debug.log";
+                        FILE *__dl = fopen(DLOG, "w");
+                        if (__dl) { fprintf(__dl, "=== direct-reformat (no repartition) ===\n"); fclose(__dl); }
+                        force_unmount_disk(parent_blk_tmp, DLOG);
+                        sync();
+                        // Flush block device cache
+                        {
+                            int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                            if (pfd >= 0) { ioctl(pfd, BLKFLSBUF); close(pfd); }
+                            char dd[64];
+                            snprintf(dd, sizeof(dd), "/dev/%s", parent_blk_tmp);
+                            int dfd = open(dd, O_RDONLY | O_CLOEXEC);
+                            if (dfd >= 0) { ioctl(dfd, BLKFLSBUF); close(dfd); }
+                        }
+                        system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                        sync();
+                        usleep(2000000);
+                        // Format directly
+                        char rcmd[512];
+                        const char *MKFS_ERR = "/tmp/mkfs-err.log";
+                        int mkfs_exit = -1;
+                        for (int mkfs_try = 1; mkfs_try <= 5 && mkfs_exit != 0; mkfs_try++) {
+                            if (mkfs_try > 1) {
+                                int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
+                                if (pfd >= 0) { ioctl(pfd, BLKFLSBUF); close(pfd); }
+                                system("echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true");
+                                sync();
+                                usleep(3000000);
+                            }
+                            snprintf(rcmd, sizeof(rcmd),
+                                "echo '--- mkfs attempt %d ---' >> %s; "
+                                "(mkfs.vfat -F 32 -n AC-NATIVE %s > %s 2>&1; rc=$?; "
+                                "cat %s >> %s; exit $rc)",
+                                mkfs_try, DLOG, devpath, MKFS_ERR, MKFS_ERR, DLOG);
+                            int rrc = system(rcmd);
+                            mkfs_exit = WIFEXITED(rrc) ? WEXITSTATUS(rrc) : -1;
+                            ac_log("[install] direct mkfs rc=%d attempt=%d\n", rrc, mkfs_try);
+                            FILE *mf = fopen(MKFS_ERR, "r");
+                            if (mf) {
+                                char line[512];
+                                while (fgets(line, sizeof(line), mf)) {
+                                    size_t len = strlen(line);
+                                    if (len > 0 && line[len-1] == '\n') line[len-1] = '\0';
+                                    ac_log("[mkfs/%d] %s\n", mkfs_try, line);
+                                }
+                                fclose(mf);
+                            }
+                        }
+                        if (mkfs_exit == 0) {
+                            ac_log("[install] direct reformat succeeded\n");
+                            goto install_copy_phase;
+                        }
+                        ac_log("[install] direct reformat failed, falling through to repartition\n");
+                    }
+
                     // Repartition: expand ESP to 1024MB
                     char parent_blk[32] = "";
                     // Extract parent device: /dev/nvme0n1p1 → nvme0n1, /dev/sda1 → sda
@@ -1475,6 +1566,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     }
                     usleep(500000);
                     // Remount and retry
+                    install_copy_phase:
                     if (mount(devpath, "/tmp/hd", "vfat", 0, NULL) != 0) {
                         ac_log("[install] remount failed after repartition\n");
                         snprintf(install_fail_reason, sizeof(install_fail_reason),
