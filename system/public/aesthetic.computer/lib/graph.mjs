@@ -4122,13 +4122,13 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
   let e2Row = (x3 - px0) * (y1 - py0) - (x1 - px0) * (y3 - py0);
   let e3Row = (x1 - px0) * (y2 - py0) - (x2 - px0) * (y1 - py0);
 
-  // Pre-scale colour channels to 0-255 to remove the per-pixel *255 multiply.
-  const c1r = color1[0] * 255, c1g = color1[1] * 255, c1b = color1[2] * 255;
-  const c2r = color2[0] * 255, c2g = color2[1] * 255, c2b = color2[2] * 255;
-  const c3r = color3[0] * 255, c3g = color3[1] * 255, c3b = color3[2] * 255;
-  const c1a = color1[3] * 255, c2a = color2[3] * 255, c3a = color3[3] * 255;
+  // Colour components are passed in pre-scaled 0-255 space (the caller in
+  // Form.graph does the `* 255` multiply). We just alias them for readability.
+  const c1r = color1[0], c1g = color1[1], c1b = color1[2], c1a = color1[3];
+  const c2r = color2[0], c2g = color2[1], c2b = color2[2], c2a = color2[3];
+  const c3r = color3[0], c3g = color3[1], c3b = color3[2], c3a = color3[3];
   // If every vertex is fully opaque we can skip the per-pixel alpha path.
-  const allOpaque = c1a >= 254.5 && c2a >= 254.5 && c3a >= 254.5;
+  const allOpaque = c1a >= 254 && c2a >= 254 && c3a >= 254;
 
   const hasDepth = depthBuffer.length > 0;
   const pix = pixels;
