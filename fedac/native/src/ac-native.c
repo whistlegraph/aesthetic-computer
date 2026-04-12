@@ -3656,12 +3656,15 @@ int main(int argc, char *argv[]) {
                         audio_synth(audio, WAVE_SINE, up ? 1000.0 : 600.0,
                                     0.04, 0.12, 0.001, 0.03, 0.0);
                     }
-                    // Tape recording: PrintScreen key toggles MP4 tape recording.
-                    // Saves to /mnt/tapes/<slug>.mp4 where slug follows the same
-                    // YYYY.MM.DD.HH.MM.SS.mmm format that web AC uses for tapes.
-                    // On stop, auto-uploads to the cloud via a background curl
-                    // shell-out (see recorder_upload_async helper below).
-                    else if (strcmp(input->events[i].key_name, "printscreen") == 0 && recorder) {
+                    // Tape recording: PrintScreen (or Insert/Pause as fallbacks
+                    // on laptops where PrtSc doesn't fire standalone) toggles
+                    // MP4 tape recording. Saves to /mnt/tapes/<slug>.mp4 where
+                    // slug follows the same YYYY.MM.DD.HH.MM.SS.mmm format that
+                    // web AC uses for tapes. On stop, auto-uploads to the
+                    // cloud via a background curl shell-out.
+                    else if ((strcmp(input->events[i].key_name, "printscreen") == 0 ||
+                              strcmp(input->events[i].key_name, "insert") == 0 ||
+                              strcmp(input->events[i].key_name, "pause") == 0) && recorder) {
                         if (recorder_is_recording(recorder)) {
                             // Stop: remove audio tap, finalize file
                             if (audio) {

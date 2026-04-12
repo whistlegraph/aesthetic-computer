@@ -55,16 +55,13 @@ let globalSample = null;   // { data: Float32Array, len: number, rate: number } 
 let endArmed = false;      // true while End key is held (arm per-key recording)
 let perKeyRecording = null; // key currently recording in per-key mode
 
-// Hold/latch: F11 (green pickup) engages, F10 (red hangup) clears
-// While engaged, any new notes auto-latch (sustain on key release)
+// Hold/latch: Enter = add currently-playing notes to held set (press again
+// to add more). Backspace = clear all holds. New notes never auto-latch —
+// you can freely riff over held notes until you explicitly press Enter to
+// snapshot them into the held set.
 let recitalMode = false; // F12: hide all UI, show only colored backdrops
 let helpPanel = false;   // Meta/Win key: show keyboard shortcut help overlay
-let holdActive = false;      // true when hold is engaged
 let heldKeys = new Set();    // keys that are latched (won't stop on key-up)
-// Flourish mode: while F11 is physically held (after the initial engage),
-// new notes are NOT added to heldKeys so you can play melodic riffs over
-// the latched chord without sticking every new note.
-let f11Held = false;
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
@@ -1315,10 +1312,8 @@ function rememberSound(key, entry, system, velocity = 1) {
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
   sounds[key] = entry;
-  // Auto-add to hold if F11 latch is active, UNLESS the F11 key is currently
-  // physically held down — in that "flourish" mode we want to play melodic
-  // riffs over the already-latched chord without sticking the new notes.
-  if (holdActive && !f11Held) heldKeys.add(key);
+  // New notes never auto-latch. Use Enter to snapshot currently-playing
+  // notes into the held set.
   system?.usbMidi?.noteOn?.(entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   sendUdpMidiEvent(system, "note_on", entry.midiNote, velocityToMidi(velocity), entry.midiChannel);
   pushUsbMidiRecent(">", entry.note, entry.octave);
@@ -1353,7 +1348,6 @@ function releaseTouchNote(pid, sound, system, fade = 0.08) {
 
 function stopAllSounds(sound, system, fade = 0.08) {
   heldKeys.clear();
-  holdActive = false;
   stopReversePlayback(sound);
   for (const key of Object.keys(sounds)) stopSoundKey(key, sound, system, fade);
   activeDrumKeys = {};
@@ -1688,26 +1682,25 @@ function act({ event: e, sound, wifi, system }) {
       }
       return;
     }
-    // F11 (green phone pickup): Engage hold/latch
-    // - Press snapshots currently-playing keys into heldKeys + enables hold
-    // - While physically held, f11Held suppresses auto-latch so new notes
-    //   become flourishes over the held chord instead of sticking
-    if (key === "f11") {
-      // Only re-snapshot on the first press (ignore autorepeat while held)
-      if (!f11Held) {
-        heldKeys = new Set(Object.keys(sounds));
-        holdActive = true;
+    // Enter: "add holds" — snapshot currently-playing keys into heldKeys.
+    // Press again at any time to add newly-playing notes. New notes never
+    // auto-latch, so you can riff freely and only commit to sustain by
+    // pressing Enter while the notes are still held down.
+    if (key === "enter") {
+      let added = 0;
+      for (const k of Object.keys(sounds)) {
+        if (!heldKeys.has(k)) { heldKeys.add(k); added++; }
+      }
+      if (added > 0) {
         sound?.synth?.({ type: "sine", tone: 660, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
       }
-      f11Held = true;
       return;
     }
-    // F10 (red phone hangup): Clear hold — stop all held notes
-    if (key === "f10") {
-      if (holdActive) {
+    // Backspace: "clear holds" — stop all held notes
+    if (key === "backspace") {
+      if (heldKeys.size > 0) {
         for (const k of heldKeys) stopSoundKey(k, sound, system, 0.08);
         heldKeys.clear();
-        holdActive = false;
         sound?.synth?.({ type: "sine", tone: 330, duration: 0.06, volume: 0.12, attack: 0.002, decay: 0.05 });
       }
       return;
@@ -1983,8 +1976,6 @@ function act({ event: e, sound, wifi, system }) {
       stopReversePlayback(sound);
       return;
     }
-    // F11 release — exit flourish mode (new notes will auto-latch again)
-    if (key === "f11") { f11Held = false; return; }
     // Home key release: stop global recording + save to global sample
     if (key === "home" && recording && recPointerId === null) {
       stopSampleRecording(sound, "home-lift");
@@ -3984,14 +3975,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       box(obx, waveRowY, 1, waveRowH, true);
       ink(dark ? 140 : 100, dark ? 140 : 100, dark ? 150 : 110);
       write("o:" + octave, { x: obx + 3, y: waveRowY + 3, size: 1, font: "font_1" });
-      // HOLD indicator (drawn to the LEFT of the octave button)
-      if (holdActive) {
-        const holdW = 30;
+      // Hold count indicator: show "H:n" where n = number of held notes.
+      // Drawn to the LEFT of the octave button; only visible when
+      // there's something held, so it doesn't fight for screen real estate.
+      if (heldKeys.size > 0) {
+        const label = "H:" + heldKeys.size;
+        const holdW = label.length * 6 + 4;
         const hbx = obx - holdW - 2;
         ink(dark ? 80 : 180, dark ? 40 : 100, dark ? 40 : 100);
         box(hbx, waveRowY, holdW, waveRowH, true);
         ink(255, dark ? 180 : 60, dark ? 120 : 40);
-        write("HOLD", { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
+        write(label, { x: hbx + 2, y: waveRowY + 3, size: 1, font: "font_1" });
       }
     }
 
@@ -4421,8 +4415,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["drag",       "scratch platter"],
       ]],
       ["HOLD", [255, 220, 120], [
-        ["F11 📞",     "engage / flourish"],
-        ["F10 📞",     "clear hold"],
+        ["enter",      "add holds"],
+        ["backspace",  "clear holds"],
       ]],
       ["TEMPO", [255, 180, 100], [
         ["F9",         "metronome"],
@@ -4437,7 +4431,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ["\\",         "trackpad (X echo, Y pitch)"],
       ]],
       ["TAPE", [255, 120, 120], [
-        ["prtsc",      "start/stop tape (MP4 + cloud)"],
+        ["prtsc/ins",  "start/stop tape (MP4 + cloud)"],
       ]],
       ["SYSTEM", [190, 190, 205], [
         ["meta ⊞",     "toggle this help"],
