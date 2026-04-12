@@ -12,6 +12,8 @@
 #endregion */
 
 let groundPlane;
+let groundSkirt;   // solid opaque plate just under the ground that blocks
+                   // any lava bleed-through between ground tile seams
 let shadowGround;  // ring + cross — standing on the ground
 let shadowAir;     // diagonal X — airborne
 let shadowCrouch;  // dense inner dot + outer ring — crouched
@@ -25,6 +27,11 @@ let penLocked = false;
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
 
+// 🐛 Debug: dump a snapshot of scene state once per second so it can be
+// pasted back verbatim when something looks off.
+let debugDumpTimer = 0;
+const DEBUG_DUMP_INTERVAL = 120; // sim ticks (= 1 s at SIM_HZ=120)
+
 // 💀 Death / respawn state
 let playerAlive = true;
 let deathTickAge = 0; // how long we've been dead (sim ticks, for UI fade-in)
@@ -37,6 +44,22 @@ const WALK_AGE_TICKS = 90; // ≈ 0.75 s at 120 Hz
 let hoverTile = null;
 let prevPlayerTile = null;
 const walkedTiles = new Map();
+
+// 🔍 Diagnostic: stash the last hit point + pen coords so paint() can draw a
+// visible crosshair and the snapshot can log exactly where the ray landed.
+let lastHitWorld = null;   // [x, z] or null
+let lastPenScreen = null;  // [x, y] or null
+
+// ⚡ Adaptive-quality flags driven by measured render FPS. Auto-toggle in
+// paint() based on the rolling frame-time average. Pieces can override via the
+// HUD labels (future: click to pin). "LOW" = coarser tile, static lava, skip
+// body wireframes. "MED" = static lava only. "HIGH" = everything on.
+let perfLowMode = false;
+let perfMedMode = false;
+const PERF_LOW_MS = 25;   // below ~40fps → drop to LOW
+const PERF_MED_MS = 18;   // below ~55fps → drop to MED
+const PERF_HIGH_MS = 14;  // above ~70fps → return to HIGH
+let perfSamplesSinceSwitch = 0;
 
 function tileKey(row, col) { return row * GRID + col; }
 function tileFromKey(k) { return { row: Math.floor(k / GRID), col: k % GRID }; }
@@ -120,68 +143,50 @@ const BG = [45 / 255, 48 / 255, 55 / 255];
 const COLOR_A = [0.38, 0.35, 0.30, 1.0];
 const COLOR_B = [0.22, 0.20, 0.19, 1.0];
 
-// Build a fresh lava floor Form with time-animated stripe colors. The lava
-// is a DONUT — no geometry sits under the main ground plane, so tile-edge
-// gaps in the ground rasterization can't expose lava. Only rendered outside
-// the arena bounds where it's actually visible from the pit.
+// Build a fresh lava floor Form with time-animated stripe colors. Now that
+// the Z-buffer correctly occludes, the lava is a FULL plane covering the
+// entire pit area — no donut cut-out needed. The ground depth-tests above it.
+// When perfLowMode is on, we build the lava once and cache it (no animation).
+let lavaCache = null;
+let lavaCacheFrame = -1;
+
 function buildLavaFloor(t) {
   if (!FormRef) return null;
+  // When perf mode is low, return a cached static lava (skip stripe animation).
+  if (perfLowMode && lavaCache) return lavaCache;
+
   const positions = [];
   const colors = [];
   const deathY = DEATH_FLOOR_Y;
-
-  const lavaTile = (x0, z0, x1, z1) => {
-    const cx = (x0 + x1) / 2;
-    const cz = (z0 + z1) / 2;
-    const w1 = Math.sin(cx * DEATH_STRIP_FREQ - t * DEATH_FLOW_SPEED + cz * 0.08);
-    const w2 = Math.sin(cx * 0.09 + cz * 0.27 - t * 0.9);
-    const glow = (w1 + w2 * 0.6) * 0.5;
-    const hot = 0.35 + Math.max(0, glow) * 0.65;
-    const r = 0.45 + hot * 0.55;
-    const g = hot * hot * 0.45;
-    const b = hot * hot * hot * 0.08;
-    const c = [r, g, b, 1.0];
-    positions.push(
-      [x0, deathY, z0, 1], [x0, deathY, z1, 1], [x1, deathY, z1, 1],
-      [x0, deathY, z0, 1], [x1, deathY, z1, 1], [x1, deathY, z0, 1],
-    );
-    for (let i = 0; i < 6; i++) colors.push(c);
-  };
-
-  // 4 strips forming a frame around the main arena. Each strip gets its own
-  // local tessellation density so the stripes still look organic.
-  const STEP = 4; // lava tile size (AC units)
-  const gs = GROUND_SIZE;
-  // North strip: z in [gs, DEATH_PAD], x in [-DEATH_PAD, DEATH_PAD]
-  for (let z = gs; z < DEATH_PAD; z += STEP) {
+  const STEP = perfLowMode ? 8 : 4; // coarser tessellation in low-perf mode
+  for (let z = -DEATH_PAD; z < DEATH_PAD; z += STEP) {
     for (let x = -DEATH_PAD; x < DEATH_PAD; x += STEP) {
-      lavaTile(x, z, Math.min(x + STEP, DEATH_PAD), Math.min(z + STEP, DEATH_PAD));
+      const x0 = x, z0 = z;
+      const x1 = Math.min(x + STEP, DEATH_PAD);
+      const z1 = Math.min(z + STEP, DEATH_PAD);
+      const cx = (x0 + x1) / 2;
+      const cz = (z0 + z1) / 2;
+      const w1 = Math.sin(cx * DEATH_STRIP_FREQ - t * DEATH_FLOW_SPEED + cz * 0.08);
+      const w2 = Math.sin(cx * 0.09 + cz * 0.27 - t * 0.9);
+      const glow = (w1 + w2 * 0.6) * 0.5;
+      const hot = 0.35 + Math.max(0, glow) * 0.65;
+      const r = 0.45 + hot * 0.55;
+      const g = hot * hot * 0.45;
+      const b = hot * hot * hot * 0.08;
+      const c = [r, g, b, 1.0];
+      positions.push(
+        [x0, deathY, z0, 1], [x0, deathY, z1, 1], [x1, deathY, z1, 1],
+        [x0, deathY, z0, 1], [x1, deathY, z1, 1], [x1, deathY, z0, 1],
+      );
+      for (let i = 0; i < 6; i++) colors.push(c);
     }
   }
-  // South strip
-  for (let z = -DEATH_PAD; z < -gs; z += STEP) {
-    for (let x = -DEATH_PAD; x < DEATH_PAD; x += STEP) {
-      lavaTile(x, z, Math.min(x + STEP, DEATH_PAD), Math.min(z + STEP, -gs));
-    }
-  }
-  // West strip (within arena's Z range)
-  for (let x = -DEATH_PAD; x < -gs; x += STEP) {
-    for (let z = -gs; z < gs; z += STEP) {
-      lavaTile(x, z, Math.min(x + STEP, -gs), Math.min(z + STEP, gs));
-    }
-  }
-  // East strip
-  for (let x = gs; x < DEATH_PAD; x += STEP) {
-    for (let z = -gs; z < gs; z += STEP) {
-      lavaTile(x, z, Math.min(x + STEP, DEATH_PAD), Math.min(z + STEP, gs));
-    }
-  }
-
   const f = new FormRef(
     { type: "triangle", positions, colors },
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   f.noFade = true;
+  if (perfLowMode) lavaCache = f;
   return f;
 }
 
@@ -241,6 +246,35 @@ function boot({ Form, penLock, system }) {
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   groundPlane.noFade = true;
+
+  // 🔲 Ground skirt — a single opaque dark quad at the EXACT SAME Y as the
+  // main ground plane, covering a slightly oversized XZ footprint. Drawn
+  // BEFORE the ground so any rasterizer seams between ground tiles (painter's
+  // order, no depth buffer) reveal the dark skirt instead of the lava far
+  // below. The +0.5 AC-unit pad ensures the skirt also catches seams at the
+  // platform outer edge.
+  // Skirt sits 0.02 below the ground so painter's order places ground clearly
+  // on top; oversized by 0.5 AC units on each side so the outer edge of the
+  // arena also has a backstop.
+  const skirtY = GROUND_Y - 0.02;
+  const skirtR = GROUND_SIZE + 0.5;
+  const skirtColor = [0.06, 0.06, 0.08, 1.0];
+  groundSkirt = new Form(
+    {
+      type: "triangle",
+      positions: [
+        [-skirtR, skirtY, -skirtR, 1],
+        [-skirtR, skirtY,  skirtR, 1],
+        [ skirtR, skirtY,  skirtR, 1],
+        [-skirtR, skirtY, -skirtR, 1],
+        [ skirtR, skirtY,  skirtR, 1],
+        [ skirtR, skirtY, -skirtR, 1],
+      ],
+      colors: [skirtColor, skirtColor, skirtColor, skirtColor, skirtColor, skirtColor],
+    },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+  );
+  groundSkirt.noFade = true;
 
   // 🧱 Platform edge — a glowing rim so you can see where the floor ends.
   // Four line segments slightly above the ground, plus short drops at each
@@ -418,7 +452,7 @@ function boot({ Form, penLock, system }) {
   bodyArms.noFade = true;
 }
 
-function sim({ system }) {
+function sim({ system, pen, screen }) {
   const doll = system?.fps?.doll;
   const cam = doll?.cam;
   if (!cam) return;
@@ -474,23 +508,48 @@ function sim({ system }) {
     else walkedTiles.set(k, next);
   }
 
-  // --- Hover tile: raycast camera-forward onto the ground plane. ---
-  // Forward in world (rotY=0 → +Z). rotX positive = look up, so forward.y
-  // = sin(rotX). If forward.y >= 0 we aren't looking at the floor.
+  // --- Hover tile: fire a proper mouse ray from the pen's screen pixel into
+  // the 3D scene, then intersect with the ground plane. When pen-locked the
+  // pen stops updating so we fall back to screen-centre (the crosshair). ---
+  //
+  // Pipeline: screen (px,py) → NDC → camera-space ray dir (u,v,1) → rotate
+  // by camera orientation → world ray → plane intersect.
   const rx = cam.rotX * Math.PI / 180;
   const ry = cam.rotY * Math.PI / 180;
-  const cosPitch = Math.cos(rx);
-  const fx = Math.sin(ry) * cosPitch;
-  const fy = Math.sin(rx);
-  const fz = Math.cos(ry) * cosPitch;
+  const sinRotX = Math.sin(rx), cosRotX = Math.cos(rx);
+  const sinRotY = Math.sin(ry), cosRotY = Math.cos(ry);
+
+  // Use pen position when available, otherwise centre of screen.
+  const sw = screen?.width ?? 1, sh = screen?.height ?? 1;
+  const mx = penLocked ? sw / 2 : (pen?.x ?? sw / 2);
+  const my = penLocked ? sh / 2 : (pen?.y ?? sh / 2);
+  const ndcX = (2 * mx) / sw - 1;
+  const ndcY = 1 - (2 * my) / sh;
+  const tanHalfFov = Math.tan((FOV * Math.PI / 180) / 2);
+  const aspect = sw / sh;
+  // Camera-space ray direction at this screen pixel (before rotating).
+  const u = ndcX * aspect * tanHalfFov;
+  const v = ndcY * tanHalfFov;
+  // Rotate camera-space (u, v, 1) to world using (rotY(+rotY) ∘ rotX(-rotX)).
+  const fx = u * cosRotY - v * sinRotY * sinRotX + sinRotY * cosRotX;
+  const fy = v * cosRotX + sinRotX;
+  const fz = -u * sinRotY - v * cosRotY * sinRotX + cosRotY * cosRotX;
+
   hoverTile = null;
-  if (fy < -0.05) {
+  lastHitWorld = null;
+  lastPenScreen = penLocked ? null : [mx, my];
+  if (fy < -0.001) {
+    // Ray origin = render camera world position (not the logical player, so
+    // the hit point matches what the user sees through the crosshair/mouse).
+    const camWorldX = -cam.x;
     const camWorldY = -cam.y;
+    const camWorldZ = -cam.z;
     const t = (GROUND_Y - camWorldY) / fy;
     if (t > 0 && t < 200) {
-      const hitX = pWorldX + t * fx;
-      const hitZ = pWorldZ + t * fz;
+      const hitX = camWorldX + t * fx;
+      const hitZ = camWorldZ + t * fz;
       hoverTile = tileAt(hitX, hitZ);
+      lastHitWorld = [hitX, hitZ];
     }
   }
 
@@ -530,9 +589,51 @@ function sim({ system }) {
     bodyArms.position[2] = playerCamZ;
     bodyArms.rotation[1] = cam.rotY;
   }
+
+  // 🐛 Once-per-second debug dump. Paste this back into chat to diagnose.
+  debugDumpTimer += 1;
+  if (debugDumpTimer >= DEBUG_DUMP_INTERVAL) {
+    debugDumpTimer = 0;
+    const f2 = (n) => (typeof n === "number" ? n.toFixed(2) : String(n));
+    const hoverStr = hoverTile
+      ? `${hoverTile.row},${hoverTile.col}`
+      : "none";
+    const penStr = pen
+      ? `pen=(${f2(pen.x)}, ${f2(pen.y)})`
+      : "pen=null";
+    const hitStr = lastHitWorld
+      ? `(${f2(lastHitWorld[0])}, ${f2(lastHitWorld[1])})`
+      : "none";
+    console.log(
+      "🏟️ arena snapshot:",
+      JSON.stringify({
+        player: { x: f2(pWorldX), y: f2(pWorldY), z: f2(pWorldZ) },
+        cam: {
+          x: f2(cam.x), y: f2(cam.y), z: f2(cam.z),
+          rotX: f2(cam.rotX), rotY: f2(cam.rotY),
+        },
+        phys: phys ? {
+          onGround: phys.onGround,
+          crouch: f2(phys.crouch),
+          yVel: f2(phys.worldYVel),
+          thirdPerson: phys.thirdPerson,
+        } : null,
+        state: { alive: playerAlive, penLocked, walkPhase: f2(walkPhase) },
+        tiles: {
+          current: prevPlayerTile,
+          hover: hoverStr,
+          hitWorldXZ: hitStr,
+          trailCount: walkedTiles.size,
+        },
+        mouse: `${penStr} screen=${f2(screen?.width)}x${f2(screen?.height)}`,
+        rayDir: `fx=${f2(fx)} fy=${f2(fy)} fz=${f2(fz)}`,
+        speed: f2(speedSmoothed * SIM_HZ) + " u/s",
+      }, null, 2),
+    );
+  }
 }
 
-function paint({ wipe, ink, screen, write, box, system }) {
+function paint({ wipe, ink, screen, write, box, system, pen }) {
   // FPS calc
   const now = performance.now();
   const dt = now - lastFrameTime;
@@ -541,6 +642,23 @@ function paint({ wipe, ink, screen, write, box, system }) {
   if (frameTimes.length > 60) frameTimes.shift();
   const avgDt = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
   const fps = Math.round(1000 / avgDt);
+
+  // ⚡ Adaptive quality — switch modes with hysteresis so we don't flip every
+  // frame. Require several samples of sustained FPS before changing state.
+  perfSamplesSinceSwitch += 1;
+  if (perfSamplesSinceSwitch > 30) {
+    if (avgDt > PERF_LOW_MS && !perfLowMode) {
+      perfLowMode = true; perfMedMode = true; perfSamplesSinceSwitch = 0;
+      lavaCache = null; // force rebuild at low tessellation
+    } else if (avgDt > PERF_MED_MS && !perfMedMode) {
+      perfMedMode = true; perfSamplesSinceSwitch = 0;
+    } else if (avgDt < PERF_HIGH_MS && perfLowMode) {
+      perfLowMode = false; perfSamplesSinceSwitch = 0;
+      lavaCache = null; // rebuild each frame again
+    } else if (avgDt < PERF_HIGH_MS && perfMedMode) {
+      perfMedMode = false; perfSamplesSinceSwitch = 0;
+    }
+  }
 
   // --- Tile highlights: build a single transient Form containing one quad
   // per visible highlight (hover + walked trail). Drawn *after* the ground,
@@ -575,10 +693,12 @@ function paint({ wipe, ink, screen, write, box, system }) {
   }
 
   // Render scene — lava donut first (never under the main ground), then the
-  // ground, its glowing edge, tile highlights, then the feet shadow + body.
+  // dark skirt that seals any tile-seam gaps, then the ground, its glowing
+  // edge, tile highlights, feet shadow + body.
   wipe(45, 48, 55);
   const lava = buildLavaFloor(now / 1000);
   if (lava) ink(255).form(lava);
+  if (groundSkirt) ink(255).form(groundSkirt);
   ink(255).form(groundPlane);
   if (platformEdge) ink(255).form(platformEdge);
   if (hiPos.length > 0 && FormRef) {
@@ -604,8 +724,11 @@ function paint({ wipe, ink, screen, write, box, system }) {
     ink(255, 255, 255).form(plumbLine);
   }
   // Feet + arms render regardless of ground state (they fall with you).
-  if (bodyFeet) ink(255).form(bodyFeet);
-  if (bodyArms) ink(255).form(bodyArms);
+  // Dropped entirely in LOW perf mode — wireframes are nice-to-have.
+  if (!perfLowMode) {
+    if (bodyFeet) ink(255).form(bodyFeet);
+    if (bodyArms) ink(255).form(bodyArms);
+  }
 
   // --- HUD (top-right) ---
   const font = "MatrixChunky8";
@@ -645,6 +768,18 @@ function paint({ wipe, ink, screen, write, box, system }) {
     rightLabel(phys.thirdPerson ? "3P" : "1P", margin + lineH * 5);
   }
 
+  // ⚡ Perf mode label — shows which adaptive-quality tier is active. Flashes
+  // briefly after a tier change (perfSamplesSinceSwitch < 6).
+  const perfLabel = perfLowMode ? "PERF LOW" : perfMedMode ? "PERF MED" : "PERF HIGH";
+  const perfFresh = perfSamplesSinceSwitch < 6;
+  ink(perfLowMode ? "red" : perfMedMode ? "orange" : "lime");
+  if (perfFresh) ink("white");
+  rightLabel(perfLabel, margin + lineH * 6);
+  // Show which features are currently disabled by the perf tier.
+  ink(150, 150, 150);
+  if (perfLowMode) rightLabel("-BODY -ANIM", margin + lineH * 7);
+  else if (perfMedMode) rightLabel("-LAVA-ANIM", margin + lineH * 7);
+
   // Speed meter (bottom-center). speedSmoothed is per-sim-tick position delta;
   // sim runs at SIM_HZ, so ups = perTickDelta * SIM_HZ.
   const ups = speedSmoothed * SIM_HZ;
@@ -666,6 +801,16 @@ function paint({ wipe, ink, screen, write, box, system }) {
 
   ink("white");
   write(`${ups.toFixed(1)} u/s`, { x: barX + barW + 4, y: barY - 1 }, undefined, undefined, false, font);
+
+  // 🎯 Debug crosshair at the current pen position (unlocked mode only) so
+  // we can visually compare it against the highlighted hover tile.
+  if (pen && !penLocked) {
+    const px = Math.floor(pen.x);
+    const py = Math.floor(pen.y);
+    ink("magenta");
+    box(px - 6, py, 13, 1);
+    box(px, py - 6, 1, 13);
+  }
 
   // --- 💀 Death screen overlay (fade-in) ---
   if (!playerAlive) {

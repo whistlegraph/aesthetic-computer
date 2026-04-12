@@ -35,7 +35,22 @@ import { nanoid } from "../dep/nanoid/nanoid.js";
 const { round, sign: mathSign, abs, ceil, floor, sin, cos, min, max, sqrt, PI } = Math;
 
 let width, height, pixels;
+// 🎬 Classic software-renderer Z-buffer. Holds per-pixel depth in NDC Z space
+// (after perspective divide). Convention: lower = nearer, higher = farther.
+// `Number.MAX_VALUE` is the "infinitely far" sentinel so any real geometry
+// passes the first draw. Kept as a plain Array (not typed) because disk.mjs
+// resizes it with `depthBuffer.length = W*H` which only works on Arrays.
 const depthBuffer = [];
+let depthEnabled = true;   // global toggle (pieces can flip this for debugging)
+
+function clearDepthBuffer() {
+  if (!depthEnabled) return;
+  const needed = width * height;
+  if (needed === 0) return;
+  if (depthBuffer.length !== needed) depthBuffer.length = needed;
+  depthBuffer.fill(Number.MAX_VALUE);
+}
+
 const writeBuffer = [];
 const c = [255, 255, 255, 255];
 let c2 = null; // Alternate / secondary color support.
@@ -1391,7 +1406,13 @@ function calculateAngleFadePosition(x, y, minX, minY, maxX, maxY, angle) {
 // 2. 2D Drawing
 function clear() {
   // 🚀 OPTIMIZED CLEAR FUNCTION - Up to 10x faster!
-  
+
+  // 🎬 Classic Z-buffer: reset to +Infinity at the start of each frame so
+  // subsequent 3D form draws correctly occlude each other regardless of the
+  // order they're submitted in. Matches the width × height of the current
+  // screen; grows/shrinks on resolution change.
+  clearDepthBuffer();
+
   // Clean up blur buffers to prevent memory accumulation
   cleanupBlurBuffers();
   
@@ -4099,18 +4120,18 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
 
       // Check if point is inside triangle
       if (u >= 0 && v >= 0 && w >= 0) {
-        // Interpolate Z value for depth testing
-        const interpZ = u * z1 + v * z2 + w * z3;
-        const depth = interpZ * -1;
-        
-        // Depth test - skip this pixel if it's behind existing geometry
+        // Interpolate NDC Z for depth testing. Convention: lower Z = nearer
+        // (post-perspective-divide Z is in [-1, +1]; near plane → -1).
+        const depth = u * z1 + v * z2 + w * z3;
+
+        // Z-test: skip this pixel if a nearer fragment is already there.
         const bufferIndex = x + y * width;
-        if (depthBuffer && depthBuffer.length > 0) {
+        if (depthBuffer.length > 0) {
           if (depth > depthBuffer[bufferIndex]) {
-            continue; // Skip this pixel - behind existing geometry
+            continue; // existing pixel is closer to the camera
           }
         }
-        
+
         renderStats.pixelsDrawn++;
         
         // Interpolate colors using barycentric weights
@@ -4120,7 +4141,7 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
         const a = floor(u * color1[3] + v * color2[3] + w * color3[3]);
 
         // Update depth buffer
-        if (depthBuffer && depthBuffer.length > 0) {
+        if (depthBuffer.length > 0) {
           depthBuffer[bufferIndex] = depth;
         }
         
@@ -4285,18 +4306,18 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
 
       // Check if point is inside triangle
       if (u >= 0 && v >= 0 && w >= 0) {
-        // Interpolate Z value for depth testing
-        const interpZ = u * z1 + v * z2 + w * z3;
-        const depth = interpZ * -1;
-        
-        // Depth test - skip this pixel if it's behind existing geometry
+        // Interpolate NDC Z for depth testing. Convention: lower Z = nearer
+        // (post-perspective-divide Z is in [-1, +1]; near plane → -1).
+        const depth = u * z1 + v * z2 + w * z3;
+
+        // Z-test: skip this pixel if a nearer fragment is already there.
         const bufferIndex = x + y * width;
-        if (depthBuffer && depthBuffer.length > 0) {
+        if (depthBuffer.length > 0) {
           if (depth > depthBuffer[bufferIndex]) {
-            continue; // Skip this pixel - behind existing geometry
+            continue; // existing pixel is closer to the camera
           }
         }
-        
+
         renderStats.pixelsDrawn++;
         
         // Interpolate 1/w and uv/w using barycentric weights
@@ -4328,7 +4349,7 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
         const a = floor(texture.pixels[pixelIndex + 3] * alphaMultiplier);
 
         // Update depth buffer and draw pixel
-        if (depthBuffer && depthBuffer.length > 0) {
+        if (depthBuffer.length > 0) {
           depthBuffer[bufferIndex] = depth;
         }
         
