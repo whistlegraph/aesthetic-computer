@@ -31,6 +31,12 @@ if [ -f /claude-creds.json ]; then
     cp /claude-state.json /tmp/.claude.json 2>/dev/null
     printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native"}\n' > /tmp/.claude/settings.json
 fi
+if [ -f /tangled-key ] || [ -f /tangled-ssh-config ] || [ -f /tangled-known-hosts ]; then
+    mkdir -p /tmp/.ssh
+    [ -f /tangled-key ] && cp /tangled-key /tmp/.ssh/tangled 2>/dev/null && chmod 600 /tmp/.ssh/tangled 2>/dev/null
+    [ -f /tangled-ssh-config ] && cp /tangled-ssh-config /tmp/.ssh/config 2>/dev/null && chmod 600 /tmp/.ssh/config 2>/dev/null
+    [ -f /tangled-known-hosts ] && cp /tangled-known-hosts /tmp/.ssh/known_hosts 2>/dev/null && chmod 600 /tmp/.ssh/known_hosts 2>/dev/null
+fi
 mkdir -p /tmp/ac
 [ -f /device-claude.md ] && cp /device-claude.md /tmp/ac/CLAUDE.md 2>/dev/null
 [ -f /device-score.md ] && cp /device-score.md /tmp/ac/SCORE.md 2>/dev/null

@@ -561,12 +561,17 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("SHELL", "/bin/bash", 1);
         setenv("USER", "root", 1);
         setenv("LOGNAME", "root", 1);
+        setenv("GIT_TERMINAL_PROMPT", "0", 1);
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
         // SSL certs for API connections
         setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
         setenv("SSL_CERT_DIR", "/etc/ssl/certs", 0);
         setenv("CURL_CA_BUNDLE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
         setenv("NODE_EXTRA_CA_CERTS", "/etc/pki/tls/certs/ca-bundle.crt", 0);
+        if (access("/bin/ssh", X_OK) == 0 && access("/tmp/.ssh/config", R_OK) == 0) {
+            setenv("GIT_SSH_COMMAND", "/bin/ssh -F /tmp/.ssh/config -o BatchMode=yes", 1);
+            setenv("GIT_SSH_VARIANT", "ssh", 1);
+        }
         // GitHub PAT (for git operations)
         {
             FILE *gf = fopen("/github-pat", "r");
@@ -625,8 +630,8 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
 
         // Working directory strategy:
         // 1. /mnt/ac-repo (persistent shallow clone of aesthetic-computer,
-        //    cloned on first boot or manually by the user) — PREFERRED so
-        //    Claude can actually `git commit` real project files
+        //    auto-cloned on WiFi connect or manually by the user) — PREFERRED
+        //    so Claude can actually `git commit` real project files
         // 2. /tmp/ac (tmpfs, persists per-session only) — FALLBACK for
         //    when there's no repo yet. Claude can still edit scratch
         //    files here. A placeholder git init makes it look like a
@@ -665,19 +670,21 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
                     "- **No package manager** — binaries are baked into initramfs\n\n"
                     "## Filesystem\n"
                     "- `/mnt` — USB boot drive (FAT32, has config.json and logs)\n"
-                    "- `/mnt/ac-repo` — full aesthetic-computer git repo (persistent)\n"
+                    "- `/mnt/ac-repo` — persistent shallow repo clone (GitHub fetch mirror)\n"
                     "- `/mnt/tapes` — MP4 tapes recorded via PrintScreen\n"
                     "- `/tmp` — tmpfs (lost on reboot)\n"
-                    "- `/bin` — busybox + baked binaries (bash, git, rg, jq)\n\n"
+                    "- `/tmp/.ssh` — Tangled SSH key/config, when baked via `ac-os`\n"
+                    "- `/bin` — busybox + baked binaries (bash, git, rg, jq, ssh)\n\n"
                     "## Networking\n"
                     "- WiFi auto-connects to saved networks\n"
                     "- `curl` is available for HTTP requests\n"
-                    "- GitHub PAT is pre-configured for git push/pull\n\n"
+                    "- `/mnt/ac-repo` fetches from the GitHub mirror\n"
+                    "- If `/tmp/.ssh/tangled` exists, `git push origin` mirrors to knot + GitHub\n\n"
                     "## What you can do\n"
                     "- Write and run shell scripts (bash, not busybox)\n"
                     "- Use curl to interact with APIs\n"
                     "- Edit files in /mnt/ac-repo and `git commit` them\n"
-                    "- Use git (GitHub PAT is wired up for whistlegraph)\n"
+                    "- Use git (GitHub PAT is wired up; Tangled push works when the SSH key is baked)\n"
                     "- Read system logs at /mnt/ac-native.log\n",
                     handle, handle);
                 fclose(cm);
