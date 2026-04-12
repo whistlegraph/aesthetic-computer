@@ -2915,6 +2915,88 @@ static JSValue js_write_file(JSContext *ctx, JSValueConst this_val, int argc, JS
     return JS_NewBool(ctx, ok);
 }
 
+// system.deleteFile(path) — unlink a file, returns true on success
+static JSValue js_delete_file(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_FALSE;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_FALSE;
+    int ok = (unlink(path) == 0);
+    if (ok) sync();
+    JS_FreeCString(ctx, path);
+    return JS_NewBool(ctx, ok);
+}
+
+// system.diskInfo(path) — returns {total, free, available, blockSize, fstype}
+// for the filesystem containing `path`, or null on error.
+static JSValue js_disk_info(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_NULL;
+    const char *path = JS_ToCString(ctx, argv[0]);
+    if (!path) return JS_NULL;
+    struct statvfs vfs;
+    int rc = statvfs(path, &vfs);
+    JS_FreeCString(ctx, path);
+    if (rc != 0) return JS_NULL;
+    JSValue obj = JS_NewObject(ctx);
+    uint64_t bs = (uint64_t)vfs.f_frsize ? (uint64_t)vfs.f_frsize : (uint64_t)vfs.f_bsize;
+    JS_SetPropertyStr(ctx, obj, "total", JS_NewInt64(ctx, (int64_t)(vfs.f_blocks * bs)));
+    JS_SetPropertyStr(ctx, obj, "free",  JS_NewInt64(ctx, (int64_t)(vfs.f_bfree  * bs)));
+    JS_SetPropertyStr(ctx, obj, "available", JS_NewInt64(ctx, (int64_t)(vfs.f_bavail * bs)));
+    JS_SetPropertyStr(ctx, obj, "blockSize", JS_NewInt64(ctx, (int64_t)bs));
+    return obj;
+}
+
+// system.blockDevices() — list /sys/block entries with size + removable + model.
+// Returns array of {name, sizeBytes, removable, model, vendor} or null.
+static JSValue js_block_devices(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    DIR *dir = opendir("/sys/block");
+    if (!dir) return JS_NULL;
+    JSValue arr = JS_NewArray(ctx);
+    struct dirent *ent;
+    int idx = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (ent->d_name[0] == '.') continue;
+        // Skip loop/ram/dm pseudo devs
+        if (strncmp(ent->d_name, "loop", 4) == 0) continue;
+        if (strncmp(ent->d_name, "ram",  3) == 0) continue;
+        if (strncmp(ent->d_name, "dm-",  3) == 0) continue;
+        char p[256]; char buf[128];
+        JSValue obj = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, obj, "name", JS_NewString(ctx, ent->d_name));
+        // size (in 512-byte sectors)
+        snprintf(p, sizeof(p), "/sys/block/%s/size", ent->d_name);
+        FILE *f = fopen(p, "r"); long long sectors = 0;
+        if (f) { fscanf(f, "%lld", &sectors); fclose(f); }
+        JS_SetPropertyStr(ctx, obj, "sizeBytes", JS_NewInt64(ctx, sectors * 512LL));
+        // removable flag
+        snprintf(p, sizeof(p), "/sys/block/%s/removable", ent->d_name);
+        int removable = 0;
+        f = fopen(p, "r");
+        if (f) { fscanf(f, "%d", &removable); fclose(f); }
+        JS_SetPropertyStr(ctx, obj, "removable", JS_NewBool(ctx, removable != 0));
+        // vendor + model
+        const char *fields[][2] = { {"vendor", "vendor"}, {"model", "model"}, {NULL, NULL} };
+        for (int i = 0; fields[i][0]; i++) {
+            snprintf(p, sizeof(p), "/sys/block/%s/device/%s", ent->d_name, fields[i][0]);
+            f = fopen(p, "r");
+            if (f) {
+                if (fgets(buf, sizeof(buf), f)) {
+                    // trim trailing whitespace
+                    size_t L = strlen(buf);
+                    while (L > 0 && (buf[L-1] == '\n' || buf[L-1] == ' ' || buf[L-1] == '\t')) buf[--L] = 0;
+                    JS_SetPropertyStr(ctx, obj, fields[i][1], JS_NewString(ctx, buf));
+                }
+                fclose(f);
+            }
+        }
+        JS_SetPropertyUint32(ctx, arr, idx++, obj);
+    }
+    closedir(dir);
+    return arr;
+}
+
 // system.listDir(path) — returns [{name, isDir, size}, ...] or null
 static JSValue js_list_dir(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -5639,7 +5721,10 @@ static JSValue build_system_obj(JSContext *ctx) {
     // File I/O — system.readFile(path) / system.writeFile(path, data)
     JS_SetPropertyStr(ctx, sys, "readFile",  JS_NewCFunction(ctx, js_read_file,  "readFile",  1));
     JS_SetPropertyStr(ctx, sys, "writeFile", JS_NewCFunction(ctx, js_write_file, "writeFile", 2));
+    JS_SetPropertyStr(ctx, sys, "deleteFile",JS_NewCFunction(ctx, js_delete_file,"deleteFile",1));
     JS_SetPropertyStr(ctx, sys, "listDir",   JS_NewCFunction(ctx, js_list_dir,   "listDir",   1));
+    JS_SetPropertyStr(ctx, sys, "diskInfo",  JS_NewCFunction(ctx, js_disk_info,  "diskInfo",  1));
+    JS_SetPropertyStr(ctx, sys, "blockDevices", JS_NewCFunction(ctx, js_block_devices, "blockDevices", 0));
     JS_SetPropertyStr(ctx, sys, "mountMusic", JS_NewCFunction(ctx, js_mount_music, "mountMusic", 0));
     JS_SetPropertyStr(ctx, sys, "mountMusicMounted", JS_NewBool(ctx, music_mount_state));
     JS_SetPropertyStr(ctx, sys, "mountMusicPending", JS_NewBool(ctx, music_mount_pending));
