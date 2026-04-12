@@ -29,8 +29,32 @@ typedef enum {
     WAVE_SAWTOOTH,
     WAVE_SQUARE,
     WAVE_NOISE,
-    WAVE_WHISTLE
+    WAVE_WHISTLE,
+    WAVE_GUN
 } WaveType;
+
+// Gun voice presets — each maps to a physically-modeled weapon.
+// The barrel is a closed-breech / open-muzzle acoustic tube (DWG),
+// excited once per note-on by a combustion pressure pulse + turbulent
+// noise. Body modes are parallel resonators representing the steel
+// frame ringing. Bore length sets the fundamental cavity resonance;
+// longer barrels → lower "boom" frequency. See gun_presets[] in audio.c
+// for the per-weapon parameters.
+typedef enum {
+    GUN_PISTOL = 0,     // 9mm — short barrel, bright crack
+    GUN_RIFLE,          // AR/AK — medium barrel + supersonic N-wave
+    GUN_SHOTGUN,        // 12ga — wide bore, heavy low-end
+    GUN_SMG,            // MP5 — short barrel, fast rattle
+    GUN_SUPPRESSED,     // silenced pistol — muffled "pfft"
+    GUN_LMG,            // M60 auto-fire — retriggers while held
+    GUN_SNIPER,         // .50 cal — huge pressure, long tail
+    GUN_GRENADE,        // explosion — low cavity, slow release
+    GUN_RPG,            // rocket — long burn, delayed boom
+    GUN_RELOAD,         // magazine clack — metallic click
+    GUN_COCK,           // bolt cock — two-click (primary + delayed)
+    GUN_RICOCHET,       // metallic ping — pitch-drops on release
+    GUN_PRESET_COUNT
+} GunPreset;
 
 typedef struct {
     VoiceState state;
@@ -69,6 +93,43 @@ typedef struct {
     // Jet delay line — shorter, models embouchure travel time (~0.32×bore).
     float whistle_jet_buf[512];
     int whistle_jet_w;
+    // === Gun DWG state (see generate_gun_sample) ===
+    // Most of these are copied from the preset on note-on; mutable ones
+    // (pressure_env, body_y1/y2, bore_lp, rad_prev) evolve each sample.
+    // The bore delay buffer is shared with `whistle_bore_buf` since a
+    // voice can only be one wave type at a time.
+    int    gun_preset;              // GunPreset index (for debug)
+    double gun_bore_delay;          // samples (= bore_length_s * sr)
+    double gun_bore_loss;           // 1-pole LPF alpha in bore loop
+    double gun_bore_lp;             // LPF state
+    double gun_breech_reflect;      // closed-breech reflection gain (0..1)
+    double gun_pressure;            // excitation peak (weapon power)
+    double gun_pressure_env;        // live excitation envelope 0..1
+    double gun_env_decay_mult;      // per-sample decay multiplier (exp)
+    double gun_noise_gain;          // turbulent gas noise modulation depth
+    double gun_radiation_a;         // muzzle HPF 1-zero coefficient (0..1)
+    double gun_rad_prev;            // HPF previous input
+    // Secondary excitation — fires once more at secondary_trig samples
+    // elapsed. Used for supersonic N-wave (rifle/sniper) and for the
+    // second click of a cock/reload two-click gesture.
+    double gun_secondary_trig;      // sample countdown (<=0 = fired)
+    double gun_secondary_amp;       // relative amplitude of 2nd shot
+    // Sustained fire (LMG) — retrigger the excitation on cadence while
+    // the voice is held (infinite-duration voice, released via kill).
+    int    gun_sustain_fire;
+    double gun_retrig_timer;        // seconds
+    double gun_retrig_period;       // seconds (60 / RPM)
+    // Body mode resonators — 3 parallel biquads excited by same pulse.
+    // Coefficients precomputed from preset on note-on.
+    double gun_body_a1[3], gun_body_a2[3];
+    double gun_body_amp[3];
+    double gun_body_y1[3], gun_body_y2[3];
+    // Pitch sweep (ricochet) — multiplier applied to bore delay each
+    // sample. When voice enters VOICE_KILLING, target flips so the bore
+    // stretches → doppler drop during release.
+    double gun_pitch_mult;          // current (smoothed)
+    double gun_pitch_target;        // target (set on trigger / release)
+    double gun_pitch_slew;          // per-sample approach rate
 } ACVoice;
 
 typedef struct {
@@ -225,6 +286,14 @@ ACAudio *audio_init(void);
 uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
                      double duration, double volume, double attack,
                      double decay, double pan);
+
+// Add a new gun voice with a specific preset (applies DWG parameters).
+// `volume` scales the output, `pan` places it in stereo. `duration` is
+// normally INFINITY for held guns (LMG sustain fire) or finite for
+// one-shots; the internal DWG excitation handles the bang envelope.
+uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
+                         double volume, double attack, double decay,
+                         double pan, double pressure_scale);
 
 // Kill a voice with fade
 void audio_kill(ACAudio *audio, uint64_t id, double fade);
