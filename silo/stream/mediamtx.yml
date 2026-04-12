@@ -30,4 +30,3 @@ hlsAlwaysRemux: yes
 # Disable unused protocols
 rtsp: no
 webrtc: no
-srtpEnabled: no
