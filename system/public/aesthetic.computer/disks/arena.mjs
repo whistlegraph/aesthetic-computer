@@ -251,11 +251,8 @@ function boot({ Form, penLock, system, screen }) {
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
 
-  // 📱 Create mobile control buttons if on touch device
-  // Check if device supports touch and has a small enough screen (mobile)
-  if (typeof window !== "undefined" &&
-      (window.matchMedia("(hover:none)").matches || window.ontouchstart !== undefined) &&
-      screen) {
+  // 📱 Create mobile control buttons (always enabled for testing/development)
+  if (screen) {
     const buttonSize = 32;
     const padding = 8;
 
