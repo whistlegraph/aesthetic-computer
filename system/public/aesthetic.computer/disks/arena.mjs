@@ -255,26 +255,27 @@ function boot({ Form, penLock, system, screen, ui }) {
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
-    const btnSize = 40;
-    const btnSizeLarge = 50;
-    const padding = 8;
-    const bottomMargin = 8;
+    const btnSize = 28;
+    const btnSizeLarge = 32;
+    const gap = 2;
+    const padding = 6;
+    const bottomMargin = 6;
 
-    // Movement buttons (bottom-left): D-pad style
+    // Movement buttons (bottom-left): D-pad style, compact layout
     const moveX = padding;
-    const moveY = screen.height - (btnSize * 3 + padding * 2 + bottomMargin);
+    const moveY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
 
-    // Action buttons (bottom-right): larger for longer text
+    // Action buttons (bottom-right): compact
     const actionX = screen.width - btnSizeLarge - padding;
-    const actionY = screen.height - (btnSizeLarge * 2 + padding * 2 + bottomMargin);
+    const actionY = screen.height - (btnSizeLarge * 2 + gap + bottomMargin);
 
     mobileButtons = {
-      up: { btn: new ui.Button(moveX + btnSize, moveY, btnSize, btnSize), key: "forward", label: "UP" },
-      down: { btn: new ui.Button(moveX + btnSize, moveY + btnSize * 2, btnSize, btnSize), key: "back", label: "DN" },
-      left: { btn: new ui.Button(moveX, moveY + btnSize, btnSize, btnSize), key: "left", label: "LT" },
-      right: { btn: new ui.Button(moveX + btnSize * 2, moveY + btnSize, btnSize, btnSize), key: "right", label: "RT" },
+      up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "UP" },
+      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + btnSize + gap * 2, btnSize, btnSize), key: "back", label: "DN" },
+      left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "LT" },
+      right: { btn: new ui.Button(moveX + btnSize * 2 + gap * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "RT" },
       jump: { btn: new ui.Button(actionX, actionY, btnSizeLarge, btnSizeLarge), key: "jump", label: "JUMP" },
-      crouch: { btn: new ui.Button(actionX, actionY + btnSizeLarge + padding, btnSizeLarge, btnSizeLarge), key: "crouch", label: "CRCH" },
+      crouch: { btn: new ui.Button(actionX, actionY + btnSizeLarge + gap, btnSizeLarge, btnSizeLarge), key: "crouch", label: "CRCH" },
     };
   }
 
@@ -1076,6 +1077,13 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
 function act({ event: e, penLock, system }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
+
+  // 📱 Trigger button input handling
+  if (mobileButtons) {
+    for (const btnData of Object.values(mobileButtons)) {
+      btnData.btn?.act?.(e);
+    }
+  }
 
 
   // F cycles the hover axis-flip experiment (0 = no flip, 1 = X, 2 = Z, 3 = both).
