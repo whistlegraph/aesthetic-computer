@@ -4540,6 +4540,11 @@ const $commonApi = {
   //                 Increments by 1 each time a new piece loads.
   debug,
   nopaintPerf,
+
+  // 🎯 Cursor control API - pieces can request custom cursors
+  cursor: (cursorStyle) => {
+    send({ type: "cursor:set", content: { style: cursorStyle } });
+  },
 };
 
 // Convenience methods for different log levels
