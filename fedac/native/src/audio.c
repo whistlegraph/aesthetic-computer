@@ -2101,6 +2101,127 @@ uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
     return id;
 }
 
+// Apply a single per-shot param override to a freshly-initialized gun
+// voice. Called by the JS bindings between audio_synth_gun() and the
+// audio thread's first read of the voice — lets the inspector's
+// drag-to-edit cards push live tuning values into the next shot
+// without rebuilding gun_presets[]. Unknown keys are silently ignored.
+//
+// Layer-state fields (envelopes, biquad coefficients, the Friedlander
+// pulse position) are NOT exposed; we only change the constants the
+// preset would have set in init.
+void audio_gun_voice_set_param(ACAudio *audio, uint64_t id,
+                               const char *key, double value) {
+    if (!audio || !key) return;
+    pthread_mutex_lock(&audio->lock);
+    ACVoice *v = NULL;
+    for (int i = 0; i < AUDIO_MAX_VOICES; i++) {
+        if (audio->voices[i].id == id && audio->voices[i].type == WAVE_GUN) {
+            v = &audio->voices[i];
+            break;
+        }
+    }
+    if (!v) { pthread_mutex_unlock(&audio->lock); return; }
+
+    double sr = (double)(audio->actual_rate ? audio->actual_rate
+                                            : AUDIO_SAMPLE_RATE);
+    if (v->gun_model == GUN_MODEL_CLASSIC) {
+        if      (strcmp(key, "click_amp") == 0) v->gun_click_amp = value;
+        else if (strcmp(key, "click_decay_ms") == 0) {
+            double tau = (value > 0.05 ? value : 0.05) * 0.001;
+            v->gun_click_decay_mult = exp(-1.0 / (tau * sr));
+        }
+        else if (strcmp(key, "crack_amp") == 0) v->gun_body_amp[0] = value;
+        else if (strcmp(key, "crack_decay_ms") == 0) {
+            double tau = (value > 0.1 ? value : 0.1) * 0.001;
+            v->gun_env_decay_mult = exp(-1.0 / (tau * sr));
+        }
+        else if (strcmp(key, "crack_fc") == 0 || strcmp(key, "crack_q") == 0) {
+            // Both freq and Q feed the same biquad, recompute together.
+            // For partial updates we just recompute with the latest value
+            // and keep the other from existing coefs (lossy but adequate).
+            // Approximate Q from a2 = r² → r = √a2 → tau = -π·f/(Q·sr·ln r).
+            double a2 = v->gun_body_a2[0];
+            double r = a2 > 0 ? sqrt(a2) : 0.95;
+            double cur_w = acos(v->gun_body_a1[0] / (2.0 * r));
+            double cur_f = cur_w * sr / (2.0 * M_PI);
+            double cur_q = -M_PI * cur_f / (sr * log(r > 0.0001 ? r : 0.0001));
+            double f = (strcmp(key, "crack_fc") == 0) ? value : cur_f;
+            double q = (strcmp(key, "crack_q") == 0) ? value : cur_q;
+            compute_resonator(f, q, sr, &v->gun_body_a1[0],
+                              &v->gun_body_a2[0], &v->gun_crack_b0);
+        }
+        else if (strcmp(key, "boom_amp") == 0) v->gun_body_amp[1] = value;
+        else if (strcmp(key, "boom_freq_start") == 0) {
+            v->gun_boom_freq_start = value;
+            v->gun_boom_freq = value;
+        }
+        else if (strcmp(key, "boom_freq_end") == 0) v->gun_boom_freq_end = value;
+        else if (strcmp(key, "boom_pitch_decay_ms") == 0) {
+            double tau = (value > 0.1 ? value : 0.1) * 0.001;
+            v->gun_boom_pitch_mult = exp(-1.0 / (tau * sr));
+        }
+        else if (strcmp(key, "boom_amp_decay_ms") == 0) {
+            double tau = (value > 0.1 ? value : 0.1) * 0.001;
+            v->gun_boom_decay_mult = exp(-1.0 / (tau * sr));
+        }
+        else if (strcmp(key, "tail_amp") == 0) v->gun_body_amp[2] = value;
+        else if (strcmp(key, "tail_decay_ms") == 0) {
+            double tau = (value > 0.1 ? value : 0.1) * 0.001;
+            v->gun_tail_decay_mult = exp(-1.0 / (tau * sr));
+        }
+        else if (strcmp(key, "tail_fc") == 0 || strcmp(key, "tail_q") == 0) {
+            double a2 = v->gun_body_a2[1];
+            double r = a2 > 0 ? sqrt(a2) : 0.95;
+            double cur_w = acos(v->gun_body_a1[1] / (2.0 * r));
+            double cur_f = cur_w * sr / (2.0 * M_PI);
+            double cur_q = -M_PI * cur_f / (sr * log(r > 0.0001 ? r : 0.0001));
+            double f = (strcmp(key, "tail_fc") == 0) ? value : cur_f;
+            double q = (strcmp(key, "tail_q") == 0) ? value : cur_q;
+            compute_resonator(f, q, sr, &v->gun_body_a1[1],
+                              &v->gun_body_a2[1], &v->gun_tail_b0);
+        }
+    } else {
+        // Physical model overrides.
+        if      (strcmp(key, "pressure") == 0) v->gun_pressure = value;
+        else if (strcmp(key, "env_rate") == 0) {
+            v->gun_phys_t_plus = (3.0 / (value > 100 ? value : 100.0)) * sr;
+            if (v->gun_phys_t_plus < 32.0) v->gun_phys_t_plus = 32.0;
+            if (v->gun_phys_t_plus > 4096.0) v->gun_phys_t_plus = 4096.0;
+        }
+        else if (strcmp(key, "bore_length_s") == 0) {
+            v->gun_bore_delay = value * sr;
+            if (v->gun_bore_delay < 4.0) v->gun_bore_delay = 4.0;
+            if (v->gun_bore_delay > 2040.0) v->gun_bore_delay = 2040.0;
+        }
+        else if (strcmp(key, "bore_loss") == 0) v->gun_bore_loss = value;
+        else if (strcmp(key, "breech_reflect") == 0) v->gun_breech_reflect = value;
+        else if (strcmp(key, "noise_gain") == 0) v->gun_noise_gain = value;
+        else if (strcmp(key, "radiation") == 0) v->gun_radiation_a = value;
+        else if (strncmp(key, "body_freq", 9) == 0 ||
+                 strncmp(key, "body_q", 6) == 0) {
+            int idx = key[strlen(key) - 1] - '0';
+            if (idx < 0 || idx > 2) { pthread_mutex_unlock(&audio->lock); return; }
+            // Recompute the resonator with one swapped param, the other inferred.
+            double a2 = v->gun_body_a2[idx];
+            double r = a2 > 0 ? sqrt(a2) : 0.95;
+            double cur_w = acos(v->gun_body_a1[idx] / (2.0 * r));
+            double cur_f = cur_w * sr / (2.0 * M_PI);
+            double cur_q = -M_PI * cur_f / (sr * log(r > 0.0001 ? r : 0.0001));
+            double f = (strncmp(key, "body_freq", 9) == 0) ? value : cur_f;
+            double q = (strncmp(key, "body_q", 6) == 0) ? value : cur_q;
+            double b0_unused;
+            compute_resonator(f, q, sr, &v->gun_body_a1[idx],
+                              &v->gun_body_a2[idx], &b0_unused);
+        }
+        else if (strncmp(key, "body_amp", 8) == 0) {
+            int idx = key[strlen(key) - 1] - '0';
+            if (idx >= 0 && idx <= 2) v->gun_body_amp[idx] = value;
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
+}
+
 void audio_update(ACAudio *audio, uint64_t id, double freq,
                   double volume, double pan) {
     if (!audio) return;

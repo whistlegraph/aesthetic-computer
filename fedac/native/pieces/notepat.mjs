@@ -72,6 +72,14 @@ let enterHeld = false;       // true while Enter key is physically held
 let lastDrumInspect = null;  // { letter, name, voices: [{type,tone,dur,vol,atk,dcy,pan}], until }
 let drumInspectBuilder = null;
 let lastWarInspect = null;   // { letter, name, model, params, until }
+// Geometry of the most recently rendered inspector cards — populated
+// each frame by paint() so act() can hit-test for tap+drag editing.
+// Each entry: { x, y, w, h, key, weapon, model }. Null when no
+// inspector is showing.
+let warInspectCardRects = null;
+// Drag-to-edit state. Null when not dragging. While dragging, draw
+// events (vertical) update WAR_PARAM_OVERRIDES for the captured card.
+let editingWarCard = null;   // { key, weapon, model, startVal, startY, lastVal }
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
@@ -1435,7 +1443,7 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
 
       // 1. Stick click — very short noise transient at 2.5kHz for the
       //    beater attack. This is the CUT that makes the kick audible.
-      addHit({ type: "noise", tone: 2500, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
+      addHit({ type: "noise", tone: 2500 * pf, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
       // 2. Pitch snap — 200Hz→150Hz perceived sweep via overlapping sines
       //    Both very short so they read as a single downward "thump"
       addHit({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
@@ -1461,14 +1469,14 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       // character but only lasts ~30ms before the noise takes over.
 
       // 1. Sharp stick crack — higher freq, shorter, LOUDER than before
-      addHit({ type: "noise", tone: 3500, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
+      addHit({ type: "noise", tone: 3500 * pf, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
       // 2. 808 tonal pair — SHORT decay (30ms was 120ms), QUIETER so noise dominates
       addHit({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
       addHit({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
       // 3. Primary wire noise — DOMINANT layer, bright, medium-short decay
-      addHit({ type: "noise", tone: 3500, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 3500 * pf, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
       // 4. Mid wire noise — adds weight without muddiness
-      addHit({ type: "noise", tone: 1800, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 1800 * pf, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
       // 5. Triangle body fundamental — adds warmth, very short
       addHit({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
       break;
@@ -1477,21 +1485,21 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "e": { // clap — TR-808 4-burst pattern via staggered attacks (one-shot)
       const downPan = pan + rn(-0.06, 0.02);
       // Three rapid bursts — attacks 5/15/25 ms create ~10 ms spacing
-      addHit({ type: "noise", tone: 1000, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
-      addHit({ type: "noise", tone: 1100, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
-      addHit({ type: "noise", tone: 900,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 1000 * pf, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 1100 * pf, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
+      addHit({ type: "noise", tone: 900 * pf,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
       // Bright edge on the first burst
-      addHit({ type: "noise", tone: 3000, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
+      addHit({ type: "noise", tone: 3000 * pf, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
       // The 4th burst — "room tail" with long decay (120ms)
-      addHit({ type: "noise", tone: 1000, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
-      addHit({ type: "noise", tone: 2200, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
+      addHit({ type: "noise", tone: 1000 * pf, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
+      addHit({ type: "noise", tone: 2200 * pf, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
       break;
     }
 
     case "f": { // snap — finger snap physics (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // Sharp broadband click (thumb-middle friction release)
-      addHit({ type: "noise", tone: 6000, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
+      addHit({ type: "noise", tone: 6000 * pf, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
       // Palm cavity resonance at ~2100 Hz — the "pop" tone
       addHit({ type: "sine", tone: 2100 * pf, duration: rj(0.045, 0.20), volume: rj(0.55, 0.12) * v, attack: 0.0005, decay: 0.044, pan: downPan });
       // Upper bite at 3500 Hz
@@ -1506,12 +1514,12 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
         addHit({ type: "square", tone: f * pf, duration: rj(0.008, 0.20), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
       }
       // Bright noise top for the "tss"
-      addHit({ type: "noise", tone: 8000, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
+      addHit({ type: "noise", tone: 8000 * pf, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
       // Lift click: on key-up, fire a tiny high-noise transient to
       // represent the stick leaving the hat. Subtle — real closed-hat
       // "opens" don't ring, they just have a mechanical release click.
       addReleaseBurst(() => {
-        sound.synth({ type: "noise", tone: 9000, duration: 0.004, volume: rj(0.22, 0.20) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
+        sound.synth({ type: "noise", tone: 9000 * pf, duration: 0.004, volume: rj(0.22, 0.20) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
         sound.synth({ type: "square", tone: 6000 * pf, duration: 0.003, volume: rj(0.08, 0.25) * v, attack: 0.0003, decay: 0.0027, pan: downPan });
       });
       break;
@@ -1524,19 +1532,19 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
         addHit({ type: "square", tone: f * pf, duration: 0.012, volume: rj(0.16, 0.18) * v, attack: 0.0005, decay: 0.011, pan: downPan });
       }
       // Transient: bright noise chip
-      addHit({ type: "noise", tone: 8200, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addHit({ type: "noise", tone: 8200 * pf, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
       // SUSTAIN: the signature open-hat shimmer. Rings until key release.
       // Release = hi-hat foot pedal closing — dampens the top end fast.
       // releaseUpdate drops the tone first (simulates bandpass closing),
       // then the kill fade does the rest.
       addSustain(
-        { type: "noise", tone: 7000, volume: rj(0.32, 0.15) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
+        { type: "noise", tone: 7000 * pf, volume: rj(0.32, 0.15) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
         rj(0.40, 0.25),
         0.12,                      // 120ms foot-pedal close
         { tone: 3500 }             // dampen brightness on release
       );
       addSustain(
-        { type: "noise", tone: 5000, volume: rj(0.20, 0.18) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
+        { type: "noise", tone: 5000 * pf, volume: rj(0.20, 0.18) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
         rj(0.25, 0.25),
         0.10,
         { tone: 2800 }
@@ -1568,7 +1576,7 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       );
       // SUSTAIN: long shimmer body
       addSustain(
-        { type: "noise", tone: 4200, volume: rj(0.26, 0.12) * v, attack: 0.005, decay: 0, pan: downPan + rn(-0.03, 0.03) },
+        { type: "noise", tone: 4200 * pf, volume: rj(0.26, 0.12) * v, attack: 0.005, decay: 0, pan: downPan + rn(-0.03, 0.03) },
         rj(0.9, 0.20),
         0.30
       );
@@ -1578,19 +1586,19 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "c#": { // crash — explosive noise attack + LONG shimmer wash
       const downPan = pan + rn(-0.05, 0.05);
       // Transient: loud noise splash
-      addHit({ type: "noise", tone: 8000, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
+      addHit({ type: "noise", tone: 8000 * pf, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
       // Transient: hat cluster for metallic attack
       for (const f of HAT_FREQS) {
         addHit({ type: "square", tone: f * pf, duration: 0.030, volume: rj(0.12, 0.20) * v, attack: 0.0005, decay: 0.029, pan: downPan });
       }
       // SUSTAIN: the long wash — crash's whole character
       addSustain(
-        { type: "noise", tone: 5000, volume: rj(0.45, 0.12) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
+        { type: "noise", tone: 5000 * pf, volume: rj(0.45, 0.12) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
         rj(1.4, 0.18),
         0.45  // long release fade
       );
       addSustain(
-        { type: "noise", tone: 7500, volume: rj(0.30, 0.15) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
+        { type: "noise", tone: 7500 * pf, volume: rj(0.30, 0.15) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
         rj(0.9, 0.18),
         0.35
       );
@@ -1606,12 +1614,12 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "d#": { // splash — short bright cymbal burst (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // Bright attack
-      addHit({ type: "noise", tone: 9000, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
+      addHit({ type: "noise", tone: 9000 * pf, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
       addHit({ type: "square", tone: 800 * pf, duration: 0.015, volume: rj(0.14, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
       addHit({ type: "square", tone: 540 * pf, duration: 0.015, volume: rj(0.10, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
       // Short wash — splash is all quick burst, no sustain
-      addHit({ type: "noise", tone: 6000, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
-      addHit({ type: "noise", tone: 8500, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
+      addHit({ type: "noise", tone: 6000 * pf, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
+      addHit({ type: "noise", tone: 8500 * pf, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
       break;
     }
 
@@ -1628,7 +1636,7 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "g#": { // wood block — single triangle @ 2500 Hz (one-shot)
       const downPan = pan + rn(-0.03, 0.03);
       // Stick click
-      addHit({ type: "noise", tone: 5000, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
+      addHit({ type: "noise", tone: 5000 * pf, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
       // Block tones
       addHit({ type: "triangle", tone: 2500 * pf, duration: rj(0.050, 0.25), volume: rj(0.52, 0.12) * v, attack: 0.0003, decay: 0.048, pan: downPan });
       addHit({ type: "triangle", tone: 1250 * pf, duration: rj(0.050, 0.25), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.048, pan: downPan });
@@ -1638,14 +1646,14 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
     case "a#": { // tambourine — staggered jingle bursts (one-shot)
       const downPan = pan + rn(-0.04, 0.04);
       // 3 staggered noise bursts via attack offsets (jingle rattle)
-      addHit({ type: "noise", tone: 7000, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
-      addHit({ type: "noise", tone: 7500, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
-      addHit({ type: "noise", tone: 6500, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
+      addHit({ type: "noise", tone: 7000 * pf, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 7500 * pf, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
+      addHit({ type: "noise", tone: 6500 * pf, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
       // High square ting
       addHit({ type: "square", tone: 6000 * pf, duration: 0.030, volume: rj(0.14, 0.20) * v, attack: 0.001, decay: 0.028, pan: downPan });
       // Long jingle tail
-      addHit({ type: "noise", tone: 7000, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
-      addHit({ type: "noise", tone: 4500, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 7000 * pf, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
+      addHit({ type: "noise", tone: 4500 * pf, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
       break;
     }
   }
@@ -1696,10 +1704,19 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
   const typeStr = model === "classic" || model === "physical"
     ? `gun-${preset}/${model}`
     : `gun-${preset}`;
+  // Resolve which model the C side actually picks so we look up the
+  // right override slot. (Mirrors the resolvedModel logic that updates
+  // lastWarInspect above — keep them in sync.)
+  const realModel = model === "physical"
+    ? "physical"
+    : (model === "classic" ? "classic"
+       : (preset === "grenade" || preset === "rpg" ? "physical" : "classic"));
+  const overrides = paramOverridesFor(preset, realModel);
+  const hasOv = Object.keys(overrides).length > 0;
 
   if (sustained && isLive) {
     // Held weapon — infinite-duration voice killed on release.
-    const handle = sound.synth({
+    const opts = {
       type: typeStr,
       tone: pressure,   // encoded as pressure multiplier (see js-bindings.c)
       duration: Infinity,
@@ -1707,7 +1724,9 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
       attack: 0,
       decay: 0,
       pan,
-    });
+    };
+    if (hasOv) opts.params = overrides;
+    const handle = sound.synth(opts);
     if (handle) {
       holdVoices.push({
         handle,
@@ -1722,7 +1741,7 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
   // generates the bang; `duration` just lets body-mode ring continue
   // for the weapon's characteristic tail before auto-kill.
   const duration = WAR_DURATION[letter] ?? 0.3;
-  const handle = sound.synth({
+  const opts = {
     type: typeStr,
     tone: pressure,
     duration,
@@ -1730,7 +1749,9 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
     attack: 0,
     decay: Math.max(0.02, duration * 0.7),
     pan,
-  });
+  };
+  if (hasOv) opts.params = overrides;
+  const handle = sound.synth(opts);
   if (isLive && handle) {
     // Track the voice so sim() can adjust pan/volume during its tail,
     // mirroring how addHit does for perc kit.
@@ -1936,7 +1957,7 @@ function playWaveSound(sound, waveType) {
   if (!sound?.synth) return;
   if (waveType === "sample") {
     // Short percussive click for sample mode
-    sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
+    sound.synth({ type: "noise", tone: 800 * pf, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
   const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220, whistle: 880 };
@@ -2103,6 +2124,59 @@ function act({ event: e, sound, wifi, system }) {
 
   // WiFi password mode — block touch from reaching note grid
   if (wifiPasswordMode && (e.is("touch") || e.is("draw") || e.is("lift"))) {
+    return;
+  }
+
+  // === Gun inspector drag-to-edit ===
+  // Tap a param card → start editing. Drag vertically → change value
+  // (log-scaled for freq/duration, linear for amps/Q). Lift → release.
+  // Hits intercept the touch so it doesn't also trigger a note pad press.
+  if (e.is("touch") && warInspectCardRects && !editingWarCard) {
+    const tx = e.pointer?.x ?? e.x ?? -1;
+    const ty = e.pointer?.y ?? e.y ?? -1;
+    for (const r of warInspectCardRects) {
+      if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) {
+        const startVal = paramValue(r.weapon, r.model, r.key);
+        editingWarCard = { ...r, startVal, startY: ty, lastVal: startVal };
+        if (lastWarInspect) lastWarInspect.until = frame + 300; // keep visible
+        return;
+      }
+    }
+  }
+  if (e.is("draw") && editingWarCard) {
+    const ty = e.pointer?.y ?? e.y ?? editingWarCard.startY;
+    const dy = editingWarCard.startY - ty; // up = positive
+    const range = WAR_PARAM_RANGES[editingWarCard.key];
+    if (range) {
+      const [lo, hi, scale] = range;
+      // 100 px of vertical drag traverses the full range.
+      const t = Math.max(-1, Math.min(1, dy / 100));
+      let baseT;
+      if (scale === "log") {
+        const logLo = Math.log(Math.max(0.0001, lo));
+        const logHi = Math.log(hi);
+        baseT = (Math.log(Math.max(0.0001, editingWarCard.startVal)) - logLo) / (logHi - logLo);
+      } else {
+        baseT = (editingWarCard.startVal - lo) / (hi - lo);
+      }
+      let newT = Math.max(0, Math.min(1, baseT + t));
+      let newVal;
+      if (scale === "log") {
+        const logLo = Math.log(Math.max(0.0001, lo));
+        const logHi = Math.log(hi);
+        newVal = Math.exp(logLo + newT * (logHi - logLo));
+      } else {
+        newVal = lo + newT * (hi - lo);
+      }
+      const ovKey = `${editingWarCard.weapon}/${editingWarCard.model}/${editingWarCard.key}`;
+      WAR_PARAM_OVERRIDES[ovKey] = newVal;
+      editingWarCard.lastVal = newVal;
+      if (lastWarInspect) lastWarInspect.until = frame + 300;
+    }
+    return;
+  }
+  if (e.is("lift") && editingWarCard) {
+    editingWarCard = null;
     return;
   }
 
@@ -2372,7 +2446,7 @@ function act({ event: e, sound, wifi, system }) {
         sound.sample.loadData(globalSample.data, globalSample.rate);
         sampleLoaded = true;
       }
-      sound.synth({ type: "noise", tone: 200, duration: 0.1, volume: 0.15, attack: 0.001, decay: 0.08 });
+      sound.synth({ type: "noise", tone: 200 * pf, duration: 0.1, volume: 0.15, attack: 0.001, decay: 0.08 });
       return;
     }
     // Arrow left/right handled above (octave per side)
@@ -4293,16 +4367,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const keys = INSPECTOR_KEYS[modelKey] || [];
     const cardY = insY + rowH + rowGap;
     const cardW = Math.max(36, Math.floor((w - 6) / Math.max(1, keys.length)));
+    warInspectCardRects = [];
     for (let i = 0; i < keys.length; i++) {
       const k = keys[i];
       const val = paramValue(weapon, modelKey, k);
       const ovKey = `${weapon}/${modelKey}/${k}`;
       const isEdited = ovKey in WAR_PARAM_OVERRIDES;
+      const isDragging = editingWarCard?.weapon === weapon
+                       && editingWarCard?.model === modelKey
+                       && editingWarCard?.key === k;
       const cx = 3 + i * cardW;
-      ink(tint[0], tint[1], tint[2], Math.floor(alpha * (isEdited ? 0.5 : 0.3)));
+      const bgFill = isDragging ? 0.7 : (isEdited ? 0.5 : 0.3);
+      ink(tint[0], tint[1], tint[2], Math.floor(alpha * bgFill));
       box(cx, cardY, cardW - 1, rowH, true);
       ink(tint[0], tint[1], tint[2], alpha);
-      // Two-line label: short key on top, value below — fits more in.
       const shortKey = k.replace(/_amp$/, "amp").replace(/_fc$/, "fc")
                        .replace(/_ms$/, "ms").replace(/_q$/, "Q")
                        .replace(/^body_/, "b").replace(/^boom_/, "bm")
@@ -4310,6 +4388,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
                        .replace(/^click_/, "ck").replace(/freq_start/, "f0");
       const label = `${shortKey} ${formatParamValue(k, val)}${isEdited ? "*" : ""}`;
       write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
+      warInspectCardRects.push({
+        x: cx, y: cardY, w: cardW - 1, h: rowH,
+        key: k, weapon, model: modelKey,
+      });
     }
 
     // 2.5D barrel viz — only for physical model.
@@ -4353,6 +4435,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   } else if (lastWarInspect) {
     lastWarInspect = null;
+    warInspectCardRects = null;
+    editingWarCard = null;
   }
 
   // === PER-SIDE MASTER VOLUME SLIDERS ===
