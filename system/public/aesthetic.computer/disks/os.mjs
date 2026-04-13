@@ -58,8 +58,12 @@ let hasGit = null;
 let setupBtn = null; // "set up tokens" button shown when missing
 let showTokenHint = false;
 
-// 💻 "Need a laptop?" ad
-let laptopBtn = null;
+// Collapsible sections
+let installExpanded = false;
+let installBtn = null;
+let buildsExpanded = false;
+let buildsBtn = null;
+const DEFAULT_BUILDS_VISIBLE = 5;
 
 // Build telemetry
 let activeBuild = null;    // { id, status, stage, percent, ref, error }
@@ -339,7 +343,22 @@ function makeButtons(ui) {
   updateBootBtn(ui);
   updateVariantBtn(ui);
   updateWifiBtn(ui);
-  laptopBtn = new ui.TextButton("blank", { x: 6, y: 0 });
+  updateInstallBtn(ui);
+  updateBuildsBtn(ui);
+}
+
+function updateInstallBtn(ui) {
+  installBtn = new ui.TextButton(
+    installExpanded ? "hide install steps" : "how to install",
+    { x: 6, y: 0 },
+  );
+}
+
+function updateBuildsBtn(ui) {
+  buildsBtn = new ui.TextButton(
+    buildsExpanded ? "show fewer" : "show all builds",
+    { x: 6, y: 0 },
+  );
 }
 
 function updateVariantBtn(ui) {
@@ -452,33 +471,21 @@ function paint($) {
 
   const builds = releases.releases || [];
 
-  // Section rendering — header bar + tinted content background
-  const secBarH = isMobile ? matrixH + 4 : matrixH + 8;
-  function sectionHeader(title, barColor, bgColor, bgH) {
-    // Content background (paint first, behind everything)
-    if (bgColor && bgH) {
-      ink(...bgColor).box(0, y, w, secBarH + bgH);
-    }
-    ink(...barColor).box(0, y, w, secBarH);
-    ink(...C.instHeader).write(title, { x: pad, y: y + (isMobile ? 2 : 4) }, undefined, undefined, false, "MatrixChunky8");
-    y += secBarH + (isMobile ? 4 : 8);
+  // Section rendering — slim divider + label (no colored backgrounds)
+  function sectionHeader(title) {
+    y += isMobile ? 4 : 6;
+    ink(...C.divider).box(pad, y, w - pad * 2, 1);
+    y += isMobile ? 4 : 6;
+    ink(...C.instHeader).write(title, { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    y += matrixH + (isMobile ? 4 : 6);
   }
-
-  // --- ABOUT ---
-  const descText = isMobile
-    ? "Linux kernel + initramfs — boots x86 from USB."
-    : "A Linux kernel with an embedded initramfs — boots any x86 PC from USB.";
-  ink(...C.instText);
-  $.write(trunc(descText, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-  y += matrixH + secGap;
 
   // --- ACTIVE BUILD ---
   if (activeBuild) {
     const rawStage = activeBuild.stage || "starting";
     const isCLBuild = rawStage.startsWith("cl-") || activeBuild.variant === "cl";
     const buildVariant = activeBuild.variant === "both" ? "C + CL" : isCLBuild ? "Common Lisp" : "C";
-    const logH = buildLogLines.length * (matrixH + 1) + 8;
-    sectionHeader("Building (" + buildVariant + ")", dark ? [20, 28, 20] : [215, 235, 215], dark ? [14, 20, 14] : [228, 240, 228], 120 + logH);
+    sectionHeader("Building (" + buildVariant + ")");
 
     // Status line: stage + percentage + elapsed
     const stageLabel = isCLBuild ? rawStage.slice(3) : rawStage;
@@ -543,7 +550,7 @@ function paint($) {
   if (downloadBtn && !downloading) {
     const isPersonal = handle && token;
 
-    sectionHeader("Download", dark ? [18, 24, 40] : [215, 220, 235], C.secDlBg, 300);
+    sectionHeader("Download");
 
     // OS label (truncated to fit)
     if (isPersonal) {
@@ -557,45 +564,32 @@ function paint($) {
       y += rowH + 4;
     }
 
-    // Device token status (logged-in only)
-    if (isPersonal && hasClaude !== null) {
-      const cIcon = hasClaude ? "+" : "-";
-      const gIcon = hasGit ? "+" : "-";
-      ink(...(hasClaude ? C.current : [255, 80, 80]));
-      $.write(cIcon + " claude", { x: pad, y });
-      ink(...(hasGit ? C.current : [255, 80, 80]));
-      $.write(gIcon + " git", { x: pad + 60, y });
-      y += rowH + 4;
-
-      if ((!hasClaude || !hasGit) && setupBtn) {
-        setupBtn.reposition({ x: btnX(setupBtn), y });
-        setupBtn.paint(
-          $,
-          [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
-          [[80, 40, 40], [180, 80, 80], [255, 255, 255], 255],
-          undefined,
-          [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
-        );
-        y += setupBtn.height + btnGap;
-        if (showTokenHint) {
-          ink(...C.instText);
-          $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+    // Device token status — only surface when something is missing
+    if (isPersonal && hasClaude !== null && (!hasClaude || !hasGit) && setupBtn) {
+      setupBtn.reposition({ x: btnX(setupBtn), y });
+      setupBtn.paint(
+        $,
+        [[60, 30, 30], [140, 60, 60], [255, 120, 100], 255],
+        [[80, 40, 40], [180, 80, 80], [255, 255, 255], 255],
+        undefined,
+        [[60, 30, 30], [140, 60, 60], [255, 120, 100], 230],
+      );
+      y += setupBtn.height + btnGap;
+      if (showTokenHint) {
+        ink(...C.instText);
+        $.write("on device, type in prompt:", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+        y += matrixH + 2;
+        if (!hasClaude) {
+          ink(...C.instKey);
+          $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
           y += matrixH + 2;
-          if (!hasClaude) {
-            ink(...C.instKey);
-            $.write("  claude sk-ant-XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-            y += matrixH + 2;
-          }
-          if (!hasGit) {
-            ink(...C.instKey);
-            $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-            y += matrixH + 2;
-          }
-          y += 2;
         }
-      } else if (hasClaude && hasGit) {
-        ink(...C.date);
-        $.write("device ready", { x: pad + 120, y: y - rowH - 4 });
+        if (!hasGit) {
+          ink(...C.instKey);
+          $.write("  git ghp_XXXX", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+          y += matrixH + 2;
+        }
+        y += 2;
       }
     }
 
@@ -670,51 +664,45 @@ function paint($) {
 
     y += secGap;
 
-    // --- INSTALL section ---
-    sectionHeader("Install", dark ? [14, 20, 32] : [210, 215, 230], C.secInstBg, 120);
-
-    const instLines = isMobile ? [
-      [C.instText, "1 flash .img (Fedora Media Writer)"],
-      [C.instText, "2 plug USB into x86 PC"],
-      [C.instText, "3 BIOS boot menu:"],
-      [C.instKey, "  F12 Dell/Lenovo F9 HP"],
-      [C.instKey, "  F2 ASUS/Acer ESC others"],
-      [C.instText, "4 select USB drive"],
-    ] : [
-      [C.instText, "1 flash .img with Fedora Media Writer"],
-      [C.instText, "2 plug USB into any x86 PC"],
-      [C.instText, "3 enter BIOS boot menu:"],
-      [C.instKey, "  F12 Dell/Lenovo  F9 HP"],
-      [C.instKey, "  F2 ASUS/Acer  ESC others"],
-      [C.instText, "4 select USB drive to boot"],
-    ];
-    for (const [color, text] of instLines) {
-      ink(...color).write(trunc(text, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-      y += matrixH + (isMobile ? 2 : 4);
-    }
-
-    y += secGap;
-
-    // --- LAPTOP AD ---
-    sectionHeader("Need a laptop?", dark ? [18, 14, 24] : [230, 222, 238], dark ? [30, 24, 40] : [215, 208, 225], 120);
-    ink(...C.instText).write("Run AC OS on any x86 laptop.", { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
-    y += matrixH + 4;
-    if (laptopBtn) {
-      laptopBtn.reposition({ x: pad, y });
-      laptopBtn.paint(
+    // --- INSTALL section (collapsible) ---
+    if (installBtn) {
+      installBtn.reposition({ x: pad, y });
+      installBtn.paint(
         $,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 200],
+        [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 200],
         [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
         undefined,
-        [C.bootBtnBg, C.bootBtnBorder, ...C.current, 230],
+        [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 230],
       );
-      y += laptopBtn.height + btnGap;
+      y += installBtn.height + btnGap;
+    }
+
+    if (installExpanded) {
+      const instLines = isMobile ? [
+        [C.instText, "1 flash .img (Fedora Media Writer)"],
+        [C.instText, "2 plug USB into x86 PC"],
+        [C.instText, "3 BIOS boot menu:"],
+        [C.instKey, "  F12 Dell/Lenovo F9 HP"],
+        [C.instKey, "  F2 ASUS/Acer ESC others"],
+        [C.instText, "4 select USB drive"],
+      ] : [
+        [C.instText, "1 flash .img with Fedora Media Writer"],
+        [C.instText, "2 plug USB into any x86 PC"],
+        [C.instText, "3 enter BIOS boot menu:"],
+        [C.instKey, "  F12 Dell/Lenovo  F9 HP"],
+        [C.instKey, "  F2 ASUS/Acer  ESC others"],
+        [C.instText, "4 select USB drive to boot"],
+      ];
+      for (const [color, text] of instLines) {
+        ink(...color).write(trunc(text, matrixW), { x: pad, y }, undefined, undefined, false, "MatrixChunky8");
+        y += matrixH + (isMobile ? 2 : 4);
+      }
     }
 
     y += secGap;
 
     // --- BUILDS section ---
-    sectionHeader("Builds", dark ? [16, 22, 36] : [218, 222, 238], C.secBuildBg, 2000);
+    sectionHeader("Builds");
   } else if (downloading) {
     // Progress bar
     ink(...C.progressBg).box(pad, y, w - pad * 2, 18);
@@ -733,21 +721,30 @@ function paint($) {
 
   // Build list — masked scrollable area with alternating strips
   const buildsTopY = y;
-  const buildsH = h - buildsTopY - (isMobile ? 12 : 16); // leave room for footer
+  const entryH = isMobile ? 24 : isNarrow ? 34 : 34;
+  const buildsLimit = buildsExpanded ? builds.length : Math.min(DEFAULT_BUILDS_VISIBLE, builds.length);
+  // Reserve room for footer + "show all/fewer" toggle button
+  const toggleReserved = builds.length > DEFAULT_BUILDS_VISIBLE ? 26 : 0;
+  const buildsH = buildsExpanded
+    ? h - buildsTopY - (isMobile ? 12 : 16) - toggleReserved
+    : buildsLimit * entryH;
   buildsViewH = buildsH;
-  mask({ x: 0, y: buildsTopY, width: w, height: buildsH });
-  y -= scrollY; // apply scroll offset only to builds
+  if (buildsExpanded) {
+    mask({ x: 0, y: buildsTopY, width: w, height: buildsH });
+    y -= scrollY; // apply scroll offset only when expanded
+  }
 
   // Compute dynamic name width: reserve space for hash(7) + time(~4) + tag(~6)
   const reservedR1 = (7 + 1 + 4 + 1 + 6) * charW; // hash + gap + ago + gap + tag
   const nameAvail = Math.max(6, Math.floor((wrapW - reservedR1) / charW) - 2); // -2 for marker
-  const entryH = isMobile ? 24 : isNarrow ? 34 : 34;
   const stripA = dark ? [14, 17, 26] : [232, 234, 240];
   const stripB = dark ? [18, 22, 32] : [240, 242, 248];
 
-  for (let i = 0; i < builds.length; i++) {
-    if (y > buildsTopY + buildsH + entryH) break;
-    if (y < -entryH) { y += entryH; continue; }
+  for (let i = 0; i < buildsLimit; i++) {
+    if (buildsExpanded) {
+      if (y > buildsTopY + buildsH + entryH) break;
+      if (y < -entryH) { y += entryH; continue; }
+    }
 
     const b = builds[i];
     const isCurrent = i === 0 && !b.deprecated;
@@ -873,14 +870,32 @@ function paint($) {
     y += entryH;
   }
 
-  unmask();
+  if (buildsExpanded) unmask();
 
   // Track total scrollable height (builds only)
   totalContentH = builds.length * entryH;
 
+  // Show all / show fewer toggle (only when there are more than the default)
+  if (buildsBtn && builds.length > DEFAULT_BUILDS_VISIBLE) {
+    // Place toggle just under the visible builds
+    const toggleY = buildsExpanded
+      ? h - rowH - pad - 4 - buildsBtn.height
+      : buildsTopY + buildsLimit * entryH + (isMobile ? 4 : 6);
+    buildsBtn.reposition({ x: pad, y: toggleY });
+    buildsBtn.paint(
+      $,
+      [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 200],
+      [C.bootBtnHoverBg, C.bootBtnHoverBorder, [255, 255, 255], 255],
+      undefined,
+      [C.bootBtnBg, C.bootBtnBorder, ...C.instHeader, 230],
+    );
+  }
+
   // Footer
   if (builds.length > 0) {
-    const countLabel = builds.length + " builds" + (autoScroll ? " (auto)" : "");
+    const countLabel = buildsExpanded
+      ? builds.length + " builds" + (autoScroll ? " (auto)" : "")
+      : Math.min(DEFAULT_BUILDS_VISIBLE, builds.length) + " of " + builds.length;
     ink(...C.date);
     $.write(countLabel, { x: w - pad - countLabel.length * charW, y: h - rowH - pad });
   }
@@ -896,7 +911,8 @@ function act({ event: e, needsPaint, download, jump }) {
   }
 
   // Touch drag scrolling only (mouse doesn't interrupt auto-scroll)
-  if (e.is("draw")) {
+  // Only active when builds list is expanded
+  if (e.is("draw") && buildsExpanded) {
     autoScroll = false;
     scrollY = Math.max(0, Math.min(scrollY - (e.dy || 0), Math.max(0, totalContentH - buildsViewH)));
     needsPaint();
@@ -945,10 +961,29 @@ function act({ event: e, needsPaint, download, jump }) {
     });
   }
 
-  // Laptop ad button: jump to blank
-  if (laptopBtn) {
-    laptopBtn.btn.act(e, {
-      push: () => jump("blank"),
+  // Install section toggle
+  if (installBtn) {
+    installBtn.btn.act(e, {
+      push: () => {
+        installExpanded = !installExpanded;
+        if (uiRef) updateInstallBtn(uiRef);
+        needsPaint();
+      },
+    });
+  }
+
+  // Builds show all/fewer toggle
+  if (buildsBtn) {
+    buildsBtn.btn.act(e, {
+      push: () => {
+        buildsExpanded = !buildsExpanded;
+        if (!buildsExpanded) {
+          scrollY = 0;
+          autoScroll = false;
+        }
+        if (uiRef) updateBuildsBtn(uiRef);
+        needsPaint();
+      },
     });
   }
 
@@ -1230,6 +1265,8 @@ async function startTemplateDownload(needsPaint) {
 }
 
 function sim({ needsPaint }) {
+  // Only auto-scroll when user has explicitly expanded the builds list
+  if (!buildsExpanded) return;
   // Auto-start after delay
   if (loadTime > 0 && !autoScroll && Date.now() - loadTime >= autoScrollDelay && scrollY === 0) {
     autoScroll = true;
