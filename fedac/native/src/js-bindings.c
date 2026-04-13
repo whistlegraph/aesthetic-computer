@@ -818,14 +818,33 @@ static WaveType parse_wave_type(const char *type) {
     return WAVE_SINE;
 }
 
-// Parse the preset suffix for a gun-* wave type string.
-// Accepts both "gun-pistol" and "gunpistol" forms; defaults to pistol.
-static GunPreset parse_gun_preset(const char *type) {
+// Parse the preset suffix for a gun-* wave type string. Optional model
+// suffix `/classic` or `/physical` overrides the preset's default model.
+// Examples: "gun-pistol", "gun-pistol/classic", "gun-pistol/physical".
+// Returns GUN_PISTOL on parse failure. Pass `out_force_model` to receive
+// the override (-1 = use preset default, 0 = CLASSIC, 1 = PHYSICAL).
+static GunPreset parse_gun_preset(const char *type, int *out_force_model) {
+    if (out_force_model) *out_force_model = -1;
     if (!type) return GUN_PISTOL;
     if (strncmp(type, "gun", 3) != 0) return GUN_PISTOL;
     const char *p = type + 3;
     if (*p == '-' || *p == '_') p++;
     if (!*p) return GUN_PISTOL;
+
+    // Split off /classic or /physical suffix into a temp buffer.
+    char name_buf[32];
+    const char *slash = strchr(p, '/');
+    if (slash && out_force_model) {
+        size_t n = (size_t)(slash - p);
+        if (n >= sizeof(name_buf)) n = sizeof(name_buf) - 1;
+        memcpy(name_buf, p, n);
+        name_buf[n] = '\0';
+        p = name_buf;
+        const char *m = slash + 1;
+        if (strcmp(m, "classic") == 0) *out_force_model = 0;
+        else if (strcmp(m, "physical") == 0 || strcmp(m, "phys") == 0) *out_force_model = 1;
+    }
+
     if (strcmp(p, "pistol") == 0) return GUN_PISTOL;
     if (strcmp(p, "rifle") == 0) return GUN_RIFLE;
     if (strcmp(p, "shotgun") == 0) return GUN_SHOTGUN;
@@ -900,16 +919,18 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
     JSValue opts = argv[0];
 
     // Parse type. For "gun-*" strings we also extract the preset so the
-    // DWG synth can branch to audio_synth_gun below.
+    // DWG synth can branch to audio_synth_gun below. Optional "/classic"
+    // or "/physical" suffix overrides the preset's default model.
     WaveType wt = WAVE_SINE;
     GunPreset gun_preset = GUN_PISTOL;
+    int gun_force_model = -1;
     int is_gun = 0;
     JSValue type_v = JS_GetPropertyStr(ctx, opts, "type");
     if (JS_IsString(type_v)) {
         const char *ts = JS_ToCString(ctx, type_v);
         wt = parse_wave_type(ts);
         if (wt == WAVE_GUN) {
-            gun_preset = parse_gun_preset(ts);
+            gun_preset = parse_gun_preset(ts, &gun_force_model);
             is_gun = 1;
         }
         JS_FreeCString(ctx, ts);
@@ -967,11 +988,11 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
         // = unity pressure from the preset.
         double pressure_scale = freq > 0 && freq < 5.0 ? freq : 1.0;
         id = audio_synth_gun(audio, gun_preset, duration, volume, attack,
-                             decay, pan, pressure_scale);
-        fprintf(stderr, "[synth] gun preset=%d vol=%.2f dur=%.1f id=%lu\n",
-                gun_preset, volume, duration, (unsigned long)id);
-        ac_log("[synth] gun preset=%d vol=%.2f dur=%.1f id=%lu\n",
-               gun_preset, volume, duration, (unsigned long)id);
+                             decay, pan, pressure_scale, gun_force_model);
+        fprintf(stderr, "[synth] gun preset=%d model=%d vol=%.2f dur=%.1f id=%lu\n",
+                gun_preset, gun_force_model, volume, duration, (unsigned long)id);
+        ac_log("[synth] gun preset=%d model=%d vol=%.2f dur=%.1f id=%lu\n",
+               gun_preset, gun_force_model, volume, duration, (unsigned long)id);
     } else {
         id = audio_synth(audio, wt, freq, duration, volume, attack, decay, pan);
         fprintf(stderr, "[synth] type=%d freq=%.1f vol=%.2f dur=%.1f id=%lu\n",

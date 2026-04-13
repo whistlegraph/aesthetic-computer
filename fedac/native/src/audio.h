@@ -155,6 +155,13 @@ typedef struct {
     double gun_tail_decay_mult;     // per-sample amp decay multiplier (after attack done)
     double gun_crack_b0;            // BPF input gain (state lives in body[0])
     double gun_tail_b0, gun_tail_b1, gun_tail_b2;  // LPF feed-forward coefs (state in body[1])
+    // Click layer — sub-millisecond high-frequency transient. Adds the
+    // "tk" snap to the front of the envelope so the crack reads as
+    // crisp instead of as a shaped noise burst. Layered before crack.
+    double gun_click_env;           // amp envelope (decays each sample)
+    double gun_click_decay_mult;    // per-sample multiplier (typ ~exp(-1/(0.5ms*sr)))
+    double gun_click_amp;           // mix gain
+    double gun_click_prev;          // 1-zero HPF state (white_noise[n-1])
 } ACVoice;
 
 typedef struct {
@@ -316,9 +323,13 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
 // `volume` scales the output, `pan` places it in stereo. `duration` is
 // normally INFINITY for held guns (LMG sustain fire) or finite for
 // one-shots; the internal DWG excitation handles the bang envelope.
+// `force_model` overrides the preset's default GunModel: pass -1 to use
+// the preset's choice, 0 to force CLASSIC (3-layer synthesis), or 1 to
+// force PHYSICAL (DWG bore + body modes). Lets the same weapon be A/B-
+// compared between models without separate presets.
 uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
                          double volume, double attack, double decay,
-                         double pan, double pressure_scale);
+                         double pan, double pressure_scale, int force_model);
 
 // Kill a voice with fade
 void audio_kill(ACAudio *audio, uint64_t id, double fade);
