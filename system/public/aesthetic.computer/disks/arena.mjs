@@ -78,6 +78,7 @@ let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 // without changing player body rotation. Orbits by modifying XZ offset.
 let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
 let orbiting = false; // currently dragging with right button
+let appliedOrbitOffset = [0, 0]; // track X,Z offset we applied so we can undo it
 
 function applyZoom(doll) {
   if (!doll) return;
@@ -482,6 +483,12 @@ function sim({ system, pen, screen }) {
   const cam = doll?.cam;
   if (!cam) return;
 
+  // Undo any orbit offset we applied last frame so it doesn't affect physics
+  cam.x -= appliedOrbitOffset[0];
+  cam.z -= appliedOrbitOffset[1];
+  appliedOrbitOffset[0] = 0;
+  appliedOrbitOffset[1] = 0;
+
   // Always use the *logical* player position (not the render camera) for
   // gameplay state. In 3P mode cam.x/z is offset behind the player.
   const phys = doll?.physics;
@@ -689,8 +696,13 @@ function sim({ system, pen, screen }) {
       const baseAngle = Math.atan2(dx, dz);
       const orbitRad = orbitAngle * Math.PI / 180;
       const newAngle = baseAngle + orbitRad;
-      cam.x = pCamX + dist * Math.sin(newAngle);
-      cam.z = pCamZ + dist * Math.cos(newAngle);
+      const newX = pCamX + dist * Math.sin(newAngle);
+      const newZ = pCamZ + dist * Math.cos(newAngle);
+      // Track what we're adding so we can undo it next frame
+      appliedOrbitOffset[0] = newX - pCamX - dx;
+      appliedOrbitOffset[1] = newZ - pCamZ - dz;
+      cam.x = newX;
+      cam.z = newZ;
     }
   }
 }
