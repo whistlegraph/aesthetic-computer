@@ -857,7 +857,7 @@ function sim({ system, pen, screen }) {
   }
 }
 
-function paint({ wipe, ink, screen, write, box, system, pen, canvas, now, api }) {
+function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
   // 🎯 Switch cursor based on pen lock state (FPS mode vs UI mode)
   if (api?.cursor) {
     if (penLocked) {
@@ -869,7 +869,10 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, now, api })
     }
   }
 
-  // FPS calc (now is passed as parameter from bios)
+  // FPS calc — `now` is NOT a paint-API parameter (destructuring gave us
+  // `undefined`, which made dt = NaN → fps = NaN → lava colors NaN → black
+  // rendering). Pull from performance.now() directly instead.
+  const now = performance.now();
   const dt = now - lastFrameTime;
   lastFrameTime = now;
   frameTimes.push(dt);
