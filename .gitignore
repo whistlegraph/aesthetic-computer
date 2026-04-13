@@ -13,6 +13,10 @@ ac-pill/
 # GPG-encrypted secrets (unpacked from vault, not for version control)
 *.gpg
 
+# GPG private key backups (passphrase-protected but never commit)
+jeffrey-private.asc
+jeffrey-private.asc:Zone.Identifier
+
 # SSH keys (keep in aesthetic-computer-vault only)
 oven/ssh/
 **/oven-deploy-key*
@@ -379,3 +383,6 @@ fedac/babypat/*.elf
 fedac/babypat/*.bin
 fedac/babypat/*.img
 fedac/native/upload.env.gpg
+
+# Stray GPG key backups (canonical copies live in aesthetic-computer-vault/gpg/)
+/gpg/
