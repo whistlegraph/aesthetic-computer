@@ -11578,6 +11578,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎯 Set cursor style from piece
+    if (type === "cursor:set") {
+      const cursorStyle = data.content?.style || "auto";
+      document.body.style.cursor = cursorStyle;
+      return;
+    }
+
     // Authenticate / signup or login a user.
     if (type === "login") {
       if (window.self !== window.top) {

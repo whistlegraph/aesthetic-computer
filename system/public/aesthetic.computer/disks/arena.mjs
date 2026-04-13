@@ -253,13 +253,18 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, canvas }) {
+function boot({ Form, penLock, system, screen, ui, api }) {
   penLock();
   FormRef = Form;
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
+
+  // 🎯 Set initial cursor style
+  if (api?.cursor) {
+    api.cursor('crosshair');
+  }
 
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
