@@ -71,7 +71,7 @@ let perfSamplesSinceSwitch = 0;
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
 // further each click. More close-in steps for shoulder-camera views.
 // Middle-mouse still toggles between 1P and a default 3P.
-const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9, 12, 16];
+const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9, 12, 16, 24, 32];
 let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 
 // 🎥 Right-click camera orbit (3P mode only): rotate camera around player
@@ -692,10 +692,11 @@ function sim({ system, pen, screen }) {
     const dz = cam.z - pCamZ;
     const dist = Math.sqrt(dx * dx + dz * dz);
     if (dist > 0) {
-      // Compute current angle in XZ plane, add orbit angle, recompute position
+      // Compute current angle in XZ plane using atan2(X, Z) convention for cam-space
       const baseAngle = Math.atan2(dx, dz);
       const orbitRad = orbitAngle * Math.PI / 180;
       const newAngle = baseAngle + orbitRad;
+      // Keep the distance constant by using the magnitude of the XZ offset
       const newX = pCamX + dist * Math.sin(newAngle);
       const newZ = pCamZ + dist * Math.cos(newAngle);
       // Track the total change we're making so we can undo it next frame
