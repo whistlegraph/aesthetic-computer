@@ -12492,7 +12492,10 @@ async function makeFrame({ data: { type, content } }) {
         pixels: screen.pixels,
       };
 
-      $api.cursor = (code) => (cursorCode = code);
+      $api.cursor = (code) => {
+        cursorCode = code;
+        send({ type: "cursor:set", content: { style: code } });
+      };
 
       // 📻 Signaling
       $api.signal = (content) => {
@@ -13184,7 +13187,10 @@ async function makeFrame({ data: { type, content } }) {
         // send({ type: "fps-change", content: newFps });
       };
 
-      $api.cursor = (code) => (cursorCode = code);
+      $api.cursor = (code) => {
+        cursorCode = code;
+        send({ type: "cursor:set", content: { style: code } });
+      };
 
       graph.setBuffer(screen);
 
