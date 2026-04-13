@@ -291,6 +291,14 @@ if [ "${USE_SDL}" -eq 1 ]; then
         fi
     done
 
+    # GBM backend loader plugin — libgbm has a hardcoded /usr/lib64/gbm
+    # path. Missing dri_gbm.so causes SIGSEGV during Mesa probe on boot.
+    if [ -f /usr/lib64/gbm/dri_gbm.so ]; then
+        mkdir -p "${INITRAMFS_DIR}/lib64/gbm" "${INITRAMFS_DIR}/usr/lib64/gbm"
+        cp /usr/lib64/gbm/dri_gbm.so "${INITRAMFS_DIR}/lib64/gbm/"
+        cp /usr/lib64/gbm/dri_gbm.so "${INITRAMFS_DIR}/usr/lib64/gbm/"
+    fi
+
     # libexpat (needed by Mesa DRI loader)
     for lib in libexpat.so.1; do
         src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
@@ -845,13 +853,17 @@ for broken in $(find "${INITRAMFS_DIR}/lib64/" -type l ! -exec test -e {} \; -pr
 done
 [ "$BROKEN_COUNT" -gt 0 ] && log "  Fixed ${BROKEN_COUNT} broken symlinks"
 
-# Create cpio + lz4
+# Create cpio + both compressed variants. See build-and-flash-initramfs.sh
+# for why — short version: upload/staging prefer .gz, so stale .gz from
+# an old build silently gets flashed/uploaded if we don't regenerate.
 INITRAMFS_CPIO="${BUILD_DIR}/initramfs.cpio"
 cd "${INITRAMFS_DIR}"
 find . -print0 | cpio --null -ov --format=newc > "${INITRAMFS_CPIO}" 2>/dev/null
 lz4 -l -9 -f "${INITRAMFS_CPIO}" "${INITRAMFS_CPIO}.lz4"
+gzip -9 -c "${INITRAMFS_CPIO}" > "${INITRAMFS_CPIO}.gz"
 CPIO_SIZE=$(wc -c < "${INITRAMFS_CPIO}.lz4")
-log "Initramfs: ${CPIO_SIZE} bytes (LZ4)"
+GZ_SIZE=$(wc -c < "${INITRAMFS_CPIO}.gz")
+log "Initramfs: ${CPIO_SIZE} bytes (LZ4), ${GZ_SIZE} bytes (GZ)"
 
 # ============================================================
 # Step 4: Build kernel with embedded initramfs
