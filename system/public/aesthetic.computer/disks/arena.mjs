@@ -958,7 +958,8 @@ function act({ event: e, penLock, system }) {
   const cam = system?.fps?.doll?.cam;
   if (e.is("touch") && e.button === 2 && cam) {
     orbiting = true;
-    baseRotY = cam.rotY; // lock player rotation to current heading
+    playerFacing = cam.rotY; // lock player facing to current heading immediately
+    baseRotY = cam.rotY;
     orbitSnapped = false; // start orbiting fresh
     // Capture current XZ distance to maintain constant orbit radius
     const phys = system?.fps?.doll?.physics;
