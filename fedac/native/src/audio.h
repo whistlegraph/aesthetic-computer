@@ -344,6 +344,13 @@ uint64_t audio_synth_gun(ACAudio *audio, GunPreset preset, double duration,
                          double volume, double attack, double decay,
                          double pan, double pressure_scale, int force_model);
 
+// Override one preset-derived parameter on a freshly-created gun voice.
+// Call between audio_synth_gun() and the next audio thread tick to
+// retune the next shot. Unknown keys are ignored. Used by the inspector
+// drag-to-edit cards. Key names match the gun_presets[] field names.
+void audio_gun_voice_set_param(ACAudio *audio, uint64_t id,
+                               const char *key, double value);
+
 // Kill a voice with fade
 void audio_kill(ACAudio *audio, uint64_t id, double fade);
 
