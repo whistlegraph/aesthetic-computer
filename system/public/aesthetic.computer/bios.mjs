@@ -11375,10 +11375,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Add a DOM event hitbox for the `Button Hitboxes`
     // event listener on the document.
-    // 📓 Adding the same label multiple times will have no additional effect.
+    // 📓 Re-adding the same label updates the hitbox in place. This matters
+    //    for pieces whose layout reflows on resize — the hitbox needs to
+    //    track the latest button box. The `state` down/up flag is local to
+    //    each handler closure and resets on re-add, which is fine so long
+    //    as layout updates don't happen mid-tap.
     if (type === "button:hitbox:add") {
-      if (hitboxes[content.label] !== undefined) return;
-
       let state = "up";
       // Event handler for each button press.
       hitboxes[content.label] = async (e) => {
@@ -11409,6 +11411,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // This is pretty specific to the "copy" clipboard
           // stuff for now. 23.06.16.15.03
           // console.log("🔘 Button tap label:", content.label);
+
+          // 🧑‍💻 Generic "open a URL" action. Because this fires inside
+          // the native DOM pointerup listener, the user gesture is still
+          // active — iOS Safari treats `window.open` as a real user
+          // navigation and honors Content-Disposition for downloads.
+          // Pieces that want tap-to-download use this instead of
+          // `send({ type: "download-url" })`, which happens post-
+          // postMessage and loses the gesture on iPhone.
+          if (content.action === "open-url" && content.url) {
+            try {
+              window.open(content.url, "_blank");
+              if (content.notify) {
+                send({ type: "hitbox:opened", content: { label: content.label, url: content.url } });
+              }
+            } catch (err) {
+              console.warn("🔘 open-url hitbox failed:", err);
+            }
+          }
 
           // Handle QR corner tap (toggle to fullscreen)
           if (content.label === "qr-corner") {
