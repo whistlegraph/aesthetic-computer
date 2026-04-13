@@ -83,6 +83,7 @@ let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
 let orbiting = false; // currently dragging with right button
 let appliedOrbitOffset = [0, 0]; // track X,Z offset we applied so we can undo it
 let baseRotY = 0;     // cam.rotY when orbit started, to prevent player spinning
+let orbitSnapped = false; // true if orbit was released; reset on next left-click
 
 function applyZoom(doll) {
   if (!doll) return;
@@ -688,10 +689,7 @@ function sim({ system, pen, screen }) {
 
   // 🎥 Camera orbit effect (3P mode only): rotate camera around player by
   // modifying the XZ offset without changing cam.rotY (so player body stays put).
-  if (!orbiting) {
-    orbitAngle *= 0.85; // decay back to 0 on release
-    if (Math.abs(orbitAngle) < 0.5) orbitAngle = 0;
-  }
+  // Orbit angle persists after release until left-click is pressed.
 
   if (zoomLevel > 0 && Math.abs(orbitAngle) > 0.01) {
     const pCamX = phys?.playerCamX ?? cam.x;
@@ -969,11 +967,19 @@ function act({ event: e, penLock, system }) {
   if (e.is("touch") && e.button === 2 && cam) {
     orbiting = true;
     baseRotY = cam.rotY; // lock player rotation to current heading
+    orbitSnapped = false; // start orbiting fresh
   } else if (e.is("lift") && e.button === 2) {
     orbiting = false;
+    orbitSnapped = true; // mark that orbit was released; wait for left-click to reset
   } else if (e.is("draw") && e.button === 2) {
     // Drag: accumulate orbit angle (1px ≈ 0.4° per frame)
     orbitAngle += e.delta.x * 0.4;
+  }
+
+  // Left-click resets orbit angle (only if orbit was previously snapped/released)
+  if (e.is("touch") && e.button === 0 && orbitSnapped) {
+    orbitAngle = 0;
+    orbitSnapped = false;
   }
 
   // While dead, any touch respawns; otherwise the first touch re-locks the pen.
