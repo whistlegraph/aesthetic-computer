@@ -723,6 +723,11 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
   if (hoverTile) {
     pushQuad(hoverTile.row, hoverTile.col, [0.4, 0.95, 1.0, 0.55]);
   }
+  // Current standing tile (subtle white glow).
+  if (prevPlayerTile !== null) {
+    const { row, col } = tileFromKey(prevPlayerTile);
+    pushQuad(row, col, [1.0, 1.0, 1.0, 0.3]);
+  }
 
   // Render scene — lava donut first (never under the main ground), then the
   // dark skirt that seals any tile-seam gaps, then the ground, its glowing
