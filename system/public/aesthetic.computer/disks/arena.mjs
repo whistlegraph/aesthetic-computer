@@ -29,6 +29,13 @@ let penLocked = false;
 let mobileButtons = {}; // { up, down, left, right, jump, crouch }
 let mobileButtonStates = {}; // track which buttons are pressed
 
+// ⌨️ Keyboard state tracking (for lighting up buttons when keys are held)
+let keyboardState = {
+  w: false, a: false, s: false, d: false,
+  arrowup: false, arrowdown: false, arrowleft: false, arrowright: false,
+  space: false, shift: false,
+};
+
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
 
@@ -257,7 +264,7 @@ function boot({ Form, penLock, system, screen, ui }) {
   if (screen && ui?.Button) {
     const btnSize = 28;
     const btnSizeLarge = 32;
-    const gap = 2;
+    const gap = 4;  // gap between buttons (no border overlap)
     const padding = 6;
     const bottomMargin = 6;
 
@@ -269,11 +276,15 @@ function boot({ Form, penLock, system, screen, ui }) {
     const actionX = screen.width - btnSizeLarge - padding;
     const actionY = screen.height - (btnSizeLarge * 2 + gap + bottomMargin);
 
+    // D-pad layout:
+    //     UP
+    //  LT MD RT
+    //    DOWN
     mobileButtons = {
       up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "UP" },
-      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + btnSize + gap * 2, btnSize, btnSize), key: "back", label: "DN" },
+      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "DN" },
       left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "LT" },
-      right: { btn: new ui.Button(moveX + btnSize * 2 + gap * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "RT" },
+      right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "RT" },
       jump: { btn: new ui.Button(actionX, actionY, btnSizeLarge, btnSizeLarge), key: "jump", label: "JUMP" },
       crouch: { btn: new ui.Button(actionX, actionY + btnSizeLarge + gap, btnSizeLarge, btnSizeLarge), key: "crouch", label: "CRCH" },
     };
@@ -1053,15 +1064,25 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
 
   // 📱 Draw mobile control buttons
   if (mobileButtons) {
+    // Check if keyboard key is held for each button
+    const keyHeld = {
+      up: keyboardState.w || keyboardState.arrowup,
+      down: keyboardState.s || keyboardState.arrowdown,
+      left: keyboardState.a || keyboardState.arrowleft,
+      right: keyboardState.d || keyboardState.arrowright,
+      jump: keyboardState.space,
+      crouch: keyboardState.shift,
+    };
+
     for (const [name, btnData] of Object.entries(mobileButtons)) {
       const btn = btnData.btn;
       if (!btn) continue;
 
-      // Draw button with pressed state
-      const isPressed = btn.down;
-      const bgColor = isPressed ? [90, 110, 140, 200] : [70, 80, 100, 160];
-      const borderColor = isPressed ? [160, 180, 210] : [120, 140, 170];
-      const textColor = isPressed ? [240, 255, 255] : [200, 220, 240];
+      // Draw button with pressed state (button click OR keyboard key held)
+      const isPressed = btn.down || keyHeld[name];
+      const bgColor = isPressed ? [100, 140, 180, 220] : [60, 75, 95, 150];
+      const borderColor = isPressed ? [200, 220, 255] : [110, 130, 160];
+      const textColor = isPressed ? [255, 255, 255] : [180, 200, 230];
 
       btn.paint((b) => {
         ink(...bgColor).box(b.box, "fill");
@@ -1077,6 +1098,31 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
 function act({ event: e, penLock, system }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
+
+  // ⌨️ Track keyboard state for visual feedback on buttons
+  if (e.is("keyboard:down")) {
+    if (e.key === "w") keyboardState.w = true;
+    if (e.key === "a") keyboardState.a = true;
+    if (e.key === "s") keyboardState.s = true;
+    if (e.key === "d") keyboardState.d = true;
+    if (e.key === "arrowup") keyboardState.arrowup = true;
+    if (e.key === "arrowdown") keyboardState.arrowdown = true;
+    if (e.key === "arrowleft") keyboardState.arrowleft = true;
+    if (e.key === "arrowright") keyboardState.arrowright = true;
+    if (e.key === " ") keyboardState.space = true;
+    if (e.key === "shift") keyboardState.shift = true;
+  } else if (e.is("keyboard:up")) {
+    if (e.key === "w") keyboardState.w = false;
+    if (e.key === "a") keyboardState.a = false;
+    if (e.key === "s") keyboardState.s = false;
+    if (e.key === "d") keyboardState.d = false;
+    if (e.key === "arrowup") keyboardState.arrowup = false;
+    if (e.key === "arrowdown") keyboardState.arrowdown = false;
+    if (e.key === "arrowleft") keyboardState.arrowleft = false;
+    if (e.key === "arrowright") keyboardState.arrowright = false;
+    if (e.key === " ") keyboardState.space = false;
+    if (e.key === "shift") keyboardState.shift = false;
+  }
 
   // 📱 Trigger button input handling
   if (mobileButtons) {
