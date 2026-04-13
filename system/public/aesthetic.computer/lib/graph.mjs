@@ -7688,8 +7688,8 @@ class Camera {
   #rotZ = 0;
   fov;
 
-  near = 0.001;
-  far = 1000;
+  near = 0.01;
+  far = 5000;
 
   position = [0, 0, 0, 1];
   rotation = [0, 0, 0];

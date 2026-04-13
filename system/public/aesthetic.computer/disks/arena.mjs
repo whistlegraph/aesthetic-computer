@@ -24,6 +24,9 @@ let platformEdge;  // bright outline at the ground's perimeter
 let FormRef;       // captured at boot so sim/paint can build transient forms
 let penLocked = false;
 
+// 📱 Mobile control buttons (bottom-left movement, bottom-right jump/crouch)
+let mobileButtons = null; // will be set to { up, down, left, right, jump, crouch } or null on desktop
+
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
 
@@ -159,6 +162,8 @@ export const fpsOpts = {
   groundY: GROUND_Y,
   eyeHeight: EYE_HEIGHT,
   crouchEyeHeight: CROUCH_EYE,
+  // Disable built-in camdoll touch controls; arena handles custom mobile UI instead
+  disableTouchControls: true,
   // Outside this XZ rectangle the floor clamp is disabled so the player
   // falls into the pit below. Matches the ground plane's half-size.
   groundBounds: {
@@ -238,13 +243,35 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system }) {
+function boot({ Form, penLock, system, screen }) {
   penLock();
   FormRef = Form;
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
+
+  // 📱 Create mobile control buttons if on touch device
+  // Check if device supports touch and has a small enough screen (mobile)
+  if (typeof window !== "undefined" &&
+      (window.matchMedia("(hover:none)").matches || window.ontouchstart !== undefined) &&
+      screen) {
+    const buttonSize = 32;
+    const padding = 8;
+
+    // Movement buttons (bottom-left): D-pad style
+    const moveX = padding;
+    const moveY = screen.height - (buttonSize * 3 + padding * 3);
+
+    mobileButtons = {
+      up: { box: [moveX + buttonSize, moveY, buttonSize, buttonSize], key: "forward", pressed: false },
+      down: { box: [moveX + buttonSize, moveY + buttonSize * 2, buttonSize, buttonSize], key: "back", pressed: false },
+      left: { box: [moveX, moveY + buttonSize, buttonSize, buttonSize], key: "left", pressed: false },
+      right: { box: [moveX + buttonSize * 2, moveY + buttonSize, buttonSize, buttonSize], key: "right", pressed: false },
+      jump: { box: [screen.width - buttonSize - padding, screen.height - buttonSize * 2 - padding * 2, buttonSize, buttonSize], key: "jump", pressed: false },
+      crouch: { box: [screen.width - buttonSize - padding, screen.height - buttonSize - padding, buttonSize, buttonSize], key: "crouch", pressed: false },
+    };
+  }
 
   // --- Vertex-colored checkerboard ground with fog ---
   const positions = [];
@@ -488,6 +515,21 @@ function sim({ system, pen, screen }) {
   const doll = system?.fps?.doll;
   const cam = doll?.cam;
   if (!cam) return;
+
+  // 📱 Update mobile button states based on pen position
+  if (mobileButtons && pen && !penLocked) {
+    for (const btn of Object.values(mobileButtons)) {
+      const inButton = pen.x >= btn.box[0] && pen.x < btn.box[0] + btn.box[2] &&
+                       pen.y >= btn.box[1] && pen.y < btn.box[1] + btn.box[3];
+      if (inButton && !btn.pressed) {
+        btn.pressed = true;
+        doll.setMovement(btn.key, true);
+      } else if (!inButton && btn.pressed) {
+        btn.pressed = false;
+        doll.setMovement(btn.key, false);
+      }
+    }
+  }
 
   // Undo any orbit offset we applied last frame so it doesn't affect physics
   cam.x -= appliedOrbitOffset[0];
@@ -926,11 +968,47 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
       write(prompt, { x: Math.floor(cx - prompt.length * 4), y: Math.floor(cy + 6) }, undefined, undefined, false, font);
     }
   }
+
+  // 📱 Draw mobile control buttons
+  if (mobileButtons) {
+    const buttonLabels = {
+      up: "▲",
+      down: "▼",
+      left: "◄",
+      right: "►",
+      jump: "J",
+      crouch: "C",
+    };
+
+    for (const [name, btn] of Object.entries(mobileButtons)) {
+      // Draw button background (darker when pressed)
+      if (btn.pressed) {
+        ink(100, 100, 120, 180);
+      } else {
+        ink(80, 80, 100, 140);
+      }
+      box(btn.box[0], btn.box[1], btn.box[2], btn.box[3]);
+
+      // Draw button border
+      ink(150, 150, 170, 200);
+      box(btn.box[0], btn.box[1], btn.box[2], btn.box[3], 0, false, 1);
+
+      // Draw button label
+      ink(200, 200, 220, 255);
+      const label = buttonLabels[name];
+      const labelW = label.length * 4;
+      const labelH = 8;
+      const labelX = Math.floor(btn.box[0] + (btn.box[2] - labelW) / 2);
+      const labelY = Math.floor(btn.box[1] + (btn.box[3] - labelH) / 2);
+      write(label, { x: labelX, y: labelY }, undefined, undefined, false);
+    }
+  }
 }
 
 function act({ event: e, penLock, system }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
+
 
   // F cycles the hover axis-flip experiment (0 = no flip, 1 = X, 2 = Z, 3 = both).
   if (e.is("keyboard:down:f")) {
@@ -968,18 +1046,24 @@ function act({ event: e, penLock, system }) {
     const dx = cam.x - pCamX;
     const dz = cam.z - pCamZ;
     orbitDistance = Math.sqrt(dx * dx + dz * dz);
-  } else if (e.is("lift") && e.button === 2) {
+  } else if (e.is("lift") && (e.button === 2 || orbiting)) {
+    // Lift ends orbit (handle both proper e.button===2 and fallback for button detection issues)
     orbiting = false;
     orbitSnapped = true; // mark that orbit was released; wait for left-click to reset
-  } else if (e.is("draw") && e.button === 2) {
-    // Drag: accumulate orbit angle (1px ≈ 0.4° per frame)
+  } else if (e.is("draw") && orbiting) {
+    // Drag: accumulate orbit angle during right-click drag (regardless of e.button value)
+    // This handles cases where the touch API doesn't properly set e.button on drag events
     orbitAngle += e.delta.x * 0.4;
   }
 
   // Left-click resets orbit angle (only if orbit was previously snapped/released)
-  if (e.is("touch") && e.button === 0 && orbitSnapped) {
-    orbitAngle = 0;
-    orbitSnapped = false;
+  // Also cancel any in-progress orbit if left-click happens
+  if (e.is("touch") && e.button === 0) {
+    if (orbiting) orbiting = false; // force-stop any active orbit on left-click
+    if (orbitSnapped) {
+      orbitAngle = 0;
+      orbitSnapped = false;
+    }
   }
 
   // While dead, any touch respawns; otherwise the first touch re-locks the pen.
