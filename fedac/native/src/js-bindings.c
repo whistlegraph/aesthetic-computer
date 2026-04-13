@@ -1001,6 +1001,37 @@ static JSValue js_synth(JSContext *ctx, JSValueConst this_val, int argc, JSValue
                wt, freq, volume, duration, (unsigned long)id);
     }
 
+    // For gun voices, an optional `params` object on opts passes per-shot
+    // overrides into the C-side synth state (drag-to-edit on inspector
+    // cards). Each numeric property maps to a gun_presets[] field key.
+    // Applied immediately after synth init so the next audio thread tick
+    // sees the patched values.
+    if (is_gun && id) {
+        JSValue params_v = JS_GetPropertyStr(ctx, opts, "params");
+        if (JS_IsObject(params_v)) {
+            JSPropertyEnum *props = NULL;
+            uint32_t plen = 0;
+            if (JS_GetOwnPropertyNames(ctx, &props, &plen, params_v,
+                                       JS_GPN_STRING_MASK | JS_GPN_ENUM_ONLY) == 0) {
+                for (uint32_t i = 0; i < plen; i++) {
+                    const char *k = JS_AtomToCString(ctx, props[i].atom);
+                    if (k) {
+                        JSValue pv = JS_GetProperty(ctx, params_v, props[i].atom);
+                        double pd;
+                        if (JS_IsNumber(pv) && JS_ToFloat64(ctx, &pd, pv) == 0) {
+                            audio_gun_voice_set_param(audio, id, k, pd);
+                        }
+                        JS_FreeValue(ctx, pv);
+                        JS_FreeCString(ctx, k);
+                    }
+                    JS_FreeAtom(ctx, props[i].atom);
+                }
+                js_free(ctx, props);
+            }
+        }
+        JS_FreeValue(ctx, params_v);
+    }
+
     // Return sound object with kill(), update(), startedAt
     JSValue snd = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, snd, "id", JS_NewFloat64(ctx, (double)id));
