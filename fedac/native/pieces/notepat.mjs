@@ -71,6 +71,7 @@ let enterHeld = false;       // true while Enter key is physically held
 // is read-only; later phases will let you mouse-drag each param.
 let lastDrumInspect = null;  // { letter, name, voices: [{type,tone,dur,vol,atk,dcy,pan}], until }
 let drumInspectBuilder = null;
+let lastWarInspect = null;   // { letter, name, model, params, until }
 
 // Effective pitch shift blended by FX mix (0% fx = no pitch shift)
 function effectivePitchShift() {
@@ -528,14 +529,23 @@ const NOTE_COLORS = {
 };
 
 // === KIT LAYOUT ===
-// Pgup cycles the left octave grid's kit through off → perc → war → off.
+// Pgup cycles the left octave grid's kit through off → perc → warA → warB → off.
 // Pgdn does the same for the right grid. "perc" replaces the 12 notes
-// with drum hits (TR-808 / 909 analogues). "war" replaces them with
-// physically-modeled weapons fired through the WAVE_GUN DWG synth.
-// Per-side state lets a child play drums on one hand and guns on the
-// other.
-let kitLeft = "off";   // "off" | "perc" | "war"
+// with drum hits (TR-808 / 909 analogues). "warA" / "warB" replace them
+// with the same 12 weapons rendered via two different synthesis models —
+// warA uses each preset's default (mostly classic 3-layer crack/boom/
+// tail) and warB forces every weapon through the physical DWG bore. Tap
+// pgup/pgdn between A and B to A/B-compare model timbre on the same key.
+let kitLeft = "off";   // "off" | "perc" | "warA" | "warB"
 let kitRight = "off";
+
+// Map kit name → model arg passed to playWar / native synth suffix.
+function warModelFor(kit) {
+  if (kit === "warA") return "default";   // preset-chosen (mixed)
+  if (kit === "warB") return "physical";  // force DWG model
+  return "default";
+}
+function isWarKit(kit) { return kit === "warA" || kit === "warB"; }
 // Backwards-compatible convenience (some code paths just want a bool).
 function percussionActive(side) { return side === "left" ? kitLeft !== "off" : kitRight !== "off"; }
 
@@ -739,6 +749,61 @@ const WAR_NAMES = {
   "f#": "reload", "g#": "cock", "a#": "ricochet",
 };
 
+// Display-only param summaries per weapon × model. Mirrors the static
+// values in audio.c gun_presets[]. Kept here so the on-screen inspector
+// can show what's driving each sound without an extra C↔JS bridge —
+// update both sides when retuning a preset.
+const WAR_PARAMS = {
+  pistol: {
+    classic:  { click: 0.65, crack: "3.8k Q2.6", boom: "220→55Hz", tail: "110ms LP900" },
+    physical: { bore: "0.59ms",  body: "1.5/4.0/8.5kHz Q12/10/8" },
+  },
+  rifle: {
+    classic:  { click: 0.75, crack: "4.5k Q3.0", boom: "280→50Hz", tail: "220ms LP1.1k", extra: "N-wave 0.9ms" },
+    physical: { bore: "2.35ms", body: "0.8/2.4/6.0kHz Q14/12/10", extra: "N-wave 0.8ms" },
+  },
+  shotgun: {
+    classic:  { click: 0.55, crack: "2.2k Q1.8", boom: "260→38Hz", tail: "380ms LP700 atk4" },
+    physical: { bore: "3.88ms", body: "0.4/1.2/3.5kHz Q10/8/7" },
+  },
+  smg: {
+    classic:  { click: 0.65, crack: "4.2k Q2.5", boom: "200→60Hz", tail: "90ms LP1.2k" },
+    physical: { bore: "1.32ms", body: "1.2/3.5/7.5kHz Q12/10/8" },
+  },
+  suppressed: {
+    classic:  { click: 0.08, crack: "1.6k Q1.1", boom: "150→80Hz", tail: "140ms LP1.8k atk6" },
+    physical: { bore: "1.0ms loss0.85", body: "0.6/1.5/3.0kHz Q6/5/4" },
+  },
+  lmg: {
+    classic:  { click: 0.65, crack: "3.5k Q2.6", boom: "250→48Hz", tail: "160ms LP950", extra: "600 RPM" },
+    physical: { bore: "3.29ms", body: "0.6/1.8/4.5kHz Q12/10/8", extra: "600 RPM" },
+  },
+  sniper: {
+    classic:  { click: 0.85, crack: "5.0k Q3.2", boom: "320→36Hz", tail: "500ms LP850 atk3", extra: "N-wave 1.4ms" },
+    physical: { bore: "4.35ms", body: "0.35/0.95/2.8kHz Q14/12/10", extra: "N-wave 1.2ms" },
+  },
+  grenade: {
+    classic:  { click: 0.40, crack: "800 Q0.7", boom: "150→28Hz", tail: "800ms LP400 atk12" },
+    physical: { bore: "10ms cavity", body: "80/250/1200Hz Q6/5/4" },
+  },
+  rpg: {
+    classic:  { click: 0.30, crack: "1.5k Q0.8", boom: "120→60Hz", tail: "600ms LP600 atk80", extra: "boom +250ms" },
+    physical: { bore: "3ms slow", body: "200/600/2000Hz Q4/3/3", extra: "boom +250ms" },
+  },
+  reload: {
+    classic:  { click: 0.85, crack: "4.5k Q3.0", tail: "30ms LP2.5k", extra: "click +80ms" },
+    physical: { bore: "0.1ms", body: "2.2/4.5/8.0kHz Q10/8/6", extra: "insert +80ms" },
+  },
+  cock: {
+    classic:  { click: 0.90, crack: "3.8k Q3.2", tail: "25ms LP2.0k", extra: "rack +55ms" },
+    physical: { bore: "0.15ms", body: "1.8/4.2/7.5kHz Q10/8/7", extra: "rack +55ms" },
+  },
+  ricochet: {
+    classic:  { click: 0.40, crack: "5.5k Q3.0", boom: "1800→1500Hz", tail: "200ms LP3.0k" },
+    physical: { bore: "0.4ms ring", body: "3.0/5.5/9.0kHz Q30/25/20" },
+  },
+};
+
 // 3-char labels for tight pad rendering
 const WAR_LABELS = {
   c: "PST", d: "RFL", e: "SHG", f: "SUP",
@@ -820,30 +885,35 @@ function activeKitForOffset(offset) {
   return offset === 0 ? kitLeft : kitRight;
 }
 function kitNamesFor(kit) {
-  if (kit === "war") return WAR_NAMES;
+  if (isWarKit(kit)) return WAR_NAMES;
   if (kit === "perc") return PERCUSSION_NAMES;
   return null;
 }
 function kitLabelsFor(kit) {
-  if (kit === "war") return WAR_LABELS;
+  if (isWarKit(kit)) return WAR_LABELS;
   if (kit === "perc") return PERCUSSION_LABELS;
   return null;
 }
 function kitColorsFor(kit) {
-  if (kit === "war") return WAR_COLORS;
+  if (isWarKit(kit)) return WAR_COLORS;
   if (kit === "perc") return PERCUSSION_COLORS;
   return null;
 }
 function kitNotationFor(kit) {
-  if (kit === "war") return WAR_NOTATION;
+  if (isWarKit(kit)) return WAR_NOTATION;
   if (kit === "perc") return PERCUSSION_NOTATION;
   return null;
 }
 
-// Cycle the kit state for a side: off → perc → war → off.
+// Cycle the kit state for a side: off → perc → warA → warB → off.
+// warA = preset-default model per weapon (mostly classic), warB forces
+// physical/DWG synthesis on every weapon for direct A/B comparison.
 function cycleKit(side) {
   const cur = side === "left" ? kitLeft : kitRight;
-  const next = cur === "off" ? "perc" : (cur === "perc" ? "war" : "off");
+  const next = cur === "off"  ? "perc"
+             : cur === "perc" ? "warA"
+             : cur === "warA" ? "warB"
+             : "off";
   if (side === "left") kitLeft = next; else kitRight = next;
   return next;
 }
@@ -904,7 +974,7 @@ function drumPanFor(letter, gridOffset, key) {
 // drum/weapon's characteristic color. Called from every kit trigger site
 // (keyboard act(), touch-tap, drag-rollover, reverse-playback replay).
 function flashDrum(letter, kit = "perc") {
-  const table = kit === "war" ? WAR_COLORS : PERCUSSION_COLORS;
+  const table = isWarKit(kit) ? WAR_COLORS : PERCUSSION_COLORS;
   const color = table[letter] || [200, 200, 200];
   drumFlashes.push({ color, frame, life: DRUM_FLASH_LIFE });
   if (drumFlashes.length > 8) drumFlashes.shift();
@@ -1005,8 +1075,8 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
     // to the active kit on this grid side.
     const kit = activeKitForOffset(gridOffset);
     const voices = [];
-    if (kit === "war") {
-      playWar(sound, letter, volume, pan, pitchFactor, "down", voices);
+    if (isWarKit(kit)) {
+      playWar(sound, letter, volume, pan, pitchFactor, "down", voices, warModelFor(kit));
     } else {
       playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
     }
@@ -1389,10 +1459,29 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
 // This function just chooses between a finite one-shot and an infinite-
 // duration sustained voice, and pushes the right release bookkeeping
 // into `holdVoices` so releasePercussionHold can tear it down.
-function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
+// `model` selects which native synth path renders the weapon:
+//   "default" → use the preset's hardcoded model (mixed)
+//   "classic" → force 3-layer click+crack+boom+tail synthesis
+//   "physical" → force DWG bore + body-mode resonance
+// The native side parses the suffix on the type string.
+function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null, model = "default") {
   if (!sound?.synth) return;
   const preset = WAR_NAMES[letter];
   if (!preset) return;
+  // Resolve the actual model the C side will pick. For "default" the
+  // physical-only weapons (grenade, rpg) render as physical; everything
+  // else as classic. warB ("physical") forces the alt across the board.
+  const resolvedModel = model === "physical"
+    ? "physical"
+    : (model === "classic" ? "classic"
+       : (preset === "grenade" || preset === "rpg" ? "physical" : "classic"));
+  if (phase !== "up") {
+    lastWarInspect = {
+      letter, name: preset, model: resolvedModel,
+      params: WAR_PARAMS[preset]?.[resolvedModel] || null,
+      until: frame + 300,
+    };
+  }
   const v = Math.max(0.1, Math.min(2.2, volume));
   // pitchFactor maps to the DWG's pressure scale rather than a pitch —
   // harder strikes → more combustion energy. Clamp to sane range.
@@ -1401,11 +1490,14 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
   if (!fireDown) return;
   const isLive = phase === "down" && Array.isArray(holdVoices);
   const sustained = !!WAR_SUSTAIN[letter];
+  const typeStr = model === "classic" || model === "physical"
+    ? `gun-${preset}/${model}`
+    : `gun-${preset}`;
 
   if (sustained && isLive) {
     // Held weapon — infinite-duration voice killed on release.
     const handle = sound.synth({
-      type: `gun-${preset}`,
+      type: typeStr,
       tone: pressure,   // encoded as pressure multiplier (see js-bindings.c)
       duration: Infinity,
       volume: v,
@@ -1428,7 +1520,7 @@ function playWar(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase 
   // for the weapon's characteristic tail before auto-kill.
   const duration = WAR_DURATION[letter] ?? 0.3;
   const handle = sound.synth({
-    type: `gun-${preset}`,
+    type: typeStr,
     tone: pressure,
     duration,
     volume: v,
@@ -1982,7 +2074,8 @@ function act({ event: e, sound, wifi, system }) {
       const banner = {
         off:  side === "left" ? `${arrow} notes` : `notes ${arrow}`,
         perc: side === "left" ? `${arrow} DRUMS` : `DRUMS ${arrow}`,
-        war:  side === "left" ? `${arrow} WAR`   : `WAR ${arrow}`,
+        warA: side === "left" ? `${arrow} WAR A` : `WAR A ${arrow}`,
+        warB: side === "left" ? `${arrow} WAR B` : `WAR B ${arrow}`,
       }[next];
       flashPercussionNotice(banner);
       sound?.speak?.(label);
@@ -1994,9 +2087,9 @@ function act({ event: e, sound, wifi, system }) {
         duration: 0.10, volume: 0.18, attack: 0.002, decay: 0.09, pan: feedbackPan,
       }), 70);
       // Preview the kit's signature sound on "c" so the user hears what
-      // they just switched to (kick for perc, pistol for war).
+      // they just switched to (kick for perc, pistol for whichever war model).
       if (next === "perc") playPercussion(sound, "c", 1.6, pan);
-      else if (next === "war") playWar(sound, "c", 1.2, pan);
+      else if (isWarKit(next)) playWar(sound, "c", 1.2, pan, 1.0, "both", null, warModelFor(next));
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
@@ -3957,6 +4050,45 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   } else if (lastDrumInspect) {
     lastDrumInspect = null;
+  }
+
+  // === Gun inspector ===
+  // Mirrors the drum inspector style. One row of small cards: header
+  // (weapon · model) + a layer card per param entry. Helps A/B between
+  // warA and warB by showing exactly which synth path you're hearing.
+  if (lastWarInspect && frame < lastWarInspect.until) {
+    const dark2 = isDark();
+    const remaining = lastWarInspect.until - frame;
+    const alpha = Math.min(255, Math.max(40, Math.round(remaining * 1.2)));
+    const rowH = 10;
+    const rowGap = 1;
+    const totalH = rowH * 2 + rowGap + 2;
+    const insY = Math.max(0, gridTop - totalH - 2);
+    ink(0, 0, 0, Math.floor(alpha * 0.6));
+    box(0, insY, w, totalH, true);
+    const modelChar = lastWarInspect.model === "physical" ? "P" : "C";
+    const header = `${lastWarInspect.name.toUpperCase()} · ${modelChar === "P" ? "PHYSICAL" : "CLASSIC"}`;
+    // Color cue: warmer for classic (orange), cooler for physical (cyan).
+    const tint = modelChar === "P" ? [120, 220, 240] : [255, 180, 90];
+    ink(tint[0], tint[1], tint[2], alpha);
+    write(header, { x: 3, y: insY + 1, size: 1, font: "font_1" });
+    const params = lastWarInspect.params;
+    if (params) {
+      const entries = Object.entries(params);
+      const cardY = insY + rowH + rowGap;
+      const cardW = Math.max(40, Math.floor((w - 6) / Math.max(1, entries.length)));
+      for (let i = 0; i < entries.length; i++) {
+        const [k, val] = entries[i];
+        const cx = 3 + i * cardW;
+        ink(tint[0], tint[1], tint[2], Math.floor(alpha * 0.3));
+        box(cx, cardY, cardW - 1, rowH, true);
+        ink(tint[0], tint[1], tint[2], alpha);
+        const label = `${k}: ${val}`;
+        write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
+      }
+    }
+  } else if (lastWarInspect) {
+    lastWarInspect = null;
   }
 
   // === PER-SIDE MASTER VOLUME SLIDERS ===
