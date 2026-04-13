@@ -1156,7 +1156,7 @@ function act({ event: e, penLock, system }) {
 
   // 🎥 Right-click drag to orbit camera around player (3P mode only).
   const cam = system?.fps?.doll?.cam;
-  if (e.is("touch") && e.button === 2 && cam) {
+  if (e.is("touch") && e.button === 2 && cam && zoomLevel > 0) {
     orbiting = true;
     playerFacing = cam.rotY; // lock player facing to current heading immediately
     baseRotY = cam.rotY;
@@ -1172,8 +1172,8 @@ function act({ event: e, penLock, system }) {
     // Lift ends orbit (handle both proper e.button===2 and fallback for button detection issues)
     orbiting = false;
     orbitSnapped = true; // mark that orbit was released; wait for left-click to reset
-  } else if (e.is("draw") && orbiting) {
-    // Drag: accumulate orbit angle during right-click drag (regardless of e.button value)
+  } else if (e.is("draw") && orbiting && zoomLevel > 0) {
+    // Drag: accumulate orbit angle during right-click drag (3P mode only)
     // This handles cases where the touch API doesn't properly set e.button on drag events
     orbitAngle += e.delta.x * 0.4;
   }
