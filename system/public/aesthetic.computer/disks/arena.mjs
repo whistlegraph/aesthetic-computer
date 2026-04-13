@@ -40,30 +40,16 @@ let keyboardState = {
 let cursorClickTime = 0;
 const CURSOR_CLICK_DURATION = 150; // ms to expand on click
 
-// Create SVG cursor strings
-const createCursor = (size = 24) => {
-  // Thin crosshair cursor
-  const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <style>
-        line { stroke: #fff; stroke-width: 1; opacity: 0.8; }
-        circle { fill: none; stroke: #fff; stroke-width: 1; opacity: 0.6; }
-      </style>
-    </defs>
-    <!-- Vertical line -->
-    <line x1="${size/2}" y1="2" x2="${size/2}" y2="${size-2}" />
-    <!-- Horizontal line -->
-    <line x1="2" y1="${size/2}" x2="${size-2}" y2="${size/2}" />
-    <!-- Center dot -->
-    <circle cx="${size/2}" cy="${size/2}" r="1.5" />
-  </svg>`;
+// Simple SVG crosshair cursors
+const createCrossHairSVG = (size) => `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><line x1="${size/2}" y1="1" x2="${size/2}" y2="${size-1}" stroke="white" stroke-width="1"/><line x1="1" y1="${size/2}" x2="${size-1}" y2="${size/2}" stroke="white" stroke-width="1"/><circle cx="${size/2}" cy="${size/2}" r="1.5" fill="none" stroke="white" stroke-width="0.5"/></svg>`;
 
-  const encoded = btoa(svg).replace(/\+/g, '-').replace(/\//g, '_');
-  return `url('data:image/svg+xml;base64,${encoded}') ${size/2} ${size/2}, auto`;
+const getCursorDataURI = (svg) => {
+  const encoded = btoa(svg);
+  return `data:image/svg+xml;base64,${encoded}`;
 };
 
-const cursorNormal = createCursor(24);
-const cursorExpanded = createCursor(32); // larger for click feedback
+const cursorNormalURI = getCursorDataURI(createCrossHairSVG(20));
+const cursorExpandedURI = getCursorDataURI(createCrossHairSVG(28));
 
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
@@ -289,10 +275,17 @@ function boot({ Form, penLock, system, screen, ui, canvas }) {
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
 
-  // 🎯 Set up custom cursor on canvas
-  if (canvas) {
-    canvas.style.cursor = 'auto';
-  }
+  // 🎯 Inject custom cursor styles
+  const style = document.createElement('style');
+  style.textContent = `
+    body.arena-fps-cursor {
+      cursor: url('${cursorNormalURI}') 10 10, crosshair !important;
+    }
+    body.arena-fps-cursor.expanded {
+      cursor: url('${cursorExpandedURI}') 14 14, crosshair !important;
+    }
+  `;
+  document.head.appendChild(style);
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
@@ -951,15 +944,17 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, now }) {
   // dark skirt that seals any tile-seam gaps, then the ground, its glowing
   // edge, tile highlights, feet shadow + body.
   // 🎯 Apply custom cursor based on pen lock state
-  if (canvas) {
-    if (penLocked) {
-      // Determine if we're in click expansion window
-      const timeSinceClick = now - cursorClickTime;
-      const isExpanded = timeSinceClick < CURSOR_CLICK_DURATION && timeSinceClick >= 0;
-      canvas.style.cursor = isExpanded ? cursorExpanded : cursorNormal;
+  if (penLocked) {
+    const timeSinceClick = now - cursorClickTime;
+    const isExpanded = timeSinceClick < CURSOR_CLICK_DURATION && timeSinceClick >= 0;
+    document.body.classList.add('arena-fps-cursor');
+    if (isExpanded) {
+      document.body.classList.add('expanded');
     } else {
-      canvas.style.cursor = 'auto';
+      document.body.classList.remove('expanded');
     }
+  } else {
+    document.body.classList.remove('arena-fps-cursor', 'expanded');
   }
 
   wipe(45, 48, 55);
