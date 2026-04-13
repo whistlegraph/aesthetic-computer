@@ -129,6 +129,13 @@ let prevX = 0, prevY = 0, prevZ = 0;
 let speedSmoothed = 0;
 const SPEED_SMOOTH = 0.15;
 
+// 🕐 Sim-driven clock (seconds). Incremented each sim tick so every
+// gameplay-visible animation advances at a constant rate regardless of
+// paint FPS. Paint reads this instead of performance.now() for anything
+// that should feel tied to the simulation (lava flow, body bob timing in
+// the future, etc.).
+let simTime = 0;
+
 // FPS tracking
 let frameTimes = [];
 let lastFrameTime = 0;
@@ -623,6 +630,10 @@ function sim({ system, pen, screen }) {
   const cam = doll?.cam;
   if (!cam) return;
 
+  // Advance the sim clock first so any logic below that wants elapsed
+  // time sees the fresh value.
+  simTime += 1 / SIM_HZ;
+
   // 📱 Update mobile button states
   if (mobileButtons && doll) {
     for (const [name, btnData] of Object.entries(mobileButtons)) {
@@ -953,7 +964,10 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
   // dark skirt that seals any tile-seam gaps, then the ground, its glowing
   // edge, tile highlights, feet shadow + body.
   wipe(45, 48, 55);
-  const lava = buildLavaFloor(now / 1000);
+  // Drive lava animation from the sim clock, not paint time — decouples
+  // the flow speed from render FPS so the look is identical on 30fps and
+  // 120fps devices.
+  const lava = buildLavaFloor(simTime);
   if (lava) ink(255).form(lava);
   if (platformBlock) ink(255).form(platformBlock);  // bottom and side faces
   if (groundSkirt) ink(255).form(groundSkirt);
