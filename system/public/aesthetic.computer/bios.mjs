@@ -12957,6 +12957,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;
       currentPieceHasKeyboard = true;
+      // 📱 On iOS Safari, programmatic focus outside a user gesture silently
+      // sets document.activeElement but does NOT open the virtual keyboard.
+      // It does still fire the focus event though, which would flip
+      // keyboardOpen=true and make the next real tap take the blur branch
+      // (wasting the first tap). Skip programmatic focus on iOS — the first
+      // user pointerup will open it inside the gesture.
+      if (iOS) {
+        console.log("⌨️🟢 [bios keyboard:open handler] iOS — deferring focus to next user pointerup");
+        return;
+      }
       keyboard?.input.focus();
       // if (keyboard) keyboard.needsImmediateOpen = true; // For iOS.
       return;
