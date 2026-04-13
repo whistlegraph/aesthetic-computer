@@ -81,6 +81,7 @@ let playerFacing = 0; // Player body Y rotation (degrees), independent from came
 // without changing player body rotation. Orbits by modifying XZ offset.
 let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
 let orbiting = false; // currently dragging with right button
+let orbitDistance = 0; // captured XZ distance when orbit starts, stays constant
 let appliedOrbitOffset = [0, 0]; // track X,Z offset we applied so we can undo it
 let baseRotY = 0;     // cam.rotY when orbit started, to prevent player spinning
 let orbitSnapped = false; // true if orbit was released; reset on next left-click
@@ -691,27 +692,18 @@ function sim({ system, pen, screen }) {
   // modifying the XZ offset without changing cam.rotY (so player body stays put).
   // Orbit angle persists after release until left-click is pressed.
 
-  if (zoomLevel > 0 && Math.abs(orbitAngle) > 0.01) {
+  if (zoomLevel > 0 && Math.abs(orbitAngle) > 0.01 && orbitDistance > 0) {
     const pCamX = phys?.playerCamX ?? cam.x;
     const pCamZ = phys?.playerCamZ ?? cam.z;
-    // Current XZ offset from logical player pos to render camera pos
-    const dx = cam.x - pCamX;
-    const dz = cam.z - pCamZ;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > 0) {
-      // Compute current angle in XZ plane using atan2(X, Z) convention for cam-space
-      const baseAngle = Math.atan2(dx, dz);
-      const orbitRad = orbitAngle * Math.PI / 180;
-      const newAngle = baseAngle + orbitRad;
-      // Keep the distance constant by using the magnitude of the XZ offset
-      const newX = pCamX + dist * Math.sin(newAngle);
-      const newZ = pCamZ + dist * Math.cos(newAngle);
-      // Track the total change we're making so we can undo it next frame
-      appliedOrbitOffset[0] = newX - cam.x;
-      appliedOrbitOffset[1] = newZ - cam.z;
-      cam.x = newX;
-      cam.z = newZ;
-    }
+    // Use captured orbit distance (constant throughout orbit) to maintain radius
+    const orbitRad = orbitAngle * Math.PI / 180;
+    const newX = pCamX + orbitDistance * Math.sin(orbitRad);
+    const newZ = pCamZ + orbitDistance * Math.cos(orbitRad);
+    // Track the total change we're making so we can undo it next frame
+    appliedOrbitOffset[0] = newX - cam.x;
+    appliedOrbitOffset[1] = newZ - cam.z;
+    cam.x = newX;
+    cam.z = newZ;
   }
 }
 
@@ -968,6 +960,13 @@ function act({ event: e, penLock, system }) {
     orbiting = true;
     baseRotY = cam.rotY; // lock player rotation to current heading
     orbitSnapped = false; // start orbiting fresh
+    // Capture current XZ distance to maintain constant orbit radius
+    const phys = system?.fps?.doll?.physics;
+    const pCamX = phys?.playerCamX ?? cam.x;
+    const pCamZ = phys?.playerCamZ ?? cam.z;
+    const dx = cam.x - pCamX;
+    const dz = cam.z - pCamZ;
+    orbitDistance = Math.sqrt(dx * dx + dz * dz);
   } else if (e.is("lift") && e.button === 2) {
     orbiting = false;
     orbitSnapped = true; // mark that orbit was released; wait for left-click to reset
