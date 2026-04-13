@@ -36,20 +36,6 @@ let keyboardState = {
   space: false, shift: false,
 };
 
-// 🎯 Custom cursor for locked (FPS) mode
-let cursorClickTime = 0;
-const CURSOR_CLICK_DURATION = 150; // ms to expand on click
-
-// Simple SVG crosshair cursors
-const createCrossHairSVG = (size) => `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><line x1="${size/2}" y1="1" x2="${size/2}" y2="${size-1}" stroke="white" stroke-width="1"/><line x1="1" y1="${size/2}" x2="${size-1}" y2="${size/2}" stroke="white" stroke-width="1"/><circle cx="${size/2}" cy="${size/2}" r="1.5" fill="none" stroke="white" stroke-width="0.5"/></svg>`;
-
-const getCursorDataURI = (svg) => {
-  const encoded = btoa(svg);
-  return `data:image/svg+xml;base64,${encoded}`;
-};
-
-const cursorNormalURI = getCursorDataURI(createCrossHairSVG(20));
-const cursorExpandedURI = getCursorDataURI(createCrossHairSVG(28));
 
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
@@ -275,17 +261,6 @@ function boot({ Form, penLock, system, screen, ui, canvas }) {
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
 
-  // 🎯 Inject custom cursor styles
-  const style = document.createElement('style');
-  style.textContent = `
-    body.arena-fps-cursor {
-      cursor: url('${cursorNormalURI}') 10 10, crosshair !important;
-    }
-    body.arena-fps-cursor.expanded {
-      cursor: url('${cursorExpandedURI}') 14 14, crosshair !important;
-    }
-  `;
-  document.head.appendChild(style);
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
@@ -943,20 +918,6 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, now }) {
   // Render scene — lava donut first (never under the main ground), then the
   // dark skirt that seals any tile-seam gaps, then the ground, its glowing
   // edge, tile highlights, feet shadow + body.
-  // 🎯 Apply custom cursor based on pen lock state
-  if (penLocked) {
-    const timeSinceClick = now - cursorClickTime;
-    const isExpanded = timeSinceClick < CURSOR_CLICK_DURATION && timeSinceClick >= 0;
-    document.body.classList.add('arena-fps-cursor');
-    if (isExpanded) {
-      document.body.classList.add('expanded');
-    } else {
-      document.body.classList.remove('expanded');
-    }
-  } else {
-    document.body.classList.remove('arena-fps-cursor', 'expanded');
-  }
-
   wipe(45, 48, 55);
   const lava = buildLavaFloor(now / 1000);
   if (lava) ink(255).form(lava);
@@ -1225,10 +1186,6 @@ function act({ event: e, penLock, system }) {
     if (orbitSnapped) {
       orbitAngle = 0;
       orbitSnapped = false;
-    }
-    // 🎯 Trigger cursor expansion animation on click (when in FPS mode)
-    if (penLocked) {
-      cursorClickTime = performance.now();
     }
   }
 
