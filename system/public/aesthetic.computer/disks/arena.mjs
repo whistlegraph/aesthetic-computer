@@ -25,8 +25,9 @@ let platformEdge;  // bright outline at the ground's perimeter
 let FormRef;       // captured at boot so sim/paint can build transient forms
 let penLocked = false;
 
-// 📱 Mobile control buttons (bottom-left movement, bottom-right jump/crouch)
-let mobileButtons = null; // will be set to { up, down, left, right, jump, crouch } or null on desktop
+// 📱 Mobile control buttons using TextButton UI component
+let mobileButtons = {}; // { up, down, left, right, jump, crouch }
+let mobileButtonStates = {}; // track which buttons are pressed
 
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
@@ -244,7 +245,7 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen }) {
+function boot({ Form, penLock, system, screen, ui }) {
   penLock();
   FormRef = Form;
 
@@ -252,22 +253,28 @@ function boot({ Form, penLock, system, screen }) {
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
 
-  // 📱 Create mobile control buttons (always enabled for testing/development)
-  if (screen) {
-    const buttonSize = 32;
+  // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
+  if (screen && ui?.Button) {
+    const btnSize = 40;
+    const btnSizeLarge = 50;
     const padding = 8;
+    const bottomMargin = 8;
 
     // Movement buttons (bottom-left): D-pad style
     const moveX = padding;
-    const moveY = screen.height - (buttonSize * 3 + padding * 3);
+    const moveY = screen.height - (btnSize * 3 + padding * 2 + bottomMargin);
+
+    // Action buttons (bottom-right): larger for longer text
+    const actionX = screen.width - btnSizeLarge - padding;
+    const actionY = screen.height - (btnSizeLarge * 2 + padding * 2 + bottomMargin);
 
     mobileButtons = {
-      up: { box: [moveX + buttonSize, moveY, buttonSize, buttonSize], key: "forward", pressed: false },
-      down: { box: [moveX + buttonSize, moveY + buttonSize * 2, buttonSize, buttonSize], key: "back", pressed: false },
-      left: { box: [moveX, moveY + buttonSize, buttonSize, buttonSize], key: "left", pressed: false },
-      right: { box: [moveX + buttonSize * 2, moveY + buttonSize, buttonSize, buttonSize], key: "right", pressed: false },
-      jump: { box: [screen.width - buttonSize - padding, screen.height - buttonSize * 2 - padding * 2, buttonSize, buttonSize], key: "jump", pressed: false },
-      crouch: { box: [screen.width - buttonSize - padding, screen.height - buttonSize - padding, buttonSize, buttonSize], key: "crouch", pressed: false },
+      up: { btn: new ui.Button(moveX + btnSize, moveY, btnSize, btnSize), key: "forward", label: "UP" },
+      down: { btn: new ui.Button(moveX + btnSize, moveY + btnSize * 2, btnSize, btnSize), key: "back", label: "DN" },
+      left: { btn: new ui.Button(moveX, moveY + btnSize, btnSize, btnSize), key: "left", label: "LT" },
+      right: { btn: new ui.Button(moveX + btnSize * 2, moveY + btnSize, btnSize, btnSize), key: "right", label: "RT" },
+      jump: { btn: new ui.Button(actionX, actionY, btnSizeLarge, btnSizeLarge), key: "jump", label: "JUMP" },
+      crouch: { btn: new ui.Button(actionX, actionY + btnSizeLarge + padding, btnSizeLarge, btnSizeLarge), key: "crouch", label: "CRCH" },
     };
   }
 
@@ -588,17 +595,18 @@ function sim({ system, pen, screen }) {
   const cam = doll?.cam;
   if (!cam) return;
 
-  // 📱 Update mobile button states based on pen position
-  if (mobileButtons && pen && !penLocked) {
-    for (const btn of Object.values(mobileButtons)) {
-      const inButton = pen.x >= btn.box[0] && pen.x < btn.box[0] + btn.box[2] &&
-                       pen.y >= btn.box[1] && pen.y < btn.box[1] + btn.box[3];
-      if (inButton && !btn.pressed) {
-        btn.pressed = true;
-        doll.setMovement(btn.key, true);
-      } else if (!inButton && btn.pressed) {
-        btn.pressed = false;
-        doll.setMovement(btn.key, false);
+  // 📱 Update mobile button states
+  if (mobileButtons && doll) {
+    for (const [name, btnData] of Object.entries(mobileButtons)) {
+      const isPressed = btnData.btn?.down ?? false;
+      const wasPressed = mobileButtonStates[name] ?? false;
+
+      if (isPressed && !wasPressed) {
+        doll.setMovement(btnData.key, true);
+        mobileButtonStates[name] = true;
+      } else if (!isPressed && wasPressed) {
+        doll.setMovement(btnData.key, false);
+        mobileButtonStates[name] = false;
       }
     }
   }
@@ -1044,36 +1052,23 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
 
   // 📱 Draw mobile control buttons
   if (mobileButtons) {
-    const buttonLabels = {
-      up: "▲",
-      down: "▼",
-      left: "◄",
-      right: "►",
-      jump: "J",
-      crouch: "C",
-    };
+    for (const [name, btnData] of Object.entries(mobileButtons)) {
+      const btn = btnData.btn;
+      if (!btn) continue;
 
-    for (const [name, btn] of Object.entries(mobileButtons)) {
-      // Draw button background (darker when pressed)
-      if (btn.pressed) {
-        ink(100, 100, 120, 180);
-      } else {
-        ink(80, 80, 100, 140);
-      }
-      box(btn.box[0], btn.box[1], btn.box[2], btn.box[3]);
+      // Draw button with pressed state
+      const isPressed = btn.down;
+      const bgColor = isPressed ? [90, 110, 140, 200] : [70, 80, 100, 160];
+      const borderColor = isPressed ? [160, 180, 210] : [120, 140, 170];
+      const textColor = isPressed ? [240, 255, 255] : [200, 220, 240];
 
-      // Draw button border
-      ink(150, 150, 170, 200);
-      box(btn.box[0], btn.box[1], btn.box[2], btn.box[3], 0, false, 1);
-
-      // Draw button label
-      ink(200, 200, 220, 255);
-      const label = buttonLabels[name];
-      const labelW = label.length * 4;
-      const labelH = 8;
-      const labelX = Math.floor(btn.box[0] + (btn.box[2] - labelW) / 2);
-      const labelY = Math.floor(btn.box[1] + (btn.box[3] - labelH) / 2);
-      write(label, { x: labelX, y: labelY }, undefined, undefined, false);
+      btn.paint((b) => {
+        ink(...bgColor).box(b.box, "fill");
+        ink(...borderColor).box(b.box, "outline");
+        ink(...textColor).write(btnData.label,
+          { x: Math.floor(b.box.x + 4), y: Math.floor(b.box.y + 2) },
+          undefined, undefined, false);
+      });
     }
   }
 }
