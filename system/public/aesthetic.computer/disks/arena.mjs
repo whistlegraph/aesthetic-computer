@@ -14,6 +14,7 @@
 let groundPlane;
 let groundSkirt;   // solid opaque plate just under the ground that blocks
                    // any lava bleed-through between ground tile seams
+let platformBlock;  // bottom and side faces for platform volume
 let shadowGround;  // ring + cross — standing on the ground
 let shadowAir;     // diagonal X — airborne
 let shadowCrouch;  // dense inner dot + outer ring — crouched
@@ -331,6 +332,80 @@ function boot({ Form, penLock, system, screen }) {
     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
   );
   groundSkirt.noFade = true;
+
+  // 🧱 Platform block — bottom and side faces to give the arena volume
+  const platformDepth = 2.0; // thickness of the platform block
+  const bottomY = GROUND_Y - platformDepth;
+  const sideColor = [0.18, 0.16, 0.14, 1.0]; // darker than ground for depth
+  const sideStriped = [0.28, 0.25, 0.22, 1.0]; // lighter stripe for pattern
+  const platformGs = GROUND_SIZE;
+
+  const platformPositions = [];
+  const platformColors = [];
+
+  // Bottom face (two triangles, full area)
+  platformPositions.push(
+    [-platformGs, bottomY, -platformGs, 1], [-platformGs, bottomY, platformGs, 1], [platformGs, bottomY, platformGs, 1],
+    [-platformGs, bottomY, -platformGs, 1], [platformGs, bottomY, platformGs, 1], [platformGs, bottomY, -platformGs, 1],
+  );
+  for (let i = 0; i < 6; i++) platformColors.push(sideColor);
+
+  // Side faces with alternating stripe pattern for visual interest
+  const sideStep = (platformGs * 2) / 8; // stripe width
+
+  // North side (-Z direction)
+  for (let i = 0; i < 8; i++) {
+    const x0 = -platformGs + i * sideStep;
+    const x1 = x0 + sideStep;
+    const stripeColor = (i & 1) ? sideStriped : sideColor;
+    platformPositions.push(
+      [x0, GROUND_Y, -platformGs, 1], [x0, bottomY, -platformGs, 1], [x1, bottomY, -platformGs, 1],
+      [x0, GROUND_Y, -platformGs, 1], [x1, bottomY, -platformGs, 1], [x1, GROUND_Y, -platformGs, 1],
+    );
+    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+  }
+
+  // South side (+Z direction)
+  for (let i = 0; i < 8; i++) {
+    const x0 = -platformGs + i * sideStep;
+    const x1 = x0 + sideStep;
+    const stripeColor = (i & 1) ? sideStriped : sideColor;
+    platformPositions.push(
+      [x0, GROUND_Y, platformGs, 1], [x1, bottomY, platformGs, 1], [x1, GROUND_Y, platformGs, 1],
+      [x0, GROUND_Y, platformGs, 1], [x0, bottomY, platformGs, 1], [x1, bottomY, platformGs, 1],
+    );
+    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+  }
+
+  // East side (+X direction)
+  for (let i = 0; i < 8; i++) {
+    const z0 = -platformGs + i * sideStep;
+    const z1 = z0 + sideStep;
+    const stripeColor = (i & 1) ? sideStriped : sideColor;
+    platformPositions.push(
+      [platformGs, GROUND_Y, z0, 1], [platformGs, bottomY, z0, 1], [platformGs, bottomY, z1, 1],
+      [platformGs, GROUND_Y, z0, 1], [platformGs, bottomY, z1, 1], [platformGs, GROUND_Y, z1, 1],
+    );
+    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+  }
+
+  // West side (-X direction)
+  for (let i = 0; i < 8; i++) {
+    const z0 = -platformGs + i * sideStep;
+    const z1 = z0 + sideStep;
+    const stripeColor = (i & 1) ? sideStriped : sideColor;
+    platformPositions.push(
+      [-platformGs, GROUND_Y, z0, 1], [-platformGs, bottomY, z1, 1], [-platformGs, GROUND_Y, z1, 1],
+      [-platformGs, GROUND_Y, z0, 1], [-platformGs, bottomY, z0, 1], [-platformGs, bottomY, z1, 1],
+    );
+    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+  }
+
+  platformBlock = new Form(
+    { type: "triangle", positions: platformPositions, colors: platformColors },
+    { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 },
+  );
+  platformBlock.noFade = true;
 
   // 🧱 Platform edge — a glowing rim so you can see where the floor ends.
   // Four line segments slightly above the ground, plus short drops at each
@@ -825,6 +900,7 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
   wipe(45, 48, 55);
   const lava = buildLavaFloor(now / 1000);
   if (lava) ink(255).form(lava);
+  if (platformBlock) ink(255).form(platformBlock);  // bottom and side faces
   if (groundSkirt) ink(255).form(groundSkirt);
   ink(255).form(groundPlane);
   if (platformEdge) ink(255).form(platformEdge);
