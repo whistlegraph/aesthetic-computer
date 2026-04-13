@@ -36,6 +36,35 @@ let keyboardState = {
   space: false, shift: false,
 };
 
+// 🎯 Custom cursor for locked (FPS) mode
+let cursorClickTime = 0;
+const CURSOR_CLICK_DURATION = 150; // ms to expand on click
+
+// Create SVG cursor strings
+const createCursor = (size = 24) => {
+  // Thin crosshair cursor
+  const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <style>
+        line { stroke: #fff; stroke-width: 1; opacity: 0.8; }
+        circle { fill: none; stroke: #fff; stroke-width: 1; opacity: 0.6; }
+      </style>
+    </defs>
+    <!-- Vertical line -->
+    <line x1="${size/2}" y1="2" x2="${size/2}" y2="${size-2}" />
+    <!-- Horizontal line -->
+    <line x1="2" y1="${size/2}" x2="${size-2}" y2="${size/2}" />
+    <!-- Center dot -->
+    <circle cx="${size/2}" cy="${size/2}" r="1.5" />
+  </svg>`;
+
+  const encoded = btoa(svg).replace(/\+/g, '-').replace(/\//g, '_');
+  return `url('data:image/svg+xml;base64,${encoded}') ${size/2} ${size/2}, auto`;
+};
+
+const cursorNormal = createCursor(24);
+const cursorExpanded = createCursor(32); // larger for click feedback
+
 // Walk-cycle phase (advanced in sim while moving) for gentle arm/foot bob.
 let walkPhase = 0;
 
@@ -252,13 +281,18 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui }) {
+function boot({ Form, penLock, system, screen, ui, canvas }) {
   penLock();
   FormRef = Form;
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
+
+  // 🎯 Set up custom cursor on canvas
+  if (canvas) {
+    canvas.style.cursor = 'auto';
+  }
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
@@ -841,9 +875,8 @@ function sim({ system, pen, screen }) {
   }
 }
 
-function paint({ wipe, ink, screen, write, box, system, pen }) {
-  // FPS calc
-  const now = performance.now();
+function paint({ wipe, ink, screen, write, box, system, pen, canvas, now }) {
+  // FPS calc (now is passed as parameter from bios)
   const dt = now - lastFrameTime;
   lastFrameTime = now;
   frameTimes.push(dt);
@@ -917,6 +950,18 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
   // Render scene — lava donut first (never under the main ground), then the
   // dark skirt that seals any tile-seam gaps, then the ground, its glowing
   // edge, tile highlights, feet shadow + body.
+  // 🎯 Apply custom cursor based on pen lock state
+  if (canvas) {
+    if (penLocked) {
+      // Determine if we're in click expansion window
+      const timeSinceClick = now - cursorClickTime;
+      const isExpanded = timeSinceClick < CURSOR_CLICK_DURATION && timeSinceClick >= 0;
+      canvas.style.cursor = isExpanded ? cursorExpanded : cursorNormal;
+    } else {
+      canvas.style.cursor = 'auto';
+    }
+  }
+
   wipe(45, 48, 55);
   const lava = buildLavaFloor(now / 1000);
   if (lava) ink(255).form(lava);
@@ -1185,6 +1230,10 @@ function act({ event: e, penLock, system }) {
     if (orbitSnapped) {
       orbitAngle = 0;
       orbitSnapped = false;
+    }
+    // 🎯 Trigger cursor expansion animation on click (when in FPS mode)
+    if (penLocked) {
+      cursorClickTime = performance.now();
     }
   }
 
