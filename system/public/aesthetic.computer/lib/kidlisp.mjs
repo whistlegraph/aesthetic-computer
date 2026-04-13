@@ -3877,6 +3877,11 @@ class KidLisp {
                 }
                 // console.log(`🎨 Initialized new layer0 with first-line color:`, this.firstLineColor);
               }
+              // Flag: run a proper $.wipe on layer0 after $.page switch below.
+              // resolveColorToRGBA doesn't handle fade:/p0/p1/rainbow/zebra — the real
+              // kidlisp wipe does, and it bakes the first-word color into layer0 so
+              // it's not stranded on the screen/back buffer during compositing.
+              this.layer0NeedsFirstLineWipe = true;
             }
           } else if (this.layer0.width !== screen.width || this.layer0.height !== screen.height) {
             // Resize layer 0 if screen dimensions changed
@@ -3901,8 +3906,12 @@ class KidLisp {
                 }
                 // console.log(`🎨 Resized layer0, filled with first-line color:`, this.firstLineColor);
               }
+              // NOTE: deliberately NOT setting layer0NeedsFirstLineWipe here —
+              // the resize path copies old pixels on top of the fill below, and a
+              // full $.wipe after $.page would destroy that accumulated content.
+              // The manual RGBA fill above is sufficient for the newly-exposed area.
             }
-            
+
             // Copy old content on top of the background color
             if (oldPixels && oldPixels.length > 0 && !(oldPixels.buffer && oldPixels.buffer.detached)) {
               const copyWidth = Math.min(oldWidth, screen.width);
@@ -4012,7 +4021,7 @@ class KidLisp {
           
           // Switch to layer 0 as initial drawing target
           $.page(this.layer0);
-          
+
           // 🚨 CRITICAL FIX: Manually update $.screen to point to layer0
           if (!$.screen) {
             $.screen = { width: this.layer0.width, height: this.layer0.height, pixels: this.layer0.pixels };
@@ -4021,7 +4030,27 @@ class KidLisp {
             $.screen.height = this.layer0.height;
             $.screen.pixels = this.layer0.pixels;
           }
-          
+
+          // 🎨 First-word color: bake into layer0 once per creation/resize, using the
+          // real kidlisp wipe (handles fade:/p0/p1/rainbow/zebra — resolveColorToRGBA
+          // above only covers plain color names/RGB). Without this, the first-word
+          // color sits on the screen buffer and layer0 stays transparent, causing the
+          // color to live on the back/display buffer instead of being baked in.
+          if (this.layer0NeedsFirstLineWipe && this.firstLineColor) {
+            try {
+              $.wipe(this.firstLineColor);
+            } catch (err) {
+              // If wipe somehow fails (early boot edge cases), the manual RGBA fill
+              // above is a best-effort fallback for simple colors.
+              console.warn("⚠️ layer0 first-line wipe failed:", err?.message);
+            }
+            // Set reframe background to the first-word color so resize fills correctly.
+            if ($.backgroundFill) {
+              try { $.backgroundFill(this.firstLineColor); } catch (_) {}
+            }
+            this.layer0NeedsFirstLineWipe = false;
+          }
+
           // Evaluate the entire AST - bake() calls will switch to bake buffers
           /*const evaluated = */ withKidlispConsoleCapture(() => this.evaluate(this.ast, $, undefined, undefined, true));
           
