@@ -291,6 +291,10 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 // etc. Rolls overlap because we keep up to 8 concurrent fading entries.
 const DRUM_FLASH_LIFE = 14;  // ~230 ms at 60 fps
 let drumFlashes = [];        // [{ color: [r,g,b], frame, life }]
+// Per-pad highlight: bumps to `frame + N` on hit so the pad outlines
+// itself bright for a few frames. Indexed by side+letter (e.g. "L_c",
+// "R_c#") so left/right pads of the same key flash independently.
+let padHitUntil = {};
 
 // Cached sound API ref (for leave)
 let soundAPI = null;
@@ -749,60 +753,254 @@ const WAR_NAMES = {
   "f#": "reload", "g#": "cock", "a#": "ricochet",
 };
 
-// Display-only param summaries per weapon × model. Mirrors the static
-// values in audio.c gun_presets[]. Kept here so the on-screen inspector
-// can show what's driving each sound without an extra C↔JS bridge —
-// update both sides when retuning a preset.
+// Numeric params per weapon × model. Mirrors gun_presets[] in audio.c.
+// Each entry is { paramKey: defaultValue }. The inspector renders one
+// card per key and tap+drag on a card edits the value. Edits live in
+// WAR_PARAM_OVERRIDES (per-session) and get merged into the synth call
+// via paramOverridesFor(); the original WAR_PARAMS values stay frozen
+// as the "default" the user is edited away from.
+//
+// Kept in sync with audio.c gun_presets[] manually — when retuning a
+// preset there, mirror it here so the inspector shows the right baseline.
 const WAR_PARAMS = {
   pistol: {
-    classic:  { click: 0.65, crack: "3.8k Q2.6", boom: "220→55Hz", tail: "110ms LP900" },
-    physical: { bore: "0.59ms",  body: "1.5/4.0/8.5kHz Q12/10/8" },
+    classic: { click_amp: 0.65, click_decay_ms: 0.5,
+               crack_amp: 0.95, crack_decay_ms: 7.0, crack_fc: 3800, crack_q: 2.6,
+               boom_amp: 0.55, boom_freq_start: 220, boom_freq_end: 55,
+               boom_pitch_decay_ms: 14, boom_amp_decay_ms: 55,
+               tail_amp: 0.35, tail_attack_ms: 0, tail_decay_ms: 110,
+               tail_fc: 900, tail_q: 0.8 },
+    physical: { bore_length_s: 0.000588, bore_loss: 0.55, breech_reflect: 0.92,
+                pressure: 1.2, env_rate: 3000, noise_gain: 0.6,
+                body_freq0: 1500, body_freq1: 4000, body_freq2: 8500,
+                body_q0: 12, body_q1: 10, body_q2: 8,
+                body_amp0: 0.30, body_amp1: 0.20, body_amp2: 0.15,
+                radiation: 0.985 },
   },
   rifle: {
-    classic:  { click: 0.75, crack: "4.5k Q3.0", boom: "280→50Hz", tail: "220ms LP1.1k", extra: "N-wave 0.9ms" },
-    physical: { bore: "2.35ms", body: "0.8/2.4/6.0kHz Q14/12/10", extra: "N-wave 0.8ms" },
+    classic: { click_amp: 0.75, click_decay_ms: 0.6,
+               crack_amp: 1.05, crack_decay_ms: 8.0, crack_fc: 4500, crack_q: 3.0,
+               boom_amp: 0.70, boom_freq_start: 280, boom_freq_end: 50,
+               boom_pitch_decay_ms: 18, boom_amp_decay_ms: 90,
+               tail_amp: 0.45, tail_attack_ms: 0, tail_decay_ms: 220,
+               tail_fc: 1100, tail_q: 0.7 },
+    physical: { bore_length_s: 0.00235, bore_loss: 0.50, breech_reflect: 0.95,
+                pressure: 1.5, env_rate: 2500, noise_gain: 0.5,
+                body_freq0: 800, body_freq1: 2400, body_freq2: 6000,
+                body_q0: 14, body_q1: 12, body_q2: 10,
+                body_amp0: 0.35, body_amp1: 0.25, body_amp2: 0.15,
+                radiation: 0.988 },
   },
   shotgun: {
-    classic:  { click: 0.55, crack: "2.2k Q1.8", boom: "260→38Hz", tail: "380ms LP700 atk4" },
-    physical: { bore: "3.88ms", body: "0.4/1.2/3.5kHz Q10/8/7" },
+    classic: { click_amp: 0.55, click_decay_ms: 0.8,
+               crack_amp: 0.65, crack_decay_ms: 12, crack_fc: 2200, crack_q: 1.8,
+               boom_amp: 1.10, boom_freq_start: 260, boom_freq_end: 38,
+               boom_pitch_decay_ms: 22, boom_amp_decay_ms: 130,
+               tail_amp: 0.85, tail_attack_ms: 4, tail_decay_ms: 380,
+               tail_fc: 700, tail_q: 0.6 },
+    physical: { bore_length_s: 0.00388, bore_loss: 0.40, breech_reflect: 0.88,
+                pressure: 1.8, env_rate: 1800, noise_gain: 0.9,
+                body_freq0: 400, body_freq1: 1200, body_freq2: 3500,
+                body_q0: 10, body_q1: 8, body_q2: 7,
+                body_amp0: 0.40, body_amp1: 0.25, body_amp2: 0.15,
+                radiation: 0.965 },
   },
   smg: {
-    classic:  { click: 0.65, crack: "4.2k Q2.5", boom: "200→60Hz", tail: "90ms LP1.2k" },
-    physical: { bore: "1.32ms", body: "1.2/3.5/7.5kHz Q12/10/8" },
+    classic: { click_amp: 0.55, click_decay_ms: 0.4,
+               crack_amp: 0.85, crack_decay_ms: 5.0, crack_fc: 4200, crack_q: 2.5,
+               boom_amp: 0.40, boom_freq_start: 200, boom_freq_end: 60,
+               boom_pitch_decay_ms: 10, boom_amp_decay_ms: 40,
+               tail_amp: 0.28, tail_attack_ms: 0, tail_decay_ms: 80,
+               tail_fc: 1200, tail_q: 0.7 },
+    physical: { bore_length_s: 0.00132, bore_loss: 0.58, breech_reflect: 0.92,
+                pressure: 1.0, env_rate: 3500, noise_gain: 0.5,
+                body_freq0: 1200, body_freq1: 3500, body_freq2: 7500,
+                body_q0: 12, body_q1: 10, body_q2: 8,
+                body_amp0: 0.30, body_amp1: 0.20, body_amp2: 0.13,
+                radiation: 0.978 },
   },
   suppressed: {
-    classic:  { click: 0.08, crack: "1.6k Q1.1", boom: "150→80Hz", tail: "140ms LP1.8k atk6" },
-    physical: { bore: "1.0ms loss0.85", body: "0.6/1.5/3.0kHz Q6/5/4" },
+    classic: { click_amp: 0.08, click_decay_ms: 0.4,
+               crack_amp: 0.30, crack_decay_ms: 6.0, crack_fc: 1600, crack_q: 1.1,
+               boom_amp: 0.10, boom_freq_start: 150, boom_freq_end: 80,
+               boom_pitch_decay_ms: 8, boom_amp_decay_ms: 30,
+               tail_amp: 0.85, tail_attack_ms: 6, tail_decay_ms: 140,
+               tail_fc: 1800, tail_q: 0.6 },
+    physical: { bore_length_s: 0.00100, bore_loss: 0.85, breech_reflect: 0.80,
+                pressure: 0.5, env_rate: 1500, noise_gain: 1.0,
+                body_freq0: 600, body_freq1: 1500, body_freq2: 3000,
+                body_q0: 6, body_q1: 5, body_q2: 4,
+                body_amp0: 0.15, body_amp1: 0.10, body_amp2: 0.05,
+                radiation: 0.85 },
   },
   lmg: {
-    classic:  { click: 0.65, crack: "3.5k Q2.6", boom: "250→48Hz", tail: "160ms LP950", extra: "600 RPM" },
-    physical: { bore: "3.29ms", body: "0.6/1.8/4.5kHz Q12/10/8", extra: "600 RPM" },
+    classic: { click_amp: 0.55, click_decay_ms: 0.5,
+               crack_amp: 0.85, crack_decay_ms: 7.0, crack_fc: 3500, crack_q: 2.6,
+               boom_amp: 0.65, boom_freq_start: 250, boom_freq_end: 48,
+               boom_pitch_decay_ms: 16, boom_amp_decay_ms: 75,
+               tail_amp: 0.40, tail_attack_ms: 0, tail_decay_ms: 160,
+               tail_fc: 950, tail_q: 0.7 },
+    physical: { bore_length_s: 0.00329, bore_loss: 0.48, breech_reflect: 0.94,
+                pressure: 1.4, env_rate: 2200, noise_gain: 0.55,
+                body_freq0: 600, body_freq1: 1800, body_freq2: 4500,
+                body_q0: 12, body_q1: 10, body_q2: 8,
+                body_amp0: 0.35, body_amp1: 0.25, body_amp2: 0.15,
+                radiation: 0.982 },
   },
   sniper: {
-    classic:  { click: 0.85, crack: "5.0k Q3.2", boom: "320→36Hz", tail: "500ms LP850 atk3", extra: "N-wave 1.4ms" },
-    physical: { bore: "4.35ms", body: "0.35/0.95/2.8kHz Q14/12/10", extra: "N-wave 1.2ms" },
+    classic: { click_amp: 0.85, click_decay_ms: 0.7,
+               crack_amp: 1.20, crack_decay_ms: 11, crack_fc: 5000, crack_q: 3.2,
+               boom_amp: 1.20, boom_freq_start: 320, boom_freq_end: 36,
+               boom_pitch_decay_ms: 28, boom_amp_decay_ms: 180,
+               tail_amp: 0.70, tail_attack_ms: 3, tail_decay_ms: 500,
+               tail_fc: 850, tail_q: 0.8 },
+    physical: { bore_length_s: 0.00435, bore_loss: 0.35, breech_reflect: 0.97,
+                pressure: 2.0, env_rate: 1500, noise_gain: 0.7,
+                body_freq0: 350, body_freq1: 950, body_freq2: 2800,
+                body_q0: 14, body_q1: 12, body_q2: 10,
+                body_amp0: 0.50, body_amp1: 0.30, body_amp2: 0.15,
+                radiation: 0.992 },
   },
   grenade: {
-    classic:  { click: 0.40, crack: "800 Q0.7", boom: "150→28Hz", tail: "800ms LP400 atk12" },
-    physical: { bore: "10ms cavity", body: "80/250/1200Hz Q6/5/4" },
+    classic: { click_amp: 0.40, click_decay_ms: 1.0,
+               crack_amp: 0.45, crack_decay_ms: 25, crack_fc: 800, crack_q: 0.7,
+               boom_amp: 1.50, boom_freq_start: 150, boom_freq_end: 28,
+               boom_pitch_decay_ms: 60, boom_amp_decay_ms: 350,
+               tail_amp: 1.50, tail_attack_ms: 12, tail_decay_ms: 800,
+               tail_fc: 400, tail_q: 0.4 },
+    physical: { bore_length_s: 0.01000, bore_loss: 0.25, breech_reflect: 0.60,
+                pressure: 1.6, env_rate: 400, noise_gain: 1.5,
+                body_freq0: 80, body_freq1: 250, body_freq2: 1200,
+                body_q0: 6, body_q1: 5, body_q2: 4,
+                body_amp0: 0.60, body_amp1: 0.35, body_amp2: 0.15,
+                radiation: 0.70 },
   },
   rpg: {
-    classic:  { click: 0.30, crack: "1.5k Q0.8", boom: "120→60Hz", tail: "600ms LP600 atk80", extra: "boom +250ms" },
-    physical: { bore: "3ms slow", body: "200/600/2000Hz Q4/3/3", extra: "boom +250ms" },
+    classic: { click_amp: 0.30, click_decay_ms: 0.8,
+               crack_amp: 0.40, crack_decay_ms: 20, crack_fc: 1500, crack_q: 0.8,
+               boom_amp: 0.30, boom_freq_start: 120, boom_freq_end: 60,
+               boom_pitch_decay_ms: 30, boom_amp_decay_ms: 100,
+               tail_amp: 2.00, tail_attack_ms: 80, tail_decay_ms: 600,
+               tail_fc: 600, tail_q: 0.5 },
+    physical: { bore_length_s: 0.00300, bore_loss: 0.30, breech_reflect: 0.50,
+                pressure: 1.2, env_rate: 150, noise_gain: 2.5,
+                body_freq0: 200, body_freq1: 600, body_freq2: 2000,
+                body_q0: 4, body_q1: 3, body_q2: 3,
+                body_amp0: 0.40, body_amp1: 0.30, body_amp2: 0.20,
+                radiation: 0.60 },
   },
   reload: {
-    classic:  { click: 0.85, crack: "4.5k Q3.0", tail: "30ms LP2.5k", extra: "click +80ms" },
-    physical: { bore: "0.1ms", body: "2.2/4.5/8.0kHz Q10/8/6", extra: "insert +80ms" },
+    classic: { click_amp: 0.85, click_decay_ms: 0.4,
+               crack_amp: 0.90, crack_decay_ms: 4.0, crack_fc: 4500, crack_q: 3.0,
+               boom_amp: 0.0, boom_freq_start: 0, boom_freq_end: 0,
+               boom_pitch_decay_ms: 1, boom_amp_decay_ms: 1,
+               tail_amp: 0.20, tail_attack_ms: 0, tail_decay_ms: 30,
+               tail_fc: 2500, tail_q: 0.6 },
+    physical: { bore_length_s: 0.00010, bore_loss: 0.70, breech_reflect: 0.90,
+                pressure: 0.6, env_rate: 4000, noise_gain: 0.3,
+                body_freq0: 2200, body_freq1: 4500, body_freq2: 8000,
+                body_q0: 10, body_q1: 8, body_q2: 6,
+                body_amp0: 0.40, body_amp1: 0.30, body_amp2: 0.15,
+                radiation: 0.92 },
   },
   cock: {
-    classic:  { click: 0.90, crack: "3.8k Q3.2", tail: "25ms LP2.0k", extra: "rack +55ms" },
-    physical: { bore: "0.15ms", body: "1.8/4.2/7.5kHz Q10/8/7", extra: "rack +55ms" },
+    classic: { click_amp: 0.90, click_decay_ms: 0.4,
+               crack_amp: 1.00, crack_decay_ms: 5.0, crack_fc: 3800, crack_q: 3.2,
+               boom_amp: 0.0, boom_freq_start: 0, boom_freq_end: 0,
+               boom_pitch_decay_ms: 1, boom_amp_decay_ms: 1,
+               tail_amp: 0.15, tail_attack_ms: 0, tail_decay_ms: 25,
+               tail_fc: 2000, tail_q: 0.6 },
+    physical: { bore_length_s: 0.00015, bore_loss: 0.65, breech_reflect: 0.88,
+                pressure: 0.7, env_rate: 3500, noise_gain: 0.35,
+                body_freq0: 1800, body_freq1: 4200, body_freq2: 7500,
+                body_q0: 10, body_q1: 8, body_q2: 7,
+                body_amp0: 0.45, body_amp1: 0.25, body_amp2: 0.15,
+                radiation: 0.92 },
   },
   ricochet: {
-    classic:  { click: 0.40, crack: "5.5k Q3.0", boom: "1800→1500Hz", tail: "200ms LP3.0k" },
-    physical: { bore: "0.4ms ring", body: "3.0/5.5/9.0kHz Q30/25/20" },
+    classic: { click_amp: 0.40, click_decay_ms: 0.5,
+               crack_amp: 0.35, crack_decay_ms: 7.0, crack_fc: 5500, crack_q: 3.0,
+               boom_amp: 0.95, boom_freq_start: 1800, boom_freq_end: 1500,
+               boom_pitch_decay_ms: 60, boom_amp_decay_ms: 350,
+               tail_amp: 0.20, tail_attack_ms: 0, tail_decay_ms: 200,
+               tail_fc: 3000, tail_q: 1.0 },
+    physical: { bore_length_s: 0.00040, bore_loss: 0.15, breech_reflect: 0.90,
+                pressure: 0.8, env_rate: 600, noise_gain: 0.3,
+                body_freq0: 3000, body_freq1: 5500, body_freq2: 9000,
+                body_q0: 30, body_q1: 25, body_q2: 20,
+                body_amp0: 0.40, body_amp1: 0.25, body_amp2: 0.15,
+                radiation: 0.975 },
   },
 };
+
+// Per-session edits — keyed `${weapon}/${model}/${paramKey}` → numeric value.
+// Edits override WAR_PARAMS at synth time. Reset on piece reload (no disk
+// persistence yet — add a system.writeFile() to ACBOOT/war-overrides.json
+// later if we want them sticky across reboots).
+const WAR_PARAM_OVERRIDES = {};
+
+// Param value range hints used by the drag editor. Drag dy maps onto
+// (max−min) so you traverse the useful range with ~1 grid-height of
+// movement. Logarithmic for frequency/duration, linear for amps/Qs.
+const WAR_PARAM_RANGES = {
+  click_amp: [0, 1.5, "lin"], click_decay_ms: [0.05, 5, "log"],
+  crack_amp: [0, 1.5, "lin"], crack_decay_ms: [1, 60, "log"],
+  crack_fc: [200, 12000, "log"], crack_q: [0.4, 5, "lin"],
+  boom_amp: [0, 2, "lin"], boom_freq_start: [20, 3000, "log"],
+  boom_freq_end: [10, 1000, "log"], boom_pitch_decay_ms: [1, 200, "log"],
+  boom_amp_decay_ms: [5, 800, "log"],
+  tail_amp: [0, 2.5, "lin"], tail_attack_ms: [0, 200, "log"],
+  tail_decay_ms: [10, 2000, "log"], tail_fc: [100, 6000, "log"],
+  tail_q: [0.3, 3, "lin"],
+  bore_length_s: [0.00005, 0.02, "log"], bore_loss: [0.1, 0.95, "lin"],
+  breech_reflect: [0.3, 1, "lin"], pressure: [0.2, 2.5, "lin"],
+  env_rate: [50, 5000, "log"], noise_gain: [0, 3, "lin"],
+  body_freq0: [40, 10000, "log"], body_freq1: [100, 10000, "log"],
+  body_freq2: [200, 12000, "log"],
+  body_q0: [2, 50, "log"], body_q1: [2, 40, "log"], body_q2: [2, 30, "log"],
+  body_amp0: [0, 1, "lin"], body_amp1: [0, 1, "lin"], body_amp2: [0, 1, "lin"],
+  radiation: [0.4, 1, "lin"],
+};
+
+// Resolve the active param value for (weapon, model, key) — applies any
+// in-session override, else returns the WAR_PARAMS default.
+function paramValue(weapon, model, key) {
+  const ovKey = `${weapon}/${model}/${key}`;
+  if (ovKey in WAR_PARAM_OVERRIDES) return WAR_PARAM_OVERRIDES[ovKey];
+  return WAR_PARAMS[weapon]?.[model]?.[key];
+}
+
+// Curated subset shown in the inspector — keeps the card row legible
+// (16 keys per preset would overflow the screen). Pick the params with
+// the biggest perceptual swing per layer.
+const INSPECTOR_KEYS = {
+  classic:  ["click_amp", "crack_fc", "crack_q", "boom_freq_start", "boom_amp_decay_ms", "tail_decay_ms"],
+  physical: ["pressure", "env_rate", "bore_length_s", "body_freq0", "body_q0", "radiation"],
+};
+
+// Compact value formatter — keeps inspector cells visually consistent.
+function formatParamValue(key, val) {
+  if (val == null) return "—";
+  if (key.endsWith("_ms")) return val < 1 ? val.toFixed(2) : Math.round(val) + "ms";
+  if (key.endsWith("_fc") || key.startsWith("body_freq") || key === "boom_freq_start" || key === "boom_freq_end") {
+    return val >= 1000 ? (val / 1000).toFixed(1) + "k" : Math.round(val);
+  }
+  if (key === "bore_length_s") return (val * 1000).toFixed(2) + "ms";
+  if (key === "env_rate") return Math.round(val);
+  if (Math.abs(val) < 10) return val.toFixed(2);
+  return Math.round(val);
+}
+
+// Build the override object for a (weapon, model) — only includes keys
+// the user has actually edited, so the C side only sees the deltas.
+function paramOverridesFor(weapon, model) {
+  const out = {};
+  const prefix = `${weapon}/${model}/`;
+  for (const k in WAR_PARAM_OVERRIDES) {
+    if (k.startsWith(prefix)) out[k.slice(prefix.length)] = WAR_PARAM_OVERRIDES[k];
+  }
+  return out;
+}
 
 // 3-char labels for tight pad rendering
 const WAR_LABELS = {
@@ -1082,6 +1280,9 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
     } else {
       playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
     }
+    // Per-pad hit feedback — bright outline for ~12 frames (~200ms @ 60fps).
+    const sideKey = (gridOffset === 0 ? "L_" : "R_") + letter;
+    padHitUntil[sideKey] = frame + 12;
     hold = makePercussionHold(letter, volume, pan, pitchFactor, voices, gridOffset, baseVolume);
     hold.kit = kit;
   }
@@ -3889,6 +4090,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
             ink(255, 255, 255, 30);
             box(x, y, btnW, btnH, true);
           }
+          // Per-pad hit flash — bright fill that fades over ~12 frames.
+          // Indexed by side+letter so left/right pads light up independently.
+          const sideKey = (octOffset === 0 ? "L_" : "R_") + letter;
+          const hitUntil = padHitUntil[sideKey] || 0;
+          if (hitUntil > frame) {
+            const hitAlpha = Math.floor(((hitUntil - frame) / 12) * 180);
+            ink(255, 255, 255, hitAlpha);
+            box(x, y, btnW, btnH, true);
+            ink(nc[0], nc[1], nc[2], hitAlpha);
+            box(x, y, btnW, btnH, "outline");
+          }
           const fg = dark ? (sharp ? 120 : 190) : (sharp ? 100 : 50);
           ink(fg, fg, fg);
         }
@@ -3915,18 +4127,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
               const plotH = pyMax - pyMin;
               const logLo = Math.log(30);
               const logHi = Math.log(10000);
-              // Per-pad PRNG — produces a visibly different scatter each
-              // frame. Previous impl used `seed + n * 1103515245`, but
-              // seed was only 0..233279 while the n term dominated by a
-              // factor of ~10k, so frame changes only moved the output
-              // by a few parts per million — looked static.
-              //
-              // New impl: xorshift32 with seed XORed into the state on
-              // every call. `seed` now uses the raw frame + key char so
-              // adjacent frames land in completely different LCG
-              // orbits. Pads offset by key char so they don't flicker
-              // in sync.
-              const seed = ((frame * 2654435769) ^ ((key ? key.charCodeAt(0) : 0) * 374761393)) >>> 0;
+              // Per-pad PRNG. Previously seeded with `frame` so the
+              // scatter shimmered every frame ("shake constantly")
+              // even when nothing was being played — visually noisy
+              // and confusing about what the pad represents. Now the
+              // seed is purely per-key, so each pad's scatter is a
+              // STATIC fingerprint of that drum's voice signature.
+              // Hit feedback comes from per-pad highlighting (see
+              // padHitUntil[letter]) and the screen-wide drumFlashes
+              // bg pulse, not from notation animation.
+              const seed = ((key ? key.charCodeAt(0) : 0) * 374761393) >>> 0;
               const prng = (n) => {
                 let s = (seed ^ (n * 2246822519)) >>> 0;
                 s ^= s << 13; s >>>= 0;
@@ -4078,20 +4288,28 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const tint = modelChar === "P" ? [120, 220, 240] : [255, 180, 90];
     ink(tint[0], tint[1], tint[2], alpha);
     write(header, { x: 3, y: insY + 1, size: 1, font: "font_1" });
-    const params = lastWarInspect.params;
-    if (params) {
-      const entries = Object.entries(params);
-      const cardY = insY + rowH + rowGap;
-      const cardW = Math.max(40, Math.floor((w - 6) / Math.max(1, entries.length)));
-      for (let i = 0; i < entries.length; i++) {
-        const [k, val] = entries[i];
-        const cx = 3 + i * cardW;
-        ink(tint[0], tint[1], tint[2], Math.floor(alpha * 0.3));
-        box(cx, cardY, cardW - 1, rowH, true);
-        ink(tint[0], tint[1], tint[2], alpha);
-        const label = `${k}: ${val}`;
-        write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
-      }
+    const weapon = lastWarInspect.name;
+    const modelKey = lastWarInspect.model;
+    const keys = INSPECTOR_KEYS[modelKey] || [];
+    const cardY = insY + rowH + rowGap;
+    const cardW = Math.max(36, Math.floor((w - 6) / Math.max(1, keys.length)));
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const val = paramValue(weapon, modelKey, k);
+      const ovKey = `${weapon}/${modelKey}/${k}`;
+      const isEdited = ovKey in WAR_PARAM_OVERRIDES;
+      const cx = 3 + i * cardW;
+      ink(tint[0], tint[1], tint[2], Math.floor(alpha * (isEdited ? 0.5 : 0.3)));
+      box(cx, cardY, cardW - 1, rowH, true);
+      ink(tint[0], tint[1], tint[2], alpha);
+      // Two-line label: short key on top, value below — fits more in.
+      const shortKey = k.replace(/_amp$/, "amp").replace(/_fc$/, "fc")
+                       .replace(/_ms$/, "ms").replace(/_q$/, "Q")
+                       .replace(/^body_/, "b").replace(/^boom_/, "bm")
+                       .replace(/^crack_/, "cr").replace(/^tail_/, "tl")
+                       .replace(/^click_/, "ck").replace(/freq_start/, "f0");
+      const label = `${shortKey} ${formatParamValue(k, val)}${isEdited ? "*" : ""}`;
+      write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
     }
 
     // 2.5D barrel viz — only for physical model.
