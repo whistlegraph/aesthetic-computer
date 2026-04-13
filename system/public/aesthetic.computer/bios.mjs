@@ -13300,7 +13300,19 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             "*",
           );
         } else {
-          window.open(content.url); // Open URL in a new tab
+          // Try to open in a new tab. The user gesture was lost crossing the
+          // worker postMessage boundary, so popup blockers may veto this.
+          // Fall back to same-tab navigation when blocked so the link always
+          // works. See disk.mjs jump() + net.web() for the out: flow.
+          let opened = null;
+          try {
+            opened = window.open(content.url, "_blank", "noopener");
+          } catch (err) {
+            opened = null;
+          }
+          if (!opened || opened.closed || typeof opened.closed === "undefined") {
+            window.location.href = content.url;
+          }
         }
       } else {
         window.location.href = content.url; // Redirect in the current tab
