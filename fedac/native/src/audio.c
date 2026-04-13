@@ -817,29 +817,33 @@ static inline double generate_gun_classic_sample(ACVoice *v, double sr) {
 // ~3-5 ms behind, attenuated) gives the spatial sense of an outdoor
 // shot — without it, the whole thing sounds anechoic and wrong.
 static inline double generate_gun_physical_sample(ACVoice *v, double sr) {
-    // === Excitation: Friedlander pulse + turbulent noise rider ===
+    // === Excitation: Friedlander envelope shaping a noise burst ===
+    // Pure Friedlander pulses are too smooth between samples — the muzzle
+    // radiation HPF (1-zero differentiator at α≈0.985) annihilates anything
+    // that doesn't change between adjacent samples, killing the radiated
+    // path entirely. So we use Friedlander as the AMPLITUDE ENVELOPE of a
+    // noise burst (rather than the signal itself). The smooth shape gives
+    // us the right onset/decay character; the noise content gives the HPF
+    // and bore loop high-frequency material to actually radiate and ring.
     double t = v->gun_phys_t;
     double t_plus = v->gun_phys_t_plus;
     double A = v->gun_phys_friedlander_a;
-    double excite = 0.0;
+    double pulse = 0.0;
     if (t < t_plus) {
         // Positive phase — sharp peak then exp decay.
         double f = t / t_plus;
-        excite = v->gun_pressure * (1.0 - f) * exp(-A * f);
+        pulse = (1.0 - f) * exp(-A * f);
     } else if (t < t_plus * 5.0) {
         // Negative phase — sub-atmospheric dip after the wave passes.
         double tn = (t - t_plus) / (t_plus * 4.0);
-        excite = -v->gun_pressure * v->gun_phys_neg_amp
-                 * (1.0 - tn) * exp(-2.0 * tn);
+        pulse = -v->gun_phys_neg_amp * (1.0 - tn) * exp(-2.0 * tn);
     }
-    // Turbulent gas noise rides on top during the early positive phase.
-    if (t < t_plus * 1.5) {
-        uint32_t n = xorshift32(&v->noise_seed);
-        double white = ((double)n / (double)UINT32_MAX) * 2.0 - 1.0;
-        double noise_env = (t < t_plus) ? (1.0 - t / t_plus) : 0.0;
-        excite += white * v->gun_noise_gain * noise_env
-                  * v->gun_pressure * 0.35;
-    }
+    uint32_t n = xorshift32(&v->noise_seed);
+    double white = ((double)n / (double)UINT32_MAX) * 2.0 - 1.0;
+    // Smooth deterministic component + noise rider. noise_gain mixes the
+    // turbulent content. The smooth term keeps low-freq energy for the
+    // bore loop; the noise term feeds the radiation HPF + body modes.
+    double excite = v->gun_pressure * pulse * (1.0 + v->gun_noise_gain * white);
     v->gun_phys_t += 1.0;
 
     // Secondary trigger — rifle N-wave or RPG delayed explosion. Restarts
