@@ -74,6 +74,11 @@ let perfSamplesSinceSwitch = 0;
 const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9];
 let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 
+// 🎥 Right-click camera orbit (3P mode only): rotate camera around player
+// without changing player body rotation. Orbits by modifying XZ offset.
+let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
+let orbiting = false; // currently dragging with right button
+
 function applyZoom(doll) {
   if (!doll) return;
   const d = ZOOM_DISTANCES[zoomLevel];
@@ -664,6 +669,30 @@ function sim({ system, pen, screen }) {
       }, null, 2),
     );
   }
+
+  // 🎥 Camera orbit effect (3P mode only): rotate camera around player by
+  // modifying the XZ offset without changing cam.rotY (so player body stays put).
+  if (!orbiting) {
+    orbitAngle *= 0.85; // decay back to 0 on release
+    if (Math.abs(orbitAngle) < 0.5) orbitAngle = 0;
+  }
+
+  if (zoomLevel > 0 && Math.abs(orbitAngle) > 0.01) {
+    const pCamX = phys?.playerCamX ?? cam.x;
+    const pCamZ = phys?.playerCamZ ?? cam.z;
+    // Current XZ offset from logical player pos to render camera pos
+    const dx = cam.x - pCamX;
+    const dz = cam.z - pCamZ;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist > 0) {
+      // Compute current angle in XZ plane, add orbit angle, recompute position
+      const baseAngle = Math.atan2(dx, dz);
+      const orbitRad = orbitAngle * Math.PI / 180;
+      const newAngle = baseAngle + orbitRad;
+      cam.x = pCamX + dist * Math.sin(newAngle);
+      cam.z = pCamZ + dist * Math.cos(newAngle);
+    }
+  }
 }
 
 function paint({ wipe, ink, screen, write, box, system, pen }) {
@@ -913,6 +942,16 @@ function act({ event: e, penLock, system }) {
     applyZoom(system?.fps?.doll);
   }
 
+  // 🎥 Right-click drag to orbit camera around player (3P mode only).
+  if (e.is("touch") && e.button === 2) {
+    orbiting = true;
+  } else if (e.is("lift") && e.button === 2) {
+    orbiting = false;
+  } else if (e.is("draw") && e.button === 2) {
+    // Drag: accumulate orbit angle (1px ≈ 0.4° per frame)
+    orbitAngle += e.delta.x * 0.4;
+  }
+
   // While dead, any touch respawns; otherwise the first touch re-locks the pen.
   if (e.is("touch")) {
     if (!playerAlive && deathTickAge > 30) {
@@ -923,8 +962,8 @@ function act({ event: e, penLock, system }) {
       system?.fps?.doll?.respawn?.(0, 0);
       return;
     }
-    // Don't re-lock on middle-click — user is using it for 3P toggle.
-    if (!penLocked && e.button !== 1) penLock();
+    // Don't re-lock on middle-click (1) or right-click (2) — reserved for camera control.
+    if (!penLocked && e.button !== 1 && e.button !== 2) penLock();
   }
 }
 
