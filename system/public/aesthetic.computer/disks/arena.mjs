@@ -1142,12 +1142,25 @@ function act({ event: e, penLock, system }) {
   }
 
   // 📱 Trigger button input handling
+  let mobileButtonHit = false;
   if (mobileButtons) {
     for (const btnData of Object.values(mobileButtons)) {
-      btnData.btn?.act?.(e);
+      btnData.btn?.act(e, {
+        down: () => { mobileButtonHit = true; },
+        push: () => {},
+        cancel: () => {},
+      });
+    }
+    // Also flag as hit if the touch/lift lands inside any button box.
+    if ((e.is("touch") || e.is("lift")) && !mobileButtonHit) {
+      for (const btnData of Object.values(mobileButtons)) {
+        if (btnData.btn?.box?.contains(e)) { mobileButtonHit = true; break; }
+      }
     }
   }
 
+  // If a mobile button was touched, don't let it fall through to camera/penLock.
+  if (mobileButtonHit) return;
 
   // F cycles the hover axis-flip experiment (0 = no flip, 1 = X, 2 = Z, 3 = both).
   if (e.is("keyboard:down:f")) {
