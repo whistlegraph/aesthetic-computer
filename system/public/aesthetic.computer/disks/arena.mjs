@@ -71,7 +71,7 @@ let perfSamplesSinceSwitch = 0;
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
 // further each click. More close-in steps for shoulder-camera views.
 // Middle-mouse still toggles between 1P and a default 3P.
-const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9];
+const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9, 12, 16];
 let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 
 // 🎥 Right-click camera orbit (3P mode only): rotate camera around player
