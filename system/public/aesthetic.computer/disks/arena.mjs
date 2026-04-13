@@ -79,6 +79,7 @@ let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
 let orbiting = false; // currently dragging with right button
 let appliedOrbitOffset = [0, 0]; // track X,Z offset we applied so we can undo it
+let baseRotY = 0;     // cam.rotY when orbit started, to prevent player spinning
 
 function applyZoom(doll) {
   if (!doll) return;
@@ -482,6 +483,11 @@ function sim({ system, pen, screen }) {
   const doll = system?.fps?.doll;
   const cam = doll?.cam;
   if (!cam) return;
+
+  // If orbiting, undo camdoll's rotY change to keep player facing fixed direction
+  if (orbiting) {
+    cam.rotY = baseRotY;
+  }
 
   // Undo any orbit offset we applied last frame so it doesn't affect physics
   cam.x -= appliedOrbitOffset[0];
@@ -956,8 +962,10 @@ function act({ event: e, penLock, system }) {
   }
 
   // 🎥 Right-click drag to orbit camera around player (3P mode only).
-  if (e.is("touch") && e.button === 2) {
+  const cam = system?.fps?.doll?.cam;
+  if (e.is("touch") && e.button === 2 && cam) {
     orbiting = true;
+    baseRotY = cam.rotY; // lock player rotation to current heading
   } else if (e.is("lift") && e.button === 2) {
     orbiting = false;
   } else if (e.is("draw") && e.button === 2) {
