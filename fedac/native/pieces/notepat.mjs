@@ -830,6 +830,7 @@ const WAR_COLORS = {
 
 // Which weapons sustain while the key is held (release kills the voice).
 const WAR_SUSTAIN = {
+  g: true,   // smg — full-auto, retriggers ~1000 RPM in audio.c
   a: true,   // lmg — retriggers internally via audio.c retrig_period
   b: true,   // sniper — long reverberant tail
   "c#": true,// grenade — slow rumbling release
@@ -851,8 +852,9 @@ const WAR_DURATION = {
 };
 
 // Release fade on sustained weapons (seconds). Sniper/grenade fade
-// slowly so the tail is audible; LMG snaps off faster.
+// slowly so the tail is audible; SMG/LMG snap off faster (muzzle cut).
 const WAR_RELEASE = {
+  g: 0.05,   // smg — snappy stop
   a: 0.08,   // lmg — abrupt stop (muzzle cut)
   b: 0.80,   // sniper — long reverberant fade
   "c#": 1.20,// grenade — slow rumble-out
