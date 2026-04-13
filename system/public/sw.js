@@ -1,7 +1,7 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v2'; // Bump version to force SW update
+const CACHE_NAME = 'ac-modules-v3'; // Bump version to force SW update
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install
