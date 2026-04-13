@@ -4058,13 +4058,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // Mirrors the drum inspector style. One row of small cards: header
   // (weapon · model) + a layer card per param entry. Helps A/B between
   // warA and warB by showing exactly which synth path you're hearing.
+  // For PHYSICAL voices we also draw a 2.5D side-view of the bore + a
+  // pressure wave bouncing between the breech and muzzle, so the
+  // physically-modeled cavity is also visually legible.
   if (lastWarInspect && frame < lastWarInspect.until) {
     const dark2 = isDark();
     const remaining = lastWarInspect.until - frame;
     const alpha = Math.min(255, Math.max(40, Math.round(remaining * 1.2)));
     const rowH = 10;
     const rowGap = 1;
-    const totalH = rowH * 2 + rowGap + 2;
+    const vizH = lastWarInspect.model === "physical" ? 24 : 0;
+    const totalH = rowH * 2 + rowGap + 2 + vizH;
     const insY = Math.max(0, gridTop - totalH - 2);
     ink(0, 0, 0, Math.floor(alpha * 0.6));
     box(0, insY, w, totalH, true);
@@ -4088,6 +4092,46 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         const label = `${k}: ${val}`;
         write(label, { x: cx + 1, y: cardY + 1, size: 1, font: "font_1" });
       }
+    }
+
+    // 2.5D barrel viz — only for physical model.
+    // Side-view cylinder (two parallel lines + breech end), pressure
+    // wave bounces left-to-right with decay. Speed/decay are visualized
+    // (not literal — the actual round-trip would be sub-millisecond) so
+    // the user can see a wave traveling instead of an unreadable blur.
+    if (lastWarInspect.model === "physical") {
+      const vizY = insY + rowH + rowGap + rowH + 1;
+      const cylX = 6;
+      const cylW = w - 12;
+      const cylTop = vizY + 2;
+      const cylBot = vizY + vizH - 4;
+      const cylH = cylBot - cylTop;
+      // Cylinder body
+      ink(tint[0], tint[1], tint[2], Math.floor(alpha * 0.4));
+      line(cylX, cylTop, cylX + cylW, cylTop);
+      line(cylX, cylBot, cylX + cylW, cylBot);
+      // Breech end (closed)
+      line(cylX, cylTop, cylX, cylBot);
+      // Muzzle end notation
+      ink(tint[0], tint[1], tint[2], Math.floor(alpha * 0.6));
+      line(cylX + cylW, cylTop - 1, cylX + cylW, cylTop + 1);
+      line(cylX + cylW, cylBot - 1, cylX + cylW, cylBot + 1);
+      // Pressure wave — bounces breech↔muzzle, decays over inspector lifetime.
+      const elapsed = (300 - remaining) / 60; // seconds since trigger
+      const roundTripS = 0.18; // illustrative round-trip period
+      const tInLoop = (elapsed % roundTripS) / roundTripS; // 0..1
+      const pos = tInLoop < 0.5 ? tInLoop * 2 : 2 - tInLoop * 2; // 0→1→0
+      const waveX = cylX + Math.round(pos * cylW);
+      // Decay envelope (synced to inspector alpha, slightly faster fall-off).
+      const waveAlpha = Math.min(255, Math.max(0, alpha - Math.round(elapsed * 90)));
+      ink(255, 220, 130, waveAlpha);
+      box(waveX - 1, cylTop + 1, 3, cylH - 2, true);
+      // Body-mode flashes at breech + muzzle on each bounce.
+      const bouncePulse = 1 - Math.abs(0.5 - tInLoop) * 2; // 1 at endpoints
+      const pulseAlpha = Math.floor(waveAlpha * bouncePulse * 0.6);
+      ink(255, 180, 80, pulseAlpha);
+      box(cylX - 2, cylTop - 1, 4, cylH + 2, true);   // breech glow
+      box(cylX + cylW - 2, cylTop - 1, 4, cylH + 2, true); // muzzle glow
     }
   } else if (lastWarInspect) {
     lastWarInspect = null;
