@@ -54,7 +54,7 @@ let lastPenScreen = null;  // [x, y] or null
 // what each bit flips.
 //   0 = baseline          1 = flipX
 //   2 = flipZ             3 = flip both
-let hoverFlipMode = 2; // current best guess: Z flipped per experiments
+let hoverFlipMode = 3; // flip both X and Z per recent experiments
 
 // ⚡ Adaptive-quality flags driven by measured render FPS. Auto-toggle in
 // paint() based on the rolling frame-time average. Pieces can override via the
