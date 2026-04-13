@@ -509,7 +509,12 @@ function sim({ system, pen, screen }) {
   if (!playerAlive) deathTickAge += 1;
 
   // --- Walked-tile trail: when the player's current tile changes, stamp it. ---
-  const curTile = tileAt(pWorldX, pWorldZ);
+  // Apply the same hoverFlipMode flip to player position so walked tiles match raycast.
+  const flipX = (hoverFlipMode & 1) !== 0;
+  const flipZ = (hoverFlipMode & 2) !== 0;
+  const playerX = flipX ? -pWorldX : pWorldX;
+  const playerZ = flipZ ? -pWorldZ : pWorldZ;
+  const curTile = tileAt(playerX, playerZ);
   if (curTile) {
     const key = tileKey(curTile.row, curTile.col);
     if (!prevPlayerTile || prevPlayerTile !== key) {
