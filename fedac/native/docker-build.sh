@@ -234,6 +234,21 @@ if [ -d /lib64/dri ]; then
         [ -f "$drv" ] && cp -L "$drv" "$IROOT/lib64/dri/"
     done
 fi
+
+# GBM backend loader plugin. libgbm.so.1 has a hardcoded
+# /usr/lib64/gbm/dri_gbm.so path baked in at build time — without this
+# file, SDL3's KMSDRM probe segfaults during Mesa init and ac-native
+# falls back to DRM-only every boot. Ship it at both /lib64/gbm AND
+# /usr/lib64/gbm so the loader resolves regardless of root.
+for src in /usr/lib64/gbm/dri_gbm.so /lib64/gbm/dri_gbm.so; do
+    if [ -f "$src" ]; then
+        mkdir -p "$IROOT/lib64/gbm" "$IROOT/usr/lib64/gbm"
+        cp -L "$src" "$IROOT/lib64/gbm/dri_gbm.so"
+        cp -L "$src" "$IROOT/usr/lib64/gbm/dri_gbm.so"
+        break
+    fi
+done
+
 # Gallium megadriver
 GALLIUM=$(readlink -f /lib64/libgallium-*.so 2>/dev/null || true)
 [ -f "$GALLIUM" ] && cp -L "$GALLIUM" "$IROOT/lib64/"
