@@ -364,14 +364,15 @@ static const GunPresetParams gun_presets[GUN_PRESET_COUNT] = {
       .pressure = 1.8, .env_rate = 1800.0, .noise_gain = 0.9,
       .body_freq = {400, 1200, 3500}, .body_q = {10, 8, 7},
       .body_amp = {0.40, 0.25, 0.15}, .radiation = 0.965 },
-    // --- GUN_SMG (MP5, L≈225mm) — bright fast crack, mild boom
-    { .model = GUN_MODEL_CLASSIC, .master_amp = 1.0,
-      .click_amp = 0.65, .click_decay_ms = 0.4,
-      .crack_amp = 0.95, .crack_decay_ms = 5.0,  .crack_fc = 4200, .crack_q = 2.5,
-      .boom_amp  = 0.45, .boom_freq_start = 200, .boom_freq_end = 60,
+    // --- GUN_SMG (MP5, L≈225mm) — bright fast crack, full-auto ~1000 RPM
+    { .model = GUN_MODEL_CLASSIC, .master_amp = 0.95,
+      .click_amp = 0.55, .click_decay_ms = 0.4,
+      .crack_amp = 0.85, .crack_decay_ms = 5.0,  .crack_fc = 4200, .crack_q = 2.5,
+      .boom_amp  = 0.40, .boom_freq_start = 200, .boom_freq_end = 60,
       .boom_pitch_decay_ms = 10, .boom_amp_decay_ms = 40,
-      .tail_amp  = 0.30, .tail_attack_ms = 0,    .tail_decay_ms = 90,
+      .tail_amp  = 0.28, .tail_attack_ms = 0,    .tail_decay_ms = 80,
       .tail_fc   = 1200, .tail_q = 0.7,
+      .sustain_fire = 1, .retrig_period_ms = 60,  // 1000 RPM
       // Physical alt
       .bore_length_s = 0.00132, .bore_loss = 0.58, .breech_reflect = 0.92,
       .pressure = 1.0, .env_rate = 3500.0, .noise_gain = 0.5,
@@ -391,12 +392,15 @@ static const GunPresetParams gun_presets[GUN_PRESET_COUNT] = {
       .body_freq = {600, 1500, 3000}, .body_q = {6, 5, 4},
       .body_amp = {0.15, 0.10, 0.05}, .radiation = 0.85 },
     // --- GUN_LMG (M60, L≈560mm) — rifle-class retriggered ~600 RPM
-    { .model = GUN_MODEL_CLASSIC, .master_amp = 1.15,
-      .click_amp = 0.65, .click_decay_ms = 0.5,
-      .crack_amp = 0.95, .crack_decay_ms = 7.0,  .crack_fc = 3500, .crack_q = 2.6,
-      .boom_amp  = 0.75, .boom_freq_start = 250, .boom_freq_end = 48,
+    // Master amp tamed so the first shot doesn't stand out from the
+    // sustained burst (sustain-fire weapons also start their envelopes
+    // at the average jitter level — see gun_init_voice).
+    { .model = GUN_MODEL_CLASSIC, .master_amp = 0.9,
+      .click_amp = 0.55, .click_decay_ms = 0.5,
+      .crack_amp = 0.85, .crack_decay_ms = 7.0,  .crack_fc = 3500, .crack_q = 2.6,
+      .boom_amp  = 0.65, .boom_freq_start = 250, .boom_freq_end = 48,
       .boom_pitch_decay_ms = 16, .boom_amp_decay_ms = 75,
-      .tail_amp  = 0.45, .tail_attack_ms = 0,    .tail_decay_ms = 160,
+      .tail_amp  = 0.40, .tail_attack_ms = 0,    .tail_decay_ms = 160,
       .tail_fc   = 950,  .tail_q = 0.7,
       .sustain_fire = 1, .retrig_period_ms = 100,  // 600 RPM
       // Physical alt
@@ -526,7 +530,10 @@ static void gun_init_voice(ACVoice *v, GunPreset preset, double sr,
     v->gun_model = (force_model == 0 || force_model == 1)
                    ? force_model : (int)p->model;
     v->gun_pressure = p->master_amp > 0.0 ? p->master_amp : 1.0;
-    v->gun_pressure_env = 1.0;  // crack envelope (or physical excitation)
+    // Sustain-fire weapons (SMG/LMG) start at the same gentler level
+    // their internal retrigger uses (avg jitter ≈ 0.95) so the first
+    // shot blends with the rapid-fire stream instead of standing out.
+    v->gun_pressure_env = p->sustain_fire ? 0.92 : 1.0;
     v->gun_secondary_trig = p->secondary_delay_ms > 0
                             ? p->secondary_delay_ms * 0.001 * sr : 0.0;
     v->gun_secondary_amp = p->secondary_amp;
@@ -555,7 +562,7 @@ static void gun_init_voice(ACVoice *v, GunPreset preset, double sr,
         v->gun_boom_pitch_mult = exp(-1.0 / (tau_pitch * sr));
         double tau_boom = (p->boom_amp_decay_ms > 0.1 ? p->boom_amp_decay_ms : 0.1) * 0.001;
         v->gun_boom_decay_mult = exp(-1.0 / (tau_boom * sr));
-        v->gun_boom_env = (p->boom_amp > 0.0) ? 1.0 : 0.0;
+        v->gun_boom_env = (p->boom_amp > 0.0) ? (p->sustain_fire ? 0.92 : 1.0) : 0.0;
 
         // Tail: linear attack ramp + exp decay.
         v->gun_tail_env = (p->tail_attack_ms > 0.0) ? 0.0 : 1.0;
@@ -583,7 +590,7 @@ static void gun_init_voice(ACVoice *v, GunPreset preset, double sr,
         v->gun_body_amp[2] = p->tail_amp;
         // Click layer (sub-ms HF transient — adds the "tk" snap).
         v->gun_click_amp = p->click_amp;
-        v->gun_click_env = (p->click_amp > 0.0) ? 1.0 : 0.0;
+        v->gun_click_env = (p->click_amp > 0.0) ? (p->sustain_fire ? 0.92 : 1.0) : 0.0;
         v->gun_click_prev = 0.0;
         double tau_click = (p->click_decay_ms > 0.05 ? p->click_decay_ms : 0.05) * 0.001;
         v->gun_click_decay_mult = exp(-1.0 / (tau_click * sr));
@@ -621,6 +628,23 @@ static void gun_init_voice(ACVoice *v, GunPreset preset, double sr,
         }
         memset(v->whistle_bore_buf, 0, sizeof(v->whistle_bore_buf));
         v->whistle_bore_w = 0;
+        // Friedlander pulse params. t+ derived from env_rate so existing
+        // preset tunings still feel right: shorter env_rate → wider pulse
+        // (grenade ~7ms, pistol ~1ms). Friedlander A = 1.5 is a good
+        // default for the positive-phase decay shape.
+        v->gun_phys_t = 0.0;
+        v->gun_phys_t_plus = (3.0 / (p->env_rate > 100 ? p->env_rate : 100.0)) * sr;
+        if (v->gun_phys_t_plus < 32.0) v->gun_phys_t_plus = 32.0;     // ≥ ~0.17ms
+        if (v->gun_phys_t_plus > 4096.0) v->gun_phys_t_plus = 4096.0; // ≤ ~21ms
+        v->gun_phys_friedlander_a = 1.5;
+        v->gun_phys_neg_amp = 0.18;
+        // Ground reflection — fixed ~3.5ms tap with 18% gain. Caps at
+        // 1023 samples = ~5.3ms at 192kHz. Tunable per-preset later.
+        v->gun_phys_echo_delay = 0.0035 * sr;
+        if (v->gun_phys_echo_delay > 1023.0) v->gun_phys_echo_delay = 1023.0;
+        v->gun_phys_echo_amp = 0.22;
+        memset(v->gun_phys_echo_buf, 0, sizeof(v->gun_phys_echo_buf));
+        v->gun_phys_echo_w = 0;
         // Classic-only fields zeroed.
         v->gun_boom_phase = 0.0;
         v->gun_boom_freq = 0.0;
@@ -638,6 +662,13 @@ static void gun_init_voice(ACVoice *v, GunPreset preset, double sr,
         v->gun_click_env = 0.0;
         v->gun_click_decay_mult = 1.0;
         v->gun_click_prev = 0.0;
+        v->gun_phys_t = 0.0;
+        v->gun_phys_t_plus = 0.0;
+        v->gun_phys_friedlander_a = 0.0;
+        v->gun_phys_neg_amp = 0.0;
+        v->gun_phys_echo_delay = 0.0;
+        v->gun_phys_echo_amp = 0.0;
+        v->gun_phys_echo_w = 0;
     }
 }
 
@@ -769,38 +800,69 @@ static inline double generate_gun_classic_sample(ACVoice *v, double sr) {
     return out * compute_envelope(v);
 }
 
-// Physical-model gunshot — DWG bore + parallel body-mode resonators +
-// muzzle radiation HPF. Better for cavity-dominated weapons (grenade,
-// RPG launch tube) where the bore length is meaningful.
+// Physical-model gunshot — Friedlander blast wave excitation feeding a
+// DWG bore + parallel body modes + muzzle radiation HPF + ground-echo
+// tap. Better for cavity-dominated weapons (grenade, RPG launch tube)
+// where the bore length is meaningful.
+//
+// The Friedlander waveform models the actual pressure-vs-time curve of
+// a free-air blast wave:
+//   P(t) = P_peak · (1 − t/t+) · exp(−A·t/t+)        for 0 ≤ t ≤ t+
+//   P(t) ≈ −P_peak · neg_amp · (1−tn) · exp(−2·tn)   for t > t+
+//             (where tn = (t−t+) / (4·t+))
+// (Friedlander 1946; widely used in blast-wave acoustics — see Mengual
+//  et al. 2017 "Procedural Synthesis of Gunshot Sounds…")
+//
+// The ground-echo tap (a single delayed copy of the radiated signal,
+// ~3-5 ms behind, attenuated) gives the spatial sense of an outdoor
+// shot — without it, the whole thing sounds anechoic and wrong.
 static inline double generate_gun_physical_sample(ACVoice *v, double sr) {
-    // Excitation: short-lived pressure pulse modulated by turbulent noise.
+    // === Excitation: Friedlander pulse + turbulent noise rider ===
+    double t = v->gun_phys_t;
+    double t_plus = v->gun_phys_t_plus;
+    double A = v->gun_phys_friedlander_a;
     double excite = 0.0;
-    if (v->gun_pressure_env > 0.00002) {
+    if (t < t_plus) {
+        // Positive phase — sharp peak then exp decay.
+        double f = t / t_plus;
+        excite = v->gun_pressure * (1.0 - f) * exp(-A * f);
+    } else if (t < t_plus * 5.0) {
+        // Negative phase — sub-atmospheric dip after the wave passes.
+        double tn = (t - t_plus) / (t_plus * 4.0);
+        excite = -v->gun_pressure * v->gun_phys_neg_amp
+                 * (1.0 - tn) * exp(-2.0 * tn);
+    }
+    // Turbulent gas noise rides on top during the early positive phase.
+    if (t < t_plus * 1.5) {
         uint32_t n = xorshift32(&v->noise_seed);
         double white = ((double)n / (double)UINT32_MAX) * 2.0 - 1.0;
-        excite = v->gun_pressure_env * v->gun_pressure
-                 * (1.0 + v->gun_noise_gain * white);
-        v->gun_pressure_env *= v->gun_env_decay_mult;
+        double noise_env = (t < t_plus) ? (1.0 - t / t_plus) : 0.0;
+        excite += white * v->gun_noise_gain * noise_env
+                  * v->gun_pressure * 0.35;
     }
+    v->gun_phys_t += 1.0;
 
-    // Secondary trigger (RPG delayed explosion).
+    // Secondary trigger — rifle N-wave or RPG delayed explosion. Restarts
+    // the Friedlander pulse from t=0 with a scaled peak.
     if (v->gun_secondary_trig > 0.0) {
         v->gun_secondary_trig -= 1.0;
         if (v->gun_secondary_trig <= 0.0) {
-            v->gun_pressure_env = v->gun_secondary_amp;
+            v->gun_phys_t = 0.0;
+            v->gun_pressure *= v->gun_secondary_amp;
             v->gun_secondary_trig = 0.0;
         }
     }
 
-    // Sustain fire (not used by current physical presets but supported).
+    // Sustain fire — restart pulse at jitter scale.
     if (v->gun_sustain_fire && v->state == VOICE_ACTIVE
         && isinf(v->duration) && v->gun_retrig_period > 0.0) {
         v->gun_retrig_timer += 1.0 / sr;
         if (v->gun_retrig_timer >= v->gun_retrig_period) {
             v->gun_retrig_timer -= v->gun_retrig_period;
-            v->gun_pressure_env = 1.0;
+            v->gun_phys_t = 0.0;
             double j = (double)xorshift32(&v->noise_seed) / (double)UINT32_MAX;
-            v->gun_pressure_env *= 0.82 + j * 0.32;
+            // Tiny per-shot pressure variance around 1.0 (no permanent drift).
+            v->gun_pressure *= 0.92 + j * 0.16;
         }
     }
 
@@ -812,7 +874,7 @@ static inline double generate_gun_physical_sample(ACVoice *v, double sr) {
     if (bore_delay < 4.0) bore_delay = 4.0;
     if (bore_delay > 2040.0) bore_delay = 2040.0;
 
-    // Bore delay loop: closed breech (+refl) / open muzzle (−refl + LPF damping).
+    // === Bore: closed breech (+refl) / open muzzle (−refl + LPF damping) ===
     const int BORE_N = 2048;
     double bore_out = whistle_frac_read(v->whistle_bore_buf, BORE_N,
                                         v->whistle_bore_w, bore_delay);
@@ -823,12 +885,11 @@ static inline double generate_gun_physical_sample(ACVoice *v, double sr) {
     v->whistle_bore_buf[v->whistle_bore_w] = (float)into_bore;
     v->whistle_bore_w = (v->whistle_bore_w + 1) % BORE_N;
 
-    // Muzzle radiation: 1-zero HPF (open end radiates highs preferentially).
+    // === Muzzle radiation: 1-zero HPF (open end emphasizes highs) ===
     double radiated = into_bore - v->gun_radiation_a * v->gun_rad_prev;
     v->gun_rad_prev = into_bore;
 
-    // Body modes — parallel pole-pair resonators driven by excitation.
-    // Lowered Q values in presets keep these from ringing metallically.
+    // === Body modes: parallel pole-pair resonators on the excitation ===
     double body = 0.0;
     for (int i = 0; i < 3; i++) {
         double y = excite
@@ -839,8 +900,22 @@ static inline double generate_gun_physical_sample(ACVoice *v, double sr) {
         body += y * v->gun_body_amp[i];
     }
 
-    double out = radiated * 0.55 + body * 0.45;
-    return out * compute_envelope(v);
+    double dry = radiated * 0.55 + body * 0.45;
+
+    // === Ground reflection echo — short delayed copy. Even at low
+    // amplitude this turns the dry shot into a "fired outdoors" shot.
+    double echo_out = 0.0;
+    if (v->gun_phys_echo_amp > 0.0 && v->gun_phys_echo_delay > 1.0) {
+        const int ECHO_N = 1024;
+        int read_pos = v->gun_phys_echo_w - (int)v->gun_phys_echo_delay;
+        while (read_pos < 0) read_pos += ECHO_N;
+        echo_out = (double)v->gun_phys_echo_buf[read_pos % ECHO_N]
+                   * v->gun_phys_echo_amp;
+        v->gun_phys_echo_buf[v->gun_phys_echo_w] = (float)dry;
+        v->gun_phys_echo_w = (v->gun_phys_echo_w + 1) % ECHO_N;
+    }
+
+    return (dry + echo_out) * compute_envelope(v);
 }
 
 static inline double generate_gun_sample(ACVoice *v, double sr) {
