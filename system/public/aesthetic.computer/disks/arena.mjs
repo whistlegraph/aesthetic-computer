@@ -913,16 +913,22 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
       [x0, y, z0, 1], [x0, y, z1, 1], [x1, y, z1, 1],
       [x0, y, z0, 1], [x1, y, z1, 1], [x1, y, z0, 1],
     );
-    // Add dithering: per-vertex noise to break up solid color fields.
-    for (let i = 0; i < 6; i++) {
-      const noise = (Math.random() - 0.5) * 0.08; // ±4% noise on each channel
-      hiCol.push([
-        Math.max(0, Math.min(1, color[0] + noise)),
-        Math.max(0, Math.min(1, color[1] + noise)),
-        Math.max(0, Math.min(1, color[2] + noise)),
-        color[3],
-      ]);
-    }
+    // Per-tile dithering: a single deterministic noise value based on
+    // (row,col) applied uniformly to all 6 vertices. Per-vertex random
+    // noise caused shared-edge flickering between the two triangles (each
+    // vertex got a fresh random value every frame, so the diagonal seam
+    // shimmered). Hashing on tile coords means the noise is stable across
+    // frames and consistent within a tile — breaks up solid fields without
+    // introducing motion.
+    const h = Math.sin(row * 12.9898 + col * 78.233) * 43758.5453;
+    const noise = ((h - Math.floor(h)) - 0.5) * 0.08;
+    const tinted = [
+      Math.max(0, Math.min(1, color[0] + noise)),
+      Math.max(0, Math.min(1, color[1] + noise)),
+      Math.max(0, Math.min(1, color[2] + noise)),
+      color[3],
+    ];
+    for (let i = 0; i < 6; i++) hiCol.push(tinted);
   };
   // Walked trail (bright yellow, fades with age — kept highly visible).
   // Skip the tile under the player's feet so the active standing tile reads as
