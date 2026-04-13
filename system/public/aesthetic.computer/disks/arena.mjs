@@ -202,6 +202,15 @@ function buildLavaFloor(t) {
   // When perf mode is low, return a cached static lava (skip stripe animation).
   if (perfLowMode && lavaCache) return lavaCache;
 
+  // 🌋 Bound `t` before passing to Math.sin. On iOS Safari, paint `now` can
+  // arrive as an epoch-ms value (billions of seconds once divided by 1000),
+  // and Math.sin precision collapses at that magnitude — all triangles get
+  // the same value and the lava renders flat black. Mod by 2π*scale so the
+  // animation is continuous and arguments stay tiny.
+  const TWOPI = Math.PI * 2;
+  const tFlow = ((t * DEATH_FLOW_SPEED) % TWOPI);
+  const tSlow = ((t * 0.9) % TWOPI);
+
   const positions = [];
   const colors = [];
   const deathY = DEATH_FLOOR_Y;
@@ -213,8 +222,8 @@ function buildLavaFloor(t) {
       const z1 = Math.min(z + STEP, DEATH_PAD);
       const cx = (x0 + x1) / 2;
       const cz = (z0 + z1) / 2;
-      const w1 = Math.sin(cx * DEATH_STRIP_FREQ - t * DEATH_FLOW_SPEED + cz * 0.08);
-      const w2 = Math.sin(cx * 0.09 + cz * 0.27 - t * 0.9);
+      const w1 = Math.sin(cx * DEATH_STRIP_FREQ - tFlow + cz * 0.08);
+      const w2 = Math.sin(cx * 0.09 + cz * 0.27 - tSlow);
       const glow = (w1 + w2 * 0.6) * 0.5;
       const hot = 0.35 + Math.max(0, glow) * 0.65;
       const r = 0.45 + hot * 0.55;
@@ -993,6 +1002,15 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, now, api })
   rightLabel(`FOV ${FOV}`, margin + lineH * 2);
   rightLabel(`RUN ${RUN_SPEED.toFixed(1)}u/s`, margin + lineH * 3);
 
+  // 🏃 Current speed — colored by how close to max.
+  const upsNow = speedSmoothed * SIM_HZ;
+  const barMaxUPSNow = RUN_SPEED * 1.2;
+  const fillNow = Math.min(1, upsNow / barMaxUPSNow);
+  const spR = fillNow > 0.5 ? Math.floor(255 * ((fillNow - 0.5) * 2)) : 0;
+  const spG = fillNow < 0.5 ? 255 : Math.floor(255 * (1 - (fillNow - 0.5) * 2));
+  ink(spR, spG, 50);
+  rightLabel(`${upsNow.toFixed(1)}u/s`, margin + lineH * 9);
+
   // Grounded / airborne indicator (reuses `phys` captured above).
   if (phys) {
     const airborne = !phys.onGround;
@@ -1028,27 +1046,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, now, api })
   ink(255, 200, 80);
   rightLabel(flipNames[hoverFlipMode], margin + lineH * 8);
 
-  // Speed meter (bottom-center). speedSmoothed is per-sim-tick position delta;
-  // sim runs at SIM_HZ, so ups = perTickDelta * SIM_HZ.
-  const ups = speedSmoothed * SIM_HZ;
-  const barMaxUPS = RUN_SPEED * 1.2; // headroom for strafe-jump bonuses later
-  const barFill = Math.min(1, ups / barMaxUPS);
-
-  const barW = Math.min(160, Math.floor(screen.width * 0.4));
-  const barH = 6;
-  const barX = Math.floor((screen.width - barW) / 2);
-  const barY = screen.height - 16;
-
-  ink(0, 0, 0, 140);
-  box(barX - 1, barY - 1, barW + 2, barH + 2);
-
-  const cr = barFill > 0.5 ? Math.floor(255 * ((barFill - 0.5) * 2)) : 0;
-  const cg = barFill < 0.5 ? 255 : Math.floor(255 * (1 - (barFill - 0.5) * 2));
-  ink(cr, cg, 50, 220);
-  box(barX, barY, Math.floor(barW * barFill), barH);
-
-  ink("white");
-  write(`${ups.toFixed(1)} u/s`, { x: barX + barW + 4, y: barY - 1 }, undefined, undefined, false, font);
+  // Speed now displayed in top-right HUD stack — bottom-center bar removed
+  // because the jump/crouch mobile buttons overlap that area.
 
   // 🎯 Debug crosshair at the current pen position (unlocked mode only) so
   // we can visually compare it against the highlighted hover tile.
