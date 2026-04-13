@@ -100,6 +100,9 @@ export class CamDoll {
   #deathFloorY = null;
   #deathFloorEyeClearance = 0.3;
 
+  // 🖖 Disable built-in touch controls for pieces that implement custom mobile UI
+  #disableTouchControls = false;
+
   constructor(Camera, Dolly, opts) {
     this.cam = new Camera(opts.fov || 80, {
       z: opts.z || 0,
@@ -108,6 +111,8 @@ export class CamDoll {
     });
     this.sensitivity = opts.sensitivity || 0.00025;
     this.#dolly = new Dolly(this.cam); // moves the camera
+
+    if (opts.disableTouchControls === true) this.#disableTouchControls = true;
 
     if (opts.gravity !== undefined) {
       this.#physicsEnabled = true;
@@ -179,6 +184,16 @@ export class CamDoll {
 
   /** True if third-person mode is currently active. */
   get thirdPerson() { return this.#thirdPerson; }
+
+  /** Set movement key state directly (for mobile UI buttons). */
+  setMovement(dir, pressed) {
+    if (dir === "forward") this.#W = pressed;
+    else if (dir === "back") this.#S = pressed;
+    else if (dir === "left") this.#A = pressed;
+    else if (dir === "right") this.#D = pressed;
+    else if (dir === "jump") this.#SPACE = pressed;
+    else if (dir === "crouch") this.#SHIFT = pressed;
+  }
 
   /** Live telemetry for HUDs / debug panels. */
   get physics() {
@@ -470,14 +485,16 @@ export class CamDoll {
       }
     }
 
-    // 🖖 Touch
-    // Two fingers for move forward.
-    if (e.is("touch:2")) this.#W = true;
-    if (e.is("lift:2")) this.#W = false;
+    // 🖖 Touch (disabled if piece handles custom mobile UI)
+    if (!this.#disableTouchControls) {
+      // Two fingers for move forward.
+      if (e.is("touch:2")) this.#W = true;
+      if (e.is("lift:2")) this.#W = false;
 
-    // Three fingers for moving backward.
-    if (e.is("touch:3")) this.#S = true;
-    if (e.is("lift:3")) this.#S = false;
+      // Three fingers for moving backward.
+      if (e.is("touch:3")) this.#S = true;
+      if (e.is("lift:3")) this.#S = false;
+    }
 
     // 🎮 Gamepad
 
