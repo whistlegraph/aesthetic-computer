@@ -15,14 +15,25 @@ let customPieceIndex = 0;
 let customBusy = null;
 let customMessage = "";
 
-// iOS Safari (and to a lesser extent Android) discards the user-gesture
-// "activation" that allows downloads whenever the chain between tap and
-// download includes an async `fetch()`. To keep downloads working on iPhone
-// we route every download through `send({ type: "download-url" })` which is
-// a synchronous `window.open(url, "_blank")` on the main thread — the same
-// pattern `prompt.mjs` uses for ISO downloads. The server's
-// `Content-Disposition: attachment` header (or the `.amxd` octet-stream
-// MIME) triggers the iOS download sheet directly.
+// 📥 Download hitboxes — tracked so paint() can update DOM-level hitboxes
+// registered with bios. Keyed by label, value is the serialized
+// `box + url` signature so we only re-send when something actually changes.
+let downloadHitboxes = {};
+
+// iOS Safari discards user-gesture activation whenever the chain between
+// a tap and a `window.open` / `navigator.share` hops through postMessage
+// (piece worker → main). So sending `{type:"download-url"}` from a piece's
+// `act()` handler fails: by the time bios runs `window.open`, the gesture
+// is gone and Safari refuses the navigation.
+//
+// The trick — same one painting uses for clipboard copy and `dl` sharing —
+// is `button:hitbox:add`. That registers a DOM-level listener in bios that
+// fires *inside* the native `pointerup` listener, preserving the user
+// gesture. We extended the hitbox action vocabulary with `open-url` so the
+// piece can hand bios a URL + box; when the tap lands on the box, bios
+// opens the URL directly from the native event. Content-Disposition on
+// `/api/pack-html?format=m4d` and the `.amxd` octet-stream MIME on Spaces
+// handle the rest, and iOS shows its download sheet.
 
 const FEATURED_DOWNLOADS = [
   {
@@ -260,17 +271,69 @@ function offlineDeviceUrl(pieceRef) {
   return `/api/pack-html?${query}&format=m4d`;
 }
 
+const onlineDataUrlCache = {};
 function onlineDeviceDataUrl(pieceRef) {
   // The "online" variant is built entirely client-side — a tiny .amxd that
   // embeds the live URL in a jweb~ object. We pack it sync and return a
-  // `data:` URL so it can be handed to `download-url` in the same user
-  // gesture as the touch. Small (~3KB) so base64 inflation is fine.
+  // `data:` URL so the DOM hitbox handler can pass it straight to
+  // `window.open` inside the native pointerup gesture. Small (~3KB) so
+  // base64 inflation is fine. Cached per piece since paint() runs every
+  // frame and we don't want to re-encode on every layout pass.
+  if (onlineDataUrlCache[pieceRef]) return onlineDataUrlCache[pieceRef];
   const bytes = buildOnlinePatcher(pieceRef);
-  return `data:application/octet-stream;base64,${bytesToBase64(bytes)}`;
+  const url = `data:application/octet-stream;base64,${bytesToBase64(bytes)}`;
+  onlineDataUrlCache[pieceRef] = url;
+  return url;
 }
 
 function registerRegion(id, x, y, w, h, action) {
   regions.push({ id, x, y, w, h, action });
+}
+
+// Queue of download hitbox registrations to sync with bios at the end of
+// paint. We defer the `send` until after layout so we push at most one
+// `button:hitbox:add` per button per paint — and only if the box or URL
+// actually changed from the last frame.
+let pendingHitboxes = [];
+
+function queueDownloadHitbox(label, x, y, w, h, url) {
+  pendingHitboxes.push({ label, box: { x, y, w, h }, url });
+}
+
+function flushDownloadHitboxes(send) {
+  if (!send) {
+    pendingHitboxes = [];
+    return;
+  }
+  const seen = {};
+  for (const hb of pendingHitboxes) {
+    seen[hb.label] = true;
+    const sig = `${hb.box.x},${hb.box.y},${hb.box.w},${hb.box.h}|${hb.url}`;
+    if (downloadHitboxes[hb.label] === sig) continue;
+    send({
+      type: "button:hitbox:add",
+      content: { label: hb.label, box: hb.box, url: hb.url, action: "open-url" },
+    });
+    downloadHitboxes[hb.label] = sig;
+  }
+  // Remove hitboxes that were present last paint but not this one
+  // (e.g., plugin list shrunk or builder piece changed).
+  for (const label of Object.keys(downloadHitboxes)) {
+    if (!seen[label]) {
+      send({ type: "button:hitbox:remove", content: label });
+      delete downloadHitboxes[label];
+    }
+  }
+  pendingHitboxes = [];
+}
+
+function clearAllDownloadHitboxes(send) {
+  if (!send) return;
+  for (const label of Object.keys(downloadHitboxes)) {
+    send({ type: "button:hitbox:remove", content: label });
+  }
+  downloadHitboxes = {};
+  pendingHitboxes = [];
 }
 
 function trimLabel(str = "", maxChars = 24) {
@@ -368,7 +431,7 @@ function sim() {
   frame += 1;
 }
 
-function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
+function paint({ wipe, ink, screen, box, line, circle, plot, dark, send }) {
   const bg = dark ? [15, 15, 20] : [242, 242, 238];
   const fg = dark ? 240 : 10;
   const dim = dark ? 95 : 135;
@@ -427,6 +490,11 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   for (const button of builderButtons) {
     registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
     drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
+    if (button.action?.type === "build-offline") {
+      queueDownloadHitbox(`ableton:${button.id}`, button.x, button.y, button.w, button.h, offlineDeviceUrl(button.action.piece));
+    } else if (button.action?.type === "build-online") {
+      queueDownloadHitbox(`ableton:${button.id}`, button.x, button.y, button.w, button.h, onlineDeviceDataUrl(button.action.piece));
+    }
   }
 
   if (customBusy) {
@@ -494,6 +562,13 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
     for (const button of buttons) {
       registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
       drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
+      if (button.action?.type === "download-featured") {
+        queueDownloadHitbox(
+          `ableton:${button.id}`,
+          button.x, button.y, button.w, button.h,
+          featuredAssetUrl(button.action.featured),
+        );
+      }
     }
   }
 
@@ -502,16 +577,19 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   if (loading) {
     const dots = ".".repeat((floor(frame / 15) % 3) + 1);
     ink(dim).write("Loading published devices" + dots, { x: margin, y });
+    flushDownloadHitboxes(send);
     return;
   }
 
   if (error) {
     ink(255, 80, 80).write(error, { x: margin, y });
+    flushDownloadHitboxes(send);
     return;
   }
 
   if (plugins.length === 0) {
     ink(dim).write("No published devices yet.", { x: margin, y });
+    flushDownloadHitboxes(send);
     return;
   }
 
@@ -561,12 +639,21 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
     for (const button of cardButtons) {
       registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
       drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
+      if (button.action?.type === "download-plugin") {
+        queueDownloadHitbox(
+          `ableton:${button.id}`,
+          button.x, button.y, button.w, button.h,
+          pluginAssetUrl(button.action.plugin),
+        );
+      }
     }
 
     y = cardY + cardHeight + 10;
     ink(sep).line(margin, y, width - margin, y);
     y += 14;
   }
+
+  flushDownloadHitboxes(send);
 }
 
 export function act({ event: e, pen, sound, send, jump, needsPaint }) {
@@ -609,22 +696,16 @@ export function act({ event: e, pen, sound, send, jump, needsPaint }) {
     return;
   }
 
+  // For every download action below we do NOT call `send` to open the URL.
+  // bios already opened the URL synchronously inside the native `pointerup`
+  // handler (registered via `button:hitbox:add`). Here we just play the
+  // click sound and update the status text — the download itself is
+  // already in flight in the browser's native tab.
   if (action.type === "download-plugin") {
     const plugin = action.plugin;
     playClick(sound);
-    // Synchronous handoff — user gesture is preserved through `send`, so
-    // iOS treats the resulting `window.open` as a real user navigation
-    // and honors `Content-Disposition: attachment`.
-    send?.({
-      type: "download-url",
-      content: {
-        url: pluginAssetUrl(plugin),
-        filename: plugin.m4l.fileName,
-      },
-    });
     customMessage = `Opening ${plugin.m4l.fileName}...`;
     needsPaint?.();
-    // Fire-and-forget analytics — safe to let this async after the gesture.
     try {
       fetch(`/m4l-plugins/${plugin.code}/download`, { method: "POST" }).catch(() => {});
     } catch (_) { /* ignore */ }
@@ -632,60 +713,29 @@ export function act({ event: e, pen, sound, send, jump, needsPaint }) {
   }
 
   if (action.type === "download-featured") {
-    const featured = action.featured;
     playClick(sound);
-    send?.({
-      type: "download-url",
-      content: {
-        url: featuredAssetUrl(featured),
-        filename: featured.fileName,
-      },
-    });
-    customMessage = `Opening ${featured.fileName}...`;
+    customMessage = `Opening ${action.featured.fileName}...`;
     needsPaint?.();
     return;
   }
 
   if (action.type === "build-offline") {
     playClick(sound);
-    const piece = action.piece;
-    send?.({
-      type: "download-url",
-      content: {
-        url: offlineDeviceUrl(piece),
-        filename: `AC ${piece} (offline).amxd`,
-      },
-    });
-    customMessage = `Building AC ${piece} (offline).amxd...`;
+    customMessage = `Building AC ${action.piece} (offline).amxd...`;
     needsPaint?.();
     return;
   }
 
   if (action.type === "build-online") {
     playClick(sound);
-    const piece = action.piece;
-    // Generated client-side — embed as a data: URL so the touch handler can
-    // kick off `window.open` synchronously, preserving the iOS user gesture.
-    let dataUrl;
-    try {
-      dataUrl = onlineDeviceDataUrl(piece);
-    } catch (err) {
-      console.error("Online build failed:", err);
-      playError(sound);
-      customMessage = `Build failed: ${err.message}`;
-      needsPaint?.();
-      return;
-    }
-    send?.({
-      type: "download-url",
-      content: {
-        url: dataUrl,
-        filename: `AC ${piece} (online).amxd`,
-      },
-    });
-    customMessage = `Opening AC ${piece} (online).amxd...`;
+    customMessage = `Opening AC ${action.piece} (online).amxd...`;
     needsPaint?.();
   }
+}
+
+// Clean up DOM-level hitboxes when the piece unloads.
+export function leave({ send }) {
+  clearAllDownloadHitboxes(send);
 }
 
 export function meta() {
