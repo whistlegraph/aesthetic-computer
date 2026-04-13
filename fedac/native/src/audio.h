@@ -162,6 +162,19 @@ typedef struct {
     double gun_click_decay_mult;    // per-sample multiplier (typ ~exp(-1/(0.5ms*sr)))
     double gun_click_amp;           // mix gain
     double gun_click_prev;          // 1-zero HPF state (white_noise[n-1])
+    // Physical-model excitation state — Friedlander blast wave shape.
+    // `t_samples` counts up from 0 each trigger; the muzzle pulse follows
+    // P(t) = peak·(1−t/t+)·exp(−A·t/t+) for t in [0,t+], then a small
+    // negative phase, then silence. This replaces the old white-noise +
+    // exp-decay excitation with the actual shape of a blast wave.
+    double gun_phys_t;              // samples since last trigger
+    double gun_phys_t_plus;         // positive-phase duration (samples)
+    double gun_phys_friedlander_a;  // decay exponent (typ. 1.5)
+    double gun_phys_neg_amp;        // negative-phase peak (relative)
+    double gun_phys_echo_delay;     // ground-reflection delay (samples)
+    double gun_phys_echo_amp;       // ground-reflection gain
+    double gun_phys_echo_buf[1024]; // small ring for echo tap (~5ms @ 192kHz)
+    int    gun_phys_echo_w;
 } ACVoice;
 
 typedef struct {
