@@ -33,13 +33,20 @@ typedef enum {
     WAVE_GUN
 } WaveType;
 
-// Gun voice presets — each maps to a physically-modeled weapon.
-// The barrel is a closed-breech / open-muzzle acoustic tube (DWG),
-// excited once per note-on by a combustion pressure pulse + turbulent
-// noise. Body modes are parallel resonators representing the steel
-// frame ringing. Bore length sets the fundamental cavity resonance;
-// longer barrels → lower "boom" frequency. See gun_presets[] in audio.c
-// for the per-weapon parameters.
+// Gun voice presets. Two synthesis models are available per preset:
+//   GUN_MODEL_CLASSIC  — three-layer kick/snare-style synthesis:
+//     crack (BPF noise burst), boom (sine with downward pitch sweep),
+//     tail (LPF noise with attack-decay). Cheap, predictable, sounds
+//     like a "gun sound effect" the way classic sound libraries do.
+//   GUN_MODEL_PHYSICAL — digital waveguide barrel resonance + body
+//     modes (parallel biquads) + radiation HPF. Physically motivated;
+//     better for cavity-dominated sounds (grenade, RPG).
+// Per-weapon model choice + parameters live in gun_presets[] in audio.c.
+typedef enum {
+    GUN_MODEL_CLASSIC = 0,
+    GUN_MODEL_PHYSICAL = 1
+} GunModel;
+
 typedef enum {
     GUN_PISTOL = 0,     // 9mm — short barrel, bright crack
     GUN_RIFLE,          // AR/AK — medium barrel + supersonic N-wave
@@ -124,12 +131,30 @@ typedef struct {
     double gun_body_a1[3], gun_body_a2[3];
     double gun_body_amp[3];
     double gun_body_y1[3], gun_body_y2[3];
-    // Pitch sweep (ricochet) — multiplier applied to bore delay each
-    // sample. When voice enters VOICE_KILLING, target flips so the bore
-    // stretches → doppler drop during release.
+    // Pitch sweep (ricochet) — multiplier applied to bore delay (physical)
+    // or to boom freq (classic). When voice enters VOICE_KILLING, target
+    // flips so the bore stretches → doppler drop during release.
     double gun_pitch_mult;          // current (smoothed)
     double gun_pitch_target;        // target (set on trigger / release)
     double gun_pitch_slew;          // per-sample approach rate
+    // === Gun classic-model state (used when gun_model == GUN_MODEL_CLASSIC) ===
+    // Layered synthesis: crack (BPF noise burst, decays via gun_pressure_env
+    // and gun_env_decay_mult, filtered through body[0] biquad), boom (pitched
+    // sine/triangle with exponential pitch sweep + amp decay), tail (LPF noise
+    // with linear attack ramp + exponential decay, filtered through body[1]).
+    int    gun_model;               // GunModel: 0=classic, 1=physical
+    double gun_boom_phase;          // 0..1 oscillator phase
+    double gun_boom_freq;           // current Hz (sweeps toward gun_boom_freq_end)
+    double gun_boom_freq_start;     // Hz at trigger (for LMG sustain-fire retrigger)
+    double gun_boom_freq_end;       // settled Hz (target after pitch sweep)
+    double gun_boom_pitch_mult;     // per-sample geometric approach (closer to 0 = faster)
+    double gun_boom_env;            // amp envelope (decays each sample)
+    double gun_boom_decay_mult;     // per-sample amp decay multiplier
+    double gun_tail_env;            // amp envelope (rises during attack, then decays)
+    double gun_tail_attack_inc;     // per-sample envelope increment during attack (0 = instant)
+    double gun_tail_decay_mult;     // per-sample amp decay multiplier (after attack done)
+    double gun_crack_b0;            // BPF input gain (state lives in body[0])
+    double gun_tail_b0, gun_tail_b1, gun_tail_b2;  // LPF feed-forward coefs (state in body[1])
 } ACVoice;
 
 typedef struct {
