@@ -81,6 +81,27 @@ const ADJECTIVES = [
   "chromatic","iridescent","phosphor","titanium","tungsten","vanadium","zircon","rhodium","osmium","bismuth",
 ];
 
+// Third-word pool. Combined with the 200 adj × 365 animal pools this
+// gives ~10M combinations before any structural repeat — and we still
+// check the DB on every nextName call, rotating the noun until we find
+// an unused name. Hex collision suffix retired; uniqueness is now
+// guaranteed by the database, not by entropy.
+const NOUNS = [
+  "dawn","dusk","ember","cinder","spark","flame","glow","flare","ash","mist",
+  "fog","frost","rain","dew","hail","haze","veil","cloud","gale","storm",
+  "tide","wave","breeze","zephyr","eddy","gust","whirl","peak","ridge","crag",
+  "cliff","spine","summit","mesa","butte","glade","grove","vale","heath","fen",
+  "marsh","bog","dune","oasis","steppe","shard","prism","crystal","jewel","orb",
+  "spiral","coil","blade","arrow","spear","shield","rune","sigil","crown","throne",
+  "key","gate","path","bridge","tower","spire","vault","crypt","nest","cairn",
+  "echo","hush","chime","hum","tone","song","chord","pulse","beat","shroud",
+  "halo","aura","quill","thread","weave","warp","loom","comet","nebula","vortex",
+  "core","seed","root","branch","leaf","vine","moss","fern","bloom","petal",
+  "wisp","sprig","bough","bract","frond","spore","husk","pith","sap","resin",
+  "amber","beacon","fjord","glacier","grotto","cove","atoll","reef","lagoon","quay",
+  "dock","helm","keel","mast","sail","prow","wake","tideline","reef","kelp",
+];
+
 const COLLECTION = "builds";
 
 async function getDb() {
@@ -104,7 +125,6 @@ function dayOfYear() {
 async function nextName() {
   const { db, client } = await getDb();
   try {
-    // Get or create counter document
     const counters = db.collection("counters");
     const result = await counters.findOneAndUpdate(
       { _id: "build_number" },
@@ -112,17 +132,26 @@ async function nextName() {
       { upsert: true, returnDocument: "after" }
     );
     const buildNum = result.seq;
-    const doy = dayOfYear();
+    const builds = db.collection(COLLECTION);
 
-    const animal = ANIMALS[doy % ANIMALS.length];
+    // Three-word name. Adjective and animal both rotate every build so
+    // consecutive names look visibly distinct (no "*-otter-*" streaks).
+    // Coprime strides (1 vs 7) against the pool sizes keep the orbit
+    // long before any (adj, animal) pair repeats.
     const adj = ADJECTIVES[buildNum % ADJECTIVES.length];
-    const name = `${adj}-${animal}`;
+    const animal = ANIMALS[(buildNum * 7) % ANIMALS.length];
 
-    // If we've exhausted all adjectives for this animal, the day will change
-    // and we get a new animal. With 200 adj * 365 animals = 73,000 unique names
-    // before any repeat. At that point we can add more words.
+    for (let attempt = 0; attempt < NOUNS.length; attempt++) {
+      const noun = NOUNS[(buildNum + attempt) % NOUNS.length];
+      const name = `${adj}-${animal}-${noun}`;
+      const existing = await builds.findOne({ name }, { projection: { _id: 1 } });
+      if (!existing) return { name, buildNum };
+    }
 
-    return { name, buildNum };
+    // Astronomically unlikely (would need every (adj,animal,noun) combo
+    // taken). Fall back to base36 timestamp instead of failing the build.
+    const stamp = Date.now().toString(36).slice(-5);
+    return { name: `${adj}-${animal}-${stamp}`, buildNum };
   } finally {
     await client.close();
   }
@@ -167,26 +196,31 @@ async function recordBuild() {
 }
 
 const cmd = process.argv[2];
+const isPlain = process.argv.includes("--plain");
 try {
   if (cmd === "next-name") {
     const { name, buildNum } = await nextName();
-    // Output as JSON so caller can parse both
-    console.log(JSON.stringify({ name, buildNum }));
+    if (isPlain) console.log(name);
+    else console.log(JSON.stringify({ name, buildNum }));
   } else if (cmd === "record") {
     await recordBuild();
     process.stderr.write("Build recorded in MongoDB\n");
   } else {
-    console.error("Usage: track-build.mjs {next-name|record}");
+    console.error("Usage: track-build.mjs {next-name [--plain]|record}");
     process.exit(1);
   }
 } catch (e) {
-  // Don't block the build pipeline if MongoDB is down
+  // Don't block the build pipeline if MongoDB is down. Local fallback
+  // mirrors the new three-word format so callers always get the same shape.
   process.stderr.write(`track-build: ${e.message}\n`);
   if (cmd === "next-name") {
-    // Fallback: local-only name
     const doy = dayOfYear();
     const fallbackNum = Date.now() % ADJECTIVES.length;
-    const name = `${ADJECTIVES[fallbackNum]}-${ANIMALS[doy % ANIMALS.length]}`;
-    console.log(JSON.stringify({ name, buildNum: -1 }));
+    const adj = ADJECTIVES[fallbackNum];
+    const animal = ANIMALS[doy % ANIMALS.length];
+    const noun = NOUNS[(Date.now() / 1000) % NOUNS.length | 0];
+    const name = `${adj}-${animal}-${noun}`;
+    if (isPlain) console.log(name);
+    else console.log(JSON.stringify({ name, buildNum: -1 }));
   }
 }
