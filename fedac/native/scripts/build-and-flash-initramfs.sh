@@ -355,6 +355,17 @@ if [ "${USE_SDL}" -eq 1 ]; then
         fi
     done
 
+    # GBM backend loader plugin. libgbm.so.1 has a hardcoded path
+    # (/usr/lib64/gbm/dri_gbm.so) baked in at build time — without this
+    # file, SDL3's KMSDRM backend crashes during Mesa DRI probe (we hit
+    # a SIGSEGV in prod). Ship it at both /lib64/gbm and the hardcoded
+    # /usr/lib64/gbm path so the loader finds it regardless of lookup.
+    if [ -f /usr/lib64/gbm/dri_gbm.so ]; then
+        mkdir -p "${INITRAMFS_DIR}/lib64/gbm" "${INITRAMFS_DIR}/usr/lib64/gbm"
+        cp /usr/lib64/gbm/dri_gbm.so "${INITRAMFS_DIR}/lib64/gbm/"
+        cp /usr/lib64/gbm/dri_gbm.so "${INITRAMFS_DIR}/usr/lib64/gbm/"
+    fi
+
     # libexpat (needed by Mesa DRI loader)
     for lib in libexpat.so.1; do
         src=$(readlink -f "/usr/lib64/${lib}" 2>/dev/null)
@@ -915,13 +926,20 @@ cp "${BUILD_DIR}/initramfs-manifest.txt" "${INITRAMFS_DIR}/manifest.txt"
 MANIFEST_LINES=$(wc -l < "${BUILD_DIR}/initramfs-manifest.txt")
 log "Manifest: ${MANIFEST_LINES} entries (${BUILD_DIR}/initramfs-manifest.txt)"
 
-# Create cpio + lz4
+# Create cpio + both compressed variants. The kernel embeds the lz4 for
+# fast boot (CONFIG_INITRAMFS_SOURCE), but we also regenerate the .gz
+# every time because `upload-release.sh` and `ac_media_stage_boot_tree`
+# both prefer .gz for universal bootloader compatibility — if we skip
+# this, they silently pick up a stale .gz from a previous build (that
+# bit us with a March-30 binary flashed weeks later).
 INITRAMFS_CPIO="${BUILD_DIR}/initramfs.cpio"
 cd "${INITRAMFS_DIR}"
 find . -print0 | cpio --null -ov --format=newc > "${INITRAMFS_CPIO}" 2>/dev/null
 lz4 -l -9 -f "${INITRAMFS_CPIO}" "${INITRAMFS_CPIO}.lz4"
+gzip -9 -c "${INITRAMFS_CPIO}" > "${INITRAMFS_CPIO}.gz"
 CPIO_SIZE=$(wc -c < "${INITRAMFS_CPIO}.lz4")
-log "Initramfs: ${CPIO_SIZE} bytes (LZ4)"
+GZ_SIZE=$(wc -c < "${INITRAMFS_CPIO}.gz")
+log "Initramfs: ${CPIO_SIZE} bytes (LZ4), ${GZ_SIZE} bytes (GZ)"
 
 # ============================================================
 # Step 4: Build kernel with embedded initramfs
