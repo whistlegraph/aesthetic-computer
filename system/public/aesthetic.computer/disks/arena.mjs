@@ -487,11 +487,6 @@ function sim({ system, pen, screen }) {
   const cam = doll?.cam;
   if (!cam) return;
 
-  // If orbiting, undo camdoll's rotY change to keep player facing fixed direction
-  if (orbiting) {
-    cam.rotY = baseRotY;
-  }
-
   // Undo any orbit offset we applied last frame so it doesn't affect physics
   cam.x -= appliedOrbitOffset[0];
   cam.z -= appliedOrbitOffset[1];
