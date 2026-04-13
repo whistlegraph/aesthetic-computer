@@ -1975,6 +1975,208 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     })
   );
 
+  // 🔒 Vault Unlock Status Bar
+  // Only shown when an aesthetic-computer-vault directory exists in the workspace.
+  // Click → passphrase input → imports GPG key if missing, warms gpg-agent,
+  // runs vault-tool.fish unlock + devault.fish. Passphrase persists via SecretStorage.
+  let statusBarVault: vscode.StatusBarItem | undefined;
+
+  function findVaultDir(): string | undefined {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || !path || !fs) return undefined;
+    for (const f of folders) {
+      const candidate = path.join(f.uri.fsPath, "aesthetic-computer-vault");
+      if (fs.existsSync(path.join(candidate, "vault-tool.fish"))) return candidate;
+    }
+    return undefined;
+  }
+
+  function findPrivateKeyFile(vaultDir: string): string | undefined {
+    if (!path || !fs) return undefined;
+    const root = path.dirname(vaultDir);
+    const candidates = [
+      path.join(root, "jeffrey-private.asc"),
+      path.join(vaultDir, "gpg", "jeffrey-private.asc"),
+    ];
+    for (const c of candidates) if (fs.existsSync(c)) return c;
+    return undefined;
+  }
+
+  function isSecretKeyImported(): boolean {
+    if (!cp) return false;
+    try {
+      const r = cp.spawnSync("gpg", ["--list-secret-keys", "mail@aesthetic.computer"], { encoding: "utf8" });
+      return r.status === 0 && typeof r.stdout === "string" && r.stdout.includes("mail@aesthetic.computer");
+    } catch { return false; }
+  }
+
+  function isVaultUnlocked(vaultDir: string): boolean {
+    if (!fs || !path) return false;
+    // Consider unlocked if the home/.ssh/id_rsa plaintext exists (devault has run)
+    try { return fs.existsSync(path.join(vaultDir, "home/.ssh/id_rsa")); } catch { return false; }
+  }
+
+  async function runVaultUnlock(passphrase: string, vaultDir: string): Promise<string> {
+    const os = await import("os");
+    const gnupgDir = path.join(os.homedir(), ".gnupg");
+    fs.mkdirSync(gnupgDir, { recursive: true, mode: 0o700 });
+
+    const agentConf = path.join(gnupgDir, "gpg-agent.conf");
+    const existingAgent = fs.existsSync(agentConf) ? fs.readFileSync(agentConf, "utf8") : "";
+    if (!existingAgent.includes("allow-loopback-pinentry")) {
+      fs.appendFileSync(agentConf, (existingAgent.endsWith("\n") || !existingAgent ? "" : "\n") + "allow-loopback-pinentry\n");
+      try { cp.execSync("gpgconf --kill gpg-agent", { stdio: "ignore" }); } catch {}
+    }
+    const gpgConf = path.join(gnupgDir, "gpg.conf");
+    const existingGpg = fs.existsSync(gpgConf) ? fs.readFileSync(gpgConf, "utf8") : "";
+    if (!existingGpg.includes("pinentry-mode loopback")) {
+      fs.appendFileSync(gpgConf, (existingGpg.endsWith("\n") || !existingGpg ? "" : "\n") + "pinentry-mode loopback\n");
+    }
+
+    if (!isSecretKeyImported()) {
+      const keyFile = findPrivateKeyFile(vaultDir);
+      if (!keyFile) throw new Error("No GPG private key to import. Place jeffrey-private.asc in the repo root.");
+      const imp = cp.spawnSync("gpg", [
+        "--batch", "--yes", "--passphrase-fd", "0", "--pinentry-mode", "loopback", "--import", keyFile,
+      ], { input: passphrase, encoding: "utf8" });
+      if (imp.status !== 0) throw new Error(`gpg import failed: ${imp.stderr || imp.stdout}`);
+    }
+
+    // Verify passphrase by decrypting a known vault file to a temp location
+    const testGpg = path.join(vaultDir, "home/.ssh/id_rsa.gpg");
+    if (fs.existsSync(testGpg)) {
+      const test = cp.spawnSync("gpg", [
+        "--batch", "--yes", "--passphrase-fd", "0", "--pinentry-mode", "loopback", "--decrypt", testGpg,
+      ], { input: passphrase, encoding: "utf8" });
+      if (test.status !== 0) throw new Error("Passphrase incorrect (test decrypt failed).");
+    }
+
+    // Warm gpg-agent cache so vault-tool.fish's batch decrypts don't prompt.
+    try {
+      const kg = cp.execSync(
+        "gpg --with-keygrip --list-secret-keys mail@aesthetic.computer | awk '/Keygrip/ {print $3; exit}'",
+        { encoding: "utf8" }
+      ).trim();
+      if (kg) {
+        const hexPass = Buffer.from(passphrase, "utf8").toString("hex").toUpperCase();
+        cp.execSync(`gpg-connect-agent "PRESET_PASSPHRASE ${kg} -1 ${hexPass}" /bye`, { stdio: "ignore" });
+      }
+    } catch {}
+
+    // Run vault-tool.fish unlock then devault.fish (which distributes secrets to parent repo).
+    const unlock = cp.spawnSync("fish", [path.join(vaultDir, "vault-tool.fish"), "unlock"], {
+      encoding: "utf8", cwd: vaultDir,
+      env: { ...process.env, GPG_TTY: "" },
+    });
+    if (unlock.status !== 0) throw new Error(`vault unlock failed: ${(unlock.stderr || "") + (unlock.stdout || "")}`.slice(0, 500));
+
+    const devault = cp.spawnSync("fish", [path.join(vaultDir, "devault.fish")], {
+      encoding: "utf8", cwd: vaultDir,
+      env: { ...process.env, GPG_TTY: "" },
+    });
+    if (devault.status !== 0) throw new Error(`devault failed: ${(devault.stderr || "") + (devault.stdout || "")}`.slice(0, 500));
+
+    return "Vault unlocked and distributed.";
+  }
+
+  async function updateVaultStatusBar() {
+    await _modulesReady;
+    const vaultDir = findVaultDir();
+    if (!vaultDir) { statusBarVault?.hide(); return; }
+    if (!statusBarVault) {
+      statusBarVault = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 48);
+      context.subscriptions.push(statusBarVault);
+    }
+    if (isVaultUnlocked(vaultDir)) {
+      statusBarVault.text = "$(unlock) Vault";
+      statusBarVault.tooltip = "Aesthetic Computer vault is unlocked. Click to lock.";
+      statusBarVault.command = "aestheticComputer.vaultLock";
+      statusBarVault.backgroundColor = undefined;
+    } else {
+      statusBarVault.text = "$(lock) Vault";
+      statusBarVault.tooltip = "Aesthetic Computer vault is locked. Click to unlock.";
+      statusBarVault.command = "aestheticComputer.vaultUnlock";
+      statusBarVault.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+    }
+    statusBarVault.show();
+  }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.vaultUnlock", async () => {
+      await _modulesReady;
+      const vaultDir = findVaultDir();
+      if (!vaultDir) { vscode.window.showErrorMessage("No aesthetic-computer-vault found in workspace."); return; }
+
+      let pass = await context.secrets.get("aestheticComputer.vaultPassphrase");
+      if (!pass) {
+        pass = await vscode.window.showInputBox({
+          prompt: "Vault passphrase",
+          password: true,
+          ignoreFocusOut: true,
+          placeHolder: "Enter GPG passphrase for mail@aesthetic.computer",
+        });
+        if (!pass) return;
+      }
+
+      try {
+        const msg = await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: "Unlocking vault…",
+          cancellable: false,
+        }, async () => runVaultUnlock(pass!, vaultDir));
+        await context.secrets.store("aestheticComputer.vaultPassphrase", pass);
+        vscode.window.showInformationMessage("🔓 " + msg);
+      } catch (err: any) {
+        // Clear stored passphrase if it was wrong so the next click re-prompts.
+        if (String(err?.message || "").includes("Passphrase incorrect")) {
+          await context.secrets.delete("aestheticComputer.vaultPassphrase");
+        }
+        vscode.window.showErrorMessage("Vault unlock failed: " + (err?.message || err));
+      } finally {
+        updateVaultStatusBar();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.vaultLock", async () => {
+      await _modulesReady;
+      const vaultDir = findVaultDir();
+      if (!vaultDir) return;
+      const choice = await vscode.window.showWarningMessage(
+        "Lock the vault? This will re-encrypt and shred plaintext secrets.",
+        { modal: true }, "Lock"
+      );
+      if (choice !== "Lock") return;
+      try {
+        await vscode.window.withProgress({
+          location: vscode.ProgressLocation.Notification,
+          title: "Locking vault…",
+          cancellable: false,
+        }, async () => {
+          const r = cp.spawnSync("fish", [path.join(vaultDir, "vault-tool.fish"), "lock"], {
+            encoding: "utf8", cwd: vaultDir,
+          });
+          if (r.status !== 0) throw new Error((r.stderr || r.stdout || "").slice(0, 500));
+        });
+        vscode.window.showInformationMessage("🔒 Vault locked.");
+      } catch (err: any) {
+        vscode.window.showErrorMessage("Vault lock failed: " + (err?.message || err));
+      } finally {
+        updateVaultStatusBar();
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("aestheticComputer.vaultForgetPassphrase", async () => {
+      await context.secrets.delete("aestheticComputer.vaultPassphrase");
+      vscode.window.showInformationMessage("Vault passphrase cleared from SecretStorage.");
+    })
+  );
+
+  updateVaultStatusBar();
+
   context.subscriptions.push(
     vscode.commands.registerCommand("aestheticComputer.openWindow", () => {
       const panel = vscode.window.createWebviewPanel(
