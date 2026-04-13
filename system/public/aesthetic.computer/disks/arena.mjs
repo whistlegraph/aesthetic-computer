@@ -74,6 +74,9 @@ let perfSamplesSinceSwitch = 0;
 const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9, 12, 16, 24, 32];
 let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 
+// 🎥 Player facing direction (decoupled from camera rotation)
+let playerFacing = 0; // Player body Y rotation (degrees), independent from camera
+
 // 🎥 Right-click camera orbit (3P mode only): rotate camera around player
 // without changing player body rotation. Orbits by modifying XZ offset.
 let orbitAngle = 0;   // extra Y rotation for camera only (degrees)
@@ -623,6 +626,11 @@ function sim({ system, pen, screen }) {
     plumbLine.scale[1] = Math.max(0, playerWorldY - GROUND_Y - 0.02);
   }
 
+  // Update player facing direction (camera rotY when not orbiting)
+  if (!orbiting) {
+    playerFacing = cam.rotY;
+  }
+
   if (bodyFeet) {
     const footBaseY = playerAlive
       ? GROUND_Y
@@ -630,7 +638,7 @@ function sim({ system, pen, screen }) {
     bodyFeet.position[0] = playerCamX;
     bodyFeet.position[1] = footBaseY;
     bodyFeet.position[2] = playerCamZ;
-    bodyFeet.rotation[1] = cam.rotY;
+    bodyFeet.rotation[1] = playerFacing;
   }
   if (bodyArms) {
     const crouchDrop = (phys?.crouch ?? 0) * 0.2;
@@ -638,7 +646,7 @@ function sim({ system, pen, screen }) {
     bodyArms.position[0] = playerCamX;
     bodyArms.position[1] = playerWorldY - crouchDrop + bob;
     bodyArms.position[2] = playerCamZ;
-    bodyArms.rotation[1] = cam.rotY;
+    bodyArms.rotation[1] = playerFacing;
   }
 
   // 🐛 Once-per-second debug dump. Paste this back into chat to diagnose.
