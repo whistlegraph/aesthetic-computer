@@ -848,7 +848,18 @@ function sim({ system, pen, screen }) {
   }
 }
 
-function paint({ wipe, ink, screen, write, box, system, pen, canvas, now }) {
+function paint({ wipe, ink, screen, write, box, system, pen, canvas, now, api }) {
+  // 🎯 Switch cursor based on pen lock state (FPS mode vs UI mode)
+  if (api?.cursor) {
+    if (penLocked) {
+      // FPS mode: thin crosshair cursor
+      api.cursor(`url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><line x1="10" y1="2" x2="10" y2="18" stroke="white" stroke-width="1" opacity="0.9"/><line x1="2" y1="10" x2="18" y2="10" stroke="white" stroke-width="1" opacity="0.9"/><circle cx="10" cy="10" r="1" fill="white" opacity="0.8"/></svg>') 10 10, crosshair`);
+    } else {
+      // UI mode: default cursor
+      api.cursor('auto');
+    }
+  }
+
   // FPS calc (now is passed as parameter from bios)
   const dt = now - lastFrameTime;
   lastFrameTime = now;
