@@ -69,9 +69,10 @@ let perfSamplesSinceSwitch = 0;
 
 // 🔎 Camera zoom — wheel scroll steps between 1P and 3P at discrete distances.
 // Level 0 = first person. Levels 1..N = third person, pulling the camera back
-// further each click. Middle-mouse still toggles between 1P and a default 3P.
-const ZOOM_DISTANCES = [0, 3, 5, 8, 12];
-let zoomLevel = 0;
+// further each click. More close-in steps for shoulder-camera views.
+// Middle-mouse still toggles between 1P and a default 3P.
+const ZOOM_DISTANCES = [0, 0.5, 1, 1.5, 2, 3, 4.5, 6, 9];
+let zoomLevel = 2; // Start at 1 unit back (shoulder camera)
 
 function applyZoom(doll) {
   if (!doll) return;
