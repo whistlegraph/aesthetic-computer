@@ -698,9 +698,9 @@ function sim({ system, pen, screen }) {
       const newAngle = baseAngle + orbitRad;
       const newX = pCamX + dist * Math.sin(newAngle);
       const newZ = pCamZ + dist * Math.cos(newAngle);
-      // Track what we're adding so we can undo it next frame
-      appliedOrbitOffset[0] = newX - pCamX - dx;
-      appliedOrbitOffset[1] = newZ - pCamZ - dz;
+      // Track the total change we're making so we can undo it next frame
+      appliedOrbitOffset[0] = newX - cam.x;
+      appliedOrbitOffset[1] = newZ - cam.z;
       cam.x = newX;
       cam.z = newZ;
     }
