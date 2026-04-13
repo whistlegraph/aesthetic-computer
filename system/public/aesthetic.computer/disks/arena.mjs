@@ -708,7 +708,16 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
       [x0, y, z0, 1], [x0, y, z1, 1], [x1, y, z1, 1],
       [x0, y, z0, 1], [x1, y, z1, 1], [x1, y, z0, 1],
     );
-    for (let i = 0; i < 6; i++) hiCol.push(color);
+    // Add dithering: per-vertex noise to break up solid color fields.
+    for (let i = 0; i < 6; i++) {
+      const noise = (Math.random() - 0.5) * 0.08; // ±4% noise on each channel
+      hiCol.push([
+        Math.max(0, Math.min(1, color[0] + noise)),
+        Math.max(0, Math.min(1, color[1] + noise)),
+        Math.max(0, Math.min(1, color[2] + noise)),
+        color[3],
+      ]);
+    }
   };
   // Walked trail (bright yellow, fades with age — kept highly visible).
   // Skip the tile under the player's feet so the active standing tile reads as
@@ -716,17 +725,17 @@ function paint({ wipe, ink, screen, write, box, system, pen }) {
   for (const [k, age] of walkedTiles) {
     if (k === prevPlayerTile) continue;
     const { row, col } = tileFromKey(k);
-    const alpha = (age / WALK_AGE_TICKS) * 0.85;
-    pushQuad(row, col, [1.0, 0.95, 0.3, alpha]);
+    const alpha = (age / WALK_AGE_TICKS) * 0.35; // More subtle fade
+    pushQuad(row, col, [0.95, 0.85, 0.4, alpha]); // Muted warm gold
   }
-  // Hover (cyan, steady, steady alpha).
+  // Hover (muted cyan, subtle).
   if (hoverTile) {
-    pushQuad(hoverTile.row, hoverTile.col, [0.4, 0.95, 1.0, 0.55]);
+    pushQuad(hoverTile.row, hoverTile.col, [0.5, 0.8, 0.9, 0.25]);
   }
-  // Current standing tile (subtle white glow).
+  // Current standing tile (very subtle white glow).
   if (prevPlayerTile !== null) {
     const { row, col } = tileFromKey(prevPlayerTile);
-    pushQuad(row, col, [1.0, 1.0, 1.0, 0.3]);
+    pushQuad(row, col, [0.95, 0.95, 0.95, 0.15]); // Barely visible
   }
 
   // Render scene — lava donut first (never under the main ground), then the
