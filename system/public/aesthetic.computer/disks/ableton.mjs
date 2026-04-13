@@ -15,6 +15,15 @@ let customPieceIndex = 0;
 let customBusy = null;
 let customMessage = "";
 
+// iOS Safari (and to a lesser extent Android) discards the user-gesture
+// "activation" that allows downloads whenever the chain between tap and
+// download includes an async `fetch()`. To keep downloads working on iPhone
+// we route every download through `send({ type: "download-url" })` which is
+// a synchronous `window.open(url, "_blank")` on the main thread — the same
+// pattern `prompt.mjs` uses for ISO downloads. The server's
+// `Content-Disposition: attachment` header (or the `.amxd` octet-stream
+// MIME) triggers the iOS download sheet directly.
+
 const FEATURED_DOWNLOADS = [
   {
     id: "featured-spreadnob-clean",
@@ -49,13 +58,13 @@ function playError(sound) {
   sound?.synth?.({ type: "square", tone: 180, beats: 0.08, volume: 0.16 });
 }
 
-function bytesToBinaryString(bytes) {
+function bytesToBase64(bytes) {
   let binary = "";
   const chunk = 8192;
   for (let i = 0; i < bytes.length; i += chunk) {
     binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
   }
-  return binary;
+  return btoa(binary);
 }
 
 function syncCustomPieceOptions() {
@@ -243,23 +252,21 @@ function buildOnlinePatcher(pieceRef) {
   return binary;
 }
 
-async function buildOfflineDevice(pieceRef, download) {
+function offlineDeviceUrl(pieceRef) {
   const isKidlisp = pieceRef.startsWith("$");
   const query = isKidlisp
     ? `code=${encodeURIComponent(pieceRef)}`
     : `piece=${encodeURIComponent(pieceRef)}`;
-  const response = await fetch(`/api/pack-html?${query}&format=m4d`);
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-    throw new Error(err.error || `M4D build failed (${response.status})`);
-  }
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  download(`AC ${pieceRef} (offline).amxd`, bytesToBinaryString(bytes), { encoding: "binary" });
+  return `/api/pack-html?${query}&format=m4d`;
 }
 
-async function buildOnlineDevice(pieceRef, download) {
+function onlineDeviceDataUrl(pieceRef) {
+  // The "online" variant is built entirely client-side — a tiny .amxd that
+  // embeds the live URL in a jweb~ object. We pack it sync and return a
+  // `data:` URL so it can be handed to `download-url` in the same user
+  // gesture as the touch. Small (~3KB) so base64 inflation is fine.
   const bytes = buildOnlinePatcher(pieceRef);
-  download(`AC ${pieceRef} (online).amxd`, bytesToBinaryString(bytes), { encoding: "binary" });
+  return `data:application/octet-stream;base64,${bytesToBase64(bytes)}`;
 }
 
 function registerRegion(id, x, y, w, h, action) {
@@ -324,12 +331,14 @@ function drawButton({ ink, box }, region, label, colors, hovered) {
   ink(...text).write(label, { x: x + 4, y: y + 3 });
 }
 
-async function downloadFeaturedDevice(featured, download) {
-  const assetUrl = `https://assets.aesthetic.computer/m4l/${encodeURIComponent(featured.fileName)}`;
-  const res = await fetch(assetUrl);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = await res.arrayBuffer();
-  download(featured.fileName, new Uint8Array(buf), { sharing: true });
+function featuredAssetUrl(featured) {
+  return `https://assets.aesthetic.computer/m4l/${encodeURIComponent(featured.fileName)}`;
+}
+
+function pluginAssetUrl(plugin) {
+  const url = plugin?.m4l?.downloadUrl;
+  if (url && url.includes("assets.aesthetic.computer")) return url;
+  return `https://assets.aesthetic.computer/m4l/${encodeURIComponent(plugin.m4l.fileName)}`;
 }
 
 export function boot({ params, needsPaint }) {
@@ -398,16 +407,18 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
 
   const builderCardY = y - 4;
   const currentPieceLabel = `piece ${trimLabel(customPiece, max(10, maxTextChars - 8))}`;
-  const builderButtons = layoutButtons(margin, y + 25, contentWidth, [
+  // Title line (10) + 2 gap + subtitle line (10) + 6 gap = 28 from y to buttons.
+  const builderButtonsY = y + 28;
+  const builderButtons = layoutButtons(margin, builderButtonsY, contentWidth, [
     { id: "builder-piece", w: max(92, currentPieceLabel.length * 6 + 10), h: 14, label: currentPieceLabel, colors: btn.warm, action: { type: "cycle-piece" } },
     { id: "builder-offline", w: 84, h: 14, label: "offline", colors: btn.primary, action: { type: "build-offline", piece: customPiece } },
     { id: "builder-online", w: 76, h: 14, label: "online", colors: btn.alt, action: { type: "build-online", piece: customPiece } },
     { id: "builder-open", w: 58, h: 14, label: "open", colors: btn.warm, action: { type: "open-piece", piece: customPiece } },
   ]);
-  const builderButtonsBottom = buttonsBottom(builderButtons, y + 25);
+  const builderButtonsBottom = buttonsBottom(builderButtons, builderButtonsY);
   const builderStatus = customBusy || customMessage;
-  const builderStatusY = builderButtonsBottom + 8;
-  const builderCardHeight = (builderStatus ? builderStatusY + 10 : builderButtonsBottom + 4) - builderCardY;
+  const builderStatusY = builderButtonsBottom + 10;
+  const builderCardHeight = (builderStatus ? builderStatusY + 12 : builderButtonsBottom + 6) - builderCardY;
 
   ink(...(dark ? [22, 24, 34] : [228, 232, 242])).box(0, builderCardY, width, builderCardHeight);
   ink(...accent).write("Custom Instrument Builder", { x: margin, y });
@@ -427,12 +438,14 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   y = builderCardY + builderCardHeight + 12;
 
   const featuredCardStartY = y - 4;
-  let featuredY = y + 12;
+  let featuredY = y + 14;
   const featuredLayouts = FEATURED_DOWNLOADS.map((featured) => {
     const innerX = margin + 6;
     let labelY = featuredY + 6;
-    if (featured.badge) labelY += 10;
-    const buttonSpecs = layoutButtons(innerX, labelY + 18, contentWidth - 12, [
+    if (featured.badge) labelY += 14; // badge box 12 tall + 2 gap
+    const blurbY = labelY + 12;       // label line (10 tall) + 2 gap
+    const buttonsY = blurbY + 14;     // blurb line (10 tall) + 4 gap
+    const buttonSpecs = layoutButtons(innerX, buttonsY, contentWidth - 12, [
       {
         id: `${featured.id}-download`,
         w: featured.badge ? 92 : 84,
@@ -450,9 +463,9 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
         action: { type: "open-piece", piece: featured.piece },
       },
     ]);
-    const cardHeight = buttonsBottom(buttonSpecs, labelY + 18) - featuredY + 8;
-    const layout = { featured, y: featuredY, labelY, buttons: buttonSpecs, cardHeight };
-    featuredY += cardHeight + 6;
+    const cardHeight = buttonsBottom(buttonSpecs, buttonsY) - featuredY + 8;
+    const layout = { featured, y: featuredY, labelY, blurbY, buttons: buttonSpecs, cardHeight };
+    featuredY += cardHeight + 8;
     return layout;
   });
   const featuredSectionHeight = featuredY - featuredCardStartY;
@@ -460,7 +473,7 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   ink(...(dark ? [24, 19, 33] : [247, 236, 244])).box(0, featuredCardStartY, width, featuredSectionHeight);
   ink(255, 118, 184).write("Featured Downloads", { x: margin, y });
   for (const layout of featuredLayouts) {
-    const { featured, labelY, buttons, cardHeight } = layout;
+    const { featured, labelY, blurbY, buttons, cardHeight } = layout;
     const cardBg = featured.badge
       ? (dark ? [48, 26, 40] : [255, 235, 244])
       : (dark ? [30, 24, 38] : [252, 243, 248]);
@@ -470,12 +483,13 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
     ink(...cardBorder, featured.badge ? 170 : 110).box(margin - 6, layout.y, cardWidth + 12, cardHeight, "outline");
 
     if (featured.badge) {
-      ink(255, 118, 184).box(margin, layout.y + 4, 48, 10);
-      ink(35, 12, 22).write(featured.badge, { x: margin + 4, y: layout.y + 6 });
+      // Badge: 12 tall box so the 10-tall font fits without clipping below.
+      ink(255, 118, 184).box(margin, layout.y + 4, 48, 12);
+      ink(35, 12, 22).write(featured.badge, { x: margin + 4, y: layout.y + 5 });
     }
 
     ink(fg).write(trimLabel(featured.label, maxTextChars - 2), { x: margin, y: labelY });
-    ink(dim).write(trimLabel(featured.blurb, maxTextChars), { x: margin, y: labelY + 9 });
+    ink(dim).write(trimLabel(featured.blurb, maxTextChars), { x: margin, y: blurbY });
 
     for (const button of buttons) {
       registerRegion(button.id, button.x, button.y, button.w, button.h, button.action);
@@ -483,7 +497,7 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
     }
   }
 
-  y = featuredCardStartY + featuredSectionHeight + 12;
+  y = featuredCardStartY + featuredSectionHeight + 14;
 
   if (loading) {
     const dots = ".".repeat((floor(frame / 15) % 3) + 1);
@@ -502,7 +516,7 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
   }
 
   ink(...accent).write("Published Devices", { x: margin, y });
-  y += 14;
+  y += 16;
 
   for (let i = 0; i < plugins.length; i++) {
     const plugin = plugins[i];
@@ -519,13 +533,15 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
         : [90, 210, 255];
     const cardBg = dark ? [22, 22, 28] : [248, 248, 244];
     const cardY = y - 4;
-    const btnY = y + 25;
+    // Three text rows × 12px line pitch = 36px, then 6px breathing room
+    // before buttons so the description doesn't sit on top of them.
+    const btnY = y + 42;
     const cardButtons = layoutButtons(margin, btnY, contentWidth, [
       { id: `download-${plugin.code}`, w: 84, h: 14, label: downloading === plugin.code ? "loading" : "download", colors: downloading === plugin.code ? btn.alt : btn.primary, action: { type: "download-plugin", plugin } },
       { id: `use-${plugin.code}`, w: 68, h: 14, label: "builder", colors: btn.warm, action: { type: "use-piece", piece } },
       { id: `open-${plugin.code}`, w: 58, h: 14, label: "piece", colors: btn.alt, action: { type: "open-piece", piece } },
     ]);
-    const cardHeight = buttonsBottom(cardButtons, btnY) - cardY + 6;
+    const cardHeight = buttonsBottom(cardButtons, btnY) - cardY + 8;
 
     ink(...cardBg).box(margin - 6, cardY, cardWidth + 12, cardHeight);
     ink(...borderColor, 120).box(margin - 6, cardY, cardWidth + 12, cardHeight, "outline");
@@ -547,13 +563,13 @@ function paint({ wipe, ink, screen, box, line, circle, plot, dark }) {
       drawButton({ ink, box }, button, button.label, button.colors, hoverId === button.id);
     }
 
-    y = cardY + cardHeight + 8;
+    y = cardY + cardHeight + 10;
     ink(sep).line(margin, y, width - margin, y);
-    y += 12;
+    y += 14;
   }
 }
 
-export async function act({ event: e, pen, sound, download, jump, needsPaint }) {
+export function act({ event: e, pen, sound, send, jump, needsPaint }) {
   if (e.is("move") || e.is("draw")) {
     const hit = hitRegion(pen);
     const nextHoverId = hit?.id || null;
@@ -596,79 +612,79 @@ export async function act({ event: e, pen, sound, download, jump, needsPaint }) 
   if (action.type === "download-plugin") {
     const plugin = action.plugin;
     playClick(sound);
-    downloading = plugin.code;
-    customMessage = `Downloading ${stripEmoji(plugin.device?.displayName || plugin.code)}...`;
+    // Synchronous handoff — user gesture is preserved through `send`, so
+    // iOS treats the resulting `window.open` as a real user navigation
+    // and honors `Content-Disposition: attachment`.
+    send?.({
+      type: "download-url",
+      content: {
+        url: pluginAssetUrl(plugin),
+        filename: plugin.m4l.fileName,
+      },
+    });
+    customMessage = `Opening ${plugin.m4l.fileName}...`;
     needsPaint?.();
-
+    // Fire-and-forget analytics — safe to let this async after the gesture.
     try {
-      const url = plugin.m4l.downloadUrl;
-      const assetUrl = url.includes("assets.aesthetic.computer")
-        ? url
-        : `https://assets.aesthetic.computer/m4l/${encodeURIComponent(plugin.m4l.fileName)}`;
-      const res = await fetch(assetUrl);
-      const buf = await res.arrayBuffer();
-      download(plugin.m4l.fileName, new Uint8Array(buf), { sharing: true });
       fetch(`/m4l-plugins/${plugin.code}/download`, { method: "POST" }).catch(() => {});
-      customMessage = `Downloaded ${plugin.m4l.fileName}`;
-    } catch (err) {
-      console.error("Download failed:", err);
-      playError(sound);
-      customMessage = `Download failed: ${err.message}`;
-    } finally {
-      downloading = null;
-      needsPaint?.();
-    }
+    } catch (_) { /* ignore */ }
     return;
   }
 
   if (action.type === "download-featured") {
     const featured = action.featured;
     playClick(sound);
-    customBusy = `Downloading ${featured.label}...`;
-    customMessage = "";
+    send?.({
+      type: "download-url",
+      content: {
+        url: featuredAssetUrl(featured),
+        filename: featured.fileName,
+      },
+    });
+    customMessage = `Opening ${featured.fileName}...`;
     needsPaint?.();
-
-    try {
-      await downloadFeaturedDevice(featured, download);
-      customMessage = `Downloaded ${featured.fileName}`;
-    } catch (err) {
-      console.error("Featured download failed:", err);
-      playError(sound);
-      customMessage = `Download failed: ${err.message}`;
-    } finally {
-      customBusy = null;
-      needsPaint?.();
-    }
     return;
   }
 
-  if (action.type === "build-offline" || action.type === "build-online") {
-    if (customBusy) return;
-
+  if (action.type === "build-offline") {
     playClick(sound);
     const piece = action.piece;
-    customBusy = action.type === "build-offline"
-      ? `Building offline .amxd for ${piece}...`
-      : `Building online .amxd for ${piece}...`;
-    customMessage = "";
+    send?.({
+      type: "download-url",
+      content: {
+        url: offlineDeviceUrl(piece),
+        filename: `AC ${piece} (offline).amxd`,
+      },
+    });
+    customMessage = `Building AC ${piece} (offline).amxd...`;
     needsPaint?.();
+    return;
+  }
 
+  if (action.type === "build-online") {
+    playClick(sound);
+    const piece = action.piece;
+    // Generated client-side — embed as a data: URL so the touch handler can
+    // kick off `window.open` synchronously, preserving the iOS user gesture.
+    let dataUrl;
     try {
-      if (action.type === "build-offline") {
-        await buildOfflineDevice(piece, download);
-        customMessage = `Downloaded AC ${piece} (offline).amxd`;
-      } else {
-        await buildOnlineDevice(piece, download);
-        customMessage = `Downloaded AC ${piece} (online).amxd`;
-      }
+      dataUrl = onlineDeviceDataUrl(piece);
     } catch (err) {
-      console.error("Custom Ableton build failed:", err);
+      console.error("Online build failed:", err);
       playError(sound);
       customMessage = `Build failed: ${err.message}`;
-    } finally {
-      customBusy = null;
       needsPaint?.();
+      return;
     }
+    send?.({
+      type: "download-url",
+      content: {
+        url: dataUrl,
+        filename: `AC ${piece} (online).amxd`,
+      },
+    });
+    customMessage = `Opening AC ${piece} (online).amxd...`;
+    needsPaint?.();
   }
 }
 
