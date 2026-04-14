@@ -210,10 +210,27 @@ for d in /sys/bus/acpi/devices/*; do
 done
 echo "SOF platform devices:" >> $LOG
 ls /sys/bus/platform/devices/ 2>/dev/null | grep -iE "sof|jsl_rt5682|cs42l42|hda" >> $LOG
-echo "ASoC machines (if debugfs mounted):" >> $LOG
+echo "Platform drivers (audio-related):" >> $LOG
+ls /sys/bus/platform/drivers/ 2>/dev/null | grep -iE "sof_|snd_|jsl|rt5682|max98|hda" >> $LOG
+echo "jsl_rt5682_def binding:" >> $LOG
+if [ -d /sys/bus/platform/devices/jsl_rt5682_def ]; then
+    drv=$(basename "$(readlink /sys/bus/platform/devices/jsl_rt5682_def/driver 2>/dev/null)" 2>/dev/null)
+    echo "  driver=${drv:-UNBOUND}" >> $LOG
+    ls /sys/bus/platform/devices/jsl_rt5682_def/ >> $LOG 2>&1
+fi
+echo "Sound class:" >> $LOG
+ls /sys/class/sound/ 2>/dev/null >> $LOG
+echo "ASoC debugfs:" >> $LOG
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+ls /sys/kernel/debug/asoc/ 2>/dev/null >> $LOG
+cat /sys/kernel/debug/asoc/components 2>/dev/null >> $LOG
 cat /sys/kernel/debug/asoc/platforms 2>/dev/null >> $LOG
 cat /sys/kernel/debug/asoc/dais 2>/dev/null | head -20 >> $LOG
+echo "Loaded audio modules/built-in symbols:" >> $LOG
+cat /proc/modules 2>/dev/null | grep -iE "sof|snd|rt5682|max98" >> $LOG
+# Even built-in drivers show as symbols in /proc/kallsyms — search for the
+# sof_rt5682 driver struct to confirm it was compiled in and initialized.
+grep -E " sof_rt5682| snd_sof_" /proc/kallsyms 2>/dev/null | head -5 >> $LOG
 echo "=== CPUINFO ===" >> $LOG
 head -30 /proc/cpuinfo >> $LOG 2>&1
 echo "=== CMDLINE ===" >> $LOG
