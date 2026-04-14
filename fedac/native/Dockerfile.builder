@@ -52,16 +52,19 @@ RUN mkdir -p /cache && cd /cache \
     && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
 
 # ── Build cbfstool from coreboot source ──
-# Fedora doesn't package coreboot utilities, but the cbfstool util tree is
-# self-contained and builds cleanly with just gcc + make. We build against
-# the tagged 4.22 release and install cbfstool into /usr/local/bin so the
-# docker-build.sh bundling step can pick it up for the initramfs.
-RUN cd /tmp \
-    && curl -sL https://coreboot.org/releases/coreboot-4.22.tar.xz | tar xJ \
-    && cd coreboot-4.22/util/cbfstool \
+# Fedora doesn't package coreboot utilities and coreboot.org/releases stopped
+# hosting pre-packaged tarballs, so we sparse-checkout just util/cbfstool
+# off GitHub (the full repo is 600MB+). The util tree is self-contained and
+# builds cleanly with gcc + make. Installed to /usr/local/bin so
+# docker-build.sh's firmware-panel bundling step finds it with `command -v`.
+RUN git clone --depth 1 --branch 4.22 --filter=blob:none --sparse \
+        https://github.com/coreboot/coreboot /tmp/coreboot \
+    && cd /tmp/coreboot \
+    && git sparse-checkout set util/cbfstool \
+    && cd util/cbfstool \
     && make -j"$(nproc)" cbfstool \
     && install -m 0755 cbfstool /usr/local/bin/cbfstool \
-    && cd / && rm -rf /tmp/coreboot-4.22
+    && cd / && rm -rf /tmp/coreboot
 
 # ── Install esbuild for KidLisp bundling ──
 RUN npm install -g esbuild
