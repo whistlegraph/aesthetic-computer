@@ -530,8 +530,13 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       plot(6, 18);
     });
 
-    // Debug: log created buffers
+    // Debug: log created buffers and their properties
     console.log("🎨 Button buffers created:", Object.keys(buttonBuffers));
+    for (const [key, buffer] of Object.entries(buttonBuffers)) {
+      if (buffer) {
+        console.log(`  ${key}: ${buffer.width}x${buffer.height}, pixels:${buffer.pixels?.length}`);
+      }
+    }
   }
 
 
@@ -1466,6 +1471,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
             const centerY = b.box.y + (b.box.h - buffer.height) / 2;
             paste(buffer, centerX, centerY);
           }
+        } else if (bufferName !== name) {
+          console.log(`⚠️  No buffer found for ${name} (looking for ${bufferName})`);
         }
       });
     }
