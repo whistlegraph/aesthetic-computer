@@ -25,7 +25,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     realtek-firmware \
     alsa-sof-firmware \
     busybox mtools dosfstools hfsplus-tools hfsutils gdisk parted \
-    flashrom coreboot-utils \
+    flashrom \
     mesa-libgbm mesa-libgbm-devel \
     mesa-libEGL mesa-libEGL-devel \
     mesa-libGLES mesa-libGLES-devel \
@@ -50,6 +50,18 @@ RUN mkdir -p /cache && cd /cache \
     && ln -sf quickjs-2024-01-13 quickjs \
     && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
     && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
+
+# ── Build cbfstool from coreboot source ──
+# Fedora doesn't package coreboot utilities, but the cbfstool util tree is
+# self-contained and builds cleanly with just gcc + make. We build against
+# the tagged 4.22 release and install cbfstool into /usr/local/bin so the
+# docker-build.sh bundling step can pick it up for the initramfs.
+RUN cd /tmp \
+    && curl -sL https://coreboot.org/releases/coreboot-4.22.tar.xz | tar xJ \
+    && cd coreboot-4.22/util/cbfstool \
+    && make -j"$(nproc)" cbfstool \
+    && install -m 0755 cbfstool /usr/local/bin/cbfstool \
+    && cd / && rm -rf /tmp/coreboot-4.22
 
 # ── Install esbuild for KidLisp bundling ──
 RUN npm install -g esbuild
