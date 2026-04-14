@@ -1,6 +1,8 @@
-# Weekly News From @jeffrey
+# AC Weekly — April 7 to April 14
 
 259 commits this week, heavy on native os & piece refinement. arena is running natively now, notepat's gun synths got meaner, and hardware support expanded to chromebooks. the native build is starting to feel less like a prototype and more like a self-contained creative environment.
+
+— @jeffrey
 
 ## arena.mjs went native and got real 3D controls
 
@@ -35,7 +37,3 @@ the os UI got cleaner — less visual density, secondary sections fold away by d
 ## new piece: seashells
 
 seashells shipped — initial implementation and documentation ([9137a11b](https://tangled.sh/aesthetic.computer/core/commit/9137a11b5)).
-
----
-
-— @jeffrey
