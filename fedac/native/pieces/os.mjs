@@ -66,6 +66,18 @@ function act({ event: e, sound, system }) {
   // Reboot confirmation: y = reboot, n = back to prompt
   if (state === "confirm-reboot") {
     if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+      // Block reboot if USB live media still present on a cross-device flash —
+      // firmware will boot the stale USB kernel instead of the freshly-flashed one
+      const targets = system?.flashTargets || [];
+      const tgt = targets[flashTargetIdx];
+      const flashedToBoot = !tgt || tgt.device === system?.bootDevice;
+      if (!flashedToBoot) {
+        const usbStillAttached = targets.some(t => t.removable && t.device === system?.bootDevice);
+        if (usbStillAttached) {
+          sound?.synth({ type: "square", tone: 180, duration: 0.14, volume: 0.12, attack: 0.003, decay: 0.12 });
+          return;
+        }
+      }
       state = "shutting-down";
       shutdownFrame = 0;
       sound?.synth({ type: "triangle", tone: 784, duration: 0.1, volume: 0.15, attack: 0.003, decay: 0.08 });
@@ -436,14 +448,36 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     const targets = system?.flashTargets || [];
     const tgt = targets[flashTargetIdx];
     const flashedToBoot = !tgt || tgt.device === system?.bootDevice;
+    // USB still attached? flashTargets re-enumerates each frame so removal is live
+    const usbStillAttached = !flashedToBoot &&
+      targets.some(t => t.removable && t.device === system?.bootDevice);
+    const rebootBlocked = usbStillAttached;
     if (!flashedToBoot) {
-      ink(255, 180, 60);
-      write("remove USB before rebooting!", { x: pad, y: stateY + 80, size: 1, font });
+      if (usbStillAttached) {
+        // Blink warning until USB is removed
+        const blink = Math.floor(frame / 12) % 2 === 0;
+        if (blink) {
+          ink(255, 180, 60);
+          write("⚠ unplug USB before rebooting", { x: pad, y: stateY + 80, size: 1, font });
+        } else {
+          ink(255, 60, 60);
+          write("    reboot blocked    ", { x: pad, y: stateY + 80, size: 1, font });
+        }
+      } else {
+        // Live media removed — clear the warning, show ready state
+        ink(100, 220, 120);
+        write("✓ USB removed, safe to reboot", { x: pad, y: stateY + 80, size: 1, font });
+      }
     }
 
     const hintY = flashedToBoot ? stateY + 80 : stateY + 94;
-    ink(60, 200, 80);
-    write("y: reboot to new os", { x: pad, y: hintY, size: 1, font });
+    if (rebootBlocked) {
+      ink(120, 80, 80);
+      write("y: disabled (remove USB)", { x: pad, y: hintY, size: 1, font });
+    } else {
+      ink(60, 200, 80);
+      write("y: reboot to new os", { x: pad, y: hintY, size: 1, font });
+    }
     ink(140, 100, 80);
     write("n: back to prompt", { x: pad, y: hintY + 14, size: 1, font });
 
