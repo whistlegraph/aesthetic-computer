@@ -2239,7 +2239,30 @@ CONFIG_PTP_1588_CLOCK_OPTIONAL=y
 # end of PTP clock support
 
 # CONFIG_PINCTRL is not set
-# CONFIG_GPIOLIB is not set
+# GPIO framework + Intel pinctrl drivers for Jasper Lake / Tiger Lake / Alder
+# Lake / Meteor Lake. Required for MAX98360A speaker amp (its SD_MODE enable
+# is a GPIO — without GPIOLIB the amp stays powered down and speakers are
+# silent even though the sound card registers cleanly). Also needed for
+# ChromeOS EC, touchpads, RF-kill switches, and anything else that uses
+# GPIO-backed ACPI resources, which is most modern laptops.
+CONFIG_GPIOLIB=y
+CONFIG_GPIOLIB_IRQCHIP=y
+CONFIG_GPIO_ACPI=y
+CONFIG_GPIO_SYSFS=y
+CONFIG_PINCTRL=y
+CONFIG_PINCTRL_INTEL=y
+CONFIG_PINCTRL_INTEL_PLATFORM=y
+CONFIG_PINCTRL_BAYTRAIL=y
+CONFIG_PINCTRL_CHERRYVIEW=y
+CONFIG_PINCTRL_SUNRISEPOINT=y
+CONFIG_PINCTRL_GEMINILAKE=y
+CONFIG_PINCTRL_ELKHARTLAKE=y
+CONFIG_PINCTRL_JASPERLAKE=y
+CONFIG_PINCTRL_TIGERLAKE=y
+CONFIG_PINCTRL_ALDERLAKE=y
+CONFIG_PINCTRL_METEORLAKE=y
+CONFIG_PINCTRL_LUNARLAKE=y
+CONFIG_PINCTRL_PANTHERLAKE=y
 # CONFIG_W1 is not set
 # CONFIG_POWER_RESET is not set
 # CONFIG_POWER_SEQUENCING is not set
