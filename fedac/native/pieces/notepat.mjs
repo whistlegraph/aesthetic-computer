@@ -1085,6 +1085,319 @@ const WAR_NOTATION = {
   "a#": [["s",3000,0.9],["s",5500,0.7],["s",9000,0.5]],             // ricochet
 };
 
+// === ZOO KIT ===
+// 12 animal calls synthesized with classic subtractive/FM recipes. Each
+// sound is 1-3 voices, pitch-envelope shaped. Animal calls rely heavily
+// on pitch modulation — bird chirps = fast descending pulses, cat meow =
+// two-peak pitch envelope ("eow", the 'm' is impossible in pure
+// subtractive), lion roar = noise + sub-saw, etc. (Classic synthesis
+// references: MOD WIGGLER analog-animal thread, Robert Rich's "Bestiary").
+const ZOO_NAMES = {
+  c: "dog", d: "cat", e: "cow", f: "sheep",
+  g: "bird", a: "pig", b: "lion",
+  "c#": "owl", "d#": "frog",
+  "f#": "horse", "g#": "snake", "a#": "whale",
+};
+const ZOO_LABELS = {
+  c: "DOG", d: "CAT", e: "COW", f: "SHP",
+  g: "BRD", a: "PIG", b: "LION",
+  "c#": "OWL", "d#": "FRG",
+  "f#": "HRS", "g#": "SNK", "a#": "WHL",
+};
+const ZOO_COLORS = {
+  c:    [200, 130,  80], // dog — warm tan
+  d:    [230, 180, 220], // cat — pink
+  e:    [220, 200, 170], // cow — cream
+  f:    [240, 240, 220], // sheep — wool white
+  g:    [140, 220, 220], // bird — pale teal
+  a:    [240, 180, 180], // pig — pink-salmon
+  b:    [220, 170,  90], // lion — golden
+  "c#": [120, 120, 180], // owl — twilight blue
+  "d#": [140, 220, 140], // frog — green
+  "f#": [170, 120,  80], // horse — chestnut
+  "g#": [170, 230, 130], // snake — lime-olive
+  "a#": [100, 180, 230], // whale — ocean blue
+};
+const ZOO_NOTATION = {
+  c:  [["w",180,0.8],["n",2500,0.3]],                    // dog
+  d:  [["s",500,0.6],["s",350,0.4]],                     // cat
+  e:  [["t",90,1.2],["s",45,0.8]],                       // cow
+  f:  [["t",380,0.5]],                                   // sheep
+  g:  [["s",2500,0.5],["s",3500,0.4]],                   // bird
+  a:  [["w",140,0.7],["w",180,0.5]],                     // pig
+  b:  [["n",400,1.0],["w",70,1.2]],                      // lion
+  "c#": [["s",320,0.6]],                                 // owl
+  "d#": [["w",110,0.6]],                                 // frog
+  "f#": [["q",450,0.5],["s",500,0.3]],                   // horse
+  "g#": [["n",2000,0.8]],                                // snake
+  "a#": [["s",100,1.2]],                                 // whale
+};
+// Which zoo sounds sustain while held (release kills the voice).
+const ZOO_SUSTAIN = {
+  "g#": true, // snake — long hiss
+};
+const ZOO_DURATION = {
+  c: 0.12, d: 0.45, e: 0.60, f: 0.35,
+  g: 0.16, a: 0.25, b: 0.90,
+  "c#": 0.55, "d#": 0.18,
+  "f#": 0.55, "a#": 2.0,
+};
+const ZOO_RELEASE = {
+  "g#": 0.25,
+};
+
+// Fire a zoo-kit animal sound. Classic subtractive recipes, one-shot or
+// sustained. `pitchFactor` scales all tonal voices so the kit bends
+// with octave/pitch like perc does.
+function playZoo(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
+  if (!sound?.synth) return;
+  if (phase === "up") return;
+  const v = Math.max(0.1, Math.min(2.2, volume));
+  const pf = Math.max(0.25, Math.min(4, pitchFactor));
+  const isLive = phase === "down" && Array.isArray(holdVoices);
+  const rj = (c, f) => c * (1 + (Math.random() - 0.5) * 2 * f);
+  const fire = (params, dur, sustainLen) => {
+    if (isLive && ZOO_SUSTAIN[letter]) {
+      const h = sound.synth({ ...params, duration: Infinity });
+      if (h) holdVoices.push({ handle: h, releaseFade: ZOO_RELEASE[letter] ?? 0.1 });
+    } else {
+      sound.synth({ ...params, duration: dur ?? sustainLen ?? 0.2 });
+    }
+  };
+  switch (letter) {
+    case "c": { // dog bark — saw burst with pitch drop + noise attack
+      fire({ type: "sawtooth", tone: 200 * pf, volume: rj(0.75, 0.1) * v, attack: 0.001, decay: 0.07, pan }, 0.08);
+      sound.synth({ type: "sawtooth", tone: 110 * pf, duration: 0.05, volume: rj(0.55, 0.1) * v, attack: 0.015, decay: 0.035, pan });
+      sound.synth({ type: "noise", tone: 2500 * pf, duration: 0.006, volume: 0.45 * v, attack: 0.0005, decay: 0.005, pan });
+      break;
+    }
+    case "d": { // cat meow — 2-peak pitch envelope "eow"
+      const base = 500 * pf;
+      sound.synth({ type: "sine", tone: base, duration: 0.12, volume: rj(0.55, 0.1) * v, attack: 0.02, decay: 0.1, pan });
+      sound.synth({ type: "sine", tone: base * 0.65, duration: 0.12, volume: rj(0.50, 0.1) * v, attack: 0.08, decay: 0.1, pan });
+      sound.synth({ type: "sine", tone: base * 0.9, duration: 0.12, volume: rj(0.45, 0.1) * v, attack: 0.20, decay: 0.1, pan });
+      break;
+    }
+    case "e": { // cow moo — low triangle with slow attack/sustain
+      sound.synth({ type: "triangle", tone: 95 * pf, duration: 0.55, volume: rj(0.85, 0.08) * v, attack: 0.05, decay: 0.4, pan });
+      sound.synth({ type: "sine", tone: 48 * pf, duration: 0.55, volume: rj(0.65, 0.08) * v, attack: 0.08, decay: 0.4, pan });
+      break;
+    }
+    case "f": { // sheep baa — vibrato + triple pitch stagger
+      const base = 380 * pf;
+      sound.synth({ type: "triangle", tone: base, duration: 0.1, volume: rj(0.55, 0.1) * v, attack: 0.002, decay: 0.09, pan });
+      sound.synth({ type: "triangle", tone: base * 0.9, duration: 0.1, volume: rj(0.50, 0.1) * v, attack: 0.08, decay: 0.09, pan });
+      sound.synth({ type: "triangle", tone: base, duration: 0.1, volume: rj(0.45, 0.1) * v, attack: 0.18, decay: 0.09, pan });
+      break;
+    }
+    case "g": { // bird chirp — three fast descending high pulses
+      for (let i = 0; i < 3; i++) {
+        const atk = 0.04 * i;
+        const tone = (3200 - i * 450) * pf;
+        sound.synth({ type: "sine", tone, duration: 0.03, volume: rj(0.55, 0.15) * v, attack: 0.0005 + atk, decay: 0.025, pan });
+      }
+      break;
+    }
+    case "a": { // pig oink — two short saw bursts
+      sound.synth({ type: "sawtooth", tone: 140 * pf, duration: 0.07, volume: rj(0.70, 0.1) * v, attack: 0.003, decay: 0.060, pan });
+      sound.synth({ type: "sawtooth", tone: 180 * pf, duration: 0.06, volume: rj(0.60, 0.1) * v, attack: 0.09, decay: 0.05, pan });
+      break;
+    }
+    case "b": { // lion roar — resonant noise + sub saw
+      sound.synth({ type: "noise", tone: 420 * pf, duration: 0.85, volume: rj(0.60, 0.1) * v, attack: 0.06, decay: 0.7, pan });
+      sound.synth({ type: "sawtooth", tone: 70 * pf, duration: 0.85, volume: rj(0.70, 0.1) * v, attack: 0.08, decay: 0.7, pan });
+      sound.synth({ type: "sawtooth", tone: 110 * pf, duration: 0.5, volume: rj(0.35, 0.1) * v, attack: 0.12, decay: 0.35, pan });
+      break;
+    }
+    case "c#": { // owl hoot — soft sine with long body
+      sound.synth({ type: "sine", tone: 320 * pf, duration: 0.5, volume: rj(0.65, 0.08) * v, attack: 0.08, decay: 0.4, pan });
+      sound.synth({ type: "sine", tone: 160 * pf, duration: 0.5, volume: rj(0.45, 0.08) * v, attack: 0.1, decay: 0.4, pan });
+      break;
+    }
+    case "d#": { // frog ribbit — double low saw bursts
+      sound.synth({ type: "sawtooth", tone: 110 * pf, duration: 0.04, volume: rj(0.65, 0.08) * v, attack: 0.002, decay: 0.036, pan });
+      sound.synth({ type: "sawtooth", tone: 95 * pf, duration: 0.04, volume: rj(0.55, 0.08) * v, attack: 0.07, decay: 0.036, pan });
+      break;
+    }
+    case "f#": { // horse neigh — square with whinny vibrato chain
+      const base = 440 * pf;
+      sound.synth({ type: "square", tone: base, duration: 0.08, volume: rj(0.5, 0.1) * v, attack: 0.002, decay: 0.075, pan });
+      sound.synth({ type: "square", tone: base * 1.15, duration: 0.08, volume: rj(0.45, 0.1) * v, attack: 0.09, decay: 0.075, pan });
+      sound.synth({ type: "square", tone: base * 0.9, duration: 0.08, volume: rj(0.40, 0.1) * v, attack: 0.18, decay: 0.075, pan });
+      sound.synth({ type: "square", tone: base, duration: 0.08, volume: rj(0.35, 0.1) * v, attack: 0.27, decay: 0.075, pan });
+      break;
+    }
+    case "g#": { // snake hiss — filtered noise, sustained
+      const params = { type: "noise", tone: 2000 * pf, volume: rj(0.45, 0.08) * v, attack: 0.04, decay: 0.2, pan };
+      fire(params, 0.9, 0.9);
+      break;
+    }
+    case "a#": { // whale song — slow low glide
+      const base = 110 * pf;
+      sound.synth({ type: "sine", tone: base, duration: 0.8, volume: rj(0.55, 0.08) * v, attack: 0.3, decay: 0.5, pan });
+      sound.synth({ type: "sine", tone: base * 0.7, duration: 0.9, volume: rj(0.45, 0.08) * v, attack: 0.4, decay: 0.5, pan });
+      sound.synth({ type: "sine", tone: base * 1.4, duration: 0.8, volume: rj(0.35, 0.08) * v, attack: 0.5, decay: 0.3, pan });
+      break;
+    }
+  }
+}
+
+// === LASERS KIT ===
+// 12 sci-fi weapon/energy sounds. Classic recipes: pew = descending
+// sine/square (Atari Asteroids), blaster = saw + noise (Star Wars),
+// phaser = sine modulated by noise (Star Trek's sound was derived from
+// War of the Worlds tape feedback — see SlashFilm). Charge-up = exp
+// pitch rise; warp = fast sine sweep (Doppler).
+const LASER_NAMES = {
+  c: "pew", d: "blast", e: "phaser", f: "cannon",
+  g: "stun", a: "plasma", b: "disruptor",
+  "c#": "charge", "d#": "beam",
+  "f#": "hit", "g#": "ricochet", "a#": "warp",
+};
+const LASER_LABELS = {
+  c: "PEW", d: "BLS", e: "PHS", f: "CAN",
+  g: "STN", a: "PLS", b: "DSR",
+  "c#": "CHG", "d#": "BEM",
+  "f#": "HIT", "g#": "RIC", "a#": "WRP",
+};
+const LASER_COLORS = {
+  c:    [180, 255, 140], // pew — neon green
+  d:    [255, 140, 140], // blast — red
+  e:    [180, 200, 255], // phaser — electric blue
+  f:    [255, 120,  80], // cannon — orange flame
+  g:    [200, 255, 255], // stun — pale cyan
+  a:    [220, 140, 255], // plasma — violet
+  b:    [255, 200,  80], // disruptor — gold
+  "c#": [100, 180, 255], // charge — deep blue
+  "d#": [140, 255, 200], // beam — lime
+  "f#": [255, 100,  60], // hit — impact red-orange
+  "g#": [220, 220, 180], // ricochet — metallic
+  "a#": [200, 120, 255], // warp — magenta
+};
+const LASER_NOTATION = {
+  c:  [["s",2500,0.6]],                     // pew
+  d:  [["w",150,0.8],["n",2500,0.4]],       // blast
+  e:  [["s",700,0.5],["n",1200,0.3]],       // phaser
+  f:  [["w",500,0.7],["s",55,0.9]],         // cannon
+  g:  [["q",400,0.6]],                      // stun
+  a:  [["q",260,0.6]],                      // plasma
+  b:  [["w",520,0.6]],                      // disruptor
+  "c#": [["s",800,0.6]],                    // charge
+  "d#": [["q",800,0.7]],                    // beam
+  "f#": [["n",3000,0.6],["s",60,1.0]],      // hit
+  "g#": [["n",4500,0.5]],                   // ricochet
+  "a#": [["s",1000,0.6]],                   // warp
+};
+const LASER_SUSTAIN = {
+  "d#": true, // beam — sustained hum
+};
+const LASER_DURATION = {
+  c: 0.10, d: 0.20, e: 0.28, f: 0.25,
+  g: 0.40, a: 0.50, b: 0.35,
+  "c#": 0.75, "f#": 0.30,
+  "g#": 0.30, "a#": 0.55,
+};
+const LASER_RELEASE = {
+  "d#": 0.08,
+};
+
+// Fire a laser-kit sci-fi sound. Pitch envelopes and FM-ish modulation
+// via short stacked voices with staggered attacks. `pitchFactor` scales
+// tonal voices like every other kit.
+function playLaser(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
+  if (!sound?.synth) return;
+  if (phase === "up") return;
+  const v = Math.max(0.1, Math.min(2.2, volume));
+  const pf = Math.max(0.25, Math.min(4, pitchFactor));
+  const isLive = phase === "down" && Array.isArray(holdVoices);
+  const rj = (c, f) => c * (1 + (Math.random() - 0.5) * 2 * f);
+  const fire = (params, dur) => {
+    if (isLive && LASER_SUSTAIN[letter]) {
+      const h = sound.synth({ ...params, duration: Infinity });
+      if (h) holdVoices.push({ handle: h, releaseFade: LASER_RELEASE[letter] ?? 0.08 });
+    } else {
+      sound.synth({ ...params, duration: dur });
+    }
+  };
+  switch (letter) {
+    case "c": { // pew — fast descending sine (Atari Asteroids)
+      sound.synth({ type: "sine", tone: 3200 * pf, duration: 0.03, volume: rj(0.75, 0.1) * v, attack: 0.0005, decay: 0.028, pan });
+      sound.synth({ type: "sine", tone: 900 * pf,  duration: 0.06, volume: rj(0.55, 0.1) * v, attack: 0.02, decay: 0.055, pan });
+      sound.synth({ type: "sine", tone: 300 * pf,  duration: 0.05, volume: rj(0.45, 0.1) * v, attack: 0.05, decay: 0.045, pan });
+      break;
+    }
+    case "d": { // blast — saw descending with noise crack (Star Wars)
+      sound.synth({ type: "sawtooth", tone: 300 * pf, duration: 0.04, volume: rj(0.80, 0.08) * v, attack: 0.001, decay: 0.038, pan });
+      sound.synth({ type: "sawtooth", tone: 100 * pf, duration: 0.08, volume: rj(0.70, 0.08) * v, attack: 0.03, decay: 0.07, pan });
+      sound.synth({ type: "noise", tone: 3500 * pf, duration: 0.02, volume: rj(0.50, 0.1) * v, attack: 0.0005, decay: 0.018, pan });
+      break;
+    }
+    case "e": { // phaser — sine + co-modulating noise (War-of-Worlds feedback)
+      sound.synth({ type: "sine", tone: 700 * pf, duration: 0.25, volume: rj(0.55, 0.1) * v, attack: 0.005, decay: 0.22, pan });
+      sound.synth({ type: "sine", tone: 480 * pf, duration: 0.25, volume: rj(0.40, 0.1) * v, attack: 0.01, decay: 0.22, pan });
+      sound.synth({ type: "noise", tone: 1400 * pf, duration: 0.25, volume: rj(0.25, 0.1) * v, attack: 0.005, decay: 0.22, pan });
+      break;
+    }
+    case "f": { // cannon — descending saw + sub thump
+      sound.synth({ type: "sawtooth", tone: 700 * pf, duration: 0.05, volume: rj(0.70, 0.08) * v, attack: 0.001, decay: 0.045, pan });
+      sound.synth({ type: "sawtooth", tone: 200 * pf, duration: 0.10, volume: rj(0.80, 0.08) * v, attack: 0.03, decay: 0.09, pan });
+      sound.synth({ type: "sine", tone: 55 * pf, duration: 0.20, volume: rj(0.90, 0.08) * v, attack: 0.005, decay: 0.19, pan });
+      break;
+    }
+    case "g": { // stun — buzzing ring-mod-ish square with slight wobble
+      sound.synth({ type: "square", tone: 400 * pf, duration: 0.38, volume: rj(0.35, 0.1) * v, attack: 0.01, decay: 0.35, pan });
+      sound.synth({ type: "square", tone: 420 * pf, duration: 0.38, volume: rj(0.30, 0.1) * v, attack: 0.02, decay: 0.35, pan });
+      break;
+    }
+    case "a": { // plasma — slow vibrato square
+      const base = 260 * pf;
+      sound.synth({ type: "square", tone: base, duration: 0.48, volume: rj(0.45, 0.08) * v, attack: 0.02, decay: 0.44, pan });
+      sound.synth({ type: "square", tone: base * 1.06, duration: 0.48, volume: rj(0.38, 0.08) * v, attack: 0.05, decay: 0.44, pan });
+      sound.synth({ type: "square", tone: base * 0.94, duration: 0.48, volume: rj(0.32, 0.08) * v, attack: 0.08, decay: 0.44, pan });
+      break;
+    }
+    case "b": { // disruptor — gritty saw + noise body
+      sound.synth({ type: "sawtooth", tone: 520 * pf, duration: 0.33, volume: rj(0.55, 0.1) * v, attack: 0.003, decay: 0.32, pan });
+      sound.synth({ type: "noise", tone: 800 * pf, duration: 0.33, volume: rj(0.30, 0.1) * v, attack: 0.01, decay: 0.32, pan });
+      break;
+    }
+    case "c#": { // charge-up — exp pitch rise
+      for (let i = 0; i < 6; i++) {
+        const t = i / 5;
+        const tone = 100 * Math.pow(25, t) * pf;
+        sound.synth({ type: "sine", tone, duration: 0.2, volume: rj(0.45 - t * 0.1, 0.08) * v, attack: 0.12 * i, decay: 0.18, pan });
+      }
+      break;
+    }
+    case "d#": { // beam — sustained buzz
+      const params = { type: "square", tone: 820 * pf, volume: rj(0.40, 0.06) * v, attack: 0.02, decay: 0.12, pan };
+      fire(params, 0.35);
+      sound.synth({ type: "square", tone: 410 * pf, duration: 0.3, volume: rj(0.30, 0.06) * v, attack: 0.02, decay: 0.28, pan });
+      break;
+    }
+    case "f#": { // hit — noise crack + sub thump
+      sound.synth({ type: "noise", tone: 3000 * pf, duration: 0.05, volume: rj(0.60, 0.1) * v, attack: 0.0005, decay: 0.045, pan });
+      sound.synth({ type: "sine", tone: 60 * pf, duration: 0.25, volume: rj(0.75, 0.08) * v, attack: 0.005, decay: 0.24, pan });
+      sound.synth({ type: "sawtooth", tone: 120 * pf, duration: 0.08, volume: rj(0.35, 0.1) * v, attack: 0.01, decay: 0.07, pan });
+      break;
+    }
+    case "g#": { // ricochet — descending filtered noise ping
+      sound.synth({ type: "noise", tone: 5500 * pf, duration: 0.04, volume: rj(0.45, 0.08) * v, attack: 0.001, decay: 0.038, pan });
+      sound.synth({ type: "noise", tone: 3000 * pf, duration: 0.06, volume: rj(0.35, 0.08) * v, attack: 0.04, decay: 0.055, pan });
+      sound.synth({ type: "sine", tone: 3000 * pf, duration: 0.08, volume: rj(0.30, 0.1) * v, attack: 0.02, decay: 0.075, pan });
+      break;
+    }
+    case "a#": { // warp — fast sine sweep down (Doppler)
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4;
+        const tone = (1800 * Math.pow(0.1, t)) * pf;
+        sound.synth({ type: "sine", tone, duration: 0.12, volume: rj(0.55 - t * 0.1, 0.06) * v, attack: 0.08 * i, decay: 0.1, pan });
+      }
+      break;
+    }
+  }
+}
+
 // === KIT HELPERS ===
 // Unified accessors: these return the active-kit metadata for a given
 // (letter, gridOffset) so render code doesn't need to branch on
@@ -1095,32 +1408,44 @@ function activeKitForOffset(offset) {
 function kitNamesFor(kit) {
   if (isWarKit(kit)) return WAR_NAMES;
   if (kit === "perc") return PERCUSSION_NAMES;
+  if (kit === "zoo") return ZOO_NAMES;
+  if (kit === "lasers") return LASER_NAMES;
   return null;
 }
 function kitLabelsFor(kit) {
   if (isWarKit(kit)) return WAR_LABELS;
   if (kit === "perc") return PERCUSSION_LABELS;
+  if (kit === "zoo") return ZOO_LABELS;
+  if (kit === "lasers") return LASER_LABELS;
   return null;
 }
 function kitColorsFor(kit) {
   if (isWarKit(kit)) return WAR_COLORS;
   if (kit === "perc") return PERCUSSION_COLORS;
+  if (kit === "zoo") return ZOO_COLORS;
+  if (kit === "lasers") return LASER_COLORS;
   return null;
 }
 function kitNotationFor(kit) {
   if (isWarKit(kit)) return WAR_NOTATION;
   if (kit === "perc") return PERCUSSION_NOTATION;
+  if (kit === "zoo") return ZOO_NOTATION;
+  if (kit === "lasers") return LASER_NOTATION;
   return null;
 }
 
-// Cycle the kit state for a side: off → perc → warA → warB → off.
-// warA = preset-default model per weapon (mostly classic), warB forces
-// physical/DWG synthesis on every weapon for direct A/B comparison.
+// Cycle the kit state for a side: off → perc → warA → warB → zoo → lasers → off.
+// warA = preset-default model per weapon (mostly classic); warB forces
+// physical/DWG synthesis for direct A/B comparison; zoo + lasers are
+// sound-design sketches grounded in classic subtractive synthesis
+// recipes (animal calls, sci-fi phasers/blasters/warps).
 function cycleKit(side) {
   const cur = side === "left" ? kitLeft : kitRight;
-  const next = cur === "off"  ? "perc"
-             : cur === "perc" ? "warA"
-             : cur === "warA" ? "warB"
+  const next = cur === "off"    ? "perc"
+             : cur === "perc"   ? "warA"
+             : cur === "warA"   ? "warB"
+             : cur === "warB"   ? "zoo"
+             : cur === "zoo"    ? "lasers"
              : "off";
   if (side === "left") kitLeft = next; else kitRight = next;
   return next;
@@ -1285,6 +1610,10 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
     const voices = [];
     if (isWarKit(kit)) {
       playWar(sound, letter, volume, pan, pitchFactor, "down", voices, warModelFor(kit));
+    } else if (kit === "zoo") {
+      playZoo(sound, letter, volume, pan, pitchFactor, "down", voices);
+    } else if (kit === "lasers") {
+      playLaser(sound, letter, volume, pan, pitchFactor, "down", voices);
     } else {
       playPercussion(sound, letter, volume, pan, pitchFactor, "down", voices);
     }
@@ -2349,10 +2678,12 @@ function act({ event: e, sound, wifi, system }) {
       const next = cycleKit(side);
       const label = `${side} ${next === "off" ? "notes" : next}`;
       const banner = {
-        off:  side === "left" ? `${arrow} notes` : `notes ${arrow}`,
-        perc: side === "left" ? `${arrow} DRUMS` : `DRUMS ${arrow}`,
-        warA: side === "left" ? `${arrow} WAR A` : `WAR A ${arrow}`,
-        warB: side === "left" ? `${arrow} WAR B` : `WAR B ${arrow}`,
+        off:    side === "left" ? `${arrow} notes`  : `notes ${arrow}`,
+        perc:   side === "left" ? `${arrow} DRUMS`  : `DRUMS ${arrow}`,
+        warA:   side === "left" ? `${arrow} WAR A`  : `WAR A ${arrow}`,
+        warB:   side === "left" ? `${arrow} WAR B`  : `WAR B ${arrow}`,
+        zoo:    side === "left" ? `${arrow} ZOO`    : `ZOO ${arrow}`,
+        lasers: side === "left" ? `${arrow} LASERS` : `LASERS ${arrow}`,
       }[next];
       flashPercussionNotice(banner);
       sound?.speak?.(label);
@@ -2364,9 +2695,11 @@ function act({ event: e, sound, wifi, system }) {
         duration: 0.10, volume: 0.18, attack: 0.002, decay: 0.09, pan: feedbackPan,
       }), 70);
       // Preview the kit's signature sound on "c" so the user hears what
-      // they just switched to (kick for perc, pistol for whichever war model).
+      // they just switched to.
       if (next === "perc") playPercussion(sound, "c", 1.6, pan);
       else if (isWarKit(next)) playWar(sound, "c", 1.2, pan, 1.0, "both", null, warModelFor(next));
+      else if (next === "zoo") playZoo(sound, "c", 1.2, pan);
+      else if (next === "lasers") playLaser(sound, "c", 1.2, pan);
       return;
     }
     // F12 (star key): recital mode — hide UI, show only colored backdrops
