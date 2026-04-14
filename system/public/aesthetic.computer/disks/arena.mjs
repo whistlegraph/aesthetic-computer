@@ -1101,12 +1101,11 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   // 🎯 Switch cursor based on pen lock state (FPS mode vs UI mode)
   if (api?.cursor) {
     if (penLocked) {
-      // FPS mode: crosshair cursor
-      api.cursor('crosshair');
-    } else {
-      // UI mode: default cursor
-      api.cursor('auto');
+      // FPS mode: yellow crosshair cursor
+      const yellowCrosshair = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cline x1='16' y1='4' x2='16' y2='28' stroke='%23FFFF00' stroke-width='2'/%3E%3Cline x1='4' y1='16' x2='28' y2='16' stroke='%23FFFF00' stroke-width='2'/%3E%3C/svg%3E`;
+      api.cursor(`url('${yellowCrosshair}') 16 16, auto`);
     }
+    // UI mode: keep default cyan cursor (don't override)
   }
 
   // FPS calc — `now` is NOT a paint-API parameter (destructuring gave us
