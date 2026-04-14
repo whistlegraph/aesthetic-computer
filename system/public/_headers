@@ -3,3 +3,12 @@
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
   Expires: 0
+
+# Firmware install script + assets — served as text/plain or
+# application/octet-stream so `curl | bash` and raw binary downloads
+# both work without content negotiation surprises.
+/install-firmware.sh
+  Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=60
+/firmware/*
+  Cache-Control: public, max-age=3600
