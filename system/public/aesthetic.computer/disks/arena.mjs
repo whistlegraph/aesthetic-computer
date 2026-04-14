@@ -1435,6 +1435,9 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
         if (name === "jump" || name === "crouch") {
           // Jump/Crouch buttons have animation states
           bufferName = isPressed ? `${name}_active` : `${name}_normal`;
+          if (name === "crouch") {
+            console.log(`🐒 crouch button: isPressed=${isPressed}, bufferName=${bufferName}, shift=${keyboardState.shift}`);
+          }
         }
 
         const buffer = buttonBuffers[bufferName];
