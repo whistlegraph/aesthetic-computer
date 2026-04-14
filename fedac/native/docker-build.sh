@@ -429,14 +429,21 @@ if [ -n "$FWDIR" ]; then
     # (Jasper Lake, Alder Lake, Tiger Lake…) and many modern laptops where
     # audio doesn't go through plain HDA. Need the main .ri blob per
     # platform plus the matching topology under sof-tplg/.
+    #
+    # Recurse: Fedora's alsa-sof-firmware puts sof-<platform>.ri under
+    # intel/sof/community/ and intel/sof/intel-signed/ (not directly under
+    # intel/sof/), so a flat glob misses them. We preserve relative paths
+    # so the kernel's firmware loader still finds them along the standard
+    # SOF_FW_PATH search (which covers both community and intel-signed).
     for subdir in intel/sof intel/sof-tplg intel/sof-ace-tplg; do
         src="$FWDIR/$subdir"
         if [ -d "$src" ]; then
             mkdir -p "$IROOT/lib/firmware/$subdir"
-            for fw in "$src"/*.ri "$src"/*.tplg "$src"/*.tplg.xz "$src"/*.ri.xz \
-                      "$src"/*.ri.zst "$src"/*.tplg.zst; do
-                [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/$subdir/"
-            done
+            (cd "$src" && find . -type f \
+                \( -name '*.ri' -o -name '*.tplg' \
+                   -o -name '*.ri.xz' -o -name '*.tplg.xz' \
+                   -o -name '*.ri.zst' -o -name '*.tplg.zst' \) \
+                -exec cp --parents -L {} "$IROOT/lib/firmware/$subdir/" \;) || true
         fi
     done
 else
