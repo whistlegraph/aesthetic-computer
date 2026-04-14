@@ -132,6 +132,39 @@ function act({ event: e, sound, system }) {
       sound?.synth({ type: "sine", tone: 523, duration: 0.05, volume: 0.1, attack: 0.002, decay: 0.04 });
       return;
     }
+    // 'f' enters the firmware panel — gated on system.firmware.available so
+    // it's a no-op on machines without MrChromebox/coreboot + SPI access.
+    if (e.is("keyboard:down:f") && system?.firmware?.available) {
+      state = "firmware";
+      sound?.synth({ type: "sine", tone: 523, duration: 0.05, volume: 0.1, attack: 0.002, decay: 0.04 });
+      return;
+    }
+  }
+
+  // Firmware panel controls
+  if (state === "firmware") {
+    if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
+      state = "idle";
+      return;
+    }
+    // Block further input while the install thread is mid-flight.
+    if (system?.firmware?.pending) return;
+    if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
+      system?.firmware?.install?.("install");
+      sound?.synth({ type: "triangle", tone: 784, duration: 0.1, volume: 0.12, attack: 0.003, decay: 0.08 });
+      return;
+    }
+    if (e.is("keyboard:down:t")) {
+      system?.firmware?.install?.("dry-run");
+      sound?.synth({ type: "sine", tone: 659, duration: 0.06, volume: 0.1, attack: 0.002, decay: 0.05 });
+      return;
+    }
+    if (e.is("keyboard:down:r")) {
+      system?.firmware?.install?.("restore");
+      sound?.synth({ type: "triangle", tone: 440, duration: 0.1, volume: 0.12, attack: 0.003, decay: 0.08 });
+      return;
+    }
+    return;
   }
 
   // Device manager controls
@@ -601,12 +634,70 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(140);
     write("do not power off", { x: pad, y: stateY + 44, size: 1, font });
 
+  } else if (state === "firmware") {
+    // ── Firmware update panel ──
+    // Only entered from idle when system.firmware.available is true, so by
+    // definition we can surface "update available" without a coreboot check
+    // here. We still sanity-gate the `y` action on .available in case of
+    // hot state (rare: SPI driver unbind, MTD removed).
+    const fw = system?.firmware || {};
+    ink(T.fg, T.fg + 10, T.fg);
+    write("firmware", { x: pad, y: stateY, size: 2, font: "matrix" });
+    ink(T.fgMute);
+    write("board:   " + (fw.board || "?"), { x: pad, y: stateY + 24, size: 1, font });
+    write("vendor:  " + (fw.biosVendor || "?").slice(0, 32), { x: pad, y: stateY + 38, size: 1, font });
+    write("current: " + (fw.biosVersion || "?").slice(0, 32), { x: pad, y: stateY + 52, size: 1, font });
+
+    if (fw.pending) {
+      ink(T.warn[0], T.warn[1], T.warn[2]);
+      const dots = ".".repeat((Math.floor(frame / 12) % 3) + 1);
+      write("flashing firmware" + dots, { x: pad, y: stateY + 74, size: 1, font });
+      ink(255, 80, 80);
+      write("DO NOT POWER OFF", { x: pad, y: stateY + 88, size: 1, font });
+    } else if (fw.done) {
+      if (fw.ok) {
+        ink(T.ok[0], T.ok[1], T.ok[2]);
+        write("✓ firmware updated", { x: pad, y: stateY + 74, size: 1, font });
+        if (fw.backupPath) {
+          ink(T.fgMute);
+          write("backup: " + fw.backupPath.slice(0, 44), { x: pad, y: stateY + 88, size: 1, font });
+        }
+        ink(T.warn[0], T.warn[1], T.warn[2]);
+        write("reboot to activate (esc → os → y)", { x: pad, y: stateY + 102, size: 1, font });
+      } else {
+        ink(T.err[0], T.err[1], T.err[2]);
+        write("✗ flash failed — see log", { x: pad, y: stateY + 74, size: 1, font });
+      }
+    } else {
+      const pulse = Math.floor(180 + 75 * Math.sin(frame * 0.08));
+      ink(pulse, 255, pulse);
+      write("y: install   t: dry-run   r: restore", { x: pad, y: stateY + 74, size: 1, font });
+      ink(T.fgMute);
+      write("swaps bootsplash on MrChromebox ROM", { x: pad, y: stateY + 88, size: 1, font });
+    }
+
+    // Live log tail — last ~6 lines from the install script
+    const log = fw.log || [];
+    const maxLines = Math.min(6, log.length);
+    const logY = stateY + 120;
+    for (let i = 0; i < maxLines; i++) {
+      const entry = log[log.length - maxLines + i];
+      ink(60, 120, 80);
+      write(String(entry).slice(0, Math.floor((w - pad * 2) / 6)), { x: pad, y: logY + i * 10, size: 1, font });
+    }
+
   } else {
     // idle
     ink(T.fgMute);
     write("enter: check for updates", { x: pad, y: stateY, size: 1, font });
     ink(T.fgMute - 20, T.fgMute, T.fgMute + 10);
     write("d: devices", { x: pad, y: stateY + 14, size: 1, font });
+    // Only surface the firmware shortcut when the kernel + DMI confirm this
+    // board can actually be flashed — no false promises on stock OEM BIOS.
+    if (system?.firmware?.available) {
+      ink(T.fgMute - 20, T.fgMute + 10, T.fgMute);
+      write("f: firmware", { x: pad, y: stateY + 28, size: 1, font });
+    }
   }
 
   // Bottom hint (not during shutdown)

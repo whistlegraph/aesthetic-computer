@@ -69,6 +69,19 @@ typedef struct {
     char  flash_log[16][128];            // last 16 log lines
     volatile int flash_log_count;        // total lines written (modulo 16 for ring index)
 
+    // Firmware update (coreboot/MrChromebox flashrom flow via
+    // /bin/ac-firmware-install, spawned as a detached thread + popen).
+    // Mirrors the flash_* fields above but keeps its own ring buffer so a
+    // concurrent kernel flash can't clobber the log.
+    volatile int  fw_pending;            // 1 = firmware thread running
+    volatile int  fw_done;               // 1 = complete
+    volatile int  fw_ok;                 // 1 = flashrom -w succeeded
+    pthread_t     fw_thread;
+    char          fw_log[32][160];       // last 32 stdout/stderr lines
+    volatile int  fw_log_count;
+    char          fw_args[128];          // "" or "--dry-run" or "--restore PATH"
+    char          fw_backup_path[256];   // path to /tmp/firmware-backup-*.rom
+
     // Camera QR scanning (V4L2 + quirc)
     ACCamera camera;
     volatile int qr_scan_active;         // 1 = camera open, scanning each frame

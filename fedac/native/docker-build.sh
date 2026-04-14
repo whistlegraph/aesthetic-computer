@@ -348,7 +348,13 @@ for tool in wpa_supplicant wpa_cli iw dhclient rfkill; do
 done
 
 # ── 2i2: Disk/EFI tools (for HD install + OTA flash) ──
-for tool in sfdisk mkfs.vfat efibootmgr partprobe; do
+# flashrom + cbfstool land here too so os.mjs's firmware panel can read the
+# current BIOS, swap the CBFS bootsplash, and write a customized MrChromebox
+# ROM without needing to drop to a ChromeOS shell. Only machines whose kernel
+# + firmware actually expose the SPI chip (see CONFIG_SPI_INTEL_PCI and
+# `flashrom --programmer internal` probe) get to use them; os.mjs gates on
+# /dev/mtd0 + /sys/class/dmi/id/bios_vendor before even surfacing the panel.
+for tool in sfdisk mkfs.vfat efibootmgr partprobe flashrom cbfstool; do
     SRC_BIN=$(command -v "$tool" 2>/dev/null || true)
     if [ -n "$SRC_BIN" ]; then
         cp -L "$SRC_BIN" "$IROOT/bin/"
@@ -358,6 +364,15 @@ for tool in sfdisk mkfs.vfat efibootmgr partprobe; do
         done
     fi
 done
+
+# Bundle install-firmware.sh — sourced from the same repo copy served at
+# aesthetic.computer/install-firmware.sh so the offline firmware update
+# path uses the exact same logic as `curl | bash` from ChromeOS dev shell.
+if [ -f "$AC_SRC/system/public/install-firmware.sh" ]; then
+    cp "$AC_SRC/system/public/install-firmware.sh" "$IROOT/bin/ac-firmware-install"
+    chmod +x "$IROOT/bin/ac-firmware-install"
+    log "  Bundled install-firmware.sh for os.mjs firmware panel"
+fi
 
 # ── 2j: Firmware (trimmed to common Intel WiFi + GPU chips) ──
 log "  Copying firmware..."

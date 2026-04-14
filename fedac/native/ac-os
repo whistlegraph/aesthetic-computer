@@ -16,7 +16,7 @@ VMLINUZ="${BUILD_DIR}/vmlinuz"
 INITRAMFS_ROOT="${BUILD_DIR}/initramfs-root"
 AC_MEDIA_NATIVE_DIR="${SCRIPT_DIR}"
 MEDIA_LAYOUT_LIB="${SCRIPT_DIR}/scripts/media-layout.sh"
-MEDIA_HELPER_IMAGE="${AC_MEDIA_HELPER_IMAGE:-ac-os-media-helper:img-v1}"
+MEDIA_HELPER_IMAGE="${AC_MEDIA_HELPER_IMAGE:-ac-os-media-helper:img-v2-ext-initrd}"
 MEDIA_HELPER_DOCKERFILE="${SCRIPT_DIR}/Dockerfile.flash-helper"
 
 CMD="${1:-build}"
