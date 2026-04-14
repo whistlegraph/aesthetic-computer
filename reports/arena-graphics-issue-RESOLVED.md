@@ -82,16 +82,39 @@ This syntax error caused:
 
 ---
 
+## Follow-up Fix: Duplicate Code Cleanup (2026-04-14, Session 2)
+
+After the initial fix, a second issue was discovered:
+- **Orphaned duplicate code** at lines 520-749 containing old painting buffer creation with `plot()` calls
+- This code was left behind from incomplete refactoring
+- The `plot()` function is not available in the painting API (only `box()`, `line()`, `wipe()`, `ink()`)
+- **Fix applied**: Removed all orphaned duplicate code (lines 520-749)
+- **Result**: File now has single, clean implementation of all 8 button buffers with proper `box()` calls for pixel drawing
+
+### Code Quality After Cleanup
+- Single source of truth for button graphics (lines 308-519)
+- All pixel drawing uses `box(x, y, 1, 1)` instead of unavailable `plot()`
+- Syntax validation passes: `node -c arena.mjs` ✓
+- 8 button buffers created:
+  - `jump_normal`, `jump_active` (56x28px, green, stick figures)
+  - `crouch_normal`, `crouch_active` (56x28px, orange, stick figures)
+  - `up`, `down`, `left`, `right` (28x28px each, blue, arrow graphics)
+
 ## Next Steps for Verification
 
 1. Navigate to `aesthetic.computer/arena` in browser
 2. Verify 3D ground plane and scene render
-3. Verify mobile buttons appear with text labels at bottom of screen
-4. Test button responsiveness and color changes on press
-5. Confirm no console errors about `data is not defined`
+3. Verify all 6 mobile buttons appear with graphics:
+   - **D-pad** (bottom-left): ↑ ← ↓ → with arrow graphics (blue, 28x28)
+   - **Action buttons** (bottom-right): JUMP (green, 56x28) and CROUCH (orange, 56x28) with stick figure animations
+4. Test button responsiveness:
+   - Jump button shows animated stick figure jumping when pressed
+   - Crouch button shows animated stick figure crouching when pressed
+   - D-pad arrows light up on press
+5. Confirm no console errors about `plot is not defined` or `data is not defined`
 
 ---
 
 ## Key Insight
 
-The graphics pipeline wasn't actually broken - it was just never executed due to the syntax error preventing the entire paint function from being compiled. Once the syntax is fixed, the existing graphics code (wipe, form, ink, write calls) executes normally and renders the scene.
+The graphics pipeline wasn't actually broken - it was just never executed due to the syntax error preventing the entire paint function from being compiled. Once the syntax is fixed and duplicate code is removed, the existing graphics code (wipe, form, ink, write calls) executes normally and renders the scene. The buffer system uses pre-baked graphics for performance, rendering them with `paste()` calls during the paint loop.
