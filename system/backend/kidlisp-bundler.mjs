@@ -60,6 +60,7 @@ const ESSENTIAL_FILES = [
   'lib/store.mjs',
   'lib/platform.mjs',
   'lib/pack-mode.mjs',
+  'lib/l5.mjs', // 🔧 Wasmoon/Lua runtime required by disk.mjs
   
   // BIOS dependencies (required by imports)
   'lib/keyboard.mjs',
@@ -116,28 +117,28 @@ function rewriteImports(code, filepath) {
   code = code.replace(/from\s*['"]aesthetic\.computer\/disks\/([^'"]+)['"]/g, (match, p) => {
     return 'from \'ac/disks/' + p + '\'';
   });
-  
+
   code = code.replace(/import\s*\((['"]aesthetic\.computer\/disks\/([^'"]+)['")])\)/g, (match, fullPath, p) => {
     return 'import(\'ac/disks/' + p + '\')';
   });
-  
-  // Rewrite relative imports
-  code = code.replace(/from\s*['"](\.\.\/[^'"]+|\.\/[^'"]+)['"]/g, (match, p) => {
+
+  // Rewrite relative imports (strip query params for resolution, then re-add)
+  code = code.replace(/from\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?['"]/g, (match, p, query) => {
     const resolved = resolvePath(filepath, p);
-    return 'from"' + resolved + '"';
+    return 'from"' + resolved + (query || '') + '"';
   });
-  
-  // Rewrite dynamic imports
-  code = code.replace(/import\s*\((['"](\.\.\/[^'"]+|\.\/[^'"]+)['")])\)/g, (match, fullPath, p) => {
+
+  // Rewrite dynamic imports (strip query params for resolution, then re-add)
+  code = code.replace(/import\s*\((['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?)['"](\))\)/g, (match, fullPath, p, query, closing) => {
     const resolved = resolvePath(filepath, p);
-    return 'import("' + resolved + '")';
+    return 'import("' + resolved + (query || '') + '")';
   });
-  
-  code = code.replace(/import\s*\(\`(\.\.\/[^\`]+|\.\/[^\`]+)\`\)/g, (match, p) => {
+
+  code = code.replace(/import\s*\(\`(\.\.\/[^\`?]+)(\?[^\`]*)?\`\)/g, (match, p, query) => {
     const resolved = resolvePath(filepath, p);
-    return 'import("' + resolved + '")';
+    return 'import("' + resolved + (query || '') + '")';
   });
-  
+
   return code;
 }
 
@@ -219,13 +220,13 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
     try {
       const content = await fs.readFile(fullPath, 'utf8');
       
-      // Find all relative imports
-      const importRegex = /from\s+["'](\.\.[^"']+|\.\/[^"']+)["']/g;
-      const dynamicImportRegex = /import\s*\(\s*["'](\.\.[^"']+|\.\/[^"']+)["']\s*\)/g;
-      
+      // Find all relative imports (strip query params for path resolution)
+      const importRegex = /from\s+["'](\.\.[^"'?]+|\.\/[^"'?]+)(\?[^"']*)?["']/g;
+      const dynamicImportRegex = /import\s*\(\s*["'](\.\.[^"'?]+|\.\/[^"'?]+)(\?[^"']*)?["']\s*\)/g;
+
       let match;
       while ((match = importRegex.exec(content)) !== null) {
-        const importPath = match[1];
+        const importPath = match[1]; // just the path, not the query
         const resolved = resolvePath(file, importPath);
         
         if (skipFiles.some(skip => resolved.includes(skip))) {
