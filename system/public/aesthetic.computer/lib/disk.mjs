@@ -6983,6 +6983,48 @@ class Painting {
       }
     }
 
+    // Ensure critical graphics functions are available (fallback if wrapping fails)
+    if (!p.api.box && typeof graph.box === "function") {
+      p.api.box = function () {
+        const callArgs = arguments;
+        if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
+        p.#layers[p.#layer].push([
+          "box",
+          () => graph.box(...callArgs),
+        ]);
+        return p.api;
+      };
+    }
+    if (!p.api.line && typeof graph.line === "function") {
+      p.api.line = function () {
+        const callArgs = arguments;
+        if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
+        p.#layers[p.#layer].push([
+          "line",
+          () => graph.line(...callArgs),
+        ]);
+        return p.api;
+      };
+    }
+    if (!p.api.wipe && typeof $paintApiUnwrapped.wipe === "function") {
+      p.api.wipe = function () {
+        const callArgs = arguments;
+        if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
+        p.#layers[p.#layer].push([
+          "wipe",
+          () => $paintApiUnwrapped.wipe(...callArgs),
+        ]);
+        return p.api;
+      };
+    }
+    if (!p.api.ink && typeof $paintApiUnwrapped.ink === "function") {
+      p.api.ink = function () {
+        $paintApiUnwrapped.ink(...arguments);
+        p.inkrn = graph.c.slice();
+        return p.api;
+      };
+    }
+
     // Allows grouping & composing painting order using an AofA (Array of Arrays).
     // n: 0-n (Cannot be negative.)
     // fun: A callback that contains $paintApi commands or any other code.
