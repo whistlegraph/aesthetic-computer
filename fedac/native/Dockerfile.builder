@@ -63,7 +63,7 @@ RUN git clone --depth 1 --branch 4.22 --filter=blob:none --sparse \
     && git sparse-checkout set util/cbfstool src/commonlib \
     && git submodule update --init --depth 1 3rdparty/vboot \
     && cd util/cbfstool \
-    && make -j"$(nproc)" cbfstool \
+    && make -j"$(nproc)" HOSTCFLAGS="-Wno-error -Wno-calloc-transposed-args -Wno-unterminated-string-initialization" cbfstool \
     && install -m 0755 cbfstool /usr/local/bin/cbfstool \
     && cd / && rm -rf /tmp/coreboot
 
