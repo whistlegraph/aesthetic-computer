@@ -3769,6 +3769,7 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
 // Detect the EFI partition we booted from:
 // - If /sys/block/sda/removable == 1 → USB → /dev/sda1
 // - Else if /dev/nvme0n1p1 exists → NVMe internal → /dev/nvme0n1p1
+// - Else if /dev/mmcblk0p1 exists → eMMC internal (Chromebooks) → /dev/mmcblk0p1
 // - Fallback: /dev/sda1
 static void detect_boot_device(char *out, size_t len) {
     char removable[8] = {0};
@@ -3781,6 +3782,11 @@ static void detect_boot_device(char *out, size_t len) {
     if (access("/dev/nvme0n1p1", F_OK) == 0) {
         snprintf(out, len, "/dev/nvme0n1p1");
         ac_log("[flash] boot device: NVMe (/dev/nvme0n1p1)");
+        return;
+    }
+    if (access("/dev/mmcblk0p1", F_OK) == 0) {
+        snprintf(out, len, "/dev/mmcblk0p1");
+        ac_log("[flash] boot device: eMMC (/dev/mmcblk0p1)");
         return;
     }
     // Fallback — try sda1 anyway
@@ -5985,6 +5991,16 @@ static JSValue build_system_obj(JSContext *ctx) {
             JSValue t = JS_NewObject(ctx);
             JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, "/dev/nvme0n1p1"));
             JS_SetPropertyStr(ctx, t, "label", JS_NewString(ctx, "Internal (NVMe)"));
+            JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, 0));
+            JS_SetPropertyUint32(ctx, targets, idx++, t);
+        }
+        // Check eMMC (/dev/mmcblk0p1) — Chromebooks + some budget laptops use
+        // eMMC instead of NVMe. Parent device is mmcblk0, partitions are
+        // mmcblk0p1 etc. — same "p<N>" suffix scheme as NVMe.
+        if (access("/dev/mmcblk0p1", F_OK) == 0) {
+            JSValue t = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, "/dev/mmcblk0p1"));
+            JS_SetPropertyStr(ctx, t, "label", JS_NewString(ctx, "Internal (eMMC)"));
             JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, 0));
             JS_SetPropertyUint32(ctx, targets, idx++, t);
         }
