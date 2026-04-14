@@ -888,6 +888,16 @@ write_usb_config_file() {
     local CLAUDE_CREDS=""
     local CLAUDE_STATE=""
 
+    # AC_ANON=1 produces a shareable USB — no handle, no tokens, no
+    # Claude/GitHub creds. Flash this when giving someone a device to
+    # boot into notepat without inscribing your session onto it.
+    if [ "${AC_ANON:-0}" = "1" ]; then
+        USB_CONFIG='{"handle":"anonymous"}'
+        ac_media_write_legacy_config "${CONFIG_FILE}" "${USB_CONFIG}"
+        log "USB config: anonymous (no tokens, no session)"
+        return 0
+    fi
+
     if [ -n "${AC_USER_HANDLE:-}" ]; then
         AC_ACCESS_TOKEN=$(read_ac_access_token)
         HANDLE_TOKEN_JSON=$(fetch_authenticated_handle_tokens "${AC_ACCESS_TOKEN}" || true)
@@ -1435,22 +1445,36 @@ pull_ota() {
     mkdir -p "${PULL_DIR}"
     local PULLED_KERNEL="${PULL_DIR}/vmlinuz"
 
-    log "Downloading kernel (~$(( KERNEL_SIZE / 1048576 ))MB)..."
-    curl -f --progress-bar -o "${PULLED_KERNEL}" "${KERNEL_URL}" || { err "Download failed"; exit 1; }
-
-    # Verify SHA256
+    # Fetch expected hash up-front so we can skip the download if the
+    # cached file already matches. Saves ~260 MB over slow links when
+    # re-flashing the same OTA release.
     log "Verifying SHA256..."
     local EXPECTED_HASH
     EXPECTED_HASH=$(curl -sf "${HASH_URL}") || { err "Failed to fetch hash"; exit 1; }
-    local ACTUAL_HASH
-    ACTUAL_HASH=$(sha256sum "${PULLED_KERNEL}" | cut -d' ' -f1)
-    if [ "${ACTUAL_HASH}" != "${EXPECTED_HASH}" ]; then
-        err "SHA256 mismatch!"
-        err "  expected: ${EXPECTED_HASH}"
-        err "  got:      ${ACTUAL_HASH}"
-        exit 1
+
+    local SKIP_DOWNLOAD=0
+    if [ -f "${PULLED_KERNEL}" ]; then
+        local CACHED_HASH
+        CACHED_HASH=$(sha256sum "${PULLED_KERNEL}" | cut -d' ' -f1)
+        if [ "${CACHED_HASH}" = "${EXPECTED_HASH}" ]; then
+            log "Cached kernel matches — skipping download"
+            SKIP_DOWNLOAD=1
+        fi
     fi
-    log "SHA256 verified: ${ACTUAL_HASH:0:16}..."
+
+    if [ "${SKIP_DOWNLOAD}" -eq 0 ]; then
+        log "Downloading kernel (~$(( KERNEL_SIZE / 1048576 ))MB)..."
+        curl -f --progress-bar -o "${PULLED_KERNEL}" "${KERNEL_URL}" || { err "Download failed"; exit 1; }
+        local ACTUAL_HASH
+        ACTUAL_HASH=$(sha256sum "${PULLED_KERNEL}" | cut -d' ' -f1)
+        if [ "${ACTUAL_HASH}" != "${EXPECTED_HASH}" ]; then
+            err "SHA256 mismatch!"
+            err "  expected: ${EXPECTED_HASH}"
+            err "  got:      ${ACTUAL_HASH}"
+            exit 1
+        fi
+    fi
+    log "SHA256 verified: ${EXPECTED_HASH:0:16}..."
 
     # Download slim kernel + initramfs for universal Mac/ThinkPad boot
     local SLIM_URL="${CDN_BASE}/native-notepat-latest.vmlinuz-slim"
@@ -1458,10 +1482,26 @@ pull_ota() {
     local PULLED_SLIM="${PULL_DIR}/vmlinuz-slim"
     local PULLED_INITRAMFS="${PULL_DIR}/initramfs.cpio.gz"
     if curl -sf --head "${SLIM_URL}" >/dev/null 2>&1; then
-        log "Downloading slim kernel..."
-        curl -f --progress-bar -o "${PULLED_SLIM}" "${SLIM_URL}" || true
-        log "Downloading initramfs..."
-        curl -f --progress-bar -o "${PULLED_INITRAMFS}" "${INITRAMFS_URL}" || true
+        # Cache-aware downloads for slim+initramfs too. We don't have a
+        # published hash for these, so we use HEAD's Content-Length as
+        # a cheap freshness check — if the local size matches remote,
+        # assume the file is the one the kernel hash above verified.
+        local SLIM_REMOTE_SIZE=$(curl -sfI "${SLIM_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
+        local INIT_REMOTE_SIZE=$(curl -sfI "${INITRAMFS_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
+        local SLIM_LOCAL_SIZE=$([ -f "${PULLED_SLIM}" ] && stat -c%s "${PULLED_SLIM}" 2>/dev/null || echo 0)
+        local INIT_LOCAL_SIZE=$([ -f "${PULLED_INITRAMFS}" ] && stat -c%s "${PULLED_INITRAMFS}" 2>/dev/null || echo 0)
+        if [ "${SLIM_LOCAL_SIZE}" = "${SLIM_REMOTE_SIZE}" ] && [ "${SLIM_REMOTE_SIZE}" -gt 0 ]; then
+            log "Cached slim kernel matches — skipping download"
+        else
+            log "Downloading slim kernel..."
+            curl -f --progress-bar -o "${PULLED_SLIM}" "${SLIM_URL}" || true
+        fi
+        if [ "${INIT_LOCAL_SIZE}" = "${INIT_REMOTE_SIZE}" ] && [ "${INIT_REMOTE_SIZE}" -gt 0 ]; then
+            log "Cached initramfs matches — skipping download"
+        else
+            log "Downloading initramfs..."
+            curl -f --progress-bar -o "${PULLED_INITRAMFS}" "${INITRAMFS_URL}" || true
+        fi
         if [ -f "${PULLED_SLIM}" ] && [ -f "${PULLED_INITRAMFS}" ]; then
             log "Universal boot files ready (slim $(du -sh "${PULLED_SLIM}" | cut -f1) + initramfs $(du -sh "${PULLED_INITRAMFS}" | cut -f1))"
         fi
@@ -1563,7 +1603,9 @@ exec qemu-system-x86_64 \
         log "Smoke test passed — USB flashed!"
         ;;
     pull)
-        require_login
+        # AC_ANON=1 skips login — pull_ota only hits public CDN URLs and
+        # the flash writes an anonymous config.json (no baked tokens).
+        [ "${AC_ANON:-0}" != "1" ] && require_login
         pull_ota
         flash_usb
         ;;
