@@ -161,21 +161,17 @@ if [ -d /sys/bus/pci/devices ]; then
     done
 fi
 echo "=== DMESG (kernel ring) ===" >> $LOG
-# Capture 15s of /dev/kmsg into pre-launch.log so we see SOF machine driver
-# probe + ALSA card registration (which happens 5-10s after boot on Jasper
-# Lake when the DSP firmware exchange is this slow). Also spawn a persistent
-# `cat /dev/kmsg` that runs for the entire ac-native session, appending to
-# /mnt/kmsg.log — that captures everything after pre-launch closes, including
-# late probe errors, driver unbinds, runtime OOM, audio hardware quirks, etc.
-( cat /dev/kmsg >> $LOG 2>&1 ) &
-KMSG_PID=$!
-sleep 15
-kill $KMSG_PID 2>/dev/null
+# Kick off two /dev/kmsg readers in the background — do NOT block boot on
+# them. The foreground script used to sleep 15s here waiting for late SOF
+# machine-driver probes, which put a hard 15-second floor under every boot.
+# Instead:
+#  - One reader appends to pre-launch.log for ~15s, then exits on its own.
+#  - A persistent reader writes to /mnt/kmsg.log for the entire session so
+#    runtime issues (audio probe failures, driver unbinds, OOMs) are still
+#    captured. /init's wait-on-child keeps both alive long enough.
 if [ "$USB_MOUNTED" = "1" ]; then
-    # Persistent kmsg sink — writes until ac-native exits (we do not kill it
-    # explicitly; the init script's wait-on-child pattern keeps it alive for
-    # the full session and sync-at-exit flushes it).
     ( cat /dev/kmsg >> /mnt/kmsg.log 2>&1 ) &
+    ( (cat /dev/kmsg & CAT_PID=$!; sleep 15; kill $CAT_PID 2>/dev/null) >> $LOG 2>&1 ) &
 fi
 # Snapshot devices + sound AFTER the ring-buffer dump so we see the state
 # that existed when drivers had their chance to probe.
@@ -195,6 +191,29 @@ for d in /sys/bus/pci/devices/*; do
             ;;
     esac
 done
+# Audio codec ACPI probe — if SOF isn't creating a card on this machine,
+# the usual cause is that coreboot's DSDT doesn't declare the RT5682 /
+# MAX98360A / etc. ACPI devices with the HIDs SOF's JSL match table looks
+# for (10EC5682, MX98360A, DLGS7219…). Log what the kernel actually sees
+# on the ACPI bus so we can cross-reference against sof's allowlist.
+echo "ACPI audio codecs:" >> $LOG
+for d in /sys/bus/acpi/devices/*; do
+    [ -d "$d" ] || continue
+    hid=$(cat "$d/hid" 2>/dev/null)
+    case "$hid" in
+        10EC*|RTL*|MX98*|DLGS*|ESSX*|1013*)
+            path=$(basename "$d")
+            status=$(cat "$d/status" 2>/dev/null)
+            echo "  hid=$hid acpi=$path status=$status" >> $LOG
+            ;;
+    esac
+done
+echo "SOF platform devices:" >> $LOG
+ls /sys/bus/platform/devices/ 2>/dev/null | grep -iE "sof|jsl_rt5682|cs42l42|hda" >> $LOG
+echo "ASoC machines (if debugfs mounted):" >> $LOG
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+cat /sys/kernel/debug/asoc/platforms 2>/dev/null >> $LOG
+cat /sys/kernel/debug/asoc/dais 2>/dev/null | head -20 >> $LOG
 echo "=== CPUINFO ===" >> $LOG
 head -30 /proc/cpuinfo >> $LOG 2>&1
 echo "=== CMDLINE ===" >> $LOG
