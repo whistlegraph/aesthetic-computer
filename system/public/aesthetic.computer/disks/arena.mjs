@@ -529,6 +529,9 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       plot(6, 10);
       plot(6, 18);
     });
+
+    // Debug: log created buffers
+    console.log("🎨 Button buffers created:", Object.keys(buttonBuffers));
   }
 
 
@@ -1455,10 +1458,14 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
 
         const buffer = buttonBuffers[bufferName];
         if (buffer) {
-          // Render pixel graphics (centered in button)
-          const centerX = b.box.x + (b.box.w - buffer.width) / 2;
-          const centerY = b.box.y + (b.box.h - buffer.height) / 2;
-          paste(buffer, centerX, centerY);
+          if (!paste) {
+            console.log(`⚠️  paste not available for button ${name}`);
+          } else {
+            // Render pixel graphics (centered in button)
+            const centerX = b.box.x + (b.box.w - buffer.width) / 2;
+            const centerY = b.box.y + (b.box.h - buffer.height) / 2;
+            paste(buffer, centerX, centerY);
+          }
         }
       });
     }
