@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <dirent.h>
 #include <time.h>
 #include <stdarg.h>
 
@@ -48,6 +49,28 @@ static int file_exists(const char *path) {
 }
 
 static int detect_iface(char *out, int out_len) {
+    // Chromebooks (esp. HP 14 G7 / Jasper Lake w/ Intel AX201) often boot
+    // with WiFi rfkill-blocked at the ACPI / coreboot level — the iwlwifi
+    // driver loads but mac80211 refuses to register an interface, so
+    // `iw dev` returns nothing. Unblock unconditionally before we look
+    // for an interface; it's a no-op on hardware that wasn't blocked.
+    if (system("rfkill unblock all >/dev/null 2>&1") != 0) {
+        // rfkill binary not available — fall back to writing the soft
+        // flag on every rfkill node we can find.
+        DIR *rd = opendir("/sys/class/rfkill");
+        if (rd) {
+            struct dirent *ent;
+            while ((ent = readdir(rd)) != NULL) {
+                if (ent->d_name[0] == '.') continue;
+                char path[256];
+                snprintf(path, sizeof(path), "/sys/class/rfkill/%s/soft", ent->d_name);
+                FILE *f = fopen(path, "w");
+                if (f) { fputs("0\n", f); fclose(f); }
+            }
+            closedir(rd);
+        }
+    }
+
     FILE *fp = popen("iw dev 2>/dev/null | grep Interface | head -1 | awk '{print $2}'", "r");
     if (fp) {
         char buf[32] = "";
