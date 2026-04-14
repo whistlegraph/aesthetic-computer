@@ -4,6 +4,8 @@
 
 ## arena.mjs went native and got real 3D controls
 
+![arena](https://oven.aesthetic.computer/news-screenshot/arena.png)
+
 the big one: arena.mjs now boots instantly without downloading — it's bundled right into the operating system. the game runs smooth and the collision system, camera tracking, and motion blur all work at solid framerates.
 
 controls got a mobile-first overhaul. you can use xbox 360 gamepads now, and there's an on-screen controller that shows you where everything is. touch buttons actually register when you tap them. right-click orbit works without glitching, and the camera rotation feels separated from the player rotation so you can look around freely.
