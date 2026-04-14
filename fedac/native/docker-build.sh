@@ -387,16 +387,52 @@ if [ -n "$FWDIR" ]; then
     for fw in "$FWDIR"/i915/*_dmc_*.bin "$FWDIR"/i915/*_dmc_*.bin.zst; do
         [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/i915/"
     done
+
+    # Realtek WiFi (rtw88/rtw89) — common in Chromebooks, budget laptops.
+    # rtl8822b/c/ce/8723de/8821ce/8851be families live under rtw88/, rtl8851b/8852a/b/c/ce under rtw89/.
+    for subdir in rtw88 rtw89; do
+        if [ -d "$FWDIR/$subdir" ]; then
+            mkdir -p "$IROOT/lib/firmware/$subdir"
+            for fw in "$FWDIR/$subdir"/*.bin "$FWDIR/$subdir"/*.bin.zst "$FWDIR/$subdir"/*.bin.xz; do
+                [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/$subdir/"
+            done
+        fi
+    done
+
+    # MediaTek WiFi (MT7921/MT7925) — common in newer ChromeOS, budget laptops.
+    if [ -d "$FWDIR/mediatek" ]; then
+        mkdir -p "$IROOT/lib/firmware/mediatek"
+        for pattern in WIFI_MT7922_ WIFI_RAM_CODE_MT7922 WIFI_MT7925_ WIFI_RAM_CODE_MT7925 mt7921 mt7925; do
+            for fw in "$FWDIR/mediatek/${pattern}"* ; do
+                [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/mediatek/"
+            done
+        done
+    fi
+
+    # SOF (Sound Open Firmware) — Intel DSP audio path used by Chromebooks
+    # (Jasper Lake, Alder Lake, Tiger Lake…) and many modern laptops where
+    # audio doesn't go through plain HDA. Need the main .ri blob per
+    # platform plus the matching topology under sof-tplg/.
+    for subdir in intel/sof intel/sof-tplg intel/sof-ace-tplg; do
+        src="$FWDIR/$subdir"
+        if [ -d "$src" ]; then
+            mkdir -p "$IROOT/lib/firmware/$subdir"
+            for fw in "$src"/*.ri "$src"/*.tplg "$src"/*.tplg.xz "$src"/*.ri.xz \
+                      "$src"/*.ri.zst "$src"/*.tplg.zst; do
+                [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/$subdir/"
+            done
+        fi
+    done
 else
     log "  WARNING: No firmware directory found!"
 fi
-# Decompress any .zst or .xz files
-for zst in "$IROOT/lib/firmware/"*.zst "$IROOT/lib/firmware/i915/"*.zst; do
-    [ -f "$zst" ] && zstd -d --rm "$zst" 2>/dev/null || true
-done
-for xzf in "$IROOT/lib/firmware/"*.xz "$IROOT/lib/firmware/i915/"*.xz; do
-    [ -f "$xzf" ] && xz -d "$xzf" 2>/dev/null || true
-done
+# Decompress any .zst or .xz files across all firmware subdirectories.
+while IFS= read -r -d '' zst; do
+    zstd -d --rm "$zst" 2>/dev/null || true
+done < <(find "$IROOT/lib/firmware" -name '*.zst' -print0 2>/dev/null)
+while IFS= read -r -d '' xzf; do
+    xz -d "$xzf" 2>/dev/null || true
+done < <(find "$IROOT/lib/firmware" -name '*.xz' -print0 2>/dev/null)
 FW_COUNT=$(find "$IROOT/lib/firmware" -type f | wc -l)
 FW_SIZE=$(du -sh "$IROOT/lib/firmware" | cut -f1)
 log "  Firmware: $FW_COUNT files ($FW_SIZE)"
