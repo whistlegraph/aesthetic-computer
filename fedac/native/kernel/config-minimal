@@ -2238,7 +2238,6 @@ CONFIG_PTP_1588_CLOCK_OPTIONAL=y
 # CONFIG_PTP_1588_CLOCK_MOCK is not set
 # end of PTP clock support
 
-# CONFIG_PINCTRL is not set
 # GPIO framework + Intel pinctrl drivers for Jasper Lake / Tiger Lake / Alder
 # Lake / Meteor Lake. Required for MAX98360A speaker amp (its SD_MODE enable
 # is a GPIO — without GPIOLIB the amp stays powered down and speakers are
