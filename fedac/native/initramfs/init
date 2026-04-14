@@ -228,9 +228,46 @@ cat /sys/kernel/debug/asoc/platforms 2>/dev/null >> $LOG
 cat /sys/kernel/debug/asoc/dais 2>/dev/null | head -20 >> $LOG
 echo "Loaded audio modules/built-in symbols:" >> $LOG
 cat /proc/modules 2>/dev/null | grep -iE "sof|snd|rt5682|max98" >> $LOG
-# Even built-in drivers show as symbols in /proc/kallsyms — search for the
-# sof_rt5682 driver struct to confirm it was compiled in and initialized.
-grep -E " sof_rt5682| snd_sof_" /proc/kallsyms 2>/dev/null | head -5 >> $LOG
+# Even built-in drivers show as symbols in /proc/kallsyms — confirms which
+# drivers linked into this kernel image. Broadened to also detect whether
+# PINCTRL_JASPERLAKE actually took effect (its symbols show up with
+# jsl_pinctrl_/pinctrl_jsl_ / jasperlake_ prefixes).
+grep -E " sof_rt5682| snd_sof_| jsl_pinctrl| pinctrl_jsl| jasperlake_| max98357" /proc/kallsyms 2>/dev/null | head -20 >> $LOG
+# Running kernel .config (IKCONFIG_PROC=y) — grep for our critical audio
+# symbols so we can definitively see whether olddefconfig accepted them.
+if [ -r /proc/config.gz ]; then
+    echo "Running kernel config (audio+gpio):" >> $LOG
+    zcat /proc/config.gz 2>/dev/null | grep -E "^CONFIG_(PINCTRL_JASPERLAKE|PINCTRL_INTEL|PINCTRL_METEORLAKE|GPIOLIB|GPIO_ACPI|I2C_DESIGNWARE|SND_SOC_MAX98357A|SND_SOC_INTEL_SOF_RT5682)=" >> $LOG
+fi
+echo "GPIO chips:" >> $LOG
+ls /sys/bus/gpio/devices/ 2>/dev/null >> $LOG
+for chip in /sys/class/gpio/*; do
+    [ -d "$chip" ] && echo "  $(basename $chip)" >> $LOG
+done
+# MAX98357A amp state — if the driver is bound but SD_MODE GPIO isn't
+# assigned, the amp stays in power-down mode and speakers are silent even
+# though the sound card registers cleanly. Dump its device dir so we see
+# what resources actually came through.
+echo "MAX98357A (speaker amp) state:" >> $LOG
+for d in /sys/bus/platform/devices/*; do
+    name=$(basename "$d")
+    case "$name" in MX98360A*|MAX98357A*|MAX98360A*|i2c-MX98*)
+        echo "  ${name}:" >> $LOG
+        ls -la "$d" 2>/dev/null | head -20 >> $LOG
+        [ -L "$d/driver" ] && echo "    driver=$(basename $(readlink $d/driver))" >> $LOG
+        ;;
+    esac
+done
+echo "ALSA mixer (card 0):" >> $LOG
+if command -v amixer >/dev/null 2>&1; then
+    amixer -c 0 contents 2>/dev/null | head -60 >> $LOG
+else
+    echo "  amixer not in initramfs (add to bundling if needed)" >> $LOG
+fi
+echo "DAPM widgets (speaker path):" >> $LOG
+for d in /sys/kernel/debug/asoc/sof-rt5682/dapm/Speaker /sys/kernel/debug/asoc/card0/dapm/Speaker; do
+    [ -r "$d" ] && { echo "  $d:"; cat "$d"; } >> $LOG 2>&1
+done
 echo "=== CPUINFO ===" >> $LOG
 head -30 /proc/cpuinfo >> $LOG 2>&1
 echo "=== CMDLINE ===" >> $LOG
@@ -255,11 +292,11 @@ while true; do
     if [ "$SDL_ENABLED" = "1" ]; then
         echo "[init] launching ac-native (SDL3 GPU enabled)..." > /dev/tty0 2>/dev/null
         LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris \
-            /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log &
+            /ac-native /piece.mjs >>/mnt/ac-native-stdout.log 2>>/mnt/ac-native-stderr.log &
     else
         echo "[init] launching ac-native (DRM only)..." > /dev/tty0 2>/dev/null
         LD_LIBRARY_PATH="/lib64" AC_NO_SDL=1 \
-            /ac-native /piece.mjs 2>/tmp/ac-native-stderr.log &
+            /ac-native /piece.mjs >>/mnt/ac-native-stdout.log 2>>/mnt/ac-native-stderr.log &
     fi
     CHILD_PID=$!
     wait $CHILD_PID
