@@ -2267,6 +2267,34 @@ ACRuntime *js_init(ACGraph *graph, ACInput *input, ACAudio *audio, ACWifi *wifi,
         fprintf(stderr, "[js] KidLisp bundle not found at /jslib/kidlisp-bundle.js (optional)\n");
     }
 
+    // Load FPS system bundle (Camera + Dolly + CamDoll as globalThis.__FpsSystem)
+    // so pieces that export `system = "fps"` (arena.mjs etc.) can be wrapped
+    // synchronously in the piece-load shim without async module resolution.
+    FILE *fps_f = fopen("/jslib/fps-system-bundle.js", "r");
+    if (fps_f) {
+        fseek(fps_f, 0, SEEK_END);
+        long fps_len = ftell(fps_f);
+        fseek(fps_f, 0, SEEK_SET);
+        char *fps_src = malloc(fps_len + 1);
+        fread(fps_src, 1, fps_len, fps_f);
+        fps_src[fps_len] = '\0';
+        fclose(fps_f);
+        JSValue fps_result = JS_Eval(ctx, fps_src, fps_len, "<fps-system-bundle>", JS_EVAL_TYPE_GLOBAL);
+        free(fps_src);
+        if (JS_IsException(fps_result)) {
+            JSValue exc = JS_GetException(ctx);
+            const char *str = JS_ToCString(ctx, exc);
+            fprintf(stderr, "[js] FPS bundle error: %s\n", str);
+            JS_FreeCString(ctx, str);
+            JS_FreeValue(ctx, exc);
+        } else {
+            fprintf(stderr, "[js] FPS system loaded (%ld bytes)\n", fps_len);
+        }
+        JS_FreeValue(ctx, fps_result);
+    } else {
+        fprintf(stderr, "[js] FPS bundle not found at /jslib/fps-system-bundle.js (optional)\n");
+    }
+
     JS_FreeValue(ctx, global);
     return rt;
 }
@@ -6630,7 +6658,11 @@ int js_load_piece(ACRuntime *rt, const char *path) {
     fclose(f);
 
     // Append globalThis export assignments so we can find lifecycle functions
-    // after module evaluation (QuickJS modules don't expose exports publicly)
+    // after module evaluation (QuickJS modules don't expose exports publicly).
+    // For pieces with `export const system = "fps"` (arena.mjs etc.) this
+    // ALSO instantiates CamDoll from the preloaded FPS bundle and wraps
+    // boot/sim/act/paint so `api.system.fps.doll` is live on every call
+    // without the piece needing to know anything about the native runtime.
     const char *export_shim =
         "\n;if(typeof boot==='function')globalThis.boot=boot;"
         "if(typeof paint==='function')globalThis.paint=paint;"
@@ -6639,7 +6671,23 @@ int js_load_piece(ACRuntime *rt, const char *path) {
         "if(typeof leave==='function')globalThis.leave=leave;"
         "if(typeof beat==='function')globalThis.beat=beat;"
         "if(typeof configureAutopat==='function')globalThis.configureAutopat=configureAutopat;"
-        "if(typeof system!=='undefined')globalThis.__pieceSystem=system;\n";
+        "if(typeof system!=='undefined')globalThis.__pieceSystem=system;"
+        "if(typeof fpsOpts!=='undefined')globalThis.__pieceFpsOpts=fpsOpts;"
+        // FPS system wiring — runs only when piece opts in.
+        "if(globalThis.__pieceSystem==='fps'&&globalThis.__FpsSystem){"
+          "try{"
+          "const FS=globalThis.__FpsSystem;"
+          "const opts=globalThis.__pieceFpsOpts||{fov:80};"
+          "const doll=new FS.CamDoll(FS.Camera,FS.Dolly,opts);"
+          "globalThis.__fpsDoll=doll;"
+          "const _b=globalThis.boot,_s=globalThis.sim,_a=globalThis.act,_p=globalThis.paint;"
+          "const inject=(api)=>{if(api){if(!api.system)api.system={};api.system.fps={doll};}};"
+          "globalThis.boot=(api)=>{inject(api);return _b?.(api);};"
+          "globalThis.sim=(api)=>{inject(api);try{doll.sim?.();}catch(e){}return _s?.(api);};"
+          "globalThis.act=(api)=>{inject(api);try{if(api?.event)doll.act?.(api.event);}catch(e){}return _a?.(api);};"
+          "globalThis.paint=(api)=>{inject(api);return _p?.(api);};"
+          "}catch(e){console.error('[fps] wire-up failed:',e.message);}"
+        "}\n";
     size_t shim_len = strlen(export_shim);
     char *patched = malloc(len + shim_len + 1);
     memcpy(patched, src, len);
@@ -6904,8 +6952,20 @@ void js_call_act(ACRuntime *rt) {
 void js_call_sim(ACRuntime *rt) {
     current_rt = rt;
 
-    // Update FPS camera from key state + trackpad delta
-    if (rt->pen_locked && rt->fps_system_active) {
+    // If the piece's FPS bundle installed a CamDoll (via the export
+    // shim in js_load_piece), the doll's own sim() — invoked from the
+    // wrapped piece sim() — is the camera authority. We just sync its
+    // cam state back to rt->camera3d AFTER the piece sim runs (below).
+    // Otherwise, fall back to the native WASD + trackpad driver.
+    int have_doll = 0;
+    {
+        JSValue global = JS_GetGlobalObject(rt->ctx);
+        JSValue doll = JS_GetPropertyStr(rt->ctx, global, "__fpsDoll");
+        have_doll = !JS_IsUndefined(doll) && !JS_IsNull(doll);
+        JS_FreeValue(rt->ctx, doll);
+        JS_FreeValue(rt->ctx, global);
+    }
+    if (!have_doll && rt->pen_locked && rt->fps_system_active) {
         camera3d_update(&rt->camera3d,
             rt->keys_held[KEY_W],
             rt->keys_held[KEY_S],
@@ -6937,6 +6997,43 @@ void js_call_sim(ACRuntime *rt) {
     }
     JS_FreeValue(rt->ctx, result);
     JS_FreeValue(rt->ctx, api);
+
+    // FPS camera sync — after the wrapped piece sim() runs (which
+    // invoked doll.sim() via the shim), copy doll.cam.{x,y,z,rotX/Y/Z}
+    // back into rt->camera3d so the next frame's graph3d rendering
+    // uses the doll's camera. Only syncs when the doll is present.
+    if (have_doll) {
+        JSValue global = JS_GetGlobalObject(rt->ctx);
+        JSValue doll = JS_GetPropertyStr(rt->ctx, global, "__fpsDoll");
+        if (!JS_IsUndefined(doll) && !JS_IsNull(doll)) {
+            JSValue cam = JS_GetPropertyStr(rt->ctx, doll, "cam");
+            if (!JS_IsUndefined(cam) && !JS_IsNull(cam)) {
+                double x, y, z, rx, ry, rz;
+                JSValue v;
+                v = JS_GetPropertyStr(rt->ctx, cam, "x");
+                if (JS_ToFloat64(rt->ctx, &x, v) == 0) rt->camera3d.x = (float)x;
+                JS_FreeValue(rt->ctx, v);
+                v = JS_GetPropertyStr(rt->ctx, cam, "y");
+                if (JS_ToFloat64(rt->ctx, &y, v) == 0) rt->camera3d.y = (float)y;
+                JS_FreeValue(rt->ctx, v);
+                v = JS_GetPropertyStr(rt->ctx, cam, "z");
+                if (JS_ToFloat64(rt->ctx, &z, v) == 0) rt->camera3d.z = (float)z;
+                JS_FreeValue(rt->ctx, v);
+                v = JS_GetPropertyStr(rt->ctx, cam, "rotX");
+                if (JS_ToFloat64(rt->ctx, &rx, v) == 0) rt->camera3d.rotX = (float)rx;
+                JS_FreeValue(rt->ctx, v);
+                v = JS_GetPropertyStr(rt->ctx, cam, "rotY");
+                if (JS_ToFloat64(rt->ctx, &ry, v) == 0) rt->camera3d.rotY = (float)ry;
+                JS_FreeValue(rt->ctx, v);
+                v = JS_GetPropertyStr(rt->ctx, cam, "rotZ");
+                if (JS_ToFloat64(rt->ctx, &rz, v) == 0) rt->camera3d.rotZ = (float)rz;
+                JS_FreeValue(rt->ctx, v);
+            }
+            JS_FreeValue(rt->ctx, cam);
+        }
+        JS_FreeValue(rt->ctx, doll);
+        JS_FreeValue(rt->ctx, global);
+    }
 
     // Execute pending jobs (promises)
     JSContext *pctx;

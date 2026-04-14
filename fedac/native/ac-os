@@ -113,6 +113,20 @@ build_initramfs() {
         sudo cp /tmp/kidlisp-bundle.js "${INITRAMFS_ROOT}/jslib/kidlisp-bundle.js"
     fi
 
+    # FPS system bundle (Camera + Dolly + CamDoll) for pieces that export
+    # `system = "fps"` (arena.mjs etc.). Mirrors the docker-build.sh path.
+    local FPS_ENTRY="${SCRIPT_DIR}/scripts/fps-bundle-entry.mjs"
+    if [ -f "${FPS_ENTRY}" ] && command -v npx &>/dev/null; then
+        log "Bundling FPS system (Camera + Dolly + CamDoll)..."
+        npx esbuild "${FPS_ENTRY}" --bundle --format=iife \
+            --global-name=__FpsSystem --platform=neutral \
+            --outfile=/tmp/fps-system-bundle.js 2>&1 | grep -v "^npm warn" || true
+        if [ -f /tmp/fps-system-bundle.js ]; then
+            sudo mkdir -p "${INITRAMFS_ROOT}/jslib"
+            sudo cp /tmp/fps-system-bundle.js "${INITRAMFS_ROOT}/jslib/fps-system-bundle.js"
+        fi
+    fi
+
     # Copy fresh binary into initramfs
     sudo cp "${BUILD_DIR}/ac-native" "${INITRAMFS_ROOT}/ac-native"
 
