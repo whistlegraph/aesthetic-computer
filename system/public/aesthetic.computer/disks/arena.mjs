@@ -29,7 +29,8 @@ let penLocked = false;
 // 📱 Mobile control buttons using TextButton UI component
 let mobileButtons = {}; // { up, down, left, right, jump, crouch }
 let mobileButtonStates = {}; // track which buttons are pressed
-let buttonBuffers = {}; // { jump, crouch, up, down, left, right } - pre-baked graphics
+let buttonBuffers = {}; // { jump, crouch } - pre-baked custom pixel graphics
+let paintingRef = null; // Capture painting function for button graphics
 
 // ⌨️ Keyboard state tracking (for lighting up buttons when keys are held)
 let keyboardState = {
@@ -289,9 +290,10 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api }) {
+function boot({ Form, penLock, system, screen, ui, api, painting }) {
   penLock();
   FormRef = Form;
+  paintingRef = painting;
 
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
@@ -300,6 +302,51 @@ function boot({ Form, penLock, system, screen, ui, api }) {
   // 🎯 Set initial cursor style
   if (api?.cursor) {
     api.cursor('crosshair');
+  }
+
+  // 🎨 Create button graphics using painting buffers
+  if (painting) {
+    // Jump button: stick figure with raised arms (celebration pose)
+    buttonBuffers.jump = painting(56, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(50, 200, 100, 255); // Green background
+
+      // Head (circle approximation using box)
+      ink(255, 255, 200);
+      box(24, 2, 8, 8); // Head
+
+      // Body
+      line(28, 10, 28, 16);
+
+      // Arms raised (victory pose)
+      line(22, 12, 18, 8); // Left arm
+      line(34, 12, 38, 8); // Right arm
+
+      // Legs
+      line(26, 16, 24, 22); // Left leg
+      line(30, 16, 32, 22); // Right leg
+    });
+
+    // Crouch button: stick figure in crouch pose
+    buttonBuffers.crouch = painting(56, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(220, 150, 40, 255); // Orange background
+
+      // Head (lower)
+      ink(255, 255, 200);
+      box(24, 8, 8, 8); // Head
+
+      // Body (bent)
+      line(28, 16, 28, 18);
+
+      // Arms bent
+      line(24, 16, 20, 14); // Left arm
+      line(32, 16, 36, 14); // Right arm
+
+      // Legs (crouched)
+      line(26, 18, 24, 22); // Left leg
+      line(30, 18, 32, 22); // Right leg
+    });
   }
 
 
@@ -881,7 +928,7 @@ function sim({ system, pen, screen }) {
   }
 }
 
-function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
+function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painting, paste }) {
   // 🎯 Switch cursor based on pen lock state (FPS mode vs UI mode)
   if (api?.cursor) {
     if (penLocked) {
@@ -1216,10 +1263,18 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
       btn.paint((b) => {
         ink(...bgColor).box(b.box, "fill");
         ink(...borderColor).box(b.box, "outline");
-        // Draw button label text centered in the button
-        const textX = b.box[0] + b.box[2] / 2 - btnData.label.length * 3; // Rough centering for monospace
-        const textY = b.box[1] + 8;
-        ink(...textColor).write(btnData.label, { x: textX, y: textY });
+
+        // Render custom graphics for jump/crouch, text for directionals
+        if (buttonBuffers[name]) {
+          // Custom pixel graphics for jump/crouch buttons
+          const buffer = buttonBuffers[name];
+          paste(buffer, b.box[0] + (b.box[2] - buffer.width) / 2, b.box[1] + (b.box[3] - buffer.height) / 2);
+        } else {
+          // Text label for directional buttons
+          const textX = b.box[0] + b.box[2] / 2 - btnData.label.length * 3;
+          const textY = b.box[1] + 8;
+          ink(...textColor).write(btnData.label, { x: textX, y: textY });
+        }
       });
     }
   }
