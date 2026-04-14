@@ -4241,6 +4241,44 @@ static void *flash_thread_fn(void *arg) {
         }
     }
 
+    // Optional initramfs copy — for OTA updates where the kernel is now
+    // slim (Phase 2 de-embed) and must load `\initramfs.cpio.gz` from the
+    // ESP root via its baked-in `initrd=` cmdline. Without this step, an
+    // os.mjs OTA would leave the new kernel paired with the PREVIOUS
+    // initramfs, which is a latent source of boot breakage whenever any
+    // file inside initramfs changes.
+    if (rt->flash_initramfs_src[0]) {
+        char initramfs_dst[512];
+        snprintf(initramfs_dst, sizeof(initramfs_dst), "%s/initramfs.cpio.gz", efi_mount);
+        ac_log("[flash] writing initramfs: %s -> %s", rt->flash_initramfs_src, initramfs_dst);
+        flash_tlog(rt, "initramfs: %s -> %s", rt->flash_initramfs_src, initramfs_dst);
+        // Keep previous as .prev for rollback
+        char initramfs_prev[512];
+        snprintf(initramfs_prev, sizeof(initramfs_prev), "%s.prev", initramfs_dst);
+        if (access(initramfs_dst, F_OK) == 0) {
+            unlink(initramfs_prev);
+            rename(initramfs_dst, initramfs_prev);
+        }
+        long initramfs_copied = flash_copy_file(rt->flash_initramfs_src, initramfs_dst);
+        flash_tlog(rt, "initramfs wrote %ld bytes", initramfs_copied);
+        if (initramfs_copied <= 0) {
+            ac_log("[flash] initramfs copy FAILED (copied=%ld) — restoring .prev",
+                   initramfs_copied);
+            if (access(initramfs_prev, F_OK) == 0) {
+                unlink(initramfs_dst);
+                rename(initramfs_prev, initramfs_dst);
+            }
+            // Non-fatal to the kernel write — but flag as failure since the
+            // new kernel won't boot without a matching initramfs.
+            flash_trace_close_and_archive();
+            rt->flash_phase = 4;
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+    }
+
     // Phase 2: Syncing to disk — belt-and-suspenders for vfat
     rt->flash_phase = 2;
 
@@ -4428,8 +4466,12 @@ static void *flash_thread_fn(void *arg) {
     return NULL;
 }
 
-// system.flashUpdate(srcPath[, devicePath])
-// devicePath defaults to auto-detected boot device if omitted
+// system.flashUpdate(srcPath[, devicePath[, initramfsSrcPath]])
+// devicePath defaults to auto-detected boot device if omitted.
+// initramfsSrcPath is optional — when provided, the flash thread also copies
+// it to `<ESP>/initramfs.cpio.gz` (matching the kernel's baked-in
+// `initrd=\initramfs.cpio.gz` cmdline). Required for OTA updates since the
+// kernel no longer embeds initramfs (Phase 2 de-embed).
 static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) { ac_log("[flash] flashUpdate called with no runtime/args\n"); return JS_UNDEFINED; }
@@ -4442,6 +4484,7 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
     strncpy(current_rt->flash_src, src, sizeof(current_rt->flash_src) - 1);
     current_rt->flash_src[sizeof(current_rt->flash_src) - 1] = 0;
     JS_FreeCString(ctx, src);
+    current_rt->flash_initramfs_src[0] = '\0';
     // Device: use arg[1] if provided, else auto-detect
     if (argc >= 2 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
         const char *dev = JS_ToCString(ctx, argv[1]);
@@ -4452,6 +4495,17 @@ static JSValue js_flash_update(JSContext *ctx, JSValueConst this_val, int argc, 
         }
     } else {
         detect_boot_device(current_rt->flash_device, sizeof(current_rt->flash_device));
+    }
+    // Optional initramfs source — arg[2]
+    if (argc >= 3 && !JS_IsUndefined(argv[2]) && !JS_IsNull(argv[2])) {
+        const char *init_src = JS_ToCString(ctx, argv[2]);
+        if (init_src) {
+            strncpy(current_rt->flash_initramfs_src, init_src,
+                    sizeof(current_rt->flash_initramfs_src) - 1);
+            current_rt->flash_initramfs_src[sizeof(current_rt->flash_initramfs_src) - 1] = 0;
+            ac_log("[flash] initramfs src=%s", init_src);
+            JS_FreeCString(ctx, init_src);
+        }
     }
     // Pass runtime as arg (current_rt is thread-local, unavailable in new thread)
     pthread_attr_t attr;
