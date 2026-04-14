@@ -34,16 +34,60 @@ log()  { printf "\033[0;36m[ac-fw]\033[0m %s\n" "$*"; }
 err()  { printf "\033[0;31m[ac-fw]\033[0m %s\n" "$*" >&2; }
 die()  { err "$*"; exit 1; }
 
+RESTORE_PATH=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
+    --restore)
+      # Next positional arg is the backup ROM path (or the script searches
+      # USB automounts if omitted). We pick it up in the loop below.
+      RESTORE_PATH="SEARCH" ;;
     --help|-h)
       sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
+    *)
+      # Accept a bare path after --restore
+      if [ "$RESTORE_PATH" = "SEARCH" ] && [ -f "$arg" ]; then
+        RESTORE_PATH="$arg"
+      fi ;;
   esac
 done
 
 [ "$(id -u)" = "0" ] || die "Must run as root (use sudo)."
+
+# ── Restore path — reflash a saved BACKUP-*-*.rom from USB or arg ─────
+# Useful if the AC splash install misbehaves: users bring back whatever
+# MrChromebox wrote originally (which is what `stock` MrChromebox also
+# does, just by re-running their script). We do NOT repartition or touch
+# CBFS — it's a straight `flashrom -w backup.rom`, size-verified first.
+if [ -n "$RESTORE_PATH" ]; then
+  # Auto-discover backup on mounted media if user didn't pass a path.
+  if [ "$RESTORE_PATH" = "SEARCH" ]; then
+    log "Searching for BACKUP-*-Google_*.rom on mounted media…"
+    for dir in /run/media/*/*/ /mnt/*/ /media/*/*/ /tmp/firmware-backup-*.rom; do
+      [ -e "$dir" ] || continue
+      if [ -d "$dir" ]; then
+        cand=$(ls -t "$dir"BACKUP-*.rom 2>/dev/null | head -1)
+      elif [ -f "$dir" ]; then
+        cand="$dir"
+      fi
+      [ -n "$cand" ] && [ -f "$cand" ] && RESTORE_PATH="$cand" && break
+    done
+    [ "$RESTORE_PATH" = "SEARCH" ] && die "No BACKUP-*.rom found. Pass the path explicitly: sudo bash install-firmware.sh --restore /path/to/BACKUP-xxx.rom"
+  fi
+  [ -f "$RESTORE_PATH" ] || die "Restore source missing: $RESTORE_PATH"
+  command -v flashrom >/dev/null 2>&1 || die "flashrom not installed"
+  RESTORE_SIZE=$(stat -c%s "$RESTORE_PATH")
+  [ "$RESTORE_SIZE" -ge 8388608 ] || die "Backup too small ($RESTORE_SIZE bytes) — refusing to flash something that can't be a full ROM"
+  log "Restoring firmware from: $RESTORE_PATH ($((RESTORE_SIZE / 1048576))MB)"
+  if [ "$DRY_RUN" = "1" ]; then
+    log "DRY_RUN=1 — stopping before flash."
+    exit 0
+  fi
+  flashrom -p internal -w "$RESTORE_PATH" 2>&1 | grep -vE "^(Calibrating|Reading old|Erasing|Writing)" || true
+  log "✅ Restore complete. Reboot to boot the prior firmware."
+  exit 0
+fi
 
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
@@ -98,10 +142,12 @@ log "  size: $((BASE_SIZE / 1024 / 1024))MB ($BASE_SIZE bytes)"
 AC_ROM="$WORK/ac.rom"
 cp "$BASE_ROM" "$AC_ROM"
 
-# Swap the bootsplash. BMP must be 1366x768 24/32-bit uncompressed
-# (coreboot's splash decoder is minimal). AC ships a pre-baked copy at
-# /firmware/ac-splash.bmp — overrideable via env SPLASH_URL.
-SPLASH_URL="${SPLASH_URL:-$AC_CDN/firmware/ac-splash.bmp}"
+# Swap the bootsplash. BMP must be 1366x768 24-bit uncompressed
+# (coreboot's splash decoder is minimal). The splash is rendered
+# dynamically by oven.aesthetic.computer/firmware/splash.bmp so we don't
+# commit a binary asset to the repo; override with $SPLASH_URL if you want
+# to experiment with a custom BMP.
+SPLASH_URL="${SPLASH_URL:-https://oven.aesthetic.computer/firmware/splash.bmp}"
 if curl -fsSL --head "$SPLASH_URL" >/dev/null 2>&1; then
   SPLASH="$WORK/splash.bmp"
   log "Fetching splash: $SPLASH_URL"

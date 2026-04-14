@@ -1277,6 +1277,93 @@ app.post('/bake', bakeHandler);
 app.post('/bake-complete', bakeCompleteHandler);
 app.post('/bake-status', bakeStatusHandler);
 
+// ─────────────────────────────────────────────────────────────────
+// Firmware splash renderer (for install-firmware.sh bootsplash swap)
+//
+// coreboot's CBFS bootsplash.bmp decoder is extremely narrow: it only
+// accepts uncompressed 24-bit BGR BMPs with the 54-byte classic header
+// (BITMAPFILEHEADER + BITMAPINFOHEADER). sharp does not emit BMP, so we
+// render to raw RGB, swap to BGR, pad rows to 4-byte alignment, and
+// prepend the header manually.
+//
+// Default resolution 1366×768 matches the Chromebook 14 panel coreboot
+// initializes on MrChromebox. Caller can pass ?w=&h= for other panels,
+// capped at 1920×1200 so an accidental query doesn't burn the process.
+// ─────────────────────────────────────────────────────────────────
+app.get('/firmware/splash.bmp', async (req, res) => {
+  try {
+    const w = Math.max(320, Math.min(1920, parseInt(req.query.w) || 1366));
+    const h = Math.max(240, Math.min(1200, parseInt(req.query.h) || 768));
+
+    // SVG splash — simple black background with centered aesthetic.computer
+    // wordmark. Keep the markup self-contained (no external fonts/assets)
+    // so the request stays fast and cacheable at the CDN layer.
+    const svg = `<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <rect width="${w}" height="${h}" fill="#000"/>
+  <g font-family="Courier New, ui-monospace, monospace" text-anchor="middle">
+    <text x="${w/2}" y="${h/2 - 10}" fill="#ffffff" font-size="${Math.floor(h/14)}" letter-spacing="4">aesthetic.computer</text>
+    <text x="${w/2}" y="${h/2 + Math.floor(h/14) + 12}" fill="#666" font-size="${Math.floor(h/36)}" letter-spacing="2">native</text>
+  </g>
+</svg>`;
+
+    const { data } = await sharp(Buffer.from(svg))
+      .resize(w, h)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    // RGB (sharp default) → BGR, rows bottom-up, 4-byte aligned.
+    const rowBytes = w * 3;
+    const rowPad = (4 - (rowBytes % 4)) % 4;
+    const paddedRow = rowBytes + rowPad;
+    const pixelBytes = paddedRow * h;
+    const fileSize = 54 + pixelBytes;
+
+    const header = Buffer.alloc(54);
+    // BITMAPFILEHEADER (14)
+    header.write('BM', 0);
+    header.writeUInt32LE(fileSize, 2);
+    header.writeUInt32LE(0, 6);           // reserved
+    header.writeUInt32LE(54, 10);          // pixel data offset
+    // BITMAPINFOHEADER (40)
+    header.writeUInt32LE(40, 14);          // header size
+    header.writeInt32LE(w, 18);
+    header.writeInt32LE(h, 22);            // positive → bottom-up
+    header.writeUInt16LE(1, 26);           // planes
+    header.writeUInt16LE(24, 28);          // bpp
+    header.writeUInt32LE(0, 30);           // BI_RGB (uncompressed)
+    header.writeUInt32LE(pixelBytes, 34);  // image size
+    header.writeInt32LE(2835, 38);          // X res (72 DPI in px/m)
+    header.writeInt32LE(2835, 42);          // Y res
+    header.writeUInt32LE(0, 46);           // palette colors
+    header.writeUInt32LE(0, 50);           // important colors
+
+    const pixels = Buffer.alloc(pixelBytes);
+    for (let y = 0; y < h; y++) {
+      const srcY = (h - 1 - y) * rowBytes;       // flip vertically
+      const dstY = y * paddedRow;
+      for (let x = 0; x < w; x++) {
+        const si = srcY + x * 3;
+        const di = dstY + x * 3;
+        pixels[di]     = data[si + 2];            // B
+        pixels[di + 1] = data[si + 1];            // G
+        pixels[di + 2] = data[si];                // R
+      }
+      // row padding bytes left as zero
+    }
+
+    res.set({
+      'Content-Type': 'image/bmp',
+      'Content-Length': fileSize,
+      'Cache-Control': 'public, max-age=3600',
+    });
+    res.end(Buffer.concat([header, pixels]));
+  } catch (err) {
+    console.error('[firmware/splash.bmp] render failed:', err);
+    res.status(500).send('render failed');
+  }
+});
+
 // Icon endpoint - small square thumbnails (compatible with grab.aesthetic.computer)
 // GET /icon/{width}x{height}/{piece}.png
 // Uses 24h Spaces cache to avoid regenerating on every request
