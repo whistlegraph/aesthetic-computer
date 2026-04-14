@@ -627,22 +627,51 @@ log "  Initramfs: $((INITRAMFS_SIZE / 1048576))MB compressed"
 # Step 4: Build kernel with embedded initramfs
 # ══════════════════════════════════════════════
 log "Step 4/4: Building kernel..."
-LINUX_DIR="$BUILD/linux-$KVER"
+
+# Persistent kernel build tree lives on a Docker volume mounted at /kernel-build.
+# This preserves object files between oven runs so ccache + kbuild's own
+# dependency tracker produce true incremental rebuilds. Fall back to ephemeral
+# $BUILD when the volume isn't present (e.g. running docker-build.sh locally
+# without the oven wrapper).
+if [ -d /kernel-build ] && [ -w /kernel-build ]; then
+    KBUILD_ROOT="/kernel-build"
+    log "  Using persistent kernel build tree at $KBUILD_ROOT"
+else
+    KBUILD_ROOT="$BUILD"
+    log "  No persistent volume — kernel tree at $KBUILD_ROOT (ephemeral)"
+fi
+LINUX_DIR="$KBUILD_ROOT/linux-$KVER"
+
+# Version sentinel: if the persisted tree is for a different kernel version,
+# wipe it before reinitializing from the Docker image's cached source.
+SENTINEL="$KBUILD_ROOT/.kver"
+if [ -f "$SENTINEL" ] && [ "$(cat "$SENTINEL")" != "$KVER" ]; then
+    log "  Kernel version changed ($(cat "$SENTINEL") → $KVER), wiping build tree"
+    rm -rf "$KBUILD_ROOT/linux-"*
+    rm -f "$SENTINEL"
+fi
 
 # Use cached kernel source or download
 if [ ! -f "$LINUX_DIR/Makefile" ]; then
     if [ -d "/cache/linux-$KVER" ]; then
-        log "  Using cached Linux $KVER..."
-        cp -a "/cache/linux-$KVER" "$BUILD/"
+        log "  Initializing $KBUILD_ROOT from cached Linux $KVER..."
+        cp -a "/cache/linux-$KVER" "$KBUILD_ROOT/"
     else
         log "  Downloading Linux $KVER..."
-        cd "$BUILD"
+        cd "$KBUILD_ROOT"
         curl -sL "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KVER}.tar.xz" | tar xJ
     fi
+    echo "$KVER" > "$SENTINEL"
 fi
 
-# Copy config
-cp "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"
+# Copy config only if it differs — overwriting touches mtime and invalidates
+# large swaths of kbuild's dependency graph, forcing full rebuilds.
+if ! cmp -s "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"; then
+    log "  Config changed, updating .config"
+    cp "$NATIVE/kernel/config-minimal" "$LINUX_DIR/.config"
+else
+    log "  Config unchanged, preserving existing build tree"
+fi
 
 # Stage built-in firmware blobs referenced by CONFIG_EXTRA_FIRMWARE
 # into a container-local directory and rewrite CONFIG_EXTRA_FIRMWARE_DIR.
