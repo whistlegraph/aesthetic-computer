@@ -6,6 +6,7 @@ import { checkPackMode } from "./pack-mode.mjs";
 // Cache bust: Feb 4, 2026 - fixed _fillCustomBuffer for AudioWorklet compatibility
 import Synth from "./sound/synth.mjs?v=20260204";
 import Bubble from "./sound/bubble.mjs";
+import Fart from "./sound/fart.mjs";
 import { lerp, within, clamp } from "./num.mjs";
 
 const { abs, round, floor } = Math;
@@ -232,16 +233,37 @@ class SpeakerProcessor extends AudioWorkletProcessor {
               bubbleData.pan,
               bubbleData.id,
             );
-            
+
             // Track bubble by ID if provided
             if (bubbleData.id !== undefined) {
               this.#running[bubbleData.id] = bubble;
             }
-            
+
             this.#queue.push(bubble);
           });
         }
-        
+
+        // Process farts array
+        if (soundData.farts) {
+          soundData.farts.forEach(fartData => {
+            const fart = new Fart(
+              fartData.pressure,
+              fartData.pitch,
+              fartData.rasp,
+              fartData.volume,
+              fartData.pan,
+              fartData.id,
+            );
+
+            // Track fart by ID if provided
+            if (fartData.id !== undefined) {
+              this.#running[fartData.id] = fart;
+            }
+
+            this.#queue.push(fart);
+          });
+        }
+
         // Process sounds array (existing logic should handle this via other messages)
         
         // Process kills array
@@ -294,6 +316,22 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         const soundInstance = this.#running[msg.data.id];
         // console.log(`📻 SPEAKER update: id=${msg.data.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.data.properties)}`);
         soundInstance?.update(msg.data.properties);
+        return;
+      }
+
+      // 🫧 Bubble-specific update handler
+      if (msg.type === "bubble:update") {
+        const soundInstance = this.#running[msg.content.id];
+        // console.log(`📻 SPEAKER bubble:update: id=${msg.content.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.content.properties)}`);
+        soundInstance?.update(msg.content.properties);
+        return;
+      }
+
+      // 💨 Fart-specific update handler
+      if (msg.type === "fart:update") {
+        const soundInstance = this.#running[msg.content.id];
+        // console.log(`📻 SPEAKER fart:update: id=${msg.content.id}, found=${!!soundInstance}, props=${JSON.stringify(msg.content.properties)}`);
+        soundInstance?.update(msg.content.properties);
         return;
       }
 
@@ -566,13 +604,33 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           msg.data.pan,
           msg.data.id,
         );
-        
+
         // Track bubble by ID if provided
         if (msg.data.id !== undefined) {
           this.#running[msg.data.id] = bubble;
         }
-        
+
         this.#queue.push(bubble);
+        return;
+      }
+
+      // Fart works similarly to Bubble - physical modeling synthesis
+      if (msg.type === "fart") {
+        const fart = new Fart(
+          msg.data.pressure,
+          msg.data.pitch,
+          msg.data.rasp,
+          msg.data.volume,
+          msg.data.pan,
+          msg.data.id,
+        );
+
+        // Track fart by ID if provided
+        if (msg.data.id !== undefined) {
+          this.#running[msg.data.id] = fart;
+        }
+
+        this.#queue.push(fart);
         return;
       }
     };
