@@ -449,7 +449,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
     // Up arrow button
     buttonBuffers.up = painting(28, 28, (api) => {
-      const { wipe, ink, line } = api;
+      const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255); // Blue background
       ink(200, 220, 255);
 
