@@ -60,7 +60,8 @@ RUN mkdir -p /cache && cd /cache \
 RUN git clone --depth 1 --branch 4.22 --filter=blob:none --sparse \
         https://github.com/coreboot/coreboot /tmp/coreboot \
     && cd /tmp/coreboot \
-    && git sparse-checkout set util/cbfstool src/commonlib 3rdparty/vboot 3rdparty/qc_blobs \
+    && git sparse-checkout set util/cbfstool src/commonlib \
+    && git submodule update --init --depth 1 3rdparty/vboot \
     && cd util/cbfstool \
     && make -j"$(nproc)" cbfstool \
     && install -m 0755 cbfstool /usr/local/bin/cbfstool \
