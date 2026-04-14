@@ -1176,8 +1176,14 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (rem == 1) continue; // removable = USB
         }
 
-        // Try partitions 1-8
-        for (int p = 1; p <= 8 && !installed; p++) {
+        // Two-pass partition scan. Pass 0: probe p1..p16 for an existing
+        // vfat partition (non-destructive) — finds the Chromebook ESP at
+        // p12 before we would otherwise reformat p1 (stateful/ext4) on
+        // Chromebooks and clobber user data. Pass 1: fall back to the
+        // p=1 rescue reformat for stock Linux layouts where no ESP exists.
+        for (int pass = 0; pass < 2 && !installed; pass++) {
+        int allow_rescue_mkfs = (pass == 1);
+        for (int p = 1; p <= 16 && !installed; p++) {
             char devpath[32];
             // NVMe + eMMC use "p<N>" suffix (name ends in a digit); SATA
             // just appends the number to the base name.
@@ -1197,7 +1203,9 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 // sfdisk created it but mkfs never succeeded), try to format
                 // it now. Only attempt this on the first partition (which is
                 // the ESP slot) and only if the partition is large enough.
-                if (p == 1) {
+                // Gated to pass==1 so we never clobber Chromebook p1 STATE
+                // when an existing vfat ESP is available elsewhere (e.g. p12).
+                if (p == 1 && allow_rescue_mkfs) {
                     long long part_bytes = 0;
                     int pfd = open(devpath, O_RDONLY | O_CLOEXEC);
                     if (pfd >= 0) {
@@ -1732,6 +1740,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             }
 
             umount("/tmp/hd");
+        }
         }
     }
 

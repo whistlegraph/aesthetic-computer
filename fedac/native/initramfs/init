@@ -133,9 +133,39 @@ echo "gpu:" >> $LOG
 ls -la /dev/dri/ >> $LOG 2>&1
 ls -la /dev/fb* >> $LOG 2>&1
 echo "block devs:" >> $LOG
-ls /dev/sd* /dev/nvme* >> $LOG 2>&1
-echo "=== DMESG ===" >> $LOG
-dmesg >> $LOG 2>&1
+ls /dev/sd* /dev/nvme* /dev/mmcblk* 2>/dev/null >> $LOG
+echo "net ifaces:" >> $LOG
+ls /sys/class/net/ 2>/dev/null >> $LOG
+echo "rfkill:" >> $LOG
+for rf in /sys/class/rfkill/rfkill*; do
+    [ -d "$rf" ] || continue
+    echo "  $(basename $rf): type=$(cat $rf/type 2>/dev/null) soft=$(cat $rf/soft 2>/dev/null) hard=$(cat $rf/hard 2>/dev/null)" >> $LOG
+done
+echo "sound cards:" >> $LOG
+cat /proc/asound/cards 2>/dev/null >> $LOG
+echo "pci devices (storage/audio/net):" >> $LOG
+if [ -d /sys/bus/pci/devices ]; then
+    for d in /sys/bus/pci/devices/*; do
+        [ -d "$d" ] || continue
+        class=$(cat $d/class 2>/dev/null)
+        # 0x0c* = serial bus (eMMC), 0x0104* = RAID, 0x0106* = SATA, 0x0108* = NVMe
+        # 0x0280* = network wireless, 0x0403* = audio
+        case "$class" in
+            0x010*|0x028*|0x040*|0x080501|0x0805*)
+                ven=$(cat $d/vendor 2>/dev/null)
+                dev=$(cat $d/device 2>/dev/null)
+                drv=$(basename $(readlink $d/driver 2>/dev/null) 2>/dev/null)
+                echo "  $(basename $d) class=$class ven=$ven dev=$dev drv=${drv:-NONE}" >> $LOG
+                ;;
+        esac
+    done
+fi
+echo "=== DMESG (kernel ring) ===" >> $LOG
+# Capture 2s of /dev/kmsg output (busybox dmesg applet may be absent)
+( cat /dev/kmsg >> $LOG 2>&1 ) &
+KMSG_PID=$!
+sleep 2
+kill $KMSG_PID 2>/dev/null
 echo "=== CPUINFO ===" >> $LOG
 head -30 /proc/cpuinfo >> $LOG 2>&1
 echo "=== CMDLINE ===" >> $LOG
@@ -193,9 +223,18 @@ while true; do
         sync
         echo 0 > /proc/sys/kernel/printk 2>/dev/null
         printf '\033[?25l\033[2J' > /dev/tty0 2>/dev/null
+        # Enable all sysrq if kernel supports it (belt-and-suspenders)
+        echo 1 > /proc/sys/kernel/sysrq 2>/dev/null
+        # Try every reboot path in order — different kernels accept different ones
         reboot -f 2>/dev/null
         echo b > /proc/sysrq-trigger 2>/dev/null
-        sleep 30
+        # Last resort: direct reboot(2) syscall via busybox `reboot`
+        busybox reboot -f 2>/dev/null
+        halt -f 2>/dev/null
+        sleep 5
+        # If we're still here, kernel panic is preferable to a silent freeze
+        echo c > /proc/sysrq-trigger 2>/dev/null
+        sleep 5
         break
     fi
 
