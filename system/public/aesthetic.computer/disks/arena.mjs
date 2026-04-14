@@ -306,29 +306,26 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
   // 🎨 Create button graphics using painting buffers
   if (painting) {
+    console.log("✓ Creating button buffers in boot...");
     // Jump button: relaxed pose (normal state)
     buttonBuffers.jump_normal = painting(56, 28, (api) => {
-      const { wipe, ink, box, line, plot } = api;
+      const { wipe, ink, box, line } = api;
       wipe(50, 200, 100, 255); // Green background
       ink(255, 255, 200); // Skin color
 
       // Head with cute face
       box(22, 2, 12, 10); // Head
 
-      // Eyes
+      // Eyes (small boxes instead of plot)
       ink(50, 50, 50); // Dark eyes
-      plot(26, 5);
-      plot(27, 5);
-      plot(34, 5);
-      plot(35, 5);
+      box(26, 5, 1, 1);
+      box(27, 5, 1, 1);
+      box(34, 5, 1, 1);
+      box(35, 5, 1, 1);
 
-      // Smile
+      // Smile (line instead of plot)
       ink(255, 100, 100); // Pink smile
-      plot(28, 8);
-      plot(29, 8);
-      plot(30, 8);
-      plot(31, 8);
-      plot(32, 8);
+      line(28, 8, 32, 8);
 
       // Body
       ink(255, 255, 200);
@@ -345,31 +342,27 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
     // Jump button: excited jumping pose (pressed state)
     buttonBuffers.jump_active = painting(56, 28, (api) => {
-      const { wipe, ink, box, line, plot } = api;
+      const { wipe, ink, box, line } = api;
       wipe(80, 220, 120, 255); // Brighter green
       ink(255, 255, 200);
 
       // Head with happy face
       box(22, 1, 12, 10);
 
-      // Happy eyes (larger)
+      // Happy eyes
       ink(50, 50, 50);
-      plot(25, 4);
-      plot(26, 4);
-      plot(27, 4);
-      plot(33, 4);
-      plot(34, 4);
-      plot(35, 4);
+      box(25, 4, 1, 1);
+      box(26, 4, 1, 1);
+      box(27, 4, 1, 1);
+      box(33, 4, 1, 1);
+      box(34, 4, 1, 1);
+      box(35, 4, 1, 1);
 
       // Big smile
       ink(255, 100, 100);
-      plot(28, 7);
-      plot(29, 7);
-      plot(30, 7);
-      plot(31, 7);
-      plot(32, 7);
-      plot(27, 8);
-      plot(33, 8);
+      line(27, 7, 33, 7);
+      box(27, 8, 1, 1);
+      box(33, 8, 1, 1);
 
       // Body
       ink(255, 255, 200);
@@ -386,7 +379,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
     // Crouch button: relaxed standing pose (normal state)
     buttonBuffers.crouch_normal = painting(56, 28, (api) => {
-      const { wipe, ink, box, line, plot } = api;
+      const { wipe, ink, box, line } = api;
       wipe(220, 150, 40, 255); // Orange background
       ink(255, 255, 200);
 
@@ -395,18 +388,14 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
       // Eyes
       ink(50, 50, 50);
-      plot(26, 7);
-      plot(27, 7);
-      plot(34, 7);
-      plot(35, 7);
+      box(26, 7, 1, 1);
+      box(27, 7, 1, 1);
+      box(34, 7, 1, 1);
+      box(35, 7, 1, 1);
 
       // Smile
       ink(255, 100, 100);
-      plot(28, 10);
-      plot(29, 10);
-      plot(30, 10);
-      plot(31, 10);
-      plot(32, 10);
+      line(28, 10, 32, 10);
 
       // Body
       ink(255, 255, 200);
@@ -423,7 +412,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
     // Crouch button: deep crouch pose (pressed state)
     buttonBuffers.crouch_active = painting(56, 28, (api) => {
-      const { wipe, ink, box, line, plot } = api;
+      const { wipe, ink, box, line } = api;
       wipe(240, 170, 60, 255); // Brighter orange
       ink(255, 255, 200);
 
@@ -432,22 +421,18 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
       // Happy eyes
       ink(50, 50, 50);
-      plot(25, 11);
-      plot(26, 11);
-      plot(27, 11);
-      plot(33, 11);
-      plot(34, 11);
-      plot(35, 11);
+      box(25, 11, 1, 1);
+      box(26, 11, 1, 1);
+      box(27, 11, 1, 1);
+      box(33, 11, 1, 1);
+      box(34, 11, 1, 1);
+      box(35, 11, 1, 1);
 
       // Big smile
       ink(255, 100, 100);
-      plot(28, 14);
-      plot(29, 14);
-      plot(30, 14);
-      plot(31, 14);
-      plot(32, 14);
-      plot(27, 15);
-      plot(33, 15);
+      line(27, 14, 33, 14);
+      box(27, 15, 1, 1);
+      box(33, 15, 1, 1);
 
       // Body very bent
       ink(255, 255, 200);
@@ -464,7 +449,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
     // Up arrow button
     buttonBuffers.up = painting(28, 28, (api) => {
-      const { wipe, ink, box, line } = api;
+      const { wipe, ink, line } = api;
       wipe(60, 75, 95, 255); // Blue background
       ink(200, 220, 255);
 
@@ -473,15 +458,15 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       line(10, 14, 14, 6); // Left point
       line(18, 14, 14, 6); // Right point
 
-      // Decorative dots
+      // Decorative dots (use small boxes)
       ink(150, 200, 255);
-      plot(10, 22);
-      plot(18, 22);
+      box(10, 22, 1, 1);
+      box(18, 22, 1, 1);
     });
 
     // Down arrow button
     buttonBuffers.down = painting(28, 28, (api) => {
-      const { wipe, ink, box, line } = api;
+      const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
 
@@ -492,13 +477,13 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
       // Decorative dots
       ink(150, 200, 255);
-      plot(10, 6);
-      plot(18, 6);
+      box(10, 6, 1, 1);
+      box(18, 6, 1, 1);
     });
 
     // Left arrow button
     buttonBuffers.left = painting(28, 28, (api) => {
-      const { wipe, ink, line } = api;
+      const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
 
@@ -509,13 +494,13 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
       // Decorative dots
       ink(150, 200, 255);
-      plot(22, 10);
-      plot(22, 18);
+      box(22, 10, 1, 1);
+      box(22, 18, 1, 1);
     });
 
     // Right arrow button
     buttonBuffers.right = painting(28, 28, (api) => {
-      const { wipe, ink, line } = api;
+      const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
 
@@ -526,17 +511,11 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
       // Decorative dots
       ink(150, 200, 255);
-      plot(6, 10);
-      plot(6, 18);
+      box(6, 10, 1, 1);
+      box(6, 18, 1, 1);
     });
 
-    // Debug: log created buffers and their properties
-    console.log("🎨 Button buffers created:", Object.keys(buttonBuffers));
-    for (const [key, buffer] of Object.entries(buttonBuffers)) {
-      if (buffer) {
-        console.log(`  ${key}: ${buffer.width}x${buffer.height}, pixels:${buffer.pixels?.length}`);
-      }
-    }
+    console.log("✓ Button buffers created successfully");
   }
 
 
