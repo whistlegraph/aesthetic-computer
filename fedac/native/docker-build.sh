@@ -458,8 +458,12 @@ for libmjs in melody-parser.mjs notepat-convert.mjs note-colors.mjs num.mjs; do
     fi
 done
 
-# ── 2q: Web pieces that work natively (clock.mjs unmodified) ──
-for webpiece in clock.mjs; do
+# ── 2q: Web pieces that work natively (bundled verbatim, no mods) ──
+# Every piece here must run unchanged under the QuickJS-based native
+# runtime. If you add a piece that uses browser-only APIs, the runtime
+# will throw — don't "port" the piece, expose the missing API in
+# js-bindings.c instead (so web and native stay in parity).
+for webpiece in clock.mjs arena.mjs; do
     SRC_PIECE="$SRC/system/public/aesthetic.computer/disks/$webpiece"
     if [ -f "$SRC_PIECE" ]; then
         cp "$SRC_PIECE" "$IROOT/pieces/$webpiece"
