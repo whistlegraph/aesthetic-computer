@@ -161,12 +161,22 @@ if [ -d /sys/bus/pci/devices ]; then
     done
 fi
 echo "=== DMESG (kernel ring) ===" >> $LOG
-# Capture 6s of /dev/kmsg — WiFi PCIe probe + SOF codec machine driver both
-# finish around 3-5s after userspace starts, so a 2s window misses them.
+# Capture 15s of /dev/kmsg into pre-launch.log so we see SOF machine driver
+# probe + ALSA card registration (which happens 5-10s after boot on Jasper
+# Lake when the DSP firmware exchange is this slow). Also spawn a persistent
+# `cat /dev/kmsg` that runs for the entire ac-native session, appending to
+# /mnt/kmsg.log — that captures everything after pre-launch closes, including
+# late probe errors, driver unbinds, runtime OOM, audio hardware quirks, etc.
 ( cat /dev/kmsg >> $LOG 2>&1 ) &
 KMSG_PID=$!
-sleep 6
+sleep 15
 kill $KMSG_PID 2>/dev/null
+if [ "$USB_MOUNTED" = "1" ]; then
+    # Persistent kmsg sink — writes until ac-native exits (we do not kill it
+    # explicitly; the init script's wait-on-child pattern keeps it alive for
+    # the full session and sync-at-exit flushes it).
+    ( cat /dev/kmsg >> /mnt/kmsg.log 2>&1 ) &
+fi
 # Snapshot devices + sound AFTER the ring-buffer dump so we see the state
 # that existed when drivers had their chance to probe.
 echo "=== POST-PROBE SNAPSHOT ===" >> $LOG
