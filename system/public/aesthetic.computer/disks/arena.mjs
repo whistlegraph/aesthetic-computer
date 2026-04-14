@@ -1268,11 +1268,13 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
         if (buttonBuffers[name]) {
           // Custom pixel graphics for jump/crouch buttons
           const buffer = buttonBuffers[name];
-          paste(buffer, b.box[0] + (b.box[2] - buffer.width) / 2, b.box[1] + (b.box[3] - buffer.height) / 2);
+          const centerX = b.box.x + (b.box.w - buffer.width) / 2;
+          const centerY = b.box.y + (b.box.h - buffer.height) / 2;
+          paste(buffer, centerX, centerY);
         } else {
           // Text label for directional buttons
-          const textX = b.box[0] + b.box[2] / 2 - btnData.label.length * 3;
-          const textY = b.box[1] + 8;
+          const textX = b.box.x + b.box.w / 2 - btnData.label.length * 3;
+          const textY = b.box.y + 8;
           ink(...textColor).write(btnData.label, { x: textX, y: textY });
         }
       });
