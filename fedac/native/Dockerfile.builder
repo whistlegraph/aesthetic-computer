@@ -60,7 +60,7 @@ RUN mkdir -p /cache && cd /cache \
 RUN git clone --depth 1 --branch 4.22 --filter=blob:none --sparse \
         https://github.com/coreboot/coreboot /tmp/coreboot \
     && cd /tmp/coreboot \
-    && git sparse-checkout set util/cbfstool src/commonlib \
+    && git sparse-checkout set util/cbfstool src/commonlib src/vendorcode \
     && git submodule update --init --depth 1 3rdparty/vboot \
     && cd util/cbfstool \
     && make -j"$(nproc)" HOSTCFLAGS="-Wno-error -Wno-calloc-transposed-args -Wno-unterminated-string-initialization" cbfstool \
