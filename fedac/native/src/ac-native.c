@@ -2996,13 +2996,18 @@ int main(int argc, char *argv[]) {
                 int should_reboot = draw_install_reboot_prompt(&graph, screen, display, input, tts, audio, install_ok, pixel_scale);
                 if (should_reboot) {
                     if (tts) tts_wait(tts);  // let TTS finish before reboot
-                    sync();
-                    usleep(500000);  // 0.5s grace
-                    // sysrq reboot (most reliable under initramfs)
-                    FILE *sr = fopen("/proc/sysrq-trigger", "w");
-                    if (sr) { fputs("b", sr); fclose(sr); }
-                    system("reboot -f");
-                    _exit(0);
+                    // Use the shared ac_reboot() path — it tries reboot(2)
+                    // syscall first (reboot=efi,cold cmdline steers this
+                    // to UEFI ResetSystem which is the only consistently
+                    // working path on coreboot Chromebooks), falls back
+                    // to systemctl / busybox reboot -f, then finally
+                    // _exit(2) so init.sh sees "reboot requested" and
+                    // re-enters its own multi-tiered reboot loop
+                    // (reboot -f → sysrq-b → halt -f → sysrq-c panic).
+                    // The old path here did `_exit(0)` which triggered
+                    // init.sh's POWEROFF branch, so a failing reboot(2)
+                    // would hang waiting to power off instead of retrying.
+                    ac_reboot();
                 }
             }
         }
