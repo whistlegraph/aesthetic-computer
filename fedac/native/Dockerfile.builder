@@ -25,6 +25,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     realtek-firmware \
     alsa-sof-firmware \
     busybox mtools dosfstools hfsplus-tools hfsutils gdisk parted \
+    flashrom coreboot-utils \
     mesa-libgbm mesa-libgbm-devel \
     mesa-libEGL mesa-libEGL-devel \
     mesa-libGLES mesa-libGLES-devel \
