@@ -4466,6 +4466,115 @@ static void *flash_thread_fn(void *arg) {
     return NULL;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Firmware update thread — runs /bin/ac-firmware-install (bundled copy of
+// system/public/install-firmware.sh) and streams its stdout into
+// rt->fw_log. The script handles all the dangerous bits (backup via
+// flashrom -r, CBFS swap via cbfstool, flashrom -w) — we just orchestrate
+// + surface progress. Availability is gated by os.mjs before this runs.
+// ─────────────────────────────────────────────────────────────────
+static void fw_log_line(ACRuntime *rt, const char *line) {
+    int idx = rt->fw_log_count % 32;
+    strncpy(rt->fw_log[idx], line, sizeof(rt->fw_log[idx]) - 1);
+    rt->fw_log[idx][sizeof(rt->fw_log[idx]) - 1] = 0;
+    __sync_fetch_and_add(&rt->fw_log_count, 1);
+    ac_log("[fw] %s", line);
+}
+
+static void *fw_thread_fn(void *arg) {
+    ACRuntime *rt = (ACRuntime *)arg;
+    if (!rt) return NULL;
+    rt->fw_log_count = 0;
+    rt->fw_backup_path[0] = 0;
+    if (access("/bin/ac-firmware-install", X_OK) != 0) {
+        fw_log_line(rt, "ac-firmware-install not bundled in initramfs");
+        rt->fw_ok = 0;
+        rt->fw_pending = 0;
+        rt->fw_done = 1;
+        return NULL;
+    }
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd),
+             "AC_CDN=https://aesthetic.computer "
+             "SPLASH_URL=https://oven.aesthetic.computer/firmware/splash.bmp "
+             "/bin/ac-firmware-install %s 2>&1",
+             rt->fw_args[0] ? rt->fw_args : "");
+    fw_log_line(rt, "starting ac-firmware-install");
+    FILE *p = popen(cmd, "r");
+    if (!p) {
+        fw_log_line(rt, "popen failed");
+        rt->fw_ok = 0;
+        rt->fw_pending = 0;
+        rt->fw_done = 1;
+        return NULL;
+    }
+    char line[256];
+    while (fgets(line, sizeof(line), p)) {
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = 0;
+        // Capture the backup path line so JS can show it for "copy to USB"
+        const char *bk = strstr(line, "/tmp/firmware-backup-");
+        if (bk) {
+            int i = 0;
+            while (bk[i] && bk[i] != ' ' && i < (int)sizeof(rt->fw_backup_path) - 1) {
+                rt->fw_backup_path[i] = bk[i]; i++;
+            }
+            rt->fw_backup_path[i] = 0;
+        }
+        fw_log_line(rt, line);
+    }
+    int rc = pclose(p);
+    rt->fw_ok = (WIFEXITED(rc) && WEXITSTATUS(rc) == 0) ? 1 : 0;
+    char finish[64];
+    snprintf(finish, sizeof(finish), "ac-firmware-install exit=%d",
+             WIFEXITED(rc) ? WEXITSTATUS(rc) : -1);
+    fw_log_line(rt, finish);
+    rt->fw_pending = 0;
+    rt->fw_done = 1;
+    return NULL;
+}
+
+// system.firmwareInstall([mode]) — mode: "install" (default), "dry-run",
+// "restore". Returns immediately; poll system.firmware.{pending,done,ok,log}.
+static JSValue js_firmware_install(JSContext *ctx, JSValueConst this_val,
+                                    int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt) return JS_UNDEFINED;
+    if (current_rt->fw_pending) {
+        ac_log("[fw] refused: already running");
+        return JS_NewBool(ctx, 0);
+    }
+    current_rt->fw_args[0] = 0;
+    if (argc >= 1 && JS_IsString(argv[0])) {
+        const char *mode = JS_ToCString(ctx, argv[0]);
+        if (mode) {
+            if (strcmp(mode, "dry-run") == 0) {
+                strncpy(current_rt->fw_args, "--dry-run",
+                        sizeof(current_rt->fw_args) - 1);
+            } else if (strcmp(mode, "restore") == 0) {
+                strncpy(current_rt->fw_args, "--restore",
+                        sizeof(current_rt->fw_args) - 1);
+            }
+            JS_FreeCString(ctx, mode);
+        }
+    }
+    current_rt->fw_pending = 1;
+    current_rt->fw_done = 0;
+    current_rt->fw_ok = 0;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    int pr = pthread_create(&current_rt->fw_thread, &attr,
+                            fw_thread_fn, current_rt);
+    pthread_attr_destroy(&attr);
+    if (pr != 0) {
+        current_rt->fw_pending = 0;
+        current_rt->fw_done = 1;
+        return JS_NewBool(ctx, 0);
+    }
+    return JS_NewBool(ctx, 1);
+}
+
 // system.flashUpdate(srcPath[, devicePath[, initramfsSrcPath]])
 // devicePath defaults to auto-detected boot device if omitted.
 // initramfsSrcPath is optional — when provided, the flash thread also copies
@@ -5990,6 +6099,85 @@ static JSValue build_system_obj(JSContext *ctx) {
 #else
     JS_SetPropertyStr(ctx, sys, "version", JS_NewString(ctx, "unknown"));
 #endif
+
+    // Firmware capability probe — exposed as `system.firmware` so os.mjs can
+    // gate the firmware-update panel on machines where flashing is actually
+    // viable. Criteria, all of which must be true:
+    //   1. /dev/mtd0 exists — kernel has a usable SPI-NOR driver bound to
+    //      the motherboard's flash chip (CONFIG_SPI_INTEL_PCI + CONFIG_MTD).
+    //      Absent this, flashrom's internal programmer can't open the chip.
+    //   2. bios_vendor contains "coreboot" — the only firmware we support
+    //      reflashing is MrChromebox's coreboot+edk2 build. Stock OEM AMI /
+    //      Insyde firmware would either reject writes (SMM) or brick.
+    //   3. Optional: a plausible Chromebook/supported-board identifier in
+    //      product_name, which lets us suggest a MrChromebox ROM URL.
+    // This is an advisory flag; the actual flash is gated by a second probe
+    // + `flashrom --probe` step inside the update thread.
+    {
+        JSValue firmware = JS_NewObject(ctx);
+        int mtd_ok = (access("/dev/mtd0", F_OK) == 0);
+        char bios_vendor[128] = "";
+        char product_name[128] = "";
+        char bios_version[128] = "";
+        read_sysfs("/sys/class/dmi/id/bios_vendor", bios_vendor, sizeof(bios_vendor));
+        read_sysfs("/sys/class/dmi/id/product_name", product_name, sizeof(product_name));
+        read_sysfs("/sys/class/dmi/id/bios_version", bios_version, sizeof(bios_version));
+        // Trim trailing newlines from sysfs reads
+        for (char *p = bios_vendor; *p; p++) if (*p == '\n') { *p = 0; break; }
+        for (char *p = product_name; *p; p++) if (*p == '\n') { *p = 0; break; }
+        for (char *p = bios_version; *p; p++) if (*p == '\n') { *p = 0; break; }
+        int coreboot =
+            (strstr(bios_vendor, "coreboot") != NULL) ||
+            (strstr(bios_version, "MrChromebox") != NULL);
+        int available = mtd_ok && coreboot;
+        JS_SetPropertyStr(ctx, firmware, "available", JS_NewBool(ctx, available));
+        JS_SetPropertyStr(ctx, firmware, "mtdOk", JS_NewBool(ctx, mtd_ok));
+        JS_SetPropertyStr(ctx, firmware, "coreboot", JS_NewBool(ctx, coreboot));
+        JS_SetPropertyStr(ctx, firmware, "biosVendor", JS_NewString(ctx, bios_vendor));
+        JS_SetPropertyStr(ctx, firmware, "biosVersion", JS_NewString(ctx, bios_version));
+        JS_SetPropertyStr(ctx, firmware, "productName", JS_NewString(ctx, product_name));
+        // Lowercase board name (first word of product_name) is the URL slug
+        // MrChromebox uses: e.g. "Google Drawman/Drawcia" -> "drawcia"
+        char board[64] = "";
+        {
+            const char *src = product_name;
+            // Skip "Google " prefix if present
+            if (strncmp(src, "Google ", 7) == 0) src += 7;
+            // Copy up to '/' or ' ' or end, lowercasing
+            int i = 0;
+            while (*src && *src != '/' && *src != ' ' && i < (int)sizeof(board) - 1) {
+                board[i++] = (*src >= 'A' && *src <= 'Z') ? (*src + 32) : *src;
+                src++;
+            }
+            board[i] = 0;
+        }
+        JS_SetPropertyStr(ctx, firmware, "board", JS_NewString(ctx, board));
+        // Runtime install state — live values updated by fw_thread_fn.
+        if (current_rt) {
+            JS_SetPropertyStr(ctx, firmware, "pending",
+                              JS_NewBool(ctx, current_rt->fw_pending));
+            JS_SetPropertyStr(ctx, firmware, "done",
+                              JS_NewBool(ctx, current_rt->fw_done));
+            JS_SetPropertyStr(ctx, firmware, "ok",
+                              JS_NewBool(ctx, current_rt->fw_ok));
+            if (current_rt->fw_backup_path[0])
+                JS_SetPropertyStr(ctx, firmware, "backupPath",
+                                  JS_NewString(ctx, current_rt->fw_backup_path));
+            JSValue log = JS_NewArray(ctx);
+            int count = current_rt->fw_log_count;
+            int show = count < 32 ? count : 32;
+            int start = count - show;
+            for (int i = 0; i < show; i++) {
+                JS_SetPropertyUint32(ctx, log, i,
+                    JS_NewString(ctx, current_rt->fw_log[(start + i) % 32]));
+            }
+            JS_SetPropertyStr(ctx, firmware, "log", log);
+        }
+        // Action: system.firmware.install(mode?) — "install" | "dry-run" | "restore"
+        JS_SetPropertyStr(ctx, firmware, "install",
+                          JS_NewCFunction(ctx, js_firmware_install, "install", 1));
+        JS_SetPropertyStr(ctx, sys, "firmware", firmware);
+    }
 
     // User config (handle, piece — read from /mnt/config.json at boot)
     {
