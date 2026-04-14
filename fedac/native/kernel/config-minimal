@@ -2972,8 +2972,17 @@ CONFIG_SND_SOC_ACPI_INTEL_MATCH=y
 # (Drawcia), Alder Lake (X1 Nano), Tiger Lake etc. All built-in so no
 # module loader needed at boot.
 CONFIG_SND_SOC_SOF_TOPLEVEL=y
+CONFIG_SND_SOC_SOF_PCI=y
 CONFIG_SND_SOC_SOF_PCI_DEV=y
 CONFIG_SND_SOC_SOF=y
+# Intel LPSS (Low Power Subsystem) — provides I2C/UART/DMA on Chromebooks
+# and is a hard dep for the RT5682 machine driver + DMIC input on all
+# Intel SOF platforms from Jasper Lake onward. Also ensure HDMI codec
+# stays on so SOF_RT5682_MACH's SND_HDA_CODEC_HDMI dep is satisfied.
+CONFIG_MFD_INTEL_LPSS=y
+CONFIG_MFD_INTEL_LPSS_ACPI=y
+CONFIG_MFD_INTEL_LPSS_PCI=y
+CONFIG_SND_HDA_CODEC_HDMI=y
 CONFIG_SND_SOC_SOF_PROBE_WORK_QUEUE=y
 CONFIG_SND_SOC_SOF_IPC3=y
 CONFIG_SND_SOC_SOF_INTEL_IPC4=y
