@@ -7321,6 +7321,7 @@ sound = {
   bpm: undefined,
   sounds: [],
   bubbles: [],
+  farts: [],
   kills: [],
 };
 
@@ -11458,6 +11459,7 @@ async function makeFrame({ data: { type, content } }) {
     // soundClear?.();
     sound.sounds.length = 0; // Empty the sound command buffer.
     sound.bubbles.length = 0;
+    sound.farts.length = 0;
     sound.kills.length = 0;
     return;
   }
@@ -12431,6 +12433,39 @@ async function makeFrame({ data: { type, content } }) {
         disableSustain: function () {
           send({
             type: "bubble:update",
+            content: { id, properties: { sustain: false } },
+          });
+        },
+      };
+    };
+
+    $sound.fart = function ({ pressure = 1, pitch = 60, rasp = 0.5, volume = 1, pan = 0 } = {}) {
+      const id = soundId;
+      sound.farts = sound.farts || [];
+      sound.farts.push({ id, pressure, pitch, rasp, volume, pan });
+      soundId += 1n;
+
+      return {
+        startedAt: soundTime,
+        id,
+        kill: function (fade) {
+          sound.kills.push({ id, fade });
+        },
+        update: function (properties) {
+          send({
+            type: "fart:update",
+            content: { id, properties },
+          });
+        },
+        enableSustain: function () {
+          send({
+            type: "fart:update",
+            content: { id, properties: { sustain: true } },
+          });
+        },
+        disableSustain: function () {
+          send({
+            type: "fart:update",
             content: { id, properties: { sustain: false } },
           });
         },
@@ -16077,6 +16112,7 @@ async function makeFrame({ data: { type, content } }) {
 
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
+      sound.farts.length = 0;
       sound.kills.length = 0;
 
       twoDCommands.length = 0; // Empty the 2D GPU command buffer.
