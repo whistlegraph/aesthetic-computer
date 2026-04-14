@@ -332,6 +332,8 @@ static void try_mount_log(void) {
         "/dev/sdd1", "/dev/sdd2",
         "/dev/nvme0n1p1", "/dev/nvme0n1p2",
         "/dev/nvme1n1p1", "/dev/nvme1n1p2",
+        "/dev/mmcblk0p1", "/dev/mmcblk0p2",
+        "/dev/mmcblk1p1", "/dev/mmcblk1p2",
         NULL
     };
 
@@ -1151,10 +1153,12 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         }
     }
 
-    // Scan for internal (non-removable) block devices with partitions
-    // Try NVMe first (always internal), then SATA/USB
+    // Scan for internal (non-removable) block devices with partitions.
+    // NVMe first (always internal), then eMMC (always internal — common
+    // on Chromebooks + budget laptops), then SATA/USB last.
     const char *part_candidates[] = {
         "nvme0n1", "nvme1n1",     // NVMe SSDs
+        "mmcblk0", "mmcblk1",     // eMMC (Chromebooks, budget laptops)
         "sda", "sdb", "sdc", "sdd", // SATA/USB
         NULL
     };
@@ -1175,7 +1179,9 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
         // Try partitions 1-8
         for (int p = 1; p <= 8 && !installed; p++) {
             char devpath[32];
-            if (blk[0] == 'n') // NVMe: nvme0n1p1
+            // NVMe + eMMC use "p<N>" suffix (name ends in a digit); SATA
+            // just appends the number to the base name.
+            if (blk[0] == 'n' || strncmp(blk, "mmcblk", 6) == 0)
                 snprintf(devpath, sizeof(devpath), "/dev/%sp%d", blk, p);
             else // SATA: sda1
                 snprintf(devpath, sizeof(devpath), "/dev/%s%d", blk, p);
@@ -2067,16 +2073,21 @@ static int draw_install_reboot_prompt(ACGraph *graph, ACFramebuffer *screen,
 
 // Check if we booted from an installed (non-removable) disk
 // by looking for ac-installed marker on an internal ESP
-// Extract parent block device name from a partition path
-// "nvme0n1p1" → "nvme0n1", "sda1" → "sda"
+// Extract parent block device name from a partition path:
+//   "nvme0n1p1" → "nvme0n1"
+//   "mmcblk0p1" → "mmcblk0"
+//   "sda1"      → "sda"
+// NVMe and eMMC both use the "<dev>p<N>" partition-suffix scheme (because
+// the parent name ends in a digit), so strip the trailing "pN" for both.
 static void get_parent_block(const char *part, char *out, int out_sz) {
     out[0] = 0;
     int len = (int)strlen(part);
     if (len >= out_sz) return;
-    // NVMe: strip trailing "pN" (e.g. nvme0n1p1 → nvme0n1)
-    if (strncmp(part, "nvme", 4) == 0) {
-        // Find last 'p' followed by digits
-        for (int i = len - 1; i > 4; i--) {
+    // NVMe / eMMC: strip trailing "pN" (e.g. nvme0n1p1 → nvme0n1,
+    // mmcblk0p1 → mmcblk0).
+    if (strncmp(part, "nvme", 4) == 0 || strncmp(part, "mmcblk", 6) == 0) {
+        int base_min = (part[0] == 'n') ? 4 : 6;
+        for (int i = len - 1; i > base_min; i--) {
             if (part[i - 1] == 'p' && part[i] >= '0' && part[i] <= '9') {
                 memcpy(out, part, i - 1);
                 out[i - 1] = 0;
@@ -2098,6 +2109,7 @@ static int is_installed_on_hd(void) {
     mkdir("/tmp/chk", 0755);
     const char *parts[] = {
         "/dev/nvme0n1p1", "/dev/nvme0n1p2",
+        "/dev/mmcblk0p1", "/dev/mmcblk0p2",
         "/dev/sda1", "/dev/sdb1", NULL
     };
     for (int i = 0; parts[i]; i++) {
