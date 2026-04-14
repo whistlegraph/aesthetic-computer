@@ -5,9 +5,17 @@
 const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces.com/os/";
 const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
 const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
+const OS_INITRAMFS_URL = OS_BASE_URL + "native-notepat-latest.initramfs.cpio.gz";
 let remoteSize = 0; // parsed from version file (line 2)
 
-// States: idle | checking | up-to-date | available | downloading | flashing
+// Kernel no longer embeds initramfs (Phase 2 — loaded externally via EFI stub
+// `initrd=\initramfs.cpio.gz` from the ESP root). OTA must download BOTH the
+// kernel and the initramfs and flash them atomically, otherwise the device
+// boots a new kernel against a stale initramfs and code-path drift follows.
+let initramfsDownloaded = false;
+
+// States: idle | checking | up-to-date | available
+//         | downloading (kernel) | downloading-initramfs | flashing
 //         | confirm-reboot | shutting-down | error
 //         | devices | clone-confirm | cloning
 let state = "idle";
@@ -635,26 +643,51 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     errorMsg = "timeout";
   }
 
-  // Download progress
+  // Download progress (kernel)
   if (state === "downloading") {
     const prevProgress = progress;
     progress = system?.fetchBinaryProgress ?? progress;
-    // Telemetry on progress milestones
     if (progress > 0 && Math.floor(progress * 10) > Math.floor(prevProgress * 10)) {
       const pct = Math.round(progress * 100);
-      addTelemetry(`download ${pct}% (${(progress * (remoteSize || 93_000_000) / 1048576).toFixed(1)}MB)`);
+      addTelemetry(`kernel ${pct}% (${(progress * (remoteSize || 13_000_000) / 1048576).toFixed(1)}MB)`);
     }
     if (system?.fetchBinaryDone) {
       if (system?.fetchBinaryOk) {
-        addTelemetry("download complete, starting flash...");
+        addTelemetry("kernel downloaded, fetching initramfs...");
+        state = "downloading-initramfs";
+        progress = 0;
+        initramfsDownloaded = false;
+        // Initramfs size isn't in the .version file today; use a generous
+        // default so the progress bar doesn't stall at 100% prematurely.
+        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", 336_000_000);
+      } else {
+        state = "error";
+        errorMsg = "kernel download failed";
+      }
+    }
+  }
+
+  // Download progress (initramfs) — kicks off flash once both files are local
+  if (state === "downloading-initramfs") {
+    const prevProgress = progress;
+    progress = system?.fetchBinaryProgress ?? progress;
+    if (progress > 0 && Math.floor(progress * 10) > Math.floor(prevProgress * 10)) {
+      const pct = Math.round(progress * 100);
+      addTelemetry(`initramfs ${pct}%`);
+    }
+    if (system?.fetchBinaryDone) {
+      if (system?.fetchBinaryOk) {
+        initramfsDownloaded = true;
+        addTelemetry("initramfs downloaded, starting flash...");
         state = "flashing";
         const dev = globalThis.__osFlashDevice;
         addTelemetry("target: " + (dev || system?.bootDevice || "auto"));
-        if (dev) system?.flashUpdate?.("/tmp/vmlinuz.new", dev);
-        else system?.flashUpdate?.("/tmp/vmlinuz.new");
+        // Four-arg flashUpdate: (kernelSrc, device, initramfsSrc)
+        // Device may be omitted — null lets C auto-detect the boot device.
+        system?.flashUpdate?.("/tmp/vmlinuz.new", dev || null, "/tmp/initramfs.cpio.gz.new");
       } else {
         state = "error";
-        errorMsg = "download failed";
+        errorMsg = "initramfs download failed";
       }
     }
   }

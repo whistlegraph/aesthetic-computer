@@ -131,19 +131,36 @@ copy_boot_tree_to_vfat() {
     # (set by ac_media_stage_boot_tree in media-layout.sh).
     local STAGED_KERNEL="${STAGED_ROOT}/EFI/BOOT/BOOTX64.EFI"
 
+    # Kernel now loads initramfs externally via `initrd=\initramfs.cpio.gz`
+    # in CONFIG_CMDLINE — every boot mode except systemd-boot (which manages
+    # its own initrd path via loader/entries/) must ship the initramfs at
+    # the partition root. Staging places it there already; we just copy.
+    local STAGED_INITRAMFS_GZ="${STAGED_ROOT}/initramfs.cpio.gz"
+    local STAGED_INITRAMFS_LZ4="${STAGED_ROOT}/initramfs.cpio.lz4"
+    copy_external_initramfs() {
+        if [ -f "${STAGED_INITRAMFS_GZ}" ]; then
+            cp "${STAGED_INITRAMFS_GZ}" "${mountpoint}/initramfs.cpio.gz"
+        elif [ -f "${STAGED_INITRAMFS_LZ4}" ]; then
+            cp "${STAGED_INITRAMFS_LZ4}" "${mountpoint}/initramfs.cpio.lz4"
+        fi
+    }
+
     case "${boot_mode}" in
         chainloader)
             cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
             cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
+            copy_external_initramfs
             ;;
         kernel-only)
             cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/KERNEL.EFI"
             rm -f "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            copy_external_initramfs
             ;;
         kernel-direct)
             # Place kernel AS BOOTX64.EFI — standard UEFI fallback path.
             # This is discoverable by all UEFI firmware including Intel Macs.
             cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+            copy_external_initramfs
             ;;
         systemd-boot)
             # Universal boot: splash.efi → systemd-boot → slim kernel + initramfs.
@@ -207,6 +224,13 @@ populate_mac_partition() {
         cp "${STAGED_KERNEL}" "${mountpoint}/System/Library/CoreServices/boot.efi"
         mkdir -p "${mountpoint}/EFI/BOOT"
         cp "${STAGED_KERNEL}" "${mountpoint}/EFI/BOOT/BOOTX64.EFI"
+        # External initramfs — Mac firmware exposes HFS+ via EFI SimpleFileSystem,
+        # so the kernel's EFI stub can load `\initramfs.cpio.gz` from the root.
+        if [ -f "${STAGED_ROOT}/initramfs.cpio.gz" ]; then
+            cp "${STAGED_ROOT}/initramfs.cpio.gz" "${mountpoint}/initramfs.cpio.gz"
+        elif [ -f "${STAGED_ROOT}/initramfs.cpio.lz4" ]; then
+            cp "${STAGED_ROOT}/initramfs.cpio.lz4" "${mountpoint}/initramfs.cpio.lz4"
+        fi
         cat > "${mountpoint}/System/Library/CoreServices/SystemVersion.plist" << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

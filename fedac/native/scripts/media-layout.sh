@@ -266,19 +266,24 @@ ac_media_stage_boot_tree() {
     cp "${kernel_path}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI"
     cp "${config_path}" "${stage_root}/config.json"
 
-    # Stage slim kernel + initramfs for universal boot (systemd-boot mode)
+    # Stage slim kernel + initramfs for universal boot (systemd-boot mode).
+    # The kernel's baked-in cmdline has `initrd=\initramfs.cpio.gz`, so the
+    # gzip initramfs MUST land at the ESP root — don't relocate it under
+    # EFI/BOOT/ or the EFI stub will fail to find it at boot time.
     local kernel_dir
     kernel_dir="$(dirname "${kernel_path}")"
     local slim="${kernel_dir}/vmlinuz-slim"
     if [ -f "${slim}" ]; then
         cp "${slim}" "${stage_root}/EFI/BOOT/KERNEL-SLIM.EFI"
     fi
-    # Prefer gzip initramfs (universal), fall back to lz4
     local initramfs_gz="${kernel_dir}/initramfs.cpio.gz"
     local initramfs_lz4="${kernel_dir}/initramfs.cpio.lz4"
     if [ -f "${initramfs_gz}" ]; then
         cp "${initramfs_gz}" "${stage_root}/initramfs.cpio.gz"
     elif [ -f "${initramfs_lz4}" ]; then
+        # Fallback: no .gz produced. Kernel cmdline still says .gz, so this
+        # path is only useful for systemd-boot layouts that pass their own
+        # initrd= in loader/entries/ac-native.conf.
         cp "${initramfs_lz4}" "${stage_root}/initramfs.cpio.lz4"
     fi
 }
@@ -312,6 +317,13 @@ ac_media_create_fat_image() {
     # 32-bit UEFI fallback (kernel with EFI_MIXED=y)
     if [ -f "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ]; then
         mcopy -o -i "${image_path}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ::EFI/BOOT/BOOTIA32.EFI
+    fi
+    # External initramfs at ESP root — matches `initrd=\initramfs.cpio.gz` in
+    # CONFIG_CMDLINE so the kernel EFI stub can load it.
+    if [ -f "${stage_root}/initramfs.cpio.gz" ]; then
+        mcopy -o -i "${image_path}" "${stage_root}/initramfs.cpio.gz" ::initramfs.cpio.gz
+    elif [ -f "${stage_root}/initramfs.cpio.lz4" ]; then
+        mcopy -o -i "${image_path}" "${stage_root}/initramfs.cpio.lz4" ::initramfs.cpio.lz4
     fi
 }
 
@@ -348,6 +360,12 @@ ac_media_create_efi_disk_image() {
     mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/EFI/BOOT/BOOTX64.EFI" ::EFI/BOOT/BOOTX64.EFI
     if [ -f "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ]; then
         mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/EFI/BOOT/BOOTIA32.EFI" ::EFI/BOOT/BOOTIA32.EFI
+    fi
+    # External initramfs — see ac_media_create_fat_image for rationale.
+    if [ -f "${stage_root}/initramfs.cpio.gz" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/initramfs.cpio.gz" ::initramfs.cpio.gz
+    elif [ -f "${stage_root}/initramfs.cpio.lz4" ]; then
+        mcopy -o -i "${image_path}@@${esp_offset}" "${stage_root}/initramfs.cpio.lz4" ::initramfs.cpio.lz4
     fi
 }
 
