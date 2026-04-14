@@ -1506,6 +1506,25 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                         DLOG, parent_blk, DLOG, parent_blk, DLOG,
                         parent_blk, DLOG, parent_blk, DLOG);
                     system(rcmd);
+                    // sfdisk wrote a single partition → the new ESP is p1 on
+                    // the parent disk, regardless of what partition index we
+                    // entered this branch with. Chromebook case: we arrived
+                    // via devpath=/dev/mmcblk1p12 (existing 16MB EFI-SYSTEM),
+                    // sfdisk rewrote the table to a single 1024MB entry at
+                    // p1 and wiped p12 entirely — so mkfs + mount need to
+                    // target the new partition, not the old devpath.
+                    char new_devpath[48];
+                    if (parent_blk[0] == 'n' || strncmp(parent_blk, "mmcblk", 6) == 0) {
+                        snprintf(new_devpath, sizeof(new_devpath), "/dev/%sp1", parent_blk);
+                    } else {
+                        snprintf(new_devpath, sizeof(new_devpath), "/dev/%s1", parent_blk);
+                    }
+                    if (strcmp(new_devpath, devpath) != 0) {
+                        ac_log("[install] canonicalizing devpath %s → %s after sfdisk\n",
+                               devpath, new_devpath);
+                        strncpy(devpath, new_devpath, sizeof(devpath) - 1);
+                        devpath[sizeof(devpath) - 1] = '\0';
+                    }
                     // Wait for partition device node to appear (up to 10s)
                     int devpath_ready = 0;
                     for (int wait = 0; wait < 20; wait++) {
