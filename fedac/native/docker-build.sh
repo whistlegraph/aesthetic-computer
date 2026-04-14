@@ -446,6 +446,30 @@ if command -v npx &>/dev/null && [ -f "$SRC/system/public/aesthetic.computer/lib
     cd "$NATIVE"
 fi
 
+# ── 2o2: FPS system bundle (CamDoll + Camera + Dolly for `system="fps"` pieces) ──
+# Tree-shakes graph.mjs down to just Camera + Dolly and pulls in CamDoll.
+# Pieces like arena.mjs that export `system = "fps"` get this injected
+# by the piece loader (see js_load_piece in js-bindings.c) so web and
+# native share the exact same FPS camera/input source.
+if command -v npx &>/dev/null && [ -f "$NATIVE/scripts/fps-bundle-entry.mjs" ]; then
+    log "  Bundling FPS system (Camera + Dolly + CamDoll)..."
+    cd "$SRC"
+    # IIFE format so the bundle self-executes at load and exposes the
+    # classes as `globalThis.__FpsSystem.{Camera,Dolly,CamDoll}` — lets
+    # the piece loader wire them in synchronously without ES module
+    # resolution. Mirrors the kidlisp-bundle.js pattern.
+    npx esbuild "$NATIVE/scripts/fps-bundle-entry.mjs" \
+        --bundle --format=iife --global-name=__FpsSystem --platform=neutral \
+        --external:https --external:http --external:net --external:fs --external:path \
+        --outfile=/tmp/fps-system-bundle.js 2>&1 || true
+    if [ -f /tmp/fps-system-bundle.js ]; then
+        mkdir -p "$IROOT/jslib"
+        cp /tmp/fps-system-bundle.js "$IROOT/jslib/fps-system-bundle.js"
+        log "    fps-system-bundle.js: $(stat -c%s /tmp/fps-system-bundle.js) bytes"
+    fi
+    cd "$NATIVE"
+fi
+
 # ── 2p: ES module lib files for pieces (clock.mjs needs these) ──
 # These are pure JS with no DOM/browser deps — work in QuickJS as-is.
 # The module loader resolves "../lib/X.mjs" → "/lib/X.mjs" in the initramfs.
