@@ -49,6 +49,24 @@ const DEBUG_DUMP_INTERVAL = 120; // sim ticks (= 1 s at SIM_HZ=120)
 let playerAlive = true;
 let deathTickAge = 0; // how long we've been dead (sim ticks, for UI fade-in)
 
+// 🎮 Gamepad / Xbox controller state.
+// Populated lazily on the first gamepad event, then driven by act() each
+// frame. Connection persists for the session — we don't get disconnect events
+// surfaced through the disk event stream, so we treat "ever seen" as "still
+// here" for UI purposes.
+let gamepadState = {
+  connected: false,
+  id: null,
+  index: 0,
+  buttons: {}, // { 0: true, 1: false, ... } indexed by Standard Gamepad button
+  axes: { 0: 0, 1: 0, 2: 0, 3: 0 },
+  // Mirrors what we last told doll.setMovement so we only emit on transitions.
+  movement: { forward: false, back: false, left: false, right: false },
+};
+const GP_DEADZONE = 0.3;          // movement threshold (gamepad.mjs already pre-filters at 0.15)
+const GP_LOOK_DEG_PER_SEC = 180;  // right-stick look speed at full deflection
+const GP_PITCH_LIMIT = 89;
+
 // 🟨 Per-tile highlight state.
 // hoverTile: { row, col } of tile under the crosshair, or null.
 // walkedTiles: Map<tileKey, ageTicks>. A tile just stepped onto starts at
@@ -650,6 +668,22 @@ function sim({ system, pen, screen }) {
     }
   }
 
+  // 🎮 Right-stick → camera look. Integrate continuously in sim so the look
+  // speed is framerate-independent. Skip while orbiting (right-mouse drag) so
+  // the two camera-control schemes don't fight.
+  if (gamepadState.connected && !orbiting) {
+    const rx = gamepadState.axes[2] || 0;
+    const ry = gamepadState.axes[3] || 0;
+    if (rx !== 0 || ry !== 0) {
+      const dt = 1 / SIM_HZ;
+      cam.rotY += rx * GP_LOOK_DEG_PER_SEC * dt;
+      cam.rotX = Math.max(
+        -GP_PITCH_LIMIT,
+        Math.min(GP_PITCH_LIMIT, cam.rotX + ry * GP_LOOK_DEG_PER_SEC * dt),
+      );
+    }
+  }
+
   // Undo any orbit offset we applied last frame so it doesn't affect physics
   cam.x -= appliedOrbitOffset[0];
   cam.z -= appliedOrbitOffset[1];
@@ -1101,6 +1135,71 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
     }
   }
 
+  // 🎮 Controller minimap — appears top-left whenever a gamepad has been
+  // detected this session. Schematic Xbox-style layout with live stick + button
+  // state so the player can verify input is reaching the piece.
+  if (gamepadState.connected) {
+    const px = 4, py = 4, w = 90, h = 56;
+    const btn = (i) => !!gamepadState.buttons[i];
+
+    // Body
+    ink(20, 25, 35, 210).box(px, py, w, h, "fill");
+    ink(80, 100, 130, 230).box(px, py, w, h, "outline");
+
+    // Triggers (LT=6, RT=7) — short bars across the top edge
+    ink(btn(6) ? "yellow" : [70, 80, 100]).box(px + 4,        py + 2, 18, 3, "fill");
+    ink(btn(7) ? "yellow" : [70, 80, 100]).box(px + w - 22,   py + 2, 18, 3, "fill");
+    // Bumpers (LB=4, RB=5) — bars just below the triggers
+    ink(btn(4) ? "white"  : [70, 80, 100]).box(px + 4,        py + 7, 18, 3, "fill");
+    ink(btn(5) ? "white"  : [70, 80, 100]).box(px + w - 22,   py + 7, 18, 3, "fill");
+
+    // Left stick well + dot (axes 0, 1; LS press = button 10)
+    const lsx = px + 14, lsy = py + 26, lsr = 8;
+    ink(40, 50, 70, 230).circle(lsx, lsy, lsr, true);
+    ink(110, 130, 160).circle(lsx, lsy, lsr);
+    const lsDx = (gamepadState.axes[0] || 0) * (lsr - 2);
+    const lsDy = (gamepadState.axes[1] || 0) * (lsr - 2);
+    ink(btn(10) ? "yellow" : "white").circle(lsx + lsDx, lsy + lsDy, 2, true);
+
+    // Right stick (axes 2, 3; RS press = button 11)
+    const rsx = px + w - 14, rsy = py + 26, rsr = 8;
+    ink(40, 50, 70, 230).circle(rsx, rsy, rsr, true);
+    ink(110, 130, 160).circle(rsx, rsy, rsr);
+    const rsDx = (gamepadState.axes[2] || 0) * (rsr - 2);
+    const rsDy = (gamepadState.axes[3] || 0) * (rsr - 2);
+    ink(btn(11) ? "yellow" : "white").circle(rsx + rsDx, rsy + rsDy, 2, true);
+
+    // D-pad cross (12=up, 13=down, 14=left, 15=right)
+    const dpx = px + 30, dpy = py + 38;
+    const dpOff = [70, 80, 100], dpOn = [255, 255, 255];
+    ink(...(btn(12) ? dpOn : dpOff)).box(dpx,     dpy - 4, 4, 4, "fill");
+    ink(...(btn(13) ? dpOn : dpOff)).box(dpx,     dpy + 4, 4, 4, "fill");
+    ink(...(btn(14) ? dpOn : dpOff)).box(dpx - 4, dpy,     4, 4, "fill");
+    ink(...(btn(15) ? dpOn : dpOff)).box(dpx + 4, dpy,     4, 4, "fill");
+
+    // Face buttons diamond (Y top, X left, B right, A bottom — Xbox colors)
+    const fbx = px + w - 30, fby = py + 38;
+    const face = (cx, cy, color, on) => {
+      ink(color[0], color[1], color[2], on ? 255 : 90).circle(cx, cy, 3, true);
+      ink(255, 255, 255, on ? 255 : 80).circle(cx, cy, 3);
+    };
+    face(fbx,     fby + 5, [60, 200, 80],  btn(0)); // A — green
+    face(fbx + 5, fby,     [220, 60, 60],  btn(1)); // B — red
+    face(fbx - 5, fby,     [60, 130, 220], btn(2)); // X — blue
+    face(fbx,     fby - 5, [240, 220, 60], btn(3)); // Y — yellow
+
+    // Back (8) / Start (9) / Guide (16) — tiny center dots
+    const cmx = px + w / 2, cmy = py + 26;
+    ink(...(btn(8) ? [255, 255, 255] : [100, 110, 130])).box(cmx - 7, cmy, 3, 3, "fill");
+    ink(...(btn(9) ? [255, 255, 255] : [100, 110, 130])).box(cmx + 4, cmy, 3, 3, "fill");
+    if (btn(16)) ink("lime").circle(cmx + 1, cmy + 9, 2, true);
+
+    // Controller id (truncated)
+    const idShort = (gamepadState.id || "GAMEPAD").slice(0, 18).toUpperCase();
+    ink(180, 200, 230, 200);
+    write(idShort, { x: px + 3, y: py + h - 9 }, undefined, undefined, false, font);
+  }
+
   // 📱 Draw mobile control buttons
   if (mobileButtons) {
     // Check if keyboard key is held for each button
@@ -1137,6 +1236,66 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
 function act({ event: e, penLock, system }) {
   if (e.is("pen:locked")) penLocked = true;
   if (e.is("pen:unlocked")) penLocked = false;
+
+  // 🎮 Gamepad — Standard Gamepad mapping (Xbox 360/One/Series, PS, etc.).
+  // Events arrive as `gamepad:<idx>:button:<n>:push|release` and
+  // `gamepad:<idx>:axis:<n>:move` from lib/gamepad.mjs. Parse the name once
+  // and dispatch by kind so we don't have to enumerate every button.
+  if (e.name && e.name.startsWith("gamepad:")) {
+    const m = e.name.match(/^gamepad:(\d+):(button|axis):(\d+):(push|release|move)$/);
+    if (m) {
+      const gi = +m[1], kind = m[2], idx = +m[3], action = m[4];
+      const doll = system?.fps?.doll;
+      if (!gamepadState.connected) {
+        gamepadState.connected = true;
+        gamepadState.id = e.gamepadId || "Gamepad";
+        gamepadState.index = gi;
+      }
+      if (kind === "button") {
+        const pushed = action === "push";
+        gamepadState.buttons[idx] = pushed;
+        if (idx === 0 && doll) doll.setMovement("jump", pushed);     // A → jump
+        if (idx === 1 && doll) doll.setMovement("crouch", pushed);   // B → crouch
+        if (idx === 12 && pushed) {                                  // D-pad up → zoom in
+          zoomLevel = Math.max(0, zoomLevel - 1);
+          applyZoom(doll);
+        }
+        if (idx === 13 && pushed) {                                  // D-pad down → zoom out
+          zoomLevel = Math.min(ZOOM_DISTANCES.length - 1, zoomLevel + 1);
+          applyZoom(doll);
+        }
+        if (idx === 9 && pushed && !playerAlive && deathTickAge > 30) { // Start → respawn
+          playerAlive = true;
+          deathTickAge = 0;
+          walkedTiles.clear();
+          prevPlayerTile = null;
+          doll?.respawn?.(0, 0);
+        }
+      } else if (kind === "axis") {
+        gamepadState.axes[idx] = e.value;
+        if ((idx === 0 || idx === 1) && doll) {
+          // Left stick → discrete forward/back/left/right with deadzone, so
+          // it slots into the same setMovement boolean flags the keyboard /
+          // mobile buttons drive. Any move past GP_DEADZONE counts as held.
+          const x = gamepadState.axes[0] || 0;
+          const y = gamepadState.axes[1] || 0;
+          const want = {
+            left:    x < -GP_DEADZONE,
+            right:   x >  GP_DEADZONE,
+            forward: y < -GP_DEADZONE,
+            back:    y >  GP_DEADZONE,
+          };
+          for (const k of ["left", "right", "forward", "back"]) {
+            if (want[k] !== gamepadState.movement[k]) {
+              doll.setMovement(k, want[k]);
+              gamepadState.movement[k] = want[k];
+            }
+          }
+        }
+        // Axes 2/3 (right stick) are read in sim() for smooth look integration.
+      }
+    }
+  }
 
   // ⌨️ Track keyboard state for visual feedback on buttons
   if (e.is("keyboard:down")) {
