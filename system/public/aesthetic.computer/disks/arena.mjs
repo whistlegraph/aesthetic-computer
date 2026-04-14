@@ -1219,7 +1219,7 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
         // Draw button label text centered in the button
         const textX = b.box[0] + b.box[2] / 2 - btnData.label.length * 3; // Rough centering for monospace
         const textY = b.box[1] + 8;
-        ink(...textColor).write(btnData.label, textX, textY);
+        ink(...textColor).write(btnData.label, { x: textX, y: textY });
       });
     }
   }
