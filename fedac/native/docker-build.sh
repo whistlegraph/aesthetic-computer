@@ -736,8 +736,15 @@ if [ -n "$FW_LIST" ]; then
     log "  Built-in firmware files: $FW_LIST"
 fi
 
-# Copy initramfs into kernel tree
-cp "$BUILD/initramfs.cpio.lz4" "$LINUX_DIR/initramfs.cpio.lz4"
+# Pack initramfs as gzip up front — the kernel's EFI stub loads it externally
+# via the baked-in `initrd=\initramfs.cpio.gz` cmdline token. The .lz4 stays
+# around as the canonical build artifact (smaller + faster to repack), but the
+# kernel itself no longer embeds initramfs, so pure code changes skip the
+# kernel link step entirely.
+log "  Packing initramfs.cpio.gz (external initrd)..."
+lz4 -d "$BUILD/initramfs.cpio.lz4" -c 2>/dev/null | gzip -c > "$BUILD/initramfs.cpio.gz"
+cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz" 2>/dev/null || true
+log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB"
 
 # Configure — force-disable bloated GPU drivers that olddefconfig enables
 cd "$LINUX_DIR"
@@ -795,35 +802,15 @@ if [ ! -f arch/x86/boot/bzImage ]; then
 fi
 cp arch/x86/boot/bzImage "$BUILD/vmlinuz"
 cp arch/x86/boot/bzImage "$OUT/vmlinuz" 2>/dev/null || true
+# Legacy alias: media-layout.sh + OTA code still look for `vmlinuz-slim`.
+# It is now the exact same bytes as `vmlinuz` since there is no monolithic
+# variant — the kernel's EFI stub loads initramfs externally on every path.
+cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
+cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
 
 VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
-
-# ══════════════════════════════════════════════
-# Step 4b: Build slim kernel (no embedded initramfs) for Mac EFI boot
-# ══════════════════════════════════════════════
-log "Step 4b: Building slim kernel for Mac..."
-sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE=""|' .config
-make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed before slim build"; tail -120 "$KCFG_LOG" >&2; exit 1; }
-if ! command -v ccache &>/dev/null; then make clean 2>/dev/null || true; fi
-rm -f usr/initramfs_data.o usr/.initramfs_data.o.cmd
-if run_make_with_heartbeat "$BUILD/kernel-slim.log" make -j"${KERNEL_JOBS}" CC="${CC_USE}" bzImage; then
-    cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
-    cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
-    SLIM_SIZE=$(stat -c%s "$BUILD/vmlinuz-slim")
-    log "  Slim kernel: $((SLIM_SIZE / 1048576))MB"
-else
-    err "Slim kernel build failed (non-fatal)"
-fi
-# Restore config for any subsequent builds
-sed -i 's|^CONFIG_INITRAMFS_SOURCE=.*|CONFIG_INITRAMFS_SOURCE="initramfs.cpio.lz4"|' .config
-make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig failed while restoring initramfs config"; tail -120 "$KCFG_LOG" >&2; exit 1; }
-
-# Export initramfs as gzip (for systemd-boot on Mac)
-log "  Packing initramfs.cpio.gz..."
-lz4 -d "$BUILD/initramfs.cpio.lz4" -c 2>/dev/null | gzip -c > "$BUILD/initramfs.cpio.gz"
-cp "$BUILD/initramfs.cpio.gz" "$OUT/initramfs.cpio.gz" 2>/dev/null || true
-log "  initramfs.cpio.gz: $(($(stat -c%s "$BUILD/initramfs.cpio.gz") / 1048576))MB"
+log "  vmlinuz: $((VMLINUZ_SIZE / 1048576))MB (external initramfs)"
 
 # ══════════════════════════════════════════════
 # Step 5: Generate UEFI-bootable ISO

@@ -61,6 +61,7 @@ typedef struct {
     volatile long  flash_verified_bytes; // bytes verified after readback
     pthread_t flash_thread;
     char  flash_src[256];                 // source vmlinuz path
+    char  flash_initramfs_src[256];       // optional initramfs.cpio.gz source path (empty = skip)
     char  flash_device[64];              // EFI partition device, e.g. /dev/sda1 or /dev/nvme0n1p1
     char  flash_dst[256];                // actual destination path written to
     volatile int flash_same_device;      // 1 = target is same device as /mnt (NVMe-to-NVMe)
