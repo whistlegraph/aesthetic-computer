@@ -1,0 +1,4 @@
+raster_test
+*.o
+*.wasm
+*.wasm.map
