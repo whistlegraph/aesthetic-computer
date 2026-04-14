@@ -1,3 +1,6 @@
+// 📚 Learn, 2026.04.14
+// Documentation and reference guide for AC bots and brushes.
+
 /*
 Bots
  Type text into the prompt to receive a reply.
