@@ -11,6 +11,7 @@
   - [x] Gravity + space-to-jump + shift-to-crouch (Quake-style)
 #endregion */
 
+
 let groundPlane;
 let groundSkirt;   // solid opaque plate just under the ground that blocks
                    // any lava bleed-through between ground tile seams
@@ -28,6 +29,7 @@ let penLocked = false;
 // 📱 Mobile control buttons using TextButton UI component
 let mobileButtons = {}; // { up, down, left, right, jump, crouch }
 let mobileButtonStates = {}; // track which buttons are pressed
+let buttonBuffers = {}; // { jump, crouch, up, down, left, right } - pre-baked graphics
 
 // ⌨️ Keyboard state tracking (for lighting up buttons when keys are held)
 let keyboardState = {
@@ -304,7 +306,7 @@ function boot({ Form, penLock, system, screen, ui, api }) {
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
     const btnSize = 28;
-    const btnSizeLarge = 32;
+    const btnSizeWide = 56;  // wider action buttons
     const gap = 4;  // gap between buttons (no border overlap)
     const padding = 6;
     const bottomMargin = 6;
@@ -313,22 +315,23 @@ function boot({ Form, penLock, system, screen, ui, api }) {
     const moveX = padding;
     const moveY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
 
-    // Action buttons (bottom-right): compact
-    const actionX = screen.width - btnSizeLarge - padding;
-    const actionY = screen.height - (btnSizeLarge * 2 + gap + bottomMargin);
+    // Action buttons (bottom-right): wider layout
+    const actionX = screen.width - btnSizeWide - padding;
+    const actionY = screen.height - (btnSize * 2 + gap + bottomMargin);
 
     // D-pad layout:
-    //     UP
-    //  LT MD RT
-    //    DOWN
+    //     ↑
+    //  ← ● →
+    //     ↓
     mobileButtons = {
-      up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "UP" },
-      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "DN" },
-      left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "LT" },
-      right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "RT" },
-      jump: { btn: new ui.Button(actionX, actionY, btnSizeLarge, btnSizeLarge), key: "jump", label: "JUMP" },
-      crouch: { btn: new ui.Button(actionX, actionY + btnSizeLarge + gap, btnSizeLarge, btnSizeLarge), key: "crouch", label: "CRCH" },
+      up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "↑", isArrow: true },
+      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "↓", isArrow: true },
+      left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "←", isArrow: true },
+      right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "→", isArrow: true },
+      jump: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
+      crouch: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
     };
+
   }
 
   // --- Vertex-colored checkerboard ground with fog ---
@@ -855,32 +858,8 @@ function sim({ system, pen, screen }) {
     const hitStr = lastHitWorld
       ? `(${f2(lastHitWorld[0])}, ${f2(lastHitWorld[1])})`
       : "none";
-    console.log(
-      "🏟️ arena snapshot:",
-      JSON.stringify({
-        player: { x: f2(pWorldX), y: f2(pWorldY), z: f2(pWorldZ) },
-        cam: {
-          x: f2(cam.x), y: f2(cam.y), z: f2(cam.z),
-          rotX: f2(cam.rotX), rotY: f2(cam.rotY),
-        },
-        phys: phys ? {
-          onGround: phys.onGround,
-          crouch: f2(phys.crouch),
-          yVel: f2(phys.worldYVel),
-          thirdPerson: phys.thirdPerson,
-        } : null,
-        state: { alive: playerAlive, penLocked, walkPhase: f2(walkPhase) },
-        tiles: {
-          current: prevPlayerTile,
-          hover: hoverStr,
-          hitWorldXZ: hitStr,
-          trailCount: walkedTiles.size,
-        },
-        mouse: `${penStr} screen=${f2(screen?.width)}x${f2(screen?.height)}`,
-        rayDir: `fx=${f2(fx)} fy=${f2(fy)} fz=${f2(fz)}`,
-        speed: f2(speedSmoothed * SIM_HZ) + " u/s",
-      }, null, 2),
-    );
+    // Debug snapshot (commented out due to framework message handling issue)
+    // console.log("🏟️ arena snapshot:", { player, cam, phys, state, tiles, mouse, rayDir, speed });
   }
 
   // 🎥 Camera orbit effect (3P mode only): rotate camera around player by
@@ -1218,16 +1197,29 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api }) {
 
       // Draw button with pressed state (button click OR keyboard key held)
       const isPressed = btn.down || keyHeld[name];
-      const bgColor = isPressed ? [100, 140, 180, 220] : [60, 75, 95, 150];
-      const borderColor = isPressed ? [200, 220, 255] : [110, 130, 160];
-      const textColor = isPressed ? [255, 255, 255] : [180, 200, 230];
+
+      // Color-coded buttons: jump=green, crouch=orange, directionals=blue
+      let bgColor, borderColor, textColor;
+      if (btnData.color) {
+        // Custom color for jump/crouch
+        const [r, g, b] = btnData.color;
+        bgColor = isPressed ? [r + 40, g + 40, b + 40, 255] : [r - 20, g - 20, b - 20, 200];
+        borderColor = isPressed ? [255, 255, 255] : [200, 200, 200];
+        textColor = isPressed ? [255, 255, 255] : [240, 240, 240];
+      } else {
+        // Default blue for directionals
+        bgColor = isPressed ? [100, 140, 180, 220] : [60, 75, 95, 150];
+        borderColor = isPressed ? [200, 220, 255] : [110, 130, 160];
+        textColor = isPressed ? [255, 255, 255] : [180, 200, 230];
+      }
 
       btn.paint((b) => {
         ink(...bgColor).box(b.box, "fill");
         ink(...borderColor).box(b.box, "outline");
-        ink(...textColor).write(btnData.label,
-          { x: Math.floor(b.box.x + 4), y: Math.floor(b.box.y + 2) },
-          undefined, undefined, false);
+        // Draw button label text centered in the button
+        const textX = b.box[0] + b.box[2] / 2 - btnData.label.length * 3; // Rough centering for monospace
+        const textY = b.box[1] + 8;
+        ink(...textColor).write(btnData.label, textX, textY);
       });
     }
   }
@@ -1324,12 +1316,18 @@ function act({ event: e, penLock, system }) {
 
   // 📱 Trigger button input handling
   let mobileButtonHit = false;
-  if (mobileButtons) {
-    for (const btnData of Object.values(mobileButtons)) {
+  const doll = system?.fps?.doll;
+  if (mobileButtons && doll) {
+    for (const [name, btnData] of Object.entries(mobileButtons)) {
       btnData.btn?.act(e, {
-        down: () => { mobileButtonHit = true; },
+        down: () => {
+          mobileButtonHit = true;
+          doll.setMovement(btnData.key, true);
+        },
         push: () => {},
-        cancel: () => {},
+        cancel: () => {
+          doll.setMovement(btnData.key, false);
+        },
       });
     }
     // Also flag as hit if the touch/lift lands inside any button box.
@@ -1358,10 +1356,10 @@ function act({ event: e, penLock, system }) {
   }
 
   // 🔎 Scroll wheel — steps through discrete zoom levels (1P → closer 3P →
-  // further 3P). dir > 0 = zoom in (toward 1P); dir < 0 = zoom out.
+  // further 3P). dir < 0 = zoom in (toward 1P); dir > 0 = zoom out.
   if (e.is("wheel")) {
-    if (e.dir > 0) zoomLevel = Math.max(0, zoomLevel - 1);
-    else if (e.dir < 0) zoomLevel = Math.min(ZOOM_DISTANCES.length - 1, zoomLevel + 1);
+    if (e.dir < 0) zoomLevel = Math.max(0, zoomLevel - 1);
+    else if (e.dir > 0) zoomLevel = Math.min(ZOOM_DISTANCES.length - 1, zoomLevel + 1);
     applyZoom(system?.fps?.doll);
   }
 
