@@ -11600,7 +11600,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎯 Set cursor style from piece
     if (type === "cursor:set") {
-      const cursorStyle = data.content?.style || "auto";
+      const cursorStyle = content?.style || "auto";
       document.body.style.cursor = cursorStyle;
       return;
     }
