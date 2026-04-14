@@ -306,46 +306,228 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
   // 🎨 Create button graphics using painting buffers
   if (painting) {
-    // Jump button: stick figure with raised arms (celebration pose)
-    buttonBuffers.jump = painting(56, 28, (api) => {
-      const { wipe, ink, box, line } = api;
+    // Jump button: relaxed pose (normal state)
+    buttonBuffers.jump_normal = painting(56, 28, (api) => {
+      const { wipe, ink, box, line, plot } = api;
       wipe(50, 200, 100, 255); // Green background
+      ink(255, 255, 200); // Skin color
 
-      // Head (circle approximation using box)
-      ink(255, 255, 200);
-      box(24, 2, 8, 8); // Head
+      // Head with cute face
+      box(22, 2, 12, 10); // Head
+
+      // Eyes
+      ink(50, 50, 50); // Dark eyes
+      plot(26, 5);
+      plot(27, 5);
+      plot(34, 5);
+      plot(35, 5);
+
+      // Smile
+      ink(255, 100, 100); // Pink smile
+      plot(28, 8);
+      plot(29, 8);
+      plot(30, 8);
+      plot(31, 8);
+      plot(32, 8);
 
       // Body
-      line(28, 10, 28, 16);
+      ink(255, 255, 200);
+      line(28, 12, 28, 18);
 
-      // Arms raised (victory pose)
-      line(22, 12, 18, 8); // Left arm
-      line(34, 12, 38, 8); // Right arm
+      // Arms (relaxed)
+      line(22, 14, 18, 16); // Left arm
+      line(34, 14, 38, 16); // Right arm
 
       // Legs
-      line(26, 16, 24, 22); // Left leg
-      line(30, 16, 32, 22); // Right leg
+      line(26, 18, 24, 24); // Left leg
+      line(30, 18, 32, 24); // Right leg
     });
 
-    // Crouch button: stick figure in crouch pose
-    buttonBuffers.crouch = painting(56, 28, (api) => {
-      const { wipe, ink, box, line } = api;
-      wipe(220, 150, 40, 255); // Orange background
-
-      // Head (lower)
+    // Jump button: excited jumping pose (pressed state)
+    buttonBuffers.jump_active = painting(56, 28, (api) => {
+      const { wipe, ink, box, line, plot } = api;
+      wipe(80, 220, 120, 255); // Brighter green
       ink(255, 255, 200);
-      box(24, 8, 8, 8); // Head
 
-      // Body (bent)
-      line(28, 16, 28, 18);
+      // Head with happy face
+      box(22, 1, 12, 10);
 
-      // Arms bent
-      line(24, 16, 20, 14); // Left arm
-      line(32, 16, 36, 14); // Right arm
+      // Happy eyes (larger)
+      ink(50, 50, 50);
+      plot(25, 4);
+      plot(26, 4);
+      plot(27, 4);
+      plot(33, 4);
+      plot(34, 4);
+      plot(35, 4);
 
-      // Legs (crouched)
-      line(26, 18, 24, 22); // Left leg
-      line(30, 18, 32, 22); // Right leg
+      // Big smile
+      ink(255, 100, 100);
+      plot(28, 7);
+      plot(29, 7);
+      plot(30, 7);
+      plot(31, 7);
+      plot(32, 7);
+      plot(27, 8);
+      plot(33, 8);
+
+      // Body
+      ink(255, 255, 200);
+      line(28, 11, 28, 16);
+
+      // Arms raised high (jumping)
+      line(22, 12, 16, 4); // Left arm
+      line(34, 12, 40, 4); // Right arm
+
+      // Legs bent (jumping)
+      line(26, 16, 24, 20);
+      line(30, 16, 32, 20);
+    });
+
+    // Crouch button: relaxed standing pose (normal state)
+    buttonBuffers.crouch_normal = painting(56, 28, (api) => {
+      const { wipe, ink, box, line, plot } = api;
+      wipe(220, 150, 40, 255); // Orange background
+      ink(255, 255, 200);
+
+      // Head with cute face
+      box(22, 4, 12, 10);
+
+      // Eyes
+      ink(50, 50, 50);
+      plot(26, 7);
+      plot(27, 7);
+      plot(34, 7);
+      plot(35, 7);
+
+      // Smile
+      ink(255, 100, 100);
+      plot(28, 10);
+      plot(29, 10);
+      plot(30, 10);
+      plot(31, 10);
+      plot(32, 10);
+
+      // Body
+      ink(255, 255, 200);
+      line(28, 14, 28, 19);
+
+      // Arms relaxed
+      line(22, 16, 18, 18);
+      line(34, 16, 38, 18);
+
+      // Legs normal
+      line(26, 19, 24, 24);
+      line(30, 19, 32, 24);
+    });
+
+    // Crouch button: deep crouch pose (pressed state)
+    buttonBuffers.crouch_active = painting(56, 28, (api) => {
+      const { wipe, ink, box, line, plot } = api;
+      wipe(240, 170, 60, 255); // Brighter orange
+      ink(255, 255, 200);
+
+      // Head lower
+      box(22, 8, 12, 10);
+
+      // Happy eyes
+      ink(50, 50, 50);
+      plot(25, 11);
+      plot(26, 11);
+      plot(27, 11);
+      plot(33, 11);
+      plot(34, 11);
+      plot(35, 11);
+
+      // Big smile
+      ink(255, 100, 100);
+      plot(28, 14);
+      plot(29, 14);
+      plot(30, 14);
+      plot(31, 14);
+      plot(32, 14);
+      plot(27, 15);
+      plot(33, 15);
+
+      // Body very bent
+      ink(255, 255, 200);
+      line(28, 18, 28, 20);
+
+      // Arms tucked
+      line(24, 19, 20, 20);
+      line(32, 19, 36, 20);
+
+      // Legs very bent
+      line(26, 20, 24, 23);
+      line(30, 20, 32, 23);
+    });
+
+    // Up arrow button
+    buttonBuffers.up = painting(28, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(60, 75, 95, 255); // Blue background
+      ink(200, 220, 255);
+
+      // Arrow pointing up
+      line(14, 22, 14, 8); // Stem
+      line(10, 14, 14, 6); // Left point
+      line(18, 14, 14, 6); // Right point
+
+      // Decorative dots
+      ink(150, 200, 255);
+      plot(10, 22);
+      plot(18, 22);
+    });
+
+    // Down arrow button
+    buttonBuffers.down = painting(28, 28, (api) => {
+      const { wipe, ink, box, line } = api;
+      wipe(60, 75, 95, 255);
+      ink(200, 220, 255);
+
+      // Arrow pointing down
+      line(14, 6, 14, 20); // Stem
+      line(10, 14, 14, 22); // Left point
+      line(18, 14, 14, 22); // Right point
+
+      // Decorative dots
+      ink(150, 200, 255);
+      plot(10, 6);
+      plot(18, 6);
+    });
+
+    // Left arrow button
+    buttonBuffers.left = painting(28, 28, (api) => {
+      const { wipe, ink, line } = api;
+      wipe(60, 75, 95, 255);
+      ink(200, 220, 255);
+
+      // Arrow pointing left
+      line(22, 14, 6, 14); // Stem
+      line(14, 10, 6, 14); // Top point
+      line(14, 18, 6, 14); // Bottom point
+
+      // Decorative dots
+      ink(150, 200, 255);
+      plot(22, 10);
+      plot(22, 18);
+    });
+
+    // Right arrow button
+    buttonBuffers.right = painting(28, 28, (api) => {
+      const { wipe, ink, line } = api;
+      wipe(60, 75, 95, 255);
+      ink(200, 220, 255);
+
+      // Arrow pointing right
+      line(6, 14, 22, 14); // Stem
+      line(14, 10, 22, 14); // Top point
+      line(14, 18, 22, 14); // Bottom point
+
+      // Decorative dots
+      ink(150, 200, 255);
+      plot(6, 10);
+      plot(6, 18);
     });
   }
 
@@ -1264,18 +1446,19 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
         ink(...bgColor).box(b.box, "fill");
         ink(...borderColor).box(b.box, "outline");
 
-        // Render custom graphics for jump/crouch, text for directionals
-        if (buttonBuffers[name]) {
-          // Custom pixel graphics for jump/crouch buttons
-          const buffer = buttonBuffers[name];
+        // Determine which buffer to render based on button state
+        let bufferName = name;
+        if (name === "jump" || name === "crouch") {
+          // Jump/Crouch buttons have animation states
+          bufferName = isPressed ? `${name}_active` : `${name}_normal`;
+        }
+
+        const buffer = buttonBuffers[bufferName];
+        if (buffer) {
+          // Render pixel graphics (centered in button)
           const centerX = b.box.x + (b.box.w - buffer.width) / 2;
           const centerY = b.box.y + (b.box.h - buffer.height) / 2;
           paste(buffer, centerX, centerY);
-        } else {
-          // Text label for directional buttons
-          const textX = b.box.x + b.box.w / 2 - btnData.label.length * 3;
-          const textY = b.box.y + 8;
-          ink(...textColor).write(btnData.label, { x: textX, y: textY });
         }
       });
     }
