@@ -114,6 +114,26 @@ a { color: var(--text-link); text-decoration: none; }
 a:visited { color: var(--text-link-visited); }
 a:hover { text-decoration: underline; }
 
+/* ===== News Post Headers ===== */
+h3 {
+  color: var(--accent);
+  font-size: 11pt;
+  font-weight: bold;
+  margin: 20px 0 8px 0;
+  padding: 8px 0;
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: 0.5px;
+}
+
+h4 {
+  color: var(--accent);
+  font-size: 10pt;
+  font-weight: bold;
+  margin: 16px 0 6px 0;
+  padding: 4px 0;
+}
+
 /* ===== SPA Page Transition ===== */
 .news-wrapper {
   width: 85%;
