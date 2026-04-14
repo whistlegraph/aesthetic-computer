@@ -367,8 +367,24 @@ for d in /usr/lib/firmware /lib/firmware; do
 done
 if [ -n "$FWDIR" ]; then
     # WiFi — only common Intel chip families (covers ThinkPad, NUC, Surface)
-    # Each family: 3160, 7260, 7265, 8000, 8265, 9000, 9260, ax200, ax201, ax210, ax211, be200
+    # Intel WiFi firmware is shipped using the internal chip codenames, NOT
+    # the retail product names — so "iwlwifi-ax201*" matches nothing even
+    # though AX201 hardware is common. Mapping:
+    #   AX200 (CC)            → iwlwifi-cc-a0-*
+    #   AX201 (Jasper Lake)   → iwlwifi-QuZ-a0-hr-b0-*
+    #   AX201 (TGL/CML)       → iwlwifi-Qu-b0-hr-b0-*, iwlwifi-Qu-c0-hr-b0-*
+    #   AX201 (JF variant)    → iwlwifi-QuZ-a0-jf-b0-*, iwlwifi-Qu-c0-jf-b0-*
+    #   AX210 (Typhoon Peak)  → iwlwifi-ty-a0-gf-a0-*
+    #   AX211 (SnowOak)       → iwlwifi-so-a0-gf-a0-*, iwlwifi-so-a0-hr-b0-*
+    #   AX411                 → iwlwifi-ma-b0-*
+    #   BE200 (Gale Peak)     → iwlwifi-gl-c0-fm-c0-* (already matched)
+    # Older families (7260/7265/8000/9000/9260) match on the retail name.
     for chip in 3160 3168 7260 7265 8000C 8265 9000 9260 \
+                cc-a0 \
+                Qu-b0-hr Qu-c0-hr Qu-b0-jf Qu-c0-jf \
+                QuZ-a0-hr QuZ-a0-jf \
+                ty-a0-gf so-a0-gf so-a0-hr \
+                ma-b0-gf ma-b0-hr \
                 ax200 ax201 ax210 ax211 be200 gl; do
         for fw in "$FWDIR"/iwlwifi-${chip}*.ucode "$FWDIR"/iwlwifi-${chip}*.ucode.zst "$FWDIR"/iwlwifi-${chip}*.ucode.xz; do
             [ -f "$fw" ] && cp -L "$fw" "$IROOT/lib/firmware/"
