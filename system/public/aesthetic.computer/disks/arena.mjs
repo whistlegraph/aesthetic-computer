@@ -447,8 +447,8 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       line(30, 20, 32, 23);
     });
 
-    // Up arrow button
-    buttonBuffers.up = painting(28, 28, (api) => {
+    // Up arrow button - normal state
+    buttonBuffers.up_normal = painting(28, 28, (api) => {
       const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255); // Blue background
       ink(200, 220, 255);
@@ -458,14 +458,37 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       line(10, 14, 14, 6); // Left point
       line(18, 14, 14, 6); // Right point
 
-      // Decorative dots (use small boxes)
+      // Decorative dots
       ink(150, 200, 255);
       box(10, 22, 1, 1);
       box(18, 22, 1, 1);
     });
 
-    // Down arrow button
-    buttonBuffers.down = painting(28, 28, (api) => {
+    // Up arrow button - active state (brightened)
+    buttonBuffers.up_active = painting(28, 28, (api) => {
+      const { wipe, ink, line, box } = api;
+      wipe(100, 130, 170, 255); // Brighter blue
+      ink(255, 255, 255);
+
+      // Arrow pointing up (thicker with extra lines)
+      line(14, 22, 14, 6); // Stem
+      line(13, 22, 13, 6);
+      line(15, 22, 15, 6);
+      line(10, 14, 14, 4); // Left point extended
+      line(18, 14, 14, 4); // Right point extended
+      line(10, 15, 14, 5);
+      line(18, 15, 14, 5);
+
+      // Decorative dots highlighted
+      ink(255, 255, 200);
+      box(10, 22, 1, 1);
+      box(18, 22, 1, 1);
+      box(10, 23, 1, 1);
+      box(18, 23, 1, 1);
+    });
+
+    // Down arrow button - normal state
+    buttonBuffers.down_normal = painting(28, 28, (api) => {
       const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
@@ -481,8 +504,31 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       box(18, 6, 1, 1);
     });
 
-    // Left arrow button
-    buttonBuffers.left = painting(28, 28, (api) => {
+    // Down arrow button - active state (brightened)
+    buttonBuffers.down_active = painting(28, 28, (api) => {
+      const { wipe, ink, line, box } = api;
+      wipe(100, 130, 170, 255); // Brighter blue
+      ink(255, 255, 255);
+
+      // Arrow pointing down (thicker with extra lines)
+      line(14, 6, 14, 24); // Stem extended
+      line(13, 6, 13, 24);
+      line(15, 6, 15, 24);
+      line(10, 14, 14, 24); // Left point extended
+      line(18, 14, 14, 24); // Right point extended
+      line(10, 13, 14, 23);
+      line(18, 13, 14, 23);
+
+      // Decorative dots highlighted
+      ink(255, 255, 200);
+      box(10, 6, 1, 1);
+      box(18, 6, 1, 1);
+      box(10, 5, 1, 1);
+      box(18, 5, 1, 1);
+    });
+
+    // Left arrow button - normal state
+    buttonBuffers.left_normal = painting(28, 28, (api) => {
       const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
@@ -498,8 +544,31 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       box(22, 18, 1, 1);
     });
 
-    // Right arrow button
-    buttonBuffers.right = painting(28, 28, (api) => {
+    // Left arrow button - active state (brightened)
+    buttonBuffers.left_active = painting(28, 28, (api) => {
+      const { wipe, ink, line, box } = api;
+      wipe(100, 130, 170, 255); // Brighter blue
+      ink(255, 255, 255);
+
+      // Arrow pointing left (thicker with extra lines)
+      line(22, 14, 4, 14); // Stem extended
+      line(22, 13, 4, 13);
+      line(22, 15, 4, 15);
+      line(14, 10, 4, 14); // Top point extended
+      line(14, 18, 4, 14); // Bottom point extended
+      line(15, 10, 5, 14);
+      line(15, 18, 5, 14);
+
+      // Decorative dots highlighted
+      ink(255, 255, 200);
+      box(22, 10, 1, 1);
+      box(22, 18, 1, 1);
+      box(23, 10, 1, 1);
+      box(23, 18, 1, 1);
+    });
+
+    // Right arrow button - normal state
+    buttonBuffers.right_normal = painting(28, 28, (api) => {
       const { wipe, ink, line, box } = api;
       wipe(60, 75, 95, 255);
       ink(200, 220, 255);
@@ -513,6 +582,29 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
       ink(150, 200, 255);
       box(6, 10, 1, 1);
       box(6, 18, 1, 1);
+    });
+
+    // Right arrow button - active state (brightened)
+    buttonBuffers.right_active = painting(28, 28, (api) => {
+      const { wipe, ink, line, box } = api;
+      wipe(100, 130, 170, 255); // Brighter blue
+      ink(255, 255, 255);
+
+      // Arrow pointing right (thicker with extra lines)
+      line(6, 14, 24, 14); // Stem extended
+      line(6, 13, 24, 13);
+      line(6, 15, 24, 15);
+      line(14, 10, 24, 14); // Top point extended
+      line(14, 18, 24, 14); // Bottom point extended
+      line(13, 10, 23, 14);
+      line(13, 18, 23, 14);
+
+      // Decorative dots highlighted
+      ink(255, 255, 200);
+      box(6, 10, 1, 1);
+      box(6, 18, 1, 1);
+      box(5, 10, 1, 1);
+      box(5, 18, 1, 1);
     });
 
     console.log("✓ Button buffers created successfully");
@@ -615,69 +707,71 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
   // 🧱 Platform block — bottom and side faces to give the arena volume
   const platformDepth = 2.0; // thickness of the platform block
   const bottomY = GROUND_Y - platformDepth;
-  const sideColor = [0.18, 0.16, 0.14, 1.0]; // darker than ground for depth
-  const sideStriped = [0.28, 0.25, 0.22, 1.0]; // lighter stripe for pattern
+
+  // Different colors for each side
+  const bottomColor = [0.08, 0.08, 0.12, 1.0];     // Dark blue-black texture
+  const northColor = [0.22, 0.18, 0.14, 1.0];      // Brown
+  const southColor = [0.16, 0.20, 0.18, 1.0];      // Dark teal
+  const eastColor = [0.20, 0.16, 0.16, 1.0];       // Dark red-brown
+  const westColor = [0.18, 0.20, 0.14, 1.0];       // Dark olive
+
   const platformGs = GROUND_SIZE;
 
   const platformPositions = [];
   const platformColors = [];
 
-  // Bottom face (two triangles, full area)
+  // Bottom face (two triangles, full area) - textured
   platformPositions.push(
     [-platformGs, bottomY, -platformGs, 1], [-platformGs, bottomY, platformGs, 1], [platformGs, bottomY, platformGs, 1],
     [-platformGs, bottomY, -platformGs, 1], [platformGs, bottomY, platformGs, 1], [platformGs, bottomY, -platformGs, 1],
   );
-  for (let i = 0; i < 6; i++) platformColors.push(sideColor);
+  for (let i = 0; i < 6; i++) platformColors.push(bottomColor);
 
-  // Side faces with alternating stripe pattern for visual interest
-  const sideStep = (platformGs * 2) / 8; // stripe width
+  // Side faces - solid colors per side (no stripes)
+  const sideStep = (platformGs * 2) / 8;
 
-  // North side (-Z direction)
+  // North side (-Z direction) - brown
   for (let i = 0; i < 8; i++) {
     const x0 = -platformGs + i * sideStep;
     const x1 = x0 + sideStep;
-    const stripeColor = (i & 1) ? sideStriped : sideColor;
     platformPositions.push(
       [x0, GROUND_Y, -platformGs, 1], [x0, bottomY, -platformGs, 1], [x1, bottomY, -platformGs, 1],
       [x0, GROUND_Y, -platformGs, 1], [x1, bottomY, -platformGs, 1], [x1, GROUND_Y, -platformGs, 1],
     );
-    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+    for (let j = 0; j < 6; j++) platformColors.push(northColor);
   }
 
-  // South side (+Z direction)
+  // South side (+Z direction) - teal
   for (let i = 0; i < 8; i++) {
     const x0 = -platformGs + i * sideStep;
     const x1 = x0 + sideStep;
-    const stripeColor = (i & 1) ? sideStriped : sideColor;
     platformPositions.push(
       [x0, GROUND_Y, platformGs, 1], [x1, bottomY, platformGs, 1], [x1, GROUND_Y, platformGs, 1],
       [x0, GROUND_Y, platformGs, 1], [x0, bottomY, platformGs, 1], [x1, bottomY, platformGs, 1],
     );
-    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+    for (let j = 0; j < 6; j++) platformColors.push(southColor);
   }
 
-  // East side (+X direction)
+  // East side (+X direction) - red-brown
   for (let i = 0; i < 8; i++) {
     const z0 = -platformGs + i * sideStep;
     const z1 = z0 + sideStep;
-    const stripeColor = (i & 1) ? sideStriped : sideColor;
     platformPositions.push(
       [platformGs, GROUND_Y, z0, 1], [platformGs, bottomY, z0, 1], [platformGs, bottomY, z1, 1],
       [platformGs, GROUND_Y, z0, 1], [platformGs, bottomY, z1, 1], [platformGs, GROUND_Y, z1, 1],
     );
-    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+    for (let j = 0; j < 6; j++) platformColors.push(eastColor);
   }
 
-  // West side (-X direction)
+  // West side (-X direction) - olive
   for (let i = 0; i < 8; i++) {
     const z0 = -platformGs + i * sideStep;
     const z1 = z0 + sideStep;
-    const stripeColor = (i & 1) ? sideStriped : sideColor;
     platformPositions.push(
       [-platformGs, GROUND_Y, z0, 1], [-platformGs, bottomY, z1, 1], [-platformGs, GROUND_Y, z1, 1],
       [-platformGs, GROUND_Y, z0, 1], [-platformGs, bottomY, z0, 1], [-platformGs, bottomY, z1, 1],
     );
-    for (let j = 0; j < 6; j++) platformColors.push(stripeColor);
+    for (let j = 0; j < 6; j++) platformColors.push(westColor);
   }
 
   platformBlock = new Form(
@@ -1043,11 +1137,18 @@ function sim({ system, pen, screen }) {
   }
 
   if (bodyFeet) {
-    const footBaseY = playerAlive
-      ? GROUND_Y
-      : playerWorldY - EYE_HEIGHT;
+    // Feet move with player when airborne, stay planted when on ground
+    const phys = system?.fps?.doll?.physics;
+    let footY;
+    if (playerAlive) {
+      // When on ground, feet are at ground level
+      // When in air, feet move with player (showing the jump height)
+      footY = (phys?.onGround) ? GROUND_Y : playerWorldY;
+    } else {
+      footY = playerWorldY - EYE_HEIGHT;
+    }
     bodyFeet.position[0] = playerCamX;
-    bodyFeet.position[1] = footBaseY;
+    bodyFeet.position[1] = footY;
     bodyFeet.position[2] = playerCamZ;
     bodyFeet.rotation[1] = playerFacing;
   }
@@ -1198,7 +1299,6 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   if (platformBlock) ink(255).form(platformBlock);  // bottom and side faces
   if (groundSkirt) ink(255).form(groundSkirt);
   ink(255).form(groundPlane);
-  if (platformEdge) ink(255).form(platformEdge);
   if (hiPos.length > 0 && FormRef) {
     const hi = new FormRef(
       { type: "triangle", positions: hiPos, colors: hiCol },
@@ -1432,8 +1532,8 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
 
         // Determine which buffer to render based on button state
         let bufferName = name;
-        if (name === "jump" || name === "crouch") {
-          // Jump/Crouch buttons have animation states
+        if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right") {
+          // Jump/Crouch/Arrow buttons have animation states
           bufferName = isPressed ? `${name}_active` : `${name}_normal`;
           if (name === "crouch") {
             console.log(`🐒 crouch button: isPressed=${isPressed}, bufferName=${bufferName}, shift=${keyboardState.shift}`);
@@ -1533,7 +1633,7 @@ function act({ event: e, penLock, system }) {
     if (e.key === "arrowleft") keyboardState.arrowleft = true;
     if (e.key === "arrowright") keyboardState.arrowright = true;
     if (e.key === " ") keyboardState.space = true;
-    if (e.key === "shift") keyboardState.shift = true;
+    if (e.key === "Shift") keyboardState.shift = true;
   } else if (e.is("keyboard:up")) {
     if (e.key === "w") keyboardState.w = false;
     if (e.key === "a") keyboardState.a = false;
@@ -1544,7 +1644,7 @@ function act({ event: e, penLock, system }) {
     if (e.key === "arrowleft") keyboardState.arrowleft = false;
     if (e.key === "arrowright") keyboardState.arrowright = false;
     if (e.key === " ") keyboardState.space = false;
-    if (e.key === "shift") keyboardState.shift = false;
+    if (e.key === "Shift") keyboardState.shift = false;
   }
 
   // 📱 Trigger button input handling
