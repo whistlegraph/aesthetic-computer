@@ -229,7 +229,7 @@ fi
 AC_DISKS_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/disks"
 for web_piece in 3x3.mjs 404.mjs beat.mjs brick-breaker.mjs \
     dync.mjs error.mjs gostop.mjs hop.mjs shh.mjs chart.mjs \
-    f3ral3xp.mjs hw.mjs ptt.mjs; do
+    f3ral3xp.mjs hw.mjs ptt.mjs arena.mjs; do
     [ -f "${AC_DISKS_DIR}/${web_piece}" ] && cp "${AC_DISKS_DIR}/${web_piece}" "${INITRAMFS_DIR}/pieces/"
 done
 log "Bundled web pieces: $(ls "${INITRAMFS_DIR}/pieces/" | grep -c '.mjs') total"
