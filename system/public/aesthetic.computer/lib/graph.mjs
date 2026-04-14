@@ -5457,10 +5457,14 @@ function scroll(dx = 0, dy = 0) {
     maxX = width,
     maxY = height;
   if (activeMask) {
+    // 🔧 FIX: Use floor for all boundaries to avoid 1-pixel artifacts
+    // When ceil is mixed with floor, floating-point arithmetic can cause the
+    // effective bounds to be 1 pixel off, creating scroll skip artifacts.
+    // Using floor consistently gives us the pixel-aligned inner bounds.
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
-    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
+    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));
@@ -5558,10 +5562,14 @@ function flip() {
     maxX = width,
     maxY = height;
   if (activeMask) {
+    // 🔧 FIX: Use floor for all boundaries to avoid 1-pixel artifacts
+    // When ceil is mixed with floor, floating-point arithmetic can cause the
+    // effective bounds to be 1 pixel off, creating visual skip artifacts.
+    // Using floor consistently gives us the pixel-aligned inner bounds.
     const maskMinX = Math.floor(activeMask.x);
     const maskMinY = Math.floor(activeMask.y);
-    const maskMaxX = Math.ceil(activeMask.x + activeMask.width);
-    const maskMaxY = Math.ceil(activeMask.y + activeMask.height);
+    const maskMaxX = Math.floor(activeMask.x + activeMask.width);
+    const maskMaxY = Math.floor(activeMask.y + activeMask.height);
 
     minX = Math.max(0, Math.min(width, maskMinX));
     maxX = Math.max(0, Math.min(width, maskMaxX));
