@@ -1,4 +1,7 @@
-/* #region 🟢 TODO 
+// 🎵 Metronome, 2026.04.14
+// Beat tracker with tap-tempo and DAW synchronization support.
+
+/* #region 🟢 TODO
   - [🟠] Show the bpm rate visually and use arrow keys for dynamic adjustment.
   - [] Add a really nice drum sound.
   - [] Decouple the sound length from the animation... maybe by playing a silent

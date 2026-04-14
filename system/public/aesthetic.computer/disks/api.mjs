@@ -1,3 +1,6 @@
+// 🔌 API, 2026.04.14
+// Test harness for publishing and validating the Aesthetic Computer API surface.
+
 console.log("API LOADED");
 
 // TODO: How to best publish the API for myself?
