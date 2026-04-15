@@ -828,6 +828,35 @@ if [ -n "$MISSING_CFGS" ]; then
 fi
 log "  ✓ All critical audio/GPIO configs present"
 
+# Config-hash sentinel — if the audio/GPIO/pinctrl configs changed since
+# the last build in this persistent /kernel-build volume, kbuild's
+# dependency tracker misses object files gated by obj-$(CONFIG_X) += y.o
+# (it sees the .config line change but the .o target is wholly absent
+# from the previous vmlinux so nothing re-evaluates it). Symptom: canary
+# check passes because .config is correct, but the built vmlinux is missing
+# drivers/pinctrl/intel/pinctrl-jasperlake.o, drivers/i2c/busses/i2c-designware-*,
+# etc. entirely. Fix: compute a hash of the critical configs and wipe the
+# specific subsystem build dirs when it changes. Much faster than a full
+# `make clean` while still forcing re-link of anything that toggled.
+CONFIG_SENTINEL_FILE="$KBUILD_ROOT/.audio-gpio-config-hash"
+CONFIG_HASH=$(grep -E '^CONFIG_(PINCTRL_|GPIOLIB|GPIO_|I2C_DESIGNWARE|SND_SOC_|MMC_|SPI_INTEL|RTW|IKCONFIG)' .config 2>/dev/null | sort | sha256sum | cut -c1-16)
+PREV_HASH=$(cat "$CONFIG_SENTINEL_FILE" 2>/dev/null || echo "")
+if [ "$CONFIG_HASH" != "$PREV_HASH" ]; then
+    log "  Config hash changed ($PREV_HASH → $CONFIG_HASH), wiping critical build dirs"
+    # Only nuke dirs that contain drivers whose toggle-on we just forced.
+    # Everything else stays cached and re-uses ccache.
+    for d in drivers/pinctrl/intel drivers/i2c/busses drivers/mtd/spi-nor \
+             drivers/mmc/host drivers/spi drivers/net/wireless/realtek \
+             drivers/gpio sound/soc/intel sound/soc/sof sound/soc/codecs; do
+        rm -rf "$d"/*.o "$d"/.*.o.cmd "$d"/built-in.a "$d"/.built-in.a.cmd 2>/dev/null || true
+    done
+    # Force vmlinux relink by removing it.
+    rm -f vmlinux .vmlinux.cmd arch/x86/boot/bzImage
+    echo "$CONFIG_HASH" > "$CONFIG_SENTINEL_FILE"
+else
+    log "  Config hash unchanged ($CONFIG_HASH) — incremental build"
+fi
+
 # With ccache, skip make clean — stale objects get cache misses anyway,
 # and clean destroys the build tree that ccache relies on for hits.
 # Without ccache, clean to avoid config mismatch errors.
@@ -871,6 +900,34 @@ cp arch/x86/boot/bzImage "$OUT/vmlinuz" 2>/dev/null || true
 # variant — the kernel's EFI stub loads initramfs externally on every path.
 cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
 cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
+
+# Post-build verification: confirm critical driver objects actually got
+# compiled. The .config saying =y isn't enough — kbuild's persistent
+# build state could skip re-compiling a driver whose toggle changed.
+# Symptom (seen on G7): canary passed at config-check time but the
+# running kernel had no jasperlake-pinctrl driver, no symbols,
+# no gpiochip for the SoC pins. Grep vmlinux's symbol table for a
+# canonical symbol from each critical driver.
+log "  Verifying critical driver symbols linked into vmlinux..."
+MISSING_DRVS=""
+for probe in "jsl_pinctrl_acpi_match:pinctrl-jasperlake" \
+             "max98357a_sdmode_event:snd-soc-max98357a" \
+             "rt5682_i2c_probe:rt5682-i2c" \
+             "dw_i2c_dev_init:i2c-designware-core"; do
+    sym="${probe%%:*}"
+    drv="${probe##*:}"
+    if ! nm vmlinux 2>/dev/null | grep -q " ${sym}\$"; then
+        MISSING_DRVS="$MISSING_DRVS $drv(${sym})"
+    fi
+done
+if [ -n "$MISSING_DRVS" ]; then
+    err "BUILD SANITY: critical driver symbols missing from vmlinux:$MISSING_DRVS"
+    err "  This usually means the persistent /kernel-build volume has stale"
+    err "  object files and kbuild didn't rebuild them. Wipe the volume and"
+    err "  re-run:  docker volume rm ac-os-kbuild  (then re-trigger build)"
+    exit 1
+fi
+log "  ✓ All critical driver symbols present in vmlinux"
 
 VMLINUZ_SIZE=$(stat -c%s "$BUILD/vmlinuz")
 SHA=$(sha256sum "$BUILD/vmlinuz" | awk '{print $1}')
