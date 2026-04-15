@@ -361,3 +361,69 @@ Different agents perform from this score in different ways.
 - **AestheticAnts** — Automated AI colony that makes small, confident changes. See `ants/` for colony rules and implementation.
 - **Human contributors** — Welcome in `chat`. Read the score, pick a task, follow signal.
 - **@jeffrey (the queen)** — Writes and maintains this score.
+- **Claude on ac-native** — A Claude Code CLI binary is bundled into the
+  initramfs at `/bin/claude`, pre-authenticated with @jeffrey's
+  credentials. When running inside ac-native it has the same repo view
+  as everywhere else, plus direct access to the real hardware.
+
+---
+
+## Hardware Probing on ac-native
+
+When the onboard Claude is debugging a device (missing speakers, WiFi,
+trackpad, etc.) the below surfaces are always available without needing
+a separate diagnostic build. Probe from the prompt, a piece, or a shell
+— whatever fits the task.
+
+### Boot-time logs (USB pulled out then inspected on a host)
+
+- `/mnt/pre-launch.log` — init script's full probe dump: GPU nodes,
+  block devices, net ifaces, rfkill state, PCI devices with bound
+  drivers, ACPI codecs, sound PCM names, GPIO chips + descriptor
+  consumers, ASoC debugfs, MAX98357A amp state, and a subset of the
+  running kernel config via `/proc/config.gz` (CONFIG_IKCONFIG=y).
+- `/mnt/kmsg.log` — persistent `cat /dev/kmsg` for the entire boot
+  session. Grep for any driver probe, dev_dbg, or warning.
+- `/mnt/ac-native-stderr.log` — ac-native's ALSA init trace
+  (device opened, mixer enumeration, volume sets, XRUN count).
+- `/mnt/flash-last.log` — flash-thread telemetry from the last OTA.
+
+### Runtime probing (piece APIs)
+
+- `system.audio.listPcms()` → array of `{device, card, num, id, name}`.
+  Skips HDMI. `active: true` marks the PCM ac-native's main audio
+  thread opened.
+- `system.audio.testPcm(device, freq_hz, duration_ms, volume)` — plays
+  a short sine wave on an arbitrary ALSA device in a detached thread.
+  Used by the `speaker` piece to find which PCM actually drives the
+  onboard speakers vs headphone jack vs HDMI. Piece source:
+  [speaker.mjs](system/public/aesthetic.computer/disks/speaker.mjs).
+- `system.firmware.{available, board, biosVersion, install}` —
+  machines running MrChromebox coreboot can reflash from os.mjs's
+  firmware panel (gated behind `/dev/mtd0` + `bios_vendor=coreboot`).
+
+### Live sysfs hotspots
+
+- `/proc/asound/card0/pcm*p/info` — per-PCM id/name. On SOF:
+  pcm0p is usually "Speakers", pcm1p "Headset", pcm2-4p are HDMI.
+- `/sys/bus/gpio/devices/` + `/sys/kernel/debug/gpio` — list every
+  GPIO chip + which consumer holds which pin. `gpio-* | sdmode` shows
+  the MAX98357A speaker-enable line.
+- `/sys/bus/pci/devices/<BDF>/driver` — symlinks to each PCI device's
+  driver. `drv=NONE` means the driver isn't bound (either missing
+  config, missing firmware file, or missing ACPI device match).
+- `/sys/bus/acpi/devices/<HID>:NN/physical_node/driver` — same but
+  for ACPI-enumerated devices (audio codecs, embedded controller,
+  pinctrl, etc).
+- `/proc/config.gz` — `zcat /proc/config.gz | grep CONFIG_FOO=` tells
+  you definitively whether a config survived `make olddefconfig`.
+
+### Build-time canaries
+
+`docker-build.sh` verifies six critical driver symbols (`jsl_pinctrl_
+acpi_match`, `max98357a_sdmode_event`, `rt5682_i2c_probe`,
+`i2c_dw_prepare_clk`, …) are linked into vmlinux via `nm`. When a new
+config toggles on, a hash sentinel wipes the matching subsystem's
+object files so kbuild actually rebuilds them. If your build fails at
+"BUILD SANITY: critical driver symbols missing", wipe the persistent
+docker volume: `docker volume rm ac-os-kbuild`.

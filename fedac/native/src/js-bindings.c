@@ -4467,6 +4467,153 @@ static void *flash_thread_fn(void *arg) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Audio diagnostic — list PCMs + play a short test tone on an arbitrary
+// device. Used by the speaker.mjs piece to figure out which ALSA PCM
+// actually produces sound on a given machine (vs wiring-dependent guesses
+// like hw:0,0). The tone plays in a detached thread so the JS caller
+// returns immediately; the piece UI stays responsive.
+// ─────────────────────────────────────────────────────────────────
+#include <alsa/asoundlib.h>
+
+static JSValue js_audio_list_pcms(JSContext *ctx, JSValueConst this_val,
+                                   int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    JSValue arr = JS_NewArray(ctx);
+    int idx = 0;
+    for (int c = 0; c < 4; c++) {
+        for (int d = 0; d < 8; d++) {
+            char path[80];
+            snprintf(path, sizeof(path),
+                     "/proc/asound/card%d/pcm%dp/info", c, d);
+            FILE *fp = fopen(path, "r");
+            if (!fp) continue;
+            char line[256], id_str[96] = "", name_str[96] = "";
+            while (fgets(line, sizeof(line), fp)) {
+                char *nl = strchr(line, '\n'); if (nl) *nl = 0;
+                if (!strncmp(line, "id: ", 4))
+                    snprintf(id_str, sizeof(id_str), "%s", line + 4);
+                else if (!strncmp(line, "name: ", 6))
+                    snprintf(name_str, sizeof(name_str), "%s", line + 6);
+            }
+            fclose(fp);
+            char dev[16];
+            snprintf(dev, sizeof(dev), "hw:%d,%d", c, d);
+            JSValue obj = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, obj, "device", JS_NewString(ctx, dev));
+            JS_SetPropertyStr(ctx, obj, "card",   JS_NewInt32(ctx, c));
+            JS_SetPropertyStr(ctx, obj, "num",    JS_NewInt32(ctx, d));
+            JS_SetPropertyStr(ctx, obj, "id",     JS_NewString(ctx, id_str));
+            JS_SetPropertyStr(ctx, obj, "name",   JS_NewString(ctx, name_str));
+            /* Tag the PCM that ac-native's main audio thread picked so the
+             * UI can highlight it. */
+            if (current_rt && current_rt->audio &&
+                strcmp(current_rt->audio->audio_device, dev) == 0)
+                JS_SetPropertyStr(ctx, obj, "active", JS_NewBool(ctx, 1));
+            JS_SetPropertyUint32(ctx, arr, idx++, obj);
+        }
+    }
+    return arr;
+}
+
+struct audio_probe_args {
+    char  device[32];
+    int   freq_hz;
+    int   duration_ms;
+    float volume;
+};
+
+static void *audio_probe_thread(void *arg) {
+    struct audio_probe_args *a = (struct audio_probe_args *)arg;
+    snd_pcm_t *pcm = NULL;
+    int err = snd_pcm_open(&pcm, a->device, SND_PCM_STREAM_PLAYBACK, 0);
+    if (err < 0) {
+        ac_log("[audio-probe] open %s failed: %s",
+               a->device, snd_strerror(err));
+        free(a);
+        return NULL;
+    }
+    unsigned int rate = 48000;
+    snd_pcm_uframes_t period = 480, buffer = 1920;
+    err = snd_pcm_set_params(pcm,
+                             SND_PCM_FORMAT_S16_LE,
+                             SND_PCM_ACCESS_RW_INTERLEAVED,
+                             2,              /* stereo */
+                             rate,
+                             1,              /* soft_resample */
+                             100 * 1000);    /* 100ms latency */
+    if (err < 0) {
+        ac_log("[audio-probe] set_params %s failed: %s",
+               a->device, snd_strerror(err));
+        snd_pcm_close(pcm);
+        free(a);
+        return NULL;
+    }
+    /* Synthesize + play a sine wave of a->freq_hz at a->volume for
+     * a->duration_ms milliseconds. Stereo S16 LE. */
+    int total_frames = (long long)rate * a->duration_ms / 1000;
+    int16_t *buf = (int16_t *)malloc(period * 2 * sizeof(int16_t));
+    if (!buf) { snd_pcm_close(pcm); free(a); return NULL; }
+    double phase = 0.0;
+    double step  = 2.0 * 3.14159265358979 * (double)a->freq_hz / (double)rate;
+    int32_t amp  = (int32_t)(a->volume * 32760.0);
+    if (amp < 0) amp = 0; if (amp > 32760) amp = 32760;
+    int written = 0;
+    ac_log("[audio-probe] %s %dHz %dms vol=%.2f", a->device, a->freq_hz,
+           a->duration_ms, a->volume);
+    while (written < total_frames) {
+        int chunk = total_frames - written;
+        if (chunk > (int)period) chunk = (int)period;
+        for (int i = 0; i < chunk; i++) {
+            int16_t s = (int16_t)(sin(phase) * amp);
+            buf[i * 2]     = s;
+            buf[i * 2 + 1] = s;
+            phase += step;
+            if (phase > 6.283185307179586) phase -= 6.283185307179586;
+        }
+        snd_pcm_sframes_t w = snd_pcm_writei(pcm, buf, chunk);
+        if (w < 0) w = snd_pcm_recover(pcm, w, 1);
+        if (w < 0) { ac_log("[audio-probe] writei failed: %s",
+                            snd_strerror((int)w)); break; }
+        written += (int)w;
+    }
+    snd_pcm_drain(pcm);
+    snd_pcm_close(pcm);
+    free(buf);
+    ac_log("[audio-probe] %s done (%d frames)", a->device, written);
+    free(a);
+    return NULL;
+}
+
+static JSValue js_audio_test_pcm(JSContext *ctx, JSValueConst this_val,
+                                  int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_FALSE;
+    struct audio_probe_args *a = (struct audio_probe_args *)calloc(1, sizeof(*a));
+    if (!a) return JS_FALSE;
+    const char *dev = JS_ToCString(ctx, argv[0]);
+    if (!dev) { free(a); return JS_FALSE; }
+    strncpy(a->device, dev, sizeof(a->device) - 1);
+    JS_FreeCString(ctx, dev);
+    a->freq_hz     = 440;
+    a->duration_ms = 500;
+    a->volume      = 0.3f;
+    if (argc >= 2) JS_ToInt32(ctx, &a->freq_hz,     argv[1]);
+    if (argc >= 3) JS_ToInt32(ctx, &a->duration_ms, argv[2]);
+    if (argc >= 4) {
+        double vol; JS_ToFloat64(ctx, &vol, argv[3]);
+        a->volume = (float)vol;
+    }
+    pthread_t th;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    int pr = pthread_create(&th, &attr, audio_probe_thread, a);
+    pthread_attr_destroy(&attr);
+    if (pr != 0) { free(a); return JS_FALSE; }
+    return JS_TRUE;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Firmware update thread — runs /bin/ac-firmware-install (bundled copy of
 // system/public/install-firmware.sh) and streams its stdout into
 // rt->fw_log. The script handles all the dangerous bits (backup via
@@ -6177,6 +6324,27 @@ static JSValue build_system_obj(JSContext *ctx) {
         JS_SetPropertyStr(ctx, firmware, "install",
                           JS_NewCFunction(ctx, js_firmware_install, "install", 1));
         JS_SetPropertyStr(ctx, sys, "firmware", firmware);
+    }
+
+    // Audio diagnostic API — speaker.mjs piece uses these to probe which
+    // ALSA PCM actually produces sound on this machine. listPcms scans
+    // /proc/asound; testPcm plays a short sine tone on the named device
+    // in a detached thread. Both are read-only — no state change to the
+    // main audio thread.
+    {
+        JSValue audio = JS_NewObject(ctx);
+        JS_SetPropertyStr(ctx, audio, "listPcms",
+            JS_NewCFunction(ctx, js_audio_list_pcms, "listPcms", 0));
+        JS_SetPropertyStr(ctx, audio, "testPcm",
+            JS_NewCFunction(ctx, js_audio_test_pcm, "testPcm", 4));
+        /* Report which device ac-native's main audio thread is currently
+         * using — helpful context when the user is probing alternatives. */
+        if (current_rt && current_rt->audio &&
+            current_rt->audio->audio_device[0]) {
+            JS_SetPropertyStr(ctx, audio, "activeDevice",
+                JS_NewString(ctx, current_rt->audio->audio_device));
+        }
+        JS_SetPropertyStr(ctx, sys, "audio", audio);
     }
 
     // User config (handle, piece — read from /mnt/config.json at boot)

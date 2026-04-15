@@ -561,7 +561,7 @@ done
 # runtime. If you add a piece that uses browser-only APIs, the runtime
 # will throw — don't "port" the piece, expose the missing API in
 # js-bindings.c instead (so web and native stay in parity).
-for webpiece in clock.mjs arena.mjs; do
+for webpiece in clock.mjs arena.mjs speaker.mjs; do
     SRC_PIECE="$SRC/system/public/aesthetic.computer/disks/$webpiece"
     if [ -f "$SRC_PIECE" ]; then
         cp "$SRC_PIECE" "$IROOT/pieces/$webpiece"
