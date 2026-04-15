@@ -40,7 +40,30 @@ async function fetchPieceSource(pieceName) {
   }
 }
 
+// Fix KidLisp source format: wrap unparenthesized commands in parentheses
+function fixKidLispSourceFormat(source) {
+  const lines = source.split('\n');
+  const fixed = lines.map(line => {
+    line = line.trim();
+    if (!line) return '';
+
+    // Skip lines that already have parens or special prefixes
+    if (line.startsWith('(') || line.startsWith('fade:')) {
+      return line;
+    }
+
+    // Wrap atoms followed by other expressions in parens
+    // This handles: "ink (? rainbow white 0) (1s... 24 64)" → "(ink (? rainbow white 0) (1s... 24 64))"
+    return '(' + line + ')';
+  });
+
+  return fixed.join('\n');
+}
+
 async function bundleMini(source, seed = null) {
+  // Fix source format: wrap unparenthesized commands in parentheses
+  source = fixKidLispSourceFormat(source);
+
   // Read all module files
   const evalCode = await fs.readFile(path.join(__dirname, 'eval.mjs'), 'utf-8');
   const renderCode = await fs.readFile(path.join(__dirname, 'render.mjs'), 'utf-8');
