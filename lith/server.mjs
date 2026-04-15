@@ -831,7 +831,11 @@ app.all("/media/*rest", async (req, res) => {
         const painting = JSON.parse(result.body);
         const bucket = painting.user ? "user-aesthetic-computer" : "art-aesthetic-computer";
         const slug = painting.slug?.split(":")[0] || painting.slug;
-        const key = painting.user ? `${painting.user}/${slug}.png` : `${slug}.png`;
+        // Slug may already be fully-qualified (e.g. "auth0|.../painting/TS").
+        // Only prepend user when it's a bare slug, otherwise we double the prefix.
+        const key = painting.user && !slug.startsWith(`${painting.user}/`)
+          ? `${painting.user}/${slug}.png`
+          : `${slug}.png`;
         return res.redirect(302, `https://${bucket}.sfo3.digitaloceanspaces.com/${key}`);
       }
     } catch {}
