@@ -57,20 +57,18 @@ function paint({ wipe, ink, screen, num }) {
 // 🎪 Act
 function act({ event: e, sound: { fart }, num }) {
   fartButton.act(e, {
-    push: () => {
+    down: () => {
       activeFart?.kill(0.1);
       activeFart = fart({
         pressure: 0.8,
-        pitch: 60 + num.rand() * 30,
+        pitch: 80 + num.rand() * 60,
         rasp: 0.6,
-        volume: 0.7,
+        volume: 1,
         pan: 0,
       });
-      activeFart.enableSustain();
-      setTimeout(() => {
-        activeFart?.disableSustain();
-        activeFart = null;
-      }, 500);
+    },
+    push: () => {
+      activeFart = null;
     },
   });
 }

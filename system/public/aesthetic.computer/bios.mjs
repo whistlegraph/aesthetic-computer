@@ -3914,6 +3914,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       resolution,
       embeddedSource,
       noauth: window.acNOAUTH || false,
+      bootId: window.acBOOT_ID || null,
     },
   };
 
