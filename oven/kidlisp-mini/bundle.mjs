@@ -164,7 +164,20 @@ const timing = new TimingEngine(SEED);
 const api = {
   screen: { width: W, height: H },
   wipe: (r, g, b, a = 255) => renderer.wipe(r, g, b, a),
-  ink: (r, g, b, a = 255) => renderer.setColor(r, g, b, a),
+  ink: (...args) => {
+    // Handle different ink argument patterns like real KidLisp
+    // ink([r,g,b,a], alphaOverride) → setColor(r,g,b,alphaOverride)
+    if (args.length === 2 && Array.isArray(args[0])) {
+      const [color, alphaOverride] = args;
+      renderer.setColor(color[0], color[1], color[2], alphaOverride);
+    } else if (args.length === 1 && Array.isArray(args[0])) {
+      const [r, g, b, a] = args[0];
+      renderer.setColor(r, g, b, a);
+    } else {
+      const [r, g, b, a = 255] = args;
+      renderer.setColor(r, g, b, a);
+    }
+  },
   line: (x0, y0, x1, y1) => renderer.line(x0, y0, x1, y1),
   box: (x, y, w, h, mode = 'fill') => renderer.box(x, y, w, h, mode),
   circle: (cx, cy, r, mode = 'fill') => renderer.circle(cx, cy, r, mode),
