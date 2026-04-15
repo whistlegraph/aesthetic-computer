@@ -966,6 +966,116 @@ import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
 import { setPackMode, getPackMode, checkPackMode } from "./pack-mode.mjs";
 // import { update } from "./glaze.mjs";
+
+// 🧾 Piece run telemetry → /api/piece-log (collection: piece-runs)
+// Captures console output during a piece's lifetime. Each piece load
+// gets a fresh pieceId; events are batched and flushed every 2s.
+const pieceRuns = (() => {
+  let current = null;
+  const startPerf = performance.now();
+  const origConsole = {
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    info: console.info.bind(console),
+  };
+
+  function serialize(v) {
+    if (v === undefined) return "undefined";
+    if (v === null) return "null";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    if (v instanceof Error) return `${v.name}: ${v.message}\n${v.stack || ""}`;
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+
+  function post(phase, pieceId, body = {}) {
+    try {
+      fetch("/api/piece-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pieceId, phase, ...body }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+  }
+
+  function patch(level) {
+    console[level] = function (...args) {
+      origConsole[level](...args);
+      if (!current) return;
+      current.events.push({
+        level,
+        at: Date.now(),
+        elapsed: Math.round(performance.now() - current.startPerf),
+        message: args.map(serialize).join(" "),
+      });
+      if (current.events.length >= 25) current.flush();
+      else if (!current.flushTimer) current.flushTimer = setTimeout(current.flush, 2000);
+    };
+  }
+  ["log", "warn", "error", "info"].forEach(patch);
+
+  function complete(run, summary = {}) {
+    if (!run) return;
+    if (run.flushTimer) { clearTimeout(run.flushTimer); run.flushTimer = null; }
+    if (run.events.length) {
+      const events = run.events.splice(0, run.events.length);
+      post("log", run.pieceId, { events });
+    }
+    post("complete", run.pieceId, {
+      data: { duration: Date.now() - run.startedAt, ...summary },
+    });
+  }
+
+  return {
+    start({ slug, params, colon, host, user }) {
+      const prev = current;
+      const pieceId =
+        (typeof crypto !== "undefined" && crypto.randomUUID?.()) ||
+        `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const run = {
+        pieceId,
+        events: [],
+        startPerf: performance.now(),
+        startedAt: Date.now(),
+        flushTimer: null,
+        flush: null,
+      };
+      run.flush = () => {
+        if (run.flushTimer) { clearTimeout(run.flushTimer); run.flushTimer = null; }
+        if (!run.events.length) return;
+        const events = run.events.splice(0, run.events.length);
+        post("log", run.pieceId, { events });
+      };
+      current = run;
+      post("start", pieceId, {
+        meta: {
+          slug,
+          params,
+          colon,
+          host,
+          user,
+          bootId: typeof self !== "undefined" ? self.acBOOT_ID || null : null,
+          startedAt: new Date().toISOString(),
+          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+        },
+      });
+      // Flush the prior run asynchronously so it doesn't block the new piece.
+      if (prev) setTimeout(() => complete(prev), 0);
+      return pieceId;
+    },
+    error(err) {
+      if (!current) return;
+      post("error", current.pieceId, {
+        data: { message: err?.message || String(err), stack: err?.stack || null },
+      });
+    },
+    flush() { current?.flush?.(); },
+    get pieceId() { return current?.pieceId || null; },
+  };
+})();
+
 const alphabet =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const nanoid = customAlphabet(alphabet, 4);
@@ -9723,6 +9833,19 @@ async function load(
     currentText = slug;
     currentCode = sourceCode;
 
+    // 🧾 Begin piece-run telemetry (batched console capture → /api/piece-log)
+    try {
+      pieceRuns.start({
+        slug,
+        params,
+        colon,
+        host,
+        user: USER?.sub || USER?.handle || null,
+      });
+    } catch (err) {
+      // never break piece load
+    }
+
     // Broadcast location change to session server
     if (HANDLE && socket?.connected && slug !== "*keep-alive*") {
       socket.send("location:broadcast", {
@@ -9880,6 +10003,7 @@ async function makeFrame({ data: { type, content } }) {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
+    if (content.bootId && typeof self !== "undefined") self.acBOOT_ID = content.bootId;
 
     if (content.debugHud) {
       globalThis.debugHudHitbox = true;
