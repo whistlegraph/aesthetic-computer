@@ -913,7 +913,7 @@ MISSING_DRVS=""
 for probe in "jsl_pinctrl_acpi_match:pinctrl-jasperlake" \
              "max98357a_sdmode_event:snd-soc-max98357a" \
              "rt5682_i2c_probe:rt5682-i2c" \
-             "dw_i2c_dev_init:i2c-designware-core"; do
+             "i2c_dw_prepare_clk:i2c-designware-core"; do
     sym="${probe%%:*}"
     drv="${probe##*:}"
     if ! nm vmlinux 2>/dev/null | grep -q " ${sym}\$"; then
