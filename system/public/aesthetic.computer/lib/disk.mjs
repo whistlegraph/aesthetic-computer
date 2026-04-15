@@ -1061,6 +1061,15 @@ const pieceRuns = (() => {
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
         },
       });
+      // Sentinel event so we can tell console-capture works even if the
+      // piece itself emits nothing.
+      run.events.push({
+        level: "info",
+        at: Date.now(),
+        elapsed: 0,
+        message: `▶ piece-run started: ${slug}`,
+      });
+      run.flushTimer = setTimeout(run.flush, 2000);
       // Flush the prior run asynchronously so it doesn't block the new piece.
       if (prev) setTimeout(() => complete(prev), 0);
       return pieceId;
