@@ -776,8 +776,57 @@ scripts/config --disable DRM_BOCHS
 scripts/config --disable DRM_CIRRUS_QEMU
 scripts/config --disable DRM_VIRTIO_GPU
 scripts/config --enable DRM_SIMPLEDRM
+
+# CRITICAL: force-enable audio/GPIO/pinctrl configs that olddefconfig
+# has been silently dropping on the oven (cause: upstream Fedora kernel
+# ships a newer/older Kconfig tree than what config-minimal was authored
+# against, so dependency resolution differs between dev environment and
+# the container's make olddefconfig run). Using scripts/config --enable
+# writes the symbol directly, bypassing olddefconfig's mutation pass, and
+# the final `make olddefconfig` below cleans up any dep auto-selects
+# (GPIOLIB, PINMUX, etc. — tristate symbols selected by our --enable'd
+# ones come along automatically).
+log "  Force-enabling audio + GPIO + pinctrl configs..."
+for sym in \
+    IKCONFIG IKCONFIG_PROC \
+    GPIOLIB GPIOLIB_IRQCHIP GPIO_ACPI GPIO_SYSFS \
+    PINCTRL PINCTRL_INTEL \
+    PINCTRL_BAYTRAIL PINCTRL_CHERRYVIEW PINCTRL_SUNRISEPOINT \
+    PINCTRL_GEMINILAKE PINCTRL_ELKHARTLAKE PINCTRL_JASPERLAKE \
+    PINCTRL_TIGERLAKE PINCTRL_ALDERLAKE PINCTRL_METEORLAKE \
+    I2C I2C_DESIGNWARE_CORE I2C_DESIGNWARE_PLATFORM I2C_DESIGNWARE_PCI \
+    MMC MMC_BLOCK MMC_SDHCI MMC_SDHCI_PCI MMC_SDHCI_ACPI \
+    MTD MTD_BLOCK MTD_SPI_NOR \
+    SPI SPI_MASTER SPI_MEM SPI_INTEL SPI_INTEL_PCI \
+    MAGIC_SYSRQ \
+    RTW89 RTW89_PCI RTW89_8852B RTW89_8852BE RTW89_8852BT RTW89_8852BTE \
+    SND_SOC_MAX98357A SND_SOC_RT5682 SND_SOC_RT5682_I2C SND_SOC_RT5682S \
+    SND_SOC_INTEL_SOF_RT5682_MACH SND_SOC_INTEL_SOF_MAX98360A_MACH \
+    SND_SOC_SOF_JASPERLAKE \
+; do
+    scripts/config --enable "CONFIG_$sym" 2>/dev/null || true
+done
 make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig (post-config) failed"; tail -120 "$KCFG_LOG" >&2; exit 1; }
 tail -1 "$KCFG_LOG" || true
+
+# Verify the critical audio/GPIO symbols actually stuck after olddefconfig
+# dependency resolution. Fail the build loudly if any were silently dropped
+# — better to catch this in the build log than discover it from a silent
+# speaker on the target device.
+log "  Verifying critical configs survived olddefconfig..."
+MISSING_CFGS=""
+for sym in GPIOLIB PINCTRL_INTEL PINCTRL_JASPERLAKE I2C_DESIGNWARE_PCI \
+           SND_SOC_INTEL_SOF_RT5682_MACH SND_SOC_MAX98357A; do
+    if ! grep -q "^CONFIG_${sym}=y" .config; then
+        MISSING_CFGS="$MISSING_CFGS $sym"
+    fi
+done
+if [ -n "$MISSING_CFGS" ]; then
+    err "BUILD SANITY: the following configs did not survive olddefconfig:$MISSING_CFGS"
+    err "  (inspect $KCFG_LOG for why — likely a missing dep in the Kconfig tree)"
+    exit 1
+fi
+log "  ✓ All critical audio/GPIO configs present"
 
 # With ccache, skip make clean — stale objects get cache misses anyway,
 # and clean destroys the build tree that ccache relies on for hits.
