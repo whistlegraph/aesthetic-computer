@@ -1550,6 +1550,28 @@ static void *audio_thread_fn(void *arg) {
 
         // Write to ALSA (handle short writes to avoid dropped samples/clicks)
         snd_pcm_t *pcm = (snd_pcm_t *)audio->pcm;
+        /* Tee to parallel PCM (sof-rt5682+max98360a auto-route).
+         * Best-effort, never blocks the primary write — short writes,
+         * EPIPE underruns, and even outright failures are tolerated
+         * because the *real* output is the primary PCM. The DAPM
+         * jack-sense in the codec mutes whichever side isn't being
+         * driven by the active jack state. */
+        snd_pcm_t *pcm2 = (snd_pcm_t *)audio->headphone_pcm;
+        if (pcm2) {
+            int rem2 = (int)period_frames;
+            int off2 = 0;
+            while (rem2 > 0) {
+                int f2 = snd_pcm_writei(pcm2,
+                                         buffer + off2 * AUDIO_CHANNELS,
+                                         rem2);
+                if (f2 == -EAGAIN) break; /* don't spin on secondary */
+                if (f2 < 0) {
+                    snd_pcm_recover(pcm2, f2, 1);
+                    break;
+                }
+                rem2 -= f2; off2 += f2;
+            }
+        }
         int remaining = (int)period_frames;
         int offset = 0;
         while (remaining > 0) {
@@ -1757,6 +1779,7 @@ ACAudio *audio_init(void) {
     // playback hits the speaker amp by default; the headphone PCM still wins
     // if/when AC_AUDIO_DEVICE overrides or jack-sense flips routing later.
     char ucm_speaker_pcm[64] = "";
+    char ucm_headphone_pcm[64] = "";
     {
         char card_id[32] = "";
         for (int c = 0; c < 4 && !card_id[0]; c++) {
@@ -1773,11 +1796,11 @@ ACAudio *audio_init(void) {
             const char *cands[] = { card_id, "sof-rt5682", "sof-cs42l42",
                                     "sof-nau8825", "sof-da7219", NULL };
             snd_use_case_mgr_t *uc = NULL;
-            for (int i = 0; cands[i] && !ucm_speaker_pcm[0]; i++) {
+            for (int i = 0; cands[i] && (!ucm_speaker_pcm[0] || !ucm_headphone_pcm[0]); i++) {
                 if (snd_use_case_mgr_open(&uc, cands[i]) != 0) continue;
                 if (snd_use_case_set(uc, "_verb", "HiFi") == 0) {
                     const char *spk_names[] = { "Speaker", "Speakers", NULL };
-                    for (int s = 0; spk_names[s]; s++) {
+                    for (int s = 0; spk_names[s] && !ucm_speaker_pcm[0]; s++) {
                         char id[64]; const char *val = NULL;
                         snprintf(id, sizeof(id), "PlaybackPCM/%s", spk_names[s]);
                         if (snd_use_case_get(uc, id, &val) == 0 && val) {
@@ -1787,7 +1810,20 @@ ACAudio *audio_init(void) {
                             fprintf(stderr,
                                     "[audio] UCM Speaker PCM: %s (%s/%s)\n",
                                     ucm_speaker_pcm, cands[i], spk_names[s]);
-                            break;
+                        }
+                    }
+                    const char *hp_names[] = { "Headphone", "Headphones",
+                                                "Headset", NULL };
+                    for (int s = 0; hp_names[s] && !ucm_headphone_pcm[0]; s++) {
+                        char id[64]; const char *val = NULL;
+                        snprintf(id, sizeof(id), "PlaybackPCM/%s", hp_names[s]);
+                        if (snd_use_case_get(uc, id, &val) == 0 && val) {
+                            snprintf(ucm_headphone_pcm, sizeof(ucm_headphone_pcm),
+                                     "%s", val);
+                            free((void *)val);
+                            fprintf(stderr,
+                                    "[audio] UCM Headphone PCM: %s (%s/%s)\n",
+                                    ucm_headphone_pcm, cands[i], hp_names[s]);
                         }
                     }
                 }
@@ -1972,6 +2008,74 @@ ACAudio *audio_init(void) {
     audio->pcm = pcm;
     audio->actual_rate = rate;
     audio->actual_period = (unsigned int)period;
+
+    /* Open the *other* PCM for jack-sense auto-routing.
+     *
+     * On sof-rt5682+max98360a, the SOF topology exposes two FE PCMs:
+     *   PCM 0 (UCM "Headphone") → SSP0 → RT5682 codec → headphone jack
+     *   PCM 1 (UCM "Speaker"  ) → SSP1 → MAX98360A   → speaker amp
+     *
+     * Each PCM goes to a *different* DAI, and the codec's DAPM jack-sense
+     * mutes whichever side isn't currently in use. So if we open BOTH and
+     * tee the same audio to both, the hardware automatically picks the
+     * right output: speakers when no jack is plugged, headphones when one
+     * is plugged. No userspace jack monitor needed.
+     *
+     * Only fires when the secondary PCM is a different device than the one
+     * we already opened — duplicate-open of the same hw: device would just
+     * fail with -EBUSY. */
+    audio->headphone_pcm = NULL;
+    {
+        const char *secondary = NULL;
+        if (ucm_speaker_pcm[0] && ucm_headphone_pcm[0] &&
+            strcmp(ucm_speaker_pcm, ucm_headphone_pcm) != 0) {
+            /* Pick whichever the main PCM didn't open. */
+            if (strstr(audio->audio_device, ucm_speaker_pcm))
+                secondary = ucm_headphone_pcm;
+            else if (strstr(audio->audio_device, ucm_headphone_pcm))
+                secondary = ucm_speaker_pcm;
+            else
+                secondary = ucm_headphone_pcm; /* legacy fallback opened */
+        }
+        if (secondary) {
+            snd_pcm_t *pcm2 = NULL;
+            int e2 = snd_pcm_open(&pcm2, secondary,
+                                   SND_PCM_STREAM_PLAYBACK, 0);
+            if (e2 == 0) {
+                /* Same params as the main PCM so audio thread can write
+                 * the same int16 buffer to both without resampling. */
+                snd_pcm_hw_params_t *hp; snd_pcm_hw_params_alloca(&hp);
+                snd_pcm_hw_params_any(pcm2, hp);
+                snd_pcm_hw_params_set_access(pcm2, hp,
+                                             SND_PCM_ACCESS_RW_INTERLEAVED);
+                snd_pcm_hw_params_set_format(pcm2, hp, SND_PCM_FORMAT_S16_LE);
+                snd_pcm_hw_params_set_channels(pcm2, hp, AUDIO_CHANNELS);
+                unsigned int r2 = audio->actual_rate;
+                snd_pcm_hw_params_set_rate_near(pcm2, hp, &r2, 0);
+                snd_pcm_uframes_t p2 = audio->actual_period;
+                snd_pcm_hw_params_set_period_size_near(pcm2, hp, &p2, 0);
+                snd_pcm_uframes_t b2 = audio->actual_period * 4;
+                snd_pcm_hw_params_set_buffer_size_near(pcm2, hp, &b2);
+                int herr = snd_pcm_hw_params(pcm2, hp);
+                if (herr == 0) {
+                    snd_pcm_prepare(pcm2);
+                    audio->headphone_pcm = pcm2;
+                    fprintf(stderr,
+                            "[audio] Parallel PCM opened: %s (%uHz, %lufrm) — auto-routing enabled\n",
+                            secondary, r2, (unsigned long)p2);
+                } else {
+                    fprintf(stderr,
+                            "[audio] Parallel PCM hw_params failed for %s: %s — auto-routing disabled\n",
+                            secondary, snd_strerror(herr));
+                    snd_pcm_close(pcm2);
+                }
+            } else {
+                fprintf(stderr,
+                        "[audio] Parallel PCM open failed for %s: %s — auto-routing disabled\n",
+                        secondary, snd_strerror(e2));
+            }
+        }
+    }
 
     // Update glitch rate for actual sample rate
     audio->glitch_rate = rate / 1600;
@@ -3323,6 +3427,7 @@ void audio_destroy(ACAudio *audio) {
         pthread_join(audio->thread, NULL);
         snd_pcm_close((snd_pcm_t *)audio->pcm);
     }
+    if (audio->headphone_pcm) snd_pcm_close((snd_pcm_t *)audio->headphone_pcm);
     if (audio->hdmi_pcm) snd_pcm_close((snd_pcm_t *)audio->hdmi_pcm);
     free(audio->room_buf_l);
     free(audio->room_buf_r);

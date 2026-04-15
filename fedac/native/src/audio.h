@@ -304,6 +304,13 @@ typedef struct {
     float crossfader;           // 0.0 = deck A, 1.0 = deck B
     float deck_master_volume;   // overall deck volume (default 0.8)
 
+    // Parallel headphone PCM (sof-rt5682+max98360a auto-route).
+    // Open in addition to the main speaker PCM so both the SSP0 (RT5682
+    // headset) and SSP1 (MAX98360A speaker) DAIs receive the same audio
+    // stream. The codec's DAPM jack-sense mutes the inactive side, so
+    // unplugged → speaker plays, headphones plugged → headphone plays.
+    void *headphone_pcm;        // snd_pcm_t* for headphone PCM (NULL if same as main)
+
     // HDMI audio output (secondary, low-pass filtered clone)
     void *hdmi_pcm;             // snd_pcm_t* for HDMI audio device (NULL if not found)
     unsigned int hdmi_rate;     // negotiated HDMI sample rate
