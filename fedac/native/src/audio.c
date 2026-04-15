@@ -1756,6 +1756,48 @@ ACAudio *audio_init(void) {
     int err = -1;
     int card_idx = 0;
 
+    // Smart PCM selection — on SOF topologies (Chromebooks), card0 typically
+    // exposes multiple playback PCMs with distinct names: "Headset (*)",
+    // "Speakers (*)", "HDMI1 (*)"… hw:0,0 blindly is fine on HDA-direct
+    // codecs but opens the wrong endpoint on SOF. Scan /proc/asound and
+    // prefer the PCM whose name contains "Speaker" (fall back to anything
+    // containing "HiFi" which is the common SOF FE name for both-path).
+    // HDMI PCMs are explicitly skipped — they'd play on monitor, not speakers.
+    for (int c = 0; c < 4 && err < 0; c++) {
+        for (int d = 0; d < 8 && err < 0; d++) {
+            char info_path[64];
+            snprintf(info_path, sizeof(info_path), "/proc/asound/card%d/pcm%dp/info", c, d);
+            FILE *ip = fopen(info_path, "r");
+            if (!ip) continue;
+            char line[256], id_str[96] = "", name_str[96] = "";
+            while (fgets(line, sizeof(line), ip)) {
+                if (!strncmp(line, "id: ", 4))      snprintf(id_str,   sizeof(id_str),   "%s", line + 4);
+                if (!strncmp(line, "name: ", 6))    snprintf(name_str, sizeof(name_str), "%s", line + 6);
+            }
+            fclose(ip);
+            // Skip HDMI — those route to monitor audio, not internal speaker.
+            if (strstr(id_str, "HDMI") || strstr(name_str, "HDMI")) continue;
+            // Prefer Speaker name; accept HiFi (SOF combined FE) as fallback.
+            int is_speaker = (strstr(id_str, "Speaker") || strstr(name_str, "Speaker"));
+            int is_combined = (strstr(id_str, "HiFi") || strstr(name_str, "HiFi") ||
+                               strstr(id_str, "Jack") || strstr(name_str, "Jack"));
+            if (!is_speaker && !is_combined) continue;
+            char dev_str[16];
+            snprintf(dev_str, sizeof(dev_str), "hw:%d,%d", c, d);
+            err = snd_pcm_open(&pcm, dev_str, SND_PCM_STREAM_PLAYBACK, 0);
+            if (err >= 0) {
+                fprintf(stderr, "[audio] SOF PCM match: %s (id=%.*s)\n",
+                        dev_str, (int)strcspn(id_str, "\n"), id_str);
+                snprintf(audio->audio_device, sizeof(audio->audio_device), "%s", dev_str);
+                card_idx = c;
+                // Prefer speaker name over combined — if we found a Speaker,
+                // stop here; otherwise keep scanning in case a later PCM is
+                // the speaker (cheap sort: Speaker beats HiFi by continuing).
+                if (is_speaker) break;
+            }
+        }
+    }
+
     // AC_AUDIO_DEVICE override — try the env var device before the hardcoded list.
     const char *env_dev = getenv("AC_AUDIO_DEVICE");
     if (env_dev && env_dev[0]) {
