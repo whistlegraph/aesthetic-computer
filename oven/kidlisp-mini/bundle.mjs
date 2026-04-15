@@ -151,6 +151,7 @@ const api = {
   spin: (angle) => renderer.spin(angle),
   zoom: (factor) => renderer.zoom(factor),
   contrast: (factor) => renderer.contrast(factor),
+  fadeBackground: (colors, frame) => renderer.fadeBackground(colors, frame),
 };
 
 // Pass API to the interpreter
