@@ -2177,15 +2177,14 @@ function paint(
     needsPaint();
   }
   
-  //  News ticker (deprecated — disabled by default)
-  const showNews = options?.showNews === true;
-  if (showNews && !client.connecting && !modalPainting && !messageCopyModal) {
+  //  News ticker (re-enabled)
+  if (!client.connecting && !modalPainting && !messageCopyModal) {
     paintNewsTicker({ ink, screen, text, hud }, theme);
     needsPaint();
   }
-  
-  // 📻 R8dio mini-player (laer-klokken only)
-  if (options?.r8dioPlayer && !client.connecting && !modalPainting && !messageCopyModal) {
+
+  // 📻 R8dio mini-player (laer-klokken)
+  if (!client.connecting && !modalPainting && !messageCopyModal) {
     r8dioEnabled = true;
     paintR8dioPlayer({ ink, screen, help, hud }, theme);
     needsPaint();
