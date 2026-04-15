@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "qrcodegen.h"
+#include <alsa/asoundlib.h>
 
 // Defined in ac-native.c — logs to USB mount
 extern void ac_log(const char *fmt, ...);
@@ -4473,7 +4474,6 @@ static void *flash_thread_fn(void *arg) {
 // like hw:0,0). The tone plays in a detached thread so the JS caller
 // returns immediately; the piece UI stays responsive.
 // ─────────────────────────────────────────────────────────────────
-#include <alsa/asoundlib.h>
 
 static JSValue js_audio_list_pcms(JSContext *ctx, JSValueConst this_val,
                                    int argc, JSValueConst *argv) {
