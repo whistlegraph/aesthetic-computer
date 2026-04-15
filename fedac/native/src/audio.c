@@ -1842,12 +1842,34 @@ ACAudio *audio_init(void) {
     fprintf(stderr, "[audio] Selected rate: %u Hz (hw range %u–%u)\n", rate, rate_min, rate_max);
     snd_pcm_hw_params_set_rate_near(pcm, params, &rate, 0);
 
-    // Scale period and buffer to ~1ms latency at the negotiated rate
-    snd_pcm_uframes_t period = rate / 1000;  // ~1ms worth of frames
-    if (period < 64) period = 64;
+    // Period + buffer sizing. The old config aimed for ~1ms latency (period =
+    // rate/1000, buffer = 4 periods) which works on HDA-direct codecs but
+    // breaks SOF+MAX98360A on Jasper Lake Chromebooks: the MAX98357A DAPM
+    // event handler toggles the amp's SD_MODE GPIO on every PMU/PMD event,
+    // and with a 4ms buffer the stream underruns constantly → DAPM rapid-
+    // cycles the amp on/off → audio never stabilizes → speakers stay silent
+    // despite mixer, codec, and GPIO all looking correct. We saw 10,686
+    // sdmode toggles in a single boot's kmsg on the G7 at the 1ms setting.
+    //
+    // Probe whether we're on a SOF platform (sound/soc/sof is one path) and
+    // bump to 10ms / 40ms which is what ChromeOS itself uses. Non-SOF HDA
+    // devices (ThinkPads, most laptops) keep the tight latency because their
+    // amp/codec model doesn't gate on per-period DAPM events.
+    int sof_active = (access("/sys/class/sound/card0/id", R_OK) == 0) &&
+                     (access("/proc/asound/card0/codec97#0", F_OK) != 0);
+    snd_pcm_uframes_t period;
+    snd_pcm_uframes_t buffer_size;
+    if (sof_active) {
+        period = rate / 100;       // 10ms (480 frames at 48kHz)
+        buffer_size = period * 4;  // 40ms total — SOF DAPM-friendly
+        fprintf(stderr, "[audio] SOF platform detected — period=%lu buffer=%lu (10ms/40ms)\n",
+                (unsigned long)period, (unsigned long)buffer_size);
+    } else {
+        period = rate / 1000;      // 1ms on HDA-direct paths
+        if (period < 64) period = 64;
+        buffer_size = period * 4;
+    }
     snd_pcm_hw_params_set_period_size_near(pcm, params, &period, 0);
-
-    snd_pcm_uframes_t buffer_size = period * 4;  // 4 periods (~4ms total)
     snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer_size);
 
     err = snd_pcm_hw_params(pcm, params);
