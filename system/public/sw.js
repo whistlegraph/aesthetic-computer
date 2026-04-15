@@ -1,7 +1,7 @@
 // Aesthetic Computer Service Worker
 // Caches JavaScript modules for faster subsequent loads
 
-const CACHE_NAME = 'ac-modules-v3'; // Bump version to force SW update
+const CACHE_NAME = 'ac-modules-v4'; // Bump version to force SW update
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install
@@ -105,7 +105,13 @@ self.addEventListener('fetch', (event) => {
       caches.open(CACHE_NAME).then((cache) => {
         // Use clean cache key for core modules to ignore query params
         return cache.match(cacheKey).then((cachedResponse) => {
-          const fetchPromise = fetch(event.request)
+          // Use `cache: 'no-cache'` so the browser sends a conditional request
+          // (If-None-Match / If-Modified-Since) instead of serving from the HTTP
+          // cache. Origin returns 304 when unchanged (cheap) or 200 with fresh
+          // content. Without this, stale-while-revalidate can loop on a stale
+          // response for up to max-age even after the origin has updated.
+          const revalidateRequest = new Request(event.request, { cache: 'no-cache' });
+          const fetchPromise = fetch(revalidateRequest)
             .then(async (networkResponse) => {
               // Only cache successful, complete responses
               if (networkResponse.ok && networkResponse.status === 200) {
@@ -132,7 +138,7 @@ self.addEventListener('fetch', (event) => {
               for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
                   await new Promise(r => setTimeout(r, 500 * attempt));
-                  const retryResponse = await fetch(event.request);
+                  const retryResponse = await fetch(revalidateRequest);
                   if (retryResponse.ok) {
                     try {
                       const clone = retryResponse.clone();
