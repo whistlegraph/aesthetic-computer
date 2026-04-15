@@ -1995,11 +1995,37 @@ ACAudio *audio_init(void) {
                  * endpoint based on jack-sense, so enabling both at init
                  * gives the amp its PMU event and a later unplug/plug of
                  * headphones still routes correctly. */
-                if (snd_use_case_set(uc, "_enadev", "Speaker") == 0) {
-                    fprintf(stderr, "[audio] UCM: _enadev=Speaker ok\n");
-                }
-                if (snd_use_case_set(uc, "_enadev", "Headphone") == 0) {
-                    fprintf(stderr, "[audio] UCM: _enadev=Headphone ok\n");
+                /* Enumerate all SectionDevice entries and try them all.
+                 * Upstream UCM fragments are inconsistent about singular
+                 * vs plural (sof-rt5682/rt5682-headset.conf declares
+                 * "Headphones" not "Headphone"; sof-ssp_amp uses
+                 * "Speaker"; sof-cs42l42 uses "Headphone"). Rather than
+                 * hardcode guesses, ask ALSA what this card's UCM
+                 * declares and try to enable each — verb state only
+                 * changes on ok, so extra failed attempts are free. */
+                const char **devlist = NULL;
+                int ndev = snd_use_case_get_list(uc, "_devices/HiFi",
+                                                 &devlist);
+                if (ndev > 0 && devlist) {
+                    for (int i = 0; i < ndev; i += 2) {
+                        const char *dev = devlist[i];
+                        if (!dev || !dev[0]) continue;
+                        int rr = snd_use_case_set(uc, "_enadev", dev);
+                        fprintf(stderr, "[audio] UCM: _enadev=%s %s\n",
+                                dev, rr == 0 ? "ok" : "FAIL");
+                    }
+                    snd_use_case_free_list(devlist, ndev);
+                } else {
+                    /* Fallback: try common device names manually. */
+                    const char *names[] = {"Speaker", "Speakers",
+                                            "Headphone", "Headphones",
+                                            "HDMI", NULL};
+                    for (int i = 0; names[i]; i++) {
+                        if (snd_use_case_set(uc, "_enadev", names[i]) == 0) {
+                            fprintf(stderr, "[audio] UCM: _enadev=%s ok\n",
+                                    names[i]);
+                        }
+                    }
                 }
                 snd_use_case_mgr_close(uc);
             } else {
