@@ -1963,10 +1963,29 @@ ACAudio *audio_init(void) {
             fclose(idfp);
         }
         if (card_id[0]) {
+            /* The kernel strips hyphens from card IDs (so our machine
+             * driver name `jsl_rt5682_def` + topology `sof-rt5682` both
+             * become card id `sofrt5682`). The ChromeOS UCM tree keeps
+             * the canonical hyphenated names. Try a few permutations so
+             * whichever matches wins. */
+            const char *candidates[] = {
+                card_id,       /* e.g. "sofrt5682" */
+                "sof-rt5682",
+                "sof-cs42l42",
+                "sof-nau8825",
+                "sof-da7219",
+                NULL
+            };
             snd_use_case_mgr_t *uc = NULL;
-            int uerr = snd_use_case_mgr_open(&uc, card_id);
+            int uerr = -1;
+            const char *opened = NULL;
+            for (int i = 0; candidates[i]; i++) {
+                uerr = snd_use_case_mgr_open(&uc, candidates[i]);
+                if (uerr == 0) { opened = candidates[i]; break; }
+            }
             if (uerr == 0) {
-                fprintf(stderr, "[audio] UCM: opened for card '%s'\n", card_id);
+                fprintf(stderr, "[audio] UCM: opened '%s' (card=%s)\n",
+                        opened, card_id);
                 if (snd_use_case_set(uc, "_verb", "HiFi") == 0) {
                     fprintf(stderr, "[audio] UCM: _verb=HiFi set\n");
                 } else {
@@ -1984,8 +2003,8 @@ ACAudio *audio_init(void) {
                 }
                 snd_use_case_mgr_close(uc);
             } else {
-                fprintf(stderr, "[audio] UCM: no config for '%s' (%d) — manual mixer fallback\n",
-                        card_id, uerr);
+                fprintf(stderr, "[audio] UCM: no config matched card '%s' — manual mixer fallback\n",
+                        card_id);
             }
         }
     }
