@@ -1748,12 +1748,78 @@ ACAudio *audio_init(void) {
     // On fast NVMe boots the HDA codec may not be fully probed when we first try.
     // If AC_AUDIO_DEVICE is set, try it first (used for stream tee via asound.conf).
     snd_pcm_t *pcm = NULL;
-    const char *devices[] = {
+
+    // SOF rt5682+max98360a (G7/Drawcia and friends) splits playback across two
+    // PCMs: SSP0 → RT5682 headphones (PCM 0) and SSP1 → MAX98360A speakers
+    // (PCM 1). The historical hw:0,0 default routes everything to headphones,
+    // which is why speakers stayed silent even with the Speaker UCM verb fully
+    // applied. Ask UCM what PCM it maps Speaker(s) to and try that FIRST so
+    // playback hits the speaker amp by default; the headphone PCM still wins
+    // if/when AC_AUDIO_DEVICE overrides or jack-sense flips routing later.
+    char ucm_speaker_pcm[64] = "";
+    {
+        char card_id[32] = "";
+        for (int c = 0; c < 4 && !card_id[0]; c++) {
+            char p[64]; snprintf(p, sizeof(p), "/proc/asound/card%d/id", c);
+            FILE *fp = fopen(p, "r");
+            if (fp) {
+                if (fgets(card_id, sizeof(card_id), fp)) {
+                    char *nl = strchr(card_id, '\n'); if (nl) *nl = 0;
+                }
+                fclose(fp);
+            }
+        }
+        if (card_id[0]) {
+            const char *cands[] = { card_id, "sof-rt5682", "sof-cs42l42",
+                                    "sof-nau8825", "sof-da7219", NULL };
+            snd_use_case_mgr_t *uc = NULL;
+            for (int i = 0; cands[i] && !ucm_speaker_pcm[0]; i++) {
+                if (snd_use_case_mgr_open(&uc, cands[i]) != 0) continue;
+                if (snd_use_case_set(uc, "_verb", "HiFi") == 0) {
+                    const char *spk_names[] = { "Speaker", "Speakers", NULL };
+                    for (int s = 0; spk_names[s]; s++) {
+                        char id[64]; const char *val = NULL;
+                        snprintf(id, sizeof(id), "PlaybackPCM/%s", spk_names[s]);
+                        if (snd_use_case_get(uc, id, &val) == 0 && val) {
+                            snprintf(ucm_speaker_pcm, sizeof(ucm_speaker_pcm),
+                                     "%s", val);
+                            free((void *)val);
+                            fprintf(stderr,
+                                    "[audio] UCM Speaker PCM: %s (%s/%s)\n",
+                                    ucm_speaker_pcm, cands[i], spk_names[s]);
+                            break;
+                        }
+                    }
+                }
+                snd_use_case_mgr_close(uc);
+                uc = NULL;
+            }
+        }
+    }
+
+    /* Build the device probe list. If UCM gave us a Speaker PCM, prepend it
+     * (and a `plug:` wrapped variant for rate negotiation safety). The legacy
+     * fallback list still runs after, so non-SOF boards behave as before. */
+    const char *devices_default[] = {
         "hw:0,0", "hw:1,0", "hw:0,1", "hw:1,1",
         "hw:0,2", "hw:0,3", "hw:1,2", "hw:1,3",
         "plughw:0,0", "plughw:1,0",
         "default", NULL
     };
+    const char *devices_with_spk[16] = {0};
+    const char **devices = devices_default;
+    char ucm_speaker_plug[80] = "";
+    if (ucm_speaker_pcm[0]) {
+        snprintf(ucm_speaker_plug, sizeof(ucm_speaker_plug),
+                 "plug%s", ucm_speaker_pcm);
+        int n = 0;
+        devices_with_spk[n++] = ucm_speaker_pcm;
+        devices_with_spk[n++] = ucm_speaker_plug;
+        for (int i = 0; devices_default[i] && n < 15; i++)
+            devices_with_spk[n++] = devices_default[i];
+        devices_with_spk[n] = NULL;
+        devices = devices_with_spk;
+    }
     int err = -1;
     int card_idx = 0;
 
