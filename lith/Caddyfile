@@ -19,6 +19,11 @@
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
     header @cacheable Access-Control-Allow-Origin *
 
+    # Service workers must always revalidate — cached sw.js delays rollout of
+    # bumped CACHE_NAME, pinning clients to stale module caches.
+    @serviceworker path /sw.js /firebase-messaging-sw.js
+    header @serviceworker Cache-Control "no-cache, no-store, must-revalidate"
+
     # HTML: no-cache (always revalidate, but use ETag for 304)
     @html path / *.html
     header @html Cache-Control "no-cache"
