@@ -2369,10 +2369,31 @@ ACAudio *audio_init(void) {
             if (snd_mixer_selem_has_capture_volume(elem)) fprintf(stderr, " [cap-vol]");
             fprintf(stderr, "\n");
 
-            // Unmute every playback switch we find
+            // Unmute every playback switch we find — except the ones
+            // the UCM BootSequence explicitly turns off to keep audio
+            // routed to the speaker amp on unplugged-headphone state.
+            // Flipping "Headphone Jack Switch" on re-enables the HP
+            // DAPM path and silences MAX98360A even when nothing is
+            // plugged in (see G7/Drawcia debug session).
             if (snd_mixer_selem_has_playback_switch(elem)) {
-                snd_mixer_selem_set_playback_switch_all(elem, 1);
-                fprintf(stderr, "[audio] Unmuted: %s\n", name);
+                int skip = 0;
+                const char *jack_gated[] = {
+                    "Headphone Jack",        /* rt5682 */
+                    "Headphone Jack Switch",
+                    "HPOL Playback",
+                    "HPOR Playback",
+                    "Headset",
+                    NULL
+                };
+                for (int j = 0; jack_gated[j]; j++) {
+                    if (strstr(name, jack_gated[j])) { skip = 1; break; }
+                }
+                if (!skip) {
+                    snd_mixer_selem_set_playback_switch_all(elem, 1);
+                    fprintf(stderr, "[audio] Unmuted: %s\n", name);
+                } else {
+                    fprintf(stderr, "[audio] Skip unmute (jack-gated): %s\n", name);
+                }
             }
 
             // Set volume to max for output controls
@@ -3245,12 +3266,24 @@ static int read_system_volume_card(int card) {
 static int muted = 0;
 static long pre_mute_volume = -1;
 
-// Unmute all playback switches in the mixer
+// Unmute all playback switches in the mixer — but skip jack-gated
+// ones so we don't re-enable the headphone DAPM path (see audio_init
+// above for the MAX98360A silencing story).
 static void unmute_all_switches(snd_mixer_t *mixer) {
     snd_mixer_elem_t *elem;
+    const char *jack_gated[] = {
+        "Headphone Jack", "Headphone Jack Switch",
+        "HPOL Playback", "HPOR Playback", "Headset", NULL
+    };
     for (elem = snd_mixer_first_elem(mixer); elem; elem = snd_mixer_elem_next(elem)) {
         if (!snd_mixer_selem_is_active(elem)) continue;
-        if (snd_mixer_selem_has_playback_switch(elem))
+        if (!snd_mixer_selem_has_playback_switch(elem)) continue;
+        const char *name = snd_mixer_selem_get_name(elem);
+        int skip = 0;
+        for (int j = 0; jack_gated[j]; j++) {
+            if (name && strstr(name, jack_gated[j])) { skip = 1; break; }
+        }
+        if (!skip)
             snd_mixer_selem_set_playback_switch_all(elem, 1);
     }
 }
