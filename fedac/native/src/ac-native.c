@@ -639,6 +639,23 @@ static void load_boot_visual_config(void) {
         ac_log("[config] wifi: %s\n", wifi_disabled ? "disabled" : "enabled");
     }
 
+    // Bake Claude/GitHub tokens early so boot-fade badge check (access())
+    // succeeds while the fade is animating. The duplicate in main() runs
+    // after the fade and was leaving the badges invisible.
+    {
+        char ct[512] = {0}, gp[256] = {0};
+        if (parse_config_string(json, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
+            FILE *tf = fopen("/claude-token", "w");
+            if (tf) { fputs(ct, tf); fclose(tf); }
+            ac_log("[tokens] claude token from config (%d bytes)\n", (int)strlen(ct));
+        }
+        if (parse_config_string(json, "\"githubPat\"", gp, sizeof(gp)) && gp[0]) {
+            FILE *gf = fopen("/github-pat", "w");
+            if (gf) { fputs(gp, gf); fclose(gf); }
+            ac_log("[tokens] github pat from config (%d bytes)\n", (int)strlen(gp));
+        }
+    }
+
     // Extract claudeCreds JSON and write to /tmp for PTY to pick up
     const char *cc = strstr(buf, "\"claudeCreds\"");
     if (cc) {
@@ -3140,18 +3157,8 @@ int main(int argc, char *argv[]) {
                 ac_log("[config] voice: %s\n", voice_cfg);
             }
 
-            // Bake Claude/GitHub tokens from config.json directly to disk
-            char ct[512] = {0}, gp[256] = {0};
-            if (parse_config_string(json, "\"claudeToken\"", ct, sizeof(ct)) && ct[0]) {
-                FILE *tf = fopen("/claude-token", "w");
-                if (tf) { fputs(ct, tf); fclose(tf); }
-                ac_log("[tokens] claude token from config (%d bytes)\n", (int)strlen(ct));
-            }
-            if (parse_config_string(json, "\"githubPat\"", gp, sizeof(gp)) && gp[0]) {
-                FILE *gf = fopen("/github-pat", "w");
-                if (gf) { fputs(gp, gf); fclose(gf); }
-                ac_log("[tokens] github pat from config (%d bytes)\n", (int)strlen(gp));
-            }
+            // (Tokens are baked early in load_boot_visual_config() so the
+            // boot-fade badges can render — see notes there.)
         }
     }
 
