@@ -270,10 +270,28 @@ if [ -r /proc/config.gz ]; then
     zcat /proc/config.gz 2>/dev/null | grep -E "^CONFIG_(PINCTRL_JASPERLAKE|PINCTRL_INTEL|PINCTRL_METEORLAKE|GPIOLIB|GPIO_ACPI|I2C_DESIGNWARE|SND_SOC_MAX98357A|SND_SOC_INTEL_SOF_RT5682)=" >> $LOG
 fi
 echo "GPIO chips:" >> $LOG
-ls /sys/bus/gpio/devices/ 2>/dev/null >> $LOG
-for chip in /sys/class/gpio/*; do
-    [ -d "$chip" ] && echo "  $(basename $chip)" >> $LOG
+for d in /sys/bus/gpio/devices/*; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    ngpio=$(cat "$d/dev" 2>/dev/null)
+    label=$(cat "$d/label" 2>/dev/null)
+    base=$(cat "$d/base" 2>/dev/null)
+    # The device's parent is the platform_device — e.g. INT34C8:00 for JSL.
+    parent=$(basename "$(readlink "$d/../../" 2>/dev/null)" 2>/dev/null)
+    echo "  $name label='$label' base=$base parent=$parent" >> $LOG
 done
+# MAX98357A's GPIO consumer state — if the amp driver successfully got a
+# gpiod handle for SD_MODE, this directory has an `enable` gpio-* file.
+echo "MAX98357A GPIO consumers:" >> $LOG
+for d in /sys/bus/platform/devices/MX98360A:00/ /sys/bus/platform/devices/MAX98357A:*/; do
+    [ -d "$d" ] || continue
+    ls -la "$d" 2>/dev/null | grep -iE 'gpio|sdmode|enable|of_node' | head -10 >> $LOG
+done
+# gpio descriptor consumers — shows which driver holds which pin.
+if [ -r /sys/kernel/debug/gpio ]; then
+    echo "gpio descriptor consumers (debugfs):" >> $LOG
+    head -60 /sys/kernel/debug/gpio >> $LOG 2>&1
+fi
 # MAX98357A amp state — if the driver is bound but SD_MODE GPIO isn't
 # assigned, the amp stays in power-down mode and speakers are silent even
 # though the sound card registers cleanly. Dump its device dir so we see
