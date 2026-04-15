@@ -14,7 +14,8 @@ RUN dnf install -y --setopt=install_weak_deps=False \
     gcc ccache make cpio lz4 bc perl flex bison diffutils \
     elfutils-libelf-devel openssl-devel \
     gnu-efi-devel \
-    curl jq git tar xz findutils pkgconf-pkg-config zstd xorriso \
+    curl jq file git tar xz findutils pkgconf-pkg-config zstd xorriso \
+    bash \
     ca-certificates \
     alsa-lib-devel libdrm-devel flite-devel SDL3-devel \
     ffmpeg-free-devel \

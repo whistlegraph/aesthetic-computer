@@ -144,8 +144,40 @@ for cmd in sh sleep mkdir mount umount cat echo ls cp mv rm ln chmod chown \
     mktemp printf seq stat basename dirname env expr true false readlink \
     realpath rmdir uniq yes tar gzip gunzip hostname id ip modprobe \
     mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami awk \
-    sync poweroff reboot halt mknod udhcpc; do
+    sync poweroff reboot halt mknod udhcpc \
+    pwd tty logger clear reset man less more tac nl fold cmp hexdump md5sum \
+    sha256sum sha512sum base64 nslookup ping traceroute pgrep pkill timeout \
+    stty sysctl free uptime uname usleep unzip zcat; do
     ln -s busybox "$IROOT/bin/$cmd"
+done
+# Real GNU bash — busybox's sh applet lacks bashisms (arrays, process
+# substitution, [[ ]], $'…' escapes, etc.) that Claude Code CLI's Bash tool
+# leans on, plus a lot of user-supplied commands. Ship the full binary from
+# the builder image + its shared lib dependencies so `bash -c "..."` works
+# without surprises.
+BASH_BIN=$(command -v bash)
+if [ -n "$BASH_BIN" ] && [ -f "$BASH_BIN" ]; then
+    cp -L "$BASH_BIN" "$IROOT/bin/bash"
+    chmod +x "$IROOT/bin/bash"
+    for dep in $(ldd "$BASH_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        base=$(basename "$dep")
+        [ ! -f "$IROOT/lib64/$base" ] && cp -L "$(readlink -f "$dep")" "$IROOT/lib64/$base" 2>/dev/null || true
+    done
+    log "  Bundled GNU bash for Claude Code CLI"
+else
+    log "  bash not found on builder — Claude CLI Bash tool may fail"
+fi
+
+# Additional tools Claude's Bash tool commonly wants: jq for JSON, file
+# for type detection, strace for debugging. Best-effort — skip if absent.
+for bin in jq file strace; do
+    SRC_BIN=$(command -v "$bin" 2>/dev/null || true)
+    [ -z "$SRC_BIN" ] && continue
+    cp -L "$SRC_BIN" "$IROOT/bin/$bin"
+    for dep in $(ldd "$SRC_BIN" 2>/dev/null | grep -oP '/\S+'); do
+        base=$(basename "$dep")
+        [ ! -f "$IROOT/lib64/$base" ] && cp -L "$(readlink -f "$dep")" "$IROOT/lib64/$base" 2>/dev/null || true
+    done
 done
 # udhcpc also expected at /sbin/ by wifi.c
 ln -sf ../bin/busybox "$IROOT/sbin/udhcpc" 2>/dev/null || true
