@@ -1782,6 +1782,7 @@ ACAudio *audio_init(void) {
     char ucm_headphone_pcm[64] = "";
     {
         char card_id[32] = "";
+        int spk_card = 0; /* card index where Speaker UCM lives */
         for (int c = 0; c < 4 && !card_id[0]; c++) {
             char p[64]; snprintf(p, sizeof(p), "/proc/asound/card%d/id", c);
             FILE *fp = fopen(p, "r");
@@ -1790,6 +1791,7 @@ ACAudio *audio_init(void) {
                     char *nl = strchr(card_id, '\n'); if (nl) *nl = 0;
                 }
                 fclose(fp);
+                if (card_id[0]) spk_card = c;
             }
         }
         if (card_id[0]) {
@@ -1804,12 +1806,32 @@ ACAudio *audio_init(void) {
                         char id[64]; const char *val = NULL;
                         snprintf(id, sizeof(id), "PlaybackPCM/%s", spk_names[s]);
                         if (snd_use_case_get(uc, id, &val) == 0 && val) {
-                            snprintf(ucm_speaker_pcm, sizeof(ucm_speaker_pcm),
-                                     "%s", val);
-                            free((void *)val);
+                            /* UCM v2 returns strings like
+                             * "_ucm0002.hw:sofrt5682,0" — that is a
+                             * UCM-internal namespace tag, not a path
+                             * snd_pcm_open accepts. Strip the
+                             * "_ucmNNNN." prefix to get the underlying
+                             * "hw:CARD,DEV" form, then convert the card
+                             * id to a numeric index since snd_pcm_open
+                             * also rejects "hw:sofrt5682,0". */
+                            const char *clean = val;
+                            const char *dot = strchr(clean, '.');
+                            if (dot && strncmp(clean, "_ucm", 4) == 0)
+                                clean = dot + 1;
+                            const char *comma = strrchr(clean, ',');
+                            if (comma && strncmp(clean, "hw:", 3) == 0) {
+                                snprintf(ucm_speaker_pcm,
+                                         sizeof(ucm_speaker_pcm),
+                                         "hw:%d%s", spk_card, comma);
+                            } else {
+                                snprintf(ucm_speaker_pcm,
+                                         sizeof(ucm_speaker_pcm),
+                                         "%s", clean);
+                            }
                             fprintf(stderr,
-                                    "[audio] UCM Speaker PCM: %s (%s/%s)\n",
-                                    ucm_speaker_pcm, cands[i], spk_names[s]);
+                                    "[audio] UCM Speaker PCM: raw=%s -> %s (%s/%s)\n",
+                                    val, ucm_speaker_pcm, cands[i], spk_names[s]);
+                            free((void *)val);
                         }
                     }
                     const char *hp_names[] = { "Headphone", "Headphones",
@@ -1818,12 +1840,24 @@ ACAudio *audio_init(void) {
                         char id[64]; const char *val = NULL;
                         snprintf(id, sizeof(id), "PlaybackPCM/%s", hp_names[s]);
                         if (snd_use_case_get(uc, id, &val) == 0 && val) {
-                            snprintf(ucm_headphone_pcm, sizeof(ucm_headphone_pcm),
-                                     "%s", val);
-                            free((void *)val);
+                            const char *clean = val;
+                            const char *dot = strchr(clean, '.');
+                            if (dot && strncmp(clean, "_ucm", 4) == 0)
+                                clean = dot + 1;
+                            const char *comma = strrchr(clean, ',');
+                            if (comma && strncmp(clean, "hw:", 3) == 0) {
+                                snprintf(ucm_headphone_pcm,
+                                         sizeof(ucm_headphone_pcm),
+                                         "hw:%d%s", spk_card, comma);
+                            } else {
+                                snprintf(ucm_headphone_pcm,
+                                         sizeof(ucm_headphone_pcm),
+                                         "%s", clean);
+                            }
                             fprintf(stderr,
-                                    "[audio] UCM Headphone PCM: %s (%s/%s)\n",
-                                    ucm_headphone_pcm, cands[i], hp_names[s]);
+                                    "[audio] UCM Headphone PCM: raw=%s -> %s (%s/%s)\n",
+                                    val, ucm_headphone_pcm, cands[i], hp_names[s]);
+                            free((void *)val);
                         }
                     }
                 }
