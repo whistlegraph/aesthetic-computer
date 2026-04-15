@@ -15,6 +15,7 @@ import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGen
 import archiver from 'archiver';
 import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
+import { bundleMini, fetchPieceSource } from './kidlisp-mini/bundle.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
 import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeBuild, onNativeBuildProgress } from './native-builder.mjs';
@@ -2986,6 +2987,50 @@ app.get(['/pack-html', '/bundle-html'], async (req, res) => {
   } catch (error) {
     console.error('Bundle failed:', error);
     return res.status(500).json({ error: error.message });
+  }
+});
+
+// KidLisp Mini Bundler (RBP-26 profile, ~20 KB target)
+app.get('/bundle-mini', async (req, res) => {
+  try {
+    const code = req.query.code;
+    const piece = req.query.piece;
+    const seed = req.query.seed ? parseInt(req.query.seed) : null;
+    const download = req.query.dl === '1' || req.query.dl === 'true';
+
+    let source = code;
+
+    // If piece name is provided, fetch from MongoDB
+    if (piece && !code) {
+      try {
+        source = await fetchPieceSource(piece);
+      } catch (error) {
+        return res.status(404).json({ error: error.message });
+      }
+    }
+
+    if (!source) {
+      return res.status(400).json({ error: "Missing 'code' or 'piece' parameter", usage: "/bundle-mini?code=<source> or /bundle-mini?piece=<name>" });
+    }
+
+    const html = await bundleMini(source, seed);
+    const sizeKB = Math.ceil(Buffer.byteLength(html, 'utf8') / 1024);
+
+    const headers = {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+      'X-Bundle-Size-KB': sizeKB.toString()
+    };
+
+    if (download) {
+      const pieceName = piece ? piece.replace(/^\$/, '') : 'bundle';
+      headers['Content-Disposition'] = `attachment; filename="${pieceName}-mini.html"`;
+    }
+
+    res.set(headers).send(html);
+  } catch (error) {
+    console.error('[bundle-mini] Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
