@@ -52,7 +52,7 @@ function loadTrack(key, send, ui, screen) {
 }
 
 function boot({ params, send, ui, screen, hud, jump }) {
-  hud.label("play");
+  hud.label();
 
   if (params[0]) {
     loadTrack(params[0], send, ui, screen);
