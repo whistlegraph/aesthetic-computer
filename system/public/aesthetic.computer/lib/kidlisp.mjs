@@ -4409,7 +4409,7 @@ class KidLisp {
         $.screen.pixels = this.displayBuffer.pixels;
 
         // 🚨 Display validation errors at bottom of screen (skip in embed/projection/keep-bundle mode)
-        const isProjectionMode = (typeof location !== 'undefined' && location.search?.indexOf('nolabel') > -1) || !!window.acKEEP_MODE;
+        const isProjectionMode = (typeof location !== 'undefined' && location.search?.indexOf('nolabel') > -1) || (typeof window !== 'undefined' && !!window.acKEEP_MODE);
         if (this.lastValidationErrors && this.lastValidationErrors.length > 0 && !isProjectionMode) {
           const errorText = `❌ ${this.lastValidationErrors.join(', ')}`;
           const textY = $.screen.height - 10; // 10 pixels from bottom
