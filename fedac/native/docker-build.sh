@@ -515,6 +515,24 @@ if [ -d /usr/share/alsa ]; then
     mkdir -p "$IROOT/usr/share"
     cp -a /usr/share/alsa "$IROOT/usr/share/" 2>/dev/null || true
 fi
+# Layer ChromeOS-downstream UCM configs on top. These carry the sof-rt5682
+# Speaker/Headset verb definitions that upstream alsa-ucm-conf lacks, so the
+# Jasper Lake / Dedede family (G7, drawman, drawcia, ...) boards actually
+# route audio through their MAX98360A amp. See Dockerfile.builder for the
+# source repo (WeirdTreeThing/alsa-ucm-conf-cros).
+if [ -d /opt/alsa-ucm-conf-cros/ucm2 ]; then
+    mkdir -p "$IROOT/usr/share/alsa/ucm2"
+    cp -a /opt/alsa-ucm-conf-cros/ucm2/. "$IROOT/usr/share/alsa/ucm2/" 2>/dev/null || true
+    # Overrides layer — conf.d/ contains card-to-UCM pointers keyed by the
+    # ASoC card id exported from the kernel. snd_use_case_mgr_open looks
+    # here first before falling back to the platform-named configs.
+    if [ -d /opt/alsa-ucm-conf-cros/overrides/conf.d ]; then
+        mkdir -p "$IROOT/usr/share/alsa/ucm2/conf.d"
+        cp -a /opt/alsa-ucm-conf-cros/overrides/conf.d/. \
+              "$IROOT/usr/share/alsa/ucm2/conf.d/" 2>/dev/null || true
+    fi
+    log "  Bundled ChromeOS UCM (sof-rt5682, sof-cs42l42, …)"
+fi
 
 # ── 2m: /etc/group and /etc/passwd ──
 echo "root:x:0:" > "$IROOT/etc/group"
