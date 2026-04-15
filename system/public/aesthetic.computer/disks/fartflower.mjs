@@ -55,19 +55,31 @@ function paint({ wipe, ink, screen, num }) {
 }
 
 // 🎪 Act
-function act({ event: e, sound: { fart }, num }) {
+function act({ event: e, sound, num }) {
+  const fart = sound?.fart;
+  if (e.is("touch") || e.is("lift")) {
+    console.log("🌸 fartflower event:", e.name, "fart fn?", typeof fart);
+  }
   fartButton.act(e, {
     down: () => {
-      activeFart?.kill(0.1);
-      activeFart = fart({
-        pressure: 0.8,
-        pitch: 80 + num.rand() * 60,
-        rasp: 0.6,
-        volume: 1,
-        pan: 0,
-      });
+      console.log("🌸 DOWN — calling fart()");
+      if (!fart) { console.warn("🌸 sound.fart unavailable"); return; }
+      try { activeFart?.kill(0.1); } catch (err) { console.warn("🌸 kill err", err); }
+      try {
+        activeFart = fart({
+          pressure: 0.8,
+          pitch: 80 + num.rand() * 60,
+          rasp: 0.6,
+          volume: 1,
+          pan: 0,
+        });
+        console.log("🌸 fart() returned id:", activeFart?.id);
+      } catch (err) {
+        console.error("🌸 fart() threw", err?.message || err);
+      }
     },
     push: () => {
+      console.log("🌸 PUSH (release)");
       activeFart = null;
     },
   });
