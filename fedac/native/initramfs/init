@@ -12,6 +12,11 @@ mount -t tmpfs tmpfs /dev/shm 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
+# debugfs — needed for ASoC DAPM state inspection in audio-diag.
+# CONFIG_DEBUG_FS must be y in the kernel; mount early so everything
+# downstream (audio-diag, gpio dump, etc) can read it.
+mkdir -p /sys/kernel/debug 2>/dev/null
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 
 # zram swap
 modprobe zram 2>/dev/null || true
@@ -58,6 +63,18 @@ if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
         echo performance > "$g" 2>/dev/null
     done
 fi
+
+# Disable PCI runtime-PM on every audio controller so the SOF DSP +
+# SSP DAI + MAX98360A speaker amp don't auto-suspend after ~20s of
+# silence. Symptom was sdmode=1 at boot, sdmode=0 ~23s later, and
+# then the amp never came back on when notepat tried to play notes.
+# The kernel cmdline already has snd_hda_intel.power_save=0, but SOF
+# uses its own runtime PM policy; this is the portable backstop.
+for p in /sys/class/sound/card*/device/power/control \
+         /sys/bus/pci/drivers/sof-audio-pci-intel-icl/*/power/control \
+         /sys/bus/pci/drivers/snd_hda_intel/*/power/control; do
+    [ -w "$p" ] && echo on > "$p" 2>/dev/null
+done
 export SSL_CERT_FILE="/etc/pki/tls/certs/ca-bundle.crt"
 export CURL_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
 export SSL_CERT_DIR="/etc/ssl/certs"
