@@ -76,7 +76,7 @@ const COLLECTION_CATEGORIES = {
   "paintings": "content", "pieces": "content", "kidlisp": "content",
   "tapes": "content", "moods": "content",
   "chat-system": "communication", "chat-clock": "communication", "chat-sotce": "communication",
-  "boots": "system", "kidlisp-logs": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system", "tiktok-sessions": "system",
+  "boots": "system", "piece-runs": "system", "kidlisp-logs": "system", "oven-bakes": "system", "_firehose": "system", "insta-sessions": "system", "tiktok-sessions": "system",
 };
 const CATEGORY_META = {
   identity: { label: "Users & Identity", color: "#48f" },

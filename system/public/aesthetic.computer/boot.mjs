@@ -140,6 +140,8 @@ const bootTelemetry = (() => {
     await sendBootEvent("log", { reason, events });
   }
 
+  if (typeof window !== "undefined") window.acBOOT_ID = bootId;
+
   return {
     bootId,
     meta,
