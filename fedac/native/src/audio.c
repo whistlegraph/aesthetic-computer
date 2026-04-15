@@ -2061,7 +2061,16 @@ ACAudio *audio_init(void) {
     audio->headphone_pcm = NULL;
     {
         const char *secondary = NULL;
-        if (ucm_speaker_pcm[0] && ucm_headphone_pcm[0] &&
+        /* Opt-in: opening the headphone PCM at boot was powering up
+         * the HP DAPM path even with UCM Headphones disabled, which
+         * overrode jack-sense and silenced the MAX98360A amp. Keep
+         * the secondary PCM closed by default; a future jack-watcher
+         * thread will open/close it in response to plug events. Set
+         * AC_AUDIO_TEE=1 to force-open anyway (for ThinkPad etc.
+         * single-PCM HDA hardware, where it's a noop). */
+        const char *tee_env = getenv("AC_AUDIO_TEE");
+        int tee_enabled = (tee_env && tee_env[0] == '1');
+        if (tee_enabled && ucm_speaker_pcm[0] && ucm_headphone_pcm[0] &&
             strcmp(ucm_speaker_pcm, ucm_headphone_pcm) != 0) {
             /* Pick whichever the main PCM didn't open. */
             if (strstr(audio->audio_device, ucm_speaker_pcm))
@@ -2195,42 +2204,61 @@ ACAudio *audio_init(void) {
                 } else {
                     fprintf(stderr, "[audio] UCM: _verb=HiFi failed\n");
                 }
-                /* Enable both Speaker and Headphone — DAPM picks the live
-                 * endpoint based on jack-sense, so enabling both at init
-                 * gives the amp its PMU event and a later unplug/plug of
-                 * headphones still routes correctly. */
-                /* Enumerate all SectionDevice entries and try them all.
-                 * Upstream UCM fragments are inconsistent about singular
-                 * vs plural (sof-rt5682/rt5682-headset.conf declares
-                 * "Headphones" not "Headphone"; sof-ssp_amp uses
-                 * "Speaker"; sof-cs42l42 uses "Headphone"). Rather than
-                 * hardcode guesses, ask ALSA what this card's UCM
-                 * declares and try to enable each — verb state only
-                 * changes on ok, so extra failed attempts are free. */
+                /* Enable ONLY Speaker at boot — enumerating every device
+                 * (including Headphones/Headset) was running ChromeOS
+                 * UCM EnableSequences that set `Headphone Jack Switch on`
+                 * + `HPOL/HPOR Playback Switch 1`. That forces DAPM to
+                 * route audio through the RT5682 headphone path and
+                 * powers down the MAX98360A amp (kmsg showed `sdmode
+                 * to 0` at 35s and never recovering).
+                 *
+                 * The rt5682-init BootSequence from WeirdTreeThing's
+                 * UCM deliberately ships with HP jack/switch OFF so
+                 * the speaker amp stays live when nothing is plugged
+                 * in. Keep that intact — only run the Speaker (and
+                 * mic) EnableSequence, not any headphone one. Jack-
+                 * plug routing becomes a later follow-up (a jack-
+                 * state watcher thread that flips _enadev on plug). */
                 const char **devlist = NULL;
                 int ndev = snd_use_case_get_list(uc, "_devices/HiFi",
                                                  &devlist);
+                int enabled_speaker = 0;
                 if (ndev > 0 && devlist) {
                     for (int i = 0; i < ndev; i += 2) {
                         const char *dev = devlist[i];
                         if (!dev || !dev[0]) continue;
+                        /* Skip anything that would re-enable the
+                         * headphone path at boot. Speakers first,
+                         * mics/HDMI are safe (no DAPM routing to HP). */
+                        if (strstr(dev, "Headphone") ||
+                            strstr(dev, "Headset") ||
+                            strstr(dev, "Headphones")) {
+                            fprintf(stderr,
+                                    "[audio] UCM: skip _enadev=%s (jack-gated)\n",
+                                    dev);
+                            continue;
+                        }
                         int rr = snd_use_case_set(uc, "_enadev", dev);
                         fprintf(stderr, "[audio] UCM: _enadev=%s %s\n",
                                 dev, rr == 0 ? "ok" : "FAIL");
+                        if (rr == 0 && (strstr(dev, "Speaker") ||
+                                        strstr(dev, "Speakers")))
+                            enabled_speaker = 1;
                     }
                     snd_use_case_free_list(devlist, ndev);
                 } else {
-                    /* Fallback: try common device names manually. */
-                    const char *names[] = {"Speaker", "Speakers",
-                                            "Headphone", "Headphones",
-                                            "HDMI", NULL};
+                    /* Fallback: enable Speaker variants only. */
+                    const char *names[] = {"Speaker", "Speakers", NULL};
                     for (int i = 0; names[i]; i++) {
                         if (snd_use_case_set(uc, "_enadev", names[i]) == 0) {
                             fprintf(stderr, "[audio] UCM: _enadev=%s ok\n",
                                     names[i]);
+                            enabled_speaker = 1;
                         }
                     }
                 }
+                if (!enabled_speaker)
+                    fprintf(stderr, "[audio] UCM: WARNING no Speaker device enabled\n");
                 snd_use_case_mgr_close(uc);
             } else {
                 fprintf(stderr, "[audio] UCM: no config matched card '%s' — manual mixer fallback\n",
@@ -3242,7 +3270,15 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     // Adjust ALL playback volume elements — on Realtek ALC codecs,
     // Master controls digital gain, Speaker/Headphone control the amplifier.
     // Both need to be set for audible volume change.
-    const char *try_names[] = {"Master", "Speaker", "Headphone", "PCM", NULL};
+    /* RT5682 exposes "DAC1" for digital volume; SOF cards expose
+     * "PGA*.0 * Master" pipeline PGAs. HDA laptops expose Master/PCM.
+     * Try everything — first match wins but we run through the whole
+     * list so volume keys work regardless of hardware. */
+    const char *try_names[] = {"Master", "Speaker", "Headphone", "PCM",
+                                "DAC1", "DAC2",
+                                "PGA1.0 1 Master", "PGA2.0 2 Master",
+                                "PGA5.0 5 Master", "PGA6.0 6 Master",
+                                "PGA7.0 7 Master", NULL};
     int adjusted = 0;
     for (int n = 0; try_names[n]; n++) {
         snd_mixer_elem_t *elem = NULL;
