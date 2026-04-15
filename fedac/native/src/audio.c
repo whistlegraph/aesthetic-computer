@@ -2007,6 +2007,65 @@ ACAudio *audio_init(void) {
                         card_id);
             }
         }
+
+        /* Defensive audio diagnostic — dump the full ASoC DAPM graph and
+         * every kcontrol's current value so post-mortem log analysis can
+         * tell whether a PGA is sitting at -inf, a DAPM widget is stuck
+         * OFF, or a DAI isn't active. These files are debugfs-backed so
+         * require CONFIG_DEBUG_FS=y and debugfs mounted at
+         * /sys/kernel/debug (init already does the mount). Non-fatal if
+         * absent. */
+        {
+            const char *dbg_dir = "/sys/kernel/debug/asoc/card0";
+            if (access(dbg_dir, R_OK) == 0) {
+                fprintf(stderr, "[audio-diag] ASoC debugfs dump — %s\n", dbg_dir);
+                /* dapm/ subdir has one file per widget with its power state,
+                 * input/output connections, and active stream info. */
+                DIR *dapm = opendir("/sys/kernel/debug/asoc/card0/dapm");
+                if (dapm) {
+                    struct dirent *de;
+                    while ((de = readdir(dapm))) {
+                        if (de->d_name[0] == '.') continue;
+                        char widget_path[256];
+                        snprintf(widget_path, sizeof(widget_path),
+                                 "/sys/kernel/debug/asoc/card0/dapm/%s",
+                                 de->d_name);
+                        FILE *wf = fopen(widget_path, "r");
+                        if (!wf) continue;
+                        /* Each widget file's first line is the state:
+                         * "WidgetName: On in 0 out 0 stream ..." */
+                        char wline[256];
+                        if (fgets(wline, sizeof(wline), wf)) {
+                            char *nl = strchr(wline, '\n');
+                            if (nl) *nl = 0;
+                            fprintf(stderr, "[audio-diag] dapm: %s\n", wline);
+                        }
+                        fclose(wf);
+                    }
+                    closedir(dapm);
+                }
+                /* /sys/kernel/debug/gpio dump shows MAX98360A SD_MODE +
+                 * RT5682 IRQ GPIO current state so we can tell if the
+                 * amp was powered at snapshot time. */
+                FILE *gf = fopen("/sys/kernel/debug/gpio", "r");
+                if (gf) {
+                    char gline[256];
+                    int lines = 0;
+                    while (lines < 30 && fgets(gline, sizeof(gline), gf)) {
+                        char *nl = strchr(gline, '\n');
+                        if (nl) *nl = 0;
+                        if (strstr(gline, "sdmode") || strstr(gline, "RT58") ||
+                            strstr(gline, "gpiochip")) {
+                            fprintf(stderr, "[audio-diag] gpio: %s\n", gline);
+                            lines++;
+                        }
+                    }
+                    fclose(gf);
+                }
+            } else {
+                fprintf(stderr, "[audio-diag] debugfs not mounted — no ASoC state available\n");
+            }
+        }
     }
 
     // Unmute ALL outputs (HDA Intel codecs have many controls that can mute)
@@ -2025,10 +2084,29 @@ ACAudio *audio_init(void) {
             const char *name = snd_mixer_selem_get_name(elem);
             if (!snd_mixer_selem_is_active(elem)) continue;
 
-            // Log all mixer elements
+            // Log all mixer elements — with pre-set values so a silent audio
+            // log can be diagnosed without flashing again. If a playback-
+            // switch element is already off before our unmute, or a volume
+            // element reports a suspicious range (e.g. min==max at 0), we
+            // want to know which one.
             fprintf(stderr, "[audio] Mixer: %s", name);
-            if (snd_mixer_selem_has_playback_volume(elem)) fprintf(stderr, " [vol]");
-            if (snd_mixer_selem_has_playback_switch(elem)) fprintf(stderr, " [sw]");
+            if (snd_mixer_selem_has_playback_volume(elem)) {
+                long vmin = 0, vmax = 0, vcur = 0;
+                snd_mixer_selem_get_playback_volume_range(elem, &vmin, &vmax);
+                snd_mixer_selem_get_playback_volume(elem, SND_MIXER_SCHN_FRONT_LEFT, &vcur);
+                fprintf(stderr, " [vol %ld..%ld now=%ld]", vmin, vmax, vcur);
+                long dbmin = 0, dbmax = 0, dbcur = 0;
+                if (snd_mixer_selem_get_playback_dB_range(elem, &dbmin, &dbmax) == 0 &&
+                    snd_mixer_selem_get_playback_dB(elem, SND_MIXER_SCHN_FRONT_LEFT, &dbcur) == 0) {
+                    fprintf(stderr, " [dB %.1f..%.1f now=%.1f]",
+                            dbmin / 100.0, dbmax / 100.0, dbcur / 100.0);
+                }
+            }
+            if (snd_mixer_selem_has_playback_switch(elem)) {
+                int sw = 0;
+                snd_mixer_selem_get_playback_switch(elem, SND_MIXER_SCHN_FRONT_LEFT, &sw);
+                fprintf(stderr, " [sw now=%s]", sw ? "on" : "OFF");
+            }
             if (snd_mixer_selem_has_capture_switch(elem)) fprintf(stderr, " [cap-sw]");
             if (snd_mixer_selem_has_capture_volume(elem)) fprintf(stderr, " [cap-vol]");
             fprintf(stderr, "\n");
