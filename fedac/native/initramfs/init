@@ -250,6 +250,17 @@ if [ -d /sys/bus/platform/devices/jsl_rt5682_def ]; then
 fi
 echo "Sound class:" >> $LOG
 ls /sys/class/sound/ 2>/dev/null >> $LOG
+# Per-PCM names — SOF topologies name PCMs like "Headset (*)", "Speakers (*)",
+# "HDMI1 (*)" in /proc/asound/card0/pcmNp/info. If ac-native is opening the
+# wrong PCM (speaker vs headphone), this answers it in one glance.
+echo "Card 0 PCM names:" >> $LOG
+for p in /proc/asound/card0/pcm*p/info; do
+    [ -r "$p" ] || continue
+    dev=$(dirname "$p" | sed 's|.*/||')
+    name=$(grep -E '^name:' "$p" 2>/dev/null | head -1)
+    id=$(grep -E '^id:' "$p" 2>/dev/null | head -1)
+    echo "  $dev: $id / $name" >> $LOG
+done
 echo "ASoC debugfs:" >> $LOG
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 ls /sys/kernel/debug/asoc/ 2>/dev/null >> $LOG
