@@ -67,12 +67,20 @@ function act({ event: e, sound, num }) {
       try { activeFart?.kill(0.1); } catch (err) { console.warn("🌸 kill err", err); }
       try {
         activeFart = fart({
-          pressure: 0.8,
-          pitch: 80 + num.rand() * 60,
-          rasp: 0.6,
+          pressure: 0.95,
+          pitch: 70 + num.rand() * 40,
+          rasp: 0.25,
           volume: 1,
           pan: 0,
         });
+        // Skid: sweep pitch down over the fart so it "deflates"
+        setTimeout(() => {
+          activeFart?.update?.({
+            pitch: 45 + num.rand() * 15,
+            rasp: 0.15,
+            duration: 0.4,
+          });
+        }, 80);
         console.log("🌸 fart() returned id:", activeFart?.id);
       } catch (err) {
         console.error("🌸 fart() threw", err?.message || err);
