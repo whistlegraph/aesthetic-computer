@@ -532,7 +532,7 @@ async function boot(
   handleAutocomplete = createHandleAutocomplete();
 
   // 📰 News ticker deprecated — skip fetch unless explicitly enabled
-  // fetchNewsHeadlines();
+  fetchNewsHeadlines();
 
   send({ type: "keyboard:soft-lock" });
 }
