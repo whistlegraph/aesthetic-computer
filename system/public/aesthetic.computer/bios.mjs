@@ -2561,6 +2561,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     activatedSoundCallback,
     triggerSound,
     updateBubble,
+    updateFart,
     updateSound,
     killSound,
     killAllSound,
@@ -3240,6 +3241,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         updateBubble = function (bubble) {
           speakerProcessor.port.postMessage({ type: "bubble", data: bubble });
+        };
+
+        updateFart = function (fart) {
+          speakerProcessor.port.postMessage({ type: "fart", data: fart });
         };
 
         killSound = function (id, fade) {
@@ -4522,6 +4527,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       for (const sound of content.sounds) triggerSound(sound);
       for (const bubble of content.bubbles) updateBubble(bubble);
+      if (content.farts) for (const fart of content.farts) updateFart(fart);
       for (const item of content.kills) killSound(item.id, item.fade);
     }
 
@@ -4530,6 +4536,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       (sound.bpm !== content.bpm ||
         content.sounds.length > 0 ||
         content.bubbles.length > 0 ||
+        (content.farts && content.farts.length > 0) ||
         content.kills.length > 0)
     ) {
       activatedSoundCallback = beat;
@@ -13372,6 +13379,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "bubble:update") {
+      updateSound?.(content);
+      return;
+    }
+
+    if (type === "fart:update") {
       updateSound?.(content);
       return;
     }
