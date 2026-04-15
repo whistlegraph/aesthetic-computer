@@ -425,7 +425,7 @@ CONFIG_HOTPLUG_CPU=y
 CONFIG_LEGACY_VSYSCALL_XONLY=y
 # CONFIG_LEGACY_VSYSCALL_NONE is not set
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="initrd=\\initramfs.cpio.gz console=tty0 loglevel=7 vt.global_cursor_default=0 init=/init mitigations=off snd_hda_intel.power_save=0 nmi_watchdog=0 tsc=reliable no_timer_check acpi_backlight=native thinkpad_acpi.brightness_enable=1 i8042.reset i8042.nomux reboot=efi,cold dyndbg=\"file drivers/pinctrl/intel/* +p; file drivers/gpio/* +p; file sound/soc/codecs/max98357a.c +p\""
+CONFIG_CMDLINE="initrd=\\initramfs.cpio.gz console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init mitigations=off snd_hda_intel.power_save=0 nmi_watchdog=0 tsc=reliable no_timer_check acpi_backlight=native thinkpad_acpi.brightness_enable=1 i8042.reset i8042.nomux reboot=efi,cold dyndbg=\"file sound/soc/codecs/max98357a.c +p\""
 # CONFIG_CMDLINE_OVERRIDE is not set
 CONFIG_MODIFY_LDT_SYSCALL=y
 # CONFIG_STRICT_SIGALTSTACK_SIZE is not set
