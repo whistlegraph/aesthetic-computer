@@ -114,9 +114,12 @@ function parse(source) {
       advance();
       return { type: 'timing-once', ms: t.value };
     } else {
-      // Regular atom
+      // Regular atom - try to parse as number
       const token = advance();
-      return token.value;
+      const value = token.value;
+      // Try to parse as float, fallback to string
+      const num = parseFloat(value);
+      return isNaN(num) ? value : num;
     }
   }
 
