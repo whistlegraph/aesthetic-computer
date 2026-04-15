@@ -208,6 +208,36 @@ for d in /sys/bus/acpi/devices/*; do
             ;;
     esac
 done
+# All INT* HIDs — need to know what pinctrl device (INT34C8 for JSL, INT34C5
+# for ICL, INT3450-INT3456 for other Intel platforms) is actually declared
+# on this firmware. Absence of any of these is the reason the Jasper Lake
+# pinctrl driver sits idle: the driver is linked and module_init ran, but
+# acpi_driver_match never fires without a matching device on the ACPI bus.
+echo "ACPI Intel HIDs (INT*):" >> $LOG
+for d in /sys/bus/acpi/devices/*; do
+    [ -d "$d" ] || continue
+    hid=$(cat "$d/hid" 2>/dev/null)
+    case "$hid" in
+        INT*)
+            drv=$(basename "$(readlink "$d/physical_node/driver" 2>/dev/null)" 2>/dev/null)
+            echo "  $hid drv=${drv:-NONE}" >> $LOG
+            ;;
+    esac
+done
+# PNP + ACPI devices with the names coreboot uses for pinctrl on various
+# Intel platforms. Helps us find whether the board's DSDT simply uses a
+# different HID than upstream Linux expects.
+echo "ACPI pinctrl candidates:" >> $LOG
+for d in /sys/bus/acpi/devices/*; do
+    [ -d "$d" ] || continue
+    hid=$(cat "$d/hid" 2>/dev/null)
+    name=$(basename "$d")
+    case "$hid:$name" in
+        INT34*|*GPI*|*GPIO*|PNP0C*)
+            echo "  $hid $name" >> $LOG
+            ;;
+    esac
+done
 echo "SOF platform devices:" >> $LOG
 ls /sys/bus/platform/devices/ 2>/dev/null | grep -iE "sof|jsl_rt5682|cs42l42|hda" >> $LOG
 echo "Platform drivers (audio-related):" >> $LOG
