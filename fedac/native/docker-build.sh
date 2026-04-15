@@ -523,14 +523,26 @@ fi
 if [ -d /opt/alsa-ucm-conf-cros/ucm2 ]; then
     mkdir -p "$IROOT/usr/share/alsa/ucm2"
     cp -a /opt/alsa-ucm-conf-cros/ucm2/. "$IROOT/usr/share/alsa/ucm2/" 2>/dev/null || true
-    # Overrides layer — conf.d/ contains card-to-UCM pointers keyed by the
-    # ASoC card id exported from the kernel. snd_use_case_mgr_open looks
-    # here first before falling back to the platform-named configs.
-    if [ -d /opt/alsa-ucm-conf-cros/overrides/conf.d ]; then
+    # `overrides/` in the repo IS the conf.d layer (card-id → UCM tree).
+    # Each subdir is a card id; contents get picked up by alsa-lib when
+    # snd_use_case_mgr_open() looks for <card_id>/<card_id>.conf.
+    if [ -d /opt/alsa-ucm-conf-cros/overrides ]; then
         mkdir -p "$IROOT/usr/share/alsa/ucm2/conf.d"
-        cp -a /opt/alsa-ucm-conf-cros/overrides/conf.d/. \
+        cp -a /opt/alsa-ucm-conf-cros/overrides/. \
               "$IROOT/usr/share/alsa/ucm2/conf.d/" 2>/dev/null || true
     fi
+    # Kernel's ASoC card id strips hyphens (`sof-rt5682` → `sofrt5682`),
+    # but WeirdTreeThing's UCM tree uses canonical hyphenated names.
+    # Symlink the hyphen-less names → hyphenated counterparts so
+    # snd_use_case_mgr_open("sofrt5682") resolves.
+    for canonical in sof-rt5682 sof-cs42l42 sof-nau8825 sof-da7219 \
+                     sof-rt5650 sof-rt5682s-hs-rt1019 sof-ssp_amp \
+                     sof-glkda7219ma sof-bxtda7219ma; do
+        stripped=$(echo "$canonical" | tr -d '-')
+        [ -e "$IROOT/usr/share/alsa/ucm2/$canonical" ] || continue
+        [ -e "$IROOT/usr/share/alsa/ucm2/$stripped" ] && continue
+        ln -sf "$canonical" "$IROOT/usr/share/alsa/ucm2/$stripped"
+    done
     log "  Bundled ChromeOS UCM (sof-rt5682, sof-cs42l42, …)"
 fi
 
