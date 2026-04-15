@@ -52,6 +52,18 @@ RUN mkdir -p /cache && cd /cache \
     && curl -sL https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.9.tar.xz | tar xJ \
     && echo "=== Cached: QuickJS + Linux 6.19.9 ==="
 
+# ── ChromeOS-flavored ALSA UCM (Use Case Manager) configs ──
+# Upstream alsa-ucm-conf has no entry for sof-rt5682 (Chromebook JSL boards).
+# Without UCM the DAPM graph stays in whatever default state the topology
+# sets, which on sof-rt5682+mx98360a leaves the Speakers path disabled even
+# after `Spk Switch=on`. WeirdTreeThing's fork ships the downstream
+# ChromeOS UCM files — mirror them into the builder image so
+# docker-build.sh can copy them into the initramfs at
+# /usr/share/alsa/ucm2/ (see WeirdTreeThing/chromebook-linux-audio).
+RUN git clone --depth 1 \
+        https://github.com/WeirdTreeThing/alsa-ucm-conf-cros \
+        /opt/alsa-ucm-conf-cros
+
 # ── Build cbfstool from coreboot source ──
 # Fedora doesn't package coreboot utilities and coreboot.org/releases stopped
 # hosting pre-packaged tarballs, so we sparse-checkout just util/cbfstool

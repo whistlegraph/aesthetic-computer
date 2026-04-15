@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sched.h>
 #include <alsa/asoundlib.h>
+#include <alsa/use-case.h>
 
 // Defined in ac-native.c — writes to USB log and stderr.
 extern void ac_log(const char *fmt, ...);
@@ -1941,6 +1942,53 @@ ACAudio *audio_init(void) {
              "ok %uHz %lufrm", rate, (unsigned long)period);
     if (rate != AUDIO_SAMPLE_RATE)
         fprintf(stderr, "[audio] WARNING: got %uHz instead of %dHz\n", rate, AUDIO_SAMPLE_RATE);
+
+    // ChromeOS UCM verb activation. sof-rt5682 on Jasper Lake has no
+    // upstream UCM, so without this the Speaker verb's csets
+    // ('Spk Switch on' plus DSP pipeline routes) never fire and the
+    // MAX98360A amp receives no I2S even with SD_MODE asserted. The
+    // WeirdTreeThing/alsa-ucm-conf-cros bundle in /usr/share/alsa/ucm2/
+    // provides the downstream ChromeOS versions. Noop on boards whose
+    // UCM is already upstream (ThinkPad HDA, Macs) — snd_use_case_mgr_open
+    // returns -ENOENT and we fall through to the manual mixer path below.
+    {
+        char card_id[32] = "";
+        char id_path[64];
+        snprintf(id_path, sizeof(id_path), "/proc/asound/card%d/id", card_idx);
+        FILE *idfp = fopen(id_path, "r");
+        if (idfp) {
+            if (fgets(card_id, sizeof(card_id), idfp)) {
+                char *nl = strchr(card_id, '\n'); if (nl) *nl = 0;
+            }
+            fclose(idfp);
+        }
+        if (card_id[0]) {
+            snd_use_case_mgr_t *uc = NULL;
+            int uerr = snd_use_case_mgr_open(&uc, card_id);
+            if (uerr == 0) {
+                fprintf(stderr, "[audio] UCM: opened for card '%s'\n", card_id);
+                if (snd_use_case_set(uc, "_verb", "HiFi") == 0) {
+                    fprintf(stderr, "[audio] UCM: _verb=HiFi set\n");
+                } else {
+                    fprintf(stderr, "[audio] UCM: _verb=HiFi failed\n");
+                }
+                /* Enable both Speaker and Headphone — DAPM picks the live
+                 * endpoint based on jack-sense, so enabling both at init
+                 * gives the amp its PMU event and a later unplug/plug of
+                 * headphones still routes correctly. */
+                if (snd_use_case_set(uc, "_enadev", "Speaker") == 0) {
+                    fprintf(stderr, "[audio] UCM: _enadev=Speaker ok\n");
+                }
+                if (snd_use_case_set(uc, "_enadev", "Headphone") == 0) {
+                    fprintf(stderr, "[audio] UCM: _enadev=Headphone ok\n");
+                }
+                snd_use_case_mgr_close(uc);
+            } else {
+                fprintf(stderr, "[audio] UCM: no config for '%s' (%d) — manual mixer fallback\n",
+                        card_id, uerr);
+            }
+        }
+    }
 
     // Unmute ALL outputs (HDA Intel codecs have many controls that can mute)
     char mixer_card[16];
