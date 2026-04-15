@@ -145,10 +145,10 @@ for cmd in sh sleep mkdir mount umount cat echo ls cp mv rm ln chmod chown \
     realpath rmdir uniq yes tar gzip gunzip hostname id ip modprobe \
     mkswap swapon vi df du diff xargs nohup pgrep killall cut whoami awk \
     sync poweroff reboot halt mknod udhcpc \
-    pwd tty logger clear reset man less more tac nl fold cmp hexdump md5sum \
-    sha256sum sha512sum base64 nslookup ping traceroute pgrep pkill timeout \
+    pwd tty logger clear reset less more tac nl fold cmp hexdump md5sum \
+    sha256sum sha512sum base64 nslookup ping traceroute pkill timeout \
     stty sysctl free uptime uname usleep unzip zcat; do
-    ln -s busybox "$IROOT/bin/$cmd"
+    ln -sf busybox "$IROOT/bin/$cmd"
 done
 # Real GNU bash — busybox's sh applet lacks bashisms (arrays, process
 # substitution, [[ ]], $'…' escapes, etc.) that Claude Code CLI's Bash tool
