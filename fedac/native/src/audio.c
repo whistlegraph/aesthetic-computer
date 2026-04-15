@@ -1756,62 +1756,6 @@ ACAudio *audio_init(void) {
     int err = -1;
     int card_idx = 0;
 
-    // Smart PCM selection — on SOF topologies (Chromebooks), card0 typically
-    // exposes multiple playback PCMs: pcm0p "Speakers", pcm1p "Headset",
-    // pcm2p "HDMI1". hw:0,0 blindly is fine on HDA-direct codecs but breaks
-    // on SOF. Two-pass scan: first pass finds a PCM whose id contains
-    // "Speaker"; second pass falls back to "HiFi"/"Jack" (SOF combined FE).
-    // HDMI PCMs are skipped. If we find one, open it ONCE and stop cleanly.
-    const char *prefer_tokens[2] = {"Speaker", "Jack"};
-    int prefer_hifi[2] = {0, 1};  /* pass 1 also accepts HiFi as a fallback */
-    char found_dev[16] = "";
-    char found_id[96]  = "";
-    int  found_card    = 0;
-    for (int pass = 0; pass < 2 && !found_dev[0]; pass++) {
-        for (int c = 0; c < 4 && !found_dev[0]; c++) {
-            for (int d = 0; d < 8 && !found_dev[0]; d++) {
-                char info_path[64];
-                snprintf(info_path, sizeof(info_path),
-                         "/proc/asound/card%d/pcm%dp/info", c, d);
-                FILE *ip = fopen(info_path, "r");
-                if (!ip) continue;
-                char line[256], id_str[96] = "", name_str[96] = "";
-                while (fgets(line, sizeof(line), ip)) {
-                    if (!strncmp(line, "id: ", 4))
-                        snprintf(id_str, sizeof(id_str), "%s", line + 4);
-                    if (!strncmp(line, "name: ", 6))
-                        snprintf(name_str, sizeof(name_str), "%s", line + 6);
-                }
-                fclose(ip);
-                if (strstr(id_str, "HDMI") || strstr(name_str, "HDMI")) continue;
-                int match = (strstr(id_str, prefer_tokens[pass]) ||
-                             strstr(name_str, prefer_tokens[pass]));
-                if (!match && prefer_hifi[pass]) {
-                    match = (strstr(id_str, "HiFi") || strstr(name_str, "HiFi"));
-                }
-                if (!match) continue;
-                snprintf(found_dev, sizeof(found_dev), "hw:%d,%d", c, d);
-                snprintf(found_id,  sizeof(found_id),  "%.*s",
-                         (int)strcspn(id_str, "\n"), id_str);
-                found_card = c;
-            }
-        }
-    }
-    if (found_dev[0]) {
-        err = snd_pcm_open(&pcm, found_dev, SND_PCM_STREAM_PLAYBACK, 0);
-        if (err >= 0) {
-            fprintf(stderr, "[audio] SOF PCM match: %s (id=%s)\n",
-                    found_dev, found_id);
-            snprintf(audio->audio_device, sizeof(audio->audio_device),
-                     "%s", found_dev);
-            card_idx = found_card;
-        } else {
-            fprintf(stderr, "[audio] SOF PCM %s open failed: %s\n",
-                    found_dev, snd_strerror(err));
-            /* fall through to legacy list */
-        }
-    }
-
     // AC_AUDIO_DEVICE override — try the env var device before the hardcoded list.
     const char *env_dev = getenv("AC_AUDIO_DEVICE");
     if (env_dev && env_dev[0]) {
