@@ -16,12 +16,13 @@ let pcms = [];
 let selected = 0;
 let lastTone = { device: "", freq: 0, ts: 0 };
 let activeDevice = "";
-let freqs = [200, 440, 880, 1760];
-let freqIdx = 1; // 440 Hz by default
-let volumes = [0.1, 0.3, 0.5, 0.8];
-let volIdx = 1; // 30%
-let durationsMs = [200, 500, 1000, 2000];
+let freqs = [100, 200, 440, 880, 1760, 3520];
+let freqIdx = 2; // 440 Hz by default
+let volumes = [0.1, 0.3, 0.5, 0.8, 1.0];
+let volIdx = 3; // 80% — actually audible
+let durationsMs = [200, 500, 1000, 2000, 5000];
 let durIdx = 1; // 500 ms
+let lastMainTone = { freq: 0, vol: 0, ts: 0 };
 
 function boot({ system }) {
   refreshPcms(system);
@@ -92,10 +93,34 @@ function act({ event: e, system, sound }) {
     const vol  = volumes[volIdx];
     const ok = system?.audio?.testPcm?.(p.device, freq, dur, vol);
     lastTone = { device: p.device, freq, ts: Date.now(), ok };
-    // Gentle feedback chirp via the main audio path so the user knows the
-    // keypress registered even if this particular PCM is silent.
-    sound?.synth?.({ type: "sine", tone: 660, duration: 0.04,
-                     volume: 0.08, attack: 0.002, decay: 0.03 });
+    return;
+  }
+
+  // 'm' = main audio path test (same path notepat uses).
+  // This is the real volume test — if 'm' is too quiet but space on
+  // hw:0,0 is loud, the main audio code has wrong gain settings.
+  if (e.is("keyboard:down:m")) {
+    const freq = freqs[freqIdx];
+    const dur  = durationsMs[durIdx] * 0.001;
+    const vol  = volumes[volIdx];
+    sound?.synth?.({ type: "sine", tone: freq, duration: dur,
+                     volume: vol, attack: 0.002, decay: Math.max(0.05, dur * 0.3) });
+    lastMainTone = { freq, vol, ts: Date.now() };
+    return;
+  }
+
+  // 's' = sweep — ramps volume from 0→100% to hear max clean loudness.
+  if (e.is("keyboard:down:s")) {
+    const freq = freqs[freqIdx];
+    const steps = 5;
+    for (let i = 0; i < steps; i++) {
+      const v = ((i + 1) / steps);
+      setTimeout(() => {
+        sound?.synth?.({ type: "sine", tone: freq, duration: 0.3,
+                         volume: v, attack: 0.01, decay: 0.15 });
+      }, i * 350);
+    }
+    lastMainTone = { freq, vol: 1.0, ts: Date.now() };
     return;
   }
 }
@@ -157,10 +182,23 @@ function paint({ wipe, ink, box, write, screen }) {
     }
   }
 
-  // Key hints
+  // Last main tone status (the "real" volume test — sound.synth goes
+  // through the same audio path notepat uses).
+  if (lastMainTone.ts) {
+    const sinceMs = Date.now() - lastMainTone.ts;
+    if (sinceMs < 3000) {
+      ink(255, 200, 100);
+      write(`M ${lastMainTone.freq} Hz @ vol ${Math.round(lastMainTone.vol * 100)}%`,
+            { x: pad, y: h - 32, size: 1, font });
+    }
+  }
+
+  // Key hints (two lines because we added m/s)
   ink(120, 140, 120);
-  write("↑↓ select   space play   f freq  v vol  d dur  r refresh  esc back",
-        { x: pad, y: h - 12, size: 1, font });
+  write("↑↓ select   space play on PCM   f freq  v vol  d dur",
+        { x: pad, y: h - 20, size: 1, font });
+  write("m = main audio test   s = sweep 20→100%   r refresh   esc back",
+        { x: pad, y: h - 10, size: 1, font });
 }
 
 export { boot, paint, act };
