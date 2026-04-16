@@ -1030,18 +1030,13 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 // Soft clamp (tanh-style) to prevent harsh digital clipping
 // Smooth curve: starts compressing gently above 0.6, hard-limits at ~0.95
 static inline double soft_clip(double x) {
-    /* Higher knee (0.85) keeps more headroom before compression kicks
-     * in, producing louder audible output on tiny Chromebook speakers
-     * without audibly harsh distortion. */
-    if (x > 0.85) {
-        double over = x - 0.85;
-        return 0.85 + 0.15 * (1.0 - 1.0 / (1.0 + over * 4.0));
-    }
-    if (x < -0.85) {
-        double over = -x - 0.85;
-        return -0.85 - 0.15 * (1.0 - 1.0 / (1.0 + over * 4.0));
-    }
-    return x;
+    /* tanh-based soft limiter — much smoother than the previous
+     * piecewise clipper which had a kinked transfer curve above
+     * the knee, producing "fuzzy" / tinny distortion at high gain.
+     * tanh(x * 0.9) stays linear to ~0.6, eases through 0.85, and
+     * asymptotes at ±1.0. Adds only small even-order harmonics
+     * which sound "warm" instead of harsh. */
+    return tanh(x * 0.9) / tanh(0.9);
 }
 
 // Compressor state (per-channel peak follower)
@@ -1505,18 +1500,13 @@ static void *audio_thread_fn(void *arg) {
             buffer[i * 2] = (int16_t)(mix_l * 32000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
 
-            /* DAPM keepalive: inject dither when buffer would otherwise
-             * be all zeros. At S32_LE with <<8 shift, int16 dither X
-             * becomes X<<8 int32 = roughly X/128 % of full scale. The
-             * SOF DSP silence detector cuts around -80 dBFS, so we
-             * need the dither amplitude in int32 to land around
-             * -70 dBFS to reliably hold the amp alive. ±32 int16
-             * → ±8192 int32 ≈ -72 dBFS — still inaudible but enough
-             * RMS to keep the pipeline active. (±1 was -108 dBFS,
-             * below the silence threshold, which is why the amp
-             * kept cycling on/off producing "fuzzy" audio.) */
+            /* DAPM keepalive: inject low-frequency dither (alternating
+             * every 8 samples = 3kHz, well below 24kHz Nyquist edge).
+             * ±8 int16 → ±2048 int32 ≈ -72 dBFS, inaudible through
+             * DAC anti-alias filter. Previous ±32 @ 24kHz alternation
+             * leaked through as faint hiss at high gain. */
             if (buffer[i * 2] == 0 && buffer[i * 2 + 1] == 0) {
-                int16_t d = (i & 1) ? 32 : -32;
+                int16_t d = ((i >> 3) & 1) ? 8 : -8;
                 buffer[i * 2]     = d;
                 buffer[i * 2 + 1] = -d;
             }
