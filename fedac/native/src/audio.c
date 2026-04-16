@@ -2427,6 +2427,37 @@ ACAudio *audio_init(void) {
     audio->running = 1;
     pthread_create(&audio->thread, NULL, audio_thread_fn, audio);
 
+    /* Force PCI runtime-PM to "on" for the sound card now that the
+     * driver is loaded and card_idx is known. The init-script attempt
+     * may fire before probe — doing it here guarantees the sysfs node
+     * exists. Without this the SOF DSP auto-suspends after ~20-40s
+     * of silence, which stops the SSP1 BE DAI and drops MAX98360A
+     * sdmode to 0 (speaker amp off), and the amp never comes back.
+     * Also try the generic PCI "power_save" disable for HDA paths. */
+    {
+        char pm_path[128];
+        snprintf(pm_path, sizeof(pm_path),
+                 "/sys/class/sound/card%d/device/power/control", card_idx);
+        FILE *pm = fopen(pm_path, "w");
+        if (pm) {
+            fputs("on", pm);
+            fclose(pm);
+            fprintf(stderr, "[audio] Disabled runtime-PM: %s\n", pm_path);
+        } else {
+            fprintf(stderr, "[audio] Could not set runtime-PM: %s\n", pm_path);
+        }
+        /* Also try the autosuspend delay — set to -1 (never) */
+        snprintf(pm_path, sizeof(pm_path),
+                 "/sys/class/sound/card%d/device/power/autosuspend_delay_ms",
+                 card_idx);
+        pm = fopen(pm_path, "w");
+        if (pm) {
+            fputs("-1", pm);
+            fclose(pm);
+            fprintf(stderr, "[audio] Set autosuspend_delay=-1: %s\n", pm_path);
+        }
+    }
+
     fprintf(stderr, "[audio] Ready\n");
     return audio;
 }
