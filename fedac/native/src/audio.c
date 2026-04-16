@@ -1478,14 +1478,15 @@ static void *audio_thread_fn(void *arg) {
                 }
             }
 
-            // Apply system volume (software gain — hardware mixer may not attenuate)
+            // Apply system volume (software gain). system_volume can go
+            // above 100 on SOF cards where the DSP pipeline has -6dB+
+            // headroom and the amp needs boosting to reach normal levels.
+            // -1 means no Master mixer found — treat as 100% baseline.
             {
                 int sv = audio->system_volume;
-                // -1 means no Master mixer found (SOF cards) — treat as 100%
                 if (sv < 0) sv = 100;
-                double vol = sv * 0.01; // 0-100 → 0.0-1.0
-                // Use squared curve for more natural volume perception
-                vol = vol * vol;
+                double vol = sv * 0.01; // 0..4 (up to 400% → 16× linear)
+                vol = vol * vol;         // squared curve
                 mix_l *= vol;
                 mix_r *= vol;
             }
@@ -2478,9 +2479,14 @@ ACAudio *audio_init(void) {
         fprintf(stderr, "[audio] Cannot open mixer\n");
     }
 
-    // Read initial system volume
-    audio->system_volume = read_system_volume_card(card_idx);
-    fprintf(stderr, "[audio] System volume: %d%%\n", audio->system_volume);
+    // Read initial system volume. On SOF cards there's no Master mixer
+    // and read_system_volume_card returns -1 — default to 200% so the
+    // speaker amp (which has -6dB headroom in the DSP pipeline) has
+    // enough gain to be audible at normal listening levels.
+    int hw_vol = read_system_volume_card(card_idx);
+    audio->system_volume = (hw_vol >= 0) ? hw_vol : 200;
+    fprintf(stderr, "[audio] System volume: %d%% (hw=%d)\n",
+            audio->system_volume, hw_vol);
 
     // HDMI audio disabled — opening HDMI PCM streams on the same HDA controller
     // can exhaust controller streams and cause EIO on capture.
@@ -3468,11 +3474,14 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
         if (hw_vol >= 0) {
             audio->system_volume = hw_vol;
         } else {
-            // No Master mixer — software gain mode
+            // No Master mixer — software gain mode (0..400%).
+            // 200% is the default boot volume on SOF cards; allow
+            // keys to step up to 400 (16× linear) for quiet speakers.
             int sv = audio->system_volume;
-            if (sv < 0) sv = 100; // first call: default 100%
-            if (delta > 0) sv = (sv + 5 > 100) ? 100 : sv + 5;
-            else if (delta < 0) sv = (sv - 5 < 0) ? 0 : sv - 5;
+            if (sv < 0) sv = 200;
+            int step = 10;
+            if (delta > 0) sv = (sv + step > 400) ? 400 : sv + step;
+            else if (delta < 0) sv = (sv - step < 0) ? 0 : sv - step;
             audio->system_volume = sv;
             ac_log("[audio] Software volume: %d%%\n", sv);
         }
