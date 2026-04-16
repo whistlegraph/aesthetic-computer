@@ -1480,7 +1480,10 @@ static void *audio_thread_fn(void *arg) {
 
             // Apply system volume (software gain — hardware mixer may not attenuate)
             {
-                double vol = audio->system_volume * 0.01; // 0-100 → 0.0-1.0
+                int sv = audio->system_volume;
+                // -1 means no Master mixer found (SOF cards) — treat as 100%
+                if (sv < 0) sv = 100;
+                double vol = sv * 0.01; // 0-100 → 0.0-1.0
                 // Use squared curve for more natural volume perception
                 vol = vol * vol;
                 mix_l *= vol;
@@ -1589,13 +1592,16 @@ static void *audio_thread_fn(void *arg) {
             }
         }
         /* Widen int16→int32 for S32_LE PCMs (SOF topology).
-         * Left-shift by 16 places the 16-bit sample in the top half
-         * of the 32-bit word, which maps correctly to the S24_LE BE
-         * DAI after the DSP truncates the bottom 8 bits. */
+         * The SSP1 BE DAI runs S24_LE. SOF DSP uses the bottom 24
+         * bits of the S32 container (bits 23:0). Shifting int16 by
+         * 8 places our 16-bit audio in bits 23:8, which fills the
+         * top portion of the 24-bit window — correct for S24-in-S32
+         * bottom-aligned format. (<<16 put data in bits 31:16 which
+         * the DSP's 24-bit window barely saw → super quiet.) */
         const void *write_buf = buffer;
         if (buffer32) {
             for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
-                buffer32[j] = (int32_t)buffer[j] << 16;
+                buffer32[j] = (int32_t)buffer[j] << 8;
             write_buf = buffer32;
         }
         int remaining = (int)period_frames;
@@ -3452,8 +3458,25 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
     }
     snd_mixer_close(mixer);
 
-    // Update cached system volume
-    audio->system_volume = muted ? 0 : read_system_volume_card(audio->card_index);
+    // Update cached system volume. On SOF cards without a "Master" mixer,
+    // read_system_volume_card returns -1. In that case, use software-only
+    // volume: start at 100 and step ±5 with volume keys.
+    if (muted) {
+        audio->system_volume = 0;
+    } else {
+        int hw_vol = read_system_volume_card(audio->card_index);
+        if (hw_vol >= 0) {
+            audio->system_volume = hw_vol;
+        } else {
+            // No Master mixer — software gain mode
+            int sv = audio->system_volume;
+            if (sv < 0) sv = 100; // first call: default 100%
+            if (delta > 0) sv = (sv + 5 > 100) ? 100 : sv + 5;
+            else if (delta < 0) sv = (sv - 5 < 0) ? 0 : sv - 5;
+            audio->system_volume = sv;
+            ac_log("[audio] Software volume: %d%%\n", sv);
+        }
+    }
 }
 
 void audio_boot_beep(ACAudio *audio) {
