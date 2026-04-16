@@ -1897,10 +1897,14 @@ ACAudio *audio_init(void) {
     char ucm_speaker_plug[80] = "";
     if (ucm_speaker_pcm[0]) {
         snprintf(ucm_speaker_plug, sizeof(ucm_speaker_plug),
-                 "plug%s", ucm_speaker_pcm);
+                 "plughw%s", ucm_speaker_pcm + 2); /* hw:0,0 → plughw:0,0 */
         int n = 0;
-        devices_with_spk[n++] = ucm_speaker_pcm;
+        /* Prefer plug-wrapped device FIRST — the plug layer handles
+         * format/rate/channel conversion, which fixes the "crunchy
+         * quiet" audio on SOF boards where the SSP1 BE DAI runs at
+         * a different format than our S16_LE 48kHz stereo request. */
         devices_with_spk[n++] = ucm_speaker_plug;
+        devices_with_spk[n++] = ucm_speaker_pcm;
         for (int i = 0; devices_default[i] && n < 15; i++)
             devices_with_spk[n++] = devices_default[i];
         devices_with_spk[n] = NULL;
@@ -2164,9 +2168,19 @@ ACAudio *audio_init(void) {
         audio->room_pos = 0;
     }
 
-    fprintf(stderr, "[audio] ALSA: requested %dHz, got %uHz, period=%lu, buffer=%lu (%.1fms latency)\n",
-            AUDIO_SAMPLE_RATE, rate, (unsigned long)period, (unsigned long)buffer_size,
-            (double)period / rate * 1000.0);
+    /* Log the actual negotiated params — channels and format are
+     * particularly important for diagnosing the "crunchy quiet" bug
+     * on SOF boards where SSP1 may expect different bit depth. */
+    {
+        snd_pcm_format_t fmt;
+        unsigned int ch = 0;
+        snd_pcm_hw_params_get_format(params, &fmt);
+        snd_pcm_hw_params_get_channels(params, &ch);
+        fprintf(stderr, "[audio] ALSA: %uHz %uch fmt=%s period=%lu buf=%lu (%.1fms)\n",
+                rate, ch, snd_pcm_format_name(fmt),
+                (unsigned long)period, (unsigned long)buffer_size,
+                (double)period / rate * 1000.0);
+    }
     snprintf(audio->audio_status, sizeof(audio->audio_status),
              "ok %uHz %lufrm", rate, (unsigned long)period);
     if (rate != AUDIO_SAMPLE_RATE)
