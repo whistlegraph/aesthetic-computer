@@ -613,33 +613,7 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
 
   // 📱 Create mobile control buttons using ui.Button (always enabled for testing/development)
   if (screen && ui?.Button) {
-    const btnSize = 28;
-    const btnSizeWide = 56;  // wider action buttons
-    const gap = 4;  // gap between buttons (no border overlap)
-    const padding = 6;
-    const bottomMargin = 6;
-
-    // Movement buttons (bottom-left): D-pad style, compact layout
-    const moveX = padding;
-    const moveY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
-
-    // Action buttons (bottom-right): wider layout
-    const actionX = screen.width - btnSizeWide - padding;
-    const actionY = screen.height - (btnSize * 2 + gap + bottomMargin);
-
-    // D-pad layout:
-    //     ↑
-    //  ← ● →
-    //     ↓
-    mobileButtons = {
-      up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "↑", isArrow: true },
-      down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "↓", isArrow: true },
-      left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "←", isArrow: true },
-      right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "→", isArrow: true },
-      jump: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
-      crouch: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
-    };
-
+    initMobileButtons(screen, ui);
   }
 
   // --- Vertex-colored checkerboard ground with fog ---
@@ -1558,9 +1532,24 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   }
 }
 
-function act({ event: e, penLock, system }) {
-  if (e.is("pen:locked")) penLocked = true;
-  if (e.is("pen:unlocked")) penLocked = false;
+function act({ event: e, penLock, system, screen, ui }) {
+  if (e.is("pen:locked")) {
+    penLocked = true;
+    // Reset keyboard state to prevent stuck keys when cursor lock changes
+    resetKeyboardState(system);
+  }
+  if (e.is("pen:unlocked")) {
+    penLocked = false;
+    // Reset keyboard state to prevent stuck keys when cursor lock changes
+    resetKeyboardState(system);
+  }
+
+  // 📱 Reposition mobile buttons on screen resize/reframe
+  if (e.is("reframed")) {
+    if (screen && ui?.Button) {
+      initMobileButtons(screen, ui);
+    }
+  }
 
   // 🎮 Gamepad — Standard Gamepad mapping (Xbox 360/One/Series, PS, etc.).
   // Events arrive as `gamepad:<idx>:button:<n>:push|release` and
@@ -1743,6 +1732,61 @@ function act({ event: e, penLock, system }) {
     // Don't re-lock on middle-click (1) or right-click (2) — reserved for camera control.
     if (!penLocked && e.button !== 1 && e.button !== 2) penLock();
   }
+}
+
+// ⌨️ Helper: Reset all keyboard state to prevent stuck keys
+function resetKeyboardState(system) {
+  keyboardState.w = false;
+  keyboardState.a = false;
+  keyboardState.s = false;
+  keyboardState.d = false;
+  keyboardState.arrowup = false;
+  keyboardState.arrowdown = false;
+  keyboardState.arrowleft = false;
+  keyboardState.arrowright = false;
+  keyboardState.space = false;
+  keyboardState.shift = false;
+
+  // Also clear movement from doll to stop any in-progress movement
+  const doll = system?.fps?.doll;
+  if (doll) {
+    doll.setMovement("forward", false);
+    doll.setMovement("back", false);
+    doll.setMovement("left", false);
+    doll.setMovement("right", false);
+    doll.setMovement("jump", false);
+    doll.setMovement("crouch", false);
+  }
+}
+
+// 📱 Helper: Initialize or reposition mobile buttons responsively
+function initMobileButtons(screen, ui) {
+  const btnSize = 28;
+  const btnSizeWide = 56;  // wider action buttons
+  const gap = 4;  // gap between buttons (no border overlap)
+  const padding = 6;
+  const bottomMargin = 6;
+
+  // Movement buttons (bottom-left): D-pad style, compact layout
+  const moveX = padding;
+  const moveY = screen.height - (btnSize * 3 + gap * 2 + bottomMargin);
+
+  // Action buttons (bottom-right): wider layout
+  const actionX = screen.width - btnSizeWide - padding;
+  const actionY = screen.height - (btnSize * 2 + gap + bottomMargin);
+
+  // D-pad layout:
+  //     ↑
+  //  ← ● →
+  //     ↓
+  mobileButtons = {
+    up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: "forward", label: "↑", isArrow: true },
+    down: { btn: new ui.Button(moveX + btnSize + gap, moveY + (btnSize + gap) * 2, btnSize, btnSize), key: "back", label: "↓", isArrow: true },
+    left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: "left", label: "←", isArrow: true },
+    right: { btn: new ui.Button(moveX + (btnSize + gap) * 2, moveY + btnSize + gap, btnSize, btnSize), key: "right", label: "→", isArrow: true },
+    jump: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: "jump", label: "JUMP", color: [50, 200, 100] },
+    crouch: { btn: new ui.Button(actionX, actionY + btnSize + gap, btnSizeWide, btnSize), key: "crouch", label: "CROUCH", color: [220, 150, 40] },
+  };
 }
 
 export const system = "fps";
