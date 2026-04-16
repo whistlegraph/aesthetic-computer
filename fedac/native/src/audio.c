@@ -1124,7 +1124,12 @@ static void *audio_thread_fn(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     const unsigned int period_frames = audio->actual_period ? audio->actual_period : AUDIO_PERIOD_SIZE;
     int16_t *buffer = calloc(period_frames * AUDIO_CHANNELS, sizeof(int16_t));
-    if (!buffer) { fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL; }
+    int32_t *buffer32 = NULL;
+    if (audio->use_s32)
+        buffer32 = calloc(period_frames * AUDIO_CHANNELS, sizeof(int32_t));
+    if (!buffer || (audio->use_s32 && !buffer32)) {
+        fprintf(stderr, "[audio] thread: alloc failed\n"); return NULL;
+    }
     const double rate = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
     const double dt = 1.0 / rate;
     double mix_divisor = 1.0; // Smooth auto-mix (matches speaker.mjs)
@@ -1588,10 +1593,23 @@ static void *audio_thread_fn(void *arg) {
                 rem2 -= f2; off2 += f2;
             }
         }
+        /* Widen int16→int32 for S32_LE PCMs (SOF topology).
+         * Left-shift by 16 places the 16-bit sample in the top half
+         * of the 32-bit word, which maps correctly to the S24_LE BE
+         * DAI after the DSP truncates the bottom 8 bits. */
+        const void *write_buf = buffer;
+        if (buffer32) {
+            for (int j = 0; j < (int)(period_frames * AUDIO_CHANNELS); j++)
+                buffer32[j] = (int32_t)buffer[j] << 16;
+            write_buf = buffer32;
+        }
         int remaining = (int)period_frames;
         int offset = 0;
         while (remaining > 0) {
-            int frames = snd_pcm_writei(pcm, buffer + offset * AUDIO_CHANNELS, remaining);
+            const void *wptr = buffer32
+                ? (const void *)(buffer32 + offset * AUDIO_CHANNELS)
+                : (const void *)(buffer + offset * AUDIO_CHANNELS);
+            int frames = snd_pcm_writei(pcm, wptr, remaining);
             if (frames == -EAGAIN) continue;
             if (frames < 0) {
                 int rec = snd_pcm_recover(pcm, frames, 1);
@@ -1621,6 +1639,7 @@ static void *audio_thread_fn(void *arg) {
     }
 
     free(buffer);
+    free(buffer32);
     return NULL;
 }
 
@@ -1899,12 +1918,11 @@ ACAudio *audio_init(void) {
         snprintf(ucm_speaker_plug, sizeof(ucm_speaker_plug),
                  "plughw%s", ucm_speaker_pcm + 2); /* hw:0,0 → plughw:0,0 */
         int n = 0;
-        /* Prefer plug-wrapped device FIRST — the plug layer handles
-         * format/rate/channel conversion, which fixes the "crunchy
-         * quiet" audio on SOF boards where the SSP1 BE DAI runs at
-         * a different format than our S16_LE 48kHz stereo request. */
-        devices_with_spk[n++] = ucm_speaker_plug;
+        /* Prefer raw hw: first — SOF topology FE PCM runs at S32_LE
+         * internally, and we now negotiate S32_LE directly so the DSP
+         * does zero conversion. plughw: as fallback if hw: fails. */
         devices_with_spk[n++] = ucm_speaker_pcm;
+        devices_with_spk[n++] = ucm_speaker_plug;
         for (int i = 0; devices_default[i] && n < 15; i++)
             devices_with_spk[n++] = devices_default[i];
         devices_with_spk[n] = NULL;
@@ -1968,7 +1986,22 @@ ACAudio *audio_init(void) {
     snd_pcm_hw_params_alloca(&params);
     snd_pcm_hw_params_any(pcm, params);
     snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
-    snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
+    /* SOF topology FE PCMs use S32_LE internally; the SSP1 BE DAI
+     * (MAX98360A) runs S24_LE. Writing S16_LE to this pipeline
+     * causes 48dB attenuation + quantization noise ("crunchy quiet").
+     * Try S32_LE first — if the FE PCM accepts it, we write int32
+     * samples and the DSP does zero conversion. Fall back to S16_LE
+     * for non-SOF hardware (HDA, USB, etc). */
+    audio->use_s32 = 0;
+    if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
+        audio->use_s32 = 1;
+        fprintf(stderr, "[audio] Negotiated S32_LE format\n");
+    } else {
+        snd_pcm_hw_params_any(pcm, params);
+        snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
+        snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
+        fprintf(stderr, "[audio] Negotiated S16_LE format (S32_LE not supported)\n");
+    }
     snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
 
     // Query hardware rate range

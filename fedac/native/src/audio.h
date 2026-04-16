@@ -244,6 +244,7 @@ typedef struct {
     int card_index;  // ALSA card number (0 or 1)
     unsigned int actual_rate;    // Negotiated ALSA sample rate (may differ from requested)
     unsigned int actual_period;  // Negotiated ALSA period size in frames
+    int use_s32;                 // 1 if PCM negotiated S32_LE (SOF boards), 0 for S16_LE
 
     // TTS PCM buffer (resampled to output rate, mono → stereo in mix)
     float *tts_buf;             // ring buffer of mono float samples at output rate
