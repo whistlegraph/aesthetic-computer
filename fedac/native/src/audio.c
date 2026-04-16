@@ -2480,11 +2480,12 @@ ACAudio *audio_init(void) {
     }
 
     // Read initial system volume. On SOF cards there's no Master mixer
-    // and read_system_volume_card returns -1 — default to 200% so the
-    // speaker amp (which has -6dB headroom in the DSP pipeline) has
-    // enough gain to be audible at normal listening levels.
+    // and read_system_volume_card returns -1 — default to 150% (2.25×
+    // linear) which is loud enough on tiny Chromebook speakers without
+    // pushing soft_clip into audible distortion. Volume keys still go
+    // up to 400% for very quiet hardware.
     int hw_vol = read_system_volume_card(card_idx);
-    audio->system_volume = (hw_vol >= 0) ? hw_vol : 200;
+    audio->system_volume = (hw_vol >= 0) ? hw_vol : 150;
     fprintf(stderr, "[audio] System volume: %d%% (hw=%d)\n",
             audio->system_volume, hw_vol);
 
@@ -3475,10 +3476,10 @@ void audio_volume_adjust(ACAudio *audio, int delta) {
             audio->system_volume = hw_vol;
         } else {
             // No Master mixer — software gain mode (0..400%).
-            // 200% is the default boot volume on SOF cards; allow
+            // 150% is the default boot volume on SOF cards; allow
             // keys to step up to 400 (16× linear) for quiet speakers.
             int sv = audio->system_volume;
-            if (sv < 0) sv = 200;
+            if (sv < 0) sv = 150;
             int step = 10;
             if (delta > 0) sv = (sv + step > 400) ? 400 : sv + step;
             else if (delta < 0) sv = (sv - step < 0) ? 0 : sv - step;
