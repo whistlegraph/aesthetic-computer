@@ -1505,15 +1505,20 @@ static void *audio_thread_fn(void *arg) {
             buffer[i * 2] = (int16_t)(mix_l * 32000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
 
-            /* DAPM keepalive: inject ±1 LSB when the buffer would
-             * otherwise be all zeros. At S32_LE (after <<16) this
-             * becomes ±65536 ≈ -90 dBFS — utterly inaudible.
-             * Previous ±160 was audible as 24kHz fizz through the
-             * amp. ±1 is enough to prevent the SOF DSP silence
-             * detector from powering down the SSP1 BE DAI. */
+            /* DAPM keepalive: inject dither when buffer would otherwise
+             * be all zeros. At S32_LE with <<8 shift, int16 dither X
+             * becomes X<<8 int32 = roughly X/128 % of full scale. The
+             * SOF DSP silence detector cuts around -80 dBFS, so we
+             * need the dither amplitude in int32 to land around
+             * -70 dBFS to reliably hold the amp alive. ±32 int16
+             * → ±8192 int32 ≈ -72 dBFS — still inaudible but enough
+             * RMS to keep the pipeline active. (±1 was -108 dBFS,
+             * below the silence threshold, which is why the amp
+             * kept cycling on/off producing "fuzzy" audio.) */
             if (buffer[i * 2] == 0 && buffer[i * 2 + 1] == 0) {
-                buffer[i * 2]     = (i & 1) ? 1 : -1;
-                buffer[i * 2 + 1] = (i & 1) ? -1 : 1;
+                int16_t d = (i & 1) ? 32 : -32;
+                buffer[i * 2]     = d;
+                buffer[i * 2 + 1] = -d;
             }
 
             // HDMI audio: 1-pole low-pass filter + downsample
@@ -2059,9 +2064,13 @@ ACAudio *audio_init(void) {
     snd_pcm_uframes_t period;
     snd_pcm_uframes_t buffer_size;
     if (sof_active) {
-        period = rate / 100;       // 10ms (480 frames at 48kHz)
-        buffer_size = period * 4;  // 40ms total — SOF DAPM-friendly
-        fprintf(stderr, "[audio] SOF platform detected — period=%lu buffer=%lu (10ms/40ms)\n",
+        period = rate / 50;        // 20ms (960 frames at 48kHz)
+        buffer_size = period * 4;  // 80ms total — larger buffer
+                                   // reduces XRUN-induced "fuzzy"
+                                   // audio at high software gain.
+                                   // Previous 10ms/40ms produced
+                                   // 96/480-frame short writes.
+        fprintf(stderr, "[audio] SOF platform detected — period=%lu buffer=%lu (20ms/80ms)\n",
                 (unsigned long)period, (unsigned long)buffer_size);
     } else {
         period = rate / 1000;      // 1ms on HDA-direct paths
