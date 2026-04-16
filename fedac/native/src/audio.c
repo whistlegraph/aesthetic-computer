@@ -1030,13 +1030,16 @@ static void setup_noise_filter(ACVoice *v, double sample_rate) {
 // Soft clamp (tanh-style) to prevent harsh digital clipping
 // Smooth curve: starts compressing gently above 0.6, hard-limits at ~0.95
 static inline double soft_clip(double x) {
-    if (x > 0.6) {
-        double over = x - 0.6;
-        return 0.6 + 0.35 * (1.0 - 1.0 / (1.0 + over * 2.5));
+    /* Higher knee (0.85) keeps more headroom before compression kicks
+     * in, producing louder audible output on tiny Chromebook speakers
+     * without audibly harsh distortion. */
+    if (x > 0.85) {
+        double over = x - 0.85;
+        return 0.85 + 0.15 * (1.0 - 1.0 / (1.0 + over * 4.0));
     }
-    if (x < -0.6) {
-        double over = -x - 0.6;
-        return -0.6 - 0.35 * (1.0 - 1.0 / (1.0 + over * 2.5));
+    if (x < -0.85) {
+        double over = -x - 0.85;
+        return -0.85 - 0.15 * (1.0 - 1.0 / (1.0 + over * 4.0));
     }
     return x;
 }
@@ -1495,8 +1498,12 @@ static void *audio_thread_fn(void *arg) {
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
 
-            buffer[i * 2] = (int16_t)(mix_l * 26000);
-            buffer[i * 2 + 1] = (int16_t)(mix_r * 26000);
+            /* 32000 = ~97% of int16 max. Was 26000 (~79%), wasting
+             * ~2dB of peak output. Combined with higher soft_clip
+             * knee this gives ~4dB more audible loudness before any
+             * compression artifacts. */
+            buffer[i * 2] = (int16_t)(mix_l * 32000);
+            buffer[i * 2 + 1] = (int16_t)(mix_r * 32000);
 
             /* DAPM keepalive: inject ±1 LSB when the buffer would
              * otherwise be all zeros. At S32_LE (after <<16) this
@@ -2485,7 +2492,7 @@ ACAudio *audio_init(void) {
     // pushing soft_clip into audible distortion. Volume keys still go
     // up to 400% for very quiet hardware.
     int hw_vol = read_system_volume_card(card_idx);
-    audio->system_volume = (hw_vol >= 0) ? hw_vol : 150;
+    audio->system_volume = (hw_vol >= 0) ? hw_vol : 180;
     fprintf(stderr, "[audio] System volume: %d%% (hw=%d)\n",
             audio->system_volume, hw_vol);
 
