@@ -1489,6 +1489,18 @@ static void *audio_thread_fn(void *arg) {
             buffer[i * 2] = (int16_t)(mix_l * 26000);
             buffer[i * 2 + 1] = (int16_t)(mix_r * 26000);
 
+            /* DAPM keepalive: inject ±1 LSB dither when the buffer
+             * would otherwise be pure zeros. SOF DSP's internal
+             * silence detector powers down the SSP1 BE DAI after
+             * ~20-40s of all-zero frames, which drops MAX98360A
+             * sdmode to 0 (speaker amp off). ±1 at 16-bit S16_LE
+             * is -96 dBFS — utterly inaudible, but keeps the
+             * pipeline alive and the amp powered. */
+            if (buffer[i * 2] == 0 && buffer[i * 2 + 1] == 0) {
+                buffer[i * 2]     = (i & 1) ? 1 : -1;
+                buffer[i * 2 + 1] = (i & 1) ? -1 : 1;
+            }
+
             // HDMI audio: 1-pole low-pass filter + downsample
             // (volume already applied above to mix_l/mix_r)
             if (audio->hdmi_pcm) {
