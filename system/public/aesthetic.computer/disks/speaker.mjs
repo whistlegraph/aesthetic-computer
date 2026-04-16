@@ -23,6 +23,11 @@ let volIdx = 3; // 80% — actually audible
 let durationsMs = [200, 500, 1000, 2000, 5000];
 let durIdx = 1; // 500 ms
 let lastMainTone = { freq: 0, vol: 0, ts: 0 };
+// Sweep state — uses sim() tick instead of setTimeout (not available in ac-native QuickJS).
+let sweepActive = false;
+let sweepStartMs = 0;
+let sweepFreq = 440;
+let sweepStep = 0;
 
 function boot({ system }) {
   refreshPcms(system);
@@ -109,20 +114,30 @@ function act({ event: e, system, sound }) {
     return;
   }
 
-  // 's' = sweep — ramps volume from 0→100% to hear max clean loudness.
+  // 's' = sweep — ramps volume from 20%→100% via sim() tick (no setTimeout).
   if (e.is("keyboard:down:s")) {
-    const freq = freqs[freqIdx];
-    const steps = 5;
-    for (let i = 0; i < steps; i++) {
-      const v = ((i + 1) / steps);
-      setTimeout(() => {
-        sound?.synth?.({ type: "sine", tone: freq, duration: 0.3,
-                         volume: v, attack: 0.01, decay: 0.15 });
-      }, i * 350);
-    }
-    lastMainTone = { freq, vol: 1.0, ts: Date.now() };
+    sweepActive = true;
+    sweepStartMs = Date.now();
+    sweepFreq = freqs[freqIdx];
+    sweepStep = 0;
+    lastMainTone = { freq: sweepFreq, vol: 1.0, ts: Date.now() };
     return;
   }
+}
+
+function sim({ sound }) {
+  if (!sweepActive) return;
+  const steps = 5;
+  const stepMs = 350;
+  const elapsed = Date.now() - sweepStartMs;
+  const wantStep = Math.floor(elapsed / stepMs);
+  while (sweepStep < wantStep && sweepStep < steps) {
+    const v = (sweepStep + 1) / steps;
+    sound?.synth?.({ type: "sine", tone: sweepFreq, duration: 0.3,
+                     volume: v, attack: 0.01, decay: 0.15 });
+    sweepStep++;
+  }
+  if (sweepStep >= steps) sweepActive = false;
 }
 
 function paint({ wipe, ink, box, write, screen }) {
@@ -201,4 +216,4 @@ function paint({ wipe, ink, box, write, screen }) {
         { x: pad, y: h - 10, size: 1, font });
 }
 
-export { boot, paint, act };
+export { boot, paint, act, sim };
