@@ -5958,13 +5958,17 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
 
   if (downs[note]) return false;
 
-  // Drum mode: each key fires the shared 12-drum kit instead of a pitched note.
-  // Strip octave prefix (++, +, -) and lowercase so "C" or "+c" both land on `c`.
-  if (drumMode && soundContext) {
+  // 🥁 Drum mode: the upper octave (notes prefixed with "+" or "++") fires the
+  // shared 12-drum kit instead of a pitched note. Lower octave stays pitched so
+  // you can play melody + drums simultaneously. Mirrors the kitRight behaviour
+  // in fedac/native/pieces/notepat.mjs.
+  if (drumMode && note.startsWith("+") && soundContext) {
     const letter = note.replace(/^[+\-]+/, "").toLowerCase();
     const pan = getPanForButtonNote(note);
+    const volume = Math.max(0.1, velocity / 127);
+    console.log("🥁 drum:", letter, "from", note, "vol", volume.toFixed(2), "pan", pan.toFixed(2));
     playPercussion(soundContext, letter, {
-      volume: Math.max(0.1, velocity / 127),
+      volume,
       pan,
       pitchFactor: 1.0,
       phase: "both",
@@ -7180,8 +7184,9 @@ function act({
     drumBtn?.act(e, {
       down: () => api.beep(400),
       push: () => {
-        api.beep(drumMode ? 200 : 600);
         drumMode = !drumMode;
+        api.beep(drumMode ? 600 : 200);
+        console.log("🥁 drumMode:", drumMode ? "ON (upper octave → drum kit)" : "OFF (pitched)");
       },
     });
 
