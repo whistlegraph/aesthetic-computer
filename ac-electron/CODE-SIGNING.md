@@ -10,7 +10,7 @@ To enable automated code signing and notarization, add these secrets to your Git
 2. **MACOS_CERTIFICATE_PASSWORD** - Password for the `.p12` certificate
 3. **KEYCHAIN_PASSWORD** - Any secure password for the temporary keychain
 4. **APPLE_ID** - Your Apple ID email (e.g., `hi@aesthetic.computer`)
-5. **APPLE_NOTARIZE_PWD** - App-specific password from appleid.apple.com
+5. **APPLE_APP_SPECIFIC_PASSWORD** - App-specific password from appleid.apple.com
 6. **APPLE_TEAM_ID** - Your Apple Developer Team ID
 
 ### How to Get These Values
@@ -62,9 +62,8 @@ To test notarization locally:
 
 ```bash
 export APPLE_ID="your@email.com"
-export APPLE_NOTARIZE_PWD="xxxx-xxxx-xxxx-xxxx"
+export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 export APPLE_TEAM_ID="YOUR_TEAM_ID"
-export FORCE_NOTARIZE=1
 
 npm run build:mac
 ```

@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thomas Lawson — Valise archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fff9ef;
+    --fg: #222;
+    --muted: #6f6f6f;
+    --faint: #b0a99a;
+    --border: #e8e2d6;
+    --accent: #0170B9;
+    --card-bg: #ffffff;
+    --font: "Poppins", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", "Menlo", "Monaco", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+
+  header {
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  header a.home { display: block; line-height: 0; }
+  header .logo { height: 40px; width: auto; }
+  header .page-title {
+    font-size: 0.85rem;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  header .page-title strong { color: var(--fg); font-weight: 500; }
+  header .sub {
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-left: auto;
+    font-weight: 300;
+    text-align: right;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.55rem;
+    background: #eaf4fb;
+    color: var(--accent);
+    border-radius: 2px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+
+  .filters {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .filters label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .filters select, .filters input {
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 300;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: var(--card-bg);
+    color: var(--fg);
+    outline: none;
+  }
+  .filters select:focus, .filters input:focus { border-color: var(--accent); }
+  .filters input[type="search"] { width: 240px; }
+  .filters .checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .count {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem 2rem 4rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.5rem;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.07); transform: translateY(-2px); }
+  .card .img-wrap {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background: #f5f0e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    position: relative;
+  }
+  .card .img-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .card .img-wrap.empty::before {
+    content: "No image";
+    font-size: 0.7rem;
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .card .img-count {
+    position: absolute;
+    bottom: 0.4rem;
+    right: 0.4rem;
+    font-size: 0.6rem;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+    font-weight: 400;
+  }
+  .card .info {
+    padding: 0.8rem 1rem 1rem;
+    border-top: 1px solid var(--border);
+    flex: 1;
+  }
+  .card .info h3 {
+    font-size: 0.82rem;
+    font-weight: 500;
+    line-height: 1.35;
+    margin-bottom: 0.2rem;
+    color: var(--fg);
+  }
+  .card .info h3 em { font-style: italic; }
+  .card .info .year {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+  .card .info .medium {
+    font-size: 0.73rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+    font-style: italic;
+    font-weight: 300;
+  }
+  .card .info .dims {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+    font-weight: 300;
+  }
+  .card .info .tags {
+    margin-top: 0.4rem;
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+  }
+  .card .info .tag {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.45rem;
+    background: #f5f0e6;
+    border-radius: 2px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .card .info .serial {
+    font-size: 0.78rem;
+    font-family: var(--mono);
+    color: var(--faint);
+    margin-top: 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  .loading, .empty-state {
+    max-width: 1400px;
+    margin: 4rem auto;
+    padding: 3rem 2rem;
+    text-align: center;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  footer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 2rem 3rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  footer a { text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Detail modal */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .modal.open { display: flex; }
+  .modal .panel {
+    background: var(--bg);
+    color: var(--fg);
+    max-width: 1100px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 3px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 0;
+  }
+  .modal .close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: #fff;
+    font-size: 1.8rem;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.8;
+  }
+  .modal .close:hover { opacity: 1; }
+  .modal .images {
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    min-height: 360px;
+  }
+  .modal .images .stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 1rem;
+    min-height: 360px;
+  }
+  .modal .images .stage img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .modal .images .stage .empty {
+    color: #888;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .modal .images .nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #fff;
+    font-size: 2rem;
+    padding: 1rem;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0.5;
+  }
+  .modal .images .nav:hover { opacity: 1; }
+  .modal .images .nav.prev { left: 0; }
+  .modal .images .nav.next { right: 0; }
+  .modal .images .thumbs {
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.5rem;
+    overflow-x: auto;
+    background: #0c0c0c;
+    min-height: 56px;
+  }
+  .modal .images .thumbs .thumb {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    background: #222;
+    border: 2px solid transparent;
+    cursor: pointer;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal .images .thumbs .thumb.active { border-color: var(--accent); }
+  .modal .images .thumbs .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .modal .images .img-meta {
+    background: #000;
+    color: #aaa;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 0.4rem 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .modal .images .img-meta a { color: #6bb6f0; text-decoration: none; }
+  .modal .images .img-meta a:hover { text-decoration: underline; }
+
+  .modal .meta {
+    padding: 1.5rem 1.75rem;
+    overflow: auto;
+  }
+  .modal .meta h2 {
+    font-size: 1.3rem;
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+  }
+  .modal .meta .modal-year {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .modal .meta dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1rem;
+    font-size: 0.8rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .modal .meta dt {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.68rem;
+    padding-top: 0.15rem;
+  }
+  .modal .meta dd { color: var(--fg); word-break: break-word; }
+  .modal .meta dd code { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+  .modal .meta .tags-full { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .modal .meta .tags-full .tag {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    background: #f5f0e6;
+    border-radius: 2px;
+    color: var(--fg);
+    text-decoration: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .modal .meta .tags-full .tag:hover { background: var(--accent); color: #fff; }
+  .modal .meta details {
+    margin-top: 1rem;
+    font-size: 0.72rem;
+  }
+  .modal .meta details summary {
+    cursor: pointer;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.68rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .modal .meta details pre {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: #f5f0e6;
+    padding: 0.75rem;
+    border-radius: 2px;
+    overflow-x: auto;
+    max-height: 300px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  @media (max-width: 760px) {
+    header { padding: 1.2rem 1rem; }
+    .filters { padding: 0.8rem 1rem; }
+    .grid { padding: 1rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
+    .filters input[type="search"] { width: 100%; }
+    .modal { padding: 0; }
+    .modal .panel {
+      grid-template-columns: 1fr;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+    .modal .images { min-height: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="home" href="https://www.thomaslawson.com/"><img class="logo" src="https://www.thomaslawson.com/wp-content/uploads/2022/07/THOMAS-LAWSON-1-301x99.png" alt="Thomas Lawson"></a>
+  <span class="page-title">Archive · <strong>Valise</strong></span>
+  <span class="badge">Live</span>
+  <div class="sub">
+    <div id="stats">loading…</div>
+    <div id="fetched" style="font-size:0.7rem;opacity:0.7"></div>
+  </div>
+</header>
+
+<div class="filters" id="filters" hidden>
+  <label>Tag</label>
+  <select id="filter-tag"><option value="">All</option></select>
+  <label>Year</label>
+  <select id="filter-year"><option value="">All</option></select>
+  <label>Search</label>
+  <input type="search" id="filter-search" placeholder="Title, medium, tag, №…">
+  <label class="checkbox"><input type="checkbox" id="filter-images"> with image only</label>
+  <span class="count" id="count"></span>
+</div>
+
+<div class="loading" id="loading">Loading live archive from Valise…</div>
+<div class="grid" id="grid" hidden></div>
+<div class="empty-state" id="empty" hidden>No works match those filters.</div>
+
+<footer>
+  <div>
+    Archive managed on <a href="https://valise.works/" target="_blank" rel="noopener">Valise</a> · API v0 · <a href="data.json">data.json</a> · <a href="gap/">website gap report</a>
+  </div>
+  <div id="updated"></div>
+</footer>
+
+<div class="modal" id="modal">
+  <span class="close" onclick="closeModal()">&times;</span>
+  <div class="panel" onclick="event.stopPropagation()">
+    <div class="images">
+      <div class="stage">
+        <span class="nav prev" id="prev-img" onclick="navImg(-1)">&#8249;</span>
+        <img id="m-img" src="" alt="" hidden>
+        <span class="empty" id="m-empty" hidden>No image on file</span>
+        <span class="nav next" id="next-img" onclick="navImg(1)">&#8250;</span>
+      </div>
+      <div class="img-meta">
+        <span id="m-img-info"></span>
+        <span id="m-img-link"></span>
+      </div>
+      <div class="thumbs" id="m-thumbs"></div>
+    </div>
+    <div class="meta">
+      <h2 id="m-title"></h2>
+      <div class="modal-year" id="m-year"></div>
+      <dl id="m-dl"></dl>
+      <details><summary>Raw JSON</summary><pre id="m-raw"></pre></details>
+    </div>
+  </div>
+</div>
+
+<script>
+const TAG_OPTIONS = [{"title":"drawing","count":563},{"title":"low-res only","count":441},{"title":"painting","count":338},{"title":"photocollage","count":45},{"title":"other","count":31},{"title":"framed","count":30},{"title":"website-P-1980s","count":15},{"title":"public art","count":12},{"title":"website-P-2000s","count":9},{"title":"sculpture","count":9},{"title":"missing image","count":6},{"title":"museum collection","count":5},{"title":"reshoot 2013","count":5},{"title":"print","count":5},{"title":"collage","count":5},{"title":"website-D-1980s","count":4},{"title":"website-P-current","count":1},{"title":"design","count":1},{"title":"set","count":1},{"title":"book","count":1},{"title":"wall","count":1},{"title":"installation","count":1}];
+const FETCHED_AT = "2026-04-17T18:54:55.212Z";
+let ALL = [];
+let CURRENT = null;
+let IMG_INDEX = 0;
+const state = { tag: "", year: "", q: "", imgOnly: false };
+
+function esc(s) {
+  if (s == null) return "";
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(+d)) return iso;
+  return d.toISOString().slice(0, 10);
+}
+
+async function boot() {
+  try {
+    const res = await fetch("data.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    ALL = await res.json();
+  } catch (err) {
+    document.getElementById("loading").textContent =
+      "Couldn't load archive: " + err.message;
+    return;
+  }
+  document.getElementById("loading").hidden = true;
+  document.getElementById("filters").hidden = false;
+  document.getElementById("grid").hidden = false;
+
+  const withImg = ALL.filter((a) => a.images.length).length;
+  const years = [...new Set(ALL.map((a) => a.year).filter(Boolean))]
+    .sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+  document.getElementById("stats").textContent =
+    ALL.length + " works · " + withImg + " with images · " +
+    (years.length ? years.at(-1) + "–" + years[0] : "");
+  if (FETCHED_AT) {
+    document.getElementById("fetched").textContent = "fetched " + fmtDate(FETCHED_AT);
+  }
+
+  const tagSel = document.getElementById("filter-tag");
+  for (const t of TAG_OPTIONS) {
+    const opt = document.createElement("option");
+    opt.value = t.title;
+    opt.textContent = t.title + " (" + t.count + ")";
+    tagSel.appendChild(opt);
+  }
+  const yearSel = document.getElementById("filter-year");
+  for (const y of years) {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    yearSel.appendChild(opt);
+  }
+
+  tagSel.onchange = (e) => { state.tag = e.target.value; render(); };
+  yearSel.onchange = (e) => { state.year = e.target.value; render(); };
+  document.getElementById("filter-search").oninput = (e) => { state.q = e.target.value.toLowerCase(); render(); };
+  document.getElementById("filter-images").onchange = (e) => { state.imgOnly = e.target.checked; render(); };
+
+  document.getElementById("modal").onclick = closeModal;
+  document.addEventListener("keydown", (e) => {
+    if (!document.getElementById("modal").classList.contains("open")) return;
+    if (e.key === "Escape") closeModal();
+    else if (e.key === "ArrowLeft") navImg(-1);
+    else if (e.key === "ArrowRight") navImg(1);
+  });
+
+  render();
+}
+
+function render() {
+  let rows = ALL;
+  if (state.tag) rows = rows.filter((a) => a.tags.some((t) => t.title === state.tag));
+  if (state.year) rows = rows.filter((a) => a.year === state.year);
+  if (state.imgOnly) rows = rows.filter((a) => a.images.length);
+  if (state.q) {
+    rows = rows.filter((a) =>
+      a.title.toLowerCase().includes(state.q) ||
+      a.medium.toLowerCase().includes(state.q) ||
+      a.dimensions.toLowerCase().includes(state.q) ||
+      a.uid.toLowerCase().includes(state.q) ||
+      a.tags.some((t) => t.title.toLowerCase().includes(state.q))
+    );
+  }
+
+  document.getElementById("count").textContent = rows.length + " works";
+
+  const grid = document.getElementById("grid");
+  const empty = document.getElementById("empty");
+  if (rows.length === 0) {
+    grid.hidden = true;
+    empty.hidden = false;
+    return;
+  }
+  grid.hidden = false;
+  empty.hidden = true;
+
+  const frag = document.createDocumentFragment();
+  for (const a of rows) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.id = a.id;
+    card.onclick = () => openModal(a.id);
+
+    const firstImg = a.images[0];
+    const imgWrap = document.createElement("div");
+    imgWrap.className = "img-wrap" + (firstImg ? "" : " empty");
+    if (firstImg) {
+      const img = document.createElement("img");
+      img.src = firstImg.url;
+      img.alt = a.title;
+      img.loading = "lazy";
+      imgWrap.appendChild(img);
+      if (a.images.length > 1) {
+        const c = document.createElement("span");
+        c.className = "img-count";
+        c.textContent = a.images.length;
+        imgWrap.appendChild(c);
+      }
+    }
+    card.appendChild(imgWrap);
+
+    const info = document.createElement("div");
+    info.className = "info";
+    info.innerHTML =
+      "<h3><em>" + esc(a.title || "Untitled") + "</em></h3>" +
+      (a.year ? "<div class=\"year\">" + esc(a.year) + "</div>" : "") +
+      (a.medium ? "<div class=\"medium\">" + esc(a.medium) + "</div>" : "") +
+      (a.dimensions ? "<div class=\"dims\">" + esc(a.dimensions) + "</div>" : "") +
+      (a.tags.length ? "<div class=\"tags\">" + a.tags.slice(0, 3).map((t) => "<span class=\"tag\">" + esc(t.title) + "</span>").join("") + "</div>" : "") +
+      (a.uid ? "<div class=\"serial\">№ " + esc(a.uid) + "</div>" : "");
+    card.appendChild(info);
+    frag.appendChild(card);
+  }
+  grid.innerHTML = "";
+  grid.appendChild(frag);
+}
+
+function openModal(id) {
+  const a = ALL.find((x) => x.id === id);
+  if (!a) return;
+  CURRENT = a;
+  IMG_INDEX = 0;
+
+  document.getElementById("m-title").textContent = a.title || "Untitled";
+  const yearBits = [a.year, a.uid ? "№ " + a.uid : ""].filter(Boolean);
+  document.getElementById("m-year").textContent = yearBits.join(" · ");
+
+  const dl = document.getElementById("m-dl");
+  dl.innerHTML = "";
+  function row(k, v) {
+    if (!v) return;
+    dl.innerHTML += "<dt>" + esc(k) + "</dt><dd>" + v + "</dd>";
+  }
+  row("Title", esc(a.title || "Untitled"));
+  row("Year", esc(a.year));
+  row("Medium", esc(a.medium));
+  row("Dimensions", esc(a.dimensions));
+  if (a.tags.length) {
+    row(
+      "Tags",
+      "<div class=\"tags-full\">" +
+        a.tags
+          .map((t) => "<span class=\"tag\" onclick=\"filterByTag('" + esc(t.title).replace(/'/g, "&#39;") + "')\">" + esc(t.title) + "</span>")
+          .join("") +
+        "</div>"
+    );
+  }
+  if (a.collections.length) {
+    row("Collections", a.collections.map((c) => esc(c.title)).join(", "));
+  }
+  if (a.editions.length) {
+    row("Editions", "<pre style=\"font-size:0.7rem\">" + esc(JSON.stringify(a.editions, null, 2)) + "</pre>");
+  }
+  row("Images", a.images.length ? a.images.length + (a.images.length === 1 ? " image" : " images") : "None on file");
+  row("Catalog №", a.uid ? "<code>" + esc(a.uid) + "</code>" : "");
+  row("Valise ID", "<code>" + esc(a.id) + "</code>");
+  row("Created", fmtDate(a.createdAt));
+  row("Updated", fmtDate(a.updatedAt));
+
+  document.getElementById("m-raw").textContent = JSON.stringify(a, null, 2);
+
+  renderImage();
+
+  const thumbs = document.getElementById("m-thumbs");
+  thumbs.innerHTML = "";
+  if (a.images.length > 1) {
+    a.images.forEach((im, i) => {
+      const t = document.createElement("div");
+      t.className = "thumb" + (i === 0 ? " active" : "");
+      t.onclick = (ev) => { ev.stopPropagation(); IMG_INDEX = i; renderImage(); };
+      const img = document.createElement("img");
+      img.src = im.url;
+      t.appendChild(img);
+      thumbs.appendChild(t);
+    });
+  }
+
+  document.getElementById("modal").classList.add("open");
+}
+
+function renderImage() {
+  const a = CURRENT;
+  if (!a) return;
+  const img = document.getElementById("m-img");
+  const empty = document.getElementById("m-empty");
+  const info = document.getElementById("m-img-info");
+  const link = document.getElementById("m-img-link");
+  const prev = document.getElementById("prev-img");
+  const next = document.getElementById("next-img");
+
+  if (!a.images.length) {
+    img.hidden = true;
+    empty.hidden = false;
+    info.textContent = "";
+    link.textContent = "";
+    prev.style.visibility = next.style.visibility = "hidden";
+    return;
+  }
+  const im = a.images[IMG_INDEX];
+  img.src = im.url;
+  img.alt = a.title;
+  img.hidden = false;
+  empty.hidden = true;
+  info.textContent =
+    (IMG_INDEX + 1) + " / " + a.images.length +
+    (im.filename ? "  ·  " + im.filename : "") +
+    (im.w && im.h ? "  ·  " + im.w + "×" + im.h : "");
+  link.innerHTML = "<a href=\"" + esc(im.url) + "\" target=\"_blank\" rel=\"noopener\">open ↗</a>";
+  prev.style.visibility = next.style.visibility = a.images.length > 1 ? "visible" : "hidden";
+  for (const [i, t] of [...document.querySelectorAll("#m-thumbs .thumb")].entries()) {
+    t.classList.toggle("active", i === IMG_INDEX);
+  }
+}
+
+function navImg(dir) {
+  if (!CURRENT || !CURRENT.images.length) return;
+  const n = CURRENT.images.length;
+  IMG_INDEX = (IMG_INDEX + dir + n) % n;
+  renderImage();
+}
+
+function filterByTag(tag) {
+  state.tag = tag;
+  document.getElementById("filter-tag").value = tag;
+  closeModal();
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+}
+
+boot();
+</script>
+</body>
+</html>

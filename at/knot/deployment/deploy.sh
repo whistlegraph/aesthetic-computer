@@ -21,6 +21,8 @@ KNOT_DOMAIN="knot.aesthetic.computer"
 KNOT_PUBLIC_PORT=5555
 KNOT_INTERNAL_PORT=5444
 APPVIEW_ENDPOINT="https://tangled.org"
+# Tag from https://tangled.org/@tangled.org/core (empty = build master HEAD)
+KNOT_VERSION="${KNOT_VERSION:-v1.13.0-alpha}"
 
 # PDS droplet — knot co-hosts here
 PDS_DEPLOY_DIR="$SCRIPT_DIR/../../pds/deployment/digitalocean"
@@ -145,8 +147,8 @@ ENDSSH
 }
 
 build_knot() {
-    info "Building knot binary..."
-    remote << 'ENDSSH'
+    info "Building knot binary (version: ${KNOT_VERSION:-master})..."
+    remote KNOT_VERSION="$KNOT_VERSION" bash -s << 'ENDSSH'
 set -euo pipefail
 export PATH=$PATH:/usr/local/go/bin
 
@@ -157,11 +159,19 @@ rm -rf tangled-core
 git clone https://tangled.org/@tangled.org/core tangled-core
 cd tangled-core
 
+if [ -n "${KNOT_VERSION:-}" ]; then
+    git fetch --tags
+    git checkout "$KNOT_VERSION"
+fi
+
 CGO_ENABLED=1 go build -o knot ./cmd/knot
 
-mv knot /usr/local/bin/knot
-chown root:root /usr/local/bin/knot
-chmod 755 /usr/local/bin/knot
+# Preserve previous binary for rollback
+if [ -f /usr/local/bin/knot ]; then
+    cp -a /usr/local/bin/knot "/usr/local/bin/knot.prev.$(date -u +%Y%m%d-%H%M%S)"
+fi
+
+install -o root -g root -m 0755 knot /usr/local/bin/knot
 
 rm -rf /tmp/tangled-core
 
