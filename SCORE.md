@@ -58,7 +58,7 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 
 **Backend**
 - `session-server/` — Real-time multiplayer (Socket.io)
-- `lith/` — Monolith deploy (Express wrapping Netlify function handlers + static files, served via Caddy on a DigitalOcean VPS)
+- `lith/` — Production monolith deploy (Express + Caddy on a DigitalOcean VPS, pulled from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core` via `lith/deploy.fish`). Express adapts the handlers in `system/netlify/functions/` as routes — the `netlify/functions/` path is historical; Netlify is no longer the host.
 - Authentication and data storage
 
 **Languages**
@@ -197,7 +197,7 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 - `ac-chat-clock` — Start clock chat
 - `ac-stripe-print` — Stripe print service
 - `ac-stripe-ticket` — Stripe ticket service
-- `ac-logger` — View netlify function logs
+- `ac-logger` — View lith backend logs (the handlers living under `system/netlify/functions/` run under lith's Express; the name is legacy)
 - `ac-oven` — Oven service
 - `ac-offline` — Offline mode
 

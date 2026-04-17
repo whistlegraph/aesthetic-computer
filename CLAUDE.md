@@ -202,9 +202,9 @@ The API is provided through function parameters. Common APIs:
 ### Servers and Services
 
 1. **System Server** (`system/` + `lith/`)
-   - Production: lith monolith (Express + Caddy on DigitalOcean VPS)
+   - Production: **lith** monolith — Express + Caddy on a DigitalOcean VPS (`lith.aesthetic.computer`). Deployed with `fish lith/deploy.fish`, which pulls from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core`. Netlify is no longer the host.
    - Dev: `npm run site` (port 8888)
-   - Backend functions in `system/netlify/functions/`
+   - Backend function handlers live in `system/netlify/functions/` — the path is historical, but lith's Express adapts each file as a route, so keep adding new endpoints there.
    - Handles piece serving, authentication, storage APIs
 
 2. **Session Server** (`session-server/`)
