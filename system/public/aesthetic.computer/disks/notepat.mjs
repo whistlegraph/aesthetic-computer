@@ -4648,71 +4648,39 @@ function paint({
     }
 
     abletonBtn?.paint((btn) => {
-      ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(
-        btn.box.x,
-        btn.box.y + 3,
-        btn.box.w,
-        btn.box.h - 3,
-      );
+      ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(btn.box);
       if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-        );
-        ink(150, 175, 255, 160).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-          "outline",
-        );
+        ink(255, 255, 255, 24).box(btn.box);
+        ink(150, 175, 255, 160).box(btn.box, "outline");
       }
       ink(90, 120, 210).line(
         btn.box.x + btn.box.w,
-        btn.box.y + 3,
+        btn.box.y,
         btn.box.x + btn.box.w,
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? [235, 240, 255] : [175, 205, 255]).write(
-        "m4l",
-        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        abletonBtn.label || "m4l",
+        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
         undefined, undefined, false, "MatrixChunky8"
       );
     });
 
     osBtn?.paint((btn) => {
-      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(
-        btn.box.x,
-        btn.box.y + 3,
-        btn.box.w,
-        btn.box.h - 3,
-      );
+      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(btn.box);
       if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-        );
-        ink(100, 255, 255, 140).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-          "outline",
-        );
+        ink(255, 255, 255, 24).box(btn.box);
+        ink(100, 255, 255, 140).box(btn.box, "outline");
       }
       ink(70, 160, 160).line(
         btn.box.x + btn.box.w,
-        btn.box.y + 3,
+        btn.box.y,
         btn.box.x + btn.box.w,
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
-        "os",
-        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        osBtn.label || "os",
+        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
         undefined, undefined, false, "MatrixChunky8"
       );
     });
@@ -4720,36 +4688,20 @@ function paint({
     drumBtn?.paint((btn) => {
       const base = drumMode ? [90, 30, 30] : [30, 20, 40];
       const bright = drumMode ? [220, 110, 110] : [120, 120, 180];
-      ink(btn.down ? [140, 60, 60] : base).box(
-        btn.box.x,
-        btn.box.y + 3,
-        btn.box.w,
-        btn.box.h - 3,
-      );
+      ink(btn.down ? [140, 60, 60] : base).box(btn.box);
       if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-        );
-        ink(255, 160, 160, 140).box(
-          btn.box.x,
-          btn.box.y + 3,
-          btn.box.w,
-          btn.box.h - 3,
-          "outline",
-        );
+        ink(255, 255, 255, 24).box(btn.box);
+        ink(255, 160, 160, 140).box(btn.box, "outline");
       }
       ink(bright).line(
         btn.box.x + btn.box.w,
-        btn.box.y + 3,
+        btn.box.y,
         btn.box.x + btn.box.w,
         btn.box.y + btn.box.h - 1,
       );
       ink(btn.down ? [255, 220, 220] : bright).write(
-        "drm",
-        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        drumBtn.label || "drm",
+        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
         undefined, undefined, false, "MatrixChunky8"
       );
     });
@@ -8364,49 +8316,58 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-function buildAbletonButton({ ui }) {
-  const margin = 4;
-  const labelWidth = 3 * 6;
-  const buttonWidth = labelWidth + margin * 2;
-  const buttonHeight = 10 + margin * 2 - 1 + 2;
-  const waveX = waveBtn?.box?.x ?? 9999;
-  abletonBtn = new ui.Button(
-    waveX - buttonWidth - 3,
-    0,
-    buttonWidth,
-    buttonHeight,
-  );
+// OS bar (m4l / os / drum) — dedicated row below the secondary bar so the
+// top bar stays uncluttered. Buttons are right-aligned and chain leftward;
+// when the screen is narrow they collapse widths/labels so they still fit.
+const OS_BAR_BTN_GAP = 3;
+const OS_BAR_RIGHT_MARGIN = 4;
+
+function osBarButtonMetrics({ screen }) {
+  const isNarrow = screen.width < 240;
+  const isVeryNarrow = screen.width < 180;
+  const padX = isVeryNarrow ? 2 : isNarrow ? 3 : 4;
+  const glyph = 6;
+  return {
+    isNarrow,
+    isVeryNarrow,
+    padX,
+    glyph,
+    y: OS_BAR_TOP + 1,
+    h: OS_BAR_HEIGHT - 2,
+    labels: {
+      ableton: "m4l",
+      os: "os",
+      drum: isNarrow ? "drm" : "drum",
+    },
+  };
+}
+
+function buildAbletonButton({ ui, screen }) {
+  const m = osBarButtonMetrics({ screen });
+  const w = m.labels.ableton.length * m.glyph + m.padX * 2;
+  const x = screen.width - OS_BAR_RIGHT_MARGIN - w;
+  abletonBtn = new ui.Button(x, m.y, w, m.h);
   abletonBtn.id = "ableton-button";
+  abletonBtn.label = m.labels.ableton;
 }
 
-function buildOsButton({ ui }) {
-  const margin = 4;
-  const labelWidth = 2 * 6;
-  const buttonWidth = labelWidth + margin * 2;
-  const buttonHeight = 10 + margin * 2 - 1 + 2;
-  const abletonX = abletonBtn?.box?.x ?? waveBtn?.box?.x ?? 9999;
-  osBtn = new ui.Button(
-    abletonX - buttonWidth - 3,
-    0,
-    buttonWidth,
-    buttonHeight,
-  );
+function buildOsButton({ ui, screen }) {
+  const m = osBarButtonMetrics({ screen });
+  const w = m.labels.os.length * m.glyph + m.padX * 2;
+  const anchorX = abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
+  osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
   osBtn.id = "os-button";
+  osBtn.label = m.labels.os;
 }
 
-function buildDrumButton({ ui }) {
-  const margin = 4;
-  const labelWidth = 3 * 6; // "drm"
-  const buttonWidth = labelWidth + margin * 2;
-  const buttonHeight = 10 + margin * 2 - 1 + 2;
-  const osX = osBtn?.box?.x ?? abletonBtn?.box?.x ?? waveBtn?.box?.x ?? 9999;
-  drumBtn = new ui.Button(
-    osX - buttonWidth - 3,
-    0,
-    buttonWidth,
-    buttonHeight,
-  );
+function buildDrumButton({ ui, screen }) {
+  const m = osBarButtonMetrics({ screen });
+  const w = m.labels.drum.length * m.glyph + m.padX * 2;
+  const anchorX =
+    osBtn?.box?.x ?? abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
+  drumBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
   drumBtn.id = "drum-button";
+  drumBtn.label = m.labels.drum;
 }
 
 // Build metronome controls and toggle buttons with responsive layout
