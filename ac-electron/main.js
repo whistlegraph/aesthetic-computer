@@ -1,5 +1,5 @@
 /**
- * Aesthetic Computer - Electron Main Process
+ * Aesthetic.Computer - Electron Main Process
  *
  * Single window type:
  * - AC Pane (3D flip view with front webview + back terminal)
@@ -74,7 +74,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 let preferences = {
   showTrayTitle: true,
-  trayTitleText: 'AC',  // Short text next to tray icon
+  trayTitleText: 'Aesthetic.Computer',  // Short text next to tray icon
   launchAtLogin: true,
   defaultMode: 'ac-pane',
   // Window float behavior. When true, new AC Pane / Notepat windows
@@ -337,8 +337,8 @@ function startSiloUpdateChecks() {
 }
 
 // Set app name before anything else
-app.setName('Aesthetic Computer');
-process.title = 'Aesthetic Computer';
+app.setName('Aesthetic.Computer');
+process.title = 'Aesthetic.Computer';
 
 // Set dock icon on macOS
 if (process.platform === 'darwin') {
@@ -549,15 +549,15 @@ function createMenu() {
   const template = [
     // App menu (macOS only)
     ...(isMac ? [{
-      label: 'Aesthetic Computer', // Explicit name for menu bar
+      label: 'Aesthetic.Computer', // Explicit name for menu bar
       submenu: [
         {
-          label: 'About Aesthetic Computer',
+          label: 'About Aesthetic.Computer',
           click: () => {
             dialog.showMessageBox({
               type: 'info',
-              title: 'About Aesthetic Computer',
-              message: 'Aesthetic Computer',
+              title: 'About Aesthetic.Computer',
+              message: 'Aesthetic.Computer',
               detail: `Version ${app.getVersion()}`,
               buttons: ['OK']
             });
@@ -772,7 +772,7 @@ function createSystemTray() {
   updateTrayIcon = createUpdateIcon(icon);
   
   tray = new Tray(icon);
-  tray.setToolTip('Aesthetic Computer');
+  tray.setToolTip('Aesthetic.Computer');
   console.log('[main] System tray created successfully');
   
   // Build and set the context menu
@@ -1105,12 +1105,12 @@ function rebuildTrayMenu() {
       },
       { type: 'separator' },
       {
-        label: `About Aesthetic Computer`,
+        label: `About Aesthetic.Computer`,
         click: () => {
           dialog.showMessageBox({
             type: 'info',
-            title: 'About Aesthetic Computer',
-            message: 'Aesthetic Computer',
+            title: 'About Aesthetic.Computer',
+            message: 'Aesthetic.Computer',
             detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nChrome: ${process.versions.chrome}\nNode: ${process.versions.node}`
           });
         }
