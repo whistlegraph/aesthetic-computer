@@ -708,6 +708,7 @@ function navigateTo(piece) {
 
 // ========== System Tray ==========
 let tray = null;
+let notepatTray = null;
 
 function createSystemTray() {
   // Use template icon for proper macOS menu bar appearance
@@ -833,6 +834,11 @@ function rebuildTrayMenu() {
     label: 'New AC Pane',
     accelerator: isMac ? 'Cmd+N' : 'Ctrl+N',
     click: () => openAcPaneWindow()
+  });
+
+  menuItems.push({
+    label: 'Open Notepat 🎹',
+    click: () => openNotepatWindow()
   });
   
   // Quick DevTools access (especially for Windows)
@@ -1062,6 +1068,42 @@ function rebuildTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
+function createNotepatTray() {
+  if (notepatTray) return;
+
+  let iconPath;
+  if (process.platform === 'darwin') {
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'notepatTrayTemplate.png')
+      : path.join(__dirname, 'build', 'icons', 'notepatTrayTemplate.png');
+  } else {
+    iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'notepatTrayTemplate.png')
+      : path.join(__dirname, 'build', 'icons', 'notepatTrayTemplate.png');
+  }
+
+  const icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) {
+    console.warn('[notepat-tray] Icon empty at', iconPath);
+    return;
+  }
+  if (process.platform === 'darwin') icon.setTemplateImage(true);
+
+  notepatTray = new Tray(icon);
+  notepatTray.setToolTip('Notepat');
+  if (process.platform === 'darwin') notepatTray.setTitle('notepat');
+
+  const open = () => openNotepatWindow();
+  notepatTray.on('click', open);
+
+  const menu = Menu.buildFromTemplate([
+    { label: 'Open Notepat', click: open },
+    { type: 'separator' },
+    { label: 'Quit', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4', click: () => app.quit() },
+  ]);
+  notepatTray.setContextMenu(menu);
+}
+
 // ========== End System Tray ==========
 
 // Update the tray title text (shown next to icon in menu bar)
@@ -1144,6 +1186,57 @@ function navigateToPiece(piece) {
 // Open a new AC Pane window
 async function openAcPaneWindow(options = {}) {
   return openAcPaneWindowInternal(options);
+}
+
+// Open a standalone Notepat window — compact window dedicated to the /notepat piece
+let notepatWindow = null;
+function openNotepatWindow() {
+  if (notepatWindow && !notepatWindow.isDestroyed()) {
+    if (notepatWindow.isMinimized()) notepatWindow.restore();
+    notepatWindow.show();
+    notepatWindow.focus();
+    return notepatWindow;
+  }
+
+  const baseUrl = startInDevMode ? 'http://localhost:8888' : 'https://aesthetic.computer';
+
+  // Match the AC Pane (prompt) window chrome flags exactly so the two
+  // windows feel like a matched set — frameless, transparent, float-on-top.
+  const notepatOpts = {
+    width: 480,
+    height: 360,
+    minWidth: 320,
+    minHeight: 260,
+    title: 'Notepat',
+    frame: false,
+    transparent: !isPaperWM,
+    hasShadow: isPaperWM,
+    alwaysOnTop: !isPaperWM,
+    backgroundColor: isPaperWM ? '#000000' : '#00000000',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webviewTag: true,
+      backgroundThrottling: false,
+    },
+  };
+  if (isPaperWM) notepatOpts.type = 'normal';
+  notepatWindow = new BrowserWindow(notepatOpts);
+
+  notepatWindow.loadFile(
+    getAppPath('renderer/notepat-view.html'),
+    { query: { piece: 'notepat', base: baseUrl } },
+  );
+
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: notepatWindow, mode: 'notepat' });
+
+  notepatWindow.on('closed', () => {
+    windows.delete(windowId);
+    notepatWindow = null;
+  });
+
+  return notepatWindow;
 }
 
 // Open KidLisp window (kidlisp.com)
@@ -2422,6 +2515,7 @@ app.whenReady().then(async () => {
   loadPreferences();
   createMenu();
   createSystemTray();
+  createNotepatTray();
   
   // Start FF1 Bridge server for kidlisp.com integration
   ff1Bridge.startBridge();
@@ -2602,8 +2696,9 @@ app.on('web-contents-created', (event, contents) => {
 });
 
 app.on('window-all-closed', () => {
-  // Quit when all windows are closed, even on macOS
-  app.quit();
+  // Keep tray icons (AC + Notepat) alive on macOS so the menu bar remains an entry point.
+  // Cmd+Q still quits explicitly. On Windows/Linux, close-all still quits.
+  if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('will-quit', () => {
