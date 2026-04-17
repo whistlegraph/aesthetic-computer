@@ -1065,6 +1065,7 @@ let metronomeBallPos = 0; // 0-1 bouncing ball position (bounces between beats)
 
 // 🎹 DAW sync state (Ableton Live via M4L)
 let dawMode = false; // Set from query param OR auto-detected from DAW messages
+let overlayMode = false; // ?overlay=true — transparent bg for electron overlay window
 let dawAutoDetected = false; // True if we auto-detected DAW mode from messages
 let dawSynced = false; // True when receiving valid DAW data
 let dawBpm = null; // BPM from DAW
@@ -1439,6 +1440,11 @@ async function boot({
   // 🎹 Check if we're in DAW mode (loaded from Ableton M4L)
   dawMode = query?.daw === "1" || query?.daw === 1 || query?.daw === true;
   console.log("🎹 Notepat: dawMode =", dawMode, "query.daw =", query?.daw, typeof query?.daw);
+
+  // ?overlay=true → transparent-bg mode for the ac-electron Notepat Overlay
+  // window. Skip background wipes in paint() so the desktop shows through.
+  overlayMode = query?.overlay === "true" || query?.overlay === true || query?.overlay === "1";
+  if (overlayMode) console.log("🪟 Notepat: overlay mode — skipping background wipes");
   
   // Also check if we already have DAW data (survives hot reload)
   if (!dawMode && sound.daw?.bpm) {
@@ -3095,8 +3101,14 @@ function paint({
     sidePanelWidth: autopatConfig.sidePanelWidth,
   }).layout;
 
-  // 🎨 KidLisp visualization — bounded to available space above/between buttons
-  if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
+  // 🪟 Overlay mode: skip background fill entirely so the electron window's
+  // transparency lets the desktop show through between keys. All branches
+  // below (kidlisp viz, fullscreen visualizer, recital, plain bg) paint a
+  // base background each frame — none of them are wanted here.
+  if (overlayMode) {
+    // Also skip the background visualizers (viz, recital, kidlisp viz) —
+    // overlay mode is strictly the piano keys + labels on transparent.
+  } else if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
     const klY = OS_BAR_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
