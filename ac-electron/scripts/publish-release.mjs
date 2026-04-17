@@ -13,6 +13,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
@@ -51,6 +52,11 @@ const s3 = new S3Client({
     secretAccessKey: process.env.SPACES_SECRET || "",
   },
   forcePathStyle: false,
+  // DO Spaces' S3 impl still expects the legacy XML Checksum behavior;
+  // AWS SDK v3 otherwise sends checksum headers that Spaces rejects with
+  // InvalidArgument 400 during multipart.
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 // Files to upload: manifests + binaries matching current version
@@ -106,7 +112,7 @@ function platformFromManifest(name) {
 
 async function uploadFile(file) {
   const key = PREFIX + file.name;
-  const body = fs.readFileSync(file.path);
+  const size = fs.statSync(file.path).size;
   const contentType = file.isManifest
     ? "text/yaml"
     : "application/octet-stream";
@@ -114,15 +120,51 @@ async function uploadFile(file) {
     ? "no-cache, no-store, must-revalidate"
     : "public, max-age=31536000";
 
-  console.log(`  Uploading ${file.name} (${(body.length / 1024 / 1024).toFixed(1)} MB) → s3://${BUCKET}/${key}`);
+  console.log(`  Uploading ${file.name} (${(size / 1024 / 1024).toFixed(1)} MB) → s3://${BUCKET}/${key}`);
 
   if (dryRun) return;
+
+  // Use multipart for anything over 8 MB — DO Spaces frequently times out
+  // single-part PutObject on large files (e.g. the 200 MB DMG). DO Spaces
+  // rejects the ACL header on CreateMultipartUpload — we set ACL after.
+  if (size > 8 * 1024 * 1024) {
+    const upload = new Upload({
+      client: s3,
+      params: {
+        Bucket: BUCKET,
+        Key: key,
+        Body: fs.createReadStream(file.path),
+        ContentType: contentType,
+        CacheControl: cacheControl,
+      },
+      queueSize: 4,
+      partSize: 16 * 1024 * 1024,
+      leavePartsOnError: false,
+    });
+    upload.on("httpUploadProgress", (p) => {
+      if (p.total) {
+        const pct = ((p.loaded / p.total) * 100).toFixed(0);
+        process.stdout.write(`\r    ${pct}% (${(p.loaded / 1024 / 1024).toFixed(1)}/${(p.total / 1024 / 1024).toFixed(1)} MB)`);
+      }
+    });
+    await upload.done();
+    process.stdout.write("\n");
+    // Apply public-read ACL as a follow-up (DO Spaces requires this path
+    // when the initial multipart request can't carry ACL).
+    const { PutObjectAclCommand } = await import("@aws-sdk/client-s3");
+    await s3.send(new PutObjectAclCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ACL: "public-read",
+    }));
+    return;
+  }
 
   await s3.send(
     new PutObjectCommand({
       Bucket: BUCKET,
       Key: key,
-      Body: body,
+      Body: fs.readFileSync(file.path),
       ContentType: contentType,
       CacheControl: cacheControl,
       ACL: "public-read",
@@ -214,6 +256,10 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("\nPublish failed:", err.message);
+  console.error("\nPublish failed:", err.name, "-", err.message);
+  if (err.$metadata) console.error("  http:", err.$metadata.httpStatusCode);
+  if (err.Code) console.error("  code:", err.Code);
+  if (err.cause) console.error("  cause:", err.cause?.message || err.cause);
+  if (err.stack) console.error(err.stack);
   process.exit(1);
 });
