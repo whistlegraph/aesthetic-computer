@@ -75,7 +75,7 @@ const PREFS_PATH = path.join(app.getPath('userData'), 'preferences.json');
 let preferences = {
   showTrayTitle: true,
   trayTitleText: 'AC',  // Short text next to tray icon
-  launchAtLogin: false,
+  launchAtLogin: true,
   defaultMode: 'ac-pane',
   // Window float behavior. When true, new AC Pane / Notepat windows
   // open with alwaysOnTop so they float above other apps (the old
@@ -350,6 +350,20 @@ if (process.platform === 'darwin') {
     }
   } catch (e) {
     console.warn('Could not set dock icon:', e.message);
+  }
+}
+
+// On macOS, hide the dock icon when there are no visible windows so the app
+// acts as a pure menubar daemon. Shown again as soon as any window opens.
+function syncDockVisibility() {
+  if (process.platform !== 'darwin' || !app.dock) return;
+  const hasVisibleWindow = BrowserWindow.getAllWindows().some(
+    (w) => !w.isDestroyed() && w.isVisible()
+  );
+  if (hasVisibleWindow) {
+    if (!app.dock.isVisible()) app.dock.show().catch(() => {});
+  } else {
+    if (app.dock.isVisible()) app.dock.hide();
   }
 }
 
@@ -2642,6 +2656,36 @@ ipcMain.on('open-devtools', (event) => {
 // App lifecycle
 app.whenReady().then(async () => {
   loadPreferences();
+
+  // Always sync the OS login-item setting with our stored preference on boot.
+  // This way the preference survives updates / re-signing and is always honored.
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: preferences.launchAtLogin,
+        openAsHidden: true,
+      });
+    } catch (e) {
+      console.warn('[main] setLoginItemSettings failed:', e.message);
+    }
+  }
+
+  // Detect whether this launch was triggered by macOS at login (or with the
+  // hidden flag). If so, we stay in menubar-daemon mode and don't pop the AC
+  // window — the user will open things explicitly from the tray.
+  let launchedSilently = false;
+  if (process.platform === 'darwin') {
+    try {
+      const lis = app.getLoginItemSettings();
+      launchedSilently = !!(lis.wasOpenedAtLogin || lis.wasOpenedAsHidden);
+    } catch (e) {
+      /* noop */
+    }
+  }
+  // Hide the dock immediately so launch-at-login has zero visible footprint
+  // until the user clicks a tray icon.
+  if (launchedSilently) syncDockVisibility();
+
   createMenu();
   createSystemTray();
   createNotepatTray();
@@ -2679,13 +2723,26 @@ app.whenReady().then(async () => {
   setInterval(checkRebootMarker, 2000);
   
   // Create initial window(s)
-  // Always start with an AC Pane window
-  openAcPaneWindow();
+  // When launched silently at login, stay in menubar-daemon mode: no AC
+  // window, no dock icon. The user opens things explicitly from the tray.
+  if (!launchedSilently) {
+    openAcPaneWindow();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       openAcPaneWindow();
     }
+  });
+
+  // Keep dock visibility in sync with window state on macOS so the app
+  // fades out of the dock / app-switcher whenever all windows close, and
+  // comes back as soon as a window opens.
+  app.on('browser-window-created', (_, win) => {
+    syncDockVisibility();
+    win.on('show', syncDockVisibility);
+    win.on('hide', syncDockVisibility);
+    win.on('closed', syncDockVisibility);
   });
   
   // Allow webview preload scripts (required for webview-preload.js to work)
@@ -2827,7 +2884,12 @@ app.on('web-contents-created', (event, contents) => {
 app.on('window-all-closed', () => {
   // Keep tray icons (AC + Notepat) alive on macOS so the menu bar remains an entry point.
   // Cmd+Q still quits explicitly. On Windows/Linux, close-all still quits.
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    app.quit();
+    return;
+  }
+  // Drop out of the dock / app-switcher — pure menubar daemon mode.
+  syncDockVisibility();
 });
 
 app.on('will-quit', () => {
