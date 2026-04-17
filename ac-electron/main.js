@@ -76,7 +76,12 @@ let preferences = {
   showTrayTitle: true,
   trayTitleText: 'AC',  // Short text next to tray icon
   launchAtLogin: false,
-  defaultMode: 'ac-pane'
+  defaultMode: 'ac-pane',
+  // Window float behavior. When true, new AC Pane / Notepat windows
+  // open with alwaysOnTop so they float above other apps (the old
+  // default). When false (new default), they behave like normal windows
+  // and can be ordered underneath. Toggled from the tray menu.
+  alwaysOnTop: false,
 };
 
 function loadPreferences() {
@@ -840,7 +845,24 @@ function rebuildTrayMenu() {
     label: 'Open Notepat 🎹',
     click: () => openNotepatWindow()
   });
-  
+
+  // Always-on-top toggle. Persisted to preferences.json and applied to
+  // every current AC window on change; new windows inherit via their
+  // BrowserWindow opts.
+  menuItems.push({
+    label: 'Always on Top',
+    type: 'checkbox',
+    checked: !!preferences.alwaysOnTop,
+    click: (item) => {
+      preferences.alwaysOnTop = !!item.checked;
+      savePreferences();
+      for (const w of BrowserWindow.getAllWindows()) {
+        try { w.setAlwaysOnTop(preferences.alwaysOnTop); } catch (_) {}
+      }
+      rebuildTrayMenu();
+    }
+  });
+
   // Quick DevTools access (especially for Windows)
   menuItems.push({
     label: 'Open DevTools',
@@ -1211,7 +1233,7 @@ function openNotepatWindow() {
     frame: false,
     transparent: !isPaperWM,
     hasShadow: isPaperWM,
-    alwaysOnTop: !isPaperWM,
+    alwaysOnTop: !isPaperWM && preferences.alwaysOnTop,
     backgroundColor: isPaperWM ? '#000000' : '#00000000',
     webPreferences: {
       nodeIntegration: true,
@@ -1328,7 +1350,7 @@ async function openAcPaneWindowInternal(options = {}) {
     frame: false,
     transparent: !isPaperWM,
     hasShadow: isPaperWM,
-    alwaysOnTop: !isPaperWM,
+    alwaysOnTop: !isPaperWM && preferences.alwaysOnTop,
     backgroundColor: isPaperWM ? '#000000' : '#00000000',
     webPreferences: {
       nodeIntegration: true,
