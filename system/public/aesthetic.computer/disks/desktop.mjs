@@ -4,11 +4,11 @@
 // Fetches real release info from GitHub.
 // Detects if running inside Electron app and shows update status.
 
-// Download URLs (fallback)
+// Download URLs (fallback — silo's platform redirect serves the current release)
 const DOWNLOADS = {
-  mac: `/desktop/mac`,
-  win: `/desktop/win`,
-  linux: `/desktop/linux`,
+  mac: `https://silo.aesthetic.computer/desktop/download/mac`,
+  win: `https://silo.aesthetic.computer/desktop/download/win`,
+  linux: `https://silo.aesthetic.computer/desktop/download/linux`,
 };
 
 // GitHub release info
