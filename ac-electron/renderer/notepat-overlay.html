@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Notepat Overlay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    /* A very subtle drag strip across the top 10px of the overlay. No
+       visible chrome — the whole window should feel like content floating
+       directly on the desktop. Users can still grab the top edge to move
+       the window because the strip is drag-registered. */
+    #drag-strip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 10px;
+      -webkit-app-region: drag;
+      z-index: 10;
+      background: transparent;
+    }
+
+    /* Corner resize handle (bottom-right). Small visual hint, draggable
+       via OS-level window resize since frame:false strips the default
+       resize corners. Electron forwards the drag to the window manager. */
+    #resize-grip {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      /* No app-region — Electron re-adds resize from frameless windows
+         on hover over the very edge, but a visible grip helps discoverability. */
+      z-index: 10;
+      opacity: 0.5;
+      background:
+        linear-gradient(135deg, transparent 0%, transparent 55%,
+                                rgba(255,255,255,0.6) 55%, rgba(255,255,255,0.6) 60%,
+                                transparent 60%, transparent 70%,
+                                rgba(255,255,255,0.6) 70%, rgba(255,255,255,0.6) 75%,
+                                transparent 75%, transparent 85%,
+                                rgba(255,255,255,0.6) 85%, rgba(255,255,255,0.6) 90%,
+                                transparent 90%);
+    }
+    @media (prefers-color-scheme: light) {
+      #resize-grip { background:
+        linear-gradient(135deg, transparent 0%, transparent 55%,
+                                rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.5) 60%,
+                                transparent 60%, transparent 70%,
+                                rgba(0,0,0,0.5) 70%, rgba(0,0,0,0.5) 75%,
+                                transparent 75%, transparent 85%,
+                                rgba(0,0,0,0.5) 85%, rgba(0,0,0,0.5) 90%,
+                                transparent 90%);
+      }
+    }
+
+    #note-webview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div id="drag-strip"></div>
+  <webview
+    id="note-webview"
+    src="about:blank"
+    allowpopups
+    preload="../webview-preload.js"
+    transparent="true"
+  ></webview>
+  <div id="resize-grip"></div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const webviewEl = document.getElementById('note-webview');
+
+    const params = new URLSearchParams(location.search);
+    const base = params.get('base') || 'https://aesthetic.computer';
+    const piece = (params.get('piece') || 'notepat').replace(/^\/+/, '');
+    // overlay=true tells the notepat piece to skip its background wipe
+    // so the window transparency actually shows through.
+    webviewEl.src = `${base}/${piece}?desktop&nogap=true&overlay=true`;
+
+    window.addEventListener('keydown', (e) => {
+      const mod = navigator.platform.toLowerCase().includes('mac') ? e.metaKey : e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        window.close();
+      }
+    });
+
+    webviewEl.addEventListener('did-navigate', (e) => {
+      try {
+        const pathname = new URL(e.url).pathname;
+        const current = pathname.replace(/^\//, '').split('/')[0] || piece;
+        ipcRenderer.invoke('set-current-piece', current);
+      } catch (_) {}
+    });
+
+    webviewEl.addEventListener('did-fail-load', (e) => {
+      console.warn('[notepat-overlay] webview failed to load:', e.errorCode, e.errorDescription, e.validatedURL);
+    });
+  </script>
+</body>
+</html>
