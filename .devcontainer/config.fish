@@ -23,8 +23,10 @@ if test -f $HOME/.fnm/fnm
 end
 
 # Symlink a VSCode workspace as needed.
-
-if test -d /workspaces/aesthetic-computer
+# On macOS the relationship is reversed: /workspaces is a synthetic.conf symlink
+# to the user's home, so the repo already lives at ~/aesthetic-computer and the
+# codespaces-style symlink would loop/fail. Skip on Darwin.
+if test -d /workspaces/aesthetic-computer; and test (uname) != Darwin
     if test ! -L ~/aesthetic-computer
         echo "Symlinking /workspaces/aesthetic-computer to ~"
         ln -s /workspaces/aesthetic-computer ~
