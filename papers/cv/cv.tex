@@ -1,0 +1,367 @@
+% !TEX program = xelatex
+% Jeffrey Alan Scudder — Curriculum Vitae
+% Source of truth lives alongside justanothersystem.org/cv (the HTML version).
+% The HTML carries the bio narrative + portrait slideshow; this PDF is the
+% CV listings only, per the site footer link "Download PDF".
+%
+% Build (from the papers/cv directory):
+%   tectonic -X compile cv.tex        # produces cv.pdf
+%   # or, if you have MacTeX:
+%   xelatex cv.tex
+
+\documentclass[10pt,letterpaper]{article}
+
+% === GEOMETRY ===
+\usepackage[top=0.75in, bottom=0.75in, left=0.9in, right=0.9in]{geometry}
+
+% === FONTS ===
+% Use Latin Modern via its lmodern package so the document compiles with
+% either MacTeX (system fonts) or Tectonic (package-bundled OTFs) without
+% requiring the "Latin Modern Roman" family to be installed system-wide.
+\usepackage{fontspec}
+\setmainfont[
+  Extension = .otf,
+  UprightFont = lmroman10-regular,
+  BoldFont = lmroman10-bold,
+  ItalicFont = lmroman10-italic,
+  BoldItalicFont = lmroman10-bolditalic,
+]{lmroman10}
+\setsansfont[
+  Extension = .otf,
+  UprightFont = lmsans10-regular,
+  BoldFont = lmsans10-bold,
+  ItalicFont = lmsans10-oblique,
+]{lmsans10}
+\setmonofont[
+  Extension = .otf,
+  UprightFont = lmmono10-regular,
+  ItalicFont = lmmono10-italic,
+  Scale = 0.85,
+]{lmmono10}
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{parskip}
+
+% === COLORS (AC palette — shared with arxiv-* papers) ===
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+
+% === HYPERREF ===
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  citecolor=acpurple,
+  pdfauthor={Jeffrey Alan Scudder},
+  pdftitle={Jeffrey Alan Scudder --- Curriculum Vitae},
+  pdfsubject={Curriculum Vitae},
+  pdfkeywords={Jeffrey Alan Scudder, CV, Aesthetic Computer, Whistlegraph, Radical Digital Painting},
+}
+
+% === SECTION FORMATTING ===
+% Small-caps uppercase title with a thin gray rule underneath, matching
+% the section feel of the arxiv-* papers without pulling in the working-
+% draft watermark from ac-paper-layout.sty.
+\titleformat{name=\section,numberless}[block]
+  {\normalfont\bfseries\small\color{acdark}}
+  {}
+  {0pt}
+  {\MakeUppercase}
+  [\vspace{-0.25em}{\color{acgray}\rule{\linewidth}{0.4pt}}]
+\titlespacing*{\section}{0pt}{1.4em}{0.5em}
+
+% === HEADER / FOOTER ===
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\color{acgray} Jeffrey Alan Scudder --- Curriculum Vitae}
+\fancyhead[R]{\footnotesize\color{acgray}\href{https://justanothersystem.org/cv}{justanothersystem.org/cv}}
+\fancyfoot[C]{\footnotesize\color{acgray}\thepage}
+
+\fancypagestyle{firstpage}{%
+  \fancyhf{}%
+  \renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[C]{\footnotesize\color{acgray}\thepage}%
+}
+
+% === ENTRY ENVIRONMENT ===
+% cv@entry renders a "year --- body" line with a hanging indent so wrapped
+% lines line up under the body text, not under the year.
+\newlength{\cvyearwidth}
+\setlength{\cvyearwidth}{5em}
+\newenvironment{cvlist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{\cvyearwidth}%
+    \setlength{\labelwidth}{\cvyearwidth}%
+    \setlength{\labelsep}{0.4em}%
+    \setlength{\itemsep}{0.15em}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\topsep}{0.2em}%
+    \renewcommand{\makelabel}[1]{\color{acgray}\small ##1\hfill}%
+  }%
+}{\end{list}}
+\newcommand{\cv}[2]{\item[#1] #2}
+
+% === PARAGRAPH SETTINGS ===
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.25em}
+
+% Avoid bad breaks in lists on short pages
+\widowpenalty=10000
+\clubpenalty=10000
+
+\begin{document}
+\thispagestyle{firstpage}
+
+% ============ HEADER BLOCK ============
+\begin{center}
+  {\fontsize{22pt}{24pt}\selectfont\color{acdark}\textbf{Jeffrey Alan Scudder}}\par
+  \vspace{0.25em}
+  {\small\color{acpink} Curriculum Vitae}\par
+  \vspace{0.6em}
+  {\small
+    \href{https://jas.life}{jas.life} \; \textperiodcentered \;
+    \href{mailto:me@jas.life}{me@jas.life} \; \textperiodcentered \;
+    \href{mailto:mail@aesthetic.computer}{mail@aesthetic.computer}\\[0.2em]
+    TikTok: \href{https://tiktok.com/@whistlegraph}{@whistlegraph},
+    \href{https://tiktok.com/@aesthetic.computer}{@aesthetic.computer} \; \textperiodcentered \;
+    Bluesky: \href{https://bsky.app/profile/aesthetic.computer}{@aesthetic.computer}\\[0.2em]
+    Instagram: \href{https://instagram.com/whistlegraph}{@whistlegraph},
+    \href{https://instagram.com/aesthetic.computer}{@aesthetic.computer}
+  }\par
+\end{center}
+
+\vspace{0.6em}
+{\color{acgray}\rule{\linewidth}{0.4pt}}
+\vspace{0.4em}
+
+% ============ GEO LOG ============
+\section*{Geo. Log}
+\begin{cvlist}
+  \cv{2025}{Los Angeles, CA}
+  \cv{2023}{New York, NY}
+  \cv{2019}{Ashland, OR}
+  \cv{2018}{Berkeley, CA}
+  \cv{2017}{Los Angeles, CA}
+  \cv{2016}{Bridgton, ME}
+  \cv{2013}{Brooklyn, NY}
+  \cv{2011}{New Haven, CT}
+  \cv{2007}{Sarasota, FL}
+  \cv{1989}{Assonet, MA (Born)}
+\end{cvlist}
+
+% ============ EDUCATION ============
+\section*{Education}
+\begin{cvlist}
+  \cv{2013}{Yale School of Art --- MFA}
+  \cv{2011}{Ringling College of Art + Design --- BFA}
+  \cv{2010}{AICAD New York Studio Program Residency}
+  \cv{2006}{Ringling College of Art + Design PreCollege Perspective}
+  \cv{2007}{Apponequet Regional High School}
+\end{cvlist}
+
+% ============ PRESS ============
+\section*{Press, Interviews, Articles and Pages}
+\begin{cvlist}
+  \cv{2023}{\href{https://kadist.org/work/rdp-98-jas-17-4-16-17-03}{Kadist Foundation Artwork Profile}}
+  \cv{2023}{\href{https://dirt.fyi/article/2023/09/whistlegraph}{Whistlegraph --- A new audience for generative art}, Dirt}
+  \cv{2023}{\href{https://sexmag.shop/products/the-whistlegraph-zine}{Sex: The Whistlegraph Zine}, interviews by Asher Penn, essays by Jacob Ciocci \& Perry}
+  \cv{2022}{\href{https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score}{Doodling Clockwork in Lore and Score}, Dorothy Howard, Feral File}
+  \cv{2019}{\href{https://soundcloud.com/theartword/9-jeffrey-alan-scudder-on}{On Radical Digital Painting}, The Artword Podcast}
+  \cv{2019}{\href{https://thecreativeindependent.com/weekends/drawing-is-the-best-videogame-by-jeffrey-alan-scudder}{Drawing is the best videogame}, The Creative Independent}
+  \cv{2018}{\href{https://www.are.na/blog/podcast/2018/09/25/radical-digital-painting.html}{Radical Digital Painting \& Political Rock}, Are.na Blog}
+  \cv{2018}{Harvard Advocate, Winter 2018, \emph{Noise}}
+  \cv{2017}{\href{https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder}{Rhizome Artist Profile: Jeffrey Alan Scudder (Jeffrey Heart)}}
+  \cv{2017}{\href{https://schloss-post.com/manifesto-radical-digital-painting}{A Manifesto for Radical Digital Painting}, Schlosspost}
+  \cv{2017}{\href{https://www.artsy.net/article/artsy-editorial-microsoft-paints-influence-artists-bigger}{Microsoft Paint's Influence on Artists Is Bigger Than You Might Think}, Artsy}
+\end{cvlist}
+
+% ============ LECTURES ============
+\section*{Lectures, Conferences \& Performances}
+\begin{cvlist}
+  \cv{2025}{Talk @ El Cid, Los Angeles, CA}
+  \cv{2020}{New Dynamic Graphics: Whistlegraph Recital @ Korea HCI 2020}
+  \cv{2019}{New Dynamic Graphics @ India HCI 19, Hyderabad, India}
+  \cv{2019}{VJ @ Internet Archive's World Night Market w/ Patrick Vogel, San Francisco}
+  \cv{2019}{RDP @ SF Art Book Fair w/ Alex Freundlich}
+  \cv{2019}{RDP \& VJ @ Internet Archive's DWeb Camp w/ Alex Freundlich}
+  \cv{2019}{RDP @ Yale --- IEEE GEM Conference}
+  \cv{2019}{\href{http://www.raflost.is/jeffrey-alan-scudder}{RDP @ RAFLOST Festival, Iceland}}
+  \cv{2019}{\href{https://www.youtube.com/watch?v=xZMsXPgg_9U}{Radical Digital Painting w/ Ella Fleck (650mAh) @ Weber State University}}
+  \cv{2019}{\href{https://www.instagram.com/p/BtY342PFPpO}{Island Crisis w/ Artur Erman, San Juan, PR}}
+  \cv{2019}{\href{https://day.processing.org/pcd-la-tracks.html}{Radical Pedagogy I --- Flower Eater Drawing Workshop @ Processing Community Day, LA}}
+  \cv{2018}{\href{https://media.ccc.de/v/35c3-9774-radical_digital_painting}{RDP (JAS on Paper), 35c3: Chaos Communication Congress, Leipzig}}
+  \cv{2018}{RDP (JAS on Paper), The House on Sunset, Los Angeles, CA}
+  \cv{2018}{RDP (JAS on Paper), 1 Thoresby St. w/ Leon Sadler, Nottingham, UK}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS, Centrala, Birmingham, UK}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS, Colchester Arts Center, Colchester, UK}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS, Cafe OTO, London, UK}
+  \cv{2018}{RDP (JAS on Paper), Gazelli Art House, London, UK}
+  \cv{2018}{\href{https://www.youtube.com/watch?v=ndz-co7Xpn8}{RDP (JAS on Paper), Digital Painting Class, Sibelius Academy, Helsinki}}
+  \cv{2018}{\href{http://650mah.com/drawing-is-the-best-videogame.html}{RDP (Drawing is the Best Videogame), Hove, UK}}
+  \cv{2018}{RDP (JAS on Paper) Yale School of Art (Painting), New Haven, CT}
+  \cv{2018}{RDP (JAS on Paper) generate!\_lab meets Querfeldein, Tubingen, Germany}
+  \cv{2018}{RDP (JAS on Paper) One Night in Club Danger, curated by Taissa Fromme, Apolda, Germany}
+  \cv{2018}{RDP (JAS on Paper) Bauhaus University: Arts, Weimar, Germany}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS (Rowan van As) Serendip Festival, Paris}
+  \cv{2018}{RDP (JAS on Paper) Klasse Digitale Grafik | HFBK, Hamburg, Germany}
+  \cv{2018}{RDP (JAS on Paper) Exploration Laboratory @ Sibelius Academy, Helsinki}
+  \cv{2018}{RDP (JAS on Paper) Jan van Eyck Academie, Maastricht, Holland}
+  \cv{2018}{Radical Digital Painting \& Political Rock @ Erratum Galerie, Berlin}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, Kammer-Pop, Hamburg}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, Dans for voksne, Oslo}
+  \cv{2018}{RDP (JAS on Paper) w/ Dalin, Rowan \& Ben, Open Forum, Oslo National Academy of the Arts}
+  \cv{2018}{RDP (JAS on Paper) @ Royal Institute of Art, Stockholm}
+  \cv{2018}{RDP (JAS on Paper) @ Estonian Academy of Arts, Tallinn}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS, dodo.org HarFest, Helsinki}
+  \cv{2018}{RDP (JAS on Paper) w/ GP\&PLS, Mayhem, Copenhagen}
+  \cv{2018}{RDP (JAS on Paper) Det Jyske Kunstakademi, Aarhus, Denmark}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, Louisiana Museum Literature Festival}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, KUNSTHAL AARHUS}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, Spanien 19C, Aarhus}
+  \cv{2018}{RDP (JAS on Paper) w/ Goodiepal \& Pals, West Germany Venue, Berlin}
+  \cv{2018}{RDP @ Headquarters, Asheville, NC}
+  \cv{2018}{\href{https://www.instagram.com/p/BlTvNt-BJQ5DbNzzsEGyegK0-f4Uz7O1MwEAB80/?taken-by=justanothersystem}{RDP @ Pioneer Works, Brooklyn, NY}}
+  \cv{2018}{\href{https://www.youtube.com/watch?v=Up2-myTEviE}{RDP Malibu w/ Matty Mo, Malibu, CA}}
+  \cv{2018}{RDP Lecture @ Johannes Vogt Gallery, NYC}
+  \cv{2018}{RDP (x2) @ RISD Foundations w/ Travess Smalley's students, Providence, RI}
+  \cv{2018}{RDP @ UC Santa Barbara, Santa Barbara, CA}
+  \cv{2018}{\href{https://www.facebook.com/events/2058744684449454}{In conversation | on drawing, animation, and coding systems, makeroom.la, LA}}
+  \cv{2018}{RDP @ Harvard Advocate's \emph{Noise} Launch Party, Boston, MA}
+  \cv{2018}{RDP @ SUNY Purchase, NY}
+  \cv{2018}{\href{https://www.facebook.com/events/1901578033465958}{Casey Reas \& Jeffrey Alan Scudder in Conversation, bitforms gallery, NYC}}
+  \cv{2018}{\href{https://www.youtube.com/watch?v=533s7uZ35rQ}{RDP @ 1st Annual HASH Award, ZKM, Karlsruhe}}
+  \cv{2018}{RDP @ Coaxial Arts in LA}
+  \cv{2017}{\href{https://justanothersystem.org}{Radical Digital Painting Northeast US Lecture Tour w/ JAS Team} (Parsons, Victoria's Basement, Rutgers, RISD, UMASS, Harvard, Temple University, Baltimore, Yale, Kimberly-Klark)}
+  \cv{2017}{\href{https://vimeo.com/230450728}{RDP @ Cafe OTO, London}}
+  \cv{2017}{\href{https://youtu.be/9Ry0Dwa-gbA}{RDP @ RBABARRAB, Copenhagen}}
+  \cv{2017}{\href{http://neumeisterbaram.com/event/jeffrey-alan-scudder-radical-digital-painting}{RDP @ Neumeister Bar-Am, Berlin}}
+  \cv{2017}{RDP @ GIPHY's TIME\_FRAME Exhibition}
+  \cv{2017}{\href{https://youtu.be/_5YLPA_3l2I}{Radical Digital Painting @ Oberlin College}}
+  \cv{2017}{\href{https://youtu.be/OAtstjg7owU}{JAS: In The Grid @ Babycastles, New York}}
+  \cv{2016}{Explained Pictures Basement Show --- Victoria Sobel's Basement, Brooklyn, NY}
+  \cv{2016}{\href{https://www.youtube.com/watch?v=Zf-COj81KYw}{Explained Pictures, The New School, New York}}
+  \cv{2016}{Guest Lecturer: Projects Class, Cooper Union, New York}
+  \cv{2015}{\href{http://aigany.org/event/history-of-the-web-part-2}{History of the Web Part II, AIGA/NY, New York}}
+  \cv{2015}{\href{http://ieee-gem.org}{Arts Panel, IEEE GEM Conference, Toronto, Canada}}
+\end{cvlist}
+
+% ============ SOLO EXHIBITIONS ============
+\section*{Solo Exhibitions}
+\begin{cvlist}
+  \cv{2022}{\href{https://feralfile.com/exhibitions/ten-whistlegraphs-thv}{Ten Whistlegraphs}, Feral File (w/ Whistlegraph)}
+  \cv{2018}{Radical Digital Painting: Los Angeles, The Newsstand Project \& CAP, Los Angeles, CA}
+  \cv{2017}{\href{https://left.gallery/tumpin}{Tumpin}, left.gallery, Online}
+  \cv{2017}{\href{https://youtu.be/EvtZbcvuV48}{Imaginary Screenshots}, Whitcher Projects, Los Angeles, CA}
+  \cv{2016}{\href{http://www.essexflowers.us/commissions/jeffreyscudder/}{No Paint: Release One}, Essex Flowers (Digital Commission), Website}
+  \cv{2016}{\href{http://screen-space.info}{What do we see when we close our eyes?}, SCREEN\_, Email}
+  \cv{2013}{\href{http://parallelograms.info/78-JS}{Attn: Trap}, Parallelograms, World Wide Web}
+  \cv{2008}{Open Your Heart To Me, Crossley Gallery, Sarasota, FL}
+\end{cvlist}
+
+% ============ GROUP EXHIBITIONS ============
+\section*{Group Exhibitions}
+\begin{cvlist}
+  \cv{2026}{47th Venice Family Clinic Art Exhibition + Auction, 910 Abbot Kinney Blvd, Venice, CA}
+  \cv{2025}{Turbo Cheap (inaugural exhibition), Los Angeles, CA}
+  \cv{2019}{\href{https://blog.archive.org/2019/06/22/the-internet-archives-2019-artist-in-residency-exhibition}{Internet Archive Artist in Residency Exhibition}}
+  \cv{2018}{\href{http://www.650mah.com/drawings.html}{drawings}, 650mAh}
+  \cv{2018}{INTENTIONS BASED ON A FUTURE WHICH HAS ALREADY HAPPENED (curated by Alex Corbett), Naming Gallery, Oakland, CA}
+  \cv{2018}{Radical Digital Painting w/ Julia Yerger, Johannes Vogt Gallery, NYC}
+  \cv{2018}{OPEN CODES (Schloss Solitude Web Residencies), ZKM, Karlsruhe}
+  \cv{2017}{\href{http://february.today/drawinghomework}{drawinghomework.net Presents}, February Gallery, Austin, TX}
+  \cv{2017}{\href{http://neumeisterbaram.com/exhibition/newdawn}{New Dawn}, Neumeister Bar-Am, Berlin}
+  \cv{2017}{\href{http://konstanet.com}{Coping Copy}, Konstanet, Online}
+  \cv{2016}{Becoming That, becomingthat.com, curated by Levi Easterbrooks, Online}
+  \cv{2016}{\href{http://www.drawinghomework.net/jeffrey.html}{Drawing Homework}, Online}
+  \cv{2015}{VIDEO MIXER, Yale School of Art, New Haven, CT}
+  \cv{2015}{P.S.1 Commencement, ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY}
+  \cv{2015}{RENDER SERIES (3), ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY}
+  \cv{2015}{Clorox/Envy, STILL HOUSE GROUP, Brooklyn, NY}
+  \cv{2013}{`Toonskin, Artspace, New Haven, CT}
+  \cv{2013}{APARTMENT SHOW --- Hosted by Nouriel Roubini, Nouriel Roubini's Apartment, New York, NY}
+  \cv{2013}{Yale Sculpture MFA Thesis Exhibition, Yale School of Art, New Haven, CT}
+  \cv{2013}{``Now that I have your attention, what do I do with it?'', New York Studio Program, Brooklyn, NY}
+  \cv{2012}{3rd Floor, The New Haven Business Center, New Haven, CT}
+  \cv{2012}{MFA 2013 Second Year Show, Yale School of Art, New Haven, CT}
+  \cv{2011}{Frais Peint MFA 2013 First Year Show, Yale School of Art, New Haven, CT}
+  \cv{2011}{1408: Group Show, 1408 Art Space (Joint Collective), Sarasota, FL}
+  \cv{2011}{Fine Arts BFA Thesis Exhibition, Crossley Gallery, Sarasota, FL}
+  \cv{2011}{SURPLUS, curated by RCAD Senior Thesis Class, Sarasota, FL}
+  \cv{2011}{Best of Ringling (President's Award), curated by Chie Fueki, RCAD, Sarasota, FL}
+  \cv{2011}{NUGENT \textperiodcentered{} PHILLIPS \textperiodcentered{} SCUDDER --- Compulsory Thesis Exhibition, Crossley Gallery, Sarasota, FL}
+  \cv{2010}{Best of Ringling 2010, curated by Jay Davis, RCAD, Sarasota, FL}
+  \cv{2009}{Advanced Drawing, with Bradley Wester's Junior Advanced Drawing, Crossley Gallery, Sarasota, FL}
+  \cv{2009}{OPEN, with Bradley Wester's Fine Arts Painting III, Crossley Gallery, Sarasota, FL}
+  \cv{2009}{no ones little grr, with Jenny Vu and Sarah Valdez, Crossley Gallery, Sarasota, FL}
+  \cv{2009}{The New Easy, curated by Lars Eijssen, Artnews Projects, Berlin}
+  \cv{2009}{No Bad Memories, with the NYSP class of Spring 2009, New York Studio Program, Brooklyn, NY}
+  \cv{2008}{Best of Ringling 2008 (Juror's Award), curated by Dominique Nahas, RCAD, Sarasota, FL}
+  \cv{2008}{Realia, curated by Kayla Carlson, Big E's, Sarasota, FL}
+\end{cvlist}
+
+% ============ RESIDENCIES ============
+\section*{Residencies}
+\begin{cvlist}
+  \cv{2026}{Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA}
+  \cv{2018}{\href{http://gazell.io/author/jeffreyas}{Gazell.io Art House Web Residency}}
+  \cv{2017}{\href{https://tenminutepainting.com}{Schloss-Post Web Residencies No.~2} by Solitude \& ZKM}
+\end{cvlist}
+
+% ============ CURATED EXHIBITIONS ============
+\section*{Curated Exhibitions}
+\begin{cvlist}
+  \cv{2018}{\href{http://www.bitforms.com/exhibitions/exhibition-history/make-pictures/make-pictures-2018}{Make Pictures}, bitforms gallery, NYC}
+  \cv{2014}{Island Girl, Gordilloscudder, Brooklyn, NY}
+  \cv{2013}{Interludes \& Remnants, Gordilloscudder, Brooklyn, NY}
+\end{cvlist}
+
+% ============ WORKSHOPS ============
+\section*{Workshops}
+\begin{cvlist}
+  \cv{2019}{\href{https://day.processing.org/pcd-la-tracks.html}{Radical Pedagogy I --- Flower Eater Drawing Workshop @ Processing Community Day, LA}}
+  \cv{2017}{Programming for Graphic Designers, Yale University School of Art, New Haven, CT}
+\end{cvlist}
+
+% ============ TEACHING ============
+\section*{Teaching Experience}
+\begin{cvlist}
+  \cv{2026}{Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA}
+  \cv{2024}{UCLA DMA Summer Section: Interactivity}
+  \cv{2019}{Assistant Professor of Emerging Digital Practices, Southern Oregon University, Ashland, OR}
+  \cv{2017}{RDP Lecture \& Workshop, Yale University School of Art --- Graphic Design, New Haven, CT}
+  \cv{2016}{Visiting Professor, UCLA Digital Media Arts, Los Angeles, CA}
+  \cv{2013--2016}{Adjunct Professor, Parsons New School for Design, New York, NY}
+\end{cvlist}
+
+% ============ PROFESSIONAL EXPERIENCE ============
+\section*{Professional Experience}
+\begin{cvlist}
+  \cv{2021}{Artist Mentor / Adviser, \href{https://wild.xyz}{wild.xyz}, San Francisco, CA}
+  \cv{2017}{Technical Curator, GIPHY, New York, NY}
+  \cv{2016}{Contractor, Kickstarter, Brooklyn, NY}
+  \cv{2016}{Contractor, New Art Dealers Association \& Linked by Air, New York, NY}
+  \cv{2013--2014}{Linked by Air, New York, NY}
+  \cv{2013--2014}{Partner --- \href{http://gordilloscudder.com}{Gordilloscudder gallery}, New York, NY}
+  \cv{2013}{Programmer --- allmyfriendsatonce.com, New York, NY}
+  \cv{2012--2013}{Web Development --- New York \& Los Angeles Art Book Fair, Printed Matter, New York, NY}
+  \cv{2012}{Teaching Assistant for Johannes DeYoung, Yale School of Art, New Haven, CT}
+  \cv{2012}{art.yale.edu Student Administrator, Yale School of Art, New Haven, CT}
+  \cv{2012}{Checkout Assistant --- Digital Media Center for the Arts, Yale University, New Haven, CT}
+  \cv{2011}{Studio Assistant --- Nathan Skiles, Sarasota, FL}
+  \cv{2010}{Children's Activity Programmer --- Travels With Max Books, Naples, FL}
+  \cv{2010}{Information Technology Assistant --- Ringling College of Art + Design, Sarasota, FL}
+  \cv{2009}{Gallery Assistant --- Ringling College of Art + Design, Sarasota, FL}
+  \cv{2007}{Dishwasher --- The Perch Restaurant, Denali, AK}
+  \cv{2004--2006}{Boys Gymnastics Coach --- East Bay Gymnastics, Bristol, RI}
+\end{cvlist}
+
+\end{document}

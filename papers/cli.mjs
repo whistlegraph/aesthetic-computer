@@ -191,6 +191,11 @@ const PAPER_MAP = {
     title: "The URL Tradition",
     psycho: true,
   },
+  "cv": {
+    base: "cv",
+    siteName: "jeffrey-alan-scudder-cv",
+    title: "Jeffrey Alan Scudder — CV",
+  },
 };
 
 function texName(base, lang) {
