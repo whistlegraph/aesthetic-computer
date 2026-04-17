@@ -34,7 +34,7 @@ This will:
 1. Verify: `curl https://knot.aesthetic.computer/`
 2. Register knot at https://tangled.org/settings/knots — click verify
 3. Create repo on Tangled, selecting `knot.aesthetic.computer` as host
-4. Push: `git remote add tangled git@knot.aesthetic.computer:aesthetic-computer.git && git push tangled main`
+4. Push: `git remote add tangled git@knot.aesthetic.computer:aesthetic.computer/core && git push tangled main`
 
 ## Unify Repo History
 
