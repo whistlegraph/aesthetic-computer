@@ -12,6 +12,7 @@ import {
   decodeBitmapToSample,
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
+import { playPercussion } from "../lib/percussion.mjs";
 
 // 🎹 NuPhy Air60 HE — WebHID analog pressure support
 // Sends activation commands then reads 0xA0 analog reports with per-key pressure.
@@ -675,7 +676,19 @@ function getTopBarPianoMetrics(screen) {
   const topPianoHeight = 15;
   // Push piano right when .com superscript is shown to avoid overlap with HUD label
   const topPianoStartX = dotComMode ? 75 : 54;
-  const availableWidth = Math.max(0, screen.width - topPianoStartX);
+  // Cap the piano's right edge at the leftmost top-bar button (os/m4l/wave/oct)
+  // so keys never slide under the button strip on narrow screens.
+  const leftmostButtonX = Math.min(
+    osBtn?.box?.x ?? Infinity,
+    abletonBtn?.box?.x ?? Infinity,
+    waveBtn?.box?.x ?? Infinity,
+    octBtn?.box?.x ?? Infinity,
+    drumBtn?.box?.x ?? Infinity,
+  );
+  const rightEdge = Number.isFinite(leftmostButtonX)
+    ? leftmostButtonX - 3
+    : screen.width;
+  const availableWidth = Math.max(0, rightEdge - topPianoStartX);
 
   const fullWidth = Math.min(140, Math.floor(availableWidth * 0.5));
   const fullWhiteKeyWidth = Math.floor(fullWidth / MINI_PIANO_WHITE_KEYS.length);
@@ -1089,7 +1102,8 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn, abletonBtn;
+let waveBtn, octBtn, osBtn, abletonBtn, drumBtn;
+let drumMode = false; // When true, all note triggers play the shared drumkit instead.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
@@ -1671,6 +1685,7 @@ async function boot({
   buildWaveButton(api);
   buildAbletonButton(api);
   buildOsButton(api);
+  buildDrumButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
 
@@ -4683,6 +4698,43 @@ function paint({
       );
     });
 
+    drumBtn?.paint((btn) => {
+      const base = drumMode ? [90, 30, 30] : [30, 20, 40];
+      const bright = drumMode ? [220, 110, 110] : [120, 120, 180];
+      ink(btn.down ? [140, 60, 60] : base).box(
+        btn.box.x,
+        btn.box.y + 3,
+        btn.box.w,
+        btn.box.h - 3,
+      );
+      if (btn.over && !btn.down) {
+        ink(255, 255, 255, 24).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w,
+          btn.box.h - 3,
+        );
+        ink(255, 160, 160, 140).box(
+          btn.box.x,
+          btn.box.y + 3,
+          btn.box.w,
+          btn.box.h - 3,
+          "outline",
+        );
+      }
+      ink(bright).line(
+        btn.box.x + btn.box.w,
+        btn.box.y + 3,
+        btn.box.x + btn.box.w,
+        btn.box.y + btn.box.h - 1,
+      );
+      ink(btn.down ? [255, 220, 220] : bright).write(
+        "drm",
+        { x: btn.box.x + 3, y: btn.box.y + 5 },
+        undefined, undefined, false, "MatrixChunky8"
+      );
+    });
+
     waveBtn?.paint((btn) => {
       ink(btn.down ? [40, 40, 100] : "darkblue").box(
         btn.box.x,
@@ -5935,6 +5987,20 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
 
   if (downs[note]) return false;
 
+  // Drum mode: each key fires the shared 12-drum kit instead of a pitched note.
+  // Strip octave prefix (++, +, -) and lowercase so "C" or "+c" both land on `c`.
+  if (drumMode && soundContext) {
+    const letter = note.replace(/^[+\-]+/, "").toLowerCase();
+    const pan = getPanForButtonNote(note);
+    playPercussion(soundContext, letter, {
+      volume: Math.max(0.1, velocity / 127),
+      pan,
+      pitchFactor: 1.0,
+      phase: "both",
+    });
+    return true;
+  }
+
   let noteUpper = note.toUpperCase();
   keys += noteUpper;
   const active = orderedByCount(sounds);
@@ -6092,6 +6158,7 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
+    buildDrumButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
@@ -6193,6 +6260,7 @@ function act({
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
     const vizRight = Math.min(
+      drumBtn?.box?.x ?? Infinity,
       osBtn?.box?.x ?? Infinity,
       abletonBtn?.box?.x ?? Infinity,
       waveBtn?.box?.x ?? screen.width,
@@ -6349,6 +6417,7 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
+    buildDrumButton(api);
   }
 
   // if (e.is("keyboard:down:shift") && !e.repeat) {
@@ -7104,6 +7173,7 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
+        buildDrumButton(api);
       },
     });
 
@@ -7116,6 +7186,7 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
+        buildDrumButton(api);
       },
     });
 
@@ -7132,6 +7203,14 @@ function act({
       push: () => {
         api.beep();
         jump("os");
+      },
+    });
+
+    drumBtn?.act(e, {
+      down: () => api.beep(400),
+      push: () => {
+        api.beep(drumMode ? 200 : 600);
+        drumMode = !drumMode;
       },
     });
 
@@ -8294,6 +8373,21 @@ function buildOsButton({ ui }) {
     buttonHeight,
   );
   osBtn.id = "os-button";
+}
+
+function buildDrumButton({ ui }) {
+  const margin = 4;
+  const labelWidth = 3 * 6; // "drm"
+  const buttonWidth = labelWidth + margin * 2;
+  const buttonHeight = 10 + margin * 2 - 1 + 2;
+  const osX = osBtn?.box?.x ?? abletonBtn?.box?.x ?? waveBtn?.box?.x ?? 9999;
+  drumBtn = new ui.Button(
+    osX - buttonWidth - 3,
+    0,
+    buttonWidth,
+    buttonHeight,
+  );
+  drumBtn.id = "drum-button";
 }
 
 // Build metronome controls and toggle buttons with responsive layout

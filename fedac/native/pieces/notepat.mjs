@@ -1,5 +1,15 @@
 // notepat-native.mjs — Traditional notepat for ac-native bare metal
 
+import {
+  PERCUSSION_NAMES,
+  PERCUSSION_LABELS,
+  PERCUSSION_COLORS,
+  PERCUSSION_NOTATION,
+  NOTATION_WAVE_RGB,
+  HAT_FREQS,
+  playPercussion as sharedPlayPercussion,
+} from "/lib/percussion.mjs";
+
 // setTimeout polyfill — QuickJS on ac-native does not provide setTimeout.
 // Pending callbacks are queued here and flushed each tick from sim() via
 // __tickPendingTimeouts(). Delays are in milliseconds and match browser
@@ -685,68 +695,9 @@ function masterForSide(gridOffset) {
 let percussionNotice = null;      // { text, until } — transient visual flash
 let percussionSampleBank = {};    // drumName -> { data: Float32Array, len, rate }
 
-// Natural notes = 7 basic drums; sharps = 5 accent percussion.
-const PERCUSSION_NAMES = {
-  c: "kick", d: "snare", e: "clap", f: "snap",
-  g: "hat-c", a: "hat-o", b: "ride",
-  "c#": "crash", "d#": "splash",
-  "f#": "cowbell", "g#": "block", "a#": "tambo",
-};
-
-// 3-char display labels shown on the drum pads in place of note names.
-const PERCUSSION_LABELS = {
-  c: "BAS", d: "SNR", e: "CLP", f: "SNP",
-  g: "HHC", a: "HHO", b: "RDE",
-  "c#": "CRS", "d#": "SPL",
-  "f#": "CBL", "g#": "BLK", "a#": "TMB",
-};
-
-// Metallic / earthy colors to visually distinguish drum pads from melodic keys.
-const PERCUSSION_COLORS = {
-  c: [220, 90, 40],      // kick — deep orange
-  d: [220, 180, 110],    // snare — tan
-  e: [240, 220, 130],    // clap — pale yellow
-  f: [220, 240, 140],    // snap — yellow-green
-  g: [120, 220, 180],    // closed hat — mint
-  a: [120, 200, 240],    // open hat — cyan
-  b: [180, 180, 230],    // ride — silver-blue
-  "c#": [220, 150, 240], // crash — lavender
-  "d#": [240, 160, 220], // splash — pink
-  "f#": [200, 150, 80],  // cowbell — brass
-  "g#": [190, 120, 70],  // block — wood brown
-  "a#": [230, 210, 170], // tambourine — sandy
-};
-
-// Graphic-notation signatures — compact descriptions of each drum's internal
-// voices so drawGrid() can render animated glyphs inside each percussion pad.
-// Each element is either a tonal "line" (horizontal bar whose Y = log(freq))
-// or "noise" (random dots scattered around the frequency band). `v` is the
-// nominal volume, used for line thickness / dot density.
-// t: "s"=sine "t"=triangle "q"=square "w"=sawtooth "n"=noise
-// Drawn with per-frame random jitter so the viewer sees the stochastic
-// mechanism in action while the pad is idle.
-const PERCUSSION_NOTATION = {
-  c:  [["t",1800,1.0],["n",4000,0.55],["q",180,1.2],["w",90,1.0],["s",44,1.9],["s",54,1.3],["q",120,0.85]],
-  d:  [["n",2200,0.55],["t",220,0.4],["q",180,0.2]],
-  e:  [["q",2500,0.9],["n",6000,0.6],["n",1600,0.75],["n",1700,0.6],["n",1500,0.5],["n",1800,0.45]],
-  f:  [["n",3200,0.45],["q",1800,0.22],["t",2400,0.18]],
-  g:  [["n",7000,0.35],["n",5000,0.2]],
-  a:  [["n",6500,0.3],["n",4800,0.18]],
-  b:  [["n",4200,0.28],["q",3100,0.1],["q",4600,0.08]],
-  "c#": [["n",3500,0.42],["n",6500,0.28],["q",4200,0.08]],
-  "d#": [["n",5500,0.38],["n",8500,0.25]],
-  "f#": [["q",810,0.22],["q",540,0.18]],
-  "g#": [["t",900,0.35],["q",1800,0.14]],
-  "a#": [["n",7000,0.3],["n",4500,0.18],["q",6500,0.1]],
-};
-// Wave type → accent color for the notation glyph
-const NOTATION_WAVE_RGB = {
-  s: [120, 200, 255],   // sine      — sky blue
-  t: [120, 255, 180],   // triangle  — mint
-  q: [255, 220, 120],   // square    — amber
-  w: [255, 140, 80],    // sawtooth  — orange
-  n: [220, 220, 230],   // noise     — pale grey
-};
+// Drum layout, labels, colors, notation glyphs, and the synth kernel itself
+// are shared with the web notepat in /lib/percussion.mjs. Locally we just
+// wrap the kernel so we can keep feeding the drum-voice inspector overlay.
 
 // === WAR KIT ===
 // Natural notes = 7 core weapons; sharps = 5 accent items. Each name
@@ -1653,98 +1604,12 @@ function triggerPercussionDown(sound, letter, octaveValue, volume, pan, pitchFac
 //
 // Phase split: live keyboard/touch plays DOWN on key press and UP on
 // key release. Reverse playback uses `both` to replay complete drums.
+// Wrapper around the shared percussion kernel. Keeps the voice-inspector
+// overlay fed by using the `onVoice` callback — everything else is in
+// /lib/percussion.mjs now.
 function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phase = "both", holdVoices = null) {
   if (!sound?.synth) return;
-  const v = Math.max(0.1, Math.min(2.2, volume));
-  const pf = Math.max(0.25, Math.min(4, pitchFactor));
-  // "down"  = live press: fire transients + start sustain voices (pushed to holdVoices)
-  // "both"  = reverse replay: fire a complete, self-contained drum using finite durations
-  // "up"    = (legacy) release fragment — now handled by releasePercussionHold's kill fades
-  const fireDown = phase !== "up";
   const isLive = phase === "down" && Array.isArray(holdVoices);
-
-  // Per-hit random helpers (inline, stateless). `rj` jitters around a center
-  // by a ± fraction; `rn` returns a uniform range.
-  const rj = (center, frac) => center * (1 + (Math.random() - 0.5) * 2 * frac);
-  const rn = (min, max) => min + Math.random() * (max - min);
-
-  // BPM-locked flam unit (legacy multi-burst timing). Now mostly unused
-  // because we lean on staggered `attack` envelopes instead of setTimeout.
-  const flam = (60000 / Math.max(40, Math.min(240, metronomeBPM || 120))) * 0.025;
-
-  // Push a sustain voice onto holdVoices if live, otherwise fire it as
-  // a finite-duration one-shot (for reverse replay / "both" mode).
-  // - releaseFade: how quickly this voice damps when the key lifts
-  // - releaseUpdate: optional tone/volume shift before the kill fade
-  //   (e.g. open hat → closed: lower tone first, then fade)
-  // - onRelease: optional callback that fires a standalone release
-  //   burst (e.g. closed hat's subtle "lift click")
-  const addSustain = (params, bothDuration, releaseFade, releaseUpdate, onRelease) => {
-    if (drumInspectBuilder) drumInspectBuilder.voices.push({
-      type: params?.type, tone: params?.tone, duration: bothDuration,
-      volume: params?.volume, attack: params?.attack, decay: params?.decay,
-      pan: params?.pan, kind: "sustain",
-    });
-    if (isLive) {
-      const handle = sound.synth({ ...params, duration: Infinity });
-      if (handle) {
-        const liveEntry = { handle, releaseFade, releaseUpdate, onRelease };
-        if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
-        if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
-        if (params?.base !== undefined) liveEntry.sampleBase = params.base;
-        if (releaseUpdate?.tone !== undefined) liveEntry.releaseBaseTone = releaseUpdate.tone / pf;
-        if (releaseUpdate?.volume !== undefined) liveEntry.releaseBaseVolumeUnit = releaseUpdate.volume / v;
-        holdVoices.push(liveEntry);
-      }
-      return handle;
-    } else {
-      return sound.synth({ ...params, duration: bothDuration });
-    }
-  };
-  // One-shot hit voices still need to be tracked during live play so pitch
-  // and per-side level changes continue through the audible decay after key-up.
-  const addHit = (params) => {
-    if (drumInspectBuilder) drumInspectBuilder.voices.push({
-      type: params?.type, tone: params?.tone, duration: params?.duration,
-      volume: params?.volume, attack: params?.attack, decay: params?.decay,
-      pan: params?.pan, kind: "hit",
-    });
-    const handle = sound.synth(params);
-    if (isLive && handle) {
-      const liveEntry = {
-        handle,
-        ignoreRelease: true,
-        releaseFade: 0,
-        tailSeconds: Math.max(
-          Number(params?.duration) || 0,
-          (Number(params?.attack) || 0) + (Number(params?.decay) || 0),
-        ),
-      };
-      if (params?.tone !== undefined) liveEntry.baseTone = params.tone / pf;
-      if (params?.volume !== undefined) liveEntry.baseVolumeUnit = params.volume / v;
-      if (params?.base !== undefined) liveEntry.sampleBase = params.base;
-      holdVoices.push(liveEntry);
-    }
-    return handle;
-  };
-  // Register a release-only burst (no sustain voice needed). Useful for
-  // drums like closed hat that should be one-shot during hold but play
-  // a tiny release click on key-up. The "handle" is a dummy so the
-  // release loop picks up the onRelease callback.
-  const addReleaseBurst = (onRelease) => {
-    if (isLive && onRelease) {
-      holdVoices.push({ handle: null, releaseFade: 0, onRelease });
-    }
-  };
-
-  // TR-808 hi-hat 6-square inharmonic cluster (exact Roland frequencies).
-  // Drop 205/304 for synth clarity since we can't HPF away the low content.
-  const HAT_FREQS = [800, 540, 522.7, 369.6];
-
-  if (!fireDown) return;
-
-  // Inspector: start fresh builder on each live press so we capture exactly
-  // the voices that fire for THIS hit.
   if (isLive || phase === "both") {
     drumInspectBuilder = {
       letter,
@@ -1752,241 +1617,12 @@ function playPercussion(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0,
       voices: [],
     };
   }
-
-  switch (letter) {
-    // === ONE-SHOT DRUMS ===
-    // These fire as transient events only — the physical gesture is a strike,
-    // not a held note. No sustain voices, no release transition. Hold duration
-    // doesn't affect them. Applies to: kick, snare, clap, snap, closed hat.
-
-    case "c": { // kick — tight TR-808: transient + short body + optional sub
-      const downPan = pan + rn(-0.02, 0.02);
-      // Design: emphasize the TRANSIENT peak. Previous version stacked six
-      // loud low-freq sines with long decays which summed into a muddy
-      // "farty" blob on the drum bus (no auto-normalize). New version has
-      // ONE attack, ONE body, ONE sub — each with sharp envelopes.
-      //
-      // Layer budget: stick click + pitch snap + body + sub = 4 voices.
-      // The body layer carries most of the perceived "kick" on laptops;
-      // the sub adds depth on real speakers without bleeding into body.
-
-      // 1. Stick click — very short noise transient at 2.5kHz for the
-      //    beater attack. This is the CUT that makes the kick audible.
-      addHit({ type: "noise", tone: 2500 * pf, duration: 0.0025, volume: rj(0.50, 0.12) * v, attack: 0.0002, decay: 0.0022, pan: downPan });
-      // 2. Pitch snap — 200Hz→150Hz perceived sweep via overlapping sines
-      //    Both very short so they read as a single downward "thump"
-      addHit({ type: "sine", tone: 200 * pf, duration: 0.012, volume: rj(1.1, 0.10) * v, attack: 0.0005, decay: 0.011, pan: downPan });
-      // 3. Body — 150Hz sine, SHORT decay (40ms). Single tone, not a drone.
-      //    This is the laptop-audible "punch" frequency.
-      addHit({ type: "sine", tone: 150 * pf, duration: 0.045, volume: rj(1.3, 0.10) * v, attack: 0.001, decay: 0.044, pan: downPan });
-      // 4. Mid-low body — 90Hz sine, medium-short decay. Adds weight
-      //    without muddying.
-      addHit({ type: "sine", tone: 90 * pf, duration: 0.080, volume: rj(0.85, 0.12) * v, attack: 0.002, decay: 0.078, pan: downPan });
-      // 5. Sub tail — 55Hz sine, long decay. Inaudible on laptops, adds
-      //    body on headphones/subwoofers. Volume REDUCED from 1.9 to 1.0
-      //    so it doesn't dominate the transient.
-      addHit({ type: "sine", tone: 55 * pf, duration: rj(0.35, 0.20), volume: rj(1.0, 0.12) * v, attack: 0.003, decay: 0.345, pan: downPan });
-      break;
-    }
-
-    case "d": { // snare — TR-909-leaning: big transient + short tone + dominant noise
-      const downPan = pan + rn(-0.02, 0.02);
-      // Design: previous snare had 808-style LONG tonal pair (120ms) which
-      // exposed the sines as a "bleh" sound — too tonal, not enough snap.
-      // New version leans 909: sharper crack, SHORT tonal pair, noise-
-      // dominant. The 238/476 Hz pair is still there for metallic beat
-      // character but only lasts ~30ms before the noise takes over.
-
-      // 1. Sharp stick crack — higher freq, shorter, LOUDER than before
-      addHit({ type: "noise", tone: 3500 * pf, duration: 0.004, volume: rj(0.95, 0.10) * v, attack: 0.0001, decay: 0.004, pan: downPan });
-      // 2. 808 tonal pair — SHORT decay (30ms was 120ms), QUIETER so noise dominates
-      addHit({ type: "sine", tone: 238 * pf, duration: 0.030, volume: rj(0.35, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
-      addHit({ type: "sine", tone: 476 * pf, duration: 0.030, volume: rj(0.28, 0.12) * v, attack: 0.0003, decay: 0.029, pan: downPan });
-      // 3. Primary wire noise — DOMINANT layer, bright, medium-short decay
-      addHit({ type: "noise", tone: 3500 * pf, duration: rj(0.11, 0.20), volume: rj(0.85, 0.10) * v, attack: 0.0005, decay: 0.108, pan: downPan + rn(-0.04, 0.04) });
-      // 4. Mid wire noise — adds weight without muddiness
-      addHit({ type: "noise", tone: 1800 * pf, duration: rj(0.07, 0.20), volume: rj(0.38, 0.15) * v, attack: 0.0008, decay: 0.068, pan: downPan + rn(-0.04, 0.04) });
-      // 5. Triangle body fundamental — adds warmth, very short
-      addHit({ type: "triangle", tone: 180 * pf, duration: 0.025, volume: rj(0.22, 0.15) * v, attack: 0.001, decay: 0.024, pan: downPan });
-      break;
-    }
-
-    case "e": { // clap — TR-808 4-burst pattern via staggered attacks (one-shot)
-      const downPan = pan + rn(-0.06, 0.02);
-      // Three rapid bursts — attacks 5/15/25 ms create ~10 ms spacing
-      addHit({ type: "noise", tone: 1000 * pf, duration: 0.025, volume: rj(0.90, 0.15) * v, attack: 0.005, decay: 0.020, pan: downPan });
-      addHit({ type: "noise", tone: 1100 * pf, duration: 0.035, volume: rj(0.95, 0.15) * v, attack: 0.015, decay: 0.020, pan: downPan });
-      addHit({ type: "noise", tone: 900 * pf,  duration: 0.045, volume: rj(0.85, 0.15) * v, attack: 0.025, decay: 0.020, pan: downPan });
-      // Bright edge on the first burst
-      addHit({ type: "noise", tone: 3000 * pf, duration: 0.008, volume: rj(0.55, 0.15) * v, attack: 0.001, decay: 0.007, pan: downPan });
-      // The 4th burst — "room tail" with long decay (120ms)
-      addHit({ type: "noise", tone: 1000 * pf, duration: rj(0.14, 0.25), volume: rj(0.85, 0.15) * v, attack: 0.045, decay: 0.135, pan: downPan + rn(-0.02, 0.10) });
-      addHit({ type: "noise", tone: 2200 * pf, duration: rj(0.10, 0.25), volume: rj(0.35, 0.18) * v, attack: 0.050, decay: 0.095, pan: downPan + rn(-0.02, 0.10) });
-      break;
-    }
-
-    case "f": { // snap — finger snap physics (one-shot)
-      const downPan = pan + rn(-0.04, 0.04);
-      // Sharp broadband click (thumb-middle friction release)
-      addHit({ type: "noise", tone: 6000 * pf, duration: 0.003, volume: rj(0.70, 0.15) * v, attack: 0.0001, decay: 0.0028, pan: downPan });
-      // Palm cavity resonance at ~2100 Hz — the "pop" tone
-      addHit({ type: "sine", tone: 2100 * pf, duration: rj(0.045, 0.20), volume: rj(0.55, 0.12) * v, attack: 0.0005, decay: 0.044, pan: downPan });
-      // Upper bite at 3500 Hz
-      addHit({ type: "sine", tone: 3500 * pf, duration: rj(0.020, 0.25), volume: rj(0.28, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
-      break;
-    }
-
-    case "g": { // closed hi-hat — 4-square cluster + subtle lift click on release
-      const downPan = pan + rn(-0.03, 0.03);
-      // Full cluster — the short decay is the "closed" character
-      for (const f of HAT_FREQS) {
-        addHit({ type: "square", tone: f * pf, duration: rj(0.008, 0.20), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.0075, pan: downPan });
-      }
-      // Bright noise top for the "tss"
-      addHit({ type: "noise", tone: 8000 * pf, duration: rj(0.040, 0.20), volume: rj(0.38, 0.12) * v, attack: 0.0005, decay: 0.038, pan: downPan });
-      // Lift click: on key-up, fire a tiny high-noise transient to
-      // represent the stick leaving the hat. Subtle — real closed-hat
-      // "opens" don't ring, they just have a mechanical release click.
-      addReleaseBurst(() => {
-        sound.synth({ type: "noise", tone: 9000 * pf, duration: 0.004, volume: rj(0.22, 0.20) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
-        sound.synth({ type: "square", tone: 6000 * pf, duration: 0.003, volume: rj(0.08, 0.25) * v, attack: 0.0003, decay: 0.0027, pan: downPan });
-      });
-      break;
-    }
-
-    case "a": { // open hi-hat — TR-808 cluster, LONG sustain. Foot-pedal release = damp fast.
-      const downPan = pan + rn(-0.04, 0.04);
-      // Transient: the 4-square attack cluster
-      for (const f of HAT_FREQS) {
-        addHit({ type: "square", tone: f * pf, duration: 0.012, volume: rj(0.16, 0.18) * v, attack: 0.0005, decay: 0.011, pan: downPan });
-      }
-      // Transient: bright noise chip
-      addHit({ type: "noise", tone: 8200 * pf, duration: 0.012, volume: rj(0.42, 0.12) * v, attack: 0.0003, decay: 0.011, pan: downPan });
-      // SUSTAIN: the signature open-hat shimmer. Rings until key release.
-      // Release = hi-hat foot pedal closing — dampens the top end fast.
-      // releaseUpdate drops the tone first (simulates bandpass closing),
-      // then the kill fade does the rest.
-      addSustain(
-        { type: "noise", tone: 7000 * pf, volume: rj(0.32, 0.15) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
-        rj(0.40, 0.25),
-        0.12,                      // 120ms foot-pedal close
-        { tone: 3500 }             // dampen brightness on release
-      );
-      addSustain(
-        { type: "noise", tone: 5000 * pf, volume: rj(0.20, 0.18) * v, attack: 0.003, decay: 0, pan: downPan + rn(-0.02, 0.08) },
-        rj(0.25, 0.25),
-        0.10,
-        { tone: 2800 }
-      );
-      // Persistent metallic square from the cluster for body
-      addSustain(
-        { type: "square", tone: 800 * pf, volume: rj(0.08, 0.20) * v, attack: 0.005, decay: 0, pan: downPan },
-        rj(0.20, 0.25),
-        0.08
-      );
-      break;
-    }
-
-    case "b": { // ride — bell ping + long shimmer sustain
-      const downPan = pan + rn(-0.03, 0.03);
-      // Transient: stick tip on the cluster (sharp attack)
-      addHit({ type: "square", tone: 800 * pf, duration: 0.020, volume: rj(0.10, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
-      addHit({ type: "square", tone: 540 * pf, duration: 0.020, volume: rj(0.08, 0.18) * v, attack: 0.0005, decay: 0.019, pan: downPan });
-      // SUSTAIN: bell ping pair (perfect-5th) — THE ride signature
-      addSustain(
-        { type: "sine", tone: 440 * pf, volume: rj(0.24, 0.12) * v, attack: 0.0008, decay: 0, pan: downPan },
-        rj(0.40, 0.20),
-        0.25    // long ring release — bell decays slowly
-      );
-      addSustain(
-        { type: "sine", tone: 587 * pf, volume: rj(0.20, 0.12) * v, attack: 0.0008, decay: 0, pan: downPan },
-        rj(0.40, 0.20),
-        0.25
-      );
-      // SUSTAIN: long shimmer body
-      addSustain(
-        { type: "noise", tone: 4200 * pf, volume: rj(0.26, 0.12) * v, attack: 0.005, decay: 0, pan: downPan + rn(-0.03, 0.03) },
-        rj(0.9, 0.20),
-        0.30
-      );
-      break;
-    }
-
-    case "c#": { // crash — explosive noise attack + LONG shimmer wash
-      const downPan = pan + rn(-0.05, 0.05);
-      // Transient: loud noise splash
-      addHit({ type: "noise", tone: 8000 * pf, duration: 0.030, volume: rj(0.75, 0.15) * v, attack: 0.0005, decay: 0.029, pan: downPan });
-      // Transient: hat cluster for metallic attack
-      for (const f of HAT_FREQS) {
-        addHit({ type: "square", tone: f * pf, duration: 0.030, volume: rj(0.12, 0.20) * v, attack: 0.0005, decay: 0.029, pan: downPan });
-      }
-      // SUSTAIN: the long wash — crash's whole character
-      addSustain(
-        { type: "noise", tone: 5000 * pf, volume: rj(0.45, 0.12) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
-        rj(1.4, 0.18),
-        0.45  // long release fade
-      );
-      addSustain(
-        { type: "noise", tone: 7500 * pf, volume: rj(0.30, 0.15) * v, attack: 0.008, decay: 0, pan: downPan + rn(-0.04, 0.04) },
-        rj(0.9, 0.18),
-        0.35
-      );
-      // Cluster fragment body
-      addSustain(
-        { type: "square", tone: 800 * pf, volume: rj(0.08, 0.20) * v, attack: 0.008, decay: 0, pan: downPan },
-        rj(0.5, 0.20),
-        0.20
-      );
-      break;
-    }
-
-    case "d#": { // splash — short bright cymbal burst (one-shot)
-      const downPan = pan + rn(-0.04, 0.04);
-      // Bright attack
-      addHit({ type: "noise", tone: 9000 * pf, duration: 0.012, volume: rj(0.55, 0.15) * v, attack: 0.0003, decay: 0.011, pan: downPan });
-      addHit({ type: "square", tone: 800 * pf, duration: 0.015, volume: rj(0.14, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
-      addHit({ type: "square", tone: 540 * pf, duration: 0.015, volume: rj(0.10, 0.20) * v, attack: 0.0005, decay: 0.014, pan: downPan });
-      // Short wash — splash is all quick burst, no sustain
-      addHit({ type: "noise", tone: 6000 * pf, duration: rj(0.35, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.004, decay: 0.345, pan: downPan + rn(-0.03, 0.03) });
-      addHit({ type: "noise", tone: 8500 * pf, duration: rj(0.22, 0.20), volume: rj(0.25, 0.15) * v, attack: 0.004, decay: 0.215, pan: downPan + rn(-0.03, 0.03) });
-      break;
-    }
-
-    case "f#": { // cowbell — TR-808: two triangles 800/540 Hz (one-shot)
-      const downPan = pan + rn(-0.03, 0.03);
-      // Stick click
-      addHit({ type: "square", tone: 1800 * pf, duration: 0.004, volume: rj(0.35, 0.15) * v, attack: 0.0002, decay: 0.0038, pan: downPan });
-      // The two bell triangles — natural decay
-      addHit({ type: "triangle", tone: 800 * pf, duration: rj(0.28, 0.20), volume: rj(0.42, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
-      addHit({ type: "triangle", tone: 540 * pf, duration: rj(0.28, 0.20), volume: rj(0.36, 0.12) * v, attack: 0.0008, decay: 0.275, pan: downPan });
-      break;
-    }
-
-    case "g#": { // wood block — single triangle @ 2500 Hz (one-shot)
-      const downPan = pan + rn(-0.03, 0.03);
-      // Stick click
-      addHit({ type: "noise", tone: 5000 * pf, duration: 0.002, volume: rj(0.35, 0.18) * v, attack: 0.0001, decay: 0.0018, pan: downPan });
-      // Block tones
-      addHit({ type: "triangle", tone: 2500 * pf, duration: rj(0.050, 0.25), volume: rj(0.52, 0.12) * v, attack: 0.0003, decay: 0.048, pan: downPan });
-      addHit({ type: "triangle", tone: 1250 * pf, duration: rj(0.050, 0.25), volume: rj(0.18, 0.18) * v, attack: 0.0005, decay: 0.048, pan: downPan });
-      break;
-    }
-
-    case "a#": { // tambourine — staggered jingle bursts (one-shot)
-      const downPan = pan + rn(-0.04, 0.04);
-      // 3 staggered noise bursts via attack offsets (jingle rattle)
-      addHit({ type: "noise", tone: 7000 * pf, duration: 0.08, volume: rj(0.38, 0.18) * v, attack: 0.002, decay: 0.075, pan: downPan });
-      addHit({ type: "noise", tone: 7500 * pf, duration: 0.09, volume: rj(0.30, 0.18) * v, attack: 0.015, decay: 0.075, pan: downPan });
-      addHit({ type: "noise", tone: 6500 * pf, duration: 0.10, volume: rj(0.25, 0.18) * v, attack: 0.030, decay: 0.070, pan: downPan });
-      // High square ting
-      addHit({ type: "square", tone: 6000 * pf, duration: 0.030, volume: rj(0.14, 0.20) * v, attack: 0.001, decay: 0.028, pan: downPan });
-      // Long jingle tail
-      addHit({ type: "noise", tone: 7000 * pf, duration: rj(0.20, 0.22), volume: rj(0.32, 0.18) * v, attack: 0.050, decay: 0.195, pan: downPan + rn(-0.04, 0.04) });
-      addHit({ type: "noise", tone: 4500 * pf, duration: rj(0.15, 0.22), volume: rj(0.20, 0.18) * v, attack: 0.055, decay: 0.145, pan: downPan + rn(-0.04, 0.04) });
-      break;
-    }
-  }
-  // Commit inspector snapshot if we captured voices
+  sharedPlayPercussion(sound, letter, {
+    volume, pan, pitchFactor, phase, holdVoices,
+    onVoice: (voice) => {
+      if (drumInspectBuilder) drumInspectBuilder.voices.push(voice);
+    },
+  });
   if (drumInspectBuilder && drumInspectBuilder.voices.length > 0) {
     lastDrumInspect = { ...drumInspectBuilder, until: frame + 300 };
   }
