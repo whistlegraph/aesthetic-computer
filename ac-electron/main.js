@@ -82,6 +82,11 @@ let preferences = {
   // default). When false (new default), they behave like normal windows
   // and can be ordered underneath. Toggled from the tray menu.
   alwaysOnTop: false,
+  // When the Notepat Overlay is open, should it pass mouse events
+  // through to the app underneath (visual-only widget) or capture them
+  // (playable floating piano)? Toggled from the tray while the overlay
+  // is open.
+  overlayClickThrough: false,
 };
 
 function loadPreferences() {
@@ -846,6 +851,27 @@ function rebuildTrayMenu() {
     click: () => openNotepatWindow()
   });
 
+  // Overlay variant — transparent, chromeless, floats above fullscreen
+  // apps and every Space. Click-through is a sibling checkbox that only
+  // takes effect while the overlay is open.
+  menuItems.push({
+    label: 'Open Notepat Overlay 🪟',
+    click: () => openNotepatOverlayWindow()
+  });
+
+  menuItems.push({
+    label: 'Overlay: Click-Through',
+    type: 'checkbox',
+    checked: !!preferences.overlayClickThrough,
+    click: (item) => {
+      preferences.overlayClickThrough = !!item.checked;
+      savePreferences();
+      if (notepatOverlayWindow && !notepatOverlayWindow.isDestroyed()) {
+        notepatOverlayWindow.setIgnoreMouseEvents(preferences.overlayClickThrough, { forward: true });
+      }
+    }
+  });
+
   // Always-on-top toggle. Persisted to preferences.json and applied to
   // every current AC window on change; new windows inherit via their
   // BrowserWindow opts.
@@ -1259,6 +1285,73 @@ function openNotepatWindow() {
   });
 
   return notepatWindow;
+}
+
+// Open a Notepat Overlay — transparent, chromeless, screen-saver-level
+// window that floats above every app and follows the user across Spaces.
+// Like a macOS HUD / widget. Click-through can be toggled from the tray
+// so the overlay becomes visual-only (mouse events pass to whatever's
+// behind it). The notepat piece reads ?overlay=true and skips its
+// background wipe so the desktop shows through between keys.
+let notepatOverlayWindow = null;
+function openNotepatOverlayWindow() {
+  if (notepatOverlayWindow && !notepatOverlayWindow.isDestroyed()) {
+    notepatOverlayWindow.show();
+    notepatOverlayWindow.focus();
+    return notepatOverlayWindow;
+  }
+
+  const baseUrl = startInDevMode ? 'http://localhost:8888' : 'https://aesthetic.computer';
+  const display = screen.getPrimaryDisplay().workAreaSize;
+  const w = 340, h = 180;
+
+  notepatOverlayWindow = new BrowserWindow({
+    width: w,
+    height: h,
+    x: display.width - w - 24,
+    y: display.height - h - 24,
+    minWidth: 220,
+    minHeight: 130,
+    title: 'Notepat Overlay',
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: true,
+    skipTaskbar: true,
+    backgroundColor: '#00000000',
+    type: process.platform === 'darwin' ? 'panel' : undefined,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webviewTag: true,
+      backgroundThrottling: false,
+    },
+  });
+
+  // screen-saver level sits above fullscreen apps on macOS. Follow the
+  // user across Spaces (and into fullscreen Spaces) so the overlay is
+  // actually always visible.
+  notepatOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  notepatOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  if (preferences.overlayClickThrough) {
+    notepatOverlayWindow.setIgnoreMouseEvents(true, { forward: true });
+  }
+
+  notepatOverlayWindow.loadFile(
+    getAppPath('renderer/notepat-overlay.html'),
+    { query: { piece: 'notepat', base: baseUrl } },
+  );
+
+  const windowId = windowIdCounter++;
+  windows.set(windowId, { window: notepatOverlayWindow, mode: 'notepat-overlay' });
+
+  notepatOverlayWindow.on('closed', () => {
+    windows.delete(windowId);
+    notepatOverlayWindow = null;
+  });
+
+  return notepatOverlayWindow;
 }
 
 // Open KidLisp window (kidlisp.com)
