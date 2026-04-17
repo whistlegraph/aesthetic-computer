@@ -3,19 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CV — Jeffrey Alan Scudder</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Bio &amp; CV — Jeffrey Alan Scudder</title>
   <meta name="author" content="Jeffrey Alan Scudder">
-  <meta name="description" content="Curriculum vitae of Jeffrey Alan Scudder — painter, educator, artist-programmer.">
+  <meta name="description" content="Biography and curriculum vitae of Jeffrey Alan Scudder — painter, educator, artist-programmer based in Los Angeles. Creator of Aesthetic Computer, Whistlegraph, and No Paint.">
   <link rel="icon" href="https://aesthetic.computer/favicon.ico">
+  <link rel="canonical" href="https://justanothersystem.org/cv">
 
-  <meta property="og:title" content="CV — Jeffrey Alan Scudder" />
-  <meta property="og:description" content="Curriculum vitae of Jeffrey Alan Scudder — painter, educator, artist-programmer." />
+  <!-- Social sharing meta tags -->
+  <meta property="og:title" content="Bio &amp; CV — Jeffrey Alan Scudder" />
+  <meta property="og:description" content="Biography and curriculum vitae of Jeffrey Alan Scudder — painter, educator, artist-programmer based in Los Angeles. Creator of Aesthetic Computer, Whistlegraph, and No Paint." />
   <meta property="og:url" content="https://justanothersystem.org/cv" />
   <meta property="og:type" content="profile" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Bio &amp; CV — Jeffrey Alan Scudder" />
+  <meta name="twitter:description" content="Biography and curriculum vitae of Jeffrey Alan Scudder — painter, educator, artist-programmer based in Los Angeles." />
+  <meta name="twitter:site" content="@whistlegraph" />
+  <meta name="twitter:image" content="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" />
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://aesthetic.computer/assets/fonts/PPMori-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'PP Mori';
+      src: url('https://aesthetic.computer/assets/fonts/PPMori-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
 
     :root {
       --bg: #faf9f6;
@@ -23,6 +47,7 @@
       --dim: #666;
       --accent: #333;
       --border: #ddd;
+      --pink-dot: #ff4ca8;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -35,9 +60,20 @@
       }
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      color-scheme: light dark;
+    }
 
-    a { color: inherit; text-decoration: none; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
 
     body {
       font-family: 'IBM Plex Mono', monospace;
@@ -45,44 +81,162 @@
       color: var(--fg);
       min-height: 100vh;
       line-height: 1.7;
-      font-size: 14px;
+      font-size: 16px;
     }
 
     .page {
-      max-width: 720px;
+      max-width: 860px;
       margin: 0 auto;
       padding: 1.5rem;
     }
 
-    header {
+    /* Top meta bar: back link + PDF download */
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
       margin-bottom: 2rem;
-    }
-
-    header a {
-      color: var(--dim);
       font-size: 0.85rem;
+      color: var(--dim);
     }
 
-    header a:hover {
+    .meta-bar a {
+      color: var(--dim);
+      transition: color 0.15s;
+    }
+
+    .meta-bar a:hover {
       color: var(--fg);
     }
 
-    h1 {
-      font-size: 1.4rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
+    .pdf-link {
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.7rem;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: border-color 0.15s, color 0.15s;
     }
 
-    .subtitle {
+    .pdf-link:hover {
+      border-color: var(--fg);
+    }
+
+    .pdf-icon {
+      width: 0.9em;
+      height: 0.9em;
+    }
+
+    /* Bio layout — text left, portrait right */
+    .bio-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    .bio-portrait {
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+    }
+
+    /* First image flows normally to establish container height */
+    .bio-portrait img:first-child {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      object-position: 50% 20%;
+      opacity: 1;
+      transition: opacity 1.2s ease-in-out;
+    }
+
+    /* Subsequent images overlay on top */
+    .bio-portrait img:not(:first-child) {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 20%;
+      opacity: 0;
+      transition: opacity 1.2s ease-in-out;
+    }
+
+    .bio-portrait img.active {
+      opacity: 1;
+    }
+
+    .bio-portrait img:first-child:not(.active) {
+      opacity: 0;
+    }
+
+    @keyframes kb-zoom-in {
+      0%   { transform: scale(1)    translate(0, 0); }
+      100% { transform: scale(1.06) translate(-1%, -1%); }
+    }
+    @keyframes kb-zoom-out {
+      0%   { transform: scale(1.06) translate(1%, 0); }
+      100% { transform: scale(1)    translate(0, 1%); }
+    }
+    @keyframes kb-zoom-center {
+      0%   { transform: scale(1)    translate(0, 0); }
+      100% { transform: scale(1.06) translate(0, -1%); }
+    }
+
+    @media (max-width: 640px) {
+      .bio-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .bio-portrait {
+        order: -1;
+        max-width: 100%;
+        margin: 0 0 1rem;
+      }
+    }
+
+    .ac-dot {
+      color: var(--pink-dot);
+    }
+
+    .np-dot {
+      color: #ff6b35;
+    }
+
+    .ac-link {
+      color: #7b61ff !important;
+    }
+
+    .np-link {
+      color: var(--fg) !important;
+    }
+
+    .np-no {
       color: var(--dim);
-      font-size: 0.85rem;
-      margin-bottom: 1.5rem;
     }
 
+    .wg-link {
+      color: var(--fg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tiktok-icon {
+      display: inline-block;
+      width: 0.85em;
+      height: 0.85em;
+      vertical-align: -0.05em;
+      margin-left: 0.15em;
+    }
+
+    /* Contact */
     .contact {
       font-size: 0.85rem;
       color: var(--dim);
-      margin-bottom: 2rem;
+      margin: 2rem 0;
       line-height: 1.9;
     }
 
@@ -94,67 +248,96 @@
       color: var(--fg);
     }
 
-    .bio {
+    /* Section headings */
+    section {
       margin-bottom: 2.5rem;
-      line-height: 1.8;
     }
 
-    h2 {
+    section h2 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--fg);
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+
+    /* Compact heading for CV listing sections */
+    section.cv-list h2 {
       font-size: 0.85rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--dim);
-      margin-top: 2.5rem;
+    }
+
+    section p {
+      font-family: 'PP Mori', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 1.15rem;
+      line-height: 1.8;
       margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
+    }
+
+    section a {
+      color: #7b61ff;
       border-bottom: 1px solid var(--border);
     }
 
-    .entry {
+    section a:hover {
+      border-color: var(--fg);
+    }
+
+    /* Narrative timeline */
+    .narrative .year-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.25rem;
+      color: var(--fg);
+    }
+
+    .narrative p {
+      color: var(--dim);
+      margin-bottom: 0.75rem;
+    }
+
+    /* CV entry list (education, press, lectures, exhibitions, etc.) */
+    .cv-list .entry {
+      font-size: 0.85rem;
       margin-bottom: 0.6rem;
       padding-left: 4.5em;
       text-indent: -4.5em;
+      line-height: 1.6;
     }
 
-    .entry .year {
+    .cv-list .entry .year {
       color: var(--dim);
       display: inline;
     }
 
-    .entry a {
+    .cv-list .entry a {
+      color: inherit;
       border-bottom: 1px solid var(--border);
     }
 
-    .entry a:hover {
+    .cv-list .entry a:hover {
       color: var(--accent);
     }
 
-    .narrative {
-      margin-bottom: 2rem;
-    }
-
-    .narrative .year-label {
-      font-weight: 600;
-      margin-top: 1.5rem;
-      margin-bottom: 0.25rem;
-    }
-
-    .narrative p {
-      margin-bottom: 0.75rem;
+    .cv-list.geo .entry {
       color: var(--dim);
     }
 
-    .geo .entry {
-      color: var(--dim);
-    }
-
+    /* Divider */
     hr {
       border: none;
       border-top: 1px solid var(--border);
-      margin: 2.5rem 0;
+      margin: 3rem 0;
     }
 
+    /* Footer */
     footer {
       margin-top: 3rem;
       padding-top: 1.5rem;
@@ -164,16 +347,148 @@
       text-align: center;
       padding-bottom: 2rem;
     }
+
+    footer a {
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    footer a:hover {
+      color: var(--fg);
+    }
+
+    /* Print styles — optimized for PDF generation */
+    @media print {
+      :root {
+        --bg: #ffffff;
+        --fg: #000000;
+        --dim: #555555;
+        --accent: #000000;
+        --border: #cccccc;
+      }
+
+      @page {
+        size: letter;
+        margin: 0.6in;
+      }
+
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      body {
+        font-size: 10pt;
+        line-height: 1.5;
+      }
+
+      .page {
+        max-width: 100%;
+        padding: 0;
+      }
+
+      .meta-bar,
+      .no-print {
+        display: none !important;
+      }
+
+      .bio-layout {
+        grid-template-columns: 1fr 180px;
+        gap: 1.2rem;
+      }
+
+      .bio-portrait img:not(:first-child) {
+        display: none !important;
+      }
+
+      .bio-portrait img:first-child {
+        opacity: 1 !important;
+        animation: none !important;
+      }
+
+      section {
+        margin-bottom: 1.2rem;
+        page-break-inside: avoid;
+      }
+
+      section h2 {
+        font-size: 1rem;
+        margin-bottom: 0.4rem;
+      }
+
+      section.cv-list h2 {
+        font-size: 0.75rem;
+      }
+
+      section p {
+        font-size: 10pt;
+        line-height: 1.5;
+        margin-bottom: 0.5rem;
+      }
+
+      section a {
+        color: #000 !important;
+        border-bottom: none !important;
+      }
+
+      .cv-list .entry {
+        font-size: 9pt;
+        margin-bottom: 0.2rem;
+        line-height: 1.4;
+        page-break-inside: avoid;
+      }
+
+      .narrative .year-label {
+        font-size: 10pt;
+        margin-top: 0.6rem;
+      }
+
+      hr {
+        margin: 1rem 0;
+      }
+
+      footer {
+        display: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .meta-bar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="page">
-    <header>
-      <a href="/">&larr; justanothersystem.org</a>
-    </header>
 
-    <h1>Jeffrey Alan Scudder</h1>
-    <p class="subtitle">Curriculum Vitae</p>
+    <div class="meta-bar no-print">
+      <a href="/">&larr; justanothersystem.org</a>
+      <a href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf" class="pdf-link" download>
+        <svg class="pdf-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </a>
+    </div>
+
+    <section>
+      <h2>Bio</h2>
+      <div class="bio-layout">
+        <div class="bio-text">
+          <p>Jeffrey Alan Scudder (b. 1989, Assonet, MA) is a painter based in Los Angeles. His work moves between stretched canvas, custom software, and live performance, treating painting as a practice that extends across surfaces and systems.</p>
+          <p>Scudder builds his own tools for making images. <a href="https://aesthetic.computer" class="ac-link">Aesthetic<span class="ac-dot">.</span>Computer</a> is a creative computing platform he designed as an instrument for drawing, painting, and interaction. <a href="https://nopaint.art" class="np-link"><span class="np-no">No</span>Paint<span class="np-dot">.</span>art</a>, an earlier project, reimagined the paint program as a medium rather than a utility. These tools inform his studio paintings and vice versa&mdash;code becomes a way to think about color, gesture, and composition, while painting on canvas stays immediate and physical.</p>
+          <p>With <a href="https://www.tiktok.com/@whistlegraph" class="wg-link">Whistlegraph<svg class="tiktok-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V9.05a8.27 8.27 0 0 0 4.76 1.51v-3.5a4.83 4.83 0 0 1-1-.37z"/></svg></a>, a collaborative performance practice with Camille Klein and Alex Freundlich, Scudder has performed at the New Museum, Pioneer Works, ZKM Karlsruhe, and dozens of venues across the US and Europe. The group's work treats drawing as a live, social act.</p>
+          <p>He has given over 65 lectures and performances on Radical Digital Painting internationally, including at the Chaos Communication Congress and in conversation with Casey Reas at bitforms gallery. His work is in the collections of KADIST (San Francisco) and SMK (National Gallery of Denmark). He was invited to present at the inaugural Hash Award at ZKM Karlsruhe in 2018.</p>
+          <p>Scudder holds a BFA in Fine Art from Ringling College of Art and Design (2011) and an MFA in Sculpture from Yale School of Art (2013). He has taught at UCLA, Parsons The New School for Design, and Southern Oregon University. In Spring 2026, he is Author in Residence at UCLA's Social Software studio with Casey Reas. He also demos biweekly at <a href="https://nelacomputer.club">NELA Computer Club</a>, a biweekly demo night at <a href="https://plot.place">Plot.Place</a> in Chinatown, Los Angeles.</p>
+        </div>
+        <div class="bio-portrait" id="heroSlideshow">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--07.jpg" alt="Jeffrey Alan Scudder" class="active">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--06.jpg" alt="Jeffrey Alan Scudder">
+          <img src="https://assets.aesthetic.computer/jeffreys/shoot/jeffery-av--10.jpg" alt="Jeffrey Alan Scudder">
+        </div>
+      </div>
+    </section>
 
     <div class="contact">
       <a href="https://jas.life">jas.life</a> &middot;
@@ -184,13 +499,14 @@
       Instagram: <a href="https://instagram.com/whistlegraph">@whistlegraph</a>, <a href="https://instagram.com/aesthetic.computer">@aesthetic.computer</a>
     </div>
 
-    <div class="bio">
-      Jeffrey is a painter based in Los Angeles who builds tools for image-making and performance. His work moves between stretched canvas, custom software, and live performance. He is the creator of <a href="https://aesthetic.computer">Aesthetic Computer</a>, <a href="https://www.tiktok.com/@whistlegraph">Whistlegraph</a>, and <a href="https://nopaint.art">No Paint</a>. Collections include KADIST (San Francisco) and SMK (National Gallery of Denmark).
-    </div>
+    <section>
+      <h2>Upcoming</h2>
+      <p>Scudder's last public exhibition of physical pictures was <a href="https://www.artsy.net/show/johannes-vogt-gallery-radical-digital-painting">Radical Digital Painting</a> with Julia Yerger at <a href="https://johannesvogt.nyc/jeffrey-scudder-and-julia-yerger-radical-digital-paintings/">Johannes Vogt Gallery</a> in New York (June 2018), where he showed large-format digital prints on paper. In the years since, he has focused on building Aesthetic Computer, touring with Whistlegraph, and returning to painting on canvas and board.</p>
+      <p>In May 2026, he will show new physical paintings at the <a href="https://venicefamilyclinic.org">47th Venice Family Clinic Art Exhibition + Auction</a> at 910 Abbot Kinney Blvd in Venice, CA&mdash;his first gallery exhibition of physical work in eight years.</p>
+    </section>
 
-    <!-- Narrative Timeline -->
-    <h2>Timeline</h2>
-    <div class="narrative">
+    <section class="narrative">
+      <h2>Timeline</h2>
       <p class="year-label">2026</p>
       <p>Author in Residence at UCLA Social Software studio with Casey Reas. Participating in the 47th Venice Family Clinic Art Exhibition + Auction. Demoing biweekly at <a href="https://nelacomputer.club">NELA Computer Club</a> at Plot.Place in Chinatown.</p>
 
@@ -214,11 +530,12 @@
 
       <p class="year-label">2016&ndash;2019</p>
       <p>Jeffrey travels and spends his time performing, programming and making pictures. Since 2016 he has given over 65 lecture performances on Radical Digital Painting and related topics in the US and in Europe, often with collaborators Goodiepal &amp; Pals, Julia Yerger, Artur Erman, and Casey REAS. He has taught at UCLA and Parsons The New School for Design and worked previously at the design studio Linked by Air. Jeffrey received an MFA in Sculpture from Yale University School of Art in 2013. He is currently an Assistant Professor of Emerging Digital Practices at Southern Oregon University.</p>
-    </div>
+    </section>
 
-    <!-- Geo. Log -->
-    <h2>Geo. Log</h2>
-    <div class="geo">
+    <hr>
+
+    <section class="cv-list geo">
+      <h2>Geo. Log</h2>
       <div class="entry"><span class="year">2025</span> &mdash; Los Angeles, CA</div>
       <div class="entry"><span class="year">2023</span> &mdash; New York, NY</div>
       <div class="entry"><span class="year">2019</span> &mdash; Ashland, OR</div>
@@ -229,196 +546,243 @@
       <div class="entry"><span class="year">2011</span> &mdash; New Haven, CT</div>
       <div class="entry"><span class="year">2007</span> &mdash; Sarasota, FL</div>
       <div class="entry"><span class="year">1989</span> &mdash; Assonet, MA (Born)</div>
-    </div>
+    </section>
 
-    <!-- Education -->
-    <h2>Education</h2>
-    <div class="entry"><span class="year">2013</span> &mdash; Yale School of Art &mdash; MFA</div>
-    <div class="entry"><span class="year">2011</span> &mdash; Ringling College of Art + Design &mdash; BFA</div>
-    <div class="entry"><span class="year">2010</span> &mdash; AICAD New York Studio Program Residency</div>
-    <div class="entry"><span class="year">2006</span> &mdash; Ringling College of Art + Design PreCollege Perspective</div>
-    <div class="entry"><span class="year">2007</span> &mdash; Apponequet Regional High School</div>
+    <section class="cv-list">
+      <h2>Education</h2>
+      <div class="entry"><span class="year">2013</span> &mdash; Yale School of Art &mdash; MFA</div>
+      <div class="entry"><span class="year">2011</span> &mdash; Ringling College of Art + Design &mdash; BFA</div>
+      <div class="entry"><span class="year">2010</span> &mdash; AICAD New York Studio Program Residency</div>
+      <div class="entry"><span class="year">2006</span> &mdash; Ringling College of Art + Design PreCollege Perspective</div>
+      <div class="entry"><span class="year">2007</span> &mdash; Apponequet Regional High School</div>
+    </section>
 
-    <!-- Press -->
-    <h2>Press, Interviews, Articles and Pages</h2>
-    <div class="entry"><span class="year">2023</span> &mdash; <a href="https://kadist.org/work/rdp-98-jas-17-4-16-17-03">Kadist Foundation Artwork Profile</a></div>
-    <div class="entry"><span class="year">2023</span> &mdash; <a href="https://dirt.fyi/article/2023/09/whistlegraph">Whistlegraph &mdash; A new audience for generative art</a>, Dirt</div>
-    <div class="entry"><span class="year">2023</span> &mdash; <a href="https://sexmag.shop/products/the-whistlegraph-zine">Sex: The Whistlegraph Zine</a></div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://soundcloud.com/theartword/9-jeffrey-alan-scudder-on">On Radical Digital Painting</a>, The Artword Podcast</div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://thecreativeindependent.com/weekends/drawing-is-the-best-videogame-by-jeffrey-alan-scudder">Drawing is the best videogame</a>, The Creative Independent</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.are.na/blog/podcast/2018/09/25/radical-digital-painting.html">Radical Digital Painting &amp; Political Rock</a>, Are.na Blog</div>
-    <div class="entry"><span class="year">2018</span> &mdash; Harvard Advocate, Winter 2018, Noise</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder">Rhizome Artist Profile: Jeffrey Alan Scudder (Jeffrey Heart)</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://schloss-post.com/manifesto-radical-digital-painting">A Manifesto for Radical Digital Painting</a>, Schlosspost</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://www.artsy.net/article/artsy-editorial-microsoft-paints-influence-artists-bigger">Microsoft Paint's Influence on Artists Is Bigger Than You Might Think</a>, Artsy</div>
+    <section class="cv-list">
+      <h2>Press, Interviews, Articles and Pages</h2>
+      <div class="entry"><span class="year">2023</span> &mdash; <a href="https://kadist.org/work/rdp-98-jas-17-4-16-17-03">Kadist Foundation Artwork Profile</a></div>
+      <div class="entry"><span class="year">2023</span> &mdash; <a href="https://dirt.fyi/article/2023/09/whistlegraph">Whistlegraph &mdash; A new audience for generative art</a>, Dirt</div>
+      <div class="entry"><span class="year">2023</span> &mdash; <a href="https://sexmag.shop/products/the-whistlegraph-zine">Sex: The Whistlegraph Zine</a>, interviews by Asher Penn, essays by Jacob Ciocci &amp; Perry</div>
+      <div class="entry"><span class="year">2022</span> &mdash; <a href="https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score">Doodling Clockwork in Lore and Score</a>, Dorothy Howard, Feral File</div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://soundcloud.com/theartword/9-jeffrey-alan-scudder-on">On Radical Digital Painting</a>, The Artword Podcast</div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://thecreativeindependent.com/weekends/drawing-is-the-best-videogame-by-jeffrey-alan-scudder">Drawing is the best videogame</a>, The Creative Independent</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.are.na/blog/podcast/2018/09/25/radical-digital-painting.html">Radical Digital Painting &amp; Political Rock</a>, Are.na Blog</div>
+      <div class="entry"><span class="year">2018</span> &mdash; Harvard Advocate, Winter 2018, Noise</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://rhizome.org/editorial/2017/dec/05/Artist-Profile-Jeffrey-Alan-Scudder">Rhizome Artist Profile: Jeffrey Alan Scudder (Jeffrey Heart)</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://schloss-post.com/manifesto-radical-digital-painting">A Manifesto for Radical Digital Painting</a>, Schlosspost</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://www.artsy.net/article/artsy-editorial-microsoft-paints-influence-artists-bigger">Microsoft Paint's Influence on Artists Is Bigger Than You Might Think</a>, Artsy</div>
+    </section>
 
-    <!-- Lectures -->
-    <h2>Lectures, Conferences &amp; Performances</h2>
-    <div class="entry"><span class="year">2025</span> &mdash; Talk @ El Cid, Los Angeles, CA</div>
-    <div class="entry"><span class="year">2020</span> &mdash; New Dynamic Graphics: Whistlegraph Recital @ Korea HCI 2020</div>
-    <div class="entry"><span class="year">2019</span> &mdash; New Dynamic Graphics @ India HCI 19, Hyderabad, India</div>
-    <div class="entry"><span class="year">2019</span> &mdash; VJ @ Internet Archive's World Night Market w/ Patrick Vogel, San Francisco</div>
-    <div class="entry"><span class="year">2019</span> &mdash; RDP @ SF Art Book Fair w/ Alex Freundlich</div>
-    <div class="entry"><span class="year">2019</span> &mdash; RDP &amp; VJ @ Internet Archive's DWeb Camp w/ Alex Freundlich</div>
-    <div class="entry"><span class="year">2019</span> &mdash; RDP @ Yale &mdash; IEEE GEM Conference</div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="http://www.raflost.is/jeffrey-alan-scudder">RDP @ RAFLOST Festival, Iceland</a></div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://www.youtube.com/watch?v=xZMsXPgg_9U">Radical Digital Painting w/ Ella Fleck (650mAh) @ Weber State University</a></div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://www.instagram.com/p/BtY342PFPpO">Island Crisis w/ Artur Erman, San Juan, PR</a></div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://day.processing.org/pcd-la-tracks.html">Radical Pedagogy I &mdash; Flower Eater Drawing Workshop @ Processing Community Day, LA</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">RDP (JAS on Paper), 35c3: Chaos Communication Congress, Leipzig</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), The House on Sunset, Los Angeles, CA</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), 1 Thoresby St. w/ Leon Sadler, Nottingham, UK</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Centrala, Birmingham, UK</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Colchester Arts Center, Colchester, UK</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Cafe OTO, London, UK</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), Gazelli Art House, London, UK</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=ndz-co7Xpn8">RDP (JAS on Paper), Digital Painting Class, Sibelius Academy, Helsinki</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="http://650mah.com/drawing-is-the-best-videogame.html">RDP (Drawing is the Best Videogame), Hove, UK</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Yale School of Art (Painting), New Haven, CT</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) generate!_lab meets Querfeldein, Tubingen, Germany</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) One Night in Club Danger, curated by Taissa Fromme, Apolda, Germany</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Bauhaus University: Arts, Weimar, Germany</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS (Rowan van As) Serendip Festival, Paris</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Klasse Digitale Grafik | HFBK, Hamburg, Germany</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Exploration Laboratory @ Sibelius Academy, Helsinki</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Jan van Eyck Academie, Maastricht, Holland</div>
-    <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting &amp; Political Rock @ Erratum Galerie, Berlin</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Kammer-Pop, Hamburg</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Dans for voksne, Oslo</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Dalin, Rowan &amp; Ben, Open Forum, Oslo National Academy of the Arts</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) @ Royal Institute of Art, Stockholm</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) @ Estonian Academy of Arts, Tallinn</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, dodo.org HarFest, Helsinki</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Mayhem, Copenhagen</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Det Jyske Kunstakademi, Aarhus, Denmark</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Louisiana Museum Literature Festival</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, KUNSTHAL AARHUS</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Spanien 19C, Aarhus</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, West Germany Venue, Berlin</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP @ Headquarters, Asheville, NC</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.instagram.com/p/BlTvNt-BJQ5DbNzzsEGyegK0-f4Uz7O1MwEAB80/?taken-by=justanothersystem">RDP @ Pioneer Works, Brooklyn, NY</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=Up2-myTEviE">RDP Malibu w/ Matty Mo, Malibu, CA</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP Lecture @ Johannes Vogt Gallery, NYC</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP (x2) @ RISD Foundations w/ Travess Smalley's students, Providence, RI</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP @ UC Santa Barbara, Santa Barbara, CA</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.facebook.com/events/2058744684449454">In conversation | on drawing, animation, and coding systems, makeroom.la, LA</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP @ Harvard Advocate's Noise Launch Party, Boston, MA</div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP @ SUNY Purchase, NY</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.facebook.com/events/1901578033465958">Casey Reas &amp; Jeffrey Alan Scudder in Conversation, bitforms gallery, NYC</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=533s7uZ35rQ">RDP @ 1st Annual HASH Award, ZKM, Karlsruhe</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; RDP @ Coaxial Arts in LA</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://justanothersystem.org">Radical Digital Painting Northeast US Lecture Tour w/ JAS Team</a> (Parsons, Victoria's Basement, Rutgers, RISD, UMASS, Harvard, Temple University, Baltimore, Yale, Kimberly-Klark)</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://vimeo.com/230450728">RDP @ Cafe OTO, London</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/9Ry0Dwa-gbA">RDP @ RBABARRAB, Copenhagen</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="http://neumeisterbaram.com/event/jeffrey-alan-scudder-radical-digital-painting">RDP @ Neumeister Bar-Am, Berlin</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; RDP @ GIPHY's TIME_FRAME Exhibition</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/_5YLPA_3l2I">Radical Digital Painting @ Oberlin College</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/OAtstjg7owU">JAS: In The Grid @ Babycastles, New York</a></div>
-    <div class="entry"><span class="year">2016</span> &mdash; Explained Pictures Basement Show &mdash; Victoria Sobel's Basement, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2016</span> &mdash; <a href="https://www.youtube.com/watch?v=Zf-COj81KYw">Explained Pictures, The New School, New York</a></div>
-    <div class="entry"><span class="year">2016</span> &mdash; Guest Lecturer: Projects Class, Cooper Union, New York</div>
-    <div class="entry"><span class="year">2015</span> &mdash; <a href="http://aigany.org/event/history-of-the-web-part-2">History of the Web Part II, AIGA/NY, New York</a></div>
-    <div class="entry"><span class="year">2015</span> &mdash; <a href="http://ieee-gem.org">Arts Panel, IEEE GEM Conference, Toronto, Canada</a></div>
+    <section class="cv-list">
+      <h2>Lectures, Conferences &amp; Performances</h2>
+      <div class="entry"><span class="year">2025</span> &mdash; Talk @ El Cid, Los Angeles, CA</div>
+      <div class="entry"><span class="year">2020</span> &mdash; New Dynamic Graphics: Whistlegraph Recital @ Korea HCI 2020</div>
+      <div class="entry"><span class="year">2019</span> &mdash; New Dynamic Graphics @ India HCI 19, Hyderabad, India</div>
+      <div class="entry"><span class="year">2019</span> &mdash; VJ @ Internet Archive's World Night Market w/ Patrick Vogel, San Francisco</div>
+      <div class="entry"><span class="year">2019</span> &mdash; RDP @ SF Art Book Fair w/ Alex Freundlich</div>
+      <div class="entry"><span class="year">2019</span> &mdash; RDP &amp; VJ @ Internet Archive's DWeb Camp w/ Alex Freundlich</div>
+      <div class="entry"><span class="year">2019</span> &mdash; RDP @ Yale &mdash; IEEE GEM Conference</div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="http://www.raflost.is/jeffrey-alan-scudder">RDP @ RAFLOST Festival, Iceland</a></div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://www.youtube.com/watch?v=xZMsXPgg_9U">Radical Digital Painting w/ Ella Fleck (650mAh) @ Weber State University</a></div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://www.instagram.com/p/BtY342PFPpO">Island Crisis w/ Artur Erman, San Juan, PR</a></div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://day.processing.org/pcd-la-tracks.html">Radical Pedagogy I &mdash; Flower Eater Drawing Workshop @ Processing Community Day, LA</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://media.ccc.de/v/35c3-9774-radical_digital_painting">RDP (JAS on Paper), 35c3: Chaos Communication Congress, Leipzig</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), The House on Sunset, Los Angeles, CA</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), 1 Thoresby St. w/ Leon Sadler, Nottingham, UK</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Centrala, Birmingham, UK</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Colchester Arts Center, Colchester, UK</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Cafe OTO, London, UK</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper), Gazelli Art House, London, UK</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=ndz-co7Xpn8">RDP (JAS on Paper), Digital Painting Class, Sibelius Academy, Helsinki</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="http://650mah.com/drawing-is-the-best-videogame.html">RDP (Drawing is the Best Videogame), Hove, UK</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Yale School of Art (Painting), New Haven, CT</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) generate!_lab meets Querfeldein, Tubingen, Germany</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) One Night in Club Danger, curated by Taissa Fromme, Apolda, Germany</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Bauhaus University: Arts, Weimar, Germany</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS (Rowan van As) Serendip Festival, Paris</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Klasse Digitale Grafik | HFBK, Hamburg, Germany</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Exploration Laboratory @ Sibelius Academy, Helsinki</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Jan van Eyck Academie, Maastricht, Holland</div>
+      <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting &amp; Political Rock @ Erratum Galerie, Berlin</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Kammer-Pop, Hamburg</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Dans for voksne, Oslo</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Dalin, Rowan &amp; Ben, Open Forum, Oslo National Academy of the Arts</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) @ Royal Institute of Art, Stockholm</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) @ Estonian Academy of Arts, Tallinn</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, dodo.org HarFest, Helsinki</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ GP&amp;PLS, Mayhem, Copenhagen</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) Det Jyske Kunstakademi, Aarhus, Denmark</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Louisiana Museum Literature Festival</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, KUNSTHAL AARHUS</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, Spanien 19C, Aarhus</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (JAS on Paper) w/ Goodiepal &amp; Pals, West Germany Venue, Berlin</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP @ Headquarters, Asheville, NC</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.instagram.com/p/BlTvNt-BJQ5DbNzzsEGyegK0-f4Uz7O1MwEAB80/?taken-by=justanothersystem">RDP @ Pioneer Works, Brooklyn, NY</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=Up2-myTEviE">RDP Malibu w/ Matty Mo, Malibu, CA</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP Lecture @ Johannes Vogt Gallery, NYC</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP (x2) @ RISD Foundations w/ Travess Smalley's students, Providence, RI</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP @ UC Santa Barbara, Santa Barbara, CA</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.facebook.com/events/2058744684449454">In conversation | on drawing, animation, and coding systems, makeroom.la, LA</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP @ Harvard Advocate's Noise Launch Party, Boston, MA</div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP @ SUNY Purchase, NY</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.facebook.com/events/1901578033465958">Casey Reas &amp; Jeffrey Alan Scudder in Conversation, bitforms gallery, NYC</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="https://www.youtube.com/watch?v=533s7uZ35rQ">RDP @ 1st Annual HASH Award, ZKM, Karlsruhe</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; RDP @ Coaxial Arts in LA</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://justanothersystem.org">Radical Digital Painting Northeast US Lecture Tour w/ JAS Team</a> (Parsons, Victoria's Basement, Rutgers, RISD, UMASS, Harvard, Temple University, Baltimore, Yale, Kimberly-Klark)</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://vimeo.com/230450728">RDP @ Cafe OTO, London</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/9Ry0Dwa-gbA">RDP @ RBABARRAB, Copenhagen</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="http://neumeisterbaram.com/event/jeffrey-alan-scudder-radical-digital-painting">RDP @ Neumeister Bar-Am, Berlin</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; RDP @ GIPHY's TIME_FRAME Exhibition</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/_5YLPA_3l2I">Radical Digital Painting @ Oberlin College</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/OAtstjg7owU">JAS: In The Grid @ Babycastles, New York</a></div>
+      <div class="entry"><span class="year">2016</span> &mdash; Explained Pictures Basement Show &mdash; Victoria Sobel's Basement, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2016</span> &mdash; <a href="https://www.youtube.com/watch?v=Zf-COj81KYw">Explained Pictures, The New School, New York</a></div>
+      <div class="entry"><span class="year">2016</span> &mdash; Guest Lecturer: Projects Class, Cooper Union, New York</div>
+      <div class="entry"><span class="year">2015</span> &mdash; <a href="http://aigany.org/event/history-of-the-web-part-2">History of the Web Part II, AIGA/NY, New York</a></div>
+      <div class="entry"><span class="year">2015</span> &mdash; <a href="http://ieee-gem.org">Arts Panel, IEEE GEM Conference, Toronto, Canada</a></div>
+    </section>
 
-    <!-- Solo Exhibitions -->
-    <h2>Solo Exhibitions</h2>
-    <div class="entry"><span class="year">2022</span> &mdash; <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a>, Feral File (w/ Whistlegraph)</div>
-    <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting: Los Angeles, The Newsstand Project &amp; CAP, Los Angeles, CA</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://left.gallery/tumpin">Tumpin</a>, left.gallery, Online</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/EvtZbcvuV48">Imaginary Screenshots</a>, Whitcher Projects, Los Angeles, CA</div>
-    <div class="entry"><span class="year">2016</span> &mdash; <a href="http://www.essexflowers.us/commissions/jeffreyscudder/">No Paint: Release One</a>, Essex Flowers (Digital Commission), Website</div>
-    <div class="entry"><span class="year">2016</span> &mdash; <a href="http://screen-space.info">What do we see when we close our eyes?</a>, SCREEN_, Email</div>
-    <div class="entry"><span class="year">2013</span> &mdash; <a href="http://parallelograms.info/78-JS">Attn: Trap</a>, Parallelograms, World Wide Web</div>
-    <div class="entry"><span class="year">2008</span> &mdash; Open Your Heart To Me, Crossley Gallery, Sarasota, FL</div>
+    <section class="cv-list">
+      <h2>Solo Exhibitions</h2>
+      <div class="entry"><span class="year">2022</span> &mdash; <a href="https://feralfile.com/exhibitions/ten-whistlegraphs-thv">Ten Whistlegraphs</a>, Feral File (w/ Whistlegraph)</div>
+      <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting: Los Angeles, The Newsstand Project &amp; CAP, Los Angeles, CA</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://left.gallery/tumpin">Tumpin</a>, left.gallery, Online</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://youtu.be/EvtZbcvuV48">Imaginary Screenshots</a>, Whitcher Projects, Los Angeles, CA</div>
+      <div class="entry"><span class="year">2016</span> &mdash; <a href="http://www.essexflowers.us/commissions/jeffreyscudder/">No Paint: Release One</a>, Essex Flowers (Digital Commission), Website</div>
+      <div class="entry"><span class="year">2016</span> &mdash; <a href="http://screen-space.info">What do we see when we close our eyes?</a>, SCREEN_, Email</div>
+      <div class="entry"><span class="year">2013</span> &mdash; <a href="http://parallelograms.info/78-JS">Attn: Trap</a>, Parallelograms, World Wide Web</div>
+      <div class="entry"><span class="year">2008</span> &mdash; Open Your Heart To Me, Crossley Gallery, Sarasota, FL</div>
+    </section>
 
-    <!-- Group Exhibitions -->
-    <h2>Group Exhibitions</h2>
-    <div class="entry"><span class="year">2026</span> &mdash; 47th Venice Family Clinic Art Exhibition + Auction, 910 Abbot Kinney Blvd, Venice, CA</div>
-    <div class="entry"><span class="year">2025</span> &mdash; Turbo Cheap (inaugural exhibition), Los Angeles, CA</div>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://blog.archive.org/2019/06/22/the-internet-archives-2019-artist-in-residency-exhibition">Internet Archive Artist in Residency Exhibition</a></div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="http://www.650mah.com/drawings.html">drawings</a>, 650mAh</div>
-    <div class="entry"><span class="year">2018</span> &mdash; INTENTIONS BASED ON A FUTURE WHICH HAS ALREADY HAPPENED (curated by Alex Corbett), Naming Gallery, Oakland, CA</div>
-    <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting w/ Julia Yerger, Johannes Vogt Gallery, NYC</div>
-    <div class="entry"><span class="year">2018</span> &mdash; OPEN CODES (Schloss Solitude Web Residencies), ZKM, Karlsruhe</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="http://february.today/drawinghomework">drawinghomework.net Presents</a>, February Gallery, Austin, TX</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="http://neumeisterbaram.com/exhibition/newdawn">New Dawn</a>, Neumeister Bar-Am, Berlin</div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="http://konstanet.com">Coping Copy</a>, Konstanet, Online</div>
-    <div class="entry"><span class="year">2016</span> &mdash; Becoming That, becomingthat.com, curated by Levi Easterbrooks, Online</div>
-    <div class="entry"><span class="year">2016</span> &mdash; <a href="http://www.drawinghomework.net/jeffrey.html">Drawing Homework</a>, Online</div>
-    <div class="entry"><span class="year">2015</span> &mdash; VIDEO MIXER, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2015</span> &mdash; P.S.1 Commencement, ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY</div>
-    <div class="entry"><span class="year">2015</span> &mdash; RENDER SERIES (3), ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY</div>
-    <div class="entry"><span class="year">2015</span> &mdash; Clorox/Envy, STILL HOUSE GROUP, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2013</span> &mdash; 'Toonskin, Artspace, New Haven, CT</div>
-    <div class="entry"><span class="year">2013</span> &mdash; APARTMENT SHOW &mdash; Hosted by Nouriel Roubini, Nouriel Roubini's Apartment, New York, NY</div>
-    <div class="entry"><span class="year">2013</span> &mdash; Yale Sculpture MFA Thesis Exhibition, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2013</span> &mdash; "Now that I have your attention, what do I do with it?", New York Studio Program, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2012</span> &mdash; 3rd Floor, The New Haven Business Center, New Haven, CT</div>
-    <div class="entry"><span class="year">2012</span> &mdash; MFA 2013 Second Year Show, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2011</span> &mdash; Frais Peint MFA 2013 First Year Show, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2011</span> &mdash; 1408: Group Show, 1408 Art Space (Joint Collective), Sarasota, FL</div>
-    <div class="entry"><span class="year">2011</span> &mdash; Fine Arts BFA Thesis Exhibition, Crossley Gallery, Sarasota, FL</div>
-    <div class="entry"><span class="year">2011</span> &mdash; SURPLUS, curated by RCAD Senior Thesis Class, Sarasota, FL</div>
-    <div class="entry"><span class="year">2011</span> &mdash; Best of Ringling (President's Award), curated by Chie Fueki, RCAD, Sarasota, FL</div>
-    <div class="entry"><span class="year">2011</span> &mdash; NUGENT &middot; PHILLIPS &middot; SCUDDER &mdash; Compulsory Thesis Exhibition, Crossley Gallery, Sarasota, FL</div>
-    <div class="entry"><span class="year">2010</span> &mdash; Best of Ringling 2010, curated by Jay Davis, RCAD, Sarasota, FL</div>
-    <div class="entry"><span class="year">2009</span> &mdash; Advanced Drawing, with Bradley Wester's Junior Advanced Drawing, Crossley Gallery, Sarasota, FL</div>
-    <div class="entry"><span class="year">2009</span> &mdash; OPEN, with Bradley Wester's Fine Arts Painting III, Crossley Gallery, Sarasota, FL</div>
-    <div class="entry"><span class="year">2009</span> &mdash; no ones little grr, with Jenny Vu and Sarah Valdez, Crossley Gallery, Sarasota, FL</div>
-    <div class="entry"><span class="year">2009</span> &mdash; The New Easy, curated by Lars Eijssen, Artnews Projects, Berlin</div>
-    <div class="entry"><span class="year">2009</span> &mdash; No Bad Memories, with the NYSP class of Spring 2009, New York Studio Program, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2008</span> &mdash; Best of Ringling 2008 (Juror's Award), curated by Dominique Nahas, RCAD, Sarasota, FL</div>
-    <div class="entry"><span class="year">2008</span> &mdash; Realia, curated by Kayla Carlson, Big E's, Sarasota, FL</div>
+    <section class="cv-list">
+      <h2>Group Exhibitions</h2>
+      <div class="entry"><span class="year">2026</span> &mdash; 47th Venice Family Clinic Art Exhibition + Auction, 910 Abbot Kinney Blvd, Venice, CA</div>
+      <div class="entry"><span class="year">2025</span> &mdash; Turbo Cheap (inaugural exhibition), Los Angeles, CA</div>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://blog.archive.org/2019/06/22/the-internet-archives-2019-artist-in-residency-exhibition">Internet Archive Artist in Residency Exhibition</a></div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="http://www.650mah.com/drawings.html">drawings</a>, 650mAh</div>
+      <div class="entry"><span class="year">2018</span> &mdash; INTENTIONS BASED ON A FUTURE WHICH HAS ALREADY HAPPENED (curated by Alex Corbett), Naming Gallery, Oakland, CA</div>
+      <div class="entry"><span class="year">2018</span> &mdash; Radical Digital Painting w/ Julia Yerger, Johannes Vogt Gallery, NYC</div>
+      <div class="entry"><span class="year">2018</span> &mdash; OPEN CODES (Schloss Solitude Web Residencies), ZKM, Karlsruhe</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="http://february.today/drawinghomework">drawinghomework.net Presents</a>, February Gallery, Austin, TX</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="http://neumeisterbaram.com/exhibition/newdawn">New Dawn</a>, Neumeister Bar-Am, Berlin</div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="http://konstanet.com">Coping Copy</a>, Konstanet, Online</div>
+      <div class="entry"><span class="year">2016</span> &mdash; Becoming That, becomingthat.com, curated by Levi Easterbrooks, Online</div>
+      <div class="entry"><span class="year">2016</span> &mdash; <a href="http://www.drawinghomework.net/jeffrey.html">Drawing Homework</a>, Online</div>
+      <div class="entry"><span class="year">2015</span> &mdash; VIDEO MIXER, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2015</span> &mdash; P.S.1 Commencement, ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY</div>
+      <div class="entry"><span class="year">2015</span> &mdash; RENDER SERIES (3), ALLGOLD @ MoMA PS1 Printshop, Long Island City, NY</div>
+      <div class="entry"><span class="year">2015</span> &mdash; Clorox/Envy, STILL HOUSE GROUP, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2013</span> &mdash; 'Toonskin, Artspace, New Haven, CT</div>
+      <div class="entry"><span class="year">2013</span> &mdash; APARTMENT SHOW &mdash; Hosted by Nouriel Roubini, Nouriel Roubini's Apartment, New York, NY</div>
+      <div class="entry"><span class="year">2013</span> &mdash; Yale Sculpture MFA Thesis Exhibition, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2013</span> &mdash; "Now that I have your attention, what do I do with it?", New York Studio Program, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2012</span> &mdash; 3rd Floor, The New Haven Business Center, New Haven, CT</div>
+      <div class="entry"><span class="year">2012</span> &mdash; MFA 2013 Second Year Show, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2011</span> &mdash; Frais Peint MFA 2013 First Year Show, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2011</span> &mdash; 1408: Group Show, 1408 Art Space (Joint Collective), Sarasota, FL</div>
+      <div class="entry"><span class="year">2011</span> &mdash; Fine Arts BFA Thesis Exhibition, Crossley Gallery, Sarasota, FL</div>
+      <div class="entry"><span class="year">2011</span> &mdash; SURPLUS, curated by RCAD Senior Thesis Class, Sarasota, FL</div>
+      <div class="entry"><span class="year">2011</span> &mdash; Best of Ringling (President's Award), curated by Chie Fueki, RCAD, Sarasota, FL</div>
+      <div class="entry"><span class="year">2011</span> &mdash; NUGENT &middot; PHILLIPS &middot; SCUDDER &mdash; Compulsory Thesis Exhibition, Crossley Gallery, Sarasota, FL</div>
+      <div class="entry"><span class="year">2010</span> &mdash; Best of Ringling 2010, curated by Jay Davis, RCAD, Sarasota, FL</div>
+      <div class="entry"><span class="year">2009</span> &mdash; Advanced Drawing, with Bradley Wester's Junior Advanced Drawing, Crossley Gallery, Sarasota, FL</div>
+      <div class="entry"><span class="year">2009</span> &mdash; OPEN, with Bradley Wester's Fine Arts Painting III, Crossley Gallery, Sarasota, FL</div>
+      <div class="entry"><span class="year">2009</span> &mdash; no ones little grr, with Jenny Vu and Sarah Valdez, Crossley Gallery, Sarasota, FL</div>
+      <div class="entry"><span class="year">2009</span> &mdash; The New Easy, curated by Lars Eijssen, Artnews Projects, Berlin</div>
+      <div class="entry"><span class="year">2009</span> &mdash; No Bad Memories, with the NYSP class of Spring 2009, New York Studio Program, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2008</span> &mdash; Best of Ringling 2008 (Juror's Award), curated by Dominique Nahas, RCAD, Sarasota, FL</div>
+      <div class="entry"><span class="year">2008</span> &mdash; Realia, curated by Kayla Carlson, Big E's, Sarasota, FL</div>
+    </section>
 
-    <!-- Residencies -->
-    <h2>Residencies</h2>
-    <div class="entry"><span class="year">2026</span> &mdash; Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA</div>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="http://gazell.io/author/jeffreyas">Gazell.io Art House Web Residency</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; <a href="https://tenminutepainting.com">Schloss-Post Web Residencies No. 2</a> by Solitude &amp; ZKM</div>
+    <section class="cv-list">
+      <h2>Residencies</h2>
+      <div class="entry"><span class="year">2026</span> &mdash; Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA</div>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="http://gazell.io/author/jeffreyas">Gazell.io Art House Web Residency</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; <a href="https://tenminutepainting.com">Schloss-Post Web Residencies No. 2</a> by Solitude &amp; ZKM</div>
+    </section>
 
-    <!-- Curated Exhibitions -->
-    <h2>Curated Exhibitions</h2>
-    <div class="entry"><span class="year">2018</span> &mdash; <a href="http://www.bitforms.com/exhibitions/exhibition-history/make-pictures/make-pictures-2018">Make Pictures</a>, bitforms gallery, NYC</div>
-    <div class="entry"><span class="year">2014</span> &mdash; Island Girl, Gordilloscudder, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2013</span> &mdash; Interludes &amp; Remnants, Gordilloscudder, Brooklyn, NY</div>
+    <section class="cv-list">
+      <h2>Curated Exhibitions</h2>
+      <div class="entry"><span class="year">2018</span> &mdash; <a href="http://www.bitforms.com/exhibitions/exhibition-history/make-pictures/make-pictures-2018">Make Pictures</a>, bitforms gallery, NYC</div>
+      <div class="entry"><span class="year">2014</span> &mdash; Island Girl, Gordilloscudder, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2013</span> &mdash; Interludes &amp; Remnants, Gordilloscudder, Brooklyn, NY</div>
+    </section>
 
-    <!-- Workshops -->
-    <h2>Workshops</h2>
-    <div class="entry"><span class="year">2019</span> &mdash; <a href="https://day.processing.org/pcd-la-tracks.html">Radical Pedagogy I &mdash; Flower Eater Drawing Workshop @ Processing Community Day, LA</a></div>
-    <div class="entry"><span class="year">2017</span> &mdash; Programming for Graphic Designers, Yale University School of Art, New Haven, CT</div>
+    <section class="cv-list">
+      <h2>Workshops</h2>
+      <div class="entry"><span class="year">2019</span> &mdash; <a href="https://day.processing.org/pcd-la-tracks.html">Radical Pedagogy I &mdash; Flower Eater Drawing Workshop @ Processing Community Day, LA</a></div>
+      <div class="entry"><span class="year">2017</span> &mdash; Programming for Graphic Designers, Yale University School of Art, New Haven, CT</div>
+    </section>
 
-    <!-- Teaching -->
-    <h2>Teaching Experience</h2>
-    <div class="entry"><span class="year">2026</span> &mdash; Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA</div>
-    <div class="entry"><span class="year">2024</span> &mdash; UCLA DMA Summer Section: Interactivity</div>
-    <div class="entry"><span class="year">2019</span> &mdash; Assistant Professor of Emerging Digital Practices, Southern Oregon University, Ashland, OR</div>
-    <div class="entry"><span class="year">2017</span> &mdash; RDP Lecture &amp; Workshop, Yale University School of Art &mdash; Graphic Design, New Haven, CT</div>
-    <div class="entry"><span class="year">2016</span> &mdash; Visiting Professor, UCLA Digital Media Arts, Los Angeles, CA</div>
-    <div class="entry"><span class="year">2013&ndash;2016</span> &mdash; Adjunct Professor, Parsons New School for Design, New York, NY</div>
+    <section class="cv-list">
+      <h2>Teaching Experience</h2>
+      <div class="entry"><span class="year">2026</span> &mdash; Author in Residence, UCLA Social Software (Casey Reas), Los Angeles, CA</div>
+      <div class="entry"><span class="year">2024</span> &mdash; UCLA DMA Summer Section: Interactivity</div>
+      <div class="entry"><span class="year">2019</span> &mdash; Assistant Professor of Emerging Digital Practices, Southern Oregon University, Ashland, OR</div>
+      <div class="entry"><span class="year">2017</span> &mdash; RDP Lecture &amp; Workshop, Yale University School of Art &mdash; Graphic Design, New Haven, CT</div>
+      <div class="entry"><span class="year">2016</span> &mdash; Visiting Professor, UCLA Digital Media Arts, Los Angeles, CA</div>
+      <div class="entry"><span class="year">2013&ndash;2016</span> &mdash; Adjunct Professor, Parsons New School for Design, New York, NY</div>
+    </section>
 
-    <!-- Professional Experience -->
-    <h2>Professional Experience</h2>
-    <div class="entry"><span class="year">2021</span> &mdash; Artist Mentor / Adviser, <a href="https://wild.xyz">wild.xyz</a>, San Francisco, CA</div>
-    <div class="entry"><span class="year">2017</span> &mdash; Technical Curator, GIPHY, New York, NY</div>
-    <div class="entry"><span class="year">2016</span> &mdash; Contractor, Kickstarter, Brooklyn, NY</div>
-    <div class="entry"><span class="year">2016</span> &mdash; Contractor, New Art Dealers Association &amp; Linked by Air, New York, NY</div>
-    <div class="entry"><span class="year">2013&ndash;2014</span> &mdash; Linked by Air, New York, NY</div>
-    <div class="entry"><span class="year">2013&ndash;2014</span> &mdash; Partner &mdash; <a href="http://gordilloscudder.com">Gordilloscudder gallery</a>, New York, NY</div>
-    <div class="entry"><span class="year">2013</span> &mdash; Programmer &mdash; allmyfriendsatonce.com, New York, NY</div>
-    <div class="entry"><span class="year">2012&ndash;2013</span> &mdash; Web Development &mdash; New York &amp; Los Angeles Art Book Fair, Printed Matter, New York, NY</div>
-    <div class="entry"><span class="year">2012</span> &mdash; Teaching Assistant for Johannes DeYoung, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2012</span> &mdash; art.yale.edu Student Administrator, Yale School of Art, New Haven, CT</div>
-    <div class="entry"><span class="year">2012</span> &mdash; Checkout Assistant &mdash; Digital Media Center for the Arts, Yale University, New Haven, CT</div>
-    <div class="entry"><span class="year">2011</span> &mdash; Studio Assistant &mdash; Nathan Skiles, Sarasota, FL</div>
-    <div class="entry"><span class="year">2010</span> &mdash; Children's Activity Programmer &mdash; Travels With Max Books, Naples, FL</div>
-    <div class="entry"><span class="year">2010</span> &mdash; Information Technology Assistant &mdash; Ringling College of Art + Design, Sarasota, FL</div>
-    <div class="entry"><span class="year">2009</span> &mdash; Gallery Assistant &mdash; Ringling College of Art + Design, Sarasota, FL</div>
-    <div class="entry"><span class="year">2007</span> &mdash; Dishwasher &mdash; The Perch Restaurant, Denali, AK</div>
-    <div class="entry"><span class="year">2004&ndash;2006</span> &mdash; Boys Gymnastics Coach &mdash; East Bay Gymnastics, Bristol, RI</div>
+    <section class="cv-list">
+      <h2>Professional Experience</h2>
+      <div class="entry"><span class="year">2021</span> &mdash; Artist Mentor / Adviser, <a href="https://wild.xyz">wild.xyz</a>, San Francisco, CA</div>
+      <div class="entry"><span class="year">2017</span> &mdash; Technical Curator, GIPHY, New York, NY</div>
+      <div class="entry"><span class="year">2016</span> &mdash; Contractor, Kickstarter, Brooklyn, NY</div>
+      <div class="entry"><span class="year">2016</span> &mdash; Contractor, New Art Dealers Association &amp; Linked by Air, New York, NY</div>
+      <div class="entry"><span class="year">2013&ndash;2014</span> &mdash; Linked by Air, New York, NY</div>
+      <div class="entry"><span class="year">2013&ndash;2014</span> &mdash; Partner &mdash; <a href="http://gordilloscudder.com">Gordilloscudder gallery</a>, New York, NY</div>
+      <div class="entry"><span class="year">2013</span> &mdash; Programmer &mdash; allmyfriendsatonce.com, New York, NY</div>
+      <div class="entry"><span class="year">2012&ndash;2013</span> &mdash; Web Development &mdash; New York &amp; Los Angeles Art Book Fair, Printed Matter, New York, NY</div>
+      <div class="entry"><span class="year">2012</span> &mdash; Teaching Assistant for Johannes DeYoung, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2012</span> &mdash; art.yale.edu Student Administrator, Yale School of Art, New Haven, CT</div>
+      <div class="entry"><span class="year">2012</span> &mdash; Checkout Assistant &mdash; Digital Media Center for the Arts, Yale University, New Haven, CT</div>
+      <div class="entry"><span class="year">2011</span> &mdash; Studio Assistant &mdash; Nathan Skiles, Sarasota, FL</div>
+      <div class="entry"><span class="year">2010</span> &mdash; Children's Activity Programmer &mdash; Travels With Max Books, Naples, FL</div>
+      <div class="entry"><span class="year">2010</span> &mdash; Information Technology Assistant &mdash; Ringling College of Art + Design, Sarasota, FL</div>
+      <div class="entry"><span class="year">2009</span> &mdash; Gallery Assistant &mdash; Ringling College of Art + Design, Sarasota, FL</div>
+      <div class="entry"><span class="year">2007</span> &mdash; Dishwasher &mdash; The Perch Restaurant, Denali, AK</div>
+      <div class="entry"><span class="year">2004&ndash;2006</span> &mdash; Boys Gymnastics Coach &mdash; East Bay Gymnastics, Bristol, RI</div>
+    </section>
 
-    <footer>
-      <a href="/bio">&larr; bio</a> &middot; <a href="/">justanothersystem.org</a>
+    <footer class="no-print">
+      <a href="/">justanothersystem.org</a>
     </footer>
+
   </div>
+
+  <script>
+    (function () {
+      const kbAnims = ['kb-zoom-center', 'kb-zoom-in', 'kb-zoom-out'];
+      const duration = 8000; // ms per slide
+      const fadeDuration = 1200; // ms (matches CSS transition)
+      const slideshow = document.getElementById('heroSlideshow');
+      if (!slideshow) return;
+      const slides = Array.from(slideshow.querySelectorAll('img'));
+      let current = 0;
+
+      function applyKenBurns(img, animName) {
+        img.style.animation = 'none';
+        img.offsetHeight; // force reflow to restart animation
+        img.style.animation = `${animName} ${duration + fadeDuration}ms ease-in-out both`;
+      }
+
+      // Start first slide — no fade from black
+      slides[0].style.transition = 'none';
+      slides[0].classList.add('active');
+      slides[0].offsetHeight; // force paint
+      slides[0].style.transition = '';
+      applyKenBurns(slides[0], kbAnims[0]);
+
+      setInterval(function () {
+        const prev = current;
+        current = (current + 1) % slides.length;
+        const animName = kbAnims[current % kbAnims.length];
+
+        slides[prev].classList.remove('active');
+        applyKenBurns(slides[current], animName);
+        slides[current].classList.add('active');
+      }, duration);
+    })();
+  </script>
 </body>
 </html>
