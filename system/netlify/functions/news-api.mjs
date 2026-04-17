@@ -7,6 +7,7 @@ import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { ObjectId } from "mongodb";
 import { createNewsOnAtproto } from "../../backend/news-atproto.mjs";
+import { ingestAll, ingestFromActor } from "../../backend/news-bluesky-ingest.mjs";
 
 // Admin users who can delete/censor content
 const ADMIN_SUBS = [process.env.ADMIN_SUB].filter(Boolean);
@@ -68,6 +69,10 @@ async function ensureIndexes(posts, comments, votes) {
   await posts.createIndex({ score: -1 }, { background: true });
   await posts.createIndex({ user: 1 }, { background: true });
   await posts.createIndex({ status: 1 }, { background: true });
+  await posts.createIndex(
+    { "external.postUri": 1 },
+    { unique: true, sparse: true, background: true },
+  );
 
   await comments.createIndex({ postCode: 1 }, { background: true });
   await comments.createIndex({ parentId: 1 }, { background: true, sparse: true });
@@ -462,6 +467,22 @@ export function createHandler({
             return redirect(redirectTo);
           }
           return respondFn(200, { ok: true, deleted: itemId, redirect: redirectTo });
+        }
+
+        // Admin-only: pull fresh headlines from trusted Bluesky sources.
+        if (route === "ingest-external") {
+          const user = await requireUserWith(event);
+          const isAdmin = await hasAdmin(user, "aesthetic");
+          if (!isAdmin) {
+            return respondFn(403, { error: "Admin only" });
+          }
+          const body = parseBody(event);
+          const actor = sanitizeText(body.actor, 256);
+          const limit = Math.min(parseInt(body.limit || "30", 10) || 30, 100);
+          const results = actor
+            ? [await ingestFromActor(database, actor, { limit })]
+            : await ingestAll(database, { limit });
+          return respondFn(200, { ok: true, results });
         }
       }
 

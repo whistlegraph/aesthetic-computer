@@ -399,11 +399,20 @@ function atprotoPermalink(atprotoData) {
   return { pdsLs: pdsLsUrl, uri: atprotoData.uri };
 }
 
-function renderHandle(handle) {
+function renderHandle(handle, options = {}) {
   const safeHandle = escapeHtml(handle || "@anon");
   // Extract username without @ for the URL
   const username = safeHandle.startsWith("@") ? safeHandle.slice(1) : safeHandle;
   if (username === "anon") return safeHandle;
+  // External sources (e.g. Bluesky) point at their own profile and render
+  // as a plain external link rather than opening in an AC modal.
+  if (options.external) {
+    const href = escapeHtml(options.profileUrl || "#");
+    const badge = options.sourceLabel
+      ? ` <span class="news-external-badge">${escapeHtml(options.sourceLabel)}</span>`
+      : "";
+    return `<a href="${href}" class="news-handle-link news-external-handle" target="_blank" rel="noopener">${safeHandle}</a>${badge}`;
+  }
   const profileUrl = `https://aesthetic.computer/@${username}`;
   return `<a href="${profileUrl}" class="news-modal-link news-handle-link" data-modal-url="${profileUrl}">${safeHandle}</a>`;
 }
@@ -552,7 +561,11 @@ function renderPostRow(post, idx, basePath) {
         ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
-        <span>by ${renderHandle(post.handle)}</span>
+        <span>by ${renderHandle(post.handle, post.externalAttribution ? {
+          external: true,
+          profileUrl: post.externalAttribution.profileUrl,
+          sourceLabel: post.externalAttribution.sourceLabel,
+        } : undefined)}</span>
         <span><a href="${itemUrl}">${formatDate(post.when)}</a></span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
       </div>
@@ -601,16 +614,44 @@ async function fetchPosts(database, { sort = "new", limit = 30 }) {
   return applyCommentCounts(database, docs);
 }
 
+// Short display form of a Bluesky handle: "artistnewsnetwork.bsky.social" → "artistnewsnetwork"
+function shortBskyHandle(handle) {
+  if (!handle) return "anon";
+  return handle.replace(/\.bsky\.social$/i, "");
+}
+
 async function hydrateHandles(database, docs) {
   const handles = database.db.collection("@handles");
   const subs = docs.map((doc) => doc.user).filter(Boolean);
-  if (subs.length === 0) return docs;
-  const handleDocs = await handles.find({ _id: { $in: subs } }).toArray();
+  const handleDocs = subs.length
+    ? await handles.find({ _id: { $in: subs } }).toArray()
+    : [];
   const map = new Map(handleDocs.map((h) => [h._id, h.handle]));
-  return docs.map((doc) => ({
-    ...doc,
-    handle: doc.user ? `@${map.get(doc.user) || "anon"}` : "@anon",
-  }));
+  return docs.map((doc) => {
+    // External source takes precedence — attribute to the Bluesky handle/DID
+    // rather than an AC @handle, and mark the doc so renderers link externally.
+    if (doc.external?.source === "bsky" && doc.external?.handle) {
+      const short = shortBskyHandle(doc.external.handle);
+      return {
+        ...doc,
+        handle: `@${short}`,
+        externalAttribution: {
+          source: "bsky",
+          sourceLabel: "bsky",
+          did: doc.external.did,
+          fullHandle: doc.external.handle,
+          profileUrl: `https://bsky.app/profile/${doc.external.handle}`,
+          postUrl: doc.external.postUri
+            ? `https://bsky.app/profile/${doc.external.did}/post/${doc.external.postUri.split("/").pop()}`
+            : null,
+        },
+      };
+    }
+    return {
+      ...doc,
+      handle: doc.user ? `@${map.get(doc.user) || "anon"}` : "@anon",
+    };
+  });
 }
 
 async function renderFrontPage(database, basePath, sort) {
@@ -673,6 +714,15 @@ async function renderItemPage(database, basePath, code) {
             <span class="news-at-link">
               <a href="${atLinks.pdsLs}" target="_blank" rel="noopener" title="View on ATProto (${atLinks.uri})">🔗 AT</a>
             </span>` : '';
+
+  // For external posts without body text, still show attribution so readers
+  // can see it came from a trusted third-party source.
+  const externalAttribHtml = (hydratedPost.externalAttribution && !hydratedPost.text) ? `
+            <span class="news-external-attrib">via ${renderHandle(hydratedPost.handle, {
+              external: true,
+              profileUrl: hydratedPost.externalAttribution.profileUrl,
+              sourceLabel: hydratedPost.externalAttribution.sourceLabel,
+            })} ${formatDate(hydratedPost.when)}${hydratedPost.externalAttribution.postUrl ? ` · <a href="${escapeHtml(hydratedPost.externalAttribution.postUrl)}" target="_blank" rel="noopener">original</a>` : ''}</span>` : '';
 
   // Check for YouTube embed
   const youtubeId = parseYouTubeUrl(hydratedPost.url);
@@ -831,6 +881,7 @@ async function renderItemPage(database, basePath, code) {
                 </form>
               </span>
               <div class="news-item-meta">
+                ${externalAttribHtml}
                 ${atLinkHtml}
               </div>
             </td>
@@ -840,7 +891,11 @@ async function renderItemPage(database, basePath, code) {
     </div>
     ${hydratedPost.text ? `
     <div class="news-op-text">
-      <div class="news-op-meta">${renderHandle(hydratedPost.handle)} ${formatDate(hydratedPost.when)}</div>
+      <div class="news-op-meta">${renderHandle(hydratedPost.handle, hydratedPost.externalAttribution ? {
+        external: true,
+        profileUrl: hydratedPost.externalAttribution.profileUrl,
+        sourceLabel: hydratedPost.externalAttribution.sourceLabel,
+      } : undefined)} ${formatDate(hydratedPost.when)}</div>
       <div class="news-op-body">${renderMarkdown(hydratedPost.text)}</div>
     </div>` : ""}
     <div class="news-comments">
