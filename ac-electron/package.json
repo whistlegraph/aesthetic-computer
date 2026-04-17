@@ -1,6 +1,6 @@
 {
   "name": "aesthetic-computer",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "Aesthetic Computer",
   "homepage": "https://aesthetic.computer",
   "author": "Aesthetic Computer <hi@aesthetic.computer>",
@@ -53,6 +53,14 @@
         "to": "trayTemplate@2x.png"
       },
       {
+        "from": "build/icons/notepatTrayTemplate.png",
+        "to": "notepatTrayTemplate.png"
+      },
+      {
+        "from": "build/icons/notepatTrayTemplate@2x.png",
+        "to": "notepatTrayTemplate@2x.png"
+      },
+      {
         "from": "build/icons/16x16.png",
         "to": "tray-icon.png"
       }
@@ -94,6 +102,8 @@
       "renderer/**/*",
       "build/icons/trayTemplate.png",
       "build/icons/trayTemplate@2x.png",
+      "build/icons/notepatTrayTemplate.png",
+      "build/icons/notepatTrayTemplate@2x.png",
       "native/osr-gpu/build/Release/*.node",
       "!node_modules/**/*",
       "node_modules/@xterm/**/*",

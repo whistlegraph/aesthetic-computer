@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Notepat</title>
+  <style>
+    :root {
+      /* B&W analogue of flip-view's purple border system.
+         Dark mode: white-on-black. Light mode: black-on-white. */
+      --np-border:        rgba(240, 240, 240, 0.25);
+      --np-border-solid:  rgba(240, 240, 240, 0.4);
+      --np-border-hover:  rgba(240, 240, 240, 0.55);
+      --np-border-active: rgba(240, 240, 240, 0.75);
+      --np-accent:        rgba(240, 240, 240, 0.9);
+      --np-accent-glow:   rgba(240, 240, 240, 0.5);
+      --np-chrome-bg: #000;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --np-border:        rgba(30, 30, 30, 0.25);
+        --np-border-solid:  rgba(30, 30, 30, 0.4);
+        --np-border-hover:  rgba(30, 30, 30, 0.55);
+        --np-border-active: rgba(30, 30, 30, 0.8);
+        --np-accent:        rgba(30, 30, 30, 0.95);
+        --np-accent-glow:   rgba(30, 30, 30, 0.5);
+        --np-chrome-bg: #fff;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    /* Rounded chrome frame — same geometry as flip-view's card, without
+       the 3D flip machinery. We inset on the right so the close tab has
+       room to protrude outside the border (matching the prompt pane's
+       flip tabs on left/right). */
+    .frame {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 26px;
+      border: 4px solid var(--np-border);
+      border-radius: 10px;
+      box-shadow: inset 0 0 0 1px var(--np-border-solid);
+      overflow: hidden;
+      background: var(--np-chrome-bg);
+    }
+
+    /* Top drag strip — lets you move the frameless window. */
+    #drag-strip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 18px;
+      -webkit-app-region: drag;
+      z-index: 5;
+    }
+
+    /* Close tab — small square pocket on the top-right edge, protruding
+       outside the frame. Shaped like a little tab (not a drag handle)
+       with the × centered. Clicks close the window. */
+    .close-tab {
+      position: absolute;
+      right: 0;
+      top: 10px;
+      width: 22px;
+      height: 22px;
+      background: var(--np-border-solid);
+      border-radius: 0 6px 6px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-app-region: no-drag;
+      z-index: 250;
+      transition: background 150ms ease;
+    }
+    .close-tab::after {
+      content: '×';
+      color: var(--np-accent);
+      font-family: "SF Mono", ui-monospace, monospace;
+      font-size: 16px;
+      line-height: 1;
+      font-weight: 400;
+      transition: color 150ms ease, text-shadow 150ms ease, transform 150ms ease;
+      pointer-events: none;
+    }
+    .close-tab:hover { background: var(--np-border-hover); }
+    .close-tab:hover::after {
+      color: var(--np-border-active);
+      text-shadow: 0 0 10px var(--np-accent-glow);
+      transform: scale(1.15);
+    }
+
+    #note-webview {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div id="drag-strip"></div>
+    <webview
+      id="note-webview"
+      src="https://aesthetic.computer/notepat?desktop&nogap=true"
+      allowpopups
+      preload="../webview-preload.js"
+    ></webview>
+  </div>
+  <div class="close-tab" title="Close (Cmd+W)"></div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const webviewEl = document.getElementById('note-webview');
+    const closeTab = document.querySelector('.close-tab');
+
+    // Apply ?piece=, ?base= overrides. Default src (set in HTML) keeps us
+    // functional even if the webview element ignores a late src= assignment
+    // on some Electron builds.
+    const params = new URLSearchParams(location.search);
+    const base = params.get('base') || 'https://aesthetic.computer';
+    const piece = (params.get('piece') || 'notepat').replace(/^\/+/, '');
+    const targetUrl = `${base}/${piece}?desktop&nogap=true`;
+    if (webviewEl.src !== targetUrl) webviewEl.src = targetUrl;
+
+    closeTab.addEventListener('click', () => window.close());
+
+    // Cmd+W / Ctrl+W also closes.
+    window.addEventListener('keydown', (e) => {
+      const mod = navigator.platform.toLowerCase().includes('mac') ? e.metaKey : e.ctrlKey;
+      if (mod && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        window.close();
+      }
+    });
+
+    // Keep the tray title in sync with whatever piece the webview lands on.
+    webviewEl.addEventListener('did-navigate', (e) => {
+      try {
+        const pathname = new URL(e.url).pathname;
+        const current = pathname.replace(/^\//, '').split('/')[0] || piece;
+        ipcRenderer.invoke('set-current-piece', current);
+      } catch (_) {}
+    });
+
+    webviewEl.addEventListener('did-fail-load', (e) => {
+      console.warn('[notepat] webview failed to load:', e.errorCode, e.errorDescription, e.validatedURL);
+    });
+  </script>
+</body>
+</html>

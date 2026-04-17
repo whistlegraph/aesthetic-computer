@@ -59,18 +59,45 @@ async function generateIcons() {
   // The SVG has a transparent background, let's add a background color
   // for the app icon (purple to match the pals theme)
   const backgroundColor = '#1a1a2e'; // Dark purple/navy background
-  
-  // Generate main 1024x1024 icon for macOS
-  console.log('📱 Generating macOS icon (1024x1024)...');
-  await sharp(Buffer.from(svgContent))
-    .resize(1024, 1024, {
+
+  // macOS icon layout: 1024x1024 canvas, ~100px padding around a 824x824 foreground,
+  // then masked by a squircle (rounded rect with rx~228) so the Dock renders it
+  // with the familiar rounded-square silhouette.
+  console.log('📱 Generating macOS icon (1024x1024, squircle-masked)...');
+  const ICON_SIZE = 1024;
+  const FG_SIZE = 824;
+  const FG_OFFSET = Math.round((ICON_SIZE - FG_SIZE) / 2);
+  const MASK_RADIUS = 228;
+
+  const foreground = await sharp(Buffer.from(svgContent))
+    .resize(FG_SIZE, FG_SIZE, {
       fit: 'contain',
-      background: backgroundColor
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
-    .flatten({ background: backgroundColor })
+    .png()
+    .toBuffer();
+
+  const squircleMask = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ICON_SIZE}" height="${ICON_SIZE}">` +
+      `<rect width="${ICON_SIZE}" height="${ICON_SIZE}" rx="${MASK_RADIUS}" ry="${MASK_RADIUS}" fill="white"/>` +
+      `</svg>`,
+  );
+
+  await sharp({
+    create: {
+      width: ICON_SIZE,
+      height: ICON_SIZE,
+      channels: 4,
+      background: backgroundColor,
+    },
+  })
+    .composite([
+      { input: foreground, top: FG_OFFSET, left: FG_OFFSET },
+      { input: squircleMask, blend: 'dest-in' },
+    ])
     .png()
     .toFile(path.join(buildDir, 'icon.png'));
-  console.log('   ✅ build/icon.png');
+  console.log('   ✅ build/icon.png (squircle)');
   
   // Generate Linux icons at various sizes
   console.log('\n🐧 Generating Linux icons...');
