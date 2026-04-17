@@ -150,6 +150,8 @@
         handle /api/* {
             reverse_proxy localhost:8888
         }
+        redir /bio /cv 301
+        redir /bio/ /cv 301
         root * /opt/ac/system/public/justanothersystem.org
         try_files {path} {path}.html /index.html
         file_server
