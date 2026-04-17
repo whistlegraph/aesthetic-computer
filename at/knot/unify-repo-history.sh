@@ -190,15 +190,15 @@ build_unified_repo() {
 
 push_to_knot() {
     if [ "$DRY_RUN" = true ]; then
-        info "[dry-run] Would push to $KNOT_REMOTE:aesthetic-computer.git"
+        info "[dry-run] Would push to $KNOT_REMOTE:aesthetic.computer/core"
         return
     fi
 
     cd "$WORK_DIR/aesthetic-computer"
 
     info "Adding Tangled knot remote..."
-    git remote add tangled "$KNOT_REMOTE:aesthetic-computer.git" 2>/dev/null || \
-        git remote set-url tangled "$KNOT_REMOTE:aesthetic-computer.git"
+    git remote add tangled "$KNOT_REMOTE:aesthetic.computer/core" 2>/dev/null || \
+        git remote set-url tangled "$KNOT_REMOTE:aesthetic.computer/core"
 
     info "Pushing unified history to knot..."
     git push tangled --all --force
@@ -235,7 +235,7 @@ main() {
     echo ""
     echo "To use in your working copy:"
     echo "  cd /workspaces/aesthetic-computer"
-    echo "  git remote add tangled $KNOT_REMOTE:aesthetic-computer.git"
+    echo "  git remote add tangled $KNOT_REMOTE:aesthetic.computer/core"
     echo "  git fetch tangled"
     echo "  git push tangled main"
     echo ""

@@ -308,7 +308,7 @@ verify_deployment() {
     echo "  2. Check HTTPS: curl https://$KNOT_DOMAIN/"
     echo "  3. Register knot at https://tangled.org/settings/knots"
     echo "  4. Add SSH key at https://tangled.org/settings/keys"
-    echo "  5. Push repos:  git remote add tangled git@$KNOT_DOMAIN:aesthetic-computer.git"
+    echo "  5. Push repos:  git remote add tangled git@$KNOT_DOMAIN:aesthetic.computer/core"
     echo ""
 }
 

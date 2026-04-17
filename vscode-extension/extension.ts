@@ -1077,7 +1077,7 @@ async function activate(context: vscode.ExtensionContext): Promise<void> {
     // Query the Tangled knot server for recent repo activity
     try {
       // Try the knot's repo endpoint for recent activity
-      const repoInfo = await httpGetJson(`${TANGLED_KNOT_URL}/aesthetic-computer.git/info/refs?service=git-upload-pack`);
+      const repoInfo = await httpGetJson(`${TANGLED_KNOT_URL}/aesthetic.computer/core/info/refs?service=git-upload-pack`);
       // The knot exposes a REST-ish API — try listing recent commits via the appview
       const tangledCommits = await httpGetJson(`https://tangled.org/api/repos/aesthetic.computer/core/commits?limit=10`);
       if (tangledCommits && Array.isArray(tangledCommits)) {
