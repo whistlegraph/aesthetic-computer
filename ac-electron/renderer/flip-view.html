@@ -500,6 +500,14 @@
     
     const flipCard = document.querySelector('.flip-card');
     const webviewEl = document.getElementById('front-webview');
+
+    // Initial src comes from ?piece= (defaults to 'prompt') and ?base= (defaults to prod).
+    (function initWebviewSrc() {
+      const params = new URLSearchParams(location.search);
+      const piece = (params.get('piece') || 'prompt').replace(/^\/+/, '');
+      const base = params.get('base') || 'https://aesthetic.computer';
+      webviewEl.src = `${base}/${piece}?desktop`;
+    })();
     const flipTabs = document.querySelectorAll('.flip-tab');
     const volumeSlider = document.getElementById('volume-slider');
     let showingTerminal = false;
