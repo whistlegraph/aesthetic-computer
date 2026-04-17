@@ -730,6 +730,77 @@ function navigateTo(piece) {
   getFocusedWindow()?.webContents.send('navigate', `${baseUrl}/${piece}?nogap=true`);
 }
 
+// ========== Experimental: native notepat (macOS) ==========
+// ac-native is currently a Linux-only bare-metal runtime (see fedac/native/).
+// A macOS build doesn't exist yet — when someone adds one and drops the
+// resulting Mach-O at any of the paths below (or points $AC_NATIVE_BIN at
+// it), the tray item "Launch Native Notepat" starts working automatically.
+// Until then, clicking the item shows an installation hint dialog.
+function resolveNativeBinary() {
+  const repoRoot = path.resolve(__dirname, '..');
+  const candidates = [
+    process.env.AC_NATIVE_BIN,
+    path.join(repoRoot, 'fedac', 'native', 'build', 'ac-native-macos'),
+    path.join(repoRoot, 'fedac', 'native', 'build', 'ac-native'),
+    '/usr/local/bin/ac-native',
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try {
+      if (fs.statSync(p).isFile()) return { path: p, candidates };
+    } catch (_) { /* not found, keep looking */ }
+  }
+  return { path: null, candidates };
+}
+
+function launchNativeNotepat() {
+  if (process.platform !== 'darwin') {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'macOS only',
+      message: 'Native notepat is a macOS-only experimental feature.',
+    });
+    return;
+  }
+  const { path: binPath, candidates } = resolveNativeBinary();
+  if (!binPath) {
+    dialog.showMessageBox({
+      type: 'warning',
+      title: 'ac-native binary not found',
+      message: 'No macOS build of ac-native is installed.',
+      detail:
+        'ac-native is currently Linux-only bare metal. To enable this menu item, ' +
+        'build a macOS target from fedac/native/ (no Makefile target exists yet) and ' +
+        'drop the Mach-O binary at one of these paths, or point $AC_NATIVE_BIN at it:\n\n' +
+        candidates.map((p) => '  • ' + p).join('\n'),
+    });
+    return;
+  }
+  const repoRoot = path.resolve(__dirname, '..');
+  const pieceFile = path.join(repoRoot, 'fedac', 'native', 'pieces', 'notepat.mjs');
+  try {
+    console.log('[native-notepat] spawning:', binPath, pieceFile);
+    const child = spawn(binPath, [pieceFile], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.on('error', (err) => {
+      console.warn('[native-notepat] spawn error:', err);
+      dialog.showMessageBox({
+        type: 'error',
+        title: 'Native notepat failed to start',
+        message: err.message,
+      });
+    });
+    child.unref();
+  } catch (err) {
+    dialog.showMessageBox({
+      type: 'error',
+      title: 'Native notepat failed to start',
+      message: err.message,
+    });
+  }
+}
+
 // ========== System Tray ==========
 let tray = null;
 let notepatTray = null;
@@ -1119,7 +1190,22 @@ function rebuildTrayMenu() {
   });
   
   menuItems.push({ type: 'separator' });
-  
+
+  // Experimental section — things that may or may not work depending on
+  // what's installed on the host machine.
+  menuItems.push({
+    label: 'Experimental',
+    submenu: [
+      {
+        label: 'Launch Native Notepat (macOS)',
+        enabled: process.platform === 'darwin',
+        click: () => launchNativeNotepat(),
+      },
+    ],
+  });
+
+  menuItems.push({ type: 'separator' });
+
   menuItems.push({
     label: 'Quit',
     accelerator: isMac ? 'Cmd+Q' : 'Alt+F4',
@@ -1161,6 +1247,12 @@ function createNotepatTray() {
   const menu = Menu.buildFromTemplate([
     { label: 'Open Notepat', click: open },
     { label: 'Open Notepat Overlay 🪟', click: () => openNotepatOverlayWindow() },
+    { type: 'separator' },
+    {
+      label: 'Launch Native Notepat (experimental)',
+      enabled: process.platform === 'darwin',
+      click: () => launchNativeNotepat(),
+    },
     { type: 'separator' },
     {
       label: 'Overlay: Click-Through',
