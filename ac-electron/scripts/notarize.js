@@ -9,27 +9,25 @@ const path = require("path");
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
 
-  // Only notarize on macOS
   if (electronPlatformName !== "darwin") {
     console.log("Skipping notarization - not macOS");
     return;
   }
 
-  // Skip if not in CI or explicitly disabled
-  if (!process.env.CI && !process.env.FORCE_NOTARIZE) {
-    console.log("Skipping notarization - not in CI (set FORCE_NOTARIZE=1 to override)");
+  if (process.env.SKIP_NOTARIZE) {
+    console.log("Skipping notarization - SKIP_NOTARIZE set");
     return;
   }
 
-  // Check for required environment variables
   const appleId = process.env.APPLE_ID;
-  const appleIdPassword = process.env.APPLE_NOTARIZE_PWD;
+  const appleIdPassword =
+    process.env.APPLE_APP_SPECIFIC_PASSWORD || process.env.APPLE_NOTARIZE_PWD;
   const teamId = process.env.APPLE_TEAM_ID;
 
   if (!appleId || !appleIdPassword || !teamId) {
     console.log("Skipping notarization - missing credentials");
     console.log("  APPLE_ID:", appleId ? "✓" : "✗");
-    console.log("  APPLE_NOTARIZE_PWD:", appleIdPassword ? "✓" : "✗");
+    console.log("  APPLE_APP_SPECIFIC_PASSWORD:", appleIdPassword ? "✓" : "✗");
     console.log("  APPLE_TEAM_ID:", teamId ? "✓" : "✗");
     return;
   }
