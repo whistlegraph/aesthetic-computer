@@ -18,6 +18,11 @@
 
 import { MongoClient } from "mongodb";
 import { AtpAgent } from "@atproto/api";
+import {
+  ingestAll,
+  ingestFromActor,
+  getConfiguredSources,
+} from "../system/backend/news-bluesky-ingest.mjs";
 import { config } from "dotenv";
 import { execSync } from "child_process";
 import { randomBytes } from "crypto";
@@ -433,6 +438,57 @@ async function commandDelete(args) {
 }
 
 // ---------------------------------------------------------------------------
+// Bluesky ingest (external headlines from trusted sources)
+// ---------------------------------------------------------------------------
+
+async function commandPullBluesky(args) {
+  const actor = args._[1];
+  const limit = parseInt(args.limit) || 30;
+
+  await withDb(async (db) => {
+    const database = { db };
+    const runOne = !!actor;
+
+    if (runOne) {
+      console.log(`\n  Pulling Bluesky feed: ${actor} (limit ${limit})\n`);
+      const result = await ingestFromActor(database, actor, {
+        limit,
+        log: (line) => console.log(`  ${line}`),
+      });
+      console.log(
+        `\n  ${actor}: +${result.inserted} inserted, ${result.skipped} skipped, ${result.errors.length} errors`,
+      );
+      if (result.errors.length) {
+        for (const err of result.errors) {
+          console.log(`    ! ${err.uri || ""} ${err.message}`);
+        }
+      }
+      return;
+    }
+
+    const sources = getConfiguredSources();
+    console.log(`\n  Pulling ${sources.length} Bluesky source(s):\n`);
+    for (const src of sources) console.log(`    - ${src}`);
+    console.log();
+
+    const results = await ingestAll(database, {
+      limit,
+      log: (line) => console.log(`  ${line}`),
+    });
+    for (const r of results) {
+      console.log(
+        `\n  ${r.actor}: +${r.inserted} inserted, ${r.skipped} skipped, ${r.errors.length} errors`,
+      );
+      if (r.errors.length) {
+        for (const err of r.errors) {
+          console.log(`    ! ${err.uri || ""} ${err.message}`);
+        }
+      }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Screenshot (via oven)
 // ---------------------------------------------------------------------------
 
@@ -502,6 +558,11 @@ Manage:
   edit ... --dry-run                     Preview without saving
   delete <code>                          Delete a post (admin)
 
+External (trusted third-party sources):
+  pull-bluesky                           Pull all configured Bluesky sources
+  pull-bluesky <handle-or-did>           Pull a specific Bluesky account
+  pull-bluesky ... --limit 30            Override per-source post limit
+
 Examples:
   ac-news commits --since "1 week ago"
   ac-news post "Dev Update" "The native OS build system got a major overhaul..."
@@ -510,6 +571,8 @@ Examples:
   ac-news edit ncd2 --replace "https://aesthetic.computer)" --with "https://aesthetic.computer/chat)"
   ac-news screenshot notepat
   ac-news list
+  ac-news pull-bluesky                   # pull all trusted Bluesky sources
+  ac-news pull-bluesky artistnewsnetwork.bsky.social
 `);
 }
 
@@ -524,6 +587,7 @@ const COMMANDS = {
   edit: commandEdit,
   delete: commandDelete,
   screenshot: commandScreenshot,
+  "pull-bluesky": commandPullBluesky,
 };
 
 async function main() {

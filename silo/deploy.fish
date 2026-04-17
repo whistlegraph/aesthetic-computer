@@ -60,6 +60,7 @@ else
     echo -e "$GREEN-> Uploading silo files...$NC"
     scp -i $SSH_KEY -o StrictHostKeyChecking=no \
         $SCRIPT_DIR/server.mjs \
+        $SCRIPT_DIR/bluesky-ingest.mjs \
         $SCRIPT_DIR/dashboard.html \
         $SCRIPT_DIR/package.json \
         $SCRIPT_DIR/package-lock.json \

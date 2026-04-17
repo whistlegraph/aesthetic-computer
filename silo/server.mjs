@@ -18,6 +18,7 @@ import {
   IgLoginTwoFactorRequiredError,
   IgLoginBadPasswordError,
 } from "instagram-private-api";
+import { ingestAll as ingestBluesky, ingestFromActor as ingestBlueskyActor, getConfiguredSources as getBlueskySources } from "./bluesky-ingest.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -1766,6 +1767,70 @@ app.get("/", (req, res) => {
   res.send(dashboardHtml);
 });
 
+// --- Bluesky ingest (external news headlines from trusted sources) ---
+const BSKY_INGEST_INTERVAL_MS = parseInt(process.env.NEWS_BLUESKY_INTERVAL_MS || "", 10) || 10 * 60 * 1000; // default 10 min
+const BSKY_INGEST_LIMIT = parseInt(process.env.NEWS_BLUESKY_LIMIT || "", 10) || 30;
+let bskyIngestTimer = null;
+let bskyLastRun = { when: null, results: [], error: null, runCount: 0 };
+
+async function runBlueskyIngestOnce(actor) {
+  if (!db) {
+    const err = "mongo not connected";
+    bskyLastRun = { when: new Date().toISOString(), results: [], error: err, runCount: bskyLastRun.runCount };
+    return bskyLastRun;
+  }
+  try {
+    const results = actor
+      ? [await ingestBlueskyActor(db, actor, { limit: BSKY_INGEST_LIMIT, log: (line) => log("info", `bsky: ${line}`) })]
+      : await ingestBluesky(db, { limit: BSKY_INGEST_LIMIT, log: (line) => log("info", `bsky: ${line}`) });
+    const totalInserted = results.reduce((n, r) => n + (r.inserted || 0), 0);
+    const totalErrors = results.reduce((n, r) => n + (r.errors?.length || 0), 0);
+    bskyLastRun = {
+      when: new Date().toISOString(),
+      results,
+      error: null,
+      runCount: (bskyLastRun.runCount || 0) + 1,
+    };
+    if (totalInserted > 0 || totalErrors > 0) {
+      log("info", `bsky ingest: +${totalInserted} new, ${totalErrors} errors`);
+    }
+    return bskyLastRun;
+  } catch (err) {
+    bskyLastRun = {
+      when: new Date().toISOString(),
+      results: [],
+      error: err.message,
+      runCount: (bskyLastRun.runCount || 0) + 1,
+    };
+    log("error", `bsky ingest failed: ${err.message}`);
+    return bskyLastRun;
+  }
+}
+
+function startBlueskyIngestLoop() {
+  if (bskyIngestTimer) return;
+  const sources = getBlueskySources();
+  log("info", `bsky ingest: ${sources.length} source(s), every ${Math.round(BSKY_INGEST_INTERVAL_MS / 60000)}m — ${sources.join(", ")}`);
+  // Kick off a first run ~30s after boot to avoid colliding with other startup work.
+  setTimeout(() => runBlueskyIngestOnce().catch(() => {}), 30_000);
+  bskyIngestTimer = setInterval(() => runBlueskyIngestOnce().catch(() => {}), BSKY_INGEST_INTERVAL_MS);
+}
+
+app.get("/api/news/bluesky/status", (req, res) => {
+  res.json({
+    sources: getBlueskySources(),
+    intervalMs: BSKY_INGEST_INTERVAL_MS,
+    limit: BSKY_INGEST_LIMIT,
+    lastRun: bskyLastRun,
+  });
+});
+
+app.post("/api/news/bluesky/pull", async (req, res) => {
+  const actor = typeof req.body?.actor === "string" ? req.body.actor.trim() : "";
+  const result = await runBlueskyIngestOnce(actor || undefined);
+  res.json(result);
+});
+
 // --- 404 ---
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 
@@ -1810,6 +1875,9 @@ await connectRedisSub();
 // Restore TikTok session on startup
 loadTiktokSession().catch(() => {});
 
+// Start the Bluesky news ingest loop (pulls headlines from trusted sources).
+startBlueskyIngestLoop();
+
 server.listen(PORT, () => {
   const proto = dev ? "https" : "http";
   log("info", `silo running on ${proto}://localhost:${PORT}`);
@@ -1818,6 +1886,7 @@ server.listen(PORT, () => {
 // --- Shutdown ---
 function shutdown(signal) {
   log("info", `received ${signal}, shutting down...`);
+  if (bskyIngestTimer) { clearInterval(bskyIngestTimer); bskyIngestTimer = null; }
   if (changeStream) changeStream.close().catch(() => {});
   wss.clients.forEach((ws) => ws.close());
   server.close();

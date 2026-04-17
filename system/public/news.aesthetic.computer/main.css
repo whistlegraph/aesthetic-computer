@@ -455,6 +455,27 @@ body {
   text-decoration: underline;
 }
 
+/* External-source attribution (e.g. Bluesky) */
+.news-external-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 0.7em;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.65;
+  vertical-align: 1px;
+}
+
+.news-external-attrib {
+  opacity: 0.75;
+  font-size: 0.9em;
+  margin-right: 8px;
+}
+
 /* ===== Item Page (HN-style table layout) ===== */
 .news-item-table {
   margin-bottom: 10px;
