@@ -1444,7 +1444,15 @@ async function boot({
   // ?overlay=true → transparent-bg mode for the ac-electron Notepat Overlay
   // window. Skip background wipes in paint() so the desktop shows through.
   overlayMode = query?.overlay === "true" || query?.overlay === true || query?.overlay === "1";
-  if (overlayMode) console.log("🪟 Notepat: overlay mode — skipping background wipes");
+  if (overlayMode) {
+    console.log("🪟 Notepat: overlay mode — skipping background wipes");
+    // Hide the corner label + ".com" superscript so nothing floats over
+    // the desktop except the piano itself. The default slug is set by
+    // the disk loader, so we have to explicitly clear it.
+    hud.superscript(null);
+    hud.label(undefined);
+    dotComMode = false;
+  }
   
   // Also check if we already have DAW data (survives hot reload)
   if (!dawMode && sound.daw?.bpm) {
@@ -3001,7 +3009,7 @@ function paint({
     bg = activeBg ?? defaultBg;
   }
 
-  if (paintPictureOverlay) {
+  if (paintPictureOverlay && !overlayMode) {
     wipe(isDark ? 0 : 255);
 
     if (active.length === 0) {
@@ -3101,13 +3109,12 @@ function paint({
     sidePanelWidth: autopatConfig.sidePanelWidth,
   }).layout;
 
-  // 🪟 Overlay mode: skip background fill entirely so the electron window's
-  // transparency lets the desktop show through between keys. All branches
-  // below (kidlisp viz, fullscreen visualizer, recital, plain bg) paint a
-  // base background each frame — none of them are wanted here.
+  // 🪟 Overlay mode: wipe to fully transparent so the electron window's
+  // transparency lets the desktop show through between keys. Skip the
+  // other branches (kidlisp viz, fullscreen visualizer, recital) — those
+  // paint a fullscreen base that would obscure whatever is underneath.
   if (overlayMode) {
-    // Also skip the background visualizers (viz, recital, kidlisp viz) —
-    // overlay mode is strictly the piano keys + labels on transparent.
+    wipe(0, 0, 0, 0);
   } else if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
     const klY = OS_BAR_BOTTOM;
@@ -6439,7 +6446,7 @@ function act({
   if (e.is("keyboard:down:-")) paintTransposeOverlay = !paintTransposeOverlay;
   if (e.is("keyboard:down:=")) {
     paintPictureOverlay = !paintPictureOverlay;
-    hud.label(paintPictureOverlay ? undefined : "notepat");
+    hud.label(overlayMode || paintPictureOverlay ? undefined : "notepat");
     setupButtons(api);
   }
   if (e.is("keyboard:down:\\")) projector = !projector;
