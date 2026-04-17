@@ -1146,6 +1146,20 @@ function createNotepatTray() {
 
   const menu = Menu.buildFromTemplate([
     { label: 'Open Notepat', click: open },
+    { label: 'Open Notepat Overlay 🪟', click: () => openNotepatOverlayWindow() },
+    { type: 'separator' },
+    {
+      label: 'Overlay: Click-Through',
+      type: 'checkbox',
+      checked: !!preferences.overlayClickThrough,
+      click: (item) => {
+        preferences.overlayClickThrough = !!item.checked;
+        savePreferences();
+        if (notepatOverlayWindow && !notepatOverlayWindow.isDestroyed()) {
+          notepatOverlayWindow.setIgnoreMouseEvents(preferences.overlayClickThrough, { forward: true });
+        }
+      },
+    },
     { type: 'separator' },
     { label: 'Quit', accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Alt+F4', click: () => app.quit() },
   ]);
