@@ -92,25 +92,27 @@ npm i -g @devcontainers/cli @anthropic-ai/claude-code \
 
 ---
 
-## 2. Path portability — `/workspaces/aesthetic-computer` symlink
+## 2. Path portability — `/workspaces` via `synthetic.conf`
 
 [`.devcontainer/config.fish`](../.devcontainer/config.fish) hardcodes
 `/workspaces/aesthetic-computer` in **48 places** (e.g. `ac-tv`, `ac-keeps`,
-`ac-kidlisp`, `ac-login`, `ac-pack`). Rather than fork the file, create a
-system symlink so both paths resolve to the same tree:
+`ac-kidlisp`, `ac-login`, `ac-pack`). macOS has had a read-only root volume
+since Catalina, so `sudo mkdir /workspaces` fails with `Read-only file system`.
+The sanctioned fix is `/etc/synthetic.conf`:
 
 ```sh
-sudo mkdir -p /workspaces
-sudo ln -s "$HOME/aesthetic-computer" /workspaces/aesthetic-computer
+printf 'workspaces\t/Users/%s\n' "$USER" | sudo tee /etc/synthetic.conf
+sudo /System/Library/Filesystems/apfs.fs/Contents/Resources/apfs.util -t
 ```
 
-The config at [config.fish:27-32](../.devcontainer/config.fish:27) already
-checks for `/workspaces/aesthetic-computer` and will symlink the reverse
-direction (`~/aesthetic-computer` → `/workspaces/...`); since the home path
-already exists as a real directory it's effectively a no-op, and all the
-hardcoded paths resolve via the symlink we just created.
+This creates `/workspaces` as a synthetic symlink → `/Users/jas`, so
+`/workspaces/aesthetic-computer` resolves automatically. No reboot needed.
+Survives reboots.
 
-This keeps future upstream edits to `config.fish` working with zero diff.
+The check at [config.fish:27-32](../.devcontainer/config.fish:27) tries to
+symlink `/workspaces/aesthetic-computer` → `~` the other direction and fails
+with `File exists` on Mac. The plan now includes a one-line upstream fix
+(`and test (uname) != Darwin`) so the block is skipped on macOS.
 
 ---
 
@@ -288,13 +290,23 @@ render.
 ac-session
 ```
 
-Should bind `https://localhost:8889`. Confirm with `curl -fsSI
-https://localhost:8889/healthz` (or whatever the current health path is — read
-`session-server/session.mjs` to be sure).
+Should bind `https://localhost:8889`.
 
-`npm run aesthetic` launches *both* site + session + stripe + url concurrently
-via `concurrently`, which is what the devcontainer uses by default. It should
-also work on Mac once step 1 installs the `concurrently` / `stripe` globals.
+**Known slow path on lightweight laptops:** [`chat-manager.mjs:141-156`](../session-server/chat-manager.mjs:141) runs a MongoDB `$unionWith` aggregate across `chat-system` + `logs` collections at startup, and
+[`session.mjs:135`](../session-server/session.mjs:135) awaits it before
+`server.listen()`. On this Mac the query takes >90s (possibly never
+completes) against the production MongoDB at `silo.aesthetic.computer:27017`
+— likely a network/replica-set reachability difference vs. the devcontainer.
+
+Workarounds if you need session locally:
+1. Add a dev flag to `chat-manager.mjs` that skips the historical load when
+   `NODE_ENV=development` — messages will only appear for the current session.
+2. Point `MONGODB_CONNECTION_STRING` at a local MongoDB with a `chat-system`
+   collection containing a small number of documents.
+3. Use the production session-server (jamsocket) and only run lith locally.
+
+`npm run aesthetic` launches site + session + stripe + url concurrently. Until
+the chat-load issue is resolved, prefer `ac-site` standalone.
 
 ---
 
@@ -321,24 +333,38 @@ one specific dep — don't pre-install the whole Fedora manifest.
 
 ## 10. Reproducibility — roll-up script
 
-Once verified interactively, commit a `scripts/mac-native-bootstrap.fish`
-(or extend [`dotfiles/install.sh`](../dotfiles/install.sh) with a `macos`
-branch) that performs steps 1–6 idempotently so the next fresh Mac can run:
+Committed: [`scripts/mac-native-bootstrap.sh`](../scripts/mac-native-bootstrap.sh).
+Idempotent. Run on a fresh Mac after `git clone`ing the repo and the vault:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/.../mac-native-bootstrap.fish | fish
+cd ~/aesthetic-computer
+./scripts/mac-native-bootstrap.sh
 ```
 
-Suggested layout:
+What it does (13 phases, ~4 min on a fresh machine, ~30s on a re-run):
 
-```
-scripts/
-  mac-native-bootstrap.fish      # brew + fnm + npm globals
-  mac-native-link-workspaces.sh  # /workspaces symlink (needs sudo)
-  mac-native-fish-config.fish    # writes ~/.config/fish/config.fish
-```
+1. Writes a GUI askpass helper at `/tmp/ac-askpass.sh` and primes sudo
+2. Installs Homebrew if missing
+3. Installs brew formulas (fish, fnm, mkcert, jq, ripgrep, ffmpeg, caddy,
+   stripe, doctl, gnupg, pinentry-mac, …)
+4. Creates `/etc/synthetic.conf` and triggers `apfs.util -t` for `/workspaces`
+5. Installs the scoped NOPASSWD sudoers file
+6. Installs node LTS-jod + 20.5.0 via fnm
+7. npm globals: `@anthropic-ai/claude-code`, `netlify-cli`, `concurrently`,
+   `kill-port`, … + native `claude` binary from `claude.ai/install.sh`
+8. Adds `/opt/homebrew/bin/fish` to `/etc/shells` and `dscl`-changes the
+   default shell
+9. Writes `~/.config/fish/config.fish` that sources the repo's
+   `.devcontainer/config.fish`
+10. Configures `gpg-agent` for `pinentry-mac`
+11. Runs `mkcert -install` and generates `ssl-dev/localhost.pem`
+12. Symlinks `aesthetic-computer-vault/session-server/.env` →
+    `session-server/.env` (skipped if vault is locked)
+13. Smoke-tests `https://localhost:8888/` end-to-end and kills the test proc
 
-Keep each step a separate function so reruns are cheap.
+Vault unlock is **not** part of the bootstrap — run
+`fish aesthetic-computer-vault/vault-tool.fish unlock` separately (see memory
+`reference_vault_unlock.md`).
 
 ---
 
@@ -366,13 +392,39 @@ Keep each step a separate function so reruns are cheap.
 
 ## 12. Definition of done
 
-- [ ] `fish` is the login shell; new terminal tab has `ac-help` output ≥ 80 items
-- [ ] `ac-site` brings up `https://localhost:8888` with a trusted cert (no
-      `-k` needed on `curl`)
-- [ ] `ac-session` brings up `https://localhost:8889`
-- [ ] `npm test` from repo root passes (or fails only on known
-      vault/Linux-only specs)
-- [ ] `git status` in both `aesthetic-computer` and
-      `aesthetic-computer-vault` is clean (no accidental `.env` commits)
-- [ ] Bootstrap script in `scripts/` reproduces the whole setup on a fresh
-      user account
+Status as of 2026-04-17 on jas's 14" MBP (arm64, macOS 26.4):
+
+- [x] `fish` is the login shell; new terminal tab has **214 `ac-*` commands**
+- [x] `ac-site` brings up `https://localhost:8888` with a **trusted cert**
+      (no `-k` on `curl`); `/`, `/prompt`, `/api/version` all return 200
+- [ ] `ac-session` brings up `https://localhost:8889` — **boots but hangs**
+      on chat-history MongoDB load (see §8)
+- [ ] `npm test` from repo root — not yet exercised
+- [x] `git status` clean in vault (no accidental plaintext commits)
+- [x] [`scripts/mac-native-bootstrap.sh`](../scripts/mac-native-bootstrap.sh)
+      reproduces the setup
+
+## 13. Sudo on macOS — friction and workarounds
+
+Claude Code (and any non-interactive shell) can't read a sudo password
+because it has no tty. Three tiers of mitigation, used in combination:
+
+1. **GUI askpass helper** — `/tmp/ac-askpass.sh` pops a native
+   `osascript display dialog` when `sudo -A` runs. Works for all `sudo -A`
+   invocations but NOT for third-party tools that call `sudo` directly
+   (e.g. Homebrew's installer, `mkcert -install`).
+2. **Scoped NOPASSWD sudoers** at `/etc/sudoers.d/claude-ac-setup` covers the
+   exact commands this workflow invokes via third-party tooling:
+   `security` (for mkcert), `mkcert`, `tee -a /etc/shells`. Everything else
+   still prompts.
+3. **One-off priming** — running `sudo -v` in a separate Terminal before
+   kicking off Homebrew; the timestamp is per-tty so this only helps when
+   you're running the installer yourself.
+
+Explicitly **not** enabled:
+
+- Global sudo timestamp (`Defaults timestamp_type=global`)
+- Long `timestamp_timeout` extensions
+- Blanket NOPASSWD for the user
+
+These were considered and rejected as too broad.
