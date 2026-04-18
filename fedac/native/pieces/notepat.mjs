@@ -50,7 +50,7 @@ let octave = 4;
 let wave = "sine";
 let waveIndex = 0;
 let quickMode = false;
-const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "noise", "whistle", "sample"];
+const wavetypes = ["sine", "triangle", "sawtooth", "square", "composite", "harp", "whistle", "sample"];
 let sampleLoaded = false;  // true when sample buffer has data (default or recorded)
 let lastLoadedSample = null;  // track which sample object is currently loaded
 let recording = false;     // true while holding REC
@@ -1925,9 +1925,9 @@ function playWaveSound(sound, waveType) {
     sound.synth({ type: "noise", tone: 800 * pf, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
-  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, noise: 220, whistle: 880 };
+  const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, harp: 440, whistle: 880 };
   sound.synth({
-    type: waveType === "noise" ? "noise" : waveType,
+    type: waveType,
     tone: tones[waveType] || 440,
     duration: 0.07, volume: 0.18,
     attack: 0.002, decay: 0.06, pan: 0,
@@ -4657,19 +4657,20 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
   {
-    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "noise", "whist", "sample"];
+    const waveLabels = ["sine", "tri", "saw", "square", "cmp", "harp", "whist", "sample"];
     const octBtnW = 22;                           // octave button on right
     const waveAreaW = w - octBtnW - 1;
     const btnW2 = Math.floor(waveAreaW / wavetypes.length);
 
-    // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, ns=red, smp=cyan
+    // Wave type colors: sin=blue, tri=green, saw=orange, sq=purple, cmp=pink,
+    // harp=gold, whistle=bone, sample=cyan
     const WAVE_COLORS = [
       [60, 120, 255],  // sine — blue
       [60, 200, 80],   // triangle — green
       [255, 150, 40],  // sawtooth — orange
       [160, 80, 220],  // square — purple
       [255, 180, 220], // composite — pink
-      [220, 60, 60],   // noise — red
+      [220, 170, 70],  // harp — warm gold (bronze string)
       [220, 220, 150], // whistle — bone
       [40, 200, 200],  // sample — cyan
     ];
