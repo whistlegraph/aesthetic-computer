@@ -1,9 +1,11 @@
 #!/bin/bash
 # lid-ambient daemon. Long-lived via launchd KeepAlive; polls lid every POLL
 # seconds. Ambient loop + reactive listener run only when:
-#   lid is closed AND sleep is disabled AND at least one Claude session has
-#   an active prompt (file in $SLAB_HOME/state/active-prompts/).
+#   lid is closed AND sleep is disabled AND at least one active marker exists
+#   in $SLAB_HOME/state/active-prompts/ (UserPromptSubmit → Stop lifecycle)
+#   or $SLAB_HOME/state/active-subagents/ (Task tool → SubagentStop lifecycle).
 # Lid close always turns off the display (when sleep is disabled).
+# Completion + auto-sleep is handled by the Stop hook — see claude-stop.sh.
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
@@ -17,7 +19,8 @@ open_ding="$SOUNDS/lid-open-ding.wav"
 return_dur=2.5
 
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
-mkdir -p "$ACTIVE_DIR"
+SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
+mkdir -p "$ACTIVE_DIR" "$SUBAGENT_DIR"
 
 PID_DIR=/tmp
 pid_file="$PID_DIR/lidambient.pid"
@@ -86,19 +89,16 @@ stop_monitor() {
     pkill -f slab-monitor.sh 2>/dev/null
 }
 
-active_prompts_count() {
+claude_running() {
+    ps -eo command | grep -qE '^/Users/.*/claude\.app/Contents/MacOS/claude '
+}
+
+active_work_count() {
     shopt -s nullglob
-    local files=("$ACTIVE_DIR"/*)
+    local p=("$ACTIVE_DIR"/*)
+    local s=("$SUBAGENT_DIR"/*)
     shopt -u nullglob
-    local c=${#files[@]}
-    if (( c > 0 )); then
-        # drop stale files if no claude process is running at all
-        if ! ps -eo command | grep -qE '^/Users/.*/claude\.app/Contents/MacOS/claude '; then
-            rm -f "$ACTIVE_DIR"/* 2>/dev/null
-            c=0
-        fi
-    fi
-    echo "$c"
+    echo $((${#p[@]} + ${#s[@]}))
 }
 
 cleanup() {
@@ -123,7 +123,14 @@ while true; do
     lid_state=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
     sleep_disabled=$(pmset -g | awk '/SleepDisabled/{print $2; exit}')
     sleep_disabled=${sleep_disabled:-0}
-    active_count=$(active_prompts_count)
+    claude_alive=0
+    claude_running && claude_alive=1
+    active_count=$(active_work_count)
+    # drop stale markers if no Claude process is around at all
+    if (( claude_alive == 0 && active_count > 0 )); then
+        rm -f "$ACTIVE_DIR"/* "$SUBAGENT_DIR"/* 2>/dev/null
+        active_count=0
+    fi
 
     # Lid just closed: darken display (ambient start is gated on Claude activity below).
     if [[ "$lid_state" == "Yes" && "$prev_lid" == "No" ]]; then
@@ -152,7 +159,7 @@ while true; do
         fi
     fi
 
-    # Ambient gate: lid closed + sleep disabled + Claude has an active prompt.
+    # Ambient gate: lid closed + sleep disabled + active prompt or subagent.
     ambient_wanted=0
     if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )); then
         ambient_wanted=1
@@ -165,7 +172,7 @@ while true; do
         start_reactive
         ambient_running=1
     elif (( ambient_wanted == 0 && ambient_running == 1 )) && [[ "$lid_state" == "Yes" ]]; then
-        # Claude finished or sleep was re-enabled while lid still closed.
+        # All active work finished or sleep was re-enabled while lid still closed.
         log_msg "ambient STOP (active=$active_count sleep_disabled=$sleep_disabled)"
         stop_player
         stop_reactive
