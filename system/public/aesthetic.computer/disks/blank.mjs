@@ -1,15 +1,14 @@
 // blank, 26.03.20
 // AC Blank — AC Native Laptop product page & checkout
+// Checkout is handled by Shopify (shop.aesthetic.computer). Earlier this page
+// ran Stripe directly because we hadn't re-enabled Shopify; that path is gone.
 
 const { floor, sin, cos, abs, min, max, PI, sqrt } = Math;
 
 // Module state
-let amount = 12800;
-let checkoutUrl = null;
-let checkoutReady = false;
-let checkoutError = null;
-let checkoutLoading = false;
-let buyPending = false;
+let amount = 12800; // Kept in sync with the Shopify variant price (USD cents).
+const SHOP_URL =
+  "https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51";
 let thanks = false;
 
 // UI elements
@@ -57,20 +56,6 @@ const DESCRIPTION_PLAIN =
   "Receive a @jeffrey approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
 const DESCRIPTION =
   "Receive a \\255,100,255\\@jeffrey\\reset\\ approved, refurbished Thinkpad 11e Yoga Gen 6 pre-flashed with AC Native OS and Live USB recovery stick.";
-const AUTH_TIMEOUT_MS = 1200;
-
-async function getOptionalToken(api) {
-  if (!api?.authorize) return null;
-
-  try {
-    return await Promise.race([
-      api.authorize().catch(() => null),
-      new Promise((resolve) => setTimeout(() => resolve(null), AUTH_TIMEOUT_MS)),
-    ]);
-  } catch {
-    return null;
-  }
-}
 
 // Animation
 let frame = 0;
@@ -82,7 +67,6 @@ function displayAmount(amt) {
 }
 
 function getBuyText() {
-  if (buyPending) return "CHECKING OUT...";
   return `BUY LAPTOP ${displayAmount(amount)}`;
 }
 
@@ -97,7 +81,6 @@ async function boot({ params, ui, screen, cursor, hud, api, handle }) {
 
   userHandle = handle();
   setupButtons(ui, screen);
-  fetchCheckout(api);
   if (!userHandle) fetchHandles(screen);
   // Prefetch colors for logged-in user
   if (userHandle) fetchHandleColor(userHandle);
@@ -142,43 +125,7 @@ function setupButtons(ui, screen) {
   manualBtn = new ui.TextButton("ThinkPad 11e Yoga Manual", { x: 6, bottom: 20 + (paperBtn.height || 14) + 4, screen });
 }
 
-async function fetchCheckout(api) {
-  if (checkoutLoading) return;
-
-  checkoutLoading = true;
-  checkoutReady = false;
-  checkoutError = null;
-  checkoutUrl = null;
-
-  try {
-    const headers = { "Content-Type": "application/json" };
-    const token = await getOptionalToken(api);
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const res = await fetch("/api/blank?new=true", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ amount, currency: "usd" }),
-    });
-
-    if (!res.ok) {
-      checkoutError = `Checkout failed: ${res.status}`;
-      return;
-    }
-
-    const data = await res.json();
-    if (data?.location) {
-      checkoutUrl = data.location;
-      checkoutReady = true;
-    } else {
-      checkoutError = data?.error || "Checkout failed";
-    }
-  } catch (e) {
-    checkoutError = e?.message || "Checkout error";
-  } finally {
-    checkoutLoading = false;
-  }
-}
+// Checkout lives on Shopify now — no pre-flight request needed.
 
 function paint($) {
   const { wipe, ink, line, screen, dark: isDark, tri, text } = $;
@@ -760,19 +707,7 @@ function paint($) {
     const isOver = buyBtn.btn.over;
     const isDown = buyBtn.btn.down;
 
-    if (buyPending) {
-      const pulse = sin(t * 6) * 0.5 + 0.5;
-      const bgR = isDark ? floor(20 + pulse * 40) : floor(200 + pulse * 30);
-      const bgG = isDark ? floor(30 + pulse * 30) : floor(220 + pulse * 20);
-      const bgB = isDark ? 20 : 200;
-      ink(bgR, bgG, bgB).box(bx, "fill");
-      const oA = floor(120 + pulse * 135);
-      ink(isDark ? [100, 255, 100, oA] : [40, 140, 40, oA]).box(bx, "outline");
-      // Shadow text
-      ink(sr, sg, sb, 120).write(buyText, { x: bx.x + padX + 1, y: bx.y + padY + 1 }, undefined, undefined, false, "unifont");
-      ink(isDark ? [160 + floor(pulse * 95), 230, 160] : [30, floor(80 + pulse * 40), 30])
-        .write(buyText, { x: bx.x + padX, y: bx.y + padY }, undefined, undefined, false, "unifont");
-    } else {
+    {
       // Breathing glow animation
       const breath = sin(t * 2) * 0.5 + 0.5;
       const wave = sin(t * 3.5) * 0.3 + 0.7;
@@ -917,47 +852,11 @@ function act({ event: e, screen, jump, sound, ui, api }) {
       sound?.synth({ type: "sine", tone: 440, duration: 0.05, volume: 0.3 });
     },
     push: () => {
-      if (buyPending) return;
-
-      if (checkoutReady && checkoutUrl) {
-        sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
-        jump(checkoutUrl);
-      } else if (checkoutError) {
-        checkoutError = null;
-        fetchCheckout(api);
-        sound?.synth({ type: "sine", tone: 550, duration: 0.06, volume: 0.3 });
-        buyPending = true;
-        waitForCheckout(jump, sound, api);
-      } else {
-        buyPending = true;
-        if (!checkoutLoading) fetchCheckout(api);
-        sound?.synth({ type: "sine", tone: 660, duration: 0.08, volume: 0.3 });
-        waitForCheckout(jump, sound, api);
-      }
+      sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
+      // Jump to the Shopify product (orderable there).
+      jump(`out:${SHOP_URL}`);
     },
   });
-}
-
-async function waitForCheckout(jump, sound, api) {
-  const maxWait = 10000;
-  const startTime = Date.now();
-
-  if (!checkoutReady && !checkoutError && !checkoutLoading) {
-    fetchCheckout(api);
-  }
-
-  while (!checkoutReady && !checkoutError && Date.now() - startTime < maxWait) {
-    await new Promise((r) => setTimeout(r, 100));
-  }
-
-  buyPending = false;
-
-  if (checkoutReady && checkoutUrl) {
-    sound?.synth({ type: "sine", tone: 880, duration: 0.1, volume: 0.4 });
-    jump(checkoutUrl);
-  } else if (checkoutError) {
-    sound?.synth({ type: "square", tone: 200, duration: 0.15, volume: 0.3 });
-  }
 }
 
 function meta() {
