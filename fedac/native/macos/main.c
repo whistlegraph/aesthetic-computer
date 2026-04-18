@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
         }
         Audio *a = audio_init();
         if (!a) { SDL_Quit(); return 1; }
-        audio_synth(a, AC_WAVE_SINE, 440.0, 1.0, 0.3, 0.01, 0.1, 0.0);
+        audio_synth(a, WAVE_SINE, 440.0, 1.0, 0.3, 0.01, 0.1, 0.0);
         SDL_Delay(1200);
         audio_destroy(a);
         SDL_Quit();
@@ -108,15 +108,31 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    SDL_Window *win = SDL_CreateWindow("ac-native (macOS)",
+    // Fullscreen is the default — matches bare-metal notepat. ESC or Cmd+Q
+    // quits. AC_WINDOWED=1 forces a windowed build for dev.
+    int windowed = getenv("AC_WINDOWED") != NULL;
+    Uint32 win_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    if (!windowed) win_flags |= SDL_WINDOW_FULLSCREEN;
+
+    SDL_Window *win = SDL_CreateWindow("Notepat",
                                        FB_W * WIN_SCALE, FB_H * WIN_SCALE,
-                                       SDL_WINDOW_HIGH_PIXEL_DENSITY);
+                                       win_flags);
     if (!win) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     SDL_SetRenderVSync(ren, 1);
-    fprintf(stderr, "[macos] renderer: %s\n", SDL_GetRendererName(ren));
+    fprintf(stderr, "[macos] renderer: %s (%s)\n", SDL_GetRendererName(ren),
+            windowed ? "windowed" : "fullscreen");
+
+    // Integer-scale letterbox: FB_W×FB_H is the logical canvas, the renderer
+    // picks the largest integer multiple that fits and centers it with black
+    // bars. Combined with SDL_SCALEMODE_NEAREST on the texture, this yields
+    // pixel-perfect chunky pixels — no bilinear smear even on retina.
+    SDL_SetRenderLogicalPresentation(ren, FB_W, FB_H, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+
+    // Overlay feel: hide the OS cursor. Pieces draw their own if they want one.
+    if (!windowed) SDL_HideCursor();
 
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888,
                                          SDL_TEXTUREACCESS_STREAMING, FB_W, FB_H);
@@ -191,6 +207,10 @@ int main(int argc, char **argv) {
         }
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
+            // Remap mouse/touch coords from window pixels into the logical
+            // FB_W × FB_H canvas so pieces see native framebuffer coords
+            // regardless of fullscreen scale factor or retina backing.
+            SDL_ConvertEventToRenderCoordinates(ren, &ev);
             if (ev.type == SDL_EVENT_QUIT) running = 0;
             else if (ev.type == SDL_EVENT_KEY_DOWN) {
                 if (ev.key.key == SDLK_ESCAPE) { running = 0; continue; }
@@ -204,24 +224,15 @@ int main(int argc, char **argv) {
                 snprintf(pe.type, sizeof(pe.type), "keyboard:up:%s", pe.key);
                 piece_act(pc, &pe);
             } else if (ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-                int ww, wh; SDL_GetWindowSize(win, &ww, &wh);
-                PieceEvent pe = {0};
-                pe.x = (int)(ev.button.x * (float)FB_W / ww);
-                pe.y = (int)(ev.button.y * (float)FB_H / wh);
+                PieceEvent pe = { .x = (int)ev.button.x, .y = (int)ev.button.y };
                 snprintf(pe.type, sizeof(pe.type), "touch");
                 piece_act(pc, &pe);
             } else if (ev.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-                int ww, wh; SDL_GetWindowSize(win, &ww, &wh);
-                PieceEvent pe = {0};
-                pe.x = (int)(ev.button.x * (float)FB_W / ww);
-                pe.y = (int)(ev.button.y * (float)FB_H / wh);
+                PieceEvent pe = { .x = (int)ev.button.x, .y = (int)ev.button.y };
                 snprintf(pe.type, sizeof(pe.type), "lift");
                 piece_act(pc, &pe);
             } else if (ev.type == SDL_EVENT_MOUSE_MOTION && (ev.motion.state & SDL_BUTTON_LMASK)) {
-                int ww, wh; SDL_GetWindowSize(win, &ww, &wh);
-                PieceEvent pe = {0};
-                pe.x = (int)(ev.motion.x * (float)FB_W / ww);
-                pe.y = (int)(ev.motion.y * (float)FB_H / wh);
+                PieceEvent pe = { .x = (int)ev.motion.x, .y = (int)ev.motion.y };
                 snprintf(pe.type, sizeof(pe.type), "draw");
                 piece_act(pc, &pe);
             }

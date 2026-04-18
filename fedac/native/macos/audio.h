@@ -1,44 +1,33 @@
-// audio.h — minimal SDL3-backed synth for the macOS ac-native host.
-// Phase B MVP: sine/triangle/sawtooth/square/noise oscillators, ADSR-ish
-// envelope, voice pool, stereo pan. Intentionally narrower than the Linux
-// ALSA engine in ../src/audio.c; enough for notepat to make sound.
+// audio.h — macOS SDL3 audio driver for the AC synth.
+// Wraps fedac/native/src/synth_core with an SDL3 device + callback. Public
+// API is similar to the Linux ALSA side but intentionally minimal — only
+// what the SDL3 host + piece.c currently need.
 #ifndef AC_MACOS_AUDIO_H
 #define AC_MACOS_AUDIO_H
 
-#include <stdint.h>
-
-typedef enum {
-    AC_WAVE_SINE = 0,
-    AC_WAVE_TRIANGLE,
-    AC_WAVE_SAWTOOTH,
-    AC_WAVE_SQUARE,
-    AC_WAVE_NOISE,
-} ACWaveType;
+#include "synth_types.h"
 
 typedef struct Audio Audio;
 
 Audio *audio_init(void);
 void   audio_destroy(Audio *a);
 
-// Allocate a voice. Returns an opaque id > 0 (0 = failure or silent).
-// `duration_s` < 0 is treated as infinite (sustained until killed).
-uint64_t audio_synth(Audio *a,
-                     ACWaveType wave,
-                     double freq_hz,
-                     double duration_s,
-                     double volume,
-                     double attack_s,
-                     double decay_s,
-                     double pan);
+// Basic oscillator voice. Mirrors synth_synth() in synth_core.
+uint64_t audio_synth(Audio *a, WaveType wave, double freq_hz,
+                     double duration_s, double volume, double attack_s,
+                     double decay_s, double pan);
 
-// Kill an active voice with an optional linear fade (seconds).
-void audio_kill(Audio *a, uint64_t id, double fade_s);
+// Gun voice (all 12 presets). force_model: -1 = preset default, 0 = classic,
+// 1 = physical. pressure_scale multiplies gun_pressure (1.0 = preset default).
+uint64_t audio_synth_gun(Audio *a, GunPreset preset, double duration,
+                         double volume, double attack, double decay,
+                         double pan, double pressure_scale, int force_model);
 
-// Update freq/volume/pan on an active voice. NaN/negative skips a field.
+void audio_kill  (Audio *a, uint64_t id, double fade_s);
 void audio_update(Audio *a, uint64_t id, double freq_hz, double volume, double pan);
+void audio_gun_set_param(Audio *a, uint64_t id, const char *key, double value);
 
-// Parse a wave-type string ("sine", "triangle", "sawtooth"/"saw",
-// "square", "noise"). Unknown strings fall back to sine.
-ACWaveType audio_parse_wave(const char *s);
+// Parse "sine"/"triangle"/"sawtooth"/"saw"/"square"/"noise"/"whistle"/"gun".
+WaveType audio_parse_wave(const char *s);
 
 #endif

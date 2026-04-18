@@ -338,10 +338,31 @@ static JSValue js_sound_synth(JSContext *jsctx, JSValueConst this_val, int argc,
     double decay    = opt_num(jsctx, argv[0], "decay",    0.1);
     double pan      = opt_num(jsctx, argv[0], "pan",      0.0);
 
-    ACWaveType wave = audio_parse_wave(type_s);
+    // Route gun preset names ("gun:pistol", "gun:sniper", ...) through the
+    // full preset engine; everything else goes to the shared oscillator
+    // path. Lets notepat opt-in to the richer percussion via a naming
+    // convention without a new API surface.
+    uint64_t id = 0;
+    if (type_s && strncmp(type_s, "gun:", 4) == 0) {
+        static const struct { const char *name; GunPreset preset; } guns[] = {
+            {"pistol", GUN_PISTOL}, {"rifle", GUN_RIFLE},
+            {"shotgun", GUN_SHOTGUN}, {"smg", GUN_SMG},
+            {"suppressed", GUN_SUPPRESSED}, {"lmg", GUN_LMG},
+            {"sniper", GUN_SNIPER}, {"grenade", GUN_GRENADE},
+            {"rpg", GUN_RPG}, {"reload", GUN_RELOAD},
+            {"cock", GUN_COCK}, {"ricochet", GUN_RICOCHET},
+        };
+        GunPreset preset = GUN_PISTOL;
+        for (size_t i = 0; i < sizeof(guns)/sizeof(guns[0]); i++) {
+            if (strcmp(type_s + 4, guns[i].name) == 0) { preset = guns[i].preset; break; }
+        }
+        id = audio_synth_gun(pc->audio, preset, duration, volume, attack, decay,
+                             pan, 1.0, -1);
+    } else {
+        WaveType wave = audio_parse_wave(type_s);
+        id = audio_synth(pc->audio, wave, tone, duration, volume, attack, decay, pan);
+    }
     free(type_s);
-
-    uint64_t id = audio_synth(pc->audio, wave, tone, duration, volume, attack, decay, pan);
     if (!id) return JS_NULL;
 
     JSValue handle = JS_NewObject(jsctx);
