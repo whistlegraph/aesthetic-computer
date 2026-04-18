@@ -1919,6 +1919,30 @@ static int get_la_hour(void) {
     return (utc->tm_hour - get_la_offset() + 24) % 24;
 }
 
+// Fill buf with the city name for the boot greeting. The geo piece writes
+// /mnt/last-city.txt after a successful IP lookup, so this reads whatever
+// was cached on a previous boot. Falls back to "Los Angeles" on first boot
+// or when the cache is missing/empty — matches the pre-cache greeting.
+static void read_cached_city(char *buf, size_t len) {
+    if (!buf || len == 0) return;
+    buf[0] = 0;
+    FILE *f = fopen("/mnt/last-city.txt", "r");
+    if (f) {
+        if (fgets(buf, (int)len, f)) {
+            size_t n = strlen(buf);
+            while (n > 0 && (buf[n-1] == '\n' || buf[n-1] == '\r' ||
+                              buf[n-1] == ' '  || buf[n-1] == '\t')) {
+                buf[--n] = 0;
+            }
+        }
+        fclose(f);
+    }
+    if (buf[0] == 0) {
+        strncpy(buf, "Los Angeles", len - 1);
+        buf[len - 1] = 0;
+    }
+}
+
 static void play_install_prompt_beep(ACAudio *audio) {
     if (!audio || !audio->pcm) return;
     audio_synth(audio, WAVE_SINE, 620.0, 0.06, 0.40, 0.001, 0.05, 0.0);
@@ -2296,6 +2320,10 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     // Initialize machines monitoring daemon
     machines_init(&g_machines);
 
+    // Read cached city once for both TTS greeting (f==10) and subtitle (f>130).
+    char greet_city[96];
+    read_cached_city(greet_city, sizeof greet_city);
+
     // 180 frames = 3 second animation.
     // W press → halt and show y/n confirmation
     // Any other key → skip animation and start playing
@@ -2344,9 +2372,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
                 strncpy(name_tts, AC_BUILD_NAME, sizeof(name_tts) - 1);
                 name_tts[sizeof(name_tts) - 1] = 0;
                 for (char *p = name_tts; *p; p++) { if (*p == '-') *p = ' '; }
-                snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles! %s.", tod, at + 1, name_tts);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy %s! %s.", tod, at + 1, greet_city, name_tts);
 #else
-                snprintf(greet, sizeof(greet), "%s %s. enjoy Los Angeles!", tod, at + 1);
+                snprintf(greet, sizeof(greet), "%s %s. enjoy %s!", tod, at + 1, greet_city);
 #endif
                 tts_speak(tts, greet);
             } else if (audio) {
@@ -2479,7 +2507,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
 #endif
 
-        // Subtitle: "enjoy Los Angeles!" appears after frame 130
+        // Subtitle: "enjoy <city>!" appears after frame 130
         if (f > 130) {
             double sub_t = (double)(f - 130) / 30.0;
             if (sub_t > 1.0) sub_t = 1.0;
@@ -2487,7 +2515,8 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             graph_ink(graph, is_day
                 ? (ACColor){120, 100, 80, (uint8_t)sub_alpha}
                 : (ACColor){220, 180, 140, (uint8_t)sub_alpha});
-            const char *subtitle = "enjoy Los Angeles!";
+            char subtitle[128];
+            snprintf(subtitle, sizeof subtitle, "enjoy %s!", greet_city);
             int sw = font_measure_matrix(subtitle, 1);
             font_draw_matrix(graph, subtitle,
                              (screen->width - sw) / 2, screen->height / 2 + 10, 1);
