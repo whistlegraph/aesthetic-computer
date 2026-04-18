@@ -242,6 +242,81 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
 }
 
 // ============================================================
+// Harp synthesis — Karplus-Strong plucked string
+// ============================================================
+//
+// The canonical digital plucked-string model. Parallels the whistle's
+// waveguide flute but for a *struck/plucked* resonator:
+//
+//   pluck noise ──► delay line (N = sr/freq) ──┬──► out
+//                        ▲                     │
+//                        │                     ▼
+//                        └── × S ◄── avg[x,x₋₁] (H(z) = 0.5 + 0.5·z⁻¹)
+//
+// References:
+//   [1] Karplus, K. & Strong, A. (1983). "Digital Synthesis of Plucked-
+//       String and Drum Timbres," Computer Music Journal 7(2), 43-55.
+//       The original algorithm: delay line seeded with noise, two-point
+//       moving-average filter in the feedback loop.
+//   [2] Jaffe, D.A. & Smith, J.O. (1983). "Extensions of the Karplus-
+//       Strong Plucked-String Algorithm," Computer Music Journal 7(2),
+//       56-69. Introduces the stretch factor S for decay control,
+//       pitch tuning, dynamics, and brightness.
+//   [3] Smith, J.O. "Physical Audio Signal Processing," CCRMA Stanford
+//       (online book) — https://ccrma.stanford.edu/~jos/pasp/Karplus_Strong_Algorithm.html
+//       Later showed K-S is a special case of digital waveguide modeling.
+//
+// Algorithm per sample:
+//   1. Read from the delay line at (w − N) — one wavelength behind.
+//   2. Apply the two-point moving-average damping filter:
+//        filtered = 0.5 · (delayed + previous_delayed)
+//      Unity DC gain, cosine rolloff; higher harmonics decay faster
+//      than the fundamental — the spectral signature of real strings.
+//   3. Multiply by stretch factor S (<1) to control overall decay time.
+//      (Jaffe & Smith 1983: stretch factor decouples decay from N so
+//      high and low notes have usable ringing.)
+//   4. Write back to the delay line.
+//
+// Initial pluck: the delay line is pre-filled with a single wavelength
+// of pre-smoothed white noise. Smoothing the noise once before injection
+// softens the initial transient (less "harsh pluck," more "nylon-ish").
+static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
+    double env = compute_envelope(v);
+
+    double freq = clampd(v->frequency, 50.0, sample_rate * 0.20);
+    double string_delay = sample_rate / freq;
+    const int STRING_N = 2048;
+    if (string_delay > (double)(STRING_N - 2)) string_delay = (double)(STRING_N - 2);
+    if (string_delay < 2.0) string_delay = 2.0;
+
+    // Read delayed sample (one wavelength ago) with fractional interpolation.
+    // Reuses whistle_bore_buf since a voice is one wave type at a time.
+    double delayed = whistle_frac_read(v->whistle_bore_buf, STRING_N,
+                                       v->whistle_bore_w, string_delay);
+
+    // Two-point moving-average damping filter (Karplus & Strong 1983).
+    // y[n] = 0.5 · (x[n] + x[n−1]). Zero multiplications in the original —
+    // a shift-and-add. We keep the 0.5 constant for clarity.
+    double filtered = 0.5 * (delayed + v->harp_lp1);
+    v->harp_lp1 = delayed;
+
+    // Stretch factor S (Jaffe-Smith EKS). S < 1 makes the circulating
+    // pattern decay exponentially. With the two-point LPF ≈ unity at DC,
+    // the per-cycle loss is dominated by S: amplitude ≈ S^(f·t) per second.
+    // S = 0.996 gives T60 ≈ 4s at 440Hz — longer for bass strings, shorter
+    // for high strings, matching real string behavior.
+    double decayed = filtered * 0.996;
+
+    // Write back to close the delay loop.
+    v->whistle_bore_buf[v->whistle_bore_w] = (float)decayed;
+    v->whistle_bore_w = (v->whistle_bore_w + 1) % STRING_N;
+
+    // Envelope applies mainly to key-up fade. Attack is instantaneous —
+    // the pluck is the initial noise burst already in the delay line.
+    return decayed * env;
+}
+
+// ============================================================
 // Gun synthesis — two models per preset
 // ============================================================
 //
@@ -975,6 +1050,9 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
     case WAVE_GUN:
         s = generate_gun_sample(v, sample_rate);
         break;
+    case WAVE_HARP:
+        s = generate_harp_sample(v, sample_rate);
+        break;
     default:
         s = 0.0;
     }
@@ -984,8 +1062,8 @@ static inline double generate_sample(ACVoice *v, double sample_rate) {
         v->frequency += (v->target_frequency - v->frequency) * 0.0003; // ~5ms at 192kHz
     }
 
-    // Advance phase for basic oscillators; whistle/gun use their own DWG state.
-    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN) {
+    // Advance phase for basic oscillators; whistle/gun/harp use their own DWG state.
+    if (v->type != WAVE_WHISTLE && v->type != WAVE_GUN && v->type != WAVE_HARP) {
         v->phase += v->frequency / sample_rate;
         if (v->phase >= 1.0) v->phase -= 1.0;
     }
@@ -2581,7 +2659,7 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
     v->id = ++audio->next_id;
     v->started_at = audio->time;
 
-    if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN) {
+    if (type == WAVE_NOISE || type == WAVE_WHISTLE || type == WAVE_GUN || type == WAVE_HARP) {
         v->noise_seed = (uint32_t)(audio->next_id * 2654435761u);
     }
     if (type == WAVE_NOISE) {
@@ -2602,6 +2680,31 @@ uint64_t audio_synth(ACAudio *audio, WaveType type, double freq,
         v->whistle_lp1 = 0.0;
         v->whistle_hp_x1 = 0.0;
         v->whistle_hp_y1 = 0.0;
+    } else if (type == WAVE_HARP) {
+        // Karplus-Strong pluck: seed the delay line with one wavelength
+        // of pre-smoothed white noise. The initial noise IS the pluck —
+        // attack is instantaneous, and the circulating filter+decay
+        // shapes it into a plucked-string tone.
+        //   Karplus & Strong (1983), Computer Music Journal 7(2), 43-55.
+        memset(v->whistle_bore_buf, 0, sizeof(v->whistle_bore_buf));
+        v->harp_lp1 = 0.0;
+        double sr = (double)(audio->actual_rate ? audio->actual_rate : AUDIO_SAMPLE_RATE);
+        double string_delay = sr / freq;
+        const int STRING_N = 2048;
+        if (string_delay > (double)(STRING_N - 2)) string_delay = (double)(STRING_N - 2);
+        if (string_delay < 2.0) string_delay = 2.0;
+        int n = (int)string_delay;
+        // Pre-smooth the excitation so the initial transient is softer
+        // (Jaffe-Smith "pick direction" / brightness control, simplified).
+        double last = 0.0;
+        for (int i = 0; i < n; i++) {
+            double white = ((double)xorshift32(&v->noise_seed) / (double)UINT32_MAX) * 2.0 - 1.0;
+            double filt = 0.5 * (white + last);
+            last = white;
+            v->whistle_bore_buf[i] = (float)filt;
+        }
+        // Next write lands past the pluck; first read pulls buf[0].
+        v->whistle_bore_w = n;
     }
 
     pthread_mutex_unlock(&audio->lock);

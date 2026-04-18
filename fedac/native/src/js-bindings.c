@@ -814,6 +814,10 @@ static WaveType parse_wave_type(const char *type) {
     if (strcmp(type, "whistle") == 0 || strcmp(type, "ocarina") == 0 ||
         strcmp(type, "flute") == 0 || strcmp(type, "skullwhistle") == 0 ||
         strcmp(type, "skull-whistle") == 0) return WAVE_WHISTLE;
+    // Karplus-Strong plucked string (harp / guitar / pluck). See
+    // audio.c:generate_harp_sample for algorithm + citations.
+    if (strcmp(type, "harp") == 0 || strcmp(type, "pluck") == 0 ||
+        strcmp(type, "guitar") == 0 || strcmp(type, "string") == 0) return WAVE_HARP;
     if (strncmp(type, "gun", 3) == 0) return WAVE_GUN;
     // composite → treat as sine for now
     return WAVE_SINE;
