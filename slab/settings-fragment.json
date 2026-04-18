@@ -1,0 +1,32 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-stop.sh", "async": true }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/usr/bin/afplay @HOME@/.local/share/slab/sounds/ping.wav", "async": true }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-prompt-log.sh", "async": true }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "pkill -f claude-ping-repeat.sh 2>/dev/null; pkill -f claude-sleep-schedule.sh 2>/dev/null; true", "async": true }
+        ]
+      }
+    ]
+  }
+}
