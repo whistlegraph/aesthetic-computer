@@ -257,11 +257,76 @@ let newsTickerBounds = null; // { x, y, w, h } for click detection
 let newsTickerHovered = false; // Hover state for visual feedback
 let newsFetchPromise = null; // Track fetch to avoid duplicate requests
 
-// � R8dio mini-player system (for laer-klokken)
-const R8DIO_STREAM_URL = "https://s3.radio.co/s7cd1ffe2f/listen";
-const R8DIO_STREAM_ID = "chat-r8dio-stream";
-const R8DIO_METADATA_URL = "https://public.radio.co/stations/s7cd1ffe2f/status";
-let r8dioEnabled = false; // Whether r8dio player is shown
+// 📻 Mini-player system — station presets (selected per chat via options.radio)
+const RADIO_STATIONS = {
+  r8dio: {
+    label: "r8Dio",
+    streamUrl: "https://s3.radio.co/s7cd1ffe2f/listen",
+    streamId: "chat-r8dio-stream",
+    metadataUrl: "https://public.radio.co/stations/s7cd1ffe2f/status",
+    parseTrack: (data) => data?.current_track?.title || "",
+    labelBg: [35, 25, 18],
+    labelBgHover: [50, 35, 25],
+    labelFg: [255, 150, 50],
+    labelFgHover: [255, 180, 80],
+    contentBg: [28, 22, 18],
+    contentBgHover: [40, 30, 25],
+    separator: [80, 60, 50, 150],
+    underline: [255, 150, 50, 180],
+    buttonBg: [55, 40, 25],
+    buttonBgHover: [80, 55, 35],
+    buttonOutline: [100, 70, 45],
+    buttonOutlineHover: [140, 100, 60],
+    iconColor: [255, 160, 80],
+    iconColorHover: [255, 200, 120],
+    loadingColor: [255, 200, 100],
+    barGradient: (t) => [
+      Math.floor(200 + t * 55),
+      Math.floor(100 + t * 80),
+      Math.floor(30 + t * 40),
+    ],
+    barIdle: [80, 50, 30],
+    statusColor: [255, 180, 80],
+    statusDim: [180, 140, 100],
+    statusIdleOn: [255, 180, 80],
+    statusIdleOff: [120, 90, 60],
+  },
+  bj: {
+    label: "KPBJ",
+    streamUrl: "https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3",
+    streamId: "chat-kpbj-stream",
+    metadataUrl: "https://kpbj.hasnoskills.com/api/nowplaying/kpbj_test_station",
+    parseTrack: (data) => data?.now_playing?.song?.text || "",
+    labelBg: [20, 30, 45],
+    labelBgHover: [35, 50, 70],
+    labelFg: [255, 200, 140],
+    labelFgHover: [255, 230, 180],
+    contentBg: [18, 26, 38],
+    contentBgHover: [30, 40, 55],
+    separator: [60, 80, 110, 150],
+    underline: [255, 200, 140, 180],
+    buttonBg: [40, 55, 75],
+    buttonBgHover: [60, 80, 105],
+    buttonOutline: [90, 120, 150],
+    buttonOutlineHover: [130, 165, 200],
+    iconColor: [255, 210, 150],
+    iconColorHover: [255, 230, 190],
+    loadingColor: [255, 220, 150],
+    barGradient: (t) => [
+      Math.floor(200 + t * 55),
+      Math.floor(150 + t * 80),
+      Math.floor(100 + t * 100),
+    ],
+    barIdle: [60, 80, 100],
+    statusColor: [255, 210, 150],
+    statusDim: [180, 180, 180],
+    statusIdleOn: [255, 210, 150],
+    statusIdleOff: [100, 120, 145],
+  },
+};
+let activeRadioStation = "bj"; // default; overridden by options.radio
+const radioConfig = () => RADIO_STATIONS[activeRadioStation] || RADIO_STATIONS.bj;
+let r8dioEnabled = false; // Whether radio mini-player is shown
 let r8dioPlaying = false;
 let r8dioLoading = false;
 let r8dioError = null;
@@ -619,7 +684,12 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
-  
+
+  // Pick radio station per chat (default "bj"/KPBJ; laer-klokken sets "r8dio")
+  if (options?.radio && RADIO_STATIONS[options.radio]) {
+    activeRadioStation = options.radio;
+  }
+
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
   const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
@@ -3548,9 +3618,10 @@ function sim({ api, num, send, net, store }) {
     
     // Request frequency/waveform data when playing
     if (r8dioPlaying && send) {
-      send({ type: "stream:frequencies", content: { id: R8DIO_STREAM_ID } });
+      const streamId = radioConfig().streamId;
+      send({ type: "stream:frequencies", content: { id: streamId } });
       if (r8dioNoAnalyserCount >= 10) {
-        send({ type: "stream:waveform", content: { id: R8DIO_STREAM_ID } });
+        send({ type: "stream:waveform", content: { id: streamId } });
       }
     }
     
@@ -3587,32 +3658,34 @@ function sim({ api, num, send, net, store }) {
   }
 }
 
-// 📻 Handle BIOS messages for r8dio streaming
+// 📻 Handle BIOS messages for radio streaming
 function receive({ type, content }) {
   if (!r8dioEnabled) return;
-  
-  if (type === "stream:playing" && content.id === R8DIO_STREAM_ID) {
+  const streamId = radioConfig().streamId;
+  if (content?.id !== streamId) return;
+
+  if (type === "stream:playing") {
     r8dioPlaying = true;
     r8dioLoading = false;
     r8dioError = null;
   }
-  
-  if (type === "stream:paused" && content.id === R8DIO_STREAM_ID) {
+
+  if (type === "stream:paused") {
     r8dioPlaying = false;
   }
-  
-  if (type === "stream:stopped" && content.id === R8DIO_STREAM_ID) {
+
+  if (type === "stream:stopped") {
     r8dioPlaying = false;
     r8dioLoading = false;
   }
-  
-  if (type === "stream:error" && content.id === R8DIO_STREAM_ID) {
+
+  if (type === "stream:error") {
     r8dioPlaying = false;
     r8dioLoading = false;
     r8dioError = content.error;
   }
-  
-  if (type === "stream:frequencies-data" && content.id === R8DIO_STREAM_ID) {
+
+  if (type === "stream:frequencies-data") {
     const data = content.data || [];
     if (data.length > 0 && data.some(v => v > 0)) {
       r8dioFrequencyData = data;
@@ -3622,8 +3695,8 @@ function receive({ type, content }) {
       r8dioFrequencyData = [];
     }
   }
-  
-  if (type === "stream:waveform-data" && content.id === R8DIO_STREAM_ID) {
+
+  if (type === "stream:waveform-data") {
     r8dioWaveformData = content.data || [];
   }
 }
@@ -3637,50 +3710,49 @@ export { boot, paint, act, sim, receive };
 // 📚 Library
 //   (Useful functions used throughout the piece)
 
-// 📻 Fetch r8dio track metadata
+// 📻 Fetch current track metadata for the active station
 async function fetchR8dioMetadata(net) {
   r8dioLastMetadataFetch = Date.now();
+  const cfg = radioConfig();
   try {
-    const response = await fetch(R8DIO_METADATA_URL);
+    const response = await fetch(cfg.metadataUrl);
     if (response.ok) {
       const data = await response.json();
-      if (data.current_track && data.current_track.title) {
-        r8dioTrack = data.current_track.title;
-      }
+      const track = cfg.parseTrack?.(data);
+      if (track) r8dioTrack = track;
     }
   } catch (err) {
     // Silently fail - metadata is optional
-    console.log("📻 Could not fetch r8dio metadata:", err.message);
+    console.log("📻 Could not fetch radio metadata:", err.message);
   }
 }
 
-// 📻 R8dio playback control
+// 📻 Radio playback control
 function toggleR8dioPlayback(send) {
   if (r8dioLoading) return;
-  
+  const cfg = radioConfig();
+
   if (r8dioPlaying) {
-    // Pause
-    send({ type: "stream:pause", content: { id: R8DIO_STREAM_ID } });
+    send({ type: "stream:pause", content: { id: cfg.streamId } });
   } else {
-    // Play
     r8dioLoading = true;
     r8dioError = null;
-    send({ 
-      type: "stream:play", 
-      content: { 
-        id: R8DIO_STREAM_ID, 
-        url: R8DIO_STREAM_URL, 
-        volume: r8dioVolume 
-      } 
+    send({
+      type: "stream:play",
+      content: {
+        id: cfg.streamId,
+        url: cfg.streamUrl,
+        volume: r8dioVolume,
+      },
     });
   }
 }
 
-// 📻 R8dio volume control
+// 📻 Radio volume control
 function setR8dioVolume(vol, send) {
   r8dioVolume = Math.max(0, Math.min(1, vol));
   if (r8dioPlaying && send) {
-    send({ type: "stream:volume", content: { id: R8DIO_STREAM_ID, volume: r8dioVolume } });
+    send({ type: "stream:volume", content: { id: radioConfig().streamId, volume: r8dioVolume } });
   }
 }
 
@@ -4577,8 +4649,8 @@ function paintNewsTicker($, theme) {
   const newsPrefix = "News";
   const uniformLabelWidth = 28; // Fixed width to match both labels
   
-  // Ticker dimensions - TWO ROWS
-  const tickerMaxWidth = 180;
+  // Ticker dimensions - TWO ROWS. Width auto-expands to fill space
+  // between the HUD label and the right edge.
   const tickerRight = screen.width - rightMargin;
   const tickerY = 2; // Top row Y position
   const row2Y = tickerY + tickerHeight + rowSpacing; // Second row Y
@@ -4613,18 +4685,9 @@ function paintNewsTicker($, theme) {
   const hudLabelRight = hudLabelOffset + hudLabelWidth;
   const minGapAfterHud = 10; // Minimum spacing between HUD label and News ticker
   
-  // Position calculations - ensure News ticker starts after HUD label
+  // Position calculations - flush against HUD label on the left, screen edge on the right
   const scrollAreaRight = tickerRight;
-  const idealScrollAreaLeft = scrollAreaRight - tickerMaxWidth;
-  const idealNewsBgX = idealScrollAreaLeft - uniformLabelWidth;
-  
-  // Push News ticker to the right if it would overlap the HUD label
-  const newsBgX = Math.max(
-    hudLabelRight + minGapAfterHud, // Don't overlap HUD label
-    idealNewsBgX // Original position
-  );
-  
-  // Recalculate scroll area left edge based on actual News ticker position
+  const newsBgX = hudLabelRight + minGapAfterHud;
   const scrollAreaLeft = newsBgX + uniformLabelWidth;
   
   // Colors from theme
@@ -4713,158 +4776,137 @@ function paintNewsTicker($, theme) {
   }
 }
 
-// 📻 R8dio mini-player bar for laer-klokken (styled like News ticker)
+// 📻 Radio mini-player bar (styled like News ticker). Station picked by options.radio.
 function paintR8dioPlayer($, theme) {
   const { ink, screen, help, hud } = $;
-  
+  const cfg = radioConfig();
+
   // Initialize bars if needed
   if (r8dioBars.length === 0) {
     for (let i = 0; i < R8DIO_BAR_COUNT; i++) {
       r8dioBars.push({ height: 0, targetHeight: 0 });
     }
   }
-  
+
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
-  const tickerPadding = 3;
   const rightMargin = 0; // Flush right, no margin
-  
-  // "r8Dio" prefix styling - uniform width with News label
-  const r8dioPrefix = "r8Dio";
-  const uniformLabelWidth = 28; // Fixed width to match both labels
-  
-  // Bar dimensions - match news ticker width
-  const tickerMaxWidth = 180;
+
+  // Uniform label width matches News label
+  const uniformLabelWidth = 28;
+
+  // Match news ticker height so we can sit directly beneath it without overlap.
+  // News ticker total height = (tickerHeight * 2) + rowSpacing(2) + 4 = 22, drawn from y=0.
+  const newsTotalHeight = (tickerHeight * 2) + 2 + 4;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 14; // Right below news ticker (at y=2, ~12px tall)
-  
+  const tickerY = newsTotalHeight + 4; // 4px gap below news ticker
+
   // Calculate HUD label right edge to avoid overlap (same as news ticker)
   const hudLabelOffset = 6;
   const hudLabelWidth = hud?.currentLabel?.()?.btn?.box?.w || 0;
   const hudLabelRight = hudLabelOffset + hudLabelWidth;
   const minGapAfterHud = 10;
-  
-  // Position calculations
+
+  // Position calculations - auto-widen: flush against HUD label on left, screen edge on right
   const scrollAreaRight = tickerRight;
-  const idealScrollAreaLeft = scrollAreaRight - tickerMaxWidth;
-  const idealR8dioBgX = idealScrollAreaLeft - uniformLabelWidth;
-  
-  const r8dioBgX = Math.max(hudLabelRight + minGapAfterHud, idealR8dioBgX);
+  const r8dioBgX = hudLabelRight + minGapAfterHud;
   const contentAreaLeft = r8dioBgX + uniformLabelWidth;
   const actualContentWidth = scrollAreaRight - contentAreaLeft;
   const totalWidth = uniformLabelWidth + actualContentWidth + 1;
-  
+
   // Store bounds for click detection (entire bar)
   r8dioPlayerBounds = { x: r8dioBgX, y: tickerY - 2, w: totalWidth, h: tickerHeight + 4 };
-  
-  // "r8Dio" label background - dark with orange text (radio style)
-  const labelBgColor = r8dioHovered ? [50, 35, 25] : [35, 25, 18]; // Dark warm brown
-  const labelFgColor = r8dioHovered ? [255, 180, 80] : [255, 150, 50]; // Orange
-  
+
+  // Label background + foreground from station config
+  const labelBgColor = r8dioHovered ? cfg.labelBgHover : cfg.labelBg;
+  const labelFgColor = r8dioHovered ? cfg.labelFgHover : cfg.labelFg;
+
   ink(...labelBgColor, 230).box(r8dioBgX, tickerY - 2, uniformLabelWidth + 1, tickerHeight + 4);
-  
-  // Draw "r8Dio" in orange, centered in label area
-  const labelTextWidth = r8dioPrefix.length * tickerCharWidth;
+
+  // Centered station label
+  const labelTextWidth = cfg.label.length * tickerCharWidth;
   const labelX = r8dioBgX + Math.floor((uniformLabelWidth - labelTextWidth) / 2);
-  ink(...labelFgColor).write("r", { x: labelX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
-  ink(...labelFgColor).write("8D", { x: labelX + 4, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
-  ink(...labelFgColor).write("io", { x: labelX + 12, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
-  
-  // Content area background - dark (brighter on hover)
-  const contentBgColor = r8dioHovered ? [40, 30, 25] : [28, 22, 18]; // Dark warm
+  ink(...labelFgColor).write(cfg.label, { x: labelX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+
+  // Content area background
+  const contentBgColor = r8dioHovered ? cfg.contentBgHover : cfg.contentBg;
   ink(...contentBgColor, 200).box(contentAreaLeft, tickerY - 2, actualContentWidth + 1, tickerHeight + 4);
-  
-  // Separator line between News and r8Dio (subtle)
-  ink(80, 60, 50, 150).box(r8dioBgX, tickerY - 3, totalWidth, 1);
-  
-  // Hover underline indicator (orange)
+
+  // Subtle separator line at the top of the bar
+  ink(...cfg.separator).box(r8dioBgX, tickerY - 3, totalWidth, 1);
+
+  // Hover underline indicator
   if (r8dioHovered) {
-    ink(255, 150, 50, 180).box(r8dioBgX, tickerY + tickerHeight + 1, totalWidth, 1);
+    ink(...cfg.underline).box(r8dioBgX, tickerY + tickerHeight + 1, totalWidth, 1);
   }
-  
-  // Play/Pause button right after label (not far right)
+
+  // Play/Pause button right after label
   const btnSize = 10;
   const btnX = contentAreaLeft + 2;
   const btnY = tickerY - 1;
-  
+
   r8dioPlayBtnBounds = { x: btnX - 2, y: btnY - 2, w: btnSize + 4, h: btnSize + 4 };
-  
-  // Button background (orange tint)
-  const btnBg = r8dioPlayHovered ? [80, 55, 35] : [55, 40, 25];
+
+  const btnBg = r8dioPlayHovered ? cfg.buttonBgHover : cfg.buttonBg;
   ink(...btnBg).box(btnX, btnY, btnSize, btnSize);
-  ink(r8dioPlayHovered ? [140, 100, 60] : [100, 70, 45]).box(btnX, btnY, btnSize, btnSize, "outline");
-  
-  // Play/Pause/Loading icon (orange)
-  const iconColor = r8dioPlayHovered ? [255, 200, 120] : [255, 160, 80];
+  ink(...(r8dioPlayHovered ? cfg.buttonOutlineHover : cfg.buttonOutline)).box(btnX, btnY, btnSize, btnSize, "outline");
+
+  const iconColor = r8dioPlayHovered ? cfg.iconColorHover : cfg.iconColor;
   const iconCenterX = btnX + btnSize / 2;
   const iconCenterY = btnY + btnSize / 2;
-  
+
   if (r8dioLoading) {
-    // Simple loading indicator (blinking dot)
     const phase = Math.floor((help?.repeat || 0) / 15) % 2;
-    ink(255, 200, 100, phase ? 255 : 100).box(iconCenterX - 1, iconCenterY - 1, 3, 3);
+    ink(...cfg.loadingColor, phase ? 255 : 100).box(iconCenterX - 1, iconCenterY - 1, 3, 3);
   } else if (r8dioPlaying) {
-    // Pause icon (two small bars)
     ink(...iconColor).box(iconCenterX - 3, iconCenterY - 3, 2, 6);
     ink(...iconColor).box(iconCenterX + 1, iconCenterY - 3, 2, 6);
   } else {
-    // Play icon (small triangle)
     ink(...iconColor).box(iconCenterX - 2, iconCenterY - 3, 2, 6);
     ink(...iconColor).box(iconCenterX, iconCenterY - 2, 2, 4);
     ink(...iconColor).box(iconCenterX + 2, iconCenterY - 1, 1, 2);
   }
-  
-  // Content: mini visualizer bars + status text (after play button)
+
+  // Mini visualizer bars
   const barAreaX = btnX + btnSize + 4;
   const barAreaWidth = Math.min(60, actualContentWidth - btnSize - 12);
   const barWidth = Math.max(1, Math.floor(barAreaWidth / R8DIO_BAR_COUNT) - 1);
   const maxBarHeight = tickerHeight;
-  
-  // Draw mini visualizer bars
+
   for (let i = 0; i < R8DIO_BAR_COUNT; i++) {
     const bar = r8dioBars[i];
     const x = barAreaX + i * (barWidth + 1);
     const height = Math.max(1, Math.floor(bar.height * maxBarHeight));
-    
+
     if (r8dioPlaying || bar.height > 0.05) {
-      // Orange gradient for visualizer
-      const t = bar.height;
-      const r = Math.floor(200 + t * 55);
-      const g = Math.floor(100 + t * 80);
-      const b = Math.floor(30 + t * 40);
-      ink(r, g, b).box(x, tickerY + maxBarHeight - height, barWidth, height);
+      ink(...cfg.barGradient(bar.height)).box(x, tickerY + maxBarHeight - height, barWidth, height);
     } else {
-      // Idle state: dim orange line
-      ink(80, 50, 30).box(x, tickerY + maxBarHeight - 1, barWidth, 1);
+      ink(...cfg.barIdle).box(x, tickerY + maxBarHeight - 1, barWidth, 1);
     }
   }
-  
+
   // Status text after visualizer
   const statusX = barAreaX + barAreaWidth + 4;
-  const statusTextColor = theme?.messageText || [200, 200, 200];
   const statusEndX = scrollAreaRight - 2;
-  
+
   if (r8dioError) {
     ink(255, 100, 100).write("err", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   } else if (r8dioLoading) {
-    ink(255, 180, 80).write("...", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...cfg.statusColor).write("...", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   } else if (r8dioPlaying) {
-    // Show truncated track or "live" (orange text)
     const maxLen = Math.floor((statusEndX - statusX) / tickerCharWidth);
-    const text = r8dioTrack 
+    const text = r8dioTrack
       ? (r8dioTrack.length > maxLen ? r8dioTrack.substring(0, maxLen - 1) + "…" : r8dioTrack)
       : "live";
-    ink(255, 180, 80).write(text, { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...cfg.statusColor).write(text, { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   } else {
-    // Blinking "Listen Now" with > < arrows
     const blink = Math.floor((help?.repeat || 0) / 20) % 2;
-    const arrowColor = blink ? [255, 180, 80] : [120, 90, 60]; // Orange blink
-    const textColor = [180, 140, 100];
+    const arrowColor = blink ? cfg.statusIdleOn : cfg.statusIdleOff;
     ink(...arrowColor).write(">", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
-    ink(...textColor).write("Listen Now", { x: statusX + 6, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(...cfg.statusDim).write("Listen Now", { x: statusX + 6, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
     ink(...arrowColor).write("<", { x: statusX + 46, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   }
-  
-  // Volume slider removed for slim design - could add keyboard shortcuts later
+
+  // Volume slider removed for slim design
   r8dioVolSliderBounds = null;
 }

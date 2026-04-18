@@ -26,6 +26,9 @@ const signed = [
   "25.12.4.11.23",
   "25.12.4.11.24",
   "25.12.4.11.25",
+  // 💻 Laptops
+  "26.4.17.12.51",
+  "blank", // Alias for the AC Native Laptop — "shop blank" in the prompt.
 ];
 
 export { signed }

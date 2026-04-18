@@ -26,6 +26,7 @@ function paint($) {
   // Custom warm color theme for laer-klokken chat
   chat.paint($, {
     otherChat: client.system,
+    radio: "r8dio",
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
       lines: [220, 150, 100, 64], // Soft peach lines

@@ -2298,6 +2298,20 @@ status = 301
 from = "/shop~26.1.3.0.00"
 to = "https://shop.aesthetic.computer/products/shirts_coral-abex-tee-l_26-1-3-0-00"
 status = 301
+# 💻 Laptops
+[[redirects]]
+from = "/26.4.17.12.51"
+to = "https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51"
+status = 301
+[[redirects]]
+from = "/shop~26.4.17.12.51"
+to = "https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51"
+status = 301
+# Convenience alias: "shop blank" → AC Native Laptop. (Bare /blank stays the piece route.)
+[[redirects]]
+from = "/shop~blank"
+to = "https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51"
+status = 301
 # END SHOP
 [[redirects]]
 from = "/api/bdf-glyph"
