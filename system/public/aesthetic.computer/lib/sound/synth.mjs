@@ -75,6 +75,12 @@ export default class Synth {
 
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
     // console.log("New Synth:", arguments);
+    // 🌊 Accept "noise" as an alias for "noise-white" so code that targets
+    // the native AC synth (fedac/native/src/js-bindings.c also aliases both
+    // strings to WAVE_NOISE) plays correctly on the web. Without this the
+    // shared drum kit in lib/percussion.mjs falls through every noise
+    // branch and silently drops snares/hats/claps/etc.
+    if (type === "noise") type = "noise-white";
     this.type = type;
     if (id === undefined || id === null || id === NaN)
       console.warn("⏰ No id for sound:", id, type);

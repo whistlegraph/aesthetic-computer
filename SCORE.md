@@ -174,6 +174,10 @@ The development environment uses Emacs with named terminal buffers. Use Emacs MC
 - `ac-dev-logs` — View all dev logs
 - `ac-dev-log-clean` — Clean old logs
 - `ac-dev-log-new` — Create new log
+- `ac-piece-logs [slug]` — Recent piece-run telemetry (see [Piece-Log Debugging](#piece-log-debugging-client-side-errors))
+- `ac-piece-logs-events [slug]` — Include captured `console.log`/`warn`/`error` output
+- `ac-piece-logs-errors` — Runs with `status=error` in the last 60 minutes
+- `ac-piece-logs-grep <regex>` — Search console-event text across recent runs
 
 #### Deployment & Distribution
 - `ac-pack` — Package for distribution
@@ -236,6 +240,29 @@ ac-restart            # Restart AC services only
 
 **Notation:**
 - compush — commit, push
+
+### Piece-Log Debugging (client-side errors)
+
+Every piece load gets a fresh `pieceId` and a 2-second-batched wrapper around `console.log` / `warn` / `error` / `info` is installed in [`system/public/aesthetic.computer/lib/disk.mjs`](system/public/aesthetic.computer/lib/disk.mjs#L970) (~line 970). Events are POSTed to `/api/piece-log` ([`netlify/functions/piece-log.mjs`](system/netlify/functions/piece-log.mjs)) and stored in MongoDB in the `piece-runs` collection with phases `start` / `log` / `error` / `complete`.
+
+This is the primary debug channel for problems you can't reproduce locally — silent synth failures, "worked for me but not for the user" bugs, hydration issues on specific hosts. Each record carries:
+
+- `pieceId`, `slug`, `bootId`, `userAgent`, `host`, geo (from CF headers)
+- `events[]` — the captured console output with `{level, at, elapsed, message}`, last 500 per run
+- `error` — if the piece crashed, `{message, stack}`
+- `summary` — on clean exit, `{duration, ...}`
+
+**Inspecting from the CLI** (SSHes to lith, runs [`system/backend/piece-logs-cli.mjs`](system/backend/piece-logs-cli.mjs) against the deployed env):
+
+```fish
+ac-piece-logs notepat                   # recent 20 runs of a slug
+ac-piece-logs-events notepat --since 30 # include console events, last 30 min
+ac-piece-logs-errors                    # status=error runs in the last hour
+ac-piece-logs-grep "drumMode"           # full-text search across captured events
+ac-piece-logs-json --slug notepat | jq  # raw JSON for scripting
+```
+
+The CLI ships with every `fish lith/deploy.fish`. If you add new telemetry, bump the payload in `disk.mjs` and the phase handler in `netlify/functions/piece-log.mjs`; no schema migration needed (MongoDB collection is schemaless).
 
 ### Keeps Market Stats (Tezos / Objkt)
 
