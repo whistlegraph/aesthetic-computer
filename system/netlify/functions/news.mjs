@@ -552,8 +552,10 @@ function renderPostRow(post, idx, basePath) {
     } catch { return ""; }
   })() : "";
   const itemUrl = `${basePath}/${post.code}`;
+  const ext = post.externalAttribution;
+  const rowClass = ext ? `news-row news-row--external news-row--external-${escapeHtml(ext.source || 'bsky')}` : "news-row";
   return `
-  <div class="news-row">
+  <div class="${rowClass}"${ext ? ` data-external-source="${escapeHtml(ext.source || 'bsky')}"` : ""}>
     <div class="news-rank">${idx + 1}.</div>
     <div class="news-content">
       <div class="news-title">
@@ -561,10 +563,10 @@ function renderPostRow(post, idx, basePath) {
         ${displayUrl ? `<span class="news-domain">(<a href="${url}" target="_blank" rel="noreferrer">${displayUrl}</a>)</span>` : ""}
       </div>
       <div class="news-meta">
-        <span>by ${renderHandle(post.handle, post.externalAttribution ? {
+        <span>by ${renderHandle(post.handle, ext ? {
           external: true,
-          profileUrl: post.externalAttribution.profileUrl,
-          sourceLabel: post.externalAttribution.sourceLabel,
+          profileUrl: ext.profileUrl,
+          sourceLabel: ext.sourceLabel,
         } : undefined)}</span>
         <span><a href="${itemUrl}">${formatDate(post.when)}</a></span>
         <span><a href="${itemUrl}">${post.commentCount || 0} comments</a></span>
@@ -860,12 +862,17 @@ async function renderItemPage(database, basePath, code) {
   const hasMedia = youtubeId || kidlispCode || acPiece || imgurUrl || directImageUrl || efluxPreviewHtml || instagramPreviewHtml || ogPreviewHtml;
   const mediaHtml = youtubeEmbedHtml || kidlispPreviewHtml || acPreviewHtml || imgurPreviewHtml || directImagePreviewHtml || efluxPreviewHtml || instagramPreviewHtml || ogPreviewHtml;
 
+  const itemExt = hydratedPost.externalAttribution;
+  const mainClass = itemExt
+    ? `news-main news-item--external news-item--external-${escapeHtml(itemExt.source || 'bsky')}`
+    : "news-main";
+
   const body = `
   ${header(basePath)}
   ${hasMedia ? `<div class="news-hero-media">
     ${mediaHtml}
   </div>` : ''}
-  <main class="news-main">
+  <main class="${mainClass}"${itemExt ? ` data-external-source="${escapeHtml(itemExt.source || 'bsky')}"` : ""}>
     <div class="news-item-header">
       <div class="news-item-info">
         <table class="news-item-table" border="0" cellpadding="0" cellspacing="0">
@@ -890,12 +897,12 @@ async function renderItemPage(database, basePath, code) {
       </div>
     </div>
     ${hydratedPost.text ? `
-    <div class="news-op-text">
-      <div class="news-op-meta">${renderHandle(hydratedPost.handle, hydratedPost.externalAttribution ? {
+    <div class="news-op-text${itemExt ? ' news-op-text--external' : ''}">
+      <div class="news-op-meta">${renderHandle(hydratedPost.handle, itemExt ? {
         external: true,
-        profileUrl: hydratedPost.externalAttribution.profileUrl,
-        sourceLabel: hydratedPost.externalAttribution.sourceLabel,
-      } : undefined)} ${formatDate(hydratedPost.when)}</div>
+        profileUrl: itemExt.profileUrl,
+        sourceLabel: itemExt.sourceLabel,
+      } : undefined)} ${formatDate(hydratedPost.when)}${itemExt?.postUrl ? ` · <a href="${escapeHtml(itemExt.postUrl)}" class="news-external-original" target="_blank" rel="noopener">original</a>` : ""}</div>
       <div class="news-op-body">${renderMarkdown(hydratedPost.text)}</div>
     </div>` : ""}
     <div class="news-comments">
