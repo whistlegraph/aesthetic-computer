@@ -6,6 +6,9 @@ const OS_BASE_URL = "https://releases-aesthetic-computer.sfo3.digitaloceanspaces
 const OS_VERSION_URL = OS_BASE_URL + "native-notepat-latest.version";
 const OS_VMLINUZ_URL = OS_BASE_URL + "native-notepat-latest.vmlinuz";
 const OS_INITRAMFS_URL = OS_BASE_URL + "native-notepat-latest.initramfs.cpio.gz";
+// POST install failures here so we can triage from MongoDB (collection
+// `os-install-reports`). See system/netlify/functions/os-install-report.mjs.
+const OS_REPORT_URL = "https://aesthetic.computer/api/os-install-report";
 let remoteSize = 0; // parsed from version file (line 2)
 
 // Kernel no longer embeds initramfs (Phase 2 — loaded externally via EFI stub
@@ -33,6 +36,31 @@ let flashedMB = 0;     // verified MB for display during confirm/shutdown
 // Telemetry lines that scroll by during flash
 const telemetry = [];
 let telemetryScroll = 0;
+
+// Install-failure reporting. When state flips to "error" via `setError`,
+// a payload is queued; once the shared C fetch slot is free, it's POSTed
+// to /api/os-install-report → MongoDB. UI in the error state surfaces the
+// send status so the operator knows whether the report reached the server.
+let reportStatus = "idle";       // idle | queued | sending | sent | failed
+let reportedKey = "";            // dedupe: "<fromState>|<errorMsg>"
+let reportQueuedPayload = null;  // payload to send next time slot is free
+let reportSendActive = false;    // true while we have a POST in flight
+
+function setError(msg, fromState) {
+  state = "error";
+  errorMsg = msg;
+  const key = `${fromState}|${msg}`;
+  if (reportedKey === key) return; // already reported this exact failure
+  reportedKey = key;
+  reportQueuedPayload = {
+    failedState: fromState,
+    errorMsg: msg,
+    progress,
+    remoteSize,
+  };
+  reportStatus = "queued";
+  addTelemetry(`report queued: ${fromState} ${msg}`);
+}
 
 // Device manager state
 let deviceIdx = 0;
@@ -537,6 +565,17 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     write(("error: " + errorMsg).slice(0, Math.floor((w - pad * 2) / 6)), { x: pad, y: stateY, size: 1, font });
     ink(T.fgMute);
     write("enter: retry  esc: back", { x: pad, y: stateY + 14, size: 1, font });
+    // Install-failure report status — surfaces POST to /api/os-install-report.
+    if (reportStatus !== "idle") {
+      let label;
+      let rgb;
+      if (reportStatus === "queued")       { label = "queuing report...";            rgb = [120, 120, 160]; }
+      else if (reportStatus === "sending") { label = "sending report" + ".".repeat((Math.floor(frame / 15) % 3) + 1); rgb = [160, 160, 80]; }
+      else if (reportStatus === "sent")    { label = "✓ report sent";                 rgb = [80, 220, 120]; }
+      else                                 { label = "✗ report failed";               rgb = [220, 100, 80]; }
+      ink(rgb[0], rgb[1], rgb[2]);
+      write(label, { x: pad, y: stateY + 28, size: 1, font });
+    }
 
   } else if (state === "devices") {
     // === Device manager ===
@@ -713,8 +752,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     const raw = (typeof system.fetchResult === "string" ? system.fetchResult : "").trim();
     fetchPending = false;
     if (!raw || raw.length < 5) {
-      state = "error";
-      errorMsg = "bad version response";
+      setError("bad version response", "checking");
     } else {
       const lines = raw.split("\n");
       remoteVersion = lines[0].trim();
@@ -724,14 +762,12 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
   }
   if (fetchPending && system?.fetchError) {
     fetchPending = false;
-    state = "error";
-    errorMsg = "fetch failed";
+    setError("fetch failed", "checking");
   }
   // Timeout
   if (fetchPending && frame - checkFrame > 600) {
     fetchPending = false;
-    state = "error";
-    errorMsg = "timeout";
+    setError("timeout", "checking");
   }
 
   // Download progress (kernel)
@@ -752,8 +788,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         // default so the progress bar doesn't stall at 100% prematurely.
         system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", 336_000_000);
       } else {
-        state = "error";
-        errorMsg = "kernel download failed";
+        setError("kernel download failed", "downloading");
       }
     }
   }
@@ -777,8 +812,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         // Device may be omitted — null lets C auto-detect the boot device.
         system?.flashUpdate?.("/tmp/vmlinuz.new", dev || null, "/tmp/initramfs.cpio.gz.new");
       } else {
-        state = "error";
-        errorMsg = "initramfs download failed";
+        setError("initramfs download failed", "downloading-initramfs");
       }
     }
   }
@@ -790,8 +824,7 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         flashedMB = ((system?.flashVerifiedBytes ?? 0) / 1048576).toFixed(1);
         state = "confirm-reboot";
       } else {
-        state = "error";
-        errorMsg = "clone verify failed";
+        setError("clone verify failed", "cloning");
       }
     }
   }
@@ -818,12 +851,58 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         addTelemetry(`verified OK: ${flashedMB}MB`);
         state = "confirm-reboot";
       } else {
-        state = "error";
-        errorMsg = "flash verify failed";
         addTelemetry("VERIFY FAILED");
         for (const line of flog) addTelemetry("[c] " + line);
+        setError("flash verify failed", "flashing");
       }
     }
+  }
+
+  // === Install-failure reporter ===
+  // Dispatch a queued report as soon as the shared fetch slot is free.
+  // reportQueuedPayload is populated by setError(); status transitions:
+  //   queued  → sending (POST fired) → sent / failed (response in)
+  if (reportStatus === "queued" && !fetchPending && !reportSendActive && reportQueuedPayload) {
+    const progressNow = reportQueuedPayload.progress || 0;
+    const sizeNow = reportQueuedPayload.remoteSize || 0;
+    const body = {
+      currentVersion,
+      targetVersion: remoteVersion,
+      targetSize: sizeNow,
+      failedState: reportQueuedPayload.failedState,
+      errorMsg: reportQueuedPayload.errorMsg,
+      progress: progressNow,
+      // Rough lower bound of bytes reached — progress is clamped to 1.0 so
+      // this under-reports at the tail, which is acceptable for triage.
+      actualBytes: sizeNow > 0 ? Math.round(progressNow * sizeNow) : null,
+      machineId: system?.machineId || "unknown",
+      handle: system?.config?.handle || "",
+      bootDevice: system?.bootDevice || "",
+      telemetry: telemetry.slice(-30).map((t) => t.text),
+    };
+    const fired = system?.fetchPost?.(OS_REPORT_URL, JSON.stringify(body));
+    if (fired) {
+      reportSendActive = true;
+      reportStatus = "sending";
+      addTelemetry("report sending...");
+    }
+    // if fired is falsy, C fetch slot was busy — try again next frame
+  }
+
+  // Collect the report-send response. fetchPost shares the same result/error
+  // channels as fetch, so we only read them when reportSendActive is true.
+  if (reportSendActive && system?.fetchResult !== undefined && system?.fetchResult !== null) {
+    const raw = typeof system.fetchResult === "string" ? system.fetchResult : "";
+    reportSendActive = false;
+    let ok = false;
+    try { ok = !!JSON.parse(raw).ok; } catch { ok = false; }
+    reportStatus = ok ? "sent" : "failed";
+    addTelemetry(ok ? "report sent" : "report failed (bad response)");
+  }
+  if (reportSendActive && system?.fetchError) {
+    reportSendActive = false;
+    reportStatus = "failed";
+    addTelemetry("report failed (network)");
   }
 }
 
