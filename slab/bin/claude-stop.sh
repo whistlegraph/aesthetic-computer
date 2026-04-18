@@ -1,6 +1,8 @@
 #!/bin/bash
-# Claude Stop hook. State lives in $SLAB_HOME/state/active-prompts/<session_id>:
-# prompt-log touches, this script removes. Others = files remaining.
+# Claude Stop hook. Active work is tracked in two dirs under $SLAB_HOME/state/:
+#   active-prompts/<session_id>      — UserPromptSubmit → Stop
+#   active-subagents/<timestamp>-..  — PreToolUse(Task) → SubagentStop
+# This script removes its own prompt marker and counts whatever remains.
 #   others > 0 → N distinct ascending pentatonic beeps (capped at 8).
 #   others = 0 → "all done" chime.
 #                If lid is closed, stop ambient + sleep the machine immediately.
@@ -10,7 +12,8 @@ SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
 CH="$SLAB_HOME/sounds"
 LOG=${CLAUDE_STOP_LOG:-$SLAB_HOME/logs/claude-stop.log}
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
-mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR"
+SUBAGENT_DIR="$SLAB_HOME/state/active-subagents"
+mkdir -p "$(dirname "$LOG")" "$ACTIVE_DIR" "$SUBAGENT_DIR"
 
 pkill -f claude-ping-repeat.sh 2>/dev/null
 pkill -f claude-sleep-schedule.sh 2>/dev/null
@@ -20,11 +23,12 @@ session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
 [[ -n "$session_id" ]] && rm -f "$ACTIVE_DIR/$session_id"
 
 shopt -s nullglob
-files=("$ACTIVE_DIR"/*)
-others=${#files[@]}
+prompts=("$ACTIVE_DIR"/*)
+subagents=("$SUBAGENT_DIR"/*)
+others=$((${#prompts[@]} + ${#subagents[@]}))
 shopt -u nullglob
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} others=$others" >> "$LOG"
+echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} prompts=${#prompts[@]} subagents=${#subagents[@]} others=$others" >> "$LOG"
 
 stop_ambient() {
     local pid
