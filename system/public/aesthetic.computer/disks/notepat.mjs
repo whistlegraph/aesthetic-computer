@@ -385,6 +385,7 @@ const wavetypes = [
   "noise", // 4 - white noise filtered by pitch
   "composite", // 5
   "stample", // 6
+  "drum", // 7 - shared 12-drum kit (lib/percussion.mjs), both octaves
 ];
 let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
@@ -683,7 +684,6 @@ function getTopBarPianoMetrics(screen) {
     abletonBtn?.box?.x ?? Infinity,
     waveBtn?.box?.x ?? Infinity,
     octBtn?.box?.x ?? Infinity,
-    drumBtn?.box?.x ?? Infinity,
   );
   const rightEdge = Number.isFinite(leftmostButtonX)
     ? leftmostButtonX - 3
@@ -1103,8 +1103,9 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn, abletonBtn, drumBtn;
-let drumMode = false; // When true, all note triggers play the shared drumkit instead.
+let waveBtn, octBtn, osBtn, abletonBtn;
+// 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
+// every note fires from lib/percussion.mjs instead of the pitched synth.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
 let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
@@ -1643,6 +1644,7 @@ async function boot({
     "noise",
     "stample",
     "sample",
+    "drum",
   ];
   const requestedWave = wavetypes.indexOf(colon[0]) > -1 ? colon[0] : wave;
   wave = requestedWave === "sample" ? "stample" : requestedWave;
@@ -1699,7 +1701,6 @@ async function boot({
   buildWaveButton(api);
   buildAbletonButton(api);
   buildOsButton(api);
-  buildDrumButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
 
@@ -4685,27 +4686,6 @@ function paint({
       );
     });
 
-    drumBtn?.paint((btn) => {
-      const base = drumMode ? [90, 30, 30] : [30, 20, 40];
-      const bright = drumMode ? [220, 110, 110] : [120, 120, 180];
-      ink(btn.down ? [140, 60, 60] : base).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 160, 160, 140).box(btn.box, "outline");
-      }
-      ink(bright).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      ink(btn.down ? [255, 220, 220] : bright).write(
-        drumBtn.label || "drm",
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
     waveBtn?.paint((btn) => {
       ink(btn.down ? [40, 40, 100] : "darkblue").box(
         btn.box.x,
@@ -5958,11 +5938,12 @@ function startButtonNote(note, velocity = 127, apiRef = null) {
 
   if (downs[note]) return false;
 
-  // 🥁 Drum mode: the upper octave (notes prefixed with "+" or "++") fires the
-  // shared 12-drum kit instead of a pitched note. Lower octave stays pitched so
-  // you can play melody + drums simultaneously. Mirrors the kitRight behaviour
-  // in fedac/native/pieces/notepat.mjs.
-  if (drumMode && note.startsWith("+") && soundContext) {
+  // 🥁 Drum voice: when the selected wave is "drum", every note (both octaves)
+  // fires a one-shot from the shared 12-drum kit in lib/percussion.mjs. Strip
+  // any octave prefix (++, +, -) and lowercase so "C", "+c", and "++c" all
+  // land on the same drum slot. The note's pan is derived from its key
+  // position like the pitched voices.
+  if (wave === "drum" && soundContext) {
     const letter = note.replace(/^[+\-]+/, "").toLowerCase();
     const pan = getPanForButtonNote(note);
     const volume = Math.max(0.1, velocity / 127);
@@ -6133,7 +6114,6 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
-    buildDrumButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
@@ -6235,7 +6215,6 @@ function act({
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
     const vizRight = Math.min(
-      drumBtn?.box?.x ?? Infinity,
       osBtn?.box?.x ?? Infinity,
       abletonBtn?.box?.x ?? Infinity,
       waveBtn?.box?.x ?? screen.width,
@@ -6392,7 +6371,6 @@ function act({
     buildWaveButton(api);
     buildAbletonButton(api);
     buildOsButton(api);
-    buildDrumButton(api);
   }
 
   // if (e.is("keyboard:down:shift") && !e.repeat) {
@@ -7148,7 +7126,6 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
-        buildDrumButton(api);
       },
     });
 
@@ -7161,7 +7138,6 @@ function act({
         buildWaveButton(api);
         buildAbletonButton(api);
         buildOsButton(api);
-        buildDrumButton(api);
       },
     });
 
@@ -7178,15 +7154,6 @@ function act({
       push: () => {
         api.beep();
         jump("os");
-      },
-    });
-
-    drumBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        drumMode = !drumMode;
-        api.beep(drumMode ? 600 : 200);
-        console.log("🥁 drumMode:", drumMode ? "ON (upper octave → drum kit)" : "OFF (pitched)");
       },
     });
 
@@ -8291,6 +8258,7 @@ function buildWaveButton({ screen, ui, typeface }) {
     noise: "noi",
     composite: "cmp",
     stample: "stp",
+    drum: "drm",
   };
   const displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
   const waveWidth = displayWave.length * glyphWidth;
@@ -8342,7 +8310,6 @@ function osBarButtonMetrics({ screen }) {
     labels: {
       ableton: "m4l",
       os: "os",
-      drum: isNarrow ? "drm" : "drum",
     },
   };
 }
@@ -8363,16 +8330,6 @@ function buildOsButton({ ui, screen }) {
   osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
   osBtn.id = "os-button";
   osBtn.label = m.labels.os;
-}
-
-function buildDrumButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const w = m.labels.drum.length * m.glyph + m.padX * 2;
-  const anchorX =
-    osBtn?.box?.x ?? abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  drumBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
-  drumBtn.id = "drum-button";
-  drumBtn.label = m.labels.drum;
 }
 
 // Build metronome controls and toggle buttons with responsive layout
