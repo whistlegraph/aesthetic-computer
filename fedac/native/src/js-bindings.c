@@ -3757,10 +3757,14 @@ static JSValue js_fetch_binary(JSContext *ctx, JSValueConst this_val, int argc, 
     unlink("/tmp/ac_fb_rc");
     unlink("/tmp/ac_fb_err");
     unlink(dest);
-    // Start curl in background
+    // Start curl in background. Budget is generous: 326 MB initramfs over
+    // a slow link (~200 KB/s) takes ~27 min, so --max-time 1800 (30 min)
+    // covers it. --retry 5 + backoff absorbs transient TLS/DNS hiccups.
+    // --connect-timeout 15 tolerates sleepy Wi-Fi handshakes.
     char cmd[1024];
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -fSL --retry 3 --retry-delay 1 --connect-timeout 8 --max-time 600 "
+        "sh -c 'curl -fSL --retry 5 --retry-delay 2 --retry-all-errors "
+        "--connect-timeout 15 --max-time 1800 "
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "--output \"%s\" \"%s\" 2>/tmp/ac_fb_err;"
         " echo $? > /tmp/ac_fb_rc' &", dest, url);
