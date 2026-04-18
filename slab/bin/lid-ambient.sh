@@ -90,7 +90,9 @@ stop_monitor() {
 }
 
 claude_running() {
-    ps -eo command | grep -qE '^/Users/.*/claude\.app/Contents/MacOS/claude '
+    # Matches both the desktop-app-embedded CLI (.../claude.app/Contents/MacOS/claude)
+    # and the terminal CLI (node .../@anthropic-ai/claude-code/cli.js).
+    ps -eo command | grep -qE 'claude\.app/Contents/MacOS/claude |@anthropic-ai/claude-code/.*cli\.js'
 }
 
 active_work_count() {
