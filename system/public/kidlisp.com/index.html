@@ -17987,7 +17987,36 @@ s("ape_breaks_3").loopAt(2)</textarea>
       if (editor) {
         let debounceTimer = null;
         let pendingUpdate = false;
-        
+
+        // Count top-level parenthesized expressions, skipping ; comments and
+        // quoted strings so a string like "(foo)" doesn't throw off the count.
+        // Used to decide slide-vs-reload below; see REPORT-kidlisp-realtime-state.md.
+        function countTopLevelExpressions(code) {
+          if (!code) return 0;
+          let count = 0, depth = 0, i = 0;
+          while (i < code.length) {
+            const ch = code[i];
+            if (ch === ';') {
+              while (i < code.length && code[i] !== '\n') i++;
+              continue;
+            }
+            if (ch === '"' || ch === "'") {
+              const q = ch;
+              i++;
+              while (i < code.length && code[i] !== q) {
+                if (code[i] === '\\') i++;
+                i++;
+              }
+              i++;
+              continue;
+            }
+            if (ch === '(') { if (depth === 0) count++; depth++; }
+            else if (ch === ')') depth--;
+            i++;
+          }
+          return count;
+        }
+
         editor.onDidChangeModelContent(() => {
           // Skip updates during decryption animation - the animation is changing the content
           if (window.isDecrypting && window.isDecrypting()) {
@@ -18036,7 +18065,19 @@ s("ape_breaks_3").loopAt(2)</textarea>
             // Shorter debounce in stage mode for immediate feedback
             const delay = (window.isStageMode && window.isStageMode()) ? 150 : 1000;
             debounceTimer = setTimeout(() => {
-              updatePreview();
+              // If the top-level expression count is unchanged, route through
+              // the slide-update path. slideUpdate() in kidlisp.mjs re-parses
+              // the AST but preserves globalDef, frameCount, onceExecuted,
+              // melodies, and timers — so accumulated graphics + animation
+              // state survive value tweaks (numbers, colors). Full reload
+              // still runs when expressions are added/removed.
+              const oldExpr = countTopLevelExpressions(lastCode);
+              const newExpr = countTopLevelExpressions(currentCode);
+              if (oldExpr > 0 && oldExpr === newExpr) {
+                sendToIframe({ type: 'kidlisp-slide', code: currentCode });
+              } else {
+                updatePreview();
+              }
               lastCode = currentCode;
               pendingUpdate = false;
               debounceTimer = null;
