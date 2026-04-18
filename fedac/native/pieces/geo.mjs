@@ -41,6 +41,9 @@ function paint({ wipe, ink, write, screen, system, wifi, frame }) {
       const data = JSON.parse(system.fetchResult);
       if (data.status === "success") {
         geoData = data;
+        // Cache the city for the next boot's greeting ("enjoy <city>!").
+        // Read at boot by read_cached_city() in ac-native.c.
+        if (data.city) system.writeFile?.("/mnt/last-city.txt", data.city);
       } else {
         error = data.message || "lookup failed";
       }
