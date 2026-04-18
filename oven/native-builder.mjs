@@ -341,20 +341,42 @@ async function runBuildJob(job) {
     const buildNix = variant === "nix" || variant === "all";
     const needsDockerBuild = buildC || buildCL;
 
+    // Preserve caller-specified ref so we can honor it after the sync.
+    // If a specific ref was POSTed (e.g. "45a3ae7e3"), we must check it out
+    // AFTER fetching — otherwise preflight silently rewrites job.ref to
+    // whatever origin/main happens to be at sync time (which was masking a
+    // stale-clone bug: fetches failing silently left old commits pinned).
+    const requestedRef = (job.ref && job.ref !== "unknown") ? job.ref : null;
+
     // Preflight: hard-sync build repo and refuse conflicted/dirty native/Nix trees.
     addLogLine(job, "stdout", "Preflight: syncing native git checkout...");
     await runPhase(job, "preflight-sync", "bash", ["-lc", [
       "set -euo pipefail",
-      `git fetch origin ${NATIVE_BRANCH} --quiet || true`,
+      // Make fetch failures LOUD — silent `|| true` previously hid auth /
+      // network issues and let the builder ship whatever stale commit was
+      // already checked out, which is exactly the bug we're fixing.
+      `git fetch origin ${NATIVE_BRANCH} --quiet`,
       `git checkout -f ${NATIVE_BRANCH} --quiet || true`,
       `if git rev-parse --verify origin/${NATIVE_BRANCH} >/dev/null 2>&1; then`,
       `  git reset --hard origin/${NATIVE_BRANCH} --quiet`,
       "fi",
+      // Honor caller-specified ref. Fetch the exact commit first (in case
+      // it's not on the default branch yet / on a PR branch), then detach.
+      requestedRef ? `git fetch origin ${requestedRef} --quiet || true` : "",
+      requestedRef ? `git checkout -f ${requestedRef} --quiet` : "",
       "git clean -fdq -- fedac/native fedac/nixos",
-    ].join("\n")], repoDir);
+    ].filter(Boolean).join("\n")], repoDir);
 
     const syncedRef = await runSync("git", ["rev-parse", "HEAD"], repoDir);
-    if (syncedRef) job.ref = syncedRef;
+    // Only overwrite job.ref with HEAD when the caller didn't specify one —
+    // otherwise we'd hide a mismatch if the checkout silently landed on a
+    // different commit than requested.
+    if (syncedRef && !requestedRef) job.ref = syncedRef;
+    if (requestedRef && syncedRef && !syncedRef.startsWith(requestedRef) && !requestedRef.startsWith(syncedRef)) {
+      throw new Error(
+        `Preflight checkout landed at ${syncedRef}, but caller requested ${requestedRef}. Aborting to avoid shipping the wrong commit.`,
+      );
+    }
 
     const trackedDirty = await runSync(
       "git",

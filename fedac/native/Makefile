@@ -7,7 +7,10 @@ QJSDIR   := $(BUILDDIR)/quickjs
 
 # Use musl for static linking if available, else gcc
 CC       ?= gcc
-GIT_HASH   := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# Prefer AC_GIT_HASH from the environment (oven passes the requested ref's
+# short hash so containerized builds that don't mount .git still stamp the
+# correct commit). Fall back to git rev-parse when building locally.
+GIT_HASH   := $(if $(AC_GIT_HASH),$(AC_GIT_HASH),$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown"))
 BUILD_TS   ?= $(shell date -u '+%Y-%m-%dT%H:%M')
 BUILD_NAME := $(shell scripts/build-name.sh --bump 2>/dev/null || echo "local-build")
 QUIRCDIR   := lib/quirc/lib
