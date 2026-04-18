@@ -199,7 +199,7 @@ let giveBtnParticles = [];
 // 🎰 Top-right slot: A/B test — pick one randomly on page load
 const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "os", "products", "blank"];
 // const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
-const topRightBtnChoice = "blank"; // Only show laptop bumper for now
+const topRightBtnChoice = "products"; // Curtain product carousel (cycles live Shopify items)
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
