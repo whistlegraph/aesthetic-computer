@@ -10,7 +10,15 @@
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "command": "/usr/bin/afplay @HOME@/.local/share/slab/sounds/ping.wav", "async": true }
+          { "type": "command", "command": "@HOME@/.local/bin/claude-subagent-stop.sh", "async": true }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          { "type": "command", "command": "@HOME@/.local/bin/claude-tool-pre.sh", "async": true }
         ]
       }
     ],
