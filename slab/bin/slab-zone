@@ -1,0 +1,91 @@
+#!/bin/bash
+# slab-zone — manage geofenced slab zones.
+#
+#   slab-zone list                     # show all zones + default
+#   slab-zone add <name> [radius]      # pin current location as <name>
+#   slab-zone remove <name>            # remove a zone
+#   slab-zone where                    # print current coords + matching zone
+#
+# Zones are stored in $SLAB_HOME/config/zones.json. Each zone picks a
+# scale / DIV_FACTOR / ARP_AMP preset that overrides lid-reactive.py
+# defaults when the daemon detects you're inside that zone's radius.
+
+set -u
+SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
+CONFIG_DIR="$SLAB_HOME/config"
+ZONES="$CONFIG_DIR/zones.json"
+CORELOC=$(command -v CoreLocationCLI || true)
+
+mkdir -p "$CONFIG_DIR"
+if [[ ! -f "$ZONES" ]]; then
+    cat > "$ZONES" <<'JSON'
+{
+  "default": {
+    "scale": "major_pentatonic",
+    "div_factor": 5.0,
+    "arp_amp": 0.22
+  },
+  "zones": []
+}
+JSON
+fi
+
+die() { echo "$*" >&2; exit 1; }
+
+current_coords() {
+    [[ -n "$CORELOC" ]] || die "CoreLocationCLI not installed (brew install corelocationcli)"
+    local out
+    out=$("$CORELOC" 2>&1)
+    if [[ "$out" == *"denied"* || "$out" == *"disabled"* ]]; then
+        die "Location Services disabled — grant access in System Settings"
+    fi
+    echo "$out" | head -1
+}
+
+case "${1:-}" in
+    list)
+        jq . "$ZONES"
+        ;;
+    add)
+        name=${2:-}; radius=${3:-100}
+        [[ -n "$name" ]] || die "usage: slab-zone add <name> [radius_m]"
+        read -r lat lon <<< "$(current_coords)"
+        [[ -n "$lat" && -n "$lon" ]] || die "could not obtain coords"
+        tmp=$(mktemp)
+        jq --arg n "$name" --argjson lat "$lat" --argjson lon "$lon" \
+           --argjson r "$radius" '
+             .zones |= map(select(.name != $n)) |
+             .zones += [{name: $n, lat: $lat, lon: $lon, radius_m: $r,
+                         scale: "major_pentatonic",
+                         div_factor: 5.0, arp_amp: 0.22}]' \
+           "$ZONES" > "$tmp" && mv "$tmp" "$ZONES"
+        echo "pinned '$name' at $lat,$lon (r=${radius}m)"
+        echo "edit $ZONES to tune the zone's scale/dynamics"
+        ;;
+    remove|rm)
+        name=${2:-}
+        [[ -n "$name" ]] || die "usage: slab-zone remove <name>"
+        tmp=$(mktemp)
+        jq --arg n "$name" '.zones |= map(select(.name != $n))' "$ZONES" > "$tmp" && mv "$tmp" "$ZONES"
+        echo "removed '$name'"
+        ;;
+    where)
+        read -r lat lon <<< "$(current_coords)"
+        echo "coords: $lat, $lon"
+        jq --argjson lat "$lat" --argjson lon "$lon" '
+          def hav($la; $lo; $la2; $lo2):
+            6371000 * 2 * ( (((($la2 - $la) * 3.14159 / 180)/2 | sin) | .*.)
+                           + (($la * 3.14159/180) | cos) * (($la2 * 3.14159/180) | cos)
+                           * (((($lo2 - $lo) * 3.14159 / 180)/2 | sin) | .*.) | sqrt | asin );
+          .zones
+          | map(. + {dist_m: (hav(.lat; .lon; $lat; $lon) | floor)})
+          | sort_by(.dist_m)
+          | map(select(.dist_m <= .radius_m))
+          | if length == 0 then "default (outside all zones)"
+            else .[0].name + " (" + (.[0].dist_m | tostring) + "m)" end
+        ' "$ZONES"
+        ;;
+    *)
+        sed -n '1,12p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+esac

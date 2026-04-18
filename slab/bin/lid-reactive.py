@@ -15,7 +15,9 @@ import os
 import time
 import json
 import wave
+import shutil
 import signal
+import subprocess
 import threading
 import math
 from datetime import datetime
@@ -26,10 +28,14 @@ import sounddevice as sd
 SLAB_HOME = os.environ.get('SLAB_HOME', os.path.expanduser('~/.local/share/slab'))
 LOG_PATH = os.path.join(SLAB_HOME, 'logs', 'reactive.log')
 SESSION_DIR = os.path.join(SLAB_HOME, 'sessions')
+CONFIG_DIR = os.path.join(SLAB_HOME, 'config')
+ZONES_PATH = os.path.join(CONFIG_DIR, 'zones.json')
+LAST_LOC_PATH = os.path.join(SLAB_HOME, 'state', 'last-location.json')
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 os.makedirs(SESSION_DIR, exist_ok=True)
+os.makedirs(os.path.dirname(LAST_LOC_PATH), exist_ok=True)
 
-# -------- config (tuneable) --------
+# -------- defaults (overridden per-zone at startup) --------
 SR = 44100
 BLOCK = 1024
 HIGH_BAND = (2000.0, 8000.0)
@@ -45,16 +51,109 @@ PLUCK_TAIL = 0.22
 ARP_NOTES = 4
 ARP_AMP = 0.22
 
-# C major pentatonic, C3..C6
-PENT_MIDI = [48, 50, 52, 55, 57, 60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84]
-PENT_HZ = [440.0 * 2 ** ((m - 69) / 12) for m in PENT_MIDI]
-
 RECENT_SEC = 0.20
 RECENT_N = int(SR * RECENT_SEC)
 
+# -------- scales (MIDI offsets from tonic, C3..C6 across 3 octaves) --------
+SCALE_INTERVALS = {
+    'major_pentatonic': [0, 2, 4, 7, 9],          # C D E G A
+    'minor_pentatonic': [0, 3, 5, 7, 10],         # C Eb F G Bb
+    'blues':            [0, 3, 5, 6, 7, 10],      # C Eb F F# G Bb
+    'dorian':           [0, 2, 3, 5, 7, 9, 10],
+    'phrygian':         [0, 1, 3, 5, 7, 8, 10],
+    'lydian':           [0, 2, 4, 6, 7, 9, 11],
+    'whole_tone':       [0, 2, 4, 6, 8, 10],
+    'chromatic':        list(range(12)),
+}
+
+
+def build_scale(name, tonic_midi=48, octaves=3):
+    intervals = SCALE_INTERVALS.get(name, SCALE_INTERVALS['major_pentatonic'])
+    notes = []
+    for o in range(octaves + 1):
+        for iv in intervals:
+            m = tonic_midi + o * 12 + iv
+            if m <= tonic_midi + octaves * 12:
+                notes.append(m)
+    return [440.0 * 2 ** ((m - 69) / 12) for m in notes]
+
+
+# -------- location + zone resolution --------
+def read_location(timeout_s=3.0):
+    """Return (lat, lon) via CoreLocationCLI or None on failure."""
+    cli = shutil.which('CoreLocationCLI')
+    if not cli:
+        return None
+    try:
+        out = subprocess.run([cli], capture_output=True, text=True,
+                             timeout=timeout_s).stdout.strip()
+        parts = out.split()
+        if len(parts) >= 2:
+            lat, lon = float(parts[0]), float(parts[1])
+            with open(LAST_LOC_PATH, 'w') as f:
+                json.dump({'lat': lat, 'lon': lon, 'ts': time.time()}, f)
+            return lat, lon
+    except Exception:
+        pass
+    # fallback to cached
+    try:
+        with open(LAST_LOC_PATH) as f:
+            d = json.load(f)
+        return d['lat'], d['lon']
+    except Exception:
+        return None
+
+
+def haversine_m(lat1, lon1, lat2, lon2):
+    R = 6371000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp/2)**2 + math.cos(p1) * math.cos(p2) * math.sin(dl/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+def resolve_zone(coords):
+    """Return (zone_dict, distance_m_or_None)."""
+    try:
+        with open(ZONES_PATH) as f:
+            cfg = json.load(f)
+    except Exception:
+        cfg = {'default': {}, 'zones': []}
+    defaults = {
+        'name': 'default',
+        'scale': 'major_pentatonic',
+        'div_factor': 5.0,
+        'arp_amp': 0.22,
+    }
+    defaults.update(cfg.get('default', {}))
+    if not coords:
+        return defaults, None
+    lat, lon = coords
+    matches = []
+    for z in cfg.get('zones', []):
+        d = haversine_m(lat, lon, z['lat'], z['lon'])
+        if d <= z.get('radius_m', 100):
+            matches.append((d, z))
+    if not matches:
+        return defaults, None
+    d, z = min(matches, key=lambda x: x[0])
+    out = dict(defaults); out.update(z)
+    return out, d
+
+
+# -------- zone applies to runtime config --------
+_coords = read_location()
+_zone, _zone_dist = resolve_zone(_coords)
+DIV_FACTOR = float(_zone.get('div_factor', DIV_FACTOR))
+ARP_AMP    = float(_zone.get('arp_amp', ARP_AMP))
+PENT_HZ    = build_scale(_zone.get('scale', 'major_pentatonic'))
+
+# -------- session paths (zone-tagged) --------
 _stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
-WAV_PATH = os.path.join(SESSION_DIR, f'{_stamp}.wav')
-JSONL_PATH = os.path.join(SESSION_DIR, f'{_stamp}.jsonl')
+_tag = f"-{_zone['name']}" if _zone.get('name') else ''
+WAV_PATH = os.path.join(SESSION_DIR, f'{_stamp}{_tag}.wav')
+JSONL_PATH = os.path.join(SESSION_DIR, f'{_stamp}{_tag}.jsonl')
 
 
 def log(msg):
@@ -236,8 +335,16 @@ signal.signal(signal.SIGINT, shutdown)
 
 
 def main():
-    log(f"listener starting (arp mode) session={_stamp}")
-    session_event('listener_start', wav=WAV_PATH, jsonl=JSONL_PATH)
+    log(f"listener starting (arp mode) session={_stamp} zone={_zone.get('name')} "
+        f"coords={_coords} dist={_zone_dist}")
+    session_event('listener_start',
+                  wav=WAV_PATH, jsonl=JSONL_PATH,
+                  zone=_zone.get('name'),
+                  zone_scale=_zone.get('scale'),
+                  zone_div_factor=DIV_FACTOR,
+                  zone_arp_amp=ARP_AMP,
+                  coords=_coords,
+                  zone_distance_m=_zone_dist)
     try:
         out_stream = sd.OutputStream(
             samplerate=SR, channels=1, blocksize=BLOCK,
