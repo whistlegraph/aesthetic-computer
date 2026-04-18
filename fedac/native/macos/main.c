@@ -108,11 +108,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Fullscreen is the default — matches bare-metal notepat. ESC or Cmd+Q
-    // quits. AC_WINDOWED=1 forces a windowed build for dev.
-    int windowed = getenv("AC_WINDOWED") != NULL;
-    Uint32 win_flags = SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    if (!windowed) win_flags |= SDL_WINDOW_FULLSCREEN;
+    // Windowed + resizable by default. AC_FULLSCREEN=1 opts in to fullscreen
+    // for bare-metal-style presentation. Native pixel density (no HIGH_PIXEL_DENSITY):
+    // pixels appear at their natural on-screen size instead of being
+    // retina-multiplied into 4×4 blocks on a Mac, which reads as "extra large".
+    int fullscreen = getenv("AC_FULLSCREEN") != NULL;
+    Uint32 win_flags = SDL_WINDOW_RESIZABLE;
+    if (fullscreen) win_flags |= SDL_WINDOW_FULLSCREEN;
 
     SDL_Window *win = SDL_CreateWindow("Notepat",
                                        FB_W * WIN_SCALE, FB_H * WIN_SCALE,
@@ -123,16 +125,17 @@ int main(int argc, char **argv) {
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     SDL_SetRenderVSync(ren, 1);
     fprintf(stderr, "[macos] renderer: %s (%s)\n", SDL_GetRendererName(ren),
-            windowed ? "windowed" : "fullscreen");
+            fullscreen ? "fullscreen" : "windowed");
 
     // Integer-scale letterbox: FB_W×FB_H is the logical canvas, the renderer
     // picks the largest integer multiple that fits and centers it with black
     // bars. Combined with SDL_SCALEMODE_NEAREST on the texture, this yields
-    // pixel-perfect chunky pixels — no bilinear smear even on retina.
+    // pixel-perfect chunky pixels at every window size.
     SDL_SetRenderLogicalPresentation(ren, FB_W, FB_H, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
 
-    // Overlay feel: hide the OS cursor. Pieces draw their own if they want one.
-    if (!windowed) SDL_HideCursor();
+    // Overlay feel: hide the OS cursor in fullscreen. Windowed keeps the
+    // system cursor so resize/drag/close controls behave normally.
+    if (fullscreen) SDL_HideCursor();
 
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888,
                                          SDL_TEXTUREACCESS_STREAMING, FB_W, FB_H);

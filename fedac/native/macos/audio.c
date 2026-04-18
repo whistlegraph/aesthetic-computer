@@ -73,6 +73,13 @@ Audio *audio_init(void) {
     synth_core_init(&a->synth, a->voices, AUDIO_MAX_VOICES,
                     &a->lock, &a->next_id, (double)DRIVER_SAMPLE_RATE);
 
+    // Request a tiny audio buffer so keystroke → sound latency stays under
+    // one paint frame. AC_AUDIO_BUFFER env var overrides; 128 frames @ 48k
+    // is ~2.7 ms, which stacks to ~5–8 ms round-trip once CoreAudio adds
+    // its own device buffer. Must be set before opening the device.
+    const char *buf_env = getenv("AC_AUDIO_BUFFER");
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, buf_env ? buf_env : "128");
+
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         fprintf(stderr, "[audio] SDL_InitSubSystem: %s\n", SDL_GetError());
         pthread_mutex_destroy(&a->lock);
@@ -89,8 +96,19 @@ Audio *audio_init(void) {
         return NULL;
     }
     SDL_ResumeAudioStreamDevice(a->stream);
-    fprintf(stderr, "[audio] ready @ %d Hz, %d channels (synth_core)\n",
-            DRIVER_SAMPLE_RATE, DRIVER_CHANNELS);
+
+    // Query what the device actually negotiated so we can log real latency.
+    SDL_AudioDeviceID dev = SDL_GetAudioStreamDevice(a->stream);
+    int frames_per_buf = 0;
+    SDL_AudioSpec got_spec = {0};
+    SDL_GetAudioDeviceFormat(dev, &got_spec, &frames_per_buf);
+    double latency_ms = (got_spec.freq > 0 && frames_per_buf > 0)
+                        ? (1000.0 * (double)frames_per_buf / (double)got_spec.freq)
+                        : 0.0;
+    fprintf(stderr, "[audio] ready @ %d Hz, %d ch, buf=%d frames (~%.1f ms device latency)\n",
+            got_spec.freq ? got_spec.freq : DRIVER_SAMPLE_RATE,
+            got_spec.channels ? got_spec.channels : DRIVER_CHANNELS,
+            frames_per_buf, latency_ms);
     return a;
 }
 
