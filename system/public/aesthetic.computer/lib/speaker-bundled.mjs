@@ -432,6 +432,9 @@ var Synth = class {
   #customBufferSize = 1024;
   // Size of the streaming buffer
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
+    // 🌊 Alias "noise" → "noise-white" to match fedac/native/src/js-bindings.c
+    // so shared percussion (lib/percussion.mjs) plays correctly on the web.
+    if (type === "noise") type = "noise-white";
     this.type = type;
     if (id === void 0 || id === null || id === NaN)
       console.warn("\u23F0 No id for sound:", id, type);
