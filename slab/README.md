@@ -53,9 +53,11 @@ The installer will:
 
 1. Symlink scripts into `~/.local/bin/`
 2. Copy sound assets into `~/.local/share/slab/sounds/`
-3. Build a Python venv at `~/.local/share/slab/venv/` with `numpy` + `sounddevice`
-4. Install the launchd agent `~/Library/LaunchAgents/computer.slab.daemon.plist`
-5. Merge hooks into `~/.claude/settings.json` (Stop, SubagentStop, UserPromptSubmit, SessionStart)
+3. Build a Python venv at `~/.local/share/slab/venv/` with `numpy`, `sounddevice`, and `rumps`
+4. Install two launchd agents:
+   - `~/Library/LaunchAgents/computer.slab.daemon.plist` — the lid-ambient daemon
+   - `~/Library/LaunchAgents/computer.slab.menubar.plist` — a menu-bar status item + transparent full-screen HUD in the top-right corner of the screen
+5. Merge hooks into `~/.claude/settings.json` (Stop, SubagentStop, PreToolUse(Task), UserPromptSubmit, SessionStart)
 6. Install a passwordless-sudo rule at `/etc/sudoers.d/slab-pmset` for `pmset` (prompts for password once)
 
 Opt-outs: `--no-hooks`, `--no-sudoers`.
@@ -87,6 +89,7 @@ slab/
 │   ├── lid-reactive.py                  # mic → pluck-arp synth (Python)
 │   ├── lid-ambient-generate.py          # generate ambient.wav
 │   ├── lid-return-generate.py           # generate lid-return.wav (smooth descending arp)
+│   ├── slab-menubar.py                  # rumps menu bar + transparent full-screen HUD
 │   ├── claude-sleep                     # sleep-state toggle
 │   ├── claude-stop.sh                   # Stop-hook entry (prompts + subagents aware)
 │   ├── claude-prompt-log.sh             # UserPromptSubmit hook (touches active-prompts marker)
@@ -98,7 +101,8 @@ slab/
 │   └── slab-zone                        # location-zone manager
 ├── sounds/                              # WAV assets (lid chimes, pings, beeps)
 ├── launchd/
-│   └── computer.slab.daemon.plist.template
+│   ├── computer.slab.daemon.plist.template
+│   └── computer.slab.menubar.plist.template
 ├── sudoers.d/
 │   └── slab-pmset.template
 ├── settings-fragment.json               # Claude Code hooks, merged on install
