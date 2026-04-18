@@ -105,14 +105,16 @@ if not test -f $SSH_KEY
     exit 1
 end
 
+# Env upload is optional: if the vault has a lith/.env we upload it, otherwise
+# we trust the env already present on the server at /opt/ac/system/.env.
+set UPLOAD_ENV true
 if not test -f $SERVICE_ENV
-    echo -e "$RED x Service env not found: $SERVICE_ENV$NC"
-    exit 1
-end
-
-if not rg -q '^DEPLOY_SECRET=' $SERVICE_ENV
+    echo -e "$YELLOW   Service env not found: $SERVICE_ENV$NC"
+    echo -e "$YELLOW   Skipping env upload; preserving existing /opt/ac/system/.env on the server.$NC"
+    set UPLOAD_ENV false
+else if not rg -q '^DEPLOY_SECRET=' $SERVICE_ENV
     echo -e "$RED x DEPLOY_SECRET missing from $SERVICE_ENV$NC"
-    echo -e "$YELLOW   lith reads this file via /opt/ac/system/.env on the server.$NC"
+    echo -e "$YELLOW   Remove the file or add DEPLOY_SECRET. lith reads this file via /opt/ac/system/.env on the server.$NC"
     exit 1
 end
 
@@ -160,12 +162,16 @@ fi && \
 git reset --hard origin/$TARGET_BRANCH --quiet && \
 git rev-parse HEAD > system/public/.commit-ref"
 
-# Upload env
-echo -e "$GREEN-> Uploading environment...$NC"
-# Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the
-# canonical vault source lives at aesthetic-computer-vault/lith/.env and is
-# uploaded into system/.env on the remote host.
-scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
+# Upload env (only if the vault has one — otherwise keep the remote's existing env)
+# Note: lith.service reads EnvironmentFile=/opt/ac/system/.env, so the canonical
+# vault source lives at aesthetic-computer-vault/lith/.env and is uploaded into
+# system/.env on the remote host.
+if test $UPLOAD_ENV = true
+    echo -e "$GREEN-> Uploading environment...$NC"
+    scp -i $SSH_KEY $SERVICE_ENV $LITH_USER@$TARGET_HOST:$REMOTE_DIR/system/.env
+else
+    echo -e "$GREEN-> Using existing remote environment (no local vault env to upload).$NC"
+end
 
 # Install deps
 echo -e "$GREEN-> Installing dependencies...$NC"
