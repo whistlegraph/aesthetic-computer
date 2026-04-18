@@ -79,19 +79,29 @@ if [[ ! -x "$SLAB_HOME/venv/bin/python3" ]]; then
     say "creating Python venv at $SLAB_HOME/venv"
     python3 -m venv "$SLAB_HOME/venv"
 fi
-say "installing numpy + sounddevice into venv"
+say "installing numpy + sounddevice + rumps into venv"
 "$SLAB_HOME/venv/bin/pip" install --quiet --upgrade pip
-"$SLAB_HOME/venv/bin/pip" install --quiet numpy sounddevice
+"$SLAB_HOME/venv/bin/pip" install --quiet numpy sounddevice rumps
 
-# ------------ launchd plist ------------
+# ------------ launchd plists ------------
 say "installing launchd plist → $PLIST_INSTALLED"
 sed "s|@HOME@|$HOME_DIR|g" "$SLAB_REPO/launchd/$PLIST_NAME.template" > "$PLIST_INSTALLED"
 
-# load (or reload) the agent
+# load (or reload) the daemon
 if launchctl list | grep -q computer.slab.daemon; then
     launchctl unload "$PLIST_INSTALLED" 2>/dev/null || true
 fi
 launchctl load "$PLIST_INSTALLED"
+
+MENUBAR_PLIST_NAME=computer.slab.menubar.plist
+MENUBAR_PLIST_INSTALLED="$LAUNCH_AGENTS/$MENUBAR_PLIST_NAME"
+say "installing menu-bar plist → $MENUBAR_PLIST_INSTALLED"
+sed "s|@HOME@|$HOME_DIR|g" "$SLAB_REPO/launchd/$MENUBAR_PLIST_NAME.template" > "$MENUBAR_PLIST_INSTALLED"
+
+if launchctl list | grep -q computer.slab.menubar; then
+    launchctl unload "$MENUBAR_PLIST_INSTALLED" 2>/dev/null || true
+fi
+launchctl load "$MENUBAR_PLIST_INSTALLED"
 
 # ------------ Claude Code hooks ------------
 if [[ $DO_HOOKS -eq 1 ]]; then
