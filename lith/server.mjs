@@ -782,6 +782,44 @@ app.get("/api/os-image", async (req, res) => {
   }
 });
 
+// --- /api/pack-html, /api/bundle-html, /api/os (proxy to oven) ---
+// netlify.toml used status=200 rewrites for these; on lith we must proxy
+// explicitly since no `pack-html` / `os` netlify function exists. The
+// ableton.mjs offline-amxd builder + `pack` / `m4d` prompt commands all
+// depend on pack-html reaching oven's /pack-html?format=m4d endpoint.
+async function proxyToOven(ovenPath, req, res) {
+  try {
+    const search = new URLSearchParams(req.query || {}).toString();
+    const ovenUrl = `https://oven.aesthetic.computer${ovenPath}` + (search ? `?${search}` : "");
+    const fwdHeaders = {};
+    if (req.headers.authorization) fwdHeaders.Authorization = req.headers.authorization;
+    if (req.headers.accept) fwdHeaders.Accept = req.headers.accept;
+    const ovenRes = await fetch(ovenUrl, { method: "GET", headers: fwdHeaders });
+    res.status(ovenRes.status);
+    const forward = [
+      "content-type", "content-disposition", "content-length", "cache-control",
+      "etag", "last-modified",
+      "x-ac-os-requested-layout", "x-ac-os-layout",
+      "x-ac-os-fallback", "x-ac-os-fallback-reason",
+      "x-build", "x-patch",
+    ];
+    for (const h of forward) {
+      const v = ovenRes.headers.get(h);
+      if (v) res.set(h, v);
+    }
+    res.set("Access-Control-Allow-Origin", "*");
+    if (!ovenRes.body) return res.end();
+    const { Readable } = await import("stream");
+    Readable.fromWeb(ovenRes.body).pipe(res);
+  } catch (err) {
+    console.error(`proxyToOven ${ovenPath} error:`, err.message);
+    if (!res.headersSent) res.status(502).json({ error: `Oven unavailable: ${err.message}` });
+  }
+}
+app.get("/api/pack-html", (req, res) => proxyToOven("/pack-html", req, res));
+app.get("/api/bundle-html", (req, res) => proxyToOven("/bundle-html", req, res));
+app.get("/api/os", (req, res) => proxyToOven("/os", req, res));
+
 // --- /media/* handler (ports Netlify edge function media.js) ---
 app.all("/media/*rest", async (req, res) => {
   const parts = req.path.split("/").filter(Boolean); // ["media", ...]
