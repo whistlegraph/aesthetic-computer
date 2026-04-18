@@ -16,9 +16,12 @@ SDL3_LIBS   := $(shell pkg-config --libs sdl3)
 CFLAGS  := -O2 -Wall -Wextra -std=gnu11 -I. -I../src -I$(QJSDIR) $(SDL3_CFLAGS)
 LDFLAGS := $(SDL3_LIBS) -lm
 
-# Host sources (this directory)
+# Host sources (this directory) + shared synth core from ../src/.
 HOST_SRCS := main.c piece.c audio.c
 HOST_OBJS := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
+
+SHARED_SRCS := ../src/synth_core.c
+SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
 
 # QuickJS core object set (must match what the Linux Makefile uses at line 104)
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
@@ -38,11 +41,14 @@ LIB_SRC   := ../../../system/public/aesthetic.computer/lib/percussion.mjs
 SDL3_LIB_SRC  := /opt/homebrew/lib/libSDL3.0.dylib
 SDL3_LIB_NAME := /opt/homebrew/opt/sdl3/lib/libSDL3.0.dylib
 
-$(TARGET): $(HOST_OBJS) $(QJS_OBJS) | $(BUILD)
+$(TARGET): $(HOST_OBJS) $(SHARED_OBJS) $(QJS_OBJS) | $(BUILD)
 	$(CC) -o $@ $^ $(LDFLAGS)
 	@echo "Built: $@ ($$(wc -c < $@ | tr -d ' ') bytes)"
 
 $(BUILD)/%.o: %.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/shared-%.o: ../src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # QuickJS objects: compiled with the same CONFIG_VERSION the Linux side uses.
