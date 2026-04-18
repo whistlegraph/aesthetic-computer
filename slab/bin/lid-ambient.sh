@@ -14,7 +14,7 @@ wav="$SOUNDS/ambient.wav"
 start_wav="$SOUNDS/lid-start.wav"
 return_wav="$SOUNDS/lid-return.wav"
 open_ding="$SOUNDS/lid-open-ding.wav"
-return_dur=1.15
+return_dur=2.5
 
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
 mkdir -p "$ACTIVE_DIR"
