@@ -66,7 +66,8 @@ slab/
 │   ├── claude-ping-repeat.sh            # repeating 'done' pings
 │   ├── claude-sleep-schedule.sh         # delayed auto-sleep
 │   ├── claude-prompt-log.sh             # UserPromptSubmit hook
-│   └── slab-monitor.sh                  # resource sampler
+│   ├── slab-monitor.sh                  # resource sampler
+│   └── slab-zone                        # location-zone manager
 ├── sounds/                              # WAV assets (lid chimes, pings, beeps)
 ├── launchd/
 │   └── computer.slab.daemon.plist.template
@@ -80,22 +81,47 @@ slab/
 Runtime state lives under `~/.local/share/slab/`:
 
 ```
-sessions/<stamp>.wav    per-lid-close recording of Python-generated output
-sessions/<stamp>.jsonl  trigger events for that session
-logs/lidalive.log       daemon transitions
-logs/reactive.log       reactive listener triggers
-logs/resources.jsonl    CPU/RSS samples every 15s
-logs/claude-stop.log    Stop-hook activity
-venv/                   Python venv for the reactive listener
+sessions/<stamp>-<zone>.wav    per-lid-close recording of Python-generated output
+sessions/<stamp>-<zone>.jsonl  trigger events + location metadata
+logs/lidalive.log              daemon transitions
+logs/reactive.log              reactive listener triggers
+logs/resources.jsonl           CPU/RSS samples every 15s
+logs/claude-stop.log           Stop-hook activity
+config/zones.json              geofenced zones + per-zone scale/dynamics
+state/last-location.json       cached coords (if Location Services unreachable)
+venv/                          Python venv for the reactive listener
 sounds/                 installed sound assets (+ regenerated ambient.wav)
 ```
+
+## Zones (location-aware ambient)
+
+Each lid-close queries Core Location and picks the closest zone in
+`~/.local/share/slab/config/zones.json`. The matching zone overrides the
+reactive listener's scale, pitch mapping (`div_factor`), and amp. Coords +
+zone name are written into the session JSONL and appended to the WAV
+filename.
+
+```sh
+brew install corelocationcli                 # one-time (install.sh can run it)
+# grant Location Services permission once
+slab-zone where                              # show current coords + zone
+slab-zone add home 150                       # pin current spot as 'home', 150m radius
+slab-zone add studio 60
+slab-zone list                               # dump zones.json
+slab-zone remove home
+```
+
+Available scales: `major_pentatonic`, `minor_pentatonic`, `blues`,
+`dorian`, `phrygian`, `lydian`, `whole_tone`, `chromatic`. Edit
+`zones.json` directly to tweak a zone's `scale`, `div_factor`, or
+`arp_amp`.
 
 ## Tuning
 
 Most knobs live at the top of each script:
 
 - **Ambient** — `bin/lid-ambient-generate.py`: scale, note-gap range, duration/fade ranges, detuning, drone frequency. Run `python3 bin/lid-ambient-generate.py [seed]` to regenerate a variation.
-- **Reactive listener** — `bin/lid-reactive.py`: `HIGH_BAND`, `TRIGGER_RATIO`, `MIN_GAP`, `DIV_FACTOR`, `NOTE_DUR`, `PLUCK_TAIL`, `ARP_NOTES`, `ARP_AMP`, `PENT_MIDI`.
+- **Reactive listener** — `bin/lid-reactive.py`: `HIGH_BAND`, `TRIGGER_RATIO`, `MIN_GAP`, `DIV_FACTOR`, `NOTE_DUR`, `PLUCK_TAIL`, `ARP_NOTES`, `ARP_AMP`. Scales live in `SCALE_INTERVALS`.
 - **Claude ping interval** — `bin/claude-ping-repeat.sh`: `INTERVAL` (default 30s).
 - **Auto-sleep delay** — `bin/claude-stop.sh`: the `120` argument to `claude-sleep-schedule.sh`.
 - **Resource poll** — `bin/slab-monitor.sh`: `INTERVAL` (default 15s).
