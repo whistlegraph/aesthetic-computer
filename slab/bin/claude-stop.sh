@@ -31,22 +31,19 @@ shopt -u nullglob
 echo "$(date '+%Y-%m-%d %H:%M:%S') Stop: session=${session_id:-?} prompts=${#prompts[@]} subagents=${#subagents[@]} others=$others" >> "$LOG"
 
 stop_ambient() {
+    # Ambient is owned by lid-reactive.py now. Fade gracefully via SIGTERM;
+    # the process ramps to silence over ~2s and exits itself. We also pkill
+    # any stray afplay (e.g. the short start chime).
     local pid
-    if [[ -f /tmp/lidambient.pid ]]; then
-        pid=$(cat /tmp/lidambient.pid 2>/dev/null)
-        if [[ -n "$pid" ]]; then
-            pkill -P "$pid" 2>/dev/null
-            kill "$pid" 2>/dev/null
-        fi
-        rm -f /tmp/lidambient.pid
-    fi
-    pkill -x afplay 2>/dev/null
     if [[ -f /tmp/lidreactive.pid ]]; then
         pid=$(cat /tmp/lidreactive.pid 2>/dev/null)
-        [[ -n "$pid" ]] && kill "$pid" 2>/dev/null
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
         rm -f /tmp/lidreactive.pid
+    else
+        pkill -TERM -f lid-reactive.py 2>/dev/null
     fi
-    pkill -f lid-reactive.py 2>/dev/null
+    rm -f /tmp/slab-ambient-active
+    pkill -x afplay 2>/dev/null
 }
 
 lid=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
