@@ -1,0 +1,34 @@
+#!/bin/bash
+# Unified sleep control for the slab workflow.
+#
+#   claude-sleep awake    # disable all sleep (stay awake with lid closed)
+#   claude-sleep auto     # restore normal sleep behavior
+#   claude-sleep now      # sleep the Mac immediately
+#   claude-sleep status   # show SleepDisabled state
+#
+# Requires passwordless sudo for /usr/bin/pmset. See slab install.sh.
+
+set -u
+PMSET=/usr/bin/pmset
+
+case "${1:-status}" in
+    awake)
+        sudo -n "$PMSET" -a disablesleep 1 2>/dev/null && echo "awake (SleepDisabled=1)"
+        ;;
+    auto)
+        sudo -n "$PMSET" -a disablesleep 0 2>/dev/null && echo "auto (SleepDisabled=0)"
+        ;;
+    now)
+        sudo -n "$PMSET" -a disablesleep 0 2>/dev/null
+        sudo -n "$PMSET" sleepnow 2>/dev/null \
+            || osascript -e 'tell application "System Events" to sleep' 2>/dev/null
+        ;;
+    status)
+        state=$("$PMSET" -g | awk '/SleepDisabled/{print $2; exit}')
+        echo "SleepDisabled=${state:-0}"
+        ;;
+    *)
+        echo "usage: $0 [awake|auto|now|status]" >&2
+        exit 1
+        ;;
+esac
