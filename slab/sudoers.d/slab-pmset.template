@@ -1,0 +1,8 @@
+# Slab — allow passwordless pmset for the installing user. This lets
+# claude-sleep and the lid-ambient daemon toggle sleep state and trigger
+# display sleep / system sleep without interactive password prompts.
+#
+# Install with:  install.sh --sudoers
+# Uninstall: remove /etc/sudoers.d/slab-pmset (requires sudo).
+
+@USER@ ALL=(root) NOPASSWD: /usr/bin/pmset
