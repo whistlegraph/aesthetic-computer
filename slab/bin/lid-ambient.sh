@@ -1,7 +1,9 @@
 #!/bin/bash
 # lid-ambient daemon. Long-lived via launchd KeepAlive; polls lid every POLL
-# seconds; on transition plays chimes and manages the ambient loop + reactive
-# listener + resource monitor. Turns off display on lid close.
+# seconds. Ambient loop + reactive listener run only when:
+#   lid is closed AND sleep is disabled AND at least one Claude session has
+#   an active prompt (file in $SLAB_HOME/state/active-prompts/).
+# Lid close always turns off the display (when sleep is disabled).
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
@@ -13,6 +15,9 @@ start_wav="$SOUNDS/lid-start.wav"
 return_wav="$SOUNDS/lid-return.wav"
 open_ding="$SOUNDS/lid-open-ding.wav"
 return_dur=1.15
+
+ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
+mkdir -p "$ACTIVE_DIR"
 
 PID_DIR=/tmp
 pid_file="$PID_DIR/lidambient.pid"
@@ -81,6 +86,21 @@ stop_monitor() {
     pkill -f slab-monitor.sh 2>/dev/null
 }
 
+active_prompts_count() {
+    shopt -s nullglob
+    local files=("$ACTIVE_DIR"/*)
+    shopt -u nullglob
+    local c=${#files[@]}
+    if (( c > 0 )); then
+        # drop stale files if no claude process is running at all
+        if ! ps -eo command | grep -qE '^/Users/.*/claude\.app/Contents/MacOS/claude '; then
+            rm -f "$ACTIVE_DIR"/* 2>/dev/null
+            c=0
+        fi
+    fi
+    echo "$c"
+}
+
 cleanup() {
     log_msg "daemon exiting, cleaning up"
     stop_player
@@ -96,38 +116,62 @@ stop_reactive
 stop_monitor
 start_monitor
 
-prev=""
+prev_lid=""
+ambient_running=0
+
 while true; do
-    state=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
+    lid_state=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
     sleep_disabled=$(pmset -g | awk '/SleepDisabled/{print $2; exit}')
     sleep_disabled=${sleep_disabled:-0}
+    active_count=$(active_prompts_count)
 
-    # No -> Yes (lid just closed)
-    if [[ "$state" == "Yes" && "$prev" == "No" ]]; then
-        log_msg "lid CLOSED (sleep_disabled=$sleep_disabled)"
+    # Lid just closed: darken display (ambient start is gated on Claude activity below).
+    if [[ "$lid_state" == "Yes" && "$prev_lid" == "No" ]]; then
+        log_msg "lid CLOSED (sleep_disabled=$sleep_disabled active=$active_count)"
         if [[ "$sleep_disabled" == "1" ]]; then
-            /usr/bin/afplay "$start_wav" 2>/dev/null &
-            start_player
-            start_reactive
-            (sleep 0.6; sudo -n /usr/bin/pmset displaysleepnow 2>/dev/null) &
+            sudo -n /usr/bin/pmset displaysleepnow 2>/dev/null &
         fi
     fi
 
-    # Yes -> No (lid just opened): ding + return stinger, kill ambient after stinger
-    if [[ "$state" == "No" && "$prev" == "Yes" ]]; then
-        log_msg "lid OPENED - ding + return stinger"
-        /usr/bin/afplay "$open_ding"  2>/dev/null &
-        /usr/bin/afplay "$return_wav" 2>/dev/null &
-        (sleep "$return_dur"
-         cur=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
-         if [[ "$cur" == "No" ]]; then
-             stop_player
-             stop_reactive
-             log_msg "ambient + reactive stopped after return stinger"
-         fi
-        ) &
+    # Lid just opened: if ambient was playing, ding + return stinger, then stop.
+    # If ambient wasn't running, stay silent.
+    if [[ "$lid_state" == "No" && "$prev_lid" == "Yes" ]]; then
+        log_msg "lid OPENED (ambient_running=$ambient_running)"
+        if (( ambient_running == 1 )); then
+            /usr/bin/afplay "$open_ding"  2>/dev/null &
+            /usr/bin/afplay "$return_wav" 2>/dev/null &
+            (sleep "$return_dur"
+             cur=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
+             if [[ "$cur" == "No" ]]; then
+                 stop_player
+                 stop_reactive
+                 log_msg "ambient + reactive stopped after return stinger"
+             fi
+            ) &
+            ambient_running=0
+        fi
     fi
 
-    prev="$state"
+    # Ambient gate: lid closed + sleep disabled + Claude has an active prompt.
+    ambient_wanted=0
+    if [[ "$lid_state" == "Yes" && "$sleep_disabled" == "1" ]] && (( active_count > 0 )); then
+        ambient_wanted=1
+    fi
+
+    if (( ambient_wanted == 1 && ambient_running == 0 )); then
+        log_msg "ambient START (active=$active_count)"
+        /usr/bin/afplay "$start_wav" 2>/dev/null &
+        start_player
+        start_reactive
+        ambient_running=1
+    elif (( ambient_wanted == 0 && ambient_running == 1 )) && [[ "$lid_state" == "Yes" ]]; then
+        # Claude finished or sleep was re-enabled while lid still closed.
+        log_msg "ambient STOP (active=$active_count sleep_disabled=$sleep_disabled)"
+        stop_player
+        stop_reactive
+        ambient_running=0
+    fi
+
+    prev_lid="$lid_state"
     sleep "$POLL"
 done
