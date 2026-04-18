@@ -30,7 +30,8 @@ typedef enum {
     WAVE_SQUARE,
     WAVE_NOISE,
     WAVE_WHISTLE,
-    WAVE_GUN
+    WAVE_GUN,
+    WAVE_HARP
 } WaveType;
 
 // Gun voice presets. Two synthesis models are available per preset:
@@ -175,6 +176,19 @@ typedef struct {
     double gun_phys_echo_amp;       // ground-reflection gain
     double gun_phys_echo_buf[1024]; // small ring for echo tap (~5ms @ 192kHz)
     int    gun_phys_echo_w;
+    // === Harp state — Karplus-Strong plucked string ===
+    // References:
+    //   Karplus, K. and Strong, A. (1983). "Digital Synthesis of Plucked-
+    //     String and Drum Timbres," Computer Music Journal 7(2), pp.43-55.
+    //   Jaffe, D.A. and Smith, J.O. (1983). "Extensions of the Karplus-Strong
+    //     Plucked-String Algorithm," Computer Music Journal 7(2), pp.56-69.
+    //   Smith, J.O. "Physical Audio Signal Processing" (online book),
+    //     CCRMA Stanford — https://ccrma.stanford.edu/~jos/pasp/
+    // The string delay line reuses `whistle_bore_buf` / `whistle_bore_w`
+    // since a voice can only be one wave type at a time. `harp_lp1` holds
+    // the previous sample for the canonical two-point moving-average
+    // damping filter H(z) = 0.5 + 0.5·z^-1 from Karplus & Strong 1983.
+    double harp_lp1;
 } ACVoice;
 
 typedef struct {
