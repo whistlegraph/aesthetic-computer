@@ -1,20 +1,37 @@
 # slab
 
-A lid-closed ambient + reactive audio system for the MacBook, plus Claude Code completion sounds, prompt logging, and auto-sleep.
+A lid-closed ambient + reactive audio system for the MacBook, gated on Claude
+Code activity, with a completion chime that sleeps the Mac when the last
+thread finishes.
 
-When the lid closes (with sleep suppressed) the laptop becomes a "sleeping slab": an ambient C-major-pentatonic bed loops through the speakers while a mic-listener picks up claps, snaps, shushes, kisses, hums, and close-up sings — responding in real time with short pentatonic pluck-arpeggios that mirror each sound's pitch contour. When Claude Code finishes a prompt, it beeps once per remaining active thread; when all threads are done, it chimes an "all-done" arp, then — if nobody's returned after 2 minutes — plays a dreamy descending sleep-tone and suspends the Mac.
+Close the lid while Claude is working (with sleep suppressed) and the laptop
+becomes a "sleeping slab": an ambient C-major-pentatonic bed loops through
+the speakers while a mic-listener picks up claps, snaps, shushes, kisses,
+hums, and close-up sings — responding in real time with short pentatonic
+pluck-arpeggios that mirror each sound's pitch contour. Close the lid with
+nothing running and it's silent. When Claude finishes a prompt, it beeps
+once per remaining active thread; when the last thread completes, the
+"all-done" chime plays — and if the lid is closed, the Mac sleeps right
+after.
+
+Active threads are tracked per session via marker files in
+`$SLAB_HOME/state/active-prompts/<session_id>`: the `UserPromptSubmit` hook
+creates one, the `Stop` hook removes it. The daemon reads this directory to
+decide whether to run ambient.
 
 ## What it does
 
 | Event | Sound |
 |---|---|
-| Lid close (`disablesleep=1`) | ascending C-arp + ambient loop starts + display sleep |
-| Mic transient while closed (> 2 kHz) | 4-note pentatonic pluck arp, contour mirrors input |
-| Lid open | descending ding + pitch-up stinger + ambient stops |
-| Claude Stop, **other threads remaining** | N ascending beeps (C6 D6 E6 G6 A6 C7 D7 E7) |
-| Claude Stop, all done | "all-done" chime. If lid closed → repeat pings every 30s + 2-min sleep timer |
-| 2 min after Stop with lid still closed | sleep tone + `pmset sleepnow` |
-| User submits new prompt | cancels pings + sleep timer, sets `disablesleep=1` |
+| Lid close (`disablesleep=1`) | display sleep. Ambient only if a Claude prompt is active. |
+| Claude prompt submitted while lid closed | ascending C-arp + ambient loop starts |
+| Mic transient while ambient is playing (> 2 kHz) | 4-note pentatonic pluck arp, contour mirrors input |
+| Lid open while ambient playing | descending ding + pitch-up stinger + ambient stops |
+| Lid open with no ambient | silent |
+| Claude Stop, **other active prompts remaining** | N ascending beeps (C6 D6 E6 G6 A6 C7 D7 E7) |
+| Claude Stop, all prompts done, lid open | "all-done" chime |
+| Claude Stop, all prompts done, lid closed | "all-done" chime → `pmset sleepnow` |
+| User submits new prompt | touches active-prompts marker, sets `disablesleep=1` |
 
 ## Install
 
@@ -58,14 +75,14 @@ Before using lid-closed ambient mode: `claude-sleep awake`. The first time the m
 ```
 slab/
 ├── bin/                                 # scripts (symlinked into ~/.local/bin/)
-│   ├── lid-ambient.sh                   # launchd daemon, polls lid state
+│   ├── lid-ambient.sh                   # launchd daemon, polls lid + active prompts
 │   ├── lid-reactive.py                  # mic → pluck-arp synth (Python)
 │   ├── lid-ambient-generate.py          # generate ambient.wav
 │   ├── claude-sleep                     # sleep-state toggle
 │   ├── claude-stop.sh                   # Stop-hook entry
-│   ├── claude-ping-repeat.sh            # repeating 'done' pings
-│   ├── claude-sleep-schedule.sh         # delayed auto-sleep
-│   ├── claude-prompt-log.sh             # UserPromptSubmit hook
+│   ├── claude-prompt-log.sh             # UserPromptSubmit hook (touches active-prompts marker)
+│   ├── claude-ping-repeat.sh            # legacy 30s pings (no longer invoked)
+│   ├── claude-sleep-schedule.sh         # legacy delayed auto-sleep (no longer invoked)
 │   ├── slab-monitor.sh                  # resource sampler
 │   └── slab-zone                        # location-zone manager
 ├── sounds/                              # WAV assets (lid chimes, pings, beeps)
@@ -88,6 +105,7 @@ logs/reactive.log              reactive listener triggers
 logs/resources.jsonl           CPU/RSS samples every 15s
 logs/claude-stop.log           Stop-hook activity
 config/zones.json              geofenced zones + per-zone scale/dynamics
+state/active-prompts/<id>      one file per Claude session with a prompt in flight
 state/last-location.json       cached coords (if Location Services unreachable)
 venv/                          Python venv for the reactive listener
 sounds/                 installed sound assets (+ regenerated ambient.wav)
@@ -122,8 +140,7 @@ Most knobs live at the top of each script:
 
 - **Ambient** — `bin/lid-ambient-generate.py`: scale, note-gap range, duration/fade ranges, detuning, drone frequency. Run `python3 bin/lid-ambient-generate.py [seed]` to regenerate a variation.
 - **Reactive listener** — `bin/lid-reactive.py`: `HIGH_BAND`, `TRIGGER_RATIO`, `MIN_GAP`, `DIV_FACTOR`, `NOTE_DUR`, `PLUCK_TAIL`, `ARP_NOTES`, `ARP_AMP`. Scales live in `SCALE_INTERVALS`.
-- **Claude ping interval** — `bin/claude-ping-repeat.sh`: `INTERVAL` (default 30s).
-- **Auto-sleep delay** — `bin/claude-stop.sh`: the `120` argument to `claude-sleep-schedule.sh`.
+- **Lid-poll interval** — `bin/lid-ambient.sh`: `POLL` (default 0.5s).
 - **Resource poll** — `bin/slab-monitor.sh`: `INTERVAL` (default 15s).
 
 Edits to files in `slab/bin/` take effect immediately because the installed copies are symlinks back into the repo.
