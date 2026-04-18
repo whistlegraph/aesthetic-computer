@@ -1,13 +1,24 @@
 #!/usr/bin/env python3
-"""Slab reactive listener. Detects high-frequency transients (claps/snaps/
-shushes/kisses/hums/sings) and responds with short pentatonic pluck-arpeggios
-that MIRROR the input's pitch contour (rising → asc arp, falling → desc).
+"""Slab reactive listener and ambient engine.
 
-Writes per-session artifacts to $SLAB_HOME/sessions/:
-  - <timestamp>.wav   (Python-generated output mix, int16 mono 44.1 kHz)
-  - <timestamp>.jsonl (trigger events: peak, base, contour, notes, energy)
+Owns all lid-closed audio:
+  - AMBIENT  — ambient.wav looped at AMBIENT_GAIN
+  - NOISE    — continuous soft low-pass-filtered noise whose amplitude
+               tracks the smoothed mic RMS (asymmetric EMA: quick rise,
+               slow fall). Gives a gentle, always-on signal of what the
+               mic is hearing, separate from the discrete pluck triggers.
+  - PLUCKS   — high-band transients spawn short pentatonic arpeggios
+               whose direction mirrors the input's pitch contour.
 
-Launched by lid-ambient.sh on lid-close; terminated on lid-open.
+On SIGTERM/SIGINT the master gain fades from 1.0 → 0.0 over FADE_DUR
+seconds, then the process exits — giving the lid-open return stinger
+a soft bed to land on.
+
+Session artifacts in $SLAB_HOME/sessions/:
+  - <timestamp>.wav    int16 mono mix of everything this listener emits
+  - <timestamp>.jsonl  event log:
+        listener_start, arp (per trigger), energy_sample (every
+        SAMPLE_LOG_INTERVAL s), fade_start, shutdown (w/ summary stats)
 """
 
 import sys
@@ -31,6 +42,7 @@ SESSION_DIR = os.path.join(SLAB_HOME, 'sessions')
 CONFIG_DIR = os.path.join(SLAB_HOME, 'config')
 ZONES_PATH = os.path.join(CONFIG_DIR, 'zones.json')
 LAST_LOC_PATH = os.path.join(SLAB_HOME, 'state', 'last-location.json')
+AMBIENT_PATH = os.path.join(SLAB_HOME, 'sounds', 'ambient.wav')
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 os.makedirs(SESSION_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(LAST_LOC_PATH), exist_ok=True)
@@ -39,9 +51,9 @@ os.makedirs(os.path.dirname(LAST_LOC_PATH), exist_ok=True)
 SR = 44100
 BLOCK = 1024
 HIGH_BAND = (2000.0, 8000.0)
-TRIGGER_RATIO = 3.5
-MIN_ABS_ENERGY = 0.02
-MIN_GAP = 0.3
+TRIGGER_RATIO = 3.0
+MIN_ABS_ENERGY = 0.015
+MIN_GAP = 0.18
 FLOOR_DECAY = 0.98
 WARMUP = 1.5
 
@@ -51,14 +63,24 @@ PLUCK_TAIL = 0.22
 ARP_NOTES = 4
 ARP_AMP = 0.22
 
+# ambient + noise bed + fade
+AMBIENT_GAIN = 0.85
+NOISE_GAIN_MAX = 0.10           # cap on noise voice amplitude
+NOISE_MIC_SCALE = 2.2           # multiplier on smoothed mic RMS → gain target
+NOISE_RISE_ALPHA = 0.30         # EMA alpha when rising (fast)
+NOISE_FALL_ALPHA = 0.01         # EMA alpha when falling (slow)
+NOISE_LP_TAPS = 12              # moving-average length (lower freqs dominate)
+FADE_DUR = 2.0
+
+SAMPLE_LOG_INTERVAL = 0.5
 RECENT_SEC = 0.20
 RECENT_N = int(SR * RECENT_SEC)
 
-# -------- scales (MIDI offsets from tonic, C3..C6 across 3 octaves) --------
+# -------- scales --------
 SCALE_INTERVALS = {
-    'major_pentatonic': [0, 2, 4, 7, 9],          # C D E G A
-    'minor_pentatonic': [0, 3, 5, 7, 10],         # C Eb F G Bb
-    'blues':            [0, 3, 5, 6, 7, 10],      # C Eb F F# G Bb
+    'major_pentatonic': [0, 2, 4, 7, 9],
+    'minor_pentatonic': [0, 3, 5, 7, 10],
+    'blues':            [0, 3, 5, 6, 7, 10],
     'dorian':           [0, 2, 3, 5, 7, 9, 10],
     'phrygian':         [0, 1, 3, 5, 7, 8, 10],
     'lydian':           [0, 2, 4, 6, 7, 9, 11],
@@ -80,7 +102,6 @@ def build_scale(name, tonic_midi=48, octaves=3):
 
 # -------- location + zone resolution --------
 def read_location(timeout_s=3.0):
-    """Return (lat, lon) via CoreLocationCLI or None on failure."""
     cli = shutil.which('CoreLocationCLI')
     if not cli:
         return None
@@ -95,7 +116,6 @@ def read_location(timeout_s=3.0):
             return lat, lon
     except Exception:
         pass
-    # fallback to cached
     try:
         with open(LAST_LOC_PATH) as f:
             d = json.load(f)
@@ -114,7 +134,6 @@ def haversine_m(lat1, lon1, lat2, lon2):
 
 
 def resolve_zone(coords):
-    """Return (zone_dict, distance_m_or_None)."""
     try:
         with open(ZONES_PATH) as f:
             cfg = json.load(f)
@@ -142,14 +161,12 @@ def resolve_zone(coords):
     return out, d
 
 
-# -------- zone applies to runtime config --------
 _coords = read_location()
 _zone, _zone_dist = resolve_zone(_coords)
 DIV_FACTOR = float(_zone.get('div_factor', DIV_FACTOR))
 ARP_AMP    = float(_zone.get('arp_amp', ARP_AMP))
 PENT_HZ    = build_scale(_zone.get('scale', 'major_pentatonic'))
 
-# -------- session paths (zone-tagged) --------
 _stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
 _tag = f"-{_zone['name']}" if _zone.get('name') else ''
 WAV_PATH = os.path.join(SESSION_DIR, f'{_stamp}{_tag}.wav')
@@ -161,7 +178,6 @@ def log(msg):
         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
 
 
-# -------- session artifacts --------
 _wav = wave.open(WAV_PATH, 'wb')
 _wav.setnchannels(1)
 _wav.setsampwidth(2)
@@ -186,6 +202,25 @@ def session_write_frames(float_buf):
             _wav.writeframes(pcm)
         except Exception:
             pass
+
+
+# -------- ambient load --------
+def load_wav_f32(path):
+    with wave.open(path, 'rb') as w:
+        sr = w.getframerate()
+        n = w.getnframes()
+        data = w.readframes(n)
+    arr = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32767.0
+    return arr, sr
+
+
+try:
+    AMBIENT, _amb_sr = load_wav_f32(AMBIENT_PATH)
+    if _amb_sr != SR:
+        log(f"warning: ambient sr={_amb_sr} != {SR}")
+except Exception as e:
+    log(f"ambient load failed: {e!r} — silent ambient")
+    AMBIENT = np.zeros(SR, dtype=np.float32)
 
 
 # -------- synthesis --------
@@ -255,17 +290,47 @@ active_voices = []
 voices_lock = threading.Lock()
 floor = 1e-3
 last_trigger = 0.0
-start_time = time.time()
+session_start_ts = time.time()
 recent_audio = np.zeros(RECENT_N, dtype=np.float32)
+
+mic_rms = 0.0
+mic_rms_smooth = 0.0
+noise_gain_cur = 0.0
+ambient_pos = 0
+
+fading = False
+fade_start_ts = 0.0
+
+n_triggers = 0
+max_mic_rms = 0.0
+total_energy_samples = 0
+sum_mic_rms = 0.0
+
+_rng = np.random.default_rng()
+_NOISE_LP_KERNEL = (np.ones(NOISE_LP_TAPS) / NOISE_LP_TAPS).astype(np.float32)
+
+
+def current_fade():
+    if not fading:
+        return 1.0
+    t = time.time() - fade_start_ts
+    return max(0.0, 1.0 - t / FADE_DUR)
 
 
 def input_callback(indata, frames, time_info, status):
-    global floor, last_trigger, recent_audio
+    global floor, last_trigger, recent_audio, mic_rms, mic_rms_smooth, n_triggers, max_mic_rms
     audio = indata[:, 0].astype(np.float32)
     if frames >= RECENT_N:
         recent_audio = audio[-RECENT_N:].copy()
     else:
         recent_audio = np.concatenate([recent_audio[frames:], audio])
+
+    r = float(np.sqrt(np.mean(audio ** 2))) if frames > 0 else 0.0
+    mic_rms = r
+    alpha = NOISE_RISE_ALPHA if r > mic_rms_smooth else NOISE_FALL_ALPHA
+    mic_rms_smooth = alpha * r + (1.0 - alpha) * mic_rms_smooth
+    if r > max_mic_rms:
+        max_mic_rms = r
 
     win = audio * np.hanning(len(audio))
     spec = np.abs(np.fft.rfft(win))
@@ -275,12 +340,13 @@ def input_callback(indata, frames, time_info, status):
     floor = FLOOR_DECAY * floor + (1 - FLOOR_DECAY) * high_energy
 
     now = time.time()
-    if now - start_time < WARMUP:
+    if now - session_start_ts < WARMUP or fading:
         return
     if (high_energy > TRIGGER_RATIO * floor
             and high_energy > MIN_ABS_ENERGY
             and now - last_trigger > MIN_GAP):
         last_trigger = now
+        n_triggers += 1
         band_spec = spec.copy()
         band_spec[~mask] = 0
         peak_idx = int(np.argmax(band_spec))
@@ -298,36 +364,111 @@ def input_callback(indata, frames, time_info, status):
                       contour=contour,
                       notes=[round(f, 1) for f in notes],
                       energy=round(high_energy, 4),
-                      floor=round(floor, 4))
+                      floor=round(floor, 4),
+                      mic_rms=round(r, 5))
         floor = max(floor, high_energy * 0.5)
 
 
 def output_callback(outdata, frames, time_info, status):
+    global ambient_pos, noise_gain_cur
     outdata.fill(0)
+    fade = current_fade()
+
+    # ambient bed (looped)
+    if AMBIENT.size > 0:
+        end = ambient_pos + frames
+        if end <= AMBIENT.size:
+            chunk = AMBIENT[ambient_pos:end]
+            ambient_pos = end
+        else:
+            first = AMBIENT.size - ambient_pos
+            chunk = np.empty(frames, dtype=np.float32)
+            chunk[:first] = AMBIENT[ambient_pos:]
+            chunk[first:] = AMBIENT[:frames - first]
+            ambient_pos = frames - first
+        outdata[:, 0] += chunk * AMBIENT_GAIN * fade
+
+    # noise voice (soft low-passed, amp tracks smoothed mic rms)
+    target = min(NOISE_GAIN_MAX, mic_rms_smooth * NOISE_MIC_SCALE)
+    noise_gain_cur = 0.85 * noise_gain_cur + 0.15 * target
+    if noise_gain_cur > 1e-4:
+        k = _NOISE_LP_KERNEL.size
+        white = _rng.standard_normal(frames + k - 1).astype(np.float32)
+        filt = np.convolve(white, _NOISE_LP_KERNEL, mode='valid')[:frames]
+        outdata[:, 0] += filt * noise_gain_cur * fade
+
+    # pluck arps
     with voices_lock:
         remaining = []
         for v in active_voices:
             buf, pos = v
             take = min(len(buf) - pos, frames)
             if take > 0:
-                outdata[:take, 0] += buf[pos:pos + take]
+                outdata[:take, 0] += buf[pos:pos + take] * fade
                 v[1] = pos + take
                 if v[1] < len(buf):
                     remaining.append(v)
         active_voices[:] = remaining
+
     np.clip(outdata, -0.95, 0.95, out=outdata)
     session_write_frames(outdata[:, 0])
 
 
+def periodic_sampler():
+    """Emit a continuous energy_sample trace every SAMPLE_LOG_INTERVAL s."""
+    global total_energy_samples, sum_mic_rms
+    while not fading:
+        time.sleep(SAMPLE_LOG_INTERVAL)
+        if fading:
+            break
+        total_energy_samples += 1
+        sum_mic_rms += mic_rms
+        session_event('energy_sample',
+                      mic_rms=round(mic_rms, 5),
+                      mic_rms_smooth=round(mic_rms_smooth, 5),
+                      high_floor=round(floor, 5),
+                      noise_gain=round(noise_gain_cur, 4),
+                      voices=len(active_voices))
+
+
+def emit_shutdown(signum, forced=False):
+    dur = round(time.time() - session_start_ts, 2)
+    avg = round(sum_mic_rms / total_energy_samples, 5) if total_energy_samples else 0.0
+    session_event('shutdown',
+                  signal=int(signum),
+                  forced=forced,
+                  triggers=n_triggers,
+                  max_mic_rms=round(max_mic_rms, 5),
+                  avg_mic_rms=avg,
+                  session_duration_s=dur)
+
+
 def shutdown(signum, frame):
-    log(f"shutdown signal {signum}")
-    session_event('shutdown', signal=int(signum))
-    try:
-        _wav.close()
-        _jsonl.close()
-    except Exception:
-        pass
-    sys.exit(0)
+    global fading, fade_start_ts
+    if fading:
+        log(f"second signal {signum} — exit now")
+        emit_shutdown(signum, forced=True)
+        try:
+            _wav.close(); _jsonl.close()
+        except Exception:
+            pass
+        os._exit(0)
+    log(f"signal {signum} — fading out over {FADE_DUR}s "
+        f"(triggers={n_triggers} max_rms={max_mic_rms:.4f})")
+    session_event('fade_start', duration_s=FADE_DUR)
+    fading = True
+    fade_start_ts = time.time()
+
+    def exit_after_fade():
+        time.sleep(FADE_DUR + 0.2)
+        log("fade complete, exiting")
+        emit_shutdown(signum)
+        try:
+            _wav.close(); _jsonl.close()
+        except Exception:
+            pass
+        os._exit(0)
+    threading.Thread(target=exit_after_fade, daemon=True).start()
 
 
 signal.signal(signal.SIGTERM, shutdown)
@@ -335,8 +476,9 @@ signal.signal(signal.SIGINT, shutdown)
 
 
 def main():
-    log(f"listener starting (arp mode) session={_stamp} zone={_zone.get('name')} "
-        f"coords={_coords} dist={_zone_dist}")
+    log(f"listener starting session={_stamp} zone={_zone.get('name')} "
+        f"coords={_coords} dist={_zone_dist} "
+        f"ambient_len={AMBIENT.size / SR:.1f}s")
     session_event('listener_start',
                   wav=WAV_PATH, jsonl=JSONL_PATH,
                   zone=_zone.get('name'),
@@ -344,7 +486,14 @@ def main():
                   zone_div_factor=DIV_FACTOR,
                   zone_arp_amp=ARP_AMP,
                   coords=_coords,
-                  zone_distance_m=_zone_dist)
+                  zone_distance_m=_zone_dist,
+                  ambient_seconds=round(AMBIENT.size / SR, 2),
+                  trigger_ratio=TRIGGER_RATIO,
+                  min_gap=MIN_GAP,
+                  fade_dur=FADE_DUR)
+
+    threading.Thread(target=periodic_sampler, daemon=True).start()
+
     try:
         out_stream = sd.OutputStream(
             samplerate=SR, channels=1, blocksize=BLOCK,

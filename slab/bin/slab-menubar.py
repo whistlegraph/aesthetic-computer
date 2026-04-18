@@ -36,7 +36,7 @@ SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
 
 ACTIVE_DIR = SLAB_HOME / "state" / "active-prompts"
 SUBAGENT_DIR = SLAB_HOME / "state" / "active-subagents"
-AMBIENT_PID_FILE = Path("/tmp/lidambient.pid")
+AMBIENT_FLAG = Path("/tmp/slab-ambient-active")
 LID_LOG = SLAB_HOME / "logs" / "lidalive.log"
 DAEMON_PLIST = Path.home() / "Library/LaunchAgents/computer.slab.daemon.plist"
 MENUBAR_PLIST = Path.home() / "Library/LaunchAgents/computer.slab.menubar.plist"
@@ -77,14 +77,7 @@ def sleep_disabled() -> bool:
 
 
 def ambient_running() -> bool:
-    if not AMBIENT_PID_FILE.exists():
-        return False
-    try:
-        pid = int(AMBIENT_PID_FILE.read_text().strip())
-        os.kill(pid, 0)
-        return True
-    except (ValueError, ProcessLookupError, PermissionError, OSError):
-        return False
+    return AMBIENT_FLAG.exists()
 
 
 class Overlay:
