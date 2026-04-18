@@ -455,25 +455,92 @@ body {
   text-decoration: underline;
 }
 
-/* External-source attribution (e.g. Bluesky) */
+/* =========================================================================
+   External-source posts (e.g. Bluesky @artistnewsnetwork).
+   Visually distinct from AC-authored headlines: tinted left accent bar,
+   bsky-blue handle, lowercase "bsky" badge next to the handle.
+   ========================================================================= */
+
+/* Per-source palette. Defaults to Bluesky blue; add new sources here. */
+:root {
+  --external-bsky: #2088ff;
+  --external-bsky-tint: rgba(32, 136, 255, 0.08);
+  --external-bsky-edge: rgba(32, 136, 255, 0.55);
+}
+
+/* --- Row on the list page ----------------------------------------------- */
+.news-row--external {
+  position: relative;
+  padding-left: 8px;
+  border-left: 3px solid var(--external-bsky-edge);
+  background: var(--external-bsky-tint);
+  border-radius: 0 3px 3px 0;
+}
+
+.news-row--external .news-title a {
+  color: var(--text-link);
+}
+
+.news-row--external .news-rank {
+  color: var(--external-bsky-edge);
+}
+
+/* --- Item page main container ------------------------------------------- */
+.news-item--external {
+  border-left: 3px solid var(--external-bsky-edge);
+  padding-left: 10px;
+  background: linear-gradient(
+    to right,
+    var(--external-bsky-tint) 0%,
+    transparent 240px
+  );
+}
+
+.news-op-text--external {
+  border-left: 2px solid var(--external-bsky-edge);
+  padding-left: 10px;
+  margin-left: -2px;
+}
+
+/* --- Handle link ("@artistnewsnetwork") --------------------------------- */
+.news-handle-link.news-external-handle {
+  color: var(--external-bsky);
+}
+.news-handle-link.news-external-handle:hover {
+  color: var(--external-bsky);
+  text-decoration: underline;
+}
+
+/* --- Source badge ("bsky") next to the handle --------------------------- */
 .news-external-badge {
   display: inline-block;
   margin-left: 4px;
-  padding: 0 4px;
+  padding: 0 5px;
   font-size: 0.7em;
   font-weight: normal;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid currentColor;
+  letter-spacing: 0.05em;
+  color: var(--external-bsky);
+  border: 1px solid var(--external-bsky-edge);
   border-radius: 3px;
-  opacity: 0.65;
+  background: var(--external-bsky-tint);
   vertical-align: 1px;
+  opacity: 0.9;
 }
 
+/* --- "via @handle · original" on the item page -------------------------- */
 .news-external-attrib {
-  opacity: 0.75;
+  opacity: 0.8;
   font-size: 0.9em;
   margin-right: 8px;
+}
+
+.news-external-original {
+  color: var(--external-bsky);
+  text-decoration: none;
+}
+.news-external-original:hover {
+  text-decoration: underline;
 }
 
 /* ===== Item Page (HN-style table layout) ===== */
