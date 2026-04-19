@@ -1,6 +1,6 @@
 // kpbj, 2026.02.01
 // 📻 KPBJ.FM live stream player - Shadow Hills Community Radio
-// Stream: https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3
+// Stream: https://stream.kpbj.fm/
 
 /* #region 🏁 TODO
   - [ ] Test on mobile/iOS
@@ -27,9 +27,9 @@ import {
 
 // KPBJ Configuration
 const CONFIG = {
-  streamUrl: "https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3",
+  streamUrl: "https://stream.kpbj.fm/",
   streamId: "kpbj-stream",
-  metadataUrl: "https://kpbj.hasnoskills.com/api/nowplaying/kpbj_test_station",
+  metadataUrl: "https://www.kpbj.fm/api/stream/metadata",
   playoutNowUrl: "https://kpbj.fm/api/playout/now",
   playoutFallbackUrl: "https://kpbj.fm/api/playout/fallback",
   qrUrl: "https://prompt.ac/kpbj",
@@ -175,9 +175,12 @@ async function fetchKPBJMetadata() {
     const response = await fetch(CONFIG.metadataUrl);
     if (response.ok) {
       const data = await response.json();
-      // Handle AzuraCast format
-      if (data.now_playing && data.now_playing.song) {
-        state.currentTrack = data.now_playing.song.title || data.now_playing.song.text || "";
+      // Icecast status-json.xsl: { icestats: { source: { title, artist? } } }
+      const source = data?.icestats?.source;
+      if (source) {
+        state.currentTrack = source.artist && source.title
+          ? `${source.artist} - ${source.title}`
+          : (source.title || "");
       }
     }
   } catch (err) {

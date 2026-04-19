@@ -293,10 +293,15 @@ const RADIO_STATIONS = {
   },
   bj: {
     label: "KPBJ",
-    streamUrl: "https://kpbj.hasnoskills.com/listen/kpbj_test_station/radio.mp3",
+    streamUrl: "https://stream.kpbj.fm/",
     streamId: "chat-kpbj-stream",
-    metadataUrl: "https://kpbj.hasnoskills.com/api/nowplaying/kpbj_test_station",
-    parseTrack: (data) => data?.now_playing?.song?.text || "",
+    metadataUrl: "https://www.kpbj.fm/api/stream/metadata",
+    parseTrack: (data) => {
+      const source = data?.icestats?.source;
+      if (!source) return "";
+      if (source.artist && source.title) return `${source.artist} - ${source.title}`;
+      return source.title || source.server_name || "";
+    },
     labelBg: [20, 30, 45],
     labelBgHover: [35, 50, 70],
     labelFg: [255, 200, 140],
@@ -4635,48 +4640,37 @@ function generateDynamicColorMessage(message, theme) {
   
   return colorCodedMessage;
 }
-// 📰 News ticker with TWO ROWS: headlines on top, activity/stats below
-// Now fetches from news.aesthetic.computer API (see fetchNewsHeadlines)
+// 📰 News ticker: single row of scrolling headlines
+// Fetches from news.aesthetic.computer API (see fetchNewsHeadlines)
 
 function paintNewsTicker($, theme) {
   const { ink, screen, text, hud } = $;
   const tickerCharWidth = 4; // MatrixChunky8 char width
   const tickerHeight = 8;
-  const rowSpacing = 2; // Gap between rows
   const rightMargin = 0; // Flush right, no margin
-  
+
   // "News" prefix styling - uniform width with r8Dio label
   const newsPrefix = "News";
   const uniformLabelWidth = 28; // Fixed width to match both labels
-  
-  // Ticker dimensions - TWO ROWS. Width auto-expands to fill space
+
+  // Ticker dimensions - SINGLE ROW. Width auto-expands to fill space
   // between the HUD label and the right edge.
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 2; // Top row Y position
-  const row2Y = tickerY + tickerHeight + rowSpacing; // Second row Y
-  const totalTickerHeight = (tickerHeight * 2) + rowSpacing + 4; // Both rows + padding
-  
+  const tickerY = 2; // Row Y position
+  const totalTickerHeight = tickerHeight + 4; // Row + padding
+
   // Use dynamic news text (fetched from API or fallback)
   const displayText = newsTickerText || "Report a story";
-  const activityText = newsActivityText || "news.aesthetic.computer";
-  
+
   // Seamless loop with separator (always scroll, even for fallback text)
   const hasNews = newsHeadlines.length > 0;
   const separator = "   -   ";
   const loopText = displayText + separator;
   const loopWidth = loopText.length * tickerCharWidth;
-  
-  // Activity row loop (scrolls same direction as headlines, but slower)
-  const activitySeparator = "   ·   ";
-  const activityLoopText = activityText + activitySeparator;
-  const activityLoopWidth = activityLoopText.length * tickerCharWidth;
-  
+
   // Scroll animation (always scroll, slower for fallback text)
   const scrollSpeed = hasNews ? 0.5 : 0.25;
   const scrollOffset = (performance.now() * scrollSpeed / 16) % loopWidth;
-  // Activity scrolls same direction as headlines, but slower
-  const activityScrollSpeed = 0.25;
-  const activityScrollOffset = (performance.now() * activityScrollSpeed / 16) % activityLoopWidth;
   
   // Calculate HUD label right edge to avoid overlap
   // HUD label starts at x=6 and has width from hud.currentLabel()
@@ -4693,10 +4687,9 @@ function paintNewsTicker($, theme) {
   // Colors from theme
   const handleColor = theme?.handle ? 
     (Array.isArray(theme.handle) ? theme.handle : [255, 150, 200]) : [255, 150, 200];
-  const textColor = theme?.messageText ? 
+  const textColor = theme?.messageText ?
     (Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200]) : [200, 200, 200];
-  const dimTextColor = [150, 150, 160]; // Dimmer for activity row
-  
+
   // "News" label - magenta background with white text (like aesthetic.news banner)
   const newsBgColor = newsTickerHovered ? [200, 50, 150] : [180, 40, 130]; // Bright magenta
   const newsFgColor = newsTickerHovered ? [255, 255, 255] : [255, 255, 255]; // White text
@@ -4707,7 +4700,7 @@ function paintNewsTicker($, theme) {
   // Calculate actual scrolling area width based on position
   const actualTickerWidth = scrollAreaRight - scrollAreaLeft;
   
-  // Store bounds for click detection (entire ticker area including "News" label, both rows)
+  // Store bounds for click detection (entire ticker area including "News" label)
   const totalWidth = uniformLabelWidth + actualTickerWidth + 1;
   newsTickerBounds = {
     x: newsBgX,
@@ -4716,61 +4709,43 @@ function paintNewsTicker($, theme) {
     h: totalTickerHeight,
   };
   
-  // Draw "News" label background - spans both rows
+  // Draw "News" label background
   ink(...newsBgColor, 230).box(newsBgX, tickerY - 2, uniformLabelWidth + 1, totalTickerHeight);
   // Center "News" text vertically in label area
   const newsTextY = tickerY + Math.floor((totalTickerHeight - tickerHeight - 4) / 2);
   const newsTextX = newsBgX + Math.floor((uniformLabelWidth - newsPrefix.length * tickerCharWidth) / 2);
   ink(...newsFgColor).write(newsPrefix, { x: newsTextX, y: newsTextY }, undefined, undefined, false, "MatrixChunky8");
-  
-  // Draw scrolling ticker background for both rows (use actual width)
+
+  // Draw scrolling ticker background (use actual width)
   ink(...scrollBgColor, 200).box(scrollAreaLeft, tickerY - 2, actualTickerWidth + 1, totalTickerHeight);
-  
-  // Draw subtle separator line between rows
-  ink(80, 50, 70, 150).box(scrollAreaLeft, row2Y - 1, actualTickerWidth, 1);
-  
+
   // Draw hover underline indicator (shows it's clickable)
   if (newsTickerHovered) {
     ink(255, 255, 255, 180).box(newsBgX, tickerY + totalTickerHeight - 1, totalWidth, 1);
   }
-  
-  // Parse text for @handles to highlight (row 1)
+
+  // Parse text for @handles to highlight
   const handleRegex = /@[\w]+/g;
   const handles = [];
   let match;
   while ((match = handleRegex.exec(loopText)) !== null) {
     handles.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
   }
-  
-  // ROW 1: Draw seamless looping HEADLINES with handle highlighting
+
+  // Draw seamless looping HEADLINES with handle highlighting
   for (let copy = 0; copy < 3; copy++) {
     const baseX = scrollAreaLeft - scrollOffset + (copy * loopWidth);
-    
+
     for (let i = 0; i < loopText.length; i++) {
       const charX = baseX + i * tickerCharWidth;
-      
+
       // Manual clip: only draw if within scroll area bounds
       if (charX >= scrollAreaLeft && charX + tickerCharWidth <= scrollAreaRight) {
         // Check if this character is part of a handle
         const isHandle = handles.some(h => i >= h.start && i < h.end);
         const charColor = isHandle ? handleColor : textColor;
-        
+
         ink(...charColor).write(loopText[i], { x: Math.round(charX), y: tickerY }, undefined, undefined, false, "MatrixChunky8");
-      }
-    }
-  }
-  
-  // ROW 2: Draw ACTIVITY text (scrolls same direction as row 1, but slower)
-  for (let copy = 0; copy < 3; copy++) {
-    // Scroll left-to-right (same as row 1)
-    const baseX = scrollAreaLeft - activityScrollOffset + (copy * activityLoopWidth);
-    
-    for (let i = 0; i < activityLoopText.length; i++) {
-      const charX = baseX + i * tickerCharWidth;
-      
-      // Manual clip: only draw if within scroll area bounds
-      if (charX >= scrollAreaLeft && charX + tickerCharWidth <= scrollAreaRight) {
-        ink(...dimTextColor).write(activityLoopText[i], { x: Math.round(charX), y: row2Y }, undefined, undefined, false, "MatrixChunky8");
       }
     }
   }
@@ -4796,8 +4771,8 @@ function paintR8dioPlayer($, theme) {
   const uniformLabelWidth = 28;
 
   // Match news ticker height so we can sit directly beneath it without overlap.
-  // News ticker total height = (tickerHeight * 2) + rowSpacing(2) + 4 = 22, drawn from y=0.
-  const newsTotalHeight = (tickerHeight * 2) + 2 + 4;
+  // News ticker total height = tickerHeight + 4 = 12, drawn from y=0.
+  const newsTotalHeight = tickerHeight + 4;
   const tickerRight = screen.width - rightMargin;
   const tickerY = newsTotalHeight + 4; // 4px gap below news ticker
 
