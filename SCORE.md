@@ -112,6 +112,36 @@ npm run test:kidlisp
 # Or filter: npm run test:kidlisp -- --filter=<spec-name>
 ```
 
+### Adding a Piece
+
+Every piece is a single `.mjs` (JS) or `.lisp` (KidLisp) file in
+[`system/public/aesthetic.computer/disks/`](system/public/aesthetic.computer/disks/).
+Scaffold from the template:
+
+```bash
+npm run new <slug> "one-line description"
+```
+
+**Header convention** — the docs auto-scan reads lines 1–2:
+
+```js
+// Name, YY.MM.DD.HH.MM
+// One-line description shown in `list` and prompt autocomplete.
+```
+
+**Lifecycle exports** (all optional except whichever ones you need):
+`boot`, `paint`, `sim`, `act`, `leave`. Export `meta()` to opt the piece **into**
+`list` and prompt autocomplete — omit it and the piece stays reachable at
+`/<slug>` but hidden from indexes (good for drafts).
+
+**Curating the entry** (richer `desc`, `colon` params/`examples`, force
+`hidden: true`, or override an auto-entry): edit the `pieces` map in
+[`system/netlify/functions/docs.js`](system/netlify/functions/docs.js). Curated
+entries always win over the auto-scan.
+
+See [`WRITE-A-PIECE.md`](WRITE-A-PIECE.md) for the end-user `source` / `publish`
+flow and [`CLAUDE.md`](CLAUDE.md) for the full piece API surface.
+
 ### Development Environment
 
 **Terminal Workflow (IMPORTANT):**
