@@ -1,0 +1,263 @@
+% This file is iccc.tex.  It contains the formatting instructions for and acts as a template for submissions to ICCC.  It borrows liberally from the AAAI and IJCAI formats and instructions.  It uses the files iccc.sty, iccc.bst and iccc.bib, the first two of which also borrow liberally from the same sources. The format has been updated for the ICCC2022 to include a new, mandatory section to be included in camera-ready manuscripts.
+
+
+\documentclass[letterpaper]{article}
+\usepackage{iccc}
+
+
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\pdfinfo{
+/Title (Formatting Instructions for Authors)
+/Subject (Proceedings of ICCC)
+/Author (ICCC)}
+% The file iccc.sty is the style file for ICCC proceedings.
+%
+\title{ICCC Formatting Instructions for Authors \\
+Paper type: Technical Paper (see the CFP for paper types)}
+\author{Dan Ventura\\
+Computer Science Department\\
+Brigham Young University\\
+Provo, UT 84602  USA\\
+ventura@cs.byu.edu\\
+}
+\setcounter{secnumdepth}{0}
+
+\begin{document} 
+\maketitle
+\begin{abstract}
+\begin{quote}
+The {\em Proceedings of the International Conference on Computational Creativity} will be compiled from electronic manuscripts submitted by the authors.  This paper provides brief style instructions that will facilitate a high-quality, consistent proceedings.
+\end{quote}
+\end{abstract}
+
+\section{Introduction}
+
+The {\it ICCC Proceedings} will be produced from electronic
+manuscripts submitted by the authors. These must be PDF ({\em Portable
+Document Format}) files formatted for 8-1/2$''$ $\times$ 11$''$ paper.
+
+Please see the conference web site 
+(accessible from {\small \tt http://computationalcreativity.net/})
+for submission instructions, including 
+different possible paper types and their lengths.
+
+\subsection{Word Processing Software}
+
+As detailed below, ICCC has prepared and made available a set of
+\LaTeX{} macros and a Microsoft Word template for use in formatting
+your paper. If you are using some other word processing software, please follow the format instructions given below and ensure that your final paper looks as much like this sample as possible.
+
+\section{Style and Format}
+
+\LaTeX{} and Word templates that implement these instructions
+can be retrieved electronically at the conference web site.
+
+\subsection{Layout}
+
+Print manuscripts two columns to a page, in the manner in which these
+instructions are printed. The exact dimensions for pages are:
+\begin{itemize}
+\item left and right margins: 0.75$''$
+\item column width: 3.375$''$
+\item gap between columns: 0.25$''$
+\item top margin---first page: 1.375$''$
+\item top margin---other pages: 0.75$''$
+\item bottom margin: 1.25$''$
+\item column height---first page: 6.625$''$
+\item column height---other pages: 9$''$
+\end{itemize}
+
+\subsection{Format of Electronic Manuscript}
+
+For the production of the electronic manuscript, you must use Adobe's
+{\em Portable Document Format} (PDF). A PDF file can be generated, for
+instance, on Unix systems using {\tt pdflatex} 
+(or {\tt ps2pdf} from a postscript file) or on Windows systems
+using Adobe's Distiller. There is also a website with free software
+and conversion services: {\tt http://www.ps2pdf.com/}. For reasons of
+uniformity, use of Adobe's {\em Times Roman} font is strongly suggested. In
+\LaTeX2e{}, this is accomplished by putting
+\begin{quote} 
+\mbox{\tt $\backslash$usepackage\{times\}}
+\end{quote}
+in the preamble.
+  
+Additionally, you must specify the American {\bf
+letter} format (corresponding to 8-1/2$''$ $\times$ 11$''$) when
+formatting the paper.
+
+\subsection{Title and Author Information}
+
+Center the title on the entire width of the page in a 15-point bold
+font. Below it, center the author name(s) in a 12-point bold font, and
+then center the address(es) in a 10-point regular font. Credit to a
+sponsoring agency can appear on the first page as a footnote.
+
+\subsubsection{Blind Review}
+
+ICCC may use a double blind review process where the author information
+must (or may) be hidden in the submissions. 
+Please see the call for papers for instructions on possible blind reviews. 
+
+\subsection{Abstract}
+
+Place the abstract at the beginning of the first column 3$''$ from the
+top of the page, unless that does not leave enough room for the title
+and author information. Use a slightly smaller width than in the body
+of the paper. Head the abstract with ``Abstract'' centered above the
+body of the abstract in a 10-point bold font. The body of the abstract
+should be 9-point in the same font as the body of the paper.
+
+The abstract should be a concise, one-paragraph summary describing the
+general thesis and conclusion of your paper. A reader should be able
+to learn the purpose of the paper and the reason for its importance
+from the abstract. As a guide, abstracts should normally be up to 250 words long.
+
+\subsection{Text}
+
+The main body of the text immediately follows the abstract. Use
+10-point type in {\em Times Roman} font.
+
+Indent when starting a new paragraph, except after major headings.
+
+\subsection{Headings and Sections}
+
+When necessary, headings should be used to separate major sections of
+your paper. (These instructions use many headings to demonstrate their
+appearance; your paper should have fewer headings.)
+
+\subsubsection{Section Headings}
+
+Print section headings centered, in 12-point bold type in the style shown in
+these instructions. Leave a blank space of approximately 10 points
+above and 4 points below section headings.  Do not number sections.
+
+\subsubsection{Subsection Headings}
+
+Print subsection headings left justified, in 12-point bold type. Leave a blank space
+of approximately 8 points above and 3 points below subsection
+headings. Do not number subsections.
+
+\subsubsection{Subsubsection Headings}
+
+Print subsubsection headings inline in 10-point bold type. Leave a blank
+space of approximately 6 points above subsubsection headings. Do not
+number subsubsections.
+
+\subsubsection{Special Sections}
+
+You may include an unnumbered acknowledgments section, including
+acknowledgments of help from colleagues, financial support, and
+permission to publish.
+
+Any appendices directly follow the text and look like sections.  In general, appendices should 
+be avoided in ICCC manuscripts.
+
+The references section is headed ``References,'' printed in the same
+style as a section heading. A sample list of
+references is given at the end of these instructions.  Note the various examples for books, proceedings, multiple authors, etc. Use a consistent
+format for references, such as that provided by BiB\TeX{}. The reference
+list should not include unpublished work.
+
+\subsection{Citations}
+
+Citations within the text should include the author's last name and
+the year of publication, for example~\cite{boden92}.  Append
+lowercase letters to the year in cases of ambiguity.  Treat multiple
+authors as in the following examples:~\cite{lyu04}
+(for more than two authors) and
+\cite{veale07} (for two authors).  If the author
+portion of a citation is obvious, omit it, e.g.,
+Woods~\shortcite{Woods81}.  Collapse multiple citations as
+follows:~\cite{UCI,Ruch07,OZ}.
+\emph{See below for \LaTeX{} commands for producing citations.}
+
+\subsubsection{Using \LaTeX{} and BiBTeX to Create Your References}
+At the end of your paper, you can include your reference list by using the following commands (which will insert a heading \textbf{References} automatically):
+
+\begin{footnotesize}
+\begin{verbatim}
+\bibliographystyle{iccc}
+\bibliography{bibfile1,bibfile2,...}
+\end{verbatim}
+\end{footnotesize}
+
+The list of files in the bibliography command should be the names of your BiBTeX source files (that is, the .bib files referenced in your paper).
+
+The iccc.sty file includes a set of definitions for use in formatting references with BiBTeX. These definitions make the bibliography style fairly close to the one specified previously. To use these definitions, you also need the BiBTeX style file iccc.bst available in the author kit on the ICCC web site.
+
+The following commands are available for your use in citing references:
+\begin{description}
+\item \verb+\+cite: Cites the given reference(s) with a full citation. This appears as ``(Author Year)'' for one reference, or ``(Author Year; Author Year)'' for multiple references.
+\item \verb+\+shortcite: Cites the given reference(s) with just the year. This appears as ``(Year)'' for one reference, or ``(Year; Year)'' for multiple references.
+\item \verb+\+citeauthor: Cites the given reference(s) with just the author name(s) and no parentheses.
+\item \verb+\+citeyear: Cites the given reference(s) with just the date(s) and no parentheses.
+\end{description}
+
+{\bf Warning:} The iccc.sty file is incompatible with the hyperref package. If you use it, your references will be garbled. {\it Do not use hyperref!}
+
+\subsection{Footnotes}
+
+Avoid footnotes as much as possible; they interrupt the flow of
+the text. 
+Place footnotes at the bottom of the page in 9-point font.  Refer to
+them with superscript numbers.\footnote{This is how your footnotes
+should appear.} Separate them from the text by a short
+line.\footnote{Note the line separating these footnotes from the
+text.} 
+
+\section{Illustrations}
+
+Place all illustrations (figures, drawings, tables, and photographs)
+throughout the paper at the places where they are first discussed (at the bottom
+or top of the page), rather than at the end of the paper. If placed at the bottom or top of
+a page, illustrations may run across both columns.
+
+Illustrations must be rendered electronically or scanned and placed
+directly in your document. In most cases, it is best to render all illustrations
+in black and white; however, since the proceedings are produced and distributed electronically, if color
+is important for communicating your message, it may be included. Line weights should
+be 1/2-point or thicker.
+
+Number illustrations sequentially. Use references of the following
+form: Figure 1, Table 2, etc. Place illustration numbers and captions
+under illustrations. Leave a margin of 1/4-inch around the area
+covered by the illustration and caption.  Use 9-point type for
+captions, labels, and other text in illustrations.
+
+\section{Author Contributions}
+This section should be anonymised for review. For the final camera ready version of the manuscript, use this section to describe the roles of the authors participating in this work. E.g. "Author 1 was in charge of writing the manuscript and planning the study, conducted the analysis and developed the a significant part of the tool. Author 2 and Author 3 carried out the studies with the tool and helped in data analysis, their participation was equal." Or: "All authors participated in the writing of this manuscript and are listed in alphabetical order."
+
+\section{Acknowledgments}
+
+The preparation of these instructions and the \LaTeX{} and Word files was 
+facilitated by borrowing from similar documents used for AAAI and IJCAI proceedings.
+
+
+%\appendix{\LaTeX{} and Word Style Files}\label{stylefiles}
+
+%The \LaTeX{} and Word style files are available on the ICCC-13
+%website, {\tt http://computationalcreativity.net/iccc2013/}.
+%These style files implement the formatting instructions in this
+%document.
+
+%The \LaTeX{} files are {\tt iccc.sty} and {\tt iccc.tex}, and
+%the Bib\TeX{} files are {\tt iccc.bst} and {\tt iccc.bib}. The
+%\LaTeX{} style file is for version 2e of \LaTeX{}, and the Bib\TeX{}
+%style file is for version 0.99c of Bib\TeX{} ({\em not} version
+%0.98i).
+
+%The Microsoft Word style file consists of a single template file, {\tt
+%iccc.dot}. 
+
+%These Microsoft Word and \LaTeX{} files contain the source of the
+%present document and may serve as a formatting sample.  
+
+
+\bibliographystyle{iccc}
+\bibliography{iccc}
+
+
+\end{document}

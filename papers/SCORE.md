@@ -115,11 +115,14 @@ Upcoming conferences and journals to submit to.
 
 | Venue | Type | Deadline | Conference Date | Status |
 |-------|------|----------|-----------------|--------|
-| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | DRAFTING (`cc-demo-2026/`) |
-| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Short Papers | May 15, 2026 | Jun 29–Jul 3, Coimbra | GO |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/posters/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |
-| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/real-time-live/) | Real-Time Live! | Aug 7, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [ACM C&C 2026](https://cc.acm.org/2026/demos/) | Demos | Apr 16, 2026 | Jul 13–16, London | DRAFT READY (`cc-demo-2026/`) — submission status unconfirmed |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/short-papers/) | Short Papers | **Apr 24, 2026 (23:59 AoE)** | Jun 29–Jul 3, Coimbra | GO — 4pp anonymized, EasyChair |
+| [ICCC 2026](https://computationalcreativity.net/iccc26/) | Early Career Symposium | May 15, 2026 | Jun 29–Jul 3, Coimbra | Candidate |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Technical Papers (full) | May 12, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Papers | Jun 8, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Art Gallery / Emerging Tech / XR | Jun 18, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Posters | Jul 31, 2026 | Dec 1–4, Kuala Lumpur | NEW |
+| [SIGGRAPH Asia 2026](https://asia.siggraph.org/2026/submissions/) | Real-Time Live! | Aug 7, 2026 | Dec 1–4, Kuala Lumpur | NEW |
 | [ArtsIT 2026](https://artsit.eai-conferences.org/2026/) | Full Papers | Jun 1, 2026 | Dec 2–4, Bratislava | NEW |
 | [JOSS](https://joss.theoj.org/) | Software Paper | Rolling | Rolling | Anytime |
 
