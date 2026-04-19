@@ -40,6 +40,10 @@ struct PieceCtx {
 
     // SDL3 audio engine — NULL if init failed (piece still runs, silent).
     Audio *audio;
+
+    // Overlay mode: wipe() forces alpha=0 so the desktop shows through the
+    // cleared area; opaque draws on top still render normally.
+    int overlay_mode;
 };
 
 // ── Pixel helpers ───────────────────────────────────────────────────────────
@@ -195,7 +199,11 @@ static JSValue js_wipe(JSContext *jsctx, JSValueConst this_val, int argc, JSValu
     (void)this_val;
     PieceCtx *pc = ctx_from(jsctx);
     uint32_t c = args_to_argb(jsctx, argc, argv);
-    fill_rect(pc->fb, 0, 0, pc->fb->width, pc->fb->height, c);
+    // In overlay mode the wipe fill is transparent so the desktop shows
+    // through — keep RGB for debugging, force alpha to zero. Subsequent
+    // ink() sets / draws use the fully-opaque color as normal.
+    uint32_t fill_c = pc->overlay_mode ? (c & 0x00FFFFFF) : c;
+    fill_rect(pc->fb, 0, 0, pc->fb->width, pc->fb->height, fill_c);
     pc->ink_argb = c;
     return JS_UNDEFINED;
 }
@@ -796,6 +804,8 @@ void piece_act(PieceCtx *pc, const PieceEvent *ev) {
 }
 
 struct Audio *piece_audio(PieceCtx *pc) { return pc ? pc->audio : NULL; }
+
+void piece_set_overlay(PieceCtx *pc, int on) { if (pc) pc->overlay_mode = on ? 1 : 0; }
 
 void piece_reframe(PieceCtx *pc, int w, int h) {
     if (!pc || !pc->jsctx) return;
