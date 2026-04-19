@@ -237,7 +237,7 @@ log "Bundled web pieces: $(ls "${INITRAMFS_DIR}/pieces/" | grep -c '.mjs') total
 # Copy shared JS libraries needed by pieces (pure JS, no browser deps)
 AC_LIB_DIR="${NATIVE_DIR}/../../system/public/aesthetic.computer/lib"
 mkdir -p "${INITRAMFS_DIR}/lib"
-for lib_file in melody-parser.mjs notepat-convert.mjs note-colors.mjs; do
+for lib_file in melody-parser.mjs notepat-convert.mjs note-colors.mjs percussion.mjs num.mjs; do
     if [ -f "${AC_LIB_DIR}/${lib_file}" ]; then
         cp "${AC_LIB_DIR}/${lib_file}" "${INITRAMFS_DIR}/lib/"
     fi
