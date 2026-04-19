@@ -2061,6 +2061,14 @@ ACAudio *audio_init(void) {
         return audio;
     }
 
+    // SOF detection must happen FIRST, because the format choice depends on it.
+    // The S32_LE write path uses `<< 8` shift (writes int16 into the low 24
+    // bits of int32), which is correct for SOF's MAX98360A 24-bit DSP but
+    // 256× too quiet for HDA's true 32-bit DAC — even though both codecs
+    // accept S32_LE in their hw_params. Force S16_LE on non-SOF hardware.
+    int sof_active = (access("/sys/module/snd_sof/initstate", F_OK) == 0) ||
+                     (access("/sys/module/snd_sof_pci/initstate", F_OK) == 0);
+
     // Configure ALSA — negotiate rate dynamically.
     // Try preferred rates from highest to lowest. The hardware decides what it
     // actually supports; we adapt period/buffer sizes to match the negotiated rate.
@@ -2071,18 +2079,21 @@ ACAudio *audio_init(void) {
     /* SOF topology FE PCMs use S32_LE internally; the SSP1 BE DAI
      * (MAX98360A) runs S24_LE. Writing S16_LE to this pipeline
      * causes 48dB attenuation + quantization noise ("crunchy quiet").
-     * Try S32_LE first — if the FE PCM accepts it, we write int32
-     * samples and the DSP does zero conversion. Fall back to S16_LE
-     * for non-SOF hardware (HDA, USB, etc). */
+     * Try S32_LE on SOF only. On HDA / USB / generic codecs, S16_LE
+     * is the universally-correct choice — even when the codec
+     * advertises S32_LE support, our int16<<8 conversion drops 8 of
+     * the high bits and produces inaudibly-quiet output. */
     audio->use_s32 = 0;
-    if (snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
+    if (sof_active &&
+        snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S32_LE) == 0) {
         audio->use_s32 = 1;
-        fprintf(stderr, "[audio] Negotiated S32_LE format\n");
+        fprintf(stderr, "[audio] Negotiated S32_LE format (SOF)\n");
     } else {
         snd_pcm_hw_params_any(pcm, params);
         snd_pcm_hw_params_set_access(pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
         snd_pcm_hw_params_set_format(pcm, params, SND_PCM_FORMAT_S16_LE);
-        fprintf(stderr, "[audio] Negotiated S16_LE format (S32_LE not supported)\n");
+        fprintf(stderr, "[audio] Negotiated S16_LE format%s\n",
+                sof_active ? " (S32_LE rejected)" : " (non-SOF, forced)");
     }
     snd_pcm_hw_params_set_channels(pcm, params, AUDIO_CHANNELS);
 
@@ -2123,12 +2134,9 @@ ACAudio *audio_init(void) {
     // despite mixer, codec, and GPIO all looking correct. We saw 10,686
     // sdmode toggles in a single boot's kmsg on the G7 at the 1ms setting.
     //
-    // Probe whether we're on a SOF platform (sound/soc/sof is one path) and
-    // bump to 10ms / 40ms which is what ChromeOS itself uses. Non-SOF HDA
-    // devices (ThinkPads, most laptops) keep the tight latency because their
-    // amp/codec model doesn't gate on per-period DAPM events.
-    int sof_active = (access("/sys/class/sound/card0/id", R_OK) == 0) &&
-                     (access("/proc/asound/card0/codec97#0", F_OK) != 0);
+    // Period + buffer: 20ms/80ms on SOF (avoids MAX98357A SD_MODE GPIO
+    // thrash), 1ms/4ms on HDA-direct paths (tight latency safe there).
+    // sof_active was set above before format negotiation.
     snd_pcm_uframes_t period;
     snd_pcm_uframes_t buffer_size;
     if (sof_active) {
