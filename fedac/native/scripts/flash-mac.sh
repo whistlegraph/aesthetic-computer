@@ -34,6 +34,13 @@ set -euo pipefail
 USB_DEV="${1:?usage: $0 /dev/diskN [SRC_DIR]}"
 SRC_DIR="${2:-/tmp/ac-os-pull}"
 
+# This script needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos.
+# Re-exec under sudo if invoked as a regular user (sudoers.d/ac-flash-mac
+# whitelists this exact path NOPASSWD).
+if [ "$(id -u)" != "0" ]; then
+    exec sudo --preserve-env=PATH "$0" "$@"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 NATIVE_DIR="${REPO_ROOT}/native"
@@ -41,7 +48,7 @@ NATIVE_DIR="${REPO_ROOT}/native"
 
 KERNEL="${SRC_DIR}/vmlinuz"
 INITRAMFS="${SRC_DIR}/initramfs.cpio.gz"
-SPLASH_EFI="${NATIVE_DIR}/boot/splash.efi"
+SPLASH_EFI="${NATIVE_DIR}/bootloader/splash.efi"
 SDBOOT_EFI="${NATIVE_DIR}/boot/systemd-bootx64.efi"
 
 log() { echo "[flash-mac] $*"; }
@@ -90,67 +97,79 @@ read -r -p "Type 'YES' to ERASE ${USB_DEV} and write AC Native OS: " CONFIRM
 
 # --- wipe + repartition ---
 log "Unmounting…"
-sudo diskutil unmountDisk force "${USB_DEV}" >/dev/null
+diskutil unmountDisk force "${USB_DEV}" >/dev/null
 
 log "Zapping GPT + clearing first 16 MiB…"
-sudo sgdisk --zap-all "${USB_DEV}" >/dev/null
-sudo dd if=/dev/zero of="${USB_DEV}" bs=1m count=16 status=none
+sgdisk --zap-all "${USB_DEV}" >/dev/null
+dd if=/dev/zero of="${USB_DEV}" bs=1m count=16 status=none
 
 log "Creating GPT layout (ACBOOT + ACEFI)…"
-sudo sgdisk \
+sgdisk \
     --new=1:0:+${MAIN_MB}M --typecode=1:0700 --change-name=1:ACBOOT \
     --new=2:0:0           --typecode=2:ef00 --change-name=2:ACEFI \
     "${USB_DEV}" >/dev/null
 
-# Re-read partition table so /dev/diskNs* nodes appear.
-sudo diskutil unmountDisk force "${USB_DEV}" >/dev/null 2>&1 || true
-sleep 1
+# Force macOS to re-read the partition table after sgdisk wrote it. The
+# kernel caches the old layout until we explicitly notify it; without this,
+# the s1/s2 nodes either don't exist yet or still point at the pre-zap
+# partitions and newfs_msdos errors with "No such file or directory".
+diskutil unmountDisk force "${USB_DEV}" >/dev/null 2>&1 || true
+diskutil list "${USB_DEV}" >/dev/null 2>&1 || true
 
 P1="${USB_DEV}s1"
 P2="${USB_DEV}s2"
 RAW1="/dev/r$(basename "${P1}")"
 RAW2="/dev/r$(basename "${P2}")"
 
+# Wait up to 10s for both partition nodes to materialize.
+for i in $(seq 1 20); do
+    [ -e "${P1}" ] && [ -e "${P2}" ] && break
+    sleep 0.5
+    diskutil list "${USB_DEV}" >/dev/null 2>&1 || true
+done
+[ -e "${P1}" ] || die "Partition ${P1} did not appear after sgdisk + reread."
+[ -e "${P2}" ] || die "Partition ${P2} did not appear after sgdisk + reread."
+
 log "Formatting FAT32 partitions…"
-sudo newfs_msdos -F 32 -v ACBOOT "${RAW1}" >/dev/null
-sudo newfs_msdos -F 32 -v ACEFI  "${RAW2}" >/dev/null
+newfs_msdos -F 32 -v ACBOOT "${RAW1}" >/dev/null
+newfs_msdos -F 32 -v ACEFI  "${RAW2}" >/dev/null
 
 # --- mount ---
 M1=$(mktemp -d /tmp/ac-main.XXXXXX)
 M2=$(mktemp -d /tmp/ac-efi.XXXXXX)
-trap "sudo umount '${M1}' 2>/dev/null; sudo umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; true" EXIT
+trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; true" EXIT
 
 log "Mounting partitions…"
-sudo mount_msdos "${P1}" "${M1}"
-sudo mount_msdos "${P2}" "${M2}"
+mount_msdos "${P1}" "${M1}"
+mount_msdos "${P2}" "${M2}"
 
 # --- layout ACBOOT (kernel-direct + config) ---
 log "Writing ACBOOT (kernel-direct boot tree)…"
-sudo mkdir -p "${M1}/EFI/BOOT"
-sudo cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
-sudo cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-echo '{"handle":"","piece":"notepat","sub":"","email":""}' | sudo tee "${M1}/config.json" >/dev/null
-[ -f "${SRC_DIR}/wifi_creds.json" ] && sudo cp "${SRC_DIR}/wifi_creds.json" "${M1}/wifi_creds.json"
+mkdir -p "${M1}/EFI/BOOT"
+cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
+cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
+echo '{"handle":"","piece":"notepat","sub":"","email":""}' | tee "${M1}/config.json" >/dev/null
+[ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M1}/wifi_creds.json"
 
 # --- layout ACEFI (systemd-boot universal) ---
 log "Writing ACEFI (splash → systemd-boot → kernel)…"
-sudo mkdir -p "${M2}/EFI/BOOT" "${M2}/loader/entries"
-sudo cp "${SPLASH_EFI}" "${M2}/EFI/BOOT/BOOTX64.EFI"
-sudo cp "${SDBOOT_EFI}" "${M2}/EFI/BOOT/LOADER.EFI"
-sudo cp "${KERNEL}"     "${M2}/EFI/BOOT/KERNEL.EFI"
-sudo cp "${INITRAMFS}"   "${M2}/initramfs.cpio.gz"
-sudo tee "${M2}/loader/loader.conf" >/dev/null <<'EOF'
+mkdir -p "${M2}/EFI/BOOT" "${M2}/loader/entries"
+cp "${SPLASH_EFI}" "${M2}/EFI/BOOT/BOOTX64.EFI"
+cp "${SDBOOT_EFI}" "${M2}/EFI/BOOT/LOADER.EFI"
+cp "${KERNEL}"     "${M2}/EFI/BOOT/KERNEL.EFI"
+cp "${INITRAMFS}"   "${M2}/initramfs.cpio.gz"
+tee "${M2}/loader/loader.conf" >/dev/null <<'EOF'
 default ac-native.conf
 timeout 0
 EOF
-sudo tee "${M2}/loader/entries/ac-native.conf" >/dev/null <<'EOF'
+tee "${M2}/loader/entries/ac-native.conf" >/dev/null <<'EOF'
 title AC Native OS
 linux /EFI/BOOT/KERNEL.EFI
 initrd /initramfs.cpio.gz
 options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomodeset efi=noruntime
 EOF
-echo '{"handle":"","piece":"notepat","sub":"","email":""}' | sudo tee "${M2}/config.json" >/dev/null
-[ -f "${SRC_DIR}/wifi_creds.json" ] && sudo cp "${SRC_DIR}/wifi_creds.json" "${M2}/wifi_creds.json"
+echo '{"handle":"","piece":"notepat","sub":"","email":""}' | tee "${M2}/config.json" >/dev/null
+[ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M2}/wifi_creds.json"
 
 # --- verify (sha256 round-trip on every kernel + initramfs copy) ---
 log "Verifying integrity…"
@@ -169,8 +188,8 @@ verify "ACEFI/initramfs.cpio.gz"    "${M2}/initramfs.cpio.gz"      "${INITRD_SHA
 # --- finalize ---
 sync
 log "Unmounting + ejecting…"
-sudo umount "${M1}" "${M2}"
-sudo diskutil eject "${USB_DEV}" >/dev/null
+umount "${M1}" "${M2}"
+diskutil eject "${USB_DEV}" >/dev/null
 trap - EXIT
 rmdir "${M1}" "${M2}" 2>/dev/null || true
 
