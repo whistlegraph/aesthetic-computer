@@ -63,6 +63,29 @@ command -v sgdisk >/dev/null || die "sgdisk required: brew install gptfdisk"
 [ -f "${SPLASH_EFI}" ]       || die "Missing splash bootloader: ${SPLASH_EFI}"
 [ -f "${SDBOOT_EFI}" ]       || die "Missing systemd-boot: ${SDBOOT_EFI}"
 
+# --- read ac-login token (~/.ac-token) for handle/sub/email injection ---
+# When invoked as root via sudo, $HOME points at /var/root. Use SUDO_USER's
+# home so we read the actual operator's token, not the empty root one.
+TOKEN_HOME="${HOME}"
+[ -n "${SUDO_USER:-}" ] && TOKEN_HOME="$(eval echo ~${SUDO_USER})"
+TOKEN_FILE="${TOKEN_HOME}/.ac-token"
+
+USER_HANDLE=""; USER_SUB=""; USER_EMAIL=""
+if [ -f "${TOKEN_FILE}" ] && command -v node >/dev/null 2>&1; then
+    eval "$(node -e '
+        const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        let h = t.user?.handle || t.user?.name || "";
+        if (h.startsWith("@")) h = h.slice(1);
+        const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+        out("USER_HANDLE", h);
+        out("USER_SUB",    t.user?.sub);
+        out("USER_EMAIL",  t.user?.email);
+    ' "${TOKEN_FILE}" 2>/dev/null)"
+    [ -n "${USER_HANDLE}" ] && log "Authenticated as @${USER_HANDLE}"
+fi
+[ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
+    log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
+
 INFO=$(diskutil info "${USB_DEV}" 2>/dev/null) || die "diskutil info failed for ${USB_DEV}"
 echo "${INFO}" | grep -q "Removable Media:.*Removable\|Device Location:.*External" \
     || die "${USB_DEV} is not removable/external. Aborting."
@@ -148,7 +171,8 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-echo '{"handle":"","piece":"notepat","sub":"","email":""}' | tee "${M1}/config.json" >/dev/null
+printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
+    "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
 [ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M1}/wifi_creds.json"
 
 # --- layout ACEFI (systemd-boot universal) ---
@@ -168,7 +192,8 @@ linux /EFI/BOOT/KERNEL.EFI
 initrd /initramfs.cpio.gz
 options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomodeset efi=noruntime
 EOF
-echo '{"handle":"","piece":"notepat","sub":"","email":""}' | tee "${M2}/config.json" >/dev/null
+printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
+    "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M2}/config.json" >/dev/null
 [ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M2}/wifi_creds.json"
 
 # --- verify (sha256 round-trip on every kernel + initramfs copy) ---
