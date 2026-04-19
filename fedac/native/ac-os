@@ -1048,6 +1048,24 @@ flash_nixos_image_to_usb() {
 }
 
 flash_usb() {
+    # macOS path: defer to scripts/flash-mac.sh (uses diskutil + sgdisk; no
+    # Docker / no /sys/block). The Linux flow below uses the privileged
+    # flash-helper container.
+    if [ "$(uname)" = "Darwin" ]; then
+        local MAC_USB="${AC_USB_DEV:-}"
+        if [ -z "${MAC_USB}" ]; then
+            log "Auto-detecting external USB via diskutil..."
+            # Pick the first removable external whole-disk identifier.
+            MAC_USB=$(diskutil list external 2>/dev/null \
+                | awk '/^\/dev\/disk[0-9]+ \(external, physical\):/{print $1; exit}')
+            [ -z "${MAC_USB}" ] && { err "No external USB found. Set AC_USB_DEV=/dev/diskN"; exit 1; }
+        fi
+        local SRC="${PULL_DIR:-/tmp/ac-os-pull}"
+        log "Flashing ${MAC_USB} via flash-mac.sh (source: ${SRC})..."
+        sudo "${SCRIPT_DIR}/scripts/flash-mac.sh" "${MAC_USB}" "${SRC}"
+        return $?
+    fi
+
     local USB_DEV
     local MEDIA_TMP
     local CONFIG_FILE
