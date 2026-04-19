@@ -20,7 +20,7 @@
 // pixel size divided by DENSITY so it reflows on resize without letterbox.
 #define INITIAL_WIN_W 1280
 #define INITIAL_WIN_H 800
-#define DEFAULT_DENSITY 2  // physical screen pixels per framebuffer pixel
+#define DEFAULT_DENSITY 1  // logical points per framebuffer pixel — 1 = web AC parity (FB matches window points, notepat's top bar has room); higher = chunkier
 
 // Shared state the event watch callback needs. SDL calls the watch on the
 // same thread as SDL_PollEvent, during the OS resize modal run loop, so
@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
             PieceEvent pe = {0};
             snprintf(pe.key,  sizeof(pe.key),  "%s", lkey);
             snprintf(pe.type, sizeof(pe.type), "keyboard:down:%s", lkey);
-            if (au) audio_arm_latency(au, 0.02f);
+            if (au) audio_arm_latency(au, 0.005f);
             piece_act(pc, &pe);
             // Busy-poll for the emit stamp, 50 ms cap.
             Uint64 until = SDL_GetTicksNS() + 50000000ULL;
@@ -369,7 +369,10 @@ int main(int argc, char **argv) {
             // captured trigger time is as close to "user hits key" as we can
             // synthesize. Audio callback stamps first non-silent emission.
             Audio *au = piece_audio(pc);
-            if (au) audio_arm_latency(au, 0.02f);
+            // Low threshold catches the onset of the attack ramp rather than
+            // waiting for full-level sustain — a more honest keypress→sound
+            // measurement (matches what an ear would perceive as "the note").
+            if (au) audio_arm_latency(au, 0.005f);
             piece_act(pc, &pe);
             fprintf(stderr, "[inject] keyboard:down:%s\n", inject_key);
             injected = 1;

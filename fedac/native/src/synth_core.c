@@ -128,7 +128,10 @@ static inline double whistle_frac_read(const float *buf, int N, int w, double de
 
 static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     double env = synth_compute_envelope(v);
-    double breath_target = 0.18 + 0.82 * sqrt(env);
+    // Lower breath target keeps the flute in its fundamental mode — too
+    // much breath drives the jet into the over-blow register (second
+    // harmonic), which reads as an octave shift from the requested tone.
+    double breath_target = 0.10 + 0.38 * sqrt(env);
     double breath_slew = env > v->whistle_breath ? 0.012 : 0.003;
     v->whistle_breath += (breath_target - v->whistle_breath) * breath_slew;
 
