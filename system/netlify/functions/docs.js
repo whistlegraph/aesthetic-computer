@@ -17,8 +17,104 @@
 import { respond } from "../../backend/http.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { getCommandDescription } from "../../public/aesthetic.computer/lib/prompt-commands.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 const dev = process.env.CONTEXT === "dev";
 const { keys } = Object;
+
+// 🔎 Auto-piece discovery
+// Walks the disks/ folder and synthesizes docs entries for any .mjs or .lisp
+// file that isn't already in the curated `pieces` object below. A piece is
+// auto-listed (hidden:false) if it exports a `meta()` — the template includes
+// this, so intentional pieces show up; throwaway scratch files without a
+// meta export remain hidden but are still resolvable via /docs/pieces:name.
+const DISKS_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../public/aesthetic.computer/disks",
+);
+
+const META_EXPORT_PATTERNS = [
+  /export\s*\{[^}]*\bmeta\b[^}]*\}/,
+  /export\s+(async\s+)?function\s+meta\b/,
+  /export\s+(const|let|var)\s+meta\b/,
+  /export\s+default\s+function\s+meta\b/,
+];
+
+function extractHeaderDesc(src, commentStart) {
+  const lines = src.split("\n");
+  const descLines = [];
+  let sawFirstComment = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {
+      if (descLines.length > 0) break;
+      continue;
+    }
+    if (line.startsWith("/*")) break;
+    if (!line.startsWith(commentStart)) break;
+    let content = line.slice(commentStart.length).replace(/^\s+/, "");
+    if (!sawFirstComment) {
+      sawFirstComment = true;
+      continue; // skip "Name, YY.MM.DD…" header line
+    }
+    if (!content) break;
+    if (/^(todo|readme|region|#region|#endregion)\b/i.test(content)) break;
+    descLines.push(content);
+    if (descLines.join(" ").length > 140) break;
+  }
+  let desc = descLines.join(" ").trim();
+  if (desc.length > 160) desc = desc.slice(0, 157) + "…";
+  return desc;
+}
+
+let AUTO_PIECES_CACHE = null;
+function scanAutoPieces() {
+  if (AUTO_PIECES_CACHE && !dev) return AUTO_PIECES_CACHE;
+  const out = {};
+  let entries;
+  try {
+    entries = fs.readdirSync(DISKS_DIR, { withFileTypes: true });
+  } catch (e) {
+    console.warn("docs.js auto-scan: readdir failed", e.message);
+    AUTO_PIECES_CACHE = out;
+    return out;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const file = entry.name;
+    if (file.startsWith("_") || file.startsWith(".")) continue;
+    const ext = path.extname(file);
+    if (ext !== ".mjs" && ext !== ".lisp") continue;
+    const name = file.slice(0, -ext.length);
+    let src = "";
+    try {
+      src = fs.readFileSync(path.join(DISKS_DIR, file), "utf8");
+    } catch (e) {
+      continue;
+    }
+    const commentStart = ext === ".lisp" ? ";" : "//";
+    const desc = extractHeaderDesc(src, commentStart);
+    const hasMeta =
+      ext === ".lisp" || META_EXPORT_PATTERNS.some((r) => r.test(src));
+    out[name] = {
+      sig: name,
+      desc,
+      done: false,
+      hidden: !hasMeta,
+      auto: true,
+    };
+  }
+  AUTO_PIECES_CACHE = out;
+  return out;
+}
+
+function mergeAutoPieces(curated) {
+  const auto = scanAutoPieces();
+  for (const name in auto) {
+    if (!curated[name]) curated[name] = auto[name];
+  }
+}
 
 // GET A user's `sub` id from either their handle or email address.
 export async function handler(event, context) {
@@ -3703,11 +3799,6 @@ void draw() {
         examples: ["camera", "camera:under"],
         done: true,
       },
-      carry: {
-        sig: "carry",
-        desc: "Learn base 10 by feel — tap columns, watch ten become one.",
-        done: false,
-      },
       chat: {
         sig: "chat",
         desc: "Chat with handles.",
@@ -4640,6 +4731,9 @@ void draw() {
       }
     });
   };
+
+  // Auto-register any disk piece not already in the curated `pieces` map.
+  mergeAutoPieces(docs.pieces);
 
   fillCommandDocs(docs.prompts, "prompt");
   fillCommandDocs(docs.pieces, "piece");
