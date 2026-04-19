@@ -7,6 +7,7 @@
 #include "audio.h"
 // Vendored from src/ so we don't pull the full graph.h/drm-display.h chain yet.
 #include "font-6x10.h"
+#include "font-matrix-chunky8.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,6 +94,36 @@ static void draw_glyph_6x10(PieceFB *fb, int ch, int x, int y, int scale, uint32
                 else            fill_rect(fb, px, py, scale, scale, c);
             }
         }
+    }
+}
+
+// MatrixChunky8: BDF-variable-width font (most glyphs ~3px wide, advance ~4).
+// Layout math mirrors src/font.c:font_draw_matrix so x-advance and vertical
+// alignment match notepat's layout expectations character-for-character.
+static void draw_text_matrix(PieceFB *fb, const char *text, int x, int y,
+                             int scale, uint32_t c) {
+    if (!text || scale < 1) return;
+    int start_x = x;
+    for (const char *p = text; *p; p++) {
+        unsigned char ch = (unsigned char)*p;
+        if (ch == '\n') { x = start_x; y += matrix_chunky8_ascent * scale; continue; }
+        if (ch >= 0x80) continue;
+        if (ch < 32 || ch > 126) ch = '?';
+        const BDFGlyph *gl = &matrix_chunky8_glyphs[ch - 32];
+        int gy = y + (matrix_chunky8_ascent - gl->yoff - gl->height) * scale;
+        int gx = x + gl->xoff * scale;
+        for (int row = 0; row < gl->height && row < MATRIX_CHUNKY8_MAX_H; row++) {
+            uint8_t bits = gl->rows[row];
+            for (int col = 0; col < gl->width; col++) {
+                if (bits & (0x80 >> col)) {
+                    int px = gx + col * scale;
+                    int py = gy + row * scale;
+                    if (scale == 1) put_pixel(fb, px, py, c);
+                    else            fill_rect(fb, px, py, scale, scale, c);
+                }
+            }
+        }
+        x += gl->dwidth * scale;
     }
 }
 
@@ -221,8 +252,9 @@ static JSValue js_circle(JSContext *jsctx, JSValueConst this_val, int argc, JSVa
 }
 
 // write(text, { x, y, size, font })
-// Only the 6x10 font is implemented here — `font: "matrix"` falls back to 6x10
-// until stage 3 pulls in font.c. x/y default to 0; size defaults to 1.
+// Picks MatrixChunky8 for font: "matrix" (narrow, ~4px advance — matches
+// notepat's layout math) and 6x10 for everything else. x/y default to 0;
+// size defaults to 1.
 static JSValue js_write(JSContext *jsctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     PieceCtx *pc = ctx_from(jsctx);
@@ -231,17 +263,25 @@ static JSValue js_write(JSContext *jsctx, JSValueConst this_val, int argc, JSVal
     if (!text) return JS_UNDEFINED;
 
     int32_t x = 0, y = 0, size = 1;
+    int use_matrix = 0;
     if (argc >= 2 && JS_IsObject(argv[1])) {
         JSValue vx = JS_GetPropertyStr(jsctx, argv[1], "x");
         JSValue vy = JS_GetPropertyStr(jsctx, argv[1], "y");
         JSValue vs = JS_GetPropertyStr(jsctx, argv[1], "size");
+        JSValue vf = JS_GetPropertyStr(jsctx, argv[1], "font");
         if (!JS_IsUndefined(vx)) JS_ToInt32(jsctx, &x, vx);
         if (!JS_IsUndefined(vy)) JS_ToInt32(jsctx, &y, vy);
         if (!JS_IsUndefined(vs)) JS_ToInt32(jsctx, &size, vs);
-        JS_FreeValue(jsctx, vx); JS_FreeValue(jsctx, vy); JS_FreeValue(jsctx, vs);
+        if (JS_IsString(vf)) {
+            const char *fn = JS_ToCString(jsctx, vf);
+            if (fn) { if (strcmp(fn, "matrix") == 0) use_matrix = 1; JS_FreeCString(jsctx, fn); }
+        }
+        JS_FreeValue(jsctx, vx); JS_FreeValue(jsctx, vy);
+        JS_FreeValue(jsctx, vs); JS_FreeValue(jsctx, vf);
     }
     if (size < 1) size = 1;
-    draw_text_6x10(pc->fb, text, x, y, size, pc->ink_argb);
+    if (use_matrix) draw_text_matrix(pc->fb, text, x, y, size, pc->ink_argb);
+    else            draw_text_6x10  (pc->fb, text, x, y, size, pc->ink_argb);
     JS_FreeCString(jsctx, text);
     return JS_UNDEFINED;
 }

@@ -16,8 +16,24 @@ SDL3_LIBS   := $(shell pkg-config --libs sdl3)
 CFLAGS  := -O2 -Wall -Wextra -std=gnu11 -I. -I../src -I$(QJSDIR) $(SDL3_CFLAGS)
 LDFLAGS := $(SDL3_LIBS) -lm
 
+# Audio backend: AUDIO=core (default) uses a direct CoreAudio AudioUnit;
+# AUDIO=sdl uses SDL3's audio stream. Built from separate .c files that
+# both implement the macos/audio.h interface. Useful for A/B latency tests.
+AUDIO ?= core
+ifeq ($(AUDIO),core)
+  AUDIO_SRC := audio_coreaudio.c
+  AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
+                      -framework CoreAudio -framework CoreFoundation
+else ifeq ($(AUDIO),sdl)
+  AUDIO_SRC := audio_sdl3.c
+  AUDIO_FRAMEWORKS :=
+else
+  $(error AUDIO must be 'core' or 'sdl')
+endif
+LDFLAGS += $(AUDIO_FRAMEWORKS)
+
 # Host sources (this directory) + shared synth core from ../src/.
-HOST_SRCS := main.c piece.c audio.c
+HOST_SRCS := main.c piece.c $(AUDIO_SRC)
 HOST_OBJS := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
 
 SHARED_SRCS := ../src/synth_core.c
@@ -27,7 +43,7 @@ SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
 QJS_OBJS  := $(patsubst %.c,$(BUILD)/qjs-%.o,$(QJS_SRCS))
 
-.PHONY: all clean run app app-run
+.PHONY: all clean run app app-run compare
 
 all: $(TARGET)
 
@@ -125,3 +141,21 @@ app-run: app
 
 clean:
 	rm -rf $(BUILD)
+
+# A/B the two audio backends: build each, run AC_LATENCY_TEST, print both.
+# Lets us quantify whether SDL3's audio stream adds latency vs. a direct
+# CoreAudio AudioUnit. RUNS + BUFFER can be overridden on the command line.
+RUNS   ?= 40
+BUFFER ?= 32
+PIECE  ?= ../pieces/notepat.mjs
+KEY    ?= c
+compare:
+	@echo "=== backend: SDL3 ==="
+	$(MAKE) -s AUDIO=sdl clean >/dev/null
+	$(MAKE) -s AUDIO=sdl >/dev/null
+	AC_AUDIO_BUFFER=$(BUFFER) AC_INJECT_KEY=$(KEY) AC_LATENCY_TEST=$(RUNS) $(TARGET) $(PIECE) 2>&1 | grep "^\[\(audio\|latency\)\]"
+	@echo
+	@echo "=== backend: CoreAudio ==="
+	$(MAKE) -s AUDIO=core clean >/dev/null
+	$(MAKE) -s AUDIO=core >/dev/null
+	AC_AUDIO_BUFFER=$(BUFFER) AC_INJECT_KEY=$(KEY) AC_LATENCY_TEST=$(RUNS) $(TARGET) $(PIECE) 2>&1 | grep "^\[\(audio\|latency\)\]"
