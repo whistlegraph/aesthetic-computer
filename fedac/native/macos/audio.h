@@ -30,4 +30,14 @@ void audio_gun_set_param(Audio *a, uint64_t id, const char *key, double value);
 // Parse "sine"/"triangle"/"sawtooth"/"saw"/"square"/"noise"/"whistle"/"gun".
 WaveType audio_parse_wave(const char *s);
 
+// Keypress→sound latency instrumentation:
+// 1. Call audio_arm_latency() right before the input event that will trigger
+//    a synth voice (trigger timestamp captured via SDL_GetTicksNS).
+// 2. The next audio callback whose output exceeds `threshold` in absolute
+//    amplitude captures the emit timestamp.
+// 3. audio_latency_ns() returns the delta in nanoseconds, or 0 if the
+//    sample hasn't landed yet.
+void     audio_arm_latency(Audio *a, float threshold);
+uint64_t audio_latency_ns(Audio *a);
+
 #endif
