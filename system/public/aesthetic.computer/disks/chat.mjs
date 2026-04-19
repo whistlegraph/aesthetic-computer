@@ -1810,9 +1810,14 @@ function paint(
     const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0;
 
     const presenceX = 6 + qrTotalWidth;
-    // Sit near the top of the screen, above the News/r8dio banner.
+    // Sit just below the HUD corner label so the counter doesn't have to
+    // dodge it horizontally. Falls back to a sensible default when the HUD
+    // label hasn't reported a box yet.
     const matrixChunky8Height = 8;
-    const presenceY = 2;
+    const hudLabelBottom = hudLabelBox
+      ? (hudLabelBox.y ?? 0) + (hudLabelBox.h ?? 0)
+      : 12;
+    const presenceY = hudLabelBottom + 3;
 
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
