@@ -755,6 +755,35 @@ void piece_act(PieceCtx *pc, const PieceEvent *ev) {
     pc->current_event = NULL;
 }
 
+struct Audio *piece_audio(PieceCtx *pc) { return pc ? pc->audio : NULL; }
+
+void piece_reframe(PieceCtx *pc, int w, int h) {
+    if (!pc || !pc->jsctx) return;
+    JSContext *cx = pc->jsctx;
+
+    // Mutate the existing screen object (same identity the piece destructured).
+    JSValue scr_api = JS_GetPropertyStr(cx, pc->api, "screen");
+    if (JS_IsObject(scr_api)) {
+        JS_SetPropertyStr(cx, scr_api, "width",  JS_NewInt32(cx, w));
+        JS_SetPropertyStr(cx, scr_api, "height", JS_NewInt32(cx, h));
+    }
+    JS_FreeValue(cx, scr_api);
+
+    JSValue global = JS_GetGlobalObject(cx);
+    JSValue scr_glob = JS_GetPropertyStr(cx, global, "screen");
+    if (JS_IsObject(scr_glob)) {
+        JS_SetPropertyStr(cx, scr_glob, "width",  JS_NewInt32(cx, w));
+        JS_SetPropertyStr(cx, scr_glob, "height", JS_NewInt32(cx, h));
+    }
+    JS_FreeValue(cx, scr_glob);
+    JS_FreeValue(cx, global);
+
+    // Fire `reframed` so pieces that re-layout on resize have a hook.
+    PieceEvent ev = {0};
+    snprintf(ev.type, sizeof(ev.type), "reframed");
+    piece_act(pc, &ev);
+}
+
 void piece_destroy(PieceCtx *pc) {
     if (!pc) return;
     if (pc->audio) audio_destroy(pc->audio);

@@ -15,9 +15,74 @@
 #include "piece.h"
 #include "audio.h"
 
-#define FB_W 640
-#define FB_H 400
-#define WIN_SCALE 2
+// Initial window size in logical points — what you'd expect for a
+// non-retina display. The actual framebuffer is computed from the window's
+// pixel size divided by DENSITY so it reflows on resize without letterbox.
+#define INITIAL_WIN_W 1280
+#define INITIAL_WIN_H 800
+#define DEFAULT_DENSITY 2  // physical screen pixels per framebuffer pixel
+
+// Shared state the event watch callback needs. SDL calls the watch on the
+// same thread as SDL_PollEvent, during the OS resize modal run loop, so
+// synchronous access without a lock is safe.
+typedef struct {
+    SDL_Window   *win;
+    SDL_Renderer *ren;
+    SDL_Texture **tex;    // by-ref so we can recreate
+    PieceFB      *fb;
+    PieceCtx     *pc;
+    int           density;
+} RenderCtx;
+
+// Reallocate FB + texture + logical presentation when the window size changes.
+// Returns true if dimensions actually changed.
+static int maybe_reframe(RenderCtx *c) {
+    int nwp = 0, nhp = 0;
+    SDL_GetWindowSize(c->win, &nwp, &nhp);
+    int nw = nwp / c->density; if (nw < 64) nw = 64;
+    int nh = nhp / c->density; if (nh < 64) nh = 64;
+    if (nw == c->fb->width && nh == c->fb->height) return 0;
+    uint32_t *np = calloc((size_t)nw * nh, sizeof(uint32_t));
+    if (!np) return 0;
+    free(c->fb->pixels);
+    c->fb->pixels = np;
+    c->fb->width  = nw;
+    c->fb->height = nh;
+    c->fb->stride = nw;
+    SDL_DestroyTexture(*c->tex);
+    *c->tex = SDL_CreateTexture(c->ren, SDL_PIXELFORMAT_ARGB8888,
+                                SDL_TEXTUREACCESS_STREAMING, nw, nh);
+    SDL_SetTextureScaleMode(*c->tex, SDL_SCALEMODE_NEAREST);
+    SDL_SetRenderLogicalPresentation(c->ren, nw, nh,
+                                     SDL_LOGICAL_PRESENTATION_STRETCH);
+    piece_reframe(c->pc, nw, nh);
+    return 1;
+}
+
+// Single frame: ask the piece to paint, upload, present.
+static void render_frame(RenderCtx *c) {
+    piece_paint(c->pc);
+    SDL_UpdateTexture(*c->tex, NULL, c->fb->pixels,
+                      c->fb->stride * (int)sizeof(uint32_t));
+    SDL_RenderClear(c->ren);
+    SDL_RenderTexture(c->ren, *c->tex, NULL, NULL);
+    SDL_RenderPresent(c->ren);
+}
+
+// SDL_AddEventWatch callback: fires synchronously from inside the OS resize
+// modal run loop on macOS. Without this, the main event loop is frozen
+// during drag and the renderer keeps stretching the stale FB to the new
+// window size. Handling resize + paint + present here keeps pixels honest.
+static bool SDLCALL resize_watch(void *userdata, SDL_Event *ev) {
+    if (ev->type == SDL_EVENT_WINDOW_RESIZED ||
+        ev->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+        ev->type == SDL_EVENT_WINDOW_EXPOSED) {
+        RenderCtx *c = (RenderCtx *)userdata;
+        maybe_reframe(c);
+        render_frame(c);
+    }
+    return true;
+}
 
 // Translate an SDL_Keycode into the AC key-name used in event types
 // ("keyboard:down:<name>"). Covers what hello.mjs and notepat need; extend
@@ -108,45 +173,66 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Windowed + resizable by default. AC_FULLSCREEN=1 opts in to fullscreen
-    // for bare-metal-style presentation. Native pixel density (no HIGH_PIXEL_DENSITY):
-    // pixels appear at their natural on-screen size instead of being
-    // retina-multiplied into 4×4 blocks on a Mac, which reads as "extra large".
+    // Windowed + resizable by default. AC_FULLSCREEN=1 opts in to fullscreen.
+    // HIGH_PIXEL_DENSITY is required on retina: without it the renderer works
+    // at logical-point resolution and macOS bilinear-upscales to the physical
+    // backing store, which defeats our nearest-neighbor texture filter and
+    // reads as blurry. With it on, nearest-neighbor stays nearest-neighbor
+    // all the way through to the pixel.
     int fullscreen = getenv("AC_FULLSCREEN") != NULL;
-    Uint32 win_flags = SDL_WINDOW_RESIZABLE;
+    Uint32 win_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (fullscreen) win_flags |= SDL_WINDOW_FULLSCREEN;
 
     SDL_Window *win = SDL_CreateWindow("Notepat",
-                                       FB_W * WIN_SCALE, FB_H * WIN_SCALE,
+                                       INITIAL_WIN_W, INITIAL_WIN_H,
                                        win_flags);
     if (!win) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
-    SDL_SetRenderVSync(ren, 1);
+    // VSync on by default (smooth paint). AC_LATENCY_TEST disables it so the
+    // event loop polls tight and latency measurements aren't frame-aligned.
+    int latency_runs = getenv("AC_LATENCY_TEST") ? atoi(getenv("AC_LATENCY_TEST")) : 0;
+    if (latency_runs < 0) latency_runs = 0;
+    SDL_SetRenderVSync(ren, latency_runs > 0 ? 0 : 1);
     fprintf(stderr, "[macos] renderer: %s (%s)\n", SDL_GetRendererName(ren),
             fullscreen ? "fullscreen" : "windowed");
 
-    // Integer-scale letterbox: FB_W×FB_H is the logical canvas, the renderer
-    // picks the largest integer multiple that fits and centers it with black
-    // bars. Combined with SDL_SCALEMODE_NEAREST on the texture, this yields
-    // pixel-perfect chunky pixels at every window size.
-    SDL_SetRenderLogicalPresentation(ren, FB_W, FB_H, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
+    // Pixel density: AC_DENSITY overrides. Higher = smaller framebuffer
+    // (chunkier pixels), lower = more framebuffer resolution.
+    const char *density_env = getenv("AC_DENSITY");
+    int density = density_env ? atoi(density_env) : DEFAULT_DENSITY;
+    if (density < 1) density = 1;
+    if (density > 8) density = 8;
 
-    // Overlay feel: hide the OS cursor in fullscreen. Windowed keeps the
-    // system cursor so resize/drag/close controls behave normally.
     if (fullscreen) SDL_HideCursor();
 
+    // Compute initial FB size from the window's *logical* (point) size, not
+    // its pixel size. This matches web AC's CSS-pixel model: density is
+    // "points per FB pixel", so a 1280×800 logical window at density 2 gives
+    // a 640×400 FB regardless of retina scale. Retina sharpness still comes
+    // from HIGH_PIXEL_DENSITY + nearest-neighbor presentation.
+    int win_w = INITIAL_WIN_W, win_h = INITIAL_WIN_H;
+    SDL_GetWindowSize(win, &win_w, &win_h);
+    int fb_w = win_w / density; if (fb_w < 64) fb_w = 64;
+    int fb_h = win_h / density; if (fb_h < 64) fb_h = 64;
+    fprintf(stderr, "[macos] initial fb %dx%d (window %dx%d points, density %d)\n",
+            fb_w, fb_h, win_w, win_h, density);
+
+    // STRETCH presentation fills the window with no letterbox. Nearest-
+    // neighbor texture filtering + integer density means pixels stay crisp.
+    SDL_SetRenderLogicalPresentation(ren, fb_w, fb_h, SDL_LOGICAL_PRESENTATION_STRETCH);
+
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888,
-                                         SDL_TEXTUREACCESS_STREAMING, FB_W, FB_H);
+                                         SDL_TEXTUREACCESS_STREAMING, fb_w, fb_h);
     if (!tex) { fprintf(stderr, "SDL_CreateTexture: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);
 
     PieceFB fb = {
-        .pixels = calloc((size_t)FB_W * FB_H, sizeof(uint32_t)),
-        .width  = FB_W,
-        .height = FB_H,
-        .stride = FB_W,
+        .pixels = calloc((size_t)fb_w * fb_h, sizeof(uint32_t)),
+        .width  = fb_w,
+        .height = fb_h,
+        .stride = fb_w,
     };
     if (!fb.pixels) { fprintf(stderr, "fb alloc failed\n"); return 1; }
 
@@ -157,7 +243,82 @@ int main(int argc, char **argv) {
         SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
         return 1;
     }
+    // Make sure the piece sees the real initial dimensions (may differ from
+    // piece_load defaults if the window grew during creation on some WMs).
+    piece_reframe(pc, fb.width, fb.height);
     piece_boot(pc);
+
+    RenderCtx rctx = { .win = win, .ren = ren, .tex = &tex, .fb = &fb,
+                       .pc = pc, .density = density };
+    SDL_AddEventWatch(resize_watch, &rctx);
+
+    // Latency benchmark: inject `latency_runs` keypresses, measure each one's
+    // trigger→first-audio-sample delta, print min/median/max. Vsync is off
+    // so polling is tight; audio buffer size is what you set via AC_AUDIO_BUFFER.
+    if (latency_runs > 0) {
+        const char *lkey = getenv("AC_INJECT_KEY");
+        if (!lkey) lkey = "c";
+        double lats[256];
+        int got = 0;
+        // Let the audio device warm up + piece settle.
+        Uint64 warm = SDL_GetTicks();
+        while (SDL_GetTicks() - warm < 500) {
+            SDL_Event e; while (SDL_PollEvent(&e)) {}
+            piece_sim(pc); render_frame(&rctx);
+            SDL_Delay(5);
+        }
+        Audio *au = piece_audio(pc);
+        for (int i = 0; i < latency_runs && i < 256; i++) {
+            // Drain events so the injection isn't behind queued ones.
+            SDL_Event e; while (SDL_PollEvent(&e)) {}
+            // Arm immediately before synthesizing the press. piece_act runs
+            // the piece's handler synchronously, which enqueues the voice.
+            PieceEvent pe = {0};
+            snprintf(pe.key,  sizeof(pe.key),  "%s", lkey);
+            snprintf(pe.type, sizeof(pe.type), "keyboard:down:%s", lkey);
+            if (au) audio_arm_latency(au, 0.02f);
+            piece_act(pc, &pe);
+            // Busy-poll for the emit stamp, 50 ms cap.
+            Uint64 until = SDL_GetTicksNS() + 50000000ULL;
+            while (SDL_GetTicksNS() < until) {
+                if (au && audio_latency_ns(au)) break;
+            }
+            uint64_t ns = au ? audio_latency_ns(au) : 0;
+            if (ns) { lats[got++] = (double)ns / 1.0e6; }
+            // Release + settle before next run so the voice finishes.
+            PieceEvent peup = {0};
+            snprintf(peup.key, sizeof(peup.key), "%s", lkey);
+            snprintf(peup.type, sizeof(peup.type), "keyboard:up:%s", lkey);
+            piece_act(pc, &peup);
+            SDL_Delay(120);
+        }
+        if (got > 0) {
+            // Insertion sort — tiny N.
+            for (int i = 1; i < got; i++) {
+                double v = lats[i]; int j = i;
+                while (j > 0 && lats[j-1] > v) { lats[j] = lats[j-1]; j--; }
+                lats[j] = v;
+            }
+            double sum = 0; for (int i = 0; i < got; i++) sum += lats[i];
+            fprintf(stderr, "[latency] %d runs, key=\"%s\": "
+                    "min=%.2f median=%.2f mean=%.2f max=%.2f ms\n",
+                    got, lkey, lats[0], lats[got/2], sum / got, lats[got-1]);
+            // Dump full list for analysis.
+            fprintf(stderr, "[latency] samples:");
+            for (int i = 0; i < got; i++) fprintf(stderr, " %.2f", lats[i]);
+            fprintf(stderr, "\n");
+        } else {
+            fprintf(stderr, "[latency] no emissions recorded\n");
+        }
+        SDL_RemoveEventWatch(resize_watch, &rctx);
+        piece_destroy(pc);
+        free(fb.pixels);
+        SDL_DestroyTexture(tex);
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 0;
+    }
 
     // Optional single-frame dump for headless verification. Set AC_DUMP_FRAME
     // to a path; the host renders one paint cycle, writes a raw ARGB .ppm-
@@ -204,9 +365,24 @@ int main(int argc, char **argv) {
             PieceEvent pe = {0};
             snprintf(pe.key,  sizeof(pe.key),  "%s", inject_key);
             snprintf(pe.type, sizeof(pe.type), "keyboard:down:%s", inject_key);
+            // Arm the latency stopwatch immediately before dispatching so the
+            // captured trigger time is as close to "user hits key" as we can
+            // synthesize. Audio callback stamps first non-silent emission.
+            Audio *au = piece_audio(pc);
+            if (au) audio_arm_latency(au, 0.02f);
             piece_act(pc, &pe);
             fprintf(stderr, "[inject] keyboard:down:%s\n", inject_key);
             injected = 1;
+        }
+        // Report latency as soon as the callback stamps first emission.
+        if (injected && inject_key) {
+            Audio *au = piece_audio(pc);
+            uint64_t lat_ns = au ? audio_latency_ns(au) : 0;
+            if (lat_ns) {
+                fprintf(stderr, "[latency] key \"%s\" -> first audio sample: %.3f ms\n",
+                        inject_key, (double)lat_ns / 1.0e6);
+                inject_key = NULL;  // only report once
+            }
         }
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
@@ -215,6 +391,13 @@ int main(int argc, char **argv) {
             // regardless of fullscreen scale factor or retina backing.
             SDL_ConvertEventToRenderCoordinates(ren, &ev);
             if (ev.type == SDL_EVENT_QUIT) running = 0;
+            else if (ev.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+                     ev.type == SDL_EVENT_WINDOW_RESIZED) {
+                // The watch callback already handled this during the drag;
+                // this catches the final tick + any resize outside a drag.
+                maybe_reframe(&rctx);
+                continue;
+            }
             else if (ev.type == SDL_EVENT_KEY_DOWN) {
                 if (ev.key.key == SDLK_ESCAPE) { running = 0; continue; }
                 PieceEvent pe = {0};
@@ -242,13 +425,10 @@ int main(int argc, char **argv) {
         }
 
         piece_sim(pc);
-        piece_paint(pc);
-
-        SDL_UpdateTexture(tex, NULL, fb.pixels, fb.stride * (int)sizeof(uint32_t));
-        SDL_RenderClear(ren);
-        SDL_RenderTexture(ren, tex, NULL, NULL);
-        SDL_RenderPresent(ren);
+        render_frame(&rctx);
     }
+
+    SDL_RemoveEventWatch(resize_watch, &rctx);
 
     piece_destroy(pc);
     free(fb.pixels);

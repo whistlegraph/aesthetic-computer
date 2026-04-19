@@ -27,6 +27,10 @@ struct Audio {
     // total sample count. Useful to detect silence regressions in CI runs.
     volatile float    peak_out;
     volatile uint64_t samples_out;
+    // Keypress→sound latency timestamps (SDL_GetTicksNS, monotonic).
+    volatile uint64_t trigger_ns;    // armed by audio_arm_latency()
+    volatile uint64_t emit_ns;       // first callback after arm with |sample| > threshold
+    volatile float    emit_threshold;
 };
 
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream,
@@ -61,6 +65,11 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream,
     if (peak > a->peak_out) a->peak_out = peak;
     a->samples_out += (uint64_t)frames;
 
+    // Latency measurement: if armed and this buffer is loud enough, stamp it.
+    if (a->trigger_ns && !a->emit_ns && peak > a->emit_threshold) {
+        a->emit_ns = SDL_GetTicksNS();
+    }
+
     SDL_PutAudioStreamData(stream, buf, additional);
     if (heap) free(heap);
 }
@@ -74,11 +83,14 @@ Audio *audio_init(void) {
                     &a->lock, &a->next_id, (double)DRIVER_SAMPLE_RATE);
 
     // Request a tiny audio buffer so keystroke → sound latency stays under
-    // one paint frame. AC_AUDIO_BUFFER env var overrides; 128 frames @ 48k
-    // is ~2.7 ms, which stacks to ~5–8 ms round-trip once CoreAudio adds
-    // its own device buffer. Must be set before opening the device.
+    // one paint frame. AC_AUDIO_BUFFER env var overrides; 64 frames @ 48k
+    // is ~1.3 ms. Empirically on M-series Macs the CoreAudio device adds
+    // another ~4–5 ms of its own pipeline, so end-to-end median lands near
+    // 6 ms. Smaller buffers don't lower that floor, but they tighten the
+    // jitter ceiling (see AC_LATENCY_TEST for measurements). Must be set
+    // before opening the device.
     const char *buf_env = getenv("AC_AUDIO_BUFFER");
-    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, buf_env ? buf_env : "128");
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, buf_env ? buf_env : "64");
 
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
         fprintf(stderr, "[audio] SDL_InitSubSystem: %s\n", SDL_GetError());
@@ -146,3 +158,15 @@ void audio_gun_set_param(Audio *a, uint64_t id, const char *key, double value) {
 }
 
 WaveType audio_parse_wave(const char *s) { return synth_parse_wave(s); }
+
+void audio_arm_latency(Audio *a, float threshold) {
+    if (!a) return;
+    a->emit_ns = 0;
+    a->emit_threshold = threshold > 0.0f ? threshold : 0.02f;
+    a->trigger_ns = SDL_GetTicksNS();
+}
+
+uint64_t audio_latency_ns(Audio *a) {
+    if (!a || !a->trigger_ns || !a->emit_ns) return 0;
+    return a->emit_ns - a->trigger_ns;
+}

@@ -33,6 +33,15 @@ void piece_paint(PieceCtx *ctx);
 void piece_sim(PieceCtx *ctx);
 void piece_act(PieceCtx *ctx, const PieceEvent *ev);
 
+// Tell the piece the framebuffer has been resized. Updates the JS
+// `screen.width`/`.height` the piece sees via destructuring and dispatches
+// a synthetic `reframed` event so pieces that need to re-layout can react.
+void piece_reframe(PieceCtx *ctx, int w, int h);
+
+// Expose the audio engine so the host can instrument it (latency tests).
+struct Audio;
+struct Audio *piece_audio(PieceCtx *ctx);
+
 // Teardown.
 void piece_destroy(PieceCtx *ctx);
 
