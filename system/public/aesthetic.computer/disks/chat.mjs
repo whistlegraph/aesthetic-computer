@@ -724,6 +724,7 @@ function paint(
   // Default theme
   const defaultTheme = {
     background: [100, 100, 145],
+    chromeBg: [20, 20, 30], // Top/bottom panel bg — framing color around scroll region
     lines: [90, 200, 150, 48],
     scrollbar: [255, 192, 203],
     messageText: [255, 255, 255],
@@ -766,6 +767,13 @@ function paint(
     } else {
       wipe(theme.background);
     }
+  }
+
+  // Top chrome panel — distinct bg behind online counter + News/r8dio banner.
+  // Matches the bottom panel so the scroll region is visually framed.
+  {
+    const topChrome = Array.isArray(theme.chromeBg) ? theme.chromeBg : [theme.chromeBg];
+    ink(...topChrome, 255).box(0, 0, screen.width, topMargin);
   }
 
   // Interface
@@ -1669,8 +1677,9 @@ function paint(
   // Update handleBtn box for click detection
   handleBtn.btn.box = new Box(handleBtnX, handleBtnY, btnW, btnH);
   
-  // Draw panel background behind both buttons
-  ink(20, 20, 30, 255).box(
+  // Draw panel background behind both buttons (theme-aware)
+  const bottomChrome = Array.isArray(theme.chromeBg) ? theme.chromeBg : [theme.chromeBg];
+  ink(...bottomChrome, 255).box(
     0,
     screen.height - panelHeight,
     screen.width,

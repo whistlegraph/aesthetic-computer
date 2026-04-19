@@ -29,6 +29,7 @@ function paint($) {
     radio: "r8dio",
     theme: {
       background: [180, 100, 60], // Warm terracotta/rust background
+      chromeBg: [45, 22, 12], // Deep rust framing bg for top/bottom panels
       lines: [220, 150, 100, 64], // Soft peach lines
       scrollbar: [255, 180, 100], // Warm orange scrollbar
       messageText: [255, 255, 240], // Brighter cream/off-white text for better contrast
