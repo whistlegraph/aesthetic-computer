@@ -177,7 +177,7 @@ const MAX_OVERSCROLL = 60; // Max pixels past edge
 
 let rowHeight;
 const lineGap = 1,
-  topMargin = 31,
+  topMargin = 42,
   leftMargin = 6;
 
 // Dynamic bottom margin based on selected font
@@ -1801,9 +1801,9 @@ function paint(
     const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0;
 
     const presenceX = 6 + qrTotalWidth;
-    // Give the counter some padding above the topMargin divider line.
+    // Sit near the top of the screen, above the News/r8dio banner.
     const matrixChunky8Height = 8;
-    const presenceY = topMargin - matrixChunky8Height - 6;
+    const presenceY = 2;
 
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
@@ -4674,7 +4674,7 @@ function paintNewsTicker($, theme) {
   // Ticker dimensions - SINGLE ROW. Width auto-expands to fill space
   // between the HUD label and the right edge.
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 6; // Row Y position (top padding)
+  const tickerY = 14; // Row Y position (leaves room for online counter above)
   const totalTickerHeight = tickerHeight + 4; // Row + padding
 
   // Use dynamic news text (fetched from API or fallback)
@@ -4790,7 +4790,7 @@ function paintR8dioPlayer($, theme) {
 
   // Match news ticker height so we can sit directly beneath it without overlap.
   // News ticker total height = tickerHeight + 4 = 12, drawn from y=newsTopPad.
-  const newsTopPad = 4; // keep in sync with paintNewsTicker tickerY (= 2 + newsTopPad)
+  const newsTopPad = 12; // keep in sync with paintNewsTicker tickerY (= 2 + newsTopPad)
   const newsTotalHeight = tickerHeight + 4;
   const tickerRight = screen.width - rightMargin;
   const tickerY = newsTopPad + newsTotalHeight + 4; // 4px gap below news ticker
