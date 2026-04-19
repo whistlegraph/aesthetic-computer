@@ -1,0 +1,25 @@
+[Unit]
+Description=Datomic Pro transactor (kidlisp)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=datomic
+Group=datomic
+## /opt/datomic/current is a symlink to the versioned install, so upgrades
+## are just `ln -sfn datomic-pro-NEW current && systemctl restart`.
+WorkingDirectory=/opt/datomic/current
+## JVM heap sized for silo's 3.8GB RAM with MongoDB + other services.
+## Bump the -Xmx once kidlisp corpus outgrows this. The transactor
+## script accepts -Xmx/-Xms positionally before the properties file.
+ExecStart=/opt/datomic/current/bin/transactor -Xmx512m -Xms256m /opt/datomic/config/transactor.properties
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
