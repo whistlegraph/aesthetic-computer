@@ -30,6 +30,11 @@ else ifeq ($(AUDIO),grand)
   AUDIO_SRC := audio_musicdevice.c
   AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
                       -framework CoreAudio -framework CoreFoundation
+  # Grand defaults to transparent-overlay mode (that's why this variant
+  # exists). Compile-time flag flips the default so launching from Finder /
+  # Spotlight / Dock gets the overlay without an env var. AC_OVERLAY=0 at
+  # runtime still forces windowed.
+  CFLAGS += -DAC_GRAND=1
 else ifeq ($(AUDIO),sdl)
   AUDIO_SRC := audio_sdl3.c
   AUDIO_FRAMEWORKS :=

@@ -75,9 +75,13 @@ static int hz_to_midi(double hz) {
 }
 
 static int vol_to_velocity(double v) {
+    // notepat passes most note volumes in the 0.3–0.6 range. Raw mapping
+    // (v*127) would give velocity 38–76, which on a piano bank reads as
+    // "barely touching the key." Boost so a typical hit lands around the
+    // 90–120 range where the bank's loudest samples get selected.
     if (v < 0) v = 0;
-    if (v > 1.5) v = 1.5;
-    int vel = (int)lround(v * 100.0);  // 0..150 → scaled
+    double boosted = v * 180.0;
+    int vel = (int)lround(boosted);
     if (vel < 1) vel = 1;
     if (vel > 127) vel = 127;
     return vel;
