@@ -5,11 +5,11 @@
   <key>CFBundleExecutable</key>
   <string>notepat</string>
   <key>CFBundleIdentifier</key>
-  <string>computer.aesthetic.notepat</string>
+  <string>@@APP_ID@@</string>
   <key>CFBundleName</key>
-  <string>Notepat</string>
+  <string>@@APP_NAME@@</string>
   <key>CFBundleDisplayName</key>
-  <string>Notepat</string>
+  <string>@@APP_NAME@@</string>
   <key>CFBundleVersion</key>
   <string>0.1.0</string>
   <key>CFBundleShortVersionString</key>
