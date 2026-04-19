@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 
 import rumps
-from AppKit import NSApp, NSApplicationActivationPolicyAccessory
+from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
 SLAB_HOME = Path(os.environ.get("SLAB_HOME", os.path.expanduser("~/.local/share/slab")))
 SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
@@ -148,5 +148,8 @@ class SlabApp(rumps.App):
 if __name__ == "__main__":
     app = SlabApp()
     # Hide from Dock and Cmd-Tab — menu bar item only.
-    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    # sharedApplication() instantiates the singleton; NSApp wrapper is None until then.
+    NSApplication.sharedApplication().setActivationPolicy_(
+        NSApplicationActivationPolicyAccessory
+    )
     app.run()
