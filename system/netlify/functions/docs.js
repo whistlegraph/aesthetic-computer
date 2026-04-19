@@ -3703,6 +3703,11 @@ void draw() {
         examples: ["camera", "camera:under"],
         done: true,
       },
+      carry: {
+        sig: "carry",
+        desc: "Learn base 10 by feel — tap columns, watch ten become one.",
+        done: false,
+      },
       chat: {
         sig: "chat",
         desc: "Chat with handles.",
