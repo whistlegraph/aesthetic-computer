@@ -1,0 +1,240 @@
+% ICCC 2026 Short Paper submission — anonymized
+% Adapted from arxiv-kidlisp/kidlisp.tex (6pp → 4pp)
+% Build: pdflatex kidlisp && bibtex kidlisp && pdflatex kidlisp && pdflatex kidlisp
+
+\documentclass[letterpaper]{article}
+\usepackage{iccc}
+
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{url}
+
+\pdfinfo{
+/Title (KidLisp: A Minimal DSL for Human-Machine Co-Creation of Generative Art)
+/Subject (Proceedings of ICCC)
+/Author (Anonymous)}
+
+% === CODE LISTING ===
+\definecolor{klfn}{RGB}{0,100,140}
+\definecolor{klform}{RGB}{100,40,150}
+\definecolor{klnum}{RGB}{170,0,80}
+\definecolor{klstr}{RGB}{140,100,0}
+\definecolor{klcmt}{RGB}{110,110,110}
+\definecolor{klmath}{RGB}{0,110,0}
+\definecolor{klvar}{RGB}{180,90,0}
+\definecolor{klembed}{RGB}{0,110,0}
+\newcommand{\kn}[1]{\textcolor{klnum}{#1}}
+\newcommand{\kt}[1]{\textcolor{klstr}{#1}}
+\newcommand{\kv}[1]{\textcolor{klvar}{#1}}
+\newcommand{\ke}[1]{\textcolor{klembed}{\textbf{#1}}}
+\newcommand{\km}[1]{\textcolor{klmath}{#1}}
+
+\lstdefinelanguage{kidlisp}{
+  morekeywords=[1]{wipe,ink,line,box,circle,repeat,write,scroll,zoom,spin,blur,embed,layer,width,height,frame,time,wiggle,melody,mic,cube,form,trans,move,scale,random,sin,cos,floor,ceil,abs,sqrt,min,max,hop,paste,def,let,if,once,later,fade},
+  sensitive=true,
+  morecomment=[l]{;},
+  morestring=[b]",
+  escapeinside={|}{|},
+}
+\lstset{
+  language=kidlisp,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=[1]\color{klfn}\bfseries,
+  commentstyle=\color{klcmt}\itshape,
+  stringstyle=\color{klstr},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray!35},
+  backgroundcolor=\color{gray!5},
+  xleftmargin=0.3em,
+  xrightmargin=0.3em,
+  aboveskip=0.3em,
+  belowskip=0.3em,
+}
+
+\title{KidLisp: A Minimal DSL for Human--Machine\\Co-Creation of Generative Art \\
+{\normalsize Paper type: Short Paper}}
+\author{Anonymous Authors}
+\setcounter{secnumdepth}{0}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\begin{quote}
+We describe \textsc{KidLisp}, a minimal Lisp dialect embedded in a browser-based creative computing platform, designed so that humans and large language models (LLMs) produce programs that each can read, modify, and remix. The language exposes 118 domain-specific primitives across 12 categories, has no file I/O, networking, or general string manipulation, and omits user-defined procedures. Every program receives a short alphanumeric code, is stored content-addressed, is executable at a URL, and can be embedded inside other programs as a first-class composition primitive. We report on a deployed corpus of over 16{,}000 programs by 59 authors created over twenty-two months. We argue that the constraints that make \textsc{KidLisp} tractable for novices also make it unusually legible to LLMs, and that the combination of a constrained vocabulary with social-by-default distribution produces co-creative workflows qualitatively different from those supported by general-purpose creative coding environments.
+\end{quote}
+\end{abstract}
+
+\section{Introduction}
+
+Computational creativity research increasingly treats human--machine \emph{co-creation} as a central setting~\cite{kantosalo16,davis15}: a creative system's value depends not only on what it can autonomously produce but on how well it scaffolds a human collaborator's work. Generative language models have made this question newly practical. Anyone with a chat interface can ask an LLM for a Processing sketch or a p5.js program. But two problems recur. First, general-purpose code produced by an LLM is frequently longer than the human collaborator can read, let alone modify. Second, the outputs live in isolated files on isolated machines; the collaboration does not accumulate.
+
+We describe \textsc{KidLisp}, a minimal domain-specific Lisp embedded in \textsc{Aesthetic Computer}, a browser-based creative computing platform. \textsc{KidLisp} starts from a different question than prior creative coding languages: \emph{what is the smallest language that can produce interesting generative art, and does that same minimality make it legible to an LLM?} A complete animated program can be a single line:
+
+\begin{lstlisting}
+(ink |\kt{rainbow}|) (repeat |\kn{100}| |\kv{i}|
+  (circle (wiggle width) (wiggle height) |\kn{10}|))
+\end{lstlisting}
+
+The language ships with 118 primitives, no user-defined procedures, no file I/O, no networking, no general string manipulation, and deterministic rendering seeded from each program's short code. Every program is stored content-addressed in a MongoDB collection, given a short code (e.g.\ \texttt{cow}), executable at \texttt{/\$cow}, and embeddable in another program via the \texttt{\$code} syntax. The platform has accumulated over 16{,}000 programs by 59 authors.
+
+We claim that \textsc{KidLisp}'s constraints---chosen originally to make a language small enough for children to learn through social participation~\cite{resnick2009scratch}---turn out to also make it a good substrate for human--LLM co-authorship: both parties produce programs the other can read.
+
+% ===============================================================
+\section{Language Design}
+
+\textsc{KidLisp} is an S-expression language. Each program is a sequence of expressions evaluated top-to-bottom, producing side effects on a Canvas 2D context, a WebGL context, a Web Audio graph, or some combination thereof.
+
+\subsubsection{Design principles}
+
+\begin{enumerate}
+  \item \textbf{Every expression draws.} Valid \textsc{KidLisp} produces visible output. There is no \texttt{main}, no imports, no boilerplate.
+  \item \textbf{Flat over deep.} Programs compose by \emph{embedding} other programs, not by defining abstractions. This keeps code readable at a glance.
+  \item \textbf{Safe by construction.} No file I/O, no networking, no mutation of external state. Programs are sandboxed by the language's lack of dangerous primitives, so arbitrary user- or LLM-submitted code can execute without review.
+  \item \textbf{Social by default.} Every program gets a short code and a URL. Sharing is the distribution mechanism, not an afterthought.
+\end{enumerate}
+
+\subsubsection{Function categories}
+
+The 118 built-ins span 12 categories (Table~\ref{tab:functions}). Each primitive has a mnemonic name and a small, positional arity.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabularx}{\columnwidth}{lrX}
+\toprule
+\textbf{Category} & \textbf{n} & \textbf{Examples} \\
+\midrule
+Graphics    & 9  & \texttt{wipe, ink, line, box, circle} \\
+Transforms  & 11 & \texttt{scroll, zoom, spin, blur, suck} \\
+Math        & 14 & \texttt{+, sin, cos, random, wiggle} \\
+Colors      & 19 & CSS names + \texttt{rainbow, zebra} \\
+System      & 9  & \texttt{width, height, frame, fps} \\
+3D          & 8  & \texttt{cube, form, trans, move} \\
+Audio       & 6  & \texttt{mic, melody, overtone} \\
+Control     & 7  & \texttt{def, if, repeat, once, later} \\
+Text        & 4  & \texttt{write, type, paste} \\
+Input       & 3  & \texttt{pen, touch} \\
+Composition & 4  & \texttt{embed, layer, fade} \\
+Data        & 4  & \texttt{let, list, get, set} \\
+\midrule
+\textbf{Total} & \textbf{118} & \\
+\bottomrule
+\end{tabularx}
+\caption{\textsc{KidLisp} built-in functions by category.}
+\label{tab:functions}
+\end{table}
+
+\subsubsection{Timing syntax}
+Temporal operators schedule evaluation without explicit loops or callbacks:
+\texttt{2.5s} (after 2.5s), \texttt{1s...} (every second), \texttt{3s!} (once at 3s), \texttt{30f} (after 30 frames). These compose with any expression and form the language's entire animation model.
+
+\subsubsection{Chaos mode} Invalid or random text input triggers artistic visual output rather than error messages. A confidence-scored detector examines word-recognition rate, special-character ratio, and parenthesis balance to classify input as code or chaos; chaotic input produces deterministic visuals seeded from the input. There are, effectively, no error states visible to the user---a design choice that matters for first-time users and is indirectly relevant to LLM output, which may arrive partially malformed.
+
+\subsubsection{What it omits} Recursion, user-defined functions beyond \texttt{def} for named values, string manipulation, file I/O, networking, mutable data structures, exception handling. These omissions are the design. Removing abstraction mechanisms keeps programs flat: a reader understands any program top-to-bottom without tracing a call stack.
+
+% ===============================================================
+\section{Storage, Composition, Distribution}
+
+Each program is stored as a document keyed by a content-addressed SHA-256 hash of its trimmed source and a short, human-meaningful code. The short code is derived from program content---extracting dominant function names, color keywords, or structural patterns---falling back to random generation when all inferred codes are taken. This produces codes like \texttt{cow} for a program with cow-like shapes rather than arbitrary alphanumeric strings.
+
+A single REST endpoint serves the corpus: POST stores a program (deduplicating by hash); GET with a code returns a single program; GET with a comma-separated list returns up to 50 programs for embedded-layer resolution during evaluation; GET with a \texttt{recent} flag paginates a feed; GET with a \texttt{stats=functions} flag returns weighted function-usage counts across the corpus. Authentication is optional with a three-second timeout so anonymous creation is always fast.
+
+\subsubsection{Embedding} The \texttt{\$code} syntax inside a program fetches that program from storage (or cache), evaluates it into an offscreen buffer, and composites the result onto the parent canvas. This creates a directed acyclic composition graph. Users build complex visuals by layering simple programs, not by writing complex single programs.
+
+\begin{lstlisting}
+; A 3D cube grid with two embedded programs
+(wipe |\kt{black}|)
+(def |\kv{n}| |\kn{6}|)
+(repeat (|\km{*}| |\kv{n}| |\kv{n}|) |\kv{i}|
+  (ink (hop |\kn{0.1}| |\kt{rainbow}| |\kt{blue}| |\kt{white}|))
+  (form (trans (cube |\kv{i}|)
+    (move (|\km{*}| (|\km{\%}| |\kv{i}| |\kv{n}|) |\kn{3}|) |\kn{0}| |\kn{-20}|)
+    (scale |\kn{1.5}|) (spin |\kn{0}| |\kn{1}| |\kn{0}|))))
+(|\ke{\$27z}|)
+(|\ke{\$cow}|)
+\end{lstlisting}
+
+In our corpus the maximum observed embedding depth is 7 layers.
+
+% ===============================================================
+\section{Co-Creation with LLMs}
+
+Three properties of the language make it unusually tractable as an LLM output target.
+
+\textbf{Vocabulary is closed and small.} Any generated program draws from a fixed set of 118 primitives. An LLM-generated program with an unknown symbol is immediately flagged; there is no equivalent of silently importing a typo'd library. The constrained surface area also means the full language reference fits comfortably into an LLM's context window with room for examples.
+
+\textbf{Programs are short.} Because abstraction is unavailable, a working program is necessarily under a few dozen lines. A human collaborator can read the entire program end-to-end, change one number, and observe the result. This makes the conversation with an LLM tight: the model proposes, the human edits, the model can re-read the edited program in its next turn without losing context.
+
+\textbf{Output is safe to execute.} Lack of dangerous primitives means code produced by an LLM can be evaluated immediately in the shared browser runtime without trust decisions. The feedback loop from ``LLM produces code'' to ``human sees rendered result'' is one click; no container, no sandbox configuration, no API key.
+
+Together, these turn \textsc{KidLisp} into a shared notation for human--LLM co-creation rather than a language that an LLM writes \emph{for} a user. Users report a characteristic workflow: ask the model for a sketch; trim it; recombine it with an embedded program already in the corpus via \texttt{\$code}; save the result, which itself becomes available as a remixable building block. The corpus then grows as a library of co-authored fragments, indexed by short code.
+
+This workflow aligns with Kantosalo and Toivonen's~\shortcite{kantosalo16} characterization of co-creative systems as those that treat the human and machine as peers in the production of an artifact, and with Davis et al.~\shortcite{davis15}'s argument that the \emph{interaction design} of a co-creative system is as consequential as its generative capacity.
+
+% ===============================================================
+\section{Evaluation}
+
+We report deployment data collected from the live platform.
+
+\begin{table}[h]
+\small
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total programs created            & 16{,}174 \\
+Unique authors                    & 59 \\
+Programs per author (median)      & 12 \\
+Programs per author (top quartile)& 180+ \\
+Max observed embedding depth      & 7 layers \\
+Platform registered users         & 2{,}798 \\
+Evaluator source size (lines)     & 15{,}161 \\
+\bottomrule
+\end{tabular}
+\caption{Adoption metrics, March 2026.}
+\label{tab:adoption}
+\end{table}
+
+\subsubsection{Function usage analytics} The \texttt{?stats=functions} endpoint scans up to 5{,}000 programs sorted by hits, parses each source to extract function calls, and returns counts weighted by program popularity. The most-used functions are \texttt{wipe}, \texttt{ink}, \texttt{repeat}, and \texttt{circle}---confirming that drawing and iteration, rather than the more elaborate transforms and composition primitives, anchor most practice. Boden's~\shortcite{boden92} distinction between \emph{exploratory} and \emph{transformational} creativity is visible in the corpus: most programs sit in the exploratory region (recombinations of common primitives), with rarer transformational work appearing at the embedding frontier, where users compose previously unrelated programs via \texttt{\$code}.
+
+\subsubsection{Observations}
+\textbf{Composition over abstraction.} Users embed rather than abstract. The most-referenced programs are simple visual primitives (gradients, shapes, patterns) that serve as building blocks.
+\textbf{Exploration over engineering.} Programs are typically under ten lines. Users iterate by saving new programs rather than editing existing ones, creating divergent exploration paths visible in the storage timestamps.
+\textbf{Social learning.} The most prolific authors began by viewing and remixing existing programs; the short-code system makes discovery accidental.
+
+Following Ritchie's~\shortcite{ritchie07} empirical criteria, the system exhibits high \emph{quantity} and measurable \emph{novelty}---each short-code-keyed program is, by content-addressed construction, distinct from every other---while \emph{quality} is harder to assess automatically and is left to the social signal of the \texttt{hits} counter.
+
+% ===============================================================
+\section{Related Work}
+
+\textbf{Creative coding.} Processing~\cite{reas2007processing} and p5.js~\cite{mccarthy2015p5js} are the dominant tools; Sonic Pi~\cite{aaron2016sonic} targets live musical coding. All require managing a project structure and a general-purpose language.
+
+\textbf{Live coding and the browser.} Hydra provides browser-based live visual coding via JavaScript method chaining but without persistent corpus or social infrastructure. Strudel~\cite{roos2023strudel} brings TidalCycles-style pattern coding to the browser; like \textsc{KidLisp}, it is installation-free, but it targets rhythmic pattern composition rather than generative visual art.
+
+\textbf{Educational languages.} Scratch~\cite{resnick2009scratch} demonstrated that social sharing drives engagement in educational programming. \textsc{KidLisp} inherits this insight but uses text-based Lisp syntax and deliberately positions LLMs as a first-class peer in authoring.
+
+\textbf{Minimal Lisp implementations.} Van Engelen~\cite{vanengelen2022tinylisp} showed a usable Lisp in 99 lines of C. \textsc{KidLisp}'s evaluator is considerably larger (15{,}161 lines) because the bulk of the code implements drawing, audio, and composition primitives rather than Lisp semantics.
+
+\textbf{Co-creative systems.} Davis et al.~\shortcite{davis15} and Kantosalo and Toivonen~\shortcite{kantosalo16} frame creativity support as a design problem in interaction between human and machine agents; our contribution reads as an argument for minimal DSLs as a particularly tractable substrate for that interaction under modern LLM capabilities.
+
+% ===============================================================
+\section{Conclusion}
+
+A minimal, browser-native, content-addressed DSL supports a productive community of generative-art practitioners and, as a side effect of the same constraints, an unusually tractable human--LLM co-creation loop. The language's 118-primitive vocabulary fits in a model context window; its syntactic flatness keeps programs human-readable end-to-end; its lack of dangerous primitives makes generated code safe to execute without sandboxing decisions. The resulting corpus---over 16{,}000 timestamped, attributed programs with an explicit composition graph---is, in addition to an artwork platform, a dataset for studying how non-expert users and LLMs jointly converge on creative output.
+
+\section{Author Contributions}
+[Anonymised for review.]
+
+\bibliographystyle{iccc}
+\bibliography{kidlisp}
+
+\end{document}
