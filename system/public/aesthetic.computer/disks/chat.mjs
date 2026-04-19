@@ -399,6 +399,24 @@ async function boot(
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
 
+  // Version polling — auto-reload on new deploy (same pattern as dumduel.mjs)
+  (async () => {
+    try {
+      const res = await fetch("/api/version");
+      if (!res.ok) return;
+      const info = await res.json();
+      const current = info.deployed;
+      while (true) {
+        try {
+          const r = await fetch(`/api/version?current=${current}`);
+          if (!r.ok) break;
+          const data = await r.json();
+          if (data.changed !== false) { send?.({ type: "window:reload" }); break; }
+        } catch { break; }
+      }
+    } catch {}
+  })();
+
   // Store dom API reference for YouTube modal
   domApi = dom;
 
