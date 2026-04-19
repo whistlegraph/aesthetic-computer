@@ -1,0 +1,35 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+
+        ;; HTTP server
+        metosin/reitit          {:mvn/version "0.7.2"}
+        metosin/muuntaja        {:mvn/version "0.6.11"}
+        metosin/jsonista        {:mvn/version "0.3.13"}
+        http-kit/http-kit       {:mvn/version "2.8.0"}
+        ring/ring-core          {:mvn/version "1.13.0"}
+
+        ;; Datomic Pro (Apache 2.0)
+        com.datomic/peer        {:mvn/version "1.0.7180"}
+
+        ;; Postgres JDBC driver — required by the peer to read from SQL
+        ;; storage (and to register the driver with DriverManager when
+        ;; the datomic:sql://... URI is parsed).
+        org.postgresql/postgresql {:mvn/version "42.7.4"}
+
+        ;; Logging
+        org.slf4j/slf4j-simple  {:mvn/version "2.0.16"}}
+
+ :aliases
+ {:run  {:main-opts ["-m" "ac.kidlisp.core"]}
+
+  :uberjar {:deps  {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
+            :replace-paths []
+            :replace-deps  {com.github.clj-easy/graal-build-time
+                            {:mvn/version "1.0.5"}}
+            :exec-fn  hf.depstar/uberjar
+            :exec-args {:jar "target/kidlisp-sidecar.jar"
+                        :aot true
+                        :main-class ac.kidlisp.core}}
+
+  :dev  {:extra-deps {nrepl/nrepl {:mvn/version "1.3.0"}}
+         :main-opts  ["-m" "nrepl.cmdline" "--port" "7888"]}}}

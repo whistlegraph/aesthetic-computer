@@ -1,0 +1,24 @@
+[Unit]
+Description=kidlisp-sidecar (Datomic bridge for Aesthetic Computer)
+After=network.target datomic-transactor.service
+Requires=datomic-transactor.service
+
+[Service]
+Type=simple
+User=datomic
+Group=datomic
+WorkingDirectory=/opt/kidlisp-sidecar
+EnvironmentFile=/opt/kidlisp-sidecar/.env
+## Runs directly from the checked-out source via Clojure CLI. Deps are
+## resolved on first start and cached in ~/.m2 for subsequent restarts.
+ExecStart=/usr/local/bin/clojure -J-Xmx256m -J-Xms128m -M -m ac.kidlisp.core
+Environment=HOME=/opt/kidlisp-sidecar
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -7,6 +7,8 @@ import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
+import { kidlispDatomicEnabled } from "../../backend/kidlisp-sidecar.mjs";
+import { handler as datomicHandler } from "./store-kidlisp-datomic.mjs";
 import crypto from 'crypto';
 
 // Feature flag for Tezos integration (disabled by default until integration file exists)
@@ -263,6 +265,12 @@ function extractKeepRecords(doc = {}) {
 }
 
 export async function handler(event, context) {
+  // Feature flag: route to the Datomic-backed implementation when on.
+  // Default off — existing Mongo behavior runs unchanged.
+  if (kidlispDatomicEnabled()) {
+    return datomicHandler(event, context);
+  }
+
   // Log all incoming requests for debugging
   console.log(`📥 Kidlisp store request: ${event.httpMethod} ${event.path || event.rawUrl || 'unknown'}`);
   console.log(`📊 Headers:`, Object.keys(event.headers || {}).length > 0 ? Object.keys(event.headers) : 'none');

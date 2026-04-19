@@ -315,6 +315,7 @@ a:hover { text-decoration: underline; }
     <button class="tab-btn" data-tab="6">feed</button>
     <button class="tab-btn" data-tab="7">telemetry</button>
     <button class="tab-btn" data-tab="8">lith</button>
+    <button class="tab-btn" data-tab="9">datomic</button>
   </div>
 
   <div class="panels">
@@ -625,6 +626,89 @@ a:hover { text-decoration: underline; }
         </div>
       </div>
 
+    </div>
+
+    <!-- datomic panel (read-only admin) -->
+    <div class="panel" data-panel="9">
+      <div class="overview-grid">
+        <div class="card">
+          <div class="card-hd">status <b id="dt-basisT"></b></div>
+          <div class="kv"><span class="k"><span class="dot" id="dt-tx-dot"></span> transactor</span><span class="v" id="dt-tx">-</span></div>
+          <div class="kv"><span class="k">schema</span><span class="v" id="dt-schema-ok">-</span></div>
+          <div class="kv"><span class="k">kidlisp entities</span><span class="v" id="dt-c-kidlisp">-</span></div>
+          <div class="kv"><span class="k">users</span><span class="v" id="dt-c-users">-</span></div>
+          <div class="kv"><span class="k">keeps</span><span class="v" id="dt-c-keeps">-</span></div>
+          <div class="kv"><span class="k">tx (last hour)</span><span class="v" id="dt-tx-hour">-</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hd">backups <span class="bar-dim" style="font-size:10px">pg_dump · 14d retention</span></div>
+          <div id="dt-backups" style="font-size:11px;max-height:200px;overflow-y:auto">loading...</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:4px;padding:4px 6px;border-bottom:1px solid var(--border);margin-top:6px">
+        <button class="sub-tab-btn active" onclick="dtSubTab(this,'dt-schema-panel')">schema</button>
+        <button class="sub-tab-btn" onclick="dtSubTab(this,'dt-entities-panel')">entities</button>
+        <button class="sub-tab-btn" onclick="dtSubTab(this,'dt-txlog-panel')">tx log</button>
+        <button class="sub-tab-btn" onclick="dtSubTab(this,'dt-query-panel')">query</button>
+      </div>
+
+      <div id="dt-schema-panel" class="sub-panel active" style="display:block;padding:6px;overflow-y:auto;max-height:calc(100vh - 380px)">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead><tr style="color:var(--fg2);text-align:left">
+            <th style="padding:2px 6px">ident</th>
+            <th style="padding:2px 6px">type</th>
+            <th style="padding:2px 6px">card</th>
+            <th style="padding:2px 6px">flags</th>
+            <th style="padding:2px 6px">doc</th>
+          </tr></thead>
+          <tbody id="dt-schema-body"></tbody>
+        </table>
+      </div>
+
+      <div id="dt-entities-panel" class="sub-panel" style="display:none;padding:6px;max-height:calc(100vh - 380px);overflow-y:auto">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+          <span class="bar-dim">type:</span>
+          <button class="btn" onclick="dtLoadEntities('kidlisp')">kidlisp</button>
+          <button class="btn" onclick="dtLoadEntities('user')">user</button>
+          <button class="btn" onclick="dtLoadEntities('keep')">keep</button>
+          <span class="bar-dim" id="dt-ent-status" style="margin-left:8px"></span>
+        </div>
+        <div id="dt-entities-list" style="font-size:11px">pick a type</div>
+        <div id="dt-entity-detail" style="margin-top:8px;padding:6px;background:var(--bg);border:1px solid var(--border);display:none">
+          <div class="card-hd">entity <b id="dt-entity-eid"></b>
+            <span class="bar-right">
+              <button class="btn" onclick="dtLoadEntityHistory()">history</button>
+              <button class="btn" onclick="document.getElementById('dt-entity-detail').style.display='none'">close</button>
+            </span>
+          </div>
+          <pre id="dt-entity-body" style="white-space:pre-wrap;font-size:11px;margin:0"></pre>
+        </div>
+      </div>
+
+      <div id="dt-txlog-panel" class="sub-panel" style="display:none;padding:6px;max-height:calc(100vh - 380px);overflow-y:auto">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead><tr style="color:var(--fg2);text-align:left">
+            <th style="padding:2px 6px">tx</th>
+            <th style="padding:2px 6px">at</th>
+          </tr></thead>
+          <tbody id="dt-txlog-body"></tbody>
+        </table>
+      </div>
+
+      <div id="dt-query-panel" class="sub-panel" style="display:none;padding:6px;max-height:calc(100vh - 380px);overflow-y:auto">
+        <div style="font-size:11px;color:var(--fg2);margin-bottom:4px">
+          read-only datalog · timeout 5s · capped 10k rows
+        </div>
+        <textarea id="dt-query-text" rows="6"
+          style="width:100%;font-family:inherit;font-size:11px;background:var(--bg);color:var(--fg);border:1px solid var(--border);padding:4px"
+          placeholder="[:find ?code ?hits :where [?e :kidlisp/code ?code] [?e :kidlisp/hits ?hits]]"></textarea>
+        <div style="margin:4px 0;display:flex;gap:4px;align-items:center">
+          <button class="btn" onclick="dtRunQuery()">run</button>
+          <span class="bar-dim" id="dt-query-status"></span>
+        </div>
+        <pre id="dt-query-result" style="font-size:11px;margin:0;white-space:pre-wrap"></pre>
+      </div>
     </div>
 
   </div>
@@ -2091,6 +2175,167 @@ document.addEventListener('click', e => {
   if (e.target.matches('[data-tab="8"]')) {
     loadLith();
     if (!lithTimer) lithTimer = setInterval(loadLith, 10000);
+  }
+});
+
+// ───────────────────────── datomic tab ─────────────────────────
+let datomicTimer = null;
+let datomicCurrentType = null;
+
+function dtAuth() {
+  return accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {};
+}
+
+async function dtFetch(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { ...dtAuth(), ...(opts.headers || {}) } });
+  if (!r.ok) throw new Error(path + ' → ' + r.status);
+  return r.json();
+}
+
+function dtSubTab(btn, panelId) {
+  const bar = btn.parentElement;
+  bar.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const panel = btn.closest('.panel');
+  panel.querySelectorAll('.sub-panel').forEach(p => { p.style.display = 'none'; });
+  const target = document.getElementById(panelId);
+  if (target) target.style.display = 'block';
+  if (panelId === 'dt-txlog-panel') dtLoadTxLog();
+}
+
+async function loadDatomic() {
+  try {
+    const h = await dtFetch('/api/datomic/health');
+    document.getElementById('dt-tx').textContent = h.transactor ? 'ok' : 'down';
+    document.getElementById('dt-tx').className = 'v ' + (h.transactor ? 'ok' : 'err');
+    document.getElementById('dt-tx-dot').className = 'dot ' + (h.transactor ? 'ok' : 'err');
+    document.getElementById('dt-schema-ok').textContent = h.schema ? 'installed' : 'missing';
+    document.getElementById('dt-basisT').textContent = h.basisT != null ? ('t=' + h.basisT) : '';
+  } catch {
+    document.getElementById('dt-tx').textContent = 'unreachable';
+    document.getElementById('dt-tx').className = 'v err';
+    document.getElementById('dt-tx-dot').className = 'dot err';
+  }
+
+  try {
+    const s = await dtFetch('/api/datomic/stats');
+    document.getElementById('dt-c-kidlisp').textContent = s.entityCounts?.kidlisp ?? 0;
+    document.getElementById('dt-c-users').textContent = s.entityCounts?.users ?? 0;
+    document.getElementById('dt-c-keeps').textContent = s.entityCounts?.keeps ?? 0;
+    document.getElementById('dt-tx-hour').textContent = s.txLastHour ?? 0;
+  } catch {}
+
+  try {
+    const { attributes } = await dtFetch('/api/datomic/schema');
+    document.getElementById('dt-schema-body').innerHTML = attributes.map(a => {
+      const flags = [
+        a.unique && 'unique',
+        a.indexed && 'indexed',
+        a.isComponent && 'component',
+        a.noHistory && 'noHistory',
+      ].filter(Boolean).join(' ');
+      return '<tr><td style="padding:2px 6px">' + (a.ident || '').toString() +
+             '</td><td style="padding:2px 6px;color:var(--fg2)">' + (a.valueType || '').toString().replace(':db.type/', '') +
+             '</td><td style="padding:2px 6px;color:var(--fg2)">' + (a.cardinality || '').toString().replace(':db.cardinality/', '') +
+             '</td><td style="padding:2px 6px;color:var(--fg2)">' + flags +
+             '</td><td style="padding:2px 6px;color:var(--fg2)">' + (a.doc || '').replace(/\n/g, ' ') + '</td></tr>';
+    }).join('');
+  } catch {}
+
+  try {
+    const { backups } = await dtFetch('/api/datomic/backups');
+    const fmt = (n) => (n / 1024 / 1024).toFixed(1) + ' MB';
+    document.getElementById('dt-backups').innerHTML = backups.length
+      ? backups.map(b => '<div style="padding:1px 0"><span>' + b.name +
+          '</span> <span style="color:var(--fg2)">' + fmt(b.size) + ' · ' +
+          new Date(b.at).toLocaleString() + '</span></div>').join('')
+      : '<div style="color:var(--fg2)">no backups yet</div>';
+  } catch {
+    document.getElementById('dt-backups').textContent = 'backups dir not present';
+  }
+}
+
+async function dtLoadEntities(type) {
+  datomicCurrentType = type;
+  document.getElementById('dt-ent-status').textContent = 'loading...';
+  try {
+    const data = await dtFetch('/api/datomic/entities/' + encodeURIComponent(type) + '?limit=100');
+    document.getElementById('dt-ent-status').textContent = data.total + ' total (showing ' + data.items.length + ')';
+    document.getElementById('dt-entities-list').innerHTML = data.items.map(it => {
+      const label = it['kidlisp/code'] || it['user/sub'] || ('keep #' + it['keep/token-id']) || ('eid ' + it['db/id']);
+      return '<div style="padding:2px 0;cursor:pointer;border-bottom:1px solid var(--border)" ' +
+             'onclick="dtShowEntity(' + it['db/id'] + ')">' +
+             '<span style="color:var(--accent)">' + label + '</span> ' +
+             '<span style="color:var(--fg2)">eid ' + it['db/id'] + '</span></div>';
+    }).join('');
+  } catch (err) {
+    document.getElementById('dt-ent-status').textContent = err.message;
+  }
+}
+
+let dtCurrentEid = null;
+async function dtShowEntity(eid) {
+  dtCurrentEid = eid;
+  try {
+    const entity = await dtFetch('/api/datomic/entity/' + eid);
+    document.getElementById('dt-entity-eid').textContent = eid;
+    document.getElementById('dt-entity-body').textContent = JSON.stringify(entity, null, 2);
+    document.getElementById('dt-entity-detail').style.display = 'block';
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function dtLoadEntityHistory() {
+  if (dtCurrentEid == null) return;
+  try {
+    const data = await dtFetch('/api/datomic/entity/' + dtCurrentEid + '/history');
+    document.getElementById('dt-entity-body').textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function dtLoadTxLog() {
+  try {
+    const { transactions } = await dtFetch('/api/datomic/tx-log?limit=100');
+    document.getElementById('dt-txlog-body').innerHTML = transactions.map(t =>
+      '<tr><td style="padding:2px 6px">' + t.tx + '</td>' +
+      '<td style="padding:2px 6px;color:var(--fg2)">' + new Date(t.at).toLocaleString() + '</td></tr>'
+    ).join('');
+  } catch {
+    document.getElementById('dt-txlog-body').innerHTML = '<tr><td colspan="2" style="color:var(--err)">unavailable</td></tr>';
+  }
+}
+
+async function dtRunQuery() {
+  const q = document.getElementById('dt-query-text').value;
+  document.getElementById('dt-query-status').textContent = 'running...';
+  document.getElementById('dt-query-result').textContent = '';
+  try {
+    const r = await fetch('/api/datomic/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...dtAuth() },
+      body: JSON.stringify({ query: q, args: [] }),
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      document.getElementById('dt-query-status').textContent = 'error ' + r.status;
+      document.getElementById('dt-query-result').textContent = JSON.stringify(data, null, 2);
+      return;
+    }
+    document.getElementById('dt-query-status').textContent =
+      data.count + ' rows' + (data.truncated ? ' (truncated)' : '');
+    document.getElementById('dt-query-result').textContent = JSON.stringify(data.rows, null, 2);
+  } catch (err) {
+    document.getElementById('dt-query-status').textContent = err.message;
+  }
+}
+
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-tab="9"]')) {
+    loadDatomic();
+    if (!datomicTimer) datomicTimer = setInterval(loadDatomic, 15000);
   }
 });
 

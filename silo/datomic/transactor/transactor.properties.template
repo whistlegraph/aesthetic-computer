@@ -1,0 +1,37 @@
+## Datomic Pro transactor — silo
+## This file is a TEMPLATE. Values in {{ }} are filled in at deploy time
+## from aesthetic-computer-vault/kidlisp-datomic/transactor.properties.gpg
+## and from postgres.env.gpg.
+
+protocol=sql
+
+host=127.0.0.1
+port=4334
+
+## Storage: local Postgres on silo
+sql-url=jdbc:postgresql://127.0.0.1:5432/datomic
+sql-user={{POSTGRES_USER}}
+sql-password={{POSTGRES_PASSWORD}}
+sql-driver-class=org.postgresql.Driver
+
+## Memory — tuned for silo (3.8GB total, shared with MongoDB + caddy + etc).
+## These sit inside the transactor's -Xmx512m heap.
+memory-index-threshold=16m
+memory-index-max=128m
+object-cache-max=64m
+
+## Write guard: Datomic requires license key for Pro. Apache-2.0 build:
+## leave blank.
+license-key=
+
+## Storage access key — this doubles as the PG username that peers use
+## when connecting directly to storage. Must be a real PG user. We reuse
+## the `datomic` PG user so there's only one credential to manage.
+storage-access-key={{POSTGRES_USER}}
+storage-access-secret={{STORAGE_ACCESS_SECRET}}
+
+## Logs
+log-dir=/var/log/datomic
+
+## Data dir (peer local storage; small)
+data-dir=/var/lib/datomic

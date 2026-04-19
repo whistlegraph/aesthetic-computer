@@ -1,0 +1,6 @@
+## Datomic storage backup — installed to /etc/cron.d/datomic-backup
+## 03:17 UTC daily (off-peak, outside other silo cron windows).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+17 3 * * * postgres /usr/bin/fish /opt/datomic/backup.fish >> /var/log/datomic/backup.log 2>&1

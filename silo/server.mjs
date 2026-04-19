@@ -1322,6 +1322,71 @@ app.get("/api/services/billing", async (req, res) => {
   }
 });
 
+// ─────────────────── Datomic admin (kidlisp sidecar proxy) ───────────────────
+//
+// Dashboard → silo (/api/datomic/*) → sidecar (/admin/*) with admin secret.
+// Sidecar is bound to 127.0.0.1 on silo, so the URL is silo-internal only.
+
+const DATOMIC_SIDECAR_URL = process.env.DATOMIC_SIDECAR_URL || "http://127.0.0.1:8891";
+const DATOMIC_SIDECAR_ADMIN_SECRET = process.env.DATOMIC_SIDECAR_ADMIN_SECRET;
+
+async function datomicProxy(req, res, { method, path, body }) {
+  if (!DATOMIC_SIDECAR_ADMIN_SECRET) {
+    return res.status(503).json({ error: "Datomic sidecar not configured" });
+  }
+  try {
+    const resp = await fetch(`${DATOMIC_SIDECAR_URL}${path}`, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        "x-sidecar-secret": DATOMIC_SIDECAR_ADMIN_SECRET,
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await resp.text();
+    let data;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    res.status(resp.status).json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+}
+
+app.get("/api/datomic/health", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: "/admin/health" }));
+
+app.get("/api/datomic/schema", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: "/admin/schema" }));
+
+app.get("/api/datomic/stats", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: "/admin/stats" }));
+
+app.get("/api/datomic/entities/:type", requireAdmin, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  datomicProxy(req, res, {
+    method: "GET",
+    path: `/admin/entities/${encodeURIComponent(req.params.type)}${qs ? `?${qs}` : ""}`,
+  });
+});
+
+app.get("/api/datomic/entity/:eid", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: `/admin/entity/${encodeURIComponent(req.params.eid)}` }));
+
+app.get("/api/datomic/entity/:eid/history", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: `/admin/entity/${encodeURIComponent(req.params.eid)}/history` }));
+
+app.get("/api/datomic/tx-log", requireAdmin, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  datomicProxy(req, res, { method: "GET", path: `/admin/tx-log${qs ? `?${qs}` : ""}` });
+});
+
+app.post("/api/datomic/query", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "POST", path: "/admin/query", body: req.body }));
+
+app.get("/api/datomic/backups", requireAdmin, (req, res) =>
+  datomicProxy(req, res, { method: "GET", path: "/admin/backups" }));
+
 app.get("/api/firehose/history", async (req, res) => {
   if (!db) return res.json([]);
   const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
