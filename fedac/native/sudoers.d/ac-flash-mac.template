@@ -1,7 +1,8 @@
-# /etc/sudoers.d/ac-flash-mac — passwordless sudo for the macOS USB flasher
-# Lets fedac/native/scripts/flash-mac.sh run end-to-end without prompting
-# on every external-disk operation. Scoped to the precise commands flash-mac
-# needs; nothing else gets passwordless escalation.
+# /etc/sudoers.d/ac-flash-mac — passwordless sudo for the macOS USB flasher.
+# Whitelists fedac/native/scripts/flash-mac.sh as a single unit because it
+# legitimately needs ~10 distinct privileged operations (sgdisk, dd,
+# newfs_msdos, diskutil, mount_msdos, etc.) — granting them piecemeal
+# without drift is fragile. Scoping at the script keeps the surface tight.
 #
 # Install with:
 #   sed "s/__USER__/$USER/g" fedac/native/sudoers.d/ac-flash-mac.template \
@@ -10,18 +11,9 @@
 #     && sudo visudo -cf /etc/sudoers.d/ac-flash-mac
 
 Cmnd_Alias AC_FLASH_USB = \
-    /usr/sbin/diskutil unmountDisk /dev/disk*, \
-    /usr/sbin/diskutil unmountDisk force /dev/disk*, \
-    /usr/sbin/diskutil unmount /dev/disk*, \
-    /usr/sbin/diskutil mount /dev/disk*, \
-    /usr/sbin/diskutil eject /dev/disk*, \
-    /usr/sbin/diskutil partitionDisk /dev/disk* *, \
-    /usr/sbin/diskutil eraseDisk * /dev/disk*, \
-    /opt/homebrew/bin/sgdisk -t * /dev/disk*, \
-    /opt/homebrew/bin/sgdisk -p /dev/disk*, \
-    /sbin/mount_msdos /dev/disk*, \
-    /sbin/mount_msdos /dev/disk* /Volumes/*, \
-    /bin/mkdir -p /Volumes/*, \
-    /usr/bin/tee /Volumes/*/*
+    /Users/__USER__/aesthetic-computer/fedac/native/scripts/flash-mac.sh, \
+    /Users/__USER__/aesthetic-computer/fedac/native/scripts/flash-mac.sh *, \
+    /Users/__USER__/aesthetic-computer/.claude/worktrees/*/fedac/native/scripts/flash-mac.sh, \
+    /Users/__USER__/aesthetic-computer/.claude/worktrees/*/fedac/native/scripts/flash-mac.sh *
 
 __USER__ ALL=(root) NOPASSWD: AC_FLASH_USB
