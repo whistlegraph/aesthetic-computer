@@ -26,11 +26,15 @@ ifeq ($(AUDIO),core)
   AUDIO_SRC := audio_coreaudio.c
   AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
                       -framework CoreAudio -framework CoreFoundation
+else ifeq ($(AUDIO),grand)
+  AUDIO_SRC := audio_musicdevice.c
+  AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
+                      -framework CoreAudio -framework CoreFoundation
 else ifeq ($(AUDIO),sdl)
   AUDIO_SRC := audio_sdl3.c
   AUDIO_FRAMEWORKS :=
 else
-  $(error AUDIO must be 'core' or 'sdl')
+  $(error AUDIO must be 'core', 'grand', or 'sdl')
 endif
 LDFLAGS += $(AUDIO_FRAMEWORKS)
 
@@ -45,12 +49,15 @@ SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
 QJS_OBJS  := $(patsubst %.c,$(BUILD)/qjs-%.o,$(QJS_SRCS))
 
-.PHONY: all clean run app app-run compare install uninstall
+.PHONY: all clean run app app-run compare install uninstall grand grand-install
 
 all: $(TARGET)
 
 # Paths for the .app bundle.
-APP_NAME := Notepat
+# APP_NAME / APP_ID override the label + CFBundleIdentifier, so a second
+# bundle (e.g. "Notepat Grand") can share the same sources.
+APP_NAME ?= Notepat
+APP_ID   ?= computer.aesthetic.notepat
 APP_DIR  := $(BUILD)/$(APP_NAME).app
 PIECE_SRC := ../pieces/notepat.mjs
 LIB_SRC   := ../../../system/public/aesthetic.computer/lib/percussion.mjs
@@ -121,35 +128,36 @@ $(ICON_ICNS): $(ICON_SRC) | $(BUILD)
 	iconutil -c icns -o $(ICON_ICNS) $(ICON_SET_DIR)
 
 app: $(TARGET) $(PIECE_SRC) $(LIB_SRC) Info.plist.in $(SDL3_LIB_SRC) $(ICON_ICNS)
-	rm -rf $(APP_DIR)
-	mkdir -p $(APP_DIR)/Contents/MacOS
-	mkdir -p $(APP_DIR)/Contents/Resources/lib
-	mkdir -p $(APP_DIR)/Contents/Frameworks
-	cp $(TARGET)    $(APP_DIR)/Contents/MacOS/notepat
-	cp $(PIECE_SRC) $(APP_DIR)/Contents/Resources/piece.mjs
-	cp $(LIB_SRC)   $(APP_DIR)/Contents/Resources/lib/percussion.mjs
-	cp $(ICON_ICNS) $(APP_DIR)/Contents/Resources/AppIcon.icns
-	cp Info.plist.in $(APP_DIR)/Contents/Info.plist
-	cp $(SDL3_LIB_SRC) $(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib
-	chmod +w $(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib
+	rm -rf "$(APP_DIR)"
+	mkdir -p "$(APP_DIR)/Contents/MacOS"
+	mkdir -p "$(APP_DIR)/Contents/Resources/lib"
+	mkdir -p "$(APP_DIR)/Contents/Frameworks"
+	cp $(TARGET)    "$(APP_DIR)/Contents/MacOS/notepat"
+	cp $(PIECE_SRC) "$(APP_DIR)/Contents/Resources/piece.mjs"
+	cp $(LIB_SRC)   "$(APP_DIR)/Contents/Resources/lib/percussion.mjs"
+	cp $(ICON_ICNS) "$(APP_DIR)/Contents/Resources/AppIcon.icns"
+	sed -e 's/@@APP_NAME@@/$(APP_NAME)/g' -e 's/@@APP_ID@@/$(APP_ID)/g' \
+	    Info.plist.in > "$(APP_DIR)/Contents/Info.plist"
+	cp $(SDL3_LIB_SRC) "$(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib"
+	chmod +w "$(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib"
 	install_name_tool -id @rpath/libSDL3.0.dylib \
-	    $(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib
+	    "$(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib"
 	install_name_tool -change $(SDL3_LIB_NAME) @rpath/libSDL3.0.dylib \
-	    $(APP_DIR)/Contents/MacOS/notepat
+	    "$(APP_DIR)/Contents/MacOS/notepat"
 	-install_name_tool -delete_rpath /opt/homebrew/lib \
-	    $(APP_DIR)/Contents/MacOS/notepat 2>/dev/null
+	    "$(APP_DIR)/Contents/MacOS/notepat" 2>/dev/null
 	install_name_tool -add_rpath @executable_path/../Frameworks \
-	    $(APP_DIR)/Contents/MacOS/notepat
+	    "$(APP_DIR)/Contents/MacOS/notepat"
 	codesign --force --sign "$(SIGN_IDENTITY)" \
-	    $(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib
+	    "$(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib"
 	codesign --force --options runtime --sign "$(SIGN_IDENTITY)" \
-	    --deep $(APP_DIR)
+	    --deep "$(APP_DIR)"
 	@echo "Bundle: $(APP_DIR)"
 	@echo "--- install names ---"
-	@otool -L $(APP_DIR)/Contents/MacOS/notepat | head -5
+	@otool -L "$(APP_DIR)/Contents/MacOS/notepat" | head -5
 
 app-run: app
-	open $(APP_DIR)
+	open "$(APP_DIR)"
 
 # Copy the signed .app into /Applications (or $(INSTALL_DIR)). Uses ditto
 # instead of cp -R so extended attributes + code signatures survive the
@@ -168,6 +176,15 @@ install: app
 uninstall:
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 	@echo "[uninstall] removed $(INSTALL_DIR)/$(APP_NAME).app"
+
+# "Notepat Grand" — macOS-friendly build using Apple's AUMIDISynth for
+# sampled piano instead of the custom oscillator engine. Same piece code,
+# separate bundle so both versions can coexist. Modeless (plain window).
+grand:
+	$(MAKE) AUDIO=grand APP_NAME="Notepat Grand" APP_ID=computer.aesthetic.notepat.grand app
+
+grand-install:
+	$(MAKE) AUDIO=grand APP_NAME="Notepat Grand" APP_ID=computer.aesthetic.notepat.grand install
 
 clean:
 	rm -rf $(BUILD)
