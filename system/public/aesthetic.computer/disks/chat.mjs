@@ -1801,9 +1801,9 @@ function paint(
     const qrTotalWidth = qrSize > 0 ? qrSize + 6 : 0;
 
     const presenceX = 6 + qrTotalWidth;
-    // Position so bottom of text sits just above the topMargin divider line
+    // Give the counter some padding above the topMargin divider line.
     const matrixChunky8Height = 8;
-    const presenceY = topMargin - matrixChunky8Height - 2;
+    const presenceY = topMargin - matrixChunky8Height - 6;
 
     const onlineFgColor = theme?.timestamp || 160;
     const tickerLeftEdge = screen.width - 230; // Reserve space for News/r8Dio
@@ -4674,7 +4674,7 @@ function paintNewsTicker($, theme) {
   // Ticker dimensions - SINGLE ROW. Width auto-expands to fill space
   // between the HUD label and the right edge.
   const tickerRight = screen.width - rightMargin;
-  const tickerY = 2; // Row Y position
+  const tickerY = 6; // Row Y position (top padding)
   const totalTickerHeight = tickerHeight + 4; // Row + padding
 
   // Use dynamic news text (fetched from API or fallback)
@@ -4789,10 +4789,11 @@ function paintR8dioPlayer($, theme) {
   const uniformLabelWidth = 28;
 
   // Match news ticker height so we can sit directly beneath it without overlap.
-  // News ticker total height = tickerHeight + 4 = 12, drawn from y=0.
+  // News ticker total height = tickerHeight + 4 = 12, drawn from y=newsTopPad.
+  const newsTopPad = 4; // keep in sync with paintNewsTicker tickerY (= 2 + newsTopPad)
   const newsTotalHeight = tickerHeight + 4;
   const tickerRight = screen.width - rightMargin;
-  const tickerY = newsTotalHeight + 4; // 4px gap below news ticker
+  const tickerY = newsTopPad + newsTotalHeight + 4; // 4px gap below news ticker
 
   // Calculate HUD label right edge to avoid overlap (same as news ticker)
   const hudLabelOffset = 6;
