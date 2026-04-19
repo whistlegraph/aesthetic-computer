@@ -403,6 +403,27 @@ int main(int argc, char **argv) {
             }
             else if (ev.type == SDL_EVENT_KEY_DOWN) {
                 if (ev.key.key == SDLK_ESCAPE) { running = 0; continue; }
+                // Cmd+= / Cmd+- live-adjust pixel density (zoom in/out).
+                // Cmd+0 resets to 1 (web-AC parity). Absorbed — piece never
+                // sees these keypresses.
+                if (ev.key.mod & SDL_KMOD_GUI) {
+                    int ch = 0;
+                    if (ev.key.key == SDLK_EQUALS || ev.key.key == SDLK_PLUS) ch = +1;
+                    else if (ev.key.key == SDLK_MINUS)                       ch = -1;
+                    else if (ev.key.key == SDLK_0)                           ch = 100;  // reset
+                    if (ch) {
+                        int new_d = (ch == 100) ? 1 : rctx.density + ch;
+                        if (new_d < 1) new_d = 1;
+                        if (new_d > 8) new_d = 8;
+                        if (new_d != rctx.density) {
+                            rctx.density = new_d;
+                            fprintf(stderr, "[density] %d\n", rctx.density);
+                            maybe_reframe(&rctx);
+                            render_frame(&rctx);
+                        }
+                        continue;
+                    }
+                }
                 PieceEvent pe = {0};
                 sdl_key_name(ev.key.key, pe.key, sizeof(pe.key));
                 snprintf(pe.type, sizeof(pe.type), "keyboard:down:%s", pe.key);
