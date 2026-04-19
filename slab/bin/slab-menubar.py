@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-"""Menu bar + transparent fullscreen HUD for the slab daemon.
+"""Menu bar status item for the slab daemon.
 
-Polls lid/sleep/state every 2s and reflects status both in the menu bar
-title and in a click-through full-screen overlay that hugs the top-right
-corner of the screen (the rest of the overlay is fully transparent so the
-desktop shows through).
+Polls lid/sleep/state every 2s and reflects status in the menu bar title.
 
 Menu bar icon legend:
     ◦   idle — no Claude prompts or subagents in flight
@@ -16,20 +13,7 @@ import subprocess
 from pathlib import Path
 
 import rumps
-from AppKit import (
-    NSBackingStoreBuffered,
-    NSColor,
-    NSFont,
-    NSScreen,
-    NSTextField,
-    NSWindow,
-    NSWindowCollectionBehaviorCanJoinAllSpaces,
-    NSWindowCollectionBehaviorStationary,
-    NSWindowStyleMaskBorderless,
-    NSStatusWindowLevel,
-    NSTextAlignmentRight,
-)
-from Foundation import NSMakeRect
+from AppKit import NSApp, NSApplicationActivationPolicyAccessory
 
 SLAB_HOME = Path(os.environ.get("SLAB_HOME", os.path.expanduser("~/.local/share/slab")))
 SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
@@ -80,59 +64,6 @@ def ambient_running() -> bool:
     return AMBIENT_FLAG.exists()
 
 
-class Overlay:
-    """Full-screen, chromeless, click-through HUD.
-
-    Background is fully transparent — only the small status label in the
-    top-right corner is drawn. Sits at status-window level so it stays
-    above normal app windows but out of the way of full-screen apps.
-    """
-    def __init__(self):
-        screen = NSScreen.mainScreen()
-        frame = screen.frame()
-
-        self.window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-            frame, NSWindowStyleMaskBorderless, NSBackingStoreBuffered, False
-        )
-        self.window.setBackgroundColor_(NSColor.clearColor())
-        self.window.setOpaque_(False)
-        self.window.setHasShadow_(False)
-        self.window.setLevel_(NSStatusWindowLevel)
-        self.window.setIgnoresMouseEvents_(True)
-        self.window.setCollectionBehavior_(
-            NSWindowCollectionBehaviorCanJoinAllSpaces
-            | NSWindowCollectionBehaviorStationary
-        )
-
-        label = NSTextField.alloc().init()
-        label.setBezeled_(False)
-        label.setDrawsBackground_(False)
-        label.setEditable_(False)
-        label.setSelectable_(False)
-        label.setFont_(NSFont.monospacedSystemFontOfSize_weight_(14, 0))
-        label.setAlignment_(NSTextAlignmentRight)
-        label.setTextColor_(NSColor.colorWithWhite_alpha_(1.0, 0.45))
-        label.setStringValue_("slab")
-
-        w, h = 320, 22
-        margin = 18
-        label.setFrame_(NSMakeRect(
-            frame.size.width - w - margin,
-            frame.size.height - h - margin - 24,  # extra margin for notch/menu bar
-            w, h,
-        ))
-        self.window.contentView().addSubview_(label)
-        self.label = label
-
-        self.window.orderFrontRegardless()
-
-    def update(self, text: str, accent: bool = False):
-        self.label.setStringValue_(text)
-        # Brighten the label when ambient is playing for gentle emphasis.
-        alpha = 0.85 if accent else 0.45
-        self.label.setTextColor_(NSColor.colorWithWhite_alpha_(1.0, alpha))
-
-
 class SlabApp(rumps.App):
     def __init__(self):
         super().__init__("slab", title="◦", quit_button=None)
@@ -142,8 +73,6 @@ class SlabApp(rumps.App):
         self.awake_item = rumps.MenuItem(
             "Stay awake (lid closed)", callback=self.toggle_awake
         )
-        self.hud_item = rumps.MenuItem("Show desktop HUD", callback=self.toggle_hud)
-        self.hud_item.state = 1
 
         self.menu = [
             self.status_item,
@@ -154,14 +83,12 @@ class SlabApp(rumps.App):
             self.awake_item,
             rumps.MenuItem("Sleep now", callback=self.sleep_now),
             None,
-            self.hud_item,
             rumps.MenuItem("Open daemon log", callback=self.open_log),
             rumps.MenuItem("Open sounds folder", callback=self.open_sounds),
             None,
             rumps.MenuItem("Reload daemon", callback=self.reload_daemon),
             rumps.MenuItem("Quit menu bar", callback=self.quit_app),
         ]
-        self.overlay = Overlay()
         self.refresh(None)
 
     @rumps.timer(2)
@@ -194,22 +121,12 @@ class SlabApp(rumps.App):
         self.subs_item.title = f"Subagents in flight: {subs}"
         self.awake_item.state = 1 if sd else 0
 
-        hud_text = f"slab  {icon}  {status}"
-        self.overlay.update(hud_text, accent=amb)
-
     def toggle_awake(self, sender):
         cmd = "auto" if sender.state else "awake"
         subprocess.run([str(SLAB_BIN / "claude-sleep"), cmd], check=False)
 
     def sleep_now(self, _):
         subprocess.run([str(SLAB_BIN / "claude-sleep"), "now"], check=False)
-
-    def toggle_hud(self, sender):
-        sender.state = 0 if sender.state else 1
-        if sender.state:
-            self.overlay.window.orderFrontRegardless()
-        else:
-            self.overlay.window.orderOut_(None)
 
     def open_log(self, _):
         subprocess.run(["open", "-a", "Console", str(LID_LOG)], check=False)
@@ -229,4 +146,7 @@ class SlabApp(rumps.App):
 
 
 if __name__ == "__main__":
-    SlabApp().run()
+    app = SlabApp()
+    # Hide from Dock and Cmd-Tab — menu bar item only.
+    NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    app.run()

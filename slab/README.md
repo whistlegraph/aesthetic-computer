@@ -89,7 +89,7 @@ slab/
 │   ├── lid-reactive.py                  # mic → pluck-arp synth (Python)
 │   ├── lid-ambient-generate.py          # generate ambient.wav
 │   ├── lid-return-generate.py           # generate lid-return.wav (smooth descending arp)
-│   ├── slab-menubar.py                  # rumps menu bar + transparent full-screen HUD
+│   ├── slab-menubar.py                  # rumps menu bar status item (no Dock icon)
 │   ├── claude-sleep                     # sleep-state toggle
 │   ├── claude-stop.sh                   # Stop-hook entry (prompts + subagents aware)
 │   ├── claude-prompt-log.sh             # UserPromptSubmit hook (touches active-prompts marker)
