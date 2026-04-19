@@ -276,7 +276,13 @@ int main(int argc, char **argv) {
     // reads as blurry. With it on, nearest-neighbor stays nearest-neighbor
     // all the way through to the pixel.
     int fullscreen = getenv("AC_FULLSCREEN") != NULL;
-    int overlay    = getenv("AC_OVERLAY")    != NULL;
+    // Grand build defaults overlay on; AC_OVERLAY=0 forces it off.
+    int overlay = 0;
+#ifdef AC_GRAND
+    overlay = 1;
+#endif
+    const char *ov_env = getenv("AC_OVERLAY");
+    if (ov_env) overlay = (atoi(ov_env) != 0);
     Uint32 win_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (fullscreen) win_flags |= SDL_WINDOW_FULLSCREEN;
     if (overlay) {
@@ -303,7 +309,7 @@ int main(int argc, char **argv) {
     if (latency_runs < 0) latency_runs = 0;
     SDL_SetRenderVSync(ren, latency_runs > 0 ? 0 : 1);
     fprintf(stderr, "[macos] renderer: %s (%s)\n", SDL_GetRendererName(ren),
-            fullscreen ? "fullscreen" : "windowed");
+            fullscreen ? "fullscreen" : (overlay ? "overlay" : "windowed"));
 
     // Pixel density: AC_DENSITY overrides. Higher = smaller framebuffer
     // (chunkier pixels), lower = more framebuffer resolution.
