@@ -14,7 +14,9 @@ SDL3_CFLAGS := $(shell pkg-config --cflags sdl3)
 SDL3_LIBS   := $(shell pkg-config --libs sdl3)
 
 CFLAGS  := -O2 -Wall -Wextra -std=gnu11 -I. -I../src -I$(QJSDIR) $(SDL3_CFLAGS)
-LDFLAGS := $(SDL3_LIBS) -lm
+# Carbon is needed for RegisterEventHotKey (global hotkey). ApplicationServices
+# + Cocoa come along for free but don't need explicit listing on clang/macOS.
+LDFLAGS := $(SDL3_LIBS) -lm -framework Carbon
 
 # Audio backend: AUDIO=core (default) uses a direct CoreAudio AudioUnit;
 # AUDIO=sdl uses SDL3's audio stream. Built from separate .c files that

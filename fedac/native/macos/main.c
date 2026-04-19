@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <mach-o/dyld.h>
+#include <Carbon/Carbon.h>
 
 #include "piece.h"
 #include "audio.h"
@@ -140,6 +141,101 @@ static const char *detect_bundle(char *piece_buf, size_t piece_sz,
     return NULL;
 }
 
+// ── Overlay mode helpers ────────────────────────────────────────────────────
+
+// Cmd-drag moves the borderless overlay window. Hit test runs every mouse
+// move to decide whether the click belongs to the app or the window manager.
+static SDL_HitTestResult SDLCALL hit_test_cmd_drag(SDL_Window *win,
+                                                   const SDL_Point *pt,
+                                                   void *data) {
+    (void)win; (void)pt; (void)data;
+    SDL_Keymod mod = SDL_GetModState();
+    if (mod & SDL_KMOD_GUI) return SDL_HITTEST_DRAGGABLE;
+    return SDL_HITTEST_NORMAL;
+}
+
+// Build a small RGBA surface for the tray icon. 22×22 fits the macOS menu
+// bar comfortably. Pattern mirrors the app icon — yellow "N" on teal.
+static SDL_Surface *make_tray_icon_surface(void) {
+    const int W = 22, H = 22;
+    SDL_Surface *s = SDL_CreateSurface(W, H, SDL_PIXELFORMAT_RGBA32);
+    if (!s) return NULL;
+    uint32_t *px = (uint32_t *)s->pixels;
+    const uint32_t BG = (255u << 24) | (110u << 16) | (90u << 8) | 45u;   // R G B A... careful
+    // RGBA32 ordering depends on platform — use SDL's packer.
+    SDL_PixelFormat fmt = s->format;
+    const SDL_PixelFormatDetails *d = SDL_GetPixelFormatDetails(fmt);
+    uint32_t bg = SDL_MapRGBA(d, NULL, 45, 90, 110, 255);
+    uint32_t fg = SDL_MapRGBA(d, NULL, 255, 210, 90, 255);
+    uint32_t tp = SDL_MapRGBA(d, NULL, 0, 0, 0, 0);
+    (void)BG;
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+            int idx = y * W + x;
+            // Rounded corner mask
+            int in_corner = 0;
+            int cr = 4;
+            if ((x < cr && y < cr)) { int dx = cr-x-1, dy = cr-y-1; if (dx*dx+dy*dy > cr*cr) in_corner = 1; }
+            if ((x >= W-cr && y < cr)) { int dx = x-(W-cr), dy = cr-y-1; if (dx*dx+dy*dy >= cr*cr) in_corner = 1; }
+            if ((x < cr && y >= H-cr)) { int dx = cr-x-1, dy = y-(H-cr); if (dx*dx+dy*dy >= cr*cr) in_corner = 1; }
+            if ((x >= W-cr && y >= H-cr)) { int dx = x-(W-cr), dy = y-(H-cr); if (dx*dx+dy*dy >= cr*cr) in_corner = 1; }
+            if (in_corner) { px[idx] = tp; continue; }
+            // Simple "N" — bars at cols 4 and 15, diagonal between.
+            int is_n = 0;
+            if ((x >= 4 && x <= 6 && y >= 4 && y <= 17) ||
+                (x >= 15 && x <= 17 && y >= 4 && y <= 17)) is_n = 1;
+            // diagonal: from (4,4)→(17,17) with width 2
+            if (!is_n && y >= 4 && y <= 17) {
+                int target = 4 + (y - 4) * 13 / 13;
+                if (x >= target + 2 && x <= target + 4) is_n = 1;
+            }
+            px[idx] = is_n ? fg : bg;
+        }
+    }
+    return s;
+}
+
+// Flags the tray / hotkey callbacks write; the main loop polls them.
+static volatile int g_toggle_visible = 0;
+static volatile int g_quit_requested = 0;
+
+static void SDLCALL tray_show_hide(void *ud, SDL_TrayEntry *entry) {
+    (void)ud; (void)entry;
+    g_toggle_visible = 1;
+}
+static void SDLCALL tray_quit(void *ud, SDL_TrayEntry *entry) {
+    (void)ud; (void)entry;
+    g_quit_requested = 1;
+}
+
+static OSStatus hotkey_cb(EventHandlerCallRef href, EventRef ev, void *ud) {
+    (void)href; (void)ev; (void)ud;
+    g_toggle_visible = 1;
+    return noErr;
+}
+
+// Register a system-wide hotkey via Carbon. Doesn't need accessibility
+// permission for this path — the app just has to be a foreground bundle.
+// keyCode is the Carbon virtual key; modifiers are the Carbon flags.
+static EventHotKeyRef g_hotkey = NULL;
+static EventHandlerRef g_hotkey_handler = NULL;
+static int install_global_hotkey(void) {
+    EventTypeSpec spec = { kEventClassKeyboard, kEventHotKeyPressed };
+    InstallEventHandler(GetEventDispatcherTarget(), (EventHandlerUPP)hotkey_cb,
+                        1, &spec, NULL, &g_hotkey_handler);
+    EventHotKeyID id = { .signature = 'ntpt', .id = 1 };
+    // kVK_ANSI_N = 0x2D. Modifiers: cmdKey | optionKey | controlKey.
+    OSStatus s = RegisterEventHotKey(0x2D,
+                                     cmdKey | optionKey | controlKey,
+                                     id, GetEventDispatcherTarget(), 0, &g_hotkey);
+    return s == noErr ? 0 : -1;
+}
+static void uninstall_global_hotkey(void) {
+    if (g_hotkey) UnregisterEventHotKey(g_hotkey);
+    if (g_hotkey_handler) RemoveEventHandler(g_hotkey_handler);
+    g_hotkey = NULL; g_hotkey_handler = NULL;
+}
+
 int main(int argc, char **argv) {
     // --test-tone: exercise the audio engine only; no window, no piece.
     // Plays a 440 Hz sine for ~1s and prints the peak output sample. Useful
@@ -180,13 +276,24 @@ int main(int argc, char **argv) {
     // reads as blurry. With it on, nearest-neighbor stays nearest-neighbor
     // all the way through to the pixel.
     int fullscreen = getenv("AC_FULLSCREEN") != NULL;
+    int overlay    = getenv("AC_OVERLAY")    != NULL;
     Uint32 win_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     if (fullscreen) win_flags |= SDL_WINDOW_FULLSCREEN;
+    if (overlay) {
+        // Borderless + transparent so the piece can draw on the desktop;
+        // always-on-top pins it above other windows (HUD feel). Cmd+drag
+        // to reposition — the hit test below routes those clicks to the
+        // window server rather than the piece.
+        win_flags |= SDL_WINDOW_TRANSPARENT
+                   | SDL_WINDOW_BORDERLESS
+                   | SDL_WINDOW_ALWAYS_ON_TOP;
+    }
 
     SDL_Window *win = SDL_CreateWindow("Notepat",
                                        INITIAL_WIN_W, INITIAL_WIN_H,
                                        win_flags);
     if (!win) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
+    if (overlay) SDL_SetWindowHitTest(win, hit_test_cmd_drag, NULL);
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
@@ -227,6 +334,13 @@ int main(int argc, char **argv) {
                                          SDL_TEXTUREACCESS_STREAMING, fb_w, fb_h);
     if (!tex) { fprintf(stderr, "SDL_CreateTexture: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);
+    if (overlay) {
+        // Texture alpha blends over the transparent window; renderer clear
+        // must use alpha=0 so areas the piece wiped stay see-through.
+        SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(ren, 0, 0, 0, 0);
+    }
 
     PieceFB fb = {
         .pixels = calloc((size_t)fb_w * fb_h, sizeof(uint32_t)),
@@ -246,7 +360,33 @@ int main(int argc, char **argv) {
     // Make sure the piece sees the real initial dimensions (may differ from
     // piece_load defaults if the window grew during creation on some WMs).
     piece_reframe(pc, fb.width, fb.height);
+    if (overlay) piece_set_overlay(pc, 1);
     piece_boot(pc);
+
+    // Menu-bar tray: Show/Hide and Quit entries. Callbacks flip flags the
+    // main loop polls. Tray creation may fail on headless runs; we ignore
+    // the error since it's not essential.
+    SDL_Tray *tray = NULL;
+    SDL_Surface *tray_icon = make_tray_icon_surface();
+    if (tray_icon) {
+        tray = SDL_CreateTray(tray_icon, "Notepat");
+        SDL_DestroySurface(tray_icon);
+        if (tray) {
+            SDL_TrayMenu *menu = SDL_CreateTrayMenu(tray);
+            SDL_TrayEntry *e_show = SDL_InsertTrayEntryAt(menu, -1, "Show / Hide Notepat", SDL_TRAYENTRY_BUTTON);
+            SDL_InsertTrayEntryAt(menu, -1, NULL, SDL_TRAYENTRY_BUTTON);  // separator
+            SDL_TrayEntry *e_quit = SDL_InsertTrayEntryAt(menu, -1, "Quit", SDL_TRAYENTRY_BUTTON);
+            SDL_SetTrayEntryCallback(e_show, tray_show_hide, NULL);
+            SDL_SetTrayEntryCallback(e_quit, tray_quit, NULL);
+        }
+    }
+
+    // Global hotkey: Ctrl+Alt+Cmd+N toggles window visibility system-wide.
+    if (install_global_hotkey() == 0) {
+        fprintf(stderr, "[hotkey] Ctrl+Alt+Cmd+N registered\n");
+    } else {
+        fprintf(stderr, "[hotkey] register failed (another app may own the combo)\n");
+    }
 
     RenderCtx rctx = { .win = win, .ren = ren, .tex = &tex, .fb = &fb,
                        .pc = pc, .density = density };
@@ -356,7 +496,15 @@ int main(int argc, char **argv) {
     Uint64 start_tick = SDL_GetTicks();
 
     int running = 1;
+    int hidden = 0;
     while (running) {
+        if (g_quit_requested) { running = 0; break; }
+        if (g_toggle_visible) {
+            g_toggle_visible = 0;
+            hidden = !hidden;
+            if (hidden) SDL_HideWindow(win);
+            else { SDL_ShowWindow(win); SDL_RaiseWindow(win); }
+        }
         if (headless_ms > 0 && (int)(SDL_GetTicks() - start_tick) >= headless_ms) {
             running = 0;
             break;
@@ -453,6 +601,8 @@ int main(int argc, char **argv) {
     }
 
     SDL_RemoveEventWatch(resize_watch, &rctx);
+    uninstall_global_hotkey();
+    if (tray) SDL_DestroyTray(tray);
 
     piece_destroy(pc);
     free(fb.pixels);

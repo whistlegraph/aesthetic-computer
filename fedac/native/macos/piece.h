@@ -42,6 +42,12 @@ void piece_reframe(PieceCtx *ctx, int w, int h);
 struct Audio;
 struct Audio *piece_audio(PieceCtx *ctx);
 
+// Toggle transparent-overlay rendering. When on, the piece's `wipe(...)`
+// fills the framebuffer with alpha=0 (keeps RGB for debug but makes the
+// pixels see-through when composited onto a transparent window). Ink and
+// subsequent draws remain opaque.
+void piece_set_overlay(PieceCtx *ctx, int on);
+
 // Teardown.
 void piece_destroy(PieceCtx *ctx);
 
