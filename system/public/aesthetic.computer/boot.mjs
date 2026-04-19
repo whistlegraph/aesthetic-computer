@@ -242,11 +242,21 @@ function bootLog(message) {
 
 // Hide the boot log overlay (called when boot completes)
 let bootLogHidden = false;
+let hideBootLogFirstCall = 0;
+const HIDE_BOOT_MAX_WAIT_MS = 8000; // cap motd wait so boot can never stall forever
 function hideBootLog() {
   if (bootLogHidden) return;
+  if (!hideBootLogFirstCall) hideBootLogFirstCall = performance.now();
+  // Wait for the motd to finish revealing before jumping off the boot screen
+  const waited = performance.now() - hideBootLogFirstCall;
+  const bc = window.acBootCanvas;
+  if (waited < HIDE_BOOT_MAX_WAIT_MS && bc?.motd && bc?.motdComplete === false) {
+    setTimeout(hideBootLog, 100);
+    return;
+  }
   bootLogHidden = true;
-  if (window.acBootCanvas?.hide) {
-    window.acBootCanvas.hide();
+  if (bc?.hide) {
+    bc.hide();
   }
   const elapsedTotal = Math.round(performance.now() - bootStartTime);
   bootTelemetry.complete({
