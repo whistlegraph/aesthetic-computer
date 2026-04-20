@@ -387,9 +387,21 @@ static int create_dumb_buffer(ACDisplay *d, int idx) {
 ACDisplay *drm_init(void) {
     extern void ac_log(const char *fmt, ...);
     ac_log("[drm] drm_init() start\n");
-    ACDisplay *sdl = sdl_init();
-    if (sdl) return sdl;
-    ac_log("[drm] SDL3 failed, falling back to DRM dumb buffers\n");
+    // SDL3 is now opt-in (was always-attempt with crash-recovery). The
+    // dlopen + Mesa DRI load + SDL_Init + window/renderer creation take
+    // 100s-of-ms even on cached cold-boot, with no measurable visual
+    // benefit on the supported hardware. Skip it unless AC_USE_SDL=1
+    // explicitly. Going straight to DRM dumb buffers shaves real time
+    // off boot and removes a class of partial-init "garbled char" bugs
+    // that surface when SDL3 starts but Mesa's GLES context doesn't.
+    const char *use_sdl = getenv("AC_USE_SDL");
+    if (use_sdl && use_sdl[0] == '1') {
+        ACDisplay *sdl = sdl_init();
+        if (sdl) return sdl;
+        ac_log("[drm] SDL3 failed, falling back to DRM dumb buffers\n");
+    } else {
+        ac_log("[drm] SDL3 path skipped (set AC_USE_SDL=1 to enable)\n");
+    }
 
     ACDisplay *d = calloc(1, sizeof(ACDisplay));
     if (!d) { ac_log("[drm] calloc failed\n"); return NULL; }
