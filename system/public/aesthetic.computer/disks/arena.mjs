@@ -187,11 +187,15 @@ function onSnap(snap) {
   }
   const seen = new Set();
   for (const p of blobs) {
-    if (p.h === myHandle) {
+    const isMe = p.h === myHandle;
+    if (isMe) {
       myServerState = p;
       myServerStateMs = snap.serverMs;
       myServerAckCmdMs = typeof snap.ackCmdMs === "number" ? snap.ackCmdMs : myServerAckCmdMs;
-      continue;
+      // While spectating, our "me" entry is being driven by another tab —
+      // render it as just another remote stick figure so we can watch.
+      // Otherwise skip (cam-doll is already drawing us locally).
+      if (!netSpectator) continue;
     }
     seen.add(p.h);
     let o = others[p.h];
@@ -210,6 +214,8 @@ function onSnap(snap) {
     });
     while (o.buffer.length > 32) o.buffer.shift();
   }
+  // If we just left spectator mode, drop the self entry we had been tracking.
+  if (!netSpectator && others[myHandle]) delete others[myHandle];
   // Prune others not in this snap for >2s (graceful drop).
   for (const h of Object.keys(others)) {
     if (seen.has(h)) continue;
@@ -1805,17 +1811,20 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     if (!phys.onGround) activeShadow = shadowAir;
     else if (phys.crouch > 0.5) activeShadow = shadowCrouch;
   }
-  // Only draw ground-anchored shadow/plumb while on solid ground.
+  // Only draw ground-anchored shadow/plumb while on solid ground AND we're
+  // playing (spectators are flying around without a body — no shadow).
   const onSolidGround = phys?.onGround;
-  if (activeShadow && onSolidGround) ink(255, 255, 255).form(activeShadow);
-  if (plumbLine && onSolidGround && plumbLine.scale[1] > 0.05) {
-    ink(255, 255, 255).form(plumbLine);
-  }
-  // Feet + arms render regardless of ground state (they fall with you).
-  // Dropped entirely in LOW perf mode — wireframes are nice-to-have.
-  if (!perfLowMode) {
-    if (bodyFeet) ink(255).form(bodyFeet);
-    if (bodyArms) ink(255).form(bodyArms);
+  if (!netSpectator) {
+    if (activeShadow && onSolidGround) ink(255, 255, 255).form(activeShadow);
+    if (plumbLine && onSolidGround && plumbLine.scale[1] > 0.05) {
+      ink(255, 255, 255).form(plumbLine);
+    }
+    // Feet + arms render regardless of ground state (they fall with you).
+    // Dropped entirely in LOW perf mode — wireframes are nice-to-have.
+    if (!perfLowMode) {
+      if (bodyFeet) ink(255).form(bodyFeet);
+      if (bodyArms) ink(255).form(bodyArms);
+    }
   }
 
   // 🏟️ Remote players (interpolated from server snapshots, rendered ~100ms behind).
@@ -2342,5 +2351,11 @@ function initMobileButtons(screen, ui) {
   };
 }
 
+// 🏟️ Lifecycle: tell the server we're leaving so our player record is
+// deleted immediately instead of waiting for the 30s stale sweep.
+function leave() {
+  try { netServer?.send("arena:bye", { handle: myHandle }); } catch {}
+}
+
 export const system = "fps";
-export { boot, sim, paint, act };
+export { boot, sim, paint, act, leave };
