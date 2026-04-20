@@ -312,7 +312,7 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
+printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s","udpMidiBroadcast":true}\n' \
     "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
 
 # Build merged wifi_creds.json (presets + preserved + optional override)
