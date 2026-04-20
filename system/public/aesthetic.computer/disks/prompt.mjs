@@ -184,6 +184,7 @@ let login, // A login button in the center of the display.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
   commitBtn, // Commit hash button (navigates to commits piece)
+  notepatBtn, // 🎹 Notepat button (to the right of the commit button)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
 let giveBtn; // GIVE button (top-right slot)
@@ -5924,11 +5925,54 @@ function paint($) {
                   [20, 25, 30, 128]
                 ];
         commitBtn.paint($, colors);
+
+        // 🎹 Notepat shortcut button — sits to the right of the commit button.
+        // Two leading spaces reserve room for the piano icon we draw afterward.
+        const notepatLabel = "  notepat";
+        const notepatX = cBox.x + cBox.w + 4;
+        if (!notepatBtn) {
+          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: notepatX, y: buttonY });
+        } else {
+          notepatBtn.reposition({ x: notepatX, y: buttonY }, notepatLabel);
+          notepatBtn.btn.disabled = false;
+        }
+        const nBox = notepatBtn.btn.box;
+        const nHover = notepatBtn.btn.over && !notepatBtn.btn.down;
+        const notepatColors = nHover
+          ? [
+              [50, 30, 55, 180],   // fill: brighter plum on hover
+              [130, 80, 150, 200], // outline: pink/purple
+              235,                 // text alpha
+              [50, 30, 55, 180],
+            ]
+          : [
+              [28, 20, 34, 150],   // fill: dark plum
+              [90, 60, 110, 160],  // outline: muted purple
+              220,                 // text alpha
+              [28, 20, 34, 150],
+            ];
+        notepatBtn.paint($, notepatColors);
+
+        // Tiny 7×5 piano icon drawn over the leading whitespace of the label.
+        const ix = nBox.x + 3;
+        const iy = nBox.y + 3;
+        // White keys base
+        $.ink(225, 225, 232).box(ix, iy, 7, 5, "fill");
+        // Key dividers
+        $.ink(40, 30, 50).line(ix + 2, iy + 2, ix + 2, iy + 4);
+        $.ink(40, 30, 50).line(ix + 4, iy + 2, ix + 4, iy + 4);
+        // Two black keys on top
+        $.ink(30, 20, 40).box(ix + 1, iy, 2, 3, "fill");
+        $.ink(30, 20, 40).box(ix + 4, iy, 2, 3, "fill");
+        // Frame
+        $.ink(notepatColors[1]).box(ix - 1, iy - 1, 9, 7, "outline");
       }
       versionCommit = versionInfo.deployed;
     } else {
       if (commitBtn) commitBtn.btn.disabled = true;
       commitBtn = null;
+      if (notepatBtn) notepatBtn.btn.disabled = true;
+      notepatBtn = null;
       versionCommit = null;
     }
 
@@ -7446,6 +7490,7 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (profile?.btn.disabled === false && profile?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       isOverMotdHandle)
@@ -7459,6 +7504,7 @@ function act({
     ((login?.btn.disabled === false && login?.btn.box.contains(e)) ||
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
+      (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
@@ -7547,6 +7593,18 @@ function act({
         } else {
           jump("commits");
         }
+      },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // 🎹 Notepat button - quick jump to notepat
+  if (notepatBtn && !notepatBtn.btn.disabled) {
+    notepatBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("notepat");
       },
       cancel: () => cancelSound(),
     });
