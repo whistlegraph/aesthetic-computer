@@ -365,6 +365,16 @@ let wifiPassword = "";
 let wifiPasswordMode = false;  // true = fullscreen password entry
 let shiftHeld = false;
 
+// Analog keyboard (NuPhy Hall-Effect) detection. When a note-on event
+// arrives with an analog pressure value (0 < p < 1) that isn't the
+// default 1.0 stamped onto digital keypresses, we flag the session as
+// "analog". Rendered as a `nuphy` badge in the status bar so the user
+// knows velocity-sensitive play is active; stays sticky for 60 seconds
+// after the last analog press so a momentary digital press (e.g. the
+// laptop's built-in keyboard) doesn't flicker the badge off.
+let lastAnalogKeyAt = 0;      // syncedNow() ms; 0 = never seen analog
+let lastAnalogPressure = 0;   // last analog press value, for the debug gauge
+
 // AC chat: latest message fetched after WiFi connects
 let acMsg = null;            // { from, text } once loaded
 let lastSpokenMsgKey = "";   // "from:text" of last TTS'd message (avoid repeats on reconnect)
@@ -1840,6 +1850,9 @@ function rememberSound(key, entry, system, velocity = 1) {
   if (!entry) return;
   entry.midiNote = noteToMidiNumber(entry.note, entry.octave);
   entry.midiChannel = 0;
+  // Stash the captured velocity on the entry so sim() can blend it with
+  // live pressure (55% velocity + 45% smoothed pressure).
+  entry.velocity = velocity;
   sounds[key] = entry;
   // While Enter is held, auto-latch new notes into heldKeys so they
   // sustain on key-up. Otherwise notes release normally.
@@ -2464,6 +2477,14 @@ function act({ event: e, sound, wifi, system }) {
     // If this key is currently recording in per-key mode, suppress playback
     if (perKeyRecording === key) return;
     if (noteName && !sounds[key]) {
+      // NuPhy detection: analog pressure arrives as a float strictly between
+      // 0 and 1 (digital keys get the default 1.0 stamped on). Refresh the
+      // "last analog keypress" timestamp whenever we see one so the status
+      // bar badge + pressure-diagram overlay stay live.
+      if (e.pressure > 0 && e.pressure < 0.999) {
+        lastAnalogKeyAt = syncedNow();
+        lastAnalogPressure = e.pressure;
+      }
       const [letter, offset] = parseNote(noteName);
       // Map parseNote offset to per-side octave: offset<=0 = left grid, offset>=1 = right grid
       const sideOctaveAdj = offset >= 1 ? rightOctaveOffset : leftOctaveOffset;
@@ -3325,8 +3346,54 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   // either the QR or the text jumps to prompt.
   globalThis.__npBtn = { x: 0, w: labelX + labelW, h: topBarH };
 
+  // NuPhy badge + live sensor gauge. Active when we've seen an analog
+  // pressure value in the last 60 seconds. The gauge is two stacked
+  // horizontal bars:
+  //   top:    raw last-pressed value (fades with age)
+  //   bottom: per-key-sum of currently-smoothed pressure (live jiggle)
+  // Gives a quick visual of the sensor input + our smoothing headroom.
+  const analogAgeMs = syncedNow() - lastAnalogKeyAt;
+  if (lastAnalogKeyAt > 0 && analogAgeMs < 60000) {
+    const badgeX = dotComX + 4 * 4 + 6;
+    // Label
+    ink(160, 220, 255, 220);
+    write("nuphy", { x: badgeX, y: barY, size: 1, font: "matrix" });
+    // Live smoothed-pressure sum across active analog notes
+    let liveSmooth = 0, liveCount = 0;
+    for (const k of Object.keys(sounds)) {
+      const s = sounds[k];
+      if (s && s.__pSmooth !== undefined) {
+        liveSmooth = Math.max(liveSmooth, s.__pSmooth);
+        liveCount++;
+      }
+    }
+    const gx = badgeX + 5 * 4 + 3;
+    const gw = 26;
+    const gy1 = 2, gy2 = 6; // two rows of 3px tall bars inside the 26px bar
+    // Fade the "last press" bar with age over 2 seconds so repeated
+    // presses refresh it visibly; leaves a faint echo of the last hit.
+    const echoAlpha = Math.max(0, 1.0 - analogAgeMs / 2000) * 255;
+    // Bar frames
+    ink(60, 60, 80, 160);
+    box(gx, gy1, gw, 3, true);
+    box(gx, gy2, gw, 3, true);
+    // Bar fills
+    ink(140, 200, 255, echoAlpha);
+    box(gx, gy1, Math.round(gw * lastAnalogPressure), 3, true);
+    ink(80, 220, 140, 220);
+    box(gx, gy2, Math.round(gw * liveSmooth), 3, true);
+    // Tolerance marks (thresholds we care about: 0.1 + 0.7)
+    ink(200, 150, 60, 180);
+    box(gx + Math.round(gw * 0.10), gy1, 1, 7, true);
+    ink(200, 80, 80, 180);
+    box(gx + Math.round(gw * 0.70), gy1, 1, 7, true);
+  }
+
   // Status area after notepat.com — auto-update indicator only (minimal)
   let statusX = dotComX + 4 * 4 + 6;
+  // Shift statusX past the nuphy gauge when it's visible so indicators
+  // don't overlap.
+  if (lastAnalogKeyAt > 0 && analogAgeMs < 60000) statusX += 5 * 4 + 3 + 26 + 4;
   const statusWrite = (text, r, g, b, a = 255) => {
     if (!text) return false;
     const width = text.length * 4;
@@ -5407,18 +5474,43 @@ function sim({ pressures, sound }) {
   // Continuously update synth volumes from analog key pressure AND from
   // the current per-side master volume so dragging the L/R master sliders
   // live-adjusts sustained notes on that side.
+  //
+  // Pop mitigation: raw NuPhy pressure samples can jump between polls
+  // (HE keyboards sample at driver-specific rates and report discrete
+  // ADC steps). Writing those jumps straight to synth.update() caused
+  // audible clicks on sustained tones like `sine`. Instead we:
+  //
+  //   1. Capture velocity ONCE at key-down (entry.velocity) — sets the
+  //      note's baseline loudness based on press impact.
+  //   2. Smooth the pressure-to-volume mapping with a one-pole lowpass
+  //      (α ≈ 0.2, ~80ms time constant) so per-frame jumps glide
+  //      instead of snapping. Keeps the expressive wobble that real
+  //      pressure-sensitive play needs, drops the pops.
+  //   3. Blend: `vol = 0.55·velocity + 0.45·smoothed_pressure` — the
+  //      initial hit energy dominates, live pressure just modulates.
+  //   4. Only push synth.update() when the new smoothed value has
+  //      moved meaningfully (>0.5%) — avoids flooding the audio thread.
+  const PRESSURE_ALPHA = 0.20;
   for (const key of Object.keys(sounds)) {
     const entry = sounds[key];
     if (!entry?.synth) continue;
     const master = entry.gridOffset === 1 ? rightMasterVol : leftMasterVol;
     const p = pressures?.[key]; // 0.0-1.0 analog pressure, undefined if not analog
     if (p !== undefined) {
-      const vol = p * 0.7 * master; // Linear: 0 pressure = silence, full press × master
-      if (entry.__lastVol !== vol) {
+      // Smoothed pressure (lowpassed to remove ADC-step pops)
+      const prevSmooth = entry.__pSmooth ?? p;
+      const pSmooth = prevSmooth + (p - prevSmooth) * PRESSURE_ALPHA;
+      entry.__pSmooth = pSmooth;
+      // Velocity captured at key-down (falls back to baseVol default).
+      const velocity = entry.velocity ?? 1.0;
+      // 55% velocity baseline + 45% smoothed-pressure wobble, scaled by
+      // master. Full-press at velocity=1 + master=1 = 1.0 peak.
+      const vol = (velocity * 0.55 + pSmooth * 0.45) * master;
+      if (entry.__lastVol === undefined || Math.abs(entry.__lastVol - vol) > 0.005) {
         entry.synth.update({ volume: vol });
         entry.__lastVol = vol;
       }
-      if (trail[key]) trail[key].brightness = p;
+      if (trail[key]) trail[key].brightness = pSmooth;
     } else {
       // Digital key — only react to master volume changes, not pressure.
       if (entry.__lastMaster !== master) {
