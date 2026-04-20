@@ -9,7 +9,427 @@
   - [x] Large pre-tessellated ground plane
   - [x] Speed meter HUD + FPS counter
   - [x] Gravity + space-to-jump + shift-to-crouch (Quake-style)
+  - [x] Multiuser: WS+UDP wiring to session-server/arena-manager.mjs
 #endregion */
+
+// ---------------------------------------------------------------------------
+// 🏟️ Multiuser networking (Q3-style: server-authoritative, UDP cmds + snaps).
+// See plans/arena-multiplayer.md §5 for the full design.
+// ---------------------------------------------------------------------------
+
+import { BTN, packCmd, pmove } from "../lib/pmove.mjs";
+
+let myHandle = "guest";
+let netServer = null;       // WebSocket (reliable)
+let netUdp = null;          // geckos.io channel (unreliable, low-latency)
+let netSendFn = null;
+let netConnectedAt = 0;
+
+let nextCmdSeq = 0;         // monotonic per-cmd seq (implicit on wire via firstSeq)
+let lastSnapAck = 0;        // highest server messageNum we've seen
+let serverClockOffset = 0;  // add to Date.now() → server time estimate
+let lastPingSent = 0;
+let ping = 0;
+
+const CMD_RATE = 60;        // cmd sends per sec
+const CMD_BACKUP = 3;       // how many past cmds to include in each packet
+const SNAP_INTERP_MS = 100; // render remotes this far in the past
+const pendingCmds = [];     // unacked cmds [{ seq, cmd }], oldest first
+const cmdOutbox = [];       // last CMD_BACKUP cmds only (wire-level backup window)
+
+// Soft reconciliation tuning.
+const RECONCILE_SNAP_THRESHOLD = 0.75;  // > this = hard snap
+const RECONCILE_SOFT_K = 0.2;           // lerp factor toward predicted/frame
+const RECONCILE_DEAD_ZONE = 0.05;        // < this = ignore (no correction noise)
+
+// Arena world cfg — MUST match ARENA_CFG in session-server/arena-manager.mjs.
+// Duplicated (not imported) because lib code shouldn't depend on server code.
+const ARENA_CFG = Object.freeze({
+  runSpeed: 10, walkSpeed: 5, jumpVelocity: 8, gravity: 50,
+  groundY: -1.5, eyeHeight: 2.0, crouchEyeHeight: 1.2, crouchLerp: 0.25,
+  groundBounds: { xMin: -14, xMax: 14, zMin: -14, zMax: 14 },
+  deathFloorY: -30, deathFloorClearance: 0.3,
+  simHz: 60, hVelDecay: 0.9,
+});
+
+// Remote players (everyone except me)
+const others = {};          // handle -> { buffer: [{serverMs,x,y,z,yaw,...}], bodyFeet, bodyArms }
+
+// M9: delta-snapshot bases. messageNum -> players[] (as reconstructed).
+const snapBases = new Map();
+const SNAP_BASE_RING = 32;
+function rememberBase(messageNum, playersArr) {
+  snapBases.set(messageNum, playersArr);
+  // Prune oldest when over ring budget.
+  if (snapBases.size > SNAP_BASE_RING) {
+    const oldest = Math.min(...snapBases.keys());
+    snapBases.delete(oldest);
+  }
+}
+function applyDelta(base, delta, removed) {
+  // Start from a copy of base by handle, then overlay delta entries.
+  const byH = new Map();
+  for (const p of base) byH.set(p.h, { ...p });
+  for (const d of delta) {
+    if (d.__new) { byH.set(d.h, { ...d.__new }); continue; }
+    const keys = Object.keys(d);
+    if (keys.length === 1) continue; // { h } only → unchanged
+    const cur = byH.get(d.h);
+    if (!cur) { byH.set(d.h, { ...d }); continue; }
+    for (const k of keys) if (k !== "h") cur[k] = d[k];
+  }
+  if (removed?.length) for (const h of removed) byH.delete(h);
+  return [...byH.values()];
+}
+
+// My own server-authoritative state (from snaps) — used for soft correction.
+let myServerState = null;
+let myServerStateMs = 0;
+let myServerAckCmdMs = 0;
+// Cam reference captured in netSim; used by reconciler on snap arrival.
+let reconCamRef = null;
+let reconCorrectionMs = 0; // monotonic debug counter for HUD
+
+// Tunables exposed on screen.
+let netStats = {
+  snapsRx: 0,
+  cmdsTx: 0,
+  lastSnapMs: 0,
+  lastCmdMs: 0,
+};
+
+// Key input state captured for usercmd composition. Hooked into the
+// existing keyboardState that arena already tracks for button highlights.
+const netInput = {
+  fwd: 0, right: 0,
+  jumping: false, crouching: false,
+};
+
+function currentButtons() {
+  let b = 0;
+  if (netInput.jumping)  b |= BTN.JUMP;
+  if (netInput.crouching) b |= BTN.CROUCH;
+  return b;
+}
+
+function enqueueCmd(cam) {
+  if (!cam) return;
+  const ms = Date.now() - netConnectedAt;
+  const cmd = packCmd({
+    ms,
+    fwd: netInput.fwd,
+    right: netInput.right,
+    yaw: cam.rotY,
+    pitch: cam.rotX,
+    buttons: currentButtons(),
+  });
+  const seq = ++nextCmdSeq;
+  pendingCmds.push({ seq, cmd });
+  cmdOutbox.push({ seq, cmd });
+  while (cmdOutbox.length > CMD_BACKUP) cmdOutbox.shift();
+  // Cap pending queue defensively (at 60Hz cmd rate + 1s RTT ceiling ≈ 60).
+  while (pendingCmds.length > 120) pendingCmds.shift();
+}
+
+function flushCmds() {
+  if (cmdOutbox.length === 0) return;
+  const frame = {
+    handle: myHandle,
+    firstSeq: cmdOutbox[0].seq,
+    ack: lastSnapAck,
+    cmds: cmdOutbox.map((e) => e.cmd),
+  };
+  if (netUdp?.connected) netUdp.send("arena:cmd", frame);
+  else netServer?.send("arena:cmd", frame);
+  netStats.cmdsTx++;
+  netStats.lastCmdMs = Date.now();
+}
+
+function onSnap(snap) {
+  netStats.snapsRx++;
+  netStats.lastSnapMs = Date.now();
+  if (snap.messageNum > lastSnapAck) lastSnapAck = snap.messageNum;
+
+  // Clock sync (simple: use the freshest server time as the offset anchor).
+  // Real impl should min-filter + smooth; this is enough for interp.
+  const localMs = Date.now();
+  serverClockOffset = snap.serverMs - (localMs - netConnectedAt);
+
+  // M10: drop cmds the server has acked (seq-based; firstSeq implicit).
+  if (typeof snap.ackCmdSeq === "number") {
+    while (pendingCmds.length && pendingCmds[0].seq <= snap.ackCmdSeq) {
+      pendingCmds.shift();
+    }
+  }
+
+  // M9: reconstruct full player list from either full or delta snap.
+  let blobs;
+  if (snap.deltaNum && snap.delta) {
+    const base = snapBases.get(snap.deltaNum);
+    if (!base) {
+      // Base expired / never saw it. Server will send a full snap on the
+      // next tick because our ack will re-anchor. Skip this one.
+      return;
+    }
+    blobs = applyDelta(base, snap.delta, snap.removed);
+  } else {
+    blobs = snap.players || [];
+  }
+  // Commit as a base for future delta decoding.
+  if (typeof snap.messageNum === "number" && snap.messageNum > 0) {
+    rememberBase(snap.messageNum, blobs);
+  }
+  const seen = new Set();
+  for (const p of blobs) {
+    if (p.h === myHandle) {
+      myServerState = p;
+      myServerStateMs = snap.serverMs;
+      myServerAckCmdMs = typeof snap.ackCmdMs === "number" ? snap.ackCmdMs : myServerAckCmdMs;
+      continue;
+    }
+    seen.add(p.h);
+    let o = others[p.h];
+    if (!o) {
+      o = others[p.h] = { buffer: [], bodyFeet: null, bodyArms: null, lastSeenMs: snap.serverMs };
+    }
+    o.lastSeenMs = snap.serverMs;
+    // Append to interpolation buffer (keep ~500ms of history).
+    o.buffer.push({
+      ms: snap.serverMs,
+      x: p.x, y: p.y, z: p.z,
+      yaw: p.yaw, pitch: p.pitch,
+      crouchT: p.c,
+      onGround: !!p.g,
+      alive: !!p.a,
+    });
+    while (o.buffer.length > 32) o.buffer.shift();
+  }
+  // Prune others not in this snap for >2s (graceful drop).
+  for (const h of Object.keys(others)) {
+    if (seen.has(h)) continue;
+    if (snap.serverMs - others[h].lastSeenMs > 2000) delete others[h];
+  }
+
+  // M7: client-side prediction reconciliation.
+  reconcileLocal();
+}
+
+// Starting from the server's authoritative state for me, replay every
+// still-unacked cmd → this is where the server WILL arrive once the rest
+// of our in-flight cmds reach it. Compare to cam-doll's current local
+// position; if divergent, soft-correct (small drift) or snap (big desync).
+function reconcileLocal() {
+  if (!myServerState || !reconCamRef) return;
+  const cam = reconCamRef;
+
+  // Build a pmove-compatible state from the wire blob.
+  let predicted = {
+    x: myServerState.x, y: myServerState.y, z: myServerState.z,
+    vx: myServerState.vx || 0, vy: myServerState.vy || 0, vz: myServerState.vz || 0,
+    yaw: myServerState.yaw || 0, pitch: myServerState.pitch || 0,
+    crouchT: myServerState.c || 0,
+    onGround: !!myServerState.g,
+    frozen: false,
+    alive: !!myServerState.a,
+  };
+
+  // Replay each pending cmd in order, using its ms delta for dt. The "base
+  // ms" for the first pending cmd is the server's last-applied cmd ms.
+  let prevMs = myServerAckCmdMs;
+  for (const { cmd } of pendingCmds) {
+    const dt = prevMs > 0 ? Math.min((cmd.ms - prevMs) / 1000, 0.25) : 1 / 60;
+    predicted = pmove(predicted, { ...cmd, dt }, ARENA_CFG);
+    prevMs = cmd.ms;
+  }
+
+  // Compare cam-doll's current world position to predicted.
+  //   cam.x/y/z store negated world coords (see cam-doll.mjs).
+  const localX = -cam.x, localY = -cam.y, localZ = -cam.z;
+  const dx = predicted.x - localX;
+  const dy = predicted.y - localY;
+  const dz = predicted.z - localZ;
+  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+  if (dist < RECONCILE_DEAD_ZONE) return; // within float-noise → ignore.
+
+  if (dist > RECONCILE_SNAP_THRESHOLD) {
+    // Large desync (teleport / forced respawn / long stall) — hard snap.
+    cam.x = -predicted.x;
+    cam.y = -predicted.y;
+    cam.z = -predicted.z;
+    reconCorrectionMs++;
+    return;
+  }
+
+  // Small drift — blend cam toward predicted over ~5 frames.
+  cam.x += -dx * RECONCILE_SOFT_K;
+  cam.y += -dy * RECONCILE_SOFT_K;
+  cam.z += -dz * RECONCILE_SOFT_K;
+  reconCorrectionMs++;
+}
+
+function netBoot({ net, handle, send }) {
+  netSendFn = send;
+  myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
+  netConnectedAt = Date.now();
+  if (!net) return;
+
+  const { socket, udp } = net;
+
+  netUdp = udp?.((type, content) => {
+    if (type !== "arena:snap") return;
+    const s = typeof content === "string" ? JSON.parse(content) : content;
+    onSnap(s);
+  });
+
+  netServer = socket?.((id, type, content) => {
+    if (type.startsWith("connected")) {
+      netServer.send("arena:hello", { handle: myHandle });
+      return;
+    }
+    const msg = typeof content === "string" ? JSON.parse(content) : content;
+    if (type === "arena:welcome") {
+      console.log(`🏟️  welcome → ${msg.you}, ${msg.roster?.length ?? 0} already in`);
+      return;
+    }
+    if (type === "arena:snap") { onSnap(msg); return; }          // WS fallback
+    if (type === "arena:join") {
+      if (msg.handle !== myHandle && !others[msg.handle]) {
+        others[msg.handle] = { buffer: [], bodyFeet: null, bodyArms: null, lastSeenMs: Date.now() };
+      }
+      return;
+    }
+    if (type === "arena:leave") { delete others[msg.handle]; return; }
+    if (type === "arena:pong") { ping = Date.now() - msg.ts; return; }
+  });
+}
+
+function netSim(cam) {
+  reconCamRef = cam; // kept across frames so reconcileLocal can correct.
+  // Poll input state → usercmd each sim tick (120 Hz). Send at CMD_RATE.
+  // (arena.mjs already has `keyboardState` + `gamepadState` that we mirror.)
+  // pmove convention: fwd=+1 moves along facing (forward), right=+1 strafes right.
+  netInput.fwd   = (keyboardState.w || keyboardState.arrowup)    ?  1
+                  : (keyboardState.s || keyboardState.arrowdown) ? -1 : 0;
+  netInput.right = (keyboardState.d || keyboardState.arrowright) ?  1
+                  : (keyboardState.a || keyboardState.arrowleft) ? -1 : 0;
+  // Gamepad left-stick: stick-up (gy<0) is forward, stick-right (gx>0) is strafe right.
+  if (gamepadState.connected) {
+    const gx = gamepadState.axes[0] || 0, gy = gamepadState.axes[1] || 0;
+    if (Math.abs(gx) > 0.3) netInput.right = gx > 0 ?  1 : -1;
+    if (Math.abs(gy) > 0.3) netInput.fwd   = gy > 0 ? -1 :  1;
+  }
+  netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0];
+  netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1];
+
+  enqueueCmd(cam);
+  // Throttle outbound packets to CMD_RATE (= every Nth 120Hz tick).
+  if (!netSim._acc) netSim._acc = 0;
+  netSim._acc++;
+  if (netSim._acc >= 120 / CMD_RATE) { netSim._acc = 0; flushCmds(); }
+
+  // Periodic ping for latency HUD.
+  if (Date.now() - lastPingSent > 2000) {
+    lastPingSent = Date.now();
+    netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
+  }
+}
+
+function renderTimeNow() {
+  return (Date.now() - netConnectedAt) + serverClockOffset - SNAP_INTERP_MS;
+}
+
+function sampleOther(o, t) {
+  const buf = o.buffer;
+  if (buf.length === 0) return null;
+  if (t <= buf[0].ms) return buf[0];
+  if (t >= buf[buf.length - 1].ms) return buf[buf.length - 1]; // freeze on starve
+  // Find bracketing entries.
+  for (let i = 0; i < buf.length - 1; i++) {
+    const a = buf[i], b = buf[i + 1];
+    if (t >= a.ms && t <= b.ms) {
+      const k = (t - a.ms) / Math.max(1, b.ms - a.ms);
+      return {
+        x: a.x + (b.x - a.x) * k,
+        y: a.y + (b.y - a.y) * k,
+        z: a.z + (b.z - a.z) * k,
+        yaw: lerpAngle(a.yaw, b.yaw, k),
+        pitch: a.pitch + (b.pitch - a.pitch) * k,
+        crouchT: a.crouchT + (b.crouchT - a.crouchT) * k,
+        onGround: b.onGround,
+        alive: b.alive,
+      };
+    }
+  }
+  return buf[buf.length - 1];
+}
+
+function lerpAngle(a, b, k) {
+  let d = ((b - a + 540) % 360) - 180; // shortest arc
+  return a + d * k;
+}
+
+// Build a small humanoid stick-figure as a single line Form. Cheap to clone
+// per remote (handful of verts) and matches the arena's visual language.
+function buildRemoteBody(Form, colorRGB) {
+  const [r, g, b] = colorRGB;
+  const col = [r / 255, g / 255, b / 255, 0.9];
+  const colDim = [r / 255, g / 255, b / 255, 0.5];
+  const head = 0.3, shoulder = -0.4, hip = -1.1, foot = -2.0;
+  // coords are (x, y, z, w); y is "up" in the form's local space.
+  const pts = [
+    // spine
+    [0,  head,    0, 1], [0, hip,    0, 1],
+    // shoulders
+    [-0.35, shoulder, 0, 1], [0.35, shoulder, 0, 1],
+    // arms (slightly forward)
+    [-0.35, shoulder, 0, 1], [-0.45, -0.9, 0.25, 1],
+    [ 0.35, shoulder, 0, 1], [ 0.45, -0.9, 0.25, 1],
+    // hips → feet
+    [-0.18, hip, 0, 1], [-0.18, foot, 0, 1],
+    [ 0.18, hip, 0, 1], [ 0.18, foot, 0, 1],
+  ];
+  const cols = [col, col, col, col, col, colDim, col, colDim, col, col, col, col];
+  const f = new Form({ type: "line", positions: pts, colors: cols },
+                     { pos: [0, 0, 0], rot: [0, 0, 0], scale: 1 });
+  f.noFade = true;
+  return f;
+}
+
+// Deterministic per-handle color so remotes are distinguishable at a glance.
+function handleColor(handle) {
+  let h = 0; for (let i = 0; i < handle.length; i++) h = (h * 31 + handle.charCodeAt(i)) | 0;
+  const hue = (h >>> 0) % 360;
+  // HSL→RGB (s=0.7, l=0.6)
+  const c = 0.7 * 0.6 * 2, x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = 0.6 - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (hue < 60)       [r, g, b] = [c, x, 0];
+  else if (hue < 120) [r, g, b] = [x, c, 0];
+  else if (hue < 180) [r, g, b] = [0, c, x];
+  else if (hue < 240) [r, g, b] = [0, x, c];
+  else if (hue < 300) [r, g, b] = [x, 0, c];
+  else                [r, g, b] = [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+// Called from paint() once per frame.
+function paintRemotes(ink, form, Form) {
+  const t = renderTimeNow();
+  for (const [handle, o] of Object.entries(others)) {
+    const sample = sampleOther(o, t);
+    if (!sample) continue;
+    if (!o.body) o.body = buildRemoteBody(Form, handleColor(handle));
+    // Mirror local body positioning: Form.position uses (-x, y, -z).
+    o.body.position[0] = -sample.x;
+    o.body.position[1] = sample.y;
+    o.body.position[2] = -sample.z;
+    o.body.rotation[1] = sample.yaw;
+    ink(255).form(o.body);
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 
 let groundPlane;
@@ -290,7 +710,7 @@ function fogColor(base, distSq) {
   ];
 }
 
-function boot({ Form, penLock, system, screen, ui, api, painting }) {
+function boot({ Form, penLock, system, screen, ui, api, painting, net, handle, send }) {
   penLock();
   FormRef = Form;
   paintingRef = painting;
@@ -298,6 +718,9 @@ function boot({ Form, penLock, system, screen, ui, api, painting }) {
   const cam = system?.fps?.doll?.cam;
   if (cam) { prevX = cam.x; prevY = cam.y; prevZ = cam.z; }
   lastFrameTime = performance.now();
+
+  // 🏟️ Multiplayer: open WS + UDP, send arena:hello.
+  netBoot({ net, handle, send });
 
   // 🎯 Set initial cursor style
   if (api?.cursor) {
@@ -939,6 +1362,9 @@ function sim({ system, pen, screen }) {
   // time sees the fresh value.
   simTime += 1 / SIM_HZ;
 
+  // 🏟️ Multiplayer: compose usercmd, batch & flush at CMD_RATE.
+  netSim(cam);
+
   // 📱 Update mobile button states
   if (mobileButtons && doll) {
     for (const [name, btnData] of Object.entries(mobileButtons)) {
@@ -1302,6 +1728,9 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     if (bodyArms) ink(255).form(bodyArms);
   }
 
+  // 🏟️ Remote players (interpolated from server snapshots, rendered ~100ms behind).
+  paintRemotes(ink, undefined, FormRef);
+
   // --- HUD (top-right) ---
   const font = "MatrixChunky8";
   const margin = 4;
@@ -1324,6 +1753,24 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   ink(150, 200, 255);
   rightLabel(`FOV ${FOV}`, margin + lineH * 2);
   rightLabel(`RUN ${RUN_SPEED.toFixed(1)}u/s`, margin + lineH * 3);
+
+  // 🏟️ Net — ping, snap rx, cmd tx, peer count. Under the "AIR/GROUND" row.
+  {
+    const wsOk = !!netServer;
+    const udpOk = !!netUdp?.connected;
+    const nowMs = Date.now();
+    const snapAgeMs = netStats.lastSnapMs ? nowMs - netStats.lastSnapMs : Infinity;
+    const color = !wsOk ? [200, 80, 80]
+                : udpOk ? (snapAgeMs < 500 ? [120, 230, 120] : [230, 200, 80])
+                : [200, 180, 80];
+    ink(...color);
+    rightLabel(`${udpOk ? "UDP" : wsOk ? "WS" : "--"} ${ping}ms`, margin + lineH * 6);
+    ink(160, 160, 180);
+    rightLabel(`rx ${netStats.snapsRx}  tx ${netStats.cmdsTx}`, margin + lineH * 7);
+    const peers = Object.keys(others).length;
+    ink(peers > 0 ? [180, 230, 180] : [130, 130, 130]);
+    rightLabel(`peers ${peers}`, margin + lineH * 8);
+  }
 
   // 🏃 Current speed — colored by how close to max.
   const upsNow = speedSmoothed * SIM_HZ;

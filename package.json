@@ -86,6 +86,8 @@
     "session:reset": "f() { cd session-server; npx jamsocket backend terminate $1 };f",
     "session:alive": "cd session-server; npx jamsocket backend list",
     "session:publish": "fish aesthetic-computer-vault/session-server/deploy.fish",
+    "arena:probe": "node session-server/arena-probe.mjs",
+    "arena:probe:local": "node session-server/arena-probe.mjs --url ws://localhost:8889",
     "server:session": "cd session-server; npm run dev",
     "server:session:build": "cd session-server; npm run build:jamsocket",
     "server:session:deploy": "cd session-server; npm run deploy",

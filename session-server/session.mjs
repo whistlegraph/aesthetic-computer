@@ -167,10 +167,13 @@ chatManager.setPresenceResolver(getHandlesOnPiece);
 
 // 🎯 Duel Manager — server-authoritative game for dumduel piece
 const duelManager = new DuelManager();
+// 🏟️  Arena Manager — Q3-style server-authoritative multiplayer for arena piece
+const arenaManager = new ArenaManager();
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
+import { ArenaManager } from "./arena-manager.mjs"; // Server-authoritative arena game.
 
 // *** AC Machines — remote device monitoring ***
 // Devices connect via /machines?role=device&machineId=X&token=Y
@@ -2869,6 +2872,29 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
+      // 🏟️ Arena messages — routed to ArenaManager (server-authoritative)
+      if (msg.type === "arena:hello") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) arenaManager.playerJoin(parsed.handle, id, { probe: !!parsed.probe });
+        return;
+      }
+      if (msg.type === "arena:bye") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) arenaManager.playerLeave(parsed.handle);
+        return;
+      }
+      if (msg.type === "arena:cmd") {
+        // WS fallback path; the fast path is the UDP channel.on("arena:cmd", ...) handler.
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) arenaManager.receiveCmd(parsed.handle, parsed);
+        return;
+      }
+      if (msg.type === "arena:ping") {
+        const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
+        if (parsed?.handle) arenaManager.handlePing(parsed.handle, parsed.ts, id);
+        return;
+      }
+
       everyone(JSON.stringify(msg)); // Relay any other message to every user.
     }
   });
@@ -2878,6 +2904,9 @@ wss.on("connection", async (ws, req) => {
     log("🚪 Someone left:", id, "Online:", wss.clients.size, "🫂");
     const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
+    // Arena uses the raw handle (matches arena:hello), not the @-normalized form.
+    const rawDepartingHandle = clients?.[id]?.handle;
+    if (rawDepartingHandle) arenaManager.playerLeave(rawDepartingHandle);
     removeNotepatMidiSubscriber(id);
 
     // Remove from VSCode clients if present
@@ -3058,6 +3087,29 @@ duelManager.setSendFunctions({
   },
   broadcastWS: (type, content) => {
     everyone(pack(type, JSON.stringify(content), "duel"));
+  },
+  resolveUdpForHandle: (handle) => {
+    for (const [id, client] of Object.entries(clients)) {
+      if (client.handle === handle && udpChannels[id]) return id;
+    }
+    return null;
+  },
+});
+
+// 🏟️ Wire ArenaManager send functions (same shape as DuelManager; separate source tag).
+arenaManager.setSendFunctions({
+  sendUDP: (channelId, event, data) => {
+    const entry = udpChannels[channelId];
+    if (entry?.channel?.webrtcConnection?.state === "open") {
+      try { entry.channel.emit(event, data); return true; } catch {}
+    }
+    return false;
+  },
+  sendWS: (wsId, type, content) => {
+    connections[wsId]?.send(pack(type, JSON.stringify(content), "arena"));
+  },
+  broadcastWS: (type, content) => {
+    everyone(pack(type, JSON.stringify(content), "arena"));
   },
   resolveUdpForHandle: (handle) => {
     for (const [id, client] of Object.entries(clients)) {
@@ -3505,6 +3557,8 @@ io.onConnection((channel) => {
         log(`✅ UDP ${channel.id} handle: "${identity.handle}"`);
         // Resolve UDP channel for duel if this handle is in a duel
         duelManager.resolveUdpChannel(identity.handle, channel.id);
+        // Resolve UDP channel for arena if this handle is in the arena
+        arenaManager.resolveUdpChannel(identity.handle, channel.id);
       }
     } catch (e) {
       error(`🩰 Failed to parse identity for ${channel.id}:`, e);
@@ -3631,6 +3685,22 @@ io.onConnection((channel) => {
       } catch (err) {
         console.warn("duel:input error:", err);
       }
+    }
+  });
+
+  // 🏟️ Arena usercmd over UDP (fast path; WS is the fallback)
+  channel.on("arena:cmd", (data) => {
+    if (channel.webrtcConnection.state !== "open") return;
+    try {
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      const handle = clients[channel.id]?.handle || parsed.handle;
+      if (!handle) return;
+      arenaManager.receiveCmd(handle, parsed);
+      if (!clients[channel.id]?.handle && parsed.handle) {
+        arenaManager.resolveUdpChannel(parsed.handle, channel.id);
+      }
+    } catch (err) {
+      console.warn("arena:cmd error:", err);
     }
   });
 
