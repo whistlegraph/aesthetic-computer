@@ -56,13 +56,17 @@ export class ArenaManager {
     this.sendWS = null;         // (wsId, type, content)
     this.broadcastWS = null;    // (type, content)
     this.resolveUdpForHandle = null; // (handle) -> channelId|null
+    this.isLive = null;         // (wsId) -> bool; used to tell reconnect
+                                //   (old ws dead) apart from a genuine
+                                //   takeover (old ws still alive).
   }
 
-  setSendFunctions({ sendUDP, sendWS, broadcastWS, resolveUdpForHandle }) {
+  setSendFunctions({ sendUDP, sendWS, broadcastWS, resolveUdpForHandle, isLive }) {
     this.sendUDP = sendUDP;
     this.sendWS = sendWS;
     this.broadcastWS = broadcastWS;
     this.resolveUdpForHandle = resolveUdpForHandle;
+    this.isLive = isLive;
   }
 
   now() { return Date.now() - this.startMs; }
@@ -100,11 +104,18 @@ export class ArenaManager {
       //       and the tab stays alive / watchable.
       if (rec.wsId != null && rec.wsId !== wsId) {
         const oldWsId = rec.wsId;
-        console.log(`🏟️  takeover: ${handle} (old wsId=${oldWsId} → new ${wsId})`);
-        this.sendWS?.(oldWsId, "arena:takeover", { handle, by: wsId });
-        // Demote old connection to a spectator probe. Key the probe by
-        // wsId so multiple displaced tabs don't collide.
-        this.probes.set(`${handle}#spec${oldWsId}`, { wsId: oldWsId });
+        // Only treat as a takeover if the old socket is *still* live.
+        // Otherwise this is a reconnect (tab reload / transient network
+        // drop) and the old connection is already gone — no spectating
+        // needed, just refresh bookkeeping silently.
+        const oldAlive = this.isLive ? !!this.isLive(oldWsId) : true;
+        if (oldAlive) {
+          console.log(`🏟️  takeover: ${handle} (old wsId=${oldWsId} → new ${wsId})`);
+          this.sendWS?.(oldWsId, "arena:takeover", { handle, by: wsId });
+          this.probes.set(`${handle}#spec${oldWsId}`, { wsId: oldWsId });
+        } else {
+          console.log(`🏟️  reconnect: ${handle} (old wsId=${oldWsId} dead → new ${wsId})`);
+        }
       }
       rec.wsId = wsId;
       rec.udpChannelId = this.resolveUdpForHandle?.(handle) ?? null;
