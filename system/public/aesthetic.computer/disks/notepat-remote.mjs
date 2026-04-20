@@ -1,20 +1,32 @@
 // notepat-remote, 26.4.20
-// AC 🎹 Notepat Remote — receives notepat:midi events from session-server
-// and bridges them to Max for Live via window.max.outlet.
+// AC 🎹 Notepat Remote — dual-mode Max for Live device:
+//   1) Subscribes to session-server's notepat:midi fanout, so ac-native
+//      notepat.mjs on a ThinkPad plays this track.
+//   2) Accepts local computer-keyboard input (same key→note layout as the
+//      standard notepat piece) so the device plays as a standalone
+//      instrument too.
 //
-// Meant to load inside jweb~ in AC-NotepatRemote.amxd. When opened standalone
-// in a browser it still renders the connection status UI (MIDI out is a no-op).
-//
-// Wire path:
-//   ThinkPad ac-native notepat.mjs
-//     → UDP :10010 → session-server.aesthetic.computer
-//     → WS fanout → this piece
-//     → window.max.outlet(["note", pitch, vel]) → Max [route note] → [noteout]
+// Both paths emit MIDI to Max via window.max.outlet, which the surrounding
+// patcher routes through [route note channel] → [noteout].
 
 const { floor, min, max } = Math;
 
 const WS_URL = "wss://session-server.aesthetic.computer/";
 const RECONNECT_FRAMES = 120; // ~2s @ 60fps
+
+// ─── Keyboard → MIDI pitch (mirrors notepat.mjs NOTE_TO_KEYBOARD_KEY) ───
+// Row 1 (below default octave): z=A#3, x=B3
+// Row 2 (C4..B4): c v d s e f w g r a q b
+// Row 3 (C5..B5): h t i y j k u l o m p n
+// Row 4 (C6+):    ; ' ]
+const KEY_TO_PITCH = {
+  z: 58, x: 59,
+  c: 60, v: 61, d: 62, s: 63, e: 64, f: 65, w: 66,
+  g: 67, r: 68, a: 69, q: 70, b: 71,
+  h: 72, t: 73, i: 74, y: 75, j: 76, k: 77, u: 78,
+  l: 79, o: 80, m: 81, p: 82, n: 83,
+  ";": 84, "'": 85, "]": 86,
+};
 
 let ws = null;
 let wsState = "idle"; // idle | connecting | open | closed | error
@@ -22,14 +34,20 @@ let wsError = "";
 let reconnectAt = 0;
 
 let sources = []; // [{ handle, machineId, piece, lastSeen }]
-let pktCount = 0;
+let pktCount = 0; // relay packets received
 let noteOnCount = 0;
 let noteOffCount = 0;
-let lastNote = null; // { pitch, vel, chan, event, handle, ts, latencyMs }
+
+let localOnCount = 0; // keyboard-originated notes
+let localOffCount = 0;
+
+let lastNote = null; // { pitch, vel, chan, source, handle, ts, latencyMs }
 let lastNoteFrame = -9999;
 
+const heldKeys = new Set(); // currently-held local keyboard keys
+
 let frame = 0;
-let lastSubscribedCh = -1;
+let lastEmittedChannel = -1;
 
 // Max for Live jweb~ bridge (exposes window.max.outlet)
 const maxBridge =
@@ -42,9 +60,9 @@ const maxBridge =
 function emitMaxNote(pitch, velocity, channel) {
   if (!maxBridge) return;
   try {
-    if (channel !== lastSubscribedCh) {
+    if (channel !== lastEmittedChannel) {
       maxBridge.outlet(["channel", channel]);
-      lastSubscribedCh = channel;
+      lastEmittedChannel = channel;
     }
     maxBridge.outlet(["note", pitch, velocity]);
   } catch (_err) {}
@@ -77,7 +95,7 @@ function connectWs() {
       }
       if (!msg || !msg.type) return;
       if (msg.type === "notepat:midi") {
-        handleMidiEvent(msg.content || {});
+        handleRelayEvent(msg.content || {});
       } else if (msg.type === "notepat:midi:sources") {
         const list = (msg.content && msg.content.sources) || [];
         sources = list.map((s) => ({
@@ -103,7 +121,7 @@ function connectWs() {
   }
 }
 
-function handleMidiEvent(ev) {
+function handleRelayEvent(ev) {
   const pitch = Number(ev.note);
   const vel = Number(ev.velocity);
   const chan = Number(ev.channel) || 0;
@@ -124,12 +142,40 @@ function handleMidiEvent(ev) {
     pitch,
     vel,
     chan,
-    event: ev.event || (isOff ? "note_off" : "note_on"),
+    source: "relay",
     handle: ev.handle || "",
     ts: now,
     latencyMs: latency,
   };
   lastNoteFrame = frame;
+}
+
+function pressLocalKey(key) {
+  if (heldKeys.has(key)) return;
+  const pitch = KEY_TO_PITCH[key];
+  if (pitch === undefined) return;
+  heldKeys.add(key);
+  localOnCount += 1;
+  emitMaxNote(pitch, 100, 0);
+  lastNote = {
+    pitch,
+    vel: 100,
+    chan: 0,
+    source: "local",
+    handle: "",
+    ts: Date.now(),
+    latencyMs: 0,
+  };
+  lastNoteFrame = frame;
+}
+
+function releaseLocalKey(key) {
+  if (!heldKeys.has(key)) return;
+  const pitch = KEY_TO_PITCH[key];
+  heldKeys.delete(key);
+  if (pitch === undefined) return;
+  localOffCount += 1;
+  emitMaxNote(pitch, 0, 0);
 }
 
 const PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -150,6 +196,20 @@ function sim() {
   if (wsState === "closed" && frame >= reconnectAt) connectWs();
 }
 
+function act({ event: e }) {
+  if (!e?.is) return;
+  for (const key of Object.keys(KEY_TO_PITCH)) {
+    if (e.is(`keyboard:down:${key}`)) {
+      pressLocalKey(key);
+      return;
+    }
+    if (e.is(`keyboard:up:${key}`)) {
+      releaseLocalKey(key);
+      return;
+    }
+  }
+}
+
 function paint({ wipe, ink, box, line, screen }) {
   const bg = [8, 10, 18];
   const fg = [220, 225, 255];
@@ -164,7 +224,7 @@ function paint({ wipe, ink, box, line, screen }) {
   const H = screen.height;
   let y = 4;
 
-  // Header + bridge badge
+  // Header
   ink(...accent).write("NOTEPAT-REMOTE", { x: 4, y, size: 1 });
   ink(...(maxBridge ? good : warn)).write(
     maxBridge ? "[M4L]" : "[solo]",
@@ -172,7 +232,7 @@ function paint({ wipe, ink, box, line, screen }) {
   );
   y += 10;
 
-  // WS status line
+  // WS + sources on one line
   const stateColor =
     wsState === "open"
       ? good
@@ -183,25 +243,29 @@ function paint({ wipe, ink, box, line, screen }) {
           : fgDim;
   ink(...fgDim).write("ws", { x: 4, y });
   ink(...stateColor).write(wsState.toUpperCase(), { x: 18, y });
-  if (wsError) ink(...bad).write(wsError.slice(0, 24), { x: 60, y });
-  y += 8;
-
-  // Sources
-  ink(...fgDim).write("src", { x: 4, y });
   if (sources.length === 0) {
-    ink(...fgDim).write("(none — start relay on)", { x: 18, y });
+    ink(...fgDim).write("src: (none)", { x: 80, y });
   } else {
     const label = sources
-      .slice(0, 4)
+      .slice(0, 3)
       .map((s) => (s.handle ? "@" + s.handle : s.machineId.slice(0, 6)))
       .join(" ");
-    ink(...fg).write(label.slice(0, 36), { x: 18, y });
+    ink(...fg).write("src:" + label.slice(0, 24), { x: 80, y });
   }
   y += 8;
+  if (wsError) {
+    ink(...bad).write(wsError.slice(0, 34), { x: 4, y });
+    y += 8;
+  }
 
   // Counters
   ink(...fgDim).write(
-    `pkt ${pktCount}  on ${noteOnCount}  off ${noteOffCount}`,
+    `relay ${pktCount} (on ${noteOnCount} off ${noteOffCount})`,
+    { x: 4, y },
+  );
+  y += 8;
+  ink(...fgDim).write(
+    `local ${localOnCount + localOffCount} (on ${localOnCount} off ${localOffCount})`,
     { x: 4, y },
   );
   y += 10;
@@ -211,23 +275,29 @@ function paint({ wipe, ink, box, line, screen }) {
     const age = frame - lastNoteFrame;
     const flashing = age < 30;
     const color = flashing ? accent : fg;
-    const arrow = lastNote.vel === 0 || lastNote.event === "note_off" ? "v" : "^";
-    const label = `${arrow} ${pitchName(lastNote.pitch)} (${lastNote.pitch}) vel ${lastNote.vel} ch ${lastNote.chan}`;
+    const arrow = lastNote.vel === 0 ? "v" : "^";
+    const src = lastNote.source === "local" ? "kbd" : "@" + (lastNote.handle || "?");
+    const label = `${arrow} ${pitchName(lastNote.pitch)} (${lastNote.pitch}) v${lastNote.vel}  ${src}`;
     ink(...color).write(label, { x: 4, y });
     y += 8;
-    const who = lastNote.handle ? "@" + lastNote.handle : "?";
-    ink(...fgDim).write(`${who}  ${lastNote.latencyMs}ms`, { x: 4, y });
-    y += 10;
   } else {
-    ink(...fgDim).write("(waiting for notes…)", { x: 4, y });
-    y += 10;
+    ink(...fgDim).write("(no notes yet — type or start relay)", { x: 4, y });
+    y += 8;
   }
 
-  // Indicator strip at bottom — one bar per source, bars flash on note
-  if (H - y > 14) {
-    const barY = H - 10;
-    ink(...fgDim).line(2, barY - 1, W - 2, barY - 1);
-    ink(...fg).write("hint: enable on ThinkPad: 'midi relay on'", { x: 4, y: H - 8 });
+  // Held-key strip — shows which keyboard keys are currently down
+  y += 4;
+  if (heldKeys.size > 0) {
+    const held = Array.from(heldKeys)
+      .map((k) => pitchName(KEY_TO_PITCH[k]))
+      .join(" ");
+    ink(...accent).write("held: " + held.slice(0, 32), { x: 4, y });
+    y += 8;
+  }
+
+  // Footer hint
+  if (H - y > 12) {
+    ink(...fgDim).write("c,d,e,f,g,a,b = C4..B4 scale", { x: 4, y: H - 8 });
   }
 }
 
@@ -236,13 +306,14 @@ function leave() {
     ws?.close();
   } catch {}
   ws = null;
+  heldKeys.clear();
 }
 
 function meta() {
   return {
     title: "Notepat Remote",
-    desc: "Max for Live bridge: session-server notepat:midi → MIDI track",
+    desc: "M4L: ac-native notepat relay + local keyboard notes → MIDI track",
   };
 }
 
-export { boot, sim, paint, leave, meta };
+export { boot, sim, paint, act, leave, meta };

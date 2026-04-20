@@ -71,6 +71,10 @@ system/public/assets/papers/readings/*
 !system/public/assets/papers/readings/text/
 system/public/assets/papers/readings/text/*
 !system/public/assets/papers/readings/text/Gallope-Harren-Hicks-The-Scores-Project-2025.txt
+# M4L .amxd binaries hosted on lith directly (small, versioned, no CDN)
+!system/public/assets/m4l/
+system/public/assets/m4l/*
+!system/public/assets/m4l/*.amxd
 
 # AestheticAnts runtime (logs, runs, test output - not part of the score)
 ants/*.log
@@ -336,6 +340,7 @@ secrets/
 system/.env
 ac-vst/vst3sdk/
 *.amxd
+!system/public/assets/m4l/*.amxd
 
 # Emacs performance logs (keep directory, ignore log files)
 .emacs-logs/*.log
