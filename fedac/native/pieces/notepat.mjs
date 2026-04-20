@@ -325,6 +325,13 @@ let usbMidiNextRefreshFrame = 0;
 let usbMidiTypecSignature = "";
 let udpMidiBroadcast = false;
 let udpMidiNextHeartbeatFrame = 0;
+// Connectivity telemetry for the UDP midi relay overlay
+let udpMidiSentCount = 0;
+let udpMidiOnCount = 0;
+let udpMidiOffCount = 0;
+let udpMidiLastPitch = -1;
+let udpMidiLastVelocity = 0;
+let udpMidiLastSentFrame = -9999;
 
 
 // OS update panel state machine
@@ -1830,6 +1837,15 @@ function loadUdpMidiConfig(system) {
 function sendUdpMidiEvent(system, event, midiNote, velocity, channel = 0) {
   if (!udpMidiBroadcast || !system?.udp?.connected) return;
   system?.udp?.sendMidi?.(event, midiNote, velocity, channel, "notepat");
+  udpMidiSentCount += 1;
+  if (event === "note_off" || (event === "note_on" && velocity === 0)) {
+    udpMidiOffCount += 1;
+  } else {
+    udpMidiOnCount += 1;
+  }
+  udpMidiLastPitch = midiNote;
+  udpMidiLastVelocity = velocity;
+  udpMidiLastSentFrame = frame;
 }
 
 function maybeSendUdpMidiHeartbeat(system) {
@@ -1842,8 +1858,19 @@ function maybeSendUdpMidiHeartbeat(system) {
 function udpMidiRelayStatusText(system) {
   if (!udpMidiBroadcast) return "";
   const handle = system?.udp?.handle || system?.config?.handle || "";
-  if (system?.udp?.connected) return handle ? "relay @" + handle : "relay on";
-  return handle ? "relay ...@" + handle : "relay ...";
+  const connected = !!system?.udp?.connected;
+  const prefix = connected
+    ? (handle ? "relay @" + handle : "relay on")
+    : (handle ? "relay ...@" + handle : "relay ...");
+  // Append counters + last note when actively sending so the overlay shows
+  // the ThinkPad actually broadcasts notes (and not just that the socket is up).
+  if (!connected) return prefix;
+  if (udpMidiSentCount === 0) return prefix + " 0";
+  const recent = frame - udpMidiLastSentFrame < 90; // ~1.5s fresh window
+  const tail = recent && udpMidiLastPitch >= 0
+    ? ` ${udpMidiSentCount} ${udpMidiLastPitch}v${udpMidiLastVelocity}`
+    : ` ${udpMidiSentCount}`;
+  return prefix + tail;
 }
 
 function rememberSound(key, entry, system, velocity = 1) {
