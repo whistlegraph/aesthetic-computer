@@ -232,6 +232,22 @@ function act({ event: e, sound, system }) {
       }
       return;
     }
+    // 'w' to wipe + format + install onto a blank/unformatted disk.
+    // The C flash_thread_fn detects the whole-disk target and runs
+    // sfdisk + mkfs.vfat before the normal copy step, so this is just
+    // an OTA update that targets the parent disk node.
+    if (e.is("keyboard:down:w")) {
+      const tgt = targets[deviceIdx];
+      if (tgt && tgt.blank) {
+        cloneTarget = tgt;          // re-use clone-confirm UI
+        state = "clone-confirm";    // confirm before wiping
+        sound?.synth({ type: "sawtooth", tone: 220, duration: 0.12, volume: 0.14, attack: 0.005, decay: 0.10 });
+      } else {
+        // Not a blank disk — refuse with a low buzz.
+        sound?.synth({ type: "square", tone: 110, duration: 0.15, volume: 0.10, attack: 0.005, decay: 0.12 });
+      }
+      return;
+    }
     if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
       state = "idle";
       return;
@@ -239,17 +255,24 @@ function act({ event: e, sound, system }) {
     return;
   }
 
-  // Clone confirmation
+  // Clone confirmation (also reused for blank-disk wipe+install)
   if (state === "clone-confirm") {
     if (e.is("keyboard:down:y") || e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
       state = "cloning";
       telemetry.length = 0;
-      addTelemetry("cloning to " + cloneTarget.device);
-      // Clone = flash the currently running kernel to the target device
-      // The running kernel is at /mnt/EFI/BOOT/BOOTX64.EFI or KERNEL.EFI
+      const verb = cloneTarget?.blank ? "wiping + installing" : "cloning";
+      addTelemetry(verb + " to " + cloneTarget.device);
+      // Clone = flash the currently running kernel + initramfs to the
+      // target device. /mnt is the partition this OS booted from, so
+      // its EFI tree IS our running OS. Pass initramfs explicitly —
+      // the kernel's baked-in cmdline expects /initramfs.cpio.gz at the
+      // ESP root, and flash_thread_fn copies it when the third arg is
+      // present. (Without this, a blank-disk install would boot the
+      // kernel but immediately panic with "no init".)
       const bootKernel = "/mnt/EFI/BOOT/BOOTX64.EFI";
+      const bootInitramfs = "/mnt/initramfs.cpio.gz";
       globalThis.__osFlashDevice = cloneTarget.device;
-      system?.flashUpdate?.(bootKernel, cloneTarget.device);
+      system?.flashUpdate?.(bootKernel, cloneTarget.device, bootInitramfs);
       sound?.synth({ type: "triangle", tone: 784, duration: 0.1, volume: 0.12, attack: 0.003, decay: 0.08 });
       return;
     }
@@ -615,10 +638,13 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         ink(80, 80, 100);
         write(tgt.device, { x: pad + 100, y: ry, size: 1, font });
 
-        // Boot indicator
+        // Boot / blank / usb indicator (precedence: boot > blank > usb).
         if (isBoot) {
           ink(60, 200, 120);
           write("boot", { x: w - pad - 30, y: ry, size: 1, font });
+        } else if (tgt.blank) {
+          ink(255, 180, 60);
+          write("blank", { x: w - pad - 36, y: ry, size: 1, font });
         } else if (tgt.removable) {
           ink(100, 140, 200);
           write("usb", { x: w - pad - 24, y: ry, size: 1, font });
@@ -633,12 +659,19 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       ink(80, 80, 100);
       write("tab/arrows: select", { x: pad, y: actY, size: 1, font });
 
-      if (!isBootDev) {
+      let hintY = actY + 14;
+      if (sel?.blank) {
+        // Blank disk — only meaningful action is wipe + format + install.
+        ink(255, 180, 60);
+        write("w: wipe + install (formats!)", { x: pad, y: hintY, size: 1, font });
+        hintY += 14;
+      } else if (!isBootDev) {
         ink(100, 200, 140);
-        write("c: clone current os", { x: pad, y: actY + 14, size: 1, font });
+        write("c: clone current os", { x: pad, y: hintY, size: 1, font });
+        hintY += 14;
       }
       ink(100, 160, 220);
-      write("u: update from cloud", { x: pad, y: actY + 28, size: 1, font });
+      write("u: update from cloud", { x: pad, y: hintY, size: 1, font });
     }
 
   } else if (state === "clone-confirm") {
