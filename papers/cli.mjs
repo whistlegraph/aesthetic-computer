@@ -719,6 +719,124 @@ function updateIndex(entries) {
   writeFileSync(indexPath, html);
   const guestCount = guestPdfs.filter(g => existsSync(join(SITE_DIR, g.file))).length;
   console.log(`  INDEX updated with ${papers.length + extras.length} papers + ${guestCount} guest papers.`);
+
+  writeFeed(papers, extras, PAPER_COPY);
+}
+
+// Escape a string for inclusion in an XML text node or attribute.
+function xmlEscape(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// Convert HTML-flavored fragments (entities, anchor tags) to plain text,
+// so the string can be safely XML-escaped into a feed summary.
+function htmlToText(s) {
+  return String(s ?? "")
+    .replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, "$1")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&middot;/g, "·")
+    .replace(/&times;/g, "×")
+    .replace(/&mdash;/g, "—")
+    .replace(/&ndash;/g, "–")
+    .replace(/&hellip;/g, "…")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Build an Atom feed of all papers and write feed.xml + rss.xml to SITE_DIR.
+// Papers are sorted newest first by mtime. Both files share the same Atom
+// content so that /feed.xml and /rss.xml both resolve to a valid feed.
+function writeFeed(papers, extras, PAPER_COPY) {
+  const FEED_TITLE = "papers · Aesthetic Computer";
+  const FEED_SUBTITLE =
+    "Academic papers on Aesthetic Computer, KidLisp, and creative computing.";
+  const SITE_URL = "https://papers.aesthetic.computer";
+  const FEED_URL = `${SITE_URL}/feed.xml`;
+  const AUTHOR_NAME = "@jeffrey";
+  const AUTHOR_URI = "https://orcid.org/0009-0007-4460-4913";
+
+  const entries = [];
+  for (const p of papers) {
+    const copy = (PAPER_COPY || {})[p.siteName] || {};
+    entries.push({
+      id: `${SITE_URL}/${p.siteName}.pdf`,
+      url: `${SITE_URL}/${p.siteName}.pdf`,
+      title: p.title,
+      detail: copy.detail || "",
+      summary: copy.abstract || "",
+      updated: p.mtime instanceof Date ? p.mtime : new Date(p.mtime),
+      published: p.created ? new Date(`${p.created}T00:00:00Z`) : null,
+      category: "arXiv",
+    });
+  }
+  for (const ex of extras) {
+    entries.push({
+      id: `${SITE_URL}/${ex.file}`,
+      url: `${SITE_URL}/${ex.file}`,
+      title: ex.title,
+      detail: ex.detail || "",
+      summary: ex.abstract || "",
+      updated: ex.mtime instanceof Date ? ex.mtime : new Date(ex.mtime),
+      published: ex.created ? new Date(`${ex.created}T00:00:00Z`) : null,
+      category: ex.metaKey && ex.metaKey.startsWith("joss") ? "JOSS" : "ELS",
+    });
+  }
+  entries.sort((a, b) => b.updated - a.updated);
+
+  const feedUpdated =
+    entries.length > 0 ? entries[0].updated : new Date();
+
+  let xml = `<?xml version="1.0" encoding="utf-8"?>\n`;
+  xml += `<feed xmlns="http://www.w3.org/2005/Atom">\n`;
+  xml += `  <title>${xmlEscape(FEED_TITLE)}</title>\n`;
+  xml += `  <subtitle>${xmlEscape(FEED_SUBTITLE)}</subtitle>\n`;
+  xml += `  <link rel="alternate" type="text/html" href="${SITE_URL}/"/>\n`;
+  xml += `  <link rel="self" type="application/atom+xml" href="${FEED_URL}"/>\n`;
+  xml += `  <id>${SITE_URL}/</id>\n`;
+  xml += `  <updated>${feedUpdated.toISOString()}</updated>\n`;
+  xml += `  <author>\n`;
+  xml += `    <name>${xmlEscape(AUTHOR_NAME)}</name>\n`;
+  xml += `    <uri>${AUTHOR_URI}</uri>\n`;
+  xml += `  </author>\n`;
+  xml += `  <icon>${SITE_URL}/papers-og.jpg</icon>\n`;
+  xml += `  <rights>CC BY 4.0 unless noted otherwise.</rights>\n`;
+
+  for (const e of entries) {
+    const cleanDetail = htmlToText(e.detail);
+    const cleanSummary = htmlToText(e.summary);
+    const summary = [cleanDetail, cleanSummary].filter(Boolean).join(" — ");
+    xml += `  <entry>\n`;
+    xml += `    <title>${xmlEscape(htmlToText(e.title))}</title>\n`;
+    xml += `    <link rel="alternate" type="application/pdf" href="${xmlEscape(e.url)}"/>\n`;
+    xml += `    <id>${xmlEscape(e.id)}</id>\n`;
+    xml += `    <updated>${e.updated.toISOString()}</updated>\n`;
+    if (e.published) {
+      xml += `    <published>${e.published.toISOString()}</published>\n`;
+    }
+    xml += `    <category term="${xmlEscape(e.category)}"/>\n`;
+    xml += `    <author><name>${xmlEscape(AUTHOR_NAME)}</name></author>\n`;
+    if (summary) {
+      xml += `    <summary type="text">${xmlEscape(summary)}</summary>\n`;
+    }
+    xml += `  </entry>\n`;
+  }
+  xml += `</feed>\n`;
+
+  writeFileSync(join(SITE_DIR, "feed.xml"), xml);
+  // Mirror the Atom feed at /rss.xml so readers probing either path succeed.
+  writeFileSync(join(SITE_DIR, "rss.xml"), xml);
+  console.log(`  FEED updated: feed.xml + rss.xml (${entries.length} entries).`);
 }
 
 function verify() {
