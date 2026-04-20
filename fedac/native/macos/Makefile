@@ -5,7 +5,12 @@
 
 CC      ?= clang
 BUILD   := build
-TARGET  := $(BUILD)/ac-native-macos
+# Target name carries the audio backend so switching AUDIO= between builds
+# doesn't silently leave a stale binary behind (e.g. packaging the grand
+# binary under the default Notepat name because $(TARGET) was already newer
+# than its deps from a prior AUDIO=grand run).
+AUDIO   ?= core
+TARGET  := $(BUILD)/ac-native-macos-$(AUDIO)
 
 # QuickJS sources live alongside the Linux build tree (shared fetch).
 QJSDIR  := ../build/quickjs
@@ -14,66 +19,38 @@ SDL3_CFLAGS := $(shell pkg-config --cflags sdl3)
 SDL3_LIBS_BASE := $(shell pkg-config --libs sdl3)
 
 CFLAGS  := -O2 -Wall -Wextra -std=gnu11 -I. -I../src -I$(QJSDIR) $(SDL3_CFLAGS)
-# Base LDFLAGS — SDL3 is resolved conditionally below so the Grand variant
-# doesn't drag it in. Carbon is always needed for RegisterEventHotKey.
+# Carbon is always needed for RegisterEventHotKey; SDL3 comes via AUDIO block.
 LDFLAGS := -lm -framework Carbon
 
-# Audio backend: AUDIO=core (default) uses a direct CoreAudio AudioUnit;
-# AUDIO=sdl uses SDL3's audio stream. Built from separate .c files that
-# both implement the macos/audio.h interface. Useful for A/B latency tests.
-AUDIO ?= core
-# Grand is a complete native-Cocoa rewrite — no SDL3, QuickJS, piece loader,
-# or shared synth_core. Just main_grand.m + audio_musicdevice.c + Cocoa/
-# Carbon/AudioUnit frameworks. Other variants stay on the SDL3 + QuickJS
-# stack that runs arbitrary .mjs pieces.
-GRAND_BUILD :=
+# Audio backend: AUDIO=core (default) uses a direct CoreAudio AudioUnit
+# (custom synth_core oscillators); AUDIO=grand swaps in Apple's AUMIDISynth
+# for sampled Acoustic Grand Piano; AUDIO=sdl uses SDL3's audio stream for
+# A/B latency tests. All three implement macos/audio.h so the SDL3 host
+# and notepat piece don't need to know which backend is live.
 ifeq ($(AUDIO),core)
   AUDIO_SRC := audio_coreaudio.c
   AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
                       -framework CoreAudio -framework CoreFoundation
 else ifeq ($(AUDIO),grand)
-  GRAND_BUILD := 1
   AUDIO_SRC := audio_musicdevice.c
-  AUDIO_FRAMEWORKS := -framework Cocoa -framework Carbon \
-                      -framework AudioUnit -framework AudioToolbox \
+  AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
                       -framework CoreAudio -framework CoreFoundation
-  CFLAGS += -DAC_GRAND=1
 else ifeq ($(AUDIO),sdl)
   AUDIO_SRC := audio_sdl3.c
   AUDIO_FRAMEWORKS :=
 else
   $(error AUDIO must be 'core', 'grand', or 'sdl')
 endif
-# AUDIO_FRAMEWORKS / SDL3_LIBS_BASE are appended to LDFLAGS below where the
-# HOST_SRCS / GRAND_BUILD conditionals decide whether to link SDL3.
 
-# Host sources (this directory). Grand is a standalone Cocoa app — no
-# piece loader, no shared synth core, no QuickJS, no SDL3.
-ifdef GRAND_BUILD
-  HOST_SRCS   := main_grand.m $(AUDIO_SRC)
-  HOST_OBJS   := $(patsubst %.m,$(BUILD)/%.o,$(filter %.m,$(HOST_SRCS))) \
-                 $(patsubst %.c,$(BUILD)/%.o,$(filter %.c,$(HOST_SRCS)))
-  # audio_musicdevice.c still calls synth_parse_wave() for type-string
-  # parsing; pull synth_core in so the symbol resolves even though the
-  # Cocoa UI drives MIDI directly and doesn't need the oscillator models.
-  SHARED_SRCS := ../src/synth_core.c
-  SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
-  LDFLAGS     += $(AUDIO_FRAMEWORKS)
-else
-  HOST_SRCS   := main.c piece.c $(AUDIO_SRC)
-  HOST_OBJS   := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
-  SHARED_SRCS := ../src/synth_core.c
-  SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
-  LDFLAGS     += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)
-endif
+HOST_SRCS   := main.c piece.c $(AUDIO_SRC)
+HOST_OBJS   := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
+SHARED_SRCS := ../src/synth_core.c
+SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
+LDFLAGS     += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)
 
 # QuickJS core object set (must match what the Linux Makefile uses at line 104)
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
-ifdef GRAND_BUILD
-  QJS_OBJS :=
-else
-  QJS_OBJS  := $(patsubst %.c,$(BUILD)/qjs-%.o,$(QJS_SRCS))
-endif
+QJS_OBJS  := $(patsubst %.c,$(BUILD)/qjs-%.o,$(QJS_SRCS))
 
 .PHONY: all clean run app app-run compare install uninstall grand grand-install
 
@@ -98,6 +75,12 @@ SDL3_LIB_NAME := /opt/homebrew/opt/sdl3/lib/libSDL3.0.dylib
 # Use `security find-identity -v -p codesigning` to list available certs.
 SIGN_IDENTITY ?= -
 
+# Hardened runtime needs a real signing identity — with ad-hoc signing, the
+# main binary's CDHash doesn't match the dylib's and dyld refuses to load
+# libSDL3.0.dylib on launch ("different Team IDs" even though both are empty).
+# Only enable --options runtime when signing with a Developer ID.
+CS_RUNTIME := $(if $(filter-out -,$(SIGN_IDENTITY)),--options runtime,)
+
 # Install path. `make install` drops the signed .app into /Applications
 # so it picks up a proper Dock icon and is launchable from Spotlight.
 INSTALL_DIR ?= /Applications
@@ -115,10 +98,6 @@ $(TARGET): $(HOST_OBJS) $(SHARED_OBJS) $(QJS_OBJS) | $(BUILD)
 
 $(BUILD)/%.o: %.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
-
-# Objective-C for the native Grand UI. ARC handles the reference counting.
-$(BUILD)/%.o: %.m | $(BUILD)
-	$(CC) $(CFLAGS) -fobjc-arc -c -o $@ $<
 
 $(BUILD)/shared-%.o: ../src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -157,21 +136,6 @@ $(ICON_ICNS): $(ICON_SRC) | $(BUILD)
 	cp $(ICON_SRC)                   $(ICON_SET_DIR)/icon_512x512@2x.png
 	iconutil -c icns -o $(ICON_ICNS) $(ICON_SET_DIR)
 
-ifdef GRAND_BUILD
-app: $(TARGET) Info.plist.in $(ICON_ICNS)
-	rm -rf "$(APP_DIR)"
-	mkdir -p "$(APP_DIR)/Contents/MacOS"
-	mkdir -p "$(APP_DIR)/Contents/Resources"
-	cp $(TARGET)    "$(APP_DIR)/Contents/MacOS/notepat"
-	cp $(ICON_ICNS) "$(APP_DIR)/Contents/Resources/AppIcon.icns"
-	sed -e 's/@@APP_NAME@@/$(APP_NAME)/g' -e 's/@@APP_ID@@/$(APP_ID)/g' \
-	    Info.plist.in > "$(APP_DIR)/Contents/Info.plist"
-	codesign --force --options runtime --sign "$(SIGN_IDENTITY)" \
-	    --deep "$(APP_DIR)"
-	@echo "Bundle: $(APP_DIR)"
-	@echo "--- install names ---"
-	@otool -L "$(APP_DIR)/Contents/MacOS/notepat" | head -5
-else
 app: $(TARGET) $(PIECE_SRC) $(LIB_SRC) Info.plist.in $(SDL3_LIB_SRC) $(ICON_ICNS)
 	rm -rf "$(APP_DIR)"
 	mkdir -p "$(APP_DIR)/Contents/MacOS"
@@ -195,12 +159,11 @@ app: $(TARGET) $(PIECE_SRC) $(LIB_SRC) Info.plist.in $(SDL3_LIB_SRC) $(ICON_ICNS
 	    "$(APP_DIR)/Contents/MacOS/notepat"
 	codesign --force --sign "$(SIGN_IDENTITY)" \
 	    "$(APP_DIR)/Contents/Frameworks/libSDL3.0.dylib"
-	codesign --force --options runtime --sign "$(SIGN_IDENTITY)" \
+	codesign --force $(CS_RUNTIME) --sign "$(SIGN_IDENTITY)" \
 	    --deep "$(APP_DIR)"
 	@echo "Bundle: $(APP_DIR)"
 	@echo "--- install names ---"
 	@otool -L "$(APP_DIR)/Contents/MacOS/notepat" | head -5
-endif
 
 app-run: app
 	open "$(APP_DIR)"
@@ -223,9 +186,10 @@ uninstall:
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 	@echo "[uninstall] removed $(INSTALL_DIR)/$(APP_NAME).app"
 
-# "Notepat Grand" — macOS-friendly build using Apple's AUMIDISynth for
-# sampled piano instead of the custom oscillator engine. Same piece code,
-# separate bundle so both versions can coexist. Modeless (plain window).
+# "Notepat Grand" — same SDL3 host + notepat grid UI as the default build,
+# but swaps the CoreAudio oscillator engine for Apple's AUMIDISynth so every
+# key plays a sampled Acoustic Grand Piano voice instead. Separate bundle ID
+# so both versions can coexist in /Applications.
 grand:
 	$(MAKE) AUDIO=grand APP_NAME="Notepat Grand" APP_ID=computer.aesthetic.notepat.grand app
 

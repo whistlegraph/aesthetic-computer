@@ -9,6 +9,7 @@
 #include "font-6x10.h"
 #include "font-matrix-chunky8.h"
 
+#include <SDL3/SDL.h>  // SDL_GetSystemTheme for __theme.dark wiring
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -304,6 +305,15 @@ static JSValue js_performance_now(JSContext *jsctx, JSValueConst this_val, int a
     return JS_NewFloat64(jsctx, ms);
 }
 
+// Returns true when macOS is in dark mode. SDL3 queries NSApp's effective
+// appearance on our behalf, which tracks the per-app override as well as the
+// system-wide setting. Used by __theme.update() so notepat reflects the real
+// appearance instead of its fallback LA-clock heuristic.
+static JSValue js_theme_dark(JSContext *jsctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewBool(jsctx, SDL_GetSystemTheme() == SDL_SYSTEM_THEME_DARK);
+}
+
 static JSValue js_console_log(JSContext *jsctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     for (int i = 0; i < argc; i++) {
@@ -591,8 +601,13 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
         "    ws: null, udp: null, jump: noop };\n"
         "  const trackpad = { dx: 0, dy: 0 };\n"
         "  const pressures = [];\n"
-        "  // Host-provided globals the piece expects.\n"
-        "  globalThis.__theme = { update: noop, dark: false };\n"
+        "  // Host-provided globals the piece expects. __theme.dark tracks\n"
+        "  // macOS's effective appearance; update() re-queries via a C binding\n"
+        "  // installed later so notepat's 5s poll picks up Settings changes.\n"
+        "  globalThis.__theme = {\n"
+        "    dark: false,\n"
+        "    update() { if (globalThis.__theme_dark) this.dark = !!globalThis.__theme_dark(); },\n"
+        "  };\n"
         "  // Named exports visible both as globals and via the api arg.\n"
         "  for (const [k, v] of Object.entries({ sound, wifi, system, trackpad, pressures })) {\n"
         "    globalThis[k] = v;\n"
@@ -649,6 +664,20 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
     JSValue perf = JS_NewObject(cx);
     JS_SetPropertyStr(cx, perf, "now", JS_NewCFunction(cx, js_performance_now, "now", 0));
     JS_SetPropertyStr(cx, global, "performance", perf);
+
+    // Dark-mode binding + seed. The JS __theme.update() reads __theme_dark();
+    // seeding __theme.dark here means the very first paint already matches
+    // the system appearance (before the piece's 5-second poll kicks in).
+    JS_SetPropertyStr(cx, global, "__theme_dark",
+                      JS_NewCFunction(cx, js_theme_dark, "__theme_dark", 0));
+    {
+        JSValue theme = JS_GetPropertyStr(cx, global, "__theme");
+        if (JS_IsObject(theme)) {
+            bool is_dark = (SDL_GetSystemTheme() == SDL_SYSTEM_THEME_DARK);
+            JS_SetPropertyStr(cx, theme, "dark", JS_NewBool(cx, is_dark));
+        }
+        JS_FreeValue(cx, theme);
+    }
 
     // Resolve lib root. Env var wins; otherwise walk up looking for
     // system/public/aesthetic.computer/lib relative to the piece path.
