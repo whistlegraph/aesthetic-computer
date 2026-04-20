@@ -42,13 +42,17 @@ async function handlesBySub(database, subs) {
 
 function selectPrimaryKeep(keeps, preferredContract) {
   if (!Array.isArray(keeps) || keeps.length === 0) return null;
-  if (!preferredContract) return keeps[0];
-  const pref = keeps.find(
-    (k) =>
-      (k.contractAddress || "").toLowerCase() ===
-      preferredContract.toLowerCase()
+  const byRecency = [...keeps].sort((a, b) => {
+    const at = a?.keptAt ? new Date(a.keptAt).getTime() : 0;
+    const bt = b?.keptAt ? new Date(b.keptAt).getTime() : 0;
+    return bt - at;
+  });
+  if (!preferredContract) return byRecency[0];
+  const want = preferredContract.toLowerCase();
+  const pref = byRecency.find(
+    (k) => (k.contractAddress || "").toLowerCase() === want
   );
-  return pref || keeps[0];
+  return pref || byRecency[0];
 }
 
 function filterKeeps(keeps, { contract, contractProfile, contractVersion }) {

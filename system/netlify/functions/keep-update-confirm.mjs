@@ -8,6 +8,7 @@ import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
+import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 
 // Configuration
 const NETWORK = process.env.TEZOS_NETWORK || "mainnet";
@@ -238,6 +239,24 @@ export async function handler(event, context) {
       console.warn(`❌ Failed to update piece ${cleanPiece}`);
       await database.disconnect();
       return respond(500, { error: "Failed to record update" });
+    }
+
+    const resolvedTokenIdForMirror = normalizedTokenId ?? normalizeTokenId(record?.kept?.tokenId);
+    if (resolvedTokenIdForMirror !== null) {
+      await mirrorRecordMint(cleanPiece, {
+        tokenId: resolvedTokenIdForMirror,
+        contractAddress: effectiveContract,
+        network: NETWORK,
+        txHash: txHash || record?.kept?.txHash || null,
+        contractProfile: contractIdentity.contractProfile || null,
+        contractVersion: contractIdentity.contractVersion || null,
+        artifactUri: artifactUri || null,
+        thumbnailUri: thumbnailUri || null,
+        metadataUri: metadataUri || null,
+        keptAt: new Date(),
+        keptBy: record?.kept?.keptBy || user.sub,
+        walletAddress: record?.kept?.walletAddress || null,
+      }, { source: "update" });
     }
 
     console.log(`✅ Confirmed metadata update for $${cleanPiece} (token #${tokenId || "?"}): ${txHash}`);
