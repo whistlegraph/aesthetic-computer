@@ -233,21 +233,34 @@ function act({ event: e, sound, system }) {
       }
       return;
     }
-    // 'w' to wipe + format + install onto a target disk. Works on:
-    //   - blank disks (target.device is already a whole disk)
-    //   - formatted disks (target.device is a partition like
-    //     /dev/nvme0n1p1; we derive the parent /dev/nvme0n1)
-    // Refuses on the currently-booted device — wiping the disk we're
-    // running from would brick the live system mid-flash.
-    //
-    // The C flash_thread_fn detects the whole-disk target and runs
-    // sfdisk + mkfs.vfat before the normal copy step.
-    if (e.is("keyboard:down:w")) {
+    // 'w' (internal) / 'm' (removable) — wipe + install. Same flash code
+    // path (C flash_thread_fn does sfdisk + mkfs.vfat on whole-disk
+    // targets), but prompt text + intent differ so the user knows what
+    // they're about to do:
+    //   w + non-removable → "install ac native OS" (replace Fedora/etc.)
+    //   m + removable     → "make live USB"
+    // Boot device is refused for both — wiping the disk we're running
+    // from would brick the live system mid-flash.
+    if (e.is("keyboard:down:w") || e.is("keyboard:down:m")) {
       const tgt = targets[deviceIdx];
       if (!tgt) return;
       const isBoot = tgt.device === bootDev;
       if (isBoot) {
         // Refuse — can't wipe the disk we're booting from.
+        sound?.synth({ type: "square", tone: 110, duration: 0.15, volume: 0.10, attack: 0.005, decay: 0.12 });
+        return;
+      }
+      const pressedM = e.is("keyboard:down:m");
+      // Key/target semantics:
+      //   m only meaningful for removable; w only for internal.
+      // Refuse the mismatched case with a low buzz so the keys can't be
+      // swapped accidentally (e.g. `w` on the second USB would wipe it
+      // in a way the user didn't expect).
+      if (pressedM && !tgt.removable) {
+        sound?.synth({ type: "square", tone: 110, duration: 0.15, volume: 0.10, attack: 0.005, decay: 0.12 });
+        return;
+      }
+      if (!pressedM && tgt.removable) {
         sound?.synth({ type: "square", tone: 110, duration: 0.15, volume: 0.10, attack: 0.005, decay: 0.12 });
         return;
       }
@@ -257,10 +270,14 @@ function act({ event: e, sound, system }) {
       //   /dev/sda1      → /dev/sda
       let wholeDisk = tgt.device;
       if (!tgt.blank) {
-        // Strip trailing "p<N>" (NVMe/eMMC) or trailing digits (sd*).
         wholeDisk = wholeDisk.replace(/p?\d+$/, "");
       }
-      cloneTarget = { ...tgt, device: wholeDisk, blank: true }; // mark as wipe-target so the prompt says so
+      cloneTarget = {
+        ...tgt,
+        device: wholeDisk,
+        blank: true,
+        operation: pressedM ? "live-usb" : "install",
+      };
       state = "clone-confirm";
       sound?.synth({ type: "sawtooth", tone: 220, duration: 0.12, volume: 0.14, attack: 0.005, decay: 0.10 });
       return;
@@ -677,23 +694,35 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
       write("tab/arrows: select", { x: pad, y: actY, size: 1, font });
 
       let hintY = actY + 14;
-      if (sel?.blank) {
-        // Blank disk — only meaningful action is wipe + format + install.
-        ink(255, 180, 60);
-        write("w: wipe + install (formats!)", { x: pad, y: hintY, size: 1, font });
-        hintY += 14;
-      } else if (!isBootDev) {
-        ink(100, 200, 140);
-        write("c: clone current os", { x: pad, y: hintY, size: 1, font });
-        hintY += 14;
+      if (sel && !isBootDev) {
+        if (sel.removable) {
+          // Removable — offer "make live USB" (format + install).
+          ink(100, 200, 230);
+          write("m: make live USB", { x: pad, y: hintY, size: 1, font });
+          hintY += 14;
+        } else {
+          // Internal — offer wipe + install AND clone (clone adds our
+          // boot tree without wiping, for dual-boot scenarios).
+          ink(255, 180, 60);
+          write("w: wipe + install ac native", { x: pad, y: hintY, size: 1, font });
+          hintY += 14;
+          ink(100, 200, 140);
+          write("c: clone (preserves existing)", { x: pad, y: hintY, size: 1, font });
+          hintY += 14;
+        }
       }
       ink(100, 160, 220);
       write("u: update from cloud", { x: pad, y: hintY, size: 1, font });
     }
 
   } else if (state === "clone-confirm") {
+    const op = cloneTarget?.operation; // "install" | "live-usb" | undefined (clone)
+    let heading = "clone os?";
+    let warn = "this will overwrite the target!";
+    if (op === "install") { heading = "install ac native?"; warn = "ERASES ALL DATA on this disk"; }
+    else if (op === "live-usb") { heading = "make live USB?"; warn = "ERASES ALL DATA on this USB"; }
     ink(T.warn[0], T.warn[1], T.warn[2]);
-    write("clone os?", { x: pad, y: stateY, size: 2, font: "matrix" });
+    write(heading, { x: pad, y: stateY, size: 2, font: "matrix" });
 
     ink(T.fgMute + 20, T.fgMute + 20, T.fgMute);
     write("from: " + (system?.bootDevice || "?"), { x: pad, y: stateY + 24, size: 1, font });
@@ -702,12 +731,13 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     ink(T.fg);
     write(currentVersion, { x: pad, y: stateY + 56, size: 1, font });
 
-    ink(255, 180, 60);
-    write("this will overwrite the target!", { x: pad, y: stateY + 74, size: 1, font });
+    ink(255, 80, 80);
+    write(warn, { x: pad, y: stateY + 74, size: 1, font });
 
     const pulse = Math.floor(200 + 55 * Math.sin(frame * 0.1));
     ink(pulse, 255, pulse);
-    write("y: clone  n: cancel", { x: pad, y: stateY + 92, size: 1, font });
+    const verb = op === "live-usb" ? "make" : (op === "install" ? "install" : "clone");
+    write(`y: ${verb}   n: cancel`, { x: pad, y: stateY + 92, size: 1, font });
 
   } else if (state === "cloning") {
     // Reuse flashing UI
