@@ -190,7 +190,14 @@ static inline double generate_whistle_sample(ACVoice *v, double sample_rate) {
     // Bore and jet delay lengths — bore = SR/freq (one wavelength),
     // jet = 0.32 × bore (Cook's flute ratio; 0.45 for pennywhistle,
     // 0.5 for ocarina). Clamp to the delay buffer sizes.
-    double freq = clampd(v->frequency, 110.0, sample_rate * 0.20);
+    // Allow the full notepat pitch range — C1 ≈ 33Hz, so clamp at 30Hz
+    // so we don't lose the bottom octave. On sample rates where SR/freq
+    // exceeds the bore buffer (BORE_N=2048, fine at 48kHz; caps around
+    // 94Hz at 192kHz), the bore_delay clampd below pins the delay to the
+    // buffer size — the worst case is that very low notes play slightly
+    // sharper than requested on 192kHz hardware. Still better than the
+    // previous 110Hz hard-clamp which silenced every low octave.
+    double freq = clampd(v->frequency, 30.0, sample_rate * 0.20);
     double bore_delay = sample_rate / freq;
     double jet_delay = bore_delay * 0.32;
     // Cap to buffer sizes with safety margin
@@ -303,17 +310,27 @@ static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
     // Stretch factor S (Jaffe-Smith EKS). S < 1 makes the circulating
     // pattern decay exponentially. With the two-point LPF ≈ unity at DC,
     // the per-cycle loss is dominated by S: amplitude ≈ S^(f·t) per second.
-    // S = 0.996 gives T60 ≈ 4s at 440Hz — longer for bass strings, shorter
-    // for high strings, matching real string behavior.
-    double decayed = filtered * 0.996;
+    // S = 0.9985 gives T60 ≈ 15s at 440Hz — long sustain like a real
+    // pedal harp letting the string ring out. Higher pitches still fade
+    // faster than bass strings (matches physics of real strings).
+    //
+    // "Short pluck" variant: when the caller passes decay > 0 (notepat
+    // does this for Shift+letter), shorten the stretch factor so the
+    // string dies in ~0.4s — feels like a damped/staccato pluck.
+    double stretch = (v->decay > 0.0 && v->decay < 0.2) ? 0.990 : 0.9985;
+    double decayed = filtered * stretch;
 
     // Write back to close the delay loop.
     v->whistle_bore_buf[v->whistle_bore_w] = (float)decayed;
     v->whistle_bore_w = (v->whistle_bore_w + 1) % STRING_N;
 
-    // Envelope applies mainly to key-up fade. Attack is instantaneous —
-    // the pluck is the initial noise burst already in the delay line.
-    return decayed * env;
+    // Output gain — Karplus-Strong's circulating amplitude is heavily
+    // attenuated by the LPF + stretch each cycle, so raw output is much
+    // quieter than sine/square at the same `volume`. Boost by 2.5× so a
+    // plucked note feels comparable in loudness to other wave types.
+    // Envelope still controls key-up fade; attack is instantaneous (the
+    // initial noise burst IS the pluck).
+    return 2.5 * decayed * env;
 }
 
 // ============================================================

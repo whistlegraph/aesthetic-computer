@@ -2883,9 +2883,18 @@ function act({ event: e, sound, wifi, system }) {
             compositeVoices: [a, b, c, d, e2],
           }, system, 1);
         } else {
+          // Shift+letter on harp = short staccato pluck. Pass decay=0.1 as
+          // a signal to the C generate_harp_sample (which switches to a
+          // tighter stretch factor and damps in ~0.4s). Finite duration
+          // so the voice naturally ends without needing kill().
+          const isShortPluck = wave === "harp" && shiftHeld;
           synth = sound.synth({
-            type: wave, tone: playFreq, duration: Infinity,
-            volume: 0.5, attack: currentAttack(), decay: currentDecay(), pan,
+            type: wave, tone: playFreq,
+            duration: isShortPluck ? 0.4 : Infinity,
+            volume: 0.5,
+            attack: currentAttack(),
+            decay: isShortPluck ? 0.1 : currentDecay(),
+            pan,
           });
           rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
         }
@@ -4713,9 +4722,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
         box(bx, waveRowY, 1, waveRowH, true);
       }
-      // Label
-      const lx = bx + Math.floor((btnW2 - waveLabels[i].length * 6) / 2);
-      write(waveLabels[i], { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
+      // Label — switch "harp" → "pluck" while Shift is held to surface
+      // the alternate short-pluck mode. The active button also gets a
+      // subtle bracket marker so it's obvious from the keyboard.
+      let label = waveLabels[i];
+      if (wavetypes[i] === "harp" && shiftHeld) label = "pluck";
+      const lx = bx + Math.floor((btnW2 - label.length * 6) / 2);
+      write(label, { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
     }
 
     // Octave / REC button (right side)
