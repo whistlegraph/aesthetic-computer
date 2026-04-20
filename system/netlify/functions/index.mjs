@@ -1302,7 +1302,7 @@ async function fun(event, context) {
           var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
           // Notebook: Python/Jupyter notebook with scientific aesthetic
           var isNotebook=qs.indexOf('notebook=true')>=0;
-          // Boot animation mode: 'spring' (turtle-graphics birds, default), 'serious' (clean/refined), or 'aesthetic' (VHS/glitch)
+          // Boot animation mode: 'spring' (turtle-graphics rainbows, default), 'serious' (clean/refined), or 'aesthetic' (VHS/glitch)
           var bootTheme=params.get('boot')||'spring';var isSerious=bootTheme==='serious';var isSpring=bootTheme==='spring';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
@@ -1371,45 +1371,58 @@ async function fun(event, context) {
           var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
           var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
           var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
-          // 🐦 Spring boot animation state — procedural turtle-graphics birds
-          var SPRING_BIRDS=[],SPRING_INIT=false;
+          // 🌈 Spring boot animation state — procedural turtle-graphics rainbows
+          var SPRING_RAINBOWS=[],SPRING_INIT=false;
           var SPRING_FONTS_LIGHT=['serif','monospace','YWFTProcessing-Bold, monospace','cursive','Georgia, serif','Courier New, monospace'];
-          var SPRING_BIRD_HUES=[205,185,50,30,340,280,160,15,100]; // sky/teal/canary/robin/rose/violet/mint/coral/moss
-          function springInit(S){SPRING_BIRDS=[];var n=14;for(var i=0;i<n;i++){SPRING_BIRDS.push({px:Math.random(),py:0.2+Math.random()*0.7,r:(4.5+Math.random()*6)*S,hue:SPRING_BIRD_HUES[i%SPRING_BIRD_HUES.length],phase:Math.random()*Math.PI*2,bob:0.5+Math.random()*1.2,flapSpeed:5+Math.random()*5,vx:(0.0014+Math.random()*0.0022)*(Math.random()>0.5?1:-1),bellyHue:40+Math.random()*30,beakHue:Math.random()>0.5?32:48});}SPRING_INIT=true;}
-          function drawTurtleBird(ctx,W,H,b,t,S,isLightMode){
+          // ROYGBIV hues (red, orange, yellow, green, blue, indigo, violet)
+          var SPRING_RAINBOW_HUES=[0,28,54,120,210,255,290];
+          function springInit(S){SPRING_RAINBOWS=[];var n=7;for(var i=0;i<n;i++){SPRING_RAINBOWS.push({px:Math.random(),py:0.28+Math.random()*0.55,r:(22+Math.random()*34)*S,phase:Math.random()*Math.PI*2,bob:0.6+Math.random()*1.3,tilt:(Math.random()-0.5)*0.28,vx:(0.0009+Math.random()*0.0019)*(Math.random()>0.5?1:-1),twinkle:Math.random()*Math.PI*2,puffHue:40+Math.random()*30});}SPRING_INIT=true;}
+          function drawRainbow(ctx,W,H,b,t,S,isLightMode){
             // Drift horizontally, wrap around edges
-            b.px+=b.vx;if(b.px>1.15)b.px=-0.15;if(b.px<-0.15)b.px=1.15;
-            var cx=b.px*W,cy=b.py*H+Math.sin(t*1.2+b.phase)*b.bob*3*S,r=b.r;
-            var dir=b.vx>=0?1:-1,flap=Math.sin(t*b.flapSpeed+b.phase);
-            ctx.save();ctx.translate(cx,cy);ctx.scale(dir,1);
-            var outline=isLightMode?'hsla('+b.hue+',70%,20%,0.7)':'hsla('+b.hue+',60%,15%,0.7)';
-            ctx.strokeStyle=outline;ctx.lineWidth=Math.max(0.5,0.7*S);
-            // Tail — forked (turtle-style polyline)
-            ctx.beginPath();ctx.moveTo(-r*0.85,0);ctx.lineTo(-r*1.8,-r*0.35);ctx.lineTo(-r*1.5,0);ctx.lineTo(-r*1.8,r*0.35);ctx.closePath();
-            ctx.fillStyle='hsl('+b.hue+',70%,'+(isLightMode?40:52)+'%)';ctx.fill();ctx.stroke();
-            // Body (egg-shape)
-            ctx.beginPath();ctx.ellipse(0,0,r,r*0.65,0,0,Math.PI*2);
-            ctx.fillStyle='hsl('+b.hue+',65%,'+(isLightMode?55:60)+'%)';ctx.fill();ctx.stroke();
-            // Belly patch
-            ctx.beginPath();ctx.ellipse(0,r*0.15,r*0.7,r*0.4,0,0,Math.PI*2);
-            ctx.fillStyle='hsl('+b.bellyHue+',85%,'+(isLightMode?78:80)+'%)';ctx.globalAlpha=0.75;ctx.fill();ctx.globalAlpha=1;
-            // Wing — flaps; turtle-style sin(theta) petal shape
-            ctx.save();ctx.translate(-r*0.1,-r*0.15);ctx.rotate(flap*0.55);ctx.beginPath();
-            var wL=r*1.2,wsteps=14;for(var wi=0;wi<=wsteps;wi++){var wth=wi/wsteps*Math.PI;var wrr=Math.sin(wth)*wL;ctx.lineTo(wrr*Math.cos(wth)-r*0.3,wrr*Math.sin(wth)*0.55-r*0.2);}
-            ctx.closePath();ctx.fillStyle='hsl('+b.hue+',60%,'+(isLightMode?42:48)+'%)';ctx.fill();ctx.stroke();ctx.restore();
-            // Head
-            ctx.beginPath();ctx.arc(r*0.85,-r*0.35,r*0.5,0,Math.PI*2);
-            ctx.fillStyle='hsl('+b.hue+',68%,'+(isLightMode?58:64)+'%)';ctx.fill();ctx.stroke();
-            // Beak
-            ctx.beginPath();ctx.moveTo(r*1.25,-r*0.35);ctx.lineTo(r*1.75,-r*0.22);ctx.lineTo(r*1.25,-r*0.12);ctx.closePath();
-            ctx.fillStyle='hsl('+b.beakHue+',95%,'+(isLightMode?48:55)+'%)';ctx.fill();
-            ctx.strokeStyle='hsla('+b.beakHue+',90%,25%,0.8)';ctx.stroke();
-            // Eye + sparkle
-            ctx.beginPath();ctx.arc(r*0.95,-r*0.5,Math.max(0.8,1.0*S),0,Math.PI*2);ctx.fillStyle='#111';ctx.fill();
-            ctx.beginPath();ctx.arc(r*1.02,-r*0.56,Math.max(0.3,0.35*S),0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-            // Tiny feet tucked under body
-            ctx.strokeStyle=outline;ctx.lineWidth=Math.max(0.5,0.6*S);
-            ctx.beginPath();ctx.moveTo(-r*0.15,r*0.6);ctx.lineTo(-r*0.1,r*0.85);ctx.moveTo(r*0.15,r*0.6);ctx.lineTo(r*0.2,r*0.85);ctx.stroke();
+            b.px+=b.vx;if(b.px>1.2)b.px=-0.2;if(b.px<-0.2)b.px=1.2;
+            var cx=b.px*W,cy=b.py*H+Math.sin(t*0.9+b.phase)*b.bob*2.5*S,r=b.r;
+            var tilt=b.tilt+Math.sin(t*0.45+b.phase)*0.07;
+            ctx.save();ctx.translate(cx,cy);ctx.rotate(tilt);
+            var bandW=Math.max(1.4,r*0.095);
+            ctx.lineCap='round';
+            // Soft halo behind the bow
+            ctx.beginPath();ctx.arc(0,0,r+bandW*0.3,Math.PI,Math.PI*2);
+            ctx.lineWidth=bandW*1.6;
+            ctx.strokeStyle=isLightMode?'rgba(255,250,210,0.55)':'rgba(255,240,180,0.22)';
+            ctx.stroke();
+            // ROYGBIV arcs from outermost to innermost (turtle-style concentric strokes)
+            for(var bi=0;bi<SPRING_RAINBOW_HUES.length;bi++){
+              var hue=SPRING_RAINBOW_HUES[bi];var bandR=r-bi*bandW;if(bandR<bandW)break;
+              ctx.beginPath();ctx.arc(0,0,bandR,Math.PI,Math.PI*2);
+              ctx.lineWidth=bandW*0.92;
+              ctx.strokeStyle='hsla('+hue+',88%,'+(isLightMode?52:62)+'%,0.85)';
+              ctx.stroke();
+            }
+            // Little cloud puffs at each foot
+            var puffY=bandW*0.2,puffR=bandW*1.9;
+            for(var side=-1;side<=1;side+=2){
+              var fx=side*(r-bandW*3.5);
+              ctx.beginPath();ctx.arc(fx,puffY,puffR,0,Math.PI*2);
+              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',60%,92%,0.9)':'hsla('+b.puffHue+',40%,82%,0.55)';
+              ctx.fill();
+              ctx.beginPath();ctx.arc(fx+side*puffR*0.7,puffY-puffR*0.45,puffR*0.75,0,Math.PI*2);
+              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',55%,95%,0.85)':'hsla('+b.puffHue+',35%,78%,0.45)';
+              ctx.fill();
+              ctx.beginPath();ctx.arc(fx-side*puffR*0.55,puffY-puffR*0.25,puffR*0.6,0,Math.PI*2);
+              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',55%,94%,0.75)':'hsla('+b.puffHue+',35%,75%,0.4)';
+              ctx.fill();
+            }
+            // Twinkle sparkle at the crown
+            var twA=0.45+Math.sin(t*3+b.twinkle)*0.45;
+            ctx.globalAlpha=Math.max(0,twA);
+            ctx.fillStyle=isLightMode?'#fff4b0':'#fffce0';
+            ctx.beginPath();ctx.arc(0,-r+bandW*0.5,Math.max(1,1.5*S),0,Math.PI*2);ctx.fill();
+            // Tiny cross-sparkle rays
+            ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(0.5,0.6*S);
+            var rays=Math.max(2.5,2.2*S);
+            ctx.beginPath();ctx.moveTo(-rays,-r+bandW*0.5);ctx.lineTo(rays,-r+bandW*0.5);
+            ctx.moveTo(0,-r+bandW*0.5-rays);ctx.lineTo(0,-r+bandW*0.5+rays);ctx.stroke();
+            ctx.globalAlpha=1;
             ctx.restore();}
           // 📊 Notebook scientific aesthetic boot animation state
           var NB_DATA_POINTS=[];var NB_GRID_LINES=[];var NB_WAVEFORMS=[];var NB_LAST_SPAWN=0;
@@ -1562,7 +1575,7 @@ async function fun(event, context) {
               var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
               x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):16*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):7*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:10*S*dS;var textX=densityParam===1&&isDeviceMode?30:(logX+3*S*dS);var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):6*S*dS;var pillR=densityParam===1&&isDeviceMode?6:3*S*dS;var pillW=tw+(textX-logX)*2;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.65,pillW,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
-            // 🐦 Spring mode — yellowish, light, with procedural turtle-graphics birds (default)
+            // 🌈 Spring mode — yellowish, light, with procedural turtle-graphics rainbows (default)
             if(isSpring){
               if(!SPRING_INIT)springInit(S);
               // Soft sunny gradient bg (cream/butter for light, deep amber for dark)
@@ -1575,9 +1588,9 @@ async function fun(event, context) {
               x.globalAlpha=1;
               // Sunbeam streaks from top-right
               for(var br=0;br<5;br++){x.save();x.globalAlpha=0.06+Math.sin(t*0.5+br)*0.03;x.fillStyle=isLightMode?'#fff7c0':'#ffeeaa';x.translate(W*0.85,0);x.rotate(0.6+br*0.08);x.fillRect(-2*S,0,4*S,H*1.4);x.restore();}
-              // Draw all birds (sorted by y for fake depth)
-              var sortedBd=SPRING_BIRDS.slice().sort(function(a,b){return a.py-b.py;});
-              for(var fi=0;fi<sortedBd.length;fi++){drawTurtleBird(x,W,H,sortedBd[fi],t,S,isLightMode);}
+              // Draw all rainbows (sorted by y for fake depth — farther ones higher up)
+              var sortedBd=SPRING_RAINBOWS.slice().sort(function(a,b){return a.py-b.py;});
+              for(var fi=0;fi<sortedBd.length;fi++){drawRainbow(x,W,H,sortedBd[fi],t,S,isLightMode);}
               // Logo top-left (small, soft)
               var lS=21*S,lX=5*S,lY=5*S;var logoImg=imgFullLoaded?imgFull:img;
               x.imageSmoothingEnabled=imgFullLoaded;x.globalAlpha=0.92;x.drawImage(logoImg,lX,lY,lS,lS);x.globalAlpha=1;
@@ -1595,7 +1608,7 @@ async function fun(event, context) {
               var sec=(performance.now()-bootStart)/1000;var secT=sec.toFixed(2)+'s';x.font='bold '+(4*S)+'px monospace';x.globalAlpha=0.55;x.fillStyle=isLightMode?'#7a5a20':'#ffd870';x.fillText(secT,W-x.measureText(secT).width-5*S,lY+5*S);x.globalAlpha=1;
               // Handle (if present)
               if(uH){var hAge=(performance.now()-hST)/1000,hFade=Math.min(1,hAge*2);x.font='bold '+(5*S)+'px '+SPRING_FONTS_LIGHT[1];x.globalAlpha=hFade*0.85;x.fillStyle=isLightMode?'#5a3a10':'#ffe6a8';x.fillText(uH,5*S,tBaseY+tFS+6*S);x.globalAlpha=1;}
-              // 🐦 MOTD — chars float chaotically among the birds, each with own font/phase
+              // 🌈 MOTD — chars float chaotically among the rainbows, each with own font/phase
               if(motd){var mAge=(performance.now()-motdStart)/1000;var mFade=Math.min(1,mAge*0.5);var maxW=W*0.85;var motdFS=Math.min(18*S,Math.max(8*S,maxW/Math.max(8,motd.length*0.6)));x.font='bold '+motdFS+'px monospace';
                 // Wrap motd into lines using rough char width
                 var roughChars=Math.max(8,Math.floor(maxW/(motdFS*0.6)));var mLines=wrapMotdText(motd,roughChars);var lineH=motdFS*1.4;var startY=H/2-(mLines.length*lineH)/2;
