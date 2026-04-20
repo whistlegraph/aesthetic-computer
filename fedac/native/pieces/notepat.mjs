@@ -1821,16 +1821,22 @@ function usbMidiStatusText(status) {
 }
 
 function loadUdpMidiConfig(system) {
+  // Default ON: every notepat install should broadcast to the amxd plugin
+  // unless the user explicitly opts out by writing
+  //   {"udpMidiBroadcast": false}
+  // into /mnt/config.json. Previously the flag defaulted to false and
+  // required `true` to enable, which silently blocked the relay on every
+  // OTA-updated device whose pre-existing config.json predates the flag.
+  udpMidiBroadcast = true;
   try {
     const raw = system?.readFile?.("/mnt/config.json");
-    if (!raw) {
-      udpMidiBroadcast = false;
-      return;
-    }
+    if (!raw) return;
     const cfg = JSON.parse(raw);
-    udpMidiBroadcast = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+    if (cfg.udpMidiBroadcast === false || cfg.udpMidiBroadcast === "false") {
+      udpMidiBroadcast = false;
+    }
   } catch (_) {
-    udpMidiBroadcast = false;
+    // Keep default (true) on parse failure.
   }
 }
 
@@ -3340,10 +3346,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === STATUS BAR ===
-  // Bar is tall enough to fit a 25px QR code (21-module QR version 1 with
-  // a 2-module quiet-zone margin, scale=1) in the top-left corner.
-  const topBarH = 26;
-  const barY = 10; // vertical offset for status text — matrix font is ~7px tall
+  // Bar is tall enough to fit a 50×50 QR code (21-module version-1 QR +
+  // 2-module quiet-zone margin at scale=2) in the top-left corner, with
+  // the text row sitting vertically centered below the QR's midline so
+  // readability at arm's length works on a phone-camera scan too.
+  const topBarH = 54;
+  const barY = 22; // center of text row — leaves 2 px top/bottom padding for status text at size=1
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
@@ -3368,13 +3376,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
   const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
 
-  // Left: tiny QR code → notepat.com (25x25 at scale=1), then label.
-  // Clicking anywhere in the label zone still jumps to prompt piece.
+  // Left: QR code → notepat.com, scannable at arm's length from a phone
+  // camera. Scale-2, version-1 with 2-module quiet zone = 50×50 px. C
+  // side caches the Reed-Solomon encoding so only the module-grid blit
+  // is per-frame cost.
   if (globalThis.qr) {
-    // qr() handles its own white background + margin.
-    globalThis.qr("https://notepat.com", 1, 1, 1);
+    globalThis.qr("https://notepat.com", 2, 2, 2);
   }
-  const qrW = 26; // 25px QR + 1px padding before label
+  const qrW = 54; // 50px QR + 2px left inset + 2px right padding before label
   const labelX = qrW + 4;
   const labelW = 48; // "notepat.com" label width in matrix font at size=1
   const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;

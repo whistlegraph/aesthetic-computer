@@ -1645,17 +1645,51 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
     graph_ink(g, (ACColor){80, 80, 90, 120});
     graph_line(g, x, midY, x + w - 1, midY);
 
-    if (copy && want_len > 0) {
+    // Needle position within strip (offset 0..w from x).
+    int needle_off = (int)((double)w * needle_frac + 0.5);
+    if (needle_off < 0)  needle_off = 0;
+    if (needle_off >= w) needle_off = w - 1;
+    int needle_x = x + needle_off;
+
+    // Layout principle: the NEW sample (most recent in the ring) lands
+    // immediately adjacent to the needle, and older samples extend AWAY
+    // from the needle along the active half. The other half stays empty
+    // (background). This matches a record-player intuition: the needle
+    // is the playhead and "now" sits right under it.
+    //
+    //   normal mode (reverse=0): active half = LEFT  (newest just-left of needle)
+    //   reverse mode (reverse=1): active half = RIGHT (newest just-right of needle,
+    //                              past tail extends further right as the held
+    //                              spacebar replays backward in time)
+    //
+    // If needle is at the strip edge, we degrade gracefully: active half
+    // covers the whole width.
+    int active_w;
+    int active_start_off;  // pixel offset within strip where the active half begins
+    if (!reverse) {
+        active_w = needle_off > 0 ? needle_off : w;
+        active_start_off = needle_off > 0 ? 0 : 0;
+    } else {
+        active_w = (w - needle_off) > 0 ? (w - needle_off) : w;
+        active_start_off = (w - needle_off) > 0 ? needle_off : 0;
+    }
+
+    if (copy && want_len > 0 && active_w > 0) {
         int amp = (int)((double)h * 0.45);
         if (amp < 1) amp = 1;
-        double samples_per_col = (double)want_len / (double)w;
+        double samples_per_col = (double)want_len / (double)active_w;
 
-        for (int col = 0; col < w; col++) {
-            int col_idx = reverse ? (w - 1 - col) : col;
-            int i0 = (int)((double)col * samples_per_col);
-            int i1 = (int)((double)(col + 1) * samples_per_col);
+        for (int col = 0; col < active_w; col++) {
+            // Distance from the needle (0 = adjacent to needle = newest sample).
+            int dist_from_needle = !reverse ? (active_w - 1 - col) : col;
+            // Map dist→sample range: dist 0 ⇢ samples near want_len-1 (newest),
+            // dist active_w-1 ⇢ samples near 0 (oldest).
+            int i1 = want_len - (int)((double)dist_from_needle       * samples_per_col);
+            int i0 = want_len - (int)((double)(dist_from_needle + 1) * samples_per_col);
+            if (i0 < 0)        i0 = 0;
             if (i1 > want_len) i1 = want_len;
-            if (i0 < 0) i0 = 0;
+            if (i1 <= i0)      continue;
+
             float peak = 0.0f;
             for (int i = i0; i < i1; i++) {
                 float a = copy[i];
@@ -1665,19 +1699,17 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
             if (peak > 1.0f) peak = 1.0f;
             int bar_h = (int)(peak * (float)amp + 0.5f);
             if (bar_h < 1) bar_h = 1;
-            int r  = 120 + (int)(peak * 140.0f + 0.5f);       if (r  > 255) r  = 255;
-            int gc = 120 + (int)(peak *  80.0f + 0.5f);       if (gc > 255) gc = 255;
-            int b  =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b > 255) b = 255;
+            int r  = 120 + (int)(peak * 140.0f + 0.5f);          if (r  > 255) r  = 255;
+            int gc = 120 + (int)(peak *  80.0f + 0.5f);          if (gc > 255) gc = 255;
+            int b  =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b  > 255) b  = 255;
             graph_ink(g, (ACColor){(uint8_t)r, (uint8_t)gc, (uint8_t)b, 220});
-            graph_line(g, x + col_idx, midY - bar_h, x + col_idx, midY + bar_h);
+            int draw_x = x + active_start_off + col;
+            graph_line(g, draw_x, midY - bar_h, draw_x, midY + bar_h);
         }
     }
     if (copy) free(copy);
 
-    // Playhead needle
-    int needle_x = x + (int)((double)w * needle_frac + 0.5);
-    if (needle_x < x)          needle_x = x;
-    if (needle_x >= x + w)     needle_x = x + w - 1;
+    // Playhead needle — draw last so it sits on top of the bars.
     graph_ink(g, (ACColor){240, 80, 80, 220});
     graph_line(g, needle_x, y, needle_x, y + h - 1);
 
