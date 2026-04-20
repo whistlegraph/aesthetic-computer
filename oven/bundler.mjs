@@ -423,16 +423,19 @@ function rewriteImports(code, filepath) {
     /import\s*\((['"]aesthetic\.computer\/disks\/([^'"]+)['")])\)/g,
     (match, fullPath, p) => "import('ac/disks/" + p + "')"
   );
+  // Strip ?query strings from path capture so that rewritten bare specifiers
+  // (e.g. "lib/l5.mjs") match import map keys — import maps do exact-match on
+  // the full specifier including any query, so "lib/l5.mjs?v=..." would miss.
   code = code.replace(
-    /from\s*['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['"]/g,
+    /from\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?['"]/g,
     (match, p) => {
       const resolved = resolvePath(filepath, p);
       return 'from"' + resolved + '"';
     }
   );
   code = code.replace(
-    /import\s*\((['"](\.\.\/[^'"]+|\.\/[^'"]+)(\?[^'"]+)?['")])\)/g,
-    (match, fullPath, p) => {
+    /import\s*\(\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?['"]\s*\)/g,
+    (match, p) => {
       const resolved = resolvePath(filepath, p);
       return 'import("' + resolved + '")';
     }
@@ -446,7 +449,7 @@ function rewriteImports(code, filepath) {
     }
   );
   code = code.replace(
-    /\(\s*['"](\.\.?\/[^'"]+\.m?js)(\?[^'"]+)?['"]\s*\)/g,
+    /\(\s*['"](\.\.?\/[^'"?]+\.m?js)(\?[^'"]*)?['"]\s*\)/g,
     (match, p) => {
       const resolved = resolvePath(filepath, p);
       return '("' + resolved + '")';
@@ -510,8 +513,11 @@ async function discoverDependencies(acDir, essentialFiles, skipFiles) {
 
     try {
       const content = await fs.readFile(fullPath, "utf8");
-      const importRegex = /from\s+["'](\.\.[^"']+|\.\/[^"']+)["']/g;
-      const dynamicRegex = /import\s*\(\s*["'](\.\.[^"']+|\.\/[^"']+)["']\s*\)/g;
+      // Exclude ?query from the path capture so resolved paths stay on-disk
+      // (otherwise discovery treats "lib/l5.mjs?v=..." as the filename and
+      // existsSync skips it, so l5.mjs never lands in the VFS).
+      const importRegex = /from\s+["'](\.\.[^"'?]+|\.\/[^"'?]+)(\?[^"']*)?["']/g;
+      const dynamicRegex = /import\s*\(\s*["'](\.\.[^"'?]+|\.\/[^"'?]+)(\?[^"']*)?["']\s*\)/g;
 
       let match;
       while ((match = importRegex.exec(content)) !== null) {
