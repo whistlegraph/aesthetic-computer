@@ -16,6 +16,7 @@ let remoteSize = 0; // parsed from version file (line 2)
 // kernel and the initramfs and flash them atomically, otherwise the device
 // boots a new kernel against a stale initramfs and code-path drift follows.
 let initramfsDownloaded = false;
+let initramfsRetried = false; // one-shot retry on transient fetch failure
 
 // States: idle | checking | up-to-date | available
 //         | downloading (kernel) | downloading-initramfs | flashing
@@ -842,13 +843,15 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
     }
   }
 
-  // Download progress (initramfs) — kicks off flash once both files are local
+  // Download progress (initramfs) — kicks off flash once both files are local.
+  // Auto-retry once on failure (flaky wifi / TLS hiccups account for most
+  // "initramfs download failed" reports in MongoDB).
   if (state === "downloading-initramfs") {
     const prevProgress = progress;
     progress = system?.fetchBinaryProgress ?? progress;
     if (progress > 0 && Math.floor(progress * 10) > Math.floor(prevProgress * 10)) {
       const pct = Math.round(progress * 100);
-      addTelemetry(`initramfs ${pct}%`);
+      addTelemetry(`initramfs ${pct}% (${(progress * 336 / 100 * 100).toFixed(1)}MB, elapsed ${Math.round((frame - checkFrame) / 60)}s)`);
     }
     if (system?.fetchBinaryDone) {
       if (system?.fetchBinaryOk) {
@@ -860,8 +863,13 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         // Four-arg flashUpdate: (kernelSrc, device, initramfsSrc)
         // Device may be omitted — null lets C auto-detect the boot device.
         system?.flashUpdate?.("/tmp/vmlinuz.new", dev || null, "/tmp/initramfs.cpio.gz.new");
+      } else if (!initramfsRetried) {
+        initramfsRetried = true;
+        addTelemetry("initramfs download failed — retrying once");
+        progress = 0;
+        system?.fetchBinary?.(OS_INITRAMFS_URL, "/tmp/initramfs.cpio.gz.new", 336_000_000);
       } else {
-        setError("initramfs download failed", "downloading-initramfs");
+        setError("initramfs download failed (after retry)", "downloading-initramfs");
       }
     }
   }
@@ -900,9 +908,21 @@ function paint({ wipe, ink, box, line, write, screen, system, wifi }) {
         addTelemetry(`verified OK: ${flashedMB}MB`);
         state = "confirm-reboot";
       } else {
-        addTelemetry("VERIFY FAILED");
+        // Detect the Phase-2 OTA mismatch: verify fails because the
+        // running os.mjs pushed only the kernel (13MB) but the C flash
+        // layer expected kernel + initramfs. Surface the real cause so
+        // the user knows to USB-install instead of retrying OTA forever.
+        const wroteBytes = system?.flashVerifiedBytes ?? 0;
+        const wroteMB = (wroteBytes / 1048576).toFixed(1);
+        addTelemetry(`VERIFY FAILED  wrote=${wroteMB}MB`);
         for (const line of flog) addTelemetry("[c] " + line);
-        setError("flash verify failed", "flashing");
+        if (!initramfsDownloaded) {
+          addTelemetry("hint: this build needs a separate initramfs.");
+          addTelemetry("hint: boot from USB + press 'w' to reinstall.");
+          setError("needs USB install (pre-Phase-2 OTA)", "flashing");
+        } else {
+          setError("flash verify failed", "flashing");
+        }
       }
     }
   }
