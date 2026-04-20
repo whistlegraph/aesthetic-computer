@@ -351,23 +351,20 @@ export async function handler(event, context) {
 
         const shaped = pieces
           .map((p) => {
-            const handle = p.user ? handles.get(p.user) : null;
+            const handle = p.user ? handles.get(p.user) || null : null;
+            const shape = toMongoShape(p, {
+              handle,
+              contract: requestedContract,
+              contractProfile: requestedContractProfile,
+              contractVersion: requestedContractVersion,
+            }) || {};
             return {
+              ...shape,
               code: p.code,
-              source: p.source,
               preview:
                 p.source && p.source.length > 40
                   ? p.source.substring(0, 37) + "..."
                   : p.source,
-              when: p.when,
-              hits: p.hits,
-              user: p.user || null,
-              handle: handle || null,
-              ...(toMongoShape(p, {
-                contract: requestedContract,
-                contractProfile: requestedContractProfile,
-                contractVersion: requestedContractVersion,
-              }) || {}),
             };
           })
           .filter((p) => {
