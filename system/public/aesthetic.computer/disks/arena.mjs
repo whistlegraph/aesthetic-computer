@@ -310,7 +310,13 @@ function netBoot({ net, handle, send }) {
     }
     const msg = typeof content === "string" ? JSON.parse(content) : content;
     if (type === "arena:welcome") {
-      console.log(`🏟️  welcome → ${msg.you}, ${msg.roster?.length ?? 0} already in`);
+      const roster = msg.roster || [];
+      const peers = roster.filter((h) => h !== msg.you);
+      console.log(
+        peers.length
+          ? `🏟️  welcome → ${msg.you}; peers: ${peers.join(", ")}`
+          : `🏟️  welcome → ${msg.you} (arena empty)`,
+      );
       return;
     }
     if (type === "arena:snap") { onSnap(msg); return; }          // WS fallback
@@ -1977,9 +1983,6 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
         if (name === "jump" || name === "crouch" || name === "up" || name === "down" || name === "left" || name === "right") {
           // Jump/Crouch/Arrow buttons have animation states
           bufferName = isPressed ? `${name}_active` : `${name}_normal`;
-          if (name === "crouch") {
-            console.log(`🐒 crouch button: isPressed=${isPressed}, bufferName=${bufferName}, shift=${keyboardState.shift}`);
-          }
         }
 
         const buffer = buttonBuffers[bufferName];
