@@ -20,6 +20,7 @@ const SNAP_RATE = 30;             // snapshots/sec (per client)
 const SNAP_EVERY = TICK_RATE / SNAP_RATE;
 const SNAP_RING = 32;             // per-client snapshot history depth
 const POS_HISTORY_MS = 500;       // rolling pos history for lag comp
+const STALE_TIMEOUT_MS = 30_000;  // evict players idle this long
 
 // Default arena world config — must match disks/arena.mjs.
 export const ARENA_CFG = Object.freeze({
@@ -89,9 +90,18 @@ export class ArenaManager {
 
     let rec = this.players.get(handle);
     if (rec) {
-      // Re-join (page reload / reconnect): reuse the body but refresh wsId.
+      // Re-join (page reload / reconnect): keep the body continuity but reset
+      // the per-connection bookkeeping. The new client starts its cmd seq and
+      // snap-ack counters from zero, so we must wipe ours or every new cmd
+      // would be "already seen" and dropped, freezing the avatar in place.
       rec.wsId = wsId;
       rec.udpChannelId = this.resolveUdpForHandle?.(handle) ?? null;
+      rec.lastCmdSeq = 0;
+      rec.lastCmdMs = 0;
+      rec.lastAckMessageNum = 0;
+      rec.nextMessageNum = 1;
+      rec.snapHistory.fill(null);
+      rec.lastSeenMs = this.now();
     } else {
       const spawn = SPAWNS[this.players.size % SPAWNS.length];
       rec = {
@@ -125,17 +135,29 @@ export class ArenaManager {
     this.ensureTick();
   }
 
-  playerLeave(handle) {
+  /**
+   * Leave. `onlyIfWsId` (optional) guards the reload race: when a tab
+   * reloads quickly, the new ws may hello before the old ws's close
+   * handler fires. Without this guard, the close would delete the
+   * freshly-rebound player. Pass the wsId that was on the closing socket
+   * and we only delete if it's still the active one.
+   */
+  playerLeave(handle, onlyIfWsId = undefined) {
     if (!handle) return;
     if (this.probes.delete(handle)) {
       console.log(`🏟️  probe left: ${handle} (${this.probes.size} probes)`);
       this.maybeStopTick();
       return;
     }
-    if (this.players.delete(handle)) {
-      this.broadcastWS?.("arena:leave", { handle });
-      console.log(`🏟️  left: ${handle} (${this.players.size} players)`);
+    const rec = this.players.get(handle);
+    if (!rec) return;
+    if (onlyIfWsId !== undefined && rec.wsId !== onlyIfWsId) {
+      console.log(`🏟️  stale leave for ${handle} (wsId=${onlyIfWsId} ≠ active ${rec.wsId}) — ignored`);
+      return;
     }
+    this.players.delete(handle);
+    this.broadcastWS?.("arena:leave", { handle });
+    console.log(`🏟️  left: ${handle} (${this.players.size} players)`);
     this.maybeStopTick();
   }
 
@@ -219,7 +241,28 @@ export class ArenaManager {
       }
     }
 
+    // Stale sweep: if we haven't seen a hello / cmd / ack from a player in
+    // STALE_TIMEOUT_MS, evict. Belt-and-suspenders for cases the ws close
+    // handler misses (crashed tabs, NATed mobile backgrounds, etc).
+    if (this.tick % TICK_RATE === 0) this.sweepStale(nowMs);
+
     if (this.tick % SNAP_EVERY === 0) this.broadcastSnapshots();
+  }
+
+  sweepStale(nowMs) {
+    for (const [handle, rec] of this.players) {
+      if (nowMs - rec.lastSeenMs > STALE_TIMEOUT_MS) {
+        console.log(`🏟️  sweep ${handle} (idle ${((nowMs - rec.lastSeenMs) / 1000).toFixed(1)}s)`);
+        this.players.delete(handle);
+        this.broadcastWS?.("arena:leave", { handle });
+      }
+    }
+    for (const [handle, p] of this.probes) {
+      // Probes also expire; lastSeen isn't tracked for them today, so use
+      // a simple heuristic: if the ws is gone (we don't know), skip. No-op.
+      void handle; void p;
+    }
+    this.maybeStopTick();
   }
 
   // -- Snapshots --
