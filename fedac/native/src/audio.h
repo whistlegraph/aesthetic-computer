@@ -253,6 +253,18 @@ typedef struct {
     float fx_mix;           // 0.0 = fully dry, 1.0 = fully wet (smoothed)
     float target_fx_mix;    // target (set by JS, smoothed per sample)
 
+    // User-controlled master output gain (applied right before soft_clip).
+    // Defaults to 1.0; 0.0 silent; >1.0 amplifies (use carefully — soft_clip
+    // still protects against speaker-blowing peaks).
+    float master_volume;
+    float target_master_volume;
+
+    // Drive / tanh soft-saturation (dry/wet blend). 0.0 = clean pass-through,
+    // 1.0 = fully driven (pre-gain 6× → tanh → attenuation). Adds harmonic
+    // warmth at low settings and obvious distortion at high settings.
+    float drive_mix;
+    float target_drive_mix;
+
     // System mixer volume (0-100 percent)
     int system_volume;
     int card_index;  // ALSA card number (0 or 1)
@@ -392,6 +404,8 @@ void audio_glitch_toggle(ACAudio *audio);
 void audio_set_room_mix(ACAudio *audio, float mix);
 void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
+void audio_set_master_volume(ACAudio *audio, float value);
+void audio_set_drive_mix(ACAudio *audio, float value);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)
 int audio_mic_open(ACAudio *audio);    // open device + start hot-mic thread

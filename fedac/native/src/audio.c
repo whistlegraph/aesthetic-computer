@@ -1434,6 +1434,14 @@ static void *audio_thread_fn(void *arg) {
                 audio->glitch_mix += (audio->target_glitch_mix - audio->glitch_mix) * 0.00005f;
             }
 
+            // Smooth master volume + drive toward target (same 1s time const)
+            if (audio->master_volume != audio->target_master_volume) {
+                audio->master_volume += (audio->target_master_volume - audio->master_volume) * 0.00005f;
+            }
+            if (audio->drive_mix != audio->target_drive_mix) {
+                audio->drive_mix += (audio->target_drive_mix - audio->drive_mix) * 0.00005f;
+            }
+
             // Save dry signal before FX chain
             double dry_l = mix_l, dry_r = mix_r;
 
@@ -1572,6 +1580,29 @@ static void *audio_thread_fn(void *arg) {
                     mix_l *= reduction;
                     mix_r *= reduction;
                 }
+            }
+
+            // User-controlled drive (tanh soft-saturation) BEFORE system
+            // volume so the harmonic character is independent of hardware
+            // gain. drive_mix is a dry/wet blend: 0 = pure bypass, 1 = fully
+            // driven (pre-gain × 6 into tanh, attenuated back to roughly
+            // unity peak). At mid settings you get pleasing tube-ish warmth.
+            if (audio->drive_mix > 0.001f) {
+                float dm = audio->drive_mix;
+                float pre_gain = 1.0f + dm * 5.0f;
+                double driven_l = tanh(mix_l * pre_gain) * 0.8;
+                double driven_r = tanh(mix_r * pre_gain) * 0.8;
+                mix_l = mix_l * (1.0 - dm) + driven_l * dm;
+                mix_r = mix_r * (1.0 - dm) + driven_r * dm;
+            }
+
+            // User-controlled master volume (0..2 = 0..200%). Applied after
+            // drive so the slider feels like a "louder/quieter" control that
+            // doesn't change the tone character the user dialled in.
+            {
+                float mv = audio->master_volume;
+                mix_l *= mv;
+                mix_r *= mv;
             }
 
             // Apply system volume (software gain). system_volume can go
@@ -1797,6 +1828,13 @@ ACAudio *audio_init(void) {
     audio->target_glitch_mix = 0.0f;
     audio->fx_mix = 1.0f;    // FX chain fully wet by default
     audio->target_fx_mix = 1.0f;
+    // User master volume starts at 1.0 (unity gain) — the pre-existing
+    // system_volume path still provides the hardware mixer control, so
+    // this is a per-user soft gain on top.
+    audio->master_volume = 1.0f;
+    audio->target_master_volume = 1.0f;
+    audio->drive_mix = 0.0f;  // Clean bypass until user dials drive
+    audio->target_drive_mix = 0.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
 
@@ -2977,6 +3015,26 @@ void audio_set_fx_mix(ACAudio *audio, float mix) {
     if (mix < 0.0f) mix = 0.0f;
     if (mix > 1.0f) mix = 1.0f;
     audio->target_fx_mix = mix;
+}
+
+// User-exposed master gain. Range 0..2 (200%) — above that you're almost
+// certainly just hitting soft_clip and colouring the signal, so clamp
+// before that to avoid giving false "louder" feedback in the UI slider.
+void audio_set_master_volume(ACAudio *audio, float value) {
+    if (!audio) return;
+    if (value < 0.0f) value = 0.0f;
+    if (value > 2.0f) value = 2.0f;
+    audio->target_master_volume = value;
+}
+
+// Drive amount 0..1 dry/wet blend. 0 = clean bypass, 1 = fully driven
+// (pre-gain × 6 into tanh, attenuated back). Smoothed per-sample so
+// sliding the fader doesn't audibly zipper.
+void audio_set_drive_mix(ACAudio *audio, float value) {
+    if (!audio) return;
+    if (value < 0.0f) value = 0.0f;
+    if (value > 1.0f) value = 1.0f;
+    audio->target_drive_mix = value;
 }
 
 // --- Hot-mic capture thread ---

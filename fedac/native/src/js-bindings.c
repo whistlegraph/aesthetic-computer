@@ -1184,6 +1184,26 @@ static JSValue js_set_glitch_mix(JSContext *ctx, JSValueConst this_val, int argc
     return JS_UNDEFINED;
 }
 
+// sound.volume.setMix(value) — user-controlled master output gain (0..2)
+static JSValue js_set_master_volume(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_master_volume(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
+// sound.drive.setMix(value) — tanh soft-clip dry/wet blend (0..1)
+static JSValue js_set_drive_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_drive_mix(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
 // sound.microphone.open() — open device + start hot-mic thread
 static JSValue js_mic_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -2848,6 +2868,18 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, fx, "setMix", JS_NewCFunction(ctx, js_set_fx_mix, "setMix", 1));
     JS_SetPropertyStr(ctx, fx, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->fx_mix : 1.0));
     JS_SetPropertyStr(ctx, sound, "fx", fx);
+
+    // volume (user master output gain)
+    JSValue volume = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, volume, "setMix", JS_NewCFunction(ctx, js_set_master_volume, "setMix", 1));
+    JS_SetPropertyStr(ctx, volume, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->master_volume : 1.0));
+    JS_SetPropertyStr(ctx, sound, "volume", volume);
+
+    // drive (tanh soft-clip saturation)
+    JSValue drive = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, drive, "setMix", JS_NewCFunction(ctx, js_set_drive_mix, "setMix", 1));
+    JS_SetPropertyStr(ctx, drive, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->drive_mix : 0.0));
+    JS_SetPropertyStr(ctx, sound, "drive", drive);
 
     // microphone
     JSValue mic = JS_NewObject(ctx);
