@@ -5927,8 +5927,10 @@ function paint($) {
         commitBtn.paint($, colors);
 
         // 🎹 Notepat shortcut button — sits to the right of the commit button.
-        // Two leading spaces reserve room for the piano icon we draw afterward.
-        const notepatLabel = "  notepat";
+        // Leading spaces reserve room for the piano icon we draw afterward.
+        // MatrixChunky8 = 4px/char + 2px pad ⇒ text starts at box.x + 2 + 4*spaces.
+        // Icon frame (13×9) ends at box.x + 15, so 4 spaces (x+18) leaves a 3px gap.
+        const notepatLabel = "    notepat";
         const notepatX = cBox.x + cBox.w + 4;
         if (!notepatBtn) {
           notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: notepatX, y: buttonY });
@@ -5953,19 +5955,19 @@ function paint($) {
             ];
         notepatBtn.paint($, notepatColors);
 
-        // Tiny 7×5 piano icon drawn over the leading whitespace of the label.
+        // 11×7 piano icon (3 white keys, 2 black keys) with a 13×9 frame.
         const ix = nBox.x + 3;
-        const iy = nBox.y + 3;
+        const iy = nBox.y + 2;
         // White keys base
-        $.ink(225, 225, 232).box(ix, iy, 7, 5, "fill");
-        // Key dividers
-        $.ink(40, 30, 50).line(ix + 2, iy + 2, ix + 2, iy + 4);
-        $.ink(40, 30, 50).line(ix + 4, iy + 2, ix + 4, iy + 4);
+        $.ink(225, 225, 232).box(ix, iy, 11, 7, "fill");
+        // Key dividers between white keys
+        $.ink(40, 30, 50).line(ix + 3, iy + 3, ix + 3, iy + 6);
+        $.ink(40, 30, 50).line(ix + 7, iy + 3, ix + 7, iy + 6);
         // Two black keys on top
-        $.ink(30, 20, 40).box(ix + 1, iy, 2, 3, "fill");
-        $.ink(30, 20, 40).box(ix + 4, iy, 2, 3, "fill");
+        $.ink(30, 20, 40).box(ix + 2, iy, 3, 4, "fill");
+        $.ink(30, 20, 40).box(ix + 6, iy, 3, 4, "fill");
         // Frame
-        $.ink(notepatColors[1]).box(ix - 1, iy - 1, 9, 7, "outline");
+        $.ink(notepatColors[1]).box(ix - 1, iy - 1, 13, 9, "outline");
       }
       versionCommit = versionInfo.deployed;
     } else {
