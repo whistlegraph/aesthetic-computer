@@ -1836,6 +1836,53 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             }
 
             umount("/tmp/hd");
+
+            // Register a UEFI NVRAM boot entry pointing at the freshly
+            // written ESP. Without this, ThinkPad / most non-Mac firmware
+            // won't try `\EFI\BOOT\BOOTX64.EFI` on internal disks at all
+            // — only removable media gets the fallback path. The new
+            // install would write fine but the firmware wouldn't see it
+            // at boot, falling through to USB or a stale Fedora entry.
+            //
+            // Skipped silently if efivarfs isn't mounted (some firmware
+            // exposes it read-only); install still completes — user can
+            // boot via F12 menu and we'll add the entry on second boot.
+            if (installed) {
+                char parent_blk[32] = "";
+                get_parent_block(devpath + 5, parent_blk, sizeof(parent_blk));
+                int part_num = 1;
+                {
+                    int len = (int)strlen(devpath);
+                    int i = len;
+                    while (i > 0 && devpath[i-1] >= '0' && devpath[i-1] <= '9') i--;
+                    if (i < len) part_num = atoi(devpath + i);
+                }
+                if (parent_blk[0] && access("/sys/firmware/efi/efivars", F_OK) == 0) {
+                    char ebcmd[512];
+                    // Remove any prior "AC Native OS" entries (idempotent reinstall).
+                    snprintf(ebcmd, sizeof(ebcmd),
+                        "for n in $(efibootmgr 2>/dev/null | awk '/AC Native OS/{print substr($1,5,4)}'); do "
+                        "efibootmgr -B -b $n >/dev/null 2>&1; done");
+                    system(ebcmd);
+                    // Add new entry pointing at our /EFI/BOOT/BOOTX64.EFI
+                    // on the new ESP. Position it first in BootOrder so
+                    // firmware tries it before any stale Fedora entries.
+                    snprintf(ebcmd, sizeof(ebcmd),
+                        "efibootmgr -c -d /dev/%s -p %d -L 'AC Native OS' "
+                        "-l '\\EFI\\BOOT\\BOOTX64.EFI' >> /tmp/install-debug.log 2>&1",
+                        parent_blk, part_num);
+                    int erc = system(ebcmd);
+                    ac_log("[install] efibootmgr add rc=%d for /dev/%s p%d\n", erc, parent_blk, part_num);
+                }
+            }
+
+            // Copy the install debug log onto the boot USB so post-mortem
+            // is possible without re-running. tmpfs evaporates on reboot;
+            // /mnt is the live USB partition.
+            if (access("/tmp/install-debug.log", F_OK) == 0) {
+                copy_file("/tmp/install-debug.log", "/mnt/install-debug.log");
+                sync();
+            }
         }
         }
     }
