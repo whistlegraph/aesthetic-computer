@@ -1387,6 +1387,57 @@ app.post("/api/datomic/query", requireAdmin, (req, res) =>
 app.get("/api/datomic/backups", requireAdmin, (req, res) =>
   datomicProxy(req, res, { method: "GET", path: "/admin/backups" }));
 
+// Admin-gated proxy into the sidecar's client-secret read endpoints —
+// used by the dashboard's kidlisp tab to render AST trees + run structural
+// queries. Silo holds both secrets; dashboard admin auth → silo adds the
+// client-secret header → sidecar serves.
+const DATOMIC_SIDECAR_CLIENT_SECRET = process.env.DATOMIC_SIDECAR_CLIENT_SECRET;
+
+async function sidecarClientProxy(req, res, { method, path, body }) {
+  if (!DATOMIC_SIDECAR_CLIENT_SECRET) {
+    return res.status(503).json({ error: "sidecar client secret not configured on silo" });
+  }
+  try {
+    const resp = await fetch(`${DATOMIC_SIDECAR_URL}${path}`, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        "x-sidecar-secret": DATOMIC_SIDECAR_CLIENT_SECRET,
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await resp.text();
+    let data;
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+    res.status(resp.status).json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+}
+
+app.get("/api/datomic/kidlisp", requireAdmin, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  sidecarClientProxy(req, res, { method: "GET", path: `/kidlisp${qs ? `?${qs}` : ""}` });
+});
+
+app.get("/api/datomic/kidlisp/:code", requireAdmin, (req, res) =>
+  sidecarClientProxy(req, res, { method: "GET", path: `/kidlisp/${encodeURIComponent(req.params.code)}` }));
+
+app.get("/api/datomic/kidlisp/:code/ast", requireAdmin, (req, res) =>
+  sidecarClientProxy(req, res, { method: "GET", path: `/kidlisp/${encodeURIComponent(req.params.code)}/ast` }));
+
+app.get("/api/datomic/kidlisp/:code/lineage", requireAdmin, (req, res) =>
+  sidecarClientProxy(req, res, { method: "GET", path: `/kidlisp/${encodeURIComponent(req.params.code)}/lineage` }));
+
+app.get("/api/datomic/structural/pieces-using", requireAdmin, (req, res) => {
+  const qs = new URLSearchParams(req.query).toString();
+  sidecarClientProxy(req, res, {
+    method: "GET",
+    path: `/kidlisp/structural/pieces-using${qs ? `?${qs}` : ""}`,
+  });
+});
+
 // ─────────────────── Datomic sidecar — public kidlisp proxy ───────────────────
 //
 // Server-to-server surface for lith (which runs store-kidlisp-datomic.mjs).

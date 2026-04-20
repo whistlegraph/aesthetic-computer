@@ -16,6 +16,7 @@ import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import { sidecar } from "../../backend/kidlisp-sidecar.mjs";
+import { extractAst } from "../../backend/kidlisp-ast.mjs";
 import crypto from "crypto";
 
 const TEZOS_ENABLED = process.env.TEZOS_ENABLED === "true";
@@ -162,6 +163,20 @@ export async function handler(event, context) {
       // sidecar returned {code, cached} — if cached (raced with another write),
       // the returned code may differ from our proposed `code`. Honor it.
       const finalCode = created.code;
+
+      // AST index (fire-and-forget): parse source structure and POST to
+      // sidecar so corpus-wide datalog queries can find it. If the piece
+      // was cached (hash dedup), its AST is already stored — skip.
+      if (!created.cached) {
+        try {
+          const astNodes = extractAst(source.trim());
+          sidecar.setAst(finalCode, astNodes).catch((err) => {
+            console.warn("⚠️  AST index failed:", err?.message || err);
+          });
+        } catch (err) {
+          console.warn("⚠️  AST extract failed:", err?.message || err);
+        }
+      }
 
       // Profile stream event (fire-and-forget)
       if (profileHandle) {

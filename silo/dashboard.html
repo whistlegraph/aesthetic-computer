@@ -317,6 +317,7 @@ a:hover { text-decoration: underline; }
     <button class="tab-btn" data-tab="7">telemetry</button>
     <button class="tab-btn" data-tab="8">lith</button>
     <button class="tab-btn" data-tab="9">datomic</button>
+    <button class="tab-btn" data-tab="10">kidlisp</button>
   </div>
 
   <div class="panels">
@@ -709,6 +710,45 @@ a:hover { text-decoration: underline; }
           <span class="bar-dim" id="dt-query-status"></span>
         </div>
         <pre id="dt-query-result" style="font-size:11px;margin:0;white-space:pre-wrap"></pre>
+      </div>
+    </div>
+
+    <!-- kidlisp panel (v2: structural browser via Datomic AST) -->
+    <div class="panel" data-panel="10">
+      <div style="display:flex;gap:6px;align-items:center;padding:4px 6px;border-bottom:1px solid var(--border)">
+        <input id="kl-search" placeholder="code or fragment..." class="browse-input"
+          style="font-family:inherit;font-size:11px;padding:3px 6px;background:var(--bg);color:var(--fg);border:1px solid var(--border);width:180px">
+        <button class="btn" onclick="klLoad('hits')">by hits</button>
+        <button class="btn" onclick="klLoad('recent')">recent</button>
+        <span class="bar-dim" id="kl-status"></span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(200px,1fr) 1.2fr 1fr;gap:6px;padding:6px;height:calc(100vh - 150px);overflow:hidden">
+        <!-- piece list -->
+        <div class="card" style="overflow-y:auto;padding:4px">
+          <div class="card-hd">pieces <b id="kl-list-count"></b></div>
+          <div id="kl-list" style="font-size:11px">pick a sort to load</div>
+        </div>
+        <!-- source + metadata -->
+        <div class="card" style="overflow-y:auto;padding:4px">
+          <div class="card-hd">
+            <span id="kl-detail-code">—</span>
+            <span class="bar-dim" id="kl-detail-meta"></span>
+          </div>
+          <pre id="kl-source" style="font-size:11px;margin:0;white-space:pre-wrap;color:var(--fg)">select a piece</pre>
+          <div style="margin-top:6px;padding-top:4px;border-top:1px solid var(--border);font-size:10px;color:var(--fg2)" id="kl-meta"></div>
+        </div>
+        <!-- AST tree + structural search -->
+        <div class="card" style="overflow-y:auto;padding:4px">
+          <div class="card-hd">structure <span class="bar-dim" style="font-size:10px">click op → corpus search</span></div>
+          <div id="kl-tree" style="font-size:11px;font-family:inherit">—</div>
+          <div style="margin-top:6px;padding-top:4px;border-top:1px solid var(--border)">
+            <div class="card-hd">
+              <span id="kl-struct-label">pieces using X</span>
+              <span class="bar-dim" id="kl-struct-count"></span>
+            </div>
+            <div id="kl-struct-result" style="font-size:11px;max-height:240px;overflow-y:auto">click an op in the tree above</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2369,6 +2409,149 @@ document.addEventListener('click', e => {
   if (e.target.matches('[data-tab="9"]')) {
     loadDatomic();
     if (!datomicTimer) datomicTimer = setInterval(loadDatomic, 15000);
+  }
+});
+
+// ───────────────────────── kidlisp tab (v2: AST-aware) ─────────────────────────
+let klPieces = [];
+let klSelectedCode = null;
+
+function klEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c]);
+}
+
+async function klLoad(sort) {
+  document.getElementById('kl-status').textContent = 'loading...';
+  try {
+    const qs = new URLSearchParams({ sort: sort || 'hits', limit: '200' });
+    const data = await dtFetch('/api/datomic/kidlisp?' + qs.toString());
+    klPieces = data.recent || [];
+    document.getElementById('kl-list-count').textContent = klPieces.length;
+    document.getElementById('kl-status').textContent = '';
+    klRenderList();
+  } catch (err) {
+    document.getElementById('kl-status').textContent = 'error: ' + err.message;
+  }
+}
+
+function klRenderList() {
+  const filter = (document.getElementById('kl-search').value || '').toLowerCase();
+  const rows = klPieces.filter((p) => {
+    if (!filter) return true;
+    return (
+      (p.code || '').toLowerCase().includes(filter) ||
+      (p.source || '').toLowerCase().includes(filter)
+    );
+  });
+  document.getElementById('kl-list').innerHTML = rows.map((p) => {
+    const hits = p.hits ?? 0;
+    const preview = (p.source || '').substring(0, 30).replace(/\n/g, ' ');
+    const active = p.code === klSelectedCode ? 'background:var(--hover);' : '';
+    return (
+      '<div style="padding:2px 4px;cursor:pointer;border-bottom:1px solid var(--border);' + active + '" ' +
+      'onclick="klShow(\'' + klEsc(p.code) + '\')">' +
+      '<span style="color:var(--accent)">$' + klEsc(p.code) + '</span> ' +
+      '<span style="color:var(--fg2)">·</span> ' +
+      '<span style="color:var(--fg2)">' + hits + '</span> ' +
+      '<div style="color:var(--fg2);font-size:10px;margin-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      klEsc(preview) + '</div></div>'
+    );
+  }).join('');
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'kl-search') klRenderList();
+});
+
+async function klShow(code) {
+  klSelectedCode = code;
+  klRenderList();
+  document.getElementById('kl-detail-code').textContent = '$' + code;
+  document.getElementById('kl-source').textContent = 'loading...';
+  document.getElementById('kl-tree').textContent = 'loading...';
+  document.getElementById('kl-struct-result').textContent = 'click an op in the tree above';
+  document.getElementById('kl-struct-count').textContent = '';
+  document.getElementById('kl-struct-label').textContent = 'pieces using X';
+
+  try {
+    const piece = await dtFetch('/api/datomic/kidlisp/' + encodeURIComponent(code));
+    document.getElementById('kl-source').textContent = piece.source || '(empty)';
+    document.getElementById('kl-detail-meta').textContent =
+      (piece.user ? piece.user.substring(0, 20) + ' · ' : '') +
+      (piece.hits ?? 0) + ' hits';
+    const meta = [];
+    if (piece.when) meta.push('created ' + new Date(piece.when).toLocaleDateString());
+    if (piece.atproto?.rkey) meta.push('atproto: ' + piece.atproto.rkey);
+    if (piece.tezos?.minted) meta.push('tezos minted #' + piece.tezos.tokenId);
+    if (piece.keeps?.length) meta.push(piece.keeps.length + ' keep(s)');
+    document.getElementById('kl-meta').textContent = meta.join(' · ');
+  } catch (err) {
+    document.getElementById('kl-source').textContent = 'error: ' + err.message;
+  }
+
+  try {
+    const ast = await dtFetch('/api/datomic/kidlisp/' + encodeURIComponent(code) + '/ast');
+    document.getElementById('kl-tree').innerHTML = klRenderTree(ast.nodes || []);
+  } catch (err) {
+    document.getElementById('kl-tree').textContent = 'no AST indexed yet — run backfill';
+  }
+}
+
+function klRenderTree(nodes) {
+  if (!nodes.length) return '<span style="color:var(--fg2)">(empty)</span>';
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const kids = new Map();
+  for (const n of nodes) {
+    const p = n.parent ?? -1;
+    if (!kids.has(p)) kids.set(p, []);
+    kids.get(p).push(n);
+  }
+  for (const arr of kids.values()) arr.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+  function walk(id, indent) {
+    const n = byId.get(id);
+    const pad = '&nbsp;&nbsp;'.repeat(indent);
+    let label;
+    if (n.kind === ':call' || n.kind === 'call') {
+      const op = n.op || '?';
+      label = pad + '<span class="kl-op" data-op="' + klEsc(op) + '" ' +
+        'onclick="klStructuralSearch(\'' + klEsc(op) + '\')" ' +
+        'style="color:var(--accent);cursor:pointer;text-decoration:underline dotted">(' + klEsc(op) + ')</span>';
+    } else {
+      const kindLabel = String(n.kind || '').replace(/^:/, '');
+      label = pad + '<span style="color:var(--fg2)">' + kindLabel + ':</span><span>' +
+        klEsc(n.literal ?? '') + '</span>';
+    }
+    const out = [label];
+    for (const c of kids.get(id) ?? []) out.push(walk(c.id, indent + 1));
+    return out.join('<br>');
+  }
+  return (kids.get(-1) ?? []).map((n) => walk(n.id, 0)).join('<br>');
+}
+
+async function klStructuralSearch(op) {
+  document.getElementById('kl-struct-label').textContent = "pieces using '" + op + "'";
+  document.getElementById('kl-struct-count').textContent = 'searching...';
+  document.getElementById('kl-struct-result').textContent = '';
+  try {
+    const qs = new URLSearchParams({ op, limit: '100' });
+    const data = await dtFetch('/api/datomic/structural/pieces-using?' + qs.toString());
+    document.getElementById('kl-struct-count').textContent = data.count + ' pieces';
+    document.getElementById('kl-struct-result').innerHTML = (data.codes || []).map((c) =>
+      '<span style="display:inline-block;margin:1px 4px 1px 0;padding:1px 4px;background:var(--bg);border:1px solid var(--border);cursor:pointer;color:var(--accent)" ' +
+      'onclick="klShow(\'' + klEsc(c) + '\')">$' + klEsc(c) + '</span>'
+    ).join('') || '(none)';
+  } catch (err) {
+    document.getElementById('kl-struct-count').textContent = 'error';
+    document.getElementById('kl-struct-result').textContent = err.message;
+  }
+}
+
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-tab="10"]')) {
+    if (!klPieces.length) klLoad('hits');
   }
 });
 

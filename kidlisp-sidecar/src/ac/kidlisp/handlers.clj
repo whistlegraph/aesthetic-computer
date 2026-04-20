@@ -376,6 +376,98 @@
             (ok {:ok true}))
         (not-found)))))
 
+(defn set-ast
+  "POST /kidlisp/:code/ast
+   body: {nodes: [{id, kind, op?, literal?, parent?, position, depth}]}
+   Atomically replaces the piece's AST — retracts all existing nodes for
+   this piece, then asserts the new set. `id` is a client-side integer
+   used for parent refs inside the batch; it doesn't persist."
+  [conn]
+  (fn [req]
+    (let [code  (get-in req [:path-params :code])
+          nodes (get-in req [:body-params :nodes])
+          db    (d/db conn)]
+      (cond
+        (nil? code)        (bad "missing :code")
+        (nil? nodes)       (bad "missing :nodes")
+        :else
+        (if-let [piece-eid (d/entid db [:kidlisp/code code])]
+          (let [old-eids (d/q '[:find [?n ...]
+                                :in $ ?p
+                                :where [?n :ast/piece ?p]]
+                              db piece-eid)
+                retract-tx (mapv (fn [eid] [:db/retractEntity eid]) old-eids)
+                id->tmp    (into {} (for [n nodes] [(:id n) (str "n" (:id n))]))
+                node-tx
+                (mapv (fn [n]
+                        (cond-> {:db/id        (id->tmp (:id n))
+                                 :ast/piece    piece-eid
+                                 :ast/kind     (keyword (:kind n))
+                                 :ast/position (or (:position n) 0)
+                                 :ast/depth    (or (:depth n) 0)}
+                          (:op n)      (assoc :ast/op (:op n))
+                          (:literal n) (assoc :ast/literal (:literal n))
+                          (:parent n)  (assoc :ast/parent (id->tmp (:parent n)))))
+                      nodes)
+                link-tx (mapv (fn [n]
+                                [:db/add piece-eid :kidlisp/ast-nodes (id->tmp (:id n))])
+                              nodes)
+                tx (vec (concat retract-tx node-tx link-tx))]
+            (when (seq tx) (db/transact conn tx))
+            (ok {:ok true
+                 :nodes (count nodes)
+                 :retracted (count old-eids)}))
+          (not-found))))))
+
+(defn get-ast
+  "GET /kidlisp/:code/ast — returns nodes as a flat list keyed by eid.
+   Dashboard renders as a tree by following :parent refs on the client."
+  [conn]
+  (fn [req]
+    (let [code (get-in req [:path-params :code])
+          db   (d/db conn)]
+      (if-let [piece-eid (d/entid db [:kidlisp/code code])]
+        (let [node-eids (d/q '[:find [?n ...]
+                               :in $ ?p
+                               :where [?n :ast/piece ?p]]
+                             db piece-eid)
+              nodes (->> node-eids
+                         (map #(d/entity db %))
+                         (mapv (fn [e]
+                                 {:id       (:db/id e)
+                                  :kind     (:ast/kind e)
+                                  :op       (:ast/op e)
+                                  :literal  (:ast/literal e)
+                                  :parent   (get-in e [:ast/parent :db/id])
+                                  :position (:ast/position e)
+                                  :depth    (:ast/depth e)}))
+                         (sort-by (juxt :depth :position :id)))]
+          (ok {:code code :nodes (vec nodes)}))
+        (not-found)))))
+
+(defn find-pieces-using-op
+  "GET /kidlisp/structural/pieces-using?op=wipe&limit=50
+   Returns codes of pieces containing at least one AST node with the given op.
+   This is the corpus-wide structural query that Mongo couldn't do."
+  [conn]
+  (fn [req]
+    (let [op    (get-in req [:query-params "op"])
+          limit (max 1 (min 1000 (Integer/parseInt
+                                   (or (get-in req [:query-params "limit"]) "50"))))
+          db    (d/db conn)]
+      (if-not (and op (seq op))
+        (bad "op query param required")
+        (let [codes (d/q '[:find [?code ...]
+                           :in $ ?op
+                           :where
+                           [?n :ast/op ?op]
+                           [?n :ast/piece ?p]
+                           [?p :kidlisp/code ?code]]
+                         db op)]
+          (ok {:op    op
+               :count (count codes)
+               :codes (vec (take limit (sort codes)))}))))))
+
 (defn lineage
   "GET /kidlisp/:code/lineage — returns {ancestors, descendants} as
    chains of {code, author}. Ancestors walks :kidlisp/forked-from up,

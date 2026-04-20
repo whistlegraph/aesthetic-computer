@@ -118,6 +118,29 @@ export const sidecar = {
     if (!r.ok) throw new Error(`sidecar lineage failed: ${r.status}`);
     return r.body;
   },
+
+  // AST (v2): replace-all. `nodes` is the flat list from
+  // system/backend/kidlisp-ast.mjs extractAst(). Atomic retract + assert
+  // on the sidecar side.
+  async setAst(code, nodes) {
+    const r = await req("POST", `/kidlisp/${encodeURIComponent(code)}/ast`, { nodes });
+    if (!r.ok) throw new Error(`sidecar setAst failed: ${r.status}`);
+    return r.body;
+  },
+
+  async getAst(code) {
+    const r = await req("GET", `/kidlisp/${encodeURIComponent(code)}/ast`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`sidecar getAst failed: ${r.status}`);
+    return r.body;
+  },
+
+  async piecesUsingOp(op, limit = 50) {
+    const qs = new URLSearchParams({ op, limit: String(limit) });
+    const r = await req("GET", `/kidlisp/structural/pieces-using?${qs.toString()}`);
+    if (!r.ok) throw new Error(`sidecar piecesUsingOp failed: ${r.status}`);
+    return r.body;
+  },
 };
 
 // Feature flag helper — read once per request since Netlify functions
