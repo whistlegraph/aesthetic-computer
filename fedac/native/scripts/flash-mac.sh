@@ -93,51 +93,73 @@ fi
 [ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
     log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
 
-# --- fetch Claude OAuth token from MongoDB (year-long token per handle) ---
-# The claude-token netlify function returns the token stored at
-# @handles.claudeCodeToken for the authenticated user's sub. pty.c reads
-# /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
-# `claude` launches without an interactive login prompt.
+# --- fetch Claude OAuth token + GitHub PAT from MongoDB ---
+# /api/claude-token returns { handle, token, githubPat } from @handles.
+# `token` is the year-long Claude Code OAuth bearer (sk-ant-...) — pty.c
+# reads /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
+# `claude` launches without interactive login. `githubPat` lets on-device
+# git push to the GitHub mirror without SSH.
 CLAUDE_TOKEN=""
+GITHUB_PAT=""
 if [ -n "${AC_ACCESS_TOKEN}" ]; then
-    log "Fetching Claude OAuth token from MongoDB…"
+    log "Fetching Claude token + GitHub PAT from MongoDB…"
     CT_RESP="$(curl -fsS -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
         "https://aesthetic.computer/api/claude-token" 2>/dev/null || echo "")"
     if [ -n "${CT_RESP}" ]; then
-        CLAUDE_TOKEN="$(node -e '
-            try { process.stdout.write(JSON.parse(process.argv[1]).token || ""); } catch {}
+        eval "$(node -e '
+            try {
+                const r = JSON.parse(process.argv[1]);
+                const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+                out("CLAUDE_TOKEN", r.token);
+                out("GITHUB_PAT",   r.githubPat);
+            } catch {}
         ' "${CT_RESP}" 2>/dev/null)"
     fi
     if [ -n "${CLAUDE_TOKEN}" ]; then
-        log "  claude token: ${#CLAUDE_TOKEN} bytes fetched"
+        log "  claude token: ${#CLAUDE_TOKEN} bytes"
     else
-        log "  claude token: none stored in MongoDB (POST to /api/claude-token from the web to save one)"
+        log "  claude token: none stored in MongoDB (POST to /api/claude-token to save)"
     fi
+    [ -n "${GITHUB_PAT}" ] && log "  github pat:   ${#GITHUB_PAT} bytes"
 elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
-    log "  claude token: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
+    log "  creds fetch: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
 fi
 
-# --- bake Claude creds into initramfs via concatenated cpio archive ---
+# --- bake creds into initramfs via concatenated cpio archive ---
 # The Linux kernel's unpack_to_rootfs() accepts multiple concatenated
 # gzipped cpio archives in the initrd stream (same trick intel-ucode
-# uses). We build a tiny supplementary archive containing /claude-token
-# + /claude-state.json and append it to the end of initramfs.cpio.gz.
-# pty.c reads /claude-token directly; init copies /claude-state.json to
-# /tmp/.claude.json so Claude Code skips onboarding prompts.
-if [ -n "${CLAUDE_TOKEN}" ]; then
+# uses). We build a tiny supplementary archive containing the baked
+# files and append it to the end of initramfs.cpio.gz.
+# Files baked (matches ac-os Linux layout):
+#   /claude-token        plain bearer — pty.c reads + sets CLAUDE_CODE_OAUTH_TOKEN
+#   /claude-state.json   init copies to /tmp/.claude.json (skips CC onboarding)
+#   /github-pat          plain bearer — pty.c sets GITHUB_TOKEN
+if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}" ]; then
     BAKE_DIR="$(mktemp -d /tmp/ac-bake.XXXXXX)"
     BAKED_INITRAMFS="/tmp/ac-initramfs-baked.$$.cpio.gz"
     ORIG_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
-    printf %s "${CLAUDE_TOKEN}" > "${BAKE_DIR}/claude-token"
-    chmod 600 "${BAKE_DIR}/claude-token"
-    cat > "${BAKE_DIR}/claude-state.json" <<STATE
+    BAKE_LIST=""
+    if [ -n "${CLAUDE_TOKEN}" ]; then
+        printf %s "${CLAUDE_TOKEN}" > "${BAKE_DIR}/claude-token"
+        chmod 600 "${BAKE_DIR}/claude-token"
+        cat > "${BAKE_DIR}/claude-state.json" <<STATE
 {"oauthAccount":{"emailAddress":"${USER_EMAIL}","organizationName":"","accountUuid":""},"hasCompletedOnboarding":true,"installMethod":"manual","numStartups":1,"autoUpdates":false,"autoUpdatesProtectedForNative":true}
 STATE
+        BAKE_LIST="${BAKE_LIST}claude-token
+claude-state.json
+"
+    fi
+    if [ -n "${GITHUB_PAT}" ]; then
+        printf %s "${GITHUB_PAT}" > "${BAKE_DIR}/github-pat"
+        chmod 600 "${BAKE_DIR}/github-pat"
+        BAKE_LIST="${BAKE_LIST}github-pat
+"
+    fi
     cp "${INITRAMFS}" "${BAKED_INITRAMFS}"
-    ( cd "${BAKE_DIR}" && printf 'claude-token\nclaude-state.json\n' \
+    ( cd "${BAKE_DIR}" && printf '%s' "${BAKE_LIST}" \
         | cpio -o -H newc 2>/dev/null ) \
         | gzip -9 >> "${BAKED_INITRAMFS}" \
-        || die "Failed to append Claude creds cpio to initramfs"
+        || die "Failed to append creds cpio to initramfs"
     rm -rf "${BAKE_DIR}"
     INITRAMFS="${BAKED_INITRAMFS}"
     NEW_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
