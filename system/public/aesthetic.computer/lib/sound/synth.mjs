@@ -68,6 +68,27 @@ export default class Synth {
   #noiseFilterState3 = 0;
   #noiseFilterState4 = 0;
 
+  // Specific to `harp` — Karplus-Strong plucked string.
+  // Refs: Karplus & Strong (1983); Jaffe & Smith EKS (1983);
+  //       Smith, "Physical Audio Signal Processing" — CCRMA Stanford.
+  // Mirrors the C generate_harp_sample in fedac/native/src/audio.c.
+  #harpBuf = null;       // Float32Array — string delay line
+  #harpW = 0;            // write index
+  #harpLp1 = 0;          // 1-pole moving-average LPF state
+
+  // Specific to `whistle` — Cook/STK digital waveguide flute model.
+  // Mirrors the C generate_whistle_sample in fedac/native/src/audio.c.
+  #whistleBoreBuf = null;    // bore delay line
+  #whistleBoreW = 0;
+  #whistleJetBuf = null;     // jet delay line
+  #whistleJetW = 0;
+  #whistleBreath = 0;        // smoothed breath pressure
+  #whistleVibratoPhase = 0;  // 5 Hz LFO phase
+  #whistleLp1 = 0;           // 1-pole loop LPF state
+  #whistleHpX1 = 0;          // 1-pole DC blocker — last input
+  #whistleHpY1 = 0;          // 1-pole DC blocker — last output
+  #whistleNoiseSeed = 0;     // xorshift32 state
+
   // Custom waveform generation
   #customGenerator; // Function that generates waveform data
   #customBuffer = []; // Buffer for streaming waveform data
@@ -93,6 +114,37 @@ export default class Synth {
       type === "sawtooth"
     ) {
       this.#frequency = options.tone;
+    } else if (type === "harp" || type === "pluck" ||
+               type === "guitar" || type === "string") {
+      // Karplus-Strong: pre-fill the delay line with one wavelength of
+      // pre-smoothed white noise — the initial "pluck". Loop then decays
+      // exponentially via the two-point moving-average filter + stretch.
+      this.#frequency = options.tone;
+      const N = 2048;
+      this.#harpBuf = new Float32Array(N);
+      const stringDelay = clamp(sampleRate / this.#frequency, 2, N - 2);
+      const n = Math.floor(stringDelay);
+      let last = 0;
+      for (let i = 0; i < n; i++) {
+        const white = random() * 2 - 1;
+        const filt = 0.5 * (white + last);
+        last = white;
+        this.#harpBuf[i] = filt;
+      }
+      this.#harpW = n;
+      this.type = "harp"; // normalize alias
+    } else if (type === "whistle" || type === "ocarina" ||
+               type === "flute" || type === "skullwhistle" ||
+               type === "skull-whistle") {
+      // Digital waveguide flute (Cook/STK). Bore delay = SR/freq; jet
+      // delay = 0.32 × bore. Cubic nonlinearity drives the loop into
+      // self-oscillation via DC breath pressure. Buffers stay zeroed —
+      // breath pressure ramps the loop up from rest naturally.
+      this.#frequency = options.tone;
+      this.#whistleBoreBuf = new Float32Array(2048);
+      this.#whistleJetBuf = new Float32Array(512);
+      this.#whistleNoiseSeed = ((id || 1) * 2654435761) >>> 0;
+      this.type = "whistle"; // normalize alias
     } else if (type === "sample") {
       this.#frequency = null; // 1; // TODO: This could be a low or high pass
       //                                    option here?
@@ -341,6 +393,84 @@ export default class Synth {
         value = noise;
       }
       // 🚩 TODO: Also add pink and brownian noise.
+    } else if (this.type === "harp") {
+      // 🪕 Karplus-Strong plucked string. Read delayed sample → average
+      // with previous → multiply by stretch S → write back. Output
+      // boosted ×2.5 because the LPF + stretch leave raw amplitude well
+      // below the oscillators at the same `volume`. Mirror of C
+      // generate_harp_sample (fedac/native/src/audio.c).
+      const N = this.#harpBuf.length;
+      const stringDelay = clamp(sampleRate / this.#frequency, 2, N - 2);
+      // Fractional-delay read with linear interpolation.
+      let rd = this.#harpW - stringDelay;
+      while (rd < 0) rd += N;
+      const i0 = floor(rd) | 0;
+      const i1 = (i0 + 1) % N;
+      const f = rd - i0;
+      const delayed = this.#harpBuf[i0] * (1 - f) + this.#harpBuf[i1] * f;
+      const filtered = 0.5 * (delayed + this.#harpLp1);
+      this.#harpLp1 = delayed;
+      // Short-pluck variant when caller passes small decay.
+      const stretch = (this.#decay > 0 && this.#decay < 0.2) ? 0.990 : 0.9985;
+      const decayed = filtered * stretch;
+      this.#harpBuf[this.#harpW] = decayed;
+      this.#harpW = (this.#harpW + 1) % N;
+      value = 2.5 * decayed;
+    } else if (this.type === "whistle") {
+      // 🎶 Digital waveguide flute (Cook/STK). See C generate_whistle_sample
+      // for full algorithm notes — same code translated to JS.
+      const BORE_N = 2048, JET_N = 512;
+      const env = 1; // attack/release handled by outer envelope below
+      const breathTarget = 0.18 + 0.82 * Math.sqrt(env);
+      const breathSlew = env > this.#whistleBreath ? 0.012 : 0.003;
+      this.#whistleBreath += (breathTarget - this.#whistleBreath) * breathSlew;
+      this.#whistleVibratoPhase += 5 / sampleRate;
+      if (this.#whistleVibratoPhase >= 1) this.#whistleVibratoPhase -= 1;
+      const vibrato = sin(2 * PI * this.#whistleVibratoPhase) * 0.03;
+      // xorshift32 for deterministic noise (matches C engine).
+      let s = this.#whistleNoiseSeed;
+      s ^= s << 13; s >>>= 0;
+      s ^= s >>> 17;
+      s ^= s << 5;  s >>>= 0;
+      this.#whistleNoiseSeed = s;
+      const white = (s / 0xFFFFFFFF) * 2 - 1;
+      const breath = this.#whistleBreath * (1 + 0.08 * white + vibrato);
+      const freq = clamp(this.#frequency, 30, sampleRate * 0.20);
+      let boreDelay = sampleRate / freq;
+      let jetDelay = boreDelay * 0.32;
+      if (boreDelay > BORE_N - 2) boreDelay = BORE_N - 2;
+      if (jetDelay > JET_N - 2)  jetDelay  = JET_N - 2;
+      // Frac read — bore.
+      let rd = this.#whistleBoreW - boreDelay;
+      while (rd < 0) rd += BORE_N;
+      let i0 = floor(rd) | 0;
+      let i1 = (i0 + 1) % BORE_N;
+      let frac = rd - i0;
+      const boreOut = this.#whistleBoreBuf[i0] * (1 - frac) + this.#whistleBoreBuf[i1] * frac;
+      this.#whistleLp1 = 0.35 * (-boreOut) + 0.65 * this.#whistleLp1;
+      const temp = this.#whistleLp1;
+      let pd = breath - 0.5 * temp;
+      this.#whistleJetBuf[this.#whistleJetW] = pd;
+      this.#whistleJetW = (this.#whistleJetW + 1) % JET_N;
+      // Frac read — jet.
+      rd = this.#whistleJetW - jetDelay;
+      while (rd < 0) rd += JET_N;
+      i0 = floor(rd) | 0;
+      i1 = (i0 + 1) % JET_N;
+      frac = rd - i0;
+      pd = this.#whistleJetBuf[i0] * (1 - frac) + this.#whistleJetBuf[i1] * frac;
+      // Cubic nonlinearity — limit-cycle generator.
+      pd = pd * (pd * pd - 1);
+      if (pd > 1) pd = 1;
+      if (pd < -1) pd = -1;
+      // 1-pole DC blocker.
+      const y = pd - this.#whistleHpX1 + 0.995 * this.#whistleHpY1;
+      this.#whistleHpX1 = pd;
+      this.#whistleHpY1 = y;
+      const intoBore = y + 0.5 * temp;
+      this.#whistleBoreBuf[this.#whistleBoreW] = intoBore;
+      this.#whistleBoreW = (this.#whistleBoreW + 1) % BORE_N;
+      value = 0.3 * intoBore;
     } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
 
