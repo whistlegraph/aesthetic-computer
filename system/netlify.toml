@@ -1,3 +1,9 @@
+# DEPRECATED: Aesthetic Computer no longer deploys on Netlify. The production
+# host is the lith Express monolith at lith.aesthetic.computer (see CLAUDE.md).
+# This file is retained for historical reference only — do not add new routes
+# here. Backend handlers still live in system/netlify/functions/ (the path is
+# historical), and lith adapts them via app.all("/api/:fn", …) at runtime.
+
 [build]
 base = "system"
 publish = "public"
