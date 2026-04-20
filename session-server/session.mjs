@@ -3126,6 +3126,9 @@ arenaManager.setSendFunctions({
     }
     return null;
   },
+  // Used to distinguish reconnect (old ws dead → silent refresh) from a
+  // real takeover (old ws still alive → demote to spectator).
+  isLive: (wsId) => connections[wsId]?.readyState === WebSocket.OPEN,
 });
 // #endregion
 
