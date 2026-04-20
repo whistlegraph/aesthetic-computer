@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Slab reactive listener and ambient engine.
+"""Slab reactive listener.
 
-Owns all lid-closed audio:
-  - AMBIENT  — ambient.wav looped at AMBIENT_GAIN
+Owns the mic-reactive lid-closed audio layer (ambient drone is now handled
+separately by the AVAudioEngine-backed `lid-ambient-synth` Swift binary):
   - NOISE    — continuous soft low-pass-filtered noise whose amplitude
                tracks the smoothed mic RMS (asymmetric EMA: quick rise,
                slow fall). Gives a gentle, always-on signal of what the
@@ -42,7 +42,6 @@ SESSION_DIR = os.path.join(SLAB_HOME, 'sessions')
 CONFIG_DIR = os.path.join(SLAB_HOME, 'config')
 ZONES_PATH = os.path.join(CONFIG_DIR, 'zones.json')
 LAST_LOC_PATH = os.path.join(SLAB_HOME, 'state', 'last-location.json')
-AMBIENT_PATH = os.path.join(SLAB_HOME, 'sounds', 'ambient.wav')
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 os.makedirs(SESSION_DIR, exist_ok=True)
 os.makedirs(os.path.dirname(LAST_LOC_PATH), exist_ok=True)
@@ -63,8 +62,7 @@ PLUCK_TAIL = 0.22
 ARP_NOTES = 4
 ARP_AMP = 0.22
 
-# ambient + noise bed + fade
-AMBIENT_GAIN = 0.85
+# noise bed + fade
 NOISE_GAIN_MAX = 0.10           # cap on noise voice amplitude
 NOISE_MIC_SCALE = 2.2           # multiplier on smoothed mic RMS → gain target
 NOISE_RISE_ALPHA = 0.30         # EMA alpha when rising (fast)
@@ -204,25 +202,6 @@ def session_write_frames(float_buf):
             pass
 
 
-# -------- ambient load --------
-def load_wav_f32(path):
-    with wave.open(path, 'rb') as w:
-        sr = w.getframerate()
-        n = w.getnframes()
-        data = w.readframes(n)
-    arr = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32767.0
-    return arr, sr
-
-
-try:
-    AMBIENT, _amb_sr = load_wav_f32(AMBIENT_PATH)
-    if _amb_sr != SR:
-        log(f"warning: ambient sr={_amb_sr} != {SR}")
-except Exception as e:
-    log(f"ambient load failed: {e!r} — silent ambient")
-    AMBIENT = np.zeros(SR, dtype=np.float32)
-
-
 # -------- synthesis --------
 def make_pluck(freq, tail=PLUCK_TAIL, amp=ARP_AMP):
     n = int(SR * tail)
@@ -296,7 +275,6 @@ recent_audio = np.zeros(RECENT_N, dtype=np.float32)
 mic_rms = 0.0
 mic_rms_smooth = 0.0
 noise_gain_cur = 0.0
-ambient_pos = 0
 
 fading = False
 fade_start_ts = 0.0
@@ -370,23 +348,9 @@ def input_callback(indata, frames, time_info, status):
 
 
 def output_callback(outdata, frames, time_info, status):
-    global ambient_pos, noise_gain_cur
+    global noise_gain_cur
     outdata.fill(0)
     fade = current_fade()
-
-    # ambient bed (looped)
-    if AMBIENT.size > 0:
-        end = ambient_pos + frames
-        if end <= AMBIENT.size:
-            chunk = AMBIENT[ambient_pos:end]
-            ambient_pos = end
-        else:
-            first = AMBIENT.size - ambient_pos
-            chunk = np.empty(frames, dtype=np.float32)
-            chunk[:first] = AMBIENT[ambient_pos:]
-            chunk[first:] = AMBIENT[:frames - first]
-            ambient_pos = frames - first
-        outdata[:, 0] += chunk * AMBIENT_GAIN * fade
 
     # noise voice (soft low-passed, amp tracks smoothed mic rms)
     target = min(NOISE_GAIN_MAX, mic_rms_smooth * NOISE_MIC_SCALE)
@@ -477,8 +441,7 @@ signal.signal(signal.SIGINT, shutdown)
 
 def main():
     log(f"listener starting session={_stamp} zone={_zone.get('name')} "
-        f"coords={_coords} dist={_zone_dist} "
-        f"ambient_len={AMBIENT.size / SR:.1f}s")
+        f"coords={_coords} dist={_zone_dist}")
     session_event('listener_start',
                   wav=WAV_PATH, jsonl=JSONL_PATH,
                   zone=_zone.get('name'),
@@ -487,7 +450,6 @@ def main():
                   zone_arp_amp=ARP_AMP,
                   coords=_coords,
                   zone_distance_m=_zone_dist,
-                  ambient_seconds=round(AMBIENT.size / SR, 2),
                   trigger_ratio=TRIGGER_RATIO,
                   min_gap=MIN_GAP,
                   fade_dur=FADE_DUR)

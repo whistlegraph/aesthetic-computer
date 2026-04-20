@@ -40,11 +40,12 @@ err() { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; }
 
 # ------------ prereqs ------------
 say "checking prerequisites"
-for cmd in brew python3 jq ioreg pmset afplay osascript; do
+for cmd in brew python3 jq ioreg pmset afplay osascript swiftc; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         err "missing: $cmd"
         [[ "$cmd" == "brew" ]] && echo "  install Homebrew first: https://brew.sh"
         [[ "$cmd" == "jq" ]] && echo "  brew install jq"
+        [[ "$cmd" == "swiftc" ]] && echo "  install Xcode Command Line Tools: xcode-select --install"
         exit 1
     fi
 done
@@ -57,22 +58,22 @@ mkdir -p "$SLAB_HOME/sounds" "$SLAB_HOME/logs" "$SLAB_HOME/sessions" "$SLAB_BIN"
 say "symlinking scripts into $SLAB_BIN"
 for f in "$SLAB_REPO/bin/"*; do
     base=$(basename "$f")
+    case "$base" in
+        *.swift) continue ;;  # Swift sources are compiled below, not symlinked
+    esac
     dest="$SLAB_BIN/$base"
     rm -f "$dest"
     ln -s "$f" "$dest"
     chmod +x "$f"
 done
 
+# ------------ Swift binary: live ambient synth ------------
+say "compiling lid-ambient-synth → $SLAB_BIN/lid-ambient-synth"
+swiftc -O -o "$SLAB_BIN/lid-ambient-synth" "$SLAB_REPO/bin/lid-ambient-synth.swift"
+
 # ------------ sounds ------------
 say "copying sounds to $SLAB_HOME/sounds"
 cp -f "$SLAB_REPO/sounds/"*.wav "$SLAB_HOME/sounds/"
-
-# regenerate ambient.wav if missing or flagged
-if [[ ! -f "$SLAB_HOME/sounds/ambient.wav" ]]; then
-    say "generating ambient.wav (~17s)"
-    SLAB_HOME="$SLAB_HOME" python3 "$SLAB_REPO/bin/lid-ambient-generate.py" || \
-        warn "ambient.wav generation failed — rerun manually later"
-fi
 
 # ------------ python venv (numpy + sounddevice for reactive listener) ------------
 if [[ ! -x "$SLAB_HOME/venv/bin/python3" ]]; then
