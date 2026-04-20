@@ -4345,24 +4345,62 @@ static void *flash_thread_fn(void *arg) {
         snprintf(initramfs_dst, sizeof(initramfs_dst), "%s/initramfs.cpio.gz", efi_mount);
         ac_log("[flash] writing initramfs: %s -> %s", rt->flash_initramfs_src, initramfs_dst);
         flash_tlog(rt, "initramfs: %s -> %s", rt->flash_initramfs_src, initramfs_dst);
-        // Keep previous as .prev for rollback
-        char initramfs_prev[512];
-        snprintf(initramfs_prev, sizeof(initramfs_prev), "%s.prev", initramfs_dst);
-        if (access(initramfs_dst, F_OK) == 0) {
-            unlink(initramfs_prev);
-            rename(initramfs_dst, initramfs_prev);
+
+        // CRITICAL: initramfs is 326 MB on a typical 600 MB ESP. The previous
+        // approach (rename old → .prev, then write new) double-occupied ~650
+        // MB and the new write hit ENOSPC mid-stream. flash_copy_file
+        // returned the partial byte count (positive), the `<= 0` failure
+        // check passed, OS reported "installed", but the corrupt initramfs
+        // panicked on next boot with "initramfs unpacking failed: read error".
+        //
+        // Fix: skip the .prev backup for initramfs (it's too big to keep
+        // alongside the new copy on tight ESPs). Unlink old, write new,
+        // verify byte count matches source. If write was short, abort
+        // hard so the OS reports failure instead of silently shipping
+        // a corrupt boot.
+        struct stat src_st;
+        long src_size = -1;
+        if (stat(rt->flash_initramfs_src, &src_st) == 0) src_size = (long)src_st.st_size;
+        // Free space + size of file we're about to delete = effective free.
+        struct stat dst_st;
+        long dst_existing = (stat(initramfs_dst, &dst_st) == 0) ? (long)dst_st.st_size : 0;
+        struct statvfs vfs;
+        long free_after_unlink = 0;
+        if (statvfs(efi_mount, &vfs) == 0) {
+            free_after_unlink = (long)vfs.f_bavail * (long)vfs.f_bsize + dst_existing;
         }
+        ac_log("[flash] initramfs space: src=%ldMB free_after_unlink=%ldMB existing=%ldMB",
+               src_size / 1048576, free_after_unlink / 1048576, dst_existing / 1048576);
+        flash_tlog(rt, "initramfs space src=%ldMB free=%ldMB", src_size / 1048576, free_after_unlink / 1048576);
+        if (src_size > 0 && free_after_unlink < src_size + (4 * 1048576)) {
+            ac_log("[flash] initramfs would NOT fit — need %ldMB, free_after_unlink %ldMB",
+                   src_size / 1048576, free_after_unlink / 1048576);
+            flash_trace_close_and_archive();
+            rt->flash_phase = 4;
+            rt->flash_ok = 0;
+            rt->flash_pending = 0;
+            rt->flash_done = 1;
+            return NULL;
+        }
+        // Also remove old kernel .prev — gives a few more MB of headroom
+        // and we don't expose rollback to JS anyway.
+        char kernel_prev[512];
+        snprintf(kernel_prev, sizeof(kernel_prev), "%s.prev", dst);
+        unlink(kernel_prev);
+        // Remove the old initramfs entirely BEFORE writing new (no .prev
+        // double-occupation).
+        unlink(initramfs_dst);
+        sync();
         long initramfs_copied = flash_copy_file(rt->flash_initramfs_src, initramfs_dst);
-        flash_tlog(rt, "initramfs wrote %ld bytes", initramfs_copied);
-        if (initramfs_copied <= 0) {
-            ac_log("[flash] initramfs copy FAILED (copied=%ld) — restoring .prev",
-                   initramfs_copied);
-            if (access(initramfs_prev, F_OK) == 0) {
-                unlink(initramfs_dst);
-                rename(initramfs_prev, initramfs_dst);
-            }
-            // Non-fatal to the kernel write — but flag as failure since the
-            // new kernel won't boot without a matching initramfs.
+        flash_tlog(rt, "initramfs wrote %ld bytes (src=%ld)", initramfs_copied, src_size);
+        // Verify byte count matches. flash_copy_file returns SHORT count on
+        // ENOSPC mid-stream — without this check we'd ship a broken initramfs.
+        if (initramfs_copied <= 0 || (src_size > 0 && initramfs_copied != src_size)) {
+            ac_log("[flash] initramfs copy SHORT/FAILED (wrote=%ld src=%ld)",
+                   initramfs_copied, src_size);
+            // Don't try to restore — old initramfs already deleted. Mark
+            // failure so OS reports it instead of pretending success.
+            unlink(initramfs_dst);
             flash_trace_close_and_archive();
             rt->flash_phase = 4;
             rt->flash_ok = 0;
