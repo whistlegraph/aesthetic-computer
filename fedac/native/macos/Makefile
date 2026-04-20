@@ -6,9 +6,7 @@
 CC      ?= clang
 BUILD   := build
 # Target name carries the audio backend so switching AUDIO= between builds
-# doesn't silently leave a stale binary behind (e.g. packaging the grand
-# binary under the default Notepat name because $(TARGET) was already newer
-# than its deps from a prior AUDIO=grand run).
+# (e.g. core ↔ sdl for latency A/B) doesn't leave a stale binary behind.
 AUDIO   ?= core
 TARGET  := $(BUILD)/ac-native-macos-$(AUDIO)
 
@@ -23,23 +21,18 @@ CFLAGS  := -O2 -Wall -Wextra -std=gnu11 -I. -I../src -I$(QJSDIR) $(SDL3_CFLAGS)
 LDFLAGS := -lm -framework Carbon
 
 # Audio backend: AUDIO=core (default) uses a direct CoreAudio AudioUnit
-# (custom synth_core oscillators); AUDIO=grand swaps in Apple's AUMIDISynth
-# for sampled Acoustic Grand Piano; AUDIO=sdl uses SDL3's audio stream for
-# A/B latency tests. All three implement macos/audio.h so the SDL3 host
-# and notepat piece don't need to know which backend is live.
+# running the custom synth_core oscillators; AUDIO=sdl routes through SDL3's
+# audio stream so we can A/B the two latency profiles. Both implement
+# macos/audio.h so main.c + piece.c don't care which is live.
 ifeq ($(AUDIO),core)
   AUDIO_SRC := audio_coreaudio.c
-  AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
-                      -framework CoreAudio -framework CoreFoundation
-else ifeq ($(AUDIO),grand)
-  AUDIO_SRC := audio_musicdevice.c
   AUDIO_FRAMEWORKS := -framework AudioUnit -framework AudioToolbox \
                       -framework CoreAudio -framework CoreFoundation
 else ifeq ($(AUDIO),sdl)
   AUDIO_SRC := audio_sdl3.c
   AUDIO_FRAMEWORKS :=
 else
-  $(error AUDIO must be 'core', 'grand', or 'sdl')
+  $(error AUDIO must be 'core' or 'sdl')
 endif
 
 HOST_SRCS   := main.c piece.c $(AUDIO_SRC)
@@ -52,13 +45,12 @@ LDFLAGS     += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
 QJS_OBJS  := $(patsubst %.c,$(BUILD)/qjs-%.o,$(QJS_SRCS))
 
-.PHONY: all clean run app app-run compare install uninstall grand grand-install
+.PHONY: all clean run app app-run compare install uninstall
 
 all: $(TARGET)
 
-# Paths for the .app bundle.
-# APP_NAME / APP_ID override the label + CFBundleIdentifier, so a second
-# bundle (e.g. "Notepat Grand") can share the same sources.
+# Paths for the .app bundle. APP_NAME / APP_ID can still be overridden if
+# we spin up a second bundle later — just keep the CFBundleIdentifier unique.
 APP_NAME ?= Notepat
 APP_ID   ?= computer.aesthetic.notepat
 APP_DIR  := $(BUILD)/$(APP_NAME).app
@@ -185,16 +177,6 @@ install: app
 uninstall:
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 	@echo "[uninstall] removed $(INSTALL_DIR)/$(APP_NAME).app"
-
-# "Notepat Grand" — same SDL3 host + notepat grid UI as the default build,
-# but swaps the CoreAudio oscillator engine for Apple's AUMIDISynth so every
-# key plays a sampled Acoustic Grand Piano voice instead. Separate bundle ID
-# so both versions can coexist in /Applications.
-grand:
-	$(MAKE) AUDIO=grand APP_NAME="Notepat Grand" APP_ID=computer.aesthetic.notepat.grand app
-
-grand-install:
-	$(MAKE) AUDIO=grand APP_NAME="Notepat Grand" APP_ID=computer.aesthetic.notepat.grand install
 
 clean:
 	rm -rf $(BUILD)

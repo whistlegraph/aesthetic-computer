@@ -16,12 +16,13 @@
 #include "piece.h"
 #include "audio.h"
 
-// Initial window size in logical points — what you'd expect for a
-// non-retina display. The actual framebuffer is computed from the window's
-// pixel size divided by DENSITY so it reflows on resize without letterbox.
-#define INITIAL_WIN_W 1280
-#define INITIAL_WIN_H 800
-#define DEFAULT_DENSITY 1  // logical points per framebuffer pixel — 1 = web AC parity (FB matches window points, notepat's top bar has room); higher = chunkier
+// Initial window size in logical points. The framebuffer is win / DENSITY,
+// so 640×480 @ d=2 yields a 320×240 canvas — a classic retro resolution
+// rendered chunky 2× on-screen (and 4× physical on retina thanks to
+// HIGH_PIXEL_DENSITY + nearest-neighbor).
+#define INITIAL_WIN_W 640
+#define INITIAL_WIN_H 480
+#define DEFAULT_DENSITY 2
 
 // Shared state the event watch callback needs. SDL calls the watch on the
 // same thread as SDL_PollEvent, during the OS resize modal run loop, so
@@ -141,10 +142,11 @@ static const char *detect_bundle(char *piece_buf, size_t piece_sz,
     return NULL;
 }
 
-// ── Overlay mode helpers ────────────────────────────────────────────────────
+// ── Chromeless window helpers ───────────────────────────────────────────────
 
-// Cmd-drag moves the borderless overlay window. Hit test runs every mouse
-// move to decide whether the click belongs to the app or the window manager.
+// Cmd-drag moves the borderless window (default + overlay both run chromeless
+// so the piece draws its own titlebar). Hit test runs every mouse move to
+// decide whether the click belongs to the app or the window manager.
 static SDL_HitTestResult SDLCALL hit_test_cmd_drag(SDL_Window *win,
                                                    const SDL_Point *pt,
                                                    void *data) {
@@ -276,22 +278,21 @@ int main(int argc, char **argv) {
     // reads as blurry. With it on, nearest-neighbor stays nearest-neighbor
     // all the way through to the pixel.
     int fullscreen = getenv("AC_FULLSCREEN") != NULL;
-    // Grand build defaults overlay on; AC_OVERLAY=0 forces it off.
+    // Transparent-HUD mode is opt-in via AC_OVERLAY=1.
     int overlay = 0;
-#ifdef AC_GRAND
-    overlay = 1;
-#endif
     const char *ov_env = getenv("AC_OVERLAY");
     if (ov_env) overlay = (atoi(ov_env) != 0);
-    Uint32 win_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    // Borderless by default — notepat draws its own chrome, so we skip the
+    // stock macOS titlebar + traffic lights. Cmd+drag still moves the window
+    // via the hit test (applied to every non-fullscreen window below).
+    Uint32 win_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
+                     | SDL_WINDOW_BORDERLESS;
     if (fullscreen) win_flags |= SDL_WINDOW_FULLSCREEN;
     if (overlay) {
-        // Borderless + transparent so the piece can draw on the desktop;
-        // always-on-top pins it above other windows (HUD feel). Cmd+drag
-        // to reposition — the hit test below routes those clicks to the
-        // window server rather than the piece.
+        // Transparent + always-on-top on top of the borderless base turns the
+        // piece into a HUD that floats over other windows while remaining
+        // Cmd-draggable.
         win_flags |= SDL_WINDOW_TRANSPARENT
-                   | SDL_WINDOW_BORDERLESS
                    | SDL_WINDOW_ALWAYS_ON_TOP;
     }
 
@@ -299,7 +300,7 @@ int main(int argc, char **argv) {
                                        INITIAL_WIN_W, INITIAL_WIN_H,
                                        win_flags);
     if (!win) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
-    if (overlay) SDL_SetWindowHitTest(win, hit_test_cmd_drag, NULL);
+    if (!fullscreen) SDL_SetWindowHitTest(win, hit_test_cmd_drag, NULL);
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
     if (!ren) { fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
