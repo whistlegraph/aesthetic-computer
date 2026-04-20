@@ -1193,6 +1193,62 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (rem == 1) continue; // removable = USB
         }
 
+        // Blank-disk pre-pass: if the parent disk node exists but it has
+        // ZERO partitions (truly blank — fresh SSD the user just plugged
+        // in), the per-partition loop below would skip it silently. Run
+        // sfdisk first to lay down a single GPT ESP, then fall through to
+        // the normal install path which will format + populate p1.
+        {
+            char parent_path[32];
+            snprintf(parent_path, sizeof(parent_path), "/dev/%s", blk);
+            char first_part[32];
+            if (blk[0] == 'n' || strncmp(blk, "mmcblk", 6) == 0)
+                snprintf(first_part, sizeof(first_part), "/dev/%sp1", blk);
+            else
+                snprintf(first_part, sizeof(first_part), "/dev/%s1", blk);
+            int parent_exists = (access(parent_path, F_OK) == 0);
+            int has_any_part = 0;
+            if (parent_exists) {
+                for (int p = 1; p <= 16 && !has_any_part; p++) {
+                    char dp[32];
+                    if (blk[0] == 'n' || strncmp(blk, "mmcblk", 6) == 0)
+                        snprintf(dp, sizeof(dp), "/dev/%sp%d", blk, p);
+                    else
+                        snprintf(dp, sizeof(dp), "/dev/%s%d", blk, p);
+                    if (access(dp, F_OK) == 0) has_any_part = 1;
+                }
+            }
+            if (parent_exists && !has_any_part) {
+                ac_log("[install] %s is blank (no partitions) — running sfdisk\n", parent_path);
+                // Wipe first 16 MiB so any leftover signatures don't confuse sfdisk.
+                char wcmd[256];
+                snprintf(wcmd, sizeof(wcmd),
+                    "dd if=/dev/zero of=%s bs=1M count=16 conv=fsync 2>&1 | head -3",
+                    parent_path);
+                system(wcmd);
+                // Single GPT ESP spanning the disk.
+                char rcmd[512];
+                snprintf(rcmd, sizeof(rcmd),
+                    "{ echo 'label: gpt'; echo 'name=ACBOOT,type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B'; } | "
+                    "sfdisk --force --no-reread %s 2>&1",
+                    parent_path);
+                int srrc = system(rcmd);
+                ac_log("[install] sfdisk on blank %s rc=%d\n", parent_path, srrc);
+                sync();
+                usleep(500000);
+                blkrrpart_with_retry(parent_path, "/tmp/install-debug.log");
+                // Wait for p1 to appear (up to 5s).
+                for (int wait = 0; wait < 50; wait++) {
+                    if (access(first_part, F_OK) == 0) break;
+                    usleep(100000);
+                }
+                ac_log("[install] blank-disk: %s exists=%d after sfdisk\n",
+                       first_part, access(first_part, F_OK) == 0);
+                // Fall through — the per-partition loop below will now find
+                // p1 and the rescue-mkfs path will format it on pass 1.
+            }
+        }
+
         // Two-pass partition scan. Pass 0: probe p1..p16 for an existing
         // vfat partition (non-destructive) — finds the Chromebook ESP at
         // p12 before we would otherwise reformat p1 (stateful/ext4) on
