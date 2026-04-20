@@ -4509,6 +4509,27 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const hasDawParam = new URLSearchParams(window.location.search).has("daw");
   if (hasDawParam) {
     _dawConnectSend(send, updateMetronome);
+
+    // 🎹 Low-latency keyboard bridge for M4L devices.
+    // jweb~ captures keyboard focus, which means Max's own [key]/[keyup]
+    // objects never see keystrokes. Capture them here on the main thread and
+    // forward directly via window.max.outlet — sub-ms, no worker round-trip,
+    // no iframe focus fight.
+    const _dawKeyEmit = (kind, e) => {
+      if (e.repeat) return; // skip auto-repeat
+      const k = typeof e.key === "string" ? e.key : "";
+      if (k.length !== 1) return; // skip modifier / arrow / function keys
+      const ascii = k.toLowerCase().charCodeAt(0);
+      if (
+        typeof window !== "undefined" &&
+        window.max &&
+        typeof window.max.outlet === "function"
+      ) {
+        try { window.max.outlet(kind, ascii); } catch (_err) {}
+      }
+    };
+    window.addEventListener("keydown", (e) => _dawKeyEmit("keydown", e), true);
+    window.addEventListener("keyup", (e) => _dawKeyEmit("keyup", e), true);
   }
 
   function requestBeat(time) {
