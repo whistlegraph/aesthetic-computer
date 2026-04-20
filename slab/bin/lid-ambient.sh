@@ -27,16 +27,39 @@ mkdir -p "$ACTIVE_DIR" "$SUBAGENT_DIR"
 
 PID_DIR=/tmp
 reactive_pid_file="$PID_DIR/lidreactive.pid"
+synth_pid_file="$PID_DIR/lidsynth.pid"
 monitor_pid_file="$PID_DIR/slab-monitor.pid"
 log="$SLAB_HOME/logs/lidalive.log"
 mkdir -p "$(dirname "$log")"
 
 reactive_py="$SLAB_HOME/venv/bin/python3"
 reactive_script="$SLAB_BIN/lid-reactive.py"
+synth_bin="$SLAB_BIN/lid-ambient-synth"
 
 log_msg() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$log"; }
 
+# Start the AVAudioEngine-backed ambient synth (Swift binary). It records
+# its own output to $SLAB_HOME/sessions/ambient-<timestamp>.wav.
+start_synth() {
+    if [[ -x "$synth_bin" ]]; then
+        nohup "$synth_bin" > /dev/null 2>&1 &
+        echo $! > "$synth_pid_file"
+        log_msg "started ambient synth pid $!"
+    fi
+}
+
+# Ask the synth to fade and exit (SIGTERM → graceful fade-to-silence).
+fade_synth() {
+    local pid
+    if [[ -f "$synth_pid_file" ]]; then
+        pid=$(cat "$synth_pid_file" 2>/dev/null)
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null
+        rm -f "$synth_pid_file"
+    fi
+}
+
 start_reactive() {
+    start_synth
     if [[ -x "$reactive_py" && -f "$reactive_script" ]]; then
         nohup "$reactive_py" "$reactive_script" > /dev/null 2>&1 &
         echo $! > "$reactive_pid_file"
@@ -45,9 +68,10 @@ start_reactive() {
     fi
 }
 
-# Ask the listener to fade out and exit (SIGTERM → graceful fade).
-# Returns immediately; the listener takes ~FADE_DUR seconds to actually exit.
+# Ask the listener AND synth to fade out and exit (SIGTERM → graceful fade).
+# Returns immediately; both take ~FADE_DUR seconds to actually exit.
 fade_reactive() {
+    fade_synth
     local pid
     if [[ -f "$reactive_pid_file" ]]; then
         pid=$(cat "$reactive_pid_file" 2>/dev/null)
@@ -61,6 +85,7 @@ fade_reactive() {
 stop_reactive() {
     fade_reactive
     pkill -f lid-reactive.py 2>/dev/null
+    pkill -f lid-ambient-synth 2>/dev/null
 }
 
 start_monitor() {
@@ -145,8 +170,9 @@ while true; do
             (sleep "$return_dur"
              cur=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
              if [[ "$cur" == "No" ]]; then
-                 # Safety net — listener should have already exited by now.
+                 # Safety net — listener + synth should have already exited.
                  pkill -f lid-reactive.py 2>/dev/null
+                 pkill -f lid-ambient-synth 2>/dev/null
                  log_msg "ambient + reactive finalized after return stinger"
              fi
             ) &

@@ -86,8 +86,8 @@ Before using lid-closed ambient mode: `claude-sleep awake`. The first time the m
 slab/
 ├── bin/                                 # scripts (symlinked into ~/.local/bin/)
 │   ├── lid-ambient.sh                   # launchd daemon, polls lid + active prompts
-│   ├── lid-reactive.py                  # mic → pluck-arp synth (Python)
-│   ├── lid-ambient-generate.py          # generate ambient.wav
+│   ├── lid-reactive.py                  # mic → pluck-arp synth + noise voice (Python)
+│   ├── lid-ambient-synth.swift          # live AVAudioEngine ambient drone + capture (Swift)
 │   ├── lid-return-generate.py           # generate lid-return.wav (smooth descending arp)
 │   ├── slab-menubar.py                  # rumps menu bar status item (no Dock icon)
 │   ├── claude-sleep                     # sleep-state toggle
@@ -113,7 +113,8 @@ slab/
 Runtime state lives under `~/.local/share/slab/`:
 
 ```
-sessions/<stamp>-<zone>.wav    per-lid-close recording of Python-generated output
+sessions/<stamp>-<zone>.wav    per-lid-close mix of Python listener output (noise + plucks)
+sessions/ambient-<stamp>.wav   per-lid-close recording of the live Swift ambient drone
 sessions/<stamp>-<zone>.jsonl  trigger events + location metadata
 logs/lidalive.log              daemon transitions
 logs/reactive.log              reactive listener triggers
@@ -124,7 +125,7 @@ state/active-prompts/<id>      one file per Claude session with a prompt in flig
 state/active-subagents/<id>    one file per in-flight Task-tool subagent
 state/last-location.json       cached coords (if Location Services unreachable)
 venv/                          Python venv for the reactive listener
-sounds/                 installed sound assets (+ regenerated ambient.wav)
+sounds/                        installed sound assets (lid chimes, pings, beeps)
 ```
 
 ## Zones (location-aware ambient)
@@ -154,7 +155,7 @@ Available scales: `major_pentatonic`, `minor_pentatonic`, `blues`,
 
 Most knobs live at the top of each script:
 
-- **Ambient** — `bin/lid-ambient-generate.py`: scale, note-gap range, duration/fade ranges, detuning, drone frequency. Run `python3 bin/lid-ambient-generate.py [seed]` to regenerate a variation.
+- **Ambient** — `bin/lid-ambient-synth.swift`: scale, note-gap range, duration/fade ranges, detuning, drone frequency, AU effects (reverb preset, delay time/feedback). Recompile via `swiftc -O -o ~/.local/bin/lid-ambient-synth bin/lid-ambient-synth.swift` (install.sh does this automatically).
 - **Reactive listener** — `bin/lid-reactive.py`: `HIGH_BAND`, `TRIGGER_RATIO`, `MIN_GAP`, `DIV_FACTOR`, `NOTE_DUR`, `PLUCK_TAIL`, `ARP_NOTES`, `ARP_AMP`. Scales live in `SCALE_INTERVALS`.
 - **Lid-poll interval** — `bin/lid-ambient.sh`: `POLL` (default 0.5s).
 - **Resource poll** — `bin/slab-monitor.sh`: `INTERVAL` (default 15s).
@@ -164,7 +165,7 @@ Edits to files in `slab/bin/` take effect immediately because the installed copi
 ## Requirements
 
 - macOS (Apple Silicon tested). Intel should work but the display-sleep-on-lid-close path depends on `pmset displaysleepnow`.
-- Homebrew, Python 3.11+, `jq`.
+- Homebrew, Python 3.11+, `jq`, `swiftc` (Xcode Command Line Tools).
 - Microphone permission for the reactive listener (prompted on first run).
 
 ## Notes
