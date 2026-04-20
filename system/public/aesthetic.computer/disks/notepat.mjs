@@ -7148,7 +7148,7 @@ function act({
       down: () => api.beep(400),
       push: () => {
         api.beep();
-        jump("ableton");
+        jump("out:https://aesthetic.computer/assets/m4l/notepat-remote.amxd");
       },
     });
 
