@@ -4515,21 +4515,77 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // objects never see keystrokes. Capture them here on the main thread and
     // forward directly via window.max.outlet — sub-ms, no worker round-trip,
     // no iframe focus fight.
-    const _dawKeyEmit = (kind, e) => {
-      if (e.repeat) return; // skip auto-repeat
-      const k = typeof e.key === "string" ? e.key : "";
-      if (k.length !== 1) return; // skip modifier / arrow / function keys
-      const ascii = k.toLowerCase().charCodeAt(0);
+    //
+    // BIOS owns the notepat key→pitch layout and octave state so we can emit
+    // a finished MIDI pitch and keep the Max patcher trivial. The piece UI
+    // also listens to the same keystrokes to render matching visual feedback.
+    const _dawKeyOffsets = {
+      z: -2, x: -1,
+      c: 0, v: 1, d: 2, s: 3, e: 4, f: 5, w: 6,
+      g: 7, r: 8, a: 9, q: 10, b: 11,
+      h: 12, t: 13, i: 14, y: 15, j: 16, k: 17, u: 18,
+      l: 19, o: 20, m: 21, p: 22, n: 23,
+      ";": 24, "'": 25, "]": 26,
+    };
+    let _dawBaseOctave = 4;
+    const _dawHeldPitch = {}; // keyLower → emitted pitch (for correct note-off across octave shifts)
+
+    function _dawEmitMax(sym, value) {
       if (
         typeof window !== "undefined" &&
         window.max &&
         typeof window.max.outlet === "function"
       ) {
-        try { window.max.outlet(kind, ascii); } catch (_err) {}
+        try { window.max.outlet(sym, value); } catch (_err) {}
       }
-    };
-    window.addEventListener("keydown", (e) => _dawKeyEmit("keydown", e), true);
-    window.addEventListener("keyup", (e) => _dawKeyEmit("keyup", e), true);
+    }
+    function _dawComputePitch(k) {
+      const off = _dawKeyOffsets[k];
+      if (off === undefined) return null;
+      return (_dawBaseOctave + 1) * 12 + off; // baseOctave 4 → C = 60
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.repeat) return;
+      const k = typeof e.key === "string" ? e.key : "";
+      if (k.length !== 1) return;
+      // Octave hot-switch 1-9
+      if (k >= "1" && k <= "9") {
+        _dawBaseOctave = parseInt(k, 10);
+        _dawEmitMax("octave", _dawBaseOctave);
+        return;
+      }
+      const low = k.toLowerCase();
+      const pitch = _dawComputePitch(low);
+      if (pitch === null) return;
+      _dawHeldPitch[low] = pitch;
+      _dawEmitMax("notedown", pitch);
+    }, true);
+
+    window.addEventListener("keyup", (e) => {
+      const k = typeof e.key === "string" ? e.key : "";
+      if (k.length !== 1) return;
+      const low = k.toLowerCase();
+      const pitch = _dawHeldPitch[low];
+      if (pitch === undefined) return;
+      delete _dawHeldPitch[low];
+      _dawEmitMax("noteup", pitch);
+    }, true);
+
+    // Focus/blur indicator. On blur, release all held pitches so we never
+    // leave a note hanging when the iframe loses focus (common during an
+    // Ableton window switch). The piece UI uses the same events to show a
+    // "tap me!" attract state.
+    window.addEventListener("focus", () => {
+      _dawEmitMax("focus", 1);
+    }, true);
+    window.addEventListener("blur", () => {
+      for (const k of Object.keys(_dawHeldPitch)) {
+        _dawEmitMax("noteup", _dawHeldPitch[k]);
+      }
+      for (const k of Object.keys(_dawHeldPitch)) delete _dawHeldPitch[k];
+      _dawEmitMax("focus", 0);
+    }, true);
   }
 
   function requestBeat(time) {
