@@ -343,12 +343,17 @@ export async function handler(event, context) {
 
       // ── recent ──
       if (recent) {
-        const limit = Math.min(parseInt(q.limit) || 50, 100000);
+        const clientLimit = Math.min(parseInt(q.limit) || 50, 100000);
         const sort = q.sort || "recent";
         const since = q.since;
         const filterHandle = q.handle;
 
-        const res = await sidecar.listCodes({ limit, sort, since });
+        // When the caller narrows by handle, pull the full corpus from
+        // the sidecar before the JS-side filter. Otherwise a 2000-row
+        // "recent" window drops all of the user's older pieces (e.g.
+        // @jeffrey has 700+ pieces scattered through ~17K docs by date).
+        const sidecarLimit = filterHandle ? 100000 : clientLimit;
+        const res = await sidecar.listCodes({ limit: sidecarLimit, sort, since });
         const pieces = res.recent || [];
 
         const handles = await handlesBySub(database, pieces.map((p) => p.user));
@@ -379,10 +384,11 @@ export async function handler(event, context) {
             return p.handle === want;
           });
 
+        const trimmed = filterHandle ? shaped.slice(0, clientLimit) : shaped;
         await database.disconnect();
         return respond(
           200,
-          { recent: shaped, count: shaped.length, limit },
+          { recent: trimmed, count: trimmed.length, limit: clientLimit },
           NO_CACHE_HEADERS
         );
       }
