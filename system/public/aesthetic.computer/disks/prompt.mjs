@@ -5926,17 +5926,32 @@ function paint($) {
                 ];
         commitBtn.paint($, colors);
 
-        // 🎹 Notepat shortcut button — sits to the right of the commit button.
+        // 🎹 Notepat shortcut button — sits to the right of the commit button,
+        // but stacks above it on narrow screens (phones) when the pair would
+        // collide with the TextInput's Enter button.
         // Leading spaces reserve room for the piano icon we draw afterward.
         // MatrixChunky8 space advance = 2px (proportional), padL = 2px ⇒ text
         // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
         // so 8 spaces (x+18) leaves a 3px gap after the frame.
         const notepatLabel = "        notepat";
-        const notepatX = cBox.x + cBox.w + 4;
+        const notepatWidth = notepatLabel.length * 4 + 4; // cw=4, padL+padR=4
+        const notepatHeight = 7 + 2 * 2; // ch=7, padY*2
+        const pairGap = 4;
+        const enterBoxForStack = $.system.prompt.input?.enter?.btn?.box;
+        const pasteBoxForStack = $.system.prompt.input?.paste?.btn?.box;
+        // Commit is centered; pair extends rightward by pairGap + notepatWidth.
+        const pairRightEdge = (screen.width + cBox.w) / 2 + pairGap + notepatWidth;
+        const pairLeftEdge = (screen.width - cBox.w) / 2;
+        const rightLimit = enterBoxForStack ? enterBoxForStack.x - 4 : screen.width - 4;
+        const leftLimit = pasteBoxForStack ? pasteBoxForStack.x + pasteBoxForStack.w + 4 : 4;
+        const stackVertically = pairRightEdge > rightLimit || pairLeftEdge < leftLimit;
+        const notepatPos = stackVertically
+          ? { center: "x", y: buttonY - notepatHeight - 2, screen }
+          : { x: cBox.x + cBox.w + pairGap, y: buttonY };
         if (!notepatBtn) {
-          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: notepatX, y: buttonY });
+          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
         } else {
-          notepatBtn.reposition({ x: notepatX, y: buttonY }, notepatLabel);
+          notepatBtn.reposition(notepatPos, notepatLabel);
           notepatBtn.btn.disabled = false;
         }
         const nBox = notepatBtn.btn.box;
