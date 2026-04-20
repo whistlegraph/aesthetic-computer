@@ -86,6 +86,30 @@ fi
 [ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
     log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
 
+# --- preserve existing wifi_creds.json from target USB before we wipe it ---
+# Linux `ac-os flash` does this via ac_media_merge_wifi_creds: read the
+# previously-flashed USB for user-added networks, then merge with the
+# built-in preset list. We mirror that behavior so a reflash keeps your
+# kitchen/studio/friend's-apartment wifi without re-typing.
+PRESERVE_WIFI=""
+for mnt in /Volumes/ACBOOT /Volumes/ACEFI; do
+    if [ -f "${mnt}/wifi_creds.json" ]; then
+        # Copy while readable — the partition is about to be unmounted.
+        PRESERVE_WIFI="/tmp/ac-wifi-preserve.$$.json"
+        cp "${mnt}/wifi_creds.json" "${PRESERVE_WIFI}" 2>/dev/null && \
+            log "Preserving wifi_creds.json from ${mnt}" && break
+    fi
+done
+trap "rm -f '${PRESERVE_WIFI}' 2>/dev/null" EXIT
+
+# --- hardcoded preset networks (kept in sync with media-layout.sh + src/wifi.c) ---
+WIFI_PRESETS_JSON='[
+  {"ssid":"aesthetic.computer","pass":"aesthetic.computer"},
+  {"ssid":"ATT2AWTpcr","pass":"t84q%7%g2h8u"},
+  {"ssid":"GettyLink","pass":""},
+  {"ssid":"Tondo_Guest","pass":"California"}
+]'
+
 INFO=$(diskutil info "${USB_DEV}" 2>/dev/null) || die "diskutil info failed for ${USB_DEV}"
 echo "${INFO}" | grep -q "Removable Media:.*Removable\|Device Location:.*External" \
     || die "${USB_DEV} is not removable/external. Aborting."
@@ -173,7 +197,41 @@ cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
 printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
     "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
-[ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M1}/wifi_creds.json"
+
+# Build merged wifi_creds.json (presets + preserved + optional override)
+# once, reuse for both partitions.
+WIFI_MERGED="/tmp/ac-wifi-merged.$$.json"
+if [ -f "${SRC_DIR}/wifi_creds.json" ]; then
+    # Caller-provided override wins as source-of-truth.
+    cp "${SRC_DIR}/wifi_creds.json" "${WIFI_MERGED}"
+    log "Using wifi_creds.json from ${SRC_DIR}"
+else
+    # Presets + preserved merge. Python dedupes by SSID keeping the LAST
+    # occurrence's password (preserved > presets, so user-saved networks
+    # override the hardcoded entries if both reference the same SSID).
+    if [ -n "${PRESERVE_WIFI}" ] && [ -f "${PRESERVE_WIFI}" ]; then
+        python3 -c "
+import json, sys
+presets = json.loads(sys.argv[1])
+preserved = json.load(open(sys.argv[2]))
+order = []
+merged = {}
+for entry in (presets + preserved):
+    if not isinstance(entry, dict): continue
+    ssid = entry.get('ssid')
+    if not ssid: continue
+    if ssid not in merged: order.append(ssid)
+    merged[ssid] = {'ssid': ssid, 'pass': str(entry.get('pass', ''))}
+with open(sys.argv[3], 'w') as f:
+    json.dump([merged[s] for s in order], f, indent=2)
+" "${WIFI_PRESETS_JSON}" "${PRESERVE_WIFI}" "${WIFI_MERGED}" \
+        && log "Merged $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") wifi networks (presets + preserved)"
+    else
+        printf '%s\n' "${WIFI_PRESETS_JSON}" > "${WIFI_MERGED}"
+        log "Wrote 4 preset wifi networks (no previous USB to preserve from)"
+    fi
+fi
+cp "${WIFI_MERGED}" "${M1}/wifi_creds.json"
 
 # --- layout ACEFI (systemd-boot universal) ---
 log "Writing ACEFI (splash → systemd-boot → kernel)…"
@@ -194,7 +252,7 @@ options console=tty0 quiet loglevel=3 vt.global_cursor_default=0 init=/init nomo
 EOF
 printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
     "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M2}/config.json" >/dev/null
-[ -f "${SRC_DIR}/wifi_creds.json" ] && cp "${SRC_DIR}/wifi_creds.json" "${M2}/wifi_creds.json"
+[ -f "${WIFI_MERGED}" ] && cp "${WIFI_MERGED}" "${M2}/wifi_creds.json"
 
 # --- verify (sha256 round-trip on every kernel + initramfs copy) ---
 log "Verifying integrity…"
