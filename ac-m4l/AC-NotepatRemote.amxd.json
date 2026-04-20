@@ -25,7 +25,7 @@
           "presentation": 1,
           "presentation_rect": [0, 0, 360, 220],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=6"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=7"
         }
       },
       {
@@ -213,6 +213,39 @@
           "patching_rect": [260, 540, 80, 22],
           "text": "pack 0 0"
         }
+      },
+      {
+        "box": {
+          "comment": "Debug: did Max [key] fire at all?",
+          "id": "obj-print-keydown",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [60, 420, 200, 22],
+          "text": "print KEY-DOWN"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: did Max [keyup] fire?",
+          "id": "obj-print-keyup",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [320, 420, 200, 22],
+          "text": "print KEY-UP"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: did mapping produce a pitch?",
+          "id": "obj-print-keypitch",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [80, 510, 170, 22],
+          "text": "print KEY-PITCH"
+        }
       }
     ],
     "lines": [
@@ -227,11 +260,14 @@
       { "patchline": { "source": ["obj-activate", 0], "destination": ["obj-jweb", 0] } },
 
       { "patchline": { "source": ["obj-key", 0], "destination": ["obj-expr-on", 0] } },
+      { "patchline": { "source": ["obj-key", 0], "destination": ["obj-print-keydown", 0] } },
       { "patchline": { "source": ["obj-expr-on", 0], "destination": ["obj-sel-on", 0] } },
       { "patchline": { "source": ["obj-sel-on", 1], "destination": ["obj-pack-on", 0] } },
+      { "patchline": { "source": ["obj-sel-on", 1], "destination": ["obj-print-keypitch", 0] } },
       { "patchline": { "source": ["obj-pack-on", 0], "destination": ["obj-noteout", 0] } },
 
       { "patchline": { "source": ["obj-keyup", 0], "destination": ["obj-expr-off", 0] } },
+      { "patchline": { "source": ["obj-keyup", 0], "destination": ["obj-print-keyup", 0] } },
       { "patchline": { "source": ["obj-expr-off", 0], "destination": ["obj-sel-off", 0] } },
       { "patchline": { "source": ["obj-sel-off", 1], "destination": ["obj-pack-off", 0] } },
       { "patchline": { "source": ["obj-pack-off", 0], "destination": ["obj-noteout", 0] } }
