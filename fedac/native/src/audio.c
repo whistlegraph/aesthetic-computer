@@ -311,13 +311,16 @@ static inline double generate_harp_sample(ACVoice *v, double sample_rate) {
     // pattern decay exponentially. With the two-point LPF ≈ unity at DC,
     // the per-cycle loss is dominated by S: amplitude ≈ S^(f·t) per second.
     // S = 0.9985 gives T60 ≈ 15s at 440Hz — long sustain like a real
-    // pedal harp letting the string ring out. Higher pitches still fade
-    // faster than bass strings (matches physics of real strings).
+    // pedal harp letting the string ring out.
     //
-    // "Short pluck" variant: when the caller passes decay > 0 (notepat
-    // does this for Shift+letter), shorten the stretch factor so the
-    // string dies in ~0.4s — feels like a damped/staccato pluck.
-    double stretch = (v->decay > 0.0 && v->decay < 0.2) ? 0.990 : 0.9985;
+    // "Short pluck" variant — triggered by a FINITE SHORT duration on the
+    // voice. Notepat uses duration=Infinity for sustained harp notes and
+    // duration≈0.4 for Shift+letter staccato plucks. The previous
+    // implementation keyed on decay<0.2 but that collided with the
+    // default decay mode (0.1s), so every harp press got short-stretch
+    // and shift did nothing audible.
+    double stretch = (!isinf(v->duration) && v->duration > 0.0 && v->duration < 1.0)
+                     ? 0.990 : 0.9985;
     double decayed = filtered * stretch;
 
     // Write back to close the delay loop.
