@@ -272,6 +272,27 @@ function netBoot({ net, handle, send }) {
   netSendFn = send;
   myHandle = handle?.() || "guest_" + Math.floor(Math.random() * 9999);
   netConnectedAt = Date.now();
+
+  // 🔄 Live-reload on new deploy (same pattern as dumduel.mjs).
+  // Polls /api/version until the `deployed` value changes, then asks bios
+  // to reload the page. Fire-and-forget; any error silently gives up.
+  (async () => {
+    try {
+      const res = await fetch("/api/version");
+      if (!res.ok) return;
+      const info = await res.json();
+      const current = info.deployed;
+      while (true) {
+        try {
+          const r = await fetch(`/api/version?current=${current}`);
+          if (!r.ok) break;
+          const data = await r.json();
+          if (data.changed !== false) { netSendFn?.({ type: "window:reload" }); break; }
+        } catch { break; }
+      }
+    } catch {}
+  })();
+
   if (!net) return;
 
   const { socket, udp } = net;
