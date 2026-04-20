@@ -30,6 +30,8 @@ let lastSnapAck = 0;        // highest server messageNum we've seen
 let serverClockOffset = 0;  // add to Date.now() → server time estimate
 let lastPingSent = 0;
 let ping = 0;
+let netSpectator = false;       // true if another tab took over this handle
+let netTakeoverAt = 0;
 
 const CMD_RATE = 60;        // cmd sends per sec
 const CMD_BACKUP = 3;       // how many past cmds to include in each packet
@@ -220,6 +222,11 @@ function onSnap(snap) {
 // position; if divergent, soft-correct (small drift) or snap (big desync).
 function reconcileLocal() {
   if (!myServerState || !reconCamRef) return;
+  // While spectating, the "me" state in snapshots is being driven by another
+  // tab — if we reconciled cam-doll against it, our cam would keep getting
+  // yanked to wherever they are. So just skip local pmove reconciliation
+  // (we still update cam to follow them below if we want spectator-follow).
+  if (netSpectator) return;
   const cam = reconCamRef;
 
   // Build a pmove-compatible state from the wire blob.
@@ -328,6 +335,15 @@ function netBoot({ net, handle, send }) {
     }
     if (type === "arena:leave") { delete others[msg.handle]; return; }
     if (type === "arena:pong") { ping = Date.now() - msg.ts; return; }
+    if (type === "arena:takeover") {
+      // Another tab under the same handle displaced us. Flip to spectator
+      // mode: stop sending cmds, keep receiving snaps, let the user watch
+      // the other tab drive their avatar.
+      netSpectator = true;
+      netTakeoverAt = Date.now();
+      console.log(`🪑 takeover: ${msg.handle} is now controlled from another tab — spectating.`);
+      return;
+    }
   });
 }
 
@@ -349,13 +365,15 @@ function netSim(cam) {
   netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0];
   netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1];
 
-  enqueueCmd(cam);
-  // Throttle outbound packets to CMD_RATE (= every Nth 120Hz tick).
-  if (!netSim._acc) netSim._acc = 0;
-  netSim._acc++;
-  if (netSim._acc >= 120 / CMD_RATE) { netSim._acc = 0; flushCmds(); }
+  // Spectators don't drive an avatar; skip cmd emission entirely.
+  if (!netSpectator) {
+    enqueueCmd(cam);
+    if (!netSim._acc) netSim._acc = 0;
+    netSim._acc++;
+    if (netSim._acc >= 120 / CMD_RATE) { netSim._acc = 0; flushCmds(); }
+  }
 
-  // Periodic ping for latency HUD.
+  // Periodic ping for latency HUD (still useful while spectating).
   if (Date.now() - lastPingSent > 2000) {
     lastPingSent = Date.now();
     netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
@@ -1797,6 +1815,25 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     const peers = Object.keys(others).length;
     ink(peers > 0 ? [180, 230, 180] : [130, 130, 130]);
     rightLabel(`peers ${peers}`, margin + lineH * 8);
+    if (netSpectator) {
+      ink(255, 180, 60);
+      rightLabel(`SPECTATE`, margin + lineH * 9);
+    }
+  }
+
+  // 🪑 Full-width spectator overlay (only renders when we were kicked from
+  // our own avatar by another tab). Center of screen, easy to notice.
+  if (netSpectator) {
+    const bannerY = Math.floor(screen.height / 2 - 8);
+    const msg1 = "SPECTATING";
+    const msg2 = `@${myHandle.replace(/^@/, "")} is controlled`;
+    const msg3 = "from another tab";
+    ink(0, 0, 0, 180).box(0, bannerY - 2, screen.width, 30);
+    ink(255, 220, 100);
+    write(msg1, { x: Math.floor(screen.width / 2 - msg1.length * 2), y: bannerY }, undefined, undefined, false, "MatrixChunky8");
+    ink(200, 200, 200);
+    write(msg2, { x: Math.floor(screen.width / 2 - msg2.length * 2), y: bannerY + 10 }, undefined, undefined, false, "MatrixChunky8");
+    write(msg3, { x: Math.floor(screen.width / 2 - msg3.length * 2), y: bannerY + 18 }, undefined, undefined, false, "MatrixChunky8");
   }
 
   // 🏃 Current speed — colored by how close to max.
