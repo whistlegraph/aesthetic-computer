@@ -227,13 +227,83 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident       :rebake/contract-version
     :db/valueType   :db.type/string
-    :db/cardinality :db.cardinality/one}])
+    :db/cardinality :db.cardinality/one}
 
-(defn- schema-installed? [db]
-  (some? (d/entid db :kidlisp/code)))
+   ;; ───────── AST (v2) ─────────
+   ;; Parsed structure of a kidlisp piece. One entity per node — flat
+   ;; list linked via :ast/parent refs. Source of truth is the
+   ;; JS parser in system/backend/kidlisp-ast.mjs; the sidecar just
+   ;; persists what it's told.
+   ;;
+   ;; :ast/piece is indexed so "all nodes for piece X" is fast.
+   ;; :ast/op is indexed for structural queries like "all pieces using wipe".
+
+   {:db/ident       :kidlisp/ast-nodes
+    :db/valueType   :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true
+    :db/doc         "Component backref: all AST nodes that belong to this
+                     piece. Retracting the piece retracts its AST."}
+
+   {:db/ident       :ast/piece
+    :db/valueType   :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db/index       true
+    :db/doc         "The kidlisp piece this node belongs to. Every node
+                     carries this so corpus-wide structural queries can
+                     roll up to pieces cheaply."}
+
+   {:db/ident       :ast/kind
+    :db/valueType   :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/index       true
+    :db/doc         ":call | :atom | :number | :string | :ref | :timing |
+                     :fade | :comment"}
+
+   {:db/ident       :ast/op
+    :db/valueType   :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/index       true
+    :db/doc         "The head symbol of a :call node (e.g. \"wipe\",
+                     \"repeat\"). Absent for atoms/literals."}
+
+   {:db/ident       :ast/literal
+    :db/valueType   :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc         "The raw literal for :atom, :number, :string, :ref,
+                     :timing, :fade, :comment nodes. Stored as string
+                     for simple text search; numbers keep their source
+                     form (\"1.5\")."}
+
+   {:db/ident       :ast/parent
+    :db/valueType   :db.type/ref
+    :db/cardinality :db.cardinality/one
+    :db/doc         "Parent node ref. Nil for the piece's top-level
+                     sequence of forms."}
+
+   {:db/ident       :ast/position
+    :db/valueType   :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/doc         "Zero-based index within the parent's children.
+                     Enables ordered children queries."}
+
+   {:db/ident       :ast/depth
+    :db/valueType   :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/doc         "Nesting depth from the piece root. Useful for
+                     quick `wiggle-inside-repeat` style patterns —
+                     pair with op + ancestor walks."}])
 
 (defn ensure!
-  "Idempotently installs schema-v1 if not already present."
+  "Idempotently installs any schema entries not yet present. Per-attribute
+   check so evolving the schema over time (e.g. v2 AST attrs) just adds
+   the missing pieces on the next sidecar boot."
   [conn]
-  (when-not (schema-installed? (d/db conn))
-    @(d/transact conn schema-v1)))
+  (let [db      (d/db conn)
+        missing (filter (fn [m]
+                          (when-let [ident (:db/ident m)]
+                            (nil? (d/entid db ident))))
+                        schema-v1)]
+    (when (seq missing)
+      @(d/transact conn (vec missing))
+      (println (str "schema: installed " (count missing) " new attribute(s)")))))

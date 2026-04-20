@@ -3,6 +3,7 @@
             [reitit.ring :as ring]
             [reitit.ring.middleware.muuntaja :as muuntaja-mw]
             [muuntaja.core :as m]
+            [ring.middleware.params :as params]
             [ac.kidlisp.db :as db]
             [ac.kidlisp.schema :as schema]
             [ac.kidlisp.handlers :as h]
@@ -33,7 +34,10 @@
       ["/:code/pending-rebake"  {:post (h/set-pending-rebake conn)}]
       ["/:code/ipfs-media"      {:post (h/set-ipfs-media conn)}]
       ["/:code/atproto-rkey"    {:post (h/set-atproto-rkey conn)}]
-      ["/:code/lineage"         {:get  (h/lineage conn)}]]
+      ["/:code/lineage"         {:get  (h/lineage conn)}]
+      ["/:code/ast"             {:get  (h/get-ast conn)
+                                 :post (h/set-ast conn)}]
+      ["/structural/pieces-using" {:get (h/find-pieces-using-op conn)}]]
 
      ;; ───── Admin surface (silo-only, read-only in v1) ─────
      ["/admin"
@@ -63,5 +67,7 @@
         port  (Integer/parseInt (env "PORT" "8891"))
         conn  (db/connect uri)]
     (schema/ensure! conn)
-    (http/run-server (app-router conn) {:port port :ip "127.0.0.1"})
+    ;; wrap-params populates :query-params (string-keyed) from the URL.
+    (http/run-server (params/wrap-params (app-router conn))
+                     {:port port :ip "127.0.0.1"})
     (println (str "kidlisp-sidecar listening on 127.0.0.1:" port))))
