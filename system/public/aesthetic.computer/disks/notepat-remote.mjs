@@ -195,6 +195,17 @@ function boot({ wipe, cursor }) {
   wipe(8, 10, 18);
   cursor?.("native");
   connectWs();
+  // Quick bridge probe — reports whether jweb~ has injected window.max yet
+  // by the time boot runs.
+  const initialBridge = !!maxBridge();
+  console.log(`🎹 boot bridge=${initialBridge}`);
+  // And again one tick later in case jweb~ injects window.max just after boot.
+  setTimeout(() => {
+    console.log(`🎹 boot+50ms bridge=${!!maxBridge()}`);
+  }, 50);
+  setTimeout(() => {
+    console.log(`🎹 boot+500ms bridge=${!!maxBridge()}`);
+  }, 500);
 }
 
 function sim() {
@@ -202,8 +213,18 @@ function sim() {
   if (wsState === "closed" && frame >= reconnectAt) connectWs();
 }
 
+let eventsSeen = 0;
+
 function act({ event: e }) {
   if (!e?.is) return;
+  // Dump first ~15 events of any kind so we can see what actually propagates
+  // into the piece from jweb~. `name` is the AC event type string.
+  if (eventsSeen < 15) {
+    eventsSeen += 1;
+    const name = e.name || "?";
+    const bridge = !!maxBridge();
+    console.log(`🎹 evt#${eventsSeen} ${name} key=${e.key || ""} bridge=${bridge}`);
+  }
   // Click-to-test-note: tap anywhere on the device UI fires C4 so we can
   // verify the Max bridge path without depending on keyboard focus.
   if (e.is("touch")) {
@@ -213,10 +234,6 @@ function act({ event: e }) {
   if (e.is("lift")) {
     releaseLocalKey("c");
     return;
-  }
-  // Best-effort debug: log raw keyboard events to Max console.
-  if (e.is("keyboard:down") || e.is("keyboard:up")) {
-    console.log(`🎹 kbd ${e.key || e.name || "?"}`);
   }
   for (const key of Object.keys(KEY_TO_PITCH)) {
     if (e.is(`keyboard:down:${key}`)) {
