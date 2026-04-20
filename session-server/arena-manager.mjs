@@ -90,10 +90,22 @@ export class ArenaManager {
 
     let rec = this.players.get(handle);
     if (rec) {
-      // Re-join (page reload / reconnect): keep the body continuity but reset
-      // the per-connection bookkeeping. The new client starts its cmd seq and
-      // snap-ack counters from zero, so we must wipe ours or every new cmd
-      // would be "already seen" and dropped, freezing the avatar in place.
+      // Re-join with same handle. Two cases:
+      //   (a) same wsId  → page reload / reconnect on same socket; just
+      //       refresh seq bookkeeping.
+      //   (b) different wsId → another tab is joining under the same
+      //       handle. Do a *takeover*: tell the old wsId it's been
+      //       displaced (so the old tab can flip to spectator UI), then
+      //       register the old wsId as a probe so it keeps receiving snaps
+      //       and the tab stays alive / watchable.
+      if (rec.wsId != null && rec.wsId !== wsId) {
+        const oldWsId = rec.wsId;
+        console.log(`🏟️  takeover: ${handle} (old wsId=${oldWsId} → new ${wsId})`);
+        this.sendWS?.(oldWsId, "arena:takeover", { handle, by: wsId });
+        // Demote old connection to a spectator probe. Key the probe by
+        // wsId so multiple displaced tabs don't collide.
+        this.probes.set(`${handle}#spec${oldWsId}`, { wsId: oldWsId });
+      }
       rec.wsId = wsId;
       rec.udpChannelId = this.resolveUdpForHandle?.(handle) ?? null;
       rec.lastCmdSeq = 0;
@@ -144,14 +156,26 @@ export class ArenaManager {
    */
   playerLeave(handle, onlyIfWsId = undefined) {
     if (!handle) return;
+
+    // Cleanup any spectator-probe entries for this handle bound to the
+    // closing wsId. (These are tabs that were displaced by a takeover.)
+    if (onlyIfWsId !== undefined) {
+      for (const key of this.probes.keys()) {
+        if (!key.startsWith(`${handle}#spec`)) continue;
+        const p = this.probes.get(key);
+        if (p?.wsId === onlyIfWsId) this.probes.delete(key);
+      }
+    }
+
     if (this.probes.delete(handle)) {
       console.log(`🏟️  probe left: ${handle} (${this.probes.size} probes)`);
       this.maybeStopTick();
       return;
     }
     const rec = this.players.get(handle);
-    if (!rec) return;
+    if (!rec) { this.maybeStopTick(); return; }
     if (onlyIfWsId !== undefined && rec.wsId !== onlyIfWsId) {
+      // Stale leave (reload race OR this was a spectator tab for a takeover).
       console.log(`🏟️  stale leave for ${handle} (wsId=${onlyIfWsId} ≠ active ${rec.wsId}) — ignored`);
       return;
     }
