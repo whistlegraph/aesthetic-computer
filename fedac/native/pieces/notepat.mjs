@@ -3277,8 +3277,10 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === STATUS BAR ===
-  const topBarH = 14;
-  const barY = 2;
+  // Bar is tall enough to fit a 25px QR code (21-module QR version 1 with
+  // a 2-module quiet-zone margin, scale=1) in the top-left corner.
+  const topBarH = 26;
+  const barY = 10; // vertical offset for status text — matrix font is ~7px tall
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
@@ -3303,15 +3305,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
   const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
 
-  // Left: "notepat.com" — clickable, jumps to prompt piece
-  const npHovered = hoverX >= 0 && hoverX <= 46 && hoverY < topBarH;
-  if (npHovered) { ink(255, 255, 255, 20); box(0, 0, 48, topBarH, true); }
+  // Left: tiny QR code → notepat.com (25x25 at scale=1), then label.
+  // Clicking anywhere in the label zone still jumps to prompt piece.
+  if (globalThis.qr) {
+    // qr() handles its own white background + margin.
+    globalThis.qr("https://notepat.com", 1, 1, 1);
+  }
+  const qrW = 26; // 25px QR + 1px padding before label
+  const labelX = qrW + 4;
+  const labelW = 48; // "notepat.com" label width in matrix font at size=1
+  const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;
+  if (npHovered) { ink(255, 255, 255, 20); box(labelX - 2, 0, labelW + 2, topBarH, true); }
   ink(FG, FG, FG, npHovered ? 255 : 200);
-  write("notepat", { x: 2, y: barY, size: 1, font: "matrix" });
+  write("notepat", { x: labelX, y: barY, size: 1, font: "matrix" });
   ink(dark ? 200 : 180, dark ? 100 : 60, dark ? 140 : 120, npHovered ? 255 : 200);
-  const dotComX = 2 + 7 * 4;
+  const dotComX = labelX + 7 * 4;
   write(".com", { x: dotComX, y: barY, size: 1, font: "matrix" });
-  globalThis.__npBtn = { w: 48, h: topBarH };
+  // Whole top-left zone (QR + label) becomes the click target so tapping
+  // either the QR or the text jumps to prompt.
+  globalThis.__npBtn = { x: 0, w: labelX + labelW, h: topBarH };
 
   // Status area after notepat.com — auto-update indicator only (minimal)
   let statusX = dotComX + 4 * 4 + 6;
