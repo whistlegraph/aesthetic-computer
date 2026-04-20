@@ -25,7 +25,7 @@
           "presentation": 1,
           "presentation_rect": [0, 0, 360, 220],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&nogap"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap"
         }
       },
       {
@@ -53,13 +53,35 @@
       },
       {
         "box": {
-          "comment": "Debug: unmatched messages land here",
+          "comment": "Debug: unmatched messages",
           "id": "obj-print",
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [200, 300, 200, 22],
+          "patching_rect": [500, 300, 200, 22],
           "text": "print NOTEPAT-REMOTE"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: note pitch/vel after route",
+          "id": "obj-print-note",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [200, 340, 200, 22],
+          "text": "print NOTEPAT-NOTE"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: channel after route",
+          "id": "obj-print-chan",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [200, 380, 200, 22],
+          "text": "print NOTEPAT-CHAN"
         }
       },
       {
@@ -100,7 +122,9 @@
     "lines": [
       { "patchline": { "source": ["obj-jweb", 2], "destination": ["obj-route", 0] } },
       { "patchline": { "source": ["obj-route", 0], "destination": ["obj-noteout", 0] } },
+      { "patchline": { "source": ["obj-route", 0], "destination": ["obj-print-note", 0] } },
       { "patchline": { "source": ["obj-route", 1], "destination": ["obj-noteout", 1] } },
+      { "patchline": { "source": ["obj-route", 1], "destination": ["obj-print-chan", 0] } },
       { "patchline": { "source": ["obj-route", 2], "destination": ["obj-print", 0] } },
       { "patchline": { "source": ["obj-thisdevice", 0], "destination": ["obj-routeready", 0] } },
       { "patchline": { "source": ["obj-routeready", 0], "destination": ["obj-activate", 0] } },

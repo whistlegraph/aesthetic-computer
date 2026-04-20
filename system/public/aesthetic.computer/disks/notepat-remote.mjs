@@ -49,23 +49,29 @@ const heldKeys = new Set(); // currently-held local keyboard keys
 let frame = 0;
 let lastEmittedChannel = -1;
 
-// Max for Live jweb~ bridge (exposes window.max.outlet)
-const maxBridge =
-  typeof window !== "undefined" &&
-  window.max &&
-  typeof window.max.outlet === "function"
-    ? window.max
-    : null;
+// Max for Live jweb~ bridge — looked up lazily because jweb~ injects
+// window.max AFTER the page load, not before module evaluation.
+function maxBridge() {
+  if (typeof window === "undefined") return null;
+  const m = window.max;
+  if (!m || typeof m.outlet !== "function") return null;
+  return m;
+}
 
 function emitMaxNote(pitch, velocity, channel) {
-  if (!maxBridge) return;
+  const m = maxBridge();
+  if (!m) return;
   try {
     if (channel !== lastEmittedChannel) {
-      maxBridge.outlet(["channel", channel]);
+      m.outlet("channel", channel);
       lastEmittedChannel = channel;
     }
-    maxBridge.outlet(["note", pitch, velocity]);
-  } catch (_err) {}
+    m.outlet("note", pitch, velocity);
+    // Mirror to Max console so it's obvious when a note fired.
+    console.log(`🎹 out note=${pitch} vel=${velocity} ch=${channel}`);
+  } catch (err) {
+    console.log("🎹 outlet err:", err?.message || err);
+  }
 }
 
 function connectWs() {
@@ -198,6 +204,20 @@ function sim() {
 
 function act({ event: e }) {
   if (!e?.is) return;
+  // Click-to-test-note: tap anywhere on the device UI fires C4 so we can
+  // verify the Max bridge path without depending on keyboard focus.
+  if (e.is("touch")) {
+    pressLocalKey("c");
+    return;
+  }
+  if (e.is("lift")) {
+    releaseLocalKey("c");
+    return;
+  }
+  // Best-effort debug: log raw keyboard events to Max console.
+  if (e.is("keyboard:down") || e.is("keyboard:up")) {
+    console.log(`🎹 kbd ${e.key || e.name || "?"}`);
+  }
   for (const key of Object.keys(KEY_TO_PITCH)) {
     if (e.is(`keyboard:down:${key}`)) {
       pressLocalKey(key);
@@ -224,10 +244,11 @@ function paint({ wipe, ink, box, line, screen }) {
   const H = screen.height;
   let y = 4;
 
-  // Header
+  // Header — check bridge each frame in case jweb~ injected window.max late
+  const bridgeActive = !!maxBridge();
   ink(...accent).write("NOTEPAT-REMOTE", { x: 4, y, size: 1 });
-  ink(...(maxBridge ? good : warn)).write(
-    maxBridge ? "[M4L]" : "[solo]",
+  ink(...(bridgeActive ? good : warn)).write(
+    bridgeActive ? "[M4L]" : "[solo]",
     { x: 112, y },
   );
   y += 10;
@@ -297,7 +318,7 @@ function paint({ wipe, ink, box, line, screen }) {
 
   // Footer hint
   if (H - y > 12) {
-    ink(...fgDim).write("c,d,e,f,g,a,b = C4..B4 scale", { x: 4, y: H - 8 });
+    ink(...fgDim).write("click=C4 | keys c-b=C4..B4", { x: 4, y: H - 8 });
   }
 }
 
