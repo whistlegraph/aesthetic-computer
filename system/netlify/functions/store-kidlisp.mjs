@@ -670,6 +670,11 @@ export async function handler(event, context) {
 
         console.log(`📊 Codes request: limit=${actualLimit}, sort=${sortBy}, handle=${filterHandle || 'all'}${since ? `, since=${since}` : ''}`);
 
+        // Mirror tv.mjs/fetchKidlisp's working pattern: bare $arrayElemAt
+        // (no $cond/$concat), upstream $match, $sort+$limit before $lookup.
+        // Earlier $cond/$concat variant returned handle=null for every doc
+        // even when @handles had a matching entry — empirically reproducible
+        // against the same data the batch endpoint resolves correctly.
         const handleLookupStages = [
           {
             $lookup: {
@@ -681,20 +686,14 @@ export async function handler(event, context) {
           },
           {
             $addFields: {
-              handle: {
-                $cond: {
-                  if: { $gt: [{ $size: "$handleInfo" }, 0] },
-                  then: { $concat: ["@", { $arrayElemAt: ["$handleInfo.handle", 0] }] },
-                  else: null
-                }
-              }
+              handleRaw: { $arrayElemAt: ["$handleInfo.handle", 0] }
             }
           }
         ];
 
-        // Match/sort/limit before $lookup so the join runs on a small working
-        // set — the previous order silently dropped handleInfo on large scans.
-        const pipeline = [];
+        const pipeline = [
+          { $match: { code: { $exists: true } } }
+        ];
 
         if (since) {
           const sinceDate = new Date(since);
@@ -710,9 +709,8 @@ export async function handler(event, context) {
         if (filterHandle) {
           // Filter is on the computed handle, so the lookup has to precede $limit.
           pipeline.push(...handleLookupStages);
-          pipeline.push({
-            $match: { handle: filterHandle.startsWith('@') ? filterHandle : `@${filterHandle}` }
-          });
+          const bareHandle = filterHandle.startsWith('@') ? filterHandle.slice(1) : filterHandle;
+          pipeline.push({ $match: { handleRaw: bareHandle } });
           pipeline.push({ $limit: actualLimit });
         } else {
           pipeline.push({ $limit: actualLimit });
@@ -730,7 +728,7 @@ export async function handler(event, context) {
             kept: 1,
             tezos: 1,
             pendingRebake: 1,
-            handle: 1
+            handleRaw: 1
           }
         });
 
@@ -745,7 +743,7 @@ export async function handler(event, context) {
             when: doc.when,
             hits: doc.hits,
             user: doc.user || null,
-            handle: doc.handle || null
+            handle: doc.handleRaw ? `@${doc.handleRaw}` : null
           };
           
           const keepRecords = filterKeepRecords(extractKeepRecords(doc), {
