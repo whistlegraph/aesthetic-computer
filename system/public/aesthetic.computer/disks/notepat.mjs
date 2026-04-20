@@ -382,10 +382,11 @@ const wavetypes = [
   "triangle", // 1
   "sawtooth", // 2
   "square", // 3
-  "noise", // 4 - white noise filtered by pitch
-  "composite", // 5
-  "stample", // 6
-  "drum", // 7 - shared 12-drum kit (lib/percussion.mjs), both octaves
+  "harp", // 4 - Karplus-Strong plucked string (Karplus & Strong 1983)
+  "whistle", // 5 - digital waveguide flute (Cook/STK)
+  "composite", // 6
+  "stample", // 7
+  "drum", // 8 - shared 12-drum kit (lib/percussion.mjs), both octaves
 ];
 let waveIndex = 0; // 0;
 const STARTING_WAVE = wavetypes[waveIndex]; //"sine";
@@ -1642,6 +1643,8 @@ async function boot({
     "sawtooth",
     "noise-white",
     "noise",
+    "harp",
+    "whistle",
     "stample",
     "sample",
     "drum",
