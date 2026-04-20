@@ -5159,6 +5159,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // 🎹 MIDI note emit from a worker piece → Max (jweb~ main-thread bridge).
+    // Pieces running inside an M4L device's jweb~ send
+    //   send({ type: "daw:midi", content: { pitch, velocity, channel? } })
+    // and BIOS forwards to `window.max.outlet` which the patcher routes via
+    // [route note channel] → [noteout].
+    if (type === "daw:midi" && content) {
+      if (typeof window !== "undefined" && window.max && typeof window.max.outlet === "function") {
+        const pitch = Number(content.pitch);
+        const velocity = Number(content.velocity);
+        const channel = Number.isFinite(Number(content.channel)) ? Number(content.channel) : 0;
+        if (!Number.isFinite(pitch) || !Number.isFinite(velocity)) return;
+        try { window.max.outlet("channel", channel); } catch (_e) {}
+        try { window.max.outlet("note", pitch, velocity); } catch (_e) {}
+      }
+      return;
+    }
+
     // Helper function to generate appropriate filenames for tape recordings
     function generateTapeFilename(extension, suffix = "") {
       const options = window.currentRecordingOptions || {

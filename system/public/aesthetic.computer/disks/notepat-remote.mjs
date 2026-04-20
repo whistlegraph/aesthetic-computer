@@ -49,29 +49,22 @@ const heldKeys = new Set(); // currently-held local keyboard keys
 let frame = 0;
 let lastEmittedChannel = -1;
 
-// Max for Live jweb~ bridge — looked up lazily because jweb~ injects
-// window.max AFTER the page load, not before module evaluation.
-function maxBridge() {
-  if (typeof window === "undefined") return null;
-  const m = window.max;
-  if (!m || typeof m.outlet !== "function") return null;
-  return m;
-}
+// Piece runs in a Worker, so `window.max.outlet` isn't reachable here.
+// BIOS (main thread) owns that bridge: we send a `daw:midi` message via
+// the worker→BIOS `send` pipe and BIOS forwards it to Max.
+//
+// Handler lives in bios.mjs — it calls window.max.outlet("channel", ch) +
+// window.max.outlet("note", pitch, vel), which the patcher routes:
+//   [jweb~ msg outlet] → [route note channel] → [noteout].
+let _send = null; // captured from boot(); used from ws callbacks too
 
 function emitMaxNote(pitch, velocity, channel) {
-  const m = maxBridge();
-  if (!m) return;
-  try {
-    if (channel !== lastEmittedChannel) {
-      m.outlet("channel", channel);
-      lastEmittedChannel = channel;
-    }
-    m.outlet("note", pitch, velocity);
-    // Mirror to Max console so it's obvious when a note fired.
-    console.log(`🎹 out note=${pitch} vel=${velocity} ch=${channel}`);
-  } catch (err) {
-    console.log("🎹 outlet err:", err?.message || err);
-  }
+  if (!_send) return;
+  _send({
+    type: "daw:midi",
+    content: { pitch, velocity, channel },
+  });
+  console.log(`🎹 out note=${pitch} vel=${velocity} ch=${channel}`);
 }
 
 function connectWs() {
@@ -191,21 +184,15 @@ function pitchName(p) {
   return n + o;
 }
 
-function boot({ wipe, cursor }) {
+function boot({ wipe, cursor, hud, send }) {
   wipe(8, 10, 18);
   cursor?.("native");
+  // Hide the default HUD piece-name label — device UI has its own header.
+  hud?.label?.("");
+  // Capture `send` for use in ws callbacks and key/touch handlers below.
+  _send = send;
+  console.log("🎹 boot ready, send captured:", typeof _send);
   connectWs();
-  // Quick bridge probe — reports whether jweb~ has injected window.max yet
-  // by the time boot runs.
-  const initialBridge = !!maxBridge();
-  console.log(`🎹 boot bridge=${initialBridge}`);
-  // And again one tick later in case jweb~ injects window.max just after boot.
-  setTimeout(() => {
-    console.log(`🎹 boot+50ms bridge=${!!maxBridge()}`);
-  }, 50);
-  setTimeout(() => {
-    console.log(`🎹 boot+500ms bridge=${!!maxBridge()}`);
-  }, 500);
 }
 
 function sim() {
@@ -222,8 +209,7 @@ function act({ event: e }) {
   if (eventsSeen < 15) {
     eventsSeen += 1;
     const name = e.name || "?";
-    const bridge = !!maxBridge();
-    console.log(`🎹 evt#${eventsSeen} ${name} key=${e.key || ""} bridge=${bridge}`);
+    console.log(`🎹 evt#${eventsSeen} ${name} key=${e.key || ""}`);
   }
   // Click-to-test-note: tap anywhere on the device UI fires C4 so we can
   // verify the Max bridge path without depending on keyboard focus.
@@ -261,8 +247,8 @@ function paint({ wipe, ink, box, line, screen }) {
   const H = screen.height;
   let y = 4;
 
-  // Header — check bridge each frame in case jweb~ injected window.max late
-  const bridgeActive = !!maxBridge();
+  // Header — bridge status is whether `send` was captured at boot.
+  const bridgeActive = !!_send;
   ink(...accent).write("NOTEPAT-REMOTE", { x: 4, y, size: 1 });
   ink(...(bridgeActive ? good : warn)).write(
     bridgeActive ? "[M4L]" : "[solo]",
