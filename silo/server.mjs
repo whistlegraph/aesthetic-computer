@@ -1387,6 +1387,41 @@ app.post("/api/datomic/query", requireAdmin, (req, res) =>
 app.get("/api/datomic/backups", requireAdmin, (req, res) =>
   datomicProxy(req, res, { method: "GET", path: "/admin/backups" }));
 
+// ─────────────────── Datomic sidecar — public kidlisp proxy ───────────────────
+//
+// Server-to-server surface for lith (which runs store-kidlisp-datomic.mjs).
+// Authenticates via the sidecar's CLIENT_SECRET header — a shared secret
+// held by lith and the sidecar only, never exposed to browsers. This
+// route transparently forwards /sidecar/<anything> to the sidecar's
+// /<anything> endpoint so the Node client can use a clean base URL.
+
+app.all("/sidecar/*", async (req, res) => {
+  // Forward the client secret header as-is; sidecar rejects if missing/wrong.
+  const subpath = req.originalUrl.replace(/^\/sidecar/, "") || "/";
+  const clientSecret = req.headers["x-sidecar-secret"];
+  if (!clientSecret) {
+    return res.status(401).json({ error: "missing x-sidecar-secret" });
+  }
+  try {
+    const hasBody = req.method !== "GET" && req.method !== "HEAD";
+    const resp = await fetch(`${DATOMIC_SIDECAR_URL}${subpath}`, {
+      method: req.method,
+      headers: {
+        "content-type": "application/json",
+        "x-sidecar-secret": clientSecret,
+      },
+      body: hasBody ? JSON.stringify(req.body ?? {}) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await resp.text();
+    res.status(resp.status);
+    res.setHeader("content-type", resp.headers.get("content-type") || "application/json");
+    res.send(text);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 app.get("/api/firehose/history", async (req, res) => {
   if (!db) return res.json([]);
   const limit = Math.min(parseInt(req.query.limit) || 100, 1000);
