@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ac-mirror every 60 seconds
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+AccuracySec=10
+Unit=ac-mirror.service
+
+[Install]
+WantedBy=timers.target
