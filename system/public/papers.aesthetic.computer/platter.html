@@ -65,11 +65,14 @@
             color: var(--text);
             font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
             font-size: 13px;
-            line-height: 1.6;
+            line-height: 1.55;
             -webkit-text-size-adjust: none;
             cursor: url('https://aesthetic.computer/aesthetic.computer/cursors/precise.svg') 12 12, auto;
-            padding: 2em;
+            padding: 1.4em 1.6em 2em;
             min-height: 100vh;
+        }
+        @media (min-width: 1200px) {
+            body { padding: 1.4em 2em 3em; }
         }
 
         .header { margin-bottom: 2em; }
@@ -117,16 +120,18 @@
         .search-bar input::placeholder { color: var(--dim); }
 
         .section {
-            margin-bottom: 2em;
+            margin-bottom: 1.5em;
         }
 
         .section-header {
             display: flex;
             align-items: center;
             gap: 0.6em;
-            margin-bottom: 0.8em;
+            margin-bottom: 0.4em;
             cursor: pointer;
             user-select: none;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--box-border);
         }
 
         .section-header h2 {
@@ -158,9 +163,35 @@
         .section-items { }
         .section-items.hidden { display: none; }
 
+        /* Multi-column item flow on wider viewports — scales with screen width.
+           .item-group and each item have break-inside:avoid so a group or row
+           never splits across a column boundary. */
+        @media (min-width: 900px) {
+            .section-items {
+                column-count: 2;
+                column-gap: 1.6em;
+            }
+        }
+        @media (min-width: 1300px) {
+            .section-items { column-count: 3; }
+        }
+        @media (min-width: 1800px) {
+            .section-items { column-count: 4; }
+        }
+        @media (min-width: 2400px) {
+            .section-items { column-count: 5; }
+        }
+        .section-items .item,
+        .section-items .item-dual,
+        .section-items .item-group {
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
         .item {
             display: block;
-            padding: 0.35em 0.8em;
+            padding: 0.22em 0.7em;
             text-decoration: none;
             color: var(--text);
             border-radius: 4px;
@@ -174,15 +205,20 @@
         .item .file { color: var(--dim); margin-right: 0.5em; font-size: 0.85em; }
 
         .item-group {
-            margin-bottom: 1em;
+            margin-bottom: 0.8em;
+            /* Keep the whole group together when columnizing */
         }
 
         .item-group-label {
             color: var(--dim);
-            font-size: 0.75em;
+            font-size: 0.72em;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            padding: 0.3em 0.8em;
+            padding: 0.25em 0.7em;
+            /* Stick the label to the items following it */
+            break-after: avoid;
+            -webkit-column-break-after: avoid;
+            page-break-after: avoid;
         }
 
         .footer {
@@ -248,16 +284,16 @@
         .item-dual {
             display: flex;
             align-items: center;
-            padding: 0.35em 0.8em;
+            padding: 0.22em 0.7em;
             text-decoration: none;
             color: var(--text);
             border-radius: 4px;
             transition: background 0.1s;
-            gap: 0.5em;
+            gap: 0.4em;
         }
         .item-dual:hover { background: var(--box-bg); }
         .item-dual .file { color: var(--dim); font-size: 0.85em; flex-shrink: 0; }
-        .item-dual .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-dual .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
         .no-results {
             color: var(--dim);
