@@ -1098,7 +1098,11 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
     snprintf(config_src, sizeof(config_src), "%s/config.json", source_mount);
     snprintf(loader_conf_src, sizeof(loader_conf_src), "%s/loader/loader.conf", source_mount);
     snprintf(loader_entry_src, sizeof(loader_entry_src), "%s/loader/entries/ac-native.conf", source_mount);
-    if (access(source_dev, F_OK) == 0 && systemd_boot_layout) {
+    // Initramfs is at the ESP root in EVERY layout the oven produces (Phase 2
+    // de-embed), not just systemd-boot. Drop the `&& systemd_boot_layout`
+    // gate — the kernel-direct install path needs initramfs from the source
+    // ACBOOT/ACEFI mount even when source_score detected chainloader-only.
+    if (access(source_dev, F_OK) == 0) {
         char initramfs_gz[96];
         char initramfs_lz4[96];
         snprintf(initramfs_gz, sizeof(initramfs_gz), "%s/initramfs.cpio.gz", source_mount);
@@ -1749,42 +1753,45 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     ac_log("[install] repartitioned OK, retrying copy\n");
                 }
             }
-            // Copy kernel (and initramfs/loader for systemd-boot layout)
+            // Copy kernel + initramfs onto the destination ESP. ALWAYS use
+            // the kernel-direct layout, regardless of what the source USB
+            // looks like:
+            //
+            //   /EFI/BOOT/BOOTX64.EFI = the actual kernel (EFI stub)
+            //   /initramfs.cpio.gz    = initramfs at ESP root
+            //
+            // Why not systemd-boot for installs? splash.efi as BOOTX64.EFI
+            // worked on the source USB (because firmware found splash, ran
+            // it, splash chained to LOADER.EFI = systemd-boot, sd-boot
+            // loaded kernel + initramfs from the same FAT). But on the
+            // installed disk the SAME splash.efi → "Chinese characters
+            // scrolling, cuts to black, falls to boot selector" — symptom
+            // of the firmware loading the EFI binary and getting confused
+            // by partial output / failed chain. The kernel-direct boot
+            // (kernel as BOOTX64.EFI) IS what the USB ACBOOT partition uses
+            // and it boots cleanly on the same hardware. Just use that.
+            //
+            // The kernel's CONFIG_CMDLINE has `initrd=\initramfs.cpio.gz`
+            // baked in, so the EFI stub finds initramfs at the ESP root
+            // automatically — no loader config needed.
             long sz = 0;
-            if (systemd_boot_layout) {
-                // Universal layout: splash BOOTX64.EFI + LOADER.EFI +
-                // KERNEL.EFI + initramfs + loader config.
-                long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
-                long lsz = copy_file(loader_src, "/tmp/hd/EFI/BOOT/LOADER.EFI");
-                long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
-                char initramfs_dst[128];
+            const char *kernel_to_install = (systemd_boot_layout || chainloader_layout)
+                                            ? chain_kernel_src   // KERNEL.EFI on source
+                                            : kernel_src;        // monolithic BOOTX64.EFI is the kernel
+            long ksz = copy_file(kernel_to_install, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
+            ac_log("[install] kernel-direct: BOOTX64.EFI = %ld bytes (from %s)\n",
+                   ksz, kernel_to_install);
+            long isz = 0;
+            if (initramfs_src[0]) {
                 const char *initramfs_name = strstr(initramfs_src, ".lz4") ? "initramfs.cpio.lz4" : "initramfs.cpio.gz";
+                char initramfs_dst[128];
                 snprintf(initramfs_dst, sizeof(initramfs_dst), "/tmp/hd/%s", initramfs_name);
-                long isz = copy_file(initramfs_src, initramfs_dst);
-                mkdir("/tmp/hd/loader", 0755);
-                mkdir("/tmp/hd/loader/entries", 0755);
-                long csz = copy_file(loader_conf_src, "/tmp/hd/loader/loader.conf");
-                long esz = copy_file(loader_entry_src, "/tmp/hd/loader/entries/ac-native.conf");
-                ac_log("[install] bootloader: %ld bytes\n", bsz);
-                ac_log("[install] loader: %ld bytes\n", lsz);
-                ac_log("[install] kernel: %ld bytes\n", ksz);
-                ac_log("[install] initramfs: %ld bytes\n", isz);
-                ac_log("[install] loader.conf: %ld bytes\n", csz);
-                ac_log("[install] loader entry: %ld bytes\n", esz);
-                sz = (bsz > 0 && lsz > 0 && ksz > 0 && isz > 0 && csz > 0 && esz > 0)
-                    ? (bsz + lsz + ksz + isz + csz + esz)
-                    : -1;
-            } else if (chainloader_layout) {
-                long bsz = copy_file(bootloader_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
-                long ksz = copy_file(chain_kernel_src, "/tmp/hd/EFI/BOOT/KERNEL.EFI");
-                ac_log("[install] chainloader: %ld bytes\n", bsz);
-                ac_log("[install] kernel: %ld bytes\n", ksz);
-                sz = (bsz > 0 && ksz > 0) ? (bsz + ksz) : -1;
+                isz = copy_file(initramfs_src, initramfs_dst);
+                ac_log("[install] initramfs: %ld bytes (from %s)\n", isz, initramfs_src);
             } else {
-                // Monolithic: single BOOTX64.EFI is the kernel
-                sz = copy_file(kernel_src, "/tmp/hd/EFI/BOOT/BOOTX64.EFI");
-                ac_log("[install] copy result: %ld bytes\n", sz);
+                ac_log("[install] no initramfs source — kernel must have it embedded\n");
             }
+            sz = (ksz > 0 && (isz > 0 || initramfs_src[0] == '\0')) ? (ksz + isz) : -1;
 
             if (sz <= 0) {
                 ac_log("[install] copy failed on %s (sz=%ld)\n", devpath, sz);
