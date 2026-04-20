@@ -1,0 +1,118 @@
+{
+  "patcher": {
+    "fileversion": 1,
+    "appversion": { "major": 9, "minor": 0, "revision": 7, "architecture": "x64", "modernui": 1 },
+    "classnamespace": "box",
+    "rect": [100, 100, 700, 500],
+    "openrect": [0, 0, 360, 220],
+    "openinpresentation": 1,
+    "gridsize": [15, 15],
+    "enablehscroll": 0,
+    "enablevscroll": 0,
+    "devicewidth": 360,
+    "description": "Receive ac-native notepat MIDI via session-server relay and emit to this track",
+    "boxes": [
+      {
+        "box": {
+          "disablefind": 0,
+          "id": "obj-jweb",
+          "latency": 0,
+          "maxclass": "jweb~",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["signal", "signal", ""],
+          "patching_rect": [10, 10, 360, 220],
+          "presentation": 1,
+          "presentation_rect": [0, 0, 360, 220],
+          "rendermode": 1,
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&nogap"
+        }
+      },
+      {
+        "box": {
+          "comment": "Strip 'note' and 'channel' keywords from jweb messages",
+          "id": "obj-route",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["", "", ""],
+          "patching_rect": [10, 250, 180, 22],
+          "text": "route note channel"
+        }
+      },
+      {
+        "box": {
+          "comment": "Emit MIDI into the track's next device",
+          "id": "obj-noteout",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 0,
+          "patching_rect": [10, 300, 60, 22],
+          "text": "noteout"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: unmatched messages land here",
+          "id": "obj-print",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [200, 300, 200, 22],
+          "text": "print NOTEPAT-REMOTE"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-thisdevice",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["bang", "int", "int"],
+          "patching_rect": [420, 250, 90, 22],
+          "text": "live.thisdevice"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-routeready",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": ["", ""],
+          "patching_rect": [420, 280, 60, 22],
+          "text": "route ready"
+        }
+      },
+      {
+        "box": {
+          "comment": "Tell jweb~ page we are live (page can use this to trigger subscribe)",
+          "id": "obj-activate",
+          "maxclass": "message",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [420, 310, 90, 22],
+          "text": "script daw-activate"
+        }
+      }
+    ],
+    "lines": [
+      { "patchline": { "source": ["obj-jweb", 2], "destination": ["obj-route", 0] } },
+      { "patchline": { "source": ["obj-route", 0], "destination": ["obj-noteout", 0] } },
+      { "patchline": { "source": ["obj-route", 1], "destination": ["obj-noteout", 1] } },
+      { "patchline": { "source": ["obj-route", 2], "destination": ["obj-print", 0] } },
+      { "patchline": { "source": ["obj-thisdevice", 0], "destination": ["obj-routeready", 0] } },
+      { "patchline": { "source": ["obj-routeready", 0], "destination": ["obj-activate", 0] } },
+      { "patchline": { "source": ["obj-activate", 0], "destination": ["obj-jweb", 0] } }
+    ],
+    "dependency_cache": [],
+    "latency": 0,
+    "is_mpe": 0,
+    "external_mpe_tuning_enabled": 0,
+    "minimum_live_version": "",
+    "minimum_max_version": "",
+    "platform_compatibility": 0,
+    "autosave": 0
+  }
+}
