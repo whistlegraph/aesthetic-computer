@@ -5928,9 +5928,10 @@ function paint($) {
 
         // 🎹 Notepat shortcut button — sits to the right of the commit button.
         // Leading spaces reserve room for the piano icon we draw afterward.
-        // MatrixChunky8 = 4px/char + 2px pad ⇒ text starts at box.x + 2 + 4*spaces.
-        // Icon frame (13×9) ends at box.x + 15, so 4 spaces (x+18) leaves a 3px gap.
-        const notepatLabel = "    notepat";
+        // MatrixChunky8 space advance = 2px (proportional), padL = 2px ⇒ text
+        // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
+        // so 8 spaces (x+18) leaves a 3px gap after the frame.
+        const notepatLabel = "        notepat";
         const notepatX = cBox.x + cBox.w + 4;
         if (!notepatBtn) {
           notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: notepatX, y: buttonY });
