@@ -1855,22 +1855,34 @@ function maybeSendUdpMidiHeartbeat(system) {
   udpMidiNextHeartbeatFrame = frame + 300;
 }
 
+// Build the UDP-MIDI status line — parallel in form to usbMidiStatusText so
+// the two indicators read as siblings in the top bar. States:
+//   "UDP MIDI OFF"                 broadcast disabled in /mnt/config.json
+//   "UDP MIDI ..."                 broadcast enabled, socket not yet up
+//   "UDP MIDI ON"                  socket up, no notes sent yet
+//   "UDP MIDI ON 60v100 ▸ 42"      socket up, last note + total-sent count
+// The caller colors based on whether a note was sent in the last ~1.5s
+// (bright green) vs idle-but-connected (dim green) vs disconnected (amber).
 function udpMidiRelayStatusText(system) {
-  if (!udpMidiBroadcast) return "";
-  const handle = system?.udp?.handle || system?.config?.handle || "";
+  if (!udpMidiBroadcast) return "UDP MIDI OFF";
   const connected = !!system?.udp?.connected;
-  const prefix = connected
-    ? (handle ? "relay @" + handle : "relay on")
-    : (handle ? "relay ...@" + handle : "relay ...");
-  // Append counters + last note when actively sending so the overlay shows
-  // the ThinkPad actually broadcasts notes (and not just that the socket is up).
-  if (!connected) return prefix;
-  if (udpMidiSentCount === 0) return prefix + " 0";
-  const recent = frame - udpMidiLastSentFrame < 90; // ~1.5s fresh window
-  const tail = recent && udpMidiLastPitch >= 0
-    ? ` ${udpMidiSentCount} ${udpMidiLastPitch}v${udpMidiLastVelocity}`
-    : ` ${udpMidiSentCount}`;
-  return prefix + tail;
+  if (!connected) return "UDP MIDI ...";
+  if (udpMidiSentCount === 0) return "UDP MIDI ON";
+  const recent = frame - udpMidiLastSentFrame < 90;
+  if (recent && udpMidiLastPitch >= 0) {
+    return `UDP MIDI ON ${udpMidiLastPitch}v${udpMidiLastVelocity} \u25B8 ${udpMidiSentCount}`;
+  }
+  return `UDP MIDI ON \u25B8 ${udpMidiSentCount}`;
+}
+
+// Returns 0 when no note has ever been sent; otherwise 0..1 recency with
+// 1.0 at the moment of the send and fading to 0 over ~90 frames (1.5s).
+// Used to pulse the badge color from bright-green → dim-green as notes fire.
+function udpMidiSendRecency() {
+  if (udpMidiSentCount === 0) return 0;
+  const age = frame - udpMidiLastSentFrame;
+  if (age < 0 || age > 90) return 0;
+  return 1 - (age / 90);
 }
 
 function rememberSound(key, entry, system, velocity = 1) {
@@ -3463,15 +3475,27 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite("key:" + lastKeyPressed, 180, 220, 255, fadeA);
   }
 
+  // UDP MIDI — sibling indicator to USB MIDI. Color encodes state:
+  //   disabled        → FG_DIM (flat "OFF")
+  //   enabled + down  → amber (255,190,80)  "..."
+  //   enabled + up    → dim green (100,220,140)  "ON"
+  //   actively sending→ bright green, pulsing with recency
+  // The pulse decays over ~1.5s after each note so rapid play visibly
+  // lights the indicator vs just sitting on "connected".
   const relayText = udpMidiRelayStatusText(system);
   if (relayText) {
-    statusWrite(
-      relayText,
-      system?.udp?.connected ? 80 : 255,
-      system?.udp?.connected ? 180 : 180,
-      system?.udp?.connected ? 255 : 90,
-      210
-    );
+    if (!udpMidiBroadcast) {
+      statusWrite(relayText, FG_DIM, FG_DIM, FG_DIM, 200);
+    } else if (!system?.udp?.connected) {
+      statusWrite(relayText, 255, 190, 80, 220);
+    } else {
+      const recency = udpMidiSendRecency();
+      // dim green (100,220,140) → bright green (160,255,190) as recency rises
+      const r = Math.round(100 + recency * 60);
+      const g = Math.round(220 + recency * 35);
+      const b = Math.round(140 + recency * 50);
+      statusWrite(relayText, r, g, b, 220);
+    }
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
