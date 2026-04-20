@@ -1193,11 +1193,20 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
             if (rem == 1) continue; // removable = USB
         }
 
-        // Blank-disk pre-pass: if the parent disk node exists but it has
-        // ZERO partitions (truly blank — fresh SSD the user just plugged
-        // in), the per-partition loop below would skip it silently. Run
-        // sfdisk first to lay down a single GPT ESP, then fall through to
-        // the normal install path which will format + populate p1.
+        // Wipe-and-install pre-pass: ALWAYS repartition the candidate
+        // disk before installing (was: only blank disks). Boot-time `w`
+        // is meant to install fresh AC Native OS; if the user pressed it
+        // they expect Fedora / whatever was there to be REPLACED, not
+        // dual-booted. Previous behavior found existing ESPs (e.g.
+        // Fedora's /boot/efi) and added our boot tree alongside, leaving
+        // the rest of the disk intact — install reported "complete" but
+        // didn't actually wipe.
+        //
+        // Order: zero first 16 MiB → sfdisk single GPT ESP spanning the
+        // disk → kernel reread → wait for p1 to materialize → fall through
+        // to the per-partition loop, which will now find p1 (newly created,
+        // no fs yet) and use the rescue-mkfs path on pass 1 to format +
+        // populate it.
         {
             char parent_path[32];
             snprintf(parent_path, sizeof(parent_path), "/dev/%s", blk);
@@ -1206,21 +1215,18 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                 snprintf(first_part, sizeof(first_part), "/dev/%sp1", blk);
             else
                 snprintf(first_part, sizeof(first_part), "/dev/%s1", blk);
-            int parent_exists = (access(parent_path, F_OK) == 0);
-            int has_any_part = 0;
-            if (parent_exists) {
-                for (int p = 1; p <= 16 && !has_any_part; p++) {
-                    char dp[32];
-                    if (blk[0] == 'n' || strncmp(blk, "mmcblk", 6) == 0)
-                        snprintf(dp, sizeof(dp), "/dev/%sp%d", blk, p);
-                    else
-                        snprintf(dp, sizeof(dp), "/dev/%s%d", blk, p);
-                    if (access(dp, F_OK) == 0) has_any_part = 1;
-                }
-            }
-            if (parent_exists && !has_any_part) {
-                ac_log("[install] %s is blank (no partitions) — running sfdisk\n", parent_path);
-                // Wipe first 16 MiB so any leftover signatures don't confuse sfdisk.
+            if (access(parent_path, F_OK) == 0) {
+                ac_log("[install] WIPE+INSTALL on %s (was: %s) — running sfdisk\n",
+                       parent_path,
+                       (access(first_part, F_OK) == 0) ? "had partitions, all replaced" : "blank disk");
+                // Force-unmount everything on the target disk before we
+                // touch its partition table. Without this, the kernel
+                // would block sfdisk with EBUSY for the in-use partitions.
+                force_unmount_disk(blk, "/tmp/install-debug.log");
+                sync();
+                usleep(200000);
+                // Wipe first 16 MiB so any leftover GPT/MBR/FS signatures
+                // don't confuse sfdisk or the firmware on next boot.
                 char wcmd[256];
                 snprintf(wcmd, sizeof(wcmd),
                     "dd if=/dev/zero of=%s bs=1M count=16 conv=fsync 2>&1 | head -3",
@@ -1233,7 +1239,7 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     "sfdisk --force --no-reread %s 2>&1",
                     parent_path);
                 int srrc = system(rcmd);
-                ac_log("[install] sfdisk on blank %s rc=%d\n", parent_path, srrc);
+                ac_log("[install] sfdisk on %s rc=%d\n", parent_path, srrc);
                 sync();
                 usleep(500000);
                 blkrrpart_with_retry(parent_path, "/tmp/install-debug.log");
@@ -1242,10 +1248,8 @@ static int auto_install_to_hd(ACGraph *graph, ACFramebuffer *screen,
                     if (access(first_part, F_OK) == 0) break;
                     usleep(100000);
                 }
-                ac_log("[install] blank-disk: %s exists=%d after sfdisk\n",
+                ac_log("[install] wipe+install: %s exists=%d after sfdisk\n",
                        first_part, access(first_part, F_OK) == 0);
-                // Fall through — the per-partition loop below will now find
-                // p1 and the rescue-mkfs path will format it on pass 1.
             }
         }
 
@@ -2045,7 +2049,7 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
-    if (tts) tts_speak(tts, "install to disk? press Y for yes, N for no");
+    if (tts) tts_speak(tts, "wipe and install AC native OS? this erases all data on the disk. press Y for yes, N for no");
     play_install_prompt_beep(audio);
 
     for (;;) {
@@ -2055,13 +2059,16 @@ static int draw_install_confirm(ACGraph *graph, ACFramebuffer *screen,
         uint8_t fg = is_dark ? 220 : 0;
         graph_ink(graph, (ACColor){fg, fg, fg, 255});
 
-        int tw = font_measure_matrix("install to disk?", 2);
-        font_draw_matrix(graph, "install to disk?",
+        int tw = font_measure_matrix("wipe + install?", 2);
+        font_draw_matrix(graph, "wipe + install?",
                          (screen->width - tw) / 2, screen->height / 2 - 24, 2);
 
-        // Warning text
+        // Warning text — be explicit. The previous warning said "overwrite
+        // EFI boot" which suggested only the ESP would change; the
+        // operation actually wipes the entire disk now (sfdisk single ESP
+        // spanning everything → kills Fedora root, swap, etc.).
         graph_ink(graph, (ACColor){220, 80, 80, 255});
-        const char *warn = "this will overwrite EFI boot!";
+        const char *warn = "ERASES ALL DATA on internal disk";
         int ww = font_measure_matrix(warn, 1);
         font_draw_matrix(graph, warn, (screen->width - ww) / 2,
                          screen->height / 2 + 2, 1);
