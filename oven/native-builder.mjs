@@ -360,9 +360,13 @@ async function runBuildJob(job) {
       `if git rev-parse --verify origin/${NATIVE_BRANCH} >/dev/null 2>&1; then`,
       `  git reset --hard origin/${NATIVE_BRANCH} --quiet`,
       "fi",
-      // Honor caller-specified ref. Fetch the exact commit first (in case
-      // it's not on the default branch yet / on a PR branch), then detach.
-      requestedRef ? `git fetch origin ${requestedRef} --quiet || true` : "",
+      // Honor caller-specified ref. Skip the direct-SHA fetch — tangled/
+      // knot rejects short-SHA fetches over the wire (treats them as
+      // missing refs), which caused preflight-sync failures for every
+      // 9-char abbreviated ref. Since `fetch origin <branch>` above
+      // already brings in all commits reachable from main, a local
+      // `git checkout <ref>` resolves abbreviations against the local
+      // object db — works for both full and short SHAs.
       requestedRef ? `git checkout -f ${requestedRef} --quiet` : "",
       "git clean -fdq -- fedac/native fedac/nixos",
     ].filter(Boolean).join("\n")], repoDir);
