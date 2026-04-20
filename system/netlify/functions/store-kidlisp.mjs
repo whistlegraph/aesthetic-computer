@@ -669,9 +669,8 @@ export async function handler(event, context) {
         const since = event.queryStringParameters?.since; // ISO timestamp — only return entries newer than this
 
         console.log(`📊 Codes request: limit=${actualLimit}, sort=${sortBy}, handle=${filterHandle || 'all'}${since ? `, since=${since}` : ''}`);
-        
-        // Aggregate pipeline to join with handles collection (like moods.mjs)
-        const pipeline = [
+
+        const handleLookupStages = [
           {
             $lookup: {
               from: "@handles",
@@ -680,10 +679,9 @@ export async function handler(event, context) {
               as: "handleInfo"
             }
           },
-          // Add computed handle field for filtering
           {
             $addFields: {
-              handle: { 
+              handle: {
                 $cond: {
                   if: { $gt: [{ $size: "$handleInfo" }, 0] },
                   then: { $concat: ["@", { $arrayElemAt: ["$handleInfo.handle", 0] }] },
@@ -691,10 +689,13 @@ export async function handler(event, context) {
                 }
               }
             }
-          },
+          }
         ];
-        
-        // Filter by timestamp if `since` provided (for live updates)
+
+        // Match/sort/limit before $lookup so the join runs on a small working
+        // set — the previous order silently dropped handleInfo on large scans.
+        const pipeline = [];
+
         if (since) {
           const sinceDate = new Date(since);
           if (!isNaN(sinceDate.getTime())) {
@@ -702,22 +703,22 @@ export async function handler(event, context) {
           }
         }
 
-        // Add handle filter if specified
-        if (filterHandle) {
-          pipeline.push({
-            $match: { handle: filterHandle.startsWith('@') ? filterHandle : `@${filterHandle}` }
-          });
-        }
-        
-        // Sort by hits or recent
         pipeline.push({
           $sort: sortBy === 'hits' ? { hits: -1, when: -1 } : { when: -1 }
         });
-        
-        pipeline.push({
-          $limit: actualLimit
-        });
-        
+
+        if (filterHandle) {
+          // Filter is on the computed handle, so the lookup has to precede $limit.
+          pipeline.push(...handleLookupStages);
+          pipeline.push({
+            $match: { handle: filterHandle.startsWith('@') ? filterHandle : `@${filterHandle}` }
+          });
+          pipeline.push({ $limit: actualLimit });
+        } else {
+          pipeline.push({ $limit: actualLimit });
+          pipeline.push(...handleLookupStages);
+        }
+
         pipeline.push({
           $project: {
             _id: 0,
@@ -726,14 +727,14 @@ export async function handler(event, context) {
             when: 1,
             hits: 1,
             user: 1,
-            kept: 1,    // Include kept status
-            tezos: 1,   // Include legacy tezos field
+            kept: 1,
+            tezos: 1,
             pendingRebake: 1,
-            handle: 1   // Already computed
+            handle: 1
           }
         });
-        
-        const docs = await collection.aggregate(pipeline).toArray();
+
+        const docs = await collection.aggregate(pipeline, { allowDiskUse: true }).toArray();
         
         // Create preview versions of source code (truncate long sources)
         const recentCodes = docs.map(doc => {
