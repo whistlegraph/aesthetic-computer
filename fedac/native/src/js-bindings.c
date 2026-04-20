@@ -4024,6 +4024,90 @@ static void *flash_thread_fn(void *arg) {
         flash_trace("device exists mode=0%o", dev_st.st_mode);
     }
 
+    // Whole-disk target? If flash_device names a disk (no /sys/.../partition
+    // file — that file only exists for partition nodes), partition + format
+    // it first, then redirect flash_device to the new ESP partition. Used
+    // for installing onto blank/unformatted SSDs the user just plugged in.
+    {
+        const char *base = strrchr(rt->flash_device, '/');
+        base = base ? base + 1 : rt->flash_device;
+        char part_marker[128];
+        snprintf(part_marker, sizeof(part_marker), "/sys/class/block/%s/partition", base);
+        int is_whole_disk = (access(part_marker, F_OK) != 0);
+        if (is_whole_disk) {
+            ac_log("[flash] %s is a whole disk — running format-and-install (sfdisk + mkfs.vfat)", rt->flash_device);
+            flash_tlog(rt, "format-and-install: whole disk %s", rt->flash_device);
+            // Wipe first 16 MiB so any old partition table / FS signatures
+            // don't confuse sfdisk or the kernel after re-read.
+            char cmd[512];
+            snprintf(cmd, sizeof(cmd),
+                "dd if=/dev/zero of=%s bs=1M count=16 conv=fsync 2>&1",
+                rt->flash_device);
+            FILE *p = popen(cmd, "r");
+            if (p) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), p)) flash_tlog(rt, "wipe: %s", buf);
+                pclose(p);
+            }
+            // sfdisk: single GPT ESP spanning the whole disk. Type
+            // C12A7328-F81F-11D2-BA4B-00A0C93EC93B = EFI System Partition.
+            snprintf(cmd, sizeof(cmd),
+                "echo 'label: gpt\\nname=ACBOOT,type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\\n' | "
+                "sfdisk --force --no-reread %s 2>&1",
+                rt->flash_device);
+            ac_log("[flash] sfdisk: %s", cmd);
+            int sfdisk_rc = -1;
+            p = popen(cmd, "r");
+            if (p) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), p)) ac_log("[flash] sfdisk: %s", buf);
+                sfdisk_rc = pclose(p);
+            }
+            ac_log("[flash] sfdisk exit=%d", sfdisk_rc);
+            // Tell the kernel to re-read the partition table.
+            char rereadcmd[256];
+            snprintf(rereadcmd, sizeof(rereadcmd), "blockdev --rereadpt %s 2>/dev/null; partx -u %s 2>/dev/null",
+                     rt->flash_device, rt->flash_device);
+            system(rereadcmd);
+            // Determine partition node name. NVMe + mmcblk use pN, sd* use N.
+            char part_node[64];
+            if (strstr(rt->flash_device, "nvme") || strstr(rt->flash_device, "mmc"))
+                snprintf(part_node, sizeof(part_node), "%sp1", rt->flash_device);
+            else
+                snprintf(part_node, sizeof(part_node), "%s1", rt->flash_device);
+            // Wait up to 5s for the partition node to materialize.
+            int part_ready = 0;
+            for (int wait = 0; wait < 50; wait++) {
+                if (access(part_node, F_OK) == 0) { part_ready = 1; break; }
+                usleep(100000);
+            }
+            if (!part_ready) {
+                ac_log("[flash] partition %s did not appear after sfdisk", part_node);
+                flash_trace("partition %s missing after sfdisk", part_node);
+                flash_trace_close_and_archive();
+                rt->flash_phase = 4;
+                rt->flash_ok = 0;
+                rt->flash_pending = 0;
+                rt->flash_done = 1;
+                return NULL;
+            }
+            // Format the new ESP as FAT32.
+            snprintf(cmd, sizeof(cmd), "mkfs.vfat -F 32 -n ACBOOT %s 2>&1", part_node);
+            int mkfs_rc = -1;
+            p = popen(cmd, "r");
+            if (p) {
+                char buf[256];
+                while (fgets(buf, sizeof(buf), p)) ac_log("[flash] mkfs: %s", buf);
+                mkfs_rc = pclose(p);
+            }
+            ac_log("[flash] mkfs.vfat %s exit=%d", part_node, mkfs_rc);
+            // Redirect the rest of flash_thread_fn at the new partition.
+            strncpy(rt->flash_device, part_node, sizeof(rt->flash_device) - 1);
+            rt->flash_device[sizeof(rt->flash_device) - 1] = 0;
+            ac_log("[flash] format-and-install: redirected to %s", rt->flash_device);
+        }
+    }
+
     // Mount the EFI partition for flashing.
     // IMPORTANT: If the flash target is the same device already mounted at /mnt
     // (e.g. NVMe-to-NVMe OTA), we MUST use /mnt directly. Mounting the same
@@ -6431,6 +6515,32 @@ static JSValue build_system_obj(JSContext *ctx) {
             JS_SetPropertyStr(ctx, t, "label",
                 JS_NewString(ctx, rem[0] == '1' ? "USB (sdb)" : "Disk (sdb)"));
             JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, rem[0] == '1'));
+            JS_SetPropertyUint32(ctx, targets, idx++, t);
+        }
+        // Blank whole-disks — disks that exist but have no usable
+        // partition[1]. These need format-and-install (sfdisk → mkfs.vfat
+        // → write boot tree). Marked `blank: true` so os.mjs can render
+        // them differently and prompt before wiping.
+        struct { const char *disk; const char *part1; const char *label; const char *bus; } whole_disks[] = {
+            {"/dev/nvme0n1", "/dev/nvme0n1p1", "Internal (NVMe — blank)", "nvme0n1"},
+            {"/dev/mmcblk0", "/dev/mmcblk0p1", "Internal (eMMC — blank)", "mmcblk0"},
+            {"/dev/sda",     "/dev/sda1",      "Disk sda — blank",       "sda"},
+            {"/dev/sdb",     "/dev/sdb1",      "Disk sdb — blank",       "sdb"},
+            {NULL, NULL, NULL, NULL},
+        };
+        for (int i = 0; whole_disks[i].disk; i++) {
+            // Disk node must exist AND its first partition must NOT exist.
+            if (access(whole_disks[i].disk, F_OK) != 0) continue;
+            if (access(whole_disks[i].part1, F_OK) == 0) continue; // already partitioned — covered above
+            char rem[8] = {0};
+            char rempath[64];
+            snprintf(rempath, sizeof(rempath), "/sys/block/%s/removable", whole_disks[i].bus);
+            read_sysfs(rempath, rem, sizeof(rem));
+            JSValue t = JS_NewObject(ctx);
+            JS_SetPropertyStr(ctx, t, "device", JS_NewString(ctx, whole_disks[i].disk));
+            JS_SetPropertyStr(ctx, t, "label", JS_NewString(ctx, whole_disks[i].label));
+            JS_SetPropertyStr(ctx, t, "removable", JS_NewBool(ctx, rem[0] == '1'));
+            JS_SetPropertyStr(ctx, t, "blank", JS_NewBool(ctx, 1));
             JS_SetPropertyUint32(ctx, targets, idx++, t);
         }
         JS_SetPropertyStr(ctx, sys, "flashTargets", targets);
