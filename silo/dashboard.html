@@ -283,6 +283,7 @@ a:hover { text-decoration: underline; }
   <h1>silo</h1>
   <p>aesthetic.computer data dashboard</p>
   <button id="loginBtn">sign in</button>
+  <button id="loginResetBtn" class="btn" style="display:none;margin-top:6px">clear session &amp; retry</button>
   <p id="authStatus">loading...</p>
 </div>
 
@@ -716,8 +717,19 @@ a:hover { text-decoration: underline; }
 
 <script>
 let auth0Client = null, accessToken = null, logCount = 0;
-let darkMode = localStorage.getItem('silo-theme') !== 'light';
+// Theme: respect system preference when user hasn't picked one explicitly.
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+const savedTheme = localStorage.getItem('silo-theme');
+let darkMode = savedTheme ? savedTheme === 'dark' : prefersDark.matches;
 applyTheme();
+
+// Track system changes only while the user has no explicit preference saved.
+prefersDark.addEventListener('change', (e) => {
+  if (!localStorage.getItem('silo-theme')) {
+    darkMode = e.matches;
+    applyTheme();
+  }
+});
 
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
@@ -783,7 +795,28 @@ async function initAuth() {
     }
   } catch (err) {
     console.error('Auth init failed:', err);
-    document.getElementById('authStatus').textContent = 'error: ' + err.message;
+    const msg = err?.message || String(err);
+    const isTokenErr = /refresh token|invalid_grant|login_required|unknown.*token|expired/i.test(msg);
+    document.getElementById('authStatus').textContent = isTokenErr
+      ? 'session expired — clear session & retry'
+      : 'error: ' + msg;
+    // Surface a recovery button the user can click.
+    const resetBtn = document.getElementById('loginResetBtn');
+    resetBtn.style.display = 'inline-block';
+    resetBtn.onclick = async () => {
+      // Nuke Auth0's local cache, then let them sign in fresh. Works even
+      // when auth0Client itself failed to initialize.
+      try { await auth0Client?.logout({ openUrl: false }); } catch {}
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('@@auth0spajs@@') || k.includes('auth0'))
+        .forEach((k) => localStorage.removeItem(k));
+      location.reload();
+    };
+    // Sign-in button becomes a full redirect (bypasses any cached state).
+    document.getElementById('loginBtn').onclick = () => {
+      if (auth0Client) auth0Client.loginWithRedirect();
+      else location.reload();
+    };
   }
   document.getElementById('logoutBtn').onclick = () => {
     auth0Client?.logout({ logoutParams: { returnTo: location.origin + location.pathname } });
