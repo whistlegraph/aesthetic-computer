@@ -32,6 +32,10 @@ let lastPingSent = 0;
 let ping = 0;
 let netSpectator = false;       // true if another tab took over this handle
 let netTakeoverAt = 0;
+// Free-fly spectator cam (Quake noclip). Initialised on entering spectator.
+let specPos = null;             // { x, y, z } in world coords
+const SPEC_SPEED = 20;          // units/sec (faster than runSpeed; no collision)
+const SPEC_FAST_MUL = 3;        // when no other modifier: ctrl / etc
 
 const CMD_RATE = 60;        // cmd sends per sec
 const CMD_BACKUP = 3;       // how many past cmds to include in each packet
@@ -349,6 +353,49 @@ function netBoot({ net, handle, send }) {
 
 function netSim(cam) {
   reconCamRef = cam; // kept across frames so reconcileLocal can correct.
+
+  // 🪑 Spectator free-fly camera (no gravity, no collision, no avatar).
+  // cam-doll has already run its physics for this frame; we overwrite
+  // cam.x/y/z and let cam-doll keep handling rotation (mouselook, etc).
+  if (netSpectator) {
+    if (!specPos) {
+      // Seed from the current cam position, lifted a bit so we start with a
+      // nice angle on the arena instead of clipping into the ground.
+      specPos = { x: -cam.x, y: -cam.y + 5, z: -cam.z };
+    }
+    const dt = 1 / SIM_HZ;
+    // Read the same keyboard + gamepad state arena already tracks.
+    const fwd = (keyboardState.w || keyboardState.arrowup)    ?  1
+              : (keyboardState.s || keyboardState.arrowdown) ? -1 : 0;
+    const right = (keyboardState.d || keyboardState.arrowright) ?  1
+                 : (keyboardState.a || keyboardState.arrowleft)  ? -1 : 0;
+    const up = (keyboardState.space ? 1 : 0) - (keyboardState.shift ? 1 : 0);
+    // Direction vectors from cam rotation.
+    const yr = cam.rotY * Math.PI / 180;
+    const pr = cam.rotX * Math.PI / 180;
+    const cy = Math.cos(yr), sy = Math.sin(yr);
+    const cp = Math.cos(pr);
+    // Forward in world: include pitch so look-down-and-W flies you down.
+    const fx = sy * cp, fy = Math.sin(pr), fz = cy * cp;
+    const rx = cy,      rz = -sy;  // strafe right (horizontal only)
+    const speed = SPEC_SPEED;
+    specPos.x += (fwd * fx + right * rx) * speed * dt;
+    specPos.y += (fwd * fy + up        ) * speed * dt;
+    specPos.z += (fwd * fz + right * rz) * speed * dt;
+    // Commit to cam (stored as negated world coords).
+    cam.x = -specPos.x;
+    cam.y = -specPos.y;
+    cam.z = -specPos.z;
+    // Skip the usercmd path entirely — spectator sends nothing.
+    // Still ping so the HUD latency value stays live.
+    if (Date.now() - lastPingSent > 2000) {
+      lastPingSent = Date.now();
+      netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
+    }
+    return;
+  }
+  specPos = null; // reset when re-entering spectator later.
+
   // Poll input state → usercmd each sim tick (120 Hz). Send at CMD_RATE.
   // (arena.mjs already has `keyboardState` + `gamepadState` that we mirror.)
   // pmove convention: fwd=+1 moves along facing (forward), right=+1 strafes right.
@@ -365,15 +412,13 @@ function netSim(cam) {
   netInput.jumping  = !!keyboardState.space || !!gamepadState.buttons?.[0];
   netInput.crouching = !!keyboardState.shift || !!gamepadState.buttons?.[1];
 
-  // Spectators don't drive an avatar; skip cmd emission entirely.
-  if (!netSpectator) {
-    enqueueCmd(cam);
-    if (!netSim._acc) netSim._acc = 0;
-    netSim._acc++;
-    if (netSim._acc >= 120 / CMD_RATE) { netSim._acc = 0; flushCmds(); }
-  }
+  // Non-spectator: produce + send usercmds.
+  enqueueCmd(cam);
+  if (!netSim._acc) netSim._acc = 0;
+  netSim._acc++;
+  if (netSim._acc >= 120 / CMD_RATE) { netSim._acc = 0; flushCmds(); }
 
-  // Periodic ping for latency HUD (still useful while spectating).
+  // Periodic ping for latency HUD.
   if (Date.now() - lastPingSent > 2000) {
     lastPingSent = Date.now();
     netServer?.send("arena:ping", { handle: myHandle, ts: Date.now() });
