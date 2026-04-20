@@ -2441,12 +2441,31 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     char greet_city[96];
     read_cached_city(greet_city, sizeof greet_city);
 
-    // 180 frames = 3 second animation.
-    // W press → halt and show y/n confirmation
-    // Any other key → skip animation and start playing
-    int total_frames = 180; // 3 seconds
+    // 120 frames = 2 second animation (was 180/3s — shaved 1s off every boot).
+    // W press → halt and show y/n confirmation.
+    // Any other key → skip animation and start playing.
+    // Keys accepted after frame 40 (667ms hold so the W hint is legible).
+    int total_frames = 120;
+    int hold_frames  = 40;
     int skip_anim = 0;
     int w_pressed = 0;
+    // Matrix-rain background state — persistent across frames. One entry
+    // per column; column width fixed at 10 px.
+    #define RAIN_MAX_COLS 128
+    int rain_col_y[RAIN_MAX_COLS];
+    int rain_col_speed[RAIN_MAX_COLS];
+    unsigned int rain_col_seed[RAIN_MAX_COLS];
+    {
+        unsigned int s = (unsigned int)time(NULL);
+        for (int c = 0; c < RAIN_MAX_COLS; c++) {
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            rain_col_y[c] = -(int)(s % 400);
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            rain_col_speed[c] = 2 + (int)(s % 4);
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            rain_col_seed[c] = s;
+        }
+    }
     for (int f = 0; f < total_frames && !skip_anim && !w_pressed; f++) {
         double t = (double)f / (double)total_frames;
 
@@ -2456,9 +2475,7 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
             for (int ki = 0; ki < key_fd_count; ki++) {
                 while (read(key_fds[ki], &ev, sizeof(ev)) == sizeof(ev)) {
                     if (ev.type == EV_KEY && ev.value == 1) {
-                        // First 60 frames (1 second): ignore all keys
-                        // Ensures W hint is visible before accepting input
-                        if (f < 60) {
+                        if (f < hold_frames) {
                             fprintf(stderr, "[boot-anim] drained key %d at f=%d (hold period)\n", ev.code, f);
                             continue;
                         }
@@ -2537,6 +2554,54 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         int bg_g = start_g + (int)((target_g - start_g) * fade_t);
         int bg_b = start_b + (int)((target_b - start_b) * fade_t);
         graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
+
+        // Matrix-rain BG: pseudo-CJK glyphs falling in columns. Started
+        // as an homage to the "garbled-character" bug we hit when the
+        // firmware loaded a chain-loading EFI binary directly — user
+        // liked the look, so we're keeping it as a boot aesthetic.
+        // Glyphs are random 7x9 pixel patterns drawn per-frame with a
+        // per-column xorshift seed; no CJK font needed. Brighter leader
+        // + fading trail for the classic terminal-rain feel.
+        {
+            int col_w = 10;
+            int glyph_w = 7, glyph_h = 9;
+            int nc = screen->width / col_w;
+            if (nc > RAIN_MAX_COLS) nc = RAIN_MAX_COLS;
+            // Slight fade toward title, so rain doesn't fight the text.
+            int rain_alpha_scale = is_day ? 80 : 180;
+            for (int c = 0; c < nc; c++) {
+                rain_col_y[c] += rain_col_speed[c];
+                if (rain_col_y[c] > screen->height + glyph_h * 12) {
+                    unsigned int s = rain_col_seed[c];
+                    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+                    rain_col_seed[c] = s;
+                    rain_col_y[c] = -(int)(s % 300);
+                    rain_col_speed[c] = 2 + (int)(s % 4);
+                }
+                int cx = c * col_w + 1;
+                // Trail of ~10 glyphs fading behind the leader.
+                for (int trail = 0; trail < 10; trail++) {
+                    int gy = rain_col_y[c] - trail * glyph_h;
+                    if (gy < -glyph_h || gy >= screen->height) continue;
+                    int tb = (trail == 0) ? 220 : 180 - trail * 18;
+                    if (tb < 15) continue;
+                    int b = (tb * rain_alpha_scale) >> 8;
+                    // Leader glows a bit whitish — classic matrix-rain tip.
+                    ACColor cg = (trail == 0)
+                        ? (ACColor){ (uint8_t)(b * 0.8), 255, (uint8_t)(b * 0.8), (uint8_t)b }
+                        : (ACColor){ 40, (uint8_t)(b * 0.9 + 20), (uint8_t)(b * 0.4), (uint8_t)b };
+                    graph_ink(graph, cg);
+                    // Random 7x9 bitmap from deterministic seed + column + trail + slow frame shimmer.
+                    unsigned int gseed = rain_col_seed[c] ^ ((unsigned)trail * 2654435761u) ^ ((unsigned)(f / 4) * 2246822519u);
+                    for (int row = 0; row < glyph_h; row++) {
+                        for (int col = 0; col < glyph_w; col++) {
+                            gseed ^= gseed << 13; gseed ^= gseed >> 17; gseed ^= gseed << 5;
+                            if (gseed & 1) graph_plot(graph, cx + col, gy + row);
+                        }
+                    }
+                }
+            }
+        }
 
         // Title — per-handle palette (fallback rainbow), animated pulse
         int alpha = (int)(255.0 * fade_t);
@@ -2625,8 +2690,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
 #endif
 
         // Subtitle: "enjoy <city>!" appears after frame 130
-        if (f > 130) {
-            double sub_t = (double)(f - 130) / 30.0;
+        // Scaled for 120-frame total (was gated at 130 of 180).
+        if (f > 80) {
+            double sub_t = (double)(f - 80) / 20.0;
             if (sub_t > 1.0) sub_t = 1.0;
             int sub_alpha = (int)(180.0 * sub_t);
             graph_ink(graph, is_day
@@ -2640,10 +2706,11 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
 
         // Auth badges (bottom-left): pixel crab = Claude, pixel octocat = GitHub
-        if (f > 60 && alpha > 80) {
+        // Badges — scaled to appear earlier in the shorter animation.
+        if (f > 40 && alpha > 80) {
             int badge_x = 6;
             int badge_y = screen->height - 22;
-            double badge_t = (double)(f - 60) / 40.0;
+            double badge_t = (double)(f - 40) / 30.0;
             if (badge_t > 1.0) badge_t = 1.0;
             int ba = (int)(220.0 * badge_t); // badge alpha
 
