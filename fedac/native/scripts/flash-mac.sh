@@ -34,17 +34,54 @@ set -euo pipefail
 USB_DEV="${1:?usage: $0 /dev/diskN [SRC_DIR]}"
 SRC_DIR="${2:-/tmp/ac-os-pull}"
 
-# This script needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos.
-# Re-exec under sudo if invoked as a regular user (sudoers.d/ac-flash-mac
-# whitelists this exact path NOPASSWD).
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REAL_REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+NATIVE_DIR="${REPO_ROOT}/native"
+[ -d "${NATIVE_DIR}/boot" ] || NATIVE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# --- step 1: ensure ~/.ac-token is fresh (run ac-login if stale) ---
+# Done BEFORE the sudo exec so the OAuth browser dance happens as the
+# actual user. If ac-login.mjs isn't findable we skip the refresh and
+# leave the downstream bake to fail-soft with a warning.
+if [ "$(id -u)" != "0" ]; then
+    NEEDS_LOGIN=1
+    if [ -f "${HOME}/.ac-token" ] && command -v node >/dev/null 2>&1; then
+        NEEDS_LOGIN="$(node -e '
+            try {
+                const t = JSON.parse(require("fs").readFileSync(process.env.HOME+"/.ac-token", "utf8"));
+                const rawExp = t.expires_at || 0;
+                const expMs = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+                // Consider stale if expired or within 60s of expiring
+                process.stdout.write((!expMs || Date.now() >= expMs - 60000) ? "1" : "0");
+            } catch { process.stdout.write("1"); }
+        ')"
+    fi
+    if [ "${NEEDS_LOGIN}" = "1" ]; then
+        AC_LOGIN=""
+        for p in "${REAL_REPO_ROOT}/tezos/ac-login.mjs" \
+                 "${HOME}/aesthetic-computer/tezos/ac-login.mjs"; do
+            [ -f "${p}" ] && AC_LOGIN="${p}" && break
+        done
+        if [ -n "${AC_LOGIN}" ] && command -v node >/dev/null 2>&1; then
+            echo "[flash-mac] ~/.ac-token is stale — running ac-login to refresh…"
+            echo "[flash-mac]   script: ${AC_LOGIN}"
+            node "${AC_LOGIN}" || {
+                echo "[flash-mac] ac-login failed (non-fatal; proceeding without Claude bake)" >&2
+            }
+        else
+            echo "[flash-mac] WARN: ac-login.mjs not found — Claude creds won't be baked" >&2
+            echo "[flash-mac]       searched: ${REAL_REPO_ROOT}/tezos/ac-login.mjs" >&2
+        fi
+    fi
+fi
+
+# --- step 2: re-exec under sudo ---
+# Needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos. sudoers.d/
+# ac-flash-mac whitelists this exact path NOPASSWD.
 if [ "$(id -u)" != "0" ]; then
     exec sudo --preserve-env=PATH "$0" "$@"
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-NATIVE_DIR="${REPO_ROOT}/native"
-[ -d "${NATIVE_DIR}/boot" ] || NATIVE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 KERNEL="${SRC_DIR}/vmlinuz"
 INITRAMFS="${SRC_DIR}/initramfs.cpio.gz"
