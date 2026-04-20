@@ -232,20 +232,36 @@ function act({ event: e, sound, system }) {
       }
       return;
     }
-    // 'w' to wipe + format + install onto a blank/unformatted disk.
+    // 'w' to wipe + format + install onto a target disk. Works on:
+    //   - blank disks (target.device is already a whole disk)
+    //   - formatted disks (target.device is a partition like
+    //     /dev/nvme0n1p1; we derive the parent /dev/nvme0n1)
+    // Refuses on the currently-booted device — wiping the disk we're
+    // running from would brick the live system mid-flash.
+    //
     // The C flash_thread_fn detects the whole-disk target and runs
-    // sfdisk + mkfs.vfat before the normal copy step, so this is just
-    // an OTA update that targets the parent disk node.
+    // sfdisk + mkfs.vfat before the normal copy step.
     if (e.is("keyboard:down:w")) {
       const tgt = targets[deviceIdx];
-      if (tgt && tgt.blank) {
-        cloneTarget = tgt;          // re-use clone-confirm UI
-        state = "clone-confirm";    // confirm before wiping
-        sound?.synth({ type: "sawtooth", tone: 220, duration: 0.12, volume: 0.14, attack: 0.005, decay: 0.10 });
-      } else {
-        // Not a blank disk — refuse with a low buzz.
+      if (!tgt) return;
+      const isBoot = tgt.device === bootDev;
+      if (isBoot) {
+        // Refuse — can't wipe the disk we're booting from.
         sound?.synth({ type: "square", tone: 110, duration: 0.15, volume: 0.10, attack: 0.005, decay: 0.12 });
+        return;
       }
+      // Derive whole-disk path. Partition nodes look like:
+      //   /dev/nvme0n1p1 → /dev/nvme0n1
+      //   /dev/mmcblk0p1 → /dev/mmcblk0
+      //   /dev/sda1      → /dev/sda
+      let wholeDisk = tgt.device;
+      if (!tgt.blank) {
+        // Strip trailing "p<N>" (NVMe/eMMC) or trailing digits (sd*).
+        wholeDisk = wholeDisk.replace(/p?\d+$/, "");
+      }
+      cloneTarget = { ...tgt, device: wholeDisk, blank: true }; // mark as wipe-target so the prompt says so
+      state = "clone-confirm";
+      sound?.synth({ type: "sawtooth", tone: 220, duration: 0.12, volume: 0.14, attack: 0.005, decay: 0.10 });
       return;
     }
     if (e.is("keyboard:down:escape") || e.is("keyboard:down:backspace")) {
