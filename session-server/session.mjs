@@ -2875,7 +2875,14 @@ wss.on("connection", async (ws, req) => {
       // 🏟️ Arena messages — routed to ArenaManager (server-authoritative)
       if (msg.type === "arena:hello") {
         const parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content;
-        if (parsed?.handle) arenaManager.playerJoin(parsed.handle, id, { probe: !!parsed.probe });
+        if (parsed?.handle) {
+          // Ensure clients[id].handle is set so the WS-close handler can
+          // look it up and call playerLeave. Without this, probes + any
+          // client that hasn't sent a chat login message would leak forever.
+          if (!clients[id]) clients[id] = {};
+          clients[id].handle = parsed.handle;
+          arenaManager.playerJoin(parsed.handle, id, { probe: !!parsed.probe });
+        }
         return;
       }
       if (msg.type === "arena:bye") {
@@ -2905,8 +2912,10 @@ wss.on("connection", async (ws, req) => {
     const departingHandle = normalizeProfileHandle(clients?.[id]?.handle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
     // Arena uses the raw handle (matches arena:hello), not the @-normalized form.
+    // Pass the closing wsId so a quick reload-race doesn't delete the
+    // freshly-rebound player (the new hello will have set a different wsId).
     const rawDepartingHandle = clients?.[id]?.handle;
-    if (rawDepartingHandle) arenaManager.playerLeave(rawDepartingHandle);
+    if (rawDepartingHandle) arenaManager.playerLeave(rawDepartingHandle, id);
     removeNotepatMidiSubscriber(id);
 
     // Remove from VSCode clients if present
