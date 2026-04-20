@@ -1700,6 +1700,14 @@ let activeTab = parseInt(localStorage.getItem('silo-tab') || '0');
 const tabBtns = document.querySelectorAll('.tab-btn');
 const panels = document.querySelectorAll('[data-panel]');
 
+// Hoisted ahead of setTab() call below — these are set when their
+// respective tabs first load. Declared here (rather than further down)
+// to avoid let/const temporal-dead-zone errors when setTab(activeTab)
+// runs synchronously at end of tab setup and activeTab happens to
+// point at a lazy-loaded tab (feed=6, telemetry=7).
+let feedLoaded = false;
+let telemetryLoaded = false;
+
 function setTab(idx) {
   activeTab = idx;
   localStorage.setItem('silo-tab', idx);
@@ -1757,7 +1765,7 @@ document.getElementById('syncBtn').onclick = async () => {
 
 // --- feed tab ---
 // --- telemetry tab ---
-let telemetryLoaded = false;
+// telemetryLoaded hoisted near top of script (before setTab call).
 async function loadTelemetry() {
   telemetryLoaded = true;
   try {
@@ -1808,7 +1816,7 @@ async function purgeKidlispLogs() {
   }
 }
 
-let feedLoaded = false;
+// feedLoaded hoisted near top of script (before setTab call).
 async function loadFeed() {
   feedLoaded = true;
   try {
