@@ -1568,6 +1568,123 @@ static JSValue js_replay_load_data(JSContext *ctx, JSValueConst this_val, int ar
     return JS_TRUE;
 }
 
+// sound.speaker.drawStrip(x, y, w, h, seconds, needleFrac, flags)
+// Renders a full scrolling waveform strip in a SINGLE C call — bypasses
+// the per-column JS loop (previously ~600 line() calls + inner sample
+// scan per frame, which pinned notepat at 20 FPS on slow Intel m3 CPUs).
+//
+// Lays out like a DJ-turntable strip:
+//   - background + zero-line drawn once
+//   - per-pixel-column peak computed on the speaker output ring (taken
+//     under the audio lock) — no intermediate JS buffer allocation
+//   - warm→cold color ramp based on peak magnitude
+//   - optional playhead needle at `needleFrac` (0.0..1.0) of `w`
+//
+// flags bit 0: reverse — oldest sample on the RIGHT, newest on the LEFT.
+//   When a piece holds a backwards-replay key (e.g. notepat spacebar),
+//   flip this to make the waveform appear to scroll right-to-left.
+static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (!current_rt || argc < 4) return JS_UNDEFINED;
+    ACAudio *audio = current_rt->audio;
+    ACGraph *g = current_rt->graph;
+    if (!audio || !audio->output_history_buf || audio->output_history_size <= 0 || !g) {
+        return JS_UNDEFINED;
+    }
+
+    int x = 0, y = 0, w = 0, h = 0;
+    JS_ToInt32(ctx, &x, argv[0]);
+    JS_ToInt32(ctx, &y, argv[1]);
+    JS_ToInt32(ctx, &w, argv[2]);
+    JS_ToInt32(ctx, &h, argv[3]);
+    double seconds = 4.0;
+    if (argc >= 5 && JS_IsNumber(argv[4])) JS_ToFloat64(ctx, &seconds, argv[4]);
+    double needle_frac = 0.5;
+    if (argc >= 6 && JS_IsNumber(argv[5])) JS_ToFloat64(ctx, &needle_frac, argv[5]);
+    int flags = 0;
+    if (argc >= 7 && JS_IsNumber(argv[6])) JS_ToInt32(ctx, &flags, argv[6]);
+    int reverse = (flags & 1) ? 1 : 0;
+
+    if (w <= 2 || h <= 2 || seconds <= 0.0) return JS_UNDEFINED;
+    if (needle_frac < 0.0) needle_frac = 0.0;
+    if (needle_frac > 1.0) needle_frac = 1.0;
+
+    pthread_mutex_lock(&audio->lock);
+    unsigned int rate = audio->output_history_rate ? audio->output_history_rate
+                                                    : AUDIO_OUTPUT_HISTORY_RATE;
+    int hist_size = audio->output_history_size;
+    int want_len  = (int)(seconds * (double)rate + 0.5);
+    if (want_len < w)         want_len = w;     // at least 1 sample/col
+    if (want_len > hist_size) want_len = hist_size;
+    uint64_t write_pos = audio->output_history_write_pos;
+    int available = write_pos < (uint64_t)hist_size ? (int)write_pos : hist_size;
+    if (available < want_len) want_len = available;
+
+    // Copy the slice into a local buffer while holding the lock, then
+    // unlock before drawing. Keeps audio-thread contention to the minimum
+    // (~4s @ 48kHz = 192K floats = 768KB memcpy, but on modern CPUs that's
+    // ~200μs and doesn't stall the audio callback).
+    float *copy = NULL;
+    if (want_len > 0) {
+        copy = (float *)malloc((size_t)want_len * sizeof(float));
+        if (copy) {
+            uint64_t start = write_pos - (uint64_t)want_len;
+            for (int i = 0; i < want_len; i++) {
+                copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
+            }
+        }
+    }
+    pthread_mutex_unlock(&audio->lock);
+
+    int midY = y + h / 2;
+    ACColor saved = g->ink;
+
+    // Background + zero-line (always drawn even if no audio yet)
+    graph_ink(g, (ACColor){20, 15, 30, 160});
+    graph_box(g, x, y, w, h, 1);
+    graph_ink(g, (ACColor){80, 80, 90, 120});
+    graph_line(g, x, midY, x + w - 1, midY);
+
+    if (copy && want_len > 0) {
+        int amp = (int)((double)h * 0.45);
+        if (amp < 1) amp = 1;
+        double samples_per_col = (double)want_len / (double)w;
+
+        for (int col = 0; col < w; col++) {
+            int col_idx = reverse ? (w - 1 - col) : col;
+            int i0 = (int)((double)col * samples_per_col);
+            int i1 = (int)((double)(col + 1) * samples_per_col);
+            if (i1 > want_len) i1 = want_len;
+            if (i0 < 0) i0 = 0;
+            float peak = 0.0f;
+            for (int i = i0; i < i1; i++) {
+                float a = copy[i];
+                if (a < 0) a = -a;
+                if (a > peak) peak = a;
+            }
+            if (peak > 1.0f) peak = 1.0f;
+            int bar_h = (int)(peak * (float)amp + 0.5f);
+            if (bar_h < 1) bar_h = 1;
+            int r  = 120 + (int)(peak * 140.0f + 0.5f);       if (r  > 255) r  = 255;
+            int gc = 120 + (int)(peak *  80.0f + 0.5f);       if (gc > 255) gc = 255;
+            int b  =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b > 255) b = 255;
+            graph_ink(g, (ACColor){(uint8_t)r, (uint8_t)gc, (uint8_t)b, 220});
+            graph_line(g, x + col_idx, midY - bar_h, x + col_idx, midY + bar_h);
+        }
+    }
+    if (copy) free(copy);
+
+    // Playhead needle
+    int needle_x = x + (int)((double)w * needle_frac + 0.5);
+    if (needle_x < x)          needle_x = x;
+    if (needle_x >= x + w)     needle_x = x + w - 1;
+    graph_ink(g, (ACColor){240, 80, 80, 220});
+    graph_line(g, needle_x, y, needle_x, y + h - 1);
+
+    g->ink = saved;
+    return JS_UNDEFINED;
+}
+
 // sound.speaker.getRecentBuffer(seconds) -> { data: Float32Array, rate: number }
 static JSValue js_speaker_get_recent_buffer(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -2626,6 +2743,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, speaker, "poll", JS_NewCFunction(ctx, js_noop, "poll", 0));
     JS_SetPropertyStr(ctx, speaker, "getRecentBuffer",
         JS_NewCFunction(ctx, js_speaker_get_recent_buffer, "getRecentBuffer", 1));
+    JS_SetPropertyStr(ctx, speaker, "drawStrip",
+        JS_NewCFunction(ctx, js_speaker_draw_strip, "drawStrip", 7));
     JS_SetPropertyStr(ctx, speaker, "sampleRate",
         JS_NewInt32(ctx, rt->audio ? (int)rt->audio->actual_rate : AUDIO_SAMPLE_RATE));
 

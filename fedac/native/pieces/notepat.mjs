@@ -4138,56 +4138,30 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const rightX = w - gridW - margin;
 
   // Scrolling record-needle strip: the last ~4 seconds of mixed speaker
-  // output, always rolling regardless of whether notes are active. Think
-  // classic DJ turntable display — you can see the waveform the spacebar
-  // reverse-play would snap back into. Refreshed every 4 frames to keep
-  // paint cheap; downsampled to one peak value per pixel column.
+  // output, always rolling. Classic DJ-turntable display with the playhead
+  // pinned at CENTER (left half = past that just played, right half =
+  // about-to-be-replaced samples waiting to scroll out).
+  //
+  // Rendered in a single C call (sound.speaker.drawStrip) which does:
+  //   - background + zero-line
+  //   - per-pixel-column peak scan on the speaker ring (under audio lock)
+  //   - warm→cold color ramp
+  //   - needle at needleFrac
+  // Previously this was a 600-iteration JS loop + getRecentBuffer copy
+  // every 4 frames; the C path runs every frame at negligible cost.
+  //
+  // When spacebar is held the `reverse` flag flips so the waveform appears
+  // to scroll the OPPOSITE direction — treating the held-space as a
+  // backwards-replay cursor rather than a live capture.
   const recordStripH = 22;
   const recordStripSeconds = 4;
   const recordStripTop = Math.max(topBarH + 1, gridTop - recordStripH - 2);
-  const recordStripBottom = recordStripTop + recordStripH;
-  if (frame % 4 === 0 && sound?.speaker?.getRecentBuffer) {
-    const snap = sound.speaker.getRecentBuffer(recordStripSeconds);
-    if (snap && snap.data && snap.data.length > 0) {
-      globalThis.__recordStripData = snap.data;
-    }
-  }
-  const rsData = globalThis.__recordStripData;
-  if (rsData && rsData.length > 4) {
+  if (sound?.speaker?.drawStrip) {
     const rsX = margin;
     const rsW = w - margin * 2;
-    const midY = Math.floor((recordStripTop + recordStripBottom) / 2);
-    // Background strip
-    ink(dark ? 20 : 235, dark ? 15 : 225, dark ? 30 : 210, 160);
-    box(rsX, recordStripTop, rsW, recordStripH, true);
-    // Center zero-line
-    ink(dark ? 80 : 140, dark ? 80 : 140, dark ? 90 : 150, 120);
-    line(rsX, midY, rsX + rsW, midY);
-    // Per-pixel-column peak of that time-slice.
-    const samplesPerCol = rsData.length / rsW;
-    const amp = Math.floor(recordStripH * 0.45);
-    for (let x = 0; x < rsW; x++) {
-      const i0 = Math.floor(x * samplesPerCol);
-      const i1 = Math.min(rsData.length, Math.floor((x + 1) * samplesPerCol));
-      let peak = 0;
-      for (let i = i0; i < i1; i++) {
-        const a = Math.abs(rsData[i]);
-        if (a > peak) peak = a;
-      }
-      // Clip extreme outliers so a transient hot sample doesn't dominate the
-      // column-height math and flatten everything else visually.
-      if (peak > 1.0) peak = 1.0;
-      const h = Math.max(1, Math.round(peak * amp));
-      // Color fades from warm (loud) through amber (mid) to cold (quiet).
-      const r = Math.min(255, Math.round(120 + peak * 140));
-      const g = Math.round(120 + peak * 80);
-      const b = Math.round(90 + (1 - peak) * 120);
-      ink(r, g, b, 220);
-      line(rsX + x, midY - h, rsX + x, midY + h);
-    }
-    // Right-edge "record needle" — where new samples are being written.
-    ink(240, 80, 80, 220);
-    line(rsX + rsW - 1, recordStripTop, rsX + rsW - 1, recordStripBottom);
+    const flags = spaceHeld ? 1 : 0; // bit0 = reverse scroll direction
+    sound.speaker.drawStrip(rsX, recordStripTop, rsW, recordStripH,
+                             recordStripSeconds, 0.5, flags);
   }
 
   // Waveform visualizer bars only in lanes above pad grids (not full-screen).
