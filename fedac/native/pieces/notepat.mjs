@@ -1961,8 +1961,11 @@ function hitTestGrid(x, y, gi) {
 function playWaveSound(sound, waveType) {
   if (!sound?.synth) return;
   if (waveType === "sample") {
-    // Short percussive click for sample mode
-    sound.synth({ type: "noise", tone: 800 * pf, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
+    // Short percussive click for sample mode. Previously this referenced
+    // `pf` (a local from playZoo/playLaser/playPercussion that never made
+    // it into this scope) — throwing a ReferenceError the moment anyone
+    // switched wave to "sample". Plain tone is fine for a UI blip.
+    sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
   const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, harp: 440, whistle: 880 };
