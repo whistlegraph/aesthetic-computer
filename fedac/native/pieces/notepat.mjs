@@ -2054,9 +2054,18 @@ function boot({ wipe, system, sound }) {
 function act({ event: e, sound, wifi, system }) {
   soundAPI = sound;
   systemAPI = system;
-  // Track shift state before any other handling
-  if (e.is("keyboard:down") && e.key?.toLowerCase() === "shift") shiftHeld = true;
-  if (e.is("keyboard:up") && e.key?.toLowerCase() === "shift") shiftHeld = false;
+  // Track shift state before any other handling. Tiny audible click on
+  // press/release so the mode change is felt — high blip going in, low
+  // blip coming out, both quiet enough to layer under any active note.
+  if (e.is("keyboard:down") && e.key?.toLowerCase() === "shift" && !shiftHeld) {
+    shiftHeld = true;
+    sound?.synth?.({ type: "sine", tone: 1320, duration: 0.025,
+                     volume: 0.10, attack: 0.001, decay: 0.022, pan: 0 });
+  } else if (e.is("keyboard:up") && e.key?.toLowerCase() === "shift" && shiftHeld) {
+    shiftHeld = false;
+    sound?.synth?.({ type: "sine", tone: 880, duration: 0.025,
+                     volume: 0.10, attack: 0.001, decay: 0.022, pan: 0 });
+  }
 
   // WiFi password input mode — fullscreen, capture all keyboard
   if (wifiPasswordMode && e.is("keyboard:down")) {
