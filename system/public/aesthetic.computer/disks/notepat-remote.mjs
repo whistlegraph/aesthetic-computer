@@ -204,15 +204,13 @@ let eventsSeen = 0;
 
 function act({ event: e }) {
   if (!e?.is) return;
-  // Dump first ~15 events of any kind so we can see what actually propagates
-  // into the piece from jweb~. `name` is the AC event type string.
-  if (eventsSeen < 15) {
-    eventsSeen += 1;
-    const name = e.name || "?";
-    console.log(`🎹 evt#${eventsSeen} ${name} key=${e.key || ""}`);
-  }
-  // Click-to-test-note: tap anywhere on the device UI fires C4 so we can
-  // verify the Max bridge path without depending on keyboard focus.
+  // Keyboard input is handled natively in the Max patcher ([key] / [keyup]
+  // objects direct to [noteout]) for sub-ms latency — no worker round-trip.
+  // The piece intentionally does NOT listen for keyboard events here to
+  // avoid double-firing.
+  //
+  // Click-to-test-note: tapping the device UI fires C4 so we can smoke-test
+  // the iframe→BIOS→Max bridge path without depending on keyboard focus.
   if (e.is("touch")) {
     pressLocalKey("c");
     return;
@@ -220,16 +218,6 @@ function act({ event: e }) {
   if (e.is("lift")) {
     releaseLocalKey("c");
     return;
-  }
-  for (const key of Object.keys(KEY_TO_PITCH)) {
-    if (e.is(`keyboard:down:${key}`)) {
-      pressLocalKey(key);
-      return;
-    }
-    if (e.is(`keyboard:up:${key}`)) {
-      releaseLocalKey(key);
-      return;
-    }
   }
 }
 
@@ -321,7 +309,7 @@ function paint({ wipe, ink, box, line, screen }) {
 
   // Footer hint
   if (H - y > 12) {
-    ink(...fgDim).write("click=C4 | keys c-b=C4..B4", { x: 4, y: H - 8 });
+    ink(...fgDim).write("keys=native | click=C4 | ws=relay", { x: 4, y: H - 8 });
   }
 }
 

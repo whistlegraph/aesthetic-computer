@@ -3,14 +3,14 @@
     "fileversion": 1,
     "appversion": { "major": 9, "minor": 0, "revision": 7, "architecture": "x64", "modernui": 1 },
     "classnamespace": "box",
-    "rect": [100, 100, 700, 500],
+    "rect": [100, 100, 900, 620],
     "openrect": [0, 0, 360, 220],
     "openinpresentation": 1,
     "gridsize": [15, 15],
     "enablehscroll": 0,
     "enablevscroll": 0,
     "devicewidth": 360,
-    "description": "Receive ac-native notepat MIDI via session-server relay and emit to this track",
+    "description": "ac-native notepat relay + local hotkey input. Native [key]/[keyup] for sub-ms local note entry. jweb~ handles WS relay + UI only.",
     "boxes": [
       {
         "box": {
@@ -25,7 +25,7 @@
           "presentation": 1,
           "presentation_rect": [0, 0, 360, 220],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=4"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=5"
         }
       },
       {
@@ -47,18 +47,18 @@
           "maxclass": "newobj",
           "numinlets": 2,
           "numoutlets": 0,
-          "patching_rect": [10, 300, 60, 22],
+          "patching_rect": [10, 580, 60, 22],
           "text": "noteout"
         }
       },
       {
         "box": {
-          "comment": "Debug: unmatched messages",
+          "comment": "Debug: unmatched jweb messages",
           "id": "obj-print",
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [500, 300, 200, 22],
+          "patching_rect": [700, 300, 180, 22],
           "text": "print NOTEPAT-REMOTE"
         }
       },
@@ -91,7 +91,7 @@
           "numinlets": 1,
           "numoutlets": 3,
           "outlettype": ["bang", "int", "int"],
-          "patching_rect": [420, 250, 90, 22],
+          "patching_rect": [700, 250, 90, 22],
           "text": "live.thisdevice"
         }
       },
@@ -102,20 +102,116 @@
           "numinlets": 1,
           "numoutlets": 2,
           "outlettype": ["", ""],
-          "patching_rect": [420, 280, 60, 22],
+          "patching_rect": [700, 280, 60, 22],
           "text": "route ready"
         }
       },
       {
         "box": {
-          "comment": "Tell jweb~ page we are live (page can use this to trigger subscribe)",
+          "comment": "Activate jweb once Live finishes init",
           "id": "obj-activate",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [""],
-          "patching_rect": [420, 310, 90, 22],
+          "patching_rect": [700, 330, 120, 22],
           "text": "script daw-activate"
+        }
+      },
+
+      {
+        "box": {
+          "comment": "Native keydown capture — sub-ms path to noteout, bypasses iframe",
+          "id": "obj-key",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["int", "int", "int"],
+          "patching_rect": [10, 420, 40, 22],
+          "text": "key"
+        }
+      },
+      {
+        "box": {
+          "comment": "Native keyup capture for note-off",
+          "id": "obj-keyup",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": ["int", "int", "int"],
+          "patching_rect": [260, 420, 50, 22],
+          "text": "keyup"
+        }
+      },
+      {
+        "box": {
+          "comment": "ASCII → MIDI pitch (notepat layout). 0 = unmapped.",
+          "id": "obj-expr-on",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "patching_rect": [10, 450, 780, 22],
+          "text": "expr ($i1==97)?69:($i1==98)?71:($i1==99)?60:($i1==100)?62:($i1==101)?64:($i1==102)?65:($i1==103)?67:($i1==104)?72:($i1==105)?74:($i1==106)?76:($i1==107)?77:($i1==108)?79:($i1==109)?81:($i1==110)?83:($i1==111)?80:($i1==112)?82:($i1==113)?70:($i1==114)?68:($i1==115)?63:($i1==116)?73:($i1==117)?78:($i1==118)?61:($i1==119)?66:($i1==120)?59:($i1==121)?75:($i1==122)?58:0"
+        }
+      },
+      {
+        "box": {
+          "comment": "Same mapping for keyup side",
+          "id": "obj-expr-off",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": ["int"],
+          "patching_rect": [10, 480, 780, 22],
+          "text": "expr ($i1==97)?69:($i1==98)?71:($i1==99)?60:($i1==100)?62:($i1==101)?64:($i1==102)?65:($i1==103)?67:($i1==104)?72:($i1==105)?74:($i1==106)?76:($i1==107)?77:($i1==108)?79:($i1==109)?81:($i1==110)?83:($i1==111)?80:($i1==112)?82:($i1==113)?70:($i1==114)?68:($i1==115)?63:($i1==116)?73:($i1==117)?78:($i1==118)?61:($i1==119)?66:($i1==120)?59:($i1==121)?75:($i1==122)?58:0"
+        }
+      },
+      {
+        "box": {
+          "comment": "Drop 0 (unmapped key), pass pitch out of right outlet",
+          "id": "obj-sel-on",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": ["bang", "int"],
+          "patching_rect": [10, 510, 60, 22],
+          "text": "select 0"
+        }
+      },
+      {
+        "box": {
+          "id": "obj-sel-off",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": ["bang", "int"],
+          "patching_rect": [260, 510, 60, 22],
+          "text": "select 0"
+        }
+      },
+      {
+        "box": {
+          "comment": "pitch → (pitch, 100) list for noteout (note-on)",
+          "id": "obj-pack-on",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": ["list"],
+          "patching_rect": [10, 540, 80, 22],
+          "text": "pack 0 100"
+        }
+      },
+      {
+        "box": {
+          "comment": "pitch → (pitch, 0) list for noteout (note-off)",
+          "id": "obj-pack-off",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": ["list"],
+          "patching_rect": [260, 540, 80, 22],
+          "text": "pack 0 0"
         }
       }
     ],
@@ -128,7 +224,17 @@
       { "patchline": { "source": ["obj-route", 2], "destination": ["obj-print", 0] } },
       { "patchline": { "source": ["obj-thisdevice", 0], "destination": ["obj-routeready", 0] } },
       { "patchline": { "source": ["obj-routeready", 0], "destination": ["obj-activate", 0] } },
-      { "patchline": { "source": ["obj-activate", 0], "destination": ["obj-jweb", 0] } }
+      { "patchline": { "source": ["obj-activate", 0], "destination": ["obj-jweb", 0] } },
+
+      { "patchline": { "source": ["obj-key", 0], "destination": ["obj-expr-on", 0] } },
+      { "patchline": { "source": ["obj-expr-on", 0], "destination": ["obj-sel-on", 0] } },
+      { "patchline": { "source": ["obj-sel-on", 1], "destination": ["obj-pack-on", 0] } },
+      { "patchline": { "source": ["obj-pack-on", 0], "destination": ["obj-noteout", 0] } },
+
+      { "patchline": { "source": ["obj-keyup", 0], "destination": ["obj-expr-off", 0] } },
+      { "patchline": { "source": ["obj-expr-off", 0], "destination": ["obj-sel-off", 0] } },
+      { "patchline": { "source": ["obj-sel-off", 1], "destination": ["obj-pack-off", 0] } },
+      { "patchline": { "source": ["obj-pack-off", 0], "destination": ["obj-noteout", 0] } }
     ],
     "dependency_cache": [],
     "latency": 0,
