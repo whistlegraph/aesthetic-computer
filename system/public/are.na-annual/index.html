@@ -3,652 +3,480 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The Score That Teaches Itself — Are.na Annual Vol. 8 pitch</title>
+<title>the score that teaches itself · are.na annual vol. 8 pitch</title>
+<meta name="description" content="Jeffrey Alan Scudder's pitch for Are.na Annual Vol. 8 (theme: Score) — whistlegraph as the first viral graphic score.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
 <style>
-  :root {
-    --ink: #111;
-    --paper: #f4f1ea;
-    --rule: #1117;
-    --accent: #b33a3a;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--paper); color: var(--ink); }
-  body {
-    font-family: var(--serif);
-    font-size: 17px;
-    line-height: 1.55;
-    padding: 48px 24px 120px;
-  }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  .eyebrow {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ink);
-    opacity: 0.65;
-    margin-bottom: 20px;
-  }
-  h1 {
-    font-family: var(--serif);
-    font-weight: 500;
-    font-style: italic;
-    font-size: 44px;
-    line-height: 1.1;
-    letter-spacing: -0.01em;
-    margin: 0 0 8px;
-  }
-  h1 small {
-    display: block;
-    font-family: var(--mono);
-    font-style: normal;
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-top: 18px;
-  }
-  .meta {
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.8;
-    margin: 24px 0 48px;
-    padding: 14px 16px;
-    border-top: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
-  }
-  .meta dt { float: left; width: 110px; opacity: 0.6; }
-  .meta dd { margin: 0 0 4px 110px; }
-  .meta a { color: var(--ink); }
-  .pitch {
-    font-size: 19px;
-    line-height: 1.55;
-    margin: 40px 0;
-    border-left: 2px solid var(--ink);
-    padding: 4px 0 4px 20px;
-  }
-  .pitch p { margin: 0 0 14px; }
-  .pitch strong { font-weight: 600; }
-  h2 {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin: 56px 0 18px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--rule);
-  }
-  h2 .count {
-    float: right;
-    opacity: 0.55;
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
     font-weight: normal;
+    font-display: swap;
   }
-  .thesis {
-    font-style: italic;
-    font-size: 26px;
-    line-height: 1.25;
-    text-align: center;
-    margin: 56px 24px;
-    color: var(--accent);
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
   }
-  .triad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 24px 0;
-  }
-  .triad div {
-    padding: 18px 16px;
-    border: 1px solid var(--ink);
-    background: #fff;
-  }
-  .triad h3 {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    margin: 0 0 8px;
-    color: var(--accent);
-  }
-  .triad p { margin: 0; font-size: 14px; line-height: 1.45; }
 
-  .section {
-    margin: 44px 0;
-    padding: 22px 24px;
-    background: #fff;
-    border: 1px solid var(--ink);
+  :root {
+    --bg: #1a1a2e;
+    --text: #e8e8e8;
+    --dim: #888;
+    --pink: #cd5c9b;
+    --cyan: #4ecdc4;
+    --purple: #7850b4;
+    --gold: #d4a017;
+    --green: #4ecb71;
+    --red: #e06666;
+    --box-bg: rgba(255,255,255,0.03);
+    --box-border: rgba(255,255,255,0.10);
   }
-  .section header {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin-bottom: 6px;
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f5f5f5;
+      --text: #1a1a2e;
+      --dim: #666;
+      --pink: #b4489a;
+      --cyan: #0891b2;
+      --purple: #7850b4;
+      --gold: #a07800;
+      --green: #0a8a3e;
+      --red: #b33a3a;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.12);
+    }
   }
-  .section .num {
-    font-family: var(--mono);
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
     font-size: 13px;
-    color: var(--accent);
-    letter-spacing: 0.1em;
+    line-height: 1.55;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
   }
-  .section .name {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 22px;
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  /* ── MASTHEAD ─────────────────────────────── */
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
   }
-  .section .whyline {
-    font-size: 14px;
-    opacity: 0.75;
-    margin: 0 0 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px dotted var(--rule);
+  .eyebrow .tag { color: var(--pink); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: clamp(32px, 5.6vw, 56px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
   }
-  .blocks { list-style: none; padding: 0; margin: 0; }
-  .blocks li {
-    padding: 10px 0;
-    border-bottom: 1px dotted var(--rule);
+  h1 .dot { color: var(--pink); }
+  h1 em {
+    font-style: normal;
+    color: var(--cyan);
   }
-  .blocks li:last-child { border-bottom: none; }
-  .blocks .title {
-    font-weight: 600;
-    font-size: 15px;
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
   }
-  .blocks .title a { color: var(--ink); text-decoration: underline; text-decoration-color: #1113; text-underline-offset: 2px; }
-  .blocks .title a:hover { text-decoration-color: var(--accent); }
-  .blocks .why {
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.15em 1.2em;
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  .meta dt { color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85em; padding-top: 0.18em; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+
+  /* ── SECTIONS ─────────────────────────────── */
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: 1.4em;
+    font-weight: normal;
+    color: var(--text);
+    letter-spacing: 0;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord { color: var(--pink); margin-right: 0.4em; }
+  h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
+
+  /* ── PITCH PROSE ─────────────────────────── */
+  .pitch p { margin: 0 0 0.9em; font-size: 0.98em; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.25em;
+    color: var(--cyan);
     display: block;
-    font-size: 14px;
-    opacity: 0.78;
-    margin-top: 3px;
-    font-family: var(--serif);
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch q {
+    quotes: "“" "”";
+    color: var(--gold);
     font-style: italic;
   }
-  .blocks li.text {
-    background: #f8f4e7;
-    padding: 10px 14px;
-    border: 1px solid #d9d3c2;
-    border-bottom: 1px solid #d9d3c2;
-    margin: 8px 0;
-    font-style: italic;
-    font-size: 15px;
-  }
+  .pitch em { color: var(--pink); font-style: normal; }
+  .pitch .name { color: var(--cyan); }
 
-  .checklist { list-style: none; padding: 0; font-family: var(--mono); font-size: 13px; }
-  .checklist li { padding: 6px 0; }
-  .checklist li::before { margin-right: 10px; }
-  .checklist .done::before { content: "✓"; color: #2b7a2b; }
-  .checklist .todo::before { content: "☐"; color: var(--accent); }
-
-  .toc {
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.9;
-    padding: 16px 18px;
-    background: #fff;
-    border: 1px dashed var(--ink);
-    margin: 24px 0 40px;
+  /* ── ANCHORS ──────────────────────────────── */
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
   }
-  .toc a { color: var(--ink); display: block; }
-  .toc a:hover { color: var(--accent); }
-  .toc .n { display: inline-block; width: 36px; color: var(--accent); }
-  .toc .c { float: right; opacity: 0.55; }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.05em;
+    font-weight: normal;
+    margin-bottom: 0.2em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.88em; line-height: 1.5; }
+
+  /* ── LINEAGE LIST ─────────────────────────── */
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  /* ── CHANNEL (live) ───────────────────────── */
+  .channel {
+    margin-top: 1.2em;
+  }
+  .channel-status {
+    font-size: 0.8em;
+    color: var(--dim);
+    margin-bottom: 1em;
+    padding: 0.4em 0.6em;
+    border-left: 2px solid var(--gold);
+    background: var(--box-bg);
+  }
+  .channel-status .ok { color: var(--green); }
+  .channel-status .err { color: var(--red); }
+
+  .section-break {
+    margin: 1.6em 0 0.6em;
+    padding: 0.4em 0;
+    border-top: 1px solid var(--box-border);
+    font-family: 'Berkeley Mono Variable', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.75em;
+    color: var(--dim);
+  }
+  .section-break b { color: var(--pink); font-weight: normal; margin-right: 0.5em; }
+  .section-break .note { color: var(--dim); text-transform: none; letter-spacing: 0; margin-left: 0.8em; font-style: italic; }
+
+  .blocks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.8em;
+  }
+  .block {
+    display: flex;
+    flex-direction: column;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    overflow: hidden;
+    transition: border-color 0.1s;
+  }
+  .block:hover { border-color: var(--cyan); }
+  .block.text { grid-column: 1 / -1; padding: 0.9em 1.1em; background: transparent; border: none; border-left: 2px solid var(--gold); border-radius: 0; }
+  .block.text .txt {
+    color: var(--gold);
+    font-size: 1.05em;
+    line-height: 1.4;
+    font-family: 'YWFT Processing', monospace;
+  }
+  .block .thumb {
+    aspect-ratio: 1 / 1;
+    background: #0a0a18 center/cover no-repeat;
+    display: block;
+    border-bottom: 1px solid var(--box-border);
+  }
+  .block .body { padding: 0.6em 0.8em; display: flex; flex-direction: column; gap: 0.25em; flex: 1; }
+  .block .title { color: var(--cyan); font-size: 0.92em; line-height: 1.3; word-break: break-word; }
+  .block .title:hover { color: var(--pink); }
+  .block .why { color: var(--dim); font-size: 0.82em; line-height: 1.4; margin-top: 0.2em; }
+  .block .host { color: var(--purple); font-size: 0.72em; letter-spacing: 0.05em; margin-top: auto; padding-top: 0.4em; }
+
+  /* ── CHECKLIST ────────────────────────────── */
+  .check { list-style: none; padding: 0; font-size: 0.9em; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Berkeley Mono Variable', monospace; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
 
   footer {
-    margin-top: 80px;
-    padding-top: 20px;
-    border-top: 1px solid var(--ink);
-    font-family: var(--mono);
-    font-size: 11px;
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.75em;
     letter-spacing: 0.08em;
-    opacity: 0.7;
   }
-  a { color: var(--ink); }
-  @media (max-width: 540px) {
-    body { padding: 24px 16px 80px; font-size: 16px; }
-    h1 { font-size: 34px; }
-    .triad { grid-template-columns: 1fr; }
-    .meta dt { float: none; width: auto; opacity: 0.6; }
-    .meta dd { margin: 0 0 10px; }
-    .section { padding: 18px; }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
   }
 </style>
 </head>
 <body>
 <main class="wrap">
 
-  <div class="eyebrow">Are.na Annual Vol. 8 — theme: Score</div>
-  <h1>The Score<br>That Teaches Itself
-    <small>Pitch · Jeffrey Alan Scudder · aesthetic.computer</small>
-  </h1>
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">are<span class="dot" style="color:var(--pink)">.</span>na annual vol. 8</span> · theme: score · open call</div>
+    <h1>the score that<br>teaches <em>itself</em><span class="dot">.</span></h1>
+    <p class="sub">pitch by <strong>@jeffrey</strong> (jeffrey alan scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>channel</dt><dd><a href="https://www.are.na/aesthetic-computer/the-score-that-teaches-itself">are.na/aesthetic-computer/the-score-that-teaches-itself</a></dd>
+      <dt>form</dt><dd><a href="https://aredotna.notion.site/3178a0f816d9815abdf3cb1624bb9e88">aredotna.notion.site — vol. 8 submission</a></dd>
+      <dt>due</dt><dd class="due">mon 20 apr 2026 · 11:59pm est</dd>
+      <dt>honorarium</dt><dd>$200 · book released dec 2026</dd>
+    </dl>
+  </header>
 
-  <dl class="meta">
-    <dt>Channel</dt><dd><a href="https://www.are.na/aesthetic-computer/the-score-that-teaches-itself">are.na/aesthetic-computer/the-score-that-teaches-itself</a> — 68 blocks</dd>
-    <dt>Call</dt><dd><a href="https://www.are.na/editorial/open-call-for-pitches-for-the-are-na-annual-vol-8">Open Call — Annual Vol. 8</a></dd>
-    <dt>Deadline</dt><dd>Mon · April 20, 2026 · 11:59pm EST</dd>
-    <dt>Honorarium</dt><dd>$200 (book releases December 2026)</dd>
-  </dl>
+  <!-- ── PITCH ───────────────────────────────── -->
+  <section class="pitch">
+    <h2><span class="ord">§</span>pitch</h2>
 
-  <h2>Pitch (≈170 words)</h2>
-  <div class="pitch">
-    <p><strong>Channel:</strong> <em>The Score That Teaches Itself</em> — whistlegraphs alongside Cardew's <em>Treatise</em>, Cage's <em>Fontana Mix</em>, shape-note hymnals, Fluxus event scores, skateboard lines.</p>
-    <p>I want to write about whistlegraph, a drawing form I invented in 2019 where every mark is a sung syllable. Between 2019 and 2023 it reached 2.6 million TikTok followers with no paid promotion and no trend-jacking. The distribution model was the form itself: a score legible enough that watching, learning, and performing collapse into a single gesture.</p>
-    <p>The essay moves through three registers. As <strong>art</strong>, whistlegraph sits downstream of Cardew and Cage but refuses interpretation in favor of one-to-one legibility. As <strong>content</strong>, it proves a drawing can carry the viral mechanics of a dance challenge. As <strong>interface design</strong>, it became the founding principle of aesthetic.computer — every piece a self-documenting score, every URL a memorizable performance.</p>
-    <p>What I want to work out: why <em>reproducibility</em>, not novelty, is the real score of a form — and what it would mean to design more things this way, objects whose instructions and performance are the same object.</p>
-  </div>
+    <p>i want to write about <em>whistlegraph</em> — a drawing form i invented in 2019 where every line is a sung syllable of a poem. you draw it while you sing it. the finished drawing is a score. the score teaches you how to play it.</p>
 
-  <div class="thesis">The score teaches you how to play it.</div>
+    <p>between 2019 and 2023, a trio (me, <span class="name">alex freundlich</span>, <span class="name">camille klein</span>) scaled the form from a cabin in <span class="name">ashland, oregon</span> to <em>2.6 million</em> followers on tiktok — no paid promotion, no trend-jacking, no dance. the first viral hit was <q>i'm a butterfly. flapping for you guys. it's just a costume. i put on in my room.</q> — four strokes, four sung lines, a collaboration with the musician <span class="name">bo en</span>. kids on tiktok learned it faster than most kids learn <em>twinkle twinkle</em>.</p>
 
-  <h2>Three registers</h2>
-  <div class="triad">
-    <div>
-      <h3>Art</h3>
-      <p>Downstream of Cardew and Cage, but refuses interpretation in favor of one-to-one legibility.</p>
+    <p>i want to write about <em>why</em> it worked there.</p>
+
+    <span class="drop">the graphic-score tradition failed at one thing.</span>
+
+    <p>cardew's <em>treatise</em> is 193 pages of beautiful, unreadable geometry. cage's <em>fontana mix</em> needs a transparent overlay. riley's <em>in c</em> wants 53 phrases and an ensemble. the 20th-century graphic score succeeded as art — notations, moma, 1969 — and failed as communication. the premise was that notation could be anything. the consequence was that performance required a trained interpreter.</p>
+
+    <p>whistlegraph takes the same ingredients and swaps one assumption. the relationship between mark and sound is <em>one-to-one</em>, fixed during the first performance and preserved in the recording. no interpretation. no ambiguity. a child who can hold a pen can perform one after watching it once.</p>
+
+    <p>that's the actual innovation, and it's the reason a drawing went viral on a platform designed for lip-sync. a dance challenge works because the choreography is the score; a whistlegraph works for the same reason, but the score is also original, also the artwork, also the instruction manual. papert would have called it a <em>microworld</em>. eshun's <em>sonic fiction</em> has a visual analogue: a drawing that constructs the performance it depicts.</p>
+
+    <span class="drop">three registers, one object.</span>
+
+    <p><strong>as art</strong>, whistlegraph lives downstream of <span class="name">cardew</span>, <span class="name">cage</span>, and the fluxus event score — rhizome / new museum commissioned a 22-minute chalk whistlegraph in 2022; feral file sold 45 editions the same year; smk, kadist, schneider hold work in collection. <strong>as content</strong>, it broke the viral-mechanics assumption that tiktok only rewards bodies and pop audio. <strong>as interface design</strong>, it is the founding principle of <a href="https://aesthetic.computer">aesthetic.computer</a> — every piece a self-documenting score, every url a memorizable performance.</p>
+
+    <p>the trio separated in november 2023. the form didn't. what's left is the claim: <em>reproducibility, not novelty, is the real score of a form.</em> the essay is about what it would mean to design more things this way — objects whose instructions and performance are the same object.</p>
+
+    <p style="color:var(--dim);font-size:0.88em;margin-top:1.4em">~570 words of actual pitch, too long for the form (~170–250). the condensed version lives at the bottom of this page and in the channel description.</p>
+  </section>
+
+  <!-- ── ANCHORS ─────────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>three registers</h2>
+    <div class="anchors">
+      <div class="anchor">
+        <b>art</b>
+        <p>downstream of cardew's <em>scratch orchestra</em> and cage's <em>notations</em>, but refuses interpretation for one-to-one legibility. the first graphic score a child can play.</p>
+      </div>
+      <div class="anchor">
+        <b>content</b>
+        <p>2.6m on tiktok, no dance. the viral mechanism is the form itself — not the algorithm, not the trend. reproducibility as distribution.</p>
+      </div>
+      <div class="anchor">
+        <b>interface</b>
+        <p>the founding principle of aesthetic.computer: every piece a self-documenting score, every url a memorizable performance.</p>
+      </div>
     </div>
-    <div>
-      <h3>Content</h3>
-      <p>A drawing can carry the viral mechanics of a dance challenge — 2.6M followers, no paid push.</p>
+  </section>
+
+  <!-- ── LINEAGE ─────────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>the lineage the essay actually argues<span class="count">specific, not canonical</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">goodiepal</div><div class="claim"><em>el camino del hardcore</em> (2012, alku 83) — a 191-page score printed in comic sans and courier on grey cardboard. radical computer music for alternative intelligences. the most honest predecessor.</div></div>
+      <div class="row"><div class="who">jacob ciocci</div><div class="claim">paper rad co-founder. wrote <em>the butterfly effect / rules set you free</em> for the 2023 whistlegraph zine (ed. asher penn, <em>sex magazine</em>, 750 copies) — the essay that placed the form in the rule-based community-art lineage.</div></div>
+      <div class="row"><div class="who">bo en</div><div class="claim">the musical collaborator on <em>i'm a butterfly</em>. pop melody as score, not pop audio as backing track.</div></div>
+      <div class="row"><div class="who">cornelius cardew</div><div class="claim"><em>scratch orchestra</em> and <em>nature study notes</em> — not just <em>treatise</em>. the group was the attempt to solve the interpretation problem. whistlegraph attacks the same problem from the other side: remove interpretation from the score.</div></div>
+      <div class="row"><div class="who">pauline oliveros</div><div class="claim"><em>sonic meditations</em>. attention as performance. whistlegraph asks the same of the viewer: watch, learn, reproduce.</div></div>
+      <div class="row"><div class="who">seymour papert</div><div class="claim"><em>mindstorms</em> (1980) — microworlds. a whistlegraph is a microworld: constrained, memorizable, constructible by the viewer.</div></div>
+      <div class="row"><div class="who">kodwo eshun</div><div class="claim"><em>more brilliant than the sun</em> (1998) — sonic fiction. whistlegraph is its visual analogue: a drawing that constructs the performance it depicts.</div></div>
+      <div class="row"><div class="who">paul klee</div><div class="claim"><em>pedagogical sketchbook</em> (1925) — the line that goes for a walk. whistlegraph's lines take walks while singing.</div></div>
+      <div class="row"><div class="who">olia lialina / jodi</div><div class="claim">rhizome artbase neighbours. whistlegraph sits in the same collection as early net art — the precedent for tiktok-native work entering an institutional archive.</div></div>
+      <div class="row"><div class="who">jalaiah harmon</div><div class="claim"><em>renegade</em> (2019). proof that a reproducible body-score can spread through diffusion, not recommendation. whistlegraph is the drawing equivalent.</div></div>
     </div>
-    <div>
-      <h3>Interface</h3>
-      <p>Every aesthetic.computer piece is a self-documenting score; every URL a memorizable performance.</p>
+  </section>
+
+  <!-- ── CHANNEL (live) ──────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>the channel<span class="count">live from are.na · 68 blocks</span></h2>
+    <div id="channel-status" class="channel-status">
+      fetching <span class="ok">api.are.na</span> …
     </div>
-  </div>
-
-  <h2>Channel map <span class="count">68 blocks · bottom → top</span></h2>
-  <nav class="toc">
-    <a href="#s10"><span class="n">§10</span> Whistlegraph <em>(top)</em> <span class="c">5</span></a>
-    <a href="#s9"><span class="n">§9</span> Framing text <span class="c">3</span></a>
-    <a href="#s8"><span class="n">§8</span> Computational / card-sized kin <span class="c">7</span></a>
-    <a href="#s7"><span class="n">§7</span> 20th-century graphic scores (canon) <span class="c">15</span></a>
-    <a href="#s6"><span class="n">§6</span> Fluxus &amp; event scores <span class="c">6</span></a>
-    <a href="#s5"><span class="n">§5</span> Vernacular / folk notation <span class="c">8</span></a>
-    <a href="#s4"><span class="n">§4</span> Sport as score / line <span class="c">5</span></a>
-    <a href="#s3"><span class="n">§3</span> Body / movement notation <span class="c">5</span></a>
-    <a href="#s2"><span class="n">§2</span> Instructional / craft <span class="c">8</span></a>
-    <a href="#s1"><span class="n">§1</span> Viral / social kin <em>(bottom)</em> <span class="c">5</span></a>
-  </nav>
-
-  <!-- §10 -->
-  <section class="section" id="s10">
-    <header>
-      <div class="num">§10 · top of channel</div>
-      <div class="name">Whistlegraph</div>
-    </header>
-    <p class="whyline">The subject. The whole channel lands here: a drawing form where every mark is a sung syllable — and the evidence that it reached scale.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://www.tiktok.com/@whistlegraph">aesthetic.computer (@whistlegraph) on TikTok</a></div>
-        <span class="why">2.6 million followers. The distribution channel of a form that teaches itself.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://aesthetic.computer/whistlegraph">Whistlegraph · Aesthetic Computer</a></div>
-        <span class="why">The practice site: draw while singing, the result IS the score. Record, learn, perform.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://feralfile.com/artists/whistlegraph">Explore Whistlegraph's art and journey on Feral File</a></div>
-        <span class="why">Forty-five whistlegraph editions on Feral File, 2023.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://rhizome.org/">Rhizome</a></div>
-        <span class="why">Rhizome / New Museum 2022 commission: a 22-minute chalk performance in a public gallery.</span>
-      </li>
-      <li class="text">“Every mark is a sung syllable. Watching, learning, and performing collapse into a single gesture.”</li>
-    </ol>
+    <div id="channel" class="channel"></div>
   </section>
 
-  <!-- §9 -->
-  <section class="section" id="s9">
-    <header>
-      <div class="num">§9</div>
-      <div class="name">Framing text</div>
-    </header>
-    <p class="whyline">Three one-line text blocks that restate the thesis plainly for anyone who arrives cold.</p>
-    <ol class="blocks">
-      <li class="text">“A drawing that constructs the performance it depicts.”</li>
-      <li class="text">“The score teaches you how to play it.”</li>
-      <li class="text">“Reproducibility, not algorithmic promotion, explains its viral spread.”</li>
-    </ol>
+  <!-- ── CONDENSED ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>submission-form version<span class="count">~200 words</span></h2>
+    <div class="pitch" style="border-left: 2px solid var(--pink); padding-left: 1em">
+      <p><em>the score that teaches itself.</em> i want to write about <em>whistlegraph</em> — a drawing form i invented in 2019 where every line is a sung syllable. between 2020 and 2023, a trio i was in scaled it to 2.6 million tiktok followers from a cabin in ashland, oregon. no paid promotion. the distribution model was the form itself.</p>
+      <p>the 20th-century graphic-score tradition (cardew, cage, brown, feldman) is an art-historical success and a communication failure — the notation could be anything, so performance required a trained interpreter. whistlegraph keeps the graphic score and removes the interpretation: mark-to-sound is one-to-one, fixed at performance time. a child who can hold a pen can reproduce it.</p>
+      <p>the essay moves through three registers. <strong>as art</strong> — downstream of cardew, ciocci, goodiepal — but for anyone. <strong>as content</strong> — the first viral graphic score. <strong>as interface design</strong> — the founding principle of aesthetic.computer.</p>
+      <p>what i want to work out: why <em>reproducibility</em>, not novelty, is the real score of a form. and what it would mean to design more objects this way — instructions and performance as the same object.</p>
+    </div>
   </section>
 
-  <!-- §8 -->
-  <section class="section" id="s8">
-    <header>
-      <div class="num">§8</div>
-      <div class="name">Computational / card-sized kin</div>
-    </header>
-    <p class="whyline">Software environments where the program is small enough to double as its own score — aesthetic.computer's peers.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://aesthetic.computer/prompt">Prompt · Aesthetic Computer</a></div>
-        <span class="why">The prompt is the instrument. Type a piece name, play it. A one-line score for the entire AC system.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://aesthetic.computer/notepat">Notepat · Aesthetic Computer</a></div>
-        <span class="why">Keyboard as chromatic instrument. Pressure-sensitive keys as notational markup on QWERTY.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Bitsy">Bitsy</a></div>
-        <span class="why">Adam Le Doux's tile-based game tool — the syntax itself is the score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://www.lexaloffle.com/pico-8.php">PICO-8 Fantasy Console</a></div>
-        <span class="why">A fantasy console where the 32K / 128×128 constraint produces the form.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://www.dwitter.net/">Dwitter</a></div>
-        <span class="why">140 characters of JavaScript → an animation. Source code that fits on a card.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Demoscene">Demoscene</a></div>
-        <span class="why">Intros in kilobytes — source code as a compressed performance.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Inform_7">Inform 7</a></div>
-        <span class="why">Interactive fiction that reads like plain English. The source IS the play.</span>
-      </li>
-    </ol>
+  <!-- ── CHECKLIST ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>status</h2>
+    <ul class="check">
+      <li class="done">channel live, public, 68 blocks, all annotated</li>
+      <li class="done">channel description set (web ui — the v2 put doesn't persist it)</li>
+      <li class="done">other personal channels set private — profile reads as focused</li>
+      <li class="done"><code>ARENA_TOKEN</code> stashed in <code>aesthetic-computer-vault/.env</code></li>
+      <li class="todo">fill the notion form — paste the 200-word version + channel url <em>(due tonight, 11:59 est)</em></li>
+    </ul>
   </section>
-
-  <!-- §7 -->
-  <section class="section" id="s7">
-    <header>
-      <div class="num">§7</div>
-      <div class="name">20th-century graphic scores (the canon)</div>
-    </header>
-    <p class="whyline">The graphic-score lineage — the art-historical home whistlegraph sits downstream of, but diverges from by refusing interpretation.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://www.moma.org/s/ge/curated_ge/styles/list_ge/artists/1191/">Notations (Cage, 1969)</a></div>
-        <span class="why">John Cage's 1969 anthology — the graphic-score genre's first self-portrait.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Notations_21">Notations 21</a></div>
-        <span class="why">Theresa Sauer's 2009 follow-up — the tradition's next generation.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Treatise_(Cardew)">Treatise (Cardew)</a></div>
-        <span class="why">Cardew's 193-page graphic score — no instructions, no interpretation guide. The reader is the score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Fontana_Mix">Fontana Mix</a></div>
-        <span class="why">Cage's transparent overlay system — the first reconfigurable score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Aria_(Cage)">Aria (Cage)</a></div>
-        <span class="why">Colored curves for vocal register, shapes for technique. A score you read like a weather map.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Concert_for_Piano_and_Orchestra_(Cage)">Concert for Piano and Orchestra (Cage)</a></div>
-        <span class="why">Eighty-four score 'solos' to be played in any order, for any duration, in any combination.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Variations_I">Variations I (Cage)</a></div>
-        <span class="why">Transparent sheets, dots and lines — the score is a configuration, not a sequence.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/December_1952">December 1952 (Earle Brown)</a></div>
-        <span class="why">Earle Brown's single page — rectangles in two dimensions, read in any direction.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Morton_Feldman">Morton Feldman</a></div>
-        <span class="why">Feldman's graph pieces — intensity and register on a grid. Pitch becomes a choice, not an instruction.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Christian_Wolff_(composer)">Christian Wolff</a></div>
-        <span class="why">Prose instructions as scores — Burdocks, For One, Two or Three People. Text as instrument.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Artikulation_(Ligeti)">Artikulation (Ligeti)</a></div>
-        <span class="why">Wehinger's listening score — drawn AFTER Ligeti's electronic piece, to teach you how to hear it.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Metastaseis">Metastaseis (Xenakis)</a></div>
-        <span class="why">Xenakis drafted string glissandi like architectural sections. The score is geometry.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Sonic_Meditations">Sonic Meditations (Oliveros)</a></div>
-        <span class="why">Pauline Oliveros's text scores for group listening — attention itself as the performance.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/I_Am_Sitting_in_a_Room">I Am Sitting in a Room (Lucier)</a></div>
-        <span class="why">Lucier's one paragraph of text — an entire composition.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/In_C">In C (Terry Riley)</a></div>
-        <span class="why">Terry Riley: 53 phrases on one page, any ensemble, 45–90 minutes. A score infinitely rehearsable.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Composition_1960">Composition 1960 (La Monte Young)</a></div>
-        <span class="why">La Monte Young's text scores, including 'Draw a straight line and follow it.'</span>
-      </li>
-    </ol>
-  </section>
-
-  <!-- §6 -->
-  <section class="section" id="s6">
-    <header>
-      <div class="num">§6</div>
-      <div class="name">Fluxus &amp; event scores</div>
-    </header>
-    <p class="whyline">Single-instruction, card-sized scores. Closest kin to aesthetic.computer's one-line prompts.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Grapefruit_(book)">Grapefruit (Yoko Ono)</a></div>
-        <span class="why">Yoko Ono's book of instructions — scores so small they fit on a card.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Water_Yam">Water Yam (Brecht)</a></div>
-        <span class="why">George Brecht's event cards — single-instruction scores the size of a business card.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Dick_Higgins">Dick Higgins</a></div>
-        <span class="why">Danger Music and the idea of scores that can't be performed safely.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/An_Anthology_of_Chance_Operations">An Anthology of Chance Operations</a></div>
-        <span class="why">La Monte Young's 1963 anthology — the origin point of Fluxus event scores.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Alison_Knowles">Alison Knowles</a></div>
-        <span class="why">Make A Salad (1962): the salad is the score. The performance is eating.</span>
-      </li>
-      <li class="text">“Draw a line. Follow it.” — Yoko Ono, <em>Line Piece</em> (1964).</li>
-    </ol>
-  </section>
-
-  <!-- §5 -->
-  <section class="section" id="s5">
-    <header>
-      <div class="num">§5</div>
-      <div class="name">Vernacular / folk notation</div>
-    </header>
-    <p class="whyline">Notations built to be taught by use, not institution — where legibility is inseparable from learning.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Shape_note">Shape note</a></div>
-        <span class="why">Four shapes, one staff — a self-teaching notation for congregational singing. The score teaches you how to read it.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Sacred_Harp">Sacred Harp</a></div>
-        <span class="why">The shape-note repertoire in practice: the tune is sung in solfège before the words — reading IS learning.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Tablature">Tablature</a></div>
-        <span class="why">Finger position, not pitch. The diagram of where the hand goes; the sound is the consequence.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Neume">Neume</a></div>
-        <span class="why">The earliest Western notation — gestural marks for pitch shape, before pitch was quantized.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Jianpu">Jianpu</a></div>
-        <span class="why">Chinese numbered notation — reads like a score, works like a score, isn't staff notation.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Gongche_notation">Gongche notation</a></div>
-        <span class="why">Traditional Chinese scales encoded in characters — an alphabet of pitch.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Sargam">Sargam</a></div>
-        <span class="why">Seven syllables: Sa Re Ga Ma Pa Dha Ni. A score you sing as you read it.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Gahu">Gahu</a></div>
-        <span class="why">West African drum notation and the oral-diagrammatic pedagogy behind it.</span>
-      </li>
-    </ol>
-  </section>
-
-  <!-- §4 -->
-  <section class="section" id="s4">
-    <header>
-      <div class="num">§4</div>
-      <div class="name">Sport as score / line</div>
-    </header>
-    <p class="whyline">Spatial and bodily scores that live on real terrain — the argument generalized beyond music.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Skateboarding">Skateboarding</a></div>
-        <span class="why">A 'line' is a spatial score — stringing tricks across architecture in a single read.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Dogtown_and_Z-Boys">Dogtown and Z-Boys</a></div>
-        <span class="why">Empty pools as performance scores — swimming-pool topography repurposed as notation.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Surf_break">Surf break</a></div>
-        <span class="why">Break diagrams: where to paddle, where to cut, where it closes out. A weather-dependent score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Yardage_book">Yardage book</a></div>
-        <span class="why">A golfer's private notation — terrain, slope, club, intent. Personal score as tool.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Parkour">Parkour</a></div>
-        <span class="why">A traceur's line is a reading of urban architecture through the body.</span>
-      </li>
-    </ol>
-  </section>
-
-  <!-- §3 -->
-  <section class="section" id="s3">
-    <header>
-      <div class="num">§3</div>
-      <div class="name">Body / movement notation</div>
-    </header>
-    <p class="whyline">Attempts to notate the body — the most rigorous precedents for a score where drawing and performing are the same gesture.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Labanotation">Labanotation</a></div>
-        <span class="why">Rudolf Laban's 1928 system — the West's most serious attempt at a staff-notation for the body.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Eshkol%E2%80%93Wachman_Movement_Notation">Eshkol–Wachman Movement Notation</a></div>
-        <span class="why">Noa Eshkol's system: the body as angles and arcs, notated on a grid.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Benesh_Movement_Notation">Benesh Movement Notation</a></div>
-        <span class="why">The Royal Ballet's notation — entire company choreography on paper.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Kata">Kata</a></div>
-        <span class="why">Forms passed down by doing. No diagram, but the form itself is the score, memorized in bodies.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/American_football_plays">American football plays</a></div>
-        <span class="why">X's and O's that collapse into eleven bodies moving in time.</span>
-      </li>
-    </ol>
-  </section>
-
-  <!-- §2 -->
-  <section class="section" id="s2">
-    <header>
-      <div class="num">§2</div>
-      <div class="name">Instructional / craft</div>
-    </header>
-    <p class="whyline">Everyday reproducible scores — knitting, origami, sewing, IKEA, Lego, recipes, tea. The "score teaches itself" claim made mundane.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Knitting_abbreviations">Knitting abbreviations</a></div>
-        <span class="why">A closed symbol set encoding a three-dimensional wearable performance.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Crease_pattern">Crease pattern</a></div>
-        <span class="why">Origami before folding — the score for a three-dimensional performance on flat paper.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://langorigami.com/">Robert J. Lang Origami</a></div>
-        <span class="why">Robert Lang's crease-pattern work — paper-folding as programming.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Sewing_pattern">Sewing pattern</a></div>
-        <span class="why">Flat cut-outs that, executed correctly, produce a body. A garment is an assembled score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/IKEA">IKEA</a></div>
-        <span class="why">Image-only assembly instructions that crossed language barriers by refusing language.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Lego">Lego</a></div>
-        <span class="why">Instruction booklets where each page is a diff from the previous state — score as rewrite.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Julia_Child">Julia Child</a></div>
-        <span class="why">Recipes as performance scores: measurement, sequence, expected outcome, tasting as feedback.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Japanese_tea_ceremony">Japanese tea ceremony</a></div>
-        <span class="why">Temae — every gesture choreographed and transmitted by watching, not by diagram.</span>
-      </li>
-    </ol>
-  </section>
-
-  <!-- §1 -->
-  <section class="section" id="s1">
-    <header>
-      <div class="num">§1 · bottom of channel</div>
-      <div class="name">Viral / social kin</div>
-    </header>
-    <p class="whyline">The contemporary viral record — dances and formats that spread by being reproducible. The pop-cultural ground whistlegraph shares with Renegade and the Harlem Shake.</p>
-    <ol class="blocks">
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Renegade_(dance)">Renegade (dance)</a></div>
-        <span class="why">Jalaiah Harmon's 14-year-old choreography diffused through TikTok without algorithmic push — learners watched it, learned it, performed it, posted it. The dance is the score.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Harlem_Shake_(meme)">Harlem Shake (meme)</a></div>
-        <span class="why">A 30-second video format so reproducible it became its own genre. The format itself is the score; the content is just the performance.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://knowyourmeme.com/memes/how-to-draw-squidward">How to draw Squidward</a></div>
-        <span class="why">Stepwise drawing memes — the tutorial is the artwork. Score as self-teaching comedy.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/Pictogram">Pictogram</a></div>
-        <span class="why">Otl Aicher's Munich '72 pictograms — bodily instructions compressed to a single icon.</span>
-      </li>
-      <li>
-        <div class="title"><a href="https://en.wikipedia.org/wiki/ISOTYPE_(picture_language)">ISOTYPE (picture language)</a></div>
-        <span class="why">Otto Neurath's picture language for statistics — a proposal for a universal graphic score.</span>
-      </li>
-    </ol>
-  </section>
-
-  <h2>Submission checklist</h2>
-  <ul class="checklist">
-    <li class="done">Channel live and public — 68 blocks, all annotated</li>
-    <li class="done">Channel description set (via web UI — API doesn't persist it)</li>
-    <li class="done">Other personal channels set to private — submission reads as a focused profile</li>
-    <li class="done">Credentials stashed in <code>aesthetic-computer-vault/.env</code></li>
-    <li class="todo">Notion submission form — pitch + channel URL <em>(due tonight, 11:59pm EST)</em></li>
-  </ul>
 
   <footer>
-    aesthetic.computer/are.na-annual · 2026-04-20
+    <a href="https://aesthetic.computer/are.na-annual">aesthetic.computer/are.na-annual</a> · 2026-04-20 · live channel fetch from api.are.na
   </footer>
 
 </main>
+
+<script>
+(async () => {
+  const SLUG = "the-score-that-teaches-itself";
+  const API = `https://api.are.na/v2/channels/${SLUG}/contents?per=100&direction=desc`;
+  const statusEl = document.getElementById("channel-status");
+  const root = document.getElementById("channel");
+
+  // Reading-order sections (top → bottom of channel page)
+  // positions are 1..68 in the channel, 68 = top
+  const SECTIONS = [
+    { name: "§10 — whistlegraph", note: "the subject. everything lands here.", min: 64 },
+    { name: "§9 — framing text", note: "the thesis spoken plainly.", min: 61 },
+    { name: "§8 — computational / card-sized kin", note: "environments where the program is its own score.", min: 54 },
+    { name: "§7 — 20th-c. graphic scores", note: "the canon we diverge from.", min: 39 },
+    { name: "§6 — fluxus & event scores", note: "single-instruction card-sized scores — closest kin.", min: 33 },
+    { name: "§5 — vernacular / folk notation", note: "notations that teach by use.", min: 25 },
+    { name: "§4 — sport as line", note: "spatial scores on real terrain.", min: 20 },
+    { name: "§3 — body / movement notation", note: "the west's attempts to notate bodies.", min: 15 },
+    { name: "§2 — instructional / craft", note: "the 'score teaches itself' claim made mundane.", min: 7 },
+    { name: "§1 — viral / social kin", note: "the contemporary record: formats that spread by being reproducible.", min: 1 },
+  ];
+
+  function hostname(u) {
+    try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; }
+  }
+
+  function sectionFor(pos) {
+    for (const s of SECTIONS) if (pos >= s.min) return s;
+    return SECTIONS[SECTIONS.length - 1];
+  }
+
+  function renderBlocks(blocks) {
+    // Sort top-of-channel first
+    const sorted = [...blocks].sort((a, b) => b.position - a.position);
+    // Group by section
+    const groups = new Map();
+    for (const b of sorted) {
+      const s = sectionFor(b.position);
+      if (!groups.has(s.name)) groups.set(s.name, { s, blocks: [] });
+      groups.get(s.name).blocks.push(b);
+    }
+
+    const out = [];
+    for (const [name, { s, blocks: bs }] of groups) {
+      out.push(`<div class="section-break"><b>${s.name}</b><span class="note">${s.note}</span></div>`);
+      out.push(`<div class="blocks-grid">`);
+      for (const b of bs) {
+        if (b.class === "Text") {
+          const txt = (b.content || "").replace(/\*([^*]+)\*/g, "<em>$1</em>");
+          out.push(`<div class="block text"><div class="txt">${txt}</div></div>`);
+          continue;
+        }
+        const url = b.source?.url || "#";
+        const title = b.title || b.generated_title || url;
+        const img = b.image?.display?.url || b.image?.thumb?.url || "";
+        const desc = b.description || "";
+        const host = hostname(url);
+        out.push(
+          `<a class="block" href="${url}" target="_blank" rel="noreferrer">` +
+            (img ? `<span class="thumb" style="background-image:url('${img}')"></span>` : "") +
+            `<div class="body">` +
+              `<div class="title">${title}</div>` +
+              (desc ? `<div class="why">${desc}</div>` : "") +
+              (host ? `<div class="host">${host}</div>` : "") +
+            `</div>` +
+          `</a>`
+        );
+      }
+      out.push(`</div>`);
+    }
+    root.innerHTML = out.join("");
+  }
+
+  try {
+    const r = await fetch(API);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const data = await r.json();
+    const blocks = data.contents || [];
+    statusEl.innerHTML = `<span class="ok">● live</span> · ${blocks.length} blocks fetched from <a href="https://www.are.na/aesthetic-computer/${SLUG}">are.na/aesthetic-computer/${SLUG}</a>`;
+    renderBlocks(blocks);
+  } catch (err) {
+    statusEl.innerHTML = `<span class="err">● api error</span> · ${err.message} · <a href="https://www.are.na/aesthetic-computer/${SLUG}">view channel on are.na</a>`;
+  }
+})();
+</script>
 </body>
 </html>
