@@ -3681,12 +3681,18 @@
       const contractHint = encodeURIComponent(getKeepsContractAddress() || '');
       const contractVersion = encodeURIComponent(getKeepsContractVersion() || '');
       const contractProfile = encodeURIComponent(getKeepsContractProfile() || '');
-      return `${AC_BASE}/api/store-kidlisp?recent=true&contract=${contractHint}&contractVersion=${contractVersion}&contractProfile=${contractProfile}${extra}&ts=${Date.now()}`;
+      // Push the per-user filter to the server. Without this we'd haul the
+      // whole kidlisp collection (~17K rows) over the wire just to throw out
+      // everything but the current user's pieces in scopeIndexEntries.
+      const handleParam = acHandle ? `&handle=${encodeURIComponent(acHandle)}` : '';
+      return `${AC_BASE}/api/store-kidlisp?recent=true&contract=${contractHint}&contractVersion=${contractVersion}&contractProfile=${contractProfile}${handleParam}${extra}&ts=${Date.now()}`;
     }
 
     async function fetchAllCodes(sort = 'recent') {
       try {
-        const url = buildStoreUrl(`&limit=100000&sort=${sort}`);
+        // 2000 is well above any plausible per-user piece count; the server
+        // already filtered to acHandle so this is just a safety ceiling.
+        const url = buildStoreUrl(`&limit=2000&sort=${sort}`);
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -6182,7 +6188,9 @@
               return;
             }
 
-            // Show live oven preview — poll oven /grab-status directly (not via MongoDB)
+            // Live oven telemetry — poll oven /grab-status directly so stage
+            // text + preview frame update without waiting for the MongoDB
+            // → keep-status round-trip (which adds ~2-4s of perceived lag).
             if ((job.stage === 'thumbnail' || job.stage === 'bundle') && !mintOvenPreviewTimer) {
               mintOvenPreviewTimer = setInterval(async () => {
                 try {
@@ -6190,7 +6198,22 @@
                   if (!res.ok) return;
                   const status = await res.json();
                   const progress = status.progress;
-                  if (!progress?.previewFrame || !progress.piece?.includes(piece)) return;
+                  if (!progress?.piece?.includes(piece)) return;
+
+                  // Push stage detail into the timeline immediately. Mirrors
+                  // the formatting the background worker writes to MongoDB
+                  // (keep-prepare-background.mjs::startOvenProgressPoller).
+                  const detail = progress.stageDetail || progress.stage || '';
+                  const frame = progress.currentFrame != null && progress.totalFrames
+                    ? ` (${progress.currentFrame}/${progress.totalFrames})`
+                    : '';
+                  const pct = progress.percent != null ? ` ${progress.percent}%` : '';
+                  const msg = `${detail}${frame}${pct}`.trim();
+                  if (msg && (lastStage === 'thumbnail' || lastStage === 'bundle')) {
+                    setMintStep(lastStage, 'active', msg);
+                  }
+
+                  if (!progress.previewFrame) return;
                   const pf = document.getElementById('mint-preview-frame');
                   if (!pf || pf.querySelector('.job-thumbnail')) return;
                   const overlay = pf.querySelector('.mint-progress-overlay');
@@ -6206,7 +6229,7 @@
                   }
                   img.src = 'data:image/jpeg;base64,' + progress.previewFrame;
                 } catch {}
-              }, 1500);
+              }, 1000);
             }
             // Stop oven preview polling when bake stage is done
             if (job.stage !== 'thumbnail' && job.stage !== 'bundle' && mintOvenPreviewTimer) {

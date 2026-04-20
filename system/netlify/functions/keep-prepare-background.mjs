@@ -453,7 +453,7 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
           await updateJobStage(jobId, stage, `${detail}${frame}${pct}`);
         }
       } catch {}
-    }, 2000);
+    }, 1000);
   }
   function stopOvenProgressPoller() {
     if (ovenProgressTimer) { clearInterval(ovenProgressTimer); ovenProgressTimer = null; }
