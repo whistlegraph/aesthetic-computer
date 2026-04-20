@@ -29,10 +29,16 @@ fi
 # Loopback
 ip link set lo up 2>/dev/null
 
-# Restore baked Claude credentials (tmpfs mount hid the originals)
-if [ -f /claude-creds.json ]; then
+# Restore baked Claude credentials (tmpfs mount hid the originals).
+# Two bake paths produce creds at /:
+#   /claude-creds.json  legacy full JSON (linux ac-os, reads ~/.claude/.credentials.json)
+#   /claude-token       plain OAuth bearer (macOS flash-mac.sh, MongoDB year-long token)
+# Either presence triggers setup of /tmp/.claude/ so Claude Code boots without
+# onboarding/login prompts. pty.c separately reads /claude-token to set
+# CLAUDE_CODE_OAUTH_TOKEN in the child's env.
+if [ -f /claude-creds.json ] || [ -f /claude-token ]; then
     mkdir -p /tmp/.claude
-    cp /claude-creds.json /tmp/.claude/.credentials.json
+    [ -f /claude-creds.json ] && cp /claude-creds.json /tmp/.claude/.credentials.json
     cp /claude-state.json /tmp/.claude.json 2>/dev/null
     printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native"}\n' > /tmp/.claude/settings.json
 fi

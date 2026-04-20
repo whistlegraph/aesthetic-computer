@@ -71,20 +71,78 @@ TOKEN_HOME="${HOME}"
 TOKEN_FILE="${TOKEN_HOME}/.ac-token"
 
 USER_HANDLE=""; USER_SUB=""; USER_EMAIL=""
+AC_ACCESS_TOKEN=""; AC_TOKEN_EXPIRED=0
 if [ -f "${TOKEN_FILE}" ] && command -v node >/dev/null 2>&1; then
     eval "$(node -e '
         const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
         let h = t.user?.handle || t.user?.name || "";
         if (h.startsWith("@")) h = h.slice(1);
+        const now = Date.now();
+        const rawExp = t.expires_at || 0;
+        const expMs  = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+        const fresh  = expMs && now < expMs;
         const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
-        out("USER_HANDLE", h);
-        out("USER_SUB",    t.user?.sub);
-        out("USER_EMAIL",  t.user?.email);
+        out("USER_HANDLE",     h);
+        out("USER_SUB",        t.user?.sub);
+        out("USER_EMAIL",      t.user?.email);
+        out("AC_ACCESS_TOKEN", fresh ? (t.access_token || "") : "");
+        process.stdout.write(`AC_TOKEN_EXPIRED=${fresh ? 0 : 1}\n`);
     ' "${TOKEN_FILE}" 2>/dev/null)"
     [ -n "${USER_HANDLE}" ] && log "Authenticated as @${USER_HANDLE}"
 fi
 [ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
     log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
+
+# --- fetch Claude OAuth token from MongoDB (year-long token per handle) ---
+# The claude-token netlify function returns the token stored at
+# @handles.claudeCodeToken for the authenticated user's sub. pty.c reads
+# /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
+# `claude` launches without an interactive login prompt.
+CLAUDE_TOKEN=""
+if [ -n "${AC_ACCESS_TOKEN}" ]; then
+    log "Fetching Claude OAuth token from MongoDB…"
+    CT_RESP="$(curl -fsS -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
+        "https://aesthetic.computer/api/claude-token" 2>/dev/null || echo "")"
+    if [ -n "${CT_RESP}" ]; then
+        CLAUDE_TOKEN="$(node -e '
+            try { process.stdout.write(JSON.parse(process.argv[1]).token || ""); } catch {}
+        ' "${CT_RESP}" 2>/dev/null)"
+    fi
+    if [ -n "${CLAUDE_TOKEN}" ]; then
+        log "  claude token: ${#CLAUDE_TOKEN} bytes fetched"
+    else
+        log "  claude token: none stored in MongoDB (POST to /api/claude-token from the web to save one)"
+    fi
+elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
+    log "  claude token: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
+fi
+
+# --- bake Claude creds into initramfs via concatenated cpio archive ---
+# The Linux kernel's unpack_to_rootfs() accepts multiple concatenated
+# gzipped cpio archives in the initrd stream (same trick intel-ucode
+# uses). We build a tiny supplementary archive containing /claude-token
+# + /claude-state.json and append it to the end of initramfs.cpio.gz.
+# pty.c reads /claude-token directly; init copies /claude-state.json to
+# /tmp/.claude.json so Claude Code skips onboarding prompts.
+if [ -n "${CLAUDE_TOKEN}" ]; then
+    BAKE_DIR="$(mktemp -d /tmp/ac-bake.XXXXXX)"
+    BAKED_INITRAMFS="/tmp/ac-initramfs-baked.$$.cpio.gz"
+    ORIG_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
+    printf %s "${CLAUDE_TOKEN}" > "${BAKE_DIR}/claude-token"
+    chmod 600 "${BAKE_DIR}/claude-token"
+    cat > "${BAKE_DIR}/claude-state.json" <<STATE
+{"oauthAccount":{"emailAddress":"${USER_EMAIL}","organizationName":"","accountUuid":""},"hasCompletedOnboarding":true,"installMethod":"manual","numStartups":1,"autoUpdates":false,"autoUpdatesProtectedForNative":true}
+STATE
+    cp "${INITRAMFS}" "${BAKED_INITRAMFS}"
+    ( cd "${BAKE_DIR}" && printf 'claude-token\nclaude-state.json\n' \
+        | cpio -o -H newc 2>/dev/null ) \
+        | gzip -9 >> "${BAKED_INITRAMFS}" \
+        || die "Failed to append Claude creds cpio to initramfs"
+    rm -rf "${BAKE_DIR}"
+    INITRAMFS="${BAKED_INITRAMFS}"
+    NEW_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
+    log "  baked initramfs: ${NEW_INITRD_SIZE} bytes (+$(( NEW_INITRD_SIZE - ORIG_INITRD_SIZE )) bytes for creds cpio)"
+fi
 
 # --- preserve existing wifi_creds.json from target USB before we wipe it ---
 # Linux `ac-os flash` does this via ac_media_merge_wifi_creds: read the
@@ -100,7 +158,7 @@ for mnt in /Volumes/ACBOOT /Volumes/ACEFI; do
             log "Preserving wifi_creds.json from ${mnt}" && break
     fi
 done
-trap "rm -f '${PRESERVE_WIFI}' 2>/dev/null" EXIT
+trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 
 # --- hardcoded preset networks (kept in sync with media-layout.sh + src/wifi.c) ---
 WIFI_PRESETS_JSON='[
@@ -184,7 +242,7 @@ newfs_msdos -F 32 -v ACEFI  "${RAW2}" >/dev/null
 # --- mount ---
 M1=$(mktemp -d /tmp/ac-main.XXXXXX)
 M2=$(mktemp -d /tmp/ac-efi.XXXXXX)
-trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; true" EXIT
+trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null; true" EXIT
 
 log "Mounting partitions…"
 mount_msdos "${P1}" "${M1}"
