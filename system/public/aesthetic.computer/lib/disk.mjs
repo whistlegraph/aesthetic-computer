@@ -14597,8 +14597,8 @@ async function makeFrame({ data: { type, content } }) {
         // Update button position to match label position (with slide offset)
         const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        // Hit region spans the entire top strip so taps anywhere near the corner label register,
-        // while using just the actual text height (not the padded buffer) so it isn't too tall.
+        // Hit region spans the entire top strip from y=0 so taps at the very top edge
+        // register, and extends down through the text's actual height plus small padding.
         const screenW = $api.screen?.width || cachedAPI?.screen?.width || bufferW || 1;
         const textOnlyHeight = Math.max(
           1,
@@ -14610,11 +14610,12 @@ async function makeFrame({ data: { type, content } }) {
               1,
           ),
         );
-        const hitboxHeight = textOnlyHeight + Math.max(2, Math.round(hudBlockHeight * 0.2));
+        const descenderPad = Math.max(2, Math.round(hudBlockHeight * 0.2));
+        const finalYClamped = Math.max(0, Math.round(finalY));
         currentHUDButton.box.x = 0;
-        currentHUDButton.box.y = Math.max(0, Math.round(finalY));
+        currentHUDButton.box.y = 0;
         currentHUDButton.box.w = Math.max(1, Math.round(screenW));
-        currentHUDButton.box.h = Math.max(1, hitboxHeight);
+        currentHUDButton.box.h = Math.max(1, finalYClamped + textOnlyHeight + descenderPad);
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
         currentHUDButton.noEdgeDetection = true;
