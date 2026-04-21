@@ -150,11 +150,14 @@ const WAVE_VIEW_MAX_OFFSET_SEC = 2.0;
 //   = +1.0 → display advances at 1× real-time → wave drifts LEFT (live)
 //   =  0.0 → display frozen → wave doesn't drift
 //   = -1.0 → display retreats at 1× real-time → wave drifts RIGHT (replay)
-// On spacebar press/release we smoothly lerp this between +1 and -1 so
-// the drift DECELERATES, momentarily stops, then REVERSES — instead of
-// snapping. The relationship to view offset:
-//   d_offset/dt = 1.0 - waveDriftSpeed
+// Used only in LIVE mode for smooth drift; during spacebar-held reverse
+// we drive waveViewOffsetSec directly from elapsed-since-press so the
+// visual needle aligns with the replay voice's actual position.
 let waveDriftSpeed = 1.0;
+// Wall-clock timestamp (ms) when spacebar was last pressed. 0 when not
+// in reverse mode. Used to compute the exact offset so the cursor in
+// the visualizer matches what the replay voice is playing right now.
+let spacePressStartMs = 0;
 
 // Pitch shift — assignable to either trackpad axis
 let pitchShift = 0; // -1 to +1, 0 = no shift
@@ -2388,6 +2391,16 @@ function act({ event: e, sound, wifi, system }) {
       // Space = true reverse replay from the recent audio buffer.
       if (!spaceHeld) {
         spaceHeld = true;
+        // Freeze the output-history ring while reversing. Anything played
+        // on top during the hold is heard but NOT captured, so letting go
+        // of space resumes recording from exactly where reversing started
+        // instead of snapshotting the reverse echo back into the buffer.
+        sound?.speaker?.setCapturePaused?.(true);
+        // Lock the visual cursor's start time to now — the strip will
+        // drive waveViewOffsetSec directly from elapsed-since-press so
+        // the needle is perfectly aligned with whatever the reverse
+        // playback voice is currently emitting.
+        spacePressStartMs = Date.now();
         if (!startReversePlayback(sound) && sound && sound.synth) {
           // Fallback kick drum when there's no recent audio to reverse.
           sound.synth({ type: "sine", tone: 150, duration: 0.15, volume: 0.9, attack: 0.001, decay: 0.14, pan: 0.0 });
@@ -2714,6 +2727,15 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "space") {
       spaceHeld = false;
       stopReversePlayback(sound);
+      // Unfreeze the output-history ring and snap the visual cursor back
+      // to the live edge. The ring's write_pos resumes from exactly where
+      // it paused — so the wave picks up recording at the press-moment,
+      // and the needle jumps to "now" in one frame (matches the user's
+      // mental model of "release = snap back to present").
+      sound?.speaker?.setCapturePaused?.(false);
+      waveViewOffsetSec = 0;
+      waveDriftSpeed = 1.0;
+      spacePressStartMs = 0;
       return;
     }
     // Home key release: stop global recording + save to global sample
@@ -5230,7 +5252,16 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
 
     // Text: title / pos / dur / speed / BPM
-    const title = dk0.loaded ? (dk0.title || "?").replace(/\.[^.]+$/, "") : (djFiles.length > 0 ? "tap scan" : "no usb");
+    // Empty-state title reflects the WHOLE DJ module state together —
+    // "no usb" and "no tracks" are treated as siblings in one readout
+    // rather than scattered between inline label and transient djMsg.
+    // USB mounted + 0 tracks scanned → "no tracks"; USB disconnected →
+    // "no usb". Track loaded → title from filename.
+    const title = dk0.loaded
+      ? (dk0.title || "?").replace(/\.[^.]+$/, "")
+      : (djFiles.length > 0
+          ? "tap scan"
+          : (djUsbConnected ? "no tracks" : "no usb"));
     const pos = djFmt(dk0.position || 0);
     const dur = djFmt(dk0.duration || 0);
     const spd = `${(dk0.speed || 1).toFixed(2)}x`;
@@ -5713,30 +5744,30 @@ function sim({ pressures, sound }) {
     stopSampleRecording(sound, "max-duration");
   }
 
-  // Smoothly lerp waveDriftSpeed toward target so the visible wave
-  // decelerates → stops → reverses → accelerates instead of snapping.
-  // Drift-speed → display velocity:
-  //   = +2 → display advances at 2× real-time (wave drifts LEFT fast,
-  //          used during release to catch up to live)
-  //   = +1 → display advances at 1× (live)
-  //   =  0 → display frozen
-  //   = -1 → display retreats at 1× (wave drifts RIGHT, replay)
-  // d_offset/dt = 1 - waveDriftSpeed
-  const dtSec = 1 / 60;
-  const driftTarget = spaceHeld ? -1.0 : 2.0;
-  // 0.10 ≈ 6-frame time constant — visibly smooth but quick to engage.
-  waveDriftSpeed += (driftTarget - waveDriftSpeed) * 0.10;
-  const dOffsetDt = 1.0 - waveDriftSpeed;
-  waveViewOffsetSec += dOffsetDt * dtSec;
-  if (waveViewOffsetSec <= 0) {
-    waveViewOffsetSec = 0;
-    // Caught back up to live — snap drift back to +1 so we don't keep
-    // pushing offset negative every frame after release. Re-engages
-    // smoothly if the user presses space again.
-    if (!spaceHeld) waveDriftSpeed = 1.0;
-  }
-  if (waveViewOffsetSec > WAVE_VIEW_MAX_OFFSET_SEC) {
-    waveViewOffsetSec = WAVE_VIEW_MAX_OFFSET_SEC;
+  // Waveform cursor behavior:
+  //
+  //   spaceHeld: drive offset directly from elapsed-since-press. The
+  //              reverse-replay voice is reading the captured buffer
+  //              backwards at 1× rate (since Date.now() returns wall
+  //              clock and the buffer is mono @ the history rate), so
+  //              setting offset = elapsed guarantees the visual needle
+  //              sits on exactly the sample being played. Cap at MAX so
+  //              the display stops retreating once we're at the end of
+  //              the visible window (audio still ping-pongs beyond).
+  //
+  //   released:  snap the cursor back to 0 immediately — the press-
+  //              release handler already does this + re-arms the capture
+  //              ring. No smooth catch-up, because the user explicitly
+  //              wants "release = back to the present where reversing
+  //              started" (capture was paused during hold, so live
+  //              write_pos IS the moment of press).
+  if (spaceHeld && spacePressStartMs > 0) {
+    const elapsedSec = (Date.now() - spacePressStartMs) / 1000;
+    waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC, elapsedSec);
+    waveDriftSpeed = -1.0; // cosmetic (only needle-color uses it)
+  } else {
+    waveDriftSpeed = 1.0;
+    // waveViewOffsetSec is reset to 0 in the space-release handler.
   }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {

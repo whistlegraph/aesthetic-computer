@@ -1204,6 +1204,18 @@ static JSValue js_set_drive_mix(JSContext *ctx, JSValueConst this_val, int argc,
     return JS_UNDEFINED;
 }
 
+// sound.speaker.setCapturePaused(bool) — pause/resume writes to the
+// output history ring. Used by notepat to freeze the buffer during
+// reverse-replay hold so the replay echo + overdubs don't contaminate
+// the captured wave.
+static JSValue js_speaker_set_capture_paused(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt || !current_rt->audio) return JS_UNDEFINED;
+    int paused = JS_ToBool(ctx, argv[0]);
+    audio_set_output_history_paused(current_rt->audio, paused);
+    return JS_UNDEFINED;
+}
+
 // sound.microphone.open() — open device + start hot-mic thread
 static JSValue js_mic_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -2813,6 +2825,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, speaker, "poll", JS_NewCFunction(ctx, js_noop, "poll", 0));
     JS_SetPropertyStr(ctx, speaker, "getRecentBuffer",
         JS_NewCFunction(ctx, js_speaker_get_recent_buffer, "getRecentBuffer", 1));
+    JS_SetPropertyStr(ctx, speaker, "setCapturePaused",
+        JS_NewCFunction(ctx, js_speaker_set_capture_paused, "setCapturePaused", 1));
     JS_SetPropertyStr(ctx, speaker, "drawStrip",
         JS_NewCFunction(ctx, js_speaker_draw_strip, "drawStrip", 7));
     JS_SetPropertyStr(ctx, speaker, "sampleRate",

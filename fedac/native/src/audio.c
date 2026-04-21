@@ -1448,7 +1448,15 @@ static void *audio_thread_fn(void *arg) {
             // Capture recent dry output for true reverse replay. This stores
             // the actual mixed audio (not note events) before room/glitch/TTS
             // so the reverse replay can run back through the live FX chain.
-            if (audio->output_history_buf && audio->output_history_size > 0) {
+            //
+            // When `output_history_paused` is set (by notepat while spacebar
+            // is held), we skip this write entirely — the reverse-playback
+            // voice being fed back through the speaker mix would otherwise
+            // re-enter the ring and double-layer on the original audio. The
+            // pause ONLY affects capture; the ring contents and read_pos
+            // are untouched so replay continues from the existing snapshot.
+            if (audio->output_history_buf && audio->output_history_size > 0
+                && !audio->output_history_paused) {
                 unsigned int stride = audio->output_history_downsample_n;
                 if (stride == 0) stride = 1;
                 audio->output_history_downsample_pos++;
@@ -3035,6 +3043,18 @@ void audio_set_drive_mix(ACAudio *audio, float value) {
     if (value < 0.0f) value = 0.0f;
     if (value > 1.0f) value = 1.0f;
     audio->target_drive_mix = value;
+}
+
+// Pause/resume writes to output_history_buf. Called from notepat while
+// the spacebar is held for reverse-replay: with writes paused the reverse
+// playback echo (re-captured from the speaker mix) can't double-layer
+// over the original wave in the visualizer AND any overdub played during
+// the hold is purely monitored — not written into the capture ring.
+// Release un-pauses; writes pick back up exactly where they left off so
+// the buffer boundary is invisible to downstream consumers.
+void audio_set_output_history_paused(ACAudio *audio, int paused) {
+    if (!audio) return;
+    audio->output_history_paused = paused ? 1 : 0;
 }
 
 // --- Hot-mic capture thread ---

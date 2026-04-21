@@ -325,6 +325,7 @@ typedef struct {
     unsigned int output_history_downsample_n;   // output-rate -> history-rate stride
     unsigned int output_history_downsample_pos; // current stride counter
     uint64_t output_history_write_pos;          // monotonic write position
+    int output_history_paused;         // when set, skip ring writes (reverse-replay hold)
 
     // DJ deck audio (persistent across piece switches)
     ACDeck decks[AUDIO_MAX_DECKS];
@@ -406,6 +407,7 @@ void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
 void audio_set_drive_mix(ACAudio *audio, float value);
+void audio_set_output_history_paused(ACAudio *audio, int paused);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)
 int audio_mic_open(ACAudio *audio);    // open device + start hot-mic thread
