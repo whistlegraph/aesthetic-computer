@@ -16540,44 +16540,78 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Start playing a streaming audio URL
     if (type === "stream:play") {
       const { id, url, volume } = content;
-      
+
       // Stop any existing stream with this id
       if (streamAudio[id]) {
         streamAudio[id].audio.pause();
         streamAudio[id].audio.src = "";
         delete streamAudio[id];
       }
-      
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.src = url;
+
       const baseVolume = clampVolume(volume ?? 1);
-      audio.volume = baseVolume * masterVolume;
-      
-      // Connect to AudioContext for analysis if available
-      if (audioContext) {
-        try {
-          const source = audioContext.createMediaElementSource(audio);
-          const analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          source.connect(analyser);
-          analyser.connect(audioContext.destination);
-          streamAudio[id] = { audio, analyser, source, baseVolume };
-        } catch (e) {
-          // If already connected, just store the audio
-          streamAudio[id] = { audio, baseVolume };
+
+      // Cache-bust the stream URL to force a fresh connection and avoid stale
+      // buffered data. Matches the approach used by kpbj.fm's own navbar player.
+      const bustedUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+      // Try with CORS first so we can hook up the analyser (for r8dio/radio.co
+      // which sends Access-Control-Allow-Origin). If the server doesn't support
+      // CORS (e.g. vanilla Icecast like stream.kpbj.fm), the browser blocks the
+      // load — retry once without crossOrigin so the stream still plays (sans
+      // frequency analyser; the visualizer falls back to a synthetic waveform).
+      const tryPlay = (withCors) => {
+        const audio = new Audio();
+        if (withCors) audio.crossOrigin = "anonymous";
+        audio.src = bustedUrl;
+        audio.volume = baseVolume * masterVolume;
+
+        const entry = { audio, baseVolume };
+
+        if (withCors && audioContext) {
+          try {
+            const source = audioContext.createMediaElementSource(audio);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            entry.analyser = analyser;
+            entry.source = source;
+          } catch (e) {
+            // createMediaElementSource throws if the element is already hooked
+            // up elsewhere; fall through and keep the plain audio entry.
+          }
         }
-      } else {
-        streamAudio[id] = { audio, baseVolume };
-      }
-      
-      audio.play().then(() => {
-        send({ type: "stream:playing", content: { id } });
-      }).catch(err => {
-        console.warn("🎵 Stream play failed:", err);
-        send({ type: "stream:error", content: { id, error: err.message } });
+
+        streamAudio[id] = entry;
+
+        return audio.play().then(() => {
+          send({ type: "stream:playing", content: { id } });
+        });
+      };
+
+      tryPlay(true).catch((err) => {
+        // CORS rejection surfaces as MediaError code 4 / NotSupportedError.
+        // Tear down the tainted audio element and retry without crossOrigin.
+        console.warn(
+          "🎵 Stream play with CORS failed, retrying without:",
+          err?.message || err,
+        );
+        if (streamAudio[id]) {
+          try {
+            streamAudio[id].audio.pause();
+            streamAudio[id].audio.src = "";
+          } catch (_) {}
+          delete streamAudio[id];
+        }
+        tryPlay(false).catch((err2) => {
+          console.warn("🎵 Stream play failed:", err2);
+          send({
+            type: "stream:error",
+            content: { id, error: err2.message },
+          });
+        });
       });
-      
+
       return;
     }
     
