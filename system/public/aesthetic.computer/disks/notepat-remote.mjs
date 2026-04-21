@@ -29,11 +29,23 @@ const KEY_OFFSETS = {
   ";": 24, "'": 25, "]": 26,
 };
 
-// Rows laid out like a QWERTY keyboard (for physical muscle memory).
-const KEY_ROWS = [
-  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-  ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";", "'"],
-  ["z", "x", "c", "v", "b", "n", "m"],
+// Chromatic octave blocks — 4 cols × 3 rows = 12 notes each.
+// Matches notepat.mjs pad layout. Row 0 = low (C..D#), row 2 = high (G#..B).
+// Two blocks render side-by-side (base octave left, +1 right) when the
+// device is wide enough (always 360px in M4L).
+const OCTAVE_GRIDS = [
+  // Base octave (offsets 0-11 → C..B of baseOctave)
+  [
+    ["c", "v", "d", "s"],
+    ["e", "f", "w", "g"],
+    ["r", "a", "q", "b"],
+  ],
+  // +1 octave (offsets 12-23 → C..B of baseOctave+1)
+  [
+    ["h", "t", "i", "y"],
+    ["j", "k", "u", "l"],
+    ["o", "m", "p", "n"],
+  ],
 ];
 
 const PITCH_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -255,30 +267,32 @@ function paint({ wipe, ink, box, line, screen }) {
   const W = screen.width;
   const H = screen.height;
 
-  // Attract mode: blink brightness between 0.4 and 1 every ~30 frames.
-  const attract = !focused;
-  const blinkPhase = (sin(frame * 0.1) + 1) / 2; // 0..1
-  const attractPulse = attract ? 0.4 + blinkPhase * 0.6 : 1;
+  // Attract mode: blink brightness between 0.4 and 1.
+  const blinkPhase = (sin(frame * 0.12) + 1) / 2; // 0..1
+  const attractPulse = focused ? 1 : 0.5 + blinkPhase * 0.5;
 
-  // Palette — active uses lime/green, attract uses warning red.
   const accent = focused
-    ? [floor(140 + blinkPhase * 30), 255, floor(180 + blinkPhase * 40)]
-    : [255, floor(80 + blinkPhase * 100), floor(80 + blinkPhase * 40)];
+    ? [floor(130 + blinkPhase * 40), 255, floor(170 + blinkPhase * 50)] // lime
+    : [255, floor(70 + blinkPhase * 100), floor(70 + blinkPhase * 40)]; // red
   const dim = [130, 140, 170];
   const fg = [220, 225, 255];
   const bgBase = focused ? [10, 20, 18] : [22, 10, 10];
-  wipe(floor(bgBase[0] * attractPulse), floor(bgBase[1] * attractPulse), floor(bgBase[2] * attractPulse));
+  wipe(
+    floor(bgBase[0] * attractPulse),
+    floor(bgBase[1] * attractPulse),
+    floor(bgBase[2] * attractPulse),
+  );
 
-  // Flash overlay on recent note-on.
   const sinceNote = frame - lastNoteFrame;
-  if (lastNote && sinceNote < 12) {
-    const f = 1 - sinceNote / 12;
-    const alpha = floor(50 * f);
+  // Flash overlay on recent note-on.
+  if (lastNote && sinceNote < 10) {
+    const f = 1 - sinceNote / 10;
+    const alpha = floor(45 * f);
     ink(...accent, alpha).box(0, 0, W, H, "fill");
   }
 
-  // Title bar
-  let y = 3;
+  // ── Header row: piece name + ws state
+  let y = 2;
   ink(...accent).write("notepat-remote", { x: 4, y });
   const wsColor =
     wsState === "open" ? [140, 255, 180] :
@@ -287,115 +301,97 @@ function paint({ wipe, ink, box, line, screen }) {
   ink(...wsColor).write(wsState, { x: W - wsState.length * 6 - 4, y });
   y += 10;
 
-  // Focus state pill / attract message
+  // ── Status row: ACTIVE / TAP ME + octave + last note
   if (focused) {
-    ink(...accent).box(4, y, 8, 8, "fill");
-    ink(...fg).write("ACTIVE", { x: 16, y });
-    ink(...dim).write(`oct ${baseOctave}`, { x: 64, y });
-    if (sources.length > 0) {
-      const src = sources
-        .slice(0, 2)
-        .map((s) => s.handle ? "@" + s.handle : s.machineId.slice(0, 6))
-        .join(" ");
-      ink(...dim).write(`relay ${src}`, { x: W - (src.length + 7) * 5, y });
-    } else if (relayCount > 0) {
-      ink(...dim).write(`relay ${relayCount}`, { x: W - 60, y });
-    }
+    ink(...accent).box(4, y + 1, 6, 6, "fill");
+    ink(...fg).write("ACTIVE", { x: 14, y });
   } else {
-    // Blink red "TAP ME!" in the middle of the header area.
-    const blinkOn = blinkPhase > 0.3;
-    if (blinkOn) {
-      ink(255, 40, 40).write("TAP ME!", { x: 16, y });
-    } else {
-      ink(100, 20, 20).write("TAP ME!", { x: 16, y });
-    }
-    ink(...dim).write(`oct ${baseOctave}`, { x: 64, y });
+    const blinkOn = blinkPhase > 0.35;
+    ink(blinkOn ? 255 : 110, blinkOn ? 40 : 20, blinkOn ? 40 : 20)
+      .write("TAP ME!", { x: 4, y });
+  }
+  ink(...dim).write(`oct ${baseOctave}`, { x: 70, y });
+  // Right side: compact last-note readout
+  if (lastNote) {
+    const noteFresh = sinceNote < 30;
+    const pn = pitchName(lastNote.pitch);
+    const noteColor = noteFresh ? accent : fg;
+    const srcTag =
+      lastNote.source === "relay" ? "@" + (lastNote.handle || "?") :
+      lastNote.source === "tap" ? "tap" : "kbd";
+    const label = `${lastNote.vel === 0 ? "v" : "^"} ${pn} ${srcTag}`;
+    ink(...noteColor).write(label, { x: W - label.length * 6 - 4, y });
   }
   y += 10;
 
-  // Last note readout
-  if (lastNote) {
-    const noteFresh = sinceNote < 30;
-    const noteColor = noteFresh ? accent : fg;
-    const pn = pitchName(lastNote.pitch);
-    const src = lastNote.source === "relay"
-      ? `@${lastNote.handle || "?"}`
-      : lastNote.source;
-    const arrow = lastNote.vel === 0 ? "▽" : "▲";
-    ink(...noteColor).write(`${arrow} ${pn} (${lastNote.pitch}) ${src}`, { x: 4, y });
-  } else {
-    ink(...dim).write("(no notes yet)", { x: 4, y });
-  }
-  y += 12;
-
-  // Layout the button grid — QWERTY rows mirroring a physical keyboard.
-  const gridTop = y;
-  const gridBottom = H - 12;
-  const rowCount = KEY_ROWS.length;
-  const rowH = floor((gridBottom - gridTop) / rowCount) - 2;
-  const maxRowLen = KEY_ROWS.reduce((m, r) => Math.max(m, r.length), 0);
-  const gridW = W - 8;
-  const btnW = floor(gridW / maxRowLen);
+  // ── Button grid area: two 4×3 octave blocks side-by-side
+  const gridTop = y + 2;
+  const gridBottom = H - 4; // leave 4px safe margin at bottom
+  const gap = 6;
+  const blockW = floor((W - 8 - gap) / 2);
+  const blockH = gridBottom - gridTop;
+  const cellW = floor(blockW / 4);
+  const cellH = floor(blockH / 3);
 
   buttons = [];
-  for (let r = 0; r < rowCount; r += 1) {
-    const row = KEY_ROWS[r];
-    const rowW = row.length * btnW;
-    const rowX = 4 + floor((gridW - rowW) / 2) + r * 4; // slight indent per row for keyboard feel
-    const rowY = gridTop + r * (rowH + 2);
-    for (let i = 0; i < row.length; i += 1) {
-      const key = row[i];
-      const pitch = pitchForKey(key);
-      if (pitch === null) continue;
-      const b = {
-        x: rowX + i * btnW,
-        y: rowY,
-        w: btnW - 1,
-        h: rowH,
-        key,
-        pitch,
-      };
-      buttons.push(b);
+  for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
+    const grid = OCTAVE_GRIDS[octIdx];
+    const blockX = 4 + octIdx * (blockW + gap);
+    // Octave number label in the corner of each block
+    const octNum = baseOctave + octIdx;
+    ink(...dim).write(`o${octNum}`, { x: blockX + 1, y: gridTop - 1 });
 
-      // Draw
-      const held =
-        heldKeys.has(key) ||
-        (tappedButton && tappedButton.key === key);
-      const recentFlash = lastNote && lastNote.pitch === pitch && sinceNote < 20;
-      const black = isBlackKey(pitch);
+    for (let rowIdx = 0; rowIdx < grid.length; rowIdx += 1) {
+      const row = grid[rowIdx];
+      for (let colIdx = 0; colIdx < row.length; colIdx += 1) {
+        const key = row[colIdx];
+        const offset = rowIdx * 4 + colIdx;
+        const pitch = (baseOctave + 1 + octIdx) * 12 + offset;
+        const b = {
+          x: blockX + colIdx * cellW,
+          y: gridTop + rowIdx * cellH,
+          w: cellW - 1,
+          h: cellH - 1,
+          key,
+          pitch,
+        };
+        buttons.push(b);
 
-      let fill;
-      if (held) {
-        fill = accent;
-      } else if (recentFlash) {
-        const f = 1 - sinceNote / 20;
-        fill = [
-          floor(bgBase[0] + (accent[0] - bgBase[0]) * f * 0.7),
-          floor(bgBase[1] + (accent[1] - bgBase[1]) * f * 0.7),
-          floor(bgBase[2] + (accent[2] - bgBase[2]) * f * 0.7),
-        ];
-      } else if (black) {
-        fill = focused ? [28, 38, 34] : [50, 20, 20];
-      } else {
-        fill = focused ? [48, 58, 55] : [72, 30, 30];
+        const held =
+          heldKeys.has(key) || (tappedButton && tappedButton.key === key);
+        const recentFlash =
+          lastNote && lastNote.pitch === pitch && sinceNote < 18;
+        const black = isBlackKey(pitch);
+
+        let fill;
+        if (held) {
+          fill = accent;
+        } else if (recentFlash) {
+          const f = 1 - sinceNote / 18;
+          fill = [
+            floor(bgBase[0] + (accent[0] - bgBase[0]) * f * 0.6),
+            floor(bgBase[1] + (accent[1] - bgBase[1]) * f * 0.6),
+            floor(bgBase[2] + (accent[2] - bgBase[2]) * f * 0.6),
+          ];
+        } else if (black) {
+          fill = focused ? [22, 32, 28] : [48, 18, 18];
+        } else {
+          fill = focused ? [42, 52, 48] : [70, 28, 28];
+        }
+        ink(...fill).box(b.x, b.y, b.w, b.h, "fill");
+        ink(...(held ? accent : [80, 90, 100])).box(b.x, b.y, b.w, b.h, "outline");
+
+        // Letter centered in cell
+        const labelX = b.x + floor(b.w / 2) - 2;
+        const labelY = b.y + floor(b.h / 2) - 4;
+        const labelColor = held
+          ? [10, 20, 10]
+          : black
+            ? [200, 210, 220]
+            : fg;
+        ink(...labelColor).write(key.toUpperCase(), { x: labelX, y: labelY });
       }
-      ink(...fill).box(b.x, b.y, b.w, b.h, "fill");
-      // Outline
-      ink(...(held ? accent : [90, 100, 110])).box(b.x, b.y, b.w, b.h, "outline");
-      // Letter label centered
-      const letterX = b.x + floor(b.w / 2) - 2;
-      const letterY = b.y + floor(b.h / 2) - 4;
-      const letterColor = held ? [10, 20, 10] : (black ? [200, 210, 220] : fg);
-      ink(...letterColor).write(key.toUpperCase(), { x: letterX, y: letterY });
     }
-  }
-
-  // Footer hint
-  const hintY = H - 8;
-  if (focused) {
-    ink(...dim).write(`1-9=oct ${baseOctave}`, { x: 4, y: hintY });
-  } else {
-    ink(255, 80, 80).write("click device to play!", { x: 4, y: hintY });
   }
 }
 

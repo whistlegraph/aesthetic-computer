@@ -4,7 +4,7 @@
     "appversion": { "major": 9, "minor": 0, "revision": 7, "architecture": "x64", "modernui": 1 },
     "classnamespace": "box",
     "rect": [100, 100, 900, 520],
-    "openrect": [0, 0, 360, 220],
+    "openrect": [0, 0, 360, 169],
     "openinpresentation": 1,
     "gridsize": [15, 15],
     "enablehscroll": 0,
@@ -21,11 +21,11 @@
           "numinlets": 1,
           "numoutlets": 3,
           "outlettype": ["signal", "signal", ""],
-          "patching_rect": [10, 10, 360, 220],
+          "patching_rect": [10, 10, 360, 169],
           "presentation": 1,
-          "presentation_rect": [0, 0, 360, 220],
+          "presentation_rect": [0, 0, 360, 169],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=9"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=10"
         }
       },
       {

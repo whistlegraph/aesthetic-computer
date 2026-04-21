@@ -63,7 +63,7 @@
       "piece": "notepat-remote",
       "description": "Relay MIDI from ac-native notepat (ThinkPad) to this track via session-server",
       "width": 360,
-      "height": 220,
+      "height": 169,
       "type": "midi",
       "source": "AC-NotepatRemote.amxd.json",
       "version": "0.1.0"
