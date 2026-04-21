@@ -4760,6 +4760,121 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     }
   }
 
+  // === HARPIST SPRITE (harp mode only) ===
+  // Tiny pixel-art lady playing a harp, shown in the empty center
+  // space between the left + right grids when wave === "harp". Has
+  // a 2-frame dance animation keyed to harp-note activity: when a
+  // harp note has played within the last ~30 frames, she animates
+  // faster (keyed from frame%). Idle sway otherwise.
+  if (wave === "harp") {
+    // Color palette
+    const HAIR    = dark ? [180,  90,  60] : [140,  60,  30];
+    const SKIN    = dark ? [240, 200, 170] : [240, 200, 170];
+    const LIPS    = dark ? [220,  90, 100] : [200,  60,  70];
+    const DRESS   = dark ? [180, 120, 220] : [150,  80, 200];
+    const DRESS_D = dark ? [120,  70, 160] : [100,  50, 150];
+    const STRING  = dark ? [255, 230, 140] : [200, 160,  40];
+    const STRING_A= dark ? [255, 255, 200] : [240, 200,  80];
+    const FRAME_C = dark ? [220, 180,  80] : [180, 120,  40];
+    // 18×22 sprite grid. '.' = transparent. Block size is 2 so the
+    // whole thing is 36×44 px at native resolution — roughly fills
+    // the center space above the record strip.
+    const SPRITE_A = [
+      "....HHHHHH........",
+      "...HHHHHHHH.......",
+      "..HHSSHHSSHH......",
+      "..HHSSHHSSHH......",
+      "..HHHHMMHHHH......",
+      "..HHHLLLLHHH......",
+      "...HHHHHHHH.......",
+      "....SSSSSS........",
+      "...DDDDDDDD..FF...",
+      "..DDDDDDDDDD.FF...",
+      "..DDDDDDDDDDFF....",
+      "..DDDDdDDDDD=F....",
+      "..DDDDddDDDD==F...",
+      "..DDDDdDdDDD=F....",
+      "...DDDDDDDD.F=F...",
+      "....dddddd..F=F...",
+      "....dd..dd..F=F...",
+      "....dd..dd..FFF...",
+      "...ddd..ddd.......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+    ];
+    const SPRITE_B = [
+      "....HHHHHH........",
+      "...HHHHHHHH.......",
+      "..HHSSHHSSHH......",
+      "..HHSSHHSSHH......",
+      "..HHHHMMHHHH......",
+      "..HHHLLLLHHH......",
+      "...HHHHHHHH.......",
+      "....SSSSSS........",
+      "...DDDDDDDD.FF....",
+      "..DDDDDDDDDDFF....",
+      "..DDDDDDDDDD=F....",
+      "..DDDDdDDDDD==F...",
+      "..DDDDddDDDD=F....",
+      "..DDDDdDdDDDF=F...",
+      "...DDDDDDDDFF=F...",
+      "....dddddd.F=F....",
+      "....dd..dd.FFF....",
+      "....dd..dd........",
+      "...ddd..ddd.......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+      "..ddd....ddd......",
+    ];
+    const colorFor = (ch) => {
+      switch (ch) {
+        case "H": return HAIR;
+        case "S": return SKIN;
+        case "M": return LIPS;
+        case "L": return LIPS;
+        case "D": return DRESS;
+        case "d": return DRESS_D;
+        case "=": return STRING;
+        case "F": return FRAME_C;
+        default:  return null;
+      }
+    };
+    // Track harp-note activity to switch the animation speed.
+    const harpActive = activeCount > 0 ||
+      (frame - lastKeyFrame) < 30;
+    // Faster sway when playing: swap frames every 6 frames; slower
+    // idle sway every 14 frames.
+    const swapEvery = harpActive ? 6 : 14;
+    const sprite = Math.floor(frame / swapEvery) % 2 === 0 ? SPRITE_A : SPRITE_B;
+    // Center the sprite between the left-grid right edge and the
+    // right-grid left edge. Place just above the record strip.
+    const spW = sprite[0].length;
+    const spH = sprite.length;
+    const block = 2;
+    const spriteW = spW * block;
+    const spriteH = spH * block;
+    const betweenX0 = leftX + gridW;
+    const betweenX1 = rightX;
+    const sx = Math.floor((betweenX0 + betweenX1 - spriteW) / 2);
+    const sy = Math.max(topBarH + 2, recordStripTop - spriteH - 2);
+    // When the player hits a harp note, briefly flash the STRING
+    // color brighter. Indexed by plucked-age for a simple shimmer.
+    const pluckFresh = (frame - lastKeyFrame) < 10;
+    for (let row = 0; row < spH; row++) {
+      const line = sprite[row];
+      for (let col = 0; col < spW; col++) {
+        const ch = line[col];
+        if (ch === "." || ch === " ") continue;
+        let color = colorFor(ch);
+        if (!color) continue;
+        if (ch === "=" && pluckFresh) color = STRING_A;
+        ink(color[0], color[1], color[2]);
+        box(sx + col * block, sy + row * block, block, block, true);
+      }
+    }
+  }
+
   // Expose grid layout for touch hit-testing in act()
   globalThis.__gridInfo = { leftX, rightX, gridTop, btnW, btnH, gap };
 
