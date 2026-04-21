@@ -5943,7 +5943,7 @@ function paint($) {
         const notepatWidth = notepatTextWidth + 4; // padL + padR
         const notepatHeight = 7 + 2 * 2; // ch=7, padY*2
         const pairGap = 4;
-        const stackedGap = 6; // breathing room between stacked notepat and commit
+        const stackedGap = 10; // breathing room between stacked notepat and commit
         const enterBoxForStack = $.system.prompt.input?.enter?.btn?.box;
         const pasteBoxForStack = $.system.prompt.input?.paste?.btn?.box;
         // Commit is centered; pair extends rightward by pairGap + notepatWidth.
