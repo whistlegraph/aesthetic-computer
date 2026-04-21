@@ -14597,9 +14597,8 @@ async function makeFrame({ data: { type, content } }) {
         // Update button position to match label position (with slide offset)
         const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        // Hit region spans the entire top strip from y=0 so taps at the very top edge
-        // register, and extends down through the text's actual height plus small padding.
-        const screenW = $api.screen?.width || cachedAPI?.screen?.width || bufferW || 1;
+        // Hit region matches the visible text width (not the padded buffer or full screen)
+        // and extends up to y=0 so taps at the top edge still register as corner-label taps.
         const textOnlyHeight = Math.max(
           1,
           Math.round(
@@ -14610,11 +14609,22 @@ async function makeFrame({ data: { type, content } }) {
               1,
           ),
         );
+        const visualTextWidth = Math.max(
+          1,
+          Math.round(
+            currentHUDTextBoxWidth ||
+              longestVisibleLineWidth ||
+              hudBlockWidth ||
+              1,
+          ),
+        );
         const descenderPad = Math.max(2, Math.round(hudBlockHeight * 0.2));
         const finalYClamped = Math.max(0, Math.round(finalY));
-        currentHUDButton.box.x = 0;
+        // Text starts after the share-area left-pad, at currentHUDOffset.x (+ slide).
+        const textStartX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
+        currentHUDButton.box.x = Math.max(0, Math.round(textStartX));
         currentHUDButton.box.y = 0;
-        currentHUDButton.box.w = Math.max(1, Math.round(screenW));
+        currentHUDButton.box.w = visualTextWidth;
         currentHUDButton.box.h = Math.max(1, finalYClamped + textOnlyHeight + descenderPad);
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
