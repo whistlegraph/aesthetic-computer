@@ -140,13 +140,21 @@ let driveDragging = false;
 // Waveform-strip view cursor — how many seconds in the past the playhead
 // sits relative to the live audio edge. 0 = live (wave drifts LEFT as
 // real time advances). Grows when spacebar is held (wave drifts RIGHT,
-// backwards-replay scrub). Shrinks back to 0 on release so the display
-// catches up to live audio over ~0.5 s.
+// backwards-replay scrub). Shrinks back to 0 on release.
 let waveViewOffsetSec = 0;
 // Max retreat — also caps how much of the right half can fill in with
 // post-cursor audio. Matches recordStripSeconds / 2 so the right half
 // fully paints when the cursor has retreated half the visible window.
 const WAVE_VIEW_MAX_OFFSET_SEC = 2.0;
+// Smoothed "drift speed" of the displayed time-range.
+//   = +1.0 → display advances at 1× real-time → wave drifts LEFT (live)
+//   =  0.0 → display frozen → wave doesn't drift
+//   = -1.0 → display retreats at 1× real-time → wave drifts RIGHT (replay)
+// On spacebar press/release we smoothly lerp this between +1 and -1 so
+// the drift DECELERATES, momentarily stops, then REVERSES — instead of
+// snapping. The relationship to view offset:
+//   d_offset/dt = 1.0 - waveDriftSpeed
+let waveDriftSpeed = 1.0;
 
 // Pitch shift — assignable to either trackpad axis
 let pitchShift = 0; // -1 to +1, 0 = no shift
@@ -2877,7 +2885,7 @@ function act({ event: e, sound, wifi, system }) {
     // FX rows: sliders + per-effect X/Y trackpad assignment toggles
     {
       const fxRows = globalThis.__fxRows || {};
-      for (const rowId of ["fx", "echo", "pitch", "crush"]) {
+      for (const rowId of ["fx", "echo", "pitch", "crush", "volume", "drive"]) {
         const row = fxRows[rowId];
         if (!row) continue;
         if (pointInRect(x, y, row.xBox)) {
@@ -5658,16 +5666,25 @@ function sim({ pressures, sound }) {
     stopSampleRecording(sound, "max-duration");
   }
 
-  // Advance / retreat the waveform-strip view cursor based on spacebar.
-  // 1x audio-rate retreat on press → the wave drifts RIGHT at a natural
-  // speed. 2x catch-up on release → wave snaps forward noticeably faster
-  // than normal drift so the eye can tell the cursor is "coming back".
+  // Smoothly lerp waveDriftSpeed toward target (+1 live, -1 replay) so
+  // the visible wave decelerates → stops → reverses → accelerates
+  // instead of snapping. Then derive offset growth rate from drift
+  // speed (d_offset/dt = 1 - drift_speed). Cap offset at the configured
+  // max; if we hit the cap, force drift_speed back to +1 so we don't
+  // accumulate further (cursor settles at the cap and resumes live drift
+  // at the floor of the visible window).
   const dtSec = 1 / 60;
-  if (spaceHeld) {
-    waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC,
-                                 waveViewOffsetSec + dtSec);
-  } else if (waveViewOffsetSec > 0) {
-    waveViewOffsetSec = Math.max(0, waveViewOffsetSec - dtSec * 2);
+  const driftTarget = spaceHeld ? -1.0 : 1.0;
+  // 0.10 ≈ 6-frame time constant — visibly smooth but quick to engage.
+  waveDriftSpeed += (driftTarget - waveDriftSpeed) * 0.10;
+  const dOffsetDt = 1.0 - waveDriftSpeed;
+  waveViewOffsetSec += dOffsetDt * dtSec;
+  if (waveViewOffsetSec < 0) waveViewOffsetSec = 0;
+  if (waveViewOffsetSec > WAVE_VIEW_MAX_OFFSET_SEC) {
+    waveViewOffsetSec = WAVE_VIEW_MAX_OFFSET_SEC;
+    // Clamp the drift back to +1 (live) so subsequent frames don't
+    // pile up offset that we'd then need to unwind on release.
+    if (waveDriftSpeed < 1.0) waveDriftSpeed = 1.0;
   }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
