@@ -682,6 +682,11 @@ let rightVolDragging = false;
 // previous press, then resets the phase start. So what happened during the
 // previous phase becomes the new reverse source.
 const REVERSE_MAX_AGE_MS = 12000;
+// Minimum chunk grabbed on every space-press, even if the user just
+// released a moment ago. Lets rapid press-release-press-release stutter
+// always have meaningful audio to reverse — the buffer still contains
+// the last ~500 ms of output so we re-snapshot it each press.
+const REVERSE_MIN_CAPTURE_MS = 500;
 const REVERSE_MIN_BUFFER_SAMPLES = 256;
 let spaceHeld = false;
 // Last key pressed (for the top-of-screen debug/status label). Any
@@ -742,10 +747,17 @@ function startReversePlayback(sound) {
   }
 
   const now = Date.now();
-  const captureMs = Math.min(REVERSE_MAX_AGE_MS, Math.max(0, now - reversePhaseStartMs));
+  // Each press grabs the window of audio since the PREVIOUS press — unless
+  // that window is short (rapid re-press), in which case we floor to
+  // REVERSE_MIN_CAPTURE_MS so the reverse voice always has a meaningful
+  // chunk to play. This is what makes the "press-release-press-release"
+  // stutter gesture work: you can tap space repeatedly to keep reversing
+  // (and loop back through) the same ~500 ms of recent audio, effectively
+  // "repeating yourself" out of the live capture.
+  const elapsed = Math.max(0, now - reversePhaseStartMs);
+  const captureMs = Math.min(REVERSE_MAX_AGE_MS, Math.max(REVERSE_MIN_CAPTURE_MS, elapsed));
   reversePhaseStartMs = now;
   stopReversePlayback(sound);
-  if (captureMs < 40) return false;
 
   const snapshot = sound.speaker.getRecentBuffer(captureMs / 1000);
   const src = snapshot?.data;
