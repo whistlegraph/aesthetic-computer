@@ -137,6 +137,17 @@ let masterVolDragging = false;
 let driveMix = 0;
 let driveDragging = false;
 
+// Waveform-strip view cursor — how many seconds in the past the playhead
+// sits relative to the live audio edge. 0 = live (wave drifts LEFT as
+// real time advances). Grows when spacebar is held (wave drifts RIGHT,
+// backwards-replay scrub). Shrinks back to 0 on release so the display
+// catches up to live audio over ~0.5 s.
+let waveViewOffsetSec = 0;
+// Max retreat — also caps how much of the right half can fill in with
+// post-cursor audio. Matches recordStripSeconds / 2 so the right half
+// fully paints when the cursor has retreated half the visible window.
+const WAVE_VIEW_MAX_OFFSET_SEC = 2.0;
+
 // Pitch shift — assignable to either trackpad axis
 let pitchShift = 0; // -1 to +1, 0 = no shift
 let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
@@ -3435,14 +3446,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
   const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
 
-  // Left: QR code → notepat.com, scannable at arm's length from a phone
-  // camera. Scale-2, version-1 with 2-module quiet zone = 50×50 px. C
-  // side caches the Reed-Solomon encoding so only the module-grid blit
-  // is per-frame cost.
+  // Left: QR code → notepat.com. Scale=1, version-1 with 2-module quiet
+  // zone = 25×25 px. Taller top bar (54 px) leaves breathing room below
+  // the QR for the label + status text without cramping. C side caches
+  // the Reed-Solomon encoding so the inner module-grid blit is the only
+  // per-frame cost.
   if (globalThis.qr) {
-    globalThis.qr("https://notepat.com", 2, 2, 2);
+    globalThis.qr("https://notepat.com", 2, 2, 1);
   }
-  const qrW = 54; // 50px QR + 2px left inset + 2px right padding before label
+  const qrW = 28; // 25px QR + 2px left inset + 1px right padding before label
   const labelX = qrW + 4;
   const labelW = 48; // "notepat.com" label width in matrix font at size=1
   const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;
@@ -4232,31 +4244,28 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const leftX = margin;
   const rightX = w - gridW - margin;
 
-  // Scrolling record-needle strip: the last ~4 seconds of mixed speaker
-  // output, always rolling. Classic DJ-turntable display with the playhead
-  // pinned at CENTER (left half = past that just played, right half =
-  // about-to-be-replaced samples waiting to scroll out).
+  // Scrolling record-needle strip with continuous-drift playback cursor.
   //
-  // Rendered in a single C call (sound.speaker.drawStrip) which does:
-  //   - background + zero-line
-  //   - per-pixel-column peak scan on the speaker ring (under audio lock)
-  //   - warm→cold color ramp
-  //   - needle at needleFrac
-  // Previously this was a 600-iteration JS loop + getRecentBuffer copy
-  // every 4 frames; the C path runs every frame at negligible cost.
+  // waveViewOffsetSec drives the cursor's position relative to live audio:
+  //   = 0           → cursor at live edge, past on LEFT, right empty;
+  //                   wave drifts LEFT as new audio arrives
+  //   > 0, growing  → cursor retreats into the past; right half fills in
+  //                   with samples captured AFTER the cursor; wave drifts
+  //                   RIGHT (backwards-replay visual)
+  //   > 0, shrinking→ cursor catches back up to "now"; wave drifts LEFT
+  //                   faster than normal until offset hits 0
   //
-  // When spacebar is held the `reverse` flag flips so the waveform appears
-  // to scroll the OPPOSITE direction — treating the held-space as a
-  // backwards-replay cursor rather than a live capture.
+  // waveViewOffsetSec is advanced/retreated in sim() below based on
+  // spaceHeld. The C drawStrip reads the offset and renders accordingly
+  // in a single call (no JS peak loop).
   const recordStripH = 22;
   const recordStripSeconds = 4;
   const recordStripTop = Math.max(topBarH + 1, gridTop - recordStripH - 2);
   if (sound?.speaker?.drawStrip) {
     const rsX = margin;
     const rsW = w - margin * 2;
-    const flags = spaceHeld ? 1 : 0; // bit0 = reverse scroll direction
     sound.speaker.drawStrip(rsX, recordStripTop, rsW, recordStripH,
-                             recordStripSeconds, 0.5, flags);
+                             recordStripSeconds, 0.5, waveViewOffsetSec);
   }
 
   // Waveform visualizer bars only in lanes above pad grids (not full-screen).
@@ -5647,6 +5656,18 @@ function sim({ pressures, sound }) {
   // Auto-stop recording at max duration
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
+  }
+
+  // Advance / retreat the waveform-strip view cursor based on spacebar.
+  // 1x audio-rate retreat on press → the wave drifts RIGHT at a natural
+  // speed. 2x catch-up on release → wave snaps forward noticeably faster
+  // than normal drift so the eye can tell the cursor is "coming back".
+  const dtSec = 1 / 60;
+  if (spaceHeld) {
+    waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC,
+                                 waveViewOffsetSec + dtSec);
+  } else if (waveViewOffsetSec > 0) {
+    waveViewOffsetSec = Math.max(0, waveViewOffsetSec - dtSec * 2);
   }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {

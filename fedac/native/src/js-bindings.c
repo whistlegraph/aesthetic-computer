@@ -1588,21 +1588,35 @@ static JSValue js_replay_load_data(JSContext *ctx, JSValueConst this_val, int ar
     return JS_TRUE;
 }
 
-// sound.speaker.drawStrip(x, y, w, h, seconds, needleFrac, flags)
-// Renders a full scrolling waveform strip in a SINGLE C call — bypasses
-// the per-column JS loop (previously ~600 line() calls + inner sample
-// scan per frame, which pinned notepat at 20 FPS on slow Intel m3 CPUs).
+// sound.speaker.drawStrip(x, y, w, h, seconds, needleFrac, viewOffsetSec)
+// Renders a scrolling waveform strip in one C call. The needle stays at
+// `needleFrac` (0.0..1.0) of the strip width and represents the current
+// PLAYBACK CURSOR — what's being heard right now. The wave never jumps:
+// it continuously drifts based on how the cursor moves through the buffer
+// across frames.
 //
-// Lays out like a DJ-turntable strip:
-//   - background + zero-line drawn once
-//   - per-pixel-column peak computed on the speaker output ring (taken
-//     under the audio lock) — no intermediate JS buffer allocation
-//   - warm→cold color ramp based on peak magnitude
-//   - optional playhead needle at `needleFrac` (0.0..1.0) of `w`
+// viewOffsetSec controls the cursor's position relative to "now":
 //
-// flags bit 0: reverse — oldest sample on the RIGHT, newest on the LEFT.
-//   When a piece holds a backwards-replay key (e.g. notepat spacebar),
-//   flip this to make the waveform appear to scroll right-to-left.
+//   0.0    → cursor sits at the latest captured sample. Past audio
+//            extends to the LEFT of the needle. Right of needle is empty
+//            (no future). As real time advances, freshly-captured samples
+//            appear at the needle and the wave drifts LEFT — the natural
+//            scroll for live capture.
+//
+//   > 0    → cursor is OFFSET-seconds in the past. Left of needle still
+//            shows the LEFT-PAST (older than cursor). Right of needle
+//            shows the RIGHT-PAST (samples captured AFTER the cursor
+//            position, up to the live edge). As JS grows the offset (e.g.
+//            while spacebar is held), the cursor retreats further into
+//            the past and the wave appears to drift RIGHT — exactly
+//            matching a backwards-replay scrub.
+//
+//   shrinking offset on release → cursor catches back up to "now" and
+//            the wave drifts LEFT (forward) until the right side empties
+//            and we're back in live capture mode.
+//
+// Per-pixel peak math is C-native (no JS loop overhead); the audio ring
+// slice is copied under audio->lock then drawn unlocked.
 static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 4) return JS_UNDEFINED;
@@ -1621,116 +1635,146 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
     if (argc >= 5 && JS_IsNumber(argv[4])) JS_ToFloat64(ctx, &seconds, argv[4]);
     double needle_frac = 0.5;
     if (argc >= 6 && JS_IsNumber(argv[5])) JS_ToFloat64(ctx, &needle_frac, argv[5]);
-    int flags = 0;
-    if (argc >= 7 && JS_IsNumber(argv[6])) JS_ToInt32(ctx, &flags, argv[6]);
-    int reverse = (flags & 1) ? 1 : 0;
+    double view_offset_sec = 0.0;
+    if (argc >= 7 && JS_IsNumber(argv[6])) JS_ToFloat64(ctx, &view_offset_sec, argv[6]);
+    if (view_offset_sec < 0.0) view_offset_sec = 0.0;
 
     if (w <= 2 || h <= 2 || seconds <= 0.0) return JS_UNDEFINED;
     if (needle_frac < 0.0) needle_frac = 0.0;
     if (needle_frac > 1.0) needle_frac = 1.0;
 
+    int needle_off = (int)((double)w * needle_frac + 0.5);
+    if (needle_off < 0)  needle_off = 0;
+    if (needle_off >= w) needle_off = w - 1;
+    int needle_x = x + needle_off;
+
+    // Compute the time window the strip needs to span:
+    //   [cursor - left_seconds, cursor + right_seconds]
+    // where cursor = now - view_offset_sec, and the LEFT/RIGHT widths in
+    // seconds are proportional to the LEFT/RIGHT pixel widths so each
+    // pixel covers the same temporal slice end-to-end.
+    int left_w  = needle_off;
+    int right_w = w - needle_off;
+    double total_w = (double)w;
+    double left_seconds  = seconds * ((double)left_w  / total_w);
+    double right_seconds_max = seconds * ((double)right_w / total_w);
+    // Right side only fills to view_offset_sec — no future audio exists.
+    double right_seconds = view_offset_sec < right_seconds_max ? view_offset_sec : right_seconds_max;
+
     pthread_mutex_lock(&audio->lock);
     unsigned int rate = audio->output_history_rate ? audio->output_history_rate
                                                     : AUDIO_OUTPUT_HISTORY_RATE;
     int hist_size = audio->output_history_size;
-    int want_len  = (int)(seconds * (double)rate + 0.5);
-    if (want_len < w)         want_len = w;     // at least 1 sample/col
-    if (want_len > hist_size) want_len = hist_size;
     uint64_t write_pos = audio->output_history_write_pos;
     int available = write_pos < (uint64_t)hist_size ? (int)write_pos : hist_size;
-    if (available < want_len) want_len = available;
 
-    // Copy the slice into a local buffer while holding the lock, then
-    // unlock before drawing. Keeps audio-thread contention to the minimum
-    // (~4s @ 48kHz = 192K floats = 768KB memcpy, but on modern CPUs that's
-    // ~200μs and doesn't stall the audio callback).
-    float *copy = NULL;
-    if (want_len > 0) {
-        copy = (float *)malloc((size_t)want_len * sizeof(float));
-        if (copy) {
-            uint64_t start = write_pos - (uint64_t)want_len;
-            for (int i = 0; i < want_len; i++) {
-                copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
+    // cursor_pos: ring index of "where the playhead sits" in samples.
+    // = write_pos - offset_samples
+    uint64_t offset_samples = (uint64_t)(view_offset_sec * (double)rate + 0.5);
+    if (offset_samples > write_pos) offset_samples = write_pos;
+    uint64_t cursor_pos = write_pos - offset_samples;
+
+    // Snapshot the LEFT-past slice [cursor - left_seconds, cursor]
+    int left_samples_want = (int)(left_seconds * (double)rate + 0.5);
+    if (left_samples_want < 1) left_samples_want = 1;
+    if ((uint64_t)left_samples_want > cursor_pos) left_samples_want = (int)cursor_pos;
+    if (left_samples_want > available) left_samples_want = available;
+
+    // Snapshot the RIGHT-past slice [cursor, cursor + right_seconds]
+    int right_samples_want = (int)(right_seconds * (double)rate + 0.5);
+    if (right_samples_want < 0) right_samples_want = 0;
+    if ((uint64_t)right_samples_want > write_pos - cursor_pos) {
+        right_samples_want = (int)(write_pos - cursor_pos);
+    }
+
+    float *left_copy  = NULL;
+    float *right_copy = NULL;
+    if (left_samples_want > 0) {
+        left_copy = (float *)malloc((size_t)left_samples_want * sizeof(float));
+        if (left_copy) {
+            uint64_t start = cursor_pos - (uint64_t)left_samples_want;
+            for (int i = 0; i < left_samples_want; i++) {
+                left_copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
+            }
+        }
+    }
+    if (right_samples_want > 0) {
+        right_copy = (float *)malloc((size_t)right_samples_want * sizeof(float));
+        if (right_copy) {
+            uint64_t start = cursor_pos;
+            for (int i = 0; i < right_samples_want; i++) {
+                right_copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
             }
         }
     }
     pthread_mutex_unlock(&audio->lock);
 
     int midY = y + h / 2;
+    int amp  = (int)((double)h * 0.45);
+    if (amp < 1) amp = 1;
     ACColor saved = g->ink;
 
-    // Background + zero-line (always drawn even if no audio yet)
+    // Background + zero-line
     graph_ink(g, (ACColor){20, 15, 30, 160});
     graph_box(g, x, y, w, h, 1);
     graph_ink(g, (ACColor){80, 80, 90, 120});
     graph_line(g, x, midY, x + w - 1, midY);
 
-    // Needle position within strip (offset 0..w from x).
-    int needle_off = (int)((double)w * needle_frac + 0.5);
-    if (needle_off < 0)  needle_off = 0;
-    if (needle_off >= w) needle_off = w - 1;
-    int needle_x = x + needle_off;
+    // Inner draw helper: render `len` samples across `pixel_w` pixels
+    // starting at draw_x, with column 0 = oldest sample.
+    #define DRAW_SLICE(buf, len, pixel_w, draw_x_off) do {                 \
+        if ((buf) && (len) > 0 && (pixel_w) > 0) {                          \
+            double spc = (double)(len) / (double)(pixel_w);                 \
+            for (int col = 0; col < (pixel_w); col++) {                     \
+                int i0 = (int)((double)col * spc);                          \
+                int i1 = (int)((double)(col + 1) * spc);                    \
+                if (i1 > (len)) i1 = (len);                                 \
+                if (i0 < 0)     i0 = 0;                                     \
+                if (i1 <= i0)   continue;                                   \
+                float peak = 0.0f;                                          \
+                for (int i = i0; i < i1; i++) {                             \
+                    float a = (buf)[i];                                     \
+                    if (a < 0) a = -a;                                      \
+                    if (a > peak) peak = a;                                 \
+                }                                                           \
+                if (peak > 1.0f) peak = 1.0f;                               \
+                int bar_h = (int)(peak * (float)amp + 0.5f);                \
+                if (bar_h < 1) bar_h = 1;                                   \
+                int r  = 120 + (int)(peak * 140.0f + 0.5f); if (r  > 255) r  = 255;  \
+                int gc = 120 + (int)(peak *  80.0f + 0.5f); if (gc > 255) gc = 255;  \
+                int b_ =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b_ > 255) b_ = 255; \
+                graph_ink(g, (ACColor){(uint8_t)r, (uint8_t)gc, (uint8_t)b_, 220}); \
+                int dx = x + (draw_x_off) + col;                            \
+                graph_line(g, dx, midY - bar_h, dx, midY + bar_h);          \
+            }                                                               \
+        }                                                                   \
+    } while (0)
 
-    // Layout principle: the NEW sample (most recent in the ring) lands
-    // immediately adjacent to the needle, and older samples extend AWAY
-    // from the needle along the active half. The other half stays empty
-    // (background). This matches a record-player intuition: the needle
-    // is the playhead and "now" sits right under it.
-    //
-    //   normal mode (reverse=0): active half = LEFT  (newest just-left of needle)
-    //   reverse mode (reverse=1): active half = RIGHT (newest just-right of needle,
-    //                              past tail extends further right as the held
-    //                              spacebar replays backward in time)
-    //
-    // If needle is at the strip edge, we degrade gracefully: active half
-    // covers the whole width.
-    int active_w;
-    int active_start_off;  // pixel offset within strip where the active half begins
-    if (!reverse) {
-        active_w = needle_off > 0 ? needle_off : w;
-        active_start_off = needle_off > 0 ? 0 : 0;
+    // LEFT half: samples cover full left_w pixels (oldest at column 0).
+    DRAW_SLICE(left_copy, left_samples_want, left_w, 0);
+
+    // RIGHT half: samples cover only the portion proportional to view_offset.
+    // If offset is small, the right half is mostly empty (background shows
+    // through). If offset reaches max, right half is fully drawn.
+    int right_pixels_filled = right_samples_want > 0
+        ? (int)((double)right_samples_want / (double)rate / right_seconds_max * (double)right_w + 0.5)
+        : 0;
+    if (right_pixels_filled > right_w) right_pixels_filled = right_w;
+    DRAW_SLICE(right_copy, right_samples_want, right_pixels_filled, needle_off);
+
+    #undef DRAW_SLICE
+
+    if (left_copy)  free(left_copy);
+    if (right_copy) free(right_copy);
+
+    // Playhead needle — draw last so it sits on top of the bars. Color
+    // tints toward orange when the cursor is offset (replay mode) so it's
+    // visually distinct from the live red needle.
+    if (view_offset_sec > 0.001) {
+        graph_ink(g, (ACColor){255, 160, 60, 230});
     } else {
-        active_w = (w - needle_off) > 0 ? (w - needle_off) : w;
-        active_start_off = (w - needle_off) > 0 ? needle_off : 0;
+        graph_ink(g, (ACColor){240, 80, 80, 220});
     }
-
-    if (copy && want_len > 0 && active_w > 0) {
-        int amp = (int)((double)h * 0.45);
-        if (amp < 1) amp = 1;
-        double samples_per_col = (double)want_len / (double)active_w;
-
-        for (int col = 0; col < active_w; col++) {
-            // Distance from the needle (0 = adjacent to needle = newest sample).
-            int dist_from_needle = !reverse ? (active_w - 1 - col) : col;
-            // Map dist→sample range: dist 0 ⇢ samples near want_len-1 (newest),
-            // dist active_w-1 ⇢ samples near 0 (oldest).
-            int i1 = want_len - (int)((double)dist_from_needle       * samples_per_col);
-            int i0 = want_len - (int)((double)(dist_from_needle + 1) * samples_per_col);
-            if (i0 < 0)        i0 = 0;
-            if (i1 > want_len) i1 = want_len;
-            if (i1 <= i0)      continue;
-
-            float peak = 0.0f;
-            for (int i = i0; i < i1; i++) {
-                float a = copy[i];
-                if (a < 0) a = -a;
-                if (a > peak) peak = a;
-            }
-            if (peak > 1.0f) peak = 1.0f;
-            int bar_h = (int)(peak * (float)amp + 0.5f);
-            if (bar_h < 1) bar_h = 1;
-            int r  = 120 + (int)(peak * 140.0f + 0.5f);          if (r  > 255) r  = 255;
-            int gc = 120 + (int)(peak *  80.0f + 0.5f);          if (gc > 255) gc = 255;
-            int b  =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b  > 255) b  = 255;
-            graph_ink(g, (ACColor){(uint8_t)r, (uint8_t)gc, (uint8_t)b, 220});
-            int draw_x = x + active_start_off + col;
-            graph_line(g, draw_x, midY - bar_h, draw_x, midY + bar_h);
-        }
-    }
-    if (copy) free(copy);
-
-    // Playhead needle — draw last so it sits on top of the bars.
-    graph_ink(g, (ACColor){240, 80, 80, 220});
     graph_line(g, needle_x, y, needle_x, y + h - 1);
 
     g->ink = saved;
