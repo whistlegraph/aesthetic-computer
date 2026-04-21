@@ -558,13 +558,18 @@ async function boot(
 
       // Pieces inheriting chat.mjs (e.g. aa.mjs) may pass a custom submit
       // handler so they can route the typed text somewhere other than the
-      // chat-system server. If provided, it owns the send.
+      // chat-system server. If provided, it owns the send. Fire-and-forget
+      // so that awaiting the submit callback (and thus TextInput.run →
+      // deactivate) doesn't block on async handlers like aa.mjs's SSE
+      // stream — otherwise the input panel stays "live" the whole reply.
       if (options?.submitHandler) {
-        try {
-          await options.submitHandler(text, { token, sub: user?.sub, font: userSelectedFont });
-        } catch (err) {
-          console.error("submitHandler failed:", err);
-        }
+        Promise.resolve(
+          options.submitHandler(text, {
+            token,
+            sub: user?.sub,
+            font: userSelectedFont,
+          }),
+        ).catch((err) => console.error("submitHandler failed:", err));
       } else {
         const currentHandle = handle();
         if (!currentHandle) {

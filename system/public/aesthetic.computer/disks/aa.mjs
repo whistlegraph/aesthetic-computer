@@ -164,10 +164,11 @@ function meta() {
 
 function pushMessage(from, text, { sound = false } = {}) {
   const msg = { from, text, id: nextId(), sub: from };
+  // Render log/system messages in the smaller MatrixChunky8 font so they
+  // feel like unobtrusive chrome, not loud chat turns.
+  if (from === "log") msg.font = "MatrixChunky8";
   client.system.messages.push(msg);
   if (client.system.messages.length > 500) client.system.messages.shift();
-  // chat.mjs's receiver hook sets `messagesNeedLayout = true` whenever
-  // extra.layoutChanged is set; type === "message" also plays the SFX.
   client.system.receiver?.(
     msg.id,
     sound ? "message" : "layout-only",
@@ -179,6 +180,13 @@ function pushMessage(from, text, { sound = false } = {}) {
 
 function pushSystem(text) {
   return pushMessage("log", text);
+}
+
+function removeMessage(msg) {
+  if (!msg) return;
+  const idx = client.system.messages.indexOf(msg);
+  if (idx !== -1) client.system.messages.splice(idx, 1);
+  client.system.receiver?.(nextId(), "layout-only", null, { layoutChanged: true });
 }
 
 function invalidate() {
@@ -206,42 +214,36 @@ async function loadHistory() {
     const data = await res.json();
     const events = Array.isArray(data?.events) ? data.events : [];
     let count = 0;
-    for (const ev of events) count += renderClaudeEvent(ev, { fromHistory: true });
+    for (const ev of events) count += renderClaudeEvent(ev);
     if (count) pushSystem(`loaded ${count} prior ${count === 1 ? "message" : "messages"}.`);
   } catch (err) {
     pushSystem(`history fetch failed: ${err.message}`);
   }
 }
 
-// Render one claude transcript event (from live stream or saved history)
-// as zero or more chat messages. Returns the number of messages produced.
-function renderClaudeEvent(ev, { fromHistory = false } = {}) {
+// Render one claude transcript event (used for history replay only — live
+// streaming accumulates into pendingText in sendToBridge). Keeps the
+// rendered history at "basic chat" level: user prompts ↔ assistant text.
+// tool_use / tool_result / thinking blocks are intentionally skipped.
+function renderClaudeEvent(ev) {
   if (!ev || typeof ev !== "object") return 0;
   let produced = 0;
   if (ev.type === "assistant" && ev.message?.content) {
     for (const b of ev.message.content) {
       if (b.type === "text" && b.text) {
-        pushMessage("@aa", b.text, { sound: !fromHistory });
-        produced++;
-      } else if (b.type === "tool_use") {
-        pushMessage("log", `→ ${b.name} ${summarizeInput(b.input)}`);
+        pushMessage("@aa", b.text);
         produced++;
       }
     }
   } else if (ev.type === "user" && ev.message?.content) {
     const c = ev.message.content;
-    // History format: user content is usually a plain string (the prompt).
+    const me = userHandleRef?.() || "@jeffrey";
     if (typeof c === "string") {
-      const me = userHandleRef?.() || "@jeffrey";
       pushMessage(me, c);
       produced++;
     } else if (Array.isArray(c)) {
       for (const b of c) {
-        if (b.type === "tool_result") {
-          const t = stringifyResult(b.content);
-          if (t) { pushMessage("log", truncate(t, 600)); produced++; }
-        } else if (b.type === "text" && b.text) {
-          const me = userHandleRef?.() || "@jeffrey";
+        if (b.type === "text" && b.text) {
           pushMessage(me, b.text);
           produced++;
         }
@@ -259,6 +261,9 @@ async function sendToBridge(text) {
   pending = true;
   abortCtrl = new AbortController();
 
+  // One unobtrusive placeholder while streaming. Removed on done/error so the
+  // chat stays at the "basic chat" level — no tool traces, no stderr spam.
+  const thinkingMsg = pushMessage("log", "thinking…");
   let pendingText = "";
 
   try {
@@ -273,6 +278,12 @@ async function sendToBridge(text) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => `${res.status}`);
+      removeMessage(thinkingMsg);
+      if (res.status === 401 || res.status === 403) {
+        isAdmin = false;
+        token = null;
+        setStatus(res.status === 403 ? "forbidden" : "unauth");
+      }
       pushSystem(`! ${res.status}: ${body.slice(0, 200)}`);
       return;
     }
@@ -295,39 +306,31 @@ async function sendToBridge(text) {
           const ev = evt.data;
           if (ev.type === "assistant" && ev.message?.content) {
             for (const b of ev.message.content) {
-              if (b.type === "text" && b.text) {
-                pendingText += b.text;
-              } else if (b.type === "tool_use") {
-                pushMessage("log", `→ ${b.name} ${summarizeInput(b.input)}`);
-              }
-            }
-          } else if (ev.type === "user" && ev.message?.content) {
-            for (const b of ev.message.content) {
-              if (b.type === "tool_result") {
-                const t = stringifyResult(b.content);
-                if (t) pushMessage("log", truncate(t, 600));
-              }
+              if (b.type === "text" && b.text) pendingText += b.text;
+              // tool_use / thinking / other blocks deliberately suppressed
             }
           } else if (ev.type === "result" && ev.result) {
             pendingText = ev.result;
           }
-        } else if (evt.event === "stderr") {
-          const t = (evt.data.text || "").trim();
-          if (t && !t.startsWith("Warning:")) pushMessage("log", t);
+          // tool_result (in user events) also suppressed
         } else if (evt.event === "error") {
           pushMessage("log", `! ${evt.data.message || "error"}`);
         } else if (evt.event === "done") {
+          removeMessage(thinkingMsg);
           if (pendingText) {
             pushMessage("@aa", pendingText, { sound: true });
             pendingText = "";
           }
         }
+        // stderr events ignored — bridge warnings are not user-facing
       }
     }
   } catch (err) {
+    removeMessage(thinkingMsg);
     if (err.name === "AbortError") pushSystem("cancelled.");
     else pushSystem(`error: ${err.message}`);
   } finally {
+    removeMessage(thinkingMsg); // idempotent — no-op if already removed
     pending = false;
     abortCtrl = null;
   }
@@ -344,28 +347,6 @@ function parseSSE(block) {
   }
   if (!data) return null;
   try { return { event, data: JSON.parse(data) }; } catch { return null; }
-}
-
-function summarizeInput(input) {
-  if (!input) return "";
-  if (typeof input === "string") return truncate(input, 80);
-  const k = input.command || input.file_path || input.path || input.pattern || input.query || input.url;
-  if (k) return truncate(String(k), 80);
-  return truncate(JSON.stringify(input), 80);
-}
-
-function stringifyResult(content) {
-  if (!content) return "";
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((c) => (typeof c === "string" ? c : c?.text || "")).filter(Boolean).join("\n");
-  }
-  return String(content);
-}
-
-function truncate(s, n) {
-  s = String(s);
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
 export { boot, paint, act, sim, leave, meta };
