@@ -14623,7 +14623,7 @@ async function makeFrame({ data: { type, content } }) {
         // Flush with the left edge of the screen; extend right past the text with a
         // small padding so the tap area isn't uncomfortably tight.
         const textStartX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
-        const rightPad = Math.max(4, Math.round(hudBlockWidth));
+        const rightPad = Math.max(6, Math.round(hudBlockWidth * 1.5));
         currentHUDButton.box.x = 0;
         currentHUDButton.box.y = 0;
         currentHUDButton.box.w = Math.max(
