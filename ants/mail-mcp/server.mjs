@@ -1,18 +1,34 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { execFile as execFileCb, spawn as spawnCb } from "node:child_process";
+import { execFile as execFileCb, spawn as spawnCb, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { access, readFile, stat } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { homedir } from "node:os";
 
 const execFile = promisify(execFileCb);
 
-const MU = "/usr/bin/mu";
-const MBSYNC = "/usr/bin/mbsync";
-const MSMTP = "/usr/bin/msmtp";
-const MAILDIR = "/home/me/.mail-all";
-const MU_DB = "/home/me/.cache/mu/xapian";
+function resolveBin(name, fallbacks) {
+  if (process.env[`AC_MAIL_${name.toUpperCase()}`]) {
+    return process.env[`AC_MAIL_${name.toUpperCase()}`];
+  }
+  try {
+    return execFileSync("which", [name], { encoding: "utf8" }).trim() || fallbacks[0];
+  } catch {
+    for (const p of fallbacks) {
+      try { execFileSync("test", ["-x", p]); return p; } catch {}
+    }
+    return name;
+  }
+}
+
+const HOME = homedir();
+const MU = resolveBin("mu", ["/opt/homebrew/bin/mu", "/usr/bin/mu"]);
+const MBSYNC = resolveBin("mbsync", ["/opt/homebrew/bin/mbsync", "/usr/bin/mbsync"]);
+const MSMTP = resolveBin("msmtp", ["/opt/homebrew/bin/msmtp", "/usr/bin/msmtp"]);
+const MAILDIR = process.env.AC_MAIL_MAILDIR || join(HOME, ".mail-all");
+const MU_DB = process.env.AC_MAIL_MU_DB || join(HOME, ".cache", "mu", "xapian");
 const ACCOUNTS = {
   "ac-mail": "mail@aesthetic.computer",
   "jas-mail": "me@jas.life",
@@ -233,24 +249,35 @@ server.tool(
 // --- mail_inbox ---
 server.tool(
   "mail_inbox",
-  "List recent inbox messages sorted by date descending",
+  "List recent inbox messages sorted by date descending. Default covers both accounts; pass account='ac-mail' or 'jas-mail' to filter.",
   {
     count: z
       .number()
       .optional()
       .default(20)
       .describe("Number of messages to return (default 20)"),
+    account: z
+      .enum(["ac-mail", "jas-mail", "all"])
+      .optional()
+      .default("all")
+      .describe("Which account inbox to list (default all)"),
   },
-  async ({ count }) => {
+  async ({ count, account }) => {
     try {
       await ensureMuIndex();
+      const query =
+        account === "ac-mail"
+          ? "maildir:/ac-mail/INBOX"
+          : account === "jas-mail"
+            ? "maildir:/jas-mail/INBOX"
+            : "(maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX)";
       const { stdout } = await run(MU, [
         "find",
         "--format=json",
         "--sortfield=date",
         "--reverse",
         `--maxnum=${count}`,
-        "maildir:/INBOX",
+        query,
       ]);
       return { content: [{ type: "text", text: stdout || "Inbox is empty." }] };
     } catch (err) {
@@ -400,7 +427,7 @@ server.tool(
 // --- mail_count ---
 server.tool(
   "mail_count",
-  "Return count of unread messages",
+  "Return count of unread inbox messages (both accounts, avoids Gmail All Mail duplication)",
   {},
   async () => {
     try {
@@ -409,7 +436,7 @@ server.tool(
         "find",
         "--format=plain",
         "--fields=l",
-        "flag:unread",
+        "flag:unread AND (maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX)",
       ]);
       const count = stdout ? stdout.split("\n").filter(Boolean).length : 0;
       return {
