@@ -3056,35 +3056,69 @@ function act({ event: e, sound, wifi, system }) {
           }, system, 1);
         } else {
           // Shift modifiers — per-instrument alternate sound recipes.
-          //   harp   + shift → short staccato pluck (tight stretch in C)
-          //   whistle+ shift → "blow" — whistle plus a noise layer for
-          //                    breathy/airy character
+          // The global outline around the screen is the mode indicator;
+          // each wave kit layers a complementary voice (or swaps params)
+          // so "shift" reads sonically as "brighter / thicker / alternate"
+          // rather than just boosted velocity.
+          //
+          //   sine     + shift → +octave bell ring at 30% volume
+          //   triangle + shift → +perfect 5th (tone × 1.5) at 25%
+          //   sawtooth + shift → detuned super-saw (offset +7 Hz) at 40%
+          //   square   + shift → noise "grit" layer at 2× pitch, low vol
+          //   harp     + shift → short staccato pluck (tight stretch in C)
+          //   whistle  + shift → breathy "blow" — whistle + noise @ 4×
+          //
+          // Alternates release together with the primary voice via
+          // compositeVoices bookkeeping so key-up kills everything.
           const isShortPluck = wave === "harp" && shiftHeld;
-          const isMessyBlow  = wave === "whistle" && shiftHeld;
           synth = sound.synth({
             type: wave, tone: playFreq,
             duration: isShortPluck ? 0.4 : Infinity,
-            volume: isMessyBlow ? 0.42 : 0.5,
+            volume: shiftHeld && !isShortPluck ? 0.42 : 0.5,
             attack: currentAttack(),
             decay: isShortPluck ? 0.1 : currentDecay(),
             pan,
           });
-          if (isMessyBlow) {
-            // Noise layer riding two octaves above the whistle — reads as
-            // breath passing across the whistle mouth. Volume stays low
-            // so the pitched tone still dominates; releases with the
-            // main voice via compositeVoices bookkeeping below.
-            const blow = sound.synth({
-              type: "noise", tone: playFreq * 4,
-              duration: Infinity,
-              volume: 0.18,
-              attack: Math.max(0.02, currentAttack()),
-              decay: currentDecay(),
-              pan,
-            });
+          // Layer the per-wave Shift alternate if applicable.
+          const alts = [synth];
+          if (shiftHeld && !isShortPluck) {
+            const atk = currentAttack(), dcy = currentDecay();
+            if (wave === "sine") {
+              alts.push(sound.synth({
+                type: "sine", tone: playFreq * 2,
+                duration: Infinity, volume: 0.15,
+                attack: atk * 1.5, decay: dcy, pan,
+              }));
+            } else if (wave === "triangle") {
+              alts.push(sound.synth({
+                type: "triangle", tone: playFreq * 1.5,
+                duration: Infinity, volume: 0.12,
+                attack: atk, decay: dcy, pan,
+              }));
+            } else if (wave === "sawtooth") {
+              alts.push(sound.synth({
+                type: "sawtooth", tone: playFreq + 7,
+                duration: Infinity, volume: 0.20,
+                attack: atk, decay: dcy, pan,
+              }));
+            } else if (wave === "square") {
+              alts.push(sound.synth({
+                type: "noise", tone: playFreq * 2,
+                duration: Infinity, volume: 0.08,
+                attack: Math.max(0.01, atk), decay: dcy, pan,
+              }));
+            } else if (wave === "whistle") {
+              alts.push(sound.synth({
+                type: "noise", tone: playFreq * 4,
+                duration: Infinity, volume: 0.18,
+                attack: Math.max(0.02, atk), decay: dcy, pan,
+              }));
+            }
+          }
+          if (alts.length > 1) {
             rememberSound(hitNote.key, {
               synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
-              compositeVoices: [synth, blow],
+              compositeVoices: alts,
             }, system, 1);
           } else {
             rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
