@@ -5879,6 +5879,13 @@ function paint($) {
         commitBtn.reposition({ center: "x", y: buttonY, screen }, commitText);
         commitBtn.btn.disabled = false;
       }
+      // TextButtonSmall sizes w as text.length * 4; MatrixChunky8 is proportional
+      // so spaces/parens overshoot. Tighten to the real rendered width and recenter.
+      const commitTextWidth = $.text.box(
+        commitText, undefined, undefined, undefined, undefined, "MatrixChunky8",
+      ).box.width;
+      commitBtn.btn.box.w = commitTextWidth + 4; // padL + padR
+      commitBtn.btn.box.x = Math.floor((screen.width - commitBtn.btn.box.w) / 2);
       const cBox = commitBtn.btn.box;
       if (cBox) {
         const isHover = commitBtn.btn.over && !commitBtn.btn.down;
@@ -5934,6 +5941,7 @@ function paint($) {
         // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
         // so 8 spaces (x+18) leaves a 3px gap after the frame.
         const notepatLabel = "        notepat";
+<<<<<<< Updated upstream
         // TextButtonSmall sizes the box as label.length * 4, but MatrixChunky8
         // is proportional (spaces advance only 2px), so the button overshoots.
         // Measure the actual rendered width and tighten the box below.
@@ -5955,6 +5963,9 @@ function paint($) {
         const notepatPos = stackVertically
           ? { center: "x", y: buttonY - notepatHeight - stackedGap, screen }
           : { x: cBox.x + cBox.w + pairGap, y: buttonY };
+=======
+        const notepatX = cBox.x + cBox.w + 4;
+>>>>>>> Stashed changes
         if (!notepatBtn) {
           notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
         } else {
