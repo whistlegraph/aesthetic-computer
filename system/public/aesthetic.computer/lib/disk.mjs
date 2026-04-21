@@ -11792,6 +11792,7 @@ async function makeFrame({ data: { type, content } }) {
           system !== "world" &&
           currentText !== "chat" &&
           currentText !== "laer-klokken" &&
+          currentText !== "aa" &&
           currentText !== "sign" &&
           currentText !== "jas" &&
           currentPath !== "aesthetic.computer/disks/prompt"
