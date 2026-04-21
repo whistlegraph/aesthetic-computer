@@ -524,11 +524,6 @@ const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
 const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
 
-// OS bar — thin strip below the secondary bar for the "x86 os" button
-const OS_BAR_TOP = SECONDARY_BAR_BOTTOM;
-const OS_BAR_HEIGHT = 12;
-const OS_BAR_BOTTOM = OS_BAR_TOP + OS_BAR_HEIGHT;
-
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
 const TOGGLE_BTN_GAP = 3; // At least 1px visible gap between buttons
@@ -676,18 +671,20 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 function getTopBarPianoMetrics(screen) {
   const topPianoY = 3;
   const topPianoHeight = 15;
-  // Push piano right when .com superscript is shown to avoid overlap with HUD label
-  const topPianoStartX = dotComMode ? 75 : 54;
-  // Cap the piano's right edge at the leftmost top-bar button (os/m4l/wave/oct)
-  // so keys never slide under the button strip on narrow screens.
-  const leftmostButtonX = Math.min(
-    osBtn?.box?.x ?? Infinity,
-    abletonBtn?.box?.x ?? Infinity,
+  // Piano begins after the m4l/os buttons (which sit right of notepat.com).
+  const leftSideEnd = Math.max(
+    abletonBtn?.box ? abletonBtn.box.x + abletonBtn.box.w : 0,
+    osBtn?.box ? osBtn.box.x + osBtn.box.w : 0,
+  );
+  const defaultPianoStart = dotComMode ? 75 : 54;
+  const topPianoStartX = Math.max(defaultPianoStart, leftSideEnd + 3);
+  // Cap the piano's right edge at the leftmost right-side button (wave/oct).
+  const leftmostRightButtonX = Math.min(
     waveBtn?.box?.x ?? Infinity,
     octBtn?.box?.x ?? Infinity,
   );
-  const rightEdge = Number.isFinite(leftmostButtonX)
-    ? leftmostButtonX - 3
+  const rightEdge = Number.isFinite(leftmostRightButtonX)
+    ? leftmostRightButtonX - 3
     : screen.width;
   const availableWidth = Math.max(0, rightEdge - topPianoStartX);
 
@@ -1080,15 +1077,6 @@ let kidlispBackground = null; // e.g. "$roz" — the $code to render behind the 
 let kidlispBgEnabled = false;
 
 const trail = {};
-
-// 🎹 Piano roll history - pixel timeline of held notes
-const PIANO_ROLL_WIDTH = 400; // pixels of history (larger buffer for more context)
-const PIANO_ROLL_SCROLL_DIVISOR = 2; // Only scroll every N frames (lower = faster scrolling)
-let pianoRollFrameCounter = 0; // Frame counter for scroll timing
-let pianoRollScrollPosition = 0; // Total pixels scrolled (for beat marker sync)
-const pianoRollHistory = buttonNotes.map(() => new Uint8Array(PIANO_ROLL_WIDTH)); // 1 row per note, 0=off, 1=on
-// 🥁 Beat marker history - 0=no beat, 1=regular beat, 2=downbeat (every 4)
-const pianoRollBeatHistory = new Uint8Array(PIANO_ROLL_WIDTH);
 
 // 🔬 Telemetry: Expose trail for stability testing
 if (typeof window !== 'undefined') {
@@ -1822,12 +1810,9 @@ function sim({ sound, simCount, num, clock, painting }) {
       metronomeVisualPhase = 1.0; // Flash on beat
       metronomeFlash = 1.0; // Trigger peripheral screen flash
       
-      // 🥁 Record beat in piano roll history (downbeat=2, regular=1)
-      const isDownbeat = (beatNumber % 4) === 0;
-      pianoRollBeatHistory[PIANO_ROLL_WIDTH - 1] = isDownbeat ? 2 : 1;
-      
       // Play metronome click sound
       // Accent on beat 1 of each measure (every 4 beats)
+      const isDownbeat = (beatNumber % 4) === 0;
       const clickFreq = isDownbeat ? 1200 : 800; // Higher pitch for downbeat
       const clickVol = isDownbeat ? 0.4 : 0.25;
       
@@ -2138,7 +2123,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     (qKeyWidth + qKeySpacing);
   const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
 
-  let pianoY = OS_BAR_BOTTOM;
+  let pianoY = SECONDARY_BAR_BOTTOM;
   let pianoStartX = 58;
   const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
   const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
@@ -2155,7 +2140,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
     const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
     pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
     
     // Check if rotated piano fits horizontally (x + width within screen)
     const pianoRight = pianoStartX + rotatedPianoWidth;
@@ -2199,7 +2184,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || SECONDARY_BAR_BOTTOM;
     
     // Check if piano fits horizontally
     const pianoRight = pianoStartX + pianoWidth;
@@ -2237,7 +2222,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   }
 
   if (isCompact) {
-    pianoY = OS_BAR_BOTTOM + 2;
+    pianoY = SECONDARY_BAR_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
       // Piano doesn't fit - hide it but still compute QWERTY position for center
@@ -2264,7 +2249,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const maxX = Math.max(minX, centerRight - pianoWidth);
     pianoStartX = clamp(idealX, minX, maxX);
   } else if (song) {
-    const effectiveTrackY = trackY ?? OS_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? SECONDARY_BAR_BOTTOM;
     pianoY = effectiveTrackY + (trackHeight || 0) + 2;
     pianoStartX = effectiveWidth - pianoWidth - 2;
   } else {
@@ -2518,7 +2503,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = OS_BAR_BOTTOM;
+    const hudReserved = SECONDARY_BAR_BOTTOM;
     
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
@@ -2658,7 +2643,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = OS_BAR_BOTTOM;
+  const hudReserved = SECONDARY_BAR_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const baseReservedTop = hudReserved + trackHeight + trackSpacing;
@@ -2679,7 +2664,7 @@ function getButtonLayoutMetrics(
   // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
   const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
   const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
-  const availableHeightForRotated = screen.height - OS_BAR_BOTTOM - 4; // Leave some margin
+  const availableHeightForRotated = screen.height - SECONDARY_BAR_BOTTOM - 4; // Leave some margin
   // Only show rotated piano if ALL keys fit vertically
   const narrowVerticalSpace = !horizontalSpaceForMini && 
     usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
@@ -3121,7 +3106,7 @@ function paint({
     wipe(0, 0, 0, 0);
   } else if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
-    const klY = OS_BAR_BOTTOM;
+    const klY = SECONDARY_BAR_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
     const klH = klBottom - klY;
     if (klH > 10) {
@@ -3399,7 +3384,7 @@ function paint({
     // 🎚️ Room parameter bar - appears when room mode is enabled
     if (roomMode && roomBtn?.box) {
       const barHeight = 6;
-      const barY = OS_BAR_BOTTOM + 2;
+      const barY = SECONDARY_BAR_BOTTOM + 2;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
       const fillWidth = Math.floor(barWidth * roomAmount);
@@ -3706,7 +3691,7 @@ function paint({
   // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
   const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
   const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showHorizontalTrack ? OS_BAR_BOTTOM : null;
+  const trackY = showHorizontalTrack ? SECONDARY_BAR_BOTTOM : null;
 
 
   if (showHorizontalTrack) {
@@ -5176,7 +5161,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(OS_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(SECONDARY_BAR_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -5227,283 +5212,6 @@ function paint({
     const totalEst = perfStats.avgLatency + perfStats.baseLatency + perfStats.outputLatency;
     const totalStr = totalEst > 0 ? `~${totalEst.toFixed(1)}ms` : "--";
     writeRow("white", `TOTAL EST: ${totalStr}`);
-  }
-
-  // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
-  // Can be horizontal (bottom-right) or vertical (center/right side based on layout)
-  // In single-column portrait mode, skip the horizontal piano roll entirely
-  if (!paintPictureOverlay && !projector && !recitalMode) {
-    const noteCount = buttonNotes.length; // 24 notes
-    
-    // Increment frame counter and check if we should scroll this frame
-    pianoRollFrameCounter = (pianoRollFrameCounter + 1) % PIANO_ROLL_SCROLL_DIVISOR;
-    const shouldScrollPianoRoll = pianoRollFrameCounter === 0;
-    
-    // Determine if we should use vertical layout based on available space
-    // In landscape mode, always prefer vertical roll on the right side
-    const isLandscapeScreen = screen.width > screen.height;
-    const useVerticalRoll = layout.splitLayout || layout.verticalTrack || isLandscapeScreen;
-    
-    // In single-column mode (non-split, portrait), hide piano roll entirely
-    const isSingleColumnPortrait = !layout.splitLayout && !isLandscapeScreen;
-    
-    if (useVerticalRoll) {
-      // 🎹 VERTICAL Piano Roll - time flows downward, notes spread horizontally
-      // Position: center of split layout, or right of single column
-      let rollX, rollY, rollW, rollH;
-      let skipRoll = false;
-      
-      if (layout.splitLayout) {
-        // In split layout: ONLY draw in center area, never on right side
-        if (layout.centerAreaWidth > noteCount + 4) {
-          // Expand to fill center area width
-          rollW = Math.max(noteCount, layout.centerAreaWidth - 8);
-          rollH = Math.min(PIANO_ROLL_WIDTH, layout.verticalTrackHeight || (screen.height - layout.hudReserved - layout.bottomPadding - 4));
-          rollX = layout.centerX + Math.floor((layout.centerAreaWidth - rollW) / 2);
-          rollY = layout.hudReserved + 2;
-        } else {
-          // Not enough space in center - skip drawing entirely in split mode
-          skipRoll = true;
-        }
-      } else if (layout.verticalTrack) {
-        // Single column with vertical track space
-        rollW = Math.min(noteCount, layout.verticalTrackWidth || 36);
-        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - layout.hudReserved - layout.bottomPadding - 4);
-        rollX = layout.verticalTrackX || (screen.width - rollW - 2);
-        rollY = layout.verticalTrackY || layout.hudReserved + 2;
-      } else {
-        // Fallback for landscape: right side vertical roll
-        // Calculate available space on the right of the button grid
-        const gridWidth = layout.buttonsPerRow * layout.buttonWidth;
-        const availableRight = screen.width - gridWidth - layout.margin * 3;
-        rollW = Math.min(noteCount, Math.max(24, availableRight));
-        rollH = Math.min(PIANO_ROLL_WIDTH, screen.height - (layout.hudReserved || 34) - (layout.bottomPadding || 2) - 4);
-        rollX = screen.width - rollW - 2;
-        rollY = (layout.hudReserved || 34) + 2;
-      }
-      
-      // Skip all drawing if there's no space (split mode with narrow center)
-      if (skipRoll) {
-        // Still update history even when not drawing
-        if (shouldScrollPianoRoll) {
-          pianoRollScrollPosition++;
-          for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
-            pianoRollBeatHistory[y] = pianoRollBeatHistory[y + 1];
-          }
-          pianoRollBeatHistory[PIANO_ROLL_WIDTH - 1] = 0;
-          for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-            const row = pianoRollHistory[noteIdx];
-            for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
-              row[y] = row[y + 1];
-            }
-            const note = buttonNotes[noteIdx];
-            row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
-          }
-        } else {
-          for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-            const note = buttonNotes[noteIdx];
-            if (sounds[note] !== undefined) {
-              pianoRollHistory[noteIdx][PIANO_ROLL_WIDTH - 1] = 1;
-            }
-          }
-        }
-      } else {
-      // Update history: shift all rows up, add current state at bottom
-      // Only scroll on designated frames for slower movement
-      if (shouldScrollPianoRoll) {
-        pianoRollScrollPosition++; // Track total scroll for beat marker sync
-        
-        // Shift beat history
-        for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
-          pianoRollBeatHistory[y] = pianoRollBeatHistory[y + 1];
-        }
-        pianoRollBeatHistory[PIANO_ROLL_WIDTH - 1] = 0; // Clear newest slot (will be set by metronome tick)
-        
-        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-          const row = pianoRollHistory[noteIdx];
-          // Shift up by 1 pixel (older history moves toward index 0)
-          for (let y = 0; y < PIANO_ROLL_WIDTH - 1; y++) {
-            row[y] = row[y + 1];
-          }
-          // Set bottom pixel based on current note state
-          const note = buttonNotes[noteIdx];
-          row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
-        }
-      } else {
-        // Even when not scrolling, update the current pixel to reflect held notes
-        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-          const note = buttonNotes[noteIdx];
-          if (sounds[note] !== undefined) {
-            pianoRollHistory[noteIdx][PIANO_ROLL_WIDTH - 1] = 1;
-          }
-        }
-      }
-      
-      // 🎹 Draw mini piano keys above the track to show note relationship
-      const miniKeyH = 4; // Height of mini piano keys
-      const pianoY = rollY; // Piano at top of roll area
-      const trackStartY = rollY + miniKeyH + 1; // Track starts below piano
-      const actualRollH = rollH - miniKeyH - 1; // Adjust roll height for piano
-      
-      // Calculate note width to fill the available roll width
-      const noteWidth = Math.max(1, Math.floor(rollW / noteCount));
-      const actualNoteAreaW = noteWidth * noteCount; // Actual width used by notes
-      const noteAreaX = rollX + Math.floor((rollW - actualNoteAreaW) / 2); // Center notes in roll
-      
-      // Draw subtle background for the whole area
-      ink(10, 10, 15, 180).box(rollX, rollY, rollW, rollH);
-      
-      // Draw mini piano keys at the top (white keys full color, black keys lighter)
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const note = buttonNotes[noteIdx];
-        const x = noteAreaX + noteIdx * noteWidth;
-        const baseColor = getCachedColor(note, num);
-        const isActive = sounds[note] !== undefined;
-        const isBlack = note.includes('#');
-        
-        if (isBlack) {
-          // Black keys: lighter version (0.55 instead of 0.3 for better visibility)
-          const lite = [Math.floor(baseColor[0] * 0.55), Math.floor(baseColor[1] * 0.55), Math.floor(baseColor[2] * 0.55)];
-          ink(lite[0], lite[1], lite[2], isActive ? 255 : 200).box(x, pianoY, noteWidth, miniKeyH);
-        } else {
-          // White keys: full or slightly dimmed
-          ink(baseColor[0], baseColor[1], baseColor[2], isActive ? 255 : 140).box(x, pianoY, noteWidth, miniKeyH);
-        }
-        // Flash bright when active
-        if (isActive) {
-          ink(255, 255, 255, 120).box(x, pianoY, noteWidth, miniKeyH);
-        }
-      }
-      
-      // 🎨 Draw colored "groove" indicators - full height desaturated note colors
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const note = buttonNotes[noteIdx];
-        const x = noteAreaX + noteIdx * noteWidth;
-        const baseColor = getCachedColor(note, num);
-        // Desaturate: blend toward gray (reduce saturation by ~70%)
-        const gray = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
-        const desat = [
-          Math.round(baseColor[0] * 0.3 + gray * 0.7),
-          Math.round(baseColor[1] * 0.3 + gray * 0.7),
-          Math.round(baseColor[2] * 0.3 + gray * 0.7),
-        ];
-        // Full height groove for each note lane
-        ink(desat[0], desat[1], desat[2], 35).box(x, trackStartY, noteWidth, actualRollH);
-      }
-      
-      // Draw each pixel - vertical layout (time = Y axis, notes = X axis)
-      // Optimized: pre-calculate base offset and skip empty pixels efficiently
-      const histBaseIdx = PIANO_ROLL_WIDTH - actualRollH;
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const row = pianoRollHistory[noteIdx];
-        const x = noteAreaX + noteIdx * noteWidth;
-        // Cache color once per note column
-        const baseColor = getCachedColor(buttonNotes[noteIdx], num);
-        const r = baseColor[0], g = baseColor[1], b = baseColor[2];
-        
-        // Only iterate if this note has any history
-        for (let yOff = 0; yOff < actualRollH; yOff++) {
-          if (row[histBaseIdx + yOff]) {
-            // Fade older notes (top = older) - simplified alpha calc
-            const alpha = Math.max(80, 255 - ((actualRollH - yOff) << 1));
-            ink(r, g, b, alpha).box(x, trackStartY + yOff, noteWidth, 1);
-          }
-        }
-      }
-      
-      // Draw subtle grid lines for octave separation (vertical lines at note 12)
-      ink(40, 40, 50, 100).line(noteAreaX + 12 * noteWidth, trackStartY, noteAreaX + 12 * noteWidth, trackStartY + actualRollH - 1);
-      
-      // 🥁 Draw horizontal beat markers from recorded history
-      // These are actual metronome beats, not calculated intervals
-      // (reuse histBaseIdx from above)
-      for (let yOff = 0; yOff < actualRollH; yOff++) {
-        const beatValue = pianoRollBeatHistory[histBaseIdx + yOff];
-        if (beatValue > 0) {
-          const lineY = trackStartY + yOff;
-          const isDownbeat = beatValue === 2;
-          // Current beat (at bottom) blinks
-          const isCurrentBeat = yOff === actualRollH - 1 && beatValue > 0;
-          const blinkAlpha = isCurrentBeat ? Math.floor(140 + Math.sin(metronomeVisualPhase * Math.PI * 2) * 80) : 0;
-          const baseAlpha = isDownbeat ? 120 : 55;
-          const alpha = isCurrentBeat ? Math.max(blinkAlpha, baseAlpha) : baseAlpha;
-          const color = isDownbeat ? [140, 160, 200] : [90, 100, 130];
-          ink(color[0], color[1], color[2], alpha).line(rollX, lineY, rollX + rollW - 1, lineY);
-        }
-      }
-      } // End of skipRoll else block
-      
-    } else if (!isSingleColumnPortrait) {
-      // 🎹 HORIZONTAL Piano Roll (original) - time flows left-to-right, notes stacked vertically
-      // Skip in single-column portrait mode to avoid cluttering the compact layout
-      const rollHeight = noteCount;
-      const rollWidth = Math.min(PIANO_ROLL_WIDTH, screen.width);
-      const rollY = screen.height - rollHeight - 1;
-      const rollX = screen.width - rollWidth;
-      
-      // Update history: shift all columns left, add current state on right
-      // Only scroll on designated frames for slower movement
-      if (shouldScrollPianoRoll) {
-        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-          const row = pianoRollHistory[noteIdx];
-          // Shift left by 1 pixel
-          for (let x = 0; x < PIANO_ROLL_WIDTH - 1; x++) {
-            row[x] = row[x + 1];
-          }
-          // Set rightmost pixel based on current note state
-          const note = buttonNotes[noteIdx];
-          row[PIANO_ROLL_WIDTH - 1] = sounds[note] !== undefined ? 1 : 0;
-        }
-      } else {
-        // Even when not scrolling, update the current pixel to reflect held notes
-        for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-          const note = buttonNotes[noteIdx];
-          if (sounds[note] !== undefined) {
-            pianoRollHistory[noteIdx][PIANO_ROLL_WIDTH - 1] = 1;
-          }
-        }
-      }
-      
-      // Draw subtle background
-      ink(10, 10, 15, 180).box(rollX, rollY, rollWidth, rollHeight);
-      
-      // 🎨 Draw colored "groove" indicators - full length desaturated note colors
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const note = buttonNotes[noteIdx];
-        const y = rollY + noteIdx;
-        const baseColor = getCachedColor(note, num);
-        // Desaturate: blend toward gray
-        const gray = (baseColor[0] + baseColor[1] + baseColor[2]) / 3;
-        const desat = [
-          Math.round(baseColor[0] * 0.4 + gray * 0.6),
-          Math.round(baseColor[1] * 0.4 + gray * 0.6),
-          Math.round(baseColor[2] * 0.4 + gray * 0.6),
-        ];
-        // Full length groove for each note row
-        ink(desat[0], desat[1], desat[2], 40).box(rollX, y, rollWidth, 1);
-      }
-      
-      // Draw each pixel
-      for (let noteIdx = 0; noteIdx < noteCount; noteIdx++) {
-        const note = buttonNotes[noteIdx];
-        const row = pianoRollHistory[noteIdx];
-        const y = rollY + noteIdx;
-        const baseColor = getCachedColor(note, num);
-        
-        for (let x = 0; x < rollWidth; x++) {
-          const histIdx = PIANO_ROLL_WIDTH - rollWidth + x;
-          if (row[histIdx]) {
-            // Fade older notes slightly
-            const age = rollWidth - x;
-            const alpha = Math.max(80, 255 - age * 2);
-            ink(baseColor[0], baseColor[1], baseColor[2], alpha).box(rollX + x, y, 1, 1);
-          }
-        }
-      }
-      
-      // Draw subtle grid lines for octave separation
-      ink(40, 40, 50, 100).line(rollX, rollY + 12, rollX + rollWidth, rollY + 12);
-    }
   }
 
   // 🥁 Metronome pulse post-process (sharpen)
@@ -6069,6 +5777,7 @@ function act({
   screen,
   painting,
   api,
+  jump,
 }) {
   setSoundContext({ synth, play, freq, num });
   if (pendingAudioReinit && !audioReinitRequested && api?.send) {
@@ -6189,15 +5898,15 @@ function act({
   // Only in visualizer area (between piano end and waveBtn), not on piano keys
   if (e.is("touch") && e.y < TOP_BAR_BOTTOM && !projector && !paintPictureOverlay && !recitalMode) {
     // Check that tap is in the visualizer area (after piano, before waveBtn)
-    const topBarBase = dotComMode ? 75 : 54;
+    const leftSideEnd = Math.max(
+      abletonBtn?.box ? abletonBtn.box.x + abletonBtn.box.w : 0,
+      osBtn?.box ? osBtn.box.x + osBtn.box.w : 0,
+    );
+    const topBarBase = Math.max(dotComMode ? 75 : 54, leftSideEnd + 3);
     const topPianoWidth = Math.min(140, Math.floor((screen.width - topBarBase) * 0.5));
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
-    const vizRight = Math.min(
-      osBtn?.box?.x ?? Infinity,
-      abletonBtn?.box?.x ?? Infinity,
-      waveBtn?.box?.x ?? screen.width,
-    ) - 1;
+    const vizRight = (waveBtn?.box?.x ?? screen.width) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
       recitalMode = true;
       recitalBlinkPhase = 0;
@@ -6221,7 +5930,7 @@ function act({
     if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-      const trackY = showTrack ? OS_BAR_BOTTOM : null;
+      const trackY = showTrack ? SECONDARY_BAR_BOTTOM : null;
       const pianoGeometry = getMiniPianoGeometry({
         screen,
         layout,
@@ -7169,7 +6878,7 @@ function act({
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
     if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
-      const barY = OS_BAR_BOTTOM + 2;
+      const barY = SECONDARY_BAR_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
@@ -8268,24 +7977,26 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-// OS bar (m4l / os / drum) — dedicated row below the secondary bar so the
-// top bar stays uncluttered. Buttons are right-aligned and chain leftward;
-// when the screen is narrow they collapse widths/labels so they still fit.
-const OS_BAR_BTN_GAP = 3;
-const OS_BAR_RIGHT_MARGIN = 4;
+// Top-bar side buttons (m4l / os) — sit in the HUD row immediately right
+// of the "notepat.com" corner label. Buttons chain left-to-right so the
+// piano strip begins after the os button.
+const TOP_BAR_SIDE_BTN_GAP = 3;
+const TOP_BAR_SIDE_BTN_MARGIN = 3; // Gap between HUD label and first button
 
-function osBarButtonMetrics({ screen }) {
+function topBarSideButtonMetrics({ screen }) {
   const isNarrow = screen.width < 240;
   const isVeryNarrow = screen.width < 180;
   const padX = isVeryNarrow ? 2 : isNarrow ? 3 : 4;
   const glyph = 6;
+  const hudLabelEnd = dotComMode ? 75 : 54;
   return {
     isNarrow,
     isVeryNarrow,
     padX,
     glyph,
-    y: OS_BAR_TOP + 1,
-    h: OS_BAR_HEIGHT - 2,
+    y: 2,
+    h: 12,
+    startX: hudLabelEnd + TOP_BAR_SIDE_BTN_MARGIN,
     labels: {
       ableton: "m4l",
       os: "os",
@@ -8294,19 +8005,20 @@ function osBarButtonMetrics({ screen }) {
 }
 
 function buildAbletonButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
+  const m = topBarSideButtonMetrics({ screen });
   const w = m.labels.ableton.length * m.glyph + m.padX * 2;
-  const x = screen.width - OS_BAR_RIGHT_MARGIN - w;
-  abletonBtn = new ui.Button(x, m.y, w, m.h);
+  abletonBtn = new ui.Button(m.startX, m.y, w, m.h);
   abletonBtn.id = "ableton-button";
   abletonBtn.label = m.labels.ableton;
 }
 
 function buildOsButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
+  const m = topBarSideButtonMetrics({ screen });
   const w = m.labels.os.length * m.glyph + m.padX * 2;
-  const anchorX = abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
+  const anchorX = abletonBtn?.box
+    ? abletonBtn.box.x + abletonBtn.box.w + TOP_BAR_SIDE_BTN_GAP
+    : m.startX;
+  osBtn = new ui.Button(anchorX, m.y, w, m.h);
   osBtn.id = "os-button";
   osBtn.label = m.labels.os;
 }
