@@ -542,20 +542,31 @@ async function boot(
     api,
     "...", // This empty call-to-action prompt will not be shown.
     async (text) => {
-      const currentHandle = handle();
+      text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
 
-      if (!currentHandle) {
-        notice("NO HANDLE", ["red", "yellow"]);
+      // Pieces inheriting chat.mjs (e.g. aa.mjs) may pass a custom submit
+      // handler so they can route the typed text somewhere other than the
+      // chat-system server. If provided, it owns the send.
+      if (options?.submitHandler) {
+        try {
+          await options.submitHandler(text, { token, sub: user?.sub, font: userSelectedFont });
+        } catch (err) {
+          console.error("submitHandler failed:", err);
+        }
       } else {
-        text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
-        // Send the chat message with user's selected font
-        client.server.send(`chat:message`, { 
-          text, 
-          token, 
-          sub: user.sub,
-          font: userSelectedFont, // 🔤 Include selected font
-        });
-        notice("SENT");
+        const currentHandle = handle();
+        if (!currentHandle) {
+          notice("NO HANDLE", ["red", "yellow"]);
+        } else {
+          // Send the chat message with user's selected font
+          client.server.send(`chat:message`, {
+            text,
+            token,
+            sub: user.sub,
+            font: userSelectedFont, // 🔤 Include selected font
+          });
+          notice("SENT");
+        }
       }
 
       // Clear text, hide cursor block, and close keyboard after sending message.
