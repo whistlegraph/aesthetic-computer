@@ -265,6 +265,19 @@ typedef struct {
     float drive_mix;
     float target_drive_mix;
 
+    // Wobble / flange — modulated short-delay dry/wet blend. 0.0 = bypass,
+    // 1.0 = fully flanged. LFO sweeps the read head over a 1–10 ms range
+    // so the audio periodically combs with a time-shifted copy of itself.
+    // Moderate feedback makes the characteristic "whoosh" zing.
+    float wobble_mix;
+    float target_wobble_mix;
+    float *wobble_buf_l;    // stereo delay lines (mono'd from the mix)
+    float *wobble_buf_r;
+    int wobble_buf_size;    // power of two for cheap modulo
+    int wobble_write_pos;   // integer write cursor into the ring
+    float wobble_lfo_phase; // 0..2π — advances per sample at wobble_lfo_rate
+    float wobble_lfo_rate;  // radians per sample (≈ 2π * 0.4 Hz / rate)
+
     // System mixer volume (0-100 percent)
     int system_volume;
     int card_index;  // ALSA card number (0 or 1)
@@ -407,6 +420,7 @@ void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
 void audio_set_drive_mix(ACAudio *audio, float value);
+void audio_set_wobble_mix(ACAudio *audio, float value);
 void audio_set_output_history_paused(ACAudio *audio, int paused);
 
 // Microphone — hot-mic mode (device stays open, recording toggles buffering)

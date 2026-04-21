@@ -1441,6 +1441,9 @@ static void *audio_thread_fn(void *arg) {
             if (audio->drive_mix != audio->target_drive_mix) {
                 audio->drive_mix += (audio->target_drive_mix - audio->drive_mix) * 0.00005f;
             }
+            if (audio->wobble_mix != audio->target_wobble_mix) {
+                audio->wobble_mix += (audio->target_wobble_mix - audio->wobble_mix) * 0.00005f;
+            }
 
             // Save dry signal before FX chain
             double dry_l = mix_l, dry_r = mix_r;
@@ -1587,6 +1590,43 @@ static void *audio_thread_fn(void *arg) {
                     double reduction = gain / comp_env;
                     mix_l *= reduction;
                     mix_r *= reduction;
+                }
+            }
+
+            // Wobble / flange — modulated short-delay blend. Writes every
+            // sample into the ring regardless of wet mix (so the ring
+            // stays warm for instant-on when the slider turns up), then
+            // reads a sample `delay_samples` behind the write head with
+            // the delay itself sweeping via a slow LFO. Tiny feedback
+            // (0.45) thickens the tail so moderate mix settings already
+            // produce the characteristic jet-sweep coloration.
+            if (audio->wobble_buf_l && audio->wobble_buf_size > 0) {
+                int size = audio->wobble_buf_size;
+                int mask = size - 1; // size is power of two (1024)
+                int wp = audio->wobble_write_pos;
+                float wmix = audio->wobble_mix;
+                // Sweep: 2-10 ms at 48 kHz = 96..480 samples.
+                float lfo = (float)sin((double)audio->wobble_lfo_phase);
+                float delay_samples = 96.0f + (lfo * 0.5f + 0.5f) * 384.0f;
+                audio->wobble_lfo_phase += audio->wobble_lfo_rate;
+                if (audio->wobble_lfo_phase > 6.283185307179586f)
+                    audio->wobble_lfo_phase -= 6.283185307179586f;
+                // Fractional read with linear interp.
+                float rp = (float)wp - delay_samples;
+                while (rp < 0) rp += size;
+                int rp_i = (int)rp;
+                float rp_f = rp - (float)rp_i;
+                float dly_l = audio->wobble_buf_l[rp_i & mask] * (1.0f - rp_f)
+                            + audio->wobble_buf_l[(rp_i + 1) & mask] * rp_f;
+                float dly_r = audio->wobble_buf_r[rp_i & mask] * (1.0f - rp_f)
+                            + audio->wobble_buf_r[(rp_i + 1) & mask] * rp_f;
+                // Feedback into the ring (for sustained "zing").
+                audio->wobble_buf_l[wp & mask] = (float)mix_l + dly_l * 0.45f;
+                audio->wobble_buf_r[wp & mask] = (float)mix_r + dly_r * 0.45f;
+                audio->wobble_write_pos = (wp + 1) & mask;
+                if (wmix > 0.001f) {
+                    mix_l = mix_l * (1.0 - wmix) + (double)dly_l * wmix;
+                    mix_r = mix_r * (1.0 - wmix) + (double)dly_r * wmix;
                 }
             }
 
@@ -1843,6 +1883,18 @@ ACAudio *audio_init(void) {
     audio->target_master_volume = 1.0f;
     audio->drive_mix = 0.0f;  // Clean bypass until user dials drive
     audio->target_drive_mix = 0.0f;
+    // Wobble / flange — 1024-sample ring covers up to ~21 ms @ 48 kHz
+    // which is well past the flanger sweet spot (1-10 ms). Power-of-two
+    // size lets the read index use `& (size-1)` instead of `%`.
+    audio->wobble_buf_size = 1024;
+    audio->wobble_buf_l = calloc(audio->wobble_buf_size, sizeof(float));
+    audio->wobble_buf_r = calloc(audio->wobble_buf_size, sizeof(float));
+    audio->wobble_write_pos = 0;
+    audio->wobble_lfo_phase = 0.0f;
+    // LFO rate 0.4 Hz — slow sweep, reads as "wobble" not "chorus"
+    audio->wobble_lfo_rate = 2.0f * 3.14159265358979f * 0.4f / 48000.0f;
+    audio->wobble_mix = 0.0f;
+    audio->target_wobble_mix = 0.0f;
     audio->room_buf_l = calloc(ROOM_SIZE, sizeof(float));
     audio->room_buf_r = calloc(ROOM_SIZE, sizeof(float));
 
@@ -3043,6 +3095,17 @@ void audio_set_drive_mix(ACAudio *audio, float value) {
     if (value < 0.0f) value = 0.0f;
     if (value > 1.0f) value = 1.0f;
     audio->target_drive_mix = value;
+}
+
+// Wobble / flange dry/wet 0..1. LFO-modulated short delay blended with
+// the dry signal. Same exponential smoother as the other mix params so
+// a fader sweep doesn't click. The LFO rate itself is fixed at 0.4 Hz
+// and doesn't need smoothing.
+void audio_set_wobble_mix(ACAudio *audio, float value) {
+    if (!audio) return;
+    if (value < 0.0f) value = 0.0f;
+    if (value > 1.0f) value = 1.0f;
+    audio->target_wobble_mix = value;
 }
 
 // Pause/resume writes to output_history_buf. Called from notepat while

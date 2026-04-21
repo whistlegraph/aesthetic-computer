@@ -137,6 +137,11 @@ let masterVolDragging = false;
 let driveMix = 0;
 let driveDragging = false;
 
+// Wobble / flange dry/wet. 0 = clean, 1 = full flange. Modulated short
+// delay with moderate feedback — "jet sweep" character.
+let wobbleMix = 0;
+let wobbleDragging = false;
+
 // Waveform-strip view cursor — how many seconds in the past the playhead
 // sits relative to the live audio edge. 0 = live (wave drifts LEFT as
 // real time advances). Grows when spacebar is held (wave drifts RIGHT,
@@ -171,6 +176,7 @@ let trackpadEffectBindings = {
   crush:  { x: false, y: false },
   volume: { x: false, y: false },
   drive:  { x: false, y: false },
+  wobble: { x: false, y: false },
 };
 
 function clampRange(value, min, max) {
@@ -221,6 +227,14 @@ function setDriveMixValue(value, sound, commit = true) {
   return changed;
 }
 
+function setWobbleMixValue(value, sound, commit = true) {
+  const next = clamp01(value);
+  const changed = Math.abs(next - wobbleMix) > 0.0005;
+  wobbleMix = next;
+  if (commit) sound?.wobble?.setMix?.(wobbleMix);
+  return changed;
+}
+
 function applyPitchShiftToActiveSounds(force = false) {
   const ep = effectivePitchShift();
   if (!force && Math.abs(ep - lastAppliedPitch) <= 0.001) return false;
@@ -264,6 +278,7 @@ function setEffectRowFromPointer(rowId, x, row, sound, commit = true) {
   if (rowId === "pitch")  return setPitchShiftValue(norm * 2 - 1, commit);
   if (rowId === "volume") return setMasterVolMixValue(norm, sound, commit);
   if (rowId === "drive")  return setDriveMixValue(norm, sound, commit);
+  if (rowId === "wobble") return setWobbleMixValue(norm, sound, commit);
   return false;
 }
 
@@ -2146,6 +2161,7 @@ function boot({ wipe, system, sound }) {
   sound?.fx?.setMix?.(fxMix);
   sound?.volume?.setMix?.(masterVolMix * 2); // slider 0..1 → audio 0..2
   sound?.drive?.setMix?.(driveMix);
+  sound?.wobble?.setMix?.(wobbleMix);
   loadUdpMidiConfig(system);
   udpMidiNextHeartbeatFrame = 0;
   const mic = sound?.microphone || null;
@@ -2921,7 +2937,7 @@ function act({ event: e, sound, wifi, system }) {
     // FX rows: sliders + per-effect X/Y trackpad assignment toggles
     {
       const fxRows = globalThis.__fxRows || {};
-      for (const rowId of ["fx", "echo", "pitch", "crush", "volume", "drive"]) {
+      for (const rowId of ["fx", "echo", "pitch", "crush", "volume", "drive", "wobble"]) {
         const row = fxRows[rowId];
         if (!row) continue;
         if (pointInRect(x, y, row.xBox)) {
@@ -2939,6 +2955,7 @@ function act({ event: e, sound, wifi, system }) {
           else if (rowId === "crush")  bitcrushDragging = true;
           else if (rowId === "volume") masterVolDragging = true;
           else if (rowId === "drive")  driveDragging = true;
+          else if (rowId === "wobble") wobbleDragging = true;
           setEffectRowFromPointer(rowId, x, row, sound, true);
           return;
         }
@@ -3175,6 +3192,7 @@ function act({ event: e, sound, wifi, system }) {
     if (bitcrushDragging)   setEffectRowFromPointer("crush", x, fxRows.crush, sound, true);
     if (masterVolDragging)  setEffectRowFromPointer("volume", x, fxRows.volume, sound, true);
     if (driveDragging)      setEffectRowFromPointer("drive", x, fxRows.drive, sound, true);
+    if (wobbleDragging)     setEffectRowFromPointer("wobble", x, fxRows.wobble, sound, true);
     if (volDragging) {
       const vb = globalThis.__volBar;
       if (vb) {
@@ -3279,6 +3297,7 @@ function act({ event: e, sound, wifi, system }) {
     if (bitcrushDragging) bitcrushDragging = false;
     if (masterVolDragging) masterVolDragging = false;
     if (driveDragging) driveDragging = false;
+    if (wobbleDragging) wobbleDragging = false;
     if (volDragging) volDragging = false;
     if (brtDragging) brtDragging = false;
     // Release touch-triggered note
@@ -3335,6 +3354,7 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     let crushDirty = false;
     let volDirty = false;
     let driveDirty = false;
+    let wobbleDirty = false;
     if (trackpad.dx !== 0) {
       const dxNorm = trackpad.dx / Math.max(1, w);
       if (trackpadEffectBindings.echo.x) {
@@ -3351,6 +3371,9 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       }
       if (trackpadEffectBindings.drive.x) {
         driveDirty = setDriveMixValue(driveMix + dxNorm * 3, sound, false) || driveDirty;
+      }
+      if (trackpadEffectBindings.wobble.x) {
+        wobbleDirty = setWobbleMixValue(wobbleMix + dxNorm * 3, sound, false) || wobbleDirty;
       }
     }
     if (trackpad.dy !== 0) {
@@ -3370,11 +3393,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (trackpadEffectBindings.drive.y) {
         driveDirty = setDriveMixValue(driveMix + dyNorm * 3, sound, false) || driveDirty;
       }
+      if (trackpadEffectBindings.wobble.y) {
+        wobbleDirty = setWobbleMixValue(wobbleMix + dyNorm * 3, sound, false) || wobbleDirty;
+      }
     }
     if (echoDirty && frame % 3 === 0) sound?.room?.setMix?.(echoMix);
     if (crushDirty && frame % 3 === 0) sound?.glitch?.setMix?.(bitcrushMix);
     if (volDirty && frame % 3 === 0) sound?.volume?.setMix?.(masterVolMix * 2);
     if (driveDirty && frame % 3 === 0) sound?.drive?.setMix?.(driveMix);
+    if (wobbleDirty && frame % 3 === 0) sound?.wobble?.setMix?.(wobbleMix);
     // Apply pitch shift to active voices — throttled to every 4th frame
     // and only when pitch actually changed
     if (frame % 4 === 0) applyPitchShiftToActiveSounds(false);
@@ -5205,8 +5232,38 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     fxRows.drive = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
   }
 
+  // Wobble slider — LFO-modulated short delay dry/wet (0 = clean, 100% = full flange).
+  // Purple palette to distinguish from drive (red/orange) and volume (green).
+  {
+    const sliderY = settingsY + sliderH * 6;
+    const sliderW = w - axisAreaW;
+    const hov = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 45 : 28) : (hov ? 225 : 238));
+    box(0, sliderY, w, sliderH, true);
+    const fillW = Math.floor(wobbleMix * sliderW);
+    if (fillW > 0) {
+      ink(150, 100, 220, trackpadFX ? 240 : 180);
+      box(0, sliderY, fillW, sliderH, true);
+    }
+    if (wobbleMix > 0.005) {
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(wobbleMix * sliderW)));
+      ink(200, 160, 255, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    write("wobble " + Math.round(wobbleMix * 100) + "%",
+      { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.wobble.x, [150, 100, 220]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.wobble.y, [150, 100, 220]);
+    fxRows.wobble = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+  }
+
   globalThis.__fxRows = fxRows;
-  const waveRowY = settingsY + sliderH * 6;
+  const waveRowY = settingsY + sliderH * 7;
   const waveRowH = 14;
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
@@ -5927,24 +5984,20 @@ function sim({ pressures, sound }) {
   //              the visual needle sits on exactly the sample being
   //              played. Cap at MAX.
   //
-  //   released:  animate the cursor back to live over ~20 frames instead
-  //              of snapping. Feels like the needle "catches up" to the
-  //              present. The capture ring was paused during hold so
-  //              live write_pos still marks the press-moment, meaning
-  //              offset=0 really is "where reversing started" — the
-  //              animation just makes the visual transition legible.
-  const dtSec = 1 / 60;
+  //   released:  snap cursor back to 0 immediately. An earlier iteration
+  //              eased the offset back over ~20 frames, but the audio
+  //              replay voice stops on release — those ~300 ms of
+  //              sweeping visual had no sound behind them, reading as
+  //              "dead silent time" at the end of every reverse gesture.
+  //              Snapping eliminates the audio/visual mismatch; the
+  //              press→reverse→release feels like a clean in-and-out
+  //              cut with nothing hanging off the back of it.
   if (spaceHeld && spacePressStartMs > 0) {
     const elapsedSec = (Date.now() - spacePressStartMs) / 1000;
     waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC, elapsedSec);
     waveDriftSpeed = -1.0; // cosmetic (only needle-color uses it)
-  } else if (waveViewOffsetSec > 0) {
-    // Ease-out lerp toward 0. At 60 fps with 0.18 factor the offset
-    // halves every ~4 frames — settles visually in ~15-20 frames.
-    waveViewOffsetSec = Math.max(0, waveViewOffsetSec - waveViewOffsetSec * 0.18 - dtSec * 0.25);
-    if (waveViewOffsetSec < 0.005) waveViewOffsetSec = 0;
-    waveDriftSpeed = 1.0;
   } else {
+    waveViewOffsetSec = 0;
     waveDriftSpeed = 1.0;
   }
   // Update dark/light mode via global theme (every ~5 seconds)
@@ -6048,12 +6101,14 @@ function leave() {
   fxMix = 1;
   masterVolMix = 0.5; // unity (slider 0..1 → audio 0..2)
   driveMix = 0;
+  wobbleMix = 0;
   trackpadFX = false;
   soundAPI?.room?.setMix?.(0);
   soundAPI?.glitch?.setMix?.(0);
   soundAPI?.fx?.setMix?.(1);
   soundAPI?.volume?.setMix?.(1); // unity
   soundAPI?.drive?.setMix?.(0);  // clean
+  soundAPI?.wobble?.setMix?.(0); // clean
   stopAllSounds(soundAPI, systemAPI, 0.02);
 }
 

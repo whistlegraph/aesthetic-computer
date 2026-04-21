@@ -1216,6 +1216,16 @@ static JSValue js_speaker_set_capture_paused(JSContext *ctx, JSValueConst this_v
     return JS_UNDEFINED;
 }
 
+// sound.wobble.setMix(value) — flanger-ish dry/wet (0..1)
+static JSValue js_set_wobble_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    double v;
+    JS_ToFloat64(ctx, &v, argv[0]);
+    audio_set_wobble_mix(current_rt->audio, (float)v);
+    return JS_UNDEFINED;
+}
+
 // sound.microphone.open() — open device + start hot-mic thread
 static JSValue js_mic_open(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val; (void)argc; (void)argv;
@@ -2916,6 +2926,12 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JS_SetPropertyStr(ctx, drive, "setMix", JS_NewCFunction(ctx, js_set_drive_mix, "setMix", 1));
     JS_SetPropertyStr(ctx, drive, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->drive_mix : 0.0));
     JS_SetPropertyStr(ctx, sound, "drive", drive);
+
+    // wobble (modulated-delay flange)
+    JSValue wobble = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, wobble, "setMix", JS_NewCFunction(ctx, js_set_wobble_mix, "setMix", 1));
+    JS_SetPropertyStr(ctx, wobble, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->wobble_mix : 0.0));
+    JS_SetPropertyStr(ctx, sound, "wobble", wobble);
 
     // microphone
     JSValue mic = JS_NewObject(ctx);
