@@ -63,6 +63,7 @@ NEED_RESTART=false
 NEED_CADDY_RELOAD=false
 NEED_NPM_INSTALL=false
 NEED_DP1_FEED_RESTART=false
+NEED_CF_PURGE=false
 
 while IFS= read -r file; do
   case "$file" in
@@ -90,7 +91,9 @@ while IFS= read -r file; do
       NEED_DP1_FEED_RESTART=true
       ;;
     system/public/*)
-      # Static files — Caddy serves directly from disk, no action needed
+      # Static files — Caddy serves directly from disk, but Cloudflare
+      # caches them at the edge for up to an hour, so we need to purge.
+      NEED_CF_PURGE=true
       ;;
     *)
       # Other files (docs, tests, etc.) — no action needed
@@ -124,6 +127,25 @@ if $NEED_RESTART; then
   systemctl restart lith
 else
   log "static-only deploy — no restart needed"
+fi
+
+if $NEED_CF_PURGE; then
+  if [ -n "${CLOUDFLARE_PURGE_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ZONE_ID:-}" ]; then
+    log "purging Cloudflare cache for zone $CLOUDFLARE_ZONE_ID..."
+    CF_RESPONSE=$(curl -sS -X POST \
+      "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+      -H "Authorization: Bearer ${CLOUDFLARE_PURGE_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data '{"purge_everything":true}' \
+      --max-time 20 || echo '{"success":false,"errors":[{"message":"curl failed"}]}')
+    if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+      log "Cloudflare cache purged"
+    else
+      log "WARN: Cloudflare purge failed: $CF_RESPONSE"
+    fi
+  else
+    log "skipping CF purge (CLOUDFLARE_PURGE_TOKEN / CLOUDFLARE_ZONE_ID not set)"
+  fi
 fi
 
 log "done"
