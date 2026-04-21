@@ -3,6 +3,13 @@
 
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 
+# Capture kernel-handoff timestamp as early as possible so the boot
+# timing log has a meaningful zero. /proc/uptime is the first reliable
+# wall-clock source (shell `date` is usually epoch-zero at this point).
+# Falls back to 0 if /proc isn't mounted yet — which we fix in the next
+# block anyway.
+BOOT_INIT_START_SEC=$(awk '{print $1}' /proc/uptime 2>/dev/null || echo 0)
+
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
 mount -t devtmpfs devtmpfs /dev 2>/dev/null
@@ -12,6 +19,21 @@ mount -t tmpfs tmpfs /dev/shm 2>/dev/null
 mount -t tmpfs tmpfs /tmp 2>/dev/null
 mount -t tmpfs tmpfs /run 2>/dev/null
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
+
+# Boot-phase timing helper. Appends "phase: +X.XXs @ T.TTs" to
+# /run/boot-timing so we can see where seconds are spent between
+# kernel handoff and ac-native launch. The full file is copied to
+# /mnt/boot-timing.log near the top of the pre-launch diagnostic
+# dump (when the USB config partition is available).
+BOOT_TIMING_LOG="/run/boot-timing"
+: > "$BOOT_TIMING_LOG"
+_boot_mark() {
+    local now=$(awk '{print $1}' /proc/uptime 2>/dev/null || echo 0)
+    local delta=$(awk "BEGIN{printf \"%.3f\", $now - $BOOT_INIT_START_SEC}")
+    printf '%-32s Δ%6ss  @%7ss\n' "$1" "$delta" "$now" >> "$BOOT_TIMING_LOG"
+    BOOT_INIT_START_SEC=$now
+}
+_boot_mark "kernel-handoff"
 # debugfs — needed for ASoC DAPM state inspection in audio-diag.
 # CONFIG_DEBUG_FS must be y in the kernel; mount early so everything
 # downstream (audio-diag, gpio dump, etc) can read it.
@@ -63,6 +85,8 @@ mkdir -p /tmp/ac
 echo "root:x:0:" > /etc/group
 echo "root:x:0:root" > /etc/passwd
 
+_boot_mark "tmpfs-mounts + creds"
+
 # Kick off USB mount in the background — independent of GPU probe, so
 # we overlap the two waits instead of running them serially. The main
 # thread then waits for GPU (below) and finally waits for this mount
@@ -113,6 +137,7 @@ done
 # Converge: wait for the background USB mount to settle, pick up its result.
 wait $USB_MOUNT_PID 2>/dev/null
 [ -f /run/usb-mounted ] && USB_MOUNTED=$(cat /run/usb-mounted 2>/dev/null) && [ -z "$USB_MOUNTED" ] && USB_MOUNTED=0
+_boot_mark "gpu-wait + usb-mount converge"
 
 # Performance governor (silently skip if cpufreq not available)
 if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
@@ -178,7 +203,11 @@ export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 # Set AC_NOLAUNCH_DIAG=1 on the kernel cmdline to skip the dump entirely
 # (useful for locked-down production kiosks that don't want the sysfs
 # scraping cost at all).
-echo "[init] USB_MOUNTED=$USB_MOUNTED" > /dev/tty0 2>/dev/null
+_boot_mark "power-governor + sound PM"
+# Debug console writes to /dev/tty0 have been removed — they flashed
+# raw "[init] USB_MOUNTED=1" style text over the splash for ~1s on
+# every boot. Everything useful is still captured in the pre-launch
+# log + the new /mnt/boot-timing.log, visible post-hoc on the USB.
 if [ "$USB_MOUNTED" = "1" ]; then
     LOG=/mnt/pre-launch.log
 else
@@ -401,7 +430,9 @@ case " $(cat /proc/cmdline 2>/dev/null) " in
     *" AC_NOLAUNCH_DIAG=1 "*) : ;;
     *) _pre_launch_diag & ;;
 esac
-echo "[init] GPU: $(ls /dev/dri/ 2>/dev/null || echo NONE) USB=$USB_MOUNTED" > /dev/tty0 2>/dev/null
+# GPU + USB state used to echo here as raw "[init] GPU: card0 USB=1"
+# over the splash. Dropped — both are captured in the pre-launch log
+# and the new boot-timing log for post-mortem review.
 
 # Start Swank server in background (if SBCL image exists)
 SWANK_PID=0
@@ -410,28 +441,41 @@ if [ -x /ac-swank ]; then
     SWANK_PID=$!
 fi
 
+_boot_mark "pre-ac-native launch"
+
+# Copy the timing log to USB before ac-native takes over stdout/err
+# — so the user can post-mortem "how long did each phase take" right
+# off the stick without having to dig into kmsg.
+if [ "$USB_MOUNTED" = "1" ]; then
+    cp /run/boot-timing /mnt/boot-timing.log 2>/dev/null
+fi
+
 # Main loop — ac-native runs as a child process (not PID 1).
 # First attempt: with SDL3/GPU env vars.
 # If it crashes (signal), retry without SDL (AC_NO_SDL=1).
 # If that also crashes, keep retrying without SDL with backoff.
+#
+# All launch / exit / crash messages are appended to /mnt/ac-crash.log
+# (persistent) and the stderr log. We no longer write them to /dev/tty0
+# because that paints raw text on top of the splash during the boot
+# transition.
 CRASH_COUNT=0
 SDL_ENABLED=1
 while true; do
     if [ "$SDL_ENABLED" = "1" ]; then
-        echo "[init] launching ac-native (SDL3 GPU enabled)..." > /dev/tty0 2>/dev/null
         LD_LIBRARY_PATH="/lib64" LIBGL_DRIVERS_PATH="/lib64/dri" GBM_DRIVERS_PATH="/lib64/dri" MESA_LOADER_DRIVER_OVERRIDE=iris \
             /ac-native /piece.mjs >>/mnt/ac-native-stdout.log 2>>/mnt/ac-native-stderr.log &
     else
-        echo "[init] launching ac-native (DRM only)..." > /dev/tty0 2>/dev/null
         LD_LIBRARY_PATH="/lib64" AC_NO_SDL=1 \
             /ac-native /piece.mjs >>/mnt/ac-native-stdout.log 2>>/mnt/ac-native-stderr.log &
     fi
     CHILD_PID=$!
     wait $CHILD_PID
     EXIT_CODE=$?
-    # Save crash info
-    echo "[init] ac-native (pid $CHILD_PID) exited: code=$EXIT_CODE crash=$CRASH_COUNT sdl=$SDL_ENABLED" > /dev/tty0 2>/dev/null
-    head -5 /tmp/ac-native-stderr.log > /dev/tty0 2>/dev/null
+    # Exit info → log files only (not tty0; the splash stays clean).
+    if [ "$USB_MOUNTED" = "1" ]; then
+        echo "[init] ac-native pid=$CHILD_PID exit=$EXIT_CODE crash=$CRASH_COUNT sdl=$SDL_ENABLED $(date 2>/dev/null)" >> /mnt/ac-init.log
+    fi
     # Save crash info to USB if mounted
     if [ "$USB_MOUNTED" = "1" ]; then
         echo "exit=$EXIT_CODE crash=$CRASH_COUNT $(date 2>/dev/null)" >> /mnt/ac-crash.log
@@ -474,7 +518,6 @@ while true; do
     if [ "$SDL_ENABLED" = "1" ] && [ "$EXIT_CODE" -gt 128 ]; then
         # Exit > 128 = killed by signal (128 + signal number)
         SIG=$((EXIT_CODE - 128))
-        echo "[init] Signal $SIG with SDL — disabling GPU, retrying with DRM..." > /dev/tty0 2>/dev/null
         SDL_ENABLED=0
         if [ "$USB_MOUNTED" = "1" ]; then
             echo "sdl_crash: signal=$SIG, disabling SDL" >> /mnt/ac-crash.log
