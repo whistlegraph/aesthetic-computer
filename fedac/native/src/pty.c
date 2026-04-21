@@ -588,13 +588,61 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
                     if (pat[0]) {
                         setenv("GH_TOKEN", pat, 1);
                         setenv("GITHUB_TOKEN", pat, 1);
-                        // Configure git credential helper
+                        // Derive git user identity from /mnt/config.json so
+                        // `git commit` attributes to the actual device owner
+                        // rather than being hardcoded. Falls back to a
+                        // generic "aesthetic.computer" identity if config is
+                        // unreadable (e.g. device booted from a USB that
+                        // lost its config partition).
+                        char cfg_handle[64] = "";
+                        char cfg_email[128] = "";
+                        FILE *cfg = fopen("/mnt/config.json", "r");
+                        if (cfg) {
+                            char line[1024];
+                            size_t n = fread(line, 1, sizeof(line) - 1, cfg);
+                            line[n] = 0;
+                            fclose(cfg);
+                            // Cheap JSON field extraction — the config is a
+                            // single flat object written by flash-mac / oven.
+                            const char *p;
+                            if ((p = strstr(line, "\"handle\""))) {
+                                p = strchr(p, ':'); if (p) p = strchr(p, '"');
+                                if (p) { p++; const char *q = strchr(p, '"');
+                                    if (q && q - p < (long)sizeof(cfg_handle)) {
+                                        memcpy(cfg_handle, p, q - p);
+                                        cfg_handle[q - p] = 0;
+                                    } }
+                            }
+                            if ((p = strstr(line, "\"email\""))) {
+                                p = strchr(p, ':'); if (p) p = strchr(p, '"');
+                                if (p) { p++; const char *q = strchr(p, '"');
+                                    if (q && q - p < (long)sizeof(cfg_email)) {
+                                        memcpy(cfg_email, p, q - p);
+                                        cfg_email[q - p] = 0;
+                                    } }
+                            }
+                        }
+                        const char *git_name  = cfg_handle[0] ? cfg_handle : "ac-native";
+                        const char *git_email = cfg_email[0] ? cfg_email : "noreply@aesthetic.computer";
+                        // GitHub credential helper uses the handle as the
+                        // HTTPS username (GitHub's own rule: any username
+                        // paired with a valid PAT authenticates as the PAT's
+                        // owner). For @jeffrey that resolves to the admin
+                        // `whistlegraph` account naturally.
+                        const char *gh_user = cfg_handle[0] ? cfg_handle : "ac-native";
                         mkdir("/tmp/.config", 0755);
                         mkdir("/tmp/.config/git", 0755);
                         FILE *gc = fopen("/tmp/.gitconfig", "w");
                         if (gc) {
-                            fprintf(gc, "[user]\n\tname = Jeffrey Alan Scudder\n\temail = mail@aesthetic.computer\n");
-                            fprintf(gc, "[credential \"https://github.com\"]\n\thelper = !f() { echo username=whistlegraph; echo password=%s; }; f\n", pat);
+                            fprintf(gc, "[user]\n\tname = %s\n\temail = %s\n",
+                                    git_name, git_email);
+                            fprintf(gc, "[credential \"https://github.com\"]\n\thelper = !f() { echo username=%s; echo password=%s; }; f\n",
+                                    gh_user, pat);
+                            // Enable `compush` alias — commit all staged + untracked
+                            // changes and push origin HEAD in one verb. Matches the
+                            // notation in CLAUDE.md ("compush = commit & push").
+                            fprintf(gc, "[alias]\n"
+                                         "\tcompush = !f() { git add -A && git commit -m \"${1:-compush}\" && git push origin HEAD; }; f\n");
                             fclose(gc);
                         }
                     }

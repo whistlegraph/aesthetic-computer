@@ -177,6 +177,24 @@ function boot({ system, screen, params }) {
   }
 
   lastCmd = cmd;
+  // Persistent-session behavior: if a PTY child from a previous visit is
+  // still running (user left the piece without killing it) and the cmd
+  // matches what we'd spawn now, RE-ATTACH to the live session instead of
+  // spawning a fresh one. "code → claude → esc → prompt → code" should
+  // drop the user back into the same claude conversation mid-turn rather
+  // than a blank restart. The PTY is owned by the runtime (not the piece)
+  // so the child kept running while the piece was out of scope.
+  if (system.pty.active && globalThis.__terminalLastCmd === cmd) {
+    console.log("[terminal] re-attaching to existing session for", cmd);
+    // Force a resize in case geometry changed while the piece was gone,
+    // and clear the local grid cache so the next paint pulls fresh state.
+    if (cols > 0 && rows > 0) system.pty.resize(cols, rows);
+    grid = null;
+    started = true;
+    return;
+  }
+
+  globalThis.__terminalLastCmd = cmd;
   system.pty.spawn(cmd, args, cols, rows);
   started = true;
 }
@@ -373,6 +391,20 @@ function act({ event: e, system }) {
     return;
   }
 
+  // Plain Escape while PTY is running → jump back to prompt WITHOUT
+  // killing the child. Claude sessions stay warm in the background;
+  // re-entering `code` re-attaches to the same conversation. This
+  // reclaims the workflow ergonomics of "esc to prompt, then back to
+  // code" without having to re-bootstrap Claude every time.
+  //
+  // Users who need to send an actual ESC to the PTY (e.g. to cancel
+  // a prompt in claude without leaving the piece) can use Ctrl+[
+  // which produces the same \x1b byte via the Ctrl+key handler below.
+  if (key === "escape" && !ctrlHeld && !shiftHeld && !altHeld) {
+    system?.jump?.("prompt");
+    return;
+  }
+
   // Ctrl+N — open split view (left=current cmd, right=sh)
   if (ctrlHeld && key === "n") {
     const name = lastCmd.split("/").pop() || "claude";
@@ -417,9 +449,21 @@ function act({ event: e, system }) {
 }
 
 function leave({ system }) {
-  if (system.pty.active) {
-    system.pty.kill();
-  }
+  // Intentionally DO NOT kill the PTY child on piece-leave. Claude Code
+  // sessions are expensive to re-establish (model handshake, project
+  // scan, OAuth refresh) and losing one every time you bounce to the
+  // prompt for a quick jump elsewhere is a workflow killer. Keeping the
+  // child alive means re-entering `code` drops back into the same
+  // session exactly where you left it.
+  //
+  // The PTY child still dies naturally when:
+  //   - it exits on its own (claude /exit, sh exit, etc.)
+  //   - the user explicitly kills from inside the session (Ctrl+C, etc.)
+  //   - ac-native itself exits (reboot, crash-respawn)
+  // And `system.pty.kill()` is still available via Ctrl+\ shortcut for
+  // users who really do want to terminate it.
+  // No-op on leave.
+  (void 0);
 }
 
 export { boot, paint, act, leave };
