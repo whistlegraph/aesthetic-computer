@@ -1648,18 +1648,24 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
     if (needle_off >= w) needle_off = w - 1;
     int needle_x = x + needle_off;
 
-    // Compute the time window the strip needs to span:
-    //   [cursor - left_seconds, cursor + right_seconds]
-    // where cursor = now - view_offset_sec, and the LEFT/RIGHT widths in
-    // seconds are proportional to the LEFT/RIGHT pixel widths so each
-    // pixel covers the same temporal slice end-to-end.
-    int left_w  = needle_off;
-    int right_w = w - needle_off;
-    double total_w = (double)w;
-    double left_seconds  = seconds * ((double)left_w  / total_w);
-    double right_seconds_max = seconds * ((double)right_w / total_w);
-    // Right side only fills to view_offset_sec — no future audio exists.
-    double right_seconds = view_offset_sec < right_seconds_max ? view_offset_sec : right_seconds_max;
+    // Strip always draws the past `seconds` of audio ending AT the cursor,
+    // spread across the FULL width with newest at the right edge. The
+    // needle at needle_frac is a visual "playhead at center" marker only.
+    //
+    // We deliberately do NOT render a post-cursor (right-of-needle)
+    // region: during reverse-replay the audio being heard is captured
+    // back through the speaker output ring, and drawing those samples on
+    // the right creates a confusing "double layer" of the original wave
+    // layered over its own reverse-played echo. Keeping the render area
+    // single-sourced keeps the visual unambiguous — the left-drift /
+    // right-drift behavior (driven by viewOffsetSec lerp in JS) is the
+    // only thing that changes on space press/release.
+    int left_w  = w;
+    int right_w = 0;
+    (void)right_w;
+    double left_seconds = seconds;
+    double right_seconds = 0.0;
+    (void)right_seconds;
 
     pthread_mutex_lock(&audio->lock);
     unsigned int rate = audio->output_history_rate ? audio->output_history_rate
@@ -1674,36 +1680,22 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
     if (offset_samples > write_pos) offset_samples = write_pos;
     uint64_t cursor_pos = write_pos - offset_samples;
 
-    // Snapshot the LEFT-past slice [cursor - left_seconds, cursor]
+    // Snapshot the past slice [cursor - left_seconds, cursor]. This is
+    // the ONLY slice we render — no right-of-cursor sampling to avoid
+    // the double-layer effect from reverse-replay feeding back into
+    // the speaker output ring during hold.
     int left_samples_want = (int)(left_seconds * (double)rate + 0.5);
     if (left_samples_want < 1) left_samples_want = 1;
     if ((uint64_t)left_samples_want > cursor_pos) left_samples_want = (int)cursor_pos;
     if (left_samples_want > available) left_samples_want = available;
 
-    // Snapshot the RIGHT-past slice [cursor, cursor + right_seconds]
-    int right_samples_want = (int)(right_seconds * (double)rate + 0.5);
-    if (right_samples_want < 0) right_samples_want = 0;
-    if ((uint64_t)right_samples_want > write_pos - cursor_pos) {
-        right_samples_want = (int)(write_pos - cursor_pos);
-    }
-
-    float *left_copy  = NULL;
-    float *right_copy = NULL;
+    float *left_copy = NULL;
     if (left_samples_want > 0) {
         left_copy = (float *)malloc((size_t)left_samples_want * sizeof(float));
         if (left_copy) {
             uint64_t start = cursor_pos - (uint64_t)left_samples_want;
             for (int i = 0; i < left_samples_want; i++) {
                 left_copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
-            }
-        }
-    }
-    if (right_samples_want > 0) {
-        right_copy = (float *)malloc((size_t)right_samples_want * sizeof(float));
-        if (right_copy) {
-            uint64_t start = cursor_pos;
-            for (int i = 0; i < right_samples_want; i++) {
-                right_copy[i] = audio->output_history_buf[(start + (uint64_t)i) % (uint64_t)hist_size];
             }
         }
     }
@@ -1750,22 +1742,14 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
         }                                                                   \
     } while (0)
 
-    // LEFT half: samples cover full left_w pixels (oldest at column 0).
+    // Single slice rendered across full strip width — newest sample at
+    // the rightmost pixel, oldest at column 0. Needle at needle_frac is
+    // drawn on top as a visual marker of "playhead position".
     DRAW_SLICE(left_copy, left_samples_want, left_w, 0);
-
-    // RIGHT half: samples cover only the portion proportional to view_offset.
-    // If offset is small, the right half is mostly empty (background shows
-    // through). If offset reaches max, right half is fully drawn.
-    int right_pixels_filled = right_samples_want > 0
-        ? (int)((double)right_samples_want / (double)rate / right_seconds_max * (double)right_w + 0.5)
-        : 0;
-    if (right_pixels_filled > right_w) right_pixels_filled = right_w;
-    DRAW_SLICE(right_copy, right_samples_want, right_pixels_filled, needle_off);
 
     #undef DRAW_SLICE
 
-    if (left_copy)  free(left_copy);
-    if (right_copy) free(right_copy);
+    if (left_copy) free(left_copy);
 
     // Playhead needle — draw last so it sits on top of the bars. Color
     // tints toward orange when the cursor is offset (replay mode) so it's
