@@ -1734,9 +1734,13 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
                 if (peak > 1.0f) peak = 1.0f;                               \
                 int bar_h = (int)(peak * (float)amp + 0.5f);                \
                 if (bar_h < 1) bar_h = 1;                                   \
-                int r  = 120 + (int)(peak * 140.0f + 0.5f); if (r  > 255) r  = 255;  \
-                int gc = 120 + (int)(peak *  80.0f + 0.5f); if (gc > 255) gc = 255;  \
-                int b_ =  90 + (int)((1.0f - peak) * 120.0f + 0.5f); if (b_ > 255) b_ = 255; \
+                /* Cool → bright palette: deep teal at low peaks, cyan-                \
+                 * white at high peaks. Reads clearly against the strip's             \
+                 * dark-purple background and keeps the warm red/green                 \
+                 * needles fully legible on top. */                                    \
+                int r  =  40 + (int)(peak * 180.0f + 0.5f); if (r  > 255) r  = 255;    \
+                int gc = 160 + (int)(peak *  90.0f + 0.5f); if (gc > 255) gc = 255;    \
+                int b_ = 200 + (int)(peak *  55.0f + 0.5f); if (b_ > 255) b_ = 255;    \
                 graph_ink(g, (ACColor){(uint8_t)r, (uint8_t)gc, (uint8_t)b_, 220}); \
                 int dx = x + (draw_x_off) + col;                            \
                 graph_line(g, dx, midY - bar_h, dx, midY + bar_h);          \

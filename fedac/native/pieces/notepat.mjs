@@ -2741,14 +2741,14 @@ function act({ event: e, sound, wifi, system }) {
     if (key === "space") {
       spaceHeld = false;
       stopReversePlayback(sound);
-      // Unfreeze the output-history ring and snap the visual cursor back
-      // to the live edge. The ring's write_pos resumes from exactly where
-      // it paused — so the wave picks up recording at the press-moment,
-      // and the needle jumps to "now" in one frame (matches the user's
-      // mental model of "release = snap back to present").
+      // Unfreeze the output-history ring so live audio resumes being
+      // captured. sim() will animate waveViewOffsetSec back to 0 over
+      // ~20 frames (ease-out lerp) so the needle VISIBLY catches up to
+      // the present — which reads as a smooth "returning to live" sweep
+      // rather than a snap. The ring's write_pos didn't advance during
+      // the hold, so the catch-up target (offset=0) is still exactly the
+      // moment of press; recording picks up from there.
       sound?.speaker?.setCapturePaused?.(false);
-      waveViewOffsetSec = 0;
-      waveDriftSpeed = 1.0;
       spacePressStartMs = 0;
       return;
     }
@@ -3585,44 +3585,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite("reboot?", 100, 220, 100, 220);
   }
 
-  const usbMidiText = usbMidiStatusText(usbMidiStatus);
-  if (usbMidiStatus?.active) {
-    statusWrite(usbMidiText, 100, 220, 140, 220);
-  } else if (usbMidiStatus?.enabled) {
-    statusWrite(usbMidiText, 255, 190, 80, 220);
-  } else {
-    statusWrite(usbMidiText, FG_DIM, FG_DIM, FG_DIM, 200);
-  }
-
   // Last key pressed — fades from bright to dim over ~60 frames (1s) so
   // rapid-fire input flashes are visible while idle state stays subtle.
+  // (USB MIDI / UDP MIDI / FPS moved to colored chips on the right side
+  // so the left-of-notepat-label area is dedicated to key-press + auto-
+  // update transient messages.)
   if (lastKeyPressed) {
     const age = frame - lastKeyFrame;
     const fadeA = age < 60 ? Math.max(100, 255 - Math.floor(age * 2.5)) : 100;
     statusWrite("key:" + lastKeyPressed, 180, 220, 255, fadeA);
-  }
-
-  // UDP MIDI — sibling indicator to USB MIDI. Color encodes state:
-  //   disabled        → FG_DIM (flat "OFF")
-  //   enabled + down  → amber (255,190,80)  "..."
-  //   enabled + up    → dim green (100,220,140)  "ON"
-  //   actively sending→ bright green, pulsing with recency
-  // The pulse decays over ~1.5s after each note so rapid play visibly
-  // lights the indicator vs just sitting on "connected".
-  const relayText = udpMidiRelayStatusText(system);
-  if (relayText) {
-    if (!udpMidiBroadcast) {
-      statusWrite(relayText, FG_DIM, FG_DIM, FG_DIM, 200);
-    } else if (!system?.udp?.connected) {
-      statusWrite(relayText, 255, 190, 80, 220);
-    } else {
-      const recency = udpMidiSendRecency();
-      // dim green (100,220,140) → bright green (160,255,190) as recency rises
-      const r = Math.round(100 + recency * 60);
-      const g = Math.round(220 + recency * 35);
-      const b = Math.round(140 + recency * 50);
-      statusWrite(relayText, r, g, b, 220);
-    }
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
@@ -4220,35 +4191,51 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     rx -= 4;
   }
 
-  // Volume bar
+  // Volume bar — taller (6 px) with high-contrast BG track so you can
+  // see the full drag range at a glance, filled portion shows current.
   const sysVol = sound?.speaker?.systemVolume ?? 100;
   {
-    const volW = 20, volH = 3;
+    const volW = 20, volH = 6;
+    const volBarY = barY - 1;
     rx -= volW;
     const volBarX = rx;
-    ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
-    box(rx, barY + 2, volW, volH, true);
+    // Max-range track (dark cool-gray in dark mode, cool-light in light)
+    ink(dark ? 55 : 205, dark ? 55 : 205, dark ? 70 : 215, 255);
+    box(rx, volBarY, volW, volH, true);
     const fillV = Math.floor(sysVol * volW / 100);
-    if (fillV > 0) { ink(dark ? 150 : 80, dark ? 150 : 80, dark ? 150 : 80); box(rx, barY + 2, fillV, volH, true); }
+    if (fillV > 0) {
+      ink(dark ? 180 : 60, dark ? 200 : 80, dark ? 220 : 140, 255);
+      box(rx, volBarY, fillV, volH, true);
+    }
+    // 1-px border frame
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170, 200);
+    box(rx, volBarY, volW, 1, true);
+    box(rx, volBarY + volH - 1, volW, 1, true);
     rx -= 2;
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     rx -= 3 * CH;
     write("vol", { x: rx, y: barY, size: 1 });
-    // Store hit zone for mouse interaction (label + bar)
     globalThis.__volBar = { x: rx, w: volBarX + volW - rx, barX: volBarX, barW: volW };
   }
 
-  // Brightness bar
+  // Brightness bar — same prominence as volume
   const sysBrt = system?.brightness ?? -1;
   if (sysBrt >= 0) {
     rx -= 4;
-    const brtW = 16, brtH = 3;
+    const brtW = 16, brtH = 6;
+    const brtBarY = barY - 1;
     rx -= brtW;
     const brtBarX = rx;
-    ink(dark ? 45 : 220, dark ? 45 : 220, dark ? 50 : 225);
-    box(rx, barY + 2, brtW, brtH, true);
+    ink(dark ? 55 : 205, dark ? 55 : 205, dark ? 70 : 215, 255);
+    box(rx, brtBarY, brtW, brtH, true);
     const fillB = Math.floor(sysBrt * brtW / 100);
-    if (fillB > 0) { ink(dark ? 180 : 60, dark ? 160 : 60, dark ? 80 : 30); box(rx, barY + 2, fillB, brtH, true); }
+    if (fillB > 0) {
+      ink(dark ? 220 : 120, dark ? 200 : 90, dark ? 100 : 40, 255);
+      box(rx, brtBarY, fillB, brtH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170, 200);
+    box(rx, brtBarY, brtW, 1, true);
+    box(rx, brtBarY + brtH - 1, brtW, 1, true);
     rx -= 2;
     ink(FG_MUTED, FG_MUTED, FG_MUTED);
     rx -= 3 * CH;
@@ -4256,15 +4243,84 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     globalThis.__brtBar = { x: rx, w: brtBarX + brtW - rx, barX: brtBarX, barW: brtW };
   }
 
-  // FPS counter (left of brightness)
+  // Status chips — USB MIDI / UDP MIDI / FPS grouped as small colored
+  // strips to the left of the brightness bar. Each chip has a tinted
+  // background + short monospace label so their states read at a glance
+  // without mixing into the key-press / auto-update message stream on
+  // the left. Layout (right → left, starting from current `rx`):
+  //
+  //   … [brt] [vol] [FPS:60] [UDP·MIDI] [USB·MIDI] [time] [bat]
+  //
+  // Chip helper — draws a filled rectangle with `fg` text centered in
+  // it, advances `rx` leftward. `bg`/`fg` are 4-tuples {r,g,b,a}.
+  const chipH = topBarH - 4;
+  const chipY = 2;
+  const chipPad = 3;
+  const drawStatusChip = (text, bg, fg) => {
+    const chipW = text.length * CH + chipPad * 2;
+    rx -= 3; // gap between chips
+    rx -= chipW;
+    ink(bg[0], bg[1], bg[2], bg[3]);
+    box(rx, chipY, chipW, chipH, true);
+    // Thin bottom accent for tactility
+    ink(Math.max(0, bg[0] - 40), Math.max(0, bg[1] - 40), Math.max(0, bg[2] - 40), bg[3]);
+    box(rx, chipY + chipH - 1, chipW, 1, true);
+    ink(fg[0], fg[1], fg[2], fg[3]);
+    write(text, { x: rx + chipPad, y: barY, size: 1, font: "matrix" });
+  };
+
+  // FPS chip — color graded green (≥55), amber (≥30), red (<30)
   if (fpsDisplay > 0) {
-    rx -= 4;
-    const fpsStr = fpsDisplay + "";
-    const fpsColor = fpsDisplay >= 55 ? (dark ? 80 : 180) : (fpsDisplay >= 30 ? (dark ? 200 : 180) : 255);
-    const fpsG = fpsDisplay >= 55 ? (dark ? 180 : 180) : (fpsDisplay >= 30 ? (dark ? 160 : 120) : 60);
-    ink(fpsColor, fpsG, dark ? 80 : 80);
-    rx -= fpsStr.length * CH;
-    write(fpsStr, { x: rx, y: barY, size: 1 });
+    const fpsStr = "fps" + fpsDisplay;
+    const fpsBg = fpsDisplay >= 55
+      ? [30, 80, 50, 200]
+      : fpsDisplay >= 30
+        ? [100, 70, 25, 200]
+        : [110, 30, 30, 220];
+    const fpsFg = fpsDisplay >= 55
+      ? [160, 255, 190, 255]
+      : fpsDisplay >= 30
+        ? [255, 220, 140, 255]
+        : [255, 180, 180, 255];
+    drawStatusChip(fpsStr, fpsBg, fpsFg);
+  }
+
+  // UDP MIDI chip — state colors
+  //   off:        dim gray (relay disabled in config.json)
+  //   connecting: amber
+  //   connected:  dim green
+  //   sending:    bright green (pulses with recency of last sent note)
+  {
+    const label = udpMidiBroadcast
+      ? (!system?.udp?.connected ? "udp..." : "udp ok")
+      : "udp off";
+    let bg, fg;
+    if (!udpMidiBroadcast) {
+      bg = [40, 40, 50, 200]; fg = [140, 140, 150, 220];
+    } else if (!system?.udp?.connected) {
+      bg = [100, 70, 25, 210]; fg = [255, 220, 140, 255];
+    } else {
+      const recency = udpMidiSendRecency();
+      bg = [Math.round(30 + recency * 70), Math.round(80 + recency * 90), Math.round(50 + recency * 40), 210];
+      fg = [Math.round(160 + recency * 60), Math.round(255), Math.round(190 + recency * 40), 255];
+    }
+    drawStatusChip(label, bg, fg);
+  }
+
+  // USB MIDI chip
+  {
+    const label = usbMidiStatus?.active
+      ? "usb on"
+      : (usbMidiStatus?.enabled ? "usb..." : "usb off");
+    let bg, fg;
+    if (usbMidiStatus?.active) {
+      bg = [30, 80, 50, 210]; fg = [160, 255, 190, 255];
+    } else if (usbMidiStatus?.enabled) {
+      bg = [100, 70, 25, 210]; fg = [255, 220, 140, 255];
+    } else {
+      bg = [40, 40, 50, 200]; fg = [140, 140, 150, 220];
+    }
+    drawStatusChip(label, bg, fg);
   }
 
   // === NOTEPAT SCREEN: pads, waveform, echo slider ===
@@ -4314,28 +4370,25 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     sound.speaker.drawStrip(rsX, recordStripTop, rsW, recordStripH,
                              recordStripSeconds, 0.5, waveViewOffsetSec);
 
-    // Overlay: needle shakes + blinks GREEN when a note is actively
-    // being played. Recently-pressed (within ~18 frames) or currently-
-    // active notes trigger the effect. Without this the red/orange
-    // needle looks inert even while tones are sounding; the green
-    // blink gives immediate "the playhead is emitting audio" feedback.
+    // Overlay: needle blinks GREEN when a note is actively being played.
+    // Drawn at the EXACT same X as the C-rendered red needle — the color
+    // change is the only difference, no shake/offset, so it reads as
+    // "same line, different state" instead of two separate bars. The
+    // underlying red needle shows through during the dim half of the
+    // blink cycle, giving a subtle red↔green pulse without any double
+    // vision.
     const framesSincePress = frame - lastKeyFrame;
     const noteActive = activeCount > 0 || framesSincePress < 18;
     if (noteActive) {
       const needleX = rsX + Math.floor(rsW * 0.5);
-      // Pseudo-random shake in pixel space — ±1 px horizontal jitter
-      // phase-locked to the frame so it reads as vibration, not noise.
-      const shake = (frame & 1) ? 1 : -1;
       // Blink intensity pulses at ~15 Hz (every 4 frames at 60 fps).
       const blink = (frame & 3) < 2 ? 255 : 140;
-      // Fade the overlay out as the press ages, so tapping a short
-      // note still gives a quick flash but doesn't linger.
       const ageFade = framesSincePress < 6
         ? 255
         : Math.max(120, 255 - (framesSincePress - 6) * 10);
       const a = activeCount > 0 ? 255 : ageFade;
       ink(90, blink, 130, a);
-      line(needleX + shake, recordStripTop, needleX + shake, recordStripTop + recordStripH);
+      line(needleX, recordStripTop, needleX, recordStripTop + recordStripH);
     }
   }
 
@@ -5816,26 +5869,29 @@ function sim({ pressures, sound }) {
   //
   //   spaceHeld: drive offset directly from elapsed-since-press. The
   //              reverse-replay voice is reading the captured buffer
-  //              backwards at 1× rate (since Date.now() returns wall
-  //              clock and the buffer is mono @ the history rate), so
-  //              setting offset = elapsed guarantees the visual needle
-  //              sits on exactly the sample being played. Cap at MAX so
-  //              the display stops retreating once we're at the end of
-  //              the visible window (audio still ping-pongs beyond).
+  //              backwards at 1× rate, so offset = elapsed guarantees
+  //              the visual needle sits on exactly the sample being
+  //              played. Cap at MAX.
   //
-  //   released:  snap the cursor back to 0 immediately — the press-
-  //              release handler already does this + re-arms the capture
-  //              ring. No smooth catch-up, because the user explicitly
-  //              wants "release = back to the present where reversing
-  //              started" (capture was paused during hold, so live
-  //              write_pos IS the moment of press).
+  //   released:  animate the cursor back to live over ~20 frames instead
+  //              of snapping. Feels like the needle "catches up" to the
+  //              present. The capture ring was paused during hold so
+  //              live write_pos still marks the press-moment, meaning
+  //              offset=0 really is "where reversing started" — the
+  //              animation just makes the visual transition legible.
+  const dtSec = 1 / 60;
   if (spaceHeld && spacePressStartMs > 0) {
     const elapsedSec = (Date.now() - spacePressStartMs) / 1000;
     waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC, elapsedSec);
     waveDriftSpeed = -1.0; // cosmetic (only needle-color uses it)
+  } else if (waveViewOffsetSec > 0) {
+    // Ease-out lerp toward 0. At 60 fps with 0.18 factor the offset
+    // halves every ~4 frames — settles visually in ~15-20 frames.
+    waveViewOffsetSec = Math.max(0, waveViewOffsetSec - waveViewOffsetSec * 0.18 - dtSec * 0.25);
+    if (waveViewOffsetSec < 0.005) waveViewOffsetSec = 0;
+    waveDriftSpeed = 1.0;
   } else {
     waveDriftSpeed = 1.0;
-    // waveViewOffsetSec is reset to 0 in the space-release handler.
   }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
