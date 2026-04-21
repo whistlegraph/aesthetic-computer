@@ -55,14 +55,21 @@
 
   html, body { background: var(--bg); color: var(--text); }
   body {
-    font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
-    font-size: 13px;
-    line-height: 1.55;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.58;
     -webkit-text-size-adjust: none;
     padding: 1.4em 1.6em 4em;
     min-height: 100vh;
   }
   @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  /* Monospace is still used for metadata, code, labels — anywhere we want
+     a "terminal / data" texture. Prose stays proportional for readability. */
+  .mono, code, .eyebrow, .meta, .stat .l, .count, .section-break,
+  .channel-status, .stats-status, footer {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
 
   a { color: var(--cyan); text-decoration: none; }
   a:hover { color: var(--pink); }
