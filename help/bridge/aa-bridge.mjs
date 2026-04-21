@@ -150,6 +150,15 @@ async function readSessionTranscript(sessionId) {
 }
 
 // ───────── claude spawn ─────────
+//
+// Git attribution: commits made through this bridge keep the *author* as
+// whatever the cwd's git config says (@jeffrey), but set the *committer*
+// to the aa-bridge endpoint. This preserves the standard
+// "authored-by-X, committed-by-Y" semantics, and makes these commits
+// trivially filterable via `git log --committer=aa-bridge`.
+const COMMITTER_NAME = process.env.AA_GIT_COMMITTER_NAME || "aa-bridge";
+const COMMITTER_EMAIL = process.env.AA_GIT_COMMITTER_EMAIL || "aa@aesthetic.computer";
+
 function spawnClaude(message, sessionId) {
   const args = [
     "--print",
@@ -168,7 +177,12 @@ function spawnClaude(message, sessionId) {
   args.push(message);
   return spawn(CLAUDE_BIN, args, {
     cwd: WORK_DIR,
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      AA_BRIDGE: "1",
+      GIT_COMMITTER_NAME: COMMITTER_NAME,
+      GIT_COMMITTER_EMAIL: COMMITTER_EMAIL,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
