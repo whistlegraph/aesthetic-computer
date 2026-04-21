@@ -3055,20 +3055,40 @@ function act({ event: e, sound, wifi, system }) {
             compositeVoices: [a, b, c, d, e2],
           }, system, 1);
         } else {
-          // Shift+letter on harp = short staccato pluck. Pass decay=0.1 as
-          // a signal to the C generate_harp_sample (which switches to a
-          // tighter stretch factor and damps in ~0.4s). Finite duration
-          // so the voice naturally ends without needing kill().
+          // Shift modifiers — per-instrument alternate sound recipes.
+          //   harp   + shift → short staccato pluck (tight stretch in C)
+          //   whistle+ shift → "blow" — whistle plus a noise layer for
+          //                    breathy/airy character
           const isShortPluck = wave === "harp" && shiftHeld;
+          const isMessyBlow  = wave === "whistle" && shiftHeld;
           synth = sound.synth({
             type: wave, tone: playFreq,
             duration: isShortPluck ? 0.4 : Infinity,
-            volume: 0.5,
+            volume: isMessyBlow ? 0.42 : 0.5,
             attack: currentAttack(),
             decay: isShortPluck ? 0.1 : currentDecay(),
             pan,
           });
-          rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
+          if (isMessyBlow) {
+            // Noise layer riding two octaves above the whistle — reads as
+            // breath passing across the whistle mouth. Volume stays low
+            // so the pitched tone still dominates; releases with the
+            // main voice via compositeVoices bookkeeping below.
+            const blow = sound.synth({
+              type: "noise", tone: playFreq * 4,
+              duration: Infinity,
+              volume: 0.18,
+              attack: Math.max(0.02, currentAttack()),
+              decay: currentDecay(),
+              pan,
+            });
+            rememberSound(hitNote.key, {
+              synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq,
+              compositeVoices: [synth, blow],
+            }, system, 1);
+          } else {
+            rememberSound(hitNote.key, { synth, note: hitNote.letter, octave: hitNote.octave, baseFreq: freq }, system, 1);
+          }
         }
         if (!sounds[hitNote.key]) {
           synth = sound.synth({
