@@ -5666,25 +5666,30 @@ function sim({ pressures, sound }) {
     stopSampleRecording(sound, "max-duration");
   }
 
-  // Smoothly lerp waveDriftSpeed toward target (+1 live, -1 replay) so
-  // the visible wave decelerates → stops → reverses → accelerates
-  // instead of snapping. Then derive offset growth rate from drift
-  // speed (d_offset/dt = 1 - drift_speed). Cap offset at the configured
-  // max; if we hit the cap, force drift_speed back to +1 so we don't
-  // accumulate further (cursor settles at the cap and resumes live drift
-  // at the floor of the visible window).
+  // Smoothly lerp waveDriftSpeed toward target so the visible wave
+  // decelerates → stops → reverses → accelerates instead of snapping.
+  // Drift-speed → display velocity:
+  //   = +2 → display advances at 2× real-time (wave drifts LEFT fast,
+  //          used during release to catch up to live)
+  //   = +1 → display advances at 1× (live)
+  //   =  0 → display frozen
+  //   = -1 → display retreats at 1× (wave drifts RIGHT, replay)
+  // d_offset/dt = 1 - waveDriftSpeed
   const dtSec = 1 / 60;
-  const driftTarget = spaceHeld ? -1.0 : 1.0;
+  const driftTarget = spaceHeld ? -1.0 : 2.0;
   // 0.10 ≈ 6-frame time constant — visibly smooth but quick to engage.
   waveDriftSpeed += (driftTarget - waveDriftSpeed) * 0.10;
   const dOffsetDt = 1.0 - waveDriftSpeed;
   waveViewOffsetSec += dOffsetDt * dtSec;
-  if (waveViewOffsetSec < 0) waveViewOffsetSec = 0;
+  if (waveViewOffsetSec <= 0) {
+    waveViewOffsetSec = 0;
+    // Caught back up to live — snap drift back to +1 so we don't keep
+    // pushing offset negative every frame after release. Re-engages
+    // smoothly if the user presses space again.
+    if (!spaceHeld) waveDriftSpeed = 1.0;
+  }
   if (waveViewOffsetSec > WAVE_VIEW_MAX_OFFSET_SEC) {
     waveViewOffsetSec = WAVE_VIEW_MAX_OFFSET_SEC;
-    // Clamp the drift back to +1 (live) so subsequent frames don't
-    // pile up offset that we'd then need to unwind on release.
-    if (waveDriftSpeed < 1.0) waveDriftSpeed = 1.0;
   }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
