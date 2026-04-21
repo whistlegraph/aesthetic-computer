@@ -1,0 +1,172 @@
+// audio.c — SDL3 audio driver for the macOS host.
+// Thin shell around fedac/native/src/synth_core: owns the SDL3 audio stream
+// and pulls stereo float frames out of the shared synth engine.
+
+#include "audio.h"
+#include "synth_core.h"
+
+#include <SDL3/SDL.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+
+// Lower than the Linux 192 kHz target — 48 kHz keeps CPU/scheduling headroom
+// on the laptop, and the DSP models behave cleanly at 48 kHz as well.
+#define DRIVER_SAMPLE_RATE 48000
+#define DRIVER_CHANNELS    2
+
+struct Audio {
+    SDL_AudioStream *stream;
+    SynthCore       synth;
+    pthread_mutex_t lock;
+    uint64_t        next_id;
+    ACVoice         voices[AUDIO_MAX_VOICES];
+    // Diagnostics for headless tests. Peak of any sample emitted since init,
+    // total sample count. Useful to detect silence regressions in CI runs.
+    volatile float    peak_out;
+    volatile uint64_t samples_out;
+    // Keypress→sound latency timestamps (SDL_GetTicksNS, monotonic).
+    volatile uint64_t trigger_ns;    // armed by audio_arm_latency()
+    volatile uint64_t emit_ns;       // first callback after arm with |sample| > threshold
+    volatile float    emit_threshold;
+};
+
+static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream,
+                                   int additional, int total) {
+    (void)total;
+    Audio *a = (Audio *)userdata;
+    if (additional <= 0) return;
+    int frames = additional / (int)(sizeof(float) * DRIVER_CHANNELS);
+    if (frames <= 0) return;
+
+    // Scratch stereo buffer. Stack path covers the common case; fallback to
+    // heap for larger pulls (some audio drivers ask for big blocks up front).
+    float stack_buf[1024 * DRIVER_CHANNELS];
+    float *buf = stack_buf;
+    float *heap = NULL;
+    size_t need = (size_t)frames * DRIVER_CHANNELS;
+    if (need > sizeof(stack_buf) / sizeof(float)) {
+        heap = (float *)malloc(need * sizeof(float));
+        if (!heap) return;
+        buf = heap;
+    }
+    memset(buf, 0, need * sizeof(float));
+
+    synth_render(&a->synth, buf, frames);
+
+    // Track peak + sample count for test observability.
+    float peak = 0.0f;
+    for (size_t i = 0; i < need; i++) {
+        float v = buf[i]; if (v < 0) v = -v;
+        if (v > peak) peak = v;
+    }
+    if (peak > a->peak_out) a->peak_out = peak;
+    a->samples_out += (uint64_t)frames;
+
+    // Latency measurement: if armed and this buffer is loud enough, stamp it.
+    if (a->trigger_ns && !a->emit_ns && peak > a->emit_threshold) {
+        a->emit_ns = SDL_GetTicksNS();
+    }
+
+    SDL_PutAudioStreamData(stream, buf, additional);
+    if (heap) free(heap);
+}
+
+Audio *audio_init(void) {
+    Audio *a = (Audio *)calloc(1, sizeof(Audio));
+    if (!a) return NULL;
+    pthread_mutex_init(&a->lock, NULL);
+    a->next_id = 0;
+    synth_core_init(&a->synth, a->voices, AUDIO_MAX_VOICES,
+                    &a->lock, &a->next_id, (double)DRIVER_SAMPLE_RATE);
+
+    // Request a tiny audio buffer so keystroke → sound latency stays under
+    // one paint frame. AC_AUDIO_BUFFER env var overrides; 64 frames @ 48k
+    // is ~1.3 ms. Empirically on M-series Macs the CoreAudio device adds
+    // another ~4–5 ms of its own pipeline, so end-to-end median lands near
+    // 6 ms. Smaller buffers don't lower that floor, but they tighten the
+    // jitter ceiling (see AC_LATENCY_TEST for measurements). Must be set
+    // before opening the device.
+    const char *buf_env = getenv("AC_AUDIO_BUFFER");
+    SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, buf_env ? buf_env : "64");
+
+    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        fprintf(stderr, "[audio] SDL_InitSubSystem: %s\n", SDL_GetError());
+        pthread_mutex_destroy(&a->lock);
+        free(a);
+        return NULL;
+    }
+    SDL_AudioSpec spec = { SDL_AUDIO_F32, DRIVER_CHANNELS, DRIVER_SAMPLE_RATE };
+    a->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                                          &spec, audio_callback, a);
+    if (!a->stream) {
+        fprintf(stderr, "[audio] SDL_OpenAudioDeviceStream: %s\n", SDL_GetError());
+        pthread_mutex_destroy(&a->lock);
+        free(a);
+        return NULL;
+    }
+    SDL_ResumeAudioStreamDevice(a->stream);
+
+    // Query what the device actually negotiated so we can log real latency.
+    SDL_AudioDeviceID dev = SDL_GetAudioStreamDevice(a->stream);
+    int frames_per_buf = 0;
+    SDL_AudioSpec got_spec = {0};
+    SDL_GetAudioDeviceFormat(dev, &got_spec, &frames_per_buf);
+    double latency_ms = (got_spec.freq > 0 && frames_per_buf > 0)
+                        ? (1000.0 * (double)frames_per_buf / (double)got_spec.freq)
+                        : 0.0;
+    fprintf(stderr, "[audio] ready @ %d Hz, %d ch, buf=%d frames (~%.1f ms device latency)\n",
+            got_spec.freq ? got_spec.freq : DRIVER_SAMPLE_RATE,
+            got_spec.channels ? got_spec.channels : DRIVER_CHANNELS,
+            frames_per_buf, latency_ms);
+    return a;
+}
+
+void audio_destroy(Audio *a) {
+    if (!a) return;
+    fprintf(stderr, "[audio] stop: %llu samples emitted, peak=%.3f\n",
+            (unsigned long long)a->samples_out, a->peak_out);
+    if (a->stream) SDL_DestroyAudioStream(a->stream);
+    pthread_mutex_destroy(&a->lock);
+    free(a);
+}
+
+uint64_t audio_synth(Audio *a, WaveType w, double freq, double dur, double vol,
+                     double att, double dec, double pan) {
+    return a ? synth_synth(&a->synth, w, freq, dur, vol, att, dec, pan) : 0;
+}
+
+uint64_t audio_synth_gun(Audio *a, GunPreset preset, double duration,
+                         double volume, double attack, double decay,
+                         double pan, double pressure_scale, int force_model) {
+    return a ? synth_synth_gun(&a->synth, preset, duration, volume, attack,
+                               decay, pan, pressure_scale, force_model) : 0;
+}
+
+void audio_kill(Audio *a, uint64_t id, double fade) {
+    if (a) synth_kill(&a->synth, id, fade);
+}
+
+void audio_update(Audio *a, uint64_t id, double freq, double vol, double pan) {
+    if (a) synth_update(&a->synth, id, freq, vol, pan);
+}
+
+void audio_gun_set_param(Audio *a, uint64_t id, const char *key, double value) {
+    if (a) synth_gun_set_param(&a->synth, id, key, value);
+}
+
+WaveType audio_parse_wave(const char *s) { return synth_parse_wave(s); }
+
+void audio_arm_latency(Audio *a, float threshold) {
+    if (!a) return;
+    a->emit_ns = 0;
+    a->emit_threshold = threshold > 0.0f ? threshold : 0.02f;
+    a->trigger_ns = SDL_GetTicksNS();
+}
+
+uint64_t audio_latency_ns(Audio *a) {
+    if (!a || !a->trigger_ns || !a->emit_ns) return 0;
+    return a->emit_ns - a->trigger_ns;
+}

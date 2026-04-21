@@ -363,10 +363,16 @@ function getLAHour() {
   return (now.getUTCHours() - getLAOffset() + 24) % 24;
 }
 function isDark() {
+  // Host-provided appearance (macOS follows the system Appearance setting)
+  // wins. When the host doesn't populate __theme_dark (device/Linux build),
+  // fall back to the LA-clock heuristic: dark after 8pm, light after 7am.
+  if (typeof globalThis.__theme_dark === "function") {
+    return !!globalThis.__theme_dark();
+  }
   const h = getLAHour();
-  return h >= 20 || h < 7; // dark after 8pm, light after 7am (LA time)
+  return h >= 20 || h < 7;
 }
-let dark = isDark(); // auto: dark after 7pm LA time, light before
+let dark = isDark(); // auto: macOS appearance if available, else LA time
 
 // Background color — average of active notes, lerped
 let bgColor = [0, 0, 0];
