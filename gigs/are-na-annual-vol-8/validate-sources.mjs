@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Validate the blocks in "the-score-that-teaches-itself":
+// Validate the blocks in "self-teaching-scores":
 //  - flag every Wikipedia link (we want primary sources)
 //  - for each block, search are.na for existing uses of the same URL
 //    and of the topic name — so we can see what other people
@@ -12,7 +12,7 @@
 //
 // ARENA_TOKEN is optional but greatly raises rate limits.
 
-const SLUG = "the-score-that-teaches-itself";
+const SLUG = "self-teaching-scores";
 const TOKEN = process.env.ARENA_TOKEN;
 const API = "https://api.are.na/v2";
 

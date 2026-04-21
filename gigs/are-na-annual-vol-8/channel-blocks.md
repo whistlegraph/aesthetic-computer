@@ -1,6 +1,6 @@
-# Channel — the score that teaches itself
+# Channel — Self-Teaching Scores
 
-68 blocks on https://www.are.na/aesthetic-computer/the-score-that-teaches-itself, organized bottom-up (reading order on the channel page is top-down, so this list reads in the order the reader encounters the channel from top).
+68 blocks on https://www.are.na/aesthetic-computer/self-teaching-scores, organized bottom-up (reading order on the channel page is top-down, so this list reads in the order the reader encounters the channel from top).
 
 ## §10 — Whistlegraph (top of channel)
 

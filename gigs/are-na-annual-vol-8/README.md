@@ -6,11 +6,11 @@ Pitch package for Are.na's Annual Vol. 8, themed **"Score."**
 - **Submission form:** https://aredotna.notion.site/3178a0f816d9815abdf3cb1624bb9e88
 - **Deadline:** Monday, April 20, 2026 — 11:59pm EST
 - **Honorarium:** $200 (published pieces, book releases December 2026)
-- **Submitted channel:** [the score that teaches itself](https://www.are.na/aesthetic-computer/the-score-that-teaches-itself) — 68 blocks
+- **Submitted channel:** [Self-Teaching Scores](https://www.are.na/aesthetic-computer/self-teaching-scores) — 68 blocks
 
 ## Pitch (tightened, ~170 words)
 
-> **Channel:** *The Score That Teaches Itself* — whistlegraphs alongside Cardew's *Treatise*, Cage's *Fontana Mix*, shape-note hymnals, Fluxus event scores, skateboard lines.
+> **Channel:** *Self-Teaching Scores* — whistlegraphs alongside Cardew's *Treatise*, Cage's *Fontana Mix*, shape-note hymnals, Fluxus event scores, skateboard lines.
 >
 > I want to write about whistlegraph, a drawing form I invented in 2019 where every mark is a sung syllable. Between 2019 and 2023 it reached 2.6 million TikTok followers with no paid promotion and no trend-jacking. The distribution model was the form itself: a score legible enough that watching, learning, and performing collapse into a single gesture.
 >
@@ -51,7 +51,7 @@ Full per-block list with descriptions: [channel-blocks.md](channel-blocks.md).
 
 Two scripts, both auth via `ARENA_TOKEN` env var. A personal access token is created at https://dev.are.na/oauth/applications → any app → "Access Token." The OAuth code-exchange path used to originally mint this token is described in [reference_arena.md](../../../../../../.claude/projects/-Users-jas-aesthetic-computer/memory/reference_arena.md) (local auto-memory, not in the repo).
 
-- [seed-channel.mjs](seed-channel.mjs) — posts 68 blocks to `the-score-that-teaches-itself` in reverse reading order (so whistlegraph lands on top).
+- [seed-channel.mjs](seed-channel.mjs) — posts 68 blocks to `self-teaching-scores` in reverse reading order (so whistlegraph lands on top).
 - [set-descriptions.mjs](set-descriptions.mjs) — walks the channel and PUTs a per-block description from the lookup map.
 
 ```sh
