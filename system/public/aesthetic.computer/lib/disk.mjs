@@ -14597,40 +14597,19 @@ async function makeFrame({ data: { type, content } }) {
         // Update button position to match label position (with slide offset)
         const finalX = currentHUDOffset.x + hudAnimationState.slideOffset.x - currentHUDLeftPad;
         const finalY = currentHUDOffset.y + hudAnimationState.slideOffset.y;
-        // Hit region matches the visible text width (not the padded buffer or full screen)
-        // and extends up to y=0 so taps at the top edge still register as corner-label taps.
-        const textOnlyHeight = Math.max(
+        // Match hitbox to full rendered HUD label buffer (including scrub reveal areas).
+        const hitboxWidth = Math.max(
           1,
-          Math.round(
-            currentHUDTextHeight ||
-              currentHUDTextBoxHeight ||
-              measuredTextHeight ||
-              hudBlockHeight ||
-              1,
-          ),
+          Math.round(hudAnimationState.labelWidth || bufferW || currentHUDLabelMeasuredWidth || 1),
         );
-        const visualTextWidth = Math.max(
+        const hitboxHeight = Math.max(
           1,
-          Math.round(
-            currentHUDTextBoxWidth ||
-              longestVisibleLineWidth ||
-              hudBlockWidth ||
-              1,
-          ),
+          Math.round(hudAnimationState.labelHeight || bufferH || currentHUDTextHeight || currentHUDTextBoxHeight || h || 1),
         );
-        const descenderPad = Math.max(2, Math.round(hudBlockHeight * 0.2));
-        const finalYClamped = Math.max(0, Math.round(finalY));
-        // Flush with the left edge of the screen; extend right past the text with a
-        // small padding so the tap area isn't uncomfortably tight.
-        const textStartX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
-        const rightPad = Math.max(6, Math.round(hudBlockWidth * 1.5));
-        currentHUDButton.box.x = 0;
-        currentHUDButton.box.y = 0;
-        currentHUDButton.box.w = Math.max(
-          1,
-          Math.round(Math.max(0, textStartX) + visualTextWidth + rightPad),
-        );
-        currentHUDButton.box.h = Math.max(1, finalYClamped + textOnlyHeight + descenderPad);
+        currentHUDButton.box.x = finalX;
+        currentHUDButton.box.y = finalY;
+        currentHUDButton.box.w = hitboxWidth;
+        currentHUDButton.box.h = Math.max(1, Math.round(hitboxHeight));
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
         currentHUDButton.noEdgeDetection = true;
@@ -15215,18 +15194,22 @@ async function makeFrame({ data: { type, content } }) {
         };
 
         // DEBUG: Add hitbox visualization overlay
-        // TEMP: default-on fill visualization to inspect tap area height. Toggle off via `toggleHudHitboxDebug()`.
-        if (globalThis.debugHudHitbox !== false && currentHUDButton) {
+        if (globalThis.debugHudHitbox && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
           const hitboxHeight = currentHUDButton.box.h;
+          const blinkFrame = Number($api.paintCount || 0n);
+          const blinkOn = (blinkFrame % 30) < 15;
+          const outerAlpha = blinkOn ? 200 : 80;
+          const innerAlpha = blinkOn ? 120 : 40;
 
           const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
             $.unpan();
             $.unmask(); // Ensure hitbox overlay renders without piece mask
-            // Solid translucent magenta fill so the tap area is clearly visible
-            $.ink(255, 0, 180, 90).box(0, 0, hitboxWidth, hitboxHeight);
-            // Bright outline on top for precise edge inspection
-            $.ink(0, 255, 0, 220).box(0, 0, hitboxWidth, hitboxHeight, "outline");
+            // Draw a blinking green border to show the hitbox
+            $.ink(0, 255, 0, outerAlpha).box(0, 0, hitboxWidth, hitboxHeight, "outline");
+            if (hitboxWidth > 2 && hitboxHeight > 2) {
+              $.ink(0, 255, 0, innerAlpha).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
+            }
           });
 
           sendData.hitboxDebug = {
