@@ -362,8 +362,7 @@ function paint($) {
   ink(...statusColor).write(status, { x: PAD + 32, y: PAD });
 
   if (userHandle) {
-    const tag = `@${userHandle}`;
-    ink(...PALETTE.system).write(tag, { x: w - tag.length * 6 - PAD, y: PAD });
+    ink(...PALETTE.system).write(userHandle, { x: w - userHandle.length * 6 - PAD, y: PAD });
   }
   ink(...PALETTE.divider).box(0, HEADER_H - 2, w, 1, "fill");
 
