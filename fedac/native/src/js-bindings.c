@@ -1648,24 +1648,14 @@ static JSValue js_speaker_draw_strip(JSContext *ctx, JSValueConst this_val, int 
     if (needle_off >= w) needle_off = w - 1;
     int needle_x = x + needle_off;
 
-    // Strip always draws the past `seconds` of audio ending AT the cursor,
-    // spread across the FULL width with newest at the right edge. The
-    // needle at needle_frac is a visual "playhead at center" marker only.
-    //
-    // We deliberately do NOT render a post-cursor (right-of-needle)
-    // region: during reverse-replay the audio being heard is captured
-    // back through the speaker output ring, and drawing those samples on
-    // the right creates a confusing "double layer" of the original wave
-    // layered over its own reverse-played echo. Keeping the render area
-    // single-sourced keeps the visual unambiguous — the left-drift /
-    // right-drift behavior (driven by viewOffsetSec lerp in JS) is the
-    // only thing that changes on space press/release.
-    int left_w  = w;
-    int right_w = 0;
-    (void)right_w;
+    // Strip draws past `seconds` of audio ending AT the cursor, BUT only
+    // in the LEFT half (pixels 0 .. needle_off). This way the newest
+    // sample sits immediately left of the needle — the wave visibly
+    // "emerges" from the playhead and flows leftward into the past.
+    // Right of the needle stays empty (no double-layer from reverse-
+    // replay echo; no confusion about where new audio comes from).
+    int left_w = needle_off > 0 ? needle_off : w;
     double left_seconds = seconds;
-    double right_seconds = 0.0;
-    (void)right_seconds;
 
     pthread_mutex_lock(&audio->lock);
     unsigned int rate = audio->output_history_rate ? audio->output_history_rate

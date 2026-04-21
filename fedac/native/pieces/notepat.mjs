@@ -3424,12 +3424,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === STATUS BAR ===
-  // Bar is tall enough to fit a 50×50 QR code (21-module version-1 QR +
-  // 2-module quiet-zone margin at scale=2) in the top-left corner, with
-  // the text row sitting vertically centered below the QR's midline so
-  // readability at arm's length works on a phone-camera scan too.
-  const topBarH = 54;
-  const barY = 22; // center of text row — leaves 2 px top/bottom padding for status text at size=1
+  // Status text (notepat.com / midi / vol / fps / time / battery) sits
+  // flush with the top of the screen at barY=3 so the whole row reads
+  // as one continuous strip of readouts along the top edge. The QR
+  // fills the space underneath (25×25 at scale=1, anchored at (2,2)).
+  // topBarH stays tall enough (34) to fully contain the QR; everything
+  // downstream (pads, waveform strip) anchors to `topBarH` so shrinking
+  // the bar automatically gives the rest of the UI more room.
+  const topBarH = 34;
+  const barY = 3; // top-flush text row (matrix font at size=1 is ~7 px tall)
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
@@ -4274,6 +4277,30 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     const rsW = w - margin * 2;
     sound.speaker.drawStrip(rsX, recordStripTop, rsW, recordStripH,
                              recordStripSeconds, 0.5, waveViewOffsetSec);
+
+    // Overlay: needle shakes + blinks GREEN when a note is actively
+    // being played. Recently-pressed (within ~18 frames) or currently-
+    // active notes trigger the effect. Without this the red/orange
+    // needle looks inert even while tones are sounding; the green
+    // blink gives immediate "the playhead is emitting audio" feedback.
+    const framesSincePress = frame - lastKeyFrame;
+    const noteActive = activeCount > 0 || framesSincePress < 18;
+    if (noteActive) {
+      const needleX = rsX + Math.floor(rsW * 0.5);
+      // Pseudo-random shake in pixel space — ±1 px horizontal jitter
+      // phase-locked to the frame so it reads as vibration, not noise.
+      const shake = (frame & 1) ? 1 : -1;
+      // Blink intensity pulses at ~15 Hz (every 4 frames at 60 fps).
+      const blink = (frame & 3) < 2 ? 255 : 140;
+      // Fade the overlay out as the press ages, so tapping a short
+      // note still gives a quick flash but doesn't linger.
+      const ageFade = framesSincePress < 6
+        ? 255
+        : Math.max(120, 255 - (framesSincePress - 6) * 10);
+      const a = activeCount > 0 ? 255 : ageFade;
+      ink(90, blink, 130, a);
+      line(needleX + shake, recordStripTop, needleX + shake, recordStripTop + recordStripH);
+    }
   }
 
   // Waveform visualizer bars only in lanes above pad grids (not full-screen).
@@ -5043,11 +5070,14 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
         ink(dark ? 40 : 190, dark ? 40 : 190, dark ? 45 : 195);
         box(bx, waveRowY, 1, waveRowH, true);
       }
-      // Label — switch "harp" → "pluck" while Shift is held to surface
-      // the alternate short-pluck mode. The active button also gets a
-      // subtle bracket marker so it's obvious from the keyboard.
-      let label = waveLabels[i];
-      if (wavetypes[i] === "harp" && shiftHeld) label = "pluck";
+      // Label — stays constant regardless of Shift state. The Shift
+      // "alternate sound" mode is now indicated globally via the
+      // screen-edge outline (drawn at the end of paint), so per-button
+      // label renaming would be redundant and feel local to one
+      // instrument. Individual kits still apply their own Shift
+      // variation (harp → short pluck, whistle → messy blow, etc.)
+      // downstream of this visual label.
+      const label = waveLabels[i];
       const lx = bx + Math.floor((btnW2 - label.length * 6) / 2);
       write(label, { x: lx, y: waveRowY + 3, size: 1, font: "font_1" });
     }
@@ -5655,6 +5685,23 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     // Footer hint — always visible, always inside the panel
     ink(dark ? 100 : 140, dark ? 100 : 140, dark ? 125 : 160);
     write("meta to close", { x: px + padX, y: py + panelH - padY - 2, size: 1, font: "font_1" });
+  }
+
+  // Shift = GLOBAL alternate-sound mode. While held, draw an outline
+  // around the whole screen so the active state is obvious at a glance
+  // regardless of what instrument/kit is loaded. The alternate sound
+  // itself is emitted downstream by the kit-specific code (e.g. harp →
+  // short pluck, whistle → messy blow, all instruments → accent boost).
+  // Color pulses faintly between two amber tones so it feels alive
+  // without being visually noisy.
+  if (shiftHeld) {
+    const pulse = (frame & 7) < 4 ? 220 : 180;
+    ink(255, pulse, 60, 220);
+    const W = screen.width, H = screen.height;
+    box(0, 0, W, 2, true);        // top
+    box(0, H - 2, W, 2, true);    // bottom
+    box(0, 0, 2, H, true);        // left
+    box(W - 2, 0, 2, H, true);    // right
   }
 }
 
