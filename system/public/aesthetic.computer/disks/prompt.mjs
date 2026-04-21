@@ -5941,7 +5941,6 @@ function paint($) {
         // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
         // so 8 spaces (x+18) leaves a 3px gap after the frame.
         const notepatLabel = "        notepat";
-<<<<<<< Updated upstream
         // TextButtonSmall sizes the box as label.length * 4, but MatrixChunky8
         // is proportional (spaces advance only 2px), so the button overshoots.
         // Measure the actual rendered width and tighten the box below.
@@ -5963,9 +5962,6 @@ function paint($) {
         const notepatPos = stackVertically
           ? { center: "x", y: buttonY - notepatHeight - stackedGap, screen }
           : { x: cBox.x + cBox.w + pairGap, y: buttonY };
-=======
-        const notepatX = cBox.x + cBox.w + 4;
->>>>>>> Stashed changes
         if (!notepatBtn) {
           notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
         } else {
