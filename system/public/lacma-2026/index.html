@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>aesthetic.computer: the unfinished instrument · LACMA Art + Technology Lab 2026</title>
+<meta name="description" content="Jeffrey Alan Scudder's pitch for the LACMA Art + Technology Lab 2026 — Aesthetic Computer as a bare-metal creative computing system: custom OS, handmade programming language, and a social network, reimagined as a musical instrument for art.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #1a1a2e;
+    --text: #e8e8e8;
+    --dim: #888;
+    --pink: #cd5c9b;
+    --cyan: #4ecdc4;
+    --purple: #7850b4;
+    --gold: #d4a017;
+    --green: #4ecb71;
+    --red: #e06666;
+    --box-bg: rgba(255,255,255,0.03);
+    --box-border: rgba(255,255,255,0.10);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f5f5f5;
+      --text: #1a1a2e;
+      --dim: #666;
+      --pink: #b4489a;
+      --cyan: #0891b2;
+      --purple: #7850b4;
+      --gold: #a07800;
+      --green: #0a8a3e;
+      --red: #b33a3a;
+      --box-bg: rgba(0,0,0,0.03);
+      --box-border: rgba(0,0,0,0.12);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Berkeley Mono Variable', 'Menlo', monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  /* ── MASTHEAD ─────────────────────────────── */
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .eyebrow .tag { color: var(--purple); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: clamp(32px, 5.6vw, 56px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em {
+    font-style: normal;
+    color: var(--cyan);
+  }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.15em 1.2em;
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  .meta dt { color: var(--dim); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.85em; padding-top: 0.18em; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+  .meta .partner { color: var(--purple); }
+
+  /* ── SECTIONS ─────────────────────────────── */
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'YWFT Processing', 'Berkeley Mono Variable', monospace;
+    font-size: 1.4em;
+    font-weight: normal;
+    color: var(--text);
+    letter-spacing: 0;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord { color: var(--pink); margin-right: 0.4em; }
+  h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
+
+  /* ── PITCH PROSE ─────────────────────────── */
+  .pitch p { margin: 0 0 0.9em; font-size: 0.98em; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.25em;
+    color: var(--cyan);
+    display: block;
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch q {
+    quotes: "“" "”";
+    color: var(--gold);
+    font-style: italic;
+  }
+  .pitch em { color: var(--pink); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  /* ── ANCHORS ──────────────────────────────── */
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.05em;
+    font-weight: normal;
+    margin-bottom: 0.2em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.88em; line-height: 1.5; }
+
+  /* ── LIVE STATS ───────────────────────────── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .stat {
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    text-align: left;
+  }
+  .stat .n {
+    display: block;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.8em;
+    color: var(--cyan);
+    line-height: 1;
+    margin-bottom: 0.15em;
+  }
+  .stat .l {
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .stat.loaded .n { color: var(--pink); }
+  .stats-status {
+    font-size: 0.8em;
+    color: var(--dim);
+    margin-top: 0.4em;
+  }
+  .stats-status .ok { color: var(--green); }
+  .stats-status .err { color: var(--red); }
+
+  /* ── FEATURE GRID ────────────────────────── */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.6em 0.8em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.88em;
+  }
+  .feat b { color: var(--purple); font-family: 'YWFT Processing', monospace; font-weight: normal; display: block; margin-bottom: 0.15em; }
+  .feat.planned { border-left-color: var(--gold); }
+  .feat.planned b { color: var(--gold); }
+
+  /* ── LINEAGE LIST ─────────────────────────── */
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  /* ── FIGURES ──────────────────────────────── */
+  .figs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .fig {
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fig img { display: block; width: 100%; height: auto; }
+  .fig .cap {
+    padding: 0.5em 0.8em;
+    color: var(--dim);
+    font-size: 0.78em;
+    line-height: 1.4;
+  }
+  .fig .cap b { color: var(--text); font-weight: normal; }
+
+  /* ── CHECKLIST ────────────────────────────── */
+  .check { list-style: none; padding: 0; font-size: 0.9em; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Berkeley Mono Variable', monospace; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.75em;
+    letter-spacing: 0.08em;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">LACMA Art + Technology Lab</span> · 2026 · Open Call</div>
+    <h1>Aesthetic<span class="dot">.</span>Computer<br>The <em>Unfinished<br>Instrument</em><span class="dot">.</span></h1>
+    <p class="sub">Pitch by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Deadline</dt><dd class="due">Wed, 22 Apr 2026 · 11:59 PM PST</dd>
+      <dt>Notification</dt><dd>July 2026 · Project start fall 2026</dd>
+      <dt>Grant</dt><dd>Up to $50,000 · 2-year project</dd>
+      <dt>Partners</dt><dd><span class="partner">Hyundai Motor</span> · <span class="partner">Snap Inc.</span> · <span class="partner">Anthropic</span> · MIT Media Lab · NASA JPL</dd>
+      <dt>Form</dt><dd><a href="https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants">lacma.submittable.com · 2026 Art+Technology Lab</a></dd>
+      <dt>Proposal</dt><dd><a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/lacma-2026">repo</a></dd>
+    </dl>
+  </header>
+
+  <!-- ── PITCH ───────────────────────────────── -->
+  <section class="pitch">
+    <h2><span class="ord">§</span>Pitch</h2>
+
+    <p>Aesthetic Computer (AC) is a creative computing platform built from first principles. It consists of three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called <em>KidLisp</em> for generative art, and a social network where anyone can publish and share interactive programs called "pieces."</p>
+
+    <p>The core provocation is simple: what happens when you strip away the consumer operating system — the notifications, the app stores, the surveillance — and build a computer that does nothing but help you make things?</p>
+
+    <span class="drop">AC Native is our answer in hardware.</span>
+
+    <p>It is a Linux kernel that boots directly into art software on x86_64 UEFI laptops, running a custom C runtime as <em>PID 1</em> — no desktop, no window manager, no browser. The system renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony.</p>
+
+    <p>A built-in <code>code</code> command drops into a native terminal running <span style="color:var(--purple)"><strong>Anthropic's Claude Code</strong></span> — making AC Native the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument with eight waveforms, room reverb, sample recording, and USB + UDP MIDI; roughly twenty other pieces ship alongside it.</p>
+
+    <span class="drop">KidLisp is the language.</span>
+
+    <p>A minimal Lisp dialect designed specifically for generative art. 118 built-in functions across 12 categories — accessible to non-programmers, expressive enough for complex compositions. KidLisp programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.</p>
+
+    <span class="drop">The Network ties it together.</span>
+
+    <p>Aesthetic Computer hosts hundreds of built-in pieces across thousands of registered handles (see live counts below). Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels — people can draw, compose, and play together.</p>
+
+    <p style="color:var(--dim);font-size:0.88em;margin-top:1.4em">The full 500-word pitch and statements live in <a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a>.</p>
+  </section>
+
+  <!-- ── THREE ANCHORS ──────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Three Registers</h2>
+    <div class="anchors">
+      <div class="anchor">
+        <b>Instrument</b>
+        <p>A Linux kernel that boots as one piece of art software. 32-voice synthesis at sample-level precision. A keyboard becomes a synthesizer; a laptop becomes a sitting-down instrument. No desktop, no browser, no distraction.</p>
+      </div>
+      <div class="anchor">
+        <b>Language</b>
+        <p>KidLisp: 118 built-in functions, no build step, no imports. A child can write one. Over 17,000 programs already live on the platform. A language designed for artistic expression rather than industrial production.</p>
+      </div>
+      <div class="anchor">
+        <b>Network</b>
+        <p>Every piece is URL-addressable. Every URL is a QR code. Real-time multiplayer through WebSocket + UDP. 2,800+ handles. Pieces can be minted on Tezos. A self-publishing creative commons.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LIVE STATS ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Network, Right Now<span class="count">live from aesthetic.computer/api/metrics</span></h2>
+    <div class="stats" id="stats">
+      <div class="stat" data-k="handles"><span class="n">—</span><span class="l">Handles</span></div>
+      <div class="stat" data-k="kidlisp"><span class="n">—</span><span class="l">KidLisp pieces</span></div>
+      <div class="stat" data-k="pieces"><span class="n">—</span><span class="l">User pieces</span></div>
+      <div class="stat" data-k="paintings"><span class="n">—</span><span class="l">Paintings</span></div>
+      <div class="stat" data-k="moods"><span class="n">—</span><span class="l">Moods</span></div>
+      <div class="stat" data-k="chatMessages"><span class="n">—</span><span class="l">Chat msgs</span></div>
+      <div class="stat" data-k="active"><span class="n">—</span><span class="l">Active now</span></div>
+      <div class="stat" data-k="printsOrdered"><span class="n">—</span><span class="l">Prints ordered</span></div>
+    </div>
+    <div class="stats-status" id="stats-status">Fetching <span class="ok">api/metrics</span> …</div>
+  </section>
+
+  <!-- ── AC NATIVE FEATURE SET ──────────────── -->
+  <section>
+    <h2><span class="ord">§</span>AC Native · Current Feature Set<span class="count">x86_64 UEFI · PID 1</span></h2>
+    <div class="features">
+      <div class="feat"><b>Boot</b>USB → Linux kernel → custom C runtime as PID 1. No systemd, no compositor, no browser. UEFI only, x86_64.</div>
+      <div class="feat"><b>Graphics</b>DRM dumb-buffer rendering (no compositor). Nearest-neighbor upscale for the chunky-pixel aesthetic. Optional SDL3 GPU backend.</div>
+      <div class="feat"><b>Audio</b>ALSA at 192 kHz. 32-voice polyphony. 8 waveforms — sine, triangle, sawtooth, square, composite, harp, whistle, sample. Room reverb, master drive.</div>
+      <div class="feat"><b>Input</b>Raw evdev: keyboard, mouse/trackpad, touch, gamepad, NuPhy analog keys. Camera + V4L2 + QR scanning via quirc.</div>
+      <div class="feat"><b>code · AI partner</b>Built-in <code>code</code> command spawns <strong>Anthropic's Claude Code</strong> as a PTY subprocess inside a native terminal emulator. Modify a piece without leaving the OS.</div>
+      <div class="feat"><b>MIDI</b>USB MIDI (in + out) and UDP MIDI broadcast. notepat transmits polyphonic MIDI live to other hardware and other AC Native stations.</div>
+      <div class="feat"><b>TTS</b>Flite speech synthesis (male + female voices) integrated into the audio ring buffer. Pieces can speak.</div>
+      <div class="feat"><b>Sampling</b>12 simultaneous sample voices, up to 10 seconds per sample. Record straight from the microphone into a piece.</div>
+      <div class="feat"><b>Networking</b>WiFi auto-connect. WebSocket + UDP clients. OTA updates over HTTPS. Dropbear SSH daemon for dev access.</div>
+      <div class="feat"><b>Persistence</b>Config + state on FAT32 (USB or internal EFI partition). Handle, colors, OAuth tokens, WiFi credentials travel with the stick.</div>
+      <div class="feat"><b>Shipped pieces</b>notepat, terminal, prompt, os, claude, dj, tapes, chat, machine, lisp, samples, speed, split, power, printing, theme, login, clock, geo, painting, list, wifi, voice, cc, roz, and more.</div>
+      <div class="feat planned"><b>Planned</b>Multi-touch (MT protocol B). Bundled WiFi firmware blobs. Sub-2-second boot. Hardened kiosk-mode security for public installations.</div>
+    </div>
+  </section>
+
+  <!-- ── CARDS ────────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>KidLisp as Printable Cards<span class="count">2.75″ × 4.75″ · monochrome</span></h2>
+    <p style="color:var(--dim);font-size:0.9em;margin-bottom:1em">Four recent pieces as printable cards, produced for <em style="color:var(--pink);font-style:normal">Casey Reas &amp; Laurent Bourgault's Social Software</em> course at UCLA (Spring 2026). Each card is a complete, self-contained KidLisp program: pixel output at top, full source below, QR code linking back to the live piece.</p>
+    <div class="figs">
+      <div class="fig"><a href="https://aesthetic.computer/$berz"><img src="/lacma-2026/card-berz.png" alt="$berz card"></a><div class="cap"><b>$berz</b> · 6 lines · recursive wire-tangle, spins + zooms + blurs</div></div>
+      <div class="fig"><a href="https://aesthetic.computer/$24m"><img src="/lacma-2026/card-24m.png" alt="$24m card"></a><div class="cap"><b>$24m</b> · 5 lines · hurricane spiral on a scroll-zoom loop</div></div>
+      <div class="fig"><a href="https://aesthetic.computer/$duv"><img src="/lacma-2026/card-duv.png" alt="$duv card"></a><div class="cap"><b>$duv</b> · 5 lines · block-pixel drift, zebra ink</div></div>
+      <div class="fig"><a href="https://aesthetic.computer/$kl1"><img src="/lacma-2026/card-kl1.png" alt="$kl1 card"></a><div class="cap"><b>$kl1</b> · 7 lines · masked zebra lattice with frame-indexed scroll</div></div>
+    </div>
+  </section>
+
+  <!-- ── LINEAGE ─────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Lineage<span class="count">specific, not canonical</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">Alan Kay · Xerox PARC</div><div class="claim"><em>Dynabook</em> &amp; Smalltalk (1972–). The computer as <em>personal medium</em>, not productivity tool. Children should be the first audience. Every native app a system you can open and modify.</div></div>
+      <div class="row"><div class="who">Seymour Papert</div><div class="claim"><em>Mindstorms</em> (1980) — microworlds. KidLisp is a microworld: constrained, memorizable, constructible by the viewer. A language you can learn inside one evening.</div></div>
+      <div class="row"><div class="who">Casey Reas + Ben Fry</div><div class="claim"><em>Processing</em> (2001–). The most-read-from precedent on this project. Proof that a language can be designed for artists first and programmers second. Reas is my Author-in-Residence host at UCLA this year.</div></div>
+      <div class="row"><div class="who">Bill Atkinson · HyperCard</div><div class="claim">The last mainstream system where anyone on a computer could author a complete interactive thing. Aesthetic Computer reconstructs this social contract for 2026.</div></div>
+      <div class="row"><div class="who">Game Boy / Pico-8</div><div class="claim">Dedicated hardware as creative permission. The constraint is the feature. AC Native generalises this: a USB stick that turns any laptop into a constrained, complete instrument.</div></div>
+      <div class="row"><div class="who">SuperCollider / Max</div><div class="claim">Real-time sample-level synthesis as a composable medium. AC Native's audio ring buffer at 192 kHz is downstream of this tradition, reimagined as a piece's native voice rather than a separate DAW.</div></div>
+      <div class="row"><div class="who">Goodiepal</div><div class="claim"><em>Radical Computer Music</em>. A parallel argument that the computer itself is under-designed as an artistic instrument. I toured Europe with him in 2018; the LACMA pitch descends from that conversation.</div></div>
+      <div class="row"><div class="who">Cornelius Cardew · Scratch Orchestra</div><div class="claim">An artist-led collective attempt to build the system that would perform their scores. The AC platform is this pattern in software: a collective attempt to build the computer that would run their art.</div></div>
+      <div class="row"><div class="who">Demoscene · size-coded graphics</div><div class="claim">Competitive compression as a native aesthetic. KidLisp cards (8 lines, no imports) borrow this premise: the whole program visible on a card.</div></div>
+    </div>
+  </section>
+
+  <!-- ── CONDENSED ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Submission-Form Version<span class="count">~200 words</span></h2>
+    <div class="pitch" style="border-left: 2px solid var(--pink); padding-left: 1em">
+      <p><em>Aesthetic Computer: The Unfinished Instrument.</em> Three interlocking layers — a bare-metal operating system that boots directly into art software, a custom programming language (KidLisp) for generative art, and a social network where anyone can publish and share interactive pieces.</p>
+      <p><strong>AC Native</strong> is a Linux kernel that boots directly into art on x86_64 UEFI laptops, running a custom C runtime as PID 1 — no desktop, no window manager, no browser. 32-voice audio at 192 kHz, DRM graphics, raw evdev input. A built-in <code>code</code> command drops into a terminal running Anthropic's Claude Code, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument.</p>
+      <p><strong>KidLisp</strong> is a minimal Lisp with 118 functions — 17,000+ programs already written. Programs can be minted on Tezos without artists touching blockchain infrastructure.</p>
+      <p>With LACMA support, we'll produce a USB-bootable edition, a workshop curriculum, and a multi-station installation. The personal computer's design is a cultural question, not a settled technical one — this project treats it as one.</p>
+    </div>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Status</h2>
+    <ul class="check">
+      <li class="done">Proposal drafted — <a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> (1.7 MB, 13 pages incl. CV + call-for-proposals appendix).</li>
+      <li class="done">Stats refreshed to current live numbers; AC Native claims audited for accuracy.</li>
+      <li class="done">Figures: sosoft-style KidLisp cards replace the old "educational poster" figures.</li>
+      <li class="done">5 JPEG images staged in <code>grants/lacma-2026/jpegs/submit/</code>.</li>
+      <li class="done">Credentials front-loaded: Yale MFA, KADIST + SMK collections, HN × 2, Casey Reas residency at UCLA.</li>
+      <li class="done">This page — <a href="https://aesthetic.computer/lacma-2026">aesthetic.computer/lacma-2026</a>.</li>
+      <li class="todo">Record video demo per <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/lacma-2026/video-script.md">video-script.md</a> and upload unlisted. <em>Tomorrow.</em></li>
+      <li class="todo">Paste field contents into Submittable, attach PDF + 5 JPEGs, link video, submit. <em>Before 11:59 PM PST, Wed Apr 22.</em></li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/lacma-2026">aesthetic.computer/lacma-2026</a> · 2026-04-21 · live metrics from <a href="https://aesthetic.computer/api/metrics">aesthetic.computer/api/metrics</a>
+  </footer>
+
+</main>
+
+<script>
+(async () => {
+  const STATS_API = "https://aesthetic.computer/api/metrics";
+  const statusEl = document.getElementById("stats-status");
+  const root = document.getElementById("stats");
+
+  function fmt(n) {
+    if (typeof n !== "number") return "—";
+    return n.toLocaleString("en-US");
+  }
+
+  try {
+    const r = await fetch(STATS_API);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    const data = await r.json();
+    for (const stat of root.querySelectorAll(".stat")) {
+      const key = stat.dataset.k;
+      const val = data[key];
+      const n = stat.querySelector(".n");
+      if (typeof val === "number") {
+        n.textContent = fmt(val);
+        stat.classList.add("loaded");
+      }
+    }
+    const when = data.time ? `(${data.time})` : "";
+    statusEl.innerHTML = `<span class="ok">● Live</span> · pulled from <a href="${STATS_API}">api/metrics</a> · ${when}`;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="err">● API error</span> · ${err.message}`;
+  }
+})();
+</script>
+</body>
+</html>

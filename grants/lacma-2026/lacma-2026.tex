@@ -5,9 +5,22 @@
 \usepackage[top=1in, bottom=1in, left=1.1in, right=1.1in]{geometry}
 
 % === FONTS ===
+% Use explicit OTF filenames so tectonic can pull them from CTAN rather than
+% requiring Latin Modern Sans to be installed at the OS font level.
 \usepackage{fontspec}
-\setmainfont{Latin Modern Sans}
-\setmonofont{Latin Modern Mono}[Scale=0.85]
+\setmainfont[
+  Extension = .otf,
+  UprightFont = lmsans10-regular,
+  BoldFont = lmsans10-bold,
+  ItalicFont = lmsans10-oblique,
+  BoldItalicFont = lmsans10-boldoblique,
+]{lmsans10}
+\setmonofont[
+  Extension = .otf,
+  UprightFont = lmmono10-regular,
+  ItalicFont = lmmono10-italic,
+  Scale = 0.85,
+]{lmmono10}
 
 \newfontfamily\acbold{ywft-processing-bold}[
   Path=../../system/public/type/webfonts/,
@@ -111,11 +124,11 @@
 
 The core provocation is simple: what happens when you strip away the consumer operating system---the notifications, the app stores, the surveillance---and build a computer that does nothing but help you make things?
 
-\textbf{AC Native} is our answer in hardware. It is a Linux kernel that boots from a USB stick on any x86 laptop in under two seconds, running a custom C runtime as PID\,1---no desktop, no window manager, no browser. The system renders directly to the framebuffer, reads input from raw device events, and synthesizes audio sample-by-sample through ALSA at 192\,kHz. The result is a zero-latency creative instrument: a 7,800-line musical composition tool called \textit{notepat} currently ships as the default piece, turning any laptop into a polyphonic synthesizer with room reverb, waveform selection, and time-of-day-responsive visuals.
+\textbf{AC Native} is our answer in hardware. It is a Linux kernel that boots directly into art software on x86\_64 UEFI laptops, running a custom C runtime as PID\,1---no desktop, no window manager, no browser. The system renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192\,kHz with 32-voice polyphony. A built-in \texttt{code} command drops into a native terminal running Anthropic's Claude Code---making AC Native the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is \textit{notepat}, an 8,466-line polyphonic instrument with eight waveforms, room reverb, sample recording, and USB\,+\,UDP MIDI; twenty other pieces ship alongside it.
 
 \textbf{KidLisp} is a minimal Lisp dialect designed specifically for generative art. With 118 built-in functions across 12 categories, it provides an accessible entry point for non-programmers while remaining expressive enough for complex compositions. Over 16,000 KidLisp programs have been written on the platform. KidLisp programs can be minted as on-chain ``keeps'' on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.
 
-\textbf{The Network} ties it together. \ac{} hosts 359 built-in pieces and 265 user-published pieces across 2,800+ registered handles. Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels---people can draw, compose, and play together.
+\textbf{The Network} ties it together. \ac{} hosts 371 built-in pieces and 265 user-published pieces across 2,800+ registered handles. Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels---people can draw, compose, and play together.
 
 During the grant period, we propose to develop AC Native from a working prototype into a distributable creative instrument and public installation:
 
@@ -146,22 +159,25 @@ This project is not about building a product. It is about demonstrating that the
 \vspace{1em}
 
 \begin{center}
-  \includegraphics[width=0.85\textwidth]{kidlisp-gallery}\\[4pt]
-  {\small\color{acgray} \textbf{Fig.\,3} --- Four KidLisp ``cards'' showing code and output. Each card is a self-contained program: Spiral (math), Tree (recursion), Sunflower (nature), Mondrian (art history). Cards can be printed, shared, and minted on-chain.}
+  \includegraphics[height=0.285\textheight]{card-berz}\hspace{0.25em}%
+  \includegraphics[height=0.285\textheight]{card-24m}\hspace{0.25em}%
+  \includegraphics[height=0.285\textheight]{card-duv}\hspace{0.25em}%
+  \includegraphics[height=0.285\textheight]{card-kl1}\\[6pt]
+  {\small\color{acgray} \textbf{Fig.\,3} --- Four KidLisp pieces as printable cards: \textit{\$berz}, \textit{\$24m}, \textit{\$duv}, and \textit{\$kl1}. Each card is a self-contained program---the pixel image at top is the live output; the code underneath is the complete source. Printed cards were produced for Casey Reas \& Laurent Bourgault's ``Social Software'' course at UCLA (2026). QR codes link back to the live piece on \ac.}
 \end{center}
 
 \vspace{1em}
 
 \begin{center}
-  \includegraphics[width=0.4\textwidth]{kidlisp-spiral}\\[4pt]
-  {\small\color{acgray} \textbf{Fig.\,4} --- A single KidLisp card up close. The source code is 8 lines of Lisp. No imports, no build step, no dependencies---the entire program is visible on the card.}
+  \includegraphics[width=0.42\textwidth]{card-berz}\\[4pt]
+  {\small\color{acgray} \textbf{Fig.\,4} --- \textit{\$berz} up close. Six lines of KidLisp produce a recursive wire-tangle that spins, zooms, and blurs each frame. No imports, no build step, no dependencies---the entire program is visible on the card. Cards are 2.75\,$\times$\,4.75 inches, monochrome, screen-printable.}
 \end{center}
 
 \vspace{1em}
 
 \begin{center}
   \includegraphics[width=0.7\textwidth]{hardware-yoga}\\[4pt]
-  {\small\color{acgray} \textbf{Fig.\,5} --- Target hardware: a Lenovo Yoga convertible laptop. AC Native boots from USB on any x86 machine in under 2 seconds, turning commodity hardware into a dedicated creative instrument.}
+  {\small\color{acgray} \textbf{Fig.\,5} --- Target hardware: a Lenovo Yoga convertible laptop. AC Native boots from USB on x86\_64 UEFI machines, turning commodity hardware into a dedicated creative instrument without replacing the factory OS.}
 \end{center}
 
 % =======================================================================
@@ -173,7 +189,7 @@ This project is not about building a product. It is about demonstrating that the
 
 \acsubhead{Technology and Culture}
 
-Consumer operating systems have become attention-extraction machines---optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots in two seconds, runs one piece of art software, and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself---demonstrating that a language can be designed for artistic expression rather than industrial production. The 16,000+ programs written in KidLisp suggest this resonates beyond our own practice.
+Consumer operating systems have become attention-extraction machines---optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots directly into a single piece of art software and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself---demonstrating that a language can be designed for artistic expression rather than industrial production. The 16,000+ programs written in KidLisp suggest this resonates beyond our own practice.
 
 \acsubhead{Public Engagement}
 
@@ -226,7 +242,7 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
   {\color{acgray} Jeffrey Alan Scudder · \href{https://aesthetic.computer}{aesthetic.computer} · Los Angeles, CA}
 \end{center}
 
-Jeffrey Alan Scudder (b.\,1989, Assonet, MA) is a painter based in Los Angeles. His work moves between stretched canvas, custom software, and live performance. He is the creator of \ac{}, Whistlegraph, and No Paint. Collections include KADIST (San Francisco) and SMK (National Gallery of Denmark).
+Jeffrey Alan Scudder (b.\,1989, Assonet, MA) is an artist based in Los Angeles, working across stretched canvas, custom software, and live performance. Yale School of Art MFA (2013). He is the creator of \ac{}, Whistlegraph, and No Paint; his open-source tools \textit{No Paint} (2020) and \textit{notepat} (2024) each reached the front page of Hacker News. Work is held in the collections of KADIST (San Francisco) and SMK---National Gallery of Denmark. He is currently Author in Residence at UCLA, working with Casey Reas, and hosts biweekly NELA Computer Club demos at Plot.Place in Chinatown, Los Angeles.
 
 \acsubhead{Education}
 
@@ -310,7 +326,7 @@ SMK---National Gallery of Denmark, Copenhagen
 \cvline{2021--}{\ac{}---creative computing platform (\href{https://aesthetic.computer}{aesthetic.computer})}
 \cvline{2025--}{AC Native---bare-metal creative computing OS (USB-bootable Linux)}
 \cvline{2024--}{KidLisp---programming language for generative art (16,000+ programs)}
-\cvline{2024--}{\textit{notepat}---polyphonic synthesizer instrument (7,800 lines)}
+\cvline{2024--}{\textit{notepat}---polyphonic synthesizer instrument (8,466 lines)}
 \cvline{2016--}{No Paint---radical paint program (\href{https://nopaint.art}{nopaint.art})}
 \cvline{2016--}{Whistlegraph---collaborative performance software (w/ Camille Klein \& Alex Freundlich)}
 
