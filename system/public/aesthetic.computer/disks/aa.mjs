@@ -138,7 +138,22 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
 }
 
 function paint($) {
-  chat.paint($, { otherChat: client.system, theme: THEME });
+  chat.paint($, {
+    otherChat: client.system,
+    theme: THEME,
+    // aa has no real chat presence — kill the news ticker + KPBJ radio.
+    hideChrome: true,
+    // Replace "N online" with a solo admin line.
+    presenceOverride: currentPresenceLine(),
+  });
+}
+
+function currentPresenceLine() {
+  const raw = userHandleRef?.();
+  const h = raw ? (raw.startsWith("@") ? raw : `@${raw}`) : "@jeffrey";
+  if (isAdmin && token) return `${h} · ADMIN`;
+  if (token === null && isAdmin === false) return `${h} · no access`;
+  return `${h} · …`;
 }
 
 function act($) {

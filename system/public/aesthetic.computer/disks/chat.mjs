@@ -553,6 +553,10 @@ async function boot(
       input.showBlink = false;
       input.mute = true;
       if (handleAutocomplete) handleAutocomplete.hide(); // 🔍 Clear autocomplete state
+      // Also clear the DOM textarea — without this the native keyboard
+      // keeps the submitted text when it re-opens, and TextInput's sync
+      // brings it right back into `input.text`.
+      send({ type: "keyboard:text:replace", content: { text: "" } });
       console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
       send({ type: "keyboard:close" });
 
@@ -1812,8 +1816,37 @@ function paint(
     false, undefined, false, selectedTypeface
   );
 
-  // Presence display - shows "here" (actively present) and "online" (connected anywhere)
-  if (!client.connecting) {
+  // Presence display - shows "here" (actively present) and "online"
+  // (connected anywhere). Pieces that don't have real chat presence (e.g.
+  // aa.mjs, which is a solo bridge to @jeffrey's macbook) can pass
+  // options.presenceOverride to replace the counter with a custom line
+  // like "@jeffrey · ADMIN".
+  if (!client.connecting && options?.presenceOverride) {
+    const line = options.presenceOverride;
+    const hudLabel = hud?.currentLabel?.();
+    const hudLabelBox = hudLabel?.btn?.box;
+    const hudLabelBottom = hudLabelBox
+      ? (hudLabelBox.y ?? 0) + (hudLabelBox.h ?? 0)
+      : 12;
+    const presenceX = 6;
+    const presenceY = hudLabelBottom + 3;
+    const onlineFgColor = theme?.timestamp || 160;
+    ink(0, 0, 0, 180).write(line, {
+      x: presenceX + 1,
+      top: presenceY + 1,
+    }, false, undefined, false, "MatrixChunky8");
+    if (Array.isArray(onlineFgColor)) {
+      ink(...onlineFgColor).write(line, {
+        x: presenceX,
+        top: presenceY,
+      }, false, undefined, false, "MatrixChunky8");
+    } else {
+      ink(onlineFgColor).write(line, {
+        x: presenceX,
+        top: presenceY,
+      }, false, undefined, false, "MatrixChunky8");
+    }
+  } else if (!client.connecting) {
     const chatterCount = client?.chatterCount ?? 0;
     const onlineHandles = client?.onlineHandles || [];
     const hereHandles = client?.hereHandles || [];
@@ -2305,19 +2338,22 @@ function paint(
     needsPaint();
   }
   
-  //  News ticker (re-enabled)
-  if (!client.connecting && !modalPainting && !messageCopyModal) {
-    paintNewsTicker({ ink, screen, text, hud }, theme);
-    needsPaint();
-  }
-
-  // 📻 R8dio mini-player (laer-klokken)
-  if (!client.connecting && !modalPainting && !messageCopyModal) {
-    r8dioEnabled = true;
-    paintR8dioPlayer({ ink, screen, help, hud }, theme);
-    needsPaint();
-  } else {
+  // 📰 News ticker + 📻 R8dio are suppressed when options.hideChrome is set
+  // (e.g. aa.mjs wants a quieter top margin).
+  if (options?.hideChrome) {
     r8dioEnabled = false;
+  } else {
+    if (!client.connecting && !modalPainting && !messageCopyModal) {
+      paintNewsTicker({ ink, screen, text, hud }, theme);
+      needsPaint();
+    }
+    if (!client.connecting && !modalPainting && !messageCopyModal) {
+      r8dioEnabled = true;
+      paintR8dioPlayer({ ink, screen, help, hud }, theme);
+      needsPaint();
+    } else {
+      r8dioEnabled = false;
+    }
   }
 
   // 🔍 Paint @handle autocomplete dropdown (last, so it renders on top of everything)
