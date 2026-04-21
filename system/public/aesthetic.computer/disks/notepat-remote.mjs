@@ -267,55 +267,70 @@ function paint({ wipe, ink, box, line, screen }) {
   const W = screen.width;
   const H = screen.height;
 
-  // Attract mode: blink brightness between 0.4 and 1.
-  const blinkPhase = (sin(frame * 0.12) + 1) / 2; // 0..1
-  const attractPulse = focused ? 1 : 0.5 + blinkPhase * 0.5;
+  // ── Palette ──────────────────────────────────────────────────────────
+  // Ableton-tasteful: graphite background, amber/orange accent (Live's
+  // MIDI color), muted grays. Unfocused = deeply dimmed + angry red blink
+  // so you can't miss it.
+  const blinkPhase = (sin(frame * 0.14) + 1) / 2; // 0..1 sinusoidal
+  const blinkOn = blinkPhase > 0.5;
 
-  const accent = focused
-    ? [floor(130 + blinkPhase * 40), 255, floor(170 + blinkPhase * 50)] // lime
-    : [255, floor(70 + blinkPhase * 100), floor(70 + blinkPhase * 40)]; // red
-  const dim = [130, 140, 170];
-  const fg = [220, 225, 255];
-  const bgBase = focused ? [10, 20, 18] : [22, 10, 10];
-  wipe(
-    floor(bgBase[0] * attractPulse),
-    floor(bgBase[1] * attractPulse),
-    floor(bgBase[2] * attractPulse),
-  );
+  // Focused theme (always-on)
+  const focusedBg = [16, 18, 22];
+  const focusedAccent = [255, 156, 60];   // Live orange
+  const focusedAccentBright = [255, 196, 110];
+  const focusedFg = [212, 216, 224];
+  const focusedDim = [110, 116, 130];
+  const focusedKeyWhite = [38, 42, 50];
+  const focusedKeyBlack = [22, 24, 30];
+  const focusedOutline = [70, 76, 88];
+
+  // Unfocused theme — dark + red; flashes for attention.
+  const unfocusedBg = blinkOn ? [48, 12, 12] : [22, 6, 6];
+  const unfocusedAccent = blinkOn ? [255, 70, 70] : [180, 45, 45];
+  const unfocusedFg = [180, 150, 150];
+  const unfocusedDim = [100, 70, 70];
+  const unfocusedKeyWhite = [40, 18, 18];
+  const unfocusedKeyBlack = [24, 10, 10];
+  const unfocusedOutline = [80, 30, 30];
+
+  const bgBase = focused ? focusedBg : unfocusedBg;
+  const accent = focused ? focusedAccent : unfocusedAccent;
+  const accentBright = focused ? focusedAccentBright : unfocusedAccent;
+  const fg = focused ? focusedFg : unfocusedFg;
+  const dim = focused ? focusedDim : unfocusedDim;
+  const keyWhite = focused ? focusedKeyWhite : unfocusedKeyWhite;
+  const keyBlack = focused ? focusedKeyBlack : unfocusedKeyBlack;
+  const outline = focused ? focusedOutline : unfocusedOutline;
+
+  wipe(...bgBase);
 
   const sinceNote = frame - lastNoteFrame;
-  // Flash overlay on recent note-on.
-  if (lastNote && sinceNote < 10) {
+  if (lastNote && sinceNote < 10 && focused) {
     const f = 1 - sinceNote / 10;
-    const alpha = floor(45 * f);
-    ink(...accent, alpha).box(0, 0, W, H, "fill");
+    ink(...accentBright, floor(40 * f)).box(0, 0, W, H, "fill");
   }
 
-  // ── Header row: piece name + ws state
+  // ── Header row: piece name + ws state ─────────────────────────────────
   let y = 2;
   ink(...accent).write("notepat-remote", { x: 4, y });
   const wsColor =
-    wsState === "open" ? [140, 255, 180] :
-    wsState === "connecting" ? [255, 220, 100] :
-    wsState === "error" || wsState === "closed" ? [255, 120, 120] : dim;
+    !focused ? dim :
+    wsState === "open" ? [120, 220, 140] :
+    wsState === "connecting" ? [255, 200, 90] :
+    wsState === "error" || wsState === "closed" ? [255, 100, 100] : dim;
   ink(...wsColor).write(wsState, { x: W - wsState.length * 6 - 4, y });
   y += 10;
 
-  // ── Status row: ACTIVE / TAP ME + octave + last note
+  // ── Status row: ACTIVE + octave + last note ──────────────────────────
   if (focused) {
     ink(...accent).box(4, y + 1, 6, 6, "fill");
     ink(...fg).write("ACTIVE", { x: 14, y });
-  } else {
-    const blinkOn = blinkPhase > 0.35;
-    ink(blinkOn ? 255 : 110, blinkOn ? 40 : 20, blinkOn ? 40 : 20)
-      .write("TAP ME!", { x: 4, y });
   }
   ink(...dim).write(`oct ${baseOctave}`, { x: 70, y });
-  // Right side: compact last-note readout
   if (lastNote) {
     const noteFresh = sinceNote < 30;
     const pn = pitchName(lastNote.pitch);
-    const noteColor = noteFresh ? accent : fg;
+    const noteColor = noteFresh ? accent : dim;
     const srcTag =
       lastNote.source === "relay" ? "@" + (lastNote.handle || "?") :
       lastNote.source === "tap" ? "tap" : "kbd";
@@ -324,9 +339,9 @@ function paint({ wipe, ink, box, line, screen }) {
   }
   y += 10;
 
-  // ── Button grid area: two 4×3 octave blocks side-by-side
+  // ── Button grid area: two 4×3 octave blocks side-by-side ─────────────
   const gridTop = y + 2;
-  const gridBottom = H - 4; // leave 4px safe margin at bottom
+  const gridBottom = H - 4;
   const gap = 6;
   const blockW = floor((W - 8 - gap) / 2);
   const blockH = gridBottom - gridTop;
@@ -337,7 +352,6 @@ function paint({ wipe, ink, box, line, screen }) {
   for (let octIdx = 0; octIdx < OCTAVE_GRIDS.length; octIdx += 1) {
     const grid = OCTAVE_GRIDS[octIdx];
     const blockX = 4 + octIdx * (blockW + gap);
-    // Octave number label in the corner of each block
     const octNum = baseOctave + octIdx;
     ink(...dim).write(`o${octNum}`, { x: blockX + 1, y: gridTop - 1 });
 
@@ -364,34 +378,62 @@ function paint({ wipe, ink, box, line, screen }) {
         const black = isBlackKey(pitch);
 
         let fill;
-        if (held) {
+        if (held && focused) {
           fill = accent;
-        } else if (recentFlash) {
+        } else if (recentFlash && focused) {
           const f = 1 - sinceNote / 18;
           fill = [
-            floor(bgBase[0] + (accent[0] - bgBase[0]) * f * 0.6),
-            floor(bgBase[1] + (accent[1] - bgBase[1]) * f * 0.6),
-            floor(bgBase[2] + (accent[2] - bgBase[2]) * f * 0.6),
+            floor(bgBase[0] + (accent[0] - bgBase[0]) * f * 0.5),
+            floor(bgBase[1] + (accent[1] - bgBase[1]) * f * 0.5),
+            floor(bgBase[2] + (accent[2] - bgBase[2]) * f * 0.5),
           ];
-        } else if (black) {
-          fill = focused ? [22, 32, 28] : [48, 18, 18];
         } else {
-          fill = focused ? [42, 52, 48] : [70, 28, 28];
+          fill = black ? keyBlack : keyWhite;
         }
         ink(...fill).box(b.x, b.y, b.w, b.h, "fill");
-        ink(...(held ? accent : [80, 90, 100])).box(b.x, b.y, b.w, b.h, "outline");
+        ink(...(held && focused ? accent : outline))
+          .box(b.x, b.y, b.w, b.h, "outline");
 
-        // Letter centered in cell
         const labelX = b.x + floor(b.w / 2) - 2;
         const labelY = b.y + floor(b.h / 2) - 4;
-        const labelColor = held
-          ? [10, 20, 10]
-          : black
-            ? [200, 210, 220]
-            : fg;
+        const labelColor =
+          held && focused ? [10, 16, 10] :
+          black ? [200, 210, 220] : fg;
         ink(...labelColor).write(key.toUpperCase(), { x: labelX, y: labelY });
       }
     }
+  }
+
+  // ── Unfocused overlay: big blinking "TAP ME!" over everything ────────
+  if (!focused) {
+    // Semi-opaque scrim so the grid visibly darkens
+    ink(4, 0, 0, 160).box(0, 0, W, H, "fill");
+
+    // Thick pulsing red border that can't be missed
+    const borderAlpha = floor(140 + blinkPhase * 115);
+    for (let i = 0; i < 3; i += 1) {
+      ink(255, 40, 40, borderAlpha).box(i, i, W - i * 2, H - i * 2, "outline");
+    }
+
+    // Huge "TAP ME!" centered in the device
+    const msg = "TAP ME!";
+    const msgSize = 2; // AC text scaling
+    const charW = 6 * msgSize;
+    const charH = 10 * msgSize;
+    const msgW = msg.length * charW;
+    const msgX = floor((W - msgW) / 2);
+    const msgY = floor((H - charH) / 2) - 4;
+    // Drop shadow
+    ink(0, 0, 0, 180).write(msg, { x: msgX + 2, y: msgY + 2, size: msgSize });
+    ink(255, blinkOn ? 80 : 40, blinkOn ? 80 : 40)
+      .write(msg, { x: msgX, y: msgY, size: msgSize });
+
+    // Subtitle — smaller, italic-y hint
+    const sub = "click me to play";
+    const subX = floor((W - sub.length * 6) / 2);
+    const subY = msgY + charH + 4;
+    ink(blinkOn ? 220 : 140, 120, 120)
+      .write(sub, { x: subX, y: subY });
   }
 }
 
