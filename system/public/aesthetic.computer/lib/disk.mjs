@@ -11858,8 +11858,8 @@ async function makeFrame({ data: { type, content } }) {
           // 🌐 Branded domain: Escape/backtick/Enter navigates to aesthetic.computer
           if (data.key !== "Backspace" && redirectIfBrandedDomain()) return;
 
+          const promptSlug = "prompt";
           if (!labelBack || data.key === "Backspace" || data.key === "Escape") {
-            let promptSlug = "prompt";
             if (data.key === "Backspace") {
               triggerBackspaceAction(merryOriginalCommand);
             } else {
