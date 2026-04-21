@@ -4581,6 +4581,60 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   drawGrid(LEFT_GRID, leftX, leftOctaveOffset, "left");
   drawGrid(RIGHT_GRID, rightX, rightOctaveOffset, "right");
 
+  // Auxiliary-key legend — tiny pads showing the side-keys that aren't
+  // in the main 4×3 grid but are still bound to notes:
+  //   z / x        → below-octave A♯ and B (LEFT kit)
+  //   ;  '  ]      → above-octave C, C♯, D (RIGHT kit)
+  // Placed immediately below the main pad row, aligned with their
+  // respective grid sides so you can see what's hooked to the side
+  // of the keyboard at a glance.
+  {
+    const auxH = 10;
+    const auxW = 14;
+    const auxGap = 1;
+    const auxY = gridTop + gridH + 2;
+    if (auxY + auxH < h - 2) {
+      const drawAuxPad = (px, key, letter) => {
+        const nc = noteColor(letter);
+        const isActive = sounds[key] !== undefined;
+        const trailInfo = trail[key];
+        if (isActive) {
+          ink(nc[0], nc[1], nc[2]);
+        } else if (trailInfo && trailInfo.brightness > 0.05) {
+          const b = trailInfo.brightness;
+          ink(Math.floor(nc[0] * b * 0.4) + (dark ? 12 : 200),
+              Math.floor(nc[1] * b * 0.4) + (dark ? 12 : 200),
+              Math.floor(nc[2] * b * 0.4) + (dark ? 12 : 200));
+        } else {
+          ink(dark ? Math.floor(nc[0] * 0.25) + 10 : Math.floor(255 - (255 - nc[0]) * 0.18),
+              dark ? Math.floor(nc[1] * 0.25) + 10 : Math.floor(255 - (255 - nc[1]) * 0.18),
+              dark ? Math.floor(nc[2] * 0.25) + 12 : Math.floor(255 - (255 - nc[2]) * 0.18));
+        }
+        box(px, auxY, auxW, auxH, true);
+        // Bottom accent strip — matches grid color
+        ink(Math.floor(nc[0] * 0.6), Math.floor(nc[1] * 0.6), Math.floor(nc[2] * 0.6), 220);
+        box(px, auxY + auxH - 1, auxW, 1, true);
+        // Key label (tiny, centered)
+        const keyCol = isActive ? (dark ? 20 : 255) : (dark ? 220 : 40);
+        ink(keyCol, keyCol, keyCol, 230);
+        const lx = px + Math.floor((auxW - 4) / 2);
+        write(key, { x: lx, y: auxY + 2, size: 1, font: "font_1" });
+      };
+      // LEFT side: z (=-A#, below-octave A#) and x (=-B, below-octave B)
+      // Tucked into the bottom-left corner, just under the left grid's
+      // leftmost column so the spatial relationship to the grid reads.
+      drawAuxPad(leftX,                       "z", "a#");
+      drawAuxPad(leftX + auxW + auxGap,       "x", "b");
+      // RIGHT side: ; ' ] (above-octave C, C#, D) tucked into the
+      // bottom-right corner, aligned with the right grid's rightmost
+      // column so the "up-octave" continuation reads visually.
+      const r0x = rightX + gridW - (auxW * 3 + auxGap * 2);
+      drawAuxPad(r0x,                         ";", "c");
+      drawAuxPad(r0x + (auxW + auxGap),       "'", "c#");
+      drawAuxPad(r0x + (auxW + auxGap) * 2,   "]", "d");
+    }
+  }
+
   // === DRUM INSPECTOR ===
   // When a drum pad fires, its per-voice synth params are captured. We
   // render them just above the grid so you can see exactly what builds
