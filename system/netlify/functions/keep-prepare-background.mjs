@@ -11,6 +11,10 @@ import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { handleFor } from "../../backend/authorization.mjs";
 import {
+  mirrorIpfsMedia,
+  mirrorPendingRebake,
+} from "../../backend/kidlisp-dual-write.mjs";
+import {
   updateJobStage,
   setJobResult,
   markJobReady,
@@ -673,29 +677,28 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
       };
     }
     await col.updateOne({ code: pieceName }, updateOps);
+    await mirrorIpfsMedia(pieceName, updateOps.$set.ipfsMedia);
   }
 
   // ── Rebake early exit ──────────────────────────────────────────────
   if (isRebake) {
+    const rebakePayload = {
+      artifactUri,
+      thumbnailUri,
+      metadataUri: null,
+      createdAt: new Date(),
+      sourceHash: pieceSourceHash,
+      network: NETWORK,
+      contractAddress: CONTRACT_ADDRESS,
+      contractProfile: contractProfile || null,
+      contractVersion: contractVersion || null,
+      packDate: packDate || null,
+    };
     await col.updateOne(
       { code: pieceName },
-      {
-        $set: {
-          pendingRebake: {
-            artifactUri,
-            thumbnailUri,
-            metadataUri: null,
-            createdAt: new Date(),
-            sourceHash: pieceSourceHash,
-            network: NETWORK,
-            contractAddress: CONTRACT_ADDRESS,
-            contractProfile: contractProfile || null,
-            contractVersion: contractVersion || null,
-            packDate: packDate || null,
-          },
-        },
-      }
+      { $set: { pendingRebake: rebakePayload } }
     );
+    await mirrorPendingRebake(pieceName, rebakePayload);
     const mintStatus = await checkMintStatus(pieceName, CONTRACT_ADDRESS);
     await markJobReady(jobId, {
       rebake: true, piece: pieceName, artifactUri, thumbnailUri,

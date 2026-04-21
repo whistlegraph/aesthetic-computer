@@ -3690,9 +3690,10 @@
 
     async function fetchAllCodes(sort = 'recent') {
       try {
-        // 2000 is well above any plausible per-user piece count; the server
-        // already filtered to acHandle so this is just a safety ceiling.
-        const url = buildStoreUrl(`&limit=2000&sort=${sort}`);
+        // 20000 is a ceiling — @jeffrey already has ~4K pieces and the
+        // server-side handle filter needs headroom, otherwise older
+        // kept pieces get cut off before they reach the client.
+        const url = buildStoreUrl(`&limit=20000&sort=${sort}`);
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

@@ -3,14 +3,14 @@
     "fileversion": 1,
     "appversion": { "major": 9, "minor": 0, "revision": 7, "architecture": "x64", "modernui": 1 },
     "classnamespace": "box",
-    "rect": [100, 100, 700, 500],
-    "openrect": [0, 0, 360, 220],
+    "rect": [100, 100, 900, 520],
+    "openrect": [0, 0, 360, 169],
     "openinpresentation": 1,
     "gridsize": [15, 15],
     "enablehscroll": 0,
     "enablevscroll": 0,
     "devicewidth": 360,
-    "description": "Receive ac-native notepat MIDI via session-server relay and emit to this track",
+    "description": "ac-native notepat relay + local hotkey input. BIOS in the jweb~ iframe owns keyboard + octave state and emits finished pitches via window.max.outlet (notedown/noteup). Patcher just routes to [noteout].",
     "boxes": [
       {
         "box": {
@@ -21,45 +21,147 @@
           "numinlets": 1,
           "numoutlets": 3,
           "outlettype": ["signal", "signal", ""],
-          "patching_rect": [10, 10, 360, 220],
+          "patching_rect": [10, 10, 360, 169],
           "presentation": 1,
-          "presentation_rect": [0, 0, 360, 220],
+          "presentation_rect": [0, 0, 360, 169],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&nogap"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=12"
         }
       },
       {
         "box": {
-          "comment": "Strip 'note' and 'channel' keywords from jweb messages",
+          "comment": "Split jweb messages by symbol",
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 3,
-          "outlettype": ["", "", ""],
-          "patching_rect": [10, 250, 180, 22],
-          "text": "route note channel"
+          "numoutlets": 7,
+          "outlettype": ["", "", "", "", "", "", ""],
+          "patching_rect": [10, 250, 560, 22],
+          "text": "route note channel notedown noteup octave focus ping"
         }
       },
       {
         "box": {
-          "comment": "Emit MIDI into the track's next device",
+          "comment": "MIDI output into the track's device chain",
           "id": "obj-noteout",
           "maxclass": "newobj",
           "numinlets": 2,
           "numoutlets": 0,
-          "patching_rect": [10, 300, 60, 22],
+          "patching_rect": [10, 400, 60, 22],
           "text": "noteout"
         }
       },
       {
         "box": {
-          "comment": "Debug: unmatched messages land here",
-          "id": "obj-print",
+          "comment": "Note-on: pitch → (pitch, 100)",
+          "id": "obj-pack-on",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": ["list"],
+          "patching_rect": [10, 360, 90, 22],
+          "text": "pack 0 100"
+        }
+      },
+      {
+        "box": {
+          "comment": "Note-off: pitch → (pitch, 0)",
+          "id": "obj-pack-off",
+          "maxclass": "newobj",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": ["list"],
+          "patching_rect": [120, 360, 90, 22],
+          "text": "pack 0 0"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: relay note pitch/vel (from WS path)",
+          "id": "obj-print-note",
           "maxclass": "newobj",
           "numinlets": 1,
           "numoutlets": 0,
-          "patching_rect": [200, 300, 200, 22],
-          "text": "print NOTEPAT-REMOTE"
+          "patching_rect": [600, 290, 200, 22],
+          "text": "print NOTEPAT-NOTE"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: channel from relay",
+          "id": "obj-print-chan",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 320, 200, 22],
+          "text": "print NOTEPAT-CHAN"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: BIOS-computed pitch (keydown)",
+          "id": "obj-print-keydown",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 360, 200, 22],
+          "text": "print NOTEPAT-DOWN"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: BIOS-computed pitch (keyup)",
+          "id": "obj-print-keyup",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 390, 200, 22],
+          "text": "print NOTEPAT-UP"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: current base octave",
+          "id": "obj-print-octave",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 420, 200, 22],
+          "text": "print NOTEPAT-OCT"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: iframe focus state (1 / 0)",
+          "id": "obj-print-focus",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 450, 200, 22],
+          "text": "print NOTEPAT-FOCUS"
+        }
+      },
+      {
+        "box": {
+          "comment": "Debug: unmatched jweb messages",
+          "id": "obj-print-other",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [600, 480, 200, 22],
+          "text": "print NOTEPAT-OTHER"
+        }
+      },
+      {
+        "box": {
+          "comment": "RTT: echo the ping back into jweb as a script call → window.acMaxPong(t0)",
+          "id": "obj-sprintf-pong",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [10, 290, 320, 22],
+          "text": "sprintf script window.acMaxPong(%ld)"
         }
       },
       {
@@ -69,7 +171,7 @@
           "numinlets": 1,
           "numoutlets": 3,
           "outlettype": ["bang", "int", "int"],
-          "patching_rect": [420, 250, 90, 22],
+          "patching_rect": [240, 290, 90, 22],
           "text": "live.thisdevice"
         }
       },
@@ -80,19 +182,19 @@
           "numinlets": 1,
           "numoutlets": 2,
           "outlettype": ["", ""],
-          "patching_rect": [420, 280, 60, 22],
+          "patching_rect": [240, 320, 60, 22],
           "text": "route ready"
         }
       },
       {
         "box": {
-          "comment": "Tell jweb~ page we are live (page can use this to trigger subscribe)",
+          "comment": "Activate jweb once Live finishes init",
           "id": "obj-activate",
           "maxclass": "message",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [""],
-          "patching_rect": [420, 310, 90, 22],
+          "patching_rect": [240, 350, 120, 22],
           "text": "script daw-activate"
         }
       }
@@ -100,8 +202,19 @@
     "lines": [
       { "patchline": { "source": ["obj-jweb", 2], "destination": ["obj-route", 0] } },
       { "patchline": { "source": ["obj-route", 0], "destination": ["obj-noteout", 0] } },
+      { "patchline": { "source": ["obj-route", 0], "destination": ["obj-print-note", 0] } },
       { "patchline": { "source": ["obj-route", 1], "destination": ["obj-noteout", 1] } },
-      { "patchline": { "source": ["obj-route", 2], "destination": ["obj-print", 0] } },
+      { "patchline": { "source": ["obj-route", 1], "destination": ["obj-print-chan", 0] } },
+      { "patchline": { "source": ["obj-route", 2], "destination": ["obj-pack-on", 0] } },
+      { "patchline": { "source": ["obj-route", 2], "destination": ["obj-print-keydown", 0] } },
+      { "patchline": { "source": ["obj-route", 3], "destination": ["obj-pack-off", 0] } },
+      { "patchline": { "source": ["obj-route", 3], "destination": ["obj-print-keyup", 0] } },
+      { "patchline": { "source": ["obj-route", 4], "destination": ["obj-print-octave", 0] } },
+      { "patchline": { "source": ["obj-route", 5], "destination": ["obj-print-focus", 0] } },
+      { "patchline": { "source": ["obj-route", 6], "destination": ["obj-sprintf-pong", 0] } },
+      { "patchline": { "source": ["obj-sprintf-pong", 0], "destination": ["obj-jweb", 0] } },
+      { "patchline": { "source": ["obj-pack-on", 0], "destination": ["obj-noteout", 0] } },
+      { "patchline": { "source": ["obj-pack-off", 0], "destination": ["obj-noteout", 0] } },
       { "patchline": { "source": ["obj-thisdevice", 0], "destination": ["obj-routeready", 0] } },
       { "patchline": { "source": ["obj-routeready", 0], "destination": ["obj-activate", 0] } },
       { "patchline": { "source": ["obj-activate", 0], "destination": ["obj-jweb", 0] } }

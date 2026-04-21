@@ -16,6 +16,12 @@
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { analyzeKidLisp, ANALYZER_VERSION } from "../../backend/kidlisp-analyzer.mjs";
+import {
+  mirrorIpfsMedia,
+  mirrorPendingRebake,
+  mirrorRecordMint,
+  mirrorTezosState,
+} from "../../backend/kidlisp-dual-write.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -837,24 +843,23 @@ export const handler = stream(async (event, context) => {
         }
         
         await collection.updateOne({ code: pieceName }, updateOps);
+        await mirrorIpfsMedia(pieceName, updateOps.$set.ipfsMedia);
         console.log(`🪙 KEEP: Cached IPFS media for $${pieceName}`);
-        
+
         // REBAKE MODE: Return early with new URIs (don't proceed to minting)
         if (isRebake) {
           // Store pending rebake info so it persists across page refreshes
+          const rebakePayload = {
+            artifactUri,
+            thumbnailUri,
+            createdAt: new Date(),
+            sourceHash: pieceSourceHash,
+          };
           await collection.updateOne(
             { code: pieceName },
-            { 
-              $set: { 
-                pendingRebake: {
-                  artifactUri,
-                  thumbnailUri,
-                  createdAt: new Date(),
-                  sourceHash: pieceSourceHash,
-                }
-              }
-            }
+            { $set: { pendingRebake: rebakePayload } }
           );
+          await mirrorPendingRebake(pieceName, rebakePayload);
           console.log(`🪙 KEEP: Stored pending rebake for $${pieceName}`);
           
           const rebakeCreatedAt = new Date().toISOString();
@@ -1104,8 +1109,8 @@ export const handler = stream(async (event, context) => {
       const piecesCollection = database.db.collection("kidlisp");
       await piecesCollection.updateOne(
         { user: user.sub, code: pieceName },
-        { 
-          $set: { 
+        {
+          $set: {
             [`tezos.contracts.${CONTRACT_ADDRESS}`]: {
               minted: true,
               tokenId: tokenId,
@@ -1121,6 +1126,31 @@ export const handler = stream(async (event, context) => {
           }
         }
       );
+
+      await mirrorRecordMint(
+        pieceName,
+        {
+          tokenId,
+          contractAddress: CONTRACT_ADDRESS,
+          network: NETWORK,
+          txHash: op.hash,
+          keptAt: new Date(),
+          keptBy: user.sub,
+          walletAddress: destinationAddress,
+          artifactUri,
+          thumbnailUri,
+          metadataUri,
+        },
+        { source: "server_mint" },
+      );
+      await mirrorTezosState(pieceName, {
+        minted: true,
+        exists: true,
+        tokenId,
+        txHash: op.hash,
+        creatorAddress: creatorWalletAddress,
+        network: NETWORK,
+      });
 
       await send("complete", {
         success: true,

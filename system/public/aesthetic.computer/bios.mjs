@@ -4509,6 +4509,103 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const hasDawParam = new URLSearchParams(window.location.search).has("daw");
   if (hasDawParam) {
     _dawConnectSend(send, updateMetronome);
+
+    // 🎹 Low-latency keyboard bridge for M4L devices.
+    // jweb~ captures keyboard focus, which means Max's own [key]/[keyup]
+    // objects never see keystrokes. Capture them here on the main thread and
+    // forward directly via window.max.outlet — sub-ms, no worker round-trip,
+    // no iframe focus fight.
+    //
+    // BIOS owns the notepat key→pitch layout and octave state so we can emit
+    // a finished MIDI pitch and keep the Max patcher trivial. The piece UI
+    // also listens to the same keystrokes to render matching visual feedback.
+    const _dawKeyOffsets = {
+      z: -2, x: -1,
+      c: 0, v: 1, d: 2, s: 3, e: 4, f: 5, w: 6,
+      g: 7, r: 8, a: 9, q: 10, b: 11,
+      h: 12, t: 13, i: 14, y: 15, j: 16, k: 17, u: 18,
+      l: 19, o: 20, m: 21, p: 22, n: 23,
+      ";": 24, "'": 25, "]": 26,
+    };
+    let _dawBaseOctave = 4;
+    const _dawHeldPitch = {}; // keyLower → emitted pitch (for correct note-off across octave shifts)
+
+    // Round-trip latency probe. BIOS emits a "ping" with a monotonic
+    // timestamp alongside each notedown; the Max patcher echoes it back
+    // via `script window.acMaxPong(...)` and we log the delta. This captures
+    // the full iframe → Max → iframe hop — the real pipeline cost.
+    const _dawRttSamples = []; // rolling buffer of recent RTTs (ms)
+    window.acMaxPong = function (t0) {
+      if (typeof t0 !== "number" || !Number.isFinite(t0)) return;
+      const rtt = performance.now() - t0;
+      _dawRttSamples.push(rtt);
+      if (_dawRttSamples.length > 20) _dawRttSamples.shift();
+      const avg =
+        _dawRttSamples.reduce((s, v) => s + v, 0) / _dawRttSamples.length;
+      console.log(
+        `🎹 rtt ${rtt.toFixed(2)}ms (avg of ${_dawRttSamples.length}: ${avg.toFixed(2)}ms)`,
+      );
+    };
+
+    function _dawEmitMax(sym, value) {
+      if (
+        typeof window !== "undefined" &&
+        window.max &&
+        typeof window.max.outlet === "function"
+      ) {
+        try { window.max.outlet(sym, value); } catch (_err) {}
+      }
+    }
+    function _dawComputePitch(k) {
+      const off = _dawKeyOffsets[k];
+      if (off === undefined) return null;
+      return (_dawBaseOctave + 1) * 12 + off; // baseOctave 4 → C = 60
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.repeat) return;
+      const k = typeof e.key === "string" ? e.key : "";
+      if (k.length !== 1) return;
+      // Octave hot-switch 1-9
+      if (k >= "1" && k <= "9") {
+        _dawBaseOctave = parseInt(k, 10);
+        _dawEmitMax("octave", _dawBaseOctave);
+        return;
+      }
+      const low = k.toLowerCase();
+      const pitch = _dawComputePitch(low);
+      if (pitch === null) return;
+      _dawHeldPitch[low] = pitch;
+      _dawEmitMax("notedown", pitch);
+      // RTT ping: use Math.round so the int fits %ld in Max's [sprintf]
+      // round-trip path. Delta is logged in window.acMaxPong above.
+      _dawEmitMax("ping", Math.round(performance.now()));
+    }, true);
+
+    window.addEventListener("keyup", (e) => {
+      const k = typeof e.key === "string" ? e.key : "";
+      if (k.length !== 1) return;
+      const low = k.toLowerCase();
+      const pitch = _dawHeldPitch[low];
+      if (pitch === undefined) return;
+      delete _dawHeldPitch[low];
+      _dawEmitMax("noteup", pitch);
+    }, true);
+
+    // Focus/blur indicator. On blur, release all held pitches so we never
+    // leave a note hanging when the iframe loses focus (common during an
+    // Ableton window switch). The piece UI uses the same events to show a
+    // "tap me!" attract state.
+    window.addEventListener("focus", () => {
+      _dawEmitMax("focus", 1);
+    }, true);
+    window.addEventListener("blur", () => {
+      for (const k of Object.keys(_dawHeldPitch)) {
+        _dawEmitMax("noteup", _dawHeldPitch[k]);
+      }
+      for (const k of Object.keys(_dawHeldPitch)) delete _dawHeldPitch[k];
+      _dawEmitMax("focus", 0);
+    }, true);
   }
 
   function requestBeat(time) {
@@ -5155,6 +5252,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         audioContext.resume().then(() => {
           console.log("🎹 AudioContext resumed for DAW mode! State:", audioContext.state);
         }).catch(e => console.warn("🎹 AudioContext resume failed:", e));
+      }
+      return;
+    }
+
+    // 🎹 MIDI note emit from a worker piece → Max (jweb~ main-thread bridge).
+    // Pieces running inside an M4L device's jweb~ send
+    //   send({ type: "daw:midi", content: { pitch, velocity, channel? } })
+    // and BIOS forwards to `window.max.outlet` which the patcher routes via
+    // [route note channel] → [noteout].
+    if (type === "daw:midi" && content) {
+      if (typeof window !== "undefined" && window.max && typeof window.max.outlet === "function") {
+        const pitch = Number(content.pitch);
+        const velocity = Number(content.velocity);
+        const channel = Number.isFinite(Number(content.channel)) ? Number(content.channel) : 0;
+        if (!Number.isFinite(pitch) || !Number.isFinite(velocity)) return;
+        try { window.max.outlet("channel", channel); } catch (_e) {}
+        try { window.max.outlet("note", pitch, velocity); } catch (_e) {}
       }
       return;
     }

@@ -9,6 +9,7 @@
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
+import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 import { stream } from "@netlify/functions";
 import { TezosToolkit, MichelsonMap } from "@taquito/taquito";
 import { InMemorySigner } from "@taquito/signer";
@@ -461,8 +462,8 @@ export const handler = stream(async (event) => {
       // Use contract-keyed storage: tezos.contracts[CONTRACT_ADDRESS]
       await collection.updateOne(
         { code: pieceName },
-        { 
-          $set: { 
+        {
+          $set: {
             [`tezos.contracts.${CONTRACT_ADDRESS}.artifactUri`]: artifactUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.thumbnailUri`]: thumbnailUri,
             [`tezos.contracts.${CONTRACT_ADDRESS}.metadataUri`]: newMetadataUri,
@@ -471,6 +472,21 @@ export const handler = stream(async (event) => {
           },
           $unset: { pendingRebake: "" }
         }
+      );
+
+      await mirrorRecordMint(
+        pieceName,
+        {
+          tokenId: parseInt(tokenId, 10),
+          contractAddress: CONTRACT_ADDRESS,
+          network: NETWORK,
+          txHash: op.hash,
+          artifactUri,
+          thumbnailUri,
+          metadataUri: newMetadataUri,
+          keptAt: new Date(),
+        },
+        { source: "update_server" },
       );
 
       await send("progress", { stage: "database", message: "✓ Database updated" });

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Seed blocks into the Are.na channel "the-score-that-teaches-itself".
+// Seed blocks into the Are.na channel "self-teaching-scores".
 // Blocks are added in reading-bottom → reading-top order so whistlegraph lands
 // first on the channel page.
 //
 // Usage: ARENA_TOKEN=... node seed-channel.mjs
 
 const TOKEN = process.env.ARENA_TOKEN;
-const SLUG = "the-score-that-teaches-itself";
+const SLUG = "self-teaching-scores";
 if (!TOKEN) { console.error("ARENA_TOKEN missing"); process.exit(1); }
 
 const blocks = [

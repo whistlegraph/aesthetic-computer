@@ -5879,6 +5879,13 @@ function paint($) {
         commitBtn.reposition({ center: "x", y: buttonY, screen }, commitText);
         commitBtn.btn.disabled = false;
       }
+      // TextButtonSmall sizes w as text.length * 4; MatrixChunky8 is proportional
+      // so spaces/parens overshoot. Tighten to the real rendered width and recenter.
+      const commitTextWidth = $.text.box(
+        commitText, undefined, undefined, undefined, undefined, "MatrixChunky8",
+      ).box.width;
+      commitBtn.btn.box.w = commitTextWidth + 4; // padL + padR
+      commitBtn.btn.box.x = Math.floor((screen.width - commitBtn.btn.box.w) / 2);
       const cBox = commitBtn.btn.box;
       if (cBox) {
         const isHover = commitBtn.btn.over && !commitBtn.btn.down;
@@ -5926,17 +5933,49 @@ function paint($) {
                 ];
         commitBtn.paint($, colors);
 
-        // 🎹 Notepat shortcut button — sits to the right of the commit button.
+        // 🎹 Notepat shortcut button — sits to the right of the commit button,
+        // but stacks above it on narrow screens (phones) when the pair would
+        // collide with the TextInput's Enter button.
         // Leading spaces reserve room for the piano icon we draw afterward.
-        // MatrixChunky8 = 4px/char + 2px pad ⇒ text starts at box.x + 2 + 4*spaces.
-        // Icon frame (13×9) ends at box.x + 15, so 4 spaces (x+18) leaves a 3px gap.
-        const notepatLabel = "    notepat";
+        // MatrixChunky8 space advance = 2px (proportional), padL = 2px ⇒ text
+        // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
+        // so 8 spaces (x+18) leaves a 3px gap after the frame.
+        const notepatLabel = "        notepat";
+<<<<<<< Updated upstream
+        // TextButtonSmall sizes the box as label.length * 4, but MatrixChunky8
+        // is proportional (spaces advance only 2px), so the button overshoots.
+        // Measure the actual rendered width and tighten the box below.
+        const notepatTextWidth = $.text.box(
+          notepatLabel, undefined, undefined, undefined, undefined, "MatrixChunky8",
+        ).box.width;
+        const notepatWidth = notepatTextWidth + 4; // padL + padR
+        const notepatHeight = 7 + 2 * 2; // ch=7, padY*2
+        const pairGap = 4;
+        const stackedGap = 10; // breathing room between stacked notepat and commit
+        const enterBoxForStack = $.system.prompt.input?.enter?.btn?.box;
+        const pasteBoxForStack = $.system.prompt.input?.paste?.btn?.box;
+        // Commit is centered; pair extends rightward by pairGap + notepatWidth.
+        const pairRightEdge = (screen.width + cBox.w) / 2 + pairGap + notepatWidth;
+        const pairLeftEdge = (screen.width - cBox.w) / 2;
+        const rightLimit = enterBoxForStack ? enterBoxForStack.x - 4 : screen.width - 4;
+        const leftLimit = pasteBoxForStack ? pasteBoxForStack.x + pasteBoxForStack.w + 4 : 4;
+        const stackVertically = pairRightEdge > rightLimit || pairLeftEdge < leftLimit;
+        const notepatPos = stackVertically
+          ? { center: "x", y: buttonY - notepatHeight - stackedGap, screen }
+          : { x: cBox.x + cBox.w + pairGap, y: buttonY };
+=======
         const notepatX = cBox.x + cBox.w + 4;
+>>>>>>> Stashed changes
         if (!notepatBtn) {
-          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, { x: notepatX, y: buttonY });
+          notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
         } else {
-          notepatBtn.reposition({ x: notepatX, y: buttonY }, notepatLabel);
+          notepatBtn.reposition(notepatPos, notepatLabel);
           notepatBtn.btn.disabled = false;
+        }
+        // Shrink the box to the real text width and re-center when stacked.
+        notepatBtn.btn.box.w = notepatWidth;
+        if (stackVertically) {
+          notepatBtn.btn.box.x = Math.floor((screen.width - notepatWidth) / 2);
         }
         const nBox = notepatBtn.btn.box;
         const nHover = notepatBtn.btn.over && !notepatBtn.btn.down;

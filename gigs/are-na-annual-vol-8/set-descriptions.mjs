@@ -5,7 +5,7 @@
 // Usage: ARENA_TOKEN=... node set-descriptions.mjs
 
 const TOKEN = process.env.ARENA_TOKEN;
-const SLUG = "the-score-that-teaches-itself";
+const SLUG = "self-teaching-scores";
 if (!TOKEN) { console.error("ARENA_TOKEN missing"); process.exit(1); }
 
 const bySource = {

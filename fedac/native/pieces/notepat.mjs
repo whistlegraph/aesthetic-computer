@@ -111,7 +111,7 @@ let clockSynced = false;   // true once we have a server time sync
 let clockSyncFrame = 0;    // frame counter for periodic resync
 function syncedNow() { return Date.now() + clockOffset; }
 
-// FX rows: dry/wet, echo, pitch, bitcrush.
+// FX rows: dry/wet, echo, pitch, bitcrush, volume, drive.
 let echoMix = 0;
 let bitcrushMix = 0;
 let echoDragging = false;
@@ -124,6 +124,30 @@ let fxMix = 1;
 let volDragging = false;
 let brtDragging = false;
 
+// Master volume (user-controlled, separate from system_volume hardware
+// mixer). Slider range 0..1 maps to audio gain 0..2 (0..200%), so
+// slider at 0.5 = unity gain (1.0×). Default 0.5 means the slider
+// starts at the unity tick so the device sounds identical to pre-slider
+// builds out of the box.
+let masterVolMix = 0.5;
+let masterVolDragging = false;
+
+// Drive (tanh soft-sat dry/wet). 0 = clean, 1 = full drive. Applied
+// BEFORE master volume so the slider feels like a tone control.
+let driveMix = 0;
+let driveDragging = false;
+
+// Waveform-strip view cursor — how many seconds in the past the playhead
+// sits relative to the live audio edge. 0 = live (wave drifts LEFT as
+// real time advances). Grows when spacebar is held (wave drifts RIGHT,
+// backwards-replay scrub). Shrinks back to 0 on release so the display
+// catches up to live audio over ~0.5 s.
+let waveViewOffsetSec = 0;
+// Max retreat — also caps how much of the right half can fill in with
+// post-cursor audio. Matches recordStripSeconds / 2 so the right half
+// fully paints when the cursor has retreated half the visible window.
+const WAVE_VIEW_MAX_OFFSET_SEC = 2.0;
+
 // Pitch shift — assignable to either trackpad axis
 let pitchShift = 0; // -1 to +1, 0 = no shift
 let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
@@ -131,9 +155,11 @@ let lastAppliedPitch = 0; // last pitch actually sent to synths (throttle)
 // Trackpad FX control (\ toggles on/off)
 let trackpadFX = false;
 let trackpadEffectBindings = {
-  echo: { x: true, y: false },
-  pitch: { x: false, y: true },
-  crush: { x: false, y: false },
+  echo:   { x: true,  y: false },
+  pitch:  { x: false, y: true  },
+  crush:  { x: false, y: false },
+  volume: { x: false, y: false },
+  drive:  { x: false, y: false },
 };
 
 function clampRange(value, min, max) {
@@ -163,6 +189,24 @@ function setBitcrushMixValue(value, sound, commit = true) {
   const changed = Math.abs(next - bitcrushMix) > 0.0005;
   bitcrushMix = next;
   if (commit) sound?.glitch?.setMix?.(bitcrushMix);
+  return changed;
+}
+
+function setMasterVolMixValue(value, sound, commit = true) {
+  // Slider range 0..1 maps to audio gain 0..2 so the UI stays in the
+  // same 0..100% pattern as the other FX rows. 50% = unity, 100% = 2x.
+  const next = clamp01(value);
+  const changed = Math.abs(next - masterVolMix) > 0.0005;
+  masterVolMix = next;
+  if (commit) sound?.volume?.setMix?.(masterVolMix * 2);
+  return changed;
+}
+
+function setDriveMixValue(value, sound, commit = true) {
+  const next = clamp01(value);
+  const changed = Math.abs(next - driveMix) > 0.0005;
+  driveMix = next;
+  if (commit) sound?.drive?.setMix?.(driveMix);
   return changed;
 }
 
@@ -204,9 +248,11 @@ function setEffectRowFromPointer(rowId, x, row, sound, commit = true) {
     if (commit) sound?.fx?.setMix?.(fxMix);
     return true;
   }
-  if (rowId === "echo") return setEchoMixValue(norm, sound, commit);
-  if (rowId === "crush") return setBitcrushMixValue(norm, sound, commit);
-  if (rowId === "pitch") return setPitchShiftValue(norm * 2 - 1, commit);
+  if (rowId === "echo")   return setEchoMixValue(norm, sound, commit);
+  if (rowId === "crush")  return setBitcrushMixValue(norm, sound, commit);
+  if (rowId === "pitch")  return setPitchShiftValue(norm * 2 - 1, commit);
+  if (rowId === "volume") return setMasterVolMixValue(norm, sound, commit);
+  if (rowId === "drive")  return setDriveMixValue(norm, sound, commit);
   return false;
 }
 
@@ -1821,16 +1867,22 @@ function usbMidiStatusText(status) {
 }
 
 function loadUdpMidiConfig(system) {
+  // Default ON: every notepat install should broadcast to the amxd plugin
+  // unless the user explicitly opts out by writing
+  //   {"udpMidiBroadcast": false}
+  // into /mnt/config.json. Previously the flag defaulted to false and
+  // required `true` to enable, which silently blocked the relay on every
+  // OTA-updated device whose pre-existing config.json predates the flag.
+  udpMidiBroadcast = true;
   try {
     const raw = system?.readFile?.("/mnt/config.json");
-    if (!raw) {
-      udpMidiBroadcast = false;
-      return;
-    }
+    if (!raw) return;
     const cfg = JSON.parse(raw);
-    udpMidiBroadcast = cfg.udpMidiBroadcast === true || cfg.udpMidiBroadcast === "true";
+    if (cfg.udpMidiBroadcast === false || cfg.udpMidiBroadcast === "false") {
+      udpMidiBroadcast = false;
+    }
   } catch (_) {
-    udpMidiBroadcast = false;
+    // Keep default (true) on parse failure.
   }
 }
 
@@ -1855,22 +1907,34 @@ function maybeSendUdpMidiHeartbeat(system) {
   udpMidiNextHeartbeatFrame = frame + 300;
 }
 
+// Build the UDP-MIDI status line — parallel in form to usbMidiStatusText so
+// the two indicators read as siblings in the top bar. States:
+//   "UDP MIDI OFF"                 broadcast disabled in /mnt/config.json
+//   "UDP MIDI ..."                 broadcast enabled, socket not yet up
+//   "UDP MIDI ON"                  socket up, no notes sent yet
+//   "UDP MIDI ON 60v100 ▸ 42"      socket up, last note + total-sent count
+// The caller colors based on whether a note was sent in the last ~1.5s
+// (bright green) vs idle-but-connected (dim green) vs disconnected (amber).
 function udpMidiRelayStatusText(system) {
-  if (!udpMidiBroadcast) return "";
-  const handle = system?.udp?.handle || system?.config?.handle || "";
+  if (!udpMidiBroadcast) return "UDP MIDI OFF";
   const connected = !!system?.udp?.connected;
-  const prefix = connected
-    ? (handle ? "relay @" + handle : "relay on")
-    : (handle ? "relay ...@" + handle : "relay ...");
-  // Append counters + last note when actively sending so the overlay shows
-  // the ThinkPad actually broadcasts notes (and not just that the socket is up).
-  if (!connected) return prefix;
-  if (udpMidiSentCount === 0) return prefix + " 0";
-  const recent = frame - udpMidiLastSentFrame < 90; // ~1.5s fresh window
-  const tail = recent && udpMidiLastPitch >= 0
-    ? ` ${udpMidiSentCount} ${udpMidiLastPitch}v${udpMidiLastVelocity}`
-    : ` ${udpMidiSentCount}`;
-  return prefix + tail;
+  if (!connected) return "UDP MIDI ...";
+  if (udpMidiSentCount === 0) return "UDP MIDI ON";
+  const recent = frame - udpMidiLastSentFrame < 90;
+  if (recent && udpMidiLastPitch >= 0) {
+    return `UDP MIDI ON ${udpMidiLastPitch}v${udpMidiLastVelocity} \u25B8 ${udpMidiSentCount}`;
+  }
+  return `UDP MIDI ON \u25B8 ${udpMidiSentCount}`;
+}
+
+// Returns 0 when no note has ever been sent; otherwise 0..1 recency with
+// 1.0 at the moment of the send and fading to 0 over ~90 frames (1.5s).
+// Used to pulse the badge color from bright-green → dim-green as notes fire.
+function udpMidiSendRecency() {
+  if (udpMidiSentCount === 0) return 0;
+  const age = frame - udpMidiLastSentFrame;
+  if (age < 0 || age > 90) return 0;
+  return 1 - (age / 90);
 }
 
 function rememberSound(key, entry, system, velocity = 1) {
@@ -1961,8 +2025,11 @@ function hitTestGrid(x, y, gi) {
 function playWaveSound(sound, waveType) {
   if (!sound?.synth) return;
   if (waveType === "sample") {
-    // Short percussive click for sample mode
-    sound.synth({ type: "noise", tone: 800 * pf, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
+    // Short percussive click for sample mode. Previously this referenced
+    // `pf` (a local from playZoo/playLaser/playPercussion that never made
+    // it into this scope) — throwing a ReferenceError the moment anyone
+    // switched wave to "sample". Plain tone is fine for a UI blip.
+    sound.synth({ type: "noise", tone: 800, duration: 0.03, volume: 0.12, attack: 0.001, decay: 0.025, pan: 0 });
     return;
   }
   const tones = { sine: 660, triangle: 550, sawtooth: 440, square: 330, harp: 440, whistle: 880 };
@@ -2059,6 +2126,8 @@ function boot({ wipe, system, sound }) {
   sound?.room?.setMix?.(echoMix);
   sound?.glitch?.setMix?.(bitcrushMix);
   sound?.fx?.setMix?.(fxMix);
+  sound?.volume?.setMix?.(masterVolMix * 2); // slider 0..1 → audio 0..2
+  sound?.drive?.setMix?.(driveMix);
   loadUdpMidiConfig(system);
   udpMidiNextHeartbeatFrame = 0;
   const mic = sound?.microphone || null;
@@ -2820,10 +2889,12 @@ function act({ event: e, sound, wifi, system }) {
           return;
         }
         if (pointInRect(x, y, { x: row.sliderX, y: row.y, w: row.sliderW, h: row.h })) {
-          if (rowId === "fx") fxDragging = true;
-          else if (rowId === "echo") echoDragging = true;
-          else if (rowId === "pitch") pitchDragging = true;
-          else if (rowId === "crush") bitcrushDragging = true;
+          if      (rowId === "fx")     fxDragging = true;
+          else if (rowId === "echo")   echoDragging = true;
+          else if (rowId === "pitch")  pitchDragging = true;
+          else if (rowId === "crush")  bitcrushDragging = true;
+          else if (rowId === "volume") masterVolDragging = true;
+          else if (rowId === "drive")  driveDragging = true;
           setEffectRowFromPointer(rowId, x, row, sound, true);
           return;
         }
@@ -3000,10 +3071,12 @@ function act({ event: e, sound, wifi, system }) {
       djDragLastX = x;
     }
     const fxRows = globalThis.__fxRows || {};
-    if (fxDragging) setEffectRowFromPointer("fx", x, fxRows.fx, sound, true);
-    if (echoDragging) setEffectRowFromPointer("echo", x, fxRows.echo, sound, true);
-    if (pitchDragging) setEffectRowFromPointer("pitch", x, fxRows.pitch, sound, true);
-    if (bitcrushDragging) setEffectRowFromPointer("crush", x, fxRows.crush, sound, true);
+    if (fxDragging)         setEffectRowFromPointer("fx", x, fxRows.fx, sound, true);
+    if (echoDragging)       setEffectRowFromPointer("echo", x, fxRows.echo, sound, true);
+    if (pitchDragging)      setEffectRowFromPointer("pitch", x, fxRows.pitch, sound, true);
+    if (bitcrushDragging)   setEffectRowFromPointer("crush", x, fxRows.crush, sound, true);
+    if (masterVolDragging)  setEffectRowFromPointer("volume", x, fxRows.volume, sound, true);
+    if (driveDragging)      setEffectRowFromPointer("drive", x, fxRows.drive, sound, true);
     if (volDragging) {
       const vb = globalThis.__volBar;
       if (vb) {
@@ -3106,6 +3179,8 @@ function act({ event: e, sound, wifi, system }) {
     if (echoDragging) echoDragging = false;
     if (pitchDragging) pitchDragging = false;
     if (bitcrushDragging) bitcrushDragging = false;
+    if (masterVolDragging) masterVolDragging = false;
+    if (driveDragging) driveDragging = false;
     if (volDragging) volDragging = false;
     if (brtDragging) brtDragging = false;
     // Release touch-triggered note
@@ -3160,6 +3235,8 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (trackpadFX && trackpad) {
     let echoDirty = false;
     let crushDirty = false;
+    let volDirty = false;
+    let driveDirty = false;
     if (trackpad.dx !== 0) {
       const dxNorm = trackpad.dx / Math.max(1, w);
       if (trackpadEffectBindings.echo.x) {
@@ -3170,6 +3247,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       }
       if (trackpadEffectBindings.pitch.x) {
         setPitchShiftValue(pitchShift + dxNorm, false);
+      }
+      if (trackpadEffectBindings.volume.x) {
+        volDirty = setMasterVolMixValue(masterVolMix + dxNorm * 3, sound, false) || volDirty;
+      }
+      if (trackpadEffectBindings.drive.x) {
+        driveDirty = setDriveMixValue(driveMix + dxNorm * 3, sound, false) || driveDirty;
       }
     }
     if (trackpad.dy !== 0) {
@@ -3183,9 +3266,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       if (trackpadEffectBindings.pitch.y) {
         setPitchShiftValue(pitchShift + dyNorm, false);
       }
+      if (trackpadEffectBindings.volume.y) {
+        volDirty = setMasterVolMixValue(masterVolMix + dyNorm * 3, sound, false) || volDirty;
+      }
+      if (trackpadEffectBindings.drive.y) {
+        driveDirty = setDriveMixValue(driveMix + dyNorm * 3, sound, false) || driveDirty;
+      }
     }
     if (echoDirty && frame % 3 === 0) sound?.room?.setMix?.(echoMix);
     if (crushDirty && frame % 3 === 0) sound?.glitch?.setMix?.(bitcrushMix);
+    if (volDirty && frame % 3 === 0) sound?.volume?.setMix?.(masterVolMix * 2);
+    if (driveDirty && frame % 3 === 0) sound?.drive?.setMix?.(driveMix);
     // Apply pitch shift to active voices — throttled to every 4th frame
     // and only when pitch actually changed
     if (frame % 4 === 0) applyPitchShiftToActiveSounds(false);
@@ -3325,10 +3416,12 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   // === STATUS BAR ===
-  // Bar is tall enough to fit a 25px QR code (21-module QR version 1 with
-  // a 2-module quiet-zone margin, scale=1) in the top-left corner.
-  const topBarH = 26;
-  const barY = 10; // vertical offset for status text — matrix font is ~7px tall
+  // Bar is tall enough to fit a 50×50 QR code (21-module version-1 QR +
+  // 2-module quiet-zone margin at scale=2) in the top-left corner, with
+  // the text row sitting vertically centered below the QR's midline so
+  // readability at arm's length works on a phone-camera scan too.
+  const topBarH = 54;
+  const barY = 22; // center of text row — leaves 2 px top/bottom padding for status text at size=1
 
   ink(BAR_BG[0], BAR_BG[1], BAR_BG[2]);
   box(0, 0, w, topBarH, true);
@@ -3353,13 +3446,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   if (reserveSysBrt >= 0) statusRightReserve += 4 + 16 + 2 + 3 * CH;
   const statusRightLimit = Math.max(80, w - statusRightReserve - 8);
 
-  // Left: tiny QR code → notepat.com (25x25 at scale=1), then label.
-  // Clicking anywhere in the label zone still jumps to prompt piece.
+  // Left: QR code → notepat.com. Scale=1, version-1 with 2-module quiet
+  // zone = 25×25 px. Taller top bar (54 px) leaves breathing room below
+  // the QR for the label + status text without cramping. C side caches
+  // the Reed-Solomon encoding so the inner module-grid blit is the only
+  // per-frame cost.
   if (globalThis.qr) {
-    // qr() handles its own white background + margin.
-    globalThis.qr("https://notepat.com", 1, 1, 1);
+    globalThis.qr("https://notepat.com", 2, 2, 1);
   }
-  const qrW = 26; // 25px QR + 1px padding before label
+  const qrW = 28; // 25px QR + 2px left inset + 1px right padding before label
   const labelX = qrW + 4;
   const labelW = 48; // "notepat.com" label width in matrix font at size=1
   const npHovered = hoverX >= 0 && hoverX <= labelX + labelW && hoverY < topBarH;
@@ -3460,15 +3555,27 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     statusWrite("key:" + lastKeyPressed, 180, 220, 255, fadeA);
   }
 
+  // UDP MIDI — sibling indicator to USB MIDI. Color encodes state:
+  //   disabled        → FG_DIM (flat "OFF")
+  //   enabled + down  → amber (255,190,80)  "..."
+  //   enabled + up    → dim green (100,220,140)  "ON"
+  //   actively sending→ bright green, pulsing with recency
+  // The pulse decays over ~1.5s after each note so rapid play visibly
+  // lights the indicator vs just sitting on "connected".
   const relayText = udpMidiRelayStatusText(system);
   if (relayText) {
-    statusWrite(
-      relayText,
-      system?.udp?.connected ? 80 : 255,
-      system?.udp?.connected ? 180 : 180,
-      system?.udp?.connected ? 255 : 90,
-      210
-    );
+    if (!udpMidiBroadcast) {
+      statusWrite(relayText, FG_DIM, FG_DIM, FG_DIM, 200);
+    } else if (!system?.udp?.connected) {
+      statusWrite(relayText, 255, 190, 80, 220);
+    } else {
+      const recency = udpMidiSendRecency();
+      // dim green (100,220,140) → bright green (160,255,190) as recency rises
+      const r = Math.round(100 + recency * 60);
+      const g = Math.round(220 + recency * 35);
+      const b = Math.round(140 + recency * 50);
+      statusWrite(relayText, r, g, b, 220);
+    }
   }
 
   // Metronome indicator (pendulum) in status bar — shown when enabled
@@ -4137,57 +4244,28 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   const leftX = margin;
   const rightX = w - gridW - margin;
 
-  // Scrolling record-needle strip: the last ~4 seconds of mixed speaker
-  // output, always rolling regardless of whether notes are active. Think
-  // classic DJ turntable display — you can see the waveform the spacebar
-  // reverse-play would snap back into. Refreshed every 4 frames to keep
-  // paint cheap; downsampled to one peak value per pixel column.
+  // Scrolling record-needle strip with continuous-drift playback cursor.
+  //
+  // waveViewOffsetSec drives the cursor's position relative to live audio:
+  //   = 0           → cursor at live edge, past on LEFT, right empty;
+  //                   wave drifts LEFT as new audio arrives
+  //   > 0, growing  → cursor retreats into the past; right half fills in
+  //                   with samples captured AFTER the cursor; wave drifts
+  //                   RIGHT (backwards-replay visual)
+  //   > 0, shrinking→ cursor catches back up to "now"; wave drifts LEFT
+  //                   faster than normal until offset hits 0
+  //
+  // waveViewOffsetSec is advanced/retreated in sim() below based on
+  // spaceHeld. The C drawStrip reads the offset and renders accordingly
+  // in a single call (no JS peak loop).
   const recordStripH = 22;
   const recordStripSeconds = 4;
   const recordStripTop = Math.max(topBarH + 1, gridTop - recordStripH - 2);
-  const recordStripBottom = recordStripTop + recordStripH;
-  if (frame % 4 === 0 && sound?.speaker?.getRecentBuffer) {
-    const snap = sound.speaker.getRecentBuffer(recordStripSeconds);
-    if (snap && snap.data && snap.data.length > 0) {
-      globalThis.__recordStripData = snap.data;
-    }
-  }
-  const rsData = globalThis.__recordStripData;
-  if (rsData && rsData.length > 4) {
+  if (sound?.speaker?.drawStrip) {
     const rsX = margin;
     const rsW = w - margin * 2;
-    const midY = Math.floor((recordStripTop + recordStripBottom) / 2);
-    // Background strip
-    ink(dark ? 20 : 235, dark ? 15 : 225, dark ? 30 : 210, 160);
-    box(rsX, recordStripTop, rsW, recordStripH, true);
-    // Center zero-line
-    ink(dark ? 80 : 140, dark ? 80 : 140, dark ? 90 : 150, 120);
-    line(rsX, midY, rsX + rsW, midY);
-    // Per-pixel-column peak of that time-slice.
-    const samplesPerCol = rsData.length / rsW;
-    const amp = Math.floor(recordStripH * 0.45);
-    for (let x = 0; x < rsW; x++) {
-      const i0 = Math.floor(x * samplesPerCol);
-      const i1 = Math.min(rsData.length, Math.floor((x + 1) * samplesPerCol));
-      let peak = 0;
-      for (let i = i0; i < i1; i++) {
-        const a = Math.abs(rsData[i]);
-        if (a > peak) peak = a;
-      }
-      // Clip extreme outliers so a transient hot sample doesn't dominate the
-      // column-height math and flatten everything else visually.
-      if (peak > 1.0) peak = 1.0;
-      const h = Math.max(1, Math.round(peak * amp));
-      // Color fades from warm (loud) through amber (mid) to cold (quiet).
-      const r = Math.min(255, Math.round(120 + peak * 140));
-      const g = Math.round(120 + peak * 80);
-      const b = Math.round(90 + (1 - peak) * 120);
-      ink(r, g, b, 220);
-      line(rsX + x, midY - h, rsX + x, midY + h);
-    }
-    // Right-edge "record needle" — where new samples are being written.
-    ink(240, 80, 80, 220);
-    line(rsX + rsW - 1, recordStripTop, rsX + rsW - 1, recordStripBottom);
+    sound.speaker.drawStrip(rsX, recordStripTop, rsW, recordStripH,
+                             recordStripSeconds, 0.5, waveViewOffsetSec);
   }
 
   // Waveform visualizer bars only in lanes above pad grids (not full-screen).
@@ -4830,8 +4908,73 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     fxRows.crush = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
   }
 
+  // Master volume slider — user gain 0..200% (50% on slider = unity).
+  // Sits below crush so it feels like a "last stage" like a mixing board
+  // master fader. A tick at 50% marks unity for visual reference.
+  {
+    const sliderY = settingsY + sliderH * 4;
+    const sliderW = w - axisAreaW;
+    const hov = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 45 : 28) : (hov ? 225 : 238));
+    box(0, sliderY, w, sliderH, true);
+    const fillW = Math.floor(masterVolMix * sliderW);
+    if (fillW > 0) {
+      ink(100, 220, 150, trackpadFX ? 240 : 180);
+      box(0, sliderY, fillW, sliderH, true);
+    }
+    // Unity tick at the 50% position.
+    const unityX = Math.floor(sliderW * 0.5);
+    ink(dark ? 90 : 160, dark ? 110 : 180, dark ? 110 : 170, 200);
+    box(unityX, sliderY, 1, sliderH, true);
+    if (masterVolMix > 0.005) {
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(masterVolMix * sliderW)));
+      ink(160, 255, 190, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    write("vol " + Math.round(masterVolMix * 200) + "%",
+      { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.volume.x, [100, 220, 150]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.volume.y, [100, 220, 150]);
+    fxRows.volume = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+  }
+
+  // Drive slider — tanh soft-sat dry/wet (0 = clean, 100% = fully driven).
+  // Subtle warmth in the 10-30% range, obvious distortion above 60%.
+  {
+    const sliderY = settingsY + sliderH * 5;
+    const sliderW = w - axisAreaW;
+    const hov = hoverY >= sliderY && hoverY < sliderY + sliderH;
+    ink(dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 40 : 25) : (hov ? 220 : 235),
+        dark ? (hov ? 45 : 28) : (hov ? 225 : 238));
+    box(0, sliderY, w, sliderH, true);
+    const fillW = Math.floor(driveMix * sliderW);
+    if (fillW > 0) {
+      ink(220, 90, 70, trackpadFX ? 240 : 180);
+      box(0, sliderY, fillW, sliderH, true);
+    }
+    if (driveMix > 0.005) {
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(driveMix * sliderW)));
+      ink(255, 160, 120, 220);
+      box(knobX - 1, sliderY, 3, sliderH, true);
+    }
+    ink(dark ? 90 : 160, dark ? 90 : 160, dark ? 100 : 170);
+    write("drive " + Math.round(driveMix * 100) + "%",
+      { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
+    const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawAxisToggle(xBox, "x", !!trackpadEffectBindings.drive.x, [220, 90, 70]);
+    drawAxisToggle(yBox, "y", !!trackpadEffectBindings.drive.y, [220, 90, 70]);
+    fxRows.drive = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+  }
+
   globalThis.__fxRows = fxRows;
-  const waveRowY = settingsY + sliderH * 4;
+  const waveRowY = settingsY + sliderH * 6;
   const waveRowH = 14;
 
   // === WAVE TYPE BUTTONS (below sliders, modular GUI) ===
@@ -5514,6 +5657,18 @@ function sim({ pressures, sound }) {
   if (recording && (Date.now() - recStartTime) / 1000 >= MAX_REC_SECS) {
     stopSampleRecording(sound, "max-duration");
   }
+
+  // Advance / retreat the waveform-strip view cursor based on spacebar.
+  // 1x audio-rate retreat on press → the wave drifts RIGHT at a natural
+  // speed. 2x catch-up on release → wave snaps forward noticeably faster
+  // than normal drift so the eye can tell the cursor is "coming back".
+  const dtSec = 1 / 60;
+  if (spaceHeld) {
+    waveViewOffsetSec = Math.min(WAVE_VIEW_MAX_OFFSET_SEC,
+                                 waveViewOffsetSec + dtSec);
+  } else if (waveViewOffsetSec > 0) {
+    waveViewOffsetSec = Math.max(0, waveViewOffsetSec - dtSec * 2);
+  }
   // Update dark/light mode via global theme (every ~5 seconds)
   if (frame % 300 === 0) {
     const wasDark = dark;
@@ -5613,10 +5768,14 @@ function leave() {
   pitchShift = 0;
   lastAppliedPitch = 0;
   fxMix = 1;
+  masterVolMix = 0.5; // unity (slider 0..1 → audio 0..2)
+  driveMix = 0;
   trackpadFX = false;
   soundAPI?.room?.setMix?.(0);
   soundAPI?.glitch?.setMix?.(0);
   soundAPI?.fx?.setMix?.(1);
+  soundAPI?.volume?.setMix?.(1); // unity
+  soundAPI?.drive?.setMix?.(0);  // clean
   stopAllSounds(soundAPI, systemAPI, 0.02);
 }
 

@@ -4627,30 +4627,6 @@ function paint({
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else if (!paintPictureOverlay) {
-    const downloadRailLeft = Math.min(
-      osBtn?.box?.x ?? Infinity,
-      abletonBtn?.box?.x ?? Infinity,
-    );
-    const downloadRailRight = Math.max(
-      (osBtn?.box?.x ?? 0) + (osBtn?.box?.w ?? 0),
-      (abletonBtn?.box?.x ?? 0) + (abletonBtn?.box?.w ?? 0),
-    );
-    if (Number.isFinite(downloadRailLeft) && downloadRailRight > downloadRailLeft) {
-      ink(10, 28, 34, 210).box(
-        downloadRailLeft - 3,
-        0,
-        downloadRailRight - downloadRailLeft + 6,
-        TOP_BAR_BOTTOM - 1,
-      );
-      ink(55, 120, 135, 170).box(
-        downloadRailLeft - 3,
-        0,
-        downloadRailRight - downloadRailLeft + 6,
-        TOP_BAR_BOTTOM - 1,
-        "outline",
-      );
-    }
-
     abletonBtn?.paint((btn) => {
       ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(btn.box);
       if (btn.over && !btn.down) {
@@ -7148,7 +7124,7 @@ function act({
       down: () => api.beep(400),
       push: () => {
         api.beep();
-        jump("ableton");
+        jump("out:https://aesthetic.computer/m4l/notepat-remote.amxd");
       },
     });
 

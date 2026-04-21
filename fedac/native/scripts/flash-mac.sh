@@ -34,17 +34,54 @@ set -euo pipefail
 USB_DEV="${1:?usage: $0 /dev/diskN [SRC_DIR]}"
 SRC_DIR="${2:-/tmp/ac-os-pull}"
 
-# This script needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos.
-# Re-exec under sudo if invoked as a regular user (sudoers.d/ac-flash-mac
-# whitelists this exact path NOPASSWD).
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+REAL_REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+NATIVE_DIR="${REPO_ROOT}/native"
+[ -d "${NATIVE_DIR}/boot" ] || NATIVE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# --- step 1: ensure ~/.ac-token is fresh (run ac-login if stale) ---
+# Done BEFORE the sudo exec so the OAuth browser dance happens as the
+# actual user. If ac-login.mjs isn't findable we skip the refresh and
+# leave the downstream bake to fail-soft with a warning.
+if [ "$(id -u)" != "0" ]; then
+    NEEDS_LOGIN=1
+    if [ -f "${HOME}/.ac-token" ] && command -v node >/dev/null 2>&1; then
+        NEEDS_LOGIN="$(node -e '
+            try {
+                const t = JSON.parse(require("fs").readFileSync(process.env.HOME+"/.ac-token", "utf8"));
+                const rawExp = t.expires_at || 0;
+                const expMs = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+                // Consider stale if expired or within 60s of expiring
+                process.stdout.write((!expMs || Date.now() >= expMs - 60000) ? "1" : "0");
+            } catch { process.stdout.write("1"); }
+        ')"
+    fi
+    if [ "${NEEDS_LOGIN}" = "1" ]; then
+        AC_LOGIN=""
+        for p in "${REAL_REPO_ROOT}/tezos/ac-login.mjs" \
+                 "${HOME}/aesthetic-computer/tezos/ac-login.mjs"; do
+            [ -f "${p}" ] && AC_LOGIN="${p}" && break
+        done
+        if [ -n "${AC_LOGIN}" ] && command -v node >/dev/null 2>&1; then
+            echo "[flash-mac] ~/.ac-token is stale — running ac-login to refresh…"
+            echo "[flash-mac]   script: ${AC_LOGIN}"
+            node "${AC_LOGIN}" || {
+                echo "[flash-mac] ac-login failed (non-fatal; proceeding without Claude bake)" >&2
+            }
+        else
+            echo "[flash-mac] WARN: ac-login.mjs not found — Claude creds won't be baked" >&2
+            echo "[flash-mac]       searched: ${REAL_REPO_ROOT}/tezos/ac-login.mjs" >&2
+        fi
+    fi
+fi
+
+# --- step 2: re-exec under sudo ---
+# Needs root for diskutil/sgdisk/dd/newfs_msdos/mount_msdos. sudoers.d/
+# ac-flash-mac whitelists this exact path NOPASSWD.
 if [ "$(id -u)" != "0" ]; then
     exec sudo --preserve-env=PATH "$0" "$@"
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-NATIVE_DIR="${REPO_ROOT}/native"
-[ -d "${NATIVE_DIR}/boot" ] || NATIVE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 KERNEL="${SRC_DIR}/vmlinuz"
 INITRAMFS="${SRC_DIR}/initramfs.cpio.gz"
@@ -71,20 +108,100 @@ TOKEN_HOME="${HOME}"
 TOKEN_FILE="${TOKEN_HOME}/.ac-token"
 
 USER_HANDLE=""; USER_SUB=""; USER_EMAIL=""
+AC_ACCESS_TOKEN=""; AC_TOKEN_EXPIRED=0
 if [ -f "${TOKEN_FILE}" ] && command -v node >/dev/null 2>&1; then
     eval "$(node -e '
         const t = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
         let h = t.user?.handle || t.user?.name || "";
         if (h.startsWith("@")) h = h.slice(1);
+        const now = Date.now();
+        const rawExp = t.expires_at || 0;
+        const expMs  = rawExp > 10_000_000_000 ? rawExp : rawExp * 1000;
+        const fresh  = expMs && now < expMs;
         const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
-        out("USER_HANDLE", h);
-        out("USER_SUB",    t.user?.sub);
-        out("USER_EMAIL",  t.user?.email);
+        out("USER_HANDLE",     h);
+        out("USER_SUB",        t.user?.sub);
+        out("USER_EMAIL",      t.user?.email);
+        out("AC_ACCESS_TOKEN", fresh ? (t.access_token || "") : "");
+        process.stdout.write(`AC_TOKEN_EXPIRED=${fresh ? 0 : 1}\n`);
     ' "${TOKEN_FILE}" 2>/dev/null)"
     [ -n "${USER_HANDLE}" ] && log "Authenticated as @${USER_HANDLE}"
 fi
 [ -z "${USER_HANDLE}${USER_SUB}${USER_EMAIL}" ] && \
     log "No ~/.ac-token (run \`ac-login\` first to bake credentials in)"
+
+# --- fetch Claude OAuth token + GitHub PAT from MongoDB ---
+# /api/claude-token returns { handle, token, githubPat } from @handles.
+# `token` is the year-long Claude Code OAuth bearer (sk-ant-...) — pty.c
+# reads /claude-token at spawn time and sets CLAUDE_CODE_OAUTH_TOKEN so
+# `claude` launches without interactive login. `githubPat` lets on-device
+# git push to the GitHub mirror without SSH.
+CLAUDE_TOKEN=""
+GITHUB_PAT=""
+if [ -n "${AC_ACCESS_TOKEN}" ]; then
+    log "Fetching Claude token + GitHub PAT from MongoDB…"
+    CT_RESP="$(curl -fsS -H "Authorization: Bearer ${AC_ACCESS_TOKEN}" \
+        "https://aesthetic.computer/api/claude-token" 2>/dev/null || echo "")"
+    if [ -n "${CT_RESP}" ]; then
+        eval "$(node -e '
+            try {
+                const r = JSON.parse(process.argv[1]);
+                const out = (k, v) => process.stdout.write(`${k}=${JSON.stringify(v || "")}\n`);
+                out("CLAUDE_TOKEN", r.token);
+                out("GITHUB_PAT",   r.githubPat);
+            } catch {}
+        ' "${CT_RESP}" 2>/dev/null)"
+    fi
+    if [ -n "${CLAUDE_TOKEN}" ]; then
+        log "  claude token: ${#CLAUDE_TOKEN} bytes"
+    else
+        log "  claude token: none stored in MongoDB (POST to /api/claude-token to save)"
+    fi
+    [ -n "${GITHUB_PAT}" ] && log "  github pat:   ${#GITHUB_PAT} bytes"
+elif [ "${AC_TOKEN_EXPIRED}" = "1" ]; then
+    log "  creds fetch: skipped (~/.ac-token expired — run \`ac-login\` to refresh)"
+fi
+
+# --- bake creds into initramfs via concatenated cpio archive ---
+# The Linux kernel's unpack_to_rootfs() accepts multiple concatenated
+# gzipped cpio archives in the initrd stream (same trick intel-ucode
+# uses). We build a tiny supplementary archive containing the baked
+# files and append it to the end of initramfs.cpio.gz.
+# Files baked (matches ac-os Linux layout):
+#   /claude-token        plain bearer — pty.c reads + sets CLAUDE_CODE_OAUTH_TOKEN
+#   /claude-state.json   init copies to /tmp/.claude.json (skips CC onboarding)
+#   /github-pat          plain bearer — pty.c sets GITHUB_TOKEN
+if [ -n "${CLAUDE_TOKEN}${GITHUB_PAT}" ]; then
+    BAKE_DIR="$(mktemp -d /tmp/ac-bake.XXXXXX)"
+    BAKED_INITRAMFS="/tmp/ac-initramfs-baked.$$.cpio.gz"
+    ORIG_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
+    BAKE_LIST=""
+    if [ -n "${CLAUDE_TOKEN}" ]; then
+        printf %s "${CLAUDE_TOKEN}" > "${BAKE_DIR}/claude-token"
+        chmod 600 "${BAKE_DIR}/claude-token"
+        cat > "${BAKE_DIR}/claude-state.json" <<STATE
+{"oauthAccount":{"emailAddress":"${USER_EMAIL}","organizationName":"","accountUuid":""},"hasCompletedOnboarding":true,"installMethod":"manual","numStartups":1,"autoUpdates":false,"autoUpdatesProtectedForNative":true}
+STATE
+        BAKE_LIST="${BAKE_LIST}claude-token
+claude-state.json
+"
+    fi
+    if [ -n "${GITHUB_PAT}" ]; then
+        printf %s "${GITHUB_PAT}" > "${BAKE_DIR}/github-pat"
+        chmod 600 "${BAKE_DIR}/github-pat"
+        BAKE_LIST="${BAKE_LIST}github-pat
+"
+    fi
+    cp "${INITRAMFS}" "${BAKED_INITRAMFS}"
+    ( cd "${BAKE_DIR}" && printf '%s' "${BAKE_LIST}" \
+        | cpio -o -H newc 2>/dev/null ) \
+        | gzip -9 >> "${BAKED_INITRAMFS}" \
+        || die "Failed to append creds cpio to initramfs"
+    rm -rf "${BAKE_DIR}"
+    INITRAMFS="${BAKED_INITRAMFS}"
+    NEW_INITRD_SIZE="$(stat -f%z "${INITRAMFS}")"
+    log "  baked initramfs: ${NEW_INITRD_SIZE} bytes (+$(( NEW_INITRD_SIZE - ORIG_INITRD_SIZE )) bytes for creds cpio)"
+fi
 
 # --- preserve existing wifi_creds.json from target USB before we wipe it ---
 # Linux `ac-os flash` does this via ac_media_merge_wifi_creds: read the
@@ -100,7 +217,7 @@ for mnt in /Volumes/ACBOOT /Volumes/ACEFI; do
             log "Preserving wifi_creds.json from ${mnt}" && break
     fi
 done
-trap "rm -f '${PRESERVE_WIFI}' 2>/dev/null" EXIT
+trap "rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null" EXIT
 
 # --- hardcoded preset networks (kept in sync with media-layout.sh + src/wifi.c) ---
 WIFI_PRESETS_JSON='[
@@ -184,7 +301,7 @@ newfs_msdos -F 32 -v ACEFI  "${RAW2}" >/dev/null
 # --- mount ---
 M1=$(mktemp -d /tmp/ac-main.XXXXXX)
 M2=$(mktemp -d /tmp/ac-efi.XXXXXX)
-trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; true" EXIT
+trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null; true" EXIT
 
 log "Mounting partitions…"
 mount_msdos "${P1}" "${M1}"
@@ -195,7 +312,7 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s"}\n' \
+printf '{"handle":"%s","piece":"notepat","sub":"%s","email":"%s","udpMidiBroadcast":true}\n' \
     "${USER_HANDLE}" "${USER_SUB}" "${USER_EMAIL}" | tee "${M1}/config.json" >/dev/null
 
 # Build merged wifi_creds.json (presets + preserved + optional override)

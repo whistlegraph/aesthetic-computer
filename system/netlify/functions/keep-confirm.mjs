@@ -8,6 +8,7 @@ import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
+import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 
 const VERSION_BY_PROFILE = {
   v11: "11.0.0",
@@ -350,6 +351,10 @@ export async function handler(event, context) {
       console.warn(`❌ Failed to update piece ${cleanPiece}`);
       await database.disconnect();
       return respond(500, { error: "Failed to record mint" });
+    }
+
+    if (resolvedTokenId !== null) {
+      await mirrorRecordMint(cleanPiece, setOps.kept, { source: "kept" });
     }
 
     console.log(`✅ Recorded keep for $${cleanPiece} - Token #${resolvedTokenId ?? "pending"} on ${normalizedNetwork}`);

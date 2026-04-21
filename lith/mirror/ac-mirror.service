@@ -1,0 +1,13 @@
+[Unit]
+Description=Mirror main between knot and GitHub for aesthetic-computer/core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ac-mirror/mirror.sh
+# Don't flood logs with normal exits (code 0 = in sync, 1 = error, 2 = divergent).
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

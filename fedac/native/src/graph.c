@@ -488,21 +488,36 @@ void graph_page(ACGraph *g, ACFramebuffer *target) {
     g->fb = target ? target : g->screen;
 }
 
+// Module-level cache so repeat calls with the same text don't re-run
+// qrcodegen_encodeText (Reed-Solomon + masking — multi-ms on slow CPUs).
+// Notepat calls qr("https://notepat.com", ...) every paint frame; caching
+// drops the cost to ~1 memcmp + the draw loop.
+static char       qr_cache_text[256] = {0};
+static uint8_t    qr_cache_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+static int        qr_cache_size = 0;
+
 void graph_qr(ACGraph *g, const char *text, int x, int y, int scale) {
     if (!g || !text || !text[0]) return;
     if (scale < 1) scale = 1;
 
-    uint8_t qr_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
-    uint8_t tmp_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
-
-    if (!qrcodegen_encodeText(text, tmp_buf, qr_buf,
-            qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 10,
-            qrcodegen_Mask_AUTO, true)) {
-        return; // encode failed (text too long for version 10)
+    // Cache hit: skip the encode entirely.
+    if (qr_cache_size == 0 ||
+        strncmp(qr_cache_text, text, sizeof(qr_cache_text)) != 0) {
+        uint8_t tmp_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+        if (!qrcodegen_encodeText(text, tmp_buf, qr_cache_buf,
+                qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 10,
+                qrcodegen_Mask_AUTO, true)) {
+            qr_cache_size = 0;
+            qr_cache_text[0] = '\0';
+            return;
+        }
+        qr_cache_size = qrcodegen_getSize(qr_cache_buf);
+        strncpy(qr_cache_text, text, sizeof(qr_cache_text) - 1);
+        qr_cache_text[sizeof(qr_cache_text) - 1] = '\0';
     }
 
-    int size = qrcodegen_getSize(qr_buf);
-    int margin = 2; // quiet zone
+    const int size = qr_cache_size;
+    const int margin = 2; // quiet zone
 
     // Draw white background with margin
     int total = (size + margin * 2) * scale;
@@ -514,7 +529,7 @@ void graph_qr(ACGraph *g, const char *text, int x, int y, int scale) {
     graph_ink(g, (ACColor){0, 0, 0, 255});
     for (int qy = 0; qy < size; qy++) {
         for (int qx = 0; qx < size; qx++) {
-            if (qrcodegen_getModule(qr_buf, qx, qy)) {
+            if (qrcodegen_getModule(qr_cache_buf, qx, qy)) {
                 graph_box(g, x + (qx + margin) * scale, y + (qy + margin) * scale,
                           scale, scale, 1);
             }

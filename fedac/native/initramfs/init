@@ -18,21 +18,34 @@ mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null
 mkdir -p /sys/kernel/debug 2>/dev/null
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
 
-# zram swap
-modprobe zram 2>/dev/null || true
-if [ -e /sys/block/zram0/disksize ] && [ -b /dev/zram0 ]; then
-    echo 1G > /sys/block/zram0/disksize &&
-        mkswap /dev/zram0 >/dev/null 2>&1 &&
-        swapon /dev/zram0 2>/dev/null
-fi
+# zram swap — skipped by default. notepat fits in ~200 MB, every ThinkPad
+# we target has ≥4 GB RAM, and the zram modprobe + mkswap chain adds
+# ~100-200 ms to boot for no observable benefit. Set AC_ZRAM=1 on the
+# kernel cmdline if you ever need it back (e.g. low-memory tablet boot).
+case " $(cat /proc/cmdline 2>/dev/null) " in
+    *" AC_ZRAM=1 "*)
+        modprobe zram 2>/dev/null || true
+        if [ -e /sys/block/zram0/disksize ] && [ -b /dev/zram0 ]; then
+            echo 1G > /sys/block/zram0/disksize &&
+                mkswap /dev/zram0 >/dev/null 2>&1 &&
+                swapon /dev/zram0 2>/dev/null
+        fi
+        ;;
+esac
 
 # Loopback
 ip link set lo up 2>/dev/null
 
-# Restore baked Claude credentials (tmpfs mount hid the originals)
-if [ -f /claude-creds.json ]; then
+# Restore baked Claude credentials (tmpfs mount hid the originals).
+# Two bake paths produce creds at /:
+#   /claude-creds.json  legacy full JSON (linux ac-os, reads ~/.claude/.credentials.json)
+#   /claude-token       plain OAuth bearer (macOS flash-mac.sh, MongoDB year-long token)
+# Either presence triggers setup of /tmp/.claude/ so Claude Code boots without
+# onboarding/login prompts. pty.c separately reads /claude-token to set
+# CLAUDE_CODE_OAUTH_TOKEN in the child's env.
+if [ -f /claude-creds.json ] || [ -f /claude-token ]; then
     mkdir -p /tmp/.claude
-    cp /claude-creds.json /tmp/.claude/.credentials.json
+    [ -f /claude-creds.json ] && cp /claude-creds.json /tmp/.claude/.credentials.json
     cp /claude-state.json /tmp/.claude.json 2>/dev/null
     printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native"}\n' > /tmp/.claude/settings.json
 fi
@@ -50,12 +63,56 @@ mkdir -p /tmp/ac
 echo "root:x:0:" > /etc/group
 echo "root:x:0:root" > /etc/passwd
 
-# Wait for GPU (up to 3 seconds)
+# Kick off USB mount in the background — independent of GPU probe, so
+# we overlap the two waits instead of running them serially. The main
+# thread then waits for GPU (below) and finally waits for this mount
+# result before continuing. Shaves up to ~2s on cold boot.
+modprobe vfat 2>/dev/null
+modprobe nls_cp437 2>/dev/null
+modprobe nls_ascii 2>/dev/null
+USB_MOUNTED=0
+USB_PARTS="/dev/sda1 /dev/sda2 /dev/sda3 /dev/sdb1 /dev/sdb2 /dev/sdb3 /dev/sdc1 /dev/sdc2 /dev/sdc3 /dev/sdd1 /dev/sdd2 /dev/sdd3 /dev/nvme0n1p1 /dev/nvme0n1p2 /dev/nvme0n1p3"
+
+mount_usb_partition() {
+    pass="$1"
+    for p in $USB_PARTS; do
+        if [ -b "$p" ]; then
+            mkdir -p /mnt
+            mount -t vfat "$p" /mnt 2>/dev/null || continue
+            if [ "$pass" = "config" ] && [ -f /mnt/config.json ]; then
+                return 0
+            fi
+            if [ "$pass" = "boot" ] && { [ -f /mnt/EFI/BOOT/BOOTX64.EFI ] || [ -f /mnt/EFI/BOOT/KERNEL.EFI ]; }; then
+                return 0
+            fi
+            umount /mnt 2>/dev/null
+        fi
+    done
+    return 1
+}
+
+# Background USB mount: try up to 10 times with 1s delay, write result
+# to /run/usb-mounted so the foreground thread can check after GPU wait.
+(
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        mount_usb_partition config && { echo 1 > /run/usb-mounted; exit 0; }
+        mount_usb_partition boot   && { echo 1 > /run/usb-mounted; exit 0; }
+        sleep 1
+    done
+    echo 0 > /run/usb-mounted
+) &
+USB_MOUNT_PID=$!
+
+# Wait for GPU (up to 3 seconds) — runs in parallel with USB mount above.
 i=0
 while [ ! -e /dev/dri/card0 ] && [ ! -e /dev/dri/card1 ] && [ ! -e /dev/fb0 ] && [ $i -lt 300 ]; do
     usleep 10000 2>/dev/null || sleep 1
     i=$((i+1))
 done
+
+# Converge: wait for the background USB mount to settle, pick up its result.
+wait $USB_MOUNT_PID 2>/dev/null
+[ -f /run/usb-mounted ] && USB_MOUNTED=$(cat /run/usb-mounted 2>/dev/null) && [ -z "$USB_MOUNTED" ] && USB_MOUNTED=0
 
 # Performance governor (silently skip if cpufreq not available)
 if [ -d /sys/devices/system/cpu/cpu0/cpufreq ]; then
@@ -88,40 +145,8 @@ export TERM="${TERM:-xterm-256color}"
 export COLORTERM="truecolor"
 export EDITOR="/bin/vi"
 
-# ── Mount USB config/log partition (for config.json, wifi creds, logs) ──
-# Prefer the writable config partition over the boot partitions.
-modprobe vfat 2>/dev/null
-modprobe nls_cp437 2>/dev/null
-modprobe nls_ascii 2>/dev/null
-USB_MOUNTED=0
-USB_PARTS="/dev/sda1 /dev/sda2 /dev/sda3 /dev/sdb1 /dev/sdb2 /dev/sdb3 /dev/sdc1 /dev/sdc2 /dev/sdc3 /dev/sdd1 /dev/sdd2 /dev/sdd3 /dev/nvme0n1p1 /dev/nvme0n1p2 /dev/nvme0n1p3"
-
-mount_usb_partition() {
-    pass="$1"
-    for p in $USB_PARTS; do
-        if [ -b "$p" ]; then
-            mkdir -p /mnt
-            mount -t vfat "$p" /mnt 2>/dev/null || continue
-            if [ "$pass" = "config" ] && [ -f /mnt/config.json ]; then
-                USB_MOUNTED=1
-                return 0
-            fi
-            if [ "$pass" = "boot" ] && { [ -f /mnt/EFI/BOOT/BOOTX64.EFI ] || [ -f /mnt/EFI/BOOT/KERNEL.EFI ]; }; then
-                USB_MOUNTED=1
-                return 0
-            fi
-            umount /mnt 2>/dev/null
-        fi
-    done
-    return 1
-}
-
-for attempt in 1 2 3 4 5 6 7 8 9 10; do
-    mount_usb_partition config && break
-    mount_usb_partition boot && break
-    [ "$USB_MOUNTED" = "1" ] && break
-    sleep 1
-done
+# USB mount already settled above (kicked off in parallel with GPU wait).
+# USB_MOUNTED is populated from /run/usb-mounted at that wait() point.
 
 # Create samples directory on boot media + mount point for music USB
 if [ "$USB_MOUNTED" = "1" ]; then
@@ -141,14 +166,26 @@ fi
 # Run ac-native in a loop — if it crashes, restart; if clean exit, shutdown
 export LD_LIBRARY_PATH="/lib64:/usr/lib64:${LD_LIBRARY_PATH:-}"
 
-# Write diagnostics to console AND USB
+# Pre-launch diagnostics — useful for audio probe / GPU / PCI debugging,
+# but the full dump writes ~60 KB to FAT32 (slow USB), does dozens of
+# shell forks over sysfs, and on older ThinkPads adds 1–2 s of wall time
+# to boot. The whole block now runs in a backgrounded subshell so
+# ac-native launches immediately; the dump completes concurrently while
+# the splash fade is drawing. Downstream tools (os-install-report,
+# post-mortem analysis) still get the same pre-launch.log at the same
+# path — just a second later than before.
+#
+# Set AC_NOLAUNCH_DIAG=1 on the kernel cmdline to skip the dump entirely
+# (useful for locked-down production kiosks that don't want the sysfs
+# scraping cost at all).
 echo "[init] USB_MOUNTED=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 if [ "$USB_MOUNTED" = "1" ]; then
     LOG=/mnt/pre-launch.log
 else
-    # No USB config partition — try writing logs to /tmp
     LOG=/tmp/pre-launch.log
 fi
+
+_pre_launch_diag() {
 echo "=== PRE-LAUNCH ===" > $LOG
 ls /dev/dri/ >> $LOG 2>&1
 echo "binary: $(ls -la /ac-native 2>&1)" >> $LOG
@@ -357,6 +394,13 @@ head -30 /proc/cpuinfo >> $LOG 2>&1
 echo "=== CMDLINE ===" >> $LOG
 cat /proc/cmdline >> $LOG 2>&1
 sync
+}  # end _pre_launch_diag
+
+# Launch pre-launch diagnostics in the background unless cmdline disables.
+case " $(cat /proc/cmdline 2>/dev/null) " in
+    *" AC_NOLAUNCH_DIAG=1 "*) : ;;
+    *) _pre_launch_diag & ;;
+esac
 echo "[init] GPU: $(ls /dev/dri/ 2>/dev/null || echo NONE) USB=$USB_MOUNTED" > /dev/tty0 2>/dev/null
 
 # Start Swank server in background (if SBCL image exists)
