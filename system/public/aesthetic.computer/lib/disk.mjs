@@ -14620,11 +14620,16 @@ async function makeFrame({ data: { type, content } }) {
         );
         const descenderPad = Math.max(2, Math.round(hudBlockHeight * 0.2));
         const finalYClamped = Math.max(0, Math.round(finalY));
-        // Text starts after the share-area left-pad, at currentHUDOffset.x (+ slide).
+        // Flush with the left edge of the screen; extend right past the text with a
+        // small padding so the tap area isn't uncomfortably tight.
         const textStartX = currentHUDOffset.x + hudAnimationState.slideOffset.x;
-        currentHUDButton.box.x = Math.max(0, Math.round(textStartX));
+        const rightPad = Math.max(4, Math.round(hudBlockWidth));
+        currentHUDButton.box.x = 0;
         currentHUDButton.box.y = 0;
-        currentHUDButton.box.w = visualTextWidth;
+        currentHUDButton.box.w = Math.max(
+          1,
+          Math.round(Math.max(0, textStartX) + visualTextWidth + rightPad),
+        );
         currentHUDButton.box.h = Math.max(1, finalYClamped + textOnlyHeight + descenderPad);
 
         // Mark HUD button to bypass the global HUD active check (it checks itself)
