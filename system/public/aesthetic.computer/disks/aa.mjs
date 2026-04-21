@@ -179,9 +179,6 @@ function meta() {
 
 function pushMessage(from, text, { sound = false } = {}) {
   const msg = { from, text, id: nextId(), sub: from };
-  // Render log/system messages in the smaller MatrixChunky8 font so they
-  // feel like unobtrusive chrome, not loud chat turns.
-  if (from === "log") msg.font = "MatrixChunky8";
   client.system.messages.push(msg);
   if (client.system.messages.length > 500) client.system.messages.shift();
   client.system.receiver?.(
@@ -194,7 +191,7 @@ function pushMessage(from, text, { sound = false } = {}) {
 }
 
 function pushSystem(text) {
-  return pushMessage("log", text);
+  return pushMessage("aa", text);
 }
 
 function removeMessage(msg) {
@@ -246,7 +243,7 @@ function renderClaudeEvent(ev) {
   if (ev.type === "assistant" && ev.message?.content) {
     for (const b of ev.message.content) {
       if (b.type === "text" && b.text) {
-        pushMessage("@aa", b.text);
+        pushMessage("aa", b.text);
         produced++;
       }
     }
@@ -276,10 +273,17 @@ async function sendToBridge(text) {
   pending = true;
   abortCtrl = new AbortController();
 
-  // One unobtrusive placeholder while streaming. Removed on done/error so the
-  // chat stays at the "basic chat" level — no tool traces, no stderr spam.
-  const thinkingMsg = pushMessage("log", "thinking…");
+  // Streamed reply: the aa bubble is created lazily on the first text chunk,
+  // then mutated in place so the reply appears progressively.
+  let streamMsg = null;
   let pendingText = "";
+  const applyStream = () => {
+    if (!streamMsg) streamMsg = pushMessage("aa", pendingText);
+    else {
+      streamMsg.text = pendingText;
+      invalidate();
+    }
+  };
 
   try {
     const res = await fetch(`${ENDPOINT}/api/chat`, {
@@ -293,7 +297,6 @@ async function sendToBridge(text) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => `${res.status}`);
-      removeMessage(thinkingMsg);
       if (res.status === 401 || res.status === 403) {
         isAdmin = false;
         token = null;
@@ -321,31 +324,41 @@ async function sendToBridge(text) {
           const ev = evt.data;
           if (ev.type === "assistant" && ev.message?.content) {
             for (const b of ev.message.content) {
-              if (b.type === "text" && b.text) pendingText += b.text;
+              if (b.type === "text" && b.text) {
+                pendingText += b.text;
+                applyStream();
+              }
               // tool_use / thinking / other blocks deliberately suppressed
             }
           } else if (ev.type === "result" && ev.result) {
             pendingText = ev.result;
+            applyStream();
           }
           // tool_result (in user events) also suppressed
         } else if (evt.event === "error") {
-          pushMessage("log", `! ${evt.data.message || "error"}`);
+          pushMessage("aa", `! ${evt.data.message || "error"}`);
         } else if (evt.event === "done") {
-          removeMessage(thinkingMsg);
-          if (pendingText) {
-            pushMessage("@aa", pendingText, { sound: true });
-            pendingText = "";
+          if (streamMsg && pendingText) {
+            streamMsg.text = pendingText;
+            // Final refresh with sound cue — matches the old "message arrived" beep.
+            client.system.receiver?.(
+              streamMsg.id,
+              "message",
+              streamMsg,
+              { layoutChanged: true },
+            );
+          } else if (streamMsg && !pendingText) {
+            removeMessage(streamMsg);
           }
         }
         // stderr events ignored — bridge warnings are not user-facing
       }
     }
   } catch (err) {
-    removeMessage(thinkingMsg);
+    if (streamMsg && !pendingText) removeMessage(streamMsg);
     if (err.name === "AbortError") pushSystem("cancelled.");
     else pushSystem(`error: ${err.message}`);
   } finally {
-    removeMessage(thinkingMsg); // idempotent — no-op if already removed
     pending = false;
     abortCtrl = null;
   }
