@@ -8,12 +8,16 @@ Menu bar icon legend:
     ●   N work items in flight, lid open
     ◉   ambient playing (lid closed + active work + sleep disabled)
 """
+import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import rumps
 from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
+
+TAILSCALE_BIN = shutil.which("tailscale") or "/opt/homebrew/bin/tailscale"
 
 SLAB_HOME = Path(os.environ.get("SLAB_HOME", os.path.expanduser("~/.local/share/slab")))
 SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
@@ -64,12 +68,50 @@ def ambient_running() -> bool:
     return AMBIENT_FLAG.exists()
 
 
+def tailscale_peers():
+    """Return [{hostname, os, online, active}, ...] sorted online-first, or None if tailscale unavailable."""
+    try:
+        out = subprocess.check_output(
+            [TAILSCALE_BIN, "status", "--json"],
+            text=True, stderr=subprocess.DEVNULL, timeout=2,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError,
+            subprocess.TimeoutExpired, OSError):
+        return None
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError:
+        return None
+    peers = []
+    for peer in (data.get("Peer") or {}).values():
+        peers.append({
+            "hostname": peer.get("HostName", ""),
+            "os": peer.get("OS", ""),
+            "online": bool(peer.get("Online")),
+            "active": bool(peer.get("Active")),
+        })
+    peers.sort(key=lambda p: (not p["online"], p["hostname"]))
+    return peers
+
+
+def open_ssh(host: str):
+    """Open a Terminal.app window and run `ssh <host>`."""
+    subprocess.run([
+        "osascript",
+        "-e", f'tell application "Terminal" to do script "ssh {host}"',
+        "-e", 'tell application "Terminal" to activate',
+    ], check=False)
+
+
 class SlabApp(rumps.App):
     def __init__(self):
         super().__init__("slab", title="◦", quit_button=None)
         self.status_item = rumps.MenuItem("Status: —")
         self.prompts_item = rumps.MenuItem("Prompts in flight: 0")
         self.subs_item = rumps.MenuItem("Subagents in flight: 0")
+        self.tailnet_item = rumps.MenuItem("Tailnet: —")
+        # Seed a child so rumps creates the underlying NSMenu; refresh_tailnet() will replace it.
+        self.tailnet_item.add(rumps.MenuItem("…"))
         self.awake_item = rumps.MenuItem(
             "Stay awake (lid closed)", callback=self.toggle_awake
         )
@@ -79,6 +121,8 @@ class SlabApp(rumps.App):
             None,
             self.prompts_item,
             self.subs_item,
+            None,
+            self.tailnet_item,
             None,
             self.awake_item,
             rumps.MenuItem("Sleep now", callback=self.sleep_now),
@@ -120,6 +164,32 @@ class SlabApp(rumps.App):
         self.prompts_item.title = f"Prompts in flight: {prompts}"
         self.subs_item.title = f"Subagents in flight: {subs}"
         self.awake_item.state = 1 if sd else 0
+        self.refresh_tailnet()
+
+    def refresh_tailnet(self):
+        peers = tailscale_peers()
+        self.tailnet_item.clear()
+        if peers is None:
+            self.tailnet_item.title = "Tailnet: unavailable"
+            self.tailnet_item.add(rumps.MenuItem("(tailscale not responding)"))
+            return
+        online = sum(1 for p in peers if p["online"])
+        self.tailnet_item.title = f"Tailnet: {online}/{len(peers)} online"
+        if not peers:
+            self.tailnet_item.add(rumps.MenuItem("(no peers)"))
+            return
+        for p in peers:
+            if p["active"]:
+                dot = "●"
+            elif p["online"]:
+                dot = "○"
+            else:
+                dot = "·"
+            label = f"{dot}  {p['hostname']}  ({p['os']})"
+            host = p["hostname"]
+            self.tailnet_item.add(
+                rumps.MenuItem(label, callback=lambda _, h=host: open_ssh(h))
+            )
 
     def toggle_awake(self, sender):
         cmd = "auto" if sender.state else "awake"
