@@ -5934,9 +5934,16 @@ function paint($) {
         // starts at box.x + 2 + 2*spaces. Icon frame (13×9) ends at box.x + 14,
         // so 8 spaces (x+18) leaves a 3px gap after the frame.
         const notepatLabel = "        notepat";
-        const notepatWidth = notepatLabel.length * 4 + 4; // cw=4, padL+padR=4
+        // TextButtonSmall sizes the box as label.length * 4, but MatrixChunky8
+        // is proportional (spaces advance only 2px), so the button overshoots.
+        // Measure the actual rendered width and tighten the box below.
+        const notepatTextWidth = $.text.box(
+          notepatLabel, undefined, undefined, undefined, undefined, "MatrixChunky8",
+        ).box.width;
+        const notepatWidth = notepatTextWidth + 4; // padL + padR
         const notepatHeight = 7 + 2 * 2; // ch=7, padY*2
         const pairGap = 4;
+        const stackedGap = 6; // breathing room between stacked notepat and commit
         const enterBoxForStack = $.system.prompt.input?.enter?.btn?.box;
         const pasteBoxForStack = $.system.prompt.input?.paste?.btn?.box;
         // Commit is centered; pair extends rightward by pairGap + notepatWidth.
@@ -5946,13 +5953,18 @@ function paint($) {
         const leftLimit = pasteBoxForStack ? pasteBoxForStack.x + pasteBoxForStack.w + 4 : 4;
         const stackVertically = pairRightEdge > rightLimit || pairLeftEdge < leftLimit;
         const notepatPos = stackVertically
-          ? { center: "x", y: buttonY - notepatHeight - 2, screen }
+          ? { center: "x", y: buttonY - notepatHeight - stackedGap, screen }
           : { x: cBox.x + cBox.w + pairGap, y: buttonY };
         if (!notepatBtn) {
           notepatBtn = new $.ui.TextButtonSmall(notepatLabel, notepatPos);
         } else {
           notepatBtn.reposition(notepatPos, notepatLabel);
           notepatBtn.btn.disabled = false;
+        }
+        // Shrink the box to the real text width and re-center when stacked.
+        notepatBtn.btn.box.w = notepatWidth;
+        if (stackVertically) {
+          notepatBtn.btn.box.x = Math.floor((screen.width - notepatWidth) / 2);
         }
         const nBox = notepatBtn.btn.box;
         const nHover = notepatBtn.btn.over && !notepatBtn.btn.down;
