@@ -1428,7 +1428,14 @@ function playLaser(sound, letter, volume = 1.0, pan = 0, pitchFactor = 1.0, phas
 // (letter, gridOffset) so render code doesn't need to branch on
 // kitLeft/kitRight everywhere.
 function activeKitForOffset(offset) {
-  return offset === 0 ? kitLeft : kitRight;
+  // Side routing matches the grid split in hitTestGrid / the note-trigger
+  // block: offset <= 0 belongs to the LEFT grid (includes z/x which are
+  // offset=-1, the below-octave A#/B keys), offset >= 1 is the RIGHT grid
+  // (+c upward). Previously only offset===0 mapped to kitLeft, so z/x
+  // reached into whatever kit was loaded on the RIGHT side — meaning if
+  // you armed a drum kit on the upper octave, `z` suddenly played a drum
+  // instead of its tied A#3 tone on the left instrument.
+  return offset <= 0 ? kitLeft : kitRight;
 }
 function kitNamesFor(kit) {
   if (isWarKit(kit)) return WAR_NAMES;
@@ -2554,7 +2561,14 @@ function act({ event: e, sound, wifi, system }) {
         sound.sample.loadData(globalSample.data, globalSample.rate);
         sampleLoaded = true;
       }
-      sound.synth({ type: "noise", tone: 200 * pf, duration: 0.1, volume: 0.15, attack: 0.001, decay: 0.08 });
+      // Clean descending triangle blip for the clear confirmation. The
+      // previous "noise" voice here referenced `pf` (pitch factor, only
+      // defined inside playZoo/playPercussion scopes) so it threw a
+      // ReferenceError every time Delete was pressed in sample mode, and
+      // even when the error didn't trip it was just a hissy sample-rate
+      // smear that didn't fit the sample-mode palette.
+      sound.synth({ type: "triangle", tone: 440, duration: 0.06, volume: 0.18, attack: 0.002, decay: 0.05 });
+      sound.synth({ type: "triangle", tone: 220, duration: 0.09, volume: 0.14, attack: 0.02,  decay: 0.07 });
       return;
     }
     // Arrow left/right handled above (octave per side)
