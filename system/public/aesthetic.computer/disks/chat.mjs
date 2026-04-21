@@ -1636,30 +1636,32 @@ function paint(
 
   unmask();
 
-  // 📜 Scroll bar.
+  // 📜 Scroll bar — only render when content actually exceeds the viewport.
+  // With few/short messages, totalScrollHeight <= chatHeight makes the
+  // thumb math degenerate (segHeight overshoots, boxY lands off-screen).
+  if (totalScrollHeight > chatHeight) {
+    ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
 
-  ink("gray").box(0, topMargin + 1, 3, chatHeight - 1); // Backdrop.
+    const segHeight = max(
+      1,
+      floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
+    );
 
-  const segHeight = max(
-    1,
-    floor((chatHeight / totalScrollHeight) * chatHeight) - 1,
-  );
+    const boxY =
+      ceil(
+        chatHeight +
+          topMargin -
+          segHeight -
+          (scroll / totalScrollHeight) * chatHeight,
+      ) || 0;
 
-  const boxY =
-    ceil(
-      chatHeight +
-        topMargin -
-        segHeight -
-        (scroll / totalScrollHeight) * chatHeight,
-    ) || 0;
-
-  // Use theme scrollbar color
-  if (Array.isArray(theme.scrollbar)) {
-    ink(...theme.scrollbar).box(0, boxY, 3, segHeight);
-  } else {
-    ink(theme.scrollbar).box(0, boxY, 3, segHeight);
+    // Use theme scrollbar color
+    if (Array.isArray(theme.scrollbar)) {
+      ink(...theme.scrollbar).box(0, boxY, 3, segHeight);
+    } else {
+      ink(theme.scrollbar).box(0, boxY, 3, segHeight);
+    }
   }
-  // }
 
   const currentHandle = handle();
   
