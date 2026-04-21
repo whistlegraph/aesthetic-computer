@@ -10,6 +10,7 @@
 // POST /api/reset      — clear stored session for this user (bearer required)
 // GET  /health         — liveness probe
 // GET  /api/session    — return current stored session id for this user
+// GET  /api/history    — return prior user/assistant events for this user's session
 
 import http from "http";
 import { spawn } from "child_process";
@@ -124,6 +125,28 @@ function readJsonBody(req) {
     });
     req.on("error", reject);
   });
+}
+
+// ───────── session transcript reader ─────────
+// Claude stores per-project session transcripts as JSONL here:
+//   ~/.claude/projects/<slash-replaced-cwd>/<sessionId>.jsonl
+// We filter to user + assistant events (skipping queue-operation, attachment,
+// last-prompt etc.) and return the raw rows — aa.mjs does the rendering.
+async function readSessionTranscript(sessionId) {
+  if (!/^[a-f0-9-]{36}$/i.test(sessionId)) throw new Error("invalid session id");
+  const projectDir = WORK_DIR.replace(/\//g, "-");
+  const path = join(homedir(), ".claude", "projects", projectDir, `${sessionId}.jsonl`);
+  if (!existsSync(path)) return [];
+  const content = await readFile(path, "utf8");
+  const events = [];
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const o = JSON.parse(line);
+      if (o.type === "user" || o.type === "assistant") events.push(o);
+    } catch {}
+  }
+  return events;
 }
 
 // ───────── claude spawn ─────────
@@ -279,6 +302,30 @@ const server = http.createServer(async (req, res) => {
     const sid = await getSessionId(sub);
     res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders(origin) });
     res.end(JSON.stringify({ sessionId: sid }));
+    return;
+  }
+
+  if (req.url === "/api/history" && req.method === "GET") {
+    const sub = await validateBearer(req.headers.authorization);
+    if (!sub || (!DEV_BYPASS && sub !== ADMIN_SUB)) {
+      res.writeHead(sub ? 403 : 401, corsHeaders(origin));
+      res.end();
+      return;
+    }
+    const sid = await getSessionId(sub);
+    if (!sid) {
+      res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders(origin) });
+      res.end(JSON.stringify({ sessionId: null, events: [] }));
+      return;
+    }
+    try {
+      const events = await readSessionTranscript(sid);
+      res.writeHead(200, { "Content-Type": "application/json", ...corsHeaders(origin) });
+      res.end(JSON.stringify({ sessionId: sid, events }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json", ...corsHeaders(origin) });
+      res.end(JSON.stringify({ error: err.message }));
+    }
     return;
   }
 

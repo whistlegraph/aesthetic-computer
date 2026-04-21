@@ -16,9 +16,26 @@ let isAdmin = false;
 let pending = false;
 let abortCtrl = null;
 let userHandleRef = null;
+let hudRef = null;
 
 let msgCounter = 0;
 const nextId = () => `aa-${Date.now()}-${msgCounter++}`;
+
+// HUD state — visible indicator of admin / bridge status.
+// Server still enforces auth on every call; this is a UX cue only.
+function setStatus(state) {
+  if (!hudRef) return;
+  const map = {
+    loading: ["aa", undefined],     // default color
+    ok: ["aa", "lime"],             // admin, fresh session
+    resumed: ["aa", "lime"],        // admin, resumed session
+    forbidden: ["aa ✗", "red"],    // 403 not admin
+    unauth: ["aa ?", "yellow"],    // 401 / no token
+    down: ["aa !", "yellow"],      // bridge unreachable or odd status
+  };
+  const [label, color] = map[state] || map.loading;
+  hudRef.label(label, color);
+}
 
 // Cool slate theme — distinct from chat's defaults so AA reads as a separate space.
 const THEME = {
@@ -53,15 +70,18 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
   // chat.mjs gates paint on `connecting`, so flip it false up front.
   client.system.connecting = false;
 
-  hud.label("aa");
+  hudRef = hud;
+  setStatus("loading");
   userHandleRef = handle;
 
   if (!user?.sub) {
+    setStatus("unauth");
     pushSystem("log in first to talk to aa.");
   } else {
     try {
       token = await authorize();
       if (!token) {
+        setStatus("unauth");
         pushSystem("no auth0 token — refresh and retry.");
       } else {
         const probe = await fetch(`${ENDPOINT}/api/session`, {
@@ -70,25 +90,38 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
         if (probe.status === 200) {
           isAdmin = true;
           const data = await probe.json();
-          pushSystem(
-            data.sessionId
-              ? `resuming session ${data.sessionId.slice(0, 8)}…`
-              : "fresh session.",
-          );
+          if (data.sessionId) {
+            setStatus("resumed");
+            pushSystem(`resuming ${data.sessionId.slice(0, 8)}…`);
+            loadHistory();
+          } else {
+            setStatus("ok");
+            pushSystem("fresh session.");
+          }
         } else if (probe.status === 403) {
+          setStatus("forbidden");
+          isAdmin = false;
+          token = null;
           pushSystem("not admin — this piece is @jeffrey-only.");
+        } else if (probe.status === 401) {
+          setStatus("unauth");
+          isAdmin = false;
+          token = null;
+          pushSystem("unauthorized — session expired, refresh.");
         } else {
+          setStatus("down");
           pushSystem(`bridge said ${probe.status}.`);
         }
       }
     } catch (err) {
+      setStatus("down");
       pushSystem(`bridge unreachable: ${err.message}`);
     }
   }
 
   await chat.boot(api, client.system, {
     submitHandler: async (text) => {
-      if (!isAdmin) { pushSystem("not authorized."); return; }
+      if (!isAdmin || !token) { pushSystem("not authorized."); return; }
       if (text === "/reset") return reset();
       if (text === "/clear") {
         client.system.messages.length = 0;
@@ -162,6 +195,60 @@ async function reset() {
   } catch (err) {
     pushSystem(`reset failed: ${err.message}`);
   }
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(`${ENDPOINT}/api/history`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const events = Array.isArray(data?.events) ? data.events : [];
+    let count = 0;
+    for (const ev of events) count += renderClaudeEvent(ev, { fromHistory: true });
+    if (count) pushSystem(`loaded ${count} prior ${count === 1 ? "message" : "messages"}.`);
+  } catch (err) {
+    pushSystem(`history fetch failed: ${err.message}`);
+  }
+}
+
+// Render one claude transcript event (from live stream or saved history)
+// as zero or more chat messages. Returns the number of messages produced.
+function renderClaudeEvent(ev, { fromHistory = false } = {}) {
+  if (!ev || typeof ev !== "object") return 0;
+  let produced = 0;
+  if (ev.type === "assistant" && ev.message?.content) {
+    for (const b of ev.message.content) {
+      if (b.type === "text" && b.text) {
+        pushMessage("@aa", b.text, { sound: !fromHistory });
+        produced++;
+      } else if (b.type === "tool_use") {
+        pushMessage("log", `→ ${b.name} ${summarizeInput(b.input)}`);
+        produced++;
+      }
+    }
+  } else if (ev.type === "user" && ev.message?.content) {
+    const c = ev.message.content;
+    // History format: user content is usually a plain string (the prompt).
+    if (typeof c === "string") {
+      const me = userHandleRef?.() || "@jeffrey";
+      pushMessage(me, c);
+      produced++;
+    } else if (Array.isArray(c)) {
+      for (const b of c) {
+        if (b.type === "tool_result") {
+          const t = stringifyResult(b.content);
+          if (t) { pushMessage("log", truncate(t, 600)); produced++; }
+        } else if (b.type === "text" && b.text) {
+          const me = userHandleRef?.() || "@jeffrey";
+          pushMessage(me, b.text);
+          produced++;
+        }
+      }
+    }
+  }
+  return produced;
 }
 
 async function sendToBridge(text) {
