@@ -147,10 +147,14 @@ let wobbleDragging = false;
 // real time advances). Grows when spacebar is held (wave drifts RIGHT,
 // backwards-replay scrub). Shrinks back to 0 on release.
 let waveViewOffsetSec = 0;
-// Max retreat — also caps how much of the right half can fill in with
-// post-cursor audio. Matches recordStripSeconds / 2 so the right half
-// fully paints when the cursor has retreated half the visible window.
-const WAVE_VIEW_MAX_OFFSET_SEC = 2.0;
+// Max retreat — aligned with the reverse-playback capture buffer
+// (REVERSE_MAX_AGE_MS = 12 s) so the visual cursor keeps scrolling
+// backward through the entire captured window while spacebar is held.
+// Previously capped at 2 s, which made the wave visibly freeze after
+// ~2 s of hold even though there was plenty more history available;
+// now the cursor stays in sync with how far back the reverse voice can
+// actually reach.
+const WAVE_VIEW_MAX_OFFSET_SEC = 12.0;
 // Smoothed "drift speed" of the displayed time-range.
 //   = +1.0 → display advances at 1× real-time → wave drifts LEFT (live)
 //   =  0.0 → display frozen → wave doesn't drift
@@ -2952,12 +2956,28 @@ function act({ event: e, sound, wifi, system }) {
       for (const rowId of ["fx", "echo", "pitch", "crush", "volume", "drive", "wobble"]) {
         const row = fxRows[rowId];
         if (!row) continue;
-        if (pointInRect(x, y, row.xBox)) {
+        if (row.xBox && pointInRect(x, y, row.xBox)) {
           toggleTrackpadBinding(rowId, "x");
           return;
         }
-        if (pointInRect(x, y, row.yBox)) {
+        if (row.yBox && pointInRect(x, y, row.yBox)) {
           toggleTrackpadBinding(rowId, "y");
+          return;
+        }
+        if (row.resetBox && pointInRect(x, y, row.resetBox)) {
+          // Reset this effect to its zero/default value. Most effects
+          // zero-out to 0; the fx dry/wet bar zeroes to 1.0 (full wet,
+          // the "unity" passthrough state); volume zeroes to 0.5 (its
+          // unity tick); pitch zeroes to 0 (no shift).
+          if      (rowId === "fx")     { fxMix = 1.0; sound?.fx?.setMix?.(fxMix); }
+          else if (rowId === "echo")   setEchoMixValue(0, sound, true);
+          else if (rowId === "pitch")  setPitchShiftValue(0, true);
+          else if (rowId === "crush")  setBitcrushMixValue(0, sound, true);
+          else if (rowId === "volume") setMasterVolMixValue(0.5, sound, true);
+          else if (rowId === "drive")  setDriveMixValue(0, sound, true);
+          else if (rowId === "wobble") setWobbleMixValue(0, sound, true);
+          // Tick feedback blip so the reset gesture feels confirmed.
+          sound?.synth?.({ type: "sine", tone: 880, duration: 0.03, volume: 0.12, attack: 0.002, decay: 0.025 });
           return;
         }
         if (pointInRect(x, y, { x: row.sliderX, y: row.y, w: row.sliderW, h: row.h })) {
@@ -5041,12 +5061,13 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     envelopeNotice = null;
   }
 
-  // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing ===
+  // === SLIDERS: fx mix, echo, pitch, bitcrush + per-effect X/Y routing + reset ===
   const settingsY = topBarH;
   const sliderH = 12;
   const axisBoxSize = 10;
   const axisGap = 2;
-  const axisAreaW = axisBoxSize * 2 + axisGap;
+  // Three boxes to the right of each slider now: X toggle, Y toggle, 0 reset.
+  const axisAreaW = axisBoxSize * 3 + axisGap * 2;
   const fxRows = {};
   const drawAxisToggle = (rect, label, active, accent) => {
     ink(dark ? 20 : 236, dark ? 20 : 236, dark ? 25 : 242);
@@ -5061,22 +5082,37 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     else ink(dark ? 120 : 105, dark ? 120 : 105, dark ? 135 : 120);
     write(label, { x: rect.x + 2, y: rect.y + 1, size: 1, font: "font_1" });
   };
+  // Reset button: a small grey-outlined "0" square. Click → reset that
+  // effect's mix to its "zeroed" value (0 for most; 0.5 for volume's
+  // unity tick; 0 for pitch's center). Visual is intentionally muted so
+  // the eye doesn't confuse it with the X/Y trackpad toggles.
+  const drawResetButton = (rect) => {
+    ink(dark ? 24 : 232, dark ? 24 : 232, dark ? 30 : 238);
+    box(rect.x, rect.y, rect.w, rect.h, true);
+    ink(dark ? 80 : 150, dark ? 80 : 150, dark ? 95 : 165, 180);
+    box(rect.x, rect.y, rect.w, rect.h, "outline");
+    ink(dark ? 140 : 110, dark ? 140 : 110, dark ? 155 : 125);
+    write("0", { x: rect.x + 3, y: rect.y + 1, size: 1, font: "font_1" });
+  };
 
-  // FX mix slider (dry/wet for the entire chain)
+  // FX mix slider (dry/wet for the entire chain) — now gets a reset
+  // button like the other rows (zero returns to FULLY WET, not 0, since
+  // fx=1 is the natural "unity" state where all effects pass through).
   {
     const sliderY = settingsY;
+    const sliderW = w - axisAreaW;
     const fxHovered = hoverY >= sliderY && hoverY < sliderY + sliderH;
     ink(dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
         dark ? (fxHovered ? 40 : 25) : (fxHovered ? 220 : 235),
         dark ? (fxHovered ? 45 : 28) : (fxHovered ? 225 : 238));
     box(0, sliderY, w, sliderH, true);
-    const fillW = Math.floor(fxMix * w);
+    const fillW = Math.floor(fxMix * sliderW);
     if (fillW > 0) {
       ink(120, 200, 80, 180);
       box(0, sliderY, fillW, sliderH, true);
     }
     if (fxMix > 0.005) {
-      const knobX = Math.max(1, Math.min(w - 3, Math.floor(fxMix * w)));
+      const knobX = Math.max(1, Math.min(sliderW - 3, Math.floor(fxMix * sliderW)));
       ink(180, 255, 120, 220);
       box(knobX - 1, sliderY, 3, sliderH, true);
     }
@@ -5084,9 +5120,15 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write("fx " + Math.round(fxMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     if (trackpadFX) {
       ink(120, 220, 120);
-      write("\\", { x: w - 8, y: sliderY + 2, size: 1, font: "font_1" });
+      write("\\", { x: sliderW - 8, y: sliderY + 2, size: 1, font: "font_1" });
     }
-    fxRows.fx = { y: sliderY, h: sliderH, sliderX: 0, sliderW: w };
+    // The fx dry/wet bar doesn't have trackpad X/Y routing (it's the
+    // global wet mix, not an effect parameter), but a reset "0" button
+    // at the row tail restores it to the default 100% wet state.
+    const resetBox = { x: sliderW + axisBoxSize * 2 + axisGap * 2,
+                       y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
+    fxRows.fx = { y: sliderY, h: sliderH, sliderX: 0, sliderW, resetBox };
   }
 
   // Echo slider + X/Y assignment boxes
@@ -5112,9 +5154,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write("echo " + Math.round(echoMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.echo.x, [80, 120, 220]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.echo.y, [80, 120, 220]);
-    fxRows.echo = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.echo = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   // Pitch slider + X/Y assignment boxes
@@ -5146,9 +5190,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.pitch.x, [200, 100, 160]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.pitch.y, [200, 100, 160]);
-    fxRows.pitch = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.pitch = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   // Bitcrush slider + X/Y assignment boxes
@@ -5174,9 +5220,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
     write("crush " + Math.round(bitcrushMix * 100) + "%", { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.crush.x, [240, 150, 70]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.crush.y, [240, 150, 70]);
-    fxRows.crush = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.crush = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   // Master volume slider — user gain 0..200% (50% on slider = unity).
@@ -5209,9 +5257,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.volume.x, [100, 220, 150]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.volume.y, [100, 220, 150]);
-    fxRows.volume = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.volume = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   // Drive slider — tanh soft-sat dry/wet (0 = clean, 100% = fully driven).
@@ -5239,9 +5289,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.drive.x, [220, 90, 70]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.drive.y, [220, 90, 70]);
-    fxRows.drive = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.drive = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   // Wobble slider — LFO-modulated short delay dry/wet (0 = clean, 100% = full flange).
@@ -5269,9 +5321,11 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
       { x: 2, y: sliderY + 2, size: 1, font: "font_1" });
     const xBox = { x: sliderW, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
     const yBox = { x: sliderW + axisBoxSize + axisGap, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    const resetBox = { x: sliderW + (axisBoxSize + axisGap) * 2, y: sliderY + 1, w: axisBoxSize, h: axisBoxSize };
+    drawResetButton(resetBox);
     drawAxisToggle(xBox, "x", !!trackpadEffectBindings.wobble.x, [150, 100, 220]);
     drawAxisToggle(yBox, "y", !!trackpadEffectBindings.wobble.y, [150, 100, 220]);
-    fxRows.wobble = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox };
+    fxRows.wobble = { y: sliderY, h: sliderH, sliderX: 0, sliderW, xBox, yBox, resetBox };
   }
 
   globalThis.__fxRows = fxRows;

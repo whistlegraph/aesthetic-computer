@@ -15214,8 +15214,9 @@ async function makeFrame({ data: { type, content } }) {
           ),
         };
 
-        // DEBUG: Add hitbox visualization overlay — toggle via `toggleHudHitboxDebug()`.
-        if (globalThis.debugHudHitbox && currentHUDButton) {
+        // DEBUG: Add hitbox visualization overlay
+        // TEMP: default-on fill visualization to inspect tap area height. Toggle off via `toggleHudHitboxDebug()`.
+        if (globalThis.debugHudHitbox !== false && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
           const hitboxHeight = currentHUDButton.box.h;
 
