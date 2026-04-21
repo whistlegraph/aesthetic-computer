@@ -563,6 +563,12 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
         setenv("LOGNAME", "root", 1);
         setenv("GIT_TERMINAL_PROMPT", "0", 1);
         setenv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1", 1);
+        // Pin Claude's default model to "sonnet" — Anthropic's CLI resolves
+        // that alias to the latest Sonnet family member, currently 4.7.
+        // Setting ANTHROPIC_MODEL belt-and-suspenders alongside the same
+        // key in /tmp/.claude/settings.json so either resolution path
+        // lands on 4.7 instead of whatever the CLI's built-in default is.
+        setenv("ANTHROPIC_MODEL", "sonnet", 0);
         // SSL certs for API connections
         setenv("SSL_CERT_FILE", "/etc/pki/tls/certs/ca-bundle.crt", 0);
         setenv("SSL_CERT_DIR", "/etc/ssl/certs", 0);

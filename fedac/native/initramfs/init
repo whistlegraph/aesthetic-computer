@@ -69,7 +69,11 @@ if [ -f /claude-creds.json ] || [ -f /claude-token ]; then
     mkdir -p /tmp/.claude
     [ -f /claude-creds.json ] && cp /claude-creds.json /tmp/.claude/.credentials.json
     cp /claude-state.json /tmp/.claude.json 2>/dev/null
-    printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native"}\n' > /tmp/.claude/settings.json
+    # Pin Claude's default model to the "sonnet" alias — Anthropic's
+    # CLI resolves "sonnet" to the latest Sonnet family member, which
+    # is currently Sonnet 4.7. Users who want a specific pinned version
+    # can override by writing a different model string into this file.
+    printf '{"permissions":{"allow":["Bash(*)","Read(*)","Write(*)","Edit(*)","Glob(*)","Grep(*)","WebFetch(*)","WebSearch(*)"]},"autoUpdates":false,"installMethod":"native","model":"sonnet"}\n' > /tmp/.claude/settings.json
 fi
 if [ -f /tangled-key ] || [ -f /tangled-ssh-config ] || [ -f /tangled-known-hosts ]; then
     mkdir -p /tmp/.ssh

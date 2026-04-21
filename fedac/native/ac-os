@@ -130,12 +130,27 @@ build_initramfs() {
     # Copy fresh binary into initramfs
     sudo cp "${BUILD_DIR}/ac-native" "${INITRAMFS_ROOT}/ac-native"
 
-    # Claude Code native binary (no Node.js needed)
+    # Claude Code native binary (no Node.js needed).
+    # Look in the builder's home first; if nothing's installed (oven build
+    # machines don't ship claude pre-installed) fall back to downloading
+    # the latest native binary via claude.ai/install.sh so every OS build
+    # ships a working /bin/claude instead of the "claude: command not
+    # found" that was leaving devices broken post-flash.
     local CLAUDE_NATIVE="${HOME}/.local/share/claude/versions"
     local CLAUDE_BIN=""
     if [ -d "${CLAUDE_NATIVE}" ]; then
-        # Find the latest version binary
         CLAUDE_BIN=$(ls -t "${CLAUDE_NATIVE}/"* 2>/dev/null | head -1)
+    fi
+    if [ -z "${CLAUDE_BIN}" ] || [ ! -f "${CLAUDE_BIN}" ]; then
+        log "Claude native binary not found locally; fetching via claude.ai/install.sh..."
+        # install.sh is safe to run on CI — writes to $HOME/.local only.
+        if curl -fsSL https://claude.ai/install.sh | bash 2>&1 | sed 's/^/  [claude-install] /' | tail -20; then
+            if [ -d "${CLAUDE_NATIVE}" ]; then
+                CLAUDE_BIN=$(ls -t "${CLAUDE_NATIVE}/"* 2>/dev/null | head -1)
+            fi
+        else
+            log "  claude-install failed (non-fatal — will ship image without /bin/claude)"
+        fi
     fi
     if [ -n "${CLAUDE_BIN}" ] && [ -f "${CLAUDE_BIN}" ]; then
         log "Bundling Claude Code (native binary)..."
