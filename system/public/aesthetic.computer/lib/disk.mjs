@@ -15194,22 +15194,18 @@ async function makeFrame({ data: { type, content } }) {
         };
 
         // DEBUG: Add hitbox visualization overlay
-        if (globalThis.debugHudHitbox && currentHUDButton) {
+        // TEMP: default-on fill visualization to inspect tap area height. Toggle off via `toggleHudHitboxDebug()`.
+        if (globalThis.debugHudHitbox !== false && currentHUDButton) {
           const hitboxWidth = currentHUDButton.box.w;
           const hitboxHeight = currentHUDButton.box.h;
-          const blinkFrame = Number($api.paintCount || 0n);
-          const blinkOn = (blinkFrame % 30) < 15;
-          const outerAlpha = blinkOn ? 200 : 80;
-          const innerAlpha = blinkOn ? 120 : 40;
 
           const hitboxOverlay = $api.painting(hitboxWidth, hitboxHeight, ($) => {
             $.unpan();
             $.unmask(); // Ensure hitbox overlay renders without piece mask
-            // Draw a blinking green border to show the hitbox
-            $.ink(0, 255, 0, outerAlpha).box(0, 0, hitboxWidth, hitboxHeight, "outline");
-            if (hitboxWidth > 2 && hitboxHeight > 2) {
-              $.ink(0, 255, 0, innerAlpha).box(1, 1, hitboxWidth - 2, hitboxHeight - 2, "outline");
-            }
+            // Solid translucent magenta fill so the tap area is clearly visible
+            $.ink(255, 0, 180, 90).box(0, 0, hitboxWidth, hitboxHeight);
+            // Bright outline on top for precise edge inspection
+            $.ink(0, 255, 0, 220).box(0, 0, hitboxWidth, hitboxHeight, "outline");
           });
 
           sendData.hitboxDebug = {

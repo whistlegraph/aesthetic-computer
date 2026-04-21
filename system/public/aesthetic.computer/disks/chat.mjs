@@ -263,6 +263,9 @@ const RADIO_STATIONS = {
     label: "r8Dio",
     streamUrl: "https://s3.radio.co/s7cd1ffe2f/listen",
     streamId: "chat-r8dio-stream",
+    // radio.co sends Access-Control-Allow-Origin, so we can use crossOrigin
+    // and get a real frequency analyser for the visualizer bars.
+    cors: true,
     metadataUrl: "https://public.radio.co/stations/s7cd1ffe2f/status",
     parseTrack: (data) => data?.current_track?.title || "",
     labelBg: [35, 25, 18],
@@ -295,6 +298,10 @@ const RADIO_STATIONS = {
     label: "KPBJ",
     streamUrl: "https://stream.kpbj.fm/",
     streamId: "chat-kpbj-stream",
+    // KPBJ runs vanilla Icecast 2.4.4 without CORS headers — skip crossOrigin
+    // so we connect in one round-trip. Visualizer uses the synthetic waveform
+    // fallback since we can't hook up createMediaElementSource.
+    cors: false,
     metadataUrl: "https://www.kpbj.fm/api/stream/metadata",
     parseTrack: (data) => {
       const source = data?.icestats?.source;
@@ -335,6 +342,7 @@ let r8dioEnabled = false; // Whether radio mini-player is shown
 let r8dioPlaying = false;
 let r8dioLoading = false;
 let r8dioError = null;
+let r8dioState = "idle"; // idle | connecting | loading | buffering | ready | playing | stalled | error
 let r8dioVolume = 0.5;
 let r8dioTrack = ""; // Current track/program title
 let r8dioLastMetadataFetch = 0;
@@ -559,6 +567,15 @@ async function boot(
       send({ type: "keyboard:text:replace", content: { text: "" } });
       console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
       send({ type: "keyboard:close" });
+
+      // 📻 Radio command words — type `bj`, `r8dio`, `radio`, or `radio off`
+      // to start/stop the mini-player without reaching for the button.
+      const radioCmd = parseRadioCommand(text);
+      if (radioCmd) {
+        applyRadioCommand(radioCmd, send);
+        notice(radioCmd.toast || "", ["orange", 0]);
+        return;
+      }
 
       // Pieces inheriting chat.mjs (e.g. aa.mjs) may pass a custom submit
       // handler so they can route the typed text somewhere other than the
@@ -3762,21 +3779,47 @@ function receive({ type, content }) {
     r8dioPlaying = true;
     r8dioLoading = false;
     r8dioError = null;
+    r8dioState = "playing";
   }
 
   if (type === "stream:paused") {
     r8dioPlaying = false;
+    r8dioState = "idle";
   }
 
   if (type === "stream:stopped") {
     r8dioPlaying = false;
     r8dioLoading = false;
+    r8dioState = "idle";
   }
 
   if (type === "stream:error") {
     r8dioPlaying = false;
     r8dioLoading = false;
     r8dioError = content.error;
+    r8dioState = "error";
+  }
+
+  // Rich lifecycle telemetry: connecting → loading → buffering → playing
+  if (type === "stream:state") {
+    r8dioState = content.state;
+    if (content.state === "playing") {
+      r8dioPlaying = true;
+      r8dioLoading = false;
+      r8dioError = null;
+    } else if (content.state === "error") {
+      r8dioError = content.message || "stream error";
+      r8dioLoading = false;
+    } else if (
+      content.state === "connecting" ||
+      content.state === "loading" ||
+      content.state === "buffering" ||
+      content.state === "stalled"
+    ) {
+      // Keep the loading spinner going for any pre-play state.
+      r8dioLoading = true;
+      r8dioError = null;
+    }
   }
 
   if (type === "stream:frequencies-data") {
@@ -3831,14 +3874,57 @@ function toggleR8dioPlayback(send) {
   } else {
     r8dioLoading = true;
     r8dioError = null;
+    r8dioState = "connecting";
     send({
       type: "stream:play",
       content: {
         id: cfg.streamId,
         url: cfg.streamUrl,
         volume: r8dioVolume,
+        cors: cfg.cors !== false, // default true; false for Icecast/no-CORS
       },
     });
+  }
+}
+
+// 📻 Parse a chat input string into a radio command, or null if it's not one.
+//   `bj`              → switch to KPBJ and play
+//   `r8dio`           → switch to r8dio and play
+//   `radio`           → toggle the active station
+//   `radio off` / `hush` / `mute radio` → pause
+function parseRadioCommand(text) {
+  const t = (text || "").trim().toLowerCase();
+  if (!t) return null;
+  if (t === "radio off" || t === "hush" || t === "mute radio" || t === "radio stop") {
+    return { action: "stop", toast: "RADIO OFF" };
+  }
+  if (t === "radio") return { action: "toggle", toast: "RADIO" };
+  if (RADIO_STATIONS[t]) {
+    return { action: "play", station: t, toast: RADIO_STATIONS[t].label.toUpperCase() };
+  }
+  return null;
+}
+
+// 📻 Apply a parsed radio command.
+function applyRadioCommand(cmd, send) {
+  if (cmd.action === "stop") {
+    if (r8dioPlaying || r8dioLoading) {
+      send({ type: "stream:pause", content: { id: radioConfig().streamId } });
+    }
+    return;
+  }
+  if (cmd.action === "toggle") {
+    toggleR8dioPlayback(send);
+    return;
+  }
+  if (cmd.action === "play" && cmd.station) {
+    // Switching stations? Pause the current one first so there's no overlap.
+    if (r8dioPlaying && activeRadioStation !== cmd.station) {
+      send({ type: "stream:pause", content: { id: radioConfig().streamId } });
+      r8dioPlaying = false;
+    }
+    activeRadioStation = cmd.station;
+    if (!r8dioPlaying) toggleR8dioPlayback(send);
   }
 }
 
@@ -4957,7 +5043,22 @@ function paintR8dioPlayer($, theme) {
   if (r8dioError) {
     ink(255, 100, 100).write("err", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   } else if (r8dioLoading) {
-    ink(...cfg.statusColor).write("...", { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
+    // Rich lifecycle labels so the user can see the stream actually making
+    // progress (connecting → buffering → ready), not just a static "...".
+    const dots = ellipsisTicker?.text?.(help?.repeat || 0) || "";
+    let label;
+    switch (r8dioState) {
+      case "connecting": label = "connect" + dots; break;
+      case "loading":    label = "load" + dots; break;
+      case "buffering":  label = "buffer" + dots; break;
+      case "stalled":    label = "stall" + dots; break;
+      case "ready":      label = "ready" + dots; break;
+      default:           label = "..." + dots; break;
+    }
+    // Truncate to fit
+    const maxLen = Math.max(1, Math.floor((statusEndX - statusX) / tickerCharWidth));
+    if (label.length > maxLen) label = label.substring(0, maxLen);
+    ink(...cfg.statusColor).write(label, { x: statusX, y: tickerY }, undefined, undefined, false, "MatrixChunky8");
   } else if (r8dioPlaying) {
     const maxLen = Math.floor((statusEndX - statusX) / tickerCharWidth);
     const text = r8dioTrack

@@ -16539,7 +16539,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // 🎵 Streaming Audio (Radio, etc.)
     // Start playing a streaming audio URL
     if (type === "stream:play") {
-      const { id, url, volume } = content;
+      const { id, url, volume, cors } = content;
 
       // Stop any existing stream with this id
       if (streamAudio[id]) {
@@ -16554,16 +16554,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // buffered data. Matches the approach used by kpbj.fm's own navbar player.
       const bustedUrl = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-      // Try with CORS first so we can hook up the analyser (for r8dio/radio.co
-      // which sends Access-Control-Allow-Origin). If the server doesn't support
-      // CORS (e.g. vanilla Icecast like stream.kpbj.fm), the browser blocks the
-      // load — retry once without crossOrigin so the stream still plays (sans
-      // frequency analyser; the visualizer falls back to a synthetic waveform).
+      // Per-station CORS policy:
+      //   cors === false → Icecast/no-CORS server (e.g. stream.kpbj.fm); skip
+      //     crossOrigin entirely so we connect in one round-trip (no analyser).
+      //   cors !== false → default; try crossOrigin="anonymous" so we can hook
+      //     up the frequency analyser (e.g. radio.co supports CORS). If the
+      //     load is blocked, fall back to a no-CORS retry automatically.
+      const corsAllowed = cors !== false;
+
+      // Wire audio lifecycle events to rich telemetry so the UI can show
+      // "Connecting…" → "Buffering…" → "● LIVE" with real detail.
+      const attachTelemetry = (audio) => {
+        const emitState = (state, extra) =>
+          send({
+            type: "stream:state",
+            content: { id, state, ...(extra || {}) },
+          });
+        audio.addEventListener("loadstart", () => emitState("connecting"));
+        audio.addEventListener("progress", () => emitState("loading"));
+        audio.addEventListener("canplay", () => emitState("ready"));
+        audio.addEventListener("waiting", () => emitState("buffering"));
+        audio.addEventListener("playing", () => emitState("playing"));
+        audio.addEventListener("stalled", () => emitState("stalled"));
+        audio.addEventListener("error", () => {
+          const err = audio.error;
+          emitState("error", {
+            code: err?.code,
+            message: err?.message || "audio error",
+          });
+        });
+      };
+
       const tryPlay = (withCors) => {
         const audio = new Audio();
         if (withCors) audio.crossOrigin = "anonymous";
         audio.src = bustedUrl;
         audio.volume = baseVolume * masterVolume;
+
+        attachTelemetry(audio);
 
         const entry = { audio, baseVolume };
 
@@ -16583,11 +16611,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
 
         streamAudio[id] = entry;
+        send({ type: "stream:state", content: { id, state: "connecting" } });
 
         return audio.play().then(() => {
           send({ type: "stream:playing", content: { id } });
         });
       };
+
+      if (!corsAllowed) {
+        // Skip the CORS probe entirely for known non-CORS servers.
+        tryPlay(false).catch((err) => {
+          console.warn("🎵 Stream play failed:", err);
+          send({
+            type: "stream:error",
+            content: { id, error: err.message },
+          });
+        });
+        return;
+      }
 
       tryPlay(true).catch((err) => {
         // CORS rejection surfaces as MediaError code 4 / NotSupportedError.

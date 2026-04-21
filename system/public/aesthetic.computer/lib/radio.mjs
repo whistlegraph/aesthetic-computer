@@ -14,6 +14,10 @@ export function createRadioState(config) {
     // Config
     streamUrl: config.streamUrl,
     streamId: config.streamId,
+    // cors: false → skip crossOrigin on the <audio> element (for Icecast
+    // servers without Access-Control-Allow-Origin, e.g. stream.kpbj.fm). The
+    // visualizer falls back to a synthetic waveform instead of the analyser.
+    cors: config.cors !== false,
     metadataUrl: config.metadataUrl || null,
     qrUrl: config.qrUrl,
     qrLabel: config.qrLabel || config.qrUrl.replace("https://", ""),
@@ -24,6 +28,7 @@ export function createRadioState(config) {
     isPlaying: false,
     isLoading: false,
     loadError: null,
+    streamState: "idle", // idle | connecting | loading | buffering | ready | playing | stalled | error
     volume: 0.5,
     
     // Visualization
@@ -156,6 +161,7 @@ export function startPlayback(state, send) {
         id: state.streamId,
         url: state.streamUrl,
         volume: state.volume,
+        cors: state.cors,
       },
     });
   }
@@ -194,21 +200,46 @@ export function handleStreamMessage(state, { type, content }) {
     state.isPlaying = true;
     state.isLoading = false;
     state.loadError = null;
+    state.streamState = "playing";
   }
-  
+
   if (type === "stream:paused" && content.id === state.streamId) {
     state.isPlaying = false;
+    state.streamState = "idle";
   }
-  
+
   if (type === "stream:stopped" && content.id === state.streamId) {
     state.isPlaying = false;
     state.isLoading = false;
+    state.streamState = "idle";
   }
-  
+
   if (type === "stream:error" && content.id === state.streamId) {
     state.isPlaying = false;
     state.isLoading = false;
     state.loadError = content.error;
+    state.streamState = "error";
+  }
+
+  // Lifecycle telemetry (connecting → loading → buffering → ready → playing).
+  if (type === "stream:state" && content.id === state.streamId) {
+    state.streamState = content.state;
+    if (content.state === "playing") {
+      state.isPlaying = true;
+      state.isLoading = false;
+      state.loadError = null;
+    } else if (content.state === "error") {
+      state.loadError = content.message || "stream error";
+      state.isLoading = false;
+    } else if (
+      content.state === "connecting" ||
+      content.state === "loading" ||
+      content.state === "buffering" ||
+      content.state === "stalled"
+    ) {
+      state.isLoading = true;
+      state.loadError = null;
+    }
   }
   
   if (type === "stream:frequencies-data" && content.id === state.streamId) {
