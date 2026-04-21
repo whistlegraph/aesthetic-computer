@@ -1302,7 +1302,7 @@ async function fun(event, context) {
           var isNotepat=location.hostname==='notepat.com'||location.hostname==='www.notepat.com'||location.pathname==='/notepat'||location.pathname.startsWith('/notepat?')||location.pathname.startsWith('/notepat/');
           // Notebook: Python/Jupyter notebook with scientific aesthetic
           var isNotebook=qs.indexOf('notebook=true')>=0;
-          // Boot animation mode: 'spring' (turtle-graphics rainbows, default), 'serious' (clean/refined), or 'aesthetic' (VHS/glitch)
+          // Boot animation mode: 'spring' (falling water drops with splash ripples, default), 'serious' (clean/refined), or 'aesthetic' (VHS/glitch)
           var bootTheme=params.get('boot')||'spring';var isSerious=bootTheme==='serious';var isSpring=bootTheme==='spring';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
@@ -1371,59 +1371,49 @@ async function fun(event, context) {
           var NP_KEYS=[];var NP_PARTICLES=[];var NP_LAST_KEY=0;var NP_KEY_INTERVAL=120;
           var NP_NOTE_NAMES=['C','D','E','F','G','A','B'];
           var NP_KEY_COLS=[[255,107,157],[78,205,196],[255,217,61],[149,225,211],[255,154,162],[170,150,218],[112,214,255],[255,183,77]];
-          // 🌈 Spring boot animation state — procedural turtle-graphics rainbows
-          var SPRING_RAINBOWS=[],SPRING_INIT=false;
+          // 🌧️ Spring boot animation state — falling water drops with splash ripples
+          var SPRING_DROPS=[],SPRING_RIPPLES=[],SPRING_INIT=false;
           var SPRING_FONTS_LIGHT=['serif','monospace','YWFTProcessing-Bold, monospace','cursive','Georgia, serif','Courier New, monospace'];
-          // ROYGBIV hues (red, orange, yellow, green, blue, indigo, violet)
-          var SPRING_RAINBOW_HUES=[0,28,54,120,210,255,290];
-          function springInit(S){SPRING_RAINBOWS=[];var n=7;for(var i=0;i<n;i++){SPRING_RAINBOWS.push({px:Math.random(),py:0.28+Math.random()*0.55,r:(22+Math.random()*34)*S,phase:Math.random()*Math.PI*2,bob:0.6+Math.random()*1.3,tilt:(Math.random()-0.5)*0.28,vx:(0.0009+Math.random()*0.0019)*(Math.random()>0.5?1:-1),twinkle:Math.random()*Math.PI*2,puffHue:40+Math.random()*30});}SPRING_INIT=true;}
-          function drawRainbow(ctx,W,H,b,t,S,isLightMode){
-            // Drift horizontally, wrap around edges
-            b.px+=b.vx;if(b.px>1.2)b.px=-0.2;if(b.px<-0.2)b.px=1.2;
-            var cx=b.px*W,cy=b.py*H+Math.sin(t*0.9+b.phase)*b.bob*2.5*S,r=b.r;
-            var tilt=b.tilt+Math.sin(t*0.45+b.phase)*0.07;
-            ctx.save();ctx.translate(cx,cy);ctx.rotate(tilt);
-            var bandW=Math.max(1.4,r*0.095);
-            ctx.lineCap='round';
-            // Soft halo behind the bow
-            ctx.beginPath();ctx.arc(0,0,r+bandW*0.3,Math.PI,Math.PI*2);
-            ctx.lineWidth=bandW*1.6;
-            ctx.strokeStyle=isLightMode?'rgba(255,250,210,0.55)':'rgba(255,240,180,0.22)';
+          // Water hues — cyan through royal blue
+          var SPRING_DROP_HUES=[188,198,205,212,220,230];
+          function springInit(S){SPRING_DROPS=[];SPRING_RIPPLES=[];var n=60;for(var i=0;i<n;i++){SPRING_DROPS.push({x:Math.random(),y:Math.random()*-1,vy:0.007+Math.random()*0.013,len:(5+Math.random()*10)*S,w:Math.max(0.8,(0.6+Math.random()*0.9)*S),hue:SPRING_DROP_HUES[Math.floor(Math.random()*SPRING_DROP_HUES.length)],bright:60+Math.random()*20,sway:(Math.random()-0.5)*0.0008,phase:Math.random()*Math.PI*2});}SPRING_INIT=true;}
+          function drawDrop(ctx,W,H,d,t,S,isLightMode,puddleY){
+            // Fall with slight horizontal sway
+            d.x+=d.sway+Math.sin(t*0.7+d.phase)*0.00015;
+            d.y+=d.vy;
+            if(d.x>1.05)d.x-=1.1;if(d.x<-0.05)d.x+=1.1;
+            var cx=d.x*W,cy=d.y*H;
+            if(cy>puddleY){
+              // Splash — spawn a ripple and recycle drop to the top
+              if(SPRING_RIPPLES.length<50)SPRING_RIPPLES.push({x:cx,y:puddleY+(Math.random()*3-1)*S,r:0,maxR:(6+Math.random()*10)*S,a:0.7+Math.random()*0.2,hue:d.hue,bright:d.bright});
+              d.y=-0.05-Math.random()*0.2;d.x=Math.random();
+              return;
+            }
+            // Streak — transparent tail fading into bright head
+            var tailY=cy-d.len;
+            var grad=ctx.createLinearGradient(cx,tailY,cx,cy);
+            grad.addColorStop(0,'hsla('+d.hue+',70%,'+d.bright+'%,0)');
+            grad.addColorStop(1,'hsla('+d.hue+',85%,'+(d.bright+8)+'%,'+(isLightMode?0.6:0.75)+')');
+            ctx.strokeStyle=grad;ctx.lineWidth=d.w;ctx.lineCap='round';
+            ctx.beginPath();ctx.moveTo(cx,tailY);ctx.lineTo(cx,cy);ctx.stroke();
+            // Droplet head bead
+            ctx.beginPath();ctx.arc(cx,cy,d.w*1.1,0,Math.PI*2);
+            ctx.fillStyle='hsla('+d.hue+',85%,'+(d.bright+15)+'%,'+(isLightMode?0.75:0.9)+')';
+            ctx.fill();
+          }
+          function drawRipple(ctx,r,S,isLightMode){
+            r.r+=(0.6+r.maxR*0.04)*S;r.a*=0.94;
+            if(r.r>r.maxR||r.a<0.02)return false;
+            ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);
+            ctx.lineWidth=Math.max(0.6,0.8*S);
+            ctx.strokeStyle='hsla('+r.hue+',75%,'+(r.bright+10)+'%,'+(r.a*(isLightMode?0.65:0.85))+')';
             ctx.stroke();
-            // ROYGBIV arcs from outermost to innermost (turtle-style concentric strokes)
-            for(var bi=0;bi<SPRING_RAINBOW_HUES.length;bi++){
-              var hue=SPRING_RAINBOW_HUES[bi];var bandR=r-bi*bandW;if(bandR<bandW)break;
-              ctx.beginPath();ctx.arc(0,0,bandR,Math.PI,Math.PI*2);
-              ctx.lineWidth=bandW*0.92;
-              ctx.strokeStyle='hsla('+hue+',88%,'+(isLightMode?52:62)+'%,0.85)';
-              ctx.stroke();
-            }
-            // Little cloud puffs at each foot
-            var puffY=bandW*0.2,puffR=bandW*1.9;
-            for(var side=-1;side<=1;side+=2){
-              var fx=side*(r-bandW*3.5);
-              ctx.beginPath();ctx.arc(fx,puffY,puffR,0,Math.PI*2);
-              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',60%,92%,0.9)':'hsla('+b.puffHue+',40%,82%,0.55)';
-              ctx.fill();
-              ctx.beginPath();ctx.arc(fx+side*puffR*0.7,puffY-puffR*0.45,puffR*0.75,0,Math.PI*2);
-              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',55%,95%,0.85)':'hsla('+b.puffHue+',35%,78%,0.45)';
-              ctx.fill();
-              ctx.beginPath();ctx.arc(fx-side*puffR*0.55,puffY-puffR*0.25,puffR*0.6,0,Math.PI*2);
-              ctx.fillStyle=isLightMode?'hsla('+b.puffHue+',55%,94%,0.75)':'hsla('+b.puffHue+',35%,75%,0.4)';
-              ctx.fill();
-            }
-            // Twinkle sparkle at the crown
-            var twA=0.45+Math.sin(t*3+b.twinkle)*0.45;
-            ctx.globalAlpha=Math.max(0,twA);
-            ctx.fillStyle=isLightMode?'#fff4b0':'#fffce0';
-            ctx.beginPath();ctx.arc(0,-r+bandW*0.5,Math.max(1,1.5*S),0,Math.PI*2);ctx.fill();
-            // Tiny cross-sparkle rays
-            ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(0.5,0.6*S);
-            var rays=Math.max(2.5,2.2*S);
-            ctx.beginPath();ctx.moveTo(-rays,-r+bandW*0.5);ctx.lineTo(rays,-r+bandW*0.5);
-            ctx.moveTo(0,-r+bandW*0.5-rays);ctx.lineTo(0,-r+bandW*0.5+rays);ctx.stroke();
-            ctx.globalAlpha=1;
-            ctx.restore();}
+            // Inner shimmer ring
+            if(r.r>S*2){ctx.beginPath();ctx.arc(r.x,r.y,r.r*0.55,0,Math.PI*2);
+              ctx.strokeStyle='hsla('+r.hue+',60%,'+(r.bright+20)+'%,'+(r.a*0.4)+')';
+              ctx.lineWidth=Math.max(0.4,0.5*S);ctx.stroke();}
+            return true;
+          }
           // 📊 Notebook scientific aesthetic boot animation state
           var NB_DATA_POINTS=[];var NB_GRID_LINES=[];var NB_WAVEFORMS=[];var NB_LAST_SPAWN=0;
           var NB_COLS_DARK=[[0,180,255],[0,255,180],[120,220,255],[80,200,120],[100,255,255]];
@@ -1575,22 +1565,26 @@ async function fun(event, context) {
               var logFS=densityParam===1&&isDeviceMode?Math.max(14,Math.floor(H/60)):4*S*dS;
               x.font=logFS+'px monospace';var logY=(densityParam===1&&isDeviceMode?Math.floor(H/20):16*S*dS)+embedPad;var logSpacing=densityParam===1&&isDeviceMode?Math.floor(logFS*1.5):7*S*dS;for(var li=0;li<lines.length&&li<10;li++){var ln=lines[li],ly=logY+li*logSpacing,la=Math.max(0.3,1-li*0.08),lc=klCols[li%klCols.length];var tw=x.measureText(ln.text).width;var logX=densityParam===1&&isDeviceMode?20:10*S*dS;var textX=densityParam===1&&isDeviceMode?30:(logX+3*S*dS);var pillH=densityParam===1&&isDeviceMode?Math.floor(logFS*1.2):6*S*dS;var pillR=densityParam===1&&isDeviceMode?6:3*S*dS;var pillW=tw+(textX-logX)*2;x.globalAlpha=la*0.15;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.beginPath();x.roundRect(logX,ly-pillH*0.65,pillW,pillH,pillR);x.fill();x.globalAlpha=la;x.fillStyle='rgb('+lc[0]+','+lc[1]+','+lc[2]+')';x.fillText(ln.text,textX,ly);}
               x.globalAlpha=1;requestAnimationFrame(anim);return;}
-            // 🌈 Spring mode — yellowish, light, with procedural turtle-graphics rainbows (default)
+            // 🌧️ Spring mode — rainy blue-grey sky with falling water drops + splash ripples (default)
             if(isSpring){
               if(!SPRING_INIT)springInit(S);
-              // Soft sunny gradient bg (cream/butter for light, deep amber for dark)
+              // Soft rainy gradient bg (washed blue-grey for light, deep stormy navy for dark)
               var sgrad=x.createLinearGradient(0,0,0,H);
-              if(isLightMode){sgrad.addColorStop(0,'#fffbe2');sgrad.addColorStop(0.6,'#fff4c2');sgrad.addColorStop(1,'#ffe89a');}
-              else{sgrad.addColorStop(0,'#3a2f10');sgrad.addColorStop(0.6,'#2a2410');sgrad.addColorStop(1,'#1f1a08');}
+              if(isLightMode){sgrad.addColorStop(0,'#d8e4ef');sgrad.addColorStop(0.5,'#c4d4e4');sgrad.addColorStop(1,'#b0c4d8');}
+              else{sgrad.addColorStop(0,'#0e1828');sgrad.addColorStop(0.5,'#132236');sgrad.addColorStop(1,'#0a1420');}
               x.fillStyle=sgrad;x.fillRect(0,0,W,H);
-              // Wandering pollen specks
-              for(var sp=0;sp<22;sp++){var spx=((Math.sin(t*0.3+sp*1.7)+1)*0.5*W+sp*23)%W;var spy=((Math.cos(t*0.2+sp*1.1)+1)*0.5*H+sp*17)%H;var spr=Math.max(0.5,(0.6+Math.sin(t+sp)*0.4)*S);x.globalAlpha=0.35+Math.sin(t*1.4+sp)*0.25;x.fillStyle=isLightMode?'rgba(255,200,80,0.7)':'rgba(255,230,140,0.7)';x.beginPath();x.arc(spx,spy,spr,0,Math.PI*2);x.fill();}
+              // Drifting mist specks
+              for(var sp=0;sp<22;sp++){var spx=((Math.sin(t*0.25+sp*1.7)+1)*0.5*W+sp*23)%W;var spy=((Math.cos(t*0.18+sp*1.1)+1)*0.5*H+sp*17+f*0.3)%H;var spr=Math.max(0.5,(0.5+Math.sin(t+sp)*0.35)*S);x.globalAlpha=0.22+Math.sin(t*1.2+sp)*0.18;x.fillStyle=isLightMode?'rgba(180,210,230,0.7)':'rgba(160,200,230,0.5)';x.beginPath();x.arc(spx,spy,spr,0,Math.PI*2);x.fill();}
               x.globalAlpha=1;
-              // Sunbeam streaks from top-right
-              for(var br=0;br<5;br++){x.save();x.globalAlpha=0.06+Math.sin(t*0.5+br)*0.03;x.fillStyle=isLightMode?'#fff7c0':'#ffeeaa';x.translate(W*0.85,0);x.rotate(0.6+br*0.08);x.fillRect(-2*S,0,4*S,H*1.4);x.restore();}
-              // Draw all rainbows (sorted by y for fake depth — farther ones higher up)
-              var sortedBd=SPRING_RAINBOWS.slice().sort(function(a,b){return a.py-b.py;});
-              for(var fi=0;fi<sortedBd.length;fi++){drawRainbow(x,W,H,sortedBd[fi],t,S,isLightMode);}
+              // Diagonal rain sheet streaks (translucent)
+              for(var br=0;br<5;br++){x.save();x.globalAlpha=0.05+Math.sin(t*0.4+br)*0.02;x.fillStyle=isLightMode?'#e8eff5':'#4a6280';x.translate(W*(0.15+br*0.18),0);x.rotate(0.22+br*0.02);x.fillRect(-3*S,0,6*S,H*1.4);x.restore();}
+              // Puddle line near bottom — where drops splash into ripples
+              var puddleY=H*0.88;
+              x.globalAlpha=isLightMode?0.22:0.18;x.fillStyle=isLightMode?'#9cb8d0':'#1a2c44';x.fillRect(0,puddleY,W,H-puddleY);x.globalAlpha=1;
+              // Update + draw all drops (may spawn ripples + recycle themselves)
+              for(var fi=0;fi<SPRING_DROPS.length;fi++){drawDrop(x,W,H,SPRING_DROPS[fi],t,S,isLightMode,puddleY);}
+              // Update + draw ripples, cull dead ones
+              for(var ri=SPRING_RIPPLES.length-1;ri>=0;ri--){if(!drawRipple(x,SPRING_RIPPLES[ri],S,isLightMode))SPRING_RIPPLES.splice(ri,1);}
               // Logo top-left (small, soft)
               var lS=21*S,lX=5*S,lY=5*S;var logoImg=imgFullLoaded?imgFull:img;
               x.imageSmoothingEnabled=imgFullLoaded;x.globalAlpha=0.92;x.drawImage(logoImg,lX,lY,lS,lS);x.globalAlpha=1;
