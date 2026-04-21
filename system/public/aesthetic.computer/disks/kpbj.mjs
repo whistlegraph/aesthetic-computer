@@ -29,6 +29,10 @@ import {
 const CONFIG = {
   streamUrl: "https://stream.kpbj.fm/",
   streamId: "kpbj-stream",
+  // Vanilla Icecast 2.4.4 — no Access-Control-Allow-Origin. Skip crossOrigin
+  // so the stream connects in one round-trip (no analyser; visualizer uses
+  // the synthetic waveform fallback).
+  cors: false,
   metadataUrl: "https://www.kpbj.fm/api/stream/metadata",
   playoutNowUrl: "https://kpbj.fm/api/playout/now",
   playoutFallbackUrl: "https://kpbj.fm/api/playout/fallback",
@@ -345,13 +349,22 @@ function drawKPBJElements(ctx, screen, pen, layout, help) {
   const websiteColor = isWebsiteHovered ? [255, 220, 170] : THEME.qrLabel;
   ink(...websiteColor).write(websiteText, { x: websiteLinkX, y: websiteLinkY }, undefined, undefined, false, "MatrixChunky8");
   
-  // 3. Status (● LIVE / Paused / Connecting...)
+  // 3. Status (● LIVE / Paused / Connecting.../Buffering.../etc.)
   let statusText, statusColor;
+  const dots = ".".repeat(Math.floor(help.repeat / 20) % 4);
   if (state.loadError) {
     statusText = "Connection error";
     statusColor = THEME.statusError;
   } else if (state.isLoading) {
-    statusText = "Connecting" + ".".repeat(Math.floor(help.repeat / 20) % 4);
+    // Use streamState for richer per-phase telemetry when available.
+    switch (state.streamState) {
+      case "connecting": statusText = "Connecting" + dots; break;
+      case "loading":    statusText = "Loading stream" + dots; break;
+      case "buffering":  statusText = "Buffering" + dots; break;
+      case "stalled":    statusText = "Reconnecting" + dots; break;
+      case "ready":      statusText = "Ready" + dots; break;
+      default:           statusText = "Connecting" + dots; break;
+    }
     statusColor = THEME.statusLoading;
   } else if (state.isPlaying) {
     statusText = "● LIVE";
