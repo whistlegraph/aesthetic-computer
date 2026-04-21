@@ -25,7 +25,7 @@
           "presentation": 1,
           "presentation_rect": [0, 0, 360, 169],
           "rendermode": 1,
-          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=10"
+          "url": "https://aesthetic.computer/notepat-remote?daw=1&density=1&nogap&v=11"
         }
       },
       {
@@ -34,10 +34,10 @@
           "id": "obj-route",
           "maxclass": "newobj",
           "numinlets": 1,
-          "numoutlets": 6,
-          "outlettype": ["", "", "", "", "", ""],
+          "numoutlets": 7,
+          "outlettype": ["", "", "", "", "", "", ""],
           "patching_rect": [10, 250, 560, 22],
-          "text": "route note channel notedown noteup octave focus"
+          "text": "route note channel notedown noteup octave focus ping"
         }
       },
       {
@@ -154,6 +154,18 @@
       },
       {
         "box": {
+          "comment": "RTT: echo the ping back into jweb as a script call → window.acMaxPong(t0)",
+          "id": "obj-sprintf-pong",
+          "maxclass": "newobj",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [""],
+          "patching_rect": [10, 290, 320, 22],
+          "text": "sprintf script window.acMaxPong(%ld)"
+        }
+      },
+      {
+        "box": {
           "id": "obj-thisdevice",
           "maxclass": "newobj",
           "numinlets": 1,
@@ -199,6 +211,8 @@
       { "patchline": { "source": ["obj-route", 3], "destination": ["obj-print-keyup", 0] } },
       { "patchline": { "source": ["obj-route", 4], "destination": ["obj-print-octave", 0] } },
       { "patchline": { "source": ["obj-route", 5], "destination": ["obj-print-focus", 0] } },
+      { "patchline": { "source": ["obj-route", 6], "destination": ["obj-sprintf-pong", 0] } },
+      { "patchline": { "source": ["obj-sprintf-pong", 0], "destination": ["obj-jweb", 0] } },
       { "patchline": { "source": ["obj-pack-on", 0], "destination": ["obj-noteout", 0] } },
       { "patchline": { "source": ["obj-pack-off", 0], "destination": ["obj-noteout", 0] } },
       { "patchline": { "source": ["obj-thisdevice", 0], "destination": ["obj-routeready", 0] } },

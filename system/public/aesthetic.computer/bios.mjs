@@ -4530,6 +4530,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let _dawBaseOctave = 4;
     const _dawHeldPitch = {}; // keyLower → emitted pitch (for correct note-off across octave shifts)
 
+    // Round-trip latency probe. BIOS emits a "ping" with a monotonic
+    // timestamp alongside each notedown; the Max patcher echoes it back
+    // via `script window.acMaxPong(...)` and we log the delta. This captures
+    // the full iframe → Max → iframe hop — the real pipeline cost.
+    const _dawRttSamples = []; // rolling buffer of recent RTTs (ms)
+    window.acMaxPong = function (t0) {
+      if (typeof t0 !== "number" || !Number.isFinite(t0)) return;
+      const rtt = performance.now() - t0;
+      _dawRttSamples.push(rtt);
+      if (_dawRttSamples.length > 20) _dawRttSamples.shift();
+      const avg =
+        _dawRttSamples.reduce((s, v) => s + v, 0) / _dawRttSamples.length;
+      console.log(
+        `🎹 rtt ${rtt.toFixed(2)}ms (avg of ${_dawRttSamples.length}: ${avg.toFixed(2)}ms)`,
+      );
+    };
+
     function _dawEmitMax(sym, value) {
       if (
         typeof window !== "undefined" &&
@@ -4560,6 +4577,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (pitch === null) return;
       _dawHeldPitch[low] = pitch;
       _dawEmitMax("notedown", pitch);
+      // RTT ping: use Math.round so the int fits %ld in Max's [sprintf]
+      // round-trip path. Delta is logged in window.acMaxPong above.
+      _dawEmitMax("ping", Math.round(performance.now()));
     }, true);
 
     window.addEventListener("keyup", (e) => {
