@@ -544,6 +544,18 @@ async function boot(
     async (text) => {
       text = text.replace(/\s+$/, ""); // Trim trailing whitespace.
 
+      // Clear text, hide cursor block, and close keyboard immediately so the
+      // panel hides on Enter even when the submit handler is async (e.g.
+      // aa.mjs awaits a streaming SSE reply — without this the panel would
+      // stay open for the entire response).
+      input.text = "";
+      draftMessage = ""; // Clear draft
+      input.showBlink = false;
+      input.mute = true;
+      if (handleAutocomplete) handleAutocomplete.hide(); // 🔍 Clear autocomplete state
+      console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
+      send({ type: "keyboard:close" });
+
       // Pieces inheriting chat.mjs (e.g. aa.mjs) may pass a custom submit
       // handler so they can route the typed text somewhere other than the
       // chat-system server. If provided, it owns the send.
@@ -568,15 +580,6 @@ async function boot(
           notice("SENT");
         }
       }
-
-      // Clear text, hide cursor block, and close keyboard after sending message.
-      input.text = "";
-      draftMessage = ""; // Clear draft
-      input.showBlink = false;
-      input.mute = true;
-      if (handleAutocomplete) handleAutocomplete.hide(); // 🔍 Clear autocomplete state
-      console.log("⌨️🔴 [chat.mjs] sending keyboard:close - reason: message sent");
-      send({ type: "keyboard:close" });
     },
     {
       // autolock: false,
