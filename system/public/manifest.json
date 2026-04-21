@@ -37,5 +37,20 @@
       "form_factor": "wide",
       "label": "Aesthetic Computer Prompt"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "AA",
+      "short_name": "AA",
+      "description": "Talk to your remote claude on the macbook",
+      "url": "/aa",
+      "icons": [
+        {
+          "src": "https://oven.aesthetic.computer/icon/192x192/aa.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

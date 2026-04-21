@@ -1,0 +1,10 @@
+{
+  "name": "aa-bridge",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "aa-bridge.mjs",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env aa-bridge.mjs",
+    "dev": "AA_DEV=1 node --env-file-if-exists=.env aa-bridge.mjs"
+  }
+}

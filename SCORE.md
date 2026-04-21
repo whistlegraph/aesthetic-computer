@@ -59,6 +59,7 @@ Every piece is URL addressable (e.g. https://aesthetic.computer/notepat). Genera
 **Backend**
 - `session-server/` — Real-time multiplayer (Socket.io)
 - `lith/` — Production monolith deploy (Express + Caddy on a DigitalOcean VPS, pulled from the tangled knot `git@knot.aesthetic.computer:aesthetic.computer/core` via `lith/deploy.fish`). Express adapts the handlers in `system/netlify/functions/` as routes — the `netlify/functions/` path is historical; Netlify is no longer the host.
+- `help/bridge/` — Local Express bridge on @jeffrey's macbook that spawns the host `claude` CLI and streams it as SSE; reached publicly through `help.aesthetic.computer` via the existing droplet proxy + autossh reverse tunnel. Powers the `aa` piece (admin-only phone-side chat with the macbook's claude). Auto-runs under launchd as `computer.aesthetic.aa-bridge` and `computer.aesthetic.aa-tunnel`.
 - Authentication and data storage
 
 **Languages**
