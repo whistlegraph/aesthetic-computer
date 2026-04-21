@@ -74,6 +74,7 @@ SRCS := $(SRCDIR)/ac-native.c \
         $(SRCDIR)/graph3d.c \
         $(SRCDIR)/font.c \
         $(SRCDIR)/color.c \
+        $(SRCDIR)/boot_anim.c \
         $(SRCDIR)/input.c \
         $(SRCDIR)/audio.c \
         $(SRCDIR)/usb-midi.c \

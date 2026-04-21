@@ -15,6 +15,11 @@
 
 #include "piece.h"
 #include "audio.h"
+#include "png_writer.h"
+#include "boot_anim.h"
+#include "graph.h"
+#include "font.h"
+#include "framebuffer.h"
 
 // Initial window size in logical points. The framebuffer is win / DENSITY,
 // so 640×480 @ d=2 yields a 320×240 canvas — a classic retro resolution
@@ -238,7 +243,148 @@ static void uninstall_global_hotkey(void) {
     g_hotkey = NULL; g_hotkey_handler = NULL;
 }
 
+// Nearest-neighbor upscale an ARGB framebuffer by an integer factor. Used
+// by the screenshot path so the retro pixel look stays crisp when a
+// density-2 canvas is written out at 2× resolution. Allocates; caller
+// free()s. Returns NULL on allocation failure.
+static uint32_t *upscale_nn(const uint32_t *src, int sw, int sh, int scale) {
+    if (scale <= 1) return NULL;
+    int dw = sw * scale, dh = sh * scale;
+    uint32_t *dst = malloc((size_t)dw * dh * sizeof(uint32_t));
+    if (!dst) return NULL;
+    for (int y = 0; y < dh; y++) {
+        const uint32_t *srow = src + (y / scale) * sw;
+        uint32_t *drow = dst + y * dw;
+        for (int x = 0; x < dw; x++) drow[x] = srow[x / scale];
+    }
+    return dst;
+}
+
+// Screenshot mode — when AC_SHOT_PNG is set, we skip SDL entirely and
+// render a single frame of the boot animation to a PNG. Size + density
+// are configurable; frame index defaults to just before the end so the
+// subtitle has faded in and the time-bar is small.
+static int run_screenshot_mode(void) {
+    const char *out_path = getenv("AC_SHOT_PNG");
+    if (!out_path || !out_path[0]) return 0;
+
+    int  out_w    = getenv("AC_SHOT_W")       ? atoi(getenv("AC_SHOT_W"))       : 1280;
+    int  out_h    = getenv("AC_SHOT_H")       ? atoi(getenv("AC_SHOT_H"))       : 800;
+    int  density  = getenv("AC_SHOT_DENSITY") ? atoi(getenv("AC_SHOT_DENSITY")) : 2;
+    if (density < 1) density = 1;
+    if (density > 8) density = 8;
+    int  fb_w     = out_w / density; if (fb_w < 32) fb_w = 32;
+    int  fb_h     = out_h / density; if (fb_h < 32) fb_h = 32;
+
+    // Which frame to capture. Default = last real frame (n-1), so the
+    // subtitle has peaked and the fade-in is complete.
+    int frame = getenv("AC_SHOT_FRAME")
+        ? atoi(getenv("AC_SHOT_FRAME"))
+        : BOOT_ANIM_FRAMES - 1;
+    if (frame < 0) frame = 0;
+    if (frame >= BOOT_ANIM_FRAMES) frame = BOOT_ANIM_FRAMES - 1;
+
+    // Build title: AC_SHOT_TITLE wins outright; AC_SHOT_HANDLE wraps it
+    // in "hi @handle"; falling back to a neutral "hi" greeting.
+    char title_buf[128];
+    const char *t_env = getenv("AC_SHOT_TITLE");
+    const char *h_env = getenv("AC_SHOT_HANDLE");
+    if (t_env && t_env[0]) {
+        snprintf(title_buf, sizeof title_buf, "%s", t_env);
+    } else if (h_env && h_env[0]) {
+        const char *h = (h_env[0] == '@') ? h_env + 1 : h_env;
+        snprintf(title_buf, sizeof title_buf, "hi @%s", h);
+    } else {
+        snprintf(title_buf, sizeof title_buf, "hi");
+    }
+
+    const char *city = getenv("AC_SHOT_CITY");
+    if (!city || !city[0]) city = "Los Angeles";
+
+    int hour = getenv("AC_SHOT_HOUR") ? atoi(getenv("AC_SHOT_HOUR")) : 10;
+
+    // Title scale. Product shots need a bigger handle than the on-hardware
+    // default (scale 3 is tuned for native resolution where the text is a
+    // small label). Target ~55 % of FB width when unset, clamped to keep
+    // the MatrixChunky8 bitmap from going mushy. Override with
+    // AC_SHOT_TITLE_SCALE for total control.
+    int title_scale = 0;
+    const char *ts_env = getenv("AC_SHOT_TITLE_SCALE");
+    if (ts_env && ts_env[0]) {
+        title_scale = atoi(ts_env);
+    } else {
+        int title_len = 0;
+        for (const char *p = (t_env && t_env[0]) ? t_env : title_buf; *p; p++) title_len++;
+        if (title_len < 1) title_len = 1;
+        // Matrix font is ~4 px wide per char at scale 1.
+        int target_px = fb_w * 55 / 100;
+        int auto_s   = target_px / (title_len * 4);
+        if (auto_s < 3) auto_s = 3;
+        if (auto_s > 8) auto_s = 8;
+        title_scale = auto_s;
+    }
+
+    BootAnimConfig cfg = {
+        .title             = title_buf,
+        .city              = city,
+        .title_colors      = NULL,
+        .title_colors_len  = 0,
+        .hour              = hour,
+        .git_hash          = getenv("AC_SHOT_GIT_HASH"),
+        .build_ts          = getenv("AC_SHOT_BUILD_TS"),
+        .build_name        = getenv("AC_SHOT_BUILD_NAME"),
+        .driver_name       = getenv("AC_SHOT_DRIVER"),
+        .is_new_version    = getenv("AC_SHOT_FRESH")       ? 1 : 0,
+        .show_install      = getenv("AC_SHOT_INSTALL")     ? 1 : 0,
+        .is_installed      = getenv("AC_SHOT_INSTALLED")   ? 1 : 0,
+        .has_claude_badge  = getenv("AC_SHOT_CLAUDE")      ? 1 : 0,
+        .has_github_badge  = getenv("AC_SHOT_GITHUB")      ? 1 : 0,
+        .title_scale       = title_scale,
+    };
+
+    ACFramebuffer *fb = fb_create(fb_w, fb_h);
+    if (!fb) { fprintf(stderr, "[shot] fb_create failed\n"); return 1; }
+    ACGraph g;
+    graph_init(&g, fb);
+    font_init();
+
+    BootAnimState state = {0};
+    // Simulate all frames up to target so rain state evolves naturally.
+    for (int f = 0; f <= frame; f++) {
+        boot_anim_render_frame(&g, fb, f, &cfg, &state);
+    }
+
+    uint32_t *out_pixels = fb->pixels;
+    uint32_t *scaled = NULL;
+    int stride = fb->stride;
+    int w = fb->width, h = fb->height;
+    if (density > 1) {
+        scaled = upscale_nn(fb->pixels, fb->width, fb->height, density);
+        if (!scaled) { fprintf(stderr, "[shot] upscale_nn failed\n"); fb_destroy(fb); return 1; }
+        out_pixels = scaled;
+        w = fb->width * density;
+        h = fb->height * density;
+        stride = w;
+    }
+
+    int ok = png_write_argb(out_path, out_pixels, w, h, stride);
+    if (ok) {
+        fprintf(stderr, "[shot] %dx%d (fb %dx%d @ density %d) frame %d → %s\n",
+                w, h, fb->width, fb->height, density, frame, out_path);
+    }
+    free(scaled);
+    fb_destroy(fb);
+    return ok ? 0 : 1;
+}
+
 int main(int argc, char **argv) {
+    // Screenshot mode short-circuits everything else — no SDL, no piece,
+    // just one frame of the boot animation to a PNG. Gated on AC_SHOT_PNG
+    // so normal launches (and `make app`) behave exactly as before.
+    if (getenv("AC_SHOT_PNG")) {
+        return run_screenshot_mode();
+    }
+
     // --test-tone: exercise the audio engine only; no window, no piece.
     // Plays a 440 Hz sine for ~1s and prints the peak output sample. Useful
     // for verifying audio works in isolation (CI / headless regression).

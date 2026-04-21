@@ -35,11 +35,20 @@ else
   $(error AUDIO must be 'core' or 'sdl')
 endif
 
-HOST_SRCS   := main.c piece.c $(AUDIO_SRC)
+HOST_SRCS   := main.c piece.c png_writer.c $(AUDIO_SRC)
 HOST_OBJS   := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
-SHARED_SRCS := ../src/synth_core.c
-SHARED_OBJS := $(patsubst ../src/%.c,$(BUILD)/shared-%.o,$(SHARED_SRCS))
-LDFLAGS     += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)
+# Shared with Linux ac-native: audio synth, boot-screen renderer, and the
+# portable graphics/font/framebuffer stack the boot animation draws into.
+# qrcodegen is a transitive dep of graph.c (for graph_qr) even though the
+# boot animation itself doesn't render QR codes.
+SHARED_CORE_SRCS := synth_core.c boot_anim.c graph.c font.c framebuffer.c color.c
+SHARED_QR_SRCS   := qrcodegen.c
+SHARED_OBJS      := $(patsubst %.c,$(BUILD)/shared-%.o,$(SHARED_CORE_SRCS) $(SHARED_QR_SRCS))
+LDFLAGS          += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)
+# PNG writer uses ImageIO + CoreGraphics for native encoding.
+LDFLAGS          += -framework ImageIO -framework CoreGraphics -framework CoreFoundation
+# qrcodegen.h lives outside ../src.
+CFLAGS           += -I../lib/qrcodegen
 
 # QuickJS core object set (must match what the Linux Makefile uses at line 104)
 QJS_SRCS  := quickjs.c libunicode.c libregexp.c cutils.c libbf.c
@@ -92,6 +101,9 @@ $(BUILD)/%.o: %.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BUILD)/shared-%.o: ../src/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BUILD)/shared-%.o: ../lib/qrcodegen/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # QuickJS objects: compiled with the same CONFIG_VERSION the Linux side uses.

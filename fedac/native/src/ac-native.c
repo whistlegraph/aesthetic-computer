@@ -28,6 +28,7 @@
 #include "framebuffer.h"
 #include "graph.h"
 #include "font.h"
+#include "boot_anim.h"
 #include "input.h"
 #include "audio.h"
 #include "wifi.h"
@@ -2449,23 +2450,9 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
     int hold_frames  = 40;
     int skip_anim = 0;
     int w_pressed = 0;
-    // Matrix-rain background state — persistent across frames. One entry
-    // per column; column width fixed at 10 px.
-    #define RAIN_MAX_COLS 128
-    int rain_col_y[RAIN_MAX_COLS];
-    int rain_col_speed[RAIN_MAX_COLS];
-    unsigned int rain_col_seed[RAIN_MAX_COLS];
-    {
-        unsigned int s = (unsigned int)time(NULL);
-        for (int c = 0; c < RAIN_MAX_COLS; c++) {
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_y[c] = -(int)(s % 400);
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_speed[c] = 2 + (int)(s % 4);
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_seed[c] = s;
-        }
-    }
+    // Per-frame render is handled by src/boot_anim.c (shared with the
+    // macOS host). State struct carries matrix-rain columns across frames.
+    BootAnimState rain_state = {0};
     for (int f = 0; f < total_frames && !skip_anim && !w_pressed; f++) {
         double t = (double)f / (double)total_frames;
 
@@ -2524,314 +2511,42 @@ static int draw_startup_fade(ACGraph *graph, ACFramebuffer *screen,
         }
         // W hint is visual only — no TTS
 
-        // Fade from black/white to time-of-day themed bg (complete in first 0.3s)
-        double fade_t = t * 3.33;
-        if (fade_t > 1.0) fade_t = 1.0;
-        int hour = get_la_hour();
-        int is_day = (hour >= 7 && hour < 18);  // light mode 7am-6pm
-        int target_r, target_g, target_b;
-        if (is_day) {
-            // Light mode: soft warm backgrounds
-            if (hour >= 7 && hour < 12) {
-                target_r = 235; target_g = 230; target_b = 220;  // morning cream
-            } else {
-                target_r = 240; target_g = 235; target_b = 215;  // afternoon warm white
-            }
-        } else {
-            // Dark mode: rich atmospheric backgrounds
-            if (hour >= 5 && hour < 7) {
-                target_r = 100; target_g = 45; target_b = 20;  // sunrise orange
-            } else if (hour >= 18 && hour < 20) {
-                target_r = 80; target_g = 25; target_b = 60;   // sunset purple
-            } else {
-                target_r = 15; target_g = 15; target_b = 40;   // night deep blue
-            }
-        }
-        int start_r = is_day ? 255 : 0;
-        int start_g = is_day ? 255 : 0;
-        int start_b = is_day ? 255 : 0;
-        int bg_r = start_r + (int)((target_r - start_r) * fade_t);
-        int bg_g = start_g + (int)((target_g - start_g) * fade_t);
-        int bg_b = start_b + (int)((target_b - start_b) * fade_t);
-        graph_wipe(graph, (ACColor){(uint8_t)bg_r, (uint8_t)bg_g, (uint8_t)bg_b, 255});
-
-        // Matrix-rain BG: pseudo-CJK glyphs falling in columns. Started
-        // as an homage to the "garbled-character" bug we hit when the
-        // firmware loaded a chain-loading EFI binary directly — user
-        // liked the look, so we're keeping it as a boot aesthetic.
-        // Glyphs are random 7x9 pixel patterns drawn per-frame with a
-        // per-column xorshift seed; no CJK font needed. Brighter leader
-        // + fading trail for the classic terminal-rain feel.
-        {
-            int col_w = 10;
-            int glyph_w = 7, glyph_h = 9;
-            int nc = screen->width / col_w;
-            if (nc > RAIN_MAX_COLS) nc = RAIN_MAX_COLS;
-            // Slight fade toward title, so rain doesn't fight the text.
-            int rain_alpha_scale = is_day ? 80 : 180;
-            for (int c = 0; c < nc; c++) {
-                rain_col_y[c] += rain_col_speed[c];
-                if (rain_col_y[c] > screen->height + glyph_h * 12) {
-                    unsigned int s = rain_col_seed[c];
-                    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-                    rain_col_seed[c] = s;
-                    rain_col_y[c] = -(int)(s % 300);
-                    rain_col_speed[c] = 2 + (int)(s % 4);
-                }
-                int cx = c * col_w + 1;
-                // Trail of ~10 glyphs fading behind the leader.
-                for (int trail = 0; trail < 10; trail++) {
-                    int gy = rain_col_y[c] - trail * glyph_h;
-                    if (gy < -glyph_h || gy >= screen->height) continue;
-                    int tb = (trail == 0) ? 220 : 180 - trail * 18;
-                    if (tb < 15) continue;
-                    int b = (tb * rain_alpha_scale) >> 8;
-                    // Leader glows a bit whitish — classic matrix-rain tip.
-                    ACColor cg = (trail == 0)
-                        ? (ACColor){ (uint8_t)(b * 0.8), 255, (uint8_t)(b * 0.8), (uint8_t)b }
-                        : (ACColor){ 40, (uint8_t)(b * 0.9 + 20), (uint8_t)(b * 0.4), (uint8_t)b };
-                    graph_ink(graph, cg);
-                    // Random 7x9 bitmap from deterministic seed + column + trail + slow frame shimmer.
-                    unsigned int gseed = rain_col_seed[c] ^ ((unsigned)trail * 2654435761u) ^ ((unsigned)(f / 4) * 2246822519u);
-                    for (int row = 0; row < glyph_h; row++) {
-                        for (int col = 0; col < glyph_w; col++) {
-                            gseed ^= gseed << 13; gseed ^= gseed >> 17; gseed ^= gseed << 5;
-                            if (gseed & 1) graph_plot(graph, cx + col, gy + row);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Title — per-handle palette (fallback rainbow), animated pulse
-        int alpha = (int)(255.0 * fade_t);
-        if (alpha > 0) {
-            const char *title = boot_title;
-            // Auto-scale: use 3x unless title is too wide, then 2x
-            int scale = 3;
-            int tw = font_measure_matrix(title, scale);
-            if (tw > screen->width - 20) {
-                scale = 2;
-                tw = font_measure_matrix(title, scale);
-            }
-            int tx = (screen->width - tw) / 2;
-            int ty = screen->height / 2 - 20;
-            for (int ci = 0; title[ci]; ci++) {
-                ACColor cc = title_char_color(ci, f, alpha);
-                graph_ink(graph, cc);
-                char ch[2] = { title[ci], 0 };
-                tx = font_draw_matrix(graph, ch, tx, ty, scale);
-            }
-        }
-
-        // Version + build name + build date (high-contrast panel, top-right)
+        // Per-frame render lives in src/boot_anim.c now (shared with the
+        // macOS host). This call is everything between the old
+        // "Fade from black/white..." and the install-hint block.
+        BootAnimConfig anim_cfg = {
+            .title             = boot_title,
+            .city              = greet_city,
+            .title_colors      = (boot_title_colors_len > 0) ? boot_title_colors : NULL,
+            .title_colors_len  = boot_title_colors_len,
+            .hour              = get_la_hour(),
 #ifdef AC_GIT_HASH
-        if (alpha > 40) {
-            char ver[64];
-            char bts[64];
-            char bname[64] = "";
-            char ddrv[64] = "";
-            snprintf(ver, sizeof(ver), "version %s", AC_GIT_HASH);
-#ifdef AC_BUILD_TS
-            snprintf(bts, sizeof(bts), "%s", AC_BUILD_TS);
+            .git_hash          = AC_GIT_HASH,
 #else
-            snprintf(bts, sizeof(bts), "build unknown");
+            .git_hash          = NULL,
+#endif
+#ifdef AC_BUILD_TS
+            .build_ts          = AC_BUILD_TS,
+#else
+            .build_ts          = NULL,
 #endif
 #ifdef AC_BUILD_NAME
-            snprintf(bname, sizeof(bname), "%s", AC_BUILD_NAME);
+            .build_name        = AC_BUILD_NAME,
+#else
+            .build_name        = NULL,
 #endif
-            const char *driver = drm_display_driver(display);
-            snprintf(ddrv, sizeof(ddrv), "display %s", driver);
-            int wv = font_measure_matrix(ver, 1);
-            int wt = font_measure_matrix(bts, 1);
-            int wn = bname[0] ? font_measure_matrix(bname, 1) : 0;
-            int wd = font_measure_matrix(ddrv, 1);
-            int max_w = wv;
-            if (wt > max_w) max_w = wt;
-            if (wn > max_w) max_w = wn;
-            if (wd > max_w) max_w = wd;
-            int panel_w = max_w + 8;
-            int panel_h = (bname[0] ? 28 : 20) + 8;
-            int panel_x = screen->width - panel_w - 3;
-            int panel_y = 3;
-            graph_ink(graph, is_day
-                ? (ACColor){255, 255, 255, (uint8_t)(alpha * 0.7)}
-                : (ACColor){0, 0, 0, (uint8_t)(alpha * 0.82)});
-            graph_box(graph, panel_x, panel_y, panel_w, panel_h, 1);
-            // Build name (top line)
-            if (bname[0]) {
-                graph_ink(graph, is_day
-                    ? (ACColor){140, 100, 0, (uint8_t)alpha}
-                    : (ACColor){255, 200, 60, (uint8_t)alpha});
-                font_draw_matrix(graph, bname, panel_x + 4, panel_y + 3, 1);
-            }
-            int line_y = panel_y + (bname[0] ? 11 : 3);
-            graph_ink(graph, is_day
-                ? (ACColor){60, 60, 60, (uint8_t)alpha}
-                : (ACColor){255, 255, 255, (uint8_t)alpha});
-            font_draw_matrix(graph, ver, panel_x + 4, line_y, 1);
-            graph_ink(graph, is_day
-                ? (ACColor){80, 100, 90, (uint8_t)alpha}
-                : (ACColor){210, 235, 220, (uint8_t)alpha});
-            font_draw_matrix(graph, bts, panel_x + 4, line_y + 8, 1);
-            // Display driver line
-            graph_ink(graph, is_day
-                ? (ACColor){90, 60, 120, (uint8_t)alpha}
-                : (ACColor){180, 160, 255, (uint8_t)alpha});
-            font_draw_matrix(graph, ddrv, panel_x + 4, line_y + 16, 1);
-            // "FRESH" badge when first boot of this version
-            if (is_new_version) {
-                graph_ink(graph, is_day
-                    ? (ACColor){0, 140, 60, (uint8_t)alpha}
-                    : (ACColor){80, 255, 120, (uint8_t)alpha});
-                font_draw_matrix(graph, "FRESH", panel_x - font_measure_matrix("FRESH", 1) - 4, panel_y + 6, 1);
-            }
-        }
-#endif
+            .driver_name       = drm_display_driver(display),
+            .is_new_version    = is_new_version,
+            .show_install      = show_install,
+            .is_installed      = is_installed_on_hd(),
+            .has_claude_badge  = (access("/claude-token", F_OK) == 0 ||
+                                   getenv("CLAUDE_CODE_OAUTH_TOKEN") != NULL),
+            .has_github_badge  = (access("/github-pat", F_OK) == 0 ||
+                                   getenv("GH_TOKEN") != NULL),
+            .title_scale       = 0,  // legacy auto — preserve on-hardware look
+        };
+        boot_anim_render_frame(graph, screen, f, &anim_cfg, &rain_state);
 
-        // Subtitle: "enjoy <city>!" appears after frame 130
-        // Scaled for 120-frame total (was gated at 130 of 180).
-        if (f > 80) {
-            double sub_t = (double)(f - 80) / 20.0;
-            if (sub_t > 1.0) sub_t = 1.0;
-            int sub_alpha = (int)(180.0 * sub_t);
-            graph_ink(graph, is_day
-                ? (ACColor){120, 100, 80, (uint8_t)sub_alpha}
-                : (ACColor){220, 180, 140, (uint8_t)sub_alpha});
-            char subtitle[128];
-            snprintf(subtitle, sizeof subtitle, "enjoy %s!", greet_city);
-            int sw = font_measure_matrix(subtitle, 1);
-            font_draw_matrix(graph, subtitle,
-                             (screen->width - sw) / 2, screen->height / 2 + 10, 1);
-        }
-
-        // Auth badges (bottom-left): pixel crab = Claude, pixel octocat = GitHub
-        // Badges — scaled to appear earlier in the shorter animation.
-        if (f > 40 && alpha > 80) {
-            int badge_x = 6;
-            int badge_y = screen->height - 22;
-            double badge_t = (double)(f - 40) / 30.0;
-            if (badge_t > 1.0) badge_t = 1.0;
-            int ba = (int)(220.0 * badge_t); // badge alpha
-
-            // 11x9 pixel crab (Claude/Anthropic)
-            if (access("/claude-token", F_OK) == 0 || getenv("CLAUDE_CODE_OAUTH_TOKEN")) {
-                static const char crab[9][12] = {
-                    " .       . ",
-                    "  .     .  ",
-                    " ..##.##.. ",
-                    ".# #### #.",
-                    ". ####### .",
-                    "  #######  ",
-                    "  ## . ##  ",
-                    "  .     .  ",
-                    " .       . ",
-                };
-                for (int cy = 0; cy < 9; cy++)
-                    for (int cx = 0; cx < 11; cx++) {
-                        char c = crab[cy][cx];
-                        if (c == '#')
-                            graph_ink(graph, (ACColor){255, 120, 50, (uint8_t)ba});
-                        else if (c == '.')
-                            graph_ink(graph, (ACColor){200, 90, 30, (uint8_t)(ba*2/3)});
-                        else continue;
-                        graph_box(graph, badge_x + cx*2, badge_y + cy*2, 2, 2, 1);
-                    }
-                badge_x += 28;
-            }
-            // 11x11 pixel octocat (GitHub)
-            if (access("/github-pat", F_OK) == 0 || getenv("GH_TOKEN")) {
-                static const char octo[11][12] = {
-                    "   .###.   ",
-                    "  #######  ",
-                    " ## o#o ## ",
-                    " ######### ",
-                    " ## ### ## ",
-                    "  #######  ",
-                    "   #####   ",
-                    "  .# . #.  ",
-                    " .#  .  #. ",
-                    " .   .   . ",
-                    ".    .    .",
-                };
-                for (int cy = 0; cy < 11; cy++)
-                    for (int cx = 0; cx < 11; cx++) {
-                        char c = octo[cy][cx];
-                        if (c == '#')
-                            graph_ink(graph, (ACColor){180, 210, 255, (uint8_t)ba});
-                        else if (c == 'o')
-                            graph_ink(graph, (ACColor){60, 80, 120, (uint8_t)ba});
-                        else if (c == '.')
-                            graph_ink(graph, (ACColor){120, 150, 200, (uint8_t)(ba*2/3)});
-                        else continue;
-                        graph_box(graph, badge_x + cx*2, badge_y + cy*2, 2, 2, 1);
-                    }
-                badge_x += 28;
-            }
-        }
-
-        // Animated triangles — geometric decoration
-        if (alpha > 30) {
-            int tri_alpha = (int)(alpha * 0.15);
-            int W = screen->width;
-            int H = screen->height;
-            // Drifting triangles based on frame counter
-            for (int ti = 0; ti < 6; ti++) {
-                double phase = (double)f * 0.02 + ti * 1.047; // 60° apart
-                int cx = (int)(W * 0.5 + W * 0.35 * sin(phase + 1.5708));
-                int cy = (int)(H * 0.5 + H * 0.3 * sin(phase * 0.7));
-                int sz = 8 + ti * 3 + (int)(4.0 * sin(f * 0.05 + ti));
-                ACColor tc = is_day
-                    ? (ACColor){180 - ti*15, 140 - ti*10, 120, (uint8_t)tri_alpha}
-                    : (ACColor){80 + ti*20, 60 + ti*15, 120 + ti*10, (uint8_t)tri_alpha};
-                graph_ink(graph, tc);
-                // Draw triangle as 3 lines
-                int x0 = cx, y0 = cy - sz;
-                int x1 = cx - sz, y1 = cy + sz/2;
-                int x2 = cx + sz, y2 = cy + sz/2;
-                graph_line(graph, x0, y0, x1, y1);
-                graph_line(graph, x1, y1, x2, y2);
-                graph_line(graph, x2, y2, x0, y0);
-            }
-        }
-
-        // Bottom: shrinking time bar
-        int bar_full = screen->width - 40;
-        int bar_remaining = (int)((1.0 - t) * bar_full);
-        if (bar_remaining > 0) {
-            graph_ink(graph, (ACColor){200, 150, 180, (uint8_t)(80 * (1.0 - t))});
-            graph_box(graph, 20, screen->height - 6, bar_remaining, 3, 1);
-        }
-
-        // Animated W install prompt
-        if (alpha > 100 && show_install) {
-            // Pulsing box behind the text
-            double pulse = 0.5 + 0.5 * sin(f * 0.1);
-            int pa = (int)(40 + 30 * pulse);
-            const char *hint = is_installed_on_hd()
-                ? "W: update" : "W: install to disk";
-            int hw = font_measure_matrix(hint, 1);
-            int hx = (screen->width - hw) / 2;
-            int hy = screen->height - 20;
-            // Pulsing background pill
-            graph_ink(graph, is_day
-                ? (ACColor){200, 160, 120, (uint8_t)pa}
-                : (ACColor){60, 40, 80, (uint8_t)pa});
-            graph_box(graph, hx - 4, hy - 2, hw + 8, 12, 1);
-            // Triangle arrow pointing down at the text
-            int ax = hx - 10;
-            int ay = hy + 3;
-            graph_ink(graph, is_day
-                ? (ACColor){180, 120, 60, (uint8_t)(alpha / 2)}
-                : (ACColor){200, 150, 255, (uint8_t)(alpha / 2)});
-            graph_line(graph, ax, ay - 3, ax, ay + 3);
-            graph_line(graph, ax, ay + 3, ax - 3, ay);
-            // Text with higher contrast
-            graph_ink(graph, is_day
-                ? (ACColor){120, 60, 0, (uint8_t)(alpha * 2 / 3)}
-                : (ACColor){220, 180, 255, (uint8_t)(alpha * 2 / 3)});
-            font_draw_matrix(graph, hint, hx, hy, 1);
-        }
 
         ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
