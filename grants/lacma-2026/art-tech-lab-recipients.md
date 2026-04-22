@@ -15,6 +15,14 @@
 
 ---
 
+## Proposed 2026 — where we'd fit
+
+| Artist | Project | Notes |
+|---|---|---|
+| **Jeffrey Alan Scudder** (proposed) | *Aesthetic Computer: The Unfinished Instrument* | Bare-metal creative OS on a USB stick. Boots on x86_64 UEFI laptops — including the estimated 240M PCs stranded by Windows 10 end-of-life and ~62M tonnes of e-waste generated each year. Turns discarded hardware into a complete musical instrument at roughly **$50 per seat — two orders of magnitude below PLOrk's $1,500+/seat laptop-orchestra model** (see *PLOrk'ing the Planet*, `papers/arxiv-plork`). Custom C runtime as PID 1, DRM framebuffer, ALSA 192 kHz 32-voice synthesis, Anthropic's Claude Code as a first-class prompt, KidLisp language with 17,000+ programs already written. Extends the laptop-orchestra lineage (Trueman/PLOrk 2005, Bukvic/L2Ork 2010) but escapes its institutional constraints — no fabrication, no licensing, no Max/MSP literacy prerequisite. *notepat* ships as the default piece, so a child pressing a key is already playing. Argues the operating system itself is the under-designed creative instrument, and proposes to finish designing it in public. |
+
+---
+
 ## 2023 — 5 recipients
 
 | Artist | Project | Notes |
@@ -125,15 +133,35 @@ Stated themes: drones, VR storytelling, 3D printing, laser scanning, biomedical 
 
 ## Where Aesthetic Computer fits
 
-The AC proposal threads through several of these lineages but from a distinctive angle:
+The AC proposal threads through several Lab lineages but from a specific, economically-motivated angle that no past Lab project has taken head-on. The argument lives across the AC paper series in `papers/`:
 
-1. **Generative-art-as-language** — direct dialogue with **Reas** (2023). Our KidLisp is to Aesthetic Computer what Processing was to the early 2000s art-code scene. We are building the language *and* the runtime *and* the publishing pipeline together.
+### The central claim: the PLOrk escape velocity
 
-2. **Custom hardware as creative instrument** — kindred to **Sachs** (*Transcendence Sphere*) and **Rüst** (pie-chart robot): a physical object that is itself the artwork, not a platform for delivering something else. AC Native's USB-bootable OS is the instrument.
+*PLOrk'ing the Planet* (`papers/arxiv-plork`) — *From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ* — makes the economic case. Princeton's Laptop Orchestra (2005–) is the gold-standard precedent for laptop ensembles as an art medium: it settled the *artistic* question in year one. What it failed at was **access**. At $1,500+/seat with hand-fabricated hemispherical speakers, licensed software, and institutional infrastructure, PLOrk served ~500–1,000 participants globally per year, for twenty years. Bukvic's L2Ork at Virginia Tech (2010) halved the cost with Linux but stayed university-bound. The laptop orchestra was a beautiful idea that reached almost no one.
 
-3. **AI as collaborator, not spectacle** — kindred to **Newsome** (*Being*) and **Hemphill** (*Rap Neural Network*). Our difference: we're not making an AI artwork, we're making **a creative OS that has Anthropic's Claude Code as a native command**. This dovetails with LACMA's Anthropic partnership in a way no prior Lab project has.
+AC Native answers this at two orders of magnitude below PLOrk: **a $50 instrument on surplus hardware, no fabrication, no licensing, no literacy prerequisite**. The built-in laptop speakers are the speakers. The built-in WiFi is the ensemble network. The kid pressing a key is already playing. Windows 10 end-of-life stranded ~240M PCs; 62M tonnes of e-waste pile up every year. The raw material for a planetary laptop orchestra already exists. The question is not whether we can afford to PLOrk the planet — it is whether we can afford not to.
 
-4. **Reproducible + public** — kindred to **de la Peña** (VR for public platforms) and **McDonald** (*Te Lapa*, public science tools). AC is designed from the start as a distributable USB instrument + hands-on workshops, not a one-off installation.
+A 1,000-person PLOrk is physically impossible. A 1,000-person AC Native ensemble costs $50,000 — one well-equipped PLOrk installation.
+
+### How AC fits each Lab lineage
+
+1. **Generative-art-as-language** — direct dialogue with **Reas** (2023). KidLisp is to Aesthetic Computer what Processing was to the early 2000s art-code scene: the language, the runtime, and the publishing pipeline as a single artifact. See `papers/arxiv-kidlisp`.
+
+2. **Custom hardware as creative instrument** — kindred to **Sachs** (*Transcendence Sphere*) and **Rüst** (*A Piece of the Pie Chart*, 2014). A physical object that is itself the artwork, not a platform for delivering something else. AC Native's USB-bootable OS is the instrument. See `papers/arxiv-os`.
+
+3. **AI as collaborator, not spectacle** — kindred to **Newsome** (*Being*) and **Hemphill** (*Rap Neural Network*). The difference: AC is not making an AI artwork — it's making a creative OS with **Anthropic's Claude Code as a native prompt**. This dovetails with LACMA's Anthropic partnership in a way no prior Lab project has; see Claude Code integration in `fedac/native/pieces/claude.mjs`.
+
+4. **Public/social interface design** — kindred to **McCarthy** (*Auto*, 2022). Every AC piece is URL-addressable + QR-shareable + WebSocket/UDP-multiplayer. The instrument *is* a social interface.
+
+5. **Reproducible public tool** — kindred to **McDonald, Mahaina & George** (*Te Lapa*) and **de la Peña**'s VR open-sourcing. The complete build pipeline, hardware compatibility matrix, and workshop curriculum are published openly from day one.
+
+6. **Circular-economy / e-waste ethos** — kindred to **Baker Cahill** (*Substrate*, mycelium), **San Fratello & Rael** (*MUD Frontiers*, earth as 3D-print feedstock), **Strachan** (*Lift Off*, locally-sourced fuels). Material argument: the Win10 orphans are the clay. See `papers/arxiv-sustainability` (*Who Pays for Creative Tools?*).
+
+7. **Access over novelty** — kindred to the implicit ethic across the Lab's 10 years, sharpened by `papers/arxiv-open-schools` (*Get Closed Source Out of Schools*) and `papers/arxiv-folk-songs` (*Playable Folk Songs: Oral Tradition Meets the Browser Keyboard*). A kid on a chromebook can't modify a chromebook; a kid with an AC Native USB can.
+
+### The summary Jeffrey could say out loud
+
+> *"Casey's 2023 project showed generative systems can be art. Lauren's 2022 project showed the interface itself can be the performance. I'm proposing the operating system can be the instrument — and that the instrument can cost fifty bucks and run on a laptop your school was about to throw away."*
 
 ## Invitational possibility
 
