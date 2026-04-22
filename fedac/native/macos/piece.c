@@ -925,6 +925,25 @@ static void call_lifecycle_with_api(PieceCtx *pc, JSValue fn) {
     JS_FreeValue(pc->jsctx, arg);
 }
 
+char *piece_pending_jump(PieceCtx *pc) {
+    if (!pc || !pc->jsctx) return NULL;
+    JSContext *cx = pc->jsctx;
+    JSValue global = JS_GetGlobalObject(cx);
+    JSValue pj = JS_GetPropertyStr(cx, global, "__pending_jump");
+    char *out = NULL;
+    if (JS_IsString(pj)) {
+        const char *s = JS_ToCString(cx, pj);
+        if (s) {
+            out = strdup(s);
+            JS_FreeCString(cx, s);
+        }
+        JS_SetPropertyStr(cx, global, "__pending_jump", JS_UNDEFINED);
+    }
+    JS_FreeValue(cx, pj);
+    JS_FreeValue(cx, global);
+    return out;
+}
+
 void piece_boot(PieceCtx *pc)  { call_lifecycle_with_api(pc, pc->boot_fn);  }
 void piece_paint(PieceCtx *pc) { call_lifecycle_with_api(pc, pc->paint_fn); }
 void piece_sim(PieceCtx *pc)   { call_lifecycle_with_api(pc, pc->sim_fn);   }

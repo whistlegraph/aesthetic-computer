@@ -377,12 +377,128 @@ static int run_screenshot_mode(void) {
     return ok ? 0 : 1;
 }
 
+// Record mode — dump every boot-animation frame as a PNG into a directory.
+// Pairs with ffmpeg to turn the sequence into an mp4/mkv. All AC_SHOT_*
+// config applies (handle, city, hour, density, title scale, panel,
+// badges…); only the output path semantics differ.
+//
+// Extra knob: AC_RECORD_HOLD_FRAMES extends the last frame so the TTS
+// greeting (which runs longer than the 2 s animation) has time to finish.
+// Default 0 — add 60 frames (1 s @ 60 fps) of held final frame per second
+// of pad you want.
+static int run_record_mode(void) {
+    const char *out_dir = getenv("AC_RECORD_DIR");
+    if (!out_dir || !out_dir[0]) return 0;
+
+    int  out_w    = getenv("AC_SHOT_W")       ? atoi(getenv("AC_SHOT_W"))       : 1280;
+    int  out_h    = getenv("AC_SHOT_H")       ? atoi(getenv("AC_SHOT_H"))       : 800;
+    int  density  = getenv("AC_SHOT_DENSITY") ? atoi(getenv("AC_SHOT_DENSITY")) : 2;
+    if (density < 1) density = 1;
+    if (density > 8) density = 8;
+    int  fb_w     = out_w / density; if (fb_w < 32) fb_w = 32;
+    int  fb_h     = out_h / density; if (fb_h < 32) fb_h = 32;
+    int  hold     = getenv("AC_RECORD_HOLD_FRAMES")
+                        ? atoi(getenv("AC_RECORD_HOLD_FRAMES")) : 0;
+    if (hold < 0) hold = 0;
+    if (hold > 600) hold = 600;  // 10 s cap
+
+    // Title + title_scale: same logic as screenshot mode. Duplicated
+    // rather than factored because both are short and the env-var surface
+    // keeps the code site readable.
+    char title_buf[128];
+    const char *t_env = getenv("AC_SHOT_TITLE");
+    const char *h_env = getenv("AC_SHOT_HANDLE");
+    if (t_env && t_env[0]) {
+        snprintf(title_buf, sizeof title_buf, "%s", t_env);
+    } else if (h_env && h_env[0]) {
+        const char *h = (h_env[0] == '@') ? h_env + 1 : h_env;
+        snprintf(title_buf, sizeof title_buf, "hi @%s", h);
+    } else {
+        snprintf(title_buf, sizeof title_buf, "hi");
+    }
+    const char *city = getenv("AC_SHOT_CITY");
+    if (!city || !city[0]) city = "Los Angeles";
+    int hour = getenv("AC_SHOT_HOUR") ? atoi(getenv("AC_SHOT_HOUR")) : 10;
+
+    int title_scale = 0;
+    const char *ts_env = getenv("AC_SHOT_TITLE_SCALE");
+    if (ts_env && ts_env[0]) {
+        title_scale = atoi(ts_env);
+    } else {
+        int title_len = 0;
+        for (const char *p = title_buf; *p; p++) title_len++;
+        if (title_len < 1) title_len = 1;
+        int target_px = fb_w * 55 / 100;
+        int auto_s   = target_px / (title_len * 4);
+        if (auto_s < 3) auto_s = 3;
+        if (auto_s > 8) auto_s = 8;
+        title_scale = auto_s;
+    }
+
+    BootAnimConfig cfg = {
+        .title             = title_buf,
+        .city              = city,
+        .title_colors      = NULL,
+        .title_colors_len  = 0,
+        .hour              = hour,
+        .git_hash          = getenv("AC_SHOT_GIT_HASH"),
+        .build_ts          = getenv("AC_SHOT_BUILD_TS"),
+        .build_name        = getenv("AC_SHOT_BUILD_NAME"),
+        .driver_name       = getenv("AC_SHOT_DRIVER"),
+        .is_new_version    = getenv("AC_SHOT_FRESH")       ? 1 : 0,
+        .show_install      = getenv("AC_SHOT_INSTALL")     ? 1 : 0,
+        .is_installed      = getenv("AC_SHOT_INSTALLED")   ? 1 : 0,
+        .has_claude_badge  = getenv("AC_SHOT_CLAUDE")      ? 1 : 0,
+        .has_github_badge  = getenv("AC_SHOT_GITHUB")      ? 1 : 0,
+        .title_scale       = title_scale,
+    };
+
+    ACFramebuffer *fb = fb_create(fb_w, fb_h);
+    if (!fb) { fprintf(stderr, "[record] fb_create failed\n"); return 1; }
+    ACGraph g;
+    graph_init(&g, fb);
+    font_init();
+
+    BootAnimState state = {0};
+    int total = BOOT_ANIM_FRAMES + hold;
+    for (int f = 0; f < total; f++) {
+        // Hold frames freeze at the last real animation frame so any
+        // padding for TTS length doesn't show a shrinking time bar or
+        // re-fading subtitle — the picture just stays.
+        int anim_f = f < BOOT_ANIM_FRAMES ? f : BOOT_ANIM_FRAMES - 1;
+        boot_anim_render_frame(&g, fb, anim_f, &cfg, &state);
+
+        uint32_t *out_pixels = fb->pixels;
+        uint32_t *scaled = NULL;
+        int stride = fb->stride, w = fb->width, h = fb->height;
+        if (density > 1) {
+            scaled = upscale_nn(fb->pixels, fb->width, fb->height, density);
+            if (!scaled) { fprintf(stderr, "[record] upscale_nn failed at f=%d\n", f); break; }
+            out_pixels = scaled; w = fb->width * density; h = fb->height * density; stride = w;
+        }
+        char path[1024];
+        snprintf(path, sizeof path, "%s/frame_%05d.png", out_dir, f);
+        if (!png_write_argb(path, out_pixels, w, h, stride)) {
+            fprintf(stderr, "[record] write failed at f=%d\n", f);
+            free(scaled); break;
+        }
+        free(scaled);
+    }
+    fprintf(stderr, "[record] %d frames → %s (anim=%d hold=%d, %dx%d)\n",
+            total, out_dir, BOOT_ANIM_FRAMES, hold, fb->width * density, fb->height * density);
+    fb_destroy(fb);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     // Screenshot mode short-circuits everything else — no SDL, no piece,
     // just one frame of the boot animation to a PNG. Gated on AC_SHOT_PNG
     // so normal launches (and `make app`) behave exactly as before.
     if (getenv("AC_SHOT_PNG")) {
         return run_screenshot_mode();
+    }
+    if (getenv("AC_RECORD_DIR")) {
+        return run_record_mode();
     }
 
     // --test-tone: exercise the audio engine only; no window, no piece.
@@ -502,6 +618,59 @@ int main(int argc, char **argv) {
         .stride = fb_w,
     };
     if (!fb.pixels) { fprintf(stderr, "fb alloc failed\n"); return 1; }
+
+    // Boot animation prelude — 2 s of the shared boot_anim renderer before
+    // the piece loads. Gated on AC_BOOT_ANIM (default off so existing
+    // notepat launches stay snappy; the demo pipeline exports it so every
+    // session opens with "hi @handle. enjoy <city>!"). Hour + handle +
+    // city pull from the same AC_SHOT_* vars the screenshot/record modes
+    // use, so a single config covers both worlds.
+    if (getenv("AC_BOOT_ANIM")) {
+        ACFramebuffer bafb = {
+            .pixels = fb.pixels, .width = fb.width,
+            .height = fb.height, .stride = fb.stride,
+        };
+        ACGraph bg;
+        graph_init(&bg, &bafb);
+        font_init();
+
+        char title_buf[128];
+        const char *h_env = getenv("AC_SHOT_HANDLE");
+        const char *t_env = getenv("AC_SHOT_TITLE");
+        if (t_env && t_env[0]) snprintf(title_buf, sizeof title_buf, "%s", t_env);
+        else if (h_env && h_env[0]) {
+            const char *h = (h_env[0] == '@') ? h_env + 1 : h_env;
+            snprintf(title_buf, sizeof title_buf, "hi @%s", h);
+        } else snprintf(title_buf, sizeof title_buf, "hi");
+
+        BootAnimConfig anim = {
+            .title = title_buf,
+            .city  = (getenv("AC_SHOT_CITY") && getenv("AC_SHOT_CITY")[0])
+                        ? getenv("AC_SHOT_CITY") : "Los Angeles",
+            .hour  = getenv("AC_SHOT_HOUR") ? atoi(getenv("AC_SHOT_HOUR")) : 10,
+            .title_scale = getenv("AC_SHOT_TITLE_SCALE")
+                             ? atoi(getenv("AC_SHOT_TITLE_SCALE")) : 0,
+        };
+        BootAnimState st = {0};
+        Uint64 frame_start = SDL_GetTicks();
+        int target_ms = 1000 / 60;
+        for (int f = 0; f < BOOT_ANIM_FRAMES; f++) {
+            boot_anim_render_frame(&bg, &bafb, f, &anim, &st);
+            SDL_UpdateTexture(tex, NULL, fb.pixels, fb.stride * (int)sizeof(uint32_t));
+            SDL_RenderClear(ren);
+            SDL_RenderTexture(ren, tex, NULL, NULL);
+            SDL_RenderPresent(ren);
+            // Drain events so the OS doesn't mark the window unresponsive.
+            SDL_Event ev; while (SDL_PollEvent(&ev)) {
+                if (ev.type == SDL_EVENT_QUIT) goto boot_anim_done;
+            }
+            Uint64 now = SDL_GetTicks();
+            int elapsed = (int)(now - frame_start);
+            int want    = (f + 1) * target_ms;
+            if (want > elapsed) SDL_Delay(want - elapsed);
+        }
+boot_anim_done: ;
+    }
 
     PieceCtx *pc = piece_load(piece_path, &fb);
     if (!pc) {
@@ -751,6 +920,54 @@ int main(int argc, char **argv) {
 
         piece_sim(pc);
         render_frame(&rctx);
+
+        // Piece-swap: the piece (or any global code) can set
+        // globalThis.__pending_jump = "<name>". We poll between frames,
+        // destroy the old ctx, and load the new piece. Target resolves
+        // against the current piece's directory so prompt→notepat etc.
+        // stay within fedac/native/pieces/.
+        char *jump_to = piece_pending_jump(pc);
+        if (jump_to) {
+            char parent[1200];
+            snprintf(parent, sizeof parent, "%s", piece_path);
+            char *sl = strrchr(parent, '/');
+            if (sl) *sl = 0; else parent[0] = 0;
+
+            // Accept bare "notepat", "notepat:param", "@handle/piece" — for
+            // this first cut only strip colon params (the prompt passes
+            // them through); @user lookups aren't supported without net.
+            char name[256];
+            snprintf(name, sizeof name, "%s", jump_to);
+            char *colon = strchr(name, ':');
+            if (colon) *colon = 0;
+            if (name[0] == '@') {
+                fprintf(stderr, "[jump] @handle pieces not supported yet (%s)\n", jump_to);
+                free(jump_to); continue;
+            }
+
+            char candidate[1600];
+            if (parent[0]) snprintf(candidate, sizeof candidate, "%s/%s.mjs", parent, name);
+            else           snprintf(candidate, sizeof candidate, "%s.mjs", name);
+
+            fprintf(stderr, "[jump] %s → %s\n", jump_to, candidate);
+            free(jump_to);
+
+            PieceCtx *next = piece_load(candidate, &fb);
+            if (!next) {
+                fprintf(stderr, "[jump] load failed, staying on current piece\n");
+                continue;
+            }
+            piece_destroy(pc);
+            pc = next;
+            rctx.pc = pc;
+            // New path becomes the basis for subsequent jumps.
+            static char path_owned[1600];
+            snprintf(path_owned, sizeof path_owned, "%s", candidate);
+            piece_path = path_owned;
+            piece_reframe(pc, fb.width, fb.height);
+            if (overlay) piece_set_overlay(pc, 1);
+            piece_boot(pc);
+        }
     }
 
     SDL_RemoveEventWatch(resize_watch, &rctx);

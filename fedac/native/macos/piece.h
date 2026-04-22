@@ -51,4 +51,9 @@ void piece_set_overlay(PieceCtx *ctx, int on);
 // Teardown.
 void piece_destroy(PieceCtx *ctx);
 
+// Poll the piece for a pending jump() call. Returns a newly-malloc'd
+// string with the target piece name and clears the JS slot so each
+// target is only seen once. NULL when no jump is queued. Caller frees.
+char *piece_pending_jump(PieceCtx *ctx);
+
 #endif
