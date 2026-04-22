@@ -137,6 +137,103 @@
   h2 .ord { color: var(--pink); margin-right: 0.4em; }
   h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
 
+  /* ── APPLICATION AT A GLANCE (form mirror) ─────── */
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--pink);
+    border-radius: 4px;
+  }
+  .glance .hint {
+    color: var(--dim);
+    font-size: 0.85em;
+    margin-bottom: 1em;
+    font-style: italic;
+  }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-top: 0.3em;
+    align-self: start;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--gold);
+    font-size: 0.85em;
+    letter-spacing: 0.08em;
+    margin-top: 0.2em;
+    font-weight: normal;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 0.85em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.5;
+    font-size: 0.94em;
+  }
+  .glance dl > div:last-of-type dd,
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--pink); font-style: normal; }
+  .glance .statement {
+    font-size: 0.9em;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .glance .excerpt {
+    color: var(--dim);
+    font-size: 0.9em;
+    margin: 0 0 0.35em;
+    line-height: 1.5;
+  }
+  .glance .jump {
+    display: inline-block;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  .glance ol.imglist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.88em;
+  }
+  .glance ol.imglist li {
+    padding: 0.12em 0;
+    color: var(--dim);
+  }
+  .glance ol.imglist li::before {
+    content: counter(imgcounter) ". ";
+    counter-increment: imgcounter;
+    color: var(--purple);
+    font-family: 'Berkeley Mono Variable', monospace;
+  }
+  .glance ol.imglist { counter-reset: imgcounter; }
+  .glance ol.imglist code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.92em;
+    color: var(--cyan);
+  }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
   /* ── PITCH PROSE ─────────────────────────── */
   .pitch p { margin: 0 0 0.9em; font-size: 0.98em; }
   .pitch p:last-child { margin-bottom: 0; }
@@ -326,8 +423,82 @@
     </dl>
   </header>
 
+  <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">submittable preview</span></h2>
+    <p class="hint">Every field from the LACMA 2026 Art + Technology Lab application with its answer inline. Longer pieces link to their full sections below.</p>
+
+    <dl>
+      <dt>Project name</dt>
+      <dd><strong>Aesthetic Computer: Personal Computers Are Not Done Yet</strong></dd>
+
+      <dt>Three descriptive words</dt>
+      <dd>instrument · language · network</dd>
+
+      <dt>One-sentence description</dt>
+      <dd>Aesthetic Computer is a bare-metal creative computing system — custom hardware, a handmade programming language, and a social network — that reimagines the personal computer as a live musical instrument for art.</dd>
+
+      <dt>Full project description<span class="cap">500 w · ours: 499</span></dt>
+      <dd>
+        <p class="excerpt">Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them — operating systems built to sell attention, software gatekept by app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything — before platform consolidation cut it short. AC bets that a second personal computing scene is starting, and that with tools this powerful in everyone's hands, it will go both wider <em>and</em> deeper than the first…</p>
+        <a class="jump" href="#pitch">Read full 499-word pitch ↓</a> · <a class="jump" href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">PDF</a>
+      </dd>
+
+      <dt>Artist bio / CV</dt>
+      <dd>
+        Jeffrey Alan Scudder (b. 1989, Assonet, MA) — artist in Los Angeles. Yale School of Art MFA (2013). Creator of <em>Aesthetic Computer</em>, <em>Whistlegraph</em>, <em>No Paint</em>. Work in the collections of KADIST (San Francisco) and SMK (National Gallery of Denmark). Open-source tools <em>No Paint</em> (2020) and <em>notepat</em> (2024) each reached the front page of Hacker News. Currently Author in Residence at UCLA under Casey Reas + Lauren Lee McCarthy. Biweekly NELA Computer Club demos at Plot.Place, Chinatown LA.<br>
+        <a class="jump" href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf#page=4">Full CV in PDF ↓</a>
+      </dd>
+
+      <dt>Artistic merit<span class="cap">100 w · ours: 95</span></dt>
+      <dd class="statement">Aesthetic Computer treats the computer itself as an unfinished instrument — a site for ongoing artistic invention rather than a fixed consumer product. By building from bare metal (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and AC Native transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.</dd>
+
+      <dt>Technology + culture<span class="cap">100 w · ours: 98</span></dt>
+      <dd class="statement">Consumer operating systems have become attention-extraction machines — optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots directly into a single piece of art software and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself — demonstrating that a language can be designed for artistic expression rather than industrial production. The 17,000+ programs written in KidLisp suggest this resonates beyond our own practice.</dd>
+
+      <dt>Public engagement<span class="cap">100 w · ours: 95</span></dt>
+      <dd class="statement">We propose three forms of public engagement. First, hands-on KidLisp workshops at LACMA where participants write generative art programs that run on AC Native hardware — no prior coding experience required. Second, an installation of multiple AC Native stations where visitors experience creative computing as a direct, instrument-like interaction. Third, open "build days" where we assemble USB drives and document the process publicly, inviting visitors into the making of the system itself. All curricula, documentation, and software will be published openly for other artists and institutions to adopt.</dd>
+
+      <dt>Budget<span class="cap">$50k cap · ours: $47k</span></dt>
+      <dd>
+        Artist fee $22,000 (24 mo) · <em>2027 Symposium contribution $2,500</em> · <em>2028 Demo Day premiere $3,000</em> · Studio hardware $3,500 · Install laptops + keyboards + peripherals $3,100 · Install fabrication $2,500 · Workshop materials $1,200 · Server infra $3,500 · Docs + translation $2,000 · Contingency $3,700. <strong>Total $47,000</strong> ($3k headroom).
+        <br><a class="jump" href="#budget">Full budget ↓</a>
+      </dd>
+
+      <dt>Other funding</dt>
+      <dd>Open-source sponsorship via GitHub Sponsors and Liberapay supplements ongoing infrastructure (hosting, domains, CI). No other institutional grant support at this time.</dd>
+
+      <dt>Timeline<span class="cap">24 months</span></dt>
+      <dd>
+        Fall 2026 → Spring 2027 · Hardware + curriculum ·
+        Spring–Summer 2027 · Pre-Symposium workshops ·
+        <em>Fall 2027 · 2027 Symposium (WIP)</em> ·
+        Winter 27 – Summer 28 · Full install + extended workshops ·
+        <em>Fall 2028 · 2028 Demo Day (premiere)</em>.
+        <br><a class="jump" href="#calendar">Full calendar ↓</a>
+      </dd>
+
+      <dt>Images<span class="cap">up to 5 · JPEG</span></dt>
+      <dd>
+        <ol class="imglist">
+          <li><code>platform-screenshot.jpg</code> — Aesthetic Computer running on mobile + desktop; 2,862 registered users.</li>
+          <li><code>kidlisp-featured.jpg</code> — <em>$roz</em> by @jeffrey, a KidLisp piece with 6,000+ plays.</li>
+          <li><code>card-gallery.jpg</code> — Four KidLisp pieces as printable cards ($berz, $24m, $duv, $kl1) from UCLA Social Software.</li>
+          <li><code>card-berz.jpg</code> — $berz card up close; 6 lines of KidLisp.</li>
+          <li><code>hardware-yoga.jpg</code> — Target hardware: Lenovo Yoga convertible running AC Native from USB.</li>
+        </ol>
+      </dd>
+
+      <dt>Video<span class="cap">under 5 min · optional</span></dt>
+      <dd>Filming Wed Apr 22; unlisted YouTube/Vimeo upload before submission. Shot-by-shot script at <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/video-script.md">grants/lacma-2026/video-script.md</a>.</dd>
+
+      <dt>Lineage check<span class="cap">past Lab cohort</span></dt>
+      <dd>Two recent Lab recipients co-teach UCLA's Social Software course where Jeffrey is Author in Residence: <strong>Casey Reas</strong> (2023, <em>METAVASARELY and An Empty Room</em>) and <strong>Lauren Lee McCarthy</strong> (2022, <em>Auto</em>). <a class="jump" href="#this-lab">Lineage below ↓</a> · <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/art-tech-lab-recipients.md">All 45 recipients</a></dd>
+    </dl>
+  </section>
+
   <!-- ── PITCH ───────────────────────────────── -->
-  <section class="pitch">
+  <section class="pitch" id="pitch">
     <h2><span class="ord">§</span>Pitch</h2>
 
     <p>Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them — operating systems built to sell attention, software gatekept by a handful of app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything — before platform consolidation cut it short.</p>
@@ -436,7 +607,7 @@
   </section>
 
   <!-- ── CALENDAR ──────────────────────────── -->
-  <section>
+  <section id="calendar">
     <h2><span class="ord">§</span>Calendar<span class="count">aligned to LACMA's biennial cadence</span></h2>
     <p style="color:var(--dim);margin-bottom:1em">The Lab's new structure sets two public events: a <em style="color:var(--pink);font-style:normal">2027 Symposium</em> (works-in-development) and a <em style="color:var(--pink);font-style:normal">2028 Demo Day</em> (completed projects). This proposal anchors each phase to one of those events rather than a vague "final show."</p>
     <div class="features">
@@ -448,8 +619,28 @@
     </div>
   </section>
 
+  <!-- ── BUDGET ─────────────────────────────── -->
+  <section id="budget">
+    <h2><span class="ord">§</span>Budget<span class="count">$47,000 requested · $50k cap</span></h2>
+    <p style="color:var(--dim);margin-bottom:1em">Event-tied line items in pink (Symposium + Demo Day contributions). Artist fee covers the full 24-month arc from Fall 2026 through Fall 2028. $3,000 remains as headroom under the $50,000 cap.</p>
+    <div class="features">
+      <div class="feat"><b>Artist fee</b>$22,000 · 24 months (Fall 26 – Fall 28)</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">2027 Symposium</b>$2,500 · travel, cohort demo USB kit, on-site demo station</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">2028 Demo Day</b>$3,000 · install setup, public-program support</div>
+      <div class="feat"><b>Studio hardware</b>$3,500 · dev machines + displays</div>
+      <div class="feat"><b>Installation laptops</b>$2,000 · 5 × $400 refurbished</div>
+      <div class="feat"><b>NuPhy analog keyboards</b>$600 · 5 × $120</div>
+      <div class="feat"><b>USB + peripherals</b>$500 · drives, cables, adapters</div>
+      <div class="feat"><b>Installation fabrication</b>$2,500 · furniture, mounts, signage</div>
+      <div class="feat"><b>Workshop materials</b>$1,200 · printed guides + KidLisp reference cards</div>
+      <div class="feat"><b>Server + compute infra</b>$3,500 · hosting, CDN, CI/CD</div>
+      <div class="feat"><b>Documentation</b>$2,000 · video, photography, translation</div>
+      <div class="feat"><b>Contingency (10%)</b>$3,700</div>
+    </div>
+  </section>
+
   <!-- ── LAB LINEAGE (PAST RECIPIENTS) ──────── -->
-  <section>
+  <section id="this-lab">
     <h2><span class="ord">§</span>This Lab's Lineage<span class="count">45 projects · 2014–2023</span></h2>
     <p style="color:var(--dim);margin-bottom:1em">A few Art + Technology Lab projects that mark out the territory this proposal enters. Full reference list in the <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/art-tech-lab-recipients.md">repo homework file</a>.</p>
     <div class="lineage">

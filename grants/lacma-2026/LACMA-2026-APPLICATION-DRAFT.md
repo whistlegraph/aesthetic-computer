@@ -80,7 +80,7 @@ Aesthetic Computer treats the computer itself as an unfinished instrument — a 
 
 _[~98 words]_
 
-Consumer operating systems have become attention-extraction machines — optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots directly into a single piece of art software and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself — demonstrating that a language can be designed for artistic expression rather than industrial production. The 16,000+ programs written in KidLisp suggest this resonates beyond our own practice.
+Consumer operating systems have become attention-extraction machines — optimized for engagement metrics, not creative agency. AC Native offers a counter-model: a computer that boots directly into a single piece of art software and does nothing else. This is not nostalgia for early computing but a forward-looking argument that the personal computer's design is a cultural question, not a settled technical one. KidLisp extends this argument to programming itself — demonstrating that a language can be designed for artistic expression rather than industrial production. The 17,000+ programs written in KidLisp suggest this resonates beyond our own practice.
 
 ---
 
