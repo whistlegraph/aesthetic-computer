@@ -2977,196 +2977,100 @@ static void draw_boot_status(ACGraph *graph, ACFramebuffer *screen,
 }
 
 // ─── SHUTDOWN ANIMATION ──────────────────────────────────────────────────
-// Mirror of the boot animation in reverse: "bye @handle" appears briefly,
-// matrix-rain fades with the background to black, ~1.2s total. Skipped
-// (no-op) if the display context isn't ready yet.
+// The canonical "bye @handle" farewell — a 1.5s chaotic red/white strobe
+// with jittery title and final black frame. Extracted from the inline
+// version that used to live in the power-button handler so that every
+// poweroff path (main-loop power button, ac_poweroff() called from JS,
+// ac_poweroff() called from crash/OTA paths) produces the same sign-off.
 //
-// Uses the same helpers as the boot animation: matrix-rain column state,
-// title_char_color() for per-handle rainbow, font_draw_matrix() for the
-// chunky title, graph_ink()/graph_box()/graph_plot() for rendering.
+// Skipped (no-op) if the display context isn't ready yet — e.g. an
+// emergency poweroff during early boot before main() has initialized
+// graphics.
+//
+// Intentionally does NOT play TTS / shutdown chime. Those are pre-roll
+// hooks (they start before the visual, so the farewell audio already has
+// a beat of head-room by the time the strobe begins). Callers that have
+// tts/audio handles in scope (the power-button path) trigger those
+// directly before calling this function.
 static void draw_shutdown_anim(void) {
+    // Single-shot guard: the main-loop power-button handler calls this
+    // inline, then sets running=0 and falls through to cleanup, which
+    // ends in ac_poweroff() — which would call this again post-cleanup
+    // on freed screen/display memory. Run only once per process.
+    static int already_played = 0;
+    if (already_played) return;
+
     ACGraph *graph = g_shutdown_graph;
     ACFramebuffer *screen = g_shutdown_screen;
     ACDisplay *display = (ACDisplay *)g_display;
     int pixel_scale = g_shutdown_pixel_scale;
     if (!graph || !screen || !display) return;
+    already_played = 1;
 
-    // Build the shutdown title from the current boot_title:
+    // Build the title from the current boot_title.
     //   "good morning @jeffrey" → "bye @jeffrey"
     //   "notepat" (no handle)   → "bye"
-    char shutdown_title[96];
+    char bye_title[80];
     {
         const char *at = strchr(boot_title, '@');
-        if (at && at[1]) {
-            snprintf(shutdown_title, sizeof(shutdown_title), "bye %s", at);
-        } else {
-            snprintf(shutdown_title, sizeof(shutdown_title), "bye");
-        }
-    }
-
-    // Time-of-day base background (same palette as boot_status).
-    int la_hour = get_la_hour();
-    int is_day = (la_hour >= 7 && la_hour < 18);
-    uint8_t bg_r0, bg_g0, bg_b0;
-    if (is_day) {
-        if (la_hour < 12) { bg_r0 = 235; bg_g0 = 230; bg_b0 = 220; }
-        else              { bg_r0 = 240; bg_g0 = 235; bg_b0 = 215; }
-    } else {
-        if (la_hour >= 5 && la_hour < 7)       { bg_r0 = 100; bg_g0 = 45; bg_b0 = 20; }
-        else if (la_hour >= 18 && la_hour < 20){ bg_r0 = 80;  bg_g0 = 25; bg_b0 = 60; }
-        else                                   { bg_r0 = 15;  bg_g0 = 15; bg_b0 = 40; }
-    }
-
-    // Matrix-rain column state — reseed per shutdown so it feels fresh.
-    #define SHUTDOWN_RAIN_MAX_COLS 128
-    int rain_col_y[SHUTDOWN_RAIN_MAX_COLS];
-    int rain_col_speed[SHUTDOWN_RAIN_MAX_COLS];
-    unsigned int rain_col_seed[SHUTDOWN_RAIN_MAX_COLS];
-    {
-        unsigned int s = (unsigned int)time(NULL) ^ 0xBEEFCAFEu;
-        for (int c = 0; c < SHUTDOWN_RAIN_MAX_COLS; c++) {
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_y[c] = -(int)(s % 400);
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_speed[c] = 2 + (int)(s % 4);
-            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-            rain_col_seed[c] = s;
-        }
+        if (at) snprintf(bye_title, sizeof(bye_title), "bye @%s", at + 1);
+        else    snprintf(bye_title, sizeof(bye_title), "bye");
     }
 
     struct timespec anim_time;
     clock_gettime(CLOCK_MONOTONIC, &anim_time);
 
-    // 72 frames @ 60fps = 1.2s. First 18 frames (~300ms): title fully
-    // visible, bg at full time-of-day color. Remaining 54 frames: linear
-    // fade to black on both bg and title.
-    int total_frames = 72;
-    int hold_frames  = 18;
-    for (int f = 0; f < total_frames; f++) {
-        // fade_t: 1.0 during hold, then eases to 0.
-        double fade_t;
-        if (f < hold_frames) {
-            fade_t = 1.0;
-        } else {
-            double t = (double)(f - hold_frames) / (double)(total_frames - hold_frames);
-            // Cubic ease-in (fade accelerates) so the last frames are nearly black.
-            fade_t = 1.0 - t;
-            fade_t = fade_t * fade_t * fade_t;
-        }
+    for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
+        double t = (double)f / 90.0;
 
-        uint8_t bg_r = (uint8_t)(bg_r0 * fade_t);
-        uint8_t bg_g = (uint8_t)(bg_g0 * fade_t);
-        uint8_t bg_b = (uint8_t)(bg_b0 * fade_t);
-        graph_wipe(graph, (ACColor){bg_r, bg_g, bg_b, 255});
+        // Chaotic strobe: alternate red/white/black with a pseudo-random cycle
+        int phase = (f * 7 + f / 3) % 6;
+        uint8_t br, bg_g, bb;
+        if (phase < 2)      { br = 220; bg_g = 20;  bb = 20;  } // red
+        else if (phase < 3) { br = 255; bg_g = 255; bb = 255; } // white
+        else if (phase < 5) { br = 180; bg_g = 0;   bb = 0;   } // dark red
+        else                { br = 10;  bg_g = 10;  bb = 10;  } // near black
 
-        // Rainbow stripes top + bottom (dim with fade).
-        {
-            int stripe_h = 3;
-            int num_stripes = 8;
-            int band = num_stripes * stripe_h;
-            for (int s = 0; s < num_stripes; s++) {
-                double hue = fmod((double)s / num_stripes * 360.0 + f * 3.0, 360.0);
-                double h6 = hue / 60.0;
-                int hi = (int)h6 % 6;
-                double fr = h6 - (int)h6;
-                double cr, cg, cb;
-                switch (hi) {
-                    case 0: cr = 1;    cg = fr;   cb = 0;     break;
-                    case 1: cr = 1-fr; cg = 1;    cb = 0;     break;
-                    case 2: cr = 0;    cg = 1;    cb = fr;    break;
-                    case 3: cr = 0;    cg = 1-fr; cb = 1;     break;
-                    case 4: cr = fr;   cg = 0;    cb = 1;     break;
-                    default:cr = 1;    cg = 0;    cb = 1-fr;  break;
-                }
-                uint8_t a = (uint8_t)(80 * fade_t);
-                int y_top = s * stripe_h;
-                int y_bot = screen->height - band + s * stripe_h;
-                graph_ink(graph, (ACColor){(uint8_t)(cr*200), (uint8_t)(cg*200), (uint8_t)(cb*200), a});
-                graph_box(graph, 0, y_top, screen->width, stripe_h, 1);
-                graph_box(graph, 0, y_bot, screen->width, stripe_h, 1);
-            }
-        }
+        // Fade intensity toward end
+        double fade = 1.0 - t * t;
+        br   = (uint8_t)(br * fade);
+        bg_g = (uint8_t)(bg_g * fade);
+        bb   = (uint8_t)(bb * fade);
+        graph_wipe(graph, (ACColor){br, bg_g, bb, 255});
 
-        // Matrix rain — same math as boot, dimmed by fade_t.
-        {
-            int col_w = 10;
-            int glyph_w = 7, glyph_h = 9;
-            int nc = screen->width / col_w;
-            if (nc > SHUTDOWN_RAIN_MAX_COLS) nc = SHUTDOWN_RAIN_MAX_COLS;
-            int rain_alpha_scale = (int)((is_day ? 80 : 180) * fade_t);
-            for (int c = 0; c < nc; c++) {
-                rain_col_y[c] += rain_col_speed[c];
-                if (rain_col_y[c] > screen->height + glyph_h * 12) {
-                    unsigned int s = rain_col_seed[c];
-                    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-                    rain_col_seed[c] = s;
-                    rain_col_y[c] = -(int)(s % 300);
-                    rain_col_speed[c] = 2 + (int)(s % 4);
-                }
-                int cx = c * col_w + 1;
-                for (int trail = 0; trail < 10; trail++) {
-                    int gy = rain_col_y[c] - trail * glyph_h;
-                    if (gy < -glyph_h || gy >= screen->height) continue;
-                    int tb = (trail == 0) ? 220 : 180 - trail * 18;
-                    if (tb < 15) continue;
-                    int b = (tb * rain_alpha_scale) >> 8;
-                    ACColor cg_col = (trail == 0)
-                        ? (ACColor){ (uint8_t)(b * 0.8), 255, (uint8_t)(b * 0.8), (uint8_t)b }
-                        : (ACColor){ 40, (uint8_t)(b * 0.9 + 20), (uint8_t)(b * 0.4), (uint8_t)b };
-                    graph_ink(graph, cg_col);
-                    unsigned int gseed = rain_col_seed[c]
-                        ^ ((unsigned)trail * 2654435761u)
-                        ^ ((unsigned)(f / 4) * 2246822519u);
-                    for (int row = 0; row < glyph_h; row++) {
-                        for (int col = 0; col < glyph_w; col++) {
-                            gseed ^= gseed << 13; gseed ^= gseed >> 17; gseed ^= gseed << 5;
-                            if (gseed & 1) graph_plot(graph, cx + col, gy + row);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Title — "bye @handle" with per-handle colors, fades with bg.
-        int alpha = (int)(255.0 * fade_t);
-        if (alpha > 0) {
-            int scale = 3;
-            int tw = font_measure_matrix(shutdown_title, scale);
-            if (tw > screen->width - 20) {
-                scale = 2;
-                tw = font_measure_matrix(shutdown_title, scale);
-            }
-            int tx = (screen->width - tw) / 2;
-            int ty = screen->height / 2 - 20;
-            for (int ci = 0; shutdown_title[ci]; ci++) {
-                ACColor cc = title_char_color(ci, f, alpha);
-                graph_ink(graph, cc);
-                char ch[2] = { shutdown_title[ci], 0 };
-                tx = font_draw_matrix(graph, ch, tx, ty, scale);
-            }
-        }
-
-        // Subtitle — "aesthetic.computer" beneath the title, also fading.
-        {
-            uint8_t sub = (uint8_t)((is_day ? 100 : 140) * fade_t);
-            if (sub > 0) {
-                graph_ink(graph, (ACColor){sub, sub, sub, 255});
-                int sw = font_measure_matrix("aesthetic.computer", 1);
-                font_draw_matrix(graph, "aesthetic.computer",
-                                 (screen->width - sw) / 2,
-                                 screen->height / 2 + 10, 1);
-            }
+        // Title text — jitter position, flicker between red and white
+        if (t < 0.85) {
+            int alpha = (int)(255.0 * (1.0 - t / 0.85));
+            int jx = (f * 13 % 7) - 3; // -3 to +3 pixel jitter
+            int jy = (f * 17 % 5) - 2; // -2 to +2
+            uint8_t tr = (f % 3 == 0) ? 255 : 200;
+            uint8_t tg = (f % 3 == 0) ? 255 : 40;
+            uint8_t tb = (f % 3 == 0) ? 255 : 40;
+            graph_ink(graph, (ACColor){tr, tg, tb, (uint8_t)alpha});
+            int tw = font_measure_matrix(bye_title, 3);
+            font_draw_matrix(graph, bye_title,
+                (screen->width - tw) / 2 + jx,
+                screen->height / 2 - 20 + jy, 3);
+            graph_ink(graph, (ACColor){(uint8_t)(120 * fade), 40, 40, (uint8_t)(alpha / 2)});
+            int sw = font_measure_matrix("aesthetic.computer", 1);
+            font_draw_matrix(graph, "aesthetic.computer",
+                (screen->width - sw) / 2 + jx / 2,
+                screen->height / 2 + 10 + jy / 2, 1);
         }
 
         ac_display_present(display, screen, pixel_scale);
         frame_sync_60fps(&anim_time);
     }
 
-    // Final flush: one frame of pure black so the kernel halt doesn't
-    // leave a partially-faded frame on screen.
+    // Final black frame + suppress kernel console output so halt lands clean.
     graph_wipe(graph, (ACColor){0, 0, 0, 255});
     ac_display_present(display, screen, pixel_scale);
-    #undef SHUTDOWN_RAIN_MAX_COLS
+    {
+        FILE *pl = fopen("/proc/sys/kernel/printk", "w");
+        if (pl) { fputs("0 0 0 0", pl); fclose(pl); }
+        FILE *vc = fopen("/dev/tty0", "w");
+        if (vc) { fputs("\033[?25l\033[2J", vc); fclose(vc); }
+    }
 }
 
 // Audio recording tap callback (adapts rec_callback signature to recorder_submit_audio)
@@ -4306,14 +4210,11 @@ int main(int argc, char *argv[]) {
 
             if (power_pressed || poweroff_requested) {
                 poweroff_requested = 0;  // consume the flag
-                // Say bye IMMEDIATELY (TTS + shutdown chime start before animation)
-                char bye_title[80];
+                // Say bye IMMEDIATELY — TTS + shutdown chime lead-in the
+                // animation so the farewell audio has a beat of head-room
+                // before the red/white strobe hits.
                 {
                     const char *at = strchr(boot_title, '@');
-                    if (at)
-                        snprintf(bye_title, sizeof(bye_title), "bye @%s", at + 1);
-                    else
-                        snprintf(bye_title, sizeof(bye_title), "bye");
                     char bye_speech[96];
                     if (at)
                         snprintf(bye_speech, sizeof(bye_speech), "bye %s", at + 1);
@@ -4323,64 +4224,11 @@ int main(int argc, char *argv[]) {
                     audio_shutdown_sound(audio);
                 }
 
-                // Shutdown animation — chaotic red/white strobe with bye title
-                struct timespec anim_time;
-                clock_gettime(CLOCK_MONOTONIC, &anim_time);
-
-                for (int f = 0; f < 90; f++) { // 90 frames @ 60fps = 1.5s
-                    double t = (double)f / 90.0;
-
-                    // Chaotic strobe: alternate red/white/black with randomish pattern
-                    int phase = (f * 7 + f / 3) % 6; // pseudo-random cycle
-                    uint8_t br, bg_g, bb;
-                    if (phase < 2) { br = 220; bg_g = 20; bb = 20; }       // red
-                    else if (phase < 3) { br = 255; bg_g = 255; bb = 255; } // white
-                    else if (phase < 5) { br = 180; bg_g = 0; bb = 0; }     // dark red
-                    else { br = 10; bg_g = 10; bb = 10; }                   // near black
-
-                    // Fade intensity toward end
-                    double fade = 1.0 - t * t;
-                    br = (uint8_t)(br * fade);
-                    bg_g = (uint8_t)(bg_g * fade);
-                    bb = (uint8_t)(bb * fade);
-                    graph_wipe(&graph, (ACColor){br, bg_g, bb, 255});
-
-                    // Title text — jitter position, flicker between red and white
-                    if (t < 0.85) {
-                        int alpha = (int)(255.0 * (1.0 - t / 0.85));
-                        int jx = (f * 13 % 7) - 3; // -3 to +3 pixel jitter
-                        int jy = (f * 17 % 5) - 2; // -2 to +2
-                        uint8_t tr = (f % 3 == 0) ? 255 : 200;
-                        uint8_t tg = (f % 3 == 0) ? 255 : 40;
-                        uint8_t tb = (f % 3 == 0) ? 255 : 40;
-                        graph_ink(&graph, (ACColor){tr, tg, tb, (uint8_t)alpha});
-                        int tw = font_measure_matrix(bye_title, 3);
-                        font_draw_matrix(&graph, bye_title,
-                            (screen->width - tw) / 2 + jx,
-                            screen->height / 2 - 20 + jy, 3);
-                        graph_ink(&graph, (ACColor){(uint8_t)(120 * fade), 40, 40, (uint8_t)(alpha / 2)});
-                        int sw = font_measure_matrix("aesthetic.computer", 1);
-                        font_draw_matrix(&graph, "aesthetic.computer",
-                            (screen->width - sw) / 2 + jx / 2,
-                            screen->height / 2 + 10 + jy / 2, 1);
-                    }
-
-                    ac_display_present(display, screen, pixel_scale);
-                    frame_sync_60fps(&anim_time);
-                }
-
-                // Final black frame + hide console text
-                graph_wipe(&graph, (ACColor){0, 0, 0, 255});
-                ac_display_present(display, screen, pixel_scale);
-                // Suppress kernel console output during shutdown
-                {
-                    // Set kernel loglevel to 0 (suppress all printk)
-                    FILE *pl = fopen("/proc/sys/kernel/printk", "w");
-                    if (pl) { fputs("0 0 0 0", pl); fclose(pl); }
-                    // Hide VT cursor
-                    FILE *vc = fopen("/dev/tty0", "w");
-                    if (vc) { fputs("\033[?25l\033[2J", vc); fclose(vc); }
-                }
+                // Shutdown visual — chaotic red/white strobe with bye title.
+                // Defined near draw_boot_status so every poweroff path (main
+                // loop, ac_poweroff() from JS, ac_poweroff() on crash/OTA)
+                // shares the same farewell.
+                draw_shutdown_anim();
 
                 running = 0;
                 break;
