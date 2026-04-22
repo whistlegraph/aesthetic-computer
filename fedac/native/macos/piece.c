@@ -15,6 +15,8 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <dirent.h>
+#include <libgen.h>
 
 struct PieceCtx {
     JSRuntime *rt;
@@ -260,6 +262,20 @@ static JSValue js_circle(JSContext *jsctx, JSValueConst this_val, int argc, JSVa
     return JS_UNDEFINED;
 }
 
+// plot(x, y) — single pixel at current ink color. Native prompt uses this
+// for the cursor's individual pixels when composing custom shapes.
+static JSValue js_plot(JSContext *jsctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    PieceCtx *pc = ctx_from(jsctx);
+    int32_t x = 0, y = 0;
+    if (argc >= 1) JS_ToInt32(jsctx, &x, argv[0]);
+    if (argc >= 2) JS_ToInt32(jsctx, &y, argv[1]);
+    if (x >= 0 && x < pc->fb->width && y >= 0 && y < pc->fb->height) {
+        pc->fb->pixels[y * pc->fb->stride + x] = pc->ink_argb;
+    }
+    return JS_UNDEFINED;
+}
+
 // write(text, { x, y, size, font })
 // Picks MatrixChunky8 for font: "matrix" (narrow, ~4px advance — matches
 // notepat's layout math) and 6x10 for everything else. x/y default to 0;
@@ -487,6 +503,45 @@ static void resolve_module(PieceCtx *pc, const char *name, char *out, size_t n) 
     }
 }
 
+// QuickJS module normalizer — invoked for every import, given the path of
+// the file doing the import. Handles relative imports like
+// `import './foo.mjs'` or `'../lib/platform.mjs'` by joining against the
+// parent dir of base. Absolute paths + /lib/ shortcuts fall through to
+// resolve_module() in the loader.
+static char *piece_module_normalize(JSContext *jsctx, const char *base,
+                                    const char *name, void *opaque) {
+    (void)opaque;
+    if (name[0] == '.') {
+        // base is e.g. "system/public/.../disks/prompt.mjs" — take its dir.
+        char parent[1200];
+        snprintf(parent, sizeof parent, "%s", base ? base : "");
+        char *slash = strrchr(parent, '/');
+        if (slash) *slash = 0; else parent[0] = 0;
+
+        // Repeatedly strip "./<seg>" or "../" from `name` relative to parent.
+        const char *p = name;
+        char acc[1200];
+        snprintf(acc, sizeof acc, "%s", parent);
+        while (*p) {
+            if (p[0] == '.' && p[1] == '/') {
+                p += 2;
+            } else if (p[0] == '.' && p[1] == '.' && p[2] == '/') {
+                char *s = strrchr(acc, '/');
+                if (s) *s = 0; else acc[0] = 0;
+                p += 3;
+            } else {
+                break;
+            }
+        }
+        char out[1200];
+        if (acc[0]) snprintf(out, sizeof out, "%s/%s", acc, p);
+        else        snprintf(out, sizeof out, "%s", p);
+        return js_strdup(jsctx, out);
+    }
+    // Non-relative: pass through. Loader will resolve "/lib/..." etc.
+    return js_strdup(jsctx, name);
+}
+
 // QuickJS module loader: read the file, compile as a module, return its
 // JSModuleDef*. QuickJS wraps the def in a JSValue for us; we unwrap via
 // JS_VALUE_GET_PTR. Signature matches JSModuleLoaderFunc.
@@ -552,6 +607,7 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
         { "box",    js_box,    0 },
         { "line",   js_line,   0 },
         { "circle", js_circle, 0 },
+        { "plot",   js_plot,   2 },
         { "write",  js_write,  0 },
         { NULL, NULL, 0 }
     };
@@ -592,21 +648,59 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
         "    speak: noop,\n"
         "  };\n"
         "  const wifi = { scan: noop, connect: noop, disconnect: noop,\n"
-        "                 networks: [], connected: false, state: 'idle',\n"
-        "                 status: 'offline', ip: '', iface: '' };\n"
+        "                 networks: [], connected: true, state: 'idle',\n"
+        "                 status: 'online', ip: '127.0.0.1', iface: 'en0' };\n"
+        "  // system.jump(piece) stashes the target in __pending_jump; the C\n"
+        "  // host polls that between ticks and swaps pieces. Same story for\n"
+        "  // reboot / poweroff (logged only on macOS).\n"
+        "  // __native_pieces is populated by the C host from a readdir of\n"
+        "  // fedac/native/pieces/ before the piece module runs.\n"
+        "  const listPieces = () => (globalThis.__native_pieces || []).slice();\n"
         "  const system = { version,\n"
         "    readFile: () => null, writeFile: noop,\n"
+        "    saveConfig: noop,\n"
         "    fetchBinary: noop, mountMusic: noop, mountMusicMounted: false,\n"
-        "    hdmi: null, typec: [], usbMidi: { status: noop },\n"
-        "    ws: null, udp: null, jump: noop };\n"
+        "    hdmi: null, typec: [], usbMidi: { status: noop,\n"
+        "      enable: noop, disable: noop, refresh: noop },\n"
+        "    ws: null, udp: null,\n"
+        "    listPieces,\n"
+        "    jump(p) { globalThis.__pending_jump = p; },\n"
+        "    reboot()   { console.log('[sys] reboot requested (noop on macOS)'); },\n"
+        "    poweroff() { console.log('[sys] poweroff requested (noop on macOS)'); },\n"
+        "    sshStarted: false, startSSH: noop,\n"
+        "  };\n"
+        "  // Top-level jump() + kidlisp() as globals (prompt + KidLisp return\n"
+        "  // path reach for them directly).\n"
+        "  globalThis.jump = (p) => { globalThis.__pending_jump = p; };\n"
+        "  globalThis.kidlisp = () => undefined;  // TODO: wire to real eval\n"
+        "  globalThis.user = null;                // no auth on macOS yet\n"
+        "  globalThis.handle = () => null;\n"
         "  const trackpad = { dx: 0, dy: 0 };\n"
         "  const pressures = [];\n"
-        "  // Host-provided globals the piece expects. __theme.dark tracks\n"
-        "  // macOS's effective appearance; update() re-queries via a C binding\n"
-        "  // installed later so notepat's 5s poll picks up Settings changes.\n"
+        "  // Full theme object — prompt.mjs reads T.bg/fg/fgDim/fgMute/\n"
+        "  // cursor/accent/dark on every paint, so update() must return the\n"
+        "  // same shape ac-native's JS theme helper produces on Linux.\n"
+        "  const THEMES = {\n"
+        "    dark:  { dark: true,  bg: [10, 12, 18],   fg: 235, fgDim: 180, fgMute: 120, cursor: [255, 120, 180], accent: [120, 200, 255] },\n"
+        "    light: { dark: false, bg: [245, 242, 235], fg: 30,  fgDim: 80,  fgMute: 140, cursor: [220, 60, 120],  accent: [80, 140, 200]  },\n"
+        "  };\n"
         "  globalThis.__theme = {\n"
-        "    dark: false,\n"
-        "    update() { if (globalThis.__theme_dark) this.dark = !!globalThis.__theme_dark(); },\n"
+        "    _forceDark: undefined,\n"
+        "    _lastCheck: 0,\n"
+        "    _name: 'dark',\n"
+        "    dark: true, bg: THEMES.dark.bg, fg: THEMES.dark.fg,\n"
+        "    fgDim: THEMES.dark.fgDim, fgMute: THEMES.dark.fgMute,\n"
+        "    cursor: THEMES.dark.cursor, accent: THEMES.dark.accent,\n"
+        "    apply(name) { if (THEMES[name]) { this._name = name; Object.assign(this, THEMES[name]); } },\n"
+        "    update() {\n"
+        "      let dark;\n"
+        "      if (this._forceDark !== undefined) dark = !!this._forceDark;\n"
+        "      else if (globalThis.__theme_dark) dark = !!globalThis.__theme_dark();\n"
+        "      else dark = true;\n"
+        "      Object.assign(this, dark ? THEMES.dark : THEMES.light);\n"
+        "      this.dark = dark;\n"
+        "      return this;\n"
+        "    },\n"
         "  };\n"
         "  // Named exports visible both as globals and via the api arg.\n"
         "  for (const [k, v] of Object.entries({ sound, wifi, system, trackpad, pressures })) {\n"
@@ -692,7 +786,7 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
     }
 
     // Wire up module loader so `import "/lib/percussion.mjs"` works.
-    JS_SetModuleLoaderFunc(pc->rt, NULL, piece_module_loader, pc);
+    JS_SetModuleLoaderFunc(pc->rt, piece_module_normalize, piece_module_loader, pc);
 
     size_t src_len = 0;
     char *src = read_file(path, &src_len);
@@ -701,6 +795,40 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
         JS_FreeValue(cx, global);
         piece_destroy(pc);
         return NULL;
+    }
+
+    // Populate globalThis.__native_pieces from the piece's parent directory
+    // so the native prompt's system.listPieces() returns real entries (tab
+    // completion + `list` command use it). Skips the current piece itself
+    // plus non-.mjs entries; limited to a reasonable count so crashy dirs
+    // don't OOM the runtime.
+    {
+        char parent[1200];
+        snprintf(parent, sizeof parent, "%s", path);
+        char *sl = strrchr(parent, '/');
+        if (sl) *sl = 0;
+        if (parent[0]) {
+            JSValue arr = JS_NewArray(cx);
+            uint32_t n = 0;
+            DIR *d = opendir(parent);
+            if (d) {
+                struct dirent *ent;
+                while ((ent = readdir(d)) && n < 256) {
+                    const char *nm = ent->d_name;
+                    size_t nl = strlen(nm);
+                    if (nl < 5) continue;
+                    if (strcmp(nm + nl - 4, ".mjs") != 0) continue;
+                    char base[128];
+                    int copy_len = (int)(nl - 4);
+                    if (copy_len >= (int)sizeof base) copy_len = sizeof base - 1;
+                    memcpy(base, nm, (size_t)copy_len);
+                    base[copy_len] = 0;
+                    JS_SetPropertyUint32(cx, arr, n++, JS_NewString(cx, base));
+                }
+                closedir(d);
+            }
+            JS_SetPropertyStr(cx, global, "__native_pieces", arr);
+        }
     }
 
     // Register the piece under a stable module name so a subsequent
