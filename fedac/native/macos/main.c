@@ -815,6 +815,58 @@ boot_anim_done: ;
     // event so notepat's sound.synth path fires in a headless run.
     const char *inject_key = getenv("AC_INJECT_KEY");
     int injected = 0;
+
+    // AC_INJECT_SEQUENCE="<key>,<ms>|<key>,<ms>|…" — scripted typing
+    // timeline. The first key fires at <ms> from start; each subsequent
+    // key fires <ms> after the prior event. Supports multi-char names
+    // (e.g. "enter", "space", "backspace") for the prompt. Used by the
+    // demo recorder to type "notepat<enter>" without real input.
+    const char *seq_env = getenv("AC_INJECT_SEQUENCE");
+    typedef struct { char key[32]; int at_ms; } SeqEvent;
+    SeqEvent *seq = NULL;
+    int seq_len = 0, seq_cur = 0;
+    if (seq_env && seq_env[0]) {
+        // First pass: count segments to allocate.
+        int count = 1;
+        for (const char *p = seq_env; *p; p++) if (*p == '|') count++;
+        seq = calloc(count, sizeof *seq);
+        int cumul = 0;
+        const char *p = seq_env;
+        while (*p && seq_len < count) {
+            const char *comma = strchr(p, ',');
+            const char *pipe  = strchr(p, '|');
+            if (!pipe) pipe = p + strlen(p);
+            if (!comma || comma > pipe) break;
+            int klen = (int)(comma - p);
+            if (klen >= (int)sizeof(seq[0].key)) klen = sizeof(seq[0].key) - 1;
+            memcpy(seq[seq_len].key, p, klen);
+            seq[seq_len].key[klen] = 0;
+            int dly = atoi(comma + 1);
+            cumul += dly;
+            seq[seq_len].at_ms = cumul;
+            seq_len++;
+            if (!*pipe) break;
+            p = pipe + 1;
+        }
+        fprintf(stderr, "[sequence] parsed %d events from AC_INJECT_SEQUENCE\n", seq_len);
+    }
+
+    // AC_FRAME_DUMP_DIR=<dir> — dump every rendered frame as
+    // frame_%05d.png. Used by the demo recorder to turn a live session
+    // into an mkv. Density-2 upscaling applied so the saved PNGs match
+    // what you see on screen (chunky retro pixels stay crisp).
+    const char *frame_dump_dir = getenv("AC_FRAME_DUMP_DIR");
+    int frame_dump_idx = 0;
+
+    // AC_WAV_OUT=<path> — tap audio callback output into a float32 stereo
+    // @ 48 kHz WAVE file. Paired with frame-dump, ffmpeg can mux the two
+    // into a demo video with sample-accurate sound.
+    const char *wav_out = getenv("AC_WAV_OUT");
+    if (wav_out && wav_out[0]) {
+        Audio *au = piece_audio(pc);
+        if (au) audio_wav_start(au, wav_out);
+    }
+
     Uint64 start_tick = SDL_GetTicks();
 
     int running = 1;
@@ -830,6 +882,23 @@ boot_anim_done: ;
         if (headless_ms > 0 && (int)(SDL_GetTicks() - start_tick) >= headless_ms) {
             running = 0;
             break;
+        }
+        // Scripted input timeline — dispatch the next pending key when
+        // its cumulative delay has elapsed. Each dispatch fires a paired
+        // down+up event so the piece's keyup handlers (notepat releases
+        // notes on keyup) run naturally.
+        while (seq && seq_cur < seq_len &&
+               (int)(SDL_GetTicks() - start_tick) >= seq[seq_cur].at_ms) {
+            PieceEvent pd = {0}, pu = {0};
+            snprintf(pd.key,  sizeof pd.key,  "%s", seq[seq_cur].key);
+            snprintf(pd.type, sizeof pd.type, "keyboard:down:%s", seq[seq_cur].key);
+            snprintf(pu.key,  sizeof pu.key,  "%s", seq[seq_cur].key);
+            snprintf(pu.type, sizeof pu.type, "keyboard:up:%s",   seq[seq_cur].key);
+            piece_act(pc, &pd);
+            piece_act(pc, &pu);
+            fprintf(stderr, "[sequence] fired %s @ %dms\n",
+                    seq[seq_cur].key, seq[seq_cur].at_ms);
+            seq_cur++;
         }
         if (inject_key && !injected && (SDL_GetTicks() - start_tick) >= 300) {
             PieceEvent pe = {0};
@@ -921,6 +990,26 @@ boot_anim_done: ;
         piece_sim(pc);
         render_frame(&rctx);
 
+        // Per-frame PNG dump for offline recording. Upscales density×
+        // nearest-neighbor so the chunky-pixel aesthetic reads correctly
+        // at the recorded resolution. Slow (hundreds of small PNGs), so
+        // gated on the env var.
+        if (frame_dump_dir) {
+            int d = rctx.density < 1 ? 1 : rctx.density;
+            const uint32_t *src = fb.pixels;
+            int out_w = fb.width, out_h = fb.height;
+            uint32_t *scaled = NULL;
+            if (d > 1) {
+                scaled = upscale_nn(fb.pixels, fb.width, fb.height, d);
+                if (scaled) { src = scaled; out_w *= d; out_h *= d; }
+            }
+            char path[1200];
+            snprintf(path, sizeof path, "%s/frame_%05d.png",
+                     frame_dump_dir, frame_dump_idx++);
+            png_write_argb(path, src, out_w, out_h, out_w);
+            free(scaled);
+        }
+
         // Piece-swap: the piece (or any global code) can set
         // globalThis.__pending_jump = "<name>". We poll between frames,
         // destroy the old ctx, and load the new piece. Target resolves
@@ -974,6 +1063,14 @@ boot_anim_done: ;
     uninstall_global_hotkey();
     if (tray) SDL_DestroyTray(tray);
 
+    // Close the WAV tap before destroying the audio unit — otherwise the
+    // CoreAudio callback may still be mid-fwrite when we fclose() the
+    // file. audio_wav_stop() is idempotent when no tap is active.
+    if (wav_out && wav_out[0]) {
+        Audio *au = piece_audio(pc);
+        if (au) audio_wav_stop(au);
+    }
+    free(seq);
     piece_destroy(pc);
     free(fb.pixels);
     SDL_DestroyTexture(tex);

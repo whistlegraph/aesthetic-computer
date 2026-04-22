@@ -26,6 +26,14 @@ static uint64_t now_ns(void) {
     return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
 }
 
+// WAV output tap lives at module scope so it survives piece jumps (which
+// destroy + recreate the per-piece Audio struct). The CoreAudio callback
+// on each Audio instance reads this pointer and appends its buffer.
+// Not guarded by a lock — the callback runs on one thread and main.c
+// mutates only via audio_wav_start/stop called between frames.
+static FILE     *g_wav_file    = NULL;
+static uint64_t  g_wav_samples = 0;
+
 struct Audio {
     AudioUnit        au;
     SynthCore        synth;
@@ -43,6 +51,7 @@ struct Audio {
     // L/R interleaved; CoreAudio expects non-interleaved on the two buffers
     // of the AudioBufferList).
     float           *scratch;
+
     int              scratch_cap;
 
     int              actual_frames;   // negotiated device buffer size
@@ -93,7 +102,64 @@ static OSStatus render_cb(void *inRef,
     if (a->trigger_ns && !a->emit_ns && peak > a->emit_threshold) {
         a->emit_ns = now_ns();
     }
+
+    // WAV tap: append interleaved stereo float32 samples straight from
+    // the scratch buffer (the data we're about to hand to CoreAudio).
+    // Tap state is module-global so piece jumps don't lose the handle.
+    if (g_wav_file) {
+        fwrite(a->scratch, sizeof(float), (size_t)need, g_wav_file);
+        g_wav_samples += frames;
+    }
+    (void)need;
     return noErr;
+}
+
+// Open a WAV output tap at module scope so it survives piece jumps.
+// Writes a WAVE_FORMAT_IEEE_FLOAT stereo @ 48 kHz header with
+// placeholder length fields; audio_wav_stop() patches them.
+int audio_wav_start(Audio *a, const char *path) {
+    (void)a;
+    if (!path) return 0;
+    if (g_wav_file) { fclose(g_wav_file); g_wav_file = NULL; }
+    FILE *f = fopen(path, "wb");
+    if (!f) { fprintf(stderr, "[wav] fopen(%s) failed\n", path); return 0; }
+    uint8_t hdr[44] = {
+        'R','I','F','F', 0,0,0,0,                // ChunkID + ChunkSize (patched)
+        'W','A','V','E',
+        'f','m','t',' ', 16,0,0,0,               // Subchunk1ID + Size
+        0x03,0x00,                               // AudioFormat = IEEE_FLOAT
+        0x02,0x00,                               // NumChannels = 2
+        0x80,0xBB,0x00,0x00,                     // SampleRate = 48000
+        0x00,0xDC,0x05,0x00,                     // ByteRate = 48000 * 2 * 4 = 384000
+        0x08,0x00,                               // BlockAlign = 2 * 4 = 8
+        0x20,0x00,                               // BitsPerSample = 32
+        'd','a','t','a', 0,0,0,0                 // Subchunk2ID + Size (patched)
+    };
+    fwrite(hdr, 1, sizeof hdr, f);
+    g_wav_file = f;
+    g_wav_samples = 0;
+    fprintf(stderr, "[wav] tap opened → %s\n", path);
+    return 1;
+}
+
+// Patch RIFF + data chunk sizes and close. Safe to call even if start
+// was never invoked.
+void audio_wav_stop(Audio *a) {
+    (void)a;
+    if (!g_wav_file) return;
+    FILE *f = g_wav_file;
+    g_wav_file = NULL;
+    fflush(f);
+    // bytes_per_sample = 4, stereo = 2 channels = 8 bytes per frame.
+    uint32_t data_bytes = (uint32_t)(g_wav_samples * 8);
+    uint32_t riff_bytes = 36 + data_bytes;
+    fseek(f, 4, SEEK_SET);
+    fwrite(&riff_bytes, 4, 1, f);
+    fseek(f, 40, SEEK_SET);
+    fwrite(&data_bytes, 4, 1, f);
+    fclose(f);
+    fprintf(stderr, "[wav] tap closed (%llu frames)\n",
+            (unsigned long long)g_wav_samples);
 }
 
 // Request a specific hardware buffer size on the default output device.

@@ -133,6 +133,15 @@ void audio_destroy(Audio *a) {
     free(a);
 }
 
+// WAV tap: not yet implemented for the SDL3 backend (demo pipeline runs
+// AUDIO=core). Stub so the header interface stays uniform.
+int  audio_wav_start(Audio *a, const char *path) {
+    (void)a; (void)path;
+    fprintf(stderr, "[wav] SDL3 backend has no WAV tap yet — use AUDIO=core\n");
+    return 0;
+}
+void audio_wav_stop(Audio *a) { (void)a; }
+
 uint64_t audio_synth(Audio *a, WaveType w, double freq, double dur, double vol,
                      double att, double dec, double pan) {
     return a ? synth_synth(&a->synth, w, freq, dur, vol, att, dec, pan) : 0;

@@ -40,4 +40,10 @@ WaveType audio_parse_wave(const char *s);
 void     audio_arm_latency(Audio *a, float threshold);
 uint64_t audio_latency_ns(Audio *a);
 
+// WAV output tap — writes every frame the audio callback produces to a
+// float32 stereo @ 48 kHz WAVE file. Used by the demo recorder to pair
+// perfect-sync audio with the per-frame PNG dumps. Returns 1 on success.
+int      audio_wav_start(Audio *a, const char *path);
+void     audio_wav_stop (Audio *a);
+
 #endif
