@@ -106,6 +106,12 @@ static void sdl_key_name(SDL_Keycode k, char *out, size_t n) {
         case SDLK_ESCAPE:    s = "escape";     break;
         case SDLK_BACKSPACE: s = "backspace";  break;
         case SDLK_TAB:       s = "tab";        break;
+        case SDLK_PAGEUP:    s = "pageup";     break;
+        case SDLK_PAGEDOWN:  s = "pagedown";   break;
+        case SDLK_HOME:      s = "home";       break;
+        case SDLK_END:       s = "end";        break;
+        case SDLK_LSHIFT:
+        case SDLK_RSHIFT:    s = "shift";      break;
         default: break;
     }
     if (s) { snprintf(out, n, "%s", s); return; }
@@ -845,20 +851,26 @@ boot_anim_done: ;
     const char *inject_key = getenv("AC_INJECT_KEY");
     int injected = 0;
 
-    // AC_INJECT_SEQUENCE="<key>,<ms>|<key>,<ms>|…" — scripted typing
-    // timeline. The first key fires at <ms> from start; each subsequent
-    // key fires <ms> after the prior event. Supports multi-char names
-    // (e.g. "enter", "space", "backspace") for the prompt. Used by the
-    // demo recorder to type "notepat<enter>" without real input.
+    // AC_INJECT_SEQUENCE="<key>,<delay_ms>[,<hold_ms>]|…" — scripted
+    // typing timeline. <delay_ms> is cumulative from the prior event.
+    // Optional <hold_ms> delays the paired keyup; omitted (or 0) means
+    // fire keyup immediately (classic tap). Useful for sustained notes
+    // and chords under drums. Multi-char key names supported
+    // (e.g. "enter", "space", "pageup", "arrowup").
     const char *seq_env = getenv("AC_INJECT_SEQUENCE");
-    typedef struct { char key[32]; int at_ms; } SeqEvent;
+    typedef struct { char key[32]; int at_ms; int hold_ms; } SeqEvent;
+    typedef struct { char key[32]; int at_ms; int fired; } PendingUp;
     SeqEvent *seq = NULL;
     int seq_len = 0, seq_cur = 0;
+    PendingUp *ups = NULL;
+    int ups_cap = 0, ups_len = 0;
     if (seq_env && seq_env[0]) {
         // First pass: count segments to allocate.
         int count = 1;
         for (const char *p = seq_env; *p; p++) if (*p == '|') count++;
         seq = calloc(count, sizeof *seq);
+        ups = calloc(count, sizeof *ups);
+        ups_cap = count;
         int cumul = 0;
         const char *p = seq_env;
         while (*p && seq_len < count) {
@@ -870,9 +882,14 @@ boot_anim_done: ;
             if (klen >= (int)sizeof(seq[0].key)) klen = sizeof(seq[0].key) - 1;
             memcpy(seq[seq_len].key, p, klen);
             seq[seq_len].key[klen] = 0;
+            // Optional second comma = hold_ms.
+            const char *comma2 = memchr(comma + 1, ',', (size_t)(pipe - (comma + 1)));
             int dly = atoi(comma + 1);
+            int hold = (comma2 && comma2 < pipe) ? atoi(comma2 + 1) : 0;
+            if (hold < 0) hold = 0;
             cumul += dly;
-            seq[seq_len].at_ms = cumul;
+            seq[seq_len].at_ms   = cumul;
+            seq[seq_len].hold_ms = hold;
             seq_len++;
             if (!*pipe) break;
             p = pipe + 1;
@@ -915,21 +932,43 @@ boot_anim_done: ;
             break;
         }
         // Scripted input timeline — dispatch the next pending key when
-        // its cumulative delay has elapsed. Each dispatch fires a paired
-        // down+up event so the piece's keyup handlers (notepat releases
-        // notes on keyup) run naturally.
+        // its cumulative delay has elapsed. If hold_ms is 0 we fire
+        // down+up back-to-back (tap); otherwise the keyup goes onto a
+        // pending queue drained below. Lets notepat sustain notes so
+        // the melody grooves rather than clicking.
         while (seq && seq_cur < seq_len &&
                (int)(SDL_GetTicks() - start_tick) >= seq[seq_cur].at_ms) {
-            PieceEvent pd = {0}, pu = {0};
+            PieceEvent pd = {0};
             snprintf(pd.key,  sizeof pd.key,  "%s", seq[seq_cur].key);
             snprintf(pd.type, sizeof pd.type, "keyboard:down:%s", seq[seq_cur].key);
-            snprintf(pu.key,  sizeof pu.key,  "%s", seq[seq_cur].key);
-            snprintf(pu.type, sizeof pu.type, "keyboard:up:%s",   seq[seq_cur].key);
             piece_act(pc, &pd);
-            piece_act(pc, &pu);
-            fprintf(stderr, "[sequence] fired %s @ %dms\n",
-                    seq[seq_cur].key, seq[seq_cur].at_ms);
+            if (seq[seq_cur].hold_ms <= 0) {
+                PieceEvent pu = {0};
+                snprintf(pu.key,  sizeof pu.key,  "%s", seq[seq_cur].key);
+                snprintf(pu.type, sizeof pu.type, "keyboard:up:%s",   seq[seq_cur].key);
+                piece_act(pc, &pu);
+            } else if (ups && ups_len < ups_cap) {
+                snprintf(ups[ups_len].key, sizeof ups[ups_len].key,
+                         "%s", seq[seq_cur].key);
+                ups[ups_len].at_ms = seq[seq_cur].at_ms + seq[seq_cur].hold_ms;
+                ups[ups_len].fired = 0;
+                ups_len++;
+            }
+            fprintf(stderr, "[sequence] fired %s @ %dms (hold %d)\n",
+                    seq[seq_cur].key, seq[seq_cur].at_ms,
+                    seq[seq_cur].hold_ms);
             seq_cur++;
+        }
+        // Drain pending keyups whose hold window has elapsed.
+        int now_rel = (int)(SDL_GetTicks() - start_tick);
+        for (int i = 0; i < ups_len; i++) {
+            if (ups[i].fired) continue;
+            if (now_rel < ups[i].at_ms) continue;
+            PieceEvent pu = {0};
+            snprintf(pu.key,  sizeof pu.key,  "%s", ups[i].key);
+            snprintf(pu.type, sizeof pu.type, "keyboard:up:%s", ups[i].key);
+            piece_act(pc, &pu);
+            ups[i].fired = 1;
         }
         if (inject_key && !injected && (SDL_GetTicks() - start_tick) >= 300) {
             PieceEvent pe = {0};
@@ -1102,6 +1141,7 @@ boot_anim_done: ;
         if (au) audio_wav_stop(au);
     }
     free(seq);
+    free(ups);
     piece_destroy(pc);
     free(fb.pixels);
     SDL_DestroyTexture(tex);

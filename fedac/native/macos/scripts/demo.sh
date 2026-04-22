@@ -24,7 +24,29 @@ set -euo pipefail
 HANDLE="${HANDLE:-jeffrey}"
 CITY="${CITY:-Los Angeles}"
 HOUR="${HOUR:-13}"
-OUT="${OUT:-$HOME/Desktop/ac-boot-shots/demo.mkv}"
+# WALTZ picks a drum pattern from scripts/waltz-seq.py (classic, dark,
+# dreamy, baroque, minimal, phonk, viennese, drill). BPM + BARS control
+# tempo and length. When WALTZ=melody the legacy oom-pah-pah melody
+# sequence plays instead — useful for quick A/B vs the drum grids.
+MODE="${MODE:-waltz}"          # waltz | bachbeat
+WALTZ="${WALTZ:-classic}"      # classic, dark, dreamy, baroque, minimal, phonk, viennese, drill
+BPM="${BPM:-120}"              # waltz default 120; bachbeat default 100
+BARS="${BARS:-4}"              # waltz bar count
+BACH_EVENTS="${BACH_EVENTS:-48}"  # bachbeat: how many bach notes to play
+# GRID chooses which hand plays drums. Default "right" = right-hand kit
+# + left-hand melody (classic live-piano setup). "left" reverses it.
+GRID="${GRID:-right}"
+# MELODY=on interleaves an oom-pah-pah bass+chord line on the OTHER
+# grid so notes and drums play simultaneously (waltz mode only).
+MELODY="${MELODY:-on}"
+# KIT_VOL down-ticks for the perc kit after it's enabled — each tick
+# drops ~10% volume (notepat arrowdown). 3 = kit ~70%, 5 = ~50%.
+KIT_MIXDOWN="${KIT_MIXDOWN:-3}"
+case "$MODE" in
+  bachbeat) OUT_DEFAULT="$HOME/Desktop/ac-boot-shots/demo-bachbeat.mkv" ;;
+  *)        OUT_DEFAULT="$HOME/Desktop/ac-boot-shots/demo-$WALTZ.mkv" ;;
+esac
+OUT="${OUT:-$OUT_DEFAULT}"
 STAGE="${STAGE:-/tmp/ac-demo-final}"
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
@@ -41,23 +63,52 @@ mkdir -p "$STAGE/frames"
 # Boot animation runs for ~2s before this, so the earliest keystroke is
 # effectively ~2.5s into the final video.
 #
-# Layout:
-#   prompt typing: n o t e p a t <enter>  (quick, ~1s)
-#   ~1.4s pause while notepat loads + settles
-#   waltz: 4 bars × 3 beats at 500ms/beat = 6s
-#     z c e  (Cm bar)
-#     z f a  (Fm bar)
-#     z g b  (Gm bar)
-#     z c e  (Cm bar back home)
-SEQ=(
-  "n,500"  "o,120"  "t,120"  "e,120"  "p,120"  "a,120"  "t,120"  "enter,400"
-  "z,1380" "c,500"  "e,500"
-  "z,500"  "f,500"  "a,500"
-  "z,500"  "g,500"  "b,500"
-  "z,500"  "c,500"  "e,500"
-)
-# Join with '|' separators (AC_INJECT_SEQUENCE syntax).
-IFS='|' SEQ_STR="${SEQ[*]}"; unset IFS
+#   0.5s  prompt typing: n o t e p a t <enter>  (quick, ~1s)
+#   1.4s  pause while notepat loads + settles
+#   +     pageup/pagedown flips LEFT or RIGHT grid into the perc kit
+#   +     0.4s breath before the groove kicks in
+#   + generated drum sequence (+ optional interleaved melody)
+
+# GRID=right  → pagedown (right grid → perc, left grid stays melodic)
+# GRID=left   → pageup   (left grid → perc, right grid stays melodic)
+if [[ "$GRID" == "left" ]]; then
+  KIT_KEY="pageup"
+  SELECT_KEY="arrowleft"   # so arrow-down mixes LEFT grid
+  PREVIEW_KEY="c"          # left-grid kick preview
+else
+  KIT_KEY="pagedown"
+  SELECT_KEY="arrowright"  # so arrow-down mixes RIGHT grid
+  PREVIEW_KEY="h"          # right-grid kick preview (+c → h)
+fi
+
+# Build the kit-mixdown prefix: select the kit side, then fire arrowdown
+# $KIT_MIXDOWN times to reduce the perc volume before the beat kicks in.
+MIX_SEQ="$KIT_KEY,1400|$SELECT_KEY,200"
+for ((i=0; i<KIT_MIXDOWN; i++)); do
+  MIX_SEQ+="|arrowdown,100"
+done
+MIX_SEQ+="|$PREVIEW_KEY,400"
+
+PROMPT_SEQ="n,500|o,120|t,120|e,120|p,120|a,120|t,120|enter,400|$MIX_SEQ"
+
+case "$MODE" in
+  bachbeat)
+    # Default BPM 100 for bachbeat feels right with the baroque meter.
+    BB_BPM=${BPM:-100}
+    DRUM_SEQ="$("$(dirname "${BASH_SOURCE[0]}")"/bachbeat-seq.py \
+               "$BB_BPM" "$BACH_EVENTS" 300 \
+               "$([[ "$GRID" == "left" ]] && echo right || echo left)")"
+    ;;
+  melody)
+    DRUM_SEQ="z,500|c,500|e,500|z,500|f,500|a,500|z,500|g,500|b,500|z,500|c,500|e,500"
+    ;;
+  *)
+    # start_offset_ms = 300 gives a clean breath after the preview kick.
+    DRUM_SEQ="$("$(dirname "${BASH_SOURCE[0]}")"/waltz-seq.py \
+               "$WALTZ" "$BPM" "$BARS" 300 "$GRID" "$MELODY")"
+    ;;
+esac
+SEQ_STR="$PROMPT_SEQ|$DRUM_SEQ"
 
 # Generate the TTS greeting. -r 165 slightly slower than default so it
 # reads less urgent; -v Samantha is the long-time macOS US voice.
@@ -65,8 +116,24 @@ say -v Samantha -r 165 \
     -o "$STAGE/tts.aiff" \
     "good afternoon $HANDLE. enjoy $CITY."
 
-echo "→ running ac-native for ~12 s …"
-AC_HEADLESS_MS=12000 \
+# Estimate runtime so AC_HEADLESS_MS doesn't cut the last hits. Prompt
+# typing is ~1.6s; kit-switch + mixdown + preview is ~(1.6 + 0.1×mix + 0.4)s.
+mix_ms=$(( 1400 + 200 + 100 * KIT_MIXDOWN + 400 ))
+case "$MODE" in
+  bachbeat)
+    # Bachbeat note count × per-note duration. Per-note ~= 60000/bpm * (ticks/480).
+    # MIDI_EVENTS are all 120 ticks ≈ 0.25 beat, so per-note ~= 15000/bpm.
+    body_ms=$(( BACH_EVENTS * 15000 / BPM ))
+    label="bachbeat events=$BACH_EVENTS bpm=$BPM"
+    ;;
+  *)
+    body_ms=$(( BARS * 3 * 60000 / BPM ))
+    label="waltz=$WALTZ bpm=$BPM bars=$BARS"
+    ;;
+esac
+run_ms=$(( 2000 + 1620 + mix_ms + body_ms + 1800 ))
+echo "→ running ac-native for ~$(( run_ms / 1000 )) s ($label grid=$GRID mixdown=$KIT_MIXDOWN) …"
+AC_HEADLESS_MS=$run_ms \
   AC_BOOT_ANIM=1 \
   AC_WIN_W=1280 AC_WIN_H=800 \
   AC_SHOT_HANDLE="$HANDLE" \
