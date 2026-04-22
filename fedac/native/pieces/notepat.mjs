@@ -768,17 +768,18 @@ function startReversePlayback(sound) {
   const rate = snapshot?.rate || 0;
   if (!src || src.length < REVERSE_MIN_BUFFER_SAMPLES || rate <= 0) return false;
 
-  // Build a full reverse+forward loop buffer. When the reverse reaches
-  // "the present" (= the press point, which is the end of the reversed
-  // section), it flips forward through the original audio back to the
-  // press point, then the loop restarts from the reverse. This creates
-  // a ping-pong effect so holding space makes a rhythmic loop of the
-  // held section. Loop length = 2 × captured duration.
+  // Build a REVERSE-ONLY loop buffer. Earlier this was a ping-pong
+  // (reverse half then forward half), but the forward half was being
+  // perceived as "extra time tacked on each spacebar press" — a hold
+  // played the captured chunk backwards and then forwards, doubling
+  // the loop length per cycle and adding audible silence-feeling
+  // forward content the user didn't ask for. With reverse-only the
+  // loop is just `len` samples long and pure backward; holding
+  // longer just retriggers the reverse.
   const len = src.length;
-  const loopBuf = new Float32Array(len * 2);
+  const loopBuf = new Float32Array(len);
   for (let i = 0, j = len - 1; i < len; i++, j--) {
-    loopBuf[i] = src[j];       // reversed half (backward audio)
-    loopBuf[len + i] = src[i]; // forward half (original audio)
+    loopBuf[i] = src[j];
   }
 
   sound.replay.loadData(loopBuf, rate);
