@@ -54,6 +54,7 @@
 \usepackage{fancyhdr}
 \usepackage{tikz}
 \usepackage{eso-pic}
+\usepackage{qrcode}
 
 % === COLORS (AC palette) ===
 \definecolor{acpink}{RGB}{180,72,135}
@@ -75,10 +76,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
-\fancyfoot[C]{\footnotesize\color{acgray}
-  {\acregular Quote \#\quoteid} \; \textperiodcentered \;
-  Page \thepage
-}
+\fancyfoot[C]{\footnotesize\color{acgray}\acregular Quote \#\quoteid}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.45em}
@@ -160,11 +158,20 @@ Please let us know what additional documentation UCLA Purchasing needs to comple
 
 Thank you for the opportunity to support the Social Software program.
 
-\vspace{0.8em}
+\vspace{0.3em}
 
-{\color{acgray}\rule{0.35\linewidth}{0.4pt}}\\[0.2em]
-{\acbold\fontsize{13pt}{15pt}\selectfont\color{acdark} Aesthetic Inc}{\color{acpink}\fontsize{13pt}{15pt}\selectfont .} \;
-{\small\color{acgray} Issued for vendor onboarding --- \today}\\[0.25em]
-{\footnotesize\color{acgray} Canonical PDF: \href{\permalink}{\permalinkdisplay}}
+\noindent
+\begin{minipage}[b]{0.78\linewidth}
+  {\color{acgray}\rule{0.42\linewidth}{0.4pt}}\\[0.15em]
+  {\acbold\fontsize{12pt}{14pt}\selectfont\color{acdark} Aesthetic Inc}{\color{acpink}\fontsize{12pt}{14pt}\selectfont .} \;
+  {\small\color{acgray} Issued for vendor onboarding --- \today}
+\end{minipage}%
+\hfill
+\begin{minipage}[b]{0.20\linewidth}
+  \begin{flushright}
+    {\color{acdark}\qrcode[height=1.5cm, padding]{\permalink}}\\[0.1em]
+    {\fontsize{6pt}{7pt}\selectfont\color{acgray} Scan: canonical PDF}
+  \end{flushright}
+\end{minipage}
 
 \end{document}
