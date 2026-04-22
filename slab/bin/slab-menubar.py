@@ -18,6 +18,8 @@ import rumps
 from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
 TAILSCALE_BIN = shutil.which("tailscale") or "/opt/homebrew/bin/tailscale"
+MBSYNC_BIN = shutil.which("mbsync") or "/opt/homebrew/bin/mbsync"
+MU_BIN = shutil.which("mu") or "/opt/homebrew/bin/mu"
 
 SLAB_HOME = Path(os.environ.get("SLAB_HOME", os.path.expanduser("~/.local/share/slab")))
 SLAB_BIN = Path(os.environ.get("SLAB_BIN", os.path.expanduser("~/.local/bin")))
@@ -28,6 +30,10 @@ AMBIENT_FLAG = Path("/tmp/slab-ambient-active")
 LID_LOG = SLAB_HOME / "logs" / "lidalive.log"
 DAEMON_PLIST = Path.home() / "Library/LaunchAgents/computer.slab.daemon.plist"
 MENUBAR_PLIST = Path.home() / "Library/LaunchAgents/computer.slab.menubar.plist"
+
+MAILDIR = Path(os.environ.get("AC_MAIL_MAILDIR", os.path.expanduser("~/.mail-all")))
+MAIL_SYNC_LOG = MAILDIR / "sync.log"
+MAIL_UNREAD_QUERY = "flag:unread AND (maildir:/ac-mail/INBOX OR maildir:/jas-mail/INBOX)"
 
 
 def count_files(path: Path) -> int:
@@ -94,6 +100,41 @@ def tailscale_peers():
     return peers
 
 
+def mail_unread_count() -> int | None:
+    if not MAILDIR.exists():
+        return None
+    try:
+        out = subprocess.check_output(
+            [MU_BIN, "find", "--format=plain", "--fields=l", MAIL_UNREAD_QUERY],
+            text=True, stderr=subprocess.DEVNULL, timeout=5,
+        )
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 4:
+            return 0
+        return None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    return sum(1 for line in out.splitlines() if line.strip())
+
+
+def mail_syncing() -> bool:
+    try:
+        out = subprocess.check_output(["pgrep", "-x", "mbsync"], text=True, stderr=subprocess.DEVNULL)
+        return bool(out.strip())
+    except subprocess.CalledProcessError:
+        return False
+
+
+def mail_sync_spawn(channel: str | None):
+    """Start mbsync (for channel or all) + mu index in the background."""
+    MAILDIR.mkdir(parents=True, exist_ok=True)
+    target = channel if channel else "-a"
+    cmd = f'exec {MBSYNC_BIN} {target} >> "{MAIL_SYNC_LOG}" 2>&1 && {MU_BIN} index --quiet >> "{MAIL_SYNC_LOG}" 2>&1'
+    subprocess.Popen(["/bin/sh", "-c", cmd], stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
+
+
 def open_ssh(host: str):
     """Open a Terminal.app window and run `ssh <host>`."""
     subprocess.run([
@@ -112,6 +153,12 @@ class SlabApp(rumps.App):
         self.tailnet_item = rumps.MenuItem("Tailnet: —")
         # Seed a child so rumps creates the underlying NSMenu; refresh_tailnet() will replace it.
         self.tailnet_item.add(rumps.MenuItem("…"))
+        self.mail_item = rumps.MenuItem("Mail: —")
+        self.mail_item.add(rumps.MenuItem("Sync both", callback=lambda _: mail_sync_spawn(None)))
+        self.mail_item.add(rumps.MenuItem("Sync ac-mail", callback=lambda _: mail_sync_spawn("ac-mail")))
+        self.mail_item.add(rumps.MenuItem("Sync jas-mail", callback=lambda _: mail_sync_spawn("jas-mail")))
+        self.mail_item.add(rumps.MenuItem("Open sync log", callback=self.open_mail_log))
+        self._mail_tick = 0
         self.awake_item = rumps.MenuItem(
             "Stay awake (lid closed)", callback=self.toggle_awake
         )
@@ -123,6 +170,7 @@ class SlabApp(rumps.App):
             self.subs_item,
             None,
             self.tailnet_item,
+            self.mail_item,
             None,
             self.awake_item,
             rumps.MenuItem("Sleep now", callback=self.sleep_now),
@@ -165,6 +213,7 @@ class SlabApp(rumps.App):
         self.subs_item.title = f"Subagents in flight: {subs}"
         self.awake_item.state = 1 if sd else 0
         self.refresh_tailnet()
+        self.refresh_mail()
 
     def refresh_tailnet(self):
         peers = tailscale_peers()
@@ -190,6 +239,28 @@ class SlabApp(rumps.App):
             self.tailnet_item.add(
                 rumps.MenuItem(label, callback=lambda _, h=host: open_ssh(h))
             )
+
+    def refresh_mail(self):
+        # Ticks every 2s; only poll mu every ~30s (15 ticks) unless a sync is running.
+        syncing = mail_syncing()
+        self._mail_tick = (self._mail_tick + 1) % 15
+        if self._mail_tick != 1 and not syncing and self.mail_item.title != "Mail: —":
+            # Still keep the syncing suffix accurate without re-querying mu.
+            return
+        unread = mail_unread_count()
+        if unread is None:
+            base = "Mail: unavailable"
+        elif unread == 0:
+            base = "Mail: inbox zero"
+        else:
+            base = f"Mail: {unread} unread"
+        self.mail_item.title = f"{base} · syncing…" if syncing else base
+
+    def open_mail_log(self, _):
+        if MAIL_SYNC_LOG.exists():
+            subprocess.run(["open", "-a", "Console", str(MAIL_SYNC_LOG)], check=False)
+        else:
+            rumps.notification("slab", "Mail sync", "No sync log yet.")
 
     def toggle_awake(self, sender):
         cmd = "auto" if sender.state else "awake"

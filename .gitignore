@@ -362,6 +362,7 @@ check-*secrets.mjs
 silo/use-staging-wallet.mjs
 .claude/settings.local.json
 .claude/worktrees/
+.claude/scheduled_tasks.lock
 
 # Fedac build output (disk images, local bundles)
 fedac/out/
