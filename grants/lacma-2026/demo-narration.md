@@ -1,15 +1,15 @@
-# title: AC Native — demo narration (boot → notepat → shutdown)
+# title: AC Native — fresh demo narration (boot → prompt → notepat → shutdown)
 # voice: Daniel
 # rate: 175
 #
-# Subtitles narrate only the instrument section. The boot (0:00–0:03)
-# has its own "hi @jeffrey" TTS baked into the recording; the shutdown
-# (0:17.75+) will have its own "bye @handle" TTS + chime from ac-native
-# once hardware-recaptured. Both left unnarrated to let native audio
-# stand on its own.
+# Subtitles narrate only from the prompt onward. Boot (0:00–0:02) has its
+# own "hi @jeffrey, enjoy Los Angeles!" TTS baked in; shutdown (0:15.77+)
+# will have its own "bye @handle" TTS + chime from ac-native once
+# hardware-recaptured.
 
-[0:06] notepat - the default piece.
-[0:09] Thirty-two voices, 192 kilohertz.
-[0:13] Chord colors track what you play.
-[0:16] A Viennese waltz, played live.
-[0:18] --silence--
+[0:02.5] At the prompt — type a piece name.
+[0:05] notepat: the default instrument.
+[0:08] Thirty-two voices at 192 kilohertz.
+[0:11] Chord colors track what you play.
+[0:13] A Viennese waltz, played live.
+[0:16] --silence--
