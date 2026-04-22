@@ -161,6 +161,35 @@
     height: 100%;
     object-fit: cover;
   }
+  .demo-tabs {
+    display: flex;
+    gap: 0.3em;
+    margin-bottom: 0.5em;
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+  }
+  .demo-tab {
+    padding: 0.3em 0.8em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    color: var(--dim);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    user-select: none;
+  }
+  .demo-tab:hover { color: var(--text); border-color: var(--pink); }
+  .demo-tab.active {
+    color: var(--pink);
+    border-color: var(--pink);
+    background: transparent;
+  }
+  .demo-tab .hint {
+    color: var(--dim);
+    margin-left: 0.4em;
+    font-size: 0.85em;
+  }
   .demo-caption {
     display: flex;
     justify-content: space-between;
@@ -173,22 +202,12 @@
     letter-spacing: 0.06em;
     flex-wrap: wrap;
   }
-  .demo-caption .sequence {
-    color: var(--dim);
-  }
-  .demo-caption .sequence .step {
-    color: var(--text);
-  }
-  .demo-caption .sequence .arrow {
-    color: var(--pink);
-    margin: 0 0.4em;
-  }
+  .demo-caption .sequence { color: var(--dim); }
+  .demo-caption .sequence .step { color: var(--text); }
+  .demo-caption .sequence .arrow { color: var(--pink); margin: 0 0.4em; }
   .demo-caption .byline {
-    color: var(--pink);
-    font-family: 'YWFT Processing', monospace;
-    font-size: 1.4em;
-    letter-spacing: 0;
-    text-transform: none;
+    color: var(--dim);
+    font-style: italic;
   }
 
   /* ── APPLICATION AT A GLANCE (form mirror) ─────── */
@@ -479,8 +498,12 @@
 
   <!-- ── DEMO VIDEO ─────────────────────────── -->
   <section class="demo" id="demo">
+    <div class="demo-tabs">
+      <div class="demo-tab active" data-src="ac-native-demo" data-poster="ac-native-demo-poster">ambient loop<span class="hint">23 s · muted</span></div>
+      <div class="demo-tab" data-src="ac-native-demo-narrated" data-poster="ac-native-demo-narrated-poster">narrated + captioned<span class="hint">23 s · click unmute</span></div>
+    </div>
     <div class="demo-frame">
-      <video
+      <video id="demo-video"
         poster="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-poster.jpg"
         autoplay muted loop playsinline controls preload="metadata">
         <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.webm" type="video/webm">
@@ -492,8 +515,37 @@
       <div class="sequence">
         <span class="step">boot</span><span class="arrow">→</span><span class="step">prompt</span><span class="arrow">→</span><span class="step">notepat</span><span class="arrow">→</span><span class="step">waltz</span><span class="arrow">→</span><span class="step">back</span><span class="arrow">→</span><span class="step">shutdown</span>
       </div>
-      <div class="byline">captured live · no editing tricks</div>
+      <div class="byline">captured live · no editing tricks · shutdown animation in progress</div>
     </div>
+    <script>
+    (() => {
+      const tabs = document.querySelectorAll(".demo-tab");
+      const video = document.getElementById("demo-video");
+      const ASSET_BASE = "https://assets.aesthetic.computer/lacma-2026";
+      tabs.forEach(tab => tab.addEventListener("click", () => {
+        if (tab.classList.contains("active")) return;
+        tabs.forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const base = tab.dataset.src;
+        const poster = tab.dataset.poster;
+        const wasMuted = video.muted;
+        video.pause();
+        video.innerHTML = `
+          <source src="${ASSET_BASE}/${base}.webm" type="video/webm">
+          <source src="${ASSET_BASE}/${base}.mp4" type="video/mp4">`;
+        video.poster = `${ASSET_BASE}/${poster}.jpg`;
+        // If swapping to narrated version, unmute by default so VO plays.
+        video.muted = base.includes("narrated") ? false : true;
+        video.load();
+        video.play().catch(() => {
+          // Autoplay blocked (browsers block autoplay w/ sound).
+          // Restore muted state and let user click play.
+          video.muted = wasMuted;
+          video.load();
+        });
+      }));
+    })();
+    </script>
   </section>
 
   <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
@@ -563,7 +615,7 @@
       </dd>
 
       <dt>Video<span class="cap">under 5 min · optional · ours: 23 s</span></dt>
-      <dd>Looping 23-second demo captured natively from AC Native hardware: <em>boot animation → notepat → Viennese waltz</em>. <a class="jump" href="#demo">Watch above ↑</a> · <a class="jump" href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.mp4">MP4</a> · <a class="jump" href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.webm">WebM</a>. A longer narrated cut with prompt-transitions and a shutdown "bye @jeffrey" animation (still being written in C for the native binary) is the next capture. Shot-by-shot script: <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/video-script.md">video-script.md</a>.</dd>
+      <dd>Two cuts of the same 23-second demo, captured natively from AC Native hardware. An <em>ambient loop</em> (muted, plays silently on page load) and a <em>narrated + captioned</em> version (voiceover + baked-in subtitles) produced by a reusable pipeline at <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tools/vo-pipeline.mjs">tools/vo-pipeline.mjs</a>. <a class="jump" href="#demo">Watch above ↑</a>. A longer cut with prompt-transitions and a shutdown "bye @jeffrey" animation (still being written in C for the native binary) is the next capture. Narration script: <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/demo-narration.md">demo-narration.md</a>.</dd>
 
       <dt>Lineage check<span class="cap">past Lab cohort</span></dt>
       <dd>Two recent Lab recipients co-teach UCLA's Social Software course where Jeffrey is Author in Residence: <strong>Casey Reas</strong> (2023, <em>METAVASARELY and An Empty Room</em>) and <strong>Lauren Lee McCarthy</strong> (2022, <em>Auto</em>). <a class="jump" href="#this-lab">Lineage below ↓</a> · <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/art-tech-lab-recipients.md">All 45 recipients</a></dd>
