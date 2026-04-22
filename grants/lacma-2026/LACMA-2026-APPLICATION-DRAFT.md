@@ -28,22 +28,22 @@ _[499 words — right at the cap]_
 
 Aesthetic Computer (AC) is a creative computing platform built from first principles. It consists of three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called KidLisp for generative art, and a social network where anyone can publish and share interactive programs called "pieces."
 
-The core provocation is simple: what happens when you strip away the consumer operating system — the notifications, the app stores, the surveillance — and build a computer that does nothing but help you make things?
+The provocation is economic as much as aesthetic. Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops; ~62 million tonnes of e-waste are generated each year. Strip away the consumer operating system — notifications, app stores, surveillance — and those machines become a planetary population of half-built musical instruments waiting for a kernel.
 
-**AC Native** is our answer in hardware. It is a Linux kernel that boots directly into art software on x86_64 UEFI laptops, running a custom C runtime as PID 1 — no desktop, no window manager, no browser. The system renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony. A built-in `code` command drops into a native terminal running Anthropic's Claude Code — making AC Native the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is *notepat*, an 8,466-line polyphonic instrument with eight waveforms, room reverb, sample recording, and USB + UDP MIDI; twenty other pieces ship alongside it.
+**AC Native** is the kernel. A Linux boot that runs a custom C runtime as PID 1 on x86_64 UEFI laptops — no desktop, no window manager, no browser. It renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a native terminal running Anthropic's Claude Code — the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is *notepat*, an 8,466-line polyphonic instrument with eight waveforms, room reverb, sample recording, and USB + UDP MIDI; twenty other pieces ship alongside it.
 
 **KidLisp** is a minimal Lisp dialect designed specifically for generative art. With 118 built-in functions across 12 categories, it provides an accessible entry point for non-programmers while remaining expressive enough for complex compositions. Over 16,000 KidLisp programs have been written on the platform. KidLisp programs can be minted as on-chain "keeps" on Tezos, establishing provenance without requiring artists to understand blockchain infrastructure.
 
 **The Network** ties it together. Aesthetic Computer hosts 371 built-in pieces and 265 user-published pieces across 2,800+ registered handles. Every piece is URL-addressable and instantly shareable via QR code. The platform supports real-time multiplayer through WebSocket and UDP channels — people can draw, compose, and play together.
 
-During the grant period, we propose to develop AC Native from a working prototype into a distributable creative instrument and public installation:
+During the grant period, we propose to develop AC Native into a distributable creative instrument and public installation:
 
-1. **Portable Instruments** — Produce USB-bootable AC Native drives preloaded with curated pieces that visitors and workshop participants can take home and boot on their own laptops.
+1. **Portable Instruments** — USB-bootable AC Native drives preloaded with curated pieces for visitors to take home and boot on their own laptops.
 2. **KidLisp Workshops** — Hands-on sessions where participants write KidLisp programs that run on AC Native hardware in real time, experiencing the full loop from code to sound and image with no intermediary.
 3. **Public Installation** — Multiple AC Native stations at LACMA where visitors encounter creative computing as a direct, embodied experience — more like sitting down at a piano than opening an app.
 4. **Open Documentation** — Publish the complete build pipeline, hardware compatibility guide, and workshop curriculum so other artists and institutions can replicate the system.
 
-This project is not about building a product. It is about demonstrating that the personal computer can still be a site of artistic invention — that the instrument is not yet finished being designed.
+This is not a product. It is an argument: the personal computer can still be a site of artistic invention — and the instrument is not yet finished being designed.
 
 ---
 

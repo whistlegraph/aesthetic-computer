@@ -331,13 +331,13 @@
 
     <p>Aesthetic Computer (AC) is a creative computing platform built from first principles. It consists of three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language called <em>KidLisp</em> for generative art, and a social network where anyone can publish and share interactive programs called "pieces."</p>
 
-    <p>The core provocation is simple: what happens when you strip away the consumer operating system — the notifications, the app stores, the surveillance — and build a computer that does nothing but help you make things?</p>
+    <p>The provocation is economic as much as aesthetic. <strong>Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops</strong>; ~62 million tonnes of e-waste are generated each year. Strip away the consumer operating system — notifications, app stores, surveillance — and those machines become <em>a planetary population of half-built musical instruments waiting for a kernel</em>.</p>
 
-    <span class="drop">AC Native is our answer in hardware.</span>
+    <span class="drop">AC Native is the kernel.</span>
 
-    <p>It is a Linux kernel that boots directly into art software on x86_64 UEFI laptops, running a custom C runtime as <em>PID 1</em> — no desktop, no window manager, no browser. The system renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony.</p>
+    <p>A Linux boot that runs a custom C runtime as <em>PID 1</em> on x86_64 UEFI laptops — no desktop, no window manager, no browser. It renders graphics through DRM without a compositor, reads input from raw evdev streams, and synthesizes audio sample-by-sample through ALSA at 192 kHz with 32-voice polyphony. <strong>Per-seat cost lands near $50 — two orders of magnitude below Princeton's PLOrk laptop-orchestra model</strong> ($1,500+/seat hand-fabricated), and 15× below Virginia Tech's L2Ork ($750/seat Linux). The laptop-orchestra movement settled the artistic question in year one; what it failed at was access. AC Native escapes that constraint.</p>
 
-    <p>A built-in <code>code</code> command drops into a native terminal running <span style="color:var(--purple)"><strong>Anthropic's Claude Code</strong></span> — making AC Native the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument with eight waveforms, room reverb, sample recording, and USB + UDP MIDI; roughly twenty other pieces ship alongside it.</p>
+    <p>A built-in <code>code</code> command drops into a native terminal running <span style="color:var(--purple)"><strong>Anthropic's Claude Code</strong></span> — the only bare-metal creative OS we know of with an AI coding partner built in. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument with eight waveforms, sample recording, and USB + UDP MIDI; twenty other pieces ship alongside it.</p>
 
     <span class="drop">KidLisp is the language.</span>
 
@@ -470,6 +470,22 @@
       <p><strong>AC Native</strong> is a Linux kernel that boots directly into art on x86_64 UEFI laptops, running a custom C runtime as PID 1 — no desktop, no window manager, no browser. 32-voice audio at 192 kHz, DRM graphics, raw evdev input. A built-in <code>code</code> command drops into a terminal running Anthropic's Claude Code, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is <em>notepat</em>, an 8,466-line polyphonic instrument.</p>
       <p><strong>KidLisp</strong> is a minimal Lisp with 118 functions — 17,000+ programs already written. Programs can be minted on Tezos without artists touching blockchain infrastructure.</p>
       <p>With LACMA support, we'll produce a USB-bootable edition, a workshop curriculum, and a multi-station installation. The personal computer's design is a cultural question, not a settled technical one — this project treats it as one.</p>
+    </div>
+  </section>
+
+  <!-- ── PAPERS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Academic Spine<span class="count">arxiv series · papers/</span></h2>
+    <p style="color:var(--dim);margin-bottom:1em">Every claim in this proposal is backed by a short paper in the AC arxiv series. Published versions live at <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a>; drafts and source are in the <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers">repo</a>.</p>
+    <div class="features">
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">PLOrk'ing the Planet</b>From Ivy League Laptop Orchestra to Kid-Friendly Planetary Organ. The economic argument: surplus x86_64 laptops + bare-metal OS = laptop orchestra two orders of magnitude below PLOrk. <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-plork">papers/arxiv-plork</a></div>
+      <div class="feat"><b>AC Native OS '26</b>A Bare-Metal Creative Computing Operating System. The system paper. Architecture, design decisions, measurements. <a href="https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-os">source</a></div>
+      <div class="feat"><b>KidLisp</b>Minimal Lisp for generative art — 118 functions, 17,000+ programs. The language paper. <a href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-kidlisp">source</a></div>
+      <div class="feat"><b>Who Pays for Creative Tools?</b>Sustainability economics of creative software. Makes the funding/labor case that the plork argument leans on. <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-sustainability">papers/arxiv-sustainability</a></div>
+      <div class="feat"><b>Playable Folk Songs</b>Oral Tradition Meets the Browser Keyboard. <em>notepat</em>'s pedagogical basis — chord-shape-as-melody. <a href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-folk-songs">source</a></div>
+      <div class="feat"><b>Get Closed Source Out of Schools</b>Every Chromebook is a gateway denied. Access / open-tooling argument for classrooms. <a href="https://papers.aesthetic.computer/open-schools-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-open-schools">source</a></div>
+      <div class="feat"><b>notepat</b>The default piece. Keyboard-as-polyphonic-instrument; chord-shape pedagogy. <a href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-notepat">source</a></div>
+      <div class="feat"><b>Whistlegraph</b>Drawing, Singing, and the Graphic Score as Viral Form. The prior art form (2019) that set the self-teaching-score principle underlying KidLisp cards. <a href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf">PDF</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-whistlegraph">source</a></div>
     </div>
   </section>
 
