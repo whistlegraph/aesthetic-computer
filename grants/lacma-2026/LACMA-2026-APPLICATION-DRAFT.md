@@ -10,7 +10,7 @@
 
 ## Project Name
 
-Aesthetic Computer: The Unfinished Instrument
+Aesthetic Computer: A Planetary Laptop Orchestra
 
 ## Three Descriptive Words
 
