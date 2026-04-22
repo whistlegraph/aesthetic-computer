@@ -94,7 +94,7 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 
 ## Implementation Plan
 
-This proposal aligns to the Lab's new biennial calendar: a working-prototype milestone at the **2027 Symposium** and a completed public premiere at the **2028 Demo Day**. The cohort structure (3–5 recipients plus invitational projects) is well-suited to this work — AC Native's USB-bootable format means other cohort artists can bring their own pieces to the system and cross-pollinate at the Symposium without waiting for Demo Day. Casey Reas's 2023 Lab project *METAVASARELY and An Empty Room* is a near-lineage precedent; Reas is also Jeffrey's Author-in-Residence host at UCLA during this application year.
+This proposal aligns to the Lab's new biennial calendar: a working-prototype milestone at the **2027 Symposium** and a completed public premiere at the **2028 Demo Day**. The cohort structure (3–5 recipients plus invitational projects) is well-suited to this work — AC Native's USB-bootable format means other cohort artists can bring their own pieces to the system and cross-pollinate at the Symposium without waiting for Demo Day. Two recent Lab projects sit directly in our neighborhood: Casey Reas's 2023 *METAVASARELY and An Empty Room* (generative systems) and Lauren Lee McCarthy's 2022 *Auto* (public/social interface design). Reas and McCarthy co-teach UCLA's Social Software course, which Jeffrey is an Author in Residence in during this application year — their class is where the KidLisp cards shown in Fig. 3 were first printed and circulated.
 
 | Phase | Timing | Milestones |
 |-------|--------|------------|
@@ -141,7 +141,7 @@ Upload these 5 JPEGs from `grants/lacma-2026/jpegs/submit/`:
 
 1. **platform-screenshot.jpg** — Aesthetic Computer running on mobile and desktop. Platform hosts 600+ interactive pieces across 2,800+ registered users.
 2. **kidlisp-featured.jpg** — *$roz* by @jeffrey, a KidLisp generative piece with 6,000+ plays.
-3. **card-gallery.jpg** — Four KidLisp pieces as printable cards ($berz, $24m, $duv, $kl1), produced for Casey Reas & Laurent Bourgault's "Social Software" course at UCLA (2026). Screenshot + source code + QR code per card, monochrome, 2.75″ × 4.75″.
+3. **card-gallery.jpg** — Four KidLisp pieces as printable cards ($berz, $24m, $duv, $kl1), produced for Casey Reas & Lauren Lee McCarthy's "Social Software" course at UCLA (2026). Screenshot + source code + QR code per card, monochrome, 2.75″ × 4.75″.
 4. **card-berz.jpg** — The $berz card at full size. Six lines of KidLisp produce a recursive wire-tangle that spins, zooms, and blurs each frame.
 5. **hardware-yoga.jpg** — Target hardware: a Lenovo Yoga convertible running AC Native from USB.
 

@@ -19,7 +19,7 @@
 
 | Artist | Project | Notes |
 |---|---|---|
-| **Casey Reas** | *METAVASARELY and An Empty Room* | Computational/generative systems. **Jeffrey's current UCLA Author-in-Residence host.** Processing co-creator. Direct precedent for AC's language-as-art stance. |
+| **Casey Reas** | *METAVASARELY and An Empty Room* | Computational/generative systems. Processing co-creator. **Co-teaches UCLA Social Software with Lauren Lee McCarthy (2022 grantee); hosts Jeffrey's Author-in-Residence year.** Direct precedent for AC's language-as-art stance. |
 | Tristan Duke | *Glacial Optics: Cold Cutting Edge* | Ice as optical material — innovative freezing and cutting. |
 | Haleigh Nickerson | *Sojourner's Rovers* | Technology + exploration via space-rover navigation systems. |
 | Patty Chang & David Kelley | *Stray Dog Hydrophobia* | Animal behavior + technological interfaces. Image used as 2026 announcement hero. |
@@ -30,7 +30,7 @@
 | Artist | Project | Notes |
 |---|---|---|
 | Daniel R. Small | *Techne* | Suburban infrastructure + spatial technology through urban grid systems. |
-| Lauren Lee McCarthy | *Auto* | Autonomous-vehicle testing; human–machine interaction in parking environments. |
+| **Lauren Lee McCarthy** | *Auto* | Autonomous-vehicle testing; human–machine interaction in parking environments. **Co-teaches UCLA Social Software with Casey Reas** — second direct lineage link from this proposal to a past Lab cohort. |
 | Kelly Akashi | *Fissures* | Body + form through sculptural tech-informed approaches. |
 | Nancy Baker Cahill | *Substrate* | Mycelium + biological systems as sculptural/technological material. |
 
