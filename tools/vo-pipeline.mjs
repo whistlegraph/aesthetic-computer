@@ -234,10 +234,11 @@ if (!args["caption-only"] && existsSync(voPath)) args3.push("-i", voPath);
 // Video filter: burn subtitles if not narrate-only
 const vfChain = [];
 if (!args["narrate-only"]) {
-  // Inline ASS styling (sepia-ish to match AC palette)
-  const style = args.style ?? "FontName=Helvetica Neue,FontSize=26," +
-    "PrimaryColour=&H00e4d8bc,OutlineColour=&H001c1812,BackColour=&H801c1812," +
-    "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=42";
+  // Inline ASS styling (sepia-ish to match AC palette).
+  // FontSize is in ASS "play height" units — ~18 reads cleanly at 1280×800.
+  const style = args.style ?? "FontName=Helvetica Neue,FontSize=16," +
+    "PrimaryColour=&H00e4d8bc,OutlineColour=&H001c1812,BackColour=&Hc01c1812," +
+    "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=28";
   vfChain.push(`subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}'`);
 }
 if (vfChain.length) args3.push("-vf", vfChain.join(","));

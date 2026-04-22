@@ -146,6 +146,15 @@
   .demo {
     margin: 2em 0 2.4em;
   }
+  .demo-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 0.8em;
+    align-items: stretch;
+  }
+  @media (max-width: 720px) {
+    .demo-pair { grid-template-columns: 1fr; }
+  }
   .demo-frame {
     position: relative;
     width: 100%;
@@ -161,6 +170,55 @@
     height: 100%;
     object-fit: cover;
   }
+  .demo-hardware {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+    min-height: 100%;
+  }
+  .demo-hardware a {
+    display: block;
+    flex: 1;
+    min-height: 160px;
+    overflow: hidden;
+  }
+  .demo-hardware img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 42%;
+  }
+  .demo-hardware .tag {
+    padding: 0.5em 0.8em;
+    border-top: 1px solid var(--box-border);
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.72em;
+    color: var(--dim);
+    letter-spacing: 0.06em;
+    line-height: 1.5;
+  }
+  .demo-hardware .tag b {
+    display: block;
+    color: var(--text);
+    font-weight: normal;
+    font-family: 'YWFT Processing', monospace;
+    font-size: 1.3em;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-bottom: 0.15em;
+  }
+  .demo-hardware .tag a {
+    display: inline;
+    min-height: 0;
+    overflow: visible;
+    color: var(--cyan);
+  }
+  .demo-hardware .tag a:hover { color: var(--pink); }
   .demo-tabs {
     display: flex;
     gap: 0.3em;
@@ -499,23 +557,35 @@
   <!-- ── DEMO VIDEO ─────────────────────────── -->
   <section class="demo" id="demo">
     <div class="demo-tabs">
-      <div class="demo-tab active" data-src="ac-native-demo" data-poster="ac-native-demo-poster">ambient loop<span class="hint">23 s · muted</span></div>
-      <div class="demo-tab" data-src="ac-native-demo-narrated" data-poster="ac-native-demo-narrated-poster">narrated + captioned<span class="hint">23 s · click unmute</span></div>
+      <div class="demo-tab active" data-src="ac-native-demo-narrated" data-poster="ac-native-demo-narrated-poster">narrated + captioned<span class="hint">23 s · click unmute</span></div>
+      <div class="demo-tab" data-src="ac-native-demo" data-poster="ac-native-demo-poster">ambient loop<span class="hint">23 s · muted</span></div>
     </div>
-    <div class="demo-frame">
-      <video id="demo-video"
-        poster="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-poster.jpg"
-        autoplay muted loop playsinline controls preload="metadata">
-        <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.webm" type="video/webm">
-        <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.mp4" type="video/mp4">
-        Your browser doesn't support HTML5 video. <a href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo.mp4">Download the MP4</a>.
-      </video>
+    <div class="demo-pair">
+      <div class="demo-frame">
+        <video id="demo-video"
+          poster="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated-poster.jpg"
+          autoplay muted loop playsinline controls preload="metadata">
+          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.webm" type="video/webm">
+          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4" type="video/mp4">
+          Your browser doesn't support HTML5 video. <a href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4">Download the MP4</a>.
+        </video>
+      </div>
+      <div class="demo-hardware">
+        <a href="https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51" target="_blank" rel="noopener">
+          <img src="https://shop.aesthetic.computer/cdn/shop/files/ac-native-laptop-hero-final.png?v=1776841885&width=1445"
+               alt="AC Blank — ThinkPad 11e Yoga Gen 6 running AC Native OS on grass, showing 'hi @jeffrey · enjoy Los Angeles!'" loading="lazy">
+        </a>
+        <div class="tag">
+          <b>AC Blank</b>
+          ThinkPad 11e Yoga Gen 6, refurbished, preloaded with AC Native. The video's actual hardware — available now at <a href="https://shop.aesthetic.computer/products/laptops_ac-native-laptop_26-4-17-12-51" target="_blank" rel="noopener">shop.aesthetic.computer</a>.
+        </div>
+      </div>
     </div>
     <div class="demo-caption">
       <div class="sequence">
         <span class="step">boot</span><span class="arrow">→</span><span class="step">prompt</span><span class="arrow">→</span><span class="step">notepat</span><span class="arrow">→</span><span class="step">waltz</span><span class="arrow">→</span><span class="step">back</span><span class="arrow">→</span><span class="step">shutdown</span>
       </div>
-      <div class="byline">captured live · no editing tricks · shutdown animation in progress</div>
+      <div class="byline">captured live on a real AC Blank · shutdown animation in progress</div>
     </div>
     <script>
     (() => {
@@ -534,12 +604,10 @@
           <source src="${ASSET_BASE}/${base}.webm" type="video/webm">
           <source src="${ASSET_BASE}/${base}.mp4" type="video/mp4">`;
         video.poster = `${ASSET_BASE}/${poster}.jpg`;
-        // If swapping to narrated version, unmute by default so VO plays.
+        // Narrated tab → prefer unmuted so VO plays (browser may block).
         video.muted = base.includes("narrated") ? false : true;
         video.load();
         video.play().catch(() => {
-          // Autoplay blocked (browsers block autoplay w/ sound).
-          // Restore muted state and let user click play.
           video.muted = wasMuted;
           video.load();
         });
