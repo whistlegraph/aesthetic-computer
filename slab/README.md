@@ -38,7 +38,7 @@ stops, the all-done chime plays, and the Mac sleeps.
 | Subagent finishes (Task tool) | single ping |
 | Claude Stop, **other active work remaining** | N ascending beeps (C6 D6 E6 G6 A6 C7 D7 E7) |
 | Claude Stop, all work done, lid open | "all-done" chime |
-| Claude Stop, all work done, lid closed | "all-done" chime → `pmset sleepnow` |
+| Claude Stop, all work done, lid closed | TTS "i'm tired" with cosine fade-out tail → `pmset sleepnow` |
 | User submits new prompt | touches active-prompts marker, sets `disablesleep=1` |
 
 ## Install

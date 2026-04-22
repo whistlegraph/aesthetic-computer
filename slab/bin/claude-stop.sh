@@ -4,8 +4,9 @@
 #   active-subagents/<timestamp>-..  — PreToolUse(Task) → SubagentStop
 # This script removes its own prompt marker and counts whatever remains.
 #   others > 0 → N distinct ascending pentatonic beeps (capped at 8).
-#   others = 0 → "all done" chime.
-#                If lid is closed, stop ambient + sleep the machine immediately.
+#   others = 0 → "all done" chime (lid open) OR TTS "i'm tired" with fade-out
+#                tail → `pmset sleepnow` (lid closed: stops ambient first, so
+#                the transition to sleep is a gentle dissolve instead of a cut).
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
@@ -48,10 +49,23 @@ stop_ambient() {
 
 lid=$(ioreg -r -k AppleClamshellState -d 4 | awk '/AppleClamshellState/{print $NF; exit}')
 
+tired_stinger() {
+    # Speak "i'm tired" with a cosine fade-out tail, so the transition to
+    # sleep is a gentle dissolve rather than an abrupt cut. Falls back to
+    # the all-done chime if the venv/helper is missing for any reason.
+    local py="$SLAB_HOME/venv/bin/python3"
+    local helper="$SLAB_BIN/claude-tired.py"
+    if [[ -x "$py" && -f "$helper" ]]; then
+        "$py" "$helper" 2>>"$LOG" || /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null
+    else
+        /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null
+    fi
+}
+
 if (( others == 0 )); then
     if [[ "$lid" == "Yes" ]]; then
         stop_ambient
-        /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null
+        tired_stinger
         "$SLAB_BIN/claude-sleep" now
     else
         /usr/bin/afplay "$CH/all-done.wav" 2>/dev/null &
