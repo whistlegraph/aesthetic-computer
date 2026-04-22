@@ -1,11 +1,12 @@
-# title: AC Native — 23-second demo narration (tuned to visuals)
+# title: AC Native — full demo narration (boot → notepat → shutdown)
 # voice: Daniel
-# rate: 170
+# rate: 175
 
-[0:00] Aesthetic Computer boots from a USB stick straight into art software.
-[0:04] No desktop, no browser — just a personal greeting.
-[0:07] The default piece is notepat, a musical instrument.
-[0:11] Thirty-two voices, synthesized at 192 kilohertz through ALSA.
-[0:14] Every chord tints the screen.
-[0:17] What you hear is a Viennese waltz being played live.
-[0:21] --silence--
+[0:00] Aesthetic Computer boots from a USB stick.
+[0:03] Straight into art software - no desktop, no browser.
+[0:07] notepat is the default piece.
+[0:10] A polyphonic instrument at 192 kilohertz.
+[0:14] Each chord tints the screen.
+[0:17] A Viennese waltz, played live.
+[0:22] Power off - bye.
+[0:23.5] --silence--

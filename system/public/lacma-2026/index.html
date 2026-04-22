@@ -181,7 +181,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    background: #0c0a08;
+    background: var(--box-bg);
     border: 1px solid var(--box-border);
     border-radius: 4px;
     overflow: hidden;
@@ -201,12 +201,10 @@
     object-position: center 45%;
   }
   .demo-hardware .tag {
-    padding: 0.5em 0.8em;
+    padding: 0.7em 0.9em;
     border-top: 1px solid var(--box-border);
-    font-family: 'Berkeley Mono Variable', monospace;
-    font-size: 0.72em;
-    color: var(--dim);
-    letter-spacing: 0.06em;
+    font-size: 0.88em;
+    color: var(--text);  /* same prose color as rest of page */
     line-height: 1.5;
   }
   .demo-hardware .tag b {
@@ -217,7 +215,7 @@
     font-size: 1.3em;
     letter-spacing: 0;
     text-transform: none;
-    margin-bottom: 0.15em;
+    margin-bottom: 0.2em;
   }
   .demo-hardware .tag a {
     display: inline;
@@ -273,6 +271,54 @@
   .demo-caption .byline {
     color: var(--dim);
     font-style: italic;
+  }
+
+  /* ── INLINE SUBMISSION IMAGES ─────────────────── */
+  .submit-images {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.7em;
+    margin: 0.6em 0;
+  }
+  .submit-images figure {
+    margin: 0;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .submit-images figure a {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #0c0a08;
+  }
+  .submit-images figure img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #f6efd7;
+  }
+  .submit-images figure.dark img { background: #0c0a08; }
+  .submit-images figcaption {
+    padding: 0.5em 0.7em;
+    font-size: 0.82em;
+    line-height: 1.45;
+    color: var(--text);
+    border-top: 1px solid var(--box-border);
+  }
+  .submit-images figcaption b {
+    display: block;
+    font-family: 'Berkeley Mono Variable', monospace;
+    color: var(--dim);
+    font-size: 0.85em;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.15em;
   }
 
   /* ── APPLICATION AT A GLANCE (form mirror) ─────── */
@@ -556,7 +602,8 @@
       <dt>Notification</dt><dd>July 2026 · Project start fall 2026</dd>
       <dt>Grant</dt><dd>Up to $50,000 · 2-year project</dd>
       <dt>Partners</dt><dd><span class="partner">Hyundai Motor</span> · <span class="partner">Snap Inc.</span> · <span class="partner">Anthropic</span> · MIT Media Lab · NASA JPL</dd>
-      <dt>Form</dt><dd><a href="https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants">lacma.submittable.com · 2026 Art+Technology Lab</a></dd>
+      <dt>Call</dt><dd><a href="https://unframed.lacma.org/2026/02/23/lacma-2026-art-technology-lab-request-proposals">Unframed — 2026 A+T Lab Request for Proposals</a> · <a href="https://www.lacma.org/art/lab/grants">lacma.org/art/lab/grants</a></dd>
+      <dt>Submit</dt><dd><a href="https://lacma.submittable.com/submit/348727/2026-art-technology-lab-grants">lacma.submittable.com — 2026 Art+Technology Lab Grants</a></dd>
       <dt>Proposal</dt><dd><a href="https://aesthetic.computer/lacma-2026/lacma-2026.pdf">lacma-2026.pdf</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/lacma-2026">repo</a></dd>
     </dl>
   </header>
@@ -680,13 +727,39 @@
 
       <dt>Images<span class="cap">up to 5 · JPEG</span></dt>
       <dd>
-        <ol class="imglist">
-          <li><code>platform-screenshot.jpg</code> — Aesthetic Computer running on mobile + desktop; 2,862 registered users.</li>
-          <li><code>kidlisp-featured.jpg</code> — <em>$roz</em> by @jeffrey, a KidLisp piece with 6,000+ plays.</li>
-          <li><code>card-gallery.jpg</code> — Four KidLisp pieces as printable cards ($berz, $24m, $duv, $kl1) from UCLA Social Software.</li>
-          <li><code>card-berz.jpg</code> — $berz card up close; 6 lines of KidLisp.</li>
-          <li><code>hardware-yoga.jpg</code> — Target hardware: Lenovo Yoga convertible running AC Native from USB.</li>
-        </ol>
+        <p style="margin:0 0 0.5em">The five JPEGs staged for upload, inline so you can see them the way a reviewer will:</p>
+        <div class="submit-images">
+          <figure>
+            <a href="https://assets.aesthetic.computer/lacma-2026/platform-screenshot.jpg" target="_blank">
+              <img src="https://assets.aesthetic.computer/lacma-2026/platform-screenshot.jpg" alt="Aesthetic Computer running on mobile and desktop" loading="lazy">
+            </a>
+            <figcaption><b>1 · platform-screenshot.jpg</b>Aesthetic Computer on mobile + desktop. 2,862 registered users; 600+ pieces.</figcaption>
+          </figure>
+          <figure class="dark">
+            <a href="https://assets.aesthetic.computer/lacma-2026/kidlisp-featured.jpg" target="_blank">
+              <img src="https://assets.aesthetic.computer/lacma-2026/kidlisp-featured.jpg" alt="$roz by @jeffrey — a KidLisp piece" loading="lazy">
+            </a>
+            <figcaption><b>2 · kidlisp-featured.jpg</b><em>$roz</em> by @jeffrey — a KidLisp piece with 6,000+ plays.</figcaption>
+          </figure>
+          <figure>
+            <a href="https://assets.aesthetic.computer/lacma-2026/card-gallery.jpg" target="_blank">
+              <img src="https://assets.aesthetic.computer/lacma-2026/card-gallery.jpg" alt="Four KidLisp pieces as printable cards" loading="lazy">
+            </a>
+            <figcaption><b>3 · card-gallery.jpg</b>Four KidLisp pieces as printable cards ($berz, $24m, $duv, $kl1).</figcaption>
+          </figure>
+          <figure>
+            <a href="https://assets.aesthetic.computer/lacma-2026/card-berz.jpg" target="_blank">
+              <img src="https://assets.aesthetic.computer/lacma-2026/card-berz.jpg" alt="$berz card up close" loading="lazy">
+            </a>
+            <figcaption><b>4 · card-berz.jpg</b>The $berz card, up close — 6 lines of KidLisp.</figcaption>
+          </figure>
+          <figure>
+            <a href="https://assets.aesthetic.computer/lacma-2026/hardware-yoga.jpg" target="_blank">
+              <img src="https://assets.aesthetic.computer/lacma-2026/hardware-yoga.jpg" alt="Target hardware — Lenovo Yoga running AC Native" loading="lazy">
+            </a>
+            <figcaption><b>5 · hardware-yoga.jpg</b>Target hardware: Lenovo Yoga running AC Native from USB.</figcaption>
+          </figure>
+        </div>
       </dd>
 
       <dt>Video<span class="cap">under 5 min · optional · ours: 23 s</span></dt>
