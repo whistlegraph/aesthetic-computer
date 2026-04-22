@@ -139,7 +139,13 @@
     border-bottom: 1px solid var(--box-border);
     margin-bottom: 1em;
   }
-  h2 .ord { color: var(--pink); margin-right: 0.4em; }
+  /* Ornaments (§, ·, arrows) render in mono — YWFT Processing doesn't
+     have those glyphs and falls back to a weird shape. */
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.4em;
+    font-family: 'Berkeley Mono Variable', monospace;
+  }
   h2 .count { float: right; color: var(--dim); font-size: 0.7em; letter-spacing: 0.1em; text-transform: uppercase; padding-top: 0.6em; font-family: 'Berkeley Mono Variable', monospace; }
 
   /* ── DEMO VIDEO ─────────────────────────── */
@@ -148,9 +154,9 @@
   }
   .demo-pair {
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
     gap: 0.8em;
-    align-items: stretch;
+    align-items: start;
   }
   @media (max-width: 720px) {
     .demo-pair { grid-template-columns: 1fr; }
@@ -159,7 +165,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 1280 / 800;
-    background: var(--box-bg);
+    background: #0c0a08;
     border: 1px solid var(--box-border);
     border-radius: 4px;
     overflow: hidden;
@@ -168,30 +174,31 @@
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;  /* letterbox — no crop */
+    background: #0c0a08;
   }
   .demo-hardware {
     position: relative;
     display: flex;
     flex-direction: column;
-    background: var(--box-bg);
+    background: #0c0a08;
     border: 1px solid var(--box-border);
     border-radius: 4px;
     overflow: hidden;
-    min-height: 100%;
   }
-  .demo-hardware a {
+  .demo-hardware a.photo {
     display: block;
-    flex: 1;
-    min-height: 160px;
+    width: 100%;
+    aspect-ratio: 1445 / 960;  /* Shopify image roughly 3:2 */
     overflow: hidden;
+    background: #0c0a08;
   }
   .demo-hardware img {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    object-position: center 42%;
+    object-fit: cover;           /* hero photo can crop gracefully */
+    object-position: center 45%;
   }
   .demo-hardware .tag {
     padding: 0.5em 0.8em;
@@ -542,7 +549,7 @@
   <header class="mast">
     <div class="eyebrow"><span class="tag">LACMA Art + Technology Lab</span> · 2026 · Open Call</div>
     <h1>Personal Computers<br>Are <em>Not Done<br>Yet</em><span class="dot">.</span></h1>
-<p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Aesthetic<span style="color:var(--pink)">.</span>Computer · a pitch for LACMA Art + Technology Lab 2026</p>
+<p class="sub" style="font-family:'YWFT Processing',monospace;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">Aesthetic<span style="color:var(--pink)">.</span>Computer - a pitch for LACMA Art + Technology Lab 2026</p>
     <p class="sub">Pitch by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
     <dl class="meta">
       <dt>Deadline</dt><dd class="due">Wed, 22 Apr 2026 · 11:59 PM PST</dd>
@@ -760,7 +767,7 @@
       <div class="feat"><b>Graphics</b>DRM dumb-buffer rendering (no compositor). Nearest-neighbor upscale for the chunky-pixel aesthetic. Optional SDL3 GPU backend.</div>
       <div class="feat"><b>Audio</b>ALSA at 192 kHz. 32-voice polyphony. 8 waveforms — sine, triangle, sawtooth, square, composite, harp, whistle, sample. Room reverb, master drive.</div>
       <div class="feat"><b>Input</b>Raw evdev: keyboard, mouse/trackpad, touch, gamepad, NuPhy analog keys. Camera + V4L2 + QR scanning via quirc.</div>
-      <div class="feat"><b>code · AI partner</b>Built-in <code>code</code> command spawns <strong>Anthropic's Claude Code</strong> as a PTY subprocess inside a native terminal emulator. Modify a piece without leaving the OS.</div>
+      <div class="feat"><b>code - AI partner</b>Built-in <code>code</code> command spawns <strong>Anthropic's Claude Code</strong> as a PTY subprocess inside a native terminal emulator. Modify a piece without leaving the OS.</div>
       <div class="feat"><b>MIDI</b>USB MIDI (in + out) and UDP MIDI broadcast. notepat transmits polyphonic MIDI live to other hardware and other AC Native stations.</div>
       <div class="feat"><b>TTS</b>Flite speech synthesis (male + female voices) integrated into the audio ring buffer. Pieces can speak.</div>
       <div class="feat"><b>Sampling</b>12 simultaneous sample voices, up to 10 seconds per sample. Record straight from the microphone into a piece.</div>
@@ -804,11 +811,11 @@
     <h2><span class="ord">§</span>Calendar<span class="count">aligned to LACMA's biennial cadence</span></h2>
     <p style="color:var(--dim);margin-bottom:1em">The Lab's new structure sets two public events: a <em style="color:var(--pink);font-style:normal">2027 Symposium</em> (works-in-development) and a <em style="color:var(--pink);font-style:normal">2028 Demo Day</em> (completed projects). This proposal anchors each phase to one of those events rather than a vague "final show."</p>
     <div class="features">
-      <div class="feat"><b>Fall 2026 → Spring 2027</b>Hardware &amp; curriculum: expand AC Native to 5+ laptop models, build multi-piece boot menu, design 3-level KidLisp workshop curriculum, print reference cards (extending the sosoft card template used at UCLA).</div>
-      <div class="feat"><b>Spring – Summer 2027</b>Pre-Symposium: 2 pilot workshops at LACMA, prototype multi-station installation, publish v0 of the open-source build guide.</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2027 · 2027 Symposium</b>Live AC Native demonstration — visitors and cohort artists boot the OS on their own laptops from a USB stick. Public KidLisp workshop in the museum. In-conversation on generative computing, situated alongside the 2023 cohort (Reas, Duke, Nickerson, Chang+Kelley, Porras-Kim).</div>
-      <div class="feat"><b>Winter 2027 – Summer 2028</b>Full installation build: kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, documentation, curriculum translation (EN + ES).</div>
-      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2028 · 2028 Demo Day</b>Public premiere of the multi-station AC Native installation in the LACMA galleries. Open-source v1.0 release — build pipeline, hardware compatibility matrix, workshop curriculum for other institutions to adopt.</div>
+      <div class="feat"><b>Fall 2026 to Spring 2027</b>Hardware &amp; curriculum: expand AC Native to 5+ laptop models, build multi-piece boot menu, design 3-level KidLisp workshop curriculum, print reference cards (extending the sosoft card template used at UCLA).</div>
+      <div class="feat"><b>Spring to Summer 2027</b>Pre-Symposium: 2 pilot workshops at LACMA, prototype multi-station installation, publish v0 of the open-source build guide.</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2027 - 2027 Symposium</b>Live AC Native demonstration — visitors and cohort artists boot the OS on their own laptops from a USB stick. Public KidLisp workshop in the museum. In-conversation on generative computing, situated alongside the 2023 cohort (Reas, Duke, Nickerson, Chang+Kelley, Porras-Kim).</div>
+      <div class="feat"><b>Winter 2027 to Summer 2028</b>Full installation build: kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, documentation, curriculum translation (EN + ES).</div>
+      <div class="feat" style="border-left-color:var(--pink)"><b style="color:var(--pink)">Fall 2028 - 2028 Demo Day</b>Public premiere of the multi-station AC Native installation in the LACMA galleries. Open-source v1.0 release — build pipeline, hardware compatibility matrix, workshop curriculum for other institutions to adopt.</div>
     </div>
   </section>
 
