@@ -558,8 +558,16 @@ int main(int argc, char **argv) {
                    | SDL_WINDOW_ALWAYS_ON_TOP;
     }
 
+    // AC_WIN_W / AC_WIN_H override the compile-time default so the demo
+    // pipeline can record at 1280x800 without recompiling. FB size then
+    // falls out of WIN/DENSITY so the piece still sees chunky-pixel
+    // coordinates.
+    int init_w = getenv("AC_WIN_W") ? atoi(getenv("AC_WIN_W")) : INITIAL_WIN_W;
+    int init_h = getenv("AC_WIN_H") ? atoi(getenv("AC_WIN_H")) : INITIAL_WIN_H;
+    if (init_w < 128) init_w = INITIAL_WIN_W;
+    if (init_h < 128) init_h = INITIAL_WIN_H;
     SDL_Window *win = SDL_CreateWindow("Notepat",
-                                       INITIAL_WIN_W, INITIAL_WIN_H,
+                                       init_w, init_h,
                                        win_flags);
     if (!win) { fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError()); SDL_Quit(); return 1; }
     if (!fullscreen) SDL_SetWindowHitTest(win, hit_test_cmd_drag, NULL);
@@ -619,6 +627,12 @@ int main(int argc, char **argv) {
     };
     if (!fb.pixels) { fprintf(stderr, "fb alloc failed\n"); return 1; }
 
+    // Frame-dump dir declared early so the boot-animation prelude below
+    // can also contribute frames to the same sequence. Read once here;
+    // the piece-loop block below re-reads it in the same variable.
+    const char *early_frame_dir = getenv("AC_FRAME_DUMP_DIR");
+    int early_frame_idx = 0;
+
     // Boot animation prelude — 2 s of the shared boot_anim renderer before
     // the piece loads. Gated on AC_BOOT_ANIM (default off so existing
     // notepat launches stay snappy; the demo pipeline exports it so every
@@ -660,6 +674,21 @@ int main(int argc, char **argv) {
             SDL_RenderClear(ren);
             SDL_RenderTexture(ren, tex, NULL, NULL);
             SDL_RenderPresent(ren);
+            if (early_frame_dir) {
+                int d = density < 1 ? 1 : density;
+                const uint32_t *src = fb.pixels;
+                int out_w = fb.width, out_h = fb.height;
+                uint32_t *scaled = NULL;
+                if (d > 1) {
+                    scaled = upscale_nn(fb.pixels, fb.width, fb.height, d);
+                    if (scaled) { src = scaled; out_w *= d; out_h *= d; }
+                }
+                char path[1200];
+                snprintf(path, sizeof path, "%s/frame_%05d.png",
+                         early_frame_dir, early_frame_idx++);
+                png_write_argb(path, src, out_w, out_h, out_w);
+                free(scaled);
+            }
             // Drain events so the OS doesn't mark the window unresponsive.
             SDL_Event ev; while (SDL_PollEvent(&ev)) {
                 if (ev.type == SDL_EVENT_QUIT) goto boot_anim_done;
@@ -856,7 +885,9 @@ boot_anim_done: ;
     // into an mkv. Density-2 upscaling applied so the saved PNGs match
     // what you see on screen (chunky retro pixels stay crisp).
     const char *frame_dump_dir = getenv("AC_FRAME_DUMP_DIR");
-    int frame_dump_idx = 0;
+    // Continue from the boot-animation prelude's index so the whole run
+    // forms one contiguous frame_00000…frame_NNNNN sequence.
+    int frame_dump_idx = early_frame_idx;
 
     // AC_WAV_OUT=<path> — tap audio callback output into a float32 stereo
     // @ 48 kHz WAVE file. Paired with frame-dump, ffmpeg can mux the two
