@@ -94,13 +94,15 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 
 ## Implementation Plan
 
-| Phase | Timeline | Milestones |
-|-------|----------|------------|
-| **1. Hardware Refinement** | Fall 2026 | Expand AC Native hardware compatibility; develop multi-piece boot menu; optimize for 5+ laptop models commonly available at institutions |
-| **2. Workshop Development** | Winter 2026–27 | Design KidLisp workshop curriculum (3 difficulty levels); test with pilot group; produce printed reference cards |
-| **3. Installation Design** | Spring 2027 | Design multi-station installation layout; produce 20+ bootable USB drives; develop kiosk-mode security for public use |
-| **4. Public Programs** | Summer–Fall 2027 | Deliver 4–6 workshops at LACMA; install and maintain public AC Native stations; collect participant feedback |
-| **5. Documentation & Release** | Winter 2027–28 | Publish complete build guide, workshop curriculum, and hardware compatibility list; present at LACMA Biennial Symposium (2027) |
+This proposal aligns to the Lab's new biennial calendar: a working-prototype milestone at the **2027 Symposium** and a completed public premiere at the **2028 Demo Day**. The cohort structure (3–5 recipients plus invitational projects) is well-suited to this work — AC Native's USB-bootable format means other cohort artists can bring their own pieces to the system and cross-pollinate at the Symposium without waiting for Demo Day. Casey Reas's 2023 Lab project *METAVASARELY and An Empty Room* is a near-lineage precedent; Reas is also Jeffrey's Author-in-Residence host at UCLA during this application year.
+
+| Phase | Timing | Milestones |
+|-------|--------|------------|
+| **1. Hardware & Curriculum** | Fall 2026 – Spring 2027 | Expand AC Native compatibility to 5+ laptop models; build multi-piece boot menu; design the 3-level KidLisp workshop curriculum; produce printed reference cards (extending the sosoft card template used at UCLA). |
+| **2. Pre-Symposium Workshops** | Spring – Summer 2027 | Run 2 pilot workshops at LACMA; assemble a prototype multi-station installation; publish v0 of the open-source build guide. |
+| **3. 2027 Symposium (WIP)** | Fall 2027 | Live AC Native demonstration: visitors and cohort artists boot the OS on their own laptops from USB. Public KidLisp workshop in the museum. Talk / in-conversation on generative computing, situated alongside the 2023 cohort. |
+| **4. Full Installation + Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening; 20+ take-home USB drives; 4 additional workshops; complete documentation; translate workshop curriculum (EN + ES, matching AC's translation pipeline). |
+| **5. 2028 Demo Day (premiere)** | Fall 2028 | Public premiere of the multi-station AC Native installation in the LACMA galleries. Open-source v1.0 release with full build pipeline, hardware compatibility matrix, and workshop curriculum for other institutions to adopt. Public programs introducing the system to teachers, museum educators, and other artists. |
 
 ---
 
@@ -108,20 +110,21 @@ We propose three forms of public engagement. First, hands-on KidLisp workshops a
 
 | Item | Cost |
 |------|------|
-| Artist fee (24 months) | $20,000 |
+| Artist fee (24 months, Fall 2026 – Fall 2028) | $22,000 |
+| Studio hardware (dev machines, displays) | $3,500 |
 | Installation laptops (5 × $400 refurbished) | $2,000 |
-| USB drives, cables, peripherals | $500 |
-| Studio hardware (dev machines, displays) | $4,000 |
 | NuPhy analog keyboards for installation (5 × $120) | $600 |
-| Workshop materials (printed guides, reference cards) | $1,000 |
+| USB drives, cables, peripherals | $500 |
 | Installation fabrication (furniture, mounts) | $2,500 |
+| Workshop materials (printed guides, KidLisp reference cards) | $1,200 |
+| **2027 Symposium contribution** (travel, cohort demo USB kit, on-site demo station) | $2,500 |
+| **2028 Demo Day premiere** (install setup, public-program support) | $3,000 |
 | Server + compute infrastructure (hosting, CDN, CI/CD) | $3,500 |
-| Platform development (contract engineering) | $3,000 |
-| Documentation production (video, photography) | $2,000 |
-| Contingency (10%) | $3,900 |
-| **Total Requested** | **$43,000** |
+| Documentation production (video, photography, translation) | $2,000 |
+| Contingency (10%) | $3,700 |
+| **Total Requested** | **$47,000** |
 
-$7,000 of headroom remains under the $50,000 cap.
+$3,000 of headroom remains under the $50,000 cap.
 
 ---
 
