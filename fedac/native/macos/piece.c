@@ -666,7 +666,7 @@ PieceCtx *piece_load(const char *path, PieceFB *fb) {
         "    listPieces,\n"
         "    jump(p) { globalThis.__pending_jump = p; },\n"
         "    reboot()   { console.log('[sys] reboot requested (noop on macOS)'); },\n"
-        "    poweroff() { console.log('[sys] poweroff requested (noop on macOS)'); },\n"
+        "    poweroff() { console.log('[sys] poweroff requested'); globalThis.__poweroff_requested = 1; },\n"
         "    sshStarted: false, startSSH: noop,\n"
         "  };\n"
         "  // Top-level jump() + kidlisp() as globals (prompt + KidLisp return\n"
@@ -942,6 +942,27 @@ char *piece_pending_jump(PieceCtx *pc) {
     JS_FreeValue(cx, pj);
     JS_FreeValue(cx, global);
     return out;
+}
+
+// Poll for system.poweroff() — returns non-zero once per trigger, then
+// clears the flag so the main loop can play the shutdown animation
+// exactly one time.
+int piece_poweroff_requested(PieceCtx *pc) {
+    if (!pc || !pc->jsctx) return 0;
+    JSContext *cx = pc->jsctx;
+    JSValue global = JS_GetGlobalObject(cx);
+    JSValue flag = JS_GetPropertyStr(cx, global, "__poweroff_requested");
+    int requested = 0;
+    if (JS_IsNumber(flag) || JS_IsBool(flag)) {
+        int32_t v = 0; JS_ToInt32(cx, &v, flag);
+        if (v) {
+            requested = 1;
+            JS_SetPropertyStr(cx, global, "__poweroff_requested", JS_UNDEFINED);
+        }
+    }
+    JS_FreeValue(cx, flag);
+    JS_FreeValue(cx, global);
+    return requested;
 }
 
 void piece_boot(PieceCtx *pc)  { call_lifecycle_with_api(pc, pc->boot_fn);  }

@@ -35,13 +35,13 @@ else
   $(error AUDIO must be 'core' or 'sdl')
 endif
 
-HOST_SRCS   := main.c piece.c png_writer.c $(AUDIO_SRC)
+HOST_SRCS   := main.c piece.c png_writer.c demo_script.c $(AUDIO_SRC)
 HOST_OBJS   := $(patsubst %.c,$(BUILD)/%.o,$(HOST_SRCS))
 # Shared with Linux ac-native: audio synth, boot-screen renderer, and the
 # portable graphics/font/framebuffer stack the boot animation draws into.
 # qrcodegen is a transitive dep of graph.c (for graph_qr) even though the
 # boot animation itself doesn't render QR codes.
-SHARED_CORE_SRCS := synth_core.c boot_anim.c graph.c font.c framebuffer.c color.c
+SHARED_CORE_SRCS := synth_core.c boot_anim.c shutdown_anim.c graph.c font.c framebuffer.c color.c
 SHARED_QR_SRCS   := qrcodegen.c
 SHARED_OBJS      := $(patsubst %.c,$(BUILD)/shared-%.o,$(SHARED_CORE_SRCS) $(SHARED_QR_SRCS))
 LDFLAGS          += $(SDL3_LIBS_BASE) $(AUDIO_FRAMEWORKS)

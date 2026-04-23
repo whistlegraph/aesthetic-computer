@@ -17,9 +17,11 @@
 #include "audio.h"
 #include "png_writer.h"
 #include "boot_anim.h"
+#include "shutdown_anim.h"
 #include "graph.h"
 #include "font.h"
 #include "framebuffer.h"
+#include "demo_script.h"
 
 // Initial window size in logical points. The framebuffer is win / DENSITY,
 // so 640×480 @ d=2 yields a 320×240 canvas — a classic retro resolution
@@ -211,6 +213,9 @@ static SDL_Surface *make_tray_icon_surface(void) {
 // Flags the tray / hotkey callbacks write; the main loop polls them.
 static volatile int g_toggle_visible = 0;
 static volatile int g_quit_requested = 0;
+// Set by piece.c's poweroff() JS binding. Main loop runs the shutdown
+// animation when this flips, then exits. exposed via extern.
+volatile int g_poweroff_requested = 0;
 
 static void SDLCALL tray_show_hide(void *ud, SDL_TrayEntry *entry) {
     (void)ud; (void)entry;
@@ -526,12 +531,55 @@ int main(int argc, char **argv) {
 
     char bundle_piece[1200], bundle_lib[1200];
     const char *piece_path = NULL;
-    if (argc > 1) {
-        piece_path = argv[1];
-    } else {
+    const char *demo_path = NULL;
+    // Parse flags — supports `--demo <path>` preceded or followed by the
+    // piece path. Remaining positional arg (first one that doesn't start
+    // with '--') is the piece to load.
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--demo") == 0 && i + 1 < argc) {
+            demo_path = argv[++i];
+        } else if (argv[i][0] != '-' || argv[i][1] == 0) {
+            if (!piece_path) piece_path = argv[i];
+        }
+    }
+    if (!piece_path) {
         piece_path = detect_bundle(bundle_piece, sizeof(bundle_piece),
                                    bundle_lib, sizeof(bundle_lib));
         if (!piece_path) piece_path = "../test-pieces/hello.mjs";
+    }
+
+    // If --demo is set, parse the script up front so we can apply its
+    // front-matter (handle, city, window, duration) before SDL_Init.
+    DemoScript *demo = NULL;
+    if (demo_path) {
+        demo = demo_script_load(demo_path);
+        if (!demo) return 2;
+        fprintf(stderr, "[demo] loaded %s — %d events, %.1fs\n",
+                demo_path, demo->n_events, demo_script_duration(demo));
+        // Front-matter → env vars (only if caller hasn't set them).
+        if (demo->handle && !getenv("AC_SHOT_HANDLE"))
+            setenv("AC_SHOT_HANDLE", demo->handle, 1);
+        if (demo->city   && !getenv("AC_SHOT_CITY"))
+            setenv("AC_SHOT_CITY", demo->city, 1);
+        if (!getenv("AC_SHOT_HOUR")) {
+            char buf[16]; snprintf(buf, sizeof buf, "%d", demo->hour);
+            setenv("AC_SHOT_HOUR", buf, 1);
+        }
+        if (!getenv("AC_WIN_W")) {
+            char buf[16]; snprintf(buf, sizeof buf, "%d", demo->win_w);
+            setenv("AC_WIN_W", buf, 1);
+        }
+        if (!getenv("AC_WIN_H")) {
+            char buf[16]; snprintf(buf, sizeof buf, "%d", demo->win_h);
+            setenv("AC_WIN_H", buf, 1);
+        }
+        // Auto-exit after the demo finishes if AC_HEADLESS_MS isn't set.
+        if (!getenv("AC_HEADLESS_MS")) {
+            char buf[32];
+            snprintf(buf, sizeof buf, "%d",
+                     (int)(demo_script_duration(demo) * 1000));
+            setenv("AC_HEADLESS_MS", buf, 1);
+        }
     }
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -639,6 +687,13 @@ int main(int argc, char **argv) {
     const char *early_frame_dir = getenv("AC_FRAME_DUMP_DIR");
     int early_frame_idx = 0;
 
+    // Demo-script wall-clock anchor. Events dispatch from this tick so the
+    // timeline covers boot animation + piece life + shutdown — captions,
+    // say(), key injection all share one clock. Main loop re-uses it.
+    Uint64 start_tick = SDL_GetTicks();
+    int demo_cur = 0;
+    char active_caption[512] = {0};  // current burn-in subtitle, or ""
+
     // Boot animation prelude — 2 s of the shared boot_anim renderer before
     // the piece loads. Gated on AC_BOOT_ANIM (default off so existing
     // notepat launches stay snappy; the demo pipeline exports it so every
@@ -676,6 +731,50 @@ int main(int argc, char **argv) {
         int target_ms = 1000 / 60;
         for (int f = 0; f < BOOT_ANIM_FRAMES; f++) {
             boot_anim_render_frame(&bg, &bafb, f, &anim, &st);
+            // Demo-script dispatch during boot (captions + say, no keys
+            // since no piece loaded yet). Key events are LEFT IN PLACE
+            // for the main piece loop to dispatch once the piece is up —
+            // without this guard, a key whose timestamp happens to land
+            // on the last boot frame gets silently consumed (the piece
+            // never sees it, so e.g. the first 'n' of 'notepat' vanishes).
+            if (demo) {
+                double now_sec = (SDL_GetTicks() - start_tick) / 1000.0;
+                while (demo_cur < demo->n_events &&
+                       now_sec >= demo->events[demo_cur].t) {
+                    DemoEvent *ev = &demo->events[demo_cur];
+                    if (ev->kind == DEMO_EV_KEY) {
+                        // Stop here — leave this (and any later events) for
+                        // the main loop. Do NOT advance demo_cur.
+                        break;
+                    }
+                    if (ev->kind == DEMO_EV_CAPTION) {
+                        if (ev->arg && ev->arg[0])
+                            snprintf(active_caption, sizeof active_caption, "%s", ev->arg);
+                        else active_caption[0] = 0;
+                    } else if (ev->kind == DEMO_EV_SAY && ev->arg && ev->arg[0]) {
+                        // Implicit caption: whatever is spoken is also shown.
+                        snprintf(active_caption, sizeof active_caption, "%s", ev->arg);
+                        char cmd[1024];
+                        snprintf(cmd, sizeof cmd, "say -v %s -r %d \"%s\" &",
+                                 demo->voice, demo->rate, ev->arg);
+                        system(cmd);
+                    }
+                    demo_cur++;
+                }
+            }
+            // Burn-in caption overlay (system-wide — works during boot too).
+            if (active_caption[0]) {
+                int tw = font_measure_matrix(active_caption, 1);
+                int th = 11;
+                int pad_x = 6, pad_y = 3;
+                int bw = tw + pad_x * 2, bh = th + pad_y * 2;
+                int bx = (bafb.width - bw) / 2;
+                int by = bafb.height - bh - 6;
+                graph_ink(&bg, (ACColor){20, 15, 10, 210});
+                graph_box(&bg, bx, by, bw, bh, 1);
+                graph_ink(&bg, (ACColor){228, 216, 188, 255});
+                font_draw_matrix(&bg, active_caption, bx + pad_x, by + pad_y, 1);
+            }
             SDL_UpdateTexture(tex, NULL, fb.pixels, fb.stride * (int)sizeof(uint32_t));
             SDL_RenderClear(ren);
             SDL_RenderTexture(ren, tex, NULL, NULL);
@@ -915,10 +1014,13 @@ boot_anim_done: ;
         if (au) audio_wav_start(au, wav_out);
     }
 
-    Uint64 start_tick = SDL_GetTicks();
-
     int running = 1;
     int hidden = 0;
+    // Bye-animation state: when g_poweroff_requested flips, play 90 frames
+    // of red/white strobe with "bye @handle" before exiting. Matches the
+    // Linux-path draw_shutdown_anim() in src/ac-native.c.
+    int bye_frames_played = 0;
+    const int bye_total_frames = 90;
     while (running) {
         if (g_quit_requested) { running = 0; break; }
         if (g_toggle_visible) {
@@ -959,6 +1061,79 @@ boot_anim_done: ;
                     seq[seq_cur].hold_ms);
             seq_cur++;
         }
+        // Demo script dispatch — events run in order, absolute timestamps.
+        if (demo) {
+            double now_sec = (SDL_GetTicks() - start_tick) / 1000.0;
+            while (demo_cur < demo->n_events &&
+                   now_sec >= demo->events[demo_cur].t) {
+                DemoEvent *ev = &demo->events[demo_cur];
+                switch (ev->kind) {
+                case DEMO_EV_KEY: {
+                    if (ev->arg) {
+                        PieceEvent pd = {0};
+                        snprintf(pd.key,  sizeof pd.key,  "%s", ev->arg);
+                        snprintf(pd.type, sizeof pd.type, "keyboard:down:%s", ev->arg);
+                        piece_act(pc, &pd);
+                        PieceEvent pu = {0};
+                        snprintf(pu.key,  sizeof pu.key,  "%s", ev->arg);
+                        snprintf(pu.type, sizeof pu.type, "keyboard:up:%s", ev->arg);
+                        piece_act(pc, &pu);
+                        fprintf(stderr, "[demo] key %s @ %.2fs\n", ev->arg, ev->t);
+                    }
+                    break;
+                }
+                case DEMO_EV_CAPTION: {
+                    if (ev->arg && ev->arg[0]) {
+                        snprintf(active_caption, sizeof active_caption,
+                                 "%s", ev->arg);
+                    } else {
+                        active_caption[0] = 0;
+                    }
+                    fprintf(stderr, "[demo] caption @ %.2fs — %s\n",
+                            ev->t, ev->arg ? ev->arg : "(clear)");
+                    break;
+                }
+                case DEMO_EV_SAY: {
+                    // Fire-and-forget — let `say` play through speakers
+                    // synchronously with the visual. Audio tap won't
+                    // pick this up (it captures piece output, not
+                    // system audio), so for a clean recording the post-
+                    // mix step at tools/vo-pipeline.mjs re-reads this
+                    // same demo file and burns the TTS into the final
+                    // video.
+                    if (ev->arg && ev->arg[0]) {
+                        // Implicit caption: whatever is spoken is also
+                        // shown as a subtitle. Explicit [caption ...] at
+                        // the same timestamp overwrites this.
+                        snprintf(active_caption, sizeof active_caption,
+                                 "%s", ev->arg);
+                        char cmd[1024];
+                        snprintf(cmd, sizeof cmd,
+                                 "say -v %s -r %d \"%s\" &",
+                                 demo->voice, demo->rate, ev->arg);
+                        system(cmd);
+                        fprintf(stderr, "[demo] say @ %.2fs — %s\n",
+                                ev->t, ev->arg);
+                    }
+                    break;
+                }
+                case DEMO_EV_ENV: {
+                    if (ev->arg) {
+                        char *eq = strchr(ev->arg, '=');
+                        if (eq) {
+                            *eq = 0;
+                            setenv(ev->arg, eq + 1, 1);
+                            *eq = '=';
+                        }
+                    }
+                    break;
+                }
+                case DEMO_EV_WAIT: break;
+                }
+                demo_cur++;
+            }
+        }
+
         // Drain pending keyups whose hold window has elapsed.
         int now_rel = (int)(SDL_GetTicks() - start_tick);
         for (int i = 0; i < ups_len; i++) {
@@ -998,6 +1173,19 @@ boot_anim_done: ;
         }
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
+            // Demo mode takes over input — swallow user keys / mouse /
+            // touch so they don't interfere with the scripted timeline.
+            // Quit and resize still count (window X / Cmd-Q / drag).
+            if (demo && (ev.type == SDL_EVENT_KEY_DOWN ||
+                         ev.type == SDL_EVENT_KEY_UP ||
+                         ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+                         ev.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+                         ev.type == SDL_EVENT_MOUSE_MOTION ||
+                         ev.type == SDL_EVENT_FINGER_DOWN ||
+                         ev.type == SDL_EVENT_FINGER_UP ||
+                         ev.type == SDL_EVENT_FINGER_MOTION)) {
+                continue;
+            }
             // Remap mouse/touch coords from window pixels into the logical
             // FB_W × FB_H canvas so pieces see native framebuffer coords
             // regardless of fullscreen scale factor or retina backing.
@@ -1011,7 +1199,10 @@ boot_anim_done: ;
                 continue;
             }
             else if (ev.type == SDL_EVENT_KEY_DOWN) {
-                if (ev.key.key == SDLK_ESCAPE) { running = 0; continue; }
+                // Escape used to quit the whole app here, but that starved
+                // pieces of the escape key event — notepat wants triple-
+                // escape to exit back to the prompt. Cmd+Q / window close /
+                // tray "Quit" still exit via g_quit_requested.
                 // Cmd+= / Cmd+- live-adjust pixel density (zoom in/out).
                 // Cmd+0 resets to 1 (web-AC parity). Absorbed — piece never
                 // sees these keypresses.
@@ -1057,8 +1248,67 @@ boot_anim_done: ;
             }
         }
 
-        piece_sim(pc);
-        render_frame(&rctx);
+        // Once the piece calls system.poweroff(), stop simming/painting
+        // and take over the framebuffer with the shutdown animation.
+        if (!g_poweroff_requested && piece_poweroff_requested(pc)) {
+            g_poweroff_requested = 1;
+            bye_frames_played = 0;
+            fprintf(stderr, "[bye] poweroff requested — playing shutdown animation\n");
+        }
+        if (g_poweroff_requested) {
+            // Derive "bye @handle" from AC_SHOT_HANDLE (or fall back to bye).
+            char bye_title[80];
+            const char *h = getenv("AC_SHOT_HANDLE");
+            if (h && h[0]) snprintf(bye_title, sizeof bye_title, "bye @%s", h);
+            else           snprintf(bye_title, sizeof bye_title, "bye");
+            ShutdownAnimConfig sacfg = { .title = bye_title };
+            // Build an ACGraph view over fb->pixels for the animation helpers.
+            ACGraph sgraph;
+            graph_init(&sgraph, (ACFramebuffer *)&fb);
+            shutdown_anim_render_frame(&sgraph, (ACFramebuffer *)&fb,
+                                       bye_frames_played, &sacfg);
+            bye_frames_played++;
+            // Present the shutdown frame directly — bypass render_frame so
+            // piece_paint doesn't overwrite our strobe.
+            SDL_UpdateTexture(tex, NULL, fb.pixels,
+                              fb.stride * (int)sizeof(uint32_t));
+            SDL_RenderClear(ren);
+            SDL_RenderTexture(ren, tex, NULL, NULL);
+            SDL_RenderPresent(ren);
+            if (bye_frames_played >= SHUTDOWN_ANIM_FRAMES) {
+                running = 0;
+                break;
+            }
+        } else {
+            piece_sim(pc);
+            piece_paint(pc);
+            // Burn-in caption overlay (demo-script mode).
+            if (active_caption[0]) {
+                ACGraph cgraph;
+                graph_init(&cgraph, (ACFramebuffer *)&fb);
+                // Measure text, draw a translucent dark box along the
+                // bottom strip, then the caption in warm cream.
+                int scale = 1;
+                int tw = font_measure_matrix(active_caption, scale);
+                if (tw > fb.width - 16) scale = 1;  // keep minimal
+                int th = 11 * scale;   // MatrixChunky8 baseline
+                int pad_x = 6, pad_y = 3;
+                int box_w = tw + pad_x * 2;
+                int box_h = th + pad_y * 2;
+                int box_x = (fb.width - box_w) / 2;
+                int box_y = fb.height - box_h - 6;
+                graph_ink(&cgraph, (ACColor){20, 15, 10, 210});
+                graph_box(&cgraph, box_x, box_y, box_w, box_h, 1);
+                graph_ink(&cgraph, (ACColor){228, 216, 188, 255});
+                font_draw_matrix(&cgraph, active_caption,
+                                 box_x + pad_x, box_y + pad_y, scale);
+            }
+            SDL_UpdateTexture(tex, NULL, fb.pixels,
+                              fb.stride * (int)sizeof(uint32_t));
+            SDL_RenderClear(ren);
+            SDL_RenderTexture(ren, tex, NULL, NULL);
+            SDL_RenderPresent(ren);
+        }
 
         // Per-frame PNG dump for offline recording. Upscales density×
         // nearest-neighbor so the chunky-pixel aesthetic reads correctly

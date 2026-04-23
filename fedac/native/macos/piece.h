@@ -56,4 +56,9 @@ void piece_destroy(PieceCtx *ctx);
 // target is only seen once. NULL when no jump is queued. Caller frees.
 char *piece_pending_jump(PieceCtx *ctx);
 
+// Poll for system.poweroff(). Returns non-zero exactly once per trigger
+// (then clears the flag) so the host can play a shutdown animation and
+// exit cleanly.
+int piece_poweroff_requested(PieceCtx *ctx);
+
 #endif
