@@ -269,6 +269,27 @@ async function handleFunction(req, res) {
     return res.status(404).send("Function not found: " + name);
   }
 
+  // Netlify-style background functions: filename ends in `-background`. The
+  // Netlify runtime responds 202 immediately and keeps the handler running
+  // asynchronously. lith must do the same or callers that `await` the
+  // invocation (e.g. keep-prepare → keep-prepare-background) hang until the
+  // full pipeline completes, blocking the client request.
+  if (name.endsWith("-background")) {
+    const event = toEvent(req);
+    const context = { clientContext: {} };
+    const t0 = Date.now();
+    res.status(202).send("");
+    handler(event, context)
+      .then((result) => {
+        recordCall(name, Date.now() - t0, result?.statusCode || 202, req.path, req.method, null);
+      })
+      .catch((err) => {
+        recordCall(name, Date.now() - t0, 500, req.path, req.method, err?.message);
+        console.error(`fn/${name} background error:`, err);
+      });
+    return;
+  }
+
   // Check response cache (GET only, with matching query string)
   const ttl = CACHE_TTLS[name];
   if (ttl && req.method === "GET") {
