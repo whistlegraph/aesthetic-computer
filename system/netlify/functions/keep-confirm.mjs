@@ -7,6 +7,7 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { loadKidlispPiece } from "../../backend/kidlisp-read.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 
@@ -240,9 +241,9 @@ export async function handler(event, context) {
       requestedVersion: contractVersion,
     });
 
-    // Find the kidlisp record
+    // Find the kidlisp record (Datomic-aware; new pieces live only in Datomic)
     const collection = database.db.collection("kidlisp");
-    const record = await collection.findOne({ code: cleanPiece });
+    const record = await loadKidlispPiece(database, cleanPiece);
 
     if (!record) {
       await database.disconnect();
@@ -339,15 +340,19 @@ export async function handler(event, context) {
       unsetOps.pendingKeep = "";
     }
 
+    // upsert: pieces that live only in Datomic (KIDLISP_DATOMIC=on) don't
+    // yet have a Mongo row on first keep. Writing on upsert creates one so
+    // ipfsMedia / kept persist.
     const updateResult = await collection.updateOne(
       { code: cleanPiece },
       {
         $set: setOps,
         ...(Object.keys(unsetOps).length > 0 ? { $unset: unsetOps } : {}),
-      }
+      },
+      { upsert: true }
     );
 
-    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0) {
+    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0 && !updateResult.upsertedId) {
       console.warn(`❌ Failed to update piece ${cleanPiece}`);
       await database.disconnect();
       return respond(500, { error: "Failed to record mint" });

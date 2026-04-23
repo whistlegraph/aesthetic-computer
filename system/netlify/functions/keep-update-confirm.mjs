@@ -7,6 +7,7 @@
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { loadKidlispPiece } from "../../backend/kidlisp-read.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 
@@ -179,9 +180,9 @@ export async function handler(event, context) {
     });
     const normalizedTokenId = normalizeTokenId(tokenId);
 
-    // Find the kidlisp record
+    // Find the kidlisp record (Datomic-aware)
     const collection = database.db.collection("kidlisp");
-    const record = await collection.findOne({ code: cleanPiece });
+    const record = await loadKidlispPiece(database, cleanPiece);
 
     if (!record) {
       await database.disconnect();
@@ -232,10 +233,11 @@ export async function handler(event, context) {
           [`tezos.contracts.${effectiveContract}.pendingArtifactUri`]: "",
           [`tezos.contracts.${effectiveContract}.pendingThumbnailUri`]: "",
         }
-      }
+      },
+      { upsert: true }
     );
 
-    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0) {
+    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0 && !updateResult.upsertedId) {
       console.warn(`❌ Failed to update piece ${cleanPiece}`);
       await database.disconnect();
       return respond(500, { error: "Failed to record update" });

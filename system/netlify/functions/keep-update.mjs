@@ -8,6 +8,7 @@
 
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { loadKidlispPiece } from "../../backend/kidlisp-read.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { mirrorRecordMint } from "../../backend/kidlisp-dual-write.mjs";
 import { stream } from "@netlify/functions";
@@ -218,10 +219,10 @@ export const handler = stream(async (event) => {
       const CONTRACT_ADDRESS = await getKeepsContractAddress({ network: NETWORK, fallback: LEGACY_KEEPS_CONTRACT });
       console.log(`🪙 KEEP-UPDATE: Using contract ${CONTRACT_ADDRESS}`);
 
-      // Get piece data from database first
+      // Get piece data from database (Datomic-aware)
       database = await connect();
       const collection = database.db.collection("kidlisp");
-      const pieceDoc = await collection.findOne({ code: pieceName });
+      const pieceDoc = await loadKidlispPiece(database, pieceName);
 
       if (!pieceDoc) {
         await send("error", { error: `Piece '$${pieceName}' not found` });

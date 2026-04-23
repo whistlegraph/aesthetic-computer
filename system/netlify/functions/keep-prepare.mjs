@@ -11,6 +11,7 @@
 
 import { authorize, handleFor, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { loadKidlispPiece } from "../../backend/kidlisp-read.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import {
   upsertJob,
@@ -94,10 +95,9 @@ export const handler = async (event) => {
   // ── Auth ────────────────────────────────────────────────────────────
   const user = await authorize(event.headers);
 
-  // ── Load piece from DB ─────────────────────────────────────────────
+  // ── Load piece from DB (Datomic-aware; new pieces live only in Datomic) ─
   const database = await connect();
-  const collection = database.db.collection("kidlisp");
-  const piece = await collection.findOne({ code: pieceName });
+  const piece = await loadKidlispPiece(database, pieceName);
   if (!piece) return jsonResponse(404, { error: `Piece '$${pieceName}' not found` });
 
   // ── Check mint status ──────────────────────────────────────────────

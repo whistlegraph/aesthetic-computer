@@ -7,6 +7,7 @@
 // Invoked by keep-prepare.mjs after job creation and validation.
 
 import { connect } from "../../backend/database.mjs";
+import { loadKidlispPiece } from "../../backend/kidlisp-read.mjs";
 import { analyzeKidLisp } from "../../backend/kidlisp-analyzer.mjs";
 import { getKeepsContractAddress, LEGACY_KEEPS_CONTRACT } from "../../backend/tezos-keeps-contract.mjs";
 import { handleFor } from "../../backend/authorization.mjs";
@@ -527,7 +528,9 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     contractVersion = VERSION_BY_PROFILE[contractProfile] || null;
   }
   const col = database.db.collection("kidlisp");
-  const piece = await col.findOne({ code: pieceName });
+  // Datomic-aware read so new pieces (which only live in Datomic when
+  // KIDLISP_DATOMIC=on) are visible to the bake pipeline.
+  const piece = await loadKidlispPiece(database, pieceName);
 
   if (!piece) {
     await markJobFailed(jobId, `Piece '$${pieceName}' not found`, "validate");
@@ -738,7 +741,10 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
         },
       };
     }
-    await col.updateOne({ code: pieceName }, updateOps);
+    // upsert: pieces that live only in Datomic don't have a Mongo row yet.
+    // Write one on first bake so ipfsMedia / mediaHistory / kept can land
+    // and subsequent keep operations (rebake, confirm, sync) work.
+    await col.updateOne({ code: pieceName }, updateOps, { upsert: true });
     await mirrorIpfsMedia(pieceName, updateOps.$set.ipfsMedia);
   }
 
@@ -758,7 +764,8 @@ async function runPipeline({ jobId, pieceName, isRebake, regenerate, creatorWall
     };
     await col.updateOne(
       { code: pieceName },
-      { $set: { pendingRebake: rebakePayload } }
+      { $set: { pendingRebake: rebakePayload } },
+      { upsert: true }
     );
     await mirrorPendingRebake(pieceName, rebakePayload);
     const mintStatus = await checkMintStatus(pieceName, CONTRACT_ADDRESS);
