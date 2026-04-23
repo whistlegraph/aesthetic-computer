@@ -1831,47 +1831,120 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
   paintRemotes(ink, undefined, FormRef);
 
   // --- HUD (top-right) ---
+  // Sections stack vertically without overlap:
+  //   0–1  GFX   (FPS, MS)
+  //   2–3  CAM   (FOV, RUN)
+  //   4–5  STATE (POSE, POV)        ← only when phys is available
+  //   6    SPEED (u/s)
+  //   7–9  PERF  (mode, gfx, flip)
+  //   10–13 NET  (status, rx/tx, peers, spectate)
   const font = "MatrixChunky8";
   const margin = 4;
   const lineH = 10;
   const rX = screen.width - margin; // right edge
+  const dim = [140, 140, 150];      // shared label color
   const rightLabel = (txt, y) => {
-    // MatrixChunky8 glyphs are ~4px wide; right-align by char count.
     write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);
   };
+  // Right-align a row built from [color, text] segments so labels and values
+  // can be tinted independently on the same line.
+  const rightLabelMulti = (parts, y) => {
+    let total = 0;
+    for (const [, t] of parts) total += t.length;
+    let x = rX - total * 4;
+    for (const [c, t] of parts) {
+      if (Array.isArray(c)) ink(...c); else ink(c);
+      write(t, { x, y }, undefined, undefined, false, font);
+      x += t.length * 4;
+    }
+  };
 
-  // FPS
-  ink(fps >= 30 ? "lime" : fps >= 15 ? "yellow" : "red");
-  rightLabel(`${fps} FPS`, margin);
+  // GFX — FPS + frame time.
+  const fpsColor = fps >= 30 ? "lime" : fps >= 15 ? "yellow" : "red";
+  rightLabelMulti([[dim, "FPS "], [fpsColor, `${fps}`]], margin);
+  rightLabelMulti([[dim, "MS "], [[200, 200, 200], avgDt.toFixed(1)]], margin + lineH);
 
-  // Frame time
-  ink(180, 180, 180);
-  rightLabel(`${avgDt.toFixed(1)}ms`, margin + lineH);
+  // CAM — FOV + run speed.
+  const cam = [150, 200, 255];
+  rightLabelMulti([[dim, "FOV "], [cam, `${FOV}`]], margin + lineH * 2);
+  rightLabelMulti([[dim, "RUN "], [cam, `${RUN_SPEED.toFixed(1)}u/s`]], margin + lineH * 3);
 
-  // FOV + run speed (Quake-style spec)
-  ink(150, 200, 255);
-  rightLabel(`FOV ${FOV}`, margin + lineH * 2);
-  rightLabel(`RUN ${RUN_SPEED.toFixed(1)}u/s`, margin + lineH * 3);
+  // STATE — pose + POV (only when phys snapshot is available).
+  if (phys) {
+    const airborne = !phys.onGround;
+    const crouching = phys.crouch > 0.5;
+    const poseTxt = airborne ? "AIR" : crouching ? "CROUCH" : "GROUND";
+    const poseClr = airborne ? "yellow" : crouching ? "orange" : "lime";
+    rightLabelMulti([[dim, "POSE "], [poseClr, poseTxt]], margin + lineH * 4);
 
-  // 🏟️ Net — ping, snap rx, cmd tx, peer count. Under the "AIR/GROUND" row.
+    const povTxt = phys.thirdPerson ? `3P x${ZOOM_DISTANCES[zoomLevel]}` : "1P";
+    const povClr = phys.thirdPerson ? "magenta" : "cyan";
+    rightLabelMulti([[dim, "POV "], [povClr, povTxt]], margin + lineH * 5);
+  }
+
+  // SPEED — colored by how close to max (kept on its own row).
+  const upsNow = speedSmoothed * SIM_HZ;
+  const barMaxUPSNow = RUN_SPEED * 1.2;
+  const fillNow = Math.min(1, upsNow / barMaxUPSNow);
+  const spR = fillNow > 0.5 ? Math.floor(255 * ((fillNow - 0.5) * 2)) : 0;
+  const spG = fillNow < 0.5 ? 255 : Math.floor(255 * (1 - (fillNow - 0.5) * 2));
+  rightLabelMulti([[dim, "SPD "], [[spR, spG, 50], `${upsNow.toFixed(1)}u/s`]], margin + lineH * 6);
+
+  // PERF — adaptive-quality tier, what it disabled, and the hover-flip mode.
+  {
+    const tier = perfLowMode ? "LOW" : perfMedMode ? "MED" : "HIGH";
+    const tierClr = perfLowMode ? "red" : perfMedMode ? "orange" : "lime";
+    const fresh = perfSamplesSinceSwitch < 6;
+    rightLabelMulti([[dim, "PERF "], [fresh ? "white" : tierClr, tier]], margin + lineH * 7);
+
+    // GFX disabled-by-tier breakdown — each toggle gets its own tint.
+    if (perfLowMode) {
+      rightLabelMulti(
+        [[dim, "GFX "], ["red", "-BODY "], ["orange", "-ANIM"]],
+        margin + lineH * 8,
+      );
+    } else if (perfMedMode) {
+      rightLabelMulti(
+        [[dim, "GFX "], [[255, 140, 80], "-LAVA "], ["orange", "-ANIM"]],
+        margin + lineH * 8,
+      );
+    } else {
+      rightLabelMulti([[dim, "GFX "], ["lime", "FULL"]], margin + lineH * 8);
+    }
+
+    const flipNames = ["NONE", "X", "Z", "XZ"];
+    const flipClr = hoverFlipMode === 0 ? [130, 130, 130] : [255, 200, 80];
+    rightLabelMulti([[dim, "FLIP "], [flipClr, flipNames[hoverFlipMode]]], margin + lineH * 9);
+  }
+
+  // NET — transport, ping, snap rx, cmd tx, peer count. Below the perf block.
   {
     const wsOk = !!netServer;
     const udpOk = !!netUdp?.connected;
     const nowMs = Date.now();
     const snapAgeMs = netStats.lastSnapMs ? nowMs - netStats.lastSnapMs : Infinity;
-    const color = !wsOk ? [200, 80, 80]
-                : udpOk ? (snapAgeMs < 500 ? [120, 230, 120] : [230, 200, 80])
-                : [200, 180, 80];
-    ink(...color);
-    rightLabel(`${udpOk ? "UDP" : wsOk ? "WS" : "--"} ${ping}ms`, margin + lineH * 6);
-    ink(160, 160, 180);
-    rightLabel(`rx ${netStats.snapsRx}  tx ${netStats.cmdsTx}`, margin + lineH * 7);
+    const transport = udpOk ? "UDP" : wsOk ? "WS" : "--";
+    const transportClr = !wsOk ? [200, 80, 80]
+                       : udpOk ? (snapAgeMs < 500 ? [120, 230, 120] : [230, 200, 80])
+                       : [200, 180, 80];
+    const pingClr = ping < 80 ? [180, 230, 180]
+                  : ping < 200 ? [230, 220, 120]
+                  : [230, 140, 120];
+    rightLabelMulti(
+      [[dim, "NET "], [transportClr, transport], [dim, " "], [pingClr, `${ping}ms`]],
+      margin + lineH * 10,
+    );
+    rightLabelMulti(
+      [[dim, "RX "], [[160, 200, 230], `${netStats.snapsRx}`],
+       [dim, "  TX "], [[200, 180, 230], `${netStats.cmdsTx}`]],
+      margin + lineH * 11,
+    );
     const peers = Object.keys(others).length;
-    ink(peers > 0 ? [180, 230, 180] : [130, 130, 130]);
-    rightLabel(`peers ${peers}`, margin + lineH * 8);
+    const peersClr = peers > 0 ? [180, 230, 180] : [130, 130, 130];
+    rightLabelMulti([[dim, "PEERS "], [peersClr, `${peers}`]], margin + lineH * 12);
     if (netSpectator) {
       ink(255, 180, 60);
-      rightLabel(`SPECTATE`, margin + lineH * 9);
+      rightLabel(`SPECTATE`, margin + lineH * 13);
     }
   }
 
@@ -1889,53 +1962,6 @@ function paint({ wipe, ink, screen, write, box, system, pen, canvas, api, painti
     write(msg2, { x: Math.floor(screen.width / 2 - msg2.length * 2), y: bannerY + 10 }, undefined, undefined, false, "MatrixChunky8");
     write(msg3, { x: Math.floor(screen.width / 2 - msg3.length * 2), y: bannerY + 18 }, undefined, undefined, false, "MatrixChunky8");
   }
-
-  // 🏃 Current speed — colored by how close to max.
-  const upsNow = speedSmoothed * SIM_HZ;
-  const barMaxUPSNow = RUN_SPEED * 1.2;
-  const fillNow = Math.min(1, upsNow / barMaxUPSNow);
-  const spR = fillNow > 0.5 ? Math.floor(255 * ((fillNow - 0.5) * 2)) : 0;
-  const spG = fillNow < 0.5 ? 255 : Math.floor(255 * (1 - (fillNow - 0.5) * 2));
-  ink(spR, spG, 50);
-  rightLabel(`${upsNow.toFixed(1)}u/s`, margin + lineH * 9);
-
-  // Grounded / airborne indicator (reuses `phys` captured above).
-  if (phys) {
-    const airborne = !phys.onGround;
-    const crouching = phys.crouch > 0.5;
-    ink(airborne ? "yellow" : crouching ? "orange" : "lime");
-    rightLabel(
-      airborne ? "AIR" : crouching ? "CROUCH" : "GROUND",
-      margin + lineH * 4,
-    );
-
-    // POV indicator — shows 1P or 3P plus the current zoom distance.
-    ink(phys.thirdPerson ? "magenta" : "cyan");
-    const povStr = phys.thirdPerson
-      ? `3P ×${ZOOM_DISTANCES[zoomLevel]}`
-      : "1P";
-    rightLabel(povStr, margin + lineH * 5);
-  }
-
-  // ⚡ Perf mode label — shows which adaptive-quality tier is active. Flashes
-  // briefly after a tier change (perfSamplesSinceSwitch < 6).
-  const perfLabel = perfLowMode ? "PERF LOW" : perfMedMode ? "PERF MED" : "PERF HIGH";
-  const perfFresh = perfSamplesSinceSwitch < 6;
-  ink(perfLowMode ? "red" : perfMedMode ? "orange" : "lime");
-  if (perfFresh) ink("white");
-  rightLabel(perfLabel, margin + lineH * 6);
-  // Show which features are currently disabled by the perf tier.
-  ink(150, 150, 150);
-  if (perfLowMode) rightLabel("-BODY -ANIM", margin + lineH * 7);
-  else if (perfMedMode) rightLabel("-LAVA-ANIM", margin + lineH * 7);
-
-  // Hover-flip experiment — press F to cycle, label shows current mode.
-  const flipNames = ["F:NONE", "F:X", "F:Z", "F:XZ"];
-  ink(255, 200, 80);
-  rightLabel(flipNames[hoverFlipMode], margin + lineH * 8);
-
-  // Speed now displayed in top-right HUD stack — bottom-center bar removed
-  // because the jump/crouch mobile buttons overlap that area.
 
   // 🎯 Debug crosshair at the current pen position (unlocked mode only) so
   // we can visually compare it against the highlighted hover tile.
