@@ -217,6 +217,19 @@ let contentTicker; // Ticker instance for mixed $kidlisp, #painting, !tape conte
 let contentTickerButton; // Button for content ticker hover interaction
 let mediaPreviewBox; // Shared preview box renderer for all media types
 
+// 🎰 UNITICKER - Unified ticker combining chat, laer-klokken chat, sigiled media, commits, handles, moods
+let uniticker; // Single ticker for all combined content
+let unitickerButton; // Button for hover interaction
+let unitickerItems = []; // Combined items: {type, text, code, color, ...}
+let unitickerHoveredItem = null; // Currently hovered item for tooltip
+let unitickerIdleFrames = 0;
+let unitickerLastPenX = -1;
+let unitickerLastPenY = -1;
+let unitickerAutoSelectedItem = null;
+let unitickerAutoSelectedX = 0;
+let unitickerAutoSelectedWidth = 0;
+const UNITICKER_IDLE_THRESHOLD = 120; // ~2 seconds at 60fps before auto-selecting
+
 
 const tinyTickers = true; // Use MatrixChunky8 font for tighter, smaller tickers
 let contentItems = []; // Store fetched content: {type: 'kidlisp'|'painting'|'tape', code: string, source?: string}
@@ -5865,6 +5878,426 @@ function paint($) {
       });
     }
 
+    // 🎰 UNITICKER - unified ticker combining chat, laer-klokken chat, sigiled media, commits, handles, moods
+    $.layer(2); // Render ticker on top of tooltips
+
+    const loginY = screen.height / 2;
+    const tickerHeight = 8; // MatrixChunky8 glyph height
+    const tickerPadding = 5;
+    const tickerFont = "MatrixChunky8";
+    const unitickerY = loginY + 44; // Position below login/signup buttons
+
+    // Build item buckets from all sources
+    const hasChatMessages = $.chat?.messages && $.chat.messages.length > 0;
+    const hasClockMessages = clockChatMessages && clockChatMessages.length > 0;
+    const hasMediaItems = contentItems.length > 0;
+
+    const chatItems = [];
+    const clockItems = [];
+    const mediaItems = [];
+    const commitItems = [];
+    const statsItems = [];
+    const moodItems = [];
+
+    // Chat messages (blue) - jump to 'chat'
+    if (hasChatMessages) {
+      const numMessages = Math.min(6, $.chat.messages.length);
+      $.chat.messages.slice(-numMessages).forEach((msg) => {
+        const sanitizedText = msg.text.replace(/[\r\n]+/g, " ");
+        const displayText = msg.from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
+        chatItems.push({ type: "chat", text: displayText, code: "chat", color: [100, 200, 255] });
+      });
+    }
+
+    // Laer-Klokken chat (orange) - jump to 'laer-klokken'
+    if (hasClockMessages) {
+      const numClockMessages = Math.min(4, clockChatMessages.length);
+      clockChatMessages.slice(-numClockMessages).forEach((msg) => {
+        const sanitizedText = (msg.text || msg.message || "").replace(/[\r\n]+/g, " ");
+        const from = msg.from || msg.handle || msg.author || "anon";
+        const displayText = from + ": " + sanitizedText.slice(0, 50) + (sanitizedText.length > 50 ? "..." : "");
+        clockItems.push({ type: "clock", text: displayText, code: "laer-klokken", color: [255, 180, 80] });
+      });
+    }
+
+    // Sigiled media (kidlisp $, painting #, tape !, sigil-clock *) - jump to its own code
+    if (hasMediaItems) {
+      contentItems.forEach((item) => {
+        let prefix, color, code, itemType;
+        if (item.type === "kidlisp") {
+          itemType = "kidlisp";
+          prefix = "$";
+          color = [150, 255, 150];
+          code = `$${item.code}`;
+        } else if (item.type === "painting") {
+          itemType = "painting";
+          prefix = "#";
+          color = [255, 150, 255];
+          code =
+            !item.handle || item.handle === "undefined" || item.handle === "null"
+              ? `painting#${item.code}`
+              : `#${item.code}`;
+        } else if (item.type === "tape") {
+          itemType = "tape";
+          prefix = "!";
+          color = [255, 200, 100];
+          code = `!${item.code}`;
+        } else if (item.type === "clock") {
+          // Sigiled kidlisp clock: served at /*code
+          itemType = "sigil-clock";
+          prefix = "*";
+          color = [200, 220, 255];
+          code = `*${item.code}`;
+        } else {
+          return; // Unknown media type — skip
+        }
+        mediaItems.push({ type: itemType, text: `${prefix}${item.code}`, code, color, mediaItem: item });
+      });
+    }
+
+    // Commits (lime) - jump to 'commits'
+    if (recentCommits.length > 0) {
+      const numCommits = Math.min(5, recentCommits.length);
+      recentCommits.slice(0, numCommits).forEach((commit) => {
+        let author = commit.author;
+        if (author === "Jeffrey Alan Scudder") author = "@jeffrey";
+        commitItems.push({
+          type: "commit",
+          text: `[${commit.hash}] ${commit.message} ~${author}`,
+          code: "commits",
+          color: [100, 255, 100],
+        });
+      });
+    }
+
+    // Handles stat (pink) - jump to 'handles'
+    if (handles) {
+      statsItems.push({
+        type: "stats",
+        text: `${handles.toLocaleString()} handles`,
+        code: "handles",
+        color: [255, 100, 255],
+      });
+    }
+
+    // Moods (cyan) - jump to 'mood'
+    if (motdCandidates.length > 0) {
+      motdCandidates.forEach((candidate) => {
+        if (!candidate?.mood) return;
+        const moodText = candidate.mood.replace(/[\r\n]+/g, " ").slice(0, 60);
+        const handle = candidate.handle || candidate.handleInfo?.handle || candidate.owner?.handle || candidate.user?.handle || null;
+        const from = handle ? (handle.startsWith("@") ? handle : `@${handle}`) : "anon";
+        moodItems.push({ type: "mood", text: `${from}: ${moodText}`, code: "mood", color: [100, 255, 220] });
+      });
+    }
+
+    // 🎲 Round-robin interleave across all 6 buckets for a healthy mix
+    unitickerItems = [];
+    const allBuckets = [chatItems, clockItems, mediaItems, commitItems, statsItems, moodItems].filter(
+      (b) => b.length > 0,
+    );
+    const bucketIndices = allBuckets.map(() => 0);
+    const totalItems = allBuckets.reduce((sum, b) => sum + b.length, 0);
+
+    let placed = 0;
+    let bucketCursor = 0;
+    while (placed < totalItems) {
+      let attempts = 0;
+      while (
+        bucketIndices[bucketCursor] >= allBuckets[bucketCursor].length &&
+        attempts < allBuckets.length
+      ) {
+        bucketCursor = (bucketCursor + 1) % allBuckets.length;
+        attempts++;
+      }
+      if (attempts >= allBuckets.length) break;
+      const bucket = allBuckets[bucketCursor];
+      const idx = bucketIndices[bucketCursor];
+      if (idx < bucket.length) {
+        unitickerItems.push(bucket[idx]);
+        bucketIndices[bucketCursor]++;
+        placed++;
+      }
+      bucketCursor = (bucketCursor + 1) % allBuckets.length;
+    }
+
+    const showUniticker = screen.height >= 180 && unitickerItems.length > 0;
+
+    if (showUniticker) {
+      const fullText = unitickerItems.map((item) => item.text).join(" · ");
+
+      if (!uniticker) {
+        uniticker = new $.gizmo.Ticker(fullText, { speed: 1, separator: " · " });
+        uniticker.paused = false;
+        uniticker.offset = 0;
+      } else {
+        uniticker.setText(fullText);
+      }
+
+      if (uniticker && !uniticker.paused) uniticker.update($);
+
+      const boxHeight = tickerHeight + tickerPadding * 2;
+      const boxY = unitickerY - tickerPadding;
+
+      if (!unitickerButton) {
+        unitickerButton = new $.ui.Button({ x: 0, y: boxY, w: screen.width, h: boxHeight });
+        unitickerButton.noEdgeDetection = true;
+        unitickerButton.noRolloverActivation = true;
+        unitickerButton.stickyScrubbing = true;
+      } else {
+        unitickerButton.box.x = 0;
+        unitickerButton.box.y = boxY;
+        unitickerButton.box.w = screen.width;
+        unitickerButton.box.h = boxHeight;
+      }
+
+      if (!unitickerButton.disabled) {
+        const isTickerHover = unitickerButton.over && !unitickerButton.down;
+        const bgAlpha = unitickerButton.down ? 100 : isTickerHover ? 80 : 60;
+        ink([20, 20, 30, bgAlpha]).box(0, boxY, screen.width, boxHeight - 1);
+
+        const borderAlpha = isTickerHover ? 230 : 180;
+        const borderColor = isTickerHover ? [180, 120, 230, borderAlpha] : [150, 100, 200, borderAlpha];
+        ink(borderColor).line(0, boxY, screen.width, boxY);
+        ink(borderColor).line(0, boxY + boxHeight - 1, screen.width, boxY + boxHeight - 1);
+
+        const textY = unitickerY;
+        const tickerAlpha = unitickerButton.down ? 255 : 220;
+
+        const separator = " · ";
+        const separatorWidth = $.text.box(separator, undefined, undefined, undefined, undefined, tickerFont).box.width;
+        const itemWidths = [];
+        let totalCycleWidth = 0;
+        unitickerItems.forEach((item, idx) => {
+          const w = $.text.box(item.text, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          itemWidths.push(w);
+          totalCycleWidth += w;
+          if (idx < unitickerItems.length - 1) totalCycleWidth += separatorWidth;
+        });
+        totalCycleWidth += separatorWidth; // trailing separator for seamless loop
+
+        const rawOffset = uniticker.getOffset();
+        const loopedOffset = totalCycleWidth > 0 ? rawOffset % totalCycleWidth : 0;
+
+        let hoveredItem = null;
+        let hoveredItemX = 0;
+        let hoveredItemWidth = 0;
+        const visibleItemsForAutoSelect = [];
+
+        // Track pen idle state
+        const penX = $.pen?.x ?? -1;
+        const penY = $.pen?.y ?? -1;
+        if (penX !== unitickerLastPenX || penY !== unitickerLastPenY) {
+          unitickerIdleFrames = 0;
+          unitickerLastPenX = penX;
+          unitickerLastPenY = penY;
+          if (hoveredItem) unitickerAutoSelectedItem = null;
+        } else {
+          unitickerIdleFrames++;
+        }
+
+        const startMargin = 6;
+        const baseX = startMargin - loopedOffset;
+        const numCycles = Math.ceil((screen.width + totalCycleWidth) / totalCycleWidth) + 1;
+
+        for (let cycle = 0; cycle < numCycles; cycle++) {
+          let currentX = baseX + cycle * totalCycleWidth;
+          unitickerItems.forEach((item, idx) => {
+            const text = item.text;
+            const color = item.color;
+            const textWidth = itemWidths[idx];
+
+            const mouseX = $.pen?.x ?? -1;
+            const mouseY = $.pen?.y ?? -1;
+            const isHovered =
+              mouseX >= currentX &&
+              mouseX < currentX + textWidth &&
+              mouseY >= boxY &&
+              mouseY < boxY + boxHeight;
+
+            if (isHovered && currentX >= 0 && currentX < screen.width) {
+              hoveredItem = item;
+              hoveredItemX = currentX;
+              hoveredItemWidth = textWidth;
+            }
+
+            if (currentX >= 0 && currentX < screen.width) {
+              visibleItemsForAutoSelect.push({ item, x: currentX, width: textWidth });
+            }
+
+            const isVisible = currentX + textWidth > -10 && currentX < screen.width + 10;
+            if (isVisible) {
+              if (isHovered && !unitickerButton.down) {
+                $.ink([...color, 50]).box(currentX - 1, boxY + 1, textWidth + 2, boxHeight - 3);
+                $.ink(color, 255).write(text, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+              } else {
+                $.ink(color, tickerAlpha).write(text, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+              }
+            }
+
+            currentX += textWidth;
+
+            const sepVisible = currentX + separatorWidth > -10 && currentX < screen.width + 10;
+            if (sepVisible) {
+              const blinkAlpha = 120 + Math.sin(motdFrame * 0.2) * 60;
+              ink([180, 180, 200], blinkAlpha).write(separator, { x: currentX, y: textY }, undefined, undefined, false, tickerFont);
+            }
+            currentX += separatorWidth;
+          });
+        }
+
+        unitickerHoveredItem = hoveredItem;
+        unitickerButton.hoveredItem = hoveredItem;
+
+        // 🎯 Auto-select an item when idle (picks from center-right, scrolls with ticker)
+        let displayItem = hoveredItem;
+        let displayItemX = hoveredItemX;
+        let displayItemWidth = hoveredItemWidth;
+
+        if (!hoveredItem && unitickerIdleFrames >= UNITICKER_IDLE_THRESHOLD && visibleItemsForAutoSelect.length > 0) {
+          visibleItemsForAutoSelect.sort((a, b) => a.x - b.x);
+
+          if (unitickerAutoSelectedItem) {
+            const stillVisible = visibleItemsForAutoSelect.find(
+              (v) => v.item === unitickerAutoSelectedItem && v.x >= -v.width * 0.3,
+            );
+            if (stillVisible) {
+              displayItem = stillVisible.item;
+              displayItemX = stillVisible.x;
+              displayItemWidth = stillVisible.width;
+              unitickerAutoSelectedX = stillVisible.x;
+              unitickerAutoSelectedWidth = stillVisible.width;
+            } else {
+              unitickerAutoSelectedItem = null;
+            }
+          }
+
+          if (!unitickerAutoSelectedItem && visibleItemsForAutoSelect.length > 0) {
+            const minThreshold = screen.width * 0.4;
+            const maxThreshold = screen.width * 0.7;
+            const centered = visibleItemsForAutoSelect.filter(
+              (v) => v.x >= minThreshold && v.x <= maxThreshold,
+            );
+            let target;
+            if (centered.length > 0) {
+              target = centered[centered.length - 1];
+            } else {
+              const idealX = screen.width * 0.55;
+              target = visibleItemsForAutoSelect.reduce((best, v) =>
+                Math.abs(v.x - idealX) < Math.abs(best.x - idealX) ? v : best,
+              );
+            }
+            unitickerAutoSelectedItem = target.item;
+            unitickerAutoSelectedX = target.x;
+            unitickerAutoSelectedWidth = target.width;
+            displayItem = target.item;
+            displayItemX = target.x;
+            displayItemWidth = target.width;
+          }
+        } else if (hoveredItem) {
+          unitickerAutoSelectedItem = null;
+        }
+
+        // 🎯 Contextual "Enter 'code' to ..." tooltip below hovered/auto-selected item
+        if (displayItem && !unitickerButton.down) {
+          let tooltipPrefix, tooltipCode, tooltipSuffix;
+          const doc = tooltipDocs?.[displayItem.code];
+          if (doc?.desc) {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = `' to ${doc.desc.toLowerCase().replace(/\.$/, "")}`;
+          } else if (displayItem.type === "kidlisp") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to run";
+          } else if (displayItem.type === "painting") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to view";
+          } else if (displayItem.type === "tape") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to listen";
+          } else if (displayItem.type === "sigil-clock") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to run";
+          } else if (displayItem.type === "commit") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
+          } else if (displayItem.type === "stats") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to browse";
+          } else if (displayItem.type === "mood") {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "' to set yours";
+          } else {
+            tooltipPrefix = "Enter '";
+            tooltipCode = displayItem.code;
+            tooltipSuffix = "'";
+          }
+          const tooltipText = tooltipPrefix + tooltipCode + tooltipSuffix;
+          const tooltipWidth = $.text.box(tooltipText, undefined, undefined, undefined, undefined, tickerFont).box.width;
+          const tooltipHeight = 10;
+          const tooltipPadding = 3;
+
+          let tooltipX = displayItemX + displayItemWidth / 2 - tooltipWidth / 2 - tooltipPadding;
+          const tooltipY = boxY + boxHeight + 10;
+          tooltipX = Math.max(4, Math.min(tooltipX, screen.width - tooltipWidth - tooltipPadding * 2 - 4));
+
+          const alphaMultiplier = hoveredItem ? 1 : 0.7;
+          const tooltipBgColor = [...displayItem.color, Math.round(180 * alphaMultiplier)];
+          ink([10, 10, 20, Math.round(220 * alphaMultiplier)]).box(
+            tooltipX,
+            tooltipY,
+            tooltipWidth + tooltipPadding * 2,
+            tooltipHeight + tooltipPadding * 2,
+          );
+          ink(tooltipBgColor).box(
+            tooltipX,
+            tooltipY,
+            tooltipWidth + tooltipPadding * 2,
+            tooltipHeight + tooltipPadding * 2,
+            "inline",
+          );
+
+          const ttTextY = tooltipY + tooltipPadding + 1;
+          let textX = tooltipX + tooltipPadding;
+          const baseAlpha = Math.round(255 * alphaMultiplier);
+          const dimAlpha = Math.round(180 * alphaMultiplier);
+
+          ink([255, 255, 255, dimAlpha]).write(tooltipPrefix, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipPrefix, undefined, undefined, undefined, undefined, tickerFont).box.width;
+
+          ink([...displayItem.color, baseAlpha]).write(tooltipCode, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
+          textX += $.text.box(tooltipCode, undefined, undefined, undefined, undefined, tickerFont).box.width;
+
+          ink([255, 255, 255, dimAlpha]).write(tooltipSuffix, { x: textX, y: ttTextY }, undefined, undefined, false, tickerFont);
+
+          const arrowX = displayItemX + displayItemWidth / 2;
+          const arrowY = tooltipY;
+          const arrowAlpha = Math.round(200 * alphaMultiplier);
+          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX - 3, arrowY - 3);
+          ink([...displayItem.color, arrowAlpha]).line(arrowX, arrowY, arrowX + 3, arrowY - 3);
+
+          if (!hoveredItem && unitickerAutoSelectedItem) {
+            $.ink([...displayItem.color, 30]).box(displayItemX - 1, boxY + 1, displayItemWidth + 2, boxHeight - 3);
+          }
+        }
+      }
+    } else {
+      uniticker = null;
+      unitickerButton = null;
+      unitickerHoveredItem = null;
+      unitickerAutoSelectedItem = null;
+      unitickerIdleFrames = 0;
+    }
+
+    $.layer(1);
+
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
     if (versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
@@ -7316,6 +7749,61 @@ function act({
     }
   }
 
+  // 🎰 UNITICKER button handler (unified ticker)
+  if (unitickerButton && !unitickerButton.disabled) {
+    unitickerButton.act(e, {
+      down: () => {
+        downSound();
+        if (uniticker) {
+          uniticker.paused = true;
+          unitickerButton.scrubStartX = e.x;
+          unitickerButton.scrubInitialOffset = uniticker.getOffset();
+          unitickerButton.hasScrubbed = false;
+        }
+        needsPaint();
+      },
+      scrub: () => {
+        if (uniticker && e.x !== undefined && e.y !== undefined) {
+          const scrubDelta = e.x - unitickerButton.scrubStartX;
+          let newOffset = unitickerButton.scrubInitialOffset - scrubDelta;
+          if (newOffset < 0) newOffset = newOffset * 0.3; // Elastic bounds
+
+          uniticker.setOffset(newOffset);
+          unitickerButton.hasScrubbed = Math.abs(scrubDelta) > 5;
+
+          synth({
+            type: "sine",
+            tone: 1200 + Math.abs(scrubDelta) * 2,
+            attack: 0.005,
+            decay: 0.9,
+            volume: 0.08,
+            duration: 0.01,
+          });
+
+          needsPaint();
+        }
+      },
+      push: () => {
+        if (!unitickerButton.hasScrubbed) pushSound();
+
+        if (!unitickerButton.hasScrubbed && unitickerButton.hoveredItem) {
+          const destination = unitickerButton.hoveredItem.code;
+          system.prompt.input.text = destination;
+          system.prompt.input.snap();
+          jump(destination);
+        } else if (uniticker) {
+          uniticker.paused = false;
+        }
+        unitickerButton.hasScrubbed = false;
+      },
+      cancel: () => {
+        cancelSound();
+        if (uniticker) uniticker.paused = false;
+        unitickerButton.hasScrubbed = false;
+      },
+    });
+  }
+
   // (DEPRECATED) Chat ticker button
   if (chatTickerButton && !chatTickerButton.disabled) {
     chatTickerButton.act(e, {
@@ -7550,6 +8038,7 @@ function act({
       (osBtn?.btn?.disabled === false && osBtn?.btn?.box.contains(e)) ||
       (blankAdBtn?.btn?.disabled === false && blankAdBtn?.btn?.box.contains(e)) ||
       (products.getShopBoxButton()?.disabled === false && products.getShopBoxButton()?.box.contains(e)) ||
+      (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
       (chatTickerButton?.disabled === false && chatTickerButton?.box.contains(e)) ||
       (contentTickerButton?.disabled === false && contentTickerButton?.box.contains(e)) ||
       isOverMotdHandle ||
@@ -8199,7 +8688,7 @@ async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) 
   motdController = new AbortController();
 
   try {
-    const res = await fetch("/api/mood/moods-of-the-day?list=1", {
+    const res = await fetch("/api/mood/all?limit=20", {
       signal: motdController.signal,
     });
     if (res.status === 200) {
@@ -8278,6 +8767,9 @@ async function fetchContentItems(api) {
               mediaUrl: item.media?.url || null,
               title: item.title || null
             });
+          } else if (item.type === 'clock') {
+            // Sigiled kidlisp clock pieces served at /*code
+            items.push({ ...baseItem, source: item.source, isSigilClock: true });
           }
         });
       } else {
