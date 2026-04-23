@@ -133,10 +133,14 @@
     }
 
     # --- ipfs.aesthetic.computer (self-hosted IPFS gateway) ---
+    # Kubo's gateway already emits Access-Control-Allow-Origin; strip upstream
+    # copies so Caddy owns exactly one, avoiding "*, *" dupes that browsers reject.
     @ipfs host ipfs.aesthetic.computer
     handle @ipfs {
-        header Access-Control-Allow-Origin *
-        reverse_proxy localhost:8090
+        reverse_proxy localhost:8090 {
+            header_down -Access-Control-Allow-Origin
+            header_down Access-Control-Allow-Origin *
+        }
     }
 
     # --- justanothersystem.org ---

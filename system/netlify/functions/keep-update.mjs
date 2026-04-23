@@ -36,44 +36,47 @@ function sse(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-// Get Pinata credentials from database
-async function getPinataCredentials() {
-  const { db } = await connect();
-  const secrets = await db.collection("secrets").findOne({ _id: "pinata" });
-  
-  if (!secrets) {
-    throw new Error("Pinata credentials not found in database");
-  }
-  
-  return {
-    apiKey: secrets.apiKey,
-    apiSecret: secrets.apiSecret,
-  };
+// ─── IPFS Upload (self-hosted Kubo node on lith + oven seeder) ───────────────
+// Matches keep-prepare-background.mjs so the on-chain sync path has the same
+// storage+mirroring guarantees as the prepare pipeline (no Pinata dependency).
+const IPFS_API = process.env.IPFS_API_URL || "http://localhost:5001";
+const IPFS_SEEDER_URL = process.env.IPFS_SEEDER_URL || "http://137.184.237.166:5001";
+const USE_GATEWAY_URLS = process.env.USE_IPFS_GATEWAY_URLS === "true";
+const IPFS_GATEWAY = process.env.IPFS_GATEWAY || "https://ipfs.aesthetic.computer";
+
+function formatIpfsUri(hash) {
+  return USE_GATEWAY_URLS ? `${IPFS_GATEWAY}/ipfs/${hash}` : `ipfs://${hash}`;
 }
 
-// Upload JSON metadata to IPFS via Pinata
-async function uploadJsonToIPFS(data, name) {
-  const { apiKey, apiSecret } = await getPinataCredentials();
-  
-  const response = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      pinata_api_key: apiKey,
-      pinata_secret_api_key: apiSecret,
-    },
-    body: JSON.stringify({
-      pinataContent: data,
-      pinataMetadata: { name },
-    }),
-  });
+// Seed content to the oven IPFS node (fire-and-forget for faster gateway propagation)
+function seedToSecondaryNode(hash) {
+  fetch(`${IPFS_SEEDER_URL}/api/v0/pin/add?arg=${hash}`, { method: "POST", signal: AbortSignal.timeout(120000) })
+    .then(r => r.ok ? console.log(`🌱 KEEP-UPDATE: seeded ${hash.slice(0, 12)}... to oven`) : null)
+    .catch(() => {}); // Best-effort, don't block pipeline
+}
 
-  if (!response.ok) {
-    throw new Error(`Metadata upload failed: ${response.status}`);
+async function uploadJsonToIPFS(data, name, timeoutMs = 30000) {
+  const content = JSON.stringify(data);
+  const formData = new FormData();
+  formData.append("file", new Blob([content], { type: "application/json" }), name);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(3000, timeoutMs));
+  try {
+    const res = await fetch(`${IPFS_API}/api/v0/add?pin=true`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) throw new Error(`Metadata upload failed: ${res.status}`);
+    const result = await res.json();
+    seedToSecondaryNode(result.Hash);
+    return formatIpfsUri(result.Hash);
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === "AbortError") throw new Error(`Metadata upload timed out after ${Math.round(timeoutMs / 1000)}s`);
+    throw err;
   }
-
-  const result = await response.json();
-  return `ipfs://${result.IpfsHash}`;
 }
 
 async function getTezosCredentials() {
