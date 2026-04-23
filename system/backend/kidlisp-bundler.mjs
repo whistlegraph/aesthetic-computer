@@ -122,21 +122,28 @@ function rewriteImports(code, filepath) {
     return 'import(\'ac/disks/' + p + '\')';
   });
 
-  // Rewrite relative imports (strip query params for resolution, then re-add)
-  code = code.replace(/from\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?['"]/g, (match, p, query) => {
+  // Rewrite relative imports. Drop the query suffix entirely — in bundled
+  // output the import map maps bare `lib/foo.mjs` specifiers to blob: URLs
+  // that are already unique per bundle, so cache-busting query params like
+  // `?v=20260330-runtime-support` are not only unneeded but actively break
+  // resolution (the map has no versioned entry, browser rejects the import).
+  // This was the cause of the $rip / l5.mjs "Failed to resolve module
+  // specifier" error that killed in-browser piece execution and made the
+  // oven's thumbnail capture hang for its full 150s timeout.
+  code = code.replace(/from\s*['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?['"]/g, (match, p) => {
     const resolved = resolvePath(filepath, p);
-    return 'from"' + resolved + (query || '') + '"';
+    return 'from"' + resolved + '"';
   });
 
-  // Rewrite dynamic imports (strip query params for resolution, then re-add)
-  code = code.replace(/import\s*\((['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?)['"](\))\)/g, (match, fullPath, p, query, closing) => {
+  // Rewrite dynamic imports (same query-drop logic)
+  code = code.replace(/import\s*\((['"](\.\.\/[^'"?]+|\.\/[^'"?]+)(\?[^'"]*)?)['"](\))\)/g, (match, fullPath, p) => {
     const resolved = resolvePath(filepath, p);
-    return 'import("' + resolved + (query || '') + '")';
+    return 'import("' + resolved + '")';
   });
 
-  code = code.replace(/import\s*\(\`(\.\.\/[^\`?]+)(\?[^\`]*)?\`\)/g, (match, p, query) => {
+  code = code.replace(/import\s*\(\`(\.\.\/[^\`?]+)(\?[^\`]*)?\`\)/g, (match, p) => {
     const resolved = resolvePath(filepath, p);
-    return 'import("' + resolved + (query || '') + '")';
+    return 'import("' + resolved + '")';
   });
 
   return code;
