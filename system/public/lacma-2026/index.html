@@ -610,18 +610,14 @@
 
   <!-- ── DEMO VIDEO ─────────────────────────── -->
   <section class="demo" id="demo">
-    <div class="demo-tabs">
-      <div class="demo-tab active" data-src="ac-native-demo-narrated" data-poster="ac-native-demo-narrated-poster">narrated + captioned<span class="hint">20 s · click unmute</span></div>
-      <div class="demo-tab" data-src="ac-native-demo" data-poster="ac-native-demo-poster">ambient loop<span class="hint">20 s · muted</span></div>
-    </div>
     <div class="demo-pair">
       <div class="demo-frame">
         <video id="demo-video"
-          poster="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated-poster.jpg?v=8"
+          poster="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated-poster.jpg?v=9"
           autoplay muted loop playsinline controls preload="metadata">
-          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.webm?v=8" type="video/webm">
-          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4?v=8" type="video/mp4">
-          Your browser doesn't support HTML5 video. <a href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4?v=8">Download the MP4</a>.
+          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.webm?v=9" type="video/webm">
+          <source src="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4?v=9" type="video/mp4">
+          Your browser doesn't support HTML5 video. <a href="https://assets.aesthetic.computer/lacma-2026/ac-native-demo-narrated.mp4?v=9">Download the MP4</a>.
         </video>
       </div>
       <div class="demo-hardware">
@@ -639,36 +635,8 @@
       <div class="sequence">
         <span class="step">boot</span><span class="arrow">→</span><span class="step">type 'notepat'</span><span class="arrow">→</span><span class="step">notepat</span><span class="arrow">→</span><span class="step">play C note</span><span class="arrow">→</span><span class="step">back to prompt</span><span class="arrow">→</span><span class="step">off</span><span class="arrow">→</span><span class="step">bye @jeffrey</span>
       </div>
-      <div class="byline">single-capture demo via the macOS ac-native host's <code>--demo</code> flag · boot → prompt → notepat → prompt → "off" → shutdown, all one run · captions and TTS rendered natively by AC Native itself</div>
+      <div class="byline">22 s · click to unmute · single-capture demo via the macOS ac-native host's <code>--demo</code> flag — boot → prompt → notepat → prompt → "off" → shutdown, all one run · captions and TTS rendered natively by AC Native itself</div>
     </div>
-    <script>
-    (() => {
-      const tabs = document.querySelectorAll(".demo-tab");
-      const video = document.getElementById("demo-video");
-      const ASSET_BASE = "https://assets.aesthetic.computer/lacma-2026";
-      const V = "?v=8";  // bump when videos are re-rendered
-      tabs.forEach(tab => tab.addEventListener("click", () => {
-        if (tab.classList.contains("active")) return;
-        tabs.forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        const base = tab.dataset.src;
-        const poster = tab.dataset.poster;
-        const wasMuted = video.muted;
-        video.pause();
-        video.innerHTML = `
-          <source src="${ASSET_BASE}/${base}.webm${V}" type="video/webm">
-          <source src="${ASSET_BASE}/${base}.mp4${V}" type="video/mp4">`;
-        video.poster = `${ASSET_BASE}/${poster}.jpg${V}`;
-        // Narrated tab → prefer unmuted so VO plays (browser may block).
-        video.muted = base.includes("narrated") ? false : true;
-        video.load();
-        video.play().catch(() => {
-          video.muted = wasMuted;
-          video.load();
-        });
-      }));
-    })();
-    </script>
   </section>
 
   <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
@@ -761,7 +729,7 @@
         </div>
       </dd>
 
-      <dt>Video<span class="cap">under 5 min · optional · ours: 20 s</span></dt>
+      <dt>Video<span class="cap">under 5 min · optional · ours: 22 s</span></dt>
       <dd>Two cuts of the same 23-second demo, captured natively from AC Native hardware. An <em>ambient loop</em> (muted, plays silently on page load) and a <em>narrated + captioned</em> version (voiceover + baked-in subtitles) produced by a reusable pipeline at <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/tools/vo-pipeline.mjs">tools/vo-pipeline.mjs</a>. <a class="jump" href="#demo">Watch above ↑</a>. A longer cut with prompt-transitions and a shutdown "bye @jeffrey" animation (still being written in C for the native binary) is the next capture. Narration script: <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/lacma-2026/demo-narration.md">demo-narration.md</a>.</dd>
 
       <dt>Lineage check<span class="cap">past Lab cohort</span></dt>
