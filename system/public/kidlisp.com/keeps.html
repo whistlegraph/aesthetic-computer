@@ -6026,6 +6026,18 @@
       mintAbortController = new AbortController();
 
       try {
+        // Ensure Auth0 + acToken are ready BEFORE connectWallet runs, because
+        // connectWallet → syncWalletToProfile early-returns if acToken is null,
+        // leaving the user's profile without the linked wallet. keep-prepare
+        // then rejects with "No wallet linked" on first open; second open
+        // works because the first getTokenSilently populated acToken.
+        if (!acAuth0Client) {
+          try { await initAuth0(); } catch {}
+        }
+        if (acAuth0Client) {
+          try { acToken = await acAuth0Client.getTokenSilently(); } catch {}
+        }
+
         // Step 1: Connect wallet
         addTrackEntry(rebake ? 'Starting regeneration...' : (regenerate ? 'Starting regeneration...' : 'Starting keep flow...'), 'active');
         setMintStep('wallet', 'active', 'Connecting...');
@@ -6037,17 +6049,6 @@
         }
         setMintStep('wallet', 'done', address.slice(0, 8) + '...' + address.slice(-4));
         addTrackEntry('Wallet connected: ' + address.slice(0, 8) + '...' + address.slice(-4));
-
-        // Refresh token — ensure Auth0 has finished initializing before we
-        // decide whether to send the Authorization header. Without this guard,
-        // a fast first click can race initAuth0() and POST keep-prepare without
-        // auth, producing a spurious 401 "Please log in first" on first open.
-        if (!acAuth0Client) {
-          try { await initAuth0(); } catch {}
-        }
-        if (acAuth0Client) {
-          try { acToken = await acAuth0Client.getTokenSilently(); } catch {}
-        }
 
         // Step 2: Create job via keep-prepare
         setMintStep('validate', 'active', rebake ? 'Validating ownership...' : (regenerate ? 'Regenerating...' : 'Validating...'));
