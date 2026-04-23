@@ -2310,7 +2310,9 @@
       font-size: 12px;
       color: #8658e2;
       margin-left: auto;
+      text-decoration: none;
     }
+    a.keeps-row-token:hover { text-decoration: underline; }
     .keeps-row-hits {
       font-family: var(--font-mono);
       font-size: 12px;
@@ -3962,13 +3964,18 @@
         ? (knownOwner.alias || knownOwner.address.slice(0, 8) + '…' + knownOwner.address.slice(-4))
         : '…';
       const ownerHref = knownOwner?.address ? `https://objkt.com/profile/${knownOwner.address}` : null;
+      const objktTokenHref = (activeKeepInfo?.contractAddress && tokenId != null)
+        ? `${getObjktBase(activeKeepInfo.network)}/tokens/${activeKeepInfo.contractAddress}/${tokenId}`
+        : null;
 
       row.innerHTML = `
         <img class="keeps-row-thumb" alt="$${entry.code}" loading="lazy" />
         <a class="keeps-row-code" href="${KL_BASE}/$${entry.code}" title="Edit in KidLisp.com" onclick="event.stopPropagation()">$${entry.code}</a>
         <span class="keeps-row-handle">${escapeHtml(handle)}</span>
         <span class="keeps-row-hits">${hits.toLocaleString()} hit${hits !== 1 ? 's' : ''}</span>
-        ${tokenId != null ? `<span class="keeps-row-token">Token #${tokenId}</span>` : ''}
+        ${tokenId != null ? (objktTokenHref
+          ? `<a class="keeps-row-token" href="${objktTokenHref}" target="_blank" rel="noopener" title="View token on objkt.com" onclick="event.stopPropagation()">Token #${tokenId}</a>`
+          : `<span class="keeps-row-token">Token #${tokenId}</span>`) : ''}
         ${tokenId != null ? `<span class="keeps-row-owner" id="row-owner-${tokenId}">${ownerHref ? `<a class="keeps-row-owner-link" href="${ownerHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${escapeHtml(ownerLabel)}</a>` : ownerLabel}</span>` : ''}
         ${keptTimeStr ? `<span class="keeps-row-time" title="Kept ${keptAt?.toLocaleString() || ''}">kept ${keptTimeStr}</span>` : ''}
         ${createdTimeStr ? `<span class="keeps-row-time" title="Created ${createdAt?.toLocaleString() || ''}">made ${createdTimeStr}</span>` : ''}`;
@@ -4083,6 +4090,18 @@
       }
 
       grid.appendChild(frag);
+
+      // Deep-link: if the URL points at /kept/$code or /unkept/$code, open
+      // the mint modal for that piece once we have the entry in allCodes.
+      if (pendingMintModalCode) {
+        const match = allCodes.find(e => e.code === pendingMintModalCode);
+        if (match) {
+          const code = pendingMintModalCode;
+          pendingMintModalCode = null;
+          // Defer to next tick so the current render pass completes first.
+          setTimeout(() => openMintModal(match), 0);
+        }
+      }
     }
 
     function renderPaginationControls() {
@@ -4315,7 +4334,8 @@
     // KEEP DETAIL MODAL (permalink)
     // =========================================
     let detailSortedEntries = []; // populated by renderMarket for index-based lookup
-    let pendingDeepLinkCode = null; // set on load if URL is /$code
+    let pendingDeepLinkCode = null; // set on load if URL is /$code (detail modal)
+    let pendingMintModalCode = null; // set on load if URL is /kept/$code or /unkept/$code
     const detailOverlay = document.getElementById('keep-detail-overlay');
     const detailContent = document.getElementById('keep-detail-content');
     const detailTitle = document.getElementById('keep-detail-title');
@@ -4867,16 +4887,23 @@
       const pageParam = new URLSearchParams(location.search).get('page');
       const page = pageParam ? Math.max(0, parseInt(pageParam, 10) - 1) : 0;
       if (isKeepsDomain) {
-        const seg = location.pathname.replace(/^\/+/, '').split('/')[0];
-        // Redirect /buy, /market, and /$code permalinks to buy.kidlisp.com
-        if (seg === 'buy' || seg === 'market') {
+        const parts = location.pathname.replace(/^\/+/, '').split('/');
+        const seg1 = parts[0] || '';
+        const seg2 = parts[1] || '';
+        // Redirect /buy and /market to buy.kidlisp.com
+        if (seg1 === 'buy' || seg1 === 'market') {
           window.location.href = 'https://buy.kidlisp.com';
           return { tab: 'unkept', code: null, page: 0 };
         }
-        if (seg.startsWith('$') && seg.length > 1) {
-          return { tab: 'unkept', code: seg.slice(1), page };
+        // /kept/$code and /unkept/$code → gallery tab with mint modal open
+        // for that piece. Distinct from the bare /$code market-detail permalink.
+        if ((seg1 === 'kept' || seg1 === 'unkept') && seg2.startsWith('$') && seg2.length > 1) {
+          return { tab: seg1, code: seg2.slice(1), page, mintOpen: true };
         }
-        const tab = seg === 'kept' ? 'kept' : 'unkept';
+        if (seg1.startsWith('$') && seg1.length > 1) {
+          return { tab: 'unkept', code: seg1.slice(1), page };
+        }
+        const tab = seg1 === 'kept' ? 'kept' : 'unkept';
         return { tab, code: null, page };
       } else {
         const hash = location.hash.replace(/^#/, '');
@@ -4889,7 +4916,11 @@
       }
     }
     const initialRoute = tabFromLocation();
-    if (initialRoute.code) pendingDeepLinkCode = initialRoute.code;
+    if (initialRoute.mintOpen && initialRoute.code) {
+      pendingMintModalCode = initialRoute.code;
+    } else if (initialRoute.code) {
+      pendingDeepLinkCode = initialRoute.code;
+    }
     switchTab(initialRoute.tab);
 
     // Show wallet button immediately; check if already connected
@@ -4899,13 +4930,25 @@
     // Handle browser back/forward
     window.addEventListener('popstate', () => {
       const route = tabFromLocation();
-      // Close detail modal if navigating away from a $code permalink
+      const mintOverlayEl = document.getElementById('mint-overlay');
+      const mintOpenNow = mintOverlayEl?.classList.contains('open');
+      // Close modals whose permalink context no longer matches the route.
       if (!route.code && detailOverlay.classList.contains('open')) {
         detailOverlay.classList.remove('open');
         document.body.style.overflow = '';
       }
+      if (!route.mintOpen && mintOpenNow) {
+        closeMintModal();
+      }
       switchTab(route.tab);
-      if (route.code) openKeepDetailByCode(route.code);
+      // Open the correct modal for the new URL.
+      if (route.mintOpen && route.code) {
+        const match = allCodes.find(e => e.code === route.code);
+        if (match) openMintModal(match);
+        else pendingMintModalCode = route.code;
+      } else if (route.code) {
+        openKeepDetailByCode(route.code);
+      }
       if (route.page > 0 && route.page < totalPages) {
         goToPage(route.page, { pushState: false });
       }
@@ -5987,6 +6030,18 @@
       clearTrackLog();
       document.getElementById('mint-overlay').classList.add('open');
       document.body.style.overflow = 'hidden';
+
+      // Permalink: reflect the open mint modal in the URL so sharing /kept/$code
+      // or /unkept/$code reopens this exact view. Only push when the URL isn't
+      // already at this target (avoids duplicate history entries when the modal
+      // was opened via the initial-route deep link).
+      if (isKeepsDomain && entry?.code) {
+        const tabPath = activeTab === 'kept' ? '/kept' : activeTab === 'unkept' ? '/unkept' : '';
+        const targetPath = `${tabPath}/$${entry.code}`;
+        if (location.pathname !== targetPath) {
+          history.pushState({ tab: activeTab, code: entry.code, mintOpen: true }, '', targetPath);
+        }
+      }
     }
 
     function beginMintFlow() {
@@ -6002,6 +6057,14 @@
       mintAutoSyncAfterRebake = false;
       document.getElementById('mint-overlay').classList.remove('open');
       document.body.style.overflow = '';
+
+      // Permalink: restore URL to tab root when the modal closes. Matches
+      // /kept/$code or /unkept/$code (and bare /$code inside unkept context)
+      // so direct-link exit → back button feels right.
+      if (isKeepsDomain && /^\/(kept|unkept)?\/?\$[^/]+$/.test(location.pathname)) {
+        const tabPath = activeTab === 'kept' ? '/kept' : '/';
+        history.pushState({ tab: activeTab }, '', tabPath);
+      }
       if (mintPollTimer) { clearInterval(mintPollTimer); mintPollTimer = null; }
       if (mintAbortController) {
         mintAbortController.abort();
