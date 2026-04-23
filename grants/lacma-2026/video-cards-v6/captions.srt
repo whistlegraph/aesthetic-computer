@@ -1,120 +1,124 @@
 1
-00:00:00,000 --> 00:00:03,855
-[calm] Hi I'm Jeffrey and for the last
+00:00:00,000 --> 00:00:02,298
+Hi I'm Jeffrey and for the last five
 
 2
-00:00:03,900 --> 00:00:06,142
-five years I've been building Aesthetic
+00:00:02,345 --> 00:00:05,631
+years I've been building Aesthetic.Computer a creative
 
 3
-00:00:06,351 --> 00:00:09,718
-Computer a creative computing system that treats the
+00:00:05,666 --> 00:00:08,788
+computing system that treats the personal computer itself
 
 4
-00:00:09,775 --> 00:00:13,166
-personal computer itself as an unfinished instrument
+00:00:09,114 --> 00:00:10,634
+as an unfinished instrument.
 
 5
-00:00:13,851 --> 00:00:16,742
+00:00:11,018 --> 00:00:13,664
 It's three things at once an operating system
 
 6
-00:00:17,067 --> 00:00:19,841
+00:00:14,048 --> 00:00:16,382
 you can boot a laptop into a programming
 
 7
-00:00:19,899 --> 00:00:23,521
+00:00:16,428 --> 00:00:20,015
 language called KidLisp and a social network where
 
 8
-00:00:23,568 --> 00:00:24,740
-people make art together
+00:00:20,050 --> 00:00:21,315
+people make art together.
 
 9
-00:00:25,181 --> 00:00:27,260
+00:00:21,699 --> 00:00:24,451
 The whole stack is free and open source
 
 10
-00:00:27,643 --> 00:00:30,661
-nineteen thousand commits in with seventeen thousand
+00:00:24,788 --> 00:00:28,282
+Nineteen thousand commits in with seventeen thousand
 
 11
-00:00:30,731 --> 00:00:34,399
-KidLisp programs and twenty-eight hundred handles drawing
+00:00:28,362 --> 00:00:31,289
+KidLisp programs and twenty-eight hundred registered
 
 12
-00:00:34,633 --> 00:00:37,406
-chatting and composing in real time
+00:00:31,335 --> 00:00:35,421
+user handles drawing chatting and composing in real
 
 13
-00:00:37,790 --> 00:00:40,728
-With LLM-powered development there's never been a better
+00:00:35,479 --> 00:00:35,909
+time.
 
 14
-00:00:40,786 --> 00:00:43,932
-time to write new software for old hardware
+00:00:36,292 --> 00:00:38,661
+Hundreds of millions of laptops were just stranded
 
 15
-00:00:44,210 --> 00:00:47,414
-Windows 10 end-of-life just stranded hundreds of millions
+00:00:38,719 --> 00:00:40,402
+by Windows 10 end-of-life.
 
 16
-00:00:47,462 --> 00:00:50,329
-of laptops and strip away the consumer operating
+00:00:40,728 --> 00:00:43,398
+Strip away the consumer operating system and they
 
 17
-00:00:50,387 --> 00:00:53,777
-system and those machines become a planetary population
+00:00:43,468 --> 00:00:46,637
+become a planetary population of half-built instruments
 
 18
-00:00:53,987 --> 00:00:56,551
-of half-built instruments waiting for a kernel
+00:00:46,962 --> 00:00:48,054
+waiting for a kernel.
 
 19
-00:00:57,085 --> 00:01:00,290
-For the LACMA Art and Technology Lab we
+00:00:48,204 --> 00:00:50,944
+With LLM-powered development there's never been a better
 
 20
-00:01:00,371 --> 00:01:01,787
-propose growing Aesthetic
+00:00:50,990 --> 00:00:53,567
+time to write new software for old hardware
 
 21
-00:01:01,868 --> 00:01:05,781
-Computer into a public device library a lending
+00:00:53,811 --> 00:00:56,655
+For the LACMA Art and Technology Lab we
 
 22
-00:01:05,862 --> 00:01:09,183
-fleet of refurbished laptops flashed with our operating
+00:00:56,713 --> 00:01:00,267
+propose growing Aesthetic.Computer into a public device
 
 23
-00:01:09,242 --> 00:01:12,561
-system at fifty dollars per seat circulating through
+00:01:00,313 --> 00:01:03,912
+library a lending fleet of refurbished laptops flashed
 
 24
-00:01:12,608 --> 00:01:16,334
-Flash Days workshops and Family Play afternoons at
+00:01:04,156 --> 00:01:06,385
+with our operating system at fifty dollars per
 
 25
-00:01:16,370 --> 00:01:16,984
-the museum
+00:01:06,432 --> 00:01:10,472
+seat circulating through Flash Days workshops and Family
 
 26
-00:01:17,483 --> 00:01:20,712
-At the 2027 Symposium we boot the cohort
+00:01:10,519 --> 00:01:12,329
+Play afternoons at the museum.
 
 27
-00:01:21,072 --> 00:01:24,078
-at the 2028 Demo Day we play the
+00:01:12,573 --> 00:01:15,906
+At the 2027 Symposium we boot the cohort
 
 28
-00:01:24,149 --> 00:01:24,427
-room
+00:01:16,195 --> 00:01:18,819
+at the 2028 Demo Day we play the
 
 29
-00:01:24,903 --> 00:01:27,632
-The personal computer is a civic instrument and
+00:01:18,878 --> 00:01:19,353
+room.
 
 30
-00:01:27,689 --> 00:01:29,210
-a new scene is just beginning
+00:01:19,679 --> 00:01:22,430
+The personal computer is a civic instrument and
+
+31
+00:01:22,500 --> 00:01:24,381
+a new scene is just beginning.
 

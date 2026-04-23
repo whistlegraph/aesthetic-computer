@@ -31,29 +31,35 @@ MODEL_ID = "eleven_multilingual_v2"
 
 W, H = 1280, 800
 CREAM = (240, 230, 207); DARK = (61, 46, 31); PINK = (165, 73, 105); DIM = (138, 115, 86)
+MAGENTA = (212, 90, 155)
+# Per-character title palette (cycled)
+RAINBOW = [PINK, MAGENTA, CREAM]
 YWFT_BOLD = str(ASSETS / "fonts" / "ywft-processing-bold.ttf")
 YWFT_REG = str(ASSETS / "fonts" / "ywft-processing-regular.ttf")
 FALLBACK = "/System/Library/Fonts/SFNS.ttf"
+
+def is_video(p):
+    return str(p).lower().endswith((".mp4", ".mov", ".webm"))
 
 # ========================================================================
 # 1. ONE-SHOT VO: combined script read in one ElevenLabs call
 # ========================================================================
 SCRIPT = (
     # Flowing paragraph prose — fewer sentence breaks so delivery reads natural.
-    "[calm] Hi, I'm Jeffrey, and for the last five years I've been building "
+    "Hi, I'm Jeffrey, and for the last five years I've been building "
     "Aesthetic.Computer — a creative computing system that treats the personal "
     "computer itself as an unfinished instrument. "
     "It's three things at once: an operating system you can boot a laptop into, "
     "a programming language called KidLisp, and a social network where people "
     "make art together. "
-    "The whole stack is free and open source — nineteen thousand commits in, "
-    "with seventeen thousand KidLisp programs and twenty-eight hundred handles "
+    "The whole stack is free and open source. Nineteen thousand commits in, "
+    "with seventeen thousand KidLisp programs and twenty-eight hundred registered user handles, "
     "drawing, chatting, and composing in real time. "
-    "With LLM-powered development there's never been a better time to write "
-    "new software for old hardware — Windows 10 end-of-life just stranded "
-    "hundreds of millions of laptops, and strip away the consumer operating "
-    "system and those machines become a planetary population of half-built "
-    "instruments waiting for a kernel. "
+    "Hundreds of millions of laptops were just stranded by Windows 10 end-of-life. "
+    "Strip away the consumer operating system and they become a planetary "
+    "population of half-built instruments waiting for a kernel. "
+    "With LLM-powered development, there's never been a better time to write "
+    "new software for old hardware. "
     "For the LACMA Art and Technology Lab, we propose growing Aesthetic.Computer "
     "into a public device library: a lending fleet of refurbished laptops "
     "flashed with our operating system at fifty dollars per seat, circulating "
@@ -101,18 +107,29 @@ def generate_vo(force=False):
     print(f"  wrote {wav.name}")
     return wav, json.loads(js.read_text())
 
-VO_WAV, VO_ALIGN = generate_vo(force=True)  # always regen for homogeneity
+VO_WAV, VO_ALIGN = generate_vo(force=False)  # reuse cached VO (unchanged script)
 
 # ========================================================================
 # 2. Parse alignment → words + sentence boundaries
 # ========================================================================
 def tokenize(alignment):
+    """Tokenize char alignment into words. Keep in-word periods
+    (e.g. "Aesthetic.Computer") glued so captions don't break on them."""
     chars = alignment["characters"]
     starts = alignment["character_start_times_seconds"]
     ends = alignment["character_end_times_seconds"]
     words = []; cur = ""; cur_start = None
     for i, ch in enumerate(chars):
-        if ch.isspace() or ch in ",.;:!?—–":
+        # Is this period actually inside a compound word like "Aesthetic.Computer"?
+        next_ch = chars[i+1] if i+1 < len(chars) else " "
+        prev_ch = chars[i-1] if i > 0 else " "
+        inline_dot = (
+            ch == "."
+            and prev_ch.isalpha()
+            and next_ch.isalpha()
+        )
+        is_break = ch.isspace() or ch in ",;:!?—–" or (ch in ".!?" and not inline_dot)
+        if is_break:
             if cur:
                 words.append((cur, cur_start, ends[i-1] if i > 0 else starts[i]))
                 cur = ""; cur_start = None
@@ -174,21 +191,24 @@ def sent_end(i):
 # 17 This is not a product.
 # 18 It's an argument.
 # 19 The personal computer is a civic instrument, ... begun.    -> CLOSE ends here
-# New paragraph-prose script has 7 sentences (0-indexed):
-# 0 Hi, I'm Jeffrey, ... unfinished instrument.       -> HOOK
-# 1 It's three things at once: OS, language, network. -> AC
-# 2 Free and open source — 19k commits, 17k kidlisp ..-> COMMUNITY
-# 3 LLM-powered dev, Windows 10, half-built instruments-> FEEDSTOCK
-# 4 LACMA Lab, device library, lending fleet ...      -> LIBRARY
-# 5 Symposium + Demo Day                              -> EVENTS
-# 6 civic instrument, new scene just beginning        -> CLOSE
+# Current paragraph-prose script actually contains 10 sentences (0-indexed):
+# 0 Hi, I'm Jeffrey ... unfinished instrument.        -> HOOK
+# 1 It's three things at once ... art together.       -> AC
+# 2 The whole stack is free and open source.          ┐
+# 3 Nineteen thousand commits ... in real time.       ┴─ COMMUNITY (covers 2+3)
+# 4 Hundreds of millions ... Windows 10 end-of-life.  ┐
+# 5 Strip away the consumer OS ... waiting kernel.    │
+# 6 With LLM-powered dev ... new software old hardware┴─ FEEDSTOCK (covers 4+5+6)
+# 7 For the LACMA Art and Tech Lab ... at the museum. -> LIBRARY
+# 8 At the 2027 Symposium ... play the room.          -> EVENTS
+# 9 The personal computer is a civic instrument ...   -> CLOSE
 t_hook_end = sent_end(0)
-t_ac_end = sent_end(1)
-t_com_end = sent_end(2)
-t_feed_end = sent_end(3)
-t_lib_end = sent_end(4)
-t_evt_end = sent_end(5)
-t_cls_end = sent_end(6) + 1.2
+t_ac_end   = sent_end(1)
+t_com_end  = sent_end(3)
+t_feed_end = sent_end(6)
+t_lib_end  = sent_end(7)
+t_evt_end  = sent_end(8)
+t_cls_end  = sent_end(9) + 1.2
 
 # ========================================================================
 # 3. Card definitions
@@ -221,9 +241,12 @@ def make_bg(out, bg_path, tint_rgba=(20, 15, 10, 120)):
         img = Image.new("RGB", (W, H), CREAM)
     img.convert("RGB").save(out, quality=95)
 
-def make_text_overlay(out, title_lines, subline=None, pink_idx=None):
+def make_text_overlay(out, title_lines, subline=None, pink_idx=None, colorize=False):
     """Transparent PNG with just title + subline + accent — stays STILL
-    over the Ken Burns background."""
+    over the Ken Burns / animated background.
+
+    colorize=True renders each title character in an alternating palette
+    (PINK, MAGENTA, CREAM) for brand-moment cards."""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img, "RGBA")
     ink = CREAM; dim = (230, 220, 200)
@@ -238,13 +261,36 @@ def make_text_overlay(out, title_lines, subline=None, pink_idx=None):
         sizes.append((line, fs, f)); total_h += fs + 16
 
     y = (H - total_h) / 2 - (32 if subline else 0) - 30
+
     def shadowed(txt, x, yy, f, fill, dx=3, dy=3):
         d.text((x + dx, yy + dy), txt, font=f, fill=(0, 0, 0, 230))
         d.text((x, yy), txt, font=f, fill=fill)
+
+    def rainbow_line(line, x, yy, f):
+        """Draw each visible (non-space) character in the rotating palette."""
+        cx = x
+        ci = 0
+        for ch in line:
+            cw = d.textlength(ch, font=f)
+            if ch == " ":
+                cx += cw
+                continue
+            color = RAINBOW[ci % len(RAINBOW)]
+            # shadow
+            d.text((cx + 3, yy + 3), ch, font=f, fill=(0, 0, 0, 230))
+            # glyph
+            d.text((cx, yy), ch, font=f, fill=color)
+            cx += cw
+            ci += 1
+
     for i, (line, fs, f) in enumerate(sizes):
         tw = d.textlength(line, font=f)
-        color = PINK if pink_idx == i else ink
-        shadowed(line, (W - tw)/2, y, f, color); y += fs + 16
+        if colorize:
+            rainbow_line(line, (W - tw)/2, y, f)
+        else:
+            color = PINK if pink_idx == i else ink
+            shadowed(line, (W - tw)/2, y, f, color)
+        y += fs + 16
     if subline:
         # Auto-scale subline so long lines still fit
         sfs = 40; sf = font(YWFT_REG, sfs)
@@ -256,37 +302,37 @@ def make_text_overlay(out, title_lines, subline=None, pink_idx=None):
     img.save(out)  # keep transparency
 
 cards = [
-    # (name, end_time, bg, title_lines, subline, pink_idx, zoom_dir)
-    # zoom_dir: 'in' | 'out' | 'pan-lr' | 'pan-rl' | None
-    ("01-hook",      t_hook_end + 0.2, ASSETS / "jeffrey-IMG_2124.jpg",
+    # (name, end_time, bg, title_lines, subline, pink_idx, zoom_dir, colorize)
+    # zoom_dir: 'in' | 'out' | 'pan-lr' | 'pan-rl' | None  (ignored for video bg)
+    # colorize=True paints each title character in rotating PINK/MAGENTA/CREAM
+    ("01-hook",      t_hook_end + 0.2, ASSETS / "kidlisp-berz-anim.mp4",
         ["Aesthetic.Computer"],
-        "a creative computing system · LACMA Art + Technology Lab 2026", 0, "in"),
-    ("02-ac",        t_ac_end,  ASSETS / "ac-native-demo-poster.jpg",
+        "a creative computing system · LACMA Art + Technology Lab 2026", 0, "in", True),
+    ("02-ac",        t_ac_end,  ASSETS / "ac-blank-on-grass.png",
         ["three layers"],
-        "operating system · language · network", None, "out"),
+        "operating system · language · network", None, "in", False),
     ("03-community", t_com_end, ASSETS / "platform-screenshot.jpg",
         ["19,000 commits", "17,000 KidLisp pieces", "2,800 handles"],
-        "aesthetic.computer · active since 2021", None, "pan-lr"),
+        "aesthetic.computer · active since 2021", None, "pan-lr", False),
     ("04-feedstock", t_feed_end, ASSETS / "kidlisp-berz.jpg",
         ["never been a better time", "for new software", "on old hardware"],
-        "240 million stranded x86 laptops · LLM-powered development", None, "in"),
+        "240 million stranded x86 laptops · LLM-powered development", None, "in", False),
     ("05-library",   t_lib_end, ASSETS / "card-gallery.jpg",
         ["AC Device Library"],
-        "lending fleet · Flash Days · Family Play · public waitlist", None, "pan-rl"),
-    # Only photo we've verified to contain laptops is IMG_2124 — reuse
-    # it for Events with a different Ken Burns direction so it reads fresh.
-    ("06-events",    t_evt_end, ASSETS / "jeffrey-IMG_2124.jpg",
+        "lending fleet · Flash Days · Family Play · public waitlist", None, "pan-rl", False),
+    ("06-events",    t_evt_end, ASSETS / "hardware-yoga.jpg",
         ["boot the cohort", "play the room"],
-        "2027 Symposium · 2028 Demo Day", None, "pan-rl"),
-    ("07-close",     t_cls_end, ASSETS / "kidlisp-roz.jpg",
+        "2027 Symposium · 2028 Demo Day", None, "pan-rl", False),
+    ("07-close",     t_cls_end, ASSETS / "kidlisp-roz-anim.mp4",
         ["a civic instrument"],
-        "aesthetic.computer/lacma-2026", None, "in"),
+        "aesthetic.computer/lacma-2026", None, "in", True),
 ]
 
 print("→ generating cards")
-for name, end_t, bg, lines, sub, pink, zd in cards:
-    make_bg(CARDS / f"{name}-bg.jpg", str(bg))
-    make_text_overlay(CARDS / f"{name}-text.png", lines, sub, pink)
+for name, end_t, bg, lines, sub, pink, zd, colorize in cards:
+    if not is_video(bg):
+        make_bg(CARDS / f"{name}-bg.jpg", str(bg))
+    make_text_overlay(CARDS / f"{name}-text.png", lines, sub, pink, colorize)
 
 # Ken Burns zoompan expression builder
 def zp_expr(zoom_dir, frames):
@@ -309,32 +355,56 @@ def zp_expr(zoom_dir, frames):
     return f"zoompan=z={z}:x={x}:y={y}:d={frames}:s=1280x800:fps=30"
 
 # ========================================================================
-# 4. Encode segments — Ken Burns on bg ONLY, still text overlay on top
+# 4. Encode segments — Ken Burns on still bg OR animated loop on video bg
 # ========================================================================
 segments = []
 prev = 0.0
-for name, end_t, bg, lines, sub, pink, zd in cards:
+print(f"→ card timings (VO total: {sent_ends[-1]:.2f}s, video total: {t_cls_end:.2f}s)")
+for name, end_t, bg, lines, sub, pink, zd, colorize in cards:
     dur = end_t - prev
     frames = max(int(dur * 30), 30)
     seg = CARDS / f"seg-{name}.mp4"
-    # [0] bg image (looped), [1] text overlay PNG (still), [2] silent audio
-    fc = (
-        f"[0:v]scale=2560:1600:force_original_aspect_ratio=increase,crop=2560:1600,"
-        f"{zp_expr(zd, frames)}[kb];"
-        f"[kb][1:v]overlay=0:0[v]"
-    )
-    subprocess.run([
-        "ffmpeg", "-y",
-        "-loop", "1", "-framerate", "30", "-i", str(CARDS / f"{name}-bg.jpg"),
-        "-loop", "1", "-framerate", "30", "-i", str(CARDS / f"{name}-text.png"),
-        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-        "-filter_complex", fc,
-        "-map", "[v]", "-map", "2:a",
-        "-t", f"{dur:.3f}",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "160k",
-        str(seg),
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    text_png = CARDS / f"{name}-text.png"
+    print(f"    {name:<14} [{prev:6.2f}s → {end_t:6.2f}s]  dur={dur:5.2f}s")
+    if is_video(bg):
+        # Animated bg: stream_loop, scale/crop to 1280x800, darken slightly
+        # (so the title text remains legible), overlay still text PNG.
+        fc = (
+            f"[0:v]scale=1280:800:force_original_aspect_ratio=increase,"
+            f"crop=1280:800,fps=30,eq=brightness=-0.22:saturation=0.95[kb];"
+            f"[kb][1:v]overlay=0:0[v]"
+        )
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-i", str(bg),
+            "-loop", "1", "-framerate", "30", "-i", str(text_png),
+            "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+            "-filter_complex", fc,
+            "-map", "[v]", "-map", "2:a",
+            "-t", f"{dur:.3f}",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "160k",
+            str(seg),
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        # Still bg: [0] bg image (looped), [1] text overlay PNG (still), [2] silent audio
+        fc = (
+            f"[0:v]scale=2560:1600:force_original_aspect_ratio=increase,crop=2560:1600,"
+            f"{zp_expr(zd, frames)}[kb];"
+            f"[kb][1:v]overlay=0:0[v]"
+        )
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-loop", "1", "-framerate", "30", "-i", str(CARDS / f"{name}-bg.jpg"),
+            "-loop", "1", "-framerate", "30", "-i", str(text_png),
+            "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+            "-filter_complex", fc,
+            "-map", "[v]", "-map", "2:a",
+            "-t", f"{dur:.3f}",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "160k",
+            str(seg),
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     segments.append(seg)
     prev = end_t
 
@@ -360,10 +430,17 @@ def ts(t):
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 def chunk_cues(wlist, max_words=8, max_chars=52):
+    """Group words into short caption cues. Punctuation gets glued onto
+    the previous word's text so cues end with a period/comma/etc."""
     cues = []; buf = []
     for w, s, e in wlist:
         if w in ".!?,;:":
+            # Glue punctuation onto the last buffered word
             if buf:
+                lw, ls, le = buf[-1]
+                buf[-1] = (lw + w, ls, e)
+            # Hard break on sentence end
+            if w in ".!?" and buf:
                 cues.append((buf[0][1], buf[-1][2], " ".join(b[0] for b in buf)))
                 buf = []
             continue
@@ -385,16 +462,21 @@ print(f"→ SRT: {len(cues)} cues")
 # ========================================================================
 # 6. Final encode: subs + VO
 # ========================================================================
-print("→ final encode")
+print("→ final encode with QR overlay")
+QR = ASSETS / "qr-permalink.png"
 subprocess.run([
     "ffmpeg", "-y",
     "-i", str(concat_raw),
     "-i", str(VO_WAV),
+    "-i", str(QR),
     "-filter_complex",
-    # Traditional white-with-black-shadow subtitles, smaller + lower
+    # 1. burn subtitles
     f"[0:v]subtitles='{srt_path}':force_style='FontName=Helvetica,FontSize=16,Bold=1,"
     "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
-    "BorderStyle=1,Outline=1,Shadow=2,Alignment=2,MarginV=18'[v];"
+    "BorderStyle=1,Outline=1,Shadow=2,Alignment=2,MarginV=18'[vs];"
+    # 2. QR code scaled + a small cream rectangle behind for contrast
+    "[2:v]scale=110:110[qr];"
+    "[vs][qr]overlay=W-w-24:24[v];"
     "[1:a]volume=1.35[vo];"
     "[vo]aresample=48000[a]",
     "-map", "[v]", "-map", "[a]",

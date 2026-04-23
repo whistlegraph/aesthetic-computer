@@ -30,9 +30,9 @@ Aesthetic.Computer has three interlocking layers (an operating system, a custom 
 
 **There has never been a better time to develop new software for old hardware.** Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops; 62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become a planetary population of half-built instruments waiting for a kernel.
 
-**The operating system** boots a laptop directly into Aesthetic.Computer. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz, 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a terminal running Anthropic's Claude Code. The default piece is *notepat*, an 8,466-line polyphonic instrument.
+**The operating system** boots a laptop directly into Aesthetic.Computer. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz, 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a terminal running Anthropic's Claude Code. The default piece is **notepat.com**, an 8,466-line polyphonic instrument (also free in any browser).
 
-**KidLisp** is a minimal Lisp for generative art. 118 functions, 17,000+ programs already on the platform. Programs can be minted on Tezos without artists touching blockchain infrastructure.
+**KidLisp.com** is a minimal Lisp for generative art. 118 functions, 17,000+ programs already on the platform. Programs can be minted on Tezos without artists touching blockchain infrastructure.
 
 **The Network** hosts 371 built-in pieces, 265 user-published, 2,800+ registered handles. The website has been in active development since 2021 (19,000+ commits across 5 years); running as the whole operating system on a laptop is new, with the kernel prototype landing February 2026.
 
