@@ -76,6 +76,24 @@ async function boot({ api, debug, send, hud, handle, user, authorize }) {
   setStatus("loading");
   userHandleRef = handle;
 
+  // Version polling — auto-reload on new deploy so edits to aa.mjs made
+  // from within aa itself come back live without a manual refresh.
+  (async () => {
+    try {
+      const res = await fetch("/api/version");
+      if (!res.ok) return;
+      const current = (await res.json()).deployed;
+      while (true) {
+        try {
+          const r = await fetch(`/api/version?current=${current}`);
+          if (!r.ok) break;
+          const data = await r.json();
+          if (data.changed !== false) { send?.({ type: "window:reload" }); break; }
+        } catch { break; }
+      }
+    } catch {}
+  })();
+
   if (!user?.sub) {
     setStatus("unauth");
     pushSystem("log in first to talk to aa.");
