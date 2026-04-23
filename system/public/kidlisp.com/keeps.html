@@ -5781,9 +5781,11 @@
       // initTezosWallet should already be resolved (pre-loaded at page init).
       // If not, this await is the fallback — but may cause popup blocking.
       await initTezosWallet();
+      console.log('🔑 KEEP-FLOW connectWallet()', { cachedMintWalletAddress: mintWalletAddress });
       // Verify the session is still active (Kukai/WalletConnect sessions can expire)
       if (mintWalletAddress) {
         const active = await beaconClient.getActiveAccount();
+        console.log('🔑 KEEP-FLOW connectWallet: beacon active account', { active: active?.address });
         if (active?.address === mintWalletAddress) return mintWalletAddress;
         // Session expired — clear stale address and re-request
         mintWalletAddress = null;
@@ -5791,6 +5793,7 @@
       }
       const perms = await beaconClient.requestPermissions();
       mintWalletAddress = perms.address;
+      console.log('🔑 KEEP-FLOW connectWallet: new perms', { address: mintWalletAddress });
       updateWalletBtn();
       // Sync wallet address to user profile so keep-prepare can validate it
       await syncWalletToProfile(mintWalletAddress);
@@ -5799,7 +5802,11 @@
 
     // Save connected wallet address to user's AC profile (MongoDB)
     async function syncWalletToProfile(address) {
-      if (!address || !acToken) return;
+      console.log('🔑 KEEP-FLOW syncWalletToProfile entry', { address, hasAcToken: !!acToken, acTokenLen: acToken ? acToken.length : 0 });
+      if (!address || !acToken) {
+        console.warn('🔑 KEEP-FLOW syncWalletToProfile SKIPPED', { reason: !address ? 'no address' : 'no acToken' });
+        return;
+      }
       try {
         const net = getTezosNetwork();
         const res = await fetch(`${API_BASE}/api/update-tezos-address`, {
@@ -5810,9 +5817,10 @@
           },
           body: JSON.stringify({ address, network: net }),
         });
+        console.log('🔑 KEEP-FLOW syncWalletToProfile response', { status: res.status, ok: res.ok });
         if (res.ok) linkedWalletAddress = address;
       } catch (e) {
-        console.warn('Could not sync wallet to profile:', e);
+        console.warn('🔑 KEEP-FLOW syncWalletToProfile failed:', e);
       }
     }
 
@@ -6025,6 +6033,20 @@
       const autoSync = options.autoSync === true && rebake;
       mintAbortController = new AbortController();
 
+      // TEMP instrumentation to debug first-open "validate ownership fails" —
+      // remove once the root cause is nailed down.
+      const logFlow = (...args) => console.log('🔑 KEEP-FLOW', ...args);
+      logFlow('startMintFlow entry', {
+        piece,
+        rebake, regenerate, autoSync,
+        hasAcAuth0Client: !!acAuth0Client,
+        hasAcUser: !!acUser,
+        acTokenLen: acToken ? acToken.length : 0,
+        mintWalletAddress,
+        linkedWalletAddress,
+        acHandle,
+      });
+
       try {
         // Ensure Auth0 + acToken are ready BEFORE connectWallet runs, because
         // connectWallet → syncWalletToProfile early-returns if acToken is null,
@@ -6032,16 +6054,28 @@
         // then rejects with "No wallet linked" on first open; second open
         // works because the first getTokenSilently populated acToken.
         if (!acAuth0Client) {
-          try { await initAuth0(); } catch {}
+          logFlow('initAuth0 needed — client not yet ready');
+          try { await initAuth0(); logFlow('initAuth0 resolved', { hasClient: !!acAuth0Client }); }
+          catch (e) { logFlow('initAuth0 threw', e?.message || e); }
         }
         if (acAuth0Client) {
-          try { acToken = await acAuth0Client.getTokenSilently(); } catch {}
+          try {
+            const t = await acAuth0Client.getTokenSilently();
+            acToken = t;
+            logFlow('getTokenSilently OK', { tokenLen: t ? t.length : 0 });
+          } catch (e) {
+            logFlow('getTokenSilently threw', e?.error || e?.message || e);
+          }
+        } else {
+          logFlow('skipping getTokenSilently — no acAuth0Client');
         }
 
         // Step 1: Connect wallet
         addTrackEntry(rebake ? 'Starting regeneration...' : (regenerate ? 'Starting regeneration...' : 'Starting keep flow...'), 'active');
         setMintStep('wallet', 'active', 'Connecting...');
+        logFlow('connectWallet() before', { acTokenReady: !!acToken });
         const address = await connectWallet();
+        logFlow('connectWallet() after', { address, linkedWalletAddress });
         if (!address) {
           setMintStep('wallet', 'error', 'Connection cancelled');
           addTrackEntry('Wallet connection cancelled', 'error');
@@ -6053,22 +6087,29 @@
         // Step 2: Create job via keep-prepare
         setMintStep('validate', 'active', rebake ? 'Validating ownership...' : (regenerate ? 'Regenerating...' : 'Validating...'));
 
+        const prepBody = {
+          piece: '$' + piece,
+          walletAddress: address,
+          network: getTezosNetwork(),
+          ...(regenerate || rebake ? { regenerate: true, force: true } : {}),
+        };
+        logFlow('keep-prepare POST', {
+          url: `${API_BASE}/api/keep-prepare`,
+          hasAuthHeader: !!acToken,
+          body: prepBody,
+        });
         const prepRes = await fetch(`${API_BASE}/api/keep-prepare`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(acToken ? { Authorization: `Bearer ${acToken}` } : {}),
           },
-          body: JSON.stringify({
-            piece: '$' + piece,
-            walletAddress: address,
-            network: getTezosNetwork(),
-            ...(regenerate || rebake ? { regenerate: true, force: true } : {}),
-          }),
+          body: JSON.stringify(prepBody),
           signal: mintAbortController.signal,
         });
 
         const prepData = await prepRes.json();
+        logFlow('keep-prepare response', { status: prepRes.status, ok: prepRes.ok, data: prepData });
 
         if (!prepRes.ok) {
           setMintStep('validate', 'error', prepData.error || 'Validation failed');
