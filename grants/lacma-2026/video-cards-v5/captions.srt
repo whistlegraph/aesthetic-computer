@@ -1,0 +1,132 @@
+1
+00:00:00,000 --> 00:00:02,205
+Personal computers have not been very personal
+
+2
+00:00:02,531 --> 00:00:05,341
+Windows 10 end-of-life just stranded hundreds of millions
+
+3
+00:00:05,375 --> 00:00:05,968
+of laptops
+
+4
+00:00:06,258 --> 00:00:07,593
+There has never been a better time to
+
+5
+00:00:07,650 --> 00:00:09,635
+develop new software for old hardware
+
+6
+00:00:09,995 --> 00:00:10,552
+Aesthetic
+
+7
+00:00:10,680 --> 00:00:13,548
+Computer can run as your whole operating system
+
+8
+00:00:13,617 --> 00:00:14,314
+on a laptop
+
+9
+00:00:14,778 --> 00:00:16,346
+No desktop no app store
+
+10
+00:00:16,658 --> 00:00:17,878
+Fifty dollars per seat
+
+11
+00:00:18,179 --> 00:00:20,780
+For the LACMA Art and Technology Lab we
+
+12
+00:00:20,850 --> 00:00:23,637
+propose growing it into a public device library
+
+13
+00:00:24,030 --> 00:00:26,713
+A lending fleet of AC Blank laptops flashed
+
+14
+00:00:26,760 --> 00:00:27,385
+with Aesthetic
+
+15
+00:00:27,595 --> 00:00:31,287
+Computer circulating through Flash Days workshops and
+
+16
+00:00:31,368 --> 00:00:33,260
+Family Play afternoons at LACMA
+
+17
+00:00:34,016 --> 00:00:35,094
+A public waitlist
+
+18
+00:00:35,385 --> 00:00:38,253
+The library welcomes artists flashing their own custom
+
+19
+00:00:38,323 --> 00:00:41,539
+creative operating systems joining a tradition of artist-run
+
+20
+00:00:41,609 --> 00:00:42,641
+device libraries
+
+21
+00:00:42,966 --> 00:00:43,442
+Aesthetic
+
+22
+00:00:43,489 --> 00:00:46,879
+Computer has been under active development since 2021
+
+23
+00:00:47,332 --> 00:00:48,876
+Over nineteen thousand commits
+
+24
+00:00:49,167 --> 00:00:51,210
+Seventeen thousand KidLisp programs
+
+25
+00:00:51,534 --> 00:00:53,393
+Twenty-eight hundred registered handles
+
+26
+00:00:53,695 --> 00:00:56,248
+People draw chat and compose pieces together in
+
+27
+00:00:56,331 --> 00:00:56,923
+real time
+
+28
+00:00:57,352 --> 00:01:00,231
+At the 2027 Symposium we boot the cohort
+
+29
+00:01:00,557 --> 00:01:02,739
+At the 2028 Demo Day we play the
+
+30
+00:01:02,796 --> 00:01:03,018
+room
+
+31
+00:01:03,308 --> 00:01:04,527
+Aesthetic dot Computer
+
+32
+00:01:04,771 --> 00:01:05,734
+A civic instrument
+
+33
+00:01:06,025 --> 00:01:07,430
+The new scene has just begun
+

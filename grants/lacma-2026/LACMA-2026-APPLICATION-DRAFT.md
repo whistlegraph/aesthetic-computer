@@ -45,7 +45,7 @@ During the grant period we grow the library and run public events:
 3. **Family Play.** Drop-in kiosk hours where visitors of any age play the library's fleet together.
 4. **Open Documentation.** Library curriculum, waitlist software, and build pipeline, published openly.
 
-This is not a product. It is an argument. The personal computer is a civic instrument, and the new scene has just begun.
+The personal computer is a civic instrument, and a new scene is just beginning.
 
 ---
 

@@ -1,0 +1,87 @@
+1
+00:00:00,000 --> 00:00:04,000
+Personal computers
+have not been very personal.
+
+2
+00:00:04,000 --> 00:00:07,000
+Windows 10 end-of-life just stranded
+hundreds of millions of laptops.
+
+3
+00:00:07,000 --> 00:00:10,699
+There has never been a better time
+to develop new software for old hardware.
+
+4
+00:00:32,799 --> 00:00:36,000
+This is AC Native.
+
+5
+00:00:36,000 --> 00:00:40,000
+A bare-metal creative
+computing operating system.
+
+6
+00:00:40,000 --> 00:00:44,000
+No desktop. No app store.
+Fifty dollars per seat.
+
+7
+00:00:44,000 --> 00:00:50,000
+For the LACMA Art and Technology Lab,
+we propose growing it into a public device library.
+
+8
+00:00:50,000 --> 00:00:56,000
+A lending fleet of AC Blank laptops
+flashed with our OS.
+
+9
+00:00:56,000 --> 00:01:02,000
+Circulating through Flash Days, workshops,
+and Family Play afternoons at LACMA.
+
+10
+00:01:02,000 --> 00:01:06,000
+A public waitlist.
+
+11
+00:01:06,000 --> 00:01:12,000
+The library welcomes artists flashing
+their own custom creative operating systems,
+
+12
+00:01:12,000 --> 00:01:16,000
+joining a tradition of
+artist-run device libraries.
+
+13
+00:01:16,000 --> 00:01:20,000
+Aesthetic Computer has been under
+active development since 2021.
+
+14
+00:01:20,000 --> 00:01:24,000
+Over nineteen thousand commits.
+Seventeen thousand KidLisp programs.
+
+15
+00:01:24,000 --> 00:01:27,000
+Twenty-eight hundred registered handles.
+
+16
+00:01:27,000 --> 00:01:29,500
+At the 2027 Symposium
+we boot the cohort.
+
+17
+00:01:29,500 --> 00:01:31,799
+At the 2028 Demo Day
+we play the room.
+
+18
+00:01:31,799 --> 00:01:33,299
+Aesthetic.Computer.
+A civic instrument.
+

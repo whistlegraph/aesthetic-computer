@@ -1,0 +1,9 @@
+[thoughtful] Personal computers have not been very personal. [deadpan] Windows 10 end-of-life just stranded hundreds of millions of laptops. [with energy] There has never been a better time to develop new software for old hardware.
+
+[earnest] This is AC Native. A bare-metal creative computing operating system. No desktop. No app store. [punchy] Fifty dollars per seat. [warm] For the LACMA Art and Technology Lab, we propose growing it into a public device library. A lending fleet of AC Blank laptops flashed with our OS, circulating through Flash Days, workshops, and Family Play afternoons at LACMA. [inviting] A public waitlist. [warmly] The library welcomes artists flashing their own custom creative operating systems, joining a tradition of artist-run device libraries.
+
+[proud] Aesthetic Computer has been under active development since 2021. [excited] Over nineteen thousand commits. Seventeen thousand KidLisp programs. Twenty-eight hundred registered handles. [bright] People draw, chat, and compose pieces together in real time. Every piece is URL-addressable, QR-shareable, and free to remix.
+
+[building] At the 2027 Symposium we boot the cohort. [triumphant] At the 2028 Demo Day we play the room. [glowing] Flash days, workshops, and family play at LACMA.
+
+[reverent] Aesthetic. Computer. [with conviction] A civic instrument. [optimistic] The new scene. Has just begun.

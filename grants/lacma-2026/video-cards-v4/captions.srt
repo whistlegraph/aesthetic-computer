@@ -1,0 +1,124 @@
+1
+00:00:00,000 --> 00:00:02,263
+Personal computers have not been very personal
+
+2
+00:00:02,553 --> 00:00:05,375
+Windows 10 end-of-life just stranded hundreds of millions
+
+3
+00:00:05,421 --> 00:00:06,059
+of laptops
+
+4
+00:00:06,373 --> 00:00:07,767
+There has never been a better time to
+
+5
+00:00:07,825 --> 00:00:09,973
+develop new software for old hardware
+
+6
+00:00:32,527 --> 00:00:33,932
+This is AC Native
+
+7
+00:00:34,176 --> 00:00:36,695
+A bare-metal creative computing operating system
+
+8
+00:00:37,042 --> 00:00:38,692
+No desktop no app store
+
+9
+00:00:38,923 --> 00:00:40,097
+Fifty dollars per seat
+
+10
+00:00:40,421 --> 00:00:42,847
+For the LACMA Art and Technology Lab we
+
+11
+00:00:42,905 --> 00:00:45,542
+propose growing it into a public device library
+
+12
+00:00:45,808 --> 00:00:48,259
+A lending fleet of AC Blank laptops flashed
+
+13
+00:00:48,282 --> 00:00:50,987
+with our OS circulating through Flash Days workshops
+
+14
+00:00:51,034 --> 00:00:53,076
+and Family Play afternoons at LACMA
+
+15
+00:00:53,332 --> 00:00:54,423
+A public waitlist
+
+16
+00:00:54,701 --> 00:00:57,164
+The library welcomes artists flashing their own custom
+
+17
+00:00:57,222 --> 00:01:00,460
+creative operating systems joining a tradition of artist-run
+
+18
+00:01:00,530 --> 00:01:01,528
+device libraries
+
+19
+00:01:01,900 --> 00:01:04,361
+Aesthetic Computer has been under active development
+
+20
+00:01:04,420 --> 00:01:05,533
+since 2021
+
+21
+00:01:05,906 --> 00:01:07,600
+Over nineteen thousand commits
+
+22
+00:01:07,820 --> 00:01:10,027
+Seventeen thousand KidLisp programs
+
+23
+00:01:10,306 --> 00:01:12,280
+Twenty-eight hundred registered handles
+
+24
+00:01:12,522 --> 00:01:15,066
+People draw chat and compose pieces together in
+
+25
+00:01:15,147 --> 00:01:15,704
+real time
+
+26
+00:01:16,146 --> 00:01:19,349
+At the 2027 Symposium we boot the cohort
+
+27
+00:01:19,628 --> 00:01:22,009
+At the 2028 Demo Day we play the
+
+28
+00:01:22,056 --> 00:01:22,323
+room
+
+29
+00:01:22,682 --> 00:01:24,192
+Aesthetic dot Computer
+
+30
+00:01:24,459 --> 00:01:25,655
+A civic instrument
+
+31
+00:01:26,049 --> 00:01:27,593
+The new scene has just begun
+

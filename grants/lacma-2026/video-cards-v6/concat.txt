@@ -1,0 +1,7 @@
+file 'seg-01-hook.mp4'
+file 'seg-02-ac.mp4'
+file 'seg-03-community.mp4'
+file 'seg-04-feedstock.mp4'
+file 'seg-05-library.mp4'
+file 'seg-06-events.mp4'
+file 'seg-07-close.mp4'

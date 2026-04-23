@@ -62,16 +62,13 @@ def tint_overlay(img, color, alpha):
 def make_card(out_path, bg_path, title_lines, subline=None, pink_idx=None,
               bg_tint=None, text_box=None, light_text=False):
     """
-    bg_path: absolute image path for background (or None for solid cream).
-    bg_tint: (r,g,b,alpha) overlay on top of bg to improve text contrast.
-    text_box: (x, y, w, h) rectangle where the text card floats. If None,
-              full-screen centered text on cream.
-    light_text: if True, use cream text on dark bg (e.g. over a photo).
+    Image as background (minimal tint), title text with sharp drop shadow.
     """
     if bg_path and Path(bg_path).exists():
         bg = Image.open(bg_path).convert("RGB")
         img = fit_cover(bg, W, H)
         if bg_tint:
+            # Minimal tint just for legibility — image stays visible
             img = tint_overlay(img, bg_tint[:3], bg_tint[3])
     else:
         img = Image.new("RGB", (W, H), CREAM)
@@ -80,20 +77,17 @@ def make_card(out_path, bg_path, title_lines, subline=None, pink_idx=None,
 
     ink = CREAM if light_text else DARK
     dim = (200, 180, 140) if light_text else DIM
-
-    # Optional floating text panel (with slight cream tint) for legibility
-    if text_box:
-        tx, ty, tw, th = text_box
-        # Translucent cream panel
-        panel = Image.new("RGBA", (tw, th), CREAM + (235,))
-        img.paste(panel, (tx, ty), panel)
+    # Always use cream text on image backgrounds so it pops.
+    if bg_path:
+        ink = CREAM
+        dim = (230, 220, 200)
 
     # Measure + stack title lines
     sizes = []; total_h = 0
     for line in title_lines:
         fs = 96
         f = font(YWFT_BOLD, fs)
-        max_w = (text_box[2] if text_box else W) * 0.88
+        max_w = W * 0.88
         while d.textlength(line, font=f) > max_w and fs > 24:
             fs -= 4
             f = font(YWFT_BOLD, fs)
@@ -103,27 +97,28 @@ def make_card(out_path, bg_path, title_lines, subline=None, pink_idx=None,
         sizes.append((line, fs, f))
         total_h += fs + 14
 
-    # Positioning
-    box_x = text_box[0] if text_box else 0
-    box_y = text_box[1] if text_box else 0
-    box_w = text_box[2] if text_box else W
-    box_h = text_box[3] if text_box else H
-    y = box_y + (box_h - total_h) / 2 - (22 if subline else 0)
+    y = (H - total_h) / 2 - (22 if subline else 0)
+
+    # Sharp drop shadow helper — dark text offset by (3,3), then main
+    # text on top. Gives bold letters a punch-out-of-photo look.
+    def draw_shadowed(txt, x, y, f, fill, shadow=(0, 0, 0, 220), dx=3, dy=3):
+        d.text((x + dx, y + dy), txt, font=f, fill=shadow)
+        d.text((x, y), txt, font=f, fill=fill)
 
     for i, (line, fs, f) in enumerate(sizes):
         tw = d.textlength(line, font=f)
         color = PINK if pink_idx == i else ink
-        d.text((box_x + (box_w - tw) / 2, y), line, font=f, fill=color)
+        draw_shadowed(line, (W - tw) / 2, y, f, color)
         y += fs + 14
 
     if subline:
         f = font(YWFT_REG, 22)
         tw = d.textlength(subline, font=f)
-        d.text((box_x + (box_w - tw) / 2, y + 12), subline, font=f, fill=dim)
+        draw_shadowed(subline, (W - tw) / 2, y + 12, f, dim, dx=2, dy=2)
 
-    # Pink accent dot / bar
-    cx = box_x + box_w / 2
-    baseline = box_y + box_h - 36 if text_box else H - 120
+    # Pink accent bar
+    cx = W / 2
+    baseline = H - 120
     d.rectangle([(cx - 22, baseline), (cx + 22, baseline + 3)], fill=PINK)
 
     img.convert("RGB").save(out_path, quality=95)
@@ -164,19 +159,19 @@ hook_dur = hook_sent[-1] + 0.15
 cards_meta = [
     # (name, duration, bg_path, title_lines, subline, pink_idx, bg_tint, text_box, light_text)
     ("01-hook", hook_dur,
-        str(ASSETS / "ac-native-laptop-hero.png"),
+        str(ASSETS / "lacma-2026-page.jpg"),
         ["Personal computers", "are not done yet."],
         "LACMA Art + Technology Lab · 2026",
         None,
-        (240, 230, 207, 170),  # cream tint for legibility over photo
+        (20, 15, 10, 150),   # dark tint for legibility over the page
         None,
         False),
     ("02-ac-native", t_library_start - t_ac_native_start,
         str(ASSETS / "ac-native-demo-poster.jpg"),
         ["Aesthetic.Computer"],
         "Boots a laptop directly into art software · $50 per seat",
-        0,  # pink the main word
-        (240, 230, 207, 220),
+        0,
+        (20, 15, 10, 90),
         None,
         False),
     ("03-library", t_community_start - t_library_start,
@@ -184,7 +179,7 @@ cards_meta = [
         ["AC Device Library"],
         "Lending fleet · AC Blank laptops at $128 · Flash Days · Family Play · public waitlist",
         None,
-        (240, 230, 207, 220),
+        (20, 15, 10, 100),
         None,
         False),
     ("04-community", t_events_start - t_community_start,
@@ -192,7 +187,7 @@ cards_meta = [
         ["19,000 commits", "17,000 KidLisp pieces", "2,800 handles"],
         "aesthetic.computer · active since 2021",
         None,
-        (240, 230, 207, 210),
+        (20, 15, 10, 100),
         None,
         False),
     ("05-events", t_close_start - t_events_start,
@@ -200,7 +195,7 @@ cards_meta = [
         ["boot the cohort", "play the room"],
         "2027 Symposium · 2028 Demo Day",
         None,
-        (240, 230, 207, 210),
+        (20, 15, 10, 110),
         None,
         False),
     ("06-close", t_end - t_close_start + 1.0,
@@ -208,7 +203,7 @@ cards_meta = [
         ["Aesthetic.Computer"],
         "A civic instrument · aesthetic.computer/lacma-2026",
         0,
-        (240, 230, 207, 215),
+        (20, 15, 10, 100),
         None,
         False),
 ]
@@ -232,16 +227,8 @@ for i, (name, dur, *_) in enumerate(cards_meta):
         str(seg),
     ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     segments.append(seg)
-    if i == 0:
-        demo_seg = CARDS / "seg-demo.mp4"
-        subprocess.run([
-            "ffmpeg", "-y", "-i", str(DEMO),
-            "-vf", "fps=30",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
-            str(demo_seg),
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        segments.append(demo_seg)
+    # Demo segment removed — VO now plays continuously over slides.
+    pass
 
 concat_txt = CARDS / "concat.txt"
 concat_txt.write_text("\n".join(f"file '{s.name}'" for s in segments))
@@ -255,18 +242,17 @@ subprocess.run([
     str(concat_raw),
 ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-# VO track with silence for demo
+# VO continuous (no demo gap)
 hook_card_dur = cards_meta[0][1]
 vo_track = CARDS / "vo-track.wav"
-print("→ composing VO")
+print("→ composing VO (continuous)")
 subprocess.run([
     "ffmpeg", "-y",
     "-i", str(VO_HOOK), "-i", str(VO_MAIN),
     "-filter_complex",
     f"[0:a]apad=whole_dur={hook_card_dur:.3f}[p1];"
-    f"aevalsrc=0:d={DEMO_DUR:.3f}[s1];"
     f"[1:a]anull[p2];"
-    f"[p1][s1][p2]concat=n=3:v=0:a=1[vo]",
+    f"[p1][p2]concat=n=2:v=0:a=1[vo]",
     "-map", "[vo]", "-ar", "48000", "-ac", "2",
     str(vo_track),
 ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -294,7 +280,7 @@ def chunk_words(words, offset, max_words=8, max_chars=52):
         cues.append((buf[0][1]+offset, buf[-1][2]+offset, " ".join(b[0] for b in buf)))
     return cues
 
-cues = chunk_words(hook_words, 0.0) + chunk_words(main_words, hook_card_dur + DEMO_DUR)
+cues = chunk_words(hook_words, 0.0) + chunk_words(main_words, hook_card_dur)
 srt_path = CARDS / "captions.srt"
 with open(srt_path, "w") as f:
     for i, (s, e, text) in enumerate(cues, 1):
@@ -308,9 +294,9 @@ subprocess.run([
     "-i", str(concat_raw),
     "-i", str(vo_track),
     "-filter_complex",
-    f"[0:v]subtitles='{srt_path}':force_style='FontName=Helvetica,FontSize=14,"
-    "PrimaryColour=&H00e4d8bc,OutlineColour=&H001c1812,BackColour=&Hc01c1812,"
-    "BorderStyle=3,Outline=1,Shadow=0,Alignment=2,MarginV=28'[v];"
+    f"[0:v]subtitles='{srt_path}':force_style='FontName=Helvetica,FontSize=22,Bold=1,"
+    "PrimaryColour=&H00e4d8bc,OutlineColour=&H001c1812,BackColour=&Hd01c1812,"
+    "BorderStyle=3,Outline=2,Shadow=0,Alignment=2,MarginV=54'[v];"
     "[0:a]volume=0.22[bg];"
     "[1:a]volume=1.35[vo];"
     "[bg][vo]amix=inputs=2:duration=first:dropout_transition=0.3[a]",

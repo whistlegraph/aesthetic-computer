@@ -1,0 +1,120 @@
+1
+00:00:00,000 --> 00:00:03,855
+[calm] Hi I'm Jeffrey and for the last
+
+2
+00:00:03,900 --> 00:00:06,142
+five years I've been building Aesthetic
+
+3
+00:00:06,351 --> 00:00:09,718
+Computer a creative computing system that treats the
+
+4
+00:00:09,775 --> 00:00:13,166
+personal computer itself as an unfinished instrument
+
+5
+00:00:13,851 --> 00:00:16,742
+It's three things at once an operating system
+
+6
+00:00:17,067 --> 00:00:19,841
+you can boot a laptop into a programming
+
+7
+00:00:19,899 --> 00:00:23,521
+language called KidLisp and a social network where
+
+8
+00:00:23,568 --> 00:00:24,740
+people make art together
+
+9
+00:00:25,181 --> 00:00:27,260
+The whole stack is free and open source
+
+10
+00:00:27,643 --> 00:00:30,661
+nineteen thousand commits in with seventeen thousand
+
+11
+00:00:30,731 --> 00:00:34,399
+KidLisp programs and twenty-eight hundred handles drawing
+
+12
+00:00:34,633 --> 00:00:37,406
+chatting and composing in real time
+
+13
+00:00:37,790 --> 00:00:40,728
+With LLM-powered development there's never been a better
+
+14
+00:00:40,786 --> 00:00:43,932
+time to write new software for old hardware
+
+15
+00:00:44,210 --> 00:00:47,414
+Windows 10 end-of-life just stranded hundreds of millions
+
+16
+00:00:47,462 --> 00:00:50,329
+of laptops and strip away the consumer operating
+
+17
+00:00:50,387 --> 00:00:53,777
+system and those machines become a planetary population
+
+18
+00:00:53,987 --> 00:00:56,551
+of half-built instruments waiting for a kernel
+
+19
+00:00:57,085 --> 00:01:00,290
+For the LACMA Art and Technology Lab we
+
+20
+00:01:00,371 --> 00:01:01,787
+propose growing Aesthetic
+
+21
+00:01:01,868 --> 00:01:05,781
+Computer into a public device library a lending
+
+22
+00:01:05,862 --> 00:01:09,183
+fleet of refurbished laptops flashed with our operating
+
+23
+00:01:09,242 --> 00:01:12,561
+system at fifty dollars per seat circulating through
+
+24
+00:01:12,608 --> 00:01:16,334
+Flash Days workshops and Family Play afternoons at
+
+25
+00:01:16,370 --> 00:01:16,984
+the museum
+
+26
+00:01:17,483 --> 00:01:20,712
+At the 2027 Symposium we boot the cohort
+
+27
+00:01:21,072 --> 00:01:24,078
+at the 2028 Demo Day we play the
+
+28
+00:01:24,149 --> 00:01:24,427
+room
+
+29
+00:01:24,903 --> 00:01:27,632
+The personal computer is a civic instrument and
+
+30
+00:01:27,689 --> 00:01:29,210
+a new scene is just beginning
+
