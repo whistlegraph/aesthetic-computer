@@ -115,30 +115,30 @@
 {\color{acpink}\hrule height 1pt}
 \vspace{1em}
 
-{\large\bfseries \ac{} is a bare-metal creative computing system and public device library (custom hardware, a handmade programming language, a social network, and a lending fleet of laptops for flashing custom creative OSes) that reimagines the personal computer as a live musical instrument for art.}
+{\large\bfseries \ac{} is a creative computing system and public device library (custom hardware, a handmade programming language, a social network, and a lending fleet of laptops for flashing custom creative operating systems) that reimagines the personal computer as a live musical instrument for art.}
 
 % =======================================================================
 \achead{Project Description}
 
 Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them: operating systems built to sell attention, software gatekept by app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything. Platform consolidation cut it short. \ac{} bets a second personal computing scene is starting, and with tools this powerful in everyone's hands it will go wider \emph{and} deeper than the first. Wider because anyone can publish. Deeper because anyone can write a language, modify a kernel, or put an AI coding partner to work on a single piece.
 
-\ac{} has three interlocking layers (a bare-metal operating system, a custom programming language, and a social network) and a public face: \textbf{the Library}. The whole stack is free and open source on GitHub.
+\ac{} has three interlocking layers (an operating system that boots a laptop directly into art software, a custom programming language, and a social network) and a public face: \textbf{the Library}. The whole stack is free and open source on GitHub.
 
 \textbf{There has never been a better time to develop new software for old hardware.} Windows 10 end-of-life has stranded roughly 240 million x86\_64 laptops; 62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become a planetary population of half-built instruments waiting for a kernel.
 
-\textbf{AC Native} is the kernel. A Linux boot runs a custom C runtime as PID\,1 on x86\_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192\,kHz, 32-voice polyphony. Per-seat cost lands near \$50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in \texttt{code} command drops into a terminal running Anthropic's Claude Code. The default piece is \textit{notepat}, an 8,466-line polyphonic instrument.
+\textbf{The operating system} runs as PID\,1 on x86\_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192\,kHz, 32-voice polyphony. Per-seat cost lands near \$50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in \texttt{code} command drops into a terminal running Anthropic's Claude Code. The default piece is \textit{notepat}, an 8,466-line polyphonic instrument.
 
 \textbf{KidLisp} is a minimal Lisp for generative art. 118 functions, 17,000+ programs already on the platform. Programs can be minted on Tezos without artists touching blockchain infrastructure.
 
-\textbf{The Network} hosts 371 built-in pieces, 265 user-published, 2,800+ registered handles. The website has been in active development since 2021 (19,000+ commits across 5 years); AC Native is new, its kernel prototype landing February 2026.
+\textbf{The Network} hosts 371 built-in pieces, 265 user-published, 2,800+ registered handles. The website has been in active development since 2021 (19,000+ commits across 5 years); the operating-system build is new, its kernel prototype landing February 2026.
 
-\textbf{The Library} is what makes the stack civic. A lending fleet of AC Blank laptops (refurbished ThinkPad 11e Yoga Gen 6, flashed with AC OS at \$128/seat) circulates through Flash Days, workshops, and Family Play afternoons at LACMA. Members join a public waitlist. AC OS is the flagship; the library openly welcomes artists flashing their own custom creative operating systems onto library hardware, joining a tradition of artist-run device libraries.
+\textbf{The Library} is what makes the stack civic. A lending fleet of AC Blank laptops (refurbished ThinkPad 11e Yoga Gen 6, flashed with \ac{} at \$128/seat) circulates through Flash Days, workshops, and Family Play afternoons at LACMA. Members join a public waitlist. \ac{} is the flagship; the library openly welcomes artists flashing their own custom creative operating systems onto library hardware, joining a tradition of artist-run device libraries.
 
 During the grant period we grow the library and run public events:
 
 \begin{enumerate}
   \item \textbf{Flash Days.} Cohort artists and library members flash AC Blanks together and take them home.
-  \item \textbf{KidLisp Workshops.} Hands-on sessions writing programs that run on AC Native in real time.
+  \item \textbf{KidLisp Workshops.} Hands-on sessions writing programs that run live on \ac{} as the laptop's whole OS.
   \item \textbf{Family Play.} Drop-in kiosk hours where visitors of any age play the library's fleet together.
   \item \textbf{Open Documentation.} Library curriculum, waitlist software, and build pipeline, published openly.
 \end{enumerate}
@@ -157,7 +157,7 @@ This is not a product. It is an argument. The personal computer is a civic instr
 
 \begin{center}
   \includegraphics[width=\textwidth]{kidlisp-featured}\\[4pt]
-  {\small\color{acgray} \textbf{Fig.\,2.} \textit{\$roz} by @jeffrey, a KidLisp generative piece with 6,000+ plays. KidLisp programs run directly in the browser and on AC Native hardware. Over 16,000 programs have been written on the platform.}
+  {\small\color{acgray} \textbf{Fig.\,2.} \textit{\$roz} by @jeffrey, a KidLisp generative piece with 6,000+ plays. KidLisp programs run directly in the browser and on AC Blank hardware. Over 16,000 programs have been written on the platform.}
 \end{center}
 
 \vspace{1em}
@@ -181,7 +181,7 @@ This is not a product. It is an argument. The personal computer is a civic instr
 
 \begin{center}
   \includegraphics[width=0.7\textwidth]{hardware-yoga}\\[4pt]
-  {\small\color{acgray} \textbf{Fig.\,5.} Target hardware: a Lenovo Yoga convertible laptop. AC Native boots from USB on x86\_64 UEFI machines, turning commodity hardware into a dedicated creative instrument without replacing the factory OS.}
+  {\small\color{acgray} \textbf{Fig.\,5.} Target hardware: a Lenovo Yoga convertible laptop. \ac{} boots from USB on x86\_64 UEFI machines, turning commodity hardware into a dedicated creative instrument without replacing the factory OS.}
 \end{center}
 
 % =======================================================================
@@ -189,28 +189,28 @@ This is not a product. It is an argument. The personal computer is a civic instr
 
 \acsubhead{Artistic Merit}
 
-\ac{} treats the computer itself as an unfinished instrument, a site for ongoing artistic invention rather than a fixed consumer product. By building from bare metal (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and AC Native transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.
+\ac{} treats the computer itself as an unfinished instrument, a site for ongoing artistic invention rather than a fixed consumer product. By building the whole operating system (custom kernel, framebuffer rendering, sample-level audio synthesis), we recover the directness that early personal computing promised but commercial platforms abandoned. The work sits at the intersection of software art, instrument design, and language design: KidLisp is simultaneously a tool and a medium, and \ac{} transforms commodity laptops into dedicated creative instruments. The artistic claim is that how we build computers is itself a creative act with cultural consequences.
 
 \acsubhead{Technology and Culture}
 
-Consumer operating systems have become attention-extraction machines, optimized for engagement metrics rather than creative agency. AC Native offers a counter-model: a computer that boots directly into art software and grows alongside the artist. Over five years of active development, \ac's community has written 17,000+ KidLisp programs, made 4,400+ paintings, shared 2,900+ moods, and exchanged 19,000+ chat messages across 2,800+ registered handles. AC Native carries that social layer with it: chat, multiplayer, notepat, KidLisp runtime. The personal computer's design is a cultural question, not a settled technical one, and people show up when given the room.
+Consumer operating systems have become attention-extraction machines, optimized for engagement metrics rather than creative agency. \ac{} offers a counter-model: a computer that boots directly into art software and grows alongside the artist. Over five years of active development, \ac's community has written 17,000+ KidLisp programs, made 4,400+ paintings, shared 2,900+ moods, and exchanged 19,000+ chat messages across 2,800+ registered handles. When \ac{} runs as the whole operating system on a laptop, the social layer comes with it: chat, multiplayer, notepat, KidLisp runtime. The personal computer's design is a cultural question, not a settled technical one, and people show up when given the room.
 
 \acsubhead{Public Engagement}
 
-Public engagement happens through the AC Device Library. First, Flash Days where cohort artists and library members flash AC Blank laptops together and take them home. Second, KidLisp workshops where participants write generative art programs that run live on AC Native. Third, Family Play afternoons where visitors of any age borrow and play the library's fleet together. A public waitlist keeps the fleet moving. The entire software stack is free and open source on GitHub, and the library openly supports artists flashing their own custom creative OSes onto library hardware.
+Public engagement happens through the AC Device Library. First, Flash Days where cohort artists and library members flash AC Blank laptops together and take them home. Second, KidLisp workshops where participants write generative art programs that run live on \ac. Third, Family Play afternoons where visitors of any age borrow and play the library's fleet together. A public waitlist keeps the fleet moving. The entire software stack is free and open source on GitHub, and the library openly supports artists flashing their own custom creative operating systems onto library hardware.
 
 % =======================================================================
 \achead{Timeline}
 
-This proposal aligns to the Lab's new biennial calendar: a working-prototype milestone at the \textbf{2027 Symposium} and a completed public premiere at the \textbf{2028 Demo Day}. The cohort structure (3--5 recipients plus invitational projects) is well-suited to this work, since AC Native's USB-bootable format means other cohort artists can bring their own pieces to the system, and we can cross-pollinate at Symposium without waiting for Demo Day. Two recent Lab projects sit directly in our neighborhood: Casey Reas's 2023 \textit{METAVASARELY and An Empty Room} (generative systems) and Lauren Lee McCarthy's 2022 \textit{Auto} (public/social interface design). Reas and McCarthy co-teach UCLA's Social Software course, which I am an Author in Residence in during this application year; their class is where the KidLisp cards shown in Fig.\,3 were first printed and circulated.
+This proposal aligns to the Lab's new biennial calendar: a working-prototype milestone at the \textbf{2027 Symposium} and a completed public premiere at the \textbf{2028 Demo Day}. The cohort structure (3--5 recipients plus invitational projects) is well-suited to this work, since the USB-bootable format means other cohort artists can bring their own pieces to the system, and we can cross-pollinate at Symposium without waiting for Demo Day. Two recent Lab projects sit directly in our neighborhood: Casey Reas's 2023 \textit{METAVASARELY and An Empty Room} (generative systems) and Lauren Lee McCarthy's 2022 \textit{Auto} (public/social interface design). Reas and McCarthy co-teach UCLA's Social Software course, which I am an Author in Residence in during this application year; their class is where the KidLisp cards shown in Fig.\,3 were first printed and circulated.
 
 \renewcommand{\arraystretch}{1.4}
 \begin{tabularx}{\textwidth}{@{}lX@{}}
-  \textbf{Fall 2026 -- Spring 2027} & \textbf{Library Build-Out \& Curriculum.} Establish the AC Device Library (12 AC Blank laptops, lending-fleet infrastructure, public waitlist software), expand AC Native compatibility to 5+ laptop models, design the 3-level KidLisp workshop curriculum, produce printed reference cards. \\
+  \textbf{Fall 2026 -- Spring 2027} & \textbf{Library Build-Out \& Curriculum.} Establish the AC Device Library (12 AC Blank laptops, lending-fleet infrastructure, public waitlist software), expand laptop compatibility to 5+ laptop models, design the 3-level KidLisp workshop curriculum, produce printed reference cards. \\
   \textbf{Spring -- Summer 2027} & \textbf{First Library Cohort + Pilots.} Open the library waitlist; run 2 pilot Flash Days at LACMA; first public borrowing cycle; assemble a prototype multi-station installation; publish v0 of the open-source build guide. \\
-  \textbf{Fall 2027} & \textbf{2027 Symposium ``We boot the cohort.''} At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick. Cohort artists and library members flash AC Blanks together and take them home. Public KidLisp workshop; talk / in-conversation on generative computing alongside the 2023 cohort's work. \\
+  \textbf{Fall 2027} & \textbf{2027 Symposium ``We boot the cohort.''} At Symposium, every laptop in the room becomes an \ac{} instrument from a single USB stick. Cohort artists and library members flash AC Blanks together and take them home. Public KidLisp workshop; talk / in-conversation on generative computing alongside the 2023 cohort's work. \\
   \textbf{Winter 2027 -- Summer 2028} & \textbf{Library Scaling + Extended Workshops.} Kiosk-mode hardening, library curriculum v1 (EN + ES), 4 additional workshops, returns-and-repair cycle for the fleet, complete documentation of the waitlist and lending system. \\
-  \textbf{Fall 2028} & \textbf{2028 Demo Day ``We play the room.''} A multi-station AC Native installation premieres on the LACMA floor. Family Play afternoons open the library fleet to visitors of any age. v1.0 of the open-source build pipeline ships alongside so any institution can run its own room. \\
+  \textbf{Fall 2028} & \textbf{2028 Demo Day ``We play the room.''} A multi-station installation premieres on the LACMA floor. Family Play afternoons open the library fleet to visitors of any age. v1.0 of the open-source build pipeline ships alongside so any institution can run its own room. \\
 \end{tabularx}
 \renewcommand{\arraystretch}{1.0}
 
@@ -221,7 +221,7 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 \begin{tabularx}{\textwidth}{@{}Xr@{}}
   Artist fee (24 months, Fall 2026 -- Fall 2028) & \$22,000 \\
   Studio hardware (dev machines, displays) & \$3,500 \\
-  AC Device Library fleet (12 AC Blank laptops × \$128 flashed with AC OS, incl.\ cases + shipping + returns) & \$2,000 \\
+  AC Device Library fleet (12 AC Blank laptops × \$128 flashed with \ac{}, incl.\ cases + shipping + returns) & \$2,000 \\
   Mini Rig portable speakers for installation (5 × \$120) & \$600 \\
   USB drives, cables, peripherals & \$500 \\
   Installation fabrication (furniture, mounts) & \$2,500 \\
@@ -332,7 +332,7 @@ SMK, National Gallery of Denmark, Copenhagen
 \acsubhead{Software \& Platforms}
 
 \cvline{2021--}{\ac{}, creative computing platform. 5+ years of active git history, 19,000+ commits. (\href{https://aesthetic.computer}{aesthetic.computer})}
-\cvline{2026--}{AC Native, bare-metal creative computing OS (USB-bootable Linux). Prototype kernel landed Feb 2026; 2 months of focused development to ship.}
+\cvline{2026--}{\ac{}\ as a full operating system (USB-bootable Linux). Prototype kernel landed Feb 2026; 2 months of focused development to ship.}
 \cvline{2024--}{KidLisp, programming language for generative art (16,000+ programs)}
 \cvline{2024--}{\textit{notepat}, polyphonic synthesizer instrument (8,466 lines)}
 \cvline{2016--}{No Paint, radical paint program (\href{https://nopaint.art}{nopaint.art})}
