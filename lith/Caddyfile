@@ -133,14 +133,12 @@
     }
 
     # --- ipfs.aesthetic.computer (self-hosted IPFS gateway) ---
-    # Kubo's gateway already emits Access-Control-Allow-Origin; strip upstream
-    # copies so Caddy owns exactly one, avoiding "*, *" dupes that browsers reject.
+    # Kubo's gateway already emits a single Access-Control-Allow-Origin: *,
+    # so we pass it through unmodified. An earlier Caddy-level `header`
+    # directive added a second copy, producing "*, *" which browsers reject.
     @ipfs host ipfs.aesthetic.computer
     handle @ipfs {
-        reverse_proxy localhost:8090 {
-            header_down -Access-Control-Allow-Origin
-            header_down Access-Control-Allow-Origin *
-        }
+        reverse_proxy localhost:8090
     }
 
     # --- justanothersystem.org ---
