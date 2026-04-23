@@ -14,11 +14,11 @@ Aesthetic Computer: Personal Computers Are Not Done Yet
 
 ## Three Descriptive Words
 
-instrument, language, network
+instrument, library, network
 
 ## One-Sentence Project Description
 
-Aesthetic Computer is a bare-metal creative computing system (custom hardware, a handmade programming language, and a social network) that reimagines the personal computer as a live musical instrument for art.
+Aesthetic Computer is a bare-metal creative computing system and public device library (custom hardware, a handmade programming language, a social network, and a lending fleet of laptops for flashing custom creative OSes) that reimagines the personal computer as a live musical instrument for art.
 
 ---
 
@@ -26,24 +26,26 @@ Aesthetic Computer is a bare-metal creative computing system (custom hardware, a
 
 Personal computers have not been very personal. For forty years the form has been shaped by the companies that sold them: operating systems built to sell attention, software gatekept by app stores. The 1980s personal computing scene promised a computer that belonged to you, that you could program, that could do anything. Platform consolidation cut it short. Aesthetic Computer bets a second personal computing scene is starting, and with tools this powerful in everyone's hands it will go wider *and* deeper than the first. Wider because anyone can publish. Deeper because anyone can write a language, modify a kernel, or put an AI coding partner to work on a single piece.
 
-Aesthetic Computer has three interlocking layers: a bare-metal operating system that boots directly into art software, a custom programming language (KidLisp) for generative art, and a social network for publishing interactive programs called "pieces." The whole stack is free and open source on GitHub.
+Aesthetic Computer has three interlocking layers (a bare-metal operating system, a custom programming language, and a social network) and a public face: **the Library**. The whole stack is free and open source on GitHub.
 
-The second scene has feedstock. Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops; 62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become a planetary population of half-built instruments waiting for a kernel.
+**There has never been a better time to develop new software for old hardware.** Windows 10 end-of-life has stranded roughly 240 million x86_64 laptops; 62 million tonnes of e-waste pile up each year. Strip away the consumer OS and those machines become a planetary population of half-built instruments waiting for a kernel.
 
-**AC Native** is the kernel. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz with 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a terminal running Anthropic's Claude Code, so artists can ask an AI coding partner to modify a piece without leaving the OS. The default piece is *notepat*, an 8,466-line polyphonic instrument. Twenty more pieces ship alongside, including chat and paint.
+**AC Native** is the kernel. A Linux boot runs a custom C runtime as PID 1 on x86_64 UEFI laptops, with no desktop, compositor, or browser. Graphics via DRM, input via raw evdev, audio via ALSA at 192 kHz, 32-voice polyphony. Per-seat cost lands near $50, two orders of magnitude below Princeton's PLOrk laptop-orchestra model. A built-in `code` command drops into a terminal running Anthropic's Claude Code. The default piece is *notepat*, an 8,466-line polyphonic instrument.
 
-**KidLisp** is a minimal Lisp for generative art. 118 functions, accessible to non-programmers yet expressive enough for complex compositions. 17,000+ programs already live on the platform. Programs can be minted on Tezos without artists touching blockchain infrastructure.
+**KidLisp** is a minimal Lisp for generative art. 118 functions, 17,000+ programs already on the platform. Programs can be minted on Tezos without artists touching blockchain infrastructure.
 
-**The Network** hosts 371 built-in pieces, 265 user-published, and 2,800+ registered handles. People draw, chat, and play together in real time. The website has been in active development since 2021 (19,000+ commits across 5 years); AC Native is new, its kernel prototype landing February 2026.
+**The Network** hosts 371 built-in pieces, 265 user-published, 2,800+ registered handles. The website has been in active development since 2021 (19,000+ commits across 5 years); AC Native is new, its kernel prototype landing February 2026.
 
-During the grant period we will develop AC Native into a distributable creative instrument and public installation:
+**The Library** is what makes the stack civic. A lending fleet of AC Blank laptops (refurbished ThinkPad 11e Yoga Gen 6, flashed with AC OS at $128/seat) circulates through Flash Days, workshops, and Family Play afternoons at LACMA. Members join a public waitlist. AC OS is the flagship; the library welcomes artists flashing their own custom creative OSes, in the lineage of Nick Montfort's Trope Tank and other artist-run hardware labs.
 
-1. **Portable Instruments.** USB-bootable AC Native drives preloaded with curated pieces for visitors to take home.
-2. **KidLisp Workshops.** Hands-on sessions where participants write programs that run on AC Native in real time, from code to sound and image.
-3. **Public Installation.** Multiple AC Native stations at LACMA where visitors encounter creative computing as an instrument-like interaction.
-4. **Open Documentation.** Complete build pipeline, hardware compatibility guide, and curriculum, published openly so other institutions can replicate.
+During the grant period we grow the library and run public events:
 
-This is not a product. It is an argument. The personal computer is still a site of artistic invention, and the new scene has just begun.
+1. **Flash Days.** Cohort artists and library members flash AC Blanks together and take them home.
+2. **KidLisp Workshops.** Hands-on sessions writing programs that run on AC Native in real time.
+3. **Family Play.** Drop-in kiosk hours where visitors of any age play the library's fleet together.
+4. **Open Documentation.** Library curriculum, waitlist software, and build pipeline, published openly.
+
+This is not a product. It is an argument. The personal computer is a civic instrument, and the new scene has just begun.
 
 ---
 
@@ -88,7 +90,7 @@ Consumer operating systems have become attention-extraction machines, optimized 
 
 _[~95 words]_
 
-We propose three forms of public engagement. First, hands-on KidLisp workshops at LACMA where participants write generative art programs that run on AC Native hardware, with no prior coding experience required. Second, an installation of multiple AC Native stations where visitors experience creative computing as a direct, instrument-like interaction. Third, open "build days" where we assemble USB drives and document the process publicly, inviting visitors into the making of the system itself. The entire software stack is free and open source (MIT-licensed on GitHub), so any teacher, artist, or institution can fork it.
+Public engagement happens through the AC Device Library. First, Flash Days where cohort artists and library members flash AC Blank laptops together and take them home. Second, KidLisp workshops where participants write generative art programs that run live on AC Native. Third, Family Play afternoons where visitors of any age borrow and play the library's fleet together. A public waitlist keeps the fleet moving. The entire software stack is free and open source on GitHub, and the library openly supports artists flashing their own custom creative OSes onto library hardware.
 
 ---
 
@@ -98,11 +100,11 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 
 | Phase | Timing | Milestones |
 |-------|--------|------------|
-| **1. Hardware & Curriculum** | Fall 2026 – Spring 2027 | Expand AC Native compatibility to 5+ laptop models, build the multi-piece boot menu, design the 3-level KidLisp workshop curriculum, and produce printed reference cards (extending the sosoft card template used at UCLA). |
-| **2. Pre-Symposium Workshops** | Spring – Summer 2027 | Run 2 pilot workshops at LACMA, assemble a prototype multi-station installation, and publish v0 of the open-source build guide. |
-| **3. 2027 Symposium · "We boot the cohort."** | Fall 2027 | **At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick, and a public KidLisp workshop takes participants from first line of code to a running program on the museum floor.** Talk / in-conversation on generative computing, situated alongside the 2023 cohort. |
-| **4. Full Installation + Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening, 20+ take-home USB drives, 4 additional workshops, complete documentation, and a translated curriculum (EN + ES, matching AC's translation pipeline). |
-| **5. 2028 Demo Day · "We play the room."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor, and visitors and artists play together across the stations. v1.0 of the open-source build pipeline ships alongside, so any institution can run its own room.** Public programs introduce the system to teachers, museum educators, and other artists. |
+| **1. Library Build-Out + Curriculum** | Fall 2026 – Spring 2027 | Establish the AC Device Library (12 AC Blank laptops, lending-fleet infrastructure, public waitlist software), expand AC Native compatibility to 5+ laptop models, design the 3-level KidLisp workshop curriculum, and produce printed reference cards. |
+| **2. First Library Cohort + Pilots** | Spring – Summer 2027 | Open the library waitlist; run 2 pilot Flash Days at LACMA; first public borrowing cycle; assemble a prototype multi-station installation; publish v0 of the open-source build guide. |
+| **3. 2027 Symposium · "We boot the cohort."** | Fall 2027 | **At Symposium, every laptop in the room becomes an AC Native instrument from a single USB stick. Cohort artists and library members flash AC Blanks together and take them home.** Public KidLisp workshop. Talk / in-conversation on generative computing alongside the 2023 cohort. |
+| **4. Library Scaling + Extended Workshops** | Winter 2027 – Summer 2028 | Kiosk-mode hardening, library curriculum v1 (EN + ES), 4 additional workshops, returns-and-repair cycle for the fleet, complete documentation of the waitlist and lending system. |
+| **5. 2028 Demo Day · "We play the room."** | Fall 2028 | **A multi-station AC Native installation premieres on the LACMA floor. Family Play afternoons open the library fleet to visitors of any age. v1.0 of the open-source build pipeline ships alongside so any institution can run its own room, in the lineage of Nick Montfort's Trope Tank and other artist-run hardware libraries.** |
 
 ---
 
@@ -112,7 +114,7 @@ This proposal aligns to the Lab's new biennial calendar: a working-prototype mil
 |------|------|
 | Artist fee (24 months, Fall 2026 – Fall 2028) | $22,000 |
 | Studio hardware (dev machines, displays) | $3,500 |
-| AC Blank laptops (5 installation + 7 cohort × $128 preloaded with AC Native, incl. shipping) | $2,000 |
+| AC Device Library fleet (12 AC Blank laptops × $128 flashed with AC OS, incl. cases + shipping + returns) | $2,000 |
 | Mini Rig portable speakers for installation (5 × $120) | $600 |
 | USB drives, cables, peripherals | $500 |
 | Installation fabrication (furniture, mounts) | $2,500 |
